@@ -19,7 +19,7 @@ trait ScalaGenCounter extends ScalaCodegen with FileDependencies {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case CounterNew(start,end,step,par) => emit(src"val $lhs = Counter($start, $end, $step, $par)")
-    case CounterChainNew(ctrs) => emit(src"""val $lhs = Array(${ctrs.map(quote).mkString(",")}""")
+    case CounterChainNew(ctrs) => emit(src"""val $lhs = Array(${ctrs.map(quote).mkString(",")})""")
     case _ => super.emitNode(lhs, rhs)
   }
 
