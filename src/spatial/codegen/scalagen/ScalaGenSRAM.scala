@@ -14,7 +14,7 @@ trait ScalaGenSRAM extends ScalaCodegen {
 
   def flattenAddress(dims: Seq[Sym[Index]], indices: Seq[Sym[Index]], ofs: Sym[Index]): String = {
     val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }
-    indices.zip(strides).map{case (i,s) => s"$i*$s" }.mkString(" + ") + s" + $ofs"
+    indices.zip(strides).map{case (i,s) => src"$i*$s" }.mkString(" + ") + src" + $ofs"
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

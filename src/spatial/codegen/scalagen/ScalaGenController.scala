@@ -12,7 +12,7 @@ trait ScalaGenController extends ScalaCodegen {
       open(src"$cchain($i).foreach{case (is,vs) => is.zip(vs).foreach{case (${iters(i)},v) => if (v) {")
     }
     func
-    close("}"*iters.length)
+    close("}}}"*iters.length)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

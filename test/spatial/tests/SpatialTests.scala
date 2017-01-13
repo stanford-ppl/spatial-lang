@@ -10,7 +10,7 @@ import argon.core.Exceptions
 import argon.utils.deleteExts
 import argon.traversal.IRPrinter
 
-trait SpatialTest extends SpatialCompiler { self =>
+trait SpatialTest extends SpatialCompiler with RunnerCore { self =>
   override val testbench = true
   override def settings() {
     Config.verbosity = 3
