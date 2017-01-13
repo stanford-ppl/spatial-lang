@@ -1,7 +1,7 @@
 package spatial.spec
 
-import virtualized.CurriedUpdate
-import scala.virtualized.SourceContext
+import org.virtualized.CurriedUpdate
+import org.virtualized.SourceContext
 
 trait SRAMOps extends MemoryOps with RangeOps { this: SpatialOps =>
   type SRAM[T] <: SRAMOps[T]

@@ -1,7 +1,7 @@
 package spatial.tests
 
-import scala.virtualized.SourceContext
-import scala.virtualized.virtualize
+import org.virtualized.SourceContext
+import org.virtualized.virtualize
 import org.scalatest.{FlatSpec, Matchers}
 import spatial.spec._
 import argon._
@@ -20,7 +20,7 @@ trait SpatialTest extends SpatialCompiler { self =>
 //trait SpatialLib extends argonLib with SpatialTest
 
 /*object SpatialREPL extends SpatialLib with SpatialApp {
-  import org.scala_lang.virtualized.SourceContext
+  import org.scala_lang.org.virtualized.SourceContext
 
   def main() ()
   context = Nil

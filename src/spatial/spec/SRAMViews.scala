@@ -1,6 +1,6 @@
 /*package spatial.spec
 
-import scala.virtualized.CurriedUpdate
+import org.virtualized.CurriedUpdate
 
 trait SRAMViewOps extends SRAMOps { this: SpatialOps =>
   type SRAMView[T] <: SRAMViewOps[T]

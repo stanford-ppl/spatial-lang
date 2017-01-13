@@ -1,6 +1,6 @@
 package spatial.spec
 
-import scala.virtualized.virtualize
+import org.virtualized.virtualize
 
 trait DRAMOps extends SRAMOps with FIFOOps with RangeOps { this: SpatialOps =>
   type DRAM[T] <: DRAMOps[T]
