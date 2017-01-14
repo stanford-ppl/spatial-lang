@@ -11,7 +11,7 @@ trait SpatialExceptions extends ArgonExceptions { self: Staging =>
     error(ctx)
   })
 
-  class UndefinedDimensionsError(s: Sym[_], d: Option[Sym[_]])(implicit ctx: SrcCtx) extends
+  class UndefinedDimensionsError(s: Exp[_], d: Option[Exp[_]])(implicit ctx: SrcCtx) extends
   CompilerException(1001, c"Cannot find dimensions for symbol ${str(s)}.", {
     error(ctx, s"Cannot locate dimensions for symbol ${str(s)} used here.")
     if (d.isDefined) error(c"  Dimension: $d")
@@ -19,20 +19,20 @@ trait SpatialExceptions extends ArgonExceptions { self: Staging =>
   })
 
   // --- User exceptions
-  class InvalidDimensionError(dim: Sym[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
+  class InvalidDimensionError(dim: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
     error(ctx, c"Invalid memory dimension ${str(dim)}.")
     error("Only constants and DSE parameters are allowed as dimensions of on-chip memories")
   })
 
-  class InvalidParallelFactorError(par: Sym[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
+  class InvalidParallelFactorError(par: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
     error(ctx, c"Invalid parallelization factor: ${str(par)}")
   })
 
-  class DimensionMismatchError(mem: Sym[_], dims: Int, inds: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+  class DimensionMismatchError(mem: Exp[_], dims: Int, inds: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
     error(ctx, c"Invalid number of indices used to access $mem: Expected $dims, got $inds")
   })
 
-  class SparseAddressDimensionError(dram: Sym[_], d: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+  class SparseAddressDimensionError(dram: Exp[_], d: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
     error(ctx, c"Creation of multi-dimensional sparse DRAM tiles is currently unsupported.")
     error(c"Expected 1D SRAM tile, found ${d}D tile")
   })

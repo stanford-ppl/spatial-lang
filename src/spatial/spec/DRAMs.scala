@@ -32,7 +32,7 @@ trait DRAMApi extends DRAMOps with SRAMApi with FIFOApi with RangeApi { this: Sp
 
 trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with SpatialExceptions { this: SpatialExp =>
   /** API **/
-  case class DRAM[T:Bits](s: Sym[DRAM[T]]) extends DRAMOps[T] {
+  case class DRAM[T:Bits](s: Exp[DRAM[T]]) extends DRAMOps[T] {
     def apply(ranges: Range*)(implicit ctx: SrcCtx): DRAMDenseTile[T] = DRAMDenseTile(this.s, ranges)
 
     def apply(addrs: SRAM[Index])(implicit ctx: SrcCtx): DRAMSparseTile[T] = {
@@ -45,11 +45,11 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
     DRAM(dram_alloc[T](unwrap(dimA +: dimsB)))
   }
 
-  case class DRAMDenseTile[T:Bits](dram: Sym[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTileOps[T] {
+  case class DRAMDenseTile[T:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTileOps[T] {
     def store(sram: SRAM[T])(implicit ctx: SrcCtx): Void = copy_burst(this, sram, isLoad = false)
     def store(fifo: FIFO[T])(implicit ctx: SrcCtx): Void = copy_burst(this, fifo, isLoad = false)
   }
-  case class DRAMSparseTile[T:Bits](dram: Sym[DRAM[T]], addrs: SRAM[Index]) extends DRAMSparseTileOps[T] {
+  case class DRAMSparseTile[T:Bits](dram: Exp[DRAM[T]], addrs: SRAM[Index]) extends DRAMSparseTileOps[T] {
     def scatter(sram: SRAM[T])(implicit ctx: SrcCtx): Void = copy_sparse(this, sram, isLoad = false)
   }
 
@@ -57,7 +57,7 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
   /** Staged Type **/
   case class DRAMType[T](child: Bits[T]) extends Staged[DRAM[T]] {
     override def unwrapped(x: DRAM[T]) = x.s
-    override def wrapped(x: Sym[DRAM[T]]) = DRAM(x)(child)
+    override def wrapped(x: Exp[DRAM[T]]) = DRAM(x)(child)
     override def typeArguments = List(child)
     override def stagedClass = classOf[DRAM[T]]
     override def isPrimitive = false
@@ -66,25 +66,25 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
 
 
   /** IR Nodes **/
-  case class DRAMNew[T:Bits](dims: Seq[Sym[Index]]) extends Op2[T,DRAM[T]] { def mirror(f:Tx) = dram_alloc[T](f(dims)) }
+  case class DRAMNew[T:Bits](dims: Seq[Exp[Index]]) extends Op2[T,DRAM[T]] { def mirror(f:Tx) = dram_alloc[T](f(dims)) }
 
   case class Gather[T:Bits](
-    dram:  Sym[DRAM[T]],
-    local: Sym[SRAM[T]],
-    addrs: Sym[SRAM[Index]],
-    ctr:   Sym[Counter],
-    i:     Sym[Index]
+    dram:  Exp[DRAM[T]],
+    local: Exp[SRAM[T]],
+    addrs: Exp[SRAM[Index]],
+    ctr:   Exp[Counter],
+    i:     Bound[Index]
   ) extends Op[Void] {
     def mirror(f:Tx) = gather(f(dram),f(local),f(addrs),f(ctr),i)
 
     override def aliases = Nil
   }
   case class Scatter[T:Bits](
-    dram:  Sym[DRAM[T]],
-    local: Sym[SRAM[T]],
-    addrs: Sym[SRAM[Index]],
-    ctr:   Sym[Counter],
-    i:     Sym[Index]
+    dram:  Exp[DRAM[T]],
+    local: Exp[SRAM[T]],
+    addrs: Exp[SRAM[Index]],
+    ctr:   Exp[Counter],
+    i:     Bound[Index]
   ) extends Op[Void] {
     def mirror(f:Tx) = scatter(f(dram),f(local),f(addrs),f(ctr),i)
 
@@ -93,22 +93,22 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
 
   // TODO: May make more sense to change these to output StreamIn / StreamOut later
   case class BurstLoad[T:Bits](
-    dram: Sym[DRAM[T]],
-    fifo: Sym[FIFO[T]],
-    ofs:  Sym[Index],
-    ctr:  Sym[Counter],
-    i:    Sym[Index]
+    dram: Exp[DRAM[T]],
+    fifo: Exp[FIFO[T]],
+    ofs:  Exp[Index],
+    ctr:  Exp[Counter],
+    i:    Bound[Index]
   ) extends Op[Void] {
     def mirror(f:Tx) = burst_load(f(dram),f(fifo),f(ofs),f(ctr),i)
 
     override def aliases = Nil
   }
   case class BurstStore[T:Bits](
-    dram: Sym[DRAM[T]],
-    fifo: Sym[FIFO[T]],
-    ofs:  Sym[Index],
-    ctr:  Sym[Counter],
-    i:    Sym[Index]
+    dram: Exp[DRAM[T]],
+    fifo: Exp[FIFO[T]],
+    ofs:  Exp[Index],
+    ctr:  Exp[Counter],
+    i:    Bound[Index]
   ) extends Op[Void] {
     def mirror(f:Tx) = burst_store(f(dram),f(fifo),f(ofs),f(ctr),i)
 
@@ -116,19 +116,19 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
   }
 
   /** Constructors **/
-  def dram_alloc[T:Bits](dims: Seq[Sym[Index]])(implicit ctx: SrcCtx): Sym[DRAM[T]] = {
+  def dram_alloc[T:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Exp[DRAM[T]] = {
     stageMutable( DRAMNew[T](dims) )(ctx)
   }
-  def gather[T:Bits](mem: Sym[DRAM[T]],local: Sym[SRAM[T]],addrs: Sym[SRAM[Index]], ctr: Sym[Counter], i: Sym[Index])(implicit ctx: SrcCtx): Sym[Void] = {
+  def gather[T:Bits](mem: Exp[DRAM[T]],local: Exp[SRAM[T]],addrs: Exp[SRAM[Index]], ctr: Exp[Counter], i: Bound[Index])(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(mem)(Gather(mem, local, addrs, ctr, i))(ctx)
   }
-  def scatter[T:Bits](mem: Sym[DRAM[T]],local: Sym[SRAM[T]],addrs: Sym[SRAM[Index]], ctr: Sym[Counter], i: Sym[Index])(implicit ctx: SrcCtx): Sym[Void] = {
+  def scatter[T:Bits](mem: Exp[DRAM[T]],local: Exp[SRAM[T]],addrs: Exp[SRAM[Index]], ctr: Exp[Counter], i: Bound[Index])(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(mem)(Scatter(mem, local, addrs, ctr, i))(ctx)
   }
-  def burst_store[T:Bits](dram: Sym[DRAM[T]], fifo: Sym[FIFO[T]], ofs: Sym[Index], ctr: Sym[Counter], i: Sym[Index])(implicit ctx: SrcCtx): Sym[Void] = {
+  def burst_store[T:Bits](dram: Exp[DRAM[T]], fifo: Exp[FIFO[T]], ofs: Exp[Index], ctr: Exp[Counter], i: Bound[Index])(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(fifo)(BurstStore(dram, fifo, ofs, ctr, i))(ctx)
   }
-  def burst_load[T:Bits](dram: Sym[DRAM[T]], fifo: Sym[FIFO[T]], ofs: Sym[Index], ctr: Sym[Counter], i: Sym[Index])(implicit ctx: SrcCtx): Sym[Void] = {
+  def burst_load[T:Bits](dram: Exp[DRAM[T]], fifo: Exp[FIFO[T]], ofs: Exp[Index], ctr: Exp[Counter], i: Bound[Index])(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(fifo)(BurstLoad(dram, fifo, ofs, ctr, i))(ctx)
   }
 
@@ -238,7 +238,7 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
     else        Void(scatter(offchip.dram, local.s, offchip.addrs.s, ctr, i))
   }
 
-  def dimsOf[T](x: Sym[DRAM[T]])(implicit ctx: SrcCtx): Seq[Sym[Index]] = x match {
+  def dimsOf[T](x: Exp[DRAM[T]])(implicit ctx: SrcCtx): Seq[Exp[Index]] = x match {
     case Op(DRAMNew(dims)) => dims
     case _ => throw new UndefinedDimensionsError(x, None)
   }

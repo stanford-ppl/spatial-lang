@@ -28,7 +28,7 @@ trait SRAMApi extends SRAMOps with MemoryApi with RangeApi { this: SpatialApi =>
 
 trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with SpatialExceptions { this: SpatialExp =>
   /** API **/
-  case class SRAM[T:Bits](s: Sym[SRAM[T]]) extends SRAMOps[T] {
+  case class SRAM[T:Bits](s: Exp[SRAM[T]]) extends SRAMOps[T] {
     private def ofs = lift[Int,Index](0).s
 
     //def apply(ranges: Range*)(implicit ctx: SrcCtx): SRAMView[T] = SRAMView(this.s, ranges)
@@ -45,7 +45,7 @@ trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with Spa
   /** Staged Type **/
   case class SRAMType[T](bits: Bits[T]) extends Staged[SRAM[T]] {
     override def unwrapped(x: SRAM[T]) = x.s
-    override def wrapped(x: Sym[SRAM[T]]) = SRAM(x)(bits)
+    override def wrapped(x: Exp[SRAM[T]]) = SRAM(x)(bits)
     override def typeArguments = List(bits)
     override def stagedClass = classOf[SRAM[T]]
     override def isPrimitive = false
@@ -68,45 +68,45 @@ trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with Spa
 
 
   /** IR Nodes **/
-  case class SRAMNew[T:Bits](dims: Seq[Sym[Index]]) extends Op2[T,SRAM[T]] {
+  case class SRAMNew[T:Bits](dims: Seq[Exp[Index]]) extends Op2[T,SRAM[T]] {
     def mirror(f:Tx) = sram_alloc[T](f(dims))
   }
-  case class SRAMLoad[T:Bits](mem: Sym[SRAM[T]], dims: Seq[Sym[Index]], is: Seq[Sym[Index]], ofs: Sym[Index]) extends Op[T] {
+  case class SRAMLoad[T:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index]) extends Op[T] {
     def mirror(f:Tx) = sram_load(f(mem), f(dims), f(is), f(ofs))
   }
-  case class SRAMStore[T:Bits](mem: Sym[SRAM[T]], dims: Seq[Sym[Index]], is: Seq[Sym[Index]], ofs: Sym[Index], value: Sym[T], en: Sym[Bool]) extends Op[Void] {
+  case class SRAMStore[T:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], value: Exp[T], en: Exp[Bool]) extends Op[Void] {
     def mirror(f:Tx) = sram_store(f(mem), f(dims), f(is), f(ofs), f(value), f(en))
   }
 
   /** Smart Constructors **/
-  def sram_alloc[T:Bits](dims: Seq[Sym[Index]])(implicit ctx: SrcCtx): Sym[SRAM[T]] = {
+  def sram_alloc[T:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Exp[SRAM[T]] = {
     dims.foreach{case Const(_) => ; case dim => new InvalidDimensionError(dim)(ctx) }
     stageMutable( SRAMNew[T](dims) )(ctx)
   }
-  def sram_load[T:Bits](sram: Sym[SRAM[T]], dims: Seq[Sym[Index]], indices: Seq[Sym[Index]], ofs: Sym[Index])(implicit ctx: SrcCtx): Sym[T] = {
+  def sram_load[T:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index])(implicit ctx: SrcCtx): Exp[T] = {
     if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)(ctx)
     stage( SRAMLoad(sram, dims, indices, ofs) )(ctx)
   }
-  def sram_store[T:Bits](sram: Sym[SRAM[T]], dims: Seq[Sym[Index]], indices: Seq[Sym[Index]], ofs: Sym[Index], value: Sym[T], en: Sym[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
+  def sram_store[T:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], value: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
     if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)(ctx)
     stageWrite(sram)( SRAMStore(sram, dims, indices, ofs, value, en) )(ctx)
   }
 
 
   /** Internal Methods **/
-  def stagedDimsOf(x: Sym[SRAM[_]]): Seq[Sym[Index]] = x match {
+  def stagedDimsOf(x: Exp[SRAM[_]]): Seq[Exp[Index]] = x match {
     case Def(SRAMNew(dims)) => dims
     case _ => throw new UndefinedDimensionsError(x, None)
   }
 
-  def dimsOf(x: Sym[SRAM[_]]): Seq[Int] = x match {
+  def dimsOf(x: Exp[SRAM[_]]): Seq[Int] = x match {
     case Def(SRAMNew(dims)) => dims.map {
       case Const(c: BigInt) => c.toInt
       case dim => throw new UndefinedDimensionsError(x, Some(dim))
     }
     case _ => throw new UndefinedDimensionsError(x, None)
   }
-  def rankOf(x: Sym[SRAM[_]]): Int = dimsOf(x).length
+  def rankOf(x: Exp[SRAM[_]]): Int = dimsOf(x).length
   def rankOf(x: SRAM[_]): Int = rankOf(x.s)
 
   def flatIndex(indices: Seq[Index], dims: Seq[Index]): Index = {

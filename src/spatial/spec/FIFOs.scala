@@ -20,7 +20,7 @@ trait FIFOApi extends FIFOOps with MemoryApi { this: SpatialApi => }
 
 trait FIFOExp extends FIFOOps with MemoryExp with SpatialExceptions { this: SpatialExp =>
   /** API **/
-  case class FIFO[T:Bits](s: Sym[FIFO[T]]) extends FIFOOps[T] {
+  case class FIFO[T:Bits](s: Exp[FIFO[T]]) extends FIFOOps[T] {
     def enq(value: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(fifo_enq(this.s, value.s, en.s))
     def deq(en: Bool)(implicit ctx: SrcCtx): T = wrap(fifo_deq(this.s, en.s))
   }
@@ -31,7 +31,7 @@ trait FIFOExp extends FIFOOps with MemoryExp with SpatialExceptions { this: Spat
   /** Staged Type **/
   case class FIFOType[T](bits: Bits[T]) extends Staged[FIFO[T]] {
     override def unwrapped(x: FIFO[T]) = x.s
-    override def wrapped(x: Sym[FIFO[T]]) = FIFO(x)(bits)
+    override def wrapped(x: Exp[FIFO[T]]) = FIFO(x)(bits)
     override def typeArguments = List(bits)
     override def stagedClass = classOf[FIFO[T]]
     override def isPrimitive = false
@@ -47,25 +47,25 @@ trait FIFOExp extends FIFOOps with MemoryExp with SpatialExceptions { this: Spat
   implicit def fifoIsMemory[T:Bits]: Mem[T, FIFO] = FIFOIsMemory[T]()(bits[T])
 
   /** IR Nodes **/
-  case class FIFONew[T:Bits](size: Sym[Index]) extends Op2[T,FIFO[T]] {
+  case class FIFONew[T:Bits](size: Exp[Index]) extends Op2[T,FIFO[T]] {
     def mirror(f:Tx) = fifo_alloc[T](f(size))
   }
-  case class FIFOEnq[T:Bits](fifo: Sym[FIFO[T]], value: Sym[T], en: Sym[Bool]) extends Op[Void] {
+  case class FIFOEnq[T:Bits](fifo: Exp[FIFO[T]], value: Exp[T], en: Exp[Bool]) extends Op[Void] {
     def mirror(f:Tx) = fifo_enq(f(fifo),f(value),f(en))
   }
-  case class FIFODeq[T:Bits](fifo: Sym[FIFO[T]], en: Sym[Bool]) extends Op[T] {
+  case class FIFODeq[T:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool]) extends Op[T] {
     def mirror(f:Tx) = fifo_deq(f(fifo), f(en))
   }
 
   /** Smart Constructors **/
-  def fifo_alloc[T:Bits](size: Sym[Index])(implicit ctx: SrcCtx): Sym[FIFO[T]] = {
+  def fifo_alloc[T:Bits](size: Exp[Index])(implicit ctx: SrcCtx): Exp[FIFO[T]] = {
     size match {case Param(_) => ; case dim => new InvalidDimensionError(dim)(ctx) }
     stageMutable(FIFONew[T](size))(ctx)
   }
-  def fifo_enq[T:Bits](fifo: Sym[FIFO[T]], value: Sym[T], en: Sym[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
+  def fifo_enq[T:Bits](fifo: Exp[FIFO[T]], value: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(fifo)(FIFOEnq(fifo, value, en))(ctx)
   }
-  def fifo_deq[T:Bits](fifo: Sym[FIFO[T]], en: Sym[Bool])(implicit ctx: SrcCtx): Sym[T] = stage(FIFODeq(fifo,en))(ctx)
+  def fifo_deq[T:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[T] = stage(FIFODeq(fifo,en))(ctx)
 
   /** Internals **/
   def sizeOf(fifo: FIFO[_])(implicit ctx: SrcCtx): Index = fifo.s match {

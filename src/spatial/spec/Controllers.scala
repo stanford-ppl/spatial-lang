@@ -144,8 +144,8 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     override def freqs = cold(func)
   }
 
-  case class OpForeach(cchain: Sym[CounterChain], func: Block[Void], iters: List[Sym[Index]]) extends Op[Void] {
-    def mirror(f:Tx) = op_foreach(f(cchain), f(func), f(iters))
+  case class OpForeach(cchain: Exp[CounterChain], func: Block[Void], iters: List[Bound[Index]]) extends Op[Void] {
+    def mirror(f:Tx) = op_foreach(f(cchain), f(func), iters)
 
     override def inputs = syms(cchain) ++ syms(func)
     override def freqs  = cold(func) ++ normal(cchain)
@@ -153,14 +153,14 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
   }
 
   case class OpReduce[T:Bits](
-    cchain: Sym[CounterChain],
-    accum:  Sym[Reg[T]],
+    cchain: Exp[CounterChain],
+    accum:  Exp[Reg[T]],
     map:    Block[T],
     load:   Block[T],
     reduce: Block[T],
     store:  Lambda[Void],
-    rV:     (Sym[T],Sym[T]),
-    iters:  List[Sym[Index]]
+    rV:     (Bound[T],Bound[T]),
+    iters:  List[Bound[Index]]
   ) extends Op[Void] {
 
     def mirror(f:Tx) = op_reduce(f(cchain), f(accum), f(map), f(load), f(reduce), f(store), rV, iters)
@@ -168,21 +168,21 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     override def inputs = syms(cchain) ++ syms(map) ++ syms(reduce) ++ syms(accum) ++ syms(load) ++ syms(store)
     override def freqs  = cold(map) ++ cold(reduce) ++ normal(cchain) ++ normal(accum) ++ hot(load) ++ hot(store)
     override def binds  = super.binds ++ iters ++ List(rV._1, rV._2)
-    override def tunnels = List(accum)
+    override def tunnels = syms(accum)
   }
 
   case class OpMemReduce[T:Bits,C[T]](
-    cchainMap: Sym[CounterChain],
-    cchainRed: Sym[CounterChain],
-    accum:     Sym[C[T]],
+    cchainMap: Exp[CounterChain],
+    cchainRed: Exp[CounterChain],
+    accum:     Exp[C[T]],
     map:       Block[C[T]],
     loadRes:   Lambda[T],
     loadAcc:   Block[T],
     reduce:    Block[T],
     storeAcc:  Lambda[Void],
-    rV:        (Sym[T], Sym[T]),
-    itersMap:  Seq[Sym[Index]],
-    itersRed:  Seq[Sym[Index]]
+    rV:        (Bound[T], Bound[T]),
+    itersMap:  Seq[Bound[Index]],
+    itersRed:  Seq[Bound[Index]]
   )(implicit mem: Mem[T,C], mC: Staged[C[T]]) extends Op[Void] {
 
     def mirror(f:Tx) = op_mem_reduce(f(cchainMap),f(cchainRed),f(accum),f(map),f(loadRes),f(loadAcc),f(reduce),
@@ -191,37 +191,37 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     override def inputs = syms(cchainMap) ++ syms(cchainRed) ++ syms(accum) ++ syms(map) ++ syms(reduce)
     override def freqs = cold(map) ++ cold(reduce) ++ normal(cchainMap) ++ normal(cchainRed) ++ normal(accum)
     override def binds = super.binds ++ itersMap ++ itersRed ++ List(rV._1, rV._2)
-    override def tunnels = List(accum)
+    override def tunnels = syms(accum)
   }
 
 
   /** Constructors **/
-  def op_accel(func: => Sym[Void])(implicit ctx: SrcCtx): Sym[Void] = {
+  def op_accel(func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Void] = {
     val fBlk = stageBlock{ func }
     val effects = fBlk.summary
     stageEffectful( Hwblock(fBlk), effects)(ctx)
   }
 
-  def op_unit_pipe(func: => Sym[Void])(implicit ctx: SrcCtx): Sym[Void] = {
+  def op_unit_pipe(func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Void] = {
     val fBlk = stageBlock{ func }
     val effects = fBlk.summary
     stageEffectful( UnitPipe(fBlk), effects)(ctx)
   }
-  def op_foreach(domain: Sym[CounterChain], func: => Sym[Void], iters: List[Sym[Index]])(implicit ctx: SrcCtx): Sym[Void] = {
+  def op_foreach(domain: Exp[CounterChain], func: => Exp[Void], iters: List[Bound[Index]])(implicit ctx: SrcCtx): Sym[Void] = {
     val fBlk = stageBlock{ func }
     val effects = fBlk.summary.star
     stageEffectful( OpForeach(domain, fBlk, iters), effects)(ctx)
   }
 
   def op_reduce[T:Bits](
-    cchain: Sym[CounterChain],
-    reg:    Sym[Reg[T]],
-    map:    => Sym[T],
-    load:   => Sym[T],
-    reduce: => Sym[T],
-    store:  => Sym[Void],
-    rV:     (Sym[T],Sym[T]),
-    iters:  List[Sym[Index]]
+    cchain: Exp[CounterChain],
+    reg:    Exp[Reg[T]],
+    map:    => Exp[T],
+    load:   => Exp[T],
+    reduce: => Exp[T],
+    store:  => Exp[Void],
+    rV:     (Bound[T],Bound[T]),
+    iters:  List[Bound[Index]]
   )(implicit ctx: SrcCtx): Sym[Void] = {
 
     val mBlk  = stageBlock{ map }
@@ -233,17 +233,17 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     stageEffectful( OpReduce[T](cchain, reg, mBlk, ldBlk, rBlk, stBlk, rV, iters), effects)(ctx)
   }
   def op_mem_reduce[T:Bits,C[T]](
-    cchainMap: Sym[CounterChain],
-    cchainRed: Sym[CounterChain],
-    accum:     Sym[C[T]],
-    map:       => Sym[C[T]],
-    loadRes:   => Sym[T],
-    loadAcc:   => Sym[T],
-    reduce:    => Sym[T],
-    storeAcc:  => Sym[Void],
-    rV:        (Sym[T], Sym[T]),
-    itersMap:  Seq[Sym[Index]],
-    itersRed:  Seq[Sym[Index]]
+    cchainMap: Exp[CounterChain],
+    cchainRed: Exp[CounterChain],
+    accum:     Exp[C[T]],
+    map:       => Exp[C[T]],
+    loadRes:   => Exp[T],
+    loadAcc:   => Exp[T],
+    reduce:    => Exp[T],
+    storeAcc:  => Exp[Void],
+    rV:        (Bound[T], Bound[T]),
+    itersMap:  Seq[Bound[Index]],
+    itersRed:  Seq[Bound[Index]]
   )(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Staged[C[T]]): Sym[Void] = {
 
     val mBlk = stageBlock{ map }

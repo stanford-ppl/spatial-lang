@@ -12,7 +12,7 @@ trait ScalaGenSRAM extends ScalaCodegen {
     case _ => super.remap(tp)
   }
 
-  def flattenAddress(dims: Seq[Sym[Index]], indices: Seq[Sym[Index]], ofs: Sym[Index]): String = {
+  def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index]): String = {
     val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }
     indices.zip(strides).map{case (i,s) => src"$i*$s" }.mkString(" + ") + src" + $ofs"
   }

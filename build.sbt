@@ -7,6 +7,7 @@ scalaSource in Compile <<= baseDirectory(_/ "src")
 scalaSource in Test <<= baseDirectory(_/"test")
 
 parallelExecution in Test := false
+testOptions in Test += Tests.Argument("-oDF") // Full stack trace in scalatest
 
 publishArtifact in (Compile, packageDoc) := false
 publishArtifact in (Test, packageBin) := true

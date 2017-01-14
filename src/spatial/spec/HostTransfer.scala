@@ -27,32 +27,32 @@ trait HostTransferExp extends HostTransferOps with DRAMExp with RegExp {
   }
 
   /** IR Nodes **/
-  case class SetArg[T:Bits](reg: Sym[Reg[T]], value: Sym[T]) extends Op[Void] {
+  case class SetArg[T:Bits](reg: Exp[Reg[T]], value: Exp[T]) extends Op[Void] {
     def mirror(f:Tx) = set_arg(f(reg),f(value))
   }
-  case class GetArg[T:Bits](reg: Sym[Reg[T]]) extends Op[T] {
+  case class GetArg[T:Bits](reg: Exp[Reg[T]]) extends Op[T] {
     def mirror(f:Tx) = get_arg(f(reg))
   }
-  case class SetMem[T:Bits](dram: Sym[DRAM[T]], data: Sym[MArray[T]]) extends Op[Void] {
+  case class SetMem[T:Bits](dram: Exp[DRAM[T]], data: Exp[MArray[T]]) extends Op[Void] {
     def mirror(f:Tx) = set_mem(f(dram),f(data))
     override def aliases = Nil
   }
-  case class GetMem[T:Bits](dram: Sym[DRAM[T]], array: Sym[MArray[T]]) extends Op[Void] {
+  case class GetMem[T:Bits](dram: Exp[DRAM[T]], array: Exp[MArray[T]]) extends Op[Void] {
     def mirror(f:Tx) = get_mem(f(dram),f(array))
     override def aliases = Nil
   }
 
   /** Smart Constructors **/
-  def set_arg[T:Bits](reg: Sym[Reg[T]], value: Sym[T])(implicit ctx: SrcCtx): Sym[Void] = {
+  def set_arg[T:Bits](reg: Exp[Reg[T]], value: Exp[T])(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(reg)(SetArg(reg, value))(ctx)
   }
-  def get_arg[T:Bits](reg: Sym[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = {
+  def get_arg[T:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Exp[T] = {
     stage(GetArg(reg))(ctx)
   }
-  def set_mem[T:Bits](dram: Sym[DRAM[T]], data: Sym[MArray[T]])(implicit ctx: SrcCtx): Sym[Void] = {
+  def set_mem[T:Bits](dram: Exp[DRAM[T]], data: Exp[MArray[T]])(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(dram)(SetMem(dram, data))(ctx)
   }
-  def get_mem[T:Bits](dram: Sym[DRAM[T]], array: Sym[MArray[T]])(implicit ctx: SrcCtx): Sym[Void] = {
+  def get_mem[T:Bits](dram: Exp[DRAM[T]], array: Exp[MArray[T]])(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(array)(GetMem(dram, array))(ctx)
   }
 }

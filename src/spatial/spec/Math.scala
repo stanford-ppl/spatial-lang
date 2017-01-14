@@ -38,46 +38,46 @@ trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with Spati
   def max[T:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_max(a.s, b.s) )
 
   /** IR Nodes **/
-  case class FixAbs[S:BOOL,I:INT,F:INT](x: Sym[FixPt[S,I,F]]) extends FixPtOp[S,I,F] { def mirror(f:Tx) = fix_abs(f(x)) }
+  case class FixAbs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]) extends FixPtOp[S,I,F] { def mirror(f:Tx) = fix_abs(f(x)) }
 
-  case class FltAbs [G:INT,E:INT](x: Sym[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_abs(f(x)) }
-  case class FltLog [G:INT,E:INT](x: Sym[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_log(f(x)) }
-  case class FltExp [G:INT,E:INT](x: Sym[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_exp(f(x)) }
-  case class FltSqrt[G:INT,E:INT](x: Sym[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_sqrt(f(x)) }
+  case class FltAbs [G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_abs(f(x)) }
+  case class FltLog [G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_log(f(x)) }
+  case class FltExp [G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_exp(f(x)) }
+  case class FltSqrt[G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_sqrt(f(x)) }
 
-  case class Mux[T:Bits](select: Sym[Bool], a: Sym[T], b: Sym[T]) extends Op[T] { def mirror(f:Tx) = math_mux(f(select),f(a),f(b)) }
-  case class Min[T:Order](a: Sym[T], b: Sym[T]) extends Op[T] { def mirror(f:Tx) = math_min(f(a),f(b)) }
-  case class Max[T:Order](a: Sym[T], b: Sym[T]) extends Op[T] { def mirror(f:Tx) = math_max(f(a),f(b)) }
+  case class Mux[T:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_mux(f(select),f(a),f(b)) }
+  case class Min[T:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_min(f(a),f(b)) }
+  case class Max[T:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_max(f(a),f(b)) }
 
   /** Constructors **/
-  def fix_abs[S:BOOL,I:INT,F:INT](x: Sym[FixPt[S,I,F]])(implicit ctx: SrcCtx): Sym[FixPt[S,I,F]] = x match {
+  def fix_abs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]])(implicit ctx: SrcCtx): Exp[FixPt[S,I,F]] = x match {
     case Const(c: BigInt) => fixpt[S,I,F](c.abs)
     case _ => stage(FixAbs(x))(ctx)
   }
 
-  def flt_abs[G:INT,E:INT](x: Sym[FltPt[G,E]])(implicit ctx: SrcCtx): Sym[FltPt[G,E]] = x match {
+  def flt_abs[G:INT,E:INT](x: Exp[FltPt[G,E]])(implicit ctx: SrcCtx): Exp[FltPt[G,E]] = x match {
     case Const(c:BigDecimal) => fltpt[G,E](c.abs)
     case _ => stage(FltAbs(x))(ctx)
   }
-  def flt_log[G:INT,E:INT](x: Sym[FltPt[G,E]])(implicit ctx: SrcCtx): Sym[FltPt[G,E]] = x match {
+  def flt_log[G:INT,E:INT](x: Exp[FltPt[G,E]])(implicit ctx: SrcCtx): Exp[FltPt[G,E]] = x match {
     //case Const(c:BigDecimal) => fltpt[G,E](???) TODO: log of BigDecimal? Change representation?
     case _ => stage(FltLog(x))(ctx)
   }
-  def flt_exp[G:INT,E:INT](x: Sym[FltPt[G,E]])(implicit ctx: SrcCtx): Sym[FltPt[G,E]] = x match {
+  def flt_exp[G:INT,E:INT](x: Exp[FltPt[G,E]])(implicit ctx: SrcCtx): Exp[FltPt[G,E]] = x match {
     //case Const(c:BigDecimal) => fltpt[G,E](???)
     case _ => stage(FltExp(x))(ctx)
   }
-  def flt_sqrt[G:INT,E:INT](x: Sym[FltPt[G,E]])(implicit ctx: SrcCtx): Sym[FltPt[G,E]] = x match {
+  def flt_sqrt[G:INT,E:INT](x: Exp[FltPt[G,E]])(implicit ctx: SrcCtx): Exp[FltPt[G,E]] = x match {
     //case Const(c: BigDecimal) => fltpt[G,E](???)
     case _ => stage(FltSqrt(x))(ctx)
   }
 
-  def math_mux[T:Bits](select: Sym[Bool], a: Sym[T], b: Sym[T])(implicit ctx: SrcCtx): Sym[T] = select match {
+  def math_mux[T:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = select match {
     case Const(true) => a
     case Const(false) => b
     case _ => stage(Mux(select,a,b))(ctx)
   }
-  def math_min[T:Order](a: Sym[T], b: Sym[T])(implicit ctx: SrcCtx): Sym[T] = (a,b) match {
+  def math_min[T:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
     case (Const(_),Const(_)) => implicitly[Order[T]].lessThan(wrap(a),wrap(b)).s match {
       case Const(true) => a
       case Const(false) => b
@@ -85,7 +85,7 @@ trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with Spati
     }
     case _ => stage(Min(a, b))(ctx)
   }
-  def math_max[T:Order](a: Sym[T], b: Sym[T])(implicit ctx: SrcCtx): Sym[T] = (a,b) match {
+  def math_max[T:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
     case (Const(_),Const(_)) => implicitly[Order[T]].lessThan(wrap(b),wrap(a)).s match {
       case Const(true) => a
       case Const(false) => b

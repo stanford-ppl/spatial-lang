@@ -4,7 +4,13 @@ import Keys._
 object SpatialBuild extends Build {
   lazy val ARGON_HOME = sys.env.get("ARGON_HOME").getOrElse(error("Please set the ARGON_HOME environment variable."))
   
-  val virtBuildSettings = Defaults.defaultSettings ++ Seq(
+  val compileArgon = TaskKey[Unit]("compileArgon", "Compiles Argon")
+  val compileArgonSettings = compileArgon := {
+    import sys.process._
+    Process(Seq("sbt", "compile"), new java.io.File(ARGON_HOME))!
+  }
+
+  lazy val virtBuildSettings = Defaults.defaultSettings ++ Seq(
     organization := "stanford-ppl",
     scalaVersion := "2.11.2",
     publishArtifact in (Compile, packageDoc) := false,
@@ -22,16 +28,20 @@ object SpatialBuild extends Build {
     scalaSource in Test <<= baseDirectory(_ / "tests"),
 
     parallelExecution in Test := false,
-    concurrentRestrictions in Global += Tags.limitAll(1) //we need tests to run in isolation across all projects
+    concurrentRestrictions in Global += Tags.limitAll(1), //we need tests to run in isolation across all projects
+
+    compileArgonSettings,
+    compile in Compile <<= (compile in Compile).dependsOn(compileArgon)
   )
+
 
   
   val scalacp = "/target/scala-2.11/classes/"
-  lazy val argon = file(ARGON_HOME + scalacp)
+  lazy val argoncp = file(ARGON_HOME + scalacp)
 
   var deps = Seq(
-    unmanagedClasspath in Compile <+= (baseDirectory) map { bd => Attributed.blank(argon) },
-    unmanagedClasspath in Test <+= (baseDirectory) map { bd => Attributed.blank(argon) }
+    unmanagedClasspath in Compile <+= (baseDirectory) map { bd => Attributed.blank(argoncp) },
+    unmanagedClasspath in Test <+= (baseDirectory) map { bd => Attributed.blank(argoncp) }
   )
 
   lazy val spatial = Project("spatial", file("."), settings = virtBuildSettings ++ deps)
