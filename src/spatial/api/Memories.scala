@@ -1,5 +1,6 @@
-package spatial.spec
+package spatial.api
 import argon.ops._
+import spatial.{SpatialApi, SpatialExp, SpatialOps}
 
 trait MemoryOps extends VoidOps with BoolOps with NumOps with FixPtOps {
   this: SpatialOps =>

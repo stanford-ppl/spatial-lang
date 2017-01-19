@@ -1,4 +1,4 @@
-package spatial.spec
+package spatial.api
 
 import argon.core.{Staging, ArgonExceptions}
 
@@ -45,5 +45,9 @@ trait SpatialExceptions extends ArgonExceptions { self: Staging =>
 
   class UnsupportedUnalignedTileStore(implicit ctx: SrcCtx) extends UserError(ctx, {
     error(ctx, c"Unaligned tile store is currently unsupported.")
+  })
+
+  class ControlInReductionError(ctx: SrcCtx) extends UserError(ctx, {
+    error(ctx, c"Reduction functions cannot have inner control nodes")
   })
 }

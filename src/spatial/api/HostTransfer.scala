@@ -1,6 +1,7 @@
-package spatial.spec
+package spatial.api
 
 import argon.ops.ArrayOps
+import spatial.{SpatialApi, SpatialExp, SpatialOps}
 
 trait HostTransferOps extends DRAMOps with RegOps with ArrayOps {
   this: SpatialOps =>

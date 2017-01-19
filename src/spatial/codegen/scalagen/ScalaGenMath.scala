@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.spec.MathExp
+import spatial.api.MathExp
 
 trait ScalaGenMath extends ScalaCodegen {
   val IR: MathExp

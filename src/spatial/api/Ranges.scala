@@ -1,5 +1,6 @@
-package spatial.spec
+package spatial.api
 import argon.ops._
+import spatial.{SpatialApi, SpatialExp, SpatialOps}
 
 // N by B
 // N par P
@@ -23,6 +24,10 @@ trait RangeOps extends MemoryOps { this: SpatialOps =>
     def ::(x: Index)(implicit ctx: SrcCtx): Range
   }
   implicit class IndexRangeOps(x: Index) {
+    def by(step: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, Some(lift(step)), None)
+    def par(p: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, None, Some(lift(p)))
+    def until(end: Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(x), lift(end), None, None)
+
     def by(step: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, x, Some(step), None)
     def par(p: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, x, None, Some(p))
     def until(end: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(x), end, None, None)

@@ -1,5 +1,5 @@
-import spatial.spec._
 import org.virtualized._
+import spatial._
 
 object ArgInOut extends SpatialCompiler with ArgInOutApp
 trait ArgInOutApp extends SpatialApp {

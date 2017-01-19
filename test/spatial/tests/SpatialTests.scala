@@ -3,12 +3,13 @@ package spatial.tests
 import org.virtualized.SourceContext
 import org.virtualized.virtualize
 import org.scalatest.{FlatSpec, Matchers}
-import spatial.spec._
+import spatial.api._
 import argon._
 import argon.ops._
 import argon.core.Exceptions
 import argon.utils.deleteExts
 import argon.traversal.IRPrinter
+import spatial.{SpatialApp, SpatialCompiler}
 
 trait SpatialTest extends SpatialCompiler with RunnerCore { self =>
   override val testbench = true
@@ -143,7 +144,7 @@ trait FoldAccumTestApp extends SpatialApp {
     val sum2 = Reduce(0)(0::1::16 par 2){i => i }{_+_}
 
     println(product.value)
-    println(sum2)
+    println(sum2.value)
   }
 }
 

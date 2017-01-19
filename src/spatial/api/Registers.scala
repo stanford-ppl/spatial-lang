@@ -1,4 +1,6 @@
-package spatial.spec
+package spatial.api
+
+import spatial.{SpatialApi, SpatialExp, SpatialOps}
 
 trait RegOps extends MemoryOps {
   this: SpatialOps =>

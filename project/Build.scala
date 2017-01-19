@@ -45,4 +45,6 @@ object SpatialBuild extends Build {
   )
 
   lazy val spatial = Project("spatial", file("."), settings = virtBuildSettings ++ deps)
+
+  lazy val apps = Project("apps", file("apps"), settings = virtBuildSettings ++ deps) dependsOn (spatial)
 }

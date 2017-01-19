@@ -1,4 +1,4 @@
-package spatial.spec
+package spatial.api
 
 import argon.ops._
 

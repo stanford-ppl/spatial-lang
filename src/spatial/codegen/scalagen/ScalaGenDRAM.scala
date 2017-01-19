@@ -1,6 +1,6 @@
 package spatial.codegen.scalagen
 
-import spatial.spec.DRAMExp
+import spatial.api.DRAMExp
 
 trait ScalaGenDRAM extends ScalaGenSRAM {
   val IR: DRAMExp

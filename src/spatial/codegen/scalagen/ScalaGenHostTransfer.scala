@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.spec.HostTransferExp
+import spatial.api.HostTransferExp
 
 trait ScalaGenHostTransfer extends ScalaCodegen {
   val IR: HostTransferExp

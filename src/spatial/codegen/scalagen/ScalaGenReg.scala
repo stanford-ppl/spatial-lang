@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.spec.RegExp
+import spatial.api.RegExp
 
 trait ScalaGenReg extends ScalaCodegen {
   val IR: RegExp

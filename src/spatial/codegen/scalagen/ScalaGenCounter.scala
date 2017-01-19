@@ -2,7 +2,7 @@ package spatial.codegen.scalagen
 
 import argon.codegen.FileDependencies
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.spec.CounterExp
+import spatial.api.CounterExp
 import spatial.SpatialConfig
 
 trait ScalaGenCounter extends ScalaCodegen with FileDependencies {

@@ -1,6 +1,7 @@
-package spatial.spec
+package spatial.api
 
 import org.virtualized.virtualize
+import spatial.{SpatialApi, SpatialExp, SpatialOps}
 
 trait DRAMOps extends SRAMOps with FIFOOps with RangeOps { this: SpatialOps =>
   type DRAM[T] <: DRAMOps[T]
@@ -192,7 +193,7 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
 
       burst_load(offchip, fifo.s, memAddrDowncast.value.s, innerCtr.s, fresh[Index])
 
-      Pipe(innerCtr){i =>
+      Foreach(innerCtr){i =>
         val en = i >= startBound.value && i < endBound.value
         mem.store(onchip, onchipAddr(i - startBound.value), fifo.deq(), en)
       }
@@ -209,7 +210,7 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
     }
 
     if (counters.length > 1) {
-      Foreach(counters.dropRight(1): _*){ is =>
+      Foreach(counters.dropRight(1)){ is =>
         val indices = is :+ 0.as[Index]
         val offchipAddr = () => flatIndex( offchipOffsets.zip(indices).map{case (a,b) => a + b}, wrap(dimsOf(offchip)))
 

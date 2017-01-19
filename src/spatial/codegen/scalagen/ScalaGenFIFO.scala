@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.spec.FIFOExp
+import spatial.api.FIFOExp
 
 trait ScalaGenFIFO extends ScalaCodegen {
   val IR: FIFOExp

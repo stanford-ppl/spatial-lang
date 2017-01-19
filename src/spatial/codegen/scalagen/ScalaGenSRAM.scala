@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.spec.SRAMExp
+import spatial.api.SRAMExp
 
 trait ScalaGenSRAM extends ScalaCodegen {
   val IR: SRAMExp
