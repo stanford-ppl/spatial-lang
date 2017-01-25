@@ -1,8 +1,9 @@
 import org.virtualized._
 import spatial._
 
-object ArgInOut extends SpatialCompiler with ArgInOutApp
-trait ArgInOutApp extends SpatialApp {
+object ArgInOut extends SpatialApp {
+  import IR._
+
   def main() {
     val x = ArgIn[Int]
     val y = ArgOut[Int]

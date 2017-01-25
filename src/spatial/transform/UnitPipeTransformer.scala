@@ -59,6 +59,7 @@ trait UnitPipeTransformer extends ForwardTransformer {
   }
 
   private def wrapBlock[T:Staged](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
+    debugs(s"Wrapping block with type ${typ[T]}")
     val stages = ArrayBuffer[PipeStage]()
     def curStage = stages.last
     stages += PipeStage.empty(true)
@@ -115,6 +116,11 @@ trait UnitPipeTransformer extends ForwardTransformer {
         stage.regReads.foreach(visitStm)        // Register reads
         stage.dynamicAllocs.foreach(visitStm)   // Allocations which can rely on reg reads
     }
+    val result = typ[T] match {
+      case VoidType => void
+      case _ => f(block.result)
+    }
+    result.asInstanceOf[Exp[T]]
   })
 
   // All blocks requiring unit pipe insertion happen to be the first for that node.
@@ -134,10 +140,8 @@ trait UnitPipeTransformer extends ForwardTransformer {
 
   override def apply[T:Staged](b: Block[T]): Exp[T] = {
     if (wrapBlocks) {
-      val prevWrap = wrapBlocks
       wrapBlocks = false
       val result = wrapBlock(b)(mtyp(b.tp),ctx.get)
-      wrapBlocks = prevWrap
       result
     }
     else super.apply(b)

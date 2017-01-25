@@ -79,8 +79,8 @@ trait CounterExp extends CounterOps with RangeExp with SpatialExceptions {
 
   /** Smart constructors **/
   def counter_new(start: Exp[Index], end: Exp[Index], step: Exp[Index], par: Const[Index])(implicit ctx: SrcCtx): Sym[Counter] = {
-    stage(CounterNew(start,end,step,par))(ctx)
+    stageCold(CounterNew(start,end,step,par))(ctx)
   }
-  def counterchain_new(counters: Seq[Exp[Counter]])(implicit ctx: SrcCtx) = stage(CounterChainNew(counters))(ctx)
+  def counterchain_new(counters: Seq[Exp[Counter]])(implicit ctx: SrcCtx) = stageCold(CounterChainNew(counters))(ctx)
 
 }

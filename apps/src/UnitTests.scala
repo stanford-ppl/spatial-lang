@@ -1,8 +1,8 @@
 import spatial._
 import org.virtualized._
 
-object SimpleSequential extends SpatialCompiler with SimpleSequentialApp
-trait SimpleSequentialApp extends SpatialApp {
+object SimpleSequential extends SpatialApp {
+  import IR._
 
   def simpleSeq(xIn: Int, yIn: Int): Int = {
     val innerPar = 1 (1 -> 1 -> 1)

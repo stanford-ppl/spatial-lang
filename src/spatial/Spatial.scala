@@ -3,27 +3,25 @@ package spatial
 import argon.codegen.scalagen._
 import argon.ops._
 import argon.traversal.IRPrinter
-import argon.{AppCore, CompilerCore}
-
+import argon.{AppCore, CompilerCore, LibCore}
 import spatial.api._
 import spatial.analysis._
 import spatial.transform._
-
 import spatial.codegen.scalagen._
 
-trait SpatialOps extends OverloadHack with SpatialMetadataOps with BankingMetadataOps
+protected trait SpatialOps extends OverloadHack with SpatialMetadataOps with BankingMetadataOps
      with IfThenElseOps with PrintOps with ControllerOps with MathOps with TextOps with DRAMOps with StringCastOps
      with HostTransferOps with ParameterOps with RangeOps with StructOps
 
-trait SpatialApi extends SpatialOps with SpatialMetadataApi with BankingMetadataApi
+protected trait SpatialApi extends SpatialOps with SpatialMetadataApi with BankingMetadataApi
      with IfThenElseApi with PrintApi with ControllerApi with MathApi with TextApi with DRAMApi with StringCastApi
      with HostTransferApi with ParameterApi with RangeApi with StructApi
 
-trait SpatialExp extends SpatialOps with SpatialMetadataExp with BankingMetadataExp with NodeClasses with NodeUtils
+protected trait SpatialExp extends SpatialOps with SpatialMetadataExp with BankingMetadataExp with NodeClasses with NodeUtils
      with IfThenElseExp with PrintExp with ControllerExp with MathExp with TextExp with DRAMExp with StringCastExp
      with HostTransferExp with ParameterExp with RangeExp with StructExp
 
-trait ScalaGenSpatial extends ScalaCodegen with ScalaSingleFileGen
+protected trait ScalaGenSpatial extends ScalaCodegen with ScalaSingleFileGen
   with ScalaGenBool with ScalaGenFixPt with ScalaGenFltPt with ScalaGenMixedNumeric
   with ScalaGenIfThenElse with ScalaGenPrint with ScalaGenText with ScalaGenVoid
   with ScalaGenController with ScalaGenMath with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer
@@ -32,8 +30,7 @@ trait ScalaGenSpatial extends ScalaCodegen with ScalaSingleFileGen
   override val IR: SpatialCompiler
 }
 
-trait SpatialApp extends AppCore with SpatialApi
-trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
+protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   lazy val printer = new IRPrinter {val IR: self.type = self }
 
   // Traversals
@@ -61,7 +58,9 @@ trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions
 
   // --- Unit Pipe Insertion
+  passes += printer
   passes += unitPipeInsert    // Wrap primitives in outer controllers
+  passes += printer
 
   // --- Pre-DSE analysis
   passes += affineAnalyzer    // Memory access patterns
@@ -71,4 +70,11 @@ trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   passes += scalagen
 }
 
+protected trait SpatialIR extends SpatialCompiler with SpatialApi
+protected trait SpatialLib extends LibCore // Actual library implementation goes here
+
+trait SpatialApp extends AppCore {
+  val IR: SpatialIR = new SpatialIR { }
+  val Lib: SpatialLib = new SpatialLib { def args: Array[String] = stagingArgs }
+}
 

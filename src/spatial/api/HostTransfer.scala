@@ -6,7 +6,7 @@ import spatial.{SpatialApi, SpatialExp, SpatialOps}
 trait HostTransferOps extends DRAMOps with RegOps with ArrayOps {
   this: SpatialOps =>
 
-  def setArg[T:Bits](reg: Reg[T], value: T)(implicit ctx: SrcCtx): Void
+  def setArg[A,T:Bits](reg: Reg[T], value: A)(implicit ctx: SrcCtx, lft: Lift[A,T]): Void
   def getArg[T:Bits](reg: Reg[T])(implicit ctx: SrcCtx): T
   def setMem[T:Bits](dram: DRAM[T], data: MArray[T])(implicit ctx: SrcCtx): Void
   def getMem[T:Bits](dram: DRAM[T])(implicit ctx: SrcCtx): MArray[T]
@@ -18,7 +18,7 @@ trait HostTransferExp extends HostTransferOps with DRAMExp with RegExp {
   this: SpatialExp =>
 
   /** API **/
-  def setArg[T:Bits](reg: Reg[T], value: T)(implicit ctx: SrcCtx): Void = Void(set_arg(reg.s, value.s))
+  def setArg[A,T:Bits](reg: Reg[T], value: A)(implicit ctx: SrcCtx, lft: Lift[A,T]): Void = Void(set_arg(reg.s, lft.lift(value).s))
   def getArg[T:Bits](reg: Reg[T])(implicit ctx: SrcCtx): T = wrap(get_arg(reg.s))
   def setMem[T:Bits](dram: DRAM[T], data: MArray[T])(implicit ctx: SrcCtx): Void = Void(set_mem(dram.s, data.s))
   def getMem[T:Bits](dram: DRAM[T])(implicit ctx: SrcCtx): MArray[T] = {

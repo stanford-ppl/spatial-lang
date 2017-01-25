@@ -8,11 +8,13 @@ trait ScalaGenController extends ScalaCodegen {
   import IR._
 
   private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
-    for (i <- iters.indices) {
+    for (i <- iters.indices)
       open(src"$cchain($i).foreach{case (is,vs) => is.zip(vs).foreach{case (${iters(i)},v) => if (v) {")
-    }
+
     func
-    close("}}}"*iters.length)
+
+    for (i <- iters.indices)
+      close("}}}")
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

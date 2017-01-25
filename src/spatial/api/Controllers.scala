@@ -13,7 +13,7 @@ trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps wit
   type Controller
   implicit val ControllerType: Staged[Controller]
 
-  case class MemReduceClass(style: Option[ControlStyle]) {
+  case class MemReduceClass(style: ControlStyle) {
     /** 1 dimensional memory reduction with explicit accumulator **/
     def apply[T:Bits,C[T]](accum: C[T])(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Staged[C[T]]): C[T] = {
       mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style)
@@ -21,7 +21,7 @@ trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps wit
     }
   }
 
-  case class ReduceAccum[T](accum: Reg[T], style: Option[ControlStyle]) {
+  case class ReduceAccum[T](accum: Reg[T], style: ControlStyle) {
     def apply(domain1D: Counter)(map: Index => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, bits: Bits[T]): Reg[T] = {
       reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style)
       accum
@@ -32,7 +32,7 @@ trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps wit
     }
   }
 
-  case class ReduceClass(style: Option[ControlStyle]) {
+  case class ReduceClass(style: ControlStyle) {
     import org.virtualized.SourceContext
     /** Reduction with implicit accumulator **/
     // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
@@ -47,7 +47,7 @@ trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps wit
     def apply[T](accum: Reg[T]) = ReduceAccum(accum, style)
   }
 
-  case class ForeachClass(style: Option[ControlStyle]) {
+  case class ForeachClass(style: ControlStyle) {
     /** 1 dimensional parallel foreach **/
     def apply(domain1D: Counter)(func: Index => Void)(implicit ctx: SrcCtx): Void = {
       foreachND(List(domain1D), {x: List[Index] => func(x.head) }, style)
@@ -69,9 +69,9 @@ trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps wit
     }
   }
 
-  object MemReduce extends MemReduceClass(None)
-  object Reduce    extends ReduceClass(None)
-  object Foreach   extends ForeachClass(None)
+  object MemReduce extends MemReduceClass(MetaPipe)
+  object Reduce    extends ReduceClass(InnerPipe)
+  object Foreach   extends ForeachClass(InnerPipe)
 
   object Accel {
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { accel_blk(func); () }
@@ -79,45 +79,34 @@ trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps wit
 
   object Pipe {
     /** "Pipelined" unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
-      unit_pipe(func, Some(InnerPipe))
-      ()
-    }
-    def Foreach = ForeachClass(Some(InnerPipe))
-    def Reduce = ReduceClass(Some(InnerPipe))
-    def MemReduce = MemReduceClass(Some(InnerPipe))
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, InnerPipe); () }
+    def Foreach = ForeachClass(InnerPipe)
+    def Reduce = ReduceClass(InnerPipe)
+    def MemReduce = MemReduceClass(InnerPipe)
   }
 
   object Sequential {
     /** Sequential unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
-      unit_pipe(func, Some(SeqPipe))
-      ()
-    }
-
-    def Foreach = ForeachClass(Some(SeqPipe))
-    def Reduce = ReduceClass(Some(SeqPipe))
-    def MemReduce = MemReduceClass(Some(SeqPipe))
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
+    def Foreach = ForeachClass(SeqPipe)
+    def Reduce = ReduceClass(SeqPipe)
+    def MemReduce = MemReduceClass(SeqPipe)
   }
 
   object Stream {
     /** Streaming unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
-      unit_pipe(func, Some(StreamPipe))
-      ()
-    }
-
-    def Foreach = ForeachClass(Some(StreamPipe))
-    def Reduce = ReduceClass(Some(StreamPipe))
-    def MemReduce = MemReduceClass(Some(StreamPipe))
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, StreamPipe); () }
+    def Foreach = ForeachClass(StreamPipe)
+    def Reduce = ReduceClass(StreamPipe)
+    def MemReduce = MemReduceClass(StreamPipe)
   }
 
   private[spatial] def accel_blk(func: => Void)(implicit ctx: SrcCtx): Controller
-  private[spatial] def unit_pipe(func: => Void, style: Option[ControlStyle])(implicit ctx: SrcCtx): Controller
+  private[spatial] def unit_pipe(func: => Void, style: ControlStyle)(implicit ctx: SrcCtx): Controller
   private[spatial] def foreachND(
     domain: Seq[Counter],
     func: List[Index] => Void,
-    style: Option[ControlStyle]
+    style: ControlStyle
   )(implicit ctx: SrcCtx): Controller
 
   private[spatial] def reduceND[T:Bits](
@@ -125,14 +114,14 @@ trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps wit
     reg:    Reg[T],
     map:    List[Index] => T,
     reduce: (T,T) => T,
-    style:  Option[ControlStyle]
+    style:  ControlStyle
   )(implicit ctx: SrcCtx): Controller
   private[spatial] def mem_reduceND[T:Bits,C[T]](
     domain: Seq[Counter],
     accum:  C[T],
     map:    List[Index] => C[T],
     reduce: (T,T) => T,
-    style: Option[ControlStyle]
+    style: ControlStyle
   )(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Staged[C[T]]): Controller
 }
 trait ControllerApi extends ControllerOps with RegApi with SRAMApi with CounterApi { this: SpatialApi => }
@@ -151,20 +140,21 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
   private[spatial] def accel_blk(func: => Void)(implicit ctx: SrcCtx): Controller = {
     val fFunc = () => unwrap(func)
     val pipe = op_accel(fFunc())
+    styleOf(pipe) = InnerPipe
     Controller(pipe)
   }
 
-  private[spatial] def unit_pipe(func: => Void, style: Option[ControlStyle])(implicit ctx: SrcCtx): Controller = {
+  private[spatial] def unit_pipe(func: => Void, style: ControlStyle)(implicit ctx: SrcCtx): Controller = {
     val fFunc = () => unwrap(func)
     val pipe = op_unit_pipe(fFunc())
-    style.foreach{s => styleOf(pipe) = s}
+    styleOf(pipe) = style
     Controller(pipe)
   }
 
   private[spatial] def foreachND(
     domain: Seq[Counter],
     func:   List[Index] => Void,
-    style:  Option[ControlStyle]
+    style:  ControlStyle
   )(implicit ctx: SrcCtx): Controller = {
     val iters = List.tabulate(domain.length){_ => fresh[Index] }
 
@@ -172,7 +162,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     val cchain = CounterChain(domain: _*)
 
     val pipe = op_foreach(cchain.s, fFunc(), iters)
-    style.foreach{s => styleOf(pipe) = s}
+    styleOf(pipe) = style
     Controller(pipe)
   }
 
@@ -181,7 +171,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     reg:    Reg[T],
     map:    List[Index] => T,
     reduce: (T,T) => T,
-    style:  Option[ControlStyle]
+    style:  ControlStyle
   )(implicit ctx: SrcCtx): Controller = {
 
     val rV = (fresh[T], fresh[T])
@@ -196,11 +186,17 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
 
     val effects = mBlk.summary andAlso ldBlk.summary andAlso rBlk.summary andAlso stBlk.summary
     val pipe = stageEffectful(OpReduce[T](cchain.s, reg.s, mBlk, ldBlk, rBlk, stBlk, rV, iters), effects)(ctx)
-    style.foreach{s => styleOf(pipe) = s}
+    styleOf(pipe) = style
     Controller(pipe)
   }
 
-  private[spatial] def mem_reduceND[T:Bits,C[T]](domain: Seq[Counter], accum: C[T], map: List[Index] => C[T], reduce: (T,T) => T, style: Option[ControlStyle])(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Staged[C[T]]): Controller = {
+  private[spatial] def mem_reduceND[T:Bits,C[T]](
+    domain: Seq[Counter],
+    accum:  C[T],
+    map:    List[Index] => C[T],
+    reduce: (T,T) => T,
+    style:  ControlStyle
+  )(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Staged[C[T]]): Controller = {
     val rV = (fresh[T], fresh[T])
     val itersMap = List.tabulate(domain.length){_ => fresh[Index] }
 
@@ -218,6 +214,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
 
     val effects = mBlk.summary andAlso rBlk.summary andAlso ldResBlk.summary andAlso ldAccBlk.summary andAlso stAccBlk.summary
     val node = stageEffectful(OpMemReduce[T,C](cchainMap.s,cchainRed.s,accum.s,mBlk,ldResBlk,ldAccBlk,rBlk,stAccBlk,rV,itersMap,itersRed), effects)(ctx)
+    styleOf(node) = style
     Controller(node)
   }
 
