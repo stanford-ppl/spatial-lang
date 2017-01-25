@@ -246,7 +246,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     map:    Block[T],
     load:   Block[T],
     reduce: Block[T],
-    store:  Lambda[Void],
+    store:  Block[Void],
     rV:     (Bound[T],Bound[T]),
     iters:  List[Bound[Index]]
   ) extends Op[Controller] {
@@ -264,10 +264,10 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     cchainRed: Exp[CounterChain],
     accum:     Exp[C[T]],
     map:       Block[C[T]],
-    loadRes:   Lambda[T],
+    loadRes:   Block[T],
     loadAcc:   Block[T],
     reduce:    Block[T],
-    storeAcc:  Lambda[Void],
+    storeAcc:  Block[Void],
     rV:        (Bound[T], Bound[T]),
     itersMap:  Seq[Bound[Index]],
     itersRed:  Seq[Bound[Index]]

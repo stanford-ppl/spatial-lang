@@ -1,8 +1,9 @@
 package spatial.api
 
-import argon.core.{Staging, ArgonExceptions}
+import argon.core.{ArgonExceptions, Staging}
+import spatial.SpatialExp
 
-trait SpatialExceptions extends ArgonExceptions { self: Staging =>
+trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
   // --- Compiler exceptions
 
   class EmptyReductionTreeLevelException(implicit ctx: SrcCtx) extends
@@ -18,10 +19,54 @@ trait SpatialExceptions extends ArgonExceptions { self: Staging =>
     error(ctx)
   })
 
+  class UndefinedZeroException(s: Exp[_], tp: Staged[_])(implicit ctx: SrcCtx) extends
+  CompilerException(1002, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s", {
+    error(ctx, c"Unit Pipe Transformer could create zero for type $tp for escaping value $s")
+  })
+
+  class ExternalWriteError(mem: Exp[_], write: Exp[_])(implicit ctx: SrcCtx) extends
+  CompilerException(1003, c"Found illegal write to memory $mem defined outside an inner controller", {
+    error(ctx, c"Found illegal write to memory $mem defined outside an inner controller")
+  })
+
+  class UndefinedBankingException(tp: Staged[_])(implicit ctx: SrcCtx) extends
+  CompilerException(1004, c"Don't know how to bank memory type $tp", {
+    error(ctx, c"Don't know how to bank memory type $tp")
+  })
+
+  class UndefinedDispatchException(access: Exp[_], mem: Exp[_]) extends
+  CompilerException(1005, c"Access $access had no dispatch information for memory $mem", {
+    error(c"Access $access had no dispatch information for memory $mem")
+  })
+
+  class UndefinedPortsException(access: Exp[_], mem: Exp[_], idx: Option[Int]) extends
+  CompilerException(1006, c"Access $access had no ports for memory $mem" + idx.map{i => c", index $i"}.getOrElse(""), {
+    error(c"Access $access had no ports for memory $mem" + idx.map{i => c", index $i"}.getOrElse(""))
+  })
+
+  class NoCommonParentException(a: Ctrl, b: Ctrl) extends
+  CompilerException(1007, c"Controllers $a and $b had no common parent while finding LCA with distance", {
+    error(c"Controllers $a and $b had no common parent while finding LCA with distance")
+  })
+
+  class UndefinedChildException(parent: Ctrl, access: Access) extends
+  CompilerException(1008, c"Parent $parent does not appear to contain $access while running childContaining", {
+    error(c"Parent $parent does not appear to contain $access while running childContaining")
+  })
+
+  class AmbiguousMetaPipeException(mem: Exp[_], metapipes: Map[Ctrl, Seq[Access]]) extends
+  CompilerException(1009, c"Ambiguous metapipes for readers/writers of $mem: ${metapipes.keySet}", {
+    error(c"Ambiguous metapipes for readers/writers of $mem:")
+    metapipes.foreach{case (pipe,accesses) => error(c"  $pipe: $accesses")}
+  })
+
+
+
+
   // --- User exceptions
-  class InvalidDimensionError(dim: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctx, c"Invalid memory dimension ${str(dim)}.")
-    error("Only constants and DSE parameters are allowed as dimensions of on-chip memories")
+  class InvalidOnchipDimensionError(dim: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+    error(ctx, c"Memory defined here has invalid dimension $dim.")
+    error("Only functions of constants and DSE parameters are allowed as dimensions of on-chip memories")
   })
 
   class InvalidParallelFactorError(par: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
@@ -50,4 +95,48 @@ trait SpatialExceptions extends ArgonExceptions { self: Staging =>
   class ControlInReductionError(ctx: SrcCtx) extends UserError(ctx, {
     error(ctx, c"Reduction functions cannot have inner control nodes")
   })
+
+  class InvalidOffchipDimensionError(offchip: Exp[_], dim: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+    error(ctxOrHere(offchip), c"Offchip memory defined here has invalid dimension $dim")
+  })
+
+  class ConcurrentReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
+    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal concurrent readers: ")
+    error(ctxOrHere(a)(ctx), c"  The first read occurs here")
+    error(ctxOrHere(b)(ctx), c"  The second read occurs here")
+  })
+
+  class ConcurrentWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
+    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal concurrent writers: ")
+    error(ctxOrHere(a)(ctx), c"  The first write occurs here")
+    error(ctxOrHere(b)(ctx), c"  The second write occurs here")
+  })
+
+  class PipelinedReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
+    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal pipelined readers: ")
+    error(ctxOrHere(a)(ctx), c"  The first read occurs here")
+    error(ctxOrHere(b)(ctx), c"  The second read occurs here")
+  })
+
+  class PipelinedWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
+    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal pipelined writers: ")
+    error(ctxOrHere(a)(ctx), c"  The first write occurs here")
+    error(ctxOrHere(b)(ctx), c"  The second write occurs here")
+  })
+
+  class MultipleReadersError(mem: Exp[_], readers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(ctx, {
+    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal multiple readers: ")
+    readers.foreach{read => error(ctxOrHere(read)(ctx), c"  Read defined here") }
+  })
+
+  class MultipleWritersError(mem: Exp[_], writers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(ctx, {
+    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal multiple writers: ")
+    writers.foreach{write => error(ctxOrHere(write)(ctx), c"  Write defined here") }
+  })
+
+  class NoTopError(ctx: SrcCtx) extends ProgramError({
+    error("An Accel block is required to specify the area of code to optimize for the FPGA.")
+    error("No Accel block was specified for this program.")
+  })
+
 }

@@ -61,7 +61,6 @@ trait FIFOExp extends FIFOOps with MemoryExp with SpatialExceptions { this: Spat
 
   /** Smart Constructors **/
   def fifo_alloc[T:Bits](size: Exp[Index])(implicit ctx: SrcCtx): Exp[FIFO[T]] = {
-    size match {case Param(_) => ; case dim => new InvalidDimensionError(dim)(ctx) }
     stageMutable(FIFONew[T](size))(ctx)
   }
   def fifo_enq[T:Bits](fifo: Exp[FIFO[T]], value: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
@@ -70,8 +69,9 @@ trait FIFOExp extends FIFOOps with MemoryExp with SpatialExceptions { this: Spat
   def fifo_deq[T:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[T] = stage(FIFODeq(fifo,en))(ctx)
 
   /** Internals **/
-  def sizeOf(fifo: FIFO[_])(implicit ctx: SrcCtx): Index = fifo.s match {
-    case Op(FIFONew(size)) => wrap(size)
+  def sizeOf(fifo: FIFO[_])(implicit ctx: SrcCtx): Index = wrap(sizeOf(fifo.s))
+  def sizeOf[T](fifo: Exp[FIFO[T]])(implicit ctx: SrcCtx): Exp[Index] = fifo match {
+    case Op(FIFONew(size)) => size
     case x => throw new UndefinedDimensionsError(x, None)
   }
 }

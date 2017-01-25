@@ -22,7 +22,7 @@ trait HostTransferExp extends HostTransferOps with DRAMExp with RegExp {
   def getArg[T:Bits](reg: Reg[T])(implicit ctx: SrcCtx): T = wrap(get_arg(reg.s))
   def setMem[T:Bits](dram: DRAM[T], data: MArray[T])(implicit ctx: SrcCtx): Void = Void(set_mem(dram.s, data.s))
   def getMem[T:Bits](dram: DRAM[T])(implicit ctx: SrcCtx): MArray[T] = {
-    val array = Array[T](productTree(wrap(dimsOf(dram.s))))
+    val array = createArray[T](productTree(wrap(dimsOf(dram.s))))
     get_mem(dram.s, array.s)
     array
   }

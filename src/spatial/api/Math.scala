@@ -1,8 +1,9 @@
 package spatial.api
+import spatial._
 
 import argon.ops._
 
-trait MathOps extends NumOps with FixPtOps with FltPtOps {
+trait MathOps extends NumOps with FixPtOps with FltPtOps { this: SpatialOps =>
   /** Absolute value **/
   def abs[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F])(implicit ctx: SrcCtx): FixPt[S,I,F]
 
@@ -19,10 +20,10 @@ trait MathOps extends NumOps with FixPtOps with FltPtOps {
   def min[T:Order](a: T, b: T)(implicit ctx: SrcCtx): T
   def max[T:Order](a: T, b: T)(implicit ctx: SrcCtx): T
 }
-trait MathApi extends MathOps with NumApi with FixPtApi with FltPtApi
+trait MathApi extends MathOps with NumApi with FixPtApi with FltPtApi { this: SpatialApi => }
 
 
-trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with SpatialExceptions {
+trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with SpatialExceptions { this: SpatialExp =>
   /** API **/
   def abs[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F])(implicit ctx: SrcCtx): FixPt[S,I,F] = FixPt(fix_abs(x.s))
 

@@ -82,11 +82,11 @@ trait RegExp extends RegOps with MemoryExp {
 
 
   /** Internal methods **/
-  def isArgIn(x: Sym[_]): Boolean = x match {
+  def isArgIn(x: Exp[_]): Boolean = x match {
     case Op(ArgInNew(_)) => true
     case _ => false
   }
-  def isArgOut(x: Sym[_]): Boolean = x match {
+  def isArgOut(x: Exp[_]): Boolean = x match {
     case Op(ArgOutNew(_)) => true
     case _ => false
   }

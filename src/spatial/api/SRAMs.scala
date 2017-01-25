@@ -81,7 +81,6 @@ trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with Spa
 
   /** Smart Constructors **/
   def sram_alloc[T:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Exp[SRAM[T]] = {
-    dims.foreach{case Const(_) => ; case dim => new InvalidDimensionError(dim)(ctx) }
     stageMutable( SRAMNew[T](dims) )(ctx)
   }
   def sram_load[T:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index])(implicit ctx: SrcCtx): Exp[T] = {
@@ -115,5 +114,6 @@ trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with Spa
     sumTree(indices.zip(strides).map{case (a,b) => a*b })
   }
 
+  def constDimsToStrides(dims: Seq[Int]): Seq[Int] = List.tabulate(dims.length){d => dims.drop(d + 1).product}
 
 }

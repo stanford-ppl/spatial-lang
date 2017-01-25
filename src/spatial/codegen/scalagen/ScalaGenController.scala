@@ -41,12 +41,12 @@ trait ScalaGenController extends ScalaCodegen {
       emit("/** BEGIN REDUCE **/")
       open(src"val $lhs = {")
       emitNestedLoop(cchain, iters){
-        traverseBlock(map)
-        traverseBlock(load)
+        visitBlock(map)
+        visitBlock(load)
         emit(src"val ${rV._1} = ${load.result}")
         emit(src"val ${rV._2} = ${map.result}")
-        traverseBlock(reduce)
-        emitLambda(store)
+        visitBlock(reduce)
+        emitBlock(store)
       }
       close("}")
       emit("/** END REDUCE **/")
@@ -55,14 +55,14 @@ trait ScalaGenController extends ScalaCodegen {
       emit("/** BEGIN MEM REDUCE **/")
       open(src"val $lhs = {")
       emitNestedLoop(cchainMap, itersMap){
-        traverseBlock(map)
+        visitBlock(map)
         emitNestedLoop(cchainRed, itersRed){
-          traverseLambda(loadRes)
-          traverseBlock(loadAcc)
+          visitBlock(loadRes)
+          visitBlock(loadAcc)
           emit(src"val ${rV._1} = ${loadRes.result}")
           emit(src"val ${rV._2} = ${loadAcc.result}")
-          traverseBlock(reduce)
-          traverseLambda(storeAcc)
+          visitBlock(reduce)
+          visitBlock(storeAcc)
         }
       }
       close("}")

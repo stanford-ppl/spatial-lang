@@ -15,7 +15,7 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
   override val name = "Pipe Level Analyzer"
   override val recurse = Always
 
-  def annotateControlStyle(pipe: Exp[_], blks: Scope[_]*) = (styleOf.get(pipe), hasControlNodes(blks:_*)) match {
+  def annotateControlStyle(pipe: Exp[_], blks: Block[_]*) = (styleOf.get(pipe), hasControlNodes(blks:_*)) match {
     case (None, false)           => styleOf(pipe) = InnerPipe   // No annotations, no inner control nodes
     case (None, true)            => styleOf(pipe) = SeqPipe     // No annotations, has inner control nodes
     case (Some(InnerPipe), true) => styleOf(pipe) = MetaPipe    // Inner pipeline but has inner control nodes
@@ -33,7 +33,7 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
     case UnitPipe(blk)  => annotateControlStyle(lhs, blk)
     case e: OpForeach   => annotateControlStyle(lhs, e.func)
     case e: OpReduce[_] =>
-      annotateControlStyle(lhs, e.scopes:_*)
+      annotateControlStyle(lhs, e.blocks:_*)
       if (hasControlNodes(e.reduce)) new ControlInReductionError(ctxOrHere(lhs))
 
     case e: OpMemReduce[_,_] =>

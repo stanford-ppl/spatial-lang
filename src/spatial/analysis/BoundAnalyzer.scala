@@ -46,7 +46,7 @@ trait BoundAnalyzer extends SpatialTraversal {
     case FixMul(Exact(a),Exact(b)) => boundOf(lhs) = Exact(a * b)
     case FixMul(Bound(a),Bound(b)) => boundOf(lhs) = Bound(a * b)
 
-    case FixDiv(Final(a),Final(b)) => boundOf(lhs) = Final(a / b + (if ( (a mod b) > 0) 1 else 0))
+    case FixDiv(Final(a),Final(b)) => boundOf(lhs) = Exact(a / b + (if ( (a mod b) > 0) 1 else 0))
     case FixDiv(Exact(a),Exact(b)) => boundOf(lhs) = Exact(a / b + (if ( (a mod b) > 0) 1 else 0))
     case FixDiv(Bound(a),Bound(b)) => boundOf(lhs) = Bound(a / b + (if ( (a mod b) > 0) 1 else 0))
 

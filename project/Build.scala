@@ -22,6 +22,11 @@ object SpatialBuild extends Build {
     retrieveManaged := true,
     scalacOptions += "-Yno-generic-signatures",
 
+    // More strict error/warning checking
+    scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings"),
+    // It would be very annoying to have to import these everywhere in this project
+    scalacOptions ++= Seq("-language:higherKinds", "-language:implicitConversions"),
+
     addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full),
   
     scalaSource in Compile <<= baseDirectory(_ / "src"),
