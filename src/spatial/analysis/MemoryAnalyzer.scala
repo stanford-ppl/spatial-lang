@@ -1,11 +1,14 @@
 package spatial.analysis
 
+import argon.traversal.CompilerPass
 import org.virtualized.SourceContext
+import spatial.SpatialExp
 
-trait MemoryAnalyzer extends SpatialTraversal {
+trait MemoryAnalyzer extends CompilerPass {
+  val IR: SpatialExp
   import IR._
 
-  val localMems: List[Exp[_]]
+  def localMems: Seq[Exp[_]]
 
   override val name = "Memory Analyzer"
 
@@ -65,9 +68,9 @@ trait MemoryAnalyzer extends SpatialTraversal {
     reader:  Option[Access],
     bankAccess: (Exp[_], Exp[_]) => (Memory,Int)
   ): InstanceGroup = {
-    debug(c"  Banking group: ")
-    debug(c"    Reader: $reader")
-    debug(c"    Writers: $writers")
+    dbg(c"  Banking group: ")
+    dbg(c"    Reader: $reader")
+    dbg(c"    Writers: $writers")
 
     val accesses = writers ++ reader
 
@@ -108,13 +111,14 @@ trait MemoryAnalyzer extends SpatialTraversal {
       }
     }
 
-    debug(c"  Memory instance: ${group.instance}")
-    debug(c"  Duplicates: ${group.duplicates}")
-    debug(c"  MetaPipe controller: ${group.metapipe}")
-    debug(c"  Buffer Ports: ")
-    (0 until group.instance.depth).foreach{port =>
+    dbg("")
+    dbg(c"  Instance: ${group.instance}")
+    dbg(c"  Controller: ${group.metapipe}")
+    dbg(c"  Duplicates: ${group.duplicates}")
+    dbg(c"  Buffer Ports: ")
+    (0 to group.instance.depth).foreach{port =>
       val portAccesses = accesses.filter{a => group.ports(a).contains(port) }
-      debug(c"    $port: " + portAccesses.mkString(", "))
+      dbg(c"    $port: " + portAccesses.mkString(", "))
     }
     group
   }
@@ -127,15 +131,15 @@ trait MemoryAnalyzer extends SpatialTraversal {
     def allowMultipleReaders: Boolean   = true
     def allowMultipleWriters: Boolean   = true
     def allowConcurrentReaders: Boolean = true
-    def allowConcurrentWriters: Boolean = true
+    def allowConcurrentWriters: Boolean = false // Writers directly in parallel
     def allowPipelinedReaders: Boolean  = true
     def allowPipelinedWriters: Boolean  = true
   }
 
   def bank(mem: Exp[_], bankAccess: (Exp[_], Exp[_]) => (Memory, Int), settings: BankSettings) {
-    debug("")
-    debug("-----------------------------------")
-    debug(u"Inferring instances for memory $mem ")
+    dbg("")
+    dbg("-----------------------------------")
+    dbg(u"Inferring instances for memory $mem ")
 
     val writers = writersOf(mem)
     val readers = readersOf(mem)
@@ -162,16 +166,16 @@ trait MemoryAnalyzer extends SpatialTraversal {
 
     val coalescedInsts = coalesceMemories(mem, instanceGroups)
 
-    debug("Instances inferred (after memory coalescing): ")
+    dbg("Instances inferred (after memory coalescing): ")
     var i = 0
     instanceGroups.foreach{case InstanceGroup(metapipe, accesses, instance, dups, ports, swaps) =>
-      debug(c"  #$i - ${i+dups}: $instance (x$dups)")
+      dbg(c"  #$i - ${i+dups}: $instance (x$dups)")
 
       accesses.foreach{access =>
         dispatchOf.add(access, mem, i)
         portsOf(access, mem, i) = ports(access)
 
-        debug(s"""   - $access (ports: ${ports(access).mkString(", ")}) [swap: ${swaps.get(access)}]""")
+        dbg(s"""   - $access (ports: ${ports(access).mkString(", ")}) [swap: ${swaps.get(access)}]""")
       }
 
       i += dups
@@ -183,7 +187,7 @@ trait MemoryAnalyzer extends SpatialTraversal {
 
   // --- Memory-specific banking rules
 
-  override def run[S:Staged](block: Block[S]): Block[S] = {
+  override protected def process[S:Staged](block: Block[S]): Block[S] = {
     localMems.foreach {mem => mem.tp match {
       case _:FIFOType[_] => bank(mem, bankFIFOAccess, FIFOSettings)
       case _:SRAMType[_] => bank(mem, bankSRAMAccess, SRAMSettings)
@@ -237,12 +241,12 @@ trait MemoryAnalyzer extends SpatialTraversal {
     val banks = banking.map(_.banks).product
     val duplicates = channels / banks
 
-    debug(s"")
-    debug(s"  access: ${str(access)}")
-    debug(s"  pattern: $patterns")
-    debug(s"  channels: $channels")
-    debug(s"  banking: $banking")
-    debug(s"  duplicates: $duplicates")
+    dbg(s"")
+    dbg(s"  access: ${str(access)}")
+    dbg(s"  pattern: $patterns")
+    dbg(s"  channels: $channels")
+    dbg(s"  banking: $banking")
+    dbg(s"  duplicates: $duplicates")
     (BankedMemory(banking, 1), duplicates)
   }
 

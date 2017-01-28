@@ -1,9 +1,7 @@
 package spatial.analysis
 
-/**
-  * Propagates symbol maximum bounds. Generally assumes non-negative values, e.g. for index calculation
-  */
-trait BoundAnalyzer extends SpatialTraversal {
+
+trait ScalarAnalyzer extends SpatialTraversal {
   import IR._
 
   override val name = "Bound Analyzer"
@@ -20,7 +18,26 @@ trait BoundAnalyzer extends SpatialTraversal {
     else x
   }
 
-  override def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
+  /**
+    * In Spatial, a "global" is any value which is solely a function of input arguments
+    * and constants. These are computed prior to starting the main computation, and
+    * therefore appear constant to the majority of the program.
+    *
+    * Note that this is only true for stateless nodes. These rules should not be generated
+    * for stateful hardware (e.g. accumulators, pseudo-random generators)
+    **/
+  def checkForGlobals(lhs: Sym[_], rhs: Op[_]): Unit = lhs match {
+    case Effectful(_,_) =>
+    case Op(RegRead(reg)) if isArgIn(reg) => isGlobal(lhs) = true
+    case _ =>
+      if (isPrimitiveNode(lhs) && rhs.inputs.nonEmpty && rhs.inputs.forall(isGlobal(_)))
+        isGlobal(lhs) = true
+  }
+
+  /**
+    * Propagates symbol maximum bounds. Generally assumes non-negative values, e.g. for index calculation
+    */
+  def analyzeBounds(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case RegRead(Bounded(b)) => boundOf(lhs) = b
 
     case RegWrite(reg@Bounded(b1), Bounded(b2), _) if !insideLoop => boundOf(reg) = b1 meet b2
@@ -49,7 +66,12 @@ trait BoundAnalyzer extends SpatialTraversal {
     case FixDiv(Final(a),Final(b)) => boundOf(lhs) = Exact(a / b + (if ( (a mod b) > 0) 1 else 0))
     case FixDiv(Exact(a),Exact(b)) => boundOf(lhs) = Exact(a / b + (if ( (a mod b) > 0) 1 else 0))
     case FixDiv(Bound(a),Bound(b)) => boundOf(lhs) = Bound(a / b + (if ( (a mod b) > 0) 1 else 0))
+    case _ =>
+  }
 
-    case _ => maybeLoop(isLoop(lhs)){ super.visit(lhs, rhs) }
+  override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
+    checkForGlobals(lhs,rhs)
+    analyzeBounds(lhs,rhs)
+    maybeLoop(isLoop(lhs)){ super.visit(lhs, rhs) }
   }
 }

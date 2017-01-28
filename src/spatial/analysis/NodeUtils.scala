@@ -16,6 +16,21 @@ trait NodeUtils extends NodeClasses {
   }
 
   /**
+    * Checks to see if x depends on y (dataflow only, no scheduling dependencies)
+    */
+  // TODO: This uses the pointer-chasing version of scheduling - could possibly make faster?
+  implicit class ExpOps(x: Exp[_]) {
+    def dependsOn(y: Exp[_]): Boolean = {
+      def dfs(frontier: Seq[Exp[_]]): Boolean = frontier.exists{
+        case s if s == y => true
+        case Def(d) => dfs(d.inputs)
+        case _ => false
+      }
+      getDef(x).exists{d => dfs(d.inputs)}
+    }
+  }
+
+  /**
     * Returns the least common ancestor of two nodes in some directed, acyclic graph.
     * If the nodes share no common parent at any point in the tree, the LCA is undefined (None).
     * Also returns the paths from the least common ancestor to each node.
@@ -48,17 +63,10 @@ trait NodeUtils extends NodeClasses {
     if (a.isInner) {
       val parent = parentOf(a).get
       val children = childrenOf(parent) filterNot (_ == a)
-      val leaves = children.filter{x => children.exists{child => dependenciesOf(child) contains x}}
+      val leaves = children.filter{x => !children.exists{child => dependenciesOf(child) contains x}}
       leaves
     }
-    else (getDef(a.node), parentOf(a)) match {
-      case (None,_) => Set.empty
-      case (_,None) => Set.empty
-      case (Some(d), Some(parent)) =>
-        val children = childrenOf(parent)
-        val inputs = allInputs(d)
-        children.filter{child => inputs contains child.node}
-    }
+    else ctrlDepsOf(a.node).map{node => (node,false) }
   }
 
   /**
@@ -67,8 +75,8 @@ trait NodeUtils extends NodeClasses {
     * this is defined as the dataflow distance between the LCA's children which contain a and b
     * When a and b are equal, the distance is defined as zero.
     *
-    * The distance is undefined when the LCA is a xor b
-    * If a and b occur in parallel, the distance is -1
+    * The distance is undefined when the LCA is a xor b, or if a and b occur in parallel
+    * The distance is positive if a comes before b, negative otherwise
     *
     * @return The LCA of a and b and the pipeline distance.
     */
@@ -87,12 +95,23 @@ trait NodeUtils extends NodeClasses {
         // Account for fork-join behavior - return the LONGEST path possible
         def dfs(start: Ctrl, end: Ctrl, i: Int): Int = {
           if (start == end) i
-          else dependenciesOf(start).map{dep => dfs(dep, end, i+1) }.fold(-1){(a,b) => Math.max(a,b)}
+          else {
+            val deps = dependenciesOf(start)
+            val dists = deps.map{dep => dfs(dep, end, i+1) }
+
+            dbg(c"$start ==> $end: ")
+            deps.zip(dists).foreach{case (dep,dist) => dbg(c"  $dep: $dist") }
+
+            dists.fold(-1){(a,b) => Math.max(a,b)}
+          }
         }
         val aToB = dfs(topA, topB, 0)
         val bToA = dfs(topB, topA, 0)
+        val dist  = if (aToB >= 0) aToB
+                    else if (bToA >= 0) -bToA
+                    else throw new UndefinedPipeDistanceException(a, b)
 
-        (parent, Math.max(aToB, bToA))
+        (parent, dist)
       }
       else (parent, 0)
     }
@@ -134,11 +153,10 @@ trait NodeUtils extends NodeClasses {
     assert(accesses.nonEmpty)
 
     val anchor = if (readers.nonEmpty) readers.head else writers.head
-    //debug(s"  anchor = $anchor")
 
     val lcas = accesses.map{access =>
       val (lca,dist) = lcaWithCoarseDistance(anchor, access)
-      //debug(s"    lca($anchor, $access) = $lca ($dist)")
+
       (lca,dist,access)
     }
     // Find accesses which require n-buffering, group by their controller
@@ -155,8 +173,12 @@ trait NodeUtils extends NodeClasses {
     // Port X: X stage(s) after first stage
     val ports = Map(lcas.map{grp => grp._3 -> (grp._2 - minDist)}:_*)
 
-    // debug(s"  metapipe = $metapipe")
-    // ports.foreach{case (access, port) => debug(s"    - $access : port #$port")}
+    dbg("")
+    dbg(c"  accesses: $accesses")
+    dbg(c"  anchor: $anchor")
+    lcas.foreach{case (lca,dist,access) => dbg(c"    lca($anchor, $access) = $lca ($dist)") }
+    dbg(s"  metapipe: $metapipe")
+    ports.foreach{case (access, port) => dbg(s"    - $access : port #$port")}
 
     (metapipe, ports)
   }
@@ -166,8 +188,8 @@ trait NodeUtils extends NodeClasses {
   /** Error checking methods **/
 
   def areConcurrent(a: Access, b: Access): Boolean = {
-    val top = lca(a.ctrl, b.ctrl).get
-    isInnerControl(top)
+    val (top,dist) = lcaWithDistance(a.ctrl, b.ctrl)
+    isInnerControl(top) || dist < 0
   }
   def arePipelined(a: Access, b: Access): Boolean = {
     val top = lca(a.ctrl, b.ctrl).get
@@ -200,4 +222,16 @@ trait NodeUtils extends NodeClasses {
   def checkMultipleWriters(mem: Exp[_]): Boolean = if (writersOf(mem).length > 1) {
     new MultipleWritersError(mem, writersOf(mem).map(_.node)); true
   } else false
+
+  /*def checkConcurrentReadWrite(mem: Exp[_]): Boolean = {
+    val hasConcurrent = writersOf(mem).exists{writer =>
+      readersOf(mem).exists{reader =>
+        if (areConcurrent(writer, reader)) {
+          warn(ctxOrHere(mem), u"Memory $mem appears to have a concurrent read and write")
+          warn(ctxOrHere(reader), u"Read defined here")
+          warn(ctxOrHere(writer), u"Write defined here")
+        }
+      }
+    }
+  }*/
 }

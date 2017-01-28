@@ -180,6 +180,12 @@ trait SpatialMetadataExp extends SpatialMetadataOps with NameExp with IndexPatte
     def apply(x: Ctrl): Option[Ctrl] = if (x.isInner) Some((x.node, false)) else parentOf(x.node).map{x => (x,false)}
   }
 
+  case class CtrlDeps(deps: Set[Exp[_]]) extends Metadata[CtrlDeps] { def mirror(f:Tx) = CtrlDeps(f.tx(deps)) }
+  object ctrlDepsOf {
+    def apply(x: Exp[_]): Set[Exp[_]] = metadata[CtrlDeps](x).map(_.deps).getOrElse(Set.empty)
+    def update(x: Exp[_], deps: Set[Exp[_]]) = metadata.add(x, CtrlDeps(deps))
+  }
+
   /**
     * List of memories written in a given controller
     **/
@@ -194,15 +200,20 @@ trait SpatialMetadataExp extends SpatialMetadataOps with NameExp with IndexPatte
     def update(x: Ctrl, written: List[Exp[_]]): Unit = writtenIn(x.node) = written
   }
 
-
-  case class ExternalReaders(readers: List[Exp[_]]) extends Metadata[ExternalReaders] {
-    def mirror(f:Tx) = ExternalReaders(f.tx(readers))
+  /**
+    * List of consumers of reads (primarily used for register reads)
+    */
+  case class ReadUsers(users: List[Exp[_]]) extends Metadata[ReadUsers] {
+    def mirror(f:Tx) = ReadUsers(f.tx(users))
   }
-  object externalReadersOf {
-    def apply(x: Exp[_]): List[Exp[_]] = metadata[ExternalReaders](x).map(_.readers).getOrElse(Nil)
-    def update(x: Exp[_], readers: List[Exp[_]]) = metadata.add(x, ExternalReaders(readers))
+  object usersOf {
+    def apply(x: Exp[_]): List[Exp[_]] = metadata[ReadUsers](x).map(_.users).getOrElse(Nil)
+    def update(x: Exp[_], users: List[Exp[_]]) = metadata.add(x, ReadUsers(users))
   }
 
+  /**
+    * Parallelization factor associated with a given loop index, prior to unrolling
+    */
   case class ParFactor(factor: Const[Index]) extends Metadata[ParFactor] {
     def mirror(f:Tx) = ParFactor(f(factor).asInstanceOf[Const[Index]])
   }
@@ -211,6 +222,9 @@ trait SpatialMetadataExp extends SpatialMetadataOps with NameExp with IndexPatte
     def update(x: Exp[_], factor: Const[Index]) = metadata.add(x, ParFactor(factor))
   }
 
+  /**
+    * Parallelization factors which a given node will be unrolled by, prior to unrolling
+    */
   case class UnrollFactors(factors: Seq[Const[Index]]) extends Metadata[UnrollFactors] {
     def mirror(f:Tx) = UnrollFactors(factors.map{x => f(x).asInstanceOf[Const[Index]] })
   }
@@ -219,9 +233,59 @@ trait SpatialMetadataExp extends SpatialMetadataOps with NameExp with IndexPatte
     def update(x: Exp[_], factors: Seq[Const[Index]]) = metadata.add(x, UnrollFactors(factors))
   }
 
+  /**
+    * Identifies whether a memory is an accumulator
+    */
   case class MAccum(is: Boolean) extends Metadata[MAccum] { def mirror(f:Tx) = this }
   object isAccum {
     def apply(x: Exp[_]): Boolean = metadata[MAccum](x).exists(_.is)
     def update(x: Exp[_], is: Boolean) = metadata.add(x, MAccum(is))
   }
+
+  /**
+    * Tracks start of address space of given DRAM
+    */
+  case class DRAMAddress(insts: Long) extends Metadata[DRAMAddress] { def mirror(f:Tx) = this }
+  object dramAddr {
+    def apply(e: Exp[_]): Long = metadata[DRAMAddress](e).map(_.insts).getOrElse(0)
+    def update(e: Exp[_], a: Long) = metadata.add(e, DRAMAddress(a))
+  }
+
+  /**
+    * Identifies reduction function for an accumulation, if any
+    */
+  sealed abstract class ReduceFunction
+  case object FixPtSum extends ReduceFunction
+  case object FltPtSum extends ReduceFunction
+  case object FixPtMin extends ReduceFunction
+  case object FixPtMax extends ReduceFunction
+  case object OtherReduction extends ReduceFunction
+
+  case class MReduceType(func: Option[ReduceFunction]) extends Metadata[MReduceType] { def mirror(f:Tx) = this }
+
+  object reduceType {
+    def apply(e: Exp[_]): Option[ReduceFunction] = metadata[MReduceType](e).flatMap(_.func)
+    def update(e: Exp[_], func: ReduceFunction) = metadata.add(e, MReduceType(Some(func)))
+    def update(e: Exp[_], func: Option[ReduceFunction]) = metadata.add(e, MReduceType(func))
+  }
+
+  case class UnrolledResult(isIt: Boolean) extends Metadata[UnrolledResult] { def mirror(f:Tx) = this }
+  object isReduceResult {
+    def apply(e: Exp[_]) = metadata[UnrolledResult](e).exists(_.isIt)
+    def update(e: Exp[_], isIt: Boolean) = metadata.add(e, UnrolledResult(isIt))
+  }
+
+  case class ReduceStarter(isIt: Boolean) extends Metadata[ReduceStarter] { def mirror(f:Tx) = this }
+  object isReduceStarter {
+    def apply(e: Exp[_]) = metadata[ReduceStarter](e).exists(_.isIt)
+    def update(e: Exp[_], isIt: Boolean) = metadata.add(e, ReduceStarter(isIt))
+  }
+
+  case class PartOfTree(node: Exp[_]) extends Metadata[PartOfTree] { def mirror(f:Tx) = this }
+  object rTreeMap {
+    // FIXME: The return type of this is Object (join of Exp[_] and Nil) -- maybe want an Option here? Or .get?
+    def apply(e: Exp[_]) = metadata[PartOfTree](e).map(_.node).getOrElse(Nil)
+    def update(e: Exp[_], node: Exp[_]) = metadata.add(e, PartOfTree(node))
+  }
+
 }

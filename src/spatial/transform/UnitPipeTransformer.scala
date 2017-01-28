@@ -27,13 +27,13 @@ trait UnitPipeTransformer extends ForwardTransformer {
     def deps = allocDeps ++ nodes.flatMap{case TP(s,d) => d.inputs }.toSet
 
     def dump(i: Int): Unit = {
-      if (isControl) debugs(s"$i. Control Stage") else debugs(s"$i. Primitive Stage")
-      debugs("Allocations: ")
-      allocs.foreach{case TP(s,d) => debugs(c"  $s = $d [dynamic: ${isDynamicAllocation(d)}]")}
-      debugs("Nodes: ")
-      nodes.foreach{case TP(s,d) => debugs(c"  $s = $d")}
-      debugs("Register reads: ")
-      regReads.foreach{case TP(s,d) => debugs(c"  $s = $d")}
+      if (isControl) dbgs(s"$i. Control Stage") else dbgs(s"$i. Primitive Stage")
+      dbgs("Allocations: ")
+      allocs.foreach{case TP(s,d) => dbgs(c"  $s = $d [dynamic: ${isDynamicAllocation(d)}]")}
+      dbgs("Nodes: ")
+      nodes.foreach{case TP(s,d) => dbgs(c"  $s = $d")}
+      dbgs("Register reads: ")
+      regReads.foreach{case TP(s,d) => dbgs(c"  $s = $d")}
     }
   }
   private object PipeStage { def empty(isControl: Boolean) = new PipeStage(isControl) }
@@ -59,7 +59,7 @@ trait UnitPipeTransformer extends ForwardTransformer {
   }
 
   private def wrapBlock[T:Staged](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
-    debugs(s"Wrapping block with type ${typ[T]}")
+    dbgs(s"Wrapping block with type ${typ[T]}")
     val stages = ArrayBuffer[PipeStage]()
     def curStage = stages.last
     stages += PipeStage.empty(true)

@@ -35,7 +35,7 @@ trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with Spa
     //def apply(ranges: Range*)(implicit ctx: SrcCtx): SRAMView[T] = SRAMView(this.s, ranges)
     def apply(indices: Index*)(implicit ctx: SrcCtx): T = wrap(sram_load(this.s, stagedDimsOf(s), unwrap(indices), ofs))
     @CurriedUpdate
-    override def update(indices: Index*)(value: T): Void = Void(sram_store(this.s, stagedDimsOf(s), unwrap(indices), ofs, value.s, bool(true)))
+    override def update(indices: Index*)(data: T): Void = Void(sram_store(this.s, stagedDimsOf(s), unwrap(indices), ofs, data.s, bool(true)))
 
     def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = copy_burst(dram, this, isLoad = true)
     def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void = copy_sparse(dram, this, isLoad = true)
@@ -56,8 +56,8 @@ trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with Spa
 
   case class SRAMIsMemory[T]()(implicit val bits: Bits[T]) extends Mem[T, SRAM] {
     def load(mem: SRAM[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = mem.apply(is: _*)
-    def store(mem: SRAM[T], is: Seq[Index], v: T, en: Bool)(implicit ctx: SrcCtx): Void = {
-      wrap(sram_store[T](mem.s, stagedDimsOf(mem.s),unwrap(is),lift[Int,Index](0).s,bits.unwrapped(v),en.s))
+    def store(mem: SRAM[T], is: Seq[Index], data: T, en: Bool)(implicit ctx: SrcCtx): Void = {
+      wrap(sram_store[T](mem.s, stagedDimsOf(mem.s),unwrap(is),lift[Int,Index](0).s,bits.unwrapped(data),en.s))
     }
     def iterators(mem: SRAM[T])(implicit ctx: SrcCtx): Seq[Counter] = {
       stagedDimsOf(mem.s).map{d => Counter(0, wrap(d), 1, 1) }
@@ -75,8 +75,8 @@ trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with Spa
   case class SRAMLoad[T:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index]) extends Op[T] {
     def mirror(f:Tx) = sram_load(f(mem), f(dims), f(is), f(ofs))
   }
-  case class SRAMStore[T:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], value: Exp[T], en: Exp[Bool]) extends Op[Void] {
-    def mirror(f:Tx) = sram_store(f(mem), f(dims), f(is), f(ofs), f(value), f(en))
+  case class SRAMStore[T:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
+    def mirror(f:Tx) = sram_store(f(mem), f(dims), f(is), f(ofs), f(data), f(en))
   }
 
   /** Smart Constructors **/
@@ -87,9 +87,9 @@ trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with Spa
     if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)(ctx)
     stage( SRAMLoad(sram, dims, indices, ofs) )(ctx)
   }
-  def sram_store[T:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], value: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
+  def sram_store[T:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
     if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)(ctx)
-    stageWrite(sram)( SRAMStore(sram, dims, indices, ofs, value, en) )(ctx)
+    stageWrite(sram)( SRAMStore(sram, dims, indices, ofs, data, en) )(ctx)
   }
 
 

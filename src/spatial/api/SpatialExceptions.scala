@@ -60,6 +60,10 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
     metapipes.foreach{case (pipe,accesses) => error(c"  $pipe: $accesses")}
   })
 
+  class UndefinedPipeDistanceException(a: Ctrl, b: Ctrl) extends
+  CompilerException(1010, c"Controllers $a and $b have an undefined pipe distance because they occur in parallel", {
+    error(c"Controllers $a and $b have an undefined pipe distance because they occur in parallel")
+  })
 
 
 
@@ -139,4 +143,16 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
     error("No Accel block was specified for this program.")
   })
 
+  class EmptyVectorException(ctx: SrcCtx) extends UserError(ctx, {
+    error("Attempted to create an empty vector. Empty vectors are currently disallowed.")
+  })
+
+  class InvalidVectorApplyIndex(vector: Exp[_], index: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+    error(u"Attempted to address vector $vector at invalid index $index.")
+  })
+
+  class InvalidVectorSlice(vector: Exp[_], start: Int, end: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+    error(u"Attempted to slice vector $vector from $start to $end, creating an empty vector")
+    error("Creation of empty vectors is currently disallowed.")
+  })
 }

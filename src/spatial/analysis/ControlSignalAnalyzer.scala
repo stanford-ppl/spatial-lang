@@ -44,7 +44,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     metadata.clearAll[Readers]
     metadata.clearAll[Children]
     metadata.clearAll[WrittenMems]
-    metadata.clearAll[ExternalReaders]
+    metadata.clearAll[ReadUsers]
     super.preprocess(block)
   }
 
@@ -59,12 +59,14 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       pendingExtReads.foreach { case reader@LocalReader(reads) =>
         reads.foreach { case (mem, addr, en) =>
           if (!readersOf(mem).exists(_.node == reader)) {
-            debug(c"Adding external reader $reader to list of readers for $mem")
+            dbg(c"Adding external reader $reader to list of readers for $mem")
             readersOf(mem) = readersOf(mem) :+ (reader, (top.get, false))
           }
         }
       }
     }
+    dbg("Local memories: ")
+    localMems.foreach{mem => dbg(c"  $mem")}
     super.postprocess(block)
   }
 
@@ -99,12 +101,15 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     val LocalReader(reads) = reader
     reads.foreach{case (mem, addr, en) =>
       readersOf(mem) = readersOf(mem) :+ (reader, ctrl)
+      dbg(c"Added reader $reader of $mem in $ctrl")
     }
   }
   def addPendingReader(reader: Exp[_]) = {
+    dbg(c"Adding pending read $reader")
     pendingReads += reader -> List(reader)
   }
   def addPendingExternalReader(reader: Exp[_]) = {
+    dbg(c"Added pending external read: $reader")
     pendingExtReads += reader
   }
 
@@ -120,8 +125,11 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     writes.foreach{case (mem,value,addr,en) =>
       writersOf(mem) = writersOf(mem) :+ (writer,ctrl)      // (5)
       writtenIn(ctrl) = writtenIn(ctrl) :+ mem              // (10)
-      //value.foreach{v => isAccum(mem) = isAccum(mem) || } // (6)
-      //en.foreach{v => isAccum(mem) = isAccum(mem) || }    // (6)
+      value.foreach{v => isAccum(mem) = isAccum(mem) || (v dependsOn mem)  }              // (6)
+      addr.foreach{is => isAccum(mem) = isAccum(mem) || is.exists(i => i dependsOn mem) } // (6)
+      en.foreach{e => isAccum(mem) = isAccum(mem) || (e dependsOn mem) }                  // (6)
+
+      dbg(c"Added writer $writer of $mem in $ctrl")
     }
   }
 
@@ -136,12 +144,17 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
   // (1, 7)
   def addAllocation(alloc: Exp[_], ctrl: Exp[_]) = {
+    dbg(c"Setting parent of $alloc to $ctrl")
     parentOf(alloc) = ctrl
-    if (isLocalMemory(alloc)) localMems ::= alloc
+    if (isLocalMemory(alloc)) {
+      dbg(c"Registered local memory $alloc")
+      localMems ::= alloc
+    }
   }
 
   // (2, 3)
   def addChild(child: Exp[_], ctrl: Exp[_]) = {
+    dbg(c"Setting parent of $child to $ctrl")
     parentOf(child) = ctrl
     childrenOf(ctrl) = childrenOf(ctrl) + child
   }
@@ -158,9 +171,8 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
       val readers = rhs.inputs.flatMap{sym => pendingReads.getOrElse(sym, Nil) }
       if (readers.nonEmpty) {
-        // FIXME: This creates a list for all readers, is this what we want?
         readers.foreach{reader =>
-          if (rhs.inputs contains reader) externalReadersOf(reader) = externalReadersOf(reader) :+ lhs
+          if (rhs.inputs contains reader) usersOf(reader) = usersOf(reader) :+ lhs
         }
 
         if (isAllocation(lhs)) {
@@ -190,40 +202,74 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
+  def addChildDependencyData(lhs: Sym[_], block: Block[_]): Unit = if (isOuterControl(lhs)) {
+    withInnerStms(availStms diff block.inputs.map(stmOf)) {
+      val children = childrenOf(lhs)
+      dbg(c"parent: $lhs")
+      val allDeps = Map(children.map { child =>
+        dbg(c"  child: $child")
+        val schedule = getCustomSchedule(availStms, List(child))
+        schedule.foreach{stm => dbg(c"    $stm")}
+        child -> schedule.flatMap(_.lhs).filter { e => children.contains(e) && e != child }
+      }.toSeq: _*)
+
+      dbg(c"dependencies: ")
+      allDeps.foreach { case (child, deps) =>
+        val fringe = deps diff deps.flatMap(allDeps)
+        ctrlDepsOf(child) = fringe.toSet
+        dbg(c"  $child ($fringe)")
+      }
+    }
+  }
+
   override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = {
     addCommonControlData(lhs, rhs)
-    rhs match {
-      case Hwblock(blk)                 => visitCtrl((lhs,false)){ visitBlock(blk) }
-      case UnitPipe(blk)                => visitCtrl((lhs,false)){ visitBlock(blk) }
-      case OpForeach(cchain,func,iters) => visitCtrl((lhs,false),iters,cchain){ visitBlock(func) }
+    analyze(lhs, rhs)
+  }
 
-      case OpReduce(cchain,accum,map,ld,reduce,store,rV,iters) =>
-        visitCtrl((lhs,false), iters, cchain){
-          visitBlock(map)
-          visitBlock(ld)
+  protected def analyze(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
+    case Hwblock(blk) =>
+      visitCtrl((lhs,false)){ visitBlock(blk) }
+      addChildDependencyData(lhs, blk)
+
+    case UnitPipe(blk) =>
+      visitCtrl((lhs,false)){ visitBlock(blk) }
+      addChildDependencyData(lhs, blk)
+
+    case OpForeach(cchain,func,iters) =>
+      visitCtrl((lhs,false),iters,cchain){ visitBlock(func) }
+      addChildDependencyData(lhs, func)
+
+    case OpReduce(cchain,accum,map,ld,reduce,store,rV,iters) =>
+      visitCtrl((lhs,false), iters, cchain){
+        visitBlock(map)
+        visitBlock(ld)
+        visitBlock(reduce)
+        visitBlock(store)
+      }
+      isAccum(accum) = true
+      parentOf(accum) = lhs
+      addChildDependencyData(lhs, map)
+
+    case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,rV,itersMap,itersRed) =>
+      visitCtrl((lhs,false), itersMap, cchainMap) {
+        visitBlock(map)
+        visitCtrl((lhs,true), itersRed, cchainRed) {
+          visitBlock(ldAcc)
+          visitBlock(ldRes)
           visitBlock(reduce)
           visitBlock(store)
         }
-        isAccum(accum) = true
-        parentOf(accum) = lhs
+      }
+      isAccum(accum) = true
+      parentOf(accum) = lhs
+      addChildDependencyData(lhs, map)
 
-      case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,rV,itersMap,itersRed) =>
-        visitCtrl((lhs,false), itersMap, cchainMap) {
-          visitBlock(map)
-          visitCtrl((lhs,true), itersRed, cchainRed) {
-            visitBlock(ldAcc)
-            visitBlock(ldRes)
-            visitBlock(reduce)
-            visitBlock(store)
-          }
-        }
-        isAccum(accum) = true
-        parentOf(accum) = lhs
+    case e: Scatter[_] => parFactorOf(e.i) = parFactorsOf(lhs).head
+    case e: Gather[_]  => parFactorOf(e.i) = parFactorsOf(lhs).head
 
-      case e: Scatter[_] => parFactorOf(e.i) = parFactorsOf(lhs).head
-      case e: Gather[_]  => parFactorOf(e.i) = parFactorsOf(lhs).head
-
-      case _ => super.visit(lhs, rhs)
-    }
+    case _ => super.visit(lhs, rhs)
   }
+
 }
+

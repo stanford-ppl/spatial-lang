@@ -34,6 +34,8 @@ trait NodeClasses extends SpatialMetadataExp {
   def isInnerControl(e: Ctrl): Boolean = e.isInner || isInnerControl(e.node)
   def isInnerPipeline(e: Ctrl): Boolean = e.isInner || isInnerPipeline(e.node)
 
+  def isInnerPipe(e: Exp[_]): Boolean = styleOf(e) == InnerPipe
+  def isInnerPipe(e: Ctrl): Boolean = e.isInner || isInnerPipe(e.node)
   def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe
   def isStreamPipe(e: Exp[_]): Boolean = styleOf(e) == StreamPipe
   def isMetaPipe(e: Ctrl): Boolean = !e.isInner && isMetaPipe(e.node)

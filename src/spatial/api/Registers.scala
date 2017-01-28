@@ -9,7 +9,7 @@ trait RegOps extends MemoryOps {
 
   protected trait RegOps[T] {
     def value(implicit ctx: SrcCtx): T
-    def :=(v: T)(implicit ctx: SrcCtx): Void
+    def :=(data: T)(implicit ctx: SrcCtx): Void
   }
 
   def ArgIn[T:Bits](implicit ctx: SrcCtx): Reg[T]
@@ -30,7 +30,7 @@ trait RegExp extends RegOps with MemoryExp {
   /** API **/
   case class Reg[T:Bits](s: Exp[Reg[T]]) extends RegOps[T] { self =>
     def value(implicit ctx: SrcCtx): T = wrap(reg_read(this.s))
-    def :=(v: T)(implicit ctx: SrcCtx): Void = Void(reg_write(this.s, v.s, bool(true)))
+    def :=(data: T)(implicit ctx: SrcCtx): Void = Void(reg_write(this.s, data.s, bool(true)))
   }
 
   def ArgIn[T:Bits](implicit ctx: SrcCtx): Reg[T] = Reg(argin_alloc[T](zero[T].s))
@@ -55,8 +55,8 @@ trait RegExp extends RegOps with MemoryExp {
   case class ArgOutNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] { def mirror(f:Tx) = argin_alloc[T](f(init)) }
   case class RegNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] { def mirror(f:Tx) = reg_alloc[T](f(init)) }
   case class RegRead[T:Bits](reg: Exp[Reg[T]]) extends Op[T] { def mirror(f:Tx) = reg_read(f(reg)) }
-  case class RegWrite[T:Bits](reg: Exp[Reg[T]], value: Exp[T], en: Exp[Bool]) extends Op[Void] {
-    def mirror(f:Tx) = reg_write(f(reg),f(value), f(en))
+  case class RegWrite[T:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
+    def mirror(f:Tx) = reg_write(f(reg),f(data), f(en))
   }
 
   /** Smart Constructors **/
@@ -76,8 +76,8 @@ trait RegExp extends RegOps with MemoryExp {
 
   def reg_read[T:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = stage( RegRead(reg) )(ctx)
 
-  def reg_write[T:Bits](reg: Exp[Reg[T]], value: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
-    stageWrite(reg)( RegWrite(reg, value, en) )(ctx)
+  def reg_write[T:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
+    stageWrite(reg)( RegWrite(reg, data, en) )(ctx)
   }
 
 

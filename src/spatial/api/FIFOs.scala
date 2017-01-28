@@ -6,8 +6,8 @@ trait FIFOOps extends MemoryOps { this: SpatialOps =>
   type FIFO[T] <: FIFOOps[T]
 
   protected trait FIFOOps[T] {
-    def enq(value: T)(implicit ctx: SrcCtx): Void = this.enq(value, true)
-    def enq(value: T, en: Bool)(implicit ctx: SrcCtx): Void
+    def enq(data: T)(implicit ctx: SrcCtx): Void = this.enq(data, true)
+    def enq(data: T, en: Bool)(implicit ctx: SrcCtx): Void
     def deq()(implicit ctx: SrcCtx): T = this.deq(true)
     def deq(en: Bool)(implicit ctx: SrcCtx): T
   }
@@ -23,7 +23,7 @@ trait FIFOApi extends FIFOOps with MemoryApi { this: SpatialApi => }
 trait FIFOExp extends FIFOOps with MemoryExp with SpatialExceptions { this: SpatialExp =>
   /** API **/
   case class FIFO[T:Bits](s: Exp[FIFO[T]]) extends FIFOOps[T] {
-    def enq(value: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(fifo_enq(this.s, value.s, en.s))
+    def enq(data: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(fifo_enq(this.s, data.s, en.s))
     def deq(en: Bool)(implicit ctx: SrcCtx): T = wrap(fifo_deq(this.s, en.s))
   }
 
@@ -42,7 +42,7 @@ trait FIFOExp extends FIFOOps with MemoryExp with SpatialExceptions { this: Spat
 
   case class FIFOIsMemory[T]()(implicit val bits: Bits[T]) extends Mem[T, FIFO] {
     def load(mem: FIFO[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = mem.deq(en)
-    def store(mem: FIFO[T], is: Seq[Index], v: T, en: Bool)(implicit ctx: SrcCtx): Void = mem.enq(v, en)
+    def store(mem: FIFO[T], is: Seq[Index], data: T, en: Bool)(implicit ctx: SrcCtx): Void = mem.enq(data, en)
 
     def iterators(mem: FIFO[T])(implicit ctx: SrcCtx): Seq[Counter] = Seq(Counter(0,sizeOf(mem),1,1))
   }
@@ -52,8 +52,8 @@ trait FIFOExp extends FIFOOps with MemoryExp with SpatialExceptions { this: Spat
   case class FIFONew[T:Bits](size: Exp[Index]) extends Op2[T,FIFO[T]] {
     def mirror(f:Tx) = fifo_alloc[T](f(size))
   }
-  case class FIFOEnq[T:Bits](fifo: Exp[FIFO[T]], value: Exp[T], en: Exp[Bool]) extends Op[Void] {
-    def mirror(f:Tx) = fifo_enq(f(fifo),f(value),f(en))
+  case class FIFOEnq[T:Bits](fifo: Exp[FIFO[T]], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
+    def mirror(f:Tx) = fifo_enq(f(fifo),f(data),f(en))
   }
   case class FIFODeq[T:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool]) extends Op[T] {
     def mirror(f:Tx) = fifo_deq(f(fifo), f(en))
@@ -63,8 +63,8 @@ trait FIFOExp extends FIFOOps with MemoryExp with SpatialExceptions { this: Spat
   def fifo_alloc[T:Bits](size: Exp[Index])(implicit ctx: SrcCtx): Exp[FIFO[T]] = {
     stageMutable(FIFONew[T](size))(ctx)
   }
-  def fifo_enq[T:Bits](fifo: Exp[FIFO[T]], value: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
-    stageWrite(fifo)(FIFOEnq(fifo, value, en))(ctx)
+  def fifo_enq[T:Bits](fifo: Exp[FIFO[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
+    stageWrite(fifo)(FIFOEnq(fifo, data, en))(ctx)
   }
   def fifo_deq[T:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[T] = stage(FIFODeq(fifo,en))(ctx)
 
