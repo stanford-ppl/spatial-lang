@@ -10,20 +10,20 @@ trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
 
   /** IR Nodes **/
   case class UnrolledForeach(
-    cc:     Exp[CounterChain],
+    cchain: Exp[CounterChain],
     func:   Block[Void],
-    inds:   Seq[Seq[Bound[Index]]],
+    iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bool]]]
   ) extends Op[Controller] {
-    def mirror(f:Tx) = op_unrolled_foreach(f(cc),f(func),inds,valids)
+    def mirror(f:Tx) = op_unrolled_foreach(f(cchain),f(func),iters,valids)
 
-    override def inputs = syms(cc) ++ syms(func)
-    override def freqs = normal(cc) ++ cold(func)
-    override def binds = super.binds ++ inds.flatten ++ valids.flatten
+    override def inputs = syms(cchain) ++ syms(func)
+    override def freqs = normal(cchain) ++ cold(func)
+    override def binds = super.binds ++ iters.flatten ++ valids.flatten
   }
 
   case class UnrolledReduce[T,C[T]](
-    cc:     Exp[CounterChain],
+    cchain: Exp[CounterChain],
     accum:  Exp[C[T]],
     func:   Block[Void],
     reduce: Block[T],
@@ -31,35 +31,39 @@ trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
     valids: Seq[Seq[Bound[Bool]]],
     rV:     (Bound[T], Bound[T])
   )(implicit val mT: Staged[T], val mC: Staged[C[T]]) extends Op[Controller] {
-    def mirror(f:Tx) = op_unrolled_reduce(f(cc),f(accum),f(func),f(reduce),iters,valids,rV)
+    def mirror(f:Tx) = op_unrolled_reduce(f(cchain),f(accum),f(func),f(reduce),iters,valids,rV)
 
-    override def inputs = syms(cc, accum) ++ syms(func) ++ syms(reduce)
-    override def freqs = normal(cc) ++ normal(accum) ++ cold(func) ++ cold(reduce)
+    override def inputs = syms(cchain, accum) ++ syms(func) ++ syms(reduce)
+    override def freqs = normal(cchain) ++ normal(accum) ++ cold(func) ++ cold(reduce)
     override def binds = super.binds ++ iters.flatten ++ valids.flatten ++ Seq(rV._1, rV._2)
     override def tunnels = syms(accum)
   }
 
   case class ParSRAMLoad[T:Bits](
     sram: Exp[SRAM[T]],
-    addr: Exp[Vector[Vector[Index]]]
+    addr: Seq[Seq[Exp[Index]]]
   ) extends Op[Vector[T]] {
-    def mirror(f:Tx) = par_sram_load(sram, addr)
+    def mirror(f:Tx) = par_sram_load(f(sram), addr.map{inds => f(inds)})
+    val bT = bits[T]
   }
 
   case class ParSRAMStore[T:Bits](
     sram: Exp[SRAM[T]],
-    addr: Exp[Vector[Vector[Index]]],
+    addr: Seq[Seq[Exp[Index]]],
     data: Exp[Vector[T]],
     ens:  Exp[Vector[Bool]]
   ) extends Op[Void] {
-    def mirror(f:Tx) = par_sram_store(f(sram),f(addr),f(data),f(ens))
+    def mirror(f:Tx) = par_sram_store(f(sram),addr.map{inds => f(inds)},f(data),f(ens))
+    val bT = bits[T]
   }
 
   case class ParFIFODeq[T:Bits](
     fifo: Exp[FIFO[T]],
-    ens:  Exp[Vector[Bool]]
+    ens:  Exp[Vector[Bool]],
+    zero: Exp[T]
   ) extends Op[Vector[T]] {
-    def mirror(f:Tx) = par_fifo_deq(f(fifo),f(ens))
+    def mirror(f:Tx) = par_fifo_deq(f(fifo),f(ens),f(zero))
+    val bT = bits[T]
   }
 
   case class ParFIFOEnq[T:Bits](
@@ -68,23 +72,24 @@ trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
     ens:  Exp[Vector[Bool]]
   ) extends Op[Void] {
     def mirror(f:Tx) = par_fifo_enq(f(fifo),f(data),f(ens))
+    val bT = bits[T]
   }
 
 
   /** Constructors **/
   private[spatial] def op_unrolled_foreach(
-    cc:     Exp[CounterChain],
+    cchain: Exp[CounterChain],
     func:   => Exp[Void],
-    inds:   Seq[Seq[Bound[Index]]],
+    iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bool]]]
   )(implicit ctx: SrcCtx): Exp[Controller] = {
     val fBlk = stageBlock { func }
     val effects = fBlk.summary.star
-    stageEffectful(UnrolledForeach(cc, fBlk, inds, valids), effects)(ctx)
+    stageEffectful(UnrolledForeach(cchain, fBlk, iters, valids), effects)(ctx)
   }
 
   private[spatial] def op_unrolled_reduce[T,C[T]](
-    cc:     Exp[CounterChain],
+    cchain: Exp[CounterChain],
     accum:  Exp[C[T]],
     func:   => Exp[Void],
     reduce: => Exp[T],
@@ -95,19 +100,19 @@ trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
     val fBlk = stageBlock { func }
     val rBlk = stageBlock { reduce }
     val effects = fBlk.summary andAlso rBlk.summary
-    stageEffectful(UnrolledReduce(cc, accum, fBlk, rBlk, iters, valids, rV), effects.star)(ctx)
+    stageEffectful(UnrolledReduce(cchain, accum, fBlk, rBlk, iters, valids, rV), effects.star)(ctx)
   }
 
   private[spatial] def par_sram_load[T:Bits](
     sram: Exp[SRAM[T]],
-    addr: Exp[Vector[Vector[Index]]]
+    addr: Seq[Seq[Exp[Index]]]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
     stage( ParSRAMLoad(sram, addr) )(ctx)
   }
 
   private[spatial] def par_sram_store[T:Bits](
     sram: Exp[SRAM[T]],
-    addr: Exp[Vector[Vector[Index]]],
+    addr: Seq[Seq[Exp[Index]]],
     data: Exp[Vector[T]],
     ens:  Exp[Vector[Bool]]
   )(implicit ctx: SrcCtx): Exp[Void] = {
@@ -116,9 +121,10 @@ trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
 
   private[spatial] def par_fifo_deq[T:Bits](
     fifo: Exp[FIFO[T]],
-    ens:  Exp[Vector[Bool]]
+    ens:  Exp[Vector[Bool]],
+    zero: Exp[T]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
-    stage( ParFIFODeq(fifo, ens) )(ctx)
+    stage( ParFIFODeq(fifo, ens, zero) )(ctx)
   }
 
   private[spatial] def par_fifo_enq[T:Bits](

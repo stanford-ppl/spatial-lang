@@ -156,7 +156,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   def addChild(child: Exp[_], ctrl: Exp[_]) = {
     dbg(c"Setting parent of $child to $ctrl")
     parentOf(child) = ctrl
-    childrenOf(ctrl) = childrenOf(ctrl) + child
+    childrenOf(ctrl) = childrenOf(ctrl) :+ child
   }
 
 
@@ -211,7 +211,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
         val schedule = getCustomSchedule(availStms, List(child))
         schedule.foreach{stm => dbg(c"    $stm")}
         child -> schedule.flatMap(_.lhs).filter { e => children.contains(e) && e != child }
-      }.toSeq: _*)
+      }: _*)
 
       dbg(c"dependencies: ")
       allDeps.foreach { case (child, deps) =>

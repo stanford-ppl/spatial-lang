@@ -51,12 +51,25 @@ trait RegExp extends RegOps with MemoryExp {
   implicit def regType[T:Bits]: Staged[Reg[T]] = RegType[T](bits[T])
 
   /** IR Nodes **/
-  case class ArgInNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] { def mirror(f:Tx) = argin_alloc[T](f(init)) }
-  case class ArgOutNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] { def mirror(f:Tx) = argin_alloc[T](f(init)) }
-  case class RegNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] { def mirror(f:Tx) = reg_alloc[T](f(init)) }
-  case class RegRead[T:Bits](reg: Exp[Reg[T]]) extends Op[T] { def mirror(f:Tx) = reg_read(f(reg)) }
+  case class ArgInNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] {
+    def mirror(f:Tx) = argin_alloc[T](f(init))
+    val bT = bits[T]
+  }
+  case class ArgOutNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] {
+    def mirror(f:Tx) = argin_alloc[T](f(init))
+    val bT = bits[T]
+  }
+  case class RegNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] {
+    def mirror(f:Tx) = reg_alloc[T](f(init))
+    val bT = bits[T]
+  }
+  case class RegRead[T:Bits](reg: Exp[Reg[T]]) extends Op[T] {
+    def mirror(f:Tx) = reg_read(f(reg))
+    val bT = bits[T]
+  }
   case class RegWrite[T:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
     def mirror(f:Tx) = reg_write(f(reg),f(data), f(en))
+    val bT = bits[T]
   }
 
   /** Smart Constructors **/

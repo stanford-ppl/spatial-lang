@@ -71,12 +71,15 @@ trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with Spa
   /** IR Nodes **/
   case class SRAMNew[T:Bits](dims: Seq[Exp[Index]]) extends Op2[T,SRAM[T]] {
     def mirror(f:Tx) = sram_alloc[T](f(dims))
+    val bT = bits[T]
   }
   case class SRAMLoad[T:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index]) extends Op[T] {
     def mirror(f:Tx) = sram_load(f(mem), f(dims), f(is), f(ofs))
+    val bT = bits[T]
   }
   case class SRAMStore[T:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
     def mirror(f:Tx) = sram_store(f(mem), f(dims), f(is), f(ofs), f(data), f(en))
+    val bT = bits[T]
   }
 
   /** Smart Constructors **/

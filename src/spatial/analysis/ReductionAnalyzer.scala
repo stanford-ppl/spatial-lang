@@ -12,7 +12,7 @@ trait ReductionAnalyzer extends SpatialTraversal {
     case Def(Min(`a`,`b`)) if isFixPtType(a.tp) => FixPtMin
     case Def(Max(`a`,`b`)) if isFixPtType(a.tp) => FixPtMax
     case _ =>
-      warn(s"$rFunc on $a and $b does not match any reduce type!")
+      warn(u"$rFunc on $a and $b does not match any reduce type!")
       OtherReduction
   }
 

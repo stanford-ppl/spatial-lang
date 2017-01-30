@@ -98,16 +98,15 @@ trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with Spati
 
 
   /** Internals **/
-  def reduceTreeLevel[T:Bits](xs: Seq[T], reduce: (T,T) => T)(implicit ctx: SrcCtx): Seq[T] = xs.length match {
+  private def reduceTreeLevel[T](xs: Seq[T], reduce: (T,T) => T)(implicit ctx: SrcCtx): Seq[T] = xs.length match {
     case 0 => throw new EmptyReductionTreeLevelException()(ctx)
     case 1 => xs
     case len if len % 2 == 0 => reduceTreeLevel(List.tabulate(len/2){i => reduce( xs(2*i), xs(2*i+1)) }, reduce)
     case len => reduceTreeLevel(List.tabulate(len/2){i => reduce( xs(2*i), xs(2*i+1)) } :+ xs.last, reduce)
   }
 
-  def reduceTree[T:Bits](xs: Seq[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx): T = reduceTreeLevel(xs, reduce).head
+  def reduceTree[T](xs: Seq[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx): T = reduceTreeLevel(xs, reduce).head
 
   def productTree[T:Num](xs: Seq[T])(implicit ctx: SrcCtx): T = reduceTree(xs){(a,b) => num[T].times(a,b) }
   def sumTree[T:Num](xs: Seq[T])(implicit ctx: SrcCtx): T = reduceTree(xs){(a,b) => num[T].plus(a,b) }
-
 }

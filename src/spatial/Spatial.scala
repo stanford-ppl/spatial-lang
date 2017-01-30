@@ -8,7 +8,7 @@ import spatial.api._
 import spatial.dse._
 import spatial.analysis._
 import spatial.transform._
-import spatial.codegen.scalagen._
+import spatial.codegen.scalagen.{ScalaGenVector, _}
 
 protected trait SpatialOps extends OverloadHack with SpatialMetadataOps with BankingMetadataOps
      with IfThenElseOps with PrintOps with ControllerOps with MathOps with TextOps with DRAMOps with StringCastOps
@@ -27,7 +27,7 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaSingleFileGen
   with ScalaGenBool with ScalaGenVoid with ScalaGenFixPt with ScalaGenFltPt with ScalaGenMixedNumeric
   with ScalaGenCounter with ScalaGenReg with ScalaGenSRAM with ScalaGenFIFO
   with ScalaGenIfThenElse with ScalaGenPrint with ScalaGenController with ScalaGenMath with ScalaGenText
-  with ScalaGenDRAM with ScalaGenStringCast with ScalaGenHostTransfer {
+  with ScalaGenDRAM with ScalaGenStringCast with ScalaGenHostTransfer with ScalaGenUnrolled with ScalaGenVector {
 
   override val IR: SpatialCompiler
 }
@@ -110,13 +110,17 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   // TODO: models go here
 
   // --- Design Elaboration
+  passes += printer
   passes += unroller          // Unrolling
+  passes += printer
+
   passes += uctrlAnalyzer     // Analysis for unused register reads
   passes += regCleanup        // Duplicate register reads for each use
   passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
 
   // --- Post-Unroll Analysis
   passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)
+  passes += printer
   passes += bufferAnalyzer    // Set top controllers for n-buffers
   passes += dramAddrAlloc     // Get address offsets for each used DRAM object
   passes += printer

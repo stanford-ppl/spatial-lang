@@ -83,4 +83,14 @@ trait CounterExp extends CounterOps with RangeExp with SpatialExceptions {
   }
   def counterchain_new(counters: Seq[Exp[Counter]])(implicit ctx: SrcCtx) = stageCold(CounterChainNew(counters))(ctx)
 
+  /** Internals **/
+  def isUnitCounter(x: Exp[Counter]): Boolean = x match {
+    case Op(CounterNew(Const(0), Const(1), Const(1), _)) => true
+    case _ => false
+  }
+
+  def isUnitCounterChain(x: Exp[CounterChain]): Boolean = x match {
+    case Op(CounterChainNew(ctrs)) => ctrs.forall(isUnitCounter)
+    case _ => false
+  }
 }

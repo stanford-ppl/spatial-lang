@@ -52,19 +52,23 @@ trait NodeClasses extends SpatialMetadataExp {
 
   def isPipeline(e: Exp[_]): Boolean = getDef(e).exists(isPipeline)
   def isPipeline(d: Def): Boolean = d match {
-    case _:Hwblock          => true
-    case _:UnitPipe         => true
-    case _:OpForeach        => true
-    case _:OpReduce[_]      => true
-    case _:OpMemReduce[_,_] => true
+    case _:Hwblock             => true
+    case _:UnitPipe            => true
+    case _:OpForeach           => true
+    case _:OpReduce[_]         => true
+    case _:OpMemReduce[_,_]    => true
+    case _:UnrolledForeach     => true
+    case _:UnrolledReduce[_,_] => true
     case _ => false
   }
 
   def isLoop(e: Exp[_]): Boolean = getDef(e).exists(isLoop)
   def isLoop(d: Def): Boolean = d match {
-    case _:OpForeach        => true
-    case _:OpReduce[_]      => true
-    case _:OpMemReduce[_,_] => true
+    case _:OpForeach           => true
+    case _:OpReduce[_]         => true
+    case _:OpMemReduce[_,_]    => true
+    case _:UnrolledForeach     => true
+    case _:UnrolledReduce[_,_] => true
     case _ => false
   }
 
@@ -143,20 +147,29 @@ trait NodeClasses extends SpatialMetadataExp {
   }
 
   def writerUnapply(d: Def): Option[List[LocalWrite]] = d match {
-    case RegWrite(reg,value,en)                => Some(LocalWrite(reg, value=value, en=en))
-    case SRAMStore(mem,dims,inds,ofs,value,en) => Some(LocalWrite(mem, value=value, addr=inds, en=en))
-    case FIFOEnq(fifo,value,en)                => Some(LocalWrite(fifo, value=value, en=en))
-    case BurstLoad(dram,fifo,ofs,_,_)          => Some(LocalWrite(fifo))
-    case Gather(dram,local,addrs,_,_)          => Some(LocalWrite(local))
+    case RegWrite(reg,data,en)                => Some(LocalWrite(reg, value=data, en=en))
+    case SRAMStore(mem,dims,inds,ofs,data,en) => Some(LocalWrite(mem, value=data, addr=inds, en=en))
+    case FIFOEnq(fifo,data,en)                => Some(LocalWrite(fifo, value=data, en=en))
+    case BurstLoad(dram,fifo,ofs,_,_)         => Some(LocalWrite(fifo))
+    case Gather(dram,local,addrs,_,_)         => Some(LocalWrite(local))
+
+    // TODO: Address and enable are in different format in parallelized accesses
+    case ParSRAMStore(mem,addr,data,en)       => Some(LocalWrite(mem,value=data))
+    case ParFIFOEnq(fifo,data,ens)            => Some(LocalWrite(fifo,value=data))
+
     case _ => None
   }
   def readerUnapply(d: Def): Option[List[LocalRead]] = d match {
     case RegRead(reg)                  => Some(LocalRead(reg))
     case SRAMLoad(mem,dims,inds,ofs)   => Some(LocalRead(mem, addr=inds))
-    case FIFODeq(fifo,en)              => Some(LocalRead(fifo, en=en))
+    case FIFODeq(fifo,en,_)            => Some(LocalRead(fifo, en=en))
     case BurstStore(dram,fifo,ofs,_,_) => Some(LocalRead(fifo))
     case Gather(dram,local,addrs,_,_)  => Some(LocalRead(addrs))
     case Scatter(dram,local,addrs,_,_) => Some(LocalRead(local) ++ LocalRead(addrs))
+
+    // TODO: Address and enable are in different format in parallelized accesses
+    case ParSRAMLoad(sram,addr)        => Some(LocalRead(sram))
+    case ParFIFODeq(fifo,ens,_)        => Some(LocalRead(fifo))
     case _ => None
   }
 

@@ -20,7 +20,7 @@ trait VectorExp extends VectorOps with BitsExp { this: SpatialExp =>
     // Nothing here for now
   }
 
-  private[spatial] def vectorize[T:Bits](elems: List[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[T]] = vector_new(elems)
+  private[spatial] def vectorize[T:Bits](elems: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[T]] = vector_new(elems)
 
   /** Staged Types **/
   case class VectorType[T](bits: Bits[T]) extends Staged[Vector[T]] {
@@ -33,16 +33,16 @@ trait VectorExp extends VectorOps with BitsExp { this: SpatialExp =>
   implicit def vectorType[T:Bits]: Staged[Vector[T]] = VectorType(bits[T])
 
   /** IR Nodes **/
-  case class ListVector[T:Bits](elems: List[Exp[T]]) extends Op[Vector[T]] { def mirror(f:Tx) = vector_new(f(elems)) }
+  case class ListVector[T:Bits](elems: Seq[Exp[T]]) extends Op[Vector[T]] { def mirror(f:Tx) = vector_new(f(elems)) }
   case class VectorApply[T:Bits](vector: Exp[Vector[T]], index: Int) extends Op[T] {
-    def mirror(f:Tx) = vector_apply(vector, index)
+    def mirror(f:Tx) = vector_apply(f(vector), index)
   }
   case class VectorSlice[T:Bits](vector: Exp[Vector[T]], start: Int, end: Int) extends Op[Vector[T]] {
-    def mirror(f:Tx) = vector_slice(vector, start, end)
+    def mirror(f:Tx) = vector_slice(f(vector), start, end)
   }
 
   /** Constructors **/
-  private[spatial] def vector_new[T:Bits](elems: List[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[T]] = {
+  private[spatial] def vector_new[T:Bits](elems: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[T]] = {
     stage(ListVector(elems))(ctx)
   }
 

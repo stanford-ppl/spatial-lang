@@ -13,8 +13,7 @@ trait ScalaGenController extends ScalaCodegen {
 
     func
 
-    for (i <- iters.indices)
-      close("}}}")
+    iters.indices.foreach{_ => close("}}}") }
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

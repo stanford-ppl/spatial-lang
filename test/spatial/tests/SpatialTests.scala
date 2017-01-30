@@ -153,8 +153,6 @@ object NDScatterTest extends SpatialTest {
 
 class SpatialTests extends FlatSpec with Matchers with Exceptions {
   val noargs = Array[String]()
-  deleteExts(Config.logDir, ".log")
-
   "NumericTest" should "compile" in { NumericTest.main(noargs) }
   "RegTest" should "compile" in { RegTest.main(noargs) }
   "SRAMTest" should "compile" in { SRAMTest.main(noargs) }

@@ -156,14 +156,14 @@ trait SpatialMetadataExp extends SpatialMetadataOps with NameExp with IndexPatte
     * Controller children
     * An unordered set of control nodes inside given (outer) control node.
     **/
-  case class Children(children: Set[Exp[_]]) extends Metadata[Children] { def mirror(f:Tx) = Children(f.tx(children)) }
+  case class Children(children: List[Exp[_]]) extends Metadata[Children] { def mirror(f:Tx) = Children(f.tx(children)) }
   object childrenOf {
-    def apply(x: Exp[_]): Set[Exp[_]] = metadata[Children](x).map(_.children).getOrElse(Set.empty[Exp[_]])
-    def update(x: Exp[_], children: Set[Exp[_]]) = metadata.add(x, Children(children))
+    def apply(x: Exp[_]): List[Exp[_]] = metadata[Children](x).map(_.children).getOrElse(Nil)
+    def update(x: Exp[_], children: List[Exp[_]]) = metadata.add(x, Children(children))
 
-    def apply(x: Ctrl): Set[Ctrl] = {
+    def apply(x: Ctrl): List[Ctrl] = {
       val children = childrenOf(x.node).map{child => (child, false) }
-      if (!x.isInner) children + ((x.node,true))
+      if (!x.isInner) children :+ ((x.node,true))
       else children
     }
   }

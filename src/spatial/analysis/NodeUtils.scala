@@ -64,7 +64,7 @@ trait NodeUtils extends NodeClasses {
       val parent = parentOf(a).get
       val children = childrenOf(parent) filterNot (_ == a)
       val leaves = children.filter{x => !children.exists{child => dependenciesOf(child) contains x}}
-      leaves
+      leaves.toSet
     }
     else ctrlDepsOf(a.node).map{node => (node,false) }
   }
@@ -93,7 +93,7 @@ trait NodeUtils extends NodeClasses {
         val topB = pathB.head
 
         // Account for fork-join behavior - return the LONGEST path possible
-        def dfs(start: Ctrl, end: Ctrl, i: Int): Int = {
+        /*def dfs(start: Ctrl, end: Ctrl, i: Int): Int = {
           if (start == end) i
           else {
             val deps = dependenciesOf(start)
@@ -109,7 +109,13 @@ trait NodeUtils extends NodeClasses {
         val bToA = dfs(topB, topA, 0)
         val dist  = if (aToB >= 0) aToB
                     else if (bToA >= 0) -bToA
-                    else throw new UndefinedPipeDistanceException(a, b)
+                    else throw new UndefinedPipeDistanceException(a, b)*/
+
+        // Linear version (using for now)
+        val indexA = childrenOf(parent).indexOf(topA)
+        val indexB = childrenOf(parent).indexOf(topB)
+        if (indexA < 0 || indexB < 0) throw new UndefinedPipeDistanceException(a, b)
+        val dist = indexB - indexA
 
         (parent, dist)
       }
@@ -122,7 +128,6 @@ trait NodeUtils extends NodeClasses {
     * If the LCA controller of a and b is a metapipeline, the pipeline distance
     * of the respective controllers for a and b. Otherwise zero.
     *
-    * // TODO: How is this defined for streaming cases?
     * @return The LCA of a and b and the coarse-grained pipeline distance
     **/
   def lcaWithCoarseDistance(a: Access, b: Access): (Ctrl, Int) = {

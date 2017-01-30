@@ -229,6 +229,11 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     override def freqs = cold(func)
   }
 
+  case class ParallelPipe(func: Block[Void]) extends Op[Controller] {
+    def mirror(f:Tx) = op_parallel_pipe(f(func))
+    override def freqs = cold(func)
+  }
+
   case class OpForeach(cchain: Exp[CounterChain], func: Block[Void], iters: List[Bound[Index]]) extends Op[Controller] {
     def mirror(f:Tx) = op_foreach(f(cchain), f(func), iters)
 
@@ -247,13 +252,13 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     rV:     (Bound[T],Bound[T]),
     iters:  List[Bound[Index]]
   ) extends Op[Controller] {
-
     def mirror(f:Tx) = op_reduce(f(cchain), f(accum), f(map), f(load), f(reduce), f(store), rV, iters)
 
     override def inputs = syms(cchain) ++ syms(map) ++ syms(reduce) ++ syms(accum) ++ syms(load) ++ syms(store)
     override def freqs  = cold(map) ++ cold(reduce) ++ normal(cchain) ++ normal(accum) ++ hot(load) ++ hot(store)
     override def binds  = super.binds ++ iters ++ List(rV._1, rV._2)
     override def tunnels = syms(accum)
+    val bT = bits[T]
   }
 
   case class OpMemReduce[T:Bits,C[T]](
@@ -268,8 +273,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     rV:        (Bound[T], Bound[T]),
     itersMap:  Seq[Bound[Index]],
     itersRed:  Seq[Bound[Index]]
-  )(implicit mem: Mem[T,C], mC: Staged[C[T]]) extends Op[Controller] {
-
+  )(implicit val mem: Mem[T,C], val mC: Staged[C[T]]) extends Op[Controller] {
     def mirror(f:Tx) = op_mem_reduce(f(cchainMap),f(cchainRed),f(accum),f(map),f(loadRes),f(loadAcc),f(reduce),
                                      f(storeAcc), rV, itersMap, itersRed)
 
@@ -277,6 +281,8 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     override def freqs = cold(map) ++ cold(reduce) ++ normal(cchainMap) ++ normal(cchainRed) ++ normal(accum)
     override def binds = super.binds ++ itersMap ++ itersRed ++ List(rV._1, rV._2)
     override def tunnels = syms(accum)
+
+    def bT = bits[T]
   }
 
 
@@ -292,6 +298,13 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     val effects = fBlk.summary
     stageEffectful( UnitPipe(fBlk), effects)(ctx)
   }
+
+  def op_parallel_pipe(func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
+    val fBlk = stageBlock{ func }
+    val effects = fBlk.summary
+    stageEffectful( ParallelPipe(fBlk), effects)(ctx)
+  }
+
   def op_foreach(domain: Exp[CounterChain], func: => Exp[Void], iters: List[Bound[Index]])(implicit ctx: SrcCtx): Sym[Controller] = {
     val fBlk = stageBlock{ func }
     val effects = fBlk.summary.star

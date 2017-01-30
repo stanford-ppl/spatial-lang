@@ -79,6 +79,7 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
     def mirror(f:Tx) = gather(f(dram),f(local),f(addrs),f(ctr),i)
 
     override def aliases = Nil
+    val bT = bits[T]
   }
   case class Scatter[T:Bits](
     dram:  Exp[DRAM[T]],
@@ -90,6 +91,7 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
     def mirror(f:Tx) = scatter(f(dram),f(local),f(addrs),f(ctr),i)
 
     override def aliases = Nil
+    val bT = bits[T]
   }
 
   // TODO: May make more sense to change these to output StreamIn / StreamOut later
