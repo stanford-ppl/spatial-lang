@@ -5,7 +5,6 @@ import spatial.{SpatialApi, SpatialExp, SpatialOps}
 trait MemoryOps extends VoidOps with BoolOps with NumOps with FixPtOps {
   this: SpatialOps =>
 
-  type Index = Int32
   type Range
   type Mem[T,C[_]]
 }
