@@ -5,7 +5,6 @@ import org.virtualized.virtualize
 import org.scalatest.{FlatSpec, Matchers}
 import argon._
 import argon.core.Exceptions
-import argon.utils.deleteExts
 import spatial.{SpatialApp, SpatialIR}
 
 // Create a testbench IR which runs Scala tests
@@ -149,7 +148,6 @@ object NDScatterTest extends SpatialTest {
     }
   }
 }
-
 
 class SpatialTests extends FlatSpec with Matchers with Exceptions {
   val noargs = Array[String]()

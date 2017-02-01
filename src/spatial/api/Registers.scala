@@ -56,7 +56,7 @@ trait RegExp extends RegOps with MemoryExp {
     val bT = bits[T]
   }
   case class ArgOutNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] {
-    def mirror(f:Tx) = argin_alloc[T](f(init))
+    def mirror(f:Tx) = argout_alloc[T](f(init))
     val bT = bits[T]
   }
   case class RegNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] {

@@ -10,7 +10,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   import IR._
 
   override val name = "Unrolling Transformer"
-  verbosity = 3
+  verbosity = 2
 
   lazy val printer = new IRPrinter {override val IR: self.IR.type = self.IR}
 
@@ -228,19 +228,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   def unrollMap[T:Staged](func: Block[T], lanes: Unroller)(implicit ctx: SrcCtx): List[Exp[T]] = {
     val origResult = func.result
 
-    var startId = curEdgeId
-
     tab += 1
     mangleBlock(func, {stms =>
       stms.foreach{case TP(lhs,rhs) => unroll(lhs, rhs, lanes)(ctxOrHere(lhs)) }
     })
     tab -= 1
-
-    var endId = curEdgeId
-    (startId until endId).foreach{id =>
-      dbgs(c"x$id")
-      edgeMetadata(id).foreach{case (k,m) => dbgs(s"  -$k : $m")}
-    }
 
     // Get the list of duplicates for the original result of this block
     lanes.map{p => f(origResult) }
@@ -256,9 +248,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     dbgs(s"Unrolling foreach $lhs")
 
     val lanes = Unroller(cchain, iters, isInnerControl(lhs))
-    val blk = stageBlock { unrollMap(func, lanes); void }
     val is = lanes.indices
     val vs = lanes.indexValids
+
+    val blk = stageBlock { unrollMap(func, lanes); void }
+
 
     val effects = blk.summary
     val lhs2 = stageEffectful(UnrolledForeach(cchain, blk, is, vs), effects.star)(ctx)
@@ -415,40 +409,15 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
           itersRed.foreach{i => dbgs(s"  $i -> ${f(i)}") }
         }
 
-
         val rBlk = stageBlock {
           dbgs(c"[Accum-fold $lhs] Unrolling map loads")
           dbgs(c"  memories: $mems")
 
-
           val values: Seq[Seq[Exp[T]]] = inReduction {
             mems.map{mem =>
-              val startId = curEdgeId
-              val result = withSubstScope(partial -> mem){
-                unrollMap(loadRes, reduceLanes)(mbits(bT),ctx)
+              withSubstScope(partial -> mem) {
+                unrollMap(loadRes, reduceLanes)(mbits(bT), ctx)
               }
-              val endId = curEdgeId
-              (startId until endId).foreach{id =>
-                dbgs(c"  $id")
-                edgeMetadata(id).foreach{case (key,m) => dbgs(s"   - $key : $m") }
-              }
-
-              result
-            }
-          }
-
-
-
-          dbgs(c"  values: ")
-          values.zip(mems).foreach{case (vs,m) =>
-            dbgs(c"    $m: $vs")
-            vs.foreach {
-              case Op(VectorApply(v,_)) =>
-                dbgs(c"      ${str(v)}")
-                metadata.get(v).foreach{m => dbgs(c"       - ${m._1}: ${m._2}") }
-              case v =>
-                dbgs(c"      ${str(v)}")
-                metadata.get(v).foreach{m => dbgs(c"       - ${m._1}: ${m._2}") }
             }
           }
 
