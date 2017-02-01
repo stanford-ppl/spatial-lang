@@ -22,3 +22,10 @@ project/plugins/project/
 ### IntelliJ
 .idea/
 *.iml
+
+# Chisel template tests
+src/spatial/codegen/chiselgen/resources/template-level/project
+src/spatial/codegen/chiselgen/resources/template-level/test_run_dir
+src/spatial/codegen/chiselgen/resources/template-level/target
+
+
