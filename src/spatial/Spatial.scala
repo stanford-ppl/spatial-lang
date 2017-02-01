@@ -1,6 +1,7 @@
 package spatial
 
 import argon.codegen.scalagen._
+import argon.codegen.chiselgen._
 import argon.ops._
 import argon.traversal.IRPrinter
 import argon.{AppCore, CompilerCore, LibCore}
@@ -9,6 +10,7 @@ import spatial.dse._
 import spatial.analysis._
 import spatial.transform._
 import spatial.codegen.scalagen.{ScalaGenVector, _}
+import spatial.codegen.chiselgen.{ChiselGenVector, _}
 
 protected trait SpatialOps extends OverloadHack with SpatialMetadataOps with BankingMetadataOps
      with IfThenElseOps with PrintOps with ControllerOps with MathOps with TextOps with DRAMOps with StringCastOps
@@ -28,6 +30,15 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaSingleFileGen
   with ScalaGenCounter with ScalaGenReg with ScalaGenSRAM with ScalaGenFIFO
   with ScalaGenIfThenElse with ScalaGenPrint with ScalaGenController with ScalaGenMath with ScalaGenText
   with ScalaGenDRAM with ScalaGenStringCast with ScalaGenHostTransfer with ScalaGenUnrolled with ScalaGenVector {
+
+  override val IR: SpatialCompiler
+}
+
+protected trait ChiselGenSpatial extends ChiselCodegen with ChiselSingleFileGen
+  with ChiselGenBool with ChiselGenVoid with ChiselGenFixPt with ChiselGenFltPt with ChiselGenMixedNumeric
+  with ChiselGenCounter with ChiselGenReg with ChiselGenSRAM with ChiselGenFIFO
+  with ChiselGenIfThenElse with ChiselGenPrint with ChiselGenController with ChiselGenMath with ChiselGenText
+  with ChiselGenDRAM with ChiselGenStringCast with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector {
 
   override val IR: SpatialCompiler
 }
@@ -73,6 +84,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   lazy val dramAddrAlloc  = new DRAMAddrAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams }
 
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self }
+  lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self }
 
   // Traversal schedule
   passes += printer
@@ -127,6 +139,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
 
   // --- Code generation
   passes += scalagen
+  passes += chiselgen
 }
 
 protected trait SpatialIR extends SpatialCompiler with SpatialApi
