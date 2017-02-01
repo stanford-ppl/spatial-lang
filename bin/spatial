@@ -1,0 +1,168 @@
+#!/usr/bin/env python
+
+from argparse import ArgumentParser
+import os, sys, datetime
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+def main():
+  usage = "Usage: %prog <application runner> [staging args] [options]"
+  parser = ArgumentParser(description='SPATIAL')
+  parser.add_argument('app', type=str, help='name of application to run')
+  parser.add_argument('--DSE', dest='dse', action='store_true',default=False, help='enables design space exploration')
+  parser.add_argument('--scala', dest='scala', action='store_true', default=True, help='enables scala generation')
+  parser.add_argument('--chisel', dest='chisel', action='store_true', default=False, help='enables chisel generation')
+  parser.add_argument('--naming', dest='naming', action='store_true', default=True, help='generates the debug name for all syms, rather than "x${s.id}" only')
+  parser.add_argument('--debug', dest='debug', action='store_true', default=False, help='enables logging of compiler')
+  parser.add_argument("--cpp", dest="cpp", action="store_true", default=True, help="enables cpp generation")
+  parser.add_argument("--log", dest="log", action="store_true", default=False, help="Saves compilation log to compile.log")
+  parser.add_argument("--dot", dest="dot", action="store_true", default=False, help="enables dot generation")
+  parser.add_argument("--outdir", dest="outdir", default="", help="location of output dir, relative to ${SPATIAL_HOME}.  Default is gen/<appname>")
+
+  # # Plasticine work
+  # parser.add_argument('--CGRA+', dest='allCGRA', action="store_true", default=False, help="enable ALL PIR features")
+  # parser.add_argument('--CGRA*', dest='dseCGRA', action="store_true", default=False, help="enable ALL PIR features")
+
+  # parser.add_argument('--pdse', dest='pdse', action="store_true", default=False, help="enable CGRA DSE")
+  # parser.add_argument('--CGRA', dest='cgra', action='store_true', default=False, help='enables PIR generation')
+  # parser.add_argument('--pdebug', dest='pir_debug', action='store_true', default=False, help='enables PIR debugging output')
+  # parser.add_argument('--split', dest='split', action="store_true", default=False, help="enable PIR CU splitting")
+
+  # parser.add_argument("--sIn", type=int, help="set number of scalar inputs / CU")
+  # parser.add_argument("--sbus", type=int, help="set number of scalars / bus")
+  # parser.add_argument("--vIn", type=int, help="set number of vector inputs / CU")
+  # parser.add_argument("--vOut", type=int, help="set number of vector outputs / CU")
+  # parser.add_argument("--comp", type=int, help="set number of compute-only stages / CU")
+  # parser.add_argument("--rw", type=int, help="set number of read/write enabled stages / CU")
+  # parser.add_argument("--mems", type=int, help="set number of SRAMs / CU")
+
+  SPATIAL_HOME = os.getenv("SPATIAL_HOME", "")
+  ARGON_HOME = os.getenv("ARGON_HOME", "")
+  VIRTUALIZED_HOME = os.getenv("VIRTUALIZED_HOME", "")
+  JAVA_HOME = os.getenv("JAVA_HOME", "")
+  if SPATIAL_HOME == "":
+    print 'SPATIAL_HOME is undefined.'
+    exit(1)
+
+
+  (opts, args) = parser.parse_known_args()
+  #if len(args) < 1:
+  #  parser.error("An application file must be passed to delitec as an argument")
+
+  java_opts = os.getenv("JAVA_OPTS", "")
+
+  # if opts.sIn > 0:
+  #   java_opts = java_opts + " -Dplasticine.sIn="+str(opts.sIn)
+  # if opts.sbus > 0:
+  #   java_opts = java_opts + " -Dplasticine.sbus="+str(opts.sbus)
+  # if opts.vIn > 0:
+  #   java_opts = java_opts + " -Dplasticine.vIn="+str(opts.vIn)
+  # if opts.vOut > 0:
+  #   java_opts = java_opts + " -Dplasticine.vOut="+str(opts.vOut)
+  # if opts.comp > 0:
+  #   java_opts = java_opts + " -Dplasticine.comp="+str(opts.comp)
+  # if opts.rw > 0:
+  #   java_opts = java_opts + " -Dplasticine.rw="+str(opts.rw)
+  # if opts.mems > 0:
+  #   java_opts = java_opts + " -Dplasticine.mems="+str(opts.mems)
+
+
+  # if opts.allCGRA == True or opts.dseCGRA == True:
+  #   opts.cgra = True
+  #   opts.pir_debug = True
+  #   opts.split = True
+  #   opts.debug = True
+
+  # if opts.dseCGRA == True:
+  #   opts.pdse = True
+
+  if opts.dse == True:
+    java_opts = java_opts + " -Dspatial.dse=true"
+  if opts.debug == True:
+    java_opts = java_opts + " -Dspatial.log=true"
+
+  logCompile = ""
+  if opts.log == True:
+    logCompile = ' 2>&1 | tee compile.log'
+
+  if opts.dot == True:
+    java_opts = java_opts + " -Dspatial.dot=true"
+  if opts.chisel == True:
+    opts.scala = False
+    java_opts = java_opts + " -Dspatial.chisel=true"
+  if opts.scala == True:
+    opts.chisel = False
+    java_opts = java_opts + " -Dspatial.scala=true"
+  if opts.cpp == True:
+    java_opts = java_opts + " -Dspatial.cpp=true"
+  if opts.outdir != "":
+    java_opts = java_opts + " -Dargon.out=" + os.path.join(SPATIAL_HOME, opts.outdir)
+
+
+  # if opts.pir_debug == True:
+  #   java_opts = java_opts + " -Dspatial.pirdebug=true"
+  # if opts.cgra == True:
+  #   java_opts = java_opts + " -Dspatial.cgra=true"
+  # if opts.pdse == True:
+  #   java_opts = java_opts + " -Dspatial.pdse=true"
+  # if opts.split == True:
+  #   java_opts = java_opts + " -Dspatial.split=true"
+
+  # ## Should only set for child processes
+  # os.environ["JAVA_OPTS"] = java_opts
+
+  #add classpaths
+  # scala_major_id = os.system('sbt scala-version')
+  scala_major_id = "scala-2.11"
+  old_cp = os.getenv("CLASSPATH", "")
+  cp = " -cp "
+  cp = cp + old_cp + os.pathsep
+  cp = cp + ARGON_HOME + "/target/" + scala_major_id + "/classes" + os.pathsep
+
+  #test cp
+  cp = cp + SPATIAL_HOME + "/target/" + scala_major_id + "/classes" + os.pathsep
+  cp = cp + SPATIAL_HOME + "/target/" + scala_major_id + "/test-classes" + os.pathsep
+  cp = cp + VIRTUALIZED_HOME + "/target/" + scala_major_id + os.pathsep
+
+  jars = [os.path.join(d,f) for (d, n, fs) in os.walk(SPATIAL_HOME + "/lib_managed/") for f in fs]
+  for j in jars:
+    cp = cp + j + os.pathsep
+
+  java_opts = java_opts + cp
+
+  print "[ " + bcolors.WARNING + "INFO" + bcolors.ENDC + " ] Generating DEG file with options: " + str(opts)
+  java_cmd = JAVA_HOME + "/bin/java " + java_opts + " " + opts.app + " "
+  print java_cmd
+  ecode = os.system(java_cmd)
+  if ecode != 0:
+      print "[ " + bcolors.FAIL + "ERROR" + bcolors.ENDC + " ] Spatial compilation failed"
+
+  ## TODO: How to determine publish directory?
+  # os.system(SPATIAL_HOME + 'bin/delitec ' + opts.app + ' ' + deliteArgs + ' --dump_exception 2>&1 | tee compile.log')
+
+  # if opts.maxj and opts.cpp:
+  #   print 'Running Spatial with arguments: ' + ' '.join(args)
+  #   if opts.outdir == "out":
+  #     os.system(publish + 'bin/delite ' + opts.app + ' --no-jvm --no-compile --cpp=1 --maxj=1 --codecache=' + os.getenv("HYPER_HOME", "") + '/spatial/published/Spatial/out ' + ' '.join(args) + ' 2>&1 | tee run.log')
+  #   else:
+  #     os.system(publish + 'bin/delite ' + opts.app + ' --no-jvm --no-compile --cpp=1 --maxj=1 --codecache=' + opts.outdir + ' ' + ' '.join(args[0:]) + ' 2>&1 | tee run.log')
+  # elif opts.chisel and opts.cpp:
+  #   print 'Running Spatial with arguments: ' + ' '.join(args[0:])
+  #   if opts.outdir == "out":
+  #     os.system(publish + 'bin/delite ' + opts.app + ' --no-jvm --no-compile --cpp=1 --chisel=1 --codecache=' + os.getenv("HYPER_HOME", "") + '/spatial/published/Spatial/out ' + ' '.join(args[0:]) + ' 2>&1 | tee run.log')
+  #   else:
+  #     os.system(publish + 'bin/delite ' + opts.app + ' --no-jvm --no-compile --cpp=1 --chisel=1 --codecache=' + opts.outdir + ' ' + ' '.join(args[0:]) + ' 2>&1 | tee run.log')
+  # elif opts.test:
+  #   print 'Running Spatial Scala Test with arguments: ' + ' '.join(args)
+  #   os.system(publish + 'bin/delite ' + opts.app + ' --codecache=' + opts.outdir + ' ' + ' '.join(args) + ' 2>&1 | tee run.log')
+
+if __name__ == "__main__":
+    main()

@@ -7,7 +7,13 @@ object SpatialBuild extends Build {
   val compileArgon = TaskKey[Unit]("compileArgon", "Compiles Argon")
   val compileArgonSettings = compileArgon := {
     import sys.process._
-    Process(Seq("sbt", "compile"), new java.io.File(ARGON_HOME))!
+
+    val proc = scala.sys.process.Process(Seq("sbt", "compile"), new java.io.File(ARGON_HOME))
+    val output = proc.run()
+    val exitCode = output.exitValue()
+    if (exitCode != 0) {
+     exit(1)
+    }
   }
 
   lazy val virtBuildSettings = Defaults.defaultSettings ++ Seq(

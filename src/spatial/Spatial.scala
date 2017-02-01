@@ -30,7 +30,7 @@ protected trait SpatialExp extends SpatialOps with SpatialMetadataExp with Banki
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaSingleFileGen
   with ScalaGenBool with ScalaGenVoid with ScalaGenFixPt with ScalaGenFltPt with ScalaGenMixedNumeric
-  with ScalaGenCounter with ScalaGenReg with ScalaGenSRAM with ScalaGenFIFO
+  with ScalaGenCounter with ScalaGenReg with ScalaGenSRAM with ScalaGenFIFO 
   with ScalaGenIfThenElse with ScalaGenPrint with ScalaGenController with ScalaGenMath with ScalaGenText
   with ScalaGenDRAM with ScalaGenStringCast with ScalaGenHostTransfer with ScalaGenRange
   with ScalaGenUnrolled with ScalaGenVector
@@ -41,9 +41,10 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaSingleFileGen
 
 protected trait ChiselGenSpatial extends ChiselCodegen with ChiselSingleFileGen
   with ChiselGenBool with ChiselGenVoid with ChiselGenFixPt with ChiselGenFltPt with ChiselGenMixedNumeric
-  with ChiselGenCounter with ChiselGenReg with ChiselGenSRAM with ChiselGenFIFO
+  with ChiselGenCounter with ChiselGenReg with ChiselGenSRAM with ChiselGenFIFO 
   with ChiselGenIfThenElse with ChiselGenPrint with ChiselGenController with ChiselGenMath with ChiselGenText
-  with ChiselGenDRAM with ChiselGenStringCast with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector {
+  with ChiselGenDRAM with ChiselGenStringCast with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
+  with ChiselGenArray {
 
   override val IR: SpatialCompiler
 }
@@ -88,8 +89,9 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   lazy val bufferAnalyzer = new BufferAnalyzer { val IR: self.type = self; def localMems = uctrlAnalyzer.localMems }
   lazy val dramAddrAlloc  = new DRAMAddrAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams }
 
-  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self }
-  lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self }
+  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
+  lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableChisel }
+  Console.println(s" scala enabled ${SpatialConfig.enableScala}")
 
   // Traversal schedule
   passes += printer

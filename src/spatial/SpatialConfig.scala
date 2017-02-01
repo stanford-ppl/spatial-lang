@@ -9,7 +9,7 @@ object SpatialConfig {
   var target: FPGATarget = DefaultTarget
 
   var enableDSE: Boolean = getProperty("spatial.dse", "false") == "true"
-  var enableScala: Boolean = getProperty("spatial.scala", "true") == "true"
+  var enableScala: Boolean = getProperty("spatial.scala", "false") == "true"
   var enableChisel: Boolean = getProperty("spatial.chisel", "false") == "true"
   var enableNaming: Boolean = getProperty("spatial.naming", "false") == "true"
 }
