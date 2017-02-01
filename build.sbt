@@ -4,7 +4,7 @@ isSnapshot := true
 organization := "stanford-ppl"
 scalaVersion := "2.11.2"
 scalaSource in Compile <<= baseDirectory(_/ "src")
-scalaSource in Test <<= baseDirectory(_/"test")
+scalaSource in Test <<= baseDirectory(_/"apps")
 
 parallelExecution in Test := false
 testOptions in Test += Tests.Argument("-oDF") // Full stack trace in scalatest
