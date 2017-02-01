@@ -13,21 +13,26 @@ import spatial.codegen.scalagen.{ScalaGenVector, _}
 protected trait SpatialOps extends OverloadHack with SpatialMetadataOps with BankingMetadataOps
      with IfThenElseOps with PrintOps with ControllerOps with MathOps with TextOps with DRAMOps with StringCastOps
      with HostTransferOps with ParameterOps with RangeOps with StructOps with UnrolledOps with VectorOps
+     with ArrayExtOps with AssertOps
 
 protected trait SpatialApi extends SpatialOps with SpatialMetadataApi with BankingMetadataApi
      with IfThenElseApi with PrintApi with ControllerApi with MathApi with TextApi with DRAMApi with StringCastApi
      with HostTransferApi with ParameterApi with RangeApi with StructApi with UnrolledApi with VectorApi
+     with ArrayExtApi with AssertApi
 
 protected trait SpatialExp extends SpatialOps with SpatialMetadataExp with BankingMetadataExp
      with NodeClasses with NodeUtils with ParameterRestrictions
      with IfThenElseExp with PrintExp with ControllerExp with MathExp with TextExp with DRAMExp with StringCastExp
      with HostTransferExp with ParameterExp with RangeExp with StructExp with UnrolledExp with VectorExp
+     with ArrayExtExp with AssertExp
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaSingleFileGen
   with ScalaGenBool with ScalaGenVoid with ScalaGenFixPt with ScalaGenFltPt with ScalaGenMixedNumeric
   with ScalaGenCounter with ScalaGenReg with ScalaGenSRAM with ScalaGenFIFO
   with ScalaGenIfThenElse with ScalaGenPrint with ScalaGenController with ScalaGenMath with ScalaGenText
-  with ScalaGenDRAM with ScalaGenStringCast with ScalaGenHostTransfer with ScalaGenUnrolled with ScalaGenVector {
+  with ScalaGenDRAM with ScalaGenStringCast with ScalaGenHostTransfer with ScalaGenRange
+  with ScalaGenUnrolled with ScalaGenVector
+  with ScalaGenArray with ScalaGenArrayExt with ScalaGenAssert {
 
   override val IR: SpatialCompiler
 }

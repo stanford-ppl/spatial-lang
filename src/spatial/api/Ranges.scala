@@ -14,7 +14,12 @@ import spatial.{SpatialApi, SpatialExp, SpatialOps}
 // may require a Range which is not a StridedRange?
 // :: this distinction is silly, only using one type
 
-trait RangeOps extends MemoryOps { this: SpatialOps =>
+trait RangeLowPriorityImplicits { this: RangeOps =>
+  // Have to make this a lower priority, otherwise seems to prefer this + Range infix op over the implicit class on Index
+  implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(x), x + 1, None, None)
+}
+
+trait RangeOps extends MemoryOps with RangeLowPriorityImplicits { this: SpatialOps =>
   type Range <: RangeOps
 
   protected trait RangeOps {
@@ -22,6 +27,8 @@ trait RangeOps extends MemoryOps { this: SpatialOps =>
     def par(p: Index)(implicit ctx: SrcCtx): Range
 
     def ::(x: Index)(implicit ctx: SrcCtx): Range
+
+    def foreach(func: Index => Void)(implicit ctx: SrcCtx): Void
   }
   implicit class IndexRangeOps(x: Index) {
     def by(step: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, Some(lift(step)), None)
@@ -35,13 +42,11 @@ trait RangeOps extends MemoryOps { this: SpatialOps =>
     def ::(start: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(start), x, None, None)
   }
 
-  private[spatial] def range_alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index]): Range
+  private[spatial] def range_alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index], isUnit: Boolean = false): Range
 
   def Range(start: Index, end: Index, stride: Index, par: Index): Range = {
     range_alloc(Some(start), end, Some(stride), Some(par))
   }
-
-  implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range
 }
 trait RangeApi extends RangeOps with MemoryApi {
   this: SpatialApi =>
@@ -70,6 +75,14 @@ trait RangeExp extends RangeOps with MemoryExp {
 
     def ::(start2: Index)(implicit ctx: SrcCtx): Range = Range(Some(start2), end, start, p, isUnit = false)
 
+    def foreach(func: Index => Void)(implicit ctx: SrcCtx): Void = {
+      val i = fresh[Index]
+      val fBlk = () => func(wrap(i)).s
+      val begin  = start.map(_.s).getOrElse(int32(0))
+      val stride = step.map(_.s).getOrElse(int32(1))
+      Void(range_foreach(begin, end.s, stride, fBlk(), i))
+    }
+
     def length(implicit ctx: SrcCtx) = (start, end, step) match {
       case (None, e, None) => e
       case (Some(s), e, None) => e - s
@@ -78,9 +91,28 @@ trait RangeExp extends RangeOps with MemoryExp {
     }
   }
 
-  private[spatial] def range_alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index]) = {
-    Range(start,end,stride,par, isUnit = start.isDefined || stride.isDefined || par.isDefined)
+  private[spatial] def range_alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index], isUnit: Boolean = false) = {
+    Range(start,end,stride,par,isUnit)
   }
 
-  implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range = Range(Some(x), x + 1, None, None, isUnit = true)
+  /** IR Nodes **/
+  case class RangeForeach(
+    start: Exp[Index],
+    end:   Exp[Index],
+    step:  Exp[Index],
+    func:  Block[Void],
+    i:     Bound[Index]
+  ) extends Op[Void] {
+    def mirror(f:Tx) = range_foreach(f(start),f(end),f(step),f(func),i)
+    override def inputs = syms(start,end,step) ++ syms(func)
+    override def freqs  = normal(start) ++ normal(end) ++ normal(step) ++ hot(func)
+    override def binds  = super.binds :+ i
+  }
+
+  def range_foreach(start: Exp[Index], end: Exp[Index], step: Exp[Index], func: => Exp[Void], i: Bound[Index])(implicit ctx: SrcCtx) = {
+    val fBlk = stageBlock { func }
+    val effects = fBlk.summary
+    stageEffectful(RangeForeach(start, end, step, fBlk, i), effects)(ctx)
+  }
+
 }

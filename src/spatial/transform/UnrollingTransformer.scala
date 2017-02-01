@@ -10,7 +10,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   import IR._
 
   override val name = "Unrolling Transformer"
-  verbosity = 3
+  verbosity = 2
 
   lazy val printer = new IRPrinter {override val IR: self.IR.type = self.IR}
 
@@ -248,9 +248,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     dbgs(s"Unrolling foreach $lhs")
 
     val lanes = Unroller(cchain, iters, isInnerControl(lhs))
-    val blk = stageBlock { unrollMap(func, lanes); void }
     val is = lanes.indices
     val vs = lanes.indexValids
+
+    val blk = stageBlock { unrollMap(func, lanes); void }
+
 
     val effects = blk.summary
     val lhs2 = stageEffectful(UnrolledForeach(cchain, blk, is, vs), effects.star)(ctx)

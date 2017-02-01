@@ -14,6 +14,7 @@ trait UnitPipeTransformer extends ForwardTransformer {
 
   override val name = "Unit Pipe Transformer"
   override val allowPretransform = true
+  verbosity = 2
 
   private class PipeStage(val isControl: Boolean) {
     val allocs = ArrayBuffer[Stm]()
@@ -84,6 +85,9 @@ trait UnitPipeTransformer extends ForwardTransformer {
     }
     val deps = stages.toList.map(_.deps)
 
+    stages.zipWithIndex.foreach{case (stage,i) => stage.dump(i) }
+    dbgs("")
+
     stages.zipWithIndex.foreach{
       case (stage,i) if !stage.isControl =>
         val calculated = stage.nodes.map{case TP(s,d) => s}
@@ -109,6 +113,11 @@ trait UnitPipeTransformer extends ForwardTransformer {
 
         // Add allocations which are known not to be used in the primitive logic in the inserted unit pipe
         stage.dynamicAllocs.foreach(visitStm)
+
+        dbgs(c"Stage #$i: ")
+        dbgs(c"  Escaping symbols: $escapingValues")
+        dbgs(c"  Created registers: $regs")
+
 
       case (stage, i) if stage.isControl =>
         stage.nodes.foreach(visitStm)           // Zero or one control nodes
