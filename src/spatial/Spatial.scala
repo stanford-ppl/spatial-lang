@@ -8,23 +8,23 @@ import spatial.api._
 import spatial.dse._
 import spatial.analysis._
 import spatial.transform._
-import spatial.codegen.scalagen.{ScalaGenVector, _}
+import spatial.codegen.scalagen._
 
 protected trait SpatialOps extends OverloadHack with SpatialMetadataOps with BankingMetadataOps
      with IfThenElseOps with PrintOps with ControllerOps with MathOps with TextOps with DRAMOps with StringCastOps
      with HostTransferOps with ParameterOps with RangeOps with StructOps with UnrolledOps with VectorOps
-     with ArrayExtOps with AssertOps
+     with ArrayExtOps with AssertOps with StagedUtilOps
 
 protected trait SpatialApi extends SpatialOps with SpatialMetadataApi with BankingMetadataApi
      with IfThenElseApi with PrintApi with ControllerApi with MathApi with TextApi with DRAMApi with StringCastApi
      with HostTransferApi with ParameterApi with RangeApi with StructApi with UnrolledApi with VectorApi
-     with ArrayExtApi with AssertApi
+     with ArrayExtApi with AssertApi with StagedUtilApi
 
 protected trait SpatialExp extends SpatialOps with SpatialMetadataExp with BankingMetadataExp
      with NodeClasses with NodeUtils with ParameterRestrictions
      with IfThenElseExp with PrintExp with ControllerExp with MathExp with TextExp with DRAMExp with StringCastExp
      with HostTransferExp with ParameterExp with RangeExp with StructExp with UnrolledExp with VectorExp
-     with ArrayExtExp with AssertExp
+     with ArrayExtExp with AssertExp with StagedUtilExp
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaSingleFileGen
   with ScalaGenBool with ScalaGenVoid with ScalaGenFixPt with ScalaGenFltPt with ScalaGenMixedNumeric

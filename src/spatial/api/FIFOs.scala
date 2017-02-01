@@ -10,6 +10,9 @@ trait FIFOOps extends MemoryOps { this: SpatialOps =>
     def enq(data: T, en: Bool)(implicit ctx: SrcCtx): Void
     def deq()(implicit ctx: SrcCtx): T = this.deq(true)
     def deq(en: Bool)(implicit ctx: SrcCtx): T
+
+    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void
+    //def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void
   }
 
   def FIFO[T:Bits](size: Index)(implicit ctx: SrcCtx): FIFO[T]
@@ -25,6 +28,9 @@ trait FIFOExp extends FIFOOps with MemoryExp with SpatialExceptions { this: Spat
   case class FIFO[T:Bits](s: Exp[FIFO[T]]) extends FIFOOps[T] {
     def enq(data: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(fifo_enq(this.s, data.s, en.s))
     def deq(en: Bool)(implicit ctx: SrcCtx): T = wrap(fifo_deq(this.s, en.s, bits[T].zero.s))
+
+    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = copy_burst(dram, this, isLoad = true)
+    //def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void = copy_sparse(dram, this, isLoad = true)
   }
 
   def FIFO[T:Bits](size: Index)(implicit ctx: SrcCtx): FIFO[T] = FIFO(fifo_alloc[T](size.s))
