@@ -8,7 +8,7 @@ if [ "$SPATIAL_HOME" == "" ]; then
 fi
 
 if [ "$VIRTUALIZED_HOME" == "" ]; then
-       echo -e "Please set ARGON_HOME!"
+       echo -e "Please set VIRTUALIZED_HOME!"
        exit 1
 fi
 

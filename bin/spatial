@@ -23,7 +23,6 @@ def main():
   parser.add_argument('--naming', dest='naming', action='store_true', default=True, help='generates the debug name for all syms, rather than "x${s.id}" only')
   parser.add_argument('--debug', dest='debug', action='store_true', default=False, help='enables logging of compiler')
   parser.add_argument("--cpp", dest="cpp", action="store_true", default=True, help="enables cpp generation")
-  parser.add_argument("--log", dest="log", action="store_true", default=False, help="Saves compilation log to compile.log")
   parser.add_argument("--dot", dest="dot", action="store_true", default=False, help="enables dot generation")
   parser.add_argument("--outdir", dest="outdir", default="", help="location of output dir, relative to ${SPATIAL_HOME}.  Default is gen/<appname>")
   parser.add_argument("--multifile", dest="multifile", action="store_true", default=False, help="Split generated HW code in many files")
@@ -47,18 +46,16 @@ def main():
 
   SPATIAL_HOME = os.getenv("SPATIAL_HOME", "")
   ARGON_HOME = os.getenv("ARGON_HOME", "")
-  VIRTUALIZED_HOME = os.getenv("VIRTUALIZED_HOME", "")
   JAVA_HOME = os.getenv("JAVA_HOME", "")
+  java_opts = os.getenv("JAVA_OPTS", "")
+
   if SPATIAL_HOME == "":
     print 'SPATIAL_HOME is undefined.'
     exit(1)
 
 
   (opts, args) = parser.parse_known_args()
-  #if len(args) < 1:
-  #  parser.error("An application file must be passed to delitec as an argument")
 
-  java_opts = os.getenv("JAVA_OPTS", "")
 
   # if opts.sIn > 0:
   #   java_opts = java_opts + " -Dplasticine.sIn="+str(opts.sIn)
@@ -94,10 +91,6 @@ def main():
     java_opts = java_opts + " -Dspatial.dse=true"
   if opts.debug == True:
     java_opts = java_opts + " -Dspatial.log=true"
-
-  logCompile = ""
-  if opts.log == True:
-    logCompile = ' 2>&1 | tee compile.log'
 
   if opts.dot == True:
     java_opts = java_opts + " -Dspatial.dot=true"
