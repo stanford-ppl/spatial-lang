@@ -84,6 +84,8 @@ def main():
   # if opts.dseCGRA == True:
   #   opts.pdse = True
 
+  if opts.naming == True:
+    java_opts = java_opts + " -Dspatial.naming=true"
   if opts.dse == True:
     java_opts = java_opts + " -Dspatial.dse=true"
   if opts.debug == True:
@@ -106,6 +108,7 @@ def main():
   if opts.outdir != "":
     java_opts = java_opts + " -Dargon.out=" + os.path.join(SPATIAL_HOME, opts.outdir)
 
+  java_opts = java_opts + " -Dargon.name=" + opts.app
 
   # if opts.pir_debug == True:
   #   java_opts = java_opts + " -Dspatial.pirdebug=true"

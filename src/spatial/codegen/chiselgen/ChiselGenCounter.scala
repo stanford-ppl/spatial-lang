@@ -12,20 +12,23 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
   dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/Counter.chisel")
 
   override def quote(s: Exp[_]): String = {
-    // val Def(rhs) = s 
-    s match {
-      case lhs: Sym[_] =>
-        val Op(rhs) = lhs
-        rhs match {
-          case CounterNew(s,e,st,p)=> 
-            s"x${lhs.id}_ctr"
-          case CounterChainNew(ctrs) =>
-            s"x${lhs.id}_ctrchain"
-          case _ =>
-            super.quote(s)
-        }
-      case _ =>
-        super.quote(s)
+    if (SpatialConfig.enableNaming) {
+      s match {
+        case lhs: Sym[_] =>
+          val Op(rhs) = lhs
+          rhs match {
+            case CounterNew(s,e,st,p)=> 
+              s"x${lhs.id}_ctr"
+            case CounterChainNew(ctrs) =>
+              s"x${lhs.id}_ctrchain"
+            case _ =>
+              super.quote(s)
+          }
+        case _ =>
+          super.quote(s)
+      }
+    } else {
+      super.quote(s)
     }
   } 
 

@@ -1,30 +1,34 @@
 package spatial.codegen.chiselgen
 
 import spatial.api.DRAMExp
+import spatial.SpatialConfig
 
 trait ChiselGenDRAM extends ChiselGenSRAM {
   val IR: DRAMExp
   import IR._
 
   override def quote(s: Exp[_]): String = {
-    // val Def(rhs) = s 
-    s match {
-      case lhs: Sym[_] =>
-        val Op(rhs) = lhs
-        rhs match {
-          case e: Gather[_]=> 
-            s"x${lhs.id}_gath"
-          case e: Scatter[_] =>
-            s"x${lhs.id}_scat"
-          case e: BurstLoad[_] =>
-            s"x${lhs.id}_load"
-          case e: BurstStore[_] =>
-            s"x${lhs.id}_store"
-          case _ =>
-            super.quote(s)
-        }
-      case _ =>
-        super.quote(s)
+    if (SpatialConfig.enableNaming) {
+      s match {
+        case lhs: Sym[_] =>
+          val Op(rhs) = lhs
+          rhs match {
+            case e: Gather[_]=> 
+              s"x${lhs.id}_gath"
+            case e: Scatter[_] =>
+              s"x${lhs.id}_scat"
+            case e: BurstLoad[_] =>
+              s"x${lhs.id}_load"
+            case e: BurstStore[_] =>
+              s"x${lhs.id}_store"
+            case _ =>
+              super.quote(s)
+          }
+        case _ =>
+          super.quote(s)
+      }
+    } else {
+      super.quote(s)
     }
   } 
 

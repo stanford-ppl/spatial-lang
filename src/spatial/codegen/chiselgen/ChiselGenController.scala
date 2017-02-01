@@ -2,6 +2,7 @@ package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.ControllerExp
+import spatial.SpatialConfig
 
 trait ChiselGenController extends ChiselCodegen {
   val IR: ControllerExp
@@ -17,26 +18,29 @@ trait ChiselGenController extends ChiselCodegen {
   }
 
   override def quote(s: Exp[_]): String = {
-    // val Def(rhs) = s 
-    s match {
-      case lhs: Sym[_] =>
-        val Op(rhs) = lhs
-        rhs match {
-          case Hwblock(_)=> 
-            s"AccelController"
-          case UnitPipe(_) =>
-            s"x${lhs.id}_UnitPipe"
-          case OpForeach(_,_,_) =>
-            s"x${lhs.id}_ForEach"
-          case OpReduce(_,_,_,_,_,_,_,_) =>
-            s"x${lhs.id}_Reduce"
-          case OpMemReduce(_,_,_,_,_,_,_,_,_,_,_) =>
-            s"x${lhs.id}_MemReduce"
-          case _ =>
-            super.quote(s)
-        }
-      case _ =>
-        super.quote(s)
+    if (SpatialConfig.enableNaming) {
+      s match {
+        case lhs: Sym[_] =>
+          val Op(rhs) = lhs
+          rhs match {
+            case Hwblock(_)=> 
+              s"AccelController"
+            case UnitPipe(_) =>
+              s"x${lhs.id}_UnitPipe"
+            case OpForeach(_,_,_) =>
+              s"x${lhs.id}_ForEach"
+            case OpReduce(_,_,_,_,_,_,_,_) =>
+              s"x${lhs.id}_Reduce"
+            case OpMemReduce(_,_,_,_,_,_,_,_,_,_,_) =>
+              s"x${lhs.id}_MemReduce"
+            case _ =>
+              super.quote(s)
+          }
+        case _ =>
+          super.quote(s)
+      }
+    } else {
+      super.quote(s)
     }
   } 
 

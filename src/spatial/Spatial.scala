@@ -91,7 +91,6 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
 
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
   lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableChisel }
-  Console.println(s" scala enabled ${SpatialConfig.enableScala}")
 
   // Traversal schedule
   passes += printer

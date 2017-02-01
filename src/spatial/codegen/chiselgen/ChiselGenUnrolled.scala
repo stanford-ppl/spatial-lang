@@ -2,7 +2,7 @@ package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.UnrolledExp
-
+import spatial.SpatialConfig
 
 trait ChiselGenUnrolled extends ChiselCodegen {
   val IR: UnrolledExp
@@ -22,6 +22,27 @@ trait ChiselGenUnrolled extends ChiselCodegen {
     func
     iters.indices.foreach{_ => close("}") }
   }
+
+  override def quote(s: Exp[_]): String = {
+    if (SpatialConfig.enableNaming) {
+      s match {
+        case lhs: Sym[_] =>
+          val Op(rhs) = lhs
+          rhs match {
+            case e: UnrolledForeach=> s"x${lhs.id}_unrForeach"
+            case e: UnrolledReduce[_,_] => s"x${lhs.id}_unrRed"
+            case e: ParSRAMLoad[_] => s"x${lhs.id}_parLd"
+            case e: ParSRAMStore[_] => s"x${lhs.id}_parSt"
+            case e: ParFIFODeq[_] => s"x${lhs.id}_parDeq"
+            case e: ParFIFOEnq[_] => s"x${lhs.id}_parEnq"
+            case _ => super.quote(s)
+          }
+        case _ => super.quote(s)
+      }
+    } else {
+      super.quote(s)
+    }
+  } 
 
   private def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]]): String = {
     val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }

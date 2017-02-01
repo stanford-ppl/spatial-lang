@@ -2,29 +2,32 @@ package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.MathExp
+import spatial.SpatialConfig
 
 trait ChiselGenMath extends ChiselCodegen {
   val IR: MathExp
   import IR._
 
   override def quote(s: Exp[_]): String = {
-    // val Def(rhs) = s 
-    s match {
-      case c: Const[_] => super.quote(s)
-      case b: Bound[_] => super.quote(s)
-      case lhs: Sym[_] =>
-        val Op(rhs) = lhs
-        rhs match {
-          case FixRandom(x)=> s"x${lhs.id}_fixrnd"
-          case FixNeg(x:Exp[_]) => s"x${lhs.id}_neg${quoteOperand(x)}"
-          case FixAdd(x:Exp[_],y:Exp[_]) => s"x${lhs.id}_sum${quoteOperand(x)}_${quoteOperand(y)}"
-          case _ => super.quote(s)
-        }
+    if (SpatialConfig.enableNaming) {
+      s match {
+        case lhs: Sym[_] =>
+          val Op(rhs) = lhs
+          rhs match {
+            case FixRandom(x)=> s"x${lhs.id}_fixrnd"
+            case FixNeg(x:Exp[_]) => s"x${lhs.id}_neg${quoteOperand(x)}"
+            case FixAdd(x:Exp[_],y:Exp[_]) => s"x${lhs.id}_sum${quoteOperand(x)}_${quoteOperand(y)}"
+            case _ => super.quote(s)
+          }
+        case _ => super.quote(s)
+      }
+    } else {
+      super.quote(s)
     }
   } 
 
   def quoteOperand(s: Exp[_]): String = s match {
-    case ss:Sym[_] => s"${ss.id}"
+    case ss:Sym[_] => s"x${ss.id}"
     case Const(xx:Int) => s"$xx"
     case _ => "unk"
   }
