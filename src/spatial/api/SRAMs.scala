@@ -17,9 +17,18 @@ trait SRAMOps extends MemoryOps with RangeOps { this: SpatialOps =>
 
     def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void
     def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void
+
+
   }
 
+  implicit class SRAMAddressBlock(x: SRAM[Index]) {
+    def par(p: Index)(implicit ctx: SrcCtx): SRAM[Index] = sram_par(x, p)
+  }
+
+
   def SRAM[T:Bits](dimA: Index, dimsB: Index*)(implicit ctx: SrcCtx): SRAM[T]
+
+  private[spatial] def sram_par(sram: SRAM[Index], p: Index)(implicit ctx: SrcCtx): SRAM[Index]
 
   implicit def sramType[T:Bits]: Staged[SRAM[T]]
   implicit def sramIsMemory[T:Bits]: Mem[T, SRAM]
@@ -31,6 +40,8 @@ trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with Spa
   /** API **/
   case class SRAM[T:Bits](s: Exp[SRAM[T]]) extends SRAMOps[T] {
     private def ofs = lift[Int,Index](0).s
+    private[spatial] var _par: Option[Index] = None
+    private[spatial] def par: Index = _par.getOrElse(lift[Int,Index](1))
 
     //def apply(ranges: Range*)(implicit ctx: SrcCtx): SRAMView[T] = SRAMView(this.s, ranges)
     def apply(indices: Index*)(implicit ctx: SrcCtx): T = wrap(sram_load(this.s, stagedDimsOf(s), unwrap(indices), ofs))
@@ -39,6 +50,12 @@ trait SRAMExp extends SRAMOps with MemoryExp with RangeExp with MathExp with Spa
 
     def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = copy_burst(dram, this, isLoad = true)
     def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void = copy_sparse(dram, this, isLoad = true)
+  }
+
+  private[spatial] def sram_par(sram: SRAM[Index], p: Index)(implicit ctx: SrcCtx): SRAM[Index] = {
+    val sram2 = SRAM(sram.s)
+    sram2._par = Some(p)
+    sram2
   }
 
   def SRAM[T:Bits](dimA: Index, dimsB: Index*)(implicit ctx: SrcCtx): SRAM[T] = SRAM(sram_alloc[T](unwrap(dimA +: dimsB)))

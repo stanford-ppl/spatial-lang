@@ -7,6 +7,8 @@ import argon.ops._
 trait ParameterOps extends FixPtOps {
   this: SpatialOps =>
 
+  def param(c: Int)(implicit ctx: SrcCtx): Int32
+
   implicit class ParamCreate(x: Int) {
     // 1 (1 -> 5)
     def apply(range: (Int,Int))(implicit ctx: SrcCtx, ov1: Overload1): Int32 = createParam(x, range._1, 1, range._2)
@@ -20,8 +22,10 @@ trait ParameterApi extends ParameterOps with FixPtApi { this: SpatialApi => }
 
 trait ParameterExp extends ParameterOps with FixPtExp with SpatialMetadataExp { this: SpatialExp =>
   private[spatial] def createParam(default: Int, start: Int, stride: Int, end: Int)(implicit ctx: SrcCtx): Int32 = {
-    val param = parameter[Int32](BigInt(default))
-    domainOf(param) = (start, stride, end)
-    FixPt(param)
+    val p = intParam(default)
+    domainOf(p) = (start, stride, end)
+    FixPt(p)
   }
+
+  def param(c: Int)(implicit ctx: SrcCtx): Int32 = FixPt(intParam(c))
 }

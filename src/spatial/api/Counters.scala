@@ -45,8 +45,8 @@ trait CounterExp extends CounterOps with RangeExp with SpatialExceptions {
   def counter(start: Index, end: Index, step: Index, par: Option[Index])(implicit ctx: SrcCtx): Counter = {
     val p: Const[Index] = par.map(_.s) match {
       case Some(x: Const[_]) if isIndexType(x.tp) => x.asInstanceOf[Const[Index]]
-      case None => param(1)
-      case Some(x) => new InvalidParallelFactorError(x)(ctx); param(1)
+      case None => intParam(1)
+      case Some(x) => new InvalidParallelFactorError(x)(ctx); intParam(1)
     }
     Counter(counter_new(start.s, end.s, step.s, p))
   }

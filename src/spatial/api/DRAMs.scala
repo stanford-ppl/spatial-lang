@@ -11,6 +11,7 @@ trait DRAMOps extends SRAMOps with FIFOOps with RangeOps { this: SpatialOps =>
   protected trait DRAMOps[T] {
     def apply(ranges: Range*)(implicit ctx: SrcCtx): DRAMDenseTile[T]
     def apply(addrs: SRAM[Index])(implicit ctx: SrcCtx): DRAMSparseTile[T]
+    def apply(addrs: SRAM[Index], len: Index)(implicit ctx: SrcCtx): DRAMSparseTile[T]
   }
 
   protected trait DRAMDenseTileOps[T] {
@@ -37,8 +38,11 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
     def apply(ranges: Range*)(implicit ctx: SrcCtx): DRAMDenseTile[T] = DRAMDenseTile(this.s, ranges)
 
     def apply(addrs: SRAM[Index])(implicit ctx: SrcCtx): DRAMSparseTile[T] = {
+      this.apply(addrs, wrap(stagedDimsOf(addrs.s).head))
+    }
+    def apply(addrs: SRAM[Index], len: Index)(implicit ctx: SrcCtx): DRAMSparseTile[T] = {
       if (rankOf(addrs) > 1) new SparseAddressDimensionError(s, rankOf(addrs))(ctx)
-      DRAMSparseTile(this.s, addrs)
+      DRAMSparseTile(this.s, addrs, len)
     }
   }
 
@@ -50,7 +54,8 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
     def store(sram: SRAM[T])(implicit ctx: SrcCtx): Void = copy_burst(this, sram, isLoad = false)
     def store(fifo: FIFO[T])(implicit ctx: SrcCtx): Void = copy_burst(this, fifo, isLoad = false)
   }
-  case class DRAMSparseTile[T:Bits](dram: Exp[DRAM[T]], addrs: SRAM[Index]) extends DRAMSparseTileOps[T] {
+
+  case class DRAMSparseTile[T:Bits](dram: Exp[DRAM[T]], addrs: SRAM[Index], len: Index) extends DRAMSparseTileOps[T] {
     def scatter(sram: SRAM[T])(implicit ctx: SrcCtx): Void = copy_sparse(this, sram, isLoad = false)
   }
 
@@ -153,7 +158,7 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
     val counters = tileDims.dropRight(1).map{d => Counter(start = 0, end = d, step = 0, par = 1) }
 
     val burstLength = tileDims.last
-    val p = tile.ranges.last.p.getOrElse(wrap(param(1)))
+    val p = tile.ranges.last.p.getOrElse(wrap(intParam(1)))
 
     val fifo = FIFO[T](96000) // TODO: What should the size of this actually be?
 
@@ -235,7 +240,8 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
   def copy_sparse[T:Bits](offchip: DRAMSparseTile[T], local: SRAM[T], isLoad: Boolean)(implicit ctx: SrcCtx): Void = {
     if (rankOf(local) > 1) new SparseDataDimensionError(isLoad, rankOf(local))
 
-    val ctr = Counter(0, wrap(stagedDimsOf(local.s)).head, 1, 1).s //range2counter(0 until wrap(stagedDimsOf(local).head)).s
+    val p = local.par
+    val ctr = Counter(0, wrap(stagedDimsOf(local.s)).head, 1, p).s //range2counter(0 until wrap(stagedDimsOf(local).head)).s
     val i = fresh[Index]
     if (isLoad) Void(gather(offchip.dram, local.s, offchip.addrs.s, ctr, i))
     else        Void(scatter(offchip.dram, local.s, offchip.addrs.s, ctr, i))

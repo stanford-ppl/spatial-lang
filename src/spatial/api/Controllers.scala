@@ -13,19 +13,32 @@ trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps wit
   type Controller
   implicit val ControllerType: Staged[Controller]
 
-  case class MemReduceClass(style: ControlStyle) {
-    /** 1 dimensional memory reduction with explicit accumulator **/
-    def apply[T:Bits,C[T]](accum: C[T])(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Staged[C[T]]): C[T] = {
+  case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle) {
+    /** 1 dimensional memory reduction without zero **/
+    def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
       mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style)
+      accum
+    }
+
+    /** 2 dimensional memory reduction without zero **/
+    def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
+      mem_reduceND(List(domain1,domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style)
       accum
     }
   }
 
+  case class MemReduceClass(style: ControlStyle) {
+    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style)
+  }
+
+
   case class ReduceAccum[T](accum: Reg[T], style: ControlStyle) {
+    /** 1 dimensional reduction **/
     def apply(domain1D: Counter)(map: Index => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, bits: Bits[T]): Reg[T] = {
       reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style)
       accum
     }
+    /** 2 dimensional reduction **/
     def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, bits: Bits[T]): Reg[T] = {
       reduceND(List(domain1, domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style)
       accum
@@ -101,8 +114,14 @@ trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps wit
     def MemReduce = MemReduceClass(StreamPipe)
   }
 
+  object Parallel {
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { parallel_pipe(func); () }
+  }
+
+
   private[spatial] def accel_blk(func: => Void)(implicit ctx: SrcCtx): Controller
   private[spatial] def unit_pipe(func: => Void, style: ControlStyle)(implicit ctx: SrcCtx): Controller
+  private[spatial] def parallel_pipe(func: => Void)(implicit ctx: SrcCtx): Controller
   private[spatial] def foreachND(
     domain: Seq[Counter],
     func: List[Index] => Void,
@@ -148,6 +167,12 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     val fFunc = () => unwrap(func)
     val pipe = op_unit_pipe(fFunc())
     styleOf(pipe) = style
+    Controller(pipe)
+  }
+
+  private[spatial] def parallel_pipe(func: => Void)(implicit ctx: SrcCtx): Controller = {
+    val fFunc = () => unwrap(func)
+    val pipe = op_parallel_pipe(fFunc())
     Controller(pipe)
   }
 
