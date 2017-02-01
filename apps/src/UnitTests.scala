@@ -76,35 +76,36 @@ object DeviceMemcpy extends SpatialApp {
 
 object SimpleTileLoadStore extends SpatialApp {
   import IR._
-  type T = Int
+
   val N = 192
 
-  def simpleLoadStore(srcHost: Array[T], value: Int) = {
+  def simpleLoadStore[T](srcHost: Array[T], value: T)(implicit num: Num[T]) = {
     val loadPar  = 1 (1 -> 1)
     val storePar = 1 (1 -> 1)
     val tileSize = 96 (96 -> 96)
 
-    val srcFPGA = DRAM[Int](N)
-    val dstFPGA = DRAM[Int](N)
+    val srcFPGA = DRAM[T](N)
+    val dstFPGA = DRAM[T](N)
     setMem(srcFPGA, srcHost)
 
     val size = ArgIn[Int]
-    val x = ArgIn[Int]
+    val x = ArgIn[T]
     setArg(x, value)
     setArg(size, N)
     Accel {
-      val b1 = SRAM[Int](tileSize)
+      val b1 = SRAM[T](tileSize)
       Sequential.Foreach(size by tileSize) { i =>
-        b1 := srcFPGA(i::i+tileSize)
+        import num._
 
-        val b2 = SRAM[SInt](tileSize)
+        b1 load srcFPGA(i::i+tileSize)
+
+        val b2 = SRAM[T](tileSize)
         Foreach(tileSize by 1) { ii =>
           b2(ii) = b1(ii) * x
         }
 
-        dstFPGA(i::i+tileSize) := b2
+        dstFPGA(i::i+tileSize) store b2
       }
-      ()
     }
     getMem(dstFPGA)
   }
@@ -129,4 +130,5 @@ object SimpleTileLoadStore extends SpatialApp {
     println("PASS: " + cksum + " (SimpleTileLoadStore)")
   }
 }
+
 

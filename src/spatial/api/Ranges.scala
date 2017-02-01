@@ -41,6 +41,8 @@ trait RangeOps extends MemoryOps with RangeLowPriorityImplicits { this: SpatialO
 
     def ::(start: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(start), x, None, None)
   }
+  // Implicitly get value of register to use in counter definitions
+  implicit def regToIndexRange(x: Reg[Index])(implicit ctx: SrcCtx): IndexRangeOps = IndexRangeOps(x.value)
 
   private[spatial] def range_alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index], isUnit: Boolean = false): Range
 
