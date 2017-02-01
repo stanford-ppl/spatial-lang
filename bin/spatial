@@ -26,6 +26,7 @@ def main():
   parser.add_argument("--log", dest="log", action="store_true", default=False, help="Saves compilation log to compile.log")
   parser.add_argument("--dot", dest="dot", action="store_true", default=False, help="enables dot generation")
   parser.add_argument("--outdir", dest="outdir", default="", help="location of output dir, relative to ${SPATIAL_HOME}.  Default is gen/<appname>")
+  parser.add_argument("--multifile", dest="multifile", action="store_true", default=False, help="Split generated HW code in many files")
 
   # # Plasticine work
   # parser.add_argument('--CGRA+', dest='allCGRA', action="store_true", default=False, help="enable ALL PIR features")
@@ -84,6 +85,9 @@ def main():
   # if opts.dseCGRA == True:
   #   opts.pdse = True
 
+  if opts.multifile == True:
+    java_opts = java_opts + " -Dargon.multifile=true"
+    java_opts = java_opts + " -Dspatial.multifile=true"
   if opts.naming == True:
     java_opts = java_opts + " -Dspatial.naming=true"
   if opts.dse == True:

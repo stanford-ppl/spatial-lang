@@ -28,6 +28,8 @@ object SpatialBuild extends Build {
     retrieveManaged := true,
     scalacOptions += "-Yno-generic-signatures",
 
+    excludeFilter in unmanagedSources := "*template-level*" || "*app-level*",
+
     // More strict error/warning checking
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings"),
     // It would be very annoying to have to import these everywhere in this project
