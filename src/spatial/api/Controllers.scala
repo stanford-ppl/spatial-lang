@@ -330,7 +330,9 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
   def op_parallel_pipe(func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
     val fBlk = stageBlock{ func }
     val effects = fBlk.summary
-    stageEffectful( ParallelPipe(fBlk), effects)(ctx)
+    val pipe = stageEffectful( ParallelPipe(fBlk), effects)(ctx)
+    styleOf(pipe) = ForkJoin
+    pipe
   }
 
   def op_foreach(domain: Exp[CounterChain], func: => Exp[Void], iters: List[Bound[Index]])(implicit ctx: SrcCtx): Sym[Controller] = {

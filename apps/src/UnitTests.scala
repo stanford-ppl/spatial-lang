@@ -389,7 +389,8 @@ object SimpleFold extends SpatialApp {
   def simple_fold[T](src: Array[T])(implicit num: Num[T]) = {
     import num._
 
-    val innerPar = 1 (1 -> 1)
+    val outerPar = 16 (16 -> 16)
+    val innerPar = 16 (16 -> 16)
     val tileSize = constTileSize (constTileSize -> constTileSize)
     val len = src.length; bound(len) = 9216
 
@@ -402,7 +403,7 @@ object SimpleFold extends SpatialApp {
 
     Accel {
       val accum = Reg[T](0.as[T])
-      Reduce(accum)(N by tileSize){ i =>
+      Reduce(accum)(N by tileSize par outerPar){ i =>
         val b1 = SRAM[T](tileSize)
         b1 load v1(i::i+tileSize)
         Reduce(Reg[T](0.as[T]))(tileSize par innerPar){ ii =>
