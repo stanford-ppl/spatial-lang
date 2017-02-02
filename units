@@ -5,9 +5,17 @@ make apps
 
 tests=("SimpleSequential" "DeviceMemcpy" "SimpleTileLoadStore" "FifoLoad" "ParFifoLoad" "FifoLoadStore" "SimpleReduce" "Niter" "SimpleFold" "Memcpy2D" "BlockReduce1D" "UnalignedLd" "BlockReduce2D" "ScatterGather" "InOutArg" "MultiplexedWriteTest" "BubbledWriteTest" "SequentialWrites" "ChangingCtrMax" "FifoPushPop")
 
+args=("" "16" "16" "960" "6" "" "72" "192" "1920" "" "1920" "100" "192 384" "" "7" "" "" "" "384")
 
-for test in "${tests[@]}"
+for i in "${!tests[@]}"
 do : 
+  t = $tests[i]
   echo "spatial $test"
-  spatial $test
+  compiled = $( spatial $test )
+  if compiled == 0
+    pushd .
+    cd gen/$test/scala
+    sbt run "$args"
+    popd
+  fi
 done

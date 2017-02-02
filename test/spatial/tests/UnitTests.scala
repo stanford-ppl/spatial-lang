@@ -1,8 +1,12 @@
+package spatial.tests
+
+import org.scalatest.{FlatSpec, Matchers}
 import spatial._
 import org.virtualized._
 
-object SimpleSequential extends SpatialApp {
+object SimpleSequential extends SpatialTest {
   import IR._
+  IR.testArgs = List("16", "16")
 
   def simpleSeq(xIn: Int, yIn: Int): Int = {
     val innerPar = 1 (1 -> 1)
@@ -42,8 +46,9 @@ object SimpleSequential extends SpatialApp {
 
 
 // Args: 16
-object DeviceMemcpy extends SpatialApp {
+object DeviceMemcpy extends SpatialTest {
   import IR._
+  IR.testArgs = List("16")
 
   val N = 192
   type T = Int
@@ -75,8 +80,9 @@ object DeviceMemcpy extends SpatialApp {
 }
 
 // Args: 16
-object SimpleTileLoadStore extends SpatialApp {
+object SimpleTileLoadStore extends SpatialTest {
   import IR._
+  IR.testArgs = List("16")
 
   val N = 192
 
@@ -134,8 +140,9 @@ object SimpleTileLoadStore extends SpatialApp {
 
 
 // Args: 960
-object FifoLoad extends SpatialApp {
+object FifoLoad extends SpatialTest {
   import IR._
+  IR.testArgs = List("960")
 
   def fifoLoad[T:Num](srcHost: Array[T], N: Int) = {
     val tileSize = 96 (96 -> 96)
@@ -186,8 +193,9 @@ object FifoLoad extends SpatialApp {
 
 
 // 6
-object ParFifoLoad extends SpatialApp {
+object ParFifoLoad extends SpatialTest {
   import IR._
+  IR.testArgs = List("96")
 
   def parFifoLoad[T](src1: Array[T], src2: Array[T], in: Int)(implicit num: Num[T]) = {
     import num._
@@ -243,7 +251,7 @@ object ParFifoLoad extends SpatialApp {
 
 
 
-object FifoLoadStore extends SpatialApp {
+object FifoLoadStore extends SpatialTest {
   import IR._
 
   val N = 192
@@ -294,8 +302,9 @@ object FifoLoadStore extends SpatialApp {
 
 
 
-object SimpleReduce extends SpatialApp { // Args: 72
+object SimpleReduce extends SpatialTest { // Args: 72
   import IR._
+  IR.testArgs = List("72")
 
   val N = 96.as[Int]
 
@@ -333,9 +342,10 @@ object SimpleReduce extends SpatialApp { // Args: 72
 
 
 // Args: 192
-object Niter extends SpatialApp {
+object Niter extends SpatialTest {
   import IR._
-  
+  IR.testArgs = List("192")
+
   val constTileSize = 96
 
   def nIterTest[T](len: Int)(implicit num: Num[T]): T = {
@@ -381,8 +391,9 @@ object Niter extends SpatialApp {
 }
 
 // Args: 1920
-object SimpleFold extends SpatialApp {
+object SimpleFold extends SpatialTest {
   import IR._
+  IR.testArgs = List("1920")
 
   val constTileSize = 96
 
@@ -432,7 +443,7 @@ object SimpleFold extends SpatialApp {
 }
 
 // Args: None
-object Memcpy2D extends SpatialApp {
+object Memcpy2D extends SpatialTest {
   import IR._
 
   val R = 96
@@ -480,8 +491,9 @@ object Memcpy2D extends SpatialApp {
 
 
 // Args: 1920
-object BlockReduce1D extends SpatialApp {
+object BlockReduce1D extends SpatialTest {
   import IR._
+  IR.testArgs = List("1920")
 
   val tileSize = 96
   val p = 2
@@ -531,8 +543,9 @@ object BlockReduce1D extends SpatialApp {
 }
 
 // Args: 100
-object UnalignedLd extends SpatialApp {
+object UnalignedLd extends SpatialTest {
   import IR._
+  IR.testArgs = List("100")
 
   val N = 19200
 
@@ -582,8 +595,9 @@ object UnalignedLd extends SpatialApp {
 }
 
 // Args: 192 384
-object BlockReduce2D extends SpatialApp {
+object BlockReduce2D extends SpatialTest {
   import IR._
+  IR.testArgs = List("192", "384")
 
   val N = 1920
   val tileSize = 96
@@ -657,7 +671,7 @@ object BlockReduce2D extends SpatialApp {
 
 
 // Args: none
-object ScatterGather extends SpatialApp {
+object ScatterGather extends SpatialTest {
   import IR._
 
   val N = 1920
@@ -734,8 +748,9 @@ object ScatterGather extends SpatialApp {
 
 
 // Args: 7
-object InOutArg extends SpatialApp {
+object InOutArg extends SpatialTest {
   import IR._
+  IR.testArgs = List("7")
 
   @virtualize
   def main() {
@@ -767,7 +782,7 @@ object InOutArg extends SpatialApp {
 }
 
 // Args: None
-object MultiplexedWriteTest extends SpatialApp {
+object MultiplexedWriteTest extends SpatialTest {
   import IR._
 
   val tileSize = 96
@@ -827,7 +842,7 @@ object MultiplexedWriteTest extends SpatialApp {
 // TODO: Make this actually check a bubbled NBuf (i.e.- s0 = wr, s2 = wr, s4 =rd, s1s2 = n/a)
 // because I think this will break the NBuf SM since it won't detect drain completion properly
 // Args: None
-object BubbledWriteTest extends SpatialApp {
+object BubbledWriteTest extends SpatialTest {
   import IR._
 
   val tileSize = 96
@@ -888,7 +903,7 @@ object BubbledWriteTest extends SpatialApp {
 }
 
 // Args: None
-object SequentialWrites extends SpatialApp {
+object SequentialWrites extends SpatialTest {
   import IR._
 
   val tileSize = 96
@@ -939,7 +954,7 @@ object SequentialWrites extends SpatialApp {
 }
 
 // Args: None
-object ChangingCtrMax extends SpatialApp {
+object ChangingCtrMax extends SpatialTest {
   import IR._
 
   val tileSize = 96
@@ -979,8 +994,9 @@ object ChangingCtrMax extends SpatialApp {
 
 
 // Args: 384
-object FifoPushPop extends SpatialApp {
+object FifoPushPop extends SpatialTest {
   import IR._
+  IR.testArgs = List("384")
 
   def fifopushpop(N: Int) = {
     val tileSize = 96 (96 -> 96)
@@ -1016,4 +1032,29 @@ object FifoPushPop extends SpatialApp {
     val cksum = dst == gold
     println("PASS: " + cksum + " (FifoPushPop)")
   }
+}
+
+
+class UnitTests extends FlatSpec with Matchers {
+  SpatialConfig.enableScala = true
+  "SimpleSequential" should "compile" in { SimpleSequential.main(Array.empty) }
+  "DeviceMemcpy" should "compile" in { DeviceMemcpy.main(Array.empty) }
+  "SimpleTileLoadStore" should "compile" in { SimpleTileLoadStore.main(Array.empty) }
+  "FifoLoad" should "compile" in { FifoLoad.main(Array.empty) }
+  "ParFifoLoad" should "compile" in { ParFifoLoad.main(Array.empty) }
+  "FifoLoadStore" should "compile" in { FifoLoadStore.main(Array.empty) }
+  "SimpleReduce" should "compile" in { SimpleReduce.main(Array.empty) }
+  "Niter" should "compile" in { Niter.main(Array.empty) }
+  "SimpleFold" should "compile" in { SimpleFold.main(Array.empty) }
+  "Memcpy2D" should "compile" in { Memcpy2D.main(Array.empty) }
+  "BlockReduce1D" should "compile" in { BlockReduce1D.main(Array.empty) }
+  "UnalignedLd" should "compile" in { UnalignedLd.main(Array.empty) }
+  "BlockReduce2D" should "compile" in { BlockReduce2D.main(Array.empty) }
+  "ScatterGather" should "compile" in { ScatterGather.main(Array.empty) }
+  "InOutArg" should "compile" in { InOutArg.main(Array.empty) }
+  "MultiplexedWriteTest" should "compile" in { MultiplexedWriteTest.main(Array.empty) }
+  "BubbledWriteTest" should "compile" in { BubbledWriteTest.main(Array.empty) }
+  "SequentialWrites" should "compile" in { SequentialWrites.main(Array.empty) }
+  "ChangingCtrMax" should "compile" in { ChangingCtrMax.main(Array.empty) }
+  "FifoPushPop" should "compile" in { FifoPushPop.main(Array.empty) }
 }

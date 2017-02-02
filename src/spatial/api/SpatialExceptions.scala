@@ -65,6 +65,10 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
     error(c"Controllers $a and $b have an undefined pipe distance because they occur in parallel")
   })
 
+  class UndefinedControlStyleException(ctrl: Exp[_]) extends
+  CompilerException(1011, c"Controller ${str(ctrl)} does not have a control style defined", {
+    error(c"Controller ${str(ctrl)} does not have a control style defined")
+  })
 
 
   // --- User exceptions
