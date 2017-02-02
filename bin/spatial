@@ -23,6 +23,7 @@ def main():
   parser.add_argument('--chisel', dest='chisel', action='store_true', default=False, help='enables chisel generation')
   parser.add_argument('--naming', dest='naming', action='store_true', default=True, help='generates the debug name for all syms, rather than "x${s.id}" only')
   parser.add_argument('--debug', dest='debug', action='store_true', default=False, help='enables logging of compiler')
+  parser.add_argument('--tree', dest='tree', action='store_true', default=True, help='enables logging of controller tree for visualizing app structure')
   parser.add_argument("--cpp", dest="cpp", action="store_true", default=True, help="enables cpp generation")
   parser.add_argument("--dot", dest="dot", action="store_true", default=False, help="enables dot generation")
   parser.add_argument("--outdir", dest="outdir", default="", help="location of output dir, relative to ${SPATIAL_HOME}.  Default is gen/<appname>")
@@ -88,6 +89,8 @@ def main():
     java_opts = java_opts + " -Dspatial.multifile=true"
   if opts.naming == True:
     java_opts = java_opts + " -Dspatial.naming=true"
+  if opts.tree == True:
+    java_opts = java_opts + " -Dspatial.tree=true"
   if opts.dse == True:
     java_opts = java_opts + " -Dspatial.dse=true"
   if opts.debug == True:

@@ -2,10 +2,14 @@ package spatial.codegen.chiselgen
 
 import spatial.api.DRAMExp
 import spatial.SpatialConfig
+import spatial.analysis.SpatialMetadataExp
+
 
 trait ChiselGenDRAM extends ChiselGenSRAM {
-  val IR: DRAMExp
+  val IR: DRAMExp with SpatialMetadataExp
   import IR._
+
+  var offchipMems: List[Sym[Any]] = List()
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -53,6 +57,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       close("}")
 
     case BurstLoad(dram, fifo, ofs, ctr, i)  =>
+      offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
       open(src"val $lhs = {")
       open(src"$ctr.foreach{case (is,vs) => is.zip(vs).foreach{case ($i,v) => if (v) {")
       emit(src"$fifo.enqueue( $dram.apply($ofs + $i) )")
@@ -60,6 +65,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       close("}")
 
     case BurstStore(dram, fifo, ofs, ctr, i) =>
+      offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
       open(src"val $lhs = {")
       open(src"$ctr.foreach{case (is,vs) => is.zip(vs).foreach{case ($i,v) => if (v) {")
       emit(src"$dram.update($ofs + $i, $fifo.dequeue() )")
@@ -67,6 +73,34 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       close("}")
 
     case _ => super.emitNode(lhs, rhs)
+  }
+
+
+  override protected def emitFileFooter() {
+
+    withStream(getStream("IOModule")) {
+      emit(s"""  class MemStreamsBundle() extends Bundle{""")
+      offchipMems.zipWithIndex.foreach{ case (port,i) => 
+        val info = port match {
+          case Def(BurstLoad(dram,_,_,_,p)) => 
+            emit(s"// Burst Load")
+            (s"${boundOf(p).toInt}", s"""${nameOf(dram).getOrElse("")}""")
+          case Def(BurstStore(dram,_,_,_,p)) =>
+            emit("// Burst Store")
+            (s"${boundOf(p).toInt}", s"""${nameOf(dram).getOrElse("")}""")
+          case _ => 
+            ("No match", s"No mem")
+        }
+        emit(s"""  val outPorts${i} = Output(new ToDRAM(${info._1}))
+    val inPorts${i} = Input(new FromDRAM(${info._1}))""")
+        emit(s"""    //  ${quote(port)} = ports$i (${info._2})
+  """)
+        // offchipMemsByName = offchipMemsByName :+ s"${quote(port)}"
+      }
+
+      emit("  }")
+    }
+    super.emitFileFooter()
   }
 
 }

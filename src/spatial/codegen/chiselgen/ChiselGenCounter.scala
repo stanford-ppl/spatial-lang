@@ -9,7 +9,7 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
   val IR: CounterExp
   import IR._
 
-  dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/Counter.chisel")
+  // dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/Counter.chisel")
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
