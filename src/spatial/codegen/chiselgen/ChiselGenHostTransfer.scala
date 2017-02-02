@@ -4,7 +4,7 @@ import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.HostTransferExp
 import spatial.SpatialConfig
 
-trait ChiselGenHostTransfer extends ChiselCodegen {
+trait ChiselGenHostTransfer extends ChiselCodegen  {
   val IR: HostTransferExp
   import IR._
 
@@ -35,5 +35,7 @@ trait ChiselGenHostTransfer extends ChiselCodegen {
     case GetMem(dram, data) => emit(src"val $lhs = System.arraycopy($dram, 0, $data, 0, $dram.length)")
     case _ => super.emitNode(lhs, rhs)
   }
+
+
 
 }

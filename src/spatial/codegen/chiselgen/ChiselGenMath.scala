@@ -3,9 +3,10 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.MathExp
 import spatial.SpatialConfig
+import spatial.analysis.SpatialMetadataExp
 
 trait ChiselGenMath extends ChiselCodegen {
-  val IR: MathExp
+  val IR: MathExp with SpatialMetadataExp
   import IR._
 
   override def quote(s: Exp[_]): String = {
@@ -28,7 +29,7 @@ trait ChiselGenMath extends ChiselCodegen {
 
   def quoteOperand(s: Exp[_]): String = s match {
     case ss:Sym[_] => s"x${ss.id}"
-    case Const(xx:Int) => s"$xx"
+    case Const(xx:Exp[_]) => s"${boundOf(xx).toInt}"
     case _ => "unk"
   }
 

@@ -2,6 +2,7 @@ package spatial
 
 import argon.codegen.scalagen._
 import argon.codegen.chiselgen._
+import argon.codegen.cppgen._
 import argon.ops._
 import argon.traversal.IRPrinter
 import argon.{AppCore, CompilerCore, LibCore}
@@ -28,7 +29,7 @@ protected trait SpatialExp extends SpatialOps with SpatialMetadataExp with Banki
      with HostTransferExp with ParameterExp with RangeExp with StructExp with UnrolledExp with VectorExp
      with ArrayExtExp with AssertExp with StagedUtilExp
 
-protected trait ScalaGenSpatial extends ScalaCodegen with ScalaSingleFileGen
+protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenBool with ScalaGenVoid with ScalaGenFixPt with ScalaGenFltPt with ScalaGenMixedNumeric
   with ScalaGenCounter with ScalaGenReg with ScalaGenSRAM with ScalaGenFIFO 
   with ScalaGenIfThenElse with ScalaGenPrint with ScalaGenController with ScalaGenMath with ScalaGenText
@@ -39,7 +40,7 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaSingleFileGen
   override val IR: SpatialCompiler
 }
 
-protected trait ChiselGenSpatial extends ChiselCodegen with ChiselSingleFileGen
+protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenBool with ChiselGenVoid with ChiselGenFixPt with ChiselGenFltPt with ChiselGenMixedNumeric
   with ChiselGenCounter with ChiselGenReg with ChiselGenSRAM with ChiselGenFIFO 
   with ChiselGenIfThenElse with ChiselGenPrint with ChiselGenController with ChiselGenMath with ChiselGenText
@@ -48,6 +49,16 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselSingleFileGen
 
   override val IR: SpatialCompiler
 }
+
+protected trait CppGenSpatial extends CppCodegen with CppFileGen {
+
+  override val IR: SpatialCompiler
+}
+
+protected trait TreeWriter extends TreeGenSpatial {
+  override val IR: SpatialCompiler
+}
+
 
 protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   lazy val printer = new IRPrinter {val IR: self.type = self }
@@ -91,6 +102,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
 
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
   lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableChisel }
+  lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableCpp }
+  lazy val treegen = new TreeGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableTree }
 
   // Traversal schedule
   passes += printer
@@ -146,6 +159,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   // --- Code generation
   passes += scalagen
   passes += chiselgen
+  passes += treegen
 }
 
 protected trait SpatialIR extends SpatialCompiler with SpatialApi

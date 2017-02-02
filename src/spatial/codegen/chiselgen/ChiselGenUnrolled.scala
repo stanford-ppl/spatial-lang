@@ -51,11 +51,9 @@ trait ChiselGenUnrolled extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case UnrolledForeach(cchain,func,iters,valids) =>
-      emit(src"/** BEGIN UNROLLED FOREACH **/")
-      open(src"val $lhs = {")
-      emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
-      close("}")
-      emit(src"/** END UNROLLED FOREACH **/")
+      withSubStream("${lhs}UnrForeach") {
+        emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
+      }
 
     case UnrolledReduce(cchain,_,func,_,iters,valids,_) =>
       emit(src"/** BEGIN UNROLLED REDUCE **/")

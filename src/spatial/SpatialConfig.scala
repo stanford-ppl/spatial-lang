@@ -11,6 +11,8 @@ object SpatialConfig {
   var enableDSE: Boolean = getProperty("spatial.dse", "false") == "true"
   var enableScala: Boolean = getProperty("spatial.scala", "false") == "true"
   var enableChisel: Boolean = getProperty("spatial.chisel", "false") == "true"
+  var enableCpp: Boolean = getProperty("spatial.cpp", "false") == "true"
   var enableNaming: Boolean = getProperty("spatial.naming", "false") == "true"
+  var enableTree: Boolean = getProperty("spatial.tree", "false") == "true"
   var multifile: Boolean = getProperty("spatial.multifile", "false") == "true"
 }
