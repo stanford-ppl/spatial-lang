@@ -119,6 +119,7 @@ trait ChiselGenController extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func) =>
+      emitEn = true
       emit(s"""val ${quote(lhs)}_en = io.top_en & !io.top_done;""")
       emit(s"""val ${quote(lhs)}_resetter = false.B // TODO: top level reset""")
       emitGlobal(s"""${quote(lhs)}_done = Wire(Bool())""")
@@ -129,6 +130,7 @@ trait ChiselGenController extends ChiselCodegen {
       emit(s"""io.top_done := done_latch.io.output.data""")
 
       emitBlock(func)
+      emitEn = false
 
     case UnitPipe(func) =>
       withSubStream("${quote(lhs)}UnitPipe") {
