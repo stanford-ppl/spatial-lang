@@ -107,6 +107,10 @@ trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with Spati
 
   def reduceTree[T](xs: Seq[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx): T = reduceTreeLevel(xs, reduce).head
 
-  def productTree[T:Num](xs: Seq[T])(implicit ctx: SrcCtx): T = reduceTree(xs){(a,b) => num[T].times(a,b) }
-  def sumTree[T:Num](xs: Seq[T])(implicit ctx: SrcCtx): T = reduceTree(xs){(a,b) => num[T].plus(a,b) }
+  def productTree[T:Num](xs: Seq[T])(implicit ctx: SrcCtx): T = {
+    if (xs.isEmpty) one[T] else reduceTree(xs){(a,b) => num[T].times(a,b) }
+  }
+  def sumTree[T:Num](xs: Seq[T])(implicit ctx: SrcCtx): T = {
+    if (xs.isEmpty) zero[T] else reduceTree(xs){(a,b) => num[T].plus(a,b) }
+  }
 }

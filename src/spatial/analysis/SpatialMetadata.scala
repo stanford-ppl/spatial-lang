@@ -16,6 +16,7 @@ trait SpatialMetadataOps extends NameOps with IndexPatternOps { this: SpatialOps
   case object SeqPipe    extends ControlStyle
   case object MetaPipe   extends ControlStyle
   case object StreamPipe extends ControlStyle
+  case object ForkJoin   extends ControlStyle
 
   private[spatial] def setBound[T:Staged](x: T, value: BigInt): Unit
 }

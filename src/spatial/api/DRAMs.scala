@@ -155,7 +155,9 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
       new UnsupportedStridedDRAMError(isLoad)(ctx)
 
     val tileDims = tile.ranges.map(_.length)
-    val counters = tileDims.dropRight(1).map{d => Counter(start = 0, end = d, step = 0, par = 1) }
+    // Last counter is used as counter for load/store
+    // Other counters (if any) are used to iterate over higher dimensions
+    val counters = tileDims.map{d => Counter(start = 0, end = d, step = 0, par = 1) }
 
     val burstLength = tileDims.last
     val p = tile.ranges.last.p.getOrElse(wrap(intParam(1)))

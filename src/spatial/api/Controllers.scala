@@ -173,6 +173,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
   private[spatial] def parallel_pipe(func: => Void)(implicit ctx: SrcCtx): Controller = {
     val fFunc = () => unwrap(func)
     val pipe = op_parallel_pipe(fFunc())
+    styleOf(pipe) = ForkJoin
     Controller(pipe)
   }
 
@@ -283,6 +284,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     override def freqs  = cold(map) ++ cold(reduce) ++ normal(cchain) ++ normal(accum) ++ hot(load) ++ hot(store)
     override def binds  = super.binds ++ iters ++ List(rV._1, rV._2)
     override def tunnels = syms(accum)
+    override def aliases = Nil
     val bT = bits[T]
   }
 
@@ -306,6 +308,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     override def freqs = cold(map) ++ cold(reduce) ++ normal(cchainMap) ++ normal(cchainRed) ++ normal(accum)
     override def binds = super.binds ++ itersMap ++ itersRed ++ List(rV._1, rV._2)
     override def tunnels = syms(accum)
+    override def aliases = Nil
 
     def bT = bits[T]
   }

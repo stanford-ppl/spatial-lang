@@ -25,7 +25,7 @@ trait NodeClasses extends SpatialMetadataExp {
 
   def isControlNode(e: Exp[_]): Boolean = isOuterControl(e) || isInnerControl(e)
 
-  def isOuterControl(e: Exp[_]): Boolean = isOuterPipeline(e)
+  def isOuterControl(e: Exp[_]): Boolean = isOuterPipeline(e) || isParallel(e)
   def isInnerControl(e: Exp[_]): Boolean = isInnerPipeline(e) || isDRAMTransfer(e)
   def isOuterPipeline(e: Exp[_]): Boolean = isPipeline(e) && styleOf(e) != InnerPipe
   def isInnerPipeline(e: Exp[_]): Boolean = isPipeline(e) && styleOf(e) == InnerPipe
@@ -69,6 +69,12 @@ trait NodeClasses extends SpatialMetadataExp {
     case _:OpMemReduce[_,_]    => true
     case _:UnrolledForeach     => true
     case _:UnrolledReduce[_,_] => true
+    case _ => false
+  }
+
+  def isParallel(e: Exp[_]): Boolean = getDef(e).exists(isParallel)
+  def isParallel(d: Def): Boolean = d match {
+    case _:ParallelPipe => true
     case _ => false
   }
 

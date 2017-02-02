@@ -26,3 +26,8 @@ if [ $2 = 1 ]; then #requested just dsl
   cd ${SPATIAL_HOME}
   sbt compile
 fi
+
+if [ $3 = 1 ]; then # requested apps
+  cd ${SPATIAL_HOME}
+  sbt "; project apps; compile"
+fi

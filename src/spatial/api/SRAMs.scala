@@ -17,8 +17,6 @@ trait SRAMOps extends MemoryOps with RangeOps { this: SpatialOps =>
 
     def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void
     def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void
-
-
   }
 
   implicit class SRAMAddressBlock(x: SRAM[Index]) {
