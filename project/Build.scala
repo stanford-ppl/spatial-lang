@@ -38,7 +38,7 @@ object SpatialBuild extends Build {
     addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full),
   
     scalaSource in Compile <<= baseDirectory(_ / "src"),
-    scalaSource in Test <<= baseDirectory(_ / "tests"),
+    scalaSource in Test <<= baseDirectory(_ / "test"),
 
     parallelExecution in Test := false,
     concurrentRestrictions in Global += Tags.limitAll(1), //we need tests to run in isolation across all projects

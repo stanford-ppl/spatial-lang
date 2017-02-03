@@ -164,6 +164,35 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
 
     val fifo = FIFO[T](96000) // TODO: What should the size of this actually be?
 
+    // Metaprogrammed (unstaged) if-then-else
+    if (counters.length > 1) {
+      Foreach(counters.dropRight(1)){ is =>
+        val indices = is :+ 0.as[Index]
+        val offchipAddr = () => flatIndex( offchipOffsets.zip(indices).map{case (a,b) => a + b}, wrap(dimsOf(offchip)))
+
+        val onchipOfs   = indices.zip(unitDims).flatMap{case (i,isUnitDim) => if (!isUnitDim) Some(i) else None}
+        val onchipAddr  = {i: Index => onchipOfs.take(onchipOfs.length - 1) :+ (onchipOfs.last + i)}
+
+        if (isLoad) load(offchipAddr(), onchipAddr)
+        else        store(offchipAddr(), onchipAddr)
+      }
+    }
+    else {
+      Pipe {
+        def offchipAddr = () => flatIndex(offchipOffsets, wrap(dimsOf(offchip)))
+        if (isLoad) load(offchipAddr(), {i => List(i) })
+        else        store(offchipAddr(), {i => List(i)})
+      }
+    }
+
+    def store(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = burstLength.s match {
+      case Const(c: BigInt) if c % (256*8/bits[T].length) == 0 => alignedStore(offchipAddr, onchipAddr)
+      case _ => unalignedStore(offchipAddr, onchipAddr)
+    }
+    def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = burstLength.s match {
+      case Const(c: BigInt) if c % (256*8/bits[T].length) == 0 => alignedLoad(offchipAddr, onchipAddr)  // TODO: 256
+      case _ => unalignedLoad(offchipAddr, onchipAddr)
+    }
 
     def alignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = {
       val maddr = Reg[Index]
@@ -208,35 +237,6 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
       }
     }
 
-
-    def store(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = burstLength.s match {
-      case Const(c: BigInt) if c % (256*8/bits[T].length) == 0 => alignedStore(offchipAddr, onchipAddr)
-      case _ => unalignedStore(offchipAddr, onchipAddr)
-    }
-    def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = burstLength.s match {
-      case Const(c: BigInt) if c % (256*8/bits[T].length) == 0 => alignedLoad(offchipAddr, onchipAddr)  // TODO: 256
-      case _ => unalignedLoad(offchipAddr, onchipAddr)
-    }
-
-    if (counters.length > 1) {
-      Foreach(counters.dropRight(1)){ is =>
-        val indices = is :+ 0.as[Index]
-        val offchipAddr = () => flatIndex( offchipOffsets.zip(indices).map{case (a,b) => a + b}, wrap(dimsOf(offchip)))
-
-        val onchipOfs   = indices.zip(unitDims).flatMap{case (i,isUnitDim) => if (!isUnitDim) Some(i) else None}
-        val onchipAddr  = {i: Index => onchipOfs.take(onchipOfs.length - 1) :+ (onchipOfs.last + i)}
-
-        if (isLoad) load(offchipAddr(), onchipAddr)
-        else        store(offchipAddr(), onchipAddr)
-      }
-    }
-    else {
-      Pipe {
-        def offchipAddr = () => flatIndex(offchipOffsets, wrap(dimsOf(offchip)))
-        if (isLoad) load(offchipAddr(), {i => List(i) })
-        else        store(offchipAddr(), {i => List(i)})
-      }
-    }
   }
 
   def copy_sparse[T:Bits](offchip: DRAMSparseTile[T], local: SRAM[T], isLoad: Boolean)(implicit ctx: SrcCtx): Void = {

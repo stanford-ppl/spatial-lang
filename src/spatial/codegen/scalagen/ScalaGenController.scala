@@ -31,6 +31,13 @@ trait ScalaGenController extends ScalaCodegen {
       close("}")
       emit("/** END UNIT PIPE **/")
 
+    case ParallelPipe(func) =>
+      emit("/** BEGIN PARALLEL PIPE **/")
+      open(src"val $lhs = {")
+      emitBlock(func)
+      close("}")
+      emit("/** END PARALLEL PIPE **/")
+
     case OpForeach(cchain, func, iters) =>
       emit("/** BEGIN FOREACH **/")
       open(src"val $lhs = {")

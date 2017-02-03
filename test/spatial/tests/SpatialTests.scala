@@ -5,7 +5,7 @@ import org.virtualized.virtualize
 import org.scalatest.{FlatSpec, Matchers}
 import argon._
 import argon.core.Exceptions
-import spatial.{SpatialApp, SpatialIR}
+import spatial.{SpatialApp, SpatialConfig, SpatialIR}
 
 // Create a testbench IR which runs Scala tests
 trait SpatialTestIR extends SpatialIR with RunnerCore { self =>
@@ -151,6 +151,8 @@ object NDScatterTest extends SpatialTest {
 
 class SpatialTests extends FlatSpec with Matchers with Exceptions {
   val noargs = Array[String]()
+  SpatialConfig.enableScala = true
+
   "NumericTest" should "compile" in { NumericTest.main(noargs) }
   "RegTest" should "compile" in { RegTest.main(noargs) }
   "SRAMTest" should "compile" in { SRAMTest.main(noargs) }

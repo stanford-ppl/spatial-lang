@@ -243,10 +243,20 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     case OpReduce(cchain,accum,map,ld,reduce,store,rV,iters) =>
       visitCtrl((lhs,false), iters, cchain){
         visitBlock(map)
-        visitBlock(ld)
-        visitBlock(reduce)
-        visitBlock(store)
+        visitCtrl((lhs,true)) {
+          visitBlock(ld)
+          visitBlock(reduce)
+          visitBlock(store)
+        }
       }
+
+      // HACK: Handle the one case where we allow scalar communication between blocks
+      if (isOuterControl(lhs)) map.result match {
+        case read @ Op(RegRead(reg)) =>
+          readersOf(reg) = readersOf(reg) :+ (read, (lhs,true))
+        case _ => // Nothing
+      }
+
       isAccum(accum) = true
       parentOf(accum) = lhs
       addChildDependencyData(lhs, map)

@@ -89,7 +89,7 @@ trait SpatialMetadataExp extends SpatialMetadataOps with NameExp with IndexPatte
     **/
   case class ControlType(style: ControlStyle) extends Metadata[ControlType] { def mirror(f:Tx) = this }
   object styleOf {
-    def apply(x: Exp[_]): ControlStyle = styleOf.get(x).get
+    def apply(x: Exp[_]): ControlStyle = styleOf.get(x).getOrElse{throw new UndefinedControlStyleException(x)}
     def update(x: Exp[_], style: ControlStyle): Unit = metadata.add(x, ControlType(style))
     def get(x: Exp[_]): Option[ControlStyle] = metadata[ControlType](x).map(_.style)
   }
