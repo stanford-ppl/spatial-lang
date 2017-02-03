@@ -78,7 +78,7 @@ trait ChiselGenController extends ChiselCodegen {
     }
 
     emit(s"""val ${quote(sym)}_offset = 0 // TODO: Compute real delays""")
-    emit(s"""val ${quote(sym)}_sm = Module(new ${smStr}(${constrArg}))""")
+    emitModule(src"${quote(sym)}_sm", s"${smStr}", s"${constrArg}")
     emit(s"""${quote(sym)}_sm.io.input.enable := ${quote(sym)}_en;""")
     emit(s"""${quote(sym)}_done := Utils.delay(${quote(sym)}_sm.io.output.done, ${quote(sym)}_offset)""")
     emit(s"""val ${quote(sym)}_rst_en = ${quote(sym)}_sm.io.output.rst_en // Generally used in inner pipes""")
@@ -119,7 +119,7 @@ trait ChiselGenController extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func) =>
-      emitEn = true
+      toggleEn() // turn on
       emit(s"""val ${quote(lhs)}_en = io.top_en & !io.top_done;""")
       emit(s"""val ${quote(lhs)}_resetter = false.B // TODO: top level reset""")
       emitGlobal(s"""${quote(lhs)}_done = Wire(Bool())""")
@@ -130,7 +130,7 @@ trait ChiselGenController extends ChiselCodegen {
       emit(s"""io.top_done := done_latch.io.output.data""")
 
       emitBlock(func)
-      emitEn = false
+      toggleEn() // turn off
 
     case UnitPipe(func) =>
       withSubStream("${quote(lhs)}UnitPipe") {

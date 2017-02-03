@@ -1,16 +1,16 @@
 ###.PHONY: spatial 
 .PHONY: apps
 
-all: dsl
+all: lang
 
-dsl:
+lang:
 	bin/init-dsl.sh 0 1 0
 
 repub:
 	bin/init-dsl.sh 1 0 0
 
-both:
-	bin/init-dsl.sh 1 1 0
+full:
+	bin/init-dsl.sh 1 1 1
 
 apps:
 	bin/init-dsl.sh 0 0 1

@@ -59,7 +59,7 @@ trait ChiselGenReg extends ChiselCodegen {
   }
 
   override protected def emitFileFooter() {
-    withStream(streamMapReverse("IOModule")) {
+    withStream(getStream("IOModule")) {
       emit(s"""  class ArgInBundle() extends Bundle{
     val ports = Vec(${argIns.length}, Input(UInt(32.W)))""")
       argIns.zipWithIndex.map { case(p,i) => 

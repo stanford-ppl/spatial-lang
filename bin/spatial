@@ -21,13 +21,14 @@ def main():
   parser.add_argument('--DSE', dest='dse', action='store_true',default=False, help='enables design space exploration')
   parser.add_argument('--scala', dest='scala', action='store_true', default=True, help='enables scala generation')
   parser.add_argument('--chisel', dest='chisel', action='store_true', default=False, help='enables chisel generation')
+  parser.add_argument("--cpp", dest="cpp", action="store_true", default=True, help="enables cpp generation")
   parser.add_argument('--naming', dest='naming', action='store_true', default=True, help='generates the debug name for all syms, rather than "x${s.id}" only')
   parser.add_argument('--debug', dest='debug', action='store_true', default=False, help='enables logging of compiler')
   parser.add_argument('--tree', dest='tree', action='store_true', default=True, help='enables logging of controller tree for visualizing app structure')
-  parser.add_argument("--cpp", dest="cpp", action="store_true", default=True, help="enables cpp generation")
   parser.add_argument("--dot", dest="dot", action="store_true", default=False, help="enables dot generation")
   parser.add_argument("--outdir", dest="outdir", default="", help="location of output dir, relative to ${SPATIAL_HOME}.  Default is gen/<appname>")
   parser.add_argument("--multifile", dest="multifile", action="store_true", default=False, help="Split generated HW code in many files")
+  parser.add_argument("--emission", dest="emission", default=0, help="Conservativeness when emitting nodes.  0 = crash when emitNode is undefined (release mode), 1 = warn when undefined, 2 = warn when undefined and report when node matched but outside backend rules")
 
   # # Plasticine work
   # parser.add_argument('--CGRA+', dest='allCGRA', action="store_true", default=False, help="enable ALL PIR features")
@@ -99,10 +100,12 @@ def main():
   if opts.dot == True:
     java_opts = java_opts + " -Dspatial.dot=true"
   if opts.chisel == True:
+    opts.cpp = True
     opts.scala = False
     java_opts = java_opts + " -Dspatial.chisel=true"
-  if opts.scala == True:
+  elif opts.scala == True:
     opts.chisel = False
+    opts.cpp = False
     java_opts = java_opts + " -Dspatial.scala=true"
   if opts.cpp == True:
     java_opts = java_opts + " -Dspatial.cpp=true"
@@ -110,6 +113,7 @@ def main():
     java_opts = java_opts + " -Dargon.out=" + os.path.join(SPATIAL_HOME, opts.outdir)
 
   java_opts = java_opts + " -Dargon.name=" + opts.app
+  java_opts = java_opts + " -Dargon.emission=" + opts.emission
 
   # if opts.pir_debug == True:
   #   java_opts = java_opts + " -Dspatial.pirdebug=true"
