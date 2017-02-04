@@ -4,6 +4,7 @@ import spatial._
 object ArgInOut extends SpatialApp {
   import IR._
 
+  @virtualize
   def main() {
     val x = ArgIn[Int]
     val y = ArgOut[Int]

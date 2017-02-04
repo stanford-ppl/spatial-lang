@@ -1,7 +1,136 @@
 import spatial._
 import org.virtualized._
 
-object SimpleSequential extends SpatialApp {
+object InOutArg extends SpatialApp {  // Regression (Unit) // Args: 5
+  import IR._
+
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val x = ArgIn[Int]
+    val y = ArgOut[Int]
+    val N = args(0).to[Int]
+
+    // Connect SW vals to HW vals
+    setArg(x, N)
+
+    // Create HW accelerator
+    Accel {
+      Pipe { y := x + 4 }
+    }
+
+
+    // Extract results from accelerator
+    val result = getArg(y)
+
+    // Create validation checks and debug code
+    val gold = N + 4
+    println("expected: " + gold)
+    println("result: " + result)
+
+    val cksum = gold == result
+    println("PASS: " + cksum + " (InOutArg)")
+  }
+}
+
+object Niter extends SpatialApp {  // Regression (Unit) // Args: 100
+  import IR._
+  
+  val constTileSize = 96
+
+  def nIterTest[T](len: Int)(implicit num: Num[T]): T = {
+    import num._
+
+    val innerPar = 1 (1 -> 1)
+    val tileSize = constTileSize (constTileSize -> constTileSize)
+    bound(len) = 9216
+
+    val N = ArgIn[Int]
+    val out = ArgOut[T]
+    setArg(N, len)
+
+    Accel {
+      Sequential {
+        Sequential.Foreach(N by tileSize){ i =>
+          val accum = Reduce(Reg[T](0.as[T]))(tileSize par innerPar){ ii =>
+            (i + ii).to[T]
+          } {_+_}
+          Pipe { out := accum }
+        }
+      }
+    }
+
+    getArg(out)
+  }
+
+  @virtualize
+  def main() {
+    val len = args(0).to[Int]
+
+    val result = nIterTest[Int](len)
+
+    val b1 = Array.tabulate(len){i => i}
+
+    val gold = b1.reduce{_+_} - ((len-constTileSize) * (len-constTileSize-1))/2
+    println("expected: " + gold)
+    println("result:   " + result)
+
+    val cksum = gold == result
+    println("PASS: " + cksum + " (Niter)")
+  }
+}
+
+object FifoLoad extends SpatialApp {
+  import IR._
+
+  def fifoLoad[T:Num](srcHost: Array[T], N: Int) = {
+    val tileSize = 96 (96 -> 96)
+
+    val size = ArgIn[Int]
+    setArg(size, N)
+
+    val srcFPGA = DRAM[T](size)
+    val dstFPGA = DRAM[T](size)
+    setMem(srcFPGA, srcHost)
+
+    Accel {
+      val f1 = FIFO[T](tileSize)
+      Sequential.Foreach(size by tileSize) { i =>
+        f1 load srcFPGA(i::i + tileSize)
+        val b1 = SRAM[T](tileSize)
+        Foreach(tileSize by 1) { i =>
+          b1(i) = f1.deq()
+        }
+        dstFPGA(i::i + tileSize) store b1
+      }
+      ()
+    }
+    getMem(dstFPGA)
+  }
+
+  @virtualize
+  def main() {
+    val arraySize = args(0).to[Int]
+
+    val src = Array.tabulate(arraySize){i => i }
+    val dst = fifoLoad(src, arraySize)
+
+    val gold = src
+
+    println("Sent in: ")
+    (0 until arraySize) foreach { i => print(gold(i) + " ") }
+    println("Got out:")
+    (0 until arraySize) foreach { i => print(dst(i) + " ") }
+    println("")
+
+    val cksum = dst.zip(gold){_ == _}.reduce{_&&_}
+    println("PASS: " + cksum + " (FifoLoadTest)")
+
+
+  }
+}
+
+object SimpleSequential extends SpatialApp { // Regression (Unit) // Args: 5 8
   import IR._
 
   def simpleSeq(xIn: Int, yIn: Int): Int = {
@@ -132,57 +261,6 @@ object SimpleTileLoadStore extends SpatialApp {
   }
 }
 
-
-// Args: 960
-object FifoLoad extends SpatialApp {
-  import IR._
-
-  def fifoLoad[T:Num](srcHost: Array[T], N: Int) = {
-    val tileSize = 96 (96 -> 96)
-
-    val size = ArgIn[Int]
-    setArg(size, N)
-
-    val srcFPGA = DRAM[T](size)
-    val dstFPGA = DRAM[T](size)
-    setMem(srcFPGA, srcHost)
-
-    Accel {
-      val f1 = FIFO[T](tileSize)
-      Sequential.Foreach(size by tileSize) { i =>
-        f1 load srcFPGA(i::i + tileSize)
-        val b1 = SRAM[T](tileSize)
-        Foreach(tileSize by 1) { i =>
-          b1(i) = f1.deq()
-        }
-        dstFPGA(i::i + tileSize) store b1
-      }
-      ()
-    }
-    getMem(dstFPGA)
-  }
-
-  @virtualize
-  def main() {
-    val arraySize = args(0).to[Int]
-
-    val src = Array.tabulate(arraySize){i => i }
-    val dst = fifoLoad(src, arraySize)
-
-    val gold = src
-
-    println("Sent in: ")
-    (0 until arraySize) foreach { i => print(gold(i) + " ") }
-    println("Got out:")
-    (0 until arraySize) foreach { i => print(dst(i) + " ") }
-    println("")
-
-    val cksum = dst.zip(gold){_ == _}.reduce{_&&_}
-    println("PASS: " + cksum + " (FifoLoadTest)")
-
-
-  }
-}
 
 
 // 6
@@ -332,53 +410,6 @@ object SimpleReduce extends SpatialApp { // Args: 72
 }
 
 
-// Args: 192
-object Niter extends SpatialApp {
-  import IR._
-  
-  val constTileSize = 96
-
-  def nIterTest[T](len: Int)(implicit num: Num[T]): T = {
-    import num._
-
-    val innerPar = 1 (1 -> 1)
-    val tileSize = constTileSize (constTileSize -> constTileSize)
-    bound(len) = 9216
-
-    val N = ArgIn[Int]
-    val out = ArgOut[T]
-    setArg(N, len)
-
-    Accel {
-      Sequential {
-        Sequential.Foreach(N by tileSize){ i =>
-          val accum = Reduce(Reg[T](0.as[T]))(tileSize par innerPar){ ii =>
-            (i + ii).to[T]
-          } {_+_}
-          Pipe { out := accum }
-        }
-      }
-    }
-
-    getArg(out)
-  }
-
-  @virtualize
-  def main() {
-    val len = args(0).to[Int]
-
-    val result = nIterTest[Int](len)
-
-    val b1 = Array.tabulate(len){i => i}
-
-    val gold = b1.reduce{_+_} - ((len-constTileSize) * (len-constTileSize-1))/2
-    println("expected: " + gold)
-    println("result:   " + result)
-
-    val cksum = gold == result
-    println("PASS: " + cksum + " (Niter)")
-  }
-}
 
 // Args: 1920
 object SimpleFold extends SpatialApp {
@@ -734,38 +765,6 @@ object ScatterGather extends SpatialApp {
 }
 
 
-// Args: 7
-object InOutArg extends SpatialApp {
-  import IR._
-
-  @virtualize
-  def main() {
-    // Declare SW-HW interface vals
-    val x = ArgIn[Int]
-    val y = ArgOut[Int]
-    val N = args(0).to[Int]
-
-    // Connect SW vals to HW vals
-    setArg(x, N)
-
-    // Create HW accelerator
-    Accel {
-      Pipe { y := x + 4 }
-    }
-
-
-    // Extract results from accelerator
-    val result = getArg(y)
-
-    // Create validation checks and debug code
-    val gold = N + 4
-    println("expected: " + gold)
-    println("result: " + result)
-
-    val cksum = gold == result
-    println("PASS: " + cksum + " (InOutArg)")
-  }
-}
 
 // Args: None
 object MultiplexedWriteTest extends SpatialApp {

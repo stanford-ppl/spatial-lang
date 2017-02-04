@@ -5,7 +5,7 @@ import chisel3._
 
 import scala.collection.mutable.HashMap
 
-class Sequential(val n: Int) extends Module {
+class Seqpipe(val n: Int) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Bool().asInput

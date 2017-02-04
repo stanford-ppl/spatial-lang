@@ -4,7 +4,7 @@ package templates
 import chisel3.iotesters.{PeekPokeTester, Driver, ChiselFlatSpec}
 import org.scalatest.Assertions._
 
-class SequentialTests(c: Sequential) extends PeekPokeTester(c) {
+class SeqpipeTests(c: Seqpipe) extends PeekPokeTester(c) {
   val numIters = List(0,4,5,8,12)
   val latencies = (0 until c.n).map { i => math.abs(rnd.nextInt(10)) + 2 } 
   latencies.map { a => println("latency of stage = " + a)}
@@ -63,11 +63,11 @@ class SequentialTests(c: Sequential) extends PeekPokeTester(c) {
   }
 }
 
-class SequentialTester extends ChiselFlatSpec {
-  behavior of "Sequential"
+class SeqpipeTester extends ChiselFlatSpec {
+  behavior of "Seqpipe"
   backends foreach {backend =>
     it should s"correctly add randomly generated numbers $backend" in {
-      Driver(() => new Sequential(10))(c => new SequentialTests(c)) should be (true)
+      Driver(() => new Seqpipe(10))(c => new SeqpipeTests(c)) should be (true)
     }
   }
 }

@@ -86,7 +86,7 @@ object Arguments {
     List(2,2,2),
     List(4,1,1)
   )
-  val Sequential = List(
+  val Seqpipe = List(
     1,
     10
   )
@@ -135,7 +135,7 @@ object Arguments {
              List(1,2), List(1,2), 1, 1,
              2, 2, "strided")
         )
-  val Pipe = List(
+  val Innerpipe = List(
     2
   )
   val Parallel = List(

@@ -2,8 +2,8 @@ PRJ = Top
 JAVA_HOME = /usr/lib/jvm/java-7-openjdk-amd64
 BUILD_CARD = GenericDevice
 
-SOURCES                 =       $(wildcard chisel/src/runtime/*.cpp cpp/src/kernels/*.cpp cpp/src/static/cpp/*.cpp)
-INCLUDES 		=	-Icpp/src/datastructures -Icpp/src/static/cpp -Icpp/src/kernels -Icpp/src/runtime -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux
+SOURCES                 =       $(wildcard cpp/*.cpp cpp/datastructures/static/*.cpp)
+INCLUDES 		=	-Icpp/datastructures -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux -Icpp/datastructures/static -Icpp/datastructures/static/standalone
 CC 				=	gcc
 CXX 			=	g++
 CFLAGS 			=	-g3 -D__DELITE_CPP_STANDALONE__ -fPIC -Wall -Wno-sign-compare -Wno-unused-variable -Wno-return-type $(INCLUDES)
@@ -12,7 +12,7 @@ LDFLAGS 		=	-Wl,--hash-style=both -lstdc++ -lpthread -lm
 
 #SIM_ID			=	$$(cat /dev/urandom | tr -dc 'a-zA-Z' | fold -w 5 | head -n 1) # Recomputes @ compile time and runtime 
 #SIM_ID			=	$$(ls -i . | grep Makefile | sed 's/ Makefile//g') # Won't work if copying data to maxeler
-SIM_ID			=   $(PRJ)$$(md5sum ./maxj/src/kernels/TopKernelLib.maxj | cut -c1-5 | sed 's/1/z/g' | sed 's/2/y/g' | sed 's/3/q/g' | sed 's/4/r/g' | sed 's/5/s/g' | sed 's/6/t/g' | sed 's/7/u/g' | sed 's/8/v/g' | sed 's/9/w/g' | sed 's/0/x/g')
+SIM_ID			=   $(PRJ)$$(md5sum ./chisel/TopTrait.scala | cut -c1-5 | sed 's/1/z/g' | sed 's/2/y/g' | sed 's/3/q/g' | sed 's/4/r/g' | sed 's/5/s/g' | sed 's/6/t/g' | sed 's/7/u/g' | sed 's/8/v/g' | sed 's/9/w/g' | sed 's/0/x/g')
 
 SIM_PREFIX              = SIM
 FPGA_PREFIX              = FPGA

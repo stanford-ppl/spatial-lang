@@ -4,7 +4,7 @@ organization := "edu.berkeley.cs"
 
 version := "3.0-SNAPSHOT"
 
-name := "chisel-tutorial"
+name := "spatial-app"
 
 scalaVersion := "2.11.7"
 
@@ -25,9 +25,9 @@ resolvers ++= Seq(
   Resolver.sonatypeRepo("releases")
 )
 
-scalaSource in Compile := baseDirectory.value / "chisel" / "src"
+scalaSource in Compile := baseDirectory.value / "chisel" 
 
-scalaSource in Test := baseDirectory.value / "chisel" / "src" / "app-tests"
+scalaSource in Test := baseDirectory.value / "chisel" / "app-tests"
 
 excludeFilter in (Compile, unmanagedSources) := "*app-tests*"
 

@@ -3,10 +3,10 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.RegExp
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
+import spatial.SpatialExp
 
 trait ChiselGenReg extends ChiselCodegen {
-  val IR: RegExp with SpatialMetadataExp
+  val IR: RegExp with SpatialExp
   import IR._
 
   var argIns: List[Sym[Reg[_]]] = List()
@@ -44,22 +44,42 @@ trait ChiselGenReg extends ChiselCodegen {
     case ArgOutNew(init) => 
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       emit(src"val $lhs = Array($init)")
-    case RegNew(init)    => emit(src"val $lhs = Array($init)")
+    case RegNew(init)    => 
+      val duplicates = duplicatesOf(lhs)  
+      withStream(getStream("GlobalWires")) {
+        duplicates.zipWithIndex.foreach{ case (d, i) => 
+          if (d.depth > 1) {
+            emit(src"val ${lhs}_${i}_lib = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
+          } else {
+            emit(src"val ${lhs}_${i}_lib = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
+            emit(src"val ${lhs}_$i = ${lhs}_${i}_lib.io.output.data // ${nameOf(lhs).getOrElse("")}")
+            emit(src"val ${lhs}_${i}_delayed = Wire(UInt(32)) // ${nameOf(lhs).getOrElse("")}")
+          }
+        }
+      }
     case RegRead(reg)    => 
+      // val inst = instanceIndicesOf(reader, reg).head // Reads should only have one index
+      // val port = portsOf(reader, reg, inst).head
+      // val nbuf = if (duplicatesOf(reg)(inst).depth > 1) {s"_lib.read($port)"} else ""
+
       if (isArgIn(reg)) {
-        withStream(getStream("GlobalWires")) { emit(s"""val $lhs = io.ArgIn.ports(${argIns.indexOf(reg)})""") }
+        withStream(getStream("GlobalWires")) { emit(src"""val $lhs = io.ArgIn.ports(${argIns.indexOf(reg)})""") }
         } else {
-          emit(s"""gimme reg""")
+          emit(src"""val ${lhs} = ${reg}.read()""")
         }
     case RegWrite(reg,v,en) => 
-      emit(s"""val $reg = Reg(init = 0.U) // HW-accessible register""")
-      emit(s"""$reg := Mux($en, $v, $reg)""")
-      emit(s"""io.ArgOut.ports(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
+      if (isArgOut(reg)) {
+        emit(src"""val $reg = Reg(init = 0.U) // HW-accessible register""")
+        emit(src"""$reg := Mux($en, $v, $reg)""")
+        emit(src"""io.ArgOut.ports(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
+      } else {
+        emit(s"""write reg""")
+      }
     case _ => super.emitNode(lhs, rhs)
   }
 
   override protected def emitFileFooter() {
-    withStream(streamMapReverse("IOModule")) {
+    withStream(getStream("IOModule")) {
       emit(s"""  class ArgInBundle() extends Bundle{
     val ports = Vec(${argIns.length}, Input(UInt(32.W)))""")
       argIns.zipWithIndex.map { case(p,i) => 
@@ -69,7 +89,7 @@ trait ChiselGenReg extends ChiselCodegen {
       emit("  }")
 
       emit(s"""  class ArgOutBundle() extends Bundle{
-    val ports = Vec(${argOuts.length}, Input(UInt(32.W)))""")
+    val ports = Vec(${argOuts.length}, Output(UInt(32.W)))""")
       argOuts.zipWithIndex.map { case(p,i) => 
         emit(s"""    //  ${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"

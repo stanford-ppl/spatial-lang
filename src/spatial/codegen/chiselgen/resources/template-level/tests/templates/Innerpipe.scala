@@ -4,7 +4,7 @@ package templates
 import chisel3.iotesters.{PeekPokeTester, Driver, ChiselFlatSpec}
 import org.scalatest.Assertions._
 
-class PipeTests(c: Pipe) extends PeekPokeTester(c) {
+class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   step(1)
   reset(1)
   poke(c.io.input.enable, 1)
@@ -81,11 +81,11 @@ class PipeTests(c: Pipe) extends PeekPokeTester(c) {
 
 }
 
-class PipeTester extends ChiselFlatSpec {
-  behavior of "Pipe"
+class InnerpipeTester extends ChiselFlatSpec {
+  behavior of "Innerpipe"
   backends foreach {backend =>
     it should s"correctly add randomly generated numbers $backend" in {
-      Driver(() => new Pipe(2))(c => new PipeTests(c)) should be (true)
+      Driver(() => new Innerpipe(2))(c => new InnerpipeTests(c)) should be (true)
     }
   }
 }

@@ -12,6 +12,7 @@ import spatial.analysis._
 import spatial.transform._
 import spatial.codegen.scalagen._
 import spatial.codegen.chiselgen._
+import spatial.codegen.cppgen._
 
 protected trait SpatialOps extends OverloadHack with SpatialMetadataOps with BankingMetadataOps
      with IfThenElseOps with PrintOps with ControllerOps with MathOps with TextOps with DRAMOps with StringCastOps
@@ -50,7 +51,12 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   override val IR: SpatialCompiler
 }
 
-protected trait CppGenSpatial extends CppCodegen with CppFileGen {
+protected trait CppGenSpatial extends CppCodegen with CppFileGen
+  with CppGenBool with CppGenVoid with CppGenFixPt with CppGenFltPt with CppGenMixedNumeric
+  with CppGenCounter with CppGenReg with CppGenSRAM with CppGenFIFO 
+  with CppGenIfThenElse with CppGenPrint with CppGenController with CppGenMath with CppGenText
+  with CppGenDRAM with CppGenStringCast with CppGenHostTransfer with CppGenUnrolled with CppGenVector
+  with CppGenArray with CppGenArrayExt with CppGenAsserts {
 
   override val IR: SpatialCompiler
 }
@@ -168,6 +174,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   // --- Code generation
   passes += scalagen
   passes += chiselgen
+  passes += cppgen
   passes += treegen
 }
 
