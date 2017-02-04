@@ -39,8 +39,22 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case CounterNew(start,end,step,par) => emit(src"val $lhs = Counter($start, $end, $step, $par)")
-    case CounterChainNew(ctrs) => emit(src"""val $lhs = Array(${ctrs.map(quote).mkString(",")})""")
+    case CounterNew(start,end,step,par) => 
+      emit(s"// Acknowledge counter $lhs")
+    case CounterChainNew(ctrs) => 
+      val counter_data = ctrs.map{ c =>
+        val Def(CounterNew(start, end, step, par)) = c
+        (src"$start", src"$end", src"$step", {src"$par"}.split('.').take(1)(0))
+      }
+      emitGlobal(src"""val ${lhs}_en = Wire(Bool())""")
+      emitGlobal(src"""val ${lhs}_resetter = Wire(Bool())""")
+      emit(src"""val ${quote(lhs)}_strides = List(${counter_data.map(_._3).mkString(",")})""")
+      emit(src"""val ${quote(lhs)}_maxes = List(${counter_data.map(_._2).mkString(",")})""")
+      emit(src"""val ${quote(lhs)} = Module(new Counter(List(${counter_data.map(_._4).mkString(",")})))""")
+      emit(src"""${quote(lhs)}.io.input.enable := ${quote(lhs)}_en""")
+      emit(src"""${quote(lhs)}.io.input.reset := ${lhs}_resetter""")
+      emit(src"""val ${quote(lhs)}_maxed = ${quote(lhs)}.io.output.saturated""")
+
     case _ => super.emitNode(lhs, rhs)
   }
 

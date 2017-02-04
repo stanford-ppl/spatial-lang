@@ -113,7 +113,7 @@ def main():
     java_opts = java_opts + " -Dargon.out=" + os.path.join(SPATIAL_HOME, opts.outdir)
 
   java_opts = java_opts + " -Dargon.name=" + opts.app
-  java_opts = java_opts + " -Dargon.emission=" + opts.emission
+  java_opts = java_opts + " -Dargon.emission=" + "%s" % opts.emission
 
   # if opts.pir_debug == True:
   #   java_opts = java_opts + " -Dspatial.pirdebug=true"
@@ -155,7 +155,7 @@ def main():
   java_cmd = JAVA_HOME + "/bin/java " + java_opts + " " + opts.app + " "
     
   #print "[ " + bcolors.WARNING + "INFO" + bcolors.ENDC + " ] Generating DEG file with options: " + str(opts)
-  #print java_cmd
+  print java_cmd
     
   ecode = os.system(java_cmd)
   if ecode != 0:

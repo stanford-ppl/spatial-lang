@@ -30,7 +30,7 @@ trait CppGenHostTransfer extends CppCodegen  {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SetArg(reg, v) => emit(src"interface.ArgIns[0] = (int32_t*) $v; // $lhs", forceful = true)
-    case GetArg(reg)    => emit(src"interface.ArgOuts[0] = $reg; // $lhs", forceful = true)
+    case GetArg(reg)    => emit(src"int32_t $lhs = *$reg;", forceful = true)
     case SetMem(dram, data) => emit(src"val $lhs = System.arraycopy($data, 0, $dram, 0, $data.length)", forceful = true)
     case GetMem(dram, data) => emit(src"val $lhs = System.arraycopy($dram, 0, $data, 0, $dram.length)", forceful = true)
     case _ => super.emitNode(lhs, rhs)

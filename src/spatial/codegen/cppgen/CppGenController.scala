@@ -14,16 +14,19 @@ trait CppGenController extends CppCodegen {
     case Hwblock(func) =>
       // Skip everything inside
       emit(s"uint64_t Top_cycles = 0;")
-      emit(s"Interface_t interface;")
       emit(s"interface.cycles = &Top_cycles;")
       toggleEn()
       emitBlock(func)
       toggleEn()
-      emit(s"gettimeofday(&t1, 0);")
+      emit(s"time_t tstart = time(0);")
       emit(s"Top_run(&interface); // kernel_x123(engine, &interface);")
-      emit(s"gettimeofday(&t2, 0);")
-      emit(s"double elapsed = (t2.tv_sec-t1.tv_sec)*1000000 + t2.tv_usec-t1.tv_usec;")
+      emit(s"time_t tend = time(0);")
+      emit(s"double elapsed = difftime(tend, tstart);")
+      emit(s"""std::cout << "Kernel done, test run time = " << elapsed << " ms" << std::endl;""")
+      emit(s"""std::cout << "Kernel done, hw cycles = " << Top_cycles << " cycles" << std::endl;""")
 
     case _ => super.emitNode(lhs, rhs)
   }
 }
+
+   

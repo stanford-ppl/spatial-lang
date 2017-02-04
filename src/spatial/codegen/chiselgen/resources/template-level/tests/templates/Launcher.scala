@@ -86,7 +86,7 @@ object Arguments {
     List(2,2,2),
     List(4,1,1)
   )
-  val Sequential = List(
+  val Seqpipe = List(
     1,
     10
   )

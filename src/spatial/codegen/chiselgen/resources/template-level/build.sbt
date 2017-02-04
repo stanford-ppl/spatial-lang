@@ -4,7 +4,7 @@ organization := "edu.berkeley.cs"
 
 version := "3.0-SNAPSHOT"
 
-name := "chisel-tutorial"
+name := "spatial-app"
 
 scalaVersion := "2.11.7"
 

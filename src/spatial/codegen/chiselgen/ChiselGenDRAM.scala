@@ -2,11 +2,11 @@ package spatial.codegen.chiselgen
 
 import spatial.api.DRAMExp
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
+import spatial.SpatialExp
 
 
 trait ChiselGenDRAM extends ChiselGenSRAM {
-  val IR: DRAMExp with SpatialMetadataExp
+  val IR: DRAMExp with SpatialExp
   import IR._
 
   var offchipMems: List[Sym[Any]] = List()
@@ -79,7 +79,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
   override protected def emitFileFooter() {
 
     withStream(getStream("IOModule")) {
-      emit(s"""  class MemStreamsBundle() extends Bundle{""")
+      open(s"""  class MemStreamsBundle() extends Bundle{""")
       offchipMems.zipWithIndex.foreach{ case (port,i) => 
         val info = port match {
           case Def(BurstLoad(dram,_,_,_,p)) => 
@@ -98,8 +98,51 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
         // offchipMemsByName = offchipMemsByName :+ s"${quote(port)}"
       }
 
-      emit("  }")
+      close("}")
     }
+
+    withStream(getStream("GeneratedPoker")) {
+      offchipMems.zipWithIndex.foreach{case (port,i) => 
+        val interface = port match {
+          case Def(BurstLoad(mem,_,_,_,p)) => 
+            ("receiveBurst", s"${boundOf(p).toInt}", "BurstLoad",
+             s"""for (j <- 0 until size${i}) {
+          (0 until par${i}).foreach { k => 
+            val element = (addr${i}-base${i}+j*par${i}+k) % 256 // TODO: Should be loaded from CPU side
+            poke(c.io.MemStreams.inPorts${i}.data(k), element) 
+          }  
+          poke(c.io.MemStreams.inPorts${i}.valid, 1)
+          step(1)
+          }
+          poke(c.io.MemStreams.inPorts${i}.valid, 0)
+          step(1)""", s"""${nameOf(mem)}.getOrElse("")}""")
+          case Def(BurstStore(mem,_,_,_,p)) =>
+            ("sendBurst", s"${boundOf(p).toInt}", "BurstStore",
+             s"""for (j <- 0 until size${i}) {
+          poke(c.io.MemStreams.inPorts${i}.pop, 1)
+          (0 until par${i}).foreach { k => 
+            offchipMem = offchipMem :+ peek(c.io.MemStreams.outPorts${i}.data(k)) 
+          }  
+          step(1)
+          }
+        poke(c.io.MemStreams.inPorts${i}.pop, 0)
+        step(1)""", s"""${nameOf(mem)}.getOrElse("")}""")
+        }
+        emit(s"""
+      // ${interface._3} Poker -- ${quote(port)} <> ports${i} <> ${interface._5}
+      val req${i} = (peek(c.io.MemStreams.outPorts${i}.${interface._1}) == 1)
+      val size${i} = peek(c.io.MemStreams.outPorts${i}.size).toInt
+      val base${i} = peek(c.io.MemStreams.outPorts${i}.base).toInt
+      val addr${i} = peek(c.io.MemStreams.outPorts${i}.addr).toInt
+      val par${i} = ${interface._2}
+      if (req${i}) {
+        ${interface._4}
+      }
+
+  """)
+      }
+    }
+
     super.emitFileFooter()
   }
 

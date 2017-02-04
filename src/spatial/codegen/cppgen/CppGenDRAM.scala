@@ -43,11 +43,23 @@ trait CppGenDRAM extends CppGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => emit(src"""val $lhs = new Array[${op.mA}](${dims.map(quote).mkString("*")})""")
-    case Gather(dram, local, addrs, ctr, i)  => emit("// Do what?")
-    case Scatter(dram, local, addrs, ctr, i) => emit("// Do what?")
-    case BurstLoad(dram, fifo, ofs, ctr, i)  => emit("// Do what?")
-    case BurstStore(dram, fifo, ofs, ctr, i) => emit("// Do what?")
+    // case Gather(dram, local, addrs, ctr, i)  => emit("// Do what?")
+    // case Scatter(dram, local, addrs, ctr, i) => emit("// Do what?")
+    case BurstLoad(dram, fifo, ofs, ctr, i)  => 
+      offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
+      emit("//found load")
+    case BurstStore(dram, fifo, ofs, ctr, i) => 
+      offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
+      emit("//found store")
     case _ => super.emitNode(lhs, rhs)
+  }
+
+  override protected def emitFileFooter() = {
+    withStream(getStream("interface","h")) {
+      emit(s"""long* MemIns[0]; // Currently unused""")
+      emit(s"// long* MemOuts[${offchipMems.length}[64] // currently unused and also incorrect")
+    }
+    super.emitFileFooter()
   }
 
 

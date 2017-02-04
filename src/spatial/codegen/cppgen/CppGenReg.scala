@@ -4,9 +4,10 @@ import argon.codegen.cppgen.CppCodegen
 import spatial.api.RegExp
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
+import spatial.SpatialExp
 
 trait CppGenReg extends CppCodegen {
-  val IR: RegExp with SpatialMetadataExp
+  val IR: RegExp with SpatialExp
   import IR._
 
   var argIns: List[Sym[Reg[_]]] = List()
@@ -38,12 +39,21 @@ trait CppGenReg extends CppCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case ArgInNew(init)  => emit("// Do what?")
-    case ArgOutNew(init) => emit("// Do what?")
+    case ArgInNew(init)  => 
+      emit(src"// ArgInNew: int32_t* $lhs = new int32_t {0}; // Initialize cpp argin (aka interface.ArgIns[${argIns.length}] ???")
+      argIns = argIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
+    case ArgOutNew(init) => 
+      emit(src"int32_t* $lhs = new int32_t {0}; // Initialize cpp argout (aka interface.ArgOuts[${argOuts.length}] ???")
+      emit(src"interface.ArgOuts[${argOuts.length}] = (int32_t*) $lhs; ")
+      argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case _ => super.emitNode(lhs, rhs)
   }
 
   override protected def emitFileFooter() {
+    withStream(getStream("interface","h")) {
+      emit(s"""int32_t* ArgIns[${argIns.length}];""")
+      emit(s"""int32_t* ArgOuts[${argOuts.length}];""")
+    }
     super.emitFileFooter()
   }
 }

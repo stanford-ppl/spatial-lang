@@ -4,7 +4,7 @@ import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.UnrolledExp
 import spatial.SpatialConfig
 
-trait ChiselGenUnrolled extends ChiselCodegen {
+trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
   val IR: UnrolledExp
   import IR._
 
@@ -51,7 +51,8 @@ trait ChiselGenUnrolled extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case UnrolledForeach(cchain,func,iters,valids) =>
-      withSubStream("${lhs}UnrForeach") {
+    emitController(lhs, Some(cchain))
+      withSubStream(src"${lhs}") {
         emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
       }
 
