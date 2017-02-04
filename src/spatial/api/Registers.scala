@@ -95,13 +95,31 @@ trait RegExp extends RegOps with MemoryExp {
 
 
   /** Internal methods **/
-  def isArgIn(x: Exp[_]): Boolean = x match {
+  private[spatial] def isArgIn(x: Exp[_]): Boolean = x match {
     case Op(ArgInNew(_)) => true
     case _ => false
   }
-  def isArgOut(x: Exp[_]): Boolean = x match {
+  private[spatial] def isArgOut(x: Exp[_]): Boolean = x match {
     case Op(ArgOutNew(_)) => true
     case _ => false
   }
+
+  private[spatial] sealed abstract class RegisterType
+  private[spatial] case object Regular     extends RegisterType
+  private[spatial] case object ArgumentIn  extends RegisterType
+  private[spatial] case object ArgumentOut extends RegisterType
+
+  private[spatial] def regType(x: Exp[_]) = {
+    if      (isArgIn(x))  ArgumentIn
+    else if (isArgOut(x)) ArgumentOut
+    else                  Regular
+  }
+
+  private[spatial] def resetValue[T](x: Exp[Reg[T]]): Exp[T] = x match {
+    case Op(RegNew(init))    => init
+    case Op(ArgInNew(init))  => init
+    case Op(ArgOutNew(init)) => init
+  }
+
 }
 

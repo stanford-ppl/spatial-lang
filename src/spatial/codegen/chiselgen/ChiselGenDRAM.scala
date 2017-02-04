@@ -1,12 +1,12 @@
 package spatial.codegen.chiselgen
 
-import spatial.api.DRAMExp
+import spatial.api.{DRAMExp, UnrolledExp}
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
 
 
 trait ChiselGenDRAM extends ChiselGenSRAM {
-  val IR: DRAMExp with SpatialMetadataExp
+  val IR: DRAMExp with UnrolledExp with SpatialMetadataExp
   import IR._
 
   var offchipMems: List[Sym[Any]] = List()

@@ -13,6 +13,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case Op(e: Scatter[_])         => parFactorsOf(e.ctr)
     case Op(e: BurstLoad[_])       => parFactorsOf(e.ctr)
     case Op(e: BurstStore[_])      => parFactorsOf(e.ctr)
+    case Op(e: CoarseBurst[_,_])   => Seq(e.p)
     case _ => Nil
   }
 
@@ -43,10 +44,11 @@ trait NodeClasses extends SpatialMetadataExp {
 
   def isDRAMTransfer(e: Exp[_]): Boolean = getDef(e).exists(isDRAMTransfer)
   def isDRAMTransfer(d: Def): Boolean = d match {
-    case _:BurstLoad[_]  => true
-    case _:BurstStore[_] => true
-    case _:Gather[_]     => true
-    case _:Scatter[_]    => true
+    case _:CoarseBurst[_,_] => true
+    case _:BurstLoad[_]     => true
+    case _:BurstStore[_]    => true
+    case _:Gather[_]        => true
+    case _:Scatter[_]       => true
     case _ => false
   }
 
@@ -156,10 +158,11 @@ trait NodeClasses extends SpatialMetadataExp {
     case RegWrite(reg,data,en)                => Some(LocalWrite(reg, value=data, en=en))
     case SRAMStore(mem,dims,inds,ofs,data,en) => Some(LocalWrite(mem, value=data, addr=inds, en=en))
     case FIFOEnq(fifo,data,en)                => Some(LocalWrite(fifo, value=data, en=en))
-    case BurstLoad(dram,fifo,ofs,_,_)         => Some(LocalWrite(fifo))
     case Gather(dram,local,addrs,_,_)         => Some(LocalWrite(local))
+    case e: CoarseBurst[_,_] if e.isLoad      => Some(LocalWrite(e.onchip, addr=e.iters))
 
     // TODO: Address and enable are in different format in parallelized accesses
+    case BurstLoad(dram,fifo,ofs,_,_)         => Some(LocalWrite(fifo))
     case ParSRAMStore(mem,addr,data,en)       => Some(LocalWrite(mem,value=data))
     case ParFIFOEnq(fifo,data,ens)            => Some(LocalWrite(fifo,value=data))
 
@@ -169,11 +172,12 @@ trait NodeClasses extends SpatialMetadataExp {
     case RegRead(reg)                  => Some(LocalRead(reg))
     case SRAMLoad(mem,dims,inds,ofs)   => Some(LocalRead(mem, addr=inds))
     case FIFODeq(fifo,en,_)            => Some(LocalRead(fifo, en=en))
-    case BurstStore(dram,fifo,ofs,_,_) => Some(LocalRead(fifo))
     case Gather(dram,local,addrs,_,_)  => Some(LocalRead(addrs))
     case Scatter(dram,local,addrs,_,_) => Some(LocalRead(local) ++ LocalRead(addrs))
+    case e: CoarseBurst[_,_] if !e.isLoad => Some(LocalRead(e.onchip, addr=e.iters))
 
     // TODO: Address and enable are in different format in parallelized accesses
+    case BurstStore(dram,fifo,ofs,_,_) => Some(LocalRead(fifo))
     case ParSRAMLoad(sram,addr)        => Some(LocalRead(sram))
     case ParFIFODeq(fifo,ens,_)        => Some(LocalRead(fifo))
     case _ => None

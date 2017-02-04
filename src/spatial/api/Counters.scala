@@ -42,12 +42,14 @@ trait CounterExp extends CounterOps with RangeExp with SpatialExceptions {
     counter(start, end, step, par)
   }
 
+  def extractParFactor(par: Option[Index])(implicit ctx: SrcCtx): Const[Index] = par.map(_.s) match {
+    case Some(x: Const[_]) if isIndexType(x.tp) => x.asInstanceOf[Const[Index]]
+    case None => intParam(1)
+    case Some(x) => new InvalidParallelFactorError(x)(ctx); intParam(1)
+  }
+
   def counter(start: Index, end: Index, step: Index, par: Option[Index])(implicit ctx: SrcCtx): Counter = {
-    val p: Const[Index] = par.map(_.s) match {
-      case Some(x: Const[_]) if isIndexType(x.tp) => x.asInstanceOf[Const[Index]]
-      case None => intParam(1)
-      case Some(x) => new InvalidParallelFactorError(x)(ctx); intParam(1)
-    }
+    val p = extractParFactor(par)
     Counter(counter_new(start.s, end.s, step.s, p))
   }
 
@@ -79,7 +81,20 @@ trait CounterExp extends CounterOps with RangeExp with SpatialExceptions {
 
   /** Smart constructors **/
   def counter_new(start: Exp[Index], end: Exp[Index], step: Exp[Index], par: Const[Index])(implicit ctx: SrcCtx): Sym[Counter] = {
-    stageCold(CounterNew(start,end,step,par))(ctx)
+    val counter = stageCold(CounterNew(start,end,step,par))(ctx)
+    par match {
+      case Const(0) =>
+        warn(ctx)
+        warn(ctx, u"Counter $counter has parallelization of 0")
+      case _ =>
+    }
+    step match {
+      case Const(0) =>
+        warn(ctx)
+        warn(ctx, u"Counter $counter has step of 0")
+      case _ =>
+    }
+    counter
   }
   def counterchain_new(counters: Seq[Exp[Counter]])(implicit ctx: SrcCtx) = stageCold(CounterChainNew(counters))(ctx)
 

@@ -75,7 +75,6 @@ trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
     val bT = bits[T]
   }
 
-
   /** Constructors **/
   private[spatial] def op_unrolled_foreach(
     cchain: Exp[CounterChain],
@@ -134,4 +133,5 @@ trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
   )(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(fifo)( ParFIFOEnq(fifo, data, ens) )(ctx)
   }
+
 }

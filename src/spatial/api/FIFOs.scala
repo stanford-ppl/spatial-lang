@@ -29,7 +29,7 @@ trait FIFOExp extends FIFOOps with MemoryExp with SpatialExceptions { this: Spat
     def enq(data: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(fifo_enq(this.s, data.s, en.s))
     def deq(en: Bool)(implicit ctx: SrcCtx): T = wrap(fifo_deq(this.s, en.s, bits[T].zero.s))
 
-    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = copy_burst(dram, this, isLoad = true)
+    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = coarse_burst(dram, this, isLoad = true)
     //def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void = copy_sparse(dram, this, isLoad = true)
   }
 

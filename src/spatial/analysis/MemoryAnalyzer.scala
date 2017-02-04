@@ -21,7 +21,7 @@ trait MemoryAnalyzer extends CompilerPass {
 
   def mergeMemory(mem: Exp[_], a: Memory, b: Memory): Memory = {
     if (a.nDims != b.nDims) {
-      new DimensionMismatchError(mem, a.nDims, b.nDims)
+      new DimensionMismatchError(mem, a.nDims, b.nDims)(ctxOrHere(mem))
       BankedMemory(List.fill(a.nDims)(NoBanking), Math.max(a.depth,b.depth))
     }
     else (a,b) match {

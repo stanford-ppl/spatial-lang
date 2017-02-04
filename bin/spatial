@@ -19,6 +19,10 @@ def main():
   parser = ArgumentParser(description='SPATIAL')
   parser.add_argument('app', type=str, help='name of application to run')
   parser.add_argument('--DSE', dest='dse', action='store_true',default=False, help='enables design space exploration')
+  
+  parser.add_argument('-q', dest='quiet', action='store_true',default=False,help='disables background logging')
+  parser.add_argument('-v', dest='verbose', action='store_true',default=False,help='enables verbose printout')
+
   parser.add_argument('--scala', dest='scala', action='store_true', default=True, help='enables scala generation')
   parser.add_argument('--chisel', dest='chisel', action='store_true', default=False, help='enables chisel generation')
   parser.add_argument('--naming', dest='naming', action='store_true', default=True, help='generates the debug name for all syms, rather than "x${s.id}" only')
@@ -83,6 +87,13 @@ def main():
 
   # if opts.dseCGRA == True:
   #   opts.pdse = True
+
+
+
+  if opts.quiet == True:
+    java_opts = java_opts + " -Dargon.verbosity=0"
+  elif opts.verbose == True:
+    java_opts = java_opts + " -Dargon.verbosity=2"
 
   if opts.multifile == True:
     java_opts = java_opts + " -Dargon.multifile=true"
@@ -150,7 +161,7 @@ def main():
   ## Run Spatial
   java_cmd = JAVA_HOME + "/bin/java " + java_opts + " " + opts.app + " "
     
-  #print "[ " + bcolors.WARNING + "INFO" + bcolors.ENDC + " ] Generating DEG file with options: " + str(opts)
+  #print "[ " + bcolors.WARNING + "INFO" + bcolors.ENDC + " ] Running Spatial with options: " + str(java_opts)
   #print java_cmd
     
   ecode = os.system(java_cmd)

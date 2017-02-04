@@ -195,7 +195,7 @@ object FifoLoad extends SpatialTest {
 // 6
 object ParFifoLoad extends SpatialTest {
   import IR._
-  IR.testArgs = List("96")
+  IR.testArgs = List("192")
 
   def parFifoLoad[T](src1: Array[T], src2: Array[T], in: Int)(implicit num: Num[T]) = {
     import num._
@@ -238,11 +238,12 @@ object ParFifoLoad extends SpatialTest {
 
     val sub1_for_check = Array.tabulate(arraySize-96) {i => i}
     val sub2_for_check = Array.tabulate(arraySize-96) {i => i*2}
+    val sub = if (arraySize <= 96) lift(0) else sub1_for_check.zip(sub2_for_check){_*_}.reduce(_+_)
 
     // val gold = src1.zip(src2){_*_}.zipWithIndex.filter( (a:Int, i:Int) => i > arraySize-96).reduce{_+_}
-    val gold = src1.zip(src2){_*_}.reduce{_+_} - sub1_for_check.zip(sub2_for_check){_*_}.reduce(_+_)
-    println(s"gold = " + gold)
-    println(s"out = " + out)
+    val gold = src1.zip(src2){_*_}.reduce{_+_} - sub
+    println("gold = " + gold)
+    println("out = " + out)
 
     val cksum = out == gold
     println("PASS: " + cksum + " (ParFifoLoad)")
@@ -903,9 +904,10 @@ object BubbledWriteTest extends SpatialTest {
   }
 }
 
-// Args: None
+
 object SequentialWrites extends SpatialTest {
   import IR._
+  IR.testArgs = List("13")
 
   val tileSize = 96
   val N = 5

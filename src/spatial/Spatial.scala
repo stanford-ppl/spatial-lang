@@ -89,6 +89,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
     def top = ctrlAnalyzer.top.get
   }
 
+  lazy val burstExpansion = new TransferSpecialization { val IR: self.type = self }
+
   lazy val reduceAnalyzer = new ReductionAnalyzer { val IR: self.type = self }
 
   lazy val uctrlAnalyzer  = new UnrolledControlAnalyzer { val IR: self.type = self }
@@ -134,7 +136,14 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   // --- DSE
   passes += dse               // TODO: Design space exploration
 
+  // --- Post-DSE Transform
+  passes += burstExpansion    // Expand burst loads/stores from single abstract nodes
+
   // --- Post-DSE Analysis
+  passes += printer
+  passes += scalarAnalyzer    // Bounds / global analysis
+  passes += affineAnalyzer    // Memory access patterns
+  passes += ctrlAnalyzer      // Control signal analysis
   passes += scalarAnalyzer    // Bound and global analysis after param. finalization
   passes += reduceAnalyzer    // Reduce/accumulator specialization
   passes += memAnalyzer       // Finalize banking/buffering

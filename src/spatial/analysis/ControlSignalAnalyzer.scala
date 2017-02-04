@@ -275,6 +275,10 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       parentOf(accum) = lhs
       addChildDependencyData(lhs, map)
 
+    case e: CoarseBurst[_,_] =>
+      e.iters.foreach{i => parFactorOf(i) = int32(1) }
+      parFactorsOf(lhs).headOption.foreach{p => parFactorOf(e.iters.last) = p }
+
     case e: Scatter[_] => parFactorOf(e.i) = parFactorsOf(lhs).head
     case e: Gather[_]  => parFactorOf(e.i) = parFactorsOf(lhs).head
 
