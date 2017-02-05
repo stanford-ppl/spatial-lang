@@ -3,25 +3,46 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.UnrolledExp
 import spatial.SpatialConfig
+import spatial.SpatialExp
+
 
 trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
-  val IR: UnrolledExp
+  val IR: SpatialExp
   import IR._
 
-  private def emitUnrolledLoop(
-    cchain: Exp[CounterChain],
-    iters:  Seq[Seq[Bound[Index]]],
-    valids: Seq[Seq[Bound[Bool]]]
-  )(func: => Unit): Unit = {
 
-    for (i <- iters.indices) {
-      open(src"$cchain($i).foreach{case (is,vs) => ")
-      iters(i).zipWithIndex.foreach{case (iter,j) => emit(src"val $iter = is($j)") }
-      valids(i).zipWithIndex.foreach{case (valid,j) => emit(src"val $valid = vs($j)") }
+  def emitParallelizedLoop(iters: Seq[Seq[Bound[Index]]], cchain: Exp[CounterChain]) = {
+    val Def(CounterChainNew(counters)) = cchain
+
+    iters.zipWithIndex.foreach{ case (is, i) =>
+      if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
+        emit(src"${is(0)} := ${counters(i)}(0)");
+        emitGlobal(src"val ${is(0)} = Wire(UInt(32.W))")
+      } else { // This level IS parallelized, index into the counters correctly
+        is.zipWithIndex.foreach{ case (iter, j) =>
+          emit(src"${iter} := ${counters(i)}($j)")
+          emitGlobal(src"val ${iter} = Wire(UInt(32.W))")
+        }
+      }
     }
-    func
-    iters.indices.foreach{_ => close("}") }
   }
+
+  def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]]) = {
+    styleOf(controller) match {
+      case MetaPipe =>
+        val stages = childrenOf(controller)
+        inds.foreach { idx =>
+          emit(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
+          stages.zipWithIndex.foreach{ case (s, i) =>
+            emit(src"""${idx}_chain.io.sEn($i) := ${s}_en; ${idx}_chain.io.sDone($i) := ${s}_done""")
+          }
+          emit(src"""${idx}_chain.write(${idx}, ${stages(0)}_done, false.B, 0) // TODO: Maybe wren should be tied to en and not done?""")
+        }
+      case _ =>
+    }
+  }
+
+
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -51,17 +72,30 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case UnrolledForeach(cchain,func,iters,valids) =>
-    emitController(lhs, Some(cchain))
-      withSubStream(src"${lhs}") {
-        emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
+      emitController(lhs, Some(cchain))
+      withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
+        emitParallelizedLoop(iters, cchain)
+        emitRegChains(lhs, iters.flatten)
+        emitBlock(func)
       }
 
-    case UnrolledReduce(cchain,_,func,_,iters,valids,_) =>
-      emit(src"/** BEGIN UNROLLED REDUCE **/")
-      open(src"val $lhs = {")
-      emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
-      close("}")
-      emit(src"/** END UNROLLED REDUCE **/")
+    case UnrolledReduce(cchain,accum,func,_,iters,valids,_) =>
+      emitController(lhs, Some(cchain))
+      // Set up accumulator signals
+      emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
+      emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
+      emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U //TODO: Really calculate this""")
+      emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
+      val ctrEn = s"${quote(lhs)}_datapath_en & ${quote(lhs)}_redLoop_done"
+      emit(s"""${quote(cchain)}_ctr_en := $ctrEn""")
+      val rstStr = s"${quote(lhs)}_done"
+      emit(src"val ${accum}_wren = $ctrEn")
+      emit(src"val ${accum}_resetter = $rstStr")
+      withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
+        emitParallelizedLoop(iters, cchain)
+        emitRegChains(lhs, iters.flatten)
+        emitBlock(func)
+      }
 
     case ParSRAMLoad(sram,inds) =>
       val dims = stagedDimsOf(sram)

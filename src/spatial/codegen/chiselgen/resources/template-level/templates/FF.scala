@@ -31,13 +31,22 @@ class FF(val w: Int) extends Module {
   val ff = Reg(init = io.input.init)
   ff := Mux(io.input.reset, io.input.init, Mux(io.input.enable, io.input.data, ff))
   io.output.data := Mux(io.input.reset, io.input.init, ff)
-  
-  def write(data: UInt, en: Bool, reset: Bool, port: Int) {
+
+  def write(data: UInt, en: Bool, reset: Bool, port: List[Int]) {
     io.input.data := data
     io.input.enable := en
     io.input.reset := reset
     // Ignore port
   }
+
+  def write(data: UInt, en: Bool, reset: Bool, port: Int) {
+    write(data, en, reset, List(port))
+  }
+
+  def read(port: Int) = {
+    io.output.data
+  }
+
 }
 
 class NBufFF(val numBufs: Int, val w: Int) extends Module {
@@ -109,10 +118,22 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
   }
 
   def write(data: UInt, en: Bool, reset: Bool, port: Int) {
-    io.input.data := data
-    io.input.enable := en
-    io.input.reset := reset
-    io.writerStage := port.U
+    write(data, en, reset, List(port))
+  }
+
+  def write(data: UInt, en: Bool, reset: Bool, ports: List[Int]) {
+
+    if (ports.length == 1) {
+      val port = ports(0)
+      io.input.data := data
+      io.input.enable := en
+      io.input.reset := reset
+      io.writerStage := port.U
+    } else {
+      io.broadcast.data := data
+      io.broadcast.enable := en
+      io.broadcast.reset := reset      
+    }
   }
 
   def connectStageCtrl(done: Bool, en: Bool, ports: List[Int]) {

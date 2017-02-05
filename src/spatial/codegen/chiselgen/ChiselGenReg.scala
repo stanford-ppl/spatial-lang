@@ -46,34 +46,61 @@ trait ChiselGenReg extends ChiselCodegen {
       emit(src"val $lhs = Array($init)")
     case RegNew(init)    => 
       val duplicates = duplicatesOf(lhs)  
-      withStream(getStream("GlobalWires")) {
-        duplicates.zipWithIndex.foreach{ case (d, i) => 
-          if (d.depth > 1) {
-            emit(src"val ${lhs}_${i}_lib = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
-          } else {
-            emit(src"val ${lhs}_${i}_lib = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
-            emit(src"val ${lhs}_$i = ${lhs}_${i}_lib.io.output.data // ${nameOf(lhs).getOrElse("")}")
-            emit(src"val ${lhs}_${i}_delayed = Wire(UInt(32)) // ${nameOf(lhs).getOrElse("")}")
-          }
-        }
+      duplicates.zipWithIndex.foreach{ case (d, i) => 
+        reduceType(lhs) match {
+          case Some(fps: ReduceFunction) => 
+            if (i == 0) {
+              emitGlobal(src"""val ${lhs}_0_lib = Module(new UIntAccum(32,"add"))""")
+            } else {
+              if (d.depth > 1) {
+                emitGlobal(src"val ${lhs}_${i}_lib = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
+              } else {
+                emitGlobal(src"val ${lhs}_${i}_lib = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
+              }              
+            }
+          case _ =>
+            if (d.depth > 1) {
+              emitGlobal(src"val ${lhs}_${i}_lib = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
+            } else {
+              emitGlobal(src"val ${lhs}_${i}_lib = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
+            }
+        } // TODO: Figure out which reg is really the accum
       }
     case RegRead(reg)    => 
-      // val inst = instanceIndicesOf(reader, reg).head // Reads should only have one index
-      // val port = portsOf(reader, reg, inst).head
-      // val nbuf = if (duplicatesOf(reg)(inst).depth > 1) {s"_lib.read($port)"} else ""
-
       if (isArgIn(reg)) {
-        withStream(getStream("GlobalWires")) { emit(src"""val $lhs = io.ArgIn.ports(${argIns.indexOf(reg)})""") }
-        } else {
-          emit(src"""val ${lhs} = ${reg}.read()""")
-        }
+        emitGlobal(src"""val $lhs = io.ArgIn.ports(${argIns.indexOf(reg)})""")
+      } else {
+        val inst = dispatchOf(lhs, reg).head // Reads should only have one index
+        val port = portsOf(lhs, reg, inst)
+        emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")
+      }
     case RegWrite(reg,v,en) => 
       if (isArgOut(reg)) {
         emit(src"""val $reg = Reg(init = 0.U) // HW-accessible register""")
         emit(src"""$reg := Mux($en, $v, $reg)""")
         emit(src"""io.ArgOut.ports(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
       } else {
-        emit(s"""write reg""")
+        reduceType(reg) match {
+          case Some(fps: ReduceFunction) => 
+            fps match {
+              case FixPtSum =>
+                emit(src"""${reg}_0_lib.io.next := ${v}""") // TODO: Figure out which reg is really the lib
+                emit(src"""${reg}_0_lib.io.enable := ${reg}_wren""")
+                emit(src"""${reg}_0_lib.io.reset := Utils.delay(${reg}_resetter, 2)""")
+                emit(src"""val ${reg} = ${reg}_0_lib.io.output""")
+              case _ =>
+            }
+            duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
+              val port = portsOf(lhs, reg, ii).head
+              if (ii > 0) emit(s"""${quote(reg)}_${ii}_lib.write(${quote(reg)}, Utils.delay(${quote(reg)}_wren, 1), false.B, $port); // ${nameOf(reg).getOrElse("")}""")
+            }
+          case _ =>
+            val duplicates = duplicatesOf(reg)
+            duplicates.zipWithIndex.foreach{ case (d, i) => 
+              val ports = portsOf(lhs, reg, i)
+              emit(src"""${reg}_${i}_lib.write($v, $en & ${reg}_wren, false.B, List(${ports.mkString(",")}))""")
+            }
+        }
       }
     case _ => super.emitNode(lhs, rhs)
   }

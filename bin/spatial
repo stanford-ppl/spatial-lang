@@ -31,7 +31,7 @@ def main():
   parser.add_argument('--tree', dest='tree', action='store_true', default=True, help='enables logging of controller tree for visualizing app structure')
   parser.add_argument("--dot", dest="dot", action="store_true", default=False, help="enables dot generation")
   parser.add_argument("--outdir", dest="outdir", default="", help="location of output dir, relative to ${SPATIAL_HOME}.  Default is gen/<appname>")
-  parser.add_argument("--multifile", dest="multifile", action="store_true", default=False, help="Split generated HW code in many files")
+  parser.add_argument("--multifile", dest="multifile", default=0, help="Aggressiveness for splitting generated HW code in many files. 0 = no splitting, 1 = inner blocks only, 2 = all blocks")
   parser.add_argument("--emission", dest="emission", default=0, help="Conservativeness when emitting nodes.  0 = crash when emitNode is undefined (release mode), 1 = warn when undefined, 2 = warn when undefined and report when node matched but outside backend rules")
 
   # # Plasticine work

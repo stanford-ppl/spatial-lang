@@ -24,4 +24,9 @@ class UIntAccum(val w: Int, val tp: String) extends Module {
   current := Mux(io.enable, update, asyncCurrent)
 
   io.output := asyncCurrent
+
+  def read(port: Int) = {
+    io.output
+  }
+
 }

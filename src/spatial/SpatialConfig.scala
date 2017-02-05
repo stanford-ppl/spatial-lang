@@ -14,5 +14,5 @@ object SpatialConfig {
   var enableCpp: Boolean = getProperty("spatial.cpp", "false") == "true"
   var enableNaming: Boolean = getProperty("spatial.naming", "false") == "true"
   var enableTree: Boolean = getProperty("spatial.tree", "false") == "true"
-  var multifile: Boolean = getProperty("spatial.multifile", "false") == "true"
+  var multifile: Int = getProperty("spatial.multifile", "0").toInt
 }
