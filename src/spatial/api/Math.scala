@@ -19,6 +19,7 @@ trait MathOps extends NumOps with FixPtOps with FltPtOps { this: SpatialOps =>
   def mux[T:Bits](select: Bool, a: T, b: T)(implicit ctx: SrcCtx): T
   def min[T:Order](a: T, b: T)(implicit ctx: SrcCtx): T
   def max[T:Order](a: T, b: T)(implicit ctx: SrcCtx): T
+
 }
 trait MathApi extends MathOps with NumApi with FixPtApi with FltPtApi { this: SpatialApi => }
 
@@ -32,11 +33,45 @@ trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with Spati
   def exp[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E] = FltPt(flt_exp(x.s))
   def sqrt[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E] = FltPt(flt_sqrt(x.s))
 
+  // TODO: These should probably be added to Num
+  def abs[T:Num](x: T)(implicit ctx: SrcCtx): T = num[T] match {
+    case t: FixPtType[s,i,f] =>
+      implicit val mS = t.mS.asInstanceOf[BOOL[s]]
+      implicit val mI = t.mI.asInstanceOf[INT[i]]
+      implicit val mF = t.mF.asInstanceOf[INT[f]]
+      abs[s,i,f](x.asInstanceOf[FixPt[s,i,f]]).asInstanceOf[T]
+    case t: FltPtType[g,e] =>
+      implicit val bG = t.mG.asInstanceOf[INT[g]]
+      implicit val bE = t.mE.asInstanceOf[INT[e]]
+      abs[g,e](x.asInstanceOf[FltPt[g,e]]).asInstanceOf[T]
+  }
+  def exp[T:Num](x: T)(implicit ctx: SrcCtx): T = num[T] match {
+    case t: FixPtType[s,i,f] =>
+      error(ctx, "Exponentiation of fixed point types is not yet implemented.")
+      error(ctx)
+      one[T]
+    case t: FltPtType[g,e] =>
+      implicit val bG = t.mG.asInstanceOf[INT[g]]
+      implicit val bE = t.mE.asInstanceOf[INT[e]]
+      exp[g,e](x.asInstanceOf[FltPt[g,e]]).asInstanceOf[T]
+  }
+
   def mux[T:Bits](select: Bool, a: T, b: T)(implicit ctx: SrcCtx): T = {
     wrap( math_mux(select.s, a.s, b.s) )
   }
   def min[T:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_min(a.s, b.s) )
   def max[T:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_max(a.s, b.s) )
+
+  implicit class MathInfixOps[T:Num](x: T) {
+    def **(exp: Int)(implicit ctx: SrcCtx): T = {
+      if (exp >= 0) productTree(List.fill(exp)(x))
+      else {
+        error(ctx, "Exponentiation on negative integers is currently unsupported")
+        error(ctx)
+        one[T]
+      }
+    }
+  }
 
   /** IR Nodes **/
   case class FixAbs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]) extends FixPtOp[S,I,F] { def mirror(f:Tx) = fix_abs(f(x)) }

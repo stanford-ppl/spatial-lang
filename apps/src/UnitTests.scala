@@ -39,7 +39,7 @@ object Niter extends SpatialApp {  // Regression (Unit) // Args: 100
   val constTileSize = 96
 
   def nIterTest[T](len: Int)(implicit num: Num[T]): T = {
-    import num._
+
 
     val innerPar = 1 (1 -> 1)
     val tileSize = constTileSize (constTileSize -> constTileSize)
@@ -225,7 +225,7 @@ object SimpleTileLoadStore extends SpatialApp {
     Accel {
       val b1 = SRAM[T](tileSize)
       Sequential.Foreach(size by tileSize) { i =>
-        import num._
+
 
         b1 load srcFPGA(i::i+tileSize)
 
@@ -268,7 +268,7 @@ object ParFifoLoad extends SpatialApp {
   import IR._
 
   def parFifoLoad[T](src1: Array[T], src2: Array[T], in: Int)(implicit num: Num[T]) = {
-    import num._
+
     val tileSize = 96 (96 -> 96)
 
     val N = ArgIn[Int]
@@ -378,7 +378,7 @@ object SimpleReduce extends SpatialApp { // Args: 72
   val N = 96.as[Int]
 
   def simpleReduce[T](xin: T)(implicit num: Num[T]) = {
-    import num._
+
 
     val P = param(8)
 
@@ -418,7 +418,7 @@ object SimpleFold extends SpatialApp {
   val constTileSize = 96
 
   def simple_fold[T](src: Array[T])(implicit num: Num[T]) = {
-    import num._
+
 
     val outerPar = 16 (16 -> 16)
     val innerPar = 16 (16 -> 16)
@@ -501,8 +501,8 @@ object Memcpy2D extends SpatialApp {
 
     val dst = memcpy_2d(src, rows, cols)
 
-    printArr(src, "src:")
-    printArr(dst, "dst:")
+    printArray(src, "src:")
+    printArray(dst, "dst:")
 
     val cksum = dst.zip(src){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (MemCpy2D)")
@@ -519,7 +519,7 @@ object BlockReduce1D extends SpatialApp {
   val p = 2
 
   def blockreduce_1d[T](src: Array[T], size: Int)(implicit num: Num[T]) = {
-    import num._
+
 
     val sizeIn = ArgIn[Int]
     setArg(sizeIn, size)
@@ -553,8 +553,8 @@ object BlockReduce1D extends SpatialApp {
 
     val gold = Array.tabulate(tileSize) { i => first + i*iters }
 
-    printArr(gold, "src:")
-    printArr(dst, "dst:")
+    printArray(gold, "src:")
+    printArray(dst, "dst:")
     val cksum = dst.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (BlockReduce1D)")
 
@@ -572,7 +572,7 @@ object UnalignedLd extends SpatialApp {
   val paddedCols = 1920
 
   def unaligned_1d[T](src: Array[T], ii: Int)(implicit num: Num[T]) = {
-    import num._
+
 
     val iters = ArgIn[Int]
     val srcFPGA = DRAM[T](paddedCols)
@@ -621,7 +621,7 @@ object BlockReduce2D extends SpatialApp {
   val tileSize = 96
 
   def blockreduce_2d[T](src: Array[T], rows: Int, cols: Int)(implicit num: Num[T]) = {
-    import num._
+
 
     val rowsIn = ArgIn[Int]; setArg(rowsIn, rows)
     val colsIn = ArgIn[Int]; setArg(colsIn, cols)
@@ -677,8 +677,8 @@ object BlockReduce2D extends SpatialApp {
     // // TODO: Why does DEG crash if I add first_collapse_rows rather???
     // val gold = Array.tabulate(tileSize*tileSize) { i => first_collapse_cols + i*numBlocks }
 
-    printArr(gold, "src:")
-    printArr(dst, "dst:")
+    printArray(gold, "src:")
+    printArray(dst, "dst:")
     // dst.zip(gold){_==_} foreach {println(_)}
     val cksum = dst.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (BlockReduce2D)")
@@ -757,8 +757,8 @@ object ScatterGather extends SpatialApp {
     // (0 until dataSize) foreach { i => println(i + " match? " + (addrs.map{a => a==i}.reduce{_||_}) ) }
     val gold = Array.tabulate(dataSize){ i => if (addrs.map{a => a == i}.reduce{_||_}) offchip_data(i) else lift(0) }
 
-    printArr(gold, "gold:")
-    printArr(received, "received:")
+    printArray(gold, "gold:")
+    printArray(received, "received:")
     val cksum = received.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (ScatterGather)")
   }
@@ -775,7 +775,7 @@ object MultiplexedWriteTest extends SpatialApp {
   val N = 192
 
   def multiplexedwrtest[W](w: Array[W], i: Array[W])(implicit num: Num[W]): Array[W] = {
-    import num._
+
 
     val T = param(tileSize)
     val P = param(4)
@@ -814,8 +814,8 @@ object MultiplexedWriteTest extends SpatialApp {
     val gold = Array.tabulate(N/tileSize){ k =>
       Array.tabulate(I){ j => Array.tabulate(tileSize) { i => i + (j+1)*i*2 + k*tileSize + (j+1)*k*tileSize*2 }}.flatten
     }.flatten
-    printArr(gold, "gold: ");
-    printArr(result, "result: ");
+    printArray(gold, "gold: ");
+    printArray(result, "result: ");
 
     val cksum = gold.zip(result){_==_}.reduce{_&&_}
     println("PASS: " + cksum  + " (MultiplexedWriteTest)")
@@ -877,8 +877,8 @@ object BubbledWriteTest extends SpatialApp {
     val gold = Array.tabulate(N/tileSize){ k =>
       Array.tabulate(I){ j => Array.tabulate(tileSize) { i => i + (j+1)*i*2 + k*tileSize + (j+1)*k*tileSize*2 }}.flatten
     }.flatten
-    printArr(gold, "gold: ")
-    printArr(result, "result: ")
+    printArray(gold, "gold: ")
+    printArray(result, "result: ")
 
     val cksum = gold.zip(result){_==_}.reduce{_&&_}
     println("PASS: " + cksum  + " (MultiplexedWriteTest)")
@@ -895,7 +895,7 @@ object SequentialWrites extends SpatialApp {
   val N = 5
 
   def sequentialwrites[A](srcData: Array[A], x: A)(implicit num: Num[A]) = {
-    import num._
+
 
     val T = param(tileSize)
     val P = param(4)
@@ -930,8 +930,8 @@ object SequentialWrites extends SpatialApp {
     val diff = N+1
     val gold = Array.tabulate(tileSize) { i => first + i*diff}
 
-    printArr(gold, "gold: ")
-    printArr(result, "result: ")
+    printArray(gold, "gold: ")
+    printArray(result, "result: ")
     val cksum = result.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum  + " (SequentialWrites)")
 
@@ -946,7 +946,7 @@ object ChangingCtrMax extends SpatialApp {
   val N = 5
 
   def changingctrmax[T]()(implicit num: Num[T]): Array[T] = {
-    import num._
+
 
     val result = DRAM[T](96)
     Accel {
@@ -969,8 +969,8 @@ object ChangingCtrMax extends SpatialApp {
     // Use strange if (i==0) b/c iter1: 0 by 1 and iter2: 1 by 1 both reduce to 0
     val gold = Array.tabulate(tileSize) { i => if (i==0) lift(0) else (i-1)*i/2}
 
-    printArr(gold, "gold: ")
-    printArr(result, "result: ")
+    printArray(gold, "gold: ")
+    printArray(result, "result: ")
     val cksum = result.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum  + " (ChangingCtrMax)")
 

@@ -185,7 +185,7 @@ trait BurstTransfers { this: SpatialExp =>
         startBound := maddr % elementsPerBurst          // Number of elements to ignore at beginning
         memAddrDowncast := maddr - startBound.value     // Burst-aligned address
         endBound  := startBound.value + burstLength     // Index to begin ignoring again
-        lenUpcast := (endBound.value - (endBound.value % elementsPerBurst)) + mux(endBound.value % elementsPerBurst != 0, elementsPerBurst, 0) // Number of elements aligned to nearest burst length
+        lenUpcast := (endBound.value - (endBound.value % elementsPerBurst)) + mux(endBound.value % elementsPerBurst != 0, elementsPerBurst, 0.as[Index]) // Number of elements aligned to nearest burst length
       }
       val innerCtr = range2counter(lenUpcast.value by p)
 
