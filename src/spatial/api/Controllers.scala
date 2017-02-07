@@ -159,7 +159,6 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
   private[spatial] def accel_blk(func: => Void)(implicit ctx: SrcCtx): Controller = {
     val fFunc = () => unwrap(func)
     val pipe = op_accel(fFunc())
-    styleOf(pipe) = InnerPipe
     Controller(pipe)
   }
 

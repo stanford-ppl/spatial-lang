@@ -148,6 +148,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   // --- Post-DSE Analysis
   passes += printer
   passes += scalarAnalyzer    // Bounds / global analysis
+  passes += levelAnalyzer     // Pipe style annotation fixes after expansion
   passes += affineAnalyzer    // Memory access patterns
   passes += ctrlAnalyzer      // Control signal analysis
   passes += scalarAnalyzer    // Bound and global analysis after param. finalization
