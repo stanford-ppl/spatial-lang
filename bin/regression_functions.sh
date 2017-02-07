@@ -586,7 +586,7 @@ launch_tests() {
     # Run vulture
     cd ${SPATIAL_HOME}/regression_tests/${ac}/
     logger "Executing vulture script in ${ac} directory..."
-    bash ${SPATIAL_HOME}/static/vulture.sh ${ac}_${branch}_${type_todo}
+    bash ${SPATIAL_HOME}/bin/vulture.sh ${ac}_${branch}_${type_todo}
     logger "Script executed!"
 
   done
