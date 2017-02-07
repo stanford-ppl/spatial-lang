@@ -432,11 +432,11 @@ export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${PUB_HOME}/bin/spatial --scala --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --scala --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${PUB_HOME}/bin/spatial --chisel --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --chisel --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 
@@ -541,7 +541,7 @@ launch_tests() {
 
   IFS=$'\n'
   # Collect the regression tests by searching for "// Regression (<type>)" tags
-  test_list=(`grep -R "// Regression" ${PUB_HOME}/apps/src | sed 's/^.* with //g' | sed 's/App//g' | sed 's/ \/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g'`)
+  test_list=(`grep -R "// Regression" ${SPATIAL_HOME}/apps/src | sed 's/^.* with //g' | sed 's/App//g' | sed 's/ \/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g'`)
 
   # Assemble regression types
   for t in ${test_list[@]}; do

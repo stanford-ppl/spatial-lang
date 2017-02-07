@@ -88,11 +88,9 @@ tests_todo=`sed -n '5p' $packet`
 tim=`sed -n '2p' $packet`
 branch=`sed -n '11p' $packet`
 dirname="${REGRESSION_HOME}/testdir-${branch}.${tim}.${type_todo}.${tests_todo}"
-HYPER_HOME="$dirname/hyperdsl"
-ARGON_HOME="$HYPER_HOME/delite"
-VIRTUALIZED_HOME="$HYPER_HOME/virtualization-lms-core"
-SPATIAL_HOME="$HYPER_HOME/spatial"
-PUB_HOME="$SPATIAL_HOME/published/Spatial"
+ARGON_HOME="$dirname/argon"
+VIRTUALIZED_HOME="$dirname/scala-virtualized"
+SPATIAL_HOME="$dirname/spatial"
 WIKI_HOME="$SPATIAL_HOME/spatial.wiki"
 wiki_file="${WIKI_HOME}/Branch-${branch}-Backend-${type_todo}-Regression.md"
 spatial_hash=`sed -n '8p' $packet`
@@ -169,7 +167,6 @@ git_things() {
   cd $dirname
   export dirname=${dirname}
   export ARGON_HOME=${ARGON_HOME}
-  export FORGE_HOME=${FORGE_HOME}
   export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
   export SPATIAL_HOME=${SPATIAL_HOME}
   export WIKI_HOME=${WIKI_HOME}
@@ -181,6 +178,10 @@ git_things() {
   logger "Cloning spatial..."
   git clone git@github.com:stanford-ppl/spatial-lang.git > /dev/null 2>&1
   logger "Cloning done!"
+  logger "Changing spatial-lang to spatial"
+  mv spatial-lang spatial > /dev/null 2>&1
+  logger "Done changing! $SPATIAL_HOME"
+  mv spatial
   exists "$SPATIAL_HOME" 1
   logger "Cloning argon..."
   git clone git@github.com:stanford-ppl/argon.git > /dev/null 2>&1
@@ -236,10 +237,10 @@ git_things
 # Switch to revision-controlled bash script
 phase="FUNCTIONS"
 logger "Sourcing functions..."
-source ${SPATIAL_HOME}/scripts/regression_functions.sh
+source ${SPATIAL_HOME}/bin/regression_functions.sh
 if [[ $? -ne 0 ]]; then
-  logger "${SPATIAL_HOME}/scripts/regression_functions.sh is nonexistent or has error!"
-  clean_exit 7 "${SPATIAL_HOME}/scripts/regression_functions.sh is nonexistent or has error!"
+  logger "${SPATIAL_HOME}/bin/regression_functions.sh is nonexistent or has error!"
+  clean_exit 7 "${SPATIAL_HOME}/bin/regression_functions.sh is nonexistent or has error!"
 fi
 if [[ ! "${type_todo}" = "${test_to_run}" ]]; then
   echo "Error: packet mislabeled.  Cannot run ${test_to_run} test on ${type_todo} packet!" >> $log
