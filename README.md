@@ -16,11 +16,11 @@ Spatial is an Argon DSL for programming reconfigurable hardware from a parameter
 #Prerequisites
 - [Scala SBT](http://www.scala-sbt.org)
 - [Java JDK](http://www.oracle.com/technetwork/java/javase/downloads/index.html)
-- [Argon](https://github.com/dkoeplin/argon)
+- [Argon](https://github.com/stanford-ppl/argon)
 
 #Installation
 ```bash
-git clone https://github.com/dkoeplin/spatial.git
+git clone https://github.com/stanford-ppl/spatial-lang.git
 ```
 
 Next, make sure the following environment variables are set. 
