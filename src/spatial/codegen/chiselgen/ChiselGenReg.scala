@@ -90,8 +90,8 @@ trait ChiselGenReg extends ChiselCodegen {
 
       }
     case RegWrite(reg,v,en) => 
+      val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg)) {
-        val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
         emit(src"""val $reg = Reg(init = 0.U) // HW-accessible register""")
         emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
         emit(src"""io.ArgOut.ports(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
@@ -114,7 +114,7 @@ trait ChiselGenReg extends ChiselCodegen {
             val duplicates = duplicatesOf(reg)
             duplicates.zipWithIndex.foreach{ case (d, i) => 
               val ports = portsOf(lhs, reg, i)
-              emit(src"""${reg}_${i}_lib.write($v, $en & ${reg}_wren, false.B, List(${ports.mkString(",")}))""")
+              emit(src"""${reg}_${i}_lib.write($v, $en & ${parent}_datapath_en, false.B, List(${ports.mkString(",")}))""")
             }
         }
       }

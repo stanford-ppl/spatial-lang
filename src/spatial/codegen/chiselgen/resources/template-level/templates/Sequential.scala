@@ -99,6 +99,6 @@ class Seqpipe(val n: Int) extends Module {
 
   // Output logic
   io.output.done := state === doneState.U
-  io.output.ctr_inc := io.input.stageDone(0) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
+  io.output.ctr_inc := io.input.stageDone(n-1) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
   io.output.stageEnable.zipWithIndex.foreach { case (en, i) => en := (state === (i+2).U) }
 }

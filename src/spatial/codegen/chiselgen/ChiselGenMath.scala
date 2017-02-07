@@ -50,11 +50,11 @@ trait ChiselGenMath extends ChiselCodegen {
       case FloatType()  => emit(src"val $lhs = Math.sqrt($x.toDouble).toFloat")
     }
 
-    case Mux(sel, a, b) => emit(src"val $lhs = if ($sel) $a else $b")
+    case Mux(sel, a, b) => emit(src"val $lhs = Mux(($sel), $a, $b)")
 
     // Assumes < and > are defined on runtime type...
-    case Min(a, b) => emit(src"val $lhs = if ($a < $b) $a else $b")
-    case Max(a, b) => emit(src"val $lhs = if ($a > $b) $a else $b")
+    case Min(a, b) => emit(src"val $lhs = Mux(($a < $b), $a, $b)")
+    case Max(a, b) => emit(src"val $lhs = Mux(($a > $b), $a, $b)")
 
     case _ => super.emitNode(lhs, rhs)
   }
