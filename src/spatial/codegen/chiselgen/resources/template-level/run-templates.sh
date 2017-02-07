@@ -2,7 +2,7 @@
 # set -ev
 
 # sed Launcher to create a launcher for each test
-file=${DELITE_HOME}/runtime/src/static/chisel/tests/templates/Launcher.scala
+file=${TEMPLATES_HOME}/tests/templates/Launcher.scala
 # Get list of args
 startArgs=(`grep -n "\/\/ Start args" $file | sed "s/:\/\/ Start args//g"`)
 endArgs=(`grep -n "\/\/ End args" $file | sed "s/:\/\/ End args//g"`)
@@ -11,7 +11,7 @@ tests=(`sed -n ${startArgs},${endArgs}p $file | grep val | sed "s/.*val //g" | s
 startLaunch=(`grep -n "\/\/ Start launcher" $file | sed "s/:.*\/\/ Start launcher//g"`)
 endLaunch=(`grep -n "\/\/ End launcher" $file | sed "s/:.*\/\/ End launcher//g"`)
 lines=(`cat $file | wc -l`)
-newfile=${DELITE_HOME}/runtime/src/static/chisel/tests/templates/expandedlauncher
+newfile=${TEMPLATES_HOME}/tests/templates/expandedlauncher
 sed -n 1,${startLaunch}p $file > $newfile
 for t in ${tests[@]}; do
 echo "  templates = templates ++ Arguments.${t}.zipWithIndex.map{ case(arg,i) => 

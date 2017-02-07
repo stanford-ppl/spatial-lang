@@ -29,7 +29,7 @@ object TemplateRunner {
       ""
     }
     val backendName = envOrElse("TESTER_BACKENDS", defaultBackend).split(" ").head
-    val tempDir = s"""${envOrElse("DELITE_HOME", "tmp")}/runtime/src/static/chisel/test_run_dir/"""
+    val tempDir = s"""${envOrElse("TEMPLATES_HOME", "tmp")}/test_run_dir/"""
     val specificRegex = "(.*[0-9]+)".r
     val problemsToRun = if (args.isEmpty) {
       templateMap.keys.toSeq.sorted.toArray // Run all by default

@@ -253,6 +253,14 @@ object Launcher {
       }) 
   }.toMap
 
+  templates = templates ++ Arguments.Seqpipe.zipWithIndex.map{ case(arg,i) => 
+    (s"Seqpipe$i" -> { (backendName: String) =>
+        Driver(() => new Seqpipe(arg), "verilator") {
+          (c) => new SeqpipeTests(c)
+        }
+      }) 
+  }.toMap
+
   templates = templates ++ Arguments.Metapipe.zipWithIndex.map{ case(arg,i) => 
     (s"Metapipe$i" -> { (backendName: String) =>
         Driver(() => new Metapipe(arg), "verilator") {
@@ -297,6 +305,14 @@ object Launcher {
     (s"NBufSRAM$i" -> { (backendName: String) =>
         Driver(() => new NBufSRAM(arg), "verilator") {
           (c) => new NBufSRAMTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.Innerpipe.zipWithIndex.map{ case(arg,i) => 
+    (s"Innerpipe$i" -> { (backendName: String) =>
+        Driver(() => new Innerpipe(arg), "verilator") {
+          (c) => new InnerpipeTests(c)
         }
       }) 
   }.toMap
