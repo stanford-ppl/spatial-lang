@@ -103,7 +103,7 @@ trait ChiselGenController extends ChiselCodegen {
       emitGlobal(src"""val ${cchain.get}_ctr_en = Wire(Bool())""") 
       sym match { 
         case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
-        case _ => emit(src"${cchain.get}_ctr_en := ${sym}_datapath_en")
+        case _ => emit(src"${cchain.get}_ctr_en := ${sym}_sm.io.output.ctr_inc")
       }
       emit(src"""// ---- Begin $smStr ${sym} Counter Signals ----""")
       val ctr = cchain.get

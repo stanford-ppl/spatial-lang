@@ -79,7 +79,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         emitBlock(func)
       }
 
-    case UnrolledReduce(cchain,accum,func,_,iters,valids,_) =>
+    case UnrolledReduce(cchain,accum,func,_,iters,valids,rV) =>
       emitController(lhs, Some(cchain))
       // Set up accumulator signals
       emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
@@ -91,6 +91,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val rstStr = s"${quote(lhs)}_done"
       emit(src"val ${accum}_wren = $ctrEn")
       emit(src"val ${accum}_resetter = $rstStr")
+      emit(src"val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
         emitParallelizedLoop(iters, cchain)
         emitRegChains(lhs, iters.flatten)

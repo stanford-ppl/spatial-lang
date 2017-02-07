@@ -130,8 +130,8 @@ trait NodeClasses extends SpatialMetadataExp {
   type Access = (Exp[_], Ctrl)
   implicit class AccessOps(x: Access) {
     def node: Exp[_] = x._1
-    def ctrl: Ctrl = x._2
-    def ctrlNode: Exp[_] = x._2._1
+    def ctrl: Ctrl = x._2 // read or write enabler
+    def ctrlNode: Exp[_] = x._2._1 // buffer control toggler
     def isInner: Boolean = x._2._2
   }
 

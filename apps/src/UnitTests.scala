@@ -69,9 +69,9 @@ object Niter extends SpatialApp {  // Regression (Unit) // Args: 100
 
     val result = nIterTest[Int](len)
 
-    val b1 = Array.tabulate(len){i => i}
-
-    val gold = b1.reduce{_+_} - ((len-constTileSize) * (len-constTileSize-1))/2
+    val m = (len-1)%constTileSize + 1
+    val b1 = m*(m-1)/2
+    val gold = b1 + (len - m)*m
     println("expected: " + gold)
     println("result:   " + result)
 

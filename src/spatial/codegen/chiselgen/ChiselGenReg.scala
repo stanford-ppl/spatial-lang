@@ -72,7 +72,18 @@ trait ChiselGenReg extends ChiselCodegen {
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
-        emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")
+        reduceType(reg) match {
+          case Some(fps: ReduceFunction) => 
+            fps match {
+              case FixPtSum =>
+                emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")
+              case _ =>
+                emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")
+            }
+          case _ =>
+            emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")
+        }
+
       }
     case RegWrite(reg,v,en) => 
       if (isArgOut(reg)) {
