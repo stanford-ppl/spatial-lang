@@ -541,7 +541,7 @@ launch_tests() {
 
   IFS=$'\n'
   # Collect the regression tests by searching for "// Regression (<type>)" tags
-  test_list=(`grep -R "// Regression" ${SPATIAL_HOME}/apps/src | sed 's/^.* with //g' | sed 's/App//g' | sed 's/ \/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g'`)
+  test_list=(`grep -r --color=never "// Regression" ${SPATIAL_HOME}/apps/src | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g'`)
 
   # Assemble regression types
   for t in ${test_list[@]}; do
