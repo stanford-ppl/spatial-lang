@@ -16,7 +16,7 @@ install:
   - ./configure
   - make
   - sudo make install
-before_script:
+before_script: 
   - cd ${TEMPLATES_HOME}
 script: 
   - free -k
