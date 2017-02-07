@@ -76,7 +76,11 @@ trait ChiselGenReg extends ChiselCodegen {
           case Some(fps: ReduceFunction) => 
             fps match {
               case FixPtSum =>
-                emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")
+                if (inst == 0) {// TODO: Actually just check if this read is dispatched to the accumulating duplicate
+                  emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")
+                } else {
+                  emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")    
+                }
               case _ =>
                 emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")
             }
@@ -87,8 +91,9 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     case RegWrite(reg,v,en) => 
       if (isArgOut(reg)) {
+        val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
         emit(src"""val $reg = Reg(init = 0.U) // HW-accessible register""")
-        emit(src"""$reg := Mux($en, $v, $reg)""")
+        emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
         emit(src"""io.ArgOut.ports(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
       } else {
         reduceType(reg) match {
