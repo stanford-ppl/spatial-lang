@@ -75,6 +75,14 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
+    case BurstLoad(dram, fifo, ofs, ctr, i) =>
+      print_stage_prefix(s"BurstLoad",s"",s"$sym", true)
+      print_stage_suffix(s"$sym", true)
+
+    case BurstStore(dram, fifo, ofs, ctr, i) =>
+      print_stage_prefix(s"BurstStore",s"",s"$sym", true)
+      print_stage_suffix(s"$sym", true)
+
     case UnitPipe(func) =>
       val inner = styleOf(sym) match { 
       	case InnerPipe => true

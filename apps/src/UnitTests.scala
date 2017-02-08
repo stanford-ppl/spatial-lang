@@ -200,7 +200,7 @@ object FifoLoad extends SpatialApp {
     println("")
 
     val cksum = dst.zip(gold){_ == _}.reduce{_&&_}
-    println("PASS: " + cksum + " (FifoLoadTest)")
+    println("PASS: " + cksum + " (FifoLoad)")
 
 
   }

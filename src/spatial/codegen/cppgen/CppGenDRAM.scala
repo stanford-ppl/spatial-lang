@@ -43,7 +43,7 @@ trait CppGenDRAM extends CppGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => 
-      emit(src"""${lhs.tp}* $lhs = new DRAM(402653184*${offchipMems.length}, *${dims.map(quote).mkString("*")});""")
+      emit(src"""${lhs.tp}* $lhs = new DRAM(402653184*${offchipMems.length}, ${dims.map(quote).mkString("*")});""")
       offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
 
     // case Gather(dram, local, addrs, ctr, i)  => emit("// Do what?")

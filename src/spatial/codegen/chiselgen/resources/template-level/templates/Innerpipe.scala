@@ -47,7 +47,7 @@ class Innerpipe(val ctrDepth : Int) extends Module {
     when( state === pipeInit.U ) {
       io.output.done := false.B
       io.output.ctr_en := false.B
-      io.output.ctr_inc := true.B
+      io.output.ctr_inc := false.B
       io.output.rst_en := false.B
       (0 until ctrDepth) foreach { i => maxFF(i) := io.input.ctr_maxIn(i) }
       state := pipeReset.U
@@ -76,7 +76,7 @@ class Innerpipe(val ctrDepth : Int) extends Module {
   }.otherwise {
     io.output.done := false.B
     io.output.ctr_en := false.B
-    io.output.ctr_inc := true.B
+    io.output.ctr_inc := false.B
     io.output.rst_en := false.B
     state := pipeInit.U
   }

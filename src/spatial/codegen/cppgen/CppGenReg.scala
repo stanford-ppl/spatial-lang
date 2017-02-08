@@ -47,7 +47,7 @@ trait CppGenReg extends CppCodegen {
       emit(src"interface.ArgOuts[${argOuts.length}] = (int32_t*) $lhs; ")
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case RegRead(reg)    => 
-      emit(src"${lhs.tp}* $lhs = $reg;")
+      emit(src"${lhs.tp} $lhs = $reg;")
     case RegWrite(reg,v,en) => 
       emit(src"// $lhs $reg $v $en reg write")
     case _ => super.emitNode(lhs, rhs)
