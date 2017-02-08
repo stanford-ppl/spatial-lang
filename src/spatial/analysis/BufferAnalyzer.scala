@@ -17,7 +17,7 @@ trait BufferAnalyzer extends CompilerPass {
       val writers = writersOf(mem)
       val duplicates = duplicatesOf(mem)
 
-      dbg(c"Setting buffer controllers for $mem: ")
+      dbg(u"Setting buffer controllers for $mem: ")
       duplicates.zipWithIndex.foreach{case (dup, i) => dbg(c"  Instance #$i: $dup") }
       readers.zipWithIndex.foreach{case (reader, i) => dbg(c"  Reader #$i: ${str(reader.node)} [${reader.ctrl}]") }
       writers.zipWithIndex.foreach{case (writer, i) => dbg(c"  Writer #$i: ${str(writer.node)} [${writer.ctrl}]") }

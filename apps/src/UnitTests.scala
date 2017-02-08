@@ -491,10 +491,8 @@ object SimpleFold extends SpatialApp {
   val constTileSize = 96
 
   def simple_fold[T](src: Array[T])(implicit num: Num[T]) = {
-
-
-    val outerPar = 16 (16 -> 16)
-    val innerPar = 16 (16 -> 16)
+    val outerPar = 1 (16 -> 16)
+    val innerPar = 1 (16 -> 16)
     val tileSize = constTileSize (constTileSize -> constTileSize)
     val len = src.length; bound(len) = 9216
 

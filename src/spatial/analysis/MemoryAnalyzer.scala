@@ -16,7 +16,10 @@ trait MemoryAnalyzer extends CompilerPass {
     case (StridedBanking(s1,p), StridedBanking(s2,q)) if s1 == s2 => StridedBanking(s1, lcm(p,q))
     case (NoBanking, _) => NoBanking
     case (_, NoBanking) => NoBanking
-    case _ => warn(ctxOrHere(mem), u"${mem.tp}, defined here, appears to be addressed with mismatched strides"); NoBanking
+    case _ =>
+      warn(ctxOrHere(mem), u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
+      warn(ctxOrHere(mem))
+      NoBanking
   }
 
   def mergeMemory(mem: Exp[_], a: Memory, b: Memory): Memory = {
@@ -31,6 +34,7 @@ trait MemoryAnalyzer extends CompilerPass {
         }
         else {
           warn(ctxOrHere(mem), u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
+          warn(ctxOrHere(mem))
           BankedMemory(s1.map{_ => NoBanking}, Math.max(d1,d2))
         }
 
@@ -100,7 +104,7 @@ trait MemoryAnalyzer extends CompilerPass {
               def allPorts = List.tabulate(depth){i=>i}.toSet
               val bufPorts = Map(nbuf.map{a => a -> Set(ports(a)) } ++ tmux.map{a => a -> allPorts} : _*)
               val bufSwaps = Map(nbuf.map{a => a -> childContaining(parent, a) } : _*)
-              InstanceGroup(metapipe, accesses, memory, duplicates, bufPorts, bufSwaps)
+              InstanceGroup(metapipe, accesses, bufferedMemory, duplicates, bufPorts, bufSwaps)
 
             // Time-multiplexed case:
             case None =>
@@ -116,7 +120,7 @@ trait MemoryAnalyzer extends CompilerPass {
     dbg(c"  Controller: ${group.metapipe}")
     dbg(c"  Duplicates: ${group.duplicates}")
     dbg(c"  Buffer Ports: ")
-    (0 to group.instance.depth).foreach{port =>
+    (0 until group.instance.depth).foreach{port =>
       val portAccesses = accesses.filter{a => group.ports(a).contains(port) }
       dbg(c"    $port: " + portAccesses.mkString(", "))
     }
