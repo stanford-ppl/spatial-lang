@@ -155,9 +155,6 @@ trait TreeGenSpatial extends SpatialTraversal {
 
     case Scatter(dram, local, addrs, ctr, i) =>
 
-    case BurstLoad(dram, fifo, ofs, ctr, i)  =>
-
-    case BurstStore(dram, fifo, ofs, ctr, i) =>
 
     case _ =>
   }

@@ -93,11 +93,10 @@ build_spatial() {
   make full > /tmp/log 2>&1
   logger "Spatial done!"
   logger "Checking if spatial made correctly..."
-  # exists "$PUB_HOME" 3
-  # errs=(`cat /tmp/log | grep error | grep -v errors | wc -l`)
-  # if [[ $errs -gt 0 ]]; then
-  # 	clean_exit 8 "Detected errors in spatial build (/tmp/log)"
-  # fi
+  errs=(`cat /tmp/log | grep error | grep -v errors | wc -l`)
+  if [[ $errs -gt 0 ]]; then
+  	clean_exit 8 "Detected errors in spatial build (/tmp/log)"
+  fi
   logger "Spatial probably made correctly but not sure how to check in argon spatial"
 
   # # Patch bin/spatial
