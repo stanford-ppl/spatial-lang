@@ -24,6 +24,7 @@ class Innerpipe(val ctrDepth : Int) extends Module {
     val output = new Bundle {
       val done = Bool().asOutput
       val ctr_en = Bool().asOutput
+      val ctr_inc = Bool().asOutput // Same thing as ctr_en
       val rst_en = Bool().asOutput
       val ctr_maxOut = Vec(ctrDepth, UInt(32.W).asOutput)
     }
@@ -46,6 +47,7 @@ class Innerpipe(val ctrDepth : Int) extends Module {
     when( state === pipeInit.U ) {
       io.output.done := false.B
       io.output.ctr_en := false.B
+      io.output.ctr_inc := false.B
       io.output.rst_en := false.B
       (0 until ctrDepth) foreach { i => maxFF(i) := io.input.ctr_maxIn(i) }
       state := pipeReset.U
@@ -58,6 +60,7 @@ class Innerpipe(val ctrDepth : Int) extends Module {
       }
     }.elsewhen( state === pipeRun.U ) {
       io.output.ctr_en := true.B;
+      io.output.ctr_inc := true.B
       when (io.input.ctr_done) {
         (0 until ctrDepth) foreach { i => maxFF(0) := 0.U } // TODO: Why do we reset these instead of leaving them?
         state := pipeDone.U
@@ -73,6 +76,7 @@ class Innerpipe(val ctrDepth : Int) extends Module {
   }.otherwise {
     io.output.done := false.B
     io.output.ctr_en := false.B
+    io.output.ctr_inc := false.B
     io.output.rst_en := false.B
     state := pipeInit.U
   }

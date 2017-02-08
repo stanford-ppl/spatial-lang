@@ -91,14 +91,14 @@ dirname="${REGRESSION_HOME}/testdir-${branch}.${tim}.${type_todo}.${tests_todo}"
 ARGON_HOME="$dirname/argon"
 VIRTUALIZED_HOME="$dirname/scala-virtualized"
 SPATIAL_HOME="$dirname/spatial"
-WIKI_HOME="$SPATIAL_HOME/spatial.wiki"
+WIKI_HOME="$SPATIAL_HOME/spatial-lang.wiki"
 wiki_file="${WIKI_HOME}/Branch-${branch}-Backend-${type_todo}-Regression.md"
 spatial_hash=`sed -n '8p' $packet`
 argon_hash=`sed -n '9p' $packet`
 virtualized_hash=`sed -n '10p' $packet`
 PIR_HOME=$SPATIAL_HOME
 pretty_name=Branch_${branch}_Backend_${type_todo}_Regression_History.csv
-pretty_file=${SPATIAL_HOME}/spatial.wiki/${pretty_name}
+pretty_file=${SPATIAL_HOME}/spatial-lang.wiki/${pretty_name}
 log="${REGRESSION_HOME}/log-${tim}.${branch}.${type_todo}"
 
 logger "Got packet.  `sed -n '1p' $packet`"

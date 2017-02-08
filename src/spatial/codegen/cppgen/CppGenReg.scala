@@ -34,18 +34,22 @@ trait CppGenReg extends CppCodegen {
   } 
 
   override protected def remap(tp: Staged[_]): String = tp match {
-    case tp: RegType[_] => src"Array[${tp.typeArguments.head}]"
+    case tp: RegType[_] => src"${tp.typeArguments.head}"
     case _ => super.remap(tp)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ArgInNew(init)  => 
-      emit(src"// ArgInNew: int32_t* $lhs = new int32_t {0}; // Initialize cpp argin (aka interface.ArgIns[${argIns.length}] ???")
+      emit(src"//${lhs.tp}* $lhs = new ${lhs.tp} {0}; // Initialize cpp argin (aka interface.ArgIns[${argIns.length}] ???")
       argIns = argIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case ArgOutNew(init) => 
       emit(src"int32_t* $lhs = new int32_t {0}; // Initialize cpp argout (aka interface.ArgOuts[${argOuts.length}] ???")
       emit(src"interface.ArgOuts[${argOuts.length}] = (int32_t*) $lhs; ")
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
+    case RegRead(reg)    => 
+      emit(src"${lhs.tp} $lhs = $reg;")
+    case RegWrite(reg,v,en) => 
+      emit(src"// $lhs $reg $v $en reg write")
     case _ => super.emitNode(lhs, rhs)
   }
 

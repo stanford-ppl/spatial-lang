@@ -37,19 +37,20 @@ trait CppGenDRAM extends CppGenSRAM {
   } 
 
   override protected def remap(tp: Staged[_]): String = tp match {
-    case tp: DRAMType[_] => src"Array[${tp.child}]"
+    case tp: DRAMType[_] => src"DRAM"
     case _ => super.remap(tp)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@DRAMNew(dims) => emit(src"""val $lhs = new Array[${op.mA}](${dims.map(quote).mkString("*")})""")
+    case op@DRAMNew(dims) => 
+      emit(src"""${lhs.tp}* $lhs = new DRAM(402653184*${offchipMems.length}, ${dims.map(quote).mkString("*")});""")
+      offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
+
     // case Gather(dram, local, addrs, ctr, i)  => emit("// Do what?")
     // case Scatter(dram, local, addrs, ctr, i) => emit("// Do what?")
     case BurstLoad(dram, fifo, ofs, ctr, i)  => 
-      offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
       emit("//found load")
     case BurstStore(dram, fifo, ofs, ctr, i) => 
-      offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
       emit("//found store")
     case _ => super.emitNode(lhs, rhs)
   }
