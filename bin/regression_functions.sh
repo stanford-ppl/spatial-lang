@@ -93,7 +93,7 @@ build_spatial() {
   make full > /tmp/log 2>&1
   logger "Spatial done!"
   logger "Checking if spatial made correctly..."
-  errs=(`cat /tmp/log | grep error | grep -v errors | wc -l`)
+  errs=(`cat /tmp/log | grep "\[.*error.*\] | wc -l`)
   if [[ $errs -gt 0 ]]; then
   	clean_exit 8 "Detected errors in spatial build (/tmp/log)"
   fi
