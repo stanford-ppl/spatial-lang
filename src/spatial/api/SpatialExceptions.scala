@@ -7,13 +7,13 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
   // --- Compiler exceptions
 
   class EmptyReductionTreeLevelException(implicit ctx: SrcCtx) extends
-  CompilerException(1000, c"Cannot create reduction tree for empty list.", {
+  CompilerException(1000, u"Cannot create reduction tree for empty list.", {
     error(ctx, "Cannot create reduction tree for empty list.")
     error(ctx)
   })
 
   class UndefinedDimensionsError(s: Exp[_], d: Option[Exp[_]])(implicit ctx: SrcCtx) extends
-  CompilerException(1001, c"Cannot find dimensions for symbol ${str(s)}.", {
+  CompilerException(1001, u"Cannot find dimensions for symbol ${str(s)}.", {
     error(ctx, s"Cannot locate dimensions for symbol ${str(s)} used here.")
     if (d.isDefined) error(c"  Dimension: $d")
     error(ctx)
@@ -21,7 +21,7 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
 
   class UndefinedZeroException(s: Exp[_], tp: Staged[_])(implicit ctx: SrcCtx) extends
   CompilerException(1002, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s", {
-    error(ctx, c"Unit Pipe Transformer could create zero for type $tp for escaping value $s")
+    error(ctx, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s")
   })
 
   class ExternalWriteError(mem: Exp[_], write: Exp[_])(implicit ctx: SrcCtx) extends
@@ -72,86 +72,86 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
 
 
   // --- User exceptions
-  class InvalidOnchipDimensionError(dim: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctx, c"Memory defined here has invalid dimension $dim.")
+  class InvalidOnchipDimensionError(mem: Exp[_], dim: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+    error(ctx, u"Memory $mem defined here has invalid dimension $dim.")
     error("Only functions of constants and DSE parameters are allowed as dimensions of on-chip memories")
   })
 
   class InvalidParallelFactorError(par: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctx, c"Invalid parallelization factor: ${str(par)}")
+    error(ctx, u"Invalid parallelization factor: ${str(par)}")
   })
 
   class DimensionMismatchError(mem: Exp[_], dims: Int, inds: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctx, c"Invalid number of indices used to access $mem: Expected $dims, got $inds")
+    error(ctx, u"Invalid number of indices used to access $mem: Expected $dims, got $inds")
   })
 
   class SparseAddressDimensionError(dram: Exp[_], d: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctx, c"Creation of multi-dimensional sparse DRAM tiles is currently unsupported.")
-    error(c"Expected 1D SRAM tile, found ${d}D tile")
+    error(ctx, u"Creation of multi-dimensional sparse DRAM tiles is currently unsupported.")
+    error(u"Expected 1D SRAM tile, found ${d}D tile")
   })
   class SparseDataDimensionError(isLoad: Boolean, d: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctx, c"""Multi-dimensional ${if (isLoad) "gather" else "scatter"} is currently unsupported.""")
+    error(ctx, u"""Multi-dimensional ${if (isLoad) "gather" else "scatter"} is currently unsupported.""")
   })
   class UnsupportedStridedDRAMError(isLoad: Boolean)(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctx, c"""Strided tile ${if (isLoad) "load" else "store"} is currently unsupported""")
+    error(ctx, u"""Strided tile ${if (isLoad) "load" else "store"} is currently unsupported""")
   })
 
   class UnsupportedUnalignedTileStore(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctx, c"Unaligned tile store is currently unsupported.")
+    error(ctx, u"Unaligned tile store is currently unsupported.")
   })
 
   class ControlInReductionError(ctx: SrcCtx) extends UserError(ctx, {
-    error(ctx, c"Reduction functions cannot have inner control nodes")
+    error(ctx, u"Reduction functions cannot have inner control nodes")
   })
 
   class InvalidOffchipDimensionError(offchip: Exp[_], dim: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctxOrHere(offchip), c"Offchip memory defined here has invalid dimension $dim")
+    error(ctxOrHere(offchip), u"Offchip memory defined here has invalid dimension $dim")
   })
 
   class ConcurrentReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal concurrent readers: ")
-    error(ctxOrHere(a)(ctx), c"  The first read occurs here")
+    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal concurrent readers: ")
+    error(ctxOrHere(a)(ctx), u"  The first read occurs here")
     error(ctxOrHere(a)(ctx))
-    error(ctxOrHere(b)(ctx), c"  The second read occurs here")
+    error(ctxOrHere(b)(ctx), u"  The second read occurs here")
     error(ctxOrHere(b)(ctx))
   })
 
   class ConcurrentWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal concurrent writers: ")
-    error(ctxOrHere(a)(ctx), c"  The first write occurs here")
+    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal concurrent writers: ")
+    error(ctxOrHere(a)(ctx), u"  The first write occurs here")
     error(ctxOrHere(a)(ctx))
-    error(ctxOrHere(b)(ctx), c"  The second write occurs here")
+    error(ctxOrHere(b)(ctx), u"  The second write occurs here")
     error(ctxOrHere(b)(ctx))
   })
 
   class PipelinedReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal pipelined readers: ")
-    error(ctxOrHere(a)(ctx), c"  The first read occurs here")
+    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal pipelined readers: ")
+    error(ctxOrHere(a)(ctx), u"  The first read occurs here")
     error(ctxOrHere(a)(ctx))
-    error(ctxOrHere(b)(ctx), c"  The second read occurs here")
+    error(ctxOrHere(b)(ctx), u"  The second read occurs here")
     error(ctxOrHere(b)(ctx))
   })
 
   class PipelinedWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal pipelined writers: ")
-    error(ctxOrHere(a)(ctx), c"  The first write occurs here")
+    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal pipelined writers: ")
+    error(ctxOrHere(a)(ctx), u"  The first write occurs here")
     error(ctxOrHere(a)(ctx))
-    error(ctxOrHere(b)(ctx), c"  The second write occurs here")
+    error(ctxOrHere(b)(ctx), u"  The second write occurs here")
     error(ctxOrHere(b)(ctx))
   })
 
   class MultipleReadersError(mem: Exp[_], readers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal multiple readers: ")
+    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal multiple readers: ")
     readers.foreach{read =>
-      error(ctxOrHere(read)(ctx), c"  Read defined here")
+      error(ctxOrHere(read)(ctx), u"  Read defined here")
       error(ctxOrHere(read)(ctx))
     }
   })
 
   class MultipleWritersError(mem: Exp[_], writers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), c"${mem.tp} defined here has illegal multiple writers: ")
+    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal multiple writers: ")
     writers.foreach{write =>
-      error(ctxOrHere(write)(ctx), c"  Write defined here")
+      error(ctxOrHere(write)(ctx), u"  Write defined here")
       error(ctxOrHere(write)(ctx))
     }
   })
@@ -172,5 +172,9 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
   class InvalidVectorSlice(vector: Exp[_], start: Int, end: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
     error(u"Attempted to slice vector $vector from $start to $end, creating an empty vector")
     error("Creation of empty vectors is currently disallowed.")
+  })
+
+  class NonConstantInitError(ctx: SrcCtx) extends UserError(ctx, {
+    error(ctx, u"Register must have constant initialization value.")
   })
 }

@@ -2,6 +2,7 @@ package spatial.analysis
 
 import argon.traversal.CompilerPass
 import spatial.SpatialExp
+import org.virtualized.SourceContext
 
 trait BufferAnalyzer extends CompilerPass {
   val IR: SpatialExp
@@ -26,18 +27,23 @@ trait BufferAnalyzer extends CompilerPass {
         val reads = readers.filter{read => dispatchOf(read, mem) contains i }
         val writes = writers.filter{write => dispatchOf(write, mem) contains i }
         val accesses = reads ++ writes
-        val (metapipe,_) = findMetaPipe(mem, reads, writes)
-        if (metapipe.isDefined && dup.depth > 1) {
-          val parent = metapipe.get
-          accesses.foreach{access =>
-            val child = lca(access.ctrl, parent).get
-            if (child == parent) {
-              val swap = childContaining(parent, access)
-              topControllerOf(access, mem, i) = swap
-              dbg(c"  -PORT ACCESS $access [swap = $swap]")
+        if (accesses.nonEmpty) {
+          val (metapipe, _) = findMetaPipe(mem, reads, writes)
+          if (metapipe.isDefined && dup.depth > 1) {
+            val parent = metapipe.get
+            accesses.foreach { access =>
+              val child = lca(access.ctrl, parent).get
+              if (child == parent) {
+                val swap = childContaining(parent, access)
+                topControllerOf(access, mem, i) = swap
+                dbg(c"  -PORT ACCESS $access [swap = $swap]")
+              }
+              else dbg(c"  -MUX ACCESS $access [lca = $child]")
             }
-            else dbg(c"  -MUX ACCESS $access [lca = $child]")
           }
+        }
+        else {
+          warn(ctxOrHere(mem), u"Memory $mem, instance #$i has no associated accesses")
         }
       }
     }

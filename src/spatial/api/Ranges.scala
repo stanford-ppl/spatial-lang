@@ -111,6 +111,17 @@ trait RangeExp extends RangeOps with MemoryExp {
     override def binds  = super.binds :+ i
   }
 
+  /*case class RangeReduce[T](
+    start:  Exp[Index],
+    end:    Exp[Index],
+    step:   Exp[Index],
+    func:   Block[T],
+    reduce: Block[T],
+    rV:     (Bound[Index],Bound[Index]),
+    i:      Bound[Index]
+  )*/
+
+  /** Constructors **/
   def range_foreach(start: Exp[Index], end: Exp[Index], step: Exp[Index], func: => Exp[Void], i: Bound[Index])(implicit ctx: SrcCtx) = {
     val fBlk = stageBlock { func }
     val effects = fBlk.summary

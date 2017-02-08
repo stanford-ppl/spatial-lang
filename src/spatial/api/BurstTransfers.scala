@@ -115,7 +115,7 @@ trait BurstTransfers { this: SpatialExp =>
 
     // Last counter is used as counter for load/store
     // Other counters (if any) are used to iterate over higher dimensions
-    val counters = tileDims.map{d => Counter(start = 0, end = d, step = 1, par = 1) }
+    val counters = tileDims.map{d => () => Counter(start = 0, end = d, step = 1, par = 1) }
 
     val burstLength = tileDims.last
     val p = wrap(par)
@@ -124,7 +124,7 @@ trait BurstTransfers { this: SpatialExp =>
 
     // Metaprogrammed (unstaged) if-then-else
     if (counters.length > 1) {
-      Foreach(counters.dropRight(1)){ is =>
+      Foreach(counters.dropRight(1).map{ctr => ctr()}){ is =>
         val indices = is :+ 0.as[Index]
         val offchipAddr = () => flatIndex( offchipOffsets.zip(indices).map{case (a,b) => a + b}, wrap(dimsOf(offchip)))
 
@@ -143,14 +143,16 @@ trait BurstTransfers { this: SpatialExp =>
       }
     }
 
+    // NOTE: Results of register reads are allowed to be used to specialize for aligned load/stores,
+    // as long as the value of the register read is known to be exactly some value.
     def store(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = burstLength.s match {
-      case Const(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 => alignedStore(offchipAddr, onchipAddr)
+      case Exact(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 => alignedStore(offchipAddr, onchipAddr)
       case x =>
         error(c"Unaligned store! Burst length: ${str(x)}")
         unalignedStore(offchipAddr, onchipAddr)
     }
     def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = burstLength.s match {
-      case Const(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 => alignedLoad(offchipAddr, onchipAddr)
+      case Exact(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 => alignedLoad(offchipAddr, onchipAddr)
       case _ => unalignedLoad(offchipAddr, onchipAddr)
     }
 
@@ -158,7 +160,7 @@ trait BurstTransfers { this: SpatialExp =>
       val maddr = Reg[Index]
       Pipe { maddr := offchipAddr }
       Foreach(burstLength par p){i => fifo.enq( mem.load(onchip, onchipAddr(i), true)) }
-      Void(burst_store(offchip, fifo.s, maddr.value.s, counters.last.s, fresh[Index]))
+      Void(burst_store(offchip, fifo.s, maddr.value.s, counters.last().s, fresh[Index]))
     }
     // UNSUPPORTED: Unaligned store
     def unalignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = {
@@ -169,7 +171,7 @@ trait BurstTransfers { this: SpatialExp =>
     def alignedLoad(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = {
       val maddr = Reg[Index]
       Pipe { maddr := offchipAddr }
-      burst_load(offchip, fifo.s, maddr.value.s, counters.last.s, fresh[Index])
+      burst_load(offchip, fifo.s, maddr.value.s, counters.last().s, fresh[Index])
       Foreach(burstLength par p){i => mem.store(onchip, onchipAddr(i), fifo.deq(), true) }
     }
     @virtualize

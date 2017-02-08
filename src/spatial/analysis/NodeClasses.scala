@@ -101,11 +101,14 @@ trait NodeClasses extends SpatialMetadataExp {
   }
 
   // Dynamic allocations which can be directly used in primitive logic
-  def isPrimitiveAllocation(e: Exp[_]): Boolean = getDef(e).exists(isDynamicAllocation)
+  def isPrimitiveAllocation(e: Exp[_]): Boolean = getDef(e).exists(isPrimitiveAllocation)
   def isPrimitiveAllocation(d: Def): Boolean = d match {
     case _:StructAlloc[_] => true
+    case _:ListVector[_]  => true
     case _ => false
   }
+
+
 
   def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] => true

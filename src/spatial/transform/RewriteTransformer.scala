@@ -14,15 +14,15 @@ trait RewriteTransformer extends ForwardTransformer{
   override def transform[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx) = rhs match {
     // Change a write from a mux with the register or some other value to an enabled register write
     case RegWrite(Mirrored(reg), Mirrored(data), Mirrored(en)) => data match {
-      case Op( Mux(sel, Op(RegRead(`reg`)), b) ) =>
-        val lhs2 = reg_write(reg, b, bool_and(en, bool_not(sel)))(mbits(b.tp),ctx)
+      case Op( Mux(sel, Op(e@RegRead(`reg`)), b) ) =>
+        val lhs2 = reg_write(reg, b, bool_and(en, bool_not(sel)))(e.bT,ctx)
         dbg(c"Rewrote ${str(lhs)}")
         dbg(c"  to ${str(lhs2)}")
         transferMetadata(lhs, lhs2)
         lhs2.asInstanceOf[Exp[T]]
 
-      case Op( Mux(sel, a, Op(RegRead(`reg`))) ) =>
-        val lhs2 = reg_write(reg, a, bool_and(en, sel))(mbits(a.tp),ctx)
+      case Op( Mux(sel, a, Op(e @ RegRead(`reg`))) ) =>
+        val lhs2 = reg_write(reg, a, bool_and(en, sel))(e.bT,ctx)
         dbg(c"Rewrote ${str(lhs)}")
         dbg(c"  to ${str(lhs2)}")
         transferMetadata(lhs, lhs2)

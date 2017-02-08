@@ -18,35 +18,35 @@ trait ScalaGenController extends ScalaCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func) =>
-      emit("/** BEGIN HARDWARE BLOCK **/")
+      emit(src"/** BEGIN HARDWARE BLOCK $lhs **/")
       open(src"val $lhs = {")
       emitBlock(func)
       close("}")
-      emit("/** END HARDWARE BLOCK **/")
+      emit(src"/** END HARDWARE BLOCK $lhs **/")
 
     case UnitPipe(func) =>
-      emit("/** BEGIN UNIT PIPE **/")
+      emit(src"/** BEGIN UNIT PIPE $lhs **/")
       open(src"val $lhs = {")
       emitBlock(func)
       close("}")
-      emit("/** END UNIT PIPE **/")
+      emit(src"/** END UNIT PIPE $lhs **/")
 
     case ParallelPipe(func) =>
-      emit("/** BEGIN PARALLEL PIPE **/")
+      emit(src"/** BEGIN PARALLEL PIPE $lhs **/")
       open(src"val $lhs = {")
       emitBlock(func)
       close("}")
-      emit("/** END PARALLEL PIPE **/")
+      emit(src"/** END PARALLEL PIPE $lhs **/")
 
     case OpForeach(cchain, func, iters) =>
-      emit("/** BEGIN FOREACH **/")
+      emit(src"/** BEGIN FOREACH $lhs **/")
       open(src"val $lhs = {")
       emitNestedLoop(cchain, iters){ emitBlock(func) }
       close("}")
-      emit("/** END FOREACH **/")
+      emit(src"/** END FOREACH $lhs **/")
 
     case OpReduce(cchain, accum, map, load, reduce, store, rV, iters) =>
-      emit("/** BEGIN REDUCE **/")
+      emit(src"/** BEGIN REDUCE $lhs **/")
       open(src"val $lhs = {")
       emitNestedLoop(cchain, iters){
         visitBlock(map)
@@ -57,10 +57,10 @@ trait ScalaGenController extends ScalaCodegen {
         emitBlock(store)
       }
       close("}")
-      emit("/** END REDUCE **/")
+      emit(src"/** END REDUCE $lhs **/")
 
     case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed) =>
-      emit("/** BEGIN MEM REDUCE **/")
+      emit(src"/** BEGIN MEM REDUCE $lhs **/")
       open(src"val $lhs = {")
       emitNestedLoop(cchainMap, itersMap){
         visitBlock(map)
@@ -74,7 +74,7 @@ trait ScalaGenController extends ScalaCodegen {
         }
       }
       close("}")
-      emit("/** END MEM REDUCE **/")
+      emit(src"/** END MEM REDUCE $lhs **/")
 
     case _ => super.emitNode(lhs, rhs)
   }

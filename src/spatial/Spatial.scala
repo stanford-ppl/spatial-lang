@@ -17,26 +17,26 @@ import spatial.codegen.cppgen._
 protected trait SpatialOps extends OverloadHack with SpatialMetadataOps with BankingMetadataOps
      with IfThenElseOps with PrintOps with ControllerOps with MathOps with TextOps with DRAMOps with StringCastOps
      with HostTransferOps with ParameterOps with RangeOps with StructOps with UnrolledOps with VectorOps
-     with ArrayExtOps with AssertOps with StagedUtilOps
+     with ArrayExtOps with AssertOps with StagedUtilOps with TupleOps with HashMapOps
 
 protected trait SpatialApi extends SpatialOps with SpatialMetadataApi with BankingMetadataApi
      with IfThenElseApi with PrintApi with ControllerApi with MathApi with TextApi with DRAMApi with StringCastApi
      with HostTransferApi with ParameterApi with RangeApi with StructApi with UnrolledApi with VectorApi
-     with ArrayExtApi with AssertApi with StagedUtilApi
+     with ArrayExtApi with AssertApi with StagedUtilApi with TupleApi with HashMapApi
 
 protected trait SpatialExp extends SpatialOps with SpatialMetadataExp with BankingMetadataExp
      with NodeClasses with NodeUtils with ParameterRestrictions
      with IfThenElseExp with PrintExp with ControllerExp with MathExp with TextExp with DRAMExp with StringCastExp
      with HostTransferExp with ParameterExp with RangeExp with StructExp with UnrolledExp with VectorExp
-     with ArrayExtExp with AssertExp with StagedUtilExp
+     with ArrayExtExp with AssertExp with StagedUtilExp with TupleExp with HashMapExp
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenBool with ScalaGenVoid with ScalaGenFixPt with ScalaGenFltPt with ScalaGenMixedNumeric
   with ScalaGenCounter with ScalaGenReg with ScalaGenSRAM with ScalaGenFIFO 
   with ScalaGenIfThenElse with ScalaGenPrint with ScalaGenController with ScalaGenMath with ScalaGenText
-  with ScalaGenDRAM with ScalaGenStringCast with ScalaGenHostTransfer with ScalaGenRange
+  with ScalaGenDRAM with ScalaGenStringCast with ScalaGenHostTransfer with ScalaGenRange with ScalaGenStructs
   with ScalaGenUnrolled with ScalaGenVector
-  with ScalaGenArray with ScalaGenArrayExt with ScalaGenAssert {
+  with ScalaGenArray with ScalaGenArrayExt with ScalaGenAssert with ScalaGenHashMap {
 
   override val IR: SpatialCompiler
 }
@@ -143,6 +143,12 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   passes += dse               // TODO: Design space exploration
 
   // --- Post-DSE Transform
+  // NOTE: Small compiler pass ordering issue here:
+  // We may need bound information during node expansion,
+  // but we also need to reanalyze bounds to account for expanded nodes
+  // For now just doing it twice
+  passes += scalarAnalyzer    // Bounds / global analysis
+  passes += printer
   passes += burstExpansion    // Expand burst loads/stores from single abstract nodes
 
   // --- Post-DSE Analysis
@@ -151,7 +157,6 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   passes += levelAnalyzer     // Pipe style annotation fixes after expansion
   passes += affineAnalyzer    // Memory access patterns
   passes += ctrlAnalyzer      // Control signal analysis
-  passes += scalarAnalyzer    // Bound and global analysis after param. finalization
   passes += reduceAnalyzer    // Reduce/accumulator specialization
   passes += memAnalyzer       // Finalize banking/buffering
   // TODO: models go here
@@ -162,7 +167,9 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   passes += printer
 
   passes += uctrlAnalyzer     // Analysis for unused register reads
+  passes += printer
   passes += regCleanup        // Duplicate register reads for each use
+  passes += printer
   passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
 
   // --- Post-Unroll Analysis

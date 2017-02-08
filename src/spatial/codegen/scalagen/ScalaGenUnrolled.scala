@@ -30,18 +30,18 @@ trait ScalaGenUnrolled extends ScalaCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case UnrolledForeach(cchain,func,iters,valids) =>
-      emit(src"/** BEGIN UNROLLED FOREACH **/")
+      emit(src"/** BEGIN UNROLLED FOREACH $lhs **/")
       open(src"val $lhs = {")
       emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
       close("}")
-      emit(src"/** END UNROLLED FOREACH **/")
+      emit(src"/** END UNROLLED FOREACH $lhs **/")
 
     case UnrolledReduce(cchain,_,func,_,iters,valids,_) =>
-      emit(src"/** BEGIN UNROLLED REDUCE **/")
+      emit(src"/** BEGIN UNROLLED REDUCE $lhs **/")
       open(src"val $lhs = {")
       emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
       close("}")
-      emit(src"/** END UNROLLED REDUCE **/")
+      emit(src"/** END UNROLLED REDUCE $lhs **/")
 
     case ParSRAMLoad(sram,inds) =>
       val dims = stagedDimsOf(sram)

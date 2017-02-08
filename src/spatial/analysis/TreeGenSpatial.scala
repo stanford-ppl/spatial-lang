@@ -155,7 +155,6 @@ trait TreeGenSpatial extends SpatialTraversal {
 
     case Scatter(dram, local, addrs, ctr, i) =>
 
-
     case _ =>
   }
 
