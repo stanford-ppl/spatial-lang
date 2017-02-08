@@ -87,7 +87,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U //TODO: Really calculate this""")
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
       emit(s"""${quote(cchain)}_ctr_en := ${quote(lhs)}_datapath_en & ${quote(lhs)}_redLoop_done""")
-      emit(src"val ${accum}_wren = $ctrEn & ~ ${lhs}_done")
+      //emit(src"val ${accum}_wren = $ctrEn & ~ ${lhs}_done")
       emit(src"val ${accum}_resetter = ${quote(lhs)}_rst_en")
       emit(src"val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {

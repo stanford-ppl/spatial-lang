@@ -28,6 +28,14 @@ trait NodeUtils extends NodeClasses {
       }
       getDef(x).exists{d => dfs(d.inputs)}
     }
+    def dependsOnType(y: PartialFunction[Exp[_],Boolean]): Boolean = {
+      def dfs(frontier: Seq[Exp[_]]): Boolean = frontier.exists{
+        case s if y.isDefinedAt(s) && y(s) => true
+        case Def(d) => dfs(d.inputs)
+        case _ => false
+      }
+      getDef(x).exists{d => dfs(d.inputs)}
+    }
   }
 
   /**

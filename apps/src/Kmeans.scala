@@ -97,7 +97,7 @@ object Kmeans extends SpatialApp {
         }
       }
 
-      val flatCts = SRAM[T](K*D)
+      val flatCts = SRAM[T](MAXK * MAXD)
       Foreach(K by 1, D by 1) {(i,j) =>
         flatCts(i*D+j) = cts(i,j)
       }
@@ -146,10 +146,19 @@ object Kmeans extends SpatialApp {
       }
     }
 
-    printArray(cts.flatten, "gold: ")
+    val gold = cts.flatten
+
+    printArray(gold, "gold: ")
     printArray(result, "result: ")
 
-    val cksum = result.zip(cts.flatten){ case (o, g) => (g < (o + margin)) && g > (o - margin)}.reduce{_&&_}
+    for (i <- 0 until result.length) {
+      val diff = result(i) - gold(i)
+      if (abs(diff) > margin)
+        println("[" + i + "] gold: " + gold(i) + ", result: " + result(i) + ", diff: " + diff)
+    }
+
+    val cksum = result.zip(gold){ case (o, g) => (g < (o + margin)) && g > (o - margin)}.reduce{_&&_}
+
     println("PASS: " + cksum + " (Kmeans)")
   }
 

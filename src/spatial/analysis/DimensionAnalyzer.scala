@@ -11,18 +11,19 @@ trait DimensionAnalyzer extends SpatialTraversal {
   var softValues = Map[Exp[Reg[_]],Exp[_]]()
   var offchips = Set[Exp[DRAM[Any]]]()
 
-  private def checkOnchipDims(dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Unit = {
+  private def checkOnchipDims(mem: Exp[_], dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Unit = {
     dims.zipWithIndex.foreach{
+      case (x, i) if x.dependsOnType{case LocalReader(_) => true} => new InvalidOnchipDimensionError(mem,i)
       case (Exact(_), i) =>
-      case (_, i) => new InvalidOnchipDimensionError(i)
+      case (_, i) => new InvalidOnchipDimensionError(mem,i)
     }
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case SetArg(reg, value) => softValues += reg -> value
     case DRAMNew(_) => offchips += lhs.asInstanceOf[Exp[DRAM[Any]]]
-    case SRAMNew(_) => checkOnchipDims(stagedDimsOf(lhs.asInstanceOf[Exp[SRAM[_]]]))(ctxOrHere(lhs))
-    case FIFONew(_) => checkOnchipDims(List(sizeOf(lhs.asInstanceOf[Exp[FIFO[Any]]])))(ctxOrHere(lhs))
+    case SRAMNew(_) => checkOnchipDims(lhs, stagedDimsOf(lhs.asInstanceOf[Exp[SRAM[_]]]))(ctxOrHere(lhs))
+    case FIFONew(_) => checkOnchipDims(lhs, List(sizeOf(lhs.asInstanceOf[Exp[FIFO[Any]]])))(ctxOrHere(lhs))
     case _ => super.visit(lhs, rhs)
   }
 
