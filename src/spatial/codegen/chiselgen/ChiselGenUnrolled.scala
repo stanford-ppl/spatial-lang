@@ -123,7 +123,8 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         }
         val p = portsOf(lhs, sram, i).head
         emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
-        emit(src"""val $lhs = ${sram}_$i.io.output.data(${rPar}*$p)""")
+
+        emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
       }
 
     case ParSRAMStore(sram,inds,data,ens) =>

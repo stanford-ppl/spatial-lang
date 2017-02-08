@@ -37,7 +37,9 @@ trait CppGenHostTransfer extends CppCodegen  {
       emit(src"// Temporarily do nothing here.  ${lhs.tp} $lhs = System.arraycopy($data, 0, $dram, 0, $data.length)", forceful = true)
     case GetMem(dram, data) => 
       open(src"for (int i = 0; i < interface.memOut_length(); i++) { // Will be 0 if this app has an argout")
-      emit(src"${dram}->add_mem(interface.get_mem(i));")
+      open(src"if (i < ${data}->length) { // Hack for when we get an extra burst")
+      emit(src"${data}->update(i, interface.get_mem(i));")
+      close("}")
       close("}")
       emit(src"// ${data.tp} $lhs = something related to interface", forceful = true)
     case _ => super.emitNode(lhs, rhs)

@@ -62,6 +62,7 @@ class Innerpipe(val ctrDepth : Int) extends Module {
       io.output.ctr_en := true.B;
       io.output.ctr_inc := true.B
       when (io.input.ctr_done) {
+        io.output.ctr_inc := false.B
         (0 until ctrDepth) foreach { i => maxFF(0) := 0.U } // TODO: Why do we reset these instead of leaving them?
         state := pipeDone.U
       }.otherwise {

@@ -156,7 +156,7 @@ object MemTest2D extends SpatialApp { // Regression (Unit) // Args: 7
   }
 }
 
-object FifoLoad extends SpatialApp {
+object FifoLoad extends SpatialApp { // Regression (Unit) // Args: 192
   import IR._
 
   def fifoLoad[T:Num](srcHost: Array[T], N: Int) = {
@@ -195,7 +195,7 @@ object FifoLoad extends SpatialApp {
 
     println("Sent in: ")
     (0 until arraySize) foreach { i => print(gold(i) + " ") }
-    println("Got out:")
+    println("\nGot out:")
     (0 until arraySize) foreach { i => print(dst(i) + " ") }
     println("")
 
