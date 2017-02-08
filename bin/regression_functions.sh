@@ -140,7 +140,7 @@ logger "Removing old wiki directory..."
 rm -rf $WIKI_HOME
 cd $SPATIAL_HOME
 logger "Cloning wiki to avoid conflicts..."
-git clone git@github.com:stanford-ppl/spatial.wiki.git  > /dev/null 2>&1
+git clone git@github.com:stanford-ppl/spatial-lang.wiki.git  > /dev/null 2>&1
 git checkout -f HEAD  > /dev/null 2>&1
 logger "Cloning done!"
 logger "Cleaning old markdown file..."
