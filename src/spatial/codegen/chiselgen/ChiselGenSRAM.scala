@@ -83,7 +83,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}""")
         }
         val p = portsOf(lhs, sram, i).head
-        Console.println(s"ports of $lhs sram $sram dup $i is ${portsOf(lhs, sram,i)}")
         emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
         emit(src"""val $lhs = ${sram}_$i.io.output.data(${rPar}*$p)""")
       }
@@ -102,76 +101,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val enable = src"""${parent}_en"""
         emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enable}, List(${p})) """)
       }
-
-//     val writers = writersOf(sram)
-//     val writer = writers.find(_.node == write).get
-//     //val EatAlias(ww) = write -- This is unnecessary (can't be bound)
-//     val distinctParents = writers.map{writer => parentOf(writer.controlNode)}.distinct
-//     val allParents = writers.map{writer => parentOf(writer.controlNode)}
-//     if (distinctParents.length < allParents.length) {
-//       Console.println("[WARNING] Bram $sram has multiple writers controlled by the same controller, which should only happen in CharBramTest!")
-//       // throw MultipleWriteControllersException(sram, writersOf(sram))
-//     }
-//     val writeCtrl = writer.controlNode
-
-//     // Figure out if this Ctrl is an accumulation, since we need to do this now that there can be many writers
-//     val isAccumCtrl = writeCtrl match {
-//         case Deff(d:OpReduce[_,_]) => true
-//         case Deff(d:OpForeach) => false
-//         case Deff(d:UnrolledReduce[_,_]) => true
-//         case Deff(d:UnrolledForeach) =>
-//           if (childrenOf(parentOf(writeCtrl).get).indexOf(writeCtrl) == childrenOf(parentOf(writeCtrl).get).length-1) {
-//             styleOf(writeCtrl) match {
-//               case InnerPipe => true
-//               case _ => false
-//             }
-//           } else {
-//             false
-//           }
-//         case Deff(d:UnitPipe) => true // Not sure why but this makes matmult work
-//         case p => throw UnknownParentControllerException(sram, write, writeCtrl)
-//     }
-//     val globalEn = if (isAccum(sram) & isAccumCtrl) {
-//       writeCtrl match {
-//         case Deff(_: UnitPipe) => s"${quote(writeCtrl)}_done /* Not sure if this is right */"
-//         case Deff(a) => s"${quote(writeCtrl)}_datapath_en /*& ${quote(writeCtrl)}_redLoop_done *//*wtf pipe is $a*/"
-//         case _ => s"${quote(writeCtrl)}_datapath_en & ${quote(writeCtrl)}_redLoop_done /*no def node*/"
-//       }
-//     } else {
-//       s"${quote(writeCtrl)}_datapath_en /*old behavior mask*/"
-//     }
-
-//     val dups = allDups.zipWithIndex.filter{dup => instanceIndicesOf(writer,sram).contains(dup._2) }
-
-//     val inds = parIndicesOf(write)
-//     val num_dims = dimsOf(sram).length
-//     val wPar = inds.length
-
-//     if (inds.isEmpty) throw NoParIndicesException(sram, write)
-
-//     val Deff(value_type) = value
-
-
-//     emit(s"""// Assemble multidimW vector
-// val ${quote(write)}_wVec = Wire(Vec(${wPar}, new multidimW(${num_dims}, 32))) """)
-//     value match {
-//       case Deff(d:ListVector[_]) => // zip up vector nodes
-//         emit(s"""
-// ${quote(write)}_wVec.zip(${quote(value)}).foreach {case (w,d) => w.data := d}
-// ${quote(write)}_wVec.zip(${quote(ens)}).foreach {case (w,e) => w.en := e}""")
-//       case _ => // Otherwise, just connect one thing
-//         emit(s"""${quote(write)}_wVec(0).data := ${quote(value)}
-// ${quote(write)}_wVec(0).en := ${quote(ens)}""")
-//     }
-//     inds.zipWithIndex.foreach{ case(ind,i) => 
-//       ind.zipWithIndex.foreach { case(wire,j) =>
-//         emit(s"""${quote(write)}_wVec($i).addr($j) := ${quote(wire)}""")
-//       }
-//     }
-//     dups.foreach{ case (d,i) =>
-//       val p = portsOf(write, sram, i).mkString(",")
-//       emit(s"""${quote(sram)}_$i.connectWPort(${quote(write)}_wVec, ${quote(globalEn)}, List(${p})) """)
-//     }
 
     case _ => super.emitNode(lhs, rhs)
   }

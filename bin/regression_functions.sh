@@ -167,7 +167,7 @@ echo -e "\n\n***\n\n" >> $wiki_file
 
 # Link to logs
 # echo -e "\n## [History log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial/${branch}_Regression_Test_History.csv) \n" >> $wiki_file
-echo -e "\n## [Pretty History Log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial/${pretty_name}) \n" >> $wiki_file
+echo -e "\n## [Pretty History Log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/${pretty_name}) \n" >> $wiki_file
 # echo -e "\n## [Performance Results](https://www.dropbox.com/s/a91ra3wvdyr3x5b/Performance_Results.xlsx?dl=0) \n" >> $wiki_file
 
 stamp_app_comments
@@ -188,7 +188,7 @@ update_log() {
   progress=(`find . -maxdepth 1 -type f | sort -r`)
   for p in ${progress[@]}; do
     pname=(`echo $p | sed "s/.*[0-9]\+_//g"`)
-    cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial/${branch}_$pname.png)"
+    cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/${branch}_$pname.png)"
     if [[ $p == *"pass"* ]]; then
       echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=(`cat $p`)
