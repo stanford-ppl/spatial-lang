@@ -1,7 +1,6 @@
 package spatial.transform
 
 import argon.transform.ForwardTransformer
-import argon.traversal.IRPrinter
 import spatial.SpatialExp
 import org.virtualized.SourceContext
 
@@ -10,9 +9,6 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   import IR._
 
   override val name = "Unrolling Transformer"
-  verbosity = 2
-
-  lazy val printer = new IRPrinter {override val IR: self.IR.type = self.IR}
 
   def strMeta(e: Exp[_]): Unit = metadata.get(e).foreach{m => dbgs(c" - ${m._1}: ${m._2}") }
 
@@ -460,9 +456,6 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
           inReduction{ unrollMap(storeAcc, reduceLanes) }
           void
         }
-
-        dbgs(s"---- RUNNING PRINTER FOR rBLK")
-        printer.run(rBlk)
 
         val effects = rBlk.summary
         val rpipe = stageEffectful(UnrolledForeach(cchainRed, rBlk, isRed2, rvs), effects.star)(ctx)

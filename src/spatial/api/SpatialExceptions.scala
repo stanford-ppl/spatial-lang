@@ -21,7 +21,7 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
 
   class UndefinedZeroException(s: Exp[_], tp: Staged[_])(implicit ctx: SrcCtx) extends
   CompilerException(1002, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s", {
-    error(ctx, c"Unit Pipe Transformer could create zero for type $tp for escaping value $s")
+    error(ctx, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s")
   })
 
   class ExternalWriteError(mem: Exp[_], write: Exp[_])(implicit ctx: SrcCtx) extends
@@ -172,5 +172,9 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
   class InvalidVectorSlice(vector: Exp[_], start: Int, end: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
     error(u"Attempted to slice vector $vector from $start to $end, creating an empty vector")
     error("Creation of empty vectors is currently disallowed.")
+  })
+
+  class NonConstantInitError(ctx: SrcCtx) extends UserError(ctx, {
+    error(ctx, u"Register must have constant initialization value.")
   })
 }

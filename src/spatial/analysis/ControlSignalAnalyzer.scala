@@ -176,6 +176,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
         }
 
         if (isAllocation(lhs)) {
+          dbg(c"Found propagating reader $lhs of $readers")
           pendingReads += lhs -> readers
         }
         else {
@@ -243,18 +244,20 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     case OpReduce(cchain,accum,map,ld,reduce,store,rV,iters) =>
       visitCtrl((lhs,false), iters, cchain){
         visitBlock(map)
+
+        // Handle the one case where we allow scalar communication between blocks
+        dbg(c"$lhs = $rhs [${isOuterControl(lhs)}]")
+        dbg(c"  result = ${map.result} [${pendingReads.contains(map.result)}]")
+        if (isOuterControl(lhs) && pendingReads.contains(map.result)) {
+          val readers = pendingReads(map.result)
+          readers.foreach{reader => appendReader(reader, (lhs,true)) }
+        }
+
         visitCtrl((lhs,true)) {
           visitBlock(ld)
           visitBlock(reduce)
           visitBlock(store)
         }
-      }
-
-      // HACK: Handle the one case where we allow scalar communication between blocks
-      if (isOuterControl(lhs)) map.result match {
-        case read @ Op(RegRead(reg)) =>
-          readersOf(reg) = readersOf(reg) :+ (read, (lhs,true))
-        case _ => // Nothing
       }
 
       isAccum(accum) = true

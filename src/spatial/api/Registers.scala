@@ -74,16 +74,13 @@ trait RegExp extends RegOps with MemoryExp {
 
   /** Smart Constructors **/
   def argin_alloc[T:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
-    init match { case Const(_) => ; case x => throw new Exception("Initial value of Reg must be constant") }
     stageMutable( ArgInNew[T](init) )(ctx)
   }
   def argout_alloc[T:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
-    init match { case Const(_) => ; case x => throw new Exception("Initial value of Reg must be constant") }
     stageMutable( ArgOutNew[T](init) )(ctx)
   }
 
   def reg_alloc[T:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
-    init match {case Const(_) => ; case x => throw new Exception("Initial value of Reg must be constant") }
     stageMutable( RegNew[T](init) )(ctx)
   }
 
