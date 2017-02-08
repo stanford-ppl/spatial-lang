@@ -253,10 +253,10 @@ object Launcher {
       }) 
   }.toMap
 
-  templates = templates ++ Arguments.Sequential.zipWithIndex.map{ case(arg,i) => 
-    (s"Sequential$i" -> { (backendName: String) =>
-        Driver(() => new Sequential(arg), "verilator") {
-          (c) => new SequentialTests(c)
+  templates = templates ++ Arguments.Seqpipe.zipWithIndex.map{ case(arg,i) => 
+    (s"Seqpipe$i" -> { (backendName: String) =>
+        Driver(() => new Seqpipe(arg), "verilator") {
+          (c) => new SeqpipeTests(c)
         }
       }) 
   }.toMap
@@ -309,10 +309,10 @@ object Launcher {
       }) 
   }.toMap
 
-  templates = templates ++ Arguments.Pipe.zipWithIndex.map{ case(arg,i) => 
-    (s"Pipe$i" -> { (backendName: String) =>
-        Driver(() => new Pipe(arg), "verilator") {
-          (c) => new PipeTests(c)
+  templates = templates ++ Arguments.Innerpipe.zipWithIndex.map{ case(arg,i) => 
+    (s"Innerpipe$i" -> { (backendName: String) =>
+        Driver(() => new Innerpipe(arg), "verilator") {
+          (c) => new InnerpipeTests(c)
         }
       }) 
   }.toMap

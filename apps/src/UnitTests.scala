@@ -52,7 +52,9 @@ object Niter extends SpatialApp {  // Regression (Unit) // Args: 100
     Accel {
       Sequential {
         Sequential.Foreach(N by tileSize){ i =>
-          val accum = Reduce(Reg[T](0.as[T]))(tileSize par innerPar){ ii =>
+          val redMax = Reg[Int](999)
+          Pipe{ redMax := min(tileSize, N.value-i) }
+          val accum = Reduce(Reg[T](0.as[T]))(redMax par innerPar){ ii =>
             (i + ii).to[T]
           } {_+_}
           Pipe { out := accum }
@@ -69,9 +71,9 @@ object Niter extends SpatialApp {  // Regression (Unit) // Args: 100
 
     val result = nIterTest[Int](len)
 
-    val b1 = Array.tabulate(len){i => i}
-
-    val gold = b1.reduce{_+_} - ((len-constTileSize) * (len-constTileSize-1))/2
+    val m = (len-1)%constTileSize + 1
+    val b1 = m*(m-1)/2
+    val gold = b1 + (len - m)*m
     println("expected: " + gold)
     println("result:   " + result)
 

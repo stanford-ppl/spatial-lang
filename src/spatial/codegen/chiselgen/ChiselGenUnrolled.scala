@@ -79,18 +79,17 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         emitBlock(func)
       }
 
-    case UnrolledReduce(cchain,accum,func,_,iters,valids,_) =>
+    case UnrolledReduce(cchain,accum,func,_,iters,valids,rV) =>
       emitController(lhs, Some(cchain))
       // Set up accumulator signals
       emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U //TODO: Really calculate this""")
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
-      val ctrEn = s"${quote(lhs)}_datapath_en & ${quote(lhs)}_redLoop_done"
-      emit(s"""${quote(cchain)}_ctr_en := $ctrEn""")
-      val rstStr = s"${quote(lhs)}_done"
-      emit(src"val ${accum}_wren = $ctrEn")
-      emit(src"val ${accum}_resetter = $rstStr")
+      emit(s"""${quote(cchain)}_ctr_en := ${quote(lhs)}_datapath_en & ${quote(lhs)}_redLoop_done""")
+      emit(src"val ${accum}_wren = $ctrEn & ~ ${lhs}_done")
+      emit(src"val ${accum}_resetter = ${quote(lhs)}_rst_en")
+      emit(src"val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
         emitParallelizedLoop(iters, cchain)
         emitRegChains(lhs, iters.flatten)

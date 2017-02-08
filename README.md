@@ -1,14 +1,14 @@
 # Regression buttons (Currently inaccurate!!)
 
-Templates: [![Build Status](https://travis-ci.org/mattfel1/UnitTracker.svg?branch=chisel)](https://github.com/stanford-ppl/spatial/wiki/chiselBranch-chiselTest-Regression-Tests-Status)
+Templates: [![Build Status](https://travis-ci.org/stanford-ppl/spatial-lang.svg?branch=master)](https://github.com/stanford-ppl/spatial/wiki/chiselBranch-chiselTest-Regression-Tests-Status)
 
-Unit: [![Build Status](https://travis-ci.org/mattfel1/UnitTracker.svg?branch=chisel)](https://github.com/stanford-ppl/spatial/wiki/chiselBranch-chiselTest-Regression-Tests-Status)
+Unit: [![Build Status](https://travis-ci.org/mattfel1/UnitTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial/wiki/chiselBranch-chiselTest-Regression-Tests-Status)
 
-Dense: [![Build Status](https://travis-ci.org/mattfel1/DenseTracker.svg?branch=chisel)](https://github.com/stanford-ppl/spatial/wiki/chiselBranch-chiselTest-Regression-Tests-Status)
+Dense: [![Build Status](https://travis-ci.org/mattfel1/DenseTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial/wiki/chiselBranch-chiselTest-Regression-Tests-Status)
 
-Sparse: [![Build Status](https://travis-ci.org/mattfel1/SparseTracker.svg?branch=chisel)](https://github.com/stanford-ppl/spatial/wiki/chiselBranch-chiselTest-Regression-Tests-Status) 
+Sparse: [![Build Status](https://travis-ci.org/mattfel1/SparseTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial/wiki/chiselBranch-chiselTest-Regression-Tests-Status) 
 
-Characterization: [![Build Status](https://travis-ci.org/mattfel1/CharacterizationTracker.svg?branch=chisel)](https://github.com/stanford-ppl/spatial/wiki/chiselBranch-chiselTest-Regression-Tests-Status)
+Characterization: [![Build Status](https://travis-ci.org/mattfel1/CharacterizationTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial/wiki/chiselBranch-chiselTest-Regression-Tests-Status)
 
 # Spatial
 Spatial is an Argon DSL for programming reconfigurable hardware from a parameterized, high level abstraction.
@@ -16,11 +16,11 @@ Spatial is an Argon DSL for programming reconfigurable hardware from a parameter
 #Prerequisites
 - [Scala SBT](http://www.scala-sbt.org)
 - [Java JDK](http://www.oracle.com/technetwork/java/javase/downloads/index.html)
-- [Argon](https://github.com/dkoeplin/argon)
+- [Argon](https://github.com/stanford-ppl/argon)
 
 #Installation
 ```bash
-git clone https://github.com/dkoeplin/spatial.git
+git clone https://github.com/stanford-ppl/spatial-lang.git
 ```
 
 Next, make sure the following environment variables are set. 

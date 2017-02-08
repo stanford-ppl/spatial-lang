@@ -3,9 +3,10 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.FIFOExp
 import spatial.SpatialConfig
+import spatial.SpatialExp
 
 trait ChiselGenFIFO extends ChiselCodegen {
-  val IR: FIFOExp
+  val IR: SpatialExp
   import IR._
 
   override def quote(s: Exp[_]): String = {
@@ -37,9 +38,30 @@ trait ChiselGenFIFO extends ChiselCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@FIFONew(size)   => emit(src"val $lhs = new chisel.collection.mutable.Queue[${op.bT}]($size})")
-    case FIFOEnq(fifo,v,en) => emit(src"val $lhs = if ($en) $fifo.enqueue($v)")
-    case FIFODeq(fifo,en,z) => emit(src"val $lhs = if ($en) $fifo.dequeue() else $z")
+    case op@FIFONew(size)   => 
+      val par = duplicatesOf(lhs).head match {
+        case BankedMemory(dims,_) => dims.map{_.banks}.head
+        case _ => 1
+      }
+      emit(src"""val ${lhs}_wdata = Wire(Vec($par, UInt(32.W)))""")
+      emit(src"""val ${lhs}_readEn = Wire(Bool())""")
+      emit(src"""val ${lhs}_writeEn = Wire(Bool())""")
+      emit(src"""val ${lhs} = Module(new FIFO($par, $par, $size)) // ${nameOf(lhs).getOrElse("")}""".replace(".U",""))
+      emit(src"""val ${lhs}_rdata = ${lhs}.io.out""")
+      emit(src"""${lhs}.io.in := ${lhs}_wdata""")
+      emit(src"""${lhs}.io.pop := ${lhs}_readEn""")
+      emit(src"""${lhs}.io.push := ${lhs}_writeEn""")
+
+    case FIFOEnq(fifo,v,en) => 
+      val writer = writersOf(fifo).head.ctrlNode  // Not using 'en' or 'shuffle'
+      emit(src"""${fifo}_writeEn := ${writer}_ctr_en // not using $en """)
+      emit(src"""${fifo}_wdata := ${v}""")
+
+    case FIFODeq(fifo,en,z) => 
+      val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
+      emit(src"""${fifo}_readEn := ${reader}_ctr_en // not using $en""")
+      emit(src"""val ${lhs} = ${fifo}_rdata(0)""")
+
     case _ => super.emitNode(lhs, rhs)
   }
 }

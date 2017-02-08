@@ -1,0 +1,24 @@
+language: scala
+scala: 2.11.7
+notifications:
+  email:
+    recipients: mattfel@stanford.edu
+    on_success: never # default: change
+    on_failure: always # default: always
+branches:
+  only:
+  - chisel
+  - master
+install: 
+  - wget https://www.veripool.org/ftp/verilator-3.900.tgz
+  - unset VERILATOR_ROOT  # For bash
+  - tar xvzf verilator*.t*gz
+  - cd verilator*
+  - ./configure
+  - make
+  - sudo make install
+before_script:
+  - cd ${TEMPLATES_HOME}
+script: 
+  - free -k
+  - bash ./run-templates.sh all

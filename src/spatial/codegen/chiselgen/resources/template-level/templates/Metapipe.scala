@@ -2,6 +2,7 @@
 package templates
 
 import chisel3._
+import Utils._
 
 import scala.collection.mutable.HashMap
 
@@ -17,6 +18,7 @@ class Metapipe(val n: Int) extends Module {
       val done = Bool().asOutput
       val stageEnable = Vec(n, Bool().asOutput)
       val rst_en = Bool().asOutput
+      val ctr_inc = Bool().asOutput
     }
   })
 
@@ -50,7 +52,7 @@ class Metapipe(val n: Int) extends Module {
     ff.io.input.asyn_reset := doneClear
     ff
   }
-  val doneMask = doneFF.map { _.io.output.data }
+  val doneMask = doneFF.zipWithIndex.map { case (ff, i) => ff.io.output.data }
 
   val ctr = Module(new SingleCounter(1))
   ctr.io.input.enable := doneClear
@@ -73,8 +75,10 @@ class Metapipe(val n: Int) extends Module {
   when(io.input.enable) {
     when(state === initState.U) {   // INIT -> RESET
       stateFF.io.input.data := resetState.U
+      io.output.stageEnable.foreach { s => s := false.B}
     }.elsewhen (state === resetState.U) {  // RESET -> FILL
       stateFF.io.input.data := Mux(io.input.numIter === 0.U, doneState.U, fillState.U) // Go directly to done if niters = 0
+      io.output.stageEnable.foreach { s => s := false.B}
     }.elsewhen (state < steadyState.U) {  // FILL -> STEADY
       for ( i <- fillState until steadyState) {
         val fillStateID = i - fillState
@@ -149,6 +153,7 @@ class Metapipe(val n: Int) extends Module {
   }
 
   // Output logic
+  io.output.ctr_inc := io.input.stageDone(0) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
   io.output.done := state === doneState.U
 }
 

@@ -72,12 +72,28 @@ trait ChiselGenReg extends ChiselCodegen {
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
-        emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")
+        reduceType(reg) match {
+          case Some(fps: ReduceFunction) => 
+            fps match {
+              case FixPtSum =>
+                if (inst == 0) {// TODO: Actually just check if this read is dispatched to the accumulating duplicate
+                  emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")
+                } else {
+                  emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")    
+                }
+              case _ =>
+                emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")
+            }
+          case _ =>
+            emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")
+        }
+
       }
     case RegWrite(reg,v,en) => 
+      val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg)) {
         emit(src"""val $reg = Reg(init = 0.U) // HW-accessible register""")
-        emit(src"""$reg := Mux($en, $v, $reg)""")
+        emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
         emit(src"""io.ArgOut.ports(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
       } else {
         reduceType(reg) match {
@@ -98,7 +114,7 @@ trait ChiselGenReg extends ChiselCodegen {
             val duplicates = duplicatesOf(reg)
             duplicates.zipWithIndex.foreach{ case (d, i) => 
               val ports = portsOf(lhs, reg, i)
-              emit(src"""${reg}_${i}_lib.write($v, $en & ${reg}_wren, false.B, List(${ports.mkString(",")}))""")
+              emit(src"""${reg}_${i}_lib.write($v, $en & ${parent}_datapath_en, false.B, List(${ports.mkString(",")}))""")
             }
         }
       }

@@ -59,14 +59,14 @@ class Innerpipe(val ctrDepth : Int) extends Module {
     }.elsewhen( state === pipeRun.U ) {
       io.output.ctr_en := true.B;
       when (io.input.ctr_done) {
-      	(0 until ctrDepth) foreach { i => maxFF(0) := 0.U } // TODO: Why do we reset these instead of leaving them?
+        (0 until ctrDepth) foreach { i => maxFF(0) := 0.U } // TODO: Why do we reset these instead of leaving them?
         state := pipeDone.U
       }.otherwise {
         state := pipeRun.U
       }
     }.elsewhen( state === pipeDone.U ) {
       io.output.done := true.B
-      state := pipeSpinWait.U
+      state := pipeReset.U
     }.elsewhen( state === pipeSpinWait.U ) {
       state := pipeSpinWait.U;
     } 
