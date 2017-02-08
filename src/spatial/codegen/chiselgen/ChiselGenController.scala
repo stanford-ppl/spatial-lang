@@ -161,6 +161,12 @@ trait ChiselGenController extends ChiselCodegen {
         emitBlock(func)
       }
 
+    case ParallelPipe(func) => 
+      emitController(lhs, None)
+      withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
+        emitBlock(func)
+      } 
+
     case OpForeach(cchain, func, iters) =>
       emitController(lhs, Some(cchain))
       withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {

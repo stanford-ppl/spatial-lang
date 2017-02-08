@@ -9,16 +9,6 @@ delay=2100
 numpieces=30
 hist=72
 
-# Specify failure points, in order of increasing worse-ness
-fail0 = "failed_execution_validation"
-fail1 = "failed_execution_nonexistent_validation"
-fail2 = "failed_execution_hanging"
-fail3 = "failed_compile_backend_hanging"
-fail4 = "failed_compile_backend_crash" # Equal badness as 5
-fail5 = "failed_execution_backend_crash" # Equal badness as 4
-fail6 = "failed_app_spatial_compile"
-fail7 = "failed_app_not_written"
-
 ## Function for finding filse with older timestamps.
 ##   This tester will yield to any active or new tests who are older
 coordinate() {
@@ -93,7 +83,7 @@ build_spatial() {
   make full > /tmp/log 2>&1
   logger "Spatial done!"
   logger "Checking if spatial made correctly..."
-  errs=(`cat /tmp/log | grep "\[.*error.*\] | wc -l`)
+  errs=(`cat /tmp/log | grep "\[.*error.*\]" | wc -l`)
   if [[ $errs -gt 0 ]]; then
   	clean_exit 8 "Detected errors in spatial build (/tmp/log)"
   fi
@@ -398,6 +388,18 @@ push_travis_ci() {
 ## 5 - directory for this script
 ## 6 - args
 create_script() {
+
+
+  # Specify failure points, in order of increasing worse-ness
+  fail0 = "failed_execution_validation"
+  fail1 = "failed_execution_nonexistent_validation"
+  fail2 = "failed_execution_hanging"
+  fail3 = "failed_compile_backend_hanging"
+  fail4 = "failed_compile_backend_crash" # Equal badness as 5
+  fail5 = "failed_execution_backend_crash" # Equal badness as 4
+  fail6 = "failed_app_spatial_compile"
+  fail7 = "failed_app_not_written"
+
   if [[ $6 = "none" ]]; then
   	args=""
   else
@@ -568,7 +570,7 @@ launch_tests() {
         appname=(`echo $t | sed 's/|.*$//g'`)
         appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/-/ /g'`)
         # Initialize results
-        touch ${SPATIAL_HOME}/regression_tests/${ac}/results/${fail3}.${i}_${appname}
+        touch ${SPATIAL_HOME}/regression_tests/${ac}/results/failed_compile_backend_hanging.${i}_${appname}
 
         # Make dir for this vulture job
         vulture_dir="${SPATIAL_HOME}/regression_tests/${ac}/${i}_${appname}"
