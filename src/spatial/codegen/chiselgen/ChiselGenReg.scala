@@ -11,6 +11,7 @@ trait ChiselGenReg extends ChiselCodegen {
 
   var argIns: List[Sym[Reg[_]]] = List()
   var argOuts: List[Sym[Reg[_]]] = List()
+  private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -50,19 +51,21 @@ trait ChiselGenReg extends ChiselCodegen {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => 
             if (i == 0) {
-              emitGlobal(src"""val ${lhs}_0_lib = Module(new UIntAccum(32,"add"))""")
+              emitGlobal(src"""val ${lhs}_0 = Module(new UIntAccum(32,"add"))""")
             } else {
               if (d.depth > 1) {
-                emitGlobal(src"val ${lhs}_${i}_lib = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
+                nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
+                emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
               } else {
-                emitGlobal(src"val ${lhs}_${i}_lib = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
+                emitGlobal(src"val ${lhs}_${i} = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
               }              
             }
           case _ =>
             if (d.depth > 1) {
-              emitGlobal(src"val ${lhs}_${i}_lib = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
+              nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
+              emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
             } else {
-              emitGlobal(src"val ${lhs}_${i}_lib = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
+              emitGlobal(src"val ${lhs}_${i} = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
             }
         } // TODO: Figure out which reg is really the accum
       }
@@ -79,13 +82,13 @@ trait ChiselGenReg extends ChiselCodegen {
                 if (inst == 0) {// TODO: Actually just check if this read is dispatched to the accumulating duplicate
                   emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")
                 } else {
-                  emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")    
+                  emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")    
                 }
               case _ =>
-                emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")
+                emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
             }
           case _ =>
-            emit(src"""val ${lhs} = ${reg}_${inst}_lib.read(${port.head})""")
+            emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
         }
 
       }
@@ -100,21 +103,21 @@ trait ChiselGenReg extends ChiselCodegen {
           case Some(fps: ReduceFunction) => 
             fps match {
               case FixPtSum =>
-                emit(src"""${reg}_0_lib.io.next := ${v}""") // TODO: Figure out which reg is really the lib
-                emit(src"""${reg}_0_lib.io.enable := ${reg}_wren""")
-                emit(src"""${reg}_0_lib.io.reset := Utils.delay(${reg}_resetter, 2)""")
-                emit(src"""val ${reg} = ${reg}_0_lib.io.output""")
+                emit(src"""${reg}_0.io.next := ${v}""") // TODO: Figure out which reg is really the lib
+                emit(src"""${reg}_0.io.enable := ${reg}_wren""")
+                emit(src"""${reg}_0.io.reset := Utils.delay(${reg}_resetter, 2)""")
+                emit(src"""val ${reg} = ${reg}_0.io.output""")
               case _ =>
             }
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               val port = portsOf(lhs, reg, ii).head
-              if (ii > 0) emit(s"""${quote(reg)}_${ii}_lib.write(${quote(reg)}, Utils.delay(${quote(reg)}_wren, 1), false.B, $port); // ${nameOf(reg).getOrElse("")}""")
+              if (ii > 0) emit(s"""${quote(reg)}_${ii}.write(${quote(reg)}, Utils.delay(${quote(reg)}_wren, 1), false.B, $port); // ${nameOf(reg).getOrElse("")}""")
             }
           case _ =>
             val duplicates = duplicatesOf(reg)
             duplicates.zipWithIndex.foreach{ case (d, i) => 
               val ports = portsOf(lhs, reg, i)
-              emit(src"""${reg}_${i}_lib.write($v, $en & ${parent}_datapath_en, false.B, List(${ports.mkString(",")}))""")
+              emit(src"""${reg}_${i}.write($v, $en & ${parent}_datapath_en, false.B, List(${ports.mkString(",")}))""")
             }
         }
       }
@@ -122,6 +125,33 @@ trait ChiselGenReg extends ChiselCodegen {
   }
 
   override protected def emitFileFooter() {
+    withStream(getStream("BufferControlCxns")) {
+      nbufs.foreach{ case (mem, i) => 
+        // TODO: Does david figure out which controllers' signals connect to which ports on the nbuf already? This is kind of complicated
+        val readers = readersOf(mem)
+        val writers = writersOf(mem)
+        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
+        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
+        val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
+        val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+        val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+        val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
+        val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
+        val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
+        val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
+        val numStagesInbetween = lastActivePort - firstActivePort
+
+        (0 to numStagesInbetween).foreach { port =>
+          val ctrlId = port + firstActivePort
+          val node = allSiblings(ctrlId)
+          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
+          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
+          val empty = if (rd == "" & wr == "") "empty" else ""
+          emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
+        }
+      }
+    }
+
     withStream(getStream("IOModule")) {
       emit(s"""  class ArgInBundle() extends Bundle{
     val ports = Vec(${argIns.length}, Input(UInt(32.W)))""")
