@@ -26,6 +26,8 @@ def main():
   parser.add_argument('--scala', dest='scala', action='store_true', default=True, help='enables scala generation')
   parser.add_argument('--chisel', dest='chisel', action='store_true', default=False, help='enables chisel generation')
   parser.add_argument("--cpp", dest="cpp", action="store_true", default=True, help="enables cpp generation")
+  parser.add_argument("--fpga", dest="fpga", default="Default", help="Set name of FPGA target")
+
   parser.add_argument('--naming', dest='naming', action='store_true', default=True, help='generates the debug name for all syms, rather than "x${s.id}" only')
   parser.add_argument('--debug', dest='debug', action='store_true', default=False, help='enables logging of compiler')
   parser.add_argument('--tree', dest='tree', action='store_true', default=True, help='enables logging of controller tree for visualizing app structure')
@@ -125,6 +127,7 @@ def main():
 
   java_opts = java_opts + " -Dargon.name=" + opts.app
   java_opts = java_opts + " -Dargon.emission=" + "%s" % opts.emission
+  java_opts = java_opts + " -Dspatial.fpga=" + opts.fpga
 
   # if opts.pir_debug == True:
   #   java_opts = java_opts + " -Dspatial.pirdebug=true"

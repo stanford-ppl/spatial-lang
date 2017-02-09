@@ -379,13 +379,13 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
     val src2 = Array.tabulate(arraySize) { i => i % 256 }
     val out = parFifoLoad(src1, src2, arraySize)
 
-    val sub1_for_check = Array.tabulate(arraySize-96) {i => i}
-    val sub2_for_check = Array.tabulate(arraySize-96) {i => i*2}
+    val sub1_for_check = Array.tabulate(arraySize-96) {i => i % 256}
+    val sub2_for_check = Array.tabulate(arraySize-96) {i => i % 256}
 
     // val gold = src1.zip(src2){_*_}.zipWithIndex.filter( (a:Int, i:Int) => i > arraySize-96).reduce{_+_}
     val gold = src1.zip(src2){_*_}.reduce{_+_} - sub1_for_check.zip(sub2_for_check){_*_}.reduce(_+_)
-    println(s"gold = " + gold)
-    println(s"out = " + out)
+    println("gold: " + gold)
+    println("out: " + out)
 
     val cksum = out == gold
     println("PASS: " + cksum + " (ParFifoLoad)")
@@ -484,8 +484,8 @@ object SimpleReduce extends SpatialApp { // Regression (Unit) // Args: 7
 
 
 
-// Args: 1920
-object SimpleFold extends SpatialApp {
+
+object SimpleFold extends SpatialApp { // Regression (Unit) // Args: 1920
   import IR._
 
   val constTileSize = 96

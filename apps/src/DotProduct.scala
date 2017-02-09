@@ -6,7 +6,7 @@ object DotProduct extends SpatialApp {
 
   type X = Int
 
-  val tileSize = 8000
+  val tileSize = 960
   val innerPar = 2
   lazy val outerPar = 12
 
