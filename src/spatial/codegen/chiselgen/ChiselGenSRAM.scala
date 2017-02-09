@@ -101,7 +101,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")
         val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enable = src"""${parent}_en"""
+        val enable = src"""${parent}_datapath_en"""
         emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enable}, List(${p})) """)
       }
 
@@ -132,11 +132,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
           val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
           val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
           val empty = if (rd == "" & wr == "") "empty" else ""
-          emit(src"""${mem}_$i.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
+          emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
         }
       }
     }
-    
+
     super.emitFileFooter()
   }
     

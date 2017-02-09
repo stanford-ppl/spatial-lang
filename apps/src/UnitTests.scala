@@ -522,7 +522,7 @@ object SimpleFold extends SpatialApp { // Regression (Unit) // Args: 1920
   def main() {
     val len = args(0).to[Int]
 
-    val src = Array.tabulate(len){i => i}
+    val src = Array.tabulate(len){i => i % 256}
     val result = simple_fold(src)
 
     val gold = src.reduce{_+_}

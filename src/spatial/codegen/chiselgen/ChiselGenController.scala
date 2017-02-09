@@ -98,7 +98,13 @@ trait ChiselGenController extends ChiselCodegen {
       case _ =>
     }
 
-    emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en;""")
+    sym match {
+      case Def(n: UnrolledForeach) =>
+        emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc // TODO: Make sure this is a safe assignment""")
+      case _ =>
+          emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
+    }
+    
     if (cchain.isDefined) {
       emitGlobal(src"""val ${cchain.get}_ctr_en = Wire(Bool())""") 
       sym match { 

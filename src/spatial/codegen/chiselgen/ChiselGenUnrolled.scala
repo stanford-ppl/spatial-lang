@@ -97,9 +97,14 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U //TODO: Really calculate this""")
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
-      emit(src"""${cchain}_ctr_en := ${lhs}_datapath_en & ${lhs}_redLoop_done""")
-      emit(src"val ${accum}_wren = ${cchain}_ctr_en & ~ ${lhs}_done")
-      emit(src"val ${accum}_resetter = ${lhs}_rst_en")
+      emit(src"""${cchain}_ctr_en := ${lhs}_sm.io.output.ctr_inc""")
+      if (styleOf(lhs) == InnerPipe) {
+        emit(src"val ${accum}_wren = ${cchain}_ctr_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
+        emit(src"val ${accum}_resetter = ${lhs}_rst_en")
+      } else {
+        emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: Skeptical these codegen rules are correct")
+        emit(src"val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
+      }
       emit(src"val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
         emitParallelizedLoop(iters, cchain)
@@ -141,7 +146,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")
         val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${parent}_en, List(${p}))""")
+        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${parent}_datapath_en, List(${p}))""")
       }
 
     case ParFIFODeq(fifo, ens, z) =>
