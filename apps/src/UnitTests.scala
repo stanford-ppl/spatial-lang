@@ -397,7 +397,7 @@ object FifoLoadStore extends SpatialApp { // Regression (Unit) // Args: none
 
   val N = 192
 
-  def fifoLoadStore[T:Bits](srcHost: Array[T]) = {
+  def fifoLoadStore[T:Staged:Bits](srcHost: Array[T]) = {
     val tileSize = N
 
     val srcFPGA = DRAM[T](N)

@@ -129,7 +129,7 @@ object Kmeans extends SpatialApp {
     val ii = Array.tabulate(K){i => i}
 
     for(epoch <- 0 until iters) {
-      def dist[T:Num](p1: Array[T], p2: Array[T]) = p1.zip(p2){(a,b) => (a - b)**2 }.reduce(_+_)
+      def dist[T:Staged:Num](p1: Array[T], p2: Array[T]) = p1.zip(p2){(a,b) => (a - b)**2 }.reduce(_+_)
 
       // Make weighted points
       val map = pts.groupByReduce{pt =>
