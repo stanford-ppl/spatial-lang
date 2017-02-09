@@ -1,34 +1,20 @@
 package spatial.api
 
-import spatial.{SpatialApi, SpatialExp, SpatialOps}
+import argon.core.Staging
+import spatial.SpatialExp
 
-trait CounterOps extends RangeOps {
-  this: SpatialOps =>
-
-  type Counter <: CounterOps
-  type CounterChain <: CounterChainOps
-
-  protected trait CounterOps
-  protected trait CounterChainOps
-
-  def CounterChain(counters: Counter*)(implicit ctx: SrcCtx): CounterChain
-  def Counter(start: Index, end: Index, step: Index, par: Index)(implicit ctx: SrcCtx): Counter
-
-  implicit def range2counter(range: Range)(implicit ctx: SrcCtx): Counter
-
-  implicit val CounterType: Staged[Counter]
-  implicit val CounterChainType: Staged[CounterChain]
+trait CounterApi extends CounterExp {
+  this: SpatialExp =>
 }
-trait CounterApi extends CounterOps with RangeApi { this: SpatialApi => }
 
-
-trait CounterExp extends CounterOps with RangeExp with SpatialExceptions {
+trait CounterExp extends Staging with RangeExp with SpatialExceptions {
   this: SpatialExp =>
 
   /** API **/
-  case class Counter(s: Exp[Counter]) extends CounterOps
-  case class CounterChain(s: Exp[CounterChain]) extends CounterChainOps
+  case class Counter(s: Exp[Counter])
+  case class CounterChain(s: Exp[CounterChain])
 
+  /** Direct methods **/
   def CounterChain(counters: Counter*)(implicit ctx: SrcCtx): CounterChain = CounterChain(counterchain_new(unwrap(counters)))
   def Counter(start: Index, end: Index, step: Index, par: Index)(implicit ctx: SrcCtx): Counter = {
     counter(start, end, step, Some(par))
@@ -53,7 +39,7 @@ trait CounterExp extends CounterOps with RangeExp with SpatialExceptions {
     Counter(counter_new(start.s, end.s, step.s, p))
   }
 
-  /** Staged Types **/
+  /** Staged types **/
   implicit object CounterType extends Staged[Counter] {
     override def wrapped(x: Exp[Counter]) = Counter(x)
     override def unwrapped(x: Counter) = x.s
@@ -79,7 +65,7 @@ trait CounterExp extends CounterOps with RangeExp with SpatialExceptions {
     def mirror(f:Tx) = counterchain_new(f(counters))
   }
 
-  /** Smart constructors **/
+  /** Constructors **/
   def counter_new(start: Exp[Index], end: Exp[Index], step: Exp[Index], par: Const[Index])(implicit ctx: SrcCtx): Sym[Counter] = {
     val counter = stageCold(CounterNew(start,end,step,par))(ctx)
     par match {

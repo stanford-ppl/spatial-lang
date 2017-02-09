@@ -1,104 +1,19 @@
 package spatial.api
 
+import argon.core.Staging
+import argon.ops.CastApi
 import org.virtualized.virtualize
 import spatial.SpatialExp
 import spatial.SpatialConfig
 
-trait BurstTransfers { this: SpatialExp =>
+trait BurstTransferApi extends BurstTransferExp with ControllerApi with FIFOApi with CastApi with RangeApi {
+  this: SpatialExp =>
+
   private def target = SpatialConfig.target
-
-  def coarse_burst[T:Bits,C[T]](
-    tile:   DRAMDenseTile[T],
-    onchip: C[T],
-    isLoad: Boolean
-  )(implicit mem:Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Void = {
-
-    // Extract range lengths early to avoid unit pipe insertion eliminating rewrite opportunities
-    val dram    = tile.dram
-    val ofs     = tile.ranges.map(_.start.map(_.s).getOrElse(int32(0)))
-    val lens    = tile.ranges.map(_.length.s)
-    val strides = tile.ranges.map(_.step.map(_.s).getOrElse(int32(1)))
-    val units   = tile.ranges.map(_.isUnit)
-    val p       = extractParFactor(tile.ranges.last.p)
-
-    // UNSUPPORTED: Strided ranges for DRAM in burst load/store
-    if (strides.exists{case Const(1) => false ; case _ => true})
-      new UnsupportedStridedDRAMError(isLoad)(ctx)
-
-    val onchipRank = mem.iterators(onchip).length
-
-    val iters = List.tabulate(onchipRank){_ => fresh[Index]}
-
-    Void(op_coarse_burst(dram,onchip.s,ofs,lens,units,p,isLoad,iters))
-  }
-
-  case class CoarseBurst[T,C[T]](
-    dram:   Exp[DRAM[T]],
-    onchip: Exp[C[T]],
-    ofs:    Seq[Exp[Index]],
-    lens:   Seq[Exp[Index]],
-    units:  Seq[Boolean],
-    p:      Const[Index],
-    isLoad: Boolean,
-    iters:  List[Bound[Index]]
-  )(implicit val mem: Mem[T,C], val bT: Bits[T], val mC: Staged[C[T]]) extends Op[Void] {
-
-    def mirror(f:Tx): Exp[Void] = op_coarse_burst(f(dram),f(onchip),f(ofs),f(lens),units,p,isLoad,iters)
-
-    override def inputs = syms(dram, onchip) ++ syms(ofs) ++ syms(lens)
-    override def binds  = iters
-    override def aliases = Nil
-
-    // Experimental - call within a transformer to replace this abstract node with its implementation
-    def expand(f:Tx)(implicit ctx: SrcCtx): Exp[Void] = copy_burst(f(dram),f(onchip),f(ofs),f(lens),units,p,isLoad)(bT,mem,mC,ctx).s
-  }
-
-  private def op_coarse_burst[T:Bits,C[T]](
-    dram:   Exp[DRAM[T]],
-    onchip: Exp[C[T]],
-    ofs:    Seq[Exp[Index]],
-    lens:   Seq[Exp[Index]],
-    units:  Seq[Boolean],
-    p:      Const[Index],
-    isLoad: Boolean,
-    iters:  List[Bound[Index]]
-  )(implicit mem: Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Exp[Void] = {
-    val out = if (isLoad) stageWrite(onchip)( CoarseBurst(dram,onchip,ofs,lens,units,p,isLoad,iters) )(ctx)
-              else        stageWrite(dram)( CoarseBurst(dram,onchip,ofs,lens,units,p,isLoad,iters) )(ctx)
-    styleOf(out) = InnerPipe
-    out
-  }
-
-
-
-
-  // TODO: May make more sense to change these to output StreamIn / StreamOut later
-  case class BurstLoad[T:Bits](
-    dram: Exp[DRAM[T]],
-    fifo: Exp[FIFO[T]],
-    ofs:  Exp[Index],
-    ctr:  Exp[Counter],
-    i:    Bound[Index]
-  ) extends Op[Void] {
-    def mirror(f:Tx) = burst_load(f(dram),f(fifo),f(ofs),f(ctr),i)
-
-    override def aliases = Nil
-  }
-  case class BurstStore[T:Bits](
-    dram: Exp[DRAM[T]],
-    fifo: Exp[FIFO[T]],
-    ofs:  Exp[Index],
-    ctr:  Exp[Counter],
-    i:    Bound[Index]
-  ) extends Op[Void] {
-    def mirror(f:Tx) = burst_store(f(dram),f(fifo),f(ofs),f(ctr),i)
-
-    override def aliases = Nil
-  }
 
   /** Internals **/
   // Expansion rule for CoarseBurst -  Use coarse_burst(tile,onchip,isLoad) for anything in the frontend
-  private[spatial] def copy_burst[T:Bits,C[T]](
+  private[spatial] def copy_burst[T:Staged:Bits,C[T]](
     offchip: Exp[DRAM[T]],
     local:   Exp[C[T]],
     ofs:     Seq[Exp[Index]],
@@ -183,11 +98,12 @@ trait BurstTransfers { this: SpatialExp =>
 
       Pipe {
         val maddr = offchipAddr
-        val elementsPerBurst = 256*8/bits[T].length     // TODO: 256 should be target-dependent value
+        val elementsPerBurst = (target.burstSize/bits[T].length).as[Index]
         startBound := maddr % elementsPerBurst          // Number of elements to ignore at beginning
         memAddrDowncast := maddr - startBound.value     // Burst-aligned address
         endBound  := startBound.value + burstLength     // Index to begin ignoring again
-        lenUpcast := (endBound.value - (endBound.value % elementsPerBurst)) + mux(endBound.value % elementsPerBurst != 0, elementsPerBurst, 0.as[Index]) // Number of elements aligned to nearest burst length
+        val offset = mux(endBound.value % elementsPerBurst != 0, elementsPerBurst, 0.as[Index]) // Number of elements aligned to nearest burst length
+        lenUpcast := (endBound.value - (endBound.value %  elementsPerBurst)) + offset
       }
       val innerCtr = range2counter(lenUpcast.value by p)
 
@@ -201,7 +117,112 @@ trait BurstTransfers { this: SpatialExp =>
 
   }
 
-  private[spatial] def burst_store[T:Bits](
+}
+
+trait BurstTransferExp extends Staging { this: SpatialExp =>
+
+  def coarse_burst[T:Staged:Bits,C[T]](
+    tile:   DRAMDenseTile[T],
+    onchip: C[T],
+    isLoad: Boolean
+  )(implicit mem:Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Void = {
+
+    // Extract range lengths early to avoid unit pipe insertion eliminating rewrite opportunities
+    val dram    = tile.dram
+    val ofs     = tile.ranges.map(_.start.map(_.s).getOrElse(int32(0)))
+    val lens    = tile.ranges.map(_.length.s)
+    val strides = tile.ranges.map(_.step.map(_.s).getOrElse(int32(1)))
+    val units   = tile.ranges.map(_.isUnit)
+    val p       = extractParFactor(tile.ranges.last.p)
+
+    // UNSUPPORTED: Strided ranges for DRAM in burst load/store
+    if (strides.exists{case Const(1) => false ; case _ => true})
+      new UnsupportedStridedDRAMError(isLoad)(ctx)
+
+    val onchipRank = mem.iterators(onchip).length
+
+    val iters = List.tabulate(onchipRank){_ => fresh[Index]}
+
+    Void(op_coarse_burst(dram,onchip.s,ofs,lens,units,p,isLoad,iters))
+  }
+
+  case class CoarseBurst[T,C[T]](
+    dram:   Exp[DRAM[T]],
+    onchip: Exp[C[T]],
+    ofs:    Seq[Exp[Index]],
+    lens:   Seq[Exp[Index]],
+    units:  Seq[Boolean],
+    p:      Const[Index],
+    isLoad: Boolean,
+    iters:  List[Bound[Index]]
+  )(implicit val mem: Mem[T,C], val mT: Staged[T], val bT: Bits[T], val mC: Staged[C[T]]) extends Op[Void] {
+
+    def mirror(f:Tx): Exp[Void] = op_coarse_burst(f(dram),f(onchip),f(ofs),f(lens),units,p,isLoad,iters)
+
+    override def inputs = syms(dram, onchip) ++ syms(ofs) ++ syms(lens)
+    override def binds  = iters
+    override def aliases = Nil
+
+    // Experimental - call within a transformer to replace this abstract node with its implementation
+    def expand(f:Tx)(implicit ctx: SrcCtx): Exp[Void] = {
+      copy_burst(f(dram),f(onchip),f(ofs),f(lens),units,p,isLoad)(mT,bT,mem,mC,ctx).s
+    }
+  }
+
+  private def op_coarse_burst[T:Staged:Bits,C[T]](
+    dram:   Exp[DRAM[T]],
+    onchip: Exp[C[T]],
+    ofs:    Seq[Exp[Index]],
+    lens:   Seq[Exp[Index]],
+    units:  Seq[Boolean],
+    p:      Const[Index],
+    isLoad: Boolean,
+    iters:  List[Bound[Index]]
+  )(implicit mem: Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Exp[Void] = {
+    val out = if (isLoad) stageWrite(onchip)( CoarseBurst(dram,onchip,ofs,lens,units,p,isLoad,iters) )(ctx)
+              else        stageWrite(dram)( CoarseBurst(dram,onchip,ofs,lens,units,p,isLoad,iters) )(ctx)
+    styleOf(out) = InnerPipe
+    out
+  }
+
+
+  // Filled in API
+  private[spatial] def copy_burst[T:Staged:Bits,C[T]](
+    offchip: Exp[DRAM[T]],
+    local:   Exp[C[T]],
+    ofs:     Seq[Exp[Index]],
+    lens:    Seq[Exp[Index]],
+    units:   Seq[Boolean],
+    par:     Const[Index],
+    isLoad:  Boolean
+  )(implicit mem: Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Void
+
+  // TODO: May make more sense to change these to output StreamIn / StreamOut later
+  case class BurstLoad[T:Staged:Bits](
+    dram: Exp[DRAM[T]],
+    fifo: Exp[FIFO[T]],
+    ofs:  Exp[Index],
+    ctr:  Exp[Counter],
+    i:    Bound[Index]
+  ) extends Op[Void] {
+    def mirror(f:Tx) = burst_load(f(dram),f(fifo),f(ofs),f(ctr),i)
+
+    override def aliases = Nil
+  }
+  case class BurstStore[T:Staged:Bits](
+    dram: Exp[DRAM[T]],
+    fifo: Exp[FIFO[T]],
+    ofs:  Exp[Index],
+    ctr:  Exp[Counter],
+    i:    Bound[Index]
+  ) extends Op[Void] {
+    def mirror(f:Tx) = burst_store(f(dram),f(fifo),f(ofs),f(ctr),i)
+
+    override def aliases = Nil
+  }
+
+
+  private[spatial] def burst_store[T:Staged:Bits](
     dram: Exp[DRAM[T]],
     fifo: Exp[FIFO[T]],
     ofs:  Exp[Index],
@@ -212,7 +233,7 @@ trait BurstTransfers { this: SpatialExp =>
     styleOf(store) = InnerPipe
     store
   }
-  private[spatial] def burst_load[T:Bits](
+  private[spatial] def burst_load[T:Staged:Bits](
     dram: Exp[DRAM[T]],
     fifo: Exp[FIFO[T]],
     ofs:  Exp[Index],

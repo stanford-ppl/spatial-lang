@@ -2,6 +2,7 @@ package spatial.transform
 
 import argon.transform.ForwardTransformer
 import spatial.SpatialExp
+import spatial.api.ControllerApi
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -9,7 +10,7 @@ import scala.collection.mutable.ArrayBuffer
   * Inserts UnitPipe wrappers for primitive nodes in outer control nodes, along with registers for communication
   */
 trait UnitPipeTransformer extends ForwardTransformer {
-  val IR: SpatialExp
+  val IR: SpatialExp with ControllerApi
   import IR._
 
   override val name = "Unit Pipe Transformer"
@@ -39,22 +40,19 @@ trait UnitPipeTransformer extends ForwardTransformer {
   private object PipeStage { def empty(isControl: Boolean) = new PipeStage(isControl) }
 
   private def regFromSym[T](s: Exp[T])(implicit ctx: SrcCtx): Exp[Reg[T]] = s.tp match {
-    case x: Bits[_] =>
-      val bits: Bits[T] = x.asInstanceOf[Bits[T]]
-      val init = unwrap(bits.zero)(bits)
-      reg_alloc[T](init)(bits, ctx)
+    case Bits(bits) =>
+      val init = unwrap(bits.zero)(s.tp)
+      reg_alloc[T](init)(s.tp, bits, ctx)
     case _ => throw new UndefinedZeroException(s, s.tp)
   }
   private def regWrite[T](reg: Exp[Reg[T]], s: Exp[T])(implicit ctx: SrcCtx): Exp[Void] = s.tp match {
-    case x: Bits[_] =>
-      val bits: Bits[T] = x.asInstanceOf[Bits[T]]
-      reg_write(reg, s, bool(true))(bits, ctx)
+    case Bits(bits) =>
+      reg_write(reg, s, bool(true))(s.tp, bits, ctx)
     case _ => throw new UndefinedZeroException(s, s.tp)
   }
   private def regRead[T](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Exp[T] = reg.tp.typeArguments.head match {
-    case x: Bits[_] =>
-      val bits: Bits[T] = x.asInstanceOf[Bits[T]]
-      reg_read(reg)(bits, ctx)
+    case tp@Bits(bits) =>
+      reg_read(reg)(mtyp(tp), mbits(bits), ctx)
     case _ => throw new UndefinedZeroException(reg, reg.tp.typeArguments.head)
   }
 

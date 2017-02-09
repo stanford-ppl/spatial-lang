@@ -3,9 +3,10 @@ package spatial.transform
 import argon.transform.ForwardTransformer
 import spatial.SpatialExp
 import org.virtualized.SourceContext
+import spatial.api.ControllerApi
 
 trait UnrollingTransformer extends ForwardTransformer { self =>
-  val IR: SpatialExp
+  val IR: SpatialExp with ControllerApi
   import IR._
 
   override val name = "Unrolling Transformer"
@@ -77,7 +78,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     def foreach(block: Int => Unit) { map(block) }
 
-    def vectorize[T:Bits](block: Int => Exp[T])(implicit ctx: SrcCtx): Exp[Vector[T]] = {
+    def vectorize[T:Staged:Bits](block: Int => Exp[T])(implicit ctx: SrcCtx): Exp[Vector[T]] = {
       IR.vectorize(map(block))
     }
 
@@ -91,7 +92,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     // 2. Make later stages depend on the given substitution across all lanes
     // NOTE: This assumes that the node has no meaningful return value (i.e. all are Pipeline or Unit)
     // Bad things can happen here if you're not careful!
-    def split[T:Bits](orig: Sym[_], vec: Exp[Vector[T]])(implicit ctx: SrcCtx): List[Exp[T]] = map{p =>
+    def split[T:Staged:Bits](orig: Sym[_], vec: Exp[Vector[T]])(implicit ctx: SrcCtx): List[Exp[T]] = map{p =>
       val element = vector_apply[T](vec, p)
       register(orig -> element)
       element
@@ -124,9 +125,9 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     // Account for the edge case with FIFO writing
     case e@FIFOEnq(fifo, data, en) if lanes.isCommon(fifo) =>
       dbgs(s"Unrolling $lhs = $rhs")
-      val datas  = lanes.vectorize{p => f(data)}(mbits(e.bT), ctx)
+      val datas  = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
       val enables = lanes.vectorize{p => bool_and( f(en), globalValid) }
-      val lhs2 = par_fifo_enq(f(fifo), datas, enables)(e.bT,ctx)
+      val lhs2 = par_fifo_enq(f(fifo), datas, enables)(e.mT,e.bT,ctx)
 
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
@@ -135,11 +136,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     case e@FIFODeq(fifo, en, z) if lanes.isCommon(fifo) =>
       dbgs(s"Unrolling $lhs = $rhs")
       val enables = lanes.vectorize{p => bool_and(f(en), globalValid) }
-      val lhs2 = par_fifo_deq(f(fifo), enables, f(z))(mbits(e.bT),ctx)
+      val lhs2 = par_fifo_deq(f(fifo), enables, f(z))(mtyp(e.mT),mbits(e.bT),ctx)
 
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
-      lanes.split(lhs, lhs2)(mbits(e.bT), ctx)
+      lanes.split(lhs, lhs2)(mtyp(e.mT),mbits(e.bT),ctx)
 
     // TODO: Assuming dims and ofs are not needed for now
     case e@SRAMStore(sram,dims,inds,ofs,data,en) if lanes.isCommon(sram) =>
@@ -147,9 +148,9 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       strMeta(lhs)
 
       val addrs  = lanes.map{p => inds.map(f(_)) }
-      val values = lanes.vectorize{p => f(data)}(mbits(e.bT), ctx)
+      val values = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
       val ens    = lanes.vectorize{p => bool_and(f(en), globalValid) }
-      val lhs2   = par_sram_store(f(sram), addrs, values, ens)(e.bT, ctx)
+      val lhs2   = par_sram_store(f(sram), addrs, values, ens)(e.mT,e.bT,ctx)
 
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
@@ -165,7 +166,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       strMeta(lhs)
 
       val addrs = lanes.map{p => inds.map(f(_)) }
-      val lhs2 = par_sram_load(f(sram), addrs)(mbits(e.bT), ctx)
+      val lhs2 = par_sram_load(f(sram), addrs)(mtyp(e.mT),mbits(e.bT),ctx)
 
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
@@ -173,7 +174,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       dbgs(s"Created ${str(lhs2)}")
       strMeta(lhs2)
 
-      lanes.split(lhs, lhs2)(mbits(e.bT),ctx)
+      lanes.split(lhs, lhs2)(mtyp(e.mT),mbits(e.bT),ctx)
 
     case e: OpForeach        => unrollControllers(lhs,rhs,lanes){ unrollForeachNode(lhs, e) }
     case e: OpReduce[_]      => unrollControllers(lhs,rhs,lanes){ unrollReduceNode(lhs, e) }
@@ -263,7 +264,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
 
 
-  def unrollReduceTree[T:Bits](
+  def unrollReduceTree[T:Staged:Bits](
     inputs: Seq[Exp[T]],
     valids: Seq[Exp[Bool]],
     zero:   Option[Exp[T]],
@@ -284,7 +285,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
 
 
-  def unrollReduceAccumulate[T:Bits](
+  def unrollReduceAccumulate[T:Staged:Bits](
     inputs: Seq[Exp[T]],          // Symbols to be reduced
     valids: Seq[Exp[Bool]],       // Data valid bits corresponding to inputs
     zero:   Option[Exp[T]],       // Optional zero value
@@ -317,7 +318,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     rFunc:  Block[T],             // Reduce function
     rV:     (Bound[T],Bound[T]),  // Bound symbols used to reify rFunc
     iters:  Seq[Bound[Index]]     // Bound iterators for map loop
-  )(implicit ctx: SrcCtx, bT: Bits[T]) = {
+  )(implicit mT: Staged[T], bT: Bits[T], ctx: SrcCtx) = {
     dbgs(s"Unrolling pipe-fold $lhs")
     val lanes = Unroller(cchain, iters, isInnerControl(lhs))
     val inds2 = lanes.indices
@@ -326,7 +327,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     val blk = stageBlock {
       dbgs("Unrolling map")
-      val values = unrollMap(func, lanes)(bT,ctx)
+      val values = unrollMap(func, lanes)(mT,ctx)
       val valids = lanes.valids
 
       if (isOuterControl(lhs)) {
@@ -343,14 +344,14 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val rFunc2 = withSubstScope(rV._1 -> rV2._1, rV._2 -> rV2._2){ transformBlock(rFunc) }
 
     val effects = blk.summary
-    val lhs2 = stageEffectful(UnrolledReduce(cchain, accum, blk, rFunc2, inds2, vs, rV2)(bT,mC), effects.star)(ctx)
+    val lhs2 = stageEffectful(UnrolledReduce(cchain, accum, blk, rFunc2, inds2, vs, rV2)(mT,mC), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
     dbgs(s"Created reduce ${str(lhs2)}")
     lhs2
   }
   def unrollReduceNode[T](lhs: Sym[_], rhs: OpReduce[T])(implicit ctx: SrcCtx) = {
     val OpReduce(cchain,accum,map,load,reduce,store,rV,iters) = rhs
-    unrollReduce[T](lhs, f(cchain), f(accum), None, true, load, store, map, reduce, rV, iters)(ctx, rhs.bT)
+    unrollReduce[T](lhs, f(cchain), f(accum), None, true, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
   }
 
 
@@ -370,10 +371,10 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     rV:       (Bound[T],Bound[T]),  // Bound symbol used to reify rFunc
     itersMap: Seq[Bound[Index]],    // Bound iterators for map loop
     itersRed: Seq[Bound[Index]]     // Bound iterators for reduce loop
-  )(implicit ctx: SrcCtx, bT: Bits[T], mC: Staged[C[T]]) = {
+  )(implicit mT: Staged[T], bT: Bits[T], mC: Staged[C[T]], ctx: SrcCtx) = {
     dbgs(s"Unrolling accum-fold $lhs")
 
-    def reduce(x: Exp[T], y: Exp[T]) = withSubstScope(rV._1 -> x, rV._2 -> y){ inlineBlock(rFunc)(bT) }
+    def reduce(x: Exp[T], y: Exp[T]) = withSubstScope(rV._1 -> x, rV._2 -> y){ inlineBlock(rFunc)(mT) }
 
     val mapLanes = Unroller(cchainMap, itersMap, isInnerLoop = false)
     val isMap2 = mapLanes.indices
@@ -388,7 +389,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       if (isUnitCounterChain(cchainRed)) {
         dbgs(s"[Accum-fold $lhs] Unrolling unit pipe reduction")
         Pipe {
-          val values = inReduction{ mems.map{mem => withSubstScope(partial -> mem){ inlineBlock(loadRes)(bT) }} }
+          val values = inReduction{ mems.map{mem => withSubstScope(partial -> mem){ inlineBlock(loadRes)(mT) }} }
           inReduction{ unrollReduceAccumulate[T](values, mvalids, zero, rFunc, loadAcc, storeAcc, rV) }
           Void(void)
         }
@@ -412,7 +413,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
           val values: Seq[Seq[Exp[T]]] = inReduction {
             mems.map{mem =>
               withSubstScope(partial -> mem) {
-                unrollMap(loadRes, reduceLanes)(mbits(bT), ctx)
+                unrollMap(loadRes, reduceLanes)(mT,ctx)
               }
             }
           }
@@ -423,7 +424,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
             itersRed.foreach{i => dbgs(s"  $i -> ${f(i)}") }
           }
 
-          val accValues = inReduction{ unrollMap(loadAcc, reduceLanes)(mbits(bT),ctx) }
+          val accValues = inReduction{ unrollMap(loadAcc, reduceLanes)(mT,ctx) }
 
           dbgs(s"[Accum-fold $lhs] Unrolling reduction trees and cycles")
           reduceLanes.foreach{p =>
@@ -470,7 +471,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     val effects = blk.summary
 
-    val lhs2 = stageEffectful(UnrolledReduce(cchainMap, accum, blk, rFunc2, isMap2, mvs, rV2)(bT,mC), effects.star)(ctx)
+    val lhs2 = stageEffectful(UnrolledReduce(cchainMap, accum, blk, rFunc2, isMap2, mvs, rV2)(mT,mC), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
 
     dbgs(s"[Accum-fold] Created reduce ${str(lhs2)}")
@@ -478,11 +479,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
   def unrollMemReduceNode[T,C[T]](lhs: Sym[_], rhs: OpMemReduce[T,C])(implicit ctx: SrcCtx) = {
     val OpMemReduce(cchainMap,cchainRed,accum,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed) = rhs
-    unrollMemReduce(lhs,f(cchainMap),f(cchainRed),f(accum),None,true,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed)(ctx,rhs.bT,rhs.mC)
+    unrollMemReduce(lhs,f(cchainMap),f(cchainRed),f(accum),None,true,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed)(rhs.mT,rhs.bT,rhs.mC,ctx)
   }
 
   // TODO: Method for parallelizing scatter and gather will likely have to change soon
-  def unrollScatter[T:Bits](
+  def unrollScatter[T:Staged:Bits](
     lhs:    Exp[_],
     mem:    Exp[DRAM[T]],
     local:  Exp[SRAM[T]],
@@ -500,10 +501,10 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
   def unrollScatterNode[T](lhs: Sym[_], rhs: Scatter[T])(implicit ctx: SrcCtx) = {
     val Scatter(mem, local, addrs, ctr, _) = rhs
-    unrollScatter(lhs, f(mem), f(local), f(addrs), f(ctr))(rhs.bT, ctx)
+    unrollScatter(lhs, f(mem), f(local), f(addrs), f(ctr))(rhs.mT, rhs.bT, ctx)
   }
 
-  def unrollGather[T:Bits](
+  def unrollGather[T:Staged:Bits](
     lhs:   Exp[_],
     mem:   Exp[DRAM[T]],
     local: Exp[SRAM[T]],
@@ -521,22 +522,22 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
   def unrollGatherNode[T](lhs: Sym[_], rhs: Gather[T])(implicit ctx: SrcCtx) = {
     val Gather(mem, local, addrs, ctr, i) = rhs
-    unrollGather(lhs, f(mem), f(local), f(addrs), f(ctr))(rhs.bT, ctx)
+    unrollGather(lhs, f(mem), f(local), f(addrs), f(ctr))(rhs.mT,rhs.bT,ctx)
   }
 
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Staged[A], ctx: SrcCtx): Exp[A] = (rhs match {
       case e@SRAMStore(sram, dims, inds, ofs, data, en) =>
         val en2 = bool_and(f(en), globalValid)
-        sram_store(f(sram), f(dims), f(inds), f(ofs), f(data), en2)(mbits(e.bT), ctx)
+        sram_store(f(sram), f(dims), f(inds), f(ofs), f(data), en2)(e.mT,e.bT,ctx)
 
       case e@RegWrite(reg, data, en) =>
         val en2 = bool_and(f(en), globalValid)
-        reg_write(f(reg), f(data), en2)(mbits(e.bT), ctx)
+        reg_write(f(reg), f(data), en2)(e.mT,e.bT,ctx)
 
       case e@FIFODeq(fifo, en, z) =>
         val en2 = bool_and(f(en), globalValid)
-        fifo_deq(f(fifo), en2, f(z))(mbits(e.bT), ctx)
+        fifo_deq(f(fifo), en2, f(z))(mtyp(e.mT),mbits(e.bT),ctx)
 
       case _ => mirror(lhs, rhs)
     }).asInstanceOf[Exp[A]]

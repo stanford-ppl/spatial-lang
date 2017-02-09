@@ -27,7 +27,7 @@ trait CppGenVector extends CppCodegen {
   } 
 
   override protected def remap(tp: Staged[_]): String = tp match {
-    case tp: VectorType[_] => src"Array[${tp.bits}]"
+    case tp: VectorType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }
 

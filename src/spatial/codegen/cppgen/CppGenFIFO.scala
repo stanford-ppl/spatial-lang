@@ -32,7 +32,7 @@ trait CppGenFIFO extends CppCodegen {
   } 
 
   override protected def remap(tp: Staged[_]): String = tp match {
-    case tp: FIFOType[_] => src"cpp.collection.mutable.Queue[${tp.bits}]"
+    case tp: FIFOType[_] => src"cpp.collection.mutable.Queue[${tp.child}]"
     case _ => super.remap(tp)
   }
 

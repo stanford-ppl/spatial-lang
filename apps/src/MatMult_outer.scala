@@ -11,7 +11,7 @@ object MatMult_outer extends SpatialApp {
   val outerPar = 1
 
   @virtualize
-  def MatMult_outer[T:Num](A: Array[T], B: Array[T], C_init: Array[T], mm: Int, nn: Int, pp: Int) = {
+  def MatMult_outer[T:Staged:Num](A: Array[T], B: Array[T], C_init: Array[T], mm: Int, nn: Int, pp: Int) = {
     val M = ArgIn[Int]
     val N = ArgIn[Int]
     val P = ArgIn[Int]

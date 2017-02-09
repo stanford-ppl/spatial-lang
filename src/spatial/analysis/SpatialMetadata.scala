@@ -2,31 +2,22 @@ package spatial.analysis
 
 import org.virtualized.SourceContext
 import argon.analysis._
+import argon.core.Staging
 import spatial._
 
 // User-facing metadata
-trait SpatialMetadataOps extends NameOps with IndexPatternOps { this: SpatialOps =>
+trait SpatialMetadataApi extends SpatialMetadataExp {
+  this: SpatialExp =>
 
   object bound {
     def update[T:Staged](x: T, value: Long): Unit = setBound(x, BigInt(value))
   }
 
-  sealed abstract class ControlStyle
-  case object InnerPipe  extends ControlStyle
-  case object SeqPipe    extends ControlStyle
-  case object MetaPipe   extends ControlStyle
-  case object StreamPipe extends ControlStyle
-  case object ForkJoin   extends ControlStyle
-
-  private[spatial] def setBound[T:Staged](x: T, value: BigInt): Unit
 }
-
-trait SpatialMetadataApi extends SpatialMetadataOps with NameApi with IndexPatternApi { this: SpatialApi => }
 
 
 // Internal metadata (compiler use only)
-trait SpatialMetadataExp extends SpatialMetadataOps with NameExp with IndexPatternExp { this: SpatialExp =>
-
+trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { this: SpatialExp =>
   /**
     * Symbol bounds
     * Tracks the MAXIMUM value for a given symbol, along with data about this bound
@@ -87,6 +78,13 @@ trait SpatialMetadataExp extends SpatialMetadataOps with NameExp with IndexPatte
     * Control Style
     * Used to track the scheduling type for controller nodes
     **/
+  sealed abstract class ControlStyle
+  case object InnerPipe  extends ControlStyle
+  case object SeqPipe    extends ControlStyle
+  case object MetaPipe   extends ControlStyle
+  case object StreamPipe extends ControlStyle
+  case object ForkJoin   extends ControlStyle
+
   case class ControlType(style: ControlStyle) extends Metadata[ControlType] { def mirror(f:Tx) = this }
   object styleOf {
     def apply(x: Exp[_]): ControlStyle = styleOf.get(x).getOrElse{throw new UndefinedControlStyleException(x)}

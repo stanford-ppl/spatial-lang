@@ -29,7 +29,7 @@ object PageRank extends SpatialApp {
   val margin = 1
 
   @virtualize
-  def pagerank[T:Num](
+  def pagerank[T:Staged:Num](
     pagesIN:  Array[T],
     edgesIN:  Array[Int],
     countsIN: Array[T],

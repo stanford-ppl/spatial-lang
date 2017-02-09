@@ -1,8 +1,7 @@
 package spatial.analysis
 import spatial._
 
-trait BankingMetadataOps extends SpatialMetadataOps { this: SpatialOps => }
-trait BankingMetadataApi extends SpatialMetadataApi { this: SpatialApi => }
+trait BankingMetadataApi extends SpatialMetadataExp with SpatialMetadataApi { this: SpatialApi => }
 trait BankingMetadataExp extends SpatialMetadataExp {
   this: SpatialExp =>
 

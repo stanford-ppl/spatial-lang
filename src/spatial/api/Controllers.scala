@@ -1,27 +1,26 @@
 package spatial.api
+import argon.core.Staging
 import argon.ops._
-import spatial.analysis.{SpatialMetadataExp, SpatialMetadataOps}
-import spatial.{SpatialApi, SpatialExp, SpatialOps}
+import spatial.analysis.{SpatialMetadataExp}
+import spatial.{SpatialApi, SpatialExp}
 
 // MemReduce and views
 //   If view is staged, requires either direct access to its target via a def or its own load/store defs
 //   If view is unstaged, requires unwrapping prior to use in result of Blocks / use as dependencies
 //   However, if view is staged, have mutable sharing..
 
-trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps with SpatialMetadataOps with FltPtOps { this: SpatialOps =>
-
-  type Controller
-  implicit val ControllerType: Staged[Controller]
+trait ControllerApi extends ControllerExp with RegApi {
+  this: SpatialExp =>
 
   case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle) {
     /** 1 dimensional memory reduction without zero **/
-    def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
+    def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
       mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style)
       accum
     }
 
     /** 2 dimensional memory reduction without zero **/
-    def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
+    def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
       mem_reduceND(List(domain1,domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style)
       accum
     }
@@ -34,12 +33,12 @@ trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps wit
 
   case class ReduceAccum[T](accum: Reg[T], style: ControlStyle) {
     /** 1 dimensional reduction **/
-    def apply(domain1D: Counter)(map: Index => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, bits: Bits[T]): Reg[T] = {
+    def apply(domain1D: Counter)(map: Index => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Staged[T], bits: Bits[T]): Reg[T] = {
       reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style)
       accum
     }
     /** 2 dimensional reduction **/
-    def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, bits: Bits[T]): Reg[T] = {
+    def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Staged[T], bits: Bits[T]): Reg[T] = {
       reduceND(List(domain1, domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style)
       accum
     }
@@ -117,35 +116,11 @@ trait ControllerOps extends RegOps with SRAMOps with VoidOps with CounterOps wit
   object Parallel {
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { parallel_pipe(func); () }
   }
-
-
-  private[spatial] def accel_blk(func: => Void)(implicit ctx: SrcCtx): Controller
-  private[spatial] def unit_pipe(func: => Void, style: ControlStyle)(implicit ctx: SrcCtx): Controller
-  private[spatial] def parallel_pipe(func: => Void)(implicit ctx: SrcCtx): Controller
-  private[spatial] def foreachND(
-    domain: Seq[Counter],
-    func: List[Index] => Void,
-    style: ControlStyle
-  )(implicit ctx: SrcCtx): Controller
-
-  private[spatial] def reduceND[T:Bits](
-    domain: Seq[Counter],
-    reg:    Reg[T],
-    map:    List[Index] => T,
-    reduce: (T,T) => T,
-    style:  ControlStyle
-  )(implicit ctx: SrcCtx): Controller
-  private[spatial] def mem_reduceND[T:Bits,C[T]](
-    domain: Seq[Counter],
-    accum:  C[T],
-    map:    List[Index] => C[T],
-    reduce: (T,T) => T,
-    style: ControlStyle
-  )(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Staged[C[T]]): Controller
 }
-trait ControllerApi extends ControllerOps with RegApi with SRAMApi with CounterApi { this: SpatialApi => }
 
-trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterExp with SpatialMetadataExp { this: SpatialExp =>
+trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp with SpatialMetadataExp {
+  this: SpatialExp =>
+
   /** API **/
   case class Controller(s: Exp[Controller])
   implicit object ControllerType extends Staged[Controller] {
@@ -191,7 +166,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     Controller(pipe)
   }
 
-  private[spatial] def reduceND[T:Bits](
+  private[spatial] def reduceND[T:Staged:Bits](
     domain: Seq[Counter],
     reg:    Reg[T],
     map:    List[Index] => T,
@@ -215,7 +190,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     Controller(pipe)
   }
 
-  private[spatial] def mem_reduceND[T:Bits,C[T]](
+  private[spatial] def mem_reduceND[T:Staged:Bits,C[T]](
     domain: Seq[Counter],
     accum:  C[T],
     map:    List[Index] => C[T],
@@ -267,7 +242,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     override def binds  = super.binds ++ iters
   }
 
-  case class OpReduce[T:Bits](
+  case class OpReduce[T:Staged:Bits](
     cchain: Exp[CounterChain],
     accum:  Exp[Reg[T]],
     map:    Block[T],
@@ -284,10 +259,11 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     override def binds  = super.binds ++ iters ++ List(rV._1, rV._2)
     override def tunnels = syms(accum)
     override def aliases = Nil
+    val mT = typ[T]
     val bT = bits[T]
   }
 
-  case class OpMemReduce[T:Bits,C[T]](
+  case class OpMemReduce[T:Staged:Bits,C[T]](
     cchainMap: Exp[CounterChain],
     cchainRed: Exp[CounterChain],
     accum:     Exp[C[T]],
@@ -309,7 +285,8 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     override def tunnels = syms(accum)
     override def aliases = Nil
 
-    def bT = bits[T]
+    val mT = typ[T]
+    val bT = bits[T]
   }
 
 
@@ -340,7 +317,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     stageEffectful( OpForeach(domain, fBlk, iters), effects)(ctx)
   }
 
-  def op_reduce[T:Bits](
+  def op_reduce[T:Staged:Bits](
     cchain: Exp[CounterChain],
     reg:    Exp[Reg[T]],
     map:    => Exp[T],
@@ -359,7 +336,7 @@ trait ControllerExp extends ControllerOps with RegExp with SRAMExp with CounterE
     val effects = mBlk.summary andAlso ldBlk.summary andAlso rBlk.summary andAlso stBlk.summary
     stageEffectful( OpReduce[T](cchain, reg, mBlk, ldBlk, rBlk, stBlk, rV, iters), effects)(ctx)
   }
-  def op_mem_reduce[T:Bits,C[T]](
+  def op_mem_reduce[T:Staged:Bits,C[T]](
     cchainMap: Exp[CounterChain],
     cchainRed: Exp[CounterChain],
     accum:     Exp[C[T]],

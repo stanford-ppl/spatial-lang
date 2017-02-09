@@ -15,7 +15,7 @@ object MatMult_inner extends SpatialApp {
   val storePar = 1
 
   @virtualize
-  def MatMult_inner[T:Num](A: Array[T], B: Array[T], mm: Int, nn: Int, pp: Int) = {
+  def MatMult_inner[T:Staged:Num](A: Array[T], B: Array[T], mm: Int, nn: Int, pp: Int) = {
     val M = ArgIn[Int]
     val N = ArgIn[Int]
     val P = ArgIn[Int]

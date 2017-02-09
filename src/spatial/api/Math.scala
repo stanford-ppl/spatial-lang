@@ -1,40 +1,26 @@
 package spatial.api
-import spatial._
 
-import argon.ops._
+import argon.core.Staging
+import spatial.SpatialExp
+import argon.ops.{FltPtExp, FixPtExp}
 
-trait MathOps extends NumOps with FixPtOps with FltPtOps { this: SpatialOps =>
+trait MathApi extends MathExp {
+  this: SpatialExp =>
+
   /** Absolute value **/
-  def abs[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F])(implicit ctx: SrcCtx): FixPt[S,I,F]
-
-  /** Absolute value **/
-  def abs[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E]
-  /** Natural logarithm **/
-  def log[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E]
-  /** Natural exponential (Euler's number, e, raised to the given exponent) **/
-  def exp[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E]
-  /** Square root **/
-  def sqrt[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E]
-
-  def mux[T:Bits](select: Bool, a: T, b: T)(implicit ctx: SrcCtx): T
-  def min[T:Order](a: T, b: T)(implicit ctx: SrcCtx): T
-  def max[T:Order](a: T, b: T)(implicit ctx: SrcCtx): T
-
-}
-trait MathApi extends MathOps with NumApi with FixPtApi with FltPtApi { this: SpatialApi => }
-
-
-trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with SpatialExceptions { this: SpatialExp =>
-  /** API **/
   def abs[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F])(implicit ctx: SrcCtx): FixPt[S,I,F] = FixPt(fix_abs(x.s))
 
+  /** Absolute value **/
   def abs[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E] = FltPt(flt_abs(x.s))
+  /** Natural logarithm **/
   def log[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E] = FltPt(flt_log(x.s))
+  /** Natural exponential (Euler's number, e, raised to the given exponent) **/
   def exp[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E] = FltPt(flt_exp(x.s))
+  /** Square root **/
   def sqrt[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E] = FltPt(flt_sqrt(x.s))
 
-  // TODO: These should probably be added to Num
-  def abs[T:Num](x: T)(implicit ctx: SrcCtx): T = num[T] match {
+  // TODO: These should probably be added to Num instead
+  def abs[T:Staged:Num](x: T)(implicit ctx: SrcCtx): T = typ[T] match {
     case t: FixPtType[s,i,f] =>
       implicit val mS = t.mS.asInstanceOf[BOOL[s]]
       implicit val mI = t.mI.asInstanceOf[INT[i]]
@@ -45,31 +31,40 @@ trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with Spati
       implicit val bE = t.mE.asInstanceOf[INT[e]]
       abs[g,e](x.asInstanceOf[FltPt[g,e]]).asInstanceOf[T]
   }
-  def exp[T:Num](x: T)(implicit ctx: SrcCtx): T = num[T] match {
+
+  def exp[T:Staged:Num](x: T)(implicit ctx: SrcCtx): T = typ[T] match {
     case t: FixPtType[s,i,f] =>
       error(ctx, "Exponentiation of fixed point types is not yet implemented.")
       error(ctx)
-      one[T]
+      wrap(fresh[T])
     case t: FltPtType[g,e] =>
       implicit val bG = t.mG.asInstanceOf[INT[g]]
       implicit val bE = t.mE.asInstanceOf[INT[e]]
       exp[g,e](x.asInstanceOf[FltPt[g,e]]).asInstanceOf[T]
   }
+}
 
-  def mux[T:Bits](select: Bool, a: T, b: T)(implicit ctx: SrcCtx): T = {
+
+trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions {
+  this: SpatialExp =>
+
+  def mux[T:Staged:Bits](select: Bool, a: T, b: T)(implicit ctx: SrcCtx): T = {
     wrap( math_mux(select.s, a.s, b.s) )
   }
-  def min[T:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_min(a.s, b.s) )
-  def max[T:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_max(a.s, b.s) )
 
-  implicit class MathInfixOps[T:Num](x: T) {
-    def **(exp: Int)(implicit ctx: SrcCtx): T = {
-      if (exp >= 0) productTree(List.fill(exp)(x))
-      else {
-        error(ctx, "Exponentiation on negative integers is currently unsupported")
-        error(ctx)
-        one[T]
-      }
+  def min[T:Staged:Bits:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_min(a.s, b.s) )
+  def max[T:Staged:Bits:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_max(a.s, b.s) )
+
+  implicit class MathInfixOps[T:Staged:Num](x: T) {
+    def **(exp: Int)(implicit ctx: SrcCtx): T = pow(x, exp)
+  }
+
+  def pow[T:Staged:Num](x: T, exp: Int)(implicit ctx: SrcCtx): T = {
+    if (exp >= 0) productTree(List.fill(exp)(x))
+    else {
+      error(ctx, "Exponentiation on negative integers is currently unsupported")
+      error(ctx)
+      wrap(fresh[T])
     }
   }
 
@@ -81,9 +76,9 @@ trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with Spati
   case class FltExp [G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_exp(f(x)) }
   case class FltSqrt[G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_sqrt(f(x)) }
 
-  case class Mux[T:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_mux(f(select),f(a),f(b)) }
-  case class Min[T:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_min(f(a),f(b)) }
-  case class Max[T:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_max(f(a),f(b)) }
+  case class Mux[T:Staged:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_mux(f(select),f(a),f(b)) }
+  case class Min[T:Staged:Bits:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_min(f(a),f(b)) }
+  case class Max[T:Staged:Bits:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_max(f(a),f(b)) }
 
   /** Constructors **/
   def fix_abs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]])(implicit ctx: SrcCtx): Exp[FixPt[S,I,F]] = x match {
@@ -108,12 +103,12 @@ trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with Spati
     case _ => stage(FltSqrt(x))(ctx)
   }
 
-  def math_mux[T:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = select match {
+  def math_mux[T:Staged:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = select match {
     case Const(true) => a
     case Const(false) => b
     case _ => stage(Mux(select,a,b))(ctx)
   }
-  def math_min[T:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
+  def math_min[T:Staged:Bits:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
     case (Const(_),Const(_)) => implicitly[Order[T]].lessThan(wrap(a),wrap(b)).s match {
       case Const(true) => a
       case Const(false) => b
@@ -121,7 +116,7 @@ trait MathExp extends MathOps with NumExp with FixPtExp with FltPtExp with Spati
     }
     case _ => stage(Min(a, b))(ctx)
   }
-  def math_max[T:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
+  def math_max[T:Staged:Bits:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
     case (Const(_),Const(_)) => implicitly[Order[T]].lessThan(wrap(b),wrap(a)).s match {
       case Const(true) => a
       case Const(false) => b

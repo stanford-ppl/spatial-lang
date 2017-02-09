@@ -53,7 +53,7 @@ object DeviceMemcpy extends SpatialTest {
   val N = 192
   type T = Int
   def memcpyViaFPGA(srcHost: Array[T]): Array[T] = {
-    val fpgaMem = DRAM[Int](N)
+    val fpgaMem = DRAM[T](N)
     setMem(fpgaMem, srcHost)
 
     val y = ArgOut[Int]
@@ -86,7 +86,7 @@ object SimpleTileLoadStore extends SpatialTest {
 
   val N = 192
 
-  def simpleLoadStore[T](srcHost: Array[T], value: T)(implicit num: Num[T]) = {
+  def simpleLoadStore[T:Staged:Num](srcHost: Array[T], value: T) = {
     val loadPar  = 1 (1 -> 1)
     val storePar = 1 (1 -> 1)
     val tileSize = 96 (96 -> 96)
@@ -144,7 +144,7 @@ object FifoLoad extends SpatialTest {
   import IR._
   IR.testArgs = List("960")
 
-  def fifoLoad[T:Num](srcHost: Array[T], N: Int) = {
+  def fifoLoad[T:Staged:Num](srcHost: Array[T], N: Int) = {
     val tileSize = 96 (96 -> 96)
 
     val size = ArgIn[Int]
@@ -197,7 +197,7 @@ object ParFifoLoad extends SpatialTest {
   import IR._
   IR.testArgs = List("192")
 
-  def parFifoLoad[T](src1: Array[T], src2: Array[T], in: Int)(implicit num: Num[T]) = {
+  def parFifoLoad[T:Staged:Num](src1: Array[T], src2: Array[T], in: Int) = {
 
     val tileSize = 96 (96 -> 96)
 
@@ -257,7 +257,7 @@ object FifoLoadStore extends SpatialTest {
 
   val N = 192
 
-  def fifoLoadStore[T:Bits](srcHost: Array[T]) = {
+  def fifoLoadStore[T:Staged:Bits](srcHost: Array[T]) = {
     val tileSize = N
 
     val srcFPGA = DRAM[T](N)
@@ -309,9 +309,7 @@ object SimpleReduce extends SpatialTest { // Args: 72
 
   val N = 96.as[Int]
 
-  def simpleReduce[T](xin: T)(implicit num: Num[T]) = {
-
-
+  def simpleReduce[T:Staged:Num](xin: T) = {
     val P = param(8)
 
     val x = ArgIn[T]
@@ -349,9 +347,7 @@ object Niter extends SpatialTest {
 
   val constTileSize = 96
 
-  def nIterTest[T](len: Int)(implicit num: Num[T]): T = {
-
-
+  def nIterTest[T:Staged:Num](len: Int): T = {
     val innerPar = 1 (1 -> 1)
     val tileSize = constTileSize (constTileSize -> constTileSize)
     bound(len) = 9216
@@ -398,9 +394,7 @@ object SimpleFold extends SpatialTest {
 
   val constTileSize = 96
 
-  def simple_fold[T](src: Array[T])(implicit num: Num[T]) = {
-
-
+  def simple_fold[T:Staged:Num](src: Array[T]) = {
     val outerPar = 16 (16 -> 16)
     val innerPar = 16 (16 -> 16)
     val tileSize = constTileSize (constTileSize -> constTileSize)
@@ -451,7 +445,7 @@ object Memcpy2D extends SpatialTest {
   val R = 96
   val C = 96
 
-  def memcpy_2d[T](src: Array[T], rows: Int, cols: Int)(implicit num: Num[T]): Array[T] = {
+  def memcpy_2d[T:Staged:Num](src: Array[T], rows: Int, cols: Int): Array[T] = {
     val tileDim1 = param(96)
     val tileDim2 = 96 (96 -> 96)
 
@@ -500,9 +494,7 @@ object BlockReduce1D extends SpatialTest {
   val tileSize = 96
   val p = 2
 
-  def blockreduce_1d[T](src: Array[T], size: Int)(implicit num: Num[T]) = {
-
-
+  def blockreduce_1d[T:Staged:Num](src: Array[T], size: Int) = {
     val sizeIn = ArgIn[Int]
     setArg(sizeIn, size)
 
@@ -554,9 +546,7 @@ object UnalignedLd extends SpatialTest {
   val numCols = 8
   val paddedCols = 1920
 
-  def unaligned_1d[T](src: Array[T], ii: Int)(implicit num: Num[T]) = {
-
-
+  def unaligned_1d[T:Staged:Num](src: Array[T], ii: Int) = {
     val iters = ArgIn[Int]
     val srcFPGA = DRAM[T](paddedCols)
     val acc = ArgOut[T]
@@ -604,9 +594,7 @@ object BlockReduce2D extends SpatialTest {
   val N = 1920
   val tileSize = 96
 
-  def blockreduce_2d[T](src: Array[T], rows: Int, cols: Int)(implicit num: Num[T]) = {
-
-
+  def blockreduce_2d[T:Staged:Num](src: Array[T], rows: Int, cols: Int) = {
     val rowsIn = ArgIn[Int]; setArg(rowsIn, rows)
     val colsIn = ArgIn[Int]; setArg(colsIn, cols)
 
@@ -683,8 +671,7 @@ object ScatterGather extends SpatialTest {
   val offchip_dataSize = maxNumAddrs*6
   val P = param(1)
 
-  def scattergather[T](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int)(implicit num: Num[T]) = {
-
+  def scattergather[T:Staged:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
     val srcAddrs = DRAM[Int](maxNumAddrs)
     val gatherData = DRAM[T](offchip_dataSize)
     val scatterResult = DRAM[T](offchip_dataSize)
@@ -791,9 +778,7 @@ object MultiplexedWriteTest extends SpatialTest {
   val I = 5
   val N = 192
 
-  def multiplexedwrtest[W](w: Array[W], i: Array[W])(implicit num: Num[W]): Array[W] = {
-
-
+  def multiplexedwrtest[W:Staged:Num](w: Array[W], i: Array[W]): Array[W] = {
     val T = param(tileSize)
     val P = param(4)
     val weights = DRAM[W](N)
@@ -912,9 +897,7 @@ object SequentialWrites extends SpatialTest {
   val tileSize = 96
   val N = 5
 
-  def sequentialwrites[A](srcData: Array[A], x: A)(implicit num: Num[A]) = {
-
-
+  def sequentialwrites[A:Staged:Num](srcData: Array[A], x: A) = {
     val T = param(tileSize)
     val P = param(4)
     val src = DRAM[A](T)
@@ -963,9 +946,7 @@ object ChangingCtrMax extends SpatialTest {
   val tileSize = 96
   val N = 5
 
-  def changingctrmax[T]()(implicit num: Num[T]): Array[T] = {
-
-
+  def changingctrmax[T:Staged:Num](): Array[T] = {
     val result = DRAM[T](96)
     Accel {
       val rMem = SRAM[T](96)

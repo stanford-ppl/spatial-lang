@@ -8,7 +8,7 @@ trait ScalaGenSRAM extends ScalaCodegen {
   import IR._
 
   override protected def remap(tp: Staged[_]): String = tp match {
-    case tp: SRAMType[_] => src"Array[${tp.bits}]"
+    case tp: SRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }
 
@@ -18,7 +18,7 @@ trait ScalaGenSRAM extends ScalaCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@SRAMNew(dims) => emit(src"""val $lhs = new Array[${op.bT}](${dims.map(quote).mkString("*")})""")
+    case op@SRAMNew(dims) => emit(src"""val $lhs = new Array[${op.mT}](${dims.map(quote).mkString("*")})""")
     case SRAMLoad(sram, dims, is, ofs) =>
       emit(src"val $lhs = $sram.apply(${flattenAddress(dims,is,Some(ofs))})")
 

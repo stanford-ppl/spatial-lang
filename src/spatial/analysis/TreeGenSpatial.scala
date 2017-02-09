@@ -20,7 +20,7 @@ trait TreeGenSpatial extends SpatialTraversal {
   var controller_tree: PrintWriter = _
   val table_init = """<TABLE BORDER="3" CELLPADDING="10" CELLSPACING="10">"""
 
-  override def preprocess[S:Staged](block: Block[S]): Block[S] = {
+  override protected def preprocess[S:Staged](block: Block[S]): Block[S] = {
     controller_tree = { new PrintWriter(Config.genDir + "/controller_tree.html") }
   	controller_tree.write("""<!DOCTYPE html>
 <html>
@@ -39,7 +39,7 @@ trait TreeGenSpatial extends SpatialTraversal {
   	super.preprocess(block)
   }
 
-  override def postprocess[S:Staged](block: Block[S]): Block[S] = { 
+  override protected def postprocess[S:Staged](block: Block[S]): Block[S] = {
     controller_tree.write(s"""  </TABLE>
 </body>
 </html>""")

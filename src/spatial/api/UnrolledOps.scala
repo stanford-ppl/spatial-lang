@@ -1,11 +1,11 @@
 package spatial.api
 
+import argon.core.Staging
 import spatial.SpatialExp
 
-trait UnrolledOps
-trait UnrolledApi extends UnrolledOps
+trait UnrolledApi extends UnrolledExp {this: SpatialExp => }
 
-trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
+trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   this: SpatialExp =>
 
   /** IR Nodes **/
@@ -39,40 +39,40 @@ trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
     override def tunnels = syms(accum)
   }
 
-  case class ParSRAMLoad[T:Bits](
+  case class ParSRAMLoad[T:Staged:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]]
   ) extends Op[Vector[T]] {
     def mirror(f:Tx) = par_sram_load(f(sram), addr.map{inds => f(inds)})
-    val bT = bits[T]
+    val mT = typ[T]
   }
 
-  case class ParSRAMStore[T:Bits](
+  case class ParSRAMStore[T:Staged:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
     data: Exp[Vector[T]],
     ens:  Exp[Vector[Bool]]
   ) extends Op[Void] {
     def mirror(f:Tx) = par_sram_store(f(sram),addr.map{inds => f(inds)},f(data),f(ens))
-    val bT = bits[T]
+    val mT = typ[T]
   }
 
-  case class ParFIFODeq[T:Bits](
+  case class ParFIFODeq[T:Staged:Bits](
     fifo: Exp[FIFO[T]],
     ens:  Exp[Vector[Bool]],
     zero: Exp[T]
   ) extends Op[Vector[T]] {
     def mirror(f:Tx) = par_fifo_deq(f(fifo),f(ens),f(zero))
-    val bT = bits[T]
+    val mT = typ[T]
   }
 
-  case class ParFIFOEnq[T:Bits](
+  case class ParFIFOEnq[T:Staged:Bits](
     fifo: Exp[FIFO[T]],
     data: Exp[Vector[T]],
     ens:  Exp[Vector[Bool]]
   ) extends Op[Void] {
     def mirror(f:Tx) = par_fifo_enq(f(fifo),f(data),f(ens))
-    val bT = bits[T]
+    val mT = typ[T]
   }
 
   /** Constructors **/
@@ -102,14 +102,14 @@ trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
     stageEffectful(UnrolledReduce(cchain, accum, fBlk, rBlk, iters, valids, rV), effects.star)(ctx)
   }
 
-  private[spatial] def par_sram_load[T:Bits](
+  private[spatial] def par_sram_load[T:Staged:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
     stage( ParSRAMLoad(sram, addr) )(ctx)
   }
 
-  private[spatial] def par_sram_store[T:Bits](
+  private[spatial] def par_sram_store[T:Staged:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
     data: Exp[Vector[T]],
@@ -118,7 +118,7 @@ trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
     stageWrite(sram)( ParSRAMStore(sram, addr, data, ens) )(ctx)
   }
 
-  private[spatial] def par_fifo_deq[T:Bits](
+  private[spatial] def par_fifo_deq[T:Staged:Bits](
     fifo: Exp[FIFO[T]],
     ens:  Exp[Vector[Bool]],
     zero: Exp[T]
@@ -126,7 +126,7 @@ trait UnrolledExp extends UnrolledOps with ControllerExp with VectorExp {
     stage( ParFIFODeq(fifo, ens, zero) )(ctx)
   }
 
-  private[spatial] def par_fifo_enq[T:Bits](
+  private[spatial] def par_fifo_enq[T:Staged:Bits](
     fifo: Exp[FIFO[T]],
     data: Exp[Vector[T]],
     ens:  Exp[Vector[Bool]]

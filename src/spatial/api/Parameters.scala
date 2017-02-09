@@ -1,11 +1,12 @@
 package spatial.api
 
-import spatial._
+import argon.core.Staging
+import spatial.SpatialExp
 import spatial.analysis.SpatialMetadataExp
-import argon.ops._
+import argon.ops.{FixPtExp, OverloadHack}
 
-trait ParameterOps extends FixPtOps {
-  this: SpatialOps =>
+trait ParameterApi extends ParameterExp with OverloadHack {
+  this: SpatialExp =>
 
   def param(c: Int)(implicit ctx: SrcCtx): Int32
 
@@ -18,9 +19,10 @@ trait ParameterOps extends FixPtOps {
   private[spatial] def createParam(default: Int, start: Int, stride: Int, end: Int)(implicit ctx: SrcCtx): Int32
 }
 
-trait ParameterApi extends ParameterOps with FixPtApi { this: SpatialApi => }
 
-trait ParameterExp extends ParameterOps with FixPtExp with SpatialMetadataExp { this: SpatialExp =>
+trait ParameterExp extends Staging with FixPtExp with SpatialMetadataExp {
+  this: SpatialExp =>
+
   private[spatial] def createParam(default: Int, start: Int, stride: Int, end: Int)(implicit ctx: SrcCtx): Int32 = {
     val p = intParam(default)
     domainOf(p) = (start, stride, end)

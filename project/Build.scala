@@ -35,6 +35,15 @@ object SpatialBuild extends Build {
     // It would be very annoying to have to import these everywhere in this project
     scalacOptions ++= Seq("-language:higherKinds", "-language:implicitConversions"),
 
+    scalacOptions in (Compile, doc) ++= Seq(
+      "-doc-root-content", 
+      baseDirectory.value+"/root-doc.txt",
+      "-diagrams",
+      "-diagrams-debug",
+      //"-diagrams-dot-timeout", "20", "-diagrams-debug",
+      "-doc-title", name.value
+    ),
+
     addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full),
   
     scalaSource in Compile <<= baseDirectory(_ / "src"),
