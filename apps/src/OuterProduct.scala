@@ -1,17 +1,17 @@
 import spatial._
 import org.virtualized._
 
-object OuterProduct extends SpatialApp {
+object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 384 384
   import IR._
   type X = Int
 
-  val tileSize1 = 64
-  val tileSize2 = 64
-  val op = 8
+  val tileSize1 = 192
+  val tileSize2 = 192
+  val op = 1
   val ip = 1
 
   @virtualize
-  def outerproduct[T:Num](a: Array[T], b: Array[T]) = {
+  def outerproduct[T:Num](a: Array[T], b: Array[T]) = { 
     val tileSizeA = tileSize1 (96 -> 96 -> 38400)
     val tileSizeB = tileSize2 (96 -> 96 -> 38400)
     val outerPar  = op (1 -> 4)

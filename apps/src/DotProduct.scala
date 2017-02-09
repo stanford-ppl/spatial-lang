@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object DotProduct extends SpatialApp {
+object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1920
   import IR._
 
   type X = Int
@@ -11,7 +11,7 @@ object DotProduct extends SpatialApp {
   lazy val outerPar = 1
 
   @virtualize
-  def dotproduct[T:Num](aIn: Array[T], bIn: Array[T]): T = { // Regression (Dense) // Args: 1920
+  def dotproduct[T:Num](aIn: Array[T], bIn: Array[T]): T = { 
     val B  = tileSize (96 -> 96 -> 19200)
     val P1 = outerPar (1 -> 6)
     val P2 = innerPar (1 -> 192)

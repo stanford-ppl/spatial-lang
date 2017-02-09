@@ -125,8 +125,8 @@ def main():
   java_opts = java_opts + " -Dargon.name=" + opts.app
   java_opts = java_opts + " -Dargon.emission=" + "%s" % opts.emission
   java_opts = java_opts + " -Dspatial.fpga=" + opts.fpga
-  java_opts = java_opts + " -Dargon.multifile=" + opts.multifile
-  java_opts = java_opts + " -Dspatial.multifile=" + opts.multifile
+  java_opts = java_opts + " -Dargon.multifile=" + "%s" % opts.multifile
+  java_opts = java_opts + " -Dspatial.multifile=" + "%s" % opts.multifile
 
   # if opts.pir_debug == True:
   #   java_opts = java_opts + " -Dspatial.pirdebug=true"
