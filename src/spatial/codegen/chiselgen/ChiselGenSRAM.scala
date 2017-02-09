@@ -11,7 +11,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   import IR._
 
   override protected def remap(tp: Staged[_]): String = tp match {
-    case tp: SRAMType[_] => src"Array[${tp.bits}]"
+    case tp: SRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }
 

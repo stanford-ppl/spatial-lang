@@ -1,6 +1,7 @@
 package spatial.api
-import argon.ops._
-import spatial.{SpatialApi, SpatialExp, SpatialOps}
+
+import argon.core.Staging
+import spatial.SpatialExp
 
 // N by B
 // N par P
@@ -14,22 +15,14 @@ import spatial.{SpatialApi, SpatialExp, SpatialOps}
 // may require a Range which is not a StridedRange?
 // :: this distinction is silly, only using one type
 
-trait RangeLowPriorityImplicits { this: RangeOps =>
+trait RangeLowPriorityImplicits { this: RangeApi =>
   // Have to make this a lower priority, otherwise seems to prefer this + Range infix op over the implicit class on Index
   implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(x), x + 1, None, None)
 }
 
-trait RangeOps extends MemoryOps with RangeLowPriorityImplicits { this: SpatialOps =>
-  type Range <: RangeOps
+trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
+  this: SpatialExp =>
 
-  protected trait RangeOps {
-    def by(step: Index)(implicit ctx: SrcCtx): Range
-    def par(p: Index)(implicit ctx: SrcCtx): Range
-
-    def ::(x: Index)(implicit ctx: SrcCtx): Range
-
-    def foreach(func: Index => Void)(implicit ctx: SrcCtx): Void
-  }
   implicit class IndexRangeOps(x: Index) {
     def by(step: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, Some(lift(step)), None)
     def par(p: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, None, Some(lift(p)))
@@ -41,17 +34,6 @@ trait RangeOps extends MemoryOps with RangeLowPriorityImplicits { this: SpatialO
 
     def ::(start: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(start), x, None, None)
   }
-  // Implicitly get value of register to use in counter definitions
-  implicit def regToIndexRange(x: Reg[Index])(implicit ctx: SrcCtx): IndexRangeOps = IndexRangeOps(x.value)
-
-  private[spatial] def range_alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index], isUnit: Boolean = false): Range
-
-  def Range(start: Index, end: Index, stride: Index, par: Index): Range = {
-    range_alloc(Some(start), end, Some(stride), Some(par))
-  }
-}
-trait RangeApi extends RangeOps with MemoryApi {
-  this: SpatialApi =>
 
   implicit class intWrapper(x: scala.Int) {
     def until(end: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(lift(x)), end, None, None)
@@ -65,13 +47,22 @@ trait RangeApi extends RangeOps with MemoryApi {
     def ::(start: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(start), lift(x), None, None)
     def ::(start: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(lift(start)), lift(x), None, None)
   }
+
+  // Implicitly get value of register to use in counter definitions
+  implicit def regToIndexRange(x: Reg[Index])(implicit ctx: SrcCtx): IndexRangeOps = IndexRangeOps(x.value)
+
+  def Range(start: Index, end: Index, stride: Index, par: Index): Range = {
+    range_alloc(Some(start), end, Some(stride), Some(par))
+  }
 }
 
 
-trait RangeExp extends RangeOps with MemoryExp {
+
+
+trait RangeExp extends Staging with MemoryExp {
   this: SpatialExp =>
 
-  case class Range(start: Option[Index], end: Index, step: Option[Index], p: Option[Index], isUnit: Boolean) extends RangeOps {
+  case class Range(start: Option[Index], end: Index, step: Option[Index], p: Option[Index], isUnit: Boolean) {
     def by(step: Index)(implicit ctx: SrcCtx): Range = Range(start, end, Some(step), p, isUnit = false)
     def par(p: Index)(implicit ctx: SrcCtx): Range = Range(start, end, step, Some(p), isUnit = false)
 
@@ -93,7 +84,7 @@ trait RangeExp extends RangeOps with MemoryExp {
     }
   }
 
-  private[spatial] def range_alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index], isUnit: Boolean = false) = {
+  protected def range_alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index], isUnit: Boolean = false) = {
     Range(start,end,stride,par,isUnit)
   }
 

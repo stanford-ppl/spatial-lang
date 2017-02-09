@@ -1,11 +1,12 @@
 package spatial.api
 
-import argon.ops.VoidExp
-import spatial.SpatialApi
+import argon.core.Staging
+import argon.ops.{ArrayApi, VoidExp}
 import org.virtualized.virtualize
+import spatial.SpatialApi
 
-trait StagedUtilOps
-trait StagedUtilApi extends StagedUtilOps { this: SpatialApi =>
+trait StagedUtilApi extends StagedUtilExp with ArrayApi {
+  this: SpatialApi =>
 
   @virtualize
   def printArray[T:Staged](array: Array[T], header: String = "")(implicit ctx: SrcCtx): Void = {
@@ -14,7 +15,7 @@ trait StagedUtilApi extends StagedUtilOps { this: SpatialApi =>
     println("")
   }
 
-  implicit def insert_void[T](x: T)(implicit ctx: SrcCtx): Void = ()
+  implicit def insert_void[T:Staged](x: T)(implicit ctx: SrcCtx): Void = unit2void(())
 
 }
-trait StagedUtilExp extends StagedUtilOps with VoidExp
+trait StagedUtilExp extends Staging with VoidExp

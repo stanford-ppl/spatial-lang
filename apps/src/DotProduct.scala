@@ -11,7 +11,7 @@ object DotProduct extends SpatialApp {
   lazy val outerPar = 12
 
   @virtualize
-  def dotproduct[T:Num](aIn: Array[T], bIn: Array[T]): T = {
+  def dotproduct[T:Staged:Num](aIn: Array[T], bIn: Array[T]): T = {
     val B  = tileSize (96 -> 96 -> 19200)
     val P1 = outerPar (1 -> 6)
     val P2 = innerPar (1 -> 192)

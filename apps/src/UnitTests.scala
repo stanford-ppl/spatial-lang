@@ -38,9 +38,7 @@ object Niter extends SpatialApp {  // Regression (Unit) // Args: 100
   
   val constTileSize = 96
 
-  def nIterTest[T](len: Int)(implicit num: Num[T]): T = {
-
-
+  def nIterTest[T:Staged:Num](len: Int): T = {
     val innerPar = 1 (1 -> 1)
     val tileSize = constTileSize (constTileSize -> constTileSize)
     bound(len) = 9216
@@ -159,7 +157,7 @@ object MemTest2D extends SpatialApp { // Regression (Unit) // Args: 7
 object FifoLoad extends SpatialApp { // Regression (Unit) // Args: 192
   import IR._
 
-  def fifoLoad[T:Num](srcHost: Array[T], N: Int) = {
+  def fifoLoad[T:Staged:Num](srcHost: Array[T], N: Int) = {
     val tileSize = 96 (96 -> 96)
 
     val size = ArgIn[Int]
@@ -284,7 +282,7 @@ object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 19
 
   val N = 192
 
-  def simpleLoadStore[T](srcHost: Array[T], value: T)(implicit num: Num[T]) = {
+  def simpleLoadStore[T:Staged:Num](srcHost: Array[T], value: T) = {
     val loadPar  = 1 (1 -> 1)
     val storePar = 1 (1 -> 1)
     val tileSize = 96 (96 -> 96)
@@ -340,7 +338,7 @@ object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 19
 object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   import IR._
 
-  def parFifoLoad[T](src1: Array[T], src2: Array[T], in: Int)(implicit num: Num[T]) = {
+  def parFifoLoad[T:Staged:Num](src1: Array[T], src2: Array[T], in: Int) = {
 
     val tileSize = 96 (96 -> 96)
 
@@ -450,9 +448,7 @@ object SimpleReduce extends SpatialApp { // Regression (Unit) // Args: 7
 
   val N = 96.as[Int]
 
-  def simpleReduce[T](xin: T)(implicit num: Num[T]) = {
-
-
+  def simpleReduce[T:Staged:Num](xin: T) = {
     val P = param(8)
 
     val x = ArgIn[T]
@@ -490,7 +486,7 @@ object SimpleFold extends SpatialApp {
 
   val constTileSize = 96
 
-  def simple_fold[T](src: Array[T])(implicit num: Num[T]) = {
+  def simple_fold[T:Staged:Num](src: Array[T]) = {
     val outerPar = 1 (16 -> 16)
     val innerPar = 1 (16 -> 16)
     val tileSize = constTileSize (constTileSize -> constTileSize)
@@ -541,7 +537,7 @@ object Memcpy2D extends SpatialApp {
   val R = 96
   val C = 96
 
-  def memcpy_2d[T](src: Array[T], rows: Int, cols: Int)(implicit num: Num[T]): Array[T] = {
+  def memcpy_2d[T:Staged:Num](src: Array[T], rows: Int, cols: Int): Array[T] = {
     val tileDim1 = param(96)
     val tileDim2 = 96 (96 -> 96)
 
@@ -589,9 +585,7 @@ object BlockReduce1D extends SpatialApp {
   val tileSize = 96
   val p = 2
 
-  def blockreduce_1d[T](src: Array[T], size: Int)(implicit num: Num[T]) = {
-
-
+  def blockreduce_1d[T:Staged:Num](src: Array[T], size: Int) = {
     val sizeIn = ArgIn[Int]
     setArg(sizeIn, size)
 
@@ -642,9 +636,7 @@ object UnalignedLd extends SpatialApp {
   val numCols = 8
   val paddedCols = 1920
 
-  def unaligned_1d[T](src: Array[T], ii: Int)(implicit num: Num[T]) = {
-
-
+  def unaligned_1d[T:Staged:Num](src: Array[T], ii: Int) = {
     val iters = ArgIn[Int]
     val srcFPGA = DRAM[T](paddedCols)
     val acc = ArgOut[T]
@@ -691,9 +683,7 @@ object BlockReduce2D extends SpatialApp {
   val N = 1920
   val tileSize = 96
 
-  def blockreduce_2d[T](src: Array[T], rows: Int, cols: Int)(implicit num: Num[T]) = {
-
-
+  def blockreduce_2d[T:Staged:Num](src: Array[T], rows: Int, cols: Int) = {
     val rowsIn = ArgIn[Int]; setArg(rowsIn, rows)
     val colsIn = ArgIn[Int]; setArg(colsIn, cols)
 
@@ -770,7 +760,7 @@ object ScatterGather extends SpatialApp {
   val offchip_dataSize = maxNumAddrs*6
   val P = param(1)
 
-  def scattergather[T](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int)(implicit num: Num[T]) = {
+  def scattergather[T:Staged:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
 
     val srcAddrs = DRAM[Int](maxNumAddrs)
     val gatherData = DRAM[T](offchip_dataSize)
@@ -845,9 +835,7 @@ object MultiplexedWriteTest extends SpatialApp {
   val I = 5
   val N = 192
 
-  def multiplexedwrtest[W](w: Array[W], i: Array[W])(implicit num: Num[W]): Array[W] = {
-
-
+  def multiplexedwrtest[W:Staged:Num](w: Array[W], i: Array[W]): Array[W] = {
     val T = param(tileSize)
     val P = param(4)
     val weights = DRAM[W](N)
@@ -965,9 +953,7 @@ object SequentialWrites extends SpatialApp {
   val tileSize = 96
   val N = 5
 
-  def sequentialwrites[A](srcData: Array[A], x: A)(implicit num: Num[A]) = {
-
-
+  def sequentialwrites[A:Staged:Num](srcData: Array[A], x: A) = {
     val T = param(tileSize)
     val P = param(4)
     val src = DRAM[A](T)
@@ -1016,9 +1002,7 @@ object ChangingCtrMax extends SpatialApp {
   val tileSize = 96
   val N = 5
 
-  def changingctrmax[T]()(implicit num: Num[T]): Array[T] = {
-
-
+  def changingctrmax[T:Staged:Num](): Array[T] = {
     val result = DRAM[T](96)
     Accel {
       val rMem = SRAM[T](96)

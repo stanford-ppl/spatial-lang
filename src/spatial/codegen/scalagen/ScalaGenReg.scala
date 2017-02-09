@@ -8,7 +8,7 @@ trait ScalaGenReg extends ScalaCodegen {
   import IR._
 
   override protected def remap(tp: Staged[_]): String = tp match {
-    case tp: RegType[_] => src"Array[${tp.typeArguments.head}]"
+    case tp: RegType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }
 

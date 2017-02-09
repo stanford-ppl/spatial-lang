@@ -1,92 +1,82 @@
 package spatial.api
 
-import spatial.{SpatialApi, SpatialExp, SpatialOps}
+import argon.core.Staging
+import spatial.SpatialExp
 
-trait RegOps extends MemoryOps {
-  this: SpatialOps =>
-
-  type Reg[T] <: RegOps[T]
-
-  protected trait RegOps[T] {
-    def value(implicit ctx: SrcCtx): T
-    def :=(data: T)(implicit ctx: SrcCtx): Void
-  }
-
-  def ArgIn[T:Bits](implicit ctx: SrcCtx): Reg[T]
-  def ArgOut[T:Bits](implicit ctx: SrcCtx): Reg[T]
-
-  def Reg[T:Bits](implicit ctx: SrcCtx): Reg[T]
-  def Reg[T:Bits](init: T)(implicit ctx: SrcCtx): Reg[T]
-
-  implicit def regType[T:Bits]: Staged[Reg[T]]
-  implicit def readReg[T](reg: Reg[T])(implicit ctx: SrcCtx): T = reg.value
-}
-trait RegApi extends RegOps with MemoryApi { this: SpatialApi => }
-
-
-trait RegExp extends RegOps with MemoryExp {
+trait RegApi extends RegExp {
   this: SpatialExp =>
 
-  /** API **/
-  case class Reg[T:Bits](s: Exp[Reg[T]]) extends RegOps[T] { self =>
+  def ArgIn[T:Staged:Bits](implicit ctx: SrcCtx): Reg[T] = Reg(argin_alloc[T](zero[T].s))
+  def ArgOut[T:Staged:Bits](implicit ctx: SrcCtx): Reg[T] = Reg(argout_alloc[T](zero[T].s))
+
+  def Reg[T:Staged:Bits](implicit ctx: SrcCtx): Reg[T] = Reg(reg_alloc[T](zero[T].s))
+  def Reg[T:Staged:Bits](init: T)(implicit ctx: SrcCtx): Reg[T] = Reg(reg_alloc[T](init.s))
+
+  implicit def readReg[T](reg: Reg[T])(implicit ctx: SrcCtx): T = reg.value
+}
+
+
+trait RegExp extends Staging with MemoryExp {
+  this: SpatialExp =>
+
+  /** Infix methods **/
+  case class Reg[T:Staged:Bits](s: Exp[Reg[T]]) {
     def value(implicit ctx: SrcCtx): T = wrap(reg_read(this.s))
     def :=(data: T)(implicit ctx: SrcCtx): Void = Void(reg_write(this.s, data.s, bool(true)))
   }
 
-  def ArgIn[T:Bits](implicit ctx: SrcCtx): Reg[T] = Reg(argin_alloc[T](zero[T].s))
-  def ArgOut[T:Bits](implicit ctx: SrcCtx): Reg[T] = Reg(argout_alloc[T](zero[T].s))
-
-  def Reg[T:Bits](implicit ctx: SrcCtx): Reg[T] = Reg(reg_alloc[T](zero[T].s))
-  def Reg[T:Bits](init: T)(implicit ctx: SrcCtx): Reg[T] = Reg(reg_alloc[T](init.s))
-
-
   /** Staged Type **/
-  case class RegType[T](bits: Bits[T]) extends Staged[Reg[T]] {
+  case class RegType[T:Bits](child: Staged[T]) extends Staged[Reg[T]] {
     override def unwrapped(x: Reg[T]) = x.s
-    override def wrapped(x: Exp[Reg[T]]) = Reg(x)(bits)
-    override def typeArguments = List(bits)
+    override def wrapped(x: Exp[Reg[T]]) = Reg(x)(child,bits[T])
+    override def typeArguments = List(child)
     override def stagedClass = classOf[Reg[T]]
     override def isPrimitive = false
   }
-  implicit def regType[T:Bits]: Staged[Reg[T]] = RegType[T](bits[T])
+  implicit def regType[T:Staged:Bits]: Staged[Reg[T]] = RegType(typ[T])
 
   /** IR Nodes **/
-  case class ArgInNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] {
+  case class ArgInNew[T:Staged:Bits](init: Exp[T]) extends Op[Reg[T]] {
     def mirror(f:Tx) = argin_alloc[T](f(init))
+    val mT = typ[T]
     val bT = bits[T]
   }
-  case class ArgOutNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] {
+  case class ArgOutNew[T:Staged:Bits](init: Exp[T]) extends Op[Reg[T]] {
     def mirror(f:Tx) = argout_alloc[T](f(init))
+    val mT = typ[T]
     val bT = bits[T]
   }
-  case class RegNew[T:Bits](init: Exp[T]) extends Op[Reg[T]] {
+  case class RegNew[T:Staged:Bits](init: Exp[T]) extends Op[Reg[T]] {
     def mirror(f:Tx) = reg_alloc[T](f(init))
+    val mT = typ[T]
     val bT = bits[T]
   }
-  case class RegRead[T:Bits](reg: Exp[Reg[T]]) extends Op[T] {
+  case class RegRead[T:Staged:Bits](reg: Exp[Reg[T]]) extends Op[T] {
     def mirror(f:Tx) = reg_read(f(reg))
+    val mT = typ[T]
     val bT = bits[T]
   }
-  case class RegWrite[T:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
+  case class RegWrite[T:Staged:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
     def mirror(f:Tx) = reg_write(f(reg),f(data), f(en))
+    val mT = typ[T]
     val bT = bits[T]
   }
 
-  /** Smart Constructors **/
-  def argin_alloc[T:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
+  /** Constructors **/
+  def argin_alloc[T:Staged:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
     stageMutable( ArgInNew[T](init) )(ctx)
   }
-  def argout_alloc[T:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
+  def argout_alloc[T:Staged:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
     stageMutable( ArgOutNew[T](init) )(ctx)
   }
 
-  def reg_alloc[T:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
+  def reg_alloc[T:Staged:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
     stageMutable( RegNew[T](init) )(ctx)
   }
 
-  def reg_read[T:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = stage( RegRead(reg) )(ctx)
+  def reg_read[T:Staged:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = stage( RegRead(reg) )(ctx)
 
-  def reg_write[T:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
+  def reg_write[T:Staged:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
     stageWrite(reg)( RegWrite(reg, data, en) )(ctx)
   }
 

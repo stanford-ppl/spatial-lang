@@ -17,7 +17,7 @@ object Kmeans extends SpatialApp {
   val MAXD = dim
 
   @virtualize
-  def kmeans[T:Num](points_in: Array[T], numPoints: Int, numCents: Int, numDims: Int, it: Int) = {
+  def kmeans[T:Staged:Num](points_in: Array[T], numPoints: Int, numCents: Int, numDims: Int, it: Int) = {
     bound(numPoints) = 960000
     bound(numCents) = MAXK
     bound(numDims) = MAXD

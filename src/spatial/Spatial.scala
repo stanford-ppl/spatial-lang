@@ -3,6 +3,7 @@ package spatial
 import argon.codegen.scalagen._
 import argon.codegen.chiselgen._
 import argon.codegen.cppgen._
+import argon.core.Staging
 import argon.ops._
 import argon.traversal.IRPrinter
 import argon.{AppCore, CompilerCore, LibCore}
@@ -14,29 +15,36 @@ import spatial.codegen.scalagen._
 import spatial.codegen.chiselgen._
 import spatial.codegen.cppgen._
 
-protected trait SpatialOps extends OverloadHack with SpatialMetadataOps with BankingMetadataOps
-     with IfThenElseOps with PrintOps with ControllerOps with MathOps with TextOps with DRAMOps with StringCastOps
-     with HostTransferOps with ParameterOps with RangeOps with StructOps with UnrolledOps with VectorOps
-     with ArrayExtOps with AssertOps with StagedUtilOps with TupleOps with HashMapOps
 
-protected trait SpatialApi extends SpatialOps with SpatialMetadataApi with BankingMetadataApi
-     with IfThenElseApi with PrintApi with ControllerApi with MathApi with TextApi with DRAMApi with StringCastApi
-     with HostTransferApi with ParameterApi with RangeApi with StructApi with UnrolledApi with VectorApi
-     with ArrayExtApi with AssertApi with StagedUtilApi with TupleApi with HashMapApi
+protected trait SpatialExp extends Staging
+  with ArrayExp with ArrayExtExp with AssertExp with BoolExp with CastExp with FixPtExp with FltPtExp
+  with HashMapExp with IfThenElseExp with MixedNumericExp with PrintExp with StringCastExp with StructExp
+  with TextExp with TupleExp with VoidExp
 
-protected trait SpatialExp extends SpatialOps with SpatialMetadataExp with BankingMetadataExp
-     with NodeClasses with NodeUtils with ParameterRestrictions
-     with IfThenElseExp with PrintExp with ControllerExp with MathExp with TextExp with DRAMExp with StringCastExp
-     with HostTransferExp with ParameterExp with RangeExp with StructExp with UnrolledExp with VectorExp
-     with ArrayExtExp with AssertExp with StagedUtilExp with TupleExp with HashMapExp
+  with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
+  with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
+
+  with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
+
+
+protected trait SpatialApi extends SpatialExp
+  with ArrayApi with ArrayExtApi with AssertApi with BoolApi with CastApi with FixPtApi with FltPtApi
+  with HashMapApi with IfThenElseApi with MixedNumericApi with PrintApi with StringCastApi with StructApi
+  with TextApi with TupleApi with VoidApi
+
+  with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
+  with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
+
+  with SpatialMetadataApi with BankingMetadataApi
+
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
-  with ScalaGenBool with ScalaGenVoid with ScalaGenFixPt with ScalaGenFltPt with ScalaGenMixedNumeric
-  with ScalaGenCounter with ScalaGenReg with ScalaGenSRAM with ScalaGenFIFO 
-  with ScalaGenIfThenElse with ScalaGenPrint with ScalaGenController with ScalaGenMath with ScalaGenText
-  with ScalaGenDRAM with ScalaGenStringCast with ScalaGenHostTransfer with ScalaGenRange with ScalaGenStructs
-  with ScalaGenUnrolled with ScalaGenVector
-  with ScalaGenArray with ScalaGenArrayExt with ScalaGenAssert with ScalaGenHashMap {
+  with ScalaGenArray with ScalaGenArrayExt with ScalaGenAssert with ScalaGenBool with ScalaGenFixPt with ScalaGenFltPt
+  with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenMixedNumeric with ScalaGenPrint with ScalaGenStringCast with ScalaGenStructs
+  with ScalaGenText with ScalaGenVoid
+
+  with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
+  with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector {
 
   override val IR: SpatialCompiler
 }
@@ -66,7 +74,7 @@ protected trait TreeWriter extends TreeGenSpatial {
 }
 
 
-protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
+protected trait SpatialCompiler extends CompilerCore with SpatialExp with SpatialApi { self =>
   lazy val printer = new IRPrinter {val IR: self.type = self }
 
   // Traversals
@@ -186,7 +194,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp { self =>
   passes += treegen
 }
 
-protected trait SpatialIR extends SpatialCompiler with SpatialApi
+protected trait SpatialIR extends SpatialCompiler
 protected trait SpatialLib extends LibCore // Actual library implementation goes here
 
 trait SpatialApp extends AppCore {
