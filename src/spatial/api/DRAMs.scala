@@ -58,7 +58,7 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
   }
 
   case class DRAMSparseTile[T:Bits](dram: Exp[DRAM[T]], addrs: SRAM[Index], len: Index) extends DRAMSparseTileOps[T] {
-    def scatter(sram: SRAM[T])(implicit ctx: SrcCtx): Void = copy_sparse(this, sram, isLoad = false)
+    def scatter(sram: SRAM[T])(implicit ctx: SrcCtx): Void = { copy_sparse(this, sram, isLoad = false); () }
   }
 
 
@@ -82,7 +82,7 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
     addrs: Exp[SRAM[Index]],
     ctr:   Exp[Counter],
     i:     Bound[Index]
-  ) extends Op[Void] {
+  ) extends Op[Controller] {
     def mirror(f:Tx) = gather(f(dram),f(local),f(addrs),f(ctr),i)
 
     override def aliases = Nil
@@ -94,7 +94,7 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
     addrs: Exp[SRAM[Index]],
     ctr:   Exp[Counter],
     i:     Bound[Index]
-  ) extends Op[Void] {
+  ) extends Op[Controller] {
     def mirror(f:Tx) = scatter(f(dram),f(local),f(addrs),f(ctr),i)
 
     override def aliases = Nil
@@ -105,21 +105,21 @@ trait DRAMExp extends DRAMOps with SRAMExp with FIFOExp with RangeExp with Spati
   def dram_alloc[T:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Exp[DRAM[T]] = {
     stageMutable( DRAMNew[T](dims) )(ctx)
   }
-  def gather[T:Bits](mem: Exp[DRAM[T]],local: Exp[SRAM[T]],addrs: Exp[SRAM[Index]], ctr: Exp[Counter], i: Bound[Index])(implicit ctx: SrcCtx): Exp[Void] = {
+  def gather[T:Bits](mem: Exp[DRAM[T]],local: Exp[SRAM[T]],addrs: Exp[SRAM[Index]], ctr: Exp[Counter], i: Bound[Index])(implicit ctx: SrcCtx) = {
     stageWrite(mem)(Gather(mem, local, addrs, ctr, i))(ctx)
   }
-  def scatter[T:Bits](mem: Exp[DRAM[T]],local: Exp[SRAM[T]],addrs: Exp[SRAM[Index]], ctr: Exp[Counter], i: Bound[Index])(implicit ctx: SrcCtx): Exp[Void] = {
+  def scatter[T:Bits](mem: Exp[DRAM[T]],local: Exp[SRAM[T]],addrs: Exp[SRAM[Index]], ctr: Exp[Counter], i: Bound[Index])(implicit ctx: SrcCtx) = {
     stageWrite(mem)(Scatter(mem, local, addrs, ctr, i))(ctx)
   }
 
-  def copy_sparse[T:Bits](offchip: DRAMSparseTile[T], local: SRAM[T], isLoad: Boolean)(implicit ctx: SrcCtx): Void = {
+  def copy_sparse[T:Bits](offchip: DRAMSparseTile[T], local: SRAM[T], isLoad: Boolean)(implicit ctx: SrcCtx) = {
     if (rankOf(local) > 1) new SparseDataDimensionError(isLoad, rankOf(local))
 
     val p = local.par
     val ctr = Counter(0, wrap(stagedDimsOf(local.s)).head, 1, p).s //range2counter(0 until wrap(stagedDimsOf(local).head)).s
     val i = fresh[Index]
-    if (isLoad) Void(gather(offchip.dram, local.s, offchip.addrs.s, ctr, i))
-    else        Void(scatter(offchip.dram, local.s, offchip.addrs.s, ctr, i))
+    if (isLoad) Controller(gather(offchip.dram, local.s, offchip.addrs.s, ctr, i))
+    else        Controller(scatter(offchip.dram, local.s, offchip.addrs.s, ctr, i))
   }
 
   def dimsOf[T](x: Exp[DRAM[T]])(implicit ctx: SrcCtx): Seq[Exp[Index]] = x match {

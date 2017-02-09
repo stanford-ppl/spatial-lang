@@ -7,7 +7,7 @@ object BlackScholes extends SpatialApp {
   val margin = 0.5f // Validates true if within +/- margin
   val innerPar = 16
   val outerPar = 1
-  val tileSize = 2000
+  val tileSize = 1920
 
   final val inv_sqrt_2xPI = 0.39894228040143270286f
 
@@ -76,8 +76,8 @@ object BlackScholes extends SpatialApp {
 
     val size = stypes.length; bound(size) = 9995328
 
-    lazy val N = 96000000.as[Int] //ArgIn[SInt]
-    //setArg(N, size)
+    lazy val N = ArgIn[Int]
+    setArg(N, size)
 
     val types    = DRAM[Int](N)
     val prices   = DRAM[Float](N)
