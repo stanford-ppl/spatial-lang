@@ -10,6 +10,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
   val IR: SRAMExp with SpatialExp
   import IR._
 
+  private var nbufs: List[(Sym[SRAMNew[_]], Int)]  = List()
+
   override protected def remap(tp: Staged[_]): String = tp match {
     case tp: SRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
@@ -58,6 +60,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
                 emit(src"""${dims.map(_.banks).reduce{_*_}}, ${dims.map(_.banks).reduce{_*_}}, "BankedMemory" // TODO: Be more precise with parallelizations """)
                 close("))")
               } else {
+                nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAMNew[_]]], i)
                 open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, 32,""")
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
                 emit(src"""$numWriters, $numReaders, """)
@@ -104,4 +107,37 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
     case _ => super.emitNode(lhs, rhs)
   }
+
+
+  override protected def emitFileFooter() {
+    withStream(getStream("BufferControlCxns")) {
+      nbufs.foreach{ case (mem, i) => 
+        // TODO: Does david figure out which controllers' signals connect to which ports on the nbuf already? This is kind of complicated
+        val readers = readersOf(mem)
+        val writers = writersOf(mem)
+        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
+        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
+        val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
+        val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+        val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+        val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
+        val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
+        val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
+        val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
+        val numStagesInbetween = lastActivePort - firstActivePort
+
+        (0 to numStagesInbetween).foreach { port =>
+          val ctrlId = port + firstActivePort
+          val node = allSiblings(ctrlId)
+          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
+          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
+          val empty = if (rd == "" & wr == "") "empty" else ""
+          emit(src"""${mem}_$i.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
+        }
+      }
+    }
+    
+    super.emitFileFooter()
+  }
+    
 }
