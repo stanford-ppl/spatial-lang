@@ -439,10 +439,11 @@ create_script() {
 function report {
   rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
   if [ \${3} = 1 ]; then
+    echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
     cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" > ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
     exit 0
   else
-    echo \"[STATUS] \$2\"
+    echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2})\" >> ${log}
     touch ${SPATIAL_HOME}/regression_tests/${2}/results/\${1}.${3}_${4}
     exit 1
   fi
@@ -541,7 +542,15 @@ launch_tests() {
 
   IFS=$'\n'
   # Collect the regression tests by searching for "// Regression (<type>)" tags
-  test_list=(`grep -r --color=never "// Regression" ${SPATIAL_HOME}/apps/src | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g'`)
+  annotated_list=(`grep -r --color=never "// Regression" ${SPATIAL_HOME}/apps/src`)
+  test_list=()
+  for a in ${annotated_list[@]}; do
+    if [[ $a = *"object"*"extends SpatialApp"* ]]; then
+      test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g'`)
+    else
+      logger "Error setting up test for $a !!!"
+    fi
+  done
 
   # Assemble regression types
   for t in ${test_list[@]}; do
