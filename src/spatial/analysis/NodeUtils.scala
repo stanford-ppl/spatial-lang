@@ -202,11 +202,11 @@ trait NodeUtils extends NodeClasses {
 
   def areConcurrent(a: Access, b: Access): Boolean = {
     val (top,dist) = lcaWithDistance(a.ctrl, b.ctrl)
-    isInnerControl(top) || dist < 0
+    isInnerControl(top) || isParallel(top.node)
   }
   def arePipelined(a: Access, b: Access): Boolean = {
     val top = lca(a.ctrl, b.ctrl).get
-    isMetaPipe(top) || isStreamPipe(top)
+    isInnerPipe(top) || isMetaPipe(top) || isStreamPipe(top)
   }
 
   // O(N^2), but number of accesses is typically small

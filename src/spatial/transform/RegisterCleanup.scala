@@ -35,7 +35,7 @@ trait RegisterCleanup extends ForwardTransformer {
       else {
         // For all uses within a single control node, create a single copy of this node
         // Then associate all uses within that control with that copy
-        val reads = usersOf(lhs).groupBy(_.ctrl).mapValues(_.map(_.node)).map{case (parent, uses) =>
+        val reads = usersOf(lhs).groupBy(_.ctrl).mapValues(_.map(_.node)).filterKeys(_ != null).map{case (parent, uses) =>
           val read = withCtrl(parent){ mirrorWithDuplication(lhs, rhs) }
 
           dbg(c"ctrl: $parent")

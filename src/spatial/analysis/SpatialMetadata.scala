@@ -162,7 +162,7 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
 
     def apply(x: Ctrl): List[Ctrl] = {
       val children = childrenOf(x.node).map{child => (child, false) }
-      if (!x.isInner) ((x.node,true)) +: children
+      if (!x.isInner) children :+ ((x.node,true))
       else children
     }
   }

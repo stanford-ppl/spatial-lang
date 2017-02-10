@@ -55,6 +55,7 @@ trait RegExp extends Staging with MemoryExp {
     def mirror(f:Tx) = reg_read(f(reg))
     val mT = typ[T]
     val bT = bits[T]
+    override def aliases = Nil
   }
   case class RegWrite[T:Staged:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
     def mirror(f:Tx) = reg_write(f(reg),f(data), f(en))
@@ -74,7 +75,7 @@ trait RegExp extends Staging with MemoryExp {
     stageMutable( RegNew[T](init) )(ctx)
   }
 
-  def reg_read[T:Staged:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = stage( RegRead(reg) )(ctx)
+  def reg_read[T:Staged:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = stageCold( RegRead(reg) )(ctx)
 
   def reg_write[T:Staged:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
     stageWrite(reg)( RegWrite(reg, data, en) )(ctx)
