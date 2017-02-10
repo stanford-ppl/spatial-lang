@@ -119,7 +119,7 @@ trait PIRCommon extends PIR {
   }
 
   def isInterCU(x: GlobalBus): Boolean = x match {
-    case _:DRAMBus | _:InputArg | _:OutputArg => false
+    case _:PIRDRAMBus | _:InputArg | _:OutputArg => false
     case LocalVectorBus => false
     case _ => true
   }

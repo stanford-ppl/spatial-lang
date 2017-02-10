@@ -68,20 +68,20 @@ trait PIR {
     override def toString = s"aout$name"
   }
 
-  trait DRAMBus
-  case class DRAMOffset(mc: MemoryController) extends ScalarBus(mc.name + "_ofs") with DRAMBus {
+  trait PIRDRAMBus
+  case class PIRDRAMOffset(mc: MemoryController) extends ScalarBus(mc.name + "_ofs") with PIRDRAMBus {
     override def toString = s"s$name"
   }
-  case class DRAMLength(mc: MemoryController) extends ScalarBus(mc.name + "_len") with DRAMBus {
+  case class PIRDRAMLength(mc: MemoryController) extends ScalarBus(mc.name + "_len") with PIRDRAMBus {
     override def toString = s"s$name"
   }
-  case class DRAMAddress(mc: MemoryController) extends VectorBus(mc.name + "_addr") with DRAMBus {
+  case class PIRDRAMAddress(mc: MemoryController) extends VectorBus(mc.name + "_addr") with PIRDRAMBus {
     override def toString = s"v$name"
   }
-  case class DRAMDataOut(mc: MemoryController) extends VectorBus(mc.name + "_dataOut") with DRAMBus {
+  case class PIRDRAMDataOut(mc: MemoryController) extends VectorBus(mc.name + "_dataOut") with PIRDRAMBus {
     override def toString = s"v$name"
   }
-  case class DRAMDataIn(mc: MemoryController) extends VectorBus(mc.name + "_dataIn") with DRAMBus {
+  case class PIRDRAMDataIn(mc: MemoryController) extends VectorBus(mc.name + "_dataIn") with PIRDRAMBus {
     override def toString = s"v$name"
   }
 

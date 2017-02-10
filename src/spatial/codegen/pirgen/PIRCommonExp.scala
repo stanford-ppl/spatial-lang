@@ -2,6 +2,7 @@ package spatial.compiler.ops
 import spatial.compiler._
 import spatial.SpatialExp
 import spatial.analysis.SpatialMetadataExp
+import org.virtualized.SourceContext
 
 import scala.collection.mutable
 
@@ -48,7 +49,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =
     isArgOut(mem) || readersOf(mem).exists{read => reader.forall(_ == read.node) && read.ctrlNode != pipe }
   }
 
-  def isBuffer(mem: Symbol): Boolean = isSRAM(mem.tp)
+  def isBuffer(mem: Symbol): Boolean = isSRAM(mem)
 
   //def flattenNDAddress(addr: Exp[Any], dims: List[Exp[Index]]) = addr match {
     //case Deff(ListVector(List(Deff(ListVector(indices))))) if indices.nonEmpty => flattenNDIndices(indices, dims)
@@ -58,8 +59,8 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =
   private def flattenNDIndices(indices: List[Exp[Any]], dims: List[Exp[Index]]) = {
     val cdims = dims.map{case Bound(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
     val strides = List.tabulate(dims.length){d =>
-      if (d == dims.length - 1) 1.as[Index]
-      else cdims.drop(d+1).reduce(_*_).as[Index]
+      if (d == dims.length - 1) int32(1)
+      else int32(cdims.drop(d+1).reduce(_*_))
     }
     var partialAddr: Exp[Any] = indices.last
     var addrCompute: List[OpStage] = Nil
@@ -108,11 +109,12 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =
     case Or(_,_)                         => Some(PIRBitOr)
     case _                               => None
   }
-  def typeToStyle(tpe: ControlStyle) = tpe match {
+  def typeToStyle(tpe: ControlStyle):CUStyle = tpe match {
     case InnerPipe      => PipeCU
     case MetaPipe       => MetaPipeCU
     case SeqPipe        => SequentialCU
     case StreamPipe     => StreamCU
+    case ForkJoin       => throw new Exception(s"Do not support ForkJoin in PIR")
   }
 
   // HACK
