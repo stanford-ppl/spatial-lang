@@ -64,6 +64,12 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isUnitPipe(e: Exp[_]): Boolean = getDef(e).exists(isUnitPipe)
+  def isUnitPipe(d: Def): Boolean = d match {
+    case _:UnitPipe            => true
+    case _ => false
+  }
+
   def isLoop(e: Exp[_]): Boolean = getDef(e).exists(isLoop)
   def isLoop(d: Def): Boolean = d match {
     case _:OpForeach           => true
@@ -108,7 +114,10 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
-
+  def isSRAM(e: Exp[_]): Boolean = e.tp match {
+    case _:SRAMType[_] => true
+    case _ => false
+  }
 
   def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] => true
