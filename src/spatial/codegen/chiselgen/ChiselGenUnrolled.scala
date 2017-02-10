@@ -27,20 +27,6 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     }
   }
 
-  def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]]) = {
-    styleOf(controller) match {
-      case MetaPipe =>
-        val stages = childrenOf(controller)
-        inds.foreach { idx =>
-          emit(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
-          stages.zipWithIndex.foreach{ case (s, i) =>
-            emit(src"""${idx}_chain.io.sEn($i) := ${s}_en; ${idx}_chain.io.sDone($i) := ${s}_done""")
-          }
-          emit(src"""${idx}_chain.write(${idx}, ${stages(0)}_done, false.B, 0) // TODO: Maybe wren should be tied to en and not done?""")
-        }
-      case _ =>
-    }
-  }
 
   def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]]) {
     valids.zip(iters).zipWithIndex.map { case ((layer,count), i) =>
@@ -81,16 +67,17 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case UnrolledForeach(cchain,func,iters,valids) =>
-      emitController(lhs, Some(cchain))
+      currentController = Some(lhs)
+      emitController(lhs, Some(cchain), Some(iters.flatten))
       emitValids(cchain, iters, valids)
       withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
         emitParallelizedLoop(iters, cchain)
-        emitRegChains(lhs, iters.flatten)
         emitBlock(func)
       }
 
     case UnrolledReduce(cchain,accum,func,_,iters,valids,rV) =>
-      emitController(lhs, Some(cchain))
+      currentController = Some(lhs)
+      emitController(lhs, Some(cchain), Some(iters.flatten))
       emitValids(cchain, iters, valids)
       // Set up accumulator signals
       emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
@@ -108,7 +95,6 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(src"val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
         emitParallelizedLoop(iters, cchain)
-        emitRegChains(lhs, iters.flatten)
         emitBlock(func)
       }
 
