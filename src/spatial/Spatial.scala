@@ -2,6 +2,7 @@ package spatial
 
 import argon.codegen.scalagen._
 import argon.codegen.chiselgen._
+import argon.codegen.pirgen._
 import argon.codegen.cppgen._
 import argon.core.Staging
 import argon.ops._
@@ -13,6 +14,7 @@ import spatial.analysis._
 import spatial.transform._
 import spatial.codegen.scalagen._
 import spatial.codegen.chiselgen._
+import spatial.codegen.pirgen._
 import spatial.codegen.cppgen._
 
 
@@ -55,6 +57,16 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenIfThenElse with ChiselGenPrint with ChiselGenController with ChiselGenMath with ChiselGenText
   with ChiselGenDRAM with ChiselGenStringCast with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
   with ChiselGenArray {
+
+  override val IR: SpatialCompiler
+}
+
+protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen 
+  with PIRGenPrint with PIRGenController 
+  //with PIRGenCounter with PIRGenReg with PIRGenSRAM with PIRGenFIFO with PIRGenMath 
+  //with PIRGenDRAM with PIRGenStringCast with PIRGenHostTransfer with PIRGenUnrolled with PIRGenVector
+  //with PIRGenArray 
+  {
 
   override val IR: SpatialCompiler
 }
@@ -118,6 +130,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
 
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
   lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableChisel }
+  lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
   lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableCpp }
   lazy val treegen = new TreeGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableTree }
 
@@ -190,6 +203,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // --- Code generation
   passes += scalagen
   passes += chiselgen
+  passes += pirgen 
   passes += cppgen
   passes += treegen
 }

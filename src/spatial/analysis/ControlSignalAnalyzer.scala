@@ -23,7 +23,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   // --- State
   var level = 0
   var controller: Option[Ctrl] = None
-  var pendingReads: Map[Exp[_], List[Exp[_]]] = Map.empty
+  var pendingNodes: Map[Exp[_], List[Exp[_]]] = Map.empty
   var pendingExtReads: Set[Exp[_]] = Set.empty
   var unrollFactors: List[Const[Index]] = Nil
 
@@ -38,13 +38,14 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     level = 0
     controller = None
     pendingExtReads = Set.empty
-    pendingReads = Map.empty
+    pendingNodes = Map.empty
     unrollFactors = Nil
     metadata.clearAll[Writers]
     metadata.clearAll[Readers]
     metadata.clearAll[Children]
     metadata.clearAll[WrittenMems]
     metadata.clearAll[ReadUsers]
+    metadata.clearAll[MShouldDuplicate]
     super.preprocess(block)
   }
 
@@ -60,7 +61,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
         reads.foreach { case (mem, addr, en) =>
           if (!readersOf(mem).exists(_.node == reader)) {
             dbg(c"Adding external reader $reader to list of readers for $mem")
-            readersOf(mem) = readersOf(mem) :+ (reader, (top.get, false))
+            readersOf(mem) = (reader, (top.get, false)) +: readersOf(mem)
           }
         }
       }
@@ -73,13 +74,13 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   def visitCtrl(ctrl: Ctrl)(blk: => Unit): Unit = {
     level += 1
     val prevCtrl = controller
-    val prevReads = pendingReads
+    val prevReads = pendingNodes
 
     controller = Some(ctrl)
     blk
 
     controller = prevCtrl
-    pendingReads = prevReads
+    pendingNodes = prevReads
     level -= 1
   }
 
@@ -100,13 +101,18 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   def appendReader(reader: Exp[_], ctrl: Ctrl) = {
     val LocalReader(reads) = reader
     reads.foreach{case (mem, addr, en) =>
-      readersOf(mem) = readersOf(mem) :+ (reader, ctrl)
+      val access = (reader, ctrl)
+
+      if (!readersOf(mem).contains(access))
+        readersOf(mem) = access +: readersOf(mem)
+
       dbg(c"Added reader $reader of $mem in $ctrl")
     }
   }
-  def addPendingReader(reader: Exp[_]) = {
-    dbg(c"Adding pending read $reader")
-    pendingReads += reader -> List(reader)
+  def addPendingNode(node: Exp[_]) = {
+    dbg(c"Adding pending node $node")
+    shouldDuplicate(node) = true
+    if (!pendingNodes.contains(node)) pendingNodes += node -> List(node)
   }
   def addPendingExternalReader(reader: Exp[_]) = {
     dbg(c"Added pending external read: $reader")
@@ -117,14 +123,14 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     if (isInnerControl(ctrl))
       appendReader(reader, ctrl)
     else
-      addPendingReader(reader)
+      addPendingNode(reader)
   }
 
   def appendWriter(writer: Exp[_], ctrl: Ctrl) = {
     val LocalWriter(writes) = writer
     writes.foreach{case (mem,value,addr,en) =>
-      writersOf(mem) = writersOf(mem) :+ (writer,ctrl)      // (5)
-      writtenIn(ctrl) = writtenIn(ctrl) :+ mem              // (10)
+      writersOf(mem) = (writer,ctrl) +: writersOf(mem)      // (5)
+      writtenIn(ctrl) = mem +: writtenIn(ctrl)              // (10)
       value.foreach{v => isAccum(mem) = isAccum(mem) || (v dependsOn mem)  }              // (6)
       addr.foreach{is => isAccum(mem) = isAccum(mem) || is.exists(i => i dependsOn mem) } // (6)
       en.foreach{e => isAccum(mem) = isAccum(mem) || (e dependsOn mem) }                  // (6)
@@ -156,9 +162,26 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   def addChild(child: Exp[_], ctrl: Exp[_]) = {
     dbg(c"Setting parent of $child to $ctrl")
     parentOf(child) = ctrl
-    childrenOf(ctrl) = childrenOf(ctrl) :+ child
+    childrenOf(ctrl) = child +: childrenOf(ctrl)
   }
 
+
+  def addPendingUse(user: Exp[_], ctrl: Ctrl, pending: Seq[Exp[_]]): Unit = {
+    dbg(c"Found user ${str(user)} of:")
+    pending.foreach{s => dbg(c"  ${str(s)}")}
+
+    pending.foreach{node =>
+      usersOf(node) = (user,ctrl) +: usersOf(node)
+      if (isRegisterRead(node)) appendReader(node, ctrl)
+
+      // Also add stateless nodes that this node uses
+      // Can't do this on the fly when the node was first reached, since the associated control was unknown
+      pendingNodes.getOrElse(node, Nil).filter(_ != node).foreach{used =>
+        usersOf(used) = (node,ctrl) +: usersOf(used)
+      }
+    }
+
+  }
 
   /** Common method for all nodes **/
   def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
@@ -169,24 +192,26 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       val ctrl: Ctrl   = controller.get
       val parent: Ctrl = if (isControlNode(lhs)) (lhs, false) else ctrl
 
-      val readers = rhs.inputs.flatMap{sym => pendingReads.getOrElse(sym, Nil) }
-      if (readers.nonEmpty) {
-        readers.foreach{reader =>
-          if (rhs.inputs contains reader) usersOf(reader) = usersOf(reader) :+ lhs
-        }
-
-        if (isAllocation(lhs)) {
-          dbg(c"Found propagating reader $lhs of $readers")
-          pendingReads += lhs -> readers
+      val pending = rhs.inputs.flatMap{sym => pendingNodes.getOrElse(sym, Nil) }
+      if (pending.nonEmpty) {
+        // All nodes which could potentially use a reader outside of an inner control node
+        if (isStateless(lhs) && !isInnerControl(parent)) {
+          dbg(c"Found propagating reader ${str(lhs)} of:")
+          pending.foreach{s => dbg(c"  ${str(s)}")}
+          pendingNodes += lhs -> (lhs +: pending)
         }
         else {
-          readers.foreach{reader => appendReader(reader, parent) }
+          addPendingUse(lhs, parent, pending)
         }
       }
+
+
+      if (isStateless(lhs) && isOuterControl(parent)) addPendingNode(lhs)
 
       if (isAllocation(lhs)) addAllocation(lhs, parent.node)  // (1, 7)
       if (isReader(lhs)) addReader(lhs, parent)               // (4)
       if (isWriter(lhs)) addWriter(lhs, parent)               // (5, 6, 10)
+
     }
     else {
       if (isReader(lhs)) addPendingExternalReader(lhs)
@@ -197,7 +222,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       if (controller.isDefined) addChild(lhs, controller.get.node) // (2, 3)
       else {
         top = Some(lhs) // (11)
-        pendingExtReads.foreach{reader => addPendingReader(reader) }
+        pendingExtReads.foreach{reader => addPendingNode(reader) }
       }
       if (isMetaPipe(lhs)) metapipes ::= lhs // (8)
     }
@@ -250,11 +275,8 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
         visitBlock(map)
 
         // Handle the one case where we allow scalar communication between blocks
-        dbg(c"$lhs = $rhs [${isOuterControl(lhs)}]")
-        dbg(c"  result = ${map.result} [${pendingReads.contains(map.result)}]")
-        if (isOuterControl(lhs) && pendingReads.contains(map.result)) {
-          val readers = pendingReads(map.result)
-          readers.foreach{reader => appendReader(reader, (lhs,true)) }
+        if (isStateless(map.result)) {
+          addPendingUse(lhs, (lhs,false), Seq(map.result))  // NOT the inner (lhs,true)
         }
 
         visitCtrl((lhs,true)) {

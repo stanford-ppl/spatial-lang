@@ -105,11 +105,13 @@ trait BurstTransferApi extends BurstTransferExp with ControllerApi with FIFOApi 
         val offset = mux(endBound.value % elementsPerBurst != 0, elementsPerBurst, 0.as[Index]) // Number of elements aligned to nearest burst length
         lenUpcast := (endBound.value - (endBound.value %  elementsPerBurst)) + offset
       }
-      val innerCtr = range2counter(lenUpcast.value by p)
+      // Deliberately make 2 copies of the same counter
+      val innerCtr1 = range2counter(lenUpcast.value by p)
+      val innerCtr2 = range2counter(lenUpcast.value by p)
 
-      burst_load(offchip, fifo.s, memAddrDowncast.value.s, innerCtr.s, fresh[Index])
+      burst_load(offchip, fifo.s, memAddrDowncast.value.s, innerCtr1.s, fresh[Index])
 
-      Foreach(innerCtr){i =>
+      Foreach(innerCtr2){i =>
         val en = i >= startBound.value && i < endBound.value
         mem.store(onchip, onchipAddr(i - startBound.value), fifo.deq(), en)
       }
