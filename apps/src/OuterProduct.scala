@@ -8,6 +8,9 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 384 384
   val tileSize1 = 192
   val tileSize2 = 192
   val op = 1
+  //val tileSize1 = 96
+  //val tileSize2 = 96
+  //val op = 8
   val ip = 1
 
   @virtualize
@@ -37,6 +40,7 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 384 384
         val b1 = SRAM[T](tileSizeA)
         val b2 = SRAM[T](tileSizeB)
         val outTile = SRAM[T](tileSizeA, tileSizeB)
+<<<<<<< HEAD
         Foreach(tileSizeA by 1, tileSizeB par innerPar){ (ii,jj) => outTile(ii, jj) = b1(ii) * b2(jj) }
 
         out(i::i+tileSizeA, j::j+tileSizeB) store outTile
@@ -51,6 +55,19 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 384 384
         // Foreach(blkA by 1, blkB par innerPar){ (ii,jj) => outTile(ii, jj) = b1(ii) * b2(jj) } // 2
 
         // out(i::i+blkA, j::j+blkB) store outTile
+=======
+        //val blkA = Reg[Int]
+        //val blkB = Reg[Int]
+        Parallel {
+          b1 load vec1(i::i+tileSizeA)
+          b2 load vec2(j::j+tileSizeB)
+          //Pipe{ blkA := min(sizeA - i, tileSizeA) }
+          //Pipe{ blkB := min(sizeB - j, tileSizeB) }
+        }
+        Foreach(tileSizeA by 1, tileSizeB par innerPar){ (ii,jj) => outTile(ii, jj) = b1(ii) * b2(jj) } // 2
+
+        out(i::i+tileSizeA, j::j+tileSizeB) store outTile
+>>>>>>> origin/master
       }
     }
     getMem(out)

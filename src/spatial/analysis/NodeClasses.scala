@@ -124,11 +124,21 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+
   /** Stateless Nodes **/
   def isRegisterRead(e: Exp[_]): Boolean = getDef(e).exists(isRegisterRead)
   def isRegisterRead(d: Def): Boolean = d match {
     case _:RegRead[_] => true
     case _ => false
+  }
+
+  // Nodes which operate on primitives but are allowed to appear outside inner controllers
+  // Register reads are considered to be "stateless" because the read is itself akin to creating a wire
+  // attached to the output of a register, not to the register itself
+  def isStateless(e: Exp[_]): Boolean = getDef(e).exists(isStateless)
+  def isStateless(d: Def): Boolean = d match {
+    case _:RegRead[_] => true
+    case _ => isDynamicAllocation(d)
   }
 
   /** Primitive Nodes **/
