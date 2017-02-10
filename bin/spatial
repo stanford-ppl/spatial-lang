@@ -33,7 +33,7 @@ def main():
   parser.add_argument('--tree', dest='tree', action='store_true', default=True, help='enables logging of controller tree for visualizing app structure')
   parser.add_argument("--dot", dest="dot", action="store_true", default=False, help="enables dot generation")
   parser.add_argument("--outdir", dest="outdir", default="", help="location of output dir, relative to ${SPATIAL_HOME}.  Default is gen/<appname>")
-  parser.add_argument("--multifile", dest="multifile", default=0, help="Aggressiveness for splitting generated HW code in many files. 0 = no splitting or scoping, 1 = no splitting but yes scoping, 2 = splitting for inner pipes only, 3 = all blocks")
+  parser.add_argument("--multifile", dest="multifile", default=0, help="Aggressiveness for splitting generated HW code in many files. 0 = no splitting or scoping, 1 = no splitting but yes scoping on inner pipes, 2 = no splitting but yes scoping everywhere, 3 = splitting for inner pipes only, 4 = all blocks")
   parser.add_argument("--emission", dest="emission", default=0, help="Conservativeness when emitting nodes.  0 = crash when emitNode is undefined (release mode), 1 = warn when undefined, 2 = warn when undefined and report when node matched but outside backend rules")
 
   # # Plasticine work
@@ -98,9 +98,6 @@ def main():
   elif opts.verbose == True:
     java_opts = java_opts + " -Dargon.verbosity=2"
 
-  if opts.multifile == True:
-    java_opts = java_opts + " -Dargon.multifile=true"
-    java_opts = java_opts + " -Dspatial.multifile=true"
   if opts.naming == True:
     java_opts = java_opts + " -Dspatial.naming=true"
   if opts.tree == True:
@@ -128,6 +125,8 @@ def main():
   java_opts = java_opts + " -Dargon.name=" + opts.app
   java_opts = java_opts + " -Dargon.emission=" + "%s" % opts.emission
   java_opts = java_opts + " -Dspatial.fpga=" + opts.fpga
+  java_opts = java_opts + " -Dargon.multifile=" + "%s" % opts.multifile
+  java_opts = java_opts + " -Dspatial.multifile=" + "%s" % opts.multifile
 
   # if opts.pir_debug == True:
   #   java_opts = java_opts + " -Dspatial.pirdebug=true"

@@ -277,7 +277,7 @@ object DeviceMemcpy extends SpatialApp {
   }
 }
 
-object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 192
+object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 100
   import IR._
 
   val N = 192
@@ -291,13 +291,11 @@ object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 19
     val dstFPGA = DRAM[T](N)
     setMem(srcFPGA, srcHost)
 
-    val size = ArgIn[Int]
     val x = ArgIn[T]
     setArg(x, value)
-    setArg(size, N)
     Accel {
       val b1 = SRAM[T](tileSize)
-      Sequential.Foreach(size by tileSize) { i =>
+      Sequential.Foreach(N by tileSize) { i =>
 
 
         b1 load srcFPGA(i::i+tileSize)
@@ -518,7 +516,7 @@ object SimpleFold extends SpatialApp { // Regression (Unit) // Args: 1920
   def main() {
     val len = args(0).to[Int]
 
-    val src = Array.tabulate(len){i => i}
+    val src = Array.tabulate(len){i => i % 256}
     val result = simple_fold(src)
 
     val gold = src.reduce{_+_}
@@ -530,8 +528,7 @@ object SimpleFold extends SpatialApp { // Regression (Unit) // Args: 1920
   }
 }
 
-// Args: None
-object Memcpy2D extends SpatialApp {
+object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
   val R = 96
@@ -564,7 +561,7 @@ object Memcpy2D extends SpatialApp {
   def main() = {
     val rows = R
     val cols = C
-    val src = Array.tabulate(rows*cols) { i => i }
+    val src = Array.tabulate(rows*cols) { i => i % 256 }
 
     val dst = memcpy_2d(src, rows, cols)
 
@@ -578,8 +575,7 @@ object Memcpy2D extends SpatialApp {
 }
 
 
-// Args: 1920
-object BlockReduce1D extends SpatialApp {
+object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
   import IR._
 
   val tileSize = 96
@@ -609,7 +605,7 @@ object BlockReduce1D extends SpatialApp {
   @virtualize
   def main() = {
     val size = args(0).to[Int]
-    val src = Array.tabulate(size){i => i }
+    val src = Array.tabulate(size){i => i % 256}
 
     val dst = blockreduce_1d(src, size)
 
@@ -627,8 +623,7 @@ object BlockReduce1D extends SpatialApp {
   }
 }
 
-// Args: 100
-object UnalignedLd extends SpatialApp {
+object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100
   import IR._
 
   val N = 19200
@@ -661,7 +656,7 @@ object UnalignedLd extends SpatialApp {
     // val size = args(0).to[Int]
     val ii = args(0).to[Int]
     val size = paddedCols
-    val src = Array.tabulate(size) {i => i }
+    val src = Array.tabulate(size) {i => i % 256 }
 
     val dst = unaligned_1d(src, ii)
 
@@ -677,7 +672,7 @@ object UnalignedLd extends SpatialApp {
 }
 
 // Args: 192 384
-object BlockReduce2D extends SpatialApp {
+object BlockReduce2D extends SpatialApp { // Regression (Unit) // Args: 192 384
   import IR._
 
   val N = 1920
@@ -708,7 +703,7 @@ object BlockReduce2D extends SpatialApp {
   def main() = {
     val numRows = args(0).to[Int]
     val numCols = args(1).to[Int]
-    val src = Array.tabulate(numRows) { i => Array.tabulate(numCols) { j => i*numCols + j} }
+    val src = Array.tabulate(numRows) { i => Array.tabulate(numCols) { j => (i*numCols + j)%256 } } // Standard array
     val flatsrc = src.flatten
 
     val dst = blockreduce_2d(src.flatten, numRows, numCols)
@@ -721,16 +716,14 @@ object BlockReduce2D extends SpatialApp {
 
     //     flatsrc(i*tileSize*tileSize + j*tileSize) }}.flatten
     // }.reduce{(a,b) => a.zip(b){_+_}}
-
     val a1 = Array.tabulate(tileSize) { i => i }
     val a2 = Array.tabulate(tileSize) { i => i }
     val a3 = Array.tabulate(numHorizontal) { i => i }
     val a4 = Array.tabulate(numVertical) { i => i }
-    val gold = Array.tabulate(tileSize) { i => Array.tabulate(tileSize) {j =>
-      Array.tabulate(numHorizontal) { case ii => Array.tabulate(numVertical) {case jj =>
-        i*tileSize*numVertical + j + ii*tileSize*numVertical*tileSize + jj*tileSize
-      }}.flatten.reduce{_+_}
+    val gold = a1.map{i=> a2.map{j => a3.map{ k=> a4.map {l=> 
+      flatsrc(i*numCols + j + k*tileSize*tileSize + l*tileSize) }}.flatten.reduce{_+_}
     }}.flatten
+
     // val first_el = (0 until numVertical).map{ case j => (0 until numHorizontal).map {case i => src.flatten(tileSize*j + tileSize*tileSize*i)}}.flatten.reduce{_+_}
     // val first_collapse_cols = ((numVertical*tileSize)/2)*(numVertical-1)
     // val last_collapse_cols = (( numVertical*tileSize*tileSize*(numHorizontal-1) + (first_collapse_cols + numVertical*tileSize*tileSize*(numHorizontal-1)) ) / 2)*(numVertical-1)
@@ -750,7 +743,7 @@ object BlockReduce2D extends SpatialApp {
 
 
 // Args: none
-object ScatterGather extends SpatialApp {
+object ScatterGather extends SpatialApp { // Regression (Sparse) // Args: none
   import IR._
 
   val N = 1920
@@ -828,7 +821,7 @@ object ScatterGather extends SpatialApp {
 
 
 // Args: None
-object MultiplexedWriteTest extends SpatialApp {
+object MultiplexedWriteTest extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
   val tileSize = 96
@@ -865,13 +858,17 @@ object MultiplexedWriteTest extends SpatialApp {
 
   @virtualize
   def main() = {
-    val w = Array.tabulate(N){ i => i }
-    val i = Array.tabulate(N){ i => i*2 }
+    val w = Array.tabulate(N){ i => i % 256}
+    val i = Array.tabulate(N){ i => i % 256 }
 
     val result = multiplexedwrtest(w, i)
 
-    val gold = Array.tabulate(N/tileSize){ k =>
-      Array.tabulate(I){ j => Array.tabulate(tileSize) { i => i + (j+1)*i*2 + k*tileSize + (j+1)*k*tileSize*2 }}.flatten
+    val gold = Array.tabulate(N/tileSize) { k =>
+      Array.tabulate(I){ j => 
+        Array.tabulate(tileSize) { i => 
+          ( 1 + (j+1)*(j+2)/2 ) * (i + k*tileSize)
+        }
+      }.flatten
     }.flatten
     printArray(gold, "gold: ");
     printArray(result, "result: ");
@@ -886,7 +883,7 @@ object MultiplexedWriteTest extends SpatialApp {
 // TODO: Make this actually check a bubbled NBuf (i.e.- s0 = wr, s2 = wr, s4 =rd, s1s2 = n/a)
 // because I think this will break the NBuf SM since it won't detect drain completion properly
 // Args: None
-object BubbledWriteTest extends SpatialApp {
+object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
   val tileSize = 96
@@ -928,13 +925,17 @@ object BubbledWriteTest extends SpatialApp {
 
   @virtualize
   def main() = {
-    val w = Array.tabulate(N){ i => i }
-    val i = Array.tabulate(N){ i => i*2 }
+    val w = Array.tabulate(N){ i => i % 256}
+    val i = Array.tabulate(N){ i => i % 256 }
 
     val result = bubbledwrtest(w, i)
 
-    val gold = Array.tabulate(N/tileSize){ k =>
-      Array.tabulate(I){ j => Array.tabulate(tileSize) { i => i + (j+1)*i*2 + k*tileSize + (j+1)*k*tileSize*2 }}.flatten
+    val gold = Array.tabulate(N/tileSize) { k =>
+      Array.tabulate(I){ j => 
+        Array.tabulate(tileSize) { i => 
+          ( 1 + (j+1)*(j+2)/2 ) * (i + k*tileSize)
+        }
+      }.flatten
     }.flatten
     printArray(gold, "gold: ")
     printArray(result, "result: ")
@@ -947,7 +948,7 @@ object BubbledWriteTest extends SpatialApp {
 }
 
 // Args: None
-object SequentialWrites extends SpatialApp {
+object SequentialWrites extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
   val tileSize = 96
@@ -979,7 +980,7 @@ object SequentialWrites extends SpatialApp {
   @virtualize
   def main() = {
     val x = args(0).to[Int]
-    val srcData = Array.tabulate(tileSize){ i => i }
+    val srcData = Array.tabulate(tileSize){ i => i % 256 }
 
     val result = sequentialwrites(srcData, x)
 
@@ -996,7 +997,7 @@ object SequentialWrites extends SpatialApp {
 }
 
 // Args: None
-object ChangingCtrMax extends SpatialApp {
+object ChangingCtrMax extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
   val tileSize = 96
@@ -1034,7 +1035,7 @@ object ChangingCtrMax extends SpatialApp {
 
 
 // Args: 384
-object FifoPushPop extends SpatialApp {
+object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
   import IR._
 
   def fifopushpop(N: Int) = {

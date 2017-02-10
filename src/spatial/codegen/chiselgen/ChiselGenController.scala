@@ -17,6 +17,13 @@ trait ChiselGenController extends ChiselCodegen {
   /* Set of control nodes which already have their done signal emitted */
   var doneDeclaredSet = Set.empty[Exp[Any]]
 
+  /* For every iter we generate, we track the children it may be used in.
+     Given that we are quoting one of these, look up if it has a map entry,
+     and keep getting parents of the currentController until we find a match or 
+     get to the very top
+  */
+  var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
+  var currentController: Option[Exp[_]] = None
 
   private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
     for (i <- iters.indices)
@@ -27,34 +34,66 @@ trait ChiselGenController extends ChiselCodegen {
     iters.indices.foreach{_ => close("}}}") }
   }
 
+  protected def computeSuffix(s: Bound[_]): String = {
+    var result = super.quote(s)
+    if (itersMap.contains(s)) {
+      val siblings = itersMap(s)
+      var nextLevel = currentController
+      while (nextLevel.isDefined) {
+        if (siblings.contains(nextLevel.get)) {
+          result = result + s"_chain.read(${siblings.indexOf(nextLevel.get)})"
+          nextLevel = None
+        } else {
+          nextLevel = parentOf(nextLevel.get)
+        }
+      }
+    } 
+    result
+  }
 
   override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(Hwblock(_)) =>
-              s"AccelController"
-            case Def(UnitPipe(_)) =>
-              s"x${lhs.id}_UnitPipe"
-            case Def(e: OpForeach) =>
-              s"x${lhs.id}_ForEach"
-            case Def(e: OpReduce[_]) =>
-              s"x${lhs.id}_Reduce"
-            case Def(e: OpMemReduce[_,_]) =>
-              s"x${lhs.id}_MemReduce"
+    s match {
+      case b: Bound[_] => computeSuffix(b)
+      case _ =>
+        if (SpatialConfig.enableNaming) {
+          s match {
+            case lhs: Sym[_] =>
+              lhs match {
+                case Def(Hwblock(_)) =>
+                  s"AccelController"
+                case Def(UnitPipe(_)) =>
+                  s"x${lhs.id}_UnitPipe"
+                case Def(e: OpForeach) =>
+                  s"x${lhs.id}_ForEach"
+                case Def(e: OpReduce[_]) =>
+                  s"x${lhs.id}_Reduce"
+                case Def(e: OpMemReduce[_,_]) =>
+                  s"x${lhs.id}_MemReduce"
+                case _ =>
+                  super.quote(s)
+              }
             case _ =>
               super.quote(s)
           }
-        case _ =>
+        } else {
           super.quote(s)
-      }
-    } else {
-      super.quote(s)
+        }
     }
   } 
 
-  def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]]) {
+  def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]]) = {
+    val stages = childrenOf(controller)
+    inds.foreach { idx =>
+      emit(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
+      stages.zipWithIndex.foreach{ case (s, i) =>
+        emit(src"""${idx}_chain.io.sEn($i) := ${s}_en; ${idx}_chain.io.sDone($i) := ${s}_done""")
+      }
+      emit(src"""${idx}_chain.write(${idx}, ${stages(0)}_done, false.B, 0) // TODO: Maybe wren should be tied to en and not done?""")
+      itersMap += (idx -> stages.toList)
+    }
+  }
+
+  def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]]) {
 
     val smStr = styleOf(sym) match {
       case MetaPipe => s"Metapipe"
@@ -98,7 +137,13 @@ trait ChiselGenController extends ChiselCodegen {
       case _ =>
     }
 
-    emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en;""")
+    sym match {
+      case Def(n: UnrolledForeach) =>
+        emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc // TODO: Make sure this is a safe assignment""")
+      case _ =>
+          emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
+    }
+    
     if (cchain.isDefined) {
       emitGlobal(src"""val ${cchain.get}_ctr_en = Wire(Bool())""") 
       sym match { 
@@ -135,17 +180,25 @@ trait ChiselGenController extends ChiselCodegen {
       }
     }
 
+    /* Emit reg chains */
+    if (iters.isDefined) {
+      if (smStr == "Metapipe" & childrenOf(sym).length > 1) {
+        emitRegChains(sym, iters.get)
+      }
+    }
+
   //   // emit(s"""// debug.simPrintf(${quote(sym)}_en, "pipe ${quote(sym)}: ${percentDSet.toList.mkString(",   ")}\\n", ${childrenSet.toList.mkString(",")});""")
   }
 
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func) =>
+      currentController = Some(lhs)
       toggleEn() // turn on
       emit(s"""val ${quote(lhs)}_en = io.top_en & !io.top_done;""")
       emit(s"""val ${quote(lhs)}_resetter = false.B // TODO: top level reset""")
       emitGlobal(s"""val ${quote(lhs)}_done = Wire(Bool())""")
-      emitController(lhs, None)
+      emitController(lhs, None, None)
       // Emit unit counter for this
       emit(s"""val done_latch = Module(new SRFF())""")
       emit(s"""done_latch.io.input.set := ${quote(lhs)}_sm.io.output.done""")
@@ -156,25 +209,29 @@ trait ChiselGenController extends ChiselCodegen {
       toggleEn() // turn off
 
     case UnitPipe(func) =>
-      emitController(lhs, None)
+      currentController = Some(lhs)
+      emitController(lhs, None, None)
       withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
         emitBlock(func)
       }
 
     case ParallelPipe(func) => 
-      emitController(lhs, None)
+      currentController = Some(lhs)
+      emitController(lhs, None, None)
       withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
         emitBlock(func)
       } 
 
     case OpForeach(cchain, func, iters) =>
-      emitController(lhs, Some(cchain))
+      currentController = Some(lhs)
+      emitController(lhs, Some(cchain), Some(iters))
       withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
         emitNestedLoop(cchain, iters){ emitBlock(func) }
       }
 
     case OpReduce(cchain, accum, map, load, reduce, store, rV, iters) =>
-      emitController(lhs, Some(cchain))
+      currentController = Some(lhs)
+      emitController(lhs, Some(cchain), Some(iters))
       open(src"val $lhs = {")
       emitNestedLoop(cchain, iters){
         visitBlock(map)
@@ -187,6 +244,7 @@ trait ChiselGenController extends ChiselCodegen {
       close("}")
 
     case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed) =>
+      currentController = Some(lhs)
       open(src"val $lhs = { mem op reduce what do i do aaaah")
       emitNestedLoop(cchainMap, itersMap){
         visitBlock(map)
