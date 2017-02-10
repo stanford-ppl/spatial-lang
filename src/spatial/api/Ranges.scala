@@ -99,7 +99,7 @@ trait RangeExp extends Staging with MemoryExp {
     def mirror(f:Tx) = range_foreach(f(start),f(end),f(step),f(func),i)
     override def inputs = syms(start,end,step) ++ syms(func)
     override def freqs  = normal(start) ++ normal(end) ++ normal(step) ++ hot(func)
-    override def binds  = super.binds :+ i
+    override def binds  = i +: super.binds
   }
 
   /*case class RangeReduce[T](

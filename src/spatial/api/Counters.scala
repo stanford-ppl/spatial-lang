@@ -19,6 +19,9 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
   def Counter(start: Index, end: Index, step: Index, par: Index)(implicit ctx: SrcCtx): Counter = {
     counter(start, end, step, Some(par))
   }
+  def Counter(end: Index)(implicit ctx: SrcCtx): Counter = counter(0, end, 1, Some( wrap(intParam(1)) ))
+  def Counter(start: Index, end: Index)(implicit ctx: SrcCtx): Counter = counter(start, end, 1, Some(wrap(intParam(1))))
+  def Counter(start: Index, end: Index, step: Index)(implicit ctx: SrcCtx): Counter = counter(start, end, step, Some(wrap(intParam(1))))
 
   implicit def range2counter(range: Range)(implicit ctx: SrcCtx): Counter = {
     val start = range.start.getOrElse(lift[Int,Index](0))

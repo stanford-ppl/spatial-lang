@@ -48,7 +48,9 @@ object RegTest extends SpatialTest {
     Accel {
       val reg = Reg[Int](0)
       val x = reg + in.value
+      val y = in.value - reg
       println(x)
+      println(y)
     }
   }
 }

@@ -5,8 +5,8 @@ object OuterProduct extends SpatialApp {
   import IR._
   type X = Int
 
-  val tileSize1 = 64
-  val tileSize2 = 64
+  val tileSize1 = 96
+  val tileSize2 = 96
   val op = 8
   val ip = 1
 
@@ -37,17 +37,17 @@ object OuterProduct extends SpatialApp {
         val b1 = SRAM[T](tileSizeA)
         val b2 = SRAM[T](tileSizeB)
         val outTile = SRAM[T](tileSizeA, tileSizeB)
-        val blkA = Reg[Int]
-        val blkB = Reg[Int]
+        //val blkA = Reg[Int]
+        //val blkB = Reg[Int]
         Parallel {
           b1 load vec1(i::i+tileSizeA)
           b2 load vec2(j::j+tileSizeB)
-          Pipe{ blkA := min(sizeA - i, tileSizeA) }
-          Pipe{ blkB := min(sizeB - j, tileSizeB) }
+          //Pipe{ blkA := min(sizeA - i, tileSizeA) }
+          //Pipe{ blkB := min(sizeB - j, tileSizeB) }
         }
-        Foreach(blkA by 1, blkB par innerPar){ (ii,jj) => outTile(ii, jj) = b1(ii) * b2(jj) } // 2
+        Foreach(tileSizeA by 1, tileSizeB par innerPar){ (ii,jj) => outTile(ii, jj) = b1(ii) * b2(jj) } // 2
 
-        out(i::i+blkA, j::j+blkB) store outTile
+        out(i::i+tileSizeA, j::j+tileSizeB) store outTile
       }
     }
     getMem(out)

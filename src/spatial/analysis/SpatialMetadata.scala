@@ -162,7 +162,7 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
 
     def apply(x: Ctrl): List[Ctrl] = {
       val children = childrenOf(x.node).map{child => (child, false) }
-      if (!x.isInner) children :+ ((x.node,true))
+      if (!x.isInner) ((x.node,true)) +: children
       else children
     }
   }
@@ -202,12 +202,12 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   /**
     * List of consumers of reads (primarily used for register reads)
     */
-  case class ReadUsers(users: List[Exp[_]]) extends Metadata[ReadUsers] {
-    def mirror(f:Tx) = ReadUsers(f.tx(users))
+  case class ReadUsers(users: List[Access]) extends Metadata[ReadUsers] {
+    def mirror(f:Tx) = ReadUsers(users.map(mirrorAccess(_,f)))
   }
   object usersOf {
-    def apply(x: Exp[_]): List[Exp[_]] = metadata[ReadUsers](x).map(_.users).getOrElse(Nil)
-    def update(x: Exp[_], users: List[Exp[_]]) = metadata.add(x, ReadUsers(users))
+    def apply(x: Exp[_]): List[Access] = metadata[ReadUsers](x).map(_.users).getOrElse(Nil)
+    def update(x: Exp[_], users: List[Access]) = metadata.add(x, ReadUsers(users))
   }
 
   /**
@@ -285,6 +285,13 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
     // FIXME: The return type of this is Object (join of Exp[_] and Nil) -- maybe want an Option here? Or .get?
     def apply(e: Exp[_]) = metadata[PartOfTree](e).map(_.node).getOrElse(Nil)
     def update(e: Exp[_], node: Exp[_]) = metadata.add(e, PartOfTree(node))
+  }
+
+
+  case class MShouldDuplicate(should: Boolean) extends Metadata[MShouldDuplicate] { def mirror(f:Tx) = this }
+  object shouldDuplicate {
+    def apply(e: Exp[_]) = metadata[MShouldDuplicate](e).exists(_.should)
+    def update(e: Exp[_], should: Boolean) = metadata.add(e, MShouldDuplicate(should))
   }
 
 }
