@@ -199,7 +199,7 @@ update_log() {
     elif [[ $p == *"failed_execution_backend_crash"* ]]; then
       echo "<------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=0
-    elif [[ $p == *"failed_compile_backend_crash"* ]]; then
+    elif [[ $p == *"failed_compile_backend_crash"* || $p == *"failed_compile_cpp_crash"* ]]; then
       echo "<----------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=0
     elif [[ $p == *"failed_app_spatial_compile"* ]]; then
@@ -293,7 +293,7 @@ if [[ $key = 0 ]]; then
 000 ▇ = failed_execution_validation  
 000 ▆ = failed_execution_nonexistent_validation  
 000 ▅ = failed_execution_backend_crash  
-000 ▄ = failed_compile_backend_crash  
+000 ▄ = failed_compile_backend_crash or failed_compile_cpp_crash  
 000 ▃ = failed_app_spatial_compile 
 000 ▂ = failed_app_not_written 
 000 ▁ = failed_app_initialized
@@ -412,7 +412,7 @@ create_script() {
   # failed_app_initialized
   # failed_app_not_written
   # failed_app_spatial_compile
-  # failed_compile_backend_crash
+  # failed_compile_backend_crash failed_compile_cpp_crash
   # failed_execution_backend_crash
   # failed_execution_nonexistent_validation
   # failed_execution_validation
@@ -495,9 +495,13 @@ cd ${5}/out
 make clean sim 2>&1 | tee -a ${5}/log
 
 # Check for crashes in backend compilation
-wc=\$(cat ${5}/log | sed \"s/Error [0-9]\+ (ignored)/ignore e r r o r/g\" | grep \"BUILD FAILED\\|Error 1\" | wc -l)
+wc=\$(cat ${5}/log | \"recipe for target 'bitstream-sim' failed\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
-  report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_maxj\" 0
+  report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
+fi
+wc=\$(cat ${5}/log | grep \"recipe for target 'Top_sim' failed\" | wc -l)
+if [ \"\$wc\" -ne 0 ]; then
+  report \"failed_compile_cpp_crash\" \"[STATUS] Declaring failure compile_chisel c++ side\" 0
 fi
 
 # Move on to runtime
@@ -508,7 +512,7 @@ bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 # Check for runtime errors
 wc=\$(cat ${5}/log | grep \"Error: App\\|Segmentation fault\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
-  report \"failed_execution_backend_crash\" \"[STATUS] Declaring failure compile_maxj\" 0
+  report \"failed_execution_backend_crash\" \"[STATUS] Declaring failure compile_chisel\" 0
 fi
 
 # Check if app validated or not

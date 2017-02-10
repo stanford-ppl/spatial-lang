@@ -112,7 +112,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   override protected def emitFileFooter() {
     withStream(getStream("BufferControlCxns")) {
       nbufs.foreach{ case (mem, i) => 
-        // TODO: Does david figure out which controllers' signals connect to which ports on the nbuf already? This is kind of complicated
+
         val readers = readersOf(mem)
         val writers = writersOf(mem)
         val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
@@ -134,6 +134,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
           val empty = if (rd == "" & wr == "") "empty" else ""
           emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
         }
+
       }
     }
 

@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 384 384
+object OuterProduct extends SpatialApp {
   import IR._
   type X = Int
 
@@ -42,6 +42,7 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 384 384
         val outTile = SRAM[T](tileSizeA, tileSizeB)
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         Foreach(tileSizeA by 1, tileSizeB par innerPar){ (ii,jj) => outTile(ii, jj) = b1(ii) * b2(jj) }
 
         out(i::i+tileSizeA, j::j+tileSizeB) store outTile
@@ -59,6 +60,8 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 384 384
 =======
 =======
 >>>>>>> origin/master
+=======
+>>>>>>> origin/master
         //val blkA = Reg[Int]
         //val blkB = Reg[Int]
         Parallel {
@@ -71,6 +74,9 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 384 384
 
         out(i::i+tileSizeA, j::j+tileSizeB) store outTile
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> origin/master
+=======
 >>>>>>> origin/master
 =======
 >>>>>>> origin/master
