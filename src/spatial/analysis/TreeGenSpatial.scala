@@ -138,6 +138,16 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
+    case ParallelPipe(func) => 
+      val inner = false
+      print_stage_prefix(s"Parallel",s"",s"$sym", inner)
+      val children = getControlNodes(func)
+      children.foreach { s =>
+        val Op(d) = s
+        visit(s,d)
+      }
+      print_stage_suffix(s"$sym", inner)
+
     case UnrolledReduce(cchain,_,func,_,iters,valids,_) =>
       val inner = styleOf(sym) match { 
       	case InnerPipe => true
@@ -155,7 +165,7 @@ trait TreeGenSpatial extends SpatialTraversal {
 
     case Scatter(dram, local, addrs, ctr, i) =>
 
-    case _ =>
+    case _ => // Do not visit super because we don't care to traverse everything
   }
 
 }

@@ -41,7 +41,7 @@ trait ChiselGenController extends ChiselCodegen {
       var nextLevel = currentController
       while (nextLevel.isDefined) {
         if (siblings.contains(nextLevel.get)) {
-          result = result + s"_chain.read(${siblings.indexOf(nextLevel.get)})"
+          if (siblings.indexOf(nextLevel.get) > 0) {result = result + s"_chain.read(${siblings.indexOf(nextLevel.get)})"}
           nextLevel = None
         } else {
           nextLevel = parentOf(nextLevel.get)
@@ -86,9 +86,9 @@ trait ChiselGenController extends ChiselCodegen {
     inds.foreach { idx =>
       emit(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
       stages.zipWithIndex.foreach{ case (s, i) =>
-        emit(src"""${idx}_chain.io.sEn($i) := ${s}_en; ${idx}_chain.io.sDone($i) := ${s}_done""")
+        emit(src"""${idx}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
       }
-      emit(src"""${idx}_chain.write(${idx}, ${stages(0)}_done, false.B, 0) // TODO: Maybe wren should be tied to en and not done?""")
+      emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
       itersMap += (idx -> stages.toList)
     }
   }
