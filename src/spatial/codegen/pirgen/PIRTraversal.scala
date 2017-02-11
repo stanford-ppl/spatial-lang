@@ -85,13 +85,19 @@ trait PIRTraversal extends SpatialTraversal {
     case _ => TempReg()
   }
 
-  def foreachSymInBlock(b: Block[Any])(func: Sym[_] => Unit):List[Sym[_]] = {
-    //traverseStmsInBlock(b)(func)
-    Nil
+  def stageWarn(msg:String) = {
+    throw new Exception(s"$msg")
+  }
+
+  def foreachSymInBlock(b: Block[Any])(func: Sym[_] => Unit) = {
+    def sfunc(stms:Seq[Stm]) = {
+      stms.foreach { case Stm(lhs, rhs) => func(lhs.head) }
+    }
+    traverseStmsInBlock(b, sfunc _)
   }
 
   // HACK: Ignore simple effect scheduling dependencies in remote writes
-  def getScheduleForAddress(stms: Seq[Stm])(addr: Symbol) = {
+  def getScheduleForAddress(stms: Seq[Stm])(addr: Seq[Symbol]) = {
     def mysyms(rhs: Symbol) = rhs match {
       case d@Effectful(e, es) if e.simple =>
         val dataDeps = defOf(d).allInputs
@@ -99,12 +105,13 @@ trait PIRTraversal extends SpatialTraversal {
           case d@Effectful(e,es) if e.simple => false
           case _ => true
         }
+      case Def(d) => d.allInputs
       case _ => syms(rhs)
     }
     val scopeIndex = makeScopeIndex(stms)
     def deps(x: Symbol) = orderedInputs(mysyms(x), scopeIndex)
 
-    schedule(deps(addr))(t => deps(t))
+    schedule(addr.flatMap(a => deps(a)))(t => deps(t))
   }
 
   // Build a schedule as usual, except for depencies on write addresses

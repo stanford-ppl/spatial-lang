@@ -51,11 +51,11 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =
 
   def isBuffer(mem: Symbol): Boolean = isSRAM(mem)
 
-  //def flattenNDAddress(addr: Exp[Any], dims: List[Exp[Index]]) = addr match {
-    //case Deff(ListVector(List(Deff(ListVector(indices))))) if indices.nonEmpty => flattenNDIndices(indices, dims)
-    //case Deff(ListVector(indices)) if indices.nonEmpty => flattenNDIndices(indices, dims)
-    //case _ => throw new Exception(s"Unsupported address in PIR generation: $addr")
-  //}
+  def flattenNDAddress(addr: Exp[Any], dims: Seq[Exp[Index]]) = addr match {
+    case Def(ListVector(List(Def(ListVector(indices))))) if indices.nonEmpty => flattenNDIndices(indices, dims)
+    case Def(ListVector(indices)) if indices.nonEmpty => flattenNDIndices(indices, dims)
+    case _ => throw new Exception(s"Unsupported address in PIR generation: $addr")
+  }
   def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]) = {
     val cdims = dims.map{case Bound(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
     val strides = List.tabulate(dims.length){d =>

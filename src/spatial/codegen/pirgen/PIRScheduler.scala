@@ -316,7 +316,7 @@ trait PIRScheduler extends PIRTraversal {
     //case Par_sram_load(EatAlias(mem), addr) => allocateSRAMRead(lhs, mem, addr, ctx)
 
     case ListVector(elems) => ctx.addReg(lhs, ctx.reg(elems.head))
-    case VectorApply(vec, idx) => //TODO: is VecApply still a thing?
+    case VectorApply(vec, idx) =>
       if (idx != 0) throw new Exception("Expected parallelization of 1 in inner loop in PIR gen")
       ctx.addReg(lhs, ctx.reg(vec))
 
@@ -328,10 +328,12 @@ trait PIRScheduler extends PIRTraversal {
     // Only for the data, not for the address, unless the memory is a local accumulator
     // TODO: Support enables!
     case FIFOEnq(fifo, data, en)          => allocateFifoPush(fifo, data, ctx)
-    //case Par_push_fifo(EatAlias(fifo), datas, ens, _) => allocateFifoPush(fifo, datas, ctx)
+    case ParFIFOEnq(fifo, data, ens) => allocateFifoPush(fifo, data, ctx)
 
     case SRAMStore(mem, dims, is, ofs, data, en)        => bufferWrite(mem,data,Some(is, dims),ctx)
-    //case ParSRAMStore(mem), addrs, datas, ens) => bufferWrite(mem,datas,Some(addrs),ctx)
+    case ParSRAMStore(sram, addr, data, ens) => 
+    //case ParSRAMStore(sram, addr, data, ens) => bufferWrite(sram,data,Some(addr),ctx) //TODO
+    //parSRAMStore not supported yet
 
     case RegWrite(reg, data, en) => allocateRegWrite(lhs, reg, data, ctx)
 
@@ -351,10 +353,6 @@ trait PIRScheduler extends PIRTraversal {
   def reduceNodeToStage(lhs: Symbol, rhs: Def, ctx: CUContext) = nodeToOp(rhs) match {
     case Some(op) => opStageToStage(op, syms(rhs), lhs, ctx, true)
     case _ => stageWarn(s"No ALU reduce operation known for $lhs = $rhs")
-  }
-
-  def stageWarn(msg:String) = {
-    throw new Exception(s"$msg")
   }
 
   def opStageToStage(op: PIROp, ins: List[Symbol], out: Symbol, ctx: CUContext, isReduce: Boolean) {

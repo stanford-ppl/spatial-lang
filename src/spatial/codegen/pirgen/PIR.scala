@@ -193,7 +193,7 @@ trait PIR {
   object CUCounter { var id: Int = 0; def nextId(): Int = {id += 1; id} }
 
   sealed abstract class CUCChain(val name: String)
-  case class CChainInstance(override val name: String, counters: List[CUCounter]) extends CUCChain(name) {
+  case class CChainInstance(override val name: String, counters: Seq[CUCounter]) extends CUCChain(name) {
     override def toString = name
   }
   case class CChainCopy(override val name: String, inst: CUCChain, var owner: AbstractComputeUnit) extends CUCChain(name) {

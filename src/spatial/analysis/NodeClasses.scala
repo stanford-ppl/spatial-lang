@@ -119,11 +119,25 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isReg(e: Exp[_]): Boolean = e.tp match {
+    case _:RegType[_] => true
+    case _ => false
+  }
+
+  def isFIFO(e: Exp[_]): Boolean = e.tp match {
+    case _:FIFOType[_] => true
+    case _ => false
+  }
+
   def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] => true
     case _ => false
   }
 
+  def isVector(e:Exp[_]):Boolean = e.tp match {
+    case _:VectorType[_] => true
+    case _ => false
+  }
 
   /** Stateless Nodes **/
   def isRegisterRead(e: Exp[_]): Boolean = getDef(e).exists(isRegisterRead)
