@@ -22,4 +22,14 @@ object SpatialConfig extends Reporting {
   var enableNaming: Boolean = getProperty("spatial.naming", "false") == "true"
   var enableTree: Boolean = getProperty("spatial.tree", "false") == "true"
   var multifile: Int = getProperty("spatial.multifile", "0").toInt
+
+  // Plasticine limits
+  var sIn: Int = getProperty("plasticine.sIn", "8").toInt
+  var sbus: Int = getProperty("plasticine.sbus", "4").toInt
+  var vIn: Int = getProperty("plasticine.vIn", "4").toInt
+  var vOut: Int = getProperty("plasticine.vOut", "1").toInt
+  var comp: Int = getProperty("plasticine.comp", "8").toInt
+  var readWrite: Int = getProperty("plasticine.rw", "4").toInt
+  var mems: Int = getProperty("plasticine.mems", "4").toInt
+
 }
