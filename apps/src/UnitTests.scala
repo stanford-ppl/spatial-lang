@@ -524,7 +524,7 @@ object SimpleFold extends SpatialApp { // Regression (Unit) // Args: 1920
     println("result:   " + result)
 
     val cksum = result == gold
-    println("PASS: " + cksum + " (SimpleFold)")
+    println("PASS: " + cksum + " (SimpleFold) * Here is an example for how to leave regression comments")
   }
 }
 
@@ -569,7 +569,7 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
     printArray(dst, "dst:")
 
     val cksum = dst.zip(src){_ == _}.reduce{_&&_}
-    println("PASS: " + cksum + " (MemCpy2D)")
+    println("PASS: " + cksum + " (Memcpy2D)")
 
   }
 }
@@ -660,7 +660,7 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100
 
     val dst = unaligned_1d(src, ii)
 
-    val gold = Array.tabulate(ii*numCols){ i => i }.reduce{_+_}
+    val gold = Array.tabulate(ii*numCols){ i => i % 256 }.reduce{_+_}
 
     println("src:" + gold)
     println("dst:" + dst)
