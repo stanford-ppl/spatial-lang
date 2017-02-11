@@ -1,5 +1,5 @@
-package spatial.compiler.ops
-import spatial.compiler._
+package spatial.codegen.pirgen
+import spatial.SpatialConfig
 import spatial.SpatialExp
 import spatial.analysis.SpatialMetadataExp
 import org.virtualized.SourceContext
@@ -8,7 +8,7 @@ import scala.collection.mutable
 
 // PIR operations which need the rest of the Spatial IR mixed in
 trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =>
-  type Symbol = Exp[Any]
+  type Symbol = Exp[_]
   type CUControl = ControlType
 
   //def str(x: Symbol) = x match {
@@ -56,7 +56,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =
     //case Deff(ListVector(indices)) if indices.nonEmpty => flattenNDIndices(indices, dims)
     //case _ => throw new Exception(s"Unsupported address in PIR generation: $addr")
   //}
-  private def flattenNDIndices(indices: List[Exp[Any]], dims: List[Exp[Index]]) = {
+  def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]) = {
     val cdims = dims.map{case Bound(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
     val strides = List.tabulate(dims.length){d =>
       if (d == dims.length - 1) int32(1)
@@ -87,6 +87,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =
     case FixNeq(_,_)                     => Some(PIRFixNeq)
     case e: Min[_] if isFixPtType(e.mR)  => Some(PIRFixMin)
     case e: Max[_] if isFixPtType(e.mR)  => Some(PIRFixMax)
+    case FixNeg(_)                       => Some(PIRFixNeg)
 
     // Float ops currently assumed to be single op
     case FltAdd(_,_)                     => Some(PIRFltAdd)
@@ -97,6 +98,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =
     case FltLeq(_,_)                     => Some(PIRFltLeq)
     case FltEql(_,_)                     => Some(PIRFltEql)
     case FltNeq(_,_)                     => Some(PIRFltNeq)
+    case FltNeg(_)                       => Some(PIRFltNeg)
 
     case FltAbs(_)                       => Some(PIRFltAbs)
     case FltExp(_)                       => Some(PIRFltExp)

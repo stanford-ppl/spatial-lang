@@ -289,6 +289,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       isAccum(accum) = true
       parentOf(accum) = lhs
       addChildDependencyData(lhs, map)
+      isInnerAccum(accum) = isInnerControl(lhs)
 
     case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,rV,itersMap,itersRed) =>
       visitCtrl((lhs,false), itersMap, cchainMap) {
@@ -303,6 +304,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       isAccum(accum) = true
       parentOf(accum) = lhs
       addChildDependencyData(lhs, map)
+      isInnerAccum(accum) = isInnerControl(lhs)
 
     case e: CoarseBurst[_,_] =>
       e.iters.foreach{i => parFactorOf(i) = int32(1) }

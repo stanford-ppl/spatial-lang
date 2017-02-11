@@ -1,15 +1,16 @@
-package spatial.compiler.pirgen
-import spatial.compiler._
+package spatial.codegen.pirgen
+import spatial.api._
+import spatial.analysis.SpatialTraversal
 
-import scala.virtualization.lms.internal.QuotingExp
-import scala.virtualization.lms.util.GraphUtil
 import scala.collection.mutable
 
-trait PIRTraversal extends Traversal {
+import spatial.SpatialExp
+
+trait PIRTraversal extends SpatialTraversal {
   val IR: SpatialExp with PIRCommonExp
   import IR._
 
-  //override def quote(x: Symbol) = super.quote(aliasOf(x))
+  def quote(x: Symbol):String = s"$x" //TODO: super.quote(aliasOf(x))
 
   val LANES = 16         // Number of SIMD lanes per CU
   val REDUCE_STAGES = 5  // Number of stages required to reduce across all lanes
@@ -68,89 +69,92 @@ trait PIRTraversal extends Traversal {
 
   def allocateLocal(x: Symbol, pipe: Symbol, read: Option[Symbol] = None,  write: Option[Symbol] = None): LocalComponent = x match {
     case c if isConstant(c) => ConstReg(extractConstant(x))
-    case reg@Deff(Argin_new(_)) =>
-      val bus = new InputArg(quote(reg))
+    case Def(ArgInNew(_)) =>
+      val bus = new InputArg(quote(x))
       globals += bus
       ScalarIn(bus)
 
-    case reg@Deff(Argout_new(_)) =>
-      val bus = new OutputArg(quote(reg))
+    case Def(ArgOutNew(_)) =>
+      val bus = new OutputArg(quote(x))
       globals += bus
       ScalarOut(bus)
 
-    case reg@Deff(Reg_new(_))     => allocateReg(reg, pipe, read, write)
-    case read@Deff(Reg_read(reg)) => allocateLocal(reg, pipe, Some(read), write)
+    case Def(RegNew(_))     => allocateReg(x, pipe, read, write)
+    case read@Def(RegRead(reg)) => allocateLocal(reg, pipe, Some(read), write)
 
     case _ => TempReg()
   }
 
-  def foreachSymInBlock(b: Block[Any])(func: Sym[Any] => Unit) {
-    focusBlock(b){
-      focusExactScope(b){ stms =>
-        stms.foreach{ case TP(lhs,rhs) => func(lhs) }
-      }
-    }
+  def foreachSymInBlock(b: Block[Any])(func: Sym[_] => Unit):List[Sym[_]] = {
+    //traverseStmsInBlock(b)(func)
+    Nil
   }
 
   // HACK: Ignore simple effect scheduling dependencies in remote writes
   def getScheduleForAddress(stms: Seq[Stm])(addr: Symbol) = {
-    def mysyms(rhs: Any) = rhs match {
-      case d@Reflect(x, u, es) if u.maySimple =>
-        val dataDeps = syms(x)
-        val schedDeps = syms(es) filter {
-          case Def(Reflect(_,uu,_)) => uu != Simple
+    def mysyms(rhs: Symbol) = rhs match {
+      case d@Effectful(e, es) if e.simple =>
+        val dataDeps = defOf(d).allInputs
+        dataDeps filter {
+          case d@Effectful(e,es) if e.simple => false
           case _ => true
         }
-        dataDeps ++ schedDeps
       case _ => syms(rhs)
     }
-    val scopeIndex = buildScopeIndex(stms)
-    def deps(x: Any) = scheduleDepsWithIndex(mysyms(x), scopeIndex)
+    val scopeIndex = makeScopeIndex(stms)
+    def deps(x: Symbol) = orderedInputs(mysyms(x), scopeIndex)
 
-    GraphUtil.stronglyConnectedComponents[Stm](deps(addr), t => deps(t.rhs)).flatten.reverse
+    schedule(deps(addr))(t => deps(t))
   }
 
   // Build a schedule as usual, except for depencies on write addresses
   def symsOnlyUsedInWriteAddr(stms: Seq[Stm])(result: Symbol, exps: List[Symbol]) = {
-    def mysyms(rhs: Any) = rhs match {
-      case rhs: Def[_] => rhs match {
+    def mysyms(rhs: Symbol) = rhs match {
+      case Def(rhs) => rhs match {
         case LocalWriter(writes) =>
-          val addrs = writes.flatMap{case (mem,value,addr) => addr.filterNot{a => a == value }}
+          val addrs = writes.flatMap{case (mem,value,addr,en) => addr.filterNot{a => a == value }}
           syms(rhs) filterNot (addrs contains _)
         case _ => syms(rhs)
       }
       case _ => syms(rhs)
     }
-    val scopeIndex = buildScopeIndex(stms)
-    def deps(x: Any) = scheduleDepsWithIndex(mysyms(x), scopeIndex)
+    val scopeIndex = makeScopeIndex(stms)
+    def deps(x: Symbol) = orderedInputs(mysyms(x), scopeIndex)
 
-    val xx = GraphUtil.stronglyConnectedComponents[Stm](deps(result), t => deps(t.rhs)).flatten
+    val xx = schedule(deps(result))(t => deps(t))
 
-    exps.filterNot{case sym: Sym[_] => xx.exists(_.defines(sym).isDefined) }
+    exps.filterNot{
+      case sym: Sym[_] => xx.exists(_.lhs.contains(sym))
+      case b: Bound[_] => false
+      case c: Const[_] => false
+    }
   }
 
   // HACK: Rip apart the block, looking only for true data dependencies and necessary effects dependencies
   def symsOnlyUsedInWriteAddrOrEn(stms: Seq[Stm])(result: Symbol, exps: List[Symbol]) = {
     def mysyms(rhs: Any) = rhs match {
-      case d:Def[_] => d match {
-        case EatReflect(Sram_store(sram,addr,value,en)) => syms(sram) ++ syms(value) //++ syms(es)
-        case EatReflect(Par_sram_store(sram,addr,value,en)) => syms(sram) ++ syms(value) //++ syms(es)
-        case EatReflect(Push_fifo(fifo, value, en))          => syms(fifo) ++ syms(value)
-        case EatReflect(Par_push_fifo(fifo, values, ens, _)) => syms(fifo) ++ syms(values)
-        case Reify(x,u,es) => syms( es.filterNot{case Def(Reflect(d,u,es)) => u.resAlloc; case _ => false})
+      case Def(d) => d match {
+        case SRAMStore(sram,dims,is,ofs,data,en) => syms(sram) ++ syms(data) //++ syms(es)
+        case ParSRAMStore(sram,addr,data,ens) => syms(sram) ++ syms(data) //++ syms(es)
+        case FIFOEnq(fifo, data, en)          => syms(fifo) ++ syms(data)
+        case ParFIFOEnq(fifo, data, ens) => syms(fifo) ++ syms(data)
         case _ => syms(d)
       }
       case _ => syms(rhs)
     }
-    val scopeIndex = buildScopeIndex(stms)
-    def deps(x: Any) = scheduleDepsWithIndex(mysyms(x), scopeIndex)
+    val scopeIndex = makeScopeIndex(stms)
+    def deps(x: Any) = orderedInputs(mysyms(x), scopeIndex)
 
-    val xx = GraphUtil.stronglyConnectedComponents[Stm](deps(result), t => deps(t.rhs)).flatten
+    val xx = schedule(deps(result))(t => deps(t))
 
     //xx.reverse.foreach{case TP(s,d) => debug(s"  $s = $d")}
 
     // Remove all parts of schedule which are used to calculate values
-    exps.filterNot{case sym:Sym[_] => xx.exists(_.defines(sym).isDefined) }
+    exps.filterNot{
+      case sym: Sym[_] => xx.exists(_.lhs.contains(sym))
+      case b: Bound[_] => false
+      case c: Const[_] => false
+    }
   }
 
 
@@ -286,7 +290,7 @@ trait PIRTraversal extends Traversal {
     def addControlStage(stage: Stage): Unit = cu.controlStages += stage
 
     def addReg(x: Symbol, reg: LocalComponent) {
-      debug(s"  $x -> $reg")
+      //debug(s"  $x -> $reg")
       cu.addReg(x, reg)
     }
     def addRef(x: Symbol, ref: LocalRef) { refs += x -> ref }
@@ -295,7 +299,7 @@ trait PIRTraversal extends Traversal {
 
     // Add a stage which bypasses x to y
     def bypass(x: LocalComponent, y: LocalComponent) {
-      val stage = MapStage(Bypass, List(refIn(x)), List(refOut(y)))
+      val stage = MapStage(PIRBypass, List(refIn(x)), List(refOut(y)))
       addStage(stage)
     }
 
@@ -387,7 +391,7 @@ trait PIRTraversal extends Traversal {
 
 
   // Given result register type A, reroute to type B as necessary
-  def propagateReg(exp: Symbol, a: LocalComponent, b: LocalComponent, ctx: CUContext) = (a,b) match {
+  def propagateReg(exp: Symbol, a: LocalComponent, b: LocalComponent, ctx: CUContext):LocalComponent = (a,b) match {
     case (a:ScalarOut, b:ScalarOut) => a
     case (a:VectorOut, b:VectorOut) => a
     case (a:FeedbackDataReg, b:FeedbackDataReg) => a

@@ -1,4 +1,4 @@
-package spatial.compiler.ops
+package spatial.codegen.pirgen
 
 import scala.collection.mutable
 

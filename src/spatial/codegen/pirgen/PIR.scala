@@ -1,4 +1,4 @@
-package spatial.compiler.ops
+package spatial.codegen.pirgen
 
 import scala.collection.mutable
 
@@ -372,6 +372,7 @@ trait PIR {
   case object PIRFixNeq extends PIROp
   case object PIRFixMin extends PIROp
   case object PIRFixMax extends PIROp
+  case object PIRFixNeg extends PIROp
 
   case object PIRFltAdd extends PIROp
   case object PIRFltSub extends PIROp
@@ -387,6 +388,7 @@ trait PIR {
   case object PIRFltAbs extends PIROp
   case object PIRFltMin extends PIROp
   case object PIRFltMax extends PIROp
+  case object PIRFltNeg extends PIROp
 
   case object PIRBitAnd extends PIROp
   case object PIRBitOr  extends PIROp
