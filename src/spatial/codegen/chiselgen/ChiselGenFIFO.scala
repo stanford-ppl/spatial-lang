@@ -40,7 +40,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@FIFONew(size)   => 
       val par = duplicatesOf(lhs).head match {
-        case BankedMemory(dims,_) => dims.map{_.banks}.head
+        case BankedMemory(dims,_,isAccum) => dims.map{_.banks}.head
         case _ => 1
       }
       emit(src"""val ${lhs}_wdata = Wire(Vec($par, UInt(32.W)))""")

@@ -25,34 +25,34 @@ trait MemoryAnalyzer extends CompilerPass {
   def mergeMemory(mem: Exp[_], a: Memory, b: Memory): Memory = {
     if (a.nDims != b.nDims) {
       new DimensionMismatchError(mem, a.nDims, b.nDims)(ctxOrHere(mem))
-      BankedMemory(List.fill(a.nDims)(NoBanking), Math.max(a.depth,b.depth))
+      BankedMemory(List.fill(a.nDims)(NoBanking), Math.max(a.depth,b.depth), a.isAccum || b.isAccum)
     }
     else (a,b) match {
-      case (DiagonalMemory(s1,p,d1), DiagonalMemory(s2,q,d2)) =>
+      case (DiagonalMemory(s1,p,d1,a1), DiagonalMemory(s2,q,d2,a2)) =>
         if (s1.zip(s2).forall{case (x,y) => x == y}) {
-          DiagonalMemory(s1, lcm(p,q), Math.max(d1,d2))
+          DiagonalMemory(s1, lcm(p,q), Math.max(d1,d2), a1 || a2)
         }
         else {
           warn(ctxOrHere(mem), u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
           warn(ctxOrHere(mem))
-          BankedMemory(s1.map{_ => NoBanking}, Math.max(d1,d2))
+          BankedMemory(s1.map{_ => NoBanking}, Math.max(d1,d2), a.isAccum || b.isAccum)
         }
 
-      case (BankedMemory(b1,d1), BankedMemory(b2, d2)) => (b1,b2) match {
+      case (BankedMemory(b1,d1,a1), BankedMemory(b2, d2,a2)) => (b1,b2) match {
         case (List(Banking(1), StridedBanking(s1,p)), List(StridedBanking(s2,q), Banking(1))) if p > 1 && q > 1 =>
-          DiagonalMemory(List(s2,s1), lcm(p,q), Math.max(d1,d2))
+          DiagonalMemory(List(s2,s1), lcm(p,q), Math.max(d1,d2), a1 || a2)
         case (List(StridedBanking(s1,p), Banking(1)), List(Banking(1), StridedBanking(s2,q))) if p > 1 && q > 1 =>
-          DiagonalMemory(List(s1,s2), lcm(p,q), Math.max(d1,d2))
+          DiagonalMemory(List(s1,s2), lcm(p,q), Math.max(d1,d2), a1 || a2)
         case _ =>
-          BankedMemory(b1.zip(b2).map{case(x,y) => mergeBanking(mem,x,y)}, Math.max(d1,d2))
+          BankedMemory(b1.zip(b2).map{case(x,y) => mergeBanking(mem,x,y)}, Math.max(d1,d2), a1 || a2)
       }
-      case (DiagonalMemory(strides,p,d1), BankedMemory(s2,d2)) =>
+      case (DiagonalMemory(strides,p,d1,a1), BankedMemory(s2,d2,a2)) =>
         val a = strides.map{x => StridedBanking(x,p) }
-        BankedMemory(s2.zip(a).map{case (x,y) => mergeBanking(mem,x,y) }, Math.max(d1,d2))
+        BankedMemory(s2.zip(a).map{case (x,y) => mergeBanking(mem,x,y) }, Math.max(d1,d2), a1 || a2)
 
-      case (BankedMemory(s1,d1), DiagonalMemory(strides,p,d2)) =>
+      case (BankedMemory(s1,d1,a1), DiagonalMemory(strides,p,d2,a2)) =>
         val a = strides.map{x => StridedBanking(x, p) }
-        BankedMemory(s1.zip(a).map{case (x,y) => mergeBanking(mem,x,y) }, Math.max(d1,d2))
+        BankedMemory(s1.zip(a).map{case (x,y) => mergeBanking(mem,x,y) }, Math.max(d1,d2), a1 || a2)
     }
   }
 
@@ -79,7 +79,7 @@ trait MemoryAnalyzer extends CompilerPass {
     val accesses = writers ++ reader
 
     val group = {
-      if (accesses.isEmpty) InstanceGroup(None, Nil, BankedMemory(Nil,1), 1, Map.empty, Map.empty)
+      if (accesses.isEmpty) InstanceGroup(None, Nil, BankedMemory(Nil,1,false), 1, Map.empty, Map.empty)
       else {
         val bankings = accesses.map{a => bankAccess(mem, a.node) }
         val memory = bankings.map(_._1).reduce{(a,b) => mergeMemory(mem, a, b) }
@@ -89,11 +89,23 @@ trait MemoryAnalyzer extends CompilerPass {
           InstanceGroup(None, accesses, memory, duplicates, Map(reader.get -> Set(0)), Map.empty)
         }
         else {
+          // TODO: A memory is an accumulator if a writer depends on a reader in the same pipe
+          // or if this memory is used as an accumulator by a Reduce or MemReduce
+          // and at least one of the writers is in the same control node as the reader
+          val isAccum = reader.exists{read => writers.exists(_.node.dependsOn(read.node)) } || (mem match {
+            case s: Symbol[_] => s.dependents.exists{
+              case Def(e: OpReduce[_])      => e.accum == s && reader.exists{read => writers.exists(_.ctrl == read.ctrl)}
+              case Def(e: OpMemReduce[_,_]) => e.accum == s && reader.exists{read => writers.exists(_.ctrl == read.ctrl)}
+              case _ => false
+            }
+            case _ => false
+          })
+
           val (metapipe, ports) = findMetaPipe(mem, reader.toList, writers)
           val depth = ports.values.max + 1
           val bufferedMemory = memory match {
-            case BankedMemory(banks, _) => BankedMemory(banks, depth)
-            case DiagonalMemory(strides, banks, _) => DiagonalMemory(strides, banks, depth)
+            case BankedMemory(banks, _, _) => BankedMemory(banks, depth, isAccum)
+            case DiagonalMemory(strides, banks, _, _) => DiagonalMemory(strides, banks, depth, isAccum)
           }
 
           metapipe match {
@@ -251,7 +263,7 @@ trait MemoryAnalyzer extends CompilerPass {
     dbg(s"  channels: $channels")
     dbg(s"  banking: $banking")
     dbg(s"  duplicates: $duplicates")
-    (BankedMemory(banking, 1), duplicates)
+    (BankedMemory(banking, depth = 1, isAccum = false), duplicates)
   }
 
   // TODO: We need to check that there is only the innermost loop parallelized relative to the FIFO
@@ -259,10 +271,10 @@ trait MemoryAnalyzer extends CompilerPass {
   def bankFIFOAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
     val channels = factors.map{case Exact(c) => c.toInt}.product
-    (BankedMemory(Seq(StridedBanking(1, channels)), 1), 1)
+    (BankedMemory(Seq(StridedBanking(1, channels)), depth = 1, isAccum = false), 1)
   }
 
   def bankRegAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
-    (BankedMemory(Seq(NoBanking), 1), 1)
+    (BankedMemory(Seq(NoBanking), depth = 1, isAccum = false), 1)
   }
 }

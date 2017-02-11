@@ -24,7 +24,6 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var level = 0
   var controller: Option[Ctrl] = None
   var pendingNodes: Map[Exp[_], List[Exp[_]]] = Map.empty
-  var pendingExtReads: Set[Exp[_]] = Set.empty
   var unrollFactors: List[Const[Index]] = Nil
 
   var localMems: List[Exp[_]] = Nil
@@ -37,7 +36,6 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     top = None
     level = 0
     controller = None
-    pendingExtReads = Set.empty
     pendingNodes = Map.empty
     unrollFactors = Nil
     metadata.clearAll[Writers]
@@ -54,18 +52,6 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       case Some(ctrl@Op(Hwblock(_))) =>
       case _ => new NoTopError(ctxOrHere(block.result))
     }
-    /*if (top.isDefined) {
-      // After setting all other readers/external uses, check to see if
-      // any reads external to the accel block are unused. Parent for these is top
-      pendingExtReads.foreach { case reader@LocalReader(reads) =>
-        reads.foreach { case (mem, addr, en) =>
-          if (!readersOf(mem).exists(_.node == reader)) {
-            dbg(c"Adding external reader $reader to list of readers for $mem")
-            readersOf(mem) = (reader, (top.get, false)) +: readersOf(mem)
-          }
-        }
-      }
-    }*/
     dbg("Local memories: ")
     localMems.foreach{mem => dbg(c"  $mem")}
     super.postprocess(block)
@@ -113,10 +99,6 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     dbg(c"Adding pending node $node")
     shouldDuplicate(node) = shouldDup
     if (!pendingNodes.contains(node)) pendingNodes += node -> List(node)
-  }
-  def addPendingExternalReader(reader: Exp[_]) = {
-    dbg(c"Added pending external read: $reader")
-    pendingExtReads += reader
   }
 
   def addReader(reader: Exp[_], ctrl: Ctrl) = {
@@ -217,7 +199,6 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     else {
       checkPendingNodes(lhs, rhs, None)
 
-      //if (isReader(lhs)) addPendingExternalReader(lhs)
       if (isAllocation(lhs) && (isArgIn(lhs) || isArgOut(lhs))) localMems ::= lhs // (7)
     }
 
@@ -225,7 +206,6 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       if (controller.isDefined) addChild(lhs, controller.get.node) // (2, 3)
       else {
         top = Some(lhs) // (11)
-        //pendingExtReads.foreach{reader => addPendingNode(reader) }
       }
       if (isMetaPipe(lhs)) metapipes ::= lhs // (8)
     }
@@ -279,7 +259,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
         // Handle the one case where we allow scalar communication between blocks
         if (isStateless(map.result)) {
-          addPendingUse(lhs, (lhs,false), Seq(map.result))  // NOT the inner (lhs,true)
+          addPendingUse(lhs, (lhs,true), Seq(map.result))
         }
 
         visitCtrl((lhs,true)) {

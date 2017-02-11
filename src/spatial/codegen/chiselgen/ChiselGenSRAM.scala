@@ -46,11 +46,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
       withStream(getStream("GlobalWires")) {
         duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
           mem match {
-            case BankedMemory(dims, depth) =>
-              val strides = s"""List(${dims.map{ d => d match {
-                case StridedBanking(_, s) => s
-                case _ => 1
-              }}.mkString(",")})"""
+            case BankedMemory(dims, depth, isAccum) =>
+              val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
               val numWriters = writersOf(lhs).map{access => portsOf(access, lhs, i)}.distinct.length // Count writers accessing this port
               val numReaders = readersOf(lhs).map{access => portsOf(access, lhs, i)}.distinct.length // Count writers accessing this port
               if (depth == 1) {
@@ -67,7 +64,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
                 emit(src"""${dims.map(_.banks).reduce{_*_}}, ${dims.map(_.banks).reduce{_*_}}, "BankedMemory" // TODO: Be more precise with parallelizations """)
                 close("))")
               }
-            case DiagonalMemory(strides, banks, depth) => 
+            case DiagonalMemory(strides, banks, depth, isAccum) =>
               Console.println(s"NOT SUPPORTED, MAKE EXCEPTION FOR THIS!")
           }
         }
