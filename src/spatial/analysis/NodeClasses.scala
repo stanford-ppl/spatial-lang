@@ -114,6 +114,11 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isVector(e:Exp[_]):Boolean = e.tp match {
+    case _:VectorType[_] => true
+    case _ => false
+  }
+
   def isSRAM(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] => true
     case _ => false
@@ -134,8 +139,27 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
-  def isVector(e:Exp[_]):Boolean = e.tp match {
-    case _:VectorType[_] => true
+  def isOffChipMemory(e: Exp[_]): Boolean = e.tp match {
+    case _:DRAMType[_] => true
+    case _:RegType[_] => isArgIn(e) || isArgOut(e)
+    case _ => false
+  }
+
+  /** Host Transfer **/
+
+  def isTransfer(e: Exp[_]): Boolean = isTransferToHost(e) || isTransferFromHost(e)
+
+  def isTransferToHost(e: Exp[_]): Boolean = getDef(e).exists(isTransferToHost)
+  def isTransferToHost(d: Def): Boolean = d match {
+    case _: GetMem[_] => true
+    case _: GetArg[_] => true
+    case _ => false
+  }
+
+  def isTransferFromHost(e: Exp[_]): Boolean = getDef(e).exists(isTransferFromHost)
+  def isTransferFromHost(d: Def): Boolean = d match {
+    case _: SetMem[_] => true
+    case _: SetArg[_] => true
     case _ => false
   }
 

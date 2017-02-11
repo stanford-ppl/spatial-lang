@@ -101,9 +101,12 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val ctrlAnalyzer   = new ControlSignalAnalyzer { val IR: self.type = self }
 
   lazy val regCleanup     = new RegisterCleanup { val IR: self.type = self }
+  lazy val regReadCSE     = new RegReadCSE { val IR: self.type = self }
 
   lazy val memAnalyzer    = new MemoryAnalyzer { val IR: self.type = self; def localMems = ctrlAnalyzer.localMems }
   lazy val paramAnalyzer  = new ParameterAnalyzer{val IR: self.type = self }
+
+  lazy val scopeCheck     = new ScopeCheck { val IR: self.type = self }
 
   lazy val dse = new DSE {
     val IR: self.type = self
@@ -137,6 +140,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // Traversal schedule
   passes += printer
   passes += scalarAnalyzer    // Perform bound and global analysis
+  passes += scopeCheck        // Check that illegal host values are not used in the accel block
 //passes += constFolding      // Constant folding (TODO: Necessary?)
   passes += levelAnalyzer     // Initial pipe style annotation fixes
   passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions
@@ -144,6 +148,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // --- Unit Pipe Insertion
   passes += printer
   passes += unitPipeInsert    // Wrap primitives in outer controllers
+  passes += regReadCSE        // CSE register reads in inner pipelines
   passes += printer
 
   // --- Pre-Reg Cleanup
@@ -163,7 +168,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // --- DSE
   passes += dse               // TODO: Design space exploration
 
-  // --- Post-DSE Transform
+  // --- Post-DSE Expansion
   // NOTE: Small compiler pass ordering issue here:
   // We may need bound information during node expansion,
   // but we also need to reanalyze bounds to account for expanded nodes
@@ -171,13 +176,18 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   passes += scalarAnalyzer    // Bounds / global analysis
   passes += printer
   passes += burstExpansion    // Expand burst loads/stores from single abstract nodes
-
-  // --- Post-DSE Analysis
-  passes += printer
-  passes += scalarAnalyzer    // Bounds / global analysis
   passes += levelAnalyzer     // Pipe style annotation fixes after expansion
-  passes += affineAnalyzer    // Memory access patterns
+
+  // --- Post-Expansion Cleanup
+  passes += printer
+  passes += regReadCSE        // CSE register reads in inner pipelines
+  passes += scalarAnalyzer    // Bounds / global analysis
   passes += ctrlAnalyzer      // Control signal analysis
+  passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
+
+  // --- Pre-Unrolling Analysis
+  passes += ctrlAnalyzer      // Control signal analysis
+  passes += affineAnalyzer    // Memory access patterns
   passes += reduceAnalyzer    // Reduce/accumulator specialization
   passes += memAnalyzer       // Finalize banking/buffering
   // TODO: models go here
@@ -185,15 +195,17 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // --- Design Elaboration
   passes += printer
   passes += unroller          // Unrolling
+  passes += regReadCSE        // CSE register reads in inner pipelines
   passes += printer
 
   passes += uctrlAnalyzer     // Analysis for unused register reads
   passes += printer
   passes += regCleanup        // Duplicate register reads for each use
-  passes += printer
   passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
+  passes += printer
 
   // --- Post-Unroll Analysis
+  passes += scopeCheck        // Check that illegal host values are not used in the accel block
   passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)
   passes += printer
   passes += bufferAnalyzer    // Set top controllers for n-buffers

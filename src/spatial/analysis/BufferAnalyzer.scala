@@ -17,13 +17,10 @@ trait BufferAnalyzer extends CompilerPass {
       val writers = writersOf(mem)
       val duplicates = duplicatesOf(mem)
 
-      dbg(u"Setting buffer controllers for $mem: ")
-      duplicates.zipWithIndex.foreach{case (dup, i) => dbg(c"  Instance #$i: $dup") }
-      readers.zipWithIndex.foreach{case (reader, i) => dbg(c"  Reader #$i: ${str(reader.node)} [${reader.ctrl}]") }
-      writers.zipWithIndex.foreach{case (writer, i) => dbg(c"  Writer #$i: ${str(writer.node)} [${writer.ctrl}]") }
+      dbg(u"Memory $mem: ")
 
       duplicates.zipWithIndex.foreach{case (dup, i) =>
-        dbg(c"  #$i:")
+        dbg(c"  #$i: $dup")
         val reads = readers.filter{read => dispatchOf(read, mem) contains i }
         val writes = writers.filter{write => dispatchOf(write, mem) contains i }
         val accesses = reads ++ writes
@@ -46,7 +43,56 @@ trait BufferAnalyzer extends CompilerPass {
           warn(ctxOrHere(mem), u"Memory $mem, instance #$i has no associated accesses")
         }
       }
+      dbg("\n")
     }
+
+    dbg(s"--------")
+    dbg(s"Results")
+    dbg(s"--------")
+    localMems.foreach{mem =>
+      dbg("\n")
+      ctxsOf(mem).headOption match {
+        case Some(ctx) =>
+          dbg(ctx.fileName + ":" + ctx.line + u": Memory $mem")
+          if (ctx.lineContent.isDefined) {
+            dbg(ctx.lineContent.get)
+            dbg(" "*(ctx.column-1) + "^")
+          }
+
+        case None =>
+          dbg(u"Memory: $mem")
+      }
+
+      dbg(c"  ${str(mem)}")
+
+      val readers = readersOf(mem)
+      val writers = writersOf(mem)
+      val duplicates = duplicatesOf(mem)
+
+      readers.zipWithIndex.foreach{case (reader, i) => dbg(c"  Reader #$i: ${str(reader.node)} [${reader.ctrlNode}]") }
+      writers.zipWithIndex.foreach{case (writer, i) => dbg(c"  Writer #$i: ${str(writer.node)} [${writer.ctrlNode}]") }
+
+      duplicates.zipWithIndex.foreach{case (dup,i) =>
+        val reads = readers.filter{read => dispatchOf(read, mem) contains i }
+        val writes = writers.filter{write => dispatchOf(write, mem) contains i }
+        val accesses = reads ++ writes
+        dbg("")
+        dbg(c"  #$i: $dup")
+        (0 until dup.depth).foreach{port =>
+          val portAccesses = accesses.filter{a => portsOf(a, mem, i).contains(port) }.map(_.node)
+          val accs = if (dup.depth > 1) {
+            val portSwaps = portAccesses.map{a => topControllerOf(a, mem, i) }
+            portAccesses.zip(portSwaps).map{case (a,c) => c"$a " + (if (c.isDefined) c"[${c.get.node}]" else "[???]")}
+          }
+          else {
+            portAccesses.map{a => c"$a"}
+          }
+          dbg(c"    $port: " + accs.mkString(", "))
+        }
+      }
+
+    }
+
 
     block
   }

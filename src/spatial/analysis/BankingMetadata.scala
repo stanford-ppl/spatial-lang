@@ -16,9 +16,10 @@ trait BankingMetadataExp extends SpatialMetadataExp {
   sealed abstract class Memory {
     def depth: Int
     def nDims: Int
+    def isAccum: Boolean
   }
-  case class BankedMemory(dims: Seq[Banking], depth: Int) extends Memory { def nDims = dims.length }
-  case class DiagonalMemory(strides: Seq[Int], banks: Int, depth: Int) extends Memory { def nDims = strides.length }
+  case class BankedMemory(dims: Seq[Banking], depth: Int, isAccum: Boolean) extends Memory { def nDims = dims.length }
+  case class DiagonalMemory(strides: Seq[Int], banks: Int, depth: Int, isAccum: Boolean) extends Memory { def nDims = strides.length }
 
   /**
     * Metadata for duplicates of a single coherent scratchpad.
