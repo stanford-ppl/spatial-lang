@@ -95,11 +95,6 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       dbg(c"Added reader $reader of $mem in $ctrl")
     }
   }
-  def addPendingNode(node: Exp[_], shouldDup: Boolean = true) = {
-    dbg(c"Adding pending node $node")
-    shouldDuplicate(node) = shouldDup
-    if (!pendingNodes.contains(node)) pendingNodes += node -> List(node)
-  }
 
   def addReader(reader: Exp[_], ctrl: Ctrl) = {
     if (isInnerControl(ctrl))
@@ -154,7 +149,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
     pending.foreach{node =>
       usersOf(node) = (user,ctrl) +: usersOf(node)
-      if (isRegisterRead(node)) appendReader(node, ctrl)
+      if (isRegisterRead(node) && ctrl != null) appendReader(node, ctrl)
 
       // Also add stateless nodes that this node uses
       // Can't do this on the fly when the node was first reached, since the associated control was unknown
@@ -168,7 +163,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     val pending = rhs.inputs.flatMap{sym => pendingNodes.getOrElse(sym, Nil) }
     if (pending.nonEmpty) {
       // All nodes which could potentially use a reader outside of an inner control node
-      if (isStateless(lhs) && !ctrl.exists(isInnerControl)) {
+      if (isStateless(lhs) && !ctrl.exists(isInnerControl)) { // Ctrl is either outer or outside Accel
         dbg(c"Found propagating reader ${str(lhs)} of:")
         pending.foreach{s => dbg(c"  ${str(s)}")}
         pendingNodes += lhs -> (lhs +: pending)
@@ -177,6 +172,12 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
         addPendingUse(lhs, ctrl.orNull, pending)
       }
     }
+  }
+
+  def addPendingNode(node: Exp[_]) = {
+    dbg(c"Adding pending node $node")
+    shouldDuplicate(node) = true
+    if (!pendingNodes.contains(node)) pendingNodes += node -> List(node)
   }
 
   /** Common method for all nodes **/
@@ -198,6 +199,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
     else {
       checkPendingNodes(lhs, rhs, None)
+      if (isStateless(lhs)) addPendingNode(lhs)
 
       if (isAllocation(lhs) && (isArgIn(lhs) || isArgOut(lhs))) localMems ::= lhs // (7)
     }

@@ -110,7 +110,7 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
   def rankOf(x: Exp[SRAM[_]]): Int = dimsOf(x).length
   def rankOf(x: SRAM[_]): Int = rankOf(x.s)
 
-  def flatIndex(indices: Seq[Index], dims: Seq[Index]): Index = {
+  def flatIndex(indices: Seq[Index], dims: Seq[Index])(implicit ctx: SrcCtx): Index = {
     val strides = List.tabulate(dims.length){d => productTree(dims.drop(d+1)) }
     sumTree(indices.zip(strides).map{case (a,b) => a*b })
   }

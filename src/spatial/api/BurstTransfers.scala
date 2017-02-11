@@ -209,6 +209,9 @@ trait BurstTransferExp extends Staging { this: SpatialExp =>
   ) extends Op[Void] {
     def mirror(f:Tx) = burst_load(f(dram),f(fifo),f(ofs),f(ctr),i)
 
+    override def inputs = syms(dram, fifo, ofs, ctr)
+    override def binds = List(i)
+
     override def aliases = Nil
   }
   case class BurstStore[T:Staged:Bits](
@@ -220,6 +223,8 @@ trait BurstTransferExp extends Staging { this: SpatialExp =>
   ) extends Op[Void] {
     def mirror(f:Tx) = burst_store(f(dram),f(fifo),f(ofs),f(ctr),i)
 
+    override def inputs = syms(dram, fifo, ofs, ctr)
+    override def binds = List(i)
     override def aliases = Nil
   }
 
