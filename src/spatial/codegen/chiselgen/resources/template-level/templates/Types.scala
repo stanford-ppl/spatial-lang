@@ -35,7 +35,7 @@ class RawBits(b: Int) extends Bundle {
 	val number = UInt(b.W)
 
 	// Conversions
-	def toFixedPoint(s: Boolean, d: Int, f: Int) = { 
+	def toFixPt(s: Boolean, d: Int, f: Int) = { 
 	  val converted = new FixedPoint(s, d, f) 
 	  // (0 until d).foreach { i => converted.dec(i) = number(f + i) } 
 	  // (0 until f).foreach { i => converted.frac(i) := number(i) } 
@@ -67,11 +67,10 @@ class FixedPointTester(s: Boolean, d: Int, f: Int) extends Module {
 		val add_result = new RawBits(d+f).asOutput
 	})
 
-	val fix1 = io.num1.toFixedPoint(true, d, f)
+	// val fix1 = io.num1.toFixPt(true, d, f)
 
 
 }
-
 
 
 

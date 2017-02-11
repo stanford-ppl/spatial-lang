@@ -7,7 +7,7 @@ object OuterProduct extends SpatialApp {
 
   val tileSize1 = 96
   val tileSize2 = 96
-  val op = 8
+  val op = 1
   val ip = 1
 
   @virtualize
