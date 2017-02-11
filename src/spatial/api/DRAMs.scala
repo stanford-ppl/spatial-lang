@@ -63,6 +63,8 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
   ) extends Op[Controller] {
     def mirror(f:Tx) = gather(f(dram),f(local),f(addrs),f(ctr),i)
 
+    override def inputs = syms(dram, local, addrs, ctr)
+    override def binds = List(i)
     override def aliases = Nil
     val mT = typ[T]
     val bT = bits[T]
@@ -76,6 +78,8 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
   ) extends Op[Controller] {
     def mirror(f:Tx) = scatter(f(dram),f(local),f(addrs),f(ctr),i)
 
+    override def inputs = syms(dram, local, addrs, ctr)
+    override def binds = List(i)
     override def aliases = Nil
     val mT = typ[T]
     val bT = bits[T]

@@ -151,6 +151,21 @@ object NDScatterTest extends SpatialTest {
   }
 }
 
+object UntransferredValueTest extends SpatialTest {
+  import IR._
+
+  @virtualize
+  def main() {
+    val x = random[Int]
+    val y = ArgIn[Int]
+
+    Accel {
+      y := x
+    }
+    println(getArg(y))
+  }
+}
+
 class SpatialTests extends FlatSpec with Matchers with Exceptions {
   val noargs = Array[String]()
   SpatialConfig.enableScala = true
@@ -163,4 +178,5 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   "FoldAccumTest" should "compile" in { FoldAccumTest.main(noargs) }
   "MemReduceTest" should "compile" in { MemReduceTest.main(noargs) }
   a [TestBenchFailed] should be thrownBy { NDScatterTest.main(noargs) }
+  a [TestBenchFailed] should be thrownBy { UntransferredValueTest.main(noargs) }
 }

@@ -94,6 +94,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val memAnalyzer    = new MemoryAnalyzer { val IR: self.type = self; def localMems = ctrlAnalyzer.localMems }
   lazy val paramAnalyzer  = new ParameterAnalyzer{val IR: self.type = self }
 
+  lazy val scopeCheck     = new ScopeCheck { val IR: self.type = self }
+
   lazy val dse = new DSE {
     val IR: self.type = self
     def restricts  = paramAnalyzer.restrict
@@ -125,6 +127,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // Traversal schedule
   passes += printer
   passes += scalarAnalyzer    // Perform bound and global analysis
+  passes += scopeCheck        // Check that illegal host values are not used in the accel block
 //passes += constFolding      // Constant folding (TODO: Necessary?)
   passes += levelAnalyzer     // Initial pipe style annotation fixes
   passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions
@@ -185,10 +188,11 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   passes += uctrlAnalyzer     // Analysis for unused register reads
   passes += printer
   passes += regCleanup        // Duplicate register reads for each use
-  passes += printer
   passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
+  passes += printer
 
   // --- Post-Unroll Analysis
+  passes += scopeCheck        // Check that illegal host values are not used in the accel block
   passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)
   passes += printer
   passes += bufferAnalyzer    // Set top controllers for n-buffers
