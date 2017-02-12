@@ -865,9 +865,9 @@ object MultiplexedWriteTest extends SpatialApp { // Regression (Unit) // Args: n
 
     val gold = Array.tabulate(N/tileSize) { k =>
       Array.tabulate(I){ j => 
-        Array.tabulate(tileSize) { i => 
-          ( 1 + (j+1)*(j+2)/2 ) * (i + k*tileSize)
-        }
+        val in = Array.tabulate(tileSize) { i => (j+1)*(k*tileSize + i) }
+        val wt = Array.tabulate(tileSize) { i => k*tileSize + i }
+        in.zip(wt){_+_}
       }.flatten
     }.flatten
     printArray(gold, "gold: ");
@@ -902,6 +902,7 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
     setMem(weights, w)
     setMem(inputs,i)
     Accel {
+
       val wt = SRAM[Int](T)
       val in = SRAM[Int](T)
       Sequential.Foreach(N by T){i =>
@@ -909,12 +910,17 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
         in load inputs(i::i+T)
 
         Foreach(I by 1){x =>
-          MemReduce(wt)(1 by 1){ k =>  // s0 write
+          val niter = Reg[Int]
+          niter := x+1
+          MemReduce(wt)(niter by 1){ k =>  // s0 write
             in
           }{_+_}
-          dummyOut(0::T) store in // s1 do not touch
-          dummyWeightsResult(0::T) store wt // s2 read
-          dummyOut2(0::T) store in // s3 do not touch
+          val dummyReg1 = Reg[Int]
+          val dummyReg2 = Reg[Int]
+          val dummyReg3 = Reg[Int]
+          Foreach(T by 1) { i => dummyReg1 := in(i)} // s1 do not touch
+          Foreach(T by 1) { i => dummyReg2 := wt(i)} // s2 read
+          Foreach(T by 1) { i => dummyReg3 := in(i)} // s3 do not touch
           weightsResult(i*I+x*T::i*I+x*T+T) store wt //s4 read
         }
       }

@@ -1,13 +1,13 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_outer extends SpatialApp {
+object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 16 192 192
   import IR._
 
   type X = Int
 
-  val innerPar = 16
-  val midPar = 16
+  val innerPar = 1
+  val midPar = 1
   val outerPar = 1
 
   @virtualize
@@ -25,7 +25,7 @@ object MatMult_outer extends SpatialApp {
     val c = DRAM[T](M, N)
 
     val op = 1 (1 -> 1)
-    val mp = 16 (1 -> 16)
+    val mp = 1 (1 -> 16)
     val ip = 1 (1 -> 96)
     val px = 1 (1 -> 1) // Cannot parallelize accum across k blocks
 
