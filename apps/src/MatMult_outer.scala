@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 16 192 192
+object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 64 64
   import IR._
 
   type X = Int
@@ -26,23 +26,23 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 16 192 
 
     val op = 1 (1 -> 1)
     val mp = 1 (1 -> 16)
-    val ip = 1 (1 -> 96)
+    val ip = 1 (1 -> 64)
     val px = 1 (1 -> 1) // Cannot parallelize accum across k blocks
 
-    val bm = param(8)
-    val bn = param(192)
-    val bp = param(192)
+    val bm = param(4)
+    val bn = param(64)
+    val bp = param(64)
 
     setMem(a, A)
     setMem(b, B)
-    setMem(c, C_init)
+    // setMem(c, C_init)
 
     Accel {
       Foreach(M by bm, N by bn par op) { (i,j) =>
         val tileC = SRAM[T](bm, bn)
 
         Foreach(P by bp par px) { k =>
-          val tileA = SRAM[T](bm, bp)
+          val tileA = SRAM[T](bm, bp) 
           val tileB = SRAM[T](bp, bn)
           Parallel {
             tileA load a(i::i+bm, k::k+bp)
@@ -69,8 +69,8 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 16 192 
     val N = args(1).to[Int]
     val P = args(2).to[Int]
 
-    val a = Array.fill(M){ Array.fill(P){ 1.as[X] } }
-    val b = Array.fill(P){ Array.fill(N){ 1.as[X] } }
+    val a = Array.tabulate(M){ j => Array.tabulate(P){ i => (i + j * P) % 256 } } // Standard array
+    val b = Array.tabulate(P){ j => Array.tabulate(N){ i => (i + j * N) % 256 } } // Standard array
     val c_init = Array.fill(M){ Array.fill(N){ 0.as[X] } }
     // val a = Array.fill(M){ Array.fill(P){random[T](100)} }
     // val b = Array.fill(P){ Array.fill(N){random[T](100)} }

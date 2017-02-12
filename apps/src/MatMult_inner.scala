@@ -6,9 +6,9 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 192 
 
   type X = Int //FixPt[Signed,B16,B16]
 
-  val tileSizeM = 8
-  val tileSizeN = 192
-  val tileSizeP = 192
+  val tileSizeM = 4
+  val tileSizeN = 64
+  val tileSizeP = 64
   val innerPar = 1
   val midPar = 1
   val outerPar = 1
@@ -28,12 +28,12 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 192 
     val c = DRAM[T](M, N)
 
     val bm = tileSizeM (1 -> 1536)
-    val bn = tileSizeN (96 -> 96 -> 1536)
-    val bp = tileSizeP (96 -> 96 -> 1536)
+    val bn = tileSizeN (64 -> 64 -> 1536)
+    val bp = tileSizeP (64 -> 64 -> 1536)
 
     val op = outerPar (1 -> 6)
-    val mp = midPar   (1 -> 96)
-    val ip = innerPar (1 -> 96)
+    val mp = midPar   (1 -> 64)
+    val ip = innerPar (1 -> 64)
     val px = 1 (1 -> 1) // Cannot parallelize accum across k blocks
     val stPar = storePar (1 -> 1)
 
