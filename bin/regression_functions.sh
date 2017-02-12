@@ -495,7 +495,7 @@ cd ${5}/out
 make clean sim 2>&1 | tee -a ${5}/log
 
 # Check for crashes in backend compilation
-wc=\$(cat ${5}/log | \"recipe for target 'bitstream-sim' failed\" | wc -l)
+wc=\$(cat ${5}/log | grep \"recipe for target 'bitstream-sim' failed\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
 fi
