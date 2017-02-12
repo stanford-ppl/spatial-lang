@@ -40,9 +40,6 @@ object OuterProduct extends SpatialApp {
         val b1 = SRAM[T](tileSizeA)
         val b2 = SRAM[T](tileSizeB)
         val outTile = SRAM[T](tileSizeA, tileSizeB)
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
         Foreach(tileSizeA by 1, tileSizeB par innerPar){ (ii,jj) => outTile(ii, jj) = b1(ii) * b2(jj) }
 
         out(i::i+tileSizeA, j::j+tileSizeB) store outTile
@@ -57,11 +54,6 @@ object OuterProduct extends SpatialApp {
         // Foreach(blkA by 1, blkB par innerPar){ (ii,jj) => outTile(ii, jj) = b1(ii) * b2(jj) } // 2
 
         // out(i::i+blkA, j::j+blkB) store outTile
-=======
-=======
->>>>>>> origin/master
-=======
->>>>>>> origin/master
         //val blkA = Reg[Int]
         //val blkB = Reg[Int]
         Parallel {
@@ -73,13 +65,6 @@ object OuterProduct extends SpatialApp {
         Foreach(tileSizeA by 1, tileSizeB par innerPar){ (ii,jj) => outTile(ii, jj) = b1(ii) * b2(jj) } // 2
 
         out(i::i+tileSizeA, j::j+tileSizeB) store outTile
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> origin/master
-=======
->>>>>>> origin/master
-=======
->>>>>>> origin/master
       }
     }
     getMem(out)
