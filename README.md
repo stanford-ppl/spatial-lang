@@ -1,14 +1,10 @@
-# Regression buttons (Currently inaccurate!!)
+|        | Templates | Unit Tests | Dense Apps | Sparse Apps | Characterization Tests |
+|--------|-----------|------------|------------|-------------|------------------------|
+| Chisel | [![Build Status](https://travis-ci.org/stanford-ppl/spatial-lang.svg?branch=chisel)](https://travis-ci.org/stanford-ppl/spatial-lang)         | Unit: [![Build Status](https://travis-ci.org/mattfel1/UnitTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial-lang/wiki/Branchmaster-Testchisel-Regression)           | [![Build Status](https://travis-ci.org/mattfel1/DenseTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial-lang/wiki/Branchmaster-Testchisel-Regression)           | [![Build Status](https://travis-ci.org/mattfel1/SparseTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial-lang/wiki/Branchmaster-Testchisel-Regression)             | Characterization: [![Build Status](https://travis-ci.org/mattfel1/CharacterizationTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial-lang/wiki/Branchmaster-Testchisel-Regression)                       |
+| Scala  | N/A       |            |            |             |                        |
 
-Templates: [![Build Status](https://travis-ci.org/stanford-ppl/spatial-lang.svg?branch=master)](https://github.com/stanford-ppl/spatial-lang/wiki/Branchmaster-Testchisel-Regression)
 
-Unit: [![Build Status](https://travis-ci.org/mattfel1/UnitTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial-lang/wiki/Branchmaster-Testchisel-Regression)
 
-Dense: [![Build Status](https://travis-ci.org/mattfel1/DenseTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial-lang/wiki/Branchmaster-Testchisel-Regression)
-
-Sparse: [![Build Status](https://travis-ci.org/mattfel1/SparseTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial-lang/wiki/Branchmaster-Testchisel-Regression) 
-
-Characterization: [![Build Status](https://travis-ci.org/mattfel1/CharacterizationTracker.svg?branch=master)](https://github.com/stanford-ppl/spatial-lang/wiki/Branchmaster-Testchisel-Regression)
 
 # Spatial
 Spatial is an Argon DSL for programming reconfigurable hardware from a parameterized, high level abstraction.
