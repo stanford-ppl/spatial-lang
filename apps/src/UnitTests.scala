@@ -609,10 +609,9 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
 
     val dst = blockreduce_1d(src, size)
 
-    val iters = size/tileSize
-    val first = ((iters*(iters-1))/2)*tileSize
-
-    val gold = Array.tabulate(tileSize) { i => first + i*iters }
+    val tsArr = Array.tabulate(tileSize){i => i}
+    val perArr = Array.tabulate(size/tileSize){i => i}
+    val gold = tsArr.map{ i => perArr.map{j => src(i+j*tileSize)}.reduce{_+_}}
 
     printArray(gold, "src:")
     printArray(dst, "dst:")
@@ -954,7 +953,7 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
 }
 
 // Args: None
-object SequentialWrites extends SpatialApp { // Regression (Unit) // Args: none
+object SequentialWrites extends SpatialApp { // Regression (Unit) // Args: 7
   import IR._
 
   val tileSize = 96
