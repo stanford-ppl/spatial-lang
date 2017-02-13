@@ -1,1 +1,2 @@
-# Make the scala somehow
+all: 
+	sbt compile

@@ -1,3 +1,3 @@
 #!/bin/bash
 
-# Run the scala somehow
+sbt "run $@"
