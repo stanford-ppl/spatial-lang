@@ -109,28 +109,6 @@ fi
 
 }
 
-stamp_commit_msgs() {
-  logger "Stamping commit messages"
-  cd $SPATIAL_HOME
-  spatial_msg=`git log --stat --name-status ${spatial_hash}^..${spatial_hash}`
-  cd $ARGON_HOME
-  argon_msg=`git log --stat --name-status ${argon_hash}^..${argon_hash}`
-  cd $VIRTUALIZED_HOME
-  virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
-  echo "
-# Commits
-" >> $wiki_file
-  echo -e "\nSpatial commit: \n\`\`\`\n${spatial_msg}\n\`\`\`" >> $wiki_file
-  echo -e "\nArgon commit: \n\`\`\`\n${argon_msg}\n\`\`\`" >> $wiki_file
-  echo -e "\nVirtualized commit: \n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
-  echo "
-# Test summary
-" >> $wiki_file
-  summary=`sed -n '1p' $packet`
-  echo -e "\n\n${summary}" >> $wiki_file
-}
-
-
 # Helper function for ensuring a file or dir exists
 ## 1 - directory to check
 ## 2 - error code (for tracing back where failure occured)

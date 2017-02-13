@@ -9,6 +9,30 @@ delay=2100
 numpieces=30
 hist=72
 
+stamp_commit_msgs() {
+  logger "Stamping commit messages"
+  cd $SPATIAL_HOME
+  spatial_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
+  spatial_msg=`git log --stat --name-status ${spatial_hash}^..${spatial_hash}`
+  cd $ARGON_HOME
+  argon_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
+  argon_msg=`git log --stat --name-status ${argon_hash}^..${argon_hash}`
+  cd $VIRTUALIZED_HOME
+  virtualized_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
+  virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
+  echo "
+# Commits
+" >> $wiki_file
+  echo -e "\nSpatial commit (branch ${spatial_branch}): \n\`\`\`\n${spatial_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nArgon commit (branch ${argon_branch}): \n\`\`\`\n${argon_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nVirtualized commit (branch ${virtualized_branch}): \n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
+  echo "
+# Test summary
+" >> $wiki_file
+  summary=`sed -n '1p' $packet`
+  echo -e "\n\n${summary}" >> $wiki_file
+}
+
 ## Function for finding filse with older timestamps.
 ##   This tester will yield to any active or new tests who are older
 coordinate() {
