@@ -12,20 +12,17 @@ hist=72
 stamp_commit_msgs() {
   logger "Stamping commit messages"
   cd $SPATIAL_HOME
-  spatial_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
   spatial_msg=`git log --stat --name-status ${spatial_hash}^..${spatial_hash}`
   cd $ARGON_HOME
-  argon_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
   argon_msg=`git log --stat --name-status ${argon_hash}^..${argon_hash}`
   cd $VIRTUALIZED_HOME
-  virtualized_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
   virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
   echo "
 # Commits
 " >> $wiki_file
-  echo -e "\nSpatial commit (branch ${spatial_branch}): \n\`\`\`\n${spatial_msg}\n\`\`\`" >> $wiki_file
-  echo -e "\nArgon commit (branch ${argon_branch}): \n\`\`\`\n${argon_msg}\n\`\`\`" >> $wiki_file
-  echo -e "\nVirtualized commit (branch ${virtualized_branch}): \n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nSpatial commit\n\`\`\`\n${spatial_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nArgon commit\n\`\`\`\n${argon_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nVirtualized commit\n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
   echo "
 # Test summary
 " >> $wiki_file
@@ -399,9 +396,7 @@ init_travis_ci() {
     if [[ $wc = 0 ]]; then
       logger "Does not exist! Making it..."
       git checkout -b ${trackbranch}
-      mv .travis.yml donotrun
       git push --set-upstream origin ${trackbranch}
-      mv donotrun .travis.yml
     else
       logger "Exists! Switching to it..."
       cmd="git checkout ${trackbranch}"
@@ -420,15 +415,24 @@ if [ ! -f results ]; then
   exit 1
 fi
 
-errors=(`cat results | grep -i \"fail\\|unknown\" | wc -l`)
+errors=(\`cat results | grep -i \"fail\\|unknown\" | wc -l\`)
 if [[ \$errors != 0 ]]; then
   cat results
   echo \"FAIL: Errors found\"
   exit 1
 else
-  echo \"Succes\"
+  echo \"Success\"
   exit 0
 fi" > status.sh
+
+echo "language: c
+notifications:
+  email:
+    recipients: mattfel@stanford.edu
+    on_failure: change # default: always
+script:
+  - bash ./status.sh
+" > .travis.yml
 
     tracker="${SPATIAL_HOME}/${trackbranch}/results"
     ls | grep -v travis | grep -v status | grep -v README | grep -v git | xargs rm -rf
