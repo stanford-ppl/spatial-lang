@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 64 64
+object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 4 64 64
   import IR._
 
   type X = Int
@@ -49,7 +49,7 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 64 64
             tileB load b(k::k+bp, j::j+bn)
           }
           // Requires tileC NOT to be reset until next j
-          MemReduce(tileC)(bp by 1 par mp){ kk =>
+          MemReduce(tileC, 0.as[T])(bp by 1 par mp){ kk =>
             val tileC_partial = SRAM[T](bm,bn)
             Foreach(bm by 1, bn by 1 par ip){ (ii,jj) =>
               tileC_partial(ii,jj) = tileA(ii,kk) * tileB(kk,jj)
@@ -91,6 +91,6 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 64 64
     printArray(result, "Result: ")
 
     val cksum = result.zip(gold){_ == _}.reduce{_&&_}
-    println("PASS: " + cksum + " (MatMult_outer)")
+    println("PASS: " + cksum + " (MatMult_outer) * Set the first bound to something greater than 4 once accumulator reset-ification exists in IR")
   }
 }

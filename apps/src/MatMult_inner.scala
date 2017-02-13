@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 192 192
+object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 64
   import IR._
 
   type X = Int //FixPt[Signed,B16,B16]

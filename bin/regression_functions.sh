@@ -386,17 +386,17 @@ init_travis_ci() {
   # Pull Tracker repos
   goto=(`pwd`)
   cd ${SPATIAL_HOME}
-  cmd="git clone git@github.com:mattfel1/Tracker.git"
+  cmd="git clone git@github.com:mattfel1/Trackers.git"
   logger "Pulling TRAVIS CI buttons with command: $cmd"
   eval "$cmd"
-  if [ -d "${SPATIAL_HOME}/Tracker" ]; then
+  if [ -d "${SPATIAL_HOME}/Trackers" ]; then
     logger "Repo Tracker exists, prepping it..."
     trackbranch="${1}${2}${3}Tracker"
-    mv ${SPATIAL_HOME}/Tracker ${SPATIAL_HOME}/${trackbranch}
+    mv ${SPATIAL_HOME}/Trackers ${SPATIAL_HOME}/${trackbranch}
     cd ${SPATIAL_HOME}/${trackbranch}
     logger "Checking if  branch $trackbranch exists..."
-    wc=(`git branch -a | grep "remotes/origin/${trackbranch}"`)
-    if [ $wc = 0 ]; then
+    wc=(`git branch -a | grep "remotes/origin/${trackbranch}" | wc -l`)
+    if [[] $wc = 0 ]]; then
       logger "Does not exist! Making it..."
       git checkout -b ${trackbranch}
       rm README.md
