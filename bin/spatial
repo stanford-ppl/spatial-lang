@@ -120,6 +120,8 @@ def main():
   if opts.cpp == True:
     java_opts = java_opts + " -Dspatial.cpp=true"
   if opts.outdir != "":
+    # Clean outdir
+    os.system("rm -rf " + os.path.join(SPATIAL_HOME, opts.outdir) + "/*")
     java_opts = java_opts + " -Dargon.out=" + os.path.join(SPATIAL_HOME, opts.outdir)
 
   java_opts = java_opts + " -Dargon.name=" + opts.app
