@@ -7,7 +7,7 @@ notifications:
     on_failure: always # default: always
 branches:
   only:
-  - fgpa
+  - fpga
   - master
 install: 
   - wget https://www.veripool.org/ftp/verilator-3.900.tgz
