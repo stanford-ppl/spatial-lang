@@ -399,22 +399,40 @@ init_travis_ci() {
     if [[ $wc = 0 ]]; then
       logger "Does not exist! Making it..."
       git checkout -b ${trackbranch}
-      rm README.md
-      echo "# Tracker
-Travis-CI tracker for $1 tests on $2 branch with $3 backend
-[![Build Status](https://travis-ci.org/mattfel1/Tracker.svg?branch=${trackbranch})](https://travis-ci.org/mattfel1/Tracker)
-
-Based on https://github.com/stanford-ppl/spatial/wiki/${2}Branch-${3}Test-Regression-Tests-Status" > README.md
+      mv .travis.yml donotrun
       git push --set-upstream origin ${trackbranch}
+      mv donotrun .travis.yml
     else
       logger "Exists! Switching to it..."
       cmd="git checkout ${trackbranch}"
       eval "$cmd"
     fi
 
-    tracker="${SPATIAL_HOME}/Tracker/results"
+      echo "# Tracker
+Travis-CI tracker for $1 tests on $2 branch with $3 backend
+[![Build Status](https://travis-ci.org/mattfel1/Tracker.svg?branch=${trackbranch})](https://travis-ci.org/mattfel1/Tracker)
+
+Based on https://github.com/stanford-ppl/spatial/wiki/${2}Branch-${3}Test-Regression-Tests-Status" > README.md
+      echo "#!/bin/bash
+
+if [ ! -f results ]; then
+  echo \"FAIL: No results found\"
+  exit 1
+fi
+
+errors=(`cat results | grep -i \"fail\\|unknown\" | wc -l`)
+if [[ \$errors != 0 ]]; then
+  cat results
+  echo \"FAIL: Errors found\"
+  exit 1
+else
+  echo \"Succes\"
+  exit 0
+fi" > status.sh
+
+    tracker="${SPATIAL_HOME}/${trackbranch}/results"
     ls | grep -v travis | grep -v status | grep -v README | grep -v git | xargs rm -rf
-    cp $packet ${SPATIAL_HOME}/Tracker/
+    cp $packet ${SPATIAL_HOME}/${trackbranch}/
   else 
     logger "Repo Tracker does not exist! Skipping Travis..."
   fi

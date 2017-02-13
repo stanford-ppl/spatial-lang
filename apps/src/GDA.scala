@@ -82,6 +82,13 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 192
     getMem(sigma)
   }
 
+
+  def printArr(a: Array[Int], str: String = "") {
+    println(str)
+    (0 until a.length) foreach { i => print(a(i) + " ") }
+    println("")
+  }
+
   @virtualize
   def main() {
     val R = args(0).to[Int]
@@ -99,10 +106,16 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 192
 
     val result = gda(x.flatten, ys, mu0, mu1)
 
-    // val gold = x.zip(ys){ (row, y) =>
-    //   val sub = if (y == 1) row.zip(mu1){_-_} else row.zip(mu0){_-_}
-    //   Array.tabulate(C){i => Array.tabulate(C){j => sub(i) * sub(j) }}.flatten
-    // }.reduce{(a,b) => a.zip(b){_+_}}
+    val gold = x.zip(ys){ (row, y) =>
+      val sub = if (y == 1) row.zip(mu1){_-_} else row.zip(mu0){_-_}
+      Array.tabulate(C){i => Array.tabulate(C){j => sub(i) * sub(j) }}.flatten
+    }.reduce{(a,b) => a.zip(b){_+_}}
+
+    printArr(gold, "gold: ")
+    printArr(result, "result: ")
+
+    val cksum = gold.zip(result){ case (a,b) => a < b + margin && a > b - margin }.reduce{_&&_}
+    println("PASS: " + cksum  + " (GDA)")
 
     // // println("actual: " + gold.mkString(", "))
     // //println("result: " + result.mkString(", "))
