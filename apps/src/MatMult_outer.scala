@@ -49,7 +49,7 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 4 64 64
             tileB load b(k::k+bp, j::j+bn)
           }
           // Requires tileC NOT to be reset until next j
-          MemReduce(tileC, 0.as[T])(bp by 1 par mp){ kk =>
+          MemReduce(tileC)(bp by 1 par mp){ kk =>
             val tileC_partial = SRAM[T](bm,bn)
             Foreach(bm by 1, bn by 1 par ip){ (ii,jj) =>
               tileC_partial(ii,jj) = tileA(ii,kk) * tileB(kk,jj)

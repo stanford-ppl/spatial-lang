@@ -391,7 +391,7 @@ init_travis_ci() {
   eval "$cmd"
   if [ -d "${SPATIAL_HOME}/Trackers" ]; then
     logger "Repo Tracker exists, prepping it..."
-    trackbranch="${1}${2}${3}Tracker"
+    trackbranch="Class${1}-Branch${2}-Backend${3}-Tracker"
     mv ${SPATIAL_HOME}/Trackers ${SPATIAL_HOME}/${trackbranch}
     cd ${SPATIAL_HOME}/${trackbranch}
     logger "Checking if  branch $trackbranch exists..."
@@ -425,7 +425,7 @@ Based on https://github.com/stanford-ppl/spatial/wiki/${2}Branch-${3}Test-Regres
 ## $2 - branch
 ## $3 - backend
 push_travis_ci() {
-  trackbranch="${1}${2}${3}Tracker"
+  trackbranch="Class${1}-Branch${2}-Backend${3}-Tracker"
 
   # Pull Tracker repos
   goto=(`pwd`)
@@ -538,11 +538,11 @@ cd ${5}/out
 make clean sim 2>&1 | tee -a ${5}/log
 
 # Check for crashes in backend compilation
-wc=\$(cat ${5}/log | grep \"recipe for target 'bitstream-sim' failed\" | wc -l)
+wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
 fi
-wc=\$(cat ${5}/log | grep \"recipe for target 'Top_sim' failed\" | wc -l)
+wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_cpp_crash\" \"[STATUS] Declaring failure compile_chisel c++ side\" 0
 fi
