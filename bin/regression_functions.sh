@@ -399,9 +399,7 @@ init_travis_ci() {
     if [[ $wc = 0 ]]; then
       logger "Does not exist! Making it..."
       git checkout -b ${trackbranch}
-      mv .travis.yml donotrun
       git push --set-upstream origin ${trackbranch}
-      mv donotrun .travis.yml
     else
       logger "Exists! Switching to it..."
       cmd="git checkout ${trackbranch}"
@@ -420,15 +418,24 @@ if [ ! -f results ]; then
   exit 1
 fi
 
-errors=(`cat results | grep -i \"fail\\|unknown\" | wc -l`)
+errors=(\`cat results | grep -i \"fail\\|unknown\" | wc -l\`)
 if [[ \$errors != 0 ]]; then
   cat results
   echo \"FAIL: Errors found\"
   exit 1
 else
-  echo \"Succes\"
+  echo \"Success\"
   exit 0
 fi" > status.sh
+
+echo "language: c
+notifications:
+  email:
+    recipients: mattfel@stanford.edu
+    on_failure: change # default: always
+script:
+  - bash ./status.sh
+" > .travis.yml
 
     tracker="${SPATIAL_HOME}/${trackbranch}/results"
     ls | grep -v travis | grep -v status | grep -v README | grep -v git | xargs rm -rf
