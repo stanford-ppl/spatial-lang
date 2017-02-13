@@ -147,9 +147,9 @@ for ac in ${types_list[@]}; do
 
 # ${ac}:
 " | awk '{print toupper($0)}' >> $wiki_file
-  init_travis_ci $ac
+  init_travis_ci $ac $branch $type_todo
   update_log $wiki_file
-  push_travis_ci $ac
+  push_travis_ci $ac $branch $type_todo
 done
 
 echo -e "\n\n***\n\n" >> $wiki_file
@@ -355,44 +355,65 @@ mv ${pretty_file}.tmp ${pretty_file}
 }
 
 ## $1 - test class (unit, dense, etc)
+## $2 - branch
+## $3 - backend
 init_travis_ci() {
-  if [[ ${type_todo} = "chisel" ]]; then
 
-    # Pull Tracker repos
-    goto=(`pwd`)
-    cd ${SPATIAL_HOME}
-    cmd="git clone git@github.com:mattfel1/${1}Tracker.git"
-    logger "Pulling TRAVIS CI buttons with command: $cmd"
-    eval "$cmd"
-    if [ -d "${SPATIAL_HOME}/${1}Tracker" ]; then
-      logger "Repo ${1}Tracker exists, prepping it..."
-      cd ${SPATIAL_HOME}/${1}Tracker
-      cmd="git checkout ${branch}"
-      logger "Switching to branch ${branch}"
+  # Pull Tracker repos
+  goto=(`pwd`)
+  cd ${SPATIAL_HOME}
+  cmd="git clone git@github.com:mattfel1/Tracker.git"
+  logger "Pulling TRAVIS CI buttons with command: $cmd"
+  eval "$cmd"
+  if [ -d "${SPATIAL_HOME}/Tracker" ]; then
+    logger "Repo Tracker exists, prepping it..."
+    trackbranch="${1}${2}${3}Tracker"
+    mv ${SPATIAL_HOME}/Tracker ${SPATIAL_HOME}/${trackbranch}
+    cd ${SPATIAL_HOME}/${trackbranch}
+    logger "Checking if  branch $trackbranch exists..."
+    wc=(`git branch -a | grep "remotes/origin/${trackbranch}"`)
+    if [ $wc = 0 ]; then
+      logger "Does not exist! Making it..."
+      git checkout -b ${trackbranch}
+      rm README.md
+      echo "# Tracker
+Travis-CI tracker for $1 tests on $2 branch with $3 backend
+[![Build Status](https://travis-ci.org/mattfel1/Tracker.svg?branch=${trackbranch})](https://travis-ci.org/mattfel1/Tracker)
+
+Based on https://github.com/stanford-ppl/spatial/wiki/${2}Branch-${3}Test-Regression-Tests-Status" > README.md
+      git push --set-upstream origin ${trackbranch}
+    else
+      logger "Exists! Switching to it..."
+      cmd="git checkout ${trackbranch}"
       eval "$cmd"
-      tracker="${SPATIAL_HOME}/${1}Tracker/results"
-      ls | grep -v travis | grep -v status | grep -v README | grep -v git | xargs rm -rf
-      cp $packet ${SPATIAL_HOME}/${1}Tracker/
-    else 
-      logger "Repo ${1}Tracker does not exist! Skipping Travis..."
     fi
-    cd ${goto}
+
+    tracker="${SPATIAL_HOME}/Tracker/results"
+    ls | grep -v travis | grep -v status | grep -v README | grep -v git | xargs rm -rf
+    cp $packet ${SPATIAL_HOME}/Tracker/
+  else 
+    logger "Repo Tracker does not exist! Skipping Travis..."
   fi
+  cd ${goto}
 }
 
 ## $1 - test class (unit, dense, etc)
+## $2 - branch
+## $3 - backend
 push_travis_ci() {
-  if [[ ${type_todo} = "chisel" ]]; then
+
+    trackbranch="${1}${2}${3}Tracker"
+
     # Pull Tracker repos
     goto=(`pwd`)
-    if [ -d "${SPATIAL_HOME}/${1}Tracker" ]; then
-      logger "Repo ${1}Tracker exists, pushing it..."
-      cd ${SPATIAL_HOME}/${1}Tracker
+    if [ -d "${SPATIAL_HOME}/${trackbranch}" ]; then
+      logger "Repo Tracker exists, pushing it..."
+      cd ${SPATIAL_HOME}/${trackbranch}
       git add -A
       git commit -m "auto update"
       git push
     else
-      logger "Repo ${1}Tracker does not exist, skipping it!"
+      logger "Repo Tracker does not exist, skipping it!"
     fi
     cd ${goto}
   fi
