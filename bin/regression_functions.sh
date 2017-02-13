@@ -425,22 +425,20 @@ Based on https://github.com/stanford-ppl/spatial/wiki/${2}Branch-${3}Test-Regres
 ## $2 - branch
 ## $3 - backend
 push_travis_ci() {
+  trackbranch="${1}${2}${3}Tracker"
 
-    trackbranch="${1}${2}${3}Tracker"
-
-    # Pull Tracker repos
-    goto=(`pwd`)
-    if [ -d "${SPATIAL_HOME}/${trackbranch}" ]; then
-      logger "Repo Tracker exists, pushing it..."
-      cd ${SPATIAL_HOME}/${trackbranch}
-      git add -A
-      git commit -m "auto update"
-      git push
-    else
-      logger "Repo Tracker does not exist, skipping it!"
-    fi
-    cd ${goto}
+  # Pull Tracker repos
+  goto=(`pwd`)
+  if [ -d "${SPATIAL_HOME}/${trackbranch}" ]; then
+    logger "Repo Tracker exists, pushing it..."
+    cd ${SPATIAL_HOME}/${trackbranch}
+    git add -A
+    git commit -m "auto update"
+    git push
+  else
+    logger "Repo Tracker does not exist, skipping it!"
   fi
+  cd ${goto}
 }
 
 # Helper function for creating script for vulture to use
