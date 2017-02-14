@@ -23,15 +23,23 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
   def inReduction[T](blk: => T): T = duringClone{e => /*if (SpatialConfig.genCGRA) reduceType(e) = None*/ () }{ blk }
 
-  var validBit: Option[Exp[Bool]] = None
-  def withValid[T](valid: Exp[Bool])(blk: => T): T = {
-    val prevValid = validBit
-    validBit = Some(valid)
+  var validBits: Seq[Exp[Bool]] = Nil
+  def withValids[T](valids: Seq[Exp[Bool]])(blk: => T): T = {
+    val prevValids = validBits
+    validBits = valids
     val result = blk
-    validBit = prevValid
+    validBits = prevValids
     result
   }
-  def globalValid = validBit.getOrElse(bool(true))
+
+  // Single global valid - should only be used in inner pipes
+  def globalValid = {
+    if (validBits.isEmpty) bool(true)
+    else reduceTree(validBits){(a,b) => bool_and(a,b) }
+  }
+
+  // Sequence of valid bits associated with current unrolling scope
+  def globalValids = if (validBits.nonEmpty) validBits else Seq(bool(true))
 
   /**
     * Helper class for unrolling
@@ -47,9 +55,9 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val indexValids: Seq[Seq[Bound[Bool]]] = Ps.map{p => List.fill(p){ fresh[Bool] }}
 
     // Valid bits corresponding to each lane
-    lazy val valids = List.tabulate(P){p =>
+    lazy val valids: List[Seq[Exp[Bool]]]  = List.tabulate(P){p =>
       val laneIdxValids = indexValids.zip(parAddr(p)).map{case (vec,i) => vec(i)}
-      (laneIdxValids ++ validBit).reduce{(a,b) => bool_and(a,b) }
+      laneIdxValids ++ validBits
     }
 
     def size = P
@@ -65,7 +73,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     def inLane[A](i: Int)(block: => A): A = {
       val save = subst
       withSubstRules(contexts(i)) {
-        withValid(valids(i)) {
+        withValids(valids(i)) {
           val result = block
           // Retain only the substitutions added within this scope
           contexts(i) ++= subst.filterNot(save contains _._1)
@@ -252,7 +260,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
 
     val effects = blk.summary
-    val lhs2 = stageEffectful(UnrolledForeach(cchain, blk, is, vs), effects.star)(ctx)
+    val lhs2 = stageEffectful(UnrolledForeach(globalValids, cchain, blk, is, vs), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
 
     dbgs(s"Created foreach ${str(lhs2)}")
@@ -302,7 +310,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     val result = inReduction{
       val accValue = inlineBlock(load)
-      val isFirst = reduceTree(iters.map{i => fix_eql(i, int32(0)) }){(x,y) => bool_or(x,y) }
+      val isFirst = fix_eql(iters.last, int32(0))
 
       isReduceStarter(accValue) = true
 
@@ -347,15 +355,15 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val blk = stageBlock {
       dbgs("Unrolling map")
       val values = unrollMap(func, lanes)(mT,ctx)
-      val valids = lanes.valids
+      val valids = () => lanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b) } }
 
       if (isOuterControl(lhs)) {
         dbgs("Unrolling unit pipe reduce")
-        Pipe { Void(unrollReduceAccumulate[T](values, valids, ident, fold, rFunc, load, store, rV, inds2.flatten)) }
+        Pipe { Void(unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.flatten)) }
       }
       else {
         dbgs("Unrolling inner reduce")
-        unrollReduceAccumulate[T](values, valids, ident, fold, rFunc, load, store, rV, inds2.flatten)
+        unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.flatten)
       }
       void
     }
@@ -363,7 +371,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val rFunc2 = withSubstScope(rV._1 -> rV2._1, rV._2 -> rV2._2){ transformBlock(rFunc) }
 
     val effects = blk.summary
-    val lhs2 = stageEffectful(UnrolledReduce(cchain, accum, blk, rFunc2, inds2, vs, rV2)(mT,mC), effects.star)(ctx)
+    val lhs2 = stageEffectful(UnrolledReduce(globalValids, cchain, accum, blk, rFunc2, inds2, vs, rV2)(mT,mC), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
     dbgs(s"Created reduce ${str(lhs2)}")
     lhs2
@@ -403,13 +411,13 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val blk = stageBlock {
       dbgs(s"[Accum-fold $lhs] Unrolling map")
       val mems = unrollMap(func, mapLanes)
-      val mvalids = mapLanes.valids
+      val mvalids = () => mapLanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b)} }
 
       if (isUnitCounterChain(cchainRed)) {
         dbgs(s"[Accum-fold $lhs] Unrolling unit pipe reduction")
         Pipe {
           val values = inReduction{ mems.map{mem => withSubstScope(partial -> mem){ inlineBlock(loadRes)(mT) }} }
-          inReduction{ unrollReduceAccumulate[T](values, mvalids, ident, fold, rFunc, loadAcc, storeAcc, rV, isMap2.flatten) }
+          inReduction{ unrollReduceAccumulate[T](values, mvalids(), ident, fold, rFunc, loadAcc, storeAcc, rV, isMap2.flatten) }
           Void(void)
         }
       }
@@ -447,12 +455,12 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
           dbgs(s"[Accum-fold $lhs] Unrolling reduction trees and cycles")
           reduceLanes.foreach{p =>
-            val laneValid = reduceLanes.valids(p)
+            val laneValid = reduceTree(reduceLanes.valids(p)){(a,b) => bool_and(a,b)}
 
             dbgs(s"Lane #$p:")
             tab += 1
             val inputs = values.map(_.apply(p)) // The pth value of each vector load
-            val valids = mvalids.map{mvalid => bool_and(mvalid, laneValid) }
+            val valids = mvalids().map{mvalid => bool_and(mvalid, laneValid) }
 
             dbgs("Valids:")
             valids.foreach{s => dbgs(s"  ${str(s)}")}
@@ -464,7 +472,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
             val result = inReduction{
               val treeResult = unrollReduceTree(inputs, valids, ident, reduce)
-              val isFirst = reduceTree(isMap2.flatten.map{i => fix_eql(i, int32(0)) }){(x,y) => bool_or(x,y) }
+              val isFirst = fix_eql(isMap2.last.head, int32(0))
 
               isReduceStarter(accValue) = true
 
@@ -495,7 +503,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
         }
 
         val effects = rBlk.summary
-        val rpipe = stageEffectful(UnrolledForeach(cchainRed, rBlk, isRed2, rvs), effects.star)(ctx)
+        val rpipe = stageEffectful(UnrolledForeach(Seq(bool(true)), cchainRed, rBlk, isRed2, rvs), effects.star)(ctx)
         styleOf(rpipe) = InnerPipe
         tab -= 1
       }
@@ -507,7 +515,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     val effects = blk.summary
 
-    val lhs2 = stageEffectful(UnrolledReduce(cchainMap, accum, blk, rFunc2, isMap2, mvs, rV2)(mT,mC), effects.star)(ctx)
+    val lhs2 = stageEffectful(UnrolledReduce(globalValids, cchainMap, accum, blk, rFunc2, isMap2, mvs, rV2)(mT,mC), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
 
     dbgs(s"[Accum-fold] Created reduce ${str(lhs2)}")
@@ -519,6 +527,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
 
   // TODO: Method for parallelizing scatter and gather will likely have to change soon
+  // TODO: Enable bits required for scatter/gather? (Not required for burst load/store..)
   def unrollScatter[T:Staged:Bits](
     lhs:    Exp[_],
     mem:    Exp[DRAM[T]],

@@ -10,19 +10,21 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
 
   /** IR Nodes **/
   case class UnrolledForeach(
+    en:     Seq[Exp[Bool]],
     cchain: Exp[CounterChain],
     func:   Block[Void],
     iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bool]]]
   ) extends Op[Controller] {
-    def mirror(f:Tx) = op_unrolled_foreach(f(cchain),f(func),iters,valids)
+    def mirror(f:Tx) = op_unrolled_foreach(f(en),f(cchain),f(func),iters,valids)
 
-    override def inputs = syms(cchain) ++ syms(func)
+    override def inputs = syms(en) ++ syms(cchain) ++ syms(func)
     override def freqs = normal(cchain) ++ cold(func)
     override def binds = super.binds ++ iters.flatten ++ valids.flatten
   }
 
   case class UnrolledReduce[T,C[T]](
+    en:     Seq[Exp[Bool]],
     cchain: Exp[CounterChain],
     accum:  Exp[C[T]],
     func:   Block[Void],
@@ -31,9 +33,9 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     valids: Seq[Seq[Bound[Bool]]],
     rV:     (Bound[T], Bound[T])
   )(implicit val mT: Staged[T], val mC: Staged[C[T]]) extends Op[Controller] {
-    def mirror(f:Tx) = op_unrolled_reduce(f(cchain),f(accum),f(func),f(reduce),iters,valids,rV)
+    def mirror(f:Tx) = op_unrolled_reduce(f(en),f(cchain),f(accum),f(func),f(reduce),iters,valids,rV)
 
-    override def inputs = syms(cchain, accum) ++ syms(func) ++ syms(reduce)
+    override def inputs = syms(en) ++ syms(cchain, accum) ++ syms(func) ++ syms(reduce)
     override def freqs = normal(cchain) ++ normal(accum) ++ cold(func) ++ cold(reduce)
     override def binds = super.binds ++ iters.flatten ++ valids.flatten ++ Seq(rV._1, rV._2)
     override def tunnels = syms(accum)
@@ -77,6 +79,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
 
   /** Constructors **/
   private[spatial] def op_unrolled_foreach(
+    en:     Seq[Exp[Bool]],
     cchain: Exp[CounterChain],
     func:   => Exp[Void],
     iters:  Seq[Seq[Bound[Index]]],
@@ -84,10 +87,11 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   )(implicit ctx: SrcCtx): Exp[Controller] = {
     val fBlk = stageBlock { func }
     val effects = fBlk.summary.star
-    stageEffectful(UnrolledForeach(cchain, fBlk, iters, valids), effects)(ctx)
+    stageEffectful(UnrolledForeach(en, cchain, fBlk, iters, valids), effects)(ctx)
   }
 
   private[spatial] def op_unrolled_reduce[T,C[T]](
+    en:     Seq[Exp[Bool]],
     cchain: Exp[CounterChain],
     accum:  Exp[C[T]],
     func:   => Exp[Void],
@@ -99,7 +103,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     val fBlk = stageBlock { func }
     val rBlk = stageBlock { reduce }
     val effects = fBlk.summary andAlso rBlk.summary
-    stageEffectful(UnrolledReduce(cchain, accum, fBlk, rBlk, iters, valids, rV), effects.star)(ctx)
+    stageEffectful(UnrolledReduce(en, cchain, accum, fBlk, rBlk, iters, valids, rV), effects.star)(ctx)
   }
 
   private[spatial] def par_sram_load[T:Staged:Bits](

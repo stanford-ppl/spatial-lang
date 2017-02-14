@@ -39,8 +39,8 @@ object SimpleSequential extends SpatialTest {
     println("expected: " + gold)
     println("result:   " + result)
     val chkSum = result == gold
-    assert(chkSum)
     println("PASS: " + chkSum + " (SimpleSeq)")
+    assert(chkSum)
   }
 }
 
@@ -76,6 +76,7 @@ object DeviceMemcpy extends SpatialTest {
     println("")
     val chkSum = dst.zip(src){_ == _}.reduce{_&&_}
     println("PASS: " + chkSum + " (DeviceMemcpy)")
+    assert(chkSum)
   }
 }
 
@@ -135,6 +136,7 @@ object SimpleTileLoadStore extends SpatialTest {
 
     val cksum = dst.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (SimpleTileLoadStore)")
+    assert(cksum)
   }
 }
 
@@ -186,8 +188,7 @@ object FifoLoad extends SpatialTest {
 
     val cksum = dst.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (FifoLoadTest)")
-
-
+    assert(cksum)
   }
 }
 
@@ -247,9 +248,9 @@ object ParFifoLoad extends SpatialTest {
 
     val cksum = out == gold
     println("PASS: " + cksum + " (ParFifoLoad)")
+    assert(cksum)
   }
 }
-
 
 
 object FifoLoadStore extends SpatialTest {
@@ -298,9 +299,9 @@ object FifoLoadStore extends SpatialTest {
 
     val cksum = dst.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (FifoLoadStore)")
+    assert(cksum)
   }
 }
-
 
 
 object SimpleReduce extends SpatialTest { // Args: 72
@@ -336,6 +337,7 @@ object SimpleReduce extends SpatialTest { // Args: 72
 
     val cksum = gold == result
     println("PASS: " + cksum + " (SimpleReduce)")
+    assert(cksum)
   }
 }
 
@@ -384,6 +386,7 @@ object Niter extends SpatialTest {
 
     val cksum = gold == result
     println("PASS: " + cksum + " (Niter)")
+    assert(cksum)
   }
 }
 
@@ -435,6 +438,7 @@ object SimpleFold extends SpatialTest {
 
     val cksum = result == gold
     println("PASS: " + cksum + " (SimpleFold)")
+    assert(cksum)
   }
 }
 
@@ -481,7 +485,7 @@ object Memcpy2D extends SpatialTest {
 
     val cksum = dst.zip(src){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (MemCpy2D)")
-
+    assert(cksum)
   }
 }
 
@@ -531,7 +535,7 @@ object BlockReduce1D extends SpatialTest {
     printArray(dst, "dst:")
     val cksum = dst.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (BlockReduce1D)")
-
+    assert(cksum)
     //    (0 until tileSize) foreach { i => assert(dst(i) == gold(i)) }
   }
 }
@@ -581,7 +585,7 @@ object UnalignedLd extends SpatialTest {
     println("dst:" + dst)
     val cksum = gold == dst
     println("PASS: " + cksum + " (UnalignedLd)")
-
+    assert(cksum)
     //    (0 until tileSize) foreach { i => assert(dst(i) == gold(i)) }
   }
 }
@@ -627,34 +631,21 @@ object BlockReduce2D extends SpatialTest {
     val numHorizontal = numRows/tileSize
     val numVertical = numCols/tileSize
     val numBlocks = numHorizontal*numVertical
-    // val gold = Array.tabulate(tileSize){i =>
-    //   Array.tabulate(tileSize){j =>
-
-    //     flatsrc(i*tileSize*tileSize + j*tileSize) }}.flatten
-    // }.reduce{(a,b) => a.zip(b){_+_}}
 
     val a1 = Array.tabulate(tileSize) { i => i }
     val a2 = Array.tabulate(tileSize) { i => i }
     val a3 = Array.tabulate(numHorizontal) { i => i }
     val a4 = Array.tabulate(numVertical) { i => i }
-    val gold = Array.tabulate(tileSize) { i => Array.tabulate(tileSize) {j =>
-      Array.tabulate(numHorizontal) { case ii => Array.tabulate(numVertical) {case jj =>
-        i*tileSize*numVertical + j + ii*tileSize*numVertical*tileSize + jj*tileSize
-      }}.flatten.reduce{_+_}
+    val gold = a1.map{i=> a2.map{j => a3.map{ k=> a4.map {l=>
+      flatsrc(i*numCols + j + k*tileSize*tileSize + l*tileSize) }}.flatten.reduce{_+_}
     }}.flatten
-    // val first_el = (0 until numVertical).map{ case j => (0 until numHorizontal).map {case i => src.flatten(tileSize*j + tileSize*tileSize*i)}}.flatten.reduce{_+_}
-    // val first_collapse_cols = ((numVertical*tileSize)/2)*(numVertical-1)
-    // val last_collapse_cols = (( numVertical*tileSize*tileSize*(numHorizontal-1) + (first_collapse_cols + numVertical*tileSize*tileSize*(numHorizontal-1)) ) / 2)*(numVertical-1)
-    // val first_collapse_rows = if (numHorizontal == 1) {first_collapse_cols} else { ((first_collapse_cols + last_collapse_cols) / 2) * (numHorizontal-1) }
-    // // TODO: Why does DEG crash if I add first_collapse_rows rather???
-    // val gold = Array.tabulate(tileSize*tileSize) { i => first_collapse_cols + i*numBlocks }
 
     printArray(gold, "src:")
     printArray(dst, "dst:")
     // dst.zip(gold){_==_} foreach {println(_)}
     val cksum = dst.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (BlockReduce2D)")
-
+    assert(cksum)
     //    (0 until tileSize) foreach { i => assert(dst(i) == gold(i)) }
   }
 }
@@ -732,6 +723,7 @@ object ScatterGather extends SpatialTest {
     printArray(received, "received:")
     val cksum = received.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (ScatterGather)")
+    assert(cksum)
   }
 }
 
@@ -767,14 +759,15 @@ object InOutArg extends SpatialTest {
 
     val cksum = gold == result
     println("PASS: " + cksum + " (InOutArg)")
+    assert(cksum)
   }
 }
 
 // Args: None
-object MultiplexedWriteTest extends SpatialTest {
+object MultiplexedWriteTest extends SpatialTest { // Regression (Unit) // Args: none
   import IR._
 
-  val tileSize = 96
+  val tileSize = 64
   val I = 5
   val N = 192
 
@@ -808,31 +801,34 @@ object MultiplexedWriteTest extends SpatialTest {
 
   @virtualize
   def main() = {
-    val w = Array.tabulate(N){ i => i }
-    val i = Array.tabulate(N){ i => i*2 }
+    val w = Array.tabulate(N){ i => i % 256}
+    val i = Array.tabulate(N){ i => i % 256 }
 
     val result = multiplexedwrtest(w, i)
 
-    val gold = Array.tabulate(N/tileSize){ k =>
-      Array.tabulate(I){ j => Array.tabulate(tileSize) { i => i + (j+1)*i*2 + k*tileSize + (j+1)*k*tileSize*2 }}.flatten
+    val gold = Array.tabulate(N/tileSize) { k =>
+      Array.tabulate(I){ j =>
+        val in = Array.tabulate(tileSize) { i => (j+1)*(k*tileSize + i) }
+        val wt = Array.tabulate(tileSize) { i => k*tileSize + i }
+        in.zip(wt){_+_}
+      }.flatten
     }.flatten
     printArray(gold, "gold: ");
     printArray(result, "result: ");
 
     val cksum = gold.zip(result){_==_}.reduce{_&&_}
     println("PASS: " + cksum  + " (MultiplexedWriteTest)")
-
-
+    assert(cksum)
   }
 }
 
 // TODO: Make this actually check a bubbled NBuf (i.e.- s0 = wr, s2 = wr, s4 =rd, s1s2 = n/a)
 // because I think this will break the NBuf SM since it won't detect drain completion properly
 // Args: None
-object BubbledWriteTest extends SpatialTest {
+object BubbledWriteTest extends SpatialTest { // Regression (Unit) // Args: none
   import IR._
 
-  val tileSize = 96
+  val tileSize = 64
   val I = 5
   val N = 192
 
@@ -848,6 +844,7 @@ object BubbledWriteTest extends SpatialTest {
     setMem(weights, w)
     setMem(inputs,i)
     Accel {
+
       val wt = SRAM[Int](T)
       val in = SRAM[Int](T)
       Sequential.Foreach(N by T){i =>
@@ -855,12 +852,17 @@ object BubbledWriteTest extends SpatialTest {
         in load inputs(i::i+T)
 
         Foreach(I by 1){x =>
-          MemReduce(wt)(1 by 1){ k =>  // s0 write
+          val niter = Reg[Int]
+          niter := x+1
+          MemReduce(wt)(niter by 1){ k =>  // s0 write
             in
           }{_+_}
-          dummyOut(0::T) store in // s1 do not touch
-          dummyWeightsResult(0::T) store wt // s2 read
-          dummyOut2(0::T) store in // s3 do not touch
+          val dummyReg1 = Reg[Int]
+          val dummyReg2 = Reg[Int]
+          val dummyReg3 = Reg[Int]
+          Foreach(T by 1) { i => dummyReg1 := in(i)} // s1 do not touch
+          Foreach(T by 1) { i => dummyReg2 := wt(i)} // s2 read
+          Foreach(T by 1) { i => dummyReg3 := in(i)} // s3 do not touch
           weightsResult(i*I+x*T::i*I+x*T+T) store wt //s4 read
         }
       }
@@ -871,24 +873,26 @@ object BubbledWriteTest extends SpatialTest {
 
   @virtualize
   def main() = {
-    val w = Array.tabulate(N){ i => i }
-    val i = Array.tabulate(N){ i => i*2 }
+    val w = Array.tabulate(N){ i => i % 256}
+    val i = Array.tabulate(N){ i => i % 256 }
 
     val result = bubbledwrtest(w, i)
 
-    val gold = Array.tabulate(N/tileSize){ k =>
-      Array.tabulate(I){ j => Array.tabulate(tileSize) { i => i + (j+1)*i*2 + k*tileSize + (j+1)*k*tileSize*2 }}.flatten
+    val gold = Array.tabulate(N/tileSize) { k =>
+      Array.tabulate(I){ j =>
+        Array.tabulate(tileSize) { i =>
+          ( 1 + (j+1)*(j+2)/2 ) * (i + k*tileSize)
+        }
+      }.flatten
     }.flatten
     printArray(gold, "gold: ")
     printArray(result, "result: ")
 
     val cksum = gold.zip(result){_==_}.reduce{_&&_}
     println("PASS: " + cksum  + " (MultiplexedWriteTest)")
-
-
+    assert(cksum)
   }
 }
-
 
 object SequentialWrites extends SpatialTest {
   import IR._
@@ -935,7 +939,7 @@ object SequentialWrites extends SpatialTest {
     printArray(result, "result: ")
     val cksum = result.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum  + " (SequentialWrites)")
-
+    assert(cksum)
   }
 }
 
@@ -972,7 +976,7 @@ object ChangingCtrMax extends SpatialTest {
     printArray(result, "result: ")
     val cksum = result.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum  + " (ChangingCtrMax)")
-
+    assert(cksum)
   }
 }
 
@@ -1015,6 +1019,7 @@ object FifoPushPop extends SpatialTest {
 
     val cksum = dst == gold
     println("PASS: " + cksum + " (FifoPushPop)")
+    assert(cksum)
   }
 }
 

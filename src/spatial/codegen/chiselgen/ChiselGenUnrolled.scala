@@ -29,8 +29,8 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
 
   def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]]) {
-    valids.zip(iters).zipWithIndex.map { case ((layer,count), i) =>
-      layer.zip(count).map { case (v, c) =>
+    valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
+      layer.zip(count).foreach{ case (v, c) =>
         emit(src"val ${v} = ${c} < ${cchain}_maxes(${i})")
       }
     }
@@ -66,7 +66,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case UnrolledForeach(cchain,func,iters,valids) =>
+    case UnrolledForeach(en,cchain,func,iters,valids) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten))
@@ -77,7 +77,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
       controllerStack.pop()
 
-    case UnrolledReduce(cchain,accum,func,_,iters,valids,rV) =>
+    case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten))
