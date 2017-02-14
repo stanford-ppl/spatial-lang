@@ -209,13 +209,13 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     dbgs(s"Unrolling controller:")
     dbgs(s"$lhs = $rhs")
     if (lanes.size > 1) {
-      val lhs2= op_parallel_pipe {
+      val lhs2 = op_parallel_pipe(globalValids, {
         lanes.foreach{p =>
           dbgs(s"$lhs duplicate ${p+1}/${lanes.size}")
           unroll
         }
         void
-      }
+      })
       lanes.unify(lhs, lhs2)
     }
     else {
@@ -310,7 +310,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     val result = inReduction{
       val accValue = inlineBlock(load)
-      val isFirst = fix_eql(iters.last, int32(0))
+      val isFirst = reduceTree(iters.map{i => fix_eql(i, int32(0)) }){(x,y) => bool_and(x,y) }
 
       isReduceStarter(accValue) = true
 
@@ -359,11 +359,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
       if (isOuterControl(lhs)) {
         dbgs("Unrolling unit pipe reduce")
-        Pipe { Void(unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.flatten)) }
+        Pipe { Void(unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.map(_.head))) }
       }
       else {
         dbgs("Unrolling inner reduce")
-        unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.flatten)
+        unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.map(_.head))
       }
       void
     }
@@ -389,7 +389,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     cchainRed: Exp[CounterChain],   // Reduction counterchain
     accum:    Exp[C[T]],            // Accumulator (external)
     ident:    Option[Exp[T]],       // Optional identity value for reduction
-    fold:     Option[Exp[T]],       // Optional value to fold with reduction
+    fold:     Boolean,              // Optional value to fold with reduction
     func:     Block[C[T]],          // Map function
     loadRes:  Block[T],             // Load function for intermediate values
     loadAcc:  Block[T],             // Load function for accumulator
@@ -415,11 +415,12 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
       if (isUnitCounterChain(cchainRed)) {
         dbgs(s"[Accum-fold $lhs] Unrolling unit pipe reduction")
-        Pipe {
+        op_unit_pipe(globalValids, {
           val values = inReduction{ mems.map{mem => withSubstScope(partial -> mem){ inlineBlock(loadRes)(mT) }} }
-          inReduction{ unrollReduceAccumulate[T](values, mvalids(), ident, fold, rFunc, loadAcc, storeAcc, rV, isMap2.flatten) }
-          Void(void)
-        }
+          val foldValue = if (fold) { Some( inlineBlock(loadAcc)(mT) ) } else None
+          inReduction{ unrollReduceAccumulate[T](values, mvalids(), ident, foldValue, rFunc, loadAcc, storeAcc, rV, isMap2.map(_.head)) }
+          void
+        })
       }
       else {
         dbgs(s"[Accum-fold $lhs] Unrolling pipe-reduce reduction")
@@ -472,21 +473,19 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
             val result = inReduction{
               val treeResult = unrollReduceTree(inputs, valids, ident, reduce)
-              val isFirst = fix_eql(isMap2.last.head, int32(0))
+              val isFirst = reduceTree(isMap2.map{is => fix_eql(is.head, int32(0)) }){(x,y) => bool_and(x,y) }
 
               isReduceStarter(accValue) = true
 
-              fold match {
-                // FOLD: On first iteration, use init value rather than zero
-                case Some(init) =>
-                  val accumOrFirst = math_mux(isFirst, init, accValue)
-                  reduce(treeResult, accumOrFirst)
-
+              if (fold) {
+                // FOLD: On first iteration, use value of accumulator value rather than zero
+                //val accumOrFirst = math_mux(isFirst, init, accValue)
+                reduce(treeResult, accValue)
+              }
+              else {
                 // REDUCE: On first iteration, store result of tree, do not include value from accum
-                // TODO: Could also have third case where we use ident instead of loaded value. Is one better?
-                case None =>
-                  val res2 = reduce(treeResult, accValue)
-                  math_mux(isFirst, treeResult, res2)
+                val res2 = reduce(treeResult, accValue)
+                math_mux(isFirst, treeResult, res2)
               }
             }
 
@@ -523,7 +522,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
   def unrollMemReduceNode[T,C[T]](lhs: Sym[_], rhs: OpMemReduce[T,C])(implicit ctx: SrcCtx) = {
     val OpMemReduce(cchainMap,cchainRed,accum,func,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) = rhs
-    unrollMemReduce(lhs,f(cchainMap),f(cchainRed),f(accum),zero,fold,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed)(rhs.mT,rhs.bT,rhs.mC,ctx)
+    unrollMemReduce(lhs,f(cchainMap),f(cchainRed),f(accum),f(zero),fold,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed)(rhs.mT,rhs.bT,rhs.mC,ctx)
   }
 
   // TODO: Method for parallelizing scatter and gather will likely have to change soon
@@ -536,13 +535,13 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     ctr:    Exp[Counter]
   )(implicit ctx: SrcCtx) = {
     val par = parFactorsOf(ctr).head match {case Final(c) => c.toInt }
-    op_parallel_pipe {
+    op_parallel_pipe(globalValids, {
       (0 until par).foreach{i =>
         val scatter = stageWrite(mem)(Scatter[T](mem,local,addrs,ctr,fresh[Index]))(ctx)
         transferMetadata(lhs, scatter)
       }
       void
-    }
+    })
   }
   def unrollScatterNode[T](lhs: Sym[_], rhs: Scatter[T])(implicit ctx: SrcCtx) = {
     val Scatter(mem, local, addrs, ctr, _) = rhs
@@ -557,13 +556,13 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     ctr:   Exp[Counter]
   )(implicit ctx: SrcCtx) = {
     val par = parFactorsOf(ctr).head match {case Final(c) => c.toInt }
-    op_parallel_pipe {
+    op_parallel_pipe(globalValids, {
       (0 until par).foreach{i =>
         val gather = stageWrite(local)(Gather[T](mem,local,addrs,ctr,fresh[Index]))(ctx)
         transferMetadata(lhs, gather)
       }
       void
-    }
+    })
   }
   def unrollGatherNode[T](lhs: Sym[_], rhs: Gather[T])(implicit ctx: SrcCtx) = {
     val Gather(mem, local, addrs, ctr, i) = rhs
@@ -572,6 +571,12 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Staged[A], ctx: SrcCtx): Exp[A] = (rhs match {
+      case ParallelPipe(ens, func) =>
+        op_parallel_pipe(f(ens) ++ globalValids, f(func))
+
+      case UnitPipe(ens,func) =>
+        op_unit_pipe(f(ens) ++ globalValids, f(func))
+
       case e@SRAMStore(sram, dims, inds, ofs, data, en) =>
         val en2 = bool_and(f(en), globalValid)
         sram_store(f(sram), f(dims), f(inds), f(ofs), f(data), en2)(e.mT,e.bT,ctx)

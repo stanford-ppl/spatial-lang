@@ -35,6 +35,16 @@ trait RegExp extends Staging with MemoryExp {
   }
   implicit def regType[T:Staged:Bits]: Staged[Reg[T]] = RegType(typ[T])
 
+  class RegIsMemory[T:Staged:Bits] extends Mem[T, Reg] {
+    def load(mem: Reg[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = mem.value
+    def store(mem: Reg[T], is: Seq[Index], data: T, en: Bool)(implicit ctx: SrcCtx): Void = {
+      Void(reg_write(mem.s, data.s, en.s))
+    }
+    def iterators(mem: Reg[T])(implicit ctx: SrcCtx): Seq[Counter] = Seq(Counter(0, 1, 1, 1))
+  }
+  implicit def regIsMemory[T:Staged:Bits]: Mem[T, Reg] = new RegIsMemory[T]
+
+
   /** IR Nodes **/
   case class ArgInNew[T:Staged:Bits](init: Exp[T]) extends Op[Reg[T]] {
     def mirror(f:Tx) = argin_alloc[T](f(init))

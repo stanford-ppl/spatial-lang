@@ -24,16 +24,18 @@ trait ScalaGenController extends ScalaCodegen {
       close("}")
       emit(src"/** END HARDWARE BLOCK $lhs **/")
 
-    case UnitPipe(func) =>
+    case UnitPipe(ens, func) =>
       emit(src"/** BEGIN UNIT PIPE $lhs **/")
-      open(src"val $lhs = {")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
       emitBlock(func)
       close("}")
       emit(src"/** END UNIT PIPE $lhs **/")
 
-    case ParallelPipe(func) =>
+    case ParallelPipe(ens, func) =>
       emit(src"/** BEGIN PARALLEL PIPE $lhs **/")
-      open(src"val $lhs = {")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
       emitBlock(func)
       close("}")
       emit(src"/** END PARALLEL PIPE $lhs **/")

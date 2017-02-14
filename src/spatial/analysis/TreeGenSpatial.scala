@@ -83,7 +83,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       print_stage_prefix(s"BurstStore",s"",s"$sym", true)
       print_stage_suffix(s"$sym", true)
 
-    case UnitPipe(func) =>
+    case UnitPipe(_,func) =>
       val inner = styleOf(sym) match { 
       	case InnerPipe => true
       	case _ => false
@@ -138,7 +138,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
-    case ParallelPipe(func) => 
+    case ParallelPipe(_,func) =>
       val inner = false
       print_stage_prefix(s"Parallel",s"",s"$sym", inner)
       val children = getControlNodes(func)

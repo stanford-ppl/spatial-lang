@@ -12,56 +12,77 @@ import spatial.{SpatialApi, SpatialExp}
 trait ControllerApi extends ControllerExp with RegApi {
   this: SpatialExp =>
 
-  case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T]) {
+  protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T], fold: Boolean) {
     /** 1 dimensional memory reduction without zero **/
     def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
-      mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, None)
+      mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
       accum
     }
 
     /** 2 dimensional memory reduction without zero **/
     def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
-      mem_reduceND(List(domain1,domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, None)
+      mem_reduceND(List(domain1,domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
       accum
     }
   }
 
-  case class MemReduceClass(style: ControlStyle) {
-    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None)
-    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero))
+  protected case class MemReduceClass(style: ControlStyle) {
+    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, false)
+    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), false)
+  }
+
+  protected case class MemFoldClass(style: ControlStyle) {
+    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, true)
+    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), true)
   }
 
 
-  case class ReduceAccum[T](accum: Reg[T], style: ControlStyle, zero: Option[T]) {
+  protected case class ReduceAccum[T](accum: Reg[T], style: ControlStyle, zero: Option[T], fold: Option[T]) {
     /** 1 dimensional reduction **/
     def apply(domain1D: Counter)(map: Index => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Staged[T], bits: Bits[T]): Reg[T] = {
-      reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, None)
+      reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
       accum
     }
     /** 2 dimensional reduction **/
     def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Staged[T], bits: Bits[T]): Reg[T] = {
-      reduceND(List(domain1, domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, None)
+      reduceND(List(domain1, domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
       accum
     }
   }
 
-  case class ReduceClass(style: ControlStyle) {
+  protected case class ReduceClass(style: ControlStyle) {
     import org.virtualized.SourceContext
     /** Reduction with implicit accumulator **/
     // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-    def apply(zero: Int) = ReduceAccum(Reg[Int32](int2fixpt[TRUE,_32,_0](zero)), style, Some(lift[Int,Int32](zero)))
-    def apply(zero: Long) = ReduceAccum(Reg[Int64](long2fixpt[TRUE,_64,_0](zero)), style, Some(lift[Long,Int64](zero)))
-    def apply(zero: Float) = ReduceAccum(Reg[Float32](float2fltpt[_24,_8](zero)), style, Some(lift[Float,Float32](zero)))
-    def apply(zero: Double) = ReduceAccum(Reg[Float64](double2fltpt[_53,_11](zero)), style, Some(lift[Double,Float64](zero)))
+    def apply(zero: Int) = ReduceAccum(Reg[Int32](int2fixpt[TRUE,_32,_0](zero)), style, Some(lift[Int,Int32](zero)), None)
+    def apply(zero: Long) = ReduceAccum(Reg[Int64](long2fixpt[TRUE,_64,_0](zero)), style, Some(lift[Long,Int64](zero)), None)
+    def apply(zero: Float) = ReduceAccum(Reg[Float32](float2fltpt[_24,_8](zero)), style, Some(lift[Float,Float32](zero)), None)
+    def apply(zero: Double) = ReduceAccum(Reg[Float64](double2fltpt[_53,_11](zero)), style, Some(lift[Double,Float64](zero)), None)
+
     //def apply(zero: FixPt[_,_,_]) = ReduceAccum(Reg[FixPt[S,I,F]](zero), style)
     //def apply(zero: FltPt[_,_]) = ReduceAccum(Reg[FltPt[G,E]](zero), style)
 
     /** Reduction with explicit accumulator **/
     // TODO: Should initial value of accumulator be assumed to be the identity value?
-    def apply[T](accum: Reg[T]) = ReduceAccum(accum, style, None)
+    def apply[T](accum: Reg[T]) = ReduceAccum(accum, style, None, None)
   }
 
-  case class ForeachClass(style: ControlStyle) {
+  protected case class FoldClass(style: ControlStyle) {
+    import org.virtualized.SourceContext
+    /** Fold with implicit accumulator **/
+    // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
+    def apply(zero: Int) = ReduceAccum(Reg[Int32](int2fixpt[TRUE,_32,_0](zero)), style, None, Some(lift[Int,Int32](zero)))
+    def apply(zero: Long) = ReduceAccum(Reg[Int64](long2fixpt[TRUE,_64,_0](zero)), style, None, Some(lift[Long,Int64](zero)))
+    def apply(zero: Float) = ReduceAccum(Reg[Float32](float2fltpt[_24,_8](zero)), style, None, Some(lift[Float,Float32](zero)))
+    def apply(zero: Double) = ReduceAccum(Reg[Float64](double2fltpt[_53,_11](zero)), style, None, Some(lift[Double,Float64](zero)))
+
+    def apply[T](accum: Reg[T]) = {
+      val sty = if (style == InnerPipe) MetaPipe else style
+      MemReduceAccum(accum, sty, None, true)
+    }
+  }
+
+  protected case class ForeachClass(style: ControlStyle) {
     /** 1 dimensional parallel foreach **/
     def apply(domain1D: Counter)(func: Index => Void)(implicit ctx: SrcCtx): Void = {
       foreachND(List(domain1D), {x: List[Index] => func(x.head) }, style)
@@ -84,7 +105,11 @@ trait ControllerApi extends ControllerExp with RegApi {
   }
 
   object MemReduce extends MemReduceClass(MetaPipe)
+  object MemFold   extends MemFoldClass(MetaPipe)
+
   object Reduce    extends ReduceClass(InnerPipe)
+  object Fold      extends FoldClass(InnerPipe)
+
   object Foreach   extends ForeachClass(InnerPipe)
 
   object Accel {
@@ -94,25 +119,31 @@ trait ControllerApi extends ControllerExp with RegApi {
   object Pipe {
     /** "Pipelined" unit controller **/
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, InnerPipe); () }
-    def Foreach = ForeachClass(InnerPipe)
-    def Reduce = ReduceClass(InnerPipe)
-    def MemReduce = MemReduceClass(InnerPipe)
+    def Foreach   = ForeachClass(InnerPipe)
+    def Reduce    = ReduceClass(InnerPipe)
+    def Fold      = FoldClass(InnerPipe)
+    def MemReduce = MemReduceClass(MetaPipe)
+    def MemFold   = MemFoldClass(MetaPipe)
   }
 
   object Sequential {
     /** Sequential unit controller **/
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
-    def Foreach = ForeachClass(SeqPipe)
-    def Reduce = ReduceClass(SeqPipe)
+    def Foreach   = ForeachClass(SeqPipe)
+    def Reduce    = ReduceClass(SeqPipe)
+    def Fold      = FoldClass(SeqPipe)
     def MemReduce = MemReduceClass(SeqPipe)
+    def MemFold   = MemFoldClass(SeqPipe)
   }
 
   object Stream {
     /** Streaming unit controller **/
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, StreamPipe); () }
-    def Foreach = ForeachClass(StreamPipe)
-    def Reduce = ReduceClass(StreamPipe)
+    def Foreach   = ForeachClass(StreamPipe)
+    def Reduce    = ReduceClass(StreamPipe)
+    def Fold      = FoldClass(StreamPipe)
     def MemReduce = MemReduceClass(StreamPipe)
+    def MemFold   = MemFoldClass(StreamPipe)
   }
 
   object Parallel {
@@ -141,14 +172,14 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
 
   private[spatial] def unit_pipe(func: => Void, style: ControlStyle)(implicit ctx: SrcCtx): Controller = {
     val fFunc = () => unwrap(func)
-    val pipe = op_unit_pipe(fFunc())
+    val pipe = op_unit_pipe(Nil, fFunc())
     styleOf(pipe) = style
     Controller(pipe)
   }
 
   private[spatial] def parallel_pipe(func: => Void)(implicit ctx: SrcCtx): Controller = {
     val fFunc = () => unwrap(func)
-    val pipe = op_parallel_pipe(fFunc())
+    val pipe = op_parallel_pipe(Nil, fFunc())
     styleOf(pipe) = ForkJoin
     Controller(pipe)
   }
@@ -203,7 +234,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     reduce: (T,T) => T,
     style:  ControlStyle,
     ident:  Option[T],
-    fold:   Option[T]
+    fold:   Boolean
   )(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Staged[C[T]]): Controller = {
     val rV = (fresh[T], fresh[T])
     val itersMap = List.tabulate(domain.length){_ => fresh[Index] }
@@ -220,10 +251,9 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val cchainMap = CounterChain(domain: _*)
     val cchainRed = CounterChain(ctrsRed: _*)
     val z = ident.map(_.s)
-    val f = fold.map(_.s)
 
     val effects = mBlk.summary andAlso rBlk.summary andAlso ldResBlk.summary andAlso ldAccBlk.summary andAlso stAccBlk.summary
-    val node = stageEffectful(OpMemReduce[T,C](cchainMap.s,cchainRed.s,accum.s,mBlk,ldResBlk,ldAccBlk,rBlk,stAccBlk,z,f,rV,itersMap,itersRed), effects)(ctx)
+    val node = stageEffectful(OpMemReduce[T,C](cchainMap.s,cchainRed.s,accum.s,mBlk,ldResBlk,ldAccBlk,rBlk,stAccBlk,z,fold,rV,itersMap,itersRed), effects)(ctx)
     styleOf(node) = style
     Controller(node)
   }
@@ -234,13 +264,13 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     override def freqs = cold(func)
   }
 
-  case class UnitPipe(func: Block[Void]) extends Op[Controller] {
-    def mirror(f:Tx) = op_unit_pipe(f(func))
+  case class UnitPipe(en: Seq[Exp[Bool]], func: Block[Void]) extends Op[Controller] {
+    def mirror(f:Tx) = op_unit_pipe(f(en), f(func))
     override def freqs = cold(func)
   }
 
-  case class ParallelPipe(func: Block[Void]) extends Op[Controller] {
-    def mirror(f:Tx) = op_parallel_pipe(f(func))
+  case class ParallelPipe(en: Seq[Exp[Bool]], func: Block[Void]) extends Op[Controller] {
+    def mirror(f:Tx) = op_parallel_pipe(f(en), f(func))
     override def freqs = cold(func)
   }
 
@@ -285,13 +315,13 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     reduce:    Block[T],
     storeAcc:  Block[Void],
     ident:     Option[Exp[T]],
-    fold:      Option[Exp[T]],
+    fold:      Boolean,
     rV:        (Bound[T], Bound[T]),
     itersMap:  Seq[Bound[Index]],
     itersRed:  Seq[Bound[Index]]
   )(implicit val mem: Mem[T,C], val mC: Staged[C[T]]) extends Op[Controller] {
     def mirror(f:Tx) = op_mem_reduce(f(cchainMap),f(cchainRed),f(accum),f(map),f(loadRes),f(loadAcc),f(reduce),
-                                     f(storeAcc), f(ident), f(fold), rV, itersMap, itersRed)
+                                     f(storeAcc), f(ident), fold, rV, itersMap, itersRed)
 
     override def inputs = syms(cchainMap) ++ syms(cchainRed) ++ syms(accum) ++ syms(map) ++ syms(reduce) ++
                           syms(ident) ++ syms(loadRes) ++ syms(loadAcc) ++ syms(storeAcc)
@@ -312,16 +342,16 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     stageEffectful( Hwblock(fBlk), effects)(ctx)
   }
 
-  def op_unit_pipe(func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
+  def op_unit_pipe(en: Seq[Exp[Bool]], func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
     val fBlk = stageBlock{ func }
     val effects = fBlk.summary
-    stageEffectful( UnitPipe(fBlk), effects)(ctx)
+    stageEffectful( UnitPipe(en, fBlk), effects)(ctx)
   }
 
-  def op_parallel_pipe(func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
+  def op_parallel_pipe(en: Seq[Exp[Bool]], func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
     val fBlk = stageBlock{ func }
     val effects = fBlk.summary
-    val pipe = stageEffectful( ParallelPipe(fBlk), effects)(ctx)
+    val pipe = stageEffectful( ParallelPipe(en, fBlk), effects)(ctx)
     styleOf(pipe) = ForkJoin
     pipe
   }
@@ -363,7 +393,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     reduce:    => Exp[T],
     storeAcc:  => Exp[Void],
     ident:     Option[Exp[T]],
-    fold:      Option[Exp[T]],
+    fold:      Boolean,
     rV:        (Bound[T], Bound[T]),
     itersMap:  Seq[Bound[Index]],
     itersRed:  Seq[Bound[Index]]

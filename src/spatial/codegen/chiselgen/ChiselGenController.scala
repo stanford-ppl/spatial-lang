@@ -61,7 +61,7 @@ trait ChiselGenController extends ChiselCodegen {
               lhs match {
                 case Def(Hwblock(_)) =>
                   s"AccelController"
-                case Def(UnitPipe(_)) =>
+                case Def(UnitPipe(_,_)) =>
                   s"x${lhs.id}_UnitPipe"
                 case Def(e: OpForeach) =>
                   s"x${lhs.id}_ForEach"
@@ -210,7 +210,7 @@ trait ChiselGenController extends ChiselCodegen {
       toggleEn() // turn off
       controllerStack.pop()
 
-    case UnitPipe(func) =>
+    case UnitPipe(en,func) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
@@ -219,7 +219,7 @@ trait ChiselGenController extends ChiselCodegen {
       }
       controllerStack.pop()
 
-    case ParallelPipe(func) => 
+    case ParallelPipe(en,func) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)

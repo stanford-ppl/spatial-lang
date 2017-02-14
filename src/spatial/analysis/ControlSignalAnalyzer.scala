@@ -243,11 +243,11 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
 
-    case UnitPipe(blk) =>
+    case UnitPipe(_,blk) =>
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
 
-    case ParallelPipe(blk) =>
+    case ParallelPipe(_,blk) =>
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
 
