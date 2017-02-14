@@ -97,7 +97,7 @@ spatial_hash=`sed -n '8p' $packet`
 argon_hash=`sed -n '9p' $packet`
 virtualized_hash=`sed -n '10p' $packet`
 PIR_HOME=$SPATIAL_HOME
-pretty_name=Branch_${branch}_Backend_${type_todo}_Regression_History.csv
+pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
 pretty_file=${SPATIAL_HOME}/spatial-lang.wiki/${pretty_name}
 log="${REGRESSION_HOME}/log-${tim}.${branch}.${type_todo}"
 

@@ -161,7 +161,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		// Get upcasted operators
 		val full_result = Wire(new FixedPoint(upcasted_type))
 		// Do upcasted operation
-		full_result.number := this.number / (op.number / scala.math.pow(2,op.f).toInt.U)
+		full_result.number := this.number * scala.math.pow(2,op.f+f).toInt.U / op.number // Not sure why we need the +1 in pow2
 		// Downcast to result
 		val result = Wire(new FixedPoint(return_type))
 		full_result.cast(result)
