@@ -81,7 +81,8 @@ build_spatial() {
   for i in ${!sorted_testdirs[@]}; do if [[  "${sorted_testdirs[$i]}" = *"$tim"* ]]; then rank=$((i-1)); fi; done
   # Sanity check
   if [ $rank = -5 ]; then 
-    logger "CRITICAL ERROR: This time ${tim} was not found in dirs list ${stringified}"
+    logger "CRITICAL ERROR: ${tim} stamp was not found in dirs list ${stringified}"
+    rm ${tim}*
     exit 1
   fi
 
