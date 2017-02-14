@@ -1,6 +1,8 @@
 package spatial.codegen.pirgen
+
 import spatial.api._
 import spatial.analysis.SpatialTraversal
+import argon.traversal.{CompilerPass, BlockTraversal}
 
 import scala.collection.mutable
 

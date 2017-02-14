@@ -395,7 +395,7 @@ trait PIRAllocation extends PIRTraversal {
             }
         }
 
-      case lhs@Op(rhs) =>
+      case lhs@Op(rhs) => //TODO
         dbg(s"  $lhs = $rhs [OTHER]")
         visit(lhs, rhs)
       case lhs@Def(rhs) =>
@@ -556,7 +556,6 @@ trait PIRAllocation extends PIRTraversal {
     case _:OpMemReduce[_,_] => throw new Exception(s"Disallowed compact op $lhs = $rhs")
     case _ => super.visit(lhs, rhs)
   }
-
 
   override def preprocess[S:Staged](b: Block[S]): Block[S] = {
     top = None

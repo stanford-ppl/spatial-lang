@@ -7,7 +7,7 @@ import org.virtualized.SourceContext
 import scala.collection.mutable
 
 // PIR operations which need the rest of the Spatial IR mixed in
-trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =>
+trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =>
   type Symbol = Exp[_]
   type CUControl = ControlType
 
