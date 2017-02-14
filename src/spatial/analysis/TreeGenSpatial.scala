@@ -109,7 +109,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
-    case OpReduce(cchain, accum, map, load, reduce, store, rV, iters) =>
+    case _: OpReduce[_] =>
       val inner = styleOf(sym) match { 
       	case InnerPipe => true
       	case _ => false
@@ -117,7 +117,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       print_stage_prefix(s"OpReduce",s"",s"$sym", inner)
       print_stage_suffix(s"$sym", inner)
 
-    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed) =>
+    case _: OpMemReduce[_,_] =>
       val inner = styleOf(sym) match { 
       	case InnerPipe => true
       	case _ => false

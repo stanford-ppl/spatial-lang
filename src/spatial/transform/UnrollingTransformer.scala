@@ -267,9 +267,9 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   def unrollReduceTree[T:Staged:Bits](
     inputs: Seq[Exp[T]],
     valids: Seq[Exp[Bool]],
-    zero:   Option[Exp[T]],
+    ident:   Option[Exp[T]],
     reduce: (Exp[T], Exp[T]) => Exp[T]
-  )(implicit ctx: SrcCtx): Exp[T] = zero match {
+  )(implicit ctx: SrcCtx): Exp[T] = ident match {
     case Some(z) =>
       val validInputs = inputs.zip(valids).map{case (in,v) => math_mux(v, in, z) }
       reduceTree(validInputs){(x: Exp[T], y: Exp[T]) => reduce(x,y) }
@@ -288,30 +288,49 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   def unrollReduceAccumulate[T:Staged:Bits](
     inputs: Seq[Exp[T]],          // Symbols to be reduced
     valids: Seq[Exp[Bool]],       // Data valid bits corresponding to inputs
-    zero:   Option[Exp[T]],       // Optional zero value
+    ident:  Option[Exp[T]],       // Optional identity value
+    fold:   Option[Exp[T]],       // Optional fold value
     rFunc:  Block[T],             // Reduction function
     load:   Block[T],             // Load function from accumulator
     store:  Block[Void],          // Store function to accumulator
-    rV:     (Bound[T], Bound[T])  // Bound symbols used to reify rFunc
+    rV:     (Bound[T], Bound[T]), // Bound symbols used to reify rFunc
+    iters:  Seq[Bound[Index]]     // Iterators for entire reduction (used to determine when to reset)
   )(implicit ctx: SrcCtx) = {
     def reduce(x: Exp[T], y: Exp[T]) = withSubstScope(rV._1 -> x, rV._2 -> y){ inlineBlock(rFunc) }
 
-    val treeResult = unrollReduceTree[T](inputs, valids, zero, reduce)
+    val treeResult = unrollReduceTree[T](inputs, valids, ident, reduce)
 
-    val accValue = inReduction{ inlineBlock(load) }
-    val res2 = reduce(treeResult, accValue)
-    isReduceResult(res2) = true
-    isReduceStarter(accValue) = true
+    val result = inReduction{
+      val accValue = inlineBlock(load)
+      val isFirst = reduceTree(iters.map{i => fix_eql(i, int32(0)) }){(x,y) => bool_or(x,y) }
 
-    inReduction{ withSubstScope(rFunc.result -> res2){ inlineBlock(store) } }
+      isReduceStarter(accValue) = true
+
+      fold match {
+        // FOLD: On first iteration, use init value rather than zero
+        case Some(init) =>
+          val accumOrFirst = math_mux(isFirst, init, accValue)
+          reduce(treeResult, accumOrFirst)
+
+        // REDUCE: On first iteration, store result of tree, do not include value from accum
+        // TODO: Could also have third case where we use ident instead of loaded value. Is one better?
+        case None =>
+          val res2 = reduce(treeResult, accValue)
+          math_mux(isFirst, treeResult, res2)
+      }
+    }
+
+    isReduceResult(result) = true
+
+    inReduction{ withSubstScope(rFunc.result -> result){ inlineBlock(store) } }
   }
 
   def unrollReduce[T](
     lhs:    Exp[_],               // Original pipe symbol
     cchain: Exp[CounterChain],    // Counterchain
     accum:  Exp[Reg[T]],          // Accumulator
-    zero:   Option[Exp[T]],       // Optional identity value for reduction
-    fold:   Boolean,              // [Unused]
+    ident:  Option[Exp[T]],       // Optional identity value for reduction
+    fold:   Option[Exp[T]],       // Optional value to fold with reduction
     load:   Block[T],             // Load function for accumulator
     store:  Block[Void],          // Store function for accumulator
     func:   Block[T],             // Map function
@@ -332,11 +351,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
       if (isOuterControl(lhs)) {
         dbgs("Unrolling unit pipe reduce")
-        Pipe { Void(unrollReduceAccumulate[T](values, valids, zero, rFunc, load, store, rV)) }
+        Pipe { Void(unrollReduceAccumulate[T](values, valids, ident, fold, rFunc, load, store, rV, inds2.flatten)) }
       }
       else {
         dbgs("Unrolling inner reduce")
-        unrollReduceAccumulate[T](values, valids, zero, rFunc, load, store, rV)
+        unrollReduceAccumulate[T](values, valids, ident, fold, rFunc, load, store, rV, inds2.flatten)
       }
       void
     }
@@ -350,8 +369,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     lhs2
   }
   def unrollReduceNode[T](lhs: Sym[_], rhs: OpReduce[T])(implicit ctx: SrcCtx) = {
-    val OpReduce(cchain,accum,map,load,reduce,store,rV,iters) = rhs
-    unrollReduce[T](lhs, f(cchain), f(accum), None, true, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
+    val OpReduce(cchain,accum,map,load,reduce,store,zero,fold,rV,iters) = rhs
+    unrollReduce[T](lhs, f(cchain), f(accum), zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
   }
 
 
@@ -361,8 +380,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     cchainMap: Exp[CounterChain],   // Map counterchain
     cchainRed: Exp[CounterChain],   // Reduction counterchain
     accum:    Exp[C[T]],            // Accumulator (external)
-    zero:     Option[Exp[T]],       // Optional identity value for reduction
-    fold:     Boolean,              // [Unused]
+    ident:    Option[Exp[T]],       // Optional identity value for reduction
+    fold:     Option[Exp[T]],       // Optional value to fold with reduction
     func:     Block[C[T]],          // Map function
     loadRes:  Block[T],             // Load function for intermediate values
     loadAcc:  Block[T],             // Load function for accumulator
@@ -390,7 +409,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
         dbgs(s"[Accum-fold $lhs] Unrolling unit pipe reduction")
         Pipe {
           val values = inReduction{ mems.map{mem => withSubstScope(partial -> mem){ inlineBlock(loadRes)(mT) }} }
-          inReduction{ unrollReduceAccumulate[T](values, mvalids, zero, rFunc, loadAcc, storeAcc, rV) }
+          inReduction{ unrollReduceAccumulate[T](values, mvalids, ident, fold, rFunc, loadAcc, storeAcc, rV, isMap2.flatten) }
           Void(void)
         }
       }
@@ -442,13 +461,30 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
             inputs.foreach{s => dbgs(s"  ${str(s)}") }
 
             val accValue = accValues(p)
-            val res2 = inReduction {
-              val treeResult = unrollReduceTree(inputs, valids, zero, reduce)
-              reduce(treeResult, accValue)
+
+            val result = inReduction{
+              val treeResult = unrollReduceTree(inputs, valids, ident, reduce)
+              val isFirst = reduceTree(isMap2.flatten.map{i => fix_eql(i, int32(0)) }){(x,y) => bool_or(x,y) }
+
+              isReduceStarter(accValue) = true
+
+              fold match {
+                // FOLD: On first iteration, use init value rather than zero
+                case Some(init) =>
+                  val accumOrFirst = math_mux(isFirst, init, accValue)
+                  reduce(treeResult, accumOrFirst)
+
+                // REDUCE: On first iteration, store result of tree, do not include value from accum
+                // TODO: Could also have third case where we use ident instead of loaded value. Is one better?
+                case None =>
+                  val res2 = reduce(treeResult, accValue)
+                  math_mux(isFirst, treeResult, res2)
+              }
             }
-            isReduceResult(res2) = true
+
+            isReduceResult(result) = true
             isReduceStarter(accValue) = true
-            register(rFunc.result -> res2)  // Lane-specific substitution
+            register(rFunc.result -> result)  // Lane-specific substitution
 
             tab -= 1
           }
@@ -478,8 +514,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     lhs2
   }
   def unrollMemReduceNode[T,C[T]](lhs: Sym[_], rhs: OpMemReduce[T,C])(implicit ctx: SrcCtx) = {
-    val OpMemReduce(cchainMap,cchainRed,accum,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed) = rhs
-    unrollMemReduce(lhs,f(cchainMap),f(cchainRed),f(accum),None,true,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed)(rhs.mT,rhs.bT,rhs.mC,ctx)
+    val OpMemReduce(cchainMap,cchainRed,accum,func,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) = rhs
+    unrollMemReduce(lhs,f(cchainMap),f(cchainRed),f(accum),zero,fold,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed)(rhs.mT,rhs.bT,rhs.mC,ctx)
   }
 
   // TODO: Method for parallelizing scatter and gather will likely have to change soon

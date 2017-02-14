@@ -12,34 +12,35 @@ import spatial.{SpatialApi, SpatialExp}
 trait ControllerApi extends ControllerExp with RegApi {
   this: SpatialExp =>
 
-  case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle) {
+  case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T]) {
     /** 1 dimensional memory reduction without zero **/
     def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
-      mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style)
+      mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, None)
       accum
     }
 
     /** 2 dimensional memory reduction without zero **/
     def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
-      mem_reduceND(List(domain1,domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style)
+      mem_reduceND(List(domain1,domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, None)
       accum
     }
   }
 
   case class MemReduceClass(style: ControlStyle) {
-    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style)
+    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None)
+    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero))
   }
 
 
-  case class ReduceAccum[T](accum: Reg[T], style: ControlStyle) {
+  case class ReduceAccum[T](accum: Reg[T], style: ControlStyle, zero: Option[T]) {
     /** 1 dimensional reduction **/
     def apply(domain1D: Counter)(map: Index => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Staged[T], bits: Bits[T]): Reg[T] = {
-      reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style)
+      reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, None)
       accum
     }
     /** 2 dimensional reduction **/
     def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Staged[T], bits: Bits[T]): Reg[T] = {
-      reduceND(List(domain1, domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style)
+      reduceND(List(domain1, domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, None)
       accum
     }
   }
@@ -48,15 +49,16 @@ trait ControllerApi extends ControllerExp with RegApi {
     import org.virtualized.SourceContext
     /** Reduction with implicit accumulator **/
     // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-    def apply(zero: Int) = ReduceAccum(Reg[Int32](int2fixpt[TRUE,_32,_0](zero)), style)
-    def apply(zero: Long) = ReduceAccum(Reg[Int64](long2fixpt[TRUE,_64,_0](zero)), style)
-    def apply(zero: Float) = ReduceAccum(Reg[Float32](float2fltpt[_24,_8](zero)), style)
-    def apply(zero: Double) = ReduceAccum(Reg[Float64](double2fltpt[_53,_11](zero)), style)
+    def apply(zero: Int) = ReduceAccum(Reg[Int32](int2fixpt[TRUE,_32,_0](zero)), style, Some(lift[Int,Int32](zero)))
+    def apply(zero: Long) = ReduceAccum(Reg[Int64](long2fixpt[TRUE,_64,_0](zero)), style, Some(lift[Long,Int64](zero)))
+    def apply(zero: Float) = ReduceAccum(Reg[Float32](float2fltpt[_24,_8](zero)), style, Some(lift[Float,Float32](zero)))
+    def apply(zero: Double) = ReduceAccum(Reg[Float64](double2fltpt[_53,_11](zero)), style, Some(lift[Double,Float64](zero)))
     //def apply(zero: FixPt[_,_,_]) = ReduceAccum(Reg[FixPt[S,I,F]](zero), style)
     //def apply(zero: FltPt[_,_]) = ReduceAccum(Reg[FltPt[G,E]](zero), style)
 
     /** Reduction with explicit accumulator **/
-    def apply[T](accum: Reg[T]) = ReduceAccum(accum, style)
+    // TODO: Should initial value of accumulator be assumed to be the identity value?
+    def apply[T](accum: Reg[T]) = ReduceAccum(accum, style, None)
   }
 
   case class ForeachClass(style: ControlStyle) {
@@ -171,7 +173,9 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     reg:    Reg[T],
     map:    List[Index] => T,
     reduce: (T,T) => T,
-    style:  ControlStyle
+    style:  ControlStyle,
+    ident:  Option[T],
+    fold:   Option[T]
   )(implicit ctx: SrcCtx): Controller = {
 
     val rV = (fresh[T], fresh[T])
@@ -183,9 +187,11 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val stBlk = stageLambda(rBlk.result){ unwrap( reg := wrap(rBlk.result) ) }
 
     val cchain = CounterChain(domain: _*)
+    val z = ident.map(_.s)
+    val f = fold.map(_.s)
 
     val effects = mBlk.summary andAlso ldBlk.summary andAlso rBlk.summary andAlso stBlk.summary
-    val pipe = stageEffectful(OpReduce[T](cchain.s, reg.s, mBlk, ldBlk, rBlk, stBlk, rV, iters), effects)(ctx)
+    val pipe = stageEffectful(OpReduce[T](cchain.s, reg.s, mBlk, ldBlk, rBlk, stBlk, z, f, rV, iters), effects)(ctx)
     styleOf(pipe) = style
     Controller(pipe)
   }
@@ -195,7 +201,9 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     accum:  C[T],
     map:    List[Index] => C[T],
     reduce: (T,T) => T,
-    style:  ControlStyle
+    style:  ControlStyle,
+    ident:  Option[T],
+    fold:   Option[T]
   )(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Staged[C[T]]): Controller = {
     val rV = (fresh[T], fresh[T])
     val itersMap = List.tabulate(domain.length){_ => fresh[Index] }
@@ -211,9 +219,11 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
 
     val cchainMap = CounterChain(domain: _*)
     val cchainRed = CounterChain(ctrsRed: _*)
+    val z = ident.map(_.s)
+    val f = fold.map(_.s)
 
     val effects = mBlk.summary andAlso rBlk.summary andAlso ldResBlk.summary andAlso ldAccBlk.summary andAlso stAccBlk.summary
-    val node = stageEffectful(OpMemReduce[T,C](cchainMap.s,cchainRed.s,accum.s,mBlk,ldResBlk,ldAccBlk,rBlk,stAccBlk,rV,itersMap,itersRed), effects)(ctx)
+    val node = stageEffectful(OpMemReduce[T,C](cchainMap.s,cchainRed.s,accum.s,mBlk,ldResBlk,ldAccBlk,rBlk,stAccBlk,z,f,rV,itersMap,itersRed), effects)(ctx)
     styleOf(node) = style
     Controller(node)
   }
@@ -249,12 +259,14 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     load:   Block[T],
     reduce: Block[T],
     store:  Block[Void],
+    ident:  Option[Exp[T]],
+    fold:   Option[Exp[T]],
     rV:     (Bound[T],Bound[T]),
     iters:  List[Bound[Index]]
   ) extends Op[Controller] {
-    def mirror(f:Tx) = op_reduce(f(cchain), f(accum), f(map), f(load), f(reduce), f(store), rV, iters)
+    def mirror(f:Tx) = op_reduce(f(cchain), f(accum), f(map), f(load), f(reduce), f(store), f(ident), f(fold), rV, iters)
 
-    override def inputs = syms(cchain) ++ syms(map) ++ syms(reduce) ++ syms(accum) ++ syms(load) ++ syms(store)
+    override def inputs = syms(cchain) ++ syms(map) ++ syms(reduce) ++ syms(accum) ++ syms(load) ++ syms(store) ++ syms(ident)
     override def freqs  = cold(map) ++ cold(reduce) ++ normal(cchain) ++ normal(accum) ++ hot(load) ++ hot(store)
     override def binds  = super.binds ++ iters ++ List(rV._1, rV._2)
     override def tunnels = syms(accum)
@@ -272,14 +284,17 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     loadAcc:   Block[T],
     reduce:    Block[T],
     storeAcc:  Block[Void],
+    ident:     Option[Exp[T]],
+    fold:      Option[Exp[T]],
     rV:        (Bound[T], Bound[T]),
     itersMap:  Seq[Bound[Index]],
     itersRed:  Seq[Bound[Index]]
   )(implicit val mem: Mem[T,C], val mC: Staged[C[T]]) extends Op[Controller] {
     def mirror(f:Tx) = op_mem_reduce(f(cchainMap),f(cchainRed),f(accum),f(map),f(loadRes),f(loadAcc),f(reduce),
-                                     f(storeAcc), rV, itersMap, itersRed)
+                                     f(storeAcc), f(ident), f(fold), rV, itersMap, itersRed)
 
-    override def inputs = syms(cchainMap) ++ syms(cchainRed) ++ syms(accum) ++ syms(map) ++ syms(reduce)
+    override def inputs = syms(cchainMap) ++ syms(cchainRed) ++ syms(accum) ++ syms(map) ++ syms(reduce) ++
+                          syms(ident) ++ syms(loadRes) ++ syms(loadAcc) ++ syms(storeAcc)
     override def freqs = cold(map) ++ cold(reduce) ++ normal(cchainMap) ++ normal(cchainRed) ++ normal(accum)
     override def binds = super.binds ++ itersMap ++ itersRed ++ List(rV._1, rV._2)
     override def tunnels = syms(accum)
@@ -324,6 +339,8 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     load:   => Exp[T],
     reduce: => Exp[T],
     store:  => Exp[Void],
+    ident:  Option[Exp[T]],
+    fold:   Option[Exp[T]],
     rV:     (Bound[T],Bound[T]),
     iters:  List[Bound[Index]]
   )(implicit ctx: SrcCtx): Sym[Controller] = {
@@ -334,7 +351,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val stBlk = stageLambda(rBlk.result){ store }
 
     val effects = mBlk.summary andAlso ldBlk.summary andAlso rBlk.summary andAlso stBlk.summary
-    stageEffectful( OpReduce[T](cchain, reg, mBlk, ldBlk, rBlk, stBlk, rV, iters), effects)(ctx)
+    stageEffectful( OpReduce[T](cchain, reg, mBlk, ldBlk, rBlk, stBlk, ident, fold, rV, iters), effects)(ctx)
   }
   def op_mem_reduce[T:Staged:Bits,C[T]](
     cchainMap: Exp[CounterChain],
@@ -345,6 +362,8 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     loadAcc:   => Exp[T],
     reduce:    => Exp[T],
     storeAcc:  => Exp[Void],
+    ident:     Option[Exp[T]],
+    fold:      Option[Exp[T]],
     rV:        (Bound[T], Bound[T]),
     itersMap:  Seq[Bound[Index]],
     itersRed:  Seq[Bound[Index]]
@@ -357,7 +376,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val stBlk = stageLambda(rBlk.result){ storeAcc }
 
     val effects = mBlk.summary andAlso ldResBlk.summary andAlso ldAccBlk.summary andAlso rBlk.summary andAlso stBlk.summary
-    stageEffectful( OpMemReduce[T,C](cchainMap, cchainRed, accum, mBlk, ldResBlk, ldAccBlk, rBlk, stBlk, rV, itersMap, itersRed), effects)(ctx)
+    stageEffectful( OpMemReduce[T,C](cchainMap, cchainRed, accum, mBlk, ldResBlk, ldAccBlk, rBlk, stBlk, ident, fold, rV, itersMap, itersRed), effects)(ctx)
   }
 
 

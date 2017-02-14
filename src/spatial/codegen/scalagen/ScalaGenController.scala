@@ -45,7 +45,7 @@ trait ScalaGenController extends ScalaCodegen {
       close("}")
       emit(src"/** END FOREACH $lhs **/")
 
-    case OpReduce(cchain, accum, map, load, reduce, store, rV, iters) =>
+    case OpReduce(cchain, accum, map, load, reduce, store, zero, fold, rV, iters) =>
       emit(src"/** BEGIN REDUCE $lhs **/")
       open(src"val $lhs = {")
       emitNestedLoop(cchain, iters){
@@ -59,7 +59,7 @@ trait ScalaGenController extends ScalaCodegen {
       close("}")
       emit(src"/** END REDUCE $lhs **/")
 
-    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed) =>
+    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) =>
       emit(src"/** BEGIN MEM REDUCE $lhs **/")
       open(src"val $lhs = {")
       emitNestedLoop(cchainMap, itersMap){

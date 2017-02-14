@@ -229,7 +229,7 @@ trait ChiselGenController extends ChiselCodegen {
         emitNestedLoop(cchain, iters){ emitBlock(func) }
       }
 
-    case OpReduce(cchain, accum, map, load, reduce, store, rV, iters) =>
+    case OpReduce(cchain, accum, map, load, reduce, store, zero, fold, rV, iters) =>
       currentController = Some(lhs)
       emitController(lhs, Some(cchain), Some(iters))
       open(src"val $lhs = {")
@@ -243,7 +243,7 @@ trait ChiselGenController extends ChiselCodegen {
       }
       close("}")
 
-    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed) =>
+    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) =>
       currentController = Some(lhs)
       open(src"val $lhs = { mem op reduce what do i do aaaah")
       emitNestedLoop(cchainMap, itersMap){
