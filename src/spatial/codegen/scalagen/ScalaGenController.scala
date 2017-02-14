@@ -24,16 +24,18 @@ trait ScalaGenController extends ScalaCodegen {
       close("}")
       emit(src"/** END HARDWARE BLOCK $lhs **/")
 
-    case UnitPipe(func) =>
+    case UnitPipe(ens, func) =>
       emit(src"/** BEGIN UNIT PIPE $lhs **/")
-      open(src"val $lhs = {")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
       emitBlock(func)
       close("}")
       emit(src"/** END UNIT PIPE $lhs **/")
 
-    case ParallelPipe(func) =>
+    case ParallelPipe(ens, func) =>
       emit(src"/** BEGIN PARALLEL PIPE $lhs **/")
-      open(src"val $lhs = {")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
       emitBlock(func)
       close("}")
       emit(src"/** END PARALLEL PIPE $lhs **/")
@@ -45,7 +47,7 @@ trait ScalaGenController extends ScalaCodegen {
       close("}")
       emit(src"/** END FOREACH $lhs **/")
 
-    case OpReduce(cchain, accum, map, load, reduce, store, rV, iters) =>
+    case OpReduce(cchain, accum, map, load, reduce, store, zero, fold, rV, iters) =>
       emit(src"/** BEGIN REDUCE $lhs **/")
       open(src"val $lhs = {")
       emitNestedLoop(cchain, iters){
@@ -59,7 +61,7 @@ trait ScalaGenController extends ScalaCodegen {
       close("}")
       emit(src"/** END REDUCE $lhs **/")
 
-    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed) =>
+    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) =>
       emit(src"/** BEGIN MEM REDUCE $lhs **/")
       open(src"val $lhs = {")
       emitNestedLoop(cchainMap, itersMap){

@@ -61,7 +61,7 @@ trait ChiselGenController extends ChiselCodegen {
               lhs match {
                 case Def(Hwblock(_)) =>
                   s"AccelController"
-                case Def(UnitPipe(_)) =>
+                case Def(UnitPipe(_,_)) =>
                   s"x${lhs.id}_UnitPipe"
                 case Def(e: OpForeach) =>
                   s"x${lhs.id}_ForEach"
@@ -210,7 +210,7 @@ trait ChiselGenController extends ChiselCodegen {
       toggleEn() // turn off
       controllerStack.pop()
 
-    case UnitPipe(func) =>
+    case UnitPipe(en,func) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
@@ -219,7 +219,7 @@ trait ChiselGenController extends ChiselCodegen {
       }
       controllerStack.pop()
 
-    case ParallelPipe(func) => 
+    case ParallelPipe(en,func) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
@@ -237,7 +237,7 @@ trait ChiselGenController extends ChiselCodegen {
       }
       controllerStack.pop()
 
-    case OpReduce(cchain, accum, map, load, reduce, store, rV, iters) =>
+    case OpReduce(cchain, accum, map, load, reduce, store, fold, zero, rV, iters) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters))
@@ -253,7 +253,7 @@ trait ChiselGenController extends ChiselCodegen {
       close("}")
       controllerStack.pop()
 
-    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed) =>
+    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,fold,zero,rV,itersMap,itersRed) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       open(src"val $lhs = { mem op reduce what do i do aaaah")

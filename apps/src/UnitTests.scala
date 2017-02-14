@@ -874,8 +874,6 @@ object MultiplexedWriteTest extends SpatialApp { // Regression (Unit) // Args: n
 
     val cksum = gold.zip(result){_==_}.reduce{_&&_}
     println("PASS: " + cksum  + " (MultiplexedWriteTest)")
-
-
   }
 }
 
