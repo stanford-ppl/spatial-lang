@@ -23,7 +23,7 @@ trait ChiselGenController extends ChiselCodegen {
      get to the very top
   */
   var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
-  var currentController: Option[Exp[_]] = None
+  var controllerStack = scala.collection.mutable.Stack[Exp[_]]()
 
   private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
     for (i <- iters.indices)
@@ -38,7 +38,7 @@ trait ChiselGenController extends ChiselCodegen {
     var result = super.quote(s)
     if (itersMap.contains(s)) {
       val siblings = itersMap(s)
-      var nextLevel = currentController
+      var nextLevel: Option[Exp[_]] = Some(controllerStack.head)
       while (nextLevel.isDefined) {
         if (siblings.contains(nextLevel.get)) {
           if (siblings.indexOf(nextLevel.get) > 0) {result = result + s"_chain.read(${siblings.indexOf(nextLevel.get)})"}
@@ -193,12 +193,13 @@ trait ChiselGenController extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func) =>
-      currentController = Some(lhs)
+      controllerStack.push(lhs)
       toggleEn() // turn on
       emit(s"""val ${quote(lhs)}_en = io.top_en & !io.top_done;""")
       emit(s"""val ${quote(lhs)}_resetter = false.B // TODO: top level reset""")
       emitGlobal(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
+      topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       // Emit unit counter for this
       emit(s"""val done_latch = Module(new SRFF())""")
       emit(s"""done_latch.io.input.set := ${quote(lhs)}_sm.io.output.done""")
@@ -207,30 +208,38 @@ trait ChiselGenController extends ChiselCodegen {
 
       emitBlock(func)
       toggleEn() // turn off
+      controllerStack.pop()
 
     case UnitPipe(func) =>
-      currentController = Some(lhs)
+      val parent_kernel = controllerStack.head 
+      controllerStack.push(lhs)
       emitController(lhs, None, None)
-      withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
+      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emitBlock(func)
       }
+      controllerStack.pop()
 
     case ParallelPipe(func) => 
-      currentController = Some(lhs)
+      val parent_kernel = controllerStack.head 
+      controllerStack.push(lhs)
       emitController(lhs, None, None)
-      withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
+      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emitBlock(func)
       } 
+      controllerStack.pop()
 
     case OpForeach(cchain, func, iters) =>
-      currentController = Some(lhs)
+      val parent_kernel = controllerStack.head 
+      controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters))
-      withSubStream(src"${lhs}", styleOf(lhs) == InnerPipe) {
+      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emitNestedLoop(cchain, iters){ emitBlock(func) }
       }
+      controllerStack.pop()
 
     case OpReduce(cchain, accum, map, load, reduce, store, rV, iters) =>
-      currentController = Some(lhs)
+      val parent_kernel = controllerStack.head 
+      controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters))
       open(src"val $lhs = {")
       emitNestedLoop(cchain, iters){
@@ -242,9 +251,11 @@ trait ChiselGenController extends ChiselCodegen {
         emitBlock(store)
       }
       close("}")
+      controllerStack.pop()
 
     case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed) =>
-      currentController = Some(lhs)
+      val parent_kernel = controllerStack.head 
+      controllerStack.push(lhs)
       open(src"val $lhs = { mem op reduce what do i do aaaah")
       emitNestedLoop(cchainMap, itersMap){
         visitBlock(map)
@@ -259,6 +270,7 @@ trait ChiselGenController extends ChiselCodegen {
       }
       close("}")
       emit("/** END MEM REDUCE **/")
+      controllerStack.pop()
 
     case _ => super.emitNode(lhs, rhs)
   }
