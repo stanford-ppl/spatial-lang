@@ -59,7 +59,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 	def storeRaw(dst: RawBits): Unit = {
 		dst.raw := number
 	}
-	def cast(dst: FixedPoint, rounding: String = "truncate"): Unit = {
+	def cast(dst: FixedPoint, rounding: String = "truncate", saturating: String = "lazy"): Unit = {
 		val new_width = dst.d + dst.f
 		val new_raw = Wire(UInt(new_width.W))
 
@@ -88,9 +88,17 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 		// Compute new dec part
 		val new_dec = if (dst.d < d) { // shrink decimals
-			val shave = d - dst.d
-			dst.debug_overflow := (0 until shave).map{i => number(d + f - 1 - i)}.reduce{_||_}
-			(0 until dst.d).map{i => number(f + i) * scala.math.pow(2,i).toInt.U}.reduce{_+_}
+			saturating match { 
+				case "lazy" =>
+					val shave = d - dst.d
+					dst.debug_overflow := (0 until shave).map{i => number(d + f - 1 - i)}.reduce{_||_}
+					(0 until dst.d).map{i => number(f + i) * scala.math.pow(2,i).toInt.U}.reduce{_+_}
+				case "saturation" =>
+					// TODO: Do something good
+					0.U(dst.d.W)
+				case _ =>
+					0.U(dst.d.W)
+			}
 		} else if (dst.d > d) { // expand decimals
 			val expand = dst.d - d
 			val sgn_extend = if (s) { number(d+f-1) } else {0.U(1.W)}
@@ -109,18 +117,58 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		val upcasted_type = (op.s | s, scala.math.max(op.d, d) + 1, scala.math.max(op.f, f))
 		val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
 		// Get upcasted operators
-		val r1 = Wire(new FixedPoint(upcasted_type))
-		this.cast(r1)
-		val r2 = Wire(new FixedPoint(upcasted_type))
-		op.cast(r2)
 		val full_result = Wire(new FixedPoint(upcasted_type))
 		// Do upcasted operation
-		full_result.number := r1.number + r2.number
+		full_result.number := this.number + op.number
 		// Downcast to result
 		val result = Wire(new FixedPoint(return_type))
 		full_result.cast(result)
 		result
 	}
+
+	def - (op: FixedPoint): FixedPoint = {
+		// Compute upcasted type and return type
+		val upcasted_type = (op.s | s, scala.math.max(op.d, d) + 1, scala.math.max(op.f, f))
+		val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+		// Get upcasted operators
+		val full_result = Wire(new FixedPoint(upcasted_type))
+		// Do upcasted operation
+		full_result.number := this.number - op.number
+		// Downcast to result
+		val result = Wire(new FixedPoint(return_type))
+		full_result.cast(result)
+		result
+	}
+
+	def * (op: FixedPoint): FixedPoint = {
+		// Compute upcasted type and return type
+		val upcasted_type = (op.s | s, op.d + d, op.f + f)
+		val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+		// Get upcasted operators
+		val full_result = Wire(new FixedPoint(upcasted_type))
+		// Do upcasted operation
+		full_result.number := this.number * op.number
+		// Downcast to result
+		val result = Wire(new FixedPoint(return_type))
+		full_result.cast(result)
+		result
+	}
+
+	def / (op: FixedPoint): FixedPoint = {
+		// Compute upcasted type and return type
+		val upcasted_type = (op.s | s, op.d + d, op.f + f)
+		val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+		// Get upcasted operators
+		val full_result = Wire(new FixedPoint(upcasted_type))
+		// Do upcasted operation
+		full_result.number := this.number / (op.number / scala.math.pow(2,op.f).toInt.U)
+		// Downcast to result
+		val result = Wire(new FixedPoint(return_type))
+		full_result.cast(result)
+		result
+	}
+
+
 
 	// def * (op: FixedPoint): FixedPoint = {
 	// 	// Compute upcasted type
@@ -153,6 +201,8 @@ class FixedPointTester(val s: Boolean, val d: Int, val f: Int) extends Module {
 
 		val add_result = new RawBits(d+f).asOutput
 		val product_result = new RawBits(d+f).asOutput
+		val sub_result = new RawBits(d+f).asOutput
+		val quotient_result = new RawBits(d+f).asOutput
 	})
 
 	val fix1 = Wire(new FixedPoint(s,d,f))
@@ -161,6 +211,12 @@ class FixedPointTester(val s: Boolean, val d: Int, val f: Int) extends Module {
 	io.num2.storeFix(fix2)
 	val sum = fix1 + fix2
 	sum.storeRaw(io.add_result)
+	val prod = fix1 * fix2
+	prod.storeRaw(io.product_result)
+	val sub = fix1 - fix2
+	sub.storeRaw(io.sub_result)
+	val quotient = fix1 / fix2
+	quotient.storeRaw(io.quotient_result)
 
 
 
