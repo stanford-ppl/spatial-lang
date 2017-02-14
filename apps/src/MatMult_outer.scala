@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 64 64
+object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 4 64 64
   import IR._
 
   type X = Int
@@ -91,6 +91,6 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 64 64
     printArray(result, "Result: ")
 
     val cksum = result.zip(gold){_ == _}.reduce{_&&_}
-    println("PASS: " + cksum + " (MatMult_outer)")
+    println("PASS: " + cksum + " (MatMult_outer) * Set the first bound to something greater than 4 once accumulator reset-ification exists in IR")
   }
 }

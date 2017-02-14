@@ -12,20 +12,17 @@ hist=72
 stamp_commit_msgs() {
   logger "Stamping commit messages"
   cd $SPATIAL_HOME
-  spatial_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
   spatial_msg=`git log --stat --name-status ${spatial_hash}^..${spatial_hash}`
   cd $ARGON_HOME
-  argon_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
   argon_msg=`git log --stat --name-status ${argon_hash}^..${argon_hash}`
   cd $VIRTUALIZED_HOME
-  virtualized_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
   virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
   echo "
 # Commits
 " >> $wiki_file
-  echo -e "\nSpatial commit (branch ${spatial_branch}): \n\`\`\`\n${spatial_msg}\n\`\`\`" >> $wiki_file
-  echo -e "\nArgon commit (branch ${argon_branch}): \n\`\`\`\n${argon_msg}\n\`\`\`" >> $wiki_file
-  echo -e "\nVirtualized commit (branch ${virtualized_branch}): \n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nSpatial commit\n\`\`\`\n${spatial_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nArgon commit\n\`\`\`\n${argon_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nVirtualized commit\n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
   echo "
 # Test summary
 " >> $wiki_file
@@ -386,25 +383,19 @@ init_travis_ci() {
   # Pull Tracker repos
   goto=(`pwd`)
   cd ${SPATIAL_HOME}
-  cmd="git clone git@github.com:mattfel1/Tracker.git"
+  cmd="git clone git@github.com:mattfel1/Trackers.git"
   logger "Pulling TRAVIS CI buttons with command: $cmd"
   eval "$cmd"
-  if [ -d "${SPATIAL_HOME}/Tracker" ]; then
+  if [ -d "${SPATIAL_HOME}/Trackers" ]; then
     logger "Repo Tracker exists, prepping it..."
-    trackbranch="${1}${2}${3}Tracker"
-    mv ${SPATIAL_HOME}/Tracker ${SPATIAL_HOME}/${trackbranch}
+    trackbranch="Class${1}-Branch${2}-Backend${3}-Tracker"
+    mv ${SPATIAL_HOME}/Trackers ${SPATIAL_HOME}/${trackbranch}
     cd ${SPATIAL_HOME}/${trackbranch}
     logger "Checking if  branch $trackbranch exists..."
-    wc=(`git branch -a | grep "remotes/origin/${trackbranch}"`)
-    if [ $wc = 0 ]; then
+    wc=(`git branch -a | grep "remotes/origin/${trackbranch}" | wc -l`)
+    if [[ $wc = 0 ]]; then
       logger "Does not exist! Making it..."
       git checkout -b ${trackbranch}
-      rm README.md
-      echo "# Tracker
-Travis-CI tracker for $1 tests on $2 branch with $3 backend
-[![Build Status](https://travis-ci.org/mattfel1/Tracker.svg?branch=${trackbranch})](https://travis-ci.org/mattfel1/Tracker)
-
-Based on https://github.com/stanford-ppl/spatial/wiki/${2}Branch-${3}Test-Regression-Tests-Status" > README.md
       git push --set-upstream origin ${trackbranch}
     else
       logger "Exists! Switching to it..."
@@ -412,9 +403,40 @@ Based on https://github.com/stanford-ppl/spatial/wiki/${2}Branch-${3}Test-Regres
       eval "$cmd"
     fi
 
-    tracker="${SPATIAL_HOME}/Tracker/results"
+      echo "# Tracker
+Travis-CI tracker for $1 tests on $2 branch with $3 backend
+[![Build Status](https://travis-ci.org/mattfel1/Tracker.svg?branch=${trackbranch})](https://travis-ci.org/mattfel1/Tracker)
+
+Based on https://github.com/stanford-ppl/spatial/wiki/${2}Branch-${3}Test-Regression-Tests-Status" > README.md
+      echo "#!/bin/bash
+
+if [ ! -f results ]; then
+  echo \"FAIL: No results found\"
+  exit 1
+fi
+
+errors=(\`cat results | grep -i \"fail\\|unknown\" | wc -l\`)
+if [[ \$errors != 0 ]]; then
+  cat results
+  echo \"FAIL: Errors found\"
+  exit 1
+else
+  echo \"Success\"
+  exit 0
+fi" > status.sh
+
+echo "language: c
+notifications:
+  email:
+    recipients: mattfel@stanford.edu
+    on_failure: change # default: always
+script:
+  - bash ./status.sh
+" > .travis.yml
+
+    tracker="${SPATIAL_HOME}/${trackbranch}/results"
     ls | grep -v travis | grep -v status | grep -v README | grep -v git | xargs rm -rf
-    cp $packet ${SPATIAL_HOME}/Tracker/
+    cp $packet ${SPATIAL_HOME}/${trackbranch}/
   else 
     logger "Repo Tracker does not exist! Skipping Travis..."
   fi
@@ -425,7 +447,7 @@ Based on https://github.com/stanford-ppl/spatial/wiki/${2}Branch-${3}Test-Regres
 ## $2 - branch
 ## $3 - backend
 push_travis_ci() {
-  trackbranch="${1}${2}${3}Tracker"
+  trackbranch="Class${1}-Branch${2}-Backend${3}-Tracker"
 
   # Pull Tracker repos
   goto=(`pwd`)
@@ -509,11 +531,11 @@ export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --scala --multifile=1 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --scala --multifile=3 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --chisel --multifile=1 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --chisel --multifile=3 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 
@@ -538,11 +560,11 @@ cd ${5}/out
 make clean sim 2>&1 | tee -a ${5}/log
 
 # Check for crashes in backend compilation
-wc=\$(cat ${5}/log | grep \"recipe for target 'bitstream-sim' failed\" | wc -l)
+wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
 fi
-wc=\$(cat ${5}/log | grep \"recipe for target 'Top_sim' failed\" | wc -l)
+wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_cpp_crash\" \"[STATUS] Declaring failure compile_chisel c++ side\" 0
 fi
