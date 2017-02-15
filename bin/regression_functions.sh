@@ -352,6 +352,7 @@ for aa in ${headers[@]}; do
     if [[ $old_num = 0 && $num = 0 ]]; then vec="="; elif [[ $old_num > $num ]]; then vec=↘; elif [[ $old_num = $num ]]; then vec=→; else vec=↗; fi
     # Edit file
     cmd="sed -i \"s/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/\" ${pretty_file}" # Append bar
+    logger "Running $cmd"
     eval "$cmd"
     cmd="sed -i \"s/\\(^${aa}\ \+\\)\ ,,\\(.*\\)/\\1${vec},,\\2/\" ${pretty_file}" # Inject change vector
     eval "$cmd"
