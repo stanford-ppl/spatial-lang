@@ -4,8 +4,8 @@
 ##   It is called from the receive.sh, which handles path variables
 ##   and git checkouts on a server-specific basis
 
-spacing=45
-delay=2100
+spacing=20
+delay=650
 numpieces=30
 hist=72
 
@@ -81,7 +81,8 @@ build_spatial() {
   for i in ${!sorted_testdirs[@]}; do if [[  "${sorted_testdirs[$i]}" = *"$tim"* ]]; then rank=$((i-1)); fi; done
   # Sanity check
   if [ $rank = -5 ]; then 
-    logger "CRITICAL ERROR: This time ${tim} was not found in dirs list ${stringified}"
+    logger "CRITICAL ERROR: ${tim} stamp was not found in dirs list ${stringified}"
+    rm ${tim}*
     exit 1
   fi
 
@@ -176,6 +177,7 @@ done
 echo -e "\n\n***\n\n" >> $wiki_file
 
 # Link to logs
+pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
 # echo -e "\n## [History log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial/${branch}_Regression_Test_History.csv) \n" >> $wiki_file
 echo -e "\n## [Pretty History Log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/${pretty_name}) \n" >> $wiki_file
 # echo -e "\n## [Performance Results](https://www.dropbox.com/s/a91ra3wvdyr3x5b/Performance_Results.xlsx?dl=0) \n" >> $wiki_file
@@ -207,10 +209,10 @@ update_log() {
   progress=(`find . -maxdepth 1 -type f | sort -r`)
   for p in ${progress[@]}; do
     pname=(`echo $p | sed "s/.*[0-9]\+_//g"`)
-    cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/${branch}_$pname.png)"
+    cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/comptimes_${branch}_${type_todo}_${pname}.csv)"
     if [[ $p == *"pass"* ]]; then
       echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
-      t=(`cat $p`)
+      t=(`sed -n '2p' $p`)
     elif [[ $p == *"failed_execution_validation"* ]]; then
       echo "<----${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=0
@@ -237,8 +239,16 @@ update_log() {
       t=0
     fi
 
-    # # Update performance file
-    # perf_file="${SPATIAL_HOME}/spatial.wiki/${branch}_${pname}.csv"
+    # Update performance file
+    perf_file="${SPATIAL_HOME}/spatial-lang.wiki/comptimes_${branch}_${type_todo}_${pname}.csv"
+    if [ ! -f ${perf_file} ]; then
+      echo "Compile times (in seconds) by commit (0 = failure)" > $perf_file
+      echo "times, 0" >> $perf_file
+    fi
+    line="Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} | Virtualized ${virtualized_hash:0:5}"
+    sed -i "2s/$/, $t/" ${perf_file}
+    echo "$line" >> ${perf_file}
+
     # lines=(`cat $perf_file | wc -l`)
     # dline=$(($lines-$(($perf_hist-1))))
     # last=(`tail -n1 < $perf_file`)
@@ -306,6 +316,9 @@ done
   # failed_execution_nonexistent_validation
   # failed_execution_validation
 
+pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
+pretty_file=${SPATIAL_HOME}/spatial-lang.wiki/${pretty_name}
+
 # Inject the new data to the history
 key=(`cat ${pretty_file} | grep KEY | wc -l`)
 if [[ $key = 0 ]]; then
@@ -332,8 +345,15 @@ for aa in ${headers[@]}; do
 
   infile=(`cat ${pretty_file} | grep $aa | wc -l`)
   if [[ $infile -gt 0 ]]; then # This test exists in history
-    logger "Updating $aa in pretty history log"
-    cmd="sed -i \"/^${aa}\ \+,/ s/$/$bar/\" ${pretty_file}"
+    # logger "Updating $aa in pretty history log"
+    # Get last known datapoint and vector
+    last=(`cat ${pretty_file} | grep "|${aa}\ " | sed "s/.*,//g" | sed 's/.*\(.\)/\1/'`)
+    if [ $last=█ ]; then old_num=0; elif [ $last=▇ ]; then old_num=1; elif [ $last=▆ ]; then old_num=2; elif [ $last=▅ ]; then old_num=3; elif [ $last=▄ ]; then old_num=4; elif [ $last=▃ ]; then old_num=5; elif [ $last=▂ ]; then old_num=6; elif [ $last=▁ ]; then old_num=7; else oldnum=8; fi
+    if [[ $old_num = 0 && $num = 0 ]]; then vec=✓; elif [[ $old_num > $num ]]; then vec=↘; elif [[ $old_num == $num ]]; then vec=→; else vec=↗; fi
+    # Edit file
+    cmd="sed -i \"/^${aa}\ \+,/ s/$/$bar/\" ${pretty_file}" # Append bar to line
+    eval "$cmd"
+    cmd="sed -i \"s/\\(^${aa}\ \+\\)\ ,,\\(.*\\)/\\1${vec},,\\2/\" ${pretty_file}" # Inject change vector
     eval "$cmd"
     # Shave first if too long
     numel=(`cat ${pretty_file} | grep "^$aa\ " | grep -oh "." | wc -l`)
@@ -350,12 +370,15 @@ for aa in ${headers[@]}; do
   fi
 done
 
+# Add category if this is a new one
 for ac in ${types_list[@]}; do
   infile=(`cat ${pretty_file} | grep "${ac}:" | wc -l`)
   if [[ $infile -eq 0 ]]; then # add this category
     echo "${ac}:" >> ${pretty_file}
   fi
 done
+
+# Add commit hashes
 infile=(`cat ${pretty_file} | grep "Z Latest Update" | wc -l`)
 if [[ $infile -gt 0 ]]; then # add stamp
   cmd="sed -i \"s/Z Latest Update: .*/Z Latest Update: ${tim}/g\" ${pretty_file}"
@@ -506,6 +529,7 @@ function report {
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
     cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" > ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
+    echo ${comp_time} >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
     exit 0
   else
     echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2})\" >> ${log}
@@ -554,6 +578,9 @@ wc=\$(cat ${5}/log | grep \"error\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_app_spatial_compile\" \"[STATUS] Declaring failure build_in_spatial\" 0
 fi
+
+# Extract compile time
+comp_time=(\`cat log | grep \"Total time:\" | sed 's/.*time: //g' | sed 's/ seconds//g'\`)
 
 # Compile backend
 cd ${5}/out

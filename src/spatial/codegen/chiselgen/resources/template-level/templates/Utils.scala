@@ -39,4 +39,11 @@ object Utils {
       case (_,_) => a // TODO: implement for other types
     }
   }
+
+  // def toFix[T <: chisel3.core.Data](a: T): FixedPoint = {
+  //   a match {
+  //     case aa: FixedPoint => Mux(aa > bb, a, b)
+  //     case a => a // TODO: implement for other types
+  //   }
+  // }
 }

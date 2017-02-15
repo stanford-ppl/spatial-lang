@@ -15,13 +15,19 @@ object SpatialBuild extends Build {
      exit(1)
     }
   }
+    
+  val compilerVersion = "2.12.1"
+  val scalatestVersion = "3.0.1"
+  val paradiseVersion = "2.1.0"  // check here: https://github.com/scalamacros/paradise/releases
 
   lazy val virtBuildSettings = Defaults.defaultSettings ++ Seq(
     organization := "stanford-ppl",
-    scalaVersion := "2.11.2",
+    scalaVersion := compilerVersion,
+
+
     publishArtifact in (Compile, packageDoc) := false,
     libraryDependencies += "org.virtualized" %% "virtualized" % "0.1",
-    libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.0" % "test",
+    libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "compile",
     libraryDependencies += "org.apache.commons" % "commons-lang3" % "3.3.2",
 
@@ -44,7 +50,7 @@ object SpatialBuild extends Build {
       "-doc-title", name.value
     ),
 
-    addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full),
+    addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
   
     scalaSource in Compile <<= baseDirectory(_ / "src"),
     scalaSource in Test <<= baseDirectory(_ / "test"),
@@ -58,7 +64,7 @@ object SpatialBuild extends Build {
 
 
   
-  val scalacp = "/target/scala-2.11/classes/"
+  val scalacp = "/target/scala-" + compilerVersion.dropRight(2) + "/classes/"
   lazy val argoncp = file(ARGON_HOME + scalacp)
 
   var deps = Seq(

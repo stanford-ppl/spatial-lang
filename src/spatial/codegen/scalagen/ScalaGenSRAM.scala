@@ -20,7 +20,7 @@ trait ScalaGenSRAM extends ScalaCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@SRAMNew(dims) => emit(src"""val $lhs = new Array[${op.mT}](${dims.map(quote).mkString("*")})""")
     case SRAMLoad(sram, dims, is, ofs) =>
-      emit(src"val $lhs = $sram.apply(${flattenAddress(dims,is,Some(ofs))})")
+      emit(src"""val $lhs = $sram.apply(${flattenAddress(dims,is,Some(ofs))})""")
 
     case SRAMStore(sram, dims, is, ofs, v, en) =>
       emit(src"val $lhs = if ($en) $sram.update(${flattenAddress(dims,is,Some(ofs))}, $v)")

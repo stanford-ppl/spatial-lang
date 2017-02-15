@@ -9,13 +9,13 @@
 # Spatial
 Spatial is an Argon DSL for programming reconfigurable hardware from a parameterized, high level abstraction.
 
-#Prerequisites
+# Prerequisites
 - [Scala SBT](http://www.scala-sbt.org)
 - [Java JDK](http://www.oracle.com/technetwork/java/javase/downloads/index.html)
 - [Argon](https://github.com/stanford-ppl/argon)
 - [Verilator](https://www.veripool.org/projects/verilator/wiki/Installing) (Required for fpga simulation only)
 
-#Installation
+# Installation
 You will clone three repositories, scala-virtualized, argon, and spatial-lang.  You can place these anywhere as long as you
 point your environment variables correctly, but this tutorial will assume you place all three in ${HOME}/spatial.  Run the
 following commands:
@@ -49,9 +49,9 @@ cd ${SPATIAL_HOME}
 make full
 ```
 
+A good habit would be to pull from each of these 3 repos often and running `make full` in spatial home after doing so.
 
-Introduction to Spatial
-=======================
+#Introduction to Spatial
 Now that you have cloned all of the code and set all of your environment variables, let's look at how to write, build, and run your first Spatial app!
 
 ### a) Spatial App Structure
@@ -129,7 +129,7 @@ Targetting Scala is the quickest way to simulate your app and test for accuracy.
     cd ${SPATIAL_HOME}/
     bin/spatial <app name> --scala # + other options
 
-The "<app name>" refers to the name of the `Object`.  
+The "<app name>" refers to the name of the `Object`.  See the "Testing" section below for a guide on how to test the generated app
 
 #### ii) Compiling to Chisel
 Targetting Chisel will let you compile your app down into Berkeley's chisel language, which eventually compiles down to Verilog.  It also allows you to debug your app at the clock-cycle resolution. In order to compile with the Chisel backend, run the following:
@@ -168,10 +168,61 @@ The "<arguments>" should be a space-separated list, fully enclosed in quotes.  F
 
 
 
-The Spatial Programming Model
-=============================
-Coming Soon!
-**Raghu**
+#The Spatial Programming Model
+An application in Spatial always has two components: the portion of code that runs on the CPU or host machine and the portion of code that runs on the fpga or other dataflow accelerator.  In general, algorithms have computation-heavy sections that a user will want to offload to an accelerator, and then other computations that can be done on a CPU.  Additionally, there is some protocol that you, the designer, may want for passing data between the two.  The language allows you to express any algorithm and divvy up the workload appropriately between devices.  It provides many abstractions and optimizations that allow you to work with your algorithm at a relatively high level and automatically generates efficient verilog for that design.  This means you are free to make high level changes in a few lines of Spatial code that may correspond to changing hundreds or thousands of lines of verilog if you were to write your own hand-optimized version.  Here we will discuss the components of the language in detail, as well as important features of the language, such as counters/parallelization.  Please refer to the Scaladoc (coming soon!!!!) for detailed API information for these components.
+
+##1) Accel Block
+The `accel` block scopes out any code that will run on the dataflow accelerator (fpga, Plasticine, etc.).  This is where you should specify the dataflow-heavy part of the algorithm using a hierarchy of control nodes and primitive operations.
+
+###a) Control Nodes
+A control node is essentially a `foreach` (functional) or a `for loop` (imperative).  It scopes out a section of code that runs for some number of iterations.  It is best to think of the `accel` block as a hierarchy of control nodes that contain either a list of other control nodes, or a list of primitive operations.  The control nodes available are:
+####i) Sequential.Foreach
+The stages inside of a `Sequential.Foreach` are executed one at a time without overlap between stages.  The counter for this node increments only after the last stage of the controller has finished.  It is best to use this node when there are loop-carry dependencies between the stages of the pipeline that cannot be fixed.
+####ii) Foreach
+The stages inside of a `Foreach` are executed in standard pipelined fashion.  Stage 0 executes with the first value of the counter first.  When stage 0 finishes, the counter for the control node increments and Stage 0 then begins executing again with this new counter value.  Meanwhile, it has passed its old counter value to stage 1 and then stage 1 executes its first iteration.  And so forth.
+####iii) Reduce
+Many times, an algorithm requires a reduction.  This is an operation that takes many values and reduces them to one value.  A `Reduce` node consists of a map function, which is responsible for producing the values that will be used in the reduction.  For example, the map function in dot product would be reading and element from both vectors and computing their product.  It also specifies a reduction function to describe how the values should be reduced.  In dot product, this would be simple addition, but you can specify operations such as multiplication or minimum/maximum.
+####iv) MemReduce
+There are other algorithms where you may have an n-dimensional array and want to accumulate it on top of an array of the same dimensions.  For example, gradient descent algorithms compute a small update to a weights vector and add this to the old weights vector.  This control node is exactly like the Reduce node above, except the accumulator is an SRAM and the map function produces an SRAM of matching dimensions rather than a scalar value.
+####v) Fold
+Similar to Reduce, but you must provide the initial, default value of the reduction.
+####vi) Parallel
+All children nodes execute in parallel, and this control node does not finish until all of its children have finished.  Can only contain other control nodes.  Will be deprecated soon.
+###b) Memories
+####i) SRAM
+On fpgas, the SRAMs refer to the block RAMs on the device.  You can think of them as scratchpad memories that take one cycle to read and write.
+####ii) DRAM
+DRAM refers to memory that is not on-board the accelerator.  Data is generally put into these memories by the CPU and then fetched by the accelerator.  The accelerator can fetch memory from DRAM at the burst-granularity (64 bytes = 16 4-byte words)
+####iii) Reg
+A register is a memory element that holds some bits.  Generally, this would be a float, fixed point, or integer number, but can also be a tuple as is the case for K-Means.  In such a case, all of the bits of the tuple are concatenated and placed in a register, to be later reinterpreted and sliced.
+####iv) FIFO
+This is an SRAM behind the scenes, but rather than being word-addressable, you can only push and pop elements to it.
+###c) Data Transfers
+####i) Load
+Loads some chunk of memory from DRAM and place in SRAM or FIFO.  If the chunk is not burst aligned, then a whole burst is issued but data that was not wanted gets dumped into a null buffer
+####ii) Store
+Stores some SRAM or FIFO to memory.  
+####iii) Gather
+Given DRAM addresses in some SRAM, it fetches these words from DRAM and places them in an SRAM that corresponds to the address SRAM.
+####iv) Scatter
+Given DRAM addresses in one SRAM and data in another SRAM, it scatters the data to the corresponding DRAM addresses
+###d) Primitives
+####i) Register Read/Write
+Read and write to a register.  Note that although register reads are non-destructive, they are effectful if done in a Foreach node.  This is because the Spatial language does implicit buffering for your registers when their accesses appear in different stages of a metapipeline and a read is connected to the signals that swap this buffering 
+####ii) SRAM Read/Write
+Read and write to SRAM.  Same as register accesses except an address must be specified.
+####iii) FIFO Push/Pop
+Push or pop to a FIFO.  
+###e) Counters/Parallelization
+####i) Parallelized Counters
+An accelerator would not be very good at accelerating anything if it did not allow the user to take advantage of the spatial architecture.  You can parallelize any control node in your algorithm by adding `par $n` to the counter declaration.  If you parallelize a control node that contains other control nodes, Spatial will unroll the inner nodes for you.  If you parallelize a control node that contains only primitives, the counter for that control node will be vectorized.  When you parallelize, all of your memory elements and arithmetic operations will be banked and/or duplicated in order to ensure correctness of your result, assuming there are no dependencies between the counter values.  Parallelized reductions will generate reduction trees, which results in the reduction latency increasing by log2(par).
+####ii) Endless Counters
+Endless counters are counters whose maximum value is specified by `*`.  For an intuitive understanding of what this means, please see [this video](https://www.youtube.com/watch?v=xWcldHxHFpo)
+
+##2) Main Method
+This is where all of the CPU code belongs.  In many examples, we simply redo the computation that the accel block does and check if it produced the correct result.  However, many real-world algorithms will do something different on the CPU than they do in the accel.
+###a) Parallel Patterns
+See [here](https://www.tutorialspoint.com/scala/) for info on programming in Scala.
 
 
 Design Space Exploration with Spatial
