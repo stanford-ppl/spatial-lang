@@ -352,9 +352,11 @@ for aa in ${headers[@]}; do
     # Edit file
     logger "app $aa from $last to $bar, numbers $old_num to $num"
     cmd="sed -i \"s/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/\" ${pretty_file}" # Append bar
+    logger "cmd1 $cmd"
     sed -i "s/\(^${aa}\ \+.\),,\(.*\)/\1,,\2${bar}/" ${pretty_file}
     # eval "$cmd"
     cmd="sed -i \"s/\\(^${aa}\ \+\\).,,\\(.*\\)/\\1${vec},,\\2/\" ${pretty_file}" # Inject change vector
+    logger "cmd2 $cmd"
     sed -i "s/\(^${aa}\ \+\).,,\(.*\)/\1${vec},,\2/" ${pretty_file}
     # eval "$cmd" | tee /tmp/wtf
     # Shave first if too long
