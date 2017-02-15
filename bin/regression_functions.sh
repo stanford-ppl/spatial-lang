@@ -351,10 +351,11 @@ for aa in ${headers[@]}; do
     if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else oldnum=8; fi
     if [[ $old_num = 0 && $num = 0 ]]; then vec="="; elif [[ $old_num > $num ]]; then vec=↘; elif [[ $old_num = $num ]]; then vec=→; else vec=↗; fi
     # Edit file
+    logger "app $aa from $last to $bar, numbers $old_num to $num"
     cmd="sed -i \"s/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/\" ${pretty_file}" # Append bar
     logger "Running $cmd"
     eval "$cmd"
-    cmd="sed -i \"s/\\(^${aa}\ \+\\)\ ,,\\(.*\\)/\\1${vec},,\\2/\" ${pretty_file}" # Inject change vector
+    cmd="sed -i \"s/\\(^${aa}\ \+\\).,,\\(.*\\)/\\1${vec},,\\2/\" ${pretty_file}" # Inject change vector
     eval "$cmd"
     # Shave first if too long
     numel=(`cat ${pretty_file} | grep "^$aa\ " | grep -oh "." | wc -l`)
