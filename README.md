@@ -49,6 +49,7 @@ cd ${SPATIAL_HOME}
 make full
 ```
 
+A good habit would be to pull from each of these 3 repos often and running `make full` in spatial home after doing so.
 
 #Introduction to Spatial
 Now that you have cloned all of the code and set all of your environment variables, let's look at how to write, build, and run your first Spatial app!
