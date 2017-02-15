@@ -5,7 +5,7 @@
 ##   and git checkouts on a server-specific basis
 
 spacing=20
-delay=650
+delay=65
 numpieces=30
 hist=72
 
@@ -352,10 +352,11 @@ for aa in ${headers[@]}; do
     # Edit file
     logger "app $aa from $last to $bar, numbers $old_num to $num"
     cmd="sed -i \"s/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/\" ${pretty_file}" # Append bar
-    logger "Running $cmd"
-    eval "$cmd" |  tee /tmp/wtf
+    sed -i "s/\(^${aa}\ \+.\),,\(.*\)/\1,,\2${bar}/" ${pretty_file}
+    # eval "$cmd"
     cmd="sed -i \"s/\\(^${aa}\ \+\\).,,\\(.*\\)/\\1${vec},,\\2/\" ${pretty_file}" # Inject change vector
-    eval "$cmd" | tee /tmp/wtf
+    sed -i "s/\(^${aa}\ \+\).,,\(.*\)/\1${vec},,\2/" ${pretty_file}
+    # eval "$cmd" | tee /tmp/wtf
     # Shave first if too long
     numel=(`cat ${pretty_file} | grep "^$aa\ " | grep -oh "." | wc -l`)
     chars_before_bars=(`cat ${pretty_file} | grep "^$aa\ " | sed "s/,,.*/,,/g" | grep -oh "." | wc -l`)
