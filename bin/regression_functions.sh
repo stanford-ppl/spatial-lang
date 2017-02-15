@@ -345,19 +345,18 @@ for aa in ${headers[@]}; do
 
   infile=(`cat ${pretty_file} | grep $aa | wc -l`)
   if [[ $infile -gt 0 ]]; then # This test exists in history
-    # logger "Updating $aa in pretty history log"
     # Get last known datapoint and vector
-    last=(`cat ${pretty_file} | grep "|${aa}\ " | sed "s/.*,//g" | sed 's/.*\(.\)/\1/'`)
+    last=(`cat ${pretty_file} | grep "${aa}\ " | sed "s/.*,//g" | sed 's/.*\(.\)$/\1/'`)
     if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else oldnum=8; fi
-    if [[ $old_num = 0 && $num = 0 ]]; then vec="="; elif [[ $old_num > $num ]]; then vec=↘; elif [[ $old_num = $num ]]; then vec=→; else vec=↗; fi
+    if [[ $old_num = 0 && $num = 0 ]]; then vec="="; elif [[ $old_num > $num ]]; then vec=↗; elif [[ $old_num = $num ]]; then vec=→; else vec=↘; fi
     # Edit file
-    logger "app $aa from $last to $bar, numbers $old_num to $num"
+    # logger "app $aa from $last to $bar, numbers $old_num to $num"
     cmd="sed -i \"s/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/\" ${pretty_file}" # Append bar
     logger "Running $cmd"
-    eval "$cmd"
+    eval "$cmd" |  tee /tmp/wtf
     cmd="sed -i \"s/\\(^${aa}\ \+\\).,,\\(.*\\)/\\1${vec},,\\2/\" ${pretty_file}" # Inject change vector
-    eval "$cmd"
-    # Shave first if too long
+    eval "$cmd" | tee /tmp/wtf
+    Shave first if too long
     numel=(`cat ${pretty_file} | grep "^$aa\ " | grep -oh "." | wc -l`)
     chars_before_bars=(`cat ${pretty_file} | grep "^$aa\ " | sed "s/,,.*/,,/g" | grep -oh "." | wc -l`)
     if [ $numel -gt $(($hist+$chars_before_bars)) ]; then 
