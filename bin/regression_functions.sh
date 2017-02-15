@@ -5,7 +5,7 @@
 ##   and git checkouts on a server-specific basis
 
 spacing=15
-delay=30
+delay=60
 numpieces=30
 hist=72
 
@@ -105,7 +105,7 @@ build_spatial() {
   make full > /tmp/log 2>&1
   logger "Spatial done!"
   logger "Checking if spatial made correctly..."
-  errs=$(cat /tmp/log | grep "\[.*error.*\]" | wc -l)
+  errs=(`cat /tmp/log | grep "\[.*error.*\]" | wc -l`)
   if [[ $errs -gt 0 ]]; then
   	clean_exit 8 "Detected errors in spatial build (/tmp/log)"
   fi
@@ -188,7 +188,7 @@ stamp_commit_msgs
 
 stamp_app_comments() {
   cd ${SPATIAL_HOME}/regression_tests
-  comments=$(find . -type f -maxdepth 3 -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g")
+  comments=(`find . -type f -maxdepth 3 -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g"`)
   echo -e "\n# COMMENTS:" >> $wiki_file
   echo -e "\n${comments}" >> $wiki_file
 }
@@ -206,13 +206,13 @@ update_log() {
   perf_hist=72
   echo "" >> $1
   echo "" >> $1
-  progress=$(find . -maxdepth 1 -type f | sort -r)
+  progress=(`find . -maxdepth 1 -type f | sort -r`)
   for p in ${progress[@]}; do
-    pname=$(echo $p | sed "s/.*[0-9]\+_//g")
+    pname=(`echo $p | sed "s/.*[0-9]\+_//g"`)
     cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/comptimes_${branch}_${type_todo}_${pname}.csv)"
     if [[ $p == *"pass"* ]]; then
       echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
-      t=$(sed -n '2p' $p)
+      t=(`sed -n '2p' $p`)
     elif [[ $p == *"failed_execution_validation"* ]]; then
       echo "<----${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=0
@@ -291,15 +291,15 @@ update_histories() {
 # history_file=${SPATIAL_HOME}/spatial.wiki/${branch}_Regression_Test_History.csv
 
 # Get list of apps that have data
-all_apps=$(cat ${wiki_file} | grep "^\*\*pass\|^<-\+failed" | sed "s/<-\+//g" | sed "s/^.*[0-9]\+\_//g" | sed "s/\*//g" | sed "s/\[🗠.*//g" | sort)
+all_apps=(`cat ${wiki_file} | grep "^\*\*pass\|^<-\+failed" | sed "s/<-\+//g" | sed "s/^.*[0-9]\+\_//g" | sed "s/\*//g" | sed "s/\[🗠.*//g" | sort`)
 
 # Determine type for each app to build headers list
 for aa in ${all_apps[@]}; do
   if [[ ! "$last_aa" = "$aa" ]]; then
-    a=$(echo $aa | sed "s/ //g" | sed "s/\[.*//g")
+    a=(`echo $aa | sed "s/ //g" | sed "s/\[.*//g"`)
     for bb in ${test_list[@]}; do
       if [[ $bb == "$a|"* ]]; then
-        type=$(echo $bb | awk -F'|' '{print $2}')
+        type=(`echo $bb | awk -F'|' '{print $2}'`)
         headers=("${headers[@]}" "${type}|${a}")
       fi
     done
@@ -338,30 +338,29 @@ if [[ $key = 0 ]]; then
 1" >> ${pretty_file}
 fi
 for aa in ${headers[@]}; do
-  a=$(echo $aa | sed "s/^.*|//g" | sed "s/\[.*//g")
-  dashes=$(cat ${wiki_file} | grep "[0-9]\+\_$a\(\ \|\*\|\[\)" | sed "s/\[🗠.*//g" | grep -oh "\-" | wc -l)
+  a=(`echo $aa | sed "s/^.*|//g" | sed "s/\[.*//g"`)
+  dashes=(`cat ${wiki_file} | grep "[0-9]\+\_$a\(\ \|\*\|\[\)" | sed "s/\[🗠.*//g" | grep -oh "\-" | wc -l`)
   num=$(($dashes/4))
   if [ $num = 0 ]; then bar=█; elif [ $num = 1 ]; then bar=▇; elif [ $num = 2 ]; then bar=▆; elif [ $num = 3 ]; then bar=▅; elif [ $num = 4 ]; then bar=▄; elif [ $num = 5 ]; then bar=▃; elif [ $num = 6 ]; then bar=▂; elif [ $num = 7 ]; then bar=▁; else bar=□; fi
 
-  infile=$(cat ${pretty_file} | grep $aa | wc -l)
+  infile=(`cat ${pretty_file} | grep $aa | wc -l`)
   if [[ $infile -gt 0 ]]; then # This test exists in history
     # Get last known datapoint and vector
-    last=$(cat ${pretty_file} | grep "${aa}\ " | sed "s/.*,//g" | sed 's/.*\(.\)$/\1/')
-    if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else old_num=8; fi
-    if [[ $old_num = 0 && $num = 0 ]]; then vec="="; elif [[ $old_num > $num ]]; then vec=↗; elif [[ $old_num = $num ]]; then vec=→; else vec=↘; fi
+    last=(`cat ${pretty_file} | grep "${aa}\ " | sed "s/.*,//g" | sed 's/.*\(.\)$/\1/'`)
+    cat ${pretty_file} >> /tmp/wtf
+    echo ${pretty_file} >> /tmp/wtf
+    if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else oldnum=8; fi
+    if [[ $old_num = 0 && $num = 0 ]]; then vec="="; elif [[ $old_num > $num ]]; then vec=↗; elif [[ $old_num < $num ]]; then vec=↘; else vec=→; fi
     # Edit file
     logger "app $aa from $last to $bar, numbers $old_num to $num"
-    cat ${pretty_file} >> /tmp/wtf
-    echo "\nBEFORE^^ AFTER \/" >> /tmp/wtf
-    cmd="sed -i \"s/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/\" ${pretty_file}" # Append bar
+    cmd="sed -i 's/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/' ${pretty_file}" # Append bar
     logger "cmd1 $cmd"
     eval "$cmd"
-    cat ${pretty_file} >> /tmp/wtf
-    cmd="sed -i \"s/\\(^${aa}\ \+\\).,,\\(.*\\)/\\1${vec},,\\2/\" ${pretty_file}" # Inject change vector
+    cmd="sed -i 's/\\(^${aa}\ \+\\).,,\\(.*\\)/\\1${vec},,\\2/' ${pretty_file}" # Inject change vector
     eval "$cmd"
     # Shave first if too long
-    numel=$(cat ${pretty_file} | grep "^$aa\ " | grep -oh "." | wc -l)
-    chars_before_bars=$(cat ${pretty_file} | grep "^$aa\ " | sed "s/,,.*/,,/g" | grep -oh "." | wc -l)
+    numel=(`cat ${pretty_file} | grep "^$aa\ " | grep -oh "." | wc -l`)
+    chars_before_bars=(`cat ${pretty_file} | grep "^$aa\ " | sed "s/,,.*/,,/g" | grep -oh "." | wc -l`)
     if [ $numel -gt $(($hist+$chars_before_bars)) ]; then 
       cmd="sed -i \"s/^${a}\([[:blank:]]*\),,./${a}\1,,/g\" ${pretty_file}"
       eval "$cmd" 
@@ -369,21 +368,21 @@ for aa in ${headers[@]}; do
     fi
   else 
     logger "Detected $aa as a new app!  Adding to pretty history log"
-    add=$(printf '%-50s' "$aa")
+    add=(`printf '%-50s' "$aa"`)
     echo "${add},,${bar}" >> ${pretty_file}
   fi
 done
 
 # Add category if this is a new one
 for ac in ${types_list[@]}; do
-  infile=$(cat ${pretty_file} | grep "${ac}:" | wc -l)
+  infile=(`cat ${pretty_file} | grep "${ac}:" | wc -l`)
   if [[ $infile -eq 0 ]]; then # add this category
     echo "${ac}:" >> ${pretty_file}
   fi
 done
 
 # Add commit hashes
-infile=$(cat ${pretty_file} | grep "Z Latest Update" | wc -l)
+infile=(`cat ${pretty_file} | grep "Z Latest Update" | wc -l`)
 if [[ $infile -gt 0 ]]; then # add stamp
   cmd="sed -i \"s/Z Latest Update: .*/Z Latest Update: ${tim}/g\" ${pretty_file}"
   eval "$cmd"
@@ -408,7 +407,7 @@ mv ${pretty_file}.tmp ${pretty_file}
 init_travis_ci() {
 
   # Pull Tracker repos
-  goto=$(pwd)
+  goto=(`pwd`)
   cd ${SPATIAL_HOME}
   cmd="git clone git@github.com:mattfel1/Trackers.git"
   logger "Pulling TRAVIS CI buttons with command: $cmd"
@@ -419,7 +418,7 @@ init_travis_ci() {
     mv ${SPATIAL_HOME}/Trackers ${SPATIAL_HOME}/${trackbranch}
     cd ${SPATIAL_HOME}/${trackbranch}
     logger "Checking if  branch $trackbranch exists..."
-    wc=$(git branch -a | grep "remotes/origin/${trackbranch}" | wc -l)
+    wc=(`git branch -a | grep "remotes/origin/${trackbranch}" | wc -l`)
     if [[ $wc = 0 ]]; then
       logger "Does not exist! Making it..."
       git checkout -b ${trackbranch}
@@ -477,7 +476,7 @@ push_travis_ci() {
   trackbranch="Class${1}-Branch${2}-Backend${3}-Tracker"
 
   # Pull Tracker repos
-  goto=$(pwd)
+  goto=(`pwd`)
   if [ -d "${SPATIAL_HOME}/${trackbranch}" ]; then
     logger "Repo Tracker exists, pushing it..."
     cd ${SPATIAL_HOME}/${trackbranch}
@@ -642,11 +641,11 @@ launch_tests() {
 
   IFS=$'\n'
   # Collect the regression tests by searching for "// Regression (<type>)" tags
-  annotated_list=$(grep -r --color=never "// Regression" ${SPATIAL_HOME}/apps/src)
+  annotated_list=(`grep -r --color=never "// Regression" ${SPATIAL_HOME}/apps/src`)
   test_list=()
   for a in ${annotated_list[@]}; do
     if [[ $a = *"object"*"extends SpatialApp"* ]]; then
-      test_list+=$(echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g')
+      test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g'`)
     else
       logger "Error setting up test for $a !!!"
     fi
@@ -655,7 +654,7 @@ launch_tests() {
   # Assemble regression types
   for t in ${test_list[@]}; do
     # logger "Processing app: $t"
-    tp=$(echo $t | awk -F'|' '{print $2}')
+    tp=(`echo $t | awk -F'|' '{print $2}'`)
     if [[ ! ${types_list[*]} =~ "$tp" ]]; then
       types_list=("${types_list[@]}" $tp)
     fi
@@ -675,8 +674,8 @@ launch_tests() {
     i=0
     for t in ${test_list[@]}; do
       if [[ $t == *"|${ac}|"* && (${tests_todo} == "all" || $t == *"|${tests_todo}|"*) ]]; then
-        appname=$(echo $t | sed 's/|.*$//g')
-        appargs=$(echo $t | sed 's/.*|.*|//g' | sed 's/-/ /g')
+        appname=(`echo $t | sed 's/|.*$//g'`)
+        appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/-/ /g'`)
         # Initialize results
         touch ${SPATIAL_HOME}/regression_tests/${ac}/results/failed_app_initialized.${i}_${appname}
 
