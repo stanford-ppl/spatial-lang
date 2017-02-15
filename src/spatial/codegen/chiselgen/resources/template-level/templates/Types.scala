@@ -165,7 +165,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		// Downcast to result
 		val result = Wire(new FixedPoint(return_type))
 		full_result.cast(result)
-		result
+		full_result
 	}
 
 

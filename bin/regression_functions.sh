@@ -4,8 +4,8 @@
 ##   It is called from the receive.sh, which handles path variables
 ##   and git checkouts on a server-specific basis
 
-spacing=45
-delay=2100
+spacing=20
+delay=650
 numpieces=30
 hist=72
 
@@ -246,7 +246,7 @@ update_log() {
       echo "times, 0" >> $perf_file
     fi
     line="Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} | Virtualized ${virtualized_hash:0:5}"
-    sed -i '2s/$/, $t/' ${perf_file}
+    sed -i "2s/$/, $t/" ${perf_file}
     echo "$line" >> ${perf_file}
 
     # lines=(`cat $perf_file | wc -l`)
