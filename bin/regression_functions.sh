@@ -348,8 +348,8 @@ for aa in ${headers[@]}; do
     # logger "Updating $aa in pretty history log"
     # Get last known datapoint and vector
     last=(`cat ${pretty_file} | grep "|${aa}\ " | sed "s/.*,//g" | sed 's/.*\(.\)/\1/'`)
-    if [ $last=█ ]; then old_num=0; elif [ $last=▇ ]; then old_num=1; elif [ $last=▆ ]; then old_num=2; elif [ $last=▅ ]; then old_num=3; elif [ $last=▄ ]; then old_num=4; elif [ $last=▃ ]; then old_num=5; elif [ $last=▂ ]; then old_num=6; elif [ $last=▁ ]; then old_num=7; else oldnum=8; fi
-    if [[ $old_num = 0 && $num = 0 ]]; then vec=✓; elif [[ $old_num > $num ]]; then vec=↘; elif [[ $old_num == $num ]]; then vec=→; else vec=↗; fi
+    if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else oldnum=8; fi
+    if [[ $old_num = 0 && $num = 0 ]]; then vec="="; elif [[ $old_num > $num ]]; then vec=↘; elif [[ $old_num = $num ]]; then vec=→; else vec=↗; fi
     # Edit file
     cmd="sed -i \"/^${aa}\ \+,/ s/$/$bar/\" ${pretty_file}" # Append bar to line
     eval "$cmd"
