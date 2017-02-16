@@ -25,7 +25,7 @@ trait PIRAllocation extends PIRTraversal {
   }
   // Give top controller or first controller below which is not a Parallel
   private def topControllerHack(access: Access, ctrl: Ctrl): Ctrl = ctrl.node match {
-    case pipe@Def(ParallelPipe(_)) =>
+    case pipe@Def(ParallelPipe(en, _)) =>
       topControllerHack(access, childContaining(ctrl, access))
     case _ => ctrl
   }
@@ -526,13 +526,13 @@ trait PIRAllocation extends PIRTraversal {
     case Hwblock(func) =>
       prescheduleStages(lhs, func)
 
-    case UnitPipe(func) =>
+    case UnitPipe(en, func) =>
       prescheduleStages(lhs, func)
 
-    case UnrolledForeach(cchain, func, iters, valids) =>
+    case UnrolledForeach(en, cchain, func, iters, valids) =>
       prescheduleStages(lhs, func)
 
-    case UnrolledReduce(cchain, accum, func, reduce, iters, valids, rV) =>
+    case UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV) =>
       prescheduleStages(lhs, func)
 
     case BurstLoad(dram, fifo, ofs, ctr, i) =>

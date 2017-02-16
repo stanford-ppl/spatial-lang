@@ -195,15 +195,15 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
       case Hwblock(func) =>
         emitBlock(func)
 
-      case UnitPipe(func) =>
+      case UnitPipe(en, func) =>
 
-      case ParallelPipe(func) => 
+      case ParallelPipe(en, func) => 
         emitBlock(func)
 
       case OpForeach(cchain, func, iters) =>
         emitNestedLoop(cchain, iters){ emitBlock(func) }
 
-      case OpReduce(cchain, accum, map, load, reduce, store, rV, iters) =>
+      case OpReduce(cchain, accum, map, load, reduce, store, ident, fold, rV, iters) =>
         emitNestedLoop(cchain, iters){
           visitBlock(map)
           visitBlock(load)
@@ -211,7 +211,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
           emitBlock(store)
         }
 
-      case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed) =>
+      case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,ident,fold,rV,itersMap,itersRed) =>
         emitNestedLoop(cchainMap, itersMap){
           visitBlock(map)
           emitNestedLoop(cchainRed, itersRed){
