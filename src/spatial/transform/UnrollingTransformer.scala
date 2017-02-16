@@ -13,6 +13,10 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   def strMeta(e: Exp[_]): Unit = metadata.get(e).foreach{m => dbgs(c" - ${m._1}: ${m._2}") }
 
+  /**
+    * Clone functions - used to add extra rules (primarily for metadata) during unrolling
+    * Applied directly after mirroring
+    */
   var cloneFuncs: List[Exp[_] => Unit] = Nil
   def duringClone[T](func: Exp[_] => Unit)(blk: => T): T = {
     val prevCloneFuncs = cloneFuncs
@@ -23,6 +27,10 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
   def inReduction[T](blk: => T): T = duringClone{e => /*if (SpatialConfig.genCGRA) reduceType(e) = None*/ () }{ blk }
 
+  /**
+    * Valid bits - tracks all valid bits associated with the current scope to handle edge cases
+    * e.g. cases where parallelization is not an even divider of counter max
+    */
   var validBits: Seq[Exp[Bool]] = Nil
   def withValids[T](valids: Seq[Exp[Bool]])(blk: => T): T = {
     val prevValids = validBits
@@ -32,7 +40,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     result
   }
 
-  // Single global valid - should only be used in inner pipes
+  // Single global valid - should only be used in inner pipes - creates AND tree
   def globalValid = {
     if (validBits.isEmpty) bool(true)
     else reduceTree(validBits){(a,b) => bool_and(a,b) }
@@ -40,6 +48,33 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   // Sequence of valid bits associated with current unrolling scope
   def globalValids = if (validBits.nonEmpty) validBits else Seq(bool(true))
+
+
+  /**
+    * Unroll numbers - gives the unroll index of each pre-unrolled (prior to transformer) index
+    * Used to determine which duplicate a particular memory access should be associated with
+    */
+  var unrollNum = Map[Bound[Index], Int]()
+  def withUnrollNums[A](ind: Seq[(Bound[Index], Int)])(blk: => A) = {
+    val prevUnroll = unrollNum
+    unrollNum ++= ind
+    val result = blk
+    unrollNum = prevUnroll
+    result
+  }
+
+  /**
+    * "Pachinko" rules:
+    *
+    * Given a memory access which depends on indices i1 ... iN,
+    * and some parallelization factors P1 ... PN associated with each index,
+    *
+    *
+    * Assign a new memory instance every time
+    *
+    *
+    */
+
 
   /**
     * Helper class for unrolling
@@ -72,12 +107,15 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     def inLane[A](i: Int)(block: => A): A = {
       val save = subst
-      withSubstRules(contexts(i)) {
-        withValids(valids(i)) {
-          val result = block
-          // Retain only the substitutions added within this scope
-          contexts(i) ++= subst.filterNot(save contains _._1)
-          result
+      val addr = parAddr(i)
+      withUnrollNums(inds.zip(addr)) {
+        withSubstRules(contexts(i)) {
+          withValids(valids(i)) {
+            val result = block
+            // Retain only the substitutions added within this scope
+            contexts(i) ++= subst.filterNot(save contains _._1)
+            result
+          }
         }
       }
     }
