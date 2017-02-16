@@ -52,7 +52,10 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
 
   object Bound {
     def apply(value: BigInt) = MBound(value, isExact = false, isFinal = false)
-    def unapply(x: Exp[_]): Option[BigInt] = boundOf.get(x)
+    def unapply(x: Exp[_]): Option[BigInt] = getBound(x) match {
+      case Some(MBound(value, _, _)) => Some(value)
+      case _ => None
+    }
   }
   object Exact {
     def apply(value: BigInt) = MBound(value, isExact = true, isFinal = false)
@@ -231,6 +234,15 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   object unrollFactorsOf {
     def apply(x: Exp[_]): Seq[Const[Index]] = metadata[UnrollFactors](x).map(_.factors).getOrElse(Nil)
     def update(x: Exp[_], factors: Seq[Const[Index]]) = metadata.add(x, UnrollFactors(factors))
+  }
+
+  /**
+    * Defines which unrolled duplicate the given symbol is on, for all levels of the control tree above it
+    */
+  case class UnrollNumbers(nums: Seq[Int]) extends Metadata[UnrollNumbers] { def mirror(f:Tx) = this }
+  object unrollNumsFor {
+    def apply(x: Exp[_]): Seq[Int] = metadata[UnrollNumbers](x).map(_.nums).getOrElse(Nil)
+    def update(x: Exp[_], nums: Seq[Int]) = metadata.add(x, UnrollNumbers(nums))
   }
 
   /**
