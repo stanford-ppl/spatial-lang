@@ -50,8 +50,8 @@ trait ChiselGenReg extends ChiselCodegen {
       duplicates.zipWithIndex.foreach{ case (d, i) => 
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => 
-            if (i == 0) {
-              emitGlobal(src"""val ${lhs}_0 = Module(new UIntAccum(32,"add"))""")
+            if (d.isAccum) {
+              emitGlobal(src"""val ${lhs}_${i} = Module(new UIntAccum(32,"add"))""")
             } else {
               if (d.depth > 1) {
                 nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
@@ -75,52 +75,59 @@ trait ChiselGenReg extends ChiselCodegen {
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
-        reduceType(reg) match {
-          case Some(fps: ReduceFunction) => 
-            fps match {
-              case FixPtSum =>
-                if (inst == 0) {// TODO: Actually just check if this read is dispatched to the accumulating duplicate
+        val duplicates = duplicatesOf(reg)
+        if (duplicates(inst).isAccum) {
+          reduceType(reg) match {
+            case Some(fps: ReduceFunction) => 
+              fps match {
+                case FixPtSum =>
                   emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")
-                } else {
-                  emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")    
-                }
-              case _ =>
-                emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
-            }
-          case _ =>
-            emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
+                case _ => 
+                  emit(src"""TODO: Emit reduction for some other kind of reduction function, not sure how to read""")
+              }
+            case _ =>
+              emit(s"TODO: Instance $inst of reg $reg is an accum, but has no reduction function associated with it!")
+          }
+        } else {
+          emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
         }
-
       }
+
+
     case RegWrite(reg,v,en) => 
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg)) {
         emit(src"""val $reg = Reg(init = 0.U) // HW-accessible register""")
         emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
         emit(src"""io.ArgOut.ports(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
-      } else {
+      } else {         
         reduceType(reg) match {
-          case Some(fps: ReduceFunction) => 
-            fps match {
-              case FixPtSum =>
-                emit(src"""${reg}_0.io.next := ${v}""") // TODO: Figure out which reg is really the lib
-                emit(src"""${reg}_0.io.enable := ${reg}_wren""")
-                emit(src"""${reg}_0.io.reset := Utils.delay(${reg}_resetter, 2)""")
-                emit(src"""val ${reg} = ${reg}_0.io.output""")
-              case _ =>
-            }
+          case Some(fps: ReduceFunction) => // is an accumulator
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
-              val port = portsOf(lhs, reg, ii).head
-              if (ii > 0) emit(s"""${quote(reg)}_${ii}.write(${quote(reg)}, Utils.delay(${quote(reg)}_wren, 1), false.B, $port); // ${nameOf(reg).getOrElse("")}""")
+              fps match {
+                case FixPtSum =>
+                  if (dup.isAccum) {
+                    emit(src"""${reg}_${ii}.io.next := ${v}""")
+                    emit(src"""${reg}_${ii}.io.enable := ${reg}_wren""")
+                    emit(src"""${reg}_${ii}.io.reset := Utils.delay(${reg}_resetter, 2)""")
+                    emit(src"""${reg} := ${reg}_${ii}.io.output""")
+                    emitGlobal(src"""val ${reg} = Wire(UInt())""")
+                  } else {
+                    val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
+                    emit(src"""${reg}_${ii}.write($reg, $en & Utils.delay(${reg}_wren,1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
+                  }
+                case _ =>
+                  emit(src"""TODO: Emit reduction for some other kind of reduction function, not sure how to specialize""")
+              }
             }
-          case _ =>
-            val duplicates = duplicatesOf(reg)
-            duplicates.zipWithIndex.foreach{ case (d, i) => 
-              val ports = portsOf(lhs, reg, i)
-              emit(src"""${reg}_${i}.write($v, $en & ${parent}_datapath_en, false.B, List(${ports.mkString(",")}))""")
+          case _ => // Not an accum
+            duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
+              val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
+              emit(src"""${reg}_${ii}.write($v, $en & ${parent}_datapath_en, false.B, List(${ports.mkString(",")}))""")
             }
         }
       }
+
     case _ => super.emitNode(lhs, rhs)
   }
 

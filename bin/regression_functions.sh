@@ -4,10 +4,31 @@
 ##   It is called from the receive.sh, which handles path variables
 ##   and git checkouts on a server-specific basis
 
-spacing=45
-delay=2100
+spacing=20
+delay=650
 numpieces=30
 hist=72
+
+stamp_commit_msgs() {
+  logger "Stamping commit messages"
+  cd $SPATIAL_HOME
+  spatial_msg=`git log --stat --name-status ${spatial_hash}^..${spatial_hash}`
+  cd $ARGON_HOME
+  argon_msg=`git log --stat --name-status ${argon_hash}^..${argon_hash}`
+  cd $VIRTUALIZED_HOME
+  virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
+  echo "
+# Commits
+" >> $wiki_file
+  echo -e "\nSpatial commit\n\`\`\`\n${spatial_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nArgon commit\n\`\`\`\n${argon_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nVirtualized commit\n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
+  echo "
+# Test summary
+" >> $wiki_file
+  summary=`sed -n '1p' $packet`
+  echo -e "\n\n${summary}" >> $wiki_file
+}
 
 ## Function for finding filse with older timestamps.
 ##   This tester will yield to any active or new tests who are older
@@ -60,7 +81,8 @@ build_spatial() {
   for i in ${!sorted_testdirs[@]}; do if [[  "${sorted_testdirs[$i]}" = *"$tim"* ]]; then rank=$((i-1)); fi; done
   # Sanity check
   if [ $rank = -5 ]; then 
-    logger "CRITICAL ERROR: This time ${tim} was not found in dirs list ${stringified}"
+    logger "CRITICAL ERROR: ${tim} stamp was not found in dirs list ${stringified}"
+    rm ${tim}*
     exit 1
   fi
 
@@ -147,14 +169,15 @@ for ac in ${types_list[@]}; do
 
 # ${ac}:
 " | awk '{print toupper($0)}' >> $wiki_file
-  init_travis_ci $ac
+  init_travis_ci $ac $branch $type_todo
   update_log $wiki_file
-  push_travis_ci $ac
+  push_travis_ci $ac $branch $type_todo
 done
 
 echo -e "\n\n***\n\n" >> $wiki_file
 
 # Link to logs
+pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
 # echo -e "\n## [History log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial/${branch}_Regression_Test_History.csv) \n" >> $wiki_file
 echo -e "\n## [Pretty History Log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/${pretty_name}) \n" >> $wiki_file
 # echo -e "\n## [Performance Results](https://www.dropbox.com/s/a91ra3wvdyr3x5b/Performance_Results.xlsx?dl=0) \n" >> $wiki_file
@@ -186,10 +209,10 @@ update_log() {
   progress=(`find . -maxdepth 1 -type f | sort -r`)
   for p in ${progress[@]}; do
     pname=(`echo $p | sed "s/.*[0-9]\+_//g"`)
-    cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/${branch}_$pname.png)"
+    cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/comptimes_${branch}_${type_todo}_${pname}.csv)"
     if [[ $p == *"pass"* ]]; then
       echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
-      t=(`cat $p`)
+      t=(`sed -n '2p' $p`)
     elif [[ $p == *"failed_execution_validation"* ]]; then
       echo "<----${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=0
@@ -216,8 +239,16 @@ update_log() {
       t=0
     fi
 
-    # # Update performance file
-    # perf_file="${SPATIAL_HOME}/spatial.wiki/${branch}_${pname}.csv"
+    # Update performance file
+    perf_file="${SPATIAL_HOME}/spatial-lang.wiki/comptimes_${branch}_${type_todo}_${pname}.csv"
+    if [ ! -f ${perf_file} ]; then
+      echo "Compile times (in seconds) by commit (0 = failure)" > $perf_file
+      echo "times, 0" >> $perf_file
+    fi
+    line="Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} | Virtualized ${virtualized_hash:0:5}"
+    sed -i "2s/$/, $t/" ${perf_file}
+    echo "$line" >> ${perf_file}
+
     # lines=(`cat $perf_file | wc -l`)
     # dline=$(($lines-$(($perf_hist-1))))
     # last=(`tail -n1 < $perf_file`)
@@ -285,6 +316,9 @@ done
   # failed_execution_nonexistent_validation
   # failed_execution_validation
 
+pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
+pretty_file=${SPATIAL_HOME}/spatial-lang.wiki/${pretty_name}
+
 # Inject the new data to the history
 key=(`cat ${pretty_file} | grep KEY | wc -l`)
 if [[ $key = 0 ]]; then
@@ -311,8 +345,15 @@ for aa in ${headers[@]}; do
 
   infile=(`cat ${pretty_file} | grep $aa | wc -l`)
   if [[ $infile -gt 0 ]]; then # This test exists in history
-    logger "Updating $aa in pretty history log"
-    cmd="sed -i \"/^${aa}\ \+,/ s/$/$bar/\" ${pretty_file}"
+    # logger "Updating $aa in pretty history log"
+    # Get last known datapoint and vector
+    last=(`cat ${pretty_file} | grep "|${aa}\ " | sed "s/.*,//g" | sed 's/.*\(.\)/\1/'`)
+    if [ $last=█ ]; then old_num=0; elif [ $last=▇ ]; then old_num=1; elif [ $last=▆ ]; then old_num=2; elif [ $last=▅ ]; then old_num=3; elif [ $last=▄ ]; then old_num=4; elif [ $last=▃ ]; then old_num=5; elif [ $last=▂ ]; then old_num=6; elif [ $last=▁ ]; then old_num=7; else oldnum=8; fi
+    if [[ $old_num = 0 && $num = 0 ]]; then vec=✓; elif [[ $old_num > $num ]]; then vec=↘; elif [[ $old_num == $num ]]; then vec=→; else vec=↗; fi
+    # Edit file
+    cmd="sed -i \"/^${aa}\ \+,/ s/$/$bar/\" ${pretty_file}" # Append bar to line
+    eval "$cmd"
+    cmd="sed -i \"s/\\(^${aa}\ \+\\)\ ,,\\(.*\\)/\\1${vec},,\\2/\" ${pretty_file}" # Inject change vector
     eval "$cmd"
     # Shave first if too long
     numel=(`cat ${pretty_file} | grep "^$aa\ " | grep -oh "." | wc -l`)
@@ -329,12 +370,15 @@ for aa in ${headers[@]}; do
   fi
 done
 
+# Add category if this is a new one
 for ac in ${types_list[@]}; do
   infile=(`cat ${pretty_file} | grep "${ac}:" | wc -l`)
   if [[ $infile -eq 0 ]]; then # add this category
     echo "${ac}:" >> ${pretty_file}
   fi
 done
+
+# Add commit hashes
 infile=(`cat ${pretty_file} | grep "Z Latest Update" | wc -l`)
 if [[ $infile -gt 0 ]]; then # add stamp
   cmd="sed -i \"s/Z Latest Update: .*/Z Latest Update: ${tim}/g\" ${pretty_file}"
@@ -355,47 +399,91 @@ mv ${pretty_file}.tmp ${pretty_file}
 }
 
 ## $1 - test class (unit, dense, etc)
+## $2 - branch
+## $3 - backend
 init_travis_ci() {
-  if [[ ${type_todo} = "chisel" ]]; then
 
-    # Pull Tracker repos
-    goto=(`pwd`)
-    cd ${SPATIAL_HOME}
-    cmd="git clone git@github.com:mattfel1/${1}Tracker.git"
-    logger "Pulling TRAVIS CI buttons with command: $cmd"
-    eval "$cmd"
-    if [ -d "${SPATIAL_HOME}/${1}Tracker" ]; then
-      logger "Repo ${1}Tracker exists, prepping it..."
-      cd ${SPATIAL_HOME}/${1}Tracker
-      cmd="git checkout ${branch}"
-      logger "Switching to branch ${branch}"
+  # Pull Tracker repos
+  goto=(`pwd`)
+  cd ${SPATIAL_HOME}
+  cmd="git clone git@github.com:mattfel1/Trackers.git"
+  logger "Pulling TRAVIS CI buttons with command: $cmd"
+  eval "$cmd"
+  if [ -d "${SPATIAL_HOME}/Trackers" ]; then
+    logger "Repo Tracker exists, prepping it..."
+    trackbranch="Class${1}-Branch${2}-Backend${3}-Tracker"
+    mv ${SPATIAL_HOME}/Trackers ${SPATIAL_HOME}/${trackbranch}
+    cd ${SPATIAL_HOME}/${trackbranch}
+    logger "Checking if  branch $trackbranch exists..."
+    wc=(`git branch -a | grep "remotes/origin/${trackbranch}" | wc -l`)
+    if [[ $wc = 0 ]]; then
+      logger "Does not exist! Making it..."
+      git checkout -b ${trackbranch}
+      git push --set-upstream origin ${trackbranch}
+    else
+      logger "Exists! Switching to it..."
+      cmd="git checkout ${trackbranch}"
       eval "$cmd"
-      tracker="${SPATIAL_HOME}/${1}Tracker/results"
-      ls | grep -v travis | grep -v status | grep -v README | grep -v git | xargs rm -rf
-      cp $packet ${SPATIAL_HOME}/${1}Tracker/
-    else 
-      logger "Repo ${1}Tracker does not exist! Skipping Travis..."
     fi
-    cd ${goto}
+
+      echo "# Tracker
+Travis-CI tracker for $1 tests on $2 branch with $3 backend
+[![Build Status](https://travis-ci.org/mattfel1/Tracker.svg?branch=${trackbranch})](https://travis-ci.org/mattfel1/Tracker)
+
+Based on https://github.com/stanford-ppl/spatial/wiki/${2}Branch-${3}Test-Regression-Tests-Status" > README.md
+      echo "#!/bin/bash
+
+if [ ! -f results ]; then
+  echo \"FAIL: No results found\"
+  exit 1
+fi
+
+errors=(\`cat results | grep -i \"fail\\|unknown\" | wc -l\`)
+if [[ \$errors != 0 ]]; then
+  cat results
+  echo \"FAIL: Errors found\"
+  exit 1
+else
+  echo \"Success\"
+  exit 0
+fi" > status.sh
+
+echo "language: c
+notifications:
+  email:
+    recipients: mattfel@stanford.edu
+    on_failure: change # default: always
+script:
+  - bash ./status.sh
+" > .travis.yml
+
+    tracker="${SPATIAL_HOME}/${trackbranch}/results"
+    ls | grep -v travis | grep -v status | grep -v README | grep -v git | xargs rm -rf
+    cp $packet ${SPATIAL_HOME}/${trackbranch}/
+  else 
+    logger "Repo Tracker does not exist! Skipping Travis..."
   fi
+  cd ${goto}
 }
 
 ## $1 - test class (unit, dense, etc)
+## $2 - branch
+## $3 - backend
 push_travis_ci() {
-  if [[ ${type_todo} = "chisel" ]]; then
-    # Pull Tracker repos
-    goto=(`pwd`)
-    if [ -d "${SPATIAL_HOME}/${1}Tracker" ]; then
-      logger "Repo ${1}Tracker exists, pushing it..."
-      cd ${SPATIAL_HOME}/${1}Tracker
-      git add -A
-      git commit -m "auto update"
-      git push
-    else
-      logger "Repo ${1}Tracker does not exist, skipping it!"
-    fi
-    cd ${goto}
+  trackbranch="Class${1}-Branch${2}-Backend${3}-Tracker"
+
+  # Pull Tracker repos
+  goto=(`pwd`)
+  if [ -d "${SPATIAL_HOME}/${trackbranch}" ]; then
+    logger "Repo Tracker exists, pushing it..."
+    cd ${SPATIAL_HOME}/${trackbranch}
+    git add -A
+    git commit -m "auto update"
+    git push
+  else
+    logger "Repo Tracker does not exist, skipping it!"
   fi
+  cd ${goto}
 }
 
 # Helper function for creating script for vulture to use
@@ -441,6 +529,7 @@ function report {
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
     cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" > ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
+    echo ${comp_time} >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
     exit 0
   else
     echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2})\" >> ${log}
@@ -466,11 +555,11 @@ export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --scala --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --scala --multifile=3 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --chisel --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --chisel --multifile=3 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 
@@ -490,16 +579,19 @@ if [ \"\$wc\" -ne 0 ]; then
   report \"failed_app_spatial_compile\" \"[STATUS] Declaring failure build_in_spatial\" 0
 fi
 
+# Extract compile time
+comp_time=(\`cat log | grep \"Total time:\" | sed 's/.*time: //g' | sed 's/ seconds//g'\`)
+
 # Compile backend
 cd ${5}/out
 make clean sim 2>&1 | tee -a ${5}/log
 
 # Check for crashes in backend compilation
-wc=\$(cat ${5}/log | \"recipe for target 'bitstream-sim' failed\" | wc -l)
+wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
 fi
-wc=\$(cat ${5}/log | grep \"recipe for target 'Top_sim' failed\" | wc -l)
+wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_cpp_crash\" \"[STATUS] Declaring failure compile_chisel c++ side\" 0
 fi

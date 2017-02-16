@@ -6,13 +6,13 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1920
 
   type X = Int
 
-  val tileSize = 960
+  val tileSize = 640
   val innerPar = 1
   lazy val outerPar = 1
 
   @virtualize
   def dotproduct[T:Staged:Num](aIn: Array[T], bIn: Array[T]): T = {
-    val B  = tileSize (96 -> 96 -> 19200)
+    val B  = tileSize (64 -> 64 -> 19200)
     val P1 = outerPar (1 -> 6)
     val P2 = innerPar (1 -> 192)
     val P3 = innerPar (1 -> 192)

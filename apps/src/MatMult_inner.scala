@@ -1,17 +1,17 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_inner extends SpatialApp {
+object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 64
   import IR._
 
   type X = Int //FixPt[Signed,B16,B16]
 
-  val tileSizeM = 8
-  val tileSizeN = 192
-  val tileSizeP = 192
-  val innerPar = 32
+  val tileSizeM = 4
+  val tileSizeN = 64
+  val tileSizeP = 64
+  val innerPar = 1
   val midPar = 1
-  val outerPar = 10
+  val outerPar = 1
   val storePar = 1
 
   @virtualize
@@ -28,12 +28,12 @@ object MatMult_inner extends SpatialApp {
     val c = DRAM[T](M, N)
 
     val bm = tileSizeM (1 -> 1536)
-    val bn = tileSizeN (96 -> 96 -> 1536)
-    val bp = tileSizeP (96 -> 96 -> 1536)
+    val bn = tileSizeN (64 -> 64 -> 1536)
+    val bp = tileSizeP (64 -> 64 -> 1536)
 
     val op = outerPar (1 -> 6)
-    val mp = midPar   (1 -> 96)
-    val ip = innerPar (1 -> 96)
+    val mp = midPar   (1 -> 64)
+    val ip = innerPar (1 -> 64)
     val px = 1 (1 -> 1) // Cannot parallelize accum across k blocks
     val stPar = storePar (1 -> 1)
 
@@ -69,8 +69,8 @@ object MatMult_inner extends SpatialApp {
     val N = args(1).to[Int]
     val P = args(2).to[Int]
 
-    val a = Array.fill(M){ Array.fill(P){ 1.as[X] } }
-    val b = Array.fill(P){ Array.fill(N){ 1.as[X] } }
+    val a = Array.tabulate(M){ i => Array.tabulate(P){ j => (i*P + j)%256 } }
+    val b = Array.tabulate(P){ i => Array.tabulate(N){ j => (i*N + j)%256 } }
     // val a = Array.fill(M){ Array.fill(P){random[T](100)} }
     // val b = Array.fill(P){ Array.fill(N){random[T](100)} }
 
@@ -84,10 +84,13 @@ object MatMult_inner extends SpatialApp {
       }
     }.flatten
 
-    println("expected cksum: " + gold.map(a => a).reduce{_+_})
-    println("result cksum: " + result.map(a => a).reduce{_+_})
+    val gold_cksum = gold.map(a => a).reduce{_+_}
+    val result_cksum = result.map(a => a).reduce{_+_}
+    println("expected cksum: " + gold_cksum)
+    println("result cksum:   " + result_cksum)
+    // (0 until M*N) foreach { i => assert(result(i) == gold(i)) }
 
-    val cksum = result.zip(gold){_ == _}.reduce{_&&_}
+    val cksum = result_cksum == gold_cksum
     println("PASS: " + cksum + " (MatMult_inner)")
 
   }

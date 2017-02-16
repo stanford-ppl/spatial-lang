@@ -243,11 +243,11 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
 
-    case UnitPipe(blk) =>
+    case UnitPipe(_,blk) =>
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
 
-    case ParallelPipe(blk) =>
+    case ParallelPipe(_,blk) =>
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
 
@@ -255,7 +255,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       visitCtrl((lhs,false),iters,cchain){ visitBlock(func) }
       addChildDependencyData(lhs, func)
 
-    case OpReduce(cchain,accum,map,ld,reduce,store,rV,iters) =>
+    case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
       visitCtrl((lhs,false), iters, cchain){
         visitBlock(map)
 
@@ -276,7 +276,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       addChildDependencyData(lhs, map)
       isInnerAccum(accum) = isInnerControl(lhs)
 
-    case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,rV,itersMap,itersRed) =>
+    case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
       visitCtrl((lhs,false), itersMap, cchainMap) {
         visitBlock(map)
         visitCtrl((lhs,true), itersRed, cchainRed) {

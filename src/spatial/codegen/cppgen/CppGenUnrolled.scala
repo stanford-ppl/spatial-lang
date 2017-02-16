@@ -50,10 +50,10 @@ trait CppGenUnrolled extends CppCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case UnrolledForeach(cchain,func,iters,valids) =>
+    case UnrolledForeach(en, cchain,func,iters,valids) =>
       emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
 
-    case UnrolledReduce(cchain,_,func,_,iters,valids,_) =>
+    case UnrolledReduce(en, cchain,_,func,_,iters,valids,_) =>
       emit(src"/** BEGIN UNROLLED REDUCE **/")
       open(src"val $lhs = {")
       emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }

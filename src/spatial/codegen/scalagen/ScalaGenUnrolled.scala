@@ -29,16 +29,18 @@ trait ScalaGenUnrolled extends ScalaCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case UnrolledForeach(cchain,func,iters,valids) =>
+    case UnrolledForeach(ens,cchain,func,iters,valids) =>
       emit(src"/** BEGIN UNROLLED FOREACH $lhs **/")
-      open(src"val $lhs = {")
+      val en = ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
       emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
       close("}")
       emit(src"/** END UNROLLED FOREACH $lhs **/")
 
-    case UnrolledReduce(cchain,_,func,_,iters,valids,_) =>
+    case UnrolledReduce(ens,cchain,_,func,_,iters,valids,_) =>
       emit(src"/** BEGIN UNROLLED REDUCE $lhs **/")
-      open(src"val $lhs = {")
+      val en = ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
       emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
       close("}")
       emit(src"/** END UNROLLED REDUCE $lhs **/")

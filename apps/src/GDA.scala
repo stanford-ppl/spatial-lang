@@ -1,15 +1,15 @@
 import spatial._
 import org.virtualized._
 
-object GDA extends SpatialApp {
+object GDA extends SpatialApp { // Regression (Dense) // Args: 192
   import IR._
 
-  type X = Float
+  type X = Int
 
   val margin = 1
-  val innerPar = 4
-  lazy val outerPar = 4
-  val MAXC = 384
+  val innerPar = 1
+  lazy val outerPar = 1
+  val MAXC = 64
   val C = MAXC
   val tileSize = 20
   val pLoopPar = 2
@@ -82,22 +82,40 @@ object GDA extends SpatialApp {
     getMem(sigma)
   }
 
+
+  def printArr(a: Array[Int], str: String = "") {
+    println(str)
+    (0 until a.length) foreach { i => print(a(i) + " ") }
+    println("")
+  }
+
   @virtualize
   def main() {
     val R = args(0).to[Int]
     // val C = args(0).to[SInt] // TODO: Should be selectable up to maximum
 
-    val x  = Array.fill(R){ Array.fill(C){ random[X](10) }}
-    val ys = Array.fill(R){ random[Int](1) }
-    val mu0 = Array.fill(C){ random[X](10) }
-    val mu1 = Array.fill(C){ random[X](10) }
+    // val x  = Array.fill(R){ Array.fill(C){ random[X](10) }}
+    // val ys = Array.fill(R){ random[Int](1) }
+    // val mu0 = Array.fill(C){ random[X](10) }
+    // val mu1 = Array.fill(C){ random[X](10) }
+
+    val x  = Array.tabulate(R){ i => Array.tabulate(C){ j => (i*C + j) % 256 }}
+    val ys = Array.tabulate(R){ i => i % 256 }
+    val mu0 = Array.tabulate(C){ i => i % 256 }
+    val mu1 = Array.tabulate(C){ i => i % 256 }
 
     val result = gda(x.flatten, ys, mu0, mu1)
 
-    // val gold = x.zip(ys){ (row, y) =>
-    //   val sub = if (y == 1) row.zip(mu1){_-_} else row.zip(mu0){_-_}
-    //   Array.tabulate(C){i => Array.tabulate(C){j => sub(i) * sub(j) }}.flatten
-    // }.reduce{(a,b) => a.zip(b){_+_}}
+    val gold = x.zip(ys){ (row, y) =>
+      val sub = if (y == 1) row.zip(mu1){_-_} else row.zip(mu0){_-_}
+      Array.tabulate(C){i => Array.tabulate(C){j => sub(i) * sub(j) }}.flatten
+    }.reduce{(a,b) => a.zip(b){_+_}}
+
+    printArr(gold, "gold: ")
+    printArr(result, "result: ")
+
+    val cksum = gold.zip(result){ case (a,b) => a < b + margin && a > b - margin }.reduce{_&&_}
+    println("PASS: " + cksum  + " (GDA)")
 
     // // println("actual: " + gold.mkString(", "))
     // //println("result: " + result.mkString(", "))

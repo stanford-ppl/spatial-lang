@@ -34,7 +34,7 @@ WHERE
 
 */
 
-object TPCHQ6 extends SpatialApp {
+object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 384
   import IR._
 
   type FT = Int
@@ -43,9 +43,9 @@ object TPCHQ6 extends SpatialApp {
   val MAX_DATE = 9999
   val MIN_DISC = 0
   val MAX_DISC = 9999
-  val tileSize = 8000
-  lazy val outerPar = 8
-  val innerPar = 2
+  val tileSize = 96
+  lazy val outerPar = 1
+  val innerPar = 1
   val margin = 1
 
   @virtualize
@@ -105,21 +105,26 @@ object TPCHQ6 extends SpatialApp {
   def main() {
     val N = args(0).to[Int]
 
-    val dates  = Array.fill(N){ abs(random[Int](20)) + 65 }
-    val quants = Array.fill(N){ abs(random[Int](25)) }
-    // val discts = Array.fill(N){random[FT] * 0.05f + 0.02f}
-    // val prices = Array.fill(N){random[FT] * 1000f}
-    val discts = Array.fill(N){ random[FT] /*/ 100000*/}
-    val prices = Array.fill(N){ random[FT] /*/ 100000*/}
+    // val dates  = Array.fill(N){random[Int](20) + 65}
+    // val quants = Array.fill(N){random[Int](25) }
+    // // val discts = Array.fill(N){random[FT] * 0.05f + 0.02f}
+    // // val prices = Array.fill(N){random[FT] * 1000f}
+    // val discts = Array.fill(N){random[FT] /*/ 100000*/}
+    // val prices = Array.fill(N){random[FT] /*/ 100000*/}
+
+    val dates  = Array.tabulate[Int](N){i => i % 256 } // Standard array
+    val quants = Array.tabulate[Int](N){i => i % 256 } // Standard array
+    val discts = Array.tabulate[FT](N){i => i % 256 } // Standard array
+    val prices = Array.tabulate[FT](N){i => i % 256 } // Standard array
 
     val result = tpchq6(dates, quants, discts, prices)
 
     // --- software version
     val conds = Array.tabulate(N){i => dates(i) > MIN_DATE && dates(i) < MAX_DATE  &&
-      quants(i) < 24 && discts(i) >= MIN_DISC  && discts(i) <= MAX_DISC}
+                                       quants(i) < 24 && discts(i) >= MIN_DISC  && discts(i) <= MAX_DISC}
     // printArr(conds, "conds: ")
 
-    val gold = Array.tabulate(N){i => if (conds(i)) prices(i) * discts(i) else 0.0f.as[FT] }.reduce{_+_}
+    val gold = Array.tabulate(N){i => if (conds(i)) prices(i) * discts(i) else 0.as[FT] }.reduce{_+_}
 
     println("expected " + gold)
     println("result " + result)

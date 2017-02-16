@@ -61,6 +61,7 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
     val input = new FFIn(w).asInput
     val writerStage = UInt(5.W).asInput // TODO: Not implemented anywhere, not sure if needed
     val output = Vec(numBufs, new FFOut(w).asOutput)
+    // val swapAlert = Bool().asOutput // Used for regchains
   })
 
   def bitsToAddress(k:Int) = {(scala.math.log(k)/scala.math.log(2)).toInt + 1}
@@ -86,6 +87,7 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
+  // io.swapAlert := ~swap & anyEnabled & (0 until numBufs).map{ i => sEn_latch(i).io.output.data === (sDone_latch(i).io.output.data | io.sDone(i))}.reduce{_&_} // Needs to go high when the last done goes high, which is 1 cycle before swap goes high
 
   val stateIn = Module(new NBufCtr())
   stateIn.io.input.start := 0.U 
@@ -134,6 +136,13 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
       io.broadcast.enable := en
       io.broadcast.reset := reset      
     }
+  }
+
+  def chain_pass(data: UInt, en: Bool) { // Method specifically for handling reg chains that pass counter values between metapipe stages
+      io.input.data := data
+      io.input.enable := en
+      io.input.reset := false.B
+      io.writerStage := 0.U
   }
 
   def connectStageCtrl(done: Bool, en: Bool, ports: List[Int]) {

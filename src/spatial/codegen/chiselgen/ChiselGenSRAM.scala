@@ -48,8 +48,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
           mem match {
             case BankedMemory(dims, depth, isAccum) =>
               val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
-              val numWriters = writersOf(lhs).map{access => portsOf(access, lhs, i)}.distinct.length // Count writers accessing this port
-              val numReaders = readersOf(lhs).map{access => portsOf(access, lhs, i)}.distinct.length // Count writers accessing this port
+              val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
+              val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
               if (depth == 1) {
                 open(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), 32, """)
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")

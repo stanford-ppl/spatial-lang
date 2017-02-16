@@ -120,6 +120,8 @@ def main():
   if opts.cpp == True:
     java_opts = java_opts + " -Dspatial.cpp=true"
   if opts.outdir != "":
+    # Clean outdir
+    os.system("rm -rf " + os.path.join(SPATIAL_HOME, opts.outdir) + "/*")
     java_opts = java_opts + " -Dargon.out=" + os.path.join(SPATIAL_HOME, opts.outdir)
 
   java_opts = java_opts + " -Dargon.name=" + opts.app
@@ -142,7 +144,7 @@ def main():
 
   # Add classpaths
   # scala_major_id = os.system('sbt scala-version')
-  scala_major_id = "scala-2.11"  
+  scala_major_id = "scala-2.12"  
   classes = "/target/" + scala_major_id + "/classes" + os.pathsep
   test_classes = "/target/" + scala_major_id + "/test-classes" + os.pathsep
 
