@@ -10,7 +10,7 @@ import spatial.SpatialExp
 
 trait PIRTraversal extends SpatialTraversal {
   val IR: SpatialExp with PIRCommonExp
-  import IR._
+  import IR.{println => _, _}
 
   def quote(x: Symbol):String = s"$x" //TODO: super.quote(aliasOf(x))
 
@@ -117,7 +117,7 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   // Build a schedule as usual, except for depencies on write addresses
-  def symsOnlyUsedInWriteAddr(stms: Seq[Stm])(result: Symbol, exps: List[Symbol]) = {
+  def symsOnlyUsedInWriteAddr(stms: Seq[Stm])(results: Seq[Symbol], exps: List[Symbol]) = {
     def mysyms(rhs: Symbol) = rhs match {
       case Def(rhs) => rhs match {
         case LocalWriter(writes) =>
@@ -130,7 +130,7 @@ trait PIRTraversal extends SpatialTraversal {
     val scopeIndex = makeScopeIndex(stms)
     def deps(x: Symbol) = orderedInputs(mysyms(x), scopeIndex)
 
-    val xx = schedule(deps(result))(t => deps(t))
+    val xx = schedule(results.flatMap(deps))(t => deps(t))
 
     exps.filterNot{
       case sym: Sym[_] => xx.exists(_.lhs.contains(sym))
@@ -140,21 +140,21 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   // HACK: Rip apart the block, looking only for true data dependencies and necessary effects dependencies
-  def symsOnlyUsedInWriteAddrOrEn(stms: Seq[Stm])(result: Symbol, exps: List[Symbol]) = {
+  def symsOnlyUsedInWriteAddrOrEn(stms: Seq[Stm])(results: Seq[Symbol], exps: List[Symbol]) = {
     def mysyms(rhs: Any) = rhs match {
       case Def(d) => d match {
         case SRAMStore(sram,dims,is,ofs,data,en) => syms(sram) ++ syms(data) //++ syms(es)
         case ParSRAMStore(sram,addr,data,ens) => syms(sram) ++ syms(data) //++ syms(es)
         case FIFOEnq(fifo, data, en)          => syms(fifo) ++ syms(data)
         case ParFIFOEnq(fifo, data, ens) => syms(fifo) ++ syms(data)
-        case _ => syms(d)
+        case _ => d.allInputs //syms(d)
       }
       case _ => syms(rhs)
     }
     val scopeIndex = makeScopeIndex(stms)
     def deps(x: Any) = orderedInputs(mysyms(x), scopeIndex)
 
-    val xx = schedule(deps(result))(t => deps(t))
+    val xx = schedule(results.flatMap(deps))(t => deps(t))
 
     //xx.reverse.foreach{case TP(s,d) => debug(s"  $s = $d")}
 

@@ -86,7 +86,7 @@ protected trait TreeWriter extends TreeGenSpatial {
 }
 
 
-protected trait SpatialCompiler extends CompilerCore with SpatialExp with SpatialApi { self =>
+protected trait SpatialCompiler extends CompilerCore with SpatialExp with SpatialApi with PIRCommonExp { self =>
   lazy val printer = new IRPrinter {val IR: self.type = self }
 
   // Traversals

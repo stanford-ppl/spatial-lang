@@ -117,21 +117,23 @@ trait PIRRetiming extends PIRTraversal {
   }
 
   def lca(a: CU, b: CU):CU = {
-    var ap:Option[CU] = Some(a)
-    var bp:Option[CU] = Some(b)
-    val aps = ListBuffer[CU]()
-    val bps = ListBuffer[CU]()
-    while (!ap.isEmpty && !bp.isEmpty) {
-      val ac = ap.get
-      val bc = bp.get
-      aps += ac
-      bps += bc
-      if (aps.contains(bc)) return bc
-      if (bps.contains(ac)) return ac
-      ap = ac.parentCU
-      bp = bc.parentCU
-    }
-    throw new Exception(s"Could not find common ancesstor between $a and $b")
+    val (lca, path1, path2) = leastCommonAncestorWithPaths(a,b,(cu:CU) => cu.parentCU)
+    lca.get
+    //var ap:Option[CU] = Some(a)
+    //var bp:Option[CU] = Some(b)
+    //val aps = ListBuffer[CU]()
+    //val bps = ListBuffer[CU]()
+    //while (!ap.isEmpty && !bp.isEmpty) {
+      //val ac = ap.get
+      //val bc = bp.get
+      //aps += ac
+      //bps += bc
+      //if (aps.contains(bc)) return bc
+      //if (bps.contains(ac)) return ac
+      //ap = ac.parentCU
+      //bp = bc.parentCU
+    //}
+    //throw new Exception(s"Could not find common ancesstor between $a and $b")
   }
 
   def insertFIFO(cu: CU, bus: GlobalBus, depth: Int) {

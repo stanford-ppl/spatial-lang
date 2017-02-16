@@ -6,7 +6,7 @@ import scala.collection.mutable
 
 trait PIRAllocation extends PIRTraversal {
   val IR: SpatialExp with PIRCommonExp
-  import IR._
+  import IR.{println => _, _}
 
   override val name = "PIR CU Allocation"
 
@@ -280,11 +280,12 @@ trait PIRAllocation extends PIRTraversal {
 
     val stms = remotelyAddedStms ++ blockContents(func)
     val stages = stms.map{case TP(lhs,rhs) => lhs}
+
     var remoteStages: Set[Exp[Any]] = Set.empty   // Stages to ignore (goes on different CU)
 
     // HACK: Ignore write address for SRAMs written from popping the result of tile loads
     // (Skipping the vector packing/unpacking nonsense in between)
-    def useFifoOnWrite(mem: Exp[Any], value: Exp[Any]): Boolean = value match {
+    def useFifoOnWrite(mem: Exp[Any], value: Exp[Any]): Boolean = value match { //TODO how about gather??
       case Def(FIFODeq(fifo, en, _))     =>
         dbg(s"      $value = pop($fifo) [${writersOf(fifo)}]")
         writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
@@ -355,7 +356,7 @@ trait PIRAllocation extends PIRTraversal {
             //TODO consider parSRAMStore, localWrite addr will be None 
             val indexComputation = addr.map{is => getScheduleForAddress(stms)(is) }.getOrElse(Nil)
             val indexSyms = indexComputation.map{case TP(s,d) => s}
-            remoteStages ++= symsOnlyUsedInWriteAddrOrEn(stms)(func.result, indexSyms ++ enableSyms)
+            remoteStages ++= symsOnlyUsedInWriteAddrOrEn(stms)(func.result +: func.effectful, indexSyms ++ enableSyms)
           }
           else if (isBuffer(mem)) {
             val indexComputation = addr.map{is => getScheduleForAddress(stms)(is) }.getOrElse(Nil)
@@ -372,7 +373,7 @@ trait PIRAllocation extends PIRTraversal {
             // Currently have to duplicate if used in both address and compute
             if (indexSyms.nonEmpty && !isLocallyRead) {
               //dbg(s"  Checking if symbols calculating ${addr.get} are used in current scope $pipe")
-              remoteStages ++= symsOnlyUsedInWriteAddr(stms)(func.result, indexSyms)
+              remoteStages ++= symsOnlyUsedInWriteAddr(stms)(func.result +: func.effectful, indexSyms)
             }
           }
         }
