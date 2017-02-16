@@ -255,6 +255,15 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   }
 
   /**
+    * Identifies whether a memory is an accumulator
+    */
+  case class MInnerAccum(is: Boolean) extends Metadata[MInnerAccum] { def mirror(f:Tx) = this }
+  object isInnerAccum {
+    def apply(x: Exp[_]): Boolean = metadata[MInnerAccum](x).exists(_.is)
+    def update(x: Exp[_], is: Boolean) = metadata.add(x, MInnerAccum(is))
+  }
+
+  /**
     * Tracks start of address space of given DRAM
     */
   case class DRAMAddress(insts: Long) extends Metadata[DRAMAddress] { def mirror(f:Tx) = this }
