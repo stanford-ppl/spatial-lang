@@ -7,7 +7,7 @@
 
 
 # Spatial
-Spatial is an Argon DSL for programming reconfigurable hardware from a parameterized, high level abstraction.
+Spatial is an Argon DSL for programming reconfigurable hardware from a parameterized, high level abstraction.  Our user forum is here: [https://groups.google.com/forum/#!forum/spatial-lang-users](https://groups.google.com/forum/#!forum/spatial-lang-users)
 
 # Prerequisites
 - [Scala SBT](http://www.scala-sbt.org)
@@ -165,7 +165,10 @@ The "<arguments>" should be a space-separated list, fully enclosed in quotes.  F
 
 	bash run.sh "192 96"
 
+###d) More Complicated Apps
+Now that you have built and tested your first app, there are lots more things you can do in Spatial.  You may already have an algorithm in mind that you want to write, or you may want to keep exploring to get a sense of what the language can do.  Feel free to poke around the apps we have written in ${SPATIAL_HOME}/apps/src for examples of apps.  You may also find it useful to copy/paste one of our existing apps and start tweaking it to get more interesting algorithms.  If you run into any questions or issues, you can always post on our [forum](https://groups.google.com/forum/#!forum/spatial-lang-users).
 
+Note that since the language is still actively under development, if one of our apps does not work and you think it should, you should check the regression test status at the top of this README for a quick reference whether or not the app you are playing with is expected to work at the moment.  We apologize for the inconvenience.
 
 
 #The Spatial Programming Model
@@ -178,28 +181,52 @@ The `accel` block scopes out any code that will run on the dataflow accelerator 
 A control node is essentially a `foreach` (functional) or a `for loop` (imperative).  It scopes out a section of code that runs for some number of iterations.  It is best to think of the `accel` block as a hierarchy of control nodes that contain either a list of other control nodes, or a list of primitive operations.  The control nodes available are:
 ####i) Sequential.Foreach
 The stages inside of a `Sequential.Foreach` are executed one at a time without overlap between stages.  The counter for this node increments only after the last stage of the controller has finished.  It is best to use this node when there are loop-carry dependencies between the stages of the pipeline that cannot be fixed.
+You can create a Sequential.Foreach node as follows: `Sequential.Foreach(<max_outer> by <step_outer> par <par_outer>, ... , <max_inner> by <step_inner> par <par_inner>){ (iterators) => ... }`
 ####ii) Foreach
 The stages inside of a `Foreach` are executed in standard pipelined fashion.  Stage 0 executes with the first value of the counter first.  When stage 0 finishes, the counter for the control node increments and Stage 0 then begins executing again with this new counter value.  Meanwhile, it has passed its old counter value to stage 1 and then stage 1 executes its first iteration.  And so forth.
+You can create a Sequential.Foreach node as follows: `Foreach(<max_outer> by <step_outer> par <par_outer>, ... , <max_inner> by <step_inner> par <par_inner>){ (iterators) => ... }`
 ####iii) Reduce
 Many times, an algorithm requires a reduction.  This is an operation that takes many values and reduces them to one value.  A `Reduce` node consists of a map function, which is responsible for producing the values that will be used in the reduction.  For example, the map function in dot product would be reading and element from both vectors and computing their product.  It also specifies a reduction function to describe how the values should be reduced.  In dot product, this would be simple addition, but you can specify operations such as multiplication or minimum/maximum.
+You can create a Reduce node as follows: `Reduce(<max_outer> by <step_outer> par <par_outer>, ... , <max_inner> by <step_inner> par <par_inner>){ (iterators) => <map function> }{ (map results) => reduce function> }`.  It returns a scalar value
+
 ####iv) MemReduce
 There are other algorithms where you may have an n-dimensional array and want to accumulate it on top of an array of the same dimensions.  For example, gradient descent algorithms compute a small update to a weights vector and add this to the old weights vector.  This control node is exactly like the Reduce node above, except the accumulator is an SRAM and the map function produces an SRAM of matching dimensions rather than a scalar value.
+You can create a MemReduce node as follows: `MemReduce(<accumulator>)(<max_outer> by <step_outer> par <par_outer>, ... , <max_inner> by <step_inner> par <par_inner>){ (iterators) => <map function> }{ (map results) => reduce function> }` 
 ####v) Fold
 Similar to Reduce, but you must provide the initial, default value of the reduction.
-####vi) Parallel
+You can create a Fold node as follows: `Fold(<accumulator>)(<max_outer> by <step_outer> par <par_outer>, ... , <max_inner> by <step_inner> par <par_inner>){ (iterators) => <map function> }{ (map results) => reduce function> }`.  The init value goes somewhere here but you should refer to the API documentation, once it is available, for details.
+####vi) Stream
+This node probably does not exist in the user-facing API yet, but it will and it will be good for streaming apps, like those that load frames from cameras or data from a sensor.  It will expose pins that commence an iteration of the body, as well as some other resources needed for endless streams.
+####vii) Parallel
 All children nodes execute in parallel, and this control node does not finish until all of its children have finished.  Can only contain other control nodes.  Will be deprecated soon.
+You can create a Parallel node as follows: `Parallel{ <other control nodes> }`
+
 ###b) Memories
 ####i) SRAM
 On fpgas, the SRAMs refer to the block RAMs on the device.  You can think of them as scratchpad memories that take one cycle to read and write.
+Declare: `val s = SRAM[T](<dims>)`
+Store: `s(<addrs>) := value`
+Read: `val value = s(<addrs>)`
 ####ii) DRAM
 DRAM refers to memory that is not on-board the accelerator.  Data is generally put into these memories by the CPU and then fetched by the accelerator.  The accelerator can fetch memory from DRAM at the burst-granularity (64 bytes = 16 4-byte words)
+Declare: `val d = DRAM[T](<dims>)` (done outside of Accel)
+Store from onchip to DRAM: `d(<colon separated addrs>) store sram` (inside of Accel)
+Store from CPU to DRAM: `setMem(d, array)`
+Read from DRAM to onchip: `sram load d(<colon separated addrs>)` (inside of Accel)
+Read from DRAM to CPU: `getMem(d)`
 ####iii) Reg
 A register is a memory element that holds some bits.  Generally, this would be a float, fixed point, or integer number, but can also be a tuple as is the case for K-Means.  In such a case, all of the bits of the tuple are concatenated and placed in a register, to be later reinterpreted and sliced.
+Declare: `val r = Reg[T](<init>)`
+Store: `r := value`
+Load: `val value = r`
 ####iv) FIFO
 This is an SRAM behind the scenes, but rather than being word-addressable, you can only push and pop elements to it.
+Declare: `val f = Fifo[T](<size>)`
+Store: `f.push(value)`
+Load: `val value = f.pop()`
 ###c) Data Transfers
 ####i) Load
-Loads some chunk of memory from DRAM and place in SRAM or FIFO.  If the chunk is not burst aligned, then a whole burst is issued but data that was not wanted gets dumped into a null buffer
+Loads some chunk of memory from DRAM and place in SRAM or FIFO.  If the chunk is not burst aligned, then a whole burst is issued but data that was not wanted gets dumped into a null buffer. 
 ####ii) Store
 Stores some SRAM or FIFO to memory.  
 ####iii) Gather
@@ -217,7 +244,7 @@ Push or pop to a FIFO.
 ####i) Parallelized Counters
 An accelerator would not be very good at accelerating anything if it did not allow the user to take advantage of the spatial architecture.  You can parallelize any control node in your algorithm by adding `par $n` to the counter declaration.  If you parallelize a control node that contains other control nodes, Spatial will unroll the inner nodes for you.  If you parallelize a control node that contains only primitives, the counter for that control node will be vectorized.  When you parallelize, all of your memory elements and arithmetic operations will be banked and/or duplicated in order to ensure correctness of your result, assuming there are no dependencies between the counter values.  Parallelized reductions will generate reduction trees, which results in the reduction latency increasing by log2(par).
 ####ii) Endless Counters
-Endless counters are counters whose maximum value is specified by `*`.  For an intuitive understanding of what this means, please see [this video](https://www.youtube.com/watch?v=xWcldHxHFpo)
+Endless counters are counters whose maximum value is specified by `*` (i.e. `Foreach(* by 1 par 8){<body>}`.  For an intuitive understanding of what this means, please see [this video](https://www.youtube.com/watch?v=xWcldHxHFpo)
 
 ##2) Main Method
 This is where all of the CPU code belongs.  In many examples, we simply redo the computation that the accel block does and check if it produced the correct result.  However, many real-world algorithms will do something different on the CPU than they do in the accel.

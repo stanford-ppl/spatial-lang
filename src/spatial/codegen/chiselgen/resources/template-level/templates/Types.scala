@@ -64,11 +64,13 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		val new_raw = Wire(UInt(new_width.W))
 
 		// Compute new frac part
+		// val new_frac = Wire(UInt(dst.f.W))
 		val new_frac = if (dst.f < f) { // shrink decimals
 			rounding match {
 				case "truncate" => 
 					val shave = f - dst.f
-					(0 until dst.f).map{ i => number(shave + i)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
+					number(shave + dst.f - 1, shave)
+					// (0 until dst.f).map{ i => number(shave + i)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
 				case "unbiased" => 
 					0.U(dst.f.W)
 					// TODO: Add rng
@@ -81,9 +83,11 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			}
 		} else if (dst.f > f) { // expand decimals
 			val expand = dst.f - f
-			(0 until dst.f).map{ i => if (i < expand) {0.U} else {number(i - expand)*scala.math.pow(2,i).toInt.U}}.reduce{_+_}
+			util.Cat(number(f,0), 0.U(expand.W))
+			// (0 until dst.f).map{ i => if (i < expand) {0.U} else {number(i - expand)*scala.math.pow(2,i).toInt.U}}.reduce{_+_}
 		} else { // keep same
-			(0 until dst.f).map{ i => number(i)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
+			number(dst.f-1,0)
+			// (0 until dst.f).map{ i => number(i)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
 		}
 
 		// Compute new dec part
@@ -92,7 +96,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				case "lazy" =>
 					val shave = d - dst.d
 					dst.debug_overflow := (0 until shave).map{i => number(d + f - 1 - i)}.reduce{_||_}
-					(0 until dst.d).map{i => number(f + i) * scala.math.pow(2,i).toInt.U}.reduce{_+_}
+					number(dst.d + f - 1, f)
+					// (0 until dst.d).map{i => number(f + i) * scala.math.pow(2,i).toInt.U}.reduce{_+_}
 				case "saturation" =>
 					// TODO: Do something good
 					0.U(dst.d.W)
@@ -102,12 +107,17 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		} else if (dst.d > d) { // expand decimals
 			val expand = dst.d - d
 			val sgn_extend = if (s) { number(d+f-1) } else {0.U(1.W)}
-			(0 until dst.d).map{ i => if (i >= dst.d - expand) {sgn_extend*scala.math.pow(2,i).toInt.U} else {number(i+f)*scala.math.pow(2,i).toInt.U }}.reduce{_+_}
+			util.Cat(util.Fill(expand, sgn_extend), number(f+d-1, f))
+			// (0 until dst.d).map{ i => if (i >= dst.d - expand) {sgn_extend*scala.math.pow(2,i).toInt.U} else {number(i+f)*scala.math.pow(2,i).toInt.U }}.reduce{_+_}
 		} else { // keep same
-			(0 until dst.d).map{ i => number(i + f)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
+			number(f+d-1, f)
+			// (0 until dst.d).map{ i => number(i + f)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
 		}
 
-		dst.number := new_frac + new_dec*(scala.math.pow(2,dst.f).toInt.U)
+		val ftest = 0.U(4.W)
+		val dtest = 1.U(4.W)
+		dst.number := util.Cat(new_dec, new_frac)
+		// dst.number := util.Cat(new_dec, new_frac) //new_frac + new_dec*(scala.math.pow(2,dst.f).toInt.U)
 
 	}
 	
@@ -156,16 +166,16 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 	def / (op: FixedPoint): FixedPoint = {
 		// Compute upcasted type and return type
-		val upcasted_type = (op.s | s, op.d + d, op.f + f)
+		val upcasted_type = (op.s | s, op.d + d, op.f + f + 1)
 		val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
 		// Get upcasted operators
 		val full_result = Wire(new FixedPoint(upcasted_type))
 		// Do upcasted operation
-		full_result.number := this.number * scala.math.pow(2,op.f+f).toInt.U / op.number // Not sure why we need the +1 in pow2
+		full_result.number := util.Cat(this.number, 0.U((op.f+f+1).W)) / op.number // Not sure why we need the +1 in pow2
 		// Downcast to result
 		val result = Wire(new FixedPoint(return_type))
 		full_result.cast(result)
-		full_result
+		result
 	}
 
 
@@ -200,7 +210,7 @@ class FixedPointTester(val s: Boolean, val d: Int, val f: Int) extends Module {
 		val num2 = new RawBits(d+f).asInput
 
 		val add_result = new RawBits(d+f).asOutput
-		val product_result = new RawBits(d+f).asOutput
+		val prod_result = new RawBits(d+f).asOutput
 		val sub_result = new RawBits(d+f).asOutput
 		val quotient_result = new RawBits(d+f).asOutput
 	})
@@ -212,7 +222,7 @@ class FixedPointTester(val s: Boolean, val d: Int, val f: Int) extends Module {
 	val sum = fix1 + fix2
 	sum.storeRaw(io.add_result)
 	val prod = fix1 * fix2
-	prod.storeRaw(io.product_result)
+	prod.storeRaw(io.prod_result)
 	val sub = fix1 - fix2
 	sub.storeRaw(io.sub_result)
 	val quotient = fix1 / fix2
