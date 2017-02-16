@@ -164,7 +164,6 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
-
   /** Stateless Nodes **/
   def isRegisterRead(e: Exp[_]): Boolean = getDef(e).exists(isRegisterRead)
   def isRegisterRead(d: Def): Boolean = d match {

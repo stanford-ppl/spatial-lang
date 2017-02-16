@@ -14,8 +14,7 @@ trait PIRScheduler extends PIRTraversal {
   val mappingIn  = mutable.HashMap[Symbol, PCU]()
   val mappingOut = mutable.HashMap[Symbol, CU]()
 
-  override def process[S:Staged](b: Block[S]): Block[S] = {
-    super.run(b)
+  override protected def postprocess[S:Staged](block: Block[S]): Block[S] = {
     val cuMapping = mappingIn.keys.map{s =>
 
       dbg(s"${mappingIn(s)} -> ${mappingOut(s)}")
@@ -65,8 +64,7 @@ trait PIRScheduler extends PIRTraversal {
       dbg(s"CU global inputs:")
       globalInputs(cu).foreach{in => dbg(s"  $in") }
     }
-
-    b
+    block
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
@@ -310,10 +308,10 @@ trait PIRScheduler extends PIRTraversal {
   def mapNodeToStage(lhs: Symbol, rhs: Def, ctx: CUContext) = rhs match {
     // --- Reads
     case FIFODeq(fifo, en, zero)     => allocateFifoPop(lhs, fifo, ctx)
-    //case Par_pop_fifo(EatAlias(fifo), en) => allocateFifoPop(lhs, fifo, ctx)
+    case ParFIFODeq(fifo, en, zero) => allocateFifoPop(lhs, fifo, ctx)
 
     case SRAMLoad(mem, dim, is, ofs)     => allocateSRAMRead(lhs, mem, dim, is, ctx)
-    //case Par_sram_load(EatAlias(mem), addr) => allocateSRAMRead(lhs, mem, addr, ctx)
+    case ParSRAMLoad(mem, addr) => allocateSRAMRead(lhs, mem, stagedDimsOf(mem), addr.head, ctx)
 
     case ListVector(elems) => ctx.addReg(lhs, ctx.reg(elems.head))
     case VectorApply(vec, idx) =>
@@ -331,9 +329,7 @@ trait PIRScheduler extends PIRTraversal {
     case ParFIFOEnq(fifo, data, ens) => allocateFifoPush(fifo, data, ctx)
 
     case SRAMStore(mem, dims, is, ofs, data, en)        => bufferWrite(mem,data,Some(is, dims),ctx)
-    case ParSRAMStore(sram, addr, data, ens) => 
-    //case ParSRAMStore(sram, addr, data, ens) => bufferWrite(sram,data,Some(addr),ctx) //TODO
-    //parSRAMStore not supported yet
+    case ParSRAMStore(sram, addr, data, ens) => bufferWrite(sram,data,Some(addr.head, stagedDimsOf(sram)),ctx)
 
     case RegWrite(reg, data, en) => allocateRegWrite(lhs, reg, data, ctx)
 

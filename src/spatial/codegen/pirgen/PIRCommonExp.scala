@@ -7,7 +7,7 @@ import org.virtualized.SourceContext
 import scala.collection.mutable
 
 // PIR operations which need the rest of the Spatial IR mixed in
-trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =>
+trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =>
   type Symbol = Exp[_]
   type CUControl = ControlType
 
@@ -16,25 +16,26 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =
     //case _ => s"$x"
   //}
 
-  //def extractConstant(x: Symbol): String = x match {
-    //case Const(c: Int)    => s"${c}i"
-    //case Const(c: Long)   => s"${c}l"
-    //case Const(c: Double) => s"${c}d"
-    //case Const(c: Float)  => s"${c}f"
-    //case Param(c: Int)    => s"${c}i"
-    //case Param(c: Double) => s"${c}d"
-    //case Param(c: Float)  => s"${c}f"
+  override def isConstant(x:Symbol):Boolean = x match {
+    case Param(c: BigDecimal) => true 
+    case Final(c) => true 
+    case _ => false 
+  }
 
-    //// TODO: Not quite correct since bound is a double
-    //case Fixed(c) if (c.toInt == c)  => s"${c.toInt}i"
-    //case Fixed(c) if (c.toLong == c) => s"${c.toLong}l"
-    //case Fixed(c) if (c.toFloat == c) => s"${c.toFloat}f"
-    //case Fixed(c) => s"${c.toDouble}d"
+  override def extractConstant(x: Symbol): String = x match {
+    case Const(c: BigInt)    => s"${c}i"
+    case Const(c: BigDecimal)    => s"${c}f"
+    case Param(c: BigInt) => s"${c}i"
+    case Param(c: BigDecimal) => s"${c}f"
 
-    //case Def(ConstBit(c)) => if (c) "1i" else "0i"
+    // TODO: Not quite correct since bound is a double ??
+    case Final(c) if (c.toInt == c)  => s"${c.toInt}i"
+    case Final(c) if (c.toLong == c) => s"${c.toLong}l"
+    case Final(c) if (c.toFloat == c) => s"${c.toFloat}f"
+    case Final(c) => s"${c.toDouble}d"
 
-    //case _ => throw new Exception(s"Cannot allocate constant value for $x")
-  //}
+    case _ => throw new Exception(s"Cannot allocate constant value for $x")
+  }
 
   def isReadInPipe(mem: Symbol, pipe: Symbol, reader: Option[Symbol] = None): Boolean = {
     readersOf(mem).isEmpty || readersOf(mem).exists{read => reader.forall(_ == read.node) && read.ctrlNode == pipe }
@@ -57,7 +58,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp {this: SpatialExp =
     case _ => throw new Exception(s"Unsupported address in PIR generation: $addr")
   }
   def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]) = {
-    val cdims = dims.map{case Bound(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
+    val cdims = dims.map{case Final(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
     val strides = List.tabulate(dims.length){d =>
       if (d == dims.length - 1) int32(1)
       else int32(cdims.drop(d+1).reduce(_*_))
