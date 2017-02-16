@@ -346,7 +346,7 @@ for aa in ${headers[@]}; do
   infile=(`cat ${pretty_file} | grep $aa | wc -l`)
   if [[ $infile -gt 0 ]]; then # This test exists in history
     # Get last known datapoint and vector
-    last=(`cat ${pretty_file} | grep "${aa}\ " | sed "s/.*,//g" | sed 's/.*\(.\)$/\1/'`)
+    last=$(cat ${pretty_file} | grep "${aa}\ " | sed "s/.*,//g" | sed 's/.*\(.\)$/\1/')
     cat ${pretty_file} >> /tmp/wtf
     echo ${pretty_file} >> /tmp/wtf
     if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else oldnum=8; fi
