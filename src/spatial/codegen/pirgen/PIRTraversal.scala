@@ -87,10 +87,6 @@ trait PIRTraversal extends SpatialTraversal {
     case _ => TempReg()
   }
 
-  def stageWarn(msg:String) = {
-    throw new Exception(s"$msg")
-  }
-
   def foreachSymInBlock(b: Block[Any])(func: Sym[_] => Unit) = {
     def sfunc(stms:Seq[Stm]) = {
       stms.foreach { case Stm(lhs, rhs) => func(lhs.head) }

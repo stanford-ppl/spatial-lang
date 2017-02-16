@@ -342,13 +342,13 @@ trait PIRScheduler extends PIRTraversal {
         val inputs = syms(rhs)
         opStageToStage(op, inputs, lhs, ctx, false)
 
-      case None => stageWarn(s"No ALU operation known for $lhs = $rhs")
+      case None => warn(s"No ALU operation known for $lhs = $rhs")
     }
   }
 
   def reduceNodeToStage(lhs: Symbol, rhs: Def, ctx: CUContext) = nodeToOp(rhs) match {
     case Some(op) => opStageToStage(op, syms(rhs), lhs, ctx, true)
-    case _ => stageWarn(s"No ALU reduce operation known for $lhs = $rhs")
+    case _ => warn(s"No ALU reduce operation known for $lhs = $rhs")
   }
 
   def opStageToStage(op: PIROp, ins: List[Symbol], out: Symbol, ctx: CUContext, isReduce: Boolean) {

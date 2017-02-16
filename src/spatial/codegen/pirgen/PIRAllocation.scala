@@ -409,8 +409,8 @@ trait PIRAllocation extends PIRTraversal {
     // Sanity check
     val trueComputation = localCompute.filterNot{case Exact(_) => true; case s => isRegisterRead(s)}
     if (isOuterControl(pipe) && trueComputation.nonEmpty) {
-      stageWarn(s"Outer control $pipe has compute stages: ")
-      trueComputation.foreach{case lhs@Def(rhs) => stageWarn(s"  $lhs = $rhs")}
+      warn(s"Outer control $pipe has compute stages: ")
+      trueComputation.foreach{case lhs@Def(rhs) => warn(s"  $lhs = $rhs")}
     }
 
     cu.computeStages ++= localCompute.map{s => DefStage(s, isReduce = reduceType(s).isDefined) }
