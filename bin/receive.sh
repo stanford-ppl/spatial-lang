@@ -3,6 +3,7 @@
 # Argument 1 = Test type (maxj, scala, chisel, etc...)
 # NOTE: This script belongs on a server dedicated to regression testing
 
+export LANG=en_US.UTF-8
 REGRESSION_HOME="${HOME}/regression"
 
 ## Helper for deleting directories when you still have those nfs files stuck in use

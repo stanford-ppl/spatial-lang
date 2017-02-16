@@ -291,6 +291,7 @@ update_histories() {
 # history_file=${SPATIAL_HOME}/spatial.wiki/${branch}_Regression_Test_History.csv
 
 # Get list of apps that have data
+IFS=$'\n'
 all_apps=(`cat ${wiki_file} | grep "^\*\*pass\|^<-\+failed" | sed "s/<-\+//g" | sed "s/^.*[0-9]\+\_//g" | sed "s/\*//g" | sed "s/\[🗠.*//g" | sort`)
 
 # Determine type for each app to build headers list
@@ -346,15 +347,12 @@ for aa in ${headers[@]}; do
   infile=(`cat ${pretty_file} | grep $aa | wc -l`)
   if [[ $infile -gt 0 ]]; then # This test exists in history
     # Get last known datapoint and vector
-    last=$(cat ${pretty_file} | grep "${aa}\ " | sed "s/.*,//g" | sed 's/.*\(.\)$/\1/')
-    cat ${pretty_file} >> /tmp/wtf
-    echo ${pretty_file} >> /tmp/wtf
+    last=$(cat ${pretty_file} | grep "${aa}\ " | grep -o ".$")
     if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else oldnum=8; fi
     if [[ $old_num = 0 && $num = 0 ]]; then vec="="; elif [[ $old_num > $num ]]; then vec=↗; elif [[ $old_num < $num ]]; then vec=↘; else vec=→; fi
     # Edit file
     logger "app $aa from $last to $bar, numbers $old_num to $num"
     cmd="sed -i 's/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/' ${pretty_file}" # Append bar
-    logger "cmd1 $cmd"
     eval "$cmd"
     cmd="sed -i 's/\\(^${aa}\ \+\\).,,\\(.*\\)/\\1${vec},,\\2/' ${pretty_file}" # Inject change vector
     eval "$cmd"
