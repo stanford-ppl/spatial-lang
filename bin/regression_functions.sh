@@ -212,7 +212,7 @@ update_log() {
     cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/comptimes_${branch}_${type_todo}_${pname}.csv)"
     if [[ $p == *"pass"* ]]; then
       echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
-      t=(`sed -n '2p' $p`)
+      t=(`sed -n '1p' $p`)
     elif [[ $p == *"failed_execution_validation"* ]]; then
       echo "<----${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=0
@@ -530,8 +530,8 @@ function report {
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
     touch ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
-    cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
     echo \${comp_time} >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
+    cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
     exit 0
   else
     echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2})\" >> ${log}
