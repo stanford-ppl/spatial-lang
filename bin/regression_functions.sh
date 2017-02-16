@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ## This file contains all the functions used for regression testing.
 ##   It is called from the receive.sh, which handles path variables
