@@ -25,6 +25,7 @@ def main():
 
   parser.add_argument('--scala', dest='scala', action='store_true', default=True, help='enables scala generation')
   parser.add_argument('--chisel', dest='chisel', action='store_true', default=False, help='enables chisel generation')
+  parser.add_argument('--pir', dest='pir', action='store_true', default=False, help='enables pir generation')
   parser.add_argument("--cpp", dest="cpp", action="store_true", default=True, help="enables cpp generation")
   parser.add_argument("--fpga", dest="fpga", default="Default", help="Set name of FPGA target")
 
@@ -113,8 +114,13 @@ def main():
     opts.cpp = True
     opts.scala = False
     java_opts = java_opts + " -Dspatial.chisel=true"
+  elif opts.pir == True:
+    opts.cpp = False
+    opts.scala = False
+    java_opts = java_opts + " -Dspatial.pir=true"
   elif opts.scala == True:
     opts.chisel = False
+    opts.pir = False
     opts.cpp = False
     java_opts = java_opts + " -Dspatial.scala=true"
   if opts.cpp == True:
