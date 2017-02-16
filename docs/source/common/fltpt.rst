@@ -80,7 +80,7 @@ In the case where an unstaged type is required, use the full `scala.*` name.
 | |               def   **\*\***\(exp: scala.Int): :doc:`fltpt`\[G,E\]                                                                       |
 | |                       Integer power, implemented in hardware as a reduction tree with **exp** inputs                                     |
 | |                                                                                                                                          |
-| |                       * **n** \- exponent, currently must be an integer greater than zero                                                |
+| |                       * **exp** \- exponent, currently must be an integer greater than zero                                              |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
 | |               def   **\/**\(rhs: :doc:`fltpt`\[G,E\]): :doc:`fltpt`\[G,E\]                                                               |
 | |                       Floating point division                                                                                            |

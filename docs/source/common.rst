@@ -9,8 +9,7 @@ This section lists operations and types which are available for use both on the 
    primitives
    typeclasses
 
-   :maxdepth: 1
-
+   common/math
    common/range
    common/tup2
    common/tup3

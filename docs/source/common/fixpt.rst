@@ -44,9 +44,9 @@ Note that numbers of bits use the underscore prefix as integers cannot be used a
 **Type Aliases**
 
 Specific types of FixPt values can be managed using type aliases.
-New type aliases can be created using:::
+New type aliases can be created using syntax like the following::
 
-  type MyType = FixPt[TRUE|FALSE,_##,_##]
+  type Q16_16 = FixPt[TRUE,_16,_16]
 
 
 
@@ -67,6 +67,7 @@ Spatial defines the following type aliases by default:
 Note that the Char, Short, Int, and Long types shadow their respective unstaged Scala types.
 In the case where an unstaged type is required, use the full `scala.*` name.
 
+-------------
 
 **Infix methods**
 
@@ -91,7 +92,7 @@ only values of the same FixPt class can be used for this argument.
 | |               def   **\*\***\(exp: scala.Int): :doc:`fixpt`\[S,I,F\]                                                                     |
 | |                       Integer power, implemented in hardware as a reduction tree with **exp** inputs                                     |
 | |                                                                                                                                          |
-| |                       * **n** \- exponent, currently must be an integer greater than zero                                                |
+| |                       * **exp** \- exponent, currently must be an integer greater than zero                                              |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
 | |               def   **\/**\(rhs: :doc:`fixpt`\[S,I,F\]): :doc:`fixpt`\[S,I,F\]                                                           |
 | |                       Fixed point division                                                                                               |
@@ -138,6 +139,7 @@ only values of the same FixPt class can be used for this argument.
 | |                       \[**NOTE**\] This method is unsynthesizable, and can be used only on the CPU or in simulation.                     |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
 
+--------------
 
 **Specialized infix methods**
 
@@ -148,17 +150,18 @@ These methods are defined on only specific classes of FixPt values.
 +=====================+======================================================================================================================+
 | |               def   **%**\(rhs: :doc:`fixpt`\[S,I,_0\]): :doc:`fixpt`\[S,I,_0\]                                                          |
 | |                       Fixed point modulus                                                                                                |
+| |                       Note that modulus is currently only defined for fixed point values with no fractional bits.                        |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
 
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
 |      `subclass`       **Int** (aliases: **Index**, **FixPt**\[TRUE, _32, _0\])                                                             |
 +=====================+======================================================================================================================+
-| |               def   **::**\(end: :doc:`Int <fixpt>`): :doc:`../common/range`                                                             |
+| |               def   **::**\(end: :doc:`Int <fixpt>`): :doc:`range`                                                                       |
 | |                       Creates a Range with this as the start (inclusive), the given end (noninclusive), and step of 1.                   |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
-| |               def   **by**\(step: :doc:`Int <fixpt>`): :doc:`../common/range`                                                            |
+| |               def   **by**\(step: :doc:`Int <fixpt>`): :doc:`range`                                                                      |
 | |                       Creates a Range with start of 0 (inclusive), this value as the end (noninclusive), and the given step.             |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
-| |               def   **until**\(end: :doc:`Int <fixpt>`): :doc:`../common/range`                                                          |
+| |               def   **until**\(end: :doc:`Int <fixpt>`): :doc:`range`                                                                    |
 | |                       Creates a Range with this as the start (inclusive), the given end (noninclusive), and step of 1.                   |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
