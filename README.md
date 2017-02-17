@@ -11,6 +11,6 @@ Spatial is an Argon DSL for programming reconfigurable hardware from a parameter
 
 ## [Forum](https://groups.google.com/forum/#!forum/spatial-lang-users)
 
-## [Getting Started](http://spatial-lang.readthedocs.io/en/master/tutorial/starting.html)
+## [Getting Started](http://spatial-lang.readthedocs.io/en/latest/tutorial/starting.html)
 
-## [API](http://spatial-lang.readthedocs.io/en/master/)
+## [API](http://spatial-lang.readthedocs.io/en/latest/)
