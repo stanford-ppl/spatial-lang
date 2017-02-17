@@ -18,7 +18,7 @@ trait ConstantFolding extends ForwardTransformer {
     case Effectful(effects,deps) => super.transform(lhs, rhs)
 
     case Final(c) => (lhs.tp match {
-      case tp: FixPtType[_,_,_] => fixpt(c)(tp.mS,tp.mI,tp.mF,ctx)
+      case tp: FixPtType[_,_,_] => fixpt(BigDecimal(c))(tp.mS,tp.mI,tp.mF,ctx)
       case tp: FltPtType[_,_]   => fltpt(BigDecimal(c))(tp.mG, tp.mE, ctx)
       case _ => super.transform(lhs, rhs)
     }).asInstanceOf[Exp[T]]
