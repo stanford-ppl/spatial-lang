@@ -29,7 +29,7 @@ Commonly used mathematical operators
 **Methods**
 
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
-| |               def   pow\[T::doc:`../typeclasses/num`\](x: T, n: Int): T                                                                  |
+| |               def   **pow**\[T::doc:`../typeclasses/num`\](x: T, n: scala.Int): T                                                        |
 | |                     Integer power implemented in hardware as a reduction tree                                                            |
 | |                                                                                                                                          |
 | | 	                * **n** \- exponent, currently must be an integer greater than zero                                                  |
@@ -37,13 +37,13 @@ Commonly used mathematical operators
 | |               def   **productTree**\[T::doc:`../typeclasses/num`\](x: Seq\[T\]): T                                                       |
 | |                     Creates a reduction tree which calculates the product of the given symbols                                           |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
-| |               def   **reduceTree**\(syms: Seq\[T\])(func: (T, T) => T): T                                                                |
+| |               def   **reduceTree**\[T\](ins\: Seq\[T\])(func: (T, T) => T): T                                                            |
 | |                     Creates a reduction tree structure of the given list of symbols                                                      |
 | |                                                                                                                                          |
-| |                     * **syms** \- List of symbols to reduce	                                                                             |
-| |                     * **rFunc** \- Associative reduction function                                                                        |
+| |                     * **ins** \- List of symbols to reduce	                                                                             |
+| |                     * **func** \- Associative reduction function                                                                         |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
-| |               def   sumTree\[T::doc:`num`\](x: Seq\[T\]): T                                                                              |
+| |               def   **sumTree**\[T::doc:`../typeclasses/num`\](x: Seq\[T\]): T                                                           |
 | |                     Creates a reduction tree which calculates the sum of the given symbols                                               |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
 

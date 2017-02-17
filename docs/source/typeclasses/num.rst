@@ -24,105 +24,51 @@
 Num
 ====
 
-Combination of Arith, Bits, and Order type classes
+Combination of :doc:`arith`, :doc:`bits`, and :doc:`order` type classes
 
-Abstract Methods
-----------------
+**Abstract Methods**
 
-.. parsed-literal::
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+|      `trait`         **Num**\[T\] `extends` :doc:`arith`\[T\] `with` :doc:`bits`\[T\] `with` :doc:`order`\[T\]                             |
++=====================+======================================================================================================================+
+| |      abstract def   **negate**\(x: T): T                                                                                                 |
+| |                       Returns a negated version of the given value                                                                       |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **plus**\(x: T, y: T): T                                                                                             |
+| |                       Returns the result of adding x and y                                                                               |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **minus**\(x: T, y: T): T                                                                                            |
+| |                       Returns the result of subtracting y from x                                                                         |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **times**\(x: T, y: T): T                                                                                            |
+| |                       Returns the result of multiplying x and y                                                                          |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **divide**\(x: T, y: T): T                                                                                           |
+| |                       Returns the result of dividing x by y                                                                              |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **zero**\: T                                                                                                         |
+| |                       Creates the zero value for type T                                                                                  |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **one**\: T                                                                                                          |
+| |                       Creates the one value for type T                                                                                   |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **random**\(max: Option[T]): T                                                                                       |
+| |                       Generates a pseudorandom value uniformly distributed between 0 and max.                                            |
+| |                       If max is unspecified, type T's default maximum is used instead.                                                   |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **length**\(x: T, y: T): T                                                                                           |
+| |                       Returns the number of bits required to represent this type.                                                        |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **lessThan**\(x: T, y: T): :doc:`../common/boolean`                                                                  |
+| |                       Returns `true` if x is less than y, `false` otherwise                                                              |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **lessThanOrEqual**\(x: T, y: T): :doc:`../common/boolean`                                                           |
+| |                       Returns `true` if x is less than or equal to y, `false` otherwise                                                  |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **equal**\(x: T, y: T): :doc:`../common/boolean`                                                                     |
+| |                       Returns `true` if x and y are equal, `false` otherwise                                                             |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
 
-  :maroon:`def` zero: T
 
-Creates the zero value for the type T
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` one: T
-
-Creates the one value for the type T
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` random(max: Option[T]): T
-
-Generates a pseudorandom value uniformly distributed between 0 and max, or 0 and 1 if max is unspecified.
-
-[:blue:`NOTE`] This method is currently unsynthesizable, and should be used only on the CPU host or in simulation.
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` length: T
-
-Returns the number of bits required to represent this type.
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` negate(x: T): T
-
-Negate x
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` plus(x: T, y: T): T
-
-Add x and y
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` minus(x: T, y: T): T
-
-Subtract y from x
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` times(x: T, y: T): T
-
-Multiply x and y
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` divide(x: T, y: T): T
-
-Divide x by y
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` lessThan(x: T, y: T): :doc:`boolean`
-
-Returns `true` if x is less than y, `false` otherwise
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` lessThanOrEqual(x: T, y: T): :doc:`bit`
-
-Returns `true` if x is less than or equal to y, `false` otherwise
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` equal(x: T, y: T): :doc:`boolean`
-
-Returns `true` if x and y are equal, `false` otherwise
 
 

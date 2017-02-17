@@ -23,9 +23,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
   }
 
   override def extractConstant(x: Symbol): String = x match {
-    case Const(c: BigInt)    => s"${c}i"
-    case Const(c: BigDecimal)    => s"${c}f"
-    case Param(c: BigInt) => s"${c}i"
+    case Const(c: BigDecimal) => s"${c}f"
     case Param(c: BigDecimal) => s"${c}f"
 
     // TODO: Not quite correct since bound is a double ??

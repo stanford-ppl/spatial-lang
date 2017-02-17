@@ -14,8 +14,8 @@ trait ParameterRestrictions { this: SpatialExp =>
 
   private implicit class ParamValue(x: Param[Index]) {
     def value: Int = x.c match {
-      case c: BigInt => c.toInt
-      case c: Int => c
+      case c: BigDecimal => c.toInt
+      case c: Int        => c
     }
   }
 
@@ -94,9 +94,9 @@ trait ParameterRestrictions { this: SpatialExp =>
     val pruneSingle = params.map{p =>
       val restricts = restrict.filter(_.dependsOnlyOn(p))
       if (restricts.nonEmpty)
-        p -> Domain.restricted(ranges(p), {v: Int => p.c = BigInt(v) }, { restricts.forall(_.evaluate) })
+        p -> Domain.restricted(ranges(p), {v: Int => p.c = BigDecimal(v) }, { restricts.forall(_.evaluate) })
       else
-        p -> Domain[Int](ranges(p), {v: Int => p.c = BigInt(v)})
+        p -> Domain[Int](ranges(p), {v: Int => p.c = BigDecimal(v)})
     }
     pruneSingle.map(_._2)
   }

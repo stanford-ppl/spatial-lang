@@ -6,17 +6,8 @@ This section lists operations and types which are available for use both on the 
 .. toctree::
    :maxdepth: 2
 
+   common/datastructs
    primitives
    typeclasses
-
    common/math
-   common/range
-   common/tup2
-   common/tup3
-   common/tup4
-   common/tup5
-   common/tup6
-   common/tup7
-   common/tup8
-   common/tup9
 
