@@ -64,6 +64,12 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isUnitPipe(e: Exp[_]): Boolean = getDef(e).exists(isUnitPipe)
+  def isUnitPipe(d: Def): Boolean = d match {
+    case _:UnitPipe            => true
+    case _ => false
+  }
+
   def isLoop(e: Exp[_]): Boolean = getDef(e).exists(isLoop)
   def isLoop(d: Def): Boolean = d match {
     case _:OpForeach           => true
@@ -83,12 +89,15 @@ trait NodeClasses extends SpatialMetadataExp {
   /** Allocations **/
   def isAllocation(e: Exp[_]): Boolean = getDef(e).exists(isAllocation)
   def isAllocation(d: Def): Boolean = d match {
-    case _:RegNew[_]    => true
-    case _:ArgInNew[_]  => true
-    case _:ArgOutNew[_] => true
-    case _:SRAMNew[_]   => true
-    case _:FIFONew[_]   => true
-    case _:DRAMNew[_]   => true
+    case _:RegNew[_]       => true
+    case _:ArgInNew[_]     => true
+    case _:ArgOutNew[_]    => true
+    case _:SRAMNew[_]      => true
+    case _:FIFONew[_]      => true
+    case _:DRAMNew[_]      => true
+    case _:StreamInNew[_]  => true
+    case _:StreamOutNew[_] => true
+    case _:Forever         => true
     case _ => isDynamicAllocation(d)
   }
 
@@ -108,16 +117,39 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isSRAM(e: Exp[_]): Boolean = e.tp match {
+    case _:SRAMType[_] => true
+    case _ => false
+  }
+
+  def isReg(e: Exp[_]): Boolean = e.tp match {
+    case _:RegType[_] => true
+    case _ => false
+  }
+
+  def isFIFO(e: Exp[_]): Boolean = e.tp match {
+    case _:FIFOType[_] => true
+    case _ => false
+  }
+
   def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] => true
     case _ => false
   }
 
   def isOffChipMemory(e: Exp[_]): Boolean = e.tp match {
-    case _:DRAMType[_] => true
-    case _:RegType[_] => isArgIn(e) || isArgOut(e)
+    case _:DRAMType[_]      => true
+    case _:StreamInType[_]  => true
+    case _:StreamOutType[_] => true
+    case _:RegType[_]       => isArgIn(e) || isArgOut(e)
     case _ => false
   }
+
+  def isVector(e:Exp[_]):Boolean = e.tp match {
+    case _:VectorType[_] => true
+    case _ => false
+  }
+
 
   /** Host Transfer **/
 
@@ -136,7 +168,6 @@ trait NodeClasses extends SpatialMetadataExp {
     case _: SetArg[_] => true
     case _ => false
   }
-
 
   /** Stateless Nodes **/
   def isRegisterRead(e: Exp[_]): Boolean = getDef(e).exists(isRegisterRead)
@@ -200,7 +231,6 @@ trait NodeClasses extends SpatialMetadataExp {
     case BurstLoad(dram,fifo,ofs,_,_)         => Some(LocalWrite(fifo))
     case ParSRAMStore(mem,addr,data,en)       => Some(LocalWrite(mem,value=data))
     case ParFIFOEnq(fifo,data,ens)            => Some(LocalWrite(fifo,value=data))
-
     case _ => None
   }
   def readerUnapply(d: Def): Option[List[LocalRead]] = d match {

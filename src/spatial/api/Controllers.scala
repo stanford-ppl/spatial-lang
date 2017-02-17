@@ -116,7 +116,7 @@ trait ControllerApi extends ControllerExp with RegApi {
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { accel_blk(func); () }
   }
 
-  object Pipe {
+  object Pipe extends ForeachClass(InnerPipe) {
     /** "Pipelined" unit controller **/
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, InnerPipe); () }
     def Foreach   = ForeachClass(InnerPipe)
@@ -126,7 +126,7 @@ trait ControllerApi extends ControllerExp with RegApi {
     def MemFold   = MemFoldClass(MetaPipe)
   }
 
-  object Sequential {
+  object Sequential extends ForeachClass(SeqPipe) {
     /** Sequential unit controller **/
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
     def Foreach   = ForeachClass(SeqPipe)
@@ -136,7 +136,7 @@ trait ControllerApi extends ControllerExp with RegApi {
     def MemFold   = MemFoldClass(SeqPipe)
   }
 
-  object Stream {
+  object Stream extends ForeachClass(StreamPipe) {
     /** Streaming unit controller **/
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, StreamPipe); () }
     def Foreach   = ForeachClass(StreamPipe)

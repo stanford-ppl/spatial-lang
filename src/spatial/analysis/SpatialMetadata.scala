@@ -45,14 +45,17 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   }
   private[spatial] def setBound[T:Staged](x: T, value: BigInt): Unit = { boundOf(x.s) = value }
   private[spatial] def getBound(x: Exp[_]): Option[MBound] = x match {
-    case Const(c: BigInt) => Some(Final(c))
-    case Param(c: BigInt) => Some(Exact(c))
+    case Const(c: BigDecimal) if c.isWhole => Some(Final(c.toBigInt))
+    case Param(c: BigDecimal) if c.isWhole => Some(Exact(c.toBigInt))
     case _ => metadata[MBound](x)
   }
 
   object Bound {
     def apply(value: BigInt) = MBound(value, isExact = false, isFinal = false)
-    def unapply(x: Exp[_]): Option[BigInt] = boundOf.get(x)
+    def unapply(x: Exp[_]): Option[BigInt] = getBound(x) match {
+      case Some(MBound(value, _, _)) => Some(value)
+      case _ => None
+    }
   }
   object Exact {
     def apply(value: BigInt) = MBound(value, isExact = true, isFinal = false)
@@ -234,12 +237,30 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   }
 
   /**
+    * Defines which unrolled duplicate the given symbol is on, for all levels of the control tree above it
+    */
+  case class UnrollNumbers(nums: Seq[Int]) extends Metadata[UnrollNumbers] { def mirror(f:Tx) = this }
+  object unrollNumsFor {
+    def apply(x: Exp[_]): Seq[Int] = metadata[UnrollNumbers](x).map(_.nums).getOrElse(Nil)
+    def update(x: Exp[_], nums: Seq[Int]) = metadata.add(x, UnrollNumbers(nums))
+  }
+
+  /**
     * Identifies whether a memory is an accumulator
     */
   case class MAccum(is: Boolean) extends Metadata[MAccum] { def mirror(f:Tx) = this }
   object isAccum {
     def apply(x: Exp[_]): Boolean = metadata[MAccum](x).exists(_.is)
     def update(x: Exp[_], is: Boolean) = metadata.add(x, MAccum(is))
+  }
+
+  /**
+    * Identifies whether a memory is an accumulator
+    */
+  case class MInnerAccum(is: Boolean) extends Metadata[MInnerAccum] { def mirror(f:Tx) = this }
+  object isInnerAccum {
+    def apply(x: Exp[_]): Boolean = metadata[MInnerAccum](x).exists(_.is)
+    def update(x: Exp[_], is: Boolean) = metadata.add(x, MInnerAccum(is))
   }
 
   /**

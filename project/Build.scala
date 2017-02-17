@@ -34,7 +34,7 @@ object SpatialBuild extends Build {
     retrieveManaged := true,
     scalacOptions += "-Yno-generic-signatures",
 
-    excludeFilter in unmanagedSources := "*template-level*" || "*app-level*" || "*altera-goodies*",
+    excludeFilter in unmanagedSources := "*template-level*" || "*app-level*" || "*resources*",
 
     // More strict error/warning checking
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings"),

@@ -2,6 +2,7 @@ package spatial
 
 import argon.codegen.scalagen._
 import argon.codegen.chiselgen._
+import argon.codegen.pirgen._
 import argon.codegen.cppgen._
 import argon.core.Staging
 import argon.ops._
@@ -13,6 +14,7 @@ import spatial.analysis._
 import spatial.transform._
 import spatial.codegen.scalagen._
 import spatial.codegen.chiselgen._
+import spatial.codegen.pirgen._
 import spatial.codegen.cppgen._
 
 
@@ -23,6 +25,7 @@ protected trait SpatialExp extends Staging
 
   with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
+  with StreamExp with PinExp
 
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
 
@@ -34,6 +37,7 @@ protected trait SpatialApi extends SpatialExp
 
   with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
+  with StreamApi with PinApi
 
   with SpatialMetadataApi with BankingMetadataApi
 
@@ -59,6 +63,16 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   override val IR: SpatialCompiler
 }
 
+protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen 
+  with PIRGenPrint with PIRGenController 
+  //with PIRGenCounter with PIRGenReg with PIRGenSRAM with PIRGenFIFO with PIRGenMath 
+  //with PIRGenDRAM with PIRGenStringCast with PIRGenHostTransfer with PIRGenUnrolled with PIRGenVector
+  //with PIRGenArray 
+  {
+
+  override val IR: SpatialCompiler
+}
+
 protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenBool with CppGenVoid with CppGenFixPt with CppGenFltPt with CppGenMixedNumeric
   with CppGenCounter with CppGenReg with CppGenSRAM with CppGenFIFO 
@@ -74,7 +88,7 @@ protected trait TreeWriter extends TreeGenSpatial {
 }
 
 
-protected trait SpatialCompiler extends CompilerCore with SpatialExp with SpatialApi { self =>
+protected trait SpatialCompiler extends CompilerCore with SpatialExp with SpatialApi with PIRCommonExp { self =>
   lazy val printer = new IRPrinter {val IR: self.type = self }
 
   // Traversals
@@ -121,6 +135,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
 
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
   lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableChisel }
+  lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
   lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableCpp }
   lazy val treegen = new TreeGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableTree }
 
@@ -202,6 +217,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // --- Code generation
   passes += scalagen
   passes += chiselgen
+  passes += pirgen 
   passes += cppgen
   passes += treegen
 }
@@ -210,7 +226,12 @@ protected trait SpatialIR extends SpatialCompiler
 protected trait SpatialLib extends LibCore // Actual library implementation goes here
 
 trait SpatialApp extends AppCore {
-  val IR: SpatialIR = new SpatialIR { }
+  import spatial.targets._
+
+  private def __target: FPGATarget = Targets.targets.find(_.name == SpatialConfig.targetName).getOrElse{ DefaultTarget }
+  val target = __target
+
+  val IR: SpatialIR = new SpatialIR { def target = SpatialApp.this.target }
   val Lib: SpatialLib = new SpatialLib { def args: Array[String] = stagingArgs }
 }
 

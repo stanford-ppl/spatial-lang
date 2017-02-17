@@ -8,7 +8,6 @@ trait DRAMAddrAnalyzer extends CompilerPass {
   import IR._
 
   override val name = "DRAM Address Analyzer"
-  def target = SpatialConfig.target
 
   def memStreams: Set[Exp[_]]
 
