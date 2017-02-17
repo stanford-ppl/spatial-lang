@@ -353,7 +353,10 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
       isReduceStarter(accValue) = true
 
-      fold match {
+      if (SpatialConfig.enablePIR) {
+        reduce(treeResult, accValue)
+      }
+      else fold match {
         // FOLD: On first iteration, use init value rather than zero
         case Some(init) =>
           val accumOrFirst = math_mux(isFirst, init, accValue)
