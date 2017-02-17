@@ -80,7 +80,7 @@ object Arguments {
     1,3
   )
   val FixedPointTester = List(
-    (false,4,10)
+    (false,4,16)
     // (false, 4, 4)
   )
   val Counter = List(
