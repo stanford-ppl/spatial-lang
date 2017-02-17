@@ -1,5 +1,5 @@
-Hardware Templates
-==================
+Hardware
+========
 
 .. toctree::
    accel/memories

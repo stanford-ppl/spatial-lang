@@ -37,44 +37,46 @@ trait ControllerApi extends ControllerExp with RegApi {
   }
 
 
-  protected case class ReduceAccum[T](accum: Reg[T], style: ControlStyle, zero: Option[T], fold: Option[T]) {
+  protected class ReduceAccum[T](accum: Option[Reg[T]], style: ControlStyle, zero: Option[T], fold: Option[T]) {
     /** 1 dimensional reduction **/
     def apply(domain1D: Counter)(map: Index => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Staged[T], bits: Bits[T]): Reg[T] = {
-      reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
-      accum
+      val acc = accum.getOrElse(Reg[T])
+      reduceND(List(domain1D), acc, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
+      acc
     }
     /** 2 dimensional reduction **/
     def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Staged[T], bits: Bits[T]): Reg[T] = {
-      reduceND(List(domain1, domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
-      accum
+      val acc = accum.getOrElse(Reg[T])
+      reduceND(List(domain1, domain2), acc, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
+      acc
     }
   }
 
-  protected case class ReduceClass(style: ControlStyle) {
+  protected case class ReduceClass(style: ControlStyle) extends ReduceAccum(None, style, None, None) {
     import org.virtualized.SourceContext
     /** Reduction with implicit accumulator **/
     // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-    def apply(zero: Int) = ReduceAccum(Reg[Int32](int2fixpt[TRUE,_32,_0](zero)), style, Some(lift[Int,Int32](zero)), None)
-    def apply(zero: Long) = ReduceAccum(Reg[Int64](long2fixpt[TRUE,_64,_0](zero)), style, Some(lift[Long,Int64](zero)), None)
-    def apply(zero: Float) = ReduceAccum(Reg[Float32](float2fltpt[_24,_8](zero)), style, Some(lift[Float,Float32](zero)), None)
-    def apply(zero: Double) = ReduceAccum(Reg[Float64](double2fltpt[_53,_11](zero)), style, Some(lift[Double,Float64](zero)), None)
+    def apply(zero: Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, Some(lift[Int,Int32](zero)), None)
+    def apply(zero: Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, Some(lift[Long,Int64](zero)), None)
+    def apply(zero: Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, Some(lift[Float,Float32](zero)), None)
+    def apply(zero: Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, Some(lift[Double,Float64](zero)), None)
 
-    //def apply(zero: FixPt[_,_,_]) = ReduceAccum(Reg[FixPt[S,I,F]](zero), style)
-    //def apply(zero: FltPt[_,_]) = ReduceAccum(Reg[FltPt[G,E]](zero), style)
+    //def apply(zero: FixPt[_,_,_]) = new ReduceAccum(Reg[FixPt[S,I,F]](zero), style)
+    //def apply(zero: FltPt[_,_]) = new ReduceAccum(Reg[FltPt[G,E]](zero), style)
 
     /** Reduction with explicit accumulator **/
     // TODO: Should initial value of accumulator be assumed to be the identity value?
-    def apply[T](accum: Reg[T]) = ReduceAccum(accum, style, None, None)
+    def apply[T](accum: Reg[T]) = new ReduceAccum(Some(accum), style, None, None)
   }
 
   protected case class FoldClass(style: ControlStyle) {
     import org.virtualized.SourceContext
     /** Fold with implicit accumulator **/
     // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-    def apply(zero: Int) = ReduceAccum(Reg[Int32](int2fixpt[TRUE,_32,_0](zero)), style, None, Some(lift[Int,Int32](zero)))
-    def apply(zero: Long) = ReduceAccum(Reg[Int64](long2fixpt[TRUE,_64,_0](zero)), style, None, Some(lift[Long,Int64](zero)))
-    def apply(zero: Float) = ReduceAccum(Reg[Float32](float2fltpt[_24,_8](zero)), style, None, Some(lift[Float,Float32](zero)))
-    def apply(zero: Double) = ReduceAccum(Reg[Float64](double2fltpt[_53,_11](zero)), style, None, Some(lift[Double,Float64](zero)))
+    def apply(zero: Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, None, Some(lift[Int,Int32](zero)))
+    def apply(zero: Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, None, Some(lift[Long,Int64](zero)))
+    def apply(zero: Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, None, Some(lift[Float,Float32](zero)))
+    def apply(zero: Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, None, Some(lift[Double,Float64](zero)))
 
     def apply[T](accum: Reg[T]) = {
       val sty = if (style == InnerPipe) MetaPipe else style
@@ -82,7 +84,7 @@ trait ControllerApi extends ControllerExp with RegApi {
     }
   }
 
-  protected case class ForeachClass(style: ControlStyle) {
+  protected class ForeachClass(style: ControlStyle) {
     /** 1 dimensional parallel foreach **/
     def apply(domain1D: Counter)(func: Index => Void)(implicit ctx: SrcCtx): Void = {
       foreachND(List(domain1D), {x: List[Index] => func(x.head) }, style)
@@ -119,7 +121,7 @@ trait ControllerApi extends ControllerExp with RegApi {
   object Pipe extends ForeachClass(InnerPipe) {
     /** "Pipelined" unit controller **/
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, InnerPipe); () }
-    def Foreach   = ForeachClass(InnerPipe)
+    def Foreach   = new ForeachClass(InnerPipe)
     def Reduce    = ReduceClass(InnerPipe)
     def Fold      = FoldClass(InnerPipe)
     def MemReduce = MemReduceClass(MetaPipe)
@@ -129,7 +131,7 @@ trait ControllerApi extends ControllerExp with RegApi {
   object Sequential extends ForeachClass(SeqPipe) {
     /** Sequential unit controller **/
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
-    def Foreach   = ForeachClass(SeqPipe)
+    def Foreach   = new ForeachClass(SeqPipe)
     def Reduce    = ReduceClass(SeqPipe)
     def Fold      = FoldClass(SeqPipe)
     def MemReduce = MemReduceClass(SeqPipe)
@@ -139,7 +141,7 @@ trait ControllerApi extends ControllerExp with RegApi {
   object Stream extends ForeachClass(StreamPipe) {
     /** Streaming unit controller **/
     def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, StreamPipe); () }
-    def Foreach   = ForeachClass(StreamPipe)
+    def Foreach   = new ForeachClass(StreamPipe)
     def Reduce    = ReduceClass(StreamPipe)
     def Fold      = FoldClass(StreamPipe)
     def MemReduce = MemReduceClass(StreamPipe)

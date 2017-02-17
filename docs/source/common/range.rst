@@ -77,3 +77,13 @@ This loop will run for all even integers from \[0, max). Note that this syntax i
 | |                       \[**NOTE**\] This method is unsynthesizable, and can be used only on the CPU or in simulation.                     |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
 
+
+----------------
+
+
+**Implicit methods**
+
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |               def   **rangeToCounter**\(reg: :doc:`range`): :doc:`../accel/memories/counter`                                             |
+| |                       Implicitly creates a hardware :doc:`../accel/memories/counter` from this Range                                     |
++---------------------+----------------------------------------------------------------------------------------------------------------------+

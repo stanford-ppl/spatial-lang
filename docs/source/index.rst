@@ -24,3 +24,4 @@ Contents
    common
    software
    hardware
+   tutorial

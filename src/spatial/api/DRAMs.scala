@@ -6,6 +6,9 @@ import spatial.SpatialExp
 trait DRAMApi extends DRAMExp with BurstTransferApi {
   this: SpatialExp =>
 
+  type Tile[T] = DRAMDenseTile[T]
+  type SparseTile[T] = DRAMSparseTile[T]
+
   def DRAM[T:Staged:Bits](dimA: Index, dimsB: Index*)(implicit ctx: SrcCtx): DRAM[T] = {
     DRAM(dram_alloc[T](unwrap(dimA +: dimsB)))
   }

@@ -29,6 +29,18 @@ Commonly used mathematical operators
 **Methods**
 
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |               def   **mux**\[T::doc:`../typeclasses/bits`\](sel: :doc:`boolean`, a: T, b: T): T                                          |
+| |                     Returns **a** when **sel** is `true`, **b** when **sel** is `false`                                                  |
+| |                     Implemented in hardware as a 2 input multiplexer                                                                     |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |               def   **max**\[T::doc:`../typeclasses/bits`\::doc:`../typeclasses/order`\](a: T, b: T): T                                  |
+| |                     Returns the maximum of **a** and **b**                                                                               |
+| |                     Implemented in hardware as a multiplexer with a greater-than comparison                                              |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |               def   **min**\[T::doc:`../typeclasses/bits`\::doc:`../typeclasses/order`\](a: T, b: T): T                                  |
+| |                     Returns the minimum of **a** and **b**                                                                               |
+| |                     Implemented in hardware as a multiplexer with a less-than comparison                                                 |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
 | |               def   **pow**\[T::doc:`../typeclasses/num`\](x: T, n: scala.Int): T                                                        |
 | |                     Integer power implemented in hardware as a reduction tree                                                            |
 | |                                                                                                                                          |

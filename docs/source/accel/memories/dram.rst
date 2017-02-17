@@ -25,51 +25,46 @@ DRAM
 ====
 
 
-DRAMs are pointers to locations in the accelerator's main memory to dense multi-dimensional arrays. They are the primary form of communication
+DRAMs are pointers to locations in the accelerator's main memory comprising dense multi-dimensional arrays. They are the primary form of communication
 of data between the host and the accelerator. Data may be loaded to and from the accelerator in contiguous chunks (Tiles),
 or by bulk scatter and gather operations (SparseTiles).
 
+----------------
 
-Direct methods
+**Static Methods**
+
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+|      `object`         **DRAM**                                                                                                             |
++=====================+======================================================================================================================+
+| |               def   **apply**\[T::doc:`../../typeclasses/bits`\](dimensions: :doc:`Int <../../common/fixpt>`\*): :doc:`dram`\[T\]        |
+| |                       Creates a reference to an N-dimensional array in main memory with given **dimensions**                             |
+| |                       The dimensions of a DRAM should be functions of constants, parameters, and :doc:`ArgIns <reg>`                     |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+
 --------------
 
-.. parsed-literal::
+**Infix methods**
 
-  :maroon:`def` DRAM\[T:Staged::doc:`bits`\](dims: :doc:`Index <fixpt>`\*): :doc:`dram`\[T\]
-
-Creates a reference to a multi-dimensional array in main memory with given dimensions 
-
-
-Infix methods
--------------
-
-.. parsed-literal::
-
-  :maroon:`def` apply(ranges: :doc:`range`\*): :doc:`tile`\[T\]
-
-Creates a reference to a :doc:`tile` of this DRAM for creating burst loads and stores.
-The number of ranges should match the dimensionality of this DRAM.
-Single :doc:`Index <fixpt>` values can be used as :doc:`range`s to create a Tile of a smaller dimensionality.
-
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` apply(addrs: :doc:`sram`\[:doc:`Index <fixpt>`\], size: :doc:`Index <fixpt>`): :doc:`sparsetile`\[T\]
-
-Sets up a :doc:`sparsetile` for use in bulk gather from this DRAM using *size* addresses from the supplied SRAM
-
-	* **addrs** \- SRAM with addresses to load
-	* **size** \- the number of addresses
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` apply(addrs: :doc:`sram`\[:doc:`Index <fixpt>`\]): :doc:`sparsetile`\[T\]
-
-Sets up a :doc:`sparsetile` for use in bulk gather from this DRAM using all addresses from the supplied SRAM
-
-	* **addrs** \- SRAM with addresses to load
-
++---------------------+---------------------------------------------------------------------------------------------------------------------------------------+
+|      `class`         **DRAM**\[T\]                                                                                                                          |
++=====================+=======================================================================================================================================+
+| |               def   **apply**\(ranges\: :doc:`../../common/range`\*): :doc:`tile`\[T\]                                                                    |
+| |                       Creates a reference to a :doc:`tile` of this DRAM for creating burst loads and stores.                                              |
+| |                       The number of ranges should match the dimensionality of this DRAM.                                                                  |
+| |                       Single :doc:`Int <../../common/fixpt>` values can be used as Ranges to create a Tile of smaller dimensionality.                     |
++---------------------+---------------------------------------------------------------------------------------------------------------------------------------+
+| |               def   **apply**\(addrs: :doc:`sram`\[:doc:`Int <../../common/fixpt>`\]): :doc:`sparsetile`\[T\]                                             |
+| |                       Creates a reference to a :doc:`sparsetile` of this DRAM for use in scatter and gather transfers                                     |
+| |                       using all addresses from the **addrs** :doc:`sram` .                                                                                |
+| |                       Note that creation of SparseTiles is currently only supported on 1-dimensional DRAMs.                                               |
+| |                                                                                                                                                           |
+| | 	                  * **addrs** \- SRAM with addresses to load                                                                                          |
++---------------------+---------------------------------------------------------------------------------------------------------------------------------------+
+| |               def   **apply**\(addrs\: :doc:`sram`\[:doc:`Int <../../common/fixpt>`\], size\: :doc:`Int <../../common/fixpt>`): :doc:`sparsetile`\[T\]    |
+| |                       Creates a reference to a :doc:`sparsetile` of this DRAM for use in scatter and gather transfers                                     |
+| |                       using **size** addresses from the **addrs** :doc:`sram` .                                                                           |
+| |                       Note that creation of SparseTiles is currently only supported on 1-dimensional DRAMs.                                               |
+| |                                                                                                                                                           |
+| | 	                  * **addrs** \- SRAM with addresses to load                                                                                          |
+| |                       * **size** \- the number of addresses to use                                                                                        |
++---------------------+---------------------------------------------------------------------------------------------------------------------------------------+
