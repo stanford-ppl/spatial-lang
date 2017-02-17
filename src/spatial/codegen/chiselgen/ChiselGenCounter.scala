@@ -60,7 +60,7 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
       emit(src"""val ${lhs}_maxed = ${lhs}.io.output.saturated""")
       ctrs.zipWithIndex.foreach { case (c, i) =>
         val Def(CounterNew(_,_,_,p)) = c 
-        val Const(x: BigInt) = p // TODO: Method for extracting counter par??
+        val Const(x: BigDecimal) = p // TODO: Method for extracting counter par??
         emit(s"""val ${quote(c)} = (0 until $x).map{ j => ${quote(lhs)}.io.output.counts($i + j) }""")
       }
 

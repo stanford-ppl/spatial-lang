@@ -27,27 +27,20 @@ Order
 Type class used to supply evidence that type T has basic ordering operations defined on it.
 
 
-Infix methods
--------------
 
-.. parsed-literal::
+**Abstract Methods**
 
-  :maroon:`def` lessThan(x: T, y: T): :doc:`boolean`
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+|      `trait`         **Order**\[T\]                                                                                                        |
++=====================+======================================================================================================================+
+| |      abstract def   **lessThan**\(x: T, y: T): :doc:`../common/boolean`                                                                  |
+| |                       Returns `true` if x is less than y, `false` otherwise                                                              |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **lessThanOrEqual**\(x: T, y: T): :doc:`../common/boolean`                                                           |
+| |                       Returns `true` if x is less than or equal to y, `false` otherwise                                                  |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |      abstract def   **equal**\(x: T, y: T): :doc:`../common/boolean`                                                                     |
+| |                       Returns `true` if x and y are equal, `false` otherwise                                                             |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
 
-Returns `true` if x is less than y, `false` otherwise
 
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` lessThanOrEqual(x: T, y: T): :doc:`bit`
-
-Returns `true` if x is less than or equal to y, `false` otherwise
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` equal(x: T, y: T): :doc:`boolean`
-
-Returns `true` if x and y are equal, `false` otherwise

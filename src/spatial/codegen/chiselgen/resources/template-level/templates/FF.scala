@@ -1,6 +1,7 @@
 package templates
 
 import chisel3._
+import types._
 
 /**
  * FF: Flip-flop with the ability to set enable and init
@@ -32,14 +33,19 @@ class FF(val w: Int) extends Module {
   ff := Mux(io.input.reset, io.input.init, Mux(io.input.enable, io.input.data, ff))
   io.output.data := Mux(io.input.reset, io.input.init, ff)
 
-  def write(data: UInt, en: Bool, reset: Bool, port: List[Int]) {
-    io.input.data := data
+  def write[T](data: T, en: Bool, reset: Bool, port: List[Int]) {
+    data match {
+      case d: UInt =>
+        io.input.data := d
+      case d: types.FixedPoint =>
+        io.input.data := d.number
+    }
     io.input.enable := en
     io.input.reset := reset
     // Ignore port
   }
 
-  def write(data: UInt, en: Bool, reset: Bool, port: Int) {
+  def write[T](data: T, en: Bool, reset: Bool, port: Int) {
     write(data, en, reset, List(port))
   }
 
@@ -119,20 +125,30 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
     wire.data := chisel3.util.Mux1H(sel, Vec(ff.map{f => f.io.output.data}))
   }
 
-  def write(data: UInt, en: Bool, reset: Bool, port: Int) {
+  def write[T](data: T, en: Bool, reset: Bool, port: Int) {
     write(data, en, reset, List(port))
   }
 
-  def write(data: UInt, en: Bool, reset: Bool, ports: List[Int]) {
+  def write[T](data: T, en: Bool, reset: Bool, ports: List[Int]) {
 
     if (ports.length == 1) {
       val port = ports(0)
-      io.input.data := data
+      data match { 
+        case d: UInt => 
+          io.input.data := d
+        case d: types.FixedPoint => 
+          io.input.data := d.number
+      }
       io.input.enable := en
       io.input.reset := reset
       io.writerStage := port.U
     } else {
-      io.broadcast.data := data
+      data match { 
+        case d: UInt => 
+          io.broadcast.data := d
+        case d: types.FixedPoint => 
+          io.broadcast.data := d.number
+      }
       io.broadcast.enable := en
       io.broadcast.reset := reset      
     }

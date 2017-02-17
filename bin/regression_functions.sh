@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 ## This file contains all the functions used for regression testing.
 ##   It is called from the receive.sh, which handles path variables
 ##   and git checkouts on a server-specific basis
 
-spacing=20
-delay=650
+spacing=25
+delay=600
 numpieces=30
 hist=72
 
@@ -212,7 +212,7 @@ update_log() {
     cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/comptimes_${branch}_${type_todo}_${pname}.csv)"
     if [[ $p == *"pass"* ]]; then
       echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
-      t=(`sed -n '2p' $p`)
+      t=(`sed -n '1p' $p`)
     elif [[ $p == *"failed_execution_validation"* ]]; then
       echo "<----${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=0
@@ -291,6 +291,7 @@ update_histories() {
 # history_file=${SPATIAL_HOME}/spatial.wiki/${branch}_Regression_Test_History.csv
 
 # Get list of apps that have data
+IFS=$'\n'
 all_apps=(`cat ${wiki_file} | grep "^\*\*pass\|^<-\+failed" | sed "s/<-\+//g" | sed "s/^.*[0-9]\+\_//g" | sed "s/\*//g" | sed "s/\[🗠.*//g" | sort`)
 
 # Determine type for each app to build headers list
@@ -345,15 +346,15 @@ for aa in ${headers[@]}; do
 
   infile=(`cat ${pretty_file} | grep $aa | wc -l`)
   if [[ $infile -gt 0 ]]; then # This test exists in history
-    # logger "Updating $aa in pretty history log"
     # Get last known datapoint and vector
-    last=(`cat ${pretty_file} | grep "|${aa}\ " | sed "s/.*,//g" | sed 's/.*\(.\)/\1/'`)
-    if [ $last=█ ]; then old_num=0; elif [ $last=▇ ]; then old_num=1; elif [ $last=▆ ]; then old_num=2; elif [ $last=▅ ]; then old_num=3; elif [ $last=▄ ]; then old_num=4; elif [ $last=▃ ]; then old_num=5; elif [ $last=▂ ]; then old_num=6; elif [ $last=▁ ]; then old_num=7; else oldnum=8; fi
-    if [[ $old_num = 0 && $num = 0 ]]; then vec=✓; elif [[ $old_num > $num ]]; then vec=↘; elif [[ $old_num == $num ]]; then vec=→; else vec=↗; fi
+    last=$(cat ${pretty_file} | grep "${aa}\ " | grep -o ".$")
+    if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else oldnum=8; fi
+    if [[ $old_num = 0 && $num = 0 ]]; then vec="="; elif [[ $old_num > $num ]]; then vec=↗; elif [[ $old_num < $num ]]; then vec=↘; else vec=→; fi
     # Edit file
-    cmd="sed -i \"/^${aa}\ \+,/ s/$/$bar/\" ${pretty_file}" # Append bar to line
+    logger "app $aa from $last to $bar, numbers $old_num to $num"
+    cmd="sed -i 's/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/' ${pretty_file}" # Append bar
     eval "$cmd"
-    cmd="sed -i \"s/\\(^${aa}\ \+\\)\ ,,\\(.*\\)/\\1${vec},,\\2/\" ${pretty_file}" # Inject change vector
+    cmd="sed -i 's/\\(^${aa}\ \+\\).,,\\(.*\\)/\\1${vec},,\\2/' ${pretty_file}" # Inject change vector
     eval "$cmd"
     # Shave first if too long
     numel=(`cat ${pretty_file} | grep "^$aa\ " | grep -oh "." | wc -l`)
@@ -528,8 +529,9 @@ function report {
   rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
-    cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" > ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
-    echo ${comp_time} >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
+    touch ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
+    echo \${comp_time} >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
+    cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
     exit 0
   else
     echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2})\" >> ${log}

@@ -4,6 +4,7 @@ import argon.transform.ForwardTransformer
 import spatial.SpatialExp
 import org.virtualized.SourceContext
 import spatial.api.ControllerApi
+import spatial.SpatialConfig
 
 trait UnrollingTransformer extends ForwardTransformer { self =>
   val IR: SpatialExp with ControllerApi
@@ -25,7 +26,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     cloneFuncs = prevCloneFuncs
     result
   }
-  def inReduction[T](blk: => T): T = duringClone{e => /*if (SpatialConfig.genCGRA) reduceType(e) = None*/ () }{ blk }
+  def inReduction[T](blk: => T): T = duringClone{e => if (SpatialConfig.enablePIR) reduceType(e) = None }{ blk }
 
   /**
     * Valid bits - tracks all valid bits associated with the current scope to handle edge cases
@@ -82,7 +83,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     **/
   case class Unroller(cchain: Exp[CounterChain], inds: Seq[Bound[Index]], isInnerLoop: Boolean) {
     // Don't unroll inner loops for CGRA generation
-    val Ps = parFactorsOf(cchain).map{case Exact(c) => c.toInt } /*if (isInnerLoop && SpatialConfig.genCGRA) inds.map{i => 1} */
+    val Ps = if (isInnerLoop && SpatialConfig.enablePIR) inds.map{_ => 1} else parFactorsOf(cchain).map{case Exact(c) => c.toInt }
     val P = Ps.product
     val N = Ps.length
     val prods = List.tabulate(N){i => Ps.slice(i+1,N).product }
@@ -352,7 +353,10 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
       isReduceStarter(accValue) = true
 
-      fold match {
+      if (SpatialConfig.enablePIR) {
+        reduce(treeResult, accValue)
+      }
+      else fold match {
         // FOLD: On first iteration, use init value rather than zero
         case Some(init) =>
           val accumOrFirst = math_mux(isFirst, init, accValue)
