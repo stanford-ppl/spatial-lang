@@ -82,7 +82,7 @@ trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions
 
   /** Constructors **/
   def fix_abs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]])(implicit ctx: SrcCtx): Exp[FixPt[S,I,F]] = x match {
-    case Const(c: BigInt) => fixpt[S,I,F](c.abs)
+    case Const(c: BigDecimal) => fixpt[S,I,F](c.abs)
     case _ => stage(FixAbs(x))(ctx)
   }
 
