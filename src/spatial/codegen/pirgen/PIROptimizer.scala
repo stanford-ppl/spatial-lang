@@ -16,7 +16,7 @@ trait PIROptimizer extends PIRTraversal {
 
   override def process[S:Staged](b: Block[S]): Block[S] = {
     msg("Starting traversal PIR Optimizer")
-    for (cu <- cus) removeRouteThrus(cu)
+    for (cu <- cus) removeRouteThrus(cu) // Remove route through stages
     for (cu <- cus) removeUnusedCUComponents(cu)
     for (cu <- cus) removeDeadStages(cu)
     removeEmptyCUs(mapping.values.toList)
@@ -198,6 +198,7 @@ trait PIROptimizer extends PIRTraversal {
         }
       }
       if (usedCCs.isEmpty || sibling.isDefined) {
+        dbg(s"Removing empty CU $cu")
         mapping.retain{case (pipe,c) => c != cu }
       }
     }

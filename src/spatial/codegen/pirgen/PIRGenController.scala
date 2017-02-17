@@ -7,10 +7,11 @@ import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
 import scala.collection.mutable.Map
 import argon.Config
+import spatial.codegen._
 
 trait PIRGenController extends PIRTraversal with PIRCodegen {
   val IR: SpatialExp with PIRCommonExp
-  import IR._
+  import IR.{println => _, _}
 
   val genControlLogic = false
   var allocatedReduce: Set[ReduceReg] = Set.empty
@@ -70,30 +71,9 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     }
 
     msg("Starting traversal PIR Generation")
-    generateHeader()
+    val blk = super.preprocess(block) // generateHeader
     generateGlobals()
-    block
-  }
-
-  def generateHeader() {
-    emit("import pir.graph")
-    emit("import pir.graph._")
-    emit("import pir.graph.enums._")
-    emit("import pir.codegen._")
-    emit("import pir.plasticine.config._")
-    emit("import pir.Design")
-    emit("import pir.misc._")
-    emit("import pir.PIRApp")
-    emit("")
-    open(s"""object ${Config.name}Design extends PIRApp {""")
-    //emit(s"""override val arch = SN_4x4""")
-    open(s"""def main(args: String*)(top:Top) = {""")
-  }
-
-  def generateFooter() {
-    emit(s"")
-    close("}")
-    close("}")
+    blk
   }
 
   def generateGlobals() {
@@ -103,11 +83,10 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
   }
 
   override protected def postprocess[S:Staged](block: Block[S]): Block[S] = {
-    generateFooter()
+    super.postprocess(block)
     msg("Done.")
     val nCUs = cus.values.flatten.filter{cu => cu.allStages.nonEmpty || cu.isDummy }.size
     msg(s"NUMBER OF CUS: $nCUs")
-    //sys.exit()
     block
   }
 
@@ -148,13 +127,13 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
       emitStages(cu.computeStages)
     }
   }
-  //override def quote(s: Exp[_]): String = {
+  //override def quote(s: Exp[_]): String
 
   def cuDeclaration(cu: CU) = {
     val parent = cu.parent.map(_.name).getOrElse("top")
     val deps = cu.deps.map{dep => dep.name }.mkString("List(", ", ", ")")
 
-    s"""${quote(cu)}(name = "${cu.name}", parent=$parent, deps=$deps)"""
+    s"""${quote(cu)}(name = "${cu.name}", parent=$parent)"""
   }
 
   def preallocateRegisters(cu: CU) = cu.regs.foreach{
@@ -182,11 +161,11 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     close("}")
   }
 
-  private def emitController(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    //case isControlNode(lhs) && cus.contains(lhs) =>
-    case rhs if isControlNode(lhs) => //generateCU(lhs, cu)
-      //emit(s"$lhs = $rhs")
-    case _ => 
+  def emitController(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
+    case rhs if isControlNode(lhs) && cus.contains(lhs) => cus(lhs).foreach{cu => generateCU(lhs, cu)}
+    //case rhs if isControlNode(lhs) => //generateCU(lhs, cu)
+    // emit(s"$lhs = $rhs")
+    case _ =>
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
@@ -196,6 +175,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
         emitBlock(func)
 
       case UnitPipe(en, func) =>
+        emitBlock(func)
 
       case ParallelPipe(en, func) => 
         emitBlock(func)
@@ -261,18 +241,18 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
       }
 
       if (sram.bufferDepth > 1 && sram.mode != FIFOMode) {
-        var buffering = s", buffering = MultiBuffer(${sram.bufferDepth}"
-        sram.swapRead match {
-          case Some(cchain) => buffering += s", swapRead = ${cchain.name}(0)"
-          case None => throw new Exception(s"No swap read controller defined for $sram")
-        }
+        var buffering = s", buffering = ${sram.bufferDepth}"
+        //sram.swapRead match {
+          //case Some(cchain) => buffering += s", swapRead = ${cchain.name}(0)"
+          //case None => throw new Exception(s"No swap read controller defined for $sram")
+        //}
 
-        sram.swapWrite match {
-          case Some(cchain) => buffering += s", swapWrite = ${cchain.name}(0)"
-          case None if sram.mode != SRAMMode => // Ok
-          case None => throw new Exception(s"No swap write controller defined for $sram")
-        }
-        decl += s"$buffering)"
+        //sram.swapWrite match {
+          //case Some(cchain) => buffering += s", swapWrite = ${cchain.name}(0)"
+          //case None if sram.mode != SRAMMode => // Ok
+          //case None => throw new Exception(s"No swap write controller defined for $sram")
+        //}
+        decl += s"$buffering"
       }
       else if (sram.mode != FIFOMode) {
         decl += ", buffering = SingleBuffer()"
@@ -338,8 +318,8 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case InputArg(name)      => s"${name}_argin"
     case OutputArg(name)     => s"${name}_argout"
     case LocalVectorBus      => "local"
-    case PIRDRAMDataIn(mc)      => s"${quote(mc)}.vdata"
-    case PIRDRAMDataOut(mc)     => s"${quote(mc)}.vdata"
+    case PIRDRAMDataIn(mc)      => s"${quote(mc)}.data"
+    case PIRDRAMDataOut(mc)     => s"${quote(mc)}.data"
     case PIRDRAMOffset(mc)      => s"${quote(mc)}.ofs"
     case PIRDRAMLength(mc)      => s"${quote(mc)}.len"
     case PIRDRAMAddress(mc)     => s"${quote(mc)}.addrs"

@@ -76,8 +76,6 @@ trait PIRAllocation extends PIRTraversal {
   }
 
   def allocateComputeUnit(pipe: Symbol): PCU = mapping.getOrElseUpdate(pipe, {
-    val Def(d) = pipe
-    dbg(s"Allocating CU for $pipe = $d")
     val parent = parentHack(pipe).map(allocateCU)
 
     val style = pipe match {
@@ -99,7 +97,8 @@ trait PIRAllocation extends PIRTraversal {
     }
     if (top.isEmpty && parent.isEmpty) top = Some(pipe)
 
-    dbg(s"  created CU $cu")
+    val Def(d) = pipe
+    dbg(s"Allocating CU $cu for $pipe = $d")
 
     cu
   })
@@ -121,6 +120,9 @@ trait PIRAllocation extends PIRTraversal {
       case Def(e:Scatter[_]) =>
       case Def(e:Gather[_]) =>
     }
+
+    val Def(d) = pipe
+    dbg(s"Allocating CU $cu for $pipe = $d")
 
     initCU(cu, pipe)
     cu
@@ -255,7 +257,6 @@ trait PIRAllocation extends PIRTraversal {
   def allocateMem(mem: Symbol, reader: Symbol, cu: PCU): CUMemory = {
 //    if (!isBuffer(mem))
 //      throw new Exception(s"Cannot allocate SRAM for non-buffer symbol $mem")
-
     cu.srams.find{sram => sram.mem == mem && sram.reader == reader}.getOrElse{
       val name = s"${quote(mem)}_${quote(reader)}"
       val size = mem match {
@@ -413,7 +414,22 @@ trait PIRAllocation extends PIRTraversal {
       trueComputation.foreach{case lhs@Def(rhs) => warn(s"  $lhs = $rhs")}
     }
 
-    cu.computeStages ++= localCompute.map{s => DefStage(s, isReduce = reduceType(s).isDefined) }
+    cu.computeStages ++= localCompute.map{s => 
+      val isReduce = s match {
+        case Def(RegRead(_)) => false
+        case Def(RegWrite(_,_,_)) => false
+        case s => reduceType(s).isDefined
+      }
+      DefStage(s, isReduce = isReduce)
+    }
+
+    dbg(s"prescheduled stages for $cu:")
+    cu.computeStages.foreach { s =>
+      s match {
+        case s@DefStage(op, _) => dbg(s"  $s reduceType=${reduceType(op)}")
+        case s => dbg(s"  $s")
+      }
+    }
   }
 
   def prescheduleBurstTransfer(pipe: Symbol, mem: Symbol, ofs: Symbol, len: Symbol, mode: OffchipMemoryMode) = {
@@ -550,6 +566,21 @@ trait PIRAllocation extends PIRTraversal {
     case Gather(dram, local, addrs, ctr, i) =>
       val Def(CounterNew(start,end,step,par)) = ctr
       prescheduleGather(lhs, dram, local, addrs, end)
+
+    case SRAMNew(dimensions) => 
+      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
+        mem match {
+          case BankedMemory(dims, depth, isAccum) =>
+            //val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
+            //val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
+            //val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
+            if (depth == 1) {
+            } else {
+            }
+          case DiagonalMemory(strides, banks, depth, isAccum) =>
+            Console.println(s"NOT SUPPORTED, MAKE EXCEPTION FOR THIS!")
+        }
+      }
 
     // Something bad happened if these are still in the IR
     case _:OpForeach => throw new Exception(s"Disallowed compact op $lhs = $rhs")

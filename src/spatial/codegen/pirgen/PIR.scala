@@ -359,37 +359,37 @@ trait PIR {
 
 
   sealed abstract class PIROp
-  case object PIRALUMux extends PIROp { override def toString() = "Mux" }
-  case object PIRBypass extends PIROp
-  case object PIRFixAdd extends PIROp
-  case object PIRFixSub extends PIROp
-  case object PIRFixMul extends PIROp
-  case object PIRFixDiv extends PIROp
-  case object PIRFixMod extends PIROp
-  case object PIRFixLt  extends PIROp
-  case object PIRFixLeq extends PIROp
-  case object PIRFixEql extends PIROp
-  case object PIRFixNeq extends PIROp
-  case object PIRFixMin extends PIROp
-  case object PIRFixMax extends PIROp
-  case object PIRFixNeg extends PIROp
-
-  case object PIRFltAdd extends PIROp
-  case object PIRFltSub extends PIROp
-  case object PIRFltMul extends PIROp
-  case object PIRFltDiv extends PIROp
-  case object PIRFltLt  extends PIROp
-  case object PIRFltLeq extends PIROp
-  case object PIRFltEql extends PIROp
-  case object PIRFltNeq extends PIROp
-  case object PIRFltExp extends PIROp
-  case object PIRFltLog extends PIROp
-  case object PIRFltSqrt extends PIROp
-  case object PIRFltAbs extends PIROp
-  case object PIRFltMin extends PIROp
-  case object PIRFltMax extends PIROp
-  case object PIRFltNeg extends PIROp
-
-  case object PIRBitAnd extends PIROp
-  case object PIRBitOr  extends PIROp
+  case object PIRALUMux  extends PIROp { override def toString = "Mux"    }
+  case object PIRBypass  extends PIROp { override def toString = "Bypass" }
+  case object PIRFixAdd  extends PIROp { override def toString = "FixAdd" }
+  case object PIRFixSub  extends PIROp { override def toString = "FixSub" }
+  case object PIRFixMul  extends PIROp { override def toString = "FixMul" }
+  case object PIRFixDiv  extends PIROp { override def toString = "FixDiv" }
+  case object PIRFixMod  extends PIROp { override def toString = "FixMod" }
+  case object PIRFixLt   extends PIROp { override def toString = "FixLt"  }
+  case object PIRFixLeq  extends PIROp { override def toString = "FixLeq" }
+  case object PIRFixEql  extends PIROp { override def toString = "FixEql" }
+  case object PIRFixNeq  extends PIROp { override def toString = "FixNeq" }
+  case object PIRFixMin  extends PIROp { override def toString = "FixMin" }
+  case object PIRFixMax  extends PIROp { override def toString = "FixMax" }
+  case object PIRFixNeg  extends PIROp { override def toString = "FixNeg" }
+                                                                        
+  case object PIRFltAdd  extends PIROp { override def toString = "FltAdd" }
+  case object PIRFltSub  extends PIROp { override def toString = "FltSub" }
+  case object PIRFltMul  extends PIROp { override def toString = "FltMul" }
+  case object PIRFltDiv  extends PIROp { override def toString = "FltDiv" }
+  case object PIRFltLt   extends PIROp { override def toString = "FltLt"  }
+  case object PIRFltLeq  extends PIROp { override def toString = "FltLeq" }
+  case object PIRFltEql  extends PIROp { override def toString = "FltEql" }
+  case object PIRFltNeq  extends PIROp { override def toString = "FltNeq" }
+  case object PIRFltExp  extends PIROp { override def toString = "FltExp" }
+  case object PIRFltLog  extends PIROp { override def toString = "FltLog" }
+  case object PIRFltSqrt extends PIROp { override def toString = "FltSqr" }
+  case object PIRFltAbs  extends PIROp { override def toString = "FltAbs" }
+  case object PIRFltMin  extends PIROp { override def toString = "FltMin" }
+  case object PIRFltMax  extends PIROp { override def toString = "FltMax" }
+  case object PIRFltNeg  extends PIROp { override def toString = "FltNeg" }
+                                                                        
+  case object PIRBitAnd  extends PIROp { override def toString = "BitAnd" }
+  case object PIRBitOr   extends PIROp { override def toString = "BitOr"  }
 }

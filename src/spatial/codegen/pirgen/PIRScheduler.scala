@@ -339,7 +339,7 @@ trait PIRScheduler extends PIRTraversal {
     // --- All other ops
     case d => nodeToOp(d) match {
       case Some(op) =>
-        val inputs = syms(rhs)
+        val inputs = rhs.expInputs
         opStageToStage(op, inputs, lhs, ctx, false)
 
       case None => warn(s"No ALU operation known for $lhs = $rhs")
