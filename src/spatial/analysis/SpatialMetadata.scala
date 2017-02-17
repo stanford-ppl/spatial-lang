@@ -45,8 +45,8 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   }
   private[spatial] def setBound[T:Staged](x: T, value: BigInt): Unit = { boundOf(x.s) = value }
   private[spatial] def getBound(x: Exp[_]): Option[MBound] = x match {
-    case Const(c: BigInt) => Some(Final(c))
-    case Param(c: BigInt) => Some(Exact(c))
+    case Const(c: BigDecimal) if c.isWhole => Some(Final(c.toBigInt))
+    case Param(c: BigDecimal) if c.isWhole => Some(Exact(c.toBigInt))
     case _ => metadata[MBound](x)
   }
 
