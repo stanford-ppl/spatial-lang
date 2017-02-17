@@ -12,7 +12,7 @@
 
      val frameRows = 64
      val frameCols = 64
-     val onboardVideo = target.VideoCamera[T]
+     val onboardVideo = target.VideoCamera
      val mem = DRAM[T](frameRows, frameCols)
      val conduit = StreamIn[T](onboardVideo)
      val avalon = StreamOut[T](mem)

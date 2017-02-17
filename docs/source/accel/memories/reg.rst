@@ -25,130 +25,64 @@ Reg
 ===
 
 
-Reg defines a hardware register used to hold a scalar value. Regs have an optional name (primarily used for debugging) and reset value.
+**Reg** defines a hardware register used to hold a scalar value.
 The default reset value for a Reg is the numeric zero value for it's specified type.
-Regs can have an arbitrary number of readers but can only have one writer. By default, Regs are reset based upon the controller that they
-are defined within. A Reg defined within a Pipe, for example, is reset at the beginning of each iteration of that Pipe.
+
+**ArgIn** and **ArgOut** are specialized forms of Reg which are used to transfer scalar values
+to and from the accelerator, respectively.
+ArgIns may not be written to, while ArgOuts generally should not be read from.
 
 
-Static methods
---------------
+-----------------
 
-.. parsed-literal::
+**Static methods**
 
-  :maroon:`def` apply()(:maroon:`implicit` ev0: Num[T]): :doc:`reg`\[T\]
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+|      `object`         **Reg**                                                                                                              |
++=====================+======================================================================================================================+
+| |               def   **apply**\[T::doc:`../../typeclasses/bits`\]: :doc:`reg`\[T\]                                                        |
+| |                       Creates a register of type T with reset value :doc:`zero\[T\] <../../typeclasses/bits>`                            |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |               def   **apply**\[T::doc:`../../typeclasses/bits`\](init: T): :doc:`reg`\[T\]                                               |
+| |                       Creates a register of type T with reset value **init**                                                             |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
 
-Creates a register with type T
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+|      `object`         **ArgIn**                                                                                                            |
++=====================+======================================================================================================================+
+| |               def   **apply**\[T::doc:`../../typeclasses/bits`\]: :doc:`reg`\[T\]                                                        |
+| |                       Creates an input argument register of type T with reset value zero                                                 |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
 
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+|      `object`         **ArgOut**                                                                                                           |
++=====================+======================================================================================================================+
+| |               def   **apply**\[T::doc:`../../typeclasses/bits`\]: :doc:`reg`\[T\]                                                        |
+| |                       Creates an output argument register of type T with reset value zero                                                |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
 
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` apply(reset: Int)(:maroon:`implicit` ev0: Num[T]): :doc:`reg`\[T\]
-
-Creates an unnamed register with type T and given reset value
-
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` apply(reset: Long)(:maroon:`implicit` ev0: Num[T]): :doc:`reg`\[T\]
-
-Creates an unnamed register with type T and given reset value
-
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` apply(reset: Float)(:maroon:`implicit` ev0: Num[T]): :doc:`reg`\[T\]
-
-Creates an unnamed register with type T and given reset value
-
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` apply(reset: Double)(:maroon:`implicit` ev0: Num[T]): :doc:`reg`\[T\]
-
-Creates an unnamed register with type T and given reset value
-
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` apply(reset: T)(:maroon:`implicit` ev0: Num[T]): :doc:`reg`\[T\]
-
-Allow regs to be initialized to tuples
-
-
-Infix methods
 -------------
 
-.. parsed-literal::
+**Infix methods**
 
-  :maroon:`def` :=(x: T): Unit
-
-Creates a writer to this Reg. Note that Regs and ArgOuts can only have one writer, while ArgIns cannot have any
-
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` value(): T
-
-Reads the current value of this register
-
-
-Implicit methods
-----------------
-
-.. parsed-literal::
-
-  :maroon:`def` regBitToBit(x: :doc:`reg`\[:doc:`bit`\]): :doc:`bit`
-
-Enables implicit reading from bit type Regs
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+|      `class`          **Reg**\[T\]                                                                                                         |
++=====================+======================================================================================================================+
+| |               def   **:=**\(data: T): Void                                                                                               |
+| |                       Creates a write of **data** to this Reg.                                                                           |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |               def   **value**\: T                                                                                                        |
+| |                       Returns the current value of this register                                                                         |
+| |                       This method is often unnecessary, as the compiler will attempt to add register reads implicitly                    |
+| |                       In hardware, equivalent to a wire connected to the output of the register                                          |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
 
 
-*********
+--------------
 
-.. parsed-literal::
+**Implicit methods**
 
-  :maroon:`def` regFixToFix(x: :doc:`reg`\[:doc:`fixpt`\[S,I,F\]\]): :doc:`fixpt`\[S,I,F\]
-
-Enables implicit reading from fixed point type Regs
-
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` regFltToFlt(x: :doc:`reg`\[:doc:`fltpt`\[G,E\]\]): :doc:`fltpt`\[G,E\]
-
-Enables implicit reading from floating point type Regs
-
-
-Related methods
----------------
-
-.. parsed-literal::
-
-  :maroon:`def` ArgIn()(:maroon:`implicit` ev0: Num[T]): :doc:`reg`\[T\]
-
-Creates an unnamed input argument from the host CPU
-
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` ArgOut()(:maroon:`implicit` ev0: Num[T]): :doc:`reg`\[T\]
-
-Creats an unnamed output argument to the host CPU
-
-
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |               def   **readReg**\[T::doc:`../../typeclasses/bits`\](reg: :doc:`reg`\[T\]): T                                              |
+| |                       Implicitly adds a register read                                                                                    |
++---------------------+----------------------------------------------------------------------------------------------------------------------+

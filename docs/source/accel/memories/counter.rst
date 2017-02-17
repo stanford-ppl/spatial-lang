@@ -28,7 +28,7 @@ Counter is a single hardware counter with an associated start (inclusive), end (
 By default, the parallelization factor is assumed to be a design parameter. Counters can be chained together using
 CounterChain, but this is typically done implicitly when creating controllers.
 
-It is generally recommended to create a :doc:`../common/range` and allow the compiler to implicitly convert this to a Counter,
+It is generally recommended to create a :doc:`../../common/range` and allow the compiler to implicitly convert this to a Counter,
 as Range provides slightly better syntax sugar.
 
 ----------------
