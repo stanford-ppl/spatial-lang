@@ -1,4 +1,4 @@
-package spatial.codegen.targets
+package spatial.targets
 
 object FakeTarget extends FPGATarget {
   def name = "Fake"

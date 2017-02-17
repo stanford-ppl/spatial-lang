@@ -25,6 +25,7 @@ protected trait SpatialExp extends Staging
 
   with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
+  with StreamExp with PinExp
 
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
 
@@ -36,6 +37,7 @@ protected trait SpatialApi extends SpatialExp
 
   with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
+  with StreamApi with PinApi
 
   with SpatialMetadataApi with BankingMetadataApi
 
@@ -224,7 +226,12 @@ protected trait SpatialIR extends SpatialCompiler
 protected trait SpatialLib extends LibCore // Actual library implementation goes here
 
 trait SpatialApp extends AppCore {
-  val IR: SpatialIR = new SpatialIR { }
+  import spatial.targets._
+
+  private def __target: FPGATarget = Targets.targets.find(_.name == SpatialConfig.targetName).getOrElse{ DefaultTarget }
+  val target = __target
+
+  val IR: SpatialIR = new SpatialIR { def target = SpatialApp.this.target }
   val Lib: SpatialLib = new SpatialLib { def args: Array[String] = stagingArgs }
 }
 

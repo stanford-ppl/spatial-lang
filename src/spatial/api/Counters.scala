@@ -5,6 +5,8 @@ import spatial.SpatialExp
 
 trait CounterApi extends CounterExp {
   this: SpatialExp =>
+
+  def *()(implicit ctx: SrcCtx): Counter = forever
 }
 
 trait CounterExp extends Staging with RangeExp with SpatialExceptions {
@@ -42,6 +44,8 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
     Counter(counter_new(start.s, end.s, step.s, p))
   }
 
+  def forever(implicit ctx: SrcCtx): Counter = Counter(forever_counter())
+
   /** Staged types **/
   implicit object CounterType extends Staged[Counter] {
     override def wrapped(x: Exp[Counter]) = Counter(x)
@@ -68,6 +72,8 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
     def mirror(f:Tx) = counterchain_new(f(counters))
   }
 
+  case class Forever() extends Op[Counter] { def mirror(f:Tx) = forever_counter() }
+
   /** Constructors **/
   def counter_new(start: Exp[Index], end: Exp[Index], step: Exp[Index], par: Const[Index])(implicit ctx: SrcCtx): Sym[Counter] = {
     val counter = stageCold(CounterNew(start,end,step,par))(ctx)
@@ -87,6 +93,8 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
   }
   def counterchain_new(counters: Seq[Exp[Counter]])(implicit ctx: SrcCtx) = stageCold(CounterChainNew(counters))(ctx)
 
+  def forever_counter()(implicit ctx: SrcCtx) = stageCold(Forever())(ctx)
+
   /** Internals **/
   def isUnitCounter(x: Exp[Counter]): Boolean = x match {
     case Op(CounterNew(Const(0), Const(1), Const(1), _)) => true
@@ -95,6 +103,11 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
 
   def isUnitCounterChain(x: Exp[CounterChain]): Boolean = x match {
     case Op(CounterChainNew(ctrs)) => ctrs.forall(isUnitCounter)
+    case _ => false
+  }
+
+  def isForever(x: Exp[Counter]): Boolean = x match {
+    case Op(Forever()) => true
     case _ => false
   }
 }

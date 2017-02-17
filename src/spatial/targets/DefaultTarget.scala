@@ -1,4 +1,4 @@
-package spatial.codegen.targets
+package spatial.targets
 
 // TODO: Name
 object DefaultTarget extends FPGATarget {
