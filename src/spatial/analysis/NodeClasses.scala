@@ -1,6 +1,7 @@
 package spatial.analysis
 
 import spatial.SpatialExp
+import org.virtualized.SourceContext
 
 trait NodeClasses extends SpatialMetadataExp {
   this: SpatialExp =>
@@ -8,6 +9,7 @@ trait NodeClasses extends SpatialMetadataExp {
   /** Parallelization factors **/
   def parFactorsOf(x: Exp[_]): Seq[Const[Index]] = x match {
     case Op(CounterNew(start,end,step,par)) => List(par)
+    case Op(Forever())             => List(int32(1))
     case Op(CounterChainNew(ctrs)) => ctrs.flatMap{ctr => parFactorsOf(ctr) }
     case Op(e: Gather[_])          => parFactorsOf(e.ctr)
     case Op(e: Scatter[_])         => parFactorsOf(e.ctr)

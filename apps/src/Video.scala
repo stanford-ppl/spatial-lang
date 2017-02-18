@@ -21,7 +21,7 @@
       Foreach(*, 64 by 1) { (_,j) =>
         Stream(1 by 1) { i =>
           
-          println("Hello!" + k)
+          println("Hello! " + j)
 
         }
       }
@@ -59,7 +59,7 @@
      }*/
 
 
-    AXI_Master_Slave(mem) // Plop in ARM code
+    AXI_Master_Slave[Int]() // Plop in ARM code
   }
 
 }

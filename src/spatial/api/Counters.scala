@@ -110,4 +110,9 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
     case Op(Forever()) => true
     case _ => false
   }
+
+  def isCChainForever(x: Exp[CounterChain]): Seq[Boolean] = x match {
+    case Op(CounterChainNew(ctrs)) => ctrs.map(isForever)
+    case _ => Nil
+  }
 }
