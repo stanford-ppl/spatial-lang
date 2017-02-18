@@ -21,7 +21,7 @@
       Foreach(*, 64 by 1) { (_,j) =>
         Stream(1 by 1) { i =>
           
-          println("Hello! " + j)
+          println("Hello! " + conduit.deq())
 
         }
       }

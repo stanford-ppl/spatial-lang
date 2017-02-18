@@ -201,7 +201,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       checkPendingNodes(lhs, rhs, None)
       if (isStateless(lhs)) addPendingNode(lhs)
 
-      if (isAllocation(lhs) && (isArgIn(lhs) || isArgOut(lhs))) localMems ::= lhs // (7)
+      if (isLocalMemory(lhs)) localMems ::= lhs // (7)
     }
 
     if (isControlNode(lhs)) {

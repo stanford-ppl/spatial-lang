@@ -50,6 +50,21 @@ trait ControllerApi extends ControllerExp with RegApi {
       reduceND(List(domain1, domain2), acc, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
       acc
     }
+
+    /** 3 dimensional reduction **/
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(map: (Index,Index,Index) => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Staged[T], bits: Bits[T]): Reg[T] = {
+      val acc = accum.getOrElse(Reg[T])
+      reduceND(List(domain1, domain2, domain3), acc, {x: List[Index] => map(x(0),x(1),x(2)) }, reduce, style, zero, fold)
+      acc
+    }
+
+    /** N dimensional reduction **/
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(map: List[Index] => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Staged[T], bits: Bits[T]): Reg[T] = {
+      val acc = accum.getOrElse(Reg[T])
+      reduceND(List(domain1, domain2, domain3, domain4) ++ domain5plus, acc, map, reduce, style, zero, fold)
+      acc
+    }
+
   }
 
   protected case class ReduceClass(style: ControlStyle) extends ReduceAccum(None, style, None, None) {
