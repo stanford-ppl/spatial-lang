@@ -64,27 +64,6 @@ class IncDincCtr(inc: Int, dinc: Int, max: Int) extends Module {
 }
 
 
-/**
- * Forever: Counter for a max of *
- * @param w: Word width
- */
-class Forever(val par: Int) extends Module {
-  val io = IO(new Bundle {
-    val input = new Bundle {
-      val reset  = Bool().asInput
-      val enable = Bool().asInput
-    }
-    val output = new Bundle {
-      val count      = Vec(par, UInt(32.W).asOutput)
-    }
-  })
-
-  val base = Module(new FF(32))
-  base.io.input.enable := io.input.reset | io.input.enable
-
-  io.output.count = base.io.output.data // Don't ever really use this value anyway
-}
-
 
 /**
  * RedxnCtr: 1-dimensional counter. Basically a cheap, wrapping for reductions
@@ -139,26 +118,32 @@ class SingleCounter(val par: Int) extends Module {
     }
   })
 
-  val base = Module(new FF(32))
-  val init = io.input.start
-  base.io.input.init := init
-  base.io.input.enable := io.input.reset | io.input.enable
+  if (par > 0) {
+    val base = Module(new FF(32))
+    val init = io.input.start
+    base.io.input.init := init
+    base.io.input.enable := io.input.reset | io.input.enable
 
-  val count = base.io.output.data
-  val newval = count + (io.input.stride * par.U) + io.input.gap
-  val isMax = newval >= io.input.max
-  val wasMax = Reg(next = isMax, init = false.B)
-  val wasEnabled = Reg(next = io.input.enable, init = false.B)
-  val next = Mux(isMax, Mux(io.input.saturate, count, init), newval)
-  base.io.input.data := Mux(io.input.reset, init, next)
+    val count = base.io.output.data
+    val newval = count + (io.input.stride * par.U) + io.input.gap
+    val isMax = newval >= io.input.max
+    val wasMax = Reg(next = isMax, init = false.B)
+    val wasEnabled = Reg(next = io.input.enable, init = false.B)
+    val next = Mux(isMax, Mux(io.input.saturate, count, init), newval)
+    base.io.input.data := Mux(io.input.reset, init, next)
 
-  (0 until par).foreach { i => io.output.count(i) := count + i.U*io.input.stride }
-  (0 until par).foreach { i => 
-    io.output.countWithoutWrap(i) := Mux(count === 0.U, io.input.max, count) + i.U*io.input.stride
+    (0 until par).foreach { i => io.output.count(i) := count + i.U*io.input.stride }
+    (0 until par).foreach { i => 
+      io.output.countWithoutWrap(i) := Mux(count === 0.U, io.input.max, count) + i.U*io.input.stride
+    }
+    io.output.done := io.input.enable & isMax
+    io.output.saturated := io.input.saturate & isMax
+    io.output.extendedDone := (io.input.enable | wasEnabled) & (isMax | wasMax)
+  } else { // Forever21 counter
+    io.output.saturated := false.B
+    io.output.extendedDone := false.B
+    io.output.done := false.B
   }
-  io.output.done := io.input.enable & isMax
-  io.output.saturated := io.input.saturate & isMax
-  io.output.extendedDone := (io.input.enable | wasEnabled) & (isMax | wasMax)
 }
 
 

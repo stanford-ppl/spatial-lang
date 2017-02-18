@@ -110,9 +110,15 @@ trait ChiselGenController extends ChiselCodegen {
     val numIter = if (cchain.isDefined) {
       val Def(CounterChainNew(counters)) = cchain.get
       counters.zipWithIndex.map {case (ctr,i) =>
-        val Def(CounterNew(start, end, step, par)) = ctr
-        emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(((${end} - ${start}) % (${step} * ${par}) === 0.U), 0.U, 1.U)""")
-        src"${sym}_level${i}_iters"
+        ctr match {
+          case Def(CounterNew(start, end, step, par)) => 
+            emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(((${end} - ${start}) % (${step} * ${par}) === 0.U), 0.U, 1.U)""")
+            src"${sym}_level${i}_iters"
+          case Def(Forever()) =>
+            // need to change the outer pipe counter interface!!
+            emit(src"""val ${sym}_level${i}_iters = 0 """)
+            src"${sym}_level${i}_iters"            
+        }
       }
     } else { 
       List("1.U") // Unit pipe
@@ -168,7 +174,11 @@ trait ChiselGenController extends ChiselCodegen {
 
         
     /* Control Signals to Children Controllers */
-    if (smStr != "Innerpipe") {
+    if (smStr == "Innerpipe") {
+      // Do nothing
+    } else if (smStr == "Streampipe") {
+      // do something funky
+    } else {
       emit(src"""// ---- Begin $smStr ${sym} Children Signals ----""")
       childrenOf(sym).zipWithIndex.foreach { case (c, idx) =>
         emitGlobal(src"""val ${c}_done = Wire(Bool())""")
