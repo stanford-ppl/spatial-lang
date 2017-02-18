@@ -11,26 +11,28 @@ trait PIRScheduler extends PIRTraversal {
   override val name = "PIR Scheduler"
   override val recurse = Always
 
-  val mappingIn  = mutable.HashMap[Symbol, PCU]()
-  val mappingOut = mutable.HashMap[Symbol, CU]()
+  val mappingIn  = mutable.HashMap[Symbol, List[PCU]]()
+  val mappingOut = mutable.HashMap[Symbol, List[CU]]()
 
   override protected def postprocess[S:Staged](block: Block[S]): Block[S] = {
-    val cuMapping = mappingIn.keys.map{s =>
+    val cuMapping:Map[ACU, ACU] = mappingIn.keys.flatMap{s =>
 
       dbg(s"${mappingIn(s)} -> ${mappingOut(s)}")
 
-      mappingIn(s).asInstanceOf[ACU] -> mappingOut(s).asInstanceOf[ACU]
+      mappingIn(s).zip(mappingOut(s)).map { case (pcu, cu) =>
+        pcu.asInstanceOf[ACU] -> cu.asInstanceOf[ACU]
+      }
     }.toMap
 
     // Swap dependencies, parents, cchain owners from pcu to cu
 
-    swapCUs(mappingOut.values, cuMapping)
+    swapCUs(mappingOut.values.flatten, cuMapping)
 
     for ((k,v) <- cuMapping) {
       dbg(s"$k -> $v")
     }
 
-    for (cu <- mappingOut.values) {
+    for (cu <- mappingOut.values.flatten) {
       dbg(s"")
       dbg(s"Generated CU: $cu")
       dbg(s"Counter chains: ")
@@ -72,47 +74,49 @@ trait PIRScheduler extends PIRTraversal {
       schedulePCU(lhs, mappingIn(lhs))
   }
 
-  def schedulePCU(pipe: Symbol, pcu: PCU) {
-    val cu = pcu.copyToConcrete()
+  def schedulePCU(pipe: Symbol, pcus: List[PCU]) {
+    mappingOut += pipe -> pcus.map { pcu =>
+      val cu = pcu.copyToConcrete()
 
-    dbg(s"\n\n\n")
-    dbg(s"Scheduling $pipe CU: $pcu")
-    for ((s,r) <- cu.regTable) {
-      dbg(s"  $s -> $r")
+      dbg(s"\n\n\n")
+      dbg(s"Scheduling $pipe CU: $pcu")
+      for ((s,r) <- cu.regTable) {
+        dbg(s"  $s -> $r")
+      }
+      dbg(s"  SRAMs:")
+      for (sram <- pcu.srams) {
+        dbg(s"""    $sram (sym: ${sram.mem}, reader: ${sram.reader})""")
+      }
+      dbg(s"  Write stages:")
+      for ((k,v) <- pcu.writeStages) {
+        dbg(s"    Memories: " + k.mkString(", "))
+        for (stage <- v._2) dbg(s"      $stage")
+      }
+      dbg(s"  Compute stages:")
+      for (stage <- pcu.computeStages) dbg(s"    $stage")
+
+      val origRegs = cu.regs
+      var writeStageRegs = cu.regs
+
+      // --- Schedule write contexts
+      for ((srams,grp) <- pcu.writeStages) {
+        val writer = grp._1
+        val stages = grp._2
+        val ctx = WriteContext(cu, writer, srams)
+        ctx.init()
+        stages.foreach{stage => scheduleStage(stage, ctx) }
+
+        writeStageRegs ++= cu.regs
+        cu.regs = origRegs
+      }
+
+      // --- Schedule compute context
+      val ctx = ComputeContext(cu)
+      pcu.computeStages.foreach{stage => scheduleStage(stage, ctx) }
+      cu.regs ++= writeStageRegs
+      cu
     }
-    dbg(s"  SRAMs:")
-    for (sram <- pcu.srams) {
-      dbg(s"""    $sram (sym: ${sram.mem}, reader: ${sram.reader})""")
-    }
-    dbg(s"  Write stages:")
-    for ((k,v) <- pcu.writeStages) {
-      dbg(s"    Memories: " + k.mkString(", "))
-      for (stage <- v._2) dbg(s"      $stage")
-    }
-    dbg(s"  Compute stages:")
-    for (stage <- pcu.computeStages) dbg(s"    $stage")
 
-    val origRegs = cu.regs
-    var writeStageRegs = cu.regs
-
-    // --- Schedule write contexts
-    for ((srams,grp) <- pcu.writeStages) {
-      val writer = grp._1
-      val stages = grp._2
-      val ctx = WriteContext(cu, writer, srams)
-      ctx.init()
-      stages.foreach{stage => scheduleStage(stage, ctx) }
-
-      writeStageRegs ++= cu.regs
-      cu.regs = origRegs
-    }
-
-    // --- Schedule compute context
-    val ctx = ComputeContext(cu)
-    pcu.computeStages.foreach{stage => scheduleStage(stage, ctx) }
-    cu.regs ++= writeStageRegs
-
-    mappingOut += pipe -> cu
   }
 
   def scheduleStage(stage: PseudoStage, ctx: CUContext) = stage match {

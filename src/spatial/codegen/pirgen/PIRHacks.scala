@@ -11,14 +11,14 @@ trait PIRHacks extends PIRTraversal {
   override val name = "PIR Hacks"
   override val recurse = Always
 
-  val mappingIn = mutable.HashMap[Symbol, List[CU]]()
+  val mappingIn = mutable.HashMap[Symbol, List[List[CU]]]()
 
-  val mappingOut = mutable.HashMap[Symbol, List[CU]]()
+  val mappingOut = mutable.HashMap[Symbol, List[List[CU]]]()
 
   override def process[S:Staged](b: Block[S]) = {
     msg(s"Starting traversal PIR Hacks")
     for ((pipe, cus) <- mappingIn) {
-      mcHack(pipe, cus)
+      mcHack(pipe, cus.flatten)
       mappingOut += pipe -> cus
     }
     streamHack()
@@ -28,7 +28,7 @@ trait PIRHacks extends PIRTraversal {
   }
 
   def mcHack(pipe: Symbol, cus: List[CU]) {
-    def allCUs = mappingIn.values.flatten
+    def allCUs = mappingIn.values.flatten.flatten
 
     dbg(s"MC Hack")
 
@@ -79,7 +79,7 @@ trait PIRHacks extends PIRTraversal {
 
   // Ensure that outer controllers have exactly one leaf
   def streamHack() {
-    val cus = mappingOut.values.flatten.toList
+    val cus = mappingOut.values.flatten.flatten.toList
     for (cu <- cus) {
       if (cu.allStages.isEmpty && !cu.isDummy) {
         val children = cus.filter(_.parent == Some(cu))
@@ -97,7 +97,7 @@ trait PIRHacks extends PIRTraversal {
           leaf.deps ++= leaves
           leaf.isDummy = true
           leaf.cchains += UnitCChain(quote(cu.pipe)+"_unitcc")
-          mappingOut(cu.pipe) = mappingOut(cu.pipe) ++ List(leaf)
+          mappingOut(cu.pipe) = mappingOut(cu.pipe) ++ List(List(leaf))
         }
         else {
           // If we have a child controller leaf which itself has leaves which write to DRAM data bus
@@ -113,7 +113,7 @@ trait PIRHacks extends PIRTraversal {
             newLeaf.deps ++= leaves
             newLeaf.cchains += UnitCChain(quote(cu.pipe)+"_unitcc")
             newLeaf.isDummy = true
-            mappingOut(leaves.last.pipe) = mappingOut(leaves.last.pipe) ++ List(newLeaf)
+            mappingOut(leaves.last.pipe) = mappingOut(leaves.last.pipe) ++ List(List(newLeaf))
           }
         }
       }
@@ -122,7 +122,7 @@ trait PIRHacks extends PIRTraversal {
 
   // Change strides of last counter in inner, parallelized loops to LANES
   def counterHack() {
-    val cus = mappingOut.values.flatten.toList
+    val cus = mappingOut.values.flatten.flatten.toList
     for (cu <- cus) {
       if (!cu.isUnit && (cu.allStages.nonEmpty || cu.isDummy)) {
         cu.cchains.foreach{

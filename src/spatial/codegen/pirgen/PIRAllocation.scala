@@ -12,7 +12,7 @@ trait PIRAllocation extends PIRTraversal {
 
   // -- State
   var top: Option[Symbol] = None
-  var mapping = mutable.HashMap[Symbol, PCU]()
+  var mapping = mutable.HashMap[Symbol, List[PCU]]()
 
   // HACK: Skip parallel pipes in PIR gen
   private def parentHack(x: Symbol): Option[Symbol] = parentOf(x) match {
@@ -100,8 +100,8 @@ trait PIRAllocation extends PIRTraversal {
     val Def(d) = pipe
     dbg(s"Allocating CU $cu for $pipe = $d")
 
-    cu
-  })
+    List(cu)
+  }).head
 
   def allocateMemoryUnit(pipe: Symbol): PCU = mapping.getOrElseUpdate(pipe, {
     val parent = parentHack(pipe).map(allocateCU)
@@ -125,8 +125,8 @@ trait PIRAllocation extends PIRTraversal {
     dbg(s"Allocating CU $cu for $pipe = $d")
 
     initCU(cu, pipe)
-    cu
-  })
+    List(cu)
+  }).head
 
   def allocateCU(pipe: Symbol): PCU = pipe match {
     case Def(_:Hwblock)             => allocateComputeUnit(pipe)
@@ -465,8 +465,10 @@ trait PIRAllocation extends PIRTraversal {
     lenCU.computeStages += OpStage(PIRBypass, List(lenReg), mcLen)
 
     // HACK- no dependents of ofsCU
-    mapping.values.foreach{cu =>
-      cu.deps = cu.deps.filterNot{dep => dep == ofsCU }
+    mapping.values.foreach{ cus =>
+      cus.foreach { cu =>
+        cu.deps = cu.deps.filterNot{dep => dep == ofsCU }
+      }
     }
   }
 
@@ -597,7 +599,7 @@ trait PIRAllocation extends PIRTraversal {
   }
 
   override def postprocess[S:Staged](b: Block[S]): Block[S] = {
-    val cus = mapping.values
+    val cus = mapping.values.flatten
     val owner = cus.flatMap{cu => cu.srams.map{sram =>
       (sram.reader, sram.mem) -> (cu, sram)
     }}.toMap

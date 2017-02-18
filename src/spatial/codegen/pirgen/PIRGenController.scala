@@ -23,7 +23,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
   lazy val hacks     = new PIRHacks{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
   lazy val dse       = new PIRDSE{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
 
-  val cus = Map[Exp[Any],List[ComputeUnit]]()
+  val cus = Map[Exp[Any],List[List[ComputeUnit]]]()
 
   private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
     for (i <- iters.indices)
@@ -85,7 +85,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
   override protected def postprocess[S:Staged](block: Block[S]): Block[S] = {
     super.postprocess(block)
     msg("Done.")
-    val nCUs = cus.values.flatten.filter{cu => cu.allStages.nonEmpty || cu.isDummy }.size
+    val nCUs = cus.values.flatten.flatten.filter{cu => cu.allStages.nonEmpty || cu.isDummy }.size
     msg(s"NUMBER OF CUS: $nCUs")
     block
   }
@@ -162,7 +162,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
   }
 
   def emitController(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case rhs if isControlNode(lhs) && cus.contains(lhs) => cus(lhs).foreach{cu => generateCU(lhs, cu)}
+    case rhs if isControlNode(lhs) && cus.contains(lhs) => cus(lhs).flatten.foreach{cu => generateCU(lhs, cu)}
     //case rhs if isControlNode(lhs) => //generateCU(lhs, cu)
     // emit(s"$lhs = $rhs")
     case _ =>

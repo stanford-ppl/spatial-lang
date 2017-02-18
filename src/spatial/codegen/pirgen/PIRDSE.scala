@@ -15,7 +15,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
   override val name = "Plasticine DSE"
   override val recurse = Always
 
-  val mappingIn = mutable.HashMap[Symbol, CU]()
+  val mappingIn = mutable.HashMap[Symbol, List[CU]]()
 
   val cus = ArrayBuffer[CU]()
 
@@ -27,7 +27,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
     if (isControlNode(lhs) && mappingIn.contains(lhs))
-      cus += mappingIn(lhs)
+      cus ++= mappingIn(lhs)
   }
 
   def dse() {

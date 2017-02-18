@@ -10,19 +10,19 @@ trait PIROptimizer extends PIRTraversal {
 
   override val name = "PIR Optimization"
 
-  val mapping = mutable.HashMap[Symbol, CU]()
+  val mapping = mutable.HashMap[Symbol, List[CU]]()
 
-  def cus = mapping.values
+  def cus = mapping.values.flatMap{cus => cus}.toList
 
   override def process[S:Staged](b: Block[S]): Block[S] = {
     msg("Starting traversal PIR Optimizer")
     for (cu <- cus) removeRouteThrus(cu) // Remove route through stages
     for (cu <- cus) removeUnusedCUComponents(cu)
     for (cu <- cus) removeDeadStages(cu)
-    removeEmptyCUs(mapping.values.toList)
+    removeEmptyCUs(cus)
     removeUnusedGlobalBuses()
     for (cu <- cus) removeDeadStages(cu)
-    removeEmptyCUs(mapping.values.toList)
+    removeEmptyCUs(cus)
 
     b
   }
