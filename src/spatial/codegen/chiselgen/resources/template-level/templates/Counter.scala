@@ -63,6 +63,29 @@ class IncDincCtr(inc: Int, dinc: Int, max: Int) extends Module {
   io.output.full := cnt === max.S
 }
 
+
+/**
+ * Forever: Counter for a max of *
+ * @param w: Word width
+ */
+class Forever(val par: Int) extends Module {
+  val io = IO(new Bundle {
+    val input = new Bundle {
+      val reset  = Bool().asInput
+      val enable = Bool().asInput
+    }
+    val output = new Bundle {
+      val count      = Vec(par, UInt(32.W).asOutput)
+    }
+  })
+
+  val base = Module(new FF(32))
+  base.io.input.enable := io.input.reset | io.input.enable
+
+  io.output.count = base.io.output.data // Don't ever really use this value anyway
+}
+
+
 /**
  * RedxnCtr: 1-dimensional counter. Basically a cheap, wrapping for reductions
  */
