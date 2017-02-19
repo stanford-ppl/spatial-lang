@@ -28,6 +28,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
   var localMems: List[Exp[_]] = Nil
   var metapipes: List[Exp[_]] = Nil
+  var streampipes: List[Exp[_]] = Nil
   var top: Option[Exp[_]] = None
 
   override protected def preprocess[S:Staged](block: Block[S]) = {

@@ -20,7 +20,8 @@
     Accel {
       Foreach(*, 64 by 1) { (_,j) =>
         Stream(1 by 1) { i =>
-          
+          val streamInterface = FIFO[T](64)
+          // val decoder = Decoder(conduit, streamInterface) // type = stream child. Pops from conduit and pushes to self. Plop in altera_up_avalon_video_decoder
           println("Hello! " + conduit.deq())
 
         }
@@ -51,7 +52,7 @@
      /*Accel {
        Foreach(*) { i =>
          Stream(1 by 1) { j =>
-           val decoder = Decoder(conduit) // type = stream child. Pops from conduit and pushes to self. Plop in altera_up_avalon_video_decoder
+           
            // Optional Pipe that intercepts the decoded stream interface
            val dma = DMA(decoder) // type = stream child. Pops from decoder and pushes to Avalon interface. Plop in altera_up_avalon_video_dma_controller
          }
@@ -59,7 +60,7 @@
      }*/
 
 
-    AXI_Master_Slave // Plop in ARM code
+    AXI_Master_Slave() // Plop in ARM code
   }
 
 }

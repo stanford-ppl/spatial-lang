@@ -58,7 +58,7 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenCounter with ChiselGenReg with ChiselGenSRAM with ChiselGenFIFO 
   with ChiselGenIfThenElse with ChiselGenPrint with ChiselGenController with ChiselGenMath with ChiselGenText
   with ChiselGenDRAM with ChiselGenStringCast with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
-  with ChiselGenArray with ChiselGenAlteraVideo {
+  with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream {
 
   override val IR: SpatialCompiler
 }
@@ -78,7 +78,7 @@ protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenCounter with CppGenReg with CppGenSRAM with CppGenFIFO 
   with CppGenIfThenElse with CppGenPrint with CppGenController with CppGenMath with CppGenText
   with CppGenDRAM with CppGenStringCast with CppGenHostTransfer with CppGenUnrolled with CppGenVector
-  with CppGenArray with CppGenArrayExt with CppGenAsserts with CppGenRange{
+  with CppGenArray with CppGenArrayExt with CppGenAsserts with CppGenRange with CppGenAlteraVideo with CppGenStream{
 
   override val IR: SpatialCompiler
 }
@@ -131,6 +131,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val unroller       = new UnrollingTransformer { val IR: self.type = self }
 
   lazy val bufferAnalyzer = new BufferAnalyzer { val IR: self.type = self; def localMems = uctrlAnalyzer.localMems }
+  lazy val streamAnalyzer = new StreamAnalyzer { val IR: self.type = self ; def streamPipes = uctrlAnalyzer.streampipes }
   lazy val dramAddrAlloc  = new DRAMAddrAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams }
 
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
@@ -211,6 +212,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)
   passes += printer
   passes += bufferAnalyzer    // Set top controllers for n-buffers
+  passes += streamAnalyzer    // Set stream pipe children fifo dependencies
   passes += dramAddrAlloc     // Get address offsets for each used DRAM object
   passes += printer
 

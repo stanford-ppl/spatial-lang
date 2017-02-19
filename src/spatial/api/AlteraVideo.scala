@@ -18,6 +18,7 @@ trait AlteraVideoExp extends Staging with MemoryExp {
   case class AXI_Master_Slave(s: Exp[AXI_Master_Slave]) {
   }
 
+
   /** Staged Type **/
   object AXIMasterSlaveType extends Staged[AXI_Master_Slave] {
     override def unwrapped(x: AXI_Master_Slave) = x.s
@@ -28,16 +29,31 @@ trait AlteraVideoExp extends Staging with MemoryExp {
   }
   implicit def aXIMasterSlaveType: Staged[AXI_Master_Slave] = AXIMasterSlaveType
 
+  // case class DecoderType[T:Bits](child: Staged[T]) extends Staged[Decoder[T]] {
+  //   override def unwrapped(x: Decoder[T]) = x.s
+  //   override def wrapped(x: Exp[Decoder[T]]) = Decoder[T](x)(child,bits[T])
+  //   override def typeArguments = List(child)
+  //   override def stagedClass = classOf[Decoder[T]]
+  //   override def isPrimitive = false
+  // }
+  // implicit def decoderType[T:Staged:Bits]: Staged[Decoder[T]] = DecoderType(typ[T])
+
 
   /** IR Nodes **/
   case class AxiMSNew() extends Op[AXI_Master_Slave] {
     def mirror(f:Tx) = axi_ms_alloc()
   }
+  // case class DecoderNew[T]() extends Op[Decoder[T]] {
+  //   def mirror(f:Tx) = decoder_alloc()
+  // }
 
   /** Constructors **/
   def axi_ms_alloc()(implicit ctx: SrcCtx): Sym[AXI_Master_Slave] = {
     stageCold( AxiMSNew() )(ctx)
   }
+  // def decoder_alloc[T]()(implicit ctx: SrcCtx): Sym[Decoder[T]] = {
+  //   stageCold( DecoderNew() )(ctx)
+  // }
 
   /** Internal methods **/
 

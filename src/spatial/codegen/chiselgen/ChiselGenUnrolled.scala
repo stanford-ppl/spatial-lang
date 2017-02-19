@@ -118,8 +118,11 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         }
         val p = portsOf(lhs, sram, i).head
         emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
-
-        emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
+        sram.tp.typeArguments.head match { 
+          case FixPtType(s,d,f) => emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*${p}+i))}""")
+          case _ => emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
+        }
+        
       }
 
     case ParSRAMStore(sram,inds,data,ens) =>
@@ -142,12 +145,18 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     case ParFIFODeq(fifo, ens, z) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
       emit(src"""${quote(fifo)}_readEn := ${reader}_sm.io.output.ctr_inc // Ignore $ens""")
-      emit(src"""val ${lhs} = ${fifo}_rdata // Ignore $z""")
+      fifo.tp.typeArguments.head match { 
+        case FixPtType(s,d,f) => emit(s"""val ${quote(lhs)} = (0 until ${quote(ens)}.length).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) } // Ignore $z""")
+        case _ => emit(src"""val ${lhs} = ${fifo}_rdata // Ignore $z""")
+      }
 
     case ParFIFOEnq(fifo, data, ens) =>
       val writer = writersOf(fifo).head.ctrlNode  // Not using 'en' or 'shuffle'
       emit(src"""${fifo}_writeEn := ${writer}_sm.io.output.ctr_inc // Ignore $ens""")
-      emit(src"""${fifo}_wdata := ${data}""")
+      fifo.tp.typeArguments.head match { 
+        case FixPtType(s,d,f) => emit(src"""${fifo}_wdata := (0 until ${ens}.length).map{ i => ${data}(i).number }""")
+        case _ => emit(src"""${fifo}_wdata := ${data}""")
+      }
 
     case _ => super.emitNode(lhs, rhs)
   }

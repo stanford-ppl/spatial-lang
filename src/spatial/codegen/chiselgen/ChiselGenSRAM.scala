@@ -7,7 +7,7 @@ import spatial.SpatialExp
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
-  val IR: SRAMExp with SpatialExp
+  val IR: SpatialExp
   import IR._
 
   private var nbufs: List[(Sym[SRAMNew[_]], Int)]  = List()
@@ -50,22 +50,23 @@ trait ChiselGenSRAM extends ChiselCodegen {
               val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
               val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
               val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
+              val width = bitWidth(lhs.tp.typeArguments.head)
               if (depth == 1) {
-                open(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), 32, """)
+                open(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
                 emit(src"""$numWriters, $numReaders, """)
                 emit(src"""${dims.map(_.banks).reduce{_*_}}, ${dims.map(_.banks).reduce{_*_}}, "BankedMemory" // TODO: Be more precise with parallelizations """)
                 close("))")
               } else {
                 nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAMNew[_]]], i)
-                open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, 32,""")
+                open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
                 emit(src"""$numWriters, $numReaders, """)
                 emit(src"""${dims.map(_.banks).reduce{_*_}}, ${dims.map(_.banks).reduce{_*_}}, "BankedMemory" // TODO: Be more precise with parallelizations """)
                 close("))")
               }
             case DiagonalMemory(strides, banks, depth, isAccum) =>
-              Console.println(s"NOT SUPPORTED, MAKE EXCEPTION FOR THIS!")
+              throw new UnsupportedBankingType("Diagonal", lhs)
           }
         }
       }
@@ -73,23 +74,28 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case SRAMLoad(sram, dims, is, ofs) =>
       val dispatch = dispatchOf(lhs, sram)
       val rPar = 1 // Because this is SRAMLoad node    
+      val width = bitWidth(sram.tp.typeArguments.head)
       emit(s"""// Assemble multidimR vector""")
       dispatch.foreach{ i => 
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enable = src"""${parent}_en"""
-        emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, 32)))""")
+        emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, ${width})))""")
         emit(src"""${lhs}_rVec(0).en := $enable""")
         is.zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}""")
         }
         val p = portsOf(lhs, sram, i).head
         emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
-        emit(src"""val $lhs = ${sram}_$i.io.output.data(${rPar}*$p)""")
+        sram.tp.typeArguments.head match { 
+          case FixPtType(s,d,f) => emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*$p))""")
+          case _ => emit(src"""val $lhs = ${sram}_$i.io.output.data(${rPar}*$p)""")
+        }
       }
 
     case SRAMStore(sram, dims, is, ofs, v, en) =>
+      val width = bitWidth(sram.tp.typeArguments.head)
       emit(s"""// Assemble multidimW vector""")
-      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, 32))) """)
+      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, ${width}))) """)
       emit(src"""${lhs}_wVec(0).data := ${v}""")
       emit(src"""${lhs}_wVec(0).en := ${en}""")
       is.zipWithIndex.foreach{ case(ind,j) => 

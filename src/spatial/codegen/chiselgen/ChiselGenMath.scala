@@ -34,9 +34,9 @@ trait ChiselGenMath extends ChiselCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case FixAbs(x)  => emit(src"val $lhs = if ($x < 0) -$x else $x")
+    case FixAbs(x)  => emit(src"val $lhs = Mux(${x}.isNeg(), -$x, $x)")
 
-    case FltAbs(x)  => emit(src"val $lhs = if ($x < 0) -$x else $x")
+    case FltAbs(x)  => emit(src"val $lhs = Mux(${x}.isNeg(), -$x, $x)")
     case FltLog(x)  => x.tp match {
       case DoubleType() => emit(src"val $lhs = Math.log($x)")
       case FloatType()  => emit(src"val $lhs = Math.log($x.toDouble).toFloat")

@@ -17,10 +17,10 @@ object BlackScholes extends SpatialApp { // Regression (Dense) // Args: 1280
   def CNDF(x: T) = {
     val ax = abs(x)
 
-    val xNPrimeofX = exp((ax ** 2) * -0.05.as[T]) * inv_sqrt_2xPI
+    val xNPrimeofX = (ax * ax) * -0.05.as[T] * inv_sqrt_2xPI //exp((ax * ax) * -0.05.as[T]) * inv_sqrt_2xPI
     val xK2 = 1.as[T] / ((ax * 0.2316419.as[T]) + 1.0.as[T])
 
-    val xK2_2 = xK2 ** 2
+    val xK2_2 = xK2 * xK2
     val xK2_3 = xK2_2 * xK2
     val xK2_4 = xK2_3 * xK2
     val xK2_5 = xK2_4 * xK2
@@ -45,15 +45,15 @@ object BlackScholes extends SpatialApp { // Regression (Dense) // Args: 1280
   @virtualize
   def BlkSchlsEqEuroNoDiv(sptprice: T, strike: T, rate: T, volatility: T, time: T, otype: Int) = {
     val xLogTerm = sptprice / strike /*log( sptprice / strike )*/
-    val xPowerTerm = (volatility ** 2) * 0.5.as[T]
+    val xPowerTerm = (volatility * volatility) * 0.5.as[T]
     val xNum = (rate + xPowerTerm) * time + xLogTerm
-    val xDen = volatility * time**2/*sqrt(time)*/
+    val xDen = volatility * time * time/*sqrt(time)*/
 
-    val xDiv = xNum / (xDen ** 2)
+    val xDiv = xNum / (xDen * xDen)
     val nofXd1 = CNDF(xDiv)
     val nofXd2 = CNDF(xDiv - xDen)
 
-    val futureValueX = strike * exp(-rate * time.to[T])
+    val futureValueX = strike * -rate * time.to[T]//exp(-rate * time.to[T])
 
     val negNofXd1 = -nofXd1 + 1.0.as[T]
     val negNofXd2 = -nofXd2 + 1.0.as[T]
@@ -144,6 +144,6 @@ object BlackScholes extends SpatialApp { // Regression (Dense) // Args: 1280
     printArray(out, "result: ")
 
     val cksum = out.zip(gold){(o,g) => (g < (o + margin)) && g > (o - margin)}.reduce{_&&_}
-    println("PASS: " + cksum + " (BlackScholes) * Remember to change the square and log hacks, which was a hack so we can used fix point numbers")
+    println("PASS: " + cksum + " (BlackScholes) * Remember to change the exp, square, and log hacks, which was a hack so we can used fix point numbers")
   }
 }
