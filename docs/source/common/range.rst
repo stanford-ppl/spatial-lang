@@ -34,14 +34,14 @@ the default value for `step` and `par` are both 1.
 
 Form 1::
 
-    val range1 = max by step        // start of 0, parallelization of 1
-    val range2 = start until max    // step of 0, parallelization of 1
+    val range1 = max by step        // start of 0, step by 1, parallelization of 1
+    val range2 = start until max    // start of 0, step by 1, parallelization of 1
     val range3 = start until max by step par p
 
 
 Form 2::
 
-    val range4 = start :: end       // Step of 0, parallelization of 1
+    val range4 = start :: end       // Step of 1, parallelization of 1
     val range5 = start :: step :: end par p
 
 **Form 1** is typically used for specifying the domain of a loop, while **Form 2** is used

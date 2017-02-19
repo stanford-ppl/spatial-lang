@@ -35,7 +35,7 @@ Run the following (bash) commands to clone::
     git clone https://github.com/stanford-ppl/spatial-lang.git
     git clone https://github.com/stanford-ppl/argon.git
     git clone https://github.com/stanford-ppl/scala-virtualized.git
-    cd scala-virtualized && git fetch && git checkout origin/argon && cd ../ # switch to Argon branch for scala-virtualized
+    cd scala-virtualized && git fetch && git checkout argon && cd ../ # switch to Argon branch for scala-virtualized
     cd spatial-lang
 
 
