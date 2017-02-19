@@ -1,6 +1,7 @@
 package spatial.analysis
 
 import spatial.SpatialExp
+import org.virtualized.SourceContext
 
 trait NodeClasses extends SpatialMetadataExp {
   this: SpatialExp =>
@@ -8,6 +9,7 @@ trait NodeClasses extends SpatialMetadataExp {
   /** Parallelization factors **/
   def parFactorsOf(x: Exp[_]): Seq[Const[Index]] = x match {
     case Op(CounterNew(start,end,step,par)) => List(par)
+    case Op(Forever())             => List(int32(1))
     case Op(CounterChainNew(ctrs)) => ctrs.flatMap{ctr => parFactorsOf(ctr) }
     case Op(e: Gather[_])          => parFactorsOf(e.ctr)
     case Op(e: Scatter[_])         => parFactorsOf(e.ctr)
@@ -134,6 +136,8 @@ trait NodeClasses extends SpatialMetadataExp {
 
   def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] => true
+    case _:StreamInType[_]  => true
+    case _:StreamOutType[_] => true
     case _ => false
   }
 
@@ -227,6 +231,8 @@ trait NodeClasses extends SpatialMetadataExp {
     case Gather(dram,local,addrs,_,_)         => Some(LocalWrite(local))
     case e: CoarseBurst[_,_] if e.isLoad      => Some(LocalWrite(e.onchip, addr=e.iters))
 
+    case StreamEnq(stream, data, en)          => Some(LocalWrite(stream, value=data, en=en))
+
     // TODO: Address and enable are in different format in parallelized accesses
     case BurstLoad(dram,fifo,ofs,_,_)         => Some(LocalWrite(fifo))
     case ParSRAMStore(mem,addr,data,en)       => Some(LocalWrite(mem,value=data))
@@ -240,6 +246,8 @@ trait NodeClasses extends SpatialMetadataExp {
     case Gather(dram,local,addrs,_,_)  => Some(LocalRead(addrs))
     case Scatter(dram,local,addrs,_,_) => Some(LocalRead(local) ++ LocalRead(addrs))
     case e: CoarseBurst[_,_] if !e.isLoad => Some(LocalRead(e.onchip, addr=e.iters))
+
+    case StreamDeq(stream, en)         => Some(LocalRead(stream, en=en))
 
     // TODO: Address and enable are in different format in parallelized accesses
     case BurstStore(dram,fifo,ofs,_,_) => Some(LocalRead(fifo))

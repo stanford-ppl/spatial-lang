@@ -37,7 +37,7 @@ protected trait SpatialApi extends SpatialExp
 
   with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
-  with StreamApi with PinApi
+  with StreamApi with PinApi with AlteraVideoApi
 
   with SpatialMetadataApi with BankingMetadataApi
 
