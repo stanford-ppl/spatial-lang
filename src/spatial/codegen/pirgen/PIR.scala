@@ -34,6 +34,7 @@ trait PIR {
   case object StreamCU extends CUStyle
   case object UnitCU extends CUStyle
   case object UnitStreamCU extends CUStyle
+  case class MemoryCU(i:Int) extends CUStyle
   //case object BurstTransfer extends CUStyle
   //case object RandomTransfer extends CUStyle
 
@@ -341,7 +342,7 @@ trait PIR {
 
   type PCU = PseudoComputeUnit
   case class PseudoComputeUnit(name: String, pipe: Symbol, var style: CUStyle) extends AbstractComputeUnit {
-    val writeStages = mutable.HashMap[List[CUMemory], (Symbol, List[PseudoStage])]()
+    val writeStages = mutable.HashMap[List[CUMemory], (Symbol, List[PseudoStage])]() // List(mem) -> (writerPipe, List[Stages])
     val computeStages = mutable.ArrayBuffer[PseudoStage]()
 
     def copyToConcrete(): ComputeUnit = {
