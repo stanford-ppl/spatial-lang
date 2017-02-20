@@ -13,15 +13,27 @@ trait ControllerApi extends ControllerExp with RegApi {
   this: SpatialExp =>
 
   protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T], fold: Boolean) {
-    /** 1 dimensional memory reduction without zero **/
+    /** 1 dimensional memory reduction **/
     def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
       mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
       accum
     }
 
-    /** 2 dimensional memory reduction without zero **/
+    /** 2 dimensional memory reduction **/
     def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
       mem_reduceND(List(domain1,domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
+      accum
+    }
+
+    /** 3 dimensional memory reduction **/
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(map: (Index,Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
+      mem_reduceND(List(domain1,domain2,domain3), accum, {x: List[Index] => map(x(0),x(1),x(2)) }, reduce, style, zero, fold)
+      accum
+    }
+
+    /** N dimensional memory reduction **/
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(map: List[Index] => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
+      mem_reduceND(List(domain1,domain2,domain3,domain4) ++ domain5plus, accum, map, reduce, style, zero, fold)
       accum
     }
   }
@@ -110,9 +122,14 @@ trait ControllerApi extends ControllerExp with RegApi {
       foreachND(List(domain1,domain2), {x: List[Index] => func(x(0),x(1)) }, style)
       ()
     }
+    /** 3 dimensional parallel foreach **/
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(func: (Index,Index,Index) => Void)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1,domain2,domain3), {x: List[Index] => func(x(0),x(1),x(2)) }, style)
+      ()
+    }
     /** N dimensional parallel foreach **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domains: Counter*)(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1,domain2,domain3) ++ domains.toList, func, style)
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1,domain2,domain3,domain4) ++ domain5plus, func, style)
       ()
     }
     def apply(domain: Seq[Counter])(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
