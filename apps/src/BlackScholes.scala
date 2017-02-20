@@ -52,7 +52,7 @@ object BlackScholes extends SpatialApp { // Regression (Dense) // Args: 1280
     val xDiv = xNum / (xDen * xDen)
     val nofXd1 = CNDF(xDiv)
     val nofXd2 = CNDF(xDiv - xDen)
-
+    
     val futureValueX = strike * -rate * time.to[T]//exp(-rate * time.to[T])
 
     val negNofXd1 = -nofXd1 + 1.0.as[T]

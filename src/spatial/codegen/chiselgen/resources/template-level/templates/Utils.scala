@@ -31,8 +31,9 @@ object Utils {
   def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T): types.FixedPoint = {
     val cst = Wire(new types.FixedPoint(s, d, f))
     init match {
-      case i: Double => cst.number := (i * scala.math.pow(2,f)).toLong.U
+      case i: Double => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).toBits
       case i: UInt => cst.number := i
+      case i: Int => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).toBits
     }
     cst
   }

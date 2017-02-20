@@ -100,7 +100,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val width = bitWidth(sram.tp.typeArguments.head)
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, ${width}))) """)
-      emit(src"""${lhs}_wVec(0).data := ${v}""")
+      sram.tp.typeArguments.head match { 
+        case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
+            emit(src"""${lhs}_wVec(0).data := ${v}.number""")
+          } else {
+            emit(src"""${lhs}_wVec(0).data := ${v}""")
+          }
+        case _ => emit(src"""${lhs}_wVec(0).data := ${v}""")
+      }
       emit(src"""${lhs}_wVec(0).en := ${en}""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}""")

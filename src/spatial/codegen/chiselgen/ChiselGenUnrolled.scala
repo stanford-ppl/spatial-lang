@@ -133,7 +133,14 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val dims = stagedDimsOf(sram)
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, 32))) """)
-      emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
+      sram.tp.typeArguments.head match { 
+        case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
+            emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat.number }""")
+          } else {
+            emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
+          }
+        case _ => emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
+      }
       inds.zipWithIndex.foreach{ case (ind, i) =>
         emit(src"${lhs}_wVec($i).en := ${ens}($i)")
         ind.zipWithIndex.foreach{ case (a, j) =>
