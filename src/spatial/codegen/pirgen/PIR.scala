@@ -210,8 +210,9 @@ trait PIR {
     var mode: LocalMemoryMode = SRAMMode
     var bufferDepth: Int = 1
     var banking: Option[SRAMBanking] = None
-    var vector: Option[GlobalBus] = None
 
+    var writePort: Option[GlobalBus] = None
+    var readPort: Option[GlobalBus] = None
     var readAddr: Option[ReadAddr] = None
     var writeAddr: Option[WriteAddr] = None
 
@@ -229,7 +230,8 @@ trait PIR {
       copy.mode = this.mode
       copy.bufferDepth = this.bufferDepth
       copy.banking = this.banking
-      copy.vector = this.vector
+      copy.writePort = this.writePort 
+      copy.readPort = this.readPort 
       copy.readAddr = this.readAddr
       copy.writeAddr = this.writeAddr
       copy.writeStart = this.writeStart

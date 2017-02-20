@@ -55,7 +55,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
       hacks.globals ++= splitter.globals
     }
     else {
-      for ((s,cu) <- optimizer.mapping) hacks.mappingIn(s) = List(cu)
+      for ((s,cus) <- optimizer.mapping) hacks.mappingIn(s) = List(cus)
       hacks.globals ++= optimizer.globals
     }
     hacks.run(block)
@@ -90,7 +90,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     block
   }
 
-  def emitAllStages(cu: CU) {
+  def emitAllStages(cu: ComputeUnit) {
     var i = 1
     var r = 1
     def emitStages(stages: Iterable[Stage]) = stages.foreach{
@@ -148,7 +148,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case _ => //nothing
   }
 
-  def generateCU(pipe: Exp[Any], cu: CU, suffix: String = "") {
+  def emitCU(pipe: Exp[Any], cu: CU, suffix: String = "") {
     open(s"val ${cu.name} = ${cuDeclaration(cu)} { implicit CU => ")
     emit(s"val stage0 = CU.emptyStage")
     preallocateRegisters(cu)                // Includes scalar inputs/outputs, temps, accums
@@ -162,8 +162,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
   }
 
   def emitController(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case rhs if isControlNode(lhs) && cus.contains(lhs) => cus(lhs).flatten.foreach{cu => generateCU(lhs, cu)}
-    //case rhs if isControlNode(lhs) => //generateCU(lhs, cu)
+    case rhs if isControlNode(lhs) && cus.contains(lhs) => cus(lhs).flatten.foreach{cu => emitCU(lhs, cu)}
     // emit(s"$lhs = $rhs")
     case _ =>
   }
@@ -229,11 +228,11 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case sram: CUMemory =>
       var decl = s"""val ${sram.name} = ${quote(sram.mode)}(size = ${sram.size}"""
 
-      sram.writeCtrl match {
-        case Some(cchain) => decl += s""", writeCtr = ${cchain.name}(0)"""
-        case None if sram.mode != SRAMMode => // Ok
-        case None => throw new Exception(s"No write controller defined for $sram")
-      }
+      //sram.writeCtrl match {
+        //case Some(cchain) => decl += s""", writeCtr = ${cchain.name}(0)"""
+        //case None if sram.mode != SRAMMode => // Ok
+        //case None => throw new Exception(s"No write controller defined for $sram")
+      //}
 
       sram.banking match {
         case Some(banking) => decl += s", banking = $banking"
@@ -259,22 +258,31 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
       }
       decl += ")"
 
-      sram.vector match {
+      sram.writePort match {
         case Some(LocalVectorBus) => // Nothing?
         case Some(vec) => decl += s""".wtPort(${quote(vec)})"""
-        case None => throw new Exception(s"Memory $sram has no vector defined")
+        case None => decl += s""".wtPort(None)"""
+        //case None => throw new Exception(s"Memory $sram has no writePort defined")
+      }
+      sram.readPort match {
+        case Some(LocalVectorBus) => // Nothing?
+        case Some(vec) => decl += s""".rdPort(${quote(vec)})"""
+        case None => decl += s""".rdPort(None)"""
+        //case None => throw new Exception(s"Memory $sram has no readPort defined")
       }
       sram.readAddr match {
         case Some(_:CounterReg | _:ConstReg) => decl += s""".rdAddr(${quote(sram.readAddr.get)})"""
         case Some(_:ReadAddrWire) =>
         case None if sram.mode == FIFOMode => // ok
-        case addr => throw new Exception(s"Disallowed memory read address in $sram: $addr")
+        case addr => decl += s""".rdAddr($addr)"""
+        //case addr => throw new Exception(s"Disallowed memory read address in $sram: $addr") //TODO
       }
       sram.writeAddr match {
         case Some(_:CounterReg | _:ConstReg) => decl += s""".wtAddr(${quote(sram.writeAddr.get)})"""
         case Some(_:WriteAddrWire | _:FeedbackAddrReg) =>
         case None if sram.mode != SRAMMode => // ok
-        case addr => throw new Exception(s"Disallowed memory write address in $sram: $addr")
+        case addr => decl += s""".wtAddr(${addr})""" //TODO
+        //case addr => throw new Exception(s"Disallowed memory write address in $sram: $addr")
       }
       if (sram.mode != SRAMMode) {
         sram.writeStart match {
@@ -337,6 +345,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case PipeCU       => "Pipeline"
     case MetaPipeCU   => "MetaPipeline"
     case SequentialCU => "Sequential"
+    case MemoryCU(i)     => "MemoryComputeUnit"
   }
 
   def quote(reg: LocalComponent): String = reg match {

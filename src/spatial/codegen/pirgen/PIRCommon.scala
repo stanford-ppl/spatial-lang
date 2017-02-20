@@ -18,7 +18,7 @@ trait PIRCommon extends PIR {
 
   def localInputs(a: Any): Set[LocalComponent] = a match {
     case reg: LocalComponent => Set(reg)
-    case mem: CUMemory => localInputs(mem.readAddr ++ mem.writeAddr ++ mem.writeStart ++ mem.writeEnd ++ mem.vector)
+    case mem: CUMemory => localInputs(mem.readAddr ++ mem.writeAddr ++ mem.writeStart ++ mem.writeEnd ++ mem.writePort ++ mem.readPort)
     case counter: CUCounter => localInputs(List(counter.start, counter.end, counter.stride))
     case stage: Stage => stage.inputMems.toSet
     case _ => collectX[LocalComponent](a)(localInputs)
@@ -32,7 +32,7 @@ trait PIRCommon extends PIR {
     case glob: GlobalBus => Set(glob)
     case ScalarIn(in) => Set(in)
     case VectorIn(in) => Set(in)
-    case mem: CUMemory => globalInputs(mem.readAddr ++ mem.writeAddr ++ mem.writeStart ++ mem.writeEnd ++ mem.vector)
+    case mem: CUMemory => globalInputs(mem.readAddr ++ mem.writeAddr ++ mem.writeStart ++ mem.writeEnd ++ mem.writePort ++ mem.readPort)
     case counter: CUCounter => globalInputs(List(counter.start, counter.end, counter.stride))
     case stage:Stage => globalInputs(stage.inputMems)
     case _ => collectX[GlobalBus](a)(globalInputs)

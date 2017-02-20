@@ -6,7 +6,7 @@ import scala.collection.mutable
 
 trait PIRScheduler extends PIRTraversal {
   val IR: SpatialExp with PIRCommonExp
-  import IR._
+  import IR.{println => _, _}
 
   override val name = "PIR Scheduler"
   override val recurse = Always
@@ -45,7 +45,8 @@ trait PIRScheduler extends PIRTraversal {
         for (sram <- cu.srams) {
           dbg(s"""  $sram [${sram.mode}] (sym: ${sram.mem}, reader: ${sram.reader})""")
           dbg(s"""    banking   = ${sram.banking.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    vector    = ${sram.vector.map(_.toString).getOrElse("N/A")}""")
+          dbg(s"""    writePort    = ${sram.writePort.map(_.toString).getOrElse("N/A")}""")
+          dbg(s"""    readPort    = ${sram.readPort.map(_.toString).getOrElse("N/A")}""")
           dbg(s"""    writeAddr = ${sram.writeAddr.map(_.toString).getOrElse("N/A")}""")
           dbg(s"""    readAddr  = ${sram.readAddr.map(_.toString).getOrElse("N/A")}""")
           dbg(s"""    start     = ${sram.writeStart.map(_.toString).getOrElse("N/A")}""")
@@ -72,14 +73,18 @@ trait PIRScheduler extends PIRTraversal {
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
     if (isControlNode(lhs) && mappingIn.contains(lhs))
       schedulePCU(lhs, mappingIn(lhs))
+    rhs match {
+      case SRAMNew(dimensions) => schedulePCU(lhs, mappingIn(lhs))
+      case _ =>
+    }
   }
 
-  def schedulePCU(pipe: Symbol, pcus: List[PCU]) {
-    mappingOut += pipe -> pcus.map { pcu =>
+  def schedulePCU(sym: Symbol, pcus: List[PCU]) {
+    mappingOut += sym -> pcus.map { pcu =>
       val cu = pcu.copyToConcrete()
 
       dbg(s"\n\n\n")
-      dbg(s"Scheduling $pipe CU: $pcu")
+      dbg(s"Scheduling $sym CU: $pcu")
       for ((s,r) <- cu.regTable) {
         dbg(s"  $s -> $r")
       }
@@ -99,9 +104,7 @@ trait PIRScheduler extends PIRTraversal {
       var writeStageRegs = cu.regs
 
       // --- Schedule write contexts
-      for ((srams,grp) <- pcu.writeStages) {
-        val writer = grp._1
-        val stages = grp._2
+      for ((srams, (writer, stages)) <- pcu.writeStages) {
         val ctx = WriteContext(cu, writer, srams)
         ctx.init()
         stages.foreach{stage => scheduleStage(stage, ctx) }
@@ -243,11 +246,23 @@ trait PIRScheduler extends PIRTraversal {
   }
 
   def allocateSRAMRead(lhs: Symbol, mem: Symbol, dim:Seq[Exp[Index]], is: Seq[Exp[Index]], ctx: CUContext) {
-    val sram = ctx.mem(mem, lhs)
-    val (addr, addrStages) = flattenNDIndices(is, dim)
-    addrStages.foreach{stage => scheduleStage(stage, ctx) }
-    sram.readAddr = Some(allocateAddrReg(sram, addr, ctx, write=false, local=true).asInstanceOf[ReadAddr]) //TODO
-    ctx.addReg(lhs, SRAMReadReg(sram))
+    val dispatch = dispatchOf(lhs, mem).head
+    if (ctx.isUnit) {
+      val bus = CUScalar(s"${quote(mem)}_${dispatch}_rd")
+      globals += bus
+      ctx.addReg(lhs, ScalarIn(bus))
+      //propagateReg(lhs, ScalarIn(bus), ctx.reg(lhs), ctx)
+    } else {
+      val bus = CUVector(s"${quote(mem)}_${dispatch}_rd")
+      globals += bus
+      ctx.addReg(lhs, VectorIn(bus))
+      //propagateReg(lhs, VectorIn(bus), ctx.reg(lhs), ctx)
+    }
+    //val sram = ctx.mem(mem, lhs)
+    //val (addr, addrStages) = flattenNDIndices(is, dim)
+    //addrStages.foreach{stage => scheduleStage(stage, ctx) }
+    //sram.readAddr = Some(allocateAddrReg(sram, addr, ctx, write=false, local=true).asInstanceOf[ReadAddr]) //TODO
+    //ctx.addReg(lhs, SRAMReadReg(sram))
   }
 
   def allocateFifoPush(fifo: Symbol, data: Symbol, ctx: CUContext) = readersOf(fifo).head.ctrlNode match {

@@ -142,6 +142,40 @@ trait PIRAllocation extends PIRTraversal {
     case Def(d) => throw new Exception(s"Don't know how to generate CU for\n  $pipe = $d")
   }
 
+  def allocateMemoryCU(sram:Symbol):List[PCU] = mapping.getOrElseUpdate(sram, {
+    val Def(d) = sram
+
+    val accesses = readersOf(sram).groupBy { read => 
+      val id = dispatchOf(read, sram)
+      assert(id.size==1)
+      id.head
+    }
+    duplicatesOf(sram).zipWithIndex.map{ case (mem, i) => 
+
+      val reader = accesses(i).head
+      //val readerCU = allocateCU(reader.ctrlNode)
+      val parent = parentHack(topControllerOf(reader, sram, i).get.node).map(allocateCU)
+
+      val cu = PseudoComputeUnit(s"${quote(sram)}_dsp${i}", sram, MemoryCU(i))
+      cu.parent = parent
+      //initCU(cu, pipe)
+
+      //val readerCU = allocateCU(reader.ctrlNode)
+      val psram = allocateMem(sram, reader.node, cu)
+
+      //pipe match {
+        //case Def(e:UnrolledForeach)      => addIterators(cu, e.cchain, e.iters, e.valids)
+        //case Def(e:UnrolledReduce[_,_])  => addIterators(cu, e.cchain, e.iters, e.valids)
+        //case Def(_:UnitPipe | _:Hwblock) => cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
+        //case _ =>
+      //}
+      
+      dbg(s"Allocating CU $cu for $sram = $d")
+
+      cu
+    }.toList
+  })
+
   def prescheduleRegisterRead(reg: Symbol, reader: Symbol, pipe: Option[Symbol]) = {
     dbg(s"Allocating register read: $reader")
     // Register reads may be used by more than one pipe
@@ -158,46 +192,69 @@ trait PIRAllocation extends PIRTraversal {
   }
 
   def allocateWrittenSRAM(writer: Symbol, mem: Symbol, writerCU: PCU, stages: List[PseudoStage]) {
-    val srams = readersOf(mem).map{reader =>
-      val readerCU = allocateCU(reader.ctrlNode)
-      copyIterators(readerCU, writerCU)
+    val sramCUs = allocateMemoryCU(mem)
+    dbg(s"  Allocating written SRAM $mem")
+    dbg(s"    writer   = $writer")
+    dbg(s"    writerCU = $writerCU")
+    dbg(s"    sramCUs = $sramCUs")
 
-      val sram = allocateMem(mem, reader.node, readerCU)
-      if (readerCU == writerCU) {
-        sram.vector = Some(LocalVectorBus)
-      }
-      else {
-        val bus = if (writerCU.isUnit) CUScalar(quote(mem)) else CUVector(quote(mem))
-        globals += bus
-        sram.vector = Some(bus)
-      }
+    sramCUs.zipWithIndex.foreach{ case (sramCU, i) => 
+      copyIterators(sramCU, writerCU)
+      val bus = if (writerCU.isUnit) CUScalar(s"${quote(mem)}_${i}_wt") else CUVector(s"${quote(mem)}_${i}_wt")
 
-      dbg(s"  Allocating written SRAM $mem")
-      dbg(s"    writer   = $writer")
-      dbg(s"    writerCU = $writerCU")
-      dbg(s"    readerCU = $readerCU")
-
-      (readerCU, sram)
-    }
-
-    if (stages.nonEmpty) {
-      dbg(s"    Write stages: ")
-      stages.foreach{stage => dbg(s"      $stage")}
-
-      val groups = srams.groupBy(_._1).mapValues(_.map(_._2))
-      for ((readerCU,srams) <- groups if readerCU != writerCU) {
-        dbg(s"""  Adding write stages to $readerCU for SRAMs: ${srams.mkString(", ")}""")
-        readerCU.writeStages(srams) = (writerCU.pipe,stages)
+      globals += bus
+      sramCU.srams.foreach { _.writePort = Some(bus) }
+      if (stages.nonEmpty) {
+        dbg(s"    $sramCU Write stages: ")
+        stages.foreach{stage => dbg(s"      $stage")}
+        sramCU.writeStages(sramCU.srams.toList) = (writerCU.pipe,stages)
       }
     }
+
+    //val srams = readersOf(mem).map{reader =>
+      //val readerCU = allocateCU(reader.ctrlNode)
+      //copyIterators(readerCU, writerCU)
+
+      //val sram = allocateMem(mem, reader.node, readerCU)
+      //if (readerCU == writerCU) {
+        //sram.writePort = Some(LocalVectorBus)
+      //}
+      //else {
+        //val bus = if (writerCU.isUnit) CUScalar(quote(mem)) else CUVector(quote(mem))
+        //globals += bus
+        //sram.writePort = Some(bus)
+      //}
+
+      //dbg(s"  Allocating written SRAM $mem")
+      //dbg(s"    writer   = $writer")
+      //dbg(s"    writerCU = $writerCU")
+      //dbg(s"    readerCU = $readerCU")
+
+      //(readerCU, sram)
+    //}
+
+    //if (stages.nonEmpty) {
+      //dbg(s"    Write stages: ")
+      //stages.foreach{stage => dbg(s"      $stage")}
+
+      //val groups = srams.groupBy(_._1).mapValues(_.map(_._2))
+      //for ((readerCU,srams) <- groups if readerCU != writerCU) {
+        //dbg(s"""  Adding write stages to $readerCU for SRAMs: ${srams.mkString(", ")}""")
+        //readerCU.writeStages(srams) = (writerCU.pipe,stages)
+      //}
+    //}
   }
   def allocateReadSRAM(reader: Symbol, mem: Symbol, readerCU: PCU) = {
-    val sram = allocateMem(mem, reader, readerCU)
+    //val sram = allocateMem(mem, reader, readerCU) //TODO
+    val sramCUs = allocateMemoryCU(mem)
+    val dispatch = dispatchOf(reader, mem).head
+    val bus = CUVector(s"${quote(mem)}_${dispatch}_rd")
+    sramCUs(dispatch).srams.foreach{ _.readPort = Some(bus) } //each sramCU should only have a single sram
 
     dbg(s"  Allocating read SRAM $mem")
     dbg(s"    reader   = $reader")
     dbg(s"    readerCU = $readerCU")
-    sram
+    sramCUs.flatMap{_.srams}
   }
 
   private def initializeSRAM(sram: CUMemory, mem: Symbol, read: Symbol, cu: PCU) {
@@ -360,11 +417,11 @@ trait PIRAllocation extends PIRTraversal {
             remoteStages ++= symsOnlyUsedInWriteAddrOrEn(stms)(func.result +: func.effectful, indexSyms ++ enableSyms)
           }
           else if (isBuffer(mem)) {
-            val indexComputation = addr.map{is => getScheduleForAddress(stms)(is) }.getOrElse(Nil)
-            val indexSyms = indexComputation.map{case TP(s,d) => s }
-            val indexStages = indexSyms.map{s => DefStage(s) }
+            val indexComputation:List[Stm] = addr.map{is => getScheduleForAddress(stms)(is) }.getOrElse(Nil)
+            val indexSyms:List[Symbol] = indexComputation.map{case TP(s,d) => s }
+            val indexStages:List[PseudoStage] = indexSyms.map{s => DefStage(s) }
             val flatOpt = addr.map{is => flattenNDIndices(is, stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]])) }
-            val ad = flatOpt.map(_._1)
+            val ad = flatOpt.map(_._1) // sym of flatten  addr
             val remoteWriteStage = ad.map{a => WriteAddrStage(mem, a) }
             val addrStages = indexStages ++ flatOpt.map(_._2).getOrElse(Nil) ++ remoteWriteStage
 
@@ -484,7 +541,7 @@ trait PIRAllocation extends PIRTraversal {
     cu.regs += i
 
 
-    val addr = allocateReadSRAM(pipe, addrs, cu)
+    val addr = allocateReadSRAM(pipe, addrs, cu).head //TODO
     addr.readAddr = Some(i)
 
     val addrIn = fresh[Int32]
@@ -502,7 +559,7 @@ trait PIRAllocation extends PIRTraversal {
       val sram = allocateMem(local, reader.node, readerCU)
       sram.mode = FIFOOnWriteMode
       sram.writeAddr = None
-      sram.vector = Some(PIRDRAMDataIn(dram))
+      sram.writePort = Some(PIRDRAMDataIn(dram))
     }
   }
 
@@ -517,8 +574,8 @@ trait PIRAllocation extends PIRTraversal {
     val i = CounterReg(cc, 0)
     cu.regs += i
 
-    val addr = allocateReadSRAM(pipe, addrs, cu)
-    val data = allocateReadSRAM(pipe, local, cu)
+    val addr = allocateReadSRAM(pipe, addrs, cu).head //TODO
+    val data = allocateReadSRAM(pipe, local, cu).head //TODO
     addr.readAddr = Some(i)
     data.readAddr = Some(i)
 
@@ -570,15 +627,14 @@ trait PIRAllocation extends PIRTraversal {
       prescheduleGather(lhs, dram, local, addrs, end)
 
     case SRAMNew(dimensions) => 
+
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
         mem match {
           case BankedMemory(dims, depth, isAccum) =>
+            allocateMemoryCU(lhs)
             //val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
             //val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
             //val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
-            if (depth == 1) {
-            } else {
-            }
           case DiagonalMemory(strides, banks, depth, isAccum) =>
             Console.println(s"NOT SUPPORTED, MAKE EXCEPTION FOR THIS!")
         }

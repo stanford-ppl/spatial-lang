@@ -68,8 +68,9 @@ trait PIRSplitting extends PIRTraversal {
   }
 
   def nMems(cu: CU, others: Iterable[CU]): Int = {
-    val sramVectors = cu.srams.flatMap(_.vector)
-    val nonRetimedGroups = groupBuses(globalInputs(cu) diff sramVectors)
+    val sramWritePorts = cu.srams.flatMap(_.writePort)
+    //TODO: readports?
+    val nonRetimedGroups = groupBuses(globalInputs(cu) diff sramWritePorts)
     cu.srams.size + nMems(nonRetimedGroups, others)
   }
   def nMems(groups: BusGroups, others: Iterable[CU]): Int = {
@@ -373,8 +374,9 @@ trait PIRSplitting extends PIRTraversal {
     // --- SRAMs
     nSRAMs += p.srams.size
 
-    val sramVectors = p.srams.flatMap(_.vector)
-    val nonRetimedGroups = groupBuses(cuInBuses diff sramVectors)
+    val sramWritePorts = p.srams.flatMap(_.writePort)
+    //TODO: readports?
+    val nonRetimedGroups = groupBuses(cuInBuses diff sramWritePorts)
 
     nSRAMs += nMems(nonRetimedGroups, others)
 
@@ -864,7 +866,8 @@ trait PIRSplitting extends PIRTraversal {
     // --- Reconnect split feedback paths
     val rescheduledOutputs = cu.computeStages.flatMap(_.outputMems).toSet
 
-    cu.srams.foreach{sram => sram.vector match {
+    //TODO: readPort?
+    cu.srams.foreach{sram => sram.writePort match {
       case Some(LocalVectorBus) =>
         val dataReg = FeedbackDataReg(sram)
         val addrReg = FeedbackAddrReg(sram)

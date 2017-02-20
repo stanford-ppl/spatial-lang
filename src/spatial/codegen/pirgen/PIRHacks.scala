@@ -21,8 +21,8 @@ trait PIRHacks extends PIRTraversal {
       mcHack(pipe, cus.flatten)
       mappingOut += pipe -> cus
     }
-    streamHack()
-    counterHack()
+    //streamHack()
+    //counterHack()
 
     b
   }

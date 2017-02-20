@@ -6,8 +6,8 @@ import spatial.SpatialConfig
 import spatial.SpatialExp
 
 
-trait PIRGenSRAM extends PIRCodegen {
-  val IR: SRAMExp with SpatialExp
+trait PIRGenSRAM extends PIRTraversal with PIRCodegen with PIRGenController {
+  val IR: SpatialExp with PIRCommonExp
   import IR._
 
   private var nbufs: List[(Sym[SRAMNew[_]], Int)]  = List()
@@ -26,13 +26,13 @@ trait PIRGenSRAM extends PIRCodegen {
     case op@SRAMNew(dimensions) => 
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
         mem match {
-          case BankedMemory(dims, depth, isAccum) =>
+          case BankedMemory(dims, depth, isAccum) if cus.contains(lhs) => cus(lhs).flatten.foreach{cu => emitCU(lhs, cu)}
             //val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
             //val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
             //val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
-            if (depth == 1) {
-            } else {
-            }
+            //if (depth == 1) {
+            //} else {
+            //}
           case DiagonalMemory(strides, banks, depth, isAccum) =>
             Console.println(s"NOT SUPPORTED, MAKE EXCEPTION FOR THIS!")
         }

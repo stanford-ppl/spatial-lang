@@ -95,7 +95,7 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   // HACK: Ignore simple effect scheduling dependencies in remote writes
-  def getScheduleForAddress(stms: Seq[Stm])(addr: Seq[Symbol]) = {
+  def getScheduleForAddress(stms: Seq[Stm])(addr: Seq[Symbol]):List[Stm] = {
     def mysyms(rhs: Symbol) = rhs match {
       case d@Effectful(e, es) if e.simple =>
         val dataDeps = defOf(d).allInputs
@@ -228,7 +228,8 @@ trait PIRTraversal extends SpatialTraversal {
     }
 
     def swapBus_sram(sram: CUMemory): Unit = {
-      sram.vector = sram.vector.map{case `orig` => swap; case vec => vec}
+      sram.writePort = sram.writePort.map{case `orig` => swap; case vec => vec}
+      sram.readPort = sram.readPort.map{case `orig` => swap; case vec => vec}
       sram.readAddr = sram.readAddr.map{reg => swapBus_readAddr(reg)}
       sram.writeAddr = sram.writeAddr.map{reg => swapBus_writeAddr(reg)}
       sram.writeStart = sram.writeStart.map{reg => swapBus_localScalar(reg)}
