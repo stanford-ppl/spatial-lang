@@ -23,10 +23,16 @@ trait PIROptimizer extends PIRTraversal {
     removeUnusedGlobalBuses()
     for (cu <- cus) removeDeadStages(cu)
     removeEmptyCUs(cus)
-
-    b
+    super.process(b)
   }
 
+  override def postprocess[S:Staged](b: Block[S]): Block[S] = {
+    dbg(s"Mapping:")
+    mapping.foreach { case (sym, cus) =>
+      dbg(s"${sym} -> [${cus.mkString(",")}]")
+    }
+    super.postprocess(b)
+  }
 
   def removeUnusedCUComponents(cu: CU) {
     dbg(s"")
@@ -199,7 +205,7 @@ trait PIROptimizer extends PIRTraversal {
       }
       if (usedCCs.isEmpty || sibling.isDefined) {
         dbg(s"Removing empty CU $cu")
-        mapping.retain{case (pipe,c) => c != cu }
+        mapping.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
       }
     }
   }
