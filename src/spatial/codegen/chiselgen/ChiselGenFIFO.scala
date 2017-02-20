@@ -57,7 +57,11 @@ trait ChiselGenFIFO extends ChiselCodegen {
       val writer = writersOf(fifo).head.ctrlNode  // Not using 'en' or 'shuffle'
       emit(src"""${fifo}_writeEn := ${writer}_ctr_en // not using $en """)
       fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => emit(src"""${fifo}_wdata := ${v}.number""")
+        case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
+            emit(src"""${fifo}_wdata := ${v}.number""")
+          } else {
+            emit(src"""${fifo}_wdata := ${v}""")
+          }
         case _ => emit(src"""${fifo}_wdata := ${v}""")
       }
 
@@ -66,7 +70,11 @@ trait ChiselGenFIFO extends ChiselCodegen {
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
       emit(src"""${fifo}_readEn := ${reader}_ctr_en // not using $en""")
       fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(0))""")
+        case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
+            emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(0))""")
+          } else {
+            emit(src"""val ${lhs} = ${fifo}_rdata(0)""")
+          }
         case _ => emit(src"""val ${lhs} = ${fifo}_rdata(0)""")
       }
 

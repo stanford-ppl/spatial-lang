@@ -34,27 +34,29 @@ trait CppGenMath extends CppCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case FixAbs(x)  => emit(src"val $lhs = if ($x < 0) -$x else $x")
+    case FixAbs(x)  => emit(src"${lhs.tp} $lhs = abs($x);")
 
-    case FltAbs(x)  => emit(src"val $lhs = if ($x < 0) -$x else $x")
+    case FltAbs(x)  => emit(src"${lhs.tp} $lhs = fabs($x);")
     case FltLog(x)  => x.tp match {
-      case DoubleType() => emit(src"val $lhs = Math.log($x)")
-      case FloatType()  => emit(src"val $lhs = Math.log($x.toDouble).toFloat")
+      case DoubleType() => emit(src"${lhs.tp} $lhs = Math.log($x)")
+      case FloatType()  => emit(src"${lhs.tp} $lhs = Math.log($x.toDouble).toFloat")
     }
     case FltExp(x)  => x.tp match {
-      case DoubleType() => emit(src"val $lhs = Math.exp($x)")
-      case FloatType()  => emit(src"val $lhs = Math.exp($x.toDouble).toFloat")
+      case DoubleType() => emit(src"${lhs.tp} $lhs = Math.exp($x)")
+      case FloatType()  => emit(src"${lhs.tp} $lhs = Math.exp($x.toDouble).toFloat")
     }
     case FltSqrt(x) => x.tp match {
-      case DoubleType() => emit(src"val $lhs = Math.sqrt($x)")
-      case FloatType()  => emit(src"val $lhs = Math.sqrt($x.toDouble).toFloat")
+      case DoubleType() => emit(src"${lhs.tp} $lhs = Math.sqrt($x)")
+      case FloatType()  => emit(src"${lhs.tp} $lhs = Math.sqrt($x.toDouble).toFloat")
     }
 
-    case Mux(sel, a, b) => emit(src"val $lhs = if ($sel) $a else $b")
+    case Mux(sel, a, b) => 
+      emit(src"${lhs.tp} $lhs;")
+      emit(src"if ($sel){ $lhs = $a; } else { $lhs = $b; }")
 
     // Assumes < and > are defined on runtime type...
-    case Min(a, b) => emit(src"val $lhs = if ($a < $b) $a else $b")
-    case Max(a, b) => emit(src"val $lhs = if ($a > $b) $a else $b")
+    case Min(a, b) => emit(src"${lhs.tp} $lhs = std::min($a,$b);")
+    case Max(a, b) => emit(src"${lhs.tp} $lhs = std::max($a,$b);")
 
     case _ => super.emitNode(lhs, rhs)
   }
