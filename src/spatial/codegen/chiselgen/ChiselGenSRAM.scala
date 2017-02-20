@@ -87,7 +87,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val p = portsOf(lhs, sram, i).head
         emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
         sram.tp.typeArguments.head match { 
-          case FixPtType(s,d,f) => emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*$p))""")
+          case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
+              emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*$p))""")
+            } else {
+              emit(src"""val $lhs = ${sram}_$i.io.output.data(${rPar}*$p)""")
+            }
           case _ => emit(src"""val $lhs = ${sram}_$i.io.output.data(${rPar}*$p)""")
         }
       }

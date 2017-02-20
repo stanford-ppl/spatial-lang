@@ -81,7 +81,14 @@ trait ChiselGenReg extends ChiselCodegen {
             case Some(fps: ReduceFunction) => 
               fps match {
                 case FixPtSum =>
-                  emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")
+                  if (hasFracBits(reg.tp.typeArguments.head)) {
+                    reg.tp.typeArguments.head match {
+                      case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint($s, $d, $f, ${reg}_initval // get reset value that was created by reduce controller""")                    
+                    }
+                  } else {
+                    emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")                    
+                  }
+                  
                 case _ => 
                   emit(src"""TODO: Emit reduction for some other kind of reduction function, not sure how to read""")
               }
@@ -98,7 +105,15 @@ trait ChiselGenReg extends ChiselCodegen {
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg)) {
         emit(src"""val $reg = Reg(init = 0.U) // HW-accessible register""")
-        emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
+        v.tp match {
+          case FixPtType(_,_,_) => if (hasFracBits(v.tp)) {
+              emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
+            } else {
+              emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""") 
+            }
+          case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
+        }
+        
         emit(src"""io.ArgOut.ports(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
       } else {         
         reduceType(reg) match {
