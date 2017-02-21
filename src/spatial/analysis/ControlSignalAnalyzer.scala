@@ -24,7 +24,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var level = 0
   var controller: Option[Ctrl] = None
   var pendingNodes: Map[Exp[_], List[Exp[_]]] = Map.empty
-  var unrollFactors: List[Const[Index]] = Nil
+  var unrollFactors: List[List[Const[Index]]] = Nil
 
   var localMems: List[Exp[_]] = Nil
   var metapipes: List[Exp[_]] = Nil
@@ -77,7 +77,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
     // ASSUMPTION: Currently only parallelizes by innermost loop
     inds.zip(factors).foreach{case (i,f) => parFactorOf(i) = f }
-    unrollFactors ++= factors.lastOption
+    unrollFactors = factors.lastOption.toList +: unrollFactors
 
     visitCtrl(ctrl)(blk)
 
@@ -184,11 +184,13 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   /** Common method for all nodes **/
   def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
     // Set total unrolling factors of this node's scope + internal unrolling factors in this node
-    unrollFactorsOf(lhs) = unrollFactors ++ parFactorsOf(lhs) // (9)
+    unrollFactorsOf(lhs) = parFactorsOf(lhs) +: unrollFactors // (9)
 
     if (controller.isDefined) {
       val ctrl: Ctrl   = controller.get
       val parent: Ctrl = if (isControlNode(lhs)) (lhs, false) else ctrl
+
+      if (parent.node != lhs) parentOf(lhs) = parent.node else parentOf(lhs) = ctrl.node
 
       checkPendingNodes(lhs, rhs, Some(parent))
 
@@ -264,12 +266,12 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
         if (isStateless(map.result)) {
           addPendingUse(lhs, (lhs,true), Seq(map.result))
         }
+      }
 
-        visitCtrl((lhs,true)) {
-          visitBlock(ld)
-          visitBlock(reduce)
-          visitBlock(store)
-        }
+      visitCtrl((lhs,true)) {
+        visitBlock(ld)
+        visitBlock(reduce)
+        visitBlock(store)
       }
 
       isAccum(accum) = true
@@ -280,13 +282,14 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
       visitCtrl((lhs,false), itersMap, cchainMap) {
         visitBlock(map)
-        visitCtrl((lhs,true), itersRed, cchainRed) {
-          visitBlock(ldAcc)
-          visitBlock(ldRes)
-          visitBlock(reduce)
-          visitBlock(store)
-        }
       }
+      visitCtrl((lhs,true), itersRed, cchainRed) {
+        visitBlock(ldAcc)
+        visitBlock(ldRes)
+        visitBlock(reduce)
+        visitBlock(store)
+      }
+
       isAccum(accum) = true
       parentOf(accum) = lhs
       addChildDependencyData(lhs, map)

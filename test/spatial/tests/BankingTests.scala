@@ -1,4 +1,5 @@
 package spatial.tests
+import argon.core.Exceptions
 import org.scalatest.{FlatSpec, Matchers}
 import org.virtualized._
 import spatial.SpatialConfig
@@ -29,29 +30,79 @@ object TwoDuplicatesSimple extends SpatialTest {
   }
 }
 
+// Nonsensical app, just to get structure there.
 object TwoDuplicatesPachinko extends SpatialTest {
   import IR._
 
   @virtualize
   def main() {
-    val dram = DRAM[Int](32)
+    val dram = DRAM[Int](512)
     val out = ArgOut[Int]
 
     Accel {
-      val sram = SRAM[Int](16)
-      val accum = Reg[Int]
+      Foreach(16 by 1){i =>
 
-      Reduce(accum)(32 by 16 par 2){i =>
+        val sram = SRAM[Int](16)
+
         sram load dram(i::i+16)
-        Reduce(16 par 16){ii => sram(ii) }{_+_}
-      }{_+_}
 
-      out := accum
+        Foreach(32 by 16 par 2){j =>
+          val accum = Reg[Int]
+          Reduce(accum)(16 par 16){k => sram(k) }{_+_}
+          out := accum.value
+        }
+      }
     }
   }
 }
 
-class BankingTests extends FlatSpec with Matchers {
+
+
+object LegalFIFOParallelization extends SpatialTest {
+  import IR._
+
+  @virtualize
+  def main() {
+
+    val out = ArgOut[Int]
+
+    Accel {
+      val fifo = FIFO[Int](32)
+
+      Foreach(16 by 1) {i =>
+        Foreach(8 par 8){j => fifo.enq(j) }
+        Foreach(8 par 1){j => out := fifo.deq() }
+      }
+    }
+
+  }
+}
+
+object IllegalFIFOParallelization extends SpatialTest {
+  import IR._
+
+  @virtualize
+  def main() {
+
+    val out = ArgOut[Int]
+
+    Accel {
+      val fifo = FIFO[Int](32)
+
+      Foreach(16 par 2) {i =>
+        Foreach(8 by 1){j => fifo.enq(j) }
+        Foreach(8 by 1){j => out := fifo.deq() }
+      }
+    }
+
+  }
+}
+
+class BankingTests extends FlatSpec with Matchers with Exceptions {
   SpatialConfig.enableScala = true
   "TwoDuplicatesSimple" should "have two duplicates of sram" in { TwoDuplicatesSimple.main(Array.empty) }
+  "TwoDuplicatesPachinko" should "have two duplicates of sram" in { TwoDuplicatesPachinko.main(Array.empty) }
+
+  "LegalFIFOParallelization" should "compile" in { LegalFIFOParallelization.main(Array.empty) }
+  a [TestBenchFailed] should be thrownBy { IllegalFIFOParallelization.main(Array.empty) }
 }

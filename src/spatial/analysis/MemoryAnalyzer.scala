@@ -189,14 +189,15 @@ trait MemoryAnalyzer extends CompilerPass {
 
       accesses.foreach{access =>
         if (writers.contains(access)) {
-          for (j <- i until i+dups)
+          for (j <- i until i+dups) {
             dispatchOf.add(access, mem, j)
+            portsOf(access, mem, j) = ports(access)
+          }
         }
         else {
           dispatchOf.add(access, mem, i)
+          portsOf(access, mem, i) = ports(access)
         }
-
-        portsOf(access, mem, i) = ports(access)
 
         dbg(s"""   - $access (ports: ${ports(access).mkString(", ")}) [swap: ${swaps.get(access)}]""")
       }
@@ -244,7 +245,7 @@ trait MemoryAnalyzer extends CompilerPass {
 
     // Parallelization factors relative to the accessed memory
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
-    val channels = factors.map{case Exact(c) => c.toInt}.product
+    val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
 
     def bankFactor(i: Bound[Index]): Int = {
       if (!used.contains(i)) {
@@ -275,17 +276,28 @@ trait MemoryAnalyzer extends CompilerPass {
     (BankedMemory(banking, depth = 1, isAccum = false), duplicates)
   }
 
-  // TODO: We need to check that there is only the innermost loop parallelized relative to the FIFO
-  // Otherwise, we have multiple concurrent reads/writes
+
   def bankFIFOAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
-    val channels = factors.map{case Exact(c) => c.toInt}.product
+
+    // TODO: May want to disable this check for DSE? Or just limit parallelization factors to be legal ones
+    // All parallelization factors relative to the memory, except the innermost, must either be empty or only contain 1s
+    // Otherwise, we have multiple concurrent reads/writes
+    val innerLoopParOnly = factors.drop(1).forall{x => x.isEmpty || x.forall{case Exact(c) => c == 1; case _ => false} }
+    if (!innerLoopParOnly) {
+      error(ctxOrHere(access), u"Access to memory $mem has outer loop parallelization relative to the memory definition")
+      error("Concurrent readers and writers of the same memory are disallowed for FIFOs.")
+      error(ctxOrHere(access))
+    }
+
+    val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
     (BankedMemory(Seq(StridedBanking(1, channels)), depth = 1, isAccum = false), 1)
   }
 
+  // TODO: Concurrent writes to registers should be illegal
   def bankRegAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
-    val duplicates = factors.map{case Exact(c) => c.toInt}.product
+    val duplicates = factors.flatten.map{case Exact(c) => c.toInt}.product
 
     (BankedMemory(Seq(NoBanking), depth = 1, isAccum = false), duplicates)
   }
