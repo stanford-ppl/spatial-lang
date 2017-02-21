@@ -28,13 +28,13 @@ trait ChiselGenStream extends ChiselCodegen {
     case StreamOutNew(bus) => 
       streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case StreamDeq(stream, en) => 
-      val streamId = streamIns.indexOf(stream.asInstanceOf[Sym[StreamIn[_]]])
-      emit(src"""val $lhs = io.streamIns.data(${streamId})""")
-      emit(src"""io.streamIns.pop := $en""")
+      // val streamId = streamIns.indexOf(stream.asInstanceOf[Sym[StreamIn[_]]])
+      emit(src"""val $lhs = ${stream}_data""")
+      emit(src"""${stream}_pop := $en""")
     case StreamEnq(stream, data, en) => 
-      val streamId = streamIns.indexOf(stream.asInstanceOf[Sym[StreamIn[_]]])
-      emit(src"""io.streamOuts.push(${streamId}) := $en""")
-      emit(src"""io.streamOuts.data(${streamId}) := $data""")
+      // val streamId = streamIns.indexOf(stream.asInstanceOf[Sym[StreamIn[_]]])
+      emit(src"""${stream}_push := $en""")
+      emit(src"""${stream}_data := $data""")
     case _ => super.emitNode(lhs, rhs)
   }
 
@@ -46,6 +46,11 @@ trait ChiselGenStream extends ChiselCodegen {
       emit(s"""val ready = Vec(${streamIns.length}, Input(Bool()))""")
       emit(s"""val pop = Vec(${streamIns.length}, Output(Bool()))""")
       streamIns.zipWithIndex.map { case(p,i) => 
+        withStream(getStream("GlobalWires")) {
+          emit(s"""val ${quote(p)}_data = io.StreamIns.data($i) // ( ${nameOf(p).getOrElse("")} )""")  
+          emit(s"""val ${quote(p)}_ready = io.StreamIns.ready($i) // ( ${nameOf(p).getOrElse("")} )""")  
+          emit(s"""val ${quote(p)}_pop = io.StreamIns.pop($i) // ( ${nameOf(p).getOrElse("")} )""")  
+        }
         emit(s"""//  ${quote(p)} = streamIns($i) ( ${nameOf(p).getOrElse("")} )""")
       // streamInsByName = streamInsByName :+ s"${quote(p)}"
       }
@@ -56,11 +61,17 @@ trait ChiselGenStream extends ChiselCodegen {
       emit(s"""val ready = Vec(${streamOuts.length}, Output(Bool()))""")
       emit(s"""val push = Vec(${streamOuts.length}, Output(Bool()))""")
       streamOuts.zipWithIndex.map { case(p,i) => 
+        withStream(getStream("GlobalWires")) {
+          emit(s"""val ${quote(p)}_data = io.StreamOuts.data($i) // ( ${nameOf(p).getOrElse("")} )""")  
+          emit(s"""val ${quote(p)}_ready = io.StreamOuts.ready($i) // ( ${nameOf(p).getOrElse("")} )""")  
+          emit(s"""val ${quote(p)}_push = io.StreamOuts.pop($i) // ( ${nameOf(p).getOrElse("")} )""")  
+        }
         emit(s"""//  ${quote(p)} = streamOuts($i) ( ${nameOf(p).getOrElse("")} )""")
       // streamOutsByName = streamOutsByName :+ s"${quote(p)}"
       }
       close("}")
     }
+
     super.emitFileFooter()
   }
 

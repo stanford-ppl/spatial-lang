@@ -203,6 +203,20 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   }
 
   /**
+    * List of fifos or streams popped in a given controller, for handling streampipe control flow
+    **/
+  case class ListenStreams(listen: List[Exp[_]]) extends Metadata[ListenStreams] {
+    def mirror(f:Tx) = ListenStreams(f.tx(listen))
+  }
+  object listensTo {
+    def apply(x: Exp[_]): List[Exp[_]] = metadata[ListenStreams](x).map(_.listen).getOrElse(Nil)
+    def update(x: Exp[_], listen: List[Exp[_]]): Unit = metadata.add(x, ListenStreams(listen))
+
+    def apply(x: Ctrl): List[Exp[_]] = listensTo(x.node)
+    def update(x: Ctrl, listen: List[Exp[_]]): Unit = listensTo(x.node) = listen
+  }
+
+  /**
     * List of consumers of reads (primarily used for register reads)
     */
   case class ReadUsers(users: List[Access]) extends Metadata[ReadUsers] {

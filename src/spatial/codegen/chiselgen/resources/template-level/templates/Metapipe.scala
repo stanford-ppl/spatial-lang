@@ -13,6 +13,7 @@ class Metapipe(val n: Int) extends Module {
       val numIter = UInt(32.W).asInput
       val stageDone = Vec(n, Bool().asInput)
       val rst = Bool().asInput
+      val forever = Bool().asInput
     }
     val output = new Bundle {
       val done = Bool().asOutput
@@ -77,7 +78,7 @@ class Metapipe(val n: Int) extends Module {
       stateFF.io.input.data := resetState.U
       io.output.stageEnable.foreach { s => s := false.B}
     }.elsewhen (state === resetState.U) {  // RESET -> FILL
-      stateFF.io.input.data := Mux(io.input.numIter === 0.U, doneState.U, fillState.U) // Go directly to done if niters = 0
+      stateFF.io.input.data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, steadyState.U, doneState.U), fillState.U) // Go directly to done if niters = 0
       io.output.stageEnable.foreach { s => s := false.B}
     }.elsewhen (state < steadyState.U) {  // FILL -> STEADY
       for ( i <- fillState until steadyState) {
@@ -97,7 +98,7 @@ class Metapipe(val n: Int) extends Module {
             if (i+1 == steadyState) { // If moving to steady state
               stateFF.io.input.data := Mux(cycsSinceDone.io.output.data === 0.U & ctr.io.output.count(0) + 1.U < max , 
                           steadyState.U, 
-                          cycsSinceDone.io.input.data + 1.U + stateFF.io.output.data + {if (n == 2) 1.U else 0.U} // ODO: HACK FOR 2 STAGE, 1 ITER!! FIX ASAP!!!!!!
+                          Mux(io.input.forever, steadyState.U, cycsSinceDone.io.input.data + 1.U + stateFF.io.output.data + {if (n == 2) 1.U else 0.U}) // TODO: HACK FOR 2 STAGE, 1 ITER!
                         ) // If already in drain step, bypass steady state
             } else {
               cycsSinceDone.io.input.data := cycsSinceDone.io.output.data + 1.U
@@ -117,7 +118,7 @@ class Metapipe(val n: Int) extends Module {
       doneClear := doneTree
       when (doneTree === 1.U) {
         when(ctr.io.output.count(0) === (max - 1.U)) {
-          stateFF.io.input.data := drainState.U
+          stateFF.io.input.data := Mux(io.input.forever, steadyState.U, drainState.U)
         }.otherwise {
           stateFF.io.input.data := state
         }
@@ -160,3 +161,5 @@ class Metapipe(val n: Int) extends Module {
 
 
 
+class Streampipe(override val n: Int) extends Metapipe(n) {
+}

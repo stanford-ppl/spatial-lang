@@ -12,6 +12,7 @@ class Seqpipe(val n: Int) extends Module {
       val numIter = UInt(32.W).asInput
       val stageDone = Vec(n, Bool().asInput)
       val rst = Bool().asInput
+      val forever = Bool().asInput
     }
     val output = new Bundle {
       val done = Bool().asOutput
@@ -54,7 +55,7 @@ class Seqpipe(val n: Int) extends Module {
       stateFF.io.input.data := resetState.U
       io.output.stageEnable.foreach { s => s := false.B}
     }.elsewhen (state === resetState.U) {
-      stateFF.io.input.data := Mux(io.input.numIter === 0.U, doneState.U, firstState.U)
+      stateFF.io.input.data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, firstState.U, doneState.U), firstState.U)
       io.output.stageEnable.foreach { s => s := false.B}
     }.elsewhen (state < lastState.U) {
 
@@ -79,7 +80,7 @@ class Seqpipe(val n: Int) extends Module {
     }.elsewhen (state === lastState.U) {
       when(io.input.stageDone(lastState-2)) {
         when(ctr.io.output.done) {
-          stateFF.io.input.data := doneState.U
+          stateFF.io.input.data := Mux(io.input.forever, firstState.U, doneState.U)
         }.otherwise {
           stateFF.io.input.data := firstState.U
         }
