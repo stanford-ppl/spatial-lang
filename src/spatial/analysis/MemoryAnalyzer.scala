@@ -188,7 +188,14 @@ trait MemoryAnalyzer extends CompilerPass {
       dbg(c"  #$i - ${i+dups}: $instance (x$dups)")
 
       accesses.foreach{access =>
-        dispatchOf.add(access, mem, i)
+        if (writers.contains(access)) {
+          for (j <- i until i+dups)
+            dispatchOf.add(access, mem, j)
+        }
+        else {
+          dispatchOf.add(access, mem, i)
+        }
+
         portsOf(access, mem, i) = ports(access)
 
         dbg(s"""   - $access (ports: ${ports(access).mkString(", ")}) [swap: ${swaps.get(access)}]""")
@@ -277,6 +284,9 @@ trait MemoryAnalyzer extends CompilerPass {
   }
 
   def bankRegAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
-    (BankedMemory(Seq(NoBanking), depth = 1, isAccum = false), 1)
+    val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
+    val duplicates = factors.map{case Exact(c) => c.toInt}.product
+
+    (BankedMemory(Seq(NoBanking), depth = 1, isAccum = false), duplicates)
   }
 }

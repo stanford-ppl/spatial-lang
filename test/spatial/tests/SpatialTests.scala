@@ -16,7 +16,7 @@ trait SpatialTestIR extends SpatialIR with RunnerCore { self =>
 }
 
 trait SpatialTest extends SpatialApp {
-  override val IR: SpatialTestIR = new SpatialTestIR { }
+  override val IR: SpatialTestIR = new SpatialTestIR { def target = spatial.targets.DefaultTarget }
 }
 
 // --- Tests
