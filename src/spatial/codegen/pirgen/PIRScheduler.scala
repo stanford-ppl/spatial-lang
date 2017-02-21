@@ -61,6 +61,10 @@ trait PIRScheduler extends PIRTraversal {
         dbg(s"Generated write stages ($srams): ")
         cu.writeStages(srams).foreach(stage => dbg(s"  $stage"))
       }
+      for (srams <- cu.readStages.keys) {
+        dbg(s"Generated read stages ($srams): ")
+        cu.readStages(srams).foreach(stage => dbg(s"  $stage"))
+      }
       dbg("Generated compute stages: ")
       cu.computeStages.foreach(stage => dbg(s"  $stage"))
 
@@ -97,11 +101,17 @@ trait PIRScheduler extends PIRTraversal {
         dbg(s"    Memories: " + k.mkString(", "))
         for (stage <- v._2) dbg(s"      $stage")
       }
+      dbg(s"  Read stages:")
+      for ((k,v) <- pcu.readStages) {
+        dbg(s"    Memories: " + k.mkString(", "))
+        for (stage <- v._2) dbg(s"      $stage")
+      }
       dbg(s"  Compute stages:")
       for (stage <- pcu.computeStages) dbg(s"    $stage")
 
       val origRegs = cu.regs
       var writeStageRegs = cu.regs
+      var readStageRegs = cu.regs
 
       // --- Schedule write contexts
       for ((srams, (writer, stages)) <- pcu.writeStages) {
@@ -110,6 +120,14 @@ trait PIRScheduler extends PIRTraversal {
         stages.foreach{stage => scheduleStage(stage, ctx) }
 
         writeStageRegs ++= cu.regs
+        cu.regs = origRegs
+      }
+      for ((srams, (reader, stages)) <- pcu.readStages) {
+        val ctx = ReadContext(cu, reader, srams)
+        ctx.init()
+        stages.foreach{stage => scheduleStage(stage, ctx) }
+
+        readStageRegs ++= cu.regs //TODO: should writeStageRegs been removed?
         cu.regs = origRegs
       }
 
@@ -128,9 +146,9 @@ trait PIRScheduler extends PIRTraversal {
       if (isReduce) reduceNodeToStage(lhs,rhs,ctx)
       else          mapNodeToStage(lhs,rhs,ctx)
 
-    case WriteAddrStage(mem, addr) =>
+    case AddrStage(mem, addr) =>
       //dbg(s"$mem @ $addr [WRITE]")
-      writeAddrToStage(mem, addr, ctx)
+      addrToStage(mem, addr, ctx)
 
     case FifoOnWriteStage(mem, start, end) =>
       //dbg(s"$mem [WRITE]")
@@ -142,20 +160,25 @@ trait PIRScheduler extends PIRTraversal {
   }
 
   // If addr is a counter or const, just returns that register back. Otherwise returns address wire
-  def allocateAddrReg(sram: CUMemory, addr: Symbol, ctx: CUContext, write: Boolean, local: Boolean = false):LocalComponent = {
-    val wire = if (write && local) FeedbackAddrReg(sram)
-               else if (write)     WriteAddrWire(sram)
-               else                ReadAddrWire(sram)
-
+  def allocateAddrReg(sram: CUMemory, addr: Symbol, ctx: CUContext, local: Boolean = false):LocalComponent = {
+    val wire = ctx match {
+      case WriteContext(cu, pipe, srams) if local => FeedbackAddrReg(sram)
+      case WriteContext(cu, pipe, srams) => WriteAddrWire(sram)
+      case ReadContext(cu, pipe, srams) => ReadAddrWire(sram)
+    }
     val addrReg = ctx.reg(addr)
     propagateReg(addr, addrReg, wire, ctx)
   }
 
-  def writeAddrToStage(mem: Symbol, addr: Symbol, ctx: CUContext, local: Boolean = false) {
+  def addrToStage(mem: Symbol, addr: Symbol, ctx: CUContext, local: Boolean = false) {
     //dbg(s"Setting write address for " + ctx.memories(mem).mkString(", "))
-
     ctx.memories(mem).foreach{sram =>
-      sram.writeAddr = Some(allocateAddrReg(sram, addr, ctx, write=true, local=local).asInstanceOf[WriteAddr]) //TODO
+      ctx match {
+        case _:WriteContext =>
+          sram.writeAddr = Some(allocateAddrReg(sram, addr, ctx, local=local).asInstanceOf[WriteAddr])
+        case _:ReadContext =>
+          sram.readAddr = Some(allocateAddrReg(sram, addr, ctx, local=local).asInstanceOf[ReadAddr])
+      }
     }
   }
   def fifoOnWriteToStage(mem: Symbol, start: Option[Symbol], end: Option[Symbol], ctx: CUContext) {
@@ -197,12 +220,13 @@ trait PIRScheduler extends PIRTraversal {
   }
 
   def bufferWrite(mem: Symbol, data: Symbol, isdim: Option[(Seq[Exp[Index]], Seq[Exp[Index]])], ctx: CUContext) {
-    if (isReadInPipe(mem, ctx.pipe)) {
+    if (isReadInPipe(mem, ctx.pipe)) { //FIXME: No longer will be true
+      assert(false, "All reads are remote writes now!")
       val flatOpt = isdim.map{ case (a, dims) => flattenNDIndices(a, dims) }
       val addr = flatOpt.map(_._1)
       val addrStages = flatOpt.map(_._2).getOrElse(Nil)
       addrStages.foreach{stage => scheduleStage(stage, ctx) }
-      addr.foreach{a => writeAddrToStage(mem, a, ctx, local=true) }
+      addr.foreach{a => addrToStage(mem, a, ctx, local=true) }
 
       // TODO: Should we allow multiple versions of local accumulator?
       ctx.memories(mem).foreach{sram =>
@@ -210,15 +234,14 @@ trait PIRScheduler extends PIRTraversal {
       }
     }
     // Push data out to global bus (even for local accumulators)
-    if (ctx.isUnit) {
-      val bus = CUScalar(quote(mem))
-      globals += bus
-      propagateReg(data, ctx.reg(data), ScalarOut(bus), ctx)
-    }
-    else {
-      val bus = CUVector(quote(mem))
-      globals += bus
-      propagateReg(data, ctx.reg(data), VectorOut(bus), ctx)
+    mappingIn(mem).zipWithIndex.foreach { case (sramCU, i) =>
+      if (ctx.isUnit) {
+        val bus = CUScalar(s"${quote(mem)}_${i}_wt")
+        propagateReg(data, ctx.reg(data), ScalarOut(bus), ctx)
+      } else {
+        val bus = CUVector(s"${quote(mem)}_${i}_wt")
+        propagateReg(data, ctx.reg(data), VectorOut(bus), ctx)
+      }
     }
   }
 
@@ -249,19 +272,17 @@ trait PIRScheduler extends PIRTraversal {
     val dispatch = dispatchOf(lhs, mem).head
     if (ctx.isUnit) {
       val bus = CUScalar(s"${quote(mem)}_${dispatch}_rd")
-      globals += bus
       ctx.addReg(lhs, ScalarIn(bus))
       //propagateReg(lhs, ScalarIn(bus), ctx.reg(lhs), ctx)
     } else {
       val bus = CUVector(s"${quote(mem)}_${dispatch}_rd")
-      globals += bus
       ctx.addReg(lhs, VectorIn(bus))
       //propagateReg(lhs, VectorIn(bus), ctx.reg(lhs), ctx)
     }
     //val sram = ctx.mem(mem, lhs)
     //val (addr, addrStages) = flattenNDIndices(is, dim)
     //addrStages.foreach{stage => scheduleStage(stage, ctx) }
-    //sram.readAddr = Some(allocateAddrReg(sram, addr, ctx, write=false, local=true).asInstanceOf[ReadAddr]) //TODO
+    //sram.readAddr = Some(allocateAddrReg(sram, addr, ctx, local=true).asInstanceOf[ReadAddr]) //TODO
     //ctx.addReg(lhs, SRAMReadReg(sram))
   }
 

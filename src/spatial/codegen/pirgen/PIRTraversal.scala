@@ -17,13 +17,18 @@ trait PIRTraversal extends SpatialTraversal {
   val LANES = 16         // Number of SIMD lanes per CU
   val REDUCE_STAGES = 5  // Number of stages required to reduce across all lanes
 
+  // HACK: Skip parallel pipes in PIR gen
+  def parentHack(x: Symbol): Option[Symbol] = parentOf(x) match {
+    case Some(pipe@Def(_:ParallelPipe)) => parentHack(pipe)
+    case parentOpt => parentOpt
+  }
 
   // --- Allocating
   var globals = Set[GlobalComponent]()
 
   def allocateDRAM(ctrl: Symbol, dram: Symbol, mode: OffchipMemoryMode): MemoryController = {
     val region = OffChip(quote(dram))
-    val mc = MemoryController(quote(ctrl), region, mode)
+    val mc = MemoryController(quote(ctrl), region, mode, parentHack(ctrl).get)
     globals += mc
     globals += region
     mc
@@ -394,7 +399,12 @@ trait PIRTraversal extends SpatialTraversal {
     def addStage(stage: Stage) { cu.writeStages(srams) += stage }
     def isWriteContext = true
   }
-
+  case class ReadContext(override val cu: ComputeUnit, pipe: Symbol, srams: List[CUMemory]) extends CUContext(cu) {
+    def init() { cu.readStages += srams -> mutable.ArrayBuffer[Stage]() }
+    def stages = cu.readStages(srams)
+    def addStage(stage: Stage) { cu.readStages(srams) += stage }
+    def isWriteContext = false 
+  }
 
   // Given result register type A, reroute to type B as necessary
   def propagateReg(exp: Symbol, a: LocalComponent, b: LocalComponent, ctx: CUContext):LocalComponent = (a,b) match {

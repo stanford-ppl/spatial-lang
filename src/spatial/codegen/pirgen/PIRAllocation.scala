@@ -14,11 +14,6 @@ trait PIRAllocation extends PIRTraversal {
   var top: Option[Symbol] = None
   var mapping = mutable.HashMap[Symbol, List[PCU]]()
 
-  // HACK: Skip parallel pipes in PIR gen
-  private def parentHack(x: Symbol): Option[Symbol] = parentOf(x) match {
-    case Some(pipe@Def(_:ParallelPipe)) => parentHack(pipe)
-    case parentOpt => parentOpt
-  }
   private def controllersHack(pipe: Symbol): List[Symbol] = pipe match {
     case Def(_:ParallelPipe) => childrenOf(pipe).flatMap{child => controllersHack(child)}
     case _ => List(pipe)
@@ -81,6 +76,10 @@ trait PIRAllocation extends PIRTraversal {
     val style = pipe match {
       case Def(_:UnitPipe) => UnitCU
       case Def(_:Hwblock)  => UnitCU
+      case Def(_:BurstLoad[_]) => UnitCU
+      case Def(_:BurstStore[_]) => UnitCU
+      case Def(_:Scatter[_]) => StreamCU
+      case Def(_:Gather[_]) => StreamCU
       case _ if styleOf(pipe) == SeqPipe && isInnerPipe(pipe) => UnitCU
       case _ => typeToStyle(styleOf(pipe))
     }
@@ -93,6 +92,9 @@ trait PIRAllocation extends PIRTraversal {
       case Def(e:UnrolledForeach)      => addIterators(cu, e.cchain, e.iters, e.valids)
       case Def(e:UnrolledReduce[_,_])  => addIterators(cu, e.cchain, e.iters, e.valids)
       case Def(_:UnitPipe | _:Hwblock) => cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
+      case Def(_:BurstLoad[_] | _:BurstStore[_]) => cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
+      case Def(e:Scatter[_]) =>
+      case Def(e:Gather[_]) =>
       case _ =>
     }
     if (top.isEmpty && parent.isEmpty) top = Some(pipe)
@@ -103,41 +105,16 @@ trait PIRAllocation extends PIRTraversal {
     List(cu)
   }).head
 
-  def allocateMemoryUnit(pipe: Symbol): PCU = mapping.getOrElseUpdate(pipe, {
-    val parent = parentHack(pipe).map(allocateCU)
-
-    val style = pipe match {
-      case Def(_:BurstLoad[_]) => UnitCU
-      case Def(_:BurstStore[_]) => UnitCU
-      case Def(_:Scatter[_]) => StreamCU
-      case Def(_:Gather[_]) => StreamCU
-    }
-
-    val cu = PseudoComputeUnit(quote(pipe), pipe, style)
-    cu.parent = parent
-    pipe match {
-      case Def(_:BurstLoad[_] | _:BurstStore[_]) => cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
-      case Def(e:Scatter[_]) =>
-      case Def(e:Gather[_]) =>
-    }
-
-    val Def(d) = pipe
-    dbg(s"Allocating CU $cu for $pipe = $d")
-
-    initCU(cu, pipe)
-    List(cu)
-  }).head
-
   def allocateCU(pipe: Symbol): PCU = pipe match {
     case Def(_:Hwblock)             => allocateComputeUnit(pipe)
     case Def(_:UnrolledForeach)     => allocateComputeUnit(pipe)
     case Def(_:UnrolledReduce[_,_]) => allocateComputeUnit(pipe)
     case Def(_:UnitPipe)            => allocateComputeUnit(pipe)
 
-    case Def(_:BurstLoad[_])  => allocateMemoryUnit(pipe)
-    case Def(_:BurstStore[_]) => allocateMemoryUnit(pipe)
-    case Def(_:Scatter[_])    => allocateMemoryUnit(pipe)
-    case Def(_:Gather[_])     => allocateMemoryUnit(pipe)
+    case Def(_:BurstLoad[_])  => allocateComputeUnit(pipe)
+    case Def(_:BurstStore[_]) => allocateComputeUnit(pipe)
+    case Def(_:Scatter[_])    => allocateComputeUnit(pipe)
+    case Def(_:Gather[_])     => allocateComputeUnit(pipe)
 
     case Def(d) => throw new Exception(s"Don't know how to generate CU for\n  $pipe = $d")
   }
@@ -201,7 +178,6 @@ trait PIRAllocation extends PIRTraversal {
     sramCUs.zipWithIndex.foreach{ case (sramCU, i) => 
       copyIterators(sramCU, writerCU)
       val bus = if (writerCU.isUnit) CUScalar(s"${quote(mem)}_${i}_wt") else CUVector(s"${quote(mem)}_${i}_wt")
-
       globals += bus
       sramCU.srams.foreach { _.writePort = Some(bus) }
       if (stages.nonEmpty) {
@@ -244,17 +220,25 @@ trait PIRAllocation extends PIRTraversal {
       //}
     //}
   }
-  def allocateReadSRAM(reader: Symbol, mem: Symbol, readerCU: PCU) = {
+  def allocateReadSRAM(reader: Symbol, mem: Symbol, readerCU: PCU, stages:List[PseudoStage]) = {
     //val sram = allocateMem(mem, reader, readerCU) //TODO
     val sramCUs = allocateMemoryCU(mem)
     val dispatch = dispatchOf(reader, mem).head
-    val bus = CUVector(s"${quote(mem)}_${dispatch}_rd")
-    sramCUs(dispatch).srams.foreach{ _.readPort = Some(bus) } //each sramCU should only have a single sram
+    val sramCU = sramCUs(dispatch)
+    copyIterators(sramCU, readerCU)
+    val bus = if (readerCU.isUnit) CUScalar(s"${quote(mem)}_${dispatch}_rd") else CUVector(s"${quote(mem)}_${dispatch}_rd")
+    globals += bus
+    sramCU.srams.foreach{ _.readPort = Some(bus) } //each sramCU should only have a single sram
+    if (stages.nonEmpty) {
+      dbg(s"    $sramCU Read stages: ")
+      stages.foreach{stage => dbg(s"      $stage")}
+      sramCU.readStages(sramCU.srams.toList) = (readerCU.pipe,stages)
+    }
 
     dbg(s"  Allocating read SRAM $mem")
     dbg(s"    reader   = $reader")
     dbg(s"    readerCU = $readerCU")
-    sramCUs.flatMap{_.srams}
+    sramCU.srams.head
   }
 
   private def initializeSRAM(sram: CUMemory, mem: Symbol, read: Symbol, cu: PCU) {
@@ -381,27 +365,21 @@ trait PIRAllocation extends PIRTraversal {
     foreachSymInBlock(func){
       // NOTE: Writers always appear to occur in the associated writer controller
       // However, register reads may appear outside their corresponding controller
-      case writer@LocalWriter(writes) if !isControlNode(writer) =>
+      case writer@ParLocalWriter(writes) if !isControlNode(writer) =>
         val rhs = writer match {case Def(d) => d; case _ => null }
         dbg(s"$writer = $rhs [WRITER]")
 
-        writes.foreach{case (mem, value, addr, en) =>
+        writes.foreach{case (mem, value, addrs, ens) =>
           dbg(s"    Checking if $mem write can be implemented as FIFO-on-write:")
+          val addr = addrs.map{_.head}
           val writeAsFIFO = value.exists{v => useFifoOnWrite(mem, v) }
 
           if ((isBuffer(mem) || isFIFO(mem)) && writeAsFIFO) {
             // This entire section is a hack to support FIFO-on-write for burst loads
-            val enable: Option[Exp[Any]] = writer match {
-              case Def(SRAMStore(mem, dims, is, ofs, data, en)) => Some(en)
-              case Def(ParSRAMStore(sram, addr, data, ens))  => Some(ens)
-              case Def(FIFOEnq(fifo, data, en))          => Some(en)
-              case Def(ParFIFOEnq(fifo, data, ens)) => Some(ens)
-              case _ => None
-            }
-            val enableComputation = enable.map{e => getScheduleForAddress(stms)(Seq(e)) }.getOrElse(Nil)
+            val enableComputation = ens.map{e => getScheduleForAddress(stms)(Seq(e)) }.getOrElse(Nil)
             val enableSyms = enableComputation.map{case TP(s,d) => s}
 
-            val (start,end) = getFifoBounds(enable)
+            val (start,end) = getFifoBounds(ens)
 
             val startX = start match {case start@Some(Def(_:RegRead[_])) => start; case _ => None }
             val endX = end match {case end@Some(Def(_:RegRead[_])) => end; case _ => None }
@@ -422,7 +400,7 @@ trait PIRAllocation extends PIRTraversal {
             val indexStages:List[PseudoStage] = indexSyms.map{s => DefStage(s) }
             val flatOpt = addr.map{is => flattenNDIndices(is, stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]])) }
             val ad = flatOpt.map(_._1) // sym of flatten  addr
-            val remoteWriteStage = ad.map{a => WriteAddrStage(mem, a) }
+            val remoteWriteStage = ad.map{a => AddrStage(mem, a) }
             val addrStages = indexStages ++ flatOpt.map(_._2).getOrElse(Nil) ++ remoteWriteStage
 
             allocateWrittenSRAM(writer, mem, cu, addrStages)
@@ -436,22 +414,34 @@ trait PIRAllocation extends PIRTraversal {
           }
         }
 
-      case reader@LocalReader(reads) if !isControlNode(reader) =>
+      case reader@ParLocalReader(reads) if !isControlNode(reader) =>
         val rhs = reader match {case Def(d) => d; case _ => null }
         dbg(s"  $reader = $rhs [READER]")
 
-        reads.foreach{ case (mem,addr, en) =>
-            if (isReg(mem)) {
-              prescheduleRegisterRead(mem, reader, Some(pipe))
-              val isLocallyRead = isReadInPipe(mem, pipe, Some(reader))
-              val isLocallyWritten = isWrittenInPipe(mem, pipe)
-              //dbg(s"  isLocallyRead: $isLocallyRead, isLocallyWritten: $isLocallyWritten")
-              if (!isLocallyWritten || !isLocallyRead || isInnerAccum(mem)) remoteStages += reader
-            }
-            else if (isBuffer(mem)) {
-              val sram = mem.asInstanceOf[Exp[SRAM[_]]]
-              allocateReadSRAM(reader, sram, cu)
-            }
+        dbg(s"  reads:")
+        reads.foreach{ case (mem,addrs,ens) =>
+          val addr = addrs.map{_.head}
+          dbg(s"    $mem $addr $ens")
+          if (isReg(mem)) {
+            prescheduleRegisterRead(mem, reader, Some(pipe))
+            val isLocallyRead = isReadInPipe(mem, pipe, Some(reader))
+            val isLocallyWritten = isWrittenInPipe(mem, pipe)
+            //dbg(s"  isLocallyRead: $isLocallyRead, isLocallyWritten: $isLocallyWritten")
+            if (!isLocallyWritten || !isLocallyRead || isInnerAccum(mem)) remoteStages += reader
+          }
+          else if (isBuffer(mem)) {
+            val sram = mem.asInstanceOf[Exp[SRAM[_]]]
+
+            val indexComputation:List[Stm] = addr.map{is => getScheduleForAddress(stms)(is) }.getOrElse(Nil)
+            val indexSyms:List[Symbol] = indexComputation.map{case TP(s,d) => s }
+            val indexStages:List[PseudoStage] = indexSyms.map{s => DefStage(s) }
+            val flatOpt = addr.map{is => flattenNDIndices(is, stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]])) }
+            val ad = flatOpt.map(_._1) // sym of flatten  addr
+            val remoteReadStage = ad.map{a => AddrStage(mem, a) }
+            val addrStages = indexStages ++ flatOpt.map(_._2).getOrElse(Nil) ++ remoteReadStage
+
+            allocateReadSRAM(reader, sram, cu, addrStages)
+          }
         }
 
       case lhs@Op(rhs) => //TODO
@@ -541,7 +531,7 @@ trait PIRAllocation extends PIRTraversal {
     cu.regs += i
 
 
-    val addr = allocateReadSRAM(pipe, addrs, cu).head //TODO
+    val addr = allocateReadSRAM(pipe, addrs, cu, Nil)
     addr.readAddr = Some(i)
 
     val addrIn = fresh[Int32]
@@ -574,8 +564,8 @@ trait PIRAllocation extends PIRTraversal {
     val i = CounterReg(cc, 0)
     cu.regs += i
 
-    val addr = allocateReadSRAM(pipe, addrs, cu).head //TODO
-    val data = allocateReadSRAM(pipe, local, cu).head //TODO
+    val addr = allocateReadSRAM(pipe, addrs, cu, Nil)
+    val data = allocateReadSRAM(pipe, local, cu, Nil)
     addr.readAddr = Some(i)
     data.readAddr = Some(i)
 

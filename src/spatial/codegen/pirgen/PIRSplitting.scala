@@ -276,6 +276,7 @@ trait PIRSplitting extends PIRTraversal {
 
   // Recompute required memories + write stages for given compute stages
   // Includes handling of nested memory write + reads (although not clear this is well supported)
+  // TODO: readStages
   def recomputeOwnedSRAMs(p: Partition, sramOwners: Set[LocalRef]) = {
 
     def writeStages(inputs: Set[LocalRef]) = {
@@ -592,6 +593,7 @@ trait PIRSplitting extends PIRTraversal {
   }
 
 
+  //TODO: readStages
   def splitCU(cu: CU, arch: SplitCost, others: Iterable[CU]): List[CU] = {
     val writeGroups = Map[Int,WriteGroup]() ++ cu.writeStages.zipWithIndex.map{case ((mems,stages),i) => i -> WriteGroup(mems,stages.toList) }
     val sramOwners = getSRAMOwners(cu.computeStages.toList +: cu.writeStages.values.map(_.toList).toList)
@@ -729,6 +731,7 @@ trait PIRSplitting extends PIRTraversal {
 
     cu.srams ++= part.srams
 
+    //TODO: readStages
     cu.writeStages ++= part.wstages.map{case (i,WriteGroup(mems,stages)) => mems -> ArrayBuffer(stages:_*) }
     cu.regs ++= cu.writeStages.values.flatMap(stages => stages.flatMap(_.inputMems) ++ stages.flatMap(_.outputMems))
 

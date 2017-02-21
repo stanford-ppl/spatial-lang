@@ -40,7 +40,7 @@ trait PIRHacks extends PIRTraversal {
       dbg(s"${cu.name}: $writesMC")
 
       // Set everything but first stages to streaming pipes
-      if (writesMC && cu.deps.nonEmpty) cu.style = StreamCU
+      //if (writesMC && cu.deps.nonEmpty) cu.style = StreamCU
 
 
       if (writesMC) cu.parent match {
@@ -56,6 +56,7 @@ trait PIRHacks extends PIRTraversal {
           // All CUs with this parent communicate with the same memory controller(s) as this CU
           if (cusByMC.keys.size == 1) {
             parent.style = StreamCU
+            cu.style = StreamCU
           }
           /*else {
             val parent = makeStreamController(pipe, cu.parent)

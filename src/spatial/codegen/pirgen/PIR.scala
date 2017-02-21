@@ -48,7 +48,7 @@ trait PIR {
   // --- Global buses
   sealed abstract class GlobalComponent(val name: String)
   case class OffChip(override val name: String) extends GlobalComponent(name)
-  case class MemoryController(override val name: String, dram: OffChip, mode: OffchipMemoryMode) extends GlobalComponent(name)
+  case class MemoryController(override val name: String, dram: OffChip, mode: OffchipMemoryMode, val parent:Symbol) extends GlobalComponent(name)
 
   sealed abstract class GlobalBus(override val name: String) extends GlobalComponent(name)
   sealed abstract class VectorBus(override val name: String) extends GlobalBus(name)
@@ -252,7 +252,7 @@ trait PIR {
   case class OpStage(op: PIROp, inputs: List[Symbol], out: Symbol, isReduce: Boolean = false) extends PseudoStage {
     def output = Some(out)
   }
-  case class WriteAddrStage(mem: Symbol, addr: Symbol) extends PseudoStage { def output = None }
+  case class AddrStage(mem: Symbol, addr: Symbol) extends PseudoStage { def output = None }
   case class FifoOnWriteStage(mem: Symbol, start: Option[Symbol], end: Option[Symbol]) extends PseudoStage { def output = None }
 
 
@@ -332,12 +332,15 @@ trait PIR {
   type CU = ComputeUnit
   case class ComputeUnit(name: String, pipe: Symbol, var style: CUStyle) extends AbstractComputeUnit {
     val writeStages   = mutable.HashMap[List[CUMemory], mutable.ArrayBuffer[Stage]]()
+    val readStages   = mutable.HashMap[List[CUMemory], mutable.ArrayBuffer[Stage]]()
     val computeStages = mutable.ArrayBuffer[Stage]()
     val controlStages = mutable.ArrayBuffer[Stage]()
 
     def parentCU: Option[CU] = parent.flatMap{case cu: CU => Some(cu); case _ => None}
 
-    def allStages: Iterator[Stage] = writeStages.valuesIterator.flatMap(_.iterator) ++ computeStages.iterator ++
+    def allStages: Iterator[Stage] = writeStages.valuesIterator.flatMap(_.iterator) ++ 
+                                     readStages.valuesIterator.flatMap(_.iterator) ++
+                                     computeStages.iterator ++
                                      controlStages.iterator
     var isDummy: Boolean = false
   }
@@ -345,6 +348,7 @@ trait PIR {
   type PCU = PseudoComputeUnit
   case class PseudoComputeUnit(name: String, pipe: Symbol, var style: CUStyle) extends AbstractComputeUnit {
     val writeStages = mutable.HashMap[List[CUMemory], (Symbol, List[PseudoStage])]() // List(mem) -> (writerPipe, List[Stages])
+    val readStages = mutable.HashMap[List[CUMemory], (Symbol, List[PseudoStage])]() // List(mem) -> (readerPipe, List[Stages])
     val computeStages = mutable.ArrayBuffer[PseudoStage]()
 
     def copyToConcrete(): ComputeUnit = {

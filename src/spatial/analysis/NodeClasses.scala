@@ -251,6 +251,41 @@ trait NodeClasses extends SpatialMetadataExp {
     def unapply(x: Exp[_]): Option[List[LocalRead]] = getDef(x).flatMap(readerUnapply)
   }
 
+  type ParLocalWrite = (Exp[_], Option[Exp[_]], Option[Seq[Seq[Exp[Index]]]], Option[Exp[_]])
+  // Memory, optional indices, optional enable
+  type ParLocalRead = (Exp[_], Option[Seq[Seq[Exp[Index]]]], Option[Exp[_]])
+
+  private object ParLocalWrite {
+    def apply(mem: Exp[_]): List[ParLocalWrite] = List( (mem, None, None, None) )
+    def apply(mem: Exp[_], value: Exp[_] = null, addrs: Seq[Seq[Exp[Index]]] = null, ens: Exp[_] = null) = {
+      List( (mem, Option(value), Option(addrs), Option(ens)) )
+    }
+  }
+  private object ParLocalRead {
+    def apply(mem: Exp[_]): List[ParLocalRead] = List( (mem, None, None) )
+    def apply(mem: Exp[_], addrs: Seq[Seq[Exp[Index]]] = null, ens: Exp[_] = null): List[ParLocalRead] = {
+      List( (mem, Option(addrs), Option(ens)) )
+    }
+  }
+  def parWriterUnapply(d: Def): Option[List[ParLocalWrite]] = d match {
+    case BurstLoad(dram,fifo,ofs,_,_)         => Some(ParLocalWrite(fifo))
+    case ParSRAMStore(mem,addrs,data,ens)       => Some(ParLocalWrite(mem,value=data, addrs=addrs, ens=ens))
+    case ParFIFOEnq(fifo,data,ens)            => Some(ParLocalWrite(fifo,value=data, ens=ens))
+    case d => writerUnapply(d).map{ _.map{ case (mem, value, addr, ens) => (mem, value, addr.map{ a => Seq(a)}, ens) } }
+  }
+  def parReaderUnapply(d: Def): Option[List[ParLocalRead]] = d match {
+    case BurstStore(dram,fifo,ofs,_,_) => Some(ParLocalRead(fifo))
+    case ParSRAMLoad(sram,addrs)        => Some(ParLocalRead(sram, addrs=addrs))
+    case ParFIFODeq(fifo,ens,_)        => Some(ParLocalRead(fifo, ens=ens))
+    case d => readerUnapply(d).map{ _.map{ case (mem, addr, ens) => (mem, addr.map{ a => Seq(a)}, ens) } }
+  }
+  object ParLocalWriter {
+    def unapply(x: Exp[_]): Option[List[ParLocalWrite]] = getDef(x).flatMap(parWriterUnapply)
+  }
+  object ParLocalReader {
+    def unapply(x: Exp[_]): Option[List[ParLocalRead]] = getDef(x).flatMap(parReaderUnapply)
+  }
+
   def isReader(x: Exp[_]): Boolean = LocalReader.unapply(x).isDefined
   def isReader(d: Def): Boolean = readerUnapply(d).isDefined
   def isWriter(x: Exp[_]): Boolean = LocalWriter.unapply(x).isDefined

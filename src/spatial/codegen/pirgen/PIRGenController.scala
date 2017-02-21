@@ -120,6 +120,12 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
       emit(s"stage = stage0 +: WAStages(${nWrites}, ${srams.map(quote(_))})")
       emitStages(stages)
     }
+    for ((srams,stages) <- cu.readStages if stages.nonEmpty) {
+      i = 1
+      val nReads  = stages.filter{_.isInstanceOf[MapStage]}.length
+      emit(s"stage = stage0 +: RAStages(${nReads}, ${srams.map(quote(_))})")
+      emitStages(stages)
+    }
     if (cu.computeStages.nonEmpty) {
       i = 1
       val nCompute = cu.computeStages.filter{_.isInstanceOf[MapStage]}.length
@@ -212,7 +218,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
 
   def emitComponent(x: Any): Unit = x match {
     case CChainCopy(name, inst, owner) =>
-      emit(s"""val $name = CounterChain.copy(${owner.name}, "$name")""")
+      emit(s"""val $name = CounterChain.copy("${owner.name}", "$name")""")
 
     case CChainInstance(name, ctrs) =>
       for (ctr <- ctrs) emitComponent(ctr)
@@ -239,8 +245,8 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
         case None => throw new Exception(s"No banking defined for $sram")
       }
 
-      if (sram.bufferDepth > 1 && sram.mode != FIFOMode) {
-        var buffering = s", buffering = ${sram.bufferDepth}"
+      //if (sram.bufferDepth > 1 && sram.mode != FIFOMode) {
+        //var buffering = s", buffering = ${sram.bufferDepth}"
         //sram.swapRead match {
           //case Some(cchain) => buffering += s", swapRead = ${cchain.name}(0)"
           //case None => throw new Exception(s"No swap read controller defined for $sram")
@@ -251,11 +257,11 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
           //case None if sram.mode != SRAMMode => // Ok
           //case None => throw new Exception(s"No swap write controller defined for $sram")
         //}
-        decl += s"$buffering"
-      }
-      else if (sram.mode != FIFOMode) {
-        decl += ", buffering = SingleBuffer()"
-      }
+        //decl += s"$buffering"
+      //}
+      //else if (sram.mode != FIFOMode) {
+        //decl += ", buffering = SingleBuffer()"
+      //}
       decl += ")"
 
       sram.writePort match {
@@ -298,8 +304,8 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
 
       emit(decl)
 
-    case mc@MemoryController(name,region,mode) =>
-      emit(s"val ${quote(mc)} = MemoryController($mode, ${quote(region)})")
+    case mc@MemoryController(name,region,mode,parent) =>
+      emit(s"""val ${quote(mc)} = MemoryController($mode, ${quote(region)}).parent("${cus(parent).head.head.name}")""")
 
     case mem: OffChip   => emit(s"""val ${quote(mem)} = OffChip("${mem.name}")""")
     case bus: InputArg  => emit(s"""val ${quote(bus)} = ArgIn("${bus.name}")""")
@@ -345,7 +351,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case PipeCU       => "Pipeline"
     case MetaPipeCU   => "MetaPipeline"
     case SequentialCU => "Sequential"
-    case MemoryCU(i)     => "MemoryComputeUnit"
+    case MemoryCU(i)     => "MemoryPipeline"
   }
 
   def quote(reg: LocalComponent): String = reg match {
