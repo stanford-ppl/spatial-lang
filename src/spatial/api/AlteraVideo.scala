@@ -3,10 +3,26 @@ package spatial.api
 import argon.core.Staging
 import spatial.SpatialExp
 
-trait AlteraVideoApi extends AlteraVideoExp {
+trait AlteraVideoApi extends AlteraVideoExp with BurstTransferExp with ControllerApi with FIFOApi with RangeApi with PinApi{
   this: SpatialExp =>
 
   def AXI_Master_Slave()(implicit ctx: SrcCtx): AXI_Master_Slave = AXI_Master_Slave(axi_ms_alloc())
+
+  /** Internals **/
+  def Decoder[T:Staged:Bits,C[T]](
+    popFrom: StreamIn[T],
+    pushTo:     FIFO[T]
+  )(implicit ctx: SrcCtx): Void = {
+
+
+    // def Decoder(popFrom: Exp[StreamIn[T]], pushTo: Exp[FIFO[T]]): Void = {
+      Pipe { 
+        pushTo.enq(popFrom.deq())
+      }
+    // }
+
+  
+  }
 
 }
 
