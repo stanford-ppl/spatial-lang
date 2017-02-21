@@ -147,7 +147,8 @@ trait ControllerApi extends ControllerExp with RegApi {
   object Foreach   extends ForeachClass(InnerPipe)
 
   object Accel {
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { accel_blk(func); () }
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { accel_blk(func, false); () }
+    def apply(ctr: Counter)(func: => Void)(implicit ctx: SrcCtx) = { accel_blk(func, ctr); () }
   }
 
   object Pipe extends ForeachClass(InnerPipe) {
@@ -198,9 +199,21 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     override def stagedClass = classOf[Controller]
   }
 
-  private[spatial] def accel_blk(func: => Void)(implicit ctx: SrcCtx): Controller = {
+  private[spatial] def accel_blk(func: => Void, ctr: Counter)(implicit ctx: SrcCtx): Controller = {
+    if (isForever(ctr.s)) {
+      accel_blk(func, isForever = true)
+    }
+    else {
+      accel_blk({
+        foreachND(Seq(ctr), {_: List[Index] => func }, SeqPipe)
+        ()
+      }, false)
+    }
+  }
+
+  private[spatial] def accel_blk(func: => Void, isForever: Boolean)(implicit ctx: SrcCtx): Controller = {
     val fFunc = () => unwrap(func)
-    val pipe = op_accel(fFunc())
+    val pipe = op_accel(fFunc(), isForever)
     Controller(pipe)
   }
 
@@ -293,8 +306,8 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
   }
 
   /** IR Nodes **/
-  case class Hwblock(func: Block[Void]) extends Op[Controller] {
-    def mirror(f:Tx) = op_accel(f(func))
+  case class Hwblock(func: Block[Void], isForever: Boolean) extends Op[Controller] {
+    def mirror(f:Tx) = op_accel(f(func), isForever)
     override def freqs = cold(func)
   }
 
@@ -370,10 +383,10 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
 
 
   /** Constructors **/
-  def op_accel(func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
+  def op_accel(func: => Exp[Void], isForever: Boolean)(implicit ctx: SrcCtx): Sym[Controller] = {
     val fBlk = stageBlock{ func }
     val effects = fBlk.summary
-    stageEffectful( Hwblock(fBlk), effects)(ctx)
+    stageEffectful( Hwblock(fBlk, isForever), effects)(ctx)
   }
 
   def op_unit_pipe(en: Seq[Exp[Bool]], func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {

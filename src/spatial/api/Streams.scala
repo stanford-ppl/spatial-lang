@@ -22,16 +22,16 @@ trait StreamExp extends Staging with PinExp {
 
   /** Static methods **/
   object StreamIn {
-    def apply[T:Staged:Bits](bus: Bus)(implicit ctx: SrcCtx): StreamIn[T] = {
+    def apply[T:Staged:Bits](bus: Bus, valid: Pin)(implicit ctx: SrcCtx): StreamIn[T] = {
       bus_check[T](bus)
-      StreamIn(stream_in[T](bus))
+      StreamIn(stream_in[T](bus, valid))
     }
   }
 
   object StreamOut {
-    def apply[T:Staged:Bits](bus: Bus)(implicit ctx: SrcCtx): StreamOut[T] = {
+    def apply[T:Staged:Bits](bus: Bus, valid: Pin)(implicit ctx: SrcCtx): StreamOut[T] = {
       bus_check[T](bus)
-      StreamOut(stream_out[T](bus))
+      StreamOut(stream_out[T](bus, valid))
     }
   }
 
@@ -57,12 +57,12 @@ trait StreamExp extends Staging with PinExp {
 
 
   /** IR Nodes **/
-  case class StreamInNew[T:Staged:Bits](bus: Bus) extends Op[StreamIn[T]] {
-    override def mirror(f: Tx) = stream_in[T](bus)
+  case class StreamInNew[T:Staged:Bits](bus: Bus, valid: Pin) extends Op[StreamIn[T]] {
+    override def mirror(f: Tx) = stream_in[T](bus, valid)
   }
 
-  case class StreamOutNew[T:Staged:Bits](bus: Bus) extends Op[StreamOut[T]] {
-    override def mirror(f: Tx) = stream_out[T](bus)
+  case class StreamOutNew[T:Staged:Bits](bus: Bus, valid: Pin) extends Op[StreamOut[T]] {
+    override def mirror(f: Tx) = stream_out[T](bus, valid)
   }
 
   case class StreamDeq[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool]) extends Op[T] {
@@ -75,12 +75,12 @@ trait StreamExp extends Staging with PinExp {
 
 
   /** Constructors **/
-  private def stream_in[T:Staged:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamIn[T]] = {
-    stageCold(StreamInNew[T](bus))(ctx)
+  private def stream_in[T:Staged:Bits](bus: Bus, valid: Pin)(implicit ctx: SrcCtx): Exp[StreamIn[T]] = {
+    stageCold(StreamInNew[T](bus, valid))(ctx)
   }
 
-  private def stream_out[T:Staged:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamOut[T]] = {
-    stageMutable(StreamOutNew[T](bus))(ctx)
+  private def stream_out[T:Staged:Bits](bus: Bus, valid: Pin)(implicit ctx: SrcCtx): Exp[StreamOut[T]] = {
+    stageMutable(StreamOutNew[T](bus, valid))(ctx)
   }
 
   private def stream_deq[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool])(implicit ctx: SrcCtx) = {
