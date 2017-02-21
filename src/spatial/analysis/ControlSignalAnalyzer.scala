@@ -29,11 +29,13 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var localMems: List[Exp[_]] = Nil
   var metapipes: List[Exp[_]] = Nil
   var streampipes: List[Exp[_]] = Nil
+  var streamEnablers: List[Exp[_]] = Nil
   var top: Option[Exp[_]] = None
 
   override protected def preprocess[S:Staged](block: Block[S]) = {
     localMems = Nil
     metapipes = Nil
+    streampipes = Nil
     top = None
     level = 0
     controller = None
@@ -136,6 +138,13 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
+  def addStreamDeq(stream: Exp[_], ctrl: Exp[_]) = {
+    parentOf(stream) = ctrl
+    dbg(c"Registered stream enabler $stream")
+    streamEnablers ::= stream
+  }
+
+
   // (2, 3)
   def addChild(child: Exp[_], ctrl: Exp[_]) = {
     dbg(c"Setting parent of $child to $ctrl")
@@ -195,6 +204,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       if (isStateless(lhs) && isOuterControl(parent)) addPendingNode(lhs)
 
       if (isAllocation(lhs)) addAllocation(lhs, parent.node)  // (1, 7)
+      if (isStreamStageEnabler(lhs)) addStreamDeq(lhs, parent.node)
       if (isReader(lhs)) addReader(lhs, parent)               // (4)
       if (isWriter(lhs)) addWriter(lhs, parent)               // (5, 6, 10)
     }
@@ -211,6 +221,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
         top = Some(lhs) // (11)
       }
       if (isMetaPipe(lhs)) metapipes ::= lhs // (8)
+      if (isStreamPipe(lhs)) streampipes ::= lhs
     }
   }
 

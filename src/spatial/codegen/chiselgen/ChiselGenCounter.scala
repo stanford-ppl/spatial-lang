@@ -42,11 +42,11 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case CounterNew(start,end,step,par) => 
-      emit(s"// $lhs = ($start, $end, $step, $par")
+      emit(s"// $lhs = ($start to $end by $step par $par")
     case CounterChainNew(ctrs) => 
       val counter_data = ctrs.map{ c => c match {
         case Def(CounterNew(start, end, step, par)) => (src"$start", src"$end", src"$step", {src"$par"}.split('.').take(1)(0))
-        case Def(Forever()) => ("0", "0", "0", "0")
+        case Def(Forever()) => ("0.U", "0.U", "0.U", "0")
       }}
       emitGlobal(src"""val ${lhs}_en = Wire(Bool())""")
       emitGlobal(src"""val ${lhs}_resetter = Wire(Bool())""")

@@ -249,6 +249,6 @@ trait BurstTransferExp extends Staging { this: SpatialExp =>
     styleOf(load) = InnerPipe
     load
   }
-
+  
 
 }
