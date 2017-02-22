@@ -126,12 +126,6 @@ trait ChiselGenController extends ChiselCodegen {
       List("1.U") // Unit pipe
     }
 
-    if (hasForever) {
-      emit(src"""${sym}_sm.io.input.forever := true.B""")
-    } else {
-      emit(src"""${sym}_sm.io.input.forever := false.B""")
-    }
-
 
     val constrArg = smStr match {
       case "Innerpipe" => s"${numIter.length} /*probably don't need*/"
@@ -180,6 +174,12 @@ trait ChiselGenController extends ChiselCodegen {
       } else {
         emit(s"// How to emit for non-innerpipe unit counter?")
       }
+    }
+
+    if (hasForever) {
+      emit(src"""${sym}_sm.io.input.forever := true.B""")
+    } else {
+      emit(src"""${sym}_sm.io.input.forever := false.B""")
     }
 
         
