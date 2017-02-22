@@ -1,11 +1,14 @@
 import spatial._
 import org.virtualized._
+import macros._
 
 object Video extends SpatialApp {
   import IR._
 
   override val target = targets.DE1
 
+  @struct case class Avalon(data: Int, start: Boolean, end: Boolean)
+  
   @virtualize
   def main() {
     type T = Int
