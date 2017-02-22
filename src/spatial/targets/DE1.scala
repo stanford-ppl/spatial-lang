@@ -6,6 +6,5 @@ object DE1 extends FPGATarget {
   def burstSize = 96  // ???
 
   // TODO: Some random pin names right now, should correspond to something real
-  val VideoCamera = Bus(List.tabulate(32){i => Pin(s"A$i") })
-  val VideoValid  = Pin("A32")
+  val VideoCamera = Bus(valid = Pin("A32"), data = List.tabulate(32){i => Pin(s"A$i") })
 }

@@ -23,9 +23,9 @@ trait ChiselGenStream extends ChiselCodegen {
   } 
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case StreamInNew(bus, valid) =>
+    case StreamInNew(bus) =>
       streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
-    case StreamOutNew(bus, valid) =>
+    case StreamOutNew(bus) =>
       streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case StreamDeq(stream, en) => 
       // val streamId = streamIns.indexOf(stream.asInstanceOf[Sym[StreamIn[_]]])

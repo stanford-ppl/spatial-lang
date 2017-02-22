@@ -1099,9 +1099,8 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
      val frameRows = 64
      val frameCols = 64
      val onboardVideo = target.VideoCamera
-     val videoValid   = target.VideoValid
      val mem = DRAM[T](frameRows, frameCols)
-     val conduit = StreamIn[T](onboardVideo, videoValid)
+     val conduit = StreamIn[T](onboardVideo)
      // val avalon = StreamOut()
 
     // Raw Spatial streaming pipes

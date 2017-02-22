@@ -198,7 +198,7 @@ trait ChiselGenController extends ChiselCodegen {
           val enablers = listensTo(c).map { fifo => 
             fifo match {
               case Def(FIFONew(size)) => src"~${fifo}.io.empty"
-              case Def(StreamInNew(bus,valid)) => src"${fifo}_ready"
+              case Def(StreamInNew(bus)) => src"${fifo}_ready"
             }
           }.mkString(" & ")
           emit(src"""${c}_en := ${enablers}""")
