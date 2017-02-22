@@ -34,3 +34,7 @@ src/spatial/codegen/chiselgen/resources/altera-goodies/README.md
 
 # Ctags
 *.tags
+
+# C files
+*.o
+*.d
