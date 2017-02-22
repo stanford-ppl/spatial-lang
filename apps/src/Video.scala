@@ -23,7 +23,6 @@
         Stream(1 by 1) { i =>
           val streamInterface = FIFO[T](64)
           Decoder(conduit, streamInterface) // type = stream child. Pops from conduit and pushes to self. Plop in altera_up_avalon_video_decoder
-          println("Hello! " + conduit.deq())
 
         }
       }

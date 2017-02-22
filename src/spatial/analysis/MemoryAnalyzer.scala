@@ -11,6 +11,7 @@ trait MemoryAnalyzer extends CompilerPass {
   def localMems: Seq[Exp[_]]
 
   override val name = "Memory Analyzer"
+  var enableWarn = true
 
   def mergeBanking(mem: Exp[_], a: Banking, b: Banking): Banking = (a,b) match {
     case (StridedBanking(s1,p), StridedBanking(s2,q)) if s1 == s2 => StridedBanking(s1, lcm(p,q))
@@ -160,8 +161,14 @@ trait MemoryAnalyzer extends CompilerPass {
     val writers = writersOf(mem)
     val readers = readersOf(mem)
 
-    if (writers.isEmpty && !isArgIn(mem))  warn(ctxOrHere(mem), u"${mem.tp} $mem defined here has no writers!")
-    if (readers.isEmpty && !isArgOut(mem)) warn(ctxOrHere(mem), u"${mem.tp} $mem defined here has no readers!")
+    if (writers.isEmpty && !isArgIn(mem)) {
+      warn(ctxOrHere(mem), u"${mem.tp} $mem defined here has no writers!")
+      warn(ctxOrHere(mem))
+    }
+    if (readers.isEmpty && !isArgOut(mem)) {
+      warn(ctxOrHere(mem), u"${mem.tp} $mem defined here has no readers!")
+      warn(ctxOrHere(mem))
+    }
 
     if (!settings.allowMultipleReaders)   checkMultipleReaders(mem)
     if (!settings.allowMultipleWriters)   checkMultipleWriters(mem)
@@ -220,6 +227,8 @@ trait MemoryAnalyzer extends CompilerPass {
       case _:StreamOutType[_] => // TODO: Do we / can we bank stream out accesses? seems like no...
       case tp => throw new UndefinedBankingException(tp)(ctxOrHere(mem))
     }}
+
+    shouldWarn = false // Don't warn user after first run (avoid duplicate warnings)
     block
   }
 

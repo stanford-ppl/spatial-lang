@@ -523,7 +523,7 @@ trait PIRAllocation extends PIRTraversal {
     case RegRead(reg) if isArgIn(reg) =>
       prescheduleRegisterRead(reg, lhs, None)
 
-    case Hwblock(func) =>
+    case Hwblock(func,_) =>
       prescheduleStages(lhs, func)
 
     case UnitPipe(en, func) =>

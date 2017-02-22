@@ -52,7 +52,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
   override protected def postprocess[S:Staged](block: Block[S]) = {
     top match {
-      case Some(ctrl@Op(Hwblock(_))) =>
+      case Some(ctrl@Op(Hwblock(_,_))) =>
       case _ => new NoTopError(ctxOrHere(block.result))
     }
     dbg("Local memories: ")
@@ -253,7 +253,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   protected def analyze(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case Hwblock(blk) =>
+    case Hwblock(blk,_) =>
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
 
@@ -275,7 +275,9 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
         // Handle the one case where we allow scalar communication between blocks
         if (isStateless(map.result)) {
-          addPendingUse(lhs, (lhs,true), Seq(map.result))
+          // Note that this should technically be (lhs,isOuterLoop), but registerCleanup doesn't differentiate
+          // between inner/outer loop of Reduce right now
+          addPendingUse(lhs, (lhs,false), Seq(map.result))
         }
       }
 

@@ -11,7 +11,7 @@ import spatial.{SpatialApp, SpatialConfig, SpatialIR}
 trait SpatialTestIR extends SpatialIR with RunnerCore { self =>
   override val testbench = true
   override def settings() {
-    Config.verbosity = 3
+    Config.verbosity = 1
   }
 }
 

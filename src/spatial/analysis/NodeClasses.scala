@@ -88,6 +88,7 @@ trait NodeClasses extends SpatialMetadataExp {
   /** Determines if just the given node is forever (has Forever counter) **/
   def isForever(e: Exp[_]): Boolean = getDef(e).exists(isForever)
   def isForever(d: Def): Boolean = d match {
+    case e: Forever             => true
     case e: Hwblock             => e.isForever
     case e: OpForeach           => isForeverCounterChain(e.cchain)
     case e: OpReduce[_]         => isForeverCounterChain(e.cchain)

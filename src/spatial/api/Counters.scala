@@ -101,11 +101,6 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
     case _ => false
   }
 
-  def isForever(x: Exp[Counter]): Boolean = x match {
-    case Op(Forever()) => true
-    case _ => false
-  }
-
   def countersOf(x: Exp[CounterChain]): Seq[Exp[Counter]] = x match {
     case Op(CounterChainNew(ctrs)) => ctrs
     case _ => Nil

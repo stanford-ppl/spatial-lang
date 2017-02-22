@@ -47,7 +47,7 @@ trait RegisterCleanup extends ForwardTransformer {
         // Then associate all uses within that control with that copy
         val users = usersOf(lhs).groupBy(_.ctrl).mapValues(_.map(_.node))
 
-        val reads = users.filterKeys(_ != null).map{case (parent, uses) =>
+        val reads = users.map{case (parent, uses) =>
           val read = delayedMirror(lhs, rhs, parent)
 
           dbg(c"ctrl: $parent")
@@ -60,7 +60,7 @@ trait RegisterCleanup extends ForwardTransformer {
 
           read
         }
-        mirror(lhs, rhs) //else constant[T](FakeSymbol)
+        constant[T](FakeSymbol) // mirror(lhs, rhs)
       }
 
     case RegWrite(reg,value,en) =>
@@ -100,5 +100,25 @@ trait RegisterCleanup extends ForwardTransformer {
     }
     else mirror(lhs, rhs)
   }
+
+  /** These require slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
+
+  override protected def inlineBlock[T:Staged](b: Block[T]): Exp[T] = inlineBlock(b, {stms =>
+    visitStms(stms)
+    if (ctrl != null && statelessSubstRules.contains((ctrl.node,ctrl))) {
+      val rules = statelessSubstRules((ctrl.node, ctrl)).map { case (s, s2) => s -> s2() }
+      withSubstScope(rules: _*) { f(b.result) }
+    }
+    else f(b.result)
+  })
+
+  override protected def transformBlock[T:Staged](b: Block[T]): Block[T] = transformBlock(b, {stms =>
+    visitStms(stms)
+    if (ctrl != null && statelessSubstRules.contains((ctrl.node,ctrl))) {
+      val rules = statelessSubstRules((ctrl.node, ctrl)).map { case (s, s2) => s -> s2() }
+      withSubstScope(rules: _*) { f(b.result) }
+    }
+    else f(b.result)
+  })
 
 }

@@ -128,7 +128,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     * Tracks multiple substitution contexts in 'contexts' array
     **/
   case class Unroller(cchain: Exp[CounterChain], inds: Seq[Bound[Index]], isInnerLoop: Boolean) {
-    val fs = isCChainForever(cchain)
+    val fs = countersOf(cchain).map(isForever)
 
     // Don't unroll inner loops for CGRA generation
     val Ps = if (isInnerLoop && SpatialConfig.enablePIR) inds.map{_ => 1} else parFactorsOf(cchain).map{case Exact(c) => c.toInt }
