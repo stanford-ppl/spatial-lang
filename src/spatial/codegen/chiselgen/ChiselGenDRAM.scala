@@ -101,7 +101,7 @@ ${lhs}_done := ${lhs}.io.CtrlToAccel.doneStore
   override protected def emitFileFooter() {
 
     withStream(getStream("IOModule")) {
-      open(s"""  class MemStreamsBundle() extends Bundle{""")
+      open(s"""class MemStreamsBundle() extends Bundle{""")
       offchipMems.zipWithIndex.foreach{ case (port,i) => 
         val info = port match {
           case Def(BurstLoad(dram,_,_,ctr,_)) => 
