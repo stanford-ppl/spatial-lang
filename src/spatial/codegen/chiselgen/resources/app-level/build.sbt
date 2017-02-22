@@ -29,7 +29,7 @@ scalaSource in Compile := baseDirectory.value / "chisel"
 
 scalaSource in Test := baseDirectory.value / "chisel" / "app-tests"
 
-excludeFilter in (Compile, unmanagedSources) := "*altera*" || "*app-test*"
+excludeFilter in (Compile, unmanagedSources) := "*altera*"
 
 
 
