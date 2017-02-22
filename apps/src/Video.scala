@@ -11,7 +11,7 @@ object Video extends SpatialApp {
   
   @virtualize
   def main() {
-    type T = Int
+    type T = Avalon
 
      val frameRows = 64
      val frameCols = 64
