@@ -1085,3 +1085,47 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
     println("PASS: " + cksum + " (FifoPushPop)")
   }
 }
+
+
+ object StreamTest extends SpatialApp {
+   import IR._
+
+   override val target = targets.DE1
+
+   @virtualize
+   def main() {
+     type T = Int
+
+     val frameRows = 64
+     val frameCols = 64
+     val onboardVideo = target.VideoCamera
+     val mem = DRAM[T](frameRows, frameCols)
+     val conduit = StreamIn[T](onboardVideo)
+     // val avalon = StreamOut()
+
+    // Raw Spatial streaming pipes
+    Accel {
+      Foreach(*, frameCols by 1) { (_,j) =>
+        val fifo1 = FIFO[T](frameCols)
+        val fifo2 = FIFO[T](frameCols)
+        Stream(frameCols by 1) { j =>
+          Pipe {
+            val pop = conduit.deq()
+            fifo1.enq(pop)
+          }
+          Pipe {
+            val pop = fifo1.deq()
+            fifo2.enq(pop)
+          }
+          Pipe {
+            val pop = fifo2.deq()
+            // avalon.enq(pop)
+          }
+        }
+      }
+    }
+
+
+  }
+
+}

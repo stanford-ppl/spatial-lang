@@ -43,7 +43,8 @@ trait ChiselGenFIFO extends ChiselCodegen {
         case BankedMemory(dims,_,isAccum) => dims.map{_.banks}.head
         case _ => 1
       }
-      emit(src"""val ${lhs}_wdata = Wire(Vec($par, UInt(32.W)))""")
+      val width = bitWidth(lhs.tp.typeArguments.head)
+      emit(src"""val ${lhs}_wdata = Wire(Vec($par, UInt(${width}.W)))""")
       emit(src"""val ${lhs}_readEn = Wire(Bool())""")
       emit(src"""val ${lhs}_writeEn = Wire(Bool())""")
       emit(src"""val ${lhs} = Module(new FIFO($par, $par, $size)) // ${nameOf(lhs).getOrElse("")}""".replace(".U",""))
@@ -55,12 +56,27 @@ trait ChiselGenFIFO extends ChiselCodegen {
     case FIFOEnq(fifo,v,en) => 
       val writer = writersOf(fifo).head.ctrlNode  // Not using 'en' or 'shuffle'
       emit(src"""${fifo}_writeEn := ${writer}_ctr_en // not using $en """)
-      emit(src"""${fifo}_wdata := ${v}""")
+      fifo.tp.typeArguments.head match { 
+        case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
+            emit(src"""${fifo}_wdata := ${v}.number""")
+          } else {
+            emit(src"""${fifo}_wdata := ${v}""")
+          }
+        case _ => emit(src"""${fifo}_wdata := ${v}""")
+      }
+
 
     case FIFODeq(fifo,en,z) => 
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
       emit(src"""${fifo}_readEn := ${reader}_ctr_en // not using $en""")
-      emit(src"""val ${lhs} = ${fifo}_rdata(0)""")
+      fifo.tp.typeArguments.head match { 
+        case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
+            emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(0))""")
+          } else {
+            emit(src"""val ${lhs} = ${fifo}_rdata(0)""")
+          }
+        case _ => emit(src"""val ${lhs} = ${fifo}_rdata(0)""")
+      }
 
     case _ => super.emitNode(lhs, rhs)
   }

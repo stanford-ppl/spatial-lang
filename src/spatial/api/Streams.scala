@@ -76,7 +76,7 @@ trait StreamExp extends Staging with PinExp {
 
   /** Constructors **/
   private def stream_in[T:Staged:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamIn[T]] = {
-    stage(StreamInNew[T](bus))(ctx)
+    stageCold(StreamInNew[T](bus))(ctx)
   }
 
   private def stream_out[T:Staged:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamOut[T]] = {
@@ -84,7 +84,7 @@ trait StreamExp extends Staging with PinExp {
   }
 
   private def stream_deq[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool])(implicit ctx: SrcCtx) = {
-    stage(StreamDeq(stream, en))(ctx)
+    stageCold(StreamDeq(stream, en))(ctx)
   }
 
   private def stream_enq[T:Staged:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx) = {

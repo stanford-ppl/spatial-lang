@@ -208,6 +208,8 @@ trait MemoryAnalyzer extends CompilerPass {
       case _:FIFOType[_] => bank(mem, bankFIFOAccess, FIFOSettings)
       case _:SRAMType[_] => bank(mem, bankSRAMAccess, SRAMSettings)
       case _:RegType[_]  => bank(mem, bankRegAccess, RegSettings)
+      case _:StreamInType[_]  => // TODO: Do we / can we bank stream in accesses? seems like no...
+      case _:StreamOutType[_] => // TODO: Do we / can we bank stream out accesses? seems like no...
       case tp => throw new UndefinedBankingException(tp)(ctxOrHere(mem))
     }}
     block
