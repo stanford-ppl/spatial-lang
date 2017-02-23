@@ -74,7 +74,7 @@ build_spatial() {
   files=(*)
   testdirs=()
   sorted_testdirs=()
-  for f in ${files[@]}; do if [[ $f = *"testdir-${branch}"* ]]; then testdirs+=($f); fi; done
+  for f in ${files[@]}; do if [[ $f = *"testdir-${branch}"*"${type_todo}"* ]]; then testdirs+=($f); fi; done
   sorted_testdirs=( $(for arr in "${testdirs[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_testdirs[*]}" )
   rank=-5

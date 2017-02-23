@@ -4,13 +4,13 @@ import org.virtualized._
 object Kmeans extends SpatialApp {
   import IR._
 
-  type X = Float
+  type X = Int
 
   val num_cents = 96
   val dim = 96
   val tileSize = 384
-  val innerPar = 8
-  val outerPar = 2
+  val innerPar = 1
+  val outerPar = 1
   val margin = 1
 
   val MAXK = num_cents
