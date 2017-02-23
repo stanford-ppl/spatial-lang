@@ -33,6 +33,42 @@ object InOutArg extends SpatialApp {  // Regression (Unit) // Args: 5
   }
 }
 
+object FileSplitter extends SpatialApp {  // Regression (Unit) // Args: 5
+  import IR._
+
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val x = ArgIn[Int]
+    val y = ArgOut[Int]
+    val N = args(0).to[Int]
+
+    // Connect SW vals to HW vals
+    setArg(x, N)
+
+    // Create HW accelerator
+    Accel {
+      Pipe(5 by 1) { i => 
+        Pipe(10 by 1) { j => 
+          Pipe {y := x + 4 + j + i}
+        }
+      }
+    }
+
+
+    // Extract results from accelerator
+    val result = getArg(y)
+
+    // Create validation checks and debug code
+    val gold = N + 4 + 4 + 9
+    println("expected: " + gold)
+    println("result: " + result)
+
+    val cksum = gold == result
+    println("PASS: " + cksum + " (FileSplitter)")
+  }
+}
+
 object Niter extends SpatialApp {  // Regression (Unit) // Args: 100
   import IR._
   
