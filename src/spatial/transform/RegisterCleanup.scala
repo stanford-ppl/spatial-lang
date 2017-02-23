@@ -81,7 +81,7 @@ trait RegisterCleanup extends ForwardTransformer {
         dbg(c"REMOVING register $lhs")
         constant[T](FakeSymbol)  // Shouldn't be used
       }
-      else mirror(lhs, rhs)
+      else mirrorWithDuplication(lhs, rhs)
 
     case node if isControlNode(lhs) => withCtrl((lhs,false)) { mirrorWithDuplication(lhs, rhs) }
     case _ => mirrorWithDuplication(lhs, rhs)

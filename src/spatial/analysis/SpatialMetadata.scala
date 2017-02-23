@@ -17,7 +17,7 @@ trait SpatialMetadataApi extends SpatialMetadataExp {
 
 
 // Internal metadata (compiler use only)
-trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { this: SpatialExp =>
+trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp =>
   /**
     * Symbol bounds
     * Tracks the MAXIMUM value for a given symbol, along with data about this bound

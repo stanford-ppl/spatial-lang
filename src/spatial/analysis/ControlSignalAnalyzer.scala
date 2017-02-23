@@ -274,10 +274,10 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
         visitBlock(map)
 
         // Handle the one case where we allow scalar communication between blocks
-        if (isStateless(map.result)) {
+        pendingNodes.get(map.result).foreach{nodes =>
           // Note that this should technically be (lhs,isOuterLoop), but registerCleanup doesn't differentiate
           // between inner/outer loop of Reduce right now
-          addPendingUse(lhs, (lhs,false), Seq(map.result))
+          addPendingUse(lhs, (lhs,false), nodes)
         }
       }
 

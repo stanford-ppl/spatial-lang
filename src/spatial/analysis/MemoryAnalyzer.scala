@@ -216,9 +216,16 @@ trait MemoryAnalyzer extends CompilerPass {
   }
 
 
+
+
+
   // --- Memory-specific banking rules
 
   override protected def process[S:Staged](block: Block[S]): Block[S] = {
+    // Reset metadata prior to running memory analysis
+    metadata.clearAll[AccessDispatch]
+    metadata.clearAll[PortIndex]
+
     localMems.foreach {mem => mem.tp match {
       case _:FIFOType[_] => bank(mem, bankFIFOAccess, FIFOSettings)
       case _:SRAMType[_] => bank(mem, bankSRAMAccess, SRAMSettings)
