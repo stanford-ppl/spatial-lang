@@ -160,7 +160,6 @@ git_things() {
   logger "Changing spatial-lang to spatial"
   mv spatial-lang spatial > /dev/null 2>&1
   logger "Done changing! $SPATIAL_HOME"
-  mv spatial
   exists "$SPATIAL_HOME" 1
   logger "Cloning argon..."
   git clone git@github.com:stanford-ppl/argon.git > /dev/null 2>&1
