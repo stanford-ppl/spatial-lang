@@ -94,11 +94,11 @@ trait StreamExp extends Staging with PinExp {
 
   /** Internals **/
   private def bus_check[T:Staged:Bits](bus: Bus)(implicit ctx: SrcCtx): Unit = {
-    if (bits[T].length < bus.pins.length) {
+    if (bits[T].length < bus.data.length) {
       warn(ctx, s"Bus length is greater than size of StreamIn type - will use first ${bits[T].length} bits in the bus")
       warn(ctx)
     }
-    else if (bits[T].length > bus.pins.length) {
+    else if (bits[T].length > bus.data.length) {
       error(ctx, s"Bus length is smaller than size of StreamIn type")
       error(ctx)
     }

@@ -17,7 +17,7 @@ trait SpatialMetadataApi extends SpatialMetadataExp {
 
 
 // Internal metadata (compiler use only)
-trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { this: SpatialExp =>
+trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp =>
   /**
     * Symbol bounds
     * Tracks the MAXIMUM value for a given symbol, along with data about this bound
@@ -242,12 +242,12 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   /**
     * Parallelization factors which a given node will be unrolled by, prior to unrolling
     */
-  case class UnrollFactors(factors: Seq[Const[Index]]) extends Metadata[UnrollFactors] {
-    def mirror(f:Tx) = UnrollFactors(factors.map{x => f(x).asInstanceOf[Const[Index]] })
+  case class UnrollFactors(factors: Seq[Seq[Const[Index]]]) extends Metadata[UnrollFactors] {
+    def mirror(f:Tx) = this // Don't mirror constants for now...
   }
   object unrollFactorsOf {
-    def apply(x: Exp[_]): Seq[Const[Index]] = metadata[UnrollFactors](x).map(_.factors).getOrElse(Nil)
-    def update(x: Exp[_], factors: Seq[Const[Index]]) = metadata.add(x, UnrollFactors(factors))
+    def apply(x: Exp[_]): Seq[Seq[Const[Index]]] = metadata[UnrollFactors](x).map(_.factors).getOrElse(Nil)
+    def update(x: Exp[_], factors: Seq[Seq[Const[Index]]]) = metadata.add(x, UnrollFactors(factors))
   }
 
   /**

@@ -8,7 +8,6 @@ trait TransferSpecialization extends ForwardTransformer {
   import IR._
 
   override val name = "Transfer Specialization"
-  verbosity = 3
 
   override def transform[T: Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
     case e: CoarseBurst[_,_] => e.expand(f).asInstanceOf[Exp[T]]

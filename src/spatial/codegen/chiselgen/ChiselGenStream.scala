@@ -25,7 +25,7 @@ trait ChiselGenStream extends ChiselCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
       streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
-    case StreamOutNew(bus) => 
+    case StreamOutNew(bus) =>
       streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case StreamDeq(stream, en) => 
       // val streamId = streamIns.indexOf(stream.asInstanceOf[Sym[StreamIn[_]]])
@@ -45,7 +45,7 @@ trait ChiselGenStream extends ChiselCodegen {
       emit(s"""val data = Vec(${streamIns.length}, Input(UInt(32.W)))""")
       emit(s"""val ready = Vec(${streamIns.length}, Input(Bool()))""")
       emit(s"""val pop = Vec(${streamIns.length}, Output(Bool()))""")
-      streamIns.zipWithIndex.map { case(p,i) => 
+      streamIns.zipWithIndex.foreach{ case(p,i) =>
         withStream(getStream("GlobalWires")) {
           emit(s"""val ${quote(p)}_data = io.StreamIns.data($i) // ( ${nameOf(p).getOrElse("")} )""")  
           emit(s"""val ${quote(p)}_ready = io.StreamIns.ready($i) // ( ${nameOf(p).getOrElse("")} )""")  
@@ -60,7 +60,7 @@ trait ChiselGenStream extends ChiselCodegen {
       emit(s"""val data = Vec(${streamOuts.length}, Output(UInt(32.W)))""")
       emit(s"""val ready = Vec(${streamOuts.length}, Output(Bool()))""")
       emit(s"""val push = Vec(${streamOuts.length}, Output(Bool()))""")
-      streamOuts.zipWithIndex.map { case(p,i) => 
+      streamOuts.zipWithIndex.foreach{ case(p,i) =>
         withStream(getStream("GlobalWires")) {
           emit(s"""val ${quote(p)}_data = io.StreamOuts.data($i) // ( ${nameOf(p).getOrElse("")} )""")  
           emit(s"""val ${quote(p)}_ready = io.StreamOuts.ready($i) // ( ${nameOf(p).getOrElse("")} )""")  

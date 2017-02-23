@@ -59,9 +59,9 @@ trait ChiselGenController extends ChiselCodegen {
           s match {
             case lhs: Sym[_] =>
               lhs match {
-                case Def(Hwblock(_)) =>
+                case Def(e: Hwblock) =>
                   s"AccelController"
-                case Def(UnitPipe(_,_)) =>
+                case Def(e: UnitPipe) =>
                   s"x${lhs.id}_UnitPipe"
                 case Def(e: OpForeach) =>
                   s"x${lhs.id}_ForEach"
@@ -221,7 +221,7 @@ trait ChiselGenController extends ChiselCodegen {
 
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case Hwblock(func) =>
+    case Hwblock(func,isForever) =>
       controllerStack.push(lhs)
       toggleEn() // turn on
       emit(s"""val ${quote(lhs)}_en = io.top_en & !io.top_done;""")

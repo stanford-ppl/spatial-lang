@@ -29,6 +29,14 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
       if (rankOf(addrs) > 1) new SparseAddressDimensionError(s, rankOf(addrs))(ctx)
       DRAMSparseTile(this.s, addrs, len)
     }
+
+    def toDenseTile(implicit ctx: SrcCtx): DRAMDenseTile[T] = {
+      val ranges = dimsOf(s).map{d => range_alloc(None, wrap(d),None,None) }
+      DRAMDenseTile(this.s, ranges)
+    }
+
+    def store(sram: SRAM[T])(implicit ctx: SrcCtx): Void = coarse_burst(this.toDenseTile, sram, isLoad = false)
+    def store(fifo: FIFO[T])(implicit ctx: SrcCtx): Void = coarse_burst(this.toDenseTile, fifo, isLoad = false)
   }
 
   case class DRAMDenseTile[T:Staged:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) {

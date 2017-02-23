@@ -19,17 +19,15 @@
 .. role:: navy
 .. role:: purple
 
-.. _MemReduce:
+.. _MemFold:
 
-MemReduce
+MemFold
 =========
 
-**MemReduce** describes the reduction *across* multiple local memories.
-Like :doc:`reduce`, MemReduce requires both a *map* and a *reduction* function. However, in MemReduce, the *map*
-describes the creation and population of a local memory (typically an :doc:`../memories/sram`).
-The *reduction* function still operates on scalars, and is used to combine local memories together element-wise.
-Unlike Reduce, MemReduce always requires an explicit accumulator.
-Unless otherwise disabled, the compiler will then try to parallelize both the creation of multiple memories and the reduction
+**MemFold** describes the reduction *across* multiple local memories. It functions essentially the same way as a
+:doc:`memreduce`, except that it uses the existing value of the accumulator at the start of the reduction as the
+initial value of the accumulator, rather than resetting.
+Like MemReduce, unless otherwise disabled, the compiler will try to parallelize both the creation of multiple memories and the reduction
 of each of these memories into a single accumulator.
 
 --------------
@@ -37,7 +35,7 @@ of each of these memories into a single accumulator.
 **Static methods**
 
 +---------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-|      `object`         **MemReduce**                                                                                                                                                                                                                                                                                                                      |
+|      `object`         **MemFold**                                                                                                                                                                                                                                                                                                                        |
 +=====================+====================================================================================================================================================================================================================================================================================================================================+
 | |               def   **apply**\[T,C\[T\]\](accum: C\[T\])(ctr: :doc:`../memories/counter`)(map: :doc:`Int <../../common/fixpt>` => C\[T\])(reduce: (T,T) => T): C\[T\]                                                                                                                                                                                  |
 | |                       Memory reduction over a one dimensional space                                                                                                                                                                                                                                                                                    |

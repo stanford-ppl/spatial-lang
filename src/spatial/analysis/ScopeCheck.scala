@@ -23,7 +23,7 @@ trait ScopeCheck extends SpatialTraversal {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
-    case Hwblock(blk) =>
+    case Hwblock(blk,_) =>
       val (inputs, stms) = blockInputsAndNestedContents(blk)
 
       val illegalInputs = inputs.filter{

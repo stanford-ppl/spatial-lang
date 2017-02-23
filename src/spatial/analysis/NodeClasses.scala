@@ -68,7 +68,7 @@ trait NodeClasses extends SpatialMetadataExp {
 
   def isUnitPipe(e: Exp[_]): Boolean = getDef(e).exists(isUnitPipe)
   def isUnitPipe(d: Def): Boolean = d match {
-    case _:UnitPipe            => true
+    case _:UnitPipe => true
     case _ => false
   }
 
@@ -79,6 +79,22 @@ trait NodeClasses extends SpatialMetadataExp {
     case _:OpMemReduce[_,_]    => true
     case _:UnrolledForeach     => true
     case _:UnrolledReduce[_,_] => true
+    case _ => false
+  }
+
+  /** Determines if a given controller is forever or has any children that are **/
+  def willRunForever(e: Exp[_]): Boolean = getDef(e).exists(isForever) || childrenOf(e).exists(willRunForever)
+
+  /** Determines if just the given node is forever (has Forever counter) **/
+  def isForever(e: Exp[_]): Boolean = getDef(e).exists(isForever)
+  def isForever(d: Def): Boolean = d match {
+    case e: Forever             => true
+    case e: Hwblock             => e.isForever
+    case e: OpForeach           => isForeverCounterChain(e.cchain)
+    case e: OpReduce[_]         => isForeverCounterChain(e.cchain)
+    case e: OpMemReduce[_,_]    => isForeverCounterChain(e.cchainMap) // This should probably never happen
+    case e: UnrolledForeach     => isForeverCounterChain(e.cchain)
+    case e: UnrolledReduce[_,_] => isForeverCounterChain(e.cchain)
     case _ => false
   }
 

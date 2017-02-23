@@ -62,7 +62,7 @@ trait TreeGenSpatial extends SpatialTraversal {
   }
 
   override protected def visit(sym: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case Hwblock(func) =>
+    case Hwblock(func,_) =>
       val inner = styleOf(sym) match { 
       	case InnerPipe => true
       	case _ => false

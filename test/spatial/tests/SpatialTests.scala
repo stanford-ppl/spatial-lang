@@ -11,12 +11,12 @@ import spatial.{SpatialApp, SpatialConfig, SpatialIR}
 trait SpatialTestIR extends SpatialIR with RunnerCore { self =>
   override val testbench = true
   override def settings() {
-    Config.verbosity = 3
+    Config.verbosity = 1
   }
 }
 
 trait SpatialTest extends SpatialApp {
-  override val IR: SpatialTestIR = new SpatialTestIR { }
+  override val IR: SpatialTestIR = new SpatialTestIR { def target = spatial.targets.DefaultTarget }
 }
 
 // --- Tests
