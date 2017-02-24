@@ -4,7 +4,7 @@
 # NOTE: This script belongs on a server dedicated to regression testing
 
 export LANG=en_US.UTF-8
-REGRESSION_HOME="/remote/spatial_regression"
+REGRESSION_HOME="/remote/regression/${1}"
 
 ## Helper for deleting directories when you still have those nfs files stuck in use
 # 1 - directory to delete
@@ -153,7 +153,7 @@ git_things() {
   export spatial_hash=${spatial_hash}
   export argon_hash=${argon_hash}
   export virtualized_hash=${virtualized_hash}
-  export JAVA_HOME=/usr/
+  # export JAVA_HOME=/usr/
   logger "Cloning spatial..."
   git clone git@github.com:stanford-ppl/spatial-lang.git > /dev/null 2>&1
   logger "Cloning done!"

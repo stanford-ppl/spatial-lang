@@ -547,7 +547,7 @@ export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
 " >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
-    echo "export JAVA_HOME=/usr/
+    echo "#export JAVA_HOME=/usr/
     " >> $1
   fi
 
