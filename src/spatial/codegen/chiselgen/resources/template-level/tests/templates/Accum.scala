@@ -81,7 +81,7 @@ class SpecialAccumTests(c: SpecialAccum) extends PeekPokeTester(c) {
         case "FixedPoint" => (peek(c.io.output), scala.math.pow(2,c.params(2)).toInt)
         case "FloatingPoint" => (peek(c.io.output), 1)
       }
-      println(s"next: $acc into $count = $next (en $en), got ${hw.toDouble/scala.math.pow(2,c.params(2))}")
+      // println(s"next: $acc into $count = $next (en $en), got ${hw.toDouble/scala.math.pow(2,c.params(2))}")
       count = if(en == 1) next else count
       result = (count*factor).toInt
     }
