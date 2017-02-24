@@ -31,7 +31,7 @@ trait ChiselGenReg extends ChiselCodegen {
     } else {
       super.quote(s)
     }
-  } 
+  }
 
   override protected def remap(tp: Staged[_]): String = tp match {
     case tp: RegType[_] => src"Array[${tp.typeArguments.head}]"
@@ -51,7 +51,7 @@ trait ChiselGenReg extends ChiselCodegen {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => 
             if (d.isAccum) {
-              emitGlobal(src"""val ${lhs}_${i} = Module(new UIntAccum(32,"add"))""")
+              emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(32))) // TODO: Create correct accum based on type""")
             } else {
               if (d.depth > 1) {
                 nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)

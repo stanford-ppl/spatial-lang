@@ -22,11 +22,11 @@ trait TreeGenSpatial extends SpatialTraversal {
 
   def getScheduling(sym: Sym[_]): String = {
     styleOf(sym) match {
-        case MetaPipe => s"Metapipe."
-        case StreamPipe => "Streampipe."
-        case InnerPipe => "Innerpipe."
-        case SeqPipe => s"Seqpipe."
-        case ForkJoin => s"Parallel."
+        case MetaPipe => s"Meta."
+        case StreamPipe => "Stream."
+        case InnerPipe => "Inner."
+        case SeqPipe => s"Seq."
+        case ForkJoin => s"Para."
         case _ => ""
       }
   }
