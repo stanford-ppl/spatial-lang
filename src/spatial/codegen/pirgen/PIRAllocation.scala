@@ -137,7 +137,6 @@ trait PIRAllocation extends PIRTraversal {
       val readAccess = readAccesses(i).head
       val cu = PseudoComputeUnit(s"${quote(sram)}_dsp${i}", sram, MemoryCU(i))
       dbg(s"  Allocating MCU duplicates $cu for $sram, readAccess:$readAccess")
-      println(s"  Allocating MCU duplicates $cu for $sram, readAccess:$readAccess")
       //val readerCU = allocateCU(readAccess.ctrlNode)
       //val parent = if (readAccess.ctrlNode==writeAccess.ctrlNode) //Not multibuffered
         //parentHack(readAccess.ctrlNode).map(allocateCU)
@@ -163,7 +162,7 @@ trait PIRAllocation extends PIRTraversal {
   })
 
   def prescheduleRegisterRead(reg: Symbol, reader: Symbol, pipe: Option[Symbol]) = {
-    dbg(s"Allocating register read: $reader")
+    dbg(s"  Allocating register read: $reader")
     // Register reads may be used by more than one pipe
     readersOf(reg).filter(_.node == reader).map(_.ctrlNode).foreach{readCtrl =>
       val isCurrentPipe = pipe.exists(_ == readCtrl)
@@ -171,7 +170,7 @@ trait PIRAllocation extends PIRTraversal {
 
       if (!isCurrentPipe || !isLocallyWritten) {
         val readerCU = allocateCU(readCtrl)
-        dbg(s"  Adding stage $reader of $reg to reader $readerCU")
+        dbg(s"    Adding stage $reader of $reg to reader $readerCU")
         readerCU.computeStages += DefStage(reader)
       }
     }
@@ -303,7 +302,7 @@ trait PIRAllocation extends PIRTraversal {
     sram.bufferDepth = instance.depth
     if (isFIFO(mem)) sram.mode = FIFOMode
   }
-
+  
   def allocateMem(mem: Symbol, reader: Symbol, cu: PCU): CUMemory = {
 //    if (!isBuffer(mem))
 //      throw new Exception(s"Cannot allocate SRAM for non-buffer symbol $mem")
@@ -328,6 +327,9 @@ trait PIRAllocation extends PIRTraversal {
       case s: Sym[_] => Some(stmOf(s))
       case _ => None
     }
+
+    //Hack Check if func is inside block reduce
+    val reduceSRAM = func.summary.reads.intersect(func.summary.writes).filter(isSRAM).nonEmpty
 
     val stms = remotelyAddedStms ++ blockContents(func)
     val stages = stms.map{case TP(lhs,rhs) => lhs}
@@ -376,7 +378,7 @@ trait PIRAllocation extends PIRTraversal {
       // However, register reads may appear outside their corresponding controller
       case writer@ParLocalWriter(writes) if !isControlNode(writer) =>
         val rhs = writer match {case Def(d) => d; case _ => null }
-        dbg(s"$writer = $rhs [WRITER]")
+        dbg(s"  $writer = $rhs [WRITER]")
 
         writes.foreach{case (mem, value, addrs, ens) =>
           dbg(s"    Checking if $mem write can be implemented as FIFO-on-write:")
@@ -386,7 +388,9 @@ trait PIRAllocation extends PIRTraversal {
           if ((isBuffer(mem) || isFIFO(mem)) && writeAsFIFO) {
             // This entire section is a hack to support FIFO-on-write for burst loads
             val enableComputation = ens.map{e => getScheduleForAddress(stms)(Seq(e)) }.getOrElse(Nil)
-            val enableSyms = enableComputation.map{case TP(s,d) => s}
+            val enableSyms = enableComputation.map{case TP(s,d) => s} ++ ens
+            dbg(s"    write(mem=$mem, value=$value, addr=$addr, ens=$ens):")
+            dbg(s"    ens:$ens enableSyms:${enableSyms.mkString(",")}")
 
             val (start,end) = getFifoBounds(ens)
 
@@ -395,6 +399,8 @@ trait PIRAllocation extends PIRTraversal {
 
             val remoteWriteStage = FifoOnWriteStage(mem, startX, endX)
             val enStages = startX.map{s => DefStage(s) }.toList ++ endX.map{s => DefStage(s) }.toList
+            dbg(s"    boundStages:")
+            enStages.foreach { stage => dbg(s"      $stage") }
 
             allocateWrittenSRAM(writer, mem, cu, enStages ++ List(remoteWriteStage))
 
@@ -471,19 +477,24 @@ trait PIRAllocation extends PIRTraversal {
     }
 
     cu.computeStages ++= localCompute.map{s => 
-      val isReduce = s match {
+      val isReduce = (s match {
         case Def(RegRead(_)) => false
         case Def(RegWrite(_,_,_)) => false
         case s => reduceType(s).isDefined
-      }
+      }) && !reduceSRAM
       DefStage(s, isReduce = isReduce)
     }
 
-    dbg(s"prescheduled stages for $cu:")
+    dbg(s"  remoteStages for $cu:")
+    remoteStages.foreach { s => 
+      val Def(d) = s
+      dbg(s"    $s = $d")
+    }
+    dbg(s"  prescheduled stages for $cu:")
     cu.computeStages.foreach { s =>
       s match {
-        case s@DefStage(op, _) => dbg(s"  $s reduceType=${reduceType(op)}")
-        case s => dbg(s"  $s")
+        case s@DefStage(op, _) => dbg(s"    $s reduceType=${reduceType(op)}")
+        case s => dbg(s"    $s")
       }
     }
   }
