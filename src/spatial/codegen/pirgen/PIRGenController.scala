@@ -139,7 +139,11 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     val parent = cu.parent.map(_.name).getOrElse("top")
     val deps = cu.deps.map{dep => dep.name }.mkString("List(", ", ", ")")
 
-    s"""${quote(cu)}(name = "${cu.name}", parent=$parent)"""
+    if (cu.style.isInstanceOf[MemoryCU]) {
+      s"""${quote(cu)}(name = "${cu.name}")""" // MemoryPipeline doesn't need to declare parent 
+    } else {
+      s"""${quote(cu)}(name = "${cu.name}", parent=$parent)"""
+    }
   }
 
   def preallocateRegisters(cu: CU) = cu.regs.foreach{
@@ -154,7 +158,10 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case _ => //nothing
   }
 
-  def emitCU(pipe: Exp[Any], cu: CU, suffix: String = "") {
+  def emitCU(lhs: Exp[Any], cu: CU, suffix: String = "") {
+    val Def(rhs) = lhs
+    //emit(s"""// Def($lhs) = $rhs [isControlNode=${isControlNode(lhs)}]""")
+
     open(s"val ${cu.name} = ${cuDeclaration(cu)} { implicit CU => ")
     emit(s"val stage0 = CU.emptyStage")
     preallocateRegisters(cu)                // Includes scalar inputs/outputs, temps, accums
@@ -167,14 +174,9 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     close("}")
   }
 
-  def emitController(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case rhs if isControlNode(lhs) && cus.contains(lhs) => cus(lhs).flatten.foreach{cu => emitCU(lhs, cu)}
-    // emit(s"$lhs = $rhs")
-    case _ =>
-  }
-
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
-    emitController(lhs, rhs)
+    if (isControlNode(lhs) && cus.contains(lhs))
+      cus(lhs).flatten.foreach{cu => emitCU(lhs, cu)}
     rhs match {
       case Hwblock(func) =>
         emitBlock(func)
@@ -212,7 +214,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
   }
 
   def quoteInCounter(reg: LocalScalar) = reg match {
-    case reg:ScalarIn => s"CU.scalarIn(stage0, ${quote(reg)}).out"
+    case reg:ScalarIn => s"CU.scalarIn(stage0, ${quote(reg)})"
     case reg:ConstReg => s"""${quote(reg)}.out"""
   }
 

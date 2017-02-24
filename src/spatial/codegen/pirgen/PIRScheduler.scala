@@ -122,6 +122,7 @@ trait PIRScheduler extends PIRTraversal {
         writeStageRegs ++= cu.regs
         cu.regs = origRegs
       }
+      // --- Schedule read contexts
       for ((srams, (reader, stages)) <- pcu.readStages) {
         val ctx = ReadContext(cu, reader, srams)
         ctx.init()
@@ -135,6 +136,7 @@ trait PIRScheduler extends PIRTraversal {
       val ctx = ComputeContext(cu)
       pcu.computeStages.foreach{stage => scheduleStage(stage, ctx) }
       cu.regs ++= writeStageRegs
+      cu.regs ++= readStageRegs
       cu
     }
 
@@ -220,28 +222,28 @@ trait PIRScheduler extends PIRTraversal {
   }
 
   def bufferWrite(mem: Symbol, data: Symbol, isdim: Option[(Seq[Exp[Index]], Seq[Exp[Index]])], ctx: CUContext) {
-    if (isReadInPipe(mem, ctx.pipe)) { //FIXME: No longer will be true
-      assert(false, "All reads are remote writes now!")
-      val flatOpt = isdim.map{ case (a, dims) => flattenNDIndices(a, dims) }
-      val addr = flatOpt.map(_._1)
-      val addrStages = flatOpt.map(_._2).getOrElse(Nil)
-      addrStages.foreach{stage => scheduleStage(stage, ctx) }
-      addr.foreach{a => addrToStage(mem, a, ctx, local=true) }
+    //if (isReadInPipe(mem, ctx.pipe)) { //FIXME: No longer will be true
+      //assert(false, "All reads are remote writes now!")
+      //val flatOpt = isdim.map{ case (a, dims) => flattenNDIndices(a, dims) }
+      //val addr = flatOpt.map(_._1)
+      //val addrStages = flatOpt.map(_._2).getOrElse(Nil)
+      //addrStages.foreach{stage => scheduleStage(stage, ctx) }
+      //addr.foreach{a => addrToStage(mem, a, ctx, local=true) }
 
-      // TODO: Should we allow multiple versions of local accumulator?
-      ctx.memories(mem).foreach{sram =>
-        propagateReg(data, ctx.reg(data), FeedbackDataReg(sram), ctx)
-      }
-    }
+      //// TODO: Should we allow multiple versions of local accumulator?
+      //ctx.memories(mem).foreach{sram =>
+        //propagateReg(data, ctx.reg(data), FeedbackDataReg(sram), ctx)
+      //}
+    //}
     // Push data out to global bus (even for local accumulators)
     mappingIn(mem).zipWithIndex.foreach { case (sramCU, i) =>
-      if (ctx.isUnit) {
-        val bus = CUScalar(s"${quote(mem)}_${i}_wt")
-        propagateReg(data, ctx.reg(data), ScalarOut(bus), ctx)
-      } else {
-        val bus = CUVector(s"${quote(mem)}_${i}_wt")
+      //if (ctx.isUnit) {
+        //val bus = CUScalar(s"${quote(mem)}_${i}_wt")
+        //propagateReg(data, ctx.reg(data), ScalarOut(bus), ctx)
+      //} else {
+        val bus = CUVector(s"${quote(mem)}_${i}_wt") // All writes to sram are using vector bus
         propagateReg(data, ctx.reg(data), VectorOut(bus), ctx)
-      }
+      //}
     }
   }
 
@@ -270,15 +272,15 @@ trait PIRScheduler extends PIRTraversal {
 
   def allocateSRAMRead(lhs: Symbol, mem: Symbol, dim:Seq[Exp[Index]], is: Seq[Exp[Index]], ctx: CUContext) {
     val dispatch = dispatchOf(lhs, mem).head
-    if (ctx.isUnit) {
-      val bus = CUScalar(s"${quote(mem)}_${dispatch}_rd")
-      ctx.addReg(lhs, ScalarIn(bus))
-      //propagateReg(lhs, ScalarIn(bus), ctx.reg(lhs), ctx)
-    } else {
+    //if (ctx.isUnit) {
+      //val bus = CUScalar(s"${quote(mem)}_${dispatch}_rd")
+      //ctx.addReg(lhs, ScalarIn(bus))
+      ////propagateReg(lhs, ScalarIn(bus), ctx.reg(lhs), ctx)
+    //} else {
       val bus = CUVector(s"${quote(mem)}_${dispatch}_rd")
       ctx.addReg(lhs, VectorIn(bus))
       //propagateReg(lhs, VectorIn(bus), ctx.reg(lhs), ctx)
-    }
+    //}
     //val sram = ctx.mem(mem, lhs)
     //val (addr, addrStages) = flattenNDIndices(is, dim)
     //addrStages.foreach{stage => scheduleStage(stage, ctx) }
@@ -316,6 +318,7 @@ trait PIRScheduler extends PIRTraversal {
     //dbg(s"  Reg = $reg, data = $data")
     //dbg(s"  localRead:$isLocallyRead, localWrite:$isLocallyWritten, innerAcc:$isInnerAcc, outerAcc:$isOuterAcc, remoteRead:$isRemotelyRead")
 
+    dbg(s"allocateRegWrite${ctx.cu}, $reg readersOf($reg)=${readersOf(reg).mkString(",")}")
     if (isOuterAcc) { // Case 2
       val out = ctx.cu.getOrElse(reg){ allocateLocal(reg, ctx.pipe) }
       propagateReg(data, ctx.reg(data), out, ctx)
@@ -331,7 +334,12 @@ trait PIRScheduler extends PIRTraversal {
         globals += bus
         propagateReg(reg, start, ScalarOut(bus), ctx)
       }
-      else if (ctx.isUnit || isInnerAcc) {
+      else if (ctx.isUnit) {
+        val bus = CUScalar(quote(reg))
+        globals += bus
+        propagateReg(reg, start, ScalarOut(bus), ctx)
+      }
+      else if (isInnerAcc) {
         val bus = CUScalar(quote(reg))
         globals += bus
         propagateReg(reg, start, ScalarOut(bus), ctx)

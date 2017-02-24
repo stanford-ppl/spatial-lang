@@ -122,23 +122,34 @@ trait PIRAllocation extends PIRTraversal {
   def allocateMemoryCU(sram:Symbol):List[PCU] = mapping.getOrElseUpdate(sram, {
     val Def(d) = sram
 
-    val accesses = readersOf(sram).groupBy { read => 
+    val readAccesses = readersOf(sram).groupBy { read => 
       val id = dispatchOf(read, sram)
       assert(id.size==1)
       id.head
     }
+
+    val writeAccesses = writersOf(sram)
+    assert(writeAccesses.size==1, s"Plasticine currently only supports single writer at the moment $sram writeAccesses:$writeAccesses")
+    val writeAccess = writeAccesses.head
+    dbg(s"Allocating memory cu for $sram = $d, writeAccess:${writeAccess}")
     duplicatesOf(sram).zipWithIndex.map{ case (mem, i) => 
 
-      val reader = accesses(i).head
-      //val readerCU = allocateCU(reader.ctrlNode)
-      val parent = parentHack(topControllerOf(reader, sram, i).get.node).map(allocateCU)
-
+      val readAccess = readAccesses(i).head
       val cu = PseudoComputeUnit(s"${quote(sram)}_dsp${i}", sram, MemoryCU(i))
-      cu.parent = parent
+      dbg(s"  Allocating MCU duplicates $cu for $sram, readAccess:$readAccess")
+      println(s"  Allocating MCU duplicates $cu for $sram, readAccess:$readAccess")
+      //val readerCU = allocateCU(readAccess.ctrlNode)
+      //val parent = if (readAccess.ctrlNode==writeAccess.ctrlNode) //Not multibuffered
+        //parentHack(readAccess.ctrlNode).map(allocateCU)
+      //else {
+        //parentHack(topControllerOf(readAccess, sram, i).get.node).map(allocateCU)
+      //}
+      cu.parent = None
+
       //initCU(cu, pipe)
 
-      //val readerCU = allocateCU(reader.ctrlNode)
-      val psram = allocateMem(sram, reader.node, cu)
+      //val readerCU = allocateCU(readAccess.ctrlNode)
+      val psram = allocateMem(sram, readAccess.node, cu)
 
       //pipe match {
         //case Def(e:UnrolledForeach)      => addIterators(cu, e.cchain, e.iters, e.valids)
@@ -146,8 +157,6 @@ trait PIRAllocation extends PIRTraversal {
         //case Def(_:UnitPipe | _:Hwblock) => cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
         //case _ =>
       //}
-      
-      dbg(s"Allocating CU $cu for $sram = $d")
 
       cu
     }.toList
@@ -177,7 +186,8 @@ trait PIRAllocation extends PIRTraversal {
 
     sramCUs.zipWithIndex.foreach{ case (sramCU, i) => 
       copyIterators(sramCU, writerCU)
-      val bus = if (writerCU.isUnit) CUScalar(s"${quote(mem)}_${i}_wt") else CUVector(s"${quote(mem)}_${i}_wt")
+      //val bus = if (writerCU.isUnit) CUScalar(s"${quote(mem)}_${i}_wt") else CUVector(s"${quote(mem)}_${i}_wt")
+      val bus = CUVector(s"${quote(mem)}_${i}_wt") //TODO Writes to sram is alwasy using vector bus
       globals += bus
       sramCU.srams.foreach { _.writePort = Some(bus) }
       if (stages.nonEmpty) {
@@ -221,12 +231,11 @@ trait PIRAllocation extends PIRTraversal {
     //}
   }
   def allocateReadSRAM(reader: Symbol, mem: Symbol, readerCU: PCU, stages:List[PseudoStage]) = {
-    //val sram = allocateMem(mem, reader, readerCU) //TODO
     val sramCUs = allocateMemoryCU(mem)
     val dispatch = dispatchOf(reader, mem).head
     val sramCU = sramCUs(dispatch)
     copyIterators(sramCU, readerCU)
-    val bus = if (readerCU.isUnit) CUScalar(s"${quote(mem)}_${dispatch}_rd") else CUVector(s"${quote(mem)}_${dispatch}_rd")
+    val bus = CUVector(s"${quote(mem)}_${dispatch}_rd") //TODO Reads to sram is always using vector bus
     globals += bus
     sramCU.srams.foreach{ _.readPort = Some(bus) } //each sramCU should only have a single sram
     if (stages.nonEmpty) {

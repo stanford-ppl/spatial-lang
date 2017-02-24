@@ -35,7 +35,7 @@ trait PIRHacks extends PIRTraversal {
     // Set all CUs which write to a memory controller to StreamCUs
     // Either set parent to a streamcontroller, or make one and redirect parent
     cus.foreach{cu =>
-      val writesMC = globalOutputs(cu) exists (_.isInstanceOf[PIRDRAMBus])
+      val writesMC = globalOutputs(cu) exists ( o => o.isInstanceOf[PIRDRAMBus] || o.isInstanceOf[PIRDRAMOffset])
 
       dbg(s"${cu.name}: $writesMC")
 
