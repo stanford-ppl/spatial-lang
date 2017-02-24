@@ -38,7 +38,6 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     override def inputs = syms(en) ++ syms(cchain, accum) ++ syms(func) ++ syms(reduce)
     override def freqs = normal(cchain) ++ normal(accum) ++ cold(func) ++ cold(reduce)
     override def binds = super.binds ++ iters.flatten ++ valids.flatten ++ Seq(rV._1, rV._2)
-    override def tunnels = syms(accum)
   }
 
   case class ParSRAMLoad[T:Staged:Bits](
@@ -100,7 +99,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     valids: Seq[Seq[Bound[Bool]]],
     rV:     (Bound[T], Bound[T])
   )(implicit ctx: SrcCtx, mT: Staged[T], mC: Staged[C[T]]): Exp[Controller] = {
-    val fBlk = stageBlock { func }
+    val fBlk = stageLambda(accum) { func }
     val rBlk = stageBlock { reduce }
     val effects = fBlk.summary andAlso rBlk.summary
     stageEffectful(UnrolledReduce(en, cchain, accum, fBlk, rBlk, iters, valids, rV), effects.star)(ctx)
