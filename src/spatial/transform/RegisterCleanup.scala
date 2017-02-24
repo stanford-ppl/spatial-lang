@@ -16,10 +16,47 @@ trait RegisterCleanup extends ForwardTransformer {
   private var statelessSubstRules = Map[Access, Seq[(Exp[_], () => Exp[_])]]()
 
   val completedMirrors = mutable.HashMap[Access, Exp[_]]()
+  /*private implicit class HashMapOps[K,V](x: java.util.HashMap[K,V]) {
+    def getOrElseUpdate(key: K, value: => V) = {
+      if (x.containsKey(key)) x.get(key)
+      else {
+        val v = value
+        x.put(key, v)
+        value
+      }
+    }
+    def foreach(func: Tuple2[K,V] => Unit) = {
+      val keys = x.keySet()
+      var iter = keys.iterator()
+      while (iter.hasNext) {
+        val key = iter.next()
+        func( (key, x.get(key)) )
+      }
+    }
+  }*/
+
   def delayedMirror[T:Staged](lhs: Sym[T], rhs:Op[T], ctrl: Ctrl)(implicit ctx: SrcCtx) = () => {
-    completedMirrors.getOrElseUpdate( (lhs,ctrl), {
+    val key = (lhs, ctrl)
+
+    /*completedMirrors.getOrElseUpdate(key, {
       withCtrl(ctrl){ mirrorWithDuplication(lhs, rhs) }
-    })
+    })*/
+
+    /*dbg(c"Running delayed mirror. $lhs, $ctrl, ${key.hashCode}")
+    dbg(c"Completed mirrors contents: ")
+    completedMirrors.foreach{case (k,v) =>
+      dbg(c"$k : $v")
+    }*/
+
+    if (completedMirrors.contains(key)) {
+      completedMirrors(key)
+    }
+    else {
+      val lhs2 = withCtrl(ctrl){ mirrorWithDuplication(lhs, rhs) }
+      completedMirrors += key -> lhs2
+      lhs2
+    }
+
   }
 
   var ctrl: Ctrl = _
@@ -90,7 +127,7 @@ trait RegisterCleanup extends ForwardTransformer {
   private def mirrorWithDuplication[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
     if ( statelessSubstRules.contains((lhs,ctrl)) ) {
       dbg("")
-      dbg("[external user]")
+      dbg(c"[external user, ctrl = $ctrl]")
       dbg(c"$lhs = $rhs")
       // Activate / lookup duplication rules
       val rules = statelessSubstRules((lhs,ctrl)).map{case (s,s2) => s -> s2()}
