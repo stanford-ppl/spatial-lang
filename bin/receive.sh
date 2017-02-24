@@ -154,7 +154,7 @@ git_things() {
   export argon_hash=${argon_hash}
   export virtualized_hash=${virtualized_hash}
   # export JAVA_HOME=/usr/
-  logger "Cloning spatial..."
+  logger "Cloning spatial... Are your ssh keys set up in git?"
   git clone git@github.com:stanford-ppl/spatial-lang.git > /dev/null 2>&1
   logger "Cloning done!"
   logger "Changing spatial-lang to spatial"

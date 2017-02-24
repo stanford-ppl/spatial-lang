@@ -92,7 +92,16 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         emit(src"val ${accum}_wren = ${cchain}_ctr_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
-        emit(src"val ${accum}_wren = ${childrenOf(lhs).dropRight(1).last}_done // TODO: Skeptical these codegen rules are correct")
+        accum match { 
+          case Def(_:RegNew[_]) => 
+            if (childrenOf(lhs).length == 1) {
+              emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: Skeptical these codegen rules are correct")
+            } else {
+              emit(src"val ${accum}_wren = ${childrenOf(lhs).dropRight(1).last}_done // TODO: Skeptical these codegen rules are correct")              
+            }
+          case Def(_:SRAMNew[_]) => 
+            emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+        }
         emit(src"val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
       }
       emit(src"val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")

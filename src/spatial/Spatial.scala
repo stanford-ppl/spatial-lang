@@ -217,11 +217,11 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   passes += printer
 
   // --- Code generation
+  passes += treegen
   passes += scalagen
   passes += chiselgen
   passes += pirgen 
   passes += cppgen
-  passes += treegen
 }
 
 protected trait SpatialIR extends SpatialCompiler
