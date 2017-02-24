@@ -25,16 +25,20 @@ CounterChain
 ============
 
 CounterChain describes a set of chained hardware counters, where a given counter increments only when the counter
-below it wraps around. Order is specified as outermost to innermost.
+below it wraps around. Order is specified as outermost counter first to innermost counter last.
 
+CounterChains are generally created implicitly for small numbers of counters, and need only be created explicitly for
+more than 3 chained counters.
 
-Static methods
---------------
+---------------
 
-.. parsed-literal::
+**Static methods**
 
-  :maroon:`def` apply(counters: :doc:`counter`\*): :doc:`counterchain`
-
-Creates a chain of counters. Order is specified as outermost on the left to innermost on the right
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+|      `object`         **CounterChain**                                                                                                     |
++=====================+======================================================================================================================+
+| |               def   **apply**\(counters: :doc:`counter`\*): :doc:`counterchain`                                                          |
+| |                       Creates a chain of counters. Order is specified as outermost on the left to innermost on the right                 |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
 
 

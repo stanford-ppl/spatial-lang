@@ -74,7 +74,7 @@ build_spatial() {
   files=(*)
   testdirs=()
   sorted_testdirs=()
-  for f in ${files[@]}; do if [[ $f = *"testdir"* ]]; then testdirs+=($f); fi; done
+  for f in ${files[@]}; do if [[ $f = *"testdir-${branch}"*"${type_todo}"* ]]; then testdirs+=($f); fi; done
   sorted_testdirs=( $(for arr in "${testdirs[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_testdirs[*]}" )
   rank=-5
@@ -547,7 +547,7 @@ export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
 " >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
-    echo "export JAVA_HOME=/usr/
+    echo "#export JAVA_HOME=/usr/
     " >> $1
   fi
 
@@ -557,11 +557,11 @@ export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --scala --multifile=3 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --scala --multifile=4 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --chisel --multifile=3 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --chisel --multifile=4 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 

@@ -74,7 +74,7 @@ Class and companion object for managing one dimensional arrays on the CPU.
 | |               def   **reduce**\(func: (T,T) => T): T                                                                                     |
 | |                       Reduces the elements in this Array into a single element using associative function **func**                       |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
-| |               def   **filter**\(predicate: T => :doc:`boolean`): :doc:`array`\[T\]                                                       |
+| |               def   **filter**\(predicate: T => :doc:`../common/boolean`): :doc:`array`\[T\]                                             |
 | |                       Creates a new Array with all elements in this Array which satisfy the given **predicate**                          |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
 | |               def   **flatMap**\[R\](func: T => :doc:`array`\[R\]): :doc:`array`\[R\]                                                    |

@@ -9,6 +9,7 @@ class Parallel(val n: Int) extends Module {
     val input = new Bundle {
       val enable = Bool().asInput
       val stageDone = Vec(n, Bool().asInput)
+      val forever = Bool().asInput
     }
     val output = new Bundle {
       val done = Bool().asOutput
@@ -53,7 +54,7 @@ class Parallel(val n: Int) extends Module {
 
       val doneTree = doneMask.reduce { _ & _ }
       when(doneTree === 1.U) {
-        stateFF.io.input.data := doneState.U
+        stateFF.io.input.data := Mux(io.input.forever, runningState.U, doneState.U)
       }.otherwise {
         stateFF.io.input.data := state
       }

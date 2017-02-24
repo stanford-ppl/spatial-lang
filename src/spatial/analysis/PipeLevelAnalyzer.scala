@@ -29,7 +29,7 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
   }
 
   override def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
-    case Hwblock(blk)     => annotateControlStyle(lhs, blk)
+    case Hwblock(blk,_)   => annotateControlStyle(lhs, blk)
     case UnitPipe(_,blk)  => annotateControlStyle(lhs, blk)
     case e: OpForeach     => annotateControlStyle(lhs, e.func)
     case e: OpReduce[_]   =>

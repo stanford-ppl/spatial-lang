@@ -1,6 +1,7 @@
 package spatial.analysis
 
 import spatial.SpatialExp
+import org.virtualized.SourceContext
 
 trait NodeClasses extends SpatialMetadataExp {
   this: SpatialExp =>
@@ -8,6 +9,7 @@ trait NodeClasses extends SpatialMetadataExp {
   /** Parallelization factors **/
   def parFactorsOf(x: Exp[_]): Seq[Const[Index]] = x match {
     case Op(CounterNew(start,end,step,par)) => List(par)
+    case Op(Forever())             => List(int32(1))
     case Op(CounterChainNew(ctrs)) => ctrs.flatMap{ctr => parFactorsOf(ctr) }
     case Op(e: Gather[_])          => parFactorsOf(e.ctr)
     case Op(e: Scatter[_])         => parFactorsOf(e.ctr)
@@ -66,7 +68,7 @@ trait NodeClasses extends SpatialMetadataExp {
 
   def isUnitPipe(e: Exp[_]): Boolean = getDef(e).exists(isUnitPipe)
   def isUnitPipe(d: Def): Boolean = d match {
-    case _:UnitPipe            => true
+    case _:UnitPipe => true
     case _ => false
   }
 
@@ -80,6 +82,22 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  /** Determines if a given controller is forever or has any children that are **/
+  def willRunForever(e: Exp[_]): Boolean = getDef(e).exists(isForever) || childrenOf(e).exists(willRunForever)
+
+  /** Determines if just the given node is forever (has Forever counter) **/
+  def isForever(e: Exp[_]): Boolean = getDef(e).exists(isForever)
+  def isForever(d: Def): Boolean = d match {
+    case e: Forever             => true
+    case e: Hwblock             => e.isForever
+    case e: OpForeach           => isForeverCounterChain(e.cchain)
+    case e: OpReduce[_]         => isForeverCounterChain(e.cchain)
+    case e: OpMemReduce[_,_]    => isForeverCounterChain(e.cchainMap) // This should probably never happen
+    case e: UnrolledForeach     => isForeverCounterChain(e.cchain)
+    case e: UnrolledReduce[_,_] => isForeverCounterChain(e.cchain)
+    case _ => false
+  }
+
   def isParallel(e: Exp[_]): Boolean = getDef(e).exists(isParallel)
   def isParallel(d: Def): Boolean = d match {
     case _:ParallelPipe => true
@@ -89,12 +107,15 @@ trait NodeClasses extends SpatialMetadataExp {
   /** Allocations **/
   def isAllocation(e: Exp[_]): Boolean = getDef(e).exists(isAllocation)
   def isAllocation(d: Def): Boolean = d match {
-    case _:RegNew[_]    => true
-    case _:ArgInNew[_]  => true
-    case _:ArgOutNew[_] => true
-    case _:SRAMNew[_]   => true
-    case _:FIFONew[_]   => true
-    case _:DRAMNew[_]   => true
+    case _:RegNew[_]       => true
+    case _:ArgInNew[_]     => true
+    case _:ArgOutNew[_]    => true
+    case _:SRAMNew[_]      => true
+    case _:FIFONew[_]      => true
+    case _:DRAMNew[_]      => true
+    case _:StreamInNew[_]  => true
+    case _:StreamOutNew[_] => true
+    case _:Forever         => true
     case _ => isDynamicAllocation(d)
   }
 
@@ -129,14 +150,25 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isStreamStageEnabler(e: Exp[_]): Boolean = e match {
+    case Def(_:FIFODeq[_]) => true
+    case Def(_:ParFIFODeq[_]) => true
+    case Def(_:StreamDeq[_]) => true
+    case _ => false
+  }
+
   def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] => true
+    case _:StreamInType[_]  => true
+    case _:StreamOutType[_] => true
     case _ => false
   }
 
   def isOffChipMemory(e: Exp[_]): Boolean = e.tp match {
-    case _:DRAMType[_] => true
-    case _:RegType[_] => isArgIn(e) || isArgOut(e)
+    case _:DRAMType[_]      => true
+    case _:StreamInType[_]  => true
+    case _:StreamOutType[_] => true
+    case _:RegType[_]       => isArgIn(e) || isArgOut(e)
     case _ => false
   }
 
@@ -222,11 +254,12 @@ trait NodeClasses extends SpatialMetadataExp {
     case Gather(dram,local,addrs,_,_)         => Some(LocalWrite(local))
     case e: CoarseBurst[_,_] if e.isLoad      => Some(LocalWrite(e.onchip, addr=e.iters))
 
+    case StreamEnq(stream, data, en)          => Some(LocalWrite(stream, value=data, en=en))
+
     // TODO: Address and enable are in different format in parallelized accesses
     case BurstLoad(dram,fifo,ofs,_,_)         => Some(LocalWrite(fifo))
     case ParSRAMStore(mem,addr,data,en)       => Some(LocalWrite(mem,value=data))
     case ParFIFOEnq(fifo,data,ens)            => Some(LocalWrite(fifo,value=data))
-
     case _ => None
   }
   def readerUnapply(d: Def): Option[List[LocalRead]] = d match {
@@ -236,6 +269,8 @@ trait NodeClasses extends SpatialMetadataExp {
     case Gather(dram,local,addrs,_,_)  => Some(LocalRead(addrs))
     case Scatter(dram,local,addrs,_,_) => Some(LocalRead(local) ++ LocalRead(addrs))
     case e: CoarseBurst[_,_] if !e.isLoad => Some(LocalRead(e.onchip, addr=e.iters))
+
+    case StreamDeq(stream, en)         => Some(LocalRead(stream, en=en))
 
     // TODO: Address and enable are in different format in parallelized accesses
     case BurstStore(dram,fifo,ofs,_,_) => Some(LocalRead(fifo))

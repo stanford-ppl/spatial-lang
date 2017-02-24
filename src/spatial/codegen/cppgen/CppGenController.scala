@@ -11,7 +11,7 @@ trait CppGenController extends CppCodegen {
 
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case Hwblock(func) =>
+    case Hwblock(func,isForever) =>
       // Skip everything inside
       emit(s"uint64_t Top_cycles = 0;")
       emit(s"interface.cycles = &Top_cycles;")

@@ -1,9 +1,7 @@
-Hardware Templates
-==================
+Hardware
+========
 
 .. toctree::
    accel/memories
-   accel/parallel
-   accel/pipe
-   accel/sequential
-   accel/stream
+   accel/controllers
+   accel/controltags

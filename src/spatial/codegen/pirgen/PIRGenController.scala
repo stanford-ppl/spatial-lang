@@ -178,7 +178,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     if (isControlNode(lhs) && cus.contains(lhs))
       cus(lhs).flatten.foreach{cu => emitCU(lhs, cu)}
     rhs match {
-      case Hwblock(func) =>
+      case Hwblock(func,_) =>
         emitBlock(func)
 
       case UnitPipe(en, func) =>

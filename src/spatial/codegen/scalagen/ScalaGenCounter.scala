@@ -12,14 +12,15 @@ trait ScalaGenCounter extends ScalaCodegen with FileDependencies {
   dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/scalagen/resources/Counter.scala")
 
   override protected def remap(tp: Staged[_]): String = tp match {
-    case CounterType      => src"Counter"
-    case CounterChainType => src"Array[Counter]"
+    case CounterType      => src"Counterlike"
+    case CounterChainType => src"Array[Counterlike]"
     case _ => super.remap(tp)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case CounterNew(start,end,step,par) => emit(src"val $lhs = Counter($start, $end, $step, $par)")
     case CounterChainNew(ctrs) => emit(src"""val $lhs = Array(${ctrs.map(quote).mkString(",")})""")
+    case Forever() => emit(src"""val $lhs = Forever()""")
     case _ => super.emitNode(lhs, rhs)
   }
 

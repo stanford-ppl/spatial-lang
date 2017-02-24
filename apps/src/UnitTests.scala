@@ -33,6 +33,42 @@ object InOutArg extends SpatialApp {  // Regression (Unit) // Args: 5
   }
 }
 
+object FileSplitter extends SpatialApp {  // Regression (Unit) // Args: 5
+  import IR._
+
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val x = ArgIn[Int]
+    val y = ArgOut[Int]
+    val N = args(0).to[Int]
+
+    // Connect SW vals to HW vals
+    setArg(x, N)
+
+    // Create HW accelerator
+    Accel {
+      Pipe(5 by 1) { i => 
+        Pipe(10 by 1) { j => 
+          Pipe {y := x + 4 + j + i}
+        }
+      }
+    }
+
+
+    // Extract results from accelerator
+    val result = getArg(y)
+
+    // Create validation checks and debug code
+    val gold = N + 4 + 4 + 9
+    println("expected: " + gold)
+    println("result: " + result)
+
+    val cksum = gold == result
+    println("PASS: " + cksum + " (FileSplitter)")
+  }
+}
+
 object Niter extends SpatialApp {  // Regression (Unit) // Args: 100
   import IR._
   
@@ -597,7 +633,7 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
         tile load srcFPGA(i::i+tileSize)
         tile
       }{_+_}
-      dstFPGA (0::tileSize) store accum
+      dstFPGA store accum
     }
     getMem(dstFPGA)
   }
@@ -693,7 +729,7 @@ object BlockReduce2D extends SpatialApp { // Regression (Unit) // Args: 192 384
         tile load srcFPGA(i::i+tileSize, j::j+tileSize)
         tile
       }{_+_}
-      dstFPGA (0::tileSize, 0::tileSize) store accum
+      dstFPGA store accum
     }
     getMem(dstFPGA)
   }
@@ -1084,4 +1120,48 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
     val cksum = dst == gold
     println("PASS: " + cksum + " (FifoPushPop)")
   }
+}
+
+
+ object StreamTest extends SpatialApp {
+   import IR._
+
+   override val target = targets.DE1
+
+   @virtualize
+   def main() {
+     type T = Int
+
+     val frameRows = 64
+     val frameCols = 64
+     val onboardVideo = target.VideoCamera
+     val mem = DRAM[T](frameRows, frameCols)
+     val conduit = StreamIn[T](onboardVideo)
+     // val avalon = StreamOut()
+
+    // Raw Spatial streaming pipes
+    Accel {
+      Foreach(*, frameCols by 1) { (_,j) =>
+        val fifo1 = FIFO[T](frameCols)
+        val fifo2 = FIFO[T](frameCols)
+        Stream(frameCols by 1) { j =>
+          Pipe {
+            val pop = conduit.deq()
+            fifo1.enq(pop)
+          }
+          Pipe {
+            val pop = fifo1.deq()
+            fifo2.enq(pop)
+          }
+          Pipe {
+            val pop = fifo2.deq()
+            // avalon.enq(pop)
+          }
+        }
+      }
+    }
+
+
+  }
+
 }

@@ -2,6 +2,7 @@
 package templates
 
 import chisel3._
+import types._
 
 object Utils {
   def delay[T <: chisel3.core.Data](sig: T, length: Int):T = {
@@ -25,6 +26,18 @@ object Utils {
       }
     }
   }
+
+  // Helper for making fixedpt when you know the value at creation time
+  def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T): types.FixedPoint = {
+    val cst = Wire(new types.FixedPoint(s, d, f))
+    init match {
+      case i: Double => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).toBits
+      case i: UInt => cst.number := i
+      case i: Int => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).toBits
+    }
+    cst
+  }
+
 
   def min[T <: chisel3.core.Data](a: T, b: T): T = {
     (a,b) match {

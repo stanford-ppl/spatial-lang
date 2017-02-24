@@ -5,10 +5,10 @@ notifications:
     recipients: mattfel@stanford.edu
     on_success: never # default: change
     on_failure: always # default: always
-branches:
-  only:
-  - fpga
-  - master
+# branches:
+#   only:
+#   - fpga
+#   - master
 install: 
   - wget https://www.veripool.org/ftp/verilator-3.900.tgz
   - unset VERILATOR_ROOT  # For bash

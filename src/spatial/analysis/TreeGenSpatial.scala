@@ -20,6 +20,16 @@ trait TreeGenSpatial extends SpatialTraversal {
   var controller_tree: PrintWriter = _
   val table_init = """<TABLE BORDER="3" CELLPADDING="10" CELLSPACING="10">"""
 
+  def getScheduling(sym: Sym[_]): String = {
+    styleOf(sym) match {
+        case MetaPipe => s"Metapipe."
+        case StreamPipe => "Streampipe."
+        case InnerPipe => "Innerpipe."
+        case SeqPipe => s"Seqpipe."
+        case ForkJoin => s"Parallel."
+        case _ => ""
+      }
+  }
   override protected def preprocess[S:Staged](block: Block[S]): Block[S] = {
     controller_tree = { new PrintWriter(Config.genDir + "/controller_tree.html") }
   	controller_tree.write("""<!DOCTYPE html>
@@ -62,7 +72,7 @@ trait TreeGenSpatial extends SpatialTraversal {
   }
 
   override protected def visit(sym: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case Hwblock(func) =>
+    case Hwblock(func,_) =>
       val inner = styleOf(sym) match { 
       	case InnerPipe => true
       	case _ => false
@@ -88,7 +98,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"Unitpipe",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}Unitpipe",s"",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -101,7 +111,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"OpForeach",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}OpForeach",s"",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -114,7 +124,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"OpReduce",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}OpReduce",s"",s"$sym", inner)
       print_stage_suffix(s"$sym", inner)
 
     case _: OpMemReduce[_,_] =>
@@ -122,7 +132,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"OpMemReduce",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}OpMemReduce",s"",s"$sym", inner)
       print_stage_suffix(s"$sym", inner)
 
     case UnrolledForeach(en,cchain,func,iters,valids) =>
@@ -130,7 +140,8 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"UnrolledForeach",s"",s"$sym", inner)
+  
+      print_stage_prefix(s"${getScheduling(sym)}UnrolledForeach",s"",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -153,7 +164,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"UnrolledReduce",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}UnrolledReduce",s"",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s

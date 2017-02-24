@@ -40,7 +40,7 @@ They must be specified explicitly in the host code (not in Accel scopes).
 | |               def   **setArg**\[T::doc:`../typeclasses/bits`\](reg: :doc:`../accel/memories/reg`\[T\], value: T): Unit                   |
 | |                       Transfer a scalar value from the host to the accelerator                                                           |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
-| |               def   **getMem**\[T::doc:`../typeclasses/bits`\](dram: :doc:`../accel/memories/dram`\[T\], data: :doc:`array`\[T\]): Unit  |
+| |               def   **setMem**\[T::doc:`../typeclasses/bits`\](dram: :doc:`../accel/memories/dram`\[T\], data: :doc:`array`\[T\]): Unit  |
 | |                       Copy a block of data from a host Array to the accelerator's main memory                                            |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
 

@@ -17,7 +17,7 @@ trait SpatialMetadataApi extends SpatialMetadataExp {
 
 
 // Internal metadata (compiler use only)
-trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { this: SpatialExp =>
+trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp =>
   /**
     * Symbol bounds
     * Tracks the MAXIMUM value for a given symbol, along with data about this bound
@@ -203,6 +203,20 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   }
 
   /**
+    * List of fifos or streams popped in a given controller, for handling streampipe control flow
+    **/
+  case class ListenStreams(listen: List[Exp[_]]) extends Metadata[ListenStreams] {
+    def mirror(f:Tx) = ListenStreams(f.tx(listen))
+  }
+  object listensTo {
+    def apply(x: Exp[_]): List[Exp[_]] = metadata[ListenStreams](x).map(_.listen).getOrElse(Nil)
+    def update(x: Exp[_], listen: List[Exp[_]]): Unit = metadata.add(x, ListenStreams(listen))
+
+    def apply(x: Ctrl): List[Exp[_]] = listensTo(x.node)
+    def update(x: Ctrl, listen: List[Exp[_]]): Unit = listensTo(x.node) = listen
+  }
+
+  /**
     * List of consumers of reads (primarily used for register reads)
     */
   case class ReadUsers(users: List[Access]) extends Metadata[ReadUsers] {
@@ -228,12 +242,12 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   /**
     * Parallelization factors which a given node will be unrolled by, prior to unrolling
     */
-  case class UnrollFactors(factors: Seq[Const[Index]]) extends Metadata[UnrollFactors] {
-    def mirror(f:Tx) = UnrollFactors(factors.map{x => f(x).asInstanceOf[Const[Index]] })
+  case class UnrollFactors(factors: Seq[Seq[Const[Index]]]) extends Metadata[UnrollFactors] {
+    def mirror(f:Tx) = this // Don't mirror constants for now...
   }
   object unrollFactorsOf {
-    def apply(x: Exp[_]): Seq[Const[Index]] = metadata[UnrollFactors](x).map(_.factors).getOrElse(Nil)
-    def update(x: Exp[_], factors: Seq[Const[Index]]) = metadata.add(x, UnrollFactors(factors))
+    def apply(x: Exp[_]): Seq[Seq[Const[Index]]] = metadata[UnrollFactors](x).map(_.factors).getOrElse(Nil)
+    def update(x: Exp[_], factors: Seq[Seq[Const[Index]]]) = metadata.add(x, UnrollFactors(factors))
   }
 
   /**

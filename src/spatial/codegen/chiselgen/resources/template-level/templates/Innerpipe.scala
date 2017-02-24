@@ -20,6 +20,7 @@ class Innerpipe(val ctrDepth : Int) extends Module {
       val enable = Bool().asInput
       val ctr_done = Bool().asInput
       val ctr_maxIn = Vec(ctrDepth, UInt(32.W).asInput) // TODO: Deprecate this maxIn/maxOut business if all is well without it
+      val forever = Bool().asInput
     }
     val output = new Bundle {
       val done = Bool().asOutput
@@ -69,7 +70,7 @@ class Innerpipe(val ctrDepth : Int) extends Module {
         state := pipeRun.U
       }
     }.elsewhen( state === pipeDone.U ) {
-      io.output.done := true.B
+      io.output.done := Mux(io.input.forever, false.B, true.B)
       state := pipeReset.U
     }.elsewhen( state === pipeSpinWait.U ) {
       state := pipeSpinWait.U;

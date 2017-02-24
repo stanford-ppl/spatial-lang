@@ -25,27 +25,18 @@ SparseTile
 ==========
 
 
-A SparseTile describes a sparse section of a DRAM memory which can be loaded onto the accelerator using a gather operation, or which can
+A **SparseTile** describes a sparse section of a DRAM memory which can be loaded onto the accelerator using a gather operation, or which can
 be updated using a scatter operation.
 
+--------------
 
-Infix methods
--------------
+**Infix methods**
 
-.. parsed-literal::
-
-  :maroon:`def` :=(sram: :doc:`sram`\[T\]): Unit
-
-Creates a store from the given on-chip SRAM to this SparseTile of off-chip memory 
-
-
-Related methods
----------------
-
-.. parsed-literal::
-
-  :maroon:`def` copySparse(tile: :doc:`sparsetile`\[T\], local: :doc:`sram`\[T\], isScatter: Boolean): Unit
-
-
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+|      `class`         **SparseTile**\[T\]                                                                                                   |
++=====================+======================================================================================================================+
+| |               def   **scatter**\(data: :doc:`sram`\[T\]): Unit                                                                           |
+| |                       Creates a scatter store to the addresses of DRAM described by this SparseTile.                                     |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
 
 

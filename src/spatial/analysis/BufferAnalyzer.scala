@@ -97,3 +97,4 @@ trait BufferAnalyzer extends CompilerPass {
     block
   }
 }
+  

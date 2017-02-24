@@ -92,7 +92,16 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         emit(src"val ${accum}_wren = ${cchain}_ctr_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
-        emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: Skeptical these codegen rules are correct")
+        accum match { 
+          case Def(_:RegNew[_]) => 
+            if (childrenOf(lhs).length == 1) {
+              emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: Skeptical these codegen rules are correct")
+            } else {
+              emit(src"val ${accum}_wren = ${childrenOf(lhs).dropRight(1).last}_done // TODO: Skeptical these codegen rules are correct")              
+            }
+          case Def(_:SRAMNew[_]) => 
+            emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+        }
         emit(src"val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
       }
       emit(src"val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
@@ -118,15 +127,29 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         }
         val p = portsOf(lhs, sram, i).head
         emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
-
-        emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
+        sram.tp.typeArguments.head match { 
+          case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
+              emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*${p}+i))}""")
+            } else {
+              emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
+            }
+          case _ => emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
+        }
+        
       }
 
     case ParSRAMStore(sram,inds,data,ens) =>
       val dims = stagedDimsOf(sram)
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, 32))) """)
-      emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
+      sram.tp.typeArguments.head match { 
+        case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
+            emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat.number }""")
+          } else {
+            emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
+          }
+        case _ => emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
+      }
       inds.zipWithIndex.foreach{ case (ind, i) =>
         emit(src"${lhs}_wVec($i).en := ${ens}($i)")
         ind.zipWithIndex.foreach{ case (a, j) =>
@@ -142,12 +165,26 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     case ParFIFODeq(fifo, ens, z) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
       emit(src"""${quote(fifo)}_readEn := ${reader}_sm.io.output.ctr_inc // Ignore $ens""")
-      emit(src"""val ${lhs} = ${fifo}_rdata // Ignore $z""")
+      fifo.tp.typeArguments.head match { 
+        case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
+            emit(s"""val ${quote(lhs)} = (0 until ${quote(ens)}.length).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) } // Ignore $z""")
+          } else {
+            emit(src"""val ${lhs} = ${fifo}_rdata // Ignore $z""")
+          }
+        case _ => emit(src"""val ${lhs} = ${fifo}_rdata // Ignore $z""")
+      }
 
     case ParFIFOEnq(fifo, data, ens) =>
       val writer = writersOf(fifo).head.ctrlNode  // Not using 'en' or 'shuffle'
       emit(src"""${fifo}_writeEn := ${writer}_sm.io.output.ctr_inc // Ignore $ens""")
-      emit(src"""${fifo}_wdata := ${data}""")
+      fifo.tp.typeArguments.head match { 
+        case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
+            emit(src"""${fifo}_wdata := (0 until ${ens}.length).map{ i => ${data}(i).number }""")
+          } else {
+            emit(src"""${fifo}_wdata := ${data}""")
+          }
+        case _ => emit(src"""${fifo}_wdata := ${data}""")
+      }
 
     case _ => super.emitNode(lhs, rhs)
   }

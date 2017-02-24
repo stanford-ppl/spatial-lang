@@ -6,10 +6,8 @@ import org.virtualized.virtualize
 import spatial.SpatialExp
 import spatial.SpatialConfig
 
-trait BurstTransferApi extends BurstTransferExp with ControllerApi with FIFOApi with CastApi with RangeApi {
+trait BurstTransferApi extends BurstTransferExp with ControllerApi with FIFOApi with CastApi with RangeApi with PinApi {
   this: SpatialExp =>
-
-  private def target = SpatialConfig.target
 
   /** Internals **/
   // Expansion rule for CoarseBurst -  Use coarse_burst(tile,onchip,isLoad) for anything in the frontend
@@ -251,6 +249,6 @@ trait BurstTransferExp extends Staging { this: SpatialExp =>
     styleOf(load) = InnerPipe
     load
   }
-
+  
 
 }

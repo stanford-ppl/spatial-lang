@@ -59,9 +59,9 @@ trait ChiselGenController extends ChiselCodegen {
           s match {
             case lhs: Sym[_] =>
               lhs match {
-                case Def(Hwblock(_)) =>
+                case Def(e: Hwblock) =>
                   s"AccelController"
-                case Def(UnitPipe(_,_)) =>
+                case Def(e: UnitPipe) =>
                   s"x${lhs.id}_UnitPipe"
                 case Def(e: OpForeach) =>
                   s"x${lhs.id}_ForEach"
@@ -107,16 +107,25 @@ trait ChiselGenController extends ChiselCodegen {
 
     /* State Machine Instatiation */
     // IO
+    var hasForever = false
     val numIter = if (cchain.isDefined) {
       val Def(CounterChainNew(counters)) = cchain.get
       counters.zipWithIndex.map {case (ctr,i) =>
-        val Def(CounterNew(start, end, step, par)) = ctr
-        emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(((${end} - ${start}) % (${step} * ${par}) === 0.U), 0.U, 1.U)""")
-        src"${sym}_level${i}_iters"
+        ctr match {
+          case Def(CounterNew(start, end, step, par)) => 
+            emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(((${end} - ${start}) % (${step} * ${par}) === 0.U), 0.U, 1.U)""")
+            src"${sym}_level${i}_iters"
+          case Def(Forever()) =>
+            hasForever = true
+            // need to change the outer pipe counter interface!!
+            emit(src"""val ${sym}_level${i}_iters = 0.U // Count forever""")
+            src"${sym}_level${i}_iters"            
+        }
       }
     } else { 
       List("1.U") // Unit pipe
     }
+
 
     val constrArg = smStr match {
       case "Innerpipe" => s"${numIter.length} /*probably don't need*/"
@@ -141,7 +150,7 @@ trait ChiselGenController extends ChiselCodegen {
       case Def(n: UnrolledForeach) =>
         emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc // TODO: Make sure this is a safe assignment""")
       case _ =>
-          emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
+        emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
     }
     
     if (cchain.isDefined) {
@@ -161,21 +170,41 @@ trait ChiselGenController extends ChiselCodegen {
       emit(src"""// ---- Begin $smStr ${sym} Unit Counter ----""")
       if (smStr == "Innerpipe") {
         emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_sm.io.output.ctr_en, 1 + ${sym}_offset)""")
+        emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")
       } else {
         emit(s"// How to emit for non-innerpipe unit counter?")
       }
     }
 
+    if (hasForever) {
+      emit(src"""${sym}_sm.io.input.forever := true.B""")
+    } else {
+      emit(src"""${sym}_sm.io.input.forever := false.B""")
+    }
+
         
     /* Control Signals to Children Controllers */
-    if (smStr != "Innerpipe") {
+    if (smStr == "Innerpipe") {
+      emit(src"""// ---- No children for $sym ----""")
+    } else {
       emit(src"""// ---- Begin $smStr ${sym} Children Signals ----""")
       childrenOf(sym).zipWithIndex.foreach { case (c, idx) =>
         emitGlobal(src"""val ${c}_done = Wire(Bool())""")
         emitGlobal(src"""val ${c}_en = Wire(Bool())""")
         emitGlobal(src"""val ${c}_resetter = Wire(Bool())""")
         emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${c}_done;""")
-        emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx})""")
+        if (smStr == "Streampipe") {
+          // Collect info about the fifos this child listens to
+          val enablers = listensTo(c).map { fifo => 
+            fifo match {
+              case Def(FIFONew(size)) => src"~${fifo}.io.empty"
+              case Def(StreamInNew(bus)) => src"${fifo}_ready"
+            }
+          }.mkString(" & ")
+          emit(src"""${c}_en := ${enablers}""")
+        } else {
+          emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx})""")  
+        }
         emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")
       }
     }
@@ -192,7 +221,7 @@ trait ChiselGenController extends ChiselCodegen {
 
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case Hwblock(func) =>
+    case Hwblock(func,isForever) =>
       controllerStack.push(lhs)
       toggleEn() // turn on
       emit(s"""val ${quote(lhs)}_en = io.top_en & !io.top_done;""")

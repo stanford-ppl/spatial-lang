@@ -10,4 +10,3 @@ Memory Templates
    memories/sram
    memories/sparsetile
    memories/tile
-   memories/vector

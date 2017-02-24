@@ -25,26 +25,21 @@ Tile
 ====
 
 
-A Tile describes a continguous slice of a DRAM memory which can be loaded onto the accelerator for processing or which can be updated
+A **Tile** describes a continguous slice of a DRAM memory which can be loaded onto the accelerator for processing or which can be updated
 with results once computation is complete.
 
+----------------
 
-Infix methods
--------------
+**Infix methods**
 
-.. parsed-literal::
-
-  :maroon:`def` :=(sram: :doc:`sram`\[T\])(:maroon:`implicit` ev0: Num[T]): Unit
-
-Creates a store from the given on-chip SRAM to this Tile of off-chip memory 
-
-
-*********
-
-.. parsed-literal::
-
-  :maroon:`def` :=(y: :doc:`fifo`\[T\])(:maroon:`implicit` ev0: Num[T]): Unit
-
-
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+|      `class`         **Tile**\[T\]                                                                                                         |
++=====================+======================================================================================================================+
+| |               def   **store**\(data: :doc:`sram`\[T\]): Unit                                                                             |
+| |                       Creates a burst store from **data** to the section of DRAM described by this Tile.                                 |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |               def   **store**\(data: :doc:`fifo`\[T\]): Unit                                                                             |
+| |                       Creates a burst store from **data** to the section of DRAM described by this Tile.                                 |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
 
 

@@ -24,15 +24,18 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var level = 0
   var controller: Option[Ctrl] = None
   var pendingNodes: Map[Exp[_], List[Exp[_]]] = Map.empty
-  var unrollFactors: List[Const[Index]] = Nil
+  var unrollFactors: List[List[Const[Index]]] = Nil
 
   var localMems: List[Exp[_]] = Nil
   var metapipes: List[Exp[_]] = Nil
+  var streampipes: List[Exp[_]] = Nil
+  var streamEnablers: List[Exp[_]] = Nil
   var top: Option[Exp[_]] = None
 
   override protected def preprocess[S:Staged](block: Block[S]) = {
     localMems = Nil
     metapipes = Nil
+    streampipes = Nil
     top = None
     level = 0
     controller = None
@@ -49,7 +52,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
   override protected def postprocess[S:Staged](block: Block[S]) = {
     top match {
-      case Some(ctrl@Op(Hwblock(_))) =>
+      case Some(ctrl@Op(Hwblock(_,_))) =>
       case _ => new NoTopError(ctxOrHere(block.result))
     }
     dbg("Local memories: ")
@@ -76,7 +79,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
     // ASSUMPTION: Currently only parallelizes by innermost loop
     inds.zip(factors).foreach{case (i,f) => parFactorOf(i) = f }
-    unrollFactors ++= factors.lastOption
+    unrollFactors = factors.lastOption.toList +: unrollFactors
 
     visitCtrl(ctrl)(blk)
 
@@ -135,6 +138,13 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
+  def addStreamDeq(stream: Exp[_], ctrl: Exp[_]) = {
+    parentOf(stream) = ctrl
+    dbg(c"Registered stream enabler $stream")
+    streamEnablers ::= stream
+  }
+
+
   // (2, 3)
   def addChild(child: Exp[_], ctrl: Exp[_]) = {
     dbg(c"Setting parent of $child to $ctrl")
@@ -183,17 +193,20 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   /** Common method for all nodes **/
   def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
     // Set total unrolling factors of this node's scope + internal unrolling factors in this node
-    unrollFactorsOf(lhs) = unrollFactors ++ parFactorsOf(lhs) // (9)
+    unrollFactorsOf(lhs) = parFactorsOf(lhs) +: unrollFactors // (9)
 
     if (controller.isDefined) {
       val ctrl: Ctrl   = controller.get
       val parent: Ctrl = if (isControlNode(lhs)) (lhs, false) else ctrl
+
+      if (parent.node != lhs) parentOf(lhs) = parent.node else parentOf(lhs) = ctrl.node
 
       checkPendingNodes(lhs, rhs, Some(parent))
 
       if (isStateless(lhs) && isOuterControl(parent)) addPendingNode(lhs)
 
       if (isAllocation(lhs)) addAllocation(lhs, parent.node)  // (1, 7)
+      if (isStreamStageEnabler(lhs)) addStreamDeq(lhs, parent.node)
       if (isReader(lhs)) addReader(lhs, parent)               // (4)
       if (isWriter(lhs)) addWriter(lhs, parent)               // (5, 6, 10)
     }
@@ -201,7 +214,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       checkPendingNodes(lhs, rhs, None)
       if (isStateless(lhs)) addPendingNode(lhs)
 
-      if (isAllocation(lhs) && (isArgIn(lhs) || isArgOut(lhs))) localMems ::= lhs // (7)
+      if (isLocalMemory(lhs)) localMems ::= lhs // (7)
     }
 
     if (isControlNode(lhs)) {
@@ -210,6 +223,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
         top = Some(lhs) // (11)
       }
       if (isMetaPipe(lhs)) metapipes ::= lhs // (8)
+      if (isStreamPipe(lhs)) streampipes ::= lhs
     }
   }
 
@@ -239,7 +253,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   protected def analyze(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case Hwblock(blk) =>
+    case Hwblock(blk,_) =>
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
 
@@ -260,15 +274,17 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
         visitBlock(map)
 
         // Handle the one case where we allow scalar communication between blocks
-        if (isStateless(map.result)) {
-          addPendingUse(lhs, (lhs,true), Seq(map.result))
+        pendingNodes.get(map.result).foreach{nodes =>
+          // Note that this should technically be (lhs,isOuterLoop), but registerCleanup doesn't differentiate
+          // between inner/outer loop of Reduce right now
+          addPendingUse(lhs, (lhs,false), nodes)
         }
+      }
 
-        visitCtrl((lhs,true)) {
-          visitBlock(ld)
-          visitBlock(reduce)
-          visitBlock(store)
-        }
+      visitCtrl((lhs,true)) {
+        visitBlock(ld)
+        visitBlock(reduce)
+        visitBlock(store)
       }
 
       isAccum(accum) = true
@@ -279,13 +295,14 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
       visitCtrl((lhs,false), itersMap, cchainMap) {
         visitBlock(map)
-        visitCtrl((lhs,true), itersRed, cchainRed) {
-          visitBlock(ldAcc)
-          visitBlock(ldRes)
-          visitBlock(reduce)
-          visitBlock(store)
-        }
       }
+      visitCtrl((lhs,true), itersRed, cchainRed) {
+        visitBlock(ldAcc)
+        visitBlock(ldRes)
+        visitBlock(reduce)
+        visitBlock(store)
+      }
+
       isAccum(accum) = true
       parentOf(accum) = lhs
       addChildDependencyData(lhs, map)
