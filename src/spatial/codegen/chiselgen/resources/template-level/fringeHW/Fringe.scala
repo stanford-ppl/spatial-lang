@@ -36,7 +36,7 @@ class Fringe(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryS
 
     // Accel Scalar IO
     val argIns = Output(Vec(numArgIns, UInt(w.W)))
-    val argOuts = Input(Vec(numArgOuts, EnqIO(UInt(w.W))))
+    val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
 
     // Accel memory IO
     val memStreams = Vec(numMemoryStreams, new MemoryStream(w, v))
@@ -51,8 +51,8 @@ class Fringe(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryS
   regs.io.wdata := io.wdata
   io.rdata := regs.io.rdata
 
-  val command = regs.io.argIns(0)  // commandReg = first argIn
-  val curStatus = regs.io.argIns(1)  // current status
+  val command = regs.io.argIns(0)   // commandReg = first argIn
+  val curStatus = regs.io.argIns(1) // current status
   io.enable := command(0) & ~curStatus(0)          // enable = LSB of first argIn
   io.argIns := regs.io.argIns.drop(2) // Accel argIns: Everything except first argIn
 

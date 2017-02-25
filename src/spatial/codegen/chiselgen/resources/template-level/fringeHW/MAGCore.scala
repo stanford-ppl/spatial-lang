@@ -27,9 +27,9 @@ class Command(w: Int, v: Int) extends Bundle {
 }
 
 class MemoryStream(w: Int, v: Int) extends Bundle {
-  val cmd = Input(EnqIO(new Command(w, v)))
-  val wdata = Input(EnqIO(Vec(v, UInt(w.W))))
-  val rdata = Output(EnqIO(Vec(v, UInt(w.W))))
+  val cmd = Flipped(Decoupled(new Command(w, v)))
+  val wdata = Flipped(Decoupled(Vec(v, UInt(w.W))))
+  val rdata = Decoupled(Vec(v, UInt(w.W)))
 
   override def cloneType(): this.type = {
     new MemoryStream(w, v).asInstanceOf[this.type]
@@ -59,8 +59,8 @@ class DRAMResponse(w: Int, v: Int) extends Bundle {
 }
 
 class DRAMStream(w: Int, v: Int) extends Bundle {
-  val cmd = Output(EnqIO(new DRAMCommand(w, v)))
-  val resp = Input(EnqIO(new DRAMResponse(w, v)))
+  val cmd = Decoupled(new DRAMCommand(w, v))
+  val resp = Flipped(Decoupled(new DRAMResponse(w, v)))
 
   override def cloneType(): this.type = {
     new DRAMStream(w, v).asInstanceOf[this.type]

@@ -13,7 +13,7 @@ import chisel3.util._
 class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0) extends Module {
   val addrWidth = log2Up(d)
   val argInRange = List(0, 1) ++ ((2) until (2 + numArgIns - 2)).toList
-  val argOutRange = List(1) ++ ((numArgIns) until (numArgIns + numArgOuts)).toList
+  val argOutRange = List(1) ++ ((numArgIns) until (numArgIns + numArgOuts - 1)).toList
 
   // Helper function to convert an argOut index into
   // register index. Used in the unit test
@@ -32,8 +32,8 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
     val waddr = Input(UInt(addrWidth.W))
     val wdata = Input(Bits(w.W))
     val rdata = Output(Bits(w.W))
-    val argIns = Output(Vec(numArgIns, UInt(w.W)))
-    val argOuts = Input(Vec(numArgOuts, EnqIO(UInt(w.W))))
+    val argIns = Output(Vec(numArgIns, (UInt(w.W))))
+    val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
   })
 
   // Sanity-check module parameters

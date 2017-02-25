@@ -18,7 +18,7 @@ class Accel(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemorySt
 
     // Scalars
     val argIns = Input(Vec(numArgIns, UInt(w.W)))
-    val argOuts = Output(Vec(numArgOuts, EnqIO(UInt(w.W))))
+    val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))
 
     // Tile Load
     val memStreams = Vec(numMemoryStreams, Flipped(new MemoryStream(w, v)))

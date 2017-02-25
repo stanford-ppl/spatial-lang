@@ -41,7 +41,7 @@ class TopUnitTester(c: Top)(implicit args: Array[String]) extends ArgsTester(c) 
   // ---- Host code ----
   // Write to all argIns: Regs 2..numArgIns+2
   for (i <- 2 until c.numArgIns+2) {
-    if (i == 2) writeReg(i, 96)
+    if (i == 2) writeReg(i, 0x400)
     else writeReg(i, (i-1)*2)  // Write pattern 4,6..
   }
   run()
@@ -55,12 +55,21 @@ class TopUnitTester(c: Top)(implicit args: Array[String]) extends ArgsTester(c) 
 
 object TopTest extends CommonMain {
   type DUTType = Top
+
+  def supportedTarget(t: String) = t match {
+    case "aws" => true
+    case "verilator" => true
+    case _ => false
+  }
+
   def dut = () => {
     val w = 32
     val numArgIns = 1
     val numArgOuts = 1
     val numMemoryStreams = 2
-    new Top(w, numArgIns, numArgOuts, numMemoryStreams)
+    val target = if (args.size > 0) args(0) else "verilator"
+    Predef.assert(supportedTarget(target), s"ERROR: Unsupported Fringe target '$target'")
+    new Top(w, numArgIns, numArgOuts, numMemoryStreams, target)
   }
   def tester = { c: DUTType => new TopUnitTester(c) }
 }
