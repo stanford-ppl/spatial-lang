@@ -35,38 +35,25 @@ trait PIRHacks extends PIRTraversal {
     // Set all CUs which write to a memory controller to StreamCUs
     // Either set parent to a streamcontroller, or make one and redirect parent
     cus.foreach{cu =>
-      val writesMC = globalOutputs(cu) exists ( o => o.isInstanceOf[PIRDRAMBus] || o.isInstanceOf[PIRDRAMOffset])
-
-      dbg(s"${cu.name}: $writesMC")
+      dbg(s"${cu.name}: writtenMC${writtenMC(cu).mkString(",")}")
 
       // Set everything but first stages to streaming pipes
       //if (writesMC && cu.deps.nonEmpty) cu.style = StreamCU
 
 
-      if (writesMC) cu.parent match {
-        case Some(parent: CU) if parent.style != StreamCU =>
+      if (writtenMC(cu).nonEmpty) cu.parent match {
+        case Some(parent: CU) =>
           val cusWithParent = allCUs.filter(_.parent == cu.parent).toSet
-          val cusByMC = cusWithParent.groupBy(writtenMC)
-
-          dbg(s"  cu: $cu")
-          dbg(s"  parent: $parent")
-          dbg(s"  w/ parent: $cusWithParent")
-          dbg(s"  cus by MC: $cusByMC")
-
-          // All CUs with this parent communicate with the same memory controller(s) as this CU
-          if (cusByMC.keys.size == 1) {
+          if (parent.style != StreamCU) {
+            dbg(s"  Set $parent.style from ${parent.style} to StreamCU")
             parent.style = StreamCU
-            cu.style = StreamCU
           }
-          /*else {
-            val parent = makeStreamController(pipe, cu.parent)
-            cu.parent = Some(parent)
-            List(parent)
-          }*/
-        /*case None =>
-          val parent = makeStreamController(pipe, None)
-          cu.parent = Some(parent)
-          List(parent)*/
+          cusWithParent.foreach { sib =>
+            if (sib.style != StreamCU) {
+              sib.style = StreamCU
+              dbg(s"  Set $sib.style from ${sib.style} to StreamCU")
+            }
+          }
         case _ =>
       }
     }
