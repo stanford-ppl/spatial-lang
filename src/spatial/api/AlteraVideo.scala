@@ -20,6 +20,7 @@ trait AlteraVideoApi extends AlteraVideoExp with BurstTransferExp with Controlle
 
     Pipe { 
       Decoder_Template(popFrom, pushTo)
+      popFrom.deq()
       ()
       // pushTo.enq(popFrom.deq())
     }
@@ -34,9 +35,9 @@ trait AlteraVideoApi extends AlteraVideoExp with BurstTransferExp with Controlle
 
     Pipe {
       DMA_Template(popFrom, loadIn)
-      // Pipe (64 by 1) { i =>
-      //   loadIn(i) = popFrom.deq()
-      // }
+      Pipe (64 by 1) { i =>
+        loadIn(i) = popFrom.deq()
+      }
       // Pipe {
       //   frameRdy.push(1.as[T])
       // }
