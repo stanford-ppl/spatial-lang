@@ -30,9 +30,11 @@ trait ChiselGenAlteraVideo extends ChiselCodegen with FileDependencies {
       emit(src"${pushTo}.in := video_decoder_ios.stream_out_data(0)")
       emit(src"${pushTo}.push := video_decoder_ios.stream_out_valid(0)")
 
-    case DMATemplateNew() => 
+    case DMATemplateNew(popFrom, loadIn) => 
       dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/altera-goodies/altera_up_avalon_video_dma_controller", outputPath="altera/")
       decoders = decoders :+ lhs
+      emit(src"${loadIn}.in := video_decoder_ios.stream_out_data(0)")
+      emit(src"${loadIn}.push := video_decoder_ios.stream_out_valid(0)")
     case _ => super.emitNode(lhs, rhs)
   }
 

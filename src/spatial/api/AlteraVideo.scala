@@ -20,7 +20,8 @@ trait AlteraVideoApi extends AlteraVideoExp with BurstTransferExp with Controlle
 
     Pipe { 
       Decoder_Template(popFrom, pushTo)
-      pushTo.enq(popFrom.deq())
+      ()
+      // pushTo.enq(popFrom.deq())
     }
   
   }
@@ -33,12 +34,13 @@ trait AlteraVideoApi extends AlteraVideoExp with BurstTransferExp with Controlle
 
     Pipe {
       DMA_Template(popFrom, loadIn)
-      Pipe (64 by 1) { i =>
-        loadIn(i) = popFrom.deq()
-      }
+      // Pipe (64 by 1) { i =>
+      //   loadIn(i) = popFrom.deq()
+      // }
       // Pipe {
       //   frameRdy.push(1.as[T])
       // }
+      ()
     }
   
   }
@@ -54,7 +56,7 @@ trait AlteraVideoExp extends Staging with MemoryExp {
   }
   case class Decoder_Template[T:Bits](s: Exp[Decoder_Template[T]]) {
   }
-  case class DMA_Template(s: Exp[DMA_Template[T]]) {
+  case class DMA_Template[T:Bits](s: Exp[DMA_Template[T]]) {
   }
 
 
@@ -111,7 +113,7 @@ trait AlteraVideoExp extends Staging with MemoryExp {
     stageSimple( DecoderTemplateNew[T](popFrom, pushTo) )(ctx)
   }
   def dma_alloc[T:Staged:Bits](popFrom: Exp[T], loadIn: Exp[T])(implicit ctx: SrcCtx): Sym[DMA_Template[T]] = {
-    stageSimple( DMATemplateNew[T](popFrom, pushTo) )(ctx)
+    stageSimple( DMATemplateNew[T](popFrom, loadIn) )(ctx)
   }
 
   /** Internal methods **/

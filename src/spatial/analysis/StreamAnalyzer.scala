@@ -18,10 +18,12 @@ trait StreamAnalyzer extends CompilerPass {
       dbg(u"Stream pipe $pipe with immediate children $childs")
 
       streamEnablers.foreach{ deq => // Once fifo ens 
-        val (fifo, en) = deq match {
-            case Def(FIFODeq(stream,en,_)) => (stream, en)
-            case Def(ParFIFODeq(stream,en,_)) => (stream, en)
-            case Def(StreamDeq(stream,en)) => (stream, en)
+        val fifo = deq match {
+            case Def(FIFODeq(stream,en,_)) => stream
+            case Def(ParFIFODeq(stream,en,_)) => stream
+            case Def(StreamDeq(stream,en)) => stream
+            case Def(DecoderTemplateNew(popFrom, _)) => popFrom
+            case Def(DMATemplateNew(popFrom, _)) => popFrom
         } 
         dbg(c"  # Trying to fit dequeuer $deq from fifo $fifo")
         var nextLevel: Option[Exp[_]] = parentOf(deq)
