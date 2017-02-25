@@ -13,13 +13,10 @@ trait ChiselGenAlteraVideo extends ChiselCodegen with FileDependencies {
   var dmas: List[Exp[Any]] = List()
   var decoders: List[Exp[Any]] = List()
 
-  override def quote(s: Exp[_]): String = {
-    s match {
-      case b: Bound[_] => super.quote(s)
-      case _ => super.quote(s)
-
-    }
-  } 
+  // override protected def bitWidth(tp: Staged[_]): Int = tp match {
+  //     case Avalon  => 32
+  //     case _ => super.bitWidth(tp)
+  // }
 
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
@@ -27,9 +24,12 @@ trait ChiselGenAlteraVideo extends ChiselCodegen with FileDependencies {
       dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/altera-goodies/address_map_arm.h", outputPath="altera/")
       dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/altera-goodies/interfaces.v", outputPath="altera/")
       dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/altera-goodies/StreamPixBuffer2ARM.scala", outputPath="altera/")
-    case DecoderTemplateNew() => 
+    case DecoderTemplateNew(popFrom, pushTo) => 
       dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/altera-goodies/altera_up_avalon_video_decoder", outputPath="altera/")
       dmas = dmas :+ lhs
+      emit(src"${pushTo}.in := video_decoder_ios.stream_out_data(0)")
+      emit(src"${pushTo}.push := video_decoder_ios.stream_out_valid(0)")
+
     case DMATemplateNew() => 
       dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/altera-goodies/altera_up_avalon_video_dma_controller", outputPath="altera/")
       decoders = decoders :+ lhs

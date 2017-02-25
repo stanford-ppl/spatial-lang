@@ -62,6 +62,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emitGlobal(src"""val ${lhs} = Module(new MemController(${p}))""".replace(".U",""))
       emitGlobal(src"""io.MemStreams.outPorts${streamId} := ${lhs}.io.CtrlToDRAM""")
       emitGlobal(src"""${lhs}.io.DRAMToCtrl := io.MemStreams.inPorts${streamId} """)
+      alphaconv_register(src"$dram")
       emit(src"""// ---- Memory Controller (Load) ${lhs} ----
 val ${dram} = 1024 * 1024 * ${streamId}
 ${lhs}_done := ${lhs}.io.CtrlToAccel.cmdIssued
@@ -82,6 +83,7 @@ ${fifo}_wdata.zip(${lhs}.io.CtrlToAccel.data).foreach { case (d, p) => d := p }"
       emitGlobal(src"""val ${lhs} = Module(new MemController(${p}))""".replace(".U",""))
       emitGlobal(src"""io.MemStreams.outPorts${streamId} := ${lhs}.io.CtrlToDRAM""")
       emitGlobal(src"""${lhs}.io.DRAMToCtrl := io.MemStreams.inPorts${streamId} """)
+      alphaconv_register(src"$dram")
       emit(src"""// ---- Memory Controller (Store) ${lhs} ----
 val ${dram} = 1024 * 1024 * ${streamId}
 ${lhs}_done := ${lhs}.io.CtrlToAccel.valid

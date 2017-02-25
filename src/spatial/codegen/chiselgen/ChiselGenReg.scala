@@ -50,15 +50,28 @@ trait ChiselGenReg extends ChiselCodegen {
       duplicates.zipWithIndex.foreach{ case (d, i) => 
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => 
-            if (d.isAccum) {
-              emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(32))) // TODO: Create correct accum based on type""")
-            } else {
-              if (d.depth > 1) {
-                nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
-                emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
-              } else {
-                emitGlobal(src"val ${lhs}_${i} = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
-              }              
+            fps match {
+              case FixPtSum => 
+                if (d.isAccum) {
+                  lhs.tp.typeArguments.head match {
+                    case FixPtType(s,d,f) => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","FixedPoint", List(${if (s) 1 else 0},$d,$f))) // TODO: Create correct accum based on type""")  
+                    case _ => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(32))) // TODO: Create correct accum based on type""")  
+                  }                  
+                } else {
+                  if (d.depth > 1) {
+                    nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
+                    emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
+                  } else {
+                    emitGlobal(src"val ${lhs}_${i} = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
+                  }              
+                }
+              case _ => 
+                if (d.depth > 1) {
+                  nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
+                  emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
+                } else {
+                  emitGlobal(src"val ${lhs}_${i} = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
+                }
             }
           case _ =>
             if (d.depth > 1) {
@@ -83,17 +96,20 @@ trait ChiselGenReg extends ChiselCodegen {
                 case FixPtSum =>
                   if (hasFracBits(reg.tp.typeArguments.head)) {
                     reg.tp.typeArguments.head match {
-                      case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint($s, $d, $f, ${reg}_initval // get reset value that was created by reduce controller""")                    
+                      case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval // get reset value that was created by reduce controller""")                    
                     }
                   } else {
                     emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")                    
                   }
                   
-                case _ => 
-                  emit(src"""TODO: Emit reduction for some other kind of reduction function, not sure how to read""")
+                case _ =>  
+                  reg.tp.typeArguments.head match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+                    case FixPtType(s,d,f) => emit(src"""val $lhs = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_${inst}.read(${port.head})""")
+                    case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
+                  }
               }
             case _ =>
-              emit(s"TODO: Instance $inst of reg $reg is an accum, but has no reduction function associated with it!")
+              throw new AccumWithoutReduceFunctionException(reg, lhs)
           }
         } else {
           emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
@@ -132,7 +148,8 @@ trait ChiselGenReg extends ChiselCodegen {
                     emit(src"""${reg}_${ii}.write($reg, $en & Utils.delay(${reg}_wren,1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
                   }
                 case _ =>
-                  emit(src"""TODO: Emit reduction for some other kind of reduction function, not sure how to specialize""")
+                  val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
+                  emit(src"""${reg}_${ii}.write($v, $en & Utils.delay(${reg}_wren,1), false.B, List(${ports.mkString(",")}))""")
               }
             }
           case _ => // Not an accum

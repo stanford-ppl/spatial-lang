@@ -58,7 +58,7 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenCounter with ChiselGenReg with ChiselGenSRAM with ChiselGenFIFO 
   with ChiselGenIfThenElse with ChiselGenPrint with ChiselGenController with ChiselGenMath with ChiselGenText
   with ChiselGenDRAM with ChiselGenStringCast with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
-  with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream {
+  with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream with ChiselGenStructs {
 
   override val IR: SpatialCompiler
 }
@@ -78,7 +78,8 @@ protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenCounter with CppGenReg with CppGenSRAM with CppGenFIFO 
   with CppGenIfThenElse with CppGenPrint with CppGenController with CppGenMath with CppGenText
   with CppGenDRAM with CppGenStringCast with CppGenHostTransfer with CppGenUnrolled with CppGenVector
-  with CppGenArray with CppGenArrayExt with CppGenAsserts with CppGenRange with CppGenAlteraVideo with CppGenStream{
+  with CppGenArray with CppGenArrayExt with CppGenAsserts with CppGenRange with CppGenAlteraVideo with CppGenStream
+  with CppGenHashMap{
 
   override val IR: SpatialCompiler
 }

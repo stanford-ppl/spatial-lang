@@ -6,8 +6,8 @@ object Kmeans extends SpatialApp {
 
   type X = Int
 
-  val num_cents = 96
-  val dim = 96
+  val num_cents = 64
+  val dim = 64
   val tileSize = 384
   val innerPar = 1
   val outerPar = 1

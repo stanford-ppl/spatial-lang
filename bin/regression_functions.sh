@@ -5,7 +5,7 @@
 ##   and git checkouts on a server-specific basis
 
 spacing=25
-delay=660
+delay=750
 numpieces=30
 hist=72
 
@@ -219,7 +219,7 @@ update_log() {
     elif [[ $p == *"failed_execution_nonexistent_validation"* ]]; then
       echo "<--------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=0
-    elif [[ $p == *"failed_execution_backend_crash"* ]]; then
+    elif [[ $p == *"failed_execution_backend_crash"* || $p == *"failed_execution_hanging"* ]]; then
       echo "<------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=0
     elif [[ $p == *"failed_compile_backend_crash"* || $p == *"failed_compile_cpp_crash"* ]]; then
@@ -349,7 +349,7 @@ for aa in ${headers[@]}; do
     # Get last known datapoint and vector
     last=$(cat ${pretty_file} | grep "${aa}\ " | grep -o ".$")
     if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else oldnum=8; fi
-    if [[ $old_num = 0 && $num = 0 ]]; then vec="="; elif [[ $old_num > $num ]]; then vec=↗; elif [[ $old_num < $num ]]; then vec=↘; else vec=→; fi
+    if [[ $old_num = 0 && $num = 0 ]]; then vec=" "; elif [[ $old_num > $num ]]; then vec=↗; elif [[ $old_num < $num ]]; then vec=↘; else vec=→; fi
     # Edit file
     logger "app $aa from $last to $bar, numbers $old_num to $num"
     cmd="sed -i 's/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/' ${pretty_file}" # Append bar
