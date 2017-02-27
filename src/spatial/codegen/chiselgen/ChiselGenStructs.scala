@@ -22,6 +22,11 @@ trait ChiselGenStructs extends ChiselCodegen {
       }
   }
 
+  override protected def bitWidth(tp: Staged[_]): Int = tp match {
+      case e: Tup2Type[_,_]  => super.bitWidth(e.typeArguments(0)) + super.bitWidth(e.typeArguments(1))
+      case _ => super.bitWidth(tp)
+  }
+
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -55,7 +60,7 @@ trait ChiselGenStructs extends ChiselCodegen {
       emit(src"val $lhs = util.Cat($items)")
     case FieldApply(struct, field) =>
       val (start, width) = tupCoordinates(struct.tp, field)      
-      emit(src"val $lhs = ${struct}($start, ${start+width-1})")
+      emit(src"val $lhs = ${struct}(${start+width-1}, $start)")
 
       // }
 

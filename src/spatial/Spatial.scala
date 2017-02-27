@@ -79,7 +79,7 @@ protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenIfThenElse with CppGenPrint with CppGenController with CppGenMath with CppGenText
   with CppGenDRAM with CppGenStringCast with CppGenHostTransfer with CppGenUnrolled with CppGenVector
   with CppGenArray with CppGenArrayExt with CppGenAsserts with CppGenRange with CppGenAlteraVideo with CppGenStream
-  with CppGenHashMap{
+  with CppGenHashMap with CppGenStructs{
 
   override val IR: SpatialCompiler
 }

@@ -12,12 +12,16 @@ trait CppGenVector extends CppCodegen {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case ListVector(_)=> s"x${lhs.id}_vecified"
-            case VectorApply(_,i:Int) => s"x${lhs.id}_elem${i}"
-            case VectorSlice(_,s:Int,e:Int) => s"x${lhs.id}_slice${s}to${e}"
-            case _ => super.quote(s)
+          try { // TODO: Remvoe try catch once david fixes hashindexapply sym
+            val Def(rhs) = lhs
+            rhs match {
+              case ListVector(_)=> s"x${lhs.id}_vecified"
+              case VectorApply(_,i:Int) => s"x${lhs.id}_elem${i}"
+              case VectorSlice(_,s:Int,e:Int) => s"x${lhs.id}_slice${s}to${e}"
+              case _ => super.quote(s)
+            }
+          } catch {
+            case ioe: scala.MatchError => s"x${lhs.id}_nodef"
           }
         case _ => super.quote(s)
       }

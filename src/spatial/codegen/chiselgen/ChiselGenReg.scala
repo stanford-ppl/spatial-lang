@@ -46,6 +46,7 @@ trait ChiselGenReg extends ChiselCodegen {
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       emit(src"val $lhs = Array($init)")
     case RegNew(init)    => 
+      val width = bitWidth(init.tp)
       val duplicates = duplicatesOf(lhs)  
       duplicates.zipWithIndex.foreach{ case (d, i) => 
         reduceType(lhs) match {
@@ -55,30 +56,30 @@ trait ChiselGenReg extends ChiselCodegen {
                 if (d.isAccum) {
                   lhs.tp.typeArguments.head match {
                     case FixPtType(s,d,f) => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","FixedPoint", List(${if (s) 1 else 0},$d,$f))) // TODO: Create correct accum based on type""")  
-                    case _ => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(32))) // TODO: Create correct accum based on type""")  
+                    case _ => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: Create correct accum based on type""")  
                   }                  
                 } else {
                   if (d.depth > 1) {
                     nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
-                    emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
+                    emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
                   } else {
-                    emitGlobal(src"val ${lhs}_${i} = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
+                    emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
                   }              
                 }
               case _ => 
                 if (d.depth > 1) {
                   nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
-                  emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
+                  emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
                 } else {
-                  emitGlobal(src"val ${lhs}_${i} = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
+                  emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
                 }
             }
           case _ =>
             if (d.depth > 1) {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
-              emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
+              emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
             } else {
-              emitGlobal(src"val ${lhs}_${i} = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
+              emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
             }
         } // TODO: Figure out which reg is really the accum
       }

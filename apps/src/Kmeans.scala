@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object Kmeans extends SpatialApp {
+object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
   import IR._
 
   type X = Int
@@ -11,7 +11,8 @@ object Kmeans extends SpatialApp {
   val tileSize = 384
   val innerPar = 1
   val outerPar = 1
-  val margin = 1
+  val element_max = 10
+  val margin = (element_max * 0.2).as[X]
 
   val MAXK = num_cents
   val MAXD = dim
@@ -115,7 +116,7 @@ object Kmeans extends SpatialApp {
     val K = num_cents //args(2).to[SInt];
     val D = dim //args(3).to[SInt];
 
-    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](10) }}
+    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
 
     // println("points: ")
     // for (i <- 0 until N) { println(i.mkString + ": " + pts(i).mkString(", ")) }
