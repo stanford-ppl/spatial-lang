@@ -17,14 +17,14 @@ trait CppGenDRAM extends CppGenSRAM {
         case lhs: Sym[_] =>
           val Op(rhs) = lhs
           rhs match {
-            case e: Gather[_]=> 
+            /*case e: Gather[_]=>
               s"x${lhs.id}_gath"
             case e: Scatter[_] =>
               s"x${lhs.id}_scat"
             case e: BurstLoad[_] =>
               s"x${lhs.id}_load"
             case e: BurstStore[_] =>
-              s"x${lhs.id}_store"
+              s"x${lhs.id}_store"*/
             case _ =>
               super.quote(s)
           }
@@ -48,10 +48,8 @@ trait CppGenDRAM extends CppGenSRAM {
 
     // case Gather(dram, local, addrs, ctr, i)  => emit("// Do what?")
     // case Scatter(dram, local, addrs, ctr, i) => emit("// Do what?")
-    case BurstLoad(dram, fifo, ofs, ctr, i)  => 
-      emit("//found load")
-    case BurstStore(dram, fifo, ofs, ctr, i) => 
-      emit("//found store")
+    // case BurstLoad(dram, fifo, ofs, ctr, i)  => emit("//found load")
+    // case BurstStore(dram, fifo, ofs, ctr, i) => emit("//found store")
     case _ => super.emitNode(lhs, rhs)
   }
 

@@ -121,7 +121,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
     def top = ctrlAnalyzer.top.get
   }
 
-  lazy val burstExpansion = new TransferSpecialization { val IR: self.type = self }
+  lazy val transferExpand = new TransferSpecialization { val IR: self.type = self }
 
   lazy val reduceAnalyzer = new ReductionAnalyzer { val IR: self.type = self }
 
@@ -179,7 +179,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // For now just doing it twice
   passes += scalarAnalyzer    // Bounds / global analysis
   passes += printer
-  passes += burstExpansion    // Expand burst loads/stores from single abstract nodes
+  passes += transferExpand    // Expand burst loads/stores from single abstract nodes
   passes += levelAnalyzer     // Pipe style annotation fixes after expansion
 
   // --- Post-Expansion Cleanup

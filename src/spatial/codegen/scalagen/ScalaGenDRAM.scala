@@ -13,7 +13,7 @@ trait ScalaGenDRAM extends ScalaGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => emit(src"""val $lhs = new Array[${op.mA}](${dims.map(quote).mkString("*")})""")
-    case Gather(dram, local, addrs, ctr, i)  =>
+    /*case Gather(dram, local, addrs, ctr, i)  =>
       emit(src"/** BEGIN GATHER $lhs **/")
       open(src"val $lhs = {")
       open(src"$ctr.foreach{case (is,vs) => is.zip(vs).foreach{case ($i,v) => if (v) {")
@@ -47,7 +47,7 @@ trait ScalaGenDRAM extends ScalaGenSRAM {
       emit(src"$dram.update($ofs + $i, $fifo.dequeue() )")
       close("}}}")
       close("}")
-      emit(src"/** END BURST STORE $lhs **/")
+      emit(src"/** END BURST STORE $lhs **/")*/
 
     case _ => super.emitNode(lhs, rhs)
   }

@@ -16,37 +16,15 @@ trait RegisterCleanup extends ForwardTransformer {
   private var statelessSubstRules = Map[Access, Seq[(Exp[_], () => Exp[_])]]()
 
   val completedMirrors = mutable.HashMap[Access, Exp[_]]()
-  /*private implicit class HashMapOps[K,V](x: java.util.HashMap[K,V]) {
-    def getOrElseUpdate(key: K, value: => V) = {
-      if (x.containsKey(key)) x.get(key)
-      else {
-        val v = value
-        x.put(key, v)
-        value
-      }
-    }
-    def foreach(func: Tuple2[K,V] => Unit) = {
-      val keys = x.keySet()
-      var iter = keys.iterator()
-      while (iter.hasNext) {
-        val key = iter.next()
-        func( (key, x.get(key)) )
-      }
-    }
-  }*/
 
   def delayedMirror[T:Staged](lhs: Sym[T], rhs:Op[T], ctrl: Ctrl)(implicit ctx: SrcCtx) = () => {
     val key = (lhs, ctrl)
 
+    // scala bug? getOrElseUpdate always creates the value???
+
     /*completedMirrors.getOrElseUpdate(key, {
       withCtrl(ctrl){ mirrorWithDuplication(lhs, rhs) }
     })*/
-
-    /*dbg(c"Running delayed mirror. $lhs, $ctrl, ${key.hashCode}")
-    dbg(c"Completed mirrors contents: ")
-    completedMirrors.foreach{case (k,v) =>
-      dbg(c"$k : $v")
-    }*/
 
     if (completedMirrors.contains(key)) {
       completedMirrors(key)

@@ -19,7 +19,7 @@ trait DRAMAddrAnalyzer extends CompilerPass {
     var nextLMemAddr: Long = target.burstSize * 1024 * 1024
     def getNextLMemAddr(): Long = {
       val addr = nextLMemAddr
-      nextLMemAddr += target.burstSize * 1024 * 1024;
+      nextLMemAddr += target.burstSize * 1024 * 1024
       addr
     }
     memStreams.foreach{mem => dramAddr(mem) = getNextLMemAddr() }

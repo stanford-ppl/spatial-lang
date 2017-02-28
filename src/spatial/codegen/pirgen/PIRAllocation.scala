@@ -107,20 +107,20 @@ trait PIRAllocation extends PIRTraversal {
   def allocateMemoryUnit(pipe: Symbol): PCU = mapping.getOrElseUpdate(pipe, {
     val parent = parentHack(pipe).map(allocateCU)
 
-    val style = pipe match {
+    val style = UnitCU /*pipe match {
       case Def(_:BurstLoad[_]) => UnitCU
       case Def(_:BurstStore[_]) => UnitCU
       case Def(_:Scatter[_]) => StreamCU
       case Def(_:Gather[_]) => StreamCU
-    }
+    }*/
 
     val cu = PseudoComputeUnit(quote(pipe), pipe, style)
     cu.parent = parent
-    pipe match {
+    /*pipe match {
       case Def(_:BurstLoad[_] | _:BurstStore[_]) => cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
       case Def(e:Scatter[_]) =>
       case Def(e:Gather[_]) =>
-    }
+    }*/
 
     initCU(cu, pipe)
     cu
@@ -132,10 +132,10 @@ trait PIRAllocation extends PIRTraversal {
     case Def(_:UnrolledReduce[_,_]) => allocateComputeUnit(pipe)
     case Def(_:UnitPipe)            => allocateComputeUnit(pipe)
 
-    case Def(_:BurstLoad[_])  => allocateMemoryUnit(pipe)
+    /*case Def(_:BurstLoad[_])  => allocateMemoryUnit(pipe)
     case Def(_:BurstStore[_]) => allocateMemoryUnit(pipe)
     case Def(_:Scatter[_])    => allocateMemoryUnit(pipe)
-    case Def(_:Gather[_])     => allocateMemoryUnit(pipe)
+    case Def(_:Gather[_])     => allocateMemoryUnit(pipe)*/
 
     case Def(d) => throw new Exception(s"Don't know how to generate CU for\n  $pipe = $d")
   }
@@ -288,10 +288,12 @@ trait PIRAllocation extends PIRTraversal {
     def useFifoOnWrite(mem: Exp[Any], value: Exp[Any]): Boolean = value match { //TODO how about gather??
       case Def(FIFODeq(fifo, en, _))     =>
         dbg(s"      $value = pop($fifo) [${writersOf(fifo)}]")
-        writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
+        //writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
+        false
       case Def(ParFIFODeq(fifo, ens, _)) =>
         dbg(s"      $value = pop($fifo) [${writersOf(fifo)}]")
-        writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
+        //writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
+        false
       case Def(ListVector(elems))    =>
         dbg(s"      $value = vector")
         useFifoOnWrite(mem, elems.head)
@@ -535,7 +537,7 @@ trait PIRAllocation extends PIRTraversal {
     case UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV) =>
       prescheduleStages(lhs, func)
 
-    case BurstLoad(dram, fifo, ofs, ctr, i) =>
+    /*case BurstLoad(dram, fifo, ofs, ctr, i) =>
       val Def(CounterNew(start,end,step,par)) = ctr
       prescheduleBurstTransfer(lhs, dram, ofs, end, MemLoad)
 
@@ -549,7 +551,7 @@ trait PIRAllocation extends PIRTraversal {
 
     case Gather(dram, local, addrs, ctr, i) =>
       val Def(CounterNew(start,end,step,par)) = ctr
-      prescheduleGather(lhs, dram, local, addrs, end)
+      prescheduleGather(lhs, dram, local, addrs, end)*/
 
     // Something bad happened if these are still in the IR
     case _:OpForeach => throw new Exception(s"Disallowed compact op $lhs = $rhs")

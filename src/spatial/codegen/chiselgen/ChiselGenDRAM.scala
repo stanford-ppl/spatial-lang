@@ -16,14 +16,14 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
         case lhs: Sym[_] =>
           val Op(rhs) = lhs
           rhs match {
-            case e: Gather[_]=> 
+            /*case e: Gather[_]=>
               s"x${lhs.id}_gath"
             case e: Scatter[_] =>
               s"x${lhs.id}_scat"
             case e: BurstLoad[_] =>
               s"x${lhs.id}_load"
             case e: BurstStore[_] =>
-              s"x${lhs.id}_store"
+              s"x${lhs.id}_store"*/
             case _ =>
               super.quote(s)
           }
@@ -42,7 +42,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => emit(src"""val $lhs = new Array[${op.mA}](${dims.map(quote).mkString("*")})""")
-    case Gather(dram, local, addrs, ctr, i)  =>
+
+    /*case Gather(dram, local, addrs, ctr, i)  =>
       open(src"val $lhs = {")
       open(src"$ctr.foreach{case (is,vs) => is.zip(vs).foreach{case ($i,v) => if (v) {")
       emit(src"$local.update($i, $dram.apply($addrs.apply($i)) )")
@@ -95,7 +96,7 @@ ${lhs}.io.AccelToCtrl.push := ${fifo}_writeEn
 ${lhs}_done := ${lhs}.io.CtrlToAccel.doneStore
 """)
       emit(src"""${lhs}.io.AccelToCtrl.size := ($stop - $start) / $stride // TODO: Optimizie this if it is constant""")
-
+    */
     case _ => super.emitNode(lhs, rhs)
   }
 
@@ -106,14 +107,14 @@ ${lhs}_done := ${lhs}.io.CtrlToAccel.doneStore
       open(s"""  class MemStreamsBundle() extends Bundle{""")
       offchipMems.zipWithIndex.foreach{ case (port,i) => 
         val info = port match {
-          case Def(BurstLoad(dram,_,_,ctr,_)) => 
+          /*case Def(BurstLoad(dram,_,_,ctr,_)) =>
             emit(s"// Burst Load")
             val p = ctr match { case Def(CounterNew(_,_,_,par)) => par; case _ => 1 }
             (s"${p}", s"""${nameOf(dram).getOrElse("")}""")
           case Def(BurstStore(dram,_,_,ctr,_)) =>
             val p = ctr match { case Def(CounterNew(_,_,_,par)) => par; case _ => 1 }
             emit("// Burst Store")
-            (s"${p}", s"""${nameOf(dram).getOrElse("")}""")
+            (s"${p}", s"""${nameOf(dram).getOrElse("")}""")*/
           case _ => 
             ("No match", s"No mem")
         }
@@ -128,9 +129,9 @@ ${lhs}_done := ${lhs}.io.CtrlToAccel.doneStore
     }
 
     withStream(getStream("GeneratedPoker")) {
-      offchipMems.zipWithIndex.foreach{case (port,i) => 
+      /*offchipMems.zipWithIndex.foreach{case (port,i) =>
         val interface = port match {
-          case Def(BurstLoad(mem,_,_,ctr,_)) => 
+          case Def(BurstLoad(mem,_,_,ctr,_)) =>
             val p = ctr match { case Def(CounterNew(_,_,_,par)) => par; case _ => 1 }
             ("receiveBurst", s"${p}", "BurstLoad",
              s"""for (j <- 0 until size${i}) {
@@ -168,7 +169,7 @@ ${lhs}_done := ${lhs}.io.CtrlToAccel.doneStore
       }
 
   """)
-      }
+      }*/
     }
 
     super.emitFileFooter()

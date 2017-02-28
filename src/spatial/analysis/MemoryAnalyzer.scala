@@ -3,6 +3,7 @@ package spatial.analysis
 import argon.traversal.CompilerPass
 import org.virtualized.SourceContext
 import spatial.SpatialExp
+import scala.collection.mutable
 
 trait MemoryAnalyzer extends CompilerPass {
   val IR: SpatialExp
@@ -64,7 +65,30 @@ trait MemoryAnalyzer extends CompilerPass {
     duplicates: Int,                // Duplicates
     ports: Map[Access, Set[Int]],   // Set of ports each access is connected to
     swaps: Map[Access, Ctrl]        // Swap controller for done signal for n-buffering
-  )
+  ) {
+
+    def depth = ports.values.map(_.max).max+1
+    // Assumes a fixed size, dual ported memory which is duplicated, both to meet duplicates and banking factors
+    def normalizedCost = depth * duplicates * instance.totalBanks
+  }
+
+  def mergeInstanceGroup(mem: Exp[_], a: InstanceGroup, b: InstanceGroup): InstanceGroup = {
+    if (a.metapipe != b.metapipe) {
+      error("Attempted to merge instance groups: ")
+      error(a.toString)
+      error(b.toString)
+      error("(Metapipe parents are not the same)")
+      sys.exit()
+    }
+    InstanceGroup(
+      a.metapipe,
+      (a.accesses ++ b.accesses).distinct,
+      mergeMemory(mem, a.instance, b.instance),
+      duplicates = Math.max(a.duplicates, b.duplicates),
+      a.ports ++ b.ports,
+      a.swaps ++ b.swaps
+    )
+  }
 
 
   def bankAccessGroup(
@@ -142,7 +166,28 @@ trait MemoryAnalyzer extends CompilerPass {
 
 
   def reachingWrites(mem: Exp[_], reader: Access) = writersOf(mem) // TODO: Account for "killing" writes, write ordering
-  def coalesceMemories(mem: Exp[Any], instances: List[InstanceGroup]) = instances // TODO: Cases for coalescing?
+
+  // 1. Always coalesce memories with same metapipeline parent which don't have any port conflicts
+  // TODO: Other cases for coalescing?
+  def coalesceMemories(mem: Exp[_], instances: List[InstanceGroup]): List[InstanceGroup] = {
+    instances.groupBy(_.metapipe).toList.flatMap{
+      case (Some(metapipe), instances) =>
+        // Find the groupings with the smallest resulting depth
+        // Unfortunately, "merge everything all the time if possible" isn't necessarily the best course of action
+        // e.g. if we have a buffer with depth 2, banking of 2 and buffer depth 3 with banking of 3,
+        // merging the two together will require depth 3 with banking of 6
+        // Fortunately, the number of groups here is generally small (1 - 5), so runtime shouldn't be too much of an issue
+        // type Partition = Set[Set[InstanceGroup]]
+
+        // val cost = mutable.HashMap[Set[InstanceGroup], Int]()
+        // var partitions: Seq[Partition] = Nil
+
+        instances
+
+
+      case (None, instances) => instances
+    }
+  }
 
   trait BankSettings {
     def allowMultipleReaders: Boolean   = true

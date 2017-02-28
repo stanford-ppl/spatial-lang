@@ -21,25 +21,18 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
   /** Infix methods **/
   case class SRAM[T:Staged:Bits](s: Exp[SRAM[T]]) {
     private def ofs = lift[Int,Index](0).s
-    private[spatial] var _par: Option[Index] = None
-    private[spatial] def p: Index = _par.getOrElse(lift[Int,Index](1))
+    private[spatial] var p: Option[Index] = None
 
-    def par(p: Index): SRAM[T] = { val x = SRAM(s); x._par = Some(p); x }
+    def par(p: Index): SRAM[T] = { val x = SRAM(s); x.p = Some(p); x }
 
     //def apply(ranges: Range*)(implicit ctx: SrcCtx): SRAMView[T] = SRAMView(this.s, ranges)
     def apply(indices: Index*)(implicit ctx: SrcCtx): T = wrap(sram_load(this.s, stagedDimsOf(s), unwrap(indices), ofs))
     @CurriedUpdate
     def update(indices: Index*)(data: T): Void = Void(sram_store(this.s, stagedDimsOf(s), unwrap(indices), ofs, data.s, bool(true)))
 
-    def load(dram: DRAM[T])(implicit ctx: SrcCtx): Void = coarse_burst(dram.toDenseTile, this, isLoad = true)
-    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = coarse_burst(dram, this, isLoad = true)
-    def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void = { copy_sparse(dram, this, isLoad = true); () }
-  }
-
-  private[spatial] def sram_par(sram: SRAM[Index], p: Index)(implicit ctx: SrcCtx): SRAM[Index] = {
-    val sram2 = SRAM(sram.s)
-    sram2._par = Some(p)
-    sram2
+    def load(dram: DRAM[T])(implicit ctx: SrcCtx): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = dense_transfer(dram, this, isLoad = true)
+    def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void = sparse_transfer(dram, this, isLoad = true)
   }
 
   /** Staged Type **/

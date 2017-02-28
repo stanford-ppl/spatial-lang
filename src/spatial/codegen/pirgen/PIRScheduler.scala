@@ -216,9 +216,9 @@ trait PIRScheduler extends PIRTraversal {
   }
 
   def allocateFifoPop(lhs: Symbol, fifo: Symbol, ctx: CUContext) = writersOf(fifo).head.ctrlNode match {
-    case tx@Def(e:BurstLoad[_]) =>
+    /*case tx@Def(e:BurstLoad[_]) =>
       val dram = allocateDRAM(tx, e.dram, MemLoad)
-      ctx.addReg(lhs, VectorIn(PIRDRAMDataIn(dram)))
+      ctx.addReg(lhs, VectorIn(PIRDRAMDataIn(dram)))*/
 
     case x => ctx.memOption(fifo, lhs) match {
       case Some(sram) =>
@@ -247,9 +247,9 @@ trait PIRScheduler extends PIRTraversal {
   }
 
   def allocateFifoPush(fifo: Symbol, data: Symbol, ctx: CUContext) = readersOf(fifo).head.ctrlNode match {
-    case tx@Def(e:BurstStore[_]) =>
+    /*case tx@Def(e:BurstStore[_]) =>
       val dram = allocateDRAM(tx, e.dram, MemStore)
-      propagateReg(data, ctx.reg(data), VectorOut(PIRDRAMDataOut(dram)), ctx)
+      propagateReg(data, ctx.reg(data), VectorOut(PIRDRAMDataOut(dram)), ctx)*/
 
     case _ => bufferWrite(fifo,data,None,ctx)
   }
