@@ -12,12 +12,11 @@ trait CppGenHostTransfer extends CppCodegen  {
   	if (SpatialConfig.enableNaming) {
 	    s match {
 	      case lhs: Sym[_] =>
-	        val Op(rhs) = lhs
-	        rhs match {
-	          case SetArg(reg:Sym[_],_) => s"x${lhs.id}_set${reg.id}"
-	          case GetArg(reg:Sym[_]) => s"x${lhs.id}_get${reg.id}"
-	          case SetMem(_,_) => s"x${lhs.id}_setMem"
-	          case GetMem(_,_) => s"x${lhs.id}_getMem"
+	        lhs match {
+	          case Def(SetArg(reg:Sym[_],_)) => s"x${lhs.id}_set${reg.id}"
+	          case Def(GetArg(reg:Sym[_])) => s"x${lhs.id}_get${reg.id}"
+	          case Def(SetMem(_,_)) => s"x${lhs.id}_setMem"
+	          case Def(GetMem(_,_)) => s"x${lhs.id}_getMem"
 	          case _ => super.quote(s)
 	        }
 	      case _ =>

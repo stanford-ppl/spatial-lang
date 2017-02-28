@@ -32,11 +32,10 @@ trait ChiselGenStructs extends ChiselCodegen {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case e: SimpleStruct[_]=> 
+          lhs match {
+            case Def(e: SimpleStruct[_]) => 
               s"x${lhs.id}_tuple"
-            case e: FieldApply[_,_] =>
+            case Def(e: FieldApply[_,_])=>
               s"x${lhs.id}_apply"
             case _ =>
               super.quote(s)

@@ -15,15 +15,14 @@ trait CppGenDRAM extends CppGenSRAM {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case e: Gather[_]=> 
+          lhs match {
+            case Def(e: Gather[_])=> 
               s"x${lhs.id}_gath"
-            case e: Scatter[_] =>
+            case Def(e: Scatter[_]) =>
               s"x${lhs.id}_scat"
-            case e: BurstLoad[_] =>
+            case Def(e: BurstLoad[_]) =>
               s"x${lhs.id}_load"
-            case e: BurstStore[_] =>
+            case Def(e: BurstStore[_]) =>
               s"x${lhs.id}_store"
             case _ =>
               super.quote(s)

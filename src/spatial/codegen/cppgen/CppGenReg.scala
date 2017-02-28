@@ -17,13 +17,12 @@ trait CppGenReg extends CppCodegen {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case ArgInNew(_)=> s"x${lhs.id}_argin"
-            case ArgOutNew(_) => s"x${lhs.id}_argout"
-            case RegNew(_) => s"x${lhs.id}_reg"
-            case RegRead(reg:Sym[_]) => s"x${lhs.id}_readx${reg.id}"
-            case RegWrite(reg:Sym[_],_,_) => s"x${lhs.id}_writex${reg.id}"
+          lhs match {
+            case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
+            case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
+            case Def(RegNew(_)) => s"x${lhs.id}_reg"
+            case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
+            case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
             case _ => super.quote(s)
           }
         case _ => super.quote(s)

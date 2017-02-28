@@ -27,14 +27,13 @@ trait CppGenUnrolled extends CppCodegen {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case e: UnrolledForeach=> s"x${lhs.id}_unrForeach"
-            case e: UnrolledReduce[_,_] => s"x${lhs.id}_unrRed"
-            case e: ParSRAMLoad[_] => s"x${lhs.id}_parLd"
-            case e: ParSRAMStore[_] => s"x${lhs.id}_parSt"
-            case e: ParFIFODeq[_] => s"x${lhs.id}_parDeq"
-            case e: ParFIFOEnq[_] => s"x${lhs.id}_parEnq"
+          lhs match {
+            case Def(e: UnrolledForeach) => s"x${lhs.id}_unrForeach"
+            case Def(e: UnrolledReduce[_,_]) => s"x${lhs.id}_unrRed"
+            case Def(e: ParSRAMLoad[_]) => s"x${lhs.id}_parLd"
+            case Def(e: ParSRAMStore[_]) => s"x${lhs.id}_parSt"
+            case Def(e: ParFIFODeq[_]) => s"x${lhs.id}_parDeq"
+            case Def(e: ParFIFOEnq[_]) => s"x${lhs.id}_parEnq"
             case _ => super.quote(s)
           }
         case _ => super.quote(s)
