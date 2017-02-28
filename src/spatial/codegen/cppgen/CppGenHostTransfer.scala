@@ -8,6 +8,8 @@ trait CppGenHostTransfer extends CppCodegen  {
   val IR: HostTransferExp
   import IR._
 
+  var settedArgs: List[Sym[Reg[_]]] = List()
+
   override def quote(s: Exp[_]): String = {
   	if (SpatialConfig.enableNaming) {
 	    s match {
@@ -29,7 +31,8 @@ trait CppGenHostTransfer extends CppCodegen  {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SetArg(reg, v) => 
-      emit(src"interface.ArgIns[0] = (${reg.tp}*) $v; // $lhs", forceful = true)
+      emit(src"interface.ArgIns[${settedArgs.length}] = (${reg.tp}*) $v; // $lhs", forceful = true)
+      settedArgs = settedArgs :+ lhs.asInstanceOf[Sym[Reg[_]]]
       emit(src"${reg.tp} $reg = $v;")
     case GetArg(reg)    => emit(src"${lhs.tp} $lhs = *$reg;", forceful = true)
     case SetMem(dram, data) => 

@@ -6,9 +6,9 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
 
   type X = Int
 
-  val num_cents = 64
-  val dim = 64
-  val tileSize = 384
+  val num_cents = 16
+  val dim = 32
+  val tileSize = 32
   val innerPar = 1
   val outerPar = 1
   val element_max = 10
@@ -35,13 +35,13 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
 
     val iters = ArgIn[Int]
     val N     = ArgIn[Int]
-    val K     = ArgIn[Int]
-    val D     = ArgIn[Int]
+    val K     = numCents //ArgIn[Int]
+    val D     = numDims //ArgIn[Int]
 
     setArg(iters, it)
     setArg(N, numPoints)
-    setArg(K, numCents)
-    setArg(D, numDims)
+    // setArg(K, numCents)
+    // setArg(D, numDims)
 
     val points = DRAM[T](N, D)    // Input points
     val centroids = DRAM[T](num_cents*dim) // Output centroids
