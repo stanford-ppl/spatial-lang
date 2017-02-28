@@ -7,11 +7,11 @@ class UIntAccum(val w: Int, val lambda: String) extends Module {
   def this(tuple: (Int, String)) = this(tuple._1, tuple._2)
 
   val io = IO(new Bundle{
-    val next = UInt(w.W).asInput
-    val enable = Bool().asInput
-    val reset = Bool().asInput
-    val init = UInt(w.W).asInput
-    val output = UInt(w.W).asOutput
+    val next = Input(UInt(w.W))
+    val enable = Input(Bool())
+    val reset = Input(Bool())
+    val init = Input(UInt(w.W))
+    val output = Output(UInt(w.W))
   })
 
   val current = Reg(init = io.init)
@@ -40,11 +40,11 @@ class SpecialAccum(val latency: Int, val lambda: String, val typ: String, val pa
   val w = if (typ == "FixedPoint") params.drop(1).reduce{_+_} else params.reduce{_+_}
 
   val io = IO(new Bundle{
-    val next = UInt(w.W).asInput
-    val enable = Bool().asInput
-    val reset = Bool().asInput
-    val init = UInt(w.W).asInput
-    val output = UInt(w.W).asOutput
+    val next = Input(UInt(w.W))
+    val enable = Input(Bool())
+    val reset = Input(Bool())
+    val init = Input(UInt(w.W))
+    val output = Output(UInt(w.W))
   })
 
 

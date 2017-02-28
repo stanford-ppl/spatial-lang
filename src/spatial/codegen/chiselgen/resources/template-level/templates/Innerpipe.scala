@@ -17,17 +17,17 @@ class Innerpipe(val ctrDepth : Int) extends Module {
   // Module IO
   val io = IO(new Bundle {
     val input = new Bundle {
-      val enable = Bool().asInput
-      val ctr_done = Bool().asInput
-      val ctr_maxIn = Vec(ctrDepth, UInt(32.W).asInput) // TODO: Deprecate this maxIn/maxOut business if all is well without it
-      val forever = Bool().asInput
+      val enable = Input(Bool())
+      val ctr_done = Input(Bool())
+      val ctr_maxIn = Vec(ctrDepth, Input(UInt(32.W))) // TODO: Deprecate this maxIn/maxOut business if all is well without it
+      val forever = Input(Bool())
     }
     val output = new Bundle {
-      val done = Bool().asOutput
-      val ctr_en = Bool().asOutput
-      val ctr_inc = Bool().asOutput // Same thing as ctr_en
-      val rst_en = Bool().asOutput
-      val ctr_maxOut = Vec(ctrDepth, UInt(32.W).asOutput)
+      val done = Output(Bool())
+      val ctr_en = Output(Bool())
+      val ctr_inc = Output(Bool()) // Same thing as ctr_en
+      val rst_en = Output(Bool())
+      val ctr_maxOut = Vec(ctrDepth, Output(UInt(32.W)))
     }
   })
 

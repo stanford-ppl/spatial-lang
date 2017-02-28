@@ -54,10 +54,10 @@ class MemController(val pLoadAccel: Int, val pStoreAccel: Int, val pStoreDRAM: I
   // DRAM pars should be equal to burst size
 
   val io = IO(new Bundle{
-    val AccelToCtrl = new FromAccel(pStoreAccel).asInput
-    val CtrlToAccel = new ToAccel(pLoadAccel).asOutput
-    val DRAMToCtrl = new FromDRAM(pLoadDRAM).asInput
-    val CtrlToDRAM = new ToDRAM(pStoreDRAM).asOutput
+    val AccelToCtrl = Input(new FromAccel(pStoreAccel))
+    val CtrlToAccel = Output(new ToAccel(pLoadAccel))
+    val DRAMToCtrl = Input(new FromDRAM(pLoadDRAM))
+    val CtrlToDRAM = Output(new ToDRAM(pStoreDRAM))
   })
 
   // TODO: Implement full memory controller that interfaces with DRAM or DRAMSim
