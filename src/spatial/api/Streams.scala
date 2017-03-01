@@ -59,14 +59,17 @@ trait StreamExp extends Staging with PinExp {
   /** IR Nodes **/
   case class StreamInNew[T:Staged:Bits](bus: Bus) extends Op[StreamIn[T]] {
     override def mirror(f: Tx) = stream_in[T](bus)
+    val mT = typ[T]
   }
 
   case class StreamOutNew[T:Staged:Bits](bus: Bus) extends Op[StreamOut[T]] {
     override def mirror(f: Tx) = stream_out[T](bus)
+    val mT = typ[T]
   }
 
   case class StreamDeq[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool]) extends Op[T] {
     override def mirror(f:Tx) = stream_deq(f(stream), f(en))
+    def zero = bits[T].zero.s
   }
 
   case class StreamEnq[T:Staged:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool]) extends Op[Void] {

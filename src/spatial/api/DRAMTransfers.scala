@@ -73,8 +73,9 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
     def alignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = {
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
       val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
-      val dataStream = StreamOut[T](BurstDataBus[T]())
+      val dataStream = StreamOut[Tup2[T,Bool]](BurstFullDataBus[T]())
       val ackStream  = StreamIn[Bool](BurstAckBus)
+
       // Command generator
       Pipe {
         Pipe {
@@ -86,10 +87,13 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         // Data loading
         Foreach(requestLength par p){i =>
           val data = mem.load(local, onchipAddr(i), true)
-          dataStream.enq(data)
+          dataStream.enq( pack(data,true) )
         }
       }
+      // Fringe
+      fringe_dense_store(offchip, cmdStream.s, dataStream.s, ackStream.s)
       // Ack receiver
+      // TODO: Assumes one ack per command
       Pipe {
         val size = issueQueue.deq()
         val ack  = ackStream.deq()
@@ -103,6 +107,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
       val dataStream = StreamOut[Tup2[T,Bool]](BurstFullDataBus[T]())
       val ackStream  = StreamIn[Bool](BurstAckBus)
+
       // Command generator
       Pipe {
         val startBound = Reg[Index]
@@ -130,6 +135,10 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
           dataStream.enq( pack(data,en) )
         }
       }
+      // Fringe
+      fringe_dense_store(offchip, cmdStream.s, dataStream.s, ackStream.s)
+      // Ack receive
+      // TODO: Assumes one ack per command
       Pipe {
         val size = issueQueue.deq()
         val ack  = ackStream.deq()
@@ -141,6 +150,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
       val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
       val dataStream = StreamIn[T](BurstDataBus[T]())
+
       // Command generator
       Pipe {
         val addr = offchipAddr + dram.address
@@ -148,6 +158,8 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         cmdStream.enq( BurstCmd(addr, size, true) )
         issueQueue.enq( size )
       }
+      // Fringe
+      fringe_dense_load(offchip, cmdStream.s, dataStream.s)
       // Data receiver
       Pipe {
         Pipe { val size = issueQueue.deq() }
@@ -164,6 +176,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       val issueQueue = FIFO[IssuedCmd](16)  // TODO: Size of issued queue?
       val dataStream = StreamIn[T](BurstDataBus[T]())
 
+      // Command
       Pipe {
         val elementsPerBurst = (target.burstSize/bits[T].length).as[Index]
 
@@ -179,6 +192,10 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         issueQueue.enq( IssuedCmd(size, start, end) )
       }
 
+      // Fringe
+      fringe_dense_load(offchip, cmdStream.s, dataStream.s)
+
+      // Receive
       Pipe {
         // TODO: Should also try Reg[IssuedCmd] here
         val start = Reg[Index]
@@ -220,11 +237,14 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       if (isLoad) {
         val addrBus = StreamOut[Index](GatherAddrBus)
         val dataBus = StreamIn[T](GatherDataBus[T]())
+
         // Send
         Foreach(requestLength par p){i =>
-          val addr = addrs(i)
+          val addr = addrs(i) + dram.address
           addrBus.enq(addr)
         }
+        // Fringe
+        fringe_sparse_load(offchip, addrBus.s, dataBus.s)
         // Receive
         Foreach(requestLength par p){i =>
           val data = dataBus.deq()
@@ -235,13 +255,17 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       else {
         val cmdBus = StreamOut[Tup2[T,Index]](ScatterCmdBus[T]())
         val ackBus = StreamIn[Bool](ScatterAckBus)
+
         // Send
         Foreach(requestLength par p){i =>
-          val addr = addrs(i)
+          val addr = addrs(i) + dram.address
           val data = local(i)
           cmdBus.enq( pack(data,addr) )
         }
+        // Fringe
+        fringe_sparse_store(offchip, cmdBus.s, ackBus.s)
         // Receive
+        // TODO: Assumes one ack per address
         Foreach(requestLength par p){i =>
           val ack = ackBus.deq()
         }
@@ -259,18 +283,18 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   @struct case class BurstCmd(offset: Index, size: Index, isLoad: Bool)
   @struct case class IssuedCmd(size: Index, start: Index, end: Index)
 
-  abstract class TypedBus[T:Staged:Bits] extends Bus { def length = bits[T].length }
+  abstract class TransferBus[T:Staged:Bits] extends Bus { def length = bits[T].length }
 
-  case object BurstCmdBus extends TypedBus[BurstCmd]
-  case object BurstAckBus extends TypedBus[Bool]
-  case class BurstDataBus[T:Staged:Bits]() extends TypedBus[T]
-  case class BurstFullDataBus[T:Staged:Bits]() extends TypedBus[Tup2[T,Bool]]
+  case object BurstCmdBus extends TransferBus[BurstCmd]
+  case object BurstAckBus extends TransferBus[Bool]
+  case class BurstDataBus[T:Staged:Bits]() extends TransferBus[T]
+  case class BurstFullDataBus[T:Staged:Bits]() extends TransferBus[Tup2[T,Bool]]
 
-  case object GatherAddrBus extends TypedBus[Index]
-  case class GatherDataBus[T:Staged:Bits]() extends TypedBus[T]
+  case object GatherAddrBus extends TransferBus[Index]
+  case class GatherDataBus[T:Staged:Bits]() extends TransferBus[T]
 
-  case class ScatterCmdBus[T:Staged:Bits]() extends TypedBus[Tup2[T, Index]]
-  case object ScatterAckBus extends TypedBus[Bool]
+  case class ScatterCmdBus[T:Staged:Bits]() extends TransferBus[Tup2[T, Index]]
+  case object ScatterAckBus extends TransferBus[Bool]
 
   /** Internal **/
 
@@ -383,6 +407,40 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     }
   }
 
+  /** Fringe IR Nodes **/
+  case class FringeDenseLoad[T:Staged:Bits](
+    dram:       Exp[DRAM[T]],
+    cmdStream:  Exp[StreamOut[BurstCmd]],
+    dataStream: Exp[StreamIn[T]]
+  ) extends Op[Void] {
+    def mirror(f:Tx) = fringe_dense_load(f(dram),f(cmdStream),f(dataStream))
+  }
+
+  case class FringeDenseStore[T:Staged:Bits](
+    dram:       Exp[DRAM[T]],
+    cmdStream:  Exp[StreamOut[BurstCmd]],
+    dataStream: Exp[StreamOut[Tup2[T,Bool]]],
+    ackStream:  Exp[StreamIn[Bool]]
+  ) extends Op[Void] {
+    def mirror(f:Tx) = fringe_dense_store(f(dram),f(cmdStream),f(dataStream),f(ackStream))
+  }
+
+  case class FringeSparseLoad[T:Staged:Bits](
+    dram:       Exp[DRAM[T]],
+    addrStream: Exp[StreamOut[Index]],
+    dataStream: Exp[StreamIn[T]]
+  ) extends Op[Void] {
+    def mirror(f:Tx) = fringe_sparse_load(f(dram),f(addrStream),f(dataStream))
+  }
+
+  case class FringeSparseStore[T:Staged:Bits](
+    dram:       Exp[DRAM[T]],
+    cmdStream: Exp[StreamOut[Tup2[T,Index]]],
+    ackStream: Exp[StreamIn[Bool]]
+  ) extends Op[Void] {
+    def mirror(f:Tx) = fringe_sparse_store(f(dram),f(cmdStream),f(ackStream))
+  }
+
 
   /** Constructors **/
 
@@ -421,5 +479,37 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     out
   }
 
+  private[spatial] def fringe_dense_load[T:Staged:Bits](
+    dram:       Exp[DRAM[T]],
+    cmdStream:  Exp[StreamOut[BurstCmd]],
+    dataStream: Exp[StreamIn[T]]
+  )(implicit ctx: SrcCtx): Exp[Void] = {
+    stageCold(FringeDenseLoad(dram,cmdStream,dataStream))(ctx)
+  }
+
+  private[spatial] def fringe_dense_store[T:Staged:Bits](
+    dram:       Exp[DRAM[T]],
+    cmdStream:  Exp[StreamOut[BurstCmd]],
+    dataStream: Exp[StreamOut[Tup2[T,Bool]]],
+    ackStream:  Exp[StreamIn[Bool]]
+  )(implicit ctx: SrcCtx): Exp[Void] = {
+    stageCold(FringeDenseStore(dram,cmdStream,dataStream,ackStream))(ctx)
+  }
+
+  private[spatial] def fringe_sparse_load[T:Staged:Bits](
+    dram:       Exp[DRAM[T]],
+    addrStream: Exp[StreamOut[Index]],
+    dataStream: Exp[StreamIn[T]]
+  )(implicit ctx: SrcCtx): Exp[Void] = {
+    stageCold(FringeSparseLoad(dram,addrStream,dataStream))(ctx)
+  }
+
+  private[spatial] def fringe_sparse_store[T:Staged:Bits](
+    dram:       Exp[DRAM[T]],
+    cmdStream: Exp[StreamOut[Tup2[T,Index]]],
+    ackStream: Exp[StreamIn[Bool]]
+  )(implicit ctx: SrcCtx): Exp[Void] = {
+    stageCold(FringeSparseStore(dram,cmdStream,ackStream))(ctx)
+  }
 
 }

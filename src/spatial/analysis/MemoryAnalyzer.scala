@@ -275,8 +275,8 @@ trait MemoryAnalyzer extends CompilerPass {
       case _:FIFOType[_] => bank(mem, bankFIFOAccess, FIFOSettings)
       case _:SRAMType[_] => bank(mem, bankSRAMAccess, SRAMSettings)
       case _:RegType[_]  => bank(mem, bankRegAccess, RegSettings)
-      case _:StreamInType[_]  => // TODO: Do we / can we bank stream in accesses? seems like no...
-      case _:StreamOutType[_] => // TODO: Do we / can we bank stream out accesses? seems like no...
+      case _:StreamInType[_]  => bankStream(mem)
+      case _:StreamOutType[_] => bankStream(mem)
       case tp => throw new UndefinedBankingException(tp)(ctxOrHere(mem))
     }}
 
@@ -361,5 +361,28 @@ trait MemoryAnalyzer extends CompilerPass {
     val duplicates = factors.flatten.map{case Exact(c) => c.toInt}.product
 
     (BankedMemory(Seq(NoBanking), depth = 1, isAccum = false), duplicates)
+  }
+
+  def bankStream(mem: Exp[_]): Unit = {
+    val reads = readersOf(mem)
+    val writes = writersOf(mem)
+    val accesses = reads ++ writes
+
+    accesses.foreach{access =>
+      dispatchOf.add(access, mem, 0)
+      portsOf(access, mem, 0) = Set(0)
+    }
+
+    val par = accesses.map{access =>
+      val factors = unrollFactorsOf(access.node) // relative to stream, which always has par of 1
+      factors.flatten.map{case Exact(c) => c.toInt}.product
+    }.max
+
+    /*val bus = mem match {
+      case Op(StreamInNew(bus)) => bus
+      case Op(StreamOutNew(bus)) => bus
+    }*/
+
+    duplicatesOf(mem) = List(BankedMemory(Seq(StridedBanking(1,par)),1,isAccum=false))
   }
 }
