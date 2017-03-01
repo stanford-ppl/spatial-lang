@@ -3,14 +3,18 @@ package spatial.api
 import argon.core.Staging
 import spatial.SpatialExp
 
-trait AlteraVideoApi extends AlteraVideoExp with BurstTransferExp with ControllerApi with FIFOApi with RangeApi with PinApi{
+trait AlteraVideoApi extends AlteraVideoExp with ControllerApi with FIFOApi with RangeApi with PinApi{
   this: SpatialExp =>
 
   def AXI_Master_Slave()(implicit ctx: SrcCtx): AXI_Master_Slave = AXI_Master_Slave(axi_ms_alloc())
 
-  def Decoder_Template[T:Staged:Bits](popFrom: StreamIn[T], pushTo: FIFO[T])(implicit ctx: SrcCtx): Decoder_Template[T] = Decoder_Template(decoder_alloc[T](popFrom.s.asInstanceOf[Exp[T]], pushTo.s.asInstanceOf[Exp[T]]))
+  def Decoder_Template[T:Staged:Bits](popFrom: StreamIn[T], pushTo: FIFO[T])(implicit ctx: SrcCtx): Decoder_Template[T] = {
+    Decoder_Template(decoder_alloc[T](popFrom.s.asInstanceOf[Exp[T]], pushTo.s.asInstanceOf[Exp[T]]))
+  }
 
-  def DMA_Template[T:Staged:Bits](popFrom: FIFO[T], loadIn: SRAM[T])(implicit ctx: SrcCtx): DMA_Template[T] = DMA_Template(dma_alloc[T](popFrom.s.asInstanceOf[Exp[T]], loadIn.s.asInstanceOf[Exp[T]]))
+  def DMA_Template[T:Staged:Bits](popFrom: FIFO[T], loadIn: SRAM[T])(implicit ctx: SrcCtx): DMA_Template[T] = {
+    DMA_Template(dma_alloc[T](popFrom.s.asInstanceOf[Exp[T]], loadIn.s.asInstanceOf[Exp[T]]))
+  }
 
   /** Internals **/
   def Decoder[T:Staged:Bits,C[T]](

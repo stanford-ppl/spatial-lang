@@ -11,11 +11,8 @@ trait NodeClasses extends SpatialMetadataExp {
     case Op(CounterNew(start,end,step,par)) => List(par)
     case Op(Forever())             => List(int32(1))
     case Op(CounterChainNew(ctrs)) => ctrs.flatMap{ctr => parFactorsOf(ctr) }
-    case Op(e: Gather[_])          => parFactorsOf(e.ctr)
-    case Op(e: Scatter[_])         => parFactorsOf(e.ctr)
-    case Op(e: BurstLoad[_])       => parFactorsOf(e.ctr)
-    case Op(e: BurstStore[_])      => parFactorsOf(e.ctr)
-    case Op(e: CoarseBurst[_,_])   => Seq(e.p)
+    case Op(e: DenseTransfer[_,_]) => Seq(e.p)
+    case Op(e: SparseTransfer[_])  => Seq(e.p)
     case _ => Nil
   }
 
@@ -46,11 +43,8 @@ trait NodeClasses extends SpatialMetadataExp {
 
   def isDRAMTransfer(e: Exp[_]): Boolean = getDef(e).exists(isDRAMTransfer)
   def isDRAMTransfer(d: Def): Boolean = d match {
-    case _:CoarseBurst[_,_] => true
-    case _:BurstLoad[_]     => true
-    case _:BurstStore[_]    => true
-    case _:Gather[_]        => true
-    case _:Scatter[_]       => true
+    case _:DenseTransfer[_,_] => true
+    case _:SparseTransfer[_]  => true
     case _ => false
   }
 
@@ -250,34 +244,34 @@ trait NodeClasses extends SpatialMetadataExp {
   }
 
   def writerUnapply(d: Def): Option[List[LocalWrite]] = d match {
-    case RegWrite(reg,data,en)                => Some(LocalWrite(reg, value=data, en=en))
-    case SRAMStore(mem,dims,inds,ofs,data,en) => Some(LocalWrite(mem, value=data, addr=inds, en=en))
-    case FIFOEnq(fifo,data,en)                => Some(LocalWrite(fifo, value=data, en=en))
-    case Gather(dram,local,addrs,_,_)         => Some(LocalWrite(local))
-    case e: CoarseBurst[_,_] if e.isLoad      => Some(LocalWrite(e.onchip, addr=e.iters))
+    case RegWrite(reg,data,en)             => Some(LocalWrite(reg, value=data, en=en))
+    case SRAMStore(mem,_,inds,_,data,en)   => Some(LocalWrite(mem, value=data, addr=inds, en=en))
+    case FIFOEnq(fifo,data,en)             => Some(LocalWrite(fifo, value=data, en=en))
 
-    case StreamEnq(stream, data, en)          => Some(LocalWrite(stream, value=data, en=en))
+    case e: DenseTransfer[_,_] if e.isLoad => Some(LocalWrite(e.local, addr=e.iters))
+    case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
+
+    case StreamEnq(stream, data, en)       => Some(LocalWrite(stream, value=data, en=en))
 
     // TODO: Address and enable are in different format in parallelized accesses
-    case BurstLoad(dram,fifo,ofs,_,_)         => Some(LocalWrite(fifo))
-    case ParSRAMStore(mem,addr,data,en)       => Some(LocalWrite(mem,value=data))
-    case ParFIFOEnq(fifo,data,ens)            => Some(LocalWrite(fifo,value=data))
+    case ParSRAMStore(mem,addr,data,en)    => Some(LocalWrite(mem,value=data))
+    case ParFIFOEnq(fifo,data,ens)         => Some(LocalWrite(fifo,value=data))
     case _ => None
   }
   def readerUnapply(d: Def): Option[List[LocalRead]] = d match {
-    case RegRead(reg)                  => Some(LocalRead(reg))
-    case SRAMLoad(mem,dims,inds,ofs)   => Some(LocalRead(mem, addr=inds))
-    case FIFODeq(fifo,en,_)            => Some(LocalRead(fifo, en=en))
-    case Gather(dram,local,addrs,_,_)  => Some(LocalRead(addrs))
-    case Scatter(dram,local,addrs,_,_) => Some(LocalRead(local) ++ LocalRead(addrs))
-    case e: CoarseBurst[_,_] if !e.isLoad => Some(LocalRead(e.onchip, addr=e.iters))
+    case RegRead(reg)                       => Some(LocalRead(reg))
+    case SRAMLoad(mem,dims,inds,ofs)        => Some(LocalRead(mem, addr=inds))
+    case FIFODeq(fifo,en,_)                 => Some(LocalRead(fifo, en=en))
 
-    case StreamDeq(stream, en)         => Some(LocalRead(stream, en=en))
+    case e: DenseTransfer[_,_] if e.isStore => Some(LocalRead(e.local, addr=e.iters))
+    case e: SparseTransfer[_]  if e.isLoad  => Some(LocalRead(e.addrs))
+    case e: SparseTransfer[_]  if e.isStore => Some(LocalRead(e.addrs) ++ LocalRead(e.local))
+
+    case StreamDeq(stream, en)              => Some(LocalRead(stream, en=en))
 
     // TODO: Address and enable are in different format in parallelized accesses
-    case BurstStore(dram,fifo,ofs,_,_) => Some(LocalRead(fifo))
-    case ParSRAMLoad(sram,addr)        => Some(LocalRead(sram))
-    case ParFIFODeq(fifo,ens,_)        => Some(LocalRead(fifo))
+    case ParSRAMLoad(sram,addr)             => Some(LocalRead(sram))
+    case ParFIFODeq(fifo,ens,_)             => Some(LocalRead(fifo))
     case _ => None
   }
 

@@ -46,10 +46,8 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
-    case e: CoarseBurst[_,_] if e.isLoad  => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
-    case e: CoarseBurst[_,_] if !e.isLoad => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
-    case e: Scatter[_] => accessPatternOf(lhs) = List(LinearAccess(e.i))
-    case e: Gather[_]  => accessPatternOf(lhs) = List(LinearAccess(e.i))
+    case e: DenseTransfer[_,_] => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
+    case e: SparseTransfer[_]  => accessPatternOf(lhs) = List(LinearAccess(e.i))
     case _ => super.visit(lhs, rhs)
   }
 

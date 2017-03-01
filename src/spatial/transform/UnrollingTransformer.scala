@@ -207,8 +207,6 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     case e:OpForeach        => unrollForeachNode(lhs, e)
     case e:OpReduce[_]      => unrollReduceNode(lhs, e)
     case e:OpMemReduce[_,_] => unrollMemReduceNode(lhs, e)
-    case e:Scatter[_]       => unrollScatterNode(lhs, e)
-    case e:Gather[_]        => unrollGatherNode(lhs, e)
     case _ => super.transform(lhs, rhs)
   }).asInstanceOf[Exp[A]]
 
@@ -278,8 +276,6 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     case e: OpForeach        => unrollControllers(lhs,rhs,lanes){ unrollForeachNode(lhs, e) }
     case e: OpReduce[_]      => unrollControllers(lhs,rhs,lanes){ unrollReduceNode(lhs, e) }
     case e: OpMemReduce[_,_] => unrollControllers(lhs,rhs,lanes){ unrollMemReduceNode(lhs, e) }
-    case e: Scatter[_]       => unrollControllers(lhs,rhs,lanes){ unrollScatterNode(lhs, e) }
-    case e: Gather[_]        => unrollControllers(lhs,rhs,lanes){ unrollGatherNode(lhs, e) }
     case _ if isControlNode(lhs) => unrollControllers(lhs,rhs,lanes){ cloneOp(lhs, rhs) }
 
     case e: RegNew[_] =>
@@ -621,7 +617,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   // TODO: Method for parallelizing scatter and gather will likely have to change soon
   // TODO: Enable bits required for scatter/gather? (Not required for burst load/store..)
-  def unrollScatter[T:Staged:Bits](
+  /*def unrollScatter[T:Staged:Bits](
     lhs:    Exp[_],
     mem:    Exp[DRAM[T]],
     local:  Exp[SRAM[T]],
@@ -661,7 +657,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   def unrollGatherNode[T](lhs: Sym[_], rhs: Gather[T])(implicit ctx: SrcCtx) = {
     val Gather(mem, local, addrs, ctr, i) = rhs
     unrollGather(lhs, f(mem), f(local), f(addrs), f(ctr))(rhs.mT,rhs.bT,ctx)
-  }
+  }*/
 
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Staged[A], ctx: SrcCtx): Exp[A] = (rhs match {

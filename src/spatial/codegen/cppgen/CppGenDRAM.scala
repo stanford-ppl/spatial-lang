@@ -47,10 +47,8 @@ trait CppGenDRAM extends CppGenSRAM {
 
     // case Gather(dram, local, addrs, ctr, i)  => emit("// Do what?")
     // case Scatter(dram, local, addrs, ctr, i) => emit("// Do what?")
-    case BurstLoad(dram, fifo, ofs, ctr, i)  => 
-      emit("//found load")
-    case BurstStore(dram, fifo, ofs, ctr, i) => 
-      emit("//found store")
+    // case BurstLoad(dram, fifo, ofs, ctr, i)  => emit("//found load")
+    // case BurstStore(dram, fifo, ofs, ctr, i) => emit("//found store")
     case _ => super.emitNode(lhs, rhs)
   }
 
