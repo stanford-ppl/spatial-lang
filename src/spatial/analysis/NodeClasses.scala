@@ -153,6 +153,14 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isStreamStageHolder(e: Exp[_]): Boolean = e match {
+    case Def(_:FIFOEnq[_]) => true
+    case Def(_:ParFIFOEnq[_]) => true
+    case Def(_:StreamEnq[_]) => true
+    case Def(_:DecoderTemplateNew[_]) => true
+    case _ => false
+  }
+
   def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] => true
     case _:StreamInType[_]  => true

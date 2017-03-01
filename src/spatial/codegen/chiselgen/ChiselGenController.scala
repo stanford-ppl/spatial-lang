@@ -195,13 +195,20 @@ trait ChiselGenController extends ChiselCodegen {
         emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${c}_done;""")
         if (smStr == "Streampipe") {
           // Collect info about the fifos this child listens to
-          val enablers = (listensTo(c) :+ sym).distinct.map { fifo => 
+          val readiers = (listensTo(c) :+ sym).distinct.map { fifo => 
             fifo match {
               case Def(FIFONew(size)) => src"~${fifo}.io.empty"
               case Def(StreamInNew(bus)) => src"${fifo}_ready"
               case _ => src"${fifo}_en" // parent node
             }
           }.mkString(" & ")
+          val holders = (pushesTo(c)).distinct.map { fifo => 
+            fifo match {
+              case Def(FIFONew(size)) => src"~${fifo}.io.full"
+              case Def(StreamOutNew(bus)) => src"~${fifo}_ready /*not sure if this sig exists*/"
+            }
+          }.mkString(" & ")
+          val enablers = List(readiers, holders).mkString(" & ")
           emit(src"""${c}_en := ${enablers}""")
         } else {
           emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx})""")  

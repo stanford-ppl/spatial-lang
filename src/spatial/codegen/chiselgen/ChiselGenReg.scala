@@ -198,21 +198,19 @@ trait ChiselGenReg extends ChiselCodegen {
     }
 
     withStream(getStream("IOModule")) {
-      open(s"""class ArgInBundle() extends Bundle{""")
-      emit(s"""val ports = Vec(${argIns.length}, Input(UInt(32.W)))""")
+      emit("")
+      emit("// Scalars")
+      emit(s"val numArgIns = ${argIns.length}")
+      emit(s"val numArgOuts = ${argOuts.length}")
+      emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
+      emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
       argIns.zipWithIndex.map { case(p,i) => 
-        emit(s"""//  ${quote(p)} = argIns($i) ( ${nameOf(p).getOrElse("")} )""")
-      // argInsByName = argInsByName :+ s"${quote(p)}"
+        emit(s"""//${quote(p)} = argIns($i) ( ${nameOf(p).getOrElse("")} )""")
       }
-      close("}")
-
-      open(s"""class ArgOutBundle() extends Bundle{""")
-      emit(s"""val ports = Vec(${argOuts.length}, Output(UInt(32.W)))""")
       argOuts.zipWithIndex.map { case(p,i) => 
-        emit(s"""//  ${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
+        emit(s"""//${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }
-      close("}")
     }
 
     super.emitFileFooter()
