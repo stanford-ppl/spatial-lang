@@ -6,6 +6,46 @@ import fringe._
 import accel._
 
 // import AccelTop
+abstract class TopInterface extends Bundle
+
+case class TopParams(
+  val addrWidth: Int,
+  val dataWidth: Int,
+  val v: Int,
+  val numArgIns: Int,
+  val numArgOuts: Int,
+  val numMemoryStreams: Int,
+  target: String
+)
+
+class VerilatorInterface(p: TopParams) extends TopInterface {
+  // Host scalar interface
+  val raddr = Input(UInt(p.addrWidth.W))
+  val wen  = Input(Bool())
+  val waddr = Input(UInt(p.addrWidth.W))
+  val wdata = Input(Bits(p.dataWidth.W))
+  val rdata = Output(Bits(p.dataWidth.W))
+
+  // DRAM interface - currently only one stream
+  val dram = new DRAMStream(p.dataWidth, p.v)
+}
+
+//class ZynqInterface(p: TopParams) extends TopInterface {
+//  private val params = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
+//  val S_AXI = Flipped(new AXI4Lite(params))
+//  val dram = new DRAMStream(p.dataWidth, p.v)
+//}
+//
+class AWSInterface(p: TopParams) extends TopInterface {
+  val enable = Input(UInt(p.dataWidth.W))
+  val done = Output(UInt(p.dataWidth.W))
+  val scalarIns = Input(Vec(p.numArgIns, UInt(p.dataWidth.W)))
+  val scalarOuts = Output(Vec(p.numArgOuts, UInt(p.dataWidth.W)))
+
+  // DRAM interface - currently only one stream
+  val dram = new DRAMStream(p.dataWidth, p.v)
+}
+
 /**
  * Top: Top module including Fringe and Accel
  * @param w: Word width
@@ -16,58 +56,53 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
   val v = 16
-  val io = IO(new Bundle {
-    // Host scalar interface
-    val raddr = Input(UInt(addrWidth.W))
-    val wen  = Input(Bool())
-    val waddr = Input(UInt(addrWidth.W))
-    val wdata = Input(Bits(w.W))
-    val rdata = Output(Bits(w.W))
+  val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, numMemoryStreams, target)
 
-    // Scalar ins and outs - if target wants to directly
-    // pass them in
-    val enable = Input(UInt(w.W))
-    val done = Output(UInt(w.W))
-    val scalarIns = Input(Vec(numArgIns, UInt(w.W)))
-    val scalarOuts = Output(Vec(numArgOuts, UInt(w.W)))
-
-    // DRAM interface - currently only one stream
-    val dram = new DRAMStream(w, v)
-  })
-
-  // Fringe
-  val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numMemoryStreams))
+  val io = target match {
+    case "verilator" => IO(new VerilatorInterface(topParams))
+    case _ => throw new Exception(s"Unknown target '$target'")
+  }
 
   // Accel
   val accel = Module(new AccelTop(w, numArgIns, numArgOuts, numMemoryStreams))
 
-  // Fringe <-> Host connections
-  fringe.io.raddr := io.raddr
-  fringe.io.wen := io.wen
-  fringe.io.waddr := io.waddr
-  fringe.io.wdata := io.wdata
-  io.rdata := fringe.io.rdata
+  target match {
+    case "verilator" =>
+      // Simulation Fringe
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numMemoryStreams))
+      // Fringe <-> Host connections
+      fringe.io.raddr := io.raddr
+      fringe.io.wen := io.wen
+      fringe.io.waddr := io.waddr
+      fringe.io.wdata := io.wdata
+      io.rdata := fringe.io.rdata
 
-  // Fringe <-> DRAM connections
-  io.dram.cmd.bits := fringe.io.dram.cmd.bits
-  io.dram.cmd.valid := fringe.io.dram.cmd.valid
-  fringe.io.dram.resp.bits := io.dram.resp.bits
-  fringe.io.dram.resp.valid := io.dram.resp.valid
+      // Fringe <-> DRAM connections
+      io.dram <> fringe.io.dram
 
-  // Accel: Scalar and control connections
-  if (target == "aws") {
-    accel.io.argIns := io.scalarIns
-    io.scalarOuts.zip(accel.io.argOuts) foreach { case (ioOut, accelOut) => ioOut := accelOut.bits }
-    accel.io.enable := io.enable
-    io.done := accel.io.done
-  } else {
-    accel.io.argIns := fringe.io.argIns
-    fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
-        fringeArgOut.bits := accelArgOut.bits
-        fringeArgOut.valid := 1.U
-    }
-    accel.io.enable := fringe.io.enable
-    fringe.io.done := accel.io.done
+      accel.io.argIns := fringe.io.argIns
+      fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
+          fringeArgOut.bits := accelArgOut.bits
+          fringeArgOut.valid := 1.U
+      }
+      accel.io.enable := fringe.io.enable
+      fringe.io.done := accel.io.done
+
+    case "aws" =>
+      // Simulation Fringe
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numMemoryStreams))
+      val topIO = io.asInstanceOf[AWSInterface]
+
+      // Fringe <-> DRAM connections
+      topIO.dram <> fringe.io.dram
+
+      // Accel: Scalar and control connections
+      accel.io.argIns := topIO.scalarIns
+      topIO.scalarOuts.zip(accel.io.argOuts) foreach { case (ioOut, accelOut) => ioOut := accelOut.bits }
+      accel.io.enable := topIO.enable
+      topIO.done := accel.io.done
+    case _ =>
+      throw new Exception(s"Unknown target '$target'")
   }
 
   // TBD: Accel <-> Fringe Memory connections
