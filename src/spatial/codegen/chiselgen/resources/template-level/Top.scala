@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import fringe._
 import accel._
+import axi4._
 
 // import AccelTop
 abstract class TopInterface extends Bundle
@@ -30,12 +31,12 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
   val dram = new DRAMStream(p.dataWidth, p.v)
 }
 
-//class ZynqInterface(p: TopParams) extends TopInterface {
-//  private val params = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
-//  val S_AXI = Flipped(new AXI4Lite(params))
-//  val dram = new DRAMStream(p.dataWidth, p.v)
-//}
-//
+class ZynqInterface(p: TopParams) extends TopInterface {
+  private val params = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
+  val S_AXI = Flipped(new AXI4Lite(params))
+  val dram = new DRAMStream(p.dataWidth, p.v)
+}
+
 class AWSInterface(p: TopParams) extends TopInterface {
   val enable = Input(UInt(p.dataWidth.W))
   val done = Output(UInt(p.dataWidth.W))
@@ -59,7 +60,8 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
   val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, numMemoryStreams, target)
 
   val io = target match {
-    case "verilator" => IO(new VerilatorInterface(topParams))
+    case "verilator"  => IO(new VerilatorInterface(topParams))
+    case "zynq"       => IO(new ZynqInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
   }
 
@@ -70,15 +72,36 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
     case "verilator" =>
       // Simulation Fringe
       val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numMemoryStreams))
+      val topIO = io.asInstanceOf[VerilatorInterface]
+
       // Fringe <-> Host connections
-      fringe.io.raddr := io.raddr
-      fringe.io.wen := io.wen
-      fringe.io.waddr := io.waddr
-      fringe.io.wdata := io.wdata
-      io.rdata := fringe.io.rdata
+      fringe.io.raddr := topIO.raddr
+      fringe.io.wen   := topIO.wen
+      fringe.io.waddr := topIO.waddr
+      fringe.io.wdata := topIO.wdata
+      topIO.rdata := fringe.io.rdata
 
       // Fringe <-> DRAM connections
-      io.dram <> fringe.io.dram
+      topIO.dram <> fringe.io.dram
+
+      accel.io.argIns := fringe.io.argIns
+      fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
+          fringeArgOut.bits := accelArgOut.bits
+          fringeArgOut.valid := 1.U
+      }
+      accel.io.enable := fringe.io.enable
+      fringe.io.done := accel.io.done
+
+    case "zynq" =>
+      // Zynq Fringe
+      val fringe = Module(new FringeZynq(w, numArgIns, numArgOuts, numMemoryStreams))
+      val topIO = io.asInstanceOf[ZynqInterface]
+
+      // Fringe <-> Host connections
+      fringe.io.S_AXI <> topIO.S_AXI
+
+      // Fringe <-> DRAM connections
+      topIO.dram <> fringe.io.dram
 
       accel.io.argIns := fringe.io.argIns
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
