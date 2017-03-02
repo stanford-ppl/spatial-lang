@@ -56,18 +56,18 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
 
   // Accel: Scalar and control connections
   if (target == "aws") {
-    accel.io.ArgIn.ports := io.scalarIns
-    io.scalarOuts := accel.io.ArgOut.ports
-    accel.io.top_en := io.enable
-    io.done := accel.io.top_done
+    accel.io.argIns := io.scalarIns
+    io.scalarOuts.zip(accel.io.argOuts) foreach { case (ioOut, accelOut) => ioOut := accelOut.bits }
+    accel.io.enable := io.enable
+    io.done := accel.io.done
   } else {
-    accel.io.ArgIn.ports := fringe.io.argIns
-    fringe.io.argOuts.zip(accel.io.ArgOut.ports) foreach { case (fringeArgOut, accelArgOut) =>
-        fringeArgOut.bits := accelArgOut
+    accel.io.argIns := fringe.io.argIns
+    fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
+        fringeArgOut.bits := accelArgOut.bits
         fringeArgOut.valid := 1.U
     }
-    accel.io.top_en := fringe.io.enable
-    fringe.io.done := accel.io.top_done
+    accel.io.enable := fringe.io.enable
+    fringe.io.done := accel.io.done
   }
 
   // TBD: Accel <-> Fringe Memory connections

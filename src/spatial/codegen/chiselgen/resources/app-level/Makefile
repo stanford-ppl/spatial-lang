@@ -19,7 +19,7 @@ sim-hw:
 	rm -rf ${VERILATOR_SRC}
 	sbt "run-main top.Instantiator --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs"
 	cp verilator.mk ${VERILATOR_SRC}/Makefile
-	mv ${VERILATOR_SRC}/example* ${VERILATOR_SRC}/verilator_srcs_tmp
+	mv ${VERILATOR_SRC}/top* ${VERILATOR_SRC}/verilator_srcs_tmp
 	mkdir ${VERILATOR_SRC}/verilator_srcs
 	mv ${VERILATOR_SRC}/verilator_srcs_tmp/VTop* ${VERILATOR_SRC}/verilator_srcs
 	mv ${VERILATOR_SRC}/verilator_srcs_tmp/*.v ${VERILATOR_SRC}/verilator_srcs
@@ -33,7 +33,7 @@ aws-sim-hw:
 	rm -rf ${VERILATOR_SRC}
 	sbt "run-main top.Instantiator --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs aws"
 	cp verilator.mk ${VERILATOR_SRC}/Makefile
-	mv ${VERILATOR_SRC}/example* ${VERILATOR_SRC}/verilator_srcs_tmp
+	mv ${VERILATOR_SRC}/top* ${VERILATOR_SRC}/verilator_srcs_tmp
 	mkdir ${VERILATOR_SRC}/verilator_srcs
 	mv ${VERILATOR_SRC}/verilator_srcs_tmp/VTop* ${VERILATOR_SRC}/verilator_srcs
 	mv ${VERILATOR_SRC}/verilator_srcs_tmp/*.v ${VERILATOR_SRC}/verilator_srcs

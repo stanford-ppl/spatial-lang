@@ -154,11 +154,17 @@ ${lhs}_done := ${lhs}.io.CtrlToAccel.doneStore
     withStream(getStream("Instantiator")) {
       emit("")
       emit(s"// Memory streams")
-      emit(s"""val numMemoryStreams = Vec(${dramMap.size}, Flipped(new MemoryStream(w, v)))""")
+      emit(s"""val numMemoryStreams = ${dramMap.size}""")
       emit(s"// Mapping:")
       dramMap.foreach{ d =>
         emit(src"""// ${d._1} => Start ${d._2._1}, Length ${d._2._2}""")
       }
+    }
+
+    withStream(getStream("IOModule")) {
+      emit("// Tile Load")
+      emit(s"val io_numMemoryStreams = ${dramMap.size}")
+
     }
 
   //   withStream(getStream("GeneratedPoker")) {

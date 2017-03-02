@@ -136,7 +136,8 @@ trait ChiselGenReg extends ChiselCodegen {
           case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
         }
         
-        emit(src"""io.argOuts(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
+        emit(src"""io.argOuts(${argOuts.indexOf(reg)}).bits := $reg // ${nameOf(reg).getOrElse("")}""")
+        emit(src"""io.argOuts(${argOuts.indexOf(reg)}).valid := pulser.io.out""")
       } else {         
         reduceType(reg) match {
           case Some(fps: ReduceFunction) => // is an accumulator
@@ -211,6 +212,12 @@ trait ChiselGenReg extends ChiselCodegen {
         emit(s"""//${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }
+    }
+
+    withStream(getStream("IOModule")) {
+      emit("// Scalars")
+      emit(s"val io_numArgIns = ${argIns.length}")
+      emit(s"val io_numArgOuts = ${argOuts.length}")
     }
 
     super.emitFileFooter()
