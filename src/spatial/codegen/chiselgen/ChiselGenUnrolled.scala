@@ -179,11 +179,11 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(src"""${fifo}_writeEn := ${writer}_sm.io.output.ctr_inc // Ignore $ens""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
-            emit(src"""${fifo}_wdata := (0 until ${ens}.length).map{ i => ${data}(i).number }""")
+            emit(src"""${fifo}_wdata := (0 until ${ens}.length).map{ i => ${data}(i).number }.flatten""")
           } else {
-            emit(src"""${fifo}_wdata := ${data}""")
+            emit(src"""${fifo}_wdata := ${data}.flatten""")
           }
-        case _ => emit(src"""${fifo}_wdata := ${data}""")
+        case _ => emit(src"""${fifo}_wdata := ${data}.flatten""")
       }
 
     case _ => super.emitNode(lhs, rhs)

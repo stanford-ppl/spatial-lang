@@ -68,7 +68,7 @@ class CounterCore(val w: Int, val startDelayWidth: Int = 0, val endDelayWidth: I
     // Start delay counter
     val startDelayCounter = Module(new Counter(startDelayWidth))
     startDelayCounter.io.max := io.config.startDelay
-    startDelayCounter.io.stride := UInt(1, width=startDelayWidth)
+    startDelayCounter.io.stride := 1.U(startDelayWidth.W)
     startDelayCounter.io.saturate := Bool(true)
 
     val localEnable = io.enable & ~io.waitIn
@@ -85,7 +85,7 @@ class CounterCore(val w: Int, val startDelayWidth: Int = 0, val endDelayWidth: I
     // End delay counter
     val endDelayCounter = Module(new Counter(endDelayWidth))
     endDelayCounter.io.max := io.config.endDelay
-    endDelayCounter.io.stride := UInt(1, width=endDelayWidth)
+    endDelayCounter.io.stride := 1.U(endDelayWidth.W)
     counter.io.reset := Bool(false)
     endDelayCounter.io.saturate := Bool(false)
 

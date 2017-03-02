@@ -24,17 +24,23 @@ trait ChiselGenStream extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
-      streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      s"$bus" match {
+        case "BurstFullDataBus" => 
+        case _ =>
+          emit(src"// New stream in $lhs")
+          streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      }
     case StreamOutNew(bus) =>
-      streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      s"$bus" match {
+        case "BurstCmdBus" => 
+        case _ =>
+          emit(src"// New stream out $lhs")
+          streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      }
     case StreamDeq(stream, en) => 
-      // val streamId = streamIns.indexOf(stream.asInstanceOf[Sym[StreamIn[_]]])
       emit(src"""val $lhs = ${stream}_data""")
-      emit(src"""${stream}_pop := $en""")
     case StreamEnq(stream, data, en) => 
-      // val streamId = streamIns.indexOf(stream.asInstanceOf[Sym[StreamIn[_]]])
-      emit(src"""${stream}_push := $en""")
-      emit(src"""${stream}_data := $data""")
+      emit(src"""val ${stream}_data = $data""")
     case _ => super.emitNode(lhs, rhs)
   }
 

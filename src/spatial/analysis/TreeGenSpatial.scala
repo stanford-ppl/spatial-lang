@@ -172,6 +172,19 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
+    case _: FringeDenseLoad[_] => 
+      print_stage_prefix("FringeDenseLoad", "", s"$sym", true)
+      print_stage_suffix(s"$sym", true)
+    case _: FringeDenseStore[_] => 
+      print_stage_prefix("FringeDenseStore", "", s"$sym", true)
+      print_stage_suffix(s"$sym", true)
+    case _: FringeSparseLoad[_] => 
+      print_stage_prefix("FringeSparseLoad", "", s"$sym", true)
+      print_stage_suffix(s"$sym", true)
+    case _: FringeSparseStore[_] => 
+      print_stage_prefix("FringeSparseStore", "", s"$sym", true)
+      print_stage_suffix(s"$sym", true)
+
     case _ => // Do not visit super because we don't care to traverse everything
   }
 

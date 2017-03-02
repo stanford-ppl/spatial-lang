@@ -58,11 +58,11 @@ trait ChiselGenFIFO extends ChiselCodegen {
       emit(src"""${fifo}_writeEn := ${writer}_ctr_en // not using $en """)
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
-            emit(src"""${fifo}_wdata := ${v}.number""")
+            emit(src"""${fifo}_wdata := Vec(List(${v}.number))""")
           } else {
-            emit(src"""${fifo}_wdata := ${v}""")
+            emit(src"""${fifo}_wdata := Vec(List(${v}))""")
           }
-        case _ => emit(src"""${fifo}_wdata := ${v}""")
+        case _ => emit(src"""${fifo}_wdata := Vec(List(${v}))""")
       }
 
 
