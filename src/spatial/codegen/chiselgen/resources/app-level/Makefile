@@ -8,6 +8,8 @@ help:
 	@echo "make sim-hw 			: Build Chisel for Verilator"
 	@echo "make aws-sim 		: AWS simulation SW + HW build"
 	@echo "make aws-sim-hw 	: Build Chisel for AWS simulation"
+	@echo "make zynq 				: Zynq SW + HW build"
+	@echo "make zynq-hw    	: Build Chisel for Zynq"
 	@echo "make sim-clean 	: Verilator simulation clean up"
 	@echo "------- END HELP -------"
 
@@ -39,6 +41,20 @@ aws-sim-hw:
 	mv ${VERILATOR_SRC}/verilator_srcs_tmp/*.v ${VERILATOR_SRC}/verilator_srcs
 	rm -rf ${VERILATOR_SRC}/verilator_srcs_tmp
 	mv ${VERILATOR_SRC}/verilator_srcs/*.mk ${VERILATOR_SRC}
+
+zynq: zynq-hw
+	@echo "zynq-sim software build NOT YET SUPPORTED!"
+
+zynq-hw:
+	rm -rf verilog
+	sbt "run-main top.Instantiator --verilog --testArgs zynq"
+	cp chisel/fringeZynq/* verilog
+	mv verilog/fsbl.elf._ verilog/fsbl.elf
+	mv verilog/u-boot.elf._ verilog/u-boot.elf
+	make -C verilog
+
+zynq-clean:
+	make -C verilog clean
 
 sim-clean:
 	make -C ${VERILATOR_SRC} clean
