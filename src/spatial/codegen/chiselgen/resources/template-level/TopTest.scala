@@ -8,9 +8,9 @@ import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 import scala.collection.mutable.ListBuffer
 
 /**
- * Top test harness
+ * TopModule test harness
  */
-class TopUnitTester(c: Top)(implicit args: Array[String]) extends ArgsTester(c) {
+class TopModuleUnitTester(c: TopModule)(implicit args: Array[String]) extends ArgsTester(c) {
 
   // ---- Fringe software API ----
   def writeReg(reg: Int, data: Int) {
@@ -53,8 +53,8 @@ class TopUnitTester(c: Top)(implicit args: Array[String]) extends ArgsTester(c) 
   println(s"argOuts: $argOuts")
 }
 
-object TopTest extends CommonMain {
-  type DUTType = Top
+object TopModuleTest extends CommonMain {
+  type DUTType = TopModule
 
   def supportedTarget(t: String) = t match {
     case "aws" => true
@@ -69,8 +69,8 @@ object TopTest extends CommonMain {
     val numMemoryStreams = 2
     val target = if (args.size > 0) args(0) else "verilator"
     Predef.assert(supportedTarget(target), s"ERROR: Unsupported Fringe target '$target'")
-    new Top(w, numArgIns, numArgOuts, numMemoryStreams, target)
+    new TopModule(w, numArgIns, numArgOuts, numMemoryStreams, target)
   }
-  def tester = { c: DUTType => new TopUnitTester(c) }
+  def tester = { c: DUTType => new TopModuleUnitTester(c) }
 }
 

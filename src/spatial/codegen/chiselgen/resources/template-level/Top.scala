@@ -1,9 +1,11 @@
-package example
+package top
 
 import chisel3._
 import chisel3.util._
+import fringe._
+import accel._
 
-import app.AccelTop
+// import AccelTop
 /**
  * Top: Top module including Fringe and Accel
  * @param w: Word width

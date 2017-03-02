@@ -17,7 +17,7 @@ sim: sim-hw
 
 sim-hw:
 	rm -rf ${VERILATOR_SRC}
-	sbt "run-main example.TopTest --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs"
+	sbt "run-main top.Instantiator --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs"
 	cp verilator.mk ${VERILATOR_SRC}/Makefile
 	mv ${VERILATOR_SRC}/example* ${VERILATOR_SRC}/verilator_srcs_tmp
 	mkdir ${VERILATOR_SRC}/verilator_srcs
@@ -31,7 +31,7 @@ aws-sim: aws-sim-hw
 
 aws-sim-hw:
 	rm -rf ${VERILATOR_SRC}
-	sbt "run-main example.TopTest --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs aws"
+	sbt "run-main top.Instantiator --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs aws"
 	cp verilator.mk ${VERILATOR_SRC}/Makefile
 	mv ${VERILATOR_SRC}/example* ${VERILATOR_SRC}/verilator_srcs_tmp
 	mkdir ${VERILATOR_SRC}/verilator_srcs

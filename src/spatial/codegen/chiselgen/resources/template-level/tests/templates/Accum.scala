@@ -74,8 +74,8 @@ class SpecialAccumTests(c: SpecialAccum) extends PeekPokeTester(c) {
         case "max" => if(count > acc) count else acc  
         case "min" => if(count < acc) count else acc
       }
-      poke(c.io.enable, en)
       step(1)
+      poke(c.io.enable, en)
       val (hw, factor) = c.typ match {
         case "UInt" => (peek(c.io.output), 1)
         case "FixedPoint" => (peek(c.io.output), scala.math.pow(2,c.params(2)).toInt)

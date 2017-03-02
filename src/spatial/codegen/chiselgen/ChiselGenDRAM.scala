@@ -151,10 +151,10 @@ ${lhs}_done := ${lhs}.io.CtrlToAccel.doneStore
 
   override protected def emitFileFooter() {
 
-    withStream(getStream("IOModule")) {
+    withStream(getStream("Instantiator")) {
       emit("")
       emit(s"// Memory streams")
-      emit(s"""val memStreams = Vec(${dramMap.size}, Flipped(new MemoryStream(w, v)))""")
+      emit(s"""val numMemoryStreams = Vec(${dramMap.size}, Flipped(new MemoryStream(w, v)))""")
       emit(s"// Mapping:")
       dramMap.foreach{ d =>
         emit(src"""// ${d._1} => Start ${d._2._1}, Length ${d._2._2}""")

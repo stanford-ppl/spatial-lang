@@ -232,7 +232,7 @@ trait ChiselGenController extends ChiselCodegen {
     case Hwblock(func,isForever) =>
       controllerStack.push(lhs)
       toggleEn() // turn on
-      emit(s"""val ${quote(lhs)}_en = io.top_en & !io.top_done;""")
+      emit(s"""val ${quote(lhs)}_en = io.enable & !io.done;""")
       emit(s"""val ${quote(lhs)}_resetter = false.B // TODO: top level reset""")
       emitGlobal(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
@@ -241,7 +241,7 @@ trait ChiselGenController extends ChiselCodegen {
       emit(s"""val done_latch = Module(new SRFF())""")
       emit(s"""done_latch.io.input.set := ${quote(lhs)}_sm.io.output.done""")
       emit(s"""done_latch.io.input.reset := ${quote(lhs)}_resetter""")
-      emit(s"""io.top_done := done_latch.io.output.data""")
+      emit(s"""io.done := done_latch.io.output.data""")
 
       emitBlock(func)
       toggleEn() // turn off

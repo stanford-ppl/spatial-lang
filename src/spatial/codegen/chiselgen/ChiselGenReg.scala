@@ -90,7 +90,7 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg)) {
-        emitGlobal(src"""val $lhs = io.ArgIn.ports(${argIns.indexOf(reg)})""")
+        emitGlobal(src"""val $lhs = io.argIns(${argIns.indexOf(reg)})""")
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
@@ -136,7 +136,7 @@ trait ChiselGenReg extends ChiselCodegen {
           case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
         }
         
-        emit(src"""io.ArgOut.ports(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
+        emit(src"""io.argOuts(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
       } else {         
         reduceType(reg) match {
           case Some(fps: ReduceFunction) => // is an accumulator
@@ -197,13 +197,13 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     }
 
-    withStream(getStream("IOModule")) {
+    withStream(getStream("Instantiator")) {
       emit("")
       emit("// Scalars")
       emit(s"val numArgIns = ${argIns.length}")
       emit(s"val numArgOuts = ${argOuts.length}")
-      emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
-      emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
+      // emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
+      // emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
       argIns.zipWithIndex.map { case(p,i) => 
         emit(s"""//${quote(p)} = argIns($i) ( ${nameOf(p).getOrElse("")} )""")
       }
