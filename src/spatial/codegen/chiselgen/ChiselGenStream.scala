@@ -27,7 +27,7 @@ trait ChiselGenStream extends ChiselCodegen {
       streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case StreamOutNew(bus) =>
       streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
-    case StreamDeq(stream, en) => 
+    case StreamDeq(stream, en, z) =>
       // val streamId = streamIns.indexOf(stream.asInstanceOf[Sym[StreamIn[_]]])
       emit(src"""val $lhs = ${stream}_data""")
       emit(src"""${stream}_pop := $en""")

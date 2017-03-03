@@ -23,7 +23,7 @@ trait StreamAnalyzer extends CompilerPass {
         val fifo = deq match {
             case Def(FIFODeq(stream,en,_)) => stream
             case Def(ParFIFODeq(stream,en,_)) => stream
-            case Def(StreamDeq(stream,en)) => stream
+            case Def(StreamDeq(stream,en,_)) => stream
             case Def(DecoderTemplateNew(popFrom, _)) => popFrom
             case Def(DMATemplateNew(popFrom, _)) => popFrom
         } 

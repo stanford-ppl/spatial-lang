@@ -236,6 +236,27 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       cloneFuncs.foreach{func => func(lhs2) }
       lanes.split(lhs, lhs2)(mtyp(e.mT),mbits(e.bT),ctx)
 
+
+    case e@StreamEnq(stream, data, en) =>
+      dbgs(s"Unrolling $lhs = $rhs")
+      val datas   = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
+      val enables = lanes.vectorize{p => bool_and( f(en), globalValid) }
+      val lhs2 = par_stream_enq(f(stream), datas, enables)(e.mT,e.bT,ctx)
+
+      transferMetadata(lhs, lhs2)
+      cloneFuncs.foreach{func => func(lhs2) }
+      lanes.unify(lhs, lhs2)
+
+    case e@StreamDeq(stream, en, z) =>
+      dbgs(s"Unrolling $lhs = $rhs")
+      val enables = lanes.vectorize{p => bool_and(f(en), globalValid) }
+      val lhs2 = par_stream_deq(f(stream), enables, f(z))(mtyp(e.mT),mbits(e.bT),ctx)
+
+      transferMetadata(lhs, lhs2)
+      cloneFuncs.foreach{func => func(lhs2) }
+      lanes.split(lhs, lhs2)(mtyp(e.mT),mbits(e.bT),ctx)
+
+
     // TODO: Assuming dims and ofs are not needed for now
     case e@SRAMStore(sram,dims,inds,ofs,data,en) if lanes.isCommon(sram) =>
       dbgs(s"Unrolling $lhs = $rhs")
