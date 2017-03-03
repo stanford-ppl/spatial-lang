@@ -87,7 +87,7 @@ trait PIRAllocation extends PIRTraversal {
     s"$lhs = $rhs"
   }
 
-  def allocateComputeUnit(pipe: Symbol): PCU = mapping.getOrElseUpdate(pipe, {
+  def allocateComputeUnit(pipe: Symbol): PCU = if (!mapping.contains(pipe)) {
     val parent = parentHack(pipe).map(allocateCU)
 
     val style = pipe match {
@@ -117,8 +117,12 @@ trait PIRAllocation extends PIRTraversal {
     if (top.isEmpty && parent.isEmpty) top = Some(pipe)
 
     dbgs(s"Allocating CU $cu for ${pipe}")
-    List(cu)
-  }).head
+    val cus = List(cu)
+    mapping += pipe -> cus
+    cus.head
+  } else {
+    mapping(pipe).head
+  }
 
   def allocateCU(pipe: Symbol): PCU = pipe match {
     case Def(_:Hwblock)             => allocateComputeUnit(pipe)
@@ -134,7 +138,7 @@ trait PIRAllocation extends PIRTraversal {
     case Def(d) => throw new Exception(s"Don't know how to generate CU for\n  $pipe = $d")
   }
 
-  def allocateMemoryCU(sram:Symbol):List[PCU] = mapping.getOrElseUpdate(sram, {
+  def allocateMemoryCU(sram:Symbol):List[PCU] = if (!mapping.contains(sram)) {
     val Def(d) = sram
 
     val readAccesses = readersOf(sram).groupBy { read => 
@@ -146,20 +150,14 @@ trait PIRAllocation extends PIRTraversal {
     val writeAccesses = writersOf(sram)
     assert(writeAccesses.size==1, s"Plasticine currently only supports single writer at the moment $sram writeAccesses:$writeAccesses")
     val writeAccess = writeAccesses.head
-    dbgblk(s"Allocating memory cu for $sram = $d, writeAccess:${writeAccess}") {
+    val cus = dbgblk(s"Allocating memory cu for $sram = $d, writeAccess:${writeAccess}") {
       duplicatesOf(sram).zipWithIndex.map{ case (mem, i) => 
 
         val readAccess = readAccesses(i).head
         val cu = PseudoComputeUnit(s"${quote(sram)}_dsp${i}", sram, MemoryCU(i))
         dbgs(s"Allocating MCU duplicates $cu for $sram, readAccess:$readAccess")
-        //val readerCU = allocateCU(readAccess.ctrlNode)
-        //val parent = if (readAccess.ctrlNode==writeAccess.ctrlNode) //Not multibuffered
-          //parentHack(readAccess.ctrlNode).map(allocateCU)
-        //else {
-          //parentHack(topControllerOf(readAccess, sram, i).get.node).map(allocateCU)
-        //}
-        cu.parent = None
-
+        val parentCU = parentOf(sram).map(allocateCU)
+        cu.parent = parentCU
         //initCU(cu, pipe)
 
         //val readerCU = allocateCU(readAccess.ctrlNode)
@@ -175,7 +173,11 @@ trait PIRAllocation extends PIRTraversal {
         cu
       }.toList
     }
-  })
+    mapping += sram -> cus
+    cus
+  } else {
+    mapping(sram)
+  }
 
   def prescheduleRegisterRead(reg: Symbol, reader: Symbol, pipe: Option[Symbol]) = {
     dbgblk(s"Allocating register read: $reader") {
@@ -206,10 +208,10 @@ trait PIRAllocation extends PIRTraversal {
         globals += bus
         sramCU.srams.foreach { _.writePort = Some(bus) }
         if (stages.nonEmpty) {
-          dbgblk(s"$sramCU Write stages: ") {
+          sramCU.writeStages(sramCU.srams.toList) = (writerCU.pipe,stages)
+          dbgblk(s"$sramCU Write stages for [${sramCU.srams.mkString(",")}]: ") {
             stages.foreach{stage => dbgs(s"$stage")}
           }
-          sramCU.writeStages(sramCU.srams.toList) = (writerCU.pipe,stages)
         }
       }
     }
@@ -756,11 +758,22 @@ trait PIRAllocation extends PIRTraversal {
         }
       }
 
-
     }
+
     for (cu <- cus) {
       for (sram <- cu.srams) {
         initializeSRAM(sram, sram.mem, sram.reader, cu)
+      }
+    }
+
+    dbgs(s"Post processing")
+    dbgs(s"mapping.keys=[${mapping.keys.toList.mkString(",")}]")
+    dbgs(s"mapping.keys=[${mapping.keys.toList.map(s => s"$s(${s.hashCode})").mkString(",")}]")
+    mapping.foreach { case (sym, cus) =>
+      cus.foreach { cu =>
+        dbgblk(s"$sym -> $cu") {
+          cu.writeStages.foreach { stage => dbgs(s"$stage") }
+        }
       }
     }
 

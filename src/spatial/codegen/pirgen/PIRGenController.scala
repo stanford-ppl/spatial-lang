@@ -140,7 +140,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     val deps = cu.deps.map{dep => dep.name }.mkString("List(", ", ", ")")
 
     if (cu.style.isInstanceOf[MemoryCU]) {
-      s"""${quote(cu)}(name = "${cu.name}")""" // MemoryPipeline doesn't need to declare parent 
+      s"""${quote(cu)}(name = "${cu.name}", parent="$parent")""" // MemoryPipeline's parent might be declared later 
     } else {
       s"""${quote(cu)}(name = "${cu.name}", parent=$parent)"""
     }
