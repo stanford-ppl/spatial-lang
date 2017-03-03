@@ -54,7 +54,7 @@ trait PIRAllocation extends PIRTraversal {
       CUCounter(localScalar(min), localScalar(max), localScalar(step))
     }
 
-    parentHack(pipe).foreach{parent => copyIterators(cu, allocateCU(parent)) }
+    //parentHack(pipe).foreach{parent => copyIterators(cu, allocateCU(parent)) }
 
     val Def(rhs) = pipe
     val ccs = syms(rhs).collect{
@@ -68,6 +68,23 @@ trait PIRAllocation extends PIRTraversal {
   def initCU(cu: PCU, pipe: Symbol) {
     allocateCChains(cu, pipe)
     cu.deps ++= pipeDependencies(pipe).map(allocateCU)
+  }
+
+  def qdef(lhs:Symbol):String = {
+    val rhs = lhs match {
+      case Def(e:UnrolledForeach) => 
+        s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case Def(e:UnrolledReduce[_,_]) => 
+        s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case Def(BurstLoad(dram, fifo, ofs, ctr, i)) =>
+        s"BurstLoad(dram=$dram, fifo=$fifo, ofs=$ofs, ctr=$ctr, i=$i)"
+      case Def(BurstStore(dram, fifo, ofs, ctr, i)) =>
+        s"BurstStore(dram=$dram, fifo=$fifo, ofs=$ofs, ctr=$ctr, i=$i)"
+      case Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
+      case Op(rhs) => s"$rhs"
+      case Def(rhs) => s"$rhs"
+    }
+    s"$lhs = $rhs"
   }
 
   def allocateComputeUnit(pipe: Symbol): PCU = mapping.getOrElseUpdate(pipe, {
@@ -99,9 +116,7 @@ trait PIRAllocation extends PIRTraversal {
     }
     if (top.isEmpty && parent.isEmpty) top = Some(pipe)
 
-    val Def(d) = pipe
-    dbg(s"Allocating CU $cu for $pipe = $d")
-
+    dbgs(s"Allocating CU $cu for ${pipe}")
     List(cu)
   }).head
 
@@ -131,121 +146,92 @@ trait PIRAllocation extends PIRTraversal {
     val writeAccesses = writersOf(sram)
     assert(writeAccesses.size==1, s"Plasticine currently only supports single writer at the moment $sram writeAccesses:$writeAccesses")
     val writeAccess = writeAccesses.head
-    dbg(s"Allocating memory cu for $sram = $d, writeAccess:${writeAccess}")
-    duplicatesOf(sram).zipWithIndex.map{ case (mem, i) => 
+    dbgblk(s"Allocating memory cu for $sram = $d, writeAccess:${writeAccess}") {
+      duplicatesOf(sram).zipWithIndex.map{ case (mem, i) => 
 
-      val readAccess = readAccesses(i).head
-      val cu = PseudoComputeUnit(s"${quote(sram)}_dsp${i}", sram, MemoryCU(i))
-      dbg(s"  Allocating MCU duplicates $cu for $sram, readAccess:$readAccess")
-      //val readerCU = allocateCU(readAccess.ctrlNode)
-      //val parent = if (readAccess.ctrlNode==writeAccess.ctrlNode) //Not multibuffered
-        //parentHack(readAccess.ctrlNode).map(allocateCU)
-      //else {
-        //parentHack(topControllerOf(readAccess, sram, i).get.node).map(allocateCU)
-      //}
-      cu.parent = None
+        val readAccess = readAccesses(i).head
+        val cu = PseudoComputeUnit(s"${quote(sram)}_dsp${i}", sram, MemoryCU(i))
+        dbgs(s"Allocating MCU duplicates $cu for $sram, readAccess:$readAccess")
+        //val readerCU = allocateCU(readAccess.ctrlNode)
+        //val parent = if (readAccess.ctrlNode==writeAccess.ctrlNode) //Not multibuffered
+          //parentHack(readAccess.ctrlNode).map(allocateCU)
+        //else {
+          //parentHack(topControllerOf(readAccess, sram, i).get.node).map(allocateCU)
+        //}
+        cu.parent = None
 
-      //initCU(cu, pipe)
+        //initCU(cu, pipe)
 
-      //val readerCU = allocateCU(readAccess.ctrlNode)
-      val psram = allocateMem(sram, readAccess.node, cu)
+        //val readerCU = allocateCU(readAccess.ctrlNode)
+        val psram = allocateMem(sram, readAccess.node, cu)
 
-      //pipe match {
-        //case Def(e:UnrolledForeach)      => addIterators(cu, e.cchain, e.iters, e.valids)
-        //case Def(e:UnrolledReduce[_,_])  => addIterators(cu, e.cchain, e.iters, e.valids)
-        //case Def(_:UnitPipe | _:Hwblock) => cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
-        //case _ =>
-      //}
+        //pipe match {
+          //case Def(e:UnrolledForeach)      => addIterators(cu, e.cchain, e.iters, e.valids)
+          //case Def(e:UnrolledReduce[_,_])  => addIterators(cu, e.cchain, e.iters, e.valids)
+          //case Def(_:UnitPipe | _:Hwblock) => cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
+          //case _ =>
+        //}
 
-      cu
-    }.toList
+        cu
+      }.toList
+    }
   })
 
   def prescheduleRegisterRead(reg: Symbol, reader: Symbol, pipe: Option[Symbol]) = {
-    dbg(s"  Allocating register read: $reader")
-    // Register reads may be used by more than one pipe
-    readersOf(reg).filter(_.node == reader).map(_.ctrlNode).foreach{readCtrl =>
-      val isCurrentPipe = pipe.exists(_ == readCtrl)
-      val isLocallyWritten = isWrittenInPipe(reg, readCtrl)
+    dbgblk(s"Allocating register read: $reader") {
+      // Register reads may be used by more than one pipe
+      readersOf(reg).filter(_.node == reader).map(_.ctrlNode).foreach{ readCtrl =>
+        val isCurrentPipe = pipe.exists(_ == readCtrl)
+        val isLocallyWritten = isWrittenInPipe(reg, readCtrl)
 
-      if (!isCurrentPipe || !isLocallyWritten) {
-        val readerCU = allocateCU(readCtrl)
-        dbg(s"    Adding stage $reader of $reg to reader $readerCU")
-        readerCU.computeStages += DefStage(reader)
+        if (!isCurrentPipe || !isLocallyWritten) {
+          val readerCU = allocateCU(readCtrl)
+          dbgs(s"Adding reader stage $reader of reg($reg) to readerCU $readerCU")
+          readerCU.computeStages += DefStage(reader)
+        }
       }
     }
   }
 
-  def allocateWrittenSRAM(writer: Symbol, mem: Symbol, writerCU: PCU, stages: List[PseudoStage]) {
+  def allocateWrittenSRAM(writer: Symbol, mem: Symbol, writerCU: PCU, 
+                          stages: List[PseudoStage]) = dbgblk(s"Allocating written SRAM $mem") {
     val sramCUs = allocateMemoryCU(mem)
-    dbg(s"  Allocating written SRAM $mem")
-    dbg(s"    writer   = $writer")
-    dbg(s"    writerCU = $writerCU")
-    dbg(s"    sramCUs = $sramCUs")
-
-    sramCUs.zipWithIndex.foreach{ case (sramCU, i) => 
-      copyIterators(sramCU, writerCU)
-      //val bus = if (writerCU.isUnit) CUScalar(s"${quote(mem)}_${i}_wt") else CUVector(s"${quote(mem)}_${i}_wt")
-      val bus = CUVector(s"${quote(mem)}_${i}_wt") //TODO Writes to sram is alwasy using vector bus
-      globals += bus
-      sramCU.srams.foreach { _.writePort = Some(bus) }
-      if (stages.nonEmpty) {
-        dbg(s"    $sramCU Write stages: ")
-        stages.foreach{stage => dbg(s"      $stage")}
-        sramCU.writeStages(sramCU.srams.toList) = (writerCU.pipe,stages)
+    dbgs(s"writer   = $writer")
+    dbgs(s"writerCU = $writerCU")
+    dbgblk(s"sramCUs = $sramCUs") {
+      sramCUs.zipWithIndex.foreach{ case (sramCU, i) => 
+        //copyIterators(sramCU, writerCU)
+        //val bus = if (writerCU.isUnit) CUScalar(s"${quote(mem)}_${i}_wt") else CUVector(s"${quote(mem)}_${i}_wt")
+        val bus = CUVector(s"${quote(mem)}_${i}_wt") //TODO Writes to sram is alwasy using vector bus
+        globals += bus
+        sramCU.srams.foreach { _.writePort = Some(bus) }
+        if (stages.nonEmpty) {
+          dbgblk(s"$sramCU Write stages: ") {
+            stages.foreach{stage => dbgs(s"$stage")}
+          }
+          sramCU.writeStages(sramCU.srams.toList) = (writerCU.pipe,stages)
+        }
       }
     }
-
-    //val srams = readersOf(mem).map{reader =>
-      //val readerCU = allocateCU(reader.ctrlNode)
-      //copyIterators(readerCU, writerCU)
-
-      //val sram = allocateMem(mem, reader.node, readerCU)
-      //if (readerCU == writerCU) {
-        //sram.writePort = Some(LocalVectorBus)
-      //}
-      //else {
-        //val bus = if (writerCU.isUnit) CUScalar(quote(mem)) else CUVector(quote(mem))
-        //globals += bus
-        //sram.writePort = Some(bus)
-      //}
-
-      //dbg(s"  Allocating written SRAM $mem")
-      //dbg(s"    writer   = $writer")
-      //dbg(s"    writerCU = $writerCU")
-      //dbg(s"    readerCU = $readerCU")
-
-      //(readerCU, sram)
-    //}
-
-    //if (stages.nonEmpty) {
-      //dbg(s"    Write stages: ")
-      //stages.foreach{stage => dbg(s"      $stage")}
-
-      //val groups = srams.groupBy(_._1).mapValues(_.map(_._2))
-      //for ((readerCU,srams) <- groups if readerCU != writerCU) {
-        //dbg(s"""  Adding write stages to $readerCU for SRAMs: ${srams.mkString(", ")}""")
-        //readerCU.writeStages(srams) = (writerCU.pipe,stages)
-      //}
-    //}
   }
-  def allocateReadSRAM(reader: Symbol, mem: Symbol, readerCU: PCU, stages:List[PseudoStage]) = {
+
+  def allocateReadSRAM(reader: Symbol, mem: Symbol, 
+                       readerCU: PCU, stages:List[PseudoStage]) = dbgblk(s"Allocating read SRAM $mem") {
+    dbgs(s"reader   = $reader")
+    dbgs(s"readerCU = $readerCU")
     val sramCUs = allocateMemoryCU(mem)
     val dispatch = dispatchOf(reader, mem).head
     val sramCU = sramCUs(dispatch)
-    copyIterators(sramCU, readerCU)
+    //copyIterators(sramCU, readerCU)
     val bus = CUVector(s"${quote(mem)}_${dispatch}_rd") //TODO Reads to sram is always using vector bus
     globals += bus
     sramCU.srams.foreach{ _.readPort = Some(bus) } //each sramCU should only have a single sram
     if (stages.nonEmpty) {
-      dbg(s"    $sramCU Read stages: ")
-      stages.foreach{stage => dbg(s"      $stage")}
+      dbgblk(s"$sramCU Read stages:") {
+        stages.foreach{stage => dbgs(s"$stage")}
+      }
       sramCU.readStages(sramCU.srams.toList) = (readerCU.pipe,stages)
     }
-
-    dbg(s"  Allocating read SRAM $mem")
-    dbg(s"    reader   = $reader")
-    dbg(s"    readerCU = $readerCU")
     sramCU.srams.head
   }
 
@@ -318,8 +304,173 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
+  def scheduleRead(reader:Symbol, reads:List[ParLocalRead], stms:Seq[Stm], cus:List[PCU], pipe:Symbol,
+                   func:Block[Any], remoteStages:mutable.Set[Symbol]) = {
+    val rhs = reader match {case Def(d) => d; case _ => null }
+    dbgblk(s"$reader = $rhs [READER]") {
+      reads.zipWithIndex.foreach{ case ((mem,addrs,ens), i) =>
+        val addr = addrs.map{_.head}
+        if (isReg(mem)) {
+          prescheduleRegisterRead(mem, reader, Some(pipe))
+          val isLocallyRead = isReadInPipe(mem, pipe, Some(reader)) //TODO: should this be outside reads.foreach ?
+          val isLocallyWritten = isWrittenInPipe(mem, pipe)
+          //dbgs(s"isLocallyRead: $isLocallyRead, isLocallyWritten: $isLocallyWritten")
+          if (!isLocallyWritten || !isLocallyRead || isInnerAccum(mem)) remoteStages += reader
+        }
+        else if (isBuffer(mem)) {
+          val addrStages = extractRemoteAddrStages(mem, addr, stms, cus(i), pipe, func, remoteStages)
+          allocateReadSRAM(reader, mem, cus(i), addrStages)
+        }
+      }
+    }
+  }
 
-  def prescheduleStages(pipe: Symbol, func: Block[Any]) {
+  def scheduleWrite(writer:Symbol, writes:List[ParLocalWrite], stms:Seq[Stm], cu:PCU, pipe:Symbol, 
+                    func:Block[Any], remoteStages:mutable.Set[Symbol]) = {
+    val rhs = writer match {case Def(d) => d; case _ => null }
+    dbgblk(s"$writer = $rhs [WRITER]") {
+      writes.foreach{case (mem, value, addrs, ens) =>
+        dbgs(s"Checking if $mem write can be implemented as FIFO-on-write:")
+        val addr = addrs.map{_.head}
+        val writeAsFIFO = value.exists{v => useFifoOnWrite(mem, v) }
+
+        if ((isBuffer(mem) || isFIFO(mem)) && writeAsFIFO) {
+          // This entire section is a hack to support FIFO-on-write for burst loads
+          val enableComputation = ens.map{e => getScheduleForAddress(stms)(Seq(e)) }.getOrElse(Nil)
+          val enableSyms = enableComputation.map{case TP(s,d) => s} ++ ens
+          dbgs(s"write(mem=$mem, value=$value, addr=$addr, ens=$ens):")
+          dbgs(s"ens:$ens enableSyms:${enableSyms.mkString(",")}")
+
+          val (start,end) = getFifoBounds(ens)
+
+          val startX = start match {case start@Some(Def(_:RegRead[_])) => start; case _ => None }
+          val endX = end match {case end@Some(Def(_:RegRead[_])) => end; case _ => None }
+
+          val remoteWriteStage = FifoOnWriteStage(mem, startX, endX)
+          val enStages = startX.map{s => DefStage(s) }.toList ++ endX.map{s => DefStage(s) }.toList
+          if (enStages.nonEmpty) dbgblk(s"boundStages:") { enStages.foreach { stage => dbgs(s"$stage") } }
+
+          allocateWrittenSRAM(writer, mem, cu, enStages ++ List(remoteWriteStage))
+
+          //TODO consider parSRAMStore, localWrite addr will be None 
+          val indexSyms = addr.map { is => symsUsedInCalcExps(stms)(is) }.getOrElse(Nil)
+          dbgs(s"indexSyms:$indexSyms")
+          val remoteSyms = symsOnlyUsedInWriteAddrOrEn(stms)(func.result +: func.effectful, indexSyms ++ enableSyms)
+          dbgs(s"symsOnlyUsedInWriteAddrOrEn: $remoteSyms")
+          remoteStages ++= remoteSyms
+        }
+        else if (isBuffer(mem)) {
+          val addrStages = extractRemoteAddrStages(mem, addr, stms, cu, pipe, func, remoteStages)
+          allocateWrittenSRAM(writer, mem, cu, addrStages)
+        }
+      }
+    }
+  }
+
+  def extractRemoteAddrStages(mem:Symbol, addr:Option[Seq[Exp[Index]]], stms:Seq[Stm], cu:PCU, pipe:Symbol, 
+                              func:Block[Any], remoteStages:mutable.Set[Symbol]):List[PseudoStage]= {
+    dbgblk(s"Extracting Remote Addr in $cu for mem=$mem addr=$addr") {
+      val flatOpt = addr.map{is => flattenNDIndices(is, stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]])) }
+      // Symbols
+      var indexSyms = addr.map { is => symsUsedInCalcExps(stms)(is) }.getOrElse(Nil)
+      val depRemoteStages = mutable.Set[Symbol]()   // Stages to calculate data depended addr calc
+      indexSyms.foreach {
+        case reader@ParLocalReader(reads) if isBuffer(reads.head._1) =>
+          val memCUs = allocateMemoryCU(mem)
+          scheduleRead(reader, reads, stms, memCUs, pipe, func, depRemoteStages)
+        case _ =>
+      }
+      indexSyms = indexSyms.filterNot { s => depRemoteStages.contains(s) }
+      val ad = flatOpt.map(_._1) // sym of flatten  addr
+
+      dbgs(s"$cu addr:[${addr.map(_.mkString(","))}], indexSyms:[${indexSyms.mkString(",")}], depRemoteStages:[${depRemoteStages.mkString(",")}]")
+
+      // PseudoStages
+      val indexStages:List[PseudoStage] = indexSyms.map{s => DefStage(s) }
+      val flatStages = flatOpt.map(_._2).getOrElse(Nil)
+      val remoteAddrStage = ad.map{a => AddrStage(mem, a) }
+      val addrStages = indexStages ++ flatStages ++ remoteAddrStage
+
+      //val isLocallyRead = isReadInPipe(mem, pipe)
+
+      // Currently have to duplicate if used in both address and compute
+      //if (indexSyms.nonEmpty && !isLocallyRead) 
+      if (indexSyms.nonEmpty) {
+        //dbg(s"Checking if symbols calculating ${addr.get} are used in current scope $pipe")
+        val symAddr = symsOnlyUsedInWriteAddr(stms)(func.result +: func.effectful, indexSyms)
+        dbgs(s"symsOnlyUsedInAddr:[${symAddr.mkString(",")}]")
+        remoteStages ++= symAddr
+      }
+      addrStages
+    }
+  }
+
+  // HACK: Ignore write address for SRAMs written from popping the result of tile loads
+  // (Skipping the vector packing/unpacking nonsense in between)
+  def useFifoOnWrite(mem: Exp[Any], value: Exp[Any]): Boolean = dbgblk(s"useFifoOnWrite($mem)") {
+    value match { //TODO how about gather??
+      case Def(FIFODeq(fifo, en, _))     =>
+        dbgs(s"$value = pop($fifo) [${writersOf(fifo)}]")
+        writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
+      case Def(ParFIFODeq(fifo, ens, _)) =>
+        dbgs(s"$value = pop($fifo) [${writersOf(fifo)}]")
+        writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
+      case Def(ListVector(elems))    =>
+        dbgs(s"$value = vector")
+        useFifoOnWrite(mem, elems.head)
+      case Def(VectorApply(vector,index))     =>
+        dbgs(s"$value = vec")
+        useFifoOnWrite(mem, vector)
+      case _ =>
+        dbgs(s"$value -> no FIFO-on-write")
+        //dbg(s"Written value is $value = $d: FIFO-on-write disallowed")
+        false
+    }
+  }
+
+  // HACK! Determine start and end bounds for enable on FIFO
+  def getFifoBounds(en: Option[Exp[Any]]): (Option[Exp[Any]], Option[Exp[Any]]) = en match {
+    case Some( Def(And( Def(FixLeq(start,i1)), Def(FixLt(i2,end)) )) ) => (Some(start), Some(end))
+    case Some( Def(And(x, y))) =>
+      val xBnd = getFifoBounds(Some(x))
+      val yBnd = getFifoBounds(Some(y))
+
+      if (xBnd._1.isDefined) xBnd else yBnd
+
+    case Some( Def(ListVector(en) )) => getFifoBounds(Some(en.head))
+    case Some( Def(VectorApply(vector,index))) => getFifoBounds(Some(vector))
+    case _ => (None, None)
+  }
+
+  /* 
+   * Find SRAMLoads whose value is not just used for indecies calculation of other loads/stores
+   * Handle data depended load/store
+   * */
+  def nonIndOnlySRAMLoads(func:Block[Any], stms:Seq[Stm]) = {
+    var nonIndOnlyLoads:List[Symbol] = Nil 
+    var symInAddrCalc:List[Symbol] = Nil
+    foreachSymInBlock(func) {
+      case writer@ParLocalWriter(writes) if !isControlNode(writer) =>
+        writes.foreach{case (mem, value, addrs, ens) =>
+          val addr = addrs.map{_.head}
+          symInAddrCalc = symInAddrCalc ++ addr.map { is => symsUsedInCalcExps(stms)(is) }.getOrElse(Nil)
+        }
+      case reader@ParLocalReader(reads) if !isControlNode(reader) =>
+        reads.foreach{ case (mem, addrs ,ens) =>
+          val addr = addrs.map{_.head}
+          symInAddrCalc = symInAddrCalc ++ addr.map { is => symsUsedInCalcExps(stms)(is) }.getOrElse(Nil)
+        }
+        nonIndOnlyLoads = nonIndOnlyLoads :+ reader
+      case _ =>
+    }
+    //FIXME: Consider the case when a load is used both for data depended load/store and actual
+    //computation for output of block
+    nonIndOnlyLoads = nonIndOnlyLoads.filter { s => symInAddrCalc.contains(s) }  
+    if (nonIndOnlyLoads.nonEmpty) dbgs(s"nonIndOnlyLoads: ${nonIndOnlyLoads.mkString(",")}")
+    nonIndOnlyLoads
+  }
+
+  def prescheduleStages(pipe: Symbol, func: Block[Any]):Unit = dbgblk(s"prescheduleStages ${qdef(pipe)}") {
     val cu = allocateCU(pipe)
 
     val remotelyAddedStages = cu.computeStages // Stages added prior to traversing this pipe
@@ -334,136 +485,33 @@ trait PIRAllocation extends PIRTraversal {
     val stms = remotelyAddedStms ++ blockContents(func)
     val stages = stms.map{case TP(lhs,rhs) => lhs}
 
-    var remoteStages: Set[Exp[Any]] = Set.empty   // Stages to ignore (goes on different CU)
-
-    // HACK: Ignore write address for SRAMs written from popping the result of tile loads
-    // (Skipping the vector packing/unpacking nonsense in between)
-    def useFifoOnWrite(mem: Exp[Any], value: Exp[Any]): Boolean = value match { //TODO how about gather??
-      case Def(FIFODeq(fifo, en, _))     =>
-        dbg(s"      $value = pop($fifo) [${writersOf(fifo)}]")
-        writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
-      case Def(ParFIFODeq(fifo, ens, _)) =>
-        dbg(s"      $value = pop($fifo) [${writersOf(fifo)}]")
-        writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
-      case Def(ListVector(elems))    =>
-        dbg(s"      $value = vector")
-        useFifoOnWrite(mem, elems.head)
-      case Def(VectorApply(vector,index))     =>
-        dbg(s"      $value = vec")
-        useFifoOnWrite(mem, vector)
-      case _ =>
-        dbg(s"      $value -> no FIFO-on-write")
-        //dbg(s"Written value is $value = $d: FIFO-on-write disallowed")
-        false
-    }
-
-    // HACK! Determine start and end bounds for enable on FIFO
-    def getFifoBounds(en: Option[Exp[Any]]): (Option[Exp[Any]], Option[Exp[Any]]) = en match {
-      case Some( Def(And( Def(FixLeq(start,i1)), Def(FixLt(i2,end)) )) ) => (Some(start), Some(end))
-      case Some( Def(And(x, y))) =>
-        val xBnd = getFifoBounds(Some(x))
-        val yBnd = getFifoBounds(Some(y))
-
-        if (xBnd._1.isDefined) xBnd else yBnd
-
-      case Some( Def(ListVector(en) )) => getFifoBounds(Some(en.head))
-      case Some( Def(VectorApply(vector,index))) => getFifoBounds(Some(vector))
-      case _ => (None, None)
-    }
+    val remoteStages = mutable.Set[Symbol]()   // Stages to ignore (goes on different CU)
 
     cu.computeStages.clear() // Clear stages so we don't duplicate existing stages
+    
+    // sram loads that are not just used in index calculation 
+    var nonIndOnlyLoads:List[Symbol] = nonIndOnlySRAMLoads(func, stms)
 
+    /* Schedule remote addr calculation */
     foreachSymInBlock(func){
       // NOTE: Writers always appear to occur in the associated writer controller
       // However, register reads may appear outside their corresponding controller
       case writer@ParLocalWriter(writes) if !isControlNode(writer) =>
-        val rhs = writer match {case Def(d) => d; case _ => null }
-        dbg(s"  $writer = $rhs [WRITER]")
+        scheduleWrite(writer, writes, stms, cu, pipe, func, remoteStages)
 
-        writes.foreach{case (mem, value, addrs, ens) =>
-          dbg(s"    Checking if $mem write can be implemented as FIFO-on-write:")
-          val addr = addrs.map{_.head}
-          val writeAsFIFO = value.exists{v => useFifoOnWrite(mem, v) }
+      case reader@ParLocalReader(reads) if !isControlNode(reader) & !nonIndOnlyLoads.contains(reader) =>
+        scheduleRead(reader, reads, stms, List(cu), pipe, func, remoteStages)
 
-          if ((isBuffer(mem) || isFIFO(mem)) && writeAsFIFO) {
-            // This entire section is a hack to support FIFO-on-write for burst loads
-            val enableComputation = ens.map{e => getScheduleForAddress(stms)(Seq(e)) }.getOrElse(Nil)
-            val enableSyms = enableComputation.map{case TP(s,d) => s} ++ ens
-            dbg(s"    write(mem=$mem, value=$value, addr=$addr, ens=$ens):")
-            dbg(s"    ens:$ens enableSyms:${enableSyms.mkString(",")}")
-
-            val (start,end) = getFifoBounds(ens)
-
-            val startX = start match {case start@Some(Def(_:RegRead[_])) => start; case _ => None }
-            val endX = end match {case end@Some(Def(_:RegRead[_])) => end; case _ => None }
-
-            val remoteWriteStage = FifoOnWriteStage(mem, startX, endX)
-            val enStages = startX.map{s => DefStage(s) }.toList ++ endX.map{s => DefStage(s) }.toList
-            dbg(s"    boundStages:")
-            enStages.foreach { stage => dbg(s"      $stage") }
-
-            allocateWrittenSRAM(writer, mem, cu, enStages ++ List(remoteWriteStage))
-
-            //TODO consider parSRAMStore, localWrite addr will be None 
-            val indexComputation = addr.map{is => getScheduleForAddress(stms)(is) }.getOrElse(Nil)
-            val indexSyms = indexComputation.map{case TP(s,d) => s}
-            remoteStages ++= symsOnlyUsedInWriteAddrOrEn(stms)(func.result +: func.effectful, indexSyms ++ enableSyms)
-          }
-          else if (isBuffer(mem)) {
-            val indexComputation:List[Stm] = addr.map{is => getScheduleForAddress(stms)(is) }.getOrElse(Nil)
-            val indexSyms:List[Symbol] = indexComputation.map{case TP(s,d) => s }
-            val indexStages:List[PseudoStage] = indexSyms.map{s => DefStage(s) }
-            val flatOpt = addr.map{is => flattenNDIndices(is, stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]])) }
-            val ad = flatOpt.map(_._1) // sym of flatten  addr
-            val remoteWriteStage = ad.map{a => AddrStage(mem, a) }
-            val addrStages = indexStages ++ flatOpt.map(_._2).getOrElse(Nil) ++ remoteWriteStage
-
-            allocateWrittenSRAM(writer, mem, cu, addrStages)
-
-            val isLocallyRead = isReadInPipe(mem, pipe)
-            // Currently have to duplicate if used in both address and compute
-            if (indexSyms.nonEmpty && !isLocallyRead) {
-              //dbg(s"  Checking if symbols calculating ${addr.get} are used in current scope $pipe")
-              remoteStages ++= symsOnlyUsedInWriteAddr(stms)(func.result +: func.effectful, indexSyms)
-            }
-          }
-        }
-
-      case reader@ParLocalReader(reads) if !isControlNode(reader) =>
-        val rhs = reader match {case Def(d) => d; case _ => null }
-        dbg(s"  $reader = $rhs [READER]")
-
-        dbg(s"  reads:")
-        reads.foreach{ case (mem,addrs,ens) =>
-          val addr = addrs.map{_.head}
-          dbg(s"    $mem $addr $ens")
-          if (isReg(mem)) {
-            prescheduleRegisterRead(mem, reader, Some(pipe))
-            val isLocallyRead = isReadInPipe(mem, pipe, Some(reader))
-            val isLocallyWritten = isWrittenInPipe(mem, pipe)
-            //dbg(s"  isLocallyRead: $isLocallyRead, isLocallyWritten: $isLocallyWritten")
-            if (!isLocallyWritten || !isLocallyRead || isInnerAccum(mem)) remoteStages += reader
-          }
-          else if (isBuffer(mem)) {
-            val sram = mem.asInstanceOf[Exp[SRAM[_]]]
-
-            val indexComputation:List[Stm] = addr.map{is => getScheduleForAddress(stms)(is) }.getOrElse(Nil)
-            val indexSyms:List[Symbol] = indexComputation.map{case TP(s,d) => s }
-            val indexStages:List[PseudoStage] = indexSyms.map{s => DefStage(s) }
-            val flatOpt = addr.map{is => flattenNDIndices(is, stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]])) }
-            val ad = flatOpt.map(_._1) // sym of flatten  addr
-            val remoteReadStage = ad.map{a => AddrStage(mem, a) }
-            val addrStages = indexStages ++ flatOpt.map(_._2).getOrElse(Nil) ++ remoteReadStage
-
-            allocateReadSRAM(reader, sram, cu, addrStages)
-          }
-        }
+      case reader@ParLocalReader(reads) if !isControlNode(reader) & nonIndOnlyLoads.contains(reader) =>
+        dbgs(s"${qdef(reader)} [Index]")
+        val Def(d) = reader
+        visitFat(List(reader), d)
 
       case lhs@Op(rhs) => //TODO
-        dbg(s"  $lhs = $rhs [OTHER]")
+        dbgs(s"${qdef(lhs)} [OTHER]")
         visit(lhs, rhs)
       case lhs@Def(rhs) =>
-        dbg(s"  $lhs = $rhs [OTHER]")
+        dbgs(s"${qdef(lhs)} [OTHER]")
         visitFat(List(lhs), rhs)
     }
 
@@ -473,7 +521,7 @@ trait PIRAllocation extends PIRTraversal {
     val trueComputation = localCompute.filterNot{case Exact(_) => true; case s => isRegisterRead(s)}
     if (isOuterControl(pipe) && trueComputation.nonEmpty) {
       warn(s"Outer control $pipe has compute stages: ")
-      trueComputation.foreach{case lhs@Def(rhs) => warn(s"  $lhs = $rhs")}
+      trueComputation.foreach{case lhs@Def(rhs) => warn(s"$lhs = $rhs")}
     }
 
     cu.computeStages ++= localCompute.map{s => 
@@ -485,16 +533,22 @@ trait PIRAllocation extends PIRTraversal {
       DefStage(s, isReduce = isReduce)
     }
 
-    dbg(s"  remoteStages for $cu:")
-    remoteStages.foreach { s => 
-      val Def(d) = s
-      dbg(s"    $s = $d")
+    dbgblk(s"remoteStages for $cu:") {
+      remoteStages.foreach { s => 
+        s match {
+          case Def(d) =>
+            dbgs(s"$s = $d")
+          case s =>
+            dbgs(s"$s")
+        }
+      }
     }
-    dbg(s"  prescheduled stages for $cu:")
-    cu.computeStages.foreach { s =>
-      s match {
-        case s@DefStage(op, _) => dbg(s"    $s reduceType=${reduceType(op)}")
-        case s => dbg(s"    $s")
+    dbgblk(s"prescheduled stages for $cu:") {
+      cu.computeStages.foreach { s =>
+        s match {
+          case s@DefStage(op, _) => dbgs(s"$s reduceType=${reduceType(op)}")
+          case s => dbgs(s"$s")
+        }
       }
     }
   }
@@ -552,7 +606,7 @@ trait PIRAllocation extends PIRTraversal {
 
 
     val addr = allocateReadSRAM(pipe, addrs, cu, Nil)
-    addr.readAddr = Some(i)
+    addr.readAddr = Some(i) //TODO: Change to remote remote Addr?
 
     val addrIn = fresh[Int32]
     cu.addReg(addrIn, SRAMReadReg(addr))
@@ -564,7 +618,7 @@ trait PIRAllocation extends PIRTraversal {
 
     readersOf(local).foreach{reader =>
       val readerCU = allocateCU(reader.ctrlNode)
-      copyIterators(readerCU, cu)
+      //copyIterators(readerCU, cu)
 
       val sram = allocateMem(local, reader.node, readerCU)
       sram.mode = FIFOOnWriteMode
@@ -695,7 +749,7 @@ trait PIRAllocation extends PIRTraversal {
                 if (key.isDefined) {
                   cu.writeStages += List(copy) -> ownerCU.writeStages(key.get)
                 }
-                dbg(s"Adding SRAM $copy ($reader, $mem) read in write stage of $cu")
+                dbgs(s"Adding SRAM $copy ($reader, $mem) read in write stage of $cu")
               }
           }
           case _ =>

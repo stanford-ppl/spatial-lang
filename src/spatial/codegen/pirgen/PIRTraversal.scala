@@ -12,6 +12,17 @@ trait PIRTraversal extends SpatialTraversal {
   val IR: SpatialExp with PIRCommonExp
   import IR.{println => _, _}
 
+  var tablevel = 0 // Doesn't change tab level with traversal of block
+  def dbgs(s:Any):Unit = dbg("  "*tablevel + s)
+  def dbgblk[T](s:String)(block: =>T) = {
+    dbgs(s + " {")
+    tablevel += 1
+    val res = block
+    tablevel -=1
+    dbgs(s"}")
+    res
+  }
+
   def quote(x: Symbol):String = s"$x" //TODO: super.quote(aliasOf(x))
 
   val LANES = 16         // Number of SIMD lanes per CU
@@ -99,6 +110,34 @@ trait PIRTraversal extends SpatialTraversal {
     traverseStmsInBlock(b, sfunc _)
   }
 
+  def copyIterators(destCU: AbstractComputeUnit, srcCU: AbstractComputeUnit): Map[CUCChain,CUCChain] = {
+    if (destCU != srcCU) {
+      val cchainCopies = srcCU.cchains.toList.map{
+        case cc@CChainCopy(name, inst, owner) => cc -> cc
+        case cc@CChainInstance(name, ctrs)    => cc -> CChainCopy(name, cc, srcCU)
+        case cc@UnitCChain(name)              => cc -> CChainCopy(name, cc, srcCU)
+      }
+      val cchainMapping = Map[CUCChain,CUCChain](cchainCopies:_*)
+
+      destCU.cchains ++= cchainCopies.map(_._2)
+      dbgs(s"copying iterators from ${srcCU.name} to ${destCU.name} destCU.cchains:[${destCU.cchains.mkString(",")}]")
+
+      // FIXME: Shouldn't need to use getOrElse here
+      srcCU.iterators.foreach{ case (iter,CounterReg(cchain,idx)) =>
+        val reg = CounterReg(cchainMapping.getOrElse(cchain,cchain),idx)
+        destCU.addReg(iter, reg)
+        //dbgs(s"$iter -> $reg")
+      }
+      srcCU.valids.foreach{case (iter, ValidReg(cchain,idx)) =>
+        val reg = ValidReg(cchainMapping.getOrElse(cchain,cchain), idx) 
+        destCU.addReg(iter, reg)
+        //dbgs(s"$iter -> $reg")
+      }
+      cchainMapping
+    }
+    else Map.empty[CUCChain,CUCChain]
+  }
+
   // HACK: Ignore simple effect scheduling dependencies in remote writes
   def getScheduleForAddress(stms: Seq[Stm])(addr: Seq[Symbol]):List[Stm] = {
     def mysyms(rhs: Symbol) = rhs match {
@@ -167,7 +206,12 @@ trait PIRTraversal extends SpatialTraversal {
     }
   }
 
-
+ // symbols used to calculate syms. Including exps
+  def symsUsedInCalcExps(stms:Seq[Stm])(exps:Seq[Symbol]):List[Sym[_]] = {
+    val stmsForExps = getScheduleForAddress(stms)(exps)
+    val syms = stmsForExps.map{case TP(s,d) => s} ++ exps
+    syms.collect { case sym:Sym[_] => sym }
+  }
 
   // --- Transformation functions
   def removeComputeStages(cu: CU, remove: Set[Stage]) {
@@ -306,7 +350,20 @@ trait PIRTraversal extends SpatialTraversal {
     }
     def addRef(x: Symbol, ref: LocalRef) { refs += x -> ref }
     def getReg(x: Symbol): Option[LocalComponent] = cu.get(x)
-    def reg(x: Symbol): LocalComponent = cu.get(x).getOrElse(throw new Exception(s"No register defined for $x"))
+    def reg(x: Symbol)(implicit mapping:mutable.Map[Symbol, List[PCU]]): LocalComponent = {
+      cu.get(x).getOrElse {
+        val r = x match {
+          case b:Bound[_] => 
+            val fromCUs = mapping(parentOf(b).getOrElse(throw new Exception(s"$b doesn't have parent")))
+            assert(fromCUs.size==1) // parent of bounds must be a controller in spatial
+            val fromCU = fromCUs.head 
+            copyIterators(cu, fromCU)
+            cu.get(x)
+          case _ => None
+        }
+        r.getOrElse(throw new Exception(s"No register defined for $x in $cu"))
+      }
+    }
 
     // Add a stage which bypasses x to y
     def bypass(x: LocalComponent, y: LocalComponent) {

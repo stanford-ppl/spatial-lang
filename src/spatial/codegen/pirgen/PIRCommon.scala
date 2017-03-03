@@ -65,31 +65,6 @@ trait PIRCommon extends PIR {
     case _ => Set.empty
   }
 
-
-  def copyIterators(destCU: AbstractComputeUnit, srcCU: AbstractComputeUnit): Map[CUCChain,CUCChain] = {
-    if (destCU != srcCU) {
-      val cchainCopies = srcCU.cchains.toList.map{
-        case cc@CChainCopy(name, inst, owner) => cc -> cc
-        case cc@CChainInstance(name, ctrs)    => cc -> CChainCopy(name, cc, srcCU)
-        case cc@UnitCChain(name)              => cc -> CChainCopy(name, cc, srcCU)
-      }
-      val cchainMapping = Map[CUCChain,CUCChain](cchainCopies:_*)
-
-      destCU.cchains ++= cchainCopies.map(_._2)
-
-      // FIXME: Shouldn't need to use getOrElse here
-      srcCU.iterators.foreach{ case (iter,CounterReg(cchain,idx)) =>
-        destCU.addReg(iter, CounterReg(cchainMapping.getOrElse(cchain,cchain),idx))
-      }
-      srcCU.valids.foreach{case (iter, ValidReg(cchain,idx)) =>
-        destCU.addReg(iter, ValidReg(cchainMapping.getOrElse(cchain,cchain), idx))
-      }
-      cchainMapping
-    }
-    else Map.empty[CUCChain,CUCChain]
-  }
-
-
   def localScalar(x: LocalComponent): LocalScalar = x match {
     case x: ScalarIn => x
     case x: ConstReg => x

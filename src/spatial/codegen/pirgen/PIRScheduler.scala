@@ -11,7 +11,7 @@ trait PIRScheduler extends PIRTraversal {
   override val name = "PIR Scheduler"
   override val recurse = Always
 
-  val mappingIn  = mutable.HashMap[Symbol, List[PCU]]()
+  implicit val mappingIn  = mutable.HashMap[Symbol, List[PCU]]()
   val mappingOut = mutable.HashMap[Symbol, List[CU]]()
 
   override protected def postprocess[S:Staged](block: Block[S]): Block[S] = {
@@ -29,47 +29,47 @@ trait PIRScheduler extends PIRTraversal {
     swapCUs(mappingOut.values.flatten, cuMapping)
 
     for ((k,v) <- cuMapping) {
-      dbg(s"$k -> $v")
+      dbgs(s"$k -> $v")
     }
 
     for (cu <- mappingOut.values.flatten) {
-      dbg(s"")
-      dbg(s"Generated CU: $cu")
-      dbg(s"Counter chains: ")
-      cu.cchains.foreach{cchain =>
-        dbg(s"  $cchain")
-      }
-
-      if (cu.srams.nonEmpty) {
-        dbg(s"SRAMs: ")
-        for (sram <- cu.srams) {
-          dbg(s"""  $sram [${sram.mode}] (sym: ${sram.mem}, reader: ${sram.reader})""")
-          dbg(s"""    banking   = ${sram.banking.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    writePort    = ${sram.writePort.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    readPort    = ${sram.readPort.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    writeAddr = ${sram.writeAddr.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    readAddr  = ${sram.readAddr.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    start     = ${sram.writeStart.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    end       = ${sram.writeEnd.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    swapWrite = ${sram.swapWrite.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    swapRead  = ${sram.swapRead.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    writeCtrl = ${sram.writeCtrl.map(_.toString).getOrElse("N/A")}""")
+      dbgblk(s"Generated CU: $cu") {
+        dbgblk(s"Counter chains: ") {
+          cu.cchains.foreach{cchain => dbgs(s"$cchain") }
         }
-      }
 
-      for (srams <- cu.writeStages.keys) {
-        dbg(s"Generated write stages ($srams): ")
-        cu.writeStages(srams).foreach(stage => dbg(s"  $stage"))
-      }
-      for (srams <- cu.readStages.keys) {
-        dbg(s"Generated read stages ($srams): ")
-        cu.readStages(srams).foreach(stage => dbg(s"  $stage"))
-      }
-      dbg("Generated compute stages: ")
-      cu.computeStages.foreach(stage => dbg(s"  $stage"))
+        if (cu.srams.nonEmpty) {
+          dbgblk(s"SRAMs: ") {
+            for (sram <- cu.srams) {
+              dbgs(s"""$sram [${sram.mode}] (sym: ${sram.mem}, reader: ${sram.reader})""")
+              dbgs(s"""  banking   = ${sram.banking.map(_.toString).getOrElse("N/A")}""")
+              dbgs(s"""  writePort    = ${sram.writePort.map(_.toString).getOrElse("N/A")}""")
+              dbgs(s"""  readPort    = ${sram.readPort.map(_.toString).getOrElse("N/A")}""")
+              dbgs(s"""  writeAddr = ${sram.writeAddr.map(_.toString).getOrElse("N/A")}""")
+              dbgs(s"""  readAddr  = ${sram.readAddr.map(_.toString).getOrElse("N/A")}""")
+              dbgs(s"""  start     = ${sram.writeStart.map(_.toString).getOrElse("N/A")}""")
+              dbgs(s"""  end       = ${sram.writeEnd.map(_.toString).getOrElse("N/A")}""")
+              dbgs(s"""  swapWrite = ${sram.swapWrite.map(_.toString).getOrElse("N/A")}""")
+              dbgs(s"""  swapRead  = ${sram.swapRead.map(_.toString).getOrElse("N/A")}""")
+              dbgs(s"""  writeCtrl = ${sram.writeCtrl.map(_.toString).getOrElse("N/A")}""")
+            }
+          }
+        }
 
-      dbg(s"CU global inputs:")
-      globalInputs(cu).foreach{in => dbg(s"  $in") }
+        for (srams <- cu.writeStages.keys) {
+          dbgs(s"Generated write stages ($srams): ")
+          cu.writeStages(srams).foreach(stage => dbgs(s"  $stage"))
+        }
+        for (srams <- cu.readStages.keys) {
+          dbgs(s"Generated read stages ($srams): ")
+          cu.readStages(srams).foreach(stage => dbgs(s"  $stage"))
+        }
+        dbgs("Generated compute stages: ")
+        cu.computeStages.foreach(stage => dbgs(s"  $stage"))
+
+        dbgs(s"CU global inputs:")
+        globalInputs(cu).foreach{in => dbgs(s"  $in") }
+      }
     }
     block
   }
@@ -83,82 +83,88 @@ trait PIRScheduler extends PIRTraversal {
     }
   }
 
-  def schedulePCU(sym: Symbol, pcus: List[PCU]) {
+  def schedulePCU(sym: Symbol, pcus: List[PCU]):Unit = {
     mappingOut += sym -> pcus.map { pcu =>
-      val cu = pcu.copyToConcrete()
+      dbgblk(s"Scheduling $sym CU: $pcu") {
+        val cu = pcu.copyToConcrete()
+        dbgblk(s"SRAMs:") {
+          for (sram <- pcu.srams) {
+            dbgs(s"""$sram (sym: ${sram.mem}, reader: ${sram.reader})""")
+          }
+        }
+        dbgblk(s"Write stages:") {
+          for ((k,v) <- pcu.writeStages) {
+            dbgs(s"Memories: " + k.mkString(", "))
+            for (stage <- v._2) dbgs(s"  $stage")
+          }
+        }
+        dbgblk(s"Read stages:") {
+          pcu.readStages.foreach { case (k,v) =>
+            dbgs(s"Memories:" + k.mkString(", "))
+            for (stage <- v._2) dbgs(s"  $stage")
+          }
+        }
+        dbgblk(s"Compute stages:") { pcu.computeStages.foreach { stage => dbgs(s"$stage") } }
 
-      dbg(s"\n\n\n")
-      dbg(s"Scheduling $sym CU: $pcu")
-      for ((s,r) <- cu.regTable) {
-        dbg(s"  $s -> $r")
-      }
-      dbg(s"  SRAMs:")
-      for (sram <- pcu.srams) {
-        dbg(s"""    $sram (sym: ${sram.mem}, reader: ${sram.reader})""")
-      }
-      dbg(s"  Write stages:")
-      for ((k,v) <- pcu.writeStages) {
-        dbg(s"    Memories: " + k.mkString(", "))
-        for (stage <- v._2) dbg(s"      $stage")
-      }
-      dbg(s"  Read stages:")
-      for ((k,v) <- pcu.readStages) {
-        dbg(s"    Memories: " + k.mkString(", "))
-        for (stage <- v._2) dbg(s"      $stage")
-      }
-      dbg(s"  Compute stages:")
-      for (stage <- pcu.computeStages) dbg(s"    $stage")
+        val origRegs = cu.regs
+        var writeStageRegs = cu.regs
+        var readStageRegs = cu.regs
 
-      val origRegs = cu.regs
-      var writeStageRegs = cu.regs
-      var readStageRegs = cu.regs
+        // --- Schedule write contexts
+        for ((srams, (writer, stages)) <- pcu.writeStages) {
+          val ctx = WriteContext(cu, writer, srams)
+          ctx.init()
+          stages.foreach{stage => scheduleStage(stage, ctx) }
 
-      // --- Schedule write contexts
-      for ((srams, (writer, stages)) <- pcu.writeStages) {
-        val ctx = WriteContext(cu, writer, srams)
-        ctx.init()
-        stages.foreach{stage => scheduleStage(stage, ctx) }
+          writeStageRegs ++= cu.regs
+          cu.regs = origRegs
+        }
+        // --- Schedule read contexts
+        for ((srams, (reader, stages)) <- pcu.readStages) {
+          val ctx = ReadContext(cu, reader, srams)
+          ctx.init()
+          stages.foreach{stage => scheduleStage(stage, ctx) }
 
-        writeStageRegs ++= cu.regs
-        cu.regs = origRegs
-      }
-      // --- Schedule read contexts
-      for ((srams, (reader, stages)) <- pcu.readStages) {
-        val ctx = ReadContext(cu, reader, srams)
-        ctx.init()
-        stages.foreach{stage => scheduleStage(stage, ctx) }
+          readStageRegs ++= cu.regs //TODO: should writeStageRegs been removed?
+          cu.regs = origRegs
+        }
 
-        readStageRegs ++= cu.regs //TODO: should writeStageRegs been removed?
-        cu.regs = origRegs
+        dbgblk(s"regs:") {
+          for ((s,r) <- cu.regTable) { dbgs(s"$s -> $r") }
+        }
+        dbgblk(s"cchains:") {
+          cu.cchains.foreach { cchain => dbgs(s"$cchain") }
+        }
+        // --- Schedule compute context
+        val ctx = ComputeContext(cu)
+        pcu.computeStages.foreach{stage => scheduleStage(stage, ctx) }
+        cu.regs ++= writeStageRegs
+        cu.regs ++= readStageRegs
+        cu
       }
 
-      // --- Schedule compute context
-      val ctx = ComputeContext(cu)
-      pcu.computeStages.foreach{stage => scheduleStage(stage, ctx) }
-      cu.regs ++= writeStageRegs
-      cu.regs ++= readStageRegs
-      cu
     }
-
   }
 
-  def scheduleStage(stage: PseudoStage, ctx: CUContext) = stage match {
-    case DefStage(lhs@Def(rhs), isReduce) =>
-      //dbg(s"""$lhs = $rhs ${if (isReduce) "[REDUCE]" else ""}""")
-      if (isReduce) reduceNodeToStage(lhs,rhs,ctx)
-      else          mapNodeToStage(lhs,rhs,ctx)
+  def scheduleStage(stage: PseudoStage, ctx: CUContext):Unit = dbgblk(s"Scheduling stage:$stage") {
+    stage match {
+      case DefStage(lhs@Def(rhs), isReduce) =>
+        //dbg(s"""$lhs = $rhs ${if (isReduce) "[REDUCE]" else ""}""")
+        if (isReduce)   reduceNodeToStage(lhs,rhs,ctx)
+        else            mapNodeToStage(lhs,rhs,ctx)
 
-    case AddrStage(mem, addr) =>
-      //dbg(s"$mem @ $addr [WRITE]")
-      addrToStage(mem, addr, ctx)
+      case AddrStage(mem, addr) =>
+        //dbg(s"$mem @ $addr [WRITE]")
+        addrToStage(mem, addr, ctx)
 
-    case FifoOnWriteStage(mem, start, end) =>
-      //dbg(s"$mem [WRITE]")
-      fifoOnWriteToStage(mem, start, end, ctx)
+      case FifoOnWriteStage(mem, start, end) =>
+        //dbg(s"$mem [WRITE]")
+        fifoOnWriteToStage(mem, start, end, ctx)
 
-    case OpStage(op, ins, out, isReduce) =>
-      //dbg(s"""$out = $op(${ins.mkString(",")}) [OP]""")
-      opStageToStage(op, ins, out, ctx, isReduce)
+      case OpStage(op, ins, out, isReduce) =>
+        //dbg(s"""$out = $op(${ins.mkString(",")}) [OP]""")
+        opStageToStage(op, ins, out, ctx, isReduce)
+    }
   }
 
   // If addr is a counter or const, just returns that register back. Otherwise returns address wire

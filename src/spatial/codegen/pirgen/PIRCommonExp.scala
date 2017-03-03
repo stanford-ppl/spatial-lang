@@ -60,7 +60,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
   }
 
   // returns (sym of flatten addr, List[Addr Stages])
-  def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]) = {
+  def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]):(Symbol, List[OpStage]) = {
     val cdims:Seq[Int] = dims.map{case Final(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
     val strides:List[Symbol] = List.tabulate(dims.length){ d =>
       if (d == dims.length - 1) int32(1)
