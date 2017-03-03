@@ -29,13 +29,13 @@ trait CppGenDRAM extends CppGenSRAM {
   } 
 
   override protected def remap(tp: Staged[_]): String = tp match {
-    case tp: DRAMType[_] => src"DRAM"
+    // case tp: DRAMType[_] => src"DRAM"
     case _ => super.remap(tp)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => 
-      emit(src"""${lhs.tp}* $lhs = new DRAM(402653184*${offchipMems.length}, ${dims.map(quote).mkString("*")});""")
+      emit(src"""//${lhs.tp}* $lhs = new DRAM(402653184*${offchipMems.length}, ${dims.map(quote).mkString("*")});""")
       offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
 
     // case Gather(dram, local, addrs, ctr, i)  => emit("// Do what?")
@@ -46,10 +46,9 @@ trait CppGenDRAM extends CppGenSRAM {
   }
 
   override protected def emitFileFooter() = {
-    withStream(getStream("interface","h")) {
-      emit(s"""long* MemIns[0]; // Currently unused""")
-      emit(s"// long* MemOuts[${offchipMems.length}[64] // currently unused and also incorrect")
-    }
+    // withStream(getStream("interface","h")) {
+      // emit(s"""DRAM* memStreams[0];""")
+    // }
     super.emitFileFooter()
   }
 

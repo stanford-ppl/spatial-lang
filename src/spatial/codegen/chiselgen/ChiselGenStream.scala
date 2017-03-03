@@ -38,8 +38,9 @@ trait ChiselGenStream extends ChiselCodegen {
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
     case StreamDeq(stream, en) => 
-      emit(src"""val $lhs = ${stream}_data""")
+      emit(src"""val $lhs = ${stream}_data(0)""")
     case StreamEnq(stream, data, en) => 
+      emit(src"""val ${stream}_valid = ${parentOf(stream).get}_done & $en""")
       emit(src"""val ${stream}_data = $data""")
     case _ => super.emitNode(lhs, rhs)
   }

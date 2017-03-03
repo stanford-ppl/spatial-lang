@@ -19,7 +19,8 @@ trait CppGenController extends CppCodegen {
       emitBlock(func)
       toggleEn()
       emit(s"time_t tstart = time(0);")
-      emit(s"Top_run(&interface); // kernel_x123(engine, &interface);")
+      val memlist = s"""${if (setMems.length > 0) ","} ${setMems.mkString(",")}"""
+      emit(s"Top_run(&interface, ${setMems.length} ${memlist});")
       emit(s"time_t tend = time(0);")
       emit(s"double elapsed = difftime(tend, tstart);")
       emit(s"""std::cout << "Kernel done, test run time = " << elapsed << " ms" << std::endl;""")

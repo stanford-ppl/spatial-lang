@@ -66,6 +66,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
         fringeArgOut.bits := accelArgOut.bits
         fringeArgOut.valid := 1.U
     }
+    fringe.io.memStreams <> accel.io.memStreams
     accel.io.enable := fringe.io.enable
     fringe.io.done := accel.io.done
   }

@@ -375,6 +375,7 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   def parFifoLoad[T:Staged:Num](src1: Array[T], src2: Array[T], in: Int) = {
 
     val tileSize = 64 (64 -> 64)
+    val P1 = 16 (16 -> 16)
 
     val N = ArgIn[Int]
     setArg(N, in)
@@ -390,8 +391,8 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
       val f2 = FIFO[T](tileSize)
       Foreach(N by tileSize) { i =>
         Parallel {
-          f1 load src1FPGA(i::i+tileSize)
-          f2 load src2FPGA(i::i+tileSize)
+          f1 load src1FPGA(i::i+tileSize par P1)
+          f2 load src2FPGA(i::i+tileSize par P1)
         }
         val accum = Reduce(Reg[T](0.as[T]))(tileSize by 1){i =>
           f1.deq() * f2.deq()
