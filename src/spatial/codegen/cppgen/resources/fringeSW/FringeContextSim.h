@@ -25,6 +25,8 @@ public:
   VerilatedVcdC *tfp = NULL;
   uint32_t numArgIns = 0;
   uint32_t numArgOuts = 0;
+  uint32_t numMemStreams = 0;
+  uint64_t* memMap = new uint64_t[32]; // Random size that is sufficiently big
 
   FringeContextSim(std::string path = "") : FringeContextBase(path) {
 
@@ -59,6 +61,8 @@ public:
   virtual uint64_t malloc(size_t bytes) {
     size_t paddedSize = alignedSize(burstSizeBytes, bytes);
     void *ptr = aligned_alloc(burstSizeBytes, paddedSize);
+    tester->addMemStream((uint64_t) ptr);
+    memMap[numMemStreams++] = (uint64_t) ptr;
     return (uint64_t) ptr;
   }
 

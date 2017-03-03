@@ -18,7 +18,9 @@ protected:
   vluint64_t main_time;
   uint64_t numCycles;
   VerilatedVcdC* tfp;
-  signalCallbackMap watchMap;
+  signalCallbackMap watchMap; 
+  uint32_t numMemStreams = 0;
+  uint64_t* memMap = new uint64_t[32]; // Random size that is sufficiently big
 
 public:
     PeekPokeTester(DUT* _dut, VerilatedVcdC *_tfp = NULL) {
@@ -36,6 +38,14 @@ public:
 
     // Following methods return without doing any useful work
     void init_channels() { }
+
+    void addMemStream(uint64_t addr) {
+      memMap[numMemStreams++] = addr;
+    }
+
+    uint64_t getMemStream(uint32_t id) {
+      return memMap[id];
+    }
 
     void reset() {
         dut->reset = 1;
