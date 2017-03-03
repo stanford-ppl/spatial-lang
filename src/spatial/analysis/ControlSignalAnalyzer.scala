@@ -29,7 +29,8 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var localMems: List[Exp[_]] = Nil
   var metapipes: List[Exp[_]] = Nil
   var streampipes: List[Exp[_]] = Nil
-  var streamEnablers: List[Exp[_]] = Nil
+  var streamEnablers: List[Exp[_]] = Nil // Pops
+  var streamHolders: List[Exp[_]] = Nil // Pushes
   var top: Option[Exp[_]] = None
 
   override protected def preprocess[S:Staged](block: Block[S]) = {
@@ -144,6 +145,11 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     streamEnablers ::= stream
   }
 
+  def addStreamEnq(stream: Exp[_], ctrl: Exp[_]) = {
+    parentOf(stream) = ctrl
+    dbg(c"Registered stream holder $stream")
+    streamHolders ::= stream
+  }
 
   // (2, 3)
   def addChild(child: Exp[_], ctrl: Exp[_]) = {
@@ -207,6 +213,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
       if (isAllocation(lhs)) addAllocation(lhs, parent.node)  // (1, 7)
       if (isStreamStageEnabler(lhs)) addStreamDeq(lhs, parent.node)
+      if (isStreamStageHolder(lhs)) addStreamEnq(lhs, parent.node)
       if (isReader(lhs)) addReader(lhs, parent)               // (4)
       if (isWriter(lhs)) addWriter(lhs, parent)               // (5, 6, 10)
     }
@@ -312,13 +319,13 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       addChildDependencyData(lhs, map)
       isInnerAccum(accum) = isInnerControl(lhs)
 
-    case e: CoarseBurst[_,_] =>
+    case e: DenseTransfer[_,_] =>
       e.iters.foreach{i => parFactorOf(i) = int32(1) }
       e.iters.foreach { iter => parentOf(iter) = lhs }
-      parFactorsOf(lhs).headOption.foreach{p => parFactorOf(e.iters.last) = p }
+      parFactorOf(e.iters.last) = e.p
 
-    case e: Scatter[_] => parFactorOf(e.i) = parFactorsOf(lhs).head
-    case e: Gather[_]  => parFactorOf(e.i) = parFactorsOf(lhs).head
+    case e: SparseTransfer[_] =>
+      parFactorOf(e.i) = e.p
 
     case _ => super.visit(lhs, rhs)
   }

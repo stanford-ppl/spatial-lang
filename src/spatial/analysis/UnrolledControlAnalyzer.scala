@@ -13,10 +13,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
 
   override def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
     rhs match {
-      case e: BurstStore[_] => memStreams += e.dram
-      case e: BurstLoad[_]  => memStreams += e.dram
-      case e: Scatter[_]    => memStreams += e.dram
-      case e: Gather[_]     => memStreams += e.dram
+      case e: DRAMNew[_] => memStreams += lhs
       case _ =>
     }
     super.addCommonControlData(lhs, rhs)

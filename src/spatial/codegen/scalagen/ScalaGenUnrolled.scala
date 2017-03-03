@@ -68,6 +68,12 @@ trait ScalaGenUnrolled extends ScalaCodegen {
     case ParFIFOEnq(fifo, data, ens) =>
       emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $fifo.enqueue(data) }")
 
+    case e@ParStreamDeq(strm, ens, zero) =>
+      emit(src"val $lhs = $ens.map{en => if (en) $strm.dequeue() else $zero }")
+
+    case ParStreamEnq(strm, data, ens) =>
+      emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $strm.enqueue(data) }")
+
     case _ => super.emitNode(lhs, rhs)
   }
 }

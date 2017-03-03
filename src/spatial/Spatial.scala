@@ -48,7 +48,8 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenText with ScalaGenVoid
 
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
-  with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector {
+  with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
+  with ScalaGenStream {
 
   override val IR: SpatialCompiler
 }
@@ -58,13 +59,16 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenCounter with ChiselGenReg with ChiselGenSRAM with ChiselGenFIFO 
   with ChiselGenIfThenElse with ChiselGenPrint with ChiselGenController with ChiselGenMath with ChiselGenText
   with ChiselGenDRAM with ChiselGenStringCast with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
-  with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream {
+  with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream with ChiselGenStructs {
 
   override val IR: SpatialCompiler
 }
 
 protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen 
-  with PIRGenPrint with PIRGenUnrolled with PIRGenController with PIRGenSRAM
+  with PIRGenPrint with PIRGenController 
+  //with PIRGenCounter with PIRGenReg with PIRGenSRAM with PIRGenFIFO with PIRGenMath 
+  //with PIRGenDRAM with PIRGenStringCast with PIRGenHostTransfer with PIRGenUnrolled with PIRGenVector
+  //with PIRGenArray 
   {
 
   override val IR: SpatialCompiler
@@ -75,7 +79,8 @@ protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenCounter with CppGenReg with CppGenSRAM with CppGenFIFO 
   with CppGenIfThenElse with CppGenPrint with CppGenController with CppGenMath with CppGenText
   with CppGenDRAM with CppGenStringCast with CppGenHostTransfer with CppGenUnrolled with CppGenVector
-  with CppGenArray with CppGenArrayExt with CppGenAsserts with CppGenRange with CppGenAlteraVideo with CppGenStream{
+  with CppGenArray with CppGenArrayExt with CppGenAsserts with CppGenRange with CppGenAlteraVideo with CppGenStream
+  with CppGenHashMap with CppGenStructs{
 
   override val IR: SpatialCompiler
 }
@@ -117,7 +122,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
     def top = ctrlAnalyzer.top.get
   }
 
-  lazy val burstExpansion = new TransferSpecialization { val IR: self.type = self }
+  lazy val transferExpand = new TransferSpecialization { val IR: self.type = self }
 
   lazy val reduceAnalyzer = new ReductionAnalyzer { val IR: self.type = self }
 
@@ -128,7 +133,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val unroller       = new UnrollingTransformer { val IR: self.type = self }
 
   lazy val bufferAnalyzer = new BufferAnalyzer { val IR: self.type = self; def localMems = uctrlAnalyzer.localMems }
-  lazy val streamAnalyzer = new StreamAnalyzer { val IR: self.type = self ; def streamPipes = uctrlAnalyzer.streampipes; def streamEnablers = uctrlAnalyzer.streamEnablers }
+  lazy val streamAnalyzer = new StreamAnalyzer { val IR: self.type = self ; def streamPipes = uctrlAnalyzer.streampipes; def streamEnablers = uctrlAnalyzer.streamEnablers; def streamHolders = uctrlAnalyzer.streamHolders }
   lazy val dramAddrAlloc  = new DRAMAddrAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams }
 
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
@@ -175,7 +180,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // For now just doing it twice
   passes += scalarAnalyzer    // Bounds / global analysis
   passes += printer
-  passes += burstExpansion    // Expand burst loads/stores from single abstract nodes
+  passes += transferExpand    // Expand burst loads/stores from single abstract nodes
   passes += levelAnalyzer     // Pipe style annotation fixes after expansion
 
   // --- Post-Expansion Cleanup
@@ -216,9 +221,9 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // --- Code generation
   passes += scalagen
   passes += chiselgen
-  passes += treegen
   passes += pirgen 
   passes += cppgen
+  passes += treegen
 }
 
 protected trait SpatialIR extends SpatialCompiler

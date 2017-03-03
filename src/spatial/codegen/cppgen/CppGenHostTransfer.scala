@@ -8,16 +8,17 @@ trait CppGenHostTransfer extends CppCodegen  {
   val IR: HostTransferExp
   import IR._
 
+  var settedArgs: List[Sym[Reg[_]]] = List()
+
   override def quote(s: Exp[_]): String = {
   	if (SpatialConfig.enableNaming) {
 	    s match {
 	      case lhs: Sym[_] =>
-	        val Op(rhs) = lhs
-	        rhs match {
-	          case SetArg(reg:Sym[_],_) => s"x${lhs.id}_set${reg.id}"
-	          case GetArg(reg:Sym[_]) => s"x${lhs.id}_get${reg.id}"
-	          case SetMem(_,_) => s"x${lhs.id}_setMem"
-	          case GetMem(_,_) => s"x${lhs.id}_getMem"
+	        lhs match {
+	          case Def(SetArg(reg:Sym[_],_)) => s"x${lhs.id}_set${reg.id}"
+	          case Def(GetArg(reg:Sym[_])) => s"x${lhs.id}_get${reg.id}"
+	          case Def(SetMem(_,_)) => s"x${lhs.id}_setMem"
+	          case Def(GetMem(_,_)) => s"x${lhs.id}_getMem"
 	          case _ => super.quote(s)
 	        }
 	      case _ =>
@@ -30,7 +31,8 @@ trait CppGenHostTransfer extends CppCodegen  {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SetArg(reg, v) => 
-      emit(src"interface.ArgIns[0] = (${reg.tp}*) $v; // $lhs", forceful = true)
+      emit(src"interface.ArgIns[${settedArgs.length}] = (${reg.tp}*) $v; // $lhs", forceful = true)
+      settedArgs = settedArgs :+ lhs.asInstanceOf[Sym[Reg[_]]]
       emit(src"${reg.tp} $reg = $v;")
     case GetArg(reg)    => emit(src"${lhs.tp} $lhs = *$reg;", forceful = true)
     case SetMem(dram, data) => 

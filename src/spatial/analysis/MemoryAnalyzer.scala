@@ -3,6 +3,7 @@ package spatial.analysis
 import argon.traversal.CompilerPass
 import org.virtualized.SourceContext
 import spatial.SpatialExp
+import scala.collection.mutable
 
 trait MemoryAnalyzer extends CompilerPass {
   val IR: SpatialExp
@@ -64,7 +65,36 @@ trait MemoryAnalyzer extends CompilerPass {
     duplicates: Int,                // Duplicates
     ports: Map[Access, Set[Int]],   // Set of ports each access is connected to
     swaps: Map[Access, Ctrl]        // Swap controller for done signal for n-buffering
-  )
+  ) {
+
+    def depth = ports.values.map(_.max).max+1
+    // Assumes a fixed size, dual ported memory which is duplicated, both to meet duplicates and banking factors
+    def normalizedCost = depth * duplicates * instance.totalBanks
+  }
+
+  def mergeInstanceGroup(mem: Exp[_], a: InstanceGroup, b: InstanceGroup): InstanceGroup = {
+    if (a.metapipe != b.metapipe) {
+      error("Attempted to merge instance groups: ")
+      error(a.toString)
+      error(b.toString)
+      error("(Metapipe parents are not the same)")
+      sys.exit()
+    }
+    val depthA = a.ports.values.map(_.max).max
+    val depthB = b.ports.values.map(_.max).max
+    val ports = (a.ports.keys ++ b.ports.keys).map{access =>
+      access -> (a.ports.getOrElse(access, Set.empty) ++ b.ports.getOrElse(access, Set.empty))
+    }.toMap
+
+    InstanceGroup(
+      a.metapipe,
+      (a.accesses ++ b.accesses).distinct,
+      mergeMemory(mem, a.instance, b.instance),
+      duplicates = Math.max(a.duplicates, b.duplicates),
+      ports,
+      a.swaps ++ b.swaps
+    )
+  }
 
 
   def bankAccessGroup(
@@ -142,7 +172,43 @@ trait MemoryAnalyzer extends CompilerPass {
 
 
   def reachingWrites(mem: Exp[_], reader: Access) = writersOf(mem) // TODO: Account for "killing" writes, write ordering
-  def coalesceMemories(mem: Exp[Any], instances: List[InstanceGroup]) = instances // TODO: Cases for coalescing?
+
+  // TODO: Other cases for coalescing?
+  def coalesceMemories(mem: Exp[_], instances: List[InstanceGroup]): List[InstanceGroup] = {
+    val writers = writersOf(mem)
+    val readers = readersOf(mem)
+    def getMerge(a: InstanceGroup, b: InstanceGroup): Option[InstanceGroup] = {
+      val accesses = a.accesses ++ b.accesses
+      val merged = mergeInstanceGroup(mem, a, b)
+      val depth = merged.ports.values.map(_.max).max
+      val isLegal = (0 until depth).forall{port =>
+        val portAccesses = accesses.filter{a => merged.ports(a).contains(port) }
+        val read  = portAccesses.count(readers contains _)
+        val write = portAccesses.count(writers contains _)
+        read <= 1 && write <= 1
+      }
+      if (isLegal) Some(merged) else None
+    }
+
+    instances.groupBy(_.metapipe).toList.flatMap{
+      case (Some(metapipe), instances) =>
+        // 1. Coalesce memories with same metapipeline parent which don't have any port conflicts
+        // Find the groupings with the smallest resulting estimated cost
+        // Unfortunately, "merge everything all the time if possible" isn't necessarily the best course of action
+        // e.g. if we have a buffer with depth 2, banking of 2 and buffer depth 3 with banking of 3,
+        // merging the two together will require depth 3 with banking of 6
+        // Fortunately, the number of groups here is generally small (1 - 5), so runtime shouldn't be too much of an issue
+        // type Partition = Set[Set[InstanceGroup]]
+
+        // val cost = mutable.HashMap[Set[InstanceGroup], Int]()
+        // var partitions: Seq[Partition] = Nil
+
+        instances
+
+
+      case (None, instances) => instances
+    }
+  }
 
   trait BankSettings {
     def allowMultipleReaders: Boolean   = true
@@ -230,8 +296,8 @@ trait MemoryAnalyzer extends CompilerPass {
       case _:FIFOType[_] => bank(mem, bankFIFOAccess, FIFOSettings)
       case _:SRAMType[_] => bank(mem, bankSRAMAccess, SRAMSettings)
       case _:RegType[_]  => bank(mem, bankRegAccess, RegSettings)
-      case _:StreamInType[_]  => // TODO: Do we / can we bank stream in accesses? seems like no...
-      case _:StreamOutType[_] => // TODO: Do we / can we bank stream out accesses? seems like no...
+      case _:StreamInType[_]  => bankStream(mem)
+      case _:StreamOutType[_] => bankStream(mem)
       case tp => throw new UndefinedBankingException(tp)(ctxOrHere(mem))
     }}
 
@@ -316,5 +382,28 @@ trait MemoryAnalyzer extends CompilerPass {
     val duplicates = factors.flatten.map{case Exact(c) => c.toInt}.product
 
     (BankedMemory(Seq(NoBanking), depth = 1, isAccum = false), duplicates)
+  }
+
+  def bankStream(mem: Exp[_]): Unit = {
+    val reads = readersOf(mem)
+    val writes = writersOf(mem)
+    val accesses = reads ++ writes
+
+    accesses.foreach{access =>
+      dispatchOf.add(access, mem, 0)
+      portsOf(access, mem, 0) = Set(0)
+    }
+
+    val par = accesses.map{access =>
+      val factors = unrollFactorsOf(access.node) // relative to stream, which always has par of 1
+      factors.flatten.map{case Exact(c) => c.toInt}.product
+    }.max
+
+    /*val bus = mem match {
+      case Op(StreamInNew(bus)) => bus
+      case Op(StreamOutNew(bus)) => bus
+    }*/
+
+    duplicatesOf(mem) = List(BankedMemory(Seq(StridedBanking(1,par)),1,isAccum=false))
   }
 }

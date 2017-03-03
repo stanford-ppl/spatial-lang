@@ -38,6 +38,11 @@ object Arguments {
     (32, "min"),
     (32, "max")
   )
+  val SpecialAccum = List(
+    (0,"add","UInt",List(32)),
+    (1,"add","FixedPoint",List(1,16,16))
+    // (18,"max","FloatingPoint",List(24,8))
+  )
   val FF = List(
     16,
     32,
@@ -154,6 +159,14 @@ object Launcher {
     (s"UIntAccum$i" -> { (backendName: String) =>
         Driver(() => new UIntAccum(arg), "verilator") {
           (c) => new UIntAccumTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.SpecialAccum.zipWithIndex.map{ case(arg,i) => 
+    (s"SpecialAccum$i" -> { (backendName: String) =>
+        Driver(() => new SpecialAccum(arg), "verilator") {
+          (c) => new SpecialAccumTests(c)
         }
       }) 
   }.toMap

@@ -8,8 +8,18 @@ abstract class FPGATarget {
 case class Pin(name: String) {
   override def toString = name
 }
-case class Bus(valid: Pin, data: Seq[Pin]) {
+
+abstract class Bus {
+  def length: Int
+}
+
+case class PinBus(valid: Pin, data: Seq[Pin]) extends Bus {
   override def toString = "Bus(" + valid.toString + ": " + data.mkString(", ") + ")"
+  def length = data.length
+}
+
+object Bus {
+  def apply(valid: Pin, data: Pin*) = PinBus(valid, data)
 }
 
 object Targets {

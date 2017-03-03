@@ -13,13 +13,13 @@ import chisel3._
 class NBufCtr() extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
-      val start    = UInt(32.W).asInput // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
-      val max      = UInt(32.W).asInput
-      val countUp  = Bool().asInput
-      val enable = Bool().asInput
+      val start    = Input(UInt(32.W)) // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
+      val max      = Input(UInt(32.W))
+      val countUp  = Input(Bool())
+      val enable = Input(Bool())
     }
     val output = new Bundle {
-      val count      = UInt(32.W).asOutput
+      val count      = Output(UInt(32.W))
     }
   })
 
@@ -40,14 +40,14 @@ class NBufCtr() extends Module {
 class IncDincCtr(inc: Int, dinc: Int, max: Int) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
-      val inc_en     = Bool().asInput
-      val dinc_en    = Bool().asInput
+      val inc_en     = Input(Bool())
+      val dinc_en    = Input(Bool())
     }
     val output = new Bundle {
-      val overread      = Bool().asOutput
-      val overwrite      = Bool().asOutput
-      val empty         = Bool().asOutput
-      val full          = Bool().asOutput
+      val overread      = Output(Bool())
+      val overwrite      = Output(Bool())
+      val empty         = Output(Bool())
+      val full          = Output(Bool())
     }
   })
 
@@ -71,12 +71,12 @@ class IncDincCtr(inc: Int, dinc: Int, max: Int) extends Module {
 class RedxnCtr() extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
-      val max      = UInt(32.W).asInput
-      val enable = Bool().asInput
-      val reset = Bool().asInput
+      val max      = Input(UInt(32.W))
+      val enable = Input(Bool())
+      val reset = Input(Bool())
     }
     val output = new Bundle {
-      val done      = Bool().asOutput
+      val done      = Output(Bool())
     }
   })
 
@@ -96,25 +96,25 @@ class RedxnCtr() extends Module {
 class SingleCounter(val par: Int) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
-      val start    = UInt(32.W).asInput // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
-      val max      = UInt(32.W).asInput
-      val stride   = UInt(32.W).asInput
-      val gap      = UInt(32.W).asInput
-      // val wrap     = Bool().asInput // TODO: This should let 
+      val start    = Input(UInt(32.W)) // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
+      val max      = Input(UInt(32.W))
+      val stride   = Input(UInt(32.W))
+      val gap      = Input(UInt(32.W))
+      // val wrap     = BoolInput(()) // TODO: This should let 
       //                                   user specify (8 by 3) ctr to go
       //                                   0,3,6 (wrap) 1,4,7 (wrap) 2,5...
       //                                   instead of default
       //                                   0,3,6 (wrap) 0,3,6 (wrap) 0,3...
-      val reset  = Bool().asInput
-      val enable = Bool().asInput
-      val saturate = Bool().asInput
+      val reset  = Input(Bool())
+      val enable = Input(Bool())
+      val saturate = Input(Bool())
     }
     val output = new Bundle {
-      val count      = Vec(par, UInt(32.W).asOutput)
-      val countWithoutWrap = Vec(par, UInt(32.W).asOutput) // Rough estimate of next val without wrap, used in FIFO
-      val done   = Bool().asOutput
-      val extendedDone = Bool().asOutput
-      val saturated = Bool().asOutput
+      val count      = Vec(par, Output(UInt(32.W)))
+      val countWithoutWrap = Vec(par, Output(UInt(32.W))) // Rough estimate of next val without wrap, used in FIFO
+      val done   = Output(Bool())
+      val extendedDone = Output(Bool())
+      val saturated = Output(Bool())
     }
   })
 
@@ -169,20 +169,20 @@ class Counter(val par: List[Int]) extends Module {
 
   val io = IO(new Bundle {
     val input = new Bundle {
-      val starts    = Vec(depth, UInt(32.W).asInput)
-      val maxes      = Vec(depth, UInt(32.W).asInput)
-      val strides   = Vec(depth, UInt(32.W).asInput)
-      val gaps      = Vec(depth, UInt(32.W).asInput)
-      val reset  = Bool().asInput
-      val enable = Bool().asInput
-      val saturate = Bool().asInput
+      val starts    = Vec(depth, Input(UInt(32.W)))
+      val maxes      = Vec(depth, Input(UInt(32.W)))
+      val strides   = Vec(depth, Input(UInt(32.W)))
+      val gaps      = Vec(depth, Input(UInt(32.W)))
+      val reset  = Input(Bool())
+      val enable = Input(Bool())
+      val saturate = Input(Bool())
     }
     val output = new Bundle {
-      val counts      = Vec(numWires, UInt(32.W).asOutput) 
-      // val countBases  = Vec(depth, UInt(32.W).asOutput) // For debugging the base of each ctr
-      val done   = Bool().asOutput
-      val extendedDone   = Bool().asOutput // Tool for ensuring done signal is stable for one rising edge
-      val saturated = Bool().asOutput
+      val counts      = Vec(numWires, Output(UInt(32.W))) 
+      // val countBases  = Vec(depth, UInt(32.WOutput())) // For debugging the base of each ctr
+      val done   = Output(Bool())
+      val extendedDone   = Output(Bool()) // Tool for ensuring done signal is stable for one rising edge
+      val saturated = Output(Bool())
     }
   })
 

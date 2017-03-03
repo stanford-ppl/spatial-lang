@@ -40,11 +40,8 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
       annotateMemReduce(lhs)
       if (hasControlNodes(e.reduce)) new ControlInReductionError(ctxOrHere(lhs))
 
-    case e: CoarseBurst[_,_] => styleOf(lhs) = InnerPipe
-    case e: BurstLoad[_]  => styleOf(lhs) = InnerPipe
-    case e: BurstStore[_] => styleOf(lhs) = InnerPipe
-    case e: Scatter[_]    => styleOf(lhs) = InnerPipe
-    case e: Gather[_]     => styleOf(lhs) = InnerPipe
+    case e: DenseTransfer[_,_] => styleOf(lhs) = InnerPipe
+    case e: SparseTransfer[_]  => styleOf(lhs) = InnerPipe
     case _ => super.visit(lhs, rhs)
   }
 }

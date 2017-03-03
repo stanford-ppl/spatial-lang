@@ -6,10 +6,10 @@ import chisel3._
 class Delayer(val length: Int) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
-      val data      = UInt(32.W).asInput
+      val data      = Input(UInt(32.W))
     }
     val output = new Bundle {
-      val data = UInt(32.W).asOutput
+      val data = Output(UInt(32.W))
     }
   })
 

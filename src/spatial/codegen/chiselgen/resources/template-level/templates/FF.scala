@@ -25,8 +25,8 @@ class FFOut(val w: Int) extends Bundle {
 
 class FF(val w: Int) extends Module {
   val io = IO(new Bundle{
-    val input = new FFIn(w).asInput
-    val output = new FFOut(w).asOutput
+    val input = Input(new FFIn(w))
+    val output = Output(new FFOut(w))
   })
   
   val ff = Reg(init = io.input.init)
@@ -61,13 +61,13 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
   def this(tuple: (Int, Int)) = this(tuple._1, tuple._2)
 
   val io = IO(new Bundle {
-    val sEn = Vec(numBufs, Bool().asInput)
-    val sDone = Vec(numBufs, Bool().asInput)
-    val broadcast = new FFIn(w).asInput
-    val input = new FFIn(w).asInput
-    val writerStage = UInt(5.W).asInput // TODO: Not implemented anywhere, not sure if needed
-    val output = Vec(numBufs, new FFOut(w).asOutput)
-    // val swapAlert = Bool().asOutput // Used for regchains
+    val sEn = Vec(numBufs, Input(Bool()))
+    val sDone = Vec(numBufs, Input(Bool()))
+    val broadcast = Input(new FFIn(w))
+    val input = Input(new FFIn(w))
+    val writerStage = Input(UInt(5.W)) // TODO: Not implemented anywhere, not sure if needed
+    val output = Vec(numBufs, Output(new FFOut(w)))
+    // val swapAlert = Output(Bool()) // Used for regchains
   })
 
   def bitsToAddress(k:Int) = {(scala.math.log(k)/scala.math.log(2)).toInt + 1}
@@ -197,8 +197,8 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
 
 class FFNoInit(val w: Int) extends Module {
   val io = IO(new Bundle{
-    val input = new FFIn(w).asInput
-    val output = new FFOut(w).asOutput
+    val input = Input(new FFIn(w))
+    val output = Output(new FFOut(w))
   })
 
   val ff = Module(new FF(w))
@@ -211,8 +211,8 @@ class FFNoInit(val w: Int) extends Module {
 
 class FFNoInitNoReset(val w: Int) extends Module {
   val io = IO(new Bundle{
-    val input = new FFIn(w).asInput
-    val output = new FFOut(w).asOutput
+    val input = Input(new FFIn(w))
+    val output = Output(new FFOut(w))
   })
 
   val ff = Module(new FF(w))
@@ -225,8 +225,8 @@ class FFNoInitNoReset(val w: Int) extends Module {
 
 class FFNoReset(val w: Int) extends Module {
   val io = IO(new Bundle{
-    val input = new FFIn(w).asInput
-    val output = new FFOut(w).asOutput
+    val input = Input(new FFIn(w))
+    val output = Output(new FFOut(w))
   })
 
   val ff = Module(new FF(w))
@@ -244,10 +244,10 @@ class TFF() extends Module {
 
   val io = IO(new Bundle {
     val input = new Bundle {
-      val enable = Bool().asInput
+      val enable = Input(Bool())
     }
     val output = new Bundle {
-      val data = Bool().asOutput      
+      val data = Output(Bool())      
     }
   })
 
@@ -263,12 +263,12 @@ class SRFF() extends Module {
 
   val io = IO(new Bundle {
     val input = new Bundle {
-      val set = Bool().asInput // Set overrides reset.  Asyn_reset overrides both
-      val reset = Bool().asInput
-      val asyn_reset = Bool().asInput
+      val set = Input(Bool()) // Set overrides reset.  Asyn_reset overrides both
+      val reset = Input(Bool())
+      val asyn_reset = Input(Bool())
     }
     val output = new Bundle {
-      val data = Bool().asOutput      
+      val data = Output(Bool())      
     }
   })
 

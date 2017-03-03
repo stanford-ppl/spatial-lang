@@ -76,10 +76,10 @@ trait PIRAllocation extends PIRTraversal {
         s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
       case Def(e:UnrolledReduce[_,_]) => 
         s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
-      case Def(BurstLoad(dram, fifo, ofs, ctr, i)) =>
-        s"BurstLoad(dram=$dram, fifo=$fifo, ofs=$ofs, ctr=$ctr, i=$i)"
-      case Def(BurstStore(dram, fifo, ofs, ctr, i)) =>
-        s"BurstStore(dram=$dram, fifo=$fifo, ofs=$ofs, ctr=$ctr, i=$i)"
+      //case Def(BurstLoad(dram, fifo, ofs, ctr, i)) =>
+        //s"BurstLoad(dram=$dram, fifo=$fifo, ofs=$ofs, ctr=$ctr, i=$i)"
+      //case Def(BurstStore(dram, fifo, ofs, ctr, i)) =>
+        //s"BurstStore(dram=$dram, fifo=$fifo, ofs=$ofs, ctr=$ctr, i=$i)"
       case Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
       case Op(rhs) => s"$rhs"
       case Def(rhs) => s"$rhs"
@@ -93,10 +93,10 @@ trait PIRAllocation extends PIRTraversal {
     val style = pipe match {
       case Def(_:UnitPipe) => UnitCU
       case Def(_:Hwblock)  => UnitCU
-      case Def(_:BurstLoad[_]) => UnitCU
-      case Def(_:BurstStore[_]) => UnitCU
-      case Def(_:Scatter[_]) => StreamCU
-      case Def(_:Gather[_]) => StreamCU
+      //case Def(_:BurstLoad[_]) => UnitCU
+      //case Def(_:BurstStore[_]) => UnitCU
+      //case Def(_:Scatter[_]) => StreamCU
+      //case Def(_:Gather[_]) => StreamCU
       case _ if styleOf(pipe) == SeqPipe && isInnerPipe(pipe) => UnitCU
       case _ => typeToStyle(styleOf(pipe))
     }
@@ -109,9 +109,9 @@ trait PIRAllocation extends PIRTraversal {
       case Def(e:UnrolledForeach)      => addIterators(cu, e.cchain, e.iters, e.valids)
       case Def(e:UnrolledReduce[_,_])  => addIterators(cu, e.cchain, e.iters, e.valids)
       case Def(_:UnitPipe | _:Hwblock) => cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
-      case Def(_:BurstLoad[_] | _:BurstStore[_]) => cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
-      case Def(e:Scatter[_]) =>
-      case Def(e:Gather[_]) =>
+      //case Def(_:BurstLoad[_] | _:BurstStore[_]) => cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
+      //case Def(e:Scatter[_]) =>
+      //case Def(e:Gather[_]) =>
       case _ =>
     }
     if (top.isEmpty && parent.isEmpty) top = Some(pipe)
@@ -130,11 +130,10 @@ trait PIRAllocation extends PIRTraversal {
     case Def(_:UnrolledReduce[_,_]) => allocateComputeUnit(pipe)
     case Def(_:UnitPipe)            => allocateComputeUnit(pipe)
 
-    case Def(_:BurstLoad[_])  => allocateComputeUnit(pipe)
-    case Def(_:BurstStore[_]) => allocateComputeUnit(pipe)
-    case Def(_:Scatter[_])    => allocateComputeUnit(pipe)
-    case Def(_:Gather[_])     => allocateComputeUnit(pipe)
-
+    //case Def(_:BurstLoad[_])  => allocateComputeUnit(pipe)
+    //case Def(_:BurstStore[_]) => allocateComputeUnit(pipe)
+    //case Def(_:Scatter[_])    => allocateComputeUnit(pipe)
+    //case Def(_:Gather[_])     => allocateComputeUnit(pipe)
     case Def(d) => throw new Exception(s"Don't know how to generate CU for\n  $pipe = $d")
   }
 
@@ -413,10 +412,12 @@ trait PIRAllocation extends PIRTraversal {
     value match { //TODO how about gather??
       case Def(FIFODeq(fifo, en, _))     =>
         dbgs(s"$value = pop($fifo) [${writersOf(fifo)}]")
-        writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
+        //writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
+        false //TODO?
       case Def(ParFIFODeq(fifo, ens, _)) =>
         dbgs(s"$value = pop($fifo) [${writersOf(fifo)}]")
-        writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
+        //writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
+        false //TODO
       case Def(ListVector(elems))    =>
         dbgs(s"$value = vector")
         useFifoOnWrite(mem, elems.head)
@@ -676,7 +677,7 @@ trait PIRAllocation extends PIRTraversal {
     case UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV) =>
       prescheduleStages(lhs, func)
 
-    case BurstLoad(dram, fifo, ofs, ctr, i) =>
+    /*case BurstLoad(dram, fifo, ofs, ctr, i) =>
       val Def(CounterNew(start,end,step,par)) = ctr
       prescheduleBurstTransfer(lhs, dram, ofs, end, MemLoad)
 
@@ -690,7 +691,7 @@ trait PIRAllocation extends PIRTraversal {
 
     case Gather(dram, local, addrs, ctr, i) =>
       val Def(CounterNew(start,end,step,par)) = ctr
-      prescheduleGather(lhs, dram, local, addrs, end)
+      prescheduleGather(lhs, dram, local, addrs, end)*/
 
     case SRAMNew(dimensions) => 
 

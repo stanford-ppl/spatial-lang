@@ -31,7 +31,7 @@ trait ChiselGenReg extends ChiselCodegen {
     } else {
       super.quote(s)
     }
-  } 
+  }
 
   override protected def remap(tp: Staged[_]): String = tp match {
     case tp: RegType[_] => src"Array[${tp.typeArguments.head}]"
@@ -46,32 +46,51 @@ trait ChiselGenReg extends ChiselCodegen {
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       emit(src"val $lhs = Array($init)")
     case RegNew(init)    => 
+      val width = bitWidth(init.tp)
       val duplicates = duplicatesOf(lhs)  
       duplicates.zipWithIndex.foreach{ case (d, i) => 
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => 
-            if (d.isAccum) {
-              emitGlobal(src"""val ${lhs}_${i} = Module(new UIntAccum(32,"add"))""")
-            } else {
-              if (d.depth > 1) {
-                nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
-                emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
-              } else {
-                emitGlobal(src"val ${lhs}_${i} = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
-              }              
+            fps match {
+              case FixPtSum => 
+                if (d.isAccum) {
+                  if (!hasFracBits(lhs.tp.typeArguments.head)) {
+                    emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: Create correct accum based on type""")  
+                  } else {
+                    lhs.tp.typeArguments.head match {
+                      case FixPtType(s,d,f) => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","FixedPoint", List(${if (s) 1 else 0},$d,$f))) // TODO: Create correct accum based on type""")  
+                      case _ => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: Create correct accum based on type""")  
+                    }                  
+
+                  }
+                } else {
+                  if (d.depth > 1) {
+                    nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
+                    emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
+                  } else {
+                    emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
+                  }              
+                }
+              case _ => 
+                if (d.depth > 1) {
+                  nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
+                  emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
+                } else {
+                  emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
+                }
             }
           case _ =>
             if (d.depth > 1) {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
-              emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, 32)) // ${nameOf(lhs).getOrElse("")}")
+              emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
             } else {
-              emitGlobal(src"val ${lhs}_${i} = Module(new FF(32)) // ${nameOf(lhs).getOrElse("")}")
+              emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
             }
         } // TODO: Figure out which reg is really the accum
       }
     case RegRead(reg)    => 
       if (isArgIn(reg)) {
-        emitGlobal(src"""val $lhs = io.ArgIn.ports(${argIns.indexOf(reg)})""")
+        emitGlobal(src"""val $lhs = io.argIns(${argIns.indexOf(reg)})""")
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
@@ -83,17 +102,20 @@ trait ChiselGenReg extends ChiselCodegen {
                 case FixPtSum =>
                   if (hasFracBits(reg.tp.typeArguments.head)) {
                     reg.tp.typeArguments.head match {
-                      case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint($s, $d, $f, ${reg}_initval // get reset value that was created by reduce controller""")                    
+                      case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval // get reset value that was created by reduce controller""")                    
                     }
                   } else {
                     emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")                    
                   }
                   
-                case _ => 
-                  emit(src"""TODO: Emit reduction for some other kind of reduction function, not sure how to read""")
+                case _ =>  
+                  reg.tp.typeArguments.head match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+                    case FixPtType(s,d,f) => emit(src"""val $lhs = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_${inst}.read(${port.head})""")
+                    case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
+                  }
               }
             case _ =>
-              emit(s"TODO: Instance $inst of reg $reg is an accum, but has no reduction function associated with it!")
+              throw new AccumWithoutReduceFunctionException(reg, lhs)
           }
         } else {
           emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
@@ -114,7 +136,7 @@ trait ChiselGenReg extends ChiselCodegen {
           case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
         }
         
-        emit(src"""io.ArgOut.ports(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
+        emit(src"""io.argOuts(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
       } else {         
         reduceType(reg) match {
           case Some(fps: ReduceFunction) => // is an accumulator
@@ -132,7 +154,8 @@ trait ChiselGenReg extends ChiselCodegen {
                     emit(src"""${reg}_${ii}.write($reg, $en & Utils.delay(${reg}_wren,1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
                   }
                 case _ =>
-                  emit(src"""TODO: Emit reduction for some other kind of reduction function, not sure how to specialize""")
+                  val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
+                  emit(src"""${reg}_${ii}.write($v, $en & Utils.delay(${reg}_wren,1), false.B, List(${ports.mkString(",")}))""")
               }
             }
           case _ => // Not an accum
@@ -174,22 +197,20 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     }
 
-    withStream(getStream("IOModule")) {
-      open(s"""class ArgInBundle() extends Bundle{""")
-      emit(s"""val ports = Vec(${argIns.length}, Input(UInt(32.W)))""")
+    withStream(getStream("Instantiator")) {
+      emit("")
+      emit("// Scalars")
+      emit(s"val numArgIns = ${argIns.length}")
+      emit(s"val numArgOuts = ${argOuts.length}")
+      // emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
+      // emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
       argIns.zipWithIndex.map { case(p,i) => 
-        emit(s"""//  ${quote(p)} = argIns($i) ( ${nameOf(p).getOrElse("")} )""")
-      // argInsByName = argInsByName :+ s"${quote(p)}"
+        emit(s"""//${quote(p)} = argIns($i) ( ${nameOf(p).getOrElse("")} )""")
       }
-      close("}")
-
-      open(s"""class ArgOutBundle() extends Bundle{""")
-      emit(s"""val ports = Vec(${argOuts.length}, Output(UInt(32.W)))""")
       argOuts.zipWithIndex.map { case(p,i) => 
-        emit(s"""//  ${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
+        emit(s"""//${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }
-      close("}")
     }
 
     super.emitFileFooter()

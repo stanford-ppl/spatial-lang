@@ -35,17 +35,17 @@ class Mem1D(val size: Int, val isFifo: Boolean) extends Module { // Unbanked, in
   def this(size: Int) = this(size, true)
 
   val io = IO( new Bundle {
-    val w = new flatW(32).asInput
-    val r = new flatR(32).asInput
+    val w = Input(new flatW(32))
+    val r = Input(new flatR(32))
     val output = new Bundle {
-      val data  = UInt(32.W).asOutput
+      val data  = Output(UInt(32.W))
     }
     val debug = new Bundle {
-      val invalidRAddr = Bool().asOutput
-      val invalidWAddr = Bool().asOutput
-      val rwOn = Bool().asOutput
-      val error = Bool().asOutput
-      // val addrProbe = UInt(32.W).asOutput
+      val invalidRAddr = Output(Bool())
+      val invalidWAddr = Output(Bool())
+      val rwOn = Output(Bool())
+      val error = Output(Bool())
+      // val addrProbe = Output(UInt(32.W))
     }
   })
 
@@ -80,18 +80,18 @@ class MemND(val dims: List[Int]) extends Module {
   val N = dims.length // Number of dimensions
 
   val io = IO( new Bundle {
-    val w = new multidimW(N, 32).asInput
-    val wMask = Bool().asInput // Mask passed by SRAM for when a multidimW comes through without "really" being selected
-    val r = new multidimR(N, 32).asInput
-    val rMask = Bool().asInput // Mask passed by SRAM for when a multidimR comes through without "really" being selected
+    val w = Input(new multidimW(N, 32))
+    val wMask = Input(Bool()) // Mask passed by SRAM for when a multidimW comes through without "really" being selected
+    val r = Input(new multidimR(N, 32))
+    val rMask = Input(Bool()) // Mask passed by SRAM for when a multidimR comes through without "really" being selected
     val output = new Bundle {
-      val data  = UInt(32.W).asOutput
+      val data  = Output(UInt(32.W))
     }
     val debug = new Bundle {
-      val invalidRAddr = Bool().asOutput
-      val invalidWAddr = Bool().asOutput
-      val rwOn = Bool().asOutput
-      val error = Bool().asOutput
+      val invalidRAddr = Output(Bool())
+      val invalidWAddr = Output(Bool())
+      val rwOn = Output(Bool())
+      val error = Output(Bool())
     }
   })
 
@@ -164,21 +164,21 @@ class SRAM(val logicalDims: List[Int], val w: Int,
     // TODO: w bundle gets forcefully generated as output in verilog
     //       so the only way to make it an input seems to flatten the
     //       Vec(numWriters, Vec(wPar, _)) to a 1D vector and then reconstruct it
-    val w = Vec(numWriters*wPar, new multidimW(N, 32).asInput)
-    val globalWEn = Vec(numWriters, Bool().asInput)
-    val wSel = Vec(numWriters, Bool().asInput) // Selects between multiple write bundles
-    val r = Vec(numReaders*rPar,new multidimR(N, 32).asInput) // TODO: Spatial allows only one reader per mem
-    val rSel = Vec(numReaders, Bool().asInput)
+    val w = Vec(numWriters*wPar, Input(new multidimW(N, 32)))
+    val globalWEn = Vec(numWriters, Input(Bool()))
+    val wSel = Vec(numWriters, Input(Bool())) // Selects between multiple write bundles
+    val r = Vec(numReaders*rPar,Input(new multidimR(N, 32))) // TODO: Spatial allows only one reader per mem
+    val rSel = Vec(numReaders, Input(Bool()))
     val output = new Bundle {
-      val data  = Vec(rPar, UInt(32.W).asOutput)
+      val data  = Vec(rPar, Output(UInt(32.W)))
     }
     val debug = new Bundle {
-      val invalidRAddr = Bool().asOutput
-      val invalidWAddr = Bool().asOutput
-      val rwOn = Bool().asOutput
-      val readCollision = Bool().asOutput
-      val writeCollision = Bool().asOutput
-      val error = Bool().asOutput
+      val invalidRAddr = Output(Bool())
+      val invalidWAddr = Output(Bool())
+      val rwOn = Output(Bool())
+      val readCollision = Output(Bool())
+      val writeCollision = Output(Bool())
+      val error = Output(Bool())
     }
   })
 
@@ -317,26 +317,26 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width
   val N = logicalDims.length // Number of dimensions
 
   val io = IO( new Bundle {
-    val sEn = Vec(numBufs, Bool().asInput)
-    val sDone = Vec(numBufs, Bool().asInput)
-    val w = Vec(numWriters*wPar, new multidimW(N, 32).asInput)
-    val broadcast = Vec(numWriters*wPar, new multidimW(N, 32).asInput)
-    val broadcastEn = Bool().asInput
-    val writerStage = UInt(5.W).asInput // TODO: Not implemented anywhere, not sure if needed
-    val globalWEn = Vec(numWriters, Bool().asInput) // Bit wen for entire multidimW
-    val wSel = Vec(numWriters, Bool().asInput) // Selects between multiple write bundles
-    val r = Vec(numBufs* numReaders*rPar,new multidimR(N, 32).asInput) // TODO: Spatial allows only one reader per mem
-    val rSel = Vec(numBufs* numReaders, Bool().asInput) // TODO: Implement this for multiple readers on a buffer
+    val sEn = Vec(numBufs, Input(Bool()))
+    val sDone = Vec(numBufs, Input(Bool()))
+    val w = Vec(numWriters*wPar, Input(new multidimW(N, 32)))
+    val broadcast = Vec(numWriters*wPar, Input(new multidimW(N, 32)))
+    val broadcastEn = Input(Bool())
+    val writerStage = Input(UInt(5.W)) // TODO: Not implemented anywhere, not sure if needed
+    val globalWEn = Vec(numWriters, Input(Bool())) // Bit wen for entire multidimW
+    val wSel = Vec(numWriters, Input(Bool())) // Selects between multiple write bundles
+    val r = Vec(numBufs* numReaders*rPar,Input(new multidimR(N, 32))) // TODO: Spatial allows only one reader per mem
+    val rSel = Vec(numBufs* numReaders, Input(Bool())) // TODO: Implement this for multiple readers on a buffer
     val output = new Bundle {
-      val data  = Vec(numBufs* rPar, UInt(32.W).asOutput)  
+      val data  = Vec(numBufs* rPar, Output(UInt(32.W)))  
     }
     val debug = new Bundle {
-      val invalidRAddr = Bool().asOutput
-      val invalidWAddr = Bool().asOutput
-      val rwOn = Bool().asOutput
-      val readCollision = Bool().asOutput
-      val writeCollision = Bool().asOutput
-      val error = Bool().asOutput
+      val invalidRAddr = Output(Bool())
+      val invalidWAddr = Output(Bool())
+      val rwOn = Output(Bool())
+      val readCollision = Output(Bool())
+      val writeCollision = Output(Bool())
+      val error = Output(Bool())
     }
   })
 

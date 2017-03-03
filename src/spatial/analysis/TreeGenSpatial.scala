@@ -22,11 +22,11 @@ trait TreeGenSpatial extends SpatialTraversal {
 
   def getScheduling(sym: Sym[_]): String = {
     styleOf(sym) match {
-        case MetaPipe => s"Metapipe."
-        case StreamPipe => "Streampipe."
-        case InnerPipe => "Innerpipe."
-        case SeqPipe => s"Seqpipe."
-        case ForkJoin => s"Parallel."
+        case MetaPipe => s"Meta."
+        case StreamPipe => "Stream."
+        case InnerPipe => "Inner."
+        case SeqPipe => s"Seq."
+        case ForkJoin => s"Para."
         case _ => ""
       }
   }
@@ -85,13 +85,13 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
-    case BurstLoad(dram, fifo, ofs, ctr, i) =>
+    /*case BurstLoad(dram, fifo, ofs, ctr, i) =>
       print_stage_prefix(s"BurstLoad",s"",s"$sym", true)
       print_stage_suffix(s"$sym", true)
 
     case BurstStore(dram, fifo, ofs, ctr, i) =>
       print_stage_prefix(s"BurstStore",s"",s"$sym", true)
-      print_stage_suffix(s"$sym", true)
+      print_stage_suffix(s"$sym", true)*/
 
     case UnitPipe(_,func) =>
       val inner = styleOf(sym) match { 
@@ -171,10 +171,6 @@ trait TreeGenSpatial extends SpatialTraversal {
         visit(s,d)
       }
       print_stage_suffix(s"$sym", inner)
-
-    case Gather(dram, local, addrs, ctr, i)  =>
-
-    case Scatter(dram, local, addrs, ctr, i) =>
 
     case _ => // Do not visit super because we don't care to traverse everything
   }
