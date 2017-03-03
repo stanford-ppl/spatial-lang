@@ -42,11 +42,14 @@ aws-sim-hw:
 	rm -rf ${VERILATOR_SRC}/verilator_srcs_tmp
 	mv ${VERILATOR_SRC}/verilator_srcs/*.mk ${VERILATOR_SRC}
 
-zynq: zynq-hw
-	@echo "zynq-sim software build NOT YET SUPPORTED!"
+zynq: zynq-hw zynq-sw
+
+zynq-sw:
+	cp zynq.mk cpp/Makefile
+	make -C cpp
+	tar -czf TopZynq.tar.gz -C verilog accel.bit.bin -C ../cpp Top -C fringeZynq/utils set_perms run.sh
 
 zynq-hw:
-	rm -rf verilog
 	sbt "run-main top.Instantiator --verilog --testArgs zynq"
 	cp chisel/fringeZynq/* verilog
 	mv verilog/fsbl.elf._ verilog/fsbl.elf
@@ -55,6 +58,9 @@ zynq-hw:
 
 zynq-clean:
 	make -C verilog clean
+	make -C cpp clean
+	rm -rf verilog
+	rm -f TopZynq.tar.gz
 
 sim-clean:
 	make -C ${VERILATOR_SRC} clean

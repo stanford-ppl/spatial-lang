@@ -110,6 +110,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
       }
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
+      accel.reset := ~reset
 
     case "aws" =>
       // Simulation Fringe
