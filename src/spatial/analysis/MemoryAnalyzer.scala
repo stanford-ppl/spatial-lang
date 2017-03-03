@@ -80,12 +80,18 @@ trait MemoryAnalyzer extends CompilerPass {
       error("(Metapipe parents are not the same)")
       sys.exit()
     }
+    val depthA = a.ports.values.map(_.max).max
+    val depthB = b.ports.values.map(_.max).max
+    val ports = (a.ports.keys ++ b.ports.keys).map{access =>
+      access -> (a.ports.getOrElse(access, Set.empty) ++ b.ports.getOrElse(access, Set.empty))
+    }.toMap
+
     InstanceGroup(
       a.metapipe,
       (a.accesses ++ b.accesses).distinct,
       mergeMemory(mem, a.instance, b.instance),
       duplicates = Math.max(a.duplicates, b.duplicates),
-      a.ports ++ b.ports,
+      ports,
       a.swaps ++ b.swaps
     )
   }
@@ -167,12 +173,27 @@ trait MemoryAnalyzer extends CompilerPass {
 
   def reachingWrites(mem: Exp[_], reader: Access) = writersOf(mem) // TODO: Account for "killing" writes, write ordering
 
-  // 1. Always coalesce memories with same metapipeline parent which don't have any port conflicts
   // TODO: Other cases for coalescing?
   def coalesceMemories(mem: Exp[_], instances: List[InstanceGroup]): List[InstanceGroup] = {
+    val writers = writersOf(mem)
+    val readers = readersOf(mem)
+    def getMerge(a: InstanceGroup, b: InstanceGroup): Option[InstanceGroup] = {
+      val accesses = a.accesses ++ b.accesses
+      val merged = mergeInstanceGroup(mem, a, b)
+      val depth = merged.ports.values.map(_.max).max
+      val isLegal = (0 until depth).forall{port =>
+        val portAccesses = accesses.filter{a => merged.ports(a).contains(port) }
+        val read  = portAccesses.count(readers contains _)
+        val write = portAccesses.count(writers contains _)
+        read <= 1 && write <= 1
+      }
+      if (isLegal) Some(merged) else None
+    }
+
     instances.groupBy(_.metapipe).toList.flatMap{
       case (Some(metapipe), instances) =>
-        // Find the groupings with the smallest resulting depth
+        // 1. Coalesce memories with same metapipeline parent which don't have any port conflicts
+        // Find the groupings with the smallest resulting estimated cost
         // Unfortunately, "merge everything all the time if possible" isn't necessarily the best course of action
         // e.g. if we have a buffer with depth 2, banking of 2 and buffer depth 3 with banking of 3,
         // merging the two together will require depth 3 with banking of 6
