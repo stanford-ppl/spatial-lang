@@ -76,7 +76,7 @@ protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen
 protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenBool with CppGenVoid with CppGenFixPt with CppGenFltPt with CppGenMixedNumeric
   with CppGenCounter with CppGenReg with CppGenSRAM with CppGenFIFO 
-  with CppGenIfThenElse with CppGenPrint with CppGenController with CppGenMath with CppGenText
+  with CppGenIfThenElse with CppGenPrint with CppGenController with CppGenMath with CppGenFringeCopy with CppGenText
   with CppGenDRAM with CppGenStringCast with CppGenHostTransfer with CppGenUnrolled with CppGenVector
   with CppGenArray with CppGenArrayExt with CppGenAsserts with CppGenRange with CppGenAlteraVideo with CppGenStream{
 
