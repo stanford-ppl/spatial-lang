@@ -260,6 +260,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
 
     case StreamEnq(stream, data, en)       => Some(LocalWrite(stream, value=data, en=en))
+    case ParStreamEnq(stream, data, ens)   => Some(LocalWrite(stream, value=data))
 
     // TODO: Address and enable are in different format in parallelized accesses
     case ParSRAMStore(mem,addr,data,en)    => Some(LocalWrite(mem,value=data))
@@ -275,7 +276,8 @@ trait NodeClasses extends SpatialMetadataExp {
     case e: SparseTransfer[_]  if e.isLoad  => Some(LocalRead(e.addrs))
     case e: SparseTransfer[_]  if e.isStore => Some(LocalRead(e.addrs) ++ LocalRead(e.local))
 
-    case StreamDeq(stream, en)              => Some(LocalRead(stream, en=en))
+    case StreamDeq(stream, en, _)           => Some(LocalRead(stream, en=en))
+    case ParStreamDeq(stream, en, _)        => Some(LocalRead(stream))
 
     // TODO: Address and enable are in different format in parallelized accesses
     case ParSRAMLoad(sram,addr)             => Some(LocalRead(sram))

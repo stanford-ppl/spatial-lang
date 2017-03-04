@@ -42,10 +42,10 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   val empty = size === 0.U
   val full = sizeUDC.io.isMax
   sizeUDC.io.initval := 0.U
-  sizeUDC.io.max := UInt(d)
+  sizeUDC.io.max := d.U
   sizeUDC.io.init := 0.U
-  sizeUDC.io.strideInc := Mux(io.config.chainWrite, 1.U, UInt(v))
-  sizeUDC.io.strideDec := Mux(io.config.chainRead, 1.U, UInt(v))
+  sizeUDC.io.strideInc := Mux(io.config.chainWrite, 1.U, v.U)
+  sizeUDC.io.strideDec := Mux(io.config.chainRead, 1.U, v.U)
   sizeUDC.io.init := 0.U
 
   val writeEn = io.enqVld & ~full
@@ -59,13 +59,13 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   (0 until 2) foreach { i => i match {
       case 1 => // Localaddr: max = bankSize, stride = 1
         val cfg = wptrConfig.counterOpcode(i)
-        cfg.max := UInt(bankSize)
+        cfg.max := bankSize.U
         cfg.stride := 1.U
         cfg.maxConst := true.B
         cfg.strideConst := true.B
       case 0 => // Bankaddr: max = v, stride = 1
         val cfg = wptrConfig.counterOpcode(i)
-        cfg.max := UInt(v)
+        cfg.max := v.U
         cfg.stride := 1.U
         cfg.maxConst := true.B
         cfg.strideConst := true.B
@@ -84,13 +84,13 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   (0 until 2) foreach { i => i match {
       case 1 => // Localaddr: max = bankSize, stride = 1
         val cfg = rptrConfig.counterOpcode(i)
-        cfg.max := UInt(bankSize)
+        cfg.max := bankSize.U
         cfg.stride := 1.U
         cfg.maxConst := true.B
         cfg.strideConst := true.B
       case 0 => // Bankaddr: max = v, stride = 1
         val cfg = rptrConfig.counterOpcode(i)
-        cfg.max := UInt(v)
+        cfg.max := v.U
         cfg.stride := 1.U
         cfg.maxConst := true.B
         cfg.strideConst := true.B
@@ -122,7 +122,7 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
 
     // Write enable
     val wen = Mux(io.config.chainWrite,
-                    io.enqVld & tailBankAddr === UInt(i),
+                    io.enqVld & tailBankAddr === i.U,
                     io.enqVld)
     m.io.wen := wen
 

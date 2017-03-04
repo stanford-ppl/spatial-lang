@@ -77,7 +77,7 @@ class Fringe(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryS
   // Memory address generator
   val mag = Module(new MAGCore(w, d, v, numMemoryStreams, numOutstandingBursts, burstSizeBytes))
   val magConfig = Wire(new MAGOpcode())
-  magConfig.scatterGather := Bool(false)
+  magConfig.scatterGather := false.B
   mag.io.config := magConfig
   mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.cmd.bits := in.cmd.bits }
   mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.cmd.valid := in.cmd.valid }

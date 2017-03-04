@@ -186,6 +186,13 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         case _ => emit(src"""${fifo}_wdata := ${data}""")
       }
 
+    case e@ParStreamDeq(strm, ens, zero) =>
+      emit(src"val $lhs = $ens.zipWithIndex.map{case (en, i) => Mux(en, ${strm}_data(i), $zero) }")
+
+    case ParStreamEnq(strm, data, ens) =>
+      emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $strm.enqueue(data) }")
+
+
     case _ => super.emitNode(lhs, rhs)
   }
 }

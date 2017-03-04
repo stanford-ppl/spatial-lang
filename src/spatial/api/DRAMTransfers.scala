@@ -283,18 +283,18 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   @struct case class BurstCmd(offset: Index, size: Index, isLoad: Bool)
   @struct case class IssuedCmd(size: Index, start: Index, end: Index)
 
-  abstract class TransferBus[T:Staged:Bits] extends Bus { def length = bits[T].length }
+  abstract class DRAMBus[T:Staged:Bits] extends Bus { def length = bits[T].length }
 
-  case object BurstCmdBus extends TransferBus[BurstCmd]
-  case object BurstAckBus extends TransferBus[Bool]
-  case class BurstDataBus[T:Staged:Bits]() extends TransferBus[T]
-  case class BurstFullDataBus[T:Staged:Bits]() extends TransferBus[Tup2[T,Bool]]
+  case object BurstCmdBus extends DRAMBus[BurstCmd]
+  case object BurstAckBus extends DRAMBus[Bool]
+  case class BurstDataBus[T:Staged:Bits]() extends DRAMBus[T]
+  case class BurstFullDataBus[T:Staged:Bits]() extends DRAMBus[Tup2[T,Bool]]
 
-  case object GatherAddrBus extends TransferBus[Index]
-  case class GatherDataBus[T:Staged:Bits]() extends TransferBus[T]
+  case object GatherAddrBus extends DRAMBus[Index]
+  case class GatherDataBus[T:Staged:Bits]() extends DRAMBus[T]
 
-  case class ScatterCmdBus[T:Staged:Bits]() extends TransferBus[Tup2[T, Index]]
-  case object ScatterAckBus extends TransferBus[Bool]
+  case class ScatterCmdBus[T:Staged:Bits]() extends DRAMBus[Tup2[T, Index]]
+  case object ScatterAckBus extends DRAMBus[Bool]
 
   /** Internal **/
 

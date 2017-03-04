@@ -5,11 +5,11 @@ import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
+import scala.collection.mutable.HashMap
 
 trait ChiselGenStream extends ChiselCodegen {
   val IR: SpatialExp
   import IR._
-
 
   var streamIns: List[Sym[Reg[_]]] = List()
   var streamOuts: List[Sym[Reg[_]]] = List()
@@ -37,8 +37,8 @@ trait ChiselGenStream extends ChiselCodegen {
           emit(src"// New stream out $lhs")
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
-    case StreamDeq(stream, en) => 
-      emit(src"""val $lhs = ${stream}_data(0)""")
+    case StreamDeq(stream, en, zero) => 
+      emit(src"""val $lhs = Mux($en, ${stream}_data, $zero)""")
     case StreamEnq(stream, data, en) => 
       emit(src"""val ${stream}_valid = ${parentOf(stream).get}_done & $en""")
       emit(src"""val ${stream}_data = $data""")

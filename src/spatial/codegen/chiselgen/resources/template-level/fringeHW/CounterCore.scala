@@ -69,7 +69,7 @@ class CounterCore(val w: Int, val startDelayWidth: Int = 0, val endDelayWidth: I
     val startDelayCounter = Module(new Counter(startDelayWidth))
     startDelayCounter.io.max := io.config.startDelay
     startDelayCounter.io.stride := 1.U(startDelayWidth.W)
-    startDelayCounter.io.saturate := Bool(true)
+    startDelayCounter.io.saturate := true.B
 
     val localEnable = io.enable & ~io.waitIn
     startDelayCounter.io.enable := localEnable
@@ -86,8 +86,8 @@ class CounterCore(val w: Int, val startDelayWidth: Int = 0, val endDelayWidth: I
     val endDelayCounter = Module(new Counter(endDelayWidth))
     endDelayCounter.io.max := io.config.endDelay
     endDelayCounter.io.stride := 1.U(endDelayWidth.W)
-    counter.io.reset := Bool(false)
-    endDelayCounter.io.saturate := Bool(false)
+    counter.io.reset := false.B
+    endDelayCounter.io.saturate := false.B
 
     endDelayCounter.io.enable := depulser.io.out | counter.io.done
     depulser.io.rst := endDelayCounter.io.done
@@ -95,8 +95,8 @@ class CounterCore(val w: Int, val startDelayWidth: Int = 0, val endDelayWidth: I
     counter.io.reset := endDelayCounter.io.done
     io.done := endDelayCounter.io.done
   } else {
-    counter.io.saturate := Bool(false)
-    counter.io.reset := Bool(false)
+    counter.io.saturate := false.B
+    counter.io.reset := false.B
     io.done := counter.io.done
   }
 
@@ -125,22 +125,22 @@ class CounterCore(val w: Int, val startDelayWidth: Int = 0, val endDelayWidth: I
 //
 //  // Register the inputs
 //  val maxReg = Module(new FF(w))
-//  maxReg.io.enable := Bool(true)
+//  maxReg.io.enable := true.B
 //  maxReg.io.in := io.max
 //  val max = maxReg.io.out
 //
 //  val strideReg = Module(new FF(w))
-//  strideReg.io.enable := Bool(true)
+//  strideReg.io.enable := true.B
 //  strideReg.io.in := io.stride
 //  val stride = strideReg.io.out
 //
 //  val enableReg = Module(new FF(1))
-//  enableReg.io.enable := Bool(true)
+//  enableReg.io.enable := true.B
 //  enableReg.io.in := io.enable
 //  val enable = enableReg.io.out
 //
 //  val waitInReg = Module(new FF(1))
-//  waitInReg.io.enable := Bool(true)
+//  waitInReg.io.enable := true.B
 //  waitInReg.io.in := io.waitIn
 //  val waitIn = waitInReg.io.out
 //
@@ -155,15 +155,15 @@ class CounterCore(val w: Int, val startDelayWidth: Int = 0, val endDelayWidth: I
 //
 //  // Register outputs
 //  val outReg = Module(new FF(w))
-//  outReg.io.enable := Bool(true)
+//  outReg.io.enable := true.B
 //  outReg.io.in := counter.io.out
 //  io.out := outReg.io.out
 //  val waitOutReg = Module(new FF(1))
-//  waitOutReg.io.enable := Bool(true)
+//  waitOutReg.io.enable := true.B
 //  waitOutReg.io.in := counter.io.waitOut
 //  io.waitOut := waitOutReg.io.out
 //  val doneReg = Module(new FF(1))
-//  doneReg.io.enable := Bool(true)
+//  doneReg.io.enable := true.B
 //  doneReg.io.in := counter.io.done
 //  io.done := doneReg.io.out
 //}

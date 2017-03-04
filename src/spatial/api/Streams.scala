@@ -12,7 +12,7 @@ trait StreamExp extends Staging with PinExp {
 
   case class StreamIn[T:Staged:Bits](s: Exp[StreamIn[T]]) {
     def deq()(implicit ctx: SrcCtx): T = this.deq(true)
-    def deq(en: Bool)(implicit ctx: SrcCtx): T = wrap(stream_deq(s, en.s))
+    def deq(en: Bool)(implicit ctx: SrcCtx): T = wrap(stream_deq(s, en.s, bits[T].zero.s))
   }
 
   case class StreamOut[T:Staged:Bits](s: Exp[StreamOut[T]]) {
@@ -67,27 +67,30 @@ trait StreamExp extends Staging with PinExp {
     val mT = typ[T]
   }
 
-  case class StreamDeq[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool]) extends Op[T] {
-    override def mirror(f:Tx) = stream_deq(f(stream), f(en))
-    def zero = bits[T].zero.s
+  case class StreamDeq[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool], zero: Exp[T]) extends Op[T] {
+    override def mirror(f:Tx) = stream_deq(f(stream), f(en), f(zero))
+    val mT = typ[T]
+    val bT = bits[T]
   }
 
   case class StreamEnq[T:Staged:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
     override def mirror(f:Tx) = stream_enq(f(stream), f(data), f(en))
+    val mT = typ[T]
+    val bT = bits[T]
   }
 
 
   /** Constructors **/
   private def stream_in[T:Staged:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamIn[T]] = {
-    stageCold(StreamInNew[T](bus))(ctx)
+    stageMutable(StreamInNew[T](bus))(ctx)
   }
 
   private def stream_out[T:Staged:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamOut[T]] = {
     stageMutable(StreamOutNew[T](bus))(ctx)
   }
 
-  private def stream_deq[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool])(implicit ctx: SrcCtx) = {
-    stageCold(StreamDeq(stream, en))(ctx)
+  private def stream_deq[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool], zero: Exp[T])(implicit ctx: SrcCtx) = {
+    stageWrite(stream)(StreamDeq(stream, en, zero))(ctx)
   }
 
   private def stream_enq[T:Staged:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx) = {

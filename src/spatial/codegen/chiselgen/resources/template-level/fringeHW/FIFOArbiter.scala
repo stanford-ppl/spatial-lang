@@ -25,7 +25,7 @@ class FIFOArbiter(
   })
 
   val tagFF = Module(new FF(tagWidth))
-  tagFF.io.init := UInt(0)
+  tagFF.io.init := 0.U
   val tag = tagFF.io.out
 
   // FIFOs
@@ -38,7 +38,7 @@ class FIFOArbiter(
       m.io.config := fifoConfig
       m.io.enq := io.enq(i)
       m.io.enqVld := io.enqVld(i)
-      m.io.deqVld := io.deqVld & (tag === UInt(i))
+      m.io.deqVld := io.deqVld & (tag === i.U)
       io.full(i) := m.io.full
       m
     }

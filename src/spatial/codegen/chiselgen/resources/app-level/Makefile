@@ -5,6 +5,7 @@ all: help
 help:
 	@echo "------- SUPPORTED MAKE TARGETS -------"
 	@echo "make sim 				: Verilator SW + HW build"
+	@echo "make sim-sw 				: Verilator SW build"
 	@echo "make sim-hw 			: Build Chisel for Verilator"
 	@echo "make aws-sim 		: AWS simulation SW + HW build"
 	@echo "make aws-sim-hw 	: Build Chisel for AWS simulation"
@@ -12,6 +13,10 @@ help:
 	@echo "------- END HELP -------"
 
 sim: sim-hw
+	make -C ${VERILATOR_SRC}
+	ln -sf ${VERILATOR_SRC}/Top .
+
+sim-sw:
 	make -C ${VERILATOR_SRC}
 	ln -sf ${VERILATOR_SRC}/Top .
 

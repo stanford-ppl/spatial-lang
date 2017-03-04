@@ -18,14 +18,17 @@ trait BankingMetadataExp extends SpatialMetadataExp {
     def nDims: Int
     def isAccum: Boolean
     def totalBanks: Int
+    def costBasisBanks: Seq[Int]
   }
   case class BankedMemory(dims: Seq[Banking], depth: Int, isAccum: Boolean) extends Memory {
     def nDims = dims.length
     def totalBanks = dims.map(_.banks).product
+    def costBasisBanks = dims.map(_.banks)
   }
   case class DiagonalMemory(strides: Seq[Int], banks: Int, depth: Int, isAccum: Boolean) extends Memory {
     def nDims = strides.length
     def totalBanks = banks
+    def costBasisBanks = banks +: List.fill(strides.length - 1)(1)
   }
 
   /**

@@ -22,11 +22,11 @@ class Counter(val w: Int) extends Module {
 
 //  val reg = Module(new FF(w))
   val reg = Module(new FF(w))
-  val init = UInt(0, w.W)
+  val init = 0.U(w.W)
   reg.io.init := init
   reg.io.enable := io.reset | io.enable
 
-  val count = Cat(UInt(0, 1.W), reg.io.out)
+  val count = Cat(0.U(1.W), reg.io.out)
   val newval = count + io.stride
   val isMax = newval >= io.max
   val next = Mux(isMax, Mux(io.saturate, count, init), newval)

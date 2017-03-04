@@ -32,7 +32,7 @@ class TFF(val w: Int) extends Module {
   }
 
   val d = Wire(UInt(width = w))
-  val ff = Reg(Bits(w), d, UInt(0, width=w))
+  val ff = Reg(Bits(w), d, 0.U(w.W))
   when (io.enable) {
     d := ~ff
   } .otherwise {

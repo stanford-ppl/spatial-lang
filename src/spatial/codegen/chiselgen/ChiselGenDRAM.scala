@@ -46,7 +46,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       }
 
     case GetDRAMAddress(dram) =>
-      emit(src"""val $lhs = 0.U // Not used for chisel? //${dramMap.getOrElse(src"$dram",("-1","-1"))._1}.U """)
+      val id = dramMap.keys.toList.sorted.indexOf(src"$dram")
+      emit(src"""val $lhs = io.argIns(io_numArgIns_reg + $id)""")
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
 //       val (start,stop,stride,p) = ctr match { case Def(CounterNew(s1,s2,s3,par)) => (s1,s2,s3,par); case _ => (1,1,1,1) }
@@ -72,7 +73,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       val start = dramMap.getOrElse(src"$dram", ("-1","-1"))._1
       val size = dramMap.getOrElse(src"$dram", ("-1","-1"))._2
       emit(src"""// Connect streams to ports on mem controller""")
-      emit(src"""val ${dataStream}_data = io.memStreams($id).rdata.bits""")
+      emit("// HACK: Assume load is par=16")
+      val allData = (0 until 16).map{ i => src"io.memStreams($id).rdata.bits($i)" }.mkString(",")
+      emit(src"""val ${dataStream}_data = Vec(List($allData))""")
       emitGlobal(src"""val ${dataStream}_ready = io.memStreams($id).rdata.valid""")
       emit(src"io.memStreams($id).cmd.bits.addr(0) := ${cmdStream}_data(64, 33) // Bits 33 to 64 (AND BEYOND???) are addr")
       emit(src"io.memStreams($id).cmd.bits.size := ${cmdStream}_data(32,1) // Bits 1 to 32 are size command")
@@ -158,6 +161,7 @@ ${lhs}_done := ${lhs}.io.CtrlToAccel.doneStore
       emit("")
       emit(s"// Memory streams")
       emit(s"""val numMemoryStreams = ${dramMap.size}""")
+      emit(s"""val numArgIns_mem = ${dramMap.size}""")
       emit(s"// Mapping:")
       dramMap.foreach{ d =>
         emit(src"""// ${d._1} => Start ${d._2._1}, Length ${d._2._2}""")
@@ -167,6 +171,7 @@ ${lhs}_done := ${lhs}.io.CtrlToAccel.doneStore
     withStream(getStream("IOModule")) {
       emit("// Tile Load")
       emit(s"val io_numMemoryStreams = ${dramMap.size}")
+      emit(s"val io_numArgIns_mem = ${dramMap.size}")
 
     }
 

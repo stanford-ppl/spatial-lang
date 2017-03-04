@@ -10,9 +10,7 @@ void handleDRAMRequest(DUT *dut, PeekPokeTester *tester) {
   uint64_t addr = tester->peek(&(dut->io_dram_cmd_bits_addr));
   uint64_t tag = tester->peek(&(dut->io_dram_cmd_bits_tag));
   uint64_t isWr = tester->peek(&(dut->io_dram_cmd_bits_isWr));
-  uint32_t streamId = (tag >> 0) & 3;
-  uint32_t base = tester->getMemStream(streamId);
-  std::cout << "addr: " << addr << ", tag: " << tag << ", (id = " << streamId << ", base = " << base << "), isWr: " << isWr << std::endl;
+  std::cout << "addr: " << addr << ", tag: " << tag << ", isWr: " << isWr << std::endl;
 
   // Note: addr must have been allocated previously, else will cause segfault
   // Note: Currently assumes burst size to be 64 bytes
@@ -38,22 +36,22 @@ void handleDRAMRequest(DUT *dut, PeekPokeTester *tester) {
   } else {
     // Read request: Read burst-length bytes at *addr
     uint32_t *raddr = (uint32_t*) addr;
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_0), *(raddr+base));
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_1), *(raddr+1);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_2), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_3), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_4), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_5), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_6), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_7), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_8), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_9), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_10), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_11), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_12), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_13), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_14), raddr);
-    // tester->poke(&(dut->io_dram_resp_bits_rdata_15), raddr);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_0), raddr[0]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_1), raddr[1]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_2), raddr[2]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_3), raddr[3]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_4), raddr[4]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_5), raddr[5]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_6), raddr[6]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_7), raddr[7]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_8), raddr[8]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_9), raddr[9]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_10), raddr[10]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_11), raddr[11]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_12), raddr[12]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_13), raddr[13]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_14), raddr[14]);
+    tester->poke(&(dut->io_dram_resp_bits_rdata_15), raddr[15]);
   }
 
   // Common part of response
