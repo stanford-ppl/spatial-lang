@@ -369,6 +369,54 @@ object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 10
 }
 
 
+object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
+  import IR._
+
+  def singleFifoLoad[T:Staged:Num](src1: Array[T], in: Int) = {
+
+    val tileSize = 64 (64 -> 64)
+    val P1 = 16 (16 -> 16)
+
+    val N = ArgIn[Int]
+    setArg(N, in)
+
+    val src1FPGA = DRAM[T](N)
+    val out = ArgOut[T]
+    setMem(src1FPGA, src1)
+
+    Accel {
+      val f1 = FIFO[T](tileSize)
+      Foreach(N by tileSize) { i =>
+        f1 load src1FPGA(i::i+tileSize par P1)
+        val accum = Reduce(Reg[T](0.as[T]))(tileSize by 1){i =>
+          f1.deq()
+        }{_+_}
+        Pipe { out := accum }
+      }
+      ()
+    }
+    getArg(out)
+  }
+
+  @virtualize
+  def main() {
+    val arraySize = args(0).to[Int]
+
+    val src1 = Array.tabulate(arraySize) { i => i % 256}
+    val out = singleFifoLoad(src1, arraySize)
+
+    val sub1_for_check = Array.tabulate(arraySize-64) {i => i % 256}
+
+    // val gold = src1.zip(src2){_*_}.zipWithIndex.filter( (a:Int, i:Int) => i > arraySize-64).reduce{_+_}
+    val gold = src1.reduce{_+_} - sub1_for_check.reduce(_+_)
+    println("gold: " + gold)
+    println("out: " + out)
+
+    val cksum = out == gold
+    println("PASS: " + cksum + " (SingleFifoLoad)")
+  }
+}
+
 object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   import IR._
 
