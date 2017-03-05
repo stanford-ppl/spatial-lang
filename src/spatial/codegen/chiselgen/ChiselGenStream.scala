@@ -40,8 +40,10 @@ trait ChiselGenStream extends ChiselCodegen {
     case StreamDeq(stream, en, zero) => 
       emit(src"""val $lhs = Mux($en, ${stream}_data, $zero)""")
     case StreamEnq(stream, data, en) => 
-      emit(src"""val ${stream}_valid = ${parentOf(stream).get}_done & $en""")
-      emit(src"""val ${stream}_data = $data""")
+      emitGlobal(src"""val ${stream}_valid = Wire(Bool())""")
+      emit(src"""${stream}_valid := ${parentOf(stream).get}_done & $en""")
+      emitGlobal(src"""val ${stream}_data = Wire(UInt(65.W))""")
+      emit(src"""${stream}_data := $data""")
     case _ => super.emitNode(lhs, rhs)
   }
 
