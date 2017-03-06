@@ -320,7 +320,7 @@ class MAGCore(
 //  vldOut := Mux(io.config.scatterGather, completed, io.dram.vldIn)
   val streamTagFromDRAM = getStreamTag(io.dram.resp.bits.tag)
   io.app foreach { app => app.rdata.bits := io.dram.resp.bits.rdata }
-  io.app.zipWithIndex.foreach { case (app, i) => app.rdata.valid := io.dram.resp.valid & streamTagFromDRAM === UInt(i) }
+  io.app.zipWithIndex.foreach { case (app, i) => app.rdata.valid := io.dram.resp.valid & streamTagFromDRAM === i.U }
 //  io.app.cmd.ready := ~addrFifo.io.full
 //  io.app.wdata.ready := ~dataFifo.io.full
 }

@@ -50,6 +50,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"""val $lhs = io.argIns(io_numArgIns_reg + $id)""")
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
+
+        emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${dramMap.keys.toList.sorted.indexOf(src"$dram")}).rdata.valid""")
+
 //       val (start,stop,stride,p) = ctr match { case Def(CounterNew(s1,s2,s3,par)) => (s1,s2,s3,par); case _ => (1,1,1,1) }
 //       val streamId = offchipMems.length
 //       offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]

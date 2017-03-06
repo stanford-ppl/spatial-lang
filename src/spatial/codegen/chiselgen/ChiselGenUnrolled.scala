@@ -175,8 +175,16 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
 
     case ParFIFOEnq(fifo, data, ens) =>
-      val writer = writersOf(fifo).head.ctrlNode  // Not using 'en' or 'shuffle'
-      emit(src"""${fifo}_writeEn := ${writer}_sm.io.output.ctr_inc & ${ens}.reduce{_&_}""")
+      val writer = writersOf(fifo).head.ctrlNode  
+      // Check if this is a tile consumer
+      var enabler = src"${writer}_enq"
+      childrenOf(parentOf(parentOf(writer).get).get).foreach  { c => 
+        c match {
+          case Def(_: FringeDenseLoad[_]) => enabler = src"${c}_ready"
+          case _ => 
+        }
+      }
+      emit(src"""${fifo}_writeEn := $enabler & ${ens}.reduce{_&_}""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
             emit(src"""${fifo}_wdata := (0 until ${ens}.length).map{ i => ${data}(i).number }""")

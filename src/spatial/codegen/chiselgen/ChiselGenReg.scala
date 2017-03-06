@@ -126,17 +126,17 @@ trait ChiselGenReg extends ChiselCodegen {
     case RegWrite(reg,v,en) => 
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg)) {
-        // emit(src"""val $reg = Reg(init = 0.U) // HW-accessible register""")
-        // v.tp match {
-        //   case FixPtType(_,_,_) => if (hasFracBits(v.tp)) {
-        //       emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
-        //     } else {
-        //       emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""") 
-        //     }
-        //   case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
-        // }
+        emit(src"""val $reg = Reg(init = 0.U) // HW-accessible register""")
+        v.tp match {
+          case FixPtType(_,_,_) => if (hasFracBits(v.tp)) {
+              emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
+            } else {
+              emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""") 
+            }
+          case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
+        }
         
-        emit(src"""io.argOuts(${argOuts.indexOf(reg)}).bits := ${v} // ${nameOf(reg).getOrElse("")}""")
+        emit(src"""io.argOuts(${argOuts.indexOf(reg)}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
         emit(src"""io.argOuts(${argOuts.indexOf(reg)}).valid := $en & ${parent}_en""")
       } else {         
         reduceType(reg) match {

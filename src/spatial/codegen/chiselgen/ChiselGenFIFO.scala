@@ -37,17 +37,30 @@ trait ChiselGenFIFO extends ChiselCodegen {
     case _ => super.remap(tp)
   }
 
+  // override protected def vecSize(tp: Staged[_]): Int = tp.typeArguments.head match {
+  //   case tp: Vector[_] => 1
+  //   case _ => 1
+  // }
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@FIFONew(size)   => 
-      val par = duplicatesOf(lhs).head match {
-        case BankedMemory(dims,_,isAccum) => dims.map{_.banks}.head
-        case _ => 1
-      }
+      val rPar = readersOf(lhs).map { r => 
+        r.node match {
+          case Def(_: FIFODeq[_]) => 1
+          case Def(ParFIFODeq(_,ens,_)) => 1
+        }
+      }.reduce{scala.math.max(_,_)}
+      val wPar = writersOf(lhs).map { w =>
+        w.node match {
+          case Def(_: FIFOEnq[_]) => 1
+          case Def(ParFIFOEnq(_,ens,_)) => 16 // FIX ASAP          
+        }
+      }.reduce{scala.math.max(_,_)}
       val width = bitWidth(lhs.tp.typeArguments.head)
-      emit(src"""val ${lhs}_wdata = Wire(Vec($par, UInt(${width}.W)))""")
+      emit(src"""val ${lhs}_wdata = Wire(Vec($wPar, UInt(${width}.W)))""")
       emit(src"""val ${lhs}_readEn = Wire(Bool())""")
       emit(src"""val ${lhs}_writeEn = Wire(Bool())""")
-      emitGlobal(src"""val ${lhs} = Module(new FIFO($par, $par, $size)) // ${nameOf(lhs).getOrElse("")}""".replace(".U(32.W)",""))
+      emitGlobal(src"""val ${lhs} = Module(new FIFO($rPar, $wPar, $size)) // ${nameOf(lhs).getOrElse("")}""".replace(".U(32.W)",""))
       emit(src"""val ${lhs}_rdata = ${lhs}.io.out""")
       emit(src"""${lhs}.io.in := ${lhs}_wdata""")
       emit(src"""${lhs}.io.pop := ${lhs}_readEn""")
