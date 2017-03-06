@@ -374,7 +374,7 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
 
   def singleFifoLoad[T:Staged:Num](src1: Array[T], in: Int) = {
 
-    val tileSize = 64 (64 -> 64)
+    val tileSize = 16 (64 -> 64)
     val P1 = 16 (16 -> 16)
 
     val N = ArgIn[Int]
@@ -405,7 +405,7 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
     val src1 = Array.tabulate(arraySize) { i => i % 256}
     val out = singleFifoLoad(src1, arraySize)
 
-    val sub1_for_check = Array.tabulate(arraySize-64) {i => i % 256}
+    val sub1_for_check = Array.tabulate(arraySize-16) {i => i % 256}
 
     // val gold = src1.zip(src2){_*_}.zipWithIndex.filter( (a:Int, i:Int) => i > arraySize-64).reduce{_+_}
     val gold = src1.reduce{_+_} - sub1_for_check.reduce(_+_)
