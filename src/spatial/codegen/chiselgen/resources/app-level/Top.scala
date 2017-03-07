@@ -41,7 +41,7 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 
 class ZynqInterface(p: TopParams) extends TopInterface {
   private val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
-  private val axiParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 5)
+  private val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 5)
   val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
   val M_AXI = new AXI4Inlined(axiParams)
 }

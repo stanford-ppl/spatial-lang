@@ -8,6 +8,8 @@ class MAGToAXI4Bridge(val addrWidth: Int, val dataWidth: Int) extends Module {
   val idBits = 5
   val p = new AXI4BundleParameters(addrWidth, dataWidth, idBits)
 
+  Predef.assert(dataWidth == 512, s"ERROR: Unsupported data width $dataWidth in MAGToAXI4Bridge")
+
   val io = IO(new Bundle {
     val in = Flipped(new DRAMStream(32, 16))  // hardcoding stuff here
     val M_AXI = new AXI4Inlined(p)
@@ -47,7 +49,10 @@ class MAGToAXI4Bridge(val addrWidth: Int, val dataWidth: Int) extends Module {
 
   // R
 //  io.M_AXI.RID  // Not using this
-  io.in.resp.bits.rdata := io.M_AXI.RDATA
+  val rdataAsVec = Vec(List.tabulate(16) { i =>
+      io.M_AXI.RDATA(512 - 1 - i*32, 512 - 1 - i*32 - 31)
+  })
+  io.in.resp.bits.rdata := rdataAsVec
 //  io.M_AXI.RRESP
 //  io.M_AXI.RLAST
 ////  io.M_AXI.RUSER

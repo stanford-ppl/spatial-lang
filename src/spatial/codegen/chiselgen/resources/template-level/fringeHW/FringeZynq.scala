@@ -24,13 +24,13 @@ class FringeZynq(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMem
   val d = 16 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
 
   val axiLiteParams = new AXI4BundleParameters(w, w, 1)
-  val axiParams = new AXI4BundleParameters(w, w, 5)
+  val axiParams = new AXI4BundleParameters(w, 512, 5)
   val io = IO(new Bundle {
     // Host scalar interface
     val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
 
     // DRAM interface
-    val M_AXI = new AXI4Lite(axiParams)
+    val M_AXI = new AXI4Inlined(axiParams)
 
     // Accel Control IO
     val enable = Output(Bool())
@@ -67,7 +67,7 @@ class FringeZynq(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMem
   io.memStreams <> fringeCommon.io.memStreams
 
   // AXI bridge
-  val axiBridge = Module(new MAGToAXI4Bridge(w, w))
+  val axiBridge = Module(new MAGToAXI4Bridge(w, 512))
   axiBridge.io.in <> fringeCommon.io.dram
   io.M_AXI <> axiBridge.io.M_AXI
 }
