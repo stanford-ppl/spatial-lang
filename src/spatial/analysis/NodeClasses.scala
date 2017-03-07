@@ -220,7 +220,7 @@ trait NodeClasses extends SpatialMetadataExp {
   def isPrimitiveNode(e: Exp[_]): Boolean = e match {
     case Const(_) => false
     case Param(_) => false
-    case _        => !isControlNode(e) && !isAllocation(e) && !isRegisterRead(e) && !isGlobal(e)
+    case _        => !isControlNode(e) && !isAllocation(e) && !isStateless(e) && !isGlobal(e)
   }
 
   /** Accesses **/
