@@ -18,6 +18,9 @@ public:
 
   DUTTester(DUT* _dut, VerilatedVcdC *_tfp = NULL) : PeekPokeTester(_dut, _tfp) {
     watchMap[&(dut->io_dram_cmd_valid)] = &handleDRAMRequest;
+
+    // Simulation DRAM is always ready
+    poke(&(dut->io_dram_cmd_ready), 1);
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
