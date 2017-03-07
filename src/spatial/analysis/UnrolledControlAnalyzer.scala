@@ -13,6 +13,13 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
     visitCtrl((ctrl,false))(blk)
   }
 
+  override protected def preprocess[S:Staged](block: Block[S]) = {
+    memStreams = Set[Exp[_]]()
+    argIns = Set[Exp[_]]()
+    argOuts = Set[Exp[_]]()
+    super.preprocess(block)
+  }
+
   override def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
     rhs match {
       case e: DRAMNew[_] => memStreams += lhs

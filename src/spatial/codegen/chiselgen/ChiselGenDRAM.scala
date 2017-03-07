@@ -153,15 +153,15 @@ ${lhs}_done := ${lhs}.io.CtrlToAccel.doneStore
     withStream(getStream("Instantiator")) {
       emit("")
       emit(s"// Memory streams")
-      emit(s"""val numMemoryStreams = 30 // TODO: FIX!!! ${dramMap.size}""")
-      emit(s"""val numArgIns_mem = 30 // TODO: FIX!!! ${dramMap.size}""")
+      emit(s"""val numMemoryStreams = ${dramMap.size}""")
+      emit(s"""val numArgIns_mem = ${dramMap.size}""")
       emit(s"// Mapping:")
     }
 
     withStream(getStream("IOModule")) {
       emit("// Tile Load")
-      emit(s"val io_numMemoryStreams = 30 // TODO: FIX!!! ${dramMap.size}")
-      emit(s"val io_numArgIns_mem = 30 // TODO: FIX!!! ${dramMap.size}")
+      emit(s"val io_numMemoryStreams = ${dramMap.size}")
+      emit(s"val io_numArgIns_mem = ${dramMap.size}")
 
     }
 
