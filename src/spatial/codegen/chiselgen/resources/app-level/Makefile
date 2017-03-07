@@ -89,3 +89,4 @@ zynq-clean:
 
 sim-clean:
 	make -C ${VERILATOR_SRC} clean
+	rm -f Top *.vcd
