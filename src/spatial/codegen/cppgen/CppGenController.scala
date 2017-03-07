@@ -18,7 +18,7 @@ trait CppGenController extends CppCodegen {
       toggleEn()
       emit(s"time_t tstart = time(0);")
       val memlist = if (setMems.length > 0) {s""", ${setMems.mkString(",")}"""} else ""
-      emit(s"Top_run(&interface, ${setMems.length} ${memlist});")
+      emit(s"c1->run();")
       emit(s"time_t tend = time(0);")
       emit(s"double elapsed = difftime(tend, tstart);")
       emit(s"""std::cout << "Kernel done, test run time = " << elapsed << " ms" << std::endl;""")

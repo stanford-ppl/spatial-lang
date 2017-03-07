@@ -246,6 +246,21 @@ trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp
   }
 
   /**
+    * Metadata for determining which memory duplicate(s) an access should correspond to.
+    */
+  case class ArgMap(id: Int) extends Metadata[ArgMap] {
+    def mirror(f:Tx) = this
+  }
+  object argMapping {
+    private def get(arg: Exp[_]): Option[Int] = Some(metadata[ArgMap](arg).map(_.id).head)
+
+    def apply(arg: Exp[_]): Int = argMapping.get(arg).get
+
+    def update(arg: Exp[_], id: Int): Unit = metadata.add(arg, ArgMap(id))
+
+  }
+
+  /**
     * List of consumers of reads (primarily used for register reads)
     */
   case class ReadUsers(users: List[Access]) extends Metadata[ReadUsers] {

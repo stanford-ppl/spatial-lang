@@ -10,8 +10,6 @@ trait CppGenReg extends CppCodegen {
   val IR: RegExp with SpatialExp
   import IR._
 
-  var argIns: List[Sym[Reg[_]]] = List()
-  var argOuts: List[Sym[Reg[_]]] = List()
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -39,12 +37,9 @@ trait CppGenReg extends CppCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ArgInNew(init)  => 
-      emit(src"//${lhs.tp}* $lhs = new ${lhs.tp} {0}; // Initialize cpp argin (aka interface.ArgIns[${argIns.length}] ???")
-      argIns = argIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      emit(src"//${lhs.tp}* $lhs = new ${lhs.tp} {0}; // Initialize cpp argin ???")
     case ArgOutNew(init) => 
-      emit(src"int32_t* $lhs = new int32_t {0}; // Initialize cpp argout (aka interface.ArgOuts[${argOuts.length}] ???")
-      emit(src"interface.ArgOuts[${argOuts.length}] = (int32_t*) $lhs; ")
-      argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      emit(src"//int32_t* $lhs = new int32_t {0}; // Initialize cpp argout ???")
     case RegRead(reg)    => 
       emit(src"${lhs.tp} $lhs = $reg;")
     case RegWrite(reg,v,en) => 
@@ -53,11 +48,6 @@ trait CppGenReg extends CppCodegen {
   }
 
   override protected def emitFileFooter() {
-    withStream(getStream("interface","h")) {
-      emit(s"""int32_t* ArgIns[${argIns.length}];""")
-      emit(s"""int32_t* ArgOuts[${argOuts.length}];""")
-
-    }
     super.emitFileFooter()
   }
 }

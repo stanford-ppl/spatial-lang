@@ -46,7 +46,9 @@ trait CppGenDRAM extends CppGenSRAM {
         log(s"dram $lhs used multiple times")
       }
 
-      emit(src"""//uint64_t $lhs = std::malloc(${dims.map(quote).mkString("*")});""")
+      emit(src"""uint64_t ${lhs} = c1->malloc(${dims.map(quote).mkString("*")});""")
+      // emit(src"""uint64_t ${lhs} = (uint64_t) ${lhs}_void;""")
+
 
     // case Gather(dram, local, addrs, ctr, i)  => emit("// Do what?")
     // case Scatter(dram, local, addrs, ctr, i) => emit("// Do what?")
@@ -56,9 +58,6 @@ trait CppGenDRAM extends CppGenSRAM {
   }
 
   override protected def emitFileFooter() {
-    withStream(getStream("interface","h")) {
-      emit(s"""int32_t* Streams[${dramMap.size}];""")
-    }
     super.emitFileFooter()
   }
 

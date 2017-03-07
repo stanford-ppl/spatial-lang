@@ -6,6 +6,8 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   override val name = "Unrolled Control Analyzer"
 
   var memStreams = Set[Exp[_]]()
+  var argIns = Set[Exp[_]]()
+  var argOuts = Set[Exp[_]]()
 
   private def visitUnrolled(ctrl: Exp[_])(blk: => Unit) = {
     visitCtrl((ctrl,false))(blk)
@@ -14,6 +16,8 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   override def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
     rhs match {
       case e: DRAMNew[_] => memStreams += lhs
+      case e: ArgInNew[_] => argIns += lhs
+      case e: ArgOutNew[_] => argOuts += lhs
       case _ =>
     }
     super.addCommonControlData(lhs, rhs)

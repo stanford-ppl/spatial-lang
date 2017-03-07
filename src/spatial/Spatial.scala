@@ -142,7 +142,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
     def streamParEnqs = uctrlAnalyzer.streamParEnqs
   }
 
-  lazy val dramAddrAlloc  = new DRAMAddrAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams }
+  lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argIns = uctrlAnalyzer.argIns; def argOuts = uctrlAnalyzer.argOuts; }
 
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
   lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableChisel }
@@ -223,7 +223,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   passes += printer
   passes += bufferAnalyzer    // Set top controllers for n-buffers
   passes += streamAnalyzer    // Set stream pipe children fifo dependencies
-  passes += dramAddrAlloc     // Get address offsets for each used DRAM object
+  passes += argMapper     // Get address offsets for each used DRAM object
   passes += printer
 
   // --- Code generation

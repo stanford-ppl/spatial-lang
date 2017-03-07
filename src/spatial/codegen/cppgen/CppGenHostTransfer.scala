@@ -3,12 +3,15 @@ package spatial.codegen.cppgen
 import argon.codegen.cppgen.CppCodegen
 import spatial.api.HostTransferExp
 import spatial.SpatialConfig
+import spatial.api.RegExp
+import spatial.SpatialExp
+import spatial.analysis.SpatialMetadataExp
+
 
 trait CppGenHostTransfer extends CppCodegen  {
-  val IR: HostTransferExp
+  val IR: SpatialExp
   import IR._
 
-  var settedArgs: List[Sym[Reg[_]]] = List()
 
   override def quote(s: Exp[_]): String = {
   	if (SpatialConfig.enableNaming) {
@@ -31,15 +34,13 @@ trait CppGenHostTransfer extends CppCodegen  {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SetArg(reg, v) => 
-      emit(src"interface.ArgIns[${settedArgs.length}] = (${reg.tp}*) $v; // $lhs", forceful = true)
-      settedArgs = settedArgs :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      emit(src"c1->setArg(${argMapping(reg)}, $v); // $lhs", forceful = true)
       emit(src"${reg.tp} $reg = $v;")
-    case GetArg(reg)    => emit(src"${lhs.tp} $lhs = *$reg;", forceful = true)
+    case GetArg(reg)    => emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(28 + ${argMapping(reg)});", forceful = true)
     case SetMem(dram, data) => 
-      setMems = setMems :+ src"$dram"
-      emit(src"${data.tp}* $dram = $data;", forceful = true)
+      emit(src"c1->memcpy($dram, $data, 2 * ${data}->length * sizeof(${data}->apply(0)));", forceful = true)
+      emit(src"c1->setArg(${argMapping(dram)}, $dram);")
     case GetMem(dram, data) => 
-      setMems = setMems :+ src"$dram"
       emit(src"$data = $dram;", forceful = true)
     case _ => super.emitNode(lhs, rhs)
   }

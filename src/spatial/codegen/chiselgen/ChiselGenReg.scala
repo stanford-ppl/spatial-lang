@@ -90,7 +90,7 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg)) {
-        emitGlobal(src"""val $lhs = io.argIns(${argIns.indexOf(reg)})""")
+        emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)})""")
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
@@ -201,8 +201,8 @@ trait ChiselGenReg extends ChiselCodegen {
     withStream(getStream("Instantiator")) {
       emit("")
       emit("// Scalars")
-      emit(s"val numArgIns_reg = ${argIns.length}")
-      emit(s"val numArgOuts_reg = ${argOuts.length}")
+      emit(s"val numArgIns_reg = 30// TODO: mirror properly..${argIns.length}")
+      emit(s"val numArgOuts_reg = 30// TODO: mirror properly..${argOuts.length}")
       // emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
       // emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
       argIns.zipWithIndex.map { case(p,i) => 
@@ -216,8 +216,8 @@ trait ChiselGenReg extends ChiselCodegen {
 
     withStream(getStream("IOModule")) {
       emit("// Scalars")
-      emit(s"val io_numArgIns_reg = ${argIns.length}")
-      emit(s"val io_numArgOuts_reg = ${argOuts.length}")
+      emit(s"val io_numArgIns_reg = 30// TODO: FIX THIS ${argIns.length}")
+      emit(s"val io_numArgOuts_reg = 30// TODO: FIX THIS! ${argOuts.length}")
     }
 
     super.emitFileFooter()
