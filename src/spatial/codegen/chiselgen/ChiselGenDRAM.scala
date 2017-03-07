@@ -8,7 +8,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
   val IR: SpatialExp
   import IR._
 
-  var dramMap = HashMap[Sym[Any], (String, String)]() // Map for tracking defs of nodes and if they get redeffed anywhere, we map it to a suffix
+  var dramMap = HashMap[String, (String, String)]() // Map for tracking defs of nodes and if they get redeffed anywhere, we map it to a suffix
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -35,20 +35,24 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => 
       // Register first dram
-      val length = dims.map{i => s"${i}"}.mkString("*")
+      val length = dims.map{i => src"${i}"}.mkString("*")
       if (dramMap.size == 0)  {
-        dramMap += (lhs.asInstanceOf[Sym[Any]] -> ("0", length))
-      } else if (!dramMap.contains(lhs.asInstanceOf[Sym[Any]])) {
+        dramMap += (src"$lhs" -> ("0", length))
+      } else if (!dramMap.contains(src"$lhs")) {
         val start = dramMap.values.map{ _._2 }.mkString{" + "}
-        dramMap += (lhs.asInstanceOf[Sym[Any]] -> (start, length))
+        dramMap += (src"$lhs" -> (start, length))
       } else {
         log(s"dram $lhs used multiple times")
       }
 
     case GetDRAMAddress(dram) =>
-      emit(src"""val $lhs = ${dramMap.getOrElse(dram.asInstanceOf[Sym[Any]],("-1","-1"))._1} """)
+      val id = dramMap.keys.toList.sorted.indexOf(src"$dram")
+      emit(src"""val $lhs = io.argIns(io_numArgIns_reg + $id)""")
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
+
+        emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${dramMap.keys.toList.sorted.indexOf(src"$dram")}).rdata.valid""")
+
 //       val (start,stop,stride,p) = ctr match { case Def(CounterNew(s1,s2,s3,par)) => (s1,s2,s3,par); case _ => (1,1,1,1) }
 //       val streamId = offchipMems.length
 //       offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
@@ -67,16 +71,21 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
 
 //       emit(src"""${lhs}.io.AccelToCtrl.size := ($stop - $start) / $stride // TODO: Optimizie this if it is constant""")
 
-//       emit(src"""${fifo}_writeEn := ${lhs}.io.CtrlToAccel.valid;""")
 
+      val id = dramMap.keys.toList.sorted.indexOf(src"$dram")
+      val start = dramMap.getOrElse(src"$dram", ("-1","-1"))._1
+      val size = dramMap.getOrElse(src"$dram", ("-1","-1"))._2
+      emit(src"""// Connect streams to ports on mem controller""")
+      emit("// HACK: Assume load is par=16")
+      val allData = (0 until 16).map{ i => src"io.memStreams($id).rdata.bits($i)" }.mkString(",")
+      emit(src"""val ${dataStream}_data = Vec(List($allData))""")
+      emitGlobal(src"""val ${dataStream}_ready = io.memStreams($id).rdata.valid""")
+      emit(src"io.memStreams($id).cmd.bits.addr(0) := ${cmdStream}_data(64, 33) // Bits 33 to 64 (AND BEYOND???) are addr")
+      emit(src"io.memStreams($id).cmd.bits.size := ${cmdStream}_data(32,1) // Bits 1 to 32 are size command")
+      emit(src"io.memStreams($id).cmd.valid :=  ${cmdStream}_valid// LSB is enable, instead of pulser?? Reg(UInt(1.W), pulser.io.out)")
+      emit(src"io.memStreams($id).cmd.bits.isWr := ~${cmdStream}_data(0)")
+      emitGlobal(src"val ${cmdStream}_ready = true.B // Assume cmd fifo will never fill up")
 
-
-      open(src"val $lhs = $cmdStream.foreach{cmd => ")
-        open(src"for (i <- cmd.offset until cmd.offset+cmd.size) {")
-          emit(src"$dataStream.enqueue($dram.apply(i))")
-        close("}")
-      close("}")
-      emit(src"$cmdStream.clear()")
 
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
       open(src"val $lhs = $cmdStream.foreach{cmd => ")
@@ -154,11 +163,19 @@ ${lhs}_done := ${lhs}.io.CtrlToAccel.doneStore
     withStream(getStream("Instantiator")) {
       emit("")
       emit(s"// Memory streams")
-      emit(s"""val numMemoryStreams = Vec(${dramMap.size}, Flipped(new MemoryStream(w, v)))""")
+      emit(s"""val numMemoryStreams = ${dramMap.size}""")
+      emit(s"""val numArgIns_mem = ${dramMap.size}""")
       emit(s"// Mapping:")
       dramMap.foreach{ d =>
         emit(src"""// ${d._1} => Start ${d._2._1}, Length ${d._2._2}""")
       }
+    }
+
+    withStream(getStream("IOModule")) {
+      emit("// Tile Load")
+      emit(s"val io_numMemoryStreams = ${dramMap.size}")
+      emit(s"val io_numArgIns_mem = ${dramMap.size}")
+
     }
 
   //   withStream(getStream("GeneratedPoker")) {

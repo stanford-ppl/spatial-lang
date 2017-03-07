@@ -58,11 +58,11 @@ class CounterChainCore(
 
     // waitIn - waitOut chain
     if (i == numCounters-1) {
-      counters(i).io.waitIn := Bool(false)
+      counters(i).io.waitIn := false.B
     } else {
       counters(i).io.waitIn := Mux(io.config.chain(i),
                                       counters(i+1).io.waitOut,
-                                      Bool(false))
+                                      false.B)
     }
     io.done(i) := counters(i).io.done
     io.enableWithDelay(i) := counters(i).io.enableWithDelay

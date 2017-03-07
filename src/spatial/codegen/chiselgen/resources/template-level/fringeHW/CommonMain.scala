@@ -41,6 +41,8 @@ trait CommonMain {
     if (splitArgs.chiselArgs.contains("--test-command")) {
       val cmd = splitArgs.chiselArgs(splitArgs.chiselArgs.indexOf("--test-command")+1)
       Driver.run(dut, cmd)(tester)
+    } else if (splitArgs.chiselArgs.contains("--verilog")) {
+      chisel3.Driver.execute(Array[String]("--target-dir", "verilog"), dut)
     } else {
       Driver.execute(splitArgs.chiselArgs, dut)(tester)
     }

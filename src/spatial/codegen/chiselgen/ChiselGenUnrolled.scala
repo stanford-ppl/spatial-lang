@@ -164,7 +164,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     case ParFIFODeq(fifo, ens, z) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}_readEn := ${reader}_sm.io.output.ctr_inc // Ignore $ens""")
+      emit(src"""${quote(fifo)}_readEn := ${reader}_sm.io.output.ctr_inc & ${ens}.reduce{_&_}""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = (0 until ${quote(ens)}.length).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) } // Ignore $z""")
@@ -175,8 +175,16 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
 
     case ParFIFOEnq(fifo, data, ens) =>
-      val writer = writersOf(fifo).head.ctrlNode  // Not using 'en' or 'shuffle'
-      emit(src"""${fifo}_writeEn := ${writer}_sm.io.output.ctr_inc // Ignore $ens""")
+      val writer = writersOf(fifo).head.ctrlNode  
+      // Check if this is a tile consumer
+      var enabler = src"${writer}_enq"
+      childrenOf(parentOf(parentOf(writer).get).get).foreach  { c => 
+        c match {
+          case Def(_: FringeDenseLoad[_]) => enabler = src"${c}_ready"
+          case _ => 
+        }
+      }
+      emit(src"""${fifo}_writeEn := $enabler & ${ens}.reduce{_&_}""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
             emit(src"""${fifo}_wdata := (0 until ${ens}.length).map{ i => ${data}(i).number }""")
@@ -185,6 +193,13 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
           }
         case _ => emit(src"""${fifo}_wdata := ${data}""")
       }
+
+    case e@ParStreamDeq(strm, ens, zero) =>
+      emit(src"val $lhs = $ens.zipWithIndex.map{case (en, i) => Mux(en, ${strm}_data(i), $zero) }")
+
+    case ParStreamEnq(strm, data, ens) =>
+      emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $strm.enqueue(data) }")
+
 
     case _ => super.emitNode(lhs, rhs)
   }

@@ -136,7 +136,8 @@ trait ChiselGenReg extends ChiselCodegen {
           case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
         }
         
-        emit(src"""io.argOuts(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
+        emit(src"""io.argOuts(${argOuts.indexOf(reg)}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
+        emit(src"""io.argOuts(${argOuts.indexOf(reg)}).valid := $en & ${parent}_en""")
       } else {         
         reduceType(reg) match {
           case Some(fps: ReduceFunction) => // is an accumulator
@@ -200,8 +201,8 @@ trait ChiselGenReg extends ChiselCodegen {
     withStream(getStream("Instantiator")) {
       emit("")
       emit("// Scalars")
-      emit(s"val numArgIns = ${argIns.length}")
-      emit(s"val numArgOuts = ${argOuts.length}")
+      emit(s"val numArgIns_reg = ${argIns.length}")
+      emit(s"val numArgOuts_reg = ${argOuts.length}")
       // emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
       // emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
       argIns.zipWithIndex.map { case(p,i) => 
@@ -211,6 +212,12 @@ trait ChiselGenReg extends ChiselCodegen {
         emit(s"""//${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }
+    }
+
+    withStream(getStream("IOModule")) {
+      emit("// Scalars")
+      emit(s"val io_numArgIns_reg = ${argIns.length}")
+      emit(s"val io_numArgOuts_reg = ${argOuts.length}")
     }
 
     super.emitFileFooter()

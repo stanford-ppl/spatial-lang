@@ -25,40 +25,48 @@ class FIFOArbiter(
   })
 
   val tagFF = Module(new FF(tagWidth))
-  tagFF.io.init := UInt(0)
+  tagFF.io.init := 0.U
   val tag = tagFF.io.out
 
   // FIFOs
-  val fifos = List.tabulate(numStreams) { i =>
-    val m = Module(new FIFOCore(w, d, v))
-    val fifoConfig = Wire(new FIFOOpcode(d, v))
-    fifoConfig.chainRead := io.config.chainRead
-    fifoConfig.chainWrite := io.config.chainWrite
-    m.io.config := fifoConfig
-    m.io.enq := io.enq(i)
-    m.io.enqVld := io.enqVld(i)
-    m.io.deqVld := io.deqVld & (tag === UInt(i))
-    io.full(i) := m.io.full
-    m
+  if (numStreams > 0) {
+    val fifos = List.tabulate(numStreams) { i =>
+      val m = Module(new FIFOCore(w, d, v))
+      val fifoConfig = Wire(new FIFOOpcode(d, v))
+      fifoConfig.chainRead := io.config.chainRead
+      fifoConfig.chainWrite := io.config.chainWrite
+      m.io.config := fifoConfig
+      m.io.enq := io.enq(i)
+      m.io.enqVld := io.enqVld(i)
+      m.io.deqVld := io.deqVld & (tag === i.U)
+      io.full(i) := m.io.full
+      m
+    }
+    tagFF.io.enable := Reg(UInt(1.W), io.deqVld) | (fifos.map { _.io.empty }.reduce {_&_})
+
+    // Priority encoder and output interfaces
+    val fifoValids = fifos.map { ~_.io.empty }
+    val activeFifo = PriorityEncoder(fifoValids)
+    tagFF.io.in := activeFifo
+
+    val outMux = Module(new MuxVec(numStreams, v, w))
+  //  outMux.io.ins := Vec(fifos.map {e => Reg(e.io.deq.cloneType, e.io.deq)})
+    outMux.io.ins := Vec(fifos.map {e => e.io.deq})
+    outMux.io.sel := tag
+
+    val emptyMux = Module(new MuxN(numStreams, w))
+  //  emptyMux.io.ins := Vec(fifos.map {e => Reg(UInt(1.W), e.io.empty)})
+    emptyMux.io.ins := Vec(fifos.map {e => e.io.empty})
+    emptyMux.io.sel := tag
+
+    io.tag := tag
+    io.deq := outMux.io.out
+    io.empty := emptyMux.io.out
+  } else { // Arbiter does nothing if there are no memstreams
+    io.tag := 0.U(tagWidth.W)
+    io.deq := Vec(v, 0.U(w.W))
+    io.empty := true.B
   }
-  tagFF.io.enable := Reg(UInt(1.W), io.deqVld) | (fifos.map { _.io.empty }.reduce {_&_})
 
-  // Priority encoder and output interfaces
-  val fifoValids = fifos.map { ~_.io.empty }
-  val activeFifo = PriorityEncoder(fifoValids)
-  tagFF.io.in := activeFifo
-
-  val outMux = Module(new MuxVec(numStreams, v, w))
-//  outMux.io.ins := Vec(fifos.map {e => Reg(e.io.deq.cloneType, e.io.deq)})
-  outMux.io.ins := Vec(fifos.map {e => e.io.deq})
-  outMux.io.sel := tag
-
-  val emptyMux = Module(new MuxN(numStreams, w))
-//  emptyMux.io.ins := Vec(fifos.map {e => Reg(UInt(1.W), e.io.empty)})
-  emptyMux.io.ins := Vec(fifos.map {e => e.io.empty})
-  emptyMux.io.sel := tag
-
-  io.tag := tag
-  io.deq := outMux.io.out
-  io.empty := emptyMux.io.out
 }
+

@@ -9,15 +9,15 @@ class SRAM(val w: Int, val d: Int) extends Module {
     val raddr = Input(UInt(addrWidth.W))
     val wen = Input(Bool())
     val waddr = Input(UInt(addrWidth.W))
-    val wdata = Input(Bits(w.W))
-    val rdata = Output(Bits(w.W))
+    val wdata = Input(UInt(w.W))
+    val rdata = Output(UInt(w.W))
   })
 
   // Note: Cannot use SeqMem here because the 'pokeAt' method used in
   // simulation to load the Mem is defined only on 'Mem'.
-  val mem = Mem(d, Bits(w.W))
-  io.rdata := Bits(0)
-  val raddr_reg = Reg(Bits(width = addrWidth))
+  val mem = Mem(d, UInt(w.W))
+  io.rdata := 0.U
+  val raddr_reg = Reg(UInt(addrWidth.W))
 
   when (io.wen) {
     mem(io.waddr) := io.wdata

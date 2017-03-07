@@ -76,7 +76,7 @@ class Innerpipe(val ctrDepth : Int) extends Module {
       state := pipeSpinWait.U;
     } 
   }.otherwise {
-    io.output.done := false.B
+    io.output.done := Mux(io.input.ctr_done, true.B, false.B)
     io.output.ctr_en := false.B
     io.output.ctr_inc := false.B
     io.output.rst_en := false.B

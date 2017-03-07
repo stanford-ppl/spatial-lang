@@ -193,26 +193,46 @@ trait ChiselGenController extends ChiselCodegen {
         emitGlobal(src"""val ${c}_en = Wire(Bool())""")
         emitGlobal(src"""val ${c}_resetter = Wire(Bool())""")
         emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${c}_done;""")
-        if (smStr == "Streampipe") {
-          // Collect info about the fifos this child listens to
-          val readiers = (listensTo(c) :+ sym).distinct.map { fifo => 
-            fifo match {
-              case Def(FIFONew(size)) => src"~${fifo}.io.empty"
-              case Def(StreamInNew(bus)) => src"${fifo}_ready"
-              case _ => src"${fifo}_en" // parent node
-            }
-          }.mkString(" & ")
-          val holders = (pushesTo(c)).distinct.map { fifo => 
-            fifo match {
-              case Def(FIFONew(size)) => src"~${fifo}.io.full"
-              case Def(StreamOutNew(bus)) => src"~${fifo}_ready /*not sure if this sig exists*/"
-            }
-          }.mkString(" & ")
-          val enablers = List(readiers, holders).mkString(" & ")
-          emit(src"""${c}_en := ${enablers}""")
-        } else {
-          emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx})""")  
-        }
+        // If we are inside a stream pipe, the following may be set
+        val readiers = listensTo(c).distinct.map { fifo => 
+          fifo match {
+            case Def(FIFONew(size)) => src"~${fifo}.io.empty"
+            case Def(StreamInNew(bus)) => src"${fifo}_ready"
+            case _ => src"${fifo}_en" // parent node
+          }
+        }.mkString(" & ")
+        val holders = (pushesTo(c)).distinct.map { fifo => 
+          fifo match {
+            case Def(FIFONew(size)) => src"~${fifo}.io.full"
+            case Def(StreamOutNew(bus)) => src"${fifo}_ready /*not sure if this sig exists*/"
+          }
+        }.mkString(" & ")
+
+        val hasHolders = if (holders != "") "&" else ""
+        val hasReadiers = if (readiers != "") "&" else ""
+
+        emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx}) ${hasHolders} ${holders} ${hasReadiers} ${readiers}""")  
+
+        // if (smStr == "Streampipe") {
+        //   // Collect info about the fifos this child listens to
+        //   val readiers = (listensTo(c) :+ sym).distinct.map { fifo => 
+        //     fifo match {
+        //       case Def(FIFONew(size)) => src"~${fifo}.io.empty"
+        //       case Def(StreamInNew(bus)) => src"${fifo}_ready"
+        //       case _ => src"${fifo}_en" // parent node
+        //     }
+        //   }.mkString(" & ")
+        //   val holders = (pushesTo(c)).distinct.map { fifo => 
+        //     fifo match {
+        //       case Def(FIFONew(size)) => src"~${fifo}.io.full"
+        //       case Def(StreamOutNew(bus)) => src"${fifo}_ready /*not sure if this sig exists*/"
+        //     }
+        //   }.mkString(" & ")
+        //   val enablers = List(readiers, holders).mkString(" & ")
+        //   emit(src"""${c}_en := ${enablers}""")
+        // } else {
+        //   emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx})""")  
+        // }
         emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")
       }
     }

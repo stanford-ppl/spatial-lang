@@ -18,7 +18,7 @@ protected:
   vluint64_t main_time;
   uint64_t numCycles;
   VerilatedVcdC* tfp;
-  signalCallbackMap watchMap;
+  signalCallbackMap watchMap; 
 
 public:
     PeekPokeTester(DUT* _dut, VerilatedVcdC *_tfp = NULL) {

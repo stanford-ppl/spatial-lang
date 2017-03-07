@@ -14,7 +14,7 @@ public:
   // Some constants for Top and Fringe
   const uint32_t commandReg = 0;
   const uint32_t statusReg = 1;
-  const uint64_t maxCycles = 100;
+  const uint64_t maxCycles = 500000;
 
   DUTTester(DUT* _dut, VerilatedVcdC *_tfp = NULL) : PeekPokeTester(_dut, _tfp) {
     watchMap[&(dut->io_dram_cmd_valid)] = &handleDRAMRequest;

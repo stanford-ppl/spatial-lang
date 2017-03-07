@@ -27,12 +27,12 @@ class FF(val w: Int) extends Module {
 
 class TFF(val w: Int) extends Module {
   val io = new Bundle {
-    val out  = Output(UInt(w))
+    val out  = Output(UInt(w.W))
     val enable = Input(Bool())
   }
 
-  val d = Wire(UInt(width = w))
-  val ff = Reg(Bits(w), d, UInt(0, width=w))
+  val d = Wire(UInt(w.W))
+  val ff = Reg(UInt(w.W), d, 0.U(w.W))
   when (io.enable) {
     d := ~ff
   } .otherwise {

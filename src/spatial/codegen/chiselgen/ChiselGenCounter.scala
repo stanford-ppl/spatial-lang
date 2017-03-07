@@ -52,7 +52,7 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
       emitGlobal(src"""val ${lhs}_resetter = Wire(Bool())""")
       emit(src"""val ${lhs}_strides = List(${counter_data.map(_._3).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
       emit(src"""val ${lhs}_maxes = List(${counter_data.map(_._2).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
-      emit(src"""val ${lhs} = Module(new Counter(List(${counter_data.map(_._4).mkString(",")}))) // Par of 0 creates forever counter""")
+      emit(src"""val ${lhs} = Module(new templates.Counter(List(${counter_data.map(_._4).mkString(",")}))) // Par of 0 creates forever counter""")
       emit(src"""${lhs}.io.input.maxes.zip(${lhs}_maxes).foreach { case (port,max) => port := max }""")
       emit(src"""${lhs}.io.input.strides.zip(${lhs}_strides).foreach { case (port,stride) => port := stride }""")
       emit(src"""${lhs}.io.input.enable := ${lhs}_ctr_en""")

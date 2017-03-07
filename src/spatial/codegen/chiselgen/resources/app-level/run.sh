@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./Top_sim $@
+./Top $@

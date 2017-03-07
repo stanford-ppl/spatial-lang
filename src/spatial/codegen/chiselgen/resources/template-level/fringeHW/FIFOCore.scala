@@ -39,14 +39,14 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   // Create size register
   val sizeUDC = Module(new UpDownCtr(log2Up(d+1)))
   val size = sizeUDC.io.out
-  val empty = size === UInt(0)
+  val empty = size === 0.U
   val full = sizeUDC.io.isMax
-  sizeUDC.io.initval := UInt(0)
-  sizeUDC.io.max := UInt(d)
-  sizeUDC.io.init := UInt(0)
-  sizeUDC.io.strideInc := Mux(io.config.chainWrite, UInt(1), UInt(v))
-  sizeUDC.io.strideDec := Mux(io.config.chainRead, UInt(1), UInt(v))
-  sizeUDC.io.init := UInt(0)
+  sizeUDC.io.initval := 0.U
+  sizeUDC.io.max := d.U
+  sizeUDC.io.init := 0.U
+  sizeUDC.io.strideInc := Mux(io.config.chainWrite, 1.U, v.U)
+  sizeUDC.io.strideDec := Mux(io.config.chainRead, 1.U, v.U)
+  sizeUDC.io.init := 0.U
 
   val writeEn = io.enqVld & ~full
   val readEn = io.deqVld & ~empty
@@ -59,16 +59,16 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   (0 until 2) foreach { i => i match {
       case 1 => // Localaddr: max = bankSize, stride = 1
         val cfg = wptrConfig.counterOpcode(i)
-        cfg.max := UInt(bankSize)
-        cfg.stride := UInt(1)
-        cfg.maxConst := Bool(true)
-        cfg.strideConst := Bool(true)
+        cfg.max := bankSize.U
+        cfg.stride := 1.U
+        cfg.maxConst := true.B
+        cfg.strideConst := true.B
       case 0 => // Bankaddr: max = v, stride = 1
         val cfg = wptrConfig.counterOpcode(i)
-        cfg.max := UInt(v)
-        cfg.stride := UInt(1)
-        cfg.maxConst := Bool(true)
-        cfg.strideConst := Bool(true)
+        cfg.max := v.U
+        cfg.stride := 1.U
+        cfg.maxConst := true.B
+        cfg.strideConst := true.B
   }}
   val wptr = Module(new CounterChainCore(log2Up(bankSize+1), 2, 0, 0))
   wptr.io.enable(0) := writeEn & io.config.chainWrite
@@ -84,16 +84,16 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   (0 until 2) foreach { i => i match {
       case 1 => // Localaddr: max = bankSize, stride = 1
         val cfg = rptrConfig.counterOpcode(i)
-        cfg.max := UInt(bankSize)
-        cfg.stride := UInt(1)
-        cfg.maxConst := Bool(true)
-        cfg.strideConst := Bool(true)
+        cfg.max := bankSize.U
+        cfg.stride := 1.U
+        cfg.maxConst := true.B
+        cfg.strideConst := true.B
       case 0 => // Bankaddr: max = v, stride = 1
         val cfg = rptrConfig.counterOpcode(i)
-        cfg.max := UInt(v)
-        cfg.stride := UInt(1)
-        cfg.maxConst := Bool(true)
-        cfg.strideConst := Bool(true)
+        cfg.max := v.U
+        cfg.stride := 1.U
+        cfg.maxConst := true.B
+        cfg.strideConst := true.B
     }}
   val rptr = Module(new CounterChainCore(log2Up(bankSize+1), 2, 0, 0))
   rptr.io.enable(0) := readEn & io.config.chainRead
@@ -122,7 +122,7 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
 
     // Write enable
     val wen = Mux(io.config.chainWrite,
-                    io.enqVld & tailBankAddr === UInt(i),
+                    io.enqVld & tailBankAddr === i.U,
                     io.enqVld)
     m.io.wen := wen
 
@@ -132,10 +132,10 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
         val rdata0Mux = Module(new MuxN(v, w))
         val addrFF = Module(new FF(log2Up(v)))
         addrFF.io.in := Mux(readEn, nextHeadBankAddr, headBankAddr)
-        addrFF.io.enable := Bool(true)
+        addrFF.io.enable := true.B
 
         rdata0Mux.io.ins := Vec(mems.map {_.io.rdata })
-        rdata0Mux.io.sel := Mux(io.config.chainRead, addrFF.io.out, UInt(0))
+        rdata0Mux.io.sel := Mux(io.config.chainRead, addrFF.io.out, 0.U)
         rdata0Mux.io.out
       case _ =>
         m.io.rdata
