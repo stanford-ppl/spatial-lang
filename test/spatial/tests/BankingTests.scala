@@ -122,7 +122,7 @@ object SRAMCoalesceTest extends SpatialTest {
   @virtualize
   def main() {
     Accel {
-      val sram = SRAM[Int](16)
+      val sram = SRAM[Int](32)
       val out1 = ArgOut[Int]
       val out2 = ArgOut[Int]
       Foreach(16 by 1){i =>
