@@ -47,13 +47,19 @@ trait ChiselGenFIFO extends ChiselCodegen {
       val rPar = readersOf(lhs).map { r => 
         r.node match {
           case Def(_: FIFODeq[_]) => 1
-          case Def(ParFIFODeq(_,ens,_)) => 1
+          case Def(a@ParFIFODeq(q,ens,_)) => ens match {
+            case Op(ListVector(elems)) => elems.length
+            case _ => 1
+          }
         }
       }.reduce{scala.math.max(_,_)}
       val wPar = writersOf(lhs).map { w =>
         w.node match {
           case Def(_: FIFOEnq[_]) => 1
-          case Def(ParFIFOEnq(_,ens,_)) => 16 // FIX ASAP          
+          case Def(a@ParFIFOEnq(q,ens,_)) => ens match {
+            case Op(ListVector(elems)) => elems.length
+            case _ => 1
+          }
         }
       }.reduce{scala.math.max(_,_)}
       val width = bitWidth(lhs.tp.typeArguments.head)
