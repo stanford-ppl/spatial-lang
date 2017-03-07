@@ -3,13 +3,14 @@ package spatial.codegen.cppgen
 import spatial.api.DRAMExp
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
+import scala.collection.mutable.HashMap
 
 
 trait CppGenDRAM extends CppGenSRAM {
   val IR: DRAMExp with SpatialMetadataExp
   import IR._
 
-  var offchipMems: List[Sym[Any]] = List()
+  var dramMap = HashMap[String, (String, String)]() // Map for tracking defs of nodes and if they get redeffed anywhere, we map it to a suffix
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -35,8 +36,17 @@ trait CppGenDRAM extends CppGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => 
-      emit(src"""//${lhs.tp}* $lhs = new DRAM(402653184*${offchipMems.length}, ${dims.map(quote).mkString("*")});""")
-      offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
+      val length = dims.map{i => src"${i}"}.mkString("*")
+      if (dramMap.size == 0)  {
+        dramMap += (src"$lhs" -> ("0", length))
+      } else if (!dramMap.contains(src"$lhs")) {
+        val start = dramMap.values.map{ _._2 }.mkString{" + "}
+        dramMap += (src"$lhs" -> (start, length))
+      } else {
+        log(s"dram $lhs used multiple times")
+      }
+
+      emit(src"""//uint64_t $lhs = std::malloc(${dims.map(quote).mkString("*")});""")
 
     // case Gather(dram, local, addrs, ctr, i)  => emit("// Do what?")
     // case Scatter(dram, local, addrs, ctr, i) => emit("// Do what?")
@@ -45,10 +55,10 @@ trait CppGenDRAM extends CppGenSRAM {
     case _ => super.emitNode(lhs, rhs)
   }
 
-  override protected def emitFileFooter() = {
-    // withStream(getStream("interface","h")) {
-      // emit(s"""DRAM* memStreams[0];""")
-    // }
+  override protected def emitFileFooter() {
+    withStream(getStream("interface","h")) {
+      emit(s"""int32_t* Streams[${dramMap.size}];""")
+    }
     super.emitFileFooter()
   }
 

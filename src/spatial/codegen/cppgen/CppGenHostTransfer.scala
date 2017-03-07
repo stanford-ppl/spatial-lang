@@ -39,12 +39,8 @@ trait CppGenHostTransfer extends CppCodegen  {
       setMems = setMems :+ src"$dram"
       emit(src"${data.tp}* $dram = $data;", forceful = true)
     case GetMem(dram, data) => 
-      open(src"for (int i = 0; i < interface.memOut_length(); i++) { // Will be 0 if this app has an argout")
-      open(src"if (i < ${data}->length) { // Hack for when we get an extra burst")
-      emit(src"${data}->update(i, interface.get_mem(i));")
-      close("}")
-      close("}")
-      emit(src"// ${data.tp} $lhs = something related to interface", forceful = true)
+      setMems = setMems :+ src"$dram"
+      emit(src"$data = $dram;", forceful = true)
     case _ => super.emitNode(lhs, rhs)
   }
 

@@ -64,6 +64,7 @@ object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 384
     val ts = tileSize (96 -> 96 -> 192000)
     val op = outerPar (1 -> 6)
     val ip = innerPar (1 -> 384)
+    val lp = 16 (1 -> 384)
 
     setMem(dates, datesIn)
     setMem(quants, quantsIn)
@@ -81,10 +82,10 @@ object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 384
         val disctsTile = SRAM[T](ts)
         val pricesTile = SRAM[T](ts)
         Parallel {
-          datesTile  load dates(i::i+ts par ip)
-          quantsTile load quants(i::i+ts par ip)
-          disctsTile load discts(i::i+ts par ip)
-          pricesTile load prices(i::i+ts par ip)
+          datesTile  load dates(i::i+ts par lp)
+          quantsTile load quants(i::i+ts par lp)
+          disctsTile load discts(i::i+ts par lp)
+          pricesTile load prices(i::i+ts par lp)
         }
         Reduce(Reg[T])(ts par ip){ j =>
           val date  = datesTile(j)

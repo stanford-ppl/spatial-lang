@@ -56,6 +56,7 @@ trait CppGenReg extends CppCodegen {
     withStream(getStream("interface","h")) {
       emit(s"""int32_t* ArgIns[${argIns.length}];""")
       emit(s"""int32_t* ArgOuts[${argOuts.length}];""")
+
     }
     super.emitFileFooter()
   }

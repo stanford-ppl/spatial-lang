@@ -144,6 +144,17 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isStreamLoad(e: Exp[_]): Boolean = e match {
+    case Def(_:FringeDenseLoad[_]) => true
+    case _ => false
+  }
+
+  def isParEnq(e: Exp[_]): Boolean = e match {
+    case Def(_:ParFIFOEnq[_]) => true
+    case Def(_:ParSRAMLoad[_]) => true
+    case _ => false
+  }
+
   def isStreamStageEnabler(e: Exp[_]): Boolean = e match {
     case Def(_:FIFODeq[_]) => true
     case Def(_:ParFIFODeq[_]) => true

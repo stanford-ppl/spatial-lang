@@ -217,6 +217,21 @@ trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp
   }
 
   /**
+    * Map for tracking which control nodes are the tile transfer nodes for a given memory, since this
+    * alters the enable signal
+    **/
+  case class LoadMemCtrl(ctrl: List[Exp[_]]) extends Metadata[LoadMemCtrl] {
+    def mirror(f:Tx) = LoadMemCtrl(f.tx(ctrl))
+  }
+  object loadCtrlOf {
+    def apply(x: Exp[_]): List[Exp[_]] = metadata[LoadMemCtrl](x).map(_.ctrl).getOrElse(Nil)
+    def update(x: Exp[_], ctrl: List[Exp[_]]): Unit = metadata.add(x, LoadMemCtrl(ctrl))
+
+    def apply(x: Ctrl): List[Exp[_]] = loadCtrlOf(x.node)
+    def update(x: Ctrl, ctrl: List[Exp[_]]): Unit = loadCtrlOf(x.node) = ctrl
+  }
+
+  /**
     * List of fifos or streams pushed in a given controller, for handling streampipe control flow
     **/
   case class PushStreams(push: List[Exp[_]]) extends Metadata[PushStreams] {

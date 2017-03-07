@@ -133,7 +133,15 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val unroller       = new UnrollingTransformer { val IR: self.type = self }
 
   lazy val bufferAnalyzer = new BufferAnalyzer { val IR: self.type = self; def localMems = uctrlAnalyzer.localMems }
-  lazy val streamAnalyzer = new StreamAnalyzer { val IR: self.type = self ; def streamPipes = uctrlAnalyzer.streampipes; def streamEnablers = uctrlAnalyzer.streamEnablers; def streamHolders = uctrlAnalyzer.streamHolders }
+  lazy val streamAnalyzer = new StreamAnalyzer { 
+    val IR: self.type = self ;
+    def streamPipes = uctrlAnalyzer.streampipes;
+    def streamEnablers = uctrlAnalyzer.streamEnablers;
+    def streamHolders = uctrlAnalyzer.streamHolders 
+    def streamLoadCtrls = uctrlAnalyzer.streamLoadCtrls 
+    def streamParEnqs = uctrlAnalyzer.streamParEnqs
+  }
+
   lazy val dramAddrAlloc  = new DRAMAddrAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams }
 
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
