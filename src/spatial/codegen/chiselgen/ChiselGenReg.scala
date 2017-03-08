@@ -90,7 +90,7 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg)) {
-        emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)})""")
+        emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)._1})""")
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)

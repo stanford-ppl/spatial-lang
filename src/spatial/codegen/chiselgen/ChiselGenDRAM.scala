@@ -46,15 +46,12 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       }
 
     case GetDRAMAddress(dram) =>
-      val id = argMapping(dram)
+      val id = argMapping(dram)._1
       emit(src"""val $lhs = io.argIns($id)""")
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
-
-      emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${dramMap.keys.toList.sorted.indexOf(src"$dram")}).rdata.valid""")
-      val id = dramMap.keys.toList.sorted.indexOf(src"$dram")
-      val start = dramMap.getOrElse(src"$dram", ("-1","-1"))._1
-      val size = dramMap.getOrElse(src"$dram", ("-1","-1"))._2
+      val id = argMapping(dram)._2
+      emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${id}).rdata.valid""")
       emit(src"""// Connect streams to ports on mem controller""")
       emit("// HACK: Assume load is par=16")
       val allData = (0 until 16).map{ i => src"io.memStreams($id).rdata.bits($i)" }.mkString(",")
@@ -68,10 +65,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
 
 
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
-      // emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${dramMap.keys.toList.sorted.indexOf(src"$dram")}).rdata.valid""")
-      val id = dramMap.keys.toList.sorted.indexOf(src"$dram")
-      val start = dramMap.getOrElse(src"$dram", ("-1","-1"))._1
-      val size = dramMap.getOrElse(src"$dram", ("-1","-1"))._2
+      val id = argMapping(dram)._2
+      // emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${id}).rdata.valid""")
       emit(src"""// Connect streams to ports on mem controller""")
       emit("// HACK: Assume store is par=16")
       val allData = (0 until 16).map{ i => src"io.memStreams($id).rdata.bits($i)" }.mkString(",")

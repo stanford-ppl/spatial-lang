@@ -24,7 +24,7 @@ abstract class AXI4BundleA(params: AXI4BundleParameters) extends AXI4BundleBase(
   // Number of bytes-1 in this operation
   def bytes1(x:Int=0) = {
     val maxShift = 1 << params.sizeBits
-    val tail = UInt((BigInt(1) << maxShift) - 1)
+    val tail = ((BigInt(1) << maxShift) - 1).U
     (Cat(len, tail) << size) >> maxShift
   }
 }
@@ -41,23 +41,23 @@ class AXI4BundleAR(params: AXI4BundleParameters) extends AXI4BundleA(params)
 class AXI4BundleW(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 {
   // id ... removed in AXI4
-  val data = UInt(width = params.dataBits)
-  val strb = UInt(width = params.dataBits/8)
+  val data = UInt((params.dataBits).W)
+  val strb = UInt((params.dataBits/8).W)
   val last = Bool()
 }
 
 class AXI4BundleR(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 {
-  val id   = UInt(width = params.idBits)
-  val data = UInt(width = params.dataBits)
-  val resp = UInt(width = params.respBits)
+  val id   = UInt((params.idBits).W)
+  val data = UInt((params.dataBits).W)
+  val resp = UInt((params.respBits).W)
   val last = Bool()
 }
 
 class AXI4BundleB(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 {
-  val id   = UInt(width = params.idBits)
-  val resp = UInt(width = params.respBits)
+  val id   = UInt((params.idBits).W)
+  val resp = UInt((params.respBits).W)
 }
 
 class AXI4Bundle(params: AXI4BundleParameters) extends AXI4BundleBase(params)
@@ -76,50 +76,50 @@ class AXI4Bundle(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 class AXI4Inlined(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 {
   // aw
-  val AWID     = Output(UInt(width = params.idBits))
-  val AWADDR   = Output(UInt(width = params.addrBits))
-  val AWLEN    = Output(UInt(width = params.lenBits))  // number of beats - 1
-  val AWSIZE   = Output(UInt(width = params.sizeBits)) // bytes in beat = 2^size
-  val AWBURST  = Output(UInt(width = params.burstBits))
-  val AWLOCK   = Output(UInt(width = params.lockBits))
-  val AWCACHE  = Output(UInt(width = params.cacheBits))
-  val AWPROT   = Output(UInt(width = params.protBits))
-  val AWQOS    = Output(UInt(width = params.qosBits))  // 0=no QoS, bigger = higher priority
+  val AWID     = Output(UInt((params.idBits).W))
+  val AWADDR   = Output(UInt((params.addrBits).W))
+  val AWLEN    = Output(UInt((params.lenBits).W))  // number of beats - 1
+  val AWSIZE   = Output(UInt((params.sizeBits).W)) // bytes in beat = 2^size
+  val AWBURST  = Output(UInt((params.burstBits).W))
+  val AWLOCK   = Output(UInt((params.lockBits).W))
+  val AWCACHE  = Output(UInt((params.cacheBits).W))
+  val AWPROT   = Output(UInt((params.protBits).W))
+  val AWQOS    = Output(UInt((params.qosBits).W))  // 0=no QoS, bigger = higher priority
   val AWVALID  = Output(Bool())
   val AWREADY  = Input(Bool())
 
   // ar
-  val ARID     = Output(UInt(width = params.idBits))
-  val ARADDR   = Output(UInt(width = params.addrBits))
-  val ARLEN    = Output(UInt(width = params.lenBits))  // number of beats - 1
-  val ARSIZE   = Output(UInt(width = params.sizeBits)) // bytes in beat = 2^size
-  val ARBURST  = Output(UInt(width = params.burstBits))
-  val ARLOCK   = Output(UInt(width = params.lockBits))
-  val ARCACHE  = Output(UInt(width = params.cacheBits))
-  val ARPROT   = Output(UInt(width = params.protBits))
-  val ARQOS    = Output(UInt(width = params.qosBits))  // 0=no QoS, bigger = higher priority
+  val ARID     = Output(UInt((params.idBits).W))
+  val ARADDR   = Output(UInt((params.addrBits).W))
+  val ARLEN    = Output(UInt((params.lenBits).W))  // number of beats - 1
+  val ARSIZE   = Output(UInt((params.sizeBits).W)) // bytes in beat = 2^size
+  val ARBURST  = Output(UInt((params.burstBits).W))
+  val ARLOCK   = Output(UInt((params.lockBits).W))
+  val ARCACHE  = Output(UInt((params.cacheBits).W))
+  val ARPROT   = Output(UInt((params.protBits).W))
+  val ARQOS    = Output(UInt((params.qosBits).W))  // 0=no QoS, bigger = higher priority
   val ARVALID  = Output(Bool())
   val ARREADY  = Input(Bool())
 
 
   // w
-  val WDATA = Output(UInt(width = params.dataBits))
-  val WSTRB = Output(UInt(width = params.dataBits/8))
+  val WDATA = Output(UInt((params.dataBits).W))
+  val WSTRB = Output(UInt((params.dataBits/8).W))
   val WLAST = Output(Bool())
   val WVALID  = Output(Bool())
   val WREADY  = Input(Bool())
 
   // r: Input
-  val RID   = Input(UInt(width = params.idBits))
-  val RDATA = Input(UInt(width = params.dataBits))
-  val RRESP = Input(UInt(width = params.respBits))
+  val RID   = Input(UInt((params.idBits).W))
+  val RDATA = Input(UInt((params.dataBits).W))
+  val RRESP = Input(UInt((params.respBits).W))
   val RLAST = Input(Bool())
   val RVALID  = Input(Bool())
   val RREADY  = Output(Bool())
 
   // b: Input
-  val BID   = Input(UInt(width = params.idBits))
-  val BRESP = Input(UInt(width = params.respBits))
+  val BID   = Input(UInt((params.idBits).W))
+  val BRESP = Input(UInt((params.respBits).W))
   val BVALID  = Input(Bool())
   val BREADY  = Output(Bool())
 }
@@ -127,31 +127,31 @@ class AXI4Inlined(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 class AXI4Lite(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 {
   // aw
-  val AWADDR   = Output(UInt(width = params.addrBits))
-  val AWPROT   = Output(UInt(width = params.protBits))
+  val AWADDR   = Output(UInt((params.addrBits).W))
+  val AWPROT   = Output(UInt((params.protBits).W))
   val AWVALID  = Output(Bool())
   val AWREADY  = Input(Bool())
 
   // ar
-  val ARADDR   = Output(UInt(width = params.addrBits))
-  val ARPROT   = Output(UInt(width = params.protBits))
+  val ARADDR   = Output(UInt((params.addrBits).W))
+  val ARPROT   = Output(UInt((params.protBits).W))
   val ARVALID  = Output(Bool())
   val ARREADY  = Input(Bool())
 
   // w
-  val WDATA = Output(UInt(width = params.dataBits))
-  val WSTRB = Output(UInt(width = params.dataBits/8))
+  val WDATA = Output(UInt((params.dataBits).W))
+  val WSTRB = Output(UInt((params.dataBits/8).W))
   val WVALID  = Output(Bool())
   val WREADY  = Input(Bool())
 
   // r: Input
-  val RDATA = Input(UInt(width = params.dataBits))
-  val RRESP = Input(UInt(width = params.respBits))
+  val RDATA = Input(UInt((params.dataBits).W ))
+  val RRESP = Input(UInt((params.respBits).W ))
   val RVALID  = Input(Bool())
   val RREADY  = Output(Bool())
 
   // b: Input
-  val BRESP = Input(UInt(width = params.respBits))
+  val BRESP = Input(UInt((params.respBits).W ))
   val BVALID  = Input(Bool())
   val BREADY  = Output(Bool())
 }

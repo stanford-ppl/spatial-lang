@@ -38,6 +38,8 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   override protected def preprocess[S:Staged](block: Block[S]) = {
     localMems = Nil
     metapipes = Nil
+    streamLoadCtrls = Nil
+    streamParEnqs = Nil
     streampipes = Nil
     top = None
     level = 0

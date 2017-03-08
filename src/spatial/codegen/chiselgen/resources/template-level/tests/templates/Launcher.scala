@@ -39,8 +39,8 @@ object Arguments {
     (32, "max")
   )
   val SpecialAccum = List(
-    // (0,"add","UInt",List(32)),
-    // (1,"add","FixedPoint",List(1,16,16))
+    (0,"add","UInt",List(32)),
+    (1,"add","FixedPoint",List(1,16,16))
     // (18,"max","FloatingPoint",List(24,8))
   )
   val FF = List(

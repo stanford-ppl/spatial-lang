@@ -30,7 +30,16 @@ trait StreamAnalyzer extends CompilerPass {
           streamParEnqs.foreach { pe => 
             dbg(u"  Attempting to match $pe (parent ${parentOf(pe).get} to $d")
             pe match {
-              case Def(ParFIFOEnq(fifo, data, ens)) => if (s"${parentOf(pe).get}" == s"$d") loadCtrlOf(fifo) = List(specificCtrl)
+              case Def(ParFIFOEnq(fifo, data, ens)) => 
+                if (s"${parentOf(pe).get}" == s"$d") {
+                  loadCtrlOf(fifo) = List(specificCtrl)
+                  dbg(u"  It's a match! $fifo to $specificCtrl")
+                }
+              case Def(ParSRAMStore(sram,inds,data,ens)) => 
+                if (s"${parentOf(pe).get}" == s"$d") {
+                  loadCtrlOf(sram) = List(specificCtrl)
+                  dbg(u"  It's a match! $sram to $specificCtrl")
+                }
               case _ =>
             }
           }

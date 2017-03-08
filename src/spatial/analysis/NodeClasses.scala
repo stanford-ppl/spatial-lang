@@ -151,7 +151,7 @@ trait NodeClasses extends SpatialMetadataExp {
 
   def isParEnq(e: Exp[_]): Boolean = e match {
     case Def(_:ParFIFOEnq[_]) => true
-    case Def(_:ParSRAMLoad[_]) => true
+    case Def(_:ParSRAMStore[_]) => true
     case _ => false
   }
 

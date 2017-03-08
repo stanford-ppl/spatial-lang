@@ -10,8 +10,6 @@ trait CppGenDRAM extends CppGenSRAM {
   val IR: DRAMExp with SpatialMetadataExp
   import IR._
 
-  var dramMap = HashMap[String, (String, String)]() // Map for tracking defs of nodes and if they get redeffed anywhere, we map it to a suffix
-
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
       s match {
@@ -36,17 +34,9 @@ trait CppGenDRAM extends CppGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => 
-      val length = dims.map{i => src"${i}"}.mkString("*")
-      if (dramMap.size == 0)  {
-        dramMap += (src"$lhs" -> ("0", length))
-      } else if (!dramMap.contains(src"$lhs")) {
-        val start = dramMap.values.map{ _._2 }.mkString{" + "}
-        dramMap += (src"$lhs" -> (start, length))
-      } else {
-        log(s"dram $lhs used multiple times")
-      }
 
       emit(src"""uint64_t ${lhs} = c1->malloc(sizeof(int32_t) * ${dims.map(quote).mkString("*")});""")
+      emit(src"c1->setArg(${argMapping(lhs)._1}, $lhs); // (memstream ${argMapping(lhs)._2})")
       // emit(src"""uint64_t ${lhs} = (uint64_t) ${lhs}_void;""")
 
 

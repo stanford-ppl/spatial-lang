@@ -34,14 +34,13 @@ trait CppGenHostTransfer extends CppCodegen  {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SetArg(reg, v) => 
-      emit(src"c1->setArg(${argMapping(reg)}, $v); // $lhs", forceful = true)
+      emit(src"c1->setArg(${argMapping(reg)._1}, $v); // $lhs", forceful = true)
       emit(src"${reg.tp} $reg = $v;")
-    case GetArg(reg)    => emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)});", forceful = true)
+    case GetArg(reg)    => emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._1});", forceful = true)
     case SetMem(dram, data) => 
       emit(src"c1->memcpy($dram, ${data}, ${data}_length * sizeof(${data.tp}));", forceful = true)
-      emit(src"c1->setArg(${argMapping(dram)}, $dram);")
     case GetMem(dram, data) => 
-      emit(src"$data = $dram;", forceful = true)
+      emit(src"c1->memcpy($data, $dram, ${data}_length * sizeof(${data.tp}));", forceful = true)
     case _ => super.emitNode(lhs, rhs)
   }
 

@@ -21,16 +21,16 @@ trait ArgMappingAnalyzer extends CompilerPass {
 
     argIns.toList.distinct.zipWithIndex.foreach{case(a,i) => 
       dbg(u"Mapping $a to $i")
-      argMapping(a) = i
+      argMapping(a) = (i, i)
     }
     val ofs = argIns.toList.distinct.length
     memStreams.toList.distinct.zipWithIndex.foreach{case(m,i) => 
       dbg(u"Mapping $m to $i + $ofs")
-      argMapping(m) = i + ofs
+      argMapping(m) = (i + ofs, i)
     }
     argOuts.toList.distinct.zipWithIndex.foreach{case(a,i) => 
       dbg(u"Mapping $a to $i")
-      argMapping(a) = i
+      argMapping(a) = (i, i)
     }
 
     block

@@ -131,7 +131,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
           case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
               emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*${p}+i))}""")
             } else {
-              emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
+              emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${sram}_${i}.rPar*${p}+i) }""")
             }
           case _ => emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
         }
@@ -160,7 +160,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         val p = portsOf(lhs, sram, i).mkString(",")
         val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enabler = if (loadCtrlOf(sram).length > 0) src"${parent}_enq" else "${parent}_datapath_en"
-        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${parent}_datapath_en, List(${p}))""")
+        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enabler}, List(${p}))""")
       }
 
     case ParFIFODeq(fifo, ens, z) =>
@@ -198,7 +198,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         case Op(ListVector(elems)) => elems.length
         case _ => 1
       }
-      emitGlobal(src"val ${strm}_data = Vec($par, UInt(32.W))")
+      emitGlobal(src"val ${strm}_data = Wire(Vec($par, UInt(32.W)))")
       emit(src"${strm}_data := $data")
       emit(src"${strm}_en := ${ens}.reduce{_&_}")
 
