@@ -116,6 +116,8 @@ trait PIRAllocation extends PIRTraversal {
     if (isArgIn(mem) || isArgOut(mem) || isGetDRAMAddress(mem)) {
       cuMem.banking = Some(NoBanks)
       cuMem.bufferDepth = 1 
+      cuMem.consumer = top.map(allocateCU)
+      cuMem.producer = top.map(allocateCU)
     } else if (isSRAM(mem) || isReg(mem)) {
       val instIndex = dispatchOf(reader, mem).head
       val instance = duplicatesOf(mem).apply(instIndex)
