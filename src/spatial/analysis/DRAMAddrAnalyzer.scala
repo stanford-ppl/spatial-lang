@@ -19,9 +19,19 @@ trait ArgMappingAnalyzer extends CompilerPass {
     // changed, but until then we have to assign LMem addresses
     // statically. Assigning each DRAM memory a 384MB chunk now
 
+    argIns.toList.distinct.zipWithIndex.foreach{case(a,i) => 
+      dbg(u"Mapping $a to $i")
+      argMapping(a) = i
+    }
     val ofs = argIns.toList.distinct.length
-    memStreams.toList.distinct.zipWithIndex.foreach{case(m,i) => argMapping(m) = i + ofs}
-    argOuts.toList.distinct.zipWithIndex.foreach{case(a,i) => argMapping(a) = i}
+    memStreams.toList.distinct.zipWithIndex.foreach{case(m,i) => 
+      dbg(u"Mapping $m to $i + $ofs")
+      argMapping(m) = i + ofs
+    }
+    argOuts.toList.distinct.zipWithIndex.foreach{case(a,i) => 
+      dbg(u"Mapping $a to $i")
+      argMapping(a) = i
+    }
 
     block
   }

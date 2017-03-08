@@ -38,7 +38,7 @@ trait CppGenHostTransfer extends CppCodegen  {
       emit(src"${reg.tp} $reg = $v;")
     case GetArg(reg)    => emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)});", forceful = true)
     case SetMem(dram, data) => 
-      emit(src"c1->memcpy($dram, ${data}->data, sizeof(${data}->data));", forceful = true)
+      emit(src"c1->memcpy($dram, ${data}->data, ${data}->length * sizeof(*${data}->data));", forceful = true)
       emit(src"c1->setArg(${argMapping(dram)}, $dram);")
     case GetMem(dram, data) => 
       emit(src"$data = $dram;", forceful = true)
