@@ -73,55 +73,55 @@ class AXI4Bundle(params: AXI4BundleParameters) extends AXI4BundleBase(params)
  * Inlined AXI4 interface definition, same as 'AXI4Bundle'. Inlining helps Vivado
  * to auto-detect AXI4 and hence enables using block connection automation features
  */
-class AXI4BundleInlined(params: AXI4BundleParameters) extends AXI4BundleBase(params)
+class AXI4Inlined(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 {
   // aw
-  val awid     = Output(UInt(width = params.idBits))
-  val awaddr   = Output(UInt(width = params.addrBits))
-  val awlen    = Output(UInt(width = params.lenBits))  // number of beats - 1
-  val awsize   = Output(UInt(width = params.sizeBits)) // bytes in beat = 2^size
-  val awburst  = Output(UInt(width = params.burstBits))
-  val awlock   = Output(UInt(width = params.lockBits))
-  val awcache  = Output(UInt(width = params.cacheBits))
-  val awprot   = Output(UInt(width = params.protBits))
-  val awqos    = Output(UInt(width = params.qosBits))  // 0=no QoS, bigger = higher priority
-  val awvalid  = Output(UInt(1.W))
-  val awready  = Input(UInt(1.W))
+  val AWID     = Output(UInt(width = params.idBits))
+  val AWADDR   = Output(UInt(width = params.addrBits))
+  val AWLEN    = Output(UInt(width = params.lenBits))  // number of beats - 1
+  val AWSIZE   = Output(UInt(width = params.sizeBits)) // bytes in beat = 2^size
+  val AWBURST  = Output(UInt(width = params.burstBits))
+  val AWLOCK   = Output(UInt(width = params.lockBits))
+  val AWCACHE  = Output(UInt(width = params.cacheBits))
+  val AWPROT   = Output(UInt(width = params.protBits))
+  val AWQOS    = Output(UInt(width = params.qosBits))  // 0=no QoS, bigger = higher priority
+  val AWVALID  = Output(Bool())
+  val AWREADY  = Input(Bool())
 
   // ar
-  val arid     = Output(UInt(width = params.idBits))
-  val araddr   = Output(UInt(width = params.addrBits))
-  val arlen    = Output(UInt(width = params.lenBits))  // number of beats - 1
-  val arsize   = Output(UInt(width = params.sizeBits)) // bytes in beat = 2^size
-  val arburst  = Output(UInt(width = params.burstBits))
-  val arlock   = Output(UInt(width = params.lockBits))
-  val arcache  = Output(UInt(width = params.cacheBits))
-  val arprot   = Output(UInt(width = params.protBits))
-  val arqos    = Output(UInt(width = params.qosBits))  // 0=no QoS, bigger = higher priority
-  val arvalid  = Output(UInt(1.W))
-  val arready  = Input(UInt(1.W))
+  val ARID     = Output(UInt(width = params.idBits))
+  val ARADDR   = Output(UInt(width = params.addrBits))
+  val ARLEN    = Output(UInt(width = params.lenBits))  // number of beats - 1
+  val ARSIZE   = Output(UInt(width = params.sizeBits)) // bytes in beat = 2^size
+  val ARBURST  = Output(UInt(width = params.burstBits))
+  val ARLOCK   = Output(UInt(width = params.lockBits))
+  val ARCACHE  = Output(UInt(width = params.cacheBits))
+  val ARPROT   = Output(UInt(width = params.protBits))
+  val ARQOS    = Output(UInt(width = params.qosBits))  // 0=no QoS, bigger = higher priority
+  val ARVALID  = Output(Bool())
+  val ARREADY  = Input(Bool())
 
 
   // w
-  val wdata = Output(UInt(width = params.dataBits))
-  val wstrb = Output(UInt(width = params.dataBits/8))
-  val wlast = Output(Bool())
-  val wvalid  = Output(UInt(1.W))
-  val wready  = Input(UInt(1.W))
+  val WDATA = Output(UInt(width = params.dataBits))
+  val WSTRB = Output(UInt(width = params.dataBits/8))
+  val WLAST = Output(Bool())
+  val WVALID  = Output(Bool())
+  val WREADY  = Input(Bool())
 
   // r: Input
-  val rid   = Input(UInt(width = params.idBits))
-  val rdata = Input(UInt(width = params.dataBits))
-  val rresp = Input(UInt(width = params.respBits))
-  val rlast = Input(Bool())
-  val rvalid  = Input(UInt(1.W))
-  val rready  = Output(UInt(1.W))
+  val RID   = Input(UInt(width = params.idBits))
+  val RDATA = Input(UInt(width = params.dataBits))
+  val RRESP = Input(UInt(width = params.respBits))
+  val RLAST = Input(Bool())
+  val RVALID  = Input(Bool())
+  val RREADY  = Output(Bool())
 
   // b: Input
-  val bid   = Input(UInt(width = params.idBits))
-  val bresp = Input(UInt(width = params.respBits))
-  val bvalid  = Input(UInt(1.W))
-  val bready  = Output(UInt(1.W))
+  val BID   = Input(UInt(width = params.idBits))
+  val BRESP = Input(UInt(width = params.respBits))
+  val BVALID  = Input(Bool())
+  val BREADY  = Output(Bool())
 }
 
 class AXI4Lite(params: AXI4BundleParameters) extends AXI4BundleBase(params)
