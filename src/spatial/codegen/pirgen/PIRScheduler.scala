@@ -11,8 +11,8 @@ trait PIRScheduler extends PIRTraversal {
   override val name = "PIR Scheduler"
   override val recurse = Always
 
-  implicit val mappingIn  = mutable.HashMap[Symbol, List[PCU]]()
-  val mappingOut = mutable.HashMap[Symbol, List[CU]]()
+  implicit val mappingIn  = mutable.HashMap[Expr, List[PCU]]()
+  val mappingOut = mutable.HashMap[Expr, List[CU]]()
 
   override protected def postprocess[S:Staged](block: Block[S]): Block[S] = {
     val cuMapping:Map[ACU, ACU] = mappingIn.keys.flatMap{s =>
@@ -44,7 +44,7 @@ trait PIRScheduler extends PIRTraversal {
       schedulePCU(lhs, mappingIn(lhs))
   }
 
-  def schedulePCU(sym: Symbol, pcus: List[PCU]):Unit = {
+  def schedulePCU(sym: Expr, pcus: List[PCU]):Unit = {
     mappingOut += sym -> pcus.map { pcu =>
       dbgblk(s"Scheduling $sym CU: $pcu") {
         dbgpcu(pcu)
@@ -103,7 +103,7 @@ trait PIRScheduler extends PIRTraversal {
   }
 
   // If addr is a counter or const, just returns that register back. Otherwise returns address wire
-  def allocateAddrReg(sram: CUMemory, addr: Symbol, ctx: CUContext, local: Boolean = false):LocalComponent = {
+  def allocateAddrReg(sram: CUMemory, addr: Expr, ctx: CUContext, local: Boolean = false):LocalComponent = {
     val wire = ctx match {
       case WriteContext(cu, pipe, srams) if local => FeedbackAddrReg(sram)
       case WriteContext(cu, pipe, srams) => WriteAddrWire(sram)
@@ -113,7 +113,7 @@ trait PIRScheduler extends PIRTraversal {
     propagateReg(addr, addrReg, wire, ctx)
   }
 
-  def addrToStage(mem: Symbol, addr: Symbol, ctx: CUContext, local: Boolean = false) {
+  def addrToStage(mem: Expr, addr: Expr, ctx: CUContext, local: Boolean = false) {
     //dbg(s"Setting write address for " + ctx.memories(mem).mkString(", "))
     ctx.memories(mem).foreach{sram =>
       ctx match {
@@ -125,7 +125,7 @@ trait PIRScheduler extends PIRTraversal {
     }
   }
 
-  def mapNodeToStage(lhs: Symbol, rhs: Def, ctx: CUContext) = rhs match {
+  def mapNodeToStage(lhs: Expr, rhs: Def, ctx: CUContext) = rhs match {
     // --- Reads
     case ParLocalReader(reads) =>
       if (usersOf(lhs).nonEmpty) {
@@ -168,12 +168,12 @@ trait PIRScheduler extends PIRTraversal {
     }
   }
 
-  def reduceNodeToStage(lhs: Symbol, rhs: Def, ctx: CUContext) = nodeToOp(rhs) match {
+  def reduceNodeToStage(lhs: Expr, rhs: Def, ctx: CUContext) = nodeToOp(rhs) match {
     case Some(op) => opStageToStage(op, syms(rhs), lhs, ctx, true)
     case _ => warn(s"No ALU reduce operation known for $lhs = $rhs")
   }
 
-  def opStageToStage(op: PIROp, ins: List[Symbol], out: Symbol, ctx: CUContext, isReduce: Boolean) {
+  def opStageToStage(op: PIROp, ins: List[Expr], out: Expr, ctx: CUContext, isReduce: Boolean) {
     if (isReduce) {
       // By convention, the inputs to the reduction tree is the first argument to the node
       // This input must be in the previous stage's reduction register

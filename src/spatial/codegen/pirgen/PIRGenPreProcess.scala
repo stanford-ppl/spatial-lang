@@ -15,8 +15,8 @@ trait PIRPreProcess extends PIRCodegen with PIRTraversal {
   import IR.{println => _, _}
 
   val globals = mutable.Set[GlobalComponent]()
-  val decomposed = mutable.Map[Symbol, Seq[(String, Symbol)]]()
-  val composed = mutable.Map[Symbol, Symbol]()
+  val decomposed = mutable.Map[Expr, Seq[(String, Expr)]]()
+  val composed = mutable.Map[Expr, Expr]()
 
   lazy val allocater = new PIRAllocation{
     val IR = PIRPreProcess.this.IR
@@ -55,7 +55,7 @@ trait PIRPreProcess extends PIRCodegen with PIRTraversal {
     def composed = PIRPreProcess.this.composed
   }
 
-  val cus = Map[Symbol,List[List[ComputeUnit]]]()
+  val cus = Map[Expr,List[List[ComputeUnit]]]()
 
   override protected def preprocess[S:Staged](block: Block[S]): Block[S] = {
     globals.clear
@@ -115,7 +115,7 @@ trait PIRPreProcess extends PIRCodegen with PIRTraversal {
     case _ => s"Const($c)"
   }
 
-  override def quote(x: Symbol):String = s"$x" 
+  override def quote(x: Expr):String = s"$x" 
 }
 
 trait PIRGenEmpty extends PIRCodegen {

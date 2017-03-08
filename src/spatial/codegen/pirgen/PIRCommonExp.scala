@@ -8,21 +8,21 @@ import scala.collection.mutable
 
 // PIR operations which need the rest of the Spatial IR mixed in
 trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =>
-  type Symbol = Exp[_]
+  type Expr = Exp[_]
   type CUControl = ControlType
 
-  //def str(x: Symbol) = x match {
+  //def str(x: Expr) = x match {
     //case Deff(d) => s"$x = $d"
     //case _ => s"$x"
   //}
-  override def isConstant(x:Symbol):Boolean = x match {
+  override def isConstant(x:Expr):Boolean = x match {
     case Const(c) => true
     case Param(c) => true 
     case Final(c) => true 
     case _ => false 
   }
 
-  override def extractConstant(x: Symbol): String = x match {
+  override def extractConstant(x: Expr): String = x match {
     case Const(c: BigDecimal) if c.isWhole => s"${c}i"
     case Const(c: BigDecimal) => s"${c}f"
     case Const(c: Boolean) => s"${c}b"
@@ -39,33 +39,33 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     case _ => throw new Exception(s"Cannot allocate constant value for $x")
   }
 
-  def isReadInPipe(mem: Symbol, pipe: Symbol, reader: Option[Symbol] = None): Boolean = {
+  def isReadInPipe(mem: Expr, pipe: Expr, reader: Option[Expr] = None): Boolean = {
     readersOf(mem).isEmpty || readersOf(mem).exists{read => reader.forall(_ == read.node) && read.ctrlNode == pipe }
   }
-  def isWrittenInPipe(mem: Symbol, pipe: Symbol, writer: Option[Symbol] = None): Boolean = {
+  def isWrittenInPipe(mem: Expr, pipe: Expr, writer: Option[Expr] = None): Boolean = {
     !isArgIn(mem) && (writersOf(mem).isEmpty || writersOf(mem).exists{write => writer.forall(_ == write.node) && write.ctrlNode == pipe })
   }
-  def isWrittenByUnitPipe(mem: Symbol): Boolean = {
+  def isWrittenByUnitPipe(mem: Expr): Boolean = {
     writersOf(mem).headOption.map{writer => isUnitPipe(writer.ctrlNode)}.getOrElse(true)
   }
-  def isReadOutsidePipe(mem: Symbol, pipe: Symbol, reader: Option[Symbol] = None): Boolean = {
+  def isReadOutsidePipe(mem: Expr, pipe: Expr, reader: Option[Expr] = None): Boolean = {
     isArgOut(mem) || readersOf(mem).exists{read => reader.forall(_ == read.node) && read.ctrlNode != pipe }
   }
 
-  def isBuffer(mem: Symbol): Boolean = isSRAM(mem)
+  def isBuffer(mem: Expr): Boolean = isSRAM(mem)
 
-  def isGetDRAMAddress(mem:Symbol) = mem match {
+  def isGetDRAMAddress(mem:Expr) = mem match {
     case Def(_:GetDRAMAddress[_]) => true
     case _ => false
   }
 
-  def isLocalMem(mem: Symbol): Boolean = isReg(mem) || isFIFO(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
+  def isLocalMem(mem: Expr): Boolean = isReg(mem) || isFIFO(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
 
-  def isRemoteMem(mem: Symbol): Boolean = isSRAM(mem)
+  def isRemoteMem(mem: Expr): Boolean = isSRAM(mem)
 
-  def isMem(e: Symbol):Boolean = isLocalMem(e) | isRemoteMem(e) 
+  def isMem(e: Expr):Boolean = isLocalMem(e) | isRemoteMem(e) 
 
-  def isLocalMemReadAccess(acc:Symbol) = acc match {
+  def isLocalMemReadAccess(acc:Expr) = acc match {
     case Def(_:RegRead[_]) => true
     case Def(_:FIFODeq[_]) => true
     case Def(_:ParFIFODeq[_]) => true
@@ -74,7 +74,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     case _ => false
   }
 
-  def isLocalMemWriteAccess(acc:Symbol) = acc match {
+  def isLocalMemWriteAccess(acc:Expr) = acc match {
     case Def(_:RegWrite[_]) => true
     case Def(_:FIFOEnq[_]) => true
     case Def(_:ParFIFOEnq[_]) => true
@@ -83,11 +83,11 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     case _ => false
   }
 
-  def isLocalMemAccess(acc: Symbol) = acc match {
+  def isLocalMemAccess(acc: Expr) = acc match {
     case acc => isLocalMemReadAccess(acc) || isLocalMemWriteAccess(acc)
   }
 
-  def isRemoteMemAccess(acc:Symbol) = acc match {
+  def isRemoteMemAccess(acc:Expr) = acc match {
     case Def(_:SRAMLoad[_]) => true
     case Def(_:ParSRAMLoad[_]) => true
     case Def(_:SRAMStore[_]) => true
@@ -106,7 +106,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     case _ => true
   }
 
-  def isStage(e:Symbol):Boolean = e match {
+  def isStage(e:Expr):Boolean = e match {
     case e if isFringe(e) => false
     case e if isControlNode(e) => false
     case Def(d) => isStage(d) 
@@ -125,9 +125,9 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
   }
 
   // returns (sym of flatten addr, List[Addr Stages])
-  def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]):(Symbol, List[OpStage]) = {
+  def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]):(Expr, List[OpStage]) = {
     val cdims:Seq[Int] = dims.map{case Final(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
-    val strides:List[Symbol] = List.tabulate(dims.length){ d =>
+    val strides:List[Expr] = List.tabulate(dims.length){ d =>
       if (d == dims.length - 1) int32(1)
       else int32(cdims.drop(d+1).reduce(_*_))
     }
@@ -142,7 +142,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     (partialAddr, addrCompute)
   }
 
-  def fringeToMode(fringe:Symbol):OffchipMemoryMode = fringe match {
+  def fringeToMode(fringe:Expr):OffchipMemoryMode = fringe match {
     case Def(_:FringeDenseLoad[_]) => MemLoad
     case Def(_:FringeDenseStore[_]) => MemStore
     case Def(_:FringeSparseLoad[_]) => MemGather
@@ -196,7 +196,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
   }
 
   // HACK
-  def bank(mem: Symbol, access: Symbol, isUnit: Boolean) = {
+  def bank(mem: Expr, access: Expr, isUnit: Boolean) = {
     val pattern = accessPatternOf(access).last
     val stride  = 1
 
@@ -218,12 +218,12 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     }
   }
 
-  /*def bank(mem: Symbol, access: Symbol, iter: Option[Symbol]) = {
+  /*def bank(mem: Expr, access: Expr, iter: Option[Expr]) = {
     //val indices = accessIndicesOf(access)
     val pattern = accessPatternOf(access)
     val strides = constDimsToStrides(dimsOf(mem).map{case Exact(d) => d.toInt})
 
-    def bankFactor(i: Symbol) = if (iter.isDefined && i == iter.get) 16 else 1
+    def bankFactor(i: Expr) = if (iter.isDefined && i == iter.get) 16 else 1
 
     if (pattern.forall(_ == InvariantAccess)) NoBanks
     else {

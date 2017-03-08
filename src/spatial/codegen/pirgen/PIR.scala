@@ -4,10 +4,10 @@ import scala.collection.mutable
 
 // TODO: This is VERY redundant with PIR
 trait PIR {
-  type Symbol
-  def isConstant(x: Symbol): Boolean
-  def extractConstant(x: Symbol): String
-  def str(x: Symbol): String
+  type Expr
+  def isConstant(x: Expr): Boolean
+  def extractConstant(x: Expr): String
+  def str(x: Expr): String
 
   // --- Memory controller modes
   sealed abstract class OffchipMemoryMode
@@ -50,7 +50,7 @@ trait PIR {
   // --- Global buses
   sealed abstract class GlobalComponent(val name: String)
   case class OffChip(override val name: String) extends GlobalComponent(name)
-  case class MemoryController(override val name: String, dram: OffChip, mode: OffchipMemoryMode, val parent:Symbol) extends GlobalComponent(name)
+  case class MemoryController(override val name: String, dram: OffChip, mode: OffchipMemoryMode, val parent:Expr) extends GlobalComponent(name)
 
   sealed abstract class GlobalBus(override val name: String) extends GlobalComponent(name)
   sealed abstract class VectorBus(override val name: String) extends GlobalBus(name)
@@ -212,7 +212,7 @@ trait PIR {
 
 
   // --- Compute unit memories
-  case class CUMemory(name: String, size: Int, mem: Symbol, reader: Symbol) {
+  case class CUMemory(name: String, size: Int, mem: Expr, reader: Expr) {
     var mode: LocalMemoryMode = SRAMMode
     var bufferDepth: Int = 1
     var banking: Option[SRAMBanking] = None
@@ -248,16 +248,16 @@ trait PIR {
 
 
   // --- Pre-scheduling stages
-  sealed abstract class PseudoStage { def output: Option[Symbol] }
-  case class DefStage(op: Symbol, isReduce: Boolean = false) extends PseudoStage {
+  sealed abstract class PseudoStage { def output: Option[Expr] }
+  case class DefStage(op: Expr, isReduce: Boolean = false) extends PseudoStage {
     def output = Some(op)
     override def toString = s"DefStage(${str(op)}" + (if (isReduce) " [REDUCE]" else "") + ")"
   }
-  case class OpStage(op: PIROp, inputs: List[Symbol], out: Symbol, isReduce: Boolean = false) extends PseudoStage {
+  case class OpStage(op: PIROp, inputs: List[Expr], out: Expr, isReduce: Boolean = false) extends PseudoStage {
     def output = Some(out)
   }
-  case class AddrStage(mem: Symbol, addr: Symbol) extends PseudoStage { def output = None }
-  case class FifoOnWriteStage(mem: Symbol, start: Option[Symbol], end: Option[Symbol]) extends PseudoStage { def output = None }
+  case class AddrStage(mem: Expr, addr: Expr) extends PseudoStage { def output = None }
+  case class FifoOnWriteStage(mem: Expr, start: Option[Expr], end: Option[Expr]) extends PseudoStage { def output = None }
 
 
   // --- Scheduled stages
@@ -286,19 +286,19 @@ trait PIR {
   type ACU = AbstractComputeUnit
   abstract class AbstractComputeUnit {
     val name: String
-    val pipe: Symbol
+    val pipe: Expr
     var style: CUStyle
     var parent: Option[AbstractComputeUnit] = None
     def isUnit = style == UnitCU || style == UnitStreamCU
     def isMemoryUnit = false //cuType == BurstTransfer || cuType == RandomTransfer
 
     var cchains: Set[CUCChain] = Set.empty
-    var mems: mutable.Map[Symbol, CUMemory] = mutable.Map.empty
+    var mems: mutable.Map[Expr, CUMemory] = mutable.Map.empty
     var regs: Set[LocalComponent] = Set.empty
     var deps: Set[AbstractComputeUnit] = Set.empty
 
-    val regTable = mutable.HashMap[Symbol, LocalComponent]()
-    val expTable = mutable.HashMap[LocalComponent, List[Symbol]]()
+    val regTable = mutable.HashMap[Expr, LocalComponent]()
+    val expTable = mutable.HashMap[LocalComponent, List[Expr]]()
 
     def iterators = regTable.iterator.collect{case (exp, reg: CounterReg) => (exp,reg) }
     def valids    = regTable.iterator.collect{case (exp, reg: ValidReg) => (exp,reg) }
@@ -310,13 +310,13 @@ trait PIR {
       if (iters.isEmpty) None  else Some(iters.reduce{(a,b) => if (a._2 > b._2) a else b}._1)
     }
 
-    def addReg(exp: Symbol, reg: LocalComponent) {
+    def addReg(exp: Expr, reg: LocalComponent) {
       regs += reg
       regTable += exp -> reg
       if (expTable.contains(reg)) expTable += reg -> (expTable(reg) :+ exp)
       else                        expTable += reg -> List(exp)
     }
-    def get(x: Symbol): Option[LocalComponent] = {
+    def get(x: Expr): Option[LocalComponent] = {
       if (regTable.contains(x)) regTable.get(x)
       else if (isConstant(x)) {
         val c = ConstReg(extractConstant(x))
@@ -325,7 +325,7 @@ trait PIR {
       }
       else None
     }
-    def getOrElseUpdate(x: Symbol)(func: => LocalComponent):LocalComponent = this.get(x) match {
+    def getOrElseUpdate(x: Expr)(func: => LocalComponent):LocalComponent = this.get(x) match {
       case Some(reg) if regs.contains(reg) => reg // On return this mapping if it is valid
       case _ =>
         val reg = func
@@ -335,7 +335,7 @@ trait PIR {
   }
 
   type CU = ComputeUnit
-  case class ComputeUnit(name: String, pipe: Symbol, var style: CUStyle) extends AbstractComputeUnit {
+  case class ComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends AbstractComputeUnit {
     val writeStages   = mutable.HashMap[List[CUMemory], mutable.ArrayBuffer[Stage]]()
     val readStages   = mutable.HashMap[List[CUMemory], mutable.ArrayBuffer[Stage]]()
     val computeStages = mutable.ArrayBuffer[Stage]()
@@ -351,12 +351,12 @@ trait PIR {
   }
 
   type PCU = PseudoComputeUnit
-  case class PseudoComputeUnit(name: String, pipe: Symbol, var style: CUStyle) extends AbstractComputeUnit {
-    val writeStages = mutable.HashMap[List[CUMemory], (Symbol, List[PseudoStage])]() // List(mem) -> (writerPipe, List[Stages])
-    val readStages = mutable.HashMap[List[CUMemory], (Symbol, List[PseudoStage])]() // List(mem) -> (readerPipe, List[Stages])
+  case class PseudoComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends AbstractComputeUnit {
+    val writeStages = mutable.HashMap[List[CUMemory], (Expr, List[PseudoStage])]() // List(mem) -> (writerPipe, List[Stages])
+    val readStages = mutable.HashMap[List[CUMemory], (Expr, List[PseudoStage])]() // List(mem) -> (readerPipe, List[Stages])
     val computeStages = mutable.ArrayBuffer[PseudoStage]()
-    val remoteReadStages = mutable.Set[Symbol]() // reg read, fifo deq
-    val remoteWriteStages = mutable.Set[Symbol]() // reg write, fifo enq
+    val remoteReadStages = mutable.Set[Expr]() // reg read, fifo deq
+    val remoteWriteStages = mutable.Set[Expr]() // reg write, fifo enq
 
     def sram = {
       assert(style.isInstanceOf[MemoryCU], s"Only MemoryCU has sram. cu:$this")

@@ -11,10 +11,10 @@ trait PIRAllocation extends PIRTraversal {
   override val name = "PIR CU Allocation"
 
   // -- State
-  var top: Option[Symbol] = None
-  var mapping = mutable.Map[Symbol, List[PCU]]()
+  var top: Option[Expr] = None
+  var mapping = mutable.Map[Expr, List[PCU]]()
 
-  private def controllersHack(pipe: Symbol): List[Symbol] = pipe match {
+  private def controllersHack(pipe: Expr): List[Expr] = pipe match {
     case Def(_:ParallelPipe) => childrenOf(pipe).flatMap{child => controllersHack(child)}
     case _ => List(pipe)
   }
@@ -26,7 +26,7 @@ trait PIRAllocation extends PIRTraversal {
   }
 
   // ISSUE #2: Assumes linear stage order
-  def pipeDependencies(pipe: Symbol): List[Symbol] = parentOf(pipe) match {
+  def pipeDependencies(pipe: Expr): List[Expr] = parentOf(pipe) match {
     case Some(parent@Def(_:ParallelPipe)) => pipeDependencies(parent)
     case Some(parent) =>
       val childs = childrenOf(parent).map{child => controllersHack(child) }
@@ -45,7 +45,7 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def allocateCChains(pipe: Symbol) = {
+  def allocateCChains(pipe: Expr) = {
     val cchainOpt = pipe match {
       case Def(UnrolledForeach(en, cchain, func, iters, valids)) => Some((cchain, iters, valids))
       case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) => Some((cchain, iters, valids))
@@ -54,7 +54,7 @@ trait PIRAllocation extends PIRTraversal {
     cchainOpt.foreach { case (cchain, iters, valids) =>
       dbgblk(s"Allocate cchain ${qdef(cchain)} for $pipe") {
         val cu = allocateCU(pipe)
-        def allocateCounter(start: Symbol, end: Symbol, stride: Symbol) = {
+        def allocateCounter(start: Expr, end: Expr, stride: Expr) = {
           val min = cu.getOrElseUpdate(start){ const(start) }
           val max = cu.getOrElseUpdate(end){ const(end) }
           val step = cu.getOrElseUpdate(stride){ const(stride) }
@@ -70,7 +70,7 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def allocateCU(pipe: Symbol): PCU = mapping.getOrElseUpdate(pipe, {
+  def allocateCU(pipe: Expr): PCU = mapping.getOrElseUpdate(pipe, {
     val parent = parentHack(pipe).map(allocateCU)
 
     val style = pipe match {
@@ -93,7 +93,7 @@ trait PIRAllocation extends PIRTraversal {
     List(cu)
   }).head
 
-  def allocateMemoryCU(dsram:Symbol):List[PCU] = mapping.getOrElseUpdate(dsram, { 
+  def allocateMemoryCU(dsram:Expr):List[PCU] = mapping.getOrElseUpdate(dsram, { 
     val sram = compose(dsram)
     val parentCU = parentOf(sram).map(allocateCU)
     val writer = writerOf(sram)
@@ -110,7 +110,7 @@ trait PIRAllocation extends PIRTraversal {
     }
   })
 
-  private def initializeMem(cuMem: CUMemory, reader: Symbol, cu: PCU) {
+  private def initializeMem(cuMem: CUMemory, reader: Expr, cu: PCU) {
     val mem = compose(cuMem.mem)
     
     if (isArgIn(mem) || isArgOut(mem) || isGetDRAMAddress(mem)) {
@@ -155,11 +155,11 @@ trait PIRAllocation extends PIRTraversal {
   /*
    * @param cu CU in which the address calculation stages should be pulled out of
    * */
-  def extractRemoteAddrStages(dmem:Symbol, addr:Option[Seq[Exp[Index]]], stms:Seq[Stm]):(Option[Symbol],List[PseudoStage])= {
+  def extractRemoteAddrStages(dmem:Expr, addr:Option[Seq[Exp[Index]]], stms:Seq[Stm]):(Option[Expr],List[PseudoStage])= {
     dbgblk(s"Extracting Remote Addr in for dmem=$dmem addr=$addr") {
       val memCUs = allocateMemoryCU(dmem)
       val flatOpt = addr.map{is => flattenNDIndices(is, stagedDimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]])) }
-      // Symbols
+      // Exprs
       val indexExps = addr.map { is => expsUsedInCalcExps(stms)(is) }.getOrElse(Nil)
       val indexSyms = indexExps.collect { case s:Sym[_] => s }
       val ad = flatOpt.map(_._1) // sym of flatten  addr
@@ -180,7 +180,7 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def copyBounds(exps:List[Symbol], cu:PseudoComputeUnit) = {
+  def copyBounds(exps:List[Expr], cu:PseudoComputeUnit) = {
     val allExps = (exps.flatMap {
       case Def(d) => d.expInputs
       case _ => Nil 
@@ -197,7 +197,7 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def prescheduleStages(pipe: Symbol, func: Block[Any]):PseudoComputeUnit = dbgblk(s"prescheduleStages ${qdef(pipe)}") {
+  def prescheduleStages(pipe: Expr, func: Block[Any]):PseudoComputeUnit = dbgblk(s"prescheduleStages ${qdef(pipe)}") {
     val cu = allocateCU(pipe)
 
     val remotelyAddedStages = cu.computeStages // Stages added prior to traversing this pipe
@@ -212,7 +212,7 @@ trait PIRAllocation extends PIRTraversal {
     cu.computeStages.clear() // Clear stages so we don't duplicate existing stages
     
     // sram loads that are not just used in index calculation 
-    //var nonIndOnlyLoads:List[Symbol] = nonIndOnlySRAMLoads(func, stms)
+    //var nonIndOnlyLoads:List[Expr] = nonIndOnlySRAMLoads(func, stms)
 
     val localCompute = symsUsedInCalcExps(stms)(Seq(func.result), func.effectful)
     copyBounds(localCompute , cu)
@@ -245,7 +245,7 @@ trait PIRAllocation extends PIRTraversal {
     cu
   }
 
-  def memMode(dmem:Symbol) = compose(dmem) match {
+  def memMode(dmem:Expr) = compose(dmem) match {
     case mem if isReg(mem) | isGetDRAMAddress(mem) => ScalarBufferMode
     case mem if isStreamIn(mem) => VectorFIFOMode // from Fringe
     case mem if isFIFO(mem) | isStreamOut(mem) => 
@@ -254,7 +254,7 @@ trait PIRAllocation extends PIRTraversal {
     case mem if isSRAM(mem) => SRAMMode
   }
 
-  def allocateMem(dmem: Symbol, dreader: Symbol, cu: PCU): CUMemory =  {
+  def allocateMem(dmem: Expr, dreader: Expr, cu: PCU): CUMemory =  {
     cu.mems.getOrElseUpdate(dmem, {
       val name = if (isGetDRAMAddress(dmem)) s"${quote(dmem)}"
                  else s"${quote(dmem)}_${quote(dreader)}"
@@ -271,7 +271,7 @@ trait PIRAllocation extends PIRTraversal {
     })
   }
 
-  def allocateLocalMem(mem:Symbol) = dbgblk(s"allocateLocalMem($mem)"){
+  def allocateLocalMem(mem:Expr) = dbgblk(s"allocateLocalMem($mem)"){
     var readers = getReaders(mem) 
     readers.foreach { reader => 
       val localWritten = isLocallyWritten(mem, reader)
@@ -308,13 +308,13 @@ trait PIRAllocation extends PIRTraversal {
    * load/regRead/fifoDeq is used for both data calculation and address calculation for remote
    * memory, this function returns both the PCU and MCUs
    * */
-  def getReaderCUs(reader:Symbol):List[PseudoComputeUnit] = dbgblk(s"getReaderCUs ${qdef(reader)}") {
+  def getReaderCUs(reader:Expr):List[PseudoComputeUnit] = dbgblk(s"getReaderCUs ${qdef(reader)}") {
     val readerCUs = mutable.Set[PseudoComputeUnit]()
     if (isFringe(reader)) { readerCUs += allocateCU(reader) } // Fringe is considered to be a reader of the stream
     else {
       parentOf(reader).foreach { pipe => // RegRead outside HwBlock doesn't have parent
         val stms = getStms(pipe)
-        def addParentCU(d:Def, mem:Symbol, ind:Option[Seq[Symbol]]) = {
+        def addParentCU(d:Def, mem:Expr, ind:Option[Seq[Expr]]) = {
           val indSyms = ind.map { ind => symsUsedInCalcExps(stms)(ind) }.getOrElse(Nil)
           if (indSyms.contains(reader) && isRemoteMem(mem)) {
             readerCUs ++= decompose(mem).flatMap(allocateMemoryCU)
@@ -341,7 +341,7 @@ trait PIRAllocation extends PIRTraversal {
     readerCUs.toList
   }
 
-  def getWriterCU(dwriter:Symbol) = {
+  def getWriterCU(dwriter:Expr) = {
     val writer = compose(dwriter)
     val ParLocalWriter(writes) = writer 
     val pipe = parentOf(writer).get 
@@ -359,13 +359,13 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def getMCUforReader(dmem:Symbol, reader:Symbol) = {
+  def getMCUforReader(dmem:Expr, reader:Expr) = {
     val mem = compose(dmem)
     val idx = readersOf(mem).indexOf(reader)
     allocateMemoryCU(dmem)(idx)
   } 
 
-  def prescheduleLocalMemRead(mem: Symbol, reader:Symbol) = {
+  def prescheduleLocalMemRead(mem: Expr, reader:Expr) = {
     dbgblk(s"Allocating local memory read: $reader") {
       getReaderCUs(reader).foreach { readerCU =>
         decompose(mem).zip(decompose(reader)).foreach { case (dmem, dreader) =>
@@ -382,7 +382,7 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def prescheduleLocalMemWrite(mem: Symbol, writer:Symbol) = {
+  def prescheduleLocalMemWrite(mem: Expr, writer:Expr) = {
     dbgblk(s"Allocating local memory write: $writer of mem:${quote(mem)}") {
       val remoteReaders = getRemoteReaders(mem, writer)
       dbgs(s"remoteReaders:${remoteReaders.mkString(",")}")
@@ -414,7 +414,7 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def prescheduleRemoteMemRead(mem: Symbol, reader:Symbol) = {
+  def prescheduleRemoteMemRead(mem: Expr, reader:Expr) = {
     dbgblk(s"Allocating remote memory read: ${qdef(reader)}") {
       val pipe = parentOf(reader).get
       val stms = getStms(pipe)
@@ -443,7 +443,7 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def prescheduleRemoteMemWrite(mem: Symbol, writer:Symbol) = {
+  def prescheduleRemoteMemWrite(mem: Expr, writer:Expr) = {
     dbgblk(s"Allocating remote memory write: ${qdef(writer)}") {
       val pipe = parentOf(writer).get
       val stms = getStms(pipe)
@@ -470,7 +470,7 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def allocateFringe(fringe:Symbol, dram:Symbol, streamOuts:List[Symbol]) = {
+  def allocateFringe(fringe:Expr, dram:Expr, streamOuts:List[Expr]) = {
     val cu = allocateCU(fringe)
     val mode = fringeToMode(fringe)
     streamOuts.foreach { streamOut =>

@@ -14,7 +14,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
   val IR: SpatialExp with PIRCommonExp
   import IR.{println => _, _}
 
-  def cus:Map[Symbol,List[List[ComputeUnit]]]
+  def cus:Map[Expr,List[List[ComputeUnit]]]
   var allocatedReduce: Set[ReduceReg] = Set.empty
   val genControlLogic = false
 
@@ -222,7 +222,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
     case x => throw new Exception(s"Don't know how to generate PIR component $x")
   }
 
-  override def quote(x: Symbol):String = s"$x"
+  override def quote(x: Expr):String = s"$x"
 
   def quote(mode: LocalMemoryMode): String = mode match {
     case SRAMMode => "SRAM"

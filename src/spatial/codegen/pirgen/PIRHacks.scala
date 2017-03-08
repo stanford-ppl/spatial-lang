@@ -11,9 +11,9 @@ trait PIRHacks extends PIRTraversal {
   override val name = "PIR Hacks"
   override val recurse = Always
 
-  val mappingIn = mutable.HashMap[Symbol, List[List[CU]]]()
+  val mappingIn = mutable.HashMap[Expr, List[List[CU]]]()
 
-  val mappingOut = mutable.HashMap[Symbol, List[List[CU]]]()
+  val mappingOut = mutable.HashMap[Expr, List[List[CU]]]()
 
   override def process[S:Staged](b: Block[S]) = {
     msg(s"Starting traversal PIR Hacks")
@@ -34,7 +34,7 @@ trait PIRHacks extends PIRTraversal {
     block
   }
 
-  def mcHack(pipe: Symbol, cus: List[CU]) {
+  def mcHack(pipe: Expr, cus: List[CU]) {
     def allCUs = mappingIn.values.flatten.flatten
 
     dbg(s"MC Hack")
@@ -149,7 +149,7 @@ trait PIRHacks extends PIRTraversal {
   }
 
 
-  def makeStreamController(pipe: Symbol, parent: Option[ACU]): CU = {
+  def makeStreamController(pipe: Expr, parent: Option[ACU]): CU = {
     val cu = ComputeUnit(quote(pipe)+"_sc", pipe, StreamCU)
     cu.parent = parent
     cu.cchains += UnitCChain(quote(pipe)+"_unitcc")

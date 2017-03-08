@@ -109,8 +109,8 @@ trait PIRTraversal extends SpatialTraversal {
     }
   }
 
-  def quote(x: Symbol):String = s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
-  def qdef(lhs:Symbol):String = {
+  def quote(x: Expr):String = s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
+  def qdef(lhs:Expr):String = {
     val rhs = lhs match {
       case Def(e:UnrolledForeach) => 
         s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
@@ -130,22 +130,22 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   // HACK: Skip parallel pipes in PIR gen
-  def parentHack(x: Symbol): Option[Symbol] = parentOf(x) match {
+  def parentHack(x: Expr): Option[Expr] = parentOf(x) match {
     case Some(pipe@Def(_:ParallelPipe)) => parentHack(pipe)
     case parentOpt => parentOpt
   }
 
   // --- Allocating
-  def decomposed:mutable.Map[Symbol, Seq[(String, Symbol)]]
-  def composed:mutable.Map[Symbol, Symbol]
+  def decomposed:mutable.Map[Expr, Seq[(String, Expr)]]
+  def composed:mutable.Map[Expr, Expr]
 
-  def compose(dsym:Symbol) = composed.get(dsym).getOrElse(dsym)
+  def compose(dsym:Expr) = composed.get(dsym).getOrElse(dsym)
 
-  def decompose[T](sym:Symbol, fields:Seq[T])(implicit ev:TypeTag[T]):Seq[Symbol] = {
+  def decompose[T](sym:Expr, fields:Seq[T])(implicit ev:TypeTag[T]):Seq[Expr] = {
     decomposeWithFields(sym, fields).map(_._2)
   }
 
-  def decomposeWithFields[T](sym:Symbol, fields:Seq[T])(implicit ev:TypeTag[T]):Seq[(String, Symbol)] = {
+  def decomposeWithFields[T](sym:Expr, fields:Seq[T])(implicit ev:TypeTag[T]):Seq[(String, Expr)] = {
     if (fields.size<=1) {
       Seq(("N/A", sym))
     } else {
@@ -154,8 +154,8 @@ trait PIRTraversal extends SpatialTraversal {
           val (field, dsym) = f match {
             case field if typeOf[T] =:= typeOf[String] => 
               (field.asInstanceOf[String], fresh[Int32]) 
-            case (field, exp) if typeOf[T] =:= typeOf[(String, Symbol)] => 
-              (field.asInstanceOf[String], exp.asInstanceOf[Symbol])
+            case (field, exp) if typeOf[T] =:= typeOf[(String, Expr)] => 
+              (field.asInstanceOf[String], exp.asInstanceOf[Expr])
           }
           composed += dsym -> sym
           (field, dsym)
@@ -164,7 +164,7 @@ trait PIRTraversal extends SpatialTraversal {
     }
   }
 
-  def decomposeBus(bus:Bus, mem:Symbol) = bus match {
+  def decomposeBus(bus:Bus, mem:Expr) = bus match {
     case BurstCmdBus => decompose(mem, Seq("offset", "size", "isLoad"))
     case BurstAckBus => decompose(mem, Seq()) 
     case bus:BurstDataBus[_] => decompose(mem, Seq()) 
@@ -176,7 +176,7 @@ trait PIRTraversal extends SpatialTraversal {
     case _ => throw new Exception(s"Don't know how to decompose bus ${bus}")
   }
 
-  def decompose(sym:Symbol):Seq[Symbol] = sym match {
+  def decompose(sym:Expr):Seq[Expr] = sym match {
     case Def(StreamInNew(bus)) => decomposeBus(bus, sym) 
     case Def(StreamOutNew(bus)) => decomposeBus(bus, sym)
     case Def(SimpleStruct(elems)) => decompose(sym, elems)
@@ -195,12 +195,12 @@ trait PIRTraversal extends SpatialTraversal {
     case _ => decomposed.get(sym).map{ _.map(_._2) }.getOrElse(Seq(sym))
   }
 
-  def getMatchedDecomposed(dele:Symbol, ele:Symbol):Symbol = {
+  def getMatchedDecomposed(dele:Expr, ele:Expr):Expr = {
     val i = decompose(compose(dele)).indexOf(dele)
     decompose(ele)(i)
   }
 
-  def isLocallyWritten(dmem:Symbol, dreader:Symbol, cu:Option[PseudoComputeUnit] = None) = {
+  def isLocallyWritten(dmem:Expr, dreader:Expr, cu:Option[PseudoComputeUnit] = None) = {
     if (isArgIn(compose(dmem)) || isStreamIn(dmem) || isGetDRAMAddress(dmem)) {
       false
     } else {
@@ -213,7 +213,7 @@ trait PIRTraversal extends SpatialTraversal {
   /*
    * @return readers of dmem that are remotely read 
    * */
-  def getRemoteReaders(dmem:Symbol, dwriter:Symbol):List[Symbol] = {
+  def getRemoteReaders(dmem:Expr, dwriter:Expr):List[Expr] = {
     val mem = compose(dmem)
     if (isStreamOut(mem)) { getReaders(mem) }
     else {
@@ -221,14 +221,14 @@ trait PIRTraversal extends SpatialTraversal {
     }
   }
 
-  def getReaders(dmem:Symbol):List[Symbol] = {
+  def getReaders(dmem:Expr):List[Expr] = {
     val mem = compose(dmem)
     if (isGetDRAMAddress(mem)) List(mem) // GetDRAMAddress is both the mem and the reader
     else if (isStreamOut(mem)) fringeOf(mem).map(f => List(f)).getOrElse(Nil) // Fringe is a reader of the stramOut
     else readersOf(mem).map{_.node}
   }
 
-  def writerOf(mem:Symbol):Access = {
+  def writerOf(mem:Expr):Access = {
     val writers = writersOf(mem)
     assert(writers.size==1, s"Plasticine only support single writer mem=${qdef(mem)} writers=${writers.mkString(",")}")
     writers.head
@@ -236,7 +236,7 @@ trait PIRTraversal extends SpatialTraversal {
 
   def globals:mutable.Set[GlobalComponent]
 
-  def allocateDRAM(ctrl: Symbol, dram: Symbol, mode: OffchipMemoryMode): MemoryController = {
+  def allocateDRAM(ctrl: Expr, dram: Expr, mode: OffchipMemoryMode): MemoryController = {
     val region = OffChip(quote(dram))
     val mc = MemoryController(quote(ctrl), region, mode, parentHack(ctrl).get)
     globals += mc
@@ -244,7 +244,7 @@ trait PIRTraversal extends SpatialTraversal {
     mc
   }
 
-  def allocateDRAM(dram:Symbol): OffChip = { //FIXME
+  def allocateDRAM(dram:Expr): OffChip = { //FIXME
     val region = OffChip(quote(dram))
     if (!globals.contains(region)) {
       globals += region
@@ -254,7 +254,7 @@ trait PIRTraversal extends SpatialTraversal {
     }
   }
 
-  private def allocateReg(reg: Symbol, pipe: Symbol, read: Option[Symbol] = None, write: Option[Symbol] = None): LocalComponent = {
+  private def allocateReg(reg: Expr, pipe: Expr, read: Option[Expr] = None, write: Option[Expr] = None): LocalComponent = {
     val isLocallyRead = isReadInPipe(reg, pipe, read)
     val isLocallyWritten = isWrittenInPipe(reg, pipe, write)
 
@@ -294,12 +294,12 @@ trait PIRTraversal extends SpatialTraversal {
     }
   }
 
-  def allocateLocal(x: Symbol): LocalComponent = x match {
+  def allocateLocal(x: Expr): LocalComponent = x match {
     case c if isConstant(c) => ConstReg(extractConstant(x))
     case _ => TempReg()
   }
 
-  def const(x:Symbol) = x match {
+  def const(x:Expr) = x match {
     case c if isConstant(c) => ConstReg(extractConstant(x))
     case _ => throw new Exception(s"${qdef(x)} ${x.tp} is not a constant")
   }
@@ -340,8 +340,8 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   // Build a schedule as usual, except for depencies on write addresses
-  def symsOnlyUsedInWriteAddr(stms: Seq[Stm])(results: Seq[Symbol], exps: List[Symbol]) = {
-    def mysyms(rhs: Symbol) = rhs match {
+  def symsOnlyUsedInWriteAddr(stms: Seq[Stm])(results: Seq[Expr], exps: List[Expr]) = {
+    def mysyms(rhs: Expr) = rhs match {
       case Def(rhs) => rhs match {
         case LocalWriter(writes) =>
           val addrs = writes.flatMap{case (mem,value,addr,en) => addr.filterNot{a => a == value }}
@@ -351,7 +351,7 @@ trait PIRTraversal extends SpatialTraversal {
       case _ => syms(rhs)
     }
     val scopeIndex = makeScopeIndex(stms)
-    def deps(x: Symbol) = orderedInputs(mysyms(x), scopeIndex)
+    def deps(x: Expr) = orderedInputs(mysyms(x), scopeIndex)
 
     val xx = schedule(results.flatMap(deps))(t => deps(t))
 
@@ -363,7 +363,7 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   // HACK: Rip apart the block, looking only for true data dependencies and necessary effects dependencies
-  def symsOnlyUsedInWriteAddrOrEn(stms: Seq[Stm])(results: Seq[Symbol], exps: List[Symbol]) = {
+  def symsOnlyUsedInWriteAddrOrEn(stms: Seq[Stm])(results: Seq[Expr], exps: List[Expr]) = {
     def mysyms(rhs: Any) = rhs match {
       case Def(d) => d match {
         case SRAMStore(sram,dims,is,ofs,data,en) => syms(sram) ++ syms(data) //++ syms(es)
@@ -399,9 +399,9 @@ trait PIRTraversal extends SpatialTraversal {
    * - Read access of local memories if the read access is not locally used 
    *   (used by stms that produces results or effectful) 
    * */
-  def expsUsedInCalcExps(allStms:Seq[Stm])(results:Seq[Symbol], effectful:Seq[Symbol] = Nil):List[Symbol] = {
+  def expsUsedInCalcExps(allStms:Seq[Stm])(results:Seq[Expr], effectful:Seq[Expr] = Nil):List[Expr] = {
     dbgblk(s"symsUsedInCalcExps"){
-      def mysyms(lhs: Any):List[Symbol] = lhs match {
+      def mysyms(lhs: Any):List[Expr] = lhs match {
         case Def(d) => mysyms(d) 
         case SRAMStore(sram,dims,is,ofs,data,en) => syms(sram) ++ syms(data) //++ syms(es)
         case ParSRAMStore(sram,addr,data,ens) => syms(sram) ++ syms(data) //++ syms(es)
@@ -417,7 +417,7 @@ trait PIRTraversal extends SpatialTraversal {
         case _ => syms(lhs)
       }
       val scopeIndex = makeScopeIndex(allStms)
-      def deps(x: Symbol):List[Stm] = orderedInputs(mysyms(x), scopeIndex)
+      def deps(x: Expr):List[Stm] = orderedInputs(mysyms(x), scopeIndex)
 
       dbgs(s"results=${results.mkString(",")}")
       dbgs(s"effectful=[${effectful.mkString(",")}]")
@@ -430,15 +430,15 @@ trait PIRTraversal extends SpatialTraversal {
     }
   }
 
-  def symsUsedInCalcExps(allStms:Seq[Stm])(results:Seq[Symbol], effectful:Seq[Symbol] = Nil):List[Sym[_]] = {
+  def symsUsedInCalcExps(allStms:Seq[Stm])(results:Seq[Expr], effectful:Seq[Expr] = Nil):List[Sym[_]] = {
     expsUsedInCalcExps(allStms)(results, effectful).collect{ case s:Sym[_] => s }
   }
 
-  def filterStmUseExp(allStms:Seq[Stm])(exp:Symbol):Seq[Stm] = {
+  def filterStmUseExp(allStms:Seq[Stm])(exp:Expr):Seq[Stm] = {
     allStms.filter { case TP(s,d) => d.allInputs.contains(exp) }
   }
 
-  def getStms(pipe:Symbol) = pipe match {
+  def getStms(pipe:Expr) = pipe match {
     case Def(Hwblock(func,_)) => blockContents(func)
     case Def(UnitPipe(en, func)) => blockContents(func)
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => blockContents(func)
@@ -554,10 +554,10 @@ trait PIRTraversal extends SpatialTraversal {
 
   // --- Context for creating/modifying CUs
   abstract class CUContext(val cu: ComputeUnit) {
-    private val refs = mutable.HashMap[Symbol,LocalRef]()
+    private val refs = mutable.HashMap[Expr,LocalRef]()
     private var readAccums: Set[AccumReg] = Set.empty
 
-    def pipe: Symbol
+    def pipe: Expr
     def stages: mutable.ArrayBuffer[Stage]
     def addStage(stage: Stage): Unit
     def isWriteContext: Boolean
@@ -573,13 +573,13 @@ trait PIRTraversal extends SpatialTraversal {
     def controlStages: mutable.ArrayBuffer[Stage] = cu.controlStages
     def addControlStage(stage: Stage): Unit = cu.controlStages += stage
 
-    def addReg(x: Symbol, reg: LocalComponent) {
+    def addReg(x: Expr, reg: LocalComponent) {
       //debug(s"  $x -> $reg")
       cu.addReg(x, reg)
     }
-    def addRef(x: Symbol, ref: LocalRef) { refs += x -> ref }
-    def getReg(x: Symbol): Option[LocalComponent] = cu.get(x)
-    def reg(x: Symbol): LocalComponent = {
+    def addRef(x: Expr, ref: LocalRef) { refs += x -> ref }
+    def getReg(x: Expr): Option[LocalComponent] = cu.get(x)
+    def reg(x: Expr): LocalComponent = {
       cu.get(x).getOrElse(throw new Exception(s"No register defined for $x in $cu"))
     }
 
@@ -627,9 +627,9 @@ trait PIRTraversal extends SpatialTraversal {
     def refIn(reg: LocalComponent, stage: Int = stageNum) = ref(reg, out = false, stage)
     def refOut(reg: LocalComponent, stage: Int = stageNum) = ref(reg, out = true, stage)
 
-    def addOutputFor(e: Symbol)(prev: LocalComponent, out: LocalComponent): Unit = addOutput(prev, out, Some(e))
+    def addOutputFor(e: Expr)(prev: LocalComponent, out: LocalComponent): Unit = addOutput(prev, out, Some(e))
     def addOutput(prev: LocalComponent, out: LocalComponent): Unit = addOutput(prev, out, None)
-    def addOutput(prev: LocalComponent, out: LocalComponent, e: Option[Symbol]): Unit = {
+    def addOutput(prev: LocalComponent, out: LocalComponent, e: Option[Expr]): Unit = {
       mapStages.find{stage => stage.outputMems.contains(prev) } match {
         case Some(stage) =>
           stage.outs ::= refOut(out, mapStages.indexOf(stage) + 1)
@@ -641,16 +641,16 @@ trait PIRTraversal extends SpatialTraversal {
     }
 
     // Get memory in this CU associated with the given reader
-    def mem(mem: Symbol, reader: Symbol): CUMemory = {
+    def mem(mem: Expr, reader: Expr): CUMemory = {
       memOption(mem,reader).getOrElse(throw new Exception(s"Cannot find sram ($mem,$reader) in cu $cu"))
     }
 
-    def memOption(mem: Symbol, reader: Symbol): Option[CUMemory] = {
+    def memOption(mem: Expr, reader: Expr): Option[CUMemory] = {
       cu.srams.find{sram => sram.mem == mem && sram.reader == reader}
     }
 
     // A CU can have multiple SRAMs for a given mem symbol, one for each local read
-    def memories(mem: Symbol) = cu.srams.filter(_.mem == mem)
+    def memories(mem: Expr) = cu.srams.filter(_.mem == mem)
 
 
     // HACK: Keep track of first read of accum reg (otherwise can use the wrong stage)
@@ -668,13 +668,13 @@ trait PIRTraversal extends SpatialTraversal {
     def pipe = cu.pipe
     def init() = {}
   }
-  case class WriteContext(override val cu: ComputeUnit, pipe: Symbol, srams: List[CUMemory]) extends CUContext(cu) {
+  case class WriteContext(override val cu: ComputeUnit, pipe: Expr, srams: List[CUMemory]) extends CUContext(cu) {
     def init() { cu.writeStages += srams -> mutable.ArrayBuffer[Stage]() }
     def stages = cu.writeStages(srams)
     def addStage(stage: Stage) { cu.writeStages(srams) += stage }
     def isWriteContext = true
   }
-  case class ReadContext(override val cu: ComputeUnit, pipe: Symbol, srams: List[CUMemory]) extends CUContext(cu) {
+  case class ReadContext(override val cu: ComputeUnit, pipe: Expr, srams: List[CUMemory]) extends CUContext(cu) {
     def init() { cu.readStages += srams -> mutable.ArrayBuffer[Stage]() }
     def stages = cu.readStages(srams)
     def addStage(stage: Stage) { cu.readStages(srams) += stage }
@@ -682,7 +682,7 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   // Given result register type A, reroute to type B as necessary
-  def propagateReg(exp: Symbol, a: LocalComponent, b: LocalComponent, ctx: CUContext):LocalComponent = (a,b) match {
+  def propagateReg(exp: Expr, a: LocalComponent, b: LocalComponent, ctx: CUContext):LocalComponent = (a,b) match {
     case (a:ScalarOut, b:ScalarOut) => a
     case (a:VectorOut, b:VectorOut) => a
     case (a:FeedbackDataReg, b:FeedbackDataReg) => a

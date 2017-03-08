@@ -10,7 +10,7 @@ trait PIROptimizer extends PIRTraversal {
 
   override val name = "PIR Optimization"
 
-  val mapping = mutable.HashMap[Symbol, List[CU]]()
+  val mapping = mutable.HashMap[Expr, List[CU]]()
 
   def cus = mapping.values.flatMap{cus => cus}.toList
 

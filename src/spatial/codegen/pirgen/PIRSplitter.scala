@@ -13,8 +13,8 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
   override val name = "PIR Splitting"
   override val recurse = Always
 
-  val mappingIn  = mutable.HashMap[Symbol, List[CU]]()
-  val mappingOut = mutable.HashMap[Symbol, List[List[CU]]]()
+  val mappingIn  = mutable.HashMap[Expr, List[CU]]()
+  val mappingOut = mutable.HashMap[Expr, List[List[CU]]]()
 
   //TODO read this from some config file?
   lazy val ComputeMax = SplitCost(
