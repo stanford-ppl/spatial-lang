@@ -18,13 +18,20 @@ trait PIRHacks extends PIRTraversal {
   override def process[S:Staged](b: Block[S]) = {
     msg(s"Starting traversal PIR Hacks")
     for ((pipe, cus) <- mappingIn) {
-      mcHack(pipe, cus.flatten)
+      //mcHack(pipe, cus.flatten)
       mappingOut += pipe -> cus
     }
     //streamHack()
     //counterHack()
-
     b
+  }
+
+  override protected def postprocess[S:Staged](block: Block[S]): Block[S] = {
+    dbgs(s"\n\n//----------- Finishing PIRHacks ------------- //")
+    for (cu <- mappingOut.values.flatten.flatten) {
+      dbgcu(cu)
+    }
+    block
   }
 
   def mcHack(pipe: Symbol, cus: List[CU]) {

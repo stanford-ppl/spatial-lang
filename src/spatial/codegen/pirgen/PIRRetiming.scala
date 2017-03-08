@@ -139,7 +139,7 @@ trait PIRRetiming extends PIRTraversal {
   def insertFIFO(cu: CU, bus: GlobalBus, depth: Int) {
     dbg(s"Inserting FIFO in $cu for input $bus")
     val sram = allocateFIFO(bus, depth)
-    cu.srams += sram
+    cu.mems += sram.mem -> sram
     cu.allStages.foreach{
       case stage@MapStage(op, ins, outs) =>
         stage.ins = ins.map{
@@ -157,7 +157,10 @@ trait PIRRetiming extends PIRTraversal {
       case bus:VectorBus => bus.name+"_fifo"
     }
     val sram = CUMemory(name, depth, fresh[Int32], fresh[Int32]) //fresh[Any] don't care type
-    sram.mode = FIFOMode
+    sram.mode = bus match {
+      case bus:ScalarBus => ScalarFIFOMode
+      case bus:VectorBus => VectorFIFOMode
+    }
     sram.writePort = Some(bus) //TODO: readport?
     sram.banking = Some(Strided(1))
     sram

@@ -357,4 +357,15 @@ trait NodeClasses extends SpatialMetadataExp {
   def isWriter(x: Exp[_]): Boolean = LocalWriter.unapply(x).isDefined
   def isWriter(d: Def): Boolean = writerUnapply(d).isDefined
   def isAccess(x: Exp[_]): Boolean = isReader(x) || isWriter(x)
+  def getAccess(x:Exp[_]):Option[Access] = x match {
+    case LocalReader(reads) =>
+      val ras = reads.flatMap{ case (mem, _, _) => readersOf(mem).filter { _.node == x } }
+      assert(ras.size==1)
+      Some(ras.head)
+    case LocalWriter(writes) =>
+      val was = writes.flatMap{ case (mem, _, _, _) => writersOf(mem).filter {_.node == x} }
+      assert(was.size==1)
+      Some(was.head)
+    case _ => None
+  }
 }

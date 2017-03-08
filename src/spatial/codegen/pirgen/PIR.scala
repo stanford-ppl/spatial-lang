@@ -34,13 +34,13 @@ trait PIR {
   case object StreamCU extends CUStyle
   case object UnitCU extends CUStyle
   case object UnitStreamCU extends CUStyle
-  case class MemoryCU(i:Int) extends CUStyle
+  case class MemoryCU(i:Int) extends CUStyle // i: dispatch number
   case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 
   // --- Local memory modes
   sealed abstract class LocalMemoryMode
   case object SRAMMode extends LocalMemoryMode
-  case object FIFOMode extends LocalMemoryMode
+  case object VectorFIFOMode extends LocalMemoryMode
   case object ScalarFIFOMode extends LocalMemoryMode
   case object ScalarBufferMode extends LocalMemoryMode
 
@@ -225,9 +225,8 @@ trait PIR {
     var writeStart: Option[LocalScalar] = None
     var writeEnd: Option[LocalScalar] = None
 
-    var swapWrite: Option[CUCChain] = None
-    var swapRead: Option[CUCChain] = None
-    var writeCtrl: Option[CUCChain] = None
+    var producer:Option[PseudoComputeUnit] = None
+    var consumer:Option[PseudoComputeUnit] = None
 
     override def toString = name
 
@@ -241,9 +240,8 @@ trait PIR {
       copy.readAddr = this.readAddr
       copy.writeAddr = this.writeAddr
       copy.writeStart = this.writeStart
-      copy.swapWrite = this.swapWrite
-      copy.swapRead = this.swapRead
-      copy.writeCtrl = this.writeCtrl
+      copy.producer = this.producer
+      copy.consumer = this.consumer
       copy
     }
   }
@@ -295,7 +293,6 @@ trait PIR {
     def isMemoryUnit = false //cuType == BurstTransfer || cuType == RandomTransfer
 
     var cchains: Set[CUCChain] = Set.empty
-    var srams: Set[CUMemory] = Set.empty
     var mems: mutable.Map[Symbol, CUMemory] = mutable.Map.empty
     var regs: Set[LocalComponent] = Set.empty
     var deps: Set[AbstractComputeUnit] = Set.empty
@@ -305,6 +302,8 @@ trait PIR {
 
     def iterators = regTable.iterator.collect{case (exp, reg: CounterReg) => (exp,reg) }
     def valids    = regTable.iterator.collect{case (exp, reg: ValidReg) => (exp,reg) }
+
+    def srams:Set[CUMemory] = mems.values.toSet
 
     def innermostIter(cc: CUCChain) = {
       val iters = iterators.flatMap{case (e,CounterReg(`cc`,i)) => Some((e,i)); case _ => None}
@@ -370,7 +369,7 @@ trait PIR {
       val cu = ComputeUnit(name, pipe, style)
       cu.parent = this.parent
       cu.cchains ++= this.cchains
-      cu.srams ++= this.srams
+      cu.mems ++= this.mems
       cu.regs ++= this.regs
       cu.deps ++= this.deps
       cu.regTable ++= this.regTable

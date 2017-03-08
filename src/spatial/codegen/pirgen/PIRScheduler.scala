@@ -32,44 +32,9 @@ trait PIRScheduler extends PIRTraversal {
       dbgs(s"$k -> $v")
     }
 
+    dbgs(s"\n\n//----------- Finishing Scheduling ------------- //")
     for (cu <- mappingOut.values.flatten) {
-      dbgblk(s"Generated CU: $cu") {
-        dbgblk(s"Counter chains: ") {
-          cu.cchains.foreach{cchain => dbgs(s"$cchain") }
-        }
-
-        if (cu.srams.nonEmpty) {
-          dbgblk(s"SRAMs: ") {
-            for (sram <- cu.srams) {
-              dbgs(s"""$sram [${sram.mode}] (sym: ${sram.mem}, reader: ${sram.reader})""")
-              dbgs(s"""  banking   = ${sram.banking.map(_.toString).getOrElse("N/A")}""")
-              dbgs(s"""  writePort    = ${sram.writePort.map(_.toString).getOrElse("N/A")}""")
-              dbgs(s"""  readPort    = ${sram.readPort.map(_.toString).getOrElse("N/A")}""")
-              dbgs(s"""  writeAddr = ${sram.writeAddr.map(_.toString).getOrElse("N/A")}""")
-              dbgs(s"""  readAddr  = ${sram.readAddr.map(_.toString).getOrElse("N/A")}""")
-              dbgs(s"""  start     = ${sram.writeStart.map(_.toString).getOrElse("N/A")}""")
-              dbgs(s"""  end       = ${sram.writeEnd.map(_.toString).getOrElse("N/A")}""")
-              dbgs(s"""  swapWrite = ${sram.swapWrite.map(_.toString).getOrElse("N/A")}""")
-              dbgs(s"""  swapRead  = ${sram.swapRead.map(_.toString).getOrElse("N/A")}""")
-              dbgs(s"""  writeCtrl = ${sram.writeCtrl.map(_.toString).getOrElse("N/A")}""")
-            }
-          }
-        }
-
-        for (srams <- cu.writeStages.keys) {
-          dbgs(s"Generated write stages ($srams): ")
-          cu.writeStages(srams).foreach(stage => dbgs(s"  $stage"))
-        }
-        for (srams <- cu.readStages.keys) {
-          dbgs(s"Generated read stages ($srams): ")
-          cu.readStages(srams).foreach(stage => dbgs(s"  $stage"))
-        }
-        dbgs("Generated compute stages: ")
-        cu.computeStages.foreach(stage => dbgs(s"  $stage"))
-
-        dbgs(s"CU global inputs:")
-        globalInputs(cu).foreach{in => dbgs(s"  $in") }
-      }
+      dbgcu(cu)
     }
     block
   }
@@ -131,10 +96,6 @@ trait PIRScheduler extends PIRTraversal {
         //dbg(s"$mem @ $addr [WRITE]")
         addrToStage(mem, addr, ctx)
 
-      //case FifoOnWriteStage(mem, start, end) =>
-        ////dbg(s"$mem [WRITE]")
-        //fifoOnWriteToStage(mem, start, end, ctx)
-
       case OpStage(op, ins, out, isReduce) =>
         //dbg(s"""$out = $op(${ins.mkString(",")}) [OP]""")
         opStageToStage(op, ins, out, ctx, isReduce)
@@ -163,152 +124,6 @@ trait PIRScheduler extends PIRTraversal {
       }
     }
   }
-  def fifoOnWriteToStage(mem: Symbol, start: Option[Symbol], end: Option[Symbol], ctx: CUContext) {
-    //dbg(s"Setting FIFO-on-write for " + ctx.memories(mem).mkString(", "))
-
-    ctx.memories(mem).foreach{sram =>
-      if (sram.mode != FIFOMode) sram.mode = FIFOOnWriteMode
-      sram.writeAddr = None
-      sram.writeCtrl = None
-      sram.swapWrite = None
-
-      //val parentCtr = ctx.cu.parent.flatMap{parent => parent.cchains.find{case _:UnitCChain | _:CChainInstance => true; case _ => false}}
-
-      //sram.swapWrite = parentCtr.flatMap{ctr => ctx.cu.cchains.find(_.name == ctr.name) }
-
-      // HACK: Raghu and Yaqi don't like unaligned loads
-      //if (!SpatialConfig.checkBounds) {
-      if (true) {
-        sram.writeStart = None
-        sram.writeEnd = None
-      }
-      else {
-        start match {
-          case Some(e) => ctx.reg(e) match {
-            case x: LocalScalar => sram.writeStart = Some(x)
-            case x => throw new Exception(s"Invalid FIFO-on-write start $x")
-          }
-          case None => // Do nothing
-        }
-        end match {
-          case Some(e) => ctx.reg(e) match {
-            case x: LocalScalar => sram.writeEnd = Some(x)
-            case x => throw new Exception(s"Invalid FIFO-on-write start $x")
-          }
-          case None => // No end
-        }
-      }
-    }
-  }
-
-  //def bufferWrite(mem: Symbol, data: Symbol, isdim: Option[(Seq[Exp[Index]], Seq[Exp[Index]])], ctx: CUContext) {
-    //if (isReadInPipe(mem, ctx.pipe)) { //FIXME: No longer will be true
-      //assert(false, "All reads are remote writes now!")
-      //val flatOpt = isdim.map{ case (a, dims) => flattenNDIndices(a, dims) }
-      //val addr = flatOpt.map(_._1)
-      //val addrStages = flatOpt.map(_._2).getOrElse(Nil)
-      //addrStages.foreach{stage => scheduleStage(stage, ctx) }
-      //addr.foreach{a => addrToStage(mem, a, ctx, local=true) }
-
-      //// TODO: Should we allow multiple versions of local accumulator?
-      //ctx.memories(mem).foreach{sram =>
-        //propagateReg(data, ctx.reg(data), FeedbackDataReg(sram), ctx)
-      //}
-    //}
-    // Push data out to global bus (even for local accumulators)
-    //mappingIn(mem).zipWithIndex.foreach { case (sramCU, i) =>
-      //if (ctx.isUnit) {
-        //val bus = CUScalar(s"${quote(mem)}_${i}_wt")
-        //propagateReg(data, ctx.reg(data), ScalarOut(bus), ctx)
-      //} else {
-        //val bus = CUVector(s"${quote(mem)}_${i}_wt") // All writes to sram are using vector bus
-        //propagateReg(data, ctx.reg(data), VectorOut(bus), ctx)
-      //}
-    //}
-  //}
-
-  //def allocateSRAMRead(lhs: Symbol, mem: Symbol, dim:Seq[Exp[Index]], is: Seq[Exp[Index]], ctx: CUContext) {
-    //val dispatch = dispatchOf(lhs, mem).head
-    //if (ctx.isUnit) {
-      //val bus = CUScalar(s"${quote(mem)}_${dispatch}_rd")
-      //ctx.addReg(lhs, ScalarIn(bus))
-      ////propagateReg(lhs, ScalarIn(bus), ctx.reg(lhs), ctx)
-    //} else {
-      //val bus = CUVector(s"${quote(mem)}_${dispatch}_rd")
-      //ctx.addReg(lhs, VectorIn(bus))
-      //propagateReg(lhs, VectorIn(bus), ctx.reg(lhs), ctx)
-    //}
-    //val sram = ctx.mem(mem, lhs)
-    //val (addr, addrStages) = flattenNDIndices(is, dim)
-    //addrStages.foreach{stage => scheduleStage(stage, ctx) }
-    //sram.readAddr = Some(allocateAddrReg(sram, addr, ctx, local=true).asInstanceOf[ReadAddr]) //TODO
-    //ctx.addReg(lhs, SRAMReadReg(sram))
-  //}
-
-  //def allocateFifoPush(fifo: Symbol, data: Symbol, ctx: CUContext) = readersOf(fifo).head.ctrlNode match {
-    ///*case tx@Def(e:BurstStore[_]) =>
-      //val dram = allocateDRAM(tx, e.dram, MemStore)
-      //propagateReg(data, ctx.reg(data), VectorOut(PIRDRAMDataOut(dram)), ctx)*/
-
-    //case _ => bufferWrite(fifo,data,None,ctx)
-  //}
-
-  // Cases: 1. Inner Accumulator (read -> write)
-  //        2. Outer Accumulator (read -> write)
-  //        3. Local register but not accumulator (e.g. write -> read)
-  //        4. Scalar output (read globally)
-  // (1, 2, and 3 are mutually exclusive)
-  // - 1: Ignore. Inner reductions are handled differently
-  // - 2: Update producer of data to have accumulator as output
-  // - 3: Update reg to map to register of data (for later use in reads)
-  // - 4: If any of first 3 options, add bypass data to scalar out, otherwise update producer
-  def allocateRegWrite(writer: Symbol, reg: Symbol, data: Symbol, ctx: CUContext) {
-    val isLocallyRead    = isReadInPipe(reg, ctx.pipe)
-    val isLocallyWritten = isWrittenInPipe(reg, ctx.pipe, Some(writer)) // Always true?
-    val isInnerAcc = isInnerAccum(reg) && isLocallyRead && isLocallyWritten
-    val isOuterAcc = isAccum(reg) && !isInnerAcc && isLocallyRead && isLocallyWritten
-    val isRemotelyRead = isReadOutsidePipe(reg, ctx.pipe)
-
-    val Def(d) = writer
-
-    //dbg(s"[REG WRITE] $writer = $d")
-    //dbg(s"  Reg = $reg, data = $data")
-    //dbg(s"  localRead:$isLocallyRead, localWrite:$isLocallyWritten, innerAcc:$isInnerAcc, outerAcc:$isOuterAcc, remoteRead:$isRemotelyRead")
-
-    dbg(s"allocateRegWrite${ctx.cu}, $reg readersOf($reg)=${readersOf(reg).mkString(",")}")
-    if (isOuterAcc) { // Case 2
-      val out = ctx.cu.getOrElseUpdate(reg){ allocateLocal(reg) }
-      propagateReg(data, ctx.reg(data), out, ctx)
-    }
-    else if (!isInnerAcc) { // Case 3
-      ctx.addReg(reg, ctx.reg(data))
-    }
-    if (isRemotelyRead) {
-      // Handle registers for cross-lane accumulation specially
-      val start = if (isInnerAcc) ctx.reg(data) else ctx.reg(reg)
-      if (isArgOut(reg)) {
-        val bus = OutputArg(quote(reg))
-        globals += bus
-        propagateReg(reg, start, ScalarOut(bus), ctx)
-      }
-      else if (ctx.isUnit) {
-        val bus = CUScalar(quote(reg))
-        globals += bus
-        propagateReg(reg, start, ScalarOut(bus), ctx)
-      }
-      else if (isInnerAcc) {
-        val bus = CUScalar(quote(reg))
-        globals += bus
-        propagateReg(reg, start, ScalarOut(bus), ctx)
-      }
-      else {
-        val bus = CUVector(quote(reg))
-        globals += bus
-        propagateReg(reg, start, VectorOut(bus), ctx)
-      }
-    }
-  }
-
 
   def mapNodeToStage(lhs: Symbol, rhs: Def, ctx: CUContext) = rhs match {
     // --- Reads
@@ -318,6 +133,8 @@ trait PIRScheduler extends PIRTraversal {
           assert(ctx.getReg(lhs).nonEmpty, s"reader: ${qdef(dreader)} was not allocated in ${ctx.cu} during allocation")
         }
       }
+
+    case GetDRAMAddress(dram) => // equivalent to RegRead 
 
     case ParLocalWriter(writes) =>
       val (mem, value, addrs, ens) = writes.head 

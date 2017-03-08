@@ -27,6 +27,7 @@ trait PIROptimizer extends PIRTraversal {
   }
 
   override def postprocess[S:Staged](b: Block[S]): Block[S] = {
+    dbgs(s"\n\n//----------- Finishing PIRHacks ------------- //")
     dbg(s"Mapping:")
     mapping.foreach { case (sym, cus) =>
       dbg(s"${sym} -> [${cus.mkString(",")}]")

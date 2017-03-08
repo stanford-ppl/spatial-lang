@@ -729,7 +729,7 @@ trait PIRSplitting extends PIRTraversal {
     if (parent.isEmpty) cu.deps ++= orig.deps
     if (parent.isEmpty) cu.cchains ++= orig.cchains
 
-    cu.srams ++= part.srams
+    part.srams.map { sram => cu.mems += sram.mem -> sram }
 
     //TODO: readStages
     cu.writeStages ++= part.wstages.map{case (i,WriteGroup(mems,stages)) => mems -> ArrayBuffer(stages:_*) }
@@ -930,9 +930,9 @@ trait PIRSplitting extends PIRTraversal {
       cu.srams.foreach{sram =>
         sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_).asInstanceOf[ReadAddr]} //TODO refactor this
         sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_).asInstanceOf[WriteAddr]}
-        sram.swapWrite = sram.swapWrite.map{tx(_)}
-        sram.swapRead = sram.swapRead.map{tx(_)}
-        sram.writeCtrl = sram.writeCtrl.map{tx(_)}
+        //sram.swapWrite = sram.swapWrite.map{tx(_)}
+        //sram.swapRead = sram.swapRead.map{tx(_)}
+        //sram.writeCtrl = sram.writeCtrl.map{tx(_)}
       }
     }
 

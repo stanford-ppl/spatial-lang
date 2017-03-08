@@ -10,98 +10,17 @@ import argon.Config
 import spatial.codegen._
 import scala.collection.mutable
 
-trait PIRGenController extends PIRCodegen {
+trait PIRGenController extends PIRCodegen with PIRTraversal{
   val IR: SpatialExp with PIRCommonExp
   import IR.{println => _, _}
 
-  val genControlLogic = false
+  def cus:Map[Symbol,List[List[ComputeUnit]]]
   var allocatedReduce: Set[ReduceReg] = Set.empty
-  val globals = mutable.Set[GlobalComponent]()
-  val decomposed = mutable.Map[Symbol, Seq[(String, Symbol)]]()
-  val composed = mutable.Map[Symbol, Symbol]()
-
-  lazy val allocater = new PIRAllocation{
-    val IR = PIRGenController.this.IR
-    def globals = PIRGenController.this.globals
-    def decomposed = PIRGenController.this.decomposed
-    def composed = PIRGenController.this.composed
-  }
-  lazy val scheduler = new PIRScheduler{
-    val IR = PIRGenController.this.IR
-    def globals = PIRGenController.this.globals
-    def decomposed = PIRGenController.this.decomposed
-    def composed = PIRGenController.this.composed
-  }
-  lazy val optimizer = new PIROptimizer{
-    val IR = PIRGenController.this.IR
-    def globals = PIRGenController.this.globals
-    def decomposed = PIRGenController.this.decomposed
-    def composed = PIRGenController.this.composed
-  }
-  lazy val splitter  = new PIRSplitter{
-    val IR = PIRGenController.this.IR
-    def globals = PIRGenController.this.globals
-    def decomposed = PIRGenController.this.decomposed
-    def composed = PIRGenController.this.composed
-  }
-  lazy val hacks     = new PIRHacks{
-    val IR = PIRGenController.this.IR
-    def globals = PIRGenController.this.globals
-    def decomposed = PIRGenController.this.decomposed
-    def composed = PIRGenController.this.composed
-  }
-  lazy val dse       = new PIRDSE{
-    val IR = PIRGenController.this.IR
-    def globals = PIRGenController.this.globals
-    def decomposed = PIRGenController.this.decomposed
-    def composed = PIRGenController.this.composed
-  }
-
-  val cus = Map[Exp[Any],List[List[ComputeUnit]]]()
-
-  private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
-    for (i <- iters.indices)
-      open(src"$cchain($i).foreach{case (is,vs) => is.zip(vs).foreach{case (${iters(i)},v) => if (v) {")
-
-    func
-
-    iters.indices.foreach{_ => close("}}}") }
-  }
+  val genControlLogic = false
 
   override protected def preprocess[S:Staged](block: Block[S]): Block[S] = {
-    globals.clear
-    // -- CU allocation
-    allocater.run(block)
-    // -- CU scheduling
-    scheduler.mappingIn ++= allocater.mapping
-    scheduler.run(block)
-    // -- Optimization
-    optimizer.mapping ++= scheduler.mappingOut
-    optimizer.run(block)
-
-    if (SpatialConfig.enableSplitting) {
-      splitter.mappingIn ++= optimizer.mapping
-      splitter.run(block)
-
-      hacks.mappingIn ++= splitter.mappingOut
-    }
-    else {
-      for ((s,cus) <- optimizer.mapping) hacks.mappingIn(s) = List(cus)
-    }
-    hacks.run(block)
-
-    cus ++= hacks.mappingOut
-
-
-    if (SpatialConfig.enableArchDSE) {
-      dse.mappingIn ++= optimizer.mapping
-      dse.run(block)
-    }
-
-    msg("Starting traversal PIR Generation")
     val blk = super.preprocess(block) // generateHeader
     generateGlobals()
-
     blk
   }
 
@@ -111,12 +30,13 @@ trait PIRGenController extends PIRCodegen {
     mcs.foreach(emitComponent _)
   }
 
-  override protected def postprocess[S:Staged](block: Block[S]): Block[S] = {
-    super.postprocess(block)
-    msg("Done.")
-    val nCUs = cus.values.flatten.flatten.filter{cu => cu.allStages.nonEmpty || cu.isDummy }.size
-    msg(s"NUMBER OF CUS: $nCUs")
-    block
+  private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
+    for (i <- iters.indices)
+      open(src"$cchain($i).foreach{case (is,vs) => is.zip(vs).foreach{case (${iters(i)},v) => if (v) {")
+
+    func
+
+    iters.indices.foreach{_ => close("}}}") }
   }
 
   def emitAllStages(cu: ComputeUnit) {
@@ -165,14 +85,22 @@ trait PIRGenController extends PIRCodegen {
   //override def quote(s: Exp[_]): String
 
   def cuDeclaration(cu: CU) = {
+    val decs = mutable.ListBuffer[String]()
+    decs += s"""name="${cu.name}""""
     val parent = cu.parent.map(_.name).getOrElse("top")
-    val deps = cu.deps.map{dep => dep.name }.mkString("List(", ", ", ")")
 
+    //TODO: refactor this
     if (cu.style.isInstanceOf[MemoryCU]) {
-      s"""${quote(cu)}(name = "${cu.name}", parent="$parent")""" // MemoryPipeline's parent might be declared later 
+      decs += s"""parent="$parent"""" // MemoryPipeline's parent might be declared later 
     } else {
-      s"""${quote(cu)}(name = "${cu.name}", parent=$parent)"""
+      decs += s"""parent=$parent"""
     }
+    cu.style match {
+      case FringeCU(dram, mode) =>
+        decs += s"""dram=${quote(dram)}, mode=$mode"""
+      case _ =>
+    }
+    s"${quote(cu)}(${decs.mkString(",")})"
   }
 
   def preallocateRegisters(cu: CU) = cu.regs.foreach{
@@ -204,41 +132,11 @@ trait PIRGenController extends PIRCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
-    if (isControlNode(lhs) && cus.contains(lhs))
-      cus(lhs).flatten.foreach{cu => emitCU(lhs, cu)}
-    rhs match {
-      case Hwblock(func,_) =>
-        emitBlock(func)
-
-      case UnitPipe(en, func) =>
-        emitBlock(func)
-
-      case ParallelPipe(en, func) => 
-        emitBlock(func)
-
-      case OpForeach(cchain, func, iters) =>
-        emitNestedLoop(cchain, iters){ emitBlock(func) }
-
-      case OpReduce(cchain, accum, map, load, reduce, store, ident, fold, rV, iters) =>
-        emitNestedLoop(cchain, iters){
-          visitBlock(map)
-          visitBlock(load)
-          visitBlock(reduce)
-          emitBlock(store)
-        }
-
-      case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,ident,fold,rV,itersMap,itersRed) =>
-        emitNestedLoop(cchainMap, itersMap){
-          visitBlock(map)
-          emitNestedLoop(cchainRed, itersRed){
-            visitBlock(loadRes)
-            visitBlock(loadAcc)
-            visitBlock(reduce)
-            visitBlock(storeAcc)
-          }
-        }
-
-      case _ => super.emitNode(lhs, rhs)
+    if (isControlNode(lhs)) {
+      if (cus.contains(lhs)) cus(lhs).flatten.foreach{cu => emitCU(lhs, cu)}
+      rhs.blocks.foreach { block => emitBlock(block) }
+    } else {
+      super.emitNode(lhs, rhs)
     }
   }
 
@@ -265,34 +163,11 @@ trait PIRGenController extends PIRCodegen {
     case sram: CUMemory =>
       var decl = s"""val ${sram.name} = ${quote(sram.mode)}(size = ${sram.size}"""
 
-      //sram.writeCtrl match {
-        //case Some(cchain) => decl += s""", writeCtr = ${cchain.name}(0)"""
-        //case None if sram.mode != SRAMMode => // Ok
-        //case None => throw new Exception(s"No write controller defined for $sram")
-      //}
-
       sram.banking match {
         case Some(banking) => decl += s", banking = $banking"
         case None => throw new Exception(s"No banking defined for $sram")
       }
 
-      //if (sram.bufferDepth > 1 && sram.mode != FIFOMode) {
-        //var buffering = s", buffering = ${sram.bufferDepth}"
-        //sram.swapRead match {
-          //case Some(cchain) => buffering += s", swapRead = ${cchain.name}(0)"
-          //case None => throw new Exception(s"No swap read controller defined for $sram")
-        //}
-
-        //sram.swapWrite match {
-          //case Some(cchain) => buffering += s", swapWrite = ${cchain.name}(0)"
-          //case None if sram.mode != SRAMMode => // Ok
-          //case None => throw new Exception(s"No swap write controller defined for $sram")
-        //}
-        //decl += s"$buffering"
-      //}
-      //else if (sram.mode != FIFOMode) {
-        //decl += ", buffering = SingleBuffer()"
-      //}
       decl += ")"
 
       sram.writePort match {
@@ -310,7 +185,7 @@ trait PIRGenController extends PIRCodegen {
       sram.readAddr match {
         case Some(_:CounterReg | _:ConstReg) => decl += s""".rdAddr(${quote(sram.readAddr.get)})"""
         case Some(_:ReadAddrWire) =>
-        case None if sram.mode == FIFOMode => // ok
+        case None if sram.mode != SRAMMode => // ok
         case addr => decl += s""".rdAddr($addr)"""
         //case addr => throw new Exception(s"Disallowed memory read address in $sram: $addr") //TODO
       }
@@ -351,7 +226,7 @@ trait PIRGenController extends PIRCodegen {
 
   def quote(mode: LocalMemoryMode): String = mode match {
     case SRAMMode => "SRAM"
-    case FIFOMode => "VectorFIFO"
+    case VectorFIFOMode => "VectorFIFO"
     case FIFOOnWriteMode => "SemiFIFO"
     case ScalarBufferMode => "ScalarBuffer"
     case ScalarFIFOMode => "ScalarFIFO"
@@ -385,6 +260,7 @@ trait PIRGenController extends PIRCodegen {
     case MetaPipeCU   => "MetaPipeline"
     case SequentialCU => "Sequential"
     case MemoryCU(i)     => "MemoryPipeline"
+    case FringeCU(dram, mode)     => "Fringe"
   }
 
   def quote(reg: LocalComponent): String = reg match {

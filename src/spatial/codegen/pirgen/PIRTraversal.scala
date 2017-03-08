@@ -70,6 +70,44 @@ trait PIRTraversal extends SpatialTraversal {
     }
   }
 
+  def dbgcu(cu:ComputeUnit):Unit = dbgblk(s"Generated CU: $cu") {
+    dbgblk(s"cchains: ") {
+      cu.cchains.foreach{cchain => dbgs(s"$cchain") }
+    }
+    if (cu.srams.nonEmpty) {
+      dbgblk(s"mems: ") {
+        for (sram <- cu.srams) {
+          dbgl(s"""$sram [${sram.mode}] (sym: ${sram.mem}, reader: ${sram.reader})""") {
+            dbgs(s"""banking   = ${sram.banking.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""writePort    = ${sram.writePort.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""readPort    = ${sram.readPort.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""writeAddr = ${sram.writeAddr.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""readAddr  = ${sram.readAddr.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""start     = ${sram.writeStart.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""end       = ${sram.writeEnd.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""producer = ${sram.producer.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""consumer  = ${sram.consumer.map(_.toString).getOrElse("N/A")}""")
+          }
+        }
+      }
+    }
+    for ((srams, stages) <- cu.writeStages) {
+      dbgl(s"Generated write stages ($srams): ") {
+        stages.foreach(stage => dbgs(s"  $stage"))
+      }
+    }
+    for ((srams, stages) <- cu.readStages) {
+      dbgl(s"Generated read stages ($srams): ") {
+        stages.foreach(stage => dbgs(s"$stage"))
+      }
+    }
+    dbgl("Generated compute stages: ") {
+      cu.computeStages.foreach(stage => dbgs(s"$stage"))
+    }
+    dbgl(s"CU global inputs:") {
+      globalInputs(cu).foreach{in => dbgs(s"$in") }
+    }
+  }
 
   def quote(x: Symbol):String = s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
   def qdef(lhs:Symbol):String = {
@@ -509,9 +547,6 @@ trait PIRTraversal extends SpatialTraversal {
     }
 
     def swapCU_sram(sram: CUMemory) {
-      sram.swapWrite.foreach(swapCU_cchain)
-      sram.swapRead.foreach(swapCU_cchain)
-      sram.writeCtrl.foreach(swapCU_cchain)
       sram.readAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
       sram.writeAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
     }
@@ -557,14 +592,14 @@ trait PIRTraversal extends SpatialTraversal {
     def ref(reg: LocalComponent, out: Boolean, stage: Int = stageNum): LocalRef = reg match {
       // If the previous stage computed the read address for this load, use the registered output
       // of the memory directly. Otherwise, use the previous stage
-      case MemLoadReg(sram) =>
+      case MemLoadReg(sram) => //TODO: rework out the logic here
         /*debug(s"Referencing SRAM $sram in stage $stage")
         debug(s"  Previous stage: $prevStage")
         debug(s"  SRAM read addr: ${sram.readAddr}")*/
-        if (prevStage.isEmpty || sram.mode == FIFOMode)
+        if (prevStage.isEmpty || sram.mode == VectorFIFOMode || sram.mode == ScalarFIFOMode )
           LocalRef(-1, reg)
         else {
-          if (sram.mode != FIFOMode && sram.readAddr.isDefined) {
+          if (sram.mode != VectorFIFOMode && sram.mode!= ScalarFIFOMode && sram.readAddr.isDefined) {
             if (prevStage.get.outputMems.contains(sram.readAddr.get))
               LocalRef(-1, reg)
             else

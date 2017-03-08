@@ -62,8 +62,7 @@ trait PIRCommon extends PIR {
     case stage: Stage => stage.inputMems.collect{case CounterReg(cchain,_) => cchain}.toSet
     case sram: CUMemory =>
       (sram.readAddr.collect{case CounterReg(cchain,_) => cchain} ++
-       sram.writeAddr.collect{case CounterReg(cchain,_) => cchain} ++
-       sram.swapRead ++ sram.swapWrite ++ sram.writeCtrl).toSet
+       sram.writeAddr.collect{case CounterReg(cchain,_) => cchain}).toSet
 
     case iter: Iterator[Any] => iter.flatMap(usedCChains).toSet
     case iter: Iterable[Any] => usedCChains(iter.iterator)
