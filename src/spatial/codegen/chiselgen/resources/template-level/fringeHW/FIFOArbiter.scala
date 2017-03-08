@@ -42,7 +42,8 @@ class FIFOArbiter(
       io.full(i) := m.io.full
       m
     }
-    tagFF.io.enable := Reg(UInt(1.W), io.deqVld) | (fifos.map { _.io.empty }.reduce {_&_})
+    val enq = io.enqVld.reduce{_|_}
+    tagFF.io.enable := Reg(UInt(1.W), io.deqVld) | (fifos.map { _.io.empty }.reduce {_&_} & Reg(Bool(), enq))
 
     // Priority encoder and output interfaces
     val fifoValids = fifos.map { ~_.io.empty }
@@ -54,14 +55,14 @@ class FIFOArbiter(
     outMux.io.ins := Vec(fifos.map {e => e.io.deq})
     outMux.io.sel := tag
 
-    val emptyMux = Module(new MuxN(numStreams, w))
-  //  emptyMux.io.ins := Vec(fifos.map {e => Reg(UInt(1.W), e.io.empty)})
-    emptyMux.io.ins := Vec(fifos.map {e => e.io.empty})
-    emptyMux.io.sel := tag
+//    val emptyMux = Module(new MuxN(numStreams, w))
+//  //  emptyMux.io.ins := Vec(fifos.map {e => Reg(UInt(1.W), e.io.empty)})
+//    emptyMux.io.ins := Vec(fifos.map {e => e.io.empty})
+//    emptyMux.io.sel := tag
 
     io.tag := tag
     io.deq := outMux.io.out
-    io.empty := emptyMux.io.out
+    io.empty := fifos.map {e => e.io.empty}.reduce{_&_}  // emptyMux.io.out
   } else { // Arbiter does nothing if there are no memstreams
     io.tag := 0.U(tagWidth.W)
     io.deq := Vec(v, 0.U(w.W))
