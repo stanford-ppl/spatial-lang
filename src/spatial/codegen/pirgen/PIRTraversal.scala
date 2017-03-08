@@ -50,8 +50,8 @@ trait PIRTraversal extends SpatialTraversal {
         pcu.cchains.foreach { cchain => dbgs(s"$cchain") }
       }
       dbgl(s"MEMs:") {
-        for ((sym, mem) <- pcu.mems) {
-          dbgs(s"""$mem (reader: ${mem.reader}, mode: ${mem.mode}) ${qdef(sym)}""")
+        for ((exp, mem) <- pcu.mems) {
+          dbgs(s"""$mem (reader: ${mem.reader}, mode: ${mem.mode}) ${qdef(exp)}""")
         }
       }
       dbgl(s"Write stages:") {
@@ -77,7 +77,7 @@ trait PIRTraversal extends SpatialTraversal {
     if (cu.srams.nonEmpty) {
       dbgblk(s"mems: ") {
         for (sram <- cu.srams) {
-          dbgl(s"""$sram [${sram.mode}] (sym: ${sram.mem}, reader: ${sram.reader})""") {
+          dbgl(s"""$sram [${sram.mode}] (exp: ${sram.mem}, reader: ${sram.reader})""") {
             dbgs(s"""banking   = ${sram.banking.map(_.toString).getOrElse("N/A")}""")
             dbgs(s"""writePort    = ${sram.writePort.map(_.toString).getOrElse("N/A")}""")
             dbgs(s"""readPort    = ${sram.readPort.map(_.toString).getOrElse("N/A")}""")
@@ -136,29 +136,29 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   // --- Allocating
-  def decomposed:mutable.Map[Expr, Seq[(String, Expr)]]
-  def composed:mutable.Map[Expr, Expr]
+  def decomposed:mutable.Map[Expr, Seq[(String, Expr)]] // Mapping Mem[Struct(Seq(fieldName, T))] -> Seq((fieldName, Mem[T]))
+  def composed:mutable.Map[Expr, Expr] // Mapping Mem[T] -> Mem[Struct(Seq(fieldName, T))]
 
-  def compose(dsym:Expr) = composed.get(dsym).getOrElse(dsym)
+  def compose(dexp:Expr) = composed.get(dexp).getOrElse(dexp)
 
-  def decompose[T](sym:Expr, fields:Seq[T])(implicit ev:TypeTag[T]):Seq[Expr] = {
-    decomposeWithFields(sym, fields).map(_._2)
+  def decompose[T](exp:Expr, fields:Seq[T])(implicit ev:TypeTag[T]):Seq[Expr] = {
+    decomposeWithFields(exp, fields).map(_._2)
   }
 
-  def decomposeWithFields[T](sym:Expr, fields:Seq[T])(implicit ev:TypeTag[T]):Seq[(String, Expr)] = {
+  def decomposeWithFields[T](exp:Expr, fields:Seq[T])(implicit ev:TypeTag[T]):Seq[(String, Expr)] = {
     if (fields.size<=1) {
-      Seq(("N/A", sym))
+      Seq(("N/A", exp))
     } else {
-      decomposed.getOrElseUpdate(sym, {
+      decomposed.getOrElseUpdate(exp, {
         fields.map { f => 
-          val (field, dsym) = f match {
+          val (field, dexp) = f match {
             case field if typeOf[T] =:= typeOf[String] => 
               (field.asInstanceOf[String], fresh[Int32]) 
             case (field, exp) if typeOf[T] =:= typeOf[(String, Expr)] => 
               (field.asInstanceOf[String], exp.asInstanceOf[Expr])
           }
-          composed += dsym -> sym
-          (field, dsym)
+          composed += dexp -> exp
+          (field, dexp)
         }
       })
     }
@@ -176,10 +176,10 @@ trait PIRTraversal extends SpatialTraversal {
     case _ => throw new Exception(s"Don't know how to decompose bus ${bus}")
   }
 
-  def decompose(sym:Expr):Seq[Expr] = sym match {
-    case Def(StreamInNew(bus)) => decomposeBus(bus, sym) 
-    case Def(StreamOutNew(bus)) => decomposeBus(bus, sym)
-    case Def(SimpleStruct(elems)) => decompose(sym, elems)
+  def decompose(exp:Expr):Seq[Expr] = exp match {
+    case Def(StreamInNew(bus)) => decomposeBus(bus, exp) 
+    case Def(StreamOutNew(bus)) => decomposeBus(bus, exp)
+    case Def(SimpleStruct(elems)) => decompose(exp, elems)
     case mem if isMem(mem) => List(mem) // TODO:Handle mem of composite type here
     case ParLocalReader(reads) => 
       val (mem, _, _) = reads.head
@@ -187,12 +187,12 @@ trait PIRTraversal extends SpatialTraversal {
         case s:StructType[_] => s.fields.map(_._1)
         case _ => Seq()
       }
-      decompose(sym, decompose(mem, fields))
+      decompose(exp, decompose(mem, fields))
     case ParLocalWriter(writes) =>
       val (mem, value, _, _) = writes.head
       val fieldNames = value.flatMap{ value => decomposed.get(value)}.getOrElse(Seq()).map(_._1)
-      decompose(sym, fieldNames)
-    case _ => decomposed.get(sym).map{ _.map(_._2) }.getOrElse(Seq(sym))
+      decompose(exp, fieldNames)
+    case _ => decomposed.get(exp).map{ _.map(_._2) }.getOrElse(Seq(exp))
   }
 
   def getMatchedDecomposed(dele:Expr, ele:Expr):Expr = {
@@ -254,46 +254,6 @@ trait PIRTraversal extends SpatialTraversal {
     }
   }
 
-  private def allocateReg(reg: Expr, pipe: Expr, read: Option[Expr] = None, write: Option[Expr] = None): LocalComponent = {
-    val isLocallyRead = isReadInPipe(reg, pipe, read)
-    val isLocallyWritten = isWrittenInPipe(reg, pipe, write)
-
-    if (isLocallyRead && isLocallyWritten && isInnerAccum(reg)) {
-      ReduceReg()
-    }
-    else if (isLocallyRead && isLocallyWritten && isAccum(reg)) {
-      val init = ConstReg(extractConstant(resetValue(reg.asInstanceOf[Exp[Reg[Any]]])))
-      AccumReg(init)
-    }
-    else if (!isLocallyRead) {
-      if (isUnitPipe(pipe) || isInnerAccum(reg)) {
-        val bus = CUScalar(quote(reg))
-        globals += bus
-        ScalarOut(bus)
-      }
-      else {
-        val bus = CUVector(quote(reg))
-        globals += bus
-        VectorOut(bus)
-      }
-    }
-    else if (!isLocallyWritten) {
-      if (isWrittenByUnitPipe(reg) || isInnerAccum(reg)) {
-        val bus = CUScalar(quote(reg))
-        globals += bus
-        ScalarIn(bus).asInstanceOf[LocalComponent]  // Weird scala type error here
-      }
-      else {
-        val bus = CUVector(quote(reg))
-        globals += bus
-        VectorIn(bus).asInstanceOf[LocalComponent]  // Weird scala type error here
-      }
-    }
-    else {
-      TempReg()
-    }
-  }
-
   def allocateLocal(x: Expr): LocalComponent = x match {
     case c if isConstant(c) => ConstReg(extractConstant(x))
     case _ => TempReg()
@@ -302,13 +262,6 @@ trait PIRTraversal extends SpatialTraversal {
   def const(x:Expr) = x match {
     case c if isConstant(c) => ConstReg(extractConstant(x))
     case _ => throw new Exception(s"${qdef(x)} ${x.tp} is not a constant")
-  }
-
-  def foreachSymInBlock(b: Block[Any])(func: Sym[_] => Unit) = {
-    def sfunc(stms:Seq[Stm]) = {
-      stms.foreach { case Stm(lhs, rhs) => func(lhs.head) }
-    }
-    traverseStmsInBlock(b, sfunc _)
   }
 
   def copyIterators(destCU: AbstractComputeUnit, srcCU: AbstractComputeUnit): Map[CUCChain,CUCChain] = {
@@ -339,60 +292,10 @@ trait PIRTraversal extends SpatialTraversal {
     else Map.empty[CUCChain,CUCChain]
   }
 
-  // Build a schedule as usual, except for depencies on write addresses
-  def symsOnlyUsedInWriteAddr(stms: Seq[Stm])(results: Seq[Expr], exps: List[Expr]) = {
-    def mysyms(rhs: Expr) = rhs match {
-      case Def(rhs) => rhs match {
-        case LocalWriter(writes) =>
-          val addrs = writes.flatMap{case (mem,value,addr,en) => addr.filterNot{a => a == value }}
-          syms(rhs) filterNot (addrs contains _)
-        case _ => syms(rhs)
-      }
-      case _ => syms(rhs)
-    }
-    val scopeIndex = makeScopeIndex(stms)
-    def deps(x: Expr) = orderedInputs(mysyms(x), scopeIndex)
-
-    val xx = schedule(results.flatMap(deps))(t => deps(t))
-
-    exps.filterNot{
-      case sym: Sym[_] => xx.exists(_.lhs.contains(sym))
-      case b: Bound[_] => false
-      case c: Const[_] => false
-    }
-  }
-
-  // HACK: Rip apart the block, looking only for true data dependencies and necessary effects dependencies
-  def symsOnlyUsedInWriteAddrOrEn(stms: Seq[Stm])(results: Seq[Expr], exps: List[Expr]) = {
-    def mysyms(rhs: Any) = rhs match {
-      case Def(d) => d match {
-        case SRAMStore(sram,dims,is,ofs,data,en) => syms(sram) ++ syms(data) //++ syms(es)
-        case ParSRAMStore(sram,addr,data,ens) => syms(sram) ++ syms(data) //++ syms(es)
-        case FIFOEnq(fifo, data, en)          => syms(fifo) ++ syms(data)
-        case ParFIFOEnq(fifo, data, ens) => syms(fifo) ++ syms(data)
-        case _ => d.allInputs //syms(d)
-      }
-      case _ => syms(rhs)
-    }
-    val scopeIndex = makeScopeIndex(stms)
-    def deps(x: Any) = orderedInputs(mysyms(x), scopeIndex)
-
-    val xx = schedule(results.flatMap(deps))(t => deps(t))
-
-    //xx.reverse.foreach{case TP(s,d) => debug(s"  $s = $d")}
-
-    // Remove all parts of schedule which are used to calculate values
-    exps.filterNot{
-      case sym: Sym[_] => xx.exists(_.lhs.contains(sym))
-      case b: Bound[_] => false
-      case c: Const[_] => false
-    }
-  }
-
   /*
-   * @param allStms all statements in which to search for symbols
+   * @param allStms all statements in which to search for exps 
    * @param results produced expression to be considered
-   * @param effectful effectful symbols to be considered for searching input symbols
+   * @param effectful effectful exps to be considered for searching input exps 
    * Get symbols used to calculate results and effectful excluding symbols that are 
    * - used for address calculation and control calculation for FIFOs. 
    * - Doesn't correspond to a PIR stage
@@ -465,7 +368,6 @@ trait PIRTraversal extends SpatialTraversal {
       case _ => // This stage is being removed! Ignore it!
     }
   }
-
 
   def swapBus(cus: Iterable[CU], orig: GlobalBus, swap: GlobalBus) = cus.foreach{cu =>
     cu.allStages.foreach{stage => swapBus_stage(stage) }

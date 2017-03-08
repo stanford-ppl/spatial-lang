@@ -104,7 +104,7 @@ trait PIRAllocation extends PIRTraversal {
         val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp${i}", dsram, MemoryCU(i))
         dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}, reader:${quote(dreader)}")
         cu.parent = parentCU
-        val psram = allocateMem(dsram, dreader, cu)
+        val psram = createMem(dsram, dreader, cu)
         cu
       }.toList
     }
@@ -155,7 +155,11 @@ trait PIRAllocation extends PIRTraversal {
   }
   
   /*
-   * @param cu CU in which the address calculation stages should be pulled out of
+   * @param dmem decomposed memory
+   * @param addr address expression
+   * @param stms searching scope
+   * @return The flatten address symbol and extracted stages
+   * Extract address calculation for mem 
    * */
   def extractRemoteAddrStages(dmem:Expr, addr:Option[Seq[Exp[Index]]], stms:Seq[Stm]):(Option[Expr],List[PseudoStage])= {
     dbgblk(s"Extracting Remote Addr in for dmem=$dmem addr=$addr") {
@@ -199,6 +203,9 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
+  /*
+   * Schedule stages of PCU corresponding to pipe
+   * */
   def prescheduleStages(pipe: Expr, func: Block[Any]):PseudoComputeUnit = dbgblk(s"prescheduleStages ${qdef(pipe)}") {
     val cu = allocateCU(pipe)
 
@@ -256,7 +263,13 @@ trait PIRAllocation extends PIRTraversal {
     case mem if isSRAM(mem) => SRAMMode
   }
 
-  def allocateMem(dmem: Expr, dreader: Expr, cu: PCU): CUMemory =  {
+  /*
+   * @param dmem decomposed memory
+   * @param dreader decomposed reader
+   * @param cu 
+   * Create memory (Reg/FIFO/SRAM/Stream) inside cu for dreader
+   * */
+  def createMem(dmem: Expr, dreader: Expr, cu: PCU): CUMemory =  {
     cu.mems.getOrElseUpdate(dmem, {
       val name = if (isGetDRAMAddress(dmem)) s"${quote(dmem)}"
                  else s"${quote(dmem)}_${quote(dreader)}"
@@ -273,6 +286,10 @@ trait PIRAllocation extends PIRTraversal {
     })
   }
 
+  /*
+   * @param mem original memory Expr
+   * Allocate local memory inside the reader
+   * */
   def allocateLocalMem(mem:Expr) = dbgblk(s"allocateLocalMem($mem)"){
     var readers = getReaders(mem) 
     readers.foreach { reader => 
@@ -289,7 +306,7 @@ trait PIRAllocation extends PIRTraversal {
         getReaderCUs(reader).foreach { readerCU =>
           if (!localWritten) { // Write to FIFO/StreamOut/RemoteReg
             // Allocate local mem in the readerCU
-            allocateMem(dmem, dreader, readerCU)
+            createMem(dmem, dreader, readerCU)
             // Set writeport of the local mem who doesn't have a writer (ArgIn and GetDRAMAddress)
             bus.foreach { bus => readerCU.mems(dmem).writePort = Some(bus) }
           } else { // Local reg accumulation
@@ -343,6 +360,11 @@ trait PIRAllocation extends PIRTraversal {
     readerCUs.toList
   }
 
+  /*
+   * @param dwriter decomposed writer
+   * @return If value/data of the writer is from a load of SRAM, returns the MCU, otherwise returns the
+   * PCU
+   * */
   def getWriterCU(dwriter:Expr) = {
     val writer = compose(dwriter)
     val ParLocalWriter(writes) = writer 
@@ -377,7 +399,7 @@ trait PIRAllocation extends PIRTraversal {
             val reg = readerCU.get(dmem).get // Accumulator should be allocated during RegNew
             readerCU.addReg(dreader, reg)
           } else {
-            readerCU.addReg(dreader, MemLoadReg(allocateMem(dmem, dreader, readerCU))) //FIXME: rename to MemLoadReg
+            readerCU.addReg(dreader, MemLoadReg(createMem(dmem, dreader, readerCU)))
           }
         }
       }
@@ -476,7 +498,7 @@ trait PIRAllocation extends PIRTraversal {
     val cu = allocateCU(fringe)
     val mode = fringeToMode(fringe)
     streamOuts.foreach { streamOut =>
-      decompose(streamOut).foreach { mem => allocateMem(mem, fringe, cu) }
+      decompose(streamOut).foreach { mem => createMem(mem, fringe, cu) }
     }
   }
 
@@ -500,17 +522,10 @@ trait PIRAllocation extends PIRTraversal {
           prescheduleStages(lhs, func)
           allocateCChains(lhs) 
 
-        case FringeDenseLoad(dram, cmdStream, dataStream) =>
-          allocateFringe(lhs, dram, List(cmdStream))
-
-        case FringeDenseStore(dram, cmdStream, dataStream, ackStream) =>
-          allocateFringe(lhs, dram, List(cmdStream, dataStream))
-
-        case FringeSparseLoad(dram, addrStream, dataStream) =>
-          allocateFringe(lhs, dram, List(addrStream))
-
-        case FringeSparseStore(dram, cmdStream, ackStream) =>
-          allocateFringe(lhs, dram, List(cmdStream))
+        case rhs if isFringe(lhs) =>
+          val dram = rhs.allInputs.filter { e => isDRAM(e) }.head
+          val streamOuts = rhs.allInputs.filter { e => isStreamOut(e) }.toList
+          allocateFringe(lhs, dram, streamOuts)
 
         case rhs if isLocalMem(lhs) =>
           allocateLocalMem(lhs)
