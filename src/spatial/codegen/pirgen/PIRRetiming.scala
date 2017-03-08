@@ -143,8 +143,8 @@ trait PIRRetiming extends PIRTraversal {
     cu.allStages.foreach{
       case stage@MapStage(op, ins, outs) =>
         stage.ins = ins.map{
-          case LocalRef(_,ScalarIn(`bus`)) => LocalRef(-1, SRAMReadReg(sram))
-          case LocalRef(_,VectorIn(`bus`)) => LocalRef(-1, SRAMReadReg(sram))
+          case LocalRef(_,ScalarIn(`bus`)) => LocalRef(-1, MemLoadReg(sram))
+          case LocalRef(_,VectorIn(`bus`)) => LocalRef(-1, MemLoadReg(sram))
           case ref => ref
         }
       case _ =>

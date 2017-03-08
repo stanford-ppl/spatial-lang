@@ -28,6 +28,11 @@ trait PIRCommon extends PIR {
     case stage: Stage => stage.outputMems.toSet
     case _ => collectX[LocalComponent](a)(localOutputs)
   }
+  def localScalar(x:Any):LocalScalar = x match {
+    case x: ConstReg => x
+    case x: MemLoadReg => x
+    case x => throw new Exception(s"Cannot use $x as a LocalMem")
+  }
   def globalInputs(a: Any): Set[GlobalBus] = a match {
     case glob: GlobalBus => Set(glob)
     case ScalarIn(in) => Set(in)
@@ -65,15 +70,10 @@ trait PIRCommon extends PIR {
     case _ => Set.empty
   }
 
-  def localScalar(x: LocalComponent): LocalScalar = x match {
-    case x: ScalarIn => x
-    case x: ConstReg => x
-    case _ => throw new Exception(s"Cannot use $x as a local scalar input")
-  }
   def isReadable(x: LocalComponent): Boolean = x match {
     case _:ScalarOut | _:VectorOut => false
     case _:ScalarIn  | _:VectorIn  => true
-    case _:SRAMReadReg => true
+    case _:MemLoadReg => true
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => false
     case _:ControlReg => true
@@ -82,7 +82,7 @@ trait PIRCommon extends PIR {
   def isWritable(x: LocalComponent): Boolean = x match {
     case _:ScalarOut | _:VectorOut => true
     case _:ScalarIn  | _:VectorIn  => false
-    case _:SRAMReadReg => false
+    case _:MemLoadReg => false
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => true
     case _:ControlReg => true

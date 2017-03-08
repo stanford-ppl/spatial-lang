@@ -8,20 +8,54 @@ import spatial.SpatialExp
 import scala.collection.mutable.Map
 import argon.Config
 import spatial.codegen._
+import scala.collection.mutable
 
-trait PIRGenController extends PIRTraversal with PIRCodegen {
+trait PIRGenController extends PIRCodegen {
   val IR: SpatialExp with PIRCommonExp
   import IR.{println => _, _}
 
   val genControlLogic = false
   var allocatedReduce: Set[ReduceReg] = Set.empty
+  val globals = mutable.Set[GlobalComponent]()
+  val decomposed = mutable.Map[Symbol, Seq[(String, Symbol)]]()
+  val composed = mutable.Map[Symbol, Symbol]()
 
-  lazy val allocater = new PIRAllocation{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
-  lazy val scheduler = new PIRScheduler{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
-  lazy val optimizer = new PIROptimizer{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
-  lazy val splitter  = new PIRSplitter{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
-  lazy val hacks     = new PIRHacks{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
-  lazy val dse       = new PIRDSE{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
+  lazy val allocater = new PIRAllocation{
+    val IR = PIRGenController.this.IR
+    def globals = PIRGenController.this.globals
+    def decomposed = PIRGenController.this.decomposed
+    def composed = PIRGenController.this.composed
+  }
+  lazy val scheduler = new PIRScheduler{
+    val IR = PIRGenController.this.IR
+    def globals = PIRGenController.this.globals
+    def decomposed = PIRGenController.this.decomposed
+    def composed = PIRGenController.this.composed
+  }
+  lazy val optimizer = new PIROptimizer{
+    val IR = PIRGenController.this.IR
+    def globals = PIRGenController.this.globals
+    def decomposed = PIRGenController.this.decomposed
+    def composed = PIRGenController.this.composed
+  }
+  lazy val splitter  = new PIRSplitter{
+    val IR = PIRGenController.this.IR
+    def globals = PIRGenController.this.globals
+    def decomposed = PIRGenController.this.decomposed
+    def composed = PIRGenController.this.composed
+  }
+  lazy val hacks     = new PIRHacks{
+    val IR = PIRGenController.this.IR
+    def globals = PIRGenController.this.globals
+    def decomposed = PIRGenController.this.decomposed
+    def composed = PIRGenController.this.composed
+  }
+  lazy val dse       = new PIRDSE{
+    val IR = PIRGenController.this.IR
+    def globals = PIRGenController.this.globals
+    def decomposed = PIRGenController.this.decomposed
+    def composed = PIRGenController.this.composed
+  }
 
   val cus = Map[Exp[Any],List[List[ComputeUnit]]]()
 
@@ -35,37 +69,31 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
   }
 
   override protected def preprocess[S:Staged](block: Block[S]): Block[S] = {
+    globals.clear
     // -- CU allocation
     allocater.run(block)
     // -- CU scheduling
     scheduler.mappingIn ++= allocater.mapping
-    scheduler.globals ++= allocater.globals
     scheduler.run(block)
     // -- Optimization
-    optimizer.globals ++= scheduler.globals
     optimizer.mapping ++= scheduler.mappingOut
     optimizer.run(block)
 
     if (SpatialConfig.enableSplitting) {
-      splitter.globals ++= optimizer.globals
       splitter.mappingIn ++= optimizer.mapping
       splitter.run(block)
 
       hacks.mappingIn ++= splitter.mappingOut
-      hacks.globals ++= splitter.globals
     }
     else {
       for ((s,cus) <- optimizer.mapping) hacks.mappingIn(s) = List(cus)
-      hacks.globals ++= optimizer.globals
     }
     hacks.run(block)
 
     cus ++= hacks.mappingOut
-    globals ++= hacks.globals
 
 
     if (SpatialConfig.enableArchDSE) {
-      dse.globals ++= optimizer.globals
       dse.mappingIn ++= optimizer.mapping
       dse.run(block)
     }
@@ -73,6 +101,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     msg("Starting traversal PIR Generation")
     val blk = super.preprocess(block) // generateHeader
     generateGlobals()
+
     blk
   }
 
@@ -214,7 +243,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
   }
 
   def quoteInCounter(reg: LocalScalar) = reg match {
-    case reg:ScalarIn => s"CU.scalarIn(stage0, ${quote(reg)})"
+    case reg@MemLoadReg(mem) => s"$mem.load"
     case reg:ConstReg => s"""${quote(reg)}.out"""
   }
 
@@ -322,8 +351,10 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
 
   def quote(mode: LocalMemoryMode): String = mode match {
     case SRAMMode => "SRAM"
-    case FIFOMode => "FIFO"
+    case FIFOMode => "VectorFIFO"
     case FIFOOnWriteMode => "SemiFIFO"
+    case ScalarBufferMode => "ScalarBuffer"
+    case ScalarFIFOMode => "ScalarFIFO"
   }
 
   def quote(sram: CUMemory): String = sram.name
@@ -365,7 +396,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case ReadAddrWire(mem)       => s"${quote(mem)}.readAddr"       // Read address wire
     case FeedbackAddrReg(mem)    => s"wr${reg.id}"                  // Local write address register
     case FeedbackDataReg(mem)    => quote(mem)                      // Local write data register
-    case SRAMReadReg(mem)        => quote(mem)                      // SRAM read
+    case MemLoadReg(mem)        => quote(mem)                      // SRAM read
 
     case reg:ReduceReg           => s"rr${reg.id}"                  // Reduction register
     case reg:AccumReg            => s"ar${reg.id}"                  // After preallocation
@@ -393,7 +424,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case LocalRef(stage, reg: AccumReg)    => s"CU.accum(stage($stage), ${quote(reg)})"
     case LocalRef(stage, reg: TempReg)     => s"CU.temp(stage($stage), ${quote(reg)})"
     case LocalRef(stage, reg: ControlReg)  => s"CU.ctrl(stage($stage), ${quote(reg)})"
-    case LocalRef(stage, reg: SRAMReadReg) => if (stage >= 0) s"CU.load(stage($stage), ${quote(reg)})" else s"${quote(reg)}.load"
+    case LocalRef(stage, reg: MemLoadReg) => if (stage >= 0) s"CU.load(stage($stage), ${quote(reg)})" else s"${quote(reg)}.load"
 
     case LocalRef(stage, reg: ScalarIn)  => s"CU.scalarIn(stage($stage), ${quote(reg)})"
     case LocalRef(stage, reg: ScalarOut) => s"CU.scalarOut(stage($stage), ${quote(reg)})"

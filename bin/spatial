@@ -117,6 +117,7 @@ def main():
   elif opts.pir == True:
     opts.cpp = False
     opts.scala = False
+    opts.emission = 1
     java_opts = java_opts + " -Dspatial.pir=true"
   elif opts.scala == True:
     opts.chisel = False

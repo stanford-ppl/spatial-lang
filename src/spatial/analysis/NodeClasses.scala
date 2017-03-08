@@ -144,6 +144,18 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isStreamIn(e: Exp[_]): Boolean = e.tp match {
+    case _:StreamInType[_] => true
+    case _ => false
+  }
+
+  def isStreamOut(e: Exp[_]): Boolean = e.tp match {
+    case _:StreamOutType[_] => true
+    case _ => false
+  }
+
+  def isStream(e: Exp[_]): Boolean = isStreamIn(e) || isStreamOut(e)
+
   def isStreamStageEnabler(e: Exp[_]): Boolean = e match {
     case Def(_:FIFODeq[_]) => true
     case Def(_:ParFIFODeq[_]) => true
@@ -181,6 +193,14 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isFringe(e:Exp[_]):Boolean = getDef(e).exists(isFringe)
+  def isFringe(d:Def):Boolean = d match {
+    case _:FringeDenseLoad[_] => true
+    case _:FringeDenseStore[_] => true
+    case _:FringeSparseLoad[_] => true
+    case _:FringeSparseStore[_] => true
+    case _ => false
+  }
 
   /** Host Transfer **/
 
@@ -292,6 +312,7 @@ trait NodeClasses extends SpatialMetadataExp {
     def unapply(x: Exp[_]): Option[List[LocalRead]] = getDef(x).flatMap(readerUnapply)
   }
 
+  // Memory, optional value, optional indices, optional enable
   type ParLocalWrite = (Exp[_], Option[Exp[_]], Option[Seq[Seq[Exp[Index]]]], Option[Exp[_]])
   // Memory, optional indices, optional enable
   type ParLocalRead = (Exp[_], Option[Seq[Seq[Exp[Index]]]], Option[Exp[_]])
@@ -312,19 +333,23 @@ trait NodeClasses extends SpatialMetadataExp {
     //case BurstLoad(dram,fifo,ofs,_,_)         => Some(ParLocalWrite(fifo))
     case ParSRAMStore(mem,addrs,data,ens)       => Some(ParLocalWrite(mem,value=data, addrs=addrs, ens=ens))
     case ParFIFOEnq(fifo,data,ens)            => Some(ParLocalWrite(fifo,value=data, ens=ens))
+    case ParStreamEnq(stream, data, ens)   => Some(ParLocalWrite(stream, value=data, ens=ens))
     case d => writerUnapply(d).map{ _.map{ case (mem, value, addr, ens) => (mem, value, addr.map{ a => Seq(a)}, ens) } }
   }
   def parReaderUnapply(d: Def): Option[List[ParLocalRead]] = d match {
     //case BurstStore(dram,fifo,ofs,_,_) => Some(ParLocalRead(fifo))
     case ParSRAMLoad(sram,addrs)        => Some(ParLocalRead(sram, addrs=addrs))
     case ParFIFODeq(fifo,ens,_)        => Some(ParLocalRead(fifo, ens=ens))
+    case ParStreamDeq(stream, ens, _)        => Some(ParLocalRead(stream, ens=ens))
     case d => readerUnapply(d).map{ _.map{ case (mem, addr, ens) => (mem, addr.map{ a => Seq(a)}, ens) } }
   }
   object ParLocalWriter {
     def unapply(x: Exp[_]): Option[List[ParLocalWrite]] = getDef(x).flatMap(parWriterUnapply)
+    def unapply(d: Def): Option[List[ParLocalWrite]] = parWriterUnapply(d)
   }
   object ParLocalReader {
     def unapply(x: Exp[_]): Option[List[ParLocalRead]] = getDef(x).flatMap(parReaderUnapply)
+    def unapply(d: Def): Option[List[ParLocalRead]] = parReaderUnapply(d)
   }
 
   def isReader(x: Exp[_]): Boolean = LocalReader.unapply(x).isDefined

@@ -6,7 +6,7 @@ import spatial.SpatialConfig
 import spatial.SpatialExp
 
 
-trait PIRGenSRAM extends PIRTraversal with PIRCodegen with PIRGenController {
+trait PIRGenSRAM extends PIRCodegen with PIRGenController {
   val IR: SpatialExp with PIRCommonExp
   import IR._
 

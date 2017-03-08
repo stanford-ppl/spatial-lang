@@ -189,7 +189,7 @@ trait PIRSplitting extends PIRTraversal {
     def spliceSRAMOwner(): Boolean = {
       val ownerIdx = cstages.indexWhere{
         case stage@MapStage(PIRBypass,ins,outs) =>
-          !outs.exists{case LocalRef(_,SRAMReadReg(_)) => true; case _ => false} &&
+          !outs.exists{case LocalRef(_,MemLoadReg(_)) => true; case _ => false} &&
           (ins exists (sramOwners contains _))
 
         case stage@MapStage(op,ins,_) => (ins exists (sramOwners contains _))
@@ -281,7 +281,7 @@ trait PIRSplitting extends PIRTraversal {
 
     def writeStages(inputs: Set[LocalRef]) = {
       val owners = inputs intersect sramOwners
-      val srams = owners.collect{case LocalRef(_,SRAMReadReg(sram)) => sram}
+      val srams = owners.collect{case LocalRef(_,MemLoadReg(sram)) => sram}
 
       p.wstages.filter{case (i,grp) => grp.mems.exists(srams contains _)}
     }
@@ -295,7 +295,7 @@ trait PIRSplitting extends PIRTraversal {
       writes = writeStages(inputs)
     }
 
-    val ownedSRAMs = (inputs intersect sramOwners).collect{case LocalRef(_,SRAMReadReg(sram)) => sram}
+    val ownedSRAMs = (inputs intersect sramOwners).collect{case LocalRef(_,MemLoadReg(sram)) => sram}
     p.srams = ownedSRAMs
 
     val keep = p.wstages.flatMap{case (i,grp) =>
@@ -341,11 +341,11 @@ trait PIRSplitting extends PIRTraversal {
     val remoteIns: Set[LocalComponent] = remote.flatMap(_.inputMems).toSet
     val remoteOuts: Set[LocalComponent] = remote.flatMap(_.outputMems).toSet
 
-    val localReads: Set[CUMemory] = localIns.collect{case SRAMReadReg(sram) => sram}
-    val remoteReads: Set[CUMemory] = remoteIns.collect{case SRAMReadReg(sram) => sram}
+    val localReads: Set[CUMemory] = localIns.collect{case MemLoadReg(sram) => sram}
+    val remoteReads: Set[CUMemory] = remoteIns.collect{case MemLoadReg(sram) => sram}
     // Inserted bypass reads
-    val localBypasses: Set[CUMemory] = localOuts.collect{case SRAMReadReg(sram) => sram}
-    val remoteBypasses: Set[CUMemory] = remoteOuts.collect{case SRAMReadReg(sram) => sram}
+    val localBypasses: Set[CUMemory] = localOuts.collect{case MemLoadReg(sram) => sram}
+    val remoteBypasses: Set[CUMemory] = remoteOuts.collect{case MemLoadReg(sram) => sram}
 
     val localWrites: Set[CUMemory] = localOuts.collect{case FeedbackDataReg(sram) => sram}
     val localAddrs: Set[CUMemory] = localOuts.collect{case FeedbackAddrReg(sram) => sram; case ReadAddrWire(sram) => sram}
@@ -511,7 +511,7 @@ trait PIRSplitting extends PIRTraversal {
       case MapStage(op,ins,outs) =>
         if (op != Bypass) {
           ins.foreach{
-            case ref@LocalRef(_,SRAMReadReg(sram)) =>
+            case ref@LocalRef(_,MemLoadReg(sram)) =>
               if (sramOwners.contains(ref) && localHostRemoteRead.contains(sram)) {
                 if (isUnit) sOuts += 1
                 else        vOuts += 1
@@ -581,8 +581,8 @@ trait PIRSplitting extends PIRTraversal {
 
   def getSRAMOwners(stageGroups: List[List[Stage]]): Set[LocalRef] = {
 
-    def sramFromRef(x: LocalRef) = x match {case LocalRef(_,SRAMReadReg(sram)) => Some(sram); case _ => None}
-    def sramRefs(x: List[LocalRef]) = x.collect{case ref@LocalRef(_,SRAMReadReg(_)) => ref}
+    def sramFromRef(x: LocalRef) = x match {case LocalRef(_,MemLoadReg(sram)) => Some(sram); case _ => None}
+    def sramRefs(x: List[LocalRef]) = x.collect{case ref@LocalRef(_,MemLoadReg(_)) => ref}
 
     // Group set of stages into references for each memory
     def groupByMem(stages: List[Stage]): List[List[LocalRef]] = stages.flatMap{stage => sramRefs(stage.inputRefs) }.groupBy(sramFromRef).values.toList
@@ -612,7 +612,7 @@ trait PIRSplitting extends PIRTraversal {
     // Sanity check
     // HACK: Eliminate SRAMs without readers implicitly here
     /*cu.srams.foreach{sram =>
-      val owner = sramOwners.find{case LocalRef(_,SRAMReadReg(`sram`)) => true; case _ => false}
+      val owner = sramOwners.find{case LocalRef(_,MemLoadReg(`sram`)) => true; case _ => false}
       if (owner.isEmpty) {
         throw new Exception(s"CU $cu does not have an owner reference for memory $sram")
       }
@@ -751,7 +751,7 @@ trait PIRSplitting extends PIRTraversal {
       case VectorIn(bus) => bus
       case ScalarOut(bus) => bus
       case VectorOut(bus) => bus
-      case SRAMReadReg(mem)     =>
+      case MemLoadReg(mem)     =>
         val bus = if (isScalar) CUScalar(mem.name+"_data") else CUVector(mem.name+"_data")
         globals += bus
         bus
@@ -789,7 +789,7 @@ trait PIRSplitting extends PIRTraversal {
         case _:ConstReg | _:CounterReg => reg
         case _:ValidReg | _:ControlReg => reg
         case _:ReduceMem[_]    => if (localOuts.contains(reg)) reg else portIn(reg, isScalar)
-        case SRAMReadReg(sram) => if (cu.srams.contains(sram)) reg else portIn(reg, isScalar)
+        case MemLoadReg(sram) => if (cu.srams.contains(sram)) reg else portIn(reg, isScalar)
         case _                 => if (cu.regs.contains(reg)) reg else portIn(reg, isScalar)
       }
       cu.regs += in
@@ -802,7 +802,7 @@ trait PIRSplitting extends PIRTraversal {
         case FeedbackAddrReg(sram) => if (cu.srams.contains(sram)) List(reg) else List(portOut(reg,isScalar))
         case FeedbackDataReg(sram) => if (cu.srams.contains(sram)) List(reg) else List(portOut(reg,isScalar))
         case ReadAddrWire(sram) => if (cu.srams.contains(sram)) List(reg) else List(portOut(reg,isScalar))
-        case SRAMReadReg(sram) => List(portOut(reg,isScalar))
+        case MemLoadReg(sram) => List(portOut(reg,isScalar))
         case _ =>
           val local  = if (localIns.contains(reg)) List(reg) else Nil
           val global = if (remoteIns.contains(reg)) List(portOut(reg, isScalar)) else Nil
@@ -852,10 +852,10 @@ trait PIRSplitting extends PIRTraversal {
     }
 
     // --- Add bypass stages for locally hosted, remotely read SRAMs
-    val remoteSRAMReads = remoteIns.collect{case SRAMReadReg(sram) => sram}
+    val remoteSRAMReads = remoteIns.collect{case MemLoadReg(sram) => sram}
     val localBypasses = remoteSRAMReads intersect cu.srams
     localBypasses.foreach{sram =>
-      val reg = SRAMReadReg(sram)
+      val reg = MemLoadReg(sram)
       val out = portOut(reg, cu.isUnit)
 
       if (!cu.computeStages.flatMap(_.outputMems).contains(out)) {

@@ -15,9 +15,9 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     //case Deff(d) => s"$x = $d"
     //case _ => s"$x"
   //}
-
   override def isConstant(x:Symbol):Boolean = x match {
-    case Param(c: BigDecimal) => true 
+    case Const(c) => true
+    case Param(c) => true 
     case Final(c) => true 
     case _ => false 
   }
@@ -25,6 +25,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
   override def extractConstant(x: Symbol): String = x match {
     case Const(c: BigDecimal) if c.isWhole => s"${c}i"
     case Const(c: BigDecimal) => s"${c}f"
+    case Const(c: Boolean) => s"${c}b"
 
     case Param(c: BigDecimal) if c.isWhole => s"${c}i"
     case Param(c: BigDecimal) => s"${c}f"
@@ -53,6 +54,70 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
 
   def isBuffer(mem: Symbol): Boolean = isSRAM(mem)
 
+  def isGetDRAMAddress(mem:Symbol) = mem match {
+    case Def(_:GetDRAMAddress[_]) => true
+    case _ => false
+  }
+
+  def isLocalMem(mem: Symbol): Boolean = isReg(mem) || isFIFO(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
+
+  def isRemoteMem(mem: Symbol): Boolean = isSRAM(mem)
+
+  def isMem(e: Symbol):Boolean = isLocalMem(e) | isRemoteMem(e) 
+
+  def isLocalMemReadAccess(acc:Symbol) = acc match {
+    case Def(_:RegRead[_]) => true
+    case Def(_:FIFODeq[_]) => true
+    case Def(_:ParFIFODeq[_]) => true
+    case Def(_:StreamDeq[_]) => true
+    case Def(_:ParStreamDeq[_]) => true
+    case _ => false
+  }
+
+  def isLocalMemWriteAccess(acc:Symbol) = acc match {
+    case Def(_:RegWrite[_]) => true
+    case Def(_:FIFOEnq[_]) => true
+    case Def(_:ParFIFOEnq[_]) => true
+    case Def(_:StreamEnq[_]) => true
+    case Def(_:ParStreamEnq[_]) => true
+    case _ => false
+  }
+
+  def isLocalMemAccess(acc: Symbol) = acc match {
+    case acc => isLocalMemReadAccess(acc) || isLocalMemWriteAccess(acc)
+  }
+
+  def isRemoteMemAccess(acc:Symbol) = acc match {
+    case Def(_:SRAMLoad[_]) => true
+    case Def(_:ParSRAMLoad[_]) => true
+    case Def(_:SRAMStore[_]) => true
+    case Def(_:ParSRAMStore[_]) => true
+    case _ => false
+  }
+
+  def isStage(d:Def):Boolean = d match {
+    case d:CounterNew => false
+    case d:CounterChainNew => false
+    case d:RegNew[_] => false
+    case d:SRAMNew[_] => false
+    case d:FIFONew[_] => false
+    case d:StreamInNew[_] => false
+    case d:StreamOutNew[_] => false
+    case _ => true
+  }
+
+  def isStage(e:Symbol):Boolean = e match {
+    case e if isFringe(e) => false
+    case e if isControlNode(e) => false
+    case Def(d) => isStage(d) 
+    case _ => false
+  }
+
+  //Hack Check if func is inside block reduce
+  def isBlockReduce(func:Block[Any]):Boolean = {
+    func.summary.reads.intersect(func.summary.writes).filter(isSRAM).nonEmpty
+  }
+
   def flattenNDAddress(addr: Exp[Any], dims: Seq[Exp[Index]]) = addr match {
     case Def(ListVector(List(Def(ListVector(indices))))) if indices.nonEmpty => flattenNDIndices(indices, dims)
     case Def(ListVector(indices)) if indices.nonEmpty => flattenNDIndices(indices, dims)
@@ -77,6 +142,13 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     (partialAddr, addrCompute)
   }
 
+  def fringeToMode(fringe:Symbol):OffchipMemoryMode = fringe match {
+    case Def(_:FringeDenseLoad[_]) => MemLoad
+    case Def(_:FringeDenseStore[_]) => MemStore
+    case Def(_:FringeSparseLoad[_]) => MemGather
+    case Def(_:FringeSparseLoad[_]) => MemScatter
+    case _ => throw new Exception(s"Unknown type of fringe ${fringe}")
+  }
 
   def nodeToOp(node: Def): Option[PIROp] = node match {
     case Mux(_,_,_)                      => Some(PIRALUMux)

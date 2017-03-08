@@ -29,5 +29,6 @@ object SpatialConfig extends Reporting {
   var comp: Int = getProperty("plasticine.comp", "8").toInt
   var readWrite: Int = getProperty("plasticine.rw", "4").toInt
   var mems: Int = getProperty("plasticine.mems", "4").toInt
+  var numLanes: Int = 16 
 
 }

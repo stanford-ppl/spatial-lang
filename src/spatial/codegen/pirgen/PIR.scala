@@ -35,13 +35,15 @@ trait PIR {
   case object UnitCU extends CUStyle
   case object UnitStreamCU extends CUStyle
   case class MemoryCU(i:Int) extends CUStyle
-  //case object BurstTransfer extends CUStyle
-  //case object RandomTransfer extends CUStyle
+  case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 
   // --- Local memory modes
   sealed abstract class LocalMemoryMode
   case object SRAMMode extends LocalMemoryMode
   case object FIFOMode extends LocalMemoryMode
+  case object ScalarFIFOMode extends LocalMemoryMode
+  case object ScalarBufferMode extends LocalMemoryMode
+
   case object FIFOOnWriteMode extends LocalMemoryMode
 
 
@@ -100,7 +102,8 @@ trait PIR {
   sealed abstract class LocalComponent { final val id = {LocalComponent.id += 1; LocalComponent.id} }
   object LocalComponent { var id = 0 }
 
-  sealed trait LocalScalar extends LocalComponent
+  // Locally accessible scalar should be all from ScalarFIFO or ScalarBuffer.
+  sealed trait LocalScalar extends LocalComponent 
   sealed trait ReadAddr extends LocalComponent
   sealed trait WriteAddr extends LocalComponent
 
@@ -147,8 +150,8 @@ trait PIR {
     override def eql(that: FeedbackDataReg) = this.mem == that.mem
     override def toString = mem.name + ".feedbackData"
   }
-  case class SRAMReadReg(mem: CUMemory) extends SRAMPort[SRAMReadReg] {
-    override def eql(that: SRAMReadReg) = this.mem == that.mem
+  case class MemLoadReg(mem: CUMemory) extends SRAMPort[MemLoadReg] with LocalScalar {
+    override def eql(that: MemLoadReg) = this.mem == that.mem
     override def toString = mem.name + ".readPort"
   }
 
@@ -168,7 +171,7 @@ trait PIR {
   sealed abstract class LocalPort[T<:LocalComponent] extends LocalMem[T] {
     def bus: GlobalBus
   }
-  case class ScalarIn(bus: ScalarBus) extends LocalPort[ScalarIn] with LocalScalar {
+  case class ScalarIn(bus: ScalarBus) extends LocalPort[ScalarIn] {
     override def eql(that: ScalarIn) = this.bus == that.bus
     override def toString = bus.toString + ".sIn"
   }
@@ -191,7 +194,10 @@ trait PIR {
   case class CUCounter(var start: LocalScalar, var end: LocalScalar, var stride: LocalScalar) {
     val name = s"ctr${CUCounter.nextId()}"
   }
-  object CUCounter { var id: Int = 0; def nextId(): Int = {id += 1; id} }
+  object CUCounter { 
+    var id: Int = 0;
+    def nextId(): Int = {id += 1; id}
+  }
 
   sealed abstract class CUCChain(val name: String)
   case class CChainInstance(override val name: String, counters: Seq[CUCounter]) extends CUCChain(name) {
@@ -278,7 +284,6 @@ trait PIR {
     def outputRefs = Nil
   }
 
-
   // --- Compute units
   type ACU = AbstractComputeUnit
   abstract class AbstractComputeUnit {
@@ -291,6 +296,7 @@ trait PIR {
 
     var cchains: Set[CUCChain] = Set.empty
     var srams: Set[CUMemory] = Set.empty
+    var mems: mutable.Map[Symbol, CUMemory] = mutable.Map.empty
     var regs: Set[LocalComponent] = Set.empty
     var deps: Set[AbstractComputeUnit] = Set.empty
 
@@ -320,7 +326,7 @@ trait PIR {
       }
       else None
     }
-    def getOrElse(x: Symbol)(func: => LocalComponent) = this.get(x) match {
+    def getOrElseUpdate(x: Symbol)(func: => LocalComponent):LocalComponent = this.get(x) match {
       case Some(reg) if regs.contains(reg) => reg // On return this mapping if it is valid
       case _ =>
         val reg = func
@@ -350,6 +356,15 @@ trait PIR {
     val writeStages = mutable.HashMap[List[CUMemory], (Symbol, List[PseudoStage])]() // List(mem) -> (writerPipe, List[Stages])
     val readStages = mutable.HashMap[List[CUMemory], (Symbol, List[PseudoStage])]() // List(mem) -> (readerPipe, List[Stages])
     val computeStages = mutable.ArrayBuffer[PseudoStage]()
+    val remoteReadStages = mutable.Set[Symbol]() // reg read, fifo deq
+    val remoteWriteStages = mutable.Set[Symbol]() // reg write, fifo enq
+
+    def sram = {
+      assert(style.isInstanceOf[MemoryCU], s"Only MemoryCU has sram. cu:$this")
+      val srams = mems.filter{ _._2.mode == SRAMMode }
+      assert(mems.size==1, s"Each MemoryCU should only has one sram, srams:[${srams.mkString(",")}]")
+      srams.head
+    }
 
     def copyToConcrete(): ComputeUnit = {
       val cu = ComputeUnit(name, pipe, style)
