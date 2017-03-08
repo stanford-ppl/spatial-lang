@@ -71,7 +71,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit("// HACK: Assume store is par=16")
       val allData = (0 until 16).map{ i => src"io.memStreams($id).rdata.bits($i)" }.mkString(",")
       emitGlobal(src"""val ${dataStream}_en = Wire(Bool())""")
-      emit(src"""io.memStreams($id).wdata.bits.zip(${dataStream}_data).foreach{case (wport, wdata) => wport := wdata}""")
+      emit(src"""io.memStreams($id).wdata.bits.zip(${dataStream}_data).foreach{case (wport, wdata) => wport := wdata(31,1) /*LSB is status bit*/}""")
       emit(src"""io.memStreams($id).wdata.valid := ${dataStream}_en""")
       emit(src"io.memStreams($id).cmd.bits.addr(0) := ${cmdStream}_data(64, 33) // Bits 33 to 64 (AND BEYOND???) are addr")
       emit(src"io.memStreams($id).cmd.bits.size := ${cmdStream}_data(32,1) // Bits 1 to 32 are size command")
@@ -79,7 +79,6 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"io.memStreams($id).cmd.bits.isWr := ~${cmdStream}_data(0)")
       emitGlobal(src"val ${cmdStream}_ready = true.B // Assume cmd fifo will never fill up")
       emitGlobal(src"""val ${dataStream}_ready = true.B // Assume cmd fifo will never fill up""")
-      emitGlobal(src"val ${ackStream}_ready = io.memStreams($id).rdata.valid // Probably wrong signal")
       emitGlobal(src"val ${ackStream}_data = 0.U // Definitely wrong signal")
 
     case FringeSparseLoad(dram,addrStream,dataStream) =>

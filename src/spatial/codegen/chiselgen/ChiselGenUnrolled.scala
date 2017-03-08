@@ -159,7 +159,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")
         val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enabler = if (loadCtrlOf(sram).length > 0) src"${parent}_enq" else "${parent}_datapath_en"
+        val enabler = if (loadCtrlOf(sram).length > 0) src"${parent}_enq" else src"${parent}_datapath_en"
         emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enabler}, List(${p}))""")
       }
 

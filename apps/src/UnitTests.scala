@@ -1107,7 +1107,7 @@ object ChangingCtrMax extends SpatialApp { // Regression (Unit) // Args: none
         val accum = Reduce(0)(i by 1){ j => j }{_+_}
         rMem(i) = accum.value.to[T]
       }
-      result(0::16) store rMem
+      result(0::16 par 16) store rMem
     }
     getMem(result)
   }
