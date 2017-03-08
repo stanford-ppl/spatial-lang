@@ -183,7 +183,7 @@ class MAGCore(
 
   // Burst Tag counter
   val burstTagCounter = Module(new Counter(log2Up(numOutstandingBursts+1)))
-  burstTagCounter.io.max := UInt(numOutstandingBursts)
+  burstTagCounter.io.max := numOutstandingBursts.U
   burstTagCounter.io.stride := 1.U
   burstTagCounter.io.reset := 0.U
   burstTagCounter.io.enable := Mux(io.config.scatterGather, ~addrFifo.io.empty, burstVld) & dramReady
@@ -312,7 +312,7 @@ class MAGCore(
   tagOut.streamTag := addrFifo.io.tag
   tagOut.burstTag := Mux(io.config.scatterGather, burstAddrs(0), burstTagCounter.io.out)
 
-  io.dram.cmd.bits.addr := Cat((burstAddrs(0) + burstCounter.io.out), UInt(0, width=log2Up(burstSizeBytes)))
+  io.dram.cmd.bits.addr := Cat((burstAddrs(0) + burstCounter.io.out), 0.U(log2Up(burstSizeBytes).W))
   io.dram.cmd.bits.tag := Cat(tagOut.streamTag, tagOut.burstTag)
   io.dram.cmd.bits.streamId := tagOut.streamTag
   io.dram.cmd.bits.wdata := dataFifo.io.deq
@@ -324,7 +324,7 @@ class MAGCore(
 //  vldOut := Mux(io.config.scatterGather, completed, io.dram.vldIn)
   val streamTagFromDRAM = getStreamTag(io.dram.resp.bits.tag)
   io.app foreach { app => app.rdata.bits := io.dram.resp.bits.rdata }
-  io.app.zipWithIndex.foreach { case (app, i) => app.rdata.valid := io.dram.resp.valid & streamTagFromDRAM === UInt(i) }
+  io.app.zipWithIndex.foreach { case (app, i) => app.rdata.valid := io.dram.resp.valid & streamTagFromDRAM === i.U }
   io.app.zipWithIndex.foreach { case (app, i) =>
     app.cmd.ready := ~addrFifo.io.full(i)
     app.wdata.ready := ~dataFifo.io.full(i)

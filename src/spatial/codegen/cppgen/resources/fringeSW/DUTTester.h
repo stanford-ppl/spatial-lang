@@ -55,6 +55,7 @@ public:
     while((status == 0) && (numCycles <= maxCycles)) {
       step();
       status = readReg(statusReg);
+      if (status == 1) step(1000);
     }
     std::cout << "Design ran for " << numCycles << " cycles" << std::endl;
     if (numCycles > maxCycles) { // Design did not run to completion

@@ -10,15 +10,15 @@ abstract class AXI4BundleBase(params: AXI4BundleParameters) extends GenericParam
 
 abstract class AXI4BundleA(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 {
-  val id     = UInt(width = params.idBits)
-  val addr   = UInt(width = params.addrBits)
-  val len    = UInt(width = params.lenBits)  // number of beats - 1
-  val size   = UInt(width = params.sizeBits) // bytes in beat = 2^size
-  val burst  = UInt(width = params.burstBits)
-  val lock   = UInt(width = params.lockBits)
-  val cache  = UInt(width = params.cacheBits)
-  val prot   = UInt(width = params.protBits)
-  val qos    = UInt(width = params.qosBits)  // 0=no QoS, bigger = higher priority
+  val id     = UInt((params.idBits).W)
+  val addr   = UInt((params.addrBits).W)
+  val len    = UInt((params.lenBits).W)  // number of beats - 1
+  val size   = UInt((params.sizeBits).W) // bytes in beat = 2^size
+  val burst  = UInt((params.burstBits).W)
+  val lock   = UInt((params.lockBits).W)
+  val cache  = UInt((params.cacheBits).W)
+  val prot   = UInt((params.protBits).W)
+  val qos    = UInt((params.qosBits).W)  // 0=no QoS, bigger = higher priority
   // val region = UInt(width = 4) // optional
 
   // Number of bytes-1 in this operation

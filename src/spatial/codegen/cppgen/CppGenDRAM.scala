@@ -46,7 +46,7 @@ trait CppGenDRAM extends CppGenSRAM {
         log(s"dram $lhs used multiple times")
       }
 
-      emit(src"""uint64_t ${lhs} = c1->malloc(${dims.map(quote).mkString("*")});""")
+      emit(src"""uint64_t ${lhs} = c1->malloc(sizeof(int32_t) * ${dims.map(quote).mkString("*")});""")
       // emit(src"""uint64_t ${lhs} = (uint64_t) ${lhs}_void;""")
 
 
