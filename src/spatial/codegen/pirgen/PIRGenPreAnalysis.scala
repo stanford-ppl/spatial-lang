@@ -10,7 +10,7 @@ import argon.Config
 import spatial.codegen._
 import scala.collection.mutable
 
-trait PIRPreProcess extends PIRCodegen with PIRTraversal {
+trait PIRPreAnalysis extends PIRCodegen with PIRTraversal {
   val IR: SpatialExp with PIRCommonExp
   import IR.{println => _, _}
 
@@ -19,40 +19,40 @@ trait PIRPreProcess extends PIRCodegen with PIRTraversal {
   val composed = mutable.Map[Expr, Expr]()
 
   lazy val allocater = new PIRAllocation{
-    val IR = PIRPreProcess.this.IR
-    def globals = PIRPreProcess.this.globals
-    def decomposed = PIRPreProcess.this.decomposed
-    def composed = PIRPreProcess.this.composed
+    val IR = PIRPreAnalysis.this.IR
+    def globals = PIRPreAnalysis.this.globals
+    def decomposed = PIRPreAnalysis.this.decomposed
+    def composed = PIRPreAnalysis.this.composed
   }
   lazy val scheduler = new PIRScheduler{
-    val IR = PIRPreProcess.this.IR
-    def globals = PIRPreProcess.this.globals
-    def decomposed = PIRPreProcess.this.decomposed
-    def composed = PIRPreProcess.this.composed
+    val IR = PIRPreAnalysis.this.IR
+    def globals = PIRPreAnalysis.this.globals
+    def decomposed = PIRPreAnalysis.this.decomposed
+    def composed = PIRPreAnalysis.this.composed
   }
   lazy val optimizer = new PIROptimizer{
-    val IR = PIRPreProcess.this.IR
-    def globals = PIRPreProcess.this.globals
-    def decomposed = PIRPreProcess.this.decomposed
-    def composed = PIRPreProcess.this.composed
+    val IR = PIRPreAnalysis.this.IR
+    def globals = PIRPreAnalysis.this.globals
+    def decomposed = PIRPreAnalysis.this.decomposed
+    def composed = PIRPreAnalysis.this.composed
   }
   lazy val splitter  = new PIRSplitter{
-    val IR = PIRPreProcess.this.IR
-    def globals = PIRPreProcess.this.globals
-    def decomposed = PIRPreProcess.this.decomposed
-    def composed = PIRPreProcess.this.composed
+    val IR = PIRPreAnalysis.this.IR
+    def globals = PIRPreAnalysis.this.globals
+    def decomposed = PIRPreAnalysis.this.decomposed
+    def composed = PIRPreAnalysis.this.composed
   }
   lazy val hacks     = new PIRHacks{
-    val IR = PIRPreProcess.this.IR
-    def globals = PIRPreProcess.this.globals
-    def decomposed = PIRPreProcess.this.decomposed
-    def composed = PIRPreProcess.this.composed
+    val IR = PIRPreAnalysis.this.IR
+    def globals = PIRPreAnalysis.this.globals
+    def decomposed = PIRPreAnalysis.this.decomposed
+    def composed = PIRPreAnalysis.this.composed
   }
   lazy val dse       = new PIRDSE{
-    val IR = PIRPreProcess.this.IR
-    def globals = PIRPreProcess.this.globals
-    def decomposed = PIRPreProcess.this.decomposed
-    def composed = PIRPreProcess.this.composed
+    val IR = PIRPreAnalysis.this.IR
+    def globals = PIRPreAnalysis.this.globals
+    def decomposed = PIRPreAnalysis.this.decomposed
+    def composed = PIRPreAnalysis.this.composed
   }
 
   val cus = Map[Expr,List[List[ComputeUnit]]]()
