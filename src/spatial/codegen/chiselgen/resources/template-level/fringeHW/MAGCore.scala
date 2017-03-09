@@ -40,6 +40,7 @@ class DRAMCommand(w: Int, v: Int) extends Bundle {
   val addr = UInt(w.W)
   val isWr = Bool() // 1
   val tag = UInt(w.W)
+  val streamId = UInt(w.W)
   val wdata = Vec(v, UInt(w.W)) // v
 
   override def cloneType(): this.type = {
@@ -51,6 +52,7 @@ class DRAMCommand(w: Int, v: Int) extends Bundle {
 class DRAMResponse(w: Int, v: Int) extends Bundle {
   val rdata = Vec(v, UInt(w.W)) // v
   val tag = UInt(w.W)
+  val streamId = UInt(w.W)
 
   override def cloneType(): this.type = {
     new DRAMResponse(w, v).asInstanceOf[this.type]
@@ -152,6 +154,7 @@ class MAGCore(
 //  sizeFifo.io.enqVld := io.app.cmd.valid & ~io.config.scatterGather
 //  sizeFifo.io.enq := Wire(Vec(List.tabulate(v) { i => if (i == 0) io.app.cmd.bits.size else Wire(0.U) }))
   val burstVld = ~sizeFifo.io.empty
+  val dramReady = io.dram.cmd.ready
 
   val sizeTop = sizeFifo.io.deq(0)
   val sizeInBursts = extractBurstAddr(sizeTop) + (extractBurstOffset(sizeTop) != 0.U)
@@ -175,7 +178,7 @@ class MAGCore(
   burstCounter.io.max := Mux(io.config.scatterGather, 1.U, sizeInBursts)
   burstCounter.io.stride := 1.U
   burstCounter.io.reset := 0.U
-  burstCounter.io.enable := Mux(io.config.scatterGather, ~addrFifo.io.empty, burstVld)
+  burstCounter.io.enable := Mux(io.config.scatterGather, ~addrFifo.io.empty, burstVld) & dramReady
   burstCounter.io.saturate := 0.U
 
   // Burst Tag counter
@@ -183,7 +186,7 @@ class MAGCore(
   burstTagCounter.io.max := numOutstandingBursts.U
   burstTagCounter.io.stride := 1.U
   burstTagCounter.io.reset := 0.U
-  burstTagCounter.io.enable := burstVld | ~addrFifo.io.empty
+  burstTagCounter.io.enable := Mux(io.config.scatterGather, ~addrFifo.io.empty, burstVld) & dramReady
   burstCounter.io.saturate := 0.U
   val elementID = burstTagCounter.io.out(log2Up(v)-1, 0)
 
@@ -200,7 +203,7 @@ class MAGCore(
   addrFifo.io.deqVld := burstCounter.io.done
   isWrFifo.io.deqVld := burstCounter.io.done
   sizeFifo.io.deqVld := burstCounter.io.done
-  dataFifo.io.deqVld := isWrFifo.io.deq(0) // io.config.isWr & burstVld
+  dataFifo.io.deqVld := burstVld & isWrFifo.io.deq(0) & dramReady // io.config.isWr & burstVld
 //  addrFifo.io.deqVld := burstCounter.io.done & ~ccache.io.full
 //  dataFifo.io.deqVld := Mux(io.config.scatterGather, burstCounter.io.done & ~ccache.io.full, io.config.isWr & burstVld)
 
@@ -311,6 +314,7 @@ class MAGCore(
 
   io.dram.cmd.bits.addr := Cat((burstAddrs(0) + burstCounter.io.out), 0.U(log2Up(burstSizeBytes).W))
   io.dram.cmd.bits.tag := Cat(tagOut.streamTag, tagOut.burstTag)
+  io.dram.cmd.bits.streamId := tagOut.streamTag
   io.dram.cmd.bits.wdata := dataFifo.io.deq
 //  io.dram.cmd.valid := Mux(config.scatterGather, ccache.io.miss, burstVld)
   io.dram.cmd.bits.isWr := isWrFifo.io.deq(0)
@@ -321,8 +325,10 @@ class MAGCore(
   val streamTagFromDRAM = getStreamTag(io.dram.resp.bits.tag)
   io.app foreach { app => app.rdata.bits := io.dram.resp.bits.rdata }
   io.app.zipWithIndex.foreach { case (app, i) => app.rdata.valid := io.dram.resp.valid & streamTagFromDRAM === i.U }
-//  io.app.cmd.ready := ~addrFifo.io.full
-//  io.app.wdata.ready := ~dataFifo.io.full
+  io.app.zipWithIndex.foreach { case (app, i) =>
+    app.cmd.ready := ~addrFifo.io.full(i)
+    app.wdata.ready := ~dataFifo.io.full(i)
+  }
 }
 
 //class MemoryTester (

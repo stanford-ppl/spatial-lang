@@ -48,8 +48,8 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 6
           val tileA = SRAM[T](bm, bp)
           val tileB = SRAM[T](bp, bn)
           Parallel {
-            tileA load a(i::i+bm, k::k+bp) // Reads M*N*P times
-            tileB load b(k::k+bp, j::j+bn)
+            tileA load a(i::i+bm par 16, k::k+bp) // Reads M*N*P times
+            tileB load b(k::k+bp par 16, j::j+bn)
           }
           Foreach(bm by 1, bn by 1 par mp){ (ii,jj) =>    // MetaPipe?
             val prod = Reduce(Reg[T])(bp by 1 par ip){kk => tileA(ii, kk) * tileB(kk, jj) }{_+_}

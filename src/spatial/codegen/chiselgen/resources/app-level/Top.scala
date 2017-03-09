@@ -40,9 +40,10 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 }
 
 class ZynqInterface(p: TopParams) extends TopInterface {
-  private val params = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
-  val S_AXI = Flipped(new AXI4Lite(params))
-  val dram = new DRAMStream(p.dataWidth, p.v)
+  private val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
+  private val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 5)
+  val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
+  val M_AXI = new AXI4Inlined(axiParams)
 }
 
 class AWSInterface(p: TopParams) extends TopInterface {
@@ -111,7 +112,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
       fringe.io.S_AXI <> topIO.S_AXI
 
       // Fringe <-> DRAM connections
-      topIO.dram <> fringe.io.dram
+      topIO.M_AXI <> fringe.io.M_AXI
 
       accel.io.argIns := fringe.io.argIns
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>

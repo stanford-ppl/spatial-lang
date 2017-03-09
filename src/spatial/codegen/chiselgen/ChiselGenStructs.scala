@@ -20,6 +20,11 @@ trait ChiselGenStructs extends ChiselCodegen {
         val width = bitWidth(x.m1)
         (s, width)
       }
+    case x: StructType[_] =>
+      val idx = x.fields.indexWhere(_._2 == field)
+      val prec = x.fields.take(idx)
+      val precBits = prec.map{case (_,Bits(bt)) => bt.length}.sum
+      (idx,precBits)
   }
 
   override protected def bitWidth(tp: Staged[_]): Int = tp match {

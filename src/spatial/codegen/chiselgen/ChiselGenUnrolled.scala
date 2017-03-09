@@ -131,7 +131,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
           case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
               emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*${p}+i))}""")
             } else {
-              emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
+              emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${sram}_${i}.rPar*${p}+i) }""")
             }
           case _ => emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
         }
@@ -159,7 +159,8 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")
         val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${parent}_datapath_en, List(${p}))""")
+        val enabler = if (loadCtrlOf(sram).length > 0) src"${parent}_enq" else src"${parent}_datapath_en"
+        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enabler}, List(${p}))""")
       }
 
     case ParFIFODeq(fifo, ens, z) =>
@@ -177,13 +178,8 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     case ParFIFOEnq(fifo, data, ens) =>
       val writer = writersOf(fifo).head.ctrlNode  
       // Check if this is a tile consumer
-      var enabler = src"${writer}_enq"
-      childrenOf(parentOf(parentOf(writer).get).get).foreach  { c => 
-        c match {
-          case Def(_: FringeDenseLoad[_]) => enabler = src"${c}_ready"
-          case _ => 
-        }
-      }
+
+      val enabler = if (loadCtrlOf(fifo).length > 0) src"${writer}_enq" else "${writer}_sm.io.output.ctr_inc"
       emit(src"""${fifo}_writeEn := $enabler & ${ens}.reduce{_&_}""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
@@ -198,8 +194,13 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(src"val $lhs = $ens.zipWithIndex.map{case (en, i) => Mux(en, ${strm}_data(i), $zero) }")
 
     case ParStreamEnq(strm, data, ens) =>
-      emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $strm.enqueue(data) }")
-
+      val par = ens match {
+        case Op(ListVector(elems)) => elems.length
+        case _ => 1
+      }
+      emitGlobal(src"val ${strm}_data = Wire(Vec($par, UInt(32.W)))")
+      emit(src"${strm}_data := $data")
+      emit(src"${strm}_en := ${ens}.reduce{_&_}")
 
     case _ => super.emitNode(lhs, rhs)
   }

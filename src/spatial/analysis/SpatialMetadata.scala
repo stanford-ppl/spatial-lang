@@ -217,6 +217,21 @@ trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp
   }
 
   /**
+    * Map for tracking which control nodes are the tile transfer nodes for a given memory, since this
+    * alters the enable signal
+    **/
+  case class LoadMemCtrl(ctrl: List[Exp[_]]) extends Metadata[LoadMemCtrl] {
+    def mirror(f:Tx) = LoadMemCtrl(f.tx(ctrl))
+  }
+  object loadCtrlOf {
+    def apply(x: Exp[_]): List[Exp[_]] = metadata[LoadMemCtrl](x).map(_.ctrl).getOrElse(Nil)
+    def update(x: Exp[_], ctrl: List[Exp[_]]): Unit = metadata.add(x, LoadMemCtrl(ctrl))
+
+    def apply(x: Ctrl): List[Exp[_]] = loadCtrlOf(x.node)
+    def update(x: Ctrl, ctrl: List[Exp[_]]): Unit = loadCtrlOf(x.node) = ctrl
+  }
+
+  /**
     * List of fifos or streams pushed in a given controller, for handling streampipe control flow
     **/
   case class PushStreams(push: List[Exp[_]]) extends Metadata[PushStreams] {
@@ -228,6 +243,21 @@ trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp
 
     def apply(x: Ctrl): List[Exp[_]] = pushesTo(x.node)
     def update(x: Ctrl, push: List[Exp[_]]): Unit = pushesTo(x.node) = push
+  }
+
+  /**
+    * Metadata for determining which memory duplicate(s) an access should correspond to.
+    */
+  case class ArgMap(argId: Int, memId: Int) extends Metadata[ArgMap] {
+    def mirror(f:Tx) = this
+  }
+  object argMapping {
+    private def get(arg: Exp[_]): Option[(Int,Int)] = Some(metadata[ArgMap](arg).map{a => (a.argId, a.memId)}.head)
+
+    def apply(arg: Exp[_]): (Int,Int) = argMapping.get(arg).get
+
+    def update(arg: Exp[_], id: (Int, Int) ): Unit = metadata.add(arg, ArgMap(id._1, id._2))
+
   }
 
   /**

@@ -45,8 +45,8 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 4 64 64
           val tileA = SRAM[T](bm, bp) 
           val tileB = SRAM[T](bp, bn)
           Parallel {
-            tileA load a(i::i+bm, k::k+bp)
-            tileB load b(k::k+bp, j::j+bn)
+            tileA load a(i::i+bm par 16, k::k+bp)
+            tileB load b(k::k+bp par 16, j::j+bn)
           }
           // Requires tileC NOT to be reset until next j
           MemReduce(tileC)(bp by 1 par mp){ kk =>

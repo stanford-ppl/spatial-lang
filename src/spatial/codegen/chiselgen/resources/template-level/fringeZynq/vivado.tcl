@@ -11,7 +11,7 @@ update_compile_order -fileset sources_1
 startgroup
 create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7_0
 endgroup
-# set_property -dict [list CONFIG.PCW_USE_S_AXI_HP0 {1}] [get_bd_cells processing_system7_0]
+
 
 apply_bd_automation -rule xilinx.com:bd_rule:processing_system7 -config {make_external "FIXED_IO, DDR" apply_board_preset "1" Master "Disable" Slave "Disable" }  [get_bd_cells processing_system7_0]
 
@@ -19,7 +19,9 @@ apply_bd_automation -rule xilinx.com:bd_rule:processing_system7 -config {make_ex
 create_bd_cell -type module -reference Top Top_0
 apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config {Master "/processing_system7_0/M_AXI_GP0" Clk "/processing_system7_0/FCLK_CLK0 (50 MHz)" }  [get_bd_intf_pins Top_0/io_S_AXI]
 
-#apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config {Master "/AXI4Sample_0/io_out" Clk "/processing_system7_0/FCLK_CLK0 (50 MHz)" }  [get_bd_intf_pins processing_system7_0/S_AXI_HP0]
+set_property -dict [list CONFIG.PCW_USE_S_AXI_HP0 {1}] [get_bd_cells processing_system7_0]
+
+apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config {Master "/Top_0/io_M_AXI" Clk "/processing_system7_0/FCLK_CLK0 (50 MHz)" }  [get_bd_intf_pins processing_system7_0/S_AXI_HP0]
 
 validate_bd_design
 save_bd_design
