@@ -11,6 +11,9 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
   val IR: CounterExp with SpatialExp
   import IR._
 
+  var streamCtrCopy = List[Bound[_]]()
+  var controllerStack = scala.collection.mutable.Stack[Exp[_]]()
+
   // dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/Counter.chisel")
 
   def emitCounterChain(lhs: Exp[_], ctrs: Seq[Exp[Counter]], suffix: String = ""): Unit = {
@@ -37,9 +40,18 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
           xx
         case Def(Forever()) => 0
       }
-      emit(s"""val ${quote(c)} = (0 until $x).map{ j => ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")
+      emit(s"""val ${quote(c)}${suffix} = (0 until $x).map{ j => ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")
     }
 
+  }
+
+  private def getCtrSuffix(head: Exp[_]): String = {
+    if (parentOf(head).isDefined) {
+      if (styleOf(parentOf(head).get) == StreamPipe) {src"_copy${head}"} else {getCtrSuffix(parentOf(head).get)}  
+    } else {
+      "NO_SUFFIX_ERROR"
+    }
+    
   }
 
   override def quote(s: Exp[_]): String = {
@@ -54,6 +66,12 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
               s"x${lhs.id}_ctrchain"
             case _ =>
               super.quote(s)
+          }
+        case b: Bound[_] =>
+          if (streamCtrCopy.contains(b)) { 
+            super.quote(s) + getCtrSuffix(controllerStack.head)
+          } else {
+            super.quote(s)
           }
         case _ =>
           super.quote(s)
@@ -73,7 +91,8 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
     case CounterNew(start,end,step,par) => 
       emit(s"// $lhs = ($start to $end by $step par $par")
     case CounterChainNew(ctrs) => 
-      emitCounterChain(lhs, ctrs)
+      val user = usersOf(lhs).head._1
+      if (styleOf(user) != StreamPipe) emitCounterChain(lhs, ctrs)
     case Forever() => 
       emit("// $lhs = Forever")
 

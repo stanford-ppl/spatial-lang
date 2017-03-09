@@ -23,7 +23,6 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
      get to the very top
   */
   var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
-  var controllerStack = scala.collection.mutable.Stack[Exp[_]]()
 
   private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
     for (i <- iters.indices)
@@ -218,6 +217,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         // If this is a stream controller, need to set up counter copy for children
 
         if (smStr == "Streampipe" & cchain.isDefined) {
+          emitGlobal(src"""val ${cchain.get}_copy${c}_en = Wire(Bool())""") 
           val Def(CounterChainNew(ctrs)) = cchain.get
           emitCounterChain(cchain.get, ctrs, src"_copy$c")
           emit(src"""${cchain.get}_copy${c}_en := ${c}_done""")
@@ -281,6 +281,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       controllerStack.push(lhs)
       emitController(lhs, None, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        emit(s"// Controller Stack: ${controllerStack}")
         emitBlock(func)
       }
       controllerStack.pop()
@@ -290,6 +291,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       controllerStack.push(lhs)
       emitController(lhs, None, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        emit(s"// Controller Stack: ${controllerStack}")
         emitBlock(func)
       } 
       controllerStack.pop()
@@ -299,6 +301,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters))
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        emit(s"// Controller Stack: ${controllerStack}")
         emitNestedLoop(cchain, iters){ emitBlock(func) }
       }
       controllerStack.pop()

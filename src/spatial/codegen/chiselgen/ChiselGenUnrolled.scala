@@ -11,32 +11,29 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
   import IR._
 
 
-  def emitParallelizedLoop(iters: Seq[Seq[Bound[Index]]], cchain: Exp[CounterChain]) = {
+  def emitParallelizedLoop(iters: Seq[Seq[Bound[Index]]], cchain: Exp[CounterChain], suffix: String = "") = {
     val Def(CounterChainNew(counters)) = cchain
 
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
-        emit(src"${is(0)} := ${counters(i)}(0)");
-        emitGlobal(src"val ${is(0)} = Wire(UInt(32.W))")
+        emit(src"${is(0)}${suffix} := ${counters(i)}${suffix}(0)");
+        emitGlobal(src"val ${is(0)}${suffix} = Wire(UInt(32.W))")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
-          emit(src"${iter} := ${counters(i)}($j)")
-          emitGlobal(src"val ${iter} = Wire(UInt(32.W))")
+          emit(src"${iter}${suffix} := ${counters(i)}${suffix}($j)")
+          emitGlobal(src"val ${iter}${suffix} = Wire(UInt(32.W))")
         }
       }
     }
   }
 
-
-  def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]]) {
+  def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
-        emit(src"val ${v} = ${c} < ${cchain}_maxes(${i})")
+        emit(src"val ${v}${suffix} = ${c}${suffix} < ${cchain}${suffix}_maxes(${i})")
       }
     }
   }
-
-
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -69,11 +66,38 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     case UnrolledForeach(en,cchain,func,iters,valids) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
-      emitController(lhs, Some(cchain), Some(iters.flatten))
-      emitValids(cchain, iters, valids)
-      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
-        emitParallelizedLoop(iters, cchain)
-        emitBlock(func)
+      emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
+      if (styleOf(lhs) != StreamPipe) { 
+        emitValids(cchain, iters, valids)
+        withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+          emit(s"// Controller Stack: ${controllerStack}")
+          emitParallelizedLoop(iters, cchain)
+          emitBlock(func)
+        }
+      } else {
+        childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
+          emitValids(cchain, iters, valids, src"_copy$c")
+        }
+        withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+          emit(s"// Controller Stack: ${controllerStack}")
+          childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
+            emitParallelizedLoop(iters, cchain, src"_copy$c")
+          }
+          // Register the remapping for bound syms in children
+          valids.foreach{ layer =>
+            layer.foreach{ v =>
+              streamCtrCopy = streamCtrCopy :+ v
+            }
+          }
+          iters.foreach{ is =>
+            is.foreach{ iter =>
+              streamCtrCopy = streamCtrCopy :+ iter
+            }
+          }
+
+          emitBlock(func)
+        }
+
       }
       controllerStack.pop()
 
@@ -106,6 +130,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
       emit(src"val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        emit(s"// Controller Stack: ${controllerStack}")
         emitParallelizedLoop(iters, cchain)
         emitBlock(func)
       }
