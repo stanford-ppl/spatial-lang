@@ -1,27 +1,30 @@
 package spatial.codegen.dotgen
 
-import argon.codegen.dotgen.DotCodegen
+import argon.codegen.dotgen._
 import spatial.api.UnrolledExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
 
-trait DotGenUnrolled extends DotCodegen with DotGenController {
+trait DotGenUnrolled extends DotCodegen with DotGenReg {
   val IR: SpatialExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case UnrolledForeach(en,cchain,func,iters,valids) =>
+    case rhs if isControlNode(lhs) =>
+      emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ emitVert(lhs); rhs.blocks.foreach(emitBlock) }
 
-    case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
+    //case UnrolledForeach(en,cchain,func,iters,valids) =>
 
-    case ParSRAMLoad(sram,inds) =>
+    //case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
 
-    case ParSRAMStore(sram,inds,data,ens) =>
+    case ParSRAMLoad(sram,inds) => emitMemRead(lhs)
 
-    case ParFIFODeq(fifo, ens, z) =>
+    case ParSRAMStore(sram,inds,data,ens) => emitMemWrite(lhs)
 
-    case ParFIFOEnq(fifo, data, ens) =>
+    case ParFIFODeq(fifo, ens, z) => emitMemRead(lhs)
+
+    case ParFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
 
     case _ => super.emitNode(lhs, rhs)
   }

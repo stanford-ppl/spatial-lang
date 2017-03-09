@@ -5,14 +5,19 @@ import spatial.api.FIFOExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
-trait DotGenFIFO extends DotCodegen {
+trait DotGenFIFO extends DotCodegen with DotGenReg {
   val IR: SpatialExp
   import IR._
 
+  override def attr(n:Exp[_]) = n match {
+    case n if isFIFO(n) => super.attr(n).shape(box).style(filled).color(gold)
+    case n => super.attr(n)
+  }
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@FIFONew(size)   => 
-    case FIFOEnq(fifo,v,en) => 
-    case FIFODeq(fifo,en,z) => 
+    case op@FIFONew(size)   => emitVert(lhs)
+    case FIFOEnq(fifo,v,en) => emitMemRead(lhs)
+    case FIFODeq(fifo,en,z) => emitMemWrite(lhs)
 
     case _ => super.emitNode(lhs, rhs)
   }
