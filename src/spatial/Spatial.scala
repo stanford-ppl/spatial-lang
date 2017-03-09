@@ -26,6 +26,7 @@ protected trait SpatialExp extends Staging
   with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
   with StreamExp with PinExp with AlteraVideoExp
+  with LineBufferExp with ShiftRegisterExp with RegisterFileExp
 
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
 
@@ -38,6 +39,7 @@ protected trait SpatialApi extends SpatialExp
   with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
   with StreamApi with PinApi with AlteraVideoApi
+  with LineBufferApi with ShiftRegisterApi with RegisterFileApi
 
   with SpatialMetadataApi with BankingMetadataApi
 
