@@ -156,17 +156,17 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     /* Counter Signals for controller (used for determining done) */
     if (smStr != "Parallel" & smStr != "Streampipe") {
       if (cchain.isDefined) {
-        emitGlobal(src"""val ${cchain.get}_ctr_en = Wire(Bool())""") 
+        emitGlobal(src"""val ${cchain.get}_en = Wire(Bool())""") 
         sym match { 
           case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
-          case _ => emit(src"${cchain.get}_ctr_en := ${sym}_sm.io.output.ctr_inc")
+          case _ => emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
         }
         emit(src"""// ---- Begin $smStr ${sym} Counter Signals ----""")
         val ctr = cchain.get
         emit(src"""${ctr}_en := ${sym}_en""")
         emit(src"""${ctr}_resetter := ${sym}_rst_en""")
         if (smStr == "Innerpipe") {
-          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}.io.output.done, 1 + ${sym}_offset)""")
+          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 + ${sym}_offset)""")
         }
       } else {
         emit(src"""// ---- Begin $smStr ${sym} Unit Counter ----""")
@@ -218,8 +218,10 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
 
         // If this is a stream controller, need to set up counter copy for children
 
-        if (smStr == "Streampipe") {
-
+        if (smStr == "Streampipe" & cchain.isDefined) {
+          val Def(CounterChainNew(ctrs)) = cchain.get
+          emitCounterChain(cchain.get, ctrs, src"_copy$c")
+          emit(src"""${cchain.get}_copy${c}_en := ${c}_done""")
         }
 
         //   // Collect info about the fifos this child listens to

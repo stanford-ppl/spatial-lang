@@ -18,14 +18,16 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
       case Def(CounterNew(start, end, step, par)) => (src"$start", src"$end", src"$step", {src"$par"}.split('.').take(1)(0))
       case Def(Forever()) => ("0.U", "0.U", "0.U", "0")
     }}
-    emitGlobal(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
+    emitGlobal(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
+    // emitGlobal(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
     emitGlobal(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
     emit(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix}_maxes = List(${counter_data.map(_._2).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4).mkString(",")}))) // Par of 0 creates forever counter""")
     emit(src"""${lhs}${suffix}.io.input.maxes.zip(${lhs}${suffix}_maxes).foreach { case (port,max) => port := max }""")
     emit(src"""${lhs}${suffix}.io.input.strides.zip(${lhs}${suffix}_strides).foreach { case (port,stride) => port := stride }""")
-    emit(src"""${lhs}${suffix}.io.input.enable := ${lhs}${suffix}_ctr_en""")
+    emit(src"""${lhs}${suffix}.io.input.enable := ${lhs}${suffix}_en""")
+    emit(src"""${lhs}${suffix}_done := ${lhs}${suffix}.io.output.done""")
     emit(src"""${lhs}${suffix}.io.input.reset := ${lhs}${suffix}_resetter""")
     emit(src"""val ${lhs}${suffix}_maxed = ${lhs}${suffix}.io.output.saturated""")
     ctrs.zipWithIndex.foreach { case (c, i) =>
