@@ -65,7 +65,7 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
 }
 
 protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen 
-  with PIRGenPrint with PIRGenEmpty with PIRGenController with PIRGenSRAM with PIRGenDRAM with PIRPreProcess 
+  with PIRGenPrint with PIRGenEmpty with PIRGenController with PIRGenSRAM with PIRGenDRAM with PIRPreAnalysis 
   {
 
   override val IR: SpatialCompiler

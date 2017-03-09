@@ -129,6 +129,11 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isDRAM(e: Exp[_]): Boolean = e.tp match {
+    case _:DRAMType[_] => true
+    case _ => false
+  }
+
   def isSRAM(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] => true
     case _ => false
