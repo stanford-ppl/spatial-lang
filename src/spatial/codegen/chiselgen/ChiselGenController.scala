@@ -163,7 +163,6 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         }
         emit(src"""// ---- Begin $smStr ${sym} Counter Signals ----""")
         val ctr = cchain.get
-        emit(src"""${ctr}_en := ${sym}_en""")
         emit(src"""${ctr}_resetter := ${sym}_rst_en""")
         if (smStr == "Innerpipe") {
           emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 + ${sym}_offset)""")

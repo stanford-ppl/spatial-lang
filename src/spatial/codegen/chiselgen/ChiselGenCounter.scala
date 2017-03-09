@@ -37,7 +37,7 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
           xx
         case Def(Forever()) => 0
       }
-      emit(s"""val ${quote(c)} = (0 until $x).map{ j => ${quote(lhs)}.io.output.counts($i + j) }""")
+      emit(s"""val ${quote(c)} = (0 until $x).map{ j => ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")
     }
 
   }
