@@ -53,7 +53,7 @@ class FIFOArbiter(
     val outMux = Module(new MuxVec(numStreams, v, w))
   //  outMux.io.ins := Vec(fifos.map {e => Reg(e.io.deq.cloneType, e.io.deq)})
     outMux.io.ins := Vec(fifos.map {e => e.io.deq})
-    outMux.io.sel := tag
+    outMux.io.sel := activeFifo // Connected to activeFifo instead of tag so that fifo switches instantly
 
 //    val emptyMux = Module(new MuxN(numStreams, w))
 //  //  emptyMux.io.ins := Vec(fifos.map {e => Reg(UInt(1.W), e.io.empty)})
