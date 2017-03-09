@@ -87,9 +87,9 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U //TODO: Really calculate this""")
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
-      emit(src"""${cchain}_ctr_en := ${lhs}_sm.io.output.ctr_inc""")
+      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
       if (styleOf(lhs) == InnerPipe) {
-        emit(src"val ${accum}_wren = ${cchain}_ctr_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
+        emit(src"val ${accum}_wren = ${cchain}_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
         accum match { 
