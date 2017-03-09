@@ -2,12 +2,24 @@ package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.FIFOExp
+import spatial.api.DRAMTransferExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
 trait ChiselGenFIFO extends ChiselCodegen {
   val IR: SpatialExp
   import IR._
+
+  override protected def bitWidth(tp: Staged[_]): Int = {
+    tp match { 
+      case Bits(bitEv) => bitEv.length
+      // case x: StructType[_] => x.fields.head._2 match {
+      //   case _: IssuedCmd => 96
+      //   case _ => super.bitWidth(tp)
+      // }
+      case _ => super.bitWidth(tp)
+    }
+  }
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {

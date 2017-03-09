@@ -706,28 +706,29 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
   }
 }
 
-object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100
+object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 16
   import IR._
 
   val N = 19200
 
-  val numCols = 8
   val paddedCols = 1920
 
-  def unaligned_1d[T:Staged:Num](src: Array[T], ii: Int) = {
+  def unaligned_1d[T:Staged:Num](src: Array[T], ii: Int, numCols: Int) = {
     val iters = ArgIn[Int]
     val srcFPGA = DRAM[T](paddedCols)
+    val ldSize = ArgIn[Int]
     val acc = ArgOut[T]
 
     setArg(iters, ii)
+    setArg(ldSize, numCols)
     setMem(srcFPGA, src)
 
     Accel {
       val mem = SRAM[T](16)
       val accum = Reg[T](0.as[T])
       Reduce(accum)(iters by 1) { k =>
-        mem load srcFPGA(k*numCols::k*numCols+numCols par 16)
-        Reduce(Reg[T](0.as[T]))(numCols by 1){i => mem(i) }{_+_}
+        mem load srcFPGA(k*ldSize::k*ldSize+ldSize par 16)
+        Reduce(Reg[T](0.as[T]))(ldSize by 1){i => mem(i) }{_+_}
       }{_+_}
       acc := accum
     }
@@ -738,12 +739,13 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100
   def main() = {
     // val size = args(0).to[Int]
     val ii = args(0).to[Int]
+    val cols = args(1).to[Int]
     val size = paddedCols
     val src = Array.tabulate(size) {i => i % 256 }
 
-    val dst = unaligned_1d(src, ii)
+    val dst = unaligned_1d(src, ii, cols)
 
-    val gold = Array.tabulate(ii*numCols){ i => i % 256 }.reduce{_+_}
+    val gold = Array.tabulate(ii*cols){ i => i % 256 }.reduce{_+_}
 
     println("src:" + gold)
     println("dst:" + dst)

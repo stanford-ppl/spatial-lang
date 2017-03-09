@@ -122,7 +122,7 @@ object SRAMCoalesceTest extends SpatialTest {
   @virtualize
   def main() {
     Accel {
-      val sram = SRAM[Int](16)
+      val sram = SRAM[Int](32)
       val out1 = ArgOut[Int]
       val out2 = ArgOut[Int]
       Foreach(16 by 1){i =>
@@ -143,8 +143,8 @@ class BankingTests extends FlatSpec with Matchers with Exceptions {
 
   "LegalFIFOParallelization" should "compile" in { LegalFIFOParallelization.main(Array.empty) }
 
-  "RegCoalesceTest" should "compile" in { RegCoalesceTest.main(Array.empty) }
-  "SRAMCoalesceTest" should "compile" in { SRAMCoalesceTest.main(Array.empty) }
+  "RegCoalesceTest" should "be coalesced" in { RegCoalesceTest.main(Array.empty) }
+  "SRAMCoalesceTest" should "NOT be coalesced" in { SRAMCoalesceTest.main(Array.empty) }
 
   a [TestBenchFailed] should be thrownBy { IllegalFIFOParallelization.main(Array.empty) }
 }
