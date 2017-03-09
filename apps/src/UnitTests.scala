@@ -712,7 +712,7 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100
 
   val N = 19200
 
-  val numCols = 8
+  val numCols = 16
   val paddedCols = 1920
 
   def unaligned_1d[T:Staged:Num](src: Array[T], ii: Int) = {
@@ -724,10 +724,10 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100
     setMem(srcFPGA, src)
 
     Accel {
-      val mem = SRAM[T](64)
+      val mem = SRAM[T](16)
       val accum = Reg[T](0.as[T])
       Reduce(accum)(iters by 1) { k =>
-        mem load srcFPGA(k*numCols::k*numCols+numCols)
+        mem load srcFPGA(k*numCols::k*numCols+numCols par 16)
         Reduce(Reg[T](0.as[T]))(numCols by 1){i => mem(i) }{_+_}
       }{_+_}
       acc := accum
