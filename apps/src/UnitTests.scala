@@ -194,7 +194,7 @@ object FifoLoad extends SpatialApp { // Regression (Unit) // Args: 192
   import IR._
 
   def fifoLoad[T:Staged:Num](srcHost: Array[T], N: Int) = {
-    val tileSize = 64 (64 -> 64)
+    val tileSize = 16 (64 -> 64)
 
     val size = ArgIn[Int]
     setArg(size, N)

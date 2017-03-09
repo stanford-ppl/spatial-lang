@@ -82,7 +82,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       // Command generator
       Pipe {
         Pipe {
-          val addr_bytes = (offchipAddr + dram.address) * bytesPerWord
+          val addr_bytes = offchipAddr * bytesPerWord + dram.address
           val size = requestLength
           val size_bytes = size * bytesPerWord
           cmdStream.enq(BurstCmd(addr_bytes, size_bytes, false))
@@ -119,7 +119,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         val length     = Reg[Index]
         Pipe {
           val elementsPerBurst = (target.burstSize / bits[T].length).as[Index]
-          val maddr = offchipAddr*4
+          val maddr = offchipAddr * bytesPerWord
           val start = maddr % elementsPerBurst    // Number of elements to ignore at beginning
           val end = start + requestLength         // Index to begin ignoring again
           val addr = maddr + dram.address - start // Burst-aligned offchip address
@@ -127,7 +127,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
           val extra = elementsPerBurst - (requestLength % elementsPerBurst)     // Number of extra elements needed
           val size = requestLength + mux(requestLength % elementsPerBurst == 0, 0.as[Index], extra) // Burst aligned length
 
-          val addr_bytes = addr * bytesPerWord
+          val addr_bytes = addr
           val size_bytes = size * bytesPerWord
 
           cmdStream.enq(BurstCmd(addr_bytes, size_bytes, false))
@@ -160,10 +160,10 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
 
       // Command generator
       Pipe {
-        val addr = offchipAddr*4 + dram.address
+        val addr = offchipAddr * bytesPerWord + dram.address
         val size = requestLength
 
-        val addr_bytes = addr * bytesPerWord
+        val addr_bytes = addr
         val size_bytes = size * bytesPerWord
 
         cmdStream.enq( BurstCmd(addr_bytes, size_bytes, true) )
@@ -191,7 +191,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       Pipe {
         val elementsPerBurst = (target.burstSize/bits[T].length).as[Index]
 
-        val maddr = offchipAddr * 4
+        val maddr = offchipAddr * bytesPerWord
         val start = maddr % elementsPerBurst              // Number of elements to ignore at beginning
         val end   = start + requestLength                 // Index to begin ignoring again
         val addr  = maddr + dram.address - start          // Burst-aligned offchip address
@@ -199,7 +199,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         val extra = elementsPerBurst - (requestLength % elementsPerBurst)     // Number of extra elements needed
         val size  = requestLength + mux(requestLength % elementsPerBurst == 0, 0.as[Index], extra) // Burst aligned length
 
-        val addr_bytes = addr * bytesPerWord
+        val addr_bytes = addr
         val size_bytes = size * bytesPerWord
 
         cmdStream.enq( BurstCmd(addr_bytes, size_bytes, true) )
@@ -256,9 +256,9 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
 
         // Send
         Foreach(requestLength par p){i =>
-          val addr = addrs(i) + dram.address
+          val addr = addrs(i) * bytesPerWord + dram.address
 
-          val addr_bytes = addr * bytesPerWord
+          val addr_bytes = addr
           addrBus.enq(addr_bytes)
         }
         // Fringe
@@ -276,10 +276,10 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
 
         // Send
         Foreach(requestLength par p){i =>
-          val addr = addrs(i) * 4 + dram.address
+          val addr = addrs(i) * bytesPerWord + dram.address
           val data = local(i)
 
-          val addr_bytes = addr * bytesPerWord
+          val addr_bytes = addr
 
           cmdBus.enq( pack(data,addr_bytes) )
         }
