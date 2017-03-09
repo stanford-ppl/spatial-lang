@@ -211,7 +211,7 @@ object FifoLoad extends SpatialApp { // Regression (Unit) // Args: 192
         Foreach(tileSize by 1) { i =>
           b1(i) = f1.deq()
         }
-        dstFPGA(i::i + tileSize) store b1
+        dstFPGA(i::i + tileSize par 16) store b1
       }
       ()
     }
