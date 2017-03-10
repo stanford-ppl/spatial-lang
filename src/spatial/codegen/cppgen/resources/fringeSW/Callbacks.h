@@ -10,7 +10,7 @@ void handleDRAMRequest(DUT *dut, PeekPokeTester *tester) {
   uint64_t addr = tester->peek(&(dut->io_dram_cmd_bits_addr));
   uint64_t tag = tester->peek(&(dut->io_dram_cmd_bits_tag));
   uint64_t isWr = tester->peek(&(dut->io_dram_cmd_bits_isWr));
-  std::cout << "addr: " << addr << ", tag: " << tag << ", isWr: " << isWr << std::endl;
+  printf("addr: %x, tag: %x, isWr: %u \n", addr, tag, isWr);
 
   // Note: addr must have been allocated previously, else will cause segfault
   // Note: Currently assumes burst size to be 64 bytes
