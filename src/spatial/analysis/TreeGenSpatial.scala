@@ -20,6 +20,16 @@ trait TreeGenSpatial extends SpatialTraversal {
   var controller_tree: PrintWriter = _
   val table_init = """<TABLE BORDER="3" CELLPADDING="10" CELLSPACING="10">"""
 
+  def getScheduling(sym: Sym[_]): String = {
+    styleOf(sym) match {
+        case MetaPipe => s"Meta."
+        case StreamPipe => "Stream."
+        case InnerPipe => "Inner."
+        case SeqPipe => s"Seq."
+        case ForkJoin => s"Para."
+        case _ => ""
+      }
+  }
   override protected def preprocess[S:Staged](block: Block[S]): Block[S] = {
     controller_tree = { new PrintWriter(Config.genDir + "/controller_tree.html") }
   	controller_tree.write("""<!DOCTYPE html>
@@ -62,7 +72,7 @@ trait TreeGenSpatial extends SpatialTraversal {
   }
 
   override protected def visit(sym: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case Hwblock(func) =>
+    case Hwblock(func,_) =>
       val inner = styleOf(sym) match { 
       	case InnerPipe => true
       	case _ => false
@@ -75,20 +85,20 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
-    case BurstLoad(dram, fifo, ofs, ctr, i) =>
+    /*case BurstLoad(dram, fifo, ofs, ctr, i) =>
       print_stage_prefix(s"BurstLoad",s"",s"$sym", true)
       print_stage_suffix(s"$sym", true)
 
     case BurstStore(dram, fifo, ofs, ctr, i) =>
       print_stage_prefix(s"BurstStore",s"",s"$sym", true)
-      print_stage_suffix(s"$sym", true)
+      print_stage_suffix(s"$sym", true)*/
 
     case UnitPipe(_,func) =>
       val inner = styleOf(sym) match { 
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"Unitpipe",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}Unitpipe",s"",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -101,7 +111,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"OpForeach",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}OpForeach",s"",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -114,7 +124,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"OpReduce",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}OpReduce",s"",s"$sym", inner)
       print_stage_suffix(s"$sym", inner)
 
     case _: OpMemReduce[_,_] =>
@@ -122,7 +132,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"OpMemReduce",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}OpMemReduce",s"",s"$sym", inner)
       print_stage_suffix(s"$sym", inner)
 
     case UnrolledForeach(en,cchain,func,iters,valids) =>
@@ -130,7 +140,8 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"UnrolledForeach",s"",s"$sym", inner)
+  
+      print_stage_prefix(s"${getScheduling(sym)}UnrolledForeach",s"",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -153,7 +164,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerPipe => true
       	case _ => false
       }
-      print_stage_prefix(s"UnrolledReduce",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}UnrolledReduce",s"",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -161,9 +172,18 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
-    case Gather(dram, local, addrs, ctr, i)  =>
-
-    case Scatter(dram, local, addrs, ctr, i) =>
+    case _: FringeDenseLoad[_] => 
+      print_stage_prefix("FringeDenseLoad (Fake Node)", "", s"$sym", true)
+      print_stage_suffix(s"$sym", true)
+    case _: FringeDenseStore[_] => 
+      print_stage_prefix("FringeDenseStore (Fake Node)", "", s"$sym", true)
+      print_stage_suffix(s"$sym", true)
+    case _: FringeSparseLoad[_] => 
+      print_stage_prefix("FringeSparseLoad (Fake Node)", "", s"$sym", true)
+      print_stage_suffix(s"$sym", true)
+    case _: FringeSparseStore[_] => 
+      print_stage_prefix("FringeSparseStore (Fake Node)", "", s"$sym", true)
+      print_stage_suffix(s"$sym", true)
 
     case _ => // Do not visit super because we don't care to traverse everything
   }

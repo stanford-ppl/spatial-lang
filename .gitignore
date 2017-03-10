@@ -32,4 +32,9 @@ src/spatial/codegen/chiselgen/resources/template-level/test_run_dir
 src/spatial/codegen/chiselgen/resources/template-level/target
 src/spatial/codegen/chiselgen/resources/altera-goodies/README.md
 
+# Ctags
+*.tags
 
+# C files
+*.o
+*.d

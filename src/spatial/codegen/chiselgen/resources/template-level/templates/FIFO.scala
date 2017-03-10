@@ -10,16 +10,16 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int) extends Module {
   def this(p: Int, depth: Int) = this(p, p, depth)
 
   val io = IO( new Bundle {
-    val in = Vec(pW, UInt(32.W).asInput)
-    val out = Vec(pR, UInt(32.W).asOutput)
-    val push = Bool().asInput
-    val pop = Bool().asInput
-    val empty = Bool().asOutput
-    val full = Bool().asOutput
+    val in = Vec(pW, Input(UInt(32.W)))
+    val out = Vec(pR, Output(UInt(32.W)))
+    val push = Input(Bool())
+    val pop = Input(Bool())
+    val empty = Output(Bool())
+    val full = Output(Bool())
     val debug = new Bundle {
-      val overwrite = Bool().asOutput
-      val overread = Bool().asOutput
-      val error = Bool().asOutput
+      val overwrite = Output(Bool())
+      val overread = Output(Bool())
+      val error = Output(Bool())
     }
   })
 

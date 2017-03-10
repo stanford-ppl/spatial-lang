@@ -71,10 +71,56 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     * and some parallelization factors P1 ... PN associated with each index,
     *
     *
-    * Assign a new memory instance every time
-    *
-    *
+    * When a new memory access is unrolled:
+    *   1. Check other unrolled accesses which have the same original symbol
+    *   2.a. Look up all loop iterators used to compute the indices for this access
+    *   2.b. Look up the unroll number for each of these iterators (-1 for random accesses)
+    *   3. The duplicate of the access is the number of accesses which have already been unrolled with the same numbers
+    *   4. Update list of accesses to include current's numbers
     */
+  var pachinko = Map[(Exp[_],Exp[_],Int), Seq[Seq[Int]]]()
+
+  def registerAccess(original: Exp[_], unrolled: Exp[_]): Unit = {
+    val reads = unrolled match { case LocalReader(rds) => rds.map(_._1); case _ => Nil }
+    val writes = unrolled match { case LocalWriter(wrts) => wrts.map(_._1); case _ => Nil }
+
+    val unrollInts: Seq[Int] = original match {
+      case Def(_:SRAMLoad[_])  => accessPatternOf(original).map{ _.index.flatMap{i => unrollNum.get(i)}.getOrElse(-1) }
+      case Def(_:SRAMStore[_]) => accessPatternOf(original).map{ _.index.flatMap{i => unrollNum.get(i)}.getOrElse(-1) }
+      case _                   => Seq(-1)
+    }
+
+
+    // For each memory this access reads, set the new dispatch value
+    reads.foreach{mem =>
+      dbg(c"Registering read of $mem: $original -> $unrolled")
+      dbg(c"  ${str(original)}")
+      dbg(c"  ${str(unrolled)}")
+      dbg(c"  Unroll numbers: ${unrollInts}")
+
+      val origDispatches = dispatchOf(unrolled, mem)
+      if (origDispatches.size != 1) {
+        error(c"Readers should have exactly one dispatch, $original -> $unrolled had ${origDispatches.size}")
+        sys.exit()
+      }
+      else {
+        val orig = origDispatches.head
+
+        dbg(c"  Previous unroll numbers: ")
+        val others = pachinko.getOrElse( (original,mem,orig), Nil)
+
+        others.foreach{other => dbg(c"  $other") }
+
+        val dispatch = orig + others.count{p => p == unrollInts }
+        pachinko += (original,mem,orig) -> (unrollInts +: others)
+
+        dbg(c"  Setting new dispatch value of $dispatch")
+
+        dispatchOf(unrolled, mem) = Set(dispatch)
+        portsOf(unrolled, mem, dispatch) = portsOf(unrolled, mem, orig)
+      }
+    }
+  }
 
 
   /**
@@ -82,7 +128,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     * Tracks multiple substitution contexts in 'contexts' array
     **/
   case class Unroller(cchain: Exp[CounterChain], inds: Seq[Bound[Index]], isInnerLoop: Boolean) {
-    val fs = isCChainForever(cchain)
+    val fs = countersOf(cchain).map(isForever)
 
     // Don't unroll inner loops for CGRA generation
     val Ps = if (isInnerLoop && SpatialConfig.enablePIR) inds.map{_ => 1} else parFactorsOf(cchain).map{case Exact(c) => c.toInt }
@@ -161,8 +207,6 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     case e:OpForeach        => unrollForeachNode(lhs, e)
     case e:OpReduce[_]      => unrollReduceNode(lhs, e)
     case e:OpMemReduce[_,_] => unrollMemReduceNode(lhs, e)
-    case e:Scatter[_]       => unrollScatterNode(lhs, e)
-    case e:Gather[_]        => unrollGatherNode(lhs, e)
     case _ => super.transform(lhs, rhs)
   }).asInstanceOf[Exp[A]]
 
@@ -192,6 +236,27 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       cloneFuncs.foreach{func => func(lhs2) }
       lanes.split(lhs, lhs2)(mtyp(e.mT),mbits(e.bT),ctx)
 
+
+    case e@StreamEnq(stream, data, en) =>
+      dbgs(s"Unrolling $lhs = $rhs")
+      val datas   = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
+      val enables = lanes.vectorize{p => bool_and( f(en), globalValid) }
+      val lhs2 = par_stream_enq(f(stream), datas, enables)(e.mT,e.bT,ctx)
+
+      transferMetadata(lhs, lhs2)
+      cloneFuncs.foreach{func => func(lhs2) }
+      lanes.unify(lhs, lhs2)
+
+    case e@StreamDeq(stream, en, z) =>
+      dbgs(s"Unrolling $lhs = $rhs")
+      val enables = lanes.vectorize{p => bool_and(f(en), globalValid) }
+      val lhs2 = par_stream_deq(f(stream), enables, f(z))(mtyp(e.mT),mbits(e.bT),ctx)
+
+      transferMetadata(lhs, lhs2)
+      cloneFuncs.foreach{func => func(lhs2) }
+      lanes.split(lhs, lhs2)(mtyp(e.mT),mbits(e.bT),ctx)
+
+
     // TODO: Assuming dims and ofs are not needed for now
     case e@SRAMStore(sram,dims,inds,ofs,data,en) if lanes.isCommon(sram) =>
       dbgs(s"Unrolling $lhs = $rhs")
@@ -208,7 +273,9 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       dbgs(s"Created ${str(lhs2)}")
       strMeta(lhs2)
 
+      registerAccess(lhs, lhs2)
       lanes.unify(lhs, lhs2)
+
 
     // TODO: Assuming dims and ofs are not needed for now
     case e@SRAMLoad(sram,dims,inds,ofs) if lanes.isCommon(sram) =>
@@ -224,13 +291,12 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       dbgs(s"Created ${str(lhs2)}")
       strMeta(lhs2)
 
+      registerAccess(lhs, lhs2)
       lanes.split(lhs, lhs2)(mtyp(e.mT),mbits(e.bT),ctx)
 
     case e: OpForeach        => unrollControllers(lhs,rhs,lanes){ unrollForeachNode(lhs, e) }
     case e: OpReduce[_]      => unrollControllers(lhs,rhs,lanes){ unrollReduceNode(lhs, e) }
     case e: OpMemReduce[_,_] => unrollControllers(lhs,rhs,lanes){ unrollMemReduceNode(lhs, e) }
-    case e: Scatter[_]       => unrollControllers(lhs,rhs,lanes){ unrollScatterNode(lhs, e) }
-    case e: Gather[_]        => unrollControllers(lhs,rhs,lanes){ unrollGatherNode(lhs, e) }
     case _ if isControlNode(lhs) => unrollControllers(lhs,rhs,lanes){ cloneOp(lhs, rhs) }
 
     case e: RegNew[_] =>
@@ -397,7 +463,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val vs = lanes.indexValids
     val mC = typ[Reg[T]]
 
-    val blk = stageBlock {
+    val blk = stageLambda(f(accum)) {
       dbgs("Unrolling map")
       val values = unrollMap(func, lanes)(mT,ctx)
       val valids = () => lanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b) } }
@@ -453,7 +519,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val mvs = mapLanes.indexValids
     val partial = func.result
 
-    val blk = stageBlock {
+    val blk = stageLambda(f(accum)) {
       dbgs(s"[Accum-fold $lhs] Unrolling map")
       val mems = unrollMap(func, mapLanes)
       val mvalids = () => mapLanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b)} }
@@ -572,7 +638,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   // TODO: Method for parallelizing scatter and gather will likely have to change soon
   // TODO: Enable bits required for scatter/gather? (Not required for burst load/store..)
-  def unrollScatter[T:Staged:Bits](
+  /*def unrollScatter[T:Staged:Bits](
     lhs:    Exp[_],
     mem:    Exp[DRAM[T]],
     local:  Exp[SRAM[T]],
@@ -612,7 +678,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   def unrollGatherNode[T](lhs: Sym[_], rhs: Gather[T])(implicit ctx: SrcCtx) = {
     val Gather(mem, local, addrs, ctr, i) = rhs
     unrollGather(lhs, f(mem), f(local), f(addrs), f(ctr))(rhs.mT,rhs.bT,ctx)
-  }
+  }*/
 
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Staged[A], ctx: SrcCtx): Exp[A] = (rhs match {
@@ -641,6 +707,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     strMeta(lhs)
 
     val (lhs2, isNew) = transferMetadataIfNew(lhs){ cloneOrMirror(lhs, rhs)(mtyp(lhs.tp), ctxOrHere(lhs)) }
+
+    if (isAccess(lhs) && isNew) {
+      registerAccess(lhs, lhs2)
+    }
+
     if (isNew) cloneFuncs.foreach{func => func(lhs2) }
     dbgs(c"Created ${str(lhs2)}")
     strMeta(lhs2)

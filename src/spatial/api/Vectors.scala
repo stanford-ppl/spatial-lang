@@ -69,6 +69,10 @@ trait VectorExp extends Staging with BitsExp {
 
   private[spatial] def lenOf(x: Exp[_])(implicit ctx: SrcCtx): Int = x match {
     case Op(ListVector(elems)) => elems.length
+    case Op(VectorSlice(vec,start,end)) => end - start
+    case Op(ParFIFODeq(_,ens,_)) => lenOf(ens)
+    case Op(ParSRAMLoad(_,addr)) => addr.length
+    case Op(ParStreamDeq(_,ens,_)) => lenOf(ens)
     case _ => throw new UndefinedDimensionsError(x, None)
   }
 }

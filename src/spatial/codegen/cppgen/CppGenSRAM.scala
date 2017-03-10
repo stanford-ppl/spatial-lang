@@ -16,12 +16,9 @@ trait CppGenSRAM extends CppCodegen {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case SRAMNew(dims)=> 
-              s"x${lhs.id}_sram"
-            case _ =>
-              super.quote(s)
+          lhs match {
+            case Def(SRAMNew(dims)) => s"x${lhs.id}_sram"
+            case _ => super.quote(s)
           }
         case _ =>
           super.quote(s)

@@ -4,8 +4,8 @@
 ##   It is called from the receive.sh, which handles path variables
 ##   and git checkouts on a server-specific basis
 
-spacing=25
-delay=600
+spacing=15
+delay=760
 numpieces=30
 hist=72
 
@@ -74,7 +74,7 @@ build_spatial() {
   files=(*)
   testdirs=()
   sorted_testdirs=()
-  for f in ${files[@]}; do if [[ $f = *"testdir"* ]]; then testdirs+=($f); fi; done
+  for f in ${files[@]}; do if [[ $f = *"testdir-${branch}"*"${type_todo}"* ]]; then testdirs+=($f); fi; done
   sorted_testdirs=( $(for arr in "${testdirs[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_testdirs[*]}" )
   rank=-5
@@ -219,7 +219,7 @@ update_log() {
     elif [[ $p == *"failed_execution_nonexistent_validation"* ]]; then
       echo "<--------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=0
-    elif [[ $p == *"failed_execution_backend_crash"* ]]; then
+    elif [[ $p == *"failed_execution_backend_crash"* || $p == *"failed_execution_hanging"* ]]; then
       echo "<------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
       t=0
     elif [[ $p == *"failed_compile_backend_crash"* || $p == *"failed_compile_cpp_crash"* ]]; then
@@ -349,7 +349,7 @@ for aa in ${headers[@]}; do
     # Get last known datapoint and vector
     last=$(cat ${pretty_file} | grep "${aa}\ " | grep -o ".$")
     if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else oldnum=8; fi
-    if [[ $old_num = 0 && $num = 0 ]]; then vec="="; elif [[ $old_num > $num ]]; then vec=↗; elif [[ $old_num < $num ]]; then vec=↘; else vec=→; fi
+    if [[ $old_num = 0 && $num = 0 ]]; then vec=" "; elif [[ $old_num > $num ]]; then vec=↗; elif [[ $old_num < $num ]]; then vec=↘; else vec=→; fi
     # Edit file
     logger "app $aa from $last to $bar, numbers $old_num to $num"
     cmd="sed -i 's/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/' ${pretty_file}" # Append bar
@@ -544,10 +544,11 @@ export SPATIAL_HOME=${SPATIAL_HOME}
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 export ARGON_HOME=${ARGON_HOME}
 export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
+export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
 " >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
-    echo "export JAVA_HOME=/usr/
+    echo "#export JAVA_HOME=/usr/
     " >> $1
   fi
 
@@ -557,11 +558,11 @@ export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --scala --multifile=3 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --scala --multifile=4 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --chisel --multifile=3 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --chisel --multifile=4 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 
@@ -586,14 +587,14 @@ comp_time=(\`cat log | grep \"Total time:\" | sed 's/.*time: //g' | sed 's/ seco
 
 # Compile backend
 cd ${5}/out
-make clean sim 2>&1 | tee -a ${5}/log
+make sim 2>&1 | tee -a ${5}/log
 
 # Check for crashes in backend compilation
-wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\" | wc -l)
+wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
 fi
-wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\" | wc -l)
+wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\\|fatal error\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_cpp_crash\" \"[STATUS] Declaring failure compile_chisel c++ side\" 0
 fi

@@ -1,7 +1,5 @@
 #!/bin/bash
 
-echo "This script is not yet tested!!"
-
 # Check if you are on the stanford network
 if timeout 2 nc -z tucson.stanford.edu 22 2>/dev/null; then
     echo "On Stanford network: ✓"

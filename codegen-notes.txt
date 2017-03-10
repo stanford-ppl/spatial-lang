@@ -1,0 +1,20 @@
+Execution flow:
+1. Chisel runs first and dumps results into a file
+2. When C++ host code runs, it looks for this result file and returns the
+results (argOuts, memOuts), thereby giving the perception that the design ran.
+  - How do argIns get passed? Currently the Top_run method ignores ArgIns.
+
+Chisel:
+1. GlobalWires: Interface of 'Accel' module
+2. TopTrait:
+3. TopLevelDesign: The 'Accel' module (Called TopModule here). Top-level module (empty) which extends GlobalWires and mixes
+in TopTrait and other things.
+4. IOModule: Bundle definitions. There is no 'Module' here.
+
+New steps:
+1. Copy static Fringe scala files into a 'fringeHW' directory
+2. Copy static Fringe cpp files into a 'fringeSW' directory
+2. Instantiate 'TopModule' (in place of Accel) in the 'Top' module.
+   TODO: It would be convenient to rename 'TopModule' to 'Accel'.
+3. Create blank 'Top' tester, check that in. Ideally we should directly generate Verilog.
+

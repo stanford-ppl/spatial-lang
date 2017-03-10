@@ -59,9 +59,9 @@ trait ChiselGenController extends ChiselCodegen {
           s match {
             case lhs: Sym[_] =>
               lhs match {
-                case Def(Hwblock(_)) =>
+                case Def(e: Hwblock) =>
                   s"AccelController"
-                case Def(UnitPipe(_,_)) =>
+                case Def(e: UnitPipe) =>
                   s"x${lhs.id}_UnitPipe"
                 case Def(e: OpForeach) =>
                   s"x${lhs.id}_ForEach"
@@ -193,18 +193,46 @@ trait ChiselGenController extends ChiselCodegen {
         emitGlobal(src"""val ${c}_en = Wire(Bool())""")
         emitGlobal(src"""val ${c}_resetter = Wire(Bool())""")
         emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${c}_done;""")
-        if (smStr == "Streampipe") {
-          // Collect info about the fifos this child listens to
-          val enablers = listensTo(c).map { fifo => 
-            fifo match {
-              case Def(FIFONew(size)) => src"~${fifo}.io.empty"
-              case Def(StreamInNew(bus)) => src"${fifo}_ready"
-            }
-          }.mkString(" & ")
-          emit(src"""${c}_en := ${enablers}""")
-        } else {
-          emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx})""")  
-        }
+        // If we are inside a stream pipe, the following may be set
+        val readiers = listensTo(c).distinct.map { fifo => 
+          fifo match {
+            case Def(FIFONew(size)) => src"~${fifo}.io.empty"
+            case Def(StreamInNew(bus)) => src"${fifo}_ready"
+            case _ => src"${fifo}_en" // parent node
+          }
+        }.mkString(" & ")
+        val holders = (pushesTo(c)).distinct.map { fifo => 
+          fifo match {
+            case Def(FIFONew(size)) => src"~${fifo}.io.full"
+            case Def(StreamOutNew(bus)) => src"${fifo}_ready /*not sure if this sig exists*/"
+          }
+        }.mkString(" & ")
+
+        val hasHolders = if (holders != "") "&" else ""
+        val hasReadiers = if (readiers != "") "&" else ""
+
+        emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx}) ${hasHolders} ${holders} ${hasReadiers} ${readiers}""")  
+
+        // if (smStr == "Streampipe") {
+        //   // Collect info about the fifos this child listens to
+        //   val readiers = (listensTo(c) :+ sym).distinct.map { fifo => 
+        //     fifo match {
+        //       case Def(FIFONew(size)) => src"~${fifo}.io.empty"
+        //       case Def(StreamInNew(bus)) => src"${fifo}_ready"
+        //       case _ => src"${fifo}_en" // parent node
+        //     }
+        //   }.mkString(" & ")
+        //   val holders = (pushesTo(c)).distinct.map { fifo => 
+        //     fifo match {
+        //       case Def(FIFONew(size)) => src"~${fifo}.io.full"
+        //       case Def(StreamOutNew(bus)) => src"${fifo}_ready /*not sure if this sig exists*/"
+        //     }
+        //   }.mkString(" & ")
+        //   val enablers = List(readiers, holders).mkString(" & ")
+        //   emit(src"""${c}_en := ${enablers}""")
+        // } else {
+        //   emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx})""")  
+        // }
         emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")
       }
     }
@@ -221,10 +249,10 @@ trait ChiselGenController extends ChiselCodegen {
 
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case Hwblock(func) =>
+    case Hwblock(func,isForever) =>
       controllerStack.push(lhs)
       toggleEn() // turn on
-      emit(s"""val ${quote(lhs)}_en = io.top_en & !io.top_done;""")
+      emit(s"""val ${quote(lhs)}_en = io.enable & !io.done;""")
       emit(s"""val ${quote(lhs)}_resetter = false.B // TODO: top level reset""")
       emitGlobal(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
@@ -233,7 +261,7 @@ trait ChiselGenController extends ChiselCodegen {
       emit(s"""val done_latch = Module(new SRFF())""")
       emit(s"""done_latch.io.input.set := ${quote(lhs)}_sm.io.output.done""")
       emit(s"""done_latch.io.input.reset := ${quote(lhs)}_resetter""")
-      emit(s"""io.top_done := done_latch.io.output.data""")
+      emit(s"""io.done := done_latch.io.output.data""")
 
       emitBlock(func)
       toggleEn() // turn off

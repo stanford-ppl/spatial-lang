@@ -15,11 +15,10 @@ trait CppGenCounter extends CppCodegen with FileDependencies {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case CounterNew(s,e,st,p)=> 
+          lhs match {
+            case Def(CounterNew(s,e,st,p)) => 
               s"x${lhs.id}_ctr"
-            case CounterChainNew(ctrs) =>
+            case Def(CounterChainNew(ctrs)) =>
               s"x${lhs.id}_ctrchain"
             case _ =>
               super.quote(s)

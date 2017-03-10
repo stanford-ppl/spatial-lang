@@ -1,14 +1,17 @@
- import spatial._
- import org.virtualized._
+import spatial._
+import org.virtualized._
+import macros._
 
- object Video extends SpatialApp {
-   import IR._
+object Video extends SpatialApp {
+  import IR._
 
-   override val target = targets.DE1
+  override val target = targets.DE1
 
-   @virtualize
-   def main() {
-     type T = Int
+  @struct case class Avalon(data: Int, start: Boolean, end: Boolean)
+  
+  @virtualize
+  def main() {
+    type T = Avalon
 
      val frameRows = 64
      val frameCols = 64
@@ -18,13 +21,12 @@
      // val avalon = StreamOut[T](onboardVideo)
 
     Accel {
-      Foreach(*, 64 by 1) { (_,j) =>
-        Stream(1 by 1) { i =>
-          val streamInterface = FIFO[T](64)
-          val onchipSram = SRAM[T](64)
-          Decoder(conduit, streamInterface) // type = stream child. Pops from conduit and pushes to self. Plop in altera_up_avalon_video_decoder
-          DMA(streamInterface, onchipSram)
-        }
+      Stream(*, 64 by 1) { (_,j) =>
+        val streamInterface = FIFO[T](64)
+        val onchipSram = SRAM[T](64)
+        Decoder(conduit, streamInterface) // type = stream child. Pops from conduit and pushes to self. Plop in altera_up_avalon_video_decoder
+        DMA(streamInterface, onchipSram)
+
       }
     }
 
@@ -62,5 +64,4 @@
 
     AXI_Master_Slave() // Plop in ARM code
   }
-
 }

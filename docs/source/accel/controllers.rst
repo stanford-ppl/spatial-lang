@@ -2,8 +2,10 @@ Controller Templates
 ====================
 
 .. toctree::
-    controllers/foreach
-    controllers/reduce
     controllers/fold
+    controllers/foreach
+    controllers/memfold
     controllers/memreduce
     controllers/parallel
+    controllers/reduce
+

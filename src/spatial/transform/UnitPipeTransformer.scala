@@ -68,11 +68,11 @@ trait UnitPipeTransformer extends ForwardTransformer {
         if (curStage.isControl) stages += PipeStage.empty(false)
         curStage.nodes += stm
       }
-      else if (isRegisterRead(s)) {
+      else if (isStateless(s) && !isAllocation(s)) {
         if (!curStage.isControl) curStage.nodes += stm
         curStage.regReads += stm
       }
-      else if (isAllocation(s) || isGlobal(s)) {
+      else if (isStateless(s) || isAllocation(s) || isGlobal(s)) {
         if (isPrimitiveAllocation(s) && !curStage.isControl) curStage.nodes += stm
         else curStage.allocs += stm
       }
