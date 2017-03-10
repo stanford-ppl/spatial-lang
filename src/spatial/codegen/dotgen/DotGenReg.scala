@@ -20,7 +20,7 @@ trait DotGenReg extends DotCodegen {
     reads.foreach { case (mem, ind, en) =>
       readersOf(mem).foreach { case read =>
         if (read.node==reader) {
-          emitEdge(mem, read.ctrlNode, DotAttr().label("read"))
+          emitEdge(mem, read.ctrlNode, DotAttr().label(s"${quote(reader)}"))
         }
       }
     }
@@ -31,7 +31,7 @@ trait DotGenReg extends DotCodegen {
     writes.foreach { case (mem, value, _, _) =>
       writersOf(mem).foreach { case write =>
         if (write.node==writer) {
-          emitEdge(write.ctrlNode, mem, DotAttr().label("write"))
+          emitEdge(write.ctrlNode, mem, DotAttr().label(s"${quote(writer)}"))
         }
       }
     }

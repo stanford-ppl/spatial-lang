@@ -3,7 +3,6 @@ package spatial.codegen.dotgen
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
-
 trait DotGenDRAM extends DotGenSRAM {
   val IR: SpatialExp
   import IR._
