@@ -98,11 +98,53 @@ object IllegalFIFOParallelization extends SpatialTest {
   }
 }
 
+object RegCoalesceTest extends SpatialTest {
+  import IR._
+
+  @virtualize
+  def main() {
+    val out1 = ArgOut[Int]
+    val out2 = ArgOut[Int]
+    Accel {
+      Foreach(16 by 1) {i =>
+        val reg = Reg[Int]
+        Pipe { reg := i }
+        Pipe { out1 := reg.value }
+        Pipe { out2 := reg.value }
+      }
+    }
+  }
+}
+
+object SRAMCoalesceTest extends SpatialTest {
+  import IR._
+
+  @virtualize
+  def main() {
+    Accel {
+      val sram = SRAM[Int](32)
+      val out1 = ArgOut[Int]
+      val out2 = ArgOut[Int]
+      Foreach(16 by 1){i =>
+        Foreach(16 by 1){j => sram(j) = i*j }
+        val sum = Reduce(0)(16 par 2){j => sram(j) }{_+_}
+        val product = Reduce(0)(16 par 3){j => sram(j) }{_*_}
+        out1 := sum
+        out2 := product
+      }
+    }
+  }
+}
+
 class BankingTests extends FlatSpec with Matchers with Exceptions {
   SpatialConfig.enableScala = true
   "TwoDuplicatesSimple" should "have two duplicates of sram" in { TwoDuplicatesSimple.main(Array.empty) }
   "TwoDuplicatesPachinko" should "have two duplicates of sram" in { TwoDuplicatesPachinko.main(Array.empty) }
 
   "LegalFIFOParallelization" should "compile" in { LegalFIFOParallelization.main(Array.empty) }
+
+  "RegCoalesceTest" should "be coalesced" in { RegCoalesceTest.main(Array.empty) }
+  "SRAMCoalesceTest" should "NOT be coalesced" in { SRAMCoalesceTest.main(Array.empty) }
+
   a [TestBenchFailed] should be thrownBy { IllegalFIFOParallelization.main(Array.empty) }
 }

@@ -34,6 +34,9 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
     val requestLength = tileDims.last
     val p = wrap(par)
 
+    val bytesPerWord = bits[T].length / 8 + (if (bits[T].length % 8 != 0) 1 else 0)
+
+
     // Metaprogrammed (unstaged) if-then-else
     if (counters.length > 1) {
       Stream.Foreach(counters.dropRight(1).map{ctr => ctr()}){ is =>
@@ -79,9 +82,10 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       // Command generator
       Pipe {
         Pipe {
-          val addr = offchipAddr + dram.address
+          val addr_bytes = (offchipAddr + dram.address) * bytesPerWord
           val size = requestLength
-          cmdStream.enq(BurstCmd(addr, size, false))
+          val size_bytes = size * bytesPerWord
+          cmdStream.enq(BurstCmd(addr_bytes, size_bytes, false))
           issueQueue.enq(size)
         }
         // Data loading
@@ -115,7 +119,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         val length     = Reg[Index]
         Pipe {
           val elementsPerBurst = (target.burstSize / bits[T].length).as[Index]
-          val maddr = offchipAddr
+          val maddr = offchipAddr*4
           val start = maddr % elementsPerBurst    // Number of elements to ignore at beginning
           val end = start + requestLength         // Index to begin ignoring again
           val addr = maddr + dram.address - start // Burst-aligned offchip address
@@ -123,7 +127,10 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
           val extra = elementsPerBurst - (requestLength % elementsPerBurst)     // Number of extra elements needed
           val size = requestLength + mux(requestLength % elementsPerBurst == 0, 0.as[Index], extra) // Burst aligned length
 
-          cmdStream.enq(BurstCmd(addr, size, false))
+          val addr_bytes = addr * bytesPerWord
+          val size_bytes = size * bytesPerWord
+
+          cmdStream.enq(BurstCmd(addr_bytes, size_bytes, false))
           issueQueue.enq(size)
           startBound := start
           endBound := end
@@ -153,9 +160,13 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
 
       // Command generator
       Pipe {
-        val addr = offchipAddr + dram.address
+        val addr = offchipAddr*4 + dram.address
         val size = requestLength
-        cmdStream.enq( BurstCmd(addr, size, true) )
+
+        val addr_bytes = addr * bytesPerWord
+        val size_bytes = size * bytesPerWord
+
+        cmdStream.enq( BurstCmd(addr_bytes, size_bytes, true) )
         issueQueue.enq( size )
       }
       // Fringe
@@ -180,7 +191,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       Pipe {
         val elementsPerBurst = (target.burstSize/bits[T].length).as[Index]
 
-        val maddr = offchipAddr
+        val maddr = offchipAddr * 4
         val start = maddr % elementsPerBurst              // Number of elements to ignore at beginning
         val end   = start + requestLength                 // Index to begin ignoring again
         val addr  = maddr + dram.address - start          // Burst-aligned offchip address
@@ -188,7 +199,10 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         val extra = elementsPerBurst - (requestLength % elementsPerBurst)     // Number of extra elements needed
         val size  = requestLength + mux(requestLength % elementsPerBurst == 0, 0.as[Index], extra) // Burst aligned length
 
-        cmdStream.enq( BurstCmd(addr, size, true) )
+        val addr_bytes = addr * bytesPerWord
+        val size_bytes = size * bytesPerWord
+
+        cmdStream.enq( BurstCmd(addr_bytes, size_bytes, true) )
         issueQueue.enq( IssuedCmd(size, start, end) )
       }
 
@@ -232,6 +246,8 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
     val requestLength = wrap(size)
     val p = wrap(par)
 
+    val bytesPerWord = bits[T].length / 8 + (if (bits[T].length % 8 != 0) 1 else 0)
+
     Stream {
       // Gather
       if (isLoad) {
@@ -241,7 +257,9 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         // Send
         Foreach(requestLength par p){i =>
           val addr = addrs(i) + dram.address
-          addrBus.enq(addr)
+
+          val addr_bytes = addr * bytesPerWord
+          addrBus.enq(addr_bytes)
         }
         // Fringe
         fringe_sparse_load(offchip, addrBus.s, dataBus.s)
@@ -258,9 +276,12 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
 
         // Send
         Foreach(requestLength par p){i =>
-          val addr = addrs(i) + dram.address
+          val addr = addrs(i) * 4 + dram.address
           val data = local(i)
-          cmdBus.enq( pack(data,addr) )
+
+          val addr_bytes = addr * bytesPerWord
+
+          cmdBus.enq( pack(data,addr_bytes) )
         }
         // Fringe
         fringe_sparse_store(offchip, cmdBus.s, ackBus.s)
@@ -283,18 +304,18 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   @struct case class BurstCmd(offset: Index, size: Index, isLoad: Bool)
   @struct case class IssuedCmd(size: Index, start: Index, end: Index)
 
-  abstract class TransferBus[T:Staged:Bits] extends Bus { def length = bits[T].length }
+  abstract class DRAMBus[T:Staged:Bits] extends Bus { def length = bits[T].length }
 
-  case object BurstCmdBus extends TransferBus[BurstCmd]
-  case object BurstAckBus extends TransferBus[Bool]
-  case class BurstDataBus[T:Staged:Bits]() extends TransferBus[T]
-  case class BurstFullDataBus[T:Staged:Bits]() extends TransferBus[Tup2[T,Bool]]
+  case object BurstCmdBus extends DRAMBus[BurstCmd]
+  case object BurstAckBus extends DRAMBus[Bool]
+  case class BurstDataBus[T:Staged:Bits]() extends DRAMBus[T]
+  case class BurstFullDataBus[T:Staged:Bits]() extends DRAMBus[Tup2[T,Bool]]
 
-  case object GatherAddrBus extends TransferBus[Index]
-  case class GatherDataBus[T:Staged:Bits]() extends TransferBus[T]
+  case object GatherAddrBus extends DRAMBus[Index]
+  case class GatherDataBus[T:Staged:Bits]() extends DRAMBus[T]
 
-  case class ScatterCmdBus[T:Staged:Bits]() extends TransferBus[Tup2[T, Index]]
-  case object ScatterAckBus extends TransferBus[Bool]
+  case class ScatterCmdBus[T:Staged:Bits]() extends DRAMBus[Tup2[T, Index]]
+  case object ScatterAckBus extends DRAMBus[Bool]
 
   /** Internal **/
 
@@ -414,6 +435,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     dataStream: Exp[StreamIn[T]]
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_dense_load(f(dram),f(cmdStream),f(dataStream))
+    val bT = bits[T]
   }
 
   case class FringeDenseStore[T:Staged:Bits](
@@ -423,6 +445,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     ackStream:  Exp[StreamIn[Bool]]
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_dense_store(f(dram),f(cmdStream),f(dataStream),f(ackStream))
+    val bT = bits[T]
   }
 
   case class FringeSparseLoad[T:Staged:Bits](
@@ -431,6 +454,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     dataStream: Exp[StreamIn[T]]
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_sparse_load(f(dram),f(addrStream),f(dataStream))
+    val bT = bits[T]
   }
 
   case class FringeSparseStore[T:Staged:Bits](
@@ -439,6 +463,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     ackStream: Exp[StreamIn[Bool]]
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_sparse_store(f(dram),f(cmdStream),f(ackStream))
+    val bT = bits[T]
   }
 
 

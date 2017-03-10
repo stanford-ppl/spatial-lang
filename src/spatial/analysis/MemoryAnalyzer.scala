@@ -58,42 +58,47 @@ trait MemoryAnalyzer extends CompilerPass {
     }
   }
 
-  case class InstanceGroup (
-    metapipe: Option[Ctrl],         // Controller if at least some accesses require n-buffering
-    accesses: Seq[Access],          // All accesses within this group
-    instance: Memory,               // Banking/buffering information
-    duplicates: Int,                // Duplicates
-    ports: Map[Access, Set[Int]],   // Set of ports each access is connected to
-    swaps: Map[Access, Ctrl]        // Swap controller for done signal for n-buffering
+  class InstanceGroup (
+    val metapipe: Option[Ctrl],         // Controller if at least some accesses require n-buffering
+    val accesses: Iterable[Access],     // All accesses within this group
+    val instance: Memory,               // Banking/buffering information
+    val duplicates: Int,                // Duplicates
+    val ports: Map[Access, Set[Int]],   // Set of ports each access is connected to
+    val swaps: Map[Access, Ctrl]        // Swap controller for done signal for n-buffering
   ) {
+
+    lazy val revPorts: Array[Set[Access]] = invertPorts(accesses, ports)   // Set of accesses connected for each port
+    def port(x: Int): Set[Access] = if (x >= revPorts.length) Set.empty else revPorts(x)
 
     def depth = ports.values.map(_.max).max+1
     // Assumes a fixed size, dual ported memory which is duplicated, both to meet duplicates and banking factors
     def normalizedCost = depth * duplicates * instance.totalBanks
+
+    val id = { InstanceGroup.id += 1; InstanceGroup.id }
+    override def toString = s"IG$id"
   }
 
-  def mergeInstanceGroup(mem: Exp[_], a: InstanceGroup, b: InstanceGroup): InstanceGroup = {
-    if (a.metapipe != b.metapipe) {
-      error("Attempted to merge instance groups: ")
-      error(a.toString)
-      error(b.toString)
-      error("(Metapipe parents are not the same)")
-      sys.exit()
-    }
-    val depthA = a.ports.values.map(_.max).max
-    val depthB = b.ports.values.map(_.max).max
-    val ports = (a.ports.keys ++ b.ports.keys).map{access =>
-      access -> (a.ports.getOrElse(access, Set.empty) ++ b.ports.getOrElse(access, Set.empty))
-    }.toMap
+  object InstanceGroup {
+    var id = 0
+  }
 
-    InstanceGroup(
-      a.metapipe,
-      (a.accesses ++ b.accesses).distinct,
-      mergeMemory(mem, a.instance, b.instance),
-      duplicates = Math.max(a.duplicates, b.duplicates),
-      ports,
-      a.swaps ++ b.swaps
-    )
+  def printGroup(group: InstanceGroup): Unit = {
+    dbg("")
+    dbg(c"  Name: $group")
+    dbg(c"  Instance: ${group.instance}")
+    dbg(c"  Controller: ${group.metapipe}")
+    dbg(c"  Duplicates: ${group.duplicates}")
+    dbg(c"  Buffer Ports: ")
+    group.revPorts.zipWithIndex.foreach{case (portAccesses,port) =>
+      dbg(c"    $port: " + portAccesses.mkString(", "))
+    }
+  }
+
+  def invertPorts(accesses: Iterable[Access], ports: Map[Access, Set[Int]]): Array[Set[Access]] = {
+    val depth = ports.values.map(_.max).max + 1
+    Array.tabulate(depth){port =>
+      accesses.filter{a => ports(a).contains(port) }.toSet
+    }
   }
 
 
@@ -110,14 +115,14 @@ trait MemoryAnalyzer extends CompilerPass {
     val accesses = writers ++ reader
 
     val group = {
-      if (accesses.isEmpty) InstanceGroup(None, Nil, BankedMemory(Nil,1,false), 1, Map.empty, Map.empty)
+      if (accesses.isEmpty) new InstanceGroup(None, Nil, BankedMemory(Nil,1,false), 1, Map.empty, Map.empty)
       else {
         val bankings = accesses.map{a => bankAccess(mem, a.node) }
         val memory = bankings.map(_._1).reduce{(a,b) => mergeMemory(mem, a, b) }
         val duplicates = bankings.map(_._2).max
 
         if (writers.isEmpty && reader.isDefined) {
-          InstanceGroup(None, accesses, memory, duplicates, Map(reader.get -> Set(0)), Map.empty)
+          new InstanceGroup(None, accesses, memory, duplicates, Map(reader.get -> Set(0)), Map.empty)
         }
         else {
           // TODO: A memory is an accumulator if a writer depends on a reader in the same pipe
@@ -147,26 +152,18 @@ trait MemoryAnalyzer extends CompilerPass {
               def allPorts = List.tabulate(depth){i=>i}.toSet
               val bufPorts = Map(nbuf.map{a => a -> Set(ports(a)) } ++ tmux.map{a => a -> allPorts} : _*)
               val bufSwaps = Map(nbuf.map{a => a -> childContaining(parent, a) } : _*)
-              InstanceGroup(metapipe, accesses, bufferedMemory, duplicates, bufPorts, bufSwaps)
+              new InstanceGroup(metapipe, accesses, bufferedMemory, duplicates, bufPorts, bufSwaps)
 
             // Time-multiplexed case:
             case None =>
               val muxPorts = ports.map{case (key, port) => key -> Set(port)}
-              InstanceGroup(None, accesses, bufferedMemory, duplicates, muxPorts, Map.empty)
+              new InstanceGroup(None, accesses, bufferedMemory, duplicates, muxPorts, Map.empty)
           }
         }
       }
     }
 
-    dbg("")
-    dbg(c"  Instance: ${group.instance}")
-    dbg(c"  Controller: ${group.metapipe}")
-    dbg(c"  Duplicates: ${group.duplicates}")
-    dbg(c"  Buffer Ports: ")
-    (0 until group.instance.depth).foreach{port =>
-      val portAccesses = accesses.filter{a => group.ports(a).contains(port) }
-      dbg(c"    $port: " + portAccesses.mkString(", "))
-    }
+    printGroup(group)
     group
   }
 
@@ -175,35 +172,164 @@ trait MemoryAnalyzer extends CompilerPass {
 
   // TODO: Other cases for coalescing?
   def coalesceMemories(mem: Exp[_], instances: List[InstanceGroup]): List[InstanceGroup] = {
-    val writers = writersOf(mem)
-    val readers = readersOf(mem)
-    def getMerge(a: InstanceGroup, b: InstanceGroup): Option[InstanceGroup] = {
-      val accesses = a.accesses ++ b.accesses
-      val merged = mergeInstanceGroup(mem, a, b)
-      val depth = merged.ports.values.map(_.max).max
-      val isLegal = (0 until depth).forall{port =>
-        val portAccesses = accesses.filter{a => merged.ports(a).contains(port) }
-        val read  = portAccesses.count(readers contains _)
-        val write = portAccesses.count(writers contains _)
-        read <= 1 && write <= 1
+    val writers = writersOf(mem).toSet
+    val readers = readersOf(mem).toSet
+
+    def canMerge(grps: Set[InstanceGroup]): (Boolean, Int, Option[Ctrl]) = if (grps.size > 1) {
+      //dbg(c"  Checking merge of $grps: ")
+      val depth = grps.map(_.depth).max
+      val parents = grps.map(_.metapipe)
+      val isLegal = (parents.size == 1) && (0 until depth).forall{p =>
+        val accesses = grps.flatMap{g => g.port(p) }
+        val readPorts  = accesses intersect readers
+        val writePorts = accesses intersect writers
+        //dbg(c"    $p: READ:  $readPorts [${readPorts.size}]")
+        //dbg(c"    $p: WRITE: $writePorts [${writePorts.size}]")
+        readPorts.size <= 1 && writePorts.size <= 1
       }
-      if (isLegal) Some(merged) else None
+      //dbg(c"    canMerge: $isLegal")
+      (isLegal, depth, parents.head)
     }
+    else if (grps.size == 1) (true, grps.head.depth, grps.head.metapipe)
+    else (false, 0, None)
+
+    def isLegalPartition(grps: Set[InstanceGroup]): Boolean = {
+      if (grps.size > 1) canMerge(grps)._1
+      else if (grps.size == 1) true
+      else false
+    }
+
+    def merge(groups: Set[InstanceGroup]): InstanceGroup = if (groups.size > 1) {
+      val (can, depth, parent) = canMerge(groups)
+      assert(can)
+      val accesses = groups.flatMap(_.accesses)
+      val ports = accesses.map{access =>
+        access -> groups.flatMap(_.ports.getOrElse(access, Set.empty))
+      }.toMap
+
+      new InstanceGroup(
+        parent,
+        accesses,
+        instance = groups.map(_.instance).reduce{(a,b) => mergeMemory(mem, a, b) },
+        duplicates = groups.map(_.duplicates).max,
+        ports,
+        groups.map(_.swaps).reduce{(a,b) => a ++ b}
+      )
+    } else {
+      assert(groups.nonEmpty, "Can't merge empty Set")
+      groups.head
+    }
+
+    // TODO: Good functional way to express this stuff?
+    def greedyBufferMerge(instances: Set[InstanceGroup]): Set[InstanceGroup] = {
+      // Group by port conflicts
+      var instsIn = instances
+      var exclusiveGrps = Set.empty[Set[InstanceGroup]]
+      while (instsIn.nonEmpty) {
+        val grp = instsIn.head
+        val exclusive = instsIn.filter{g => !isLegalPartition(Set(grp, g)) } + grp
+        exclusiveGrps += exclusive
+        instsIn --= exclusive
+      }
+
+      // Combine zero or one groups from each mutually exclusive group
+      var instsMerge = Set.empty[InstanceGroup]
+      while (exclusiveGrps.exists(_.nonEmpty)) {
+        val grp = exclusiveGrps.find(_.nonEmpty).get.head
+        val mergeGrp = exclusiveGrps.flatMap{g =>
+          g.find(_.instance.costBasisBanks.zip(grp.instance.costBasisBanks).forall{case (a,b) => a % b == 0 || b % a == 0 })
+        }
+        val merged = merge(mergeGrp)
+
+        instsMerge += merged
+        exclusiveGrps = exclusiveGrps.map(_ diff mergeGrp)
+      }
+      instsMerge
+    }
+
+    def exhaustiveBufferMerge(instances: Set[InstanceGroup]): Set[InstanceGroup] = {
+      // This function generates all possible partitions of the given set.
+      // The size of this is the Bell number, which doesn't have an entirely straightforward
+      // representation in terms of N, but looks roughly exponential.
+      // Note that by N = 10, the size of the output is over 100,000 and grows by roughly an order of magnitude
+      // with every increment in N thereafter.
+      // First 10 Bell numbers (excluding B0): 1, 2, 5, 15, 52, 203, 877, 4140, 21147, 115975
+      // FIXME: Will see some repeats of some partitions - need to figure out how to avoid this
+      def partitions[T](elements: Set[T], canUse: Set[T] => Boolean = {x: Set[T] => true}): Iterator[Set[Set[T]]] = {
+        val N = elements.size
+
+        def getPartitions(elems: Set[T], max: Int, depth: Int = 0): Iterator[Set[Set[T]]] = {
+          if (elems.isEmpty) Set(Set.empty[Set[T]]).iterator
+          else {
+            Iterator.range(1, max+1).flatMap{c: Int =>
+              val subsets = elems.subsets(c)
+              val subs = if (c == 1) subsets.take(1) else subsets // FIXME: repeats
+
+              subs.filter(canUse).flatMap{ part: Set[T] =>
+                getPartitions(elems -- part, c, depth+1).map{more: Set[Set[T]] => more + part}
+              }
+            }
+          }
+        }
+        getPartitions(elements, N)
+      }
+
+      def costOf(x: Set[InstanceGroup]) = x.toList.map(_.normalizedCost).sum
+
+      if (instances.size > 1 && instances.size < 9) {
+        dbg("")
+        dbg("")
+        //dbg(c"Attempting to coalesce instances: ")
+        //instances.foreach(printGroup)
+
+        var best = instances
+        var bestCost: Int = costOf(best)
+
+        // !!!VERY, VERY EXPENSIVE!!! ONLY USE IF NUMBER OF GROUPS IS < 10
+        partitions(best, isLegalPartition).foreach{proposed =>
+          val part = proposed.map(merge)
+          val cost = costOf(part)
+
+          dbg("  Proposed partitioning: ")
+          part.foreach(printGroup)
+          dbg(s"  Cost: $cost")
+
+          if (cost < bestCost) {
+            best = part
+            bestCost = cost
+          }
+        }
+
+        best
+      }
+      else instances
+    }
+
 
     instances.groupBy(_.metapipe).toList.flatMap{
       case (Some(metapipe), instances) =>
-        // 1. Coalesce memories with same metapipeline parent which don't have any port conflicts
         // Find the groupings with the smallest resulting estimated cost
         // Unfortunately, "merge everything all the time if possible" isn't necessarily the best course of action
         // e.g. if we have a buffer with depth 2, banking of 2 and buffer depth 3 with banking of 3,
         // merging the two together will require depth 3 with banking of 6
         // Fortunately, the number of groups here is generally small (1 - 5), so runtime shouldn't be too much of an issue
-        // type Partition = Set[Set[InstanceGroup]]
 
-        // val cost = mutable.HashMap[Set[InstanceGroup], Int]()
-        // var partitions: Seq[Partition] = Nil
+        // 1. Greedily merge all cases where the the lcm is bounded by either a or b
+        // cost(x) = Product( x.bankings ) * x.depth * x.duplicates
+        // cost( Merge(x,y) ) = Merge(x,y).depth * Merge(x,y).duplicates * Product( Merge(x,y).bankings )
+        //                    = max(x.depth, y.depth) * max(x.duplicates,y.duplicates) * Product( lcm(x.b0,y.b0), ... )
+        //
+        // Want: cost( Merge(x,y) ) <= cost(x) + cost(y)
+        //
+        // This condition holds if lcm is less than or equal to both banking factors (i.e. one is a divisor of the other)
 
-        instances
+        val insts = greedyBufferMerge(instances.toSet)
+
+        dbg(c"After greedy: ")
+        insts.foreach(printGroup)
+
+        // 2. Coalesce remaining instance groups based on brute force search, if it's feasible
+        exhaustiveBufferMerge(insts).toList
 
 
       case (None, instances) => instances
@@ -220,6 +346,7 @@ trait MemoryAnalyzer extends CompilerPass {
   }
 
   def bank(mem: Exp[_], bankAccess: (Exp[_], Exp[_]) => (Memory, Int), settings: BankSettings) {
+    dbg("")
     dbg("")
     dbg("-----------------------------------")
     dbg(u"Inferring instances for memory $mem ")
@@ -253,32 +380,32 @@ trait MemoryAnalyzer extends CompilerPass {
       }
     }
 
-    val coalescedInsts = coalesceMemories(mem, instanceGroups)
+    val coalescedGroups = coalesceMemories(mem, instanceGroups)
 
-    dbg("Instances inferred (after memory coalescing): ")
+    dbg("")
+    dbg("")
+    dbg(u"  SUMMARY for memory $mem:")
     var i = 0
-    instanceGroups.foreach{case InstanceGroup(metapipe, accesses, instance, dups, ports, swaps) =>
-      dbg(c"  #$i - ${i+dups}: $instance (x$dups)")
+    coalescedGroups.foreach{grp =>
+      printGroup(grp)
 
-      accesses.foreach{access =>
+      grp.accesses.foreach{access =>
         if (writers.contains(access)) {
-          for (j <- i until i+dups) {
+          for (j <- i until i+grp.duplicates) {
             dispatchOf.add(access, mem, j)
-            portsOf(access, mem, j) = ports(access)
+            portsOf(access, mem, j) = grp.ports(access)
           }
         }
         else {
           dispatchOf.add(access, mem, i)
-          portsOf(access, mem, i) = ports(access)
+          portsOf(access, mem, i) = grp.ports(access)
         }
-
-        dbg(s"""   - $access (ports: ${ports(access).mkString(", ")}) [swap: ${swaps.get(access)}]""")
       }
 
-      i += dups
+      i += grp.duplicates
     }
 
-    duplicatesOf(mem) = instanceGroups.flatMap{grp => List.fill(grp.duplicates)(grp.instance) }
+    duplicatesOf(mem) = coalescedGroups.flatMap{grp => List.fill(grp.duplicates)(grp.instance) }
   }
 
 

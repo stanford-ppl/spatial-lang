@@ -4,6 +4,7 @@ import argon.codegen.scalagen._
 import argon.codegen.chiselgen._
 import argon.codegen.pirgen._
 import argon.codegen.cppgen._
+import argon.codegen.dotgen._
 import argon.core.Staging
 import argon.ops._
 import argon.traversal.IRPrinter
@@ -16,6 +17,7 @@ import spatial.codegen.scalagen._
 import spatial.codegen.chiselgen._
 import spatial.codegen.pirgen._
 import spatial.codegen.cppgen._
+import spatial.codegen.dotgen._
 
 
 protected trait SpatialExp extends Staging
@@ -26,6 +28,7 @@ protected trait SpatialExp extends Staging
   with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
   with StreamExp with PinExp with AlteraVideoExp
+  with LineBufferExp with ShiftRegisterExp with RegisterFileExp
 
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
 
@@ -38,6 +41,7 @@ protected trait SpatialApi extends SpatialExp
   with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
   with StreamApi with PinApi with AlteraVideoApi
+  with LineBufferApi with ShiftRegisterApi with RegisterFileApi
 
   with SpatialMetadataApi with BankingMetadataApi
 
@@ -64,6 +68,16 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   override val IR: SpatialCompiler
 }
 
+protected trait DotGenSpatial extends DotCodegen with DotFileGen
+  with DotGenBool with DotGenVoid with DotGenFixPt with DotGenFltPt with DotGenMixedNumeric
+  with DotGenCounter with DotGenReg with DotGenSRAM with DotGenFIFO 
+  with DotGenIfThenElse with DotGenPrint with DotGenController with DotGenMath with DotGenText
+  with DotGenDRAM with DotGenStringCast with DotGenHostTransfer with DotGenUnrolled with DotGenVector
+  with DotGenArray with DotGenAlteraVideo with DotGenStream {
+
+  override val IR: SpatialCompiler
+}
+
 protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen 
   with PIRGenPrint with PIRGenEmpty with PIRGenController with PIRGenSRAM with PIRGenDRAM with PIRPreAnalysis 
   {
@@ -74,7 +88,7 @@ protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen
 protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenBool with CppGenVoid with CppGenFixPt with CppGenFltPt with CppGenMixedNumeric
   with CppGenCounter with CppGenReg with CppGenSRAM with CppGenFIFO 
-  with CppGenIfThenElse with CppGenPrint with CppGenController with CppGenMath with CppGenText
+  with CppGenIfThenElse with CppGenPrint with CppGenController with CppGenMath with CppGenFringeCopy with CppGenText
   with CppGenDRAM with CppGenStringCast with CppGenHostTransfer with CppGenUnrolled with CppGenVector
   with CppGenArray with CppGenArrayExt with CppGenAsserts with CppGenRange with CppGenAlteraVideo with CppGenStream
   with CppGenHashMap with CppGenStructs{
@@ -130,11 +144,20 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val unroller       = new UnrollingTransformer { val IR: self.type = self }
 
   lazy val bufferAnalyzer = new BufferAnalyzer { val IR: self.type = self; def localMems = uctrlAnalyzer.localMems }
-  lazy val streamAnalyzer = new StreamAnalyzer { val IR: self.type = self ; def streamPipes = uctrlAnalyzer.streampipes; def streamEnablers = uctrlAnalyzer.streamEnablers; def streamHolders = uctrlAnalyzer.streamHolders }
-  lazy val dramAddrAlloc  = new DRAMAddrAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams }
+  lazy val streamAnalyzer = new StreamAnalyzer { 
+    val IR: self.type = self ;
+    def streamPipes = uctrlAnalyzer.streampipes;
+    def streamEnablers = uctrlAnalyzer.streamEnablers;
+    def streamHolders = uctrlAnalyzer.streamHolders 
+    def streamLoadCtrls = uctrlAnalyzer.streamLoadCtrls 
+    def streamParEnqs = uctrlAnalyzer.streamParEnqs
+  }
+
+  lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argIns = uctrlAnalyzer.argIns; def argOuts = uctrlAnalyzer.argOuts; }
 
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
   lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableChisel }
+  lazy val dotgen = new DotGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableDot }
   lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
   lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableCpp }
   lazy val treegen = new TreeGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableTree }
@@ -212,10 +235,11 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   passes += printer
   passes += bufferAnalyzer    // Set top controllers for n-buffers
   passes += streamAnalyzer    // Set stream pipe children fifo dependencies
-  passes += dramAddrAlloc     // Get address offsets for each used DRAM object
+  passes += argMapper     // Get address offsets for each used DRAM object
   passes += printer
 
   // --- Code generation
+  passes += dotgen
   passes += scalagen
   passes += chiselgen
   passes += pirgen 

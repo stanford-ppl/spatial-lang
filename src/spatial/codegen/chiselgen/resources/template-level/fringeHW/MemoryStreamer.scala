@@ -55,8 +55,8 @@ class MemoryStreamer(
   // Size FIFO, counters
   val sizeIssuedFifo = Module(new FIFOCore(1+w, d, v))
   val sizeIssuedFifoConfig = Wire(new FIFOOpcode(d, v))
-  sizeIssuedFifoConfig.chainRead := UInt(1)
-  sizeIssuedFifoConfig.chainWrite := UInt(1)
+  sizeIssuedFifoConfig.chainRead := 1.U
+  sizeIssuedFifoConfig.chainWrite := 1.U
   sizeIssuedFifo.io.config := sizeIssuedFifoConfig
 
   sizeIssuedFifo.io.enq(0) := Cat(io.last, io.accel.cmd.bits.size)
@@ -65,9 +65,9 @@ class MemoryStreamer(
   // Burst received counter
   val receivedCounter = Module(new Counter(w))
   receivedCounter.io.max := sizeIssuedFifo.io.deq(0)(w-1, 0)
-  receivedCounter.io.stride := UInt(1)
-  receivedCounter.io.reset := UInt(0)
-  receivedCounter.io.saturate := UInt(0)
+  receivedCounter.io.stride := 1.U
+  receivedCounter.io.reset := 0.U
+  receivedCounter.io.saturate := 0.U
   receivedCounter.io.enable := io.fringe.rdata.valid
   sizeIssuedFifo.io.deqVld := receivedCounter.io.done
 

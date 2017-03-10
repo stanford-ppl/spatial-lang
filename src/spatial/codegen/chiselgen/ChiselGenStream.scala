@@ -5,11 +5,11 @@ import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
+import scala.collection.mutable.HashMap
 
 trait ChiselGenStream extends ChiselCodegen {
   val IR: SpatialExp
   import IR._
-
 
   var streamIns: List[Sym[Reg[_]]] = List()
   var streamOuts: List[Sym[Reg[_]]] = List()
@@ -24,16 +24,27 @@ trait ChiselGenStream extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
-      streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      s"$bus" match {
+        case "BurstFullDataBus" => 
+        case "BurstAckBus" => 
+          
+        case _ =>
+          emit(src"// New stream in $lhs")
+          streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      }
     case StreamOutNew(bus) =>
-      streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
-    case StreamDeq(stream, en, z) =>
-      // val streamId = streamIns.indexOf(stream.asInstanceOf[Sym[StreamIn[_]]])
-      emit(src"""val $lhs = ${stream}_data""")
-      emit(src"""${stream}_pop := $en""")
+      s"$bus" match {
+        case "BurstCmdBus" => 
+        case _ =>
+          emit(src"// New stream out $lhs")
+          streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      }
+    case StreamDeq(stream, en, zero) => 
+      emit(src"""val $lhs = Mux($en, ${stream}_data, $zero)""")
     case StreamEnq(stream, data, en) => 
-      // val streamId = streamIns.indexOf(stream.asInstanceOf[Sym[StreamIn[_]]])
-      emit(src"""${stream}_push := $en""")
+      emitGlobal(src"""val ${stream}_valid = Wire(Bool())""")
+      emit(src"""${stream}_valid := ${parentOf(stream).get}_done & $en""")
+      emitGlobal(src"""val ${stream}_data = Wire(UInt(65.W))""")
       emit(src"""${stream}_data := $data""")
     case _ => super.emitNode(lhs, rhs)
   }

@@ -51,7 +51,7 @@ class Mem1D(val size: Int, val isFifo: Boolean) extends Module { // Unbanked, in
 
   // We can do better than MaxJ by forcing mems to be single-ported since
   //   we know how to properly schedule reads and writes
-  val m = Mem(UInt(32.W), size /*, seqRead = true deprecated? */)
+  val m = Mem(size, UInt(32.W) /*, seqRead = true deprecated? */)
   val wInBound = io.w.addr < (size).U
   val rInBound = io.r.addr < (size).U
 
@@ -262,7 +262,7 @@ class SRAM(val logicalDims: List[Int], val w: Int,
   var wId = 0
   def connectWPort(wBundle: Vec[multidimW], en: Bool, ports: List[Int]) {
     val port = ports(0) // Should never have more than 1 for SRAM
-    (0 until wPar).foreach{ i => 
+    (0 until wBundle.length).foreach{ i => 
       io.w(i + wId*wPar) := wBundle(i) 
     }
     io.globalWEn(wId) := en
@@ -271,7 +271,7 @@ class SRAM(val logicalDims: List[Int], val w: Int,
   }
   var rId = 0
   def connectRPort(rBundle: Vec[multidimR], port: Int) {
-    (0 until rPar).foreach{ i => 
+    (0 until rBundle.length).foreach{ i => 
       io.r(i + rId*rPar) := rBundle(i) 
     }
     rId = rId + 1
@@ -428,7 +428,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width
   def connectWPort(wBundle: Vec[multidimW], en: Bool, ports: List[Int]) {
     if (ports.length == 1) {
       val port = ports(0)
-      (0 until wPar).foreach{ i => 
+      (0 until wBundle.length).foreach{ i => 
         io.w(i + wId*wPar) := wBundle(i) 
       }
       io.writerStage := port.U
@@ -444,7 +444,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width
   }
   var rId = 0
   def connectRPort(rBundle: Vec[multidimR], port: Int) {
-    (0 until rPar).foreach{ i => 
+    (0 until rBundle.length).foreach{ i => 
       io.r(i + rId*rPar + port*numReaders*rPar) := rBundle(i) 
     }
     rId = rId + 1

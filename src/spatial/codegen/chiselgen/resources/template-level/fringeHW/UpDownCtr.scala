@@ -24,7 +24,7 @@ class UpDownCtr(val w: Int) extends Module {
 
 //  val reg = Module(new FF(w))
   val reg = Module(new FF(w))
-  val configInit = Mux(io.initAtConfig, io.initval, UInt(0, w.W))
+  val configInit = Mux(io.initAtConfig, io.initval, 0.U(w.W))
   reg.io.init := configInit
 
   // If inc and dec go high at the same time, the counter
@@ -36,7 +36,7 @@ class UpDownCtr(val w: Int) extends Module {
 
   io.isMax := incval > io.max
   reg.io.in := Mux (io.init, io.initval, Mux(io.inc, incval, decval))
-  io.gtz := (reg.io.out > UInt(0))
+  io.gtz := (reg.io.out > 0.U)
   io.out := reg.io.out
 }
 

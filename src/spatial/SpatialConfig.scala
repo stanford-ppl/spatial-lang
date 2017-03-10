@@ -14,6 +14,7 @@ object SpatialConfig extends Reporting {
   var enableScala: Boolean = getProperty("spatial.scala", "false") == "true"
   var enableChisel: Boolean = getProperty("spatial.chisel", "false") == "true"
   var enablePIR: Boolean = getProperty("spatial.pir", "false") == "true"
+  var enableDot: Boolean = getProperty("spatial.dot", "false") == "true"
   var enableSplitting: Boolean = getProperty("spatial.splitting", "false") == "true"
   var enableArchDSE: Boolean = getProperty("spatial.archDSE", "false") == "true"
   var enableCpp: Boolean = getProperty("spatial.cpp", "false") == "true"

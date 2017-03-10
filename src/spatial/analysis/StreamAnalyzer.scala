@@ -10,10 +10,43 @@ trait StreamAnalyzer extends CompilerPass {
 
   override val name = "Stream Analyzer"
   def streamPipes: Seq[Exp[_]]
+  def streamLoadCtrls: Seq[Exp[_]]
+  def streamParEnqs: Seq[Exp[_]]
   def streamEnablers: Seq[Exp[_]]
   def streamHolders: Seq[Exp[_]]
 
   override protected def process[S: Staged](block: Block[S]) = {
+    // Set metadata for tileloads
+    streamLoadCtrls.foreach{ ctrl =>  // So hacky, please fix
+      dbg(u"Trying to match ctrl $ctrl to a ParFifo or ParSRAM write")
+      val a = parentOf(ctrl).get
+      val b = childrenOf(a)
+      if (b.length > 0) {
+        val c = childrenOf(b.last)
+        if (c.length > 0) {
+          val d = c.last
+          val specificCtrl = d
+          var connectLoad: Option[Exp[Any]] = None
+          streamParEnqs.foreach { pe => 
+            dbg(u"  Attempting to match $pe (parent ${parentOf(pe).get} to $d")
+            pe match {
+              case Def(ParFIFOEnq(fifo, data, ens)) => 
+                if (s"${parentOf(pe).get}" == s"$d") {
+                  loadCtrlOf(fifo) = List(specificCtrl)
+                  dbg(u"  It's a match! $fifo to $specificCtrl")
+                }
+              case Def(ParSRAMStore(sram,inds,data,ens)) => 
+                if (s"${parentOf(pe).get}" == s"$d") {
+                  loadCtrlOf(sram) = List(specificCtrl)
+                  dbg(u"  It's a match! $sram to $specificCtrl")
+                }
+              case _ =>
+            }
+          }
+        }
+      }
+    }
+
     streamPipes.foreach{pipe =>
       val childs = childrenOf(pipe)
       dbg(u"Stream pipe $pipe with immediate children $childs")
@@ -33,7 +66,7 @@ trait StreamAnalyzer extends CompilerPass {
             dbg(c"    # Checking if ${nextLevel.get} is a stream child")
             if (childs.contains(nextLevel.get)) {
                 dbg(c"    # MATCH on ${nextLevel.get}")
-                listensTo(nextLevel.get) = fifo +: listensTo(nextLevel.get)
+                listensTo(parentOf(deq).get) = fifo +: listensTo(parentOf(deq).get)
                 nextLevel = None
             } else {
                 nextLevel = parentOf(nextLevel.get)
@@ -55,7 +88,7 @@ trait StreamAnalyzer extends CompilerPass {
             dbg(c"    # Checking if ${nextLevel.get} is a stream child")
             if (childs.contains(nextLevel.get)) {
                 dbg(c"    # MATCH on ${nextLevel.get}")
-                pushesTo(nextLevel.get) = fifo +: pushesTo(nextLevel.get)
+                pushesTo(parentOf(enq).get) = fifo +: pushesTo(parentOf(enq).get)
                 nextLevel = None
             } else {
                 nextLevel = parentOf(nextLevel.get)

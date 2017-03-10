@@ -3,13 +3,12 @@ package spatial.codegen.cppgen
 import spatial.api.DRAMExp
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
+import scala.collection.mutable.HashMap
 
 
 trait CppGenDRAM extends CppGenSRAM {
   val IR: DRAMExp with SpatialMetadataExp
   import IR._
-
-  var offchipMems: List[Sym[Any]] = List()
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -29,14 +28,17 @@ trait CppGenDRAM extends CppGenSRAM {
   } 
 
   override protected def remap(tp: Staged[_]): String = tp match {
-    case tp: DRAMType[_] => src"DRAM"
+    // case tp: DRAMType[_] => src"DRAM"
     case _ => super.remap(tp)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => 
-      emit(src"""${lhs.tp}* $lhs = new DRAM(402653184*${offchipMems.length}, ${dims.map(quote).mkString("*")});""")
-      offchipMems = offchipMems :+ lhs.asInstanceOf[Sym[Any]]
+
+      emit(src"""uint64_t ${lhs} = c1->malloc(sizeof(int32_t) * ${dims.map(quote).mkString("*")});""")
+      emit(src"c1->setArg(${argMapping(lhs)._1}, $lhs); // (memstream ${argMapping(lhs)._2})")
+      // emit(src"""uint64_t ${lhs} = (uint64_t) ${lhs}_void;""")
+
 
     // case Gather(dram, local, addrs, ctr, i)  => emit("// Do what?")
     // case Scatter(dram, local, addrs, ctr, i) => emit("// Do what?")
@@ -45,11 +47,7 @@ trait CppGenDRAM extends CppGenSRAM {
     case _ => super.emitNode(lhs, rhs)
   }
 
-  override protected def emitFileFooter() = {
-    withStream(getStream("interface","h")) {
-      emit(s"""long* MemIns[0]; // Currently unused""")
-      emit(s"// long* MemOuts[${offchipMems.length}[64] // currently unused and also incorrect")
-    }
+  override protected def emitFileFooter() {
     super.emitFileFooter()
   }
 

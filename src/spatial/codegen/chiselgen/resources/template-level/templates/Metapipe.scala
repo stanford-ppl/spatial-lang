@@ -161,5 +161,5 @@ class Metapipe(val n: Int) extends Module {
 
 
 
-class Streampipe(override val n: Int) extends Metapipe(n) {
+class Streampipe(override val n: Int) extends Parallel(n) {
 }

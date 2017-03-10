@@ -110,6 +110,7 @@ def main():
 
   if opts.dot == True:
     java_opts = java_opts + " -Dspatial.dot=true"
+    opts.emission = 1
   if opts.chisel == True:
     opts.cpp = True
     opts.scala = False

@@ -90,7 +90,7 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg)) {
-        emitGlobal(src"""val $lhs = io.argIns(${argIns.indexOf(reg)})""")
+        emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)._1})""")
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
@@ -136,7 +136,8 @@ trait ChiselGenReg extends ChiselCodegen {
           case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
         }
         
-        emit(src"""io.argOuts(${argOuts.indexOf(reg)}) := $reg // ${nameOf(reg).getOrElse("")}""")
+        emit(src"""io.argOuts(${argOuts.indexOf(reg)}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
+        emit(src"""io.argOuts(${argOuts.indexOf(reg)}).valid := $en & ${parent}_en""")
       } else {         
         reduceType(reg) match {
           case Some(fps: ReduceFunction) => // is an accumulator
@@ -148,7 +149,7 @@ trait ChiselGenReg extends ChiselCodegen {
                     emit(src"""${reg}_${ii}.io.enable := ${reg}_wren""")
                     emit(src"""${reg}_${ii}.io.reset := Utils.delay(${reg}_resetter, 2)""")
                     emit(src"""${reg} := ${reg}_${ii}.io.output""")
-                    emitGlobal(src"""val ${reg} = Wire(UInt())""")
+                    emitGlobal(src"""val ${reg} = Wire(UInt(32.W))""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                     emit(src"""${reg}_${ii}.write($reg, $en & Utils.delay(${reg}_wren,1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
@@ -200,8 +201,8 @@ trait ChiselGenReg extends ChiselCodegen {
     withStream(getStream("Instantiator")) {
       emit("")
       emit("// Scalars")
-      emit(s"val numArgIns = ${argIns.length}")
-      emit(s"val numArgOuts = ${argOuts.length}")
+      emit(s"val numArgIns_reg = ${argIns.length}")
+      emit(s"val numArgOuts_reg = ${argOuts.length}")
       // emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
       // emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
       argIns.zipWithIndex.map { case(p,i) => 
@@ -211,6 +212,12 @@ trait ChiselGenReg extends ChiselCodegen {
         emit(s"""//${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }
+    }
+
+    withStream(getStream("IOModule")) {
+      emit("// Scalars")
+      emit(s"val io_numArgIns_reg = ${argIns.length}")
+      emit(s"val io_numArgOuts_reg = ${argOuts.length}")
     }
 
     super.emitFileFooter()

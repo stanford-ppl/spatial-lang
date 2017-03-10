@@ -23,13 +23,15 @@ class NBufCtr() extends Module {
     }
   })
 
-  val cnt = Reg(init = io.input.start)
+  val cnt = Reg(UInt(32.W))  // Because chisel f***ing broke reg init randomly on 3/7/17, work around
+
+  val effectiveCnt = Mux(cnt + io.input.start >= io.input.max, cnt + io.input.start - io.input.max, cnt + io.input.start)
 
   val nextCntDown = Mux(io.input.enable, Mux(cnt === 0.U, io.input.max-1.U, cnt-1.U), cnt)
   val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.U === io.input.max, 0.U, cnt+1.U), cnt)
   cnt := Mux(io.input.countUp, nextCntUp, nextCntDown)
 
-  io.output.count := cnt
+  io.output.count := effectiveCnt
 }
 
 

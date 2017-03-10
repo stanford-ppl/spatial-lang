@@ -33,8 +33,8 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1920
         val aBlk = SRAM[T](B)
         val bBlk = SRAM[T](B)
         Parallel {
-          aBlk load a(i::i+B)
-          bBlk load b(i::i+B)
+          aBlk load a(i::i+B par 16)
+          bBlk load b(i::i+B par 16)
         }
         Reduce(Reg[T](0.as[T]))(B par P2){ii => aBlk(ii) * bBlk(ii) }{_+_}
       }{_+_}

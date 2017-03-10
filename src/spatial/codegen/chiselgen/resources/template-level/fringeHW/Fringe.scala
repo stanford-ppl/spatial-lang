@@ -20,7 +20,7 @@ class Fringe(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryS
   val v = 16 // Number of words in the same stream
   val numOutstandingBursts = 1024  // Picked arbitrarily
   val burstSizeBytes = 64
-  val d = 16 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
+  val d = 512 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
 
   val io = IO(new Bundle {
     // Host scalar interface
@@ -77,7 +77,7 @@ class Fringe(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryS
   // Memory address generator
   val mag = Module(new MAGCore(w, d, v, numMemoryStreams, numOutstandingBursts, burstSizeBytes))
   val magConfig = Wire(new MAGOpcode())
-  magConfig.scatterGather := Bool(false)
+  magConfig.scatterGather := false.B
   mag.io.config := magConfig
   mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.cmd.bits := in.cmd.bits }
   mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.cmd.valid := in.cmd.valid }
@@ -88,6 +88,9 @@ class Fringe(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryS
 
   io.dram.cmd.bits := mag.io.dram.cmd.bits
   io.dram.cmd.valid := mag.io.dram.cmd.valid
+  mag.io.dram.cmd.ready := io.dram.cmd.ready
+
   mag.io.dram.resp.bits := io.dram.resp.bits
   mag.io.dram.resp.valid := io.dram.resp.valid
+  io.dram.resp.ready := mag.io.dram.cmd.ready
 }

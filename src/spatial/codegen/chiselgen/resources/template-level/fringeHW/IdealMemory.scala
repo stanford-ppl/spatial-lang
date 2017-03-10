@@ -15,12 +15,12 @@ class IdealMemory(
 
   // Flop vld and tag inputs to delay the response by one cycle
   val tagInFF = Module(new FF(w))
-  tagInFF.io.enable := Bool(true)
+  tagInFF.io.enable := true.B
   tagInFF.io.in := io.cmd.bits.tag
   io.resp.bits.tag := tagInFF.io.out
 
   val vldInFF = Module(new FF(1))
-  vldInFF.io.enable := Bool(true)
+  vldInFF.io.enable := true.B
   vldInFF.io.in := io.cmd.valid & ~io.cmd.bits.isWr
   io.resp.valid := vldInFF.io.out
 

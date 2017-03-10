@@ -13,17 +13,15 @@ trait CppGenController extends CppCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
       // Skip everything inside
-      emit(s"uint64_t Top_cycles = 0;")
-      emit(s"interface.cycles = &Top_cycles;")
       toggleEn()
       emitBlock(func)
       toggleEn()
       emit(s"time_t tstart = time(0);")
-      emit(s"Top_run(&interface); // kernel_x123(engine, &interface);")
+      val memlist = if (setMems.length > 0) {s""", ${setMems.mkString(",")}"""} else ""
+      emit(s"c1->run();")
       emit(s"time_t tend = time(0);")
       emit(s"double elapsed = difftime(tend, tstart);")
       emit(s"""std::cout << "Kernel done, test run time = " << elapsed << " ms" << std::endl;""")
-      emit(s"""std::cout << "Kernel done, hw cycles = " << Top_cycles << " cycles" << std::endl;""")
 
     case _ => super.emitNode(lhs, rhs)
   }
