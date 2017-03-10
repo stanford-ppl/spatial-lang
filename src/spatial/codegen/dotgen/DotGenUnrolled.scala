@@ -26,6 +26,10 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
 
     case ParFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
 
+    case ParStreamDeq(strm, ens, zero) => emitMemRead(lhs)
+
+    case ParStreamEnq(strm, data, ens) => emitMemWrite(lhs)
+
     case _ => super.emitNode(lhs, rhs)
   }
 }

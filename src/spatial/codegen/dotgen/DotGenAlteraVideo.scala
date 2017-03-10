@@ -12,8 +12,8 @@ trait DotGenAlteraVideo extends DotCodegen with FileDependencies {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case AxiMSNew() =>
-    case DecoderTemplateNew() => 
-    case DMATemplateNew() => 
+    case DecoderTemplateNew(popFrom, pushTo) => 
+    case DMATemplateNew(popFrom, loadIn) => 
     case _ => super.emitNode(lhs, rhs)
   }
 }

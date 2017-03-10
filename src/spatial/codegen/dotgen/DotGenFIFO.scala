@@ -16,8 +16,8 @@ trait DotGenFIFO extends DotCodegen with DotGenReg {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@FIFONew(size)   => emitVert(lhs)
-    case FIFOEnq(fifo,v,en) => emitMemRead(lhs)
-    case FIFODeq(fifo,en,z) => emitMemWrite(lhs)
+    case FIFOEnq(fifo,v,en) => emitMemWrite(lhs)
+    case FIFODeq(fifo,en,z) => emitMemRead(lhs)
 
     case _ => super.emitNode(lhs, rhs)
   }

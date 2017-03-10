@@ -339,6 +339,9 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     case e: SparseTransfer[_] =>
       parFactorOf(e.i) = e.p
 
+    case e if isFringe(lhs) =>
+      rhs.allInputs.filter(isStream).foreach { stream => fringeOf(stream) = lhs }
+
     case _ => super.visit(lhs, rhs)
   }
 

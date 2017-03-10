@@ -261,6 +261,17 @@ trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp
   }
 
   /**
+    * Fringe that the StreamIn or StreamOut is associated with
+    **/
+  case class Fringe(fringe: Exp[_]) extends Metadata[Fringe] {
+    def mirror(f:Tx) = Fringe(f(fringe))
+  }
+  object fringeOf {
+    def apply(x: Exp[_]): Option[Exp[_]] = metadata[Fringe](x).map(_.fringe)
+    def update(x: Exp[_], fringe: Exp[_]) = metadata.add(x, Fringe(fringe))
+  }
+
+  /**
     * List of consumers of reads (primarily used for register reads)
     */
   case class ReadUsers(users: List[Access]) extends Metadata[ReadUsers] {
