@@ -83,6 +83,10 @@ public:
           tfp->flush();
         }
 
+        // Some functions (e.g. monitor DRAM queue, send DRAM response)
+        // needs to be executed every cycle
+        executeEveryCycle();
+
         // Handle callbacks for registered signals being watched
         watch();
     }
@@ -162,6 +166,10 @@ public:
            (i->second)(dut, this);
          }
       }
+    }
+
+    virtual void executeEveryCycle() {
+
     }
 };
 #endif

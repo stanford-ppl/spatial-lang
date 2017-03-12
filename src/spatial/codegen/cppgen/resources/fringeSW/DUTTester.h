@@ -67,6 +67,10 @@ public:
       }
     }
   }
+
+  virtual void executeEveryCycle() {
+    dramResponse(dut, this);
+  }
 };
 
 #endif
