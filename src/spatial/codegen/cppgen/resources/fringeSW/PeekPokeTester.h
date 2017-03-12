@@ -53,6 +53,7 @@ public:
         dut->clock = 1;
         dut->eval();
         if (tfp) tfp->dump(++main_time);
+        tfp->flush();
         is_exit = true;
     }
 
@@ -76,6 +77,11 @@ public:
         dut->eval();
         if (tfp) tfp->dump(main_time);
         numCycles++;
+
+        // Flush after certain number of cycles
+        if (numCycles % 10 == 0) {
+          tfp->flush();
+        }
 
         // Handle callbacks for registered signals being watched
         watch();
