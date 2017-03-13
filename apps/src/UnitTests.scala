@@ -370,10 +370,11 @@ object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 10
 
 object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   import IR._
+  
+  val tileSize = 32
 
   def singleFifoLoad[T:Staged:Num](src1: Array[T], in: Int) = {
 
-    val tileSize = 16 (16 -> 16)
     val P1 = 16 (16 -> 16)
 
     val N = ArgIn[Int]
@@ -404,7 +405,7 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
     val src1 = Array.tabulate(arraySize) { i => i % 256}
     val out = singleFifoLoad(src1, arraySize)
 
-    val sub1_for_check = Array.tabulate(arraySize-16) {i => i % 256}
+    val sub1_for_check = Array.tabulate(arraySize-tileSize) {i => i % 256}
 
     // val gold = src1.zip(src2){_*_}.zipWithIndex.filter( (a:Int, i:Int) => i > arraySize-64).reduce{_+_}
     val gold = src1.reduce{_+_} - sub1_for_check.reduce(_+_)
@@ -419,9 +420,9 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
 object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   import IR._
 
+  val tileSize = 64
   def parFifoLoad[T:Staged:Num](src1: Array[T], src2: Array[T], in: Int) = {
 
-    val tileSize = 16 (16 -> 16)
     val P1 = 16 (16 -> 16)
 
     val N = ArgIn[Int]
@@ -455,12 +456,12 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   def main() {
     val arraySize = args(0).to[Int]
 
-    val src1 = Array.tabulate(arraySize) { i => i % 256}
+    val src1 = Array.tabulate(arraySize) { i => (2*i) % 256}
     val src2 = Array.tabulate(arraySize) { i => i % 256 }
     val out = parFifoLoad(src1, src2, arraySize)
 
-    val sub1_for_check = Array.tabulate(arraySize-16) {i => i % 256}
-    val sub2_for_check = Array.tabulate(arraySize-16) {i => i % 256}
+    val sub1_for_check = Array.tabulate(arraySize-tileSize) {i => 2*i % 256}
+    val sub2_for_check = Array.tabulate(arraySize-tileSize) {i => i % 256}
 
     // val gold = src1.zip(src2){_*_}.zipWithIndex.filter( (a:Int, i:Int) => i > arraySize-64).reduce{_+_}
     val gold = src1.zip(src2){_*_}.reduce{_+_} - sub1_for_check.zip(sub2_for_check){_*_}.reduce(_+_)
@@ -477,7 +478,7 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
 object FifoLoadStore extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
-  val N = 16
+  val N = 32
 
   def fifoLoadStore[T:Staged:Bits](srcHost: Array[T]) = {
     val tileSize = N
