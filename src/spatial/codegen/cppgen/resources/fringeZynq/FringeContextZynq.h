@@ -10,6 +10,9 @@
 #include <sys/mman.h>
 #include <errno.h>
 
+// Some key code snippets have been borrowed from the following source:
+// https://shanetully.com/2014/12/translating-virtual-addresses-to-physcial-addresses-in-user-space
+
 // The page frame shifted left by PAGE_SHIFT will give us the physcial address of the frame
 // // Note that this number is architecture dependent. For me on x86_64 with 4096 page sizes,
 // // it is defined as 12. If you're running something different, check the kernel source
