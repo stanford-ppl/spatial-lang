@@ -120,6 +120,7 @@ class MAGCore(
   addrFifoConfig.chainWrite := ~io.config.scatterGather
   addrFifo.io.config := addrFifoConfig
 
+  addrFifo.io.forceTag.valid := 0.U
   addrFifo.io.enq.zip(io.app) foreach {case (enq, app) => enq := app.cmd.bits.addr }
   addrFifo.io.enqVld.zip(io.app) foreach {case (enqVld, app) => enqVld := app.cmd.valid }
 
@@ -134,6 +135,7 @@ class MAGCore(
   isWrFifoConfig.chainWrite := 1.U
   isWrFifo.io.config := isWrFifoConfig
 
+  isWrFifo.io.forceTag.valid := 0.U
   isWrFifo.io.enq.zip(io.app) foreach { case (enq, app) => enq(0) := app.cmd.bits.isWr }
   isWrFifo.io.enqVld.zip(io.app) foreach {case (enqVld, app) => enqVld := app.cmd.valid }
 
@@ -143,6 +145,7 @@ class MAGCore(
   sizeFifoConfig.chainRead := 1.U
   sizeFifoConfig.chainWrite := 1.U
   sizeFifo.io.config := sizeFifoConfig
+  sizeFifo.io.forceTag.valid := 0.U
   sizeFifo.io.enq.zip(io.app) foreach { case (enq, app) => enq(0) := app.cmd.bits.size }
   sizeFifo.io.enqVld.zip(io.app) foreach {case (enqVld, app) => enqVld := app.cmd.valid & ~io.config.scatterGather }
 
@@ -170,6 +173,8 @@ class MAGCore(
   dataFifoConfig.chainWrite := io.config.scatterGather
   dataFifo.io.config := dataFifoConfig
 
+  dataFifo.io.forceTag.bits := addrFifo.io.tag
+  dataFifo.io.forceTag.valid := 1.U
   dataFifo.io.enq.zip(io.app) foreach { case (enq, app) => enq := app.wdata.bits }
   dataFifo.io.enqVld.zip(io.app) foreach {case (enqVld, app) => enqVld := app.wdata.valid }
 

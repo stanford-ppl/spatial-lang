@@ -33,6 +33,7 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
     val deqVld = Input(Bool())
     val full = Output(Bool())
     val empty = Output(Bool())
+    val almostEmpty = Output(Bool())
     val config = Input(new FIFOOpcode(d, v))
   })
 
@@ -40,6 +41,7 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   val sizeUDC = Module(new UpDownCtr(log2Up(d+1)))
   val size = sizeUDC.io.out
   val empty = size === 0.U
+  val almostEmpty = sizeUDC.io.nextDec === 0.U
   val full = sizeUDC.io.isMax
   sizeUDC.io.initval := 0.U
   sizeUDC.io.max := d.U
@@ -144,6 +146,7 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   }
 
   io.empty := empty
+  io.almostEmpty := almostEmpty
   io.full := full
 }
 

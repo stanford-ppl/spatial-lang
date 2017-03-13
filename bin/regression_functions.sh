@@ -4,8 +4,8 @@
 ##   It is called from the receive.sh, which handles path variables
 ##   and git checkouts on a server-specific basis
 
-spacing=15
-delay=760
+spacing=20
+delay=1300
 numpieces=30
 hist=72
 
@@ -189,7 +189,7 @@ stamp_commit_msgs
 stamp_app_comments() {
   cd ${SPATIAL_HOME}/regression_tests
   comments=(`find . -type f -maxdepth 3 -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g"`)
-  echo -e "\n# COMMENTS:" >> $wiki_file
+  echo -e "\n# Pass Comments:" >> $wiki_file
   echo -e "\n${comments}" >> $wiki_file
 }
 
