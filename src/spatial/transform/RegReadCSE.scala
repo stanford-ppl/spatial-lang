@@ -9,6 +9,29 @@ trait RegReadCSE extends ForwardTransformer {
 
   override val name = "Register Read CSE"
 
+  // Mechanism to track duplicates that are no longer needed due to CSE'd register reads
+  var csedDuplicates = Map[Exp[_], Set[Int]]()
+  def removeDuplicates(reg: Exp[_], dups: Set[Int]) = {
+    csedDuplicates += reg -> (dups ++ csedDuplicates.getOrElse(reg, Set.empty))
+  }
+
+  override protected def postprocess[T:Staged](block: Block[T]) = {
+    // Remove CSE'd register duplicates from the metadata
+    for ((reg,csed) <- csedDuplicates) {
+      val duplicates = duplicatesOf(reg)
+      duplicatesOf(reg) = duplicates.zipWithIndex.filter{case (dup,i) => !csed.contains(i) }.map(_._1)
+
+      val writers = writersOf(reg)
+      val readers = readersOf(reg)
+      val accesses = writers ++ readers
+      accesses.foreach{access =>
+        dispatchOf.get(access, reg).foreach{orig => dispatchOf(access, reg) = orig diff csed }
+      }
+    }
+
+    super.postprocess(block)
+  }
+
   var inInnerCtrl: Boolean = false
   def inInner[A](x: => A): A = {
     val prev = inInnerCtrl
@@ -18,6 +41,8 @@ trait RegReadCSE extends ForwardTransformer {
     result
   }
 
+  // TODO: This creates unused register duplicates in metadata if the inner loop in question was previously unrolled
+  // How to handle this?
   override def transform[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx) = rhs match {
     case e@RegRead(reg) if inInnerCtrl =>
       dbg(c"Found reg read $lhs = $rhs")
@@ -41,6 +66,11 @@ trait RegReadCSE extends ForwardTransformer {
       symsWithSameEffects match {
         case Some(lhs2) =>
           lhs2.addCtx(ctx)
+          // Dispatch doesn't necessarily need to be defined yet
+          dispatchOf.get(lhs,reg) match {
+            case Some(dups) => removeDuplicates(f(reg), dups diff dispatchOf(lhs2, f(reg)))
+            case None => // No action
+          }
           lhs2.asInstanceOf[Exp[T]]
 
         case None =>

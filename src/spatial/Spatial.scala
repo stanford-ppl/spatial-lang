@@ -174,6 +174,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // --- Unit Pipe Insertion
   passes += printer
   passes += unitPipeInsert    // Wrap primitives in outer controllers
+  passes += printer
   passes += regReadCSE        // CSE register reads in inner pipelines
   passes += printer
 

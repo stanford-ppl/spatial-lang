@@ -15,6 +15,7 @@ class Parallel(val n: Int) extends Module {
       val done = Output(Bool())
       val stageEnable = Vec(n, Output(Bool()))
       val rst_en = Output(Bool())
+      val ctr_inc = Output(Bool())
     }
   })
 
@@ -70,7 +71,7 @@ class Parallel(val n: Int) extends Module {
 
   // Output logic
   io.output.done := state === doneState.U
-
+  io.output.ctr_inc := false.B // No counters for parallels (BUT MAYBE NEEDED FOR STREAMPIPES)
 }
 
 

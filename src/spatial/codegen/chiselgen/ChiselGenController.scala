@@ -6,7 +6,7 @@ import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
 
-trait ChiselGenController extends ChiselCodegen {
+trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
   val IR: SpatialExp
   import IR._
 
@@ -23,7 +23,6 @@ trait ChiselGenController extends ChiselCodegen {
      get to the very top
   */
   var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
-  var controllerStack = scala.collection.mutable.Stack[Exp[_]]()
 
   private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
     for (i <- iters.indices)
@@ -153,26 +152,28 @@ trait ChiselGenController extends ChiselCodegen {
         emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
     }
     
-    if (cchain.isDefined) {
-      emitGlobal(src"""val ${cchain.get}_ctr_en = Wire(Bool())""") 
-      sym match { 
-        case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
-        case _ => emit(src"${cchain.get}_ctr_en := ${sym}_sm.io.output.ctr_inc")
-      }
-      emit(src"""// ---- Begin $smStr ${sym} Counter Signals ----""")
-      val ctr = cchain.get
-      emit(src"""${ctr}_en := ${sym}_en""")
-      emit(src"""${ctr}_resetter := ${sym}_rst_en""")
-      if (smStr == "Innerpipe") {
-        emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}.io.output.done, 1 + ${sym}_offset)""")
-      }
-    } else {
-      emit(src"""// ---- Begin $smStr ${sym} Unit Counter ----""")
-      if (smStr == "Innerpipe") {
-        emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_sm.io.output.ctr_en, 1 + ${sym}_offset)""")
-        emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")
+    /* Counter Signals for controller (used for determining done) */
+    if (smStr != "Parallel" & smStr != "Streampipe") {
+      if (cchain.isDefined) {
+        emitGlobal(src"""val ${cchain.get}_en = Wire(Bool())""") 
+        sym match { 
+          case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
+          case _ => emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
+        }
+        emit(src"""// ---- Begin $smStr ${sym} Counter Signals ----""")
+        val ctr = cchain.get
+        emit(src"""${ctr}_resetter := ${sym}_rst_en""")
+        if (smStr == "Innerpipe") {
+          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 + ${sym}_offset)""")
+        }
       } else {
-        emit(s"// How to emit for non-innerpipe unit counter?")
+        emit(src"""// ---- Begin $smStr ${sym} Unit Counter ----""")
+        if (smStr == "Innerpipe") {
+          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_sm.io.output.ctr_en, 1 + ${sym}_offset)""")
+          emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")
+        } else {
+          emit(s"// How to emit for non-innerpipe unit counter?")
+        }
       }
     }
 
@@ -213,7 +214,15 @@ trait ChiselGenController extends ChiselCodegen {
 
         emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx}) ${hasHolders} ${holders} ${hasReadiers} ${readiers}""")  
 
-        // if (smStr == "Streampipe") {
+        // If this is a stream controller, need to set up counter copy for children
+
+        if (smStr == "Streampipe" & cchain.isDefined) {
+          emitGlobal(src"""val ${cchain.get}_copy${c}_en = Wire(Bool())""") 
+          val Def(CounterChainNew(ctrs)) = cchain.get
+          emitCounterChain(cchain.get, ctrs, src"_copy$c")
+          emit(src"""${cchain.get}_copy${c}_en := ${c}_done""")
+        }
+
         //   // Collect info about the fifos this child listens to
         //   val readiers = (listensTo(c) :+ sym).distinct.map { fifo => 
         //     fifo match {
@@ -272,6 +281,7 @@ trait ChiselGenController extends ChiselCodegen {
       controllerStack.push(lhs)
       emitController(lhs, None, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        emit(s"// Controller Stack: ${controllerStack}")
         emitBlock(func)
       }
       controllerStack.pop()
@@ -281,6 +291,7 @@ trait ChiselGenController extends ChiselCodegen {
       controllerStack.push(lhs)
       emitController(lhs, None, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        emit(s"// Controller Stack: ${controllerStack}")
         emitBlock(func)
       } 
       controllerStack.pop()
@@ -290,6 +301,7 @@ trait ChiselGenController extends ChiselCodegen {
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters))
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        emit(s"// Controller Stack: ${controllerStack}")
         emitNestedLoop(cchain, iters){ emitBlock(func) }
       }
       controllerStack.pop()

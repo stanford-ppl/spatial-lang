@@ -72,8 +72,15 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
 
 
   // --- User exceptions
+  def nth(x: Int) = x match {
+    case 0 => "first"
+    case 1 => "second"
+    case 2 => "third"
+    case n => s"${n}th"
+  }
+
   class InvalidOnchipDimensionError(mem: Exp[_], dim: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctx, u"Memory $mem defined here has invalid dimension $dim.")
+    error(ctx, u"Memory $mem defined here has invalid ${nth(dim)} dimension.")
     error("Only functions of constants and DSE parameters are allowed as dimensions of on-chip memories")
   })
 
@@ -105,7 +112,8 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
   })
 
   class InvalidOffchipDimensionError(offchip: Exp[_], dim: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctxOrHere(offchip), u"Offchip memory defined here has invalid dimension $dim")
+    error(ctx, u"Offchip memory defined here has invalid ${nth(dim)} dimension")
+    error("Only functions of input arguments, parameters, and constants can be used as DRAM dimensions.")
   })
 
   class ConcurrentReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {

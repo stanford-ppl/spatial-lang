@@ -35,7 +35,7 @@ trait DimensionAnalyzer extends SpatialTraversal {
           assert(softDim.tp match {case IntType() => true; case _ => false})
           softDim.asInstanceOf[Exp[Index]]
         case _ if isGlobal(dim) => dim.asInstanceOf[Exp[Index]]
-        case _ => new InvalidOffchipDimensionError(dram, i); int32(0)
+        case _ => new InvalidOffchipDimensionError(dram, i)(ctxOrHere(dram)); int32(0)
       }}
       softDimsOf(dram) = softDims
     }
