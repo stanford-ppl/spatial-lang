@@ -501,11 +501,8 @@ trait PIRTraversal extends SpatialTraversal {
         if (prevStage.isEmpty || sram.mode == VectorFIFOMode || sram.mode == ScalarFIFOMode )
           LocalRef(-1, reg)
         else {
-          if (sram.mode != VectorFIFOMode && sram.mode!= ScalarFIFOMode && sram.readAddr.isDefined) {
-            if (prevStage.get.outputMems.contains(sram.readAddr.get))
-              LocalRef(-1, reg)
-            else
-              LocalRef(stage-1,reg)
+          if (sram.mode != VectorFIFOMode && sram.mode!= ScalarFIFOMode) {
+            LocalRef(stage-1,reg)
           }
           else
             throw new Exception(s"No address defined for SRAM $sram")
