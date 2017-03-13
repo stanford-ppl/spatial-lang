@@ -89,8 +89,8 @@ trait UnitPipeTransformer extends ForwardTransformer {
     stages.zipWithIndex.foreach{
       case (stage,i) if !stage.isControl =>
         val calculated = stage.nodes.map{case TP(s,d) => s}
-        val needed = deps.drop(i+1).flatten
-        val escaping = calculated.filter{sym => needed.contains(sym) && !isRegisterRead(sym) }
+        val innerDeps = deps.take(i).flatten // Things in this Unit Pipe
+        val escaping = calculated.filter{sym => (sym.dependents diff innerDeps).nonEmpty && !isRegisterRead(sym) }
         val (escapingUnits, escapingValues) = escaping.partition{_.tp == VoidType}
 
         // Create registers for escaping primitive values
