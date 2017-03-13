@@ -119,7 +119,7 @@ trait UnitPipeTransformer extends ForwardTransformer {
 
       case (stage, i) if stage.isControl =>
         stage.nodes.foreach(visitStm)           // Zero or one control nodes
-        stage.staticAllocs.foreach(visitStm)    // Allocations which cannot rely on reg reads
+        stage.staticAllocs.foreach(visitStm)    // Allocations which cannot rely on reg reads (and occur AFTER nodes)
         stage.regReads.foreach(visitStm)        // Register reads
         stage.dynamicAllocs.foreach(visitStm)   // Allocations which can rely on reg reads
     }

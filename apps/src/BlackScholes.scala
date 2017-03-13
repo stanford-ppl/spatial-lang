@@ -5,7 +5,7 @@ object BlackScholes extends SpatialApp { // Regression (Dense) // Args: 1280
   import IR._
 
   // .as is for constants, .to is for else
-  type T = FixPt[TRUE,_16,_16]
+  type T = Float // FixPt[TRUE,_16,_16]
   val margin = 0.5.as[T] // Validates true if within +/- margin
   val innerPar = 1
   val outerPar = 1
