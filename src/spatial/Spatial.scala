@@ -69,6 +69,7 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
 }
 
 protected trait DotGenSpatial extends DotCodegen with DotFileGen
+  with DotGenEmpty 
   with DotGenBool with DotGenVoid with DotGenFixPt with DotGenFltPt with DotGenMixedNumeric
   with DotGenCounter with DotGenReg with DotGenSRAM with DotGenFIFO 
   with DotGenIfThenElse with DotGenPrint with DotGenController with DotGenMath with DotGenText
