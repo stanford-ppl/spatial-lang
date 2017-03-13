@@ -141,15 +141,11 @@ trait PIRTraversal extends SpatialTraversal {
 
   def compose(dexp:Expr) = composed.get(dexp).getOrElse(dexp)
 
-  def decompose[T](exp:Expr, fields:Seq[T])(implicit ev:TypeTag[T]):Seq[Expr] = {
-    decomposeWithFields(exp, fields).map(_._2)
-  }
-
-  def decomposeWithFields[T](exp:Expr, fields:Seq[T])(implicit ev:TypeTag[T]):Seq[(String, Expr)] = {
+  def decomposeWithFields[T](exp:Expr, fields:Seq[T])(implicit ev:TypeTag[T]):Either[Expr, Seq[(String, Expr)]] = {
     if (fields.size<=1) {
-      Seq(("N/A", exp))
+      Left(exp)
     } else {
-      decomposed.getOrElseUpdate(exp, {
+      Right(decomposed.getOrElseUpdate(exp, {
         fields.map { f => 
           val (field, dexp) = f match {
             case field if typeOf[T] =:= typeOf[String] => 
@@ -160,39 +156,64 @@ trait PIRTraversal extends SpatialTraversal {
           composed += dexp -> exp
           (field, dexp)
         }
-      })
+      }))
     }
   }
 
-  def decomposeBus(bus:Bus, mem:Expr) = bus match {
-    case BurstCmdBus => decompose(mem, Seq("offset", "size", "isLoad"))
-    case BurstAckBus => decompose(mem, Seq()) 
-    case bus:BurstDataBus[_] => decompose(mem, Seq()) 
-    case bus:BurstFullDataBus[_] => decompose(mem, Seq("data", "valid")) //?
-    case GatherAddrBus => decompose(mem, Seq())
-    case bus:GatherDataBus[_] => decompose(mem, Seq())
-    case bus:ScatterCmdBus[_] => decompose(mem, Seq("data", "valid")) //?
-    case ScatterAckBus => List(mem) 
-    case _ => throw new Exception(s"Don't know how to decompose bus ${bus}")
-  }
-
-  def decompose(exp:Expr):Seq[Expr] = exp match {
+  def decomposeWithFields[T](exp:Expr)(implicit ev:TypeTag[T]):Either[Expr, Seq[(String, Expr)]] = exp match {
     case Def(StreamInNew(bus)) => decomposeBus(bus, exp) 
     case Def(StreamOutNew(bus)) => decomposeBus(bus, exp)
-    case Def(SimpleStruct(elems)) => decompose(exp, elems)
-    case mem if isMem(mem) => List(mem) // TODO:Handle mem of composite type here
-    case ParLocalReader(reads) => 
-      val (mem, _, _) = reads.head
+    case Def(SimpleStruct(elems)) => decomposeWithFields(exp, elems)
+    case Def(VectorApply(vec, idx)) => decomposeWithFields(exp, getFields(vec))
+    case Def(ListVector(elems)) => decomposeWithFields(exp, elems.flatMap(ele => getFields(ele)))
+    case Def(GetDRAMAddress(dram)) => Left(exp) //TODO: consider the case where dram is composed
+    case mem if isMem(mem) => 
       val fields =  mem.tp.typeArguments(0) match {
         case s:StructType[_] => s.fields.map(_._1)
         case _ => Seq()
       }
-      decompose(exp, decompose(mem, fields))
+      decomposeWithFields(mem, fields)
+    case ParLocalReader(reads) => 
+      val (mem, _, _) = reads.head
+      decomposeWithFields(exp, getFields(mem))
     case ParLocalWriter(writes) =>
-      val (mem, value, _, _) = writes.head
-      val fieldNames = value.flatMap{ value => decomposed.get(value)}.getOrElse(Seq()).map(_._1)
-      decompose(exp, fieldNames)
-    case _ => decomposed.get(exp).map{ _.map(_._2) }.getOrElse(Seq(exp))
+      val (mem, _, _, _) = writes.head
+      decomposeWithFields(exp, getFields(mem))
+    case _ => 
+      decomposed.get(exp).map(fs => Right(fs)).getOrElse(Left(exp))
+  }
+
+  def decomposeBus(bus:Bus, mem:Expr) = bus match {
+    case BurstCmdBus => decomposeWithFields(mem, Seq("offset", "size", "isLoad"))
+    case BurstAckBus => decomposeWithFields(mem, Seq()) 
+    case bus:BurstDataBus[_] => decomposeWithFields(mem, Seq()) 
+    case bus:BurstFullDataBus[_] => decomposeWithFields(mem, Seq("data", "valid")) //?
+    case GatherAddrBus => decomposeWithFields(mem, Seq())
+    case bus:GatherDataBus[_] => decomposeWithFields(mem, Seq())
+    case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data", "valid")) //?
+    case ScatterAckBus => decomposeWithFields(mem, Seq()) 
+    case _ => throw new Exception(s"Don't know how to decompose bus ${bus}")
+  }
+
+  def decompose[T](exp:Expr, fields:Seq[T])(implicit ev:TypeTag[T]):Seq[Expr] = {
+    decomposeWithFields(exp, fields) match {
+      case Left(e) => Seq(e)
+      case Right(seq) => seq.map(_._2)
+    }
+  }
+
+  def decompose(exp:Expr):Seq[Expr] = {
+    decomposeWithFields(exp) match {
+      case Left(e) => Seq(e)
+      case Right(seq) => seq.map(_._2)
+    }
+  }
+
+  def getFields(exp:Expr):Seq[String] = {
+    decomposeWithFields(exp) match {
+      case Left(e) => Seq()
+      case Right(seq) => seq.map(_._1)
+    }
   }
 
   def getMatchedDecomposed(dele:Expr, ele:Expr):Expr = {

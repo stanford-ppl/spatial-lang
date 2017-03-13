@@ -385,7 +385,7 @@ trait PIRAllocation extends PIRTraversal {
 
   def getMCUforReader(dmem:Expr, reader:Expr) = {
     val mem = compose(dmem)
-    val idx = readersOf(mem).indexOf(reader)
+    val idx = readersOf(mem).map(_.node).indexOf(reader)
     allocateMemoryCU(dmem)(idx)
   } 
 

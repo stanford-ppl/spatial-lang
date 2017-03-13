@@ -130,7 +130,7 @@ trait PIRScheduler extends PIRTraversal {
     case ParLocalReader(reads) =>
       if (usersOf(lhs).nonEmpty) {
         decompose(lhs).foreach { case dreader =>
-          assert(ctx.getReg(lhs).nonEmpty, s"reader: ${qdef(dreader)} was not allocated in ${ctx.cu} during allocation")
+          assert(ctx.getReg(dreader).nonEmpty, s"reader: ${qdef(dreader)} was not allocated in ${ctx.cu} during allocation")
         }
       }
 
@@ -139,6 +139,7 @@ trait PIRScheduler extends PIRTraversal {
     case ParLocalWriter(writes) =>
       val (mem, value, addrs, ens) = writes.head 
       value.foreach { data =>
+        dbgs(s"data:$data ddata:[${decompose(data).mkString(",")}] writer:$lhs dwriters:[${decompose(lhs).mkString(",")}]")
         decompose(data).zip(decompose(lhs)).foreach { case (ddata, dwriter) =>
           assert(ctx.getReg(dwriter).nonEmpty, s"writer: ${qdef(dwriter)} was not allocated in ${ctx.cu} during allocation")
           propagateReg(ddata, ctx.cu.getOrElseUpdate(ddata)(const(ddata)), ctx.reg(dwriter), ctx)
@@ -146,11 +147,17 @@ trait PIRScheduler extends PIRTraversal {
       }
 
     case ListVector(elems) => 
-      ctx.addReg(lhs, ctx.reg(elems.head))
+      assert(elems.size==1, s"ListVector elems size is not 1! elems:[${elems.mkString(",")}]")
+      //ctx.addReg(lhs, ctx.reg(elems.head)) //TODO: is size of elems always be 1 for pir?
+      decompose(lhs).zip(elems.flatMap(decompose)).foreach { case (lhs, elem) =>
+        ctx.addReg(lhs, ctx.reg(elem))
+      }
 
     case VectorApply(vec, idx) =>
       if (idx != 0) throw new Exception("Expected parallelization of 1 in inner loop in PIR gen")
-      ctx.addReg(lhs, ctx.reg(vec))
+      decompose(vec).zip(decompose(lhs)).foreach { case (vec, lhs) =>
+        ctx.addReg(lhs, ctx.reg(vec))
+      }
 
     case SimpleStruct(elems) =>
       decompose(lhs).foreach { elem => ctx.addReg(elem, allocateLocal(lhs)) }
