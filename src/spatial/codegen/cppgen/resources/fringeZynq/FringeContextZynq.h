@@ -8,9 +8,17 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <errno.h>
+
+// The page frame shifted left by PAGE_SHIFT will give us the physcial address of the frame
+// // Note that this number is architecture dependent. For me on x86_64 with 4096 page sizes,
+// // it is defined as 12. If you're running something different, check the kernel source
+// // for what it is defined as.
+#define PAGE_SHIFT 12
+#define PAGEMAP_LENGTH 8
 
 /**
- * Simulation Fringe Context
+ * Zynq Fringe Context
  */
 class FringeContextZynq : public FringeContextBase<void> {
 
@@ -19,6 +27,48 @@ class FringeContextZynq : public FringeContextBase<void> {
   u32 fringeScalarBase = 0;
   const u32 commandReg = 0;
   const u32 statusReg = 1;
+
+  std::map<uint64_t, void*> physToVirtMap;
+
+  void* physToVirt(uint64_t physAddr) {
+    std::map<uint64_t, void*>::iterator iter = physToVirtMap.find(physAddr);
+    if (iter == physToVirtMap.end()) {
+      EPRINTF("Physical address '%x' not found in physToVirtMap\n. Was this allocated before?");
+      exit(-1);
+    }
+    return iter->second;
+  }
+
+  uint64_t virtToPhys(void *virt) {
+    uint64_t phys = 0;
+
+    // Open the pagemap file for the current process
+    FILE *pagemap = fopen("/proc/self/pagemap", "rb");
+    FILE *origmap = pagemap;
+
+    // Seek to the page that the buffer is on
+    unsigned long offset = (unsigned long)virt/ getpagesize() * PAGEMAP_LENGTH;
+    if(fseek(pagemap, (unsigned long)offset, SEEK_SET) != 0) {
+      fprintf(stderr, "Failed to seek pagemap to proper location\n");
+      exit(1);
+    }
+
+    // The page frame number is in bits 0-54 so read the first 7 bytes and clear the 55th bit
+    unsigned long page_frame_number = 0;
+    fread(&page_frame_number, 1, PAGEMAP_LENGTH-1, pagemap);
+
+    page_frame_number &= 0x7FFFFFFFFFFFFF;
+
+    fclose(origmap);
+
+    // Find the difference from the virt to the page boundary
+    unsigned int distance_from_page_boundary = (unsigned long)virt % getpagesize();
+    // Determine how far to seek into memory to find the virt
+    phys = (page_frame_number << PAGE_SHIFT) + distance_from_page_boundary;
+
+    return phys;
+  }
+
 public:
   uint32_t numArgIns = 0;
   uint32_t numArgOuts = 0;
@@ -53,22 +103,37 @@ public:
       return size + alignment - (size % alignment);
     }
   }
+
   virtual uint64_t malloc(size_t bytes) {
     size_t paddedSize = alignedSize(burstSizeBytes, bytes);
     void *ptr = aligned_alloc(burstSizeBytes, paddedSize);
-    return (uint64_t) ptr;
+
+    // Lock the page in memory
+    // Do this before writing data to the buffer so that any copy-on-write
+    // mechanisms will give us our own page locked in memory
+    if(mlock(ptr, bytes) == -1) {
+      fprintf(stderr, "Failed to lock page in memory: %s\n", strerror(errno));
+      exit(1);
+    }
+
+    uint64_t physAddr = virtToPhys(ptr);
+    physToVirtMap[physAddr] = ptr;
+
+    return physAddr;
   }
 
   virtual void free(uint64_t buf) {
-    std::free((void*) buf);
+    std::free(physToVirt(buf));
   }
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
-    std::memcpy((void*)devmem, hostmem, size);
+    void *dst = physToVirt(devmem);
+    std::memcpy(dst, hostmem, size);
   }
 
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
-    std::memcpy(hostmem, (void*)devmem, size);
+    void *src = physToVirt(devmem);
+    std::memcpy(hostmem, src, size);
   }
 
   void dumpRegs() {
@@ -78,6 +143,7 @@ public:
     }
     fprintf(stderr, "---- END DUMPREGS ----\n");
   }
+
   virtual void run() {
      // Current assumption is that the design sets arguments individually
     uint32_t status = 0;
