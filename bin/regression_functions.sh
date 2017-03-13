@@ -5,7 +5,7 @@
 ##   and git checkouts on a server-specific basis
 
 spacing=20
-delay=1000
+delay=1300
 numpieces=30
 hist=72
 
