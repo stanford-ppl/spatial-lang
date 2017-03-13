@@ -66,6 +66,7 @@ public:
         status = readReg(statusReg);
       }
     }
+    tfp->flush();
   }
 
   virtual void executeEveryCycle() {

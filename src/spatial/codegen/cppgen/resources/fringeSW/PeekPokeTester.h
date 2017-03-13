@@ -79,7 +79,7 @@ public:
         numCycles++;
 
         // Flush after certain number of cycles
-        if (numCycles % 10 == 0) {
+        if (numCycles % 100 == 0) {
           tfp->flush();
         }
 
