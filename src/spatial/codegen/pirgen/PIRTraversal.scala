@@ -365,6 +365,7 @@ trait PIRTraversal extends SpatialTraversal {
   def getStms(pipe:Expr) = pipe match {
     case Def(Hwblock(func,_)) => blockContents(func)
     case Def(UnitPipe(en, func)) => blockContents(func)
+    case Def(ParallelPipe(en, func)) => blockContents(func)
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => blockContents(func)
     case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) => blockContents(func)
     case _ => throw new Exception(s"Don't know how to get stms pipe=${qdef(pipe)}")
