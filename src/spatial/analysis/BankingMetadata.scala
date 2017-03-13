@@ -48,10 +48,10 @@ trait BankingMetadataExp extends SpatialMetadataExp {
   }
   object dispatchOf {
     private def get(access: Exp[_]): Option[Map[Exp[_], Set[Int]]] = metadata[AccessDispatch](access).map(_.mapping)
+    def get(access: Exp[_], mem: Exp[_]): Option[Set[Int]] = dispatchOf.get(access).flatMap(_.get(mem))
 
-    def apply(access: Exp[_], mem: Exp[_]): Set[Int] = dispatchOf.get(access) match {
-      case Some(map) if map contains mem => map(mem)
-      case _ => throw new UndefinedDispatchException(access, mem)
+    def apply(access: Exp[_], mem: Exp[_]): Set[Int] = {
+      dispatchOf.get(access, mem).getOrElse{ throw new UndefinedDispatchException(access, mem) }
     }
 
     def update(access: Exp[_], mem: Exp[_], idxs: Set[Int]): Unit = dispatchOf.get(access) match {
@@ -71,6 +71,7 @@ trait BankingMetadataExp extends SpatialMetadataExp {
     }
 
     def apply(access: Access, mem: Exp[_]): Set[Int] = { dispatchOf(access.node, mem) }
+    def get(access: Access, mem: Exp[_]): Option[Set[Int]] = { dispatchOf.get(access.node, mem) }
     def update(access: Access, mem: Exp[_], idxs: Set[Int]) { dispatchOf(access.node, mem) = idxs }
     def add(access: Access, mem: Exp[_], idx: Int) { dispatchOf.add(access.node, mem, idx) }
   }
