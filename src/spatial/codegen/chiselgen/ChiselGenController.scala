@@ -50,6 +50,21 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     result
   }
 
+  protected def isStreamChild(lhs: Exp[_]): Boolean = {
+    var nextLevel: Option[Exp[_]] = Some(lhs)
+    var result = false
+    while (nextLevel.isDefined) {
+      if (styleOf(nextLevel.get) == StreamPipe) {
+        result = true
+        nextLevel = None
+      } else {
+        nextLevel = parentOf(nextLevel.get)
+      }
+    }
+    result
+
+  }
+
   override def quote(s: Exp[_]): String = {
     s match {
       case b: Bound[_] => computeSuffix(b)
@@ -158,7 +173,12 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         emitGlobal(src"""val ${cchain.get}_en = Wire(Bool())""") 
         sym match { 
           case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
-          case _ => emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
+          case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
+            if (isStreamChild(sym)) {
+              emit(src"${cchain.get}_en := ${sym}_sm_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
+            } else {
+              emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
+            } 
         }
         emit(src"""// ---- Begin $smStr ${sym} Counter Signals ----""")
         val ctr = cchain.get

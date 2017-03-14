@@ -57,6 +57,7 @@ trait StreamAnalyzer extends CompilerPass {
             case Def(FIFODeq(stream,en,_)) => stream
             case Def(ParFIFODeq(stream,en,_)) => stream
             case Def(StreamDeq(stream,en,_)) => stream
+            case Def(ParStreamDeq(stream,en,_)) => stream
             case Def(DecoderTemplateNew(popFrom, _)) => popFrom
             case Def(DMATemplateNew(popFrom, _)) => popFrom
         } 
@@ -80,6 +81,7 @@ trait StreamAnalyzer extends CompilerPass {
             case Def(FIFOEnq(stream,en,_)) => stream
             case Def(ParFIFOEnq(stream,en,_)) => stream
             case Def(StreamEnq(stream,en,_)) => stream
+            case Def(ParStreamEnq(stream,en,_)) => stream
             case Def(DecoderTemplateNew(_, pushTo)) => pushTo
         } 
         dbg(c"  # Trying to fit enqueuer $enq from fifo $fifo")

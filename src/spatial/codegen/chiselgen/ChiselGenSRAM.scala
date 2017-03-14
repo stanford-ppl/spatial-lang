@@ -47,6 +47,25 @@ trait ChiselGenSRAM extends ChiselCodegen {
         duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
           mem match {
             case BankedMemory(dims, depth, isAccum) =>
+              val rPar = readersOf(lhs).map { r => 
+                r.node match {
+                  case Def(_: SRAMLoad[_]) => 1
+                  case Def(a@ParSRAMLoad(_,inds)) => inds match {
+                    case Op(ListVector(elems)) => elems.length
+                    case _ => 1
+                  }
+                }
+              }.reduce{scala.math.max(_,_)}
+              val wPar = writersOf(lhs).map { w =>
+                w.node match {
+                  case Def(_: SRAMStore[_]) => 1
+                  case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
+                    case Op(ListVector(elems)) => elems.length
+                    case _ => 1
+                  }
+                }
+              }.reduce{scala.math.max(_,_)}
+
               val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
               val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
               val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
@@ -55,14 +74,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
                 open(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
                 emit(src"""$numWriters, $numReaders, """)
-                emit(src"""${dims.map(_.banks).reduce{_*_}}, ${dims.map(_.banks).reduce{_*_}}, "BankedMemory" // TODO: Be more precise with parallelizations """)
+                emit(src"""$wPar, $rPar, "BankedMemory" // TODO: Be more precise with parallelizations """)
                 close("))")
               } else {
                 nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAMNew[_]]], i)
                 open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
                 emit(src"""$numWriters, $numReaders, """)
-                emit(src"""${dims.map(_.banks).reduce{_*_}}, ${dims.map(_.banks).reduce{_*_}}, "BankedMemory" // TODO: Be more precise with parallelizations """)
+                emit(src"""$wPar, $rPar, "BankedMemory" // TODO: Be more precise with parallelizations """)
                 close("))")
               }
             case DiagonalMemory(strides, banks, depth, isAccum) =>
@@ -130,11 +149,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val writers = writersOf(mem)
         val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
         val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
-        Console.println(s"working on $mem $i $readers $readPorts $writers $writePorts")
-        Console.println(s"${readPorts.map{case (_, readers) => readers}}")
-        Console.println(s"innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
-        Console.println(s"middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
-        Console.println(s"outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
+        // Console.println(s"working on $mem $i $readers $readPorts $writers $writePorts")
+        // Console.println(s"${readPorts.map{case (_, readers) => readers}}")
+        // Console.println(s"innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
+        // Console.println(s"middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
+        // Console.println(s"outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
         val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
         val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
         val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}

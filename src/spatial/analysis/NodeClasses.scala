@@ -159,6 +159,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case Def(_:FIFODeq[_]) => true
     case Def(_:ParFIFODeq[_]) => true
     case Def(_:StreamDeq[_]) => true
+    case Def(_:ParStreamDeq[_]) => true
     case Def(_:DecoderTemplateNew[_]) => true
     case Def(_:DMATemplateNew[_]) => true 
     case _ => false
@@ -168,6 +169,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case Def(_:FIFOEnq[_]) => true
     case Def(_:ParFIFOEnq[_]) => true
     case Def(_:StreamEnq[_]) => true
+    case Def(_:ParStreamEnq[_]) => true
     case Def(_:DecoderTemplateNew[_]) => true
     case _ => false
   }

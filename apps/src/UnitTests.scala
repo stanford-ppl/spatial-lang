@@ -682,7 +682,7 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
         tile load srcFPGA(i::i+tileSize par 16)
         tile
       }{_+_}
-      dstFPGA store accum
+      dstFPGA(0::tileSize par 16) store accum
     }
     getMem(dstFPGA)
   }
