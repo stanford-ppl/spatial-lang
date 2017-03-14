@@ -81,6 +81,13 @@ object BFS extends SpatialApp {
   @virtualize
   def main() {
     /** TODO **/
+    val nodesIn = Array[Int](3)
+    val edgesIn = Array[Int](3)
+    val countsIn = Array[Int](3)
+    val idsIn = Array[Int](3)
+    val n = 5
+    val e = 4
+    bfs(nodesIn: Array[Int], edgesIn: Array[Int], countsIn: Array[Int], idsIn: Array[Int], n: Int, e: Int)
   }
 
 }
