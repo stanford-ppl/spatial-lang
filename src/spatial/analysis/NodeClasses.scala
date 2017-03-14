@@ -101,15 +101,17 @@ trait NodeClasses extends SpatialMetadataExp {
   /** Allocations **/
   def isAllocation(e: Exp[_]): Boolean = getDef(e).exists(isAllocation)
   def isAllocation(d: Def): Boolean = d match {
-    case _:RegNew[_]       => true
-    case _:ArgInNew[_]     => true
-    case _:ArgOutNew[_]    => true
-    case _:SRAMNew[_]      => true
-    case _:FIFONew[_]      => true
-    case _:DRAMNew[_]      => true
-    case _:StreamInNew[_]  => true
-    case _:StreamOutNew[_] => true
-    case _:Forever         => true
+    case _:RegNew[_]        => true
+    case _:ArgInNew[_]      => true
+    case _:ArgOutNew[_]     => true
+    case _:SRAMNew[_]       => true
+    case _:FIFONew[_]       => true
+    case _:LineBufferNew[_] => true
+    case _:RegFileNew[_]    => true
+    case _:DRAMNew[_]       => true
+    case _:StreamInNew[_]   => true
+    case _:StreamOutNew[_]  => true
+    case _:Forever          => true
     case _ => isDynamicAllocation(d)
   }
 
@@ -264,8 +266,12 @@ trait NodeClasses extends SpatialMetadataExp {
 
   def writerUnapply(d: Def): Option[List[LocalWrite]] = d match {
     case RegWrite(reg,data,en)             => Some(LocalWrite(reg, value=data, en=en))
+    case RegFileStore(reg,inds,data)       => Some(LocalWrite(reg, value=data, addr=inds))
+    case RegFileShiftIn(reg, data)         => Some(LocalWrite(reg, value=data))
     case SRAMStore(mem,_,inds,_,data,en)   => Some(LocalWrite(mem, value=data, addr=inds, en=en))
     case FIFOEnq(fifo,data,en)             => Some(LocalWrite(fifo, value=data, en=en))
+
+    case LineBufferStore(lb,row,col,data)  => Some(LocalWrite(lb, value=data, addr=Seq(row,col)))
 
     case e: DenseTransfer[_,_] if e.isLoad => Some(LocalWrite(e.local, addr=e.iters))
     case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
@@ -280,8 +286,12 @@ trait NodeClasses extends SpatialMetadataExp {
   }
   def readerUnapply(d: Def): Option[List[LocalRead]] = d match {
     case RegRead(reg)                       => Some(LocalRead(reg))
+    case RegFileLoad(reg,inds)              => Some(LocalRead(reg, addr=inds))
     case SRAMLoad(mem,dims,inds,ofs)        => Some(LocalRead(mem, addr=inds))
     case FIFODeq(fifo,en,_)                 => Some(LocalRead(fifo, en=en))
+
+    case LineBufferColSlice(lb,row,col,len) => Some(LocalRead(lb, addr=Seq(row,col)))
+    case LineBufferRowSlice(lb,row,len,col) => Some(LocalRead(lb, addr=Seq(row,col)))
 
     case e: DenseTransfer[_,_] if e.isStore => Some(LocalRead(e.local, addr=e.iters))
     case e: SparseTransfer[_]  if e.isLoad  => Some(LocalRead(e.addrs))

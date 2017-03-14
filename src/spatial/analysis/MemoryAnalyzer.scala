@@ -413,25 +413,6 @@ trait MemoryAnalyzer extends CompilerPass {
 
 
   // --- Memory-specific banking rules
-
-  override protected def process[S:Staged](block: Block[S]): Block[S] = {
-    // Reset metadata prior to running memory analysis
-    metadata.clearAll[AccessDispatch]
-    metadata.clearAll[PortIndex]
-
-    localMems.foreach {mem => mem.tp match {
-      case _:FIFOType[_] => bank(mem, bankFIFOAccess, FIFOSettings)
-      case _:SRAMType[_] => bank(mem, bankSRAMAccess, SRAMSettings)
-      case _:RegType[_]  => bank(mem, bankRegAccess, RegSettings)
-      case _:StreamInType[_]  => bankStream(mem)
-      case _:StreamOutType[_] => bankStream(mem)
-      case tp => throw new UndefinedBankingException(tp)(ctxOrHere(mem))
-    }}
-
-    shouldWarn = false // Don't warn user after first run (avoid duplicate warnings)
-    block
-  }
-
   object SRAMSettings extends BankSettings
   object RegSettings extends BankSettings
   object FIFOSettings extends BankSettings {
@@ -442,19 +423,32 @@ trait MemoryAnalyzer extends CompilerPass {
     override def allowPipelinedReaders: Boolean  = false
     override def allowPipelinedWriters: Boolean  = false
   }
+  object LineBufferSettings extends BankSettings
+  object RegFileSettings extends BankSettings
 
-  def bankSRAMAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
-    val patterns = accessPatternOf(access)
-    // TODO: SRAM Views: dimensions may change depending on view
-    val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
-    val allStrides = constDimsToStrides(dims)
-    val strides = if (patterns.length == 1) List(allStrides.last) else allStrides
 
+  override protected def process[S:Staged](block: Block[S]): Block[S] = {
+    // Reset metadata prior to running memory analysis
+    metadata.clearAll[AccessDispatch]
+    metadata.clearAll[PortIndex]
+
+    localMems.foreach {mem => mem.tp match {
+      case _:FIFOType[_] => bank(mem, bankFIFOAccess, FIFOSettings)
+      case _:SRAMType[_] => bank(mem, bankSRAMAccess, SRAMSettings)
+      case _:RegType[_]  => bank(mem, bankRegAccess, RegSettings)
+      case _:LineBufferType[_] => bank(mem, bankLineBufferAccess, LineBufferSettings)
+      case _:StreamInType[_]  => bankStream(mem)
+      case _:StreamOutType[_] => bankStream(mem)
+      case tp => throw new UndefinedBankingException(tp)(ctxOrHere(mem))
+    }}
+
+    shouldWarn = false // Don't warn user after first run (avoid duplicate warnings)
+    block
+  }
+
+
+  def indexPatternsToBanking(patterns: Seq[IndexPattern], strides: Seq[Int]): Seq[Banking] = {
     var used: Set[Bound[Index]] = Set.empty
-
-    // Parallelization factors relative to the accessed memory
-    val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
-    val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
 
     def bankFactor(i: Bound[Index]): Int = {
       if (!used.contains(i)) {
@@ -472,6 +466,22 @@ trait MemoryAnalyzer extends CompilerPass {
       case InvariantAccess(b)         => NoBanking // Single "bank" in this dimension
       case RandomAccess               => NoBanking // Single "bank" in this dimension
     }}
+
+    banking
+  }
+
+  def bankSRAMAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
+    val patterns = accessPatternOf(access)
+    // TODO: SRAM Views: dimensions may change depending on view
+    val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
+    val allStrides = constDimsToStrides(dims)
+    val strides = if (patterns.length == 1) List(allStrides.last) else allStrides
+
+    // Parallelization factors relative to the accessed memory
+    val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
+    val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
+
+    val banking = indexPatternsToBanking(patterns, strides)
 
     val banks = banking.map(_.banks).product
     val duplicates = channels / banks
@@ -509,6 +519,40 @@ trait MemoryAnalyzer extends CompilerPass {
     val duplicates = factors.flatten.map{case Exact(c) => c.toInt}.product
 
     (BankedMemory(Seq(NoBanking), depth = 1, isAccum = false), duplicates)
+  }
+
+  def bankLineBufferAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
+    val factors  = unrollFactorsOf(access) diff unrollFactorsOf(mem)
+    val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
+
+    val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
+    val strides = constDimsToStrides(dims)
+
+    val banking = access match {
+      case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(NoBanking, StridedBanking(strides(1),len.toInt))
+      case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(StridedBanking(strides(0),len.toInt), NoBanking)
+      case Def(LineBufferStore(_, row, col, _)) =>
+        val patterns = accessPatternOf(access)
+        indexPatternsToBanking(patterns, strides)
+    }
+
+    val banks = banking.map(_.banks).product
+    val duplicates = channels / banks
+
+    (BankedMemory(banking, depth=1, isAccum=false), duplicates)
+  }
+
+  def bankRegFileAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = access match {
+    case Def(RegFileShiftIn(_, data)) =>
+      // TODO: Not sure if this is really the right way for shifting...
+      val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
+
+      val nobanking = dims.drop(1).map{i => NoBanking}
+      val banking = nobanking :+ StridedBanking(1, lenOf(data))
+
+      (BankedMemory(banking, 1, isAccum = false), 1)
+
+    case _ => bankSRAMAccess(mem, access) // Treat register file like an SRAM otherwise
   }
 
   def bankStream(mem: Exp[_]): Unit = {

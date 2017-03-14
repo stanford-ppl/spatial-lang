@@ -17,7 +17,7 @@ import spatial.SpatialExp
 
 trait RangeLowPriorityImplicits { this: RangeApi =>
   // Have to make this a lower priority, otherwise seems to prefer this + Range infix op over the implicit class on Index
-  implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(x), x + 1, None, None)
+  implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range = index_to_range(x)
 }
 
 trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
@@ -87,6 +87,7 @@ trait RangeExp extends Staging with MemoryExp {
   protected def range_alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index], isUnit: Boolean = false) = {
     Range(start,end,stride,par,isUnit)
   }
+  protected def index_to_range(x: Index)(implicit ctx: SrcCtx) = range_alloc(Some(x), x + 1, None, None, isUnit = true)
 
   /** IR Nodes **/
   case class RangeForeach(

@@ -89,12 +89,12 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
 
 
   /** Internal Methods **/
-  def stagedDimsOf(x: Exp[SRAM[_]]): Seq[Exp[Index]] = x match {
+  def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
     case Def(SRAMNew(dims)) => dims
     case _ => throw new UndefinedDimensionsError(x, None)
   }
 
-  def dimsOf(x: Exp[SRAM[_]]): Seq[Int] = x match {
+  def dimsOf(x: Exp[_]): Seq[Int] = x match {
     case Def(SRAMNew(dims)) => dims.map {
       case Const(c: BigDecimal) => c.toInt
       case dim => throw new UndefinedDimensionsError(x, Some(dim))

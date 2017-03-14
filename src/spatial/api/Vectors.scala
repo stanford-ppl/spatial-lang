@@ -12,7 +12,7 @@ trait VectorExp extends Staging with BitsExp {
 
   /** Infix methods **/
   case class Vector[T:Staged:Bits](s: Exp[Vector[T]]) {
-    // Nothing here for now
+    def apply(i: Int)(implicit ctx: SrcCtx): T = wrap(vector_apply(s, i))
   }
 
   private[spatial] def vectorize[T:Staged:Bits](elems: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[T]] = vector_new(elems)

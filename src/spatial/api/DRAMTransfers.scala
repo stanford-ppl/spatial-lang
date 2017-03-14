@@ -323,7 +323,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     tile:   DRAMDenseTile[T],
     local:  C[T],
     isLoad: Boolean
-  )(implicit mem:Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Void = {
+  )(implicit mem: Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Void = {
 
     // Extract range lengths early to avoid unit pipe insertion eliminating rewrite opportunities
     val dram    = tile.dram

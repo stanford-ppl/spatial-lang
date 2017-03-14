@@ -39,11 +39,13 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
 
     def store(sram: SRAM[T])(implicit ctx: SrcCtx): Void = dense_transfer(this.toTile, sram, isLoad = false)
     def store(fifo: FIFO[T])(implicit ctx: SrcCtx): Void = dense_transfer(this.toTile, fifo, isLoad = false)
+    def store(regs: RegFile[T])(implicit ctx: SrcCtx): Void = dense_transfer(this.toTile, regs, isLoad = false)
   }
 
   case class DRAMDenseTile[T:Staged:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) {
     def store(sram: SRAM[T])(implicit ctx: SrcCtx): Void = dense_transfer(this, sram, isLoad = false)
     def store(fifo: FIFO[T])(implicit ctx: SrcCtx): Void = dense_transfer(this, fifo, isLoad = false)
+    def store(regs: RegFile[T])(implicit ctx: SrcCtx): Void = dense_transfer(this, regs, isLoad = false)
   }
 
   case class DRAMSparseTile[T:Staged:Bits](dram: Exp[DRAM[T]], addrs: SRAM[Index], len: Index) {
