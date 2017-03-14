@@ -175,14 +175,18 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
           case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
           case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
             if (isStreamChild(sym)) {
-              emit(src"${cchain.get}_en := ${sym}_sm_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
+              emit(src"${cchain.get}_en := ${sym}_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
             } else {
               emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
             } 
         }
-        emit(src"""// ---- Begin $smStr ${sym} Counter Signals ----""")
+        emit(src"""// ---- Begin $smStr ${sym} Counter Connections ----""")
         val ctr = cchain.get
-        emit(src"""${ctr}_resetter := ${sym}_rst_en""")
+        if (isStreamChild(sym)) {
+          emit(src"""${ctr}_resetter := ${sym}_done // Do not use rst_en for stream kiddo""")
+        } else {
+          emit(src"""${ctr}_resetter := ${sym}_rst_en""")
+        }
         if (smStr == "Innerpipe") {
           emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 + ${sym}_offset)""")
         }
