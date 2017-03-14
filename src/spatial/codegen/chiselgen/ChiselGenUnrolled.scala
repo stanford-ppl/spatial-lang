@@ -204,7 +204,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val writer = writersOf(fifo).head.ctrlNode  
       // Check if this is a tile consumer
 
-      val enabler = if (loadCtrlOf(fifo).length > 0) src"${writer}_enq" else "${writer}_sm.io.output.ctr_inc"
+      val enabler = if (loadCtrlOf(fifo).length > 0) src"${writer}_enq" else src"${writer}_sm.io.output.ctr_inc"
       emit(src"""${fifo}_writeEn := $enabler & ${ens}.reduce{_&_}""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
