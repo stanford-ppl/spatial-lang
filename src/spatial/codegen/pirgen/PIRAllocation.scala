@@ -49,20 +49,28 @@ trait PIRAllocation extends PIRTraversal {
     val cchainOpt = pipe match {
       case Def(UnrolledForeach(en, cchain, func, iters, valids)) => Some((cchain, iters, valids))
       case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) => Some((cchain, iters, valids))
-      case _ => None
+      case _ => 
+        val cu = allocateCU(pipe)
+        val ctr = CUCounter(ConstReg(1), ConstReg(1), ConstReg(1), 1)
+        val cc = CChainInstance(s"${pipe}_unit", List(ctr))
+        cu.cchains += cc
+        None
     }
     cchainOpt.foreach { case (cchain, iters, valids) =>
       dbgblk(s"Allocate cchain ${qdef(cchain)} for $pipe") {
         val cu = allocateCU(pipe)
-        def allocateCounter(start: Expr, end: Expr, stride: Expr) = {
+        def allocateCounter(start: Expr, end: Expr, stride: Expr, par:Int) = {
           val min = cu.getOrElseUpdate(start){ const(start) }
           val max = cu.getOrElseUpdate(end){ const(end) }
           val step = cu.getOrElseUpdate(stride){ const(stride) }
-          dbgs(s"counter start:${qdef(start)}, end:${qdef(end)}, stride:${qdef(stride)}")
-          CUCounter(localScalar(min), localScalar(max), localScalar(step))
+          dbgs(s"counter start:${qdef(start)}, end:${qdef(end)}, stride:${qdef(stride)}, par:$par")
+          CUCounter(localScalar(min), localScalar(max), localScalar(step), par)
         }
         val Def(CounterChainNew(ctrs)) = cchain
-        val counters = ctrs.collect{case Def(CounterNew(start,end,stride,_)) => allocateCounter(start, end, stride) }
+        val counters = ctrs.collect{case ctr@Def(CounterNew(start,end,stride,_)) => 
+          val ConstReg(par) = extractConstant(parFactorsOf(ctr).head)
+          allocateCounter(start, end, stride, par.asInstanceOf[Int])
+        }
         val cc = CChainInstance(quote(cchain), counters)
         cu.cchains += cc
         addIterators(cu, cc, iters, valids)
@@ -323,8 +331,7 @@ trait PIRAllocation extends PIRTraversal {
           } else { // Local reg accumulation
             readerCU.getOrElseUpdate(dmem) {
               val Def(RegNew(init)) = mem //Only register can be locally written
-              val initVal = extractConstant(init)
-              AccumReg(ConstReg(s"${initVal}"))
+              AccumReg(extractConstant(init))
             }
           }
         }

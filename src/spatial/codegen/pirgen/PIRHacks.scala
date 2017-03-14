@@ -123,9 +123,9 @@ trait PIRHacks extends PIRTraversal {
         cu.cchains.foreach{
           case CChainInstance(name, ctrs) =>
             val innerCtr = ctrs.last
-            if (innerCtr.end != ConstReg("1i")) {
-              assert(innerCtr.stride == ConstReg("1i"), s"${innerCtr.stride} should be ConstReg(1i)")
-              innerCtr.stride = ConstReg(s"${LANES}i")
+            if (innerCtr.end != ConstReg(1)) {
+              assert(innerCtr.stride == ConstReg(1), s"${innerCtr.stride} should be ConstReg(1)")
+              innerCtr.stride = ConstReg(LANES)
             }
 
           case _ => // Do nothing

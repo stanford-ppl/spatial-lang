@@ -22,19 +22,16 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     case _ => false 
   }
 
-  override def extractConstant(x: Expr): String = x match {
-    case Const(c: BigDecimal) if c.isWhole => s"${c}i"
-    case Const(c: BigDecimal) => s"${c}f"
-    case Const(c: Boolean) => s"${c}b"
+  override def extractConstant(x: Expr): ConstReg[AnyVal] = x match {
+    case Const(c: BigDecimal) if c.isWhole => ConstReg(c.toInt) 
+    case Const(c: BigDecimal) => ConstReg(c.toFloat) 
+    case Const(c: Boolean) => ConstReg(c) 
 
-    case Param(c: BigDecimal) if c.isWhole => s"${c}i"
-    case Param(c: BigDecimal) => s"${c}f"
+    case Param(c: BigDecimal) if c.isWhole => ConstReg(c.toInt) 
+    case Param(c: BigDecimal) => ConstReg(c.toFloat  ) 
+    case Param(c: Boolean) => ConstReg(c) 
 
-    // TODO: Not quite correct since bound is a double ??
-    case Final(c) if (c.toInt == c)  => s"${c.toInt}i"
-    case Final(c) if (c.toLong == c) => s"${c.toLong}l"
-    case Final(c) if (c.toFloat == c) => s"${c.toFloat}f"
-    case Final(c) => s"${c.toDouble}d"
+    case Final(c: BigInt)  => ConstReg(c.toInt)
 
     case _ => throw new Exception(s"Cannot allocate constant value for $x")
   }

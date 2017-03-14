@@ -6,7 +6,7 @@ import scala.collection.mutable
 trait PIR {
   type Expr
   def isConstant(x: Expr): Boolean
-  def extractConstant(x: Expr): String
+  def extractConstant(x: Expr): ConstReg[AnyVal]
   def str(x: Expr): String
 
   // --- Memory controller modes
@@ -116,9 +116,9 @@ trait PIR {
     }
   }
 
-  case class ConstReg(const: String) extends LocalMem[ConstReg] with LocalScalar with ReadAddr with WriteAddr {
-    override def eql(that: ConstReg) = this.const == that.const
-    override def toString = const
+  case class ConstReg[T<:AnyVal](const: T) extends LocalMem[ConstReg[T]] with LocalScalar with ReadAddr with WriteAddr {
+    override def eql(that: ConstReg[T]) = this.const == that.const
+    override def toString = const.toString
   }
   case class CounterReg(cchain: CUCChain, idx: Int) extends LocalMem[CounterReg] with ReadAddr with WriteAddr {
     override def eql(that: CounterReg) = this.cchain == that.cchain && this.idx == that.idx
@@ -159,7 +159,7 @@ trait PIR {
   case class ReduceReg() extends ReduceMem[ReduceReg] {
     override def toString = s"rr$id"
   }
-  case class AccumReg(init: ConstReg) extends ReduceMem[AccumReg] {
+  case class AccumReg(init: ConstReg[_<:AnyVal]) extends ReduceMem[AccumReg] {
     override def toString = s"ar$id"
   }
 
@@ -189,7 +189,7 @@ trait PIR {
   }
 
   // --- Counter chains
-  case class CUCounter(var start: LocalScalar, var end: LocalScalar, var stride: LocalScalar) {
+  case class CUCounter(var start: LocalScalar, var end: LocalScalar, var stride: LocalScalar, var par:Int) {
     val name = s"ctr${CUCounter.nextId()}"
   }
   object CUCounter { 
@@ -273,7 +273,7 @@ trait PIR {
     def inputRefs = ins
     def outputRefs = outs
   }
-  case class ReduceStage(op: PIROp, init: ConstReg, in: LocalRef, acc: ReduceReg) extends Stage {
+  case class ReduceStage(op: PIROp, init: ConstReg[_<:AnyVal], in: LocalRef, acc: ReduceReg) extends Stage {
     def inputMems = List(in.reg, acc)
     def outputMems = List(acc)
     def inputRefs = List(in)
@@ -319,7 +319,7 @@ trait PIR {
     def get(x: Expr): Option[LocalComponent] = {
       if (regTable.contains(x)) regTable.get(x)
       else if (isConstant(x)) {
-        val c = ConstReg(extractConstant(x))
+        val c = extractConstant(x)
         addReg(x, c)
         Some(c)
       }

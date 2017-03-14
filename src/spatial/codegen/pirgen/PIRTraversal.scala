@@ -300,12 +300,12 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   def allocateLocal(x: Expr): LocalComponent = x match {
-    case c if isConstant(c) => ConstReg(extractConstant(x))
+    case c if isConstant(c) => extractConstant(x)
     case _ => TempReg()
   }
 
-  def const(x:Expr) = x match {
-    case c if isConstant(c) => ConstReg(extractConstant(x))
+  def const(x:Expr):LocalComponent = x match {
+    case c if isConstant(c) => extractConstant(x)
     case _ => throw new Exception(s"${qdef(x)} ${x.tp} is not a constant")
   }
 
@@ -644,7 +644,7 @@ trait PIRTraversal extends SpatialTraversal {
     case (a, b:TempReg) => a
 
     // Special cases: don't propagate to write/read wires from counters or constants
-    case (_:CounterReg | _:ConstReg, _:WriteAddrWire | _:ReadAddrWire) => a
+    case (_:CounterReg | _:ConstReg[_], _:WriteAddrWire | _:ReadAddrWire) => a
 
     // General case for outputs: Don't add mapping for exp to output
     case (a,b) if !isReadable(b) => ctx.addOutput(a,b); b

@@ -786,7 +786,7 @@ trait PIRSplitting extends PIRTraversal {
 
     def rerefIn(reg: LocalComponent, isScalar: Boolean = orig.isUnit): LocalRef = {
       val in = reg match {
-        case _:ConstReg | _:CounterReg => reg
+        case _:ConstReg[_] | _:CounterReg => reg
         case _:ValidReg | _:ControlReg => reg
         case _:ReduceMem[_]    => if (localOuts.contains(reg)) reg else portIn(reg, isScalar)
         case MemLoadReg(sram) => if (cu.srams.contains(sram)) reg else portIn(reg, isScalar)

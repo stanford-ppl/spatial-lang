@@ -144,7 +144,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
 
   def quoteInCounter(reg: LocalScalar) = reg match {
     case reg@MemLoadReg(mem) => s"$mem.load"
-    case reg:ConstReg => s"""${quote(reg)}.out"""
+    case reg:ConstReg[_] => s"""${quote(reg)}.out"""
   }
 
   def emitComponent(x: Any): Unit = x match {
@@ -159,8 +159,8 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
     case UnitCChain(name) =>
       emit(s"""val $name = CounterChain(name = "$name", (Const("0i"), Const("1i"), Const("1i")))""")
 
-    case ctr@CUCounter(start, end, stride) =>
-      emit(s"""val ${ctr.name} = (${quoteInCounter(start)}, ${quoteInCounter(end)}, ${quoteInCounter(stride)}) // Counter""")
+    case ctr@CUCounter(start, end, stride, par) =>
+      emit(s"""val ${ctr.name} = (${quoteInCounter(start)}, ${quoteInCounter(end)}, ${quoteInCounter(stride)}, $par) // Counter""")
 
     case sram: CUMemory =>
       var decl = s"""val ${sram.name} = ${quote(sram.mode)}(size = ${sram.size}"""
@@ -201,14 +201,14 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
       case None => 
     }
     mem.readAddr match {
-      case Some(_:CounterReg | _:ConstReg) => decl += s""".rdAddr(${quote(mem.readAddr.get)})"""
+      case Some(_:CounterReg | _:ConstReg[_]) => decl += s""".rdAddr(${quote(mem.readAddr.get)})"""
       case Some(_:ReadAddrWire) =>
       case None if mem.mode != SRAMMode => // ok
       case addr => decl += s""".rdAddr($addr)"""
       //case addr => throw new Exception(s"Disallowed memory read address in $mem: $addr") //TODO
     }
     mem.writeAddr match {
-      case Some(_:CounterReg | _:ConstReg) => decl += s""".wtAddr(${quote(mem.writeAddr.get)})"""
+      case Some(_:CounterReg | _:ConstReg[_]) => decl += s""".wtAddr(${quote(mem.writeAddr.get)})"""
       case Some(_:WriteAddrWire | _:FeedbackAddrReg) =>
       case None if mem.mode != SRAMMode => // ok
       case addr => decl += s""".wtAddr(${addr})""" //TODO
@@ -277,7 +277,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
   }
 
   def quote(reg: LocalComponent): String = reg match {
-    case ConstReg(c)             => s"""Const("$c")"""              // Constant
+    case ConstReg(c)             => s"""Const($c)"""              // Constant
     case CounterReg(cchain, idx) => s"${cchain.name}($idx)"         // Counter
     case ValidReg(cchain,idx)    => s"${cchain.name}.valids($idx)"  // Counter valid
 
@@ -299,7 +299,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
   }
 
   def quote(ref: LocalRef): String = ref match {
-    case LocalRef(stage, reg: ConstReg)   => quote(reg)
+    case LocalRef(stage, reg: ConstReg[_])   => quote(reg)
     case LocalRef(stage, reg: CounterReg) => if (stage >= 0) s"CU.ctr(stage($stage), ${quote(reg)})" else quote(reg)
     case LocalRef(stage, reg: ValidReg)   => quote(reg)
 

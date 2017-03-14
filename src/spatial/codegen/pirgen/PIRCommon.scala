@@ -29,7 +29,7 @@ trait PIRCommon extends PIR {
     case _ => collectX[LocalComponent](a)(localOutputs)
   }
   def localScalar(x:Any):LocalScalar = x match {
-    case x: ConstReg => x
+    case x: ConstReg[_] => x
     case x: MemLoadReg => x
     case x => throw new Exception(s"Cannot use $x as a LocalMem")
   }
@@ -76,7 +76,7 @@ trait PIRCommon extends PIR {
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => false
     case _:ControlReg => true
-    case _:ValidReg | _:ConstReg | _:CounterReg => true
+    case _:ValidReg | _:ConstReg[_] | _:CounterReg => true
   }
   def isWritable(x: LocalComponent): Boolean = x match {
     case _:ScalarOut | _:VectorOut => true
@@ -85,7 +85,7 @@ trait PIRCommon extends PIR {
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => true
     case _:ControlReg => true
-    case _:ValidReg | _:ConstReg | _:CounterReg => false
+    case _:ValidReg | _:ConstReg[_] | _:CounterReg => false
   }
   def isControl(x: LocalComponent): Boolean = x match {
     case _:ValidReg | _:ControlReg => true

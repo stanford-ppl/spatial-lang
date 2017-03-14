@@ -168,7 +168,7 @@ trait PIRScheduler extends PIRTraversal {
       ctx.addReg(lhs, ctx.reg(ele))
 
     // --- Constants
-    case c if isConstant(lhs) => ctx.cu.getOrElseUpdate(lhs){ ConstReg(extractConstant(lhs)) }
+    case c if isConstant(lhs) => ctx.cu.getOrElseUpdate(lhs){ extractConstant(lhs) }
 
     case FltConvert(x) =>
       if (lhs.tp==x.tp) ctx.addReg(lhs, ctx.reg(x))
@@ -203,8 +203,8 @@ trait PIRScheduler extends PIRTraversal {
       val inputReg = ctx.reg(input)
       val usedInput = propagateReg(input, inputReg, ReduceReg(), ctx)
       val zero = accum match {
-        case Def(RegRead(reg)) => ConstReg(extractConstant(resetValue(reg)))
-        case _ => ConstReg("0l")
+        case Def(RegRead(reg)) => extractConstant(resetValue(reg))
+        case _ => ConstReg(0)
       }
       val acc = ReduceReg()
       val stage = ReduceStage(op, zero, ctx.refIn(usedInput), acc)
@@ -229,7 +229,7 @@ trait PIRScheduler extends PIRTraversal {
       }
       // HACK: Skip control logic generation for now...
       else if (hasControlLogic && op == PIRALUMux) {
-        val skip = inputRegs.drop(1).find{case _:ConstReg => false; case _ => true}
+        val skip = inputRegs.drop(1).find{case _:ConstReg[_] => false; case _ => true}
         ctx.addReg(out, skip.getOrElse(inputRegs.drop(1).head))
       }
       else if (hasControlLogic) {
