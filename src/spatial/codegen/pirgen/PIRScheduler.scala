@@ -75,6 +75,10 @@ trait PIRScheduler extends PIRTraversal {
         }
 
         // --- Schedule compute context
+  // If addr is a counter or const, just returns that register back. Otherwise returns address wire
+  //def allocateAddrReg(sram: CUMemory, addr: Expr, ctx: CUContext, local: Boolean = false):LocalComponent = {
+  //}
+
         val ctx = ComputeContext(cu)
         pcu.computeStages.foreach{stage => scheduleStage(stage, ctx) }
         cu.regs ++= writeStageRegs
@@ -92,9 +96,9 @@ trait PIRScheduler extends PIRTraversal {
         if (isReduce)   reduceNodeToStage(lhs,rhs,ctx)
         else            mapNodeToStage(lhs,rhs,ctx)
 
-      case AddrStage(mem, addr) =>
+      case AddrStage(dmem, addr) =>
         //dbg(s"$mem @ $addr [WRITE]")
-        addrToStage(mem, addr, ctx)
+        addrToStage(dmem, addr, ctx)
 
       case OpStage(op, ins, out, isReduce) =>
         //dbg(s"""$out = $op(${ins.mkString(",")}) [OP]""")
@@ -102,26 +106,20 @@ trait PIRScheduler extends PIRTraversal {
     }
   }
 
-  // If addr is a counter or const, just returns that register back. Otherwise returns address wire
-  def allocateAddrReg(sram: CUMemory, addr: Expr, ctx: CUContext, local: Boolean = false):LocalComponent = {
-    val wire = ctx match {
-      case WriteContext(cu, pipe, srams) if local => FeedbackAddrReg(sram)
-      case WriteContext(cu, pipe, srams) => WriteAddrWire(sram)
-      case ReadContext(cu, pipe, srams) => ReadAddrWire(sram)
-    }
-    val addrReg = ctx.reg(addr)
-    propagateReg(addr, addrReg, wire, ctx)
-  }
-
-  def addrToStage(mem: Expr, addr: Expr, ctx: CUContext, local: Boolean = false) {
-    //dbg(s"Setting write address for " + ctx.memories(mem).mkString(", "))
-    ctx.memories(mem).foreach{sram =>
-      ctx match {
-        case _:WriteContext =>
-          sram.writeAddr = Some(allocateAddrReg(sram, addr, ctx, local=local).asInstanceOf[WriteAddr])
-        case _:ReadContext =>
-          sram.readAddr = Some(allocateAddrReg(sram, addr, ctx, local=local).asInstanceOf[ReadAddr])
+  def addrToStage(dmem: Expr, addr: Expr, ctx: CUContext, local: Boolean = false) {
+    dbg(s"Setting write address for " + ctx.memories(dmem).mkString(", "))
+    ctx.memories(dmem).foreach{sram =>
+      val wire = ctx match {
+        case WriteContext(cu, pipe, srams) => sram.writeAddr.get
+        case ReadContext(cu, pipe, srams) => sram.readAddr.get 
       }
+      val addrReg = addr match {
+        case bound:Bound[_] => ctx.reg(addr)
+        case lhs@Def(rhs) => 
+          mapNodeToStage(lhs, rhs, ctx)
+          ctx.reg(addr)
+      }
+      propagateReg(addr, addrReg, wire, ctx)
     }
   }
 
@@ -141,8 +139,10 @@ trait PIRScheduler extends PIRTraversal {
       value.foreach { data =>
         dbgs(s"data:$data ddata:[${decompose(data).mkString(",")}] writer:$lhs dwriters:[${decompose(lhs).mkString(",")}]")
         decompose(data).zip(decompose(lhs)).foreach { case (ddata, dwriter) =>
-          assert(ctx.getReg(dwriter).nonEmpty, s"writer: ${qdef(dwriter)} was not allocated in ${ctx.cu} during allocation")
-          propagateReg(ddata, ctx.cu.getOrElseUpdate(ddata)(const(ddata)), ctx.reg(dwriter), ctx)
+          if (getRemoteReaders(mem, lhs).nonEmpty) {
+            assert(ctx.getReg(dwriter).nonEmpty, s"writer: ${qdef(dwriter)} was not allocated in ${ctx.cu} during allocation")
+            propagateReg(ddata, ctx.cu.getOrElseUpdate(ddata)(const(ddata)), ctx.reg(dwriter), ctx)
+          }
         }
       }
 
@@ -161,6 +161,11 @@ trait PIRScheduler extends PIRTraversal {
 
     case SimpleStruct(elems) =>
       decompose(lhs).foreach { elem => ctx.addReg(elem, allocateLocal(lhs)) }
+
+    case FieldApply(struct, fieldName) =>
+      val ele = lookupField(struct, fieldName).getOrElse(
+        throw new Exception(s"Cannot lookup struct:$struct with fieldName:$fieldName in ${qdef(lhs)}"))
+      ctx.addReg(lhs, ctx.reg(ele))
 
     // --- Constants
     case c if isConstant(lhs) => ctx.cu.getOrElseUpdate(lhs){ ConstReg(extractConstant(lhs)) }

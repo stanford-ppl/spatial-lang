@@ -128,6 +128,13 @@ trait PIRTraversal extends SpatialTraversal {
     }
     s"$lhs = $rhs"
   }
+  
+  def getOrElseUpdate[K, V](map:mutable.Map[K, V], key:K, value: =>V):V = {
+    if (!map.contains(key)) {
+      map += key -> value
+    }
+    map(key)
+  }
 
   // HACK: Skip parallel pipes in PIR gen
   def parentHack(x: Expr): Option[Expr] = parentOf(x) match {
@@ -231,14 +238,28 @@ trait PIRTraversal extends SpatialTraversal {
     }
   }
 
+  def lookupField(exp:Expr, fieldName:String):Option[Expr] = {
+    decomposeWithFields(exp) match {
+      case Left(exp) => None
+      case Right(fs) => 
+        val matches = fs.filter(_._1==fieldName)
+        assert(matches.size<=1, s"$exp has struct type with duplicated field name: [${fs.mkString(",")}]")
+        if (matches.nonEmpty)
+          Some(matches.head._2)
+        else
+          None
+    }
+  }
+
   /*
    * @return readers of dmem that are remotely read 
    * */
   def getRemoteReaders(dmem:Expr, dwriter:Expr):List[Expr] = {
     val mem = compose(dmem)
+    val writer = compose(dwriter)
     if (isStreamOut(mem)) { getReaders(mem) }
     else {
-      readersOf(dmem).filter { reader => reader.ctrlNode!=parentOf(compose(dwriter)).get }.map(_.node)
+      readersOf(mem).filter { reader => reader.ctrlNode!=parentOf(writer).get }.map(_.node)
     }
   }
 
@@ -324,7 +345,7 @@ trait PIRTraversal extends SpatialTraversal {
    *   (used by stms that produces results or effectful) 
    * */
   def expsUsedInCalcExps(allStms:Seq[Stm])(results:Seq[Expr], effectful:Seq[Expr] = Nil):List[Expr] = {
-    dbgblk(s"symsUsedInCalcExps"){
+    dbgblk(s"expsUsedInCalcExps"){
       def mysyms(lhs: Any):List[Expr] = lhs match {
         case Def(d) => mysyms(d) 
         case SRAMStore(sram,dims,is,ofs,data,en) => syms(sram) ++ syms(data) //++ syms(es)

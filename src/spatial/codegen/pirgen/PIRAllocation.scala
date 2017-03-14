@@ -70,7 +70,7 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def allocateCU(pipe: Expr): PCU = mapping.getOrElseUpdate(pipe, {
+  def allocateCU(pipe: Expr): PCU = getOrElseUpdate(mapping, pipe, {
     val parent = parentHack(pipe).map(allocateCU)
 
     val style = pipe match {
@@ -93,22 +93,25 @@ trait PIRAllocation extends PIRTraversal {
     List(cu)
   }).head
 
-  def allocateMemoryCU(dsram:Expr):List[PCU] = mapping.getOrElseUpdate(dsram, { 
-    val sram = compose(dsram)
-    val parentCU = parentOf(sram).map(allocateCU)
-    val writer = writerOf(sram)
-    dbgblk(s"Allocating memory cu for ${qdef(sram)}, writer:${writer}") {
-      readersOf(sram).zipWithIndex.map { case (readAcc, i) => 
-        val reader = readAcc.node
-        val dreader = getMatchedDecomposed(dsram, reader) 
-        val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp${i}", dsram, MemoryCU(i))
-        dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}, reader:${quote(dreader)}")
-        cu.parent = parentCU
-        val psram = createMem(dsram, dreader, cu)
-        cu
-      }.toList
-    }
-  })
+  def allocateMemoryCU(dsram:Expr):List[PCU] = {
+    val cus = getOrElseUpdate(mapping, dsram, { 
+      val sram = compose(dsram)
+      val parentCU = parentOf(sram).map(allocateCU)
+      val writer = writerOf(sram)
+      dbgblk(s"Allocating memory cu for ${qdef(sram)}, writer:${writer}") {
+        readersOf(sram).zipWithIndex.map { case (readAcc, i) => 
+          val reader = readAcc.node
+          val dreader = getMatchedDecomposed(dsram, reader) 
+          val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp${i}", dsram, MemoryCU(i))
+          dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}, reader:${quote(dreader)}")
+          cu.parent = parentCU
+          val psram = createMem(dsram, dreader, cu)
+          cu
+        }.toList
+      }
+    })
+    cus
+  }
 
   private def initializeMem(cuMem: CUMemory, reader: Expr, cu: PCU) {
     val mem = compose(cuMem.mem)
@@ -166,8 +169,11 @@ trait PIRAllocation extends PIRTraversal {
       val memCUs = allocateMemoryCU(dmem)
       val flatOpt = addr.map{is => flattenNDIndices(is, stagedDimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]])) }
       // Exprs
-      val indexExps = addr.map { is => expsUsedInCalcExps(stms)(is) }.getOrElse(Nil)
+      val indexExps = addr.map { is => expsUsedInCalcExps(stms)(Seq(), is) }.getOrElse(Nil)
       val indexSyms = indexExps.collect { case s:Sym[_] => s }
+      
+      //indexSyms.foreach { case lhs@Op(rhs) => visit(lhs, rhs, memCUs); case _ => }
+
       val ad = flatOpt.map(_._1) // sym of flatten  addr
 
       dbgs(s"$dmem addr:[${addr.map(_.mkString(","))}], indexExps:[${indexExps.mkString(",")}] indexSyms:[${indexSyms.mkString(",")}]")
@@ -270,7 +276,7 @@ trait PIRAllocation extends PIRTraversal {
    * Create memory (Reg/FIFO/SRAM/Stream) inside cu for dreader
    * */
   def createMem(dmem: Expr, dreader: Expr, cu: PCU): CUMemory =  {
-    cu.mems.getOrElseUpdate(dmem, {
+    val cuMem = getOrElseUpdate(cu.mems, dmem, {
       val name = if (isGetDRAMAddress(dmem)) s"${quote(dmem)}"
                  else s"${quote(dmem)}_${quote(dreader)}"
       val size = compose(dmem) match {
@@ -280,10 +286,11 @@ trait PIRAllocation extends PIRTraversal {
         case m if isReg(m) | isStream(m) | isGetDRAMAddress(m) => 1
       }
       val cuMem = CUMemory(name, size, dmem, dreader)
-      dbgs(s"Add $cuMem to $cu")
+      dbgs(s"Add mem=$cuMem to cu=$cu")
       initializeMem(cuMem, compose(dreader), cu)
       cuMem
     })
+    cuMem
   }
 
   /*
@@ -334,7 +341,7 @@ trait PIRAllocation extends PIRTraversal {
       parentOf(reader).foreach { pipe => // RegRead outside HwBlock doesn't have parent
         val stms = getStms(pipe)
         def addParentCU(d:Def, mem:Expr, ind:Option[Seq[Expr]]) = {
-          val indSyms = ind.map { ind => symsUsedInCalcExps(stms)(ind) }.getOrElse(Nil)
+          val indSyms = ind.map { ind => symsUsedInCalcExps(stms)(Seq(), ind) }.getOrElse(Nil)
           if (indSyms.contains(reader) && isRemoteMem(mem)) {
             readerCUs ++= decompose(mem).flatMap(allocateMemoryCU)
           } else if (d.allInputs.contains(reader)) {
@@ -370,17 +377,19 @@ trait PIRAllocation extends PIRTraversal {
     val ParLocalWriter(writes) = writer 
     val pipe = parentOf(writer).get 
     val (mem, value, inds, ens) = writes.head
-    value.get match {
-      case reader@ParLocalReader(reads) =>
-        val (mem, _, _) = reads.head
-        if (isRemoteMem(mem)) {
-          val dmem = getMatchedDecomposed(dwriter, mem)
-          getMCUforReader(dmem, reader)
-        } else {
-          allocateCU(pipe)
-        }
-      case _ => allocateCU(pipe)
-    }
+    // TODO: leave the optimization to PIROptimizer
+    //value.get match {
+      //case reader@ParLocalReader(reads) =>
+        //val (mem, _, _) = reads.head
+        //if (isRemoteMem(mem)) {
+          //val dmem = getMatchedDecomposed(dwriter, mem)
+          //getMCUforReader(dmem, reader)
+        //} else {
+          //allocateCU(pipe)
+        //}
+      //case _ => allocateCU(pipe)
+    //}
+    allocateCU(pipe)
   }
 
   def getMCUforReader(dmem:Expr, reader:Expr) = {
@@ -399,7 +408,8 @@ trait PIRAllocation extends PIRTraversal {
             val reg = readerCU.get(dmem).get // Accumulator should be allocated during RegNew
             readerCU.addReg(dreader, reg)
           } else {
-            readerCU.addReg(dreader, MemLoadReg(createMem(dmem, dreader, readerCU)))
+            val pmem = readerCU.mems(dmem)
+            readerCU.addReg(dreader, MemLoadReg(pmem))
           }
         }
       }
@@ -428,6 +438,7 @@ trait PIRAllocation extends PIRTraversal {
           }
           val writerCU = getWriterCU(dwriter) 
           writerCU.addReg(dwriter, output)
+          dbgs(s"Add dwriter:$dwriter to writerCU:$writerCU")
           remoteReaders.foreach { reader =>
             getReaderCUs(reader).foreach { readerCU =>
               readerCU.mems(dmem).writePort = Some(bus)
