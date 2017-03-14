@@ -146,7 +146,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     case Def(_:FringeDenseLoad[_]) => MemLoad
     case Def(_:FringeDenseStore[_]) => MemStore
     case Def(_:FringeSparseLoad[_]) => MemGather
-    case Def(_:FringeSparseLoad[_]) => MemScatter
+    case Def(_:FringeSparseStore[_]) => MemScatter
     case _ => throw new Exception(s"Unknown type of fringe ${fringe}")
   }
 
