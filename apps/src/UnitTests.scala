@@ -635,8 +635,8 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
     Accel {
       Sequential.Foreach(rowsIn by tileDim1, colsIn by tileDim2) { (i,j) =>
         val tile = SRAM[T](tileDim1, tileDim2)
-        tile load srcFPGA(i::i+tileDim1 par 16, j::j+tileDim2)
-        dstFPGA (i::i+tileDim1 par 16, j::j+tileDim2) store tile
+        tile load srcFPGA(i::i+tileDim1, j::j+tileDim2 par 16)
+        dstFPGA (i::i+tileDim1, j::j+tileDim2 par 16) store tile
       }
     }
     getMem(dstFPGA)

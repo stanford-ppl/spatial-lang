@@ -55,9 +55,10 @@ class Innerpipe(val ctrDepth : Int) extends Module {
     }.elsewhen( state === pipeReset.U ) {
       io.output.rst_en := true.B;
       (0 until ctrDepth) foreach { i => io.output.ctr_maxOut(i) := maxFF(i) }
+      state := Mux(io.input.ctr_done, pipeDone.U, pipeReset.U) // Shortcut to done state, for tile store
       when (rstCtr.io.output.done) {
         io.output.rst_en := false.B
-        state := pipeRun.U
+        state := Mux(io.input.ctr_done, pipeDone.U, pipeRun.U) // Shortcut to done state, for tile store
       }
     }.elsewhen( state === pipeRun.U ) {
       io.output.ctr_en := true.B;
