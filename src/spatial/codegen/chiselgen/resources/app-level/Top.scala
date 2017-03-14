@@ -114,6 +114,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
       // Fringe <-> DRAM connections
       topIO.M_AXI <> fringe.io.M_AXI
 
+      // Fringe <-> Accel scalar and control connections
       accel.io.argIns := fringe.io.argIns
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
           fringeArgOut.bits := accelArgOut.bits
@@ -122,6 +123,9 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
       accel.reset := ~reset
+
+      // Fringe <-> Accel memStream control connections
+      fringe.io.memStreams <> accel.io.memStreams
 
     case "aws" =>
       // Simulation Fringe
@@ -136,6 +140,9 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
       topIO.scalarOuts.zip(accel.io.argOuts) foreach { case (ioOut, accelOut) => ioOut := accelOut.bits }
       accel.io.enable := topIO.enable
       topIO.done := accel.io.done
+
+      // Fringe <-> Accel memStream control connections
+      fringe.io.memStreams <> accel.io.memStreams
     case _ =>
       throw new Exception(s"Unknown target '$target'")
   }
