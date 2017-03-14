@@ -13,8 +13,8 @@ trait PIR {
   sealed abstract class OffchipMemoryMode
   case object MemLoad extends OffchipMemoryMode { override def toString = "TileLoad" }
   case object MemStore extends OffchipMemoryMode { override def toString = "TileStore" }
-  case object MemScatter extends OffchipMemoryMode { override def toString = "Scatter" }
   case object MemGather extends OffchipMemoryMode { override def toString = "Gather" }
+  case object MemScatter extends OffchipMemoryMode { override def toString = "Scatter" }
 
 
   // --- Local memory banking
@@ -188,8 +188,6 @@ trait PIR {
     override def toString = bus.toString + ".vOut"
   }
 
-
-
   // --- Counter chains
   case class CUCounter(var start: LocalScalar, var end: LocalScalar, var stride: LocalScalar) {
     val name = s"ctr${CUCounter.nextId()}"
@@ -304,6 +302,8 @@ trait PIR {
     def valids    = regTable.iterator.collect{case (exp, reg: ValidReg) => (exp,reg) }
 
     def srams:Set[CUMemory] = mems.values.toSet
+
+    val fringeVectors = mutable.Map[String, GlobalBus]()
 
     def innermostIter(cc: CUCChain) = {
       val iters = iterators.flatMap{case (e,CounterReg(`cc`,i)) => Some((e,i)); case _ => None}

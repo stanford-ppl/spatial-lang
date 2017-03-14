@@ -76,10 +76,14 @@ trait PIRAllocation extends PIRTraversal {
     val style = pipe match {
       case Def(_:UnitPipe) => UnitCU
       case Def(_:Hwblock)  => UnitCU
-      case Def(FringeDenseLoad(dram, _, _))  => FringeCU(allocateDRAM(dram), MemLoad)
-      case Def(FringeDenseStore(dram, _, _, _))  => FringeCU(allocateDRAM(dram), MemStore)
-      case Def(FringeSparseLoad(dram, _, _))  => FringeCU(allocateDRAM(dram), MemGather)
-      case Def(FringeSparseStore(dram, _, _))  => FringeCU(allocateDRAM(dram), MemScatter)
+      case Def(FringeDenseLoad(dram, _, _))  => 
+        FringeCU(allocateDRAM(dram), MemLoad)
+      case Def(FringeDenseStore(dram, _, _, _))  => 
+        FringeCU(allocateDRAM(dram), MemStore)
+      case Def(FringeSparseLoad(dram, _, _))  => 
+        FringeCU(allocateDRAM(dram), MemGather)
+      case Def(FringeSparseStore(dram, _, _))  => 
+        FringeCU(allocateDRAM(dram), MemScatter)
       case _ if styleOf(pipe) == SeqPipe && isInnerPipe(pipe) => UnitCU
       case _ => typeToStyle(styleOf(pipe))
     }
@@ -505,9 +509,25 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def allocateFringe(fringe:Expr, dram:Expr, streamOuts:List[Expr]) = {
+  def allocateFringe(fringe:Expr, dram:Expr, streamIns:List[Expr], streamOuts:List[Expr]) = {
     val cu = allocateCU(fringe)
-    val mode = fringeToMode(fringe)
+    val mode = cu.style match { 
+      case FringeCU(dram, mode) => mode
+      case _ => throw new Exception(s"fringe's style is nt FringeCU ${cu.style}")
+    }
+    streamIns.foreach { streamIn =>
+      val readerCUs = readersOf(streamIn).map(_.node).flatMap(getReaderCUs)
+      val dmems = decomposeWithFields(streamIn) match {
+        case Left(mem) => Seq(("data", mem))
+        case Right(dmems) => throw new Exception(s"PIR don't support struct load/gather ${qdef(fringe)}") 
+      }
+      dmems.foreach { case (field, dmem) =>
+        val bus = CUVector(s"${quote(dmem)}_${quote(fringe)}_$field")
+        cu.fringeVectors += field -> bus
+        globals += bus
+        readerCUs.foreach { _.mems(dmem).writePort = Some(bus) }
+      }
+    }
     streamOuts.foreach { streamOut =>
       decompose(streamOut).foreach { mem => createMem(mem, fringe, cu) }
     }
@@ -535,8 +555,9 @@ trait PIRAllocation extends PIRTraversal {
 
         case rhs if isFringe(lhs) =>
           val dram = rhs.allInputs.filter { e => isDRAM(e) }.head
+          val streamIns = rhs.allInputs.filter { e => isStreamIn(e) }.toList
           val streamOuts = rhs.allInputs.filter { e => isStreamOut(e) }.toList
-          allocateFringe(lhs, dram, streamOuts)
+          allocateFringe(lhs, dram, streamIns, streamOuts)
 
         case rhs if isLocalMem(lhs) =>
           allocateLocalMem(lhs)

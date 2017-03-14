@@ -142,14 +142,6 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     (partialAddr, addrCompute)
   }
 
-  def fringeToMode(fringe:Expr):OffchipMemoryMode = fringe match {
-    case Def(_:FringeDenseLoad[_]) => MemLoad
-    case Def(_:FringeDenseStore[_]) => MemStore
-    case Def(_:FringeSparseLoad[_]) => MemGather
-    case Def(_:FringeSparseStore[_]) => MemScatter
-    case _ => throw new Exception(s"Unknown type of fringe ${fringe}")
-  }
-
   def nodeToOp(node: Def): Option[PIROp] = node match {
     case Mux(_,_,_)                      => Some(PIRALUMux)
     case FixAdd(_,_)                     => Some(PIRFixAdd)

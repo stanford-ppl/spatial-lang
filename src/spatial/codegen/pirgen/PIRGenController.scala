@@ -122,8 +122,10 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
     open(s"val ${cu.name} = ${cuDeclaration(cu)} { implicit CU => ")
     emit(s"val stage0 = CU.emptyStage")
     preallocateRegisters(cu)                // Includes scalar inputs/outputs, temps, accums
-    cu.cchains.foreach(emitComponent(_))    // Allocate all counterchains
     cu.srams.foreach(emitComponent(_))      // Allocate all SRAMs
+    cu.cchains.foreach(emitComponent(_))    // Allocate all counterchains
+    cu.srams.foreach(emitMemPorts(_))      // Allocate all SRAMs
+    emitFringeVectors(cu)
     preallocateFeedbackRegs(cu)             // Local write addresses
 
     emitAllStages(cu)
@@ -170,44 +172,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
 
       decl += ")"
 
-      sram.writePort match {
-        case Some(LocalVectorBus) => // Nothing?
-        case Some(vec) => decl += s""".wtPort(${quote(vec)})"""
-        case None => decl += s""".wtPort(None)"""
-        //case None => throw new Exception(s"Memory $sram has no writePort defined")
-      }
-      sram.readPort match {
-        case Some(LocalVectorBus) => // Nothing?
-        case Some(vec) => decl += s""".rdPort(${quote(vec)})"""
-        case None => decl += s""".rdPort(None)"""
-        //case None => throw new Exception(s"Memory $sram has no readPort defined")
-      }
-      sram.readAddr match {
-        case Some(_:CounterReg | _:ConstReg) => decl += s""".rdAddr(${quote(sram.readAddr.get)})"""
-        case Some(_:ReadAddrWire) =>
-        case None if sram.mode != SRAMMode => // ok
-        case addr => decl += s""".rdAddr($addr)"""
-        //case addr => throw new Exception(s"Disallowed memory read address in $sram: $addr") //TODO
-      }
-      sram.writeAddr match {
-        case Some(_:CounterReg | _:ConstReg) => decl += s""".wtAddr(${quote(sram.writeAddr.get)})"""
-        case Some(_:WriteAddrWire | _:FeedbackAddrReg) =>
-        case None if sram.mode != SRAMMode => // ok
-        case addr => decl += s""".wtAddr(${addr})""" //TODO
-        //case addr => throw new Exception(s"Disallowed memory write address in $sram: $addr")
-      }
-      if (sram.mode != SRAMMode) {
-        sram.writeStart match {
-          case Some(start) => decl += s""".wtStart(${quoteInCounter(start)})"""
-          case _ =>
-        }
-        sram.writeEnd match {
-          case Some(end) => decl += s""".wtEnd(${quoteInCounter(end)})"""
-          case _ =>
-        }
-      }
-
-
       emit(decl)
 
     case mc@MemoryController(name,region,mode,parent) =>
@@ -220,6 +184,55 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
     case bus: VectorBus => emit(s"""val ${quote(bus)} = Vector("${bus.name}")""")
 
     case x => throw new Exception(s"Don't know how to generate PIR component $x")
+  }
+
+  def emitMemPorts(mem:CUMemory) = {
+    var decl = s"${mem.name}"
+    mem.writePort match {
+      case Some(LocalVectorBus) => // Nothing?
+      case Some(vec) => decl += s""".wtPort(${quote(vec)})"""
+      case None => decl += s""".wtPort(None)"""
+      //case None => throw new Exception(s"Memory $mem has no writePort defined")
+    }
+    mem.readPort match {
+      case Some(LocalVectorBus) => // Nothing?
+      case Some(vec) => decl += s""".rdPort(${quote(vec)})"""
+      case None if (isRemoteMem(compose(mem.mem))) => throw new Exception(s"Memory $mem has no readPort defined")
+      case None => 
+    }
+    mem.readAddr match {
+      case Some(_:CounterReg | _:ConstReg) => decl += s""".rdAddr(${quote(mem.readAddr.get)})"""
+      case Some(_:ReadAddrWire) =>
+      case None if mem.mode != SRAMMode => // ok
+      case addr => decl += s""".rdAddr($addr)"""
+      //case addr => throw new Exception(s"Disallowed memory read address in $mem: $addr") //TODO
+    }
+    mem.writeAddr match {
+      case Some(_:CounterReg | _:ConstReg) => decl += s""".wtAddr(${quote(mem.writeAddr.get)})"""
+      case Some(_:WriteAddrWire | _:FeedbackAddrReg) =>
+      case None if mem.mode != SRAMMode => // ok
+      case addr => decl += s""".wtAddr(${addr})""" //TODO
+      //case addr => throw new Exception(s"Disallowed memory write address in $mem: $addr")
+    }
+    if (mem.mode != SRAMMode) {
+      mem.writeStart match {
+        case Some(start) => decl += s""".wtStart(${quoteInCounter(start)})"""
+        case _ =>
+      }
+      mem.writeEnd match {
+        case Some(end) => decl += s""".wtEnd(${quoteInCounter(end)})"""
+        case _ =>
+      }
+    }
+    emit(decl)
+  }
+
+  def emitFringeVectors(cu:ComputeUnit) = {
+    if (isFringe(cu.pipe)) {
+      cu.fringeVectors.foreach { case (field, vec) =>
+        emit(s"CU.$field = ${quote(vec)}")
+      }
+    }
   }
 
   override def quote(x: Expr):String = s"$x"
@@ -245,8 +258,8 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
     case PIRDRAMOffset(mc)      => s"${quote(mc)}.ofs"
     case PIRDRAMLength(mc)      => s"${quote(mc)}.len"
     case PIRDRAMAddress(mc)     => s"${quote(mc)}.addrs"
-    case bus:ScalarBus       => s"${bus.name}_scalar"
-    case bus:VectorBus       => s"${bus.name}_vector"
+    case bus:ScalarBus       => s"${bus.name}_s"
+    case bus:VectorBus       => s"${bus.name}_v"
   }
 
   def quote(cu: CU): String = cu.style match {

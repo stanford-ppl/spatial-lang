@@ -38,7 +38,7 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
           cuIn.asInstanceOf[ACU] -> cuOuts.head.asInstanceOf[ACU]
         }
       }.toMap
-      swapCUs(mappingOut.values.flatten.flatten, cuMapping)
+      swapCUs(cuMapping)
     }
     catch {case e: SplitException =>
       sys.exit(-1)

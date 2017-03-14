@@ -26,7 +26,7 @@ trait PIRScheduler extends PIRTraversal {
 
     // Swap dependencies, parents, cchain owners from pcu to cu
 
-    swapCUs(mappingOut.values.flatten, cuMapping)
+    swapCUs(cuMapping)
 
     for ((k,v) <- cuMapping) {
       dbgs(s"$k -> $v")

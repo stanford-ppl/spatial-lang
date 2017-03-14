@@ -66,6 +66,9 @@ trait PIRTraversal extends SpatialTraversal {
           for (stage <- v._2) dbgs(s"  $stage")
         }
       }
+      dbgl(s"FringeVectors:") {
+        pcu.fringeVectors.foreach { case (f, vec) => dbgs(s"$f -> $vec") }
+      }
       dbgl(s"Compute stages:") { pcu.computeStages.foreach { stage => dbgs(s"$stage") } }
     }
   }
@@ -474,12 +477,14 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
 
-  def swapCUs(cus: Iterable[CU], mapping: Map[ACU, ACU]): Unit = cus.foreach {cu =>
+  def swapCUs(mapping: Map[ACU, ACU]): Unit = mapping.foreach { case (pcu, v) =>
+    val cu = v.asInstanceOf[CU]
     cu.cchains.foreach{cchain => swapCU_cchain(cchain) }
     cu.parent = cu.parent.map{parent => mapping.getOrElse(parent,parent) }
     cu.deps = cu.deps.map{dep => mapping.getOrElse(dep, dep) }
     cu.srams.foreach{sram => swapCU_sram(sram) }
     cu.allStages.foreach{stage => stage.inputMems.foreach(swapCU_reg) }
+    cu.fringeVectors ++= pcu.fringeVectors
 
     def swapCU_cchain(cchain: CUCChain): Unit = cchain match {
       case cc: CChainCopy => cc.owner = mapping.getOrElse(cc.owner,cc.owner)
