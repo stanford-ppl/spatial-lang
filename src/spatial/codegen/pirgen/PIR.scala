@@ -291,7 +291,7 @@ trait PIR {
     def isMemoryUnit = false //cuType == BurstTransfer || cuType == RandomTransfer
 
     var cchains: Set[CUCChain] = Set.empty
-    var mems: mutable.Map[Expr, CUMemory] = mutable.Map.empty
+    val memMap: mutable.Map[Expr, CUMemory] = mutable.Map.empty
     var regs: Set[LocalComponent] = Set.empty
     var deps: Set[AbstractComputeUnit] = Set.empty
 
@@ -301,7 +301,9 @@ trait PIR {
     def iterators = regTable.iterator.collect{case (exp, reg: CounterReg) => (exp,reg) }
     def valids    = regTable.iterator.collect{case (exp, reg: ValidReg) => (exp,reg) }
 
-    def srams:Set[CUMemory] = mems.values.toSet
+    def mems:Set[CUMemory] = memMap.values.toSet
+    def srams:Set[CUMemory] = mems.filter {_.mode==SRAMMode}
+    def fifos:Set[CUMemory] = mems.filter { mem => mem.mode==VectorFIFOMode || mem.mode==ScalarFIFOMode}
 
     val fringeVectors = mutable.Map[String, GlobalBus]()
 
@@ -360,8 +362,8 @@ trait PIR {
 
     def sram = {
       assert(style.isInstanceOf[MemoryCU], s"Only MemoryCU has sram. cu:$this")
-      val srams = mems.filter{ _._2.mode == SRAMMode }
-      assert(mems.size==1, s"Each MemoryCU should only has one sram, srams:[${srams.mkString(",")}]")
+      val srams = mems.filter{ _.mode == SRAMMode }
+      assert(srams.size==1, s"Each MemoryCU should only has one sram, srams:[${srams.mkString(",")}]")
       srams.head
     }
 
@@ -369,7 +371,7 @@ trait PIR {
       val cu = ComputeUnit(name, pipe, style)
       cu.parent = this.parent
       cu.cchains ++= this.cchains
-      cu.mems ++= this.mems
+      cu.memMap ++= this.memMap
       cu.regs ++= this.regs
       cu.deps ++= this.deps
       cu.regTable ++= this.regTable

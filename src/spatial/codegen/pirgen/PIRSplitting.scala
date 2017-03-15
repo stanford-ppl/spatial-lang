@@ -68,10 +68,10 @@ trait PIRSplitting extends PIRTraversal {
   }
 
   def nMems(cu: CU, others: Iterable[CU]): Int = {
-    val sramWritePorts = cu.srams.flatMap(_.writePort)
+    val sramWritePorts = cu.mems.flatMap(_.writePort)
     //TODO: readports?
     val nonRetimedGroups = groupBuses(globalInputs(cu) diff sramWritePorts)
-    cu.srams.size + nMems(nonRetimedGroups, others)
+    cu.mems.size + nMems(nonRetimedGroups, others)
   }
   def nMems(groups: BusGroups, others: Iterable[CU]): Int = {
     val scalarGrps = if (groups.scalars.nonEmpty) {
@@ -626,7 +626,7 @@ trait PIRSplitting extends PIRTraversal {
 
     val partitions = ArrayBuffer[Partition]()
     var current: Partition = Partition.empty(sramOwners, ctrl, true)
-    val remote: Partition = new Partition(writeGroups, cu.computeStages, cu.srams, sramOwners, ctrl, false)
+    val remote: Partition = new Partition(writeGroups, cu.computeStages, cu.mems, sramOwners, ctrl, false)
 
     def getCost(p: Partition) = partitionCost(p, partitions, allStages, others, isUnit)
 
@@ -729,7 +729,7 @@ trait PIRSplitting extends PIRTraversal {
     if (parent.isEmpty) cu.deps ++= orig.deps
     if (parent.isEmpty) cu.cchains ++= orig.cchains
 
-    part.srams.map { sram => cu.mems += sram.mem -> sram }
+    part.srams.map { sram => cu.memMap += sram.mem -> sram }
 
     //TODO: readStages
     cu.writeStages ++= part.wstages.map{case (i,WriteGroup(mems,stages)) => mems -> ArrayBuffer(stages:_*) }
@@ -738,7 +738,7 @@ trait PIRSplitting extends PIRTraversal {
     val local = part.cstages
     val remote = orig.allStages.toList diff part.allStages.toList
 
-    val localIns  = local.flatMap(_.inputMems).toSet ++ localInputs(cu.srams)
+    val localIns  = local.flatMap(_.inputMems).toSet ++ localInputs(cu.mems)
     val localOuts = local.flatMap(_.outputMems).toSet
 
     val remoteIns = remote.flatMap(_.inputMems).toSet
@@ -789,7 +789,7 @@ trait PIRSplitting extends PIRTraversal {
         case _:ConstReg[_] | _:CounterReg => reg
         case _:ValidReg | _:ControlReg => reg
         case _:ReduceMem[_]    => if (localOuts.contains(reg)) reg else portIn(reg, isScalar)
-        case MemLoadReg(sram) => if (cu.srams.contains(sram)) reg else portIn(reg, isScalar)
+        case MemLoadReg(sram) => if (cu.mems.contains(sram)) reg else portIn(reg, isScalar)
         case _                 => if (cu.regs.contains(reg)) reg else portIn(reg, isScalar)
       }
       cu.regs += in
@@ -799,9 +799,9 @@ trait PIRSplitting extends PIRTraversal {
       val outs = reg match {
         case _:ScalarOut => List(reg)
         case _:VectorOut => List(reg)
-        case FeedbackAddrReg(sram) => if (cu.srams.contains(sram)) List(reg) else List(portOut(reg,isScalar))
-        case FeedbackDataReg(sram) => if (cu.srams.contains(sram)) List(reg) else List(portOut(reg,isScalar))
-        case ReadAddrWire(sram) => if (cu.srams.contains(sram)) List(reg) else List(portOut(reg,isScalar))
+        case FeedbackAddrReg(sram) => if (cu.mems.contains(sram)) List(reg) else List(portOut(reg,isScalar))
+        case FeedbackDataReg(sram) => if (cu.mems.contains(sram)) List(reg) else List(portOut(reg,isScalar))
+        case ReadAddrWire(sram) => if (cu.mems.contains(sram)) List(reg) else List(portOut(reg,isScalar))
         case MemLoadReg(sram) => List(portOut(reg,isScalar))
         case _ =>
           val local  = if (localIns.contains(reg)) List(reg) else Nil
@@ -813,7 +813,7 @@ trait PIRSplitting extends PIRTraversal {
     }
 
     // --- Reconnect remotely computed read addresses (after write stages, before compute)
-    cu.srams.foreach{sram =>
+    cu.mems.foreach{ sram =>
       val remoteAddr = remoteOuts.find{case ReadAddrWire(`sram`) => true; case _ => false}
       val localAddr  = localOuts.find{case ReadAddrWire(`sram`) => true; case _ => false}
 
@@ -853,7 +853,7 @@ trait PIRSplitting extends PIRTraversal {
 
     // --- Add bypass stages for locally hosted, remotely read SRAMs
     val remoteSRAMReads = remoteIns.collect{case MemLoadReg(sram) => sram}
-    val localBypasses = remoteSRAMReads intersect cu.srams
+    val localBypasses = remoteSRAMReads intersect cu.mems
     localBypasses.foreach{sram =>
       val reg = MemLoadReg(sram)
       val out = portOut(reg, cu.isUnit)
@@ -870,7 +870,7 @@ trait PIRSplitting extends PIRTraversal {
     val rescheduledOutputs = cu.computeStages.flatMap(_.outputMems).toSet
 
     //TODO: readPort?
-    cu.srams.foreach{sram => sram.writePort match {
+    cu.mems.foreach{sram => sram.writePort match {
       case Some(LocalVectorBus) =>
         val dataReg = FeedbackDataReg(sram)
         val addrReg = FeedbackAddrReg(sram)
@@ -927,7 +927,7 @@ trait PIRSplitting extends PIRTraversal {
         case stage@MapStage(_,ins,_) => stage.ins = ins.map{swap_cchains_Ref(_)}
         case _ =>
       }
-      cu.srams.foreach{sram =>
+      cu.mems.foreach{sram =>
         sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_).asInstanceOf[ReadAddr]} //TODO refactor this
         sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_).asInstanceOf[WriteAddr]}
         //sram.swapWrite = sram.swapWrite.map{tx(_)}

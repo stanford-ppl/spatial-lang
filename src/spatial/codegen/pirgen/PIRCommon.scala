@@ -5,7 +5,7 @@ import scala.collection.mutable
 // Common PIR operations (which don't need Spatial IR mixin)
 trait PIRCommon extends PIR {
   private def collectX[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
-    case cu: ComputeUnit => func(cu.allStages) ++ func(cu.cchains) ++ func(cu.srams)
+    case cu: ComputeUnit => func(cu.allStages) ++ func(cu.cchains) ++ func(cu.mems)
 
     case cchain: CChainInstance => func(cchain.counters)
     case cchain: CChainCopy => func(cchain.inst)
@@ -57,7 +57,7 @@ trait PIRCommon extends PIR {
   def vectorOutputs(a: Any): Set[VectorBus] = globalOutputs(a).collect{case x: VectorBus => x}
 
   def usedCChains(a: Any): Set[CUCChain] = a match {
-    case cu: ComputeUnit => usedCChains(cu.allStages) ++ usedCChains(cu.srams)
+    case cu: ComputeUnit => usedCChains(cu.allStages) ++ usedCChains(cu.mems)
 
     case stage: Stage => stage.inputMems.collect{case CounterReg(cchain,_) => cchain}.toSet
     case sram: CUMemory =>

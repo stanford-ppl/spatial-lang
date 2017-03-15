@@ -62,7 +62,7 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
       cus.foreach{cu =>
         val cost = getStats(cu, others)
         if (cost.mems > ComputeMax.mems)
-          throw new Exception(s"${cu.srams} > ${ComputeMax.mems}, exceeded maximum SRAMs after retiming")
+          throw new Exception(s"${cu.mems} > ${ComputeMax.mems}, exceeded maximum SRAMs after retiming")
 
         others += cu
       }

@@ -139,7 +139,7 @@ trait PIRRetiming extends PIRTraversal {
   def insertFIFO(cu: CU, bus: GlobalBus, depth: Int) {
     dbg(s"Inserting FIFO in $cu for input $bus")
     val sram = allocateFIFO(bus, depth)
-    cu.mems += sram.mem -> sram
+    cu.memMap += sram.mem -> sram
     cu.allStages.foreach{
       case stage@MapStage(op, ins, outs) =>
         stage.ins = ins.map{

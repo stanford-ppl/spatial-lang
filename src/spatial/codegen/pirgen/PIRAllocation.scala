@@ -47,14 +47,17 @@ trait PIRAllocation extends PIRTraversal {
 
   def allocateCChains(pipe: Expr) = {
     val cchainOpt = pipe match {
-      case Def(UnrolledForeach(en, cchain, func, iters, valids)) => Some((cchain, iters, valids))
-      case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) => Some((cchain, iters, valids))
-      case _ => 
+      case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
+        Some((cchain, iters, valids))
+      case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) => 
+        Some((cchain, iters, valids))
+      case Def(UnitPipe(en, func)) => 
         val cu = allocateCU(pipe)
         val ctr = CUCounter(ConstReg(1), ConstReg(1), ConstReg(1), 1)
         val cc = CChainInstance(s"${pipe}_unit", List(ctr))
         cu.cchains += cc
         None
+      case _ => None
     }
     cchainOpt.foreach { case (cchain, iters, valids) =>
       dbgblk(s"Allocate cchain ${qdef(cchain)} for $pipe") {
@@ -82,8 +85,6 @@ trait PIRAllocation extends PIRTraversal {
     val parent = parentHack(pipe).map(allocateCU)
 
     val style = pipe match {
-      case Def(_:UnitPipe) => UnitCU
-      case Def(_:Hwblock)  => UnitCU
       case Def(FringeDenseLoad(dram, _, _))  => 
         FringeCU(allocateDRAM(dram), MemLoad)
       case Def(FringeDenseStore(dram, _, _, _))  => 
@@ -92,8 +93,13 @@ trait PIRAllocation extends PIRTraversal {
         FringeCU(allocateDRAM(dram), MemGather)
       case Def(FringeSparseStore(dram, _, _))  => 
         FringeCU(allocateDRAM(dram), MemScatter)
-      case _ if styleOf(pipe) == SeqPipe && isInnerPipe(pipe) => UnitCU
-      case _ => typeToStyle(styleOf(pipe))
+      case pipe if isControlNode(pipe) => styleOf(pipe) match {
+        case InnerPipe   => PipeCU
+        case MetaPipe    => MetaPipeCU
+        case SeqPipe     => SequentialCU
+        case StreamPipe  => StreamCU
+        case ForkJoin    => throw new Exception(s"Do not support ForkJoin in PIR")
+      }
     }
 
     val cu = PseudoComputeUnit(quote(pipe), pipe, style)
@@ -288,7 +294,7 @@ trait PIRAllocation extends PIRTraversal {
    * Create memory (Reg/FIFO/SRAM/Stream) inside cu for dreader
    * */
   def createMem(dmem: Expr, dreader: Expr, cu: PCU): CUMemory =  {
-    val cuMem = getOrElseUpdate(cu.mems, dmem, {
+    val cuMem = getOrElseUpdate(cu.memMap, dmem, {
       val name = if (isGetDRAMAddress(dmem)) s"${quote(dmem)}"
                  else s"${quote(dmem)}_${quote(dreader)}"
       val size = compose(dmem) match {
@@ -327,7 +333,7 @@ trait PIRAllocation extends PIRTraversal {
             // Allocate local mem in the readerCU
             createMem(dmem, dreader, readerCU)
             // Set writeport of the local mem who doesn't have a writer (ArgIn and GetDRAMAddress)
-            bus.foreach { bus => readerCU.mems(dmem).writePort = Some(bus) }
+            bus.foreach { bus => readerCU.memMap(dmem).writePort = Some(bus) }
           } else { // Local reg accumulation
             readerCU.getOrElseUpdate(dmem) {
               val Def(RegNew(init)) = mem //Only register can be locally written
@@ -419,7 +425,7 @@ trait PIRAllocation extends PIRTraversal {
             val reg = readerCU.get(dmem).get // Accumulator should be allocated during RegNew
             readerCU.addReg(dreader, reg)
           } else {
-            val pmem = readerCU.mems(dmem)
+            val pmem = readerCU.memMap(dmem)
             readerCU.addReg(dreader, MemLoadReg(pmem))
           }
         }
@@ -452,7 +458,7 @@ trait PIRAllocation extends PIRTraversal {
           dbgs(s"Add dwriter:$dwriter to writerCU:$writerCU")
           remoteReaders.foreach { reader =>
             getReaderCUs(reader).foreach { readerCU =>
-              readerCU.mems(dmem).writePort = Some(bus)
+              readerCU.memMap(dmem).writePort = Some(bus)
             }
           }
         }
@@ -479,7 +485,7 @@ trait PIRAllocation extends PIRTraversal {
           val sramCUs = allocateMemoryCU(dmem)
           sramCUs.foreach { sramCU =>
             dbgs(s"sramCUs for dmem=${qdef(dmem)} cu=$sramCU")
-            val sram = sramCU.mems(mem)
+            val sram = sramCU.memMap(mem)
             sramCU.readStages(List(sram)) = (readerCU.pipe, addrStages)
             sram.readPort = Some(bus)
             sram.readAddr = ad.map{ad => ReadAddrWire(sram)} //TODO
@@ -507,7 +513,7 @@ trait PIRAllocation extends PIRTraversal {
         val sramCUs = allocateMemoryCU(dmem)
         sramCUs.foreach { sramCU =>
           dbgs(s"sramCUs for dmem=${qdef(dmem)} cu=$sramCU")
-          val sram = sramCU.mems(mem)
+          val sram = sramCU.memMap(mem)
           sram.writePort = Some(bus)
           sram.writeAddr = ad.map(ad => WriteAddrWire(sram)) //TODO
           sramCU.writeStages(List(sram)) = (writerCU.pipe, addrStages)
@@ -532,7 +538,7 @@ trait PIRAllocation extends PIRTraversal {
         val bus = CUVector(s"${quote(dmem)}_${quote(fringe)}_$field")
         cu.fringeVectors += field -> bus
         globals += bus
-        readerCUs.foreach { _.mems(dmem).writePort = Some(bus) }
+        readerCUs.foreach { _.memMap(dmem).writePort = Some(bus) }
       }
     }
     streamOuts.foreach { streamOut =>
@@ -549,6 +555,7 @@ trait PIRAllocation extends PIRTraversal {
         case UnitPipe(en, func) =>
           allocateCU(lhs)
           prescheduleStages(lhs, func)
+          allocateCChains(lhs) 
 
         case UnrolledForeach(en, cchain, func, iters, valids) =>
           allocateCU(lhs)

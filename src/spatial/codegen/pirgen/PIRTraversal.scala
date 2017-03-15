@@ -50,7 +50,7 @@ trait PIRTraversal extends SpatialTraversal {
         pcu.cchains.foreach { cchain => dbgs(s"$cchain") }
       }
       dbgl(s"MEMs:") {
-        for ((exp, mem) <- pcu.mems) {
+        for ((exp, mem) <- pcu.memMap) {
           dbgs(s"""$mem (reader: ${mem.reader}, mode: ${mem.mode}) ${qdef(exp)}""")
         }
       }
@@ -77,19 +77,19 @@ trait PIRTraversal extends SpatialTraversal {
     dbgblk(s"cchains: ") {
       cu.cchains.foreach{cchain => dbgs(s"$cchain") }
     }
-    if (cu.srams.nonEmpty) {
+    if (cu.mems.nonEmpty) {
       dbgblk(s"mems: ") {
-        for (sram <- cu.srams) {
-          dbgl(s"""$sram [${sram.mode}] (exp: ${sram.mem}, reader: ${sram.reader})""") {
-            dbgs(s"""banking   = ${sram.banking.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""writePort    = ${sram.writePort.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""readPort    = ${sram.readPort.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""writeAddr = ${sram.writeAddr.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""readAddr  = ${sram.readAddr.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""start     = ${sram.writeStart.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""end       = ${sram.writeEnd.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""producer = ${sram.producer.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""consumer  = ${sram.consumer.map(_.toString).getOrElse("N/A")}""")
+        for (mem <- cu.mems) {
+          dbgl(s"""$mem [${mem.mode}] (exp: ${mem.mem}, reader: ${mem.reader})""") {
+            dbgs(s"""banking   = ${mem.banking.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""writePort    = ${mem.writePort.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""readPort    = ${mem.readPort.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""writeAddr = ${mem.writeAddr.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""readAddr  = ${mem.readAddr.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""start     = ${mem.writeStart.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""end       = ${mem.writeEnd.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""producer = ${mem.producer.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""consumer  = ${mem.consumer.map(_.toString).getOrElse("N/A")}""")
           }
         }
       }
@@ -417,7 +417,7 @@ trait PIRTraversal extends SpatialTraversal {
 
   def swapBus(cus: Iterable[CU], orig: GlobalBus, swap: GlobalBus) = cus.foreach{cu =>
     cu.allStages.foreach{stage => swapBus_stage(stage) }
-    cu.srams.foreach{sram => swapBus_sram(sram) }
+    cu.mems.foreach{mem => swapBus_sram(mem) }
     cu.cchains.foreach{cc => swapBus_cchain(cc) }
 
     def swapBus_stage(stage: Stage): Unit = stage match {
@@ -482,7 +482,7 @@ trait PIRTraversal extends SpatialTraversal {
     cu.cchains.foreach{cchain => swapCU_cchain(cchain) }
     cu.parent = cu.parent.map{parent => mapping.getOrElse(parent,parent) }
     cu.deps = cu.deps.map{dep => mapping.getOrElse(dep, dep) }
-    cu.srams.foreach{sram => swapCU_sram(sram) }
+    cu.mems.foreach{mem => swapCU_sram(mem) }
     cu.allStages.foreach{stage => stage.inputMems.foreach(swapCU_reg) }
     cu.fringeVectors ++= pcu.fringeVectors
 
@@ -593,11 +593,11 @@ trait PIRTraversal extends SpatialTraversal {
     }
 
     def memOption(mem: Expr, reader: Expr): Option[CUMemory] = {
-      cu.srams.find{sram => sram.mem == mem && sram.reader == reader}
+      cu.mems.find{sram => sram.mem == mem && sram.reader == reader}
     }
 
     // A CU can have multiple SRAMs for a given mem symbol, one for each local read
-    def memories(mem: Expr) = cu.srams.filter(_.mem == mem)
+    def memories(mem: Expr) = cu.mems.filter(_.mem == mem)
 
 
     // HACK: Keep track of first read of accum reg (otherwise can use the wrong stage)
