@@ -2,6 +2,7 @@ package fringe
 
 import chisel3._
 import chisel3.util._
+import templates.SRFF
 
 /**
  * DRAM Memory Access Generator
@@ -149,15 +150,13 @@ class MAGCore(
   sizeFifo.io.enq.zip(io.app) foreach { case (enq, app) => enq(0) := app.cmd.bits.size }
   sizeFifo.io.enqVld.zip(io.app) foreach {case (enqVld, app) => enqVld := app.cmd.valid & ~io.config.scatterGather }
 
-//	val sizeIn = Wire(Vec(v, UInt(w.W)))
-//	sizeIn.zipWithIndex.foreach { case (wire, i) =>
+//  val sizeIn = Wire(Vec(v, UInt(w.W)))
+//  sizeIn.zipWithIndex.foreach { case (wire, i) =>
 //    wire := (if (i == 0) io.app.cmd.bits.size else 0.U)
 //  }
 //  sizeFifo.io.enq := sizeIn
 //  sizeFifo.io.enqVld := io.app.cmd.valid & ~io.config.scatterGather
 //  sizeFifo.io.enq := Wire(Vec(List.tabulate(v) { i => if (i == 0) io.app.cmd.bits.size else Wire(0.U) }))
-  val burstVld = ~sizeFifo.io.empty
-  val dramReady = io.dram.cmd.ready
 
   val sizeTop = sizeFifo.io.deq(0)
   val sizeInBursts = extractBurstAddr(sizeTop) + (extractBurstOffset(sizeTop) != 0.U)
@@ -173,13 +172,18 @@ class MAGCore(
   dataFifoConfig.chainWrite := io.config.scatterGather
   dataFifo.io.config := dataFifoConfig
 
+  val burstCounter = Module(new Counter(w))
+  val wrPhase = Module(new SRFF())
+
+  val burstVld = ~templates.Utils.delay(sizeFifo.io.empty,0) & Mux(wrPhase.io.output.data | (isWrFifo.io.deq(0)(0)), ~dataFifo.io.empty, true.B)
+  val dramReady = io.dram.cmd.ready
+
   dataFifo.io.forceTag.bits := addrFifo.io.tag
   dataFifo.io.forceTag.valid := 1.U
   dataFifo.io.enq.zip(io.app) foreach { case (enq, app) => enq := app.wdata.bits }
   dataFifo.io.enqVld.zip(io.app) foreach {case (enqVld, app) => enqVld := app.wdata.valid }
 
   // Burst offset counter
-  val burstCounter = Module(new Counter(w))
   burstCounter.io.max := Mux(io.config.scatterGather, 1.U, sizeInBursts)
   burstCounter.io.stride := 1.U
   burstCounter.io.reset := 0.U
@@ -323,6 +327,8 @@ class MAGCore(
   io.dram.cmd.bits.wdata := dataFifo.io.deq
 //  io.dram.cmd.valid := Mux(config.scatterGather, ccache.io.miss, burstVld)
   io.dram.cmd.bits.isWr := isWrFifo.io.deq(0)
+  wrPhase.io.input.set := isWrFifo.io.deq(0)
+  wrPhase.io.input.reset := burstVld
   io.dram.cmd.valid := burstVld
 
 //  rdata := Mux(io.config.scatterGather, gatherData, io.dram.resp.bits.rdata)

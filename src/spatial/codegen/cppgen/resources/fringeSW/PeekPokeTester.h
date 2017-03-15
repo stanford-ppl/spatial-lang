@@ -176,5 +176,9 @@ public:
     virtual void executeEveryCycle() {
 
     }
+    virtual void finishSim() {
+
+    }
+
 };
 #endif

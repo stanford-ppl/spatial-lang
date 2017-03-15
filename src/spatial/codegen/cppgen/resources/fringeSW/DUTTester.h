@@ -56,6 +56,7 @@ public:
       step();
       status = readReg(statusReg);
     }
+    finishSim();
     std::cout << "Design ran for " << numCycles << " cycles" << std::endl;
     if (numCycles > maxCycles) { // Design did not run to completion
       std::cout << "Simulation terminated after " << maxCycles << " cycles" << std::endl;
@@ -71,6 +72,10 @@ public:
   virtual void executeEveryCycle() {
     dramResponse(dut, this);
   }
+  virtual void finishSim() {
+    drainQueue(dut, this);
+  }
+
 };
 
 #endif

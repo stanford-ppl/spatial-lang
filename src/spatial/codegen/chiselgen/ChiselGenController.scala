@@ -217,7 +217,11 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         emitGlobal(src"""val ${c}_done = Wire(Bool())""")
         emitGlobal(src"""val ${c}_en = Wire(Bool())""")
         emitGlobal(src"""val ${c}_resetter = Wire(Bool())""")
-        emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${c}_done;""")
+        if (smStr == "Streampipe" & cchain.isDefined) {
+          emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${cchain.get}_copy${c}_done;""")
+        } else {
+          emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${c}_done;""")
+        }
         // If we are inside a stream pipe, the following may be set
         val readiers = listensTo(c).distinct.map { fifo => 
           fifo match {

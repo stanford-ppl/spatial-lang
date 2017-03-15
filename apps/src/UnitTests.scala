@@ -421,7 +421,7 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   import IR._
 
   val tileSize = 64
-  def parFifoLoad[T:Staged:Num](src1: Array[T], src2: Array[T], in: Int) = {
+  def parFifoLoad[T:Staged:Num](src1: Array[T], src2: Array[T], src3: Array[T], in: Int) = {
 
     val P1 = 16 (16 -> 16)
 
@@ -430,20 +430,24 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
 
     val src1FPGA = DRAM[T](N)
     val src2FPGA = DRAM[T](N)
+    val src3FPGA = DRAM[T](N)
     val out = ArgOut[T]
     setMem(src1FPGA, src1)
     setMem(src2FPGA, src2)
+    setMem(src3FPGA, src3)
 
     Accel {
       val f1 = FIFO[T](tileSize)
       val f2 = FIFO[T](tileSize)
+      val f3 = FIFO[T](tileSize)
       Foreach(N by tileSize) { i =>
         Parallel {
           f1 load src1FPGA(i::i+tileSize par P1)
           f2 load src2FPGA(i::i+tileSize par P1)
+          f3 load src3FPGA(i::i+tileSize par P1)
         }
         val accum = Reduce(Reg[T](0.as[T]))(tileSize by 1){i =>
-          f1.deq() * f2.deq()
+          f1.deq() * f2.deq() * f3.deq()
         }{_+_}
         Pipe { out := accum }
       }
@@ -456,15 +460,17 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   def main() {
     val arraySize = args(0).to[Int]
 
-    val src1 = Array.tabulate(arraySize) { i => (2*i) % 256}
-    val src2 = Array.tabulate(arraySize) { i => i % 256 }
-    val out = parFifoLoad(src1, src2, arraySize)
+    val src1 = Array.tabulate(arraySize) { i => (2*i) % 64}
+    val src2 = Array.tabulate(arraySize) { i => i % 64 }
+    val src3 = Array.tabulate(arraySize) { i => i % 64 }
+    val out = parFifoLoad(src1, src2, src3, arraySize)
 
-    val sub1_for_check = Array.tabulate(arraySize-tileSize) {i => 2*i % 256}
-    val sub2_for_check = Array.tabulate(arraySize-tileSize) {i => i % 256}
+    val sub1_for_check = Array.tabulate(arraySize-tileSize) {i => 2*i % 64}
+    val sub2_for_check = Array.tabulate(arraySize-tileSize) {i => i % 64}
+    val sub3_for_check = Array.tabulate(arraySize-tileSize) {i => i % 64}
 
     // val gold = src1.zip(src2){_*_}.zipWithIndex.filter( (a:Int, i:Int) => i > arraySize-64).reduce{_+_}
-    val gold = src1.zip(src2){_*_}.reduce{_+_} - sub1_for_check.zip(sub2_for_check){_*_}.reduce(_+_)
+    val gold = src1.zip(src2){_*_}.zip(src3){_*_}.reduce{_+_} - sub1_for_check.zip(sub2_for_check){_*_}.zip(sub3_for_check){_*_}.reduce(_+_)
     println("gold: " + gold)
     println("out: " + out)
 
