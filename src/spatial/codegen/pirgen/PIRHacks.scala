@@ -86,7 +86,7 @@ trait PIRHacks extends PIRTraversal {
         val leaves = children.filterNot(deps contains _)
 
         if (leaves.size > 1 && !writesMC) {
-          val leaf = ComputeUnit(quote(cu.pipe)+"_leaf", cu.pipe, UnitCU)
+          val leaf = ComputeUnit(quote(cu.pipe)+"_leaf", cu.pipe, PipeCU)
           copyIterators(leaf, cu)
           leaf.parent = Some(cu)
           leaf.deps ++= leaves
@@ -102,7 +102,7 @@ trait PIRHacks extends PIRTraversal {
           }
           if (leafWritesMC) {
             // insert a dummy pipe after the writing leaf
-            val newLeaf = ComputeUnit(quote(cu.pipe)+"_leafX", cu.pipe, UnitCU)
+            val newLeaf = ComputeUnit(quote(cu.pipe)+"_leafX", cu.pipe, PipeCU)
             copyIterators(newLeaf, cu)
             newLeaf.parent = Some(cu)
             newLeaf.deps ++= leaves

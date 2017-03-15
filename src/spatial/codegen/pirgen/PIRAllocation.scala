@@ -105,6 +105,12 @@ trait PIRAllocation extends PIRTraversal {
     val cu = PseudoComputeUnit(quote(pipe), pipe, style)
     cu.parent = parent
 
+    cu.isUnit = style match {
+      case MemoryCU(i) => throw new Exception(s"isUnit is not defined on MemoryCU")
+      case FringeCU(dram, mode) => throw new Exception(s"isUnit is not defined on FringeCU")
+      case _ => getInnerPar(pipe) == 1
+    } 
+
     if (top.isEmpty && parent.isEmpty) top = Some(pipe)
 
     dbgs(s"Allocating CU $cu for ${pipe}")
@@ -133,45 +139,47 @@ trait PIRAllocation extends PIRTraversal {
 
   private def initializeMem(cuMem: CUMemory, reader: Expr, cu: PCU) {
     val mem = compose(cuMem.mem)
-    
-    if (isArgIn(mem) || isArgOut(mem) || isGetDRAMAddress(mem)) {
-      cuMem.banking = Some(NoBanks)
-      cuMem.bufferDepth = 1 
-      cuMem.consumer = top.map(allocateCU)
-      cuMem.producer = top.map(allocateCU)
-    } else if (isSRAM(mem) || isReg(mem)) {
-      val instIndex = dispatchOf(reader, mem).head
-      val instance = duplicatesOf(mem).apply(instIndex)
-      val writeAccess = writerOf(mem) 
-      val writer = writeAccess.node
-      val readAccess = getAccess(reader).get
-      val writerCU = allocateCU(writeAccess.ctrlNode)
-      val swapWritePipe = topControllerOf(writeAccess, mem, instIndex)
-      val swapReadPipe  = topControllerOf(readAccess, mem, instIndex)
-      val swapReadCU = swapReadPipe.map{ ctrl =>
-        val topCtrl = topControllerHack(readAccess, ctrl)
-        allocateCU(topCtrl.node)
-      }
-      val swapWriteCU = swapWritePipe.map { ctrl =>
-        val topCtrl = topControllerHack(writeAccess, ctrl)
-        allocateCU(topCtrl.node)
-      }
-
+    def setBanking = {
       val banking = if (isSRAM(mem)) {
-        val readBanking  = bank(mem, reader, cu.isUnit)
-        val writeBanking = bank(mem, writer, writerCU.isUnit)
-        mergeBanking(writeBanking, readBanking)
-      } else NoBanks
-
-      cuMem.consumer = swapReadCU
-      cuMem.producer = swapWriteCU
-      cuMem.banking = Some(banking)
-      cuMem.bufferDepth = instance.depth
-    } else if (isFIFO(mem) || isStream(mem)) {
-      cuMem.banking = Some(Strided(1))
-    } else {
-      throw new Exception(s"Unknown type of memory $mem")
+        val writeAccess = writerOf(mem) 
+        val writer = writeAccess.node
+        val writerCU = allocateCU(writeAccess.ctrlNode)
+        val readBanking  = bank(mem, reader)
+        val writeBanking = bank(mem, writer)
+        cuMem.banking = Some(mergeBanking(writeBanking, readBanking))
+      } else if (isFIFO(mem) || isStream(mem)) {
+        cuMem.banking = Some(Strided(1))
+      } else {
+        cuMem.banking = None
+      }
     }
+    def setSwapCUs = {
+      if (isArgIn(mem) || isArgOut(mem) || isGetDRAMAddress(mem)) {
+        cuMem.bufferDepth = 1 
+        cuMem.consumer = top.map(allocateCU)
+        cuMem.producer = top.map(allocateCU)
+      } else if (isSRAM(mem) || isReg(mem)) {
+        val instIndex = dispatchOf(reader, mem).head
+        val instance = duplicatesOf(mem).apply(instIndex)
+        val writeAccess = writerOf(mem) 
+        val readAccess = getAccess(reader).get
+        val swapWritePipe = topControllerOf(writeAccess, mem, instIndex)
+        val swapReadPipe  = topControllerOf(readAccess, mem, instIndex)
+        val swapReadCU = swapReadPipe.map{ ctrl =>
+          val topCtrl = topControllerHack(readAccess, ctrl)
+          allocateCU(topCtrl.node)
+        }
+        val swapWriteCU = swapWritePipe.map { ctrl =>
+          val topCtrl = topControllerHack(writeAccess, ctrl)
+          allocateCU(topCtrl.node)
+        }
+        cuMem.consumer = swapReadCU
+        cuMem.producer = swapWriteCU
+        cuMem.bufferDepth = instance.depth
+      }
+    }
+    setSwapCUs
+    setBanking
     cuMem.mode = memMode(mem)
   }
   

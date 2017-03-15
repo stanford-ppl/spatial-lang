@@ -185,11 +185,12 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
   }
 
   // HACK
-  def bank(mem: Expr, access: Expr, isUnit: Boolean) = {
+  def bank(mem: Expr, access: Expr) = {
     val pattern = accessPatternOf(access).last
     val stride  = 1
 
-    def bankFactor = if (isUnit) 1 else 16
+    val pipe = parentOf(access).get
+    val bankFactor = getInnerPar(pipe) 
 
     val banking = pattern match {
       case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt, bankFactor)
@@ -202,7 +203,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     banking match {
       case StridedBanking(stride,f) if f > 1  => Strided(stride)
       case StridedBanking(stride,f) if f == 1 => NoBanks
-      case NoBanking if isUnit                => NoBanks
+      case NoBanking if bankFactor==1         => NoBanks
       case NoBanking                          => Duplicated
     }
   }
@@ -250,5 +251,18 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     case (_, Duplicated) => Duplicated
     case (NoBanks, bank2) => bank2
     case (bank1, NoBanks) => bank1
+  }
+
+  def getInnerPar(pipe:Expr):Int = pipe match {
+    case Def(Hwblock(func,_)) => 1
+    case Def(UnitPipe(en, func)) => 1
+    case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
+      val Def(CounterChainNew(ctrs)) = cchain
+      val ConstReg(par) = extractConstant(parFactorsOf(ctrs.head).head)
+      par.asInstanceOf[Int]
+    case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) =>
+      val Def(CounterChainNew(ctrs)) = cchain
+      val ConstReg(par) = extractConstant(parFactorsOf(ctrs.head).head)
+      par.asInstanceOf[Int]
   }
 }

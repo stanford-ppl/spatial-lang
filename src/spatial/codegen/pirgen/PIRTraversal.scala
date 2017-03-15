@@ -514,8 +514,6 @@ trait PIRTraversal extends SpatialTraversal {
     def isWriteContext: Boolean
     def init(): Unit
 
-    def isUnit = cu.isUnit
-
     def stageNum: Int = stages.count{case stage:MapStage => true; case _ => false} + 1
     def controlStageNum: Int = controlStages.length
     def prevStage: Option[Stage] = stages.lastOption

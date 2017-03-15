@@ -132,7 +132,12 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
     emitFringeVectors(cu)
     preallocateFeedbackRegs(cu)             // Local write addresses
 
-    emitAllStages(cu)
+    cu.style match {
+      case PipeCU => emitAllStages(cu)
+      case MemoryCU(i) => emitAllStages(cu)
+      case StreamCU => emitAllStages(cu)
+      case _ => 
+    }
 
     close("}")
   }
@@ -164,7 +169,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
       emit(s"""val $name = CounterChain(name = "$name", (Const("0i"), Const("1i"), Const("1i")))""")
 
     case ctr@CUCounter(start, end, stride, par) =>
-      emit(s"""val ${ctr.name} = (${quoteInCounter(start)}, ${quoteInCounter(end)}, ${quoteInCounter(stride)}, $par) // Counter""")
+      emit(s"""val ${ctr.name} = Counter(${quoteInCounter(start)}, ${quoteInCounter(end)}, ${quoteInCounter(stride)}, $par) // Counter""")
 
     case mem: CUMemory =>
       var decl = s"""val ${mem.name} = ${quote(mem.mode)}(size = ${mem.size}"""
@@ -263,12 +268,8 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
   }
 
   def quote(cu: CU): String = cu.style match {
-    case UnitCU if cu.allStages.isEmpty && !cu.isDummy => "Sequential" // outer unit is "Sequential"
-    case UnitCU       => "UnitPipeline"
     case StreamCU if cu.allStages.isEmpty && !cu.isDummy => "StreamController"
     case StreamCU     => "StreamPipeline"
-    case UnitStreamCU if cu.allStages.isEmpty && !cu.isDummy => "StreamController" // TODO
-    case UnitStreamCU => "StreamPipeline" // TODO
     case PipeCU       => "Pipeline"
     case MetaPipeCU   => "MetaPipeline"
     case SequentialCU => "Sequential"

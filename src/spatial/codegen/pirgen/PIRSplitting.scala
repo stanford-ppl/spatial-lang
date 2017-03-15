@@ -688,7 +688,7 @@ trait PIRSplitting extends PIRTraversal {
     } // end while
 
     val parent = if (partitions.length > 1) {
-      val parent = ComputeUnit(cu.name, cu.pipe, (if (cu.isUnit) UnitStreamCU else StreamCU) )
+      val parent = ComputeUnit(cu.name, cu.pipe, StreamCU)
       parent.parent = cu.parent
       parent.deps = cu.deps
       parent.cchains ++= cu.cchains
@@ -723,7 +723,7 @@ trait PIRSplitting extends PIRTraversal {
 
 
   def schedulePartition(orig: CU, part: Partition, i: Int, parent: Option[CU]): CU = {
-    val style = if (parent.isDefined && orig.isUnit) UnitStreamCU else if (parent.isDefined) StreamCU else orig.style
+    val style = if (parent.isDefined) StreamCU else orig.style
     val cu = ComputeUnit(orig.name+"_"+i, orig.pipe, style)
     cu.parent = if (parent.isDefined) parent else orig.parent
     if (parent.isEmpty) cu.deps ++= orig.deps
