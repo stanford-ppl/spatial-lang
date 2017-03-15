@@ -32,6 +32,9 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
     emit(src"""${lhs}${suffix}.io.input.enable := ${lhs}${suffix}_en""")
     emit(src"""${lhs}${suffix}_done := ${lhs}${suffix}.io.output.done""")
     emit(src"""${lhs}${suffix}.io.input.reset := ${lhs}${suffix}_resetter""")
+    if (suffix != "") {
+      emit(src"""${lhs}${suffix}.io.input.isStream := true.B""")
+    }
     emit(src"""val ${lhs}${suffix}_maxed = ${lhs}${suffix}.io.output.saturated""")
     ctrs.zipWithIndex.foreach { case (c, i) =>
       val x = c match {

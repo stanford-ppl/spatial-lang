@@ -79,7 +79,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"io.memStreams($id).cmd.bits.isWr := ~${cmdStream}_data(0)")
       emitGlobal(src"val ${cmdStream}_ready = true.B // Assume cmd fifo will never fill up")
       emitGlobal(src"""val ${dataStream}_ready = true.B // Assume cmd fifo will never fill up""")
-      emitGlobal(src"""val ${ackStream}_ready = true.B // Assume cmd fifo will never fill up""")
+      emitGlobal(src"""val ${ackStream}_ready = io.memStreams($id).rdata.valid // [sic] rData signal is used for write ack""")
       emitGlobal(src"val ${ackStream}_data = 0.U // Definitely wrong signal")
 
     case FringeSparseLoad(dram,addrStream,dataStream) =>

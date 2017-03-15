@@ -65,6 +65,21 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
 
   }
 
+  protected def isImmediateStreamChild(lhs: Exp[_]): Boolean = {
+    var result = false
+    if (parentOf(lhs).isDefined) {
+      if (styleOf(parentOf(lhs).get) == StreamPipe) {
+        result = true
+      } else {
+        result = false
+      }
+    } else {
+      result = false
+    }
+    result
+
+  }
+
   override def quote(s: Exp[_]): String = {
     s match {
       case b: Bound[_] => computeSuffix(b)
@@ -112,7 +127,12 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     val smStr = styleOf(sym) match {
       case MetaPipe => s"Metapipe"
       case StreamPipe => "Streampipe"
-      case InnerPipe => "Innerpipe"
+      case InnerPipe => 
+        if (isStreamChild(sym)) {
+          "Streaminner"
+        } else {
+          "Innerpipe"
+        }
       case SeqPipe => s"Seqpipe"
       case ForkJoin => s"Parallel"
     }
@@ -143,6 +163,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
 
     val constrArg = smStr match {
       case "Innerpipe" => s"${numIter.length} /*probably don't need*/"
+      case "Streaminner" => s"${numIter.length} /*probably don't need*/"
       // case "Parallel" => ""
       case _ => childrenOf(sym).length
     }
@@ -187,14 +208,19 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         } else {
           emit(src"""${ctr}_resetter := ${sym}_rst_en""")
         }
-        if (smStr == "Innerpipe") {
+        if (smStr == "Innerpipe" | smStr == "Streaminner") { // TODO: Simplify this logic, Streaminner never used to be a thing
           emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 + ${sym}_offset)""")
         }
       } else {
         emit(src"""// ---- Begin $smStr ${sym} Unit Counter ----""")
-        if (smStr == "Innerpipe") {
-          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_sm.io.output.ctr_en, 1 + ${sym}_offset)""")
-          emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")
+        if (smStr == "Innerpipe" | smStr == "Streaminner") { // TODO: Simplify this logic, Streaminner never used to be a thing
+          if (isStreamChild(sym)) {
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_en, 1 + ${sym}_offset) // stream kiddo""")
+            emit(src"""val ${sym}_ctr_en = ${sym}_done // stream kiddo""")
+          } else {
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_sm.io.output.ctr_en, 1 + ${sym}_offset)""")
+            emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")            
+          }
         } else {
           emit(s"// How to emit for non-innerpipe unit counter?")
         }
@@ -209,7 +235,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
 
         
     /* Control Signals to Children Controllers */
-    if (smStr == "Innerpipe") {
+    if (smStr == "Innerpipe" | smStr == "Streaminner") {
       emit(src"""// ---- No children for $sym ----""")
     } else {
       emit(src"""// ---- Begin $smStr ${sym} Children Signals ----""")
@@ -308,6 +334,9 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
+      if (styleOf(lhs) == InnerPipe & isStreamChild(lhs) & !isImmediateStreamChild(lhs)) { // Not sure why this logic works......
+        emit(src"${lhs}_sm.io.input.isUnit := true.B")
+      }
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emit(s"// Controller Stack: ${controllerStack}")
         emitBlock(func)
