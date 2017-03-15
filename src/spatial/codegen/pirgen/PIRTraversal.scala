@@ -115,18 +115,14 @@ trait PIRTraversal extends SpatialTraversal {
   def quote(x: Expr):String = s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
   def qdef(lhs:Expr):String = {
     val rhs = lhs match {
+      case lhs if (composed.contains(lhs)) => s"-> ${qdef(composed(lhs))}"
       case Def(e:UnrolledForeach) => 
         s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
       case Def(e:UnrolledReduce[_,_]) => 
         s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
-      //case Def(BurstLoad(dram, fifo, ofs, ctr, i)) =>
-        //s"BurstLoad(dram=$dram, fifo=$fifo, ofs=$ofs, ctr=$ctr, i=$i)"
-      //case Def(BurstStore(dram, fifo, ofs, ctr, i)) =>
-        //s"BurstStore(dram=$dram, fifo=$fifo, ofs=$ofs, ctr=$ctr, i=$i)"
       case Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
       case Op(rhs) => s"$rhs"
       case Def(rhs) => s"$rhs"
-      case lhs if (composed.contains(lhs)) => s"$lhs -> ${qdef(composed(lhs))}"
       case lhs => s"$lhs"
     }
     s"$lhs = $rhs"
@@ -302,7 +298,7 @@ trait PIRTraversal extends SpatialTraversal {
 
   def allocateLocal(x: Expr): LocalComponent = x match {
     case c if isConstant(c) => extractConstant(x)
-    case _ => TempReg()
+    case _ => TempReg(x)
   }
 
   def const(x:Expr):LocalComponent = x match {

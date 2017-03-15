@@ -160,10 +160,9 @@ trait PIR {
     override def toString = s"ar$id"
   }
 
-  case class TempReg() extends LocalMem[TempReg] {
-    override def toString = s"tr$id"
+  case class TempReg(x:Expr) extends LocalMem[TempReg] {
+    override def toString = s"$x"
   }
-
 
   sealed abstract class LocalPort[T<:LocalComponent] extends LocalMem[T] {
     def bus: GlobalBus

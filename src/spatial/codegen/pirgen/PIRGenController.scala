@@ -135,7 +135,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
     cu.style match {
       case PipeCU => emitAllStages(cu)
       case MemoryCU(i) => emitAllStages(cu)
-      case StreamCU => emitAllStages(cu)
       case _ => 
     }
 
@@ -290,7 +289,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
 
     case reg:ReduceReg           => s"rr${reg.id}"                  // Reduction register
     case reg:AccumReg            => s"ar${reg.id}"                  // After preallocation
-    case reg:TempReg             => s"tr${reg.id}"                  // Temporary register
+    case reg:TempReg             => reg.toString                  // Temporary register
     case reg:ControlReg          => s"cr${reg.id}"                  // Control register
 
     case ScalarIn(bus)           => quote(bus)                      // Scalar input
