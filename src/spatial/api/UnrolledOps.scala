@@ -43,7 +43,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   case class ParSRAMLoad[T:Staged:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]]
-  ) extends Op[Vector[T]] {
+  )(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
     def mirror(f:Tx) = par_sram_load(f(sram), addr.map{inds => f(inds)})
     val mT = typ[T]
   }
@@ -62,7 +62,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     fifo: Exp[FIFO[T]],
     ens:  Exp[Vector[Bool]],
     zero: Exp[T]
-  ) extends Op[Vector[T]] {
+  )(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
     def mirror(f:Tx) = par_fifo_deq(f(fifo),f(ens),f(zero))
     val mT = typ[T]
   }
@@ -80,7 +80,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     stream: Exp[StreamIn[T]],
     ens:    Exp[Vector[Bool]],
     zero:   Exp[T]
-  ) extends Op[Vector[T]] {
+  )(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
     def mirror(f:Tx) = par_stream_deq(f(stream),f(ens),f(zero))
     val mT = typ[T]
     val bT = bits[T]
@@ -129,6 +129,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
+    implicit val W = Width[T](addr.length)
     stage( ParSRAMLoad(sram, addr) )(ctx)
   }
 
@@ -146,6 +147,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     ens:  Exp[Vector[Bool]],
     zero: Exp[T]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
+    implicit val W = Width[T](lenOf(ens))
     stageWrite(fifo)( ParFIFODeq(fifo, ens, zero) )(ctx)
   }
 
@@ -162,6 +164,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     ens:    Exp[Vector[Bool]],
     zero:   Exp[T]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
+    implicit val W = Width[T](lenOf(ens))
     stageWrite(stream)( ParStreamDeq(stream, ens, zero) )(ctx)
   }
 

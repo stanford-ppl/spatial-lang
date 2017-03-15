@@ -65,7 +65,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
     def store(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = requestLength.s match {
       case Exact(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 => alignedStore(offchipAddr, onchipAddr)
       case x =>
-        error(c"Unaligned store! Burst length: ${str(x)}")
+        //error(c"Unaligned store! Burst length: ${str(x)}")
         unalignedStore(offchipAddr, onchipAddr)
     }
     def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = requestLength.s match {
@@ -337,7 +337,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     if (strides.exists{case Const(1) => false ; case _ => true})
       new UnsupportedStridedDRAMError(isLoad)(ctx)
 
-    val localRank = mem.iterators(local).length
+    val localRank = mem.iterators(local).length // TODO: Replace with something else here (this creates counters)
 
     val iters = List.tabulate(localRank){_ => fresh[Index]}
 

@@ -211,6 +211,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // --- Design Elaboration
   passes += printer
   passes += unroller          // Unrolling
+  passes += uctrlAnalyzer     // Readers/writers for CSE
+  passes += printer
   passes += regReadCSE        // CSE register reads in inner pipelines
   passes += printer
 

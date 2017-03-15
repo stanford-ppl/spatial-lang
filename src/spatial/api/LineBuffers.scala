@@ -1,13 +1,14 @@
 package spatial.api
 
 import argon.core.Staging
+import argon.typeclasses.CustomBitWidths
 import spatial.SpatialExp
 
 trait LineBufferApi extends LineBufferExp {
   this: SpatialExp =>
 }
 
-trait LineBufferExp extends Staging with SRAMExp {
+trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
   this: SpatialExp =>
 
   case class LineBuffer[T:Staged:Bits](s: Exp[LineBuffer[T]]) {
@@ -22,7 +23,8 @@ trait LineBufferExp extends Staging with SRAMExp {
 
       val start  = cols.start.map(_.s).getOrElse(int32(0))
       val length = cols.length
-      wrap(linebuffer_col_slice(s, row.s, start, length.s))
+      val exp = linebuffer_col_slice(s, row.s, start, length.s)
+      exp.tp.wrapped(exp)
     }
     def apply(rows: Range, col: Index)(implicit ctx: SrcCtx): Vector[T] = {
       // UNSUPPORTED: Strided range apply of line buffer
@@ -33,7 +35,8 @@ trait LineBufferExp extends Staging with SRAMExp {
 
       val start = rows.start.map(_.s).getOrElse(int32(0))
       val length = rows.length
-      wrap(linebuffer_row_slice(s, start, length.s, col.s))
+      val exp = linebuffer_row_slice(s, start, length.s, col.s)
+      exp.tp.wrapped(exp)
     }
 
     def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = {
@@ -65,10 +68,11 @@ trait LineBufferExp extends Staging with SRAMExp {
     def load(mem: LineBuffer[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = mem.apply(is(0),is(1))
 
     def store(mem: LineBuffer[T], is: Seq[Index], data: T, en: Bool)(implicit ctx: SrcCtx): Void = {
-      wrap(linebuffer_store(mem.s, is(0).s, is(1).s, data.s))
+      wrap(linebuffer_store(mem.s, is(0).s, data.s))
     }
     def iterators(mem: LineBuffer[T])(implicit ctx: SrcCtx): Seq[Counter] = {
-      stagedDimsOf(mem.s).map{d => Counter(0, wrap(d), 1, 1) }
+      // Hack: Use only columns for dense transfers
+      stagedDimsOf(mem.s).drop(1).map{d => Counter(0, wrap(d), 1, 1) }
     }
   }
   implicit def linebufferIsMemory[T:Staged:Bits]: Mem[T, LineBuffer] = new LineBufferIsMemory[T]
@@ -86,7 +90,7 @@ trait LineBufferExp extends Staging with SRAMExp {
     row:        Exp[Index],
     colStart:   Exp[Index],
     colLength:  Exp[Index]
-  ) extends Op[Vector[T]] {
+  )(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
     def mirror(f:Tx) = linebuffer_col_slice(f(linebuffer),f(row),f(colStart),f(colLength))
     override def aliases = Nil
   }
@@ -96,18 +100,17 @@ trait LineBufferExp extends Staging with SRAMExp {
     rowStart:   Exp[Index],
     rowEnd:     Exp[Index],
     col:        Exp[Index]
-  ) extends Op[Vector[T]] {
+  )(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
     def mirror(f:Tx) = linebuffer_row_slice(f(linebuffer),f(rowStart),f(rowEnd),f(col))
     override def aliases = Nil
   }
 
   case class LineBufferStore[T:Staged:Bits](
     linebuffer: Exp[LineBuffer[T]],
-    row:        Exp[Index],
     col:        Exp[Index],
     data:       Exp[T]
   ) extends Op[Void] {
-    def mirror(f:Tx) = linebuffer_store(f(linebuffer),f(row),f(col),f(data))
+    def mirror(f:Tx) = linebuffer_store(f(linebuffer),f(col),f(data))
     override def aliases = Nil
   }
 
@@ -121,27 +124,38 @@ trait LineBufferExp extends Staging with SRAMExp {
     linebuffer: Exp[LineBuffer[T]],
     row:        Exp[Index],
     colStart:   Exp[Index],
-    colLength:  Exp[Index]
+    length:     Exp[Index]
   )(implicit ctx: SrcCtx) = {
-    stageCold(LineBufferColSlice(linebuffer, row, colStart, colLength))(ctx)
+    implicit val W: INT[Vector[T]] = length match {
+      case Final(c) => Width[T](c.toInt)
+      case _ =>
+        error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
+        Width[T](0)
+    }
+    stageCold(LineBufferColSlice(linebuffer, row, colStart, length))(ctx)
   }
 
   private[spatial] def linebuffer_row_slice[T:Staged:Bits](
     linebuffer: Exp[LineBuffer[T]],
     rowStart:   Exp[Index],
-    rowEnd:     Exp[Index],
+    length:     Exp[Index],
     col:        Exp[Index]
   )(implicit ctx: SrcCtx) = {
-    stageCold(LineBufferRowSlice(linebuffer, rowStart, rowEnd, col))(ctx)
+    implicit val W: INT[Vector[T]] = length match {
+      case Final(c) => Width[T](c.toInt)
+      case _ =>
+        error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
+        Width[T](0)
+    }
+    stageCold(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)
   }
 
   private[spatial] def linebuffer_store[T:Staged:Bits](
     linebuffer: Exp[LineBuffer[T]],
-    row:        Exp[Index],
     col:        Exp[Index],
     data:       Exp[T]
   )(implicit ctx: SrcCtx) = {
-    stageWrite(linebuffer)(LineBufferStore(linebuffer,row,col,data))(ctx)
+    stageWrite(linebuffer)(LineBufferStore(linebuffer,col,data))(ctx)
   }
 
   /** Internal **/

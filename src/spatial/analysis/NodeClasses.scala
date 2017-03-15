@@ -175,7 +175,7 @@ trait NodeClasses extends SpatialMetadataExp {
   }
 
   def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
-    case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] => true
+    case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] | _:LineBufferType[_] | _:RegFileType[_] => true
     case _:StreamInType[_]  => true
     case _:StreamOutType[_] => true
     case _ => false
@@ -247,8 +247,20 @@ trait NodeClasses extends SpatialMetadataExp {
 
   // Memory, optional value, optional indices, optional enable
   type LocalWrite = (Exp[_], Option[Exp[_]], Option[Seq[Exp[Index]]], Option[Exp[Bool]])
+  implicit class LocalWriteOps(x: LocalWrite) {
+    def mem = x._1
+    def data = x._2
+    def addr = x._3
+    def en = x._4
+  }
+
   // Memory, optional indices, optional enable
   type LocalRead = (Exp[_], Option[Seq[Exp[Index]]], Option[Exp[Bool]])
+  implicit class LocalReadOps(x: LocalRead) {
+    def mem = x._1
+    def addr = x._2
+    def en = x._3
+  }
 
   private object LocalWrite {
     def apply(mem: Exp[_]): List[LocalWrite] = List( (mem, None, None, None) )
@@ -271,7 +283,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case SRAMStore(mem,_,inds,_,data,en)   => Some(LocalWrite(mem, value=data, addr=inds, en=en))
     case FIFOEnq(fifo,data,en)             => Some(LocalWrite(fifo, value=data, en=en))
 
-    case LineBufferStore(lb,row,col,data)  => Some(LocalWrite(lb, value=data, addr=Seq(row,col)))
+    case LineBufferStore(lb,col,data)      => Some(LocalWrite(lb, value=data, addr=Seq(col)))
 
     case e: DenseTransfer[_,_] if e.isLoad => Some(LocalWrite(e.local, addr=e.iters))
     case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))

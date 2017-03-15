@@ -17,15 +17,32 @@ trait RegReadCSE extends ForwardTransformer {
 
   override protected def postprocess[T:Staged](block: Block[T]) = {
     // Remove CSE'd register duplicates from the metadata
-    for ((reg,csed) <- csedDuplicates) {
-      val duplicates = duplicatesOf(reg)
-      duplicatesOf(reg) = duplicates.zipWithIndex.filter{case (dup,i) => !csed.contains(i) }.map(_._1)
+    for ((k,v) <- subst) {
+      dbg(c"$k -> $v")
+    }
 
-      val writers = writersOf(reg)
-      val readers = readersOf(reg)
+    for ((reg,csed) <- csedDuplicates) {
+      val orig = duplicatesOf(reg)
+      val duplicates = orig.zipWithIndex.filter{case (dup,i) => !csed.contains(i) }
+      duplicatesOf(reg) = duplicates.map(_._1)
+
+      val mapping = duplicates.map(_._2).zipWithIndex.toMap
+
+      val writers = writersOf(reg).map{case (n,c) => (f(n), (f(c._1),c._2)) }.distinct
+      val readers = readersOf(reg).map{case (n,c) => (f(n), (f(c._1),c._2)) }.distinct
       val accesses = writers ++ readers
+
+      dbg("")
+      dbg(u"$reg")
       accesses.foreach{access =>
-        dispatchOf.get(access, reg).foreach{orig => dispatchOf(access, reg) = orig diff csed }
+        dispatchOf.get(access, reg).foreach{orig =>
+          dispatchOf(access, reg) = orig.flatMap{o => mapping.get(o) }
+        }
+        portsOf.get(access,reg).foreach{orig =>
+          portsOf(access, reg) = orig.flatMap{case (i,ps) => mapping.get(i).map{i2 => i2 -> ps} }
+        }
+
+        dbg(u"${str(access.node)}: " + dispatchOf.get(access, reg).map(_.toString).getOrElse(""))
       }
     }
 

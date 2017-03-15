@@ -437,6 +437,7 @@ trait MemoryAnalyzer extends CompilerPass {
       case _:SRAMType[_] => bank(mem, bankSRAMAccess, SRAMSettings)
       case _:RegType[_]  => bank(mem, bankRegAccess, RegSettings)
       case _:LineBufferType[_] => bank(mem, bankLineBufferAccess, LineBufferSettings)
+      case _:RegFileType[_]   => bank(mem, bankRegFileAccess, RegFileSettings)
       case _:StreamInType[_]  => bankStream(mem)
       case _:StreamOutType[_] => bankStream(mem)
       case tp => throw new UndefinedBankingException(tp)(ctxOrHere(mem))
@@ -531,9 +532,9 @@ trait MemoryAnalyzer extends CompilerPass {
     val banking = access match {
       case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(NoBanking, StridedBanking(strides(1),len.toInt))
       case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(StridedBanking(strides(0),len.toInt), NoBanking)
-      case Def(LineBufferStore(_, row, col, _)) =>
+      case _ =>
         val patterns = accessPatternOf(access)
-        indexPatternsToBanking(patterns, strides)
+        NoBanking +: indexPatternsToBanking(patterns, strides) // Everything else uses 1D view of line buffer
     }
 
     val banks = banking.map(_.banks).product

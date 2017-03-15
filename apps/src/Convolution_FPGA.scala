@@ -6,6 +6,7 @@ object Convolution_FPGA extends SpatialApp {
 
   val Kh = 3
   val Kw = 3
+  val Cmax = 100
 
   @virtualize
   def convolve[T:Staged:Num](image: Array[T], rows: Int, cols: Int): Array[T] = {
@@ -15,11 +16,12 @@ object Convolution_FPGA extends SpatialApp {
     val C = ArgIn[Int]
     setArg(R, rows)
     setArg(C, cols)
+
     val img = DRAM[T](R, C)
     val imgOut = DRAM[T](R, C)
 
     Accel {
-      val lb = LineBuffer[T](Kh, C)
+      val lb = LineBuffer[T](Kh, Cmax)
       val k  = RegFile[T](Kh, Kw)
 
       // TODO: Better syntax for initialization of lookup tables
@@ -36,7 +38,7 @@ object Convolution_FPGA extends SpatialApp {
       }
 
       val sr = RegFile[T](Kh, Kw)
-      val lineOut = SRAM[T](C)
+      val lineOut = SRAM[T](Cmax)
 
       Foreach(0 until R) { r =>
         lb load img(r, 0::C)

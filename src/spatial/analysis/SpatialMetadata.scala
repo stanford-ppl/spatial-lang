@@ -265,7 +265,7 @@ trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp
     */
   case class ReadUsers(users: List[Access]) extends Metadata[ReadUsers] {
     def mirror(f:Tx) = this
-    override val invalidateOnTransform = true // Not necessarily reliably mirrorable
+    override val ignoreOnTransform = true // Not necessarily reliably mirrorable
   }
   object usersOf {
     def apply(x: Exp[_]): List[Access] = metadata[ReadUsers](x).map(_.users).getOrElse(Nil)

@@ -88,10 +88,11 @@ trait BankingMetadataExp extends SpatialMetadataExp {
   object portsOf {
     private def get(access: Exp[_]): Option[Map[Exp[_], Map[Int, Set[Int]]]] = metadata[PortIndex](access).map(_.mapping)
 
+    def get(access: Exp[_], mem: Exp[_]): Option[Map[Int, Set[Int]]] = portsOf.get(access).flatMap(_.get(mem))
+
     // Get all port mappings for this access for the given memory
-    def apply(access: Exp[_], mem: Exp[_]): Map[Int, Set[Int]] = portsOf.get(access) match {
-      case Some(map) if map contains mem => map(mem)
-      case _ => throw new UndefinedPortsException(access, mem, None)
+    def apply(access: Exp[_], mem: Exp[_]): Map[Int, Set[Int]] = {
+      portsOf.get(access, mem).getOrElse { throw new UndefinedPortsException(access, mem, None) }
     }
 
     // Get ports for this access for the given memory and instance index
@@ -114,7 +115,8 @@ trait BankingMetadataExp extends SpatialMetadataExp {
       ports.foreach{case (idx,portSet) => portsOf(access, mem, idx) = portSet }
     }
 
-    def apply(access: Access, mem: Exp[_]): Map[Int,Set[Int]] = { portsOf(access.node, mem) }
+    def apply(access: Access, mem: Exp[_]): Map[Int,Set[Int]] = portsOf(access.node, mem)
+    def get(access: Access, mem: Exp[_]): Option[Map[Int,Set[Int]]] = portsOf.get(access.node, mem)
     def apply(access: Access, mem: Exp[_], idx: Int): Set[Int] = { portsOf(access.node, mem, idx) }
     def update(access: Access, mem: Exp[_], idx: Int, ports: Set[Int]): Unit = { portsOf(access.node, mem, idx) = ports }
     def update(access: Access, mem: Exp[_], ports: Map[Int,Set[Int]]): Unit = { portsOf(access.node, mem) = ports }
