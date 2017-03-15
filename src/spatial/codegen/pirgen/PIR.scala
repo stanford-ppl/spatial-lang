@@ -285,7 +285,12 @@ trait PIR {
     val pipe: Expr
     var style: CUStyle
     var parent: Option[AbstractComputeUnit] = None
-    var isUnit = false // This should no longer be used
+    var _isUnit = false
+    def isUnit = style match { // TODO: remove this. This should no longer be used
+      case MemoryCU(i) => throw new Exception(s"isUnit is not defined on MemoryCU")
+      case FringeCU(dram, mode) => throw new Exception(s"isUnit is not defined on FringeCU")
+      case _ => _isUnit  
+    }
     def isMemoryUnit = false //cuType == BurstTransfer || cuType == RandomTransfer
 
     var cchains: Set[CUCChain] = Set.empty

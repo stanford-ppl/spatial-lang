@@ -105,12 +105,12 @@ trait PIRAllocation extends PIRTraversal {
     val cu = PseudoComputeUnit(quote(pipe), pipe, style)
     cu.parent = parent
 
-    cu.isUnit = style match {
-      case MemoryCU(i) => throw new Exception(s"isUnit is not defined on MemoryCU")
-      case FringeCU(dram, mode) => throw new Exception(s"isUnit is not defined on FringeCU")
-      case _ => getInnerPar(pipe) == 1
+    style match {
+      case MemoryCU(i) => 
+      case FringeCU(dram, mode) => 
+      case _ => cu._isUnit = getInnerPar(pipe) == 1
     } 
-
+ 
     if (top.isEmpty && parent.isEmpty) top = Some(pipe)
 
     dbgs(s"Allocating CU $cu for ${pipe}")
