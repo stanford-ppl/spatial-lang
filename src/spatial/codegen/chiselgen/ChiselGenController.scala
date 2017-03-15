@@ -197,6 +197,9 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
           case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
             if (isStreamChild(sym)) {
               emit(src"${cchain.get}_en := ${sym}_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
+              if (styleOf(sym) == InnerPipe & listensTo(sym).length > 0) { // Pretty ugly logic
+                emit(src"${sym}_sm.io.input.hasStreamIns := true.B")
+              }
             } else {
               emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
             } 
@@ -334,9 +337,6 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
-      if (styleOf(lhs) == InnerPipe & isStreamChild(lhs) & !isImmediateStreamChild(lhs)) { // Not sure why this logic works......
-        emit(src"${lhs}_sm.io.input.isUnit := true.B")
-      }
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emit(s"// Controller Stack: ${controllerStack}")
         emitBlock(func)

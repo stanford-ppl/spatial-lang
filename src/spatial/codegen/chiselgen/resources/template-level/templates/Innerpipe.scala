@@ -104,7 +104,7 @@ class Streaminner(val ctrDepth : Int) extends Module {
       val ctr_done = Input(Bool())
       val ctr_maxIn = Vec(ctrDepth, Input(UInt(32.W))) // TODO: Deprecate this maxIn/maxOut business if all is well without it
       val forever = Input(Bool())
-      val isUnit = Input(Bool())
+      val hasStreamIns = Input(Bool()) // If there is a streamIn for this stage, then we should not require en=true for done to go high
     }
     val output = new Bundle {
       val done = Output(Bool())
@@ -118,38 +118,8 @@ class Streaminner(val ctrDepth : Int) extends Module {
   val state = Reg(init = pipeInit.U)
   val maxFF = List.tabulate(ctrDepth) { i => Reg(init = 0.U) }
 
-  // Only start the state machine when the enable signal is set
-  when (io.input.enable) {
-    // Change states
-    when( state === pipeInit.U ) {
-      io.output.done := false.B
-      state := Mux(io.input.ctr_done, pipeDone.U, pipeRun.U)
-    }.elsewhen( state === pipeRun.U ) {
-      io.output.ctr_en := true.B;
-      io.output.ctr_inc := true.B
-      when (io.input.ctr_done) {
-        io.output.ctr_inc := false.B
-        (0 until ctrDepth) foreach { i => maxFF(0) := 0.U } // TODO: Why do we reset these instead of leaving them?
-        state := pipeDone.U
-      }.otherwise {
-        state := pipeRun.U
-      }
-    }.elsewhen( state === pipeDone.U ) {
-      io.output.done := Mux(io.input.forever, false.B, true.B)
-      state := pipeInit.U
-    }.elsewhen( state === pipeSpinWait.U ) {
-      state := pipeSpinWait.U;
-    } 
-  }.otherwise {
-    io.output.done := Mux(io.input.ctr_done & io.input.enable, true.B, false.B)
-    io.output.ctr_en := false.B
-    io.output.ctr_inc := false.B
-    io.output.rst_en := false.B
-    io.output.done := false.B
-    state := pipeInit.U
-  }
 
-  io.output.done := Mux(io.input.ctr_done & Mux(io.input.isUnit, io.input.enable, true.B), true.B, false.B)
+  io.output.done := Mux(io.input.ctr_done & Mux(io.input.hasStreamIns, true.B, io.input.enable), true.B, false.B) // If there is a streamIn for this stage, then we should not require en=true for done to go high
 
 }
 
