@@ -260,8 +260,9 @@ trait PIRTraversal extends SpatialTraversal {
   def getRemoteReaders(dmem:Expr, dwriter:Expr):List[Expr] = {
     val mem = compose(dmem)
     val writer = compose(dwriter)
-    if (isStreamOut(mem)) { getReaders(mem) }
-    else {
+    if (isStreamOut(mem)) { 
+      getReaders(mem)
+    } else {
       readersOf(mem).filter { reader => reader.ctrlNode!=parentOf(writer).get }.map(_.node)
     }
   }

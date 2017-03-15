@@ -139,7 +139,7 @@ trait PIRScheduler extends PIRTraversal {
       value.foreach { data =>
         dbgs(s"data:$data ddata:[${decompose(data).mkString(",")}] writer:$lhs dwriters:[${decompose(lhs).mkString(",")}]")
         decompose(data).zip(decompose(lhs)).foreach { case (ddata, dwriter) =>
-          if (getRemoteReaders(mem, lhs).nonEmpty) {
+          if (getRemoteReaders(mem, lhs).nonEmpty || isArgOut(mem)) {
             assert(ctx.getReg(dwriter).nonEmpty, s"writer: ${qdef(dwriter)} was not allocated in ${ctx.cu} during allocation")
             propagateReg(ddata, ctx.cu.getOrElseUpdate(ddata)(const(ddata)), ctx.reg(dwriter), ctx)
           }
