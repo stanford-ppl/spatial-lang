@@ -89,9 +89,13 @@ trait UnitPipeTransformer extends ForwardTransformer {
     stages.zipWithIndex.foreach{
       case (stage,i) if !stage.isControl =>
         val calculated = stage.nodes.map{case TP(s,d) => s}
-        val innerDeps = deps.take(i).flatten // Things in this Unit Pipe
+        val innerDeps = calculated ++ deps.take(i).flatten // Things in this Unit Pipe
         val escaping = calculated.filter{sym => (sym.dependents diff innerDeps).nonEmpty && !isRegisterRead(sym) }
         val (escapingUnits, escapingValues) = escaping.partition{_.tp == VoidType}
+
+        dbgs(c"Stage #$i: ")
+        dbgs(c"  Escaping symbols: ")
+        escapingValues.foreach{e => dbgs(c"    ${str(e)}: ${e.dependents diff innerDeps}")}
 
         // Create registers for escaping primitive values
         val regs = escapingValues.map{sym => regFromSym(sym) }
@@ -112,8 +116,6 @@ trait UnitPipeTransformer extends ForwardTransformer {
         // Add allocations which are known not to be used in the primitive logic in the inserted unit pipe
         stage.dynamicAllocs.foreach(visitStm)
 
-        dbgs(c"Stage #$i: ")
-        dbgs(c"  Escaping symbols: $escapingValues")
         dbgs(c"  Created registers: $regs")
 
 
