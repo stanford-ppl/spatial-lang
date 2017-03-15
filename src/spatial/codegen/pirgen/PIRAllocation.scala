@@ -496,7 +496,7 @@ trait PIRAllocation extends PIRTraversal {
             val sram = sramCU.memMap(mem)
             sramCU.readStages(List(sram)) = (readerCU.pipe, addrStages)
             sram.readPort = Some(bus)
-            sram.readAddr = ad.map{ad => ReadAddrWire(sram)} //TODO
+            //sram.readAddr = ad.map(ad => ReadAddrWire(sram))
           }
         }
       }
@@ -523,7 +523,7 @@ trait PIRAllocation extends PIRTraversal {
           dbgs(s"sramCUs for dmem=${qdef(dmem)} cu=$sramCU")
           val sram = sramCU.memMap(mem)
           sram.writePort = Some(bus)
-          sram.writeAddr = ad.map(ad => WriteAddrWire(sram)) //TODO
+          //sram.writeAddr = ad.map(ad => WriteAddrWire(sram))
           sramCU.writeStages(List(sram)) = (writerCU.pipe, addrStages)
         }
       }

@@ -928,11 +928,8 @@ trait PIRSplitting extends PIRTraversal {
         case _ =>
       }
       cu.mems.foreach{sram =>
-        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_).asInstanceOf[ReadAddr]} //TODO refactor this
-        sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_).asInstanceOf[WriteAddr]}
-        //sram.swapWrite = sram.swapWrite.map{tx(_)}
-        //sram.swapRead = sram.swapRead.map{tx(_)}
-        //sram.writeCtrl = sram.writeCtrl.map{tx(_)}
+        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]} //TODO refactor this
+        sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]}
       }
     }
 

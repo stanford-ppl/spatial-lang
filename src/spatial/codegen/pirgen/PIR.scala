@@ -102,8 +102,7 @@ trait PIR {
 
   // Locally accessible scalar should be all from ScalarFIFO or ScalarBuffer.
   sealed trait LocalScalar extends LocalComponent 
-  sealed trait ReadAddr extends LocalComponent
-  sealed trait WriteAddr extends LocalComponent
+  sealed trait Addr extends LocalComponent
 
   sealed abstract class LocalMem[T<:LocalComponent] extends LocalComponent {
     def eql(that: T): Boolean = this.id == that.id
@@ -114,11 +113,11 @@ trait PIR {
     }
   }
 
-  case class ConstReg[T<:AnyVal](const: T) extends LocalMem[ConstReg[T]] with LocalScalar with ReadAddr with WriteAddr {
+  case class ConstReg[T<:AnyVal](const: T) extends LocalMem[ConstReg[T]] with LocalScalar with Addr {
     override def eql(that: ConstReg[T]) = this.const == that.const
     override def toString = const.toString
   }
-  case class CounterReg(cchain: CUCChain, idx: Int) extends LocalMem[CounterReg] with ReadAddr with WriteAddr {
+  case class CounterReg(cchain: CUCChain, idx: Int) extends LocalMem[CounterReg] with Addr {
     override def eql(that: CounterReg) = this.cchain == that.cchain && this.idx == that.idx
     override def toString = cchain+s"($idx)"
   }
@@ -132,15 +131,15 @@ trait PIR {
   }
 
   sealed abstract class SRAMPort[T<:LocalComponent] extends LocalMem[T]
-  case class ReadAddrWire(mem: CUMemory) extends SRAMPort[ReadAddrWire] with ReadAddr {
+  case class ReadAddrWire(mem: CUMemory) extends SRAMPort[ReadAddrWire] with Addr {
     override def eql(that: ReadAddrWire) = this.mem == that.mem
     override def toString = mem.name + ".readAddr"
   }
-  case class WriteAddrWire(mem: CUMemory) extends SRAMPort[WriteAddrWire] with WriteAddr {
+  case class WriteAddrWire(mem: CUMemory) extends SRAMPort[WriteAddrWire] with Addr {
     override def eql(that: WriteAddrWire) = this.mem == that.mem
     override def toString = mem.name + ".writeAddr"
   }
-  case class FeedbackAddrReg(mem: CUMemory) extends SRAMPort[FeedbackAddrReg] with WriteAddr {
+  case class FeedbackAddrReg(mem: CUMemory) extends SRAMPort[FeedbackAddrReg] with Addr {
     override def eql(that: FeedbackAddrReg) = this.mem == that.mem
     override def toString = mem.name + ".feedbackAddr"
   }
@@ -215,8 +214,8 @@ trait PIR {
 
     var writePort: Option[GlobalBus] = None
     var readPort: Option[GlobalBus] = None
-    var readAddr: Option[ReadAddr] = None
-    var writeAddr: Option[WriteAddr] = None
+    var readAddr: Option[Addr] = None
+    var writeAddr: Option[Addr] = None
 
     var writeStart: Option[LocalScalar] = None
     var writeEnd: Option[LocalScalar] = None

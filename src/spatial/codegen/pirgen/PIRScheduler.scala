@@ -106,12 +106,11 @@ trait PIRScheduler extends PIRTraversal {
     }
   }
 
-  def addrToStage(dmem: Expr, addr: Expr, ctx: CUContext, local: Boolean = false) {
-    dbg(s"Setting write address for " + ctx.memories(dmem).mkString(", "))
+  def addrToStage(dmem: Expr, addr: Expr, ctx: CUContext) {
     ctx.memories(dmem).foreach{sram =>
       val wire = ctx match {
-        case WriteContext(cu, pipe, srams) => sram.writeAddr.get
-        case ReadContext(cu, pipe, srams) => sram.readAddr.get 
+        case WriteContext(cu, pipe, srams) => WriteAddrWire(sram)
+        case ReadContext(cu, pipe, srams) => ReadAddrWire(sram) 
       }
       val addrReg = addr match {
         case bound:Bound[_] => ctx.reg(addr)
@@ -119,7 +118,15 @@ trait PIRScheduler extends PIRTraversal {
           mapNodeToStage(lhs, rhs, ctx)
           ctx.reg(addr)
       }
-      propagateReg(addr, addrReg, wire, ctx)
+      val reg = propagateReg(addr, addrReg, wire, ctx).asInstanceOf[Addr]
+      ctx match {
+        case WriteContext(cu, pipe, srams) => 
+          dbgs(s"Setting write address for ${ctx.memories(dmem).mkString(", ")} to $reg")
+          sram.writeAddr = Some(reg)
+        case ReadContext(cu, pipe, srams) => 
+          dbgs(s"Setting read address for ${ctx.memories(dmem).mkString(", ")} to $reg")
+          sram.readAddr = Some(reg)
+      }
     }
   }
 

@@ -153,7 +153,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
 
   def quoteInCounter(reg: LocalScalar) = reg match {
     case reg@MemLoadReg(mem) => s"$mem.load"
-    case reg:ConstReg[_] => s"""${quote(reg)}.out"""
+    case reg:ConstReg[_] => s"""${quote(reg)}"""
   }
 
   def emitComponent(x: Any): Unit = x match {
@@ -169,14 +169,14 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
       emit(s"""val $name = CounterChain(name = "$name", (Const("0i"), Const("1i"), Const("1i")))""")
 
     case ctr@CUCounter(start, end, stride, par) =>
-      emit(s"""val ${ctr.name} = Counter(${quoteInCounter(start)}, ${quoteInCounter(end)}, ${quoteInCounter(stride)}, $par) // Counter""")
+      emit(s"""val ${ctr.name} = Counter(min=${quoteInCounter(start)}, max=${quoteInCounter(end)}, step=${quoteInCounter(stride)}, par=$par) // Counter""")
 
     case mem: CUMemory =>
       var decl = s"""val ${mem.name} = ${quote(mem.mode)}(size = ${mem.size}"""
 
       mem.banking match {
         case Some(banking) => decl += s", banking = $banking"
-        case None => throw new Exception(s"No banking defined for $mem")
+        case None => //ScalarBuffer doesn't have banking
       }
 
       decl += ")"

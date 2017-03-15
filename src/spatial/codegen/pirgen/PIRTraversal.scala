@@ -445,12 +445,8 @@ trait PIRTraversal extends SpatialTraversal {
       case _ => reg
     }
 
-    def swapBus_writeAddr(addr: WriteAddr): WriteAddr = addr match {
-      case reg: LocalComponent => swapBus_reg(reg).asInstanceOf[WriteAddr]
-      case _ => addr
-    }
-    def swapBus_readAddr(addr: ReadAddr): ReadAddr = addr match {
-      case reg: LocalComponent => swapBus_reg(reg).asInstanceOf[ReadAddr]
+    def swapBus_Addr(addr: Addr): Addr = addr match {
+      case reg: LocalComponent => swapBus_reg(reg).asInstanceOf[Addr]
       case _ => addr
     }
     def swapBus_localScalar(sc: LocalScalar): LocalScalar = sc match {
@@ -461,8 +457,8 @@ trait PIRTraversal extends SpatialTraversal {
     def swapBus_sram(sram: CUMemory): Unit = {
       sram.writePort = sram.writePort.map{case `orig` => swap; case vec => vec}
       sram.readPort = sram.readPort.map{case `orig` => swap; case vec => vec}
-      sram.readAddr = sram.readAddr.map{reg => swapBus_readAddr(reg)}
-      sram.writeAddr = sram.writeAddr.map{reg => swapBus_writeAddr(reg)}
+      sram.readAddr = sram.readAddr.map{reg => swapBus_Addr(reg)}
+      sram.writeAddr = sram.writeAddr.map{reg => swapBus_Addr(reg)}
       sram.writeStart = sram.writeStart.map{reg => swapBus_localScalar(reg)}
       sram.writeEnd = sram.writeEnd.map{reg => swapBus_localScalar(reg)}
     }
