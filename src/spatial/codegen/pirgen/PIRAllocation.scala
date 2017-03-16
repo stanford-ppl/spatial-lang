@@ -51,7 +51,7 @@ trait PIRAllocation extends PIRTraversal {
         Some((cchain, iters, valids))
       case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) => 
         Some((cchain, iters, valids))
-      case Def(UnitPipe(en, func)) => 
+      case Def(_:UnitPipe | _:Hwblock) => 
         val cu = allocateCU(pipe)
         val ctr = CUCounter(ConstReg(1), ConstReg(1), ConstReg(1), 1)
         val cc = CChainInstance(s"${pipe}_unit", List(ctr))
@@ -561,6 +561,7 @@ trait PIRAllocation extends PIRTraversal {
       rhs match {
         case Hwblock(func,_) =>
           allocateCU(lhs)
+          allocateCChains(lhs) 
 
         case UnitPipe(en, func) =>
           allocateCU(lhs)
