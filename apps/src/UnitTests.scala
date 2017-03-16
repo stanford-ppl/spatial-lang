@@ -783,10 +783,10 @@ object BlockReduce2D extends SpatialApp { // Regression (Unit) // Args: 192 384
       val accum = SRAM[T](tileSize,tileSize)
       MemReduce(accum)(rowsIn by tileSize, colsIn by tileSize){ (i,j)  =>
         val tile = SRAM[T](tileSize,tileSize)
-        tile load srcFPGA(i::i+tileSize par 16, j::j+tileSize)
+        tile load srcFPGA(i::i+tileSize, j::j+tileSize  par 16)
         tile
       }{_+_}
-      dstFPGA store accum
+      dstFPGA(0::tileSize, 0::tileSize par 16) store accum
     }
     getMem(dstFPGA)
   }
@@ -942,7 +942,7 @@ object MultiplexedWriteTest extends SpatialApp { // Regression (Unit) // Args: n
           MemReduce(wt)(niter by 1){ i =>  // s0 write
             in
           }{_+_}
-          weightsResult(i*I+x*T::i*I+x*T+T) store wt //s1 read
+          weightsResult(i*I+x*T::i*I+x*T+T par 16) store wt //s1 read
         }
       }
 
@@ -1013,7 +1013,7 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
           Foreach(T by 1) { i => dummyReg1 := in(i)} // s1 do not touch
           Foreach(T by 1) { i => dummyReg2 := wt(i)} // s2 read
           Foreach(T by 1) { i => dummyReg3 := in(i)} // s3 do not touch
-          weightsResult(i*I+x*T::i*I+x*T+T) store wt //s4 read
+          weightsResult(i*I+x*T::i*I+x*T+T par 16) store wt //s4 read
         }
       }
 
@@ -1078,7 +1078,7 @@ object SequentialWrites extends SpatialApp { // Regression (Unit) // Args: 7
         d
       }{_+_}
 
-      dst(0::T) store in
+      dst(0::T par 16) store in
     }
     getMem(dst)
   }

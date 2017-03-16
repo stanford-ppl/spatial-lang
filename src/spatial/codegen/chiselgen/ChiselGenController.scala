@@ -188,6 +188,14 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
     }
     
+    var hasStreamIns = if (listensTo(sym).length > 0) {
+      listensTo(sym).map{ fifo => fifo match {
+        case Def(StreamInNew(bus)) => true
+        case _ => false
+      }}.reduce{_|_}
+    } else { 
+      false
+    }
     /* Counter Signals for controller (used for determining done) */
     if (smStr != "Parallel" & smStr != "Streampipe") {
       if (cchain.isDefined) {
@@ -197,7 +205,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
           case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
             if (isStreamChild(sym)) {
               emit(src"${cchain.get}_en := ${sym}_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
-              if (styleOf(sym) == InnerPipe & listensTo(sym).length > 0) { // Pretty ugly logic
+              if (styleOf(sym) == InnerPipe & hasStreamIns) { // Pretty ugly logic
                 emit(src"${sym}_sm.io.input.hasStreamIns := true.B")
               }
             } else {
@@ -227,6 +235,10 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         } else {
           emit(s"// How to emit for non-innerpipe unit counter?")
         }
+        if (styleOf(sym) == InnerPipe & hasStreamIns) { // Pretty ugly logic and probably misplaced
+          emit(src"${sym}_sm.io.input.hasStreamIns := true.B")
+        }
+
       }
     }
 
