@@ -169,7 +169,7 @@ trait PIRScheduler extends PIRTraversal {
       }
 
     case SimpleStruct(elems) =>
-      decompose(lhs).foreach { elem => ctx.addReg(elem, allocateLocal(elem)) }
+      decompose(lhs).foreach { elem => ctx.cu.getOrElseUpdate(elem)(allocateLocal(elem)) }
 
     case FieldApply(struct, fieldName) =>
       val ele = lookupField(struct, fieldName).getOrElse(

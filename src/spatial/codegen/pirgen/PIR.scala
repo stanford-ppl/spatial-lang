@@ -161,7 +161,7 @@ trait PIR {
   }
 
   case class TempReg(x:Expr) extends LocalMem[TempReg] {
-    override def toString = s"$x"
+    override def toString = s"${x}"
   }
 
   sealed abstract class LocalPort[T<:LocalComponent] extends LocalMem[T] {
@@ -283,11 +283,11 @@ trait PIR {
     val pipe: Expr
     var style: CUStyle
     var parent: Option[AbstractComputeUnit] = None
-    var _isUnit = false
+    var innerPar:Option[Int] = None
     def isUnit = style match { // TODO: remove this. This should no longer be used
       case MemoryCU(i) => throw new Exception(s"isUnit is not defined on MemoryCU")
       case FringeCU(dram, mode) => throw new Exception(s"isUnit is not defined on FringeCU")
-      case _ => _isUnit  
+      case _ => innerPar == Some(1)
     }
     def isMemoryUnit = false //cuType == BurstTransfer || cuType == RandomTransfer
 

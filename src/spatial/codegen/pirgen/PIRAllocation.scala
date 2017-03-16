@@ -105,10 +105,10 @@ trait PIRAllocation extends PIRTraversal {
     val cu = PseudoComputeUnit(quote(pipe), pipe, style)
     cu.parent = parent
 
-    style match {
-      case MemoryCU(i) => 
-      case FringeCU(dram, mode) => 
-      case _ => cu._isUnit = getInnerPar(pipe) == 1
+    cu.innerPar = style match {
+      case MemoryCU(i) => None
+      case FringeCU(dram, mode) => None
+      case _ => Some(getInnerPar(pipe))
     } 
  
     if (top.isEmpty && parent.isEmpty) top = Some(pipe)
@@ -291,7 +291,7 @@ trait PIRAllocation extends PIRTraversal {
     case mem if isStreamIn(mem) => VectorFIFOMode // from Fringe
     case mem if isFIFO(mem) | isStreamOut(mem) => 
       val writer = writerOf(mem)
-      if (isUnitPipe(writer.ctrlNode)) ScalarFIFOMode else VectorFIFOMode
+      if (getInnerPar(writer.ctrlNode)==1) ScalarFIFOMode else VectorFIFOMode
     case mem if isSRAM(mem) => SRAMMode
   }
 
@@ -450,7 +450,8 @@ trait PIRAllocation extends PIRTraversal {
         allocateLocalMem(mem)
         decompose(mem).zip(decompose(writer)).foreach { case (dmem, dwriter) =>
           dbgs(s"dmem:$dmem, dwriter:$dwriter")
-          val (bus, output) = if (isUnitPipe(parentOf(writer).get)) {
+          val parBy1 = getInnerPar(writerOf(mem).ctrlNode)==1
+          val (bus, output) = if (isReg(mem) || ((isFIFO(mem) || isStream(mem)) && parBy1)) {
             val bus = if (isArgOut(mem)) 
               OutputArg(s"${quote(dmem)}_${quote(dwriter)}") 
             else

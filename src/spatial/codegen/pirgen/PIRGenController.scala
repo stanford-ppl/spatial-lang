@@ -97,7 +97,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
     }
     cu.style match {
       case FringeCU(dram, mode) =>
-        decs += s"""dram=${quote(dram)}, mode=$mode"""
+        decs += s"""offchip=${quote(dram)}, mctpe=$mode"""
       case _ =>
     }
     s"${quote(cu)}(${decs.mkString(",")})"
@@ -171,57 +171,62 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
 
     case mem: CUMemory =>
       dbgs(s"Emitting mem:$mem")
+      val decl = mutable.ListBuffer[String]()
       val lhs = mem.cu.style match {
-        case _:FringeCU => s"CU.${getField(mem.mem).get}FIFO"
-        case _ => s"val ${mem.name}" 
+        case _:FringeCU => s"""CU.mcfifos += "${getField(mem.mem).get}" -> """
+        case _ => s"val ${mem.name} = " 
       }
-      var decl = s"""${lhs} = ${quote(mem.mode)}(size = ${mem.size}"""
+      
+      if (mem.mode!=ScalarBufferMode) {
+        decl += s"""size = ${mem.size}"""
+      }
 
       mem.banking match {
-        case Some(banking) => decl += s", banking = $banking"
+        case Some(banking) if mem.mode==SRAMMode => decl += s"banking = $banking"
+        case Some(_) =>
         case None => //ScalarBuffer doesn't have banking
       }
 
-      decl += ")"
+      var ports = ""
 
       mem.writePort match {
         case Some(LocalVectorBus) => // Nothing?
-        case Some(vec) => decl += s""".wtPort(${quote(vec)})"""
-        case None => decl += s""".wtPort(None)"""
+        case Some(vec) => ports += s""".wtPort(${quote(vec)})"""
+        case None => ports += s""".wtPort(None)"""
         //case None => throw new Exception(s"Memory $mem has no writePort defined")
       }
       mem.readPort match {
         case Some(LocalVectorBus) => // Nothing?
-        case Some(vec) => decl += s""".rdPort(${quote(vec)})"""
+        case Some(vec) => ports += s""".rdPort(${quote(vec)})"""
         case None if (isRemoteMem(compose(mem.mem))) => throw new Exception(s"Memory $mem has no readPort defined")
         case None => 
       }
       mem.readAddr match {
-        case Some(_:CounterReg | _:ConstReg[_]) => decl += s""".rdAddr(${quote(mem.readAddr.get)})"""
+        case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".rdAddr(${quote(mem.readAddr.get)})"""
         case Some(_:ReadAddrWire) =>
         case None if mem.mode != SRAMMode => // ok
-        case addr => decl += s""".rdAddr($addr)"""
+        case addr => ports += s""".rdAddr($addr)"""
         //case addr => throw new Exception(s"Disallowed memory read address in $mem: $addr") //TODO
       }
       mem.writeAddr match {
-        case Some(_:CounterReg | _:ConstReg[_]) => decl += s""".wtAddr(${quote(mem.writeAddr.get)})"""
+        case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".wtAddr(${quote(mem.writeAddr.get)})"""
         case Some(_:WriteAddrWire | _:FeedbackAddrReg) =>
         case None if mem.mode != SRAMMode => // ok
-        case addr => decl += s""".wtAddr(${addr})""" //TODO
+        case addr => ports += s""".wtAddr(${addr})""" //TODO
         //case addr => throw new Exception(s"Disallowed memory write address in $mem: $addr")
       }
       if (mem.mode != SRAMMode) {
         mem.writeStart match {
-          case Some(start) => decl += s""".wtStart(${quoteInCounter(start)})"""
+          case Some(start) => ports += s""".wtStart(${quoteInCounter(start)})"""
           case _ =>
         }
         mem.writeEnd match {
-          case Some(end) => decl += s""".wtEnd(${quoteInCounter(end)})"""
+          case Some(end) => ports += s""".wtEnd(${quoteInCounter(end)})"""
           case _ =>
         }
       }
 
-      emit(decl)
+      emit(s"""$lhs ${quote(mem.mode)}(${decl.mkString(",")})${ports}""")
 
     case mc@MemoryController(name,region,mode,parent) =>
       emit(s"""val ${quote(mc)} = MemoryController($mode, ${quote(region)}).parent("${cus(parent).head.head.name}")""")
@@ -238,7 +243,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
   def emitFringeVectors(cu:ComputeUnit) = {
     if (isFringe(cu.pipe)) {
       cu.fringeVectors.foreach { case (field, vec) =>
-        emit(s"CU.${field} = ${quote(vec)}")
+        emit(s"""CU.mcvecs += "${field}" -> ${quote(vec)}""")
       }
     }
   }
@@ -272,12 +277,11 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
 
   def quote(cu: CU): String = cu.style match {
     case StreamCU if cu.allStages.isEmpty && !cu.isDummy => "StreamController"
-    case StreamCU     => "StreamPipeline"
-    case PipeCU       => "Pipeline"
+    case PipeCU => "Pipeline"
     case MetaPipeCU   => "MetaPipeline"
     case SequentialCU => "Sequential"
     case MemoryCU(i)     => "MemoryPipeline"
-    case FringeCU(dram, mode)     => "Fringe"
+    case FringeCU(dram, mode)     => "MemoryController"
   }
 
   def quote(reg: LocalComponent): String = reg match {
