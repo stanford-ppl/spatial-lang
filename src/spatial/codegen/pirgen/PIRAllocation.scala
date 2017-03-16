@@ -365,25 +365,26 @@ trait PIRAllocation extends PIRTraversal {
     else {
       parentOf(reader).foreach { pipe => // RegRead outside HwBlock doesn't have parent
         val stms = getStms(pipe)
-        def addParentCU(d:Def, mem:Expr, ind:Option[Seq[Expr]]) = {
+        def addParentCU(s:Expr, d:Def, mem:Expr, ind:Option[Seq[Expr]]) = {
           val indSyms = ind.map { ind => symsUsedInCalcExps(stms)(Seq(), ind) }.getOrElse(Nil)
           if (indSyms.contains(reader) && isRemoteMem(mem)) {
             readerCUs ++= decompose(mem).flatMap(allocateMemoryCU)
-          } else if (d.allInputs.contains(reader)) {
+          } else if (d.allInputs.contains(reader) || s==reader) {
             readerCUs += allocateCU(pipe)
           }
         }
+        dbgl(s"$pipe's stms:") { stms.foreach { stm => dbgs(s"$stm") } }
         stms.foreach {
           case TP(s, d@ParLocalReader(reads)) =>
             val (mem, inds, _) = reads.head
-            addParentCU(d, mem, inds.map{_.head})
+            addParentCU(s, d, mem, inds.map{_.head})
           case TP(s, d@ParLocalWriter(writes)) =>
             val (mem, _, inds, _) = writes.head
-            addParentCU(d, mem, inds.map{_.head})
+            addParentCU(s, d, mem, inds.map{_.head})
           case TP(s@Def(_:CounterNew), d) if d.allInputs.contains(reader) => readerCUs ++= getReaderCUs(s)
           case TP(s@Def(_:CounterChainNew), d) if d.allInputs.contains(reader) => readerCUs ++= getReaderCUs(s)
           case TP(s, d) if d.allInputs.contains(reader) & isControlNode(s) => readerCUs += allocateCU(s)
-          case TP(s, d) if d.allInputs.contains(reader) => readerCUs += allocateCU(pipe)
+          case TP(s, d) if d.allInputs.contains(reader) => readerCUs += allocateCU(pipe) // Include pipe only if it's used 
           case TP(s, d) => 
         }
       }
