@@ -55,7 +55,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
         r += 1
     }
 
-    emit(s"var stage: List[Stage] = Nil")
+    emit(s"var stage: List[Stage] = List(CU.emptyStage)")
 
     if (cu.controlStages.nonEmpty && genControlLogic) {
       i = 0
@@ -66,19 +66,19 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
     for ((srams,stages) <- cu.writeStages if stages.nonEmpty) {
       i = 1
       val nWrites  = stages.filter{_.isInstanceOf[MapStage]}.length
-      emit(s"stage = stage0 +: WAStages(${nWrites}, ${srams.map(quote(_))})")
+      emit(s"stage = CU.emptyStage +: WAStages(${nWrites}, ${srams.map(quote(_))})")
       emitStages(stages)
     }
     for ((srams,stages) <- cu.readStages if stages.nonEmpty) {
       i = 1
       val nReads  = stages.filter{_.isInstanceOf[MapStage]}.length
-      emit(s"stage = stage0 +: RAStages(${nReads}, ${srams.map(quote(_))})")
+      emit(s"stage = CU.emptyStage +: RAStages(${nReads}, ${srams.map(quote(_))})")
       emitStages(stages)
     }
     if (cu.computeStages.nonEmpty) {
       i = 1
       val nCompute = cu.computeStages.filter{_.isInstanceOf[MapStage]}.length
-      emit(s"stage = stage0 +: Stages(${nCompute})")
+      emit(s"stage = CU.emptyStage +: Stages(${nCompute})")
       emitStages(cu.computeStages)
     }
   }
@@ -123,7 +123,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
     val mems = cu.mems.diff(srams) // Without address calculation
 
     open(s"val ${cu.name} = ${cuDeclaration(cu)} { implicit CU => ")
-    emit(s"val stage0 = CU.emptyStage")
     preallocateRegisters(cu)                // Includes scalar inputs/outputs, temps, accums
     mems.foreach(emitComponent(_))      // Declare mems without addr calculation first. 
                                         // Counter bounds might depends on scalarBuffer

@@ -206,9 +206,17 @@ trait PIRScheduler extends PIRTraversal {
       // of the previous stage from a temporary register to the reduction register
       //dbg(s"[REDUCE] $op, ins = $ins, out = $out")
 
-      val input = ins.head
-      val accum = ins.last //TODO
-      //val accum = aliasOf(ins.last)
+      val inputs = mutable.ListBuffer[Expr]()
+      val accums = mutable.ListBuffer[Expr]()
+      ins.foreach {
+        case in@Def(RegRead(reg)) if isAccum(reg) & isWrittenInPipe(reg, ctx.cu.pipe) => accums += in
+        case in => inputs += in
+      }
+      assert(accums.size==1, s"accums:[${accums.mkString(",")}]")
+      assert(inputs.size==1, s"inputs:[${inputs.mkString(",")}]")
+      val accum = accums.head 
+      val input = inputs.head
+
       val inputReg = ctx.reg(input)
       val usedInput = propagateReg(input, inputReg, ReduceReg(), ctx)
       val zero = accum match {
