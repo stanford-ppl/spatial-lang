@@ -336,7 +336,7 @@ object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 10
         b1 load srcFPGA(i::i+tileSize par 16)
 
         val b2 = SRAM[T](tileSize)
-        Foreach(tileSize by 1 par 16) { ii =>
+        Foreach(tileSize by 1) { ii =>
           b2(ii) = b1(ii) * x
         }
 

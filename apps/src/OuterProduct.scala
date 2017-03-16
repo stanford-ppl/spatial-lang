@@ -40,14 +40,14 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 192 192
         //val blkA = Reg[Int]
         //val blkB = Reg[Int]
         Parallel {
-          b1 load vec1(i::i+tileSizeA)
-          b2 load vec2(j::j+tileSizeB)
+          b1 load vec1(i::i+tileSizeA par 16)
+          b2 load vec2(j::j+tileSizeB par 16)
           //Pipe{ blkA := min(sizeA - i, tileSizeA) }
           //Pipe{ blkB := min(sizeB - j, tileSizeB) }
         }
         Foreach(tileSizeA by 1, tileSizeB par innerPar){ (ii,jj) => outTile(ii, jj) = b1(ii) * b2(jj) } // 2
 
-        out(i::i+tileSizeA, j::j+tileSizeB) store outTile
+        out(i::i+tileSizeA, j::j+tileSizeB par 16) store outTile
       }
     }
     getMem(out)

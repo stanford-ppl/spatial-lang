@@ -328,7 +328,7 @@ class MAGCore(
 //  io.dram.cmd.valid := Mux(config.scatterGather, ccache.io.miss, burstVld)
   io.dram.cmd.bits.isWr := isWrFifo.io.deq(0)
   wrPhase.io.input.set := isWrFifo.io.deq(0)
-  wrPhase.io.input.reset := burstVld
+  wrPhase.io.input.reset := templates.Utils.delay(burstVld,1)
   io.dram.cmd.valid := burstVld
 
 //  rdata := Mux(io.config.scatterGather, gatherData, io.dram.resp.bits.rdata)
