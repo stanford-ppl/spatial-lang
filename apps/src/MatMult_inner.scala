@@ -12,7 +12,6 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 6
   val innerPar = 1
   val midPar = 1
   val outerPar = 1
-  val storePar = 1
 
   @virtualize
   def MatMult_inner[T:Staged:Num](A: Array[T], B: Array[T], mm: Int, nn: Int, pp: Int) = {
@@ -35,7 +34,6 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 6
     val mp = midPar   (1 -> 64)
     val ip = innerPar (1 -> 64)
     val px = 1 (1 -> 1) // Cannot parallelize accum across k blocks
-    val stPar = storePar (1 -> 1)
 
     setMem(a, A)
     setMem(b, B)
@@ -48,8 +46,8 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 6
           val tileA = SRAM[T](bm, bp)
           val tileB = SRAM[T](bp, bn)
           Parallel {
-            tileA load a(i::i+bm par 16, k::k+bp) // Reads M*N*P times
-            tileB load b(k::k+bp par 16, j::j+bn)
+            tileA load a(i::i+bm, k::k+bp par 16) // Reads M*N*P times
+            tileB load b(k::k+bp, j::j+bn par 16)
           }
           Foreach(bm by 1, bn by 1 par mp){ (ii,jj) =>    // MetaPipe?
             val prod = Reduce(Reg[T])(bp by 1 par ip){kk => tileA(ii, kk) * tileB(kk, jj) }{_+_}
@@ -57,7 +55,7 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 6
             tileC(ii,jj) = prev + prod.value // Is a unit pipe that should be recognized as accum
           }
         }
-        c(i::i+bm, j::j+bn par stPar) store tileC // Writes M*N times
+        c(i::i+bm, j::j+bn par 16) store tileC // Writes M*N times
       }
     }
     getMem(c)
@@ -69,8 +67,8 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 6
     val N = args(1).to[Int]
     val P = args(2).to[Int]
 
-    val a = Array.tabulate(M){ i => Array.tabulate(P){ j => (i*P + j)%256 } }
-    val b = Array.tabulate(P){ i => Array.tabulate(N){ j => (i*N + j)%256 } }
+    val a = Array.tabulate(M){ i => Array.tabulate(P){ j => (i*P + j)%8 } }
+    val b = Array.tabulate(P){ i => Array.tabulate(N){ j => (i*N + j)%8 } }
     // val a = Array.fill(M){ Array.fill(P){random[T](100)} }
     // val b = Array.fill(P){ Array.fill(N){random[T](100)} }
 

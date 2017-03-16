@@ -59,8 +59,8 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 192 192
     val N = args(1).to[Int]
     // val a = Array.fill(M)(random[T](100))
     // val b = Array.fill(N)(random[T](100))
-    val a = Array.tabulate(M) { i => (i % 256).to[X] }
-    val b = Array.tabulate(N){ i => (i % 256).to[X] }
+    val a = Array.tabulate(M) { i => (i % 64).to[X] }
+    val b = Array.tabulate(N){ i => (i % 64).to[X] }
 
     val result = outerproduct(a, b)
 

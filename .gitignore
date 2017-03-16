@@ -8,6 +8,8 @@
 .lib/
 dist/*
 out/*
+out2/*
+out3/*
 gen/*
 target/
 logs/*
