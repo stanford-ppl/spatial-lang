@@ -225,7 +225,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
       emitGlobal(src"val ${strm}_data = Wire(Vec($par, UInt(32.W)))")
       emit(src"${strm}_data := $data")
-      emit(src"${strm}_en := ${ens}.reduce{_&_} & ${parentOf(lhs).get}_datapath_en")
+      emit(src"${strm}_en := ${ens}.reduce{_&_} & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
 
     case _ => super.emitNode(lhs, rhs)
   }

@@ -192,13 +192,19 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
     }
     
-    var hasStreamIns = if (listensTo(sym).length > 0) {
+    var hasStreamIns = if (listensTo(sym).length > 0) { // Please simplify this mess
       listensTo(sym).map{ fifo => fifo match {
         case Def(StreamInNew(bus)) => true
-        case _ => false
+        case _ => sym match {
+          case Def(UnitPipe(_,_)) => false
+          case _ => if (isStreamChild(sym)) true else false 
+        }
       }}.reduce{_|_}
     } else { 
-      if (styleOf(sym) != InnerPipe & isStreamChild(sym)) { true } else { false }
+      sym match {
+        case Def(UnitPipe(_,_)) => false
+        case _ => if (isStreamChild(sym)) true else false 
+      }
     }
     /* Counter Signals for controller (used for determining done) */
     if (smStr != "Parallel" & smStr != "Streampipe") {
