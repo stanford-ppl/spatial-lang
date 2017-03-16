@@ -55,7 +55,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
         r += 1
     }
 
-    emit(s"var stage: List[Stage] = List(CU.emptyStage)")
+    emit(s"var stage: List[Stage] = Nil")
 
     if (cu.controlStages.nonEmpty && genControlLogic) {
       i = 0
@@ -170,7 +170,12 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
       emit(s"""val ${ctr.name} = Counter(min=${quoteInCounter(start)}, max=${quoteInCounter(end)}, step=${quoteInCounter(stride)}, par=$par) // Counter""")
 
     case mem: CUMemory =>
-      var decl = s"""val ${mem.name} = ${quote(mem.mode)}(size = ${mem.size}"""
+      dbgs(s"Emitting mem:$mem")
+      val lhs = mem.cu.style match {
+        case _:FringeCU => s"CU.${getField(mem.mem).get}FIFO"
+        case _ => s"val ${mem.name}" 
+      }
+      var decl = s"""${lhs} = ${quote(mem.mode)}(size = ${mem.size}"""
 
       mem.banking match {
         case Some(banking) => decl += s", banking = $banking"
@@ -233,7 +238,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal{
   def emitFringeVectors(cu:ComputeUnit) = {
     if (isFringe(cu.pipe)) {
       cu.fringeVectors.foreach { case (field, vec) =>
-        emit(s"CU.$field = ${quote(vec)}")
+        emit(s"CU.${field} = ${quote(vec)}")
       }
     }
   }

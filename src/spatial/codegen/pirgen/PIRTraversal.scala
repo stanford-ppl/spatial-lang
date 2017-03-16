@@ -148,16 +148,23 @@ trait PIRTraversal extends SpatialTraversal {
   def compose(dexp:Expr) = composed.get(dexp).getOrElse(dexp)
 
   def decomposeWithFields[T](exp:Expr, fields:Seq[T])(implicit ev:TypeTag[T]):Either[Expr, Seq[(String, Expr)]] = {
-    if (fields.size<=1) {
+    if (fields.size<1) {
       Left(exp)
+    } else if (fields.size==1) {
+      Right(fields.map {
+        case field if typeOf[T] =:= typeOf[String] => 
+          (field.asInstanceOf[String], exp) 
+        case (field, dexp) if typeOf[T] =:= typeOf[(String, Expr)] => 
+          (field.asInstanceOf[String], dexp.asInstanceOf[Expr])
+      })
     } else {
       Right(decomposed.getOrElseUpdate(exp, {
         fields.map { f => 
           val (field, dexp) = f match {
             case field if typeOf[T] =:= typeOf[String] => 
               (field.asInstanceOf[String], fresh[Int32]) 
-            case (field, exp) if typeOf[T] =:= typeOf[(String, Expr)] => 
-              (field.asInstanceOf[String], exp.asInstanceOf[Expr])
+            case (field, dexp) if typeOf[T] =:= typeOf[(String, Expr)] => 
+              (field.asInstanceOf[String], dexp.asInstanceOf[Expr])
           }
           composed += dexp -> exp
           (field, dexp)
@@ -190,14 +197,17 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   def decomposeBus(bus:Bus, mem:Expr) = bus match {
-    case BurstCmdBus => decomposeWithFields(mem, Seq("offset", "size", "isLoad"))
-    case BurstAckBus => decomposeWithFields(mem, Seq()) 
-    case bus:BurstDataBus[_] => decomposeWithFields(mem, Seq()) 
-    case bus:BurstFullDataBus[_] => decomposeWithFields(mem, Seq("data", "valid")) //?
-    case GatherAddrBus => decomposeWithFields(mem, Seq())
-    case bus:GatherDataBus[_] => decomposeWithFields(mem, Seq())
-    case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data", "valid")) //?
-    case ScatterAckBus => decomposeWithFields(mem, Seq()) 
+    //case BurstCmdBus => decomposeWithFields(mem, Seq("offset", "size", "isLoad"))
+    case BurstCmdBus => decomposeWithFields(mem, Seq("offset", "size")) // throw away isLoad bit
+    case BurstAckBus => decomposeWithFields(mem, Seq("ack")) 
+    case bus:BurstDataBus[_] => decomposeWithFields(mem, Seq("data")) 
+    //case bus:BurstFullDataBus[_] => decomposeWithFields(mem, Seq("data", "valid")) // throw away valid bit
+    case bus:BurstFullDataBus[_] => decomposeWithFields(mem, Seq("data"))
+    case GatherAddrBus => decomposeWithFields(mem, Seq("addr"))
+    case bus:GatherDataBus[_] => decomposeWithFields(mem, Seq("data"))
+    //case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data", "valid")) // throw away valid bit
+    case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data"))
+    case ScatterAckBus => decomposeWithFields(mem, Seq("ack")) 
     case _ => throw new Exception(s"Don't know how to decompose bus ${bus}")
   }
 
@@ -219,6 +229,13 @@ trait PIRTraversal extends SpatialTraversal {
     decomposeWithFields(exp) match {
       case Left(e) => Seq()
       case Right(seq) => seq.map(_._1)
+    }
+  }
+
+  def getField(dexp:Expr):Option[String] = {
+    decomposeWithFields(compose(dexp)) match {
+      case Left(e) => None 
+      case Right(seq) => Some(seq.filter(_._2==dexp).head._1)
     }
   }
 

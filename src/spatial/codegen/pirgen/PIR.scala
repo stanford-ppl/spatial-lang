@@ -206,7 +206,7 @@ trait PIR {
 
 
   // --- Compute unit memories
-  case class CUMemory(name: String, size: Int, mem: Expr, reader: Expr) {
+  case class CUMemory(name: String, size: Int, mem: Expr, reader: Expr, cu:AbstractComputeUnit) {
     var mode: LocalMemoryMode = SRAMMode
     var bufferDepth: Int = 1
     var banking: Option[SRAMBanking] = None
@@ -225,7 +225,7 @@ trait PIR {
     override def toString = name
 
     def copyMem(name: String) = {
-      val copy = CUMemory(name, size, mem, reader)
+      val copy = CUMemory(name, size, mem, reader, cu)
       copy.mode = this.mode
       copy.bufferDepth = this.bufferDepth
       copy.banking = this.banking

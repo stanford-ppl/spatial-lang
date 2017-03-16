@@ -311,7 +311,7 @@ trait PIRAllocation extends PIRTraversal {
           sizeOf(m.asInstanceOf[Exp[FIFO[Any]]]) match { case Exact(d) => d.toInt }
         case m if isReg(m) | isStream(m) | isGetDRAMAddress(m) => 1
       }
-      val cuMem = CUMemory(name, size, dmem, dreader)
+      val cuMem = CUMemory(name, size, dmem, dreader, cu)
       dbgs(s"Add mem=$cuMem to cu=$cu")
       initializeMem(cuMem, compose(dreader), cu)
       cuMem
@@ -540,7 +540,7 @@ trait PIRAllocation extends PIRTraversal {
     streamIns.foreach { streamIn =>
       val readerCUs = readersOf(streamIn).map(_.node).flatMap(getReaderCUs)
       val dmems = decomposeWithFields(streamIn) match {
-        case Left(mem) => Seq(("data", mem))
+        case Right(dmems) if dmems.size==1 => dmems
         case Right(dmems) => throw new Exception(s"PIR don't support struct load/gather ${qdef(fringe)}") 
       }
       dmems.foreach { case (field, dmem) =>
