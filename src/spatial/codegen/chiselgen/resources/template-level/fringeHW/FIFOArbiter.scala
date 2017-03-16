@@ -51,7 +51,7 @@ class FIFOArbiter(
     val fifoValids = Mux(allFifoEmpty,
       io.enqVld,
       Vec(List.tabulate(numStreams) { i =>
-        ~((tag === i.U) & io.deqVld & (fifos(i).io.almostEmpty & ~io.enqVld(i) ) )
+        ~((~io.enqVld(i) & fifos(i).io.empty) | ((tag === i.U) & io.deqVld & ~io.enqVld(i) & fifos(i).io.almostEmpty))
       })
     )
 
