@@ -184,7 +184,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")
         val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enabler = if (loadCtrlOf(sram).length > 0) src"${parent}_enq" else src"${parent}_datapath_en"
+        val enabler = if (loadCtrlOf(sram).contains(parent)) src"${parent}_enq" else src"${parent}_datapath_en"
         emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enabler}, List(${p}))""")
       }
 
@@ -204,7 +204,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val writer = writersOf(fifo).head.ctrlNode  
       // Check if this is a tile consumer
 
-      val enabler = if (loadCtrlOf(fifo).length > 0) src"${writer}_enq" else src"${writer}_sm.io.output.ctr_inc"
+      val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_enq" else src"${writer}_sm.io.output.ctr_inc"
       emit(src"""${fifo}_writeEn := $enabler & ${ens}.reduce{_&_}""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
