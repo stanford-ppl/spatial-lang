@@ -190,7 +190,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     case ParFIFODeq(fifo, ens, z) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}_readEn := ${reader}_sm.io.output.ctr_inc & ${ens}.reduce{_&_}""")
+      emit(src"""${quote(fifo)}_readEn := ${reader}_en & ${ens}.reduce{_&_}""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = (0 until ${quote(ens)}.length).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) } // Ignore $z""")
@@ -225,7 +225,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
       emitGlobal(src"val ${strm}_data = Wire(Vec($par, UInt(32.W)))")
       emit(src"${strm}_data := $data")
-      emit(src"${strm}_en := ${ens}.reduce{_&_} & ${parentOf(lhs).get}_done")
+      emit(src"${strm}_en := ${ens}.reduce{_&_} & ${parentOf(lhs).get}_datapath_en")
 
     case _ => super.emitNode(lhs, rhs)
   }

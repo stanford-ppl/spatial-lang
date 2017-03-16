@@ -183,7 +183,11 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
 
     sym match {
       case Def(n: UnrolledForeach) =>
-        emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc // TODO: Make sure this is a safe assignment""")
+        if (isStreamChild(sym)) {
+          emit(src"""val ${sym}_datapath_en = ${sym}_en // TODO: Make sure this is a safe assignment""")  
+        } else {
+          emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc // TODO: Make sure this is a safe assignment""")
+        }
       case _ =>
         emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
     }
@@ -194,7 +198,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         case _ => false
       }}.reduce{_|_}
     } else { 
-      false
+      if (styleOf(sym) != InnerPipe & isStreamChild(sym)) { true } else { false }
     }
     /* Counter Signals for controller (used for determining done) */
     if (smStr != "Parallel" & smStr != "Streampipe") {
@@ -204,7 +208,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
           case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
           case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
             if (isStreamChild(sym)) {
-              emit(src"${cchain.get}_en := ${sym}_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
+              emit(src"${cchain.get}_en := ${sym}_datapath_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
               if (styleOf(sym) == InnerPipe & hasStreamIns) { // Pretty ugly logic
                 emit(src"${sym}_sm.io.input.hasStreamIns := true.B")
               }
