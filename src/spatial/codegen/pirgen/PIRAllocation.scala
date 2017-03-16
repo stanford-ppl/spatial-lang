@@ -369,7 +369,7 @@ trait PIRAllocation extends PIRTraversal {
           val indSyms = ind.map { ind => symsUsedInCalcExps(stms)(Seq(), ind) }.getOrElse(Nil)
           if (indSyms.contains(reader) && isRemoteMem(mem)) {
             readerCUs ++= decompose(mem).flatMap(allocateMemoryCU)
-          } else if (d.allInputs.contains(reader) || s==reader) {
+          } else if (d.allInputs.contains(reader) || (s==reader && isInnerPipe(pipe)) ) { //RegRead can occur outside user
             readerCUs += allocateCU(pipe)
           }
         }
