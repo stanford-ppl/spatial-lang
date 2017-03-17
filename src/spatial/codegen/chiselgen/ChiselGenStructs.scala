@@ -61,7 +61,7 @@ trait ChiselGenStructs extends ChiselCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SimpleStruct(tuples)  =>
       val items = tuples.map{ t => src"${t._2}" }.mkString(",")
-      emit(src"val $lhs = util.Cat($items)")
+      emit(src"val $lhs = Utils.Cat($items)")
     case FieldApply(struct, field) =>
       val (start, width) = tupCoordinates(struct.tp, field)      
       emit(src"val $lhs = ${struct}(${start+width-1}, $start)")

@@ -216,7 +216,19 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
 
     case e@ParStreamDeq(strm, ens, zero) =>
-      emit(src"val $lhs = $ens.zipWithIndex.map{case (en, i) => Mux(en, ${strm}_data(i), $zero) }")
+      val zstring = lhs.tp.typeArguments.head match {
+        case FixPtType(s,d,f) => 
+          if (hasFracBits(lhs.tp.typeArguments.head)) {
+            val num = zero match {
+              case Const(cc: BigDecimal) => cc.toInt.toString
+            }
+            src"Utils.FixedPoint($s,$d,$f,$num)"            
+          } else {
+            src"$zero"
+          }
+        case _ => src"$zero"
+      }
+      emit(src"val $lhs = $ens.zipWithIndex.map{case (en, i) => Mux(en, ${strm}_data(i), $zstring) }")
 
     case ParStreamEnq(strm, data, ens) =>
       val par = ens match {
