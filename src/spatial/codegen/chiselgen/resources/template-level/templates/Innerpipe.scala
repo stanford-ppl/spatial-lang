@@ -55,9 +55,10 @@ class Innerpipe(val ctrDepth : Int) extends Module {
     }.elsewhen( state === pipeReset.U ) {
       io.output.rst_en := true.B;
       (0 until ctrDepth) foreach { i => io.output.ctr_maxOut(i) := maxFF(i) }
+      state := Mux(io.input.ctr_done, pipeDone.U, pipeReset.U) // Shortcut to done state, for tile store
       when (rstCtr.io.output.done) {
         io.output.rst_en := false.B
-        state := pipeRun.U
+        state := Mux(io.input.ctr_done, pipeDone.U, pipeRun.U) // Shortcut to done state, for tile store
       }
     }.elsewhen( state === pipeRun.U ) {
       io.output.ctr_en := true.B;
@@ -82,6 +83,43 @@ class Innerpipe(val ctrDepth : Int) extends Module {
     io.output.rst_en := false.B
     state := pipeInit.U
   }
+
+}
+
+
+
+// Inner pipe
+class Streaminner(val ctrDepth : Int) extends Module {
+
+  // States
+  val pipeInit = 0
+  val pipeRun = 1
+  val pipeDone = 2
+  val pipeSpinWait = 3
+
+  // Module IO
+  val io = IO(new Bundle {
+    val input = new Bundle {
+      val enable = Input(Bool())
+      val ctr_done = Input(Bool())
+      val ctr_maxIn = Vec(ctrDepth, Input(UInt(32.W))) // TODO: Deprecate this maxIn/maxOut business if all is well without it
+      val forever = Input(Bool())
+      val hasStreamIns = Input(Bool()) // If there is a streamIn for this stage, then we should not require en=true for done to go high
+    }
+    val output = new Bundle {
+      val done = Output(Bool())
+      val ctr_en = Output(Bool())
+      val ctr_inc = Output(Bool()) // Same thing as ctr_en
+      val rst_en = Output(Bool())
+      val ctr_maxOut = Vec(ctrDepth, Output(UInt(32.W)))
+    }
+  })
+
+  val state = Reg(init = pipeInit.U)
+  val maxFF = List.tabulate(ctrDepth) { i => Reg(init = 0.U) }
+
+
+  io.output.done := Mux(io.input.ctr_done & Mux(io.input.hasStreamIns, true.B, io.input.enable), true.B, false.B) // If there is a streamIn for this stage, then we should not require en=true for done to go high
 
 }
 

@@ -178,6 +178,7 @@ class Counter(val par: List[Int]) extends Module {
       val reset  = Input(Bool())
       val enable = Input(Bool())
       val saturate = Input(Bool())
+      val isStream = Input(Bool()) // If a stream counter, do not need enable on to report done
     }
     val output = new Bundle {
       val counts      = Vec(numWires, Output(UInt(32.W))) 
@@ -228,7 +229,7 @@ class Counter(val par: List[Int]) extends Module {
   val wasDone = Reg(next = isDone, init = false.B)
   val isSaturated = ctrs.map{_.io.output.saturated}.reduce{_&_}
   val wasWasDone = Reg(next = wasDone, init = false.B)
-  io.output.done := io.input.enable & isDone & ~wasDone
+  io.output.done := Mux(io.input.isStream, true.B, io.input.enable) & isDone & ~wasDone
   io.output.extendedDone := io.input.enable & isDone & ~wasWasDone
   io.output.saturated := io.input.saturate & isSaturated
 

@@ -50,6 +50,36 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     result
   }
 
+  protected def isStreamChild(lhs: Exp[_]): Boolean = {
+    var nextLevel: Option[Exp[_]] = Some(lhs)
+    var result = false
+    while (nextLevel.isDefined) {
+      if (styleOf(nextLevel.get) == StreamPipe) {
+        result = true
+        nextLevel = None
+      } else {
+        nextLevel = parentOf(nextLevel.get)
+      }
+    }
+    result
+
+  }
+
+  protected def isImmediateStreamChild(lhs: Exp[_]): Boolean = {
+    var result = false
+    if (parentOf(lhs).isDefined) {
+      if (styleOf(parentOf(lhs).get) == StreamPipe) {
+        result = true
+      } else {
+        result = false
+      }
+    } else {
+      result = false
+    }
+    result
+
+  }
+
   override def quote(s: Exp[_]): String = {
     s match {
       case b: Bound[_] => computeSuffix(b)
@@ -97,7 +127,12 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     val smStr = styleOf(sym) match {
       case MetaPipe => s"Metapipe"
       case StreamPipe => "Streampipe"
-      case InnerPipe => "Innerpipe"
+      case InnerPipe => 
+        if (isStreamChild(sym)) {
+          "Streaminner"
+        } else {
+          "Innerpipe"
+        }
       case SeqPipe => s"Seqpipe"
       case ForkJoin => s"Parallel"
     }
@@ -128,6 +163,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
 
     val constrArg = smStr match {
       case "Innerpipe" => s"${numIter.length} /*probably don't need*/"
+      case "Streaminner" => s"${numIter.length} /*probably don't need*/"
       // case "Parallel" => ""
       case _ => childrenOf(sym).length
     }
@@ -145,35 +181,74 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       case _ =>
     }
 
-    sym match {
-      case Def(n: UnrolledForeach) =>
-        emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc // TODO: Make sure this is a safe assignment""")
-      case _ =>
-        emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
+    // sym match {
+    //   case Def(n: UnrolledForeach) =>
+    if (isStreamChild(sym)) {
+      emit(src"""val ${sym}_datapath_en = ${sym}_en // TODO: Make sure this is a safe assignment""")  
+    } else {
+      emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc // TODO: Make sure this is a safe assignment""")
     }
+    //   case _ =>
+    //     emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
+    // }
     
+    var hasStreamIns = if (listensTo(sym).length > 0) { // Please simplify this mess
+      listensTo(sym).map{ fifo => fifo match {
+        case Def(StreamInNew(bus)) => true
+        case _ => sym match {
+          case Def(UnitPipe(_,_)) => false
+          case _ => if (isStreamChild(sym)) true else false 
+        }
+      }}.reduce{_|_}
+    } else { 
+      sym match {
+        case Def(UnitPipe(_,_)) => false
+        case _ => if (isStreamChild(sym)) true else false 
+      }
+    }
     /* Counter Signals for controller (used for determining done) */
     if (smStr != "Parallel" & smStr != "Streampipe") {
       if (cchain.isDefined) {
         emitGlobal(src"""val ${cchain.get}_en = Wire(Bool())""") 
         sym match { 
           case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
-          case _ => emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
+          case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
+            if (isStreamChild(sym)) {
+              emit(src"${cchain.get}_en := ${sym}_datapath_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
+              if (styleOf(sym) == InnerPipe & hasStreamIns) { // Pretty ugly logic
+                emit(src"${sym}_sm.io.input.hasStreamIns := true.B")
+              }
+            } else {
+              emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
+            } 
         }
-        emit(src"""// ---- Begin $smStr ${sym} Counter Signals ----""")
+        emit(src"""// ---- Begin $smStr ${sym} Counter Connections ----""")
         val ctr = cchain.get
-        emit(src"""${ctr}_resetter := ${sym}_rst_en""")
-        if (smStr == "Innerpipe") {
+        if (isStreamChild(sym)) {
+          emit(src"""${ctr}_resetter := ${sym}_done // Do not use rst_en for stream kiddo""")
+        } else {
+          emit(src"""${ctr}_resetter := ${sym}_rst_en""")
+        }
+        if (smStr == "Innerpipe" | smStr == "Streaminner") { // TODO: Simplify this logic, Streaminner never used to be a thing
           emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 + ${sym}_offset)""")
         }
       } else {
         emit(src"""// ---- Begin $smStr ${sym} Unit Counter ----""")
-        if (smStr == "Innerpipe") {
-          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_sm.io.output.ctr_en, 1 + ${sym}_offset)""")
-          emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")
+        if (smStr == "Innerpipe" | smStr == "Streaminner") { // TODO: Simplify this logic, Streaminner never used to be a thing
+          if (isStreamChild(sym)) {
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_en, 1 + ${sym}_offset) // stream kiddo""")
+            emit(src"""val ${sym}_ctr_en = ${sym}_done // stream kiddo""")
+          } else {
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_sm.io.output.ctr_en, 1 + ${sym}_offset)""")
+            emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")            
+          }
         } else {
           emit(s"// How to emit for non-innerpipe unit counter?")
         }
+        if (styleOf(sym) == InnerPipe & hasStreamIns) { // Pretty ugly logic and probably misplaced
+          emit(src"${sym}_sm.io.input.hasStreamIns := true.B")
+        }
+
       }
     }
 
@@ -185,7 +260,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
 
         
     /* Control Signals to Children Controllers */
-    if (smStr == "Innerpipe") {
+    if (smStr == "Innerpipe" | smStr == "Streaminner") {
       emit(src"""// ---- No children for $sym ----""")
     } else {
       emit(src"""// ---- Begin $smStr ${sym} Children Signals ----""")
@@ -193,7 +268,11 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         emitGlobal(src"""val ${c}_done = Wire(Bool())""")
         emitGlobal(src"""val ${c}_en = Wire(Bool())""")
         emitGlobal(src"""val ${c}_resetter = Wire(Bool())""")
-        emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${c}_done;""")
+        if (smStr == "Streampipe" & cchain.isDefined) {
+          emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${cchain.get}_copy${c}_done;""")
+        } else {
+          emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${c}_done;""")
+        }
         // If we are inside a stream pipe, the following may be set
         val readiers = listensTo(c).distinct.map { fifo => 
           fifo match {

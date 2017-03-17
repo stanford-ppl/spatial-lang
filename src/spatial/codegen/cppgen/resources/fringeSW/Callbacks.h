@@ -43,24 +43,22 @@ void handleDRAMRequest(DUT *dut, PeekPokeTester *tester) {
   uint32_t *wdata = NULL;
   if (isWr) {
     wdata = (uint32_t*) malloc(16 * sizeof(uint32_t));
-    for (int i=0; i<16; i++) {
-      wdata[0] = tester->peek(&(dut->io_dram_cmd_bits_wdata_0));
-      wdata[1] = tester->peek(&(dut->io_dram_cmd_bits_wdata_1));
-      wdata[2] = tester->peek(&(dut->io_dram_cmd_bits_wdata_2));
-      wdata[3] = tester->peek(&(dut->io_dram_cmd_bits_wdata_3));
-      wdata[4] = tester->peek(&(dut->io_dram_cmd_bits_wdata_4));
-      wdata[5] = tester->peek(&(dut->io_dram_cmd_bits_wdata_5));
-      wdata[6] = tester->peek(&(dut->io_dram_cmd_bits_wdata_6));
-      wdata[7] = tester->peek(&(dut->io_dram_cmd_bits_wdata_7));
-      wdata[8] = tester->peek(&(dut->io_dram_cmd_bits_wdata_8));
-      wdata[9] = tester->peek(&(dut->io_dram_cmd_bits_wdata_9));
-      wdata[10] = tester->peek(&(dut->io_dram_cmd_bits_wdata_10));
-      wdata[11] = tester->peek(&(dut->io_dram_cmd_bits_wdata_11));
-      wdata[12] = tester->peek(&(dut->io_dram_cmd_bits_wdata_12));
-      wdata[13] = tester->peek(&(dut->io_dram_cmd_bits_wdata_13));
-      wdata[14] = tester->peek(&(dut->io_dram_cmd_bits_wdata_14));
-      wdata[15] = tester->peek(&(dut->io_dram_cmd_bits_wdata_15));
-    }
+    wdata[0] = tester->peek(&(dut->io_dram_cmd_bits_wdata_0));
+    wdata[1] = tester->peek(&(dut->io_dram_cmd_bits_wdata_1));
+    wdata[2] = tester->peek(&(dut->io_dram_cmd_bits_wdata_2));
+    wdata[3] = tester->peek(&(dut->io_dram_cmd_bits_wdata_3));
+    wdata[4] = tester->peek(&(dut->io_dram_cmd_bits_wdata_4));
+    wdata[5] = tester->peek(&(dut->io_dram_cmd_bits_wdata_5));
+    wdata[6] = tester->peek(&(dut->io_dram_cmd_bits_wdata_6));
+    wdata[7] = tester->peek(&(dut->io_dram_cmd_bits_wdata_7));
+    wdata[8] = tester->peek(&(dut->io_dram_cmd_bits_wdata_8));
+    wdata[9] = tester->peek(&(dut->io_dram_cmd_bits_wdata_9));
+    wdata[10] = tester->peek(&(dut->io_dram_cmd_bits_wdata_10));
+    wdata[11] = tester->peek(&(dut->io_dram_cmd_bits_wdata_11));
+    wdata[12] = tester->peek(&(dut->io_dram_cmd_bits_wdata_12));
+    wdata[13] = tester->peek(&(dut->io_dram_cmd_bits_wdata_13));
+    wdata[14] = tester->peek(&(dut->io_dram_cmd_bits_wdata_14));
+    wdata[15] = tester->peek(&(dut->io_dram_cmd_bits_wdata_15));
   }
 
   dramRequestQ.push(new DRAMRequest(addr, tag, isWr, wdata));
@@ -70,7 +68,6 @@ void dramResponse(DUT *dut, PeekPokeTester *tester) {
   if (dramRequestQ.size() > 0) {
     DRAMRequest *req = dramRequestQ.front();
     dramRequestQ.pop();
-
     if (req->isWr) {
       // Write request: Update 1 burst-length bytes at *addr
       uint32_t *waddr = (uint32_t*) req->addr;
@@ -118,6 +115,12 @@ void dramResponse(DUT *dut, PeekPokeTester *tester) {
     tester->poke(&(dut->io_dram_resp_bits_tag), req->tag);
   } else {
     tester->poke(&(dut->io_dram_resp_valid), 0);
+  }
+}
+
+void drainQueue(DUT *dut, PeekPokeTester *tester) {
+  while (dramRequestQ.size() > 0) {
+    dramResponse(dut, tester);
   }
 }
 #endif

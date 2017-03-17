@@ -85,7 +85,12 @@ public:
 
         // Some functions (e.g. monitor DRAM queue, send DRAM response)
         // needs to be executed every cycle
-        executeEveryCycle();
+        if (numCycles % 50 == 0) {
+          executeEveryCycle();  
+        } else {
+          this->poke(&(dut->io_dram_resp_valid), 0);
+
+        }
 
         // Handle callbacks for registered signals being watched
         watch();
@@ -171,5 +176,9 @@ public:
     virtual void executeEveryCycle() {
 
     }
+    virtual void finishSim() {
+
+    }
+
 };
 #endif

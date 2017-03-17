@@ -184,13 +184,13 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")
         val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enabler = if (loadCtrlOf(sram).length > 0) src"${parent}_enq" else src"${parent}_datapath_en"
+        val enabler = if (loadCtrlOf(sram).contains(parent)) src"${parent}_enq" else src"${parent}_datapath_en"
         emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enabler}, List(${p}))""")
       }
 
     case ParFIFODeq(fifo, ens, z) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}_readEn := ${reader}_sm.io.output.ctr_inc & ${ens}.reduce{_&_}""")
+      emit(src"""${quote(fifo)}_readEn := ${reader}_datapath_en & ${ens}.reduce{_&_}""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = (0 until ${quote(ens)}.length).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) } // Ignore $z""")
@@ -204,7 +204,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val writer = writersOf(fifo).head.ctrlNode  
       // Check if this is a tile consumer
 
-      val enabler = if (loadCtrlOf(fifo).length > 0) src"${writer}_enq" else "${writer}_sm.io.output.ctr_inc"
+      val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_enq" else src"${writer}_sm.io.output.ctr_inc"
       emit(src"""${fifo}_writeEn := $enabler & ${ens}.reduce{_&_}""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
@@ -225,7 +225,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
       emitGlobal(src"val ${strm}_data = Wire(Vec($par, UInt(32.W)))")
       emit(src"${strm}_data := $data")
-      emit(src"${strm}_en := ${ens}.reduce{_&_} & ${parentOf(lhs).get}_done")
+      emit(src"${strm}_en := ${ens}.reduce{_&_} & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
 
     case _ => super.emitNode(lhs, rhs)
   }
