@@ -436,6 +436,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_dense_load(f(dram),f(cmdStream),f(dataStream))
     val bT = bits[T]
+    val mT = typ[T]
   }
 
   case class FringeDenseStore[T:Staged:Bits](
@@ -446,6 +447,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_dense_store(f(dram),f(cmdStream),f(dataStream),f(ackStream))
     val bT = bits[T]
+    val mT = typ[T]
   }
 
   case class FringeSparseLoad[T:Staged:Bits](
@@ -455,6 +457,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_sparse_load(f(dram),f(addrStream),f(dataStream))
     val bT = bits[T]
+    val mT = typ[T]
   }
 
   case class FringeSparseStore[T:Staged:Bits](
@@ -464,6 +467,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_sparse_store(f(dram),f(cmdStream),f(ackStream))
     val bT = bits[T]
+    val mT = typ[T]
   }
 
 

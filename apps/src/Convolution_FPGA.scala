@@ -70,7 +70,7 @@ object Convolution_FPGA extends SpatialApp {
 
     val gold = Array.tabulate(R){i => Array.tabulate(C){j => if (j == 7) 1 else 0 }}
 
-    printArray(image, "Image")
+    printArray(image.flatten, "Image")
     printArray(output, "Output")
   }
 }

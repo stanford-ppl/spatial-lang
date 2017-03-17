@@ -1,10 +1,8 @@
 package spatial.codegen.scalagen
 
-import argon.codegen.scalagen.ScalaCodegen
 import spatial.api.UnrolledExp
 
-
-trait ScalaGenUnrolled extends ScalaCodegen {
+trait ScalaGenUnrolled extends ScalaGenMemories {
   val IR: UnrolledExp
   import IR._
 
@@ -45,31 +43,33 @@ trait ScalaGenUnrolled extends ScalaCodegen {
       close("}")
       emit(src"/** END UNROLLED REDUCE $lhs **/")
 
-    case ParSRAMLoad(sram,inds) =>
+    case op@ParSRAMLoad(sram,inds) =>
       val dims = stagedDimsOf(sram)
       open(src"val $lhs = {")
       inds.indices.foreach{i =>
-        emit(src"""val a$i = $sram.apply(${flattenAddress(dims, inds(i))})""")
+        open(src"val a$i = {")
+          oobApply(op.mT,sram,lhs,inds(i)){ emit(src"""$sram.apply(${flattenAddress(dims, inds(i))})""") }
+        close("}")
       }
       emit(src"Array(" + inds.indices.map{i => src"a$i"}.mkString(", ") + ")")
       close("}")
 
-    case ParSRAMStore(sram,inds,data,ens) =>
+    case op@ParSRAMStore(sram,inds,data,ens) =>
       val dims = stagedDimsOf(sram)
       open(src"val $lhs = {")
       inds.indices.foreach{i =>
-        emit(src"if ($ens($i)) $sram.update(${flattenAddress(dims, inds(i))}, $data($i))")
+        oobUpdate(op.mT, sram, lhs,inds(i)){ emit(src"if ($ens($i)) $sram.update(${flattenAddress(dims, inds(i))}, $data($i))") }
       }
       close("}")
 
-    case ParFIFODeq(fifo, ens, z) =>
-      emit(src"val $lhs = $ens.map{en => if (en) $fifo.dequeue() else $z}")
+    case op@ParFIFODeq(fifo, ens, z) =>
+      emit(src"val $lhs = $ens.map{en => if (en && $fifo.nonEmpty) $fifo.dequeue() else ${invalid(op.mT)}")
 
     case ParFIFOEnq(fifo, data, ens) =>
       emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $fifo.enqueue(data) }")
 
     case e@ParStreamDeq(strm, ens, zero) =>
-      emit(src"val $lhs = $ens.map{en => if (en) $strm.dequeue() else $zero }")
+      emit(src"val $lhs = $ens.map{en => if (en && $strm.nonEmpty) $strm.dequeue() else ${invalid(e.mT)} }")
 
     case ParStreamEnq(strm, data, ens) =>
       emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $strm.enqueue(data) }")

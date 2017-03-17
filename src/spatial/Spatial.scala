@@ -45,13 +45,14 @@ protected trait SpatialApi extends SpatialExp
 
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
-  with ScalaGenArray with ScalaGenArrayExt with ScalaGenAssert with ScalaGenBool with ScalaGenFixPt with ScalaGenFltPt
-  with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenMixedNumeric with ScalaGenPrint with ScalaGenStringCast with ScalaGenStructs
+  with ScalaGenArray with ScalaGenArrayExt with ScalaGenAssert with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
+  with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenMixedNumeric with ScalaGenPrint with ScalaGenStringCast with ScalaGenStructs with ScalaGenSpatialStruct
   with ScalaGenText with ScalaGenVoid
 
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
-  with ScalaGenStream {
+  with ScalaGenStream
+  with ScalaGenLineBuffer with ScalaGenRegFile {
 
   override val IR: SpatialCompiler
 }

@@ -13,7 +13,7 @@ trait ScalaGenDRAM extends ScalaGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) =>
-      emit(src"""val $lhs = new Array[${op.mA}](${dims.map(quote).mkString("*")})""")
+      emit(src"""val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mA)})""")
 
     case GetDRAMAddress(dram) =>
       emit(src"val $lhs = 0")
@@ -23,7 +23,10 @@ trait ScalaGenDRAM extends ScalaGenSRAM {
       val bytesPerWord = e.bT.length / 8 + (if (e.bT.length % 8 != 0) 1 else 0)
       open(src"val $lhs = $cmdStream.foreach{cmd => ")
         open(src"for (i <- cmd.offset until cmd.offset+cmd.size by $bytesPerWord) {")
-          emit(src"$dataStream.enqueue($dram.apply(i / $bytesPerWord))")
+          open(src"val data = {")
+            oobApply(e.mT,dram, lhs, Nil){ emit(src"$dram.apply(i / $bytesPerWord)") }
+          close("}")
+          emit(src"$dataStream.enqueue(data)")
         close("}")
       close("}")
       emit(src"$cmdStream.clear()")
@@ -33,7 +36,7 @@ trait ScalaGenDRAM extends ScalaGenSRAM {
       open(src"val $lhs = $cmdStream.foreach{cmd => ")
         open(src"for (i <- cmd.offset until cmd.offset+cmd.size by $bytesPerWord) {")
           emit(src"val data = $dataStream.dequeue()")
-          emit(src"if (data._2) $dram(i / $bytesPerWord) = data._1")
+          oobUpdate(e.mT, dram, lhs, Nil){ emit(src"if (data._2) $dram(i / $bytesPerWord) = data._1") }
         close("}")
         emit(src"$ackStream.enqueue(true)")
       close("}")
@@ -42,14 +45,17 @@ trait ScalaGenDRAM extends ScalaGenSRAM {
     case e@FringeSparseLoad(dram,addrStream,dataStream) =>
       val bytesPerWord = e.bT.length / 8 + (if (e.bT.length % 8 != 0) 1 else 0)
       open(src"val $lhs = $addrStream.foreach{addr => ")
-        emit(src"$dataStream.enqueue( $dram(addr / $bytesPerWord) )")
+        open(src"val data = {")
+          oobApply(e.mT, dram, lhs, Nil){ emit(src"$dram(addr / $bytesPerWord)") }
+        close("}")
+        emit(src"$dataStream.enqueue(data)")
       close("}")
       emit(src"$addrStream.clear()")
 
     case e@FringeSparseStore(dram,cmdStream,ackStream) =>
       val bytesPerWord = e.bT.length / 8 + (if (e.bT.length % 8 != 0) 1 else 0)
       open(src"val $lhs = $cmdStream.foreach{cmd => ")
-        emit(src"$dram(cmd._2 / $bytesPerWord) = cmd._1 ")
+        oobUpdate(e.mT,dram, lhs, Nil){ emit(src"$dram(cmd._2 / $bytesPerWord) = cmd._1 ") }
         emit(src"$ackStream.enqueue(true)")
       close("}")
       emit(src"$cmdStream.clear()")
