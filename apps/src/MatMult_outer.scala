@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 4 64 64
+object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 128 64
   import IR._
 
   type X = Int
@@ -69,8 +69,8 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 4 64 64
     val N = args(1).to[Int]
     val P = args(2).to[Int]
 
-    val a = Array.tabulate(M){ j => Array.tabulate(P){ i => (i + j * P) % 256 } } // Standard array
-    val b = Array.tabulate(P){ j => Array.tabulate(N){ i => (i + j * N) % 256 } } // Standard array
+    val a = Array.tabulate(M){ j => Array.tabulate(P){ i => (i + j * P) % 8 } } // Standard array
+    val b = Array.tabulate(P){ j => Array.tabulate(N){ i => (i + j * N) % 8 } } // Standard array
     val c_init = Array.fill(M){ Array.fill(N){ 0.as[X] } }
     // val a = Array.fill(M){ Array.fill(P){random[T](100)} }
     // val b = Array.fill(P){ Array.fill(N){random[T](100)} }
@@ -91,6 +91,6 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 4 64 64
     printArray(result, "Result: ")
 
     val cksum = result.zip(gold){_ == _}.reduce{_&&_}
-    println("PASS: " + cksum + " (MatMult_outer) * Set the first bound to something greater than 4 once accumulator reset-ification exists in IR")
+    println("PASS: " + cksum + " (MatMult_outer) * Figure out how to accumulate on top of DRAM (should we calloc memories in c++?)")
   }
 }
