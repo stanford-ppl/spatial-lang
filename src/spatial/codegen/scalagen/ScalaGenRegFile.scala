@@ -12,29 +12,38 @@ trait ScalaGenRegFile extends ScalaGenSRAM {
     case _ => super.remap(tp)
   }
 
+  private def shiftIn(lhs: Exp[_], rf: Exp[_], inds: Seq[Exp[Index]], d: Int, data: Exp[_], isVec: Boolean): Unit = {
+    val len = if (isVec) lenOf(data) else 1
+    val dims = stagedDimsOf(rf)
+    val size = dims(d)
+    val stride = (dims.drop(d+1).map(quote) :+ "1").mkString("*")
+
+    open(src"val $lhs = {")
+      emit(src"val ofs = ${flattenAddress(dims,inds,None)}")
+      emit(src"val stride = $stride")
+      open(src"for (j <- $size until 0 by - 1) {")
+        if (isVec) emit(src"if (j < $len) $rf.update(ofs+j*stride, $data(j)) else $rf.update(ofs + j*stride, $rf.apply(ofs + (j - $len)*stride))")
+        else       emit(src"if (j < $len) $rf.update(ofs+j*stride, $data) else $rf.update(ofs + j*stride, $rf.apply(ofs + (j - $len)*stride))")
+      close("}")
+    close("}")
+  }
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@RegFileNew(dims) => emit(src"val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})")
-    case op@RegFileLoad(rf,inds) =>
+    case op@RegFileLoad(rf,inds,en) =>
       val dims = stagedDimsOf(rf)
       open(src"val $lhs = {")
-        oobApply(op.mT, rf, lhs, inds){ emit(src"$rf.apply(${flattenAddress(dims,inds,None)})") }
+        oobApply(op.mT, rf, lhs, inds){ emit(src"if ($en) $rf.apply(${flattenAddress(dims,inds,None)}) else ${invalid(op.mT)}") }
       close("}")
 
-    case op@RegFileStore(rf,inds,data) =>
+    case op@RegFileStore(rf,inds,data,en) =>
       val dims = stagedDimsOf(rf)
       open(src"val $lhs = {")
-        oobUpdate(op.mT, rf, lhs, inds){ emit(src"$rf.update(${flattenAddress(dims,inds,None)}, $data)") }
+        oobUpdate(op.mT, rf, lhs, inds){ emit(src"if ($en) $rf.update(${flattenAddress(dims,inds,None)}, $data)") }
       close("}")
 
-    case RegFileShiftIn(rf,data) =>
-      val len = lenOf(data)
-      val dims = stagedDimsOf(rf)
-      val size = dims.map(quote).mkString("*")
-      open(src"val lhs = {")
-        open(src"for (i <- 0 until $size) {")
-          emit(src"if (i < $len) $rf.update(i, $data(i)) else $rf.update(i, $rf.apply(i - $len))")
-        close("}")
-      close("}")
+    case RegFileShiftIn(rf,i,d,data)    => shiftIn(lhs, rf, i, d, data, isVec = false)
+    case ParRegFileShiftIn(rf,i,d,data) => shiftIn(lhs, rf, i, d, data, isVec = true)
 
     case _ => super.emitNode(lhs, rhs)
   }

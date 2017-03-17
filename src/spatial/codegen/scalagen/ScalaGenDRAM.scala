@@ -1,9 +1,9 @@
 package spatial.codegen.scalagen
 
-import spatial.api.DRAMExp
+import spatial.api.{DRAMExp, PinExp}
 
 trait ScalaGenDRAM extends ScalaGenSRAM {
-  val IR: DRAMExp
+  val IR: DRAMExp with PinExp
   import IR._
 
   override protected def remap(tp: Staged[_]): String = tp match {
@@ -13,7 +13,10 @@ trait ScalaGenDRAM extends ScalaGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) =>
-      emit(src"""val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mA)})""")
+      val elementsPerBurst = target.burstSize / op.bT.length
+      open(src"val $lhs = {")
+        emit(src"""Array.fill(${dims.map(quote).mkString("*")} + $elementsPerBurst)(${invalid(op.mA)})""")
+      close("}")
 
     case GetDRAMAddress(dram) =>
       emit(src"val $lhs = 0")

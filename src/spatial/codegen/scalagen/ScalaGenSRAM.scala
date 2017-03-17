@@ -18,9 +18,9 @@ trait ScalaGenSRAM extends ScalaGenMemories {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@SRAMNew(dims) => emit(src"""val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})""")
-    case op@SRAMLoad(sram, dims, is, ofs) =>
+    case op@SRAMLoad(sram, dims, is, ofs, en) =>
       open(src"val $lhs = {")
-        oobApply(op.mT,sram,lhs,is){ emit(src"""$sram.apply(${flattenAddress(dims,is,Some(ofs))})""") }
+        oobApply(op.mT,sram,lhs,is){ emit(src"""if ($en) $sram.apply(${flattenAddress(dims,is,Some(ofs))}) else ${invalid(op.mT)}""") }
       close("}")
 
     case op@SRAMStore(sram, dims, is, ofs, v, en) =>

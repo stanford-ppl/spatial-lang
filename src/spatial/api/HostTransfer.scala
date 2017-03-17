@@ -17,6 +17,19 @@ trait HostTransferApi extends HostTransferExp with ArrayApi {
     get_mem(dram.s, array.s)
     array
   }
+
+  def setMem[T:Staged:Bits](dram: DRAM[T], matrix: Matrix[T])(implicit ctx: SrcCtx): Void = setMem(dram, matrix.data)
+  def getMatrix[T:Staged:Bits](dram: DRAM[T])(implicit ctx: SrcCtx): Matrix[T] = {
+    val dims = dimsOf(dram.s)
+    if (dims.length != 2) {
+      error(ctx, u"Cannot get matrix for ${dram.s} since it is ${dims}-dimensional.")
+      wrap(fresh[Matrix[T]])
+    }
+    else {
+      val data = getMem(dram)
+      matrix(data, wrap(dims(0)), wrap(dims(1)))
+    }
+  }
 }
 
 trait HostTransferExp extends Staging with DRAMExp with RegExp {

@@ -12,7 +12,9 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
   this: SpatialExp =>
 
   case class LineBuffer[T:Staged:Bits](s: Exp[LineBuffer[T]]) {
-    def apply(row: Index, col: Index)(implicit ctx: SrcCtx): T = this.apply(row, index_to_range(col)).apply(0)
+    def apply(row: Index, col: Index)(implicit ctx: SrcCtx): T = {
+      wrap(linebuffer_load(s, row.s, col.s, bool(true)))
+    }
 
     def apply(row: Index, cols: Range)(implicit ctx: SrcCtx): Vector[T] = {
       // UNSUPPORTED: Strided range apply of line buffer
@@ -65,10 +67,12 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
   implicit def lineBufferType[T:Staged:Bits]: Staged[LineBuffer[T]] = LineBufferType(typ[T])
 
   class LineBufferIsMemory[T:Staged:Bits] extends Mem[T, LineBuffer] {
-    def load(mem: LineBuffer[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = mem.apply(is(0),is(1))
+    def load(mem: LineBuffer[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = {
+      wrap(linebuffer_load(mem.s, is(0).s, is(1).s, en.s))
+    }
 
     def store(mem: LineBuffer[T], is: Seq[Index], data: T, en: Bool)(implicit ctx: SrcCtx): Void = {
-      wrap(linebuffer_store(mem.s, is(0).s, data.s))
+      wrap(linebuffer_store(mem.s, is(0).s, data.s, en.s))
     }
     def iterators(mem: LineBuffer[T])(implicit ctx: SrcCtx): Seq[Counter] = {
       // Hack: Use only columns for dense transfers
@@ -108,12 +112,24 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     val mT = typ[T]
   }
 
+  case class LineBufferLoad[T:Staged:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    row:        Exp[Index],
+    col:        Exp[Index],
+    en:         Exp[Bool]
+  ) extends Op[T] {
+    def mirror(f:Tx) = linebuffer_load(f(linebuffer),f(row),f(col),f(en))
+    override def aliases = Nil
+    val mT = typ[T]
+  }
+
   case class LineBufferStore[T:Staged:Bits](
     linebuffer: Exp[LineBuffer[T]],
     col:        Exp[Index],
-    data:       Exp[T]
+    data:       Exp[T],
+    en:         Exp[Bool]
   ) extends Op[Void] {
-    def mirror(f:Tx) = linebuffer_store(f(linebuffer),f(col),f(data))
+    def mirror(f:Tx) = linebuffer_store(f(linebuffer),f(col),f(data),f(en))
     override def aliases = Nil
     val mT = typ[T]
   }
@@ -154,12 +170,22 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     stageCold(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)
   }
 
+  private[spatial] def linebuffer_load[T:Staged:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    row:        Exp[Index],
+    col:        Exp[Index],
+    en:         Exp[Bool]
+  )(implicit ctx: SrcCtx) = {
+    stageWrite(linebuffer)(LineBufferLoad(linebuffer,row,col,en))(ctx)
+  }
+
   private[spatial] def linebuffer_store[T:Staged:Bits](
     linebuffer: Exp[LineBuffer[T]],
     col:        Exp[Index],
-    data:       Exp[T]
+    data:       Exp[T],
+    en:         Exp[Bool]
   )(implicit ctx: SrcCtx) = {
-    stageWrite(linebuffer)(LineBufferStore(linebuffer,col,data))(ctx)
+    stageWrite(linebuffer)(LineBufferStore(linebuffer,col,data,en))(ctx)
   }
 
   /** Internal **/

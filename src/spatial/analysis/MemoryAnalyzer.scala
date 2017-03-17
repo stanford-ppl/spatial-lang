@@ -532,6 +532,10 @@ trait MemoryAnalyzer extends CompilerPass {
     val banking = access match {
       case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(NoBanking, StridedBanking(strides(1),len.toInt))
       case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(StridedBanking(strides(0),len.toInt), NoBanking)
+      case Def(LineBufferLoad(_,row,col,_)) =>
+        val patterns = accessPatternOf(access)
+        indexPatternsToBanking(patterns, strides)
+
       case _ =>
         val patterns = accessPatternOf(access)
         NoBanking +: indexPatternsToBanking(patterns, strides) // Everything else uses 1D view of line buffer
@@ -543,17 +547,22 @@ trait MemoryAnalyzer extends CompilerPass {
     (BankedMemory(banking, depth=1, isAccum=false), duplicates)
   }
 
-  def bankRegFileAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = access match {
-    case Def(RegFileShiftIn(_, data)) =>
-      // TODO: Not sure if this is really the right way for shifting...
-      val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
+  def bankRegFileAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
+    val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
+    val strides = constDimsToStrides(dims)
 
-      val nobanking = dims.drop(1).map{i => NoBanking}
-      val banking = nobanking :+ StridedBanking(1, lenOf(data))
+    val factors  = unrollFactorsOf(access) diff unrollFactorsOf(mem)
+    val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
 
-      (BankedMemory(banking, 1, isAccum = false), 1)
+    def bankFactor(i: Exp[Index]) = parFactorOf(i) match { case Exact(c) => c.toInt }
 
-    case _ => bankSRAMAccess(mem, access) // Treat register file like an SRAM otherwise
+    val patterns = accessPatternOf(access)
+    val banking = indexPatternsToBanking(patterns, strides)
+
+    val banks = banking.map(_.banks).product
+    val duplicates = channels / banks
+
+    (BankedMemory(banking, 1, isAccum = false), duplicates)
   }
 
   def bankStream(mem: Exp[_]): Unit = {

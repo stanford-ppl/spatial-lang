@@ -42,9 +42,10 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
 
   case class ParSRAMLoad[T:Staged:Bits](
     sram: Exp[SRAM[T]],
-    addr: Seq[Seq[Exp[Index]]]
+    addr: Seq[Seq[Exp[Index]]],
+    en:   Exp[Vector[Bool]]
   )(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
-    def mirror(f:Tx) = par_sram_load(f(sram), addr.map{inds => f(inds)})
+    def mirror(f:Tx) = par_sram_load(f(sram), addr.map{inds => f(inds)}, f(en))
     val mT = typ[T]
   }
 
@@ -127,10 +128,11 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
 
   private[spatial] def par_sram_load[T:Staged:Bits](
     sram: Exp[SRAM[T]],
-    addr: Seq[Seq[Exp[Index]]]
+    addr: Seq[Seq[Exp[Index]]],
+    en:   Exp[Vector[Bool]]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
     implicit val W = Width[T](addr.length)
-    stage( ParSRAMLoad(sram, addr) )(ctx)
+    stage( ParSRAMLoad(sram, addr, en) )(ctx)
   }
 
   private[spatial] def par_sram_store[T:Staged:Bits](

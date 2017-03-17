@@ -64,7 +64,7 @@ case class Number(value: BigDecimal, valid: Boolean, fmt: NumberFormat) extends 
 
   def until(end: Number) = NumberRange(this, end, Number(1))
 
-  override def toString = if (valid) { value.toString } else "X"
+  override def toString = if (valid) { value.toString } else { "X" + value.toString + "X" }
 }
 
 object Number {

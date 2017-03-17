@@ -21,7 +21,7 @@ import spatial.codegen.cppgen._
 protected trait SpatialExp extends Staging
   with ArrayExp with ArrayExtExp with AssertExp with BoolExp with CastExp with FixPtExp with FltPtExp
   with HashMapExp with IfThenElseExp with MixedNumericExp with PrintExp with StringCastExp with StructExp
-  with TextExp with TupleExp with VoidExp
+  with TextExp with TupleExp with VoidExp with MatrixExp
 
   with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
@@ -34,7 +34,7 @@ protected trait SpatialExp extends Staging
 protected trait SpatialApi extends SpatialExp
   with ArrayApi with ArrayExtApi with AssertApi with BoolApi with CastApi with FixPtApi with FltPtApi
   with HashMapApi with IfThenElseApi with MixedNumericApi with PrintApi with StringCastApi with StructApi
-  with TextApi with TupleApi with VoidApi
+  with TextApi with TupleApi with VoidApi with MatrixApi
 
   with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi

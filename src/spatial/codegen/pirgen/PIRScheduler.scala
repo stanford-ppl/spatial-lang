@@ -310,8 +310,8 @@ trait PIRScheduler extends PIRTraversal {
     case FIFODeq(fifo, en, zero)     => allocateFifoPop(lhs, fifo, ctx)
     case ParFIFODeq(fifo, en, zero) => allocateFifoPop(lhs, fifo, ctx)
 
-    case SRAMLoad(mem, dim, is, ofs)     => allocateSRAMRead(lhs, mem, dim, is, ctx)
-    case ParSRAMLoad(mem, addr) => allocateSRAMRead(lhs, mem, stagedDimsOf(mem), addr.head, ctx)
+    case SRAMLoad(mem, dim, is, ofs,en)     => allocateSRAMRead(lhs, mem, dim, is, ctx)
+    case ParSRAMLoad(mem, addr,ens) => allocateSRAMRead(lhs, mem, stagedDimsOf(mem), addr.head, ctx)
 
     case ListVector(elems) => ctx.addReg(lhs, ctx.reg(elems.head))
     case VectorApply(vec, idx) =>

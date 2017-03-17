@@ -25,9 +25,15 @@ trait ScalaGenLineBuffer extends ScalaGenMemories {
       open(src"val $lhs = Array.tabulate($len){i =>")
         oobApply(op.mT, lb, lhs, Seq(row,col)){ emit(src"$lb.apply($row,$col+i)") }
       close("}")
-    case op@LineBufferStore(lb,col,data) =>
+
+    case op@LineBufferLoad(lb,row,col,en) =>
       open(src"val $lhs = {")
-        oobUpdate(op.mT, lb, lhs, Seq(col), pre = "-, "){ emit(src"$lb.store($col, $data)") }
+        oobApply(op.mT, lb, lhs, Seq(row,col)){ emit(src"if ($en) $lb.apply($row, $col) else ${invalid(op.mT)}") }
+      close("}")
+
+    case op@LineBufferStore(lb,col,data,en) =>
+      open(src"val $lhs = {")
+        oobUpdate(op.mT, lb, lhs, Seq(col), pre = "-, "){ emit(src"if ($en) $lb.store($col, $data)") }
       close("}")
     case _ => super.emitNode(lhs, rhs)
   }

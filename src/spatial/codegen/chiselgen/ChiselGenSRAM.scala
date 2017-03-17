@@ -71,7 +71,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         }
       }
     
-    case SRAMLoad(sram, dims, is, ofs) =>
+    case SRAMLoad(sram, dims, is, ofs, en) =>
       val dispatch = dispatchOf(lhs, sram)
       val rPar = 1 // Because this is SRAMLoad node    
       val width = bitWidth(sram.tp.typeArguments.head)

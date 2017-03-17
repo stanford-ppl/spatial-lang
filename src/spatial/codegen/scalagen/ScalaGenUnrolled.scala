@@ -43,12 +43,12 @@ trait ScalaGenUnrolled extends ScalaGenMemories {
       close("}")
       emit(src"/** END UNROLLED REDUCE $lhs **/")
 
-    case op@ParSRAMLoad(sram,inds) =>
+    case op@ParSRAMLoad(sram,inds,ens) =>
       val dims = stagedDimsOf(sram)
       open(src"val $lhs = {")
       inds.indices.foreach{i =>
         open(src"val a$i = {")
-          oobApply(op.mT,sram,lhs,inds(i)){ emit(src"""$sram.apply(${flattenAddress(dims, inds(i))})""") }
+          oobApply(op.mT,sram,lhs,inds(i)){ emit(src"""if ($ens($i)) $sram.apply(${flattenAddress(dims, inds(i))}) else ${invalid(op.mT)}""") }
         close("}")
       }
       emit(src"Array(" + inds.indices.map{i => src"a$i"}.mkString(", ") + ")")

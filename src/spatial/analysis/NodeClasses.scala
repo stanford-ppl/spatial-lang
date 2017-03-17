@@ -278,12 +278,14 @@ trait NodeClasses extends SpatialMetadataExp {
 
   def writerUnapply(d: Def): Option[List[LocalWrite]] = d match {
     case RegWrite(reg,data,en)             => Some(LocalWrite(reg, value=data, en=en))
-    case RegFileStore(reg,inds,data)       => Some(LocalWrite(reg, value=data, addr=inds))
-    case RegFileShiftIn(reg, data)         => Some(LocalWrite(reg, value=data))
+    case RegFileStore(reg,inds,data,en)    => Some(LocalWrite(reg, value=data, addr=inds, en=en))
     case SRAMStore(mem,_,inds,_,data,en)   => Some(LocalWrite(mem, value=data, addr=inds, en=en))
     case FIFOEnq(fifo,data,en)             => Some(LocalWrite(fifo, value=data, en=en))
 
-    case LineBufferStore(lb,col,data)      => Some(LocalWrite(lb, value=data, addr=Seq(col)))
+    case RegFileShiftIn(reg,is,d,data)     => Some(LocalWrite(reg, value=data, addr=is))
+    case ParRegFileShiftIn(reg,is,d,data)  => Some(LocalWrite(reg,value=data, addr=is))
+
+    case LineBufferStore(lb,col,data,en)   => Some(LocalWrite(lb, value=data, addr=Seq(col), en=en))
 
     case e: DenseTransfer[_,_] if e.isLoad => Some(LocalWrite(e.local, addr=e.iters))
     case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
@@ -298,10 +300,11 @@ trait NodeClasses extends SpatialMetadataExp {
   }
   def readerUnapply(d: Def): Option[List[LocalRead]] = d match {
     case RegRead(reg)                       => Some(LocalRead(reg))
-    case RegFileLoad(reg,inds)              => Some(LocalRead(reg, addr=inds))
-    case SRAMLoad(mem,dims,inds,ofs)        => Some(LocalRead(mem, addr=inds))
+    case RegFileLoad(reg,inds,en)           => Some(LocalRead(reg, addr=inds, en=en))
+    case SRAMLoad(mem,dims,inds,ofs,en)     => Some(LocalRead(mem, addr=inds, en=en))
     case FIFODeq(fifo,en,_)                 => Some(LocalRead(fifo, en=en))
 
+    case LineBufferLoad(lb,row,col,en)      => Some(LocalRead(lb, addr=Seq(row,col), en=en))
     case LineBufferColSlice(lb,row,col,len) => Some(LocalRead(lb, addr=Seq(row,col)))
     case LineBufferRowSlice(lb,row,len,col) => Some(LocalRead(lb, addr=Seq(row,col)))
 
@@ -313,7 +316,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case ParStreamDeq(stream, en, _)        => Some(LocalRead(stream))
 
     // TODO: Address and enable are in different format in parallelized accesses
-    case ParSRAMLoad(sram,addr)             => Some(LocalRead(sram))
+    case ParSRAMLoad(sram,addr,ens)         => Some(LocalRead(sram))
     case ParFIFODeq(fifo,ens,_)             => Some(LocalRead(fifo))
     case _ => None
   }

@@ -9,16 +9,18 @@ object Convolution_FPGA extends SpatialApp {
   val Cmax = 100
 
   @virtualize
-  def convolve[T:Staged:Num](image: Array[T], rows: Int, cols: Int): Array[T] = {
+  def convolve[T:Staged:Num](image: Matrix[T]): Matrix[T] = {
     val B = 16 (1 -> 1 -> 16)
 
     val R = ArgIn[Int]
     val C = ArgIn[Int]
-    setArg(R, rows)
-    setArg(C, cols)
+    setArg(R, image.rows)
+    setArg(C, image.cols)
 
     val img = DRAM[T](R, C)
     val imgOut = DRAM[T](R, C)
+
+    setMem(img, image)
 
     Accel {
       val lb = LineBuffer[T](Kh, Cmax)
@@ -43,8 +45,16 @@ object Convolution_FPGA extends SpatialApp {
       Foreach(0 until R) { r =>
         lb load img(r, 0::C)
 
+        Foreach(0 until C){c => print("" + lb(r,c) + "\t") }
+        println("")
+
         Foreach(0 until C) { c =>
-          sr := lb(0::3, c)
+          Foreach(0 until Kh par Kh){i => sr(i, *) <<= lb(i, c) }
+
+          Foreach(0 until 3, 0 until 3){(i,j) => print("" + sr(i,j) + " ") }
+          println("")
+          Foreach(0 until 3, 0 until 3){(i,j) => print("" + k(i,j) + " ") }
+          println("")
 
           val pixel = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * k(i,j) }{_+_}
 
@@ -56,7 +66,7 @@ object Convolution_FPGA extends SpatialApp {
 
     }
 
-    getMem(imgOut)
+    getMatrix(imgOut)
 
   }
 
@@ -64,13 +74,13 @@ object Convolution_FPGA extends SpatialApp {
   def main() {
     val R = 15
     val C = 15
-    val image = Array.tabulate(R){i => Array.tabulate(C){j => if (j > 7) 256 else 0 }}
+    val image = (0::R, 0::C){(i,j) => if (j > 7) 256 else 0 }
 
-    val output = convolve(image.flatten, R, C)
+    val output = convolve(image)
 
-    val gold = Array.tabulate(R){i => Array.tabulate(C){j => if (j == 7) 1 else 0 }}
+    val gold = (0::R, 0::C){(i,j) => if (j == 7) 1 else 0 }
 
-    printArray(image.flatten, "Image")
-    printArray(output, "Output")
+    printMatrix(image, "Image")
+    printMatrix(output, "Output")
   }
 }

@@ -6,7 +6,6 @@ import spatial.SpatialExp
 trait CounterApi extends CounterExp {
   this: SpatialExp =>
 
-  def *()(implicit ctx: SrcCtx): Counter = forever
 }
 
 trait CounterExp extends Staging with RangeExp with SpatialExceptions {
@@ -32,6 +31,8 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
     val par = range.p
     counter(start, end, step, par)
   }
+  implicit def wildcard2counter(wild: Wildcard)(implicit ctx: SrcCtx): Counter = forever
+
 
   def extractParFactor(par: Option[Index])(implicit ctx: SrcCtx): Const[Index] = par.map(_.s) match {
     case Some(x: Const[_]) if isIndexType(x.tp) => x.asInstanceOf[Const[Index]]

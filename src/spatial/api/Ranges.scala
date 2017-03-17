@@ -23,6 +23,8 @@ trait RangeLowPriorityImplicits { this: RangeApi =>
 trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
   this: SpatialExp =>
 
+  def *()(implicit ctx: SrcCtx) = Wildcard()
+
   implicit class IndexRangeOps(x: Index) {
     def by(step: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, Some(lift(step)), None)
     def par(p: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, None, Some(lift(p)))
@@ -61,6 +63,8 @@ trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
 
 trait RangeExp extends Staging with MemoryExp {
   this: SpatialExp =>
+
+  case class Wildcard()
 
   case class Range(start: Option[Index], end: Index, step: Option[Index], p: Option[Index], isUnit: Boolean) {
     def by(step: Index)(implicit ctx: SrcCtx): Range = Range(start, end, Some(step), p, isUnit = false)

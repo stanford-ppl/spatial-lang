@@ -136,7 +136,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
       controllerStack.pop()
 
-    case ParSRAMLoad(sram,inds) =>
+    case ParSRAMLoad(sram,inds,ens) =>
       val dispatch = dispatchOf(lhs, sram)
       val rPar = inds.indices.length
       val dims = stagedDimsOf(sram)

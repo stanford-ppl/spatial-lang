@@ -48,7 +48,8 @@ object Convolution_CGRA extends SpatialApp {
         Foreach(0 until C by B) { c =>
           val out = RegFile[T](B)
           Foreach(Kh by 1) { i =>
-            sr := lb(i, c :: c + B)
+            sr <<= lb(i, c :: c + B)
+
             Foreach(Kw by 1) { j =>
               Foreach(B by 1) { cc =>
                 val prev = mux(i == 0, 0.as[T], out(cc))
