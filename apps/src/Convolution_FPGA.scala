@@ -24,19 +24,30 @@ object Convolution_FPGA extends SpatialApp {
 
     Accel {
       val lb = LineBuffer[T](Kh, Cmax)
-      val k  = RegFile[T](Kh, Kw)
+      val kh = RegFile[T](Kh, Kw)
+      val kv = RegFile[T](Kh, Kw)
 
       // TODO: Better syntax for initialization of lookup tables
       Pipe {
-        k(0,0) = 1.as[T]
-        k(0,1) = 0.as[T]
-        k(0,2) = -1.as[T]
-        k(1,0) = 2.as[T]
-        k(1,1) = 0.as[T]
-        k(1,2) = -2.as[T]
-        k(2,0) = 1.as[T]
-        k(2,1) = 0.as[T]
-        k(2,2) = -1.as[T]
+        kh(0,0) = 1.as[T]
+        kh(1,0) = 2.as[T]
+        kh(2,0) = 1.as[T]
+        kh(0,1) = 0.as[T]
+        kh(1,1) = 0.as[T]
+        kh(2,1) = 0.as[T]
+        kh(0,2) = -1.as[T]
+        kh(1,2) = -2.as[T]
+        kh(2,2) = -1.as[T]
+
+        kv(0,0) = 1.as[T]
+        kv(0,1) = 2.as[T]
+        kv(0,2) = 1.as[T]
+        kv(1,0) = 0.as[T]
+        kv(1,1) = 0.as[T]
+        kv(1,2) = 0.as[T]
+        kv(2,0) = -1.as[T]
+        kv(2,1) = -2.as[T]
+        kv(2,2) = -1.as[T]
       }
 
       val sr = RegFile[T](Kh, Kw)
@@ -45,20 +56,19 @@ object Convolution_FPGA extends SpatialApp {
       Foreach(0 until R) { r =>
         lb load img(r, 0::C)
 
-        Foreach(0 until C){c => print("" + lb(r,c) + "\t") }
-        println("")
+        println("Row " + r)
+        Foreach(0 until Kh) { i =>
+          Foreach(0 until C) { c => print("" + lb(i,c) + "\t") }
+          println("")
+        }
 
         Foreach(0 until C) { c =>
           Foreach(0 until Kh par Kh){i => sr(i, *) <<= lb(i, c) }
 
-          Foreach(0 until 3, 0 until 3){(i,j) => print("" + sr(i,j) + " ") }
-          println("")
-          Foreach(0 until 3, 0 until 3){(i,j) => print("" + k(i,j) + " ") }
-          println("")
+          val horz = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * kh(i,j) }{_+_}
+          val vert = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * kv(i,j) }{_+_}
 
-          val pixel = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * k(i,j) }{_+_}
-
-          lineOut(c) = pixel
+          lineOut(c) = abs(horz.value) + abs(vert.value) // Technically should be sqrt(horz**2 + vert**2)
         }
 
         imgOut(r, 0::C) store lineOut
@@ -74,7 +84,7 @@ object Convolution_FPGA extends SpatialApp {
   def main() {
     val R = 15
     val C = 15
-    val image = (0::R, 0::C){(i,j) => if (j > 7) 256 else 0 }
+    val image = (0::R, 0::C){(i,j) => if (j > 3 && i > 3 && j < 11 && i < 11) 256 else 0 }
 
     val output = convolve(image)
 

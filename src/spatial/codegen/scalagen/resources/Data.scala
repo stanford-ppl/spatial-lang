@@ -1,4 +1,30 @@
 import scala.language.implicitConversions
+import scala.math.Integral
+import scala.collection.immutable.NumericRange
+
+object DataImplicits {
+  implicit def numberToInt(x: Number): Int = x.toInt
+  implicit def intToNumber(x: Int): Number = Number(x)
+  implicit def bitToBoolean(x: Bit): Boolean = x.value
+  implicit def booleanToBit(x: Boolean): Bit = Bit(x)
+
+  implicit object NumberIsIntegral extends Integral[Number] {
+    def quot(x: Number, y: Number): Number = x / y
+    def rem(x: Number, y: Number): Number = x % y
+    def compare(x: Number, y: Number): Int = if (x < y) - 1 else if (x > y) 1 else 0
+    def plus(x : Number, y : Number) : Number = x + y
+    def minus(x : Number, y : Number) : Number = x - y
+    def times(x : Number, y : Number) : Number = x * y
+    def negate(x : Number) : Number = -x
+    def fromInt(x : scala.Int) : Number = Number(x)
+    def toInt(x : Number) : scala.Int = x.toInt
+    def toLong(x : Number) : scala.Long = x.toLong
+    def toFloat(x : Number) : scala.Float = x.toFloat
+    def toDouble(x : Number) : scala.Double = x.toDouble
+  }
+}
+
+import DataImplicits._
 
 abstract class Data(valid: Boolean)
 
@@ -61,15 +87,24 @@ case class Number(value: BigDecimal, valid: Boolean, fmt: NumberFormat) extends 
 
   def toDouble: Double = value.toDouble
   def toInt: Int = value.toInt
+  def toLong: Long = value.toLong
+  def toFloat: Float = value.toFloat
 
-  def until(end: Number) = NumberRange(this, end, Number(1))
+  def until(end: Number) = NumberRange(this, end, Number(1), isInclusive = false)
+  def to(end: Number) = NumberRange(this, end, Number(1), isInclusive = true)
 
   override def toString = if (valid) { value.toString } else { "X" + value.toString + "X" }
 }
 
-object Number {
-  import DataImplicits._
+// Almost more trouble than it's worth...
+case class NumberRange(override val start: Number, override val end: Number, override val step: Number, override val isInclusive: Boolean)
+  extends NumericRange[Number](start,end,step,isInclusive)(DataImplicits.NumberIsIntegral) {
 
+  override def copy(start: Number, end: Number, step: Number) = NumberRange(start, end, step, isInclusive)
+
+}
+
+object Number {
   def apply(value: Int): Number = Number(BigDecimal(value), true, IntFormat)
   def apply(value: Long): Number = Number(BigDecimal(value), true, LongFormat)
   def apply(value: Float): Number = Number(BigDecimal(value.toDouble), true, FloatFormat)
@@ -107,23 +142,3 @@ object FALSE extends Bit(false, true) { override def toString = "false" }
 object TRUE  extends Bit(true, true) { override def toString = "true" }
 
 
-object DataImplicits {
-  implicit def numberToInt(x: Number): Int = x.toInt
-  implicit def intToNumber(x: Int): Number = Number(x)
-  implicit def bitToBoolean(x: Bit): Boolean = x.value
-  implicit def booleanToBit(x: Boolean): Bit = Bit(x)
-}
-
-
-case class NumberRange(start: Number, end: Number, step: Number) {
-  import DataImplicits._
-
-  def foreach(func: Number => Unit): Unit = {
-    var i = start
-    while (i < end) {
-      func(i)
-      i += step
-    }
-  }
-  def by(step: Number) = NumberRange(start, end, step)
-}

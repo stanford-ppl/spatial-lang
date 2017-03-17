@@ -25,11 +25,11 @@ trait RegisterFileExp extends Staging with SRAMExp {
 
     def apply(i: Index, y: Wildcard)(implicit ctx: SrcCtx) = {
       if (stagedDimsOf(s).length != 2) error(ctx, s"Cannot view a ${stagedDimsOf(s).length}-dimensional register file in 2 dimensions.")
-      RegFileView(s, Seq(i,lift[Int,Index](0)), 0)
+      RegFileView(s, Seq(i,lift[Int,Index](0)), 1)
     }
     def apply(y: Wildcard, i: Index)(implicit ctx: SrcCtx) = {
       if (stagedDimsOf(s).length != 2) error(ctx, s"Cannot view a ${stagedDimsOf(s).length}-dimensional register file in 2 dimensions.")
-      RegFileView(s, Seq(lift[Int,Index](0),i), 1)
+      RegFileView(s, Seq(lift[Int,Index](0),i), 0)
     }
   }
 

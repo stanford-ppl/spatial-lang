@@ -21,7 +21,7 @@ trait ScalaGenRegFile extends ScalaGenSRAM {
     open(src"val $lhs = {")
       emit(src"val ofs = ${flattenAddress(dims,inds,None)}")
       emit(src"val stride = $stride")
-      open(src"for (j <- $size until 0 by - 1) {")
+      open(src"for (j <- $size-1 to 0 by - 1) {")
         if (isVec) emit(src"if (j < $len) $rf.update(ofs+j*stride, $data(j)) else $rf.update(ofs + j*stride, $rf.apply(ofs + (j - $len)*stride))")
         else       emit(src"if (j < $len) $rf.update(ofs+j*stride, $data) else $rf.update(ofs + j*stride, $rf.apply(ofs + (j - $len)*stride))")
       close("}")
