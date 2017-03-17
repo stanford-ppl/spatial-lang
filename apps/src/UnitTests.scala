@@ -1048,7 +1048,7 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
     printArray(result, "result: ")
 
     val cksum = gold.zip(result){_==_}.reduce{_&&_}
-    println("PASS: " + cksum  + " (MultiplexedWriteTest)")
+    println("PASS: " + cksum  + " (BubbledWriteTest)")
 
 
   }
