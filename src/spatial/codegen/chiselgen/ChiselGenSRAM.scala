@@ -50,7 +50,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
               val rPar = readersOf(lhs).map { r => 
                 r.node match {
                   case Def(_: SRAMLoad[_]) => 1
-                  case Def(a@ParSRAMLoad(_,inds)) => inds.length
+                  case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
                 }
               }.reduce{scala.math.max(_,_)}
               val wPar = writersOf(lhs).map { w =>
