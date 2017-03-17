@@ -181,16 +181,16 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       case _ =>
     }
 
-    sym match {
-      case Def(n: UnrolledForeach) =>
-        if (isStreamChild(sym)) {
-          emit(src"""val ${sym}_datapath_en = ${sym}_en // TODO: Make sure this is a safe assignment""")  
-        } else {
-          emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc // TODO: Make sure this is a safe assignment""")
-        }
-      case _ =>
-        emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
+    // sym match {
+    //   case Def(n: UnrolledForeach) =>
+    if (isStreamChild(sym)) {
+      emit(src"""val ${sym}_datapath_en = ${sym}_en // TODO: Make sure this is a safe assignment""")  
+    } else {
+      emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc // TODO: Make sure this is a safe assignment""")
     }
+    //   case _ =>
+    //     emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_rst_en // TODO: Phase out this assignment and make it ctr_inc""") 
+    // }
     
     var hasStreamIns = if (listensTo(sym).length > 0) { // Please simplify this mess
       listensTo(sym).map{ fifo => fifo match {

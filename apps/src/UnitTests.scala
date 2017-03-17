@@ -1139,7 +1139,6 @@ object ChangingCtrMax extends SpatialApp { // Regression (Unit) // Args: none
 }
 
 
-// Args: 384
 object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
   import IR._
 
