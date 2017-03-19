@@ -33,6 +33,149 @@ object InOutArg extends SpatialApp {  // Regression (Unit) // Args: 5
   }
 }
 
+
+// Args: None
+object MultiplexedWriteTest extends SpatialApp { // Regression (Unit) // Args: none
+  import IR._
+
+  val tileSize = 16
+  val I = 5
+  val N = 192
+
+  def multiplexedwrtest[W:Staged:Num](w: Array[W], i: Array[W]): Array[W] = {
+    val T = param(tileSize)
+    val P = param(4)
+    val weights = DRAM[W](N)
+    val inputs  = DRAM[W](N)
+    val weightsResult = DRAM[W](N*I)
+    setMem(weights, w)
+    setMem(inputs,i)
+    Accel {
+      val wt = SRAM[W](T)
+      val in = SRAM[W](T)
+      Sequential.Foreach(N by T){i =>
+        wt load weights(i::i+T par 16)
+        in load inputs(i::i+T par 16)
+
+        // Some math nonsense (definitely not a correct implementation of anything)
+        Foreach(I by 1){x =>
+          val niter = Reg[Int]
+          niter := x+1
+          MemReduce(wt)(niter by 1){ i =>  // s0 write
+            in
+          }{_+_}
+          weightsResult(i*I+x*T::i*I+x*T+T par 16) store wt //s1 read
+        }
+      }
+
+    }
+    getMem(weightsResult)
+  }
+
+  @virtualize
+  def main() = {
+    val w = Array.tabulate(N){ i => i % 256}
+    val i = Array.tabulate(N){ i => i % 256 }
+
+    val result = multiplexedwrtest(w, i)
+
+    val gold = Array.tabulate(N/tileSize) { k =>
+      Array.tabulate(I){ j => 
+        val in = Array.tabulate(tileSize) { i => (j)*(k*tileSize + i) }
+        val wt = Array.tabulate(tileSize) { i => k*tileSize + i }
+        in.zip(wt){_+_}
+      }.flatten
+    }.flatten
+    printArray(gold, "gold: ");
+    printArray(result, "result: ");
+
+    val cksum = gold.zip(result){_==_}.reduce{_&&_}
+    println("PASS: " + cksum  + " (MultiplexedWriteTest)")
+  }
+}
+
+// TODO: Make this actually check a bubbled NBuf (i.e.- s0 = wr, s2 = wr, s4 =rd, s1s2 = n/a)
+// because I think this will break the NBuf SM since it won't detect drain completion properly
+// Args: None
+object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
+  import IR._
+
+  val tileSize = 16
+  val I = 5
+  val N = 192
+
+  def bubbledwrtest(w: Array[Int], i: Array[Int]): Array[Int] = {
+    val T = param(tileSize)
+    val P = param(4)
+    val weights = DRAM[Int](N)
+    val inputs  = DRAM[Int](N)
+    val weightsResult = DRAM[Int](N*I)
+    // val dummyWeightsResult = DRAM[Int](T)
+    // val dummyOut = DRAM[Int](T)
+    // val dummyOut2 = DRAM[Int](T)
+    setMem(weights, w)
+    setMem(inputs,i)
+    Accel {
+
+      val wt = SRAM[Int](T)
+      val in = SRAM[Int](T)
+      Sequential.Foreach(N by T){i =>
+        wt load weights(i::i+T par 16)
+        in load inputs(i::i+T par 16)
+
+        Foreach(I by 1){x =>
+          val niter = Reg[Int]
+          niter := x+1
+          MemReduce(wt)(niter by 1){ k =>  // s0 write
+            in
+          }{_+_}
+          val dummyReg1 = Reg[Int]
+          val dummyReg2 = Reg[Int]
+          val dummyReg3 = Reg[Int]
+          Foreach(T by 1) { i => dummyReg1 := in(i)} // s1 do not touch
+          Foreach(T by 1) { i => dummyReg2 := wt(i)} // s2 read
+          Foreach(T by 1) { i => dummyReg3 := in(i)} // s3 do not touch
+          weightsResult(i*I+x*T::i*I+x*T+T par 16) store wt //s4 read
+        }
+      }
+
+    }
+    getMem(weightsResult)
+  }
+
+  @virtualize
+  def main() = {
+    val w = Array.tabulate(N){ i => i % 256}
+    val i = Array.tabulate(N){ i => i % 256 }
+
+    val result = bubbledwrtest(w, i)
+
+    // // Non-resetting SRAM check
+    // val gold = Array.tabulate(N/tileSize) { k =>
+    //   Array.tabulate(I){ j => 
+    //     Array.tabulate(tileSize) { i => 
+    //       ( 1 + (j+1)*(j+2)/2 ) * (i + k*tileSize)
+    //     }
+    //   }.flatten
+    // }.flatten
+    // Resetting SRAM check
+    val gold = Array.tabulate(N/tileSize) { k =>
+      Array.tabulate(I){ j => 
+        val in = Array.tabulate(tileSize) { i => (j)*(k*tileSize + i) }
+        val wt = Array.tabulate(tileSize) { i => k*tileSize + i }
+        in.zip(wt){_+_}
+      }.flatten
+    }.flatten
+    printArray(gold, "gold: ")
+    printArray(result, "result: ")
+
+    val cksum = gold.zip(result){_==_}.reduce{_&&_}
+    println("PASS: " + cksum  + " (BubbledWriteTest)")
+
+
+  }
+}
+
 object FileSplitter extends SpatialApp {  // Regression (Unit) // Args: 5
   import IR._
 
@@ -911,148 +1054,6 @@ object ScatterGather extends SpatialApp { // Regression (Sparse) // Args: none
 }
 
 
-
-// Args: None
-object MultiplexedWriteTest extends SpatialApp { // Regression (Unit) // Args: none
-  import IR._
-
-  val tileSize = 16
-  val I = 5
-  val N = 192
-
-  def multiplexedwrtest[W:Staged:Num](w: Array[W], i: Array[W]): Array[W] = {
-    val T = param(tileSize)
-    val P = param(4)
-    val weights = DRAM[W](N)
-    val inputs  = DRAM[W](N)
-    val weightsResult = DRAM[W](N*I)
-    setMem(weights, w)
-    setMem(inputs,i)
-    Accel {
-      val wt = SRAM[W](T)
-      val in = SRAM[W](T)
-      Sequential.Foreach(N by T){i =>
-        wt load weights(i::i+T par 16)
-        in load inputs(i::i+T par 16)
-
-        // Some math nonsense (definitely not a correct implementation of anything)
-        Foreach(I by 1){x =>
-          val niter = Reg[Int]
-          niter := x+1
-          MemReduce(wt)(niter by 1){ i =>  // s0 write
-            in
-          }{_+_}
-          weightsResult(i*I+x*T::i*I+x*T+T par 16) store wt //s1 read
-        }
-      }
-
-    }
-    getMem(weightsResult)
-  }
-
-  @virtualize
-  def main() = {
-    val w = Array.tabulate(N){ i => i % 16}
-    val i = Array.tabulate(N){ i => i % 32 }
-
-    val result = multiplexedwrtest(w, i)
-
-    val gold = Array.tabulate(N/tileSize) { k =>
-      Array.tabulate(I){ j => 
-        val in = Array.tabulate(tileSize) { i => (j)*(k*tileSize + i) }
-        val wt = Array.tabulate(tileSize) { i => k*tileSize + i }
-        in.zip(wt){_+_}
-      }.flatten
-    }.flatten
-    printArray(gold, "gold: ");
-    printArray(result, "result: ");
-
-    val cksum = gold.zip(result){_==_}.reduce{_&&_}
-    println("PASS: " + cksum  + " (MultiplexedWriteTest)")
-  }
-}
-
-// TODO: Make this actually check a bubbled NBuf (i.e.- s0 = wr, s2 = wr, s4 =rd, s1s2 = n/a)
-// because I think this will break the NBuf SM since it won't detect drain completion properly
-// Args: None
-object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
-  import IR._
-
-  val tileSize = 16
-  val I = 5
-  val N = 192
-
-  def bubbledwrtest(w: Array[Int], i: Array[Int]): Array[Int] = {
-    val T = param(tileSize)
-    val P = param(4)
-    val weights = DRAM[Int](N)
-    val inputs  = DRAM[Int](N)
-    val weightsResult = DRAM[Int](N*I)
-    // val dummyWeightsResult = DRAM[Int](T)
-    // val dummyOut = DRAM[Int](T)
-    // val dummyOut2 = DRAM[Int](T)
-    setMem(weights, w)
-    setMem(inputs,i)
-    Accel {
-
-      val wt = SRAM[Int](T)
-      val in = SRAM[Int](T)
-      Sequential.Foreach(N by T){i =>
-        wt load weights(i::i+T par 16)
-        in load inputs(i::i+T par 16)
-
-        Foreach(I by 1){x =>
-          val niter = Reg[Int]
-          niter := x+1
-          MemReduce(wt)(niter by 1){ k =>  // s0 write
-            in
-          }{_+_}
-          val dummyReg1 = Reg[Int]
-          val dummyReg2 = Reg[Int]
-          val dummyReg3 = Reg[Int]
-          Foreach(T by 1) { i => dummyReg1 := in(i)} // s1 do not touch
-          Foreach(T by 1) { i => dummyReg2 := wt(i)} // s2 read
-          Foreach(T by 1) { i => dummyReg3 := in(i)} // s3 do not touch
-          weightsResult(i*I+x*T::i*I+x*T+T par 16) store wt //s4 read
-        }
-      }
-
-    }
-    getMem(weightsResult)
-  }
-
-  @virtualize
-  def main() = {
-    val w = Array.tabulate(N){ i => i % 256}
-    val i = Array.tabulate(N){ i => i % 256 }
-
-    val result = bubbledwrtest(w, i)
-
-    // // Non-resetting SRAM check
-    // val gold = Array.tabulate(N/tileSize) { k =>
-    //   Array.tabulate(I){ j => 
-    //     Array.tabulate(tileSize) { i => 
-    //       ( 1 + (j+1)*(j+2)/2 ) * (i + k*tileSize)
-    //     }
-    //   }.flatten
-    // }.flatten
-    // Resetting SRAM check
-    val gold = Array.tabulate(N/tileSize) { k =>
-      Array.tabulate(I){ j => 
-        val in = Array.tabulate(tileSize) { i => (j)*(k*tileSize + i) }
-        val wt = Array.tabulate(tileSize) { i => k*tileSize + i }
-        in.zip(wt){_+_}
-      }.flatten
-    }.flatten
-    printArray(gold, "gold: ")
-    printArray(result, "result: ")
-
-    val cksum = gold.zip(result){_==_}.reduce{_&&_}
-    println("PASS: " + cksum  + " (BubbledWriteTest)")
-
-
-  }
-}
 
 object SequentialWrites extends SpatialApp { // Regression (Unit) // Args: 7
   import IR._
