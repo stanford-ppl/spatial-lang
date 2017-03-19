@@ -988,9 +988,9 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
     val weights = DRAM[Int](N)
     val inputs  = DRAM[Int](N)
     val weightsResult = DRAM[Int](N*I)
-    val dummyWeightsResult = DRAM[Int](T)
-    val dummyOut = DRAM[Int](T)
-    val dummyOut2 = DRAM[Int](T)
+    // val dummyWeightsResult = DRAM[Int](T)
+    // val dummyOut = DRAM[Int](T)
+    // val dummyOut2 = DRAM[Int](T)
     setMem(weights, w)
     setMem(inputs,i)
     Accel {

@@ -252,7 +252,9 @@ trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp
     def mirror(f:Tx) = this
   }
   object argMapping {
-    private def get(arg: Exp[_]): Option[(Int,Int,Int)] = Some(metadata[ArgMap](arg).map{a => (a.argId, a.memIdIn, a.memIdOut)}.head)
+    private def get(arg: Exp[_]): Option[(Int,Int,Int)] = {
+        Some(metadata[ArgMap](arg).map{a => (a.argId, a.memIdIn, a.memIdOut)}.getOrElse(-1,-1,-1))  
+    }
 
     def apply(arg: Exp[_]): (Int,Int,Int) = argMapping.get(arg).get
 

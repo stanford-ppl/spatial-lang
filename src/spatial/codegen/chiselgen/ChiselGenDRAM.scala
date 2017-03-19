@@ -35,6 +35,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => 
+      if (argMapping(lhs) == (-1,-1,-1)) {
+        throw new UnusedDRAMException(lhs, nameOf(lhs).getOrElse("noname"))
+      }
 
     case GetDRAMAddress(dram) =>
       val id = argMapping(dram)._1
