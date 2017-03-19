@@ -4,7 +4,7 @@
 # NOTE: This script belongs on a server dedicated to regression testing
 
 export LANG=en_US.UTF-8
-REGRESSION_HOME="/remote/spatial_regression"
+REGRESSION_HOME="/remote/regression/${1}"
 
 ## Helper for deleting directories when you still have those nfs files stuck in use
 # 1 - directory to delete
@@ -61,7 +61,8 @@ if [[ $wc -gt 1 ]]; then
   new_packets=()
   for f in ${files[@]}; do if [[ $f = *".new"* ]]; then new_packets+=($f); fi; done
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
-  packet=${sorted_packets[${#sorted_packets[@]}-1]}
+  newpacket=${sorted_packets[${#sorted_packets[@]}-1]}
+  packet=$newpcket
   multiple_new=true
   cd -
 elif [[ $wc = 0 ]]; then
@@ -69,7 +70,8 @@ elif [[ $wc = 0 ]]; then
   exit 1
 else
   # Find the new packet 
-  packet=`ls $REGRESSION_HOME | grep "${test_to_run}.new"`  
+  newpacket=`ls $REGRESSION_HOME | grep "${test_to_run}.new"`  
+  packet=$newpacket
 fi
 
 packet="${REGRESSION_HOME}/$packet"
@@ -140,7 +142,7 @@ git_things() {
   # Make directory for this regression test
   stubborn_delete $dirname
   mkdir $dirname
-  cp $packet $dirname
+  cp $packet $dirname/$newpacket
 
   # Clone repos in dirname
   cd $dirname
@@ -153,14 +155,13 @@ git_things() {
   export spatial_hash=${spatial_hash}
   export argon_hash=${argon_hash}
   export virtualized_hash=${virtualized_hash}
-  export JAVA_HOME=/usr/
-  logger "Cloning spatial..."
+  # export JAVA_HOME=/usr/
+  logger "Cloning spatial... Are your ssh keys set up in git?"
   git clone git@github.com:stanford-ppl/spatial-lang.git > /dev/null 2>&1
   logger "Cloning done!"
   logger "Changing spatial-lang to spatial"
   mv spatial-lang spatial > /dev/null 2>&1
   logger "Done changing! $SPATIAL_HOME"
-  mv spatial
   exists "$SPATIAL_HOME" 1
   logger "Cloning argon..."
   git clone git@github.com:stanford-ppl/argon.git > /dev/null 2>&1

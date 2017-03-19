@@ -7,14 +7,15 @@ import chisel3._
 class Parallel(val n: Int) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
-      val enable = Bool().asInput
-      val stageDone = Vec(n, Bool().asInput)
-      val forever = Bool().asInput
+      val enable = Input(Bool())
+      val stageDone = Vec(n, Input(Bool()))
+      val forever = Input(Bool())
     }
     val output = new Bundle {
-      val done = Bool().asOutput
-      val stageEnable = Vec(n, Bool().asOutput)
-      val rst_en = Bool().asOutput
+      val done = Output(Bool())
+      val stageEnable = Vec(n, Output(Bool()))
+      val rst_en = Output(Bool())
+      val ctr_inc = Output(Bool())
     }
   })
 
@@ -70,7 +71,7 @@ class Parallel(val n: Int) extends Module {
 
   // Output logic
   io.output.done := state === doneState.U
-
+  io.output.ctr_inc := false.B // No counters for parallels (BUT MAYBE NEEDED FOR STREAMPIPES)
 }
 
 

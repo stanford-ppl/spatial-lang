@@ -31,11 +31,46 @@ object Utils {
   def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T): types.FixedPoint = {
     val cst = Wire(new types.FixedPoint(s, d, f))
     init match {
-      case i: Double => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).toBits
+      case i: Double => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
       case i: UInt => cst.number := i
-      case i: Int => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).toBits
+      case i: Int => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
     }
     cst
+  }
+
+  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data](x1: T1, x2: T2): UInt = {
+    val raw_x1 = x1 match {
+      case x:Bool => x
+      case x:UInt => x
+      case x:FixedPoint => x.number
+    }
+    val raw_x2 = x2 match {
+      case x:Bool => x
+      case x:UInt => x
+      case x:FixedPoint => x.number
+    }
+
+    util.Cat(raw_x1,raw_x2)
+  }
+
+  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3): UInt = {
+    val raw_x1 = x1 match {
+      case x:Bool => x
+      case x:UInt => x
+      case x:FixedPoint => x.number
+    }
+    val raw_x2 = x2 match {
+      case x:Bool => x
+      case x:UInt => x
+      case x:FixedPoint => x.number
+    }
+    val raw_x3 = x3 match {
+      case x:Bool => x
+      case x:UInt => x
+      case x:FixedPoint => x.number
+    }
+
+    util.Cat(raw_x1,raw_x2,raw_x3)
   }
 
 

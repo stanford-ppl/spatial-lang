@@ -17,7 +17,7 @@ trait SpatialMetadataApi extends SpatialMetadataExp {
 
 
 // Internal metadata (compiler use only)
-trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { this: SpatialExp =>
+trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp =>
   /**
     * Symbol bounds
     * Tracks the MAXIMUM value for a given symbol, along with data about this bound
@@ -217,6 +217,52 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   }
 
   /**
+    * Map for tracking which control nodes are the tile transfer nodes for a given memory, since this
+    * alters the enable signal
+    **/
+  case class LoadMemCtrl(ctrl: List[Exp[_]]) extends Metadata[LoadMemCtrl] {
+    def mirror(f:Tx) = LoadMemCtrl(f.tx(ctrl))
+  }
+  object loadCtrlOf {
+    def apply(x: Exp[_]): List[Exp[_]] = metadata[LoadMemCtrl](x).map(_.ctrl).getOrElse(Nil)
+    def update(x: Exp[_], ctrl: List[Exp[_]]): Unit = metadata.add(x, LoadMemCtrl(ctrl))
+
+    def apply(x: Ctrl): List[Exp[_]] = loadCtrlOf(x.node)
+    def update(x: Ctrl, ctrl: List[Exp[_]]): Unit = loadCtrlOf(x.node) = ctrl
+  }
+
+  /**
+    * List of fifos or streams pushed in a given controller, for handling streampipe control flow
+    **/
+  case class PushStreams(push: List[Exp[_]]) extends Metadata[PushStreams] {
+    def mirror(f:Tx) = PushStreams(f.tx(push))
+  }
+  object pushesTo {
+    def apply(x: Exp[_]): List[Exp[_]] = metadata[PushStreams](x).map(_.push).getOrElse(Nil)
+    def update(x: Exp[_], push: List[Exp[_]]): Unit = metadata.add(x, PushStreams(push))
+
+    def apply(x: Ctrl): List[Exp[_]] = pushesTo(x.node)
+    def update(x: Ctrl, push: List[Exp[_]]): Unit = pushesTo(x.node) = push
+  }
+
+  /**
+    * Metadata for determining which memory duplicate(s) an access should correspond to.
+    */
+  case class ArgMap(argId: Int, memIdIn: Int, memIdOut: Int) extends Metadata[ArgMap] {
+    def mirror(f:Tx) = this
+  }
+  object argMapping {
+    private def get(arg: Exp[_]): Option[(Int,Int,Int)] = {
+        Some(metadata[ArgMap](arg).map{a => (a.argId, a.memIdIn, a.memIdOut)}.getOrElse(-1,-1,-1))  
+    }
+
+    def apply(arg: Exp[_]): (Int,Int,Int) = argMapping.get(arg).get
+
+    def update(arg: Exp[_], id: (Int, Int,Int) ): Unit = metadata.add(arg, ArgMap(id._1, id._2, id._3))
+
+  }
+
+  /**
     * List of consumers of reads (primarily used for register reads)
     */
   case class ReadUsers(users: List[Access]) extends Metadata[ReadUsers] {
@@ -242,12 +288,12 @@ trait SpatialMetadataExp extends Staging with NameExp with IndexPatternExp { thi
   /**
     * Parallelization factors which a given node will be unrolled by, prior to unrolling
     */
-  case class UnrollFactors(factors: Seq[Const[Index]]) extends Metadata[UnrollFactors] {
-    def mirror(f:Tx) = UnrollFactors(factors.map{x => f(x).asInstanceOf[Const[Index]] })
+  case class UnrollFactors(factors: Seq[Seq[Const[Index]]]) extends Metadata[UnrollFactors] {
+    def mirror(f:Tx) = this // Don't mirror constants for now...
   }
   object unrollFactorsOf {
-    def apply(x: Exp[_]): Seq[Const[Index]] = metadata[UnrollFactors](x).map(_.factors).getOrElse(Nil)
-    def update(x: Exp[_], factors: Seq[Const[Index]]) = metadata.add(x, UnrollFactors(factors))
+    def apply(x: Exp[_]): Seq[Seq[Const[Index]]] = metadata[UnrollFactors](x).map(_.factors).getOrElse(Nil)
+    def update(x: Exp[_], factors: Seq[Seq[Const[Index]]]) = metadata.add(x, UnrollFactors(factors))
   }
 
   /**

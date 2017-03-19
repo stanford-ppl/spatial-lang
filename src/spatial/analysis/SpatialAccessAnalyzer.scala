@@ -42,14 +42,21 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
 
   override def isInvariant(b: Exp[Index], i: Bound[Index]): Boolean = b match {
     case Exact(_) => true
+    case Def(RegRead(reg)) =>
+      val loop = loopFromIndex(i)
+      writersOf(reg).forall{writer =>
+        val common = lca(writer.ctrl, (loop,false))
+        // Either no common ancestor at all (unlikely), or the common ancestor is not the same as the controller
+        // containing the read and the common ancestor is not a streaming controller
+        common.isEmpty || (!isStreamPipe(common.get) && common.get.node != loop)
+      }
+
     case _ => super.isInvariant(b, i)
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
-    case e: CoarseBurst[_,_] if e.isLoad  => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
-    case e: CoarseBurst[_,_] if !e.isLoad => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
-    case e: Scatter[_] => accessPatternOf(lhs) = List(LinearAccess(e.i))
-    case e: Gather[_]  => accessPatternOf(lhs) = List(LinearAccess(e.i))
+    case e: DenseTransfer[_,_] => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
+    case e: SparseTransfer[_]  => accessPatternOf(lhs) = List(LinearAccess(e.i))
     case _ => super.visit(lhs, rhs)
   }
 

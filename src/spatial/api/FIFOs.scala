@@ -21,7 +21,8 @@ trait FIFOExp extends Staging with MemoryExp with SpatialExceptions {
     def deq()(implicit ctx: SrcCtx): T = this.deq(true)
     def deq(en: Bool)(implicit ctx: SrcCtx): T = wrap(fifo_deq(this.s, en.s, bits[T].zero.s))
 
-    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = coarse_burst(dram, this, isLoad = true)
+    def load(dram: DRAM[T])(implicit ctx: SrcCtx): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = dense_transfer(dram, this, isLoad = true)
     //def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void = copy_sparse(dram, this, isLoad = true)
   }
 
@@ -72,7 +73,7 @@ trait FIFOExp extends Staging with MemoryExp with SpatialExceptions {
     stageWrite(fifo)(FIFOEnq(fifo, data, en))(ctx)
   }
   def fifo_deq[T:Staged:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool], z: Exp[T])(implicit ctx: SrcCtx): Exp[T] = {
-    stage(FIFODeq(fifo,en,z))(ctx)
+    stageWrite(fifo)(FIFODeq(fifo,en,z))(ctx)
   }
 
   /** Internals **/

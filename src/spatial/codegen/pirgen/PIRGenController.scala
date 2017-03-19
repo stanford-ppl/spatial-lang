@@ -192,7 +192,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     emitController(lhs, rhs)
     rhs match {
-      case Hwblock(func) =>
+      case Hwblock(func,_) =>
         emitBlock(func)
 
       case UnitPipe(en, func) =>

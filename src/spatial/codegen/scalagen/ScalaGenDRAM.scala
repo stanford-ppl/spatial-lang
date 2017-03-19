@@ -1,6 +1,6 @@
 package spatial.codegen.scalagen
 
-import spatial.api.{DRAMExp, UnrolledExp}
+import spatial.api.DRAMExp
 
 trait ScalaGenDRAM extends ScalaGenSRAM {
   val IR: DRAMExp
@@ -12,42 +12,48 @@ trait ScalaGenDRAM extends ScalaGenSRAM {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@DRAMNew(dims) => emit(src"""val $lhs = new Array[${op.mA}](${dims.map(quote).mkString("*")})""")
-    case Gather(dram, local, addrs, ctr, i)  =>
-      emit(src"/** BEGIN GATHER $lhs **/")
-      open(src"val $lhs = {")
-      open(src"$ctr.foreach{case (is,vs) => is.zip(vs).foreach{case ($i,v) => if (v) {")
-      emit(src"$local.update($i, $dram.apply($addrs.apply($i)) )")
-      close("}}}")
-      close("}")
-      emit(src"/** END GATHER $lhs **/")
+    case op@DRAMNew(dims) =>
+      emit(src"""val $lhs = new Array[${op.mA}](${dims.map(quote).mkString("*")})""")
 
-    case Scatter(dram, local, addrs, ctr, i) =>
-      emit(src"/** BEGIN SCATTER $lhs **/")
-      open(src"val $lhs = {")
-      open(src"$ctr.foreach{case (is,vs) => is.zip(vs).foreach{case ($i,v) => if (v) {")
-      emit(src"$dram.update($addrs.apply($i), $local.apply($i))")
-      close("}}}")
-      close("}")
-      emit(src"/** END SCATTER $lhs **/")
+    case GetDRAMAddress(dram) =>
+      emit(src"val $lhs = 0")
 
-    case BurstLoad(dram, fifo, ofs, ctr, i)  =>
-      emit(src"/** BEGIN BURST LOAD $lhs **/")
-      open(src"val $lhs = {")
-      open(src"$ctr.foreach{case (is,vs) => is.zip(vs).foreach{case ($i,v) => if (v) {")
-      emit(src"$fifo.enqueue( $dram.apply($ofs + $i) )")
-      close("}}}")
+    // Fringe templates expect byte-based addresses and sizes, while Scala gen expects word-based
+    case e@FringeDenseLoad(dram,cmdStream,dataStream) =>
+      val bytesPerWord = e.bT.length / 8 + (if (e.bT.length % 8 != 0) 1 else 0)
+      open(src"val $lhs = $cmdStream.foreach{cmd => ")
+        open(src"for (i <- cmd.offset until cmd.offset+cmd.size by $bytesPerWord) {")
+          emit(src"$dataStream.enqueue($dram.apply(i / $bytesPerWord))")
+        close("}")
       close("}")
-      emit(src"/** END BURST LOAD $lhs **/")
+      emit(src"$cmdStream.clear()")
 
-    case BurstStore(dram, fifo, ofs, ctr, i) =>
-      emit(src"/** BEGIN BURST STORE $lhs **/")
-      open(src"val $lhs = {")
-      open(src"$ctr.foreach{case (is,vs) => is.zip(vs).foreach{case ($i,v) => if (v) {")
-      emit(src"$dram.update($ofs + $i, $fifo.dequeue() )")
-      close("}}}")
+    case e@FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
+      val bytesPerWord = e.bT.length / 8 + (if (e.bT.length % 8 != 0) 1 else 0)
+      open(src"val $lhs = $cmdStream.foreach{cmd => ")
+        open(src"for (i <- cmd.offset until cmd.offset+cmd.size by $bytesPerWord) {")
+          emit(src"val data = $dataStream.dequeue()")
+          emit(src"if (data._2) $dram(i / $bytesPerWord) = data._1")
+        close("}")
+        emit(src"$ackStream.enqueue(true)")
       close("}")
-      emit(src"/** END BURST STORE $lhs **/")
+      emit(src"$cmdStream.clear()")
+
+    case e@FringeSparseLoad(dram,addrStream,dataStream) =>
+      val bytesPerWord = e.bT.length / 8 + (if (e.bT.length % 8 != 0) 1 else 0)
+      open(src"val $lhs = $addrStream.foreach{addr => ")
+        emit(src"$dataStream.enqueue( $dram(addr / $bytesPerWord) )")
+      close("}")
+      emit(src"$addrStream.clear()")
+
+    case e@FringeSparseStore(dram,cmdStream,ackStream) =>
+      val bytesPerWord = e.bT.length / 8 + (if (e.bT.length % 8 != 0) 1 else 0)
+      open(src"val $lhs = $cmdStream.foreach{cmd => ")
+        emit(src"$dram(cmd._2 / $bytesPerWord) = cmd._1 ")
+        emit(src"$ackStream.enqueue(true)")
+      close("}")
+      emit(src"$cmdStream.clear()")
+
 
     case _ => super.emitNode(lhs, rhs)
   }

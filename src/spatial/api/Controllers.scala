@@ -13,15 +13,27 @@ trait ControllerApi extends ControllerExp with RegApi {
   this: SpatialExp =>
 
   protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T], fold: Boolean) {
-    /** 1 dimensional memory reduction without zero **/
+    /** 1 dimensional memory reduction **/
     def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
       mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
       accum
     }
 
-    /** 2 dimensional memory reduction without zero **/
+    /** 2 dimensional memory reduction **/
     def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
       mem_reduceND(List(domain1,domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
+      accum
+    }
+
+    /** 3 dimensional memory reduction **/
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(map: (Index,Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
+      mem_reduceND(List(domain1,domain2,domain3), accum, {x: List[Index] => map(x(0),x(1),x(2)) }, reduce, style, zero, fold)
+      accum
+    }
+
+    /** N dimensional memory reduction **/
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(map: List[Index] => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Staged[T], bT: Bits[T], mC: Staged[C[T]]): C[T] = {
+      mem_reduceND(List(domain1,domain2,domain3,domain4) ++ domain5plus, accum, map, reduce, style, zero, fold)
       accum
     }
   }
@@ -110,9 +122,14 @@ trait ControllerApi extends ControllerExp with RegApi {
       foreachND(List(domain1,domain2), {x: List[Index] => func(x(0),x(1)) }, style)
       ()
     }
+    /** 3 dimensional parallel foreach **/
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(func: (Index,Index,Index) => Void)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1,domain2,domain3), {x: List[Index] => func(x(0),x(1),x(2)) }, style)
+      ()
+    }
     /** N dimensional parallel foreach **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domains: Counter*)(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1,domain2,domain3) ++ domains.toList, func, style)
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1,domain2,domain3,domain4) ++ domain5plus, func, style)
       ()
     }
     def apply(domain: Seq[Counter])(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
@@ -130,7 +147,8 @@ trait ControllerApi extends ControllerExp with RegApi {
   object Foreach   extends ForeachClass(InnerPipe)
 
   object Accel {
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { accel_blk(func); () }
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { accel_blk(func, false); () }
+    def apply(ctr: Counter)(func: => Void)(implicit ctx: SrcCtx) = { accel_blk(func, ctr); () }
   }
 
   object Pipe extends ForeachClass(InnerPipe) {
@@ -181,9 +199,21 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     override def stagedClass = classOf[Controller]
   }
 
-  private[spatial] def accel_blk(func: => Void)(implicit ctx: SrcCtx): Controller = {
+  private[spatial] def accel_blk(func: => Void, ctr: Counter)(implicit ctx: SrcCtx): Controller = {
+    if (isForever(ctr.s)) {
+      accel_blk(func, isForever = true)
+    }
+    else {
+      accel_blk({
+        foreachND(Seq(ctr), {_: List[Index] => func }, SeqPipe)
+        ()
+      }, false)
+    }
+  }
+
+  private[spatial] def accel_blk(func: => Void, isForever: Boolean)(implicit ctx: SrcCtx): Controller = {
     val fFunc = () => unwrap(func)
-    val pipe = op_accel(fFunc())
+    val pipe = op_accel(fFunc(), isForever)
     Controller(pipe)
   }
 
@@ -230,9 +260,9 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val iters = List.tabulate(domain.length){_ => fresh[Index] }
 
     val mBlk  = stageBlock{ map(wrap(iters)).s }
-    val ldBlk = stageBlock{ reg.value.s }
+    val ldBlk = stageLambda(reg.s) { reg.value.s }
     val rBlk  = stageBlock{ reduce(wrap(rV._1),wrap(rV._2)).s }
-    val stBlk = stageLambda(rBlk.result){ unwrap( reg := wrap(rBlk.result) ) }
+    val stBlk = stageLambda(reg.s, rBlk.result){ unwrap( reg := wrap(rBlk.result) ) }
 
     val cchain = CounterChain(domain: _*)
     val z = ident.map(_.s)
@@ -262,8 +292,8 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val mBlk  = stageBlock{ map(wrap(itersMap)).s }
     val rBlk  = stageBlock{ reduce(wrap(rV._1), wrap(rV._2)).s }
     val ldResBlk = stageLambda(mBlk.result){ mem.load(wrap(mBlk.result), wrap(itersRed), true).s }
-    val ldAccBlk = stageBlock{ mem.load(accum, wrap(itersRed), true).s }
-    val stAccBlk = stageLambda(rBlk.result){ mem.store(accum, wrap(itersRed), wrap(rBlk.result), true).s }
+    val ldAccBlk = stageLambda(accum.s) { mem.load(accum, wrap(itersRed), true).s }
+    val stAccBlk = stageLambda(accum.s, rBlk.result){ mem.store(accum, wrap(itersRed), wrap(rBlk.result), true).s }
 
     val cchainMap = CounterChain(domain: _*)
     val cchainRed = CounterChain(ctrsRed: _*)
@@ -276,8 +306,8 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
   }
 
   /** IR Nodes **/
-  case class Hwblock(func: Block[Void]) extends Op[Controller] {
-    def mirror(f:Tx) = op_accel(f(func))
+  case class Hwblock(func: Block[Void], isForever: Boolean) extends Op[Controller] {
+    def mirror(f:Tx) = op_accel(f(func), isForever)
     override def freqs = cold(func)
   }
 
@@ -316,7 +346,6 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     override def inputs = syms(cchain) ++ syms(map) ++ syms(reduce) ++ syms(accum) ++ syms(load) ++ syms(store) ++ syms(ident)
     override def freqs  = cold(map) ++ cold(reduce) ++ normal(cchain) ++ normal(accum) ++ hot(load) ++ hot(store)
     override def binds  = super.binds ++ iters ++ List(rV._1, rV._2)
-    override def tunnels = syms(accum)
     override def aliases = Nil
     val mT = typ[T]
     val bT = bits[T]
@@ -344,7 +373,6 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
                           syms(ident) ++ syms(loadRes) ++ syms(loadAcc) ++ syms(storeAcc)
     override def freqs = cold(map) ++ cold(reduce) ++ normal(cchainMap) ++ normal(cchainRed) ++ normal(accum)
     override def binds = super.binds ++ itersMap ++ itersRed ++ List(rV._1, rV._2)
-    override def tunnels = syms(accum)
     override def aliases = Nil
 
     val mT = typ[T]
@@ -353,10 +381,10 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
 
 
   /** Constructors **/
-  def op_accel(func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
+  def op_accel(func: => Exp[Void], isForever: Boolean)(implicit ctx: SrcCtx): Sym[Controller] = {
     val fBlk = stageBlock{ func }
     val effects = fBlk.summary
-    stageEffectful( Hwblock(fBlk), effects)(ctx)
+    stageEffectful( Hwblock(fBlk, isForever), effects)(ctx)
   }
 
   def op_unit_pipe(en: Seq[Exp[Bool]], func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
@@ -393,9 +421,9 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
   )(implicit ctx: SrcCtx): Sym[Controller] = {
 
     val mBlk  = stageBlock{ map }
-    val ldBlk = stageBlock{ load }
+    val ldBlk = stageLambda(reg){ load }
     val rBlk  = stageBlock{ reduce }
-    val stBlk = stageLambda(rBlk.result){ store }
+    val stBlk = stageLambda(reg, rBlk.result){ store }
 
     val effects = mBlk.summary andAlso ldBlk.summary andAlso rBlk.summary andAlso stBlk.summary
     stageEffectful( OpReduce[T](cchain, reg, mBlk, ldBlk, rBlk, stBlk, ident, fold, rV, iters), effects)(ctx)
@@ -418,9 +446,9 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
 
     val mBlk = stageBlock{ map }
     val ldResBlk = stageLambda(mBlk.result){ loadRes }
-    val ldAccBlk = stageBlock{ loadAcc }
+    val ldAccBlk = stageLambda(accum){ loadAcc }
     val rBlk = stageBlock{ reduce }
-    val stBlk = stageLambda(rBlk.result){ storeAcc }
+    val stBlk = stageLambda(accum, rBlk.result){ storeAcc }
 
     val effects = mBlk.summary andAlso ldResBlk.summary andAlso ldAccBlk.summary andAlso rBlk.summary andAlso stBlk.summary
     stageEffectful( OpMemReduce[T,C](cchainMap, cchainRed, accum, mBlk, ldResBlk, ldAccBlk, rBlk, stBlk, ident, fold, rV, itersMap, itersRed), effects)(ctx)

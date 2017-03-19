@@ -11,32 +11,29 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
   import IR._
 
 
-  def emitParallelizedLoop(iters: Seq[Seq[Bound[Index]]], cchain: Exp[CounterChain]) = {
+  def emitParallelizedLoop(iters: Seq[Seq[Bound[Index]]], cchain: Exp[CounterChain], suffix: String = "") = {
     val Def(CounterChainNew(counters)) = cchain
 
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
-        emit(src"${is(0)} := ${counters(i)}(0)");
-        emitGlobal(src"val ${is(0)} = Wire(UInt(32.W))")
+        emit(src"${is(0)}${suffix} := ${counters(i)}${suffix}(0)");
+        emitGlobal(src"val ${is(0)}${suffix} = Wire(UInt(32.W))")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
-          emit(src"${iter} := ${counters(i)}($j)")
-          emitGlobal(src"val ${iter} = Wire(UInt(32.W))")
+          emit(src"${iter}${suffix} := ${counters(i)}${suffix}($j)")
+          emitGlobal(src"val ${iter}${suffix} = Wire(UInt(32.W))")
         }
       }
     }
   }
 
-
-  def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]]) {
+  def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
-        emit(src"val ${v} = ${c} < ${cchain}_maxes(${i})")
+        emit(src"val ${v}${suffix} = ${c}${suffix} < ${cchain}${suffix}_maxes(${i})")
       }
     }
   }
-
-
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -69,11 +66,38 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     case UnrolledForeach(en,cchain,func,iters,valids) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
-      emitController(lhs, Some(cchain), Some(iters.flatten))
-      emitValids(cchain, iters, valids)
-      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
-        emitParallelizedLoop(iters, cchain)
-        emitBlock(func)
+      emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
+      if (styleOf(lhs) != StreamPipe) { 
+        emitValids(cchain, iters, valids)
+        withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+          emit(s"// Controller Stack: ${controllerStack.tail}")
+          emitParallelizedLoop(iters, cchain)
+          emitBlock(func)
+        }
+      } else {
+        childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
+          emitValids(cchain, iters, valids, src"_copy$c")
+        }
+        withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+          emit(s"// Controller Stack: ${controllerStack.tail}")
+          childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
+            emitParallelizedLoop(iters, cchain, src"_copy$c")
+          }
+          // Register the remapping for bound syms in children
+          valids.foreach{ layer =>
+            layer.foreach{ v =>
+              streamCtrCopy = streamCtrCopy :+ v
+            }
+          }
+          iters.foreach{ is =>
+            is.foreach{ iter =>
+              streamCtrCopy = streamCtrCopy :+ iter
+            }
+          }
+
+          emitBlock(func)
+        }
+
       }
       controllerStack.pop()
 
@@ -87,16 +111,26 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U //TODO: Really calculate this""")
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
-      emit(src"""${cchain}_ctr_en := ${lhs}_sm.io.output.ctr_inc""")
+      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
       if (styleOf(lhs) == InnerPipe) {
-        emit(src"val ${accum}_wren = ${cchain}_ctr_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
+        emit(src"val ${accum}_wren = ${cchain}_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
-        emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: Skeptical these codegen rules are correct")
+        accum match { 
+          case Def(_:RegNew[_]) => 
+            if (childrenOf(lhs).length == 1) {
+              emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: Skeptical these codegen rules are correct")
+            } else {
+              emit(src"val ${accum}_wren = ${childrenOf(lhs).dropRight(1).last}_done // TODO: Skeptical these codegen rules are correct")              
+            }
+          case Def(_:SRAMNew[_]) => 
+            emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+        }
         emit(src"val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
       }
       emit(src"val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        emit(s"// Controller Stack: ${controllerStack.tail}")
         emitParallelizedLoop(iters, cchain)
         emitBlock(func)
       }
@@ -122,7 +156,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
           case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
               emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*${p}+i))}""")
             } else {
-              emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
+              emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${sram}_${i}.rPar*${p}+i) }""")
             }
           case _ => emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
         }
@@ -150,12 +184,13 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")
         val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${parent}_datapath_en, List(${p}))""")
+        val enabler = if (loadCtrlOf(sram).contains(parent)) src"${parent}_enq" else src"${parent}_datapath_en"
+        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enabler}, List(${p}))""")
       }
 
     case ParFIFODeq(fifo, ens, z) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}_readEn := ${reader}_sm.io.output.ctr_inc // Ignore $ens""")
+      emit(src"""${quote(fifo)}_readEn := ${reader}_datapath_en & ${ens}.reduce{_&_}""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = (0 until ${quote(ens)}.length).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) } // Ignore $z""")
@@ -166,8 +201,11 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
 
     case ParFIFOEnq(fifo, data, ens) =>
-      val writer = writersOf(fifo).head.ctrlNode  // Not using 'en' or 'shuffle'
-      emit(src"""${fifo}_writeEn := ${writer}_sm.io.output.ctr_inc // Ignore $ens""")
+      val writer = writersOf(fifo).head.ctrlNode  
+      // Check if this is a tile consumer
+
+      val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_enq" else src"${writer}_sm.io.output.ctr_inc"
+      emit(src"""${fifo}_writeEn := $enabler & ${ens}.reduce{_&_}""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
             emit(src"""${fifo}_wdata := (0 until ${ens}.length).map{ i => ${data}(i).number }""")
@@ -176,6 +214,30 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
           }
         case _ => emit(src"""${fifo}_wdata := ${data}""")
       }
+
+    case e@ParStreamDeq(strm, ens, zero) =>
+      val zstring = lhs.tp.typeArguments.head match {
+        case FixPtType(s,d,f) => 
+          if (hasFracBits(lhs.tp.typeArguments.head)) {
+            val num = zero match {
+              case Const(cc: BigDecimal) => cc.toInt.toString
+            }
+            src"Utils.FixedPoint($s,$d,$f,$num)"            
+          } else {
+            src"$zero"
+          }
+        case _ => src"$zero"
+      }
+      emit(src"val $lhs = $ens.zipWithIndex.map{case (en, i) => Mux(en, ${strm}_data(i), $zstring) }")
+
+    case ParStreamEnq(strm, data, ens) =>
+      val par = ens match {
+        case Op(ListVector(elems)) => elems.length
+        case _ => 1
+      }
+      emitGlobal(src"val ${strm}_data = Wire(Vec($par, UInt(32.W)))")
+      emit(src"${strm}_data := $data")
+      emit(src"${strm}_en := ${ens}.reduce{_&_} & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
 
     case _ => super.emitNode(lhs, rhs)
   }

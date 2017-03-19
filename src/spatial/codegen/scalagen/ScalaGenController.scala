@@ -17,7 +17,7 @@ trait ScalaGenController extends ScalaCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case Hwblock(func) =>
+    case Hwblock(func,isForever) =>
       emit(src"/** BEGIN HARDWARE BLOCK $lhs **/")
       open(src"val $lhs = {")
       emitBlock(func)

@@ -11,7 +11,51 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
   val IR: CounterExp with SpatialExp
   import IR._
 
+  var streamCtrCopy = List[Bound[_]]()
+  var controllerStack = scala.collection.mutable.Stack[Exp[_]]()
+
   // dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/Counter.chisel")
+
+  def emitCounterChain(lhs: Exp[_], ctrs: Seq[Exp[Counter]], suffix: String = ""): Unit = {
+    val counter_data = ctrs.map{ c => c match {
+      case Def(CounterNew(start, end, step, par)) => (src"$start", src"$end", src"$step", {src"$par"}.split('.').take(1)(0))
+      case Def(Forever()) => ("0.U", "0.U", "0.U", "0")
+    }}
+    emitGlobal(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
+    // emitGlobal(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
+    emitGlobal(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
+    emit(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
+    emit(src"""val ${lhs}${suffix}_maxes = List(${counter_data.map(_._2).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
+    emit(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4).mkString(",")}))) // Par of 0 creates forever counter""")
+    emit(src"""${lhs}${suffix}.io.input.maxes.zip(${lhs}${suffix}_maxes).foreach { case (port,max) => port := max }""")
+    emit(src"""${lhs}${suffix}.io.input.strides.zip(${lhs}${suffix}_strides).foreach { case (port,stride) => port := stride }""")
+    emit(src"""${lhs}${suffix}.io.input.enable := ${lhs}${suffix}_en""")
+    emit(src"""${lhs}${suffix}_done := ${lhs}${suffix}.io.output.done""")
+    emit(src"""${lhs}${suffix}.io.input.reset := ${lhs}${suffix}_resetter""")
+    if (suffix != "") {
+      emit(src"""${lhs}${suffix}.io.input.isStream := true.B""")
+    }
+    emit(src"""val ${lhs}${suffix}_maxed = ${lhs}${suffix}.io.output.saturated""")
+    ctrs.zipWithIndex.foreach { case (c, i) =>
+      val x = c match {
+        case Def(CounterNew(_,_,_,p)) => 
+          val Const(xx: BigDecimal) = p
+          xx
+        case Def(Forever()) => 0
+      }
+      emit(s"""val ${quote(c)}${suffix} = (0 until $x).map{ j => ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")
+    }
+
+  }
+
+  private def getCtrSuffix(head: Exp[_]): String = {
+    if (parentOf(head).isDefined) {
+      if (styleOf(parentOf(head).get) == StreamPipe) {src"_copy${head}"} else {getCtrSuffix(parentOf(head).get)}  
+    } else {
+      "NO_SUFFIX_ERROR"
+    }
+    
+  }
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -25,6 +69,12 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
               s"x${lhs.id}_ctrchain"
             case _ =>
               super.quote(s)
+          }
+        case b: Bound[_] =>
+          if (streamCtrCopy.contains(b)) { 
+            super.quote(s) + getCtrSuffix(controllerStack.head)
+          } else {
+            super.quote(s)
           }
         case _ =>
           super.quote(s)
@@ -44,29 +94,8 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
     case CounterNew(start,end,step,par) => 
       emit(s"// $lhs = ($start to $end by $step par $par")
     case CounterChainNew(ctrs) => 
-      val counter_data = ctrs.map{ c => c match {
-        case Def(CounterNew(start, end, step, par)) => (src"$start", src"$end", src"$step", {src"$par"}.split('.').take(1)(0))
-        case Def(Forever()) => ("0.U", "0.U", "0.U", "0")
-      }}
-      emitGlobal(src"""val ${lhs}_en = Wire(Bool())""")
-      emitGlobal(src"""val ${lhs}_resetter = Wire(Bool())""")
-      emit(src"""val ${lhs}_strides = List(${counter_data.map(_._3).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
-      emit(src"""val ${lhs}_maxes = List(${counter_data.map(_._2).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
-      emit(src"""val ${lhs} = Module(new Counter(List(${counter_data.map(_._4).mkString(",")}))) // Par of 0 creates forever counter""")
-      emit(src"""${lhs}.io.input.maxes.zip(${lhs}_maxes).foreach { case (port,max) => port := max }""")
-      emit(src"""${lhs}.io.input.strides.zip(${lhs}_strides).foreach { case (port,stride) => port := stride }""")
-      emit(src"""${lhs}.io.input.enable := ${lhs}_ctr_en""")
-      emit(src"""${lhs}.io.input.reset := ${lhs}_resetter""")
-      emit(src"""val ${lhs}_maxed = ${lhs}.io.output.saturated""")
-      ctrs.zipWithIndex.foreach { case (c, i) =>
-        val x = c match {
-          case Def(CounterNew(_,_,_,p)) => 
-            val Const(xx: BigDecimal) = p
-            xx
-          case Def(Forever()) => 0
-        }
-        emit(s"""val ${quote(c)} = (0 until $x).map{ j => ${quote(lhs)}.io.output.counts($i + j) }""")
-      }
+      val user = usersOf(lhs).head._1
+      if (styleOf(user) != StreamPipe) emitCounterChain(lhs, ctrs)
     case Forever() => 
       emit("// $lhs = Forever")
 

@@ -16,10 +16,25 @@ trait RegisterCleanup extends ForwardTransformer {
   private var statelessSubstRules = Map[Access, Seq[(Exp[_], () => Exp[_])]]()
 
   val completedMirrors = mutable.HashMap[Access, Exp[_]]()
+
   def delayedMirror[T:Staged](lhs: Sym[T], rhs:Op[T], ctrl: Ctrl)(implicit ctx: SrcCtx) = () => {
-    completedMirrors.getOrElseUpdate( (lhs,ctrl), {
+    val key = (lhs, ctrl)
+
+    // scala bug? getOrElseUpdate always creates the value???
+
+    /*completedMirrors.getOrElseUpdate(key, {
       withCtrl(ctrl){ mirrorWithDuplication(lhs, rhs) }
-    })
+    })*/
+
+    if (completedMirrors.contains(key)) {
+      completedMirrors(key)
+    }
+    else {
+      val lhs2 = withCtrl(ctrl){ mirrorWithDuplication(lhs, rhs) }
+      completedMirrors += key -> lhs2
+      lhs2
+    }
+
   }
 
   var ctrl: Ctrl = _
@@ -47,7 +62,7 @@ trait RegisterCleanup extends ForwardTransformer {
         // Then associate all uses within that control with that copy
         val users = usersOf(lhs).groupBy(_.ctrl).mapValues(_.map(_.node))
 
-        val reads = users.filterKeys(_ != null).map{case (parent, uses) =>
+        val reads = users.map{case (parent, uses) =>
           val read = delayedMirror(lhs, rhs, parent)
 
           dbg(c"ctrl: $parent")
@@ -60,7 +75,7 @@ trait RegisterCleanup extends ForwardTransformer {
 
           read
         }
-        mirror(lhs, rhs) //else constant[T](FakeSymbol)
+        constant[T](FakeSymbol) // mirror(lhs, rhs)
       }
 
     case RegWrite(reg,value,en) =>
@@ -81,7 +96,7 @@ trait RegisterCleanup extends ForwardTransformer {
         dbg(c"REMOVING register $lhs")
         constant[T](FakeSymbol)  // Shouldn't be used
       }
-      else mirror(lhs, rhs)
+      else mirrorWithDuplication(lhs, rhs)
 
     case node if isControlNode(lhs) => withCtrl((lhs,false)) { mirrorWithDuplication(lhs, rhs) }
     case _ => mirrorWithDuplication(lhs, rhs)
@@ -90,7 +105,7 @@ trait RegisterCleanup extends ForwardTransformer {
   private def mirrorWithDuplication[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
     if ( statelessSubstRules.contains((lhs,ctrl)) ) {
       dbg("")
-      dbg("[external user]")
+      dbg(c"[external user, ctrl = $ctrl]")
       dbg(c"$lhs = $rhs")
       // Activate / lookup duplication rules
       val rules = statelessSubstRules((lhs,ctrl)).map{case (s,s2) => s -> s2()}
@@ -100,5 +115,25 @@ trait RegisterCleanup extends ForwardTransformer {
     }
     else mirror(lhs, rhs)
   }
+
+  /** These require slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
+
+  override protected def inlineBlock[T:Staged](b: Block[T]): Exp[T] = inlineBlock(b, {stms =>
+    visitStms(stms)
+    if (ctrl != null && statelessSubstRules.contains((ctrl.node,ctrl))) {
+      val rules = statelessSubstRules((ctrl.node, ctrl)).map { case (s, s2) => s -> s2() }
+      withSubstScope(rules: _*) { f(b.result) }
+    }
+    else f(b.result)
+  })
+
+  override protected def transformBlock[T:Staged](b: Block[T]): Block[T] = transformBlock(b, {stms =>
+    visitStms(stms)
+    if (ctrl != null && statelessSubstRules.contains((ctrl.node,ctrl))) {
+      val rules = statelessSubstRules((ctrl.node, ctrl)).map { case (s, s2) => s -> s2() }
+      withSubstScope(rules: _*) { f(b.result) }
+    }
+    else f(b.result)
+  })
 
 }

@@ -66,10 +66,13 @@ object SpatialBuild extends Build {
   
   val scalacp = "/target/scala-" + compilerVersion.dropRight(2) + "/classes/"
   lazy val argoncp = file(ARGON_HOME + scalacp)
+  lazy val macrocp = file(ARGON_HOME + "/macros" + scalacp)
 
   var deps = Seq(
     unmanagedClasspath in Compile <+= (baseDirectory) map { bd => Attributed.blank(argoncp) },
-    unmanagedClasspath in Test <+= (baseDirectory) map { bd => Attributed.blank(argoncp) }
+    unmanagedClasspath in Test <+= (baseDirectory) map { bd => Attributed.blank(argoncp) },
+    unmanagedClasspath in Compile <+= (baseDirectory) map { bd => Attributed.blank(macrocp) },
+    unmanagedClasspath in Test <+= (baseDirectory) map { bd => Attributed.blank(macrocp) }
   )
 
   lazy val spatial = Project("spatial", file("."), settings = virtBuildSettings ++ deps)
