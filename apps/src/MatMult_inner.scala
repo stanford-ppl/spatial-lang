@@ -7,8 +7,8 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 1
   type X = Int //FixPt[Signed,B16,B16]
 
   val tileSizeM = 4
-  val tileSizeN = 64
-  val tileSizeP = 64
+  val tileSizeN = 16
+  val tileSizeP = 16
   val innerPar = 1
   val midPar = 1
   val outerPar = 1
