@@ -8,7 +8,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
   val IR: SpatialExp
   import IR._
 
-  var dramMap = HashMap[String, (String, String)]() // Map for tracking defs of nodes and if they get redeffed anywhere, we map it to a suffix
+  var numLoads = 0
+  var numStores = 0
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -34,22 +35,13 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => 
-      // Register first dram
-      val length = dims.map{i => src"${i}"}.mkString("*")
-      if (dramMap.size == 0)  {
-        dramMap += (src"$lhs" -> ("0", length))
-      } else if (!dramMap.contains(src"$lhs")) {
-        val start = dramMap.values.map{ _._2 }.mkString{" + "}
-        dramMap += (src"$lhs" -> (start, length))
-      } else {
-        log(s"dram $lhs used multiple times")
-      }
 
     case GetDRAMAddress(dram) =>
       val id = argMapping(dram)._1
       emit(src"""val $lhs = io.argIns($id)""")
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
+      numLoads = numLoads + 1
       val id = argMapping(dram)._2
       emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${id}).rdata.valid""")
       emit(src"""// Connect streams to ports on mem controller""")
@@ -72,7 +64,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
 
 
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
-      val id = argMapping(dram)._2
+      numStores = numStores + 1
+      val id = argMapping(dram)._3
       // emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${id}).rdata.valid""")
       emit(src"""// Connect streams to ports on mem controller""")
       emit("// HACK: Assume store is par=16")
@@ -111,15 +104,14 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
     withStream(getStream("Instantiator")) {
       emit("")
       emit(s"// Memory streams")
-      emit(s"""val numMemoryStreams = ${dramMap.size}""")
-      emit(s"""val numArgIns_mem = ${dramMap.size}""")
-      emit(s"// Mapping:")
+      emit(s"""val numMemoryStreams = ${numLoads} + ${numStores}""")
+      emit(s"""val numArgIns_mem = ${numLoads} + ${numStores}""")
     }
 
     withStream(getStream("IOModule")) {
       emit("// Tile Load")
-      emit(s"val io_numMemoryStreams = ${dramMap.size}")
-      emit(s"val io_numArgIns_mem = ${dramMap.size}")
+      emit(s"val io_numMemoryStreams = ${numLoads} + ${numStores}")
+      emit(s"val io_numArgIns_mem = ${numLoads} + ${numStores}")
 
     }
 

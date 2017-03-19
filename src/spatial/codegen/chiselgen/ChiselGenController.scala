@@ -360,7 +360,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       controllerStack.push(lhs)
       emitController(lhs, None, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
-        emit(s"// Controller Stack: ${controllerStack}")
+        emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)
       }
       controllerStack.pop()
@@ -370,7 +370,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       controllerStack.push(lhs)
       emitController(lhs, None, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
-        emit(s"// Controller Stack: ${controllerStack}")
+        emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)
       } 
       controllerStack.pop()
@@ -380,7 +380,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters))
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
-        emit(s"// Controller Stack: ${controllerStack}")
+        emit(s"// Controller Stack: ${controllerStack.tail}")
         emitNestedLoop(cchain, iters){ emitBlock(func) }
       }
       controllerStack.pop()

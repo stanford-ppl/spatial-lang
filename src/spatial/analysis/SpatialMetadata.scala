@@ -248,15 +248,15 @@ trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp
   /**
     * Metadata for determining which memory duplicate(s) an access should correspond to.
     */
-  case class ArgMap(argId: Int, memId: Int) extends Metadata[ArgMap] {
+  case class ArgMap(argId: Int, memIdIn: Int, memIdOut: Int) extends Metadata[ArgMap] {
     def mirror(f:Tx) = this
   }
   object argMapping {
-    private def get(arg: Exp[_]): Option[(Int,Int)] = Some(metadata[ArgMap](arg).map{a => (a.argId, a.memId)}.head)
+    private def get(arg: Exp[_]): Option[(Int,Int,Int)] = Some(metadata[ArgMap](arg).map{a => (a.argId, a.memIdIn, a.memIdOut)}.head)
 
-    def apply(arg: Exp[_]): (Int,Int) = argMapping.get(arg).get
+    def apply(arg: Exp[_]): (Int,Int,Int) = argMapping.get(arg).get
 
-    def update(arg: Exp[_], id: (Int, Int) ): Unit = metadata.add(arg, ArgMap(id._1, id._2))
+    def update(arg: Exp[_], id: (Int, Int,Int) ): Unit = metadata.add(arg, ArgMap(id._1, id._2, id._3))
 
   }
 

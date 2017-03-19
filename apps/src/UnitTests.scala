@@ -952,8 +952,8 @@ object MultiplexedWriteTest extends SpatialApp { // Regression (Unit) // Args: n
 
   @virtualize
   def main() = {
-    val w = Array.tabulate(N){ i => i % 256}
-    val i = Array.tabulate(N){ i => i % 256 }
+    val w = Array.tabulate(N){ i => i % 16}
+    val i = Array.tabulate(N){ i => i % 32 }
 
     val result = multiplexedwrtest(w, i)
 

@@ -1,5 +1,6 @@
 package spatial.analysis
 
+import scala.collection.mutable.HashMap
 import argon.traversal.CompilerPass
 import spatial.{SpatialConfig, SpatialExp}
 
@@ -9,28 +10,44 @@ trait ArgMappingAnalyzer extends CompilerPass {
 
   override val name = "Arg Analyzer"
 
-  def memStreams: Set[Exp[_]]
-  def argIns: Set[Exp[_]]
-  def argOuts: Set[Exp[_]]
+  def memStreams: Set[(Exp[_], String)]
+  def argPorts: Set[(Exp[_], String)]
 
   override protected def process[S: Staged](block: Block[S]) = {
-    // Current TileLd/St templates expect that LMem addresses are
-    // statically known during graph build time in MaxJ. That can be
-    // changed, but until then we have to assign LMem addresses
-    // statically. Assigning each DRAM memory a 384MB chunk now
+    /* NOTE:
+        Eventually this needs to map each individual load/store to its own stream, in case people want to do 2
+        unique loads or 2 unique stores to the same dram.  Currently, the fringe command signals will interfere
+        if someone does this
+    */
 
-    argIns.toList.distinct.zipWithIndex.foreach{case(a,i) => 
-      dbg(u"Mapping $a to $i")
-      argMapping(a) = (i, i)
+    argPorts.toList.distinct.filter{_._2 == "input"}.zipWithIndex.foreach{case((a, dir),i) => 
+      dbg(u"Mapping $a ($dir) to $i, $i, -1")
+      argMapping(a) = (i, i, -1)
     }
-    val ofs = argIns.toList.distinct.length
-    memStreams.toList.distinct.zipWithIndex.foreach{case(m,i) => 
-      dbg(u"Mapping $m to $i + $ofs")
-      argMapping(m) = (i + ofs, i)
+    val ofs = argPorts.toList.distinct.filter{_._2 == "input"}.length
+
+    var p = 0 // Ugly imperative but whatever
+    memStreams.map{_._1}.toList.distinct.zipWithIndex.foreach{case(m,i) => 
+      val entries = memStreams.toList.distinct.filter{_._1 == m}
+      if (entries.length == 1) {
+        if (entries.head._2 == "input") {
+          dbg(u"Mapping $m to port ${ofs+i}, streams $p, -1")
+          argMapping(m) = (ofs + i, p, -1)
+        } else if (entries.head._2 == "output") {
+          dbg(u"Mapping $m to port ${ofs+i}, streams -1, $p")
+          argMapping(m) = (ofs + i, -1, p)          
+        }
+        p = p + 1
+      } else if (entries.length == 2) {
+        dbg(u"Mapping $m to port ${ofs+i}, streams $p, ${p+1}")
+        argMapping(m) = (ofs + i, p, p+1)          
+        p = p + 2
+      }
     }
-    argOuts.toList.distinct.zipWithIndex.foreach{case(a,i) => 
-      dbg(u"Mapping $a to $i")
-      argMapping(a) = (i, i)
+
+    argPorts.toList.distinct.filter{_._2 == "output"}.zipWithIndex.foreach{case((a,dir),i) => 
+      dbg(u"Mapping $a ($dir) to -1, $i")
+      argMapping(a) = (i, -1, i)
     }
 
     block

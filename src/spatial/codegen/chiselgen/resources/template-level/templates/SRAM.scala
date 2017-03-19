@@ -2,6 +2,7 @@ package templates
 
 import chisel3._
 import chisel3.util
+import scala.collection.mutable.HashMap
 
 
 class flatW(val w: Int) extends Bundle {
@@ -424,17 +425,19 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width
     wire := chisel3.util.Mux1H(sel, Vec(srams.map{f => f.io.output.data}))
   }
 
-  var wId = 0
+  var wIdMap = (0 until numBufs).map{ i => (i -> 0) }.toMap
   def connectWPort(wBundle: Vec[multidimW], en: Bool, ports: List[Int]) {
     if (ports.length == 1) {
       val port = ports(0)
+      val wId = wIdMap(port)
       (0 until wBundle.length).foreach{ i => 
-        io.w(i + wId*wPar) := wBundle(i) 
+        io.w(i + numWriters*wPar*port + wId*wPar) := wBundle(i) 
       }
       io.writerStage := port.U
-      io.globalWEn(wId) := en
+      io.globalWEn(port) := en // TODO: Probably wrong!
       io.wSel(wId) := en
-      wId = wId + 1
+      val next = wIdMap(port) + 1
+      wIdMap += (port -> next)
     } else { // broadcast
       (0 until wPar).foreach{ i => 
         io.broadcast(i) := wBundle(i)

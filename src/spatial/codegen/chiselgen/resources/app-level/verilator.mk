@@ -28,7 +28,7 @@ OBJECTS+=$(VK_GLOBAL_OBJS)
 DEFINES=$(OBJECTS:.o=.d)
 
 
-CXXFLAGS=-DSIM -D__DELITE_CPP_STANDALONE__ -D__USE_STD_STRING__ -std=c++11
+CXXFLAGS=-DSIM -D__DELITE_CPP_STANDALONE__ -D__USE_STD_STRING__ -std=c++11 -Wno-format -Wno-unused-result
 LDFLAGS=-Wl,--hash-style=both -lstdc++ -pthread -lpthread -lm
 
 all: verilatorCrapClean pre-build-checks Top

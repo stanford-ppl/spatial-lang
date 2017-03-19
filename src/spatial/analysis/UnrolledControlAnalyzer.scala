@@ -1,30 +1,30 @@
 package spatial.analysis
+import scala.collection.mutable.HashMap
 
 trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   import IR._
 
   override val name = "Unrolled Control Analyzer"
 
-  var memStreams = Set[Exp[_]]()
-  var argIns = Set[Exp[_]]()
-  var argOuts = Set[Exp[_]]()
+  var memStreams = Set[(Exp[_], String)]()
+  var argPorts = Set[(Exp[_], String)]()
 
   private def visitUnrolled(ctrl: Exp[_])(blk: => Unit) = {
     visitCtrl((ctrl,false))(blk)
   }
 
   override protected def preprocess[S:Staged](block: Block[S]) = {
-    memStreams = Set[Exp[_]]()
-    argIns = Set[Exp[_]]()
-    argOuts = Set[Exp[_]]()
+    memStreams = Set[(Exp[_], String)]()
+    argPorts = Set[(Exp[_], String)]()
     super.preprocess(block)
   }
 
   override def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
     rhs match {
-      case e: DRAMNew[_] => memStreams += lhs
-      case e: ArgInNew[_] => argIns += lhs
-      case e: ArgOutNew[_] => argOuts += lhs
+      case GetMem(dram, _) => memStreams += ((dram, "output"))
+      case SetMem(dram, _) => memStreams += ((dram, "input"))
+      case e: ArgInNew[_] => argPorts += ((lhs, "input"))
+      case e: ArgOutNew[_] => argPorts += ((lhs, "output"))
       case _ =>
     }
     super.addCommonControlData(lhs, rhs)

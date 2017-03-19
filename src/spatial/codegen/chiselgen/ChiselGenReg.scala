@@ -136,8 +136,8 @@ trait ChiselGenReg extends ChiselCodegen {
           case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
         }
         
-        emit(src"""io.argOuts(${argOuts.indexOf(reg)}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
-        emit(src"""io.argOuts(${argOuts.indexOf(reg)}).valid := $en & ${parent}_en""")
+        emit(src"""io.argOuts(${argMapping(reg)._1}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
+        emit(src"""io.argOuts(${argMapping(reg)._1}).valid := $en & ${parent}_en""")
       } else {         
         reduceType(reg) match {
           case Some(fps: ReduceFunction) => // is an accumulator
