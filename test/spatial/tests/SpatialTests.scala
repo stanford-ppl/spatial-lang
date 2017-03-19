@@ -166,6 +166,31 @@ object UntransferredValueTest extends SpatialTest {
   }
 }
 
+object DRAMSizeTest extends SpatialTest {
+  import IR._
+
+  @virtualize
+  def main() {
+    val arr = args.map { a => a.to[Int] }
+    val x = DRAM[Int](arr.length)
+    val N = ArgIn[Int]
+    setArg(N, args.length)
+    setMem(x, arr)
+
+    val out = ArgOut[Int]
+
+    Accel {
+      out := Reduce(0)(N by 5){i =>
+        val sram = SRAM[Int](12)
+        sram load x(i::i+5)
+        Reduce(0)(5 by 1){j => sram(j) }{_+_}
+      }{_+_}
+    }
+
+    println(getArg(out))
+  }
+}
+
 class SpatialTests extends FlatSpec with Matchers with Exceptions {
   val noargs = Array[String]()
   SpatialConfig.enableScala = true
@@ -177,6 +202,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   "ReduceTest" should "compile" in { ReduceTest.main(noargs) }
   "FoldAccumTest" should "compile" in { FoldAccumTest.main(noargs) }
   "MemReduceTest" should "compile" in { MemReduceTest.main(noargs) }
+  a [TestBenchFailed] should be thrownBy { DRAMSizeTest.main(noargs) }
   a [TestBenchFailed] should be thrownBy { NDScatterTest.main(noargs) }
   a [TestBenchFailed] should be thrownBy { UntransferredValueTest.main(noargs) }
 }

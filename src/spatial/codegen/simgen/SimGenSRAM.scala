@@ -18,7 +18,7 @@ trait SimGenSRAM extends SimCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@SRAMNew(dims) => emit(src"""val $lhs = new Array[${op.mT}](${dims.map(quote).mkString("*")})""")
-    case SRAMLoad(sram, dims, is, ofs) =>
+    case SRAMLoad(sram, dims, is, ofs, en) =>
       emit(src"""val $lhs = $sram.apply(${flattenAddress(dims,is,Some(ofs))})""")
 
     case SRAMStore(sram, dims, is, ofs, v, en) =>

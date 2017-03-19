@@ -101,15 +101,17 @@ trait NodeClasses extends SpatialMetadataExp {
   /** Allocations **/
   def isAllocation(e: Exp[_]): Boolean = getDef(e).exists(isAllocation)
   def isAllocation(d: Def): Boolean = d match {
-    case _:RegNew[_]       => true
-    case _:ArgInNew[_]     => true
-    case _:ArgOutNew[_]    => true
-    case _:SRAMNew[_]      => true
-    case _:FIFONew[_]      => true
-    case _:DRAMNew[_]      => true
-    case _:StreamInNew[_]  => true
-    case _:StreamOutNew[_] => true
-    case _:Forever         => true
+    case _:RegNew[_]        => true
+    case _:ArgInNew[_]      => true
+    case _:ArgOutNew[_]     => true
+    case _:SRAMNew[_]       => true
+    case _:FIFONew[_]       => true
+    case _:LineBufferNew[_] => true
+    case _:RegFileNew[_]    => true
+    case _:DRAMNew[_]       => true
+    case _:StreamInNew[_]   => true
+    case _:StreamOutNew[_]  => true
+    case _:Forever          => true
     case _ => isDynamicAllocation(d)
   }
 
@@ -175,7 +177,7 @@ trait NodeClasses extends SpatialMetadataExp {
   }
 
   def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
-    case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] => true
+    case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] | _:LineBufferType[_] | _:RegFileType[_] => true
     case _:StreamInType[_]  => true
     case _:StreamOutType[_] => true
     case _ => false
@@ -247,8 +249,20 @@ trait NodeClasses extends SpatialMetadataExp {
 
   // Memory, optional value, optional indices, optional enable
   type LocalWrite = (Exp[_], Option[Exp[_]], Option[Seq[Exp[Index]]], Option[Exp[Bool]])
+  implicit class LocalWriteOps(x: LocalWrite) {
+    def mem = x._1
+    def data = x._2
+    def addr = x._3
+    def en = x._4
+  }
+
   // Memory, optional indices, optional enable
   type LocalRead = (Exp[_], Option[Seq[Exp[Index]]], Option[Exp[Bool]])
+  implicit class LocalReadOps(x: LocalRead) {
+    def mem = x._1
+    def addr = x._2
+    def en = x._3
+  }
 
   private object LocalWrite {
     def apply(mem: Exp[_]): List[LocalWrite] = List( (mem, None, None, None) )
@@ -266,8 +280,14 @@ trait NodeClasses extends SpatialMetadataExp {
 
   def writerUnapply(d: Def): Option[List[LocalWrite]] = d match {
     case RegWrite(reg,data,en)             => Some(LocalWrite(reg, value=data, en=en))
+    case RegFileStore(reg,inds,data,en)    => Some(LocalWrite(reg, value=data, addr=inds, en=en))
     case SRAMStore(mem,_,inds,_,data,en)   => Some(LocalWrite(mem, value=data, addr=inds, en=en))
     case FIFOEnq(fifo,data,en)             => Some(LocalWrite(fifo, value=data, en=en))
+
+    case RegFileShiftIn(reg,is,d,data)     => Some(LocalWrite(reg, value=data, addr=is))
+    case ParRegFileShiftIn(reg,is,d,data)  => Some(LocalWrite(reg,value=data, addr=is))
+
+    case LineBufferStore(lb,col,data,en)   => Some(LocalWrite(lb, value=data, addr=Seq(col), en=en))
 
     case e: DenseTransfer[_,_] if e.isLoad => Some(LocalWrite(e.local, addr=e.iters))
     case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
@@ -282,8 +302,13 @@ trait NodeClasses extends SpatialMetadataExp {
   }
   def readerUnapply(d: Def): Option[List[LocalRead]] = d match {
     case RegRead(reg)                       => Some(LocalRead(reg))
-    case SRAMLoad(mem,dims,inds,ofs)        => Some(LocalRead(mem, addr=inds))
+    case RegFileLoad(reg,inds,en)           => Some(LocalRead(reg, addr=inds, en=en))
+    case SRAMLoad(mem,dims,inds,ofs,en)     => Some(LocalRead(mem, addr=inds, en=en))
     case FIFODeq(fifo,en,_)                 => Some(LocalRead(fifo, en=en))
+
+    case LineBufferLoad(lb,row,col,en)      => Some(LocalRead(lb, addr=Seq(row,col), en=en))
+    case LineBufferColSlice(lb,row,col,len) => Some(LocalRead(lb, addr=Seq(row,col)))
+    case LineBufferRowSlice(lb,row,len,col) => Some(LocalRead(lb, addr=Seq(row,col)))
 
     case e: DenseTransfer[_,_] if e.isStore => Some(LocalRead(e.local, addr=e.iters))
     case e: SparseTransfer[_]  if e.isLoad  => Some(LocalRead(e.addrs))
@@ -293,7 +318,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case ParStreamDeq(stream, en, _)        => Some(LocalRead(stream))
 
     // TODO: Address and enable are in different format in parallelized accesses
-    case ParSRAMLoad(sram,addr)             => Some(LocalRead(sram))
+    case ParSRAMLoad(sram,addr,ens)         => Some(LocalRead(sram))
     case ParFIFODeq(fifo,ens,_)             => Some(LocalRead(fifo))
     case _ => None
   }

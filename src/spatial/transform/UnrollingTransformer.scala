@@ -278,12 +278,13 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
 
     // TODO: Assuming dims and ofs are not needed for now
-    case e@SRAMLoad(sram,dims,inds,ofs) if lanes.isCommon(sram) =>
+    case e@SRAMLoad(sram,dims,inds,ofs,en) if lanes.isCommon(sram) =>
       dbgs(s"Unrolling $lhs = $rhs")
       strMeta(lhs)
 
       val addrs = lanes.map{p => inds.map(f(_)) }
-      val lhs2 = par_sram_load(f(sram), addrs)(mtyp(e.mT),mbits(e.bT),ctx)
+      val ens   = lanes.vectorize{p => bool_and(f(en), globalValid) }
+      val lhs2 = par_sram_load(f(sram), addrs, ens)(mtyp(e.mT),mbits(e.bT),ctx)
 
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
@@ -681,24 +682,21 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }*/
 
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
-    def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Staged[A], ctx: SrcCtx): Exp[A] = (rhs match {
-      case ParallelPipe(ens, func) =>
+    def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Staged[A], ctx: SrcCtx): Exp[A] = (lhs match {
+      case Def(ParallelPipe(ens, func)) =>
         op_parallel_pipe(f(ens) ++ globalValids, f(func))
 
-      case UnitPipe(ens,func) =>
+      case Def(UnitPipe(ens,func)) =>
         op_unit_pipe(f(ens) ++ globalValids, f(func))
 
-      case e@SRAMStore(sram, dims, inds, ofs, data, en) =>
-        val en2 = bool_and(f(en), globalValid)
-        sram_store(f(sram), f(dims), f(inds), f(ofs), f(data), en2)(e.mT,e.bT,ctx)
+      case LocalReader(reads) if reads.head.en.isDefined =>
+        val en = reads.head.en.get
+        withSubstScope(en -> bool_and(f(en), globalValid)) { mirror(lhs,rhs) }
 
-      case e@RegWrite(reg, data, en) =>
-        val en2 = bool_and(f(en), globalValid)
-        reg_write(f(reg), f(data), en2)(e.mT,e.bT,ctx)
+      case LocalWriter(writes) if writes.head.en.isDefined =>
+        val en = writes.head.en.get
+        withSubstScope(en -> bool_and(f(en), globalValid)) { mirror(lhs,rhs) }
 
-      case e@FIFODeq(fifo, en, z) =>
-        val en2 = bool_and(f(en), globalValid)
-        fifo_deq(f(fifo), en2, f(z))(mtyp(e.mT),mbits(e.bT),ctx)
 
       case _ => mirror(lhs, rhs)
     }).asInstanceOf[Exp[A]]

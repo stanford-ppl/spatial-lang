@@ -21,12 +21,12 @@ import spatial.codegen.cppgen._
 protected trait SpatialExp extends Staging
   with ArrayExp with ArrayExtExp with AssertExp with BoolExp with CastExp with FixPtExp with FltPtExp
   with HashMapExp with IfThenElseExp with MixedNumericExp with PrintExp with StringCastExp with StructExp
-  with TextExp with TupleExp with VoidExp
+  with TextExp with TupleExp with VoidExp with MatrixExp
 
   with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
   with StreamExp with PinExp with AlteraVideoExp
-  with LineBufferExp with ShiftRegisterExp with RegisterFileExp
+  with LineBufferExp with RegisterFileExp
 
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
 
@@ -34,24 +34,25 @@ protected trait SpatialExp extends Staging
 protected trait SpatialApi extends SpatialExp
   with ArrayApi with ArrayExtApi with AssertApi with BoolApi with CastApi with FixPtApi with FltPtApi
   with HashMapApi with IfThenElseApi with MixedNumericApi with PrintApi with StringCastApi with StructApi
-  with TextApi with TupleApi with VoidApi
+  with TextApi with TupleApi with VoidApi with MatrixApi
 
   with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
   with StreamApi with PinApi with AlteraVideoApi
-  with LineBufferApi with ShiftRegisterApi with RegisterFileApi
+  with LineBufferApi with RegisterFileApi
 
   with SpatialMetadataApi with BankingMetadataApi
 
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
-  with ScalaGenArray with ScalaGenArrayExt with ScalaGenAssert with ScalaGenBool with ScalaGenFixPt with ScalaGenFltPt
-  with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenMixedNumeric with ScalaGenPrint with ScalaGenStringCast with ScalaGenStructs
+  with ScalaGenArray with ScalaGenArrayExt with ScalaGenAssert with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
+  with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenMixedNumeric with ScalaGenPrint with ScalaGenStringCast with ScalaGenStructs with ScalaGenSpatialStruct
   with ScalaGenText with ScalaGenVoid
 
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
-  with ScalaGenStream {
+  with ScalaGenStream
+  with ScalaGenLineBuffer with ScalaGenRegFile {
 
   override val IR: SpatialCompiler
 }
@@ -163,6 +164,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // --- Unit Pipe Insertion
   passes += printer
   passes += unitPipeInsert    // Wrap primitives in outer controllers
+  passes += printer
   passes += regReadCSE        // CSE register reads in inner pipelines
   passes += printer
 
@@ -210,6 +212,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   // --- Design Elaboration
   passes += printer
   passes += unroller          // Unrolling
+  passes += uctrlAnalyzer     // Readers/writers for CSE
+  passes += printer
   passes += regReadCSE        // CSE register reads in inner pipelines
   passes += printer
 

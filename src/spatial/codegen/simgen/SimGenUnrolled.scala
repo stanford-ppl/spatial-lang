@@ -43,7 +43,7 @@ trait SimGenUnrolled extends SimCodegen {
       close("}")
       emit(src"/** END UNROLLED REDUCE $lhs **/")
 
-    case ParSRAMLoad(sram,inds) =>
+    case ParSRAMLoad(sram,inds,ens) =>
       val dims = stagedDimsOf(sram)
       open(src"val $lhs = {")
       inds.indices.foreach{i =>

@@ -15,6 +15,16 @@ trait StagedUtilApi extends StagedUtilExp with ArrayApi {
     println("")
   }
 
+  def printMatrix[T:Staged](matrix: Matrix[T], header: String = "")(implicit ctx: SrcCtx): Void = {
+    println(header)
+    (0 until matrix.rows) foreach {i =>
+      (0 until matrix.cols) foreach {j =>
+        print( textify(matrix(i,j)) + "\t")
+      }
+      println("")
+    }
+  }
+
   implicit def insert_void[T:Staged](x: T)(implicit ctx: SrcCtx): Void = unit2void(())
 
 }

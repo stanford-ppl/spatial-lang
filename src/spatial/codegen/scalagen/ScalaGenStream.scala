@@ -1,9 +1,8 @@
 package spatial.codegen.scalagen
 
-import argon.codegen.scalagen.ScalaCodegen
 import spatial.api.StreamExp
 
-trait ScalaGenStream extends ScalaCodegen {
+trait ScalaGenStream extends ScalaGenMemories {
   val IR: StreamExp
   import IR._
 
@@ -17,7 +16,7 @@ trait ScalaGenStream extends ScalaCodegen {
     case op: StreamInNew[_]  => emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
     case op: StreamOutNew[_] => emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
     case op@StreamEnq(strm, data, en) => emit(src"val $lhs = if ($en) $strm.enqueue($data)")
-    case op@StreamDeq(strm, en, zero) => emit(src"val $lhs = if ($en) $strm.dequeue() else $zero")
+    case op@StreamDeq(strm, en, zero) => emit(src"val $lhs = if ($en && $strm.nonEmpty) $strm.dequeue() else ${invalid(op.mT)}")
     case _ => super.emitNode(lhs, rhs)
   }
 

@@ -12,6 +12,7 @@ trait DimensionAnalyzer extends SpatialTraversal {
   var offchips = Set[Exp[DRAM[Any]]]()
 
   private def checkOnchipDims(mem: Exp[_], dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Unit = {
+    dbg(u"$mem: " + dims.mkString(", "))
     dims.zipWithIndex.foreach{
       case (x, i) if x.dependsOnType{case LocalReader(_) => true} => new InvalidOnchipDimensionError(mem,i)
       case (Exact(_), i) =>
@@ -21,9 +22,11 @@ trait DimensionAnalyzer extends SpatialTraversal {
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case SetArg(reg, value) => softValues += reg -> value
-    case DRAMNew(_) => offchips += lhs.asInstanceOf[Exp[DRAM[Any]]]
-    case SRAMNew(_) => checkOnchipDims(lhs, stagedDimsOf(lhs.asInstanceOf[Exp[SRAM[_]]]))(ctxOrHere(lhs))
-    case FIFONew(_) => checkOnchipDims(lhs, List(sizeOf(lhs.asInstanceOf[Exp[FIFO[Any]]])))(ctxOrHere(lhs))
+    case DRAMNew(_)         => offchips += lhs.asInstanceOf[Exp[DRAM[Any]]]
+    case _:SRAMNew[_]       => checkOnchipDims(lhs, stagedDimsOf(lhs))(ctxOrHere(lhs))
+    case _:FIFONew[_]       => checkOnchipDims(lhs, List(sizeOf(lhs.asInstanceOf[Exp[FIFO[Any]]])))(ctxOrHere(lhs))
+    case _:LineBufferNew[_] => checkOnchipDims(lhs, stagedDimsOf(lhs))(ctxOrHere(lhs))
+    case _:RegFileNew[_]    => checkOnchipDims(lhs, stagedDimsOf(lhs))(ctxOrHere(lhs))
     case _ => super.visit(lhs, rhs)
   }
 
@@ -35,7 +38,7 @@ trait DimensionAnalyzer extends SpatialTraversal {
           assert(softDim.tp match {case IntType() => true; case _ => false})
           softDim.asInstanceOf[Exp[Index]]
         case _ if isGlobal(dim) => dim.asInstanceOf[Exp[Index]]
-        case _ => new InvalidOffchipDimensionError(dram, i); int32(0)
+        case _ => new InvalidOffchipDimensionError(dram, i)(ctxOrHere(dram)); int32(0)
       }}
       softDimsOf(dram) = softDims
     }
