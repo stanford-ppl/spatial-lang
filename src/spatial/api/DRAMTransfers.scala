@@ -209,7 +209,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         val aligned = alignmentCalc(offchipAddr)
 
         cmdStream.enq( BurstCmd(aligned.addr_bytes, aligned.size_bytes, true) )
-        issueQueue.enq( IssuedCmd(aligned.end, aligned.start, aligned.size) )
+        issueQueue.enq( IssuedCmd(aligned.size, aligned.start, aligned.end) )
       }
 
       // Fringe
