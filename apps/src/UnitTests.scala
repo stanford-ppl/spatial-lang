@@ -1222,3 +1222,37 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
   }
 
 }
+
+object FixPtInOutArg extends SpatialApp {  
+  import IR._
+
+  @virtualize
+  def main() {
+    type T = FixPt[TRUE,_16,_16]
+    // Declare SW-HW interface vals
+    val x = ArgIn[T]
+    val y = ArgOut[T]
+    val N = args(0).to[T]
+
+    // Connect SW vals to HW vals
+    setArg(x, N)
+
+    // Create HW accelerator
+    Accel {
+      y := x * 3.5
+    }
+
+
+    // Extract results from accelerator
+    val result = getArg(y)
+
+    // Create validation checks and debug code
+    val gold = N * 3.5
+    println("expected: " + gold)
+    println("result: " + result)
+
+    val cksum = gold == result
+    println("PASS: " + cksum + " (FixedPointMath)")
+  }
+}
+

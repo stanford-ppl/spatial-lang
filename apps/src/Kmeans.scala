@@ -18,7 +18,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
   val MAXD = dim
 
   @virtualize
-  def kmeans[T:Staged:Num](points_in: Array[T], numPoints: Int, numCents: Int, numDims: Int, it: Int) = {
+  def kmeans[T:Staged:Num](points_in: Array[T], cent_inits: Array[T], numPoints: Int, numCents: Int, numDims: Int, it: Int) = {
     bound(numPoints) = 960000
     bound(numCents) = MAXK
     bound(numDims) = MAXD
@@ -45,13 +45,15 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
 
     val points = DRAM[T](N, D)    // Input points
     val centroids = DRAM[T](num_cents*dim) // Output centroids
+    val init_cents = DRAM[T](K,D) // Output centroids
     setMem(points, points_in)
+    setMem(init_cents, cent_inits)
 
     Accel {
       val cts = SRAM[T](MAXK, MAXD)
 
       // Load initial centroids (from points)
-      cts load points(0::K, 0::D par P0)
+      cts load init_cents(0::K, 0::D par P0)
 
       val DM1 = D - 1
 
@@ -117,11 +119,12 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
     val D = dim //args(3).to[SInt];
 
     val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
+    val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
 
     // println("points: ")
     // for (i <- 0 until N) { println(i.mkString + ": " + pts(i).mkString(", ")) }
 
-    val result = kmeans(pts.flatten, N, K, D, iters)
+    val result = kmeans(pts.flatten, cnts.flatten, N, K, D, iters)
 
     val cts = Array.empty[Array[X]](K)
     for (k <- 0 until K) {
