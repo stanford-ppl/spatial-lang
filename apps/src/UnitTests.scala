@@ -856,7 +856,7 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
   }
 }
 
-object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 16
+object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
   import IR._
 
   val N = 19200
@@ -883,7 +883,7 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 16
       acc := accum
     }
     getArg(acc)
-  }
+  } 
 
   @virtualize
   def main() = {

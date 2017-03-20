@@ -59,7 +59,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       }
       emit(src"""val ${dataStream}_data = Vec(List($allData))""")
       emitGlobal(src"""val ${dataStream}_ready = io.memStreams($id).rdata.valid""")
-      emit(src"io.memStreams($id).cmd.bits.addr(0) := ${cmdStream}_data(64, 33) // Bits 33 to 64 (AND BEYOND???) are addr")
+      emit(src"io.memStreams($id).cmd.bits.addr(0) := ${cmdStream}_data(64, 33) // Bits 33 to 64 are addr")
       emit(src"io.memStreams($id).cmd.bits.size := ${cmdStream}_data(32,1) // Bits 1 to 32 are size command")
       emit(src"io.memStreams($id).cmd.valid :=  ${cmdStream}_valid// LSB is enable, instead of pulser?? Reg(UInt(1.W), pulser.io.out)")
       emit(src"io.memStreams($id).cmd.bits.isWr := ~${cmdStream}_data(0)")

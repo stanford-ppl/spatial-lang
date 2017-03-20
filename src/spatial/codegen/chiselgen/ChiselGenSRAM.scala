@@ -71,7 +71,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
                 open(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
                 emit(src"""$numWriters, $numReaders, """)
-                emit(src"""$wPar, $rPar, "BankedMemory" // TODO: Be more precise with parallelizations """)
+                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: Be more precise with parallelizations """)
                 close("))")
               } else {
                 val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
@@ -82,7 +82,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
                 open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
                 emit(src"""$numWriters, $numReaders, """)
-                emit(src"""$wPar, $rPar, "BankedMemory" // TODO: Be more precise with parallelizations """)
+                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: Be more precise with parallelizations """)
                 close("))")
               }
             case DiagonalMemory(strides, banks, depth, isAccum) =>
