@@ -5,13 +5,13 @@ import chisel3.util
 
 
 
-class FIFO(val pR: Int, val pW: Int, val depth: Int) extends Module {
+class FIFO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) extends Module {
   def this(tuple: (Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3)
   def this(p: Int, depth: Int) = this(p, p, depth)
 
   val io = IO( new Bundle {
-    val in = Vec(pW, Input(UInt(32.W)))
-    val out = Vec(pR, Output(UInt(32.W)))
+    val in = Vec(pW, Input(UInt(bitWidth.W)))
+    val out = Vec(pR, Output(UInt(bitWidth.W)))
     val push = Input(Bool())
     val pop = Input(Bool())
     val empty = Output(Bool())
@@ -32,7 +32,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int) extends Module {
   elements.io.input.dinc_en := io.pop
 
   // Create physical mems
-  val m = (0 until p).map{ i => Module(new Mem1D(depth/p, true))}
+  val m = (0 until p).map{ i => Module(new Mem1D(depth/p, true, bitWidth))}
 
   // Create head and reader sub counters
   val subWriter = Module(new SingleCounter(1))

@@ -26,7 +26,7 @@ trait NodeUtils extends NodeClasses {
         case Def(d) => dfs(d.inputs)
         case _ => false
       }
-      getDef(x).exists{d => dfs(d.inputs)}
+      dfs(Seq(x))
     }
     def dependsOnType(y: PartialFunction[Exp[_],Boolean]): Boolean = {
       def dfs(frontier: Seq[Exp[_]]): Boolean = frontier.exists{
@@ -34,7 +34,7 @@ trait NodeUtils extends NodeClasses {
         case Def(d) => dfs(d.inputs)
         case _ => false
       }
-      getDef(x).exists{d => dfs(d.inputs)}
+      dfs(Seq(x))
     }
   }
 
@@ -202,7 +202,7 @@ trait NodeUtils extends NodeClasses {
 
   def areConcurrent(a: Access, b: Access): Boolean = {
     val (top,dist) = lcaWithDistance(a.ctrl, b.ctrl)
-    isInnerControl(top) || isParallel(top.node)
+    (isLoop(top.node) && isInnerControl(top)) || isParallel(top.node)
   }
   def arePipelined(a: Access, b: Access): Boolean = {
     val top = lca(a.ctrl, b.ctrl).get

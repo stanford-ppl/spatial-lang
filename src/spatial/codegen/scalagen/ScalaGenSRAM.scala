@@ -1,9 +1,8 @@
 package spatial.codegen.scalagen
 
-import argon.codegen.scalagen.ScalaCodegen
 import spatial.api.SRAMExp
 
-trait ScalaGenSRAM extends ScalaCodegen {
+trait ScalaGenSRAM extends ScalaGenMemories {
   val IR: SRAMExp
   import IR._
 
@@ -18,12 +17,16 @@ trait ScalaGenSRAM extends ScalaCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@SRAMNew(dims) => emit(src"""val $lhs = new Array[${op.mT}](${dims.map(quote).mkString("*")})""")
-    case SRAMLoad(sram, dims, is, ofs) =>
-      emit(src"""val $lhs = $sram.apply(${flattenAddress(dims,is,Some(ofs))})""")
+    case op@SRAMNew(dims) => emit(src"""val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})""")
+    case op@SRAMLoad(sram, dims, is, ofs, en) =>
+      open(src"val $lhs = {")
+        oobApply(op.mT,sram,lhs,is){ emit(src"""if ($en) $sram.apply(${flattenAddress(dims,is,Some(ofs))}) else ${invalid(op.mT)}""") }
+      close("}")
 
-    case SRAMStore(sram, dims, is, ofs, v, en) =>
-      emit(src"val $lhs = if ($en) $sram.update(${flattenAddress(dims,is,Some(ofs))}, $v)")
+    case op@SRAMStore(sram, dims, is, ofs, v, en) =>
+      open(src"val $lhs = {")
+        oobUpdate(op.mT,sram,lhs,is){ emit(src"if ($en) $sram.update(${flattenAddress(dims,is,Some(ofs))}, $v)") }
+      close("}")
 
     case _ => super.emitNode(lhs, rhs)
   }

@@ -32,27 +32,27 @@ class multidimR(val N: Int, val w: Int) extends Bundle {
   override def cloneType = (new multidimR(N, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 
-class Mem1D(val size: Int, val isFifo: Boolean) extends Module { // Unbanked, inner 1D mem
+class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int = 32) extends Module { // Unbanked, inner 1D mem
   def this(size: Int) = this(size, true)
 
   val io = IO( new Bundle {
-    val w = Input(new flatW(32))
-    val r = Input(new flatR(32))
+    val w = Input(new flatW(bitWidth))
+    val r = Input(new flatR(bitWidth))
     val output = new Bundle {
-      val data  = Output(UInt(32.W))
+      val data  = Output(UInt(bitWidth.W))
     }
     val debug = new Bundle {
       val invalidRAddr = Output(Bool())
       val invalidWAddr = Output(Bool())
       val rwOn = Output(Bool())
       val error = Output(Bool())
-      // val addrProbe = Output(UInt(32.W))
+      // val addrProbe = Output(UInt(bitWidth.W))
     }
   })
 
   // We can do better than MaxJ by forcing mems to be single-ported since
   //   we know how to properly schedule reads and writes
-  val m = Mem(size, UInt(32.W) /*, seqRead = true deprecated? */)
+  val m = Mem(size, UInt(bitWidth.W) /*, seqRead = true deprecated? */)
   val wInBound = io.w.addr < (size).U
   val rInBound = io.r.addr < (size).U
 
@@ -76,17 +76,17 @@ class Mem1D(val size: Int, val isFifo: Boolean) extends Module { // Unbanked, in
 
 
 // Last dimension is the leading-dim
-class MemND(val dims: List[Int]) extends Module { 
+class MemND(val dims: List[Int], bitWidth: Int = 32) extends Module { 
   val depth = dims.reduce{_*_} // Size of memory
   val N = dims.length // Number of dimensions
 
   val io = IO( new Bundle {
-    val w = Input(new multidimW(N, 32))
+    val w = Input(new multidimW(N, bitWidth))
     val wMask = Input(Bool()) // Mask passed by SRAM for when a multidimW comes through without "really" being selected
-    val r = Input(new multidimR(N, 32))
+    val r = Input(new multidimR(N, bitWidth))
     val rMask = Input(Bool()) // Mask passed by SRAM for when a multidimR comes through without "really" being selected
     val output = new Bundle {
-      val data  = Output(UInt(32.W))
+      val data  = Output(UInt(bitWidth.W))
     }
     val debug = new Bundle {
       val invalidRAddr = Output(Bool())
@@ -143,7 +143,7 @@ class MemND(val dims: List[Int]) extends Module {
 */
 class SRAM(val logicalDims: List[Int], val w: Int, 
            val banks: List[Int], val strides: List[Int], val numWriters: Int, val numReaders: Int,
-           val wPar: Int, val rPar: Int, val bankingMode: String) extends Module { 
+           val wPar: Int, val rPar: Int, val bankingMode: String, val bitWidth: Int = 32) extends Module { 
 
   // Overloaded construters
   // Tuple unpacker
@@ -165,13 +165,13 @@ class SRAM(val logicalDims: List[Int], val w: Int,
     // TODO: w bundle gets forcefully generated as output in verilog
     //       so the only way to make it an input seems to flatten the
     //       Vec(numWriters, Vec(wPar, _)) to a 1D vector and then reconstruct it
-    val w = Vec(numWriters*wPar, Input(new multidimW(N, 32)))
+    val w = Vec(numWriters*wPar, Input(new multidimW(N, bitWidth)))
     val globalWEn = Vec(numWriters, Input(Bool()))
     val wSel = Vec(numWriters, Input(Bool())) // Selects between multiple write bundles
-    val r = Vec(numReaders*rPar,Input(new multidimR(N, 32))) // TODO: Spatial allows only one reader per mem
+    val r = Vec(numReaders*rPar,Input(new multidimR(N, bitWidth))) // TODO: Spatial allows only one reader per mem
     val rSel = Vec(numReaders, Input(Bool()))
     val output = new Bundle {
-      val data  = Vec(rPar, Output(UInt(32.W)))
+      val data  = Vec(rPar, Output(UInt(bitWidth.W)))
     }
     val debug = new Bundle {
       val invalidRAddr = Output(Bool())
@@ -299,7 +299,7 @@ class SRAM(val logicalDims: List[Int], val w: Int,
 
 class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width*/
            val banks: List[Int], val strides: List[Int], val numWriters: Int, val numReaders: Int,
-           val wPar: Int, val rPar: Int, val bankingMode: String) extends Module { 
+           val wPar: Int, val rPar: Int, val bankingMode: String, val bitWidth: Int = 32) extends Module { 
 
   // Overloaded construters
   // Tuple unpacker
@@ -320,16 +320,16 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width
   val io = IO( new Bundle {
     val sEn = Vec(numBufs, Input(Bool()))
     val sDone = Vec(numBufs, Input(Bool()))
-    val w = Vec(numWriters*wPar, Input(new multidimW(N, 32)))
-    val broadcast = Vec(numWriters*wPar, Input(new multidimW(N, 32)))
+    val w = Vec(numWriters*wPar, Input(new multidimW(N, bitWidth)))
+    val broadcast = Vec(numWriters*wPar, Input(new multidimW(N, bitWidth)))
     val broadcastEn = Input(Bool())
     val writerStage = Input(UInt(5.W)) // TODO: Not implemented anywhere, not sure if needed
     val globalWEn = Vec(numWriters, Input(Bool())) // Bit wen for entire multidimW
     val wSel = Vec(numWriters, Input(Bool())) // Selects between multiple write bundles
-    val r = Vec(numBufs* numReaders*rPar,Input(new multidimR(N, 32))) // TODO: Spatial allows only one reader per mem
+    val r = Vec(numBufs* numReaders*rPar,Input(new multidimR(N, bitWidth))) // TODO: Spatial allows only one reader per mem
     val rSel = Vec(numBufs* numReaders, Input(Bool())) // TODO: Implement this for multiple readers on a buffer
     val output = new Bundle {
-      val data  = Vec(numBufs* rPar, Output(UInt(32.W)))  
+      val data  = Vec(numBufs* rPar, Output(UInt(bitWidth.W)))  
     }
     val debug = new Bundle {
       val invalidRAddr = Output(Bool())

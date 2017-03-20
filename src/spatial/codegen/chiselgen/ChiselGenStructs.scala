@@ -21,10 +21,11 @@ trait ChiselGenStructs extends ChiselCodegen {
         (s, width)
       }
     case x: StructType[_] =>
-      val idx = x.fields.indexWhere(_._2 == field)
+      val idx = x.fields.length - 1 - x.fields.indexWhere(_._1 == field)
+      val width = bitWidth(x.fields(idx)._2)
       val prec = x.fields.take(idx)
-      val precBits = prec.map{case (_,Bits(bt)) => bt.length}.sum
-      (idx,precBits)
+      val precBits = prec.map{case (_,bt) => bitWidth(bt)}.sum
+      (precBits, width)
   }
 
   override protected def bitWidth(tp: Staged[_]): Int = tp match {
@@ -60,7 +61,10 @@ trait ChiselGenStructs extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SimpleStruct(tuples)  =>
-      val items = tuples.map{ t => src"${t._2}" }.mkString(",")
+      val items = tuples.map{ t => 
+        val width = bitWidth(t._2.tp)
+        if (width > 1) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} 
+      }.mkString(",")
       emit(src"val $lhs = Utils.Cat($items)")
     case FieldApply(struct, field) =>
       val (start, width) = tupCoordinates(struct.tp, field)      

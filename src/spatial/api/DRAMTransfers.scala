@@ -61,11 +61,11 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
 
     // NOTE: Results of register reads are allowed to be used to specialize for aligned load/stores,
     // as long as the value of the register read is known to be exactly some value.
-    // TODO: We should also be checking if the start address is aligned...
+    // FIXME: We should also be checking if the start address is aligned...
     def store(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = requestLength.s match {
       case Exact(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 => alignedStore(offchipAddr, onchipAddr)
       case x =>
-        error(c"Unaligned store! Burst length: ${str(x)}")
+        //error(c"Unaligned store! Burst length: ${str(x)}")
         unalignedStore(offchipAddr, onchipAddr)
     }
     def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = requestLength.s match {
@@ -105,6 +105,33 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       }
     }
 
+    case class AlignmentData(start: Index, end: Index, size: Index, addr_bytes: Index, size_bytes: Index)
+
+    @virtualize
+    def alignmentCalc(offchipAddr: => Index) = {
+      val elementsPerBurst = (target.burstSize/bits[T].length).as[Index]
+      val bytesPerBurst = target.burstSize/8
+
+      val maddr_bytes  = offchipAddr * bytesPerWord     // Raw address in bytes
+      val start_bytes  = maddr_bytes % bytesPerBurst    // Number of bytes offset from previous burst aligned address
+      val length_bytes = requestLength * bytesPerWord   // Raw length in bytes
+      val offset_bytes = maddr_bytes - start_bytes      // Burst-aligned start address, in bytes
+      val raw_end      = maddr_bytes + length_bytes     // Raw end, in bytes, with burst-aligned start
+
+      val end_bytes = mux(raw_end % bytesPerBurst == 0,  0.as[Index], bytesPerBurst - raw_end % bytesPerBurst) // Extra useless bytes at end
+
+      // FIXME: What to do for bursts which split individual words?
+      val start = start_bytes / bytesPerWord                   // Number of WHOLE elements to ignore at start
+      val end   = raw_end / bytesPerWord                       // Index of WHOLE elements to start ignoring at again
+      val extra = end_bytes / bytesPerWord                     // Number of WHOLE elements that will be ignored at end
+      val size  = requestLength + start + extra                // Total number of WHOLE elements to expect
+
+      val size_bytes = length_bytes + start_bytes + end_bytes  // Burst aligned length
+      val addr_bytes = offset_bytes + dram.address             // Burst-aligned offchip byte address
+
+      AlignmentData(start, end, size, addr_bytes, size_bytes)
+    }
+
     @virtualize
     def unalignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = {
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
@@ -118,23 +145,13 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         val endBound   = Reg[Index]
         val length     = Reg[Index]
         Pipe {
-          val elementsPerBurst = (target.burstSize / bits[T].length).as[Index]
-          val maddr = offchipAddr * bytesPerWord
-          val start = maddr % elementsPerBurst    // Number of elements to ignore at beginning
-          val end = start + requestLength         // Index to begin ignoring again
-          val addr = maddr + dram.address - start // Burst-aligned offchip address
+          val aligned = alignmentCalc(offchipAddr)
 
-          val extra = elementsPerBurst - (requestLength % elementsPerBurst)     // Number of extra elements needed
-          val size = requestLength + mux(requestLength % elementsPerBurst == 0, 0.as[Index], extra) // Burst aligned length
-
-          val addr_bytes = addr
-          val size_bytes = size * bytesPerWord
-
-          cmdStream.enq(BurstCmd(addr_bytes, size_bytes, false))
-          issueQueue.enq(size)
-          startBound := start
-          endBound := end
-          length := size
+          cmdStream.enq(BurstCmd(aligned.addr_bytes, aligned.size_bytes, false))
+          issueQueue.enq(aligned.size)
+          startBound := aligned.start
+          endBound := aligned.end
+          length := aligned.size
         }
         Foreach(length par p){i =>
           val en = i >= startBound && i < endBound
@@ -189,21 +206,10 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
 
       // Command
       Pipe {
-        val elementsPerBurst = (target.burstSize/bits[T].length).as[Index]
+        val aligned = alignmentCalc(offchipAddr)
 
-        val maddr = offchipAddr * bytesPerWord
-        val start = maddr % elementsPerBurst              // Number of elements to ignore at beginning
-        val end   = start + requestLength                 // Index to begin ignoring again
-        val addr  = maddr + dram.address - start          // Burst-aligned offchip address
-
-        val extra = elementsPerBurst - (requestLength % elementsPerBurst)     // Number of extra elements needed
-        val size  = requestLength + mux(requestLength % elementsPerBurst == 0, 0.as[Index], extra) // Burst aligned length
-
-        val addr_bytes = addr
-        val size_bytes = size * bytesPerWord
-
-        cmdStream.enq( BurstCmd(addr_bytes, size_bytes, true) )
-        issueQueue.enq( IssuedCmd(size, start, end) )
+        cmdStream.enq( BurstCmd(aligned.addr_bytes, aligned.size_bytes, true) )
+        issueQueue.enq( IssuedCmd(aligned.size, aligned.start, aligned.end) )
       }
 
       // Fringe
@@ -323,7 +329,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     tile:   DRAMDenseTile[T],
     local:  C[T],
     isLoad: Boolean
-  )(implicit mem:Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Void = {
+  )(implicit mem: Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Void = {
 
     // Extract range lengths early to avoid unit pipe insertion eliminating rewrite opportunities
     val dram    = tile.dram
@@ -337,7 +343,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     if (strides.exists{case Const(1) => false ; case _ => true})
       new UnsupportedStridedDRAMError(isLoad)(ctx)
 
-    val localRank = mem.iterators(local).length
+    val localRank = mem.iterators(local).length // TODO: Replace with something else here (this creates counters)
 
     val iters = List.tabulate(localRank){_ => fresh[Index]}
 
@@ -436,6 +442,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_dense_load(f(dram),f(cmdStream),f(dataStream))
     val bT = bits[T]
+    val mT = typ[T]
   }
 
   case class FringeDenseStore[T:Staged:Bits](
@@ -446,6 +453,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_dense_store(f(dram),f(cmdStream),f(dataStream),f(ackStream))
     val bT = bits[T]
+    val mT = typ[T]
   }
 
   case class FringeSparseLoad[T:Staged:Bits](
@@ -455,6 +463,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_sparse_load(f(dram),f(addrStream),f(dataStream))
     val bT = bits[T]
+    val mT = typ[T]
   }
 
   case class FringeSparseStore[T:Staged:Bits](
@@ -464,6 +473,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_sparse_store(f(dram),f(cmdStream),f(ackStream))
     val bT = bits[T]
+    val mT = typ[T]
   }
 
 

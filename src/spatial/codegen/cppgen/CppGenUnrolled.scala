@@ -59,7 +59,7 @@ trait CppGenUnrolled extends CppCodegen {
       close("}")
       emit(src"/** END UNROLLED REDUCE **/")
 
-    case ParSRAMLoad(sram,inds) =>
+    case ParSRAMLoad(sram,inds,ens) =>
       val dims = stagedDimsOf(sram)
       open(src"val $lhs = {")
       inds.indices.foreach{i =>

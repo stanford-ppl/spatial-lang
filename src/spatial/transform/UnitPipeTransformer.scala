@@ -89,9 +89,13 @@ trait UnitPipeTransformer extends ForwardTransformer {
     stages.zipWithIndex.foreach{
       case (stage,i) if !stage.isControl =>
         val calculated = stage.nodes.map{case TP(s,d) => s}
-        val needed = deps.drop(i+1).flatten
-        val escaping = calculated.filter{sym => needed.contains(sym) && !isRegisterRead(sym) }
+        val innerDeps = calculated ++ deps.take(i).flatten // Things in this Unit Pipe
+        val escaping = calculated.filter{sym => (sym.dependents diff innerDeps).nonEmpty && !isRegisterRead(sym) }
         val (escapingUnits, escapingValues) = escaping.partition{_.tp == VoidType}
+
+        dbgs(c"Stage #$i: ")
+        dbgs(c"  Escaping symbols: ")
+        escapingValues.foreach{e => dbgs(c"    ${str(e)}: ${e.dependents diff innerDeps}")}
 
         // Create registers for escaping primitive values
         val regs = escapingValues.map{sym => regFromSym(sym) }
@@ -112,14 +116,12 @@ trait UnitPipeTransformer extends ForwardTransformer {
         // Add allocations which are known not to be used in the primitive logic in the inserted unit pipe
         stage.dynamicAllocs.foreach(visitStm)
 
-        dbgs(c"Stage #$i: ")
-        dbgs(c"  Escaping symbols: $escapingValues")
         dbgs(c"  Created registers: $regs")
 
 
       case (stage, i) if stage.isControl =>
         stage.nodes.foreach(visitStm)           // Zero or one control nodes
-        stage.staticAllocs.foreach(visitStm)    // Allocations which cannot rely on reg reads
+        stage.staticAllocs.foreach(visitStm)    // Allocations which cannot rely on reg reads (and occur AFTER nodes)
         stage.regReads.foreach(visitStm)        // Register reads
         stage.dynamicAllocs.foreach(visitStm)   // Allocations which can rely on reg reads
     }
