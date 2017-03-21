@@ -90,7 +90,15 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg)) {
-        emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)._1})""")
+        if (hasFracBits(reg.tp.typeArguments.head)) {
+          reg.tp.typeArguments.head match {
+            case FixPtType(s,d,f) => 
+              emitGlobal(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
+              emitGlobal(src"""${lhs}.number := io.argIns(${argMapping(reg)._1})""")
+          }
+        } else {
+          emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)._1})""")
+        }
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)

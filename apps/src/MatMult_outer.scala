@@ -91,6 +91,6 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 128 6
     printArray(result, "Result: ")
 
     val cksum = result.zip(gold){_ == _}.reduce{_&&_}
-    println("PASS: " + cksum + " (MatMult_outer) * Figure out how to accumulate on top of DRAM (should we calloc memories in c++?)")
+    println("PASS: " + cksum + " (MatMult_outer)")
   }
 }
