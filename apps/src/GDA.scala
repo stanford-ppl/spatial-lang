@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object GDA extends SpatialApp { // Regression (Dense) // Args: 192
+object GDA extends SpatialApp { // Regression (Dense) // Args: 16
   import IR._
 
   type X = Int
