@@ -26,7 +26,7 @@ protected trait SpatialExp extends Staging
   with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
   with StreamExp with PinExp with AlteraVideoExp
-  with LineBufferExp with RegisterFileExp
+  with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp
 
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
 
@@ -39,20 +39,20 @@ protected trait SpatialApi extends SpatialExp
   with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
   with StreamApi with PinApi with AlteraVideoApi
-  with LineBufferApi with RegisterFileApi
+  with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi
 
   with SpatialMetadataApi with BankingMetadataApi
 
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
-  with ScalaGenArray with ScalaGenArrayExt with ScalaGenAssert with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
+  with ScalaGenArray with ScalaGenSpatialArrayExt with ScalaGenAssert with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
   with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenMixedNumeric with ScalaGenPrint with ScalaGenStringCast with ScalaGenStructs with ScalaGenSpatialStruct
   with ScalaGenText with ScalaGenVoid
 
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
   with ScalaGenStream
-  with ScalaGenLineBuffer with ScalaGenRegFile {
+  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine {
 
   override val IR: SpatialCompiler
 }
@@ -102,6 +102,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val levelAnalyzer  = new PipeLevelAnalyzer { val IR: self.type = self }
   lazy val dimAnalyzer    = new DimensionAnalyzer { val IR: self.type = self }
 
+  lazy val switchInsert   = new SwitchTransformer { val IR: self.type = self }
   lazy val unitPipeInsert = new UnitPipeTransformer { val IR: self.type = self }
 
   lazy val affineAnalyzer = new SpatialAccessAnalyzer { val IR: self.type = self }
@@ -131,6 +132,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
 
   lazy val uctrlAnalyzer  = new UnrolledControlAnalyzer { val IR: self.type = self }
 
+  lazy val switchFlatten  = new SwitchFlattener { val IR: self.type = self }
+
   lazy val rewriter       = new RewriteTransformer { val IR: self.type = self }
 
   lazy val unroller       = new UnrollingTransformer { val IR: self.type = self }
@@ -157,11 +160,12 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   passes += printer
   passes += scalarAnalyzer    // Perform bound and global analysis
   passes += scopeCheck        // Check that illegal host values are not used in the accel block
-//passes += constFolding      // Constant folding (TODO: Necessary?)
   passes += levelAnalyzer     // Initial pipe style annotation fixes
   passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions
 
   // --- Unit Pipe Insertion
+  passes += printer
+  passes += switchInsert      // Change nested if-then-else statements to Switch controllers
   passes += printer
   passes += unitPipeInsert    // Wrap primitives in outer controllers
   passes += printer
@@ -211,7 +215,10 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
 
   // --- Design Elaboration
   passes += printer
+  passes += switchFlatten     // Switch inlining for simplification / optimization
+  passes += printer
   passes += unroller          // Unrolling
+  passes += printer
   passes += uctrlAnalyzer     // Readers/writers for CSE
   passes += printer
   passes += regReadCSE        // CSE register reads in inner pipelines
@@ -229,7 +236,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   passes += printer
   passes += bufferAnalyzer    // Set top controllers for n-buffers
   passes += streamAnalyzer    // Set stream pipe children fifo dependencies
-  passes += argMapper     // Get address offsets for each used DRAM object
+  passes += argMapper         // Get address offsets for each used DRAM object
   passes += printer
 
   // --- Code generation

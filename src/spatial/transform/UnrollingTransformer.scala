@@ -616,6 +616,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
         val effects = rBlk.summary
         val rpipe = stageEffectful(UnrolledForeach(Seq(bool(true)), cchainRed, rBlk, isRed2, rvs), effects.star)(ctx)
         styleOf(rpipe) = InnerPipe
+        levelOf(rpipe) = InnerControl
         tab -= 1
       }
       void
@@ -637,57 +638,9 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     unrollMemReduce(lhs,f(cchainMap),f(cchainRed),f(accum),f(zero),fold,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed)(rhs.mT,rhs.bT,rhs.mC,ctx)
   }
 
-  // TODO: Method for parallelizing scatter and gather will likely have to change soon
-  // TODO: Enable bits required for scatter/gather? (Not required for burst load/store..)
-  /*def unrollScatter[T:Staged:Bits](
-    lhs:    Exp[_],
-    mem:    Exp[DRAM[T]],
-    local:  Exp[SRAM[T]],
-    addrs:  Exp[SRAM[Index]],
-    ctr:    Exp[Counter]
-  )(implicit ctx: SrcCtx) = {
-    val par = parFactorsOf(ctr).head match {case Final(c) => c.toInt }
-    op_parallel_pipe(globalValids, {
-      (0 until par).foreach{i =>
-        val scatter = stageWrite(mem)(Scatter[T](mem,local,addrs,ctr,fresh[Index]))(ctx)
-        transferMetadata(lhs, scatter)
-      }
-      void
-    })
-  }
-  def unrollScatterNode[T](lhs: Sym[_], rhs: Scatter[T])(implicit ctx: SrcCtx) = {
-    val Scatter(mem, local, addrs, ctr, _) = rhs
-    unrollScatter(lhs, f(mem), f(local), f(addrs), f(ctr))(rhs.mT, rhs.bT, ctx)
-  }
-
-  def unrollGather[T:Staged:Bits](
-    lhs:   Exp[_],
-    mem:   Exp[DRAM[T]],
-    local: Exp[SRAM[T]],
-    addrs: Exp[SRAM[Index]],
-    ctr:   Exp[Counter]
-  )(implicit ctx: SrcCtx) = {
-    val par = parFactorsOf(ctr).head match {case Final(c) => c.toInt }
-    op_parallel_pipe(globalValids, {
-      (0 until par).foreach{i =>
-        val gather = stageWrite(local)(Gather[T](mem,local,addrs,ctr,fresh[Index]))(ctx)
-        transferMetadata(lhs, gather)
-      }
-      void
-    })
-  }
-  def unrollGatherNode[T](lhs: Sym[_], rhs: Gather[T])(implicit ctx: SrcCtx) = {
-    val Gather(mem, local, addrs, ctr, i) = rhs
-    unrollGather(lhs, f(mem), f(local), f(addrs), f(ctr))(rhs.mT,rhs.bT,ctx)
-  }*/
-
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Staged[A], ctx: SrcCtx): Exp[A] = (lhs match {
-      case Def(ParallelPipe(ens, func)) =>
-        op_parallel_pipe(f(ens) ++ globalValids, f(func))
-
-      case Def(UnitPipe(ens,func)) =>
-        op_unit_pipe(f(ens) ++ globalValids, f(func))
+      case Def(op: EnabledController) => op.mirrorWithEn(f, globalValids)
 
       case LocalReader(reads) if reads.head.en.isDefined =>
         val en = reads.head.en.get
@@ -696,7 +649,6 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       case LocalWriter(writes) if writes.head.en.isDefined =>
         val en = writes.head.en.get
         withSubstScope(en -> bool_and(f(en), globalValid)) { mirror(lhs,rhs) }
-
 
       case _ => mirror(lhs, rhs)
     }).asInstanceOf[Exp[A]]

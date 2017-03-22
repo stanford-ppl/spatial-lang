@@ -68,6 +68,7 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
   case class DRAMNew[T:Staged:Bits](dims: Seq[Exp[Index]]) extends Op2[T,DRAM[T]] {
     def mirror(f:Tx) = dram_alloc[T](f(dims))
     val bT = bits[T]
+    def zero: Exp[T] = bT.zero.s
   }
 
   case class GetDRAMAddress[T:Staged:Bits](dram: Exp[DRAM[T]]) extends Op[Index] {

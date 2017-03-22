@@ -202,7 +202,7 @@ trait NodeUtils extends NodeClasses {
 
   def areConcurrent(a: Access, b: Access): Boolean = {
     val (top,dist) = lcaWithDistance(a.ctrl, b.ctrl)
-    (isLoop(top.node) && isInnerControl(top)) || isParallel(top.node)
+    isInnerPipe(top) || isParallel(top.node)
   }
   def arePipelined(a: Access, b: Access): Boolean = {
     val top = lca(a.ctrl, b.ctrl).get

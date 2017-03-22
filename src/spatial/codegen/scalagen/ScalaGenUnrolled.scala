@@ -63,7 +63,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories {
       close("}")
 
     case op@ParFIFODeq(fifo, ens, z) =>
-      emit(src"val $lhs = $ens.map{en => if (en && $fifo.nonEmpty) $fifo.dequeue() else ${invalid(op.mT)}")
+      emit(src"val $lhs = $ens.map{en => if (en && $fifo.nonEmpty) $fifo.dequeue() else ${invalid(op.mT)} }")
 
     case ParFIFOEnq(fifo, data, ens) =>
       emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $fifo.enqueue(data) }")

@@ -23,7 +23,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   // --- State
   var level = 0
   var controller: Option[Ctrl] = None
-  var pendingNodes: Map[Exp[_], List[Exp[_]]] = Map.empty
+  var pendingNodes: Map[Exp[_], Seq[Exp[_]]] = Map.empty
   var unrollFactors: List[List[Const[Index]]] = Nil
 
   var localMems: List[Exp[_]] = Nil
@@ -174,18 +174,23 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
 
-  def addPendingUse(user: Exp[_], ctrl: Ctrl, pending: Seq[Exp[_]]): Unit = {
+  def addPendingUse(user: Exp[_], ctrl: Ctrl, pending: Seq[Exp[_]], isBlockResult: Boolean = false): Unit = {
     dbg(c"Found user ${str(user)} of:")
     pending.foreach{s => dbg(c"  ${str(s)}")}
 
+    // Bit of a hack: When the node being used is added as the result of a block (e.g. reduction)
+    // which is used in an inner controller, the usersOf list should still see the outer controller as the user
+    // rather than the inner controller. The readersOf list should see the inner controller.
+    val ctrlUser = if (isBlockResult && ctrl != null) (ctrl.node,false) else ctrl
+
     pending.foreach{node =>
-      usersOf(node) = (user,ctrl) +: usersOf(node)
+      usersOf(node) = (user,ctrlUser) +: usersOf(node)
       if (isRegisterRead(node) && ctrl != null) appendReader(node, ctrl)
 
       // Also add stateless nodes that this node uses
       // Can't do this on the fly when the node was first reached, since the associated control was unknown
       pendingNodes.getOrElse(node, Nil).filter(_ != node).foreach{used =>
-        usersOf(used) = (node,ctrl) +: usersOf(used)
+        usersOf(used) = (node,ctrlUser) +: usersOf(used)
       }
     }
   }
@@ -195,14 +200,18 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     if (pending.nonEmpty) {
       // All nodes which could potentially use a reader outside of an inner control node
       if (isStateless(lhs) && !ctrl.exists(isInnerControl)) { // Ctrl is either outer or outside Accel
-        dbg(c"Found propagating reader ${str(lhs)} of:")
-        pending.foreach{s => dbg(c"  ${str(s)}")}
-        pendingNodes += lhs -> (lhs +: pending)
+        addPropagatingNode(lhs, pending)
       }
       else {
         addPendingUse(lhs, ctrl.orNull, pending)
       }
     }
+  }
+
+  def addPropagatingNode(node: Exp[_], pending: Seq[Exp[_]]) = {
+    dbg(c"Found propagating reader ${str(node)} of:")
+    pending.foreach{s => dbg(c"  ${str(s)}")}
+    pendingNodes += node -> (node +: pending)
   }
 
   def addPendingNode(node: Exp[_]) = {
@@ -289,6 +298,16 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
 
+    case SwitchCase(cond, blk) =>
+      visitCtrl((lhs,false)){ visitBlock(blk) }
+      addChildDependencyData(lhs, blk)
+      addPropagatingNode(lhs, Seq(blk.result))
+
+    case Switch(blk) =>
+      visitCtrl((lhs,false)){ visitBlock(blk) }
+      addChildDependencyData(lhs, blk)
+      addPropagatingNode(lhs, blockContents(blk).flatMap(_.lhs).filter(pendingNodes contains _))
+
     case OpForeach(cchain,func,iters) =>
       visitCtrl((lhs,false),iters,cchain){ visitBlock(func) }
       addChildDependencyData(lhs, func)
@@ -299,9 +318,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
         // Handle the one case where we allow scalar communication between blocks
         pendingNodes.get(map.result).foreach{nodes =>
-          // Note that this should technically be (lhs,isOuterLoop), but registerCleanup doesn't differentiate
-          // between inner/outer loop of Reduce right now
-          addPendingUse(lhs, (lhs,false), nodes)
+          addPendingUse(lhs, (lhs,isOuterControl(lhs)), nodes, isBlockResult = true)
         }
       }
 
