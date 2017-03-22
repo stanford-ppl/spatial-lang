@@ -1,6 +1,7 @@
 package spatial.codegen.scalagen
 
 import spatial.api.{DRAMExp, PinExp}
+import org.virtualized.SourceContext
 
 trait ScalaGenDRAM extends ScalaGenSRAM {
   val IR: DRAMExp with PinExp
@@ -15,7 +16,7 @@ trait ScalaGenDRAM extends ScalaGenSRAM {
     case op@DRAMNew(dims) =>
       val elementsPerBurst = target.burstSize / op.bT.length
       open(src"val $lhs = {")
-        emit(src"""Array.fill(${dims.map(quote).mkString("*")} + $elementsPerBurst)(${invalid(op.mA)})""")
+        emit(src"""Array.fill(${dims.map(quote).mkString("*")} + $elementsPerBurst)(${op.zero})""") //${invalid(op.mA)})""")
       close("}")
 
     case GetDRAMAddress(dram) =>

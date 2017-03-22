@@ -227,9 +227,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
 
   private[spatial] def parallel_pipe(func: => Void)(implicit ctx: SrcCtx): Controller = {
     val fFunc = () => unwrap(func)
-    val pipe = op_parallel_pipe(Nil, fFunc())
-    styleOf(pipe) = ForkJoin
-    levelOf(pipe) = OuterControl
+    val pipe = op_parallel_pipe(Nil, fFunc()) // Sets ForkJoin and OuterController
     Controller(pipe)
   }
 
@@ -410,6 +408,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val effects = fBlk.summary
     val pipe = stageEffectful( ParallelPipe(en, fBlk), effects)(ctx)
     styleOf(pipe) = ForkJoin
+    levelOf(pipe) = OuterControl
     pipe
   }
 
