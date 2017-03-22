@@ -6,9 +6,9 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
 
   type X = Int
 
-  val num_cents = 16
-  val dim = 32
-  val tileSize = 32
+  val num_cents = 4
+  val dim = 16
+  val pts_per_ld = 4
   val innerPar = 1
   val outerPar = 1
   val element_max = 10
@@ -23,7 +23,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
     bound(numCents) = MAXK
     bound(numDims) = MAXD
 
-    val BN = tileSize (96 -> 96 -> 9600)
+    val BN = pts_per_ld (96 -> 96 -> 9600)
     val BD = MAXD
     val PX = 1 (1 -> 1)
     val P0 = innerPar (32 -> 96 -> 192) // Dimensions loaded in parallel
@@ -53,7 +53,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
       val cts = SRAM[T](MAXK, MAXD)
 
       // Load initial centroids (from points)
-      cts load init_cents(0::K, 0::D par P0)
+      cts load init_cents(0::K, 0::D par 16)
 
       val DM1 = D - 1
 
@@ -63,7 +63,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
         // For each set of points
         Foreach(N by BN par PX){i =>
           val pts = SRAM[T](BN, BD)
-          pts load points(i::i+BN, 0::BD par P0)
+          pts load points(i::i+BN, 0::BD par 16)
 
           // For each point in this set
           MemReduce(newCents)(BN par PX){pt =>
@@ -105,7 +105,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
         flatCts(i*D+j) = cts(i,j)
       }
       // Store the centroids out
-      centroids(0::K*D par P2) store flatCts
+      centroids(0::K*D par 16) store flatCts
     }
 
     getMem(centroids)
@@ -118,8 +118,10 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
     val K = num_cents //args(2).to[SInt];
     val D = dim //args(3).to[SInt];
 
-    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
-    val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
+    // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
+    // val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
+    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else 5*i }}
+    val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else 5*i+1 }}
 
     // println("points: ")
     // for (i <- 0 until N) { println(i.mkString + ": " + pts(i).mkString(", ")) }
@@ -152,14 +154,18 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
 
     val gold = cts.flatten
 
-    printArray(gold, "gold: ")
-    printArray(result, "result: ")
-
-    for (i <- 0 until result.length) {
-      val diff = result(i) - gold(i)
-      if (abs(diff) > margin)
-        println("[" + i + "] gold: " + gold(i) + ", result: " + result(i) + ", diff: " + diff)
+    (0 until K).foreach{ i => printArray(cnts(i), "original ctr" + i + ": ")}
+    (0 until K).foreach{ i => printArray(cts(i), "ctr" + i + ": ")}
+    (0 until K).foreach { i => 
+      val resrow = Array.tabulate(D){j => result(i*D + j)}
+      printArray(resrow, "resultcnt" + i + ": ")
     }
+
+    // for (i <- 0 until result.length) {
+    //   val diff = result(i) - gold(i)
+    //   if (abs(diff) > margin)
+    //     println("[" + i + "] gold: " + gold(i) + ", result: " + result(i) + ", diff: " + diff)
+    // }
 
     val cksum = result.zip(gold){ case (o, g) => (g < (o + margin)) && g > (o - margin)}.reduce{_&&_}
 

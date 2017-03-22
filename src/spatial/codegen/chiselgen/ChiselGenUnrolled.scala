@@ -118,7 +118,8 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       } else {
         accum match { 
           case Def(_:RegNew[_]) => 
-            if (childrenOf(lhs).length == 1) {
+            // if (childrenOf(lhs).length == 1) {
+            if (true) {
               emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: Skeptical these codegen rules are correct")
             } else {
               emit(src"val ${accum}_wren = ${childrenOf(lhs).dropRight(1).last}_done // TODO: Skeptical these codegen rules are correct")              

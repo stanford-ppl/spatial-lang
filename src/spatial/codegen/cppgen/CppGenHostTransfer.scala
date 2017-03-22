@@ -58,9 +58,32 @@ trait CppGenHostTransfer extends CppCodegen  {
             emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._1});", forceful = true)
         }
     case SetMem(dram, data) => 
-      emit(src"c1->memcpy($dram, &(*${data})[0], (*${data}).size() * sizeof(int32_t));", forceful = true)
+      if (hasFracBits(dram.tp.typeArguments.head)) {
+        dram.tp.typeArguments.head match { 
+          case FixPtType(s,d,f) => 
+            emit(src"${data.tp}* ${dram}_rawified = new ${data.tp}((*${data}).size());")
+            open(src"for (int ${dram}_rawified_i = 0; ${dram}_rawified_i < (*${data}).size(); ${dram}_rawified_i++) {")
+              emit(src"(*${dram}_rawified)[${dram}_rawified_i] = (int32_t) (*${data})[${dram}_rawified_i] * (2 << $f);")
+            close("}")
+            emit(src"c1->memcpy($dram, &(*${dram}_rawified)[0], (*${dram}_rawified).size() * sizeof(int32_t));", forceful = true)
+          case _ => emit(src"c1->memcpy($dram, &(*${data})[0], (*${data}).size() * sizeof(int32_t));", forceful = true)
+        }
+      } else {
+        emit(src"c1->memcpy($dram, &(*${data})[0], (*${data}).size() * sizeof(int32_t));", forceful = true)
+      }
     case GetMem(dram, data) => 
-      emit(src"c1->memcpy(&(*$data)[0], $dram, (*${data}).size() * sizeof(int32_t));", forceful = true)
+      if (hasFracBits(dram.tp.typeArguments.head)) {
+        dram.tp.typeArguments.head match { 
+          case FixPtType(s,d,f) => 
+            emit(src"c1->memcpy(&(*$data)[0], $dram, (*${data}).size() * sizeof(int32_t));", forceful = true)
+            open(src"for (int ${data}_i = 0; ${data}_i < (*${data}).size(); ${data}_i++) {")
+              emit(src"(*${data})[${data}_i] = (*${data})[${data}_i] / (2 << $f);")
+            close("}")
+          case _ => emit(src"c1->memcpy(&(*$data)[0], $dram, (*${data}).size() * sizeof(int32_t));", forceful = true)
+        }
+      } else {
+        emit(src"c1->memcpy(&(*$data)[0], $dram, (*${data}).size() * sizeof(int32_t));", forceful = true)
+      }
     case _ => super.emitNode(lhs, rhs)
   }
 

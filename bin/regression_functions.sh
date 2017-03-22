@@ -526,6 +526,7 @@ create_script() {
 # 2 - error message
 # 3 - pass (1) or fail (0)
 function report {
+  date >> ${5}/log
   rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
@@ -545,7 +546,7 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/ga
 export ARGON_HOME=${ARGON_HOME}
 export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
 export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
-" >> $1
+date >> ${5}/log" >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
     echo "#export JAVA_HOME=/usr/
