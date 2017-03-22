@@ -87,12 +87,24 @@ trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp
   case object MetaPipe   extends ControlStyle
   case object StreamPipe extends ControlStyle
   case object ForkJoin   extends ControlStyle
+  case object ForkSwitch extends ControlStyle
+
+  sealed abstract class ControlLevel
+  case object InnerControl extends ControlLevel
+  case object OuterControl extends ControlLevel
 
   case class ControlType(style: ControlStyle) extends Metadata[ControlType] { def mirror(f:Tx) = this }
   object styleOf {
     def apply(x: Exp[_]): ControlStyle = styleOf.get(x).getOrElse{throw new UndefinedControlStyleException(x)}
     def update(x: Exp[_], style: ControlStyle): Unit = metadata.add(x, ControlType(style))
     def get(x: Exp[_]): Option[ControlStyle] = metadata[ControlType](x).map(_.style)
+  }
+
+  case class MControlLevel(level: ControlLevel) extends Metadata[MControlLevel] { def mirror(f:Tx) = this }
+  object levelOf {
+    def apply(x: Exp[_]): ControlLevel = levelOf.get(x).getOrElse{throw new UndefinedControlLevelException(x)}
+    def update(x: Exp[_], level: ControlLevel): Unit = metadata.add(x, MControlLevel(level))
+    def get(x: Exp[_]): Option[ControlLevel] = metadata[MControlLevel](x).map(_.level)
   }
 
   /**

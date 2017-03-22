@@ -56,11 +56,11 @@ object Convolution_FPGA extends SpatialApp {
       Foreach(0 until R) { r =>
         lb load img(r, 0::C)
 
-        println("Row " + r)
+        /*println("Row " + r)
         Foreach(0 until Kh) { i =>
           Foreach(0 until C) { c => print("" + lb(i,c) + "\t") }
           println("")
-        }
+        }*/
 
         Foreach(0 until C) { c =>
           Foreach(0 until Kh par Kh){i => sr(i, *) <<= lb(i, c) }

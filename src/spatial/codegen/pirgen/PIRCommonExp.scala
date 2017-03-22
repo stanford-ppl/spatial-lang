@@ -116,6 +116,7 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     case SeqPipe        => SequentialCU
     case StreamPipe     => StreamCU
     case ForkJoin       => throw new Exception(s"Do not support ForkJoin in PIR")
+    case ForkSwitch     => throw new Exception("Do not support ForkSwitch in PIR")
   }
 
   // HACK

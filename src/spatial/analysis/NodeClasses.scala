@@ -23,12 +23,12 @@ trait NodeClasses extends SpatialMetadataExp {
     def isInner: Boolean = x._2
   }
 
-  def isControlNode(e: Exp[_]): Boolean = isOuterControl(e) || isInnerControl(e)
+  def isControlNode(e: Exp[_]): Boolean = isPipeline(e) || isParallel(e) || isDRAMTransfer(e) || isSwitch(e) || isSwitchCase(e)
+  def isOuterControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == OuterControl
+  def isInnerControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == InnerControl
 
-  def isOuterControl(e: Exp[_]): Boolean = isOuterPipeline(e) || isParallel(e)
-  def isInnerControl(e: Exp[_]): Boolean = isInnerPipeline(e) || isDRAMTransfer(e)
-  def isOuterPipeline(e: Exp[_]): Boolean = isPipeline(e) && styleOf(e) != InnerPipe
-  def isInnerPipeline(e: Exp[_]): Boolean = isPipeline(e) && styleOf(e) == InnerPipe
+  def isOuterPipeline(e: Exp[_]): Boolean = isOuterControl(e) && isPipeline(e)
+  def isInnerPipeline(e: Exp[_]): Boolean = isInnerControl(e) && isPipeline(e)
 
   def isOuterControl(e: Ctrl): Boolean = !e.isInner && isOuterControl(e.node)
   def isInnerControl(e: Ctrl): Boolean = e.isInner || isInnerControl(e.node)
@@ -48,16 +48,22 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isSwitch(e: Exp[_]): Boolean = getDef(e).exists(isSwitch)
+  def isSwitch(d: Def): Boolean = d match {
+    case _:Switch[_] => true
+    case _ => false
+  }
+
+  def isSwitchCase(e: Exp[_]): Boolean = getDef(e).exists(isSwitchCase)
+  def isSwitchCase(d: Def): Boolean = d match {
+    case _:SwitchCase[_] => true
+    case _ => false
+  }
+
   def isPipeline(e: Exp[_]): Boolean = getDef(e).exists(isPipeline)
   def isPipeline(d: Def): Boolean = d match {
-    case _:Hwblock             => true
-    case _:UnitPipe            => true
-    case _:OpForeach           => true
-    case _:OpReduce[_]         => true
-    case _:OpMemReduce[_,_]    => true
-    case _:UnrolledForeach     => true
-    case _:UnrolledReduce[_,_] => true
-    case _ => false
+    case _:Hwblock => true
+    case _         => isUnitPipe(d) || isLoop(d)
   }
 
   def isUnitPipe(e: Exp[_]): Boolean = getDef(e).exists(isUnitPipe)
@@ -73,6 +79,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case _:OpMemReduce[_,_]    => true
     case _:UnrolledForeach     => true
     case _:UnrolledReduce[_,_] => true
+    case _:StateMachine[_]     => true
     case _ => false
   }
 
@@ -325,9 +332,11 @@ trait NodeClasses extends SpatialMetadataExp {
 
   object LocalWriter {
     def unapply(x: Exp[_]): Option[List[LocalWrite]] = getDef(x).flatMap(writerUnapply)
+    def unapply(d: Def): Option[List[LocalWrite]] = writerUnapply(d)
   }
   object LocalReader {
     def unapply(x: Exp[_]): Option[List[LocalRead]] = getDef(x).flatMap(readerUnapply)
+    def unapply(d: Def): Option[List[LocalRead]] = readerUnapply(d)
   }
 
   def isReader(x: Exp[_]): Boolean = LocalReader.unapply(x).isDefined

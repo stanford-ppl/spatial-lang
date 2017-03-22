@@ -15,8 +15,8 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     func:   Block[Void],
     iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bool]]]
-  ) extends Op[Controller] {
-    def mirror(f:Tx) = op_unrolled_foreach(f(en),f(cchain),f(func),iters,valids)
+  ) extends EnabledController {
+    def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bool]]) = op_unrolled_foreach(f(en)++addEn,f(cchain),f(func),iters,valids)
 
     override def inputs = syms(en) ++ syms(cchain) ++ syms(func)
     override def freqs = normal(cchain) ++ cold(func)
@@ -32,8 +32,8 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bool]]],
     rV:     (Bound[T], Bound[T])
-  )(implicit val mT: Staged[T], val mC: Staged[C[T]]) extends Op[Controller] {
-    def mirror(f:Tx) = op_unrolled_reduce(f(en),f(cchain),f(accum),f(func),f(reduce),iters,valids,rV)
+  )(implicit val mT: Staged[T], val mC: Staged[C[T]]) extends EnabledController {
+    def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bool]]) = op_unrolled_reduce(f(en)++addEn,f(cchain),f(accum),f(func),f(reduce),iters,valids,rV)
 
     override def inputs = syms(en) ++ syms(cchain, accum) ++ syms(func) ++ syms(reduce)
     override def freqs = normal(cchain) ++ normal(accum) ++ cold(func) ++ cold(reduce)

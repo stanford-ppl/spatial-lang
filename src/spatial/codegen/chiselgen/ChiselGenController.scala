@@ -135,6 +135,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         }
       case SeqPipe => s"Seqpipe"
       case ForkJoin => s"Parallel"
+      case ForkSwitch => s"Match"
     }
 
     emit(src"""//  ---- Begin ${smStr} $sym Controller ----""")
