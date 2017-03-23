@@ -118,7 +118,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       val offset_bytes = maddr_bytes - start_bytes      // Burst-aligned start address, in bytes
       val raw_end      = maddr_bytes + length_bytes     // Raw end, in bytes, with burst-aligned start
 
-      val end_bytes = bytesPerBurst - mux(raw_end % bytesPerBurst == 0,  0.as[Index], raw_end % bytesPerBurst) // Extra useless bytes at end
+      val end_bytes = mux(raw_end % bytesPerBurst == 0,  0.as[Index], bytesPerBurst - raw_end % bytesPerBurst) // Extra useless bytes at end
 
       // FIXME: What to do for bursts which split individual words?
       val start = start_bytes / bytesPerWord                   // Number of WHOLE elements to ignore at start

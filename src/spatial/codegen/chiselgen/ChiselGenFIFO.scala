@@ -25,13 +25,12 @@ trait ChiselGenFIFO extends ChiselCodegen {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case e: FIFONew[_] =>
-              s"x${lhs.id}_Fifo"
-            case FIFOEnq(fifo:Sym[_],_,_) =>
+          lhs match {
+            case Def(e: FIFONew[_]) =>
+              s"""x${lhs.id}_${nameOf(lhs).getOrElse("fifo")}"""
+            case Def(FIFOEnq(fifo:Sym[_],_,_)) =>
               s"x${lhs.id}_enqTo${fifo.id}"
-            case FIFODeq(fifo:Sym[_],_) =>
+            case Def(FIFODeq(fifo:Sym[_],_)) =>
               s"x${lhs.id}_deqFrom${fifo.id}"
             case _ =>
               super.quote(s)
@@ -72,7 +71,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
       emit(src"""val ${lhs}_wdata = Wire(Vec($wPar, UInt(${width}.W)))""")
       emit(src"""val ${lhs}_readEn = Wire(Bool())""")
       emit(src"""val ${lhs}_writeEn = Wire(Bool())""")
-      emitGlobal(src"""val ${lhs} = Module(new FIFO($rPar, $wPar, $size)) // ${nameOf(lhs).getOrElse("")}""".replace(".U(32.W)",""))
+      emitGlobal(src"""val ${lhs} = Module(new FIFO($rPar, $wPar, $size, $width)) // ${nameOf(lhs).getOrElse("")}""".replace(".U(32.W)",""))
       emit(src"""val ${lhs}_rdata = ${lhs}.io.out""")
       emit(src"""${lhs}.io.in := ${lhs}_wdata""")
       emit(src"""${lhs}.io.pop := ${lhs}_readEn""")

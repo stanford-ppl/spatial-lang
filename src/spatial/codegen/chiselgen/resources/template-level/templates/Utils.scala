@@ -38,6 +38,36 @@ object Utils {
     cst
   }
 
+  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data](x1: T1, x2: T2): UInt = {
+    val raw_x1 = x1 match {
+      case x:UInt => x
+      case x:FixedPoint => x.number
+    }
+    val raw_x2 = x2 match {
+      case x:UInt => x
+      case x:FixedPoint => x.number
+    }
+
+    util.Cat(raw_x1,raw_x2)
+  }
+
+  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3): UInt = {
+    val raw_x1 = x1 match {
+      case x:UInt => x
+      case x:FixedPoint => x.number
+    }
+    val raw_x2 = x2 match {
+      case x:UInt => x
+      case x:FixedPoint => x.number
+    }
+    val raw_x3 = x3 match {
+      case x:UInt => x
+      case x:FixedPoint => x.number
+    }
+
+    util.Cat(raw_x1,raw_x2,raw_x3)
+  }
+
 
   def min[T <: chisel3.core.Data](a: T, b: T): T = {
     (a,b) match {

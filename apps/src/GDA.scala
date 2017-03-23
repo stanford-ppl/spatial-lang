@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object GDA extends SpatialApp { // Regression (Dense) // Args: 192
+object GDA extends SpatialApp { // Regression (Dense) // Args: 16
   import IR._
 
   type X = Int
@@ -11,7 +11,7 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 192
   lazy val outerPar = 1
   val MAXC = 64
   val C = MAXC
-  val tileSize = 20
+  val tileSize = 16
   val pLoopPar = 2
 
   @virtualize
@@ -46,8 +46,8 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 192
       val mu0Tile = SRAM[T](MAXC)
       val mu1Tile = SRAM[T](MAXC)
       Parallel {
-        mu0Tile load mu0(0::C par subLoopPar)  // Load mu0
-        mu1Tile load mu1(0::C par subLoopPar)  // Load mu1
+        mu0Tile load mu0(0::C par 16)  // Load mu0
+        mu1Tile load mu1(0::C par 16)  // Load mu1
       }
 
       val sigmaOut = SRAM[T](MAXC, MAXC)
@@ -57,8 +57,8 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 192
         val gdaXtile = SRAM[T](rTileSize, MAXC)
         val blk = Reg[Int]
         Parallel {
-          gdaYtile load y(r::r+rTileSize par subLoopPar)
-          gdaXtile load x(r::r+rTileSize, 0::C par subLoopPar)  // Load tile of x
+          gdaYtile load y(r::r+rTileSize par 16)
+          gdaXtile load x(r::r+rTileSize, 0::C par 16)  // Load tile of x
           Pipe { blk := min(R.value - r, rTileSize) }
         }
 
@@ -76,7 +76,7 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 192
         }{_+_}
       }{_+_}
 
-      sigma(0::C, 0::C par outerAccumPar) store sigmaOut
+      sigma(0::C, 0::C par 16) store sigmaOut
     }
 
     getMem(sigma)
@@ -101,8 +101,8 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 192
 
     val x  = Array.tabulate(R){ i => Array.tabulate(C){ j => (i*C + j) % 256 }}
     val ys = Array.tabulate(R){ i => i % 256 }
-    val mu0 = Array.tabulate(C){ i => i % 256 }
-    val mu1 = Array.tabulate(C){ i => i % 256 }
+    val mu0 = Array.tabulate(C){ i => i % 2 }
+    val mu1 = Array.tabulate(C){ i => i % 2 }
 
     val result = gda(x.flatten, ys, mu0, mu1)
 

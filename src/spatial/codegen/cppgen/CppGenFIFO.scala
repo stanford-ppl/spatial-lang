@@ -14,7 +14,7 @@ trait CppGenFIFO extends CppCodegen {
         case lhs: Sym[_] =>
           lhs match {
             case Def(e: FIFONew[_]) =>
-              s"x${lhs.id}_Fifo"
+              s"""x${lhs.id}_${nameOf(lhs).getOrElse("fifo")}"""
             case Def(FIFOEnq(fifo:Sym[_],_,_)) =>
               s"x${lhs.id}_enqTo${fifo.id}"
             case Def(FIFODeq(fifo:Sym[_],_)) =>

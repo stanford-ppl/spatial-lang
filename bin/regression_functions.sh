@@ -4,8 +4,8 @@
 ##   It is called from the receive.sh, which handles path variables
 ##   and git checkouts on a server-specific basis
 
-spacing=25
-delay=1460
+spacing=30
+delay=1960
 numpieces=30
 hist=72
 
@@ -526,6 +526,7 @@ create_script() {
 # 2 - error message
 # 3 - pass (1) or fail (0)
 function report {
+  date >> ${5}/log
   rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
@@ -545,7 +546,7 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/ga
 export ARGON_HOME=${ARGON_HOME}
 export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
 export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
-" >> $1
+date >> ${5}/log" >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
     echo "#export JAVA_HOME=/usr/
@@ -590,7 +591,7 @@ cd ${5}/out
 make sim 2>&1 | tee -a ${5}/log
 
 # Check for crashes in backend compilation
-wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\" | wc -l)
+wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
 fi

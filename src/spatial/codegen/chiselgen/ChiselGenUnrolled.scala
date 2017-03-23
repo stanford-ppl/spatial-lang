@@ -70,7 +70,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       if (styleOf(lhs) != StreamPipe) { 
         emitValids(cchain, iters, valids)
         withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
-          emit(s"// Controller Stack: ${controllerStack}")
+          emit(s"// Controller Stack: ${controllerStack.tail}")
           emitParallelizedLoop(iters, cchain)
           emitBlock(func)
         }
@@ -79,7 +79,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
           emitValids(cchain, iters, valids, src"_copy$c")
         }
         withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
-          emit(s"// Controller Stack: ${controllerStack}")
+          emit(s"// Controller Stack: ${controllerStack.tail}")
           childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
             emitParallelizedLoop(iters, cchain, src"_copy$c")
           }
@@ -118,7 +118,8 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       } else {
         accum match { 
           case Def(_:RegNew[_]) => 
-            if (childrenOf(lhs).length == 1) {
+            // if (childrenOf(lhs).length == 1) {
+            if (true) {
               emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: Skeptical these codegen rules are correct")
             } else {
               emit(src"val ${accum}_wren = ${childrenOf(lhs).dropRight(1).last}_done // TODO: Skeptical these codegen rules are correct")              
@@ -130,7 +131,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
       emit(src"val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
-        emit(s"// Controller Stack: ${controllerStack}")
+        emit(s"// Controller Stack: ${controllerStack.tail}")
         emitParallelizedLoop(iters, cchain)
         emitBlock(func)
       }

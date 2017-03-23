@@ -59,7 +59,7 @@ public:
     finishSim();
     std::cout << "Design ran for " << numCycles << " cycles" << std::endl;
     if (numCycles > maxCycles) { // Design did not run to completion
-      std::cout << "Simulation terminated after " << maxCycles << " cycles" << std::endl;
+      std::cout << "=========================================\nERROR: Simulation terminated after " << maxCycles << " cycles\n=========================================" << std::endl;
     } else {  // Ran to completion, pull down command signal
       writeReg(commandReg, 0);
       while (status == 1) {
