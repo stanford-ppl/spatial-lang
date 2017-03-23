@@ -17,13 +17,12 @@ trait ChiselGenReg extends ChiselCodegen {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case ArgInNew(_)=> s"x${lhs.id}_argin"
-            case ArgOutNew(_) => s"x${lhs.id}_argout"
-            case RegNew(_) => s"x${lhs.id}_reg"
-            case RegRead(reg:Sym[_]) => s"x${lhs.id}_readx${reg.id}"
-            case RegWrite(reg:Sym[_],_,_) => s"x${lhs.id}_writex${reg.id}"
+          lhs match {
+            case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
+            case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
+            case Def(RegNew(_)) => s"""x${lhs.id}_${nameOf(lhs).getOrElse("reg")}"""
+            case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
+            case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
             case _ => super.quote(s)
           }
         case _ => super.quote(s)
@@ -31,7 +30,7 @@ trait ChiselGenReg extends ChiselCodegen {
     } else {
       super.quote(s)
     }
-  }
+  } 
 
   override protected def remap(tp: Staged[_]): String = tp match {
     case tp: RegType[_] => src"Array[${tp.typeArguments.head}]"
@@ -90,7 +89,15 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg)) {
-        emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)._1})""")
+        if (hasFracBits(reg.tp.typeArguments.head)) {
+          reg.tp.typeArguments.head match {
+            case FixPtType(s,d,f) => 
+              emitGlobal(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
+              emitGlobal(src"""${lhs}.number := io.argIns(${argMapping(reg)._1})""")
+          }
+        } else {
+          emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)._1})""")
+        }
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)

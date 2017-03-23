@@ -25,13 +25,12 @@ trait ChiselGenFIFO extends ChiselCodegen {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case e: FIFONew[_] =>
-              s"x${lhs.id}_Fifo"
-            case FIFOEnq(fifo:Sym[_],_,_) =>
+          lhs match {
+            case Def(e: FIFONew[_]) =>
+              s"""x${lhs.id}_${nameOf(lhs).getOrElse("fifo")}"""
+            case Def(FIFOEnq(fifo:Sym[_],_,_)) =>
               s"x${lhs.id}_enqTo${fifo.id}"
-            case FIFODeq(fifo:Sym[_],_,_) =>
+            case Def(FIFODeq(fifo:Sym[_],_,_)) =>
               s"x${lhs.id}_deqFrom${fifo.id}"
             case _ =>
               super.quote(s)

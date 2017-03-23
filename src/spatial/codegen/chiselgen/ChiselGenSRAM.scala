@@ -24,7 +24,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
           val Op(rhs) = lhs
           rhs match {
             case SRAMNew(dims)=> 
-              s"x${lhs.id}_sram"
+              s"""x${lhs.id}_${nameOf(lhs).getOrElse("sram")}"""
             case _ =>
               super.quote(s)
           }

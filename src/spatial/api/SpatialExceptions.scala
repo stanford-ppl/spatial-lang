@@ -70,6 +70,11 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
     error(c"Controller ${str(ctrl)} does not have a control style defined")
   })
 
+  class UndefinedControlLevelException(ctrl: Exp[_]) extends
+  CompilerException(1012, c"Controller ${str(ctrl)} does not have a control level defined", {
+    error(c"Controller ${str(ctrl)} does not have a control level defined")
+  })
+
 
   // --- User exceptions
   def nth(x: Int) = x match {
@@ -110,6 +115,15 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
   class ControlInReductionError(ctx: SrcCtx) extends UserError(ctx, {
     error(ctx, u"Reduction functions cannot have inner control nodes")
   })
+
+  class ControlInNotDoneError(ctx: SrcCtx) extends UserError(ctx, {
+    error(ctx, "While condition of FSMs cannot have inner control nodes")
+  })
+
+  class ControlInNextStateError(ctx: SrcCtx) extends UserError(ctx, {
+    error(ctx, "Next state function of FSMs cannot have inner control nodes")
+  })
+
 
   class InvalidOffchipDimensionError(offchip: Exp[_], dim: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
     error(ctx, u"Offchip memory defined here has invalid ${nth(dim)} dimension")

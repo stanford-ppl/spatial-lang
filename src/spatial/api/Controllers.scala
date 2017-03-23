@@ -221,13 +221,13 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val fFunc = () => unwrap(func)
     val pipe = op_unit_pipe(Nil, fFunc())
     styleOf(pipe) = style
+    levelOf(pipe) = InnerControl // Fixed in Level Analyzer
     Controller(pipe)
   }
 
   private[spatial] def parallel_pipe(func: => Void)(implicit ctx: SrcCtx): Controller = {
     val fFunc = () => unwrap(func)
-    val pipe = op_parallel_pipe(Nil, fFunc())
-    styleOf(pipe) = ForkJoin
+    val pipe = op_parallel_pipe(Nil, fFunc()) // Sets ForkJoin and OuterController
     Controller(pipe)
   }
 
@@ -243,6 +243,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
 
     val pipe = op_foreach(cchain.s, fFunc(), iters)
     styleOf(pipe) = style
+    levelOf(pipe) = InnerControl // Fixed in Level Analyzer
     Controller(pipe)
   }
 
@@ -271,6 +272,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val effects = mBlk.summary andAlso ldBlk.summary andAlso rBlk.summary andAlso stBlk.summary
     val pipe = stageEffectful(OpReduce[T](cchain.s, reg.s, mBlk, ldBlk, rBlk, stBlk, z, f, rV, iters), effects)(ctx)
     styleOf(pipe) = style
+    levelOf(pipe) = InnerControl // Fixed in Level Analyzer
     Controller(pipe)
   }
 
@@ -302,6 +304,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val effects = mBlk.summary andAlso rBlk.summary andAlso ldResBlk.summary andAlso ldAccBlk.summary andAlso stAccBlk.summary
     val node = stageEffectful(OpMemReduce[T,C](cchainMap.s,cchainRed.s,accum.s,mBlk,ldResBlk,ldAccBlk,rBlk,stAccBlk,z,fold,rV,itersMap,itersRed), effects)(ctx)
     styleOf(node) = style
+    levelOf(node) = OuterControl
     Controller(node)
   }
 
@@ -311,15 +314,22 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     override def freqs = cold(func)
   }
 
-  case class UnitPipe(en: Seq[Exp[Bool]], func: Block[Void]) extends Op[Controller] {
-    def mirror(f:Tx) = op_unit_pipe(f(en), f(func))
+  abstract class EnabledController extends Op[Controller] {
+    def en: Seq[Exp[Bool]]
+    final def mirror(f:Tx): Exp[Controller] = mirrorWithEn(f, Nil)
+    def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bool]]): Exp[Controller]
+  }
+
+  case class UnitPipe(en: Seq[Exp[Bool]], func: Block[Void]) extends EnabledController {
+    def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bool]]) = op_unit_pipe(f(en) ++ addEn, f(func))
     override def freqs = cold(func)
   }
 
-  case class ParallelPipe(en: Seq[Exp[Bool]], func: Block[Void]) extends Op[Controller] {
-    def mirror(f:Tx) = op_parallel_pipe(f(en), f(func))
+  case class ParallelPipe(en: Seq[Exp[Bool]], func: Block[Void]) extends EnabledController {
+    def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bool]]) = op_parallel_pipe(f(en) ++ addEn, f(func))
     override def freqs = cold(func)
   }
+
 
   case class OpForeach(cchain: Exp[CounterChain], func: Block[Void], iters: List[Bound[Index]]) extends Op[Controller] {
     def mirror(f:Tx) = op_foreach(f(cchain), f(func), iters)
@@ -398,6 +408,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val effects = fBlk.summary
     val pipe = stageEffectful( ParallelPipe(en, fBlk), effects)(ctx)
     styleOf(pipe) = ForkJoin
+    levelOf(pipe) = OuterControl
     pipe
   }
 

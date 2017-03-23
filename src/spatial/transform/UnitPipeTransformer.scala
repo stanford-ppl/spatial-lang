@@ -101,11 +101,13 @@ trait UnitPipeTransformer extends ForwardTransformer {
         val regs = escapingValues.map{sym => regFromSym(sym) }
 
         stage.staticAllocs.foreach(visitStm)
-        Pipe {
+        val pipe = op_unit_pipe(Nil, {
           stage.nodes.foreach(visitStm)
           escapingValues.zip(regs).foreach{case (sym, reg) => regWrite(reg, f(sym)) }
-          ()
-        }
+          void
+        })
+        levelOf(pipe) = InnerControl
+        styleOf(pipe) = InnerPipe
 
         // Outside inserted pipe, replace original escaping values with register reads
         escapingValues.zip(regs).foreach{case (sym,reg) => register(sym, regRead(reg)) }
@@ -132,34 +134,58 @@ trait UnitPipeTransformer extends ForwardTransformer {
     result.asInstanceOf[Exp[T]]
   })
 
-  // All blocks requiring unit pipe insertion happen to be the first for that node.
-  // If other cases should arise, may need to change this to a bitmask or an Int
-  var wrapBlocks: Boolean = false
+
+  var wrapBlocks: List[Boolean] = Nil
+  var inOuterControl: Boolean = false
   var ctx: Option[SrcCtx] = None
-  def withWrap[A](srcCtx: SrcCtx)(x: => A) = {
+
+  def withWrap[A](wrap: List[Boolean], srcCtx: SrcCtx)(x: => A) = {
     val prevWrap = wrapBlocks
     val prevCtx = ctx
-    wrapBlocks = true
+
+    wrapBlocks = wrap
     ctx = Some(srcCtx)
     val result = x
+
     wrapBlocks = prevWrap
     ctx = prevCtx
     result
   }
 
   override def apply[T:Staged](b: Block[T]): Exp[T] = {
-    if (wrapBlocks) {
-      wrapBlocks = false
+    val doWrap = wrapBlocks.headOption.getOrElse(false)
+    if (wrapBlocks.nonEmpty) wrapBlocks = wrapBlocks.drop(1)
+    dbgs(c"Transforming Block $b [$wrapBlocks]")
+    if (doWrap) {
       val result = wrapBlock(b)(mtyp(b.tp),ctx.get)
       result
     }
     else super.apply(b)
   }
 
-  override def transform[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
-    if (isOuterControl(lhs))
-      withWrap(ctx){ super.transform(lhs, rhs) } // Mirror with wrapping enabled for the first block
-    else
-      super.transform(lhs, rhs)
+  override def transform[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
+    // Only insert Unit Pipes into bodies of switch cases in outer scope contexts
+    case op@SwitchCase(cond,body) if inOuterControl =>
+      op_case(f(cond), wrapBlock(body)(mtyp(lhs.tp),ctx))
+
+    case StateMachine(en,start,notDone,action,nextState,state) =>
+      withWrap(List(false,true,false),ctx){ super.transform(lhs,rhs) } // Wrap the second block only
+
+    case _ if isOuterControl(lhs) =>
+      val prevOuterControl = inOuterControl
+      inOuterControl = true
+      val lhs2 = withWrap(List(true),ctx){ super.transform(lhs, rhs) } // Mirror with wrapping enabled for the first block
+      inOuterControl = prevOuterControl
+      lhs2
+
+    case _ if isInnerControl(lhs) =>
+      val prevOuterControl = inOuterControl
+      inOuterControl = false
+      val lhs2 = withWrap(Nil,ctx){ super.transform(lhs, rhs) } // Disable wrapping at this level
+      inOuterControl = prevOuterControl
+      lhs2
+
+    case _ =>
+      withWrap(Nil, ctx){ super.transform(lhs, rhs) }
   }
 }

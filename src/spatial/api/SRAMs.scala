@@ -19,6 +19,7 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
   this: SpatialExp =>
 
   /** Infix methods **/
+  // TODO: Specialize by rank instead, possibly generating using macros?
   case class SRAM[T:Staged:Bits](s: Exp[SRAM[T]]) {
     private def ofs = lift[Int,Index](0).s
     private[spatial] var p: Option[Index] = None
@@ -27,6 +28,7 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
 
     //def apply(ranges: Range*)(implicit ctx: SrcCtx): SRAMView[T] = SRAMView(this.s, ranges)
     def apply(indices: Index*)(implicit ctx: SrcCtx): T = wrap(sram_load(this.s, stagedDimsOf(s), unwrap(indices), ofs, bool(true)))
+
     @CurriedUpdate
     def update(indices: Index*)(data: T): Void = Void(sram_store(this.s, stagedDimsOf(s), unwrap(indices), ofs, data.s, bool(true)))
 
