@@ -167,8 +167,8 @@ trait NodeClasses extends SpatialMetadataExp {
   def isStreamStageEnabler(e: Exp[_]): Boolean = e match {
     case Def(_:FIFODeq[_]) => true
     case Def(_:ParFIFODeq[_]) => true
-    case Def(_:StreamDeq[_]) => true
-    case Def(_:ParStreamDeq[_]) => true
+    case Def(_:StreamRead[_]) => true
+    case Def(_:ParStreamRead[_]) => true
     case Def(_:DecoderTemplateNew[_]) => true
     case Def(_:DMATemplateNew[_]) => true 
     case _ => false
@@ -177,8 +177,8 @@ trait NodeClasses extends SpatialMetadataExp {
   def isStreamStageHolder(e: Exp[_]): Boolean = e match {
     case Def(_:FIFOEnq[_]) => true
     case Def(_:ParFIFOEnq[_]) => true
-    case Def(_:StreamEnq[_]) => true
-    case Def(_:ParStreamEnq[_]) => true
+    case Def(_:StreamWrite[_]) => true
+    case Def(_:ParStreamWrite[_]) => true
     case Def(_:DecoderTemplateNew[_]) => true
     case _ => false
   }
@@ -291,16 +291,16 @@ trait NodeClasses extends SpatialMetadataExp {
     case SRAMStore(mem,_,inds,_,data,en)   => Some(LocalWrite(mem, value=data, addr=inds, en=en))
     case FIFOEnq(fifo,data,en)             => Some(LocalWrite(fifo, value=data, en=en))
 
-    case RegFileShiftIn(reg,is,d,data)     => Some(LocalWrite(reg, value=data, addr=is))
-    case ParRegFileShiftIn(reg,is,d,data)  => Some(LocalWrite(reg,value=data, addr=is))
+    case RegFileShiftIn(reg,is,d,data,en)  => Some(LocalWrite(reg, value=data, addr=is, en=en))
+    case ParRegFileShiftIn(reg,is,d,data,en) => Some(LocalWrite(reg,value=data, addr=is, en=en))
 
-    case LineBufferStore(lb,col,data,en)   => Some(LocalWrite(lb, value=data, addr=Seq(col), en=en))
+    case LineBufferEnq(lb,data,en)         => Some(LocalWrite(lb, value=data, en=en))
 
     case e: DenseTransfer[_,_] if e.isLoad => Some(LocalWrite(e.local, addr=e.iters))
     case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
 
-    case StreamEnq(stream, data, en)       => Some(LocalWrite(stream, value=data, en=en))
-    case ParStreamEnq(stream, data, ens)   => Some(LocalWrite(stream, value=data))
+    case StreamWrite(stream, data, en)       => Some(LocalWrite(stream, value=data, en=en))
+    case ParStreamWrite(stream, data, ens)   => Some(LocalWrite(stream, value=data))
 
     // TODO: Address and enable are in different format in parallelized accesses
     case ParSRAMStore(mem,addr,data,en)    => Some(LocalWrite(mem,value=data))
@@ -311,7 +311,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case RegRead(reg)                       => Some(LocalRead(reg))
     case RegFileLoad(reg,inds,en)           => Some(LocalRead(reg, addr=inds, en=en))
     case SRAMLoad(mem,dims,inds,ofs,en)     => Some(LocalRead(mem, addr=inds, en=en))
-    case FIFODeq(fifo,en,_)                 => Some(LocalRead(fifo, en=en))
+    case FIFODeq(fifo,en)                   => Some(LocalRead(fifo, en=en))
 
     case LineBufferLoad(lb,row,col,en)      => Some(LocalRead(lb, addr=Seq(row,col), en=en))
     case LineBufferColSlice(lb,row,col,len) => Some(LocalRead(lb, addr=Seq(row,col)))
@@ -321,12 +321,12 @@ trait NodeClasses extends SpatialMetadataExp {
     case e: SparseTransfer[_]  if e.isLoad  => Some(LocalRead(e.addrs))
     case e: SparseTransfer[_]  if e.isStore => Some(LocalRead(e.addrs) ++ LocalRead(e.local))
 
-    case StreamDeq(stream, en, _)           => Some(LocalRead(stream, en=en))
-    case ParStreamDeq(stream, en, _)        => Some(LocalRead(stream))
+    case StreamRead(stream, en)              => Some(LocalRead(stream, en=en))
 
     // TODO: Address and enable are in different format in parallelized accesses
+    case ParStreamRead(stream, ens)          => Some(LocalRead(stream))
     case ParSRAMLoad(sram,addr,ens)         => Some(LocalRead(sram))
-    case ParFIFODeq(fifo,ens,_)             => Some(LocalRead(fifo))
+    case ParFIFODeq(fifo,ens)               => Some(LocalRead(fifo))
     case _ => None
   }
 

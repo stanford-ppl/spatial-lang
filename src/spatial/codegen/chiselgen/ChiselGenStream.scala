@@ -39,9 +39,9 @@ trait ChiselGenStream extends ChiselCodegen {
           emit(src"// New stream out $lhs")
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
-    case StreamDeq(stream, en, zero) => 
-      emit(src"""val $lhs = Mux($en, ${stream}_data, $zero)""")
-    case StreamEnq(stream, data, en) => 
+    case StreamRead(stream, en) =>
+      emit(src"""val $lhs = ${stream}_data""")  // Ignores enable for now
+    case StreamWrite(stream, data, en) =>
       emitGlobal(src"""val ${stream}_valid = Wire(Bool())""")
       emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
       emitGlobal(src"""val ${stream}_data = Wire(UInt(65.W))""")

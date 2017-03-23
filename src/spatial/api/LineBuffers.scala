@@ -41,6 +41,8 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
       exp.tp.wrapped(exp)
     }
 
+    def enq(data: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(linebuffer_enq(this.s, data.s, en.s))
+
     def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = {
       if (!dram.ranges.head.isUnit || dram.ranges.length != 2) {
         error(ctx, "Loading into a LineBuffer from DRAM must be row-based")
@@ -72,7 +74,7 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     }
 
     def store(mem: LineBuffer[T], is: Seq[Index], data: T, en: Bool)(implicit ctx: SrcCtx): Void = {
-      wrap(linebuffer_store(mem.s, is(0).s, data.s, en.s))
+      wrap(linebuffer_enq(mem.s, data.s, en.s))
     }
     def iterators(mem: LineBuffer[T])(implicit ctx: SrcCtx): Seq[Counter] = {
       // Hack: Use only columns for dense transfers
@@ -117,19 +119,18 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     row:        Exp[Index],
     col:        Exp[Index],
     en:         Exp[Bool]
-  ) extends Op[T] {
+  ) extends EnabledOp[T](en) {
     def mirror(f:Tx) = linebuffer_load(f(linebuffer),f(row),f(col),f(en))
     override def aliases = Nil
     val mT = typ[T]
   }
 
-  case class LineBufferStore[T:Staged:Bits](
+  case class LineBufferEnq[T:Staged:Bits](
     linebuffer: Exp[LineBuffer[T]],
-    col:        Exp[Index],
     data:       Exp[T],
     en:         Exp[Bool]
-  ) extends Op[Void] {
-    def mirror(f:Tx) = linebuffer_store(f(linebuffer),f(col),f(data),f(en))
+  ) extends EnabledOp[Void](en) {
+    def mirror(f:Tx) = linebuffer_enq(f(linebuffer),f(data),f(en))
     override def aliases = Nil
     val mT = typ[T]
   }
@@ -179,13 +180,12 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     stageWrite(linebuffer)(LineBufferLoad(linebuffer,row,col,en))(ctx)
   }
 
-  private[spatial] def linebuffer_store[T:Staged:Bits](
+  private[spatial] def linebuffer_enq[T:Staged:Bits](
     linebuffer: Exp[LineBuffer[T]],
-    col:        Exp[Index],
     data:       Exp[T],
     en:         Exp[Bool]
   )(implicit ctx: SrcCtx) = {
-    stageWrite(linebuffer)(LineBufferStore(linebuffer,col,data,en))(ctx)
+    stageWrite(linebuffer)(LineBufferEnq(linebuffer,data,en))(ctx)
   }
 
   /** Internal **/

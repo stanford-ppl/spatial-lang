@@ -136,7 +136,6 @@ trait UnitPipeTransformer extends ForwardTransformer {
 
 
   var wrapBlocks: List[Boolean] = Nil
-  var inOuterControl: Boolean = false
   var ctx: Option[SrcCtx] = None
 
   def withWrap[A](wrap: List[Boolean], srcCtx: SrcCtx)(x: => A) = {
@@ -165,27 +164,16 @@ trait UnitPipeTransformer extends ForwardTransformer {
 
   override def transform[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
     // Only insert Unit Pipes into bodies of switch cases in outer scope contexts
-    case op@SwitchCase(cond,body) if inOuterControl =>
-      op_case(f(cond), wrapBlock(body)(mtyp(lhs.tp),ctx))
+    case op@SwitchCase(cond,body) if isOuterControl(lhs) =>
+      withWrap(List(true),ctx){ super.transform(lhs,rhs) }
 
-    case StateMachine(en,start,notDone,action,nextState,state) =>
+    case StateMachine(en,start,notDone,action,nextState,state) if isOuterControl(lhs) =>
       withWrap(List(false,true,false),ctx){ super.transform(lhs,rhs) } // Wrap the second block only
 
     case _ if isOuterControl(lhs) =>
-      val prevOuterControl = inOuterControl
-      inOuterControl = true
-      val lhs2 = withWrap(List(true),ctx){ super.transform(lhs, rhs) } // Mirror with wrapping enabled for the first block
-      inOuterControl = prevOuterControl
-      lhs2
-
-    case _ if isInnerControl(lhs) =>
-      val prevOuterControl = inOuterControl
-      inOuterControl = false
-      val lhs2 = withWrap(Nil,ctx){ super.transform(lhs, rhs) } // Disable wrapping at this level
-      inOuterControl = prevOuterControl
-      lhs2
+      withWrap(List(true),ctx){ super.transform(lhs, rhs) } // Mirror with wrapping enabled for the first block
 
     case _ =>
-      withWrap(Nil, ctx){ super.transform(lhs, rhs) }
+      withWrap(Nil, ctx){ super.transform(lhs, rhs) } // Disable wrapping at this level
   }
 }

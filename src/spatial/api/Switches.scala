@@ -11,12 +11,25 @@ trait SwitchApi extends SwitchExp {
 trait SwitchExp extends Staging {
   this: SpatialExp =>
 
+  def create_switch[T:Staged](cases: Seq[() => Exp[T]])(implicit ctx: SrcCtx): Exp[T] = {
+    var cs: Seq[Exp[T]] = Nil
+    val block = stageBlock{ cs = cases.map{c => c() }; cs.last }
+    val effects = block.summary
+    stageEffectful(Switch(block, cs), effects)(ctx)
+  }
+
   case class SwitchCase[T:Staged](cond: Exp[Bool], body: Block[T]) extends Op[T] {
     def mirror(f:Tx) = op_case(f(cond), f(body))
   }
 
-  case class Switch[T:Staged](cases: Block[T]) extends Op[T] {
-    def mirror(f:Tx) = op_switch(f(cases))
+  case class Switch[T:Staged](body: Block[T], cases: Seq[Exp[T]]) extends Op[T] {
+    def mirror(f:Tx) = {
+      val body2 = stageBlock{ f(body) }
+      val cases2 = f(cases)
+      op_switch(body2, cases2)
+    }
+    override def binds = super.binds ++ syms(cases)
+    override def freqs = hot(body)   // Move everything except cases out of body
   }
 
   def op_case[T:Staged](cond: Exp[Bool], body: => Exp[T])(implicit ctx: SrcCtx): Exp[T] = {
@@ -25,10 +38,10 @@ trait SwitchExp extends Staging {
     stageEffectful(SwitchCase(cond, block), effects)(ctx)
   }
 
-  def op_switch[T:Staged](cases: => Exp[T])(implicit ctx: SrcCtx): Exp[T] = {
-    val block = stageBlock{ cases }
-    val effects = block.summary
-    stageEffectful(Switch(block), effects)(ctx)
+  def op_switch[T:Staged](body: Block[T], cases: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[T] = {
+    val effects = body.summary
+    stageEffectful(Switch(body, cases), effects)(ctx)
   }
+
 
 }

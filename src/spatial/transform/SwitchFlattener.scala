@@ -20,49 +20,15 @@ trait SwitchFlattener extends ForwardTransformer {
 
   var canInline = Map[Exp[_], Boolean]()
 
-  /**
-    * Since only some effectful primitive nodes currently allow enables, currently only unrolling inner switch statements
-    * when all contained primitive nodes have explicit enables.
-    */
-  def canInlineSwitch(c: Exp[_]): Boolean = if (canInline.contains(c)) canInline(c) else {
-
-    def canInlineCase(c: Exp[_]): Boolean = c match {
-      case Def(SwitchCase(cond,blk)) =>
-        val contents = blockContents(blk)
-        contents.flatMap(_.lhs).forall{
-          case LocalReader(reads)  => reads.forall(_.en.isDefined)
-          case LocalWriter(writes) => writes.forall(_.en.isDefined)
-          case _ => false
-        }
-      case _ => false
-    }
-
-    val can = isOuterControl(c) || childrenOf(c).forall(canInlineCase)
-    canInline += c -> can
-    can
-  }
-
   override def transform[T: Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
-    case Switch(blk) if canInlineSwitch(lhs) => inlineBlock(blk)
-    case SwitchCase(cond,blk) if canInlineSwitch(parentOf(lhs).get) => withEnable(f(cond)){ inlineBlock(blk) }
+    case Switch(blk,cases) => inlineBlock(blk)
+    case SwitchCase(cond,blk) => withEnable(f(cond)){ inlineBlock(blk) }
 
-    case op: EnabledController =>
-      // TODO: Could potentially make this simpler if default node mirroring could be overridden
-      transferMetadataIfNew(lhs){ op.mirrorWithEn(f, enable.toSeq).asInstanceOf[Exp[T]] }._1
-
-    case LocalReader(reads) =>
-      val ens = reads.flatMap(_.en)
-      val ens2 = ens.map{en => enable.map{gen => bool_and(f(en), gen) }.getOrElse(f(en)) }
-      withSubstScope(ens.zip(ens2):_*){ super.transform(lhs,rhs) }
-
-    case LocalWriter(writes) =>
-      val ens = writes.flatMap(_.en)
-      val ens2 = ens.map{en => enable.map{gen => bool_and(f(en), gen) }.getOrElse(f(en)) }
-      withSubstScope(ens.zip(ens2):_*){ super.transform(lhs,rhs) }
+    // TODO: Could potentially make this a bit simpler if default node mirroring could be overridden
+    case op: EnabledController => transferMetadataIfNew(lhs){ op.mirrorWithEn(f, enable.toSeq).asInstanceOf[Exp[T]] }._1
+    case op: EnabledOp[_] if enable.isDefined => transferMetadataIfNew(lhs){ op.mirrorWithEn(f, enable.get).asInstanceOf[Exp[T]] }._1
 
     case _ => super.transform(lhs, rhs)
 
   }
-
-
 }

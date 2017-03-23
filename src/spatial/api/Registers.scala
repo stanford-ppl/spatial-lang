@@ -67,7 +67,7 @@ trait RegExp extends Staging with MemoryExp {
     val bT = bits[T]
     override def aliases = Nil
   }
-  case class RegWrite[T:Staged:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
+  case class RegWrite[T:Staged:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool]) extends EnabledOp[Void](en) {
     def mirror(f:Tx) = reg_write(f(reg),f(data), f(en))
     val mT = typ[T]
     val bT = bits[T]

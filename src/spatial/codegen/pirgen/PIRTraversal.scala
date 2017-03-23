@@ -10,7 +10,7 @@ import spatial.SpatialExp
 
 trait PIRTraversal extends SpatialTraversal {
   val IR: SpatialExp with PIRCommonExp
-  import IR.{println => _, _}
+  import IR._
 
   def quote(x: Symbol):String = s"$x" //TODO: super.quote(aliasOf(x))
 

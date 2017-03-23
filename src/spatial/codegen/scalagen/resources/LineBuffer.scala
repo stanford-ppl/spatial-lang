@@ -11,8 +11,11 @@ case class LineBuffer[T:ClassTag](rows: Int, cols: Int, invalid: T) {
 
   def apply(row: Int, col: Int): T = buffers(rotatedRow(row))(col)
 
-  def store(col: Int, data: T, rotate: Boolean = true): Unit = {
-    if (col == 0 && rotate) start = (start + 1) % rows
-    buffers(start).update(col, data)
+  var colEnqCount = 0
+
+  def enq(data: T, rotate: Boolean = true): Unit = {
+    if (colEnqCount == 0 && rotate) start = (start + 1) % rows
+    buffers(start).update(colEnqCount, data)
+    colEnqCount = (colEnqCount + 1) % cols
   }
 }

@@ -1202,8 +1202,7 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
         val fifo2 = FIFO[T](frameCols)
         Stream(frameCols by 1) { j =>
           Pipe {
-            val pop = conduit.deq()
-            fifo1.enq(pop)
+            fifo1.enq(conduit)
           }
           Pipe {
             val pop = fifo1.deq()
@@ -1221,3 +1220,89 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
   }
 
 }
+
+object BasicFSM extends SpatialApp {
+  import IR._
+
+  @virtualize
+  def main() {
+    val dram = DRAM[Int](32)
+    Accel {
+      val bram = SRAM[Int](32)
+
+      FSM[Int]{state => state < 32}{state =>
+        bram(state) = state
+      }{state => state + 1}
+
+      dram store bram
+    }
+    val result = getMem(dram)
+    for(i <- 0 until 32) { assert(result(i) == i, "Incorrect at index " + i) }
+    println("PASS")
+  }
+}
+
+object BasicCondFSM extends SpatialApp {
+  import IR._
+
+  @virtualize
+  def main() {
+    val dram = DRAM[Int](32)
+    Accel {
+      val bram = SRAM[Int](32)
+
+      FSM[Int]{state => state < 32} { state =>
+        if (state < 16) {
+          bram(31 - state) = state // 16:31 [15, 14, ... 0]
+        }
+        else {
+          bram(state - 16) = state // 0:15 [16, 17, ... 31]
+        }
+      }{state => state + 1}
+
+      dram store bram
+    }
+    val result = getMem(dram)
+    val gold = Array.tabulate(32){i => if (i < 16) 16 + i else 31 - i }
+    printArray(result, "Result")
+    printArray(gold, "Gold")
+    for (i <- 0 until 32){ assert(result(i) == gold(i)) }
+    println("PASS")
+  }
+}
+
+object DotProductFSM extends SpatialApp {
+  import IR._
+
+  @virtualize
+  def main() {
+    val vectorA = Array.fill(128){ random[Int](10) }
+    val vectorB = Array.fill(128){ random[Int](10) }
+
+    val vecA = DRAM[Int](128)
+    val vecB = DRAM[Int](128)
+    val out  = ArgOut[Int]
+
+    setMem(vecA, vectorA)
+    setMem(vecB, vectorB)
+
+    Accel {
+      FSM[Int](i => i < 128){i =>
+        val a = SRAM[Int](16)
+        val b = SRAM[Int](16)
+        Parallel {
+          a load vecA(i::i+16)
+          b load vecB(i::i+16)
+        }
+        out := out + Reduce(0)(0 until 16){i => a(i) * b(i) }{_+_}
+      }{i => i + 16 }
+    }
+
+    val result = getArg(out)
+    val gold = vectorA.zip(vectorB){_*_}.reduce{_+_}
+
+    assert(result == gold, "Result (" + result + ") did not equal expected (" + gold + ")")
+    println("PASS")
+  }
+}
+

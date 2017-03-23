@@ -138,7 +138,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     case ParSRAMLoad(sram,inds,ens) =>
       val dispatch = dispatchOf(lhs, sram)
-      val rPar = inds.indices.length
+      val rPar = inds.length
       val dims = stagedDimsOf(sram)
       dispatch.foreach{ i => 
         emit(s"""// Assemble multidimR vector""")
@@ -176,7 +176,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         case _ => emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${lhs}_wVec($i).en := ${ens}($i)")
+        emit(src"${lhs}_wVec($i).en := ${ens(i)}")
         ind.zipWithIndex.foreach{ case (a, j) =>
           emit(src"""${lhs}_wVec($i).addr($j) := $a """)
         }
@@ -188,44 +188,46 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enabler}, List(${p}))""")
       }
 
-    case ParFIFODeq(fifo, ens, z) =>
+    case ParFIFODeq(fifo, ens) =>
+      val par = ens.length
+      val en = ens.map(quote).mkString("&")
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}_readEn := ${reader}_datapath_en & ${ens}.reduce{_&_}""")
+      emit(src"""${quote(fifo)}_readEn := ${reader}_datapath_en & $en""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
-            emit(s"""val ${quote(lhs)} = (0 until ${quote(ens)}.length).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) } // Ignore $z""")
+            emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) }""")
           } else {
-            emit(src"""val ${lhs} = ${fifo}_rdata // Ignore $z""")
+            emit(src"""val ${lhs} = ${fifo}_rdata""")
           }
-        case _ => emit(src"""val ${lhs} = ${fifo}_rdata // Ignore $z""")
+        case _ => emit(src"""val ${lhs} = ${fifo}_rdata""")
       }
 
     case ParFIFOEnq(fifo, data, ens) =>
+      val par = ens.length
+      val en = ens.map(quote).mkString("&")
       val writer = writersOf(fifo).head.ctrlNode  
       // Check if this is a tile consumer
 
       val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_enq" else src"${writer}_sm.io.output.ctr_inc"
-      emit(src"""${fifo}_writeEn := $enabler & ${ens}.reduce{_&_}""")
+      emit(src"""${fifo}_writeEn := $enabler & $en""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
-            emit(src"""${fifo}_wdata := (0 until ${ens}.length).map{ i => ${data}(i).number }""")
+            emit(src"""${fifo}_wdata := (0 until $par).map{ i => ${data}(i).number }""")
           } else {
             emit(src"""${fifo}_wdata := ${data}""")
           }
         case _ => emit(src"""${fifo}_wdata := ${data}""")
       }
 
-    case e@ParStreamDeq(strm, ens, zero) =>
-      emit(src"val $lhs = $ens.zipWithIndex.map{case (en, i) => Mux(en, ${strm}_data(i), $zero) }")
+    case e@ParStreamRead(strm, ens) =>
+      emit(src"val $lhs = $ens.zipWithIndex.map{case (en, i) => ${strm}_data(i) }") // Mux(en, ${strm}_data(i), $zero) }")
 
-    case ParStreamEnq(strm, data, ens) =>
-      val par = ens match {
-        case Op(ListVector(elems)) => elems.length
-        case _ => 1
-      }
+    case ParStreamWrite(strm, data, ens) =>
+      val par = ens.length
+      val en = ens.map(quote).mkString("&")
       emitGlobal(src"val ${strm}_data = Wire(Vec($par, UInt(32.W)))")
       emit(src"${strm}_data := $data")
-      emit(src"${strm}_en := ${ens}.reduce{_&_} & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
+      emit(src"${strm}_en := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
 
     case _ => super.emitNode(lhs, rhs)
   }

@@ -6,7 +6,7 @@ import scala.collection.mutable
 
 trait PIRAllocation extends PIRTraversal {
   val IR: SpatialExp with PIRCommonExp
-  import IR.{println => _, _}
+  import IR._
 
   override val name = "PIR CU Allocation"
 
@@ -286,11 +286,11 @@ trait PIRAllocation extends PIRTraversal {
     // HACK: Ignore write address for SRAMs written from popping the result of tile loads
     // (Skipping the vector packing/unpacking nonsense in between)
     def useFifoOnWrite(mem: Exp[Any], value: Exp[Any]): Boolean = value match { //TODO how about gather??
-      case Def(FIFODeq(fifo, en, _))     =>
+      case Def(FIFODeq(fifo, en))     =>
         dbg(s"      $value = pop($fifo) [${writersOf(fifo)}]")
         //writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
         false
-      case Def(ParFIFODeq(fifo, ens, _)) =>
+      case Def(ParFIFODeq(fifo, ens)) =>
         dbg(s"      $value = pop($fifo) [${writersOf(fifo)}]")
         //writersOf(fifo).forall{writer => writer.node match {case Def(_:BurstLoad[_]) => true; case _ => false }}
         false
@@ -335,17 +335,14 @@ trait PIRAllocation extends PIRTraversal {
 
           if ((isBuffer(mem) || isFIFO(mem)) && writeAsFIFO) {
             // This entire section is a hack to support FIFO-on-write for burst loads
-            val enable: Option[Exp[Any]] = writer match {
-              case Def(SRAMStore(mem, dims, is, ofs, data, en)) => Some(en)
-              case Def(ParSRAMStore(sram, addr, data, ens))  => Some(ens)
-              case Def(FIFOEnq(fifo, data, en))          => Some(en)
-              case Def(ParFIFOEnq(fifo, data, ens)) => Some(ens)
-              case _ => None
+            val enable: Seq[Exp[Any]] = writer match {
+              case Def(op:EnabledOp[_]) => op.enables
+              case _ => Nil
             }
-            val enableComputation = enable.map{e => getScheduleForAddress(stms)(Seq(e)) }.getOrElse(Nil)
+            val enableComputation = enable.map{e => getScheduleForAddress(stms)(Seq(e)) }
             val enableSyms = enableComputation.map{case TP(s,d) => s}
 
-            val (start,end) = getFifoBounds(enable)
+            val (start,end) = getFifoBounds(enable.headOption)
 
             val startX = start match {case start@Some(Def(_:RegRead[_])) => start; case _ => None }
             val endX = end match {case end@Some(Def(_:RegRead[_])) => end; case _ => None }

@@ -19,35 +19,38 @@ import spatial.codegen.cppgen._
 
 
 protected trait SpatialExp extends Staging
-  with ArrayExp with ArrayExtExp with AssertExp with BoolExp with CastExp with FixPtExp with FltPtExp
-  with HashMapExp with IfThenElseExp with MixedNumericExp with PrintExp with StringCastExp with StructExp
+  with ArrayExp with ArrayExtExp with BoolExp with CastExp with FixPtExp with FltPtExp
+  with HashMapExp with IfThenElseExp with MixedNumericExp with StringCastExp with StructExp
   with TextExp with TupleExp with VoidExp with MatrixExp
+  with DebuggingExp
 
   with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
   with StreamExp with PinExp with AlteraVideoExp
-  with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp
+  with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
 
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
 
 
 protected trait SpatialApi extends SpatialExp
-  with ArrayApi with ArrayExtApi with AssertApi with BoolApi with CastApi with FixPtApi with FltPtApi
-  with HashMapApi with IfThenElseApi with MixedNumericApi with PrintApi with StringCastApi with StructApi
+  with ArrayApi with ArrayExtApi with BoolApi with CastApi with FixPtApi with FltPtApi
+  with HashMapApi with IfThenElseApi with MixedNumericApi with StringCastApi with StructApi
   with TextApi with TupleApi with VoidApi with MatrixApi
+  with DebuggingApi
 
   with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
   with StreamApi with PinApi with AlteraVideoApi
-  with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi
+  with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
 
   with SpatialMetadataApi with BankingMetadataApi
 
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
-  with ScalaGenArray with ScalaGenSpatialArrayExt with ScalaGenAssert with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
-  with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenMixedNumeric with ScalaGenPrint with ScalaGenStringCast with ScalaGenStructs with ScalaGenSpatialStruct
+  with ScalaGenArray with ScalaGenSpatialArrayExt with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
+  with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenMixedNumeric with ScalaGenStringCast with ScalaGenStructs with ScalaGenSpatialStruct
   with ScalaGenText with ScalaGenVoid
+  with ScalaGenDebugging
 
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
@@ -60,15 +63,14 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
 protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenBool with ChiselGenVoid with ChiselGenFixPt with ChiselGenFltPt with ChiselGenMixedNumeric
   with ChiselGenCounter with ChiselGenReg with ChiselGenSRAM with ChiselGenFIFO 
-  with ChiselGenIfThenElse with ChiselGenPrint with ChiselGenController with ChiselGenMath with ChiselGenText
+  with ChiselGenIfThenElse with ChiselGenController with ChiselGenMath with ChiselGenText
   with ChiselGenDRAM with ChiselGenStringCast with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
   with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream with ChiselGenStructs {
 
   override val IR: SpatialCompiler
 }
 
-protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen 
-  with PIRGenPrint with PIRGenController 
+protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen with PIRGenController
   //with PIRGenCounter with PIRGenReg with PIRGenSRAM with PIRGenFIFO with PIRGenMath 
   //with PIRGenDRAM with PIRGenStringCast with PIRGenHostTransfer with PIRGenUnrolled with PIRGenVector
   //with PIRGenArray 
@@ -80,10 +82,10 @@ protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen
 protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenBool with CppGenVoid with CppGenFixPt with CppGenFltPt with CppGenMixedNumeric
   with CppGenCounter with CppGenReg with CppGenSRAM with CppGenFIFO 
-  with CppGenIfThenElse with CppGenPrint with CppGenController with CppGenMath with CppGenFringeCopy with CppGenText
+  with CppGenIfThenElse with CppGenController with CppGenMath with CppGenFringeCopy with CppGenText
   with CppGenDRAM with CppGenStringCast with CppGenHostTransfer with CppGenUnrolled with CppGenVector
-  with CppGenArray with CppGenArrayExt with CppGenAsserts with CppGenRange with CppGenAlteraVideo with CppGenStream
-  with CppGenHashMap with CppGenStructs{
+  with CppGenArray with CppGenArrayExt with CppGenRange with CppGenAlteraVideo with CppGenStream
+  with CppGenHashMap with CppGenStructs with CppGenDebugging {
 
   override val IR: SpatialCompiler
 }

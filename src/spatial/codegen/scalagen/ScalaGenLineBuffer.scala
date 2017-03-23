@@ -31,9 +31,9 @@ trait ScalaGenLineBuffer extends ScalaGenMemories {
         oobApply(op.mT, lb, lhs, Seq(row,col)){ emit(src"if ($en) $lb.apply($row, $col) else ${invalid(op.mT)}") }
       close("}")
 
-    case op@LineBufferStore(lb,col,data,en) =>
+    case op@LineBufferEnq(lb,data,en) =>
       open(src"val $lhs = {")
-        oobUpdate(op.mT, lb, lhs, Seq(col), pre = "-, "){ emit(src"if ($en) $lb.store($col, $data)") }
+        oobUpdate(op.mT, lb, lhs, Nil){ emit(src"if ($en) $lb.enq($data)") }
       close("}")
     case _ => super.emitNode(lhs, rhs)
   }

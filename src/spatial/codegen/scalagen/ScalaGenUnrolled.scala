@@ -48,7 +48,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories {
       open(src"val $lhs = {")
       inds.indices.foreach{i =>
         open(src"val a$i = {")
-          oobApply(op.mT,sram,lhs,inds(i)){ emit(src"""if ($ens($i)) $sram.apply(${flattenAddress(dims, inds(i))}) else ${invalid(op.mT)}""") }
+          oobApply(op.mT,sram,lhs,inds(i)){ emit(src"""if (${ens(i)}) $sram.apply(${flattenAddress(dims, inds(i))}) else ${invalid(op.mT)}""") }
         close("}")
       }
       emit(src"Array(" + inds.indices.map{i => src"a$i"}.mkString(", ") + ")")
@@ -58,21 +58,39 @@ trait ScalaGenUnrolled extends ScalaGenMemories {
       val dims = stagedDimsOf(sram)
       open(src"val $lhs = {")
       inds.indices.foreach{i =>
-        oobUpdate(op.mT, sram, lhs,inds(i)){ emit(src"if ($ens($i)) $sram.update(${flattenAddress(dims, inds(i))}, $data($i))") }
+        oobUpdate(op.mT, sram, lhs,inds(i)){ emit(src"if (${ens(i)}) $sram.update(${flattenAddress(dims, inds(i))}, $data($i))") }
       }
       close("}")
 
-    case op@ParFIFODeq(fifo, ens, z) =>
-      emit(src"val $lhs = $ens.map{en => if (en && $fifo.nonEmpty) $fifo.dequeue() else ${invalid(op.mT)} }")
+    case op@ParFIFODeq(fifo, ens) =>
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        emit(src"val a$i = if ($en && $fifo.nonEmpty) $fifo.dequeue() else ${invalid(op.mT)}")
+      }
+      emit(src"Array(" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
+      close("}")
 
     case ParFIFOEnq(fifo, data, ens) =>
-      emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $fifo.enqueue(data) }")
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        emit(src"if ($en) $fifo.enqueue($data($i))")
+      }
+      close("}")
 
-    case e@ParStreamDeq(strm, ens, zero) =>
-      emit(src"val $lhs = $ens.map{en => if (en && $strm.nonEmpty) $strm.dequeue() else ${invalid(e.mT)} }")
+    case op@ParStreamRead(strm, ens) =>
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        emit(src"val a$i = if ($en && $strm.nonEmpty) $strm.dequeue() else ${invalid(op.mT)}")
+      }
+      emit(src"Array(" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
+      close("}")
 
-    case ParStreamEnq(strm, data, ens) =>
-      emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $strm.enqueue(data) }")
+    case ParStreamWrite(strm, data, ens) =>
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        emit(src"if ($en) $strm.enqueue($data($i))")
+      }
+      close("}")
 
     case _ => super.emitNode(lhs, rhs)
   }

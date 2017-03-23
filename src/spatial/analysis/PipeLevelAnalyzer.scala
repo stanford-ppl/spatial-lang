@@ -48,20 +48,14 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
       styleOf.get(lhs) match {
         case None            => styleOf(lhs) = MetaPipe            // MemReduce is MetaPipe by default
         case Some(InnerPipe) => styleOf(lhs) = MetaPipe            // MemReduce is always an outer controller
-        case _ =>                                                   // Otherwise preserve existing annotation
+        case _ =>                                                  // Otherwise preserve existing annotation
       }
       levelOf(lhs) = OuterControl
 
       if (hasControlNodes(e.reduce)) new ControlInReductionError(ctxOrHere(lhs))
 
     case StateMachine(_,_,notDone,action,nextState,_) =>
-      styleOf.get(lhs) match {
-        case None            => styleOf(lhs) = SeqPipe
-        case Some(InnerPipe) => styleOf(lhs) = MetaPipe
-        case _               =>
-      }
-      levelOf(lhs) = OuterControl
-
+      annotateControl(lhs, action)
       if (hasControlNodes(notDone)) new ControlInNotDoneError(ctxOrHere(lhs))
       if (hasControlNodes(nextState)) new ControlInNextStateError(ctxOrHere(lhs))
 

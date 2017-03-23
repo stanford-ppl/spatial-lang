@@ -24,9 +24,11 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
     error(ctx, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s")
   })
 
-  class ExternalWriteError(mem: Exp[_], write: Exp[_])(implicit ctx: SrcCtx) extends
+  class ExternalWriteError(mem: Exp[_], write: Exp[_], ctrl: Ctrl)(implicit ctx: SrcCtx) extends
   CompilerException(1003, c"Found illegal write to memory $mem defined outside an inner controller", {
     error(ctx, c"Found illegal write to memory $mem defined outside an inner controller")
+    error(c"${str(write)}")
+    error(c"Current control $ctrl")
   })
 
   class UndefinedBankingException(tp: Staged[_])(implicit ctx: SrcCtx) extends

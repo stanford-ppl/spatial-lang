@@ -12,13 +12,13 @@ trait ScalaGenRegFile extends ScalaGenSRAM {
     case _ => super.remap(tp)
   }
 
-  private def shiftIn(lhs: Exp[_], rf: Exp[_], inds: Seq[Exp[Index]], d: Int, data: Exp[_], isVec: Boolean): Unit = {
+  private def shiftIn(lhs: Exp[_], rf: Exp[_], inds: Seq[Exp[Index]], d: Int, data: Exp[_], isVec: Boolean, en: Exp[Bool]): Unit = {
     val len = if (isVec) lenOf(data) else 1
     val dims = stagedDimsOf(rf)
     val size = dims(d)
     val stride = (dims.drop(d+1).map(quote) :+ "1").mkString("*")
 
-    open(src"val $lhs = {")
+    open(src"val $lhs = if ($en) {")
       emit(src"val ofs = ${flattenAddress(dims,inds,None)}")
       emit(src"val stride = $stride")
       open(src"for (j <- $size-1 to 0 by - 1) {")
@@ -42,8 +42,8 @@ trait ScalaGenRegFile extends ScalaGenSRAM {
         oobUpdate(op.mT, rf, lhs, inds){ emit(src"if ($en) $rf.update(${flattenAddress(dims,inds,None)}, $data)") }
       close("}")
 
-    case RegFileShiftIn(rf,i,d,data)    => shiftIn(lhs, rf, i, d, data, isVec = false)
-    case ParRegFileShiftIn(rf,i,d,data) => shiftIn(lhs, rf, i, d, data, isVec = true)
+    case RegFileShiftIn(rf,i,d,data,en)    => shiftIn(lhs, rf, i, d, data, isVec = false, en)
+    case ParRegFileShiftIn(rf,i,d,data,en) => shiftIn(lhs, rf, i, d, data, isVec = true, en)
 
     case _ => super.emitNode(lhs, rhs)
   }

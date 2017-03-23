@@ -129,7 +129,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       appendWriter(writer, ctrl)
     else {
       val mem = LocalWriter.unapply(writer).get.head._1
-      throw new ExternalWriteError(mem, writer)(ctxOrHere(writer))
+      throw new ExternalWriteError(mem, writer, ctrl)(ctxOrHere(writer))
     }
   }
 
@@ -303,10 +303,20 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       addChildDependencyData(lhs, blk)
       addPropagatingNode(lhs, Seq(blk.result))
 
-    case Switch(blk) =>
+    case Switch(blk,cases) =>
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
       addPropagatingNode(lhs, blockContents(blk).flatMap(_.lhs).filter(pendingNodes contains _))
+
+    case StateMachine(_,_,notDone,action,nextState,_) =>
+      visitCtrl((lhs,false)){
+        visitBlock(notDone)
+        visitBlock(action)
+        visitBlock(nextState)
+      }
+      addChildDependencyData(lhs, notDone)
+      addChildDependencyData(lhs, action)
+      addChildDependencyData(lhs, nextState)
 
     case OpForeach(cchain,func,iters) =>
       visitCtrl((lhs,false),iters,cchain){ visitBlock(func) }

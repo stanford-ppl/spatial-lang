@@ -307,8 +307,8 @@ trait PIRScheduler extends PIRTraversal {
 
   def mapNodeToStage(lhs: Symbol, rhs: Def, ctx: CUContext) = rhs match {
     // --- Reads
-    case FIFODeq(fifo, en, zero)     => allocateFifoPop(lhs, fifo, ctx)
-    case ParFIFODeq(fifo, en, zero) => allocateFifoPop(lhs, fifo, ctx)
+    case FIFODeq(fifo, en)     => allocateFifoPop(lhs, fifo, ctx)
+    case ParFIFODeq(fifo, ens) => allocateFifoPop(lhs, fifo, ctx)
 
     case SRAMLoad(mem, dim, is, ofs,en)     => allocateSRAMRead(lhs, mem, dim, is, ctx)
     case ParSRAMLoad(mem, addr,ens) => allocateSRAMRead(lhs, mem, stagedDimsOf(mem), addr.head, ctx)

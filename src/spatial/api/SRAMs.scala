@@ -67,12 +67,12 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
     val mT = typ[T]
     val bT = bits[T]
   }
-  case class SRAMLoad[T:Staged:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bool]) extends Op[T] {
+  case class SRAMLoad[T:Staged:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bool]) extends EnabledOp[T](en) {
     def mirror(f:Tx) = sram_load(f(mem), f(dims), f(is), f(ofs), f(en))
     val mT = typ[T]
     val bT = bits[T]
   }
-  case class SRAMStore[T:Staged:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
+  case class SRAMStore[T:Staged:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bool]) extends EnabledOp[Void](en) {
     def mirror(f:Tx) = sram_store(f(mem), f(dims), f(is), f(ofs), f(data), f(en))
     val mT = typ[T]
     val bT = bits[T]

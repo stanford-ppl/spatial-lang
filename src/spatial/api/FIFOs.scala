@@ -19,7 +19,7 @@ trait FIFOExp extends Staging with MemoryExp with SpatialExceptions {
     def enq(data: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(fifo_enq(this.s, data.s, en.s))
 
     def deq()(implicit ctx: SrcCtx): T = this.deq(true)
-    def deq(en: Bool)(implicit ctx: SrcCtx): T = wrap(fifo_deq(this.s, en.s, bits[T].zero.s))
+    def deq(en: Bool)(implicit ctx: SrcCtx): T = wrap(fifo_deq(this.s, en.s))
 
     def load(dram: DRAM[T])(implicit ctx: SrcCtx): Void = dense_transfer(dram.toTile, this, isLoad = true)
     def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = dense_transfer(dram, this, isLoad = true)
@@ -54,13 +54,13 @@ trait FIFOExp extends Staging with MemoryExp with SpatialExceptions {
     val mT = typ[T]
     val bT = bits[T]
   }
-  case class FIFOEnq[T:Staged:Bits](fifo: Exp[FIFO[T]], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
+  case class FIFOEnq[T:Staged:Bits](fifo: Exp[FIFO[T]], data: Exp[T], en: Exp[Bool]) extends EnabledOp[Void](en) {
     def mirror(f:Tx) = fifo_enq(f(fifo),f(data),f(en))
     val mT = typ[T]
     val bT = bits[T]
   }
-  case class FIFODeq[T:Staged:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool], zero: Exp[T]) extends Op[T] {
-    def mirror(f:Tx) = fifo_deq(f(fifo), f(en), f(zero))
+  case class FIFODeq[T:Staged:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool]) extends EnabledOp[T](en) {
+    def mirror(f:Tx) = fifo_deq(f(fifo), f(en))
     val mT = typ[T]
     val bT = bits[T]
   }
@@ -72,8 +72,8 @@ trait FIFOExp extends Staging with MemoryExp with SpatialExceptions {
   def fifo_enq[T:Staged:Bits](fifo: Exp[FIFO[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(fifo)(FIFOEnq(fifo, data, en))(ctx)
   }
-  def fifo_deq[T:Staged:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool], z: Exp[T])(implicit ctx: SrcCtx): Exp[T] = {
-    stageWrite(fifo)(FIFODeq(fifo,en,z))(ctx)
+  def fifo_deq[T:Staged:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[T] = {
+    stageWrite(fifo)(FIFODeq(fifo,en))(ctx)
   }
 
   /** Internals **/

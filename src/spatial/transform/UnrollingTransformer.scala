@@ -220,37 +220,37 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     case e@FIFOEnq(fifo, data, en) if lanes.isCommon(fifo) =>
       dbgs(s"Unrolling $lhs = $rhs")
       val datas  = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
-      val enables = lanes.vectorize{p => bool_and( f(en), globalValid) }
+      val enables = lanes.map{p => bool_and( f(en), globalValid) }
       val lhs2 = par_fifo_enq(f(fifo), datas, enables)(e.mT,e.bT,ctx)
 
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
       lanes.unify(lhs, lhs2)
 
-    case e@FIFODeq(fifo, en, z) if lanes.isCommon(fifo) =>
+    case e@FIFODeq(fifo, en) if lanes.isCommon(fifo) =>
       dbgs(s"Unrolling $lhs = $rhs")
-      val enables = lanes.vectorize{p => bool_and(f(en), globalValid) }
-      val lhs2 = par_fifo_deq(f(fifo), enables, f(z))(mtyp(e.mT),mbits(e.bT),ctx)
+      val enables = lanes.map{p => bool_and(f(en), globalValid) }
+      val lhs2 = par_fifo_deq(f(fifo), enables)(mtyp(e.mT),mbits(e.bT),ctx)
 
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
       lanes.split(lhs, lhs2)(mtyp(e.mT),mbits(e.bT),ctx)
 
 
-    case e@StreamEnq(stream, data, en) =>
+    case e@StreamWrite(stream, data, en) =>
       dbgs(s"Unrolling $lhs = $rhs")
       val datas   = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
-      val enables = lanes.vectorize{p => bool_and( f(en), globalValid) }
-      val lhs2 = par_stream_enq(f(stream), datas, enables)(e.mT,e.bT,ctx)
+      val enables = lanes.map{p => bool_and( f(en), globalValid) }
+      val lhs2 = par_stream_write(f(stream), datas, enables)(e.mT,e.bT,ctx)
 
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
       lanes.unify(lhs, lhs2)
 
-    case e@StreamDeq(stream, en, z) =>
+    case e@StreamRead(stream, en) =>
       dbgs(s"Unrolling $lhs = $rhs")
-      val enables = lanes.vectorize{p => bool_and(f(en), globalValid) }
-      val lhs2 = par_stream_deq(f(stream), enables, f(z))(mtyp(e.mT),mbits(e.bT),ctx)
+      val enables = lanes.map{p => bool_and(f(en), globalValid) }
+      val lhs2 = par_stream_read(f(stream), enables)(mtyp(e.mT),mbits(e.bT),ctx)
 
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
@@ -264,7 +264,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
       val addrs  = lanes.map{p => inds.map(f(_)) }
       val values = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
-      val ens    = lanes.vectorize{p => bool_and(f(en), globalValid) }
+      val ens    = lanes.map{p => bool_and(f(en), globalValid) }
       val lhs2   = par_sram_store(f(sram), addrs, values, ens)(e.mT,e.bT,ctx)
 
       transferMetadata(lhs, lhs2)
@@ -283,7 +283,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       strMeta(lhs)
 
       val addrs = lanes.map{p => inds.map(f(_)) }
-      val ens   = lanes.vectorize{p => bool_and(f(en), globalValid) }
+      val ens   = lanes.map{p => bool_and(f(en), globalValid) }
       val lhs2 = par_sram_load(f(sram), addrs, ens)(mtyp(e.mT),mbits(e.bT),ctx)
 
       transferMetadata(lhs, lhs2)
@@ -641,15 +641,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Staged[A], ctx: SrcCtx): Exp[A] = (lhs match {
       case Def(op: EnabledController) => op.mirrorWithEn(f, globalValids)
-
-      case LocalReader(reads) if reads.head.en.isDefined =>
-        val en = reads.head.en.get
-        withSubstScope(en -> bool_and(f(en), globalValid)) { mirror(lhs,rhs) }
-
-      case LocalWriter(writes) if writes.head.en.isDefined =>
-        val en = writes.head.en.get
-        withSubstScope(en -> bool_and(f(en), globalValid)) { mirror(lhs,rhs) }
-
+      case Def(op: EnabledOp[_])      => op.mirrorWithEn(f, globalValid)
       case _ => mirror(lhs, rhs)
     }).asInstanceOf[Exp[A]]
 

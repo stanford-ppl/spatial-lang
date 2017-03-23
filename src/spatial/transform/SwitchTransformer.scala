@@ -14,19 +14,30 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
   var controlStyle: Option[ControlStyle] = None
   var controlLevel: Option[ControlLevel] = None
 
-  def extractSwitches[T:Staged](elsep: Block[T], cases: Seq[() => Exp[T]]): Seq[() => Exp[T]] = {
+  def create_case[T:Staged](cond: Exp[Bool], body: => Exp[T])(implicit ctx: SrcCtx) = () => {
+    val c = op_case(cond, body)
+    dbg(c"  ${str(c)}")
+    styleOf(c) = controlStyle.getOrElse(InnerPipe)
+    levelOf(c) = controlLevel.getOrElse(InnerControl)
+    c
+  }
+
+  def extractSwitches[T:Staged](elsep: Block[T], precCond: Exp[Bool], cases: Seq[() => Exp[T]])(implicit ctx: SrcCtx): Seq[() => Exp[T]] = {
     val contents = blockContents(elsep)
     elsep.result match {
-      // If all operations preceeding the IfThenElse are primitives, just move them outside
+      // If all operations preceding the IfThenElse are primitives, just move them outside
       case Op(IfThenElse(cond,then2,else2)) if contents.drop(1).forall{stm => isPrimitiveNode(stm.lhs.head) } =>
         visitStms(contents.drop(1))  // Mirror all but the last symbol (will now be outside the switch - this is deliberate)
 
         val cond2 = f(cond)
-        val scase = () => op_case[T](cond2, f(then2))
-        extractSwitches[T](else2.asInstanceOf[Block[T]], cases :+ scase)
+        val caseCond = bool_and(cond2, precCond)
+        val elseCond = bool_and(bool_not(cond2), precCond)
+
+        val scase = create_case(caseCond, f(then2))
+        extractSwitches[T](else2.asInstanceOf[Block[T]], elseCond, cases :+ scase)
 
       case _ =>
-        val default = () => op_case[T](bool(true), f(elsep))
+        val default = create_case(precCond, f(elsep))
         cases :+ default
     }
   }
@@ -51,26 +62,17 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
       lhs2
 
     case op @ IfThenElse(cond,thenp,elsep) if inAccel =>
-      val scase = () => op_case(f(cond), f(elsep))
-      val cases = extractSwitches(elsep, Seq(scase))(op.mR)
+      val cond2 = f(cond)
+      val elseCond = bool_not(cond2)
+      val scase = create_case(cond2, f(thenp))
+      val cases = extractSwitches(elsep, elseCond, Seq(scase))
 
-      var caseSymbols: Seq[Exp[_]] = Nil
-
-      val switch = op_switch{
-        val caseSymbols = cases.map{c => c()}
-        caseSymbols.last
-      }(mtyp(lhs.tp), ctxOrHere(lhs))
+      dbg(c"Created case symbols: ")
+      val switch = create_switch(cases) //(mtyp(lhs.tp),ctxOrHere(lhs))
+      dbg(c"Created switch: ${str(switch)}")
 
       styleOf(switch) = ForkSwitch
       levelOf(switch) = controlLevel.getOrElse(InnerControl)
-
-      dbg(c"Created switch: ${str(switch)}")
-      dbg(c"Created case symbols: ")
-      caseSymbols.foreach{s =>
-        dbg(c"  ${str(s)}")
-        styleOf(s) = controlStyle.getOrElse(InnerPipe)
-        levelOf(s) = controlLevel.getOrElse(InnerControl)
-      }
 
       switch
 

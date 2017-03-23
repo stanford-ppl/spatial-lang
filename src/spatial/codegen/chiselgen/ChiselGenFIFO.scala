@@ -31,7 +31,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
               s"x${lhs.id}_Fifo"
             case FIFOEnq(fifo:Sym[_],_,_) =>
               s"x${lhs.id}_enqTo${fifo.id}"
-            case FIFODeq(fifo:Sym[_],_,_) =>
+            case FIFODeq(fifo:Sym[_],_) =>
               s"x${lhs.id}_deqFrom${fifo.id}"
             case _ =>
               super.quote(s)
@@ -59,21 +59,15 @@ trait ChiselGenFIFO extends ChiselCodegen {
       val rPar = readersOf(lhs).map { r => 
         r.node match {
           case Def(_: FIFODeq[_]) => 1
-          case Def(a@ParFIFODeq(q,ens,_)) => ens match {
-            case Op(ListVector(elems)) => elems.length
-            case _ => 1
-          }
+          case Def(a@ParFIFODeq(q,ens)) => ens.length
         }
-      }.reduce{scala.math.max(_,_)}
+      }.max
       val wPar = writersOf(lhs).map { w =>
         w.node match {
           case Def(_: FIFOEnq[_]) => 1
-          case Def(a@ParFIFOEnq(q,ens,_)) => ens match {
-            case Op(ListVector(elems)) => elems.length
-            case _ => 1
-          }
+          case Def(a@ParFIFOEnq(q,_,ens)) => ens.length
         }
-      }.reduce{scala.math.max(_,_)}
+      }.max
       val width = bitWidth(lhs.tp.typeArguments.head)
       emit(src"""val ${lhs}_wdata = Wire(Vec($wPar, UInt(${width}.W)))""")
       emit(src"""val ${lhs}_readEn = Wire(Bool())""")
@@ -97,7 +91,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
       }
 
 
-    case FIFODeq(fifo,en,z) => 
+    case FIFODeq(fifo,en) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
       emit(src"""${fifo}_readEn := ${reader}_ctr_en & $en""")
       fifo.tp.typeArguments.head match { 

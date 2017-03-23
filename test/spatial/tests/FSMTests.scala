@@ -1,6 +1,7 @@
 package spatial.tests
 
 import argon.core.Exceptions
+import argon.Config
 import org.scalatest.{FlatSpec, Matchers}
 import spatial.SpatialConfig
 import org.virtualized._
@@ -26,7 +27,7 @@ object BasicFSM extends SpatialTest {
   }
 }
 
-object MatcherFSM extends SpatialTest {
+object BasicCondFSM extends SpatialTest {
   import IR._
 
   @virtualize
@@ -35,7 +36,7 @@ object MatcherFSM extends SpatialTest {
     Accel {
       val bram = SRAM[Int](32)
 
-      FSM[Int]{state => state < 32}{state =>
+      FSM[Int]{state => state < 32} { state =>
         if (state < 16) {
           bram(31 - state) = state // 16:31 [15, 14, ... 0]
         }
@@ -55,8 +56,45 @@ object MatcherFSM extends SpatialTest {
   }
 }
 
+object DotProductFSM extends SpatialTest {
+  import IR._
+
+  @virtualize
+  def main() {
+    val vectorA = Array.fill(128){ random[Int](10) }
+    val vectorB = Array.fill(128){ random[Int](10) }
+
+    val vecA = DRAM[Int](128)
+    val vecB = DRAM[Int](128)
+    val out  = ArgOut[Int]
+
+    setMem(vecA, vectorA)
+    setMem(vecB, vectorB)
+
+    Accel {
+      FSM[Int](i => i < 128){i =>
+        val a = SRAM[Int](16)
+        val b = SRAM[Int](16)
+        Parallel {
+          a load vecA(i::i+16)
+          b load vecB(i::i+16)
+        }
+        out := out + Reduce(0)(0 until 16){i => a(i) * b(i) }{_+_}
+      }{i => i + 16 }
+    }
+
+    val result = getArg(out)
+    val gold = vectorA.zip(vectorB){_*_}.reduce{_+_}
+
+    assert(result == gold, "Result (" + result + ") did not equal expected (" + gold + ")")
+    println("PASS")
+  }
+}
+
+
 class FSMTests extends FlatSpec with Matchers with Exceptions {
   SpatialConfig.enableScala = true
   "BasicFSM" should "compile" in { BasicFSM.main(Array.empty) }
-  "MatcherFSM" should "compile" in { MatcherFSM.main(Array.empty) }
+  "BasicCondFSM" should "compile" in { BasicCondFSM.main(Array.empty) }
+  "DotProductFSM" should "compile" in { DotProductFSM.main(Array.empty) }
 }

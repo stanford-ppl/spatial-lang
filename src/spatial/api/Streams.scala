@@ -5,19 +5,21 @@ import spatial.SpatialExp
 trait StreamApi extends StreamExp {
   this: SpatialExp =>
 
+  implicit def readStream[T](stream: StreamIn[T])(implicit ctx: SrcCtx): T = stream.value
+
 }
 
 trait StreamExp extends Staging with PinExp {
   this: SpatialExp =>
 
   case class StreamIn[T:Staged:Bits](s: Exp[StreamIn[T]]) {
-    def deq()(implicit ctx: SrcCtx): T = this.deq(true)
-    def deq(en: Bool)(implicit ctx: SrcCtx): T = wrap(stream_deq(s, en.s, bits[T].zero.s))
+    def value()(implicit ctx: SrcCtx): T = this.value(true)
+    def value(en: Bool)(implicit ctx: SrcCtx): T = wrap(stream_read(s, en.s)) // Needed?
   }
 
   case class StreamOut[T:Staged:Bits](s: Exp[StreamOut[T]]) {
-    def enq(value: T)(implicit ctx: SrcCtx): Void = this.enq(value, true)
-    def enq(value: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(stream_enq(s, value.s, en.s))
+    def :=(value: T)(implicit ctx: SrcCtx): Void = this := (value, true)
+    def :=(value: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(stream_write(s, value.s, en.s))
   }
 
   /** Static methods **/
@@ -58,23 +60,23 @@ trait StreamExp extends Staging with PinExp {
 
   /** IR Nodes **/
   case class StreamInNew[T:Staged:Bits](bus: Bus) extends Op[StreamIn[T]] {
-    override def mirror(f: Tx) = stream_in[T](bus)
+    def mirror(f: Tx) = stream_in[T](bus)
     val mT = typ[T]
   }
 
   case class StreamOutNew[T:Staged:Bits](bus: Bus) extends Op[StreamOut[T]] {
-    override def mirror(f: Tx) = stream_out[T](bus)
+    def mirror(f: Tx) = stream_out[T](bus)
     val mT = typ[T]
   }
 
-  case class StreamDeq[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool], zero: Exp[T]) extends Op[T] {
-    override def mirror(f:Tx) = stream_deq(f(stream), f(en), f(zero))
+  case class StreamRead[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool]) extends EnabledOp[T](en) {
+    def mirror(f:Tx) = stream_read(f(stream), f(en))
     val mT = typ[T]
     val bT = bits[T]
   }
 
-  case class StreamEnq[T:Staged:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool]) extends Op[Void] {
-    override def mirror(f:Tx) = stream_enq(f(stream), f(data), f(en))
+  case class StreamWrite[T:Staged:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool]) extends EnabledOp[Void](en) {
+    def mirror(f:Tx) = stream_write(f(stream), f(data), f(en))
     val mT = typ[T]
     val bT = bits[T]
   }
@@ -89,12 +91,12 @@ trait StreamExp extends Staging with PinExp {
     stageMutable(StreamOutNew[T](bus))(ctx)
   }
 
-  private def stream_deq[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool], zero: Exp[T])(implicit ctx: SrcCtx) = {
-    stageWrite(stream)(StreamDeq(stream, en, zero))(ctx)
+  private def stream_read[T:Staged:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool])(implicit ctx: SrcCtx) = {
+    stageWrite(stream)(StreamRead(stream, en))(ctx)
   }
 
-  private def stream_enq[T:Staged:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx) = {
-    stageWrite(stream)(StreamEnq(stream, data, en))(ctx)
+  private def stream_write[T:Staged:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx) = {
+    stageWrite(stream)(StreamWrite(stream, data, en))(ctx)
   }
 
 

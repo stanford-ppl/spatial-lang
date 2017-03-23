@@ -54,10 +54,10 @@ trait StreamAnalyzer extends CompilerPass {
       // Link up enables (when data ready on fifo inputs)
       streamEnablers.foreach{ deq => // Once fifo ens 
         val fifo = deq match {
-            case Def(FIFODeq(stream,en,_)) => stream
-            case Def(ParFIFODeq(stream,en,_)) => stream
-            case Def(StreamDeq(stream,en,_)) => stream
-            case Def(ParStreamDeq(stream,en,_)) => stream
+            case Def(FIFODeq(stream,en)) => stream
+            case Def(ParFIFODeq(stream,en)) => stream
+            case Def(StreamRead(stream,en)) => stream
+            case Def(ParStreamRead(stream,en)) => stream
             case Def(DecoderTemplateNew(popFrom, _)) => popFrom
             case Def(DMATemplateNew(popFrom, _)) => popFrom
         } 
@@ -80,8 +80,8 @@ trait StreamAnalyzer extends CompilerPass {
         val fifo = enq match {
             case Def(FIFOEnq(stream,en,_)) => stream
             case Def(ParFIFOEnq(stream,en,_)) => stream
-            case Def(StreamEnq(stream,en,_)) => stream
-            case Def(ParStreamEnq(stream,en,_)) => stream
+            case Def(StreamWrite(stream,en,_)) => stream
+            case Def(ParStreamWrite(stream,en,_)) => stream
             case Def(DecoderTemplateNew(_, pushTo)) => pushTo
         } 
         dbg(c"  # Trying to fit enqueuer $enq from fifo $fifo")

@@ -43,9 +43,9 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   case class ParSRAMLoad[T:Staged:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
-    en:   Exp[Vector[Bool]]
-  )(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
-    def mirror(f:Tx) = par_sram_load(f(sram), addr.map{inds => f(inds)}, f(en))
+    ens:  Seq[Exp[Bool]]
+  )(implicit val W: INT[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
+    def mirror(f:Tx) = par_sram_load(f(sram), addr.map{inds => f(inds)}, f(ens))
     val mT = typ[T]
   }
 
@@ -53,46 +53,44 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
     data: Exp[Vector[T]],
-    ens:  Exp[Vector[Bool]]
-  ) extends Op[Void] {
+    ens:  Seq[Exp[Bool]]
+  ) extends EnabledOp[Void](ens:_*) {
     def mirror(f:Tx) = par_sram_store(f(sram),addr.map{inds => f(inds)},f(data),f(ens))
     val mT = typ[T]
   }
 
   case class ParFIFODeq[T:Staged:Bits](
     fifo: Exp[FIFO[T]],
-    ens:  Exp[Vector[Bool]],
-    zero: Exp[T]
-  )(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
-    def mirror(f:Tx) = par_fifo_deq(f(fifo),f(ens),f(zero))
+    ens:  Seq[Exp[Bool]]
+  )(implicit val W: INT[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
+    def mirror(f:Tx) = par_fifo_deq(f(fifo),f(ens))
     val mT = typ[T]
   }
 
   case class ParFIFOEnq[T:Staged:Bits](
     fifo: Exp[FIFO[T]],
     data: Exp[Vector[T]],
-    ens:  Exp[Vector[Bool]]
-  ) extends Op[Void] {
+    ens:  Seq[Exp[Bool]]
+  ) extends EnabledOp[Void](ens:_*) {
     def mirror(f:Tx) = par_fifo_enq(f(fifo),f(data),f(ens))
     val mT = typ[T]
   }
 
-  case class ParStreamDeq[T:Staged:Bits](
+  case class ParStreamRead[T:Staged:Bits](
     stream: Exp[StreamIn[T]],
-    ens:    Exp[Vector[Bool]],
-    zero:   Exp[T]
-  )(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
-    def mirror(f:Tx) = par_stream_deq(f(stream),f(ens),f(zero))
+    ens:    Seq[Exp[Bool]]
+  )(implicit val W: INT[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
+    def mirror(f:Tx) = par_stream_read(f(stream),f(ens))
     val mT = typ[T]
     val bT = bits[T]
   }
 
-  case class ParStreamEnq[T:Staged:Bits](
+  case class ParStreamWrite[T:Staged:Bits](
     stream: Exp[StreamOut[T]],
     data:   Exp[Vector[T]],
-    ens:    Exp[Vector[Bool]]
-  ) extends Op[Void] {
-    def mirror(f:Tx) = par_stream_enq(f(stream),f(data),f(ens))
+    ens:    Seq[Exp[Bool]]
+  ) extends EnabledOp[Void](ens:_*) {
+    def mirror(f:Tx) = par_stream_write(f(stream),f(data),f(ens))
     val mT = typ[T]
     val bT = bits[T]
   }
@@ -129,53 +127,51 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   private[spatial] def par_sram_load[T:Staged:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
-    en:   Exp[Vector[Bool]]
+    ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
     implicit val W = Width[T](addr.length)
-    stage( ParSRAMLoad(sram, addr, en) )(ctx)
+    stage( ParSRAMLoad(sram, addr, ens) )(ctx)
   }
 
   private[spatial] def par_sram_store[T:Staged:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
     data: Exp[Vector[T]],
-    ens:  Exp[Vector[Bool]]
+    ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(sram)( ParSRAMStore(sram, addr, data, ens) )(ctx)
   }
 
   private[spatial] def par_fifo_deq[T:Staged:Bits](
     fifo: Exp[FIFO[T]],
-    ens:  Exp[Vector[Bool]],
-    zero: Exp[T]
+    ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
-    implicit val W = Width[T](lenOf(ens))
-    stageWrite(fifo)( ParFIFODeq(fifo, ens, zero) )(ctx)
+    implicit val W = Width[T](ens.length)
+    stageWrite(fifo)( ParFIFODeq(fifo, ens) )(ctx)
   }
 
   private[spatial] def par_fifo_enq[T:Staged:Bits](
     fifo: Exp[FIFO[T]],
     data: Exp[Vector[T]],
-    ens:  Exp[Vector[Bool]]
+    ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(fifo)( ParFIFOEnq(fifo, data, ens) )(ctx)
   }
 
-  private[spatial] def par_stream_deq[T:Staged:Bits](
+  private[spatial] def par_stream_read[T:Staged:Bits](
     stream: Exp[StreamIn[T]],
-    ens:    Exp[Vector[Bool]],
-    zero:   Exp[T]
+    ens:    Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
-    implicit val W = Width[T](lenOf(ens))
-    stageWrite(stream)( ParStreamDeq(stream, ens, zero) )(ctx)
+    implicit val W = Width[T](ens.length)
+    stageWrite(stream)( ParStreamRead(stream, ens) )(ctx)
   }
 
-  private[spatial] def par_stream_enq[T:Staged:Bits](
+  private[spatial] def par_stream_write[T:Staged:Bits](
     stream: Exp[StreamOut[T]],
     data:   Exp[Vector[T]],
-    ens:    Exp[Vector[Bool]]
+    ens:    Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Void] = {
-    stageWrite(stream)( ParStreamEnq(stream, data, ens) )(ctx)
+    stageWrite(stream)( ParStreamWrite(stream, data, ens) )(ctx)
   }
 
 }

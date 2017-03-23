@@ -85,13 +85,13 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
           val addr_bytes = offchipAddr * bytesPerWord + dram.address
           val size = requestLength
           val size_bytes = size * bytesPerWord
-          cmdStream.enq(BurstCmd(addr_bytes, size_bytes, false))
+          cmdStream := BurstCmd(addr_bytes, size_bytes, false)
           issueQueue.enq(size)
         }
         // Data loading
         Foreach(requestLength par p){i =>
           val data = mem.load(local, onchipAddr(i), true)
-          dataStream.enq( pack(data,true) )
+          dataStream := pack(data,true)
         }
       }
       // Fringe
@@ -100,7 +100,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       // TODO: Assumes one ack per command
       Pipe {
         val size = issueQueue.deq()
-        val ack  = ackStream.deq()
+        val ack  = ackStream.value()
         ()
       }
     }
@@ -147,7 +147,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         Pipe {
           val aligned = alignmentCalc(offchipAddr)
 
-          cmdStream.enq(BurstCmd(aligned.addr_bytes, aligned.size_bytes, false))
+          cmdStream := BurstCmd(aligned.addr_bytes, aligned.size_bytes, false)
           issueQueue.enq(aligned.size)
           startBound := aligned.start
           endBound := aligned.end
@@ -156,7 +156,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         Foreach(length par p){i =>
           val en = i >= startBound && i < endBound
           val data = mux(en, mem.load(local,onchipAddr(i - startBound), en), zero[T])
-          dataStream.enq( pack(data,en) )
+          dataStream := pack(data,en)
         }
       }
       // Fringe
@@ -165,7 +165,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       // TODO: Assumes one ack per command
       Pipe {
         val size = issueQueue.deq()
-        val ack  = ackStream.deq()
+        val ack  = ackStream.value()
         ()
       }
     }
@@ -183,7 +183,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         val addr_bytes = addr
         val size_bytes = size * bytesPerWord
 
-        cmdStream.enq( BurstCmd(addr_bytes, size_bytes, true) )
+        cmdStream := BurstCmd(addr_bytes, size_bytes, true)
         issueQueue.enq( size )
       }
       // Fringe
@@ -192,7 +192,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       Pipe {
         Pipe { val size = issueQueue.deq() }
         Foreach(requestLength par p){i =>
-          val data = dataStream.deq()
+          val data = dataStream.value()
           val addr = onchipAddr(i)
           mem.store(local, addr, data, true)
         }
@@ -208,7 +208,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       Pipe {
         val aligned = alignmentCalc(offchipAddr)
 
-        cmdStream.enq( BurstCmd(aligned.addr_bytes, aligned.size_bytes, true) )
+        cmdStream := BurstCmd(aligned.addr_bytes, aligned.size_bytes, true)
         issueQueue.enq( IssuedCmd(aligned.size, aligned.start, aligned.end) )
       }
 
@@ -230,7 +230,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
         Foreach(size par p){i =>
           val en = i >= start && i < end
           val addr = onchipAddr(i - start)
-          val data = dataStream.deq()
+          val data = dataStream.value()
           mem.store(local, addr, data, en)
         }
       }
@@ -265,13 +265,13 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
           val addr = addrs(i) * bytesPerWord + dram.address
 
           val addr_bytes = addr
-          addrBus.enq(addr_bytes)
+          addrBus := addr_bytes
         }
         // Fringe
         fringe_sparse_load(offchip, addrBus.s, dataBus.s)
         // Receive
         Foreach(requestLength par p){i =>
-          val data = dataBus.deq()
+          val data = dataBus.value()
           local(i) = data
         }
       }
@@ -287,14 +287,14 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
 
           val addr_bytes = addr
 
-          cmdBus.enq( pack(data,addr_bytes) )
+          cmdBus := pack(data,addr_bytes)
         }
         // Fringe
         fringe_sparse_store(offchip, cmdBus.s, ackBus.s)
         // Receive
         // TODO: Assumes one ack per address
         Foreach(requestLength par p){i =>
-          val ack = ackBus.deq()
+          val ack = ackBus.value()
         }
       }
     }
