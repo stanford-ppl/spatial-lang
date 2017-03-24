@@ -72,7 +72,7 @@ trait CppGenUnrolled extends CppCodegen {
       val dims = stagedDimsOf(sram)
       open(src"val $lhs = {")
       inds.indices.foreach{i =>
-        emit(src"if ($ens($i)) $sram.update(${flattenAddress(dims, inds(i))}, $data($i))")
+        emit(src"if (${ens(i)}) $sram.update(${flattenAddress(dims, inds(i))}, $data($i))")
       }
       close("}")
 

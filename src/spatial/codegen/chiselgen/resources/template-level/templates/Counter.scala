@@ -53,7 +53,7 @@ class IncDincCtr(inc: Int, dinc: Int, max: Int) extends Module {
     }
   })
 
-  val cnt = Reg(init = 0.S(32.W))
+  val cnt = RegInit(0.S(32.W))
 
   val numPushed = Mux(io.input.inc_en, inc.S, 0.S)
   val numPopped = Mux(io.input.dinc_en, dinc.S, 0.S)
@@ -82,7 +82,7 @@ class RedxnCtr() extends Module {
     }
   })
 
-  val cnt = Reg(init = 0.U(32.W))
+  val cnt = RegInit(0.U(32.W))
 
   val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.U === io.input.max, 0.U, cnt+1.U), cnt)
   cnt := Mux(io.input.reset, 0.U, nextCntUp)

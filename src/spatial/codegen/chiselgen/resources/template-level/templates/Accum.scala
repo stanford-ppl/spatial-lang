@@ -50,7 +50,7 @@ class SpecialAccum(val latency: Int, val lambda: String, val typ: String, val pa
 
   typ match { // Reinterpret "io.next" bits
     case "UInt" => 
-      val current = Reg(init = io.init)
+      val current = RegInit(io.init)
       val asyncCurrent = Mux(io.reset, io.init, current)
       val update = lambda match { 
         case "add" => asyncCurrent + io.next
@@ -61,7 +61,7 @@ class SpecialAccum(val latency: Int, val lambda: String, val typ: String, val pa
       current := Mux(io.enable, update, asyncCurrent)
       io.output := asyncCurrent
     case "FixedPoint" => 
-      val current = Reg(init = io.init)
+      val current = RegInit(io.init)
       val asyncCurrent = Mux(io.reset, io.init, current)
 
       val fixnext = Wire(new types.FixedPoint(params(0), params(1), params(2)))
@@ -80,7 +80,7 @@ class SpecialAccum(val latency: Int, val lambda: String, val typ: String, val pa
 
       io.output := asyncCurrent
     case "FloatingPoint" => // Not implemented
-      val current = Reg(init = io.init)
+      val current = RegInit(io.init)
       val asyncCurrent = Mux(io.reset, io.init, current)
       val update = lambda match { 
         case "add" => asyncCurrent + io.next

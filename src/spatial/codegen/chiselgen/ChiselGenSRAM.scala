@@ -57,8 +57,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
                 w.node match {
                   case Def(_: SRAMStore[_]) => 1
                   case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
-                    case Op(ListVector(elems)) => elems.length
-                    case _ => 1
+                    case Op(ListVector(elems)) => elems.length // Was this deprecated?
+                    case _ => ens.length
                   }
                 }
               }.reduce{scala.math.max(_,_)}

@@ -58,7 +58,7 @@ trait TreeGenSpatial extends SpatialTraversal {
   }
 
   def print_stage_prefix(title: String, ctr: String, node: String, inner: Boolean = false) {
-    controller_tree.write(s"""<TD><font size = "6">$title<br><b>$node</b></font><br><font size = "1">$ctr</font> """)
+    controller_tree.write(s"""<TD><font size = "6">$title<br><b>$node</b></font><br><font size = "1">Counter: $ctr</font> """)
     if (!inner) {
       controller_tree.write(s"""<div data-role="collapsible">
       <h4> </h4>${table_init}""")
@@ -73,8 +73,8 @@ trait TreeGenSpatial extends SpatialTraversal {
 
   override protected def visit(sym: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,_) =>
-      val inner = styleOf(sym) match { 
-      	case InnerPipe => true
+      val inner = levelOf(sym) match { 
+      	case InnerControl => true
       	case _ => false
       }
       print_stage_prefix(s"Hwblock",s"",s"$sym", inner)
@@ -94,8 +94,8 @@ trait TreeGenSpatial extends SpatialTraversal {
       print_stage_suffix(s"$sym", true)*/
 
     case UnitPipe(_,func) =>
-      val inner = styleOf(sym) match { 
-      	case InnerPipe => true
+      val inner = levelOf(sym) match { 
+      	case InnerControl => true
       	case _ => false
       }
       print_stage_prefix(s"${getScheduling(sym)}Unitpipe",s"",s"$sym", inner)
@@ -107,11 +107,11 @@ trait TreeGenSpatial extends SpatialTraversal {
       print_stage_suffix(s"$sym", inner)
 
     case OpForeach(cchain, func, iters) =>
-      val inner = styleOf(sym) match { 
-      	case InnerPipe => true
+      val inner = levelOf(sym) match { 
+      	case InnerControl => true
       	case _ => false
       }
-      print_stage_prefix(s"${getScheduling(sym)}OpForeach",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}OpForeach",s"${cchain}",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -120,28 +120,28 @@ trait TreeGenSpatial extends SpatialTraversal {
       print_stage_suffix(s"$sym", inner)
 
     case _: OpReduce[_] =>
-      val inner = styleOf(sym) match { 
-      	case InnerPipe => true
+      val inner = levelOf(sym) match { 
+      	case InnerControl => true
       	case _ => false
       }
       print_stage_prefix(s"${getScheduling(sym)}OpReduce",s"",s"$sym", inner)
       print_stage_suffix(s"$sym", inner)
 
     case _: OpMemReduce[_,_] =>
-      val inner = styleOf(sym) match { 
-      	case InnerPipe => true
+      val inner = levelOf(sym) match { 
+      	case InnerControl => true
       	case _ => false
       }
       print_stage_prefix(s"${getScheduling(sym)}OpMemReduce",s"",s"$sym", inner)
       print_stage_suffix(s"$sym", inner)
 
     case UnrolledForeach(en,cchain,func,iters,valids) =>
-      val inner = styleOf(sym) match { 
-      	case InnerPipe => true
+      val inner = levelOf(sym) match { 
+      	case InnerControl => true
       	case _ => false
       }
   
-      print_stage_prefix(s"${getScheduling(sym)}UnrolledForeach",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}UnrolledForeach",s"${cchain}",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -160,17 +160,31 @@ trait TreeGenSpatial extends SpatialTraversal {
       print_stage_suffix(s"$sym", inner)
 
     case UnrolledReduce(en,cchain,_,func,_,iters,valids,_) =>
-      val inner = styleOf(sym) match { 
-      	case InnerPipe => true
+      val inner = levelOf(sym) match { 
+      	case InnerControl => true
       	case _ => false
       }
-      print_stage_prefix(s"${getScheduling(sym)}UnrolledReduce",s"",s"$sym", inner)
+      print_stage_prefix(s"${getScheduling(sym)}UnrolledReduce",s"${cchain}",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
         visit(s,d)
       }
       print_stage_suffix(s"$sym", inner)
+
+    case StateMachine(ens,start,notDone,func,nextState,state) =>
+      val inner = levelOf(sym) match { 
+        case InnerControl => true
+        case _ => false
+      }
+      print_stage_prefix(s"${getScheduling(sym)}FSM",s"",s"$sym", inner)
+      val children = getControlNodes(func)
+      children.foreach { s =>
+        val Op(d) = s
+        visit(s,d)
+      }
+      print_stage_suffix(s"$sym", inner)
+
 
     case _: FringeDenseLoad[_] => 
       print_stage_prefix("FringeDenseLoad (Fake Node)", "", s"$sym", true)
