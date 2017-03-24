@@ -18,6 +18,8 @@ or a similar functional programming language in the past.
 
 If you'd like, check out a `Scala tutorial <https://www.tutorialspoint.com/scala/>`_ like the one linked here for general info on programming in Scala.
 
+Finally, please sign up for the `Spatial users google group <https://groups.google.com/forum/#!forum/spatial-lang-users>`_ if you have any questions. 
+
 
 Installation
 ------------
