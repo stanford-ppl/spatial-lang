@@ -42,7 +42,7 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
       emit(src"$lb.io.col_addr := $col")
       emit(s"val ${quote(lhs)} = ${quote(lb)}.io.data_out($row)")
 
-    case op@LineBufferStore(lb,col,data,en) =>
+    case op@LineBufferEnq(lb,data,en) =>
       emit(src"$lb.io.data_in := $data")
       emit(src"$lb.io.w_en := $en")
       

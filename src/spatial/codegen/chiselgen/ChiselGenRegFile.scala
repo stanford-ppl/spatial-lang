@@ -57,10 +57,10 @@ trait ChiselGenRegFile extends ChiselCodegen {
       emit(s"${quote(rf)}().io.data_in := ${quote(data)}")
       // TODO: finish this using inds like in Load
 
-    case RegFileShiftIn(rf,i,d,data)    => 
+    case RegFileShiftIn(rf,i,d,data,en)    => 
       // (copied from ScalaGen) shiftIn(lhs, rf, i, d, data, isVec = false)
       
-    case ParRegFileShiftIn(rf,i,d,data) => 
+    case ParRegFileShiftIn(rf,i,d,data,en) => 
       // (copied from ScalaGen) shiftIn(lhs, rf, i, d, data, isVec = true)
 
     case _ => super.emitNode(lhs, rhs)
