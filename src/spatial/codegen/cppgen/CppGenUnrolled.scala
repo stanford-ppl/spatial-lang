@@ -77,11 +77,8 @@ trait CppGenUnrolled extends CppCodegen {
       close("}")
 
     case ParFIFODeq(fifo, ens) =>
-      // TODO
-      //emit(src"val $lhs = $ens.map{en => if (en) $fifo.dequeue() else $z}")
 
     case ParFIFOEnq(fifo, data, ens) =>
-      emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $fifo.enqueue(data) }")
 
     case _ => super.emitNode(lhs, rhs)
   }
