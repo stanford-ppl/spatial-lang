@@ -350,11 +350,12 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width
       j => io.r(h*rPar*numReaders + j) 
     })
   }
-  val reconstructedOut = (0 until numBufs).map{ h =>
-    Vec((0 until rPar).map {
-      j => io.output.data(h*rPar + j)
-    })
-  }
+  // // Chisel3 broke this on 3/24/2017...
+  // val reconstructedOut = (0 until numBufs).map{ h =>
+  //   Vec((0 until rPar).map {
+  //     j => io.output.data(h*rPar + j)
+  //   })
+  // }
 
   // Get info on physical dims
   // TODO: Upcast dims to evenly bank
@@ -420,9 +421,11 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width
     f.io.r := chisel3.util.Mux1H(sel, reconstructedR)
   }
 
-  reconstructedOut.zip(statesOut).foreach{ case (wire, s) => 
-    val sel = (0 until numBufs).map{ i => s.io.output.count === i.U }
-    wire := chisel3.util.Mux1H(sel, Vec(srams.map{f => f.io.output.data}))
+  (0 until numBufs).zip(statesOut).foreach{ case (i, s) => 
+    val sel = (0 until numBufs).map{ j => s.io.output.count === j.U }
+    (0 until rPar).foreach{ j => 
+      io.output.data(i*rPar + j) := chisel3.util.Mux1H(sel, srams.map{f => f.io.output.data(j)})
+    }
   }
 
   var wIdMap = (0 until numBufs).map{ i => (i -> 0) }.toMap
