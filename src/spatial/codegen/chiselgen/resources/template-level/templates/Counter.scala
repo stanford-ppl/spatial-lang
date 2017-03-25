@@ -129,8 +129,8 @@ class SingleCounter(val par: Int) extends Module {
     val count = base.io.output.data
     val newval = count + (io.input.stride * par.U) + io.input.gap
     val isMax = newval >= io.input.max
-    val wasMax = Reg(next = isMax, init = false.B)
-    val wasEnabled = Reg(next = io.input.enable, init = false.B)
+    val wasMax = RegNext(isMax, false.B)
+    val wasEnabled = RegNext(io.input.enable, false.B)
     val next = Mux(isMax, Mux(io.input.saturate, count, init), newval)
     base.io.input.data := Mux(io.input.reset, init, next)
 
@@ -226,9 +226,9 @@ class Counter(val par: List[Int]) extends Module {
 
   // Wire up the done, saturated, and extendedDone signals
   val isDone = ctrs.map{_.io.output.done}.reduce{_&_}
-  val wasDone = Reg(next = isDone, init = false.B)
+  val wasDone = RegNext(isDone, false.B)
   val isSaturated = ctrs.map{_.io.output.saturated}.reduce{_&_}
-  val wasWasDone = Reg(next = wasDone, init = false.B)
+  val wasWasDone = RegNext(wasDone, false.B)
   io.output.done := Mux(io.input.isStream, true.B, io.input.enable) & isDone & ~wasDone
   io.output.extendedDone := io.input.enable & isDone & ~wasWasDone
   io.output.saturated := io.input.saturate & isSaturated

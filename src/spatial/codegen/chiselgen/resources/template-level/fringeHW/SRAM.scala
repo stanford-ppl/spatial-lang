@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 
 class SRAM(val w: Int, val d: Int) extends Module {
-  val addrWidth = log2Up(d)
+  val addrWidth = log2Ceil(d)
   val io = IO(new Bundle {
     val raddr = Input(UInt(addrWidth.W))
     val wen = Input(Bool())
@@ -32,7 +32,7 @@ class SRAM(val w: Int, val d: Int) extends Module {
 // * I.e., mask(0) corresponds to byte enable of least significant byte
 // */
 //class SRAMByteEnable(val w: Int, val d: Int) extends Module {
-//  val addrWidth = log2Up(d)
+//  val addrWidth = log2Ceil(d)
 //  val numBytes = w/8
 //  Predef.assert(w%8 == 0, s"Invalid word width $w in SRAMByteEnable: Must be a multiple of 8")
 //  val io = new Bundle {

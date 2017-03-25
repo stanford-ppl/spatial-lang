@@ -103,9 +103,9 @@ object AXI4BundleParameters
 {
   def apply(master: AXI4MasterPortParameters, slave: AXI4SlavePortParameters) =
     new AXI4BundleParameters(
-      addrBits = log2Up(slave.maxAddress+1),
+      addrBits = log2Ceil(slave.maxAddress+1),
       dataBits = slave.beatBytes * 8,
-      idBits   = log2Up(master.endId))
+      idBits   = log2Ceil(master.endId))
 }
 
 //case class AXI4EdgeParameters(

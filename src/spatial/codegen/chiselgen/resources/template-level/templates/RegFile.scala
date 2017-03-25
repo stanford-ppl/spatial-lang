@@ -1,7 +1,7 @@
 package templates
 
 import chisel3._
-import chisel3.util.log2Up
+import chisel3.util.log2Ceil
 
 // 1D Reg File
 
@@ -10,7 +10,7 @@ class RegFile(val size: Int) extends Module {
   // def this(tuple: (Int)) = this(tuple._1)
   val io = IO(new Bundle { // TODO: follow io.input and io.output convention
     val data_in  = Input(UInt(32.W))
-    val w_addr   = Input(UInt(log2Up(size+1).W))
+    val w_addr   = Input(UInt(log2Ceil(size+1).W))
     val w_en     = Input(UInt(1.W)) // TODO: Bool()
     val reset    = Input(UInt(1.W)) // TODO: Bool()
     val data_out = Vec(size, Output(UInt(32.W)))

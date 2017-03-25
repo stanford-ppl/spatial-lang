@@ -11,7 +11,7 @@ import chisel3.util._
  */
 class Fringe(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStreams: Int = 1) extends Module {
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
-  val addrWidth = log2Up(numRegs)
+  val addrWidth = log2Ceil(numRegs)
 
   val commandReg = 0  // TODO: These vals are used in test only, logic below does not use them.
   val statusReg = 1   //       Changing these values alone has no effect on the logic below.

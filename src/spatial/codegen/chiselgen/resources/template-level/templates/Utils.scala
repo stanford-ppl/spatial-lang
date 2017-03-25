@@ -9,7 +9,7 @@ object Utils {
     if (length == 0) {
       sig
     } else {
-      val regs = (0 until length).map { i => Reg(init = 0.U) } // TODO: Make this type T
+      val regs = (0 until length).map { i => RegInit(0.U) } // TODO: Make this type T
       sig match {
         case s:Bool => 
           regs(0) := Mux(s, 1.U, 0.U)

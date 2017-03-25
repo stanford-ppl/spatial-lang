@@ -11,7 +11,7 @@ class FIFOArbiter(
 ) extends Module {
 
   val wordSizeBytes = w/8
-  val tagWidth = log2Up(numStreams)
+  val tagWidth = log2Ceil(numStreams)
 
   val io = IO(new Bundle {
     val enq = Input(Vec(numStreams, Vec(v, Bits(w.W))))

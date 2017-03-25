@@ -90,7 +90,7 @@ class MAGCore(
 
   val wordSizeBytes = w/8
   val burstSizeWords = burstSizeBytes / wordSizeBytes
-  val tagWidth = log2Up(numStreams)
+  val tagWidth = log2Ceil(numStreams)
 
   val io = IO(new Bundle {
     val app = Vec(numStreams, new MemoryStream(w, v))
@@ -99,18 +99,18 @@ class MAGCore(
   })
 
   def extractBurstAddr(addr: UInt) = {
-    val burstOffset = log2Up(burstSizeBytes)
+    val burstOffset = log2Ceil(burstSizeBytes)
     addr(addr.getWidth-1, burstOffset)
   }
 
   def extractBurstOffset(addr: UInt) = {
-    val burstOffset = log2Up(burstSizeBytes)
+    val burstOffset = log2Ceil(burstSizeBytes)
     addr(burstOffset-1, 0)
   }
 
   def extractWordOffset(addr: UInt) = {
-    val burstOffset = log2Up(burstSizeBytes)
-    val wordOffset = log2Up(w)
+    val burstOffset = log2Ceil(burstSizeBytes)
+    val wordOffset = log2Ceil(w)
     addr(burstOffset, wordOffset)
   }
 
@@ -191,17 +191,17 @@ class MAGCore(
   burstCounter.io.saturate := 0.U
 
   // Burst Tag counter
-  val burstTagCounter = Module(new Counter(log2Up(numOutstandingBursts+1)))
+  val burstTagCounter = Module(new Counter(log2Ceil(numOutstandingBursts+1)))
   burstTagCounter.io.max := numOutstandingBursts.U
   burstTagCounter.io.stride := 1.U
   burstTagCounter.io.reset := 0.U
   burstTagCounter.io.enable := Mux(io.config.scatterGather, ~addrFifo.io.empty, burstVld) & dramReady
   burstCounter.io.saturate := 0.U
-  val elementID = burstTagCounter.io.out(log2Up(v)-1, 0)
+  val elementID = burstTagCounter.io.out(log2Ceil(v)-1, 0)
 
   // Coalescing cache
 //  val ccache = Module(new CoalescingCache(w, d, v))
-//  ccache.io.raddr := Cat(io.dram.tagIn, UInt(0, width=log2Up(burstSizeBytes)))
+//  ccache.io.raddr := Cat(io.dram.tagIn, UInt(0, width=log2Ceil(burstSizeBytes)))
 //  ccache.io.readEn := config.scatterGather & io.dram.vldIn
 //  ccache.io.waddr := addrFifo.io.deq(0)
 //  ccache.io.wen := config.scatterGather & ~addrFifo.io.empty
@@ -235,8 +235,8 @@ class MAGCore(
     // m is an 8-bit word. Each byte has the following format:
     // | 7 6 5 4     | 3    2   1    0     |
     // | x x x <vld> | <crossbar_config_i> |
-    val valid = m(log2Up(burstSizeWords))
-    val crossbarConfig = m(log2Up(burstSizeWords)-1, 0)
+    val valid = m(log2Ceil(burstSizeWords))
+    val crossbarConfig = m(log2Ceil(burstSizeWords)-1, 0)
     (valid, crossbarConfig)
   }
 
@@ -321,7 +321,7 @@ class MAGCore(
   tagOut.streamTag := addrFifo.io.tag
   tagOut.burstTag := Mux(io.config.scatterGather, burstAddrs(0), burstTagCounter.io.out)
 
-  io.dram.cmd.bits.addr := Cat((burstAddrs(0) + burstCounter.io.out), 0.U(log2Up(burstSizeBytes).W))
+  io.dram.cmd.bits.addr := Cat((burstAddrs(0) + burstCounter.io.out), 0.U(log2Ceil(burstSizeBytes).W))
   io.dram.cmd.bits.tag := Cat(tagOut.streamTag, tagOut.burstTag)
   io.dram.cmd.bits.streamId := tagOut.streamTag
   io.dram.cmd.bits.wdata := dataFifo.io.deq
