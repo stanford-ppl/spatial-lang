@@ -1235,7 +1235,7 @@ object BasicFSM extends SpatialApp {
         bram(state) = state
       }{state => state + 1}
 
-      dram store bram
+      dram(0::32 par 16) store bram
     }
     val result = getMem(dram)
     for(i <- 0 until 32) { assert(result(i) == i, "Incorrect at index " + i) }

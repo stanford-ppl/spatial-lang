@@ -80,45 +80,80 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     */
   var pachinko = Map[(Exp[_],Exp[_],Int), Seq[Seq[Int]]]()
 
-  def registerAccess(original: Exp[_], unrolled: Exp[_]): Unit = {
+  def registerAccess(original: Exp[_], unrolled: Exp[_] /*, pars: Option[Seq[Int]]*/): Unit = {
     val reads = unrolled match { case LocalReader(rds) => rds.map(_._1); case _ => Nil }
     val writes = unrolled match { case LocalWriter(wrts) => wrts.map(_._1); case _ => Nil }
+    //val accesses = reads ++ writes
 
-    val unrollInts: Seq[Int] = original match {
-      case Def(_:SRAMLoad[_])  => accessPatternOf(original).map{ _.index.flatMap{i => unrollNum.get(i)}.getOrElse(-1) }
-      case Def(_:SRAMStore[_]) => accessPatternOf(original).map{ _.index.flatMap{i => unrollNum.get(i)}.getOrElse(-1) }
-      case _                   => Seq(-1)
+    val unrollInts: Seq[Int] = accessPatternOf.get(original).map{patterns =>
+      patterns.map(_.index.flatMap{i => unrollNum.get(i)}.getOrElse(-1) )
+    }.getOrElse(Seq(-1))
+
+    // Total number of address channels needed
+    val channels = unrolled match {
+      case Def(op: EnabledOp[_]) => op.enables.length
+      case _ => unrolled.tp match {
+        case tp: VectorType[_] => tp.width
+        case _ => 1
+      }
     }
-
 
     // For each memory this access reads, set the new dispatch value
     reads.foreach{mem =>
-      dbg(c"Registering read of $mem: $original -> $unrolled")
-      dbg(c"  ${str(original)}")
-      dbg(c"  ${str(unrolled)}")
-      dbg(c"  Unroll numbers: ${unrollInts}")
+      dbgs(c"Registering read of $mem: $original -> $unrolled")
+      dbgs(c"  Channels: $channels")
+      dbgs(c"  ${str(original)}")
+      dbgs(c"  ${str(unrolled)}")
+      dbgs(c"  Unroll numbers: ${unrollInts}")
 
       val origDispatches = dispatchOf(unrolled, mem)
       if (origDispatches.size != 1) {
         error(c"Readers should have exactly one dispatch, $original -> $unrolled had ${origDispatches.size}")
         sys.exit()
       }
-      else {
-        val orig = origDispatches.head
-
-        dbg(c"  Previous unroll numbers: ")
+      val dispatches = origDispatches.flatMap{orig =>
+        dbgs(c"  Dispatch #$orig: ")
+        dbgs(c"    Previous unroll numbers: ")
         val others = pachinko.getOrElse( (original,mem,orig), Nil)
 
-        others.foreach{other => dbg(c"  $other") }
+        val banking = duplicatesOf(mem).apply(orig) match {
+          case banked: BankedMemory => banked.dims.map(_.banks)
+          case diagonal: DiagonalMemory => Seq(diagonal.banks) ++ List.fill(diagonal.nDims - 1)(1)
+        }
 
-        val dispatch = orig + others.count{p => p == unrollInts }
+        // Address channels taken care of by banking
+        val bankedChannels = accessPatternOf.get(original).map{ patterns =>
+          val iters = patterns.map(_.index)
+          iters.distinct.map{
+            case x@Some(i) =>
+              val requiredBanking = parFactorOf(i) match {case Exact(p) => p.toInt }
+              val actualBanking = banking(iters.indexOf(x))
+              Math.min(requiredBanking, actualBanking) // actual may be higher than required, or vice versa
+            case None => 1
+          }
+        }.getOrElse(Seq(1))
+
+        val banks = bankedChannels.product
+        val duplicates = (channels + banks - 1) / banks // ceiling(channels/banks)
+
+        dbgs(c"    Bankings: $banking")
+        dbgs(c"    Banked Channels: $bankedChannels ($banks)")
+        dbgs(c"    Duplicates: $duplicates")
+
+        others.foreach{other => dbgs(c"      $other") }
+
+        val dispatchStart = orig + duplicates * others.count{p => p == unrollInts }
         pachinko += (original,mem,orig) -> (unrollInts +: others)
 
-        dbg(c"  Setting new dispatch value of $dispatch")
+        val dispatches = List.tabulate(duplicates){i => dispatchStart + i}.toSet
 
-        dispatchOf(unrolled, mem) = Set(dispatch)
-        portsOf(unrolled, mem, dispatch) = portsOf(unrolled, mem, orig)
+        dbgs(c"    Setting new dispatch values: $dispatches")
+
+        //dispatchOf(unrolled, mem) = Set(dispatch)
+        dispatches.foreach{d => portsOf(unrolled, mem, d) = portsOf(unrolled, mem, orig) }
+        dispatches
       }
+      dispatchOf(unrolled, mem) = dispatches
     }
   }
 

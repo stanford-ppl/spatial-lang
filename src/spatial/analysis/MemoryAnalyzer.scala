@@ -14,22 +14,34 @@ trait MemoryAnalyzer extends CompilerPass {
   override val name = "Memory Analyzer"
   var enableWarn = true
 
+  type Channels = (Memory, Int)
+  implicit class ChannelOps(x: Channels) {
+    def memory = x._1
+    def duplicates = x._2
+    def toList: List[Memory] = List.fill(duplicates)(memory)
+  }
+
   def mergeBanking(mem: Exp[_], a: Banking, b: Banking): Banking = (a,b) match {
     case (StridedBanking(s1,p), StridedBanking(s2,q)) if s1 == s2 => StridedBanking(s1, lcm(p,q))
-    case (NoBanking, _) => NoBanking
-    case (_, NoBanking) => NoBanking
+    case (NoBanking, _) => b
+    case (_, NoBanking) => a
     case _ =>
       warn(ctxOrHere(mem), u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
       warn(ctxOrHere(mem))
       NoBanking
   }
 
-  def mergeMemory(mem: Exp[_], a: Memory, b: Memory): Memory = {
-    if (a.nDims != b.nDims) {
-      new DimensionMismatchError(mem, a.nDims, b.nDims)(ctxOrHere(mem))
-      BankedMemory(List.fill(a.nDims)(NoBanking), Math.max(a.depth,b.depth), a.isAccum || b.isAccum)
+  def mergeChannels(mem: Exp[_], a: Channels, b: Channels): Channels = {
+    val memA = a.memory
+    val memB = b.memory
+    val dupA = a.duplicates
+    val dupB = b.duplicates
+
+    val memC = if (memA.nDims != memB.nDims) {
+      new DimensionMismatchError(mem, memA.nDims, memB.nDims)(ctxOrHere(mem))
+      BankedMemory(List.fill(memA.nDims)(NoBanking), Math.max(memA.depth,memB.depth), memA.isAccum || memB.isAccum)
     }
-    else (a,b) match {
+    else (memA,memB) match {
       case (DiagonalMemory(s1,p,d1,a1), DiagonalMemory(s2,q,d2,a2)) =>
         if (s1.zip(s2).forall{case (x,y) => x == y}) {
           DiagonalMemory(s1, lcm(p,q), Math.max(d1,d2), a1 || a2)
@@ -37,7 +49,7 @@ trait MemoryAnalyzer extends CompilerPass {
         else {
           warn(ctxOrHere(mem), u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
           warn(ctxOrHere(mem))
-          BankedMemory(s1.map{_ => NoBanking}, Math.max(d1,d2), a.isAccum || b.isAccum)
+          BankedMemory(s1.map{_ => NoBanking}, Math.max(d1,d2), memA.isAccum || memB.isAccum)
         }
 
       case (BankedMemory(b1,d1,a1), BankedMemory(b2, d2,a2)) => (b1,b2) match {
@@ -56,13 +68,23 @@ trait MemoryAnalyzer extends CompilerPass {
         val a = strides.map{x => StridedBanking(x, p) }
         BankedMemory(s1.zip(a).map{case (x,y) => mergeBanking(mem,x,y) }, Math.max(d1,d2), a1 || a2)
     }
+    // Calculate duplicates
+    // During merging, the requirement of duplication cannot be destroyed, only created
+    val channelsA = memA.totalBanks * dupA  // Ab0 * ... * AbN * Adup   e.g. 16 * 2 * 2 = 64 or 3 * 2 * 4 = 24
+    val channelsB = memB.totalBanks * dupB  // Bb0 * ... * BbN * Bdup   e.g. 1  * 1 * 1 = 1  or 2 * 2 * 4 = 16
+    val channelsC = Math.max(channelsA, channelsB) // = Cb0 * ... * CbN * Cdup
+    val banksC = memC.totalBanks // mrg(Ab0,Bb0) * ... * mrg(AbN,BbN)   e.g. 1  * 1     = 1  or 6 * 2 = 12
+
+    val origDups  = Math.max(dupA, dupB)
+    val extraDups = (channelsC + banksC - 1) / banksC //  = ceiling(channelsC / banksC)
+    val dupC = Math.max(origDups,extraDups)
+    (memC, dupC)
   }
 
   class InstanceGroup (
     val metapipe: Option[Ctrl],         // Controller if at least some accesses require n-buffering
     val accesses: Iterable[Access],     // All accesses within this group
-    val instance: Memory,               // Banking/buffering information
-    val duplicates: Int,                // Duplicates
+    val channels: Channels,             // Banking/buffering information + duplication
     val ports: Map[Access, Set[Int]],   // Set of ports each access is connected to
     val swaps: Map[Access, Ctrl]        // Swap controller for done signal for n-buffering
   ) {
@@ -70,9 +92,9 @@ trait MemoryAnalyzer extends CompilerPass {
     lazy val revPorts: Array[Set[Access]] = invertPorts(accesses, ports)   // Set of accesses connected for each port
     def port(x: Int): Set[Access] = if (x >= revPorts.length) Set.empty else revPorts(x)
 
-    def depth = ports.values.map(_.max).max+1
+    def depth = if (ports.values.isEmpty) 1 else ports.values.map(_.max).max+1
     // Assumes a fixed size, dual ported memory which is duplicated, both to meet duplicates and banking factors
-    def normalizedCost = depth * duplicates * instance.totalBanks
+    def normalizedCost = depth * channels.duplicates * channels.memory.totalBanks
 
     val id = { InstanceGroup.id += 1; InstanceGroup.id }
     override def toString = s"IG$id"
@@ -85,9 +107,9 @@ trait MemoryAnalyzer extends CompilerPass {
   def printGroup(group: InstanceGroup): Unit = {
     dbg("")
     dbg(c"  Name: $group")
-    dbg(c"  Instance: ${group.instance}")
+    dbg(c"  Instance: ${group.channels.memory}")
+    dbg(c"  Duplicates: ${group.channels.duplicates}")
     dbg(c"  Controller: ${group.metapipe}")
-    dbg(c"  Duplicates: ${group.duplicates}")
     dbg(c"  Buffer Ports: ")
     group.revPorts.zipWithIndex.foreach{case (portAccesses,port) =>
       dbg(c"    $port: " + portAccesses.mkString(", "))
@@ -95,7 +117,7 @@ trait MemoryAnalyzer extends CompilerPass {
   }
 
   def invertPorts(accesses: Iterable[Access], ports: Map[Access, Set[Int]]): Array[Set[Access]] = {
-    val depth = ports.values.map(_.max).max + 1
+    val depth = if (ports.values.isEmpty) 1 else ports.values.map(_.max).max + 1
     Array.tabulate(depth){port =>
       accesses.filter{a => ports(a).contains(port) }.toSet
     }
@@ -106,7 +128,7 @@ trait MemoryAnalyzer extends CompilerPass {
     mem:     Exp[_],
     writers: Seq[Access],
     reader:  Option[Access],
-    bankAccess: (Exp[_], Exp[_]) => (Memory,Int)
+    bankAccess: (Exp[_], Exp[_]) => Channels
   ): InstanceGroup = {
     dbg(c"  Banking group: ")
     dbg(c"    Reader: $reader")
@@ -115,14 +137,13 @@ trait MemoryAnalyzer extends CompilerPass {
     val accesses = writers ++ reader
 
     val group = {
-      if (accesses.isEmpty) new InstanceGroup(None, Nil, BankedMemory(Nil,1,false), 1, Map.empty, Map.empty)
+      if (accesses.isEmpty) new InstanceGroup(None, Nil, (BankedMemory(Nil,1,false), 1), Map.empty, Map.empty)
       else {
         val bankings = accesses.map{a => bankAccess(mem, a.node) }
-        val memory = bankings.map(_._1).reduce{(a,b) => mergeMemory(mem, a, b) }
-        val duplicates = bankings.map(_._2).max
+        val channels = bankings.reduce{(a,b) => mergeChannels(mem, a, b) }
 
         if (writers.isEmpty && reader.isDefined) {
-          new InstanceGroup(None, accesses, memory, duplicates, Map(reader.get -> Set(0)), Map.empty)
+          new InstanceGroup(None, accesses, channels, Map(reader.get -> Set(0)), Map.empty)
         }
         else {
           // TODO: A memory is an accumulator if a writer depends on a reader in the same pipe
@@ -139,10 +160,12 @@ trait MemoryAnalyzer extends CompilerPass {
 
           val (metapipe, ports) = findMetaPipe(mem, reader.toList, writers)
           val depth = ports.values.max + 1
-          val bufferedMemory = memory match {
+          // Update memory instance with correct depth
+          val bufferedMemory = channels.memory match {
             case BankedMemory(banks, _, _) => BankedMemory(banks, depth, isAccum)
             case DiagonalMemory(strides, banks, _, _) => DiagonalMemory(strides, banks, depth, isAccum)
           }
+          val bufferedChannels = (bufferedMemory, channels.duplicates)
 
           metapipe match {
             // Metapipelined case: partition accesses based on whether they're n-buffered or time multiplexed w/ buffer
@@ -152,12 +175,12 @@ trait MemoryAnalyzer extends CompilerPass {
               def allPorts = List.tabulate(depth){i=>i}.toSet
               val bufPorts = Map(nbuf.map{a => a -> Set(ports(a)) } ++ tmux.map{a => a -> allPorts} : _*)
               val bufSwaps = Map(nbuf.map{a => a -> childContaining(parent, a) } : _*)
-              new InstanceGroup(metapipe, accesses, bufferedMemory, duplicates, bufPorts, bufSwaps)
+              new InstanceGroup(metapipe, accesses, bufferedChannels, bufPorts, bufSwaps)
 
             // Time-multiplexed case:
             case None =>
               val muxPorts = ports.map{case (key, port) => key -> Set(port)}
-              new InstanceGroup(None, accesses, bufferedMemory, duplicates, muxPorts, Map.empty)
+              new InstanceGroup(None, accesses, bufferedChannels, muxPorts, Map.empty)
           }
         }
       }
@@ -210,8 +233,7 @@ trait MemoryAnalyzer extends CompilerPass {
       new InstanceGroup(
         parent,
         accesses,
-        instance = groups.map(_.instance).reduce{(a,b) => mergeMemory(mem, a, b) },
-        duplicates = groups.map(_.duplicates).max,
+        channels = groups.map(_.channels).reduce{(a,b) => mergeChannels(mem, a, b) },
         ports,
         groups.map(_.swaps).reduce{(a,b) => a ++ b}
       )
@@ -221,6 +243,20 @@ trait MemoryAnalyzer extends CompilerPass {
     }
 
     // TODO: Good functional way to express this stuff?
+    // Find the groupings with the smallest resulting estimated cost
+    // Unfortunately, "merge everything all the time if possible" isn't necessarily the best course of action
+    // e.g. if we have a buffer with depth 2, banking of 2 and buffer depth 3 with banking of 3,
+    // merging the two together will require depth 3 with banking of 6
+    // Fortunately, the number of groups here is generally small (1 - 5), so runtime shouldn't be too much of an issue
+
+    // 1. Greedily merge all cases where the the lcm is bounded by either a or b
+    // cost(x) = Product( x.bankings ) * x.depth * x.duplicates
+    // cost( Merge(x,y) ) = Merge(x,y).depth * Merge(x,y).duplicates * Product( Merge(x,y).bankings )
+    //                    = max(x.depth, y.depth) * max(x.duplicates,y.duplicates) * Product( lcm(x.b0,y.b0), ... )
+    //
+    // Want: cost( Merge(x,y) ) <= cost(x) + cost(y)
+    //
+    // This condition holds if lcm is less than or equal to both banking factors (i.e. one is a divisor of the other)
     def greedyBufferMerge(instances: Set[InstanceGroup]): Set[InstanceGroup] = {
       // Group by port conflicts
       var instsIn = instances
@@ -237,7 +273,7 @@ trait MemoryAnalyzer extends CompilerPass {
       while (exclusiveGrps.exists(_.nonEmpty)) {
         val grp = exclusiveGrps.find(_.nonEmpty).get.head
         val mergeGrp = exclusiveGrps.flatMap{g =>
-          g.find(_.instance.costBasisBanks.zip(grp.instance.costBasisBanks).forall{case (a,b) => a % b == 0 || b % a == 0 })
+          g.find(_.channels.memory.costBasisBanks.zip(grp.channels.memory.costBasisBanks).forall{case (a,b) => a % b == 0 || b % a == 0 })
         }
         val merged = merge(mergeGrp)
 
@@ -307,22 +343,8 @@ trait MemoryAnalyzer extends CompilerPass {
 
 
     instances.groupBy(_.metapipe).toList.flatMap{
+      // Merging for buffered memories
       case (Some(metapipe), instances) =>
-        // Find the groupings with the smallest resulting estimated cost
-        // Unfortunately, "merge everything all the time if possible" isn't necessarily the best course of action
-        // e.g. if we have a buffer with depth 2, banking of 2 and buffer depth 3 with banking of 3,
-        // merging the two together will require depth 3 with banking of 6
-        // Fortunately, the number of groups here is generally small (1 - 5), so runtime shouldn't be too much of an issue
-
-        // 1. Greedily merge all cases where the the lcm is bounded by either a or b
-        // cost(x) = Product( x.bankings ) * x.depth * x.duplicates
-        // cost( Merge(x,y) ) = Merge(x,y).depth * Merge(x,y).duplicates * Product( Merge(x,y).bankings )
-        //                    = max(x.depth, y.depth) * max(x.duplicates,y.duplicates) * Product( lcm(x.b0,y.b0), ... )
-        //
-        // Want: cost( Merge(x,y) ) <= cost(x) + cost(y)
-        //
-        // This condition holds if lcm is less than or equal to both banking factors (i.e. one is a divisor of the other)
-
         val insts = greedyBufferMerge(instances.toSet)
 
         dbg(c"After greedy: ")
@@ -331,7 +353,7 @@ trait MemoryAnalyzer extends CompilerPass {
         // 2. Coalesce remaining instance groups based on brute force search, if it's feasible
         exhaustiveBufferMerge(insts).toList
 
-
+      // TODO: Merging for time multiplexed
       case (None, instances) => instances
     }
   }
@@ -391,7 +413,7 @@ trait MemoryAnalyzer extends CompilerPass {
 
       grp.accesses.foreach{access =>
         if (writers.contains(access)) {
-          for (j <- i until i+grp.duplicates) {
+          for (j <- i until i+grp.channels.duplicates) {
             dispatchOf.add(access, mem, j)
             portsOf(access, mem, j) = grp.ports(access)
           }
@@ -402,10 +424,10 @@ trait MemoryAnalyzer extends CompilerPass {
         }
       }
 
-      i += grp.duplicates
+      i += grp.channels.duplicates
     }
 
-    duplicatesOf(mem) = coalescedGroups.flatMap{grp => List.fill(grp.duplicates)(grp.instance) }
+    duplicatesOf(mem) = coalescedGroups.flatMap{grp => grp.channels.toList }
   }
 
 
@@ -471,7 +493,7 @@ trait MemoryAnalyzer extends CompilerPass {
     banking
   }
 
-  def bankSRAMAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
+  def bankSRAMAccess(mem: Exp[_], access: Exp[_]): Channels = {
     val patterns = accessPatternOf(access)
     // TODO: SRAM Views: dimensions may change depending on view
     val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
@@ -497,7 +519,7 @@ trait MemoryAnalyzer extends CompilerPass {
   }
 
 
-  def bankFIFOAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
+  def bankFIFOAccess(mem: Exp[_], access: Exp[_]): Channels = {
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
 
     // TODO: May want to disable this check for DSE? Or just limit parallelization factors to be legal ones
@@ -515,14 +537,14 @@ trait MemoryAnalyzer extends CompilerPass {
   }
 
   // TODO: Concurrent writes to registers should be illegal
-  def bankRegAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
+  def bankRegAccess(mem: Exp[_], access: Exp[_]): Channels = {
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
     val duplicates = factors.flatten.map{case Exact(c) => c.toInt}.product
 
     (BankedMemory(Seq(NoBanking), depth = 1, isAccum = false), duplicates)
   }
 
-  def bankLineBufferAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
+  def bankLineBufferAccess(mem: Exp[_], access: Exp[_]): Channels = {
     val factors  = unrollFactorsOf(access) diff unrollFactorsOf(mem)
     val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
 
@@ -530,8 +552,9 @@ trait MemoryAnalyzer extends CompilerPass {
     val strides = constDimsToStrides(dims)
 
     val banking = access match {
-      case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(NoBanking, StridedBanking(strides(1),len.toInt))
+      case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(NoBanking, StridedBanking(strides(1), len.toInt))
       case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(StridedBanking(strides(0),len.toInt), NoBanking)
+      case Def(LineBufferEnq(_,_,_))                     => Seq(NoBanking, StridedBanking(strides(1), channels))
       case Def(LineBufferLoad(_,row,col,_)) =>
         val patterns = accessPatternOf(access)
         indexPatternsToBanking(patterns, strides)
@@ -547,7 +570,7 @@ trait MemoryAnalyzer extends CompilerPass {
     (BankedMemory(banking, depth=1, isAccum=false), duplicates)
   }
 
-  def bankRegFileAccess(mem: Exp[_], access: Exp[_]): (Memory, Int) = {
+  def bankRegFileAccess(mem: Exp[_], access: Exp[_]): Channels = {
     val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
     val strides = constDimsToStrides(dims)
 
@@ -575,10 +598,10 @@ trait MemoryAnalyzer extends CompilerPass {
       portsOf(access, mem, 0) = Set(0)
     }
 
-    val par = accesses.map{access =>
+    val par = (1 +: accesses.map{access =>
       val factors = unrollFactorsOf(access.node) // relative to stream, which always has par of 1
       factors.flatten.map{case Exact(c) => c.toInt}.product
-    }.max
+    }).max
 
     /*val bus = mem match {
       case Op(StreamInNew(bus)) => bus

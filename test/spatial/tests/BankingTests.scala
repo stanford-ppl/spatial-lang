@@ -136,6 +136,28 @@ object SRAMCoalesceTest extends SpatialTest {
   }
 }
 
+object LinearWriteRandomRead extends SpatialTest {
+  import IR._
+
+  @virtualize
+  def main() {
+    Accel {
+      val sram = SRAM[Int](16)
+      val addr = SRAM[Int](16)
+      val out1 = ArgOut[Int]
+      val out2 = ArgOut[Int]
+      Foreach(16 by 1){i =>
+        Foreach(16 by 1 par 2){j =>
+          sram(j) = i*j
+          addr(j) = 16 - j
+        }
+        val sum = Reduce(0)(16 par 5){j => sram(addr(j)) }{_+_}
+        out1 := sum
+      }
+    }
+  }
+}
+
 class BankingTests extends FlatSpec with Matchers with Exceptions {
   SpatialConfig.enableScala = true
   "TwoDuplicatesSimple" should "have two duplicates of sram" in { TwoDuplicatesSimple.main(Array.empty) }
@@ -145,6 +167,7 @@ class BankingTests extends FlatSpec with Matchers with Exceptions {
 
   "RegCoalesceTest" should "be coalesced" in { RegCoalesceTest.main(Array.empty) }
   "SRAMCoalesceTest" should "NOT be coalesced" in { SRAMCoalesceTest.main(Array.empty) }
+  "LinearWriteRandomRead" should "compile" in { LinearWriteRandomRead.main(Array.empty) }
 
   a [TestBenchFailed] should be thrownBy { IllegalFIFOParallelization.main(Array.empty) }
 }
