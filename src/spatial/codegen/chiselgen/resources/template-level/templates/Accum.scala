@@ -14,7 +14,7 @@ class UIntAccum(val w: Int, val lambda: String) extends Module {
     val output = Output(UInt(w.W))
   })
 
-  val current = Reg(init = io.init)
+  val current = RegInit(io.init)
   val asyncCurrent = Mux(io.reset, io.init, current)
   val update = lambda match { 
     case "add" => asyncCurrent + io.next

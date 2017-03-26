@@ -132,9 +132,9 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
     stateFSM.io.input.enable := io.input.enable & state === doneState.U
     io.output.state := stateFSM.io.output.data
 
-    doneReg.io.input.set := io.input.doneCondition & Utils.delay(~io.input.doneCondition, 1)
-    doneReg.io.input.reset := ~io.input.enable | state === doneState.U
-    io.output.done := doneReg.io.output.data
+    doneReg.io.input.set := io.input.doneCondition & io.input.enable
+    doneReg.io.input.reset := ~io.input.enable
+    io.output.done := doneReg.io.output.data | (io.input.doneCondition & io.input.enable)
 
     // Counter for num iterations
     val maxFF = Module(new FF(32))
@@ -200,7 +200,6 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
   //  stateFF.io.input.data := nextStateMux.io.out
 
     // Output logic
-    io.output.done := doneReg.io.output.data
     io.output.ctr_inc := io.input.stageDone(n-1) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
     io.output.stageEnable.zipWithIndex.foreach { case (en, i) => en := (state === (i+2).U) }
   }

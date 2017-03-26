@@ -16,7 +16,7 @@ class FF(val w: Int) extends Module {
   })
 
   val d = Wire(UInt(w.W))
-  val ff = Reg(Bits(w.W), d, io.init)
+  val ff = RegNext(d, io.init)
   when (io.enable) {
     d := io.in
   } .otherwise {
@@ -32,7 +32,7 @@ class TFF(val w: Int) extends Module {
   }
 
   val d = Wire(UInt(w.W))
-  val ff = Reg(UInt(w.W), d, 0.U(w.W))
+  val ff = RegNext(d, 0.U(w.W))
   when (io.enable) {
     d := ~ff
   } .otherwise {

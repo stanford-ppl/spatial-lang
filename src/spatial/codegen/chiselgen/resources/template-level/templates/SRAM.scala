@@ -437,8 +437,8 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width
         io.w(i + numWriters*wPar*port + wId*wPar) := wBundle(i) 
       }
       io.writerStage := port.U
-      io.globalWEn(port) := en // TODO: Probably wrong!
-      io.wSel(wId) := en
+      io.globalWEn(port * numWriters + wId) := en 
+      io.wSel(wId) := en & ( wBundle.map{ _.en}.reduce{_||_} )
       val next = wIdMap(port) + 1
       wIdMap += (port -> next)
     } else { // broadcast

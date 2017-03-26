@@ -18,7 +18,7 @@ class TmpCounter(max: Int, reset_val: Int, stride: Int = 1) extends Module {
   def wrapAround(n: UInt, max: UInt) = 
     Mux(n >= max, n-max, n)
 
-  val x = Reg(init=reset_val.asUInt(log2Ceil(max+stride).W))
+  val x = RegInit(reset_val.asUInt(log2Ceil(max+stride).W))
   when(io.reset) {
     x := reset_val.U(log2Ceil(max+stride).W)
   } .elsewhen(io.en) {

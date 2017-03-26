@@ -1266,7 +1266,7 @@ object BasicCondFSM extends SpatialApp { // Regression (FSM) // Args: none
         }
       }{state => state + 1}
 
-      dram store bram
+      dram(0::32 par 16) store bram
     }
     val result = getMem(dram)
     val gold = Array.tabulate(32){i => if (i < 16) 16 + i else 31 - i }

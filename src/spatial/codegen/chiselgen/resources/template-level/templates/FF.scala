@@ -256,7 +256,7 @@ class TFF() extends Module {
   io.output.data := ff
 }
 
-class SRFF() extends Module {
+class SRFF(val strongReset: Boolean = false) extends Module {
 
   // Overload with null string input for testing
   def this(n: String) = this()
@@ -272,10 +272,18 @@ class SRFF() extends Module {
     }
   })
 
-  val ff = RegInit(false.B)
-  ff := Mux(io.input.asyn_reset, false.B, Mux(io.input.set, 
-                                  true.B, Mux(io.input.reset, false.B, ff)))
-  io.output.data := Mux(io.input.asyn_reset, false.B, ff)
+  if (!strongReset) { // Set + reset = on
+    val ff = RegInit(false.B)
+    ff := Mux(io.input.asyn_reset, false.B, Mux(io.input.set, 
+                                    true.B, Mux(io.input.reset, false.B, ff)))
+    io.output.data := Mux(io.input.asyn_reset, false.B, ff)
+  } else { // Set + reset = off
+    val ff = RegInit(false.B)
+    ff := Mux(io.input.asyn_reset, false.B, Mux(io.input.reset, 
+                                    false.B, Mux(io.input.set, true.B, ff)))
+    io.output.data := Mux(io.input.asyn_reset, false.B, ff)
+
+  }
 }
 
 

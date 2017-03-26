@@ -99,9 +99,9 @@ class Innerpipe(val ctrDepth : Int, val isFSM: Boolean = false) extends Module {
     stateFSM.io.input.enable := io.input.enable
     io.output.state := stateFSM.io.output.data
 
-    doneReg.io.input.set := io.input.doneCondition
+    doneReg.io.input.set := io.input.doneCondition & io.input.enable
     doneReg.io.input.reset := ~io.input.enable
-    io.output.done := doneReg.io.output.data
+    io.output.done := doneReg.io.output.data | (io.input.doneCondition & io.input.enable)
 
   }
 }

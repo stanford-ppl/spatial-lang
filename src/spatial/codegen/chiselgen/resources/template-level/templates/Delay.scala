@@ -3,6 +3,8 @@ package templates
 
 import chisel3._
 
+// THIS CLASS IS DEPRECATED!!!!
+
 class Delayer(val length: Int) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
@@ -16,7 +18,7 @@ class Delayer(val length: Int) extends Module {
   if (length == 0) {
     io.output.data := io.input.data
   } else {
-    val regs = (0 until length).map { i => Reg(init = 0.U) }
+    val regs = (0 until length).map { i => RegInit(0.U) }
     regs(0) := io.input.data
     (length-1 until 0 by -1).map { i => 
       regs(i) := regs(i-1)
