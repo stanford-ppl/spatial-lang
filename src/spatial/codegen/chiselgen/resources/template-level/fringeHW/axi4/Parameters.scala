@@ -6,6 +6,7 @@ import chisel3._
 import chisel3.util._
 import diplomacy._
 import scala.math.max
+import templates.Utils.log2Up
 
 case class AXI4SlaveParameters(
   address:       Seq[AddressSet],
@@ -103,9 +104,9 @@ object AXI4BundleParameters
 {
   def apply(master: AXI4MasterPortParameters, slave: AXI4SlavePortParameters) =
     new AXI4BundleParameters(
-      addrBits = log2Ceil(slave.maxAddress+1),
+      addrBits = log2Up(slave.maxAddress+1),
       dataBits = slave.beatBytes * 8,
-      idBits   = log2Ceil(master.endId))
+      idBits   = log2Up(master.endId))
 }
 
 //case class AXI4EdgeParameters(

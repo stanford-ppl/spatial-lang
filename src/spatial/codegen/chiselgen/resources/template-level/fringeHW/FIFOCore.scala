@@ -2,6 +2,7 @@ package fringe
 
 import chisel3._
 import chisel3.util.{log2Ceil, isPow2}
+import templates.Utils.log2Up
 
 
 /**
@@ -19,7 +20,7 @@ case class FIFOOpcode(val d: Int, val v: Int) extends Bundle {
 }
 
 class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
-  val addrWidth = log2Ceil(d/v)
+  val addrWidth = log2Up(d/v)
   val bankSize = d/v
   // Check for sizes and v
   Predef.assert(d%v == 0, s"Unsupported FIFO size ($d)/banking($v) combination; $d must be a multiple of $v")
@@ -38,7 +39,7 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   })
 
   // Create size register
-  val sizeUDC = Module(new UpDownCtr(log2Ceil(d+1)))
+  val sizeUDC = Module(new UpDownCtr(log2Up(d+1)))
   val size = sizeUDC.io.out
   val empty = size === 0.U
   val almostEmpty = sizeUDC.io.nextDec === 0.U
@@ -56,7 +57,7 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   sizeUDC.io.dec := readEn
 
   // Create wptr (tail) counter chain
-  val wptrConfig = Wire(new CounterChainOpcode(log2Ceil(bankSize+1), 2, 0, 0))
+  val wptrConfig = Wire(new CounterChainOpcode(log2Up(bankSize+1), 2, 0, 0))
   wptrConfig.chain(0) := io.config.chainWrite
   (0 until 2) foreach { i => i match {
       case 1 => // Localaddr: max = bankSize, stride = 1
@@ -72,7 +73,7 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
         cfg.maxConst := true.B
         cfg.strideConst := true.B
   }}
-  val wptr = Module(new CounterChainCore(log2Ceil(bankSize+1), 2, 0, 0))
+  val wptr = Module(new CounterChainCore(log2Up(bankSize+1), 2, 0, 0))
   wptr.io.enable(0) := writeEn & io.config.chainWrite
   wptr.io.enable(1) := writeEn
   wptr.io.config := wptrConfig
@@ -81,7 +82,7 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
 
 
   // Create rptr (head) counter chain
-  val rptrConfig = Wire(new CounterChainOpcode(log2Ceil(bankSize+1), 2, 0, 0))
+  val rptrConfig = Wire(new CounterChainOpcode(log2Up(bankSize+1), 2, 0, 0))
   rptrConfig.chain(0) := io.config.chainRead
   (0 until 2) foreach { i => i match {
       case 1 => // Localaddr: max = bankSize, stride = 1
@@ -97,7 +98,7 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
         cfg.maxConst := true.B
         cfg.strideConst := true.B
     }}
-  val rptr = Module(new CounterChainCore(log2Ceil(bankSize+1), 2, 0, 0))
+  val rptr = Module(new CounterChainCore(log2Up(bankSize+1), 2, 0, 0))
   rptr.io.enable(0) := readEn & io.config.chainRead
   rptr.io.enable(1) := readEn
   rptr.io.config := rptrConfig

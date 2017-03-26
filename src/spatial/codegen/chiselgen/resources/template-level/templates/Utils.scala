@@ -2,6 +2,7 @@
 package templates
 
 import chisel3._
+import chisel3.util.{log2Ceil, isPow2}
 import types._
 
 object Utils {
@@ -83,6 +84,12 @@ object Utils {
     }
   }
 
+  def log2Up[T](number:T): Int = {
+    number match {
+      case n: Int => 1 max log2Ceil(n)
+      case n: scala.math.BigInt => 1 max log2Ceil(n)
+    }
+  }
   // def toFix[T <: chisel3.core.Data](a: T): FixedPoint = {
   //   a match {
   //     case aa: FixedPoint => Mux(aa > bb, a, b)
