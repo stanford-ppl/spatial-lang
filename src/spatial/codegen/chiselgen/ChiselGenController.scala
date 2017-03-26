@@ -122,7 +122,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     }
   }
 
-  def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]]) {
+  def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
     val isInner = levelOf(sym) match {
       case InnerControl => true
@@ -170,7 +170,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     }
 
 
-    val constrArg = if (isInner) {s"${numIter.length} /*TODO: don't need*/"} else {s"${childrenOf(sym).length}"}
+    val constrArg = if (isInner) {s"${numIter.length} /*TODO: don't need*/, ${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
 
     emit(src"""val ${sym}_offset = 0 // TODO: Compute real delays""")
     emitModule(src"${sym}_sm", s"${smStr}", s"${constrArg}")
@@ -186,7 +186,9 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     }
 
     if (isStreamChild(sym)) {
-      emit(src"""val ${sym}_datapath_en = ${sym}_en // TODO: Make sure this is a safe assignment""")  
+      emit(src"""val ${sym}_datapath_en = ${sym}_en""")  
+    } else if (isFSM) {
+      emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_done""")        
     } else {
       emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc // TODO: Make sure this is a safe assignment""")
     }
@@ -256,6 +258,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     } else {
       emit(src"""${sym}_sm.io.input.forever := false.B""")
     }
+
 
         
     /* Control Signals to Children Controllers */

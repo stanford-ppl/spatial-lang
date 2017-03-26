@@ -6,7 +6,7 @@ import Utils._
 
 import scala.collection.mutable.HashMap
 
-class Metapipe(val n: Int) extends Module {
+class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -14,12 +14,17 @@ class Metapipe(val n: Int) extends Module {
       val stageDone = Vec(n, Input(Bool()))
       val rst = Input(Bool())
       val forever = Input(Bool())
+      // FSM signals
+      val nextState = Input(UInt(32.W))
+
     }
     val output = new Bundle {
       val done = Output(Bool())
       val stageEnable = Vec(n, Output(Bool()))
       val rst_en = Output(Bool())
       val ctr_inc = Output(Bool())
+      // FSM signals
+      val state = Output(UInt(32.W))
     }
   })
 
@@ -46,7 +51,7 @@ class Metapipe(val n: Int) extends Module {
   maxFF.io.input.data := io.input.numIter
   val max = maxFF.io.output.data
 
-  val doneClear = Reg(init = 0.U)
+  val doneClear = RegInit(0.U)
   val doneFF = List.tabulate(n) { i =>
     val ff = Module(new SRFF())
     ff.io.input.set := io.input.stageDone(i)
@@ -161,5 +166,5 @@ class Metapipe(val n: Int) extends Module {
 
 
 
-class Streampipe(override val n: Int) extends Parallel(n) {
+class Streampipe(override val n: Int, override val isFSM: Boolean = false) extends Parallel(n) {
 }

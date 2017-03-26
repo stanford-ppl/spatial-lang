@@ -256,7 +256,7 @@
 //  val WAIT = UInt(1, width = 2) // block all access till count=0
 //
 //  val state = RegInit(PASS)
-//  val count = RegInit(UInt(0, width = log2Up(maxInFlight)))
+//  val count = RegInit(UInt(0, width = log2Ceil(maxInFlight)))
 //  val full  = count === UInt(maxInFlight-1)
 //  val empty = count === UInt(0)
 //  val last  = count === UInt(1)

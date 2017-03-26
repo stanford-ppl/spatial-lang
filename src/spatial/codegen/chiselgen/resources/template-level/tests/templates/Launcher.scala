@@ -147,6 +147,21 @@ object Arguments {
   val Parallel = List(
     3
   )
+  val ParallelShiftReg = List( // Arguments are (size, stride, parallelism)
+    (5,2,5),
+    (3,1,3)
+  )
+  val ParallelShiftRegFile = List( // Arguments are (size, stride)
+    (6,2),
+    (3,1)
+  )
+  val RegFile = List( // Arguments are (size)
+    (10)
+  )
+  val LineBuffer = List( // Arguments are (#lines, line size, #extra rows to buffer, COL_PAR, ROW_PAR)
+    (3,10,1,1,3),
+    (5,10,2,1,5)
+  )
 }
 // End args
 
@@ -335,6 +350,38 @@ object Launcher {
     (s"Parallel$i" -> { (backendName: String) =>
         Driver(() => new Parallel(arg), "verilator") {
           (c) => new ParallelTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.ParallelShiftReg.zipWithIndex.map{ case(arg,i) => 
+    (s"ParallelShiftReg$i" -> { (backendName: String) =>
+        Driver(() => new ParallelShiftReg(arg), "verilator") {
+          (c) => new ParallelShiftRegTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.ParallelShiftRegFile.zipWithIndex.map{ case(arg,i) => 
+    (s"ParallelShiftRegFile$i" -> { (backendName: String) =>
+        Driver(() => new ParallelShiftRegFile(arg), "verilator") {
+          (c) => new ParallelShiftRegFileTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.RegFile.zipWithIndex.map{ case(arg,i) => 
+    (s"RegFile$i" -> { (backendName: String) =>
+        Driver(() => new RegFile(arg), "verilator") {
+          (c) => new RegFileTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.LineBuffer.zipWithIndex.map{ case(arg,i) => 
+    (s"LineBuffer$i" -> { (backendName: String) =>
+        Driver(() => new LineBuffer(arg), "verilator") {
+          (c) => new LineBufferTests(c)
         }
       }) 
   }.toMap

@@ -122,7 +122,7 @@ trait ChiselGenReg extends ChiselCodegen {
                   }
               }
             case _ =>
-              throw new AccumWithoutReduceFunctionException(reg, lhs)
+              emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
           }
         } else {
           emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
@@ -133,7 +133,7 @@ trait ChiselGenReg extends ChiselCodegen {
     case RegWrite(reg,v,en) => 
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg)) {
-        emit(src"""val $reg = Reg(init = 0.U) // HW-accessible register""")
+        emit(src"""val $reg = RegInit(0.U) // HW-accessible register""")
         v.tp match {
           case FixPtType(_,_,_) => if (hasFracBits(v.tp)) {
               emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")

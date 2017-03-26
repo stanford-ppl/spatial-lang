@@ -65,7 +65,8 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenCounter with ChiselGenReg with ChiselGenSRAM with ChiselGenFIFO 
   with ChiselGenIfThenElse with ChiselGenController with ChiselGenMath with ChiselGenText
   with ChiselGenDRAM with ChiselGenStringCast with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
-  with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream with ChiselGenStructs {
+  with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream with ChiselGenStructs with ChiselGenLineBuffer
+  with ChiselGenRegFile with ChiselGenStateMachine{
 
   override val IR: SpatialCompiler
 }

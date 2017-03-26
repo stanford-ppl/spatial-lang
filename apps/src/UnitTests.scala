@@ -1222,7 +1222,7 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
 
 }
 
-object BasicFSM extends SpatialApp {
+object BasicFSM extends SpatialApp { // Regression (FSM) // Args: none
   import IR._
 
   @virtualize
@@ -1237,13 +1237,18 @@ object BasicFSM extends SpatialApp {
 
       dram(0::32 par 16) store bram
     }
+    val gold = Array.tabulate(32){i => i}
+
     val result = getMem(dram)
-    for(i <- 0 until 32) { assert(result(i) == i, "Incorrect at index " + i) }
-    println("PASS")
+    printArray(result, "Result")
+    printArray(gold, "Gold")
+    val cksum = gold.zip(result){_ == _}.reduce{_&&_}
+    // for(i <- 0 until 32) { assert(result(i) == i, "Incorrect at index " + i) }
+    println("PASS: " + cksum + " (BasicFSM)")
   }
 }
 
-object BasicCondFSM extends SpatialApp {
+object BasicCondFSM extends SpatialApp { // Regression (FSM) // Args: none
   import IR._
 
   @virtualize
@@ -1267,12 +1272,13 @@ object BasicCondFSM extends SpatialApp {
     val gold = Array.tabulate(32){i => if (i < 16) 16 + i else 31 - i }
     printArray(result, "Result")
     printArray(gold, "Gold")
-    for (i <- 0 until 32){ assert(result(i) == gold(i)) }
-    println("PASS")
+    // for (i <- 0 until 32){ assert(result(i) == gold(i)) }
+    val cksum = gold.zip(result){_ == _}.reduce{_&&_}
+    println("PASS: " + cksum + " (BasicCondFSM)")
   }
 }
 
-object DotProductFSM extends SpatialApp {
+object DotProductFSM extends SpatialApp { // Regression (FSM) // Args: none
   import IR._
 
   @virtualize
@@ -1289,22 +1295,26 @@ object DotProductFSM extends SpatialApp {
     setMem(vecA, vectorA)
     setMem(vecB, vectorB)
     Accel {
+      val outer_accum = Reg[Int](0)
       FSM[Int](i => i < 128) { i =>
         val a = SRAM[Int](16)
         val b = SRAM[Int](16)
         Parallel {
-          a load vecA(i :: i + 16)
-          b load vecB(i :: i + 16)
+          a load vecA(i :: i + 16 par 16)
+          b load vecB(i :: i + 16 par 16)
         }
-        out := out + Reduce(0)(0 until 16) { i => a(i) * b(i) } {
+        outer_accum := outer_accum + Reduce(0)(0 until 16) { i => a(i) * b(i) } {
           _ + _
         }
       } { i => i + 16 }
+      Pipe{out := outer_accum}
     }
     val result = getArg(out)
     val gold = vectorA.zip(vectorB){_ * _}.reduce {_ + _}
-    assert(result == gold, "Result (" + result + ") did not equal expected (" + gold + ")")
-    println("PASS")
+    println("Expected: " + gold + ", got: " + result)
+    // assert(result == gold, "Result (" + result + ") did not equal expected (" + gold + ")")
+    val cksum = result == gold
+    println("PASS: " + cksum + " (DotProductFSM)")
   }
 }
 

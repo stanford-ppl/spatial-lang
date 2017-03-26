@@ -53,7 +53,7 @@ class IncDincCtr(inc: Int, dinc: Int, max: Int) extends Module {
     }
   })
 
-  val cnt = Reg(init = 0.S(32.W))
+  val cnt = RegInit(0.S(32.W))
 
   val numPushed = Mux(io.input.inc_en, inc.S, 0.S)
   val numPopped = Mux(io.input.dinc_en, dinc.S, 0.S)
@@ -82,7 +82,7 @@ class RedxnCtr() extends Module {
     }
   })
 
-  val cnt = Reg(init = 0.U(32.W))
+  val cnt = RegInit(0.U(32.W))
 
   val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.U === io.input.max, 0.U, cnt+1.U), cnt)
   cnt := Mux(io.input.reset, 0.U, nextCntUp)
@@ -129,8 +129,8 @@ class SingleCounter(val par: Int) extends Module {
     val count = base.io.output.data
     val newval = count + (io.input.stride * par.U) + io.input.gap
     val isMax = newval >= io.input.max
-    val wasMax = Reg(next = isMax, init = false.B)
-    val wasEnabled = Reg(next = io.input.enable, init = false.B)
+    val wasMax = RegNext(isMax, false.B)
+    val wasEnabled = RegNext(io.input.enable, false.B)
     val next = Mux(isMax, Mux(io.input.saturate, count, init), newval)
     base.io.input.data := Mux(io.input.reset, init, next)
 
@@ -226,9 +226,9 @@ class Counter(val par: List[Int]) extends Module {
 
   // Wire up the done, saturated, and extendedDone signals
   val isDone = ctrs.map{_.io.output.done}.reduce{_&_}
-  val wasDone = Reg(next = isDone, init = false.B)
+  val wasDone = RegNext(isDone, false.B)
   val isSaturated = ctrs.map{_.io.output.saturated}.reduce{_&_}
-  val wasWasDone = Reg(next = wasDone, init = false.B)
+  val wasWasDone = RegNext(wasDone, false.B)
   io.output.done := Mux(io.input.isStream, true.B, io.input.enable) & isDone & ~wasDone
   io.output.extendedDone := io.input.enable & isDone & ~wasWasDone
   io.output.saturated := io.input.saturate & isSaturated

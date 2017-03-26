@@ -72,16 +72,13 @@ trait CppGenUnrolled extends CppCodegen {
       val dims = stagedDimsOf(sram)
       open(src"val $lhs = {")
       inds.indices.foreach{i =>
-        emit(src"if ($ens($i)) $sram.update(${flattenAddress(dims, inds(i))}, $data($i))")
+        emit(src"if (${ens(i)}) $sram.update(${flattenAddress(dims, inds(i))}, $data($i))")
       }
       close("}")
 
     case ParFIFODeq(fifo, ens) =>
-      // TODO
-      //emit(src"val $lhs = $ens.map{en => if (en) $fifo.dequeue() else $z}")
 
     case ParFIFOEnq(fifo, data, ens) =>
-      emit(src"val $lhs = $data.zip($ens).foreach{case (data, en) => if (en) $fifo.enqueue(data) }")
 
     case _ => super.emitNode(lhs, rhs)
   }

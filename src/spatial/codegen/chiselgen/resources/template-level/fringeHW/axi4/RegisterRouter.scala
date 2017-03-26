@@ -27,7 +27,7 @@
 //    val r  = bundleIn(0).r
 //    val b  = bundleIn(0).b
 //
-//    val params = RegMapperParams(log2Up((address.mask+1)/beatBytes), beatBytes, ar.bits.params.idBits)
+//    val params = RegMapperParams(log2Ceil((address.mask+1)/beatBytes), beatBytes, ar.bits.params.idBits)
 //    val in = Wire(Decoupled(new RegMapperInput(params)))
 //
 //    // Prefer to execute reads first

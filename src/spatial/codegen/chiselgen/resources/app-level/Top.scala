@@ -64,7 +64,7 @@ class AWSInterface(p: TopParams) extends TopInterface {
  */
 class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStreams: Int = 1, target: String = "") extends Module {
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
-  val addrWidth = log2Up(numRegs)
+  val addrWidth = log2Ceil(numRegs)
   val v = 16
   val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, numMemoryStreams, target)
 

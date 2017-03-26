@@ -29,7 +29,7 @@ class FF(val w: Int) extends Module {
     val output = Output(new FFOut(w))
   })
   
-  val ff = Reg(init = io.input.init)
+  val ff = RegInit(io.input.init)
   ff := Mux(io.input.reset, io.input.init, Mux(io.input.enable, io.input.data, ff))
   io.output.data := Mux(io.input.reset, io.input.init, ff)
 
@@ -251,7 +251,7 @@ class TFF() extends Module {
     }
   })
 
-  val ff = Reg(init = false.B)
+  val ff = RegInit(false.B)
   ff := Mux(io.input.enable, ~ff, ff)
   io.output.data := ff
 }
@@ -272,7 +272,7 @@ class SRFF() extends Module {
     }
   })
 
-  val ff = Reg(init = false.B)
+  val ff = RegInit(false.B)
   ff := Mux(io.input.asyn_reset, false.B, Mux(io.input.set, 
                                   true.B, Mux(io.input.reset, false.B, ff)))
   io.output.data := Mux(io.input.asyn_reset, false.B, ff)

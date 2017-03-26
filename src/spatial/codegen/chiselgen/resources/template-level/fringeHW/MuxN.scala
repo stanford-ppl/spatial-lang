@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 
 class MuxN(val numInputs: Int, w: Int) extends Module {
-  val numSelectBits = log2Up(numInputs)
+  val numSelectBits = log2Ceil(numInputs)
   val io = IO(new Bundle {
     val ins = Input(Vec(numInputs, Bits(w.W)))
     val sel = Input(Bits(numSelectBits.W))
@@ -15,7 +15,7 @@ class MuxN(val numInputs: Int, w: Int) extends Module {
 }
 
 class MuxVec(val numInputs: Int, v: Int, w: Int) extends Module {
-  val numSelectBits = log2Up(numInputs)
+  val numSelectBits = log2Ceil(numInputs)
   val io = IO(new Bundle {
     val ins = Input(Vec(numInputs, Vec(v, Bits(w.W))))
     val sel = Input(Bits(numSelectBits.W))
@@ -26,7 +26,7 @@ class MuxVec(val numInputs: Int, v: Int, w: Int) extends Module {
 }
 
 class MuxNReg(val numInputs: Int, w: Int) extends Module {
-  val numSelectBits = log2Up(numInputs)
+  val numSelectBits = log2Ceil(numInputs)
   val io = IO(new Bundle {
     val ins = Input(Vec(numInputs, Bits(w.W)))
     val sel = Input(Bits(numSelectBits.W))
