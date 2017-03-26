@@ -29,25 +29,26 @@ object Convolution_FPGA extends SpatialApp {
 
       // TODO: Better syntax for initialization of lookup tables
       Pipe {
-        kh(0,0) = 1.as[T]
-        kh(1,0) = 2.as[T]
-        kh(2,0) = 1.as[T]
-        kh(0,1) = 0.as[T]
-        kh(1,1) = 0.as[T]
-        kh(2,1) = 0.as[T]
-        kh(0,2) = -1.as[T]
-        kh(1,2) = -2.as[T]
-        kh(2,2) = -1.as[T]
+        // kh(i,j) = Mux(i.to[T] == 0 && j.to[T] == 0, 1.as[T], 2.as[T])
+        Pipe{kh(0,0) = 1.as[T]}
+        Pipe{kh(1,0) = 2.as[T]}
+        Pipe{kh(2,0) = 1.as[T]}
+        Pipe{kh(0,1) = 0.as[T]}
+        Pipe{kh(1,1) = 0.as[T]}
+        Pipe{kh(2,1) = 0.as[T]}
+        Pipe{kh(0,2) = -1.as[T]}
+        Pipe{kh(1,2) = -2.as[T]}
+        Pipe{kh(2,2) = -1.as[T]}
 
-        kv(0,0) = 1.as[T]
-        kv(0,1) = 2.as[T]
-        kv(0,2) = 1.as[T]
-        kv(1,0) = 0.as[T]
-        kv(1,1) = 0.as[T]
-        kv(1,2) = 0.as[T]
-        kv(2,0) = -1.as[T]
-        kv(2,1) = -2.as[T]
-        kv(2,2) = -1.as[T]
+        Pipe{kv(0,0) = 1.as[T]}
+        Pipe{kv(0,1) = 2.as[T]}
+        Pipe{kv(0,2) = 1.as[T]}
+        Pipe{kv(1,0) = 0.as[T]}
+        Pipe{kv(1,1) = 0.as[T]}
+        Pipe{kv(1,2) = 0.as[T]}
+        Pipe{kv(2,0) = -1.as[T]}
+        Pipe{kv(2,1) = -2.as[T]}
+        Pipe{kv(2,2) = -1.as[T]}
       }
 
       val sr = RegFile[T](Kh, Kw)
