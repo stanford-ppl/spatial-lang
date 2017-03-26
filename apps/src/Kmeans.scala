@@ -49,7 +49,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
     setMem(points, points_in)
     setMem(init_cents, cent_inits)
 
-    Accel {
+    Accel { Sequential {
       val cts = SRAM[T](MAXK, MAXD)
 
       // Load initial centroids (from points)
@@ -106,7 +106,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
       }
       // Store the centroids out
       centroids(0::K*D par 16) store flatCts
-    }
+    }}
 
     getMem(centroids)
   }
