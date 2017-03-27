@@ -58,7 +58,7 @@ trait CppGenHostTransfer extends CppCodegen  {
             emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._1});", forceful = true)
         }
     case SetMem(dram, data) => 
-      if (hasFracBits(dram.tp.typeArguments.head)) {
+      if (needsFPType(dram.tp.typeArguments.head)) {
         dram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => 
             emit(src"vector<int32_t>* ${dram}_rawified = new vector<int32_t>((*${data}).size());")
@@ -72,7 +72,7 @@ trait CppGenHostTransfer extends CppCodegen  {
         emit(src"c1->memcpy($dram, &(*${data})[0], (*${data}).size() * sizeof(int32_t));", forceful = true)
       }
     case GetMem(dram, data) => 
-      if (hasFracBits(dram.tp.typeArguments.head)) {
+      if (needsFPType(dram.tp.typeArguments.head)) {
         dram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => 
             emit(src"vector<int32_t>* ${data}_rawified = new vector<int32_t>((*${data}).size());")

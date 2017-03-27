@@ -39,7 +39,13 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     val w_en     = Input(UInt(1.W))   // TODO: Bool()
     // val r_en     = Input(UInt(1.W))
     // val w_done   = Input(UInt(1.W))
-    val r_done   = Input(UInt(1.W)) // Like double buffering
+
+    // Buffering signals
+    val sEn = Vec(num_lines, Input(Bool()))
+    val sDone = Vec(num_lines, Input(Bool()))
+
+    // val r_done   = Input(UInt(1.W)) // Like double buffering
+
     val reset    = Input(UInt(1.W))
     val col_addr = Input(UInt(log2Ceil(line_size+1).W)) // From each row, read COL_PAR px starting at this col_addr
     // val row_addr = Input(UInt(1.W)) // ENHANCEMENT: Eventually will be a Vec, but for now ROW_PAR is 1 or num_lines only
@@ -48,8 +54,6 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     // val row_wrap = Output(UInt(1.W))
   })
   
-  // ENHANCEMENT: currently takes input signal r_done, can also take w_done like double buffer, but for now
-  //              assume w_done @ end of row (this currently is the only use-case)
   // ENHANCEMENT: should r_en RAMs (currently not supported, but saves power)
   // ENHANCEMENT: enq multiple @ once since banked -- COL_WRITE_PAR, ROW_WRITE_PAR (and change names of 2 PARs above to COL/ROW_READ_PAR)
   // ENHANCEMENT: could keep internal state of whether we are initializing (false means steady state),
@@ -59,6 +63,20 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   //                row_wrap := WRITE_countRowNum.io.wrap
   //              etc. 
   
+  // Buffering logic
+  val sEn_latch = (0 until num_lines).map{i => Module(new SRFF())}
+  val sDone_latch = (0 until num_lines).map{i => Module(new SRFF())}
+  val swap = Wire(Bool())
+  // Latch whether each buffer's stage is enabled and when they are done
+  (0 until num_lines).foreach{ i => 
+    sEn_latch(i).io.input.set := io.sEn(i)
+    sEn_latch(i).io.input.reset := swap
+    sDone_latch(i).io.input.set := io.sDone(i)
+    sDone_latch(i).io.input.reset := swap
+  }
+  val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
+  swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
+
   assert(ROW_PAR == 1 || ROW_PAR == num_lines)
 
   // --------------------------------------------------------------------------------------------------------------------------------
@@ -115,7 +133,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   var READ_inner_pointers = Array.tabulate(num_lines) { i =>  // ENHANCEMENT: num_lines -> row par
     val READ_index_counter = Module(new TmpCounter(num_lines + extra_rows_to_buffer, i, extra_rows_to_buffer)) // i is reset and initial value
     READ_index_counter.io.reset := io.reset
-    READ_index_counter.io.en := io.r_done
+    READ_index_counter.io.en := swap
     READ_index_counter.io.count // Return this to READ_inner_pointers(i)
   }
   var linebuf_read_wires_map = Array.tabulate(num_lines + extra_rows_to_buffer) { i =>
@@ -127,4 +145,11 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     io.data_out(i) := MuxLookup(READ_inner_pointers(i), 0.U, linebuf_read_wires_map)
   }
   
+  def connectStageCtrl(done: Bool, en: Bool, ports: List[Int]) {
+    ports.foreach{ port => 
+      io.sEn(port) := en
+      io.sDone(port) := done
+    }
+  }
+
 }

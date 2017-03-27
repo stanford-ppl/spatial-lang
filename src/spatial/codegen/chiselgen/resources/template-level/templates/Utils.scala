@@ -86,8 +86,8 @@ object Utils {
 
   def log2Up[T](number:T): Int = {
     number match {
-      case n: Int => 1 max log2Ceil(n)
-      case n: scala.math.BigInt => 1 max log2Ceil(n)
+      case n: Int => 1 max log2Ceil(1 max n)
+      case n: scala.math.BigInt => 1 max log2Ceil(1.asInstanceOf[scala.math.BigInt] max n)
     }
   }
   // def toFix[T <: chisel3.core.Data](a: T): FixedPoint = {

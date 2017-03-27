@@ -9,7 +9,7 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
   val IR: SpatialExp
   import IR._
 
-  // private var linebufs: List[(Sym[LineBufferNew[_]], Int)]  = List()
+  private var linebufs: List[Sym[LineBufferNew[_]]]  = List()
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -37,7 +37,7 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LineBufferNew(rows, cols) =>
       emitGlobal(s"val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, /* extra_rows_to_buffer = */ 1, 1, $rows))  // Data type: ${remap(op.mT)}")
-      // TODO: add to linebufs list
+      linebufs = linebufs :+ lhs.asInstanceOf[Sym[LineBufferNew[_]]]
       
     case op@LineBufferRowSlice(lb,row,len,col) =>
       // TODO: Multiple cycles
@@ -66,44 +66,40 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
       
     case _ => super.emitNode(lhs, rhs)
   }
-/* Copied from GenSRAM
-  override protected def emitFileFooter() {
-    withStream(getStream("BufferControlCxns")) {
-      linebufs.foreach{ case (mem, i) => 
-        val readers = readersOf(mem)
-        val writers = writersOf(mem)
-        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
-          1768, 1781
-        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
-          1766
-        Console.println(s"working on $mem $i $readers $readPorts $writers $writePorts")
-        Console.println(s"${readPorts.map{case (_, readers) => readers}}")
-        Console.println(s"innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
-        Console.println(s"middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
-        Console.println(s"outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
-        val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
-        val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
-        val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
-        val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
-        val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
-        val numStagesInbetween = lastActivePort - firstActivePort
 
-        // map port on memory to child of parent
-        (0 to numStagesInbetween).foreach { port =>
-          val ctrlId = port + firstActivePort
-          val node = allSiblings(ctrlId)
-          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
-          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
-          val empty = if (rd == "" & wr == "") "empty" else ""
-          emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
-        }
+  // override protected def emitFileFooter() {
+  //   withStream(getStream("BufferControlCxns")) {
+  //     linebufs.foreach{ mem => 
+  //       val readers = readersOf(mem)
+  //       val writers = writersOf(mem)
+  //       // Console.println(s"working on $mem $i $readers $readers $writers $writers")
+  //       // Console.println(s"${readers.map{case (_, readers) => readers}}")
+  //       // Console.println(s"innermost ${readers.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
+  //       // Console.println(s"middle ${parentOf(readers.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
+  //       // Console.println(s"outermost ${childrenOf(parentOf(readers.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
+  //       val allSiblings = childrenOf(parentOf(readers.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
+  //       val readSiblings = readers.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+  //       val writeSiblings = writers.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+  //       val writersNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
+  //       val readersNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
+  //       val firstActivePort = math.min( readersNumbers.min, writersNumbers.min )
+  //       val lastActivePort = math.max( readersNumbers.max, writersNumbers.max )
+  //       val numStagesInbetween = lastActivePort - firstActivePort
 
-      }
-    }
+  //       // map port on memory to child of parent
+  //       (0 to numStagesInbetween).foreach { port =>
+  //         val ctrlId = port + firstActivePort
+  //         val node = allSiblings(ctrlId)
+  //         val rd = if (readersNumbers.toList.contains(ctrlId)) {"read"} else ""
+  //         val wr = if (writersNumbers.toList.contains(ctrlId)) {"write"} else ""
+  //         val empty = if (rd == "" & wr == "") "empty" else ""
+  //         emit(src"""${mem}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
+  //       }
 
-    super.emitFileFooter()
-  }
-*/
+  //     }
+  //   }
+
+  //   super.emitFileFooter()
+  // }
+
 }
