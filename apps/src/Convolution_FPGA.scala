@@ -55,7 +55,7 @@ object Convolution_FPGA extends SpatialApp {
       val lineOut = SRAM[T](Cmax)
 
       Foreach(0 until R) { r =>
-        lb load img(r, 0::C)
+        lb load img(r, 0::C par 16)
 
         /*println("Row " + r)
         Foreach(0 until Kh) { i =>
@@ -83,8 +83,8 @@ object Convolution_FPGA extends SpatialApp {
 
   @virtualize
   def main() {
-    val R = 15
-    val C = 15
+    val R = 16
+    val C = 16
     val image = (0::R, 0::C){(i,j) => if (j > 3 && i > 3 && j < 11 && i < 11) 256 else 0 }
 
     val output = convolve(image)

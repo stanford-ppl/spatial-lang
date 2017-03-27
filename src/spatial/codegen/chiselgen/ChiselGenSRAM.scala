@@ -107,7 +107,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val p = portsOf(lhs, sram, i).head
         emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
         sram.tp.typeArguments.head match { 
-          case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
+          case FixPtType(s,d,f) => if (needsFPType(sram.tp.typeArguments.head)) {
               emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*$p))""")
             } else {
               emit(src"""val $lhs = ${sram}_$i.io.output.data(${rPar}*$p)""")
@@ -121,7 +121,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, ${width}))) """)
       sram.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
+        case FixPtType(s,d,f) => if (needsFPType(sram.tp.typeArguments.head)) {
             emit(src"""${lhs}_wVec(0).data := ${v}.number""")
           } else {
             emit(src"""${lhs}_wVec(0).data := ${v}""")

@@ -53,7 +53,7 @@ trait ChiselGenReg extends ChiselCodegen {
             fps match {
               case FixPtSum => 
                 if (d.isAccum) {
-                  if (!hasFracBits(lhs.tp.typeArguments.head)) {
+                  if (!needsFPType(lhs.tp.typeArguments.head)) {
                     emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: Create correct accum based on type""")  
                   } else {
                     lhs.tp.typeArguments.head match {
@@ -89,7 +89,7 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg)) {
-        if (hasFracBits(reg.tp.typeArguments.head)) {
+        if (needsFPType(reg.tp.typeArguments.head)) {
           reg.tp.typeArguments.head match {
             case FixPtType(s,d,f) => 
               emitGlobal(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
@@ -107,7 +107,7 @@ trait ChiselGenReg extends ChiselCodegen {
             case Some(fps: ReduceFunction) => 
               fps match {
                 case FixPtSum =>
-                  if (hasFracBits(reg.tp.typeArguments.head)) {
+                  if (needsFPType(reg.tp.typeArguments.head)) {
                     reg.tp.typeArguments.head match {
                       case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval // get reset value that was created by reduce controller""")                    
                     }
@@ -135,7 +135,7 @@ trait ChiselGenReg extends ChiselCodegen {
       if (isArgOut(reg)) {
         emit(src"""val $reg = RegInit(0.U) // HW-accessible register""")
         v.tp match {
-          case FixPtType(_,_,_) => if (hasFracBits(v.tp)) {
+          case FixPtType(_,_,_) => if (needsFPType(v.tp)) {
               emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
             } else {
               emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""") 
@@ -153,7 +153,7 @@ trait ChiselGenReg extends ChiselCodegen {
                 case FixPtSum =>
                   if (dup.isAccum) {
                     v.tp match {
-                      case FixPtType(s,_,_) => if (hasFracBits(v.tp) | s) {
+                      case FixPtType(s,_,_) => if (needsFPType(v.tp)) {
                           emit(src"""${reg}_${ii}.io.next := ${v}.number""")
                         } else {
                           emit(src"""${reg}_${ii}.io.next := ${v}""")

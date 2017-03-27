@@ -63,7 +63,7 @@ trait ChiselGenStructs extends ChiselCodegen {
     case SimpleStruct(tuples)  =>
       val items = tuples.map{ t => 
         val width = bitWidth(t._2.tp)
-        if (width > 1 & !hasFracBits(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} 
+        if (width > 1 & !needsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} 
       }.mkString(",")
       emit(src"val $lhs = Utils.Cat($items)")
     case FieldApply(struct, field) =>
