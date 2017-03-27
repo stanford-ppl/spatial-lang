@@ -40,7 +40,7 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   // Create size register
   val sizeUDC = Module(new UpDownCtr(log2Up(d+1)))
   val size = sizeUDC.io.out
-  val empty = size === 0.U
+  val empty = (size < Mux(io.config.chainRead, 1.U, v.U))
   val almostEmpty = sizeUDC.io.nextDec === 0.U
   val full = sizeUDC.io.isMax
   sizeUDC.io.initval := 0.U
