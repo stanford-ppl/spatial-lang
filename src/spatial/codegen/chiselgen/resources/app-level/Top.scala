@@ -72,6 +72,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
 
   val io = target match {
     case "verilator"  => IO(new VerilatorInterface(topParams))
+    case "vcs"        => IO(new VerilatorInterface(topParams))
     case "aws"        => IO(new AWSInterface(topParams))
     case "zynq"       => IO(new ZynqInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
@@ -81,7 +82,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
   val accel = Module(new AccelTop(w, numArgIns, numArgOuts, numMemoryStreams))
 
   target match {
-    case "verilator" =>
+    case "verilator" | "vcs" =>
       // Simulation Fringe
       val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numMemoryStreams))
       val topIO = io.asInstanceOf[VerilatorInterface]
