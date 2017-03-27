@@ -44,8 +44,10 @@ class FringeZynq(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMem
     val memStreams = Vec(numMemoryStreams, new MemoryStream(w, v))
   })
 
+  val totalArgOuts = numArgOuts + 1 + 16
+
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numMemoryStreams))
+  val fringeCommon = Module(new Fringe(w, numArgIns, totalArgOuts, numMemoryStreams))
 
   // AXI-lite bridge
   val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
@@ -62,7 +64,6 @@ class FringeZynq(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMem
   fringeCommon.io.done := io.done
 
   io.argIns := fringeCommon.io.argIns
-  fringeCommon.io.argOuts <> io.argOuts
 
   io.memStreams <> fringeCommon.io.memStreams
 
@@ -70,6 +71,8 @@ class FringeZynq(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMem
   val axiBridge = Module(new MAGToAXI4Bridge(w, 512))
   axiBridge.io.in <> fringeCommon.io.dram
   io.M_AXI <> axiBridge.io.M_AXI
+
+  fringeCommon.io.argOuts <> (io.argOuts ++ axiBridge.io.debugOuts)
 }
 
 object FringeZynq {

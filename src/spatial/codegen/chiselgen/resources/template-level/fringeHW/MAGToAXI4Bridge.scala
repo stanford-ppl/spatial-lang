@@ -10,9 +10,11 @@ class MAGToAXI4Bridge(val addrWidth: Int, val dataWidth: Int) extends Module {
 
   Predef.assert(dataWidth == 512, s"ERROR: Unsupported data width $dataWidth in MAGToAXI4Bridge")
 
+  val numDebugs = 1 + 1 + 1 + 16
   val io = IO(new Bundle {
     val in = Flipped(new DRAMStream(32, 16))  // hardcoding stuff here
     val M_AXI = new AXI4Inlined(p)
+    val debugOuts = Vec(numDebugs, Decoupled((UInt(dataWidth.W))))
   })
 
   // AR
@@ -27,6 +29,14 @@ class MAGToAXI4Bridge(val addrWidth: Int, val dataWidth: Int) extends Module {
   io.M_AXI.ARQOS    := 0.U
   io.M_AXI.ARVALID  := io.in.cmd.valid & ~io.in.cmd.bits.isWr
   io.in.cmd.ready   := io.M_AXI.ARREADY | io.M_AXI.AWREADY | io.M_AXI.WREADY
+
+  // araddr
+  io.debugOuts(0).bits := io.in.cmd.bits.addr
+  io.debugOuts(0).valid := io.in.cmd.valid & ~io.in.cmd.bits.isWr
+
+  // arready
+  io.debugOuts(1).bits := io.M_AXI.ARREADY | io.M_AXI.AWREADY | io.M_AXI.WREADY
+  io.debugOuts(1).valid := true.B
 
   // AW
   io.M_AXI.AWID     := io.in.cmd.bits.streamId
@@ -58,6 +68,13 @@ class MAGToAXI4Bridge(val addrWidth: Int, val dataWidth: Int) extends Module {
 ////  io.M_AXI.RUSER
   io.M_AXI.RREADY := 1.U  // Read path is always ready
 
+  io.debugOuts(2).bits := io.M_AXI.RVALID
+  io.debugOuts(2).valid := io.M_AXI.RVALID
+
+  for (i <- 3 until 3+16) {
+    io.debugOuts(i).bits := rdataAsVec(i-3)
+    io.debugOuts(i).valid := io.M_AXI.RVALID
+  }
   // B
   io.M_AXI.BREADY := 1.U  // Write response path is always ready
 
