@@ -12,8 +12,8 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
   this: SpatialExp =>
 
   /** API **/
-  case class Counter(s: Exp[Counter])
-  case class CounterChain(s: Exp[CounterChain])
+  case class Counter(s: Exp[Counter]) extends Template[Counter]
+  case class CounterChain(s: Exp[CounterChain]) extends Template[CounterChain]
 
   /** Direct methods **/
   def CounterChain(counters: Counter*)(implicit ctx: SrcCtx): CounterChain = CounterChain(counterchain_new(unwrap(counters)))
@@ -48,14 +48,14 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
   def forever(implicit ctx: SrcCtx): Counter = Counter(forever_counter())
 
   /** Staged types **/
-  implicit object CounterType extends Staged[Counter] {
+  implicit object CounterType extends Type[Counter] {
     override def wrapped(x: Exp[Counter]) = Counter(x)
     override def unwrapped(x: Counter) = x.s
     override def typeArguments = Nil
     override def isPrimitive = false
     override def stagedClass = classOf[Counter]
   }
-  implicit object CounterChainType extends Staged[CounterChain] {
+  implicit object CounterChainType extends Type[CounterChain] {
     override def wrapped(x: Exp[CounterChain]) = CounterChain(x)
     override def unwrapped(x: CounterChain) = x.s
     override def typeArguments = Nil

@@ -13,7 +13,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
     visitCtrl((ctrl,false))(blk)
   }
 
-  override protected def preprocess[S:Staged](block: Block[S]) = {
+  override protected def preprocess[S:Type](block: Block[S]) = {
     memStreams = Set[(Exp[_], String)]()
     argPorts = Set[(Exp[_], String)]()
     super.preprocess(block)

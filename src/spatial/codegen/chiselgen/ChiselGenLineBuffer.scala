@@ -11,7 +11,7 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
 
   // private var linebufs: List[(Sym[LineBufferNew[_]], Int)]  = List()
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: LineBufferType[_] => src"LineBuffer[${tp.child}]"
     case _ => super.remap(tp)
   }

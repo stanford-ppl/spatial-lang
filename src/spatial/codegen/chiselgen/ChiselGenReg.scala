@@ -32,7 +32,7 @@ trait ChiselGenReg extends ChiselCodegen {
     }
   } 
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: RegType[_] => src"Array[${tp.typeArguments.head}]"
     case _ => super.remap(tp)
   }

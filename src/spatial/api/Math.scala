@@ -20,7 +20,7 @@ trait MathApi extends MathExp {
   def sqrt[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E] = FltPt(flt_sqrt(x.s))
 
   // TODO: These should probably be added to Num instead
-  def abs[T:Staged:Num](x: T)(implicit ctx: SrcCtx): T = typ[T] match {
+  def abs[T:Meta:Num](x: T)(implicit ctx: SrcCtx): T = typ[T] match {
     case t: FixPtType[s,i,f] =>
       implicit val mS = t.mS.asInstanceOf[BOOL[s]]
       implicit val mI = t.mI.asInstanceOf[INT[i]]
@@ -32,7 +32,7 @@ trait MathApi extends MathExp {
       abs[g,e](x.asInstanceOf[FltPt[g,e]]).asInstanceOf[T]
   }
 
-  def exp[T:Staged:Num](x: T)(implicit ctx: SrcCtx): T = typ[T] match {
+  def exp[T:Meta:Num](x: T)(implicit ctx: SrcCtx): T = typ[T] match {
     case t: FixPtType[s,i,f] =>
       error(ctx, "Exponentiation of fixed point types is not yet implemented.")
       error(ctx)
@@ -48,18 +48,18 @@ trait MathApi extends MathExp {
 trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions {
   this: SpatialExp =>
 
-  def mux[T:Staged:Bits](select: Bool, a: T, b: T)(implicit ctx: SrcCtx): T = {
+  def mux[T:Meta:Bits](select: Bool, a: T, b: T)(implicit ctx: SrcCtx): T = {
     wrap( math_mux(select.s, a.s, b.s) )
   }
 
-  def min[T:Staged:Bits:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_min(a.s, b.s) )
-  def max[T:Staged:Bits:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_max(a.s, b.s) )
+  def min[T:Meta:Bits:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_min(a.s, b.s) )
+  def max[T:Meta:Bits:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_max(a.s, b.s) )
 
-  implicit class MathInfixOps[T:Staged:Num](x: T) {
+  implicit class MathInfixOps[T:Type:Num](x: T) {
     def **(exp: Int)(implicit ctx: SrcCtx): T = pow(x, exp)
   }
 
-  def pow[T:Staged:Num](x: T, exp: Int)(implicit ctx: SrcCtx): T = {
+  def pow[T:Type:Num](x: T, exp: Int)(implicit ctx: SrcCtx): T = {
     if (exp >= 0) productTree(List.fill(exp)(x))
     else {
       error(ctx, "Exponentiation on negative integers is currently unsupported")
@@ -76,9 +76,9 @@ trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions
   case class FltExp [G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_exp(f(x)) }
   case class FltSqrt[G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_sqrt(f(x)) }
 
-  case class Mux[T:Staged:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_mux(f(select),f(a),f(b)) }
-  case class Min[T:Staged:Bits:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_min(f(a),f(b)) }
-  case class Max[T:Staged:Bits:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_max(f(a),f(b)) }
+  case class Mux[T:Type:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_mux(f(select),f(a),f(b)) }
+  case class Min[T:Type:Bits:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_min(f(a),f(b)) }
+  case class Max[T:Type:Bits:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_max(f(a),f(b)) }
 
   /** Constructors **/
   def fix_abs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]])(implicit ctx: SrcCtx): Exp[FixPt[S,I,F]] = x match {
@@ -103,12 +103,12 @@ trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions
     case _ => stage(FltSqrt(x))(ctx)
   }
 
-  def math_mux[T:Staged:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = select match {
+  def math_mux[T:Type:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = select match {
     case Const(true) => a
     case Const(false) => b
     case _ => stage(Mux(select,a,b))(ctx)
   }
-  def math_min[T:Staged:Bits:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
+  def math_min[T:Type:Bits:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
     case (Const(_),Const(_)) => implicitly[Order[T]].lessThan(wrap(a),wrap(b)).s match {
       case Const(true) => a
       case Const(false) => b
@@ -116,7 +116,7 @@ trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions
     }
     case _ => stage(Min(a, b))(ctx)
   }
-  def math_max[T:Staged:Bits:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
+  def math_max[T:Type:Bits:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
     case (Const(_),Const(_)) => implicitly[Order[T]].lessThan(wrap(b),wrap(a)).s match {
       case Const(true) => a
       case Const(false) => b
@@ -124,7 +124,6 @@ trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions
     }
     case _ => stage(Max(a, b))(ctx)
   }
-
 
 
   /** Internals **/

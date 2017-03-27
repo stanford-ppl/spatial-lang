@@ -18,7 +18,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
   val MAXD = dim
 
   @virtualize
-  def kmeans[T:Staged:Num](points_in: Array[T], cent_inits: Array[T], numPoints: Int, numCents: Int, numDims: Int, it: Int) = {
+  def kmeans[T:Type:Num](points_in: Array[T], cent_inits: Array[T], numPoints: Int, numCents: Int, numDims: Int, it: Int) = {
     bound(numPoints) = 960000
     bound(numCents) = MAXK
     bound(numDims) = MAXD
@@ -135,7 +135,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
     val ii = Array.tabulate(K){i => i}
 
     for(epoch <- 0 until iters) {
-      def dist[T:Staged:Num](p1: Array[T], p2: Array[T]) = p1.zip(p2){(a,b) => (a - b)**2 }.reduce(_+_)
+      def dist[T:Type:Num](p1: Array[T], p2: Array[T]) = p1.zip(p2){(a,b) => (a - b)**2 }.reduce(_+_)
 
       // Make weighted points
       val map = pts.groupByReduce{pt =>

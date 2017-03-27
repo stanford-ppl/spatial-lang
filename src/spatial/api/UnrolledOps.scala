@@ -18,7 +18,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   ) extends EnabledController {
     def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bool]]) = op_unrolled_foreach(f(en)++addEn,f(cchain),f(func),iters,valids)
 
-    override def inputs = syms(en) ++ syms(cchain) ++ syms(func)
+    override def inputs = dyns(en) ++ dyns(cchain) ++ dyns(func)
     override def freqs = normal(cchain) ++ cold(func)
     override def binds = super.binds ++ iters.flatten ++ valids.flatten
   }
@@ -32,15 +32,15 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bool]]],
     rV:     (Bound[T], Bound[T])
-  )(implicit val mT: Staged[T], val mC: Staged[C[T]]) extends EnabledController {
+  )(implicit val mT: Type[T], val mC: Type[C[T]]) extends EnabledController {
     def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bool]]) = op_unrolled_reduce(f(en)++addEn,f(cchain),f(accum),f(func),f(reduce),iters,valids,rV)
 
-    override def inputs = syms(en) ++ syms(cchain, accum) ++ syms(func) ++ syms(reduce)
+    override def inputs = dyns(en) ++ dyns(cchain, accum) ++ dyns(func) ++ dyns(reduce)
     override def freqs = normal(cchain) ++ normal(accum) ++ cold(func) ++ cold(reduce)
     override def binds = super.binds ++ iters.flatten ++ valids.flatten ++ Seq(rV._1, rV._2)
   }
 
-  case class ParSRAMLoad[T:Staged:Bits](
+  case class ParSRAMLoad[T:Type:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
     ens:  Seq[Exp[Bool]]
@@ -49,7 +49,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     val mT = typ[T]
   }
 
-  case class ParSRAMStore[T:Staged:Bits](
+  case class ParSRAMStore[T:Type:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
     data: Exp[Vector[T]],
@@ -59,7 +59,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     val mT = typ[T]
   }
 
-  case class ParFIFODeq[T:Staged:Bits](
+  case class ParFIFODeq[T:Type:Bits](
     fifo: Exp[FIFO[T]],
     ens:  Seq[Exp[Bool]]
   )(implicit val W: INT[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
@@ -67,7 +67,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     val mT = typ[T]
   }
 
-  case class ParFIFOEnq[T:Staged:Bits](
+  case class ParFIFOEnq[T:Type:Bits](
     fifo: Exp[FIFO[T]],
     data: Exp[Vector[T]],
     ens:  Seq[Exp[Bool]]
@@ -76,7 +76,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     val mT = typ[T]
   }
 
-  case class ParStreamRead[T:Staged:Bits](
+  case class ParStreamRead[T:Type:Bits](
     stream: Exp[StreamIn[T]],
     ens:    Seq[Exp[Bool]]
   )(implicit val W: INT[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
@@ -85,7 +85,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     val bT = bits[T]
   }
 
-  case class ParStreamWrite[T:Staged:Bits](
+  case class ParStreamWrite[T:Type:Bits](
     stream: Exp[StreamOut[T]],
     data:   Exp[Vector[T]],
     ens:    Seq[Exp[Bool]]
@@ -117,14 +117,14 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bool]]],
     rV:     (Bound[T], Bound[T])
-  )(implicit ctx: SrcCtx, mT: Staged[T], mC: Staged[C[T]]): Exp[Controller] = {
+  )(implicit ctx: SrcCtx, mT: Type[T], mC: Type[C[T]]): Exp[Controller] = {
     val fBlk = stageLambda(accum) { func }
     val rBlk = stageBlock { reduce }
     val effects = fBlk.summary andAlso rBlk.summary
     stageEffectful(UnrolledReduce(en, cchain, accum, fBlk, rBlk, iters, valids, rV), effects.star)(ctx)
   }
 
-  private[spatial] def par_sram_load[T:Staged:Bits](
+  private[spatial] def par_sram_load[T:Type:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
     ens:  Seq[Exp[Bool]]
@@ -133,7 +133,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     stage( ParSRAMLoad(sram, addr, ens) )(ctx)
   }
 
-  private[spatial] def par_sram_store[T:Staged:Bits](
+  private[spatial] def par_sram_store[T:Type:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
     data: Exp[Vector[T]],
@@ -142,7 +142,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     stageWrite(sram)( ParSRAMStore(sram, addr, data, ens) )(ctx)
   }
 
-  private[spatial] def par_fifo_deq[T:Staged:Bits](
+  private[spatial] def par_fifo_deq[T:Type:Bits](
     fifo: Exp[FIFO[T]],
     ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
@@ -150,7 +150,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     stageWrite(fifo)( ParFIFODeq(fifo, ens) )(ctx)
   }
 
-  private[spatial] def par_fifo_enq[T:Staged:Bits](
+  private[spatial] def par_fifo_enq[T:Type:Bits](
     fifo: Exp[FIFO[T]],
     data: Exp[Vector[T]],
     ens:  Seq[Exp[Bool]]
@@ -158,7 +158,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     stageWrite(fifo)( ParFIFOEnq(fifo, data, ens) )(ctx)
   }
 
-  private[spatial] def par_stream_read[T:Staged:Bits](
+  private[spatial] def par_stream_read[T:Type:Bits](
     stream: Exp[StreamIn[T]],
     ens:    Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
@@ -166,7 +166,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     stageWrite(stream)( ParStreamRead(stream, ens) )(ctx)
   }
 
-  private[spatial] def par_stream_write[T:Staged:Bits](
+  private[spatial] def par_stream_write[T:Type:Bits](
     stream: Exp[StreamOut[T]],
     data:   Exp[Vector[T]],
     ens:    Seq[Exp[Bool]]

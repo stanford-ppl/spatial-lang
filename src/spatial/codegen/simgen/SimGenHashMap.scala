@@ -6,7 +6,7 @@ trait SimGenHashMap extends SimCodegen {
   val IR: HashMapExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case HashIndexType(mK) => src"scala.collection.mutable.HashMap[$mK,${typ[Index]}]"
     case _ => super.remap(tp)
   }
@@ -16,8 +16,8 @@ trait SimGenHashMap extends SimCodegen {
     case _ => super.emitNode(lhs, rhs)
   }
 
-  override protected def emitFat(lhs: List[Sym[_]], rhs: Def) = rhs match {
-    case e @ ArgonBuildHashMap(in, apply, keyFunc, valFunc, reduce, rV, i) =>
+  override protected def emitFat(lhs: Seq[Sym[_]], rhs: Def) = rhs match {
+    case e @ BuildHashMap(in, apply, keyFunc, valFunc, reduce, rV, i) =>
       open(src"val (${lhs(0)},${lhs(1)},${lhs(2)}) = {")
         emit(src"val index  = new ${HashIndexType(e.mK)}()")
         emit(src"val keys   = new scala.collection.mutable.ArrayBuffer[${e.mK}]()")

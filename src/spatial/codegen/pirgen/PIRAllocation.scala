@@ -62,7 +62,7 @@ trait PIRAllocation extends PIRTraversal {
     parentHack(pipe).foreach{parent => copyIterators(cu, allocateCU(parent)) }
 
     val Def(rhs) = pipe
-    val ccs = syms(rhs).collect{
+    val ccs = dyns(rhs).collect{
       case cc@Def(CounterChainNew(ctrs)) =>
         val counters = ctrs.collect{case Def(CounterNew(start,end,stride,_)) => allocateCounter(start, end, stride) }
         CChainInstance(quote(cc), counters)
@@ -557,14 +557,14 @@ trait PIRAllocation extends PIRTraversal {
     case _ => super.visit(lhs, rhs)
   }
 
-  override def preprocess[S:Staged](b: Block[S]): Block[S] = {
+  override def preprocess[S:Type](b: Block[S]): Block[S] = {
     top = None
     mapping.clear()
     globals = Set.empty
     super.preprocess(b)
   }
 
-  override def postprocess[S:Staged](b: Block[S]): Block[S] = {
+  override def postprocess[S:Type](b: Block[S]): Block[S] = {
     val cus = mapping.values
     val owner = cus.flatMap{cu => cu.srams.map{sram =>
       (sram.reader, sram.mem) -> (cu, sram)

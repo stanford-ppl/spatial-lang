@@ -26,9 +26,10 @@ trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
   def *()(implicit ctx: SrcCtx) = Wildcard()
 
   implicit class IndexRangeOps(x: Index) {
-    def by(step: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, Some(lift(step)), None)
-    def par(p: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, None, Some(lift(p)))
-    def until(end: Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(x), lift(end), None, None)
+    def lft(x: Int) = lift[Int,Index](x)
+    def by(step: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, Some(lft(step)), None)
+    def par(p: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, None, Some(lft(p)))
+    def until(end: Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(x), lft(end), None, None)
 
     def by(step: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, x, Some(step), None)
     def par(p: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, x, None, Some(p))
@@ -38,16 +39,17 @@ trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
   }
 
   implicit class intWrapper(x: scala.Int) {
-    def until(end: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(lift(x)), end, None, None)
-    def by(step: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, lift(x), Some(step), None)
-    def par(p: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, lift(x), None, Some(p))
+    def lft(x: Int) = lift[Int,Index](x)
+    def until(end: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(lft(x)), end, None, None)
+    def by(step: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, lft(x), Some(step), None)
+    def par(p: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, lft(x), None, Some(p))
 
-    def until(end: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(lift(x)), lift(end), None, None)
-    def by(step: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(None, lift(x), Some(lift(step)), None)
-    def par(p: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(None, lift(x), None, Some(lift(p)))
+    def until(end: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(lft(x)), lft(end), None, None)
+    def by(step: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(None, lft(x), Some(lft(step)), None)
+    def par(p: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(None, lft(x), None, Some(lft(p)))
 
-    def ::(start: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(start), lift(x), None, None)
-    def ::(start: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(lift(start)), lift(x), None, None)
+    def ::(start: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(start), lft(x), None, None)
+    def ::(start: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(lft(start)), lft(x), None, None)
   }
 
   // Implicitly get value of register to use in counter definitions
@@ -102,7 +104,7 @@ trait RangeExp extends Staging with MemoryExp {
     i:     Bound[Index]
   ) extends Op[Void] {
     def mirror(f:Tx) = range_foreach(f(start),f(end),f(step),f(func),i)
-    override def inputs = syms(start,end,step) ++ syms(func)
+    override def inputs = dyns(start,end,step) ++ dyns(func)
     override def freqs  = normal(start) ++ normal(end) ++ normal(step) ++ hot(func)
     override def binds  = i +: super.binds
   }

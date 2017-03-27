@@ -1,12 +1,12 @@
 package spatial.codegen.scalagen
 
-import argon.ops.FixPtExp
+import argon.ops.{FixPtExp, FltPtExp}
 
 trait ScalaGenSpatialFixPt extends ScalaGenBits {
-  val IR: FixPtExp
+  val IR: FixPtExp with FltPtExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case FixPtType(_,_,_) => "Number"
     case _ => super.remap(tp)
   }
@@ -16,7 +16,7 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
     case _ => super.quoteConst(c)
   }
 
-  override def invalid(tp: IR.Staged[_]) = tp match {
+  override def invalid(tp: IR.Type[_]) = tp match {
     case FixPtType(s,i,f) => src"X(FixedPoint($s,$i,$f))"
     case _ => super.invalid(tp)
   }
@@ -39,16 +39,21 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
     case FixConvert(x) => lhs.tp match {
       case FixPtType(s,i,f) => emit(src"val $lhs = Number($x.value, $x.valid, FixedPoint($s,$i,$f))")
     }
+    case FixPtToFltPt(x) => lhs.tp match {
+      case FltPtType(g,e) => emit(src"val $lhs = Number($x.value, $x.valid, FloatPoint($g,$e))")
+    }
+    case StringToFixPt(x) => lhs.tp match {
+      case FixPtType(s,i,f) => emit(src"val $lhs = Number($x, FixedPoint($s,$i,$f))")
+    }
 
     case FixRandom(Some(max)) => lhs.tp match {
       case IntType()  => emit(src"val $lhs = Number(scala.util.Random.nextInt($max))")
       case LongType() => emit(src"val $lhs = Number(scala.util.Random.nextLong() % $max)")
     }
     case FixRandom(None) => lhs.tp match {
-      case IntType()  => emit(src"val $lhs = Number(scala.util.Random.nextInt())")
+      case IntType() => emit(src"val $lhs = Number(scala.util.Random.nextInt())")
       case LongType() => emit(src"val $lhs = Number(scala.util.Random.nextLong())")
     }
-
 
     case _ => super.emitNode(lhs, rhs)
   }

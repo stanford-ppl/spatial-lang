@@ -6,7 +6,7 @@ trait ScalaGenSpatialBool extends ScalaGenBits {
   val IR: BoolExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case BoolType => "Bit"
     case _ => super.remap(tp)
   }
@@ -17,7 +17,7 @@ trait ScalaGenSpatialBool extends ScalaGenBits {
     case _ => super.quoteConst(c)
   }
 
-  override def invalid(tp: IR.Staged[_]) = tp match {
+  override def invalid(tp: IR.Type[_]) = tp match {
     case BoolType => "Bit(false,false)"
     case _ => super.invalid(tp)
   }

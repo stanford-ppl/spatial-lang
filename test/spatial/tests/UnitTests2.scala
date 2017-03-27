@@ -12,7 +12,7 @@ object BlockReduce2D extends SpatialTest {
   val N = 1920
   val tileSize = 96
 
-  def blockreduce_2d[T:Staged:Num](src: Array[T], rows: Int, cols: Int) = {
+  def blockreduce_2d[T:Type:Num](src: Array[T], rows: Int, cols: Int) = {
     val rowsIn = ArgIn[Int]; setArg(rowsIn, rows)
     val colsIn = ArgIn[Int]; setArg(colsIn, cols)
 
@@ -76,7 +76,7 @@ object ScatterGather extends SpatialTest {
   val offchip_dataSize = maxNumAddrs*6
   val P = param(1)
 
-  def scattergather[T:Staged:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
+  def scattergather[T:Type:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
     val srcAddrs = DRAM[Int](maxNumAddrs)
     val gatherData = DRAM[T](offchip_dataSize)
     val scatterResult = DRAM[T](offchip_dataSize)
@@ -185,7 +185,7 @@ object MultiplexedWriteTest extends SpatialTest { // Regression (Unit) // Args: 
   val I = 5
   val N = 192
 
-  def multiplexedwrtest[W:Staged:Num](w: Array[W], i: Array[W]): Array[W] = {
+  def multiplexedwrtest[W:Type:Num](w: Array[W], i: Array[W]): Array[W] = {
     val T = param(tileSize)
     val P = param(4)
     val weights = DRAM[W](N)
@@ -315,7 +315,7 @@ object SequentialWrites extends SpatialTest {
   val tileSize = 96
   val N = 5
 
-  def sequentialwrites[A:Staged:Num](srcData: Array[A], x: A) = {
+  def sequentialwrites[A:Type:Num](srcData: Array[A], x: A) = {
     val T = param(tileSize)
     val P = param(4)
     val src = DRAM[A](T)
@@ -364,7 +364,7 @@ object ChangingCtrMax extends SpatialTest {
   val tileSize = 96
   val N = 5
 
-  def changingctrmax[T:Staged:Num](): Array[T] = {
+  def changingctrmax[T:Type:Num](): Array[T] = {
     val result = DRAM[T](96)
     Accel {
       val rMem = SRAM[T](96)

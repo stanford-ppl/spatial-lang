@@ -46,7 +46,7 @@ object SGD extends SpatialApp {
   val margin = 1
 
   @virtualize
-  def sgd_onept[T:Staged:Num](x_in: Array[T], y_in: Array[T], alpha: T, epochs: Int, nn: Int) = {
+  def sgd_onept[T:Type:Num](x_in: Array[T], y_in: Array[T], alpha: T, epochs: Int, nn: Int) = {
     val E = ArgIn[Int]
     val N = ArgIn[Int]
     val A = ArgIn[T]

@@ -9,7 +9,7 @@ trait ScalaGenLineBuffer extends ScalaGenMemories {
 
   dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/scalagen/resources/LineBuffer.scala")
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: LineBufferType[_] => src"LineBuffer[${tp.child}]"
     case _ => super.remap(tp)
   }

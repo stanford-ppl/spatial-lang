@@ -15,7 +15,7 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 16
   val pLoopPar = 2
 
   @virtualize
-  def gda[T:Staged:Num](xCPU: Array[T], yCPU: Array[Int], mu0CPU: Array[T], mu1CPU: Array[T]) = {
+  def gda[T:Type:Num](xCPU: Array[T], yCPU: Array[Int], mu0CPU: Array[T], mu1CPU: Array[T]) = {
     val rTileSize     = tileSize (96 -> 19200)
     val op            = outerPar (1 -> 8)
     val ip            = innerPar (1 -> 12)

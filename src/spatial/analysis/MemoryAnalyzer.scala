@@ -26,8 +26,8 @@ trait MemoryAnalyzer extends CompilerPass {
     case (NoBanking, _) => b
     case (_, NoBanking) => a
     case _ =>
-      warn(ctxOrHere(mem), u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
-      warn(ctxOrHere(mem))
+      warn(ctx(mem), u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
+      warn(ctx(mem))
       NoBanking
   }
 
@@ -38,7 +38,7 @@ trait MemoryAnalyzer extends CompilerPass {
     val dupB = b.duplicates
 
     val memC = if (memA.nDims != memB.nDims) {
-      new DimensionMismatchError(mem, memA.nDims, memB.nDims)(ctxOrHere(mem))
+      new DimensionMismatchError(mem, memA.nDims, memB.nDims)(ctx(mem))
       BankedMemory(List.fill(memA.nDims)(NoBanking), Math.max(memA.depth,memB.depth), memA.isAccum || memB.isAccum)
     }
     else (memA,memB) match {
@@ -47,8 +47,8 @@ trait MemoryAnalyzer extends CompilerPass {
           DiagonalMemory(s1, lcm(p,q), Math.max(d1,d2), a1 || a2)
         }
         else {
-          warn(ctxOrHere(mem), u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
-          warn(ctxOrHere(mem))
+          warn(ctx(mem), u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
+          warn(ctx(mem))
           BankedMemory(s1.map{_ => NoBanking}, Math.max(d1,d2), memA.isAccum || memB.isAccum)
         }
 
@@ -150,7 +150,7 @@ trait MemoryAnalyzer extends CompilerPass {
           // or if this memory is used as an accumulator by a Reduce or MemReduce
           // and at least one of the writers is in the same control node as the reader
           val isAccum = reader.exists{read => writers.exists(_.node.dependsOn(read.node)) } || (mem match {
-            case s: Symbol[_] => s.dependents.exists{
+            case s: Dyn[_] => s.dependents.exists{
               case Def(e: OpReduce[_])      => e.accum == s && reader.exists{read => writers.exists(_.ctrl == read.ctrl)}
               case Def(e: OpMemReduce[_,_]) => e.accum == s && reader.exists{read => writers.exists(_.ctrl == read.ctrl)}
               case _ => false
@@ -377,12 +377,12 @@ trait MemoryAnalyzer extends CompilerPass {
     val readers = readersOf(mem)
 
     if (writers.isEmpty && !isArgIn(mem)) {
-      warn(ctxOrHere(mem), u"${mem.tp} $mem defined here has no writers!")
-      warn(ctxOrHere(mem))
+      warn(ctx(mem), u"${mem.tp} $mem defined here has no writers!")
+      warn(ctx(mem))
     }
     if (readers.isEmpty && !isArgOut(mem)) {
-      warn(ctxOrHere(mem), u"${mem.tp} $mem defined here has no readers!")
-      warn(ctxOrHere(mem))
+      warn(ctx(mem), u"${mem.tp} $mem defined here has no readers!")
+      warn(ctx(mem))
     }
 
     if (!settings.allowMultipleReaders)   checkMultipleReaders(mem)
@@ -449,7 +449,7 @@ trait MemoryAnalyzer extends CompilerPass {
   object RegFileSettings extends BankSettings
 
 
-  override protected def process[S:Staged](block: Block[S]): Block[S] = {
+  override protected def process[S:Type](block: Block[S]): Block[S] = {
     // Reset metadata prior to running memory analysis
     metadata.clearAll[AccessDispatch]
     metadata.clearAll[PortIndex]
@@ -462,7 +462,7 @@ trait MemoryAnalyzer extends CompilerPass {
       case _:RegFileType[_]   => bank(mem, bankRegFileAccess, RegFileSettings)
       case _:StreamInType[_]  => bankStream(mem)
       case _:StreamOutType[_] => bankStream(mem)
-      case tp => throw new UndefinedBankingException(tp)(ctxOrHere(mem))
+      case tp => throw new UndefinedBankingException(tp)(ctx(mem))
     }}
 
     shouldWarn = false // Don't warn user after first run (avoid duplicate warnings)
@@ -527,9 +527,9 @@ trait MemoryAnalyzer extends CompilerPass {
     // Otherwise, we have multiple concurrent reads/writes
     val innerLoopParOnly = factors.drop(1).forall{x => x.isEmpty || x.forall{case Exact(c) => c == 1; case _ => false} }
     if (!innerLoopParOnly) {
-      error(ctxOrHere(access), u"Access to memory $mem has outer loop parallelization relative to the memory definition")
+      error(ctx(access), u"Access to memory $mem has outer loop parallelization relative to the memory definition")
       error("Concurrent readers and writers of the same memory are disallowed for FIFOs.")
-      error(ctxOrHere(access))
+      error(ctx(access))
     }
 
     val channels = factors.flatten.map{case Exact(c) => c.toInt}.product

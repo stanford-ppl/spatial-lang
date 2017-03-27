@@ -17,7 +17,7 @@ trait RegisterCleanup extends ForwardTransformer {
 
   val completedMirrors = mutable.HashMap[Access, Exp[_]]()
 
-  def delayedMirror[T:Staged](lhs: Sym[T], rhs:Op[T], ctrl: Ctrl)(implicit ctx: SrcCtx) = () => {
+  def delayedMirror[T:Type](lhs: Sym[T], rhs:Op[T], ctrl: Ctrl)(implicit ctx: SrcCtx) = () => {
     val key = (lhs, ctrl)
 
     // scala bug? getOrElseUpdate always creates the value???
@@ -46,7 +46,7 @@ trait RegisterCleanup extends ForwardTransformer {
     result
   }
 
-  override def transform[T: Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
+  override def transform[T: Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
     case node if isStateless(node) && shouldDuplicate(lhs) =>
       dbg("")
       dbg("[stateless]")
@@ -102,7 +102,7 @@ trait RegisterCleanup extends ForwardTransformer {
     case _ => mirrorWithDuplication(lhs, rhs)
   }
 
-  private def mirrorWithDuplication[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
+  private def mirrorWithDuplication[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
     if ( statelessSubstRules.contains((lhs,ctrl)) ) {
       dbg("")
       dbg(c"[external user, ctrl = $ctrl]")
@@ -118,7 +118,7 @@ trait RegisterCleanup extends ForwardTransformer {
 
   /** These require slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
 
-  override protected def inlineBlock[T:Staged](b: Block[T]): Exp[T] = inlineBlock(b, {stms =>
+  override protected def inlineBlock[T:Type](b: Block[T]): Exp[T] = inlineBlock(b, {stms =>
     visitStms(stms)
     if (ctrl != null && statelessSubstRules.contains((ctrl.node,ctrl))) {
       val rules = statelessSubstRules((ctrl.node, ctrl)).map { case (s, s2) => s -> s2() }
@@ -127,7 +127,7 @@ trait RegisterCleanup extends ForwardTransformer {
     else f(b.result)
   })
 
-  override protected def transformBlock[T:Staged](b: Block[T]): Block[T] = transformBlock(b, {stms =>
+  override protected def transformBlock[T:Type](b: Block[T]): Block[T] = transformBlock(b, {stms =>
     visitStms(stms)
     if (ctrl != null && statelessSubstRules.contains((ctrl.node,ctrl))) {
       val rules = statelessSubstRules((ctrl.node, ctrl)).map { case (s, s2) => s -> s2() }

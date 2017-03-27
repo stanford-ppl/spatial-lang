@@ -7,7 +7,7 @@ trait CppGenSRAM extends CppCodegen {
   val IR: SRAMExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: SRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }

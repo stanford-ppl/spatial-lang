@@ -15,7 +15,7 @@ trait PIRHacks extends PIRTraversal {
 
   val mappingOut = mutable.HashMap[Symbol, List[CU]]()
 
-  override def process[S:Staged](b: Block[S]) = {
+  override def process[S:Type](b: Block[S]) = {
     msg(s"Starting traversal PIR Hacks")
     for ((pipe, cus) <- mappingIn) {
       mcHack(pipe, cus)

@@ -7,12 +7,12 @@ trait ScalaGenVector extends ScalaGenBits {
   val IR: VectorExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: VectorType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }
 
-  override def invalid(tp: Staged[_]): String = tp match {
+  override def invalid(tp: Type[_]): String = tp match {
     case tp: VectorType[_] => src"""Array.fill(${tp.width}(${invalid(tp.child)})"""
     case _ => super.invalid(tp)
   }

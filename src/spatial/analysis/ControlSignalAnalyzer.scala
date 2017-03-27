@@ -35,7 +35,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var streamHolders: List[Exp[_]] = Nil // Pushes
   var top: Option[Exp[_]] = None
 
-  override protected def preprocess[S:Staged](block: Block[S]) = {
+  override protected def preprocess[S:Type](block: Block[S]) = {
     localMems = Nil
     metapipes = Nil
     streamLoadCtrls = Nil
@@ -55,10 +55,10 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     super.preprocess(block)
   }
 
-  override protected def postprocess[S:Staged](block: Block[S]) = {
+  override protected def postprocess[S:Type](block: Block[S]) = {
     top match {
       case Some(ctrl@Op(Hwblock(_,_))) =>
-      case _ => new NoTopError(ctxOrHere(block.result))
+      case _ => new NoTopError(ctx(block.result))
     }
     dbg("Local memories: ")
     localMems.foreach{mem => dbg(c"  $mem")}
@@ -129,7 +129,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       appendWriter(writer, ctrl)
     else {
       val mem = LocalWriter.unapply(writer).get.head._1
-      throw new ExternalWriteError(mem, writer, ctrl)(ctxOrHere(writer))
+      throw new ExternalWriteError(mem, writer, ctrl)(ctx(writer))
     }
   }
 

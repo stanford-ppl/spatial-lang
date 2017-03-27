@@ -30,7 +30,7 @@ trait CppGenReg extends CppCodegen {
     }
   } 
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: RegType[_] => src"${tp.typeArguments.head}"
     case _ => super.remap(tp)
   }

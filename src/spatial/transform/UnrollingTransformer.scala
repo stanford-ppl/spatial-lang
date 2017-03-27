@@ -209,7 +209,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     def foreach(block: Int => Unit) { map(block) }
 
-    def vectorize[T:Staged:Bits](block: Int => Exp[T])(implicit ctx: SrcCtx): Exp[Vector[T]] = {
+    def vectorize[T:Type:Bits](block: Int => Exp[T])(implicit ctx: SrcCtx): Exp[Vector[T]] = {
       IR.vectorize(map(block))
     }
 
@@ -223,7 +223,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     // 2. Make later stages depend on the given substitution across all lanes
     // NOTE: This assumes that the node has no meaningful return value (i.e. all are Pipeline or Unit)
     // Bad things can happen here if you're not careful!
-    def split[T:Staged:Bits](orig: Sym[_], vec: Exp[Vector[T]])(implicit ctx: SrcCtx): List[Exp[T]] = map{p =>
+    def split[T:Type:Bits](orig: Sym[_], vec: Exp[Vector[T]])(implicit ctx: SrcCtx): List[Exp[T]] = map{p =>
       val element = vector_apply[T](vec, p)
       register(orig -> element)
       element
@@ -238,7 +238,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     def isCommon(e: Exp[_]) = contexts.map{p => f(e)}.forall{e2 => e2 == f(e)}
   }
 
-  override def transform[A:Staged](lhs: Sym[A], rhs: Op[A])(implicit ctx: SrcCtx): Exp[A] = (rhs match {
+  override def transform[A:Type](lhs: Sym[A], rhs: Op[A])(implicit ctx: SrcCtx): Exp[A] = (rhs match {
     case e:OpForeach        => unrollForeachNode(lhs, e)
     case e:OpReduce[_]      => unrollReduceNode(lhs, e)
     case e:OpMemReduce[_,_] => unrollMemReduceNode(lhs, e)
@@ -374,12 +374,12 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     * Unrolls purely independent loop iterations
     * NOTE: The func block should already have been mirrored to update dependencies prior to unrolling
     */
-  def unrollMap[T:Staged](func: Block[T], lanes: Unroller)(implicit ctx: SrcCtx): List[Exp[T]] = {
+  def unrollMap[T:Type](func: Block[T], lanes: Unroller)(implicit ctx: SrcCtx): List[Exp[T]] = {
     val origResult = func.result
 
     tab += 1
     mangleBlock(func, {stms =>
-      stms.foreach{case TP(lhs,rhs) => unroll(lhs, rhs, lanes)(ctxOrHere(lhs)) }
+      stms.foreach{case TP(lhs,rhs) => unroll(lhs, rhs, lanes)(ctx(lhs)) }
     })
     tab -= 1
 
@@ -416,7 +416,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
 
 
-  def unrollReduceTree[T:Staged:Bits](
+  def unrollReduceTree[T:Type:Bits](
     inputs: Seq[Exp[T]],
     valids: Seq[Exp[Bool]],
     ident:   Option[Exp[T]],
@@ -437,7 +437,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
 
 
-  def unrollReduceAccumulate[T:Staged:Bits](
+  def unrollReduceAccumulate[T:Type:Bits](
     inputs: Seq[Exp[T]],          // Symbols to be reduced
     valids: Seq[Exp[Bool]],       // Data valid bits corresponding to inputs
     ident:  Option[Exp[T]],       // Optional identity value
@@ -492,7 +492,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     rFunc:  Block[T],             // Reduce function
     rV:     (Bound[T],Bound[T]),  // Bound symbols used to reify rFunc
     iters:  Seq[Bound[Index]]     // Bound iterators for map loop
-  )(implicit mT: Staged[T], bT: Bits[T], ctx: SrcCtx) = {
+  )(implicit mT: Type[T], bT: Bits[T], ctx: SrcCtx) = {
     dbgs(s"Unrolling pipe-fold $lhs")
     val lanes = Unroller(cchain, iters, isInnerControl(lhs))
     val inds2 = lanes.indices
@@ -545,7 +545,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     rV:       (Bound[T],Bound[T]),  // Bound symbol used to reify rFunc
     itersMap: Seq[Bound[Index]],    // Bound iterators for map loop
     itersRed: Seq[Bound[Index]]     // Bound iterators for reduce loop
-  )(implicit mT: Staged[T], bT: Bits[T], mC: Staged[C[T]], ctx: SrcCtx) = {
+  )(implicit mT: Type[T], bT: Bits[T], mC: Type[C[T]], ctx: SrcCtx) = {
     dbgs(s"Unrolling accum-fold $lhs")
 
     def reduce(x: Exp[T], y: Exp[T]) = withSubstScope(rV._1 -> x, rV._2 -> y){ inlineBlock(rFunc)(mT) }
@@ -674,7 +674,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   }
 
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
-    def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Staged[A], ctx: SrcCtx): Exp[A] = (lhs match {
+    def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Type[A], ctx: SrcCtx): Exp[A] = (lhs match {
       case Def(op: EnabledController) => op.mirrorWithEn(f, globalValids)
       case Def(op: EnabledOp[_])      => op.mirrorWithEn(f, globalValid)
       case _ => mirror(lhs, rhs)
@@ -683,7 +683,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     dbgs(c"Cloning $lhs = $rhs")
     strMeta(lhs)
 
-    val (lhs2, isNew) = transferMetadataIfNew(lhs){ cloneOrMirror(lhs, rhs)(mtyp(lhs.tp), ctxOrHere(lhs)) }
+    val (lhs2, isNew) = transferMetadataIfNew(lhs){ cloneOrMirror(lhs, rhs)(mtyp(lhs.tp), ctx(lhs)) }
 
     if (isAccess(lhs) && isNew) {
       registerAccess(lhs, lhs2)

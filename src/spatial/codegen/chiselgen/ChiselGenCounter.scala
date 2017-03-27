@@ -84,7 +84,7 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
     }
   } 
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case CounterType      => src"Counter"
     case CounterChainType => src"Array[Counter]"
     case _ => super.remap(tp)

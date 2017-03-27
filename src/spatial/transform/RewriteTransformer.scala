@@ -11,7 +11,7 @@ trait RewriteTransformer extends ForwardTransformer{
 
   object Mirrored { def unapply[T](x: Exp[T]): Option[Exp[T]] = Some(f(x)) }
 
-  override def transform[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx) = rhs match {
+  override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx) = rhs match {
     // Change a write from a mux with the register or some other value to an enabled register write
     case RegWrite(Mirrored(reg), Mirrored(data), Mirrored(en)) => data match {
       case Op( Mux(sel, Op(e@RegRead(`reg`)), b) ) =>

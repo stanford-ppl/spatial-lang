@@ -23,14 +23,14 @@ trait DimensionAnalyzer extends SpatialTraversal {
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case SetArg(reg, value) => softValues += reg -> value
     case DRAMNew(_)         => offchips += lhs.asInstanceOf[Exp[DRAM[Any]]]
-    case _:SRAMNew[_]       => checkOnchipDims(lhs, stagedDimsOf(lhs))(ctxOrHere(lhs))
-    case _:FIFONew[_]       => checkOnchipDims(lhs, List(sizeOf(lhs.asInstanceOf[Exp[FIFO[Any]]])))(ctxOrHere(lhs))
-    case _:LineBufferNew[_] => checkOnchipDims(lhs, stagedDimsOf(lhs))(ctxOrHere(lhs))
-    case _:RegFileNew[_]    => checkOnchipDims(lhs, stagedDimsOf(lhs))(ctxOrHere(lhs))
+    case _:SRAMNew[_]       => checkOnchipDims(lhs, stagedDimsOf(lhs))(ctx(lhs))
+    case _:FIFONew[_]       => checkOnchipDims(lhs, List(sizeOf(lhs.asInstanceOf[Exp[FIFO[Any]]])))(ctx(lhs))
+    case _:LineBufferNew[_] => checkOnchipDims(lhs, stagedDimsOf(lhs))(ctx(lhs))
+    case _:RegFileNew[_]    => checkOnchipDims(lhs, stagedDimsOf(lhs))(ctx(lhs))
     case _ => super.visit(lhs, rhs)
   }
 
-  override protected def postprocess[T:Staged](b: Block[T]) = {
+  override protected def postprocess[T:Type](b: Block[T]) = {
     offchips.foreach{dram =>
       val softDims = dimsOf(dram).zipWithIndex.map{case (dim, i) => dim match {
         case Op(RegRead(reg)) if isArgIn(reg) && softValues.contains(reg) =>
@@ -38,7 +38,7 @@ trait DimensionAnalyzer extends SpatialTraversal {
           assert(softDim.tp match {case IntType() => true; case _ => false})
           softDim.asInstanceOf[Exp[Index]]
         case _ if isGlobal(dim) => dim.asInstanceOf[Exp[Index]]
-        case _ => new InvalidOffchipDimensionError(dram, i)(ctxOrHere(dram)); int32(0)
+        case _ => new InvalidOffchipDimensionError(dram, i)(ctx(dram)); int32(0)
       }}
       softDimsOf(dram) = softDims
     }

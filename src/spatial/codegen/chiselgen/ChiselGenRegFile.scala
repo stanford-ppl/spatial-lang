@@ -12,7 +12,7 @@ trait ChiselGenRegFile extends ChiselCodegen {
   // private var rows: Int = 0
   // private var cols: Int = 0
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: RegFileType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }

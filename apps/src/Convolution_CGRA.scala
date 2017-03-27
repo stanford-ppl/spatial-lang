@@ -9,7 +9,7 @@ object Convolution_CGRA extends SpatialApp {
   val Cmax = 100
 
   @virtualize
-  def convolve[T:Staged:Num](image: Matrix[T]): Matrix[T] = {
+  def convolve[T:Type:Num](image: Matrix[T]): Matrix[T] = {
     val B = 16 (1 -> 1 -> 16)
 
     val R = ArgIn[Int]

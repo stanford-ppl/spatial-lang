@@ -49,7 +49,7 @@ object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 384
   val margin = 1
 
   @virtualize
-  def tpchq6[T:Staged:Num](datesIn: Array[Int], quantsIn: Array[Int], disctsIn: Array[T], pricesIn: Array[T]): T = {
+  def tpchq6[T:Type:Num](datesIn: Array[Int], quantsIn: Array[Int], disctsIn: Array[T], pricesIn: Array[T]): T = {
     val dataSize = ArgIn[Int]
     setArg(dataSize, datesIn.length)
 

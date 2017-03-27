@@ -108,7 +108,7 @@ trait PIRTraversal extends SpatialTraversal {
           case _ => true
         }
       case Def(d) => d.allInputs
-      case _ => syms(rhs)
+      case _ => dyns(rhs)
     }
     val scopeIndex = makeScopeIndex(stms)
     def deps(x: Symbol) = orderedInputs(mysyms(x), scopeIndex)
@@ -122,10 +122,10 @@ trait PIRTraversal extends SpatialTraversal {
       case Def(rhs) => rhs match {
         case LocalWriter(writes) =>
           val addrs = writes.flatMap{case (mem,value,addr,en) => addr.filterNot{a => a == value }}
-          syms(rhs) filterNot (addrs contains _)
-        case _ => syms(rhs)
+          dyns(rhs) filterNot (addrs contains _)
+        case _ => dyns(rhs)
       }
-      case _ => syms(rhs)
+      case _ => dyns(rhs)
     }
     val scopeIndex = makeScopeIndex(stms)
     def deps(x: Symbol) = orderedInputs(mysyms(x), scopeIndex)
@@ -143,13 +143,13 @@ trait PIRTraversal extends SpatialTraversal {
   def symsOnlyUsedInWriteAddrOrEn(stms: Seq[Stm])(results: Seq[Symbol], exps: List[Symbol]) = {
     def mysyms(rhs: Any) = rhs match {
       case Def(d) => d match {
-        case SRAMStore(sram,dims,is,ofs,data,en) => syms(sram) ++ syms(data) //++ syms(es)
-        case ParSRAMStore(sram,addr,data,ens) => syms(sram) ++ syms(data) //++ syms(es)
-        case FIFOEnq(fifo, data, en)          => syms(fifo) ++ syms(data)
-        case ParFIFOEnq(fifo, data, ens) => syms(fifo) ++ syms(data)
-        case _ => d.allInputs //syms(d)
+        case SRAMStore(sram,dims,is,ofs,data,en) => dyns(sram) ++ dyns(data) //++ dyns(es)
+        case ParSRAMStore(sram,addr,data,ens) => dyns(sram) ++ dyns(data) //++ dyns(es)
+        case FIFOEnq(fifo, data, en)          => dyns(fifo) ++ dyns(data)
+        case ParFIFOEnq(fifo, data, ens) => dyns(fifo) ++ dyns(data)
+        case _ => d.allInputs //dyns(d)
       }
-      case _ => syms(rhs)
+      case _ => dyns(rhs)
     }
     val scopeIndex = makeScopeIndex(stms)
     def deps(x: Any) = orderedInputs(mysyms(x), scopeIndex)

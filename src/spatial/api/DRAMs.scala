@@ -9,7 +9,7 @@ trait DRAMApi extends DRAMExp with DRAMTransferApi {
   type Tile[T] = DRAMDenseTile[T]
   type SparseTile[T] = DRAMSparseTile[T]
 
-  def DRAM[T:Staged:Bits](dimA: Index, dimsB: Index*)(implicit ctx: SrcCtx): DRAM[T] = {
+  def DRAM[T:Type:Bits](dimA: Index, dimsB: Index*)(implicit ctx: SrcCtx): DRAM[T] = {
     DRAM(dram_alloc[T](unwrap(dimA +: dimsB)))
   }
 
@@ -19,7 +19,7 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
   this: SpatialExp =>
 
   /** Infix methods **/
-  case class DRAM[T:Staged:Bits](s: Exp[DRAM[T]]) {
+  case class DRAM[T:Meta:Bits](s: Exp[DRAM[T]]) extends Template[DRAM[T]] {
     def address(implicit ctx: SrcCtx): Index = wrap(get_dram_addr(s))
 
     def apply(ranges: Range*)(implicit ctx: SrcCtx): DRAMDenseTile[T] = DRAMDenseTile(this.s, ranges)
@@ -42,44 +42,44 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
     def store(regs: RegFile[T])(implicit ctx: SrcCtx): Void = dense_transfer(this.toTile, regs, isLoad = false)
   }
 
-  case class DRAMDenseTile[T:Staged:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) {
+  case class DRAMDenseTile[T:Meta:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) {
     def store(sram: SRAM[T])(implicit ctx: SrcCtx): Void = dense_transfer(this, sram, isLoad = false)
     def store(fifo: FIFO[T])(implicit ctx: SrcCtx): Void = dense_transfer(this, fifo, isLoad = false)
     def store(regs: RegFile[T])(implicit ctx: SrcCtx): Void = dense_transfer(this, regs, isLoad = false)
   }
 
-  case class DRAMSparseTile[T:Staged:Bits](dram: Exp[DRAM[T]], addrs: SRAM[Index], len: Index) {
+  case class DRAMSparseTile[T:Meta:Bits](dram: Exp[DRAM[T]], addrs: SRAM[Index], len: Index) {
     def scatter(sram: SRAM[T])(implicit ctx: SrcCtx): Void = sparse_transfer(this, sram, isLoad = false)
   }
 
 
   /** Staged Type **/
-  case class DRAMType[T:Bits](child: Staged[T]) extends Staged[DRAM[T]] {
+  case class DRAMType[T:Bits](child: Meta[T]) extends Meta[DRAM[T]] {
     override def unwrapped(x: DRAM[T]) = x.s
     override def wrapped(x: Exp[DRAM[T]]) = DRAM(x)(child,bits[T])
     override def typeArguments = List(child)
     override def stagedClass = classOf[DRAM[T]]
     override def isPrimitive = false
   }
-  implicit def dramType[T:Staged:Bits]: Staged[DRAM[T]] = DRAMType[T](typ[T])
+  implicit def dramType[T:Meta:Bits]: Type[DRAM[T]] = DRAMType[T](meta[T])
 
 
   /** IR Nodes **/
-  case class DRAMNew[T:Staged:Bits](dims: Seq[Exp[Index]]) extends Op2[T,DRAM[T]] {
+  case class DRAMNew[T:Type:Bits](dims: Seq[Exp[Index]]) extends Op2[T,DRAM[T]] {
     def mirror(f:Tx) = dram_alloc[T](f(dims))
     val bT = bits[T]
     def zero: Exp[T] = bT.zero.s
   }
 
-  case class GetDRAMAddress[T:Staged:Bits](dram: Exp[DRAM[T]]) extends Op[Index] {
+  case class GetDRAMAddress[T:Type:Bits](dram: Exp[DRAM[T]]) extends Op[Index] {
     def mirror(f:Tx) = get_dram_addr(f(dram))
   }
 
   /** Constructors **/
-  def dram_alloc[T:Staged:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Exp[DRAM[T]] = {
+  def dram_alloc[T:Type:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Exp[DRAM[T]] = {
     stageMutable( DRAMNew[T](dims) )(ctx)
   }
-  def get_dram_addr[T:Staged:Bits](dram: Exp[DRAM[T]])(implicit ctx: SrcCtx): Exp[Index] = {
+  def get_dram_addr[T:Type:Bits](dram: Exp[DRAM[T]])(implicit ctx: SrcCtx): Exp[Index] = {
     stage( GetDRAMAddress(dram) )(ctx)
   }
 

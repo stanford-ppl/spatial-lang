@@ -14,7 +14,7 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 1
   val outerPar = 1
 
   @virtualize
-  def MatMult_inner[T:Staged:Num](A: Array[T], B: Array[T], mm: Int, nn: Int, pp: Int) = {
+  def MatMult_inner[T:Type:Num](A: Array[T], B: Array[T], mm: Int, nn: Int, pp: Int) = {
     val M = ArgIn[Int]
     val N = ArgIn[Int]
     val P = ArgIn[Int]

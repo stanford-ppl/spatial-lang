@@ -27,7 +27,7 @@ trait CppGenDRAM extends CppGenSRAM {
     }
   } 
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     // case tp: DRAMType[_] => src"DRAM"
     case _ => super.remap(tp)
   }

@@ -6,7 +6,7 @@ trait SimGenVector extends SimCodegen {
   val IR: VectorExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: VectorType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }

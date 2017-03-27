@@ -33,7 +33,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     iters.indices.foreach{_ => close("}}}") }
   }
 
-  override protected def preprocess[S:Staged](block: Block[S]): Block[S] = {
+  override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
     // -- CU allocation
     allocater.run(block)
     // -- CU scheduling
@@ -102,7 +102,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     mcs.foreach(emitComponent _)
   }
 
-  override protected def postprocess[S:Staged](block: Block[S]): Block[S] = {
+  override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
     generateFooter()
     msg("Done.")
     val nCUs = cus.values.flatten.filter{cu => cu.allStages.nonEmpty || cu.isDummy }.size

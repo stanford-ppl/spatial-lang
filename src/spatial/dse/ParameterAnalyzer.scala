@@ -49,7 +49,7 @@ trait ParameterAnalyzer extends SpatialTraversal {
     (isInnerPipe(e) || isMetaPipe(e)) && !childrenOf(e).exists(isDRAMTransfer)
   }
 
-  override protected def postprocess[S: Staged](block: Block[S]) = {
+  override protected def postprocess[S: Type](block: Block[S]) = {
     val params = tileSizes ++ parFactors
     params.foreach{p => if (domainOf(p).isEmpty) domainOf(p) = (1, 1, 1) }
     super.postprocess(block)

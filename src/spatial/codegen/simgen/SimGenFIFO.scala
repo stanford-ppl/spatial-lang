@@ -6,7 +6,7 @@ trait SimGenFIFO extends SimCodegen {
   val IR: FIFOExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: FIFOType[_] => src"scala.collection.mutable.Queue[${tp.child}]"
     case _ => super.remap(tp)
   }

@@ -11,7 +11,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
 
   /** Internals **/
   // Expansion rule for CoarseBurst -  Use coarse_burst(tile,onchip,isLoad) for anything in the frontend
-  private[spatial] def copy_dense[T:Staged:Bits,C[T]](
+  private[spatial] def copy_dense[T:Meta:Bits,C[T]](
     offchip: Exp[DRAM[T]],
     onchip:  Exp[C[T]],
     ofs:     Seq[Exp[Index]],
@@ -19,7 +19,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
     units:   Seq[Boolean],
     par:     Const[Index],
     isLoad:  Boolean
-  )(implicit mem: Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Void = {
+  )(implicit mem: Mem[T,C], mC: Meta[C[T]], ctx: SrcCtx): Void = {
 
     val unitDims = units
     val offchipOffsets = wrap(ofs)
@@ -238,7 +238,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
   }
 
 
-  private[spatial] def copy_sparse[T:Staged:Bits](
+  private[spatial] def copy_sparse[T:Meta:Bits](
     offchip:   Exp[DRAM[T]],
     onchip:    Exp[SRAM[T]],
     addresses: Exp[SRAM[Index]],
@@ -310,26 +310,26 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   @struct case class BurstCmd(offset: Index, size: Index, isLoad: Bool)
   @struct case class IssuedCmd(size: Index, start: Index, end: Index)
 
-  abstract class DRAMBus[T:Staged:Bits] extends Bus { def length = bits[T].length }
+  abstract class DRAMBus[T:Type:Bits] extends Bus { def length = bits[T].length }
 
   case object BurstCmdBus extends DRAMBus[BurstCmd]
   case object BurstAckBus extends DRAMBus[Bool]
-  case class BurstDataBus[T:Staged:Bits]() extends DRAMBus[T]
-  case class BurstFullDataBus[T:Staged:Bits]() extends DRAMBus[Tup2[T,Bool]]
+  case class BurstDataBus[T:Type:Bits]() extends DRAMBus[T]
+  case class BurstFullDataBus[T:Type:Bits]() extends DRAMBus[Tup2[T,Bool]]
 
   case object GatherAddrBus extends DRAMBus[Index]
-  case class GatherDataBus[T:Staged:Bits]() extends DRAMBus[T]
+  case class GatherDataBus[T:Type:Bits]() extends DRAMBus[T]
 
-  case class ScatterCmdBus[T:Staged:Bits]() extends DRAMBus[Tup2[T, Index]]
+  case class ScatterCmdBus[T:Type:Bits]() extends DRAMBus[Tup2[T, Index]]
   case object ScatterAckBus extends DRAMBus[Bool]
 
   /** Internal **/
 
-  def dense_transfer[T:Staged:Bits,C[T]](
+  def dense_transfer[T:Meta:Bits,C[T]](
     tile:   DRAMDenseTile[T],
     local:  C[T],
     isLoad: Boolean
-  )(implicit mem: Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Void = {
+  )(implicit mem: Mem[T,C], mC: Meta[C[T]], ctx: SrcCtx): Void = {
 
     // Extract range lengths early to avoid unit pipe insertion eliminating rewrite opportunities
     val dram    = tile.dram
@@ -350,7 +350,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     Void(op_dense_transfer(dram,local.s,ofs,lens,units,p,isLoad,iters))
   }
 
-  def sparse_transfer[T:Staged:Bits](
+  def sparse_transfer[T:Meta:Bits](
     tile: DRAMSparseTile[T],
     local: SRAM[T],
     isLoad: Boolean
@@ -365,7 +365,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   }
 
   // Defined in API
-  private[spatial] def copy_dense[T:Staged:Bits,C[T]](
+  private[spatial] def copy_dense[T:Meta:Bits,C[T]](
     offchip: Exp[DRAM[T]],
     onchip:  Exp[C[T]],
     ofs:     Seq[Exp[Index]],
@@ -373,9 +373,9 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     units:   Seq[Boolean],
     par:     Const[Index],
     isLoad:  Boolean
-  )(implicit mem: Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Void
+  )(implicit mem: Mem[T,C], mC: Type[C[T]], ctx: SrcCtx): Void
 
-  private[spatial] def copy_sparse[T:Staged:Bits](
+  private[spatial] def copy_sparse[T:Meta:Bits](
     offchip:   Exp[DRAM[T]],
     onchip:    Exp[SRAM[T]],
     addresses: Exp[SRAM[Index]],
@@ -395,13 +395,13 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     p:      Const[Index],
     isLoad: Boolean,
     iters:  List[Bound[Index]]
-  )(implicit val mem: Mem[T,C], val mT: Staged[T], val bT: Bits[T], val mC: Staged[C[T]]) extends Op[Void] {
+  )(implicit val mem: Mem[T,C], val mT: Meta[T], val bT: Bits[T], val mC: Meta[C[T]]) extends Op[Void] {
 
     def isStore = !isLoad
 
     def mirror(f:Tx): Exp[Void] = op_dense_transfer(f(dram),f(local),f(ofs),f(lens),units,p,isLoad,iters)
 
-    override def inputs = syms(dram, local) ++ syms(ofs) ++ syms(lens)
+    override def inputs = dyns(dram, local) ++ dyns(ofs) ++ dyns(lens)
     override def binds  = iters
     override def aliases = Nil
 
@@ -410,7 +410,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     }
   }
 
-  case class SparseTransfer[T:Staged:Bits](
+  case class SparseTransfer[T:Meta:Bits](
     dram:   Exp[DRAM[T]],
     local:  Exp[SRAM[T]],
     addrs:  Exp[SRAM[Index]],
@@ -423,10 +423,10 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
 
     def mirror(f:Tx) = op_sparse_transfer(f(dram),f(local),f(addrs),f(size),p,isLoad,i)
 
-    override def inputs = syms(dram, local, addrs, size, p)
+    override def inputs = dyns(dram, local, addrs, size, p)
     override def binds = List(i)
     override def aliases = Nil
-    val mT = typ[T]
+    val mT = meta[T]
     val bT = bits[T]
 
     def expand(f:Tx)(implicit ctx: SrcCtx): Exp[Void] = {
@@ -435,17 +435,17 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   }
 
   /** Fringe IR Nodes **/
-  case class FringeDenseLoad[T:Staged:Bits](
+  case class FringeDenseLoad[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     cmdStream:  Exp[StreamOut[BurstCmd]],
     dataStream: Exp[StreamIn[T]]
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_dense_load(f(dram),f(cmdStream),f(dataStream))
     val bT = bits[T]
-    val mT = typ[T]
+    val mT = meta[T]
   }
 
-  case class FringeDenseStore[T:Staged:Bits](
+  case class FringeDenseStore[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     cmdStream:  Exp[StreamOut[BurstCmd]],
     dataStream: Exp[StreamOut[Tup2[T,Bool]]],
@@ -453,33 +453,33 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_dense_store(f(dram),f(cmdStream),f(dataStream),f(ackStream))
     val bT = bits[T]
-    val mT = typ[T]
+    val mT = meta[T]
   }
 
-  case class FringeSparseLoad[T:Staged:Bits](
+  case class FringeSparseLoad[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     addrStream: Exp[StreamOut[Index]],
     dataStream: Exp[StreamIn[T]]
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_sparse_load(f(dram),f(addrStream),f(dataStream))
     val bT = bits[T]
-    val mT = typ[T]
+    val mT = meta[T]
   }
 
-  case class FringeSparseStore[T:Staged:Bits](
+  case class FringeSparseStore[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     cmdStream: Exp[StreamOut[Tup2[T,Index]]],
     ackStream: Exp[StreamIn[Bool]]
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_sparse_store(f(dram),f(cmdStream),f(ackStream))
     val bT = bits[T]
-    val mT = typ[T]
+    val mT = meta[T]
   }
 
 
   /** Constructors **/
 
-  private def op_dense_transfer[T:Staged:Bits,C[T]](
+  private def op_dense_transfer[T:Meta:Bits,C[T]](
     dram:   Exp[DRAM[T]],
     local:  Exp[C[T]],
     ofs:    Seq[Exp[Index]],
@@ -488,7 +488,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     p:      Const[Index],
     isLoad: Boolean,
     iters:  List[Bound[Index]]
-  )(implicit mem: Mem[T,C], mC: Staged[C[T]], ctx: SrcCtx): Exp[Void] = {
+  )(implicit mem: Mem[T,C], mC: Meta[C[T]], ctx: SrcCtx): Exp[Void] = {
 
     val node = DenseTransfer(dram,local,ofs,lens,units,p,isLoad,iters)
 
@@ -497,7 +497,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     out
   }
 
-  private def op_sparse_transfer[T:Staged:Bits](
+  private def op_sparse_transfer[T:Meta:Bits](
     dram:   Exp[DRAM[T]],
     local:  Exp[SRAM[T]],
     addrs:  Exp[SRAM[Index]],
@@ -514,7 +514,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     out
   }
 
-  private[spatial] def fringe_dense_load[T:Staged:Bits](
+  private[spatial] def fringe_dense_load[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     cmdStream:  Exp[StreamOut[BurstCmd]],
     dataStream: Exp[StreamIn[T]]
@@ -522,7 +522,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     stageCold(FringeDenseLoad(dram,cmdStream,dataStream))(ctx)
   }
 
-  private[spatial] def fringe_dense_store[T:Staged:Bits](
+  private[spatial] def fringe_dense_store[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     cmdStream:  Exp[StreamOut[BurstCmd]],
     dataStream: Exp[StreamOut[Tup2[T,Bool]]],
@@ -531,7 +531,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     stageCold(FringeDenseStore(dram,cmdStream,dataStream,ackStream))(ctx)
   }
 
-  private[spatial] def fringe_sparse_load[T:Staged:Bits](
+  private[spatial] def fringe_sparse_load[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     addrStream: Exp[StreamOut[Index]],
     dataStream: Exp[StreamIn[T]]
@@ -539,7 +539,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     stageCold(FringeSparseLoad(dram,addrStream,dataStream))(ctx)
   }
 
-  private[spatial] def fringe_sparse_store[T:Staged:Bits](
+  private[spatial] def fringe_sparse_store[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     cmdStream: Exp[StreamOut[Tup2[T,Index]]],
     ackStream: Exp[StreamIn[Bool]]

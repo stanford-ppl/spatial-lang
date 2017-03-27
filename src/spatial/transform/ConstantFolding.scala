@@ -13,7 +13,7 @@ trait ConstantFolding extends ForwardTransformer {
 
   override val name = "Constant Folding"
 
-  override def transform[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = lhs match {
+  override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = lhs match {
     // Don't constant fold effectful statements
     case Effectful(effects,deps) => super.transform(lhs, rhs)
 

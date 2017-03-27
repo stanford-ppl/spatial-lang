@@ -15,10 +15,10 @@ object LogReg extends SpatialApp {
 
   val A = 1
 
-  def sigmoid[T:Staged:Num](t:T) = 1.as[T]/(exp(-t) + 1.as[T])
+  def sigmoid[T:Type:Num](t:T) = 1.as[T]/(exp(-t) + 1.as[T])
 
   @virtualize
-  def logreg[T:Staged:Num](xIn: Array[T], yIn: Array[T], tt: Array[T], n: Int, it: Int) = {
+  def logreg[T:Type:Num](xIn: Array[T], yIn: Array[T], tt: Array[T], n: Int, it: Int) = {
     val iters = ArgIn[Int]
     val N     = ArgIn[Int]
     setArg(iters, it)

@@ -6,7 +6,7 @@ trait SimGenStream extends SimCodegen {
   val IR: StreamExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: StreamInType[_]  => src"scala.collection.mutable.Queue[${tp.child}]"
     case tp: StreamOutType[_] => src"scala.collection.mutable.Queue[${tp.child}]"
     case _ => super.remap(tp)

@@ -11,7 +11,7 @@ trait ScalaGenCounter extends ScalaCodegen with FileDependencies {
 
   dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/scalagen/resources/Counter.scala")
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case CounterType      => src"Counterlike"
     case CounterChainType => src"Array[Counterlike]"
     case _ => super.remap(tp)

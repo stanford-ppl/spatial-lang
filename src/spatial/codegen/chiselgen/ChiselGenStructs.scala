@@ -9,7 +9,7 @@ trait ChiselGenStructs extends ChiselCodegen {
   val IR: SpatialExp
   import IR._
 
-  protected def tupCoordinates(tp: Staged[_],field: String): (Int,Int) = tp match {
+  protected def tupCoordinates(tp: Type[_],field: String): (Int,Int) = tp match {
     case x: Tup2Type[_,_] => field match {
       case "_1" => 
         val s = bitWidth(x.m1)
@@ -28,7 +28,7 @@ trait ChiselGenStructs extends ChiselCodegen {
       (precBits, width)
   }
 
-  override protected def bitWidth(tp: Staged[_]): Int = tp match {
+  override protected def bitWidth(tp: Type[_]): Int = tp match {
       case e: Tup2Type[_,_]  => super.bitWidth(e.typeArguments(0)) + super.bitWidth(e.typeArguments(1))
       case _ => super.bitWidth(tp)
   }
@@ -54,7 +54,7 @@ trait ChiselGenStructs extends ChiselCodegen {
     }
   } 
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     // case tp: DRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }

@@ -12,7 +12,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   private var nbufs: List[(Sym[SRAMNew[_]], Int)]  = List()
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: SRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }

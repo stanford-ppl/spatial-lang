@@ -11,6 +11,8 @@ trait ScalaGenMath extends ScalaCodegen {
     case FixAbs(x)  => emit(src"val $lhs = if ($x < 0) -$x else $x")
 
     case FltAbs(x)  => emit(src"val $lhs = if ($x < 0) -$x else $x")
+
+    // TODO: log, exp, and sqrt on BigDecimal?
     case FltLog(x)  => x.tp match {
       case DoubleType() => emit(src"val $lhs = Math.log($x)")
       case FloatType()  => emit(src"val $lhs = Math.log($x.toDouble).toFloat")

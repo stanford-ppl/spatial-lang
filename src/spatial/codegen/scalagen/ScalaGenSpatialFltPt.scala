@@ -1,12 +1,12 @@
 package spatial.codegen.scalagen
 
-import argon.ops.FltPtExp
+import argon.ops.{FixPtExp, FltPtExp}
 
 trait ScalaGenSpatialFltPt extends ScalaGenBits {
-  val IR: FltPtExp
+  val IR: FltPtExp with FixPtExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case FltPtType(_,_) => "Number"
     case _ => super.remap(tp)
   }
@@ -16,7 +16,7 @@ trait ScalaGenSpatialFltPt extends ScalaGenBits {
     case _ => super.quoteConst(c)
   }
 
-  override def invalid(tp: IR.Staged[_]) = tp match {
+  override def invalid(tp: IR.Type[_]) = tp match {
     case FltPtType(g,e) => src"X(FloatPoint($g,$e))"
     case _ => super.invalid(tp)
   }
@@ -34,6 +34,12 @@ trait ScalaGenSpatialFltPt extends ScalaGenBits {
     case FltEql(x,y)   => emit(src"val $lhs = $x === $y")
     case FltConvert(x) => lhs.tp match {
       case FltPtType(g,e) => emit(src"val $lhs = Number($x.value, $x.valid, FloatPoint($g,$e))")
+    }
+    case FltPtToFixPt(x) => lhs.tp match {
+      case FixPtType(s,i,f)  => emit(src"val $lhs = Number($x.value, $x.valid, FixedPoint($s,$i,$f))")
+    }
+    case StringToFltPt(x) => lhs.tp match {
+      case FltPtType(g,e) => emit(src"val $lhs = Number($x, FloatPoint($g,$e))")
     }
 
     case FltRandom(Some(max)) => lhs.tp match {

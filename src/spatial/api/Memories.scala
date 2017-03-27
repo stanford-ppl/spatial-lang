@@ -17,5 +17,5 @@ trait MemoryExp extends Staging with VoidExp with BoolExp with NumExp with FixPt
     def iterators(mem: C[T])(implicit ctx: SrcCtx): Seq[Counter]
   }
 
-  def isIndexType(x: Staged[_]): Boolean = x == fixPtType[TRUE,_32,_0]
+  def isIndexType(x: Type[_]): Boolean = x == fixPtType[TRUE,_32,_0]
 }

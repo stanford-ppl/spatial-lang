@@ -6,7 +6,7 @@ trait SimGenDRAM extends SimCodegen {
   val IR: DRAMExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: DRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }

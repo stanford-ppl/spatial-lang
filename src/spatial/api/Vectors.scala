@@ -13,26 +13,33 @@ trait VectorExp extends Staging with BitsExp with CustomBitWidths {
   def Width[T](w: Int): INT[Vector[T]] = INT_T[Vector[T]](w)
 
   /** Infix methods **/
-  case class Vector[T:Staged:Bits](s: Exp[Vector[T]]) {
+  // TODO: Add W as true type parameter of Vector?
+  case class Vector[T:Meta:Bits](s: Exp[Vector[T]]) extends MetaAny[Vector[T]] {
     def apply(i: Int)(implicit ctx: SrcCtx): T = wrap(vector_apply(s, i))
+    override def ===(x: Vector[T])(implicit ctx: SrcCtx) = this.s.tp match {
+      case tp: VectorType[_] => reduceTree(List.tabulate(tp.width){i => this(i) === x(i) }){_&&_}
+    }
+    override def =!=(x: Vector[T])(implicit ctx: SrcCtx) = this.s.tp match {
+      case tp: VectorType[_] => reduceTree(List.tabulate(tp.width){i => this(i) =!= x(i) }){_||_}
+    }
+    override def toText(implicit ctx: SrcCtx) = textify(this)
   }
 
-  private[spatial] def vectorize[T:Staged:Bits](elems: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[T]] = vector_new(elems)
+  private[spatial] def vectorize[T:Type:Bits](elems: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[T]] = vector_new(elems)
 
   /** Staged Types **/
-  case class VectorType[T:Bits](child: Staged[T], W: INT[Vector[T]]) extends Staged[Vector[T]] with BitsLookup[Vector[T]] {
-    override def unwrapped(x: Vector[T]) = x.s
+  case class VectorType[T:Bits](child: Meta[T], W: INT[Vector[T]]) extends Meta[Vector[T]] with CanBits[Vector[T]] {
     override def wrapped(x: Exp[Vector[T]]) = Vector(x)(child, bits[T])
     override def typeArguments = List(child)
     override def stagedClass = classOf[Vector[T]]
     override def isPrimitive = false
     def width = W.v
 
-    protected def getBits(children: Seq[Staged[_]]): Option[Bits[Vector[T]]] = Some(vectorBits[T](child,bits[T],W) )
+    protected def getBits(children: Seq[Type[_]]): Option[Bits[Vector[T]]] = Some(vectorBits[T](child,bits[T],W) )
   }
-  implicit def vectorType[T:Staged:Bits](implicit W: INT[Vector[T]]): Staged[Vector[T]] = VectorType[T](typ[T], W)
+  implicit def vectorType[T:Meta:Bits](implicit W: INT[Vector[T]]): Meta[Vector[T]] = VectorType[T](meta[T], W)
 
-  class VectorBits[T:Staged:Bits](implicit val W: INT[Vector[T]]) extends Bits[Vector[T]] {
+  class VectorBits[T:Meta:Bits](implicit val W: INT[Vector[T]]) extends Bits[Vector[T]] {
     val n = W.v
     override def zero(implicit ctx: SrcCtx) = wrap(vectorize(unwrap(Seq.fill(n){ bits[T].zero })))
     override def one(implicit ctx: SrcCtx) = wrap(vectorize(unwrap(Seq.fill(n){ bits[T].one })))
@@ -42,27 +49,27 @@ trait VectorExp extends Staging with BitsExp with CustomBitWidths {
     override def length = n * bits[T].length
   }
 
-  implicit def vectorBits[T:Staged:Bits](implicit W: INT[Vector[T]]): Bits[Vector[T]] = new VectorBits[T]
+  implicit def vectorBits[T:Type:Bits](implicit W: INT[Vector[T]]): Bits[Vector[T]] = new VectorBits[T]
 
 
   /** IR Nodes **/
-  case class ListVector[T:Staged:Bits](elems: Seq[Exp[T]])(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
+  case class ListVector[T:Type:Bits](elems: Seq[Exp[T]])(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
     def mirror(f:Tx) = vector_new(f(elems))
   }
-  case class VectorApply[T:Staged:Bits](vector: Exp[Vector[T]], index: Int) extends Op[T] {
+  case class VectorApply[T:Type:Bits](vector: Exp[Vector[T]], index: Int) extends Op[T] {
     def mirror(f:Tx) = vector_apply(f(vector), index)
   }
-  case class VectorSlice[T:Staged:Bits](vector: Exp[Vector[T]], start: Int, end: Int)(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
+  case class VectorSlice[T:Type:Bits](vector: Exp[Vector[T]], start: Int, end: Int)(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
     def mirror(f:Tx) = vector_slice(f(vector), start, end)
   }
 
   /** Constructors **/
-  private[spatial] def vector_new[T:Staged:Bits](elems: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[T]] = {
+  private[spatial] def vector_new[T:Type:Bits](elems: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[T]] = {
     implicit val W = Width[T](elems.length)
     stage(ListVector(elems))(ctx)
   }
 
-  private[spatial] def vector_apply[T:Staged:Bits](vector: Exp[Vector[T]], index: Int)(implicit ctx: SrcCtx): Exp[T] = vector match {
+  private[spatial] def vector_apply[T:Type:Bits](vector: Exp[Vector[T]], index: Int)(implicit ctx: SrcCtx): Exp[T] = vector match {
     case Op(ListVector(elems)) =>
       if (index < 0 || index >= elems.length) {
         new InvalidVectorApplyIndex(vector, index)
@@ -73,7 +80,7 @@ trait VectorExp extends Staging with BitsExp with CustomBitWidths {
       stage(VectorApply(vector, index))(ctx)
   }
 
-  private[spatial] def vector_slice[T:Staged:Bits](vector: Exp[Vector[T]], start: Int, end: Int)(implicit ctx: SrcCtx): Exp[Vector[T]] = vector match {
+  private[spatial] def vector_slice[T:Type:Bits](vector: Exp[Vector[T]], start: Int, end: Int)(implicit ctx: SrcCtx): Exp[Vector[T]] = vector match {
     case Op(ListVector(elems)) =>
       if (start >= end) {
         new InvalidVectorSlice(vector, start, end)

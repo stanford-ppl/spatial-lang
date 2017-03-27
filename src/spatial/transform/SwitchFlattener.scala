@@ -20,7 +20,7 @@ trait SwitchFlattener extends ForwardTransformer {
 
   var canInline = Map[Exp[_], Boolean]()
 
-  override def transform[T: Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
+  override def transform[T: Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
     case Switch(blk,cases) => inlineBlock(blk)
     case SwitchCase(cond,blk) => withEnable(f(cond)){ inlineBlock(blk) }
 

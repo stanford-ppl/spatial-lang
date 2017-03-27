@@ -10,7 +10,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
   val IR: SpatialExp
   import IR._
 
-  override protected def bitWidth(tp: Staged[_]): Int = {
+  override protected def bitWidth(tp: Type[_]): Int = {
     tp match { 
       case Bits(bitEv) => bitEv.length
       // case x: StructType[_] => x.fields.head._2 match {
@@ -43,7 +43,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
     }
   } 
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: FIFOType[_] => src"chisel.collection.mutable.Queue[${tp.child}]"
     case _ => super.remap(tp)
   }

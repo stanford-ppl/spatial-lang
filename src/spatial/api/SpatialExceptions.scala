@@ -19,7 +19,7 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
     error(ctx)
   })
 
-  class UndefinedZeroException(s: Exp[_], tp: Staged[_])(implicit ctx: SrcCtx) extends
+  class UndefinedZeroException(s: Exp[_], tp: Type[_])(implicit ctx: SrcCtx) extends
   CompilerException(1002, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s", {
     error(ctx, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s")
   })
@@ -31,7 +31,7 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
     error(c"Current control $ctrl")
   })
 
-  class UndefinedBankingException(tp: Staged[_])(implicit ctx: SrcCtx) extends
+  class UndefinedBankingException(tp: Type[_])(implicit ctx: SrcCtx) extends
   CompilerException(1004, c"Don't know how to bank memory type $tp", {
     error(ctx, c"Don't know how to bank memory type $tp")
   })
@@ -132,51 +132,51 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
     error("Only functions of input arguments, parameters, and constants can be used as DRAM dimensions.")
   })
 
-  class ConcurrentReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal concurrent readers: ")
-    error(ctxOrHere(a)(ctx), u"  The first read occurs here")
-    error(ctxOrHere(a)(ctx))
-    error(ctxOrHere(b)(ctx), u"  The second read occurs here")
-    error(ctxOrHere(b)(ctx))
+  class ConcurrentReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
+    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal concurrent readers: ")
+    error(ctx(a)(ctx), u"  The first read occurs here")
+    error(ctx(a)(ctx))
+    error(ctx(b)(ctx), u"  The second read occurs here")
+    error(ctx(b)(ctx))
   })
 
-  class ConcurrentWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal concurrent writers: ")
-    error(ctxOrHere(a)(ctx), u"  The first write occurs here")
-    error(ctxOrHere(a)(ctx))
-    error(ctxOrHere(b)(ctx), u"  The second write occurs here")
-    error(ctxOrHere(b)(ctx))
+  class ConcurrentWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
+    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal concurrent writers: ")
+    error(ctx(a)(ctx), u"  The first write occurs here")
+    error(ctx(a)(ctx))
+    error(ctx(b)(ctx), u"  The second write occurs here")
+    error(ctx(b)(ctx))
   })
 
-  class PipelinedReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal pipelined readers: ")
-    error(ctxOrHere(a)(ctx), u"  The first read occurs here")
-    error(ctxOrHere(a)(ctx))
-    error(ctxOrHere(b)(ctx), u"  The second read occurs here")
-    error(ctxOrHere(b)(ctx))
+  class PipelinedReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
+    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal pipelined readers: ")
+    error(ctx(a)(ctx), u"  The first read occurs here")
+    error(ctx(a)(ctx))
+    error(ctx(b)(ctx), u"  The second read occurs here")
+    error(ctx(b)(ctx))
   })
 
-  class PipelinedWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal pipelined writers: ")
-    error(ctxOrHere(a)(ctx), u"  The first write occurs here")
-    error(ctxOrHere(a)(ctx))
-    error(ctxOrHere(b)(ctx), u"  The second write occurs here")
-    error(ctxOrHere(b)(ctx))
+  class PipelinedWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
+    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal pipelined writers: ")
+    error(ctx(a)(ctx), u"  The first write occurs here")
+    error(ctx(a)(ctx))
+    error(ctx(b)(ctx), u"  The second write occurs here")
+    error(ctx(b)(ctx))
   })
 
-  class MultipleReadersError(mem: Exp[_], readers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal multiple readers: ")
+  class MultipleReadersError(mem: Exp[_], readers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
+    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal multiple readers: ")
     readers.foreach{read =>
-      error(ctxOrHere(read)(ctx), u"  Read defined here")
-      error(ctxOrHere(read)(ctx))
+      error(ctx(read)(ctx), u"  Read defined here")
+      error(ctx(read)(ctx))
     }
   })
 
-  class MultipleWritersError(mem: Exp[_], writers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(ctxOrHere(mem)(ctx), {
-    error(ctxOrHere(mem)(ctx), u"${mem.tp} defined here has illegal multiple writers: ")
+  class MultipleWritersError(mem: Exp[_], writers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
+    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal multiple writers: ")
     writers.foreach{write =>
-      error(ctxOrHere(write)(ctx), u"  Write defined here")
-      error(ctxOrHere(write)(ctx))
+      error(ctx(write)(ctx), u"  Write defined here")
+      error(ctx(write)(ctx))
     }
   })
 

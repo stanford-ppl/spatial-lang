@@ -9,23 +9,23 @@ trait StagedUtilApi extends StagedUtilExp with ArrayApi {
   this: SpatialApi =>
 
   @virtualize
-  def printArray[T:Staged](array: Array[T], header: String = "")(implicit ctx: SrcCtx): Void = {
+  def printArray[T:Meta](array: Array[T], header: String = "")(implicit ctx: SrcCtx): Void = {
     println(header)
-    (0 until array.length) foreach { i => print( textify(array(i)) + " ") } // Have to use textify here...
+    (0 until array.length) foreach { i => print( array(i).toText + " ") } // Have to use textify here...
     println("")
   }
 
-  def printMatrix[T:Staged](matrix: Matrix[T], header: String = "")(implicit ctx: SrcCtx): Void = {
+  def printMatrix[T:Meta](matrix: Matrix[T], header: String = "")(implicit ctx: SrcCtx): Void = {
     println(header)
     (0 until matrix.rows) foreach {i =>
       (0 until matrix.cols) foreach {j =>
-        print( textify(matrix(i,j)) + "\t")
+        print( matrix(i,j).toText + "\t")
       }
       println("")
     }
   }
 
-  implicit def insert_void[T:Staged](x: T)(implicit ctx: SrcCtx): Void = unit2void(())
+  implicit def insert_void[T:Type](x: T)(implicit ctx: SrcCtx): Void = unit2void(())
 
 }
-trait StagedUtilExp extends Staging with VoidExp
+trait StagedUtilExp extends Staging

@@ -30,7 +30,7 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
   STAGES = 10
   SCALARS_PER_BUS = SpatialConfig.sbus
 
-  override def process[S:Staged](b: Block[S]) = {
+  override def process[S:Type](b: Block[S]) = {
     super.run(b)
     try {
       val cuMapping = mappingIn.keys.map{k => mappingIn(k).asInstanceOf[ACU] -> mappingOut(k).head.asInstanceOf[ACU] }.toMap

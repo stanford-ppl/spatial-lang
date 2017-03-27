@@ -11,7 +11,7 @@ trait BufferAnalyzer extends CompilerPass {
   override val name = "Buffer Analyzer"
   def localMems: Seq[Exp[_]]
 
-  override protected def process[S: Staged](block: Block[S]) = {
+  override protected def process[S: Type](block: Block[S]) = {
     localMems.foreach{mem =>
       val readers = readersOf(mem)
       val writers = writersOf(mem)
@@ -40,7 +40,7 @@ trait BufferAnalyzer extends CompilerPass {
           }
         }
         else {
-          warn(ctxOrHere(mem), u"Memory $mem, instance #$i has no associated accesses")
+          warn(ctx(mem), u"Memory $mem, instance #$i has no associated accesses")
         }
       }
       dbg("\n")

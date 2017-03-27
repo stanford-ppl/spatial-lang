@@ -13,7 +13,7 @@ trait ArgMappingAnalyzer extends CompilerPass {
   def memStreams: Set[(Exp[_], String)]
   def argPorts: Set[(Exp[_], String)]
 
-  override protected def process[S: Staged](block: Block[S]) = {
+  override protected def process[S: Type](block: Block[S]) = {
     /* NOTE:
         Eventually this needs to map each individual load/store to its own stream, in case people want to do 2
         unique loads or 2 unique stores to the same dram.  Currently, the fringe command signals will interfere

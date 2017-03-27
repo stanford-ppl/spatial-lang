@@ -12,7 +12,7 @@ trait RegisterFileApi extends RegisterFileExp {
 trait RegisterFileExp extends Staging with SRAMExp {
   this: SpatialExp =>
 
-  case class RegFile[T:Staged:Bits](s: Exp[RegFile[T]]) {
+  case class RegFile[T:Meta:Bits](s: Exp[RegFile[T]]) extends Template[RegFile[T]] {
     def apply(indices: Index*)(implicit ctx: SrcCtx): T = wrap(regfile_load(s, unwrap(indices), bool(true)))
 
     @CurriedUpdate
@@ -33,30 +33,29 @@ trait RegisterFileExp extends Staging with SRAMExp {
     }
   }
 
-  case class RegFileView[T:Staged:Bits](s: Exp[RegFile[T]], i: Seq[Index], dim: Int) {
+  case class RegFileView[T:Meta:Bits](s: Exp[RegFile[T]], i: Seq[Index], dim: Int) {
     def <<=(data: T)(implicit ctx: SrcCtx): Void = wrap(regfile_shiftin(s, unwrap(i), dim, data.s, bool(true)))
     def <<=(data: Vector[T])(implicit ctx: SrcCtx): Void = wrap(par_regfile_shiftin(s, unwrap(i), dim, data.s, bool(true)))
   }
 
 
   object RegFile {
-    def apply[T:Staged:Bits](dims: Index*)(implicit ctx: SrcCtx): RegFile[T] = wrap(regfile_new[T](unwrap(dims)))
+    def apply[T:Meta:Bits](dims: Index*)(implicit ctx: SrcCtx): RegFile[T] = wrap(regfile_new[T](unwrap(dims)))
   }
 
   /** Type classes **/
   // Staged
-  case class RegFileType[T:Bits](child: Staged[T]) extends Staged[RegFile[T]] {
-    override def unwrapped(x: RegFile[T]) = x.s
+  case class RegFileType[T:Bits](child: Meta[T]) extends Meta[RegFile[T]] {
     override def wrapped(x: Exp[RegFile[T]]) = RegFile(x)(child,bits[T])
     override def typeArguments = List(child)
     override def stagedClass = classOf[RegFile[T]]
     override def isPrimitive = false
   }
-  implicit def regFileType[T:Staged:Bits]: Staged[RegFile[T]] = RegFileType(typ[T])
+  implicit def regFileType[T:Meta:Bits]: Meta[RegFile[T]] = RegFileType(meta[T])
 
 
   // Mem
-  class RegFileIsMemory[T:Staged:Bits] extends Mem[T, RegFile] {
+  class RegFileIsMemory[T:Meta:Bits] extends Mem[T, RegFile] {
     def load(mem: RegFile[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = {
       wrap(regfile_load(mem.s, unwrap(is), en.s))
     }
@@ -68,17 +67,17 @@ trait RegisterFileExp extends Staging with SRAMExp {
       stagedDimsOf(mem.s).map{d => Counter(0, wrap(d), 1, 1) }
     }
   }
-  implicit def regfileIsMemory[T:Staged:Bits]: Mem[T, RegFile] = new RegFileIsMemory[T]
+  implicit def regfileIsMemory[T:Meta:Bits]: Mem[T, RegFile] = new RegFileIsMemory[T]
 
 
 
   /** IR Nodes **/
-  case class RegFileNew[T:Staged:Bits](dims: Seq[Exp[Index]]) extends Op[RegFile[T]] {
+  case class RegFileNew[T:Type:Bits](dims: Seq[Exp[Index]]) extends Op[RegFile[T]] {
     def mirror(f:Tx) = regfile_new[T](f(dims))
     val mT = typ[T]
   }
 
-  case class RegFileLoad[T:Staged:Bits](
+  case class RegFileLoad[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     en:   Exp[Bool]
@@ -88,7 +87,7 @@ trait RegisterFileExp extends Staging with SRAMExp {
     val mT = typ[T]
   }
 
-  case class RegFileStore[T:Staged:Bits](
+  case class RegFileStore[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     data: Exp[T],
@@ -98,7 +97,7 @@ trait RegisterFileExp extends Staging with SRAMExp {
     val mT = typ[T]
   }
 
-  case class RegFileShiftIn[T:Staged:Bits](
+  case class RegFileShiftIn[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     dim:  Int,
@@ -108,7 +107,7 @@ trait RegisterFileExp extends Staging with SRAMExp {
     def mirror(f:Tx) = regfile_shiftin(f(reg),f(inds),dim,f(data),f(en))
   }
 
-  case class ParRegFileShiftIn[T:Staged:Bits](
+  case class ParRegFileShiftIn[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     dim:  Int,
@@ -120,11 +119,11 @@ trait RegisterFileExp extends Staging with SRAMExp {
 
 
   /** Constructors **/
-  private[spatial] def regfile_new[T:Staged:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx) = {
+  private[spatial] def regfile_new[T:Type:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx) = {
     stageMutable(RegFileNew[T](dims))(ctx)
   }
 
-  private[spatial] def regfile_load[T:Staged:Bits](
+  private[spatial] def regfile_load[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     en:   Exp[Bool]
@@ -132,7 +131,7 @@ trait RegisterFileExp extends Staging with SRAMExp {
     stageCold(RegFileLoad(reg, inds, en))(ctx)
   }
 
-  private[spatial] def regfile_store[T:Staged:Bits](
+  private[spatial] def regfile_store[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     data: Exp[T],
@@ -141,7 +140,7 @@ trait RegisterFileExp extends Staging with SRAMExp {
     stageWrite(reg)(RegFileStore(reg, inds, data, en))(ctx)
   }
 
-  private[spatial] def regfile_shiftin[T:Staged:Bits](
+  private[spatial] def regfile_shiftin[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     dim:  Int,
@@ -151,7 +150,7 @@ trait RegisterFileExp extends Staging with SRAMExp {
     stageWrite(reg)(RegFileShiftIn(reg, inds, dim, data, en))(ctx)
   }
 
-  private[spatial] def par_regfile_shiftin[T:Staged:Bits](
+  private[spatial] def par_regfile_shiftin[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     dim:  Int,

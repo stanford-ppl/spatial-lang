@@ -6,7 +6,7 @@ trait SimGenFltPt extends SimCodegen {
   val IR: FltPtExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case FltPtType(_,_) if hw => "Number"
     case FloatType()  => "Float"
     case DoubleType() => "Double"

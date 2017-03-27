@@ -10,7 +10,7 @@ trait SpatialMetadataApi extends SpatialMetadataExp {
   this: SpatialExp =>
 
   object bound {
-    def update[T:Staged](x: T, value: Long): Unit = setBound(x, BigInt(value))
+    def update[T:Type](x: T, value: Long): Unit = setBound(x, BigInt(value))
   }
 
 }
@@ -43,7 +43,7 @@ trait SpatialMetadataExp extends Staging with IndexPatternExp { this: SpatialExp
     def get(x: Exp[_]): Option[BigInt] = metadata[MBound](x).map(_.bound)
     def apply(x: Exp[_]): BigInt = boundOf.get(x).get
   }
-  private[spatial] def setBound[T:Staged](x: T, value: BigInt): Unit = { boundOf(x.s) = value }
+  private[spatial] def setBound[T:Type](x: T, value: BigInt): Unit = { boundOf(x.s) = value }
   private[spatial] def getBound(x: Exp[_]): Option[MBound] = x match {
     case Const(c: BigDecimal) if c.isWhole => Some(Final(c.toBigInt))
     case Param(c: BigDecimal) if c.isWhole => Some(Exact(c.toBigInt))

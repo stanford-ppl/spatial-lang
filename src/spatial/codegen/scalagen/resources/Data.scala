@@ -109,6 +109,7 @@ object Number {
   def apply(value: Long): Number = Number(BigDecimal(value), true, LongFormat)
   def apply(value: Float): Number = Number(BigDecimal(value.toDouble), true, FloatFormat)
   def apply(value: Double): Number = Number(BigDecimal(value), true, DoubleFormat)
+  def apply(value: String, fmt: NumberFormat): Number = Number(BigDecimal(value), true, fmt)
 
   def apply(value: BigInt, valid: Boolean, fmt: NumberFormat): Number = fmt match {
     case FixedPoint(s,i,f) => Number(BigDecimal(value) / math.pow(2,f), valid, fmt)

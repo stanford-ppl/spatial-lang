@@ -15,7 +15,7 @@ trait RegReadCSE extends ForwardTransformer {
     csedDuplicates += reg -> (dups ++ csedDuplicates.getOrElse(reg, Set.empty))
   }
 
-  override protected def postprocess[T:Staged](block: Block[T]) = {
+  override protected def postprocess[T:Type](block: Block[T]) = {
     // Remove CSE'd register duplicates from the metadata
     for ((k,v) <- subst) {
       dbg(c"$k -> $v")
@@ -60,7 +60,7 @@ trait RegReadCSE extends ForwardTransformer {
 
   // TODO: This creates unused register duplicates in metadata if the inner loop in question was previously unrolled
   // How to handle this?
-  override def transform[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx) = rhs match {
+  override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx) = rhs match {
     case e@RegRead(reg) if inInnerCtrl =>
       dbg(c"Found reg read $lhs = $rhs")
       val rhs2 = RegRead(f(reg))(typ[T],mbits(e.bT)) // Note that this hasn't been staged yet, only created the node
@@ -92,7 +92,7 @@ trait RegReadCSE extends ForwardTransformer {
 
         case None =>
           val lhs2 = mirror(lhs,rhs)
-          getDef(lhs2).foreach{d => defCache(d) = onlySyms(lhs2).toList }
+          getDef(lhs2).foreach{d => defCache(d) = syms(lhs2).toList }
           lhs2
       }
 

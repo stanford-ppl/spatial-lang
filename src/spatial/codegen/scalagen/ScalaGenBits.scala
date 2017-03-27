@@ -10,7 +10,7 @@ trait ScalaGenBits extends ScalaCodegen {
 
   dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/scalagen/resources/Data.scala")
 
-  def invalid(tp: Staged[_]): String = tp match {
+  def invalid(tp: Type[_]): String = tp match {
     case _ => throw new Exception(u"Don't know how to generate invalid for type $tp")
   }
   override def emitFileHeader() = {

@@ -6,7 +6,7 @@ trait SimGenFixPt extends SimCodegen {
   val IR: FixPtExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case FixPtType(_,_,_) if hw => "Number"
     case IntType() if !hw       => "Int"
     case LongType() if !hw      => "Long"

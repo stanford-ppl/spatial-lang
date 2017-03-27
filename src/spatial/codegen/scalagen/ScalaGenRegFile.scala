@@ -7,7 +7,7 @@ trait ScalaGenRegFile extends ScalaGenSRAM {
   val IR: SRAMExp with RegisterFileExp with VectorExp
   import IR._
 
-  override protected def remap(tp: Staged[_]): String = tp match {
+  override protected def remap(tp: Type[_]): String = tp match {
     case tp: RegFileType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }

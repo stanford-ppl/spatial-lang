@@ -12,7 +12,7 @@ trait EnabledPrimitivesApi extends EnabledPrimitivesExp {
 trait EnabledPrimitivesExp extends Staging {
   this: SpatialExp =>
 
-  abstract class EnabledOp[T:Staged](ens: Exp[Bool]*) extends Op[T] {
+  abstract class EnabledOp[T:Type](ens: Exp[Bool]*) extends Op[T] {
     def enables: Seq[Exp[Bool]] = ens.toSeq
     // Hack:
     def mirrorWithEn(f:Tx, addEn:Exp[Bool]) = f match {

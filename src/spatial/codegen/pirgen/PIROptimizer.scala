@@ -14,7 +14,7 @@ trait PIROptimizer extends PIRTraversal {
 
   def cus = mapping.values
 
-  override def process[S:Staged](b: Block[S]): Block[S] = {
+  override def process[S:Type](b: Block[S]): Block[S] = {
     msg("Starting traversal PIR Optimizer")
     for (cu <- cus) removeRouteThrus(cu)
     for (cu <- cus) removeUnusedCUComponents(cu)

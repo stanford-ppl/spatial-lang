@@ -7,8 +7,8 @@ trait DebuggingApi extends DebuggingExp {
   this: SpatialExp =>
 
   def println()(implicit ctx: SrcCtx): Void = println("")
-  def print[T:Staged](x: T)(implicit ctx: SrcCtx): Void = Void(printIf(bool(true),textify(x).s))
-  def println[T:Staged](x: T)(implicit ctx: SrcCtx): Void = Void(printlnIf(bool(true),textify(x).s))
+  def print[T:Type](x: T)(implicit ctx: SrcCtx): Void = Void(printIf(bool(true),textify(x).s))
+  def println[T:Type](x: T)(implicit ctx: SrcCtx): Void = Void(printlnIf(bool(true),textify(x).s))
 
   def print(x: String)(implicit ctx: SrcCtx): Void = print(string2text(x))
   def println(x: String)(implicit ctx: SrcCtx): Void = println(string2text(x))

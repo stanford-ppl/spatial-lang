@@ -19,7 +19,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
 
   val cus = ArrayBuffer[CU]()
 
-  override def process[S:Staged](b: Block[S]) = {
+  override def process[S:Type](b: Block[S]) = {
     super.run(b)
     dse()
     b

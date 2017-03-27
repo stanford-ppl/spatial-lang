@@ -14,7 +14,7 @@ trait PIRScheduler extends PIRTraversal {
   val mappingIn  = mutable.HashMap[Symbol, PCU]()
   val mappingOut = mutable.HashMap[Symbol, CU]()
 
-  override protected def postprocess[S:Staged](block: Block[S]): Block[S] = {
+  override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
     val cuMapping = mappingIn.keys.map{s =>
 
       dbg(s"${mappingIn(s)} -> ${mappingOut(s)}")
@@ -339,7 +339,7 @@ trait PIRScheduler extends PIRTraversal {
     // --- All other ops
     case d => nodeToOp(d) match {
       case Some(op) =>
-        val inputs = syms(rhs)
+        val inputs = dyns(rhs)
         opStageToStage(op, inputs, lhs, ctx, false)
 
       case None => stageWarn(s"No ALU operation known for $lhs = $rhs")
@@ -347,11 +347,11 @@ trait PIRScheduler extends PIRTraversal {
   }
 
   def reduceNodeToStage(lhs: Symbol, rhs: Def, ctx: CUContext) = nodeToOp(rhs) match {
-    case Some(op) => opStageToStage(op, syms(rhs), lhs, ctx, true)
+    case Some(op) => opStageToStage(op, dyns(rhs), lhs, ctx, true)
     case _ => stageWarn(s"No ALU reduce operation known for $lhs = $rhs")
   }
 
-  def opStageToStage(op: PIROp, ins: List[Symbol], out: Symbol, ctx: CUContext, isReduce: Boolean) {
+  def opStageToStage(op: PIROp, ins: Seq[Symbol], out: Symbol, ctx: CUContext, isReduce: Boolean) {
     if (isReduce) {
       // By convention, the inputs to the reduction tree is the first argument to the node
       // This input must be in the previous stage's reduction register

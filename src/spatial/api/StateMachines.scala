@@ -11,7 +11,7 @@ trait StateMachineApi extends StateMachineExp {
     def apply[A,T:Bits](init: A)(notDone: T => Boolean)(action: T => Void)(next: T => T)(implicit ctx: SrcCtx, lft: Lift[A,T]) = {
       fsm(lft.lift(init), notDone, action, next, SeqPipe)(lft.staged, bits[T], ctx)
     }
-    def apply[T:Staged:Bits](notDone: T => Boolean)(action: T => Void)(next: T => T)(implicit ctx: SrcCtx) = {
+    def apply[T:Type:Bits](notDone: T => Boolean)(action: T => Void)(next: T => T)(implicit ctx: SrcCtx) = {
       fsm(zero[T], notDone, action, next, SeqPipe)
     }
   }
@@ -20,7 +20,7 @@ trait StateMachineApi extends StateMachineExp {
 trait StateMachineExp extends Staging {
   this: SpatialExp =>
 
-  protected def fsm[T:Staged:Bits](start: T, notDone: T => Bool, action: T => Void, nextState: T => T, style: ControlStyle)(implicit ctx: SrcCtx) = {
+  protected def fsm[T:Type:Bits](start: T, notDone: T => Bool, action: T => Void, nextState: T => T, style: ControlStyle)(implicit ctx: SrcCtx) = {
     val state = fresh[T]
     val wstate = wrap(state)
     val dBlk = () => unwrap(notDone(wstate))
@@ -32,7 +32,7 @@ trait StateMachineExp extends Staging {
     wrap(fsm)
   }
 
-  case class StateMachine[T:Staged:Bits](
+  case class StateMachine[T:Type:Bits](
     en:        Seq[Exp[Bool]],
     start:     Exp[T],
     notDone:   Block[Bool],
@@ -47,7 +47,7 @@ trait StateMachineExp extends Staging {
     val bT = bits[T]
   }
 
-  def op_state_machine[T:Staged:Bits](
+  def op_state_machine[T:Type:Bits](
     enable:    Seq[Exp[Bool]],
     start:     Exp[T],
     notDone:   => Exp[Bool],

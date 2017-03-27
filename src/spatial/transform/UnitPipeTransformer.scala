@@ -56,7 +56,7 @@ trait UnitPipeTransformer extends ForwardTransformer {
     case _ => throw new UndefinedZeroException(reg, reg.tp.typeArguments.head)
   }
 
-  private def wrapBlock[T:Staged](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
+  private def wrapBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
     dbgs(s"Wrapping block with type ${typ[T]}")
     val stages = ArrayBuffer[PipeStage]()
     def curStage = stages.last
@@ -151,7 +151,7 @@ trait UnitPipeTransformer extends ForwardTransformer {
     result
   }
 
-  override def apply[T:Staged](b: Block[T]): Exp[T] = {
+  override def apply[T:Type](b: Block[T]): Exp[T] = {
     val doWrap = wrapBlocks.headOption.getOrElse(false)
     if (wrapBlocks.nonEmpty) wrapBlocks = wrapBlocks.drop(1)
     dbgs(c"Transforming Block $b [$wrapBlocks]")
@@ -162,7 +162,7 @@ trait UnitPipeTransformer extends ForwardTransformer {
     else super.apply(b)
   }
 
-  override def transform[T:Staged](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
+  override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
     // Only insert Unit Pipes into bodies of switch cases in outer scope contexts
     case op@SwitchCase(cond,body) if isOuterControl(lhs) =>
       withWrap(List(true),ctx){ super.transform(lhs,rhs) }

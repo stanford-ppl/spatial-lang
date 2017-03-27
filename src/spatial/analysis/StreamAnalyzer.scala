@@ -15,7 +15,7 @@ trait StreamAnalyzer extends CompilerPass {
   def streamEnablers: Seq[Exp[_]]
   def streamHolders: Seq[Exp[_]]
 
-  override protected def process[S: Staged](block: Block[S]) = {
+  override protected def process[S: Type](block: Block[S]) = {
     // Set metadata for tileloads
     streamLoadCtrls.foreach{ ctrl =>  // So hacky, please fix
       dbg(u"Trying to match ctrl $ctrl to a ParFifo or ParSRAM write")

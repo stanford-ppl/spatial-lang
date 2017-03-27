@@ -8,7 +8,7 @@ import spatial.SpatialExp
 trait SRAMApi extends SRAMExp {
   this: SpatialExp =>
 
-  def SRAM[T:Staged:Bits](dimA: Index, dimsB: Index*)(implicit ctx: SrcCtx): SRAM[T] = {
+  def SRAM[T:Meta:Bits](dimA: Index, dimsB: Index*)(implicit ctx: SrcCtx): SRAM[T] = {
     SRAM(sram_alloc[T](unwrap(dimA +: dimsB)))
   }
 
@@ -20,7 +20,7 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
 
   /** Infix methods **/
   // TODO: Specialize by rank instead, possibly generating using macros?
-  case class SRAM[T:Staged:Bits](s: Exp[SRAM[T]]) {
+  case class SRAM[T:Meta:Bits](s: Exp[SRAM[T]]) extends Template[SRAM[T]] {
     private def ofs = lift[Int,Index](0).s
     private[spatial] var p: Option[Index] = None
 
@@ -38,17 +38,16 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
   }
 
   /** Staged Type **/
-  case class SRAMType[T:Bits](child: Staged[T]) extends Staged[SRAM[T]] {
-    override def unwrapped(x: SRAM[T]) = x.s
+  case class SRAMType[T:Bits](child: Meta[T]) extends Meta[SRAM[T]] {
     override def wrapped(x: Exp[SRAM[T]]) = SRAM(x)(child,bits[T])
     override def typeArguments = List(child)
     override def stagedClass = classOf[SRAM[T]]
     override def isPrimitive = false
   }
-  implicit def sramType[T:Staged:Bits]: Staged[SRAM[T]] = SRAMType(typ[T])
+  implicit def sramType[T:Meta:Bits]: Meta[SRAM[T]] = SRAMType(meta[T])
 
 
-  class SRAMIsMemory[T:Staged:Bits] extends Mem[T, SRAM] {
+  class SRAMIsMemory[T:Meta:Bits] extends Mem[T, SRAM] {
     def load(mem: SRAM[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = {
       wrap(sram_load(mem.s, stagedDimsOf(mem.s), unwrap(is), lift[Int,Index](0).s, en.s))
     }
@@ -59,34 +58,34 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
       stagedDimsOf(mem.s).map{d => Counter(0, wrap(d), 1, 1) }
     }
   }
-  implicit def sramIsMemory[T:Staged:Bits]: Mem[T, SRAM] = new SRAMIsMemory[T]
+  implicit def sramIsMemory[T:Meta:Bits]: Mem[T, SRAM] = new SRAMIsMemory[T]
 
   /** IR Nodes **/
-  case class SRAMNew[T:Staged:Bits](dims: Seq[Exp[Index]]) extends Op[SRAM[T]] {
+  case class SRAMNew[T:Type:Bits](dims: Seq[Exp[Index]]) extends Op[SRAM[T]] {
     def mirror(f:Tx) = sram_alloc[T](f(dims))
     val mT = typ[T]
     val bT = bits[T]
   }
-  case class SRAMLoad[T:Staged:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bool]) extends EnabledOp[T](en) {
+  case class SRAMLoad[T:Type:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bool]) extends EnabledOp[T](en) {
     def mirror(f:Tx) = sram_load(f(mem), f(dims), f(is), f(ofs), f(en))
     val mT = typ[T]
     val bT = bits[T]
   }
-  case class SRAMStore[T:Staged:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bool]) extends EnabledOp[Void](en) {
+  case class SRAMStore[T:Type:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bool]) extends EnabledOp[Void](en) {
     def mirror(f:Tx) = sram_store(f(mem), f(dims), f(is), f(ofs), f(data), f(en))
     val mT = typ[T]
     val bT = bits[T]
   }
 
   /** Constructors **/
-  def sram_alloc[T:Staged:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Exp[SRAM[T]] = {
+  def sram_alloc[T:Type:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Exp[SRAM[T]] = {
     stageMutable( SRAMNew[T](dims) )(ctx)
   }
-  def sram_load[T:Staged:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[T] = {
+  def sram_load[T:Type:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[T] = {
     if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)(ctx)
     stage( SRAMLoad(sram, dims, indices, ofs, en) )(ctx)
   }
-  def sram_store[T:Staged:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
+  def sram_store[T:Type:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
     if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)(ctx)
     stageWrite(sram)( SRAMStore(sram, dims, indices, ofs, data, en) )(ctx)
   }
