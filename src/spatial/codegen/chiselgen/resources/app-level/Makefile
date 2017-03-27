@@ -5,14 +5,16 @@ all: help
 
 help:
 	@echo "------- SUPPORTED MAKE TARGETS -------"
-	@echo "make sim 				: Verilator SW + HW build"
-	@echo "make sim-sw 				: Verilator SW build"
-	@echo "make sim-hw 			: Build Chisel for Verilator"
-	@echo "make aws-sim 		: AWS simulation SW + HW build"
-	@echo "make aws-sim-hw 	: Build Chisel for AWS simulation"
-	@echo "make zynq 				: Zynq SW + HW build"
-	@echo "make zynq-hw    	: Build Chisel for Zynq"
-	@echo "make sim-clean 	: Verilator simulation clean up"
+	@echo "make sim         : Verilator SW + HW build"
+	@echo "make sim-sw      : Verilator SW build"
+	@echo "make sim-hw      : Build Chisel for Verilator"
+	@echo "make aws-sim     : AWS simulation SW + HW build"
+	@echo "make aws-sim-hw  : Build Chisel for AWS simulation"
+	@echo "make zynq        : Zynq SW + HW build"
+	@echo "make zynq-hw     : Build Chisel for Zynq"
+	@echo "make vcs         : VCS SW + HW build"
+	@echo "make vcs-hw      : Build Chisel for VCS"
+	@echo "make sim-clean   : Verilator simulation clean up"
 	@echo "------- END HELP -------"
 
 sim: sim-hw
@@ -76,16 +78,34 @@ zynq-sw:
 
 zynq-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs zynq"
-	cp chisel/fringeZynq/* verilog
+	cp chisel/fringeZynq/* verilog-zynq
 	mv verilog/fsbl.elf._ verilog/fsbl.elf
 	mv verilog/u-boot.elf._ verilog/u-boot.elf
 	make -C verilog
 
 zynq-clean:
-	make -C verilog clean
+	make -C verilog-zynq clean
 	make -C cpp clean
-	rm -rf verilog
+	rm -rf verilog-zynq
 	rm -f TopZynq.tar.gz
+
+vcs: vcs-hw vcs-sw
+	tar -czf TopVCS.tar.gz -C verilog-vcs accel.bit.bin -C ../cpp Top
+
+vcs-sw:
+	cp vcs.mk cpp/Makefile
+	make -C cpp
+
+vcs-hw:
+	sbt "run-main top.Instantiator --verilog --testArgs vcs"
+	cp chisel/fringeVCS/* verilog-vcs
+	make -C verilog-vcs
+
+vcs-clean:
+	make -C verilog-vcs clean
+	make -C cpp clean
+	rm -rf verilog-vcs
+	rm -f TopVCS.tar.gz
 
 sim-clean:
 	make -C ${VERILATOR_SRC} clean
