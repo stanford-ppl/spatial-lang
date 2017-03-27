@@ -44,7 +44,10 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
     val isOuter = containsControl.values.fold(false)(_||_)
 
     rhs match {
-      case _:Hwblock   => annotateControl(lhs, isOuter)
+      case pipe:Hwblock   =>
+        annotateControl(lhs, isOuter)
+        if (pipe.isForever) styleOf(lhs) = StreamPipe
+
       case _:UnitPipe  => annotateControl(lhs, isOuter)
       case _:OpForeach => annotateControl(lhs, isOuter)
       case op:OpReduce[_] =>

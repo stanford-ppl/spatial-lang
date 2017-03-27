@@ -153,7 +153,7 @@ trait ControllerApi extends ControllerExp with RegApi {
 
   object Pipe extends ForeachClass(InnerPipe) {
     /** "Pipelined" unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, InnerPipe); () }
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
     def Foreach   = new ForeachClass(InnerPipe)
     def Reduce    = ReduceClass(InnerPipe)
     def Fold      = FoldClass(InnerPipe)
@@ -214,6 +214,8 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
   private[spatial] def accel_blk(func: => Void, isForever: Boolean)(implicit ctx: SrcCtx): Controller = {
     val fFunc = () => unwrap(func)
     val pipe = op_accel(fFunc(), isForever)
+    styleOf(pipe) = SeqPipe
+    levelOf(pipe) = InnerControl
     Controller(pipe)
   }
 
