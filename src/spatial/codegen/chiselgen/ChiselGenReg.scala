@@ -152,7 +152,14 @@ trait ChiselGenReg extends ChiselCodegen {
               fps match {
                 case FixPtSum =>
                   if (dup.isAccum) {
-                    emit(src"""${reg}_${ii}.io.next := ${v}""")
+                    v.tp match {
+                      case FixPtType(s,_,_) => if (hasFracBits(v.tp) | s) {
+                          emit(src"""${reg}_${ii}.io.next := ${v}.number""")
+                        } else {
+                          emit(src"""${reg}_${ii}.io.next := ${v}""")
+                        }
+                      case _ => emit(src"""${reg}_${ii}.io.next := ${v}""")
+                    }
                     emit(src"""${reg}_${ii}.io.enable := ${reg}_wren""")
                     emit(src"""${reg}_${ii}.io.reset := Utils.delay(${reg}_resetter, 2)""")
                     emit(src"""${reg} := ${reg}_${ii}.io.output""")

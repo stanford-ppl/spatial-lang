@@ -11,6 +11,24 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
 
   // private var linebufs: List[(Sym[LineBufferNew[_]], Int)]  = List()
 
+  override def quote(s: Exp[_]): String = {
+    if (SpatialConfig.enableNaming) {
+      s match {
+        case lhs: Sym[_] =>
+          lhs match {
+            case Def(e: LineBufferNew[_]) =>
+              s"""x${lhs.id}_${nameOf(lhs).getOrElse("linebuf")}"""
+            case _ =>
+              super.quote(s)
+          }
+        case _ =>
+          super.quote(s)
+      }
+    } else {
+      super.quote(s)
+    }
+  } 
+
   override protected def remap(tp: Staged[_]): String = tp match {
     case tp: LineBufferType[_] => src"LineBuffer[${tp.child}]"
     case _ => super.remap(tp)
@@ -18,7 +36,7 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LineBufferNew(rows, cols) =>
-      emit(s"val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, /* extra_rows_to_buffer = */ 1, 1, $rows))  // Data type: ${remap(op.mT)}")
+      emitGlobal(s"val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, /* extra_rows_to_buffer = */ 1, 1, $rows))  // Data type: ${remap(op.mT)}")
       // TODO: add to linebufs list
       
     case op@LineBufferRowSlice(lb,row,len,col) =>

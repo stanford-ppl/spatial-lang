@@ -87,7 +87,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			util.Cat(number(f,0), 0.U(expand.W))
 			// (0 until dst.f).map{ i => if (i < expand) {0.U} else {number(i - expand)*scala.math.pow(2,i).toInt.U}}.reduce{_+_}
 		} else { // keep same
-			number(dst.f-1,0)
+			if (dst.f > 0) number(dst.f-1,0) else (0.U(1.W))
 			// (0 until dst.f).map{ i => number(i)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
 		}
 
@@ -117,24 +117,44 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 		val ftest = 0.U(4.W)
 		val dtest = 1.U(4.W)
-		dst.number := util.Cat(new_dec, new_frac)
+		if (dst.f > 0) {
+			dst.number := util.Cat(new_dec, new_frac)	
+		} else {
+			dst.number := new_dec
+		}
+		
 		// dst.number := util.Cat(new_dec, new_frac) //new_frac + new_dec*(scala.math.pow(2,dst.f).toInt.U)
 
 	}
 	
 	// Arithmetic
-	def + (op: FixedPoint): FixedPoint = {
-		// Compute upcasted type and return type
-		val upcasted_type = (op.s | s, scala.math.max(op.d, d) + 1, scala.math.max(op.f, f))
-		val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
-		// Get upcasted operators
-		val full_result = Wire(new FixedPoint(upcasted_type))
-		// Do upcasted operation
-		full_result.number := this.number + op.number
-		// Downcast to result
-		val result = Wire(new FixedPoint(return_type))
-		full_result.cast(result)
-		result
+	def +[T] (rawop: T): FixedPoint = {
+		rawop match {
+			case op: FixedPoint => 
+				// Compute upcasted type and return type
+				val upcasted_type = (op.s | s, scala.math.max(op.d, d) + 1, scala.math.max(op.f, f))
+				val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+				// Get upcasted operators
+				val full_result = Wire(new FixedPoint(upcasted_type))
+				// Do upcasted operation
+				full_result.number := this.number + op.number
+				// Downcast to result
+				val result = Wire(new FixedPoint(return_type))
+				full_result.cast(result)
+				result
+			case op: UInt => 
+				// Compute upcasted type and return type
+				val upcasted_type = (s, d+1, f)
+				val return_type = (s, d, f)
+				// Get upcasted operators
+				val full_result = Wire(new FixedPoint(upcasted_type))
+				// Do upcasted operation
+				if (f > 0) full_result.number := this.number + util.Cat(op,0.U(f.W)) else full_result.number := this.number + op
+				// Downcast to result
+				val result = Wire(new FixedPoint(return_type))
+				full_result.cast(result)
+				result				
+		}
 	}
 
 	def - (op: FixedPoint): FixedPoint = {
