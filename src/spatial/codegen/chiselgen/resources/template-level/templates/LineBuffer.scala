@@ -106,7 +106,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // Outer counter over number of SRAM -- keep track of current row
   val WRITE_countRowNum = Module(new TmpCounter(num_lines + extra_rows_to_buffer, 0))
   WRITE_countRowNum.io.reset := io.reset
-  WRITE_countRowNum.io.en := WRITE_countRowPx.io.wrap // could replace RHS with a w_done input signal (it could also reset WRITE_countRowPx)
+  WRITE_countRowNum.io.en := swap // could replace RHS with a w_done input signal (it could also reset WRITE_countRowPx)
   val cur_row = WRITE_countRowNum.io.count
   
   // Write data_in into line buffer

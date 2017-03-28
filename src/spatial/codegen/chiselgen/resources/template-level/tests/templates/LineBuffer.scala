@@ -16,6 +16,7 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
   println("Filling Line buffer...")
   var i = 0
   do {
+    poke(c.io.sEn(0), 1)
     val en_this_cycle = rnd.nextInt(2)
     poke(c.io.data_in, 100 + i)
     poke(c.io.w_en, en_this_cycle)
@@ -61,6 +62,7 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
   
   // Read the entire line buffer again
   println("Line buffer contents:")
+  poke(c.io.sEn(1), 1)
   rows_concat = List.fill(c.num_lines)(new StringBuilder)
   for (col <- 0 until c.line_size) {
     poke(c.io.col_addr, col)
@@ -76,12 +78,16 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
   
   // Switch the rows
   println("Switching rows:")
-  poke(c.io.r_done, 1)
+  poke(c.io.sDone(1), 1)
   step(1)
-  poke(c.io.r_done, 0)
+  poke(c.io.sDone(1), 0)
+  poke(c.io.sEn(1), 0)
+  step(1)
+
   
   // Read the entire line buffer again
   println("Line buffer contents:")
+  poke(c.io.sEn(1), 1)
   rows_concat = List.fill(c.num_lines)(new StringBuilder)
   for (col <- 0 until c.line_size) {
     poke(c.io.col_addr, col)
@@ -112,9 +118,10 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
   
   // Switch the rows
   println("Switching rows:")
-  poke(c.io.r_done, 1)
+  poke(c.io.sDone(1), 1)
   step(1)
-  poke(c.io.r_done, 0)
+  poke(c.io.sDone(1), 0)
+  poke(c.io.sEn(1), 0)
   
   // Read the entire line buffer again
   println("Line buffer contents:")

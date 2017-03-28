@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object BlackScholes extends SpatialApp { // Regression (Dense) // Args: 1280
+object BlackScholes extends SpatialApp { 
   import IR._
 
   // .as is for constants, .to is for else

@@ -67,20 +67,20 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       // TODO: Right now both indices are potentially not constants, so we add muxes
       // Can specialize if all selects are constants
       emit(s"val ${quote(lhs)}_tmp = Array.tabulate(${quote(rf)}.length) { i =>")
-      emit(s"  (i.U -> chisel3.util.MuxLookup(${quote(inds(1))}, 0.U, Array.tabulate(${quote(rf)}(0).size){j => (j.U -> ${quote(rf)}(i).io.data_out(j))}))")
+      emit(s"  (i.U -> chisel3.util.MuxLookup(${quote(inds(1))}.number, 0.U, Array.tabulate(${quote(rf)}(0).size){j => (j.U -> ${quote(rf)}(i).io.data_out(j))}))")
       emit(s"}")
       if (needsFPType(lhs.tp)) { lhs.tp match {
         case FixPtType(s,d,f) => 
           emit(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
-          emit(src"""${lhs}.number := chisel3.util.MuxLookup(${quote(inds(0))}, 0.U, ${quote(lhs)}_tmp)""")
+          emit(src"""${lhs}.number := chisel3.util.MuxLookup(${quote(inds(0))}.number, 0.U, ${quote(lhs)}_tmp)""")
         case _ =>
-          emit(s"val ${quote(lhs)} = chisel3.util.MuxLookup(${quote(inds(0))}, 0.U, ${quote(lhs)}_tmp)")
+          emit(s"val ${quote(lhs)} = chisel3.util.MuxLookup(${quote(inds(0))}.number, 0.U, ${quote(lhs)}_tmp)")
       }} else {
-        emit(s"val ${quote(lhs)} = chisel3.util.MuxLookup(${quote(inds(0))}, 0.U, ${quote(lhs)}_tmp)")
+        emit(s"val ${quote(lhs)} = chisel3.util.MuxLookup(${quote(inds(0))}.number, 0.U, ${quote(lhs)}_tmp)")
       }
 
     case op@RegFileStore(rf,inds,data,en) =>
-      emit(s"${quote(rf)}(${inds(0)}).io.data_in(0) := ${quote(data)}")
+      emit(s"${quote(rf)}(${inds(0)}).io.data_in(0) := ${quote(data)}.number")
       emit(s"${quote(rf)}(${inds(0)}).io.w_en := ${quote(en)}")
       emit(s"${quote(rf)}(${inds(0)}).io.w_addr := ${inds(1)}.U")
       // TODO: finish this using inds like in Load
