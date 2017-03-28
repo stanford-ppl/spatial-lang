@@ -49,7 +49,7 @@ class ZynqInterface(p: TopParams) extends TopInterface {
 }
 
 class DE1SoCInterface(p: TopParams) extends TopInterface {
-  private val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
+  private val axiLiteParams = new AXI4BundleParameters(16, p.dataWidth, 1)
   val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
 }
 
@@ -126,6 +126,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
       }
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
+      // Accel takes active high. Not sure about de1
       accel.reset := ~reset
 
     case "zynq" =>

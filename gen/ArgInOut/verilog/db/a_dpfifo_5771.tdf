@@ -1,0 +1,80 @@
+--a_dpfifo ALLOW_RWCYCLE_WHEN_FULL="OFF" DEVICE_FAMILY="Cyclone V" LPM_NUMWORDS=64 LPM_SHOWAHEAD="OFF" lpm_width=8 lpm_widthu=6 OVERFLOW_CHECKING="OFF" UNDERFLOW_CHECKING="OFF" aclr clock data empty full q rreq sclr usedw wreq ACF_BLOCK_RAM_AND_MLAB_EQUIVALENT_PAUSED_READ_CAPABILITIES="CARE" CARRY_CHAIN="MANUAL" CARRY_CHAIN_LENGTH=48 CYCLONEII_M4K_COMPATIBILITY="ON" LOW_POWER_MODE="AUTO" lpm_hint="RAM_BLOCK_TYPE=AUTO"
+--VERSION_BEGIN 16.1 cbx_altdpram 2016:10:19:21:26:20:SJ cbx_altera_counter 2016:10:19:21:26:20:SJ cbx_altera_syncram 2016:10:19:21:26:20:SJ cbx_altera_syncram_nd_impl 2016:10:19:21:26:20:SJ cbx_altsyncram 2016:10:19:21:26:20:SJ cbx_cycloneii 2016:10:19:21:26:20:SJ cbx_fifo_common 2016:10:19:21:26:20:SJ cbx_lpm_add_sub 2016:10:19:21:26:20:SJ cbx_lpm_compare 2016:10:19:21:26:20:SJ cbx_lpm_counter 2016:10:19:21:26:20:SJ cbx_lpm_decode 2016:10:19:21:26:20:SJ cbx_lpm_mux 2016:10:19:21:26:20:SJ cbx_mgl 2016:10:19:22:10:30:SJ cbx_nadder 2016:10:19:21:26:20:SJ cbx_scfifo 2016:10:19:21:26:20:SJ cbx_stratix 2016:10:19:21:26:20:SJ cbx_stratixii 2016:10:19:21:26:20:SJ cbx_stratixiii 2016:10:19:21:26:20:SJ cbx_stratixv 2016:10:19:21:26:20:SJ cbx_util_mgl 2016:10:19:21:26:20:SJ  VERSION_END
+
+
+-- Copyright (C) 2016  Intel Corporation. All rights reserved.
+--  Your use of Intel Corporation's design tools, logic functions 
+--  and other software and tools, and its AMPP partner logic 
+--  functions, and any output files from any of the foregoing 
+--  (including device programming or simulation files), and any 
+--  associated documentation or information are expressly subject 
+--  to the terms and conditions of the Intel Program License 
+--  Subscription Agreement, the Intel Quartus Prime License Agreement,
+--  the Intel MegaCore Function License Agreement, or other 
+--  applicable license agreement, including, without limitation, 
+--  that your use is for the sole purpose of programming logic 
+--  devices manufactured by Intel and sold by Intel or its 
+--  authorized distributors.  Please refer to the applicable 
+--  agreement for further details.
+
+
+FUNCTION a_fefifo_7cf (aclr, clock, rreq, sclr, wreq)
+RETURNS ( empty, full, usedw_out[5..0]);
+FUNCTION altsyncram_7pu1 (address_a[5..0], address_b[5..0], clock0, clock1, clocken1, data_a[7..0], wren_a)
+RETURNS ( q_b[7..0]);
+FUNCTION cntr_jgb (aclr, clock, cnt_en, sclr)
+RETURNS ( q[5..0]);
+
+--synthesis_resources = lut 18 M10K 1 reg 20 
+SUBDESIGN a_dpfifo_5771
+( 
+	aclr	:	input;
+	clock	:	input;
+	data[7..0]	:	input;
+	empty	:	output;
+	full	:	output;
+	q[7..0]	:	output;
+	rreq	:	input;
+	sclr	:	input;
+	usedw[5..0]	:	output;
+	wreq	:	input;
+) 
+VARIABLE 
+	fifo_state : a_fefifo_7cf;
+	FIFOram : altsyncram_7pu1;
+	rd_ptr_count : cntr_jgb;
+	wr_ptr : cntr_jgb;
+	rd_ptr[5..0]	: WIRE;
+	valid_rreq	: WIRE;
+	valid_wreq	: WIRE;
+
+BEGIN 
+	fifo_state.aclr = aclr;
+	fifo_state.clock = clock;
+	fifo_state.rreq = rreq;
+	fifo_state.sclr = sclr;
+	fifo_state.wreq = wreq;
+	FIFOram.address_a[] = wr_ptr.q[];
+	FIFOram.address_b[] = ((! sclr) & rd_ptr[]);
+	FIFOram.clock0 = clock;
+	FIFOram.clock1 = clock;
+	FIFOram.clocken1 = (valid_rreq # sclr);
+	FIFOram.data_a[] = data[];
+	FIFOram.wren_a = valid_wreq;
+	rd_ptr_count.aclr = aclr;
+	rd_ptr_count.clock = clock;
+	rd_ptr_count.cnt_en = valid_rreq;
+	rd_ptr_count.sclr = sclr;
+	wr_ptr.aclr = aclr;
+	wr_ptr.clock = clock;
+	wr_ptr.cnt_en = valid_wreq;
+	wr_ptr.sclr = sclr;
+	empty = fifo_state.empty;
+	full = fifo_state.full;
+	q[] = FIFOram.q_b[];
+	rd_ptr[] = rd_ptr_count.q[];
+	usedw[] = fifo_state.usedw_out[];
+	valid_rreq = rreq;
+	valid_wreq = wreq;
+END;
+--VALID FILE

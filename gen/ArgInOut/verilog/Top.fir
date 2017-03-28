@@ -1185,7 +1185,7 @@ circuit Top :
   module Top : 
     input clock : Clock
     input reset : UInt<1>
-    output io : {flip raddr : UInt<1>, flip wen : UInt<1>, flip waddr : UInt<1>, flip wdata : UInt<1>, rdata : UInt<1>, flip S_AXI : {AWADDR : UInt<32>, AWPROT : UInt<3>, AWVALID : UInt<1>, flip AWREADY : UInt<1>, ARADDR : UInt<32>, ARPROT : UInt<3>, ARVALID : UInt<1>, flip ARREADY : UInt<1>, WDATA : UInt<32>, WSTRB : UInt<4>, WVALID : UInt<1>, flip WREADY : UInt<1>, flip RDATA : UInt<32>, flip RRESP : UInt<2>, flip RVALID : UInt<1>, RREADY : UInt<1>, flip BRESP : UInt<2>, flip BVALID : UInt<1>, BREADY : UInt<1>}}
+    output io : {flip raddr : UInt<1>, flip wen : UInt<1>, flip waddr : UInt<1>, flip wdata : UInt<1>, rdata : UInt<1>, flip S_AXI : {AWADDR : UInt<16>, AWPROT : UInt<3>, AWVALID : UInt<1>, flip AWREADY : UInt<1>, ARADDR : UInt<16>, ARPROT : UInt<3>, ARVALID : UInt<1>, flip ARREADY : UInt<1>, WDATA : UInt<32>, WSTRB : UInt<4>, WVALID : UInt<1>, flip WREADY : UInt<1>, flip RDATA : UInt<32>, flip RRESP : UInt<2>, flip RVALID : UInt<1>, RREADY : UInt<1>, flip BRESP : UInt<2>, flip BVALID : UInt<1>, BREADY : UInt<1>}}
     
     io is invalid
     io is invalid

@@ -1,0 +1,52 @@
+--altddio_out CBX_DECLARE_ALL_CONNECTED_PORTS="OFF" DEVICE_FAMILY="Cyclone V" INVERT_OUTPUT="OFF" POWER_UP_HIGH="OFF" WIDTH=1 datain_h datain_l dataout outclock
+--VERSION_BEGIN 16.1 cbx_altddio_out 2016:10:19:21:26:20:SJ cbx_cycloneii 2016:10:19:21:26:20:SJ cbx_maxii 2016:10:19:21:26:20:SJ cbx_mgl 2016:10:19:22:10:30:SJ cbx_stratix 2016:10:19:21:26:20:SJ cbx_stratixii 2016:10:19:21:26:20:SJ cbx_stratixiii 2016:10:19:21:26:20:SJ cbx_stratixv 2016:10:19:21:26:20:SJ cbx_util_mgl 2016:10:19:21:26:20:SJ  VERSION_END
+
+
+-- Copyright (C) 2016  Intel Corporation. All rights reserved.
+--  Your use of Intel Corporation's design tools, logic functions 
+--  and other software and tools, and its AMPP partner logic 
+--  functions, and any output files from any of the foregoing 
+--  (including device programming or simulation files), and any 
+--  associated documentation or information are expressly subject 
+--  to the terms and conditions of the Intel Program License 
+--  Subscription Agreement, the Intel Quartus Prime License Agreement,
+--  the Intel MegaCore Function License Agreement, or other 
+--  applicable license agreement, including, without limitation, 
+--  that your use is for the sole purpose of programming logic 
+--  devices manufactured by Intel and sold by Intel or its 
+--  authorized distributors.  Please refer to the applicable 
+--  agreement for further details.
+
+
+FUNCTION cyclonev_ddio_out (areset, clk, clkhi, clklo, datainhi, datainlo, ena, hrbypass, muxsel, sreset)
+WITH ( async_mode, half_rate_mode, power_up, sync_mode, use_new_clocking_model)
+RETURNS ( dataout);
+
+--synthesis_resources = IO 1 
+OPTIONS ALTERA_INTERNAL_OPTION = "ANALYZE_METASTABILITY=OFF;ADV_NETLIST_OPT_ALLOWED=DEFAULT";
+
+SUBDESIGN ddio_out_uqe
+( 
+	datain_h[0..0]	:	input;
+	datain_l[0..0]	:	input;
+	dataout[0..0]	:	output;
+	outclock	:	input;
+) 
+VARIABLE 
+	ddio_outa[0..0] : cyclonev_ddio_out
+		WITH (
+			async_mode = "none",
+			power_up = "low",
+			sync_mode = "none",
+			use_new_clocking_model = "true"
+		);
+
+BEGIN 
+	ddio_outa[].clkhi = outclock;
+	ddio_outa[].clklo = outclock;
+	ddio_outa[].datainhi = datain_h[];
+	ddio_outa[].datainlo = datain_l[];
+	ddio_outa[].muxsel = outclock;
+	dataout[] = ddio_outa[].dataout;
+END;
+--VALID FILE
