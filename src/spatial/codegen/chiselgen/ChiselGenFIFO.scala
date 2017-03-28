@@ -10,6 +10,15 @@ trait ChiselGenFIFO extends ChiselCodegen {
   val IR: SpatialExp
   import IR._
 
+  override protected def spatialNeedsFPType(tp: Staged[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
+      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+      case IntType()  => false
+      case LongType() => false
+      case FloatType() => true
+      case DoubleType() => true
+      case _ => super.needsFPType(tp)
+  }
+
   override protected def bitWidth(tp: Staged[_]): Int = {
     tp match { 
       case Bits(bitEv) => bitEv.length
@@ -27,7 +36,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
         case lhs: Sym[_] =>
           lhs match {
             case Def(e: FIFONew[_]) =>
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("fifo")}"""
+              s"""x${lhs.id}_${nameOf(lhs).getOrElse("fifo").replace("$","")}"""
             case Def(FIFOEnq(fifo:Sym[_],_,_)) =>
               s"x${lhs.id}_enqTo${fifo.id}"
             case Def(FIFODeq(fifo:Sym[_],_)) =>
@@ -71,7 +80,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
       emit(src"""val ${lhs}_wdata = Wire(Vec($wPar, UInt(${width}.W)))""")
       emit(src"""val ${lhs}_readEn = Wire(Bool())""")
       emit(src"""val ${lhs}_writeEn = Wire(Bool())""")
-      emitGlobal(src"""val ${lhs} = Module(new FIFO($rPar, $wPar, $size, $width)) // ${nameOf(lhs).getOrElse("")}""".replace(".U(32.W)",""))
+      emitGlobal(s"""val ${quote(lhs)} = Module(new FIFO($rPar, $wPar, $size, $width)) // ${nameOf(lhs).getOrElse("")}""")
       emit(src"""val ${lhs}_rdata = ${lhs}.io.out""")
       emit(src"""${lhs}.io.in := ${lhs}_wdata""")
       emit(src"""${lhs}.io.pop := ${lhs}_readEn""")
@@ -80,21 +89,14 @@ trait ChiselGenFIFO extends ChiselCodegen {
     case FIFOEnq(fifo,v,en) => 
       val writer = writersOf(fifo).head.ctrlNode  // Not using 'en' or 'shuffle'
       emit(src"""${fifo}_writeEn := ${writer}_ctr_en & $en """)
-      fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (needsFPType(fifo.tp.typeArguments.head)) {
-            emit(src"""${fifo}_wdata := Vec(List(${v}.number))""")
-          } else {
-            emit(src"""${fifo}_wdata := Vec(List(${v}))""")
-          }
-        case _ => emit(src"""${fifo}_wdata := Vec(List(${v}))""")
-      }
+      emit(src"""${fifo}_wdata := Vec(List(${v}.number))""")
 
 
     case FIFODeq(fifo,en) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
       emit(src"""${fifo}_readEn := ${reader}_ctr_en & $en""")
       fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (needsFPType(fifo.tp.typeArguments.head)) {
+        case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(0))""")
           } else {
             emit(src"""val ${lhs} = ${fifo}_rdata(0)""")

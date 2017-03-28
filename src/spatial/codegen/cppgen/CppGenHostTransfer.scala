@@ -12,6 +12,14 @@ trait CppGenHostTransfer extends CppCodegen  {
   val IR: SpatialExp
   import IR._
 
+  override protected def spatialNeedsFPType(tp: Staged[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
+      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+      case IntType()  => false
+      case LongType() => false
+      case FloatType() => true
+      case DoubleType() => true
+      case _ => super.needsFPType(tp)
+  }
 
   override def quote(s: Exp[_]): String = {
   	if (SpatialConfig.enableNaming) {
@@ -58,7 +66,7 @@ trait CppGenHostTransfer extends CppCodegen  {
             emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._1});", forceful = true)
         }
     case SetMem(dram, data) => 
-      if (needsFPType(dram.tp.typeArguments.head)) {
+      if (spatialNeedsFPType(dram.tp.typeArguments.head)) {
         dram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => 
             emit(src"vector<int32_t>* ${dram}_rawified = new vector<int32_t>((*${data}).size());")
@@ -72,7 +80,7 @@ trait CppGenHostTransfer extends CppCodegen  {
         emit(src"c1->memcpy($dram, &(*${data})[0], (*${data}).size() * sizeof(int32_t));", forceful = true)
       }
     case GetMem(dram, data) => 
-      if (needsFPType(dram.tp.typeArguments.head)) {
+      if (spatialNeedsFPType(dram.tp.typeArguments.head)) {
         dram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => 
             emit(src"vector<int32_t>* ${data}_rawified = new vector<int32_t>((*${data}).size());")

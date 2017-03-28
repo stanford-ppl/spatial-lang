@@ -1,17 +1,25 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.RegExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
 trait ChiselGenReg extends ChiselCodegen {
-  val IR: RegExp with SpatialExp
+  val IR: SpatialExp
   import IR._
 
   var argIns: List[Sym[Reg[_]]] = List()
   var argOuts: List[Sym[Reg[_]]] = List()
   private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
+
+  override protected def spatialNeedsFPType(tp: Staged[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
+      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+      case IntType()  => false
+      case LongType() => false
+      case FloatType() => true
+      case DoubleType() => true
+      case _ => super.needsFPType(tp)
+  }
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -20,7 +28,7 @@ trait ChiselGenReg extends ChiselCodegen {
           lhs match {
             case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
             case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
-            case Def(RegNew(_)) => s"""x${lhs.id}_${nameOf(lhs).getOrElse("reg")}"""
+            case Def(RegNew(_)) => s"""x${lhs.id}_${nameOf(lhs).getOrElse("reg").replace("$","")}"""
             case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
             case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
             case _ => super.quote(s)
@@ -53,12 +61,13 @@ trait ChiselGenReg extends ChiselCodegen {
             fps match {
               case FixPtSum => 
                 if (d.isAccum) {
-                  if (!needsFPType(lhs.tp.typeArguments.head)) {
-                    emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: Create correct accum based on type""")  
+                  if (!spatialNeedsFPType(lhs.tp.typeArguments.head)) {
+                    Console.println(s"tp ${lhs.tp.typeArguments.head} has fp ${spatialNeedsFPType(lhs.tp.typeArguments.head)}")
+                    emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) """)  
                   } else {
                     lhs.tp.typeArguments.head match {
-                      case FixPtType(s,d,f) => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","FixedPoint", List(${if (s) 1 else 0},$d,$f))) // TODO: Create correct accum based on type""")  
-                      case _ => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: Create correct accum based on type""")  
+                      case FixPtType(s,d,f) => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","FixedPoint", List(${if (s) 1 else 0},$d,$f)))""")  
+                      case _ => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: No match""")  
                     }                  
 
                   }
@@ -89,7 +98,7 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg)) {
-        if (needsFPType(reg.tp.typeArguments.head)) {
+        if (spatialNeedsFPType(reg.tp.typeArguments.head)) {
           reg.tp.typeArguments.head match {
             case FixPtType(s,d,f) => 
               emitGlobal(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
@@ -107,9 +116,9 @@ trait ChiselGenReg extends ChiselCodegen {
             case Some(fps: ReduceFunction) => 
               fps match {
                 case FixPtSum =>
-                  if (needsFPType(reg.tp.typeArguments.head)) {
+                  if (spatialNeedsFPType(reg.tp.typeArguments.head)) {
                     reg.tp.typeArguments.head match {
-                      case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval // get reset value that was created by reduce controller""")                    
+                      case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval) // get reset value that was created by reduce controller""")                    
                     }
                   } else {
                     emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")                    
@@ -135,7 +144,7 @@ trait ChiselGenReg extends ChiselCodegen {
       if (isArgOut(reg)) {
         emit(src"""val $reg = RegInit(0.U) // HW-accessible register""")
         v.tp match {
-          case FixPtType(_,_,_) => if (needsFPType(v.tp)) {
+          case FixPtType(_,_,_) => if (spatialNeedsFPType(v.tp)) {
               emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
             } else {
               emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""") 
@@ -153,7 +162,7 @@ trait ChiselGenReg extends ChiselCodegen {
                 case FixPtSum =>
                   if (dup.isAccum) {
                     v.tp match {
-                      case FixPtType(s,_,_) => if (needsFPType(v.tp)) {
+                      case FixPtType(s,_,_) => if (spatialNeedsFPType(v.tp)) {
                           emit(src"""${reg}_${ii}.io.next := ${v}.number""")
                         } else {
                           emit(src"""${reg}_${ii}.io.next := ${v}""")

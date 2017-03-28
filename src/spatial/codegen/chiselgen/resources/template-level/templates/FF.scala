@@ -154,11 +154,17 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
     }
   }
 
-  def chain_pass(data: UInt, en: Bool) { // Method specifically for handling reg chains that pass counter values between metapipe stages
-      io.input.data := data
-      io.input.enable := en
-      io.input.reset := false.B
-      io.writerStage := 0.U
+  def chain_pass[T](dat: T, en: Bool) { // Method specifically for handling reg chains that pass counter values between metapipe stages
+    dat match {
+      case data: UInt => 
+        io.input.data := data
+      case data: FixedPoint => 
+        io.input.data := data.number
+    }
+    io.input.enable := en
+    io.input.reset := false.B
+    io.writerStage := 0.U
+
   }
 
   def connectStageCtrl(done: Bool, en: Bool, ports: List[Int]) {

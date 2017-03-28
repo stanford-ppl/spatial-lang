@@ -1,16 +1,17 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
+import argon.codegen.chiselgen.{ChiselCodegen}
 import spatial.api.RegisterFileExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
-trait ChiselGenRegFile extends ChiselCodegen {
+trait ChiselGenRegFile extends ChiselGenSRAM {
   val IR: SpatialExp
   import IR._
 
   // private var rows: Int = 0
   // private var cols: Int = 0
+
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -68,13 +69,14 @@ trait ChiselGenRegFile extends ChiselCodegen {
       emit(s"val ${quote(lhs)}_tmp = Array.tabulate(${quote(rf)}.length) { i =>")
       emit(s"  (i.U -> chisel3.util.MuxLookup(${quote(inds(1))}, 0.U, Array.tabulate(${quote(rf)}(0).size){j => (j.U -> ${quote(rf)}(i).io.data_out(j))}))")
       emit(s"}")
-      lhs.tp match {
+      if (needsFPType(lhs.tp)) { lhs.tp match {
         case FixPtType(s,d,f) => 
           emit(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
           emit(src"""${lhs}.number := chisel3.util.MuxLookup(${quote(inds(0))}, 0.U, ${quote(lhs)}_tmp)""")
         case _ =>
           emit(s"val ${quote(lhs)} = chisel3.util.MuxLookup(${quote(inds(0))}, 0.U, ${quote(lhs)}_tmp)")
-
+      }} else {
+        emit(s"val ${quote(lhs)} = chisel3.util.MuxLookup(${quote(inds(0))}, 0.U, ${quote(lhs)}_tmp)")
       }
 
     case op@RegFileStore(rf,inds,data,en) =>
