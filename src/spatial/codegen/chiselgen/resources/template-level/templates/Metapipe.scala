@@ -66,6 +66,8 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
   ctr.io.input.saturate := true.B
   ctr.io.input.max := max
   ctr.io.input.stride := 1.U
+  ctr.io.input.start := 0.U
+  ctr.io.input.reset := io.input.rst
   io.output.rst_en := (state === resetState.U)
 
 
@@ -167,4 +169,4 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
 
 class Streampipe(override val n: Int, override val isFSM: Boolean = false) extends Parallel(n) {
-}
+}s

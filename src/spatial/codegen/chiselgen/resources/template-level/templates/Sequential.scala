@@ -54,6 +54,8 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
     ctr.io.input.saturate := false.B
     ctr.io.input.max := max
     ctr.io.input.stride := 1.U
+    ctr.io.input.start := 0.U
+    ctr.io.input.reset := io.input.rst
     val iter = ctr.io.output.count(0)
     io.output.rst_en := (state === resetState.U)
 
