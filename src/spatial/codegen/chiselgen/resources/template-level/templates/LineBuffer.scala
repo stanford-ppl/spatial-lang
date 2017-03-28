@@ -54,7 +54,6 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     // val row_wrap = Output(UInt(1.W))
   })
   
-  // ENHANCEMENT: should r_en RAMs (currently not supported, but saves power)
   // ENHANCEMENT: enq multiple @ once since banked -- COL_WRITE_PAR, ROW_WRITE_PAR (and change names of 2 PARs above to COL/ROW_READ_PAR)
   // ENHANCEMENT: could keep internal state of whether we are initializing (false means steady state),
   //                val initializing_state = Reg(init=reset_val.asUInt(log2Ceil(max+1).W))

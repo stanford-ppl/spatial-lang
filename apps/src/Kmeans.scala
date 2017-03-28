@@ -66,7 +66,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
           pts load points(i::i+BN, 0::BD par 16)
 
           // For each point in this set
-          MemReduce(newCents)(BN par PX){pt =>
+          MemFold(newCents)(BN par PX){pt =>
             // Find the index of the closest centroid
             val accum = Reg[Tup2[Int,T]]( pack(0.as[Int], 100000.as[T]) )
             val minCent = Reduce(accum)(K par PX){ct =>
