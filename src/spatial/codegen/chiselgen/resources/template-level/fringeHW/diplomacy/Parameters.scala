@@ -4,6 +4,7 @@ package diplomacy
 
 import Chisel._
 import scala.math.max
+import scala.language.implicitConversions
 
 /** Options for memory regions */
 object RegionType {

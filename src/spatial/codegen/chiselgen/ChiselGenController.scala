@@ -180,7 +180,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
 
     smStr match {
       case s @ ("Metapipe" | "Seqpipe") =>
-        emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")})""")
+        emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).number""")
         emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
       case _ =>
     }
