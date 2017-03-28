@@ -61,7 +61,7 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
       emit(s"val ${quote(lhs)} = ${quote(lb)}.io.data_out(${row}.number)")
 
     case op@LineBufferEnq(lb,data,en) =>
-      val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
+      val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"$lb.io.data_in := ${data}.number")
       emit(src"$lb.io.w_en := $en & ${parent}_datapath_en")
       
