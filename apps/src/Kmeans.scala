@@ -121,8 +121,8 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
     val K = num_cents //args(2).to[SInt];
     val D = dim //args(3).to[SInt];
 
-    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) + i }}
-    val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) + i }}
+    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
+    val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
     // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else if (d == 0) random[X](element_max) + i else 0.as[X]}}
     // val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else if (d == 0) random[X](element_max) + i else 0.as[X]}}
     // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else 5*i }}
