@@ -169,4 +169,4 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
 
 class Streampipe(override val n: Int, override val isFSM: Boolean = false) extends Parallel(n) {
-}s
+}
