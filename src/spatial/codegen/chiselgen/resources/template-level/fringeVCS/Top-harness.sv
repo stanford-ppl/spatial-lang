@@ -6,7 +6,8 @@ module test;
   export "DPI" function start;
   export "DPI" function rst;
   export "DPI" function writeReg;
-  export "DPI" function readReg;
+  export "DPI" function readRegRaddr;
+  export "DPI" function readRegRdata;
 
   reg clock = 1;
   reg reset = 1;
@@ -127,8 +128,11 @@ module test;
     .io_dram_resp_bits_streamId(io_dram_resp_bits_streamId)
 );
 
-  function void readReg(input int r, output bit[31:0] rdata);
+  function void readRegRaddr(input int r);
     io_raddr = r;
+  endfunction
+
+  function void readRegRdata(output bit[31:0] rdata);
     rdata = io_rdata;
   endfunction
 

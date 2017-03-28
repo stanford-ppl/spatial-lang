@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <queue>
 #include <poll.h>
 #include <fcntl.h>
 
@@ -38,6 +39,7 @@ int sendResp(simCmd *cmd) {
 }
 
 int numCycles = 0;
+queue<simCmd*> pendingOps;
 
 extern "C" {
   // Function is called every clock cycle
@@ -45,6 +47,32 @@ extern "C" {
     bool exitTick = false;
     int finishSim = 0;
     numCycles++;
+
+    // Handle pending operations, if any
+    if (pendingOps.size() > 0) {
+      simCmd *cmd = pendingOps.front();
+      pendingOps.pop();
+
+      switch (cmd->cmd) {
+        case READ_REG:
+          // Construct and send response
+          simCmd resp;
+          resp.id = cmd->id;
+          resp.cmd = cmd->cmd;
+          SV_BIT_PACKED_ARRAY(32, rdata);
+          readRegRdata((svBitVec32*)&rdata);
+          *(uint32_t*)resp.data = (uint32_t)*rdata;
+          resp.size = sizeof(uint32_t);
+          respChannel->send(&resp);
+          break;
+        default:
+          EPRINTF("[SIM] Ignoring unknown pending command %u\n", cmd->cmd);
+          break;
+      }
+      free(cmd);
+    }
+
+    // Handle new incoming operations
     while (!exitTick) {
       simCmd *cmd = cmdChannel->recv();
       simCmd readResp;
@@ -61,30 +89,29 @@ extern "C" {
         case STEP:
           exitTick = true;
           break;
-        case READ_REG:
-          reg = *((uint32_t*)cmd->data);
-          EPRINTF("[SIM] READ_REG called for reg = %u\n", reg);
+        case READ_REG: {
+            reg = *((uint32_t*)cmd->data);
 
-          // Perform read
-          SV_BIT_PACKED_ARRAY(32, rdata);
-          readReg(reg, (svBitVec32*)&rdata);
+            // Issue read addr
+            readRegRaddr(reg);
 
-          // Construct and send response
-          readResp.id = cmd->id;
-          readResp.cmd = cmd->cmd;
-          *(uint32_t*)readResp.data = (uint32_t)*rdata;
-          readResp.size = sizeof(uint32_t);
-          respChannel->send(&readResp);
-          exitTick = true;
-          break;
-        case WRITE_REG:
-          reg = *((uint32_t*)cmd->data);
-          data = *((uint32_t*)cmd->data + 1);
-          EPRINTF("[SIM] WRITE_REG called for reg = %u, data = %u\n", reg, data);
-          // Perform write
-          writeReg(reg, (svBitVecVal)data);
-          exitTick = true;
-          break;
+            // Append to pending ops - will return in the next cycle
+            simCmd *pendingCmd = (simCmd*) malloc(sizeof(simCmd));
+            memcpy(pendingCmd, cmd, sizeof(simCmd));
+            pendingOps.push(pendingCmd);
+
+            exitTick = true;
+            break;
+         }
+        case WRITE_REG: {
+            reg = *((uint32_t*)cmd->data);
+            data = *((uint32_t*)cmd->data + 1);
+
+            // Perform write
+            writeReg(reg, (svBitVecVal)data);
+            exitTick = true;
+            break;
+          }
         case FIN:
           finishSim = 1;
           exitTick = true;

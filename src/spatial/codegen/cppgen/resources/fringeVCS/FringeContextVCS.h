@@ -74,6 +74,9 @@ public:
   void step() {
     sendCmd(STEP);
     numCycles++;
+    if ((numCycles % 10000) == 0) {
+      EPRINTF("\t%lu cycles elapsed\n", numCycles);
+    }
   }
 
   void finish() {
@@ -181,7 +184,6 @@ public:
     std::memcpy(hostmem, (void*)devmem, size);
   }
 
-  // TODO
   virtual void run() {
     // Current assumption is that the design sets arguments individually
     uint32_t status = 0;
@@ -194,7 +196,7 @@ public:
       step();
       status = readReg(statusReg);
     }
-    EPRINTF("Design ran for %lu cycles\n", numCycles);
+    EPRINTF("Design ran for %lu cycles, status = %u\n", numCycles, statusReg);
     if (status == 0) { // Design did not run to completion
       EPRINTF("=========================================\n");
       EPRINTF("ERROR: Simulation terminated after %lu cycles\n", numCycles);
