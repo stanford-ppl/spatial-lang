@@ -220,6 +220,7 @@ public:
   }
 
   ~FringeContextVCS() {
+    finish();
   }
 };
 
