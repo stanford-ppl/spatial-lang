@@ -54,6 +54,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     // val row_wrap = Output(UInt(1.W))
   })
   
+  // ENHANCEMENT: should r_en RAMs (currently not supported, but saves power)
   // ENHANCEMENT: enq multiple @ once since banked -- COL_WRITE_PAR, ROW_WRITE_PAR (and change names of 2 PARs above to COL/ROW_READ_PAR)
   // ENHANCEMENT: could keep internal state of whether we are initializing (false means steady state),
   //                val initializing_state = Reg(init=reset_val.asUInt(log2Ceil(max+1).W))
@@ -105,7 +106,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // Outer counter over number of SRAM -- keep track of current row
   val WRITE_countRowNum = Module(new TmpCounter(num_lines + extra_rows_to_buffer, 0))
   WRITE_countRowNum.io.reset := io.reset
-  WRITE_countRowNum.io.en := WRITE_countRowPx.io.wrap // could replace RHS with a w_done input signal (it could also reset WRITE_countRowPx)
+  WRITE_countRowNum.io.en := swap // could replace RHS with a w_done input signal (it could also reset WRITE_countRowPx)
   val cur_row = WRITE_countRowNum.io.count
   
   // Write data_in into line buffer
