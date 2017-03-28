@@ -266,8 +266,8 @@ class SRAM(val logicalDims: List[Int], val w: Int,
     (0 until wBundle.length).foreach{ i => 
       io.w(i + wId*wPar) := wBundle(i) 
     }
-    io.globalWEn(wId) := en
-    io.wSel(wId) := en
+    io.globalWEn(wId) := en 
+    io.wSel(wId) := en & ( wBundle.map{ _.en}.reduce{_||_} )
     wId = wId + 1
   }
   var rId = 0
