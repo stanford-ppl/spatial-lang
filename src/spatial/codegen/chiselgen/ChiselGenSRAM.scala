@@ -111,7 +111,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, ${width})))""")
         emit(src"""${lhs}_rVec(0).en := $enable""")
         is.zipWithIndex.foreach{ case(ind,j) => 
-          emit(src"""${lhs}_rVec(0).addr($j) := ${ind}""")
+          emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.number // Assume always an int""")
         }
         val p = portsOf(lhs, sram, i).head
         emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
@@ -139,7 +139,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       }
       emit(src"""${lhs}_wVec(0).en := ${en}""")
       is.zipWithIndex.foreach{ case(ind,j) => 
-        emit(src"""${lhs}_wVec(0).addr($j) := ${ind}""")
+        emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.number // Assume always an int""")
       }
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")

@@ -125,16 +125,22 @@ trait ChiselGenReg extends ChiselCodegen {
                   }
                   
                 case _ =>  
-                  reg.tp.typeArguments.head match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
-                    case FixPtType(s,d,f) => emit(src"""val $lhs = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_${inst}.read(${port.head})""")
+                  lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+                    case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
                     case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
                   }
               }
             case _ =>
-              emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
+              lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+                case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+                case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
+              }
           }
         } else {
-          emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
+          lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+            case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+            case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
+          }
         }
       }
 

@@ -45,7 +45,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit("// Emitting nextState")
       visitBlock(nextState)
       emit(src"${lhs}_sm.io.input.enable := ${lhs}_en & ${extraEn} ")
-      emit(src"${lhs}_sm.io.input.nextState := ${nextState.result}")
+      emit(src"${lhs}_sm.io.input.nextState := ${nextState.result}.number // Assume always int")
       emitGlobal(src"val $state = Wire(UInt(32.W))")
       emit(src"$state := ${lhs}_sm.io.output.state")
       emit(src"${lhs}_sm.io.input.doneCondition := ~${notDone.result}")
