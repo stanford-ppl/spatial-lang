@@ -117,7 +117,7 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   // Build a schedule as usual, except for depencies on write addresses
-  def symsOnlyUsedInWriteAddr(stms: Seq[Stm])(results: Seq[Symbol], exps: List[Symbol]) = {
+  def symsOnlyUsedInWriteAddr(stms: Seq[Stm])(results: Seq[Symbol], exps: Seq[Symbol]) = {
     def mysyms(rhs: Symbol) = rhs match {
       case Def(rhs) => rhs match {
         case LocalWriter(writes) =>
@@ -140,7 +140,7 @@ trait PIRTraversal extends SpatialTraversal {
   }
 
   // HACK: Rip apart the block, looking only for true data dependencies and necessary effects dependencies
-  def symsOnlyUsedInWriteAddrOrEn(stms: Seq[Stm])(results: Seq[Symbol], exps: List[Symbol]) = {
+  def symsOnlyUsedInWriteAddrOrEn(stms: Seq[Stm])(results: Seq[Symbol], exps: Seq[Symbol]) = {
     def mysyms(rhs: Any) = rhs match {
       case Def(d) => d match {
         case SRAMStore(sram,dims,is,ofs,data,en) => dyns(sram) ++ dyns(data) //++ dyns(es)
@@ -355,7 +355,7 @@ trait PIRTraversal extends SpatialTraversal {
     def addOutput(prev: LocalComponent, out: LocalComponent, e: Option[Symbol]): Unit = {
       mapStages.find{stage => stage.outputMems.contains(prev) } match {
         case Some(stage) =>
-          stage.outs ::= refOut(out, mapStages.indexOf(stage) + 1)
+          stage.outs +:= refOut(out, mapStages.indexOf(stage) + 1)
         case None =>
           bypass(prev, out)
       }

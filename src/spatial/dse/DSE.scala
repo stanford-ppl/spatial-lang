@@ -26,11 +26,11 @@ trait DSE extends CompilerPass { dse =>
   override protected def process[S: Type](block: Block[S]) = {
     if (SpatialConfig.enableDSE) {
       dbg("Tile sizes: ")
-      tileSizes.foreach{t => dbg(u"${ctx(t)}: $t")}
+      tileSizes.foreach{t => dbg(u"${t.ctx}: $t")}
       dbg("Parallelization factors:")
-      parFactors.foreach{p => dbg(u"${ctx(p)}: $p")}
+      parFactors.foreach{p => dbg(u"${p.ctx}: $p")}
       dbg("Metapipelining toggles:")
-      metapipes.foreach{m => dbg(u"${ctx(m)}: $m")}
+      metapipes.foreach{m => dbg(u"${m.ctx}: $m")}
       // TODO: prune space, dse
     }
     dbg("Freezing parameters")

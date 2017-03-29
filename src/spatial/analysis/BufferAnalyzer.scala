@@ -40,7 +40,7 @@ trait BufferAnalyzer extends CompilerPass {
           }
         }
         else {
-          warn(ctx(mem), u"Memory $mem, instance #$i has no associated accesses")
+          warn(mem.ctx, u"Memory $mem, instance #$i has no associated accesses")
         }
       }
       dbg("\n")

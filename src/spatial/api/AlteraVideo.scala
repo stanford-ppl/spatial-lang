@@ -59,8 +59,8 @@ trait AlteraVideoExp extends Staging with MemoryExp {
   /** Infix methods **/
   // TODO: Do these need to be staged types?
   case class AXI_Master_Slave(s: Exp[AXI_Master_Slave]) extends Template[AXI_Master_Slave]
-  case class Decoder_Template[T:Bits](s: Exp[Decoder_Template[T]]) extends Template[Decoder_Template[T]]
-  case class DMA_Template[T:Bits](s: Exp[DMA_Template[T]]) extends Template[DMA_Template[T]]
+  case class Decoder_Template[T:Meta:Bits](s: Exp[Decoder_Template[T]]) extends Template[Decoder_Template[T]]
+  case class DMA_Template[T:Meta:Bits](s: Exp[DMA_Template[T]]) extends Template[DMA_Template[T]]
 
   /** Staged Type **/
   object AXIMasterSlaveType extends Meta[AXI_Master_Slave] {
@@ -71,7 +71,7 @@ trait AlteraVideoExp extends Staging with MemoryExp {
   implicit def aXIMasterSlaveType: Meta[AXI_Master_Slave] = AXIMasterSlaveType
 
   case class DecoderTemplateType[T:Bits](child: Meta[T]) extends Meta[Decoder_Template[T]] {
-    override def wrapped(x: Exp[Decoder_Template[T]]) = Decoder_Template(x)(bits[T])
+    override def wrapped(x: Exp[Decoder_Template[T]]) = Decoder_Template(x)(child,bits[T])
     override def typeArguments = List(child)
     override def stagedClass = classOf[Decoder_Template[T]]
     override def isPrimitive = true // ???
@@ -79,7 +79,7 @@ trait AlteraVideoExp extends Staging with MemoryExp {
   implicit def decoderTemplateType[T:Meta:Bits]: Meta[Decoder_Template[T]] = DecoderTemplateType(meta[T])
 
   case class DMATemplateType[T:Bits](child: Meta[T]) extends Meta[DMA_Template[T]] {
-    override def wrapped(x: Exp[DMA_Template[T]]) = DMA_Template[T](x)(bits[T])
+    override def wrapped(x: Exp[DMA_Template[T]]) = DMA_Template[T](x)(child,bits[T])
     override def typeArguments = List(child)
     override def stagedClass = classOf[DMA_Template[T]]
     override def isPrimitive = true // ???

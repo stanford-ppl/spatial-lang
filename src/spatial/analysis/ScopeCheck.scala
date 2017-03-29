@@ -10,7 +10,7 @@ trait ScopeCheck extends SpatialTraversal {
   override val recurse = Default
 
   def transferError(s: Exp[_]): Unit = {
-    error(ctx(s), u"Untransferred host value $s was used in the Accel scope.")
+    error(s.ctx, u"Untransferred host value $s was used in the Accel scope.")
 
   }
 
@@ -33,7 +33,7 @@ trait ScopeCheck extends SpatialTraversal {
       if (illegalInputs.nonEmpty) {
         val n = illegalInputs.size
         if (n == 1) {
-          error(ctx(illegalInputs.head), u"Value ${illegalInputs.head} was defined on the host but used in the Accel scope without explicit transfer")
+          error(illegalInputs.head.ctx, u"Value ${illegalInputs.head} was defined on the host but used in the Accel scope without explicit transfer")
         }
         else {
           error("Multiple values were defined on the host and used in the Accel scope without explicit transfer.")
@@ -43,12 +43,12 @@ trait ScopeCheck extends SpatialTraversal {
         illegalInputs.foreach{in =>
           val use = stms.find(_.rhs.inputs.contains(in))
 
-          if (n > 1) error(ctx(in), u"Value $in")
-          error(ctx(in))
+          if (n > 1) error(in.ctx, u"Value $in")
+          error(in.ctx)
 
           if (use.isDefined) {
-            error(ctx(use.get.lhs.head), c"First use occurs here: ", noError = true)
-            error(ctx(use.get.lhs.head))
+            error(use.get.lhs.head.ctx, c"First use occurs here: ", noError = true)
+            error(use.get.lhs.head.ctx)
           }
         }
       }

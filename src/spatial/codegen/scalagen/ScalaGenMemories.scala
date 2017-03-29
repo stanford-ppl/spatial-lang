@@ -16,7 +16,7 @@ trait ScalaGenMemories extends ScalaGenBits {
     lines
     close("}")
     open(src"catch {case err: java.lang.ArrayIndexOutOfBoundsException => ")
-    emit(s"""System.out.println("[warn] ${ctx(lhs)} Memory $name: Out of bounds $op at address " + $addr)""")
+    emit(s"""System.out.println("[warn] ${lhs.ctx} Memory $name: Out of bounds $op at address " + $addr)""")
     if (isRead) emit(src"${invalid(tp)}")
     close("}")
   }

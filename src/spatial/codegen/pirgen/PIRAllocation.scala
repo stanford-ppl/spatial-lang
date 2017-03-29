@@ -155,7 +155,7 @@ trait PIRAllocation extends PIRTraversal {
     }
   }
 
-  def allocateWrittenSRAM(writer: Symbol, mem: Symbol, writerCU: PCU, stages: List[PseudoStage]) {
+  def allocateWrittenSRAM(writer: Symbol, mem: Symbol, writerCU: PCU, stages: Seq[PseudoStage]) {
     val srams = readersOf(mem).map{reader =>
       val readerCU = allocateCU(reader.ctrlNode)
       copyIterators(readerCU, writerCU)

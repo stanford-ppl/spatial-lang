@@ -91,23 +91,23 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     val mT = typ[T]
   }
 
-  case class LineBufferColSlice[T:Type:Bits](
+  case class LineBufferColSlice[W:INT,T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     row:        Exp[Index],
     colStart:   Exp[Index],
     length:     Exp[Index]
-  )(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
+  ) extends Op[Vector[W,T]] {
     def mirror(f:Tx) = linebuffer_col_slice(f(linebuffer),f(row),f(colStart),f(length))
     override def aliases = Nil
     val mT = typ[T]
   }
 
-  case class LineBufferRowSlice[T:Type:Bits](
+  case class LineBufferRowSlice[W:INT,T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     rowStart:   Exp[Index],
     length:     Exp[Index],
     col:        Exp[Index]
-  )(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
+  ) extends Op[Vector[W,T]] {
     def mirror(f:Tx) = linebuffer_row_slice(f(linebuffer),f(rowStart),f(length),f(col))
     override def aliases = Nil
     val mT = typ[T]
@@ -140,34 +140,22 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     stageMutable(LineBufferNew[T](rows, cols))(ctx)
   }
 
-  private[spatial] def linebuffer_col_slice[T:Type:Bits](
+  private[spatial] def linebuffer_col_slice[W:INT,T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     row:        Exp[Index],
     colStart:   Exp[Index],
     length:     Exp[Index]
   )(implicit ctx: SrcCtx) = {
-    implicit val W: INT[Vector[T]] = length match {
-      case Final(c) => Width[T](c.toInt)
-      case _ =>
-        error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
-        Width[T](0)
-    }
-    stageCold(LineBufferColSlice(linebuffer, row, colStart, length))(ctx)
+    stageCold(LineBufferColSlice[W,T](linebuffer, row, colStart, length))(ctx)
   }
 
-  private[spatial] def linebuffer_row_slice[T:Type:Bits](
+  private[spatial] def linebuffer_row_slice[W:INT,T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     rowStart:   Exp[Index],
     length:     Exp[Index],
     col:        Exp[Index]
   )(implicit ctx: SrcCtx) = {
-    implicit val W: INT[Vector[T]] = length match {
-      case Final(c) => Width[T](c.toInt)
-      case _ =>
-        error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
-        Width[T](0)
-    }
-    stageCold(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)
+    stageCold(LineBufferRowSlice[W,T](linebuffer, rowStart, length, col))(ctx)
   }
 
   private[spatial] def linebuffer_load[T:Type:Bits](

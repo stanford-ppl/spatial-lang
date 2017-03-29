@@ -53,7 +53,6 @@ def main():
   # parser.add_argument("--rw", type=int, help="set number of read/write enabled stages / CU")
   # parser.add_argument("--mems", type=int, help="set number of SRAMs / CU")
 
-  VIRTUALIZED_HOME = os.getenv("VIRTUALIZED_HOME", "")
   SPATIAL_HOME = os.getenv("SPATIAL_HOME", "")
   ARGON_HOME = os.getenv("ARGON_HOME", "")
   JAVA_HOME = os.getenv("JAVA_HOME", "")
@@ -157,8 +156,7 @@ def main():
   cp = cp + SPATIAL_HOME + classes
   cp = cp + SPATIAL_HOME + "/apps" + classes
   cp = cp + SPATIAL_HOME + test_classes
-  #cp = cp + VIRTUALIZED_HOME + "/target/" + scala_major_id + os.pathsep
-
+  
   jars = [os.path.join(d,f) for (d, n, fs) in os.walk(SPATIAL_HOME + "/lib_managed/") for f in fs]
   for j in jars:
     cp = cp + j + os.pathsep

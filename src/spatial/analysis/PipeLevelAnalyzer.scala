@@ -52,14 +52,14 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
       case _:OpForeach => annotateControl(lhs, isOuter)
       case op:OpReduce[_] =>
         annotateControl(lhs, isOuter)
-        if (containsControl(op.reduce)) new ControlInReductionError(ctx(lhs))
+        if (containsControl(op.reduce)) new ControlInReductionError(lhs.ctx)
       case op:OpMemReduce[_,_] =>
         annotateControl(lhs, true)
-        if (containsControl(op.reduce)) new ControlInReductionError(ctx(lhs))
+        if (containsControl(op.reduce)) new ControlInReductionError(lhs.ctx)
       case op:StateMachine[_] =>
         annotateControl(lhs, isOuter)
-        if (hasControlNodes(op.notDone))   new ControlInNotDoneError(ctx(lhs))
-        if (hasControlNodes(op.nextState)) new ControlInNextStateError(ctx(lhs))
+        if (hasControlNodes(op.notDone))   new ControlInNotDoneError(lhs.ctx)
+        if (hasControlNodes(op.nextState)) new ControlInNextStateError(lhs.ctx)
 
       case e: DenseTransfer[_,_] => annotateLeafControl(lhs)
       case e: SparseTransfer[_]  => annotateLeafControl(lhs)

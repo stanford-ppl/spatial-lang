@@ -547,7 +547,7 @@ trait PIRSplitting extends PIRTraversal {
         bypassInCost + bypassOutCost
       case MapStage(PIRBypass,ins,outs) => 1
       case _ => 0
-    }.fold(0){_+_}
+    }.sum
 
     val bypasses = sramBypasses + stageBypasses
 
@@ -555,7 +555,7 @@ trait PIRSplitting extends PIRTraversal {
     val rawCompute = p.cstages.map{
       case MapStage(op,ins,outs) => if (op == PIRBypass) 0 else 1
       case ReduceStage(op,init,in,acc) => REDUCE_STAGES
-    }.fold(0){_+_}
+    }.sum
 
     val writes = p.wstages.values.flatMap(_.stages).size
     // TODO: Could reschedule stages such that reads occur earlier
@@ -567,7 +567,7 @@ trait PIRSplitting extends PIRTraversal {
     // TODO: One virtual memory may cost more than one physical memory...
 
     // Scalars
-    val sclIns = sIns.values.fold(0){_+_} + cuGrpsIn.args.size + cuGrpsIn.scalars.size
+    val sclIns = sIns.values.sum + cuGrpsIn.args.size + cuGrpsIn.scalars.size
 
     val cost = SplitCost(sclIns, sOuts, vIns, vOuts, vLocal, compute, writes, reads, nSRAMs)
 
@@ -576,17 +576,17 @@ trait PIRSplitting extends PIRTraversal {
     cost
   }
 
-  def getSRAMOwners(stageGroups: List[List[Stage]]): Set[LocalRef] = {
+  def getSRAMOwners(stageGroups: Seq[Seq[Stage]]): Set[LocalRef] = {
 
     def sramFromRef(x: LocalRef) = x match {case LocalRef(_,SRAMReadReg(sram)) => Some(sram); case _ => None}
-    def sramRefs(x: List[LocalRef]) = x.collect{case ref@LocalRef(_,SRAMReadReg(_)) => ref}
+    def sramRefs(x: Seq[LocalRef]) = x.collect{case ref@LocalRef(_,SRAMReadReg(_)) => ref}
 
     // Group set of stages into references for each memory
-    def groupByMem(stages: List[Stage]): List[List[LocalRef]] = stages.flatMap{stage => sramRefs(stage.inputRefs) }.groupBy(sramFromRef).values.toList
+    def groupByMem(stages: Seq[Stage]): Seq[Seq[LocalRef]] = stages.flatMap{stage => sramRefs(stage.inputRefs) }.groupBy(sramFromRef).values.toSeq
     // Get reference with lowest stage number
-    def getMemOwner(refs: List[LocalRef]): LocalRef = refs.reduce{(refA,refB) => if (refA.stage < refB.stage) refA else refB}
+    def getMemOwner(refs: Seq[LocalRef]): LocalRef = refs.reduce{(refA,refB) => if (refA.stage < refB.stage) refA else refB}
 
-    stageGroups.map{stages: List[Stage] => groupByMem(stages) }.flatMap{mems => mems.map{refs => getMemOwner(refs)}}.toSet
+    stageGroups.map{stages: Seq[Stage] => groupByMem(stages) }.flatMap{mems => mems.map{refs => getMemOwner(refs)}}.toSet
   }
 
 

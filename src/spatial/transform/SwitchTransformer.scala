@@ -68,7 +68,7 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
       val cases = extractSwitches(elsep, elseCond, Seq(scase))
 
       dbg(c"Created case symbols: ")
-      val switch = create_switch(cases) //(mtyp(lhs.tp),ctx(lhs))
+      val switch = create_switch(cases)
       dbg(c"Created switch: ${str(switch)}")
 
       styleOf(switch) = ForkSwitch

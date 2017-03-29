@@ -132,51 +132,51 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
     error("Only functions of input arguments, parameters, and constants can be used as DRAM dimensions.")
   })
 
-  class ConcurrentReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
-    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal concurrent readers: ")
-    error(ctx(a)(ctx), u"  The first read occurs here")
-    error(ctx(a)(ctx))
-    error(ctx(b)(ctx), u"  The second read occurs here")
-    error(ctx(b)(ctx))
+  class ConcurrentReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+    error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal concurrent readers: ")
+    error(a.ctxOrElse(ctx), u"  The first read occurs here")
+    error(a.ctxOrElse(ctx))
+    error(b.ctxOrElse(ctx), u"  The second read occurs here")
+    error(b.ctxOrElse(ctx))
   })
 
-  class ConcurrentWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
-    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal concurrent writers: ")
-    error(ctx(a)(ctx), u"  The first write occurs here")
-    error(ctx(a)(ctx))
-    error(ctx(b)(ctx), u"  The second write occurs here")
-    error(ctx(b)(ctx))
+  class ConcurrentWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+    error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal concurrent writers: ")
+    error(a.ctxOrElse(ctx), u"  The first write occurs here")
+    error(a.ctxOrElse(ctx))
+    error(b.ctxOrElse(ctx), u"  The second write occurs here")
+    error(b.ctxOrElse(ctx))
   })
 
-  class PipelinedReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
-    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal pipelined readers: ")
-    error(ctx(a)(ctx), u"  The first read occurs here")
-    error(ctx(a)(ctx))
-    error(ctx(b)(ctx), u"  The second read occurs here")
-    error(ctx(b)(ctx))
+  class PipelinedReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+    error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal pipelined readers: ")
+    error(a.ctxOrElse(ctx), u"  The first read occurs here")
+    error(a.ctxOrElse(ctx))
+    error(b.ctxOrElse(ctx), u"  The second read occurs here")
+    error(b.ctxOrElse(ctx))
   })
 
-  class PipelinedWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
-    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal pipelined writers: ")
-    error(ctx(a)(ctx), u"  The first write occurs here")
-    error(ctx(a)(ctx))
-    error(ctx(b)(ctx), u"  The second write occurs here")
-    error(ctx(b)(ctx))
+  class PipelinedWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+    error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal pipelined writers: ")
+    error(a.ctxOrElse(ctx), u"  The first write occurs here")
+    error(a.ctxOrElse(ctx))
+    error(b.ctxOrElse(ctx), u"  The second write occurs here")
+    error(b.ctxOrElse(ctx))
   })
 
-  class MultipleReadersError(mem: Exp[_], readers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
-    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal multiple readers: ")
+  class MultipleReadersError(mem: Exp[_], readers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+    error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal multiple readers: ")
     readers.foreach{read =>
-      error(ctx(read)(ctx), u"  Read defined here")
-      error(ctx(read)(ctx))
+      error(read.ctxOrElse(ctx), u"  Read defined here")
+      error(read.ctxOrElse(ctx))
     }
   })
 
-  class MultipleWritersError(mem: Exp[_], writers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(ctx(mem)(ctx), {
-    error(ctx(mem)(ctx), u"${mem.tp} defined here has illegal multiple writers: ")
+  class MultipleWritersError(mem: Exp[_], writers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+    error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal multiple writers: ")
     writers.foreach{write =>
-      error(ctx(write)(ctx), u"  Write defined here")
-      error(ctx(write)(ctx))
+      error(write.ctxOrElse(ctx), u"  Write defined here")
+      error(write.ctxOrElse(ctx))
     }
   })
 

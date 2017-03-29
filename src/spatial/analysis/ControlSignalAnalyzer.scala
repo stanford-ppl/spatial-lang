@@ -58,7 +58,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   override protected def postprocess[S:Type](block: Block[S]) = {
     top match {
       case Some(ctrl@Op(Hwblock(_,_))) =>
-      case _ => new NoTopError(ctx(block.result))
+      case _ => new NoTopError(block.result.ctx)
     }
     dbg("Local memories: ")
     localMems.foreach{mem => dbg(c"  $mem")}
@@ -129,7 +129,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       appendWriter(writer, ctrl)
     else {
       val mem = LocalWriter.unapply(writer).get.head._1
-      throw new ExternalWriteError(mem, writer, ctrl)(ctx(writer))
+      throw new ExternalWriteError(mem, writer, ctrl)(writer.ctx)
     }
   }
 

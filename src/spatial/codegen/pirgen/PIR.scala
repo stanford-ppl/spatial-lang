@@ -246,7 +246,7 @@ trait PIR {
     def output = Some(op)
     override def toString = s"DefStage(${str(op)}" + (if (isReduce) " [REDUCE]" else "") + ")"
   }
-  case class OpStage(op: PIROp, inputs: List[Symbol], out: Symbol, isReduce: Boolean = false) extends PseudoStage {
+  case class OpStage(op: PIROp, inputs: Seq[Symbol], out: Symbol, isReduce: Boolean = false) extends PseudoStage {
     def output = Some(out)
   }
   case class WriteAddrStage(mem: Symbol, addr: Symbol) extends PseudoStage { def output = None }
@@ -257,12 +257,12 @@ trait PIR {
   case class LocalRef(stage: Int, reg: LocalComponent)
 
   sealed abstract class Stage {
-    def inputMems: List[LocalComponent]
-    def outputMems: List[LocalComponent]
-    def inputRefs: List[LocalRef]
-    def outputRefs: List[LocalRef]
+    def inputMems: Seq[LocalComponent]
+    def outputMems: Seq[LocalComponent]
+    def inputRefs: Seq[LocalRef]
+    def outputRefs: Seq[LocalRef]
   }
-  case class MapStage(op: PIROp, var ins: List[LocalRef], var outs: List[LocalRef]) extends Stage {
+  case class MapStage(op: PIROp, var ins: Seq[LocalRef], var outs: Seq[LocalRef]) extends Stage {
     def inputMems = ins.map(_.reg)
     def outputMems = outs.map(_.reg)
     def inputRefs = ins
@@ -341,7 +341,7 @@ trait PIR {
 
   type PCU = PseudoComputeUnit
   case class PseudoComputeUnit(name: String, pipe: Symbol, var style: CUStyle) extends AbstractComputeUnit {
-    val writeStages = mutable.HashMap[List[CUMemory], (Symbol, List[PseudoStage])]()
+    val writeStages = mutable.HashMap[List[CUMemory], (Symbol, Seq[PseudoStage])]()
     val computeStages = mutable.ArrayBuffer[PseudoStage]()
 
     def copyToConcrete(): ComputeUnit = {

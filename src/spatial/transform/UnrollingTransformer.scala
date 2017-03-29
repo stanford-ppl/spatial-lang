@@ -93,7 +93,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val channels = unrolled match {
       case Def(op: EnabledOp[_]) => op.enables.length
       case _ => unrolled.tp match {
-        case tp: VectorType[_] => tp.width
+        case tp: VectorType[_,_] => tp.width
         case _ => 1
       }
     }
@@ -379,7 +379,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     tab += 1
     mangleBlock(func, {stms =>
-      stms.foreach{case TP(lhs,rhs) => unroll(lhs, rhs, lanes)(ctx(lhs)) }
+      stms.foreach{case TP(lhs,rhs) => unroll(lhs, rhs, lanes)(lhs.ctx) }
     })
     tab -= 1
 
@@ -683,7 +683,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     dbgs(c"Cloning $lhs = $rhs")
     strMeta(lhs)
 
-    val (lhs2, isNew) = transferMetadataIfNew(lhs){ cloneOrMirror(lhs, rhs)(mtyp(lhs.tp), ctx(lhs)) }
+    val (lhs2, isNew) = transferMetadataIfNew(lhs){ cloneOrMirror(lhs, rhs)(mtyp(lhs.tp), lhs.ctx) }
 
     if (isAccess(lhs) && isNew) {
       registerAccess(lhs, lhs2)

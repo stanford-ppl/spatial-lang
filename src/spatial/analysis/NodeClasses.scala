@@ -199,7 +199,7 @@ trait NodeClasses extends SpatialMetadataExp {
   }
 
   def isVector(e:Exp[_]):Boolean = e.tp match {
-    case _:VectorType[_] => true
+    case _:VectorType[_,_] => true
     case _ => false
   }
 

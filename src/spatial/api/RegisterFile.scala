@@ -21,7 +21,7 @@ trait RegisterFileExp extends Staging with SRAMExp {
     }
 
     def <<=(data: T)(implicit ctx: SrcCtx): Void = wrap(regfile_shiftin(s, Seq(int32(0)), 0, data.s, bool(true)))
-    def <<=(data: Vector[T])(implicit ctx: SrcCtx): Void = wrap(par_regfile_shiftin(s, Seq(int32(0)), 0, data.s, bool(true)))
+    def <<=[W:INT](data: Vector[W,T])(implicit ctx: SrcCtx): Void = wrap(par_regfile_shiftin(s, Seq(int32(0)), 0, data.s, bool(true)))
 
     def apply(i: Index, y: Wildcard)(implicit ctx: SrcCtx) = {
       if (stagedDimsOf(s).length != 2) error(ctx, s"Cannot view a ${stagedDimsOf(s).length}-dimensional register file in 2 dimensions.")
@@ -35,7 +35,7 @@ trait RegisterFileExp extends Staging with SRAMExp {
 
   case class RegFileView[T:Meta:Bits](s: Exp[RegFile[T]], i: Seq[Index], dim: Int) {
     def <<=(data: T)(implicit ctx: SrcCtx): Void = wrap(regfile_shiftin(s, unwrap(i), dim, data.s, bool(true)))
-    def <<=(data: Vector[T])(implicit ctx: SrcCtx): Void = wrap(par_regfile_shiftin(s, unwrap(i), dim, data.s, bool(true)))
+    def <<=[W:INT](data: Vector[W,T])(implicit ctx: SrcCtx): Void = wrap(par_regfile_shiftin(s, unwrap(i), dim, data.s, bool(true)))
   }
 
 
@@ -107,11 +107,11 @@ trait RegisterFileExp extends Staging with SRAMExp {
     def mirror(f:Tx) = regfile_shiftin(f(reg),f(inds),dim,f(data),f(en))
   }
 
-  case class ParRegFileShiftIn[T:Type:Bits](
+  case class ParRegFileShiftIn[W:INT,T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     dim:  Int,
-    data: Exp[Vector[T]],
+    data: Exp[Vector[W,T]],
     en: Exp[Bool]
   ) extends EnabledOp[Void](en) {
     def mirror(f:Tx) = par_regfile_shiftin(f(reg),f(inds),dim,f(data),f(en))
@@ -150,11 +150,11 @@ trait RegisterFileExp extends Staging with SRAMExp {
     stageWrite(reg)(RegFileShiftIn(reg, inds, dim, data, en))(ctx)
   }
 
-  private[spatial] def par_regfile_shiftin[T:Type:Bits](
+  private[spatial] def par_regfile_shiftin[W:INT,T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     dim:  Int,
-    data: Exp[Vector[T]],
+    data: Exp[Vector[W,T]],
     en:   Exp[Bool]
   )(implicit ctx: SrcCtx) = {
     stageWrite(reg)(ParRegFileShiftIn(reg, inds, dim, data, en))(ctx)

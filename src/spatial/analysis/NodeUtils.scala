@@ -240,9 +240,9 @@ trait NodeUtils extends NodeClasses {
     val hasConcurrent = writersOf(mem).exists{writer =>
       readersOf(mem).exists{reader =>
         if (areConcurrent(writer, reader)) {
-          warn(ctx(mem), u"Memory $mem appears to have a concurrent read and write")
-          warn(ctx(reader), u"Read defined here")
-          warn(ctx(writer), u"Write defined here")
+          warn(mem.ctx, u"Memory $mem appears to have a concurrent read and write")
+          warn(reader.ctx, u"Read defined here")
+          warn(writer.ctx, u"Write defined here")
         }
       }
     }

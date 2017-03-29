@@ -26,7 +26,7 @@ trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
   def *()(implicit ctx: SrcCtx) = Wildcard()
 
   implicit class IndexRangeOps(x: Index) {
-    def lft(x: Int) = lift[Int,Index](x)
+    private def lft(x: Int)(implicit ctx: SrcCtx) = lift[Int,Index](x)
     def by(step: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, Some(lft(step)), None)
     def par(p: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, None, Some(lft(p)))
     def until(end: Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(x), lft(end), None, None)
@@ -39,7 +39,7 @@ trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
   }
 
   implicit class intWrapper(x: scala.Int) {
-    def lft(x: Int) = lift[Int,Index](x)
+    private def lft(x: Int)(implicit ctx: SrcCtx) = lift[Int,Index](x)
     def until(end: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(lft(x)), end, None, None)
     def by(step: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, lft(x), Some(step), None)
     def par(p: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, lft(x), None, Some(p))

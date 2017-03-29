@@ -3,13 +3,12 @@ package spatial.api
 import argon.core.Staging
 import spatial.{SpatialApi, SpatialExp}
 
-
 trait StateMachineApi extends StateMachineExp {
   this: SpatialApi =>
 
   object FSM {
     def apply[A,T:Bits](init: A)(notDone: T => Boolean)(action: T => Void)(next: T => T)(implicit ctx: SrcCtx, lft: Lift[A,T]) = {
-      fsm(lft.lift(init), notDone, action, next, SeqPipe)(lft.staged, bits[T], ctx)
+      fsm(lft(init), notDone, action, next, SeqPipe)(lft.staged, bits[T], ctx)
     }
     def apply[T:Type:Bits](notDone: T => Boolean)(action: T => Void)(next: T => T)(implicit ctx: SrcCtx) = {
       fsm(zero[T], notDone, action, next, SeqPipe)

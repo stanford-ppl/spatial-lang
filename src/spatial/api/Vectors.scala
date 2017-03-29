@@ -4,72 +4,74 @@ import argon.core.Staging
 import argon.typeclasses.{BitsExp, CustomBitWidths}
 import spatial.SpatialExp
 
-
 trait VectorApi extends VectorExp { this: SpatialExp => }
 
 trait VectorExp extends Staging with BitsExp with CustomBitWidths {
   this: SpatialExp =>
 
-  def Width[T](w: Int): INT[Vector[T]] = INT_T[Vector[T]](w)
-
   /** Infix methods **/
-  // TODO: Add W as true type parameter of Vector?
-  case class Vector[T:Meta:Bits](s: Exp[Vector[T]]) extends MetaAny[Vector[T]] {
+  case class Vector[W:INT,T:Meta:Bits](s: Exp[Vector[W,T]]) extends MetaAny[Vector[W,T]] {
+    private def width = INT[W].v
     def apply(i: Int)(implicit ctx: SrcCtx): T = wrap(vector_apply(s, i))
-    override def ===(x: Vector[T])(implicit ctx: SrcCtx) = this.s.tp match {
-      case tp: VectorType[_] => reduceTree(List.tabulate(tp.width){i => this(i) === x(i) }){_&&_}
+    override def ===(x: Vector[W,T])(implicit ctx: SrcCtx) = {
+      reduceTree(List.tabulate(width){i => this(i) === x(i) }){_&&_}
     }
-    override def =!=(x: Vector[T])(implicit ctx: SrcCtx) = this.s.tp match {
-      case tp: VectorType[_] => reduceTree(List.tabulate(tp.width){i => this(i) =!= x(i) }){_||_}
+    override def =!=(x: Vector[W,T])(implicit ctx: SrcCtx) = {
+      reduceTree(List.tabulate(width){i => this(i) =!= x(i) }){_||_}
     }
     override def toText(implicit ctx: SrcCtx) = textify(this)
   }
 
-  private[spatial] def vectorize[T:Type:Bits](elems: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[T]] = vector_new(elems)
+  /*object Vector {
+    def apply[T](elems: Exp[T]*)(implicit ctx: SrcCtx, meta: Meta[T], bits: Bits[T]) = macro VectorMacros.vectorize
+  }
+  def vectorize[T](elems: Seq[Exp[T]])(implicit ctx: SrcCtx, meta: Meta[T], bits: Bits[T]) = macro VectorMacros.vectorize*/
+
+
+  private[spatial] def vect[W:INT,T:Type:Bits](elems: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[W,T]] = vector_new(elems)
 
   /** Staged Types **/
-  case class VectorType[T:Bits](child: Meta[T], W: INT[Vector[T]]) extends Meta[Vector[T]] with CanBits[Vector[T]] {
-    override def wrapped(x: Exp[Vector[T]]) = Vector(x)(child, bits[T])
+  case class VectorType[W,T:Bits](w: INT[W], child: Meta[T]) extends Meta[Vector[W,T]] with CanBits[Vector[W,T]] {
+    def width: Int = w.v
+    override def wrapped(x: Exp[Vector[W,T]]) = Vector[W,T](x)(w, child, bits[T])
     override def typeArguments = List(child)
-    override def stagedClass = classOf[Vector[T]]
+    override def stagedClass = classOf[Vector[W,T]]
     override def isPrimitive = false
-    def width = W.v
 
-    protected def getBits(children: Seq[Type[_]]): Option[Bits[Vector[T]]] = Some(vectorBits[T](child,bits[T],W) )
+    protected def getBits(children: Seq[Type[_]]): Option[Bits[Vector[W,T]]] = Some(vectorBits[W,T](w,child,bits[T]))
   }
-  implicit def vectorType[T:Meta:Bits](implicit W: INT[Vector[T]]): Meta[Vector[T]] = VectorType[T](meta[T], W)
+  implicit def vectorType[W:INT,T:Meta:Bits]: Meta[Vector[W,T]] = VectorType[W,T](INT[W],meta[T])(bits[T])
 
-  class VectorBits[T:Meta:Bits](implicit val W: INT[Vector[T]]) extends Bits[Vector[T]] {
-    val n = W.v
-    override def zero(implicit ctx: SrcCtx) = wrap(vectorize(unwrap(Seq.fill(n){ bits[T].zero })))
-    override def one(implicit ctx: SrcCtx) = wrap(vectorize(unwrap(Seq.fill(n){ bits[T].one })))
-    override def random(max: Option[Vector[T]])(implicit ctx: SrcCtx) = {
-      wrap(vectorize(unwrap(Seq.tabulate(n){i => bits[T].random(max.map(_.apply(i))) } )))
+  class VectorBits[W:INT,T:Meta:Bits] extends Bits[Vector[W,T]] {
+    def width: Int = INT[W].v
+    override def zero(implicit ctx: SrcCtx) = wrap(vect(unwrap(Seq.fill(width){ bits[T].zero })))
+    override def one(implicit ctx: SrcCtx) = wrap(vect(unwrap(Seq.fill(width){ bits[T].one })))
+    override def random(max: Option[Vector[W,T]])(implicit ctx: SrcCtx) = {
+      wrap(vect(unwrap(Seq.tabulate(width){i => bits[T].random(max.map(_.apply(i))) } )))
     }
-    override def length = n * bits[T].length
+    override def length = width * bits[T].length
   }
 
-  implicit def vectorBits[T:Type:Bits](implicit W: INT[Vector[T]]): Bits[Vector[T]] = new VectorBits[T]
+  implicit def vectorBits[W:INT,T:Meta:Bits]: Bits[Vector[W,T]] = new VectorBits[W,T]
 
 
   /** IR Nodes **/
-  case class ListVector[T:Type:Bits](elems: Seq[Exp[T]])(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
+  case class ListVector[W:INT,T:Type:Bits](elems: Seq[Exp[T]]) extends Op[Vector[W,T]] {
     def mirror(f:Tx) = vector_new(f(elems))
   }
-  case class VectorApply[T:Type:Bits](vector: Exp[Vector[T]], index: Int) extends Op[T] {
+  case class VectorApply[W:INT,T:Type:Bits](vector: Exp[Vector[W,T]], index: Int) extends Op[T] {
     def mirror(f:Tx) = vector_apply(f(vector), index)
   }
-  case class VectorSlice[T:Type:Bits](vector: Exp[Vector[T]], start: Int, end: Int)(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
+  case class VectorSlice[W:INT,WW:INT,T:Type:Bits](vector: Exp[Vector[W,T]], start: Int, end: Int) extends Op[Vector[WW,T]] {
     def mirror(f:Tx) = vector_slice(f(vector), start, end)
   }
 
   /** Constructors **/
-  private[spatial] def vector_new[T:Type:Bits](elems: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[T]] = {
-    implicit val W = Width[T](elems.length)
-    stage(ListVector(elems))(ctx)
+  private[spatial] def vector_new[W:INT,T:Type:Bits](elems: Seq[Exp[T]])(implicit ctx: SrcCtx): Exp[Vector[W,T]] = {
+    stage(ListVector[W,T](elems))(ctx)
   }
 
-  private[spatial] def vector_apply[T:Type:Bits](vector: Exp[Vector[T]], index: Int)(implicit ctx: SrcCtx): Exp[T] = vector match {
+  private[spatial] def vector_apply[W:INT,T:Type:Bits](vector: Exp[Vector[W,T]], index: Int)(implicit ctx: SrcCtx): Exp[T] = vector match {
     case Op(ListVector(elems)) =>
       if (index < 0 || index >= elems.length) {
         new InvalidVectorApplyIndex(vector, index)
@@ -80,25 +82,28 @@ trait VectorExp extends Staging with BitsExp with CustomBitWidths {
       stage(VectorApply(vector, index))(ctx)
   }
 
-  private[spatial] def vector_slice[T:Type:Bits](vector: Exp[Vector[T]], start: Int, end: Int)(implicit ctx: SrcCtx): Exp[Vector[T]] = vector match {
+  private[spatial] def vector_slice[W:INT,WW:INT,T:Type:Bits](vector: Exp[Vector[W,T]], start: Int, end: Int)(implicit ctx: SrcCtx): Exp[Vector[WW,T]] = vector match {
     case Op(ListVector(elems)) =>
       if (start >= end) {
         new InvalidVectorSlice(vector, start, end)
-        implicit val W = Width[T](0)
-        fresh[Vector[T]]
+        fresh[Vector[WW,T]]
       }
       else {
         val from = Math.max(0, start)
         val until = Math.min(elems.length, end)
-        vector_new(elems.slice(from, until))
+        vector_new[WW,T](elems.slice(from, until))
       }
     case _ =>
-      implicit val W = Width[T](end - start)
-      stage(VectorSlice(vector, start, end))(ctx)
+      stage(VectorSlice[W,WW,T](vector, start, end))(ctx)
   }
 
   private[spatial] def lenOf(x: Exp[_])(implicit ctx: SrcCtx): Int = x.tp match {
-    case tp: VectorType[_] => tp.width
+    case tp: VectorType[_,_] => tp.width
     case _ => throw new UndefinedDimensionsError(x, None)
   }
+}
+
+// wooo
+trait VectorConstructors { this: VectorExp =>
+
 }

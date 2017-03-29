@@ -1,8 +1,8 @@
 package spatial.api
 
 import argon.core.Staging
-import argon.ops.{ArrayApi, VoidExp}
-import org.virtualized.virtualize
+import argon.ops.ArrayApi
+import org.virtualized._
 import spatial.SpatialApi
 
 trait StagedUtilApi extends StagedUtilExp with ArrayApi {
