@@ -1,5 +1,6 @@
 package fringe
 
+import util._
 import chisel3._
 import chisel3.util._
 import templates.SRFF
@@ -18,24 +19,57 @@ case class MAGOpcode() extends Bundle {
   }
 }
 
-class Command(w: Int, v: Int) extends Bundle {
-  val addr = Vec(v, UInt(w.W))
+class Command(w: Int) extends Bundle {
+  val addr = UInt(w.W)
   val isWr = Bool()
   val size = UInt(w.W)
 
   override def cloneType(): this.type = {
-    new Command(w, v).asInstanceOf[this.type]
+    new Command(w).asInstanceOf[this.type]
   }
 }
 
-class MemoryStream(w: Int, v: Int) extends Bundle {
-  val cmd = Flipped(Decoupled(new Command(w, v)))
-  val wdata = Flipped(Decoupled(Vec(v, UInt(w.W))))
-  val rdata = Decoupled(Vec(v, UInt(w.W)))
+// Parallelization and word width information
+case class StreamParInfo(w: Int, v: Int)
+
+class MemoryStream(addrWidth: Int) extends Bundle {
+  val cmd = Flipped(Decoupled(new Command(addrWidth)))
 
   override def cloneType(): this.type = {
-    new MemoryStream(w, v).asInstanceOf[this.type]
+    new MemoryStream(addrWidth).asInstanceOf[this.type]
   }
+}
+
+class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 32) {
+  val rdata = Decoupled(Vec(p.v, UInt(p.w.W)))
+
+  override def cloneType(): this.type = {
+    new LoadStream(p).asInstanceOf[this.type]
+  }
+}
+
+class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 32) {
+  val wdata = Flipped(Decoupled(Vec(p.v, UInt(p.w.W))))
+  val wresp = Output(Bool())
+
+  override def cloneType(): this.type = {
+    new StoreStream(p).asInstanceOf[this.type]
+  }
+
+}
+
+class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo]) extends Bundle {
+//  val loads = Vec.tabulate(loadPar.size) { i =>
+//    new LoadStream(loadPar(i))
+//  }
+  val loads = HVec.tabulate(loadPar.size) { i => new LoadStream(loadPar(i)) }
+
+  val stores = HVec.tabulate(storePar.size) { i => new StoreStream(storePar(i)) }
+
+  override def cloneType(): this.type = {
+    new AppStreams(loadPar, storePar).asInstanceOf[this.type]
+  }
+
 }
 
 class DRAMCommand(w: Int, v: Int) extends Bundle {
@@ -76,7 +110,8 @@ class MAGCore(
   val w: Int,
   val d: Int,
   val v: Int,
-  val numStreams: Int,
+  val loadStreamInfo: List[StreamParInfo],
+  val storeStreamInfo: List[StreamParInfo],
   val numOutstandingBursts: Int,
   val burstSizeBytes: Int
 ) extends Module { // AbstractMAG(w, d, v, numOutstandingBursts, burstSizeBytes) {
@@ -89,12 +124,14 @@ class MAGCore(
   Predef.assert(w/8*v == 64,
   s"Unsupported combination of w=$w and v=$v; data bus width must equal DRAM burst size ($burstSizeBytes bytes)")
 
+  val numStreams = loadStreamInfo.size + storeStreamInfo.size
   val wordSizeBytes = w/8
   val burstSizeWords = burstSizeBytes / wordSizeBytes
   val tagWidth = log2Up(numStreams)
 
   val io = IO(new Bundle {
-    val app = Vec(numStreams, new MemoryStream(w, v))
+//    val app = Vec(numStreams, new MemoryStream(w, v))
+    val app = new AppStreams(loadStreamInfo, storeStreamInfo)
     val dram = new DRAMStream(w, v) // Should not have to pass vector width; must be DRAM burst width
     val config = Input(new MAGOpcode())
   })
@@ -123,8 +160,9 @@ class MAGCore(
   addrFifo.io.config := addrFifoConfig
 
   addrFifo.io.forceTag.valid := 0.U
-  addrFifo.io.enq.zip(io.app) foreach {case (enq, app) => enq := app.cmd.bits.addr }
-  addrFifo.io.enqVld.zip(io.app) foreach {case (enqVld, app) => enqVld := app.cmd.valid }
+  val cmds = io.app.loads.map { _.cmd} ++ io.app.stores.map {_.cmd}
+  addrFifo.io.enq.zip(cmds) foreach {case (enq, cmd) => enq(0) := cmd.bits.addr }
+  addrFifo.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid }
 
   val burstAddrs = addrFifo.io.deq map { extractBurstAddr(_) }
   val wordOffsets = addrFifo.io.deq map { extractWordOffset(_) }
@@ -138,8 +176,8 @@ class MAGCore(
   isWrFifo.io.config := isWrFifoConfig
 
   isWrFifo.io.forceTag.valid := 0.U
-  isWrFifo.io.enq.zip(io.app) foreach { case (enq, app) => enq(0) := app.cmd.bits.isWr }
-  isWrFifo.io.enqVld.zip(io.app) foreach {case (enqVld, app) => enqVld := app.cmd.valid }
+  isWrFifo.io.enq.zip(cmds) foreach { case (enq, cmd) => enq(0) := cmd.bits.isWr }
+  isWrFifo.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid }
 
   // Size FIFO
   val sizeFifo = Module(new FIFOArbiter(w, d, v, numStreams))
@@ -148,11 +186,11 @@ class MAGCore(
   sizeFifoConfig.chainWrite := 1.U
   sizeFifo.io.config := sizeFifoConfig
   sizeFifo.io.forceTag.valid := 0.U
-  sizeFifo.io.enq.zip(io.app) foreach { case (enq, app) => enq(0) := app.cmd.bits.size }
-  sizeFifo.io.enqVld.zip(io.app) foreach {case (enqVld, app) => enqVld := app.cmd.valid & ~io.config.scatterGather }
+  sizeFifo.io.enq.zip(cmds) foreach { case (enq, cmd) => enq(0) := cmd.bits.size }
+  sizeFifo.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid & ~io.config.scatterGather }
 
-//  val sizeIn = Wire(Vec(v, UInt(w.W)))
-//  sizeIn.zipWithIndex.foreach { case (wire, i) =>
+//	val sizeIn = Wire(Vec(v, UInt(w.W)))
+//	sizeIn.zipWithIndex.foreach { case (wire, i) =>
 //    wire := (if (i == 0) io.app.cmd.bits.size else 0.U)
 //  }
 //  sizeFifo.io.enq := sizeIn
@@ -162,29 +200,28 @@ class MAGCore(
   val sizeTop = sizeFifo.io.deq(0)
   val sizeInBursts = extractBurstAddr(sizeTop) + (extractBurstOffset(sizeTop) != 0.U)
 
-  // Data FIFO
+  // WData FIFO
   // Deriving the 'enqVld' signal from the other FIFO states is potentially
   // dangerous because there is no guarantee that the data input pins actually contain
   // valid data. The safest approach is to have separate enables for command (addr, size, rdwr)
   // and data.
-  val dataFifo = Module(new FIFOArbiter(w, d, v, numStreams))
-  val dataFifoConfig = Wire(new FIFOOpcode(d, v))
-  dataFifoConfig.chainRead := 0.U
-  dataFifoConfig.chainWrite := io.config.scatterGather
-  dataFifo.io.config := dataFifoConfig
-
-  val burstCounter = Module(new Counter(w))
+  val wdataFifo = Module(new FIFOArbiter(w, d, v, storeStreamInfo.size))
+  val wdataFifoConfig = Wire(new FIFOOpcode(d, v))
+  wdataFifoConfig.chainRead := 0.U
+  wdataFifoConfig.chainWrite := io.config.scatterGather
+  wdataFifo.io.config := wdataFifoConfig
   val wrPhase = Module(new SRFF())
 
-  val burstVld = ~templates.Utils.delay(sizeFifo.io.empty,0) & Mux(wrPhase.io.output.data | (isWrFifo.io.deq(0)(0)), ~dataFifo.io.empty, true.B)
+  val burstVld = ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
   val dramReady = io.dram.cmd.ready
 
-  dataFifo.io.forceTag.bits := addrFifo.io.tag
-  dataFifo.io.forceTag.valid := 1.U
-  dataFifo.io.enq.zip(io.app) foreach { case (enq, app) => enq := app.wdata.bits }
-  dataFifo.io.enqVld.zip(io.app) foreach {case (enqVld, app) => enqVld := app.wdata.valid }
+  wdataFifo.io.forceTag.bits := addrFifo.io.tag - loadStreamInfo.size.U
+  wdataFifo.io.forceTag.valid := addrFifo.io.tag >= loadStreamInfo.size.U
+  wdataFifo.io.enq.zip(io.app.stores.map{_.wdata}) foreach { case (enq, wdata) => enq := wdata.bits }
+  wdataFifo.io.enqVld.zip(io.app.stores.map{_.wdata}) foreach {case (enqVld, wdata) => enqVld := wdata.valid }
 
   // Burst offset counter
+  val burstCounter = Module(new Counter(w))
   burstCounter.io.max := Mux(io.config.scatterGather, 1.U, sizeInBursts)
   burstCounter.io.stride := 1.U
   burstCounter.io.reset := 0.U
@@ -207,15 +244,15 @@ class MAGCore(
 //  ccache.io.waddr := addrFifo.io.deq(0)
 //  ccache.io.wen := config.scatterGather & ~addrFifo.io.empty
 //  ccache.io.position := elementID
-//  ccache.io.wdata := dataFifo.io.deq(0)
+//  ccache.io.wdata := wdataFifo.io.deq(0)
 //  ccache.io.isScatter := Bool(false) // TODO: Remove this restriction once ready
 
   addrFifo.io.deqVld := burstCounter.io.done
   isWrFifo.io.deqVld := burstCounter.io.done
   sizeFifo.io.deqVld := burstCounter.io.done
-  dataFifo.io.deqVld := burstVld & isWrFifo.io.deq(0) & dramReady // io.config.isWr & burstVld
+  wdataFifo.io.deqVld := burstVld & isWrFifo.io.deq(0) & dramReady // io.config.isWr & burstVld
 //  addrFifo.io.deqVld := burstCounter.io.done & ~ccache.io.full
-//  dataFifo.io.deqVld := Mux(io.config.scatterGather, burstCounter.io.done & ~ccache.io.full, io.config.isWr & burstVld)
+//  wdataFifo.io.deqVld := Mux(io.config.scatterGather, burstCounter.io.done & ~ccache.io.full, io.config.isWr & burstVld)
 
 
   // Parse Metadata line
@@ -325,7 +362,7 @@ class MAGCore(
   io.dram.cmd.bits.addr := Cat((burstAddrs(0) + burstCounter.io.out), 0.U(log2Up(burstSizeBytes).W))
   io.dram.cmd.bits.tag := Cat(tagOut.streamTag, tagOut.burstTag)
   io.dram.cmd.bits.streamId := tagOut.streamTag
-  io.dram.cmd.bits.wdata := dataFifo.io.deq
+  io.dram.cmd.bits.wdata := wdataFifo.io.deq
 //  io.dram.cmd.valid := Mux(config.scatterGather, ccache.io.miss, burstVld)
   io.dram.cmd.bits.isWr := isWrFifo.io.deq(0)
   wrPhase.io.input.set := isWrFifo.io.deq(0)
@@ -335,12 +372,32 @@ class MAGCore(
 //  rdata := Mux(io.config.scatterGather, gatherData, io.dram.resp.bits.rdata)
 //  vldOut := Mux(io.config.scatterGather, completed, io.dram.vldIn)
   val streamTagFromDRAM = getStreamTag(io.dram.resp.bits.tag)
-  io.app foreach { app => app.rdata.bits := io.dram.resp.bits.rdata }
-  io.app.zipWithIndex.foreach { case (app, i) => app.rdata.valid := io.dram.resp.valid & streamTagFromDRAM === i.U }
-  io.app.zipWithIndex.foreach { case (app, i) =>
-    app.cmd.ready := ~addrFifo.io.full(i)
-    app.wdata.ready := ~dataFifo.io.full(i)
+
+  val rdataFifos = List.tabulate(loadStreamInfo.size) { i =>
+    val m = Module(new WidthConverterFIFO(32, io.dram.resp.bits.rdata.size, loadStreamInfo(i).w, loadStreamInfo(i).v, d))
+    m.io.enq := io.dram.resp.bits.rdata
+    m.io.enqVld := io.dram.resp.valid & streamTagFromDRAM === i.U
+    m
   }
+
+  io.app.loads.map{_.rdata}.zip(rdataFifos) foreach { case (rdata, fifo) =>
+    rdata.bits := fifo.io.deq
+    rdata.valid := ~fifo.io.empty
+    fifo.io.deqVld := rdata.ready & ~fifo.io.empty
+  }
+
+  cmds.zipWithIndex.foreach { case (cmd, i) =>
+    cmd.ready := ~addrFifo.io.full(i)
+  }
+
+  io.app.stores.map{_.wdata}.zipWithIndex.foreach { case (wdata, i) =>
+    wdata.ready := ~wdataFifo.io.full(i)
+  }
+
+  io.app.stores.map{_.wresp}.zipWithIndex.foreach { case (wresp, i) =>
+    wresp := io.dram.resp.valid & streamTagFromDRAM === (i.U + loadStreamInfo.size.U)
+  }
+
 }
 
 //class MemoryTester (

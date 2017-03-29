@@ -33,7 +33,7 @@ class TmpCounter(max: Int, reset_val: Int, stride: Int = 1) extends Module {
 // See comments below: first should implement read col par, and also read row par == 1
 class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffer: Int, 
   val col_wPar: Int, val col_rPar:Int, 
-  val row_wPar: Int, val row_rPar:Int) extends Module {
+  val row_wPar: Int, val row_rPar:Int = 1) extends Module {
 
   def this(tuple: (Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7)
   val io = IO(new Bundle {
@@ -104,7 +104,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // Inner counter over row width -- keep track of write address in current row
   val WRITE_countRowPx = Module(new TmpCounter(line_size, 0, col_wPar))
   WRITE_countRowPx.io.en := io.w_en
-  WRITE_countRowPx.io.reset := io.reset
+  WRITE_countRowPx.io.reset := io.reset | swap
   val px = WRITE_countRowPx.io.count
   
   // Outer counter over number of SRAM -- keep track of current row

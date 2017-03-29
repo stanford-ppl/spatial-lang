@@ -216,9 +216,8 @@ public:
   }
 
   virtual uint64_t getArg(uint32_t arg) {
-    readReg(numArgIns+2+arg);
     numArgOuts++;
-
+    return readReg(numArgIns+2+arg);
   }
 
   ~FringeContextVCS() {

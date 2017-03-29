@@ -36,7 +36,13 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LineBufferNew(rows, cols) =>
-      emitGlobal(s"val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, /* extra_rows_to_buffer = */ 1, 1, $rows))  // Data type: ${remap(op.mT)}")
+      val row_rPar = s"$rows" // TODO: Do correct analysis here!
+      val row_wPar = 1 // TODO: Do correct analysis here!
+      val col_rPar = 1 // TODO: Do correct analysis here!
+      val col_wPar = 1 // TODO: Do correct analysis here!
+      emitGlobal(s"""val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, 1, 
+        ${col_wPar}, ${col_rPar}, 
+        ${row_wPar}, ${row_rPar}))  // Data type: ${remap(op.mT)}""")
       linebufs = linebufs :+ lhs.asInstanceOf[Sym[LineBufferNew[_]]]
       
     case op@LineBufferRowSlice(lb,row,len,col) =>
@@ -57,12 +63,12 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
       // close("}")
       
     case op@LineBufferLoad(lb,row,col,en) =>
-      emit(src"$lb.io.col_addr := ${col}.number")
+      emit(src"$lb.io.col_addr(0) := ${col}.number")
       emit(s"val ${quote(lhs)} = ${quote(lb)}.io.data_out(${row}.number)")
 
     case op@LineBufferEnq(lb,data,en) =>
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
-      emit(src"$lb.io.data_in := ${data}.number")
+      emit(src"$lb.io.data_in(0) := ${data}.number")
       emit(src"$lb.io.w_en := $en & ${parent}_datapath_en")
       
     case _ => super.emitNode(lhs, rhs)
