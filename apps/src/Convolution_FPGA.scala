@@ -87,14 +87,27 @@ object Convolution_FPGA extends SpatialApp {
   def main() {
     val R = 16
     val C = 16
+    val border = 3
     // val image = (0::R, 0::C){(i,j) => if (j > 3 && i > 3 && j < 11 && i < 11) 256 else 0 }
-    val image = (0::R, 0::C){(i,j) => i*16 + j}
+    val image = (0::R, 0::C){(i,j) => if (j > border && j < C-border && i > border && i < C - border) i*16 else 0}
 
     val output = convolve(image)
 
-    val gold = (0::R, 0::C){(i,j) => if (j == 7) 1 else 0 }
+    /*
+      Filters: 
+      1   2   1 
+      0   0   0 
+     -1  -2  -1
+
+      1   0  -1 
+      2   0  -2 
+      1   0  -1
+
+    */
+    val gold = (0::R, 0::C){(i,j) => if (j > border && j < C-border && i > border && i < C - border) (i*4 + (i+2)*4) else 0 }
 
     printMatrix(image, "Image")
+    printMatrix(gold, "Gold")
     printMatrix(output, "Output")
   }
 }

@@ -1318,7 +1318,7 @@ object DotProductFSM extends SpatialApp { // Regression (FSM) // Args: none
   }
 }
 
-object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: 5.25
+object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
   import IR._
   type T = FixPt[TRUE,_16,_16]
 
