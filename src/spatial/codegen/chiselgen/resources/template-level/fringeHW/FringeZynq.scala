@@ -3,7 +3,6 @@ package fringe
 import chisel3._
 import chisel3.util._
 import axi4._
-import templates.Utils.log2Up
 
 /**
  * FringeZynq: Top module for FPGA shell
@@ -11,7 +10,13 @@ import templates.Utils.log2Up
  * @param numArgIns: Number of input scalar arguments
  * @param numArgOuts: Number of output scalar arguments
  */
-class FringeZynq(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStreams: Int = 1) extends Module {
+class FringeZynq(
+  val w: Int,
+  val numArgIns: Int,
+  val numArgOuts: Int,
+  val loadStreamInfo: List[StreamParInfo],
+  val storeStreamInfo: List[StreamParInfo]
+) extends Module {
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
 
@@ -42,11 +47,13 @@ class FringeZynq(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMem
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
 
     // Accel memory IO
-    val memStreams = Vec(numMemoryStreams, new MemoryStream(w, v))
+    val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
   })
 
+  val totalArgOuts = numArgOuts + 1 + 16
+
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numMemoryStreams))
+  val fringeCommon = Module(new Fringe(w, numArgIns, totalArgOuts, loadStreamInfo, storeStreamInfo))
 
   // AXI-lite bridge
   val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
@@ -77,8 +84,9 @@ object FringeZynq {
   val w = 32
   val numArgIns = 5
   val numArgOuts = 1
-
+  val loadStreamInfo = List[StreamParInfo]()
+  val storeStreamInfo = List[StreamParInfo]()
   def main(args: Array[String]) {
-    Driver.execute(Array[String]("--target-dir", "chisel_out/FringeZynq"), () => new FringeZynq(w, numArgIns, numArgOuts))
+    Driver.execute(Array[String]("--target-dir", "chisel_out/FringeZynq"), () => new FringeZynq(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
   }
 }

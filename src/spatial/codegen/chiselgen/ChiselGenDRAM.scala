@@ -107,13 +107,19 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
     withStream(getStream("Instantiator")) {
       emit("")
       emit(s"// Memory streams")
-      emit(s"""val numMemoryStreams = ${numLoads} + ${numStores}""")
+      emit(s"""val numLoadStreams = ${numLoads}""")
+      emit(s"""val numStoreStreams = ${numStores}""")
+      emit(s"val loadStreamInfo = List.fill(numLoadStreams) { StreamParInfo(32, 16) } // Matt fix this: should be (word width, par) as expected from app")
+      emit(s"val storeStreamInfo = List.fill(numStoreStreams) { StreamParInfo(32, 16) } // Matt fix this: should be (word width, par) as expected from app")
       emit(s"""val numArgIns_mem = ${numLoads} + ${numStores}""")
     }
 
     withStream(getStream("IOModule")) {
       emit("// Tile Load")
-      emit(s"val io_numMemoryStreams = ${numLoads} + ${numStores}")
+      emit(s"val io_numLoadStreams = ${numLoads}")
+      emit(s"val io_numStoreStreams = ${numStores}")
+      emit(s"val io_loadStreamInfo = List.fill(io_numLoadStreams) { StreamParInfo(32, 16) } // Matt fix this: should be (word width, par) as expected from app")
+      emit(s"val io_storeStreamInfo = List.fill(io_numStoreStreams) { StreamParInfo(32, 16) } // Matt fix this: should be (word width, par) as expected from app")
       emit(s"val io_numArgIns_mem = ${numLoads} + ${numStores}")
 
     }

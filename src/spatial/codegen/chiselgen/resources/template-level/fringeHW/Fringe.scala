@@ -10,7 +10,13 @@ import templates.Utils.log2Up
  * @param numArgIns: Number of input scalar arguments
  * @param numArgOuts: Number of output scalar arguments
  */
-class Fringe(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStreams: Int = 1) extends Module {
+class Fringe(
+  val w: Int,
+  val numArgIns: Int,
+  val numArgOuts: Int,
+  val loadStreamInfo: List[StreamParInfo],
+  val storeStreamInfo: List[StreamParInfo]
+) extends Module {
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
 
@@ -40,7 +46,7 @@ class Fringe(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryS
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
 
     // Accel memory IO
-    val memStreams = Vec(numMemoryStreams, new MemoryStream(w, v))
+    val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
     val dram = new DRAMStream(w, v)
   })
 
@@ -76,22 +82,24 @@ class Fringe(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryS
   }
 
   // Memory address generator
-  val mag = Module(new MAGCore(w, d, v, numMemoryStreams, numOutstandingBursts, burstSizeBytes))
+  val mag = Module(new MAGCore(w, d, v, loadStreamInfo, storeStreamInfo, numOutstandingBursts, burstSizeBytes))
   val magConfig = Wire(new MAGOpcode())
   magConfig.scatterGather := false.B
   mag.io.config := magConfig
-  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.cmd.bits := in.cmd.bits }
-  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.cmd.valid := in.cmd.valid }
-  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.wdata.bits := in.wdata.bits }
-  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.wdata.valid := in.wdata.valid }
-  io.memStreams.zip(mag.io.app) foreach { case (in, magIn) => in.rdata.bits := magIn.rdata.bits }
-  io.memStreams.zip(mag.io.app) foreach { case (in, magIn) => in.rdata.valid := magIn.rdata.valid }
+//  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.cmd.bits := in.cmd.bits }
+//  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.cmd.valid := in.cmd.valid }
+//  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.wdata.bits := in.wdata.bits }
+//  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.wdata.valid := in.wdata.valid }
+//  io.memStreams.zip(mag.io.app) foreach { case (in, magIn) => in.rdata.bits := magIn.rdata.bits }
+//  io.memStreams.zip(mag.io.app) foreach { case (in, magIn) => in.rdata.valid := magIn.rdata.valid }
+//  io.dram.cmd.bits := mag.io.dram.cmd.bits
+//  io.dram.cmd.valid := mag.io.dram.cmd.valid
+//  mag.io.dram.cmd.ready := io.dram.cmd.ready
+//
+//  mag.io.dram.resp.bits := io.dram.resp.bits
+//  mag.io.dram.resp.valid := io.dram.resp.valid
+//  io.dram.resp.ready := mag.io.dram.cmd.ready
 
-  io.dram.cmd.bits := mag.io.dram.cmd.bits
-  io.dram.cmd.valid := mag.io.dram.cmd.valid
-  mag.io.dram.cmd.ready := io.dram.cmd.ready
-
-  mag.io.dram.resp.bits := io.dram.resp.bits
-  mag.io.dram.resp.valid := io.dram.resp.valid
-  io.dram.resp.ready := mag.io.dram.cmd.ready
+  mag.io.app <> io.memStreams
+  mag.io.dram <> io.dram
 }
