@@ -100,7 +100,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // Inner counter over row width -- keep track of write address in current row
   val WRITE_countRowPx = Module(new TmpCounter(line_size, 0))
   WRITE_countRowPx.io.en := io.w_en
-  WRITE_countRowPx.io.reset := io.reset
+  WRITE_countRowPx.io.reset := io.reset | swap
   val px = WRITE_countRowPx.io.count
   
   // Outer counter over number of SRAM -- keep track of current row

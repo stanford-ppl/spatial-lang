@@ -3,6 +3,7 @@ package fringe
 import chisel3._
 import chisel3.util._
 import axi4._
+import templates.Utils.log2Up
 
 /**
  * FringeZynq: Top module for FPGA shell
