@@ -72,7 +72,8 @@ class WidthConverterFIFO(val win: Int, val vin: Int, val wout: Int, val vout: In
     fifo.io.enq := convertVec(io.enq, outWidth, v)
     fifo.io.enqVld := io.enqVld
 
-    io.deq := fifo.io.deq(0)
+
+    io.deq := convertVec(Vec(fifo.io.deq(0)), wout, vout)
     fifo.io.deqVld := io.deqVld
   } else {
     val fifo = Module(new FIFOCore(win, d, vin))

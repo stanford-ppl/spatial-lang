@@ -483,7 +483,7 @@ object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 10
           b2(ii) = b1(ii) * x
         }
 
-        dstFPGA(i::i+tileSize par 16) store b2
+        dstFPGA(i::i+tileSize par 4) store b2
       }
     }
     getMem(dstFPGA)
@@ -518,7 +518,7 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
 
   def singleFifoLoad[T:Staged:Num](src1: Array[T], in: Int) = {
 
-    val P1 = 16 (16 -> 16)
+    val P1 = 4 (16 -> 16)
 
     val N = ArgIn[Int]
     setArg(N, in)
@@ -566,7 +566,7 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   val tileSize = 64
   def parFifoLoad[T:Staged:Num](src1: Array[T], src2: Array[T], src3: Array[T], in: Int) = {
 
-    val P1 = 16 (16 -> 16)
+    val P1 = 2 (16 -> 16)
 
     val N = ArgIn[Int]
     setArg(N, in)
