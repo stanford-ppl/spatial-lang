@@ -108,10 +108,13 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   val px = WRITE_countRowPx.io.count
   
   // Outer counter over number of SRAM -- keep track of current row
-  val WRITE_countRowNum = Module(new TmpCounter(num_lines + extra_rows_to_buffer, 0))
-  WRITE_countRowNum.io.reset := io.reset
-  WRITE_countRowNum.io.en := swap // could replace RHS with a w_done input signal (it could also reset WRITE_countRowPx)
-  val cur_row = WRITE_countRowNum.io.count
+  val WRITE_countRowNum = Module(new NBufCtr())
+  WRITE_countRowNum.io.input.start := 0.U 
+  WRITE_countRowNum.io.input.max := (num_lines+extra_rows_to_buffer).U
+  WRITE_countRowNum.io.input.enable := swap
+  WRITE_countRowNum.io.input.countUp := true.B
+
+  val cur_row = WRITE_countRowNum.io.output.count
   
   // Write data_in into line buffer
   for (i <- 0 until (num_lines + extra_rows_to_buffer)) {
@@ -137,12 +140,16 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // This requires a crossbar, i.e. mux from each line (num_lines + extra_rows_to_buffer) to each output (num_lines)
   // ENHANCEMENT: May save some area using a single counter with many outputs and adders/mux for each (to do mod/wrap) but 
   // multiple counters (which start/reset @ various #s) is simpler to write
-  var READ_inner_pointers = Array.tabulate(num_lines) { i =>  // ENHANCEMENT: num_lines -> row par
-    val READ_index_counter = Module(new TmpCounter(num_lines + extra_rows_to_buffer, i, extra_rows_to_buffer)) // i is reset and initial value
-    READ_index_counter.io.reset := io.reset
-    READ_index_counter.io.en := swap
-    READ_index_counter.io.count // Return this to READ_inner_pointers(i)
+  val READ_countRowNum = (0 until row_rPar).map{ i => 
+    val c = Module(new NBufCtr())
+    // c.io.input.start := (num_lines+extra_rows_to_buffer-1-i).U
+    c.io.input.start := (extra_rows_to_buffer+i).U
+    c.io.input.max := (num_lines+extra_rows_to_buffer).U
+    c.io.input.enable := swap
+    c.io.input.countUp := true.B
+    c
   }
+
   for (j <- 0 until col_rPar) {
     var linebuf_read_wires_map = Array.tabulate(num_lines + extra_rows_to_buffer) { i =>
       // when(io.r_en) {  // ENHANCEMENT: r_en to save power, i.e. make the below wire RHS of -> into a reg
@@ -152,7 +159,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
       // }
     }
     for (i <- 0 until (num_lines)) { // ENHANCEMENT: num_lines -> row par
-      io.data_out(i*col_rPar + j) := MuxLookup(READ_inner_pointers(i), 0.U, linebuf_read_wires_map)
+      io.data_out(i*col_rPar + j) := MuxLookup(READ_countRowNum(i).io.output.count, 0.U, linebuf_read_wires_map)
     }    
   }
   
