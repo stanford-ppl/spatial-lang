@@ -96,8 +96,8 @@ public:
     cmd.id = globalID++;
     cmd.cmd = WRITE_REG;
     std::memcpy(cmd.data, &reg, sizeof(uint32_t));
-    std::memcpy(cmd.data+sizeof(uint32_t), &data, sizeof(uint32_t));
-    cmd.size = sizeof(uint32_t);
+    std::memcpy(cmd.data+sizeof(uint32_t), &data, sizeof(uint64_t));
+    cmd.size = sizeof(uint64_t);
     cmdChannel->send(&cmd);
   }
 
@@ -111,7 +111,7 @@ public:
     cmdChannel->send(&cmd);
     resp = recvResp();
     ASSERT(resp->cmd == READ_REG, "Response from Sim is not READ_REG");
-    uint32_t rdata = *(uint32_t*)resp->data;
+    uint64_t rdata = *(uint64_t*)resp->data;
     return rdata;
   }
 

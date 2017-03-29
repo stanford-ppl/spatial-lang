@@ -40,7 +40,7 @@ class MemoryStream(addrWidth: Int) extends Bundle {
   }
 }
 
-class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 32) {
+class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64) {
   val rdata = Decoupled(Vec(p.v, UInt(p.w.W)))
 
   override def cloneType(): this.type = {
@@ -48,7 +48,7 @@ class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 32) {
   }
 }
 
-class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 32) {
+class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64) {
   val wdata = Flipped(Decoupled(Vec(p.v, UInt(p.w.W))))
   val wresp = Output(Bool())
 
@@ -73,7 +73,7 @@ class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo]) ex
 }
 
 class DRAMCommand(w: Int, v: Int) extends Bundle {
-  val addr = UInt(w.W)
+  val addr = UInt(64.W)
   val isWr = Bool() // 1
   val tag = UInt(w.W)
   val streamId = UInt(w.W)
@@ -152,8 +152,9 @@ class MAGCore(
     addr(burstOffset, wordOffset)
   }
 
+  val addrWidth = 64
   // Addr FIFO
-  val addrFifo = Module(new FIFOArbiter(w, d, v, numStreams))
+  val addrFifo = Module(new FIFOArbiter(addrWidth, d, v, numStreams))
   val addrFifoConfig = Wire(new FIFOOpcode(d, v))
   addrFifoConfig.chainRead := 1.U
   addrFifoConfig.chainWrite := ~io.config.scatterGather
