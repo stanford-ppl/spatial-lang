@@ -7,10 +7,11 @@
 #include <queue>
 #include <poll.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 using namespace std;
 
-#include "commonDefs.h"
+#include "simDefs.h"
 #include "channel.h"
 //#include "svdpi.h"
 //#include "svImports.h"
@@ -78,6 +79,64 @@ extern "C" {
       simCmd readResp;
       uint32_t reg = 0, data = 0;
       switch (cmd->cmd) {
+        case MALLOC: {
+          size_t size = *(size_t*)cmd->data;
+          int fd = open("/dev/zero", O_RDWR);
+          void *ptr = mmap(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
+          close(fd);
+//          void *ptr = malloc(size);
+//          ASSERT(ptr != NULL, "malloc failed\n");
+          simCmd resp;
+          resp.id = cmd->id;
+          resp.cmd = cmd->cmd;
+          *(uint64_t*)resp.data = (uint64_t)ptr;
+          resp.size = sizeof(size_t);
+          EPRINTF("[SIM] MALLOC(%u), returning %lx\n", size, ptr);
+          respChannel->send(&resp);
+          break;
+        }
+        case FREE: {
+          void *ptr = (void*)(*(uint64_t*)cmd->data);
+          ASSERT(ptr != NULL, "Attempting to call free on null pointer\n");
+          EPRINTF("[SIM] FREE(%lx)\n", ptr);
+//          munmap(ptr);
+//          free(ptr);
+          break;
+        }
+        case MEMCPY_H2D: {
+          uint64_t *data = (uint64_t*)cmd->data;
+          void *dst = (void*)data[0];
+          size_t size = data[1];
+
+          EPRINTF("[SIM] Received memcpy request to %lx, size %u\n", dst, size);
+
+          // Now to receive 'size' bytes from the cmd stream
+          cmdChannel->recvFixedBytes(dst, size);
+
+          // Send ack back indicating end of memcpy
+          simCmd resp;
+          resp.id = cmd->id;
+          resp.cmd = cmd->cmd;
+          resp.size = 0;
+          respChannel->send(&resp);
+          break;
+        }
+        case MEMCPY_D2H: {
+          // Transfer 'size' bytes from src
+          uint64_t *data = (uint64_t*)cmd->data;
+          void *src = (void*)data[0];
+          size_t size = data[1];
+
+//          EPRINTF("[SIM] Src memory in MEMCPY_D2H:\n");
+//          for (int i=0; i<size/4; i++) {
+//            EPRINTF("[SIM] src[%d]: %u\n", i, *((uint32_t*)src + i));
+//          }
+
+
+          // Now to receive 'size' bytes from the cmd stream
+          respChannel->sendFixedBytes(src, size);
+          break;
+        }
         case RESET:
           rst();
           exitTick = true;

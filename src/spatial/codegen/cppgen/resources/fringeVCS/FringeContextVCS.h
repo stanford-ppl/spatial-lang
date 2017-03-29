@@ -15,7 +15,7 @@
 #include <unistd.h>
 
 #include "FringeContextBase.h"
-#include "commonDefs.h"
+#include "simDefs.h"
 #include "channel.h"
 
 //Source: http://stackoverflow.com/questions/13893085/posix-spawnp-and-piping-child-output-to-a-string
@@ -115,6 +115,61 @@ public:
     return rdata;
   }
 
+  virtual uint64_t malloc(size_t bytes) {
+    simCmd cmd;
+    cmd.id = globalID++;
+    cmd.cmd = MALLOC;
+    std::memcpy(cmd.data, &bytes, sizeof(size_t));
+    cmd.size = sizeof(size_t);
+    cmdChannel->send(&cmd);
+    simCmd *resp = recvResp();
+    ASSERT(cmd.id == resp->id, "malloc resp->id does not match cmd.id!");
+    ASSERT(cmd.cmd == resp->cmd, "malloc resp->cmd does not match cmd.cmd!");
+    return (uint64_t)(*(uint64_t*)resp->data);
+  }
+
+  virtual void free(uint64_t buf) {
+    simCmd cmd;
+    cmd.id = globalID++;
+    cmd.cmd = FREE;
+    std::memcpy(cmd.data, &buf, sizeof(uint64_t));
+    cmd.size = sizeof(uint64_t);
+    cmdChannel->send(&cmd);
+  }
+
+  virtual void memcpy(uint64_t dst, void *src, size_t bytes) {
+    simCmd cmd;
+    cmd.id = globalID++;
+    cmd.cmd = MEMCPY_H2D;
+    uint64_t *data = (uint64_t*)cmd.data;
+    data[0] = dst;
+    data[1] = bytes;
+    cmd.size = 2* sizeof(uint64_t);
+    cmdChannel->send(&cmd);
+
+    // Now send fixed 'bytes' from src
+    cmdChannel->sendFixedBytes(src, bytes);
+
+    // Wait for ack
+    simCmd *resp = recvResp();
+    ASSERT(cmd.id == resp->id, "memcpy resp->id does not match cmd.id!");
+    ASSERT(cmd.cmd == resp->cmd, "memcpy resp->cmd does not match cmd.cmd!");
+  }
+
+  virtual void memcpy(void *dst, uint64_t src, size_t bytes) {
+    simCmd cmd;
+    cmd.id = globalID++;
+    cmd.cmd = MEMCPY_D2H;
+    uint64_t *data = (uint64_t*)cmd.data;
+    data[0] = src;
+    data[1] = bytes;
+    cmd.size = 2* sizeof(uint64_t);
+    cmdChannel->send(&cmd);
+
+    // Now receive fixed 'bytes' from src
+    respChannel->recvFixedBytes(dst, bytes);
+  }
+
   void connect() {
     int id = sendCmd(READY);
     simCmd *cmd = recvResp();
@@ -157,31 +212,6 @@ public:
       reset();
     }
     start();
-  }
-
-  size_t alignedSize(uint32_t alignment, size_t size) {
-    if ((size % alignment) == 0) {
-      return size;
-    } else {
-      return size + alignment - (size % alignment);
-    }
-  }
-  virtual uint64_t malloc(size_t bytes) {
-    size_t paddedSize = alignedSize(burstSizeBytes, bytes);
-    void *ptr = aligned_alloc(burstSizeBytes, paddedSize);
-    return (uint64_t) ptr;
-  }
-
-  virtual void free(uint64_t buf) {
-    std::free((void*) buf);
-  }
-
-  virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
-    std::memcpy((void*)devmem, hostmem, size);
-  }
-
-  virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
-    std::memcpy(hostmem, (void*)devmem, size);
   }
 
   virtual void run() {
