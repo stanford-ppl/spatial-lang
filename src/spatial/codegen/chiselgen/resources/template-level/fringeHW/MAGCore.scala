@@ -205,11 +205,9 @@ class MAGCore(
   // dangerous because there is no guarantee that the data input pins actually contain
   // valid data. The safest approach is to have separate enables for command (addr, size, rdwr)
   // and data.
-  val wdataFifo = Module(new FIFOArbiter(w, d, v, storeStreamInfo.size))
-  val wdataFifoConfig = Wire(new FIFOOpcode(d, v))
-  wdataFifoConfig.chainRead := 0.U
-  wdataFifoConfig.chainWrite := io.config.scatterGather
-  wdataFifo.io.config := wdataFifoConfig
+  val wins = storeStreamInfo.map {_.w}
+  val vins = storeStreamInfo.map {_.v}
+  val wdataFifo = Module(new FIFOArbiterWidthConvert(wins, vins, 32, 16, d))
   val wrPhase = Module(new SRFF())
 
   val burstVld = ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
