@@ -40,7 +40,7 @@ class MemoryStream(addrWidth: Int) extends Bundle {
   }
 }
 
-class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 32) {
+class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64) {
   val rdata = Decoupled(Vec(p.v, UInt(p.w.W)))
 
   override def cloneType(): this.type = {
@@ -48,7 +48,7 @@ class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 32) {
   }
 }
 
-class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 32) {
+class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64) {
   val wdata = Flipped(Decoupled(Vec(p.v, UInt(p.w.W))))
   val wresp = Output(Bool())
 
@@ -73,7 +73,7 @@ class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo]) ex
 }
 
 class DRAMCommand(w: Int, v: Int) extends Bundle {
-  val addr = UInt(w.W)
+  val addr = UInt(64.W)
   val isWr = Bool() // 1
   val tag = UInt(w.W)
   val streamId = UInt(w.W)
@@ -152,8 +152,9 @@ class MAGCore(
     addr(burstOffset, wordOffset)
   }
 
+  val addrWidth = 64
   // Addr FIFO
-  val addrFifo = Module(new FIFOArbiter(w, d, v, numStreams))
+  val addrFifo = Module(new FIFOArbiter(addrWidth, d, v, numStreams))
   val addrFifoConfig = Wire(new FIFOOpcode(d, v))
   addrFifoConfig.chainRead := 1.U
   addrFifoConfig.chainWrite := ~io.config.scatterGather
@@ -205,11 +206,9 @@ class MAGCore(
   // dangerous because there is no guarantee that the data input pins actually contain
   // valid data. The safest approach is to have separate enables for command (addr, size, rdwr)
   // and data.
-  val wdataFifo = Module(new FIFOArbiter(w, d, v, storeStreamInfo.size))
-  val wdataFifoConfig = Wire(new FIFOOpcode(d, v))
-  wdataFifoConfig.chainRead := 0.U
-  wdataFifoConfig.chainWrite := io.config.scatterGather
-  wdataFifo.io.config := wdataFifoConfig
+  val wins = storeStreamInfo.map {_.w}
+  val vins = storeStreamInfo.map {_.v}
+  val wdataFifo = Module(new FIFOArbiterWidthConvert(wins, vins, 32, 16, d))
   val wrPhase = Module(new SRFF())
 
   val burstVld = ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)

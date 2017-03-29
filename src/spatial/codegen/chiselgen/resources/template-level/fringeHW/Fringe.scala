@@ -28,22 +28,23 @@ class Fringe(
   val numOutstandingBursts = 1024  // Picked arbitrarily
   val burstSizeBytes = 64
   val d = 512 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
+  val regWidth = 64 // Force 64-bit registers
 
   val io = IO(new Bundle {
     // Host scalar interface
     val raddr = Input(UInt(addrWidth.W))
     val wen  = Input(Bool())
     val waddr = Input(UInt(addrWidth.W))
-    val wdata = Input(Bits(w.W))
-    val rdata = Output(Bits(w.W))
+    val wdata = Input(Bits(regWidth.W))
+    val rdata = Output(Bits(regWidth.W))
 
     // Accel Control IO
     val enable = Output(Bool())
     val done = Input(Bool())
 
     // Accel Scalar IO
-    val argIns = Output(Vec(numArgIns, UInt(w.W)))
-    val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
+    val argIns = Output(Vec(numArgIns, UInt(regWidth.W)))
+    val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(regWidth.W)))))
 
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
@@ -51,7 +52,7 @@ class Fringe(
   })
 
   // Scalar, command, and status register file
-  val regs = Module(new RegFile(w, numRegs, numArgIns+2, numArgOuts+1))
+  val regs = Module(new RegFile(regWidth, numRegs, numArgIns+2, numArgOuts+1))
   regs.io.raddr := io.raddr
   regs.io.waddr := io.waddr
   regs.io.wen := io.wen
@@ -65,7 +66,8 @@ class Fringe(
 
   val depulser = Module(new Depulser())
   depulser.io.in := io.done
-  val status = Wire(EnqIO(UInt(w.W)))
+  depulser.io.rst := ~command
+  val status = Wire(EnqIO(UInt(regWidth.W)))
   status.bits := command & depulser.io.out.asUInt
   status.valid := depulser.io.out
   regs.io.argOuts.zipWithIndex.foreach { case (argOutReg, i) =>

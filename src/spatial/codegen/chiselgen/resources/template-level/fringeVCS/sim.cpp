@@ -7,10 +7,11 @@
 #include <queue>
 #include <poll.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 using namespace std;
 
-#include "commonDefs.h"
+#include "simDefs.h"
 #include "channel.h"
 //#include "svdpi.h"
 //#include "svImports.h"
@@ -41,12 +42,96 @@ int sendResp(simCmd *cmd) {
 int numCycles = 0;
 queue<simCmd*> pendingOps;
 
+class DRAMRequest {
+public:
+  uint64_t addr;
+  uint64_t tag;
+  bool isWr;
+  uint32_t *wdata;
+
+  DRAMRequest(uint64_t a, uint64_t t, bool wr, uint32_t *wd) {
+    addr = a;
+    tag = t;
+    isWr = wr;
+    if (isWr) {
+      wdata = (uint32_t*) malloc(16 * sizeof(uint32_t));
+      for (int i=0; i<16; i++) {
+        wdata[i] = wd[i];
+      }
+    } else {
+      wdata = NULL;
+    }
+  }
+
+  void print() {
+    EPRINTF("---- DRAM REQ ----\n");
+    EPRINTF("addr : %lx\n", addr);
+    EPRINTF("tag  : %lx\n", tag);
+    EPRINTF("isWr : %lx\n", tag);
+    if (isWr) {
+      EPRINTF("wdata0 : %u\n", wdata[0]);
+      EPRINTF("wdata1 : %u\n", wdata[1]);
+    }
+    EPRINTF("------------------\n");
+  }
+
+  ~DRAMRequest() {
+    if (wdata != NULL) free(wdata);
+  }
+};
+
+std::queue<DRAMRequest*> dramRequestQ;
+
 extern "C" {
+  void sendDRAMRequest(int addr, int tag, int isWr, int wdata0, int wdata1) {
+    // view addr as uint64_t without doing sign extension
+    uint64_t cmdAddr = (uint64_t)(*(uint32_t*)&addr);
+    uint64_t cmdTag = (uint64_t)(*(uint32_t*)&tag);
+    bool cmdIsWr = isWr > 0;
+    uint32_t cmdWdata0 = (*(uint32_t*)&wdata0);
+    uint32_t cmdWdata1 = (*(uint32_t*)&wdata1);
+
+    uint32_t wdata[16] = { cmdWdata0, cmdWdata1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata);
+    dramRequestQ.push(req);
+    req->print();
+  }
+
+  void checkDRAMResponse() {
+    if (dramRequestQ.size() > 0) {
+      DRAMRequest *req = dramRequestQ.front();
+      dramRequestQ.pop();
+
+      uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+      if (req->isWr) {
+        // Write request: Update 1 burst-length bytes at *addr
+        uint32_t *waddr = (uint32_t*) req->addr;
+        for (int i=0; i<16; i++) {
+          waddr[i] = req->wdata[i];
+        }
+      } else {
+        // Read request: Read burst-length bytes at *addr
+        uint32_t *raddr = (uint32_t*) req->addr;
+        for (int i=0; i<16; i++) {
+          rdata[i] = raddr[i];
+          EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
+        }
+      }
+
+      pokeDRAMResponse(req->tag, rdata[0], rdata[1]);
+
+    }
+  }
+
   // Function is called every clock cycle
   int tick() {
     bool exitTick = false;
     int finishSim = 0;
     numCycles++;
+
+   // Check for DRAM response and send it to design
+   checkDRAMResponse();
 
     // Handle pending operations, if any
     if (pendingOps.size() > 0) {
@@ -59,10 +144,13 @@ extern "C" {
           simCmd resp;
           resp.id = cmd->id;
           resp.cmd = cmd->cmd;
-          SV_BIT_PACKED_ARRAY(32, rdata);
-          readRegRdata((svBitVec32*)&rdata);
-          *(uint32_t*)resp.data = (uint32_t)*rdata;
-          resp.size = sizeof(uint32_t);
+          SV_BIT_PACKED_ARRAY(32, rdataHi);
+          SV_BIT_PACKED_ARRAY(32, rdataLo);
+          readRegRdataHi32((svBitVec32*)&rdataHi);
+          readRegRdataLo32((svBitVec32*)&rdataLo);
+          *(uint32_t*)resp.data = (uint32_t)*rdataLo;
+          *((uint32_t*)resp.data + 1) = (uint32_t)*rdataHi;
+          resp.size = sizeof(uint64_t);
           respChannel->send(&resp);
           break;
         default:
@@ -76,8 +164,59 @@ extern "C" {
     while (!exitTick) {
       simCmd *cmd = cmdChannel->recv();
       simCmd readResp;
-      uint32_t reg = 0, data = 0;
+      uint32_t reg = 0;
+      uint64_t data = 0;
       switch (cmd->cmd) {
+        case MALLOC: {
+          size_t size = *(size_t*)cmd->data;
+          int fd = open("/dev/zero", O_RDWR);
+          void *ptr = mmap(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
+          close(fd);
+
+          simCmd resp;
+          resp.id = cmd->id;
+          resp.cmd = cmd->cmd;
+          *(uint64_t*)resp.data = (uint64_t)ptr;
+          resp.size = sizeof(size_t);
+          EPRINTF("[SIM] MALLOC(%u), returning %lx\n", size, ptr);
+          respChannel->send(&resp);
+          break;
+        }
+        case FREE: {
+          void *ptr = (void*)(*(uint64_t*)cmd->data);
+          ASSERT(ptr != NULL, "Attempting to call free on null pointer\n");
+          EPRINTF("[SIM] FREE(%lx)\n", ptr);
+
+          break;
+        }
+        case MEMCPY_H2D: {
+          uint64_t *data = (uint64_t*)cmd->data;
+          void *dst = (void*)data[0];
+          size_t size = data[1];
+
+          EPRINTF("[SIM] Received memcpy request to %lx, size %u\n", dst, size);
+
+          // Now to receive 'size' bytes from the cmd stream
+          cmdChannel->recvFixedBytes(dst, size);
+
+          // Send ack back indicating end of memcpy
+          simCmd resp;
+          resp.id = cmd->id;
+          resp.cmd = cmd->cmd;
+          resp.size = 0;
+          respChannel->send(&resp);
+          break;
+        }
+        case MEMCPY_D2H: {
+          // Transfer 'size' bytes from src
+          uint64_t *data = (uint64_t*)cmd->data;
+          void *src = (void*)data[0];
+          size_t size = data[1];
+
+          // Now to receive 'size' bytes from the cmd stream
+          respChannel->sendFixedBytes(src, size);
+          break;
+        }
         case RESET:
           rst();
           exitTick = true;
@@ -105,10 +244,11 @@ extern "C" {
          }
         case WRITE_REG: {
             reg = *((uint32_t*)cmd->data);
-            data = *((uint32_t*)cmd->data + 1);
+            data = *((uint64_t*)((uint32_t*)cmd->data + 1));
 
             // Perform write
-            writeReg(reg, (svBitVecVal)data);
+//            writeReg(reg, (svBitVecVal)data);
+            writeReg(reg, data);
             exitTick = true;
             break;
           }
