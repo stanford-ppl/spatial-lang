@@ -66,6 +66,7 @@ class Fringe(
 
   val depulser = Module(new Depulser())
   depulser.io.in := io.done
+  depulser.io.rst := ~command
   val status = Wire(EnqIO(UInt(regWidth.W)))
   status.bits := command & depulser.io.out.asUInt
   status.valid := depulser.io.out
