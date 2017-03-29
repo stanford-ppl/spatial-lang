@@ -226,7 +226,7 @@ public:
       step();
       status = readReg(statusReg);
     }
-    EPRINTF("Design ran for %lu cycles, status = %u\n", numCycles, statusReg);
+    EPRINTF("Design ran for %lu cycles, status = %u\n", numCycles, status);
     if (status == 0) { // Design did not run to completion
       EPRINTF("=========================================\n");
       EPRINTF("ERROR: Simulation terminated after %lu cycles\n", numCycles);
