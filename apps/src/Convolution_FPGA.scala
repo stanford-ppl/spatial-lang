@@ -29,7 +29,9 @@ object Convolution_FPGA extends SpatialApp {
 
       // TODO: Better syntax for initialization of lookup tables
       Pipe {
-        // kh(i,j) = Mux(i.to[T] == 0 && j.to[T] == 0, 1.as[T], 2.as[T])
+        // Foreach(Kh by 1, Kw by 1) { (i,j) => 
+        //   kh(i,j) = Mux(unwrap(i.to[T] == 0.as[T] && j.to[T] == 0.as[T]), 1, 2).as[T]
+        // }
         Pipe{kh(0,0) = 1.as[T]}
         Pipe{kh(1,0) = 2.as[T]}
         Pipe{kh(2,0) = 1.as[T]}
@@ -55,7 +57,7 @@ object Convolution_FPGA extends SpatialApp {
       val lineOut = SRAM[T](Cmax)
 
       Foreach(0 until R) { r =>
-        lb load img(r, 0::C par 16)
+        lb load img(r, 0::C)
 
         /*println("Row " + r)
         Foreach(0 until Kh) { i =>
@@ -72,7 +74,7 @@ object Convolution_FPGA extends SpatialApp {
           lineOut(c) = abs(horz.value) + abs(vert.value) // Technically should be sqrt(horz**2 + vert**2)
         }
 
-        imgOut(r, 0::C) store lineOut
+        imgOut(r, 0::C par 16) store lineOut
       }
 
     }
@@ -85,7 +87,8 @@ object Convolution_FPGA extends SpatialApp {
   def main() {
     val R = 16
     val C = 16
-    val image = (0::R, 0::C){(i,j) => if (j > 3 && i > 3 && j < 11 && i < 11) 256 else 0 }
+    // val image = (0::R, 0::C){(i,j) => if (j > 3 && i > 3 && j < 11 && i < 11) 256 else 0 }
+    val image = (0::R, 0::C){(i,j) => i*16 + j}
 
     val output = convolve(image)
 
