@@ -50,7 +50,7 @@ class ZynqInterface(p: TopParams) extends TopInterface {
 
 class DE1SoCInterface(p: TopParams) extends TopInterface {
   private val axiLiteParams = new AXI4BundleParameters(16, p.dataWidth, 1)
-  val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
+  val S_AVALON = new AvalonSlave(axiLiteParams)
 }
 
 class AWSInterface(p: TopParams) extends TopInterface {
@@ -117,7 +117,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
       val topIO = io.asInstanceOf[DE1SoCInterface]
 
       // Fringe <-> Host connections
-      fringe.io.S_AXI <> topIO.S_AXI
+      fringe.io.S_AVALON <> topIO.S_AVALON
 
       accel.io.argIns := fringe.io.argIns
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
@@ -126,7 +126,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
       }
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
-      // Accel takes active high. Not sure about de1
+      // Other components on de1soc also takes neg reset
       accel.reset := ~reset
 
     case "zynq" =>

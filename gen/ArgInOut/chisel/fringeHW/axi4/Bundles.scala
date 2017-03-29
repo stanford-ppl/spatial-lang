@@ -156,6 +156,18 @@ class AXI4Lite(params: AXI4BundleParameters) extends AXI4BundleBase(params)
   val BREADY  = Output(Bool())
 }
 
+// Avalon Slave interface
+class AvalonSlave(params: AXI4BundleParameters) extends AXI4BundleBase(params)
+{
+  val readdata = Output(UInt((params.dataBits).W ))
+  val address = Input(UInt((params.addrBits).W ))
+  val chipselect = Input(Bool())
+//  val reset_n = Input(Bool())
+  val write_n = Input(Bool())
+  val writedata = Input(UInt((params.dataBits).W))
+
+}
+
 object AXI4Bundle
 {
   def apply(params: AXI4BundleParameters) = new AXI4Bundle(params)

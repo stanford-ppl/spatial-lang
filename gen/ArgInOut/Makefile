@@ -90,7 +90,12 @@ zynq-clean:
 
 de1soc: 
 	sbt "run-main top.Instantiator --verilog --testArgs de1soc"
-#	make -C verilog
+	sed -i 's/SRFF/SRFF_sp/g' verilog/Top.v
+	# cat ./chisel/fringeZynq/AXI4LiteToRFBridgeVerilog.v >>  verilog/Top.v
+
+de1soc-clean:
+	rm -rf verilog
+
 
 sim-clean:
 	make -C ${VERILATOR_SRC} clean

@@ -327,62 +327,66 @@ circuit Top :
     regs_0.io is invalid
     regs_0.clock <= clock
     regs_0.reset <= reset
-    regs_0.io.in <= io.wdata @[RegFile.scala 47:14]
-    node _T_57 = eq(io.waddr, UInt<1>("h00")) @[RegFile.scala 48:147]
-    node _T_58 = and(io.wen, _T_57) @[RegFile.scala 48:135]
-    regs_0.io.enable <= _T_58 @[RegFile.scala 48:18]
+    regs_0.io.init <= UInt<1>("h00") @[RegFile.scala 47:16]
+    regs_0.io.in <= io.wdata @[RegFile.scala 48:14]
+    node _T_58 = eq(io.waddr, UInt<1>("h00")) @[RegFile.scala 49:147]
+    node _T_59 = and(io.wen, _T_58) @[RegFile.scala 49:135]
+    regs_0.io.enable <= _T_59 @[RegFile.scala 49:18]
     inst regs_1 of FF_2 @[RegFile.scala 46:20]
     regs_1.io is invalid
     regs_1.clock <= clock
     regs_1.reset <= reset
-    node _T_59 = mux(io.argOuts[0].valid, io.argOuts[0].bits, io.wdata) @[RegFile.scala 47:49]
-    regs_1.io.in <= _T_59 @[RegFile.scala 47:14]
-    node _T_61 = eq(io.waddr, UInt<1>("h01")) @[RegFile.scala 48:113]
-    node _T_62 = and(io.wen, _T_61) @[RegFile.scala 48:101]
-    node _T_63 = or(io.argOuts[0].valid, _T_62) @[RegFile.scala 48:91]
-    regs_1.io.enable <= _T_63 @[RegFile.scala 48:18]
+    regs_1.io.init <= UInt<1>("h00") @[RegFile.scala 47:16]
+    node _T_61 = mux(io.argOuts[0].valid, io.argOuts[0].bits, io.wdata) @[RegFile.scala 48:49]
+    regs_1.io.in <= _T_61 @[RegFile.scala 48:14]
+    node _T_63 = eq(io.waddr, UInt<1>("h01")) @[RegFile.scala 49:113]
+    node _T_64 = and(io.wen, _T_63) @[RegFile.scala 49:101]
+    node _T_65 = or(io.argOuts[0].valid, _T_64) @[RegFile.scala 49:91]
+    regs_1.io.enable <= _T_65 @[RegFile.scala 49:18]
     inst regs_2 of FF_3 @[RegFile.scala 46:20]
     regs_2.io is invalid
     regs_2.clock <= clock
     regs_2.reset <= reset
-    regs_2.io.in <= io.wdata @[RegFile.scala 47:14]
-    node _T_65 = eq(io.waddr, UInt<2>("h02")) @[RegFile.scala 48:147]
-    node _T_66 = and(io.wen, _T_65) @[RegFile.scala 48:135]
-    regs_2.io.enable <= _T_66 @[RegFile.scala 48:18]
+    regs_2.io.init <= UInt<1>("h00") @[RegFile.scala 47:16]
+    regs_2.io.in <= io.wdata @[RegFile.scala 48:14]
+    node _T_68 = eq(io.waddr, UInt<2>("h02")) @[RegFile.scala 49:147]
+    node _T_69 = and(io.wen, _T_68) @[RegFile.scala 49:135]
+    regs_2.io.enable <= _T_69 @[RegFile.scala 49:18]
     inst regs_3 of FF_4 @[RegFile.scala 46:20]
     regs_3.io is invalid
     regs_3.clock <= clock
     regs_3.reset <= reset
-    node _T_67 = mux(io.argOuts[1].valid, io.argOuts[1].bits, io.wdata) @[RegFile.scala 47:49]
-    regs_3.io.in <= _T_67 @[RegFile.scala 47:14]
-    node _T_69 = eq(io.waddr, UInt<2>("h03")) @[RegFile.scala 48:113]
-    node _T_70 = and(io.wen, _T_69) @[RegFile.scala 48:101]
-    node _T_71 = or(io.argOuts[1].valid, _T_70) @[RegFile.scala 48:91]
-    regs_3.io.enable <= _T_71 @[RegFile.scala 48:18]
-    inst rport of MuxN @[RegFile.scala 52:21]
+    regs_3.io.init <= UInt<1>("h00") @[RegFile.scala 47:16]
+    node _T_71 = mux(io.argOuts[1].valid, io.argOuts[1].bits, io.wdata) @[RegFile.scala 48:49]
+    regs_3.io.in <= _T_71 @[RegFile.scala 48:14]
+    node _T_73 = eq(io.waddr, UInt<2>("h03")) @[RegFile.scala 49:113]
+    node _T_74 = and(io.wen, _T_73) @[RegFile.scala 49:101]
+    node _T_75 = or(io.argOuts[1].valid, _T_74) @[RegFile.scala 49:91]
+    regs_3.io.enable <= _T_75 @[RegFile.scala 49:18]
+    inst rport of MuxN @[RegFile.scala 53:21]
     rport.io is invalid
     rport.clock <= clock
     rport.reset <= reset
-    wire regOuts : UInt<32>[4] @[RegFile.scala 53:20]
-    regOuts is invalid @[RegFile.scala 53:20]
-    regOuts[0] <= regs_0.io.out @[RegFile.scala 53:20]
-    regOuts[1] <= regs_1.io.out @[RegFile.scala 53:20]
-    regOuts[2] <= regs_2.io.out @[RegFile.scala 53:20]
-    regOuts[3] <= regs_3.io.out @[RegFile.scala 53:20]
-    rport.io.ins[0] <= regOuts[0] @[RegFile.scala 54:16]
-    rport.io.ins[1] <= regOuts[1] @[RegFile.scala 54:16]
-    rport.io.ins[2] <= regOuts[2] @[RegFile.scala 54:16]
-    rport.io.ins[3] <= regOuts[3] @[RegFile.scala 54:16]
-    rport.io.sel <= io.raddr @[RegFile.scala 55:16]
-    io.rdata <= rport.io.out @[RegFile.scala 56:12]
-    wire _T_82 : UInt<32>[3] @[RegFile.scala 58:19]
-    _T_82 is invalid @[RegFile.scala 58:19]
-    _T_82[0] <= regOuts[0] @[RegFile.scala 58:19]
-    _T_82[1] <= regOuts[1] @[RegFile.scala 58:19]
-    _T_82[2] <= regOuts[2] @[RegFile.scala 58:19]
-    io.argIns[0] <= _T_82[0] @[RegFile.scala 58:13]
-    io.argIns[1] <= _T_82[1] @[RegFile.scala 58:13]
-    io.argIns[2] <= _T_82[2] @[RegFile.scala 58:13]
+    wire regOuts : UInt<32>[4] @[RegFile.scala 54:20]
+    regOuts is invalid @[RegFile.scala 54:20]
+    regOuts[0] <= regs_0.io.out @[RegFile.scala 54:20]
+    regOuts[1] <= regs_1.io.out @[RegFile.scala 54:20]
+    regOuts[2] <= regs_2.io.out @[RegFile.scala 54:20]
+    regOuts[3] <= regs_3.io.out @[RegFile.scala 54:20]
+    rport.io.ins[0] <= regOuts[0] @[RegFile.scala 55:16]
+    rport.io.ins[1] <= regOuts[1] @[RegFile.scala 55:16]
+    rport.io.ins[2] <= regOuts[2] @[RegFile.scala 55:16]
+    rport.io.ins[3] <= regOuts[3] @[RegFile.scala 55:16]
+    rport.io.sel <= io.raddr @[RegFile.scala 56:16]
+    io.rdata <= rport.io.out @[RegFile.scala 57:12]
+    wire _T_86 : UInt<32>[3] @[RegFile.scala 59:19]
+    _T_86 is invalid @[RegFile.scala 59:19]
+    _T_86[0] <= regOuts[0] @[RegFile.scala 59:19]
+    _T_86[1] <= regOuts[1] @[RegFile.scala 59:19]
+    _T_86[2] <= regOuts[2] @[RegFile.scala 59:19]
+    io.argIns[0] <= _T_86[0] @[RegFile.scala 59:13]
+    io.argIns[1] <= _T_86[1] @[RegFile.scala 59:13]
+    io.argIns[2] <= _T_86[2] @[RegFile.scala 59:13]
     
   module FF_5 : 
     input clock : Clock
@@ -1078,114 +1082,35 @@ circuit Top :
     mag.io.dram.resp.valid <= io.dram.resp.valid @[Fringe.scala 95:26]
     io.dram.resp.ready <= mag.io.dram.cmd.ready @[Fringe.scala 96:22]
     
-  extmodule AXI4LiteToRFBridgeVerilog : 
-    input rf_rdata : UInt<32>
-    output rf_wdata : UInt<32>
-    output rf_waddr : UInt<32>
-    output rf_wen : UInt<1>
-    output rf_raddr : UInt<32>
-    input S_AXI_ARESETN : UInt<1>
-    input S_AXI_ACLK : Clock
-    input S_AXI : {AWADDR : UInt<32>, AWPROT : UInt<3>, AWVALID : UInt<1>, flip AWREADY : UInt<1>, ARADDR : UInt<32>, ARPROT : UInt<3>, ARVALID : UInt<1>, flip ARREADY : UInt<1>, WDATA : UInt<32>, WSTRB : UInt<4>, WVALID : UInt<1>, flip WREADY : UInt<1>, flip RDATA : UInt<32>, flip RRESP : UInt<2>, flip RVALID : UInt<1>, RREADY : UInt<1>, flip BRESP : UInt<2>, flip BVALID : UInt<1>, BREADY : UInt<1>}
-    
-    defname = AXI4LiteToRFBridgeVerilog
-    
-    
-  module AXI4LiteToRFBridge : 
-    input clock : Clock
-    input reset : UInt<1>
-    output io : {flip S_AXI : {AWADDR : UInt<32>, AWPROT : UInt<3>, AWVALID : UInt<1>, flip AWREADY : UInt<1>, ARADDR : UInt<32>, ARPROT : UInt<3>, ARVALID : UInt<1>, flip ARREADY : UInt<1>, WDATA : UInt<32>, WSTRB : UInt<4>, WVALID : UInt<1>, flip WREADY : UInt<1>, flip RDATA : UInt<32>, flip RRESP : UInt<2>, flip RVALID : UInt<1>, RREADY : UInt<1>, flip BRESP : UInt<2>, flip BVALID : UInt<1>, BREADY : UInt<1>}, raddr : UInt<32>, wen : UInt<1>, waddr : UInt<32>, wdata : UInt<32>, flip rdata : UInt<32>}
-    
-    io is invalid
-    io is invalid
-    inst d of AXI4LiteToRFBridgeVerilog @[AXI4LiteToRFBridge.scala 38:17]
-    d.rf_rdata is invalid
-    d.rf_wdata is invalid
-    d.rf_waddr is invalid
-    d.rf_wen is invalid
-    d.rf_raddr is invalid
-    d.S_AXI_ARESETN is invalid
-    d.S_AXI_ACLK is invalid
-    d.S_AXI is invalid
-    d.S_AXI.BREADY <= io.S_AXI.BREADY @[AXI4LiteToRFBridge.scala 40:14]
-    io.S_AXI.BVALID <= d.S_AXI.BVALID @[AXI4LiteToRFBridge.scala 40:14]
-    io.S_AXI.BRESP <= d.S_AXI.BRESP @[AXI4LiteToRFBridge.scala 40:14]
-    d.S_AXI.RREADY <= io.S_AXI.RREADY @[AXI4LiteToRFBridge.scala 40:14]
-    io.S_AXI.RVALID <= d.S_AXI.RVALID @[AXI4LiteToRFBridge.scala 40:14]
-    io.S_AXI.RRESP <= d.S_AXI.RRESP @[AXI4LiteToRFBridge.scala 40:14]
-    io.S_AXI.RDATA <= d.S_AXI.RDATA @[AXI4LiteToRFBridge.scala 40:14]
-    io.S_AXI.WREADY <= d.S_AXI.WREADY @[AXI4LiteToRFBridge.scala 40:14]
-    d.S_AXI.WVALID <= io.S_AXI.WVALID @[AXI4LiteToRFBridge.scala 40:14]
-    d.S_AXI.WSTRB <= io.S_AXI.WSTRB @[AXI4LiteToRFBridge.scala 40:14]
-    d.S_AXI.WDATA <= io.S_AXI.WDATA @[AXI4LiteToRFBridge.scala 40:14]
-    io.S_AXI.ARREADY <= d.S_AXI.ARREADY @[AXI4LiteToRFBridge.scala 40:14]
-    d.S_AXI.ARVALID <= io.S_AXI.ARVALID @[AXI4LiteToRFBridge.scala 40:14]
-    d.S_AXI.ARPROT <= io.S_AXI.ARPROT @[AXI4LiteToRFBridge.scala 40:14]
-    d.S_AXI.ARADDR <= io.S_AXI.ARADDR @[AXI4LiteToRFBridge.scala 40:14]
-    io.S_AXI.AWREADY <= d.S_AXI.AWREADY @[AXI4LiteToRFBridge.scala 40:14]
-    d.S_AXI.AWVALID <= io.S_AXI.AWVALID @[AXI4LiteToRFBridge.scala 40:14]
-    d.S_AXI.AWPROT <= io.S_AXI.AWPROT @[AXI4LiteToRFBridge.scala 40:14]
-    d.S_AXI.AWADDR <= io.S_AXI.AWADDR @[AXI4LiteToRFBridge.scala 40:14]
-    d.S_AXI_ACLK <= clock @[AXI4LiteToRFBridge.scala 41:19]
-    d.S_AXI_ARESETN <= reset @[AXI4LiteToRFBridge.scala 42:22]
-    io.raddr <= d.rf_raddr @[AXI4LiteToRFBridge.scala 44:12]
-    io.waddr <= d.rf_waddr @[AXI4LiteToRFBridge.scala 45:12]
-    io.wdata <= d.rf_wdata @[AXI4LiteToRFBridge.scala 46:12]
-    io.wen <= d.rf_wen @[AXI4LiteToRFBridge.scala 47:12]
-    d.rf_rdata <= io.rdata @[AXI4LiteToRFBridge.scala 48:17]
-    
   module FringeDE1SoC : 
     input clock : Clock
     input reset : UInt<1>
-    output io : {flip S_AXI : {AWADDR : UInt<32>, AWPROT : UInt<3>, AWVALID : UInt<1>, flip AWREADY : UInt<1>, ARADDR : UInt<32>, ARPROT : UInt<3>, ARVALID : UInt<1>, flip ARREADY : UInt<1>, WDATA : UInt<32>, WSTRB : UInt<4>, WVALID : UInt<1>, flip WREADY : UInt<1>, flip RDATA : UInt<32>, flip RRESP : UInt<2>, flip RVALID : UInt<1>, RREADY : UInt<1>, flip BRESP : UInt<2>, flip BVALID : UInt<1>, BREADY : UInt<1>}, enable : UInt<1>, flip done : UInt<1>, argIns : UInt<32>[1], flip argOuts : {flip ready : UInt<1>, valid : UInt<1>, bits : UInt<32>}[1]}
+    output io : {S_AVALON : {readdata : UInt<32>, flip address : UInt<16>, flip chipselect : UInt<1>, flip write_n : UInt<1>, flip writedata : UInt<32>}, enable : UInt<1>, flip done : UInt<1>, argIns : UInt<32>[1], flip argOuts : {flip ready : UInt<1>, valid : UInt<1>, bits : UInt<32>}[1]}
     
     io is invalid
     io is invalid
-    inst fringeCommon of Fringe @[FringeDE1SoC.scala 31:28]
+    inst fringeCommon of Fringe @[FringeDE1SoC.scala 30:28]
     fringeCommon.io is invalid
     fringeCommon.clock <= clock
     fringeCommon.reset <= reset
-    inst axiLiteBridge of AXI4LiteToRFBridge @[FringeDE1SoC.scala 34:29]
-    axiLiteBridge.io is invalid
-    axiLiteBridge.clock <= clock
-    axiLiteBridge.reset <= reset
-    axiLiteBridge.io.S_AXI.BREADY <= io.S_AXI.BREADY @[FringeDE1SoC.scala 35:26]
-    io.S_AXI.BVALID <= axiLiteBridge.io.S_AXI.BVALID @[FringeDE1SoC.scala 35:26]
-    io.S_AXI.BRESP <= axiLiteBridge.io.S_AXI.BRESP @[FringeDE1SoC.scala 35:26]
-    axiLiteBridge.io.S_AXI.RREADY <= io.S_AXI.RREADY @[FringeDE1SoC.scala 35:26]
-    io.S_AXI.RVALID <= axiLiteBridge.io.S_AXI.RVALID @[FringeDE1SoC.scala 35:26]
-    io.S_AXI.RRESP <= axiLiteBridge.io.S_AXI.RRESP @[FringeDE1SoC.scala 35:26]
-    io.S_AXI.RDATA <= axiLiteBridge.io.S_AXI.RDATA @[FringeDE1SoC.scala 35:26]
-    io.S_AXI.WREADY <= axiLiteBridge.io.S_AXI.WREADY @[FringeDE1SoC.scala 35:26]
-    axiLiteBridge.io.S_AXI.WVALID <= io.S_AXI.WVALID @[FringeDE1SoC.scala 35:26]
-    axiLiteBridge.io.S_AXI.WSTRB <= io.S_AXI.WSTRB @[FringeDE1SoC.scala 35:26]
-    axiLiteBridge.io.S_AXI.WDATA <= io.S_AXI.WDATA @[FringeDE1SoC.scala 35:26]
-    io.S_AXI.ARREADY <= axiLiteBridge.io.S_AXI.ARREADY @[FringeDE1SoC.scala 35:26]
-    axiLiteBridge.io.S_AXI.ARVALID <= io.S_AXI.ARVALID @[FringeDE1SoC.scala 35:26]
-    axiLiteBridge.io.S_AXI.ARPROT <= io.S_AXI.ARPROT @[FringeDE1SoC.scala 35:26]
-    axiLiteBridge.io.S_AXI.ARADDR <= io.S_AXI.ARADDR @[FringeDE1SoC.scala 35:26]
-    io.S_AXI.AWREADY <= axiLiteBridge.io.S_AXI.AWREADY @[FringeDE1SoC.scala 35:26]
-    axiLiteBridge.io.S_AXI.AWVALID <= io.S_AXI.AWVALID @[FringeDE1SoC.scala 35:26]
-    axiLiteBridge.io.S_AXI.AWPROT <= io.S_AXI.AWPROT @[FringeDE1SoC.scala 35:26]
-    axiLiteBridge.io.S_AXI.AWADDR <= io.S_AXI.AWADDR @[FringeDE1SoC.scala 35:26]
-    node _T_120 = not(reset) @[FringeDE1SoC.scala 37:25]
-    fringeCommon.reset <= _T_120 @[FringeDE1SoC.scala 37:22]
-    fringeCommon.io.raddr <= axiLiteBridge.io.raddr @[FringeDE1SoC.scala 38:25]
-    fringeCommon.io.wen <= axiLiteBridge.io.wen @[FringeDE1SoC.scala 39:25]
-    fringeCommon.io.waddr <= axiLiteBridge.io.waddr @[FringeDE1SoC.scala 40:25]
-    fringeCommon.io.wdata <= axiLiteBridge.io.wdata @[FringeDE1SoC.scala 41:25]
-    axiLiteBridge.io.rdata <= fringeCommon.io.rdata @[FringeDE1SoC.scala 42:26]
-    io.enable <= fringeCommon.io.enable @[FringeDE1SoC.scala 44:13]
-    fringeCommon.io.done <= io.done @[FringeDE1SoC.scala 45:24]
-    io.argIns[0] <= fringeCommon.io.argIns[0] @[FringeDE1SoC.scala 47:13]
-    fringeCommon.io.argOuts[0].bits <= io.argOuts[0].bits @[FringeDE1SoC.scala 48:27]
-    fringeCommon.io.argOuts[0].valid <= io.argOuts[0].valid @[FringeDE1SoC.scala 48:27]
-    io.argOuts[0].ready <= fringeCommon.io.argOuts[0].ready @[FringeDE1SoC.scala 48:27]
+    fringeCommon.reset <= reset @[FringeDE1SoC.scala 33:22]
+    fringeCommon.io.raddr <= io.S_AVALON.address @[FringeDE1SoC.scala 34:25]
+    node _T_53 = not(io.S_AVALON.write_n) @[FringeDE1SoC.scala 35:28]
+    fringeCommon.io.wen <= _T_53 @[FringeDE1SoC.scala 35:25]
+    fringeCommon.io.waddr <= io.S_AVALON.address @[FringeDE1SoC.scala 37:25]
+    fringeCommon.io.wdata <= io.S_AVALON.writedata @[FringeDE1SoC.scala 38:25]
+    io.S_AVALON.readdata <= fringeCommon.io.rdata @[FringeDE1SoC.scala 39:24]
+    io.enable <= fringeCommon.io.enable @[FringeDE1SoC.scala 41:13]
+    fringeCommon.io.done <= io.done @[FringeDE1SoC.scala 42:24]
+    io.argIns[0] <= fringeCommon.io.argIns[0] @[FringeDE1SoC.scala 44:13]
+    fringeCommon.io.argOuts[0].bits <= io.argOuts[0].bits @[FringeDE1SoC.scala 45:27]
+    fringeCommon.io.argOuts[0].valid <= io.argOuts[0].valid @[FringeDE1SoC.scala 45:27]
+    io.argOuts[0].ready <= fringeCommon.io.argOuts[0].ready @[FringeDE1SoC.scala 45:27]
     
   module Top : 
     input clock : Clock
     input reset : UInt<1>
-    output io : {flip raddr : UInt<1>, flip wen : UInt<1>, flip waddr : UInt<1>, flip wdata : UInt<1>, rdata : UInt<1>, flip S_AXI : {AWADDR : UInt<16>, AWPROT : UInt<3>, AWVALID : UInt<1>, flip AWREADY : UInt<1>, ARADDR : UInt<16>, ARPROT : UInt<3>, ARVALID : UInt<1>, flip ARREADY : UInt<1>, WDATA : UInt<32>, WSTRB : UInt<4>, WVALID : UInt<1>, flip WREADY : UInt<1>, flip RDATA : UInt<32>, flip RRESP : UInt<2>, flip RVALID : UInt<1>, RREADY : UInt<1>, flip BRESP : UInt<2>, flip BVALID : UInt<1>, BREADY : UInt<1>}}
+    output io : {flip raddr : UInt<1>, flip wen : UInt<1>, flip waddr : UInt<1>, flip wdata : UInt<1>, rdata : UInt<1>, S_AVALON : {readdata : UInt<32>, flip address : UInt<16>, flip chipselect : UInt<1>, flip write_n : UInt<1>, flip writedata : UInt<32>}}
     
     io is invalid
     io is invalid
@@ -1197,30 +1122,16 @@ circuit Top :
     FringeDE1SoC.io is invalid
     FringeDE1SoC.clock <= clock
     FringeDE1SoC.reset <= reset
-    FringeDE1SoC.io.S_AXI.BREADY <= io.S_AXI.BREADY @[Top.scala 120:23]
-    io.S_AXI.BVALID <= FringeDE1SoC.io.S_AXI.BVALID @[Top.scala 120:23]
-    io.S_AXI.BRESP <= FringeDE1SoC.io.S_AXI.BRESP @[Top.scala 120:23]
-    FringeDE1SoC.io.S_AXI.RREADY <= io.S_AXI.RREADY @[Top.scala 120:23]
-    io.S_AXI.RVALID <= FringeDE1SoC.io.S_AXI.RVALID @[Top.scala 120:23]
-    io.S_AXI.RRESP <= FringeDE1SoC.io.S_AXI.RRESP @[Top.scala 120:23]
-    io.S_AXI.RDATA <= FringeDE1SoC.io.S_AXI.RDATA @[Top.scala 120:23]
-    io.S_AXI.WREADY <= FringeDE1SoC.io.S_AXI.WREADY @[Top.scala 120:23]
-    FringeDE1SoC.io.S_AXI.WVALID <= io.S_AXI.WVALID @[Top.scala 120:23]
-    FringeDE1SoC.io.S_AXI.WSTRB <= io.S_AXI.WSTRB @[Top.scala 120:23]
-    FringeDE1SoC.io.S_AXI.WDATA <= io.S_AXI.WDATA @[Top.scala 120:23]
-    io.S_AXI.ARREADY <= FringeDE1SoC.io.S_AXI.ARREADY @[Top.scala 120:23]
-    FringeDE1SoC.io.S_AXI.ARVALID <= io.S_AXI.ARVALID @[Top.scala 120:23]
-    FringeDE1SoC.io.S_AXI.ARPROT <= io.S_AXI.ARPROT @[Top.scala 120:23]
-    FringeDE1SoC.io.S_AXI.ARADDR <= io.S_AXI.ARADDR @[Top.scala 120:23]
-    io.S_AXI.AWREADY <= FringeDE1SoC.io.S_AXI.AWREADY @[Top.scala 120:23]
-    FringeDE1SoC.io.S_AXI.AWVALID <= io.S_AXI.AWVALID @[Top.scala 120:23]
-    FringeDE1SoC.io.S_AXI.AWPROT <= io.S_AXI.AWPROT @[Top.scala 120:23]
-    FringeDE1SoC.io.S_AXI.AWADDR <= io.S_AXI.AWADDR @[Top.scala 120:23]
+    FringeDE1SoC.io.S_AVALON.writedata <= io.S_AVALON.writedata @[Top.scala 120:26]
+    FringeDE1SoC.io.S_AVALON.write_n <= io.S_AVALON.write_n @[Top.scala 120:26]
+    FringeDE1SoC.io.S_AVALON.chipselect <= io.S_AVALON.chipselect @[Top.scala 120:26]
+    FringeDE1SoC.io.S_AVALON.address <= io.S_AVALON.address @[Top.scala 120:26]
+    io.S_AVALON.readdata <= FringeDE1SoC.io.S_AVALON.readdata @[Top.scala 120:26]
     accel.io.argIns[0] <= FringeDE1SoC.io.argIns[0] @[Top.scala 122:23]
     FringeDE1SoC.io.argOuts[0].bits <= accel.io.argOuts[0].bits @[Top.scala 124:29]
     FringeDE1SoC.io.argOuts[0].valid <= UInt<1>("h01") @[Top.scala 125:30]
     accel.io.enable <= FringeDE1SoC.io.enable @[Top.scala 127:23]
     FringeDE1SoC.io.done <= accel.io.done @[Top.scala 128:22]
-    node _T_105 = not(reset) @[Top.scala 129:22]
-    accel.reset <= _T_105 @[Top.scala 129:19]
+    node _T_38 = not(reset) @[Top.scala 130:22]
+    accel.reset <= _T_38 @[Top.scala 130:19]
     

@@ -12,10 +12,10 @@ import templates.Utils.log2Up
  * @param numArgOuts: Number of output scalar arguments
  */
 class FringeDE1SoC(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStreams: Int = 1) extends Module {
-  val axiLiteParams = new AXI4BundleParameters(w, w, 1)
+  val axiLiteParams = new AXI4BundleParameters(16, w, 1)
   val io = IO(new Bundle {
     // Host scalar interface
-    val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
+    val S_AVALON = new AvalonSlave(axiLiteParams)
 
     // Accel Control IO
     val enable = Output(Bool())
@@ -24,22 +24,19 @@ class FringeDE1SoC(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numM
     // Accel Scalar IO
     val argIns = Output(Vec(numArgIns, UInt(w.W)))
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
-
   })
 
   // Common Fringe
   val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, 0))
 
-  // AXI-lite bridge
-  val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
-  axiLiteBridge.io.S_AXI <> io.S_AXI
+  // Connect to Avalon Slave
+  fringeCommon.reset := reset
+  fringeCommon.io.raddr := io.S_AVALON.address
+  fringeCommon.io.wen   := ~io.S_AVALON.write_n 
 
-  fringeCommon.reset := ~reset
-  fringeCommon.io.raddr := axiLiteBridge.io.raddr
-  fringeCommon.io.wen   := axiLiteBridge.io.wen
-  fringeCommon.io.waddr := axiLiteBridge.io.waddr
-  fringeCommon.io.wdata := axiLiteBridge.io.wdata
-  axiLiteBridge.io.rdata := fringeCommon.io.rdata
+  fringeCommon.io.waddr := io.S_AVALON.address
+  fringeCommon.io.wdata := io.S_AVALON.writedata
+  io.S_AVALON.readdata := fringeCommon.io.rdata
 
   io.enable := fringeCommon.io.enable
   fringeCommon.io.done := io.done

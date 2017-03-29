@@ -444,7 +444,7 @@ module Innerpipe(
     end
   end
 endmodule
-module SRFF(
+module SRFF_sp(
   input   clock,
   input   reset,
   input   io_input_set,
@@ -577,7 +577,7 @@ module AccelTop(
     .io_output_ctr_maxOut_0(AccelController_sm_io_output_ctr_maxOut_0),
     .io_output_state(AccelController_sm_io_output_state)
   );
-  SRFF done_latch (
+  SRFF_sp done_latch (
     .clock(done_latch_clock),
     .reset(done_latch_reset),
     .io_input_set(done_latch_io_input_set),
@@ -762,36 +762,36 @@ module RegFile(
   wire [31:0] regs_0_io_init;
   wire [31:0] regs_0_io_out;
   wire  regs_0_io_enable;
-  wire  _T_57;
   wire  _T_58;
+  wire  _T_59;
   wire  regs_1_clock;
   wire  regs_1_reset;
   wire [31:0] regs_1_io_in;
   wire [31:0] regs_1_io_init;
   wire [31:0] regs_1_io_out;
   wire  regs_1_io_enable;
-  wire [31:0] _T_59;
-  wire  _T_61;
-  wire  _T_62;
+  wire [31:0] _T_61;
   wire  _T_63;
+  wire  _T_64;
+  wire  _T_65;
   wire  regs_2_clock;
   wire  regs_2_reset;
   wire [31:0] regs_2_io_in;
   wire [31:0] regs_2_io_init;
   wire [31:0] regs_2_io_out;
   wire  regs_2_io_enable;
-  wire  _T_65;
-  wire  _T_66;
+  wire  _T_68;
+  wire  _T_69;
   wire  regs_3_clock;
   wire  regs_3_reset;
   wire [31:0] regs_3_io_in;
   wire [31:0] regs_3_io_init;
   wire [31:0] regs_3_io_out;
   wire  regs_3_io_enable;
-  wire [31:0] _T_67;
-  wire  _T_69;
-  wire  _T_70;
-  wire  _T_71;
+  wire [31:0] _T_71;
+  wire  _T_73;
+  wire  _T_74;
+  wire  _T_75;
   wire  rport_clock;
   wire  rport_reset;
   wire [31:0] rport_io_ins_0;
@@ -804,21 +804,13 @@ module RegFile(
   wire [31:0] regOuts_1;
   wire [31:0] regOuts_2;
   wire [31:0] regOuts_3;
-  wire [31:0] _T_82_0;
-  wire [31:0] _T_82_1;
-  wire [31:0] _T_82_2;
+  wire [31:0] _T_86_0;
+  wire [31:0] _T_86_1;
+  wire [31:0] _T_86_2;
   reg  _GEN_0;
-  reg [31:0] _GEN_6;
-  reg  _GEN_1;
-  reg [31:0] _GEN_7;
   reg [31:0] _GEN_2;
-  reg [31:0] _GEN_8;
+  reg  _GEN_1;
   reg [31:0] _GEN_3;
-  reg [31:0] _GEN_9;
-  reg [31:0] _GEN_4;
-  reg [31:0] _GEN_10;
-  reg [31:0] _GEN_5;
-  reg [31:0] _GEN_11;
   FF_1 regs_0 (
     .clock(regs_0_clock),
     .reset(regs_0_reset),
@@ -862,43 +854,43 @@ module RegFile(
     .io_out(rport_io_out)
   );
   assign io_rdata = rport_io_out;
-  assign io_argIns_0 = _T_82_0;
-  assign io_argIns_1 = _T_82_1;
-  assign io_argIns_2 = _T_82_2;
+  assign io_argIns_0 = _T_86_0;
+  assign io_argIns_1 = _T_86_1;
+  assign io_argIns_2 = _T_86_2;
   assign io_argOuts_0_ready = _GEN_0;
   assign io_argOuts_1_ready = _GEN_1;
   assign regs_0_clock = clock;
   assign regs_0_reset = reset;
   assign regs_0_io_in = io_wdata;
-  assign regs_0_io_init = _GEN_2;
-  assign regs_0_io_enable = _T_58;
-  assign _T_57 = io_waddr == 2'h0;
-  assign _T_58 = io_wen & _T_57;
+  assign regs_0_io_init = 32'h0;
+  assign regs_0_io_enable = _T_59;
+  assign _T_58 = io_waddr == 2'h0;
+  assign _T_59 = io_wen & _T_58;
   assign regs_1_clock = clock;
   assign regs_1_reset = reset;
-  assign regs_1_io_in = _T_59;
-  assign regs_1_io_init = _GEN_3;
-  assign regs_1_io_enable = _T_63;
-  assign _T_59 = io_argOuts_0_valid ? io_argOuts_0_bits : io_wdata;
-  assign _T_61 = io_waddr == 2'h1;
-  assign _T_62 = io_wen & _T_61;
-  assign _T_63 = io_argOuts_0_valid | _T_62;
+  assign regs_1_io_in = _T_61;
+  assign regs_1_io_init = 32'h0;
+  assign regs_1_io_enable = _T_65;
+  assign _T_61 = io_argOuts_0_valid ? io_argOuts_0_bits : io_wdata;
+  assign _T_63 = io_waddr == 2'h1;
+  assign _T_64 = io_wen & _T_63;
+  assign _T_65 = io_argOuts_0_valid | _T_64;
   assign regs_2_clock = clock;
   assign regs_2_reset = reset;
   assign regs_2_io_in = io_wdata;
-  assign regs_2_io_init = _GEN_4;
-  assign regs_2_io_enable = _T_66;
-  assign _T_65 = io_waddr == 2'h2;
-  assign _T_66 = io_wen & _T_65;
+  assign regs_2_io_init = 32'h0;
+  assign regs_2_io_enable = _T_69;
+  assign _T_68 = io_waddr == 2'h2;
+  assign _T_69 = io_wen & _T_68;
   assign regs_3_clock = clock;
   assign regs_3_reset = reset;
-  assign regs_3_io_in = _T_67;
-  assign regs_3_io_init = _GEN_5;
-  assign regs_3_io_enable = _T_71;
-  assign _T_67 = io_argOuts_1_valid ? io_argOuts_1_bits : io_wdata;
-  assign _T_69 = io_waddr == 2'h3;
-  assign _T_70 = io_wen & _T_69;
-  assign _T_71 = io_argOuts_1_valid | _T_70;
+  assign regs_3_io_in = _T_71;
+  assign regs_3_io_init = 32'h0;
+  assign regs_3_io_enable = _T_75;
+  assign _T_71 = io_argOuts_1_valid ? io_argOuts_1_bits : io_wdata;
+  assign _T_73 = io_waddr == 2'h3;
+  assign _T_74 = io_wen & _T_73;
+  assign _T_75 = io_argOuts_1_valid | _T_74;
   assign rport_clock = clock;
   assign rport_reset = reset;
   assign rport_io_ins_0 = regOuts_0;
@@ -910,9 +902,9 @@ module RegFile(
   assign regOuts_1 = regs_1_io_out;
   assign regOuts_2 = regs_2_io_out;
   assign regOuts_3 = regs_3_io_out;
-  assign _T_82_0 = regOuts_0;
-  assign _T_82_1 = regOuts_1;
-  assign _T_82_2 = regOuts_2;
+  assign _T_86_0 = regOuts_0;
+  assign _T_86_1 = regOuts_1;
+  assign _T_86_2 = regOuts_2;
 `ifdef RANDOMIZE
   integer initvar;
   initial begin
@@ -920,28 +912,12 @@ module RegFile(
       #0.002 begin end
     `endif
   `ifdef RANDOMIZE_REG_INIT
-  _GEN_6 = {1{$random}};
-  _GEN_0 = _GEN_6[0:0];
+  _GEN_2 = {1{$random}};
+  _GEN_0 = _GEN_2[0:0];
   `endif
   `ifdef RANDOMIZE_REG_INIT
-  _GEN_7 = {1{$random}};
-  _GEN_1 = _GEN_7[0:0];
-  `endif
-  `ifdef RANDOMIZE_REG_INIT
-  _GEN_8 = {1{$random}};
-  _GEN_2 = _GEN_8[31:0];
-  `endif
-  `ifdef RANDOMIZE_REG_INIT
-  _GEN_9 = {1{$random}};
-  _GEN_3 = _GEN_9[31:0];
-  `endif
-  `ifdef RANDOMIZE_REG_INIT
-  _GEN_10 = {1{$random}};
-  _GEN_4 = _GEN_10[31:0];
-  `endif
-  `ifdef RANDOMIZE_REG_INIT
-  _GEN_11 = {1{$random}};
-  _GEN_5 = _GEN_11[31:0];
+  _GEN_3 = {1{$random}};
+  _GEN_1 = _GEN_3[0:0];
   `endif
   end
 `endif
@@ -1771,7 +1747,7 @@ module MAGCore(
     .io_saturate(burstCounter_io_saturate),
     .io_done(burstCounter_io_done)
   );
-  SRFF wrPhase (
+  SRFF_sp wrPhase (
     .clock(wrPhase_clock),
     .reset(wrPhase_reset),
     .io_input_set(wrPhase_io_input_set),
@@ -2245,137 +2221,14 @@ module Fringe(
   end
 `endif
 endmodule
-module AXI4LiteToRFBridge(
-  input         clock,
-  input         reset,
-  input  [31:0] io_S_AXI_AWADDR,
-  input  [2:0]  io_S_AXI_AWPROT,
-  input         io_S_AXI_AWVALID,
-  output        io_S_AXI_AWREADY,
-  input  [31:0] io_S_AXI_ARADDR,
-  input  [2:0]  io_S_AXI_ARPROT,
-  input         io_S_AXI_ARVALID,
-  output        io_S_AXI_ARREADY,
-  input  [31:0] io_S_AXI_WDATA,
-  input  [3:0]  io_S_AXI_WSTRB,
-  input         io_S_AXI_WVALID,
-  output        io_S_AXI_WREADY,
-  output [31:0] io_S_AXI_RDATA,
-  output [1:0]  io_S_AXI_RRESP,
-  output        io_S_AXI_RVALID,
-  input         io_S_AXI_RREADY,
-  output [1:0]  io_S_AXI_BRESP,
-  output        io_S_AXI_BVALID,
-  input         io_S_AXI_BREADY,
-  output [31:0] io_raddr,
-  output        io_wen,
-  output [31:0] io_waddr,
-  output [31:0] io_wdata,
-  input  [31:0] io_rdata
-);
-  wire [31:0] d_rf_rdata;
-  wire [31:0] d_rf_wdata;
-  wire [31:0] d_rf_waddr;
-  wire  d_rf_wen;
-  wire [31:0] d_rf_raddr;
-  wire  d_S_AXI_ARESETN;
-  wire  d_S_AXI_ACLK;
-  wire [31:0] d_S_AXI_AWADDR;
-  wire [2:0] d_S_AXI_AWPROT;
-  wire  d_S_AXI_AWVALID;
-  wire  d_S_AXI_AWREADY;
-  wire [31:0] d_S_AXI_ARADDR;
-  wire [2:0] d_S_AXI_ARPROT;
-  wire  d_S_AXI_ARVALID;
-  wire  d_S_AXI_ARREADY;
-  wire [31:0] d_S_AXI_WDATA;
-  wire [3:0] d_S_AXI_WSTRB;
-  wire  d_S_AXI_WVALID;
-  wire  d_S_AXI_WREADY;
-  wire [31:0] d_S_AXI_RDATA;
-  wire [1:0] d_S_AXI_RRESP;
-  wire  d_S_AXI_RVALID;
-  wire  d_S_AXI_RREADY;
-  wire [1:0] d_S_AXI_BRESP;
-  wire  d_S_AXI_BVALID;
-  wire  d_S_AXI_BREADY;
-  AXI4LiteToRFBridgeVerilog d (
-    .rf_rdata(d_rf_rdata),
-    .rf_wdata(d_rf_wdata),
-    .rf_waddr(d_rf_waddr),
-    .rf_wen(d_rf_wen),
-    .rf_raddr(d_rf_raddr),
-    .S_AXI_ARESETN(d_S_AXI_ARESETN),
-    .S_AXI_ACLK(d_S_AXI_ACLK),
-    .S_AXI_AWADDR(d_S_AXI_AWADDR),
-    .S_AXI_AWPROT(d_S_AXI_AWPROT),
-    .S_AXI_AWVALID(d_S_AXI_AWVALID),
-    .S_AXI_AWREADY(d_S_AXI_AWREADY),
-    .S_AXI_ARADDR(d_S_AXI_ARADDR),
-    .S_AXI_ARPROT(d_S_AXI_ARPROT),
-    .S_AXI_ARVALID(d_S_AXI_ARVALID),
-    .S_AXI_ARREADY(d_S_AXI_ARREADY),
-    .S_AXI_WDATA(d_S_AXI_WDATA),
-    .S_AXI_WSTRB(d_S_AXI_WSTRB),
-    .S_AXI_WVALID(d_S_AXI_WVALID),
-    .S_AXI_WREADY(d_S_AXI_WREADY),
-    .S_AXI_RDATA(d_S_AXI_RDATA),
-    .S_AXI_RRESP(d_S_AXI_RRESP),
-    .S_AXI_RVALID(d_S_AXI_RVALID),
-    .S_AXI_RREADY(d_S_AXI_RREADY),
-    .S_AXI_BRESP(d_S_AXI_BRESP),
-    .S_AXI_BVALID(d_S_AXI_BVALID),
-    .S_AXI_BREADY(d_S_AXI_BREADY)
-  );
-  assign io_S_AXI_AWREADY = d_S_AXI_AWREADY;
-  assign io_S_AXI_ARREADY = d_S_AXI_ARREADY;
-  assign io_S_AXI_WREADY = d_S_AXI_WREADY;
-  assign io_S_AXI_RDATA = d_S_AXI_RDATA;
-  assign io_S_AXI_RRESP = d_S_AXI_RRESP;
-  assign io_S_AXI_RVALID = d_S_AXI_RVALID;
-  assign io_S_AXI_BRESP = d_S_AXI_BRESP;
-  assign io_S_AXI_BVALID = d_S_AXI_BVALID;
-  assign io_raddr = d_rf_raddr;
-  assign io_wen = d_rf_wen;
-  assign io_waddr = d_rf_waddr;
-  assign io_wdata = d_rf_wdata;
-  assign d_rf_rdata = io_rdata;
-  assign d_S_AXI_ARESETN = reset;
-  assign d_S_AXI_ACLK = clock;
-  assign d_S_AXI_AWADDR = io_S_AXI_AWADDR;
-  assign d_S_AXI_AWPROT = io_S_AXI_AWPROT;
-  assign d_S_AXI_AWVALID = io_S_AXI_AWVALID;
-  assign d_S_AXI_ARADDR = io_S_AXI_ARADDR;
-  assign d_S_AXI_ARPROT = io_S_AXI_ARPROT;
-  assign d_S_AXI_ARVALID = io_S_AXI_ARVALID;
-  assign d_S_AXI_WDATA = io_S_AXI_WDATA;
-  assign d_S_AXI_WSTRB = io_S_AXI_WSTRB;
-  assign d_S_AXI_WVALID = io_S_AXI_WVALID;
-  assign d_S_AXI_RREADY = io_S_AXI_RREADY;
-  assign d_S_AXI_BREADY = io_S_AXI_BREADY;
-endmodule
 module FringeDE1SoC(
   input         clock,
   input         reset,
-  input  [31:0] io_S_AXI_AWADDR,
-  input  [2:0]  io_S_AXI_AWPROT,
-  input         io_S_AXI_AWVALID,
-  output        io_S_AXI_AWREADY,
-  input  [31:0] io_S_AXI_ARADDR,
-  input  [2:0]  io_S_AXI_ARPROT,
-  input         io_S_AXI_ARVALID,
-  output        io_S_AXI_ARREADY,
-  input  [31:0] io_S_AXI_WDATA,
-  input  [3:0]  io_S_AXI_WSTRB,
-  input         io_S_AXI_WVALID,
-  output        io_S_AXI_WREADY,
-  output [31:0] io_S_AXI_RDATA,
-  output [1:0]  io_S_AXI_RRESP,
-  output        io_S_AXI_RVALID,
-  input         io_S_AXI_RREADY,
-  output [1:0]  io_S_AXI_BRESP,
-  output        io_S_AXI_BVALID,
-  input         io_S_AXI_BREADY,
+  output [31:0] io_S_AVALON_readdata,
+  input  [15:0] io_S_AVALON_address,
+  input         io_S_AVALON_chipselect,
+  input         io_S_AVALON_write_n,
+  input  [31:0] io_S_AVALON_writedata,
   output        io_enable,
   input         io_done,
   output [31:0] io_argIns_0,
@@ -2438,33 +2291,7 @@ module FringeDE1SoC(
   wire [31:0] fringeCommon_io_dram_resp_bits_rdata_15;
   wire [31:0] fringeCommon_io_dram_resp_bits_tag;
   wire [31:0] fringeCommon_io_dram_resp_bits_streamId;
-  wire  axiLiteBridge_clock;
-  wire  axiLiteBridge_reset;
-  wire [31:0] axiLiteBridge_io_S_AXI_AWADDR;
-  wire [2:0] axiLiteBridge_io_S_AXI_AWPROT;
-  wire  axiLiteBridge_io_S_AXI_AWVALID;
-  wire  axiLiteBridge_io_S_AXI_AWREADY;
-  wire [31:0] axiLiteBridge_io_S_AXI_ARADDR;
-  wire [2:0] axiLiteBridge_io_S_AXI_ARPROT;
-  wire  axiLiteBridge_io_S_AXI_ARVALID;
-  wire  axiLiteBridge_io_S_AXI_ARREADY;
-  wire [31:0] axiLiteBridge_io_S_AXI_WDATA;
-  wire [3:0] axiLiteBridge_io_S_AXI_WSTRB;
-  wire  axiLiteBridge_io_S_AXI_WVALID;
-  wire  axiLiteBridge_io_S_AXI_WREADY;
-  wire [31:0] axiLiteBridge_io_S_AXI_RDATA;
-  wire [1:0] axiLiteBridge_io_S_AXI_RRESP;
-  wire  axiLiteBridge_io_S_AXI_RVALID;
-  wire  axiLiteBridge_io_S_AXI_RREADY;
-  wire [1:0] axiLiteBridge_io_S_AXI_BRESP;
-  wire  axiLiteBridge_io_S_AXI_BVALID;
-  wire  axiLiteBridge_io_S_AXI_BREADY;
-  wire [31:0] axiLiteBridge_io_raddr;
-  wire  axiLiteBridge_io_wen;
-  wire [31:0] axiLiteBridge_io_waddr;
-  wire [31:0] axiLiteBridge_io_wdata;
-  wire [31:0] axiLiteBridge_io_rdata;
-  wire  _T_120;
+  wire  _T_53;
   reg  _GEN_0;
   reg [31:0] _GEN_20;
   reg  _GEN_1;
@@ -2562,51 +2389,16 @@ module FringeDE1SoC(
     .io_dram_resp_bits_tag(fringeCommon_io_dram_resp_bits_tag),
     .io_dram_resp_bits_streamId(fringeCommon_io_dram_resp_bits_streamId)
   );
-  AXI4LiteToRFBridge axiLiteBridge (
-    .clock(axiLiteBridge_clock),
-    .reset(axiLiteBridge_reset),
-    .io_S_AXI_AWADDR(axiLiteBridge_io_S_AXI_AWADDR),
-    .io_S_AXI_AWPROT(axiLiteBridge_io_S_AXI_AWPROT),
-    .io_S_AXI_AWVALID(axiLiteBridge_io_S_AXI_AWVALID),
-    .io_S_AXI_AWREADY(axiLiteBridge_io_S_AXI_AWREADY),
-    .io_S_AXI_ARADDR(axiLiteBridge_io_S_AXI_ARADDR),
-    .io_S_AXI_ARPROT(axiLiteBridge_io_S_AXI_ARPROT),
-    .io_S_AXI_ARVALID(axiLiteBridge_io_S_AXI_ARVALID),
-    .io_S_AXI_ARREADY(axiLiteBridge_io_S_AXI_ARREADY),
-    .io_S_AXI_WDATA(axiLiteBridge_io_S_AXI_WDATA),
-    .io_S_AXI_WSTRB(axiLiteBridge_io_S_AXI_WSTRB),
-    .io_S_AXI_WVALID(axiLiteBridge_io_S_AXI_WVALID),
-    .io_S_AXI_WREADY(axiLiteBridge_io_S_AXI_WREADY),
-    .io_S_AXI_RDATA(axiLiteBridge_io_S_AXI_RDATA),
-    .io_S_AXI_RRESP(axiLiteBridge_io_S_AXI_RRESP),
-    .io_S_AXI_RVALID(axiLiteBridge_io_S_AXI_RVALID),
-    .io_S_AXI_RREADY(axiLiteBridge_io_S_AXI_RREADY),
-    .io_S_AXI_BRESP(axiLiteBridge_io_S_AXI_BRESP),
-    .io_S_AXI_BVALID(axiLiteBridge_io_S_AXI_BVALID),
-    .io_S_AXI_BREADY(axiLiteBridge_io_S_AXI_BREADY),
-    .io_raddr(axiLiteBridge_io_raddr),
-    .io_wen(axiLiteBridge_io_wen),
-    .io_waddr(axiLiteBridge_io_waddr),
-    .io_wdata(axiLiteBridge_io_wdata),
-    .io_rdata(axiLiteBridge_io_rdata)
-  );
-  assign io_S_AXI_AWREADY = axiLiteBridge_io_S_AXI_AWREADY;
-  assign io_S_AXI_ARREADY = axiLiteBridge_io_S_AXI_ARREADY;
-  assign io_S_AXI_WREADY = axiLiteBridge_io_S_AXI_WREADY;
-  assign io_S_AXI_RDATA = axiLiteBridge_io_S_AXI_RDATA;
-  assign io_S_AXI_RRESP = axiLiteBridge_io_S_AXI_RRESP;
-  assign io_S_AXI_RVALID = axiLiteBridge_io_S_AXI_RVALID;
-  assign io_S_AXI_BRESP = axiLiteBridge_io_S_AXI_BRESP;
-  assign io_S_AXI_BVALID = axiLiteBridge_io_S_AXI_BVALID;
+  assign io_S_AVALON_readdata = fringeCommon_io_rdata;
   assign io_enable = fringeCommon_io_enable;
   assign io_argIns_0 = fringeCommon_io_argIns_0;
   assign io_argOuts_0_ready = fringeCommon_io_argOuts_0_ready;
   assign fringeCommon_clock = clock;
-  assign fringeCommon_reset = _T_120;
-  assign fringeCommon_io_raddr = axiLiteBridge_io_raddr[1:0];
-  assign fringeCommon_io_wen = axiLiteBridge_io_wen;
-  assign fringeCommon_io_waddr = axiLiteBridge_io_waddr[1:0];
-  assign fringeCommon_io_wdata = axiLiteBridge_io_wdata;
+  assign fringeCommon_reset = reset;
+  assign fringeCommon_io_raddr = io_S_AVALON_address[1:0];
+  assign fringeCommon_io_wen = _T_53;
+  assign fringeCommon_io_waddr = io_S_AVALON_address[1:0];
+  assign fringeCommon_io_wdata = io_S_AVALON_writedata;
   assign fringeCommon_io_done = io_done;
   assign fringeCommon_io_argOuts_0_valid = io_argOuts_0_valid;
   assign fringeCommon_io_argOuts_0_bits = io_argOuts_0_bits;
@@ -2630,21 +2422,7 @@ module FringeDE1SoC(
   assign fringeCommon_io_dram_resp_bits_rdata_15 = _GEN_17;
   assign fringeCommon_io_dram_resp_bits_tag = _GEN_18;
   assign fringeCommon_io_dram_resp_bits_streamId = _GEN_19;
-  assign axiLiteBridge_clock = clock;
-  assign axiLiteBridge_reset = reset;
-  assign axiLiteBridge_io_S_AXI_AWADDR = io_S_AXI_AWADDR;
-  assign axiLiteBridge_io_S_AXI_AWPROT = io_S_AXI_AWPROT;
-  assign axiLiteBridge_io_S_AXI_AWVALID = io_S_AXI_AWVALID;
-  assign axiLiteBridge_io_S_AXI_ARADDR = io_S_AXI_ARADDR;
-  assign axiLiteBridge_io_S_AXI_ARPROT = io_S_AXI_ARPROT;
-  assign axiLiteBridge_io_S_AXI_ARVALID = io_S_AXI_ARVALID;
-  assign axiLiteBridge_io_S_AXI_WDATA = io_S_AXI_WDATA;
-  assign axiLiteBridge_io_S_AXI_WSTRB = io_S_AXI_WSTRB;
-  assign axiLiteBridge_io_S_AXI_WVALID = io_S_AXI_WVALID;
-  assign axiLiteBridge_io_S_AXI_RREADY = io_S_AXI_RREADY;
-  assign axiLiteBridge_io_S_AXI_BREADY = io_S_AXI_BREADY;
-  assign axiLiteBridge_io_rdata = fringeCommon_io_rdata;
-  assign _T_120 = ~ reset;
+  assign _T_53 = ~ io_S_AVALON_write_n;
 `ifdef RANDOMIZE
   integer initvar;
   initial begin
@@ -2742,25 +2520,11 @@ module Top(
   input         io_waddr,
   input         io_wdata,
   output        io_rdata,
-  input  [15:0] io_S_AXI_AWADDR,
-  input  [2:0]  io_S_AXI_AWPROT,
-  input         io_S_AXI_AWVALID,
-  output        io_S_AXI_AWREADY,
-  input  [15:0] io_S_AXI_ARADDR,
-  input  [2:0]  io_S_AXI_ARPROT,
-  input         io_S_AXI_ARVALID,
-  output        io_S_AXI_ARREADY,
-  input  [31:0] io_S_AXI_WDATA,
-  input  [3:0]  io_S_AXI_WSTRB,
-  input         io_S_AXI_WVALID,
-  output        io_S_AXI_WREADY,
-  output [31:0] io_S_AXI_RDATA,
-  output [1:0]  io_S_AXI_RRESP,
-  output        io_S_AXI_RVALID,
-  input         io_S_AXI_RREADY,
-  output [1:0]  io_S_AXI_BRESP,
-  output        io_S_AXI_BVALID,
-  input         io_S_AXI_BREADY
+  output [31:0] io_S_AVALON_readdata,
+  input  [15:0] io_S_AVALON_address,
+  input         io_S_AVALON_chipselect,
+  input         io_S_AVALON_write_n,
+  input  [31:0] io_S_AVALON_writedata
 );
   wire  accel_clock;
   wire  accel_reset;
@@ -2772,32 +2536,18 @@ module Top(
   wire [31:0] accel_io_argOuts_0_bits;
   wire  FringeDE1SoC_clock;
   wire  FringeDE1SoC_reset;
-  wire [31:0] FringeDE1SoC_io_S_AXI_AWADDR;
-  wire [2:0] FringeDE1SoC_io_S_AXI_AWPROT;
-  wire  FringeDE1SoC_io_S_AXI_AWVALID;
-  wire  FringeDE1SoC_io_S_AXI_AWREADY;
-  wire [31:0] FringeDE1SoC_io_S_AXI_ARADDR;
-  wire [2:0] FringeDE1SoC_io_S_AXI_ARPROT;
-  wire  FringeDE1SoC_io_S_AXI_ARVALID;
-  wire  FringeDE1SoC_io_S_AXI_ARREADY;
-  wire [31:0] FringeDE1SoC_io_S_AXI_WDATA;
-  wire [3:0] FringeDE1SoC_io_S_AXI_WSTRB;
-  wire  FringeDE1SoC_io_S_AXI_WVALID;
-  wire  FringeDE1SoC_io_S_AXI_WREADY;
-  wire [31:0] FringeDE1SoC_io_S_AXI_RDATA;
-  wire [1:0] FringeDE1SoC_io_S_AXI_RRESP;
-  wire  FringeDE1SoC_io_S_AXI_RVALID;
-  wire  FringeDE1SoC_io_S_AXI_RREADY;
-  wire [1:0] FringeDE1SoC_io_S_AXI_BRESP;
-  wire  FringeDE1SoC_io_S_AXI_BVALID;
-  wire  FringeDE1SoC_io_S_AXI_BREADY;
+  wire [31:0] FringeDE1SoC_io_S_AVALON_readdata;
+  wire [15:0] FringeDE1SoC_io_S_AVALON_address;
+  wire  FringeDE1SoC_io_S_AVALON_chipselect;
+  wire  FringeDE1SoC_io_S_AVALON_write_n;
+  wire [31:0] FringeDE1SoC_io_S_AVALON_writedata;
   wire  FringeDE1SoC_io_enable;
   wire  FringeDE1SoC_io_done;
   wire [31:0] FringeDE1SoC_io_argIns_0;
   wire  FringeDE1SoC_io_argOuts_0_ready;
   wire  FringeDE1SoC_io_argOuts_0_valid;
   wire [31:0] FringeDE1SoC_io_argOuts_0_bits;
-  wire  _T_105;
+  wire  _T_38;
   reg  _GEN_0;
   reg [31:0] _GEN_2;
   reg  _GEN_1;
@@ -2815,25 +2565,11 @@ module Top(
   FringeDE1SoC FringeDE1SoC (
     .clock(FringeDE1SoC_clock),
     .reset(FringeDE1SoC_reset),
-    .io_S_AXI_AWADDR(FringeDE1SoC_io_S_AXI_AWADDR),
-    .io_S_AXI_AWPROT(FringeDE1SoC_io_S_AXI_AWPROT),
-    .io_S_AXI_AWVALID(FringeDE1SoC_io_S_AXI_AWVALID),
-    .io_S_AXI_AWREADY(FringeDE1SoC_io_S_AXI_AWREADY),
-    .io_S_AXI_ARADDR(FringeDE1SoC_io_S_AXI_ARADDR),
-    .io_S_AXI_ARPROT(FringeDE1SoC_io_S_AXI_ARPROT),
-    .io_S_AXI_ARVALID(FringeDE1SoC_io_S_AXI_ARVALID),
-    .io_S_AXI_ARREADY(FringeDE1SoC_io_S_AXI_ARREADY),
-    .io_S_AXI_WDATA(FringeDE1SoC_io_S_AXI_WDATA),
-    .io_S_AXI_WSTRB(FringeDE1SoC_io_S_AXI_WSTRB),
-    .io_S_AXI_WVALID(FringeDE1SoC_io_S_AXI_WVALID),
-    .io_S_AXI_WREADY(FringeDE1SoC_io_S_AXI_WREADY),
-    .io_S_AXI_RDATA(FringeDE1SoC_io_S_AXI_RDATA),
-    .io_S_AXI_RRESP(FringeDE1SoC_io_S_AXI_RRESP),
-    .io_S_AXI_RVALID(FringeDE1SoC_io_S_AXI_RVALID),
-    .io_S_AXI_RREADY(FringeDE1SoC_io_S_AXI_RREADY),
-    .io_S_AXI_BRESP(FringeDE1SoC_io_S_AXI_BRESP),
-    .io_S_AXI_BVALID(FringeDE1SoC_io_S_AXI_BVALID),
-    .io_S_AXI_BREADY(FringeDE1SoC_io_S_AXI_BREADY),
+    .io_S_AVALON_readdata(FringeDE1SoC_io_S_AVALON_readdata),
+    .io_S_AVALON_address(FringeDE1SoC_io_S_AVALON_address),
+    .io_S_AVALON_chipselect(FringeDE1SoC_io_S_AVALON_chipselect),
+    .io_S_AVALON_write_n(FringeDE1SoC_io_S_AVALON_write_n),
+    .io_S_AVALON_writedata(FringeDE1SoC_io_S_AVALON_writedata),
     .io_enable(FringeDE1SoC_io_enable),
     .io_done(FringeDE1SoC_io_done),
     .io_argIns_0(FringeDE1SoC_io_argIns_0),
@@ -2842,36 +2578,22 @@ module Top(
     .io_argOuts_0_bits(FringeDE1SoC_io_argOuts_0_bits)
   );
   assign io_rdata = _GEN_0;
-  assign io_S_AXI_AWREADY = FringeDE1SoC_io_S_AXI_AWREADY;
-  assign io_S_AXI_ARREADY = FringeDE1SoC_io_S_AXI_ARREADY;
-  assign io_S_AXI_WREADY = FringeDE1SoC_io_S_AXI_WREADY;
-  assign io_S_AXI_RDATA = FringeDE1SoC_io_S_AXI_RDATA;
-  assign io_S_AXI_RRESP = FringeDE1SoC_io_S_AXI_RRESP;
-  assign io_S_AXI_RVALID = FringeDE1SoC_io_S_AXI_RVALID;
-  assign io_S_AXI_BRESP = FringeDE1SoC_io_S_AXI_BRESP;
-  assign io_S_AXI_BVALID = FringeDE1SoC_io_S_AXI_BVALID;
+  assign io_S_AVALON_readdata = FringeDE1SoC_io_S_AVALON_readdata;
   assign accel_clock = clock;
-  assign accel_reset = _T_105;
+  assign accel_reset = _T_38;
   assign accel_io_enable = FringeDE1SoC_io_enable;
   assign accel_io_argIns_0 = FringeDE1SoC_io_argIns_0;
   assign accel_io_argOuts_0_ready = _GEN_1;
   assign FringeDE1SoC_clock = clock;
   assign FringeDE1SoC_reset = reset;
-  assign FringeDE1SoC_io_S_AXI_AWADDR = {{16'd0}, io_S_AXI_AWADDR};
-  assign FringeDE1SoC_io_S_AXI_AWPROT = io_S_AXI_AWPROT;
-  assign FringeDE1SoC_io_S_AXI_AWVALID = io_S_AXI_AWVALID;
-  assign FringeDE1SoC_io_S_AXI_ARADDR = {{16'd0}, io_S_AXI_ARADDR};
-  assign FringeDE1SoC_io_S_AXI_ARPROT = io_S_AXI_ARPROT;
-  assign FringeDE1SoC_io_S_AXI_ARVALID = io_S_AXI_ARVALID;
-  assign FringeDE1SoC_io_S_AXI_WDATA = io_S_AXI_WDATA;
-  assign FringeDE1SoC_io_S_AXI_WSTRB = io_S_AXI_WSTRB;
-  assign FringeDE1SoC_io_S_AXI_WVALID = io_S_AXI_WVALID;
-  assign FringeDE1SoC_io_S_AXI_RREADY = io_S_AXI_RREADY;
-  assign FringeDE1SoC_io_S_AXI_BREADY = io_S_AXI_BREADY;
+  assign FringeDE1SoC_io_S_AVALON_address = io_S_AVALON_address;
+  assign FringeDE1SoC_io_S_AVALON_chipselect = io_S_AVALON_chipselect;
+  assign FringeDE1SoC_io_S_AVALON_write_n = io_S_AVALON_write_n;
+  assign FringeDE1SoC_io_S_AVALON_writedata = io_S_AVALON_writedata;
   assign FringeDE1SoC_io_done = accel_io_done;
   assign FringeDE1SoC_io_argOuts_0_valid = 1'h1;
   assign FringeDE1SoC_io_argOuts_0_bits = accel_io_argOuts_0_bits;
-  assign _T_105 = ~ reset;
+  assign _T_38 = ~ reset;
 `ifdef RANDOMIZE
   integer initvar;
   initial begin
