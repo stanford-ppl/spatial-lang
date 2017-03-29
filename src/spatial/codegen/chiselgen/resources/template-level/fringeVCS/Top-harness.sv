@@ -177,6 +177,7 @@ module test;
     io_dram_cmd_ready = 1;
 
     if (tick()) begin
+      $dumpflush;
       $finish;
     end
 
