@@ -84,8 +84,7 @@ extern "C" {
           int fd = open("/dev/zero", O_RDWR);
           void *ptr = mmap(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
           close(fd);
-//          void *ptr = malloc(size);
-//          ASSERT(ptr != NULL, "malloc failed\n");
+
           simCmd resp;
           resp.id = cmd->id;
           resp.cmd = cmd->cmd;
@@ -99,8 +98,7 @@ extern "C" {
           void *ptr = (void*)(*(uint64_t*)cmd->data);
           ASSERT(ptr != NULL, "Attempting to call free on null pointer\n");
           EPRINTF("[SIM] FREE(%lx)\n", ptr);
-//          munmap(ptr);
-//          free(ptr);
+
           break;
         }
         case MEMCPY_H2D: {
@@ -126,12 +124,6 @@ extern "C" {
           uint64_t *data = (uint64_t*)cmd->data;
           void *src = (void*)data[0];
           size_t size = data[1];
-
-//          EPRINTF("[SIM] Src memory in MEMCPY_D2H:\n");
-//          for (int i=0; i<size/4; i++) {
-//            EPRINTF("[SIM] src[%d]: %u\n", i, *((uint32_t*)src + i));
-//          }
-
 
           // Now to receive 'size' bytes from the cmd stream
           respChannel->sendFixedBytes(src, size);
