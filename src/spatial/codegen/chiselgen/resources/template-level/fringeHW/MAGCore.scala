@@ -50,6 +50,7 @@ class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 32) {
 
 class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 32) {
   val wdata = Flipped(Decoupled(Vec(p.v, UInt(p.w.W))))
+  val wresp = Output(Bool())
 
   override def cloneType(): this.type = {
     new StoreStream(p).asInstanceOf[this.type]
@@ -392,6 +393,11 @@ class MAGCore(
   io.app.stores.map{_.wdata}.zipWithIndex.foreach { case (wdata, i) =>
     wdata.ready := ~wdataFifo.io.full(i)
   }
+
+  io.app.stores.map{_.wresp}.zipWithIndex.foreach { case (wresp, i) =>
+    wresp := io.dram.resp.valid & streamTagFromDRAM === (i.U + loadStreamInfo.size.U)
+  }
+
 }
 
 //class MemoryTester (
