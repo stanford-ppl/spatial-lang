@@ -95,6 +95,47 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     val bT = bits[T]
   }
 
+  case class ParLineBufferLoad[T:Staged:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    rows:       Seq[Exp[Index]],
+    cols:       Seq[Exp[Index]],
+    ens:        Seq[Exp[Bool]]
+  )(implicit val W: INT[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
+    def mirror(f:Tx) = par_linebuffer_load(f(linebuffer),f(rows),f(cols),f(ens))
+    override def aliases = Nil
+    val mT = typ[T]
+  }
+
+  case class ParLineBufferEnq[T:Staged:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    data:       Exp[Vector[T]],
+    ens:        Seq[Exp[Bool]]
+  ) extends EnabledOp[Void](ens:_*) {
+    def mirror(f:Tx) = par_linebuffer_enq(f(linebuffer),f(data),f(ens))
+    override def aliases = Nil
+    val mT = typ[T]
+  }
+
+  case class ParRegFileLoad[T:Staged:Bits](
+    reg:  Exp[RegFile[T]],
+    inds: Seq[Seq[Exp[Index]]],
+    ens:  Seq[Exp[Bool]]
+  )(implicit val W: INT[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
+    def mirror(f:Tx) = par_regfile_load(f(reg),inds.map(is => f(is)),f(ens))
+    override def aliases = Nil
+    val mT = typ[T]
+  }
+
+  case class ParRegFileStore[T:Staged:Bits](
+    reg:  Exp[RegFile[T]],
+    inds: Seq[Seq[Exp[Index]]],
+    data: Exp[Vector[T]],
+    ens:  Seq[Exp[Bool]]
+  ) extends EnabledOp[Void](ens:_*) {
+    def mirror(f:Tx) = par_regfile_store(f(reg),inds.map(is => f(is)),f(data),f(ens))
+    val mT = typ[T]
+  }
+
   /** Constructors **/
   private[spatial] def op_unrolled_foreach(
     en:     Seq[Exp[Bool]],
@@ -172,6 +213,42 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     ens:    Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(stream)( ParStreamWrite(stream, data, ens) )(ctx)
+  }
+
+  private[spatial] def par_linebuffer_load[T:Staged:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    rows:       Seq[Exp[Index]],
+    cols:       Seq[Exp[Index]],
+    ens:        Seq[Exp[Bool]]
+  )(implicit ctx: SrcCtx) = {
+    implicit val W = Width[T](ens.length)
+    stageWrite(linebuffer)(ParLineBufferLoad(linebuffer,rows,cols,ens))(ctx)
+  }
+
+  private[spatial] def par_linebuffer_enq[T:Staged:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    data:       Exp[Vector[T]],
+    ens:        Seq[Exp[Bool]]
+  )(implicit ctx: SrcCtx) = {
+    stageWrite(linebuffer)(ParLineBufferEnq(linebuffer,data,ens))(ctx)
+  }
+
+  private[spatial] def par_regfile_load[T:Staged:Bits](
+    reg:  Exp[RegFile[T]],
+    inds: Seq[Seq[Exp[Index]]],
+    ens:  Seq[Exp[Bool]]
+  )(implicit ctx: SrcCtx) = {
+    implicit val W = Width[T](ens.length)
+    stageCold(ParRegFileLoad(reg, inds, ens))(ctx)
+  }
+
+  private[spatial] def par_regfile_store[T:Staged:Bits](
+    reg:  Exp[RegFile[T]],
+    inds: Seq[Seq[Exp[Index]]],
+    data: Exp[Vector[T]],
+    ens:  Seq[Exp[Bool]]
+  )(implicit ctx: SrcCtx) = {
+    stageWrite(reg)(ParRegFileStore(reg, inds, data, ens))(ctx)
   }
 
 }

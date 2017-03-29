@@ -223,8 +223,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     // 2. Make later stages depend on the given substitution across all lanes
     // NOTE: This assumes that the node has no meaningful return value (i.e. all are Pipeline or Unit)
     // Bad things can happen here if you're not careful!
-    def split[T:Staged:Bits](orig: Sym[_], vec: Exp[Vector[T]])(implicit ctx: SrcCtx): List[Exp[T]] = map{p =>
-      val element = vector_apply[T](vec, p)
+    def split[T:Staged](orig: Sym[T], vec: Exp[Vector[_]])(implicit ctx: SrcCtx): List[Exp[T]] = map{p =>
+      val element = vector_apply[T](vec.asInstanceOf[Exp[Vector[T]]], p)
       register(orig -> element)
       element
     }
@@ -245,90 +245,86 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     case _ => super.transform(lhs, rhs)
   }).asInstanceOf[Exp[A]]
 
+  val writeParallelizer: PartialFunction[(Unroller, Def, SrcCtx),Exp[Void]] = {
+    case (lanes, e@RegFileStore(reg,inds,data,en), ctx) =>
+      val addrs = lanes.map{p => inds.map(f(_)) }
+      val datas = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
+      val ens   = lanes.map{p => f(en) }
+      par_regfile_store(f(reg),addrs,datas,ens)(e.mT,e.bT,ctx)
+
+    case (lanes, e@LineBufferEnq(lb,data,en), ctx) =>
+      val datas = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
+      val enables = lanes.map{p => bool_and(f(en), globalValid) }
+      par_linebuffer_enq(f(lb), datas, enables)(e.mT,e.bT,ctx)
+
+    case (lanes, e@FIFOEnq(fifo, data, en), ctx) =>
+      val datas  = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
+      val enables = lanes.map{p => bool_and( f(en), globalValid) }
+      par_fifo_enq(f(fifo), datas, enables)(e.mT,e.bT,ctx)
+
+    case (lanes, e@StreamWrite(stream, data, en), ctx) =>
+      val datas   = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
+      val enables = lanes.map{p => bool_and( f(en), globalValid) }
+      par_stream_write(f(stream), datas, enables)(e.mT,e.bT,ctx)
+
+    // TODO: Assuming dims and ofs are not needed for now
+    case (lanes, e@SRAMStore(sram,dims,inds,ofs,data,en), ctx) =>
+      val addrs  = lanes.map{p => inds.map(f(_)) }
+      val values = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
+      val ens    = lanes.map{p => bool_and(f(en), globalValid) }
+      par_sram_store(f(sram), addrs, values, ens)(e.mT,e.bT,ctx)
+  }
+
+  val readParallelizer: PartialFunction[(Unroller, Def, SrcCtx),Exp[Vector[_]]] = {
+    case (lanes, e@RegFileLoad(reg,inds,en), ctx) =>
+      val addrs = lanes.map{p => inds.map(f(_)) }
+      val ens   = lanes.map{p => f(en) }
+      par_regfile_load(f(reg), addrs, ens)(mtyp(e.mT), mbits(e.bT), ctx)
+
+    case (lanes, e@LineBufferLoad(lb,row,col,en), ctx) =>
+      val rows = lanes.map{p => f(row) }
+      val cols = lanes.map{p => f(col) }
+      val ens  = lanes.map{p => f(en) }
+      par_linebuffer_load(f(lb), rows, cols, ens)(mtyp(e.mT),mbits(e.bT),ctx)
+
+    case (lanes, e@FIFODeq(fifo, en), ctx) =>
+      val enables = lanes.map{p => bool_and(f(en), globalValid) }
+      par_fifo_deq(f(fifo), enables)(mtyp(e.mT),mbits(e.bT),ctx)
+
+    case (lanes, e@StreamRead(stream, en), ctx) =>
+      val enables = lanes.map{p => bool_and(f(en), globalValid) }
+      par_stream_read(f(stream), enables)(mtyp(e.mT),mbits(e.bT),ctx)
+
+    // TODO: Assuming dims and ofs are not needed for now
+    case (lanes, e@SRAMLoad(sram,dims,inds,ofs,en), ctx) =>
+      val addrs = lanes.map{p => inds.map(f(_)) }
+      val ens   = lanes.map{p => bool_and(f(en), globalValid) }
+      par_sram_load(f(sram), addrs, ens)(mtyp(e.mT),mbits(e.bT),ctx)
+  }
 
   /**
     * Create duplicates of the given node or special case, vectorized version
     * NOTE: Only can be used within reify scope
     **/
   def unroll[T](lhs: Sym[T], rhs: Op[T], lanes: Unroller)(implicit ctx: SrcCtx): List[Exp[_]] = rhs match {
-    // Account for the edge case with FIFO writing
-    case e@FIFOEnq(fifo, data, en) if lanes.isCommon(fifo) =>
-      dbgs(s"Unrolling $lhs = $rhs")
-      val datas  = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
-      val enables = lanes.map{p => bool_and( f(en), globalValid) }
-      val lhs2 = par_fifo_enq(f(fifo), datas, enables)(e.mT,e.bT,ctx)
-
+    // Account for the edge ca e with FIFO writing
+    case LocalReader(reads) if reads.forall{r => lanes.isCommon(r.mem)} && readParallelizer.isDefinedAt((lanes,rhs,ctx)) =>
+      val lhs2 = readParallelizer.apply((lanes,rhs,ctx))
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
-      lanes.unify(lhs, lhs2)
-
-    case e@FIFODeq(fifo, en) if lanes.isCommon(fifo) =>
-      dbgs(s"Unrolling $lhs = $rhs")
-      val enables = lanes.map{p => bool_and(f(en), globalValid) }
-      val lhs2 = par_fifo_deq(f(fifo), enables)(mtyp(e.mT),mbits(e.bT),ctx)
-
-      transferMetadata(lhs, lhs2)
-      cloneFuncs.foreach{func => func(lhs2) }
-      lanes.split(lhs, lhs2)(mtyp(e.mT),mbits(e.bT),ctx)
-
-
-    case e@StreamWrite(stream, data, en) =>
-      dbgs(s"Unrolling $lhs = $rhs")
-      val datas   = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
-      val enables = lanes.map{p => bool_and( f(en), globalValid) }
-      val lhs2 = par_stream_write(f(stream), datas, enables)(e.mT,e.bT,ctx)
-
-      transferMetadata(lhs, lhs2)
-      cloneFuncs.foreach{func => func(lhs2) }
-      lanes.unify(lhs, lhs2)
-
-    case e@StreamRead(stream, en) =>
-      dbgs(s"Unrolling $lhs = $rhs")
-      val enables = lanes.map{p => bool_and(f(en), globalValid) }
-      val lhs2 = par_stream_read(f(stream), enables)(mtyp(e.mT),mbits(e.bT),ctx)
-
-      transferMetadata(lhs, lhs2)
-      cloneFuncs.foreach{func => func(lhs2) }
-      lanes.split(lhs, lhs2)(mtyp(e.mT),mbits(e.bT),ctx)
-
-
-    // TODO: Assuming dims and ofs are not needed for now
-    case e@SRAMStore(sram,dims,inds,ofs,data,en) if lanes.isCommon(sram) =>
-      dbgs(s"Unrolling $lhs = $rhs")
-      strMeta(lhs)
-
-      val addrs  = lanes.map{p => inds.map(f(_)) }
-      val values = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
-      val ens    = lanes.map{p => bool_and(f(en), globalValid) }
-      val lhs2   = par_sram_store(f(sram), addrs, values, ens)(e.mT,e.bT,ctx)
-
-      transferMetadata(lhs, lhs2)
-      cloneFuncs.foreach{func => func(lhs2) }
-
-      dbgs(s"Created ${str(lhs2)}")
-      strMeta(lhs2)
-
       registerAccess(lhs, lhs2)
-      lanes.unify(lhs, lhs2)
+      dbgs(s"Unrolling $lhs = $rhs"); strMeta(lhs)
+      dbgs(s"Created ${str(lhs2)}"); strMeta(lhs2)
+      lanes.split(lhs, lhs2)(mtyp(lhs.tp),ctx)
 
-
-    // TODO: Assuming dims and ofs are not needed for now
-    case e@SRAMLoad(sram,dims,inds,ofs,en) if lanes.isCommon(sram) =>
-      dbgs(s"Unrolling $lhs = $rhs")
-      strMeta(lhs)
-
-      val addrs = lanes.map{p => inds.map(f(_)) }
-      val ens   = lanes.map{p => bool_and(f(en), globalValid) }
-      val lhs2 = par_sram_load(f(sram), addrs, ens)(mtyp(e.mT),mbits(e.bT),ctx)
-
+    case LocalWriter(writes) if writes.forall(w => lanes.isCommon(w.mem)) && writeParallelizer.isDefinedAt((lanes,rhs,ctx)) =>
+      val lhs2 = writeParallelizer.apply((lanes,rhs,ctx))
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
-
-      dbgs(s"Created ${str(lhs2)}")
-      strMeta(lhs2)
-
       registerAccess(lhs, lhs2)
-      lanes.split(lhs, lhs2)(mtyp(e.mT),mbits(e.bT),ctx)
+      dbgs(s"Unrolling $lhs = $rhs"); strMeta(lhs)
+      dbgs(s"Created ${str(lhs2)}"); strMeta(lhs2)
+      lanes.unify(lhs, lhs2)
 
     case e: OpForeach        => unrollControllers(lhs,rhs,lanes){ unrollForeachNode(lhs, e) }
     case e: OpReduce[_]      => unrollControllers(lhs,rhs,lanes){ unrollReduceNode(lhs, e) }
