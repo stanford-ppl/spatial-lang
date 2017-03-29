@@ -104,7 +104,7 @@ object Convolution_FPGA extends SpatialApp {
       1   0  -1
 
     */
-    val gold = (0::R, 0::C){(i,j) => if (j > border && j < C-border && i > border && i < C - border) (i*4 + (i+2)*4) else 0 }
+    val gold = (0::R, 0::C){(i,j) => if (j > border && j < C-border && i > border && i < C - border) (i*16*4 + (i+2)*16*4) else 0 }
 
     printMatrix(image, "Image")
     printMatrix(gold, "Gold")
