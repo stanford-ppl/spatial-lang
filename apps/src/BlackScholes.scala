@@ -106,19 +106,19 @@ object BlackScholes extends SpatialApp {
         val optpriceBlk = SRAM[T](B)
 
         Parallel {
-          typeBlk   load types(i::i+B par IP)
-          priceBlk  load prices(i::i+B par IP)
-          strikeBlk load strike(i::i+B par IP)
-          rateBlk   load rate(i::i+B par IP)
-          volBlk    load vol(i::i+B par IP)
-          timeBlk   load times(i::i+B par IP)
+          typeBlk   load types(i::i+B par 16)
+          priceBlk  load prices(i::i+B par 16)
+          strikeBlk load strike(i::i+B par 16)
+          rateBlk   load rate(i::i+B par 16)
+          volBlk    load vol(i::i+B par 16)
+          timeBlk   load times(i::i+B par 16)
         }
 
         Foreach(B par IP){ j =>
           val price = BlkSchlsEqEuroNoDiv(priceBlk(j), strikeBlk(j), rateBlk(j), volBlk(j), timeBlk(j), typeBlk(j))
           optpriceBlk(j) = price
         }
-        optprice(i::i+B par IP) store optpriceBlk
+        optprice(i::i+B par 16) store optpriceBlk
       }
     }
     getMem(optprice)

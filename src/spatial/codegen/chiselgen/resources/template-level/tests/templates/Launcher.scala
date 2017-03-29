@@ -159,8 +159,8 @@ object Arguments {
     (10)
   )
   val LineBuffer = List( // Arguments are (#lines, line size, #extra rows to buffer, COL_PAR, ROW_PAR)
-    (3,10,1,1,3),
-    (5,10,2,1,5)
+    (3,10,1,1,1,1,3),
+    (5,10,2,1,1,1,5)
   )
 }
 // End args
