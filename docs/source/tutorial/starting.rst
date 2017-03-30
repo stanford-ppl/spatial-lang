@@ -1,5 +1,3 @@
-
-
 0. Getting Started
 ==================
 
@@ -24,7 +22,7 @@ Finally, please sign up for the `Spatial users google group <https://groups.goog
 Installation
 ------------
 
-Next, clone three repositories: `scala-virtualized`, `argon`, and `spatial-lang`.
+Next, clone two repositories: `argon` and `spatial-lang`.
 You can place these anywhere as long as you point your environment variables correctly.
 This tutorial will assume you place all three in ${HOME}/spatial.
 
@@ -36,12 +34,8 @@ Run the following (bash) commands to clone::
     cd ${HOME}/spatial
     git clone https://github.com/stanford-ppl/spatial-lang.git
     git clone https://github.com/stanford-ppl/argon.git
-    git clone https://github.com/stanford-ppl/scala-virtualized.git
-    cd scala-virtualized && git fetch && git checkout argon && cd ../ # switch to Argon branch for scala-virtualized
-    cd spatial-lang
 
-
-Note that the current setup requires spatial-lang and argon on the ``master`` branch and scala-virtualized on the ``argon`` branch.
+Note that the current setup assumes spatial-lang and argon are on the ``master`` branch.
 
 Next, make sure the following environment variables are set.  If you are using the recommended
 directory structure in this tutorial, then you can simply run the following command::
@@ -62,7 +56,7 @@ Once these are all set, you are ready to compile the language.  Run the followin
     cd ${SPATIAL_HOME}
     make full
 
-A good habit would be to pull from each of these 3 repositories often and run ``make full`` in ``SPATIAL_HOME``.
+A good habit would be to pull from these repositories often and run ``make full`` in ``SPATIAL_HOME``.
 
 
 That's it! Up next, :doc:`learn how to build a basic Spatial program <helloworld>`.
