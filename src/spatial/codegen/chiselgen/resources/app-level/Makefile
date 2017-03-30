@@ -13,6 +13,7 @@ help:
 	@echo "make zynq 				: Zynq SW + HW build"
 	@echo "make zynq-hw    	: Build Chisel for Zynq"
 	@echo "make sim-clean 	: Verilator simulation clean up"
+	@echo "make de1soc	: Build Chisel for DE1-SoC"
 	@echo "------- END HELP -------"
 
 sim: sim-hw
@@ -86,6 +87,18 @@ zynq-clean:
 	make -C cpp clean
 	rm -rf verilog
 	rm -f TopZynq.tar.gz
+
+de1soc: 
+	sbt "run-main top.Instantiator --verilog --testArgs de1soc"
+	sed -i 's/SRFF/SRFF_sp/g' verilog/Top.v
+	cp -r chisel/fringeDE1SoC/* verilog
+	cp verilog/Top.v verilog/Computer_System/synthesis/submodules
+	cd verilog && ./compile.sh
+	echo "sp.rbf generated. Please copy it to your working dir on FPGA ARM"
+
+de1soc-clean:
+	rm -rf verilog
+
 
 sim-clean:
 	make -C ${VERILATOR_SRC} clean

@@ -48,6 +48,11 @@ class ZynqInterface(p: TopParams) extends TopInterface {
   val M_AXI = new AXI4Inlined(axiParams)
 }
 
+class DE1SoCInterface(p: TopParams) extends TopInterface {
+  private val axiLiteParams = new AXI4BundleParameters(16, p.dataWidth, 1)
+  val S_AVALON = new AvalonSlave(axiLiteParams)
+}
+
 class AWSInterface(p: TopParams) extends TopInterface {
   val enable = Input(UInt(p.dataWidth.W))
   val done = Output(UInt(p.dataWidth.W))
@@ -74,6 +79,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
     case "verilator"  => IO(new VerilatorInterface(topParams))
     case "aws"        => IO(new AWSInterface(topParams))
     case "zynq"       => IO(new ZynqInterface(topParams))
+    case "de1soc"     => IO(new DE1SoCInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
   }
 
@@ -104,6 +110,24 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
+
+    case "de1soc" =>
+      // DE1SoC Fringe
+      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, numMemoryStreams))
+      val topIO = io.asInstanceOf[DE1SoCInterface]
+
+      // Fringe <-> Host connections
+      fringe.io.S_AVALON <> topIO.S_AVALON
+
+      accel.io.argIns := fringe.io.argIns
+      fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
+          fringeArgOut.bits := accelArgOut.bits
+          fringeArgOut.valid := 1.U
+      }
+      accel.io.enable := fringe.io.enable
+      fringe.io.done := accel.io.done
+      // Top reset is connected to a rst controller on DE1SoC, which converts active low to active high
+      accel.reset := reset
 
     case "zynq" =>
       // Zynq Fringe

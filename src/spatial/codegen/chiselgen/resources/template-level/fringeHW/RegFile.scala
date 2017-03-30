@@ -44,7 +44,8 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
 
   val regs = List.tabulate(d) { i =>
     val ff = Module(new FF(w))
-    ff.io.in := (if (argOutRange contains i) Mux(io.argOuts(regIdx2ArgOut(i)).valid, io.argOuts(regIdx2ArgOut(i)).bits, io.wdata) else io.wdata)
+      ff.io.init := 0.U
+      ff.io.in := (if (argOutRange contains i) Mux(io.argOuts(regIdx2ArgOut(i)).valid, io.argOuts(regIdx2ArgOut(i)).bits, io.wdata) else io.wdata)
     ff.io.enable := (if (argOutRange contains i) io.argOuts(argOutRange.indexOf(i)).valid | (io.wen & (io.waddr === i.U)) else io.wen & (io.waddr === i.U))
     ff
   }

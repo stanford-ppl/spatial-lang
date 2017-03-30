@@ -2292,6 +2292,7 @@ module FringeDE1SoC(
   wire [31:0] fringeCommon_io_dram_resp_bits_tag;
   wire [31:0] fringeCommon_io_dram_resp_bits_streamId;
   wire  _T_53;
+  wire  _T_54;
   reg  _GEN_0;
   reg [31:0] _GEN_20;
   reg  _GEN_1;
@@ -2396,7 +2397,7 @@ module FringeDE1SoC(
   assign fringeCommon_clock = clock;
   assign fringeCommon_reset = reset;
   assign fringeCommon_io_raddr = io_S_AVALON_address[1:0];
-  assign fringeCommon_io_wen = _T_53;
+  assign fringeCommon_io_wen = _T_54;
   assign fringeCommon_io_waddr = io_S_AVALON_address[1:0];
   assign fringeCommon_io_wdata = io_S_AVALON_writedata;
   assign fringeCommon_io_done = io_done;
@@ -2423,6 +2424,7 @@ module FringeDE1SoC(
   assign fringeCommon_io_dram_resp_bits_tag = _GEN_18;
   assign fringeCommon_io_dram_resp_bits_streamId = _GEN_19;
   assign _T_53 = ~ io_S_AVALON_write_n;
+  assign _T_54 = _T_53 & io_S_AVALON_chipselect;
 `ifdef RANDOMIZE
   integer initvar;
   initial begin
@@ -2547,7 +2549,6 @@ module Top(
   wire  FringeDE1SoC_io_argOuts_0_ready;
   wire  FringeDE1SoC_io_argOuts_0_valid;
   wire [31:0] FringeDE1SoC_io_argOuts_0_bits;
-  wire  _T_38;
   reg  _GEN_0;
   reg [31:0] _GEN_2;
   reg  _GEN_1;
@@ -2580,7 +2581,7 @@ module Top(
   assign io_rdata = _GEN_0;
   assign io_S_AVALON_readdata = FringeDE1SoC_io_S_AVALON_readdata;
   assign accel_clock = clock;
-  assign accel_reset = _T_38;
+  assign accel_reset = reset;
   assign accel_io_enable = FringeDE1SoC_io_enable;
   assign accel_io_argIns_0 = FringeDE1SoC_io_argIns_0;
   assign accel_io_argOuts_0_ready = _GEN_1;
@@ -2593,7 +2594,6 @@ module Top(
   assign FringeDE1SoC_io_done = accel_io_done;
   assign FringeDE1SoC_io_argOuts_0_valid = 1'h1;
   assign FringeDE1SoC_io_argOuts_0_bits = accel_io_argOuts_0_bits;
-  assign _T_38 = ~ reset;
 `ifdef RANDOMIZE
   integer initvar;
   initial begin
