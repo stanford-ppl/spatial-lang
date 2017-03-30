@@ -1,7 +1,7 @@
 module test;
   import "DPI" function void sim_init();
   import "DPI" function int tick();
-  import "DPI" function void sendDRAMRequest(int addr, int tag, int isWr, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
+  import "DPI" function void sendDRAMRequest(longint addr, int tag, int isWr, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
 
   // Export functionality to C layer
   export "DPI" function start;
