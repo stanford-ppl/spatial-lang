@@ -84,7 +84,7 @@ std::queue<DRAMRequest*> dramRequestQ;
 
 extern "C" {
   void sendDRAMRequest(
-      int addr,
+      long long addr,
       int tag,
       int isWr,
       int wdata0,
@@ -105,7 +105,7 @@ extern "C" {
       int wdata15
     ) {
     // view addr as uint64_t without doing sign extension
-    uint64_t cmdAddr = (uint64_t)(*(uint32_t*)&addr);
+    uint64_t cmdAddr = *(uint64_t*)&addr;
     uint64_t cmdTag = (uint64_t)(*(uint32_t*)&tag);
     bool cmdIsWr = isWr > 0;
     uint32_t cmdWdata0 = (*(uint32_t*)&wdata0);
