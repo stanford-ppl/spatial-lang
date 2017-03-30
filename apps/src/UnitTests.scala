@@ -483,7 +483,7 @@ object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 10
           b2(ii) = b1(ii) * x
         }
 
-        dstFPGA(i::i+tileSize par 2) store b2
+        dstFPGA(i::i+tileSize par 16) store b2
       }
     }
     getMem(dstFPGA)

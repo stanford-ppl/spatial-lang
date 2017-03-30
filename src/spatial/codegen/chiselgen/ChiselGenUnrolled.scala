@@ -236,6 +236,44 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val en = ens.map(quote).mkString("&")
       emit(src"${strm}_data := $data")
       emit(src"${strm}_en := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
+      
+    case op@ParLineBufferLoad(lb,rows,cols,ens) =>
+      rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 
+        emit(src"$lb.io.col_addr(0) := ${col}.number // Assume we always read from same col")
+        emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${row}.number)")
+      }
+      emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${rows.length}, UInt(32.W)))""")
+      emit(s"""${quote(lhs)} := Vec(${(0 until rows.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
+
+    case op@ParLineBufferEnq(lb,data,ens) => //FIXME: Not correct for more than par=1
+      val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
+      emit(src"$lb.io.data_in(0) := ${data}(0).number")
+      emit(src"""$lb.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & ${parent}_datapath_en""")
+
+    case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
+      ens.zipWithIndex.foreach { case (en, i) => 
+        if (needsFPType(lhs.tp)) { lhs.tp match {
+          case FixPtType(s,d,f) => 
+            emit(src"""val ${lhs}_$i = Wire(new FixedPoint($s, $d, $f))""")
+            emit(src"""${lhs}_$i := ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
+          case _ =>
+            emit(src"""val ${lhs}_$i = ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
+        }} else {
+            emit(src"""val ${lhs}_$i = ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
+        }
+      }
+      emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
+      emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
+
+
+    case ParRegFileStore(rf, inds, data, ens) => //FIXME: Not correct for more than par=1
+      val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
+      ens.zipWithIndex.foreach{ case (en, i) => 
+        emit(s"""${quote(rf)}.connectWPort(${quote(data)}($i).number, ${quote(inds(i)(0))}.number, ${quote(inds(i)(1))}.number, ${quote(en)} & ${quote(parent)}_datapath_en)""")
+      }
+      
+
+
 
     case _ => super.emitNode(lhs, rhs)
   }
