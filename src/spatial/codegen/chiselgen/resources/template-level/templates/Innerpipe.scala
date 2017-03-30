@@ -22,6 +22,8 @@ class Innerpipe(val ctrDepth : Int, val isFSM: Boolean = false) extends Module {
       val ctr_maxIn = Vec(ctrDepth, Input(UInt(32.W))) // TODO: Deprecate this maxIn/maxOut business if all is well without it
       val rst = Input(Bool())
       val forever = Input(Bool())
+      val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
+
       // FSM signals
       val nextState = Input(UInt(32.W))
       val initState = Input(UInt(32.W))
@@ -48,6 +50,8 @@ class Innerpipe(val ctrDepth : Int, val isFSM: Boolean = false) extends Module {
     rstCtr.io.input.reset := (state != pipeReset.U) | io.input.rst
     rstCtr.io.input.saturate := true.B
     rstCtr.io.input.max := 10.U
+    rstCtr.io.input.gap := 0.U
+    rstCtr.io.input.start := 0.U
     rstCtr.io.input.stride := 1.U
 
     // Only start the state machine when the enable signal is set

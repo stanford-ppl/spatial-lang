@@ -13,6 +13,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
       val stageDone = Vec(n, Input(Bool()))
       val rst = Input(Bool())
       val forever = Input(Bool())
+      val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
       // FSM signals
       val nextState = Input(UInt(32.W))
       val initState = Input(UInt(32.W))
@@ -55,6 +56,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
     ctr.io.input.max := max
     ctr.io.input.stride := 1.U
     ctr.io.input.start := 0.U
+    ctr.io.input.gap := 0.U
     ctr.io.input.reset := io.input.rst | (state === doneState.U)
     val iter = ctr.io.output.count(0)
     io.output.rst_en := (state === resetState.U)

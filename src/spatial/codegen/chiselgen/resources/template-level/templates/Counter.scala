@@ -29,7 +29,7 @@ class NBufCtr() extends Module {
 
   val nextCntDown = Mux(io.input.enable, Mux(cnt === 0.U, io.input.max-1.U, cnt-1.U), cnt)
   val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.U === io.input.max, 0.U, cnt+1.U), cnt)
-  cnt := Mux(io.input.countUp, nextCntUp, nextCntDown)
+  cnt := Mux(reset, 0.U, Mux(io.input.countUp, nextCntUp, nextCntDown))
 
   io.output.count := effectiveCnt
 }
@@ -200,6 +200,7 @@ class Counter(val par: List[Int]) extends Module {
     ctr.io.input.stride := io.input.strides(i)
     ctr.io.input.gap := io.input.gaps(i)
     ctr.io.input.reset := io.input.reset
+    ctr.io.input.gap := 0.U
   }
 
   // Wire up the enables between ctrs

@@ -190,8 +190,8 @@ class MAGCore(
   sizeFifo.io.enq.zip(cmds) foreach { case (enq, cmd) => enq(0) := cmd.bits.size }
   sizeFifo.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid & ~io.config.scatterGather }
 
-//	val sizeIn = Wire(Vec(v, UInt(w.W)))
-//	sizeIn.zipWithIndex.foreach { case (wire, i) =>
+//  val sizeIn = Wire(Vec(v, UInt(w.W)))
+//  sizeIn.zipWithIndex.foreach { case (wire, i) =>
 //    wire := (if (i == 0) io.app.cmd.bits.size else 0.U)
 //  }
 //  sizeFifo.io.enq := sizeIn
@@ -211,7 +211,7 @@ class MAGCore(
   val wdataFifo = Module(new FIFOArbiterWidthConvert(wins, vins, 32, 16, d))
   val wrPhase = Module(new SRFF())
 
-  val burstVld = ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
+  val burstVld = ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
   val dramReady = io.dram.cmd.ready
 
   wdataFifo.io.forceTag.bits := addrFifo.io.tag - loadStreamInfo.size.U
@@ -364,7 +364,7 @@ class MAGCore(
   io.dram.cmd.bits.wdata := wdataFifo.io.deq
 //  io.dram.cmd.valid := Mux(config.scatterGather, ccache.io.miss, burstVld)
   io.dram.cmd.bits.isWr := isWrFifo.io.deq(0)
-  wrPhase.io.input.set := isWrFifo.io.deq(0)
+  wrPhase.io.input.set := (~isWrFifo.io.empty & isWrFifo.io.deq(0))
   wrPhase.io.input.reset := templates.Utils.delay(burstVld,1)
   io.dram.cmd.valid := burstVld
 

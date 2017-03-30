@@ -54,6 +54,7 @@ trait ChiselGenReg extends ChiselCodegen {
       emit(src"val $lhs = Array($init)")
     case RegNew(init)    => 
       val width = bitWidth(init.tp)
+      emitGlobal(src"val ${lhs}_initval = ${init}")
       val duplicates = duplicatesOf(lhs)  
       duplicates.zipWithIndex.foreach{ case (d, i) => 
         reduceType(lhs) match {
@@ -75,6 +76,7 @@ trait ChiselGenReg extends ChiselCodegen {
                   if (d.depth > 1) {
                     nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
                     emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
+                    emit(src"${lhs}_${i}.io.broadcast.enable := false.B // TODO: Do analysis to decide if we should put this line")
                   } else {
                     emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
                   }              
@@ -83,6 +85,7 @@ trait ChiselGenReg extends ChiselCodegen {
                 if (d.depth > 1) {
                   nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
                   emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
+                  emit(src"${lhs}_${i}.io.broadcast.enable := false.B // TODO: Do analysis to decide if we should put this line")
                 } else {
                   emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
                 }
@@ -91,6 +94,7 @@ trait ChiselGenReg extends ChiselCodegen {
             if (d.depth > 1) {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
               emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
+              emit(src"${lhs}_${i}.io.broadcast.enable := false.B // TODO: Do analysis to decide if we should put this line")
             } else {
               emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
             }
@@ -176,22 +180,29 @@ trait ChiselGenReg extends ChiselCodegen {
                       case _ => emit(src"""${reg}_${ii}.io.next := ${v}""")
                     }
                     emit(src"""${reg}_${ii}.io.enable := ${reg}_wren""")
+                    emit(src"""${reg}_${ii}.io.init := ${reg}_initval.number""")
                     emit(src"""${reg}_${ii}.io.reset := Utils.delay(${reg}_resetter, 2)""")
                     emit(src"""${reg} := ${reg}_${ii}.io.output""")
                     emitGlobal(src"""val ${reg} = Wire(UInt(32.W))""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                     emit(src"""${reg}_${ii}.write($reg, $en & Utils.delay(${reg}_wren,1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
+                    emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
+                    emit(src"""${reg}_$ii.io.input.reset := reset""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   emit(src"""${reg}_${ii}.write($v, $en & Utils.delay(${reg}_wren,1), false.B, List(${ports.mkString(",")}))""")
+                  emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
+                  emit(src"""${reg}_$ii.io.input.reset := reset""")
               }
             }
           case _ => // Not an accum
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
               emit(src"""${reg}_${ii}.write($v, $en & ${parent}_datapath_en, false.B, List(${ports.mkString(",")}))""")
+              emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
+              emit(src"""${reg}_$ii.io.input.reset := reset""")
             }
         }
       }

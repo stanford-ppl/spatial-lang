@@ -22,21 +22,21 @@ Channel *cmdChannel = NULL;
 Channel *respChannel = NULL;
 
 int sendResp(simCmd *cmd) {
-	simCmd resp;
+  simCmd resp;
   resp.id = cmd->id;
   resp.cmd = cmd->cmd;
   resp.size = cmd->size;
-	switch (cmd->cmd) {
-		case READY:
-			resp.size = 0;
-			break;
-		default:
-			EPRINTF("[SIM] Command %d not supported!\n", cmd->cmd);
-			exit(-1);
-	}
+  switch (cmd->cmd) {
+    case READY:
+      resp.size = 0;
+      break;
+    default:
+      EPRINTF("[SIM] Command %d not supported!\n", cmd->cmd);
+      exit(-1);
+  }
 
-	respChannel->send(&resp);
-	return cmd->id;
+  respChannel->send(&resp);
+  return cmd->id;
 }
 
 int numCycles = 0;
@@ -48,6 +48,8 @@ public:
   uint64_t tag;
   bool isWr;
   uint32_t *wdata;
+  uint32_t delay;
+  uint32_t elapsed;
 
   DRAMRequest(uint64_t a, uint64_t t, bool wr, uint32_t *wd) {
     addr = a;
@@ -61,6 +63,9 @@ public:
     } else {
       wdata = NULL;
     }
+
+    delay = abs(rand()) % 100 + 5;
+    elapsed = 0;
   }
 
   void print() {
@@ -68,6 +73,7 @@ public:
     EPRINTF("addr : %lx\n", addr);
     EPRINTF("tag  : %lx\n", tag);
     EPRINTF("isWr : %lx\n", tag);
+    EPRINTF("delay: %u\n", delay);
     if (isWr) {
       EPRINTF("wdata0 : %u\n", wdata[0]);
       EPRINTF("wdata1 : %u\n", wdata[1]);
@@ -120,44 +126,50 @@ extern "C" {
   void checkDRAMResponse() {
     if (dramRequestQ.size() > 0) {
       DRAMRequest *req = dramRequestQ.front();
-      dramRequestQ.pop();
+      req->elapsed++;
+      if(req->elapsed == req->delay) {
+        dramRequestQ.pop();
 
-      uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-      if (req->isWr) {
-        // Write request: Update 1 burst-length bytes at *addr
-        uint32_t *waddr = (uint32_t*) req->addr;
-        for (int i=0; i<16; i++) {
-          waddr[i] = req->wdata[i];
+        if (req->isWr) {
+          // Write request: Update 1 burst-length bytes at *addr
+          uint32_t *waddr = (uint32_t*) req->addr;
+          for (int i=0; i<16; i++) {
+            waddr[i] = req->wdata[i];
+          }
+        } else {
+          // Read request: Read burst-length bytes at *addr
+          uint32_t *raddr = (uint32_t*) req->addr;
+          for (int i=0; i<16; i++) {
+            rdata[i] = raddr[i];
+            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
+          }
+
         }
-      } else {
-        // Read request: Read burst-length bytes at *addr
-        uint32_t *raddr = (uint32_t*) req->addr;
-        for (int i=0; i<16; i++) {
-          rdata[i] = raddr[i];
-          EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
-        }
+        pokeDRAMResponse(
+            req->tag,
+            rdata[0],
+            rdata[1],
+            rdata[2],
+            rdata[3],
+            rdata[4],
+            rdata[5],
+            rdata[6],
+            rdata[7],
+            rdata[8],
+            rdata[9],
+            rdata[10],
+            rdata[11],
+            rdata[12],
+            rdata[13],
+            rdata[14],
+            rdata[15]
+          );
+     
+
       }
 
-      pokeDRAMResponse(
-          req->tag,
-          rdata[0],
-          rdata[1],
-          rdata[2],
-          rdata[3],
-          rdata[4],
-          rdata[5],
-          rdata[6],
-          rdata[7],
-          rdata[8],
-          rdata[9],
-          rdata[10],
-          rdata[11],
-          rdata[12],
-          rdata[13],
-          rdata[14],
-          rdata[15]
-        );
 
     }
   }
@@ -169,6 +181,7 @@ extern "C" {
     numCycles++;
 
    // Check for DRAM response and send it to design
+
    checkDRAMResponse();
 
     // Handle pending operations, if any
