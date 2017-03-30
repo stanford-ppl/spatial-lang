@@ -123,6 +123,7 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     def mirror(f:Tx) = linebuffer_load(f(linebuffer),f(row),f(col),f(en))
     override def aliases = Nil
     val mT = typ[T]
+    val bT = bits[T]
   }
 
   case class LineBufferEnq[T:Staged:Bits](
@@ -133,6 +134,7 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     def mirror(f:Tx) = linebuffer_enq(f(linebuffer),f(data),f(en))
     override def aliases = Nil
     val mT = typ[T]
+    val bT = bits[T]
   }
 
   /** Constructors **/

@@ -86,6 +86,7 @@ trait RegisterFileExp extends Staging with SRAMExp {
     def mirror(f:Tx) = regfile_load(f(reg),f(inds),f(en))
     override def aliases = Nil
     val mT = typ[T]
+    val bT = bits[T]
   }
 
   case class RegFileStore[T:Staged:Bits](
@@ -96,6 +97,7 @@ trait RegisterFileExp extends Staging with SRAMExp {
   ) extends EnabledOp[Void](en) {
     def mirror(f:Tx) = regfile_store(f(reg),f(inds),f(data),f(en))
     val mT = typ[T]
+    val bT = bits[T]
   }
 
   case class RegFileShiftIn[T:Staged:Bits](
@@ -106,6 +108,8 @@ trait RegisterFileExp extends Staging with SRAMExp {
     en:   Exp[Bool]
   ) extends EnabledOp[Void](en) {
     def mirror(f:Tx) = regfile_shiftin(f(reg),f(inds),dim,f(data),f(en))
+    val mT = typ[T]
+    val bT = bits[T]
   }
 
   case class ParRegFileShiftIn[T:Staged:Bits](
@@ -113,7 +117,7 @@ trait RegisterFileExp extends Staging with SRAMExp {
     inds: Seq[Exp[Index]],
     dim:  Int,
     data: Exp[Vector[T]],
-    en: Exp[Bool]
+    en:   Exp[Bool]
   ) extends EnabledOp[Void](en) {
     def mirror(f:Tx) = par_regfile_shiftin(f(reg),f(inds),dim,f(data),f(en))
   }

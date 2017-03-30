@@ -297,7 +297,7 @@ class SRAM(val logicalDims: List[Int], val w: Int,
 }
 
 
-class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width*/
+class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*TODO: width, get rid of this!*/
            val banks: List[Int], val strides: List[Int], val numWriters: Int, val numReaders: Int,
            val wPar: Int, val rPar: Int, val bankingMode: String, val bitWidth: Int = 32) extends Module { 
 
