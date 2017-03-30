@@ -49,6 +49,8 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
   val maxFF = Module(new FF(32))
   maxFF.io.input.enable := io.input.enable
   maxFF.io.input.data := io.input.numIter
+  maxFF.io.input.init := 0.U
+  maxFF.io.input.reset := io.input.rst
   val max = maxFF.io.output.data
 
   val doneClear = RegInit(0.U)
@@ -56,6 +58,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
     val ff = Module(new SRFF())
     ff.io.input.set := io.input.stageDone(i)
     ff.io.input.asyn_reset := doneClear
+    ff.io.input.reset := false.B
     ff
   }
   val doneMask = doneFF.zipWithIndex.map { case (ff, i) => ff.io.output.data }
@@ -94,7 +97,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
             case ((en, done), ii) => 
               en := ~done & (ii.U >= cycsSinceDone.io.output.data) & (io.input.numIter != 0.U)
           }
-          io.output.stageEnable.drop(fillStateID+1).foreach { en => en := 0.U }
+          io.output.stageEnable.drop(fillStateID+1).foreach { en => en := false.B }
           val doneMaskInts = doneMask.take(fillStateID+1).map {Mux(_, 1.U(bitsToAddress(n).W), 0.U(bitsToAddress(n).W))}
           val doneTree = doneMaskInts.reduce {_ + _} + cycsSinceDone.io.output.data === (fillStateID+1).U
           // val doneTree = doneMask.take(fillStateID+1).reduce {_ & _}

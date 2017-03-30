@@ -10,6 +10,8 @@ class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
       val enable = Input(Bool())
       val stageDone = Vec(n, Input(Bool()))
       val forever = Input(Bool())
+      val rst = Input(Bool())
+
       // FSM signals
       val nextState = Input(UInt(32.W))
     }
@@ -33,12 +35,14 @@ class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
   val stateFF = Module(new FF(2))
   stateFF.io.input.enable := true.B
   stateFF.io.input.init := 0.U
+  stateFF.io.input.reset := io.input.rst
   val state = stateFF.io.output.data
 
   // Create vector of registers for holding stage dones
   val doneFF = List.tabulate(n) { i =>
     val ff = Module(new SRFF())
     ff.io.input.set := io.input.stageDone(i)
+    ff.io.input.asyn_reset := false.B
     ff.io.input.reset := state === doneState.U
     ff
   }

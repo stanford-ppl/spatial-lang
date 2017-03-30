@@ -20,6 +20,7 @@ class Innerpipe(val ctrDepth : Int, val isFSM: Boolean = false) extends Module {
       val enable = Input(Bool())
       val ctr_done = Input(Bool())
       val ctr_maxIn = Vec(ctrDepth, Input(UInt(32.W))) // TODO: Deprecate this maxIn/maxOut business if all is well without it
+      val rst = Input(Bool())
       val forever = Input(Bool())
       // FSM signals
       val nextState = Input(UInt(32.W))
@@ -44,7 +45,7 @@ class Innerpipe(val ctrDepth : Int, val isFSM: Boolean = false) extends Module {
     // Initialize state and maxFF
     val rstCtr = Module(new SingleCounter(1))
     rstCtr.io.input.enable := state === pipeReset.U
-    rstCtr.io.input.reset := (state != pipeReset.U)
+    rstCtr.io.input.reset := (state != pipeReset.U) | io.input.rst
     rstCtr.io.input.saturate := true.B
     rstCtr.io.input.max := 10.U
     rstCtr.io.input.stride := 1.U
@@ -60,6 +61,7 @@ class Innerpipe(val ctrDepth : Int, val isFSM: Boolean = false) extends Module {
         (0 until ctrDepth) foreach { i => maxFF(i) := io.input.ctr_maxIn(i) }
         state := pipeReset.U
       }.elsewhen( state === pipeReset.U ) {
+        io.output.done := false.B
         io.output.rst_en := true.B;
         (0 until ctrDepth) foreach { i => io.output.ctr_maxOut(i) := maxFF(i) }
         state := Mux(io.input.ctr_done, pipeDone.U, pipeReset.U) // Shortcut to done state, for tile store
@@ -68,6 +70,7 @@ class Innerpipe(val ctrDepth : Int, val isFSM: Boolean = false) extends Module {
           state := Mux(io.input.ctr_done, pipeDone.U, pipeRun.U) // Shortcut to done state, for tile store
         }
       }.elsewhen( state === pipeRun.U ) {
+        io.output.done := false.B
         io.output.ctr_en := true.B;
         io.output.ctr_inc := true.B
         when (io.input.ctr_done) {
@@ -81,6 +84,7 @@ class Innerpipe(val ctrDepth : Int, val isFSM: Boolean = false) extends Module {
         io.output.done := Mux(io.input.forever, false.B, true.B)
         state := pipeReset.U
       }.elsewhen( state === pipeSpinWait.U ) {
+        io.output.done := false.B
         state := pipeSpinWait.U;
       } 
     }.otherwise {
@@ -97,10 +101,12 @@ class Innerpipe(val ctrDepth : Int, val isFSM: Boolean = false) extends Module {
     stateFSM.io.input.data := io.input.nextState
     stateFSM.io.input.init := io.input.initState
     stateFSM.io.input.enable := io.input.enable
+    stateFSM.io.input.reset := false.B
     io.output.state := stateFSM.io.output.data
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable
     doneReg.io.input.reset := ~io.input.enable
+    doneReg.io.input.asyn_reset := false.B
     io.output.done := doneReg.io.output.data | (io.input.doneCondition & io.input.enable)
 
   }
@@ -124,6 +130,7 @@ class Streaminner(val ctrDepth : Int, val isFSM: Boolean = false) extends Module
       val ctr_done = Input(Bool())
       val ctr_maxIn = Vec(ctrDepth, Input(UInt(32.W))) // TODO: Deprecate this maxIn/maxOut business if all is well without it
       val forever = Input(Bool())
+      val rst = Input(Bool())
       val hasStreamIns = Input(Bool()) // If there is a streamIn for this stage, then we should not require en=true for done to go high
     }
     val output = new Bundle {

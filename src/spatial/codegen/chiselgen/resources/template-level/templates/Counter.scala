@@ -124,6 +124,7 @@ class SingleCounter(val par: Int) extends Module {
     val base = Module(new FF(32))
     val init = io.input.start
     base.io.input.init := init
+    base.io.input.reset := io.input.reset
     base.io.input.enable := io.input.reset | io.input.enable
 
     val count = base.io.output.data

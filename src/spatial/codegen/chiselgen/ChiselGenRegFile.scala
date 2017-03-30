@@ -57,38 +57,32 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@RegFileNew(dims) =>
-      // TODO: Examine writers and see if all are from Shift or from Store. In that case,
-      // can specialize below to templates.ParallelShiftReg or templates.RegFile
-      emitGlobal(s"val ${quote(lhs)} = Array.tabulate(${dims(0)}) { i => Module(new templates.ParallelShiftRegFile(${dims(1)}, /* stride = */ 1)) }")
-      // rows = dims(0).toInt
+      val par = writersOf(lhs).length
+      emitGlobal(s"val ${quote(lhs)} = Module(new templates.ParallelShiftRegFile(${dims(0)}, ${dims(1)}, 1, ${par}/${dims(0)}))")
       // cols = dims(1).toInt
       
     case op@RegFileLoad(rf,inds,en) =>
-      // TODO: Right now both indices are potentially not constants, so we add muxes
-      // Can specialize if all selects are constants
-      emit(s"val ${quote(lhs)}_tmp = Array.tabulate(${quote(rf)}.length) { i =>")
-      emit(s"  (i.U -> chisel3.util.MuxLookup(${quote(inds(1))}.number, 0.U, Array.tabulate(${quote(rf)}(0).size){j => (j.U -> ${quote(rf)}(i).io.data_out(j))}))")
-      emit(s"}")
       if (needsFPType(lhs.tp)) { lhs.tp match {
         case FixPtType(s,d,f) => 
           emit(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
-          emit(src"""${lhs}.number := chisel3.util.MuxLookup(${quote(inds(0))}.number, 0.U, ${quote(lhs)}_tmp)""")
+          emit(src"""${lhs}.number := ${rf}.readValue(${inds(0)}.number, ${inds(1)}.number)""")
         case _ =>
-          emit(s"val ${quote(lhs)} = chisel3.util.MuxLookup(${quote(inds(0))}.number, 0.U, ${quote(lhs)}_tmp)")
+          emit(src"""${lhs} := ${rf}.readValue(${inds(0)}.number ${inds(1)}.number)""")
       }} else {
-        emit(s"val ${quote(lhs)} = chisel3.util.MuxLookup(${quote(inds(0))}.number, 0.U, ${quote(lhs)}_tmp)")
+          emit(src"""${lhs} := ${rf}.readValue(${inds(0)}.number ${inds(1)}.number)""")
       }
 
     case op@RegFileStore(rf,inds,data,en) =>
-      emit(s"${quote(rf)}(${inds(0)}).io.data_in(0) := ${quote(data)}.number")
-      emit(s"${quote(rf)}(${inds(0)}).io.w_en := ${quote(en)}")
-      emit(s"${quote(rf)}(${inds(0)}).io.w_addr := ${inds(1)}.U")
+      val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
+      emit(s"${quote(rf)}.connectWPort(${quote(data)}.number, ${quote(inds(0))}.number, ${quote(inds(1))}.number, ${quote(en)} & ${quote(parent)}_datapath_en)")
       // TODO: finish this using inds like in Load
 
-    case RegFileShiftIn(rf,i,d,data,en)    => 
-      // (copied from ScalaGen) shiftIn(lhs, rf, i, d, data, isVec = false)
+    case RegFileShiftIn(rf,inds,d,data,en)    => 
+      val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
+      emit(s"${quote(rf)}.connectShiftPort(${quote(data)}.number, ${quote(inds(0))}.number, ${quote(en)} & ${quote(parent)}_datapath_en)")
       
     case ParRegFileShiftIn(rf,i,d,data,en) => 
+      emit("ParRegFileShiftIn not implemented!")
       // (copied from ScalaGen) shiftIn(lhs, rf, i, d, data, isVec = true)
 
     case _ => super.emitNode(lhs, rhs)
