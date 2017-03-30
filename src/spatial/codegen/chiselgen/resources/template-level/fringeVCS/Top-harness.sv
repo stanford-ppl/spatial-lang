@@ -1,7 +1,7 @@
 module test;
   import "DPI" function void sim_init();
   import "DPI" function int tick();
-  import "DPI" function void sendDRAMRequest(int addr, int tag, int isWr, int wdata0, int wdata1);
+  import "DPI" function void sendDRAMRequest(int addr, int tag, int isWr, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
 
   // Export functionality to C layer
   export "DPI" function start;
@@ -149,11 +149,43 @@ module test;
     io_wen = 1;
   endfunction
 
-  function void pokeDRAMResponse(input int tag, input int rdata0, input int rdata1);
+  function void pokeDRAMResponse(
+    input int tag,
+    input int rdata0,
+    input int rdata1,
+    input int rdata2,
+    input int rdata3,
+    input int rdata4,
+    input int rdata5,
+    input int rdata6,
+    input int rdata7,
+    input int rdata8,
+    input int rdata9,
+    input int rdata10,
+    input int rdata11,
+    input int rdata12,
+    input int rdata13,
+    input int rdata14,
+    input int rdata15
+  );
     io_dram_resp_valid = 1;
     io_dram_resp_bits_tag = tag;
     io_dram_resp_bits_rdata_0 = rdata0;
     io_dram_resp_bits_rdata_1 = rdata1;
+    io_dram_resp_bits_rdata_2 = rdata2;
+    io_dram_resp_bits_rdata_3 = rdata3;
+    io_dram_resp_bits_rdata_4 = rdata4;
+    io_dram_resp_bits_rdata_5 = rdata5;
+    io_dram_resp_bits_rdata_6 = rdata6;
+    io_dram_resp_bits_rdata_7 = rdata7;
+    io_dram_resp_bits_rdata_8 = rdata8;
+    io_dram_resp_bits_rdata_9 = rdata9;
+    io_dram_resp_bits_rdata_10 = rdata10;
+    io_dram_resp_bits_rdata_11 = rdata11;
+    io_dram_resp_bits_rdata_12 = rdata12;
+    io_dram_resp_bits_rdata_13 = rdata13;
+    io_dram_resp_bits_rdata_14 = rdata14;
+    io_dram_resp_bits_rdata_15 = rdata15;
   endfunction
 
   initial begin
@@ -167,7 +199,27 @@ module test;
   // 1. If io_dram_cmd_valid, then send send DRAM request to CPP layer
   function void callbacks();
     if (io_dram_cmd_valid) begin
-      sendDRAMRequest(io_dram_cmd_bits_addr, io_dram_cmd_bits_tag, io_dram_cmd_bits_isWr, io_dram_cmd_bits_wdata_0, io_dram_cmd_bits_wdata_1);
+      sendDRAMRequest(
+        io_dram_cmd_bits_addr,
+        io_dram_cmd_bits_tag,
+        io_dram_cmd_bits_isWr,
+        io_dram_cmd_bits_wdata_0,
+        io_dram_cmd_bits_wdata_1,
+        io_dram_cmd_bits_wdata_2,
+        io_dram_cmd_bits_wdata_3,
+        io_dram_cmd_bits_wdata_4,
+        io_dram_cmd_bits_wdata_5,
+        io_dram_cmd_bits_wdata_6,
+        io_dram_cmd_bits_wdata_7,
+        io_dram_cmd_bits_wdata_8,
+        io_dram_cmd_bits_wdata_9,
+        io_dram_cmd_bits_wdata_10,
+        io_dram_cmd_bits_wdata_11,
+        io_dram_cmd_bits_wdata_12,
+        io_dram_cmd_bits_wdata_13,
+        io_dram_cmd_bits_wdata_14,
+        io_dram_cmd_bits_wdata_15
+      );
     end
   endfunction
 

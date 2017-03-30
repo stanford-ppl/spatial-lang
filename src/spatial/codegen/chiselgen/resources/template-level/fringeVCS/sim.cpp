@@ -83,7 +83,27 @@ public:
 std::queue<DRAMRequest*> dramRequestQ;
 
 extern "C" {
-  void sendDRAMRequest(int addr, int tag, int isWr, int wdata0, int wdata1) {
+  void sendDRAMRequest(
+      int addr,
+      int tag,
+      int isWr,
+      int wdata0,
+      int wdata1,
+      int wdata2,
+      int wdata3,
+      int wdata4,
+      int wdata5,
+      int wdata6,
+      int wdata7,
+      int wdata8,
+      int wdata9,
+      int wdata10,
+      int wdata11,
+      int wdata12,
+      int wdata13,
+      int wdata14,
+      int wdata15
+    ) {
     // view addr as uint64_t without doing sign extension
     uint64_t cmdAddr = (uint64_t)(*(uint32_t*)&addr);
     uint64_t cmdTag = (uint64_t)(*(uint32_t*)&tag);
@@ -119,7 +139,25 @@ extern "C" {
         }
       }
 
-      pokeDRAMResponse(req->tag, rdata[0], rdata[1]);
+      pokeDRAMResponse(
+          req->tag,
+          rdata[0],
+          rdata[1],
+          rdata[2],
+          rdata[3],
+          rdata[4],
+          rdata[5],
+          rdata[6],
+          rdata[7],
+          rdata[8],
+          rdata[9],
+          rdata[10],
+          rdata[11],
+          rdata[12],
+          rdata[13],
+          rdata[14],
+          rdata[15]
+        );
 
     }
   }
