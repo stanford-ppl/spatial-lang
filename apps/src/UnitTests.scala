@@ -843,7 +843,7 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
 
     val dst = blockreduce_1d(src, size)
 
-    val tsArr = Array.tabulate(tileSize){i => if ( i < 5) i else lift(0)}
+    val tsArr = Array.tabulate(tileSize){i => if i % 256}
     val perArr = Array.tabulate(size/tileSize){i => i}
     val gold = tsArr.map{ i => perArr.map{j => src(i+j*tileSize)}.reduce{_+_}}
 
