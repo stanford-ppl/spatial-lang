@@ -483,7 +483,7 @@ object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 10
           b2(ii) = b1(ii) * x
         }
 
-        dstFPGA(i::i+tileSize par 16) store b2
+        dstFPGA(i::i+tileSize par 2) store b2
       }
     }
     getMem(dstFPGA)
@@ -785,7 +785,7 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
       Sequential.Foreach(rowsIn by tileDim1, colsIn by tileDim2) { (i,j) =>
         val tile = SRAM[T](tileDim1, tileDim2)
         tile load srcFPGA(i::i+tileDim1, j::j+tileDim2 par 16)
-        dstFPGA (i::i+tileDim1, j::j+tileDim2 par 16) store tile
+        dstFPGA (i::i+tileDim1, j::j+tileDim2 par 8) store tile
       }
     }
     getMem(dstFPGA)
@@ -843,7 +843,7 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
 
     val dst = blockreduce_1d(src, size)
 
-    val tsArr = Array.tabulate(tileSize){i => i}
+    val tsArr = Array.tabulate(tileSize){i => if ( i < 5) i else lift(0)}
     val perArr = Array.tabulate(size/tileSize){i => i}
     val gold = tsArr.map{ i => perArr.map{j => src(i+j*tileSize)}.reduce{_+_}}
 
@@ -1013,6 +1013,7 @@ object ScatterGather extends SpatialApp { // Regression (Sparse) // Args: none
   @virtualize
   def main() = {
     // val size = args(0).to[Int]
+
 
     val size = maxNumAddrs
     val dataSize = offchip_dataSize

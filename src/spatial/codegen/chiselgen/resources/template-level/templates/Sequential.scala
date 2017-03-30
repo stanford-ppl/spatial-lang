@@ -46,6 +46,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
     val maxFF = Module(new FF(32))
     maxFF.io.input.enable := io.input.enable
     maxFF.io.input.data := io.input.numIter
+    maxFF.io.input.reset := io.input.rst
     val max = maxFF.io.output.data
 
     val ctr = Module(new SingleCounter(1))
@@ -135,12 +136,14 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable
     doneReg.io.input.reset := ~io.input.enable
+    doneReg.io.input.asyn_reset := false.B
     io.output.done := doneReg.io.output.data | (io.input.doneCondition & io.input.enable)
 
     // Counter for num iterations
     val maxFF = Module(new FF(32))
     maxFF.io.input.enable := io.input.enable
     maxFF.io.input.data := io.input.numIter
+    maxFF.io.input.reset := io.input.rst
     val max = maxFF.io.output.data
 
     val ctr = Module(new SingleCounter(1))

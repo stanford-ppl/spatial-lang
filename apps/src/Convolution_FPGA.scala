@@ -118,7 +118,7 @@ object Convolution_FPGA extends SpatialApp {
       val px21 = if ((j+1) > border && (j+1) < C-border && (i+2) > border && (i+2) < C - border) (i+2)*16 else 0
       val px22 = if ((j+2) > border && (j+2) < C-border && (i+2) > border && (i+2) < C - border) (i+2)*16 else 0
       px00 * 2 + px01 * 2 + px10 * 2 + px12 * 2 + px21 * 2 + px22 * 2
-    }
+    };
 
     printMatrix(image, "Image")
     printMatrix(gold, "Gold")

@@ -181,9 +181,9 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     smStr match {
       case s @ ("Metapipe" | "Seqpipe") =>
         emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).number""")
-        emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
       case _ =>
     }
+    emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
 
     if (isStreamChild(sym)) {
       emit(src"""val ${sym}_datapath_en = ${sym}_en""")  
