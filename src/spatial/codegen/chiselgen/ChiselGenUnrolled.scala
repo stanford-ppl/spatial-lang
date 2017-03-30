@@ -137,7 +137,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         }
         emit(src"val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
       }
-      emit(src"val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
+      emit(src"//val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitParallelizedLoop(iters, cchain)

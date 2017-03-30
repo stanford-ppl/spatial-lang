@@ -31,11 +31,14 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
     emit(src"""${lhs}${suffix}.io.input.maxes.zip(${lhs}${suffix}_maxes).foreach { case (port,max) => port := max.number }""")
     emit(src"""${lhs}${suffix}.io.input.strides.zip(${lhs}${suffix}_strides).foreach { case (port,stride) => port := stride.number }""")
     emit(src"""${lhs}${suffix}.io.input.starts.zip(${lhs}${suffix}_starts).foreach { case (port,start) => port := start.number }""")
+    emit(src"""${lhs}${suffix}.io.input.saturate := false.B""")
     emit(src"""${lhs}${suffix}.io.input.enable := ${lhs}${suffix}_en""")
     emit(src"""${lhs}${suffix}_done := ${lhs}${suffix}.io.output.done""")
     emit(src"""${lhs}${suffix}.io.input.reset := ${lhs}${suffix}_resetter""")
     if (suffix != "") {
       emit(src"""${lhs}${suffix}.io.input.isStream := true.B""")
+    } else {
+      emit(src"""${lhs}${suffix}.io.input.isStream := false.B""")      
     }
     emit(src"""val ${lhs}${suffix}_maxed = ${lhs}${suffix}.io.output.saturated""")
     ctrs.zipWithIndex.foreach { case (c, i) =>

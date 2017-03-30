@@ -11,6 +11,7 @@ class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
       val stageDone = Vec(n, Input(Bool()))
       val forever = Input(Bool())
       val rst = Input(Bool())
+      val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
 
       // FSM signals
       val nextState = Input(UInt(32.W))

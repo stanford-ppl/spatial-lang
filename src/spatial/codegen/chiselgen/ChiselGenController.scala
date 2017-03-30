@@ -216,9 +216,6 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
           case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
             if (isStreamChild(sym)) {
               emit(src"${cchain.get}_en := ${sym}_datapath_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
-              if (styleOf(sym) == InnerPipe & hasStreamIns) { // Pretty ugly logic
-                emit(src"${sym}_sm.io.input.hasStreamIns := true.B")
-              }
             } else {
               emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
             } 
@@ -246,11 +243,13 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         } else {
           emit(s"// How to emit for non-innerpipe unit counter?")
         }
-        if (isInner & hasStreamIns) { // Pretty ugly logic and probably misplaced
-          emit(src"${sym}_sm.io.input.hasStreamIns := true.B")
-        }
-
       }
+    }
+
+    if (isInner & hasStreamIns) { // Pretty ugly logic and probably misplaced
+      emit(src"${sym}_sm.io.input.hasStreamIns := true.B")
+    } else {
+      emit(src"${sym}_sm.io.input.hasStreamIns := false.B")
     }
 
     if (hasForever) {
@@ -326,8 +325,9 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       // Emit unit counter for this
       emit(s"""val done_latch = Module(new SRFF())""")
-      emit(s"""done_latch.io.input.set := ${quote(lhs)}_sm.io.output.done""")
+      emit(s"""done_latch.io.input.set := ${quote(lhs)}_done""")
       emit(s"""done_latch.io.input.reset := ${quote(lhs)}_resetter""")
+      emit(s"""done_latch.io.input.asyn_reset := ${quote(lhs)}_resetter""")
       emit(s"""io.done := done_latch.io.output.data""")
 
       emitBlock(func)
