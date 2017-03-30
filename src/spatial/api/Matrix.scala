@@ -2,12 +2,13 @@ package spatial.api
 
 import argon.ops.{ArrayExtApi, ArrayExtExp, StructExp}
 import spatial.SpatialExp
+import forge._
 
 trait MatrixApi extends MatrixExp with RangeExp with ArrayExtApi {
   this: SpatialExp =>
 
   implicit class MatrixConstructor(ranges: (Range, Range) ) {
-    def apply[A,T](func: (Index,Index) => A)(implicit ctx: SrcCtx, lft: Lift[A,T]): Matrix[T] = {
+    @api def apply[A,T](func: (Index,Index) => A)(implicit lft: Lift[A,T]): Matrix[T] = {
       implicit val mT: Type[T] = lft.staged
       val rows = ranges._1.length
       val cols = ranges._2.length
@@ -20,11 +21,12 @@ trait MatrixApi extends MatrixExp with RangeExp with ArrayExtApi {
     }
   }
 
-  implicit class MatrixOps[T:Type](a: Matrix[T]) {
-    def foreach(func: T => Void)(implicit ctx: SrcCtx): Void = a.data.foreach(func)
-    def map[R:Type](func: T => R)(implicit ctx: SrcCtx): Matrix[R] = matrix(a.data.map(func), a.rows, a.cols)
-    def zip[S:Type,R:Type](b: Matrix[S])(func: (T,S) => R)(implicit ctx: SrcCtx): Matrix[R] = matrix(a.data.zip(b.data)(func), a.rows, a.cols)
-    def reduce(rfunc: (T,T) => T)(implicit ctx: SrcCtx): T = a.data.reduce(rfunc)
+  implicit class MatrixOps[T](a: Matrix[T]) {
+    private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Meta[T]]
+    @api def foreach(func: T => Void): Void = a.data.foreach(func)
+    @api def map[R:Type](func: T => R): Matrix[R] = matrix(a.data.map(func), a.rows, a.cols)
+    @api def zip[S:Type,R:Type](b: Matrix[S])(func: (T,S) => R): Matrix[R] = matrix(a.data.zip(b.data)(func), a.rows, a.cols)
+    @api def reduce(rfunc: (T,T) => T): T = a.data.reduce(rfunc)
   }
 
 }
@@ -33,12 +35,12 @@ trait MatrixExp extends StructExp with ArrayExtExp {
   this: SpatialExp =>
 
   case class Matrix[T:Type](s: Exp[Matrix[T]]) extends MetaStruct[Matrix[T]] {
-    def rows(implicit ctx: SrcCtx): Index = field[Index]("rows")
-    def cols(implicit ctx: SrcCtx): Index = field[Index]("cols")
     private[spatial] def data(implicit ctx: SrcCtx): MetaArray[T] = field[MetaArray[T]]("data")
 
-    def apply(i: Index, j: Index)(implicit ctx: SrcCtx): T = data.apply(i*cols + j)
-    def update(i: Index, j: Index, elem: T)(implicit ctx: SrcCtx): Void = wrap(array_update(data.s, (i*cols + j).s, elem.s))
+    @api def rows: Index = field[Index]("rows")
+    @api def cols: Index = field[Index]("cols")
+    @api def apply(i: Index, j: Index): T = data.apply(i*cols + j)
+    @api def update(i: Index, j: Index, elem: T): Void = wrap(array_update(data.s, (i*cols + j).s, elem.s))
   }
 
   protected def matrix[T:Type](data: MetaArray[T], rows: Index, cols: Index)(implicit ctx: SrcCtx): Matrix[T] = {

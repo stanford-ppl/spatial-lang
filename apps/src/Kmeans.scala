@@ -49,24 +49,27 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
     setMem(points, points_in)
     setMem(init_cents, cent_inits)
 
-    Accel {
+    Accel { Sequential { // TODO: Remove this Sequential wrapper once David fixes Accel analysis
       val cts = SRAM[T](MAXK, MAXD)
+      val newCents = SRAM[T](MAXK,MAXD)
 
       // Load initial centroids (from points)
       cts load init_cents(0::K, 0::D par 16)
+
+      // // Initialize newCents
+      // Foreach(K by 1, D by 1) {(i,j) => newCents(i,j) = cts(i,j)} 
 
       val DM1 = D - 1
 
       Sequential.Foreach(iters by 1){epoch =>
 
-        val newCents = SRAM[T](MAXK,MAXD)
         // For each set of points
         Foreach(N by BN par PX){i =>
           val pts = SRAM[T](BN, BD)
           pts load points(i::i+BN, 0::BD par 16)
 
           // For each point in this set
-          MemReduce(newCents)(BN par PX){pt =>
+          MemFold(newCents)(BN par PX){pt =>
             // Find the index of the closest centroid
             val accum = Reg[Tup2[Int,T]]( pack(0.as[Int], 100000.as[T]) )
             val minCent = Reduce(accum)(K par PX){ct =>
@@ -106,7 +109,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
       }
       // Store the centroids out
       centroids(0::K*D par 16) store flatCts
-    }
+    }}
 
     getMem(centroids)
   }
@@ -118,10 +121,12 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
     val K = num_cents //args(2).to[SInt];
     val D = dim //args(3).to[SInt];
 
-    // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
-    // val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
-    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else 5*i }}
-    val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else 5*i+1 }}
+    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
+    val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) }}
+    // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else if (d == 0) random[X](element_max) + i else 0.as[X]}}
+    // val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else if (d == 0) random[X](element_max) + i else 0.as[X]}}
+    // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else 5*i }}
+    // val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else 5*i+1 }}
 
     // println("points: ")
     // for (i <- 0 until N) { println(i.mkString + ": " + pts(i).mkString(", ")) }
@@ -130,7 +135,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
 
     val cts = Array.empty[Array[X]](K)
     for (k <- 0 until K) {
-      cts(k) = Array.tabulate(D){i => pts(k).apply(i) }
+      cts(k) = Array.tabulate(D){i => cnts(k).apply(i) }
     }
     val ii = Array.tabulate(K){i => i}
 
@@ -145,20 +150,28 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 5 384
 
       // Average
       for (k <- 0 until K) {
-        // Assumes at least one point per centroid
-        val wp = map(k)
-        val n  = wp(D - 1)
-        cts(k) = Array.tabulate(D){d => if (d == D-1) 1.as[X] else wp(d)/n }
+        if (map.contains(k)) {
+          val wp = map(k)
+          val n  = wp(D - 1)
+          cts(k) = Array.tabulate(D){d => if (d == D-1) 1.as[X] else wp(d)/n }          
+        } else {
+          cts(k) = Array.tabulate(D){d => 0.as[X]}
+        }
       }
     }
 
     val gold = cts.flatten
 
-    (0 until K).foreach{ i => printArray(cnts(i), "original ctr" + i + ": ")}
-    (0 until K).foreach{ i => printArray(cts(i), "ctr" + i + ": ")}
+    println("\n\nOriginal Centers:")
+    (0 until K).foreach{ i => printArray(cnts(i))}
+    println("\n\nOriginal Points:")
+    (0 until N).foreach{ i => printArray(pts(i))}
+    println("\n\nCorrect Centers:")
+    (0 until K).foreach{ i => printArray(cts(i))}
+    println("\n\nFPGA Centers:")
     (0 until K).foreach { i => 
       val resrow = Array.tabulate(D){j => result(i*D + j)}
-      printArray(resrow, "resultcnt" + i + ": ")
+      printArray(resrow)
     }
 
     // for (i <- 0 until result.length) {

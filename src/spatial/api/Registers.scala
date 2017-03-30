@@ -2,17 +2,18 @@ package spatial.api
 
 import argon.core.Staging
 import spatial.SpatialExp
+import forge._
 
 trait RegApi extends RegExp {
   this: SpatialExp =>
 
-  def ArgIn[T:Meta:Bits](implicit ctx: SrcCtx): Reg[T] = Reg(argin_alloc[T](zero[T].s))
-  def ArgOut[T:Meta:Bits](implicit ctx: SrcCtx): Reg[T] = Reg(argout_alloc[T](zero[T].s))
+  @api def ArgIn[T:Meta:Bits]: Reg[T] = Reg(argin_alloc[T](zero[T].s))
+  @api def ArgOut[T:Meta:Bits]: Reg[T] = Reg(argout_alloc[T](zero[T].s))
 
-  def Reg[T:Meta:Bits](implicit ctx: SrcCtx): Reg[T] = Reg(reg_alloc[T](zero[T].s))
-  def Reg[T:Meta:Bits](init: T)(implicit ctx: SrcCtx): Reg[T] = Reg(reg_alloc[T](init.s))
+  @api def Reg[T:Meta:Bits]: Reg[T] = Reg(reg_alloc[T](zero[T].s))
+  @api def Reg[T:Meta:Bits](init: T): Reg[T] = Reg(reg_alloc[T](init.s))
 
-  implicit def readReg[T](reg: Reg[T])(implicit ctx: SrcCtx): T = reg.value
+  @api implicit def readReg[T](reg: Reg[T]): T = reg.value
 }
 
 
@@ -21,8 +22,8 @@ trait RegExp extends Staging with MemoryExp {
 
   /** Infix methods **/
   case class Reg[T:Meta:Bits](s: Exp[Reg[T]]) extends Template[Reg[T]] {
-    def value(implicit ctx: SrcCtx): T = wrap(reg_read(this.s))
-    def :=(data: T)(implicit ctx: SrcCtx): Void = Void(reg_write(this.s, data.s, bool(true)))
+    @api def value: T = wrap(reg_read(this.s))
+    @api def :=(data: T): Void = Void(reg_write(this.s, data.s, bool(true)))
   }
 
   /** Staged Type **/

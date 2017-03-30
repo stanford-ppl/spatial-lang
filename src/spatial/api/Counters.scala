@@ -2,6 +2,7 @@ package spatial.api
 
 import argon.core.Staging
 import spatial.SpatialExp
+import forge._
 
 trait CounterApi extends CounterExp {
   this: SpatialExp =>
@@ -16,13 +17,11 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
   case class CounterChain(s: Exp[CounterChain]) extends Template[CounterChain]
 
   /** Direct methods **/
-  def CounterChain(counters: Counter*)(implicit ctx: SrcCtx): CounterChain = CounterChain(counterchain_new(unwrap(counters)))
-  def Counter(start: Index, end: Index, step: Index, par: Index)(implicit ctx: SrcCtx): Counter = {
-    counter(start, end, step, Some(par))
-  }
-  def Counter(end: Index)(implicit ctx: SrcCtx): Counter = counter(0, end, 1, Some( wrap(intParam(1)) ))
-  def Counter(start: Index, end: Index)(implicit ctx: SrcCtx): Counter = counter(start, end, 1, Some(wrap(intParam(1))))
-  def Counter(start: Index, end: Index, step: Index)(implicit ctx: SrcCtx): Counter = counter(start, end, step, Some(wrap(intParam(1))))
+  @api def CounterChain(counters: Counter*): CounterChain = CounterChain(counterchain_new(unwrap(counters)))
+  @api def Counter(end: Index): Counter = counter(0, end, 1, Some( wrap(intParam(1)) ))
+  @api def Counter(start: Index, end: Index): Counter = counter(start, end, 1, Some(wrap(intParam(1))))
+  @api def Counter(start: Index, end: Index, step: Index): Counter = counter(start, end, step, Some(wrap(intParam(1))))
+  @api def Counter(start: Index, end: Index, step: Index, par: Index): Counter = counter(start, end, step, Some(par))
 
   implicit def range2counter(range: Range)(implicit ctx: SrcCtx): Counter = {
     val start = range.start.getOrElse(lift[Int,Index](0))

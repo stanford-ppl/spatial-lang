@@ -133,8 +133,8 @@ trait NodeClasses extends SpatialMetadataExp {
   // Dynamic allocations which can be directly used in primitive logic
   def isPrimitiveAllocation(e: Exp[_]): Boolean = getDef(e).exists(isPrimitiveAllocation)
   def isPrimitiveAllocation(d: Def): Boolean = d match {
-    case _:StructAlloc[_] => true
-    case _:ListVector[_]  => true
+    case _:StructAlloc[_]  => true
+    case _:ListVector[_,_] => true
     case _ => false
   }
 
@@ -161,6 +161,7 @@ trait NodeClasses extends SpatialMetadataExp {
   def isParEnq(e: Exp[_]): Boolean = e match {
     case Def(_:ParFIFOEnq[_]) => true
     case Def(_:ParSRAMStore[_]) => true
+    case Def(_:ParLineBufferEnq[_]) => true
     case _ => false
   }
 
@@ -199,7 +200,7 @@ trait NodeClasses extends SpatialMetadataExp {
   }
 
   def isVector(e:Exp[_]):Boolean = e.tp match {
-    case _:VectorType[_,_] => true
+    case _:VectorType[_] => true
     case _ => false
   }
 
@@ -300,9 +301,11 @@ trait NodeClasses extends SpatialMetadataExp {
     case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
 
     case StreamWrite(stream, data, en)       => Some(LocalWrite(stream, value=data, en=en))
-    case ParStreamWrite(stream, data, ens)   => Some(LocalWrite(stream, value=data))
 
     // TODO: Address and enable are in different format in parallelized accesses
+    case ParStreamWrite(stream, data, ens) => Some(LocalWrite(stream,value=data))
+    case ParLineBufferEnq(lb,data,ens)     => Some(LocalWrite(lb,value=data))
+    case ParRegFileStore(reg,is,data,ens)  => Some(LocalWrite(reg,value=data))
     case ParSRAMStore(mem,addr,data,en)    => Some(LocalWrite(mem,value=data))
     case ParFIFOEnq(fifo,data,ens)         => Some(LocalWrite(fifo,value=data))
     case _ => None
@@ -324,7 +327,9 @@ trait NodeClasses extends SpatialMetadataExp {
     case StreamRead(stream, en)              => Some(LocalRead(stream, en=en))
 
     // TODO: Address and enable are in different format in parallelized accesses
-    case ParStreamRead(stream, ens)          => Some(LocalRead(stream))
+    case ParStreamRead(stream, ens)         => Some(LocalRead(stream))
+    case ParLineBufferLoad(lb,row,col,ens)  => Some(LocalRead(lb))
+    case ParRegFileLoad(reg,inds,ens)       => Some(LocalRead(reg))
     case ParSRAMLoad(sram,addr,ens)         => Some(LocalRead(sram))
     case ParFIFODeq(fifo,ens)               => Some(LocalRead(fifo))
     case _ => None
@@ -337,6 +342,14 @@ trait NodeClasses extends SpatialMetadataExp {
   object LocalReader {
     def unapply(x: Exp[_]): Option[List[LocalRead]] = getDef(x).flatMap(readerUnapply)
     def unapply(d: Def): Option[List[LocalRead]] = readerUnapply(d)
+  }
+  object LocalAccess {
+    def unapply(x: Exp[_]): Option[List[Exp[_]]] = getDef(x).flatMap(LocalAccess.unapply)
+    def unapply(d: Def): Option[List[Exp[_]]] = {
+      val accessed = readerUnapply(d).map(_.map(_.mem)).getOrElse(Nil) ++
+                     writerUnapply(d).map(_.map(_.mem)).getOrElse(Nil)
+      if (accessed.isEmpty) None else Some(accessed)
+    }
   }
 
   def isReader(x: Exp[_]): Boolean = LocalReader.unapply(x).isDefined

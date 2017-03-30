@@ -2,11 +2,11 @@ package spatial.api
 
 import argon.core.Staging
 import argon.ops.CastApi
-import macros.struct
+import forge.struct
 import org.virtualized._
 import spatial.SpatialExp
 
-trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi with CastApi with RangeApi with PinApi {
+trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi with CastApi with RangeApi with PinApi with StreamApi {
   this: SpatialExp =>
 
   /** Internals **/
@@ -118,7 +118,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       val offset_bytes = maddr_bytes - start_bytes      // Burst-aligned start address, in bytes
       val raw_end      = maddr_bytes + length_bytes     // Raw end, in bytes, with burst-aligned start
 
-      val end_bytes = mux(raw_end % bytesPerBurst == 0,  0.as[Index], bytesPerBurst - raw_end % bytesPerBurst) // Extra useless bytes at end
+      val end_bytes = mux(raw_end % bytesPerBurst == 0,  0.as[Index], (bytesPerBurst - raw_end) % bytesPerBurst) // Extra useless bytes at end
 
       // FIXME: What to do for bursts which split individual words?
       val start = start_bytes / bytesPerWord                   // Number of WHOLE elements to ignore at start
@@ -246,8 +246,8 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
     par:       Const[Index],
     isLoad:    Boolean
   )(implicit ctx: SrcCtx): Void = {
-    val local = wrap(onchip)
-    val addrs = wrap(addresses)
+    val local = SRAM1(onchip)
+    val addrs = SRAM1(addresses)
     val dram  = wrap(offchip)
     val requestLength = wrap(size)
     val p = wrap(par)

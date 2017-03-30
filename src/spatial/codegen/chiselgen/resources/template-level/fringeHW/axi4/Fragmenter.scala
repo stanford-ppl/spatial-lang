@@ -8,6 +8,8 @@
 //import diplomacy._
 //import scala.math.{min,max}
 //import uncore.tilelink2.{leftOR, rightOR, UIntToOH1, OH1ToOH}
+// import templates.Utils.log2Up
+
 //
 //// lite: masters all use only one ID => reads will not be interleaved
 //class AXI4Fragmenter(lite: Boolean = false, maxInFlight: Int = 32, combinational: Boolean = true) extends LazyModule
@@ -36,7 +38,7 @@
 //    val slave     = edgeOut.slave
 //    val slaves    = slave.slaves
 //    val beatBytes = slave.beatBytes
-//    val lgBytes   = log2Ceil(beatBytes)
+//    val lgBytes   = log2Up(beatBytes)
 //    val master    = edgeIn.master
 //    val masters   = master.masters
 //
@@ -256,7 +258,7 @@
 //  val WAIT = UInt(1, width = 2) // block all access till count=0
 //
 //  val state = RegInit(PASS)
-//  val count = RegInit(UInt(0, width = log2Ceil(maxInFlight)))
+//  val count = RegInit(UInt(0, width = log2Up(maxInFlight)))
 //  val full  = count === UInt(maxInFlight-1)
 //  val empty = count === UInt(0)
 //  val last  = count === UInt(1)

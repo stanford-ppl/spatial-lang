@@ -591,7 +591,7 @@ cd ${5}/out
 make sim 2>&1 | tee -a ${5}/log
 
 # Check for crashes in backend compilation
-wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\" | wc -l)
+wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\\|ChiselException\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
 fi

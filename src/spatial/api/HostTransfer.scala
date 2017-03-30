@@ -3,23 +3,24 @@ package spatial.api
 import argon.core.Staging
 import argon.ops.ArrayExtApi
 import spatial.SpatialExp
+import forge._
 
 trait HostTransferApi extends HostTransferExp with ArrayExtApi {
   this: SpatialExp =>
 
-  def setArg[A,T:Bits](reg: Reg[T], value: A)(implicit ctx: SrcCtx, lift: Lift[A,T]): Void = {
+  @api def setArg[A,T:Bits](reg: Reg[T], value: A)(implicit ctx: SrcCtx, lift: Lift[A,T]): Void = {
     Void( set_arg(reg.s, lift.staged.unwrapped(lift(value)))(lift.staged,bits[T],ctx) )
   }
-  def getArg[T:Meta:Bits](reg: Reg[T])(implicit ctx: SrcCtx): T = wrap(get_arg(reg.s))
-  def setMem[T:Meta:Bits](dram: DRAM[T], data: Array[T])(implicit ctx: SrcCtx): Void = Void(set_mem(dram.s, data.s))
-  def getMem[T:Meta:Bits](dram: DRAM[T])(implicit ctx: SrcCtx): Array[T] = {
+  @api def getArg[T:Meta:Bits](reg: Reg[T]): T = wrap(get_arg(reg.s))
+  @api def setMem[T:Meta:Bits](dram: DRAM[T], data: Array[T]): Void = Void(set_mem(dram.s, data.s))
+  @api def getMem[T:Meta:Bits](dram: DRAM[T]): Array[T] = {
     val array = Array.empty[T](productTree(wrap(dimsOf(dram.s))))
     get_mem(dram.s, array.s)
     array
   }
 
-  def setMem[T:Meta:Bits](dram: DRAM[T], matrix: Matrix[T])(implicit ctx: SrcCtx): Void = setMem(dram, matrix.data)
-  def getMatrix[T:Meta:Bits](dram: DRAM[T])(implicit ctx: SrcCtx): Matrix[T] = {
+  @api def setMem[T:Meta:Bits](dram: DRAM[T], matrix: Matrix[T]): Void = setMem(dram, matrix.data)
+  @api def getMatrix[T:Meta:Bits](dram: DRAM[T])(implicit ctx: SrcCtx): Matrix[T] = {
     val dims = dimsOf(dram.s)
     if (dims.length != 2) {
       error(ctx, u"Cannot get matrix for ${dram.s} since it is ${dims}-dimensional.")

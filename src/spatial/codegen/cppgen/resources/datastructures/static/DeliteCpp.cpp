@@ -279,8 +279,8 @@ template<> string convert_to_string<string>(string str) {
 
 string readFirstLineFile(const string &filename) {
 #ifdef __USE_STD_STRING__
-  ifstream fs(filename.c_str());
-  string line;
+  std::ifstream fs(filename.c_str());
+  std::string line;
   if (fs.good()) {
     getline(fs, line);
   }

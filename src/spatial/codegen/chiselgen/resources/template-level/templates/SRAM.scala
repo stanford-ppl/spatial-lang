@@ -266,8 +266,8 @@ class SRAM(val logicalDims: List[Int], val w: Int,
     (0 until wBundle.length).foreach{ i => 
       io.w(i + wId*wPar) := wBundle(i) 
     }
-    io.globalWEn(wId) := en
-    io.wSel(wId) := en
+    io.globalWEn(wId) := en 
+    io.wSel(wId) := en & ( wBundle.map{ _.en}.reduce{_||_} )
     wId = wId + 1
   }
   var rId = 0
@@ -297,7 +297,7 @@ class SRAM(val logicalDims: List[Int], val w: Int,
 }
 
 
-class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width*/
+class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*TODO: width, get rid of this!*/
            val banks: List[Int], val strides: List[Int], val numWriters: Int, val numReaders: Int,
            val wPar: Int, val rPar: Int, val bankingMode: String, val bitWidth: Int = 32) extends Module { 
 
@@ -437,8 +437,8 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*width
         io.w(i + numWriters*wPar*port + wId*wPar) := wBundle(i) 
       }
       io.writerStage := port.U
-      io.globalWEn(port) := en // TODO: Probably wrong!
-      io.wSel(wId) := en
+      io.globalWEn(port * numWriters + wId) := en 
+      io.wSel(wId) := en & ( wBundle.map{ _.en}.reduce{_||_} )
       val next = wIdMap(port) + 1
       wIdMap += (port -> next)
     } else { // broadcast

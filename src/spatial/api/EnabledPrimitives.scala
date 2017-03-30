@@ -14,7 +14,7 @@ trait EnabledPrimitivesExp extends Staging {
 
   abstract class EnabledOp[T:Type](ens: Exp[Bool]*) extends Op[T] {
     def enables: Seq[Exp[Bool]] = ens.toSeq
-    // Hack:
+    // HACK: Only works if the transformer is a substitution-based transformer (but what else is there?)
     def mirrorWithEn(f:Tx, addEn:Exp[Bool]) = f match {
       case sub: SubstTransformer =>
         val newEns = f(enables).map{bool_and(_,addEn)}

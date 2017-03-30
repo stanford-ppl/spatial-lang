@@ -2,6 +2,7 @@ package spatial.api
 
 import argon.core.Staging
 import spatial.SpatialExp
+import forge._
 
 // N by B
 // N par P
@@ -27,37 +28,37 @@ trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
 
   implicit class IndexRangeOps(x: Index) {
     private def lft(x: Int)(implicit ctx: SrcCtx) = lift[Int,Index](x)
-    def by(step: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, Some(lft(step)), None)
-    def par(p: Int)(implicit ctx: SrcCtx): Range = range_alloc(None, x, None, Some(lft(p)))
-    def until(end: Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(x), lft(end), None, None)
+    @api def by(step: Int): Range = range_alloc(None, x, Some(lft(step)), None)
+    @api def par(p: Int): Range = range_alloc(None, x, None, Some(lft(p)))
+    @api def until(end: Int): Range = range_alloc(Some(x), lft(end), None, None)
 
-    def by(step: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, x, Some(step), None)
-    def par(p: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, x, None, Some(p))
-    def until(end: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(x), end, None, None)
+    @api def by(step: Index): Range = range_alloc(None, x, Some(step), None)
+    @api def par(p: Index): Range = range_alloc(None, x, None, Some(p))
+    @api def until(end: Index): Range = range_alloc(Some(x), end, None, None)
 
-    def ::(start: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(start), x, None, None)
+    @api def ::(start: Index): Range = range_alloc(Some(start), x, None, None)
   }
 
   implicit class intWrapper(x: scala.Int) {
     private def lft(x: Int)(implicit ctx: SrcCtx) = lift[Int,Index](x)
-    def until(end: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(lft(x)), end, None, None)
-    def by(step: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, lft(x), Some(step), None)
-    def par(p: Index)(implicit ctx: SrcCtx): Range = range_alloc(None, lft(x), None, Some(p))
+    @api def until(end: Index): Range = range_alloc(Some(lft(x)), end, None, None)
+    @api def by(step: Index): Range = range_alloc(None, lft(x), Some(step), None)
+    @api def par(p: Index): Range = range_alloc(None, lft(x), None, Some(p))
 
-    def until(end: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(lft(x)), lft(end), None, None)
-    def by(step: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(None, lft(x), Some(lft(step)), None)
-    def par(p: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(None, lft(x), None, Some(lft(p)))
+    @api def until(end: scala.Int): Range = range_alloc(Some(lft(x)), lft(end), None, None)
+    @api def by(step: scala.Int): Range = range_alloc(None, lft(x), Some(lft(step)), None)
+    @api def par(p: scala.Int): Range = range_alloc(None, lft(x), None, Some(lft(p)))
 
-    def ::(start: Index)(implicit ctx: SrcCtx): Range = range_alloc(Some(start), lft(x), None, None)
-    def ::(start: scala.Int)(implicit ctx: SrcCtx): Range = range_alloc(Some(lft(start)), lft(x), None, None)
+    @api def ::(start: Index): Range = range_alloc(Some(start), lft(x), None, None)
+    @api def ::(start: scala.Int): Range = range_alloc(Some(lft(start)), lft(x), None, None)
   }
 
   // Implicitly get value of register to use in counter definitions
   implicit def regToIndexRange(x: Reg[Index])(implicit ctx: SrcCtx): IndexRangeOps = IndexRangeOps(x.value)
 
-  def Range(start: Index, end: Index, stride: Index, par: Index): Range = {
+  /*@api def Range(start: Index, end: Index, stride: Index, par: Index): Range = {
     range_alloc(Some(start), end, Some(stride), Some(par))
-  }
+  }*/
 }
 
 
@@ -69,12 +70,12 @@ trait RangeExp extends Staging with MemoryExp {
   case class Wildcard()
 
   case class Range(start: Option[Index], end: Index, step: Option[Index], p: Option[Index], isUnit: Boolean) {
-    def by(step: Index)(implicit ctx: SrcCtx): Range = Range(start, end, Some(step), p, isUnit = false)
-    def par(p: Index)(implicit ctx: SrcCtx): Range = Range(start, end, step, Some(p), isUnit = false)
+    @api def by(step: Index): Range = Range(start, end, Some(step), p, isUnit = false)
+    @api def par(p: Index): Range = Range(start, end, step, Some(p), isUnit = false)
 
-    def ::(start2: Index)(implicit ctx: SrcCtx): Range = Range(Some(start2), end, start, p, isUnit = false)
+    @api def ::(start2: Index): Range = Range(Some(start2), end, start, p, isUnit = false)
 
-    def foreach(func: Index => Void)(implicit ctx: SrcCtx): Void = {
+    @api def foreach(func: Index => Void): Void = {
       val i = fresh[Index]
       val fBlk = () => func(wrap(i)).s
       val begin  = start.map(_.s).getOrElse(int32(0))
@@ -82,7 +83,7 @@ trait RangeExp extends Staging with MemoryExp {
       Void(range_foreach(begin, end.s, stride, fBlk(), i))
     }
 
-    def length(implicit ctx: SrcCtx) = (start, end, step) match {
+    @api def length: Index = (start, end, step) match {
       case (None, e, None) => e
       case (Some(s), e, None) => e - s
       case (None, e, Some(st)) => (e + st - 1) / st

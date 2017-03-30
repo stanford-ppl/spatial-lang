@@ -180,7 +180,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
 
     smStr match {
       case s @ ("Metapipe" | "Seqpipe") =>
-        emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")})""")
+        emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).number""")
         emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
       case _ =>
     }
@@ -320,7 +320,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       controllerStack.push(lhs)
       toggleEn() // turn on
       emit(s"""val ${quote(lhs)}_en = io.enable & !io.done;""")
-      emit(s"""val ${quote(lhs)}_resetter = false.B // TODO: top level reset""")
+      emit(s"""val ${quote(lhs)}_resetter = reset""")
       emitGlobal(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }

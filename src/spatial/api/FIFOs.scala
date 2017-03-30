@@ -2,11 +2,12 @@ package spatial.api
 
 import argon.core.Staging
 import spatial.SpatialExp
+import forge._
 
 trait FIFOApi extends FIFOExp {
   this: SpatialExp =>
 
-  def FIFO[T:Type:Bits](size: Index)(implicit ctx: SrcCtx): FIFO[T] = FIFO(fifo_alloc[T](size.s))
+  @api def FIFO[T:Type:Bits](size: Index): FIFO[T] = FIFO(fifo_alloc[T](size.s))
 
 }
 
@@ -15,14 +16,14 @@ trait FIFOExp extends Staging with MemoryExp with SpatialExceptions {
 
   /** Infix methods **/
   case class FIFO[T:Meta:Bits](s: Exp[FIFO[T]]) extends Template[FIFO[T]] {
-    def enq(data: T)(implicit ctx: SrcCtx): Void = this.enq(data, true)
-    def enq(data: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(fifo_enq(this.s, data.s, en.s))
+    @api def enq(data: T): Void = this.enq(data, true)
+    @api def enq(data: T, en: Bool): Void = Void(fifo_enq(this.s, data.s, en.s))
 
-    def deq()(implicit ctx: SrcCtx): T = this.deq(true)
-    def deq(en: Bool)(implicit ctx: SrcCtx): T = wrap(fifo_deq(this.s, en.s))
+    @api def deq(): T = this.deq(true)
+    @api def deq(en: Bool): T = wrap(fifo_deq(this.s, en.s))
 
-    def load(dram: DRAM[T])(implicit ctx: SrcCtx): Void = dense_transfer(dram.toTile, this, isLoad = true)
-    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = dense_transfer(dram, this, isLoad = true)
+    @api def load(dram: DRAM[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    @api def load(dram: DRAMDenseTile[T]): Void = dense_transfer(dram, this, isLoad = true)
     //def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void = copy_sparse(dram, this, isLoad = true)
   }
 

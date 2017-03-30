@@ -65,7 +65,7 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     override def stagedClass = classOf[LineBuffer[T]]
     override def isPrimitive = false
   }
-  implicit def lineBufferType[T:Meta:Bits]: Meta[LineBuffer[T]] = LineBufferType(meta[T])
+  implicit def lineBufferType[T:Meta:Bits]: Meta[LineBuffer[T]] = LineBufferType(typ[T])
 
   class LineBufferIsMemory[T:Meta:Bits] extends Mem[T, LineBuffer] {
     def load(mem: LineBuffer[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = {
@@ -83,31 +83,29 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
   implicit def linebufferIsMemory[T:Meta:Bits]: Mem[T, LineBuffer] = new LineBufferIsMemory[T]
 
 
-
   /** IR Nodes **/
-
   case class LineBufferNew[T:Type:Bits](rows: Exp[Index], cols: Exp[Index]) extends Op[LineBuffer[T]] {
     def mirror(f:Tx) = linebuffer_new[T](f(rows),f(cols))
     val mT = typ[T]
   }
 
-  case class LineBufferColSlice[W:INT,T:Type:Bits](
+  case class LineBufferColSlice[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     row:        Exp[Index],
     colStart:   Exp[Index],
     length:     Exp[Index]
-  ) extends Op[Vector[W,T]] {
+  )(implicit val vT: Type[Vector[T]]) extends Op[Vector[T]] {
     def mirror(f:Tx) = linebuffer_col_slice(f(linebuffer),f(row),f(colStart),f(length))
     override def aliases = Nil
     val mT = typ[T]
   }
 
-  case class LineBufferRowSlice[W:INT,T:Type:Bits](
+  case class LineBufferRowSlice[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     rowStart:   Exp[Index],
     length:     Exp[Index],
     col:        Exp[Index]
-  ) extends Op[Vector[W,T]] {
+  )(implicit val vT: Type[Vector[T]]) extends Op[Vector[T]] {
     def mirror(f:Tx) = linebuffer_row_slice(f(linebuffer),f(rowStart),f(length),f(col))
     override def aliases = Nil
     val mT = typ[T]
@@ -122,6 +120,7 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     def mirror(f:Tx) = linebuffer_load(f(linebuffer),f(row),f(col),f(en))
     override def aliases = Nil
     val mT = typ[T]
+    val bT = bits[T]
   }
 
   case class LineBufferEnq[T:Type:Bits](
@@ -132,6 +131,7 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     def mirror(f:Tx) = linebuffer_enq(f(linebuffer),f(data),f(en))
     override def aliases = Nil
     val mT = typ[T]
+    val bT = bits[T]
   }
 
   /** Constructors **/
@@ -140,22 +140,34 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     stageMutable(LineBufferNew[T](rows, cols))(ctx)
   }
 
-  private[spatial] def linebuffer_col_slice[W:INT,T:Type:Bits](
+  private[spatial] def linebuffer_col_slice[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     row:        Exp[Index],
     colStart:   Exp[Index],
     length:     Exp[Index]
   )(implicit ctx: SrcCtx) = {
-    stageCold(LineBufferColSlice[W,T](linebuffer, row, colStart, length))(ctx)
+    implicit val vT: Type[Vector[T]] = length match {
+      case Final(c) => VecType[T](c.toInt)
+      case _ =>
+        error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
+        VecType[T](0)
+    }
+    stageCold(LineBufferColSlice(linebuffer, row, colStart, length))(ctx)
   }
 
-  private[spatial] def linebuffer_row_slice[W:INT,T:Type:Bits](
+  private[spatial] def linebuffer_row_slice[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     rowStart:   Exp[Index],
     length:     Exp[Index],
     col:        Exp[Index]
   )(implicit ctx: SrcCtx) = {
-    stageCold(LineBufferRowSlice[W,T](linebuffer, rowStart, length, col))(ctx)
+    implicit val vT: Type[Vector[T]] = length match {
+      case Final(c) => VecType[T](c.toInt)
+      case _ =>
+        error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
+        VecType[T](0)
+    }
+    stageCold(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)
   }
 
   private[spatial] def linebuffer_load[T:Type:Bits](

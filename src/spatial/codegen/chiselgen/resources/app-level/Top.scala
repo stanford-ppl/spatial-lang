@@ -5,6 +5,8 @@ import chisel3.util._
 import fringe._
 import accel._
 import axi4._
+import templates.Utils.log2Up
+
 
 // import AccelTop
 abstract class TopInterface extends Bundle {
@@ -64,12 +66,13 @@ class AWSInterface(p: TopParams) extends TopInterface {
  */
 class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStreams: Int = 1, target: String = "") extends Module {
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
-  val addrWidth = log2Ceil(numRegs)
+  val addrWidth = log2Up(numRegs)
   val v = 16
   val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, numMemoryStreams, target)
 
   val io = target match {
     case "verilator"  => IO(new VerilatorInterface(topParams))
+    case "vcs"        => IO(new VerilatorInterface(topParams))
     case "aws"        => IO(new AWSInterface(topParams))
     case "zynq"       => IO(new ZynqInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
@@ -79,7 +82,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
   val accel = Module(new AccelTop(w, numArgIns, numArgOuts, numMemoryStreams))
 
   target match {
-    case "verilator" =>
+    case "verilator" | "vcs" =>
       // Simulation Fringe
       val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numMemoryStreams))
       val topIO = io.asInstanceOf[VerilatorInterface]

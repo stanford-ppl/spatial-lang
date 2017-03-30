@@ -50,7 +50,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"""// Connect streams to ports on mem controller""")
       emit("// HACK: Assume load is par=16")
       val allData = dram.tp.typeArguments.head match {
-        case FixPtType(s,d,f) => if (hasFracBits(dram.tp.typeArguments.head)) {
+        case FixPtType(s,d,f) => if (spatialNeedsFPType(dram.tp.typeArguments.head)) {
             (0 until 16).map{ i => src"""Utils.FixedPoint($s,$d,$f,io.memStreams($id).rdata.bits($i))""" }.mkString(",")
           } else {
             (0 until 16).map{ i => src"io.memStreams($id).rdata.bits($i)" }.mkString(",")

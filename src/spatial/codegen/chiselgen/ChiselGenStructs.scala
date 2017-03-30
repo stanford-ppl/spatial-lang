@@ -4,10 +4,18 @@ import argon.codegen.chiselgen.ChiselCodegen
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
-
 trait ChiselGenStructs extends ChiselCodegen {
   val IR: SpatialExp
   import IR._
+
+  override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
+      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+      case IntType()  => false
+      case LongType() => false
+      case FloatType() => true
+      case DoubleType() => true
+      case _ => super.needsFPType(tp)
+  }
 
   protected def tupCoordinates(tp: Type[_],field: String): (Int,Int) = tp match {
     case x: Tup2Type[_,_] => field match {
@@ -63,7 +71,7 @@ trait ChiselGenStructs extends ChiselCodegen {
     case SimpleStruct(tuples)  =>
       val items = tuples.map{ t => 
         val width = bitWidth(t._2.tp)
-        if (width > 1 & !hasFracBits(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} 
+        if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} 
       }.mkString(",")
       emit(src"val $lhs = Utils.Cat($items)")
     case FieldApply(struct, field) =>

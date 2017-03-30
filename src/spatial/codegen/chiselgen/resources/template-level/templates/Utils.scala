@@ -2,7 +2,63 @@
 package templates
 
 import chisel3._
+import chisel3.util.{log2Ceil, isPow2}
 import types._
+
+object ops {
+  implicit class UIntOps(val b:UInt) {
+    // Define number so that we can be compatible with FixedPoint type
+    def number = {
+      b
+    }
+
+    def < (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, c.d, c.f, b) < c
+    }
+
+    def > (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, c.d, c.f, b) > c
+    }
+
+    def === (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, c.d, c.f, b) === c      
+    }
+
+    def - (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, c.d, c.f, b) - c      
+    }
+
+    def + (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, c.d, c.f, b) + c      
+    }
+
+    def * (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, c.d, c.f, b) * c      
+    }
+
+    def / (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, c.d, c.f, b) / c      
+    }
+
+    def % (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, c.d, c.f, b) % c      
+    }
+
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+
+
+  }
+  implicit class IntOps(val b: Int) {
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+    def FP(s: Int, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+  }
+}
 
 object Utils {
   def delay[T <: chisel3.core.Data](sig: T, length: Int):T = {
@@ -28,6 +84,9 @@ object Utils {
   }
 
   // Helper for making fixedpt when you know the value at creation time
+  def FixedPoint[T](s: Int, d: Int, f: Int, init: T): types.FixedPoint = {
+    FixedPoint(s > 0, d, f, init)
+  }
   def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T): types.FixedPoint = {
     val cst = Wire(new types.FixedPoint(s, d, f))
     init match {
@@ -83,6 +142,12 @@ object Utils {
     }
   }
 
+  def log2Up[T](number:T): Int = {
+    number match {
+      case n: Int => 1 max log2Ceil(1 max n)
+      case n: scala.math.BigInt => 1 max log2Ceil(1.asInstanceOf[scala.math.BigInt] max n)
+    }
+  }
   // def toFix[T <: chisel3.core.Data](a: T): FixedPoint = {
   //   a match {
   //     case aa: FixedPoint => Mux(aa > bb, a, b)

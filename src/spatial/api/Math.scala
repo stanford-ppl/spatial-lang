@@ -3,24 +3,25 @@ package spatial.api
 import argon.core.Staging
 import spatial.SpatialExp
 import argon.ops.{FltPtExp, FixPtExp}
+import forge._
 
 trait MathApi extends MathExp {
   this: SpatialExp =>
 
   /** Absolute value **/
-  def abs[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F])(implicit ctx: SrcCtx): FixPt[S,I,F] = FixPt(fix_abs(x.s))
+  @api def abs[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = FixPt(fix_abs(x.s))
 
   /** Absolute value **/
-  def abs[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E] = FltPt(flt_abs(x.s))
+  @api def abs[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_abs(x.s))
   /** Natural logarithm **/
-  def log[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E] = FltPt(flt_log(x.s))
+  @api def log[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_log(x.s))
   /** Natural exponential (Euler's number, e, raised to the given exponent) **/
-  def exp[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E] = FltPt(flt_exp(x.s))
+  @api def exp[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_exp(x.s))
   /** Square root **/
-  def sqrt[G:INT,E:INT](x: FltPt[G,E])(implicit ctx: SrcCtx): FltPt[G,E] = FltPt(flt_sqrt(x.s))
+  @api def sqrt[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_sqrt(x.s))
 
   // TODO: These should probably be added to Num instead
-  def abs[T:Meta:Num](x: T)(implicit ctx: SrcCtx): T = typ[T] match {
+  @api def abs[T:Meta:Num](x: T): T = typ[T] match {
     case t: FixPtType[s,i,f] =>
       implicit val mS = t.mS.asInstanceOf[BOOL[s]]
       implicit val mI = t.mI.asInstanceOf[INT[i]]
@@ -32,7 +33,7 @@ trait MathApi extends MathExp {
       abs[g,e](x.asInstanceOf[FltPt[g,e]]).asInstanceOf[T]
   }
 
-  def exp[T:Meta:Num](x: T)(implicit ctx: SrcCtx): T = typ[T] match {
+  @api def exp[T:Meta:Num](x: T)(implicit ctx: SrcCtx): T = typ[T] match {
     case t: FixPtType[s,i,f] =>
       error(ctx, "Exponentiation of fixed point types is not yet implemented.")
       error(ctx)
@@ -48,18 +49,18 @@ trait MathApi extends MathExp {
 trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions {
   this: SpatialExp =>
 
-  def mux[T:Meta:Bits](select: Bool, a: T, b: T)(implicit ctx: SrcCtx): T = {
+  @api def mux[T:Meta:Bits](select: Bool, a: T, b: T): T = {
     wrap( math_mux(select.s, a.s, b.s) )
   }
 
-  def min[T:Meta:Bits:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_min(a.s, b.s) )
-  def max[T:Meta:Bits:Order](a: T, b: T)(implicit ctx: SrcCtx): T = wrap( math_max(a.s, b.s) )
+  @api def min[T:Meta:Bits:Order](a: T, b: T): T = wrap( math_min(a.s, b.s) )
+  @api def max[T:Meta:Bits:Order](a: T, b: T): T = wrap( math_max(a.s, b.s) )
 
   implicit class MathInfixOps[T:Type:Num](x: T) {
-    def **(exp: Int)(implicit ctx: SrcCtx): T = pow(x, exp)
+    @api def **(exp: Int): T = pow(x, exp)
   }
 
-  def pow[T:Type:Num](x: T, exp: Int)(implicit ctx: SrcCtx): T = {
+  @api def pow[T:Type:Num](x: T, exp: Int)(implicit ctx: SrcCtx): T = {
     if (exp >= 0) productTree(List.fill(exp)(x))
     else {
       error(ctx, "Exponentiation on negative integers is currently unsupported")

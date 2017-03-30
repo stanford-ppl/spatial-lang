@@ -1,7 +1,7 @@
 package templates
 
 import chisel3._
-import chisel3.util.log2Ceil
+import templates.Utils.log2Up
 
 // This exposes all registers as output ports now
 
@@ -10,7 +10,7 @@ class ParallelShiftRegFile(val size: Int, val stride: Int) extends Module {
   def this(tuple: (Int, Int)) = this(tuple._1, tuple._2)
   val io = IO(new Bundle { // TODO: follow io.input and io.output convention
     val data_in  = Vec(stride, Input(UInt(32.W)))
-    val w_addr   = Input(UInt(log2Ceil(((size+stride-1)/stride)*stride + 1).W))
+    val w_addr   = Input(UInt(log2Up(((size+stride-1)/stride)*stride + 1).W))
     val w_en     = Input(UInt(1.W)) // TODO: Bool()
     val shift_en = Input(UInt(1.W)) // TODO: Bool()
     val reset    = Input(UInt(1.W)) // TODO: Bool()

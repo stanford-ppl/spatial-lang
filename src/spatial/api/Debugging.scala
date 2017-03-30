@@ -2,19 +2,20 @@ package spatial.api
 
 import argon.core.Staging
 import spatial.SpatialExp
+import forge._
 
 trait DebuggingApi extends DebuggingExp {
   this: SpatialExp =>
 
-  def println()(implicit ctx: SrcCtx): Void = println("")
-  def print[T:Type](x: T)(implicit ctx: SrcCtx): Void = Void(printIf(bool(true),textify(x).s))
-  def println[T:Type](x: T)(implicit ctx: SrcCtx): Void = Void(printlnIf(bool(true),textify(x).s))
+  @api def println(): Void = println("")
+  @api def print[T:Type](x: T): Void = Void(printIf(bool(true),textify(x).s))
+  @api def println[T:Type](x: T): Void = Void(printlnIf(bool(true),textify(x).s))
 
-  def print(x: String)(implicit ctx: SrcCtx): Void = print(string2text(x))
-  def println(x: String)(implicit ctx: SrcCtx): Void = println(string2text(x))
+  @api def print(x: String): Void = print(string2text(x))
+  @api def println(x: String): Void = println(string2text(x))
 
-  def assert(cond: Bool, msg: Text)(implicit ctx: SrcCtx): Void = Void(assertIf(bool(true), cond.s, Some(msg.s)))
-  def assert(cond: Bool)(implicit ctx: SrcCtx): Void = Void(assertIf(bool(true), cond.s, None))
+  @api def assert(cond: Bool, msg: Text): Void = Void(assertIf(bool(true), cond.s, Some(msg.s)))
+  @api def assert(cond: Bool): Void = Void(assertIf(bool(true), cond.s, None))
 }
 
 

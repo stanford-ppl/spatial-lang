@@ -1,6 +1,5 @@
 package spatial.codegen.scalagen
 
-import argon.codegen.scalagen.ScalaCodegen
 import spatial.api.VectorExp
 
 trait ScalaGenVector extends ScalaGenBits {
@@ -8,12 +7,12 @@ trait ScalaGenVector extends ScalaGenBits {
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: VectorType[_,_] => src"Array[${tp.child}]"
+    case tp: VectorType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }
 
   override def invalid(tp: Type[_]): String = tp match {
-    case tp: VectorType[_,_] => src"""Array.fill(${tp.width}(${invalid(tp.child)})"""
+    case tp: VectorType[_] => src"""Array.fill(${tp.width}(${invalid(tp.child)})"""
     case _ => super.invalid(tp)
   }
 

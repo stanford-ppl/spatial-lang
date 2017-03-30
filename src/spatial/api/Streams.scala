@@ -1,40 +1,37 @@
 package spatial.api
+
 import argon.core.Staging
 import spatial.SpatialExp
+import forge._
 
 trait StreamApi extends StreamExp {
   this: SpatialExp =>
 
-  implicit def readStream[T](stream: StreamIn[T])(implicit ctx: SrcCtx): T = stream.value
+  /** Static methods **/
+  @api def StreamIn[T:Meta:Bits](bus: Bus): StreamIn[T] = {
+    bus_check[T](bus)
+    StreamIn(stream_in[T](bus))
+  }
 
+  @api def StreamOut[T:Meta:Bits](bus: Bus): StreamOut[T] = {
+    bus_check[T](bus)
+    StreamOut(stream_out[T](bus))
+  }
+
+  @api implicit def readStream[T](stream: StreamIn[T])(implicit ctx: SrcCtx): T = stream.value
 }
 
 trait StreamExp extends Staging with PinExp {
   this: SpatialExp =>
 
   case class StreamIn[T:Meta:Bits](s: Exp[StreamIn[T]]) extends Template[StreamIn[T]] {
-    def value()(implicit ctx: SrcCtx): T = this.value(true)
-    def value(en: Bool)(implicit ctx: SrcCtx): T = wrap(stream_read(s, en.s)) // Needed?
+    @api def value(): T = this.value(true)
+    @api def value(en: Bool): T = wrap(stream_read(s, en.s)) // Needed?
   }
 
   case class StreamOut[T:Meta:Bits](s: Exp[StreamOut[T]]) extends Template[StreamOut[T]] {
-    def :=(value: T)(implicit ctx: SrcCtx): Void = this := (value, true)
-    def :=(value: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(stream_write(s, value.s, en.s))
-  }
-
-  /** Static methods **/
-  object StreamIn {
-    def apply[T:Meta:Bits](bus: Bus)(implicit ctx: SrcCtx): StreamIn[T] = {
-      bus_check[T](bus)
-      StreamIn(stream_in[T](bus))
-    }
-  }
-
-  object StreamOut {
-    def apply[T:Meta:Bits](bus: Bus)(implicit ctx: SrcCtx): StreamOut[T] = {
-      bus_check[T](bus)
-      StreamOut(stream_out[T](bus))
-    }
+    @api def :=(value: T): Void = this := (value, true)
+    @api def :=(value: T, en: Bool): Void = Void(stream_write(s, value.s, en.s))
   }
 
   /** Type classes **/
@@ -81,25 +78,25 @@ trait StreamExp extends Staging with PinExp {
 
 
   /** Constructors **/
-  private def stream_in[T:Type:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamIn[T]] = {
+  private[spatial] def stream_in[T:Type:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamIn[T]] = {
     stageMutable(StreamInNew[T](bus))(ctx)
   }
 
-  private def stream_out[T:Type:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamOut[T]] = {
+  private[spatial] def stream_out[T:Type:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamOut[T]] = {
     stageMutable(StreamOutNew[T](bus))(ctx)
   }
 
-  private def stream_read[T:Type:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool])(implicit ctx: SrcCtx) = {
+  private[spatial] def stream_read[T:Type:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool])(implicit ctx: SrcCtx) = {
     stageWrite(stream)(StreamRead(stream, en))(ctx)
   }
 
-  private def stream_write[T:Type:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx) = {
+  private[spatial] def stream_write[T:Type:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx) = {
     stageWrite(stream)(StreamWrite(stream, data, en))(ctx)
   }
 
 
   /** Internals **/
-  private def bus_check[T:Type:Bits](bus: Bus)(implicit ctx: SrcCtx): Unit = {
+  private[spatial] def bus_check[T:Type:Bits](bus: Bus)(implicit ctx: SrcCtx): Unit = {
     if (bits[T].length < bus.length) {
       warn(ctx, s"Bus length is greater than size of StreamIn type - will use first ${bits[T].length} bits in the bus")
       warn(ctx)

@@ -2,6 +2,8 @@ package fringe
 
 import chisel3._
 import chisel3.util._
+import templates.Utils.log2Up
+
 
 class FIFOArbiter(
   val w: Int,
@@ -11,7 +13,7 @@ class FIFOArbiter(
 ) extends Module {
 
   val wordSizeBytes = w/8
-  val tagWidth = log2Ceil(numStreams)
+  val tagWidth = log2Up(numStreams)
 
   val io = IO(new Bundle {
     val enq = Input(Vec(numStreams, Vec(v, Bits(w.W))))

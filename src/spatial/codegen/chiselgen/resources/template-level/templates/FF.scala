@@ -154,11 +154,17 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
     }
   }
 
-  def chain_pass(data: UInt, en: Bool) { // Method specifically for handling reg chains that pass counter values between metapipe stages
-      io.input.data := data
-      io.input.enable := en
-      io.input.reset := false.B
-      io.writerStage := 0.U
+  def chain_pass[T](dat: T, en: Bool) { // Method specifically for handling reg chains that pass counter values between metapipe stages
+    dat match {
+      case data: UInt => 
+        io.input.data := data
+      case data: FixedPoint => 
+        io.input.data := data.number
+    }
+    io.input.enable := en
+    io.input.reset := false.B
+    io.writerStage := 0.U
+
   }
 
   def connectStageCtrl(done: Bool, en: Bool, ports: List[Int]) {
@@ -256,7 +262,7 @@ class TFF() extends Module {
   io.output.data := ff
 }
 
-class SRFF() extends Module {
+class SRFF(val strongReset: Boolean = false) extends Module {
 
   // Overload with null string input for testing
   def this(n: String) = this()
@@ -272,10 +278,18 @@ class SRFF() extends Module {
     }
   })
 
-  val ff = RegInit(false.B)
-  ff := Mux(io.input.asyn_reset, false.B, Mux(io.input.set, 
-                                  true.B, Mux(io.input.reset, false.B, ff)))
-  io.output.data := Mux(io.input.asyn_reset, false.B, ff)
+  if (!strongReset) { // Set + reset = on
+    val ff = RegInit(false.B)
+    ff := Mux(io.input.asyn_reset, false.B, Mux(io.input.set, 
+                                    true.B, Mux(io.input.reset, false.B, ff)))
+    io.output.data := Mux(io.input.asyn_reset, false.B, ff)
+  } else { // Set + reset = off
+    val ff = RegInit(false.B)
+    ff := Mux(io.input.asyn_reset, false.B, Mux(io.input.reset, 
+                                    false.B, Mux(io.input.set, true.B, ff)))
+    io.output.data := Mux(io.input.asyn_reset, false.B, ff)
+
+  }
 }
 
 

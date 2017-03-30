@@ -85,7 +85,7 @@ public:
 
         // Some functions (e.g. monitor DRAM queue, send DRAM response)
         // needs to be executed every cycle
-        if (numCycles % 50 == 0) {
+        if (numCycles % 53 == 0) {
           executeEveryCycle();  
         } else {
           this->poke(&(dut->io_dram_resp_valid), 0);

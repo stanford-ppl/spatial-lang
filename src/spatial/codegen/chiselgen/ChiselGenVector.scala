@@ -27,7 +27,7 @@ trait ChiselGenVector extends ChiselCodegen {
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: VectorType[_,_] => src"Array[${tp.child}]"
+    case tp: VectorType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }
 

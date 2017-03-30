@@ -6,6 +6,7 @@
 //import diplomacy._
 //import regmapper._
 //import scala.math.{min,max}
+// import templates.Utils.log2Up
 //
 //class AXI4RegisterNode(address: AddressSet, concurrency: Int = 0, beatBytes: Int = 4, undefZero: Boolean = true)
 //  extends AXI4SlaveNode(AXI4SlavePortParameters(
@@ -27,7 +28,7 @@
 //    val r  = bundleIn(0).r
 //    val b  = bundleIn(0).b
 //
-//    val params = RegMapperParams(log2Ceil((address.mask+1)/beatBytes), beatBytes, ar.bits.params.idBits)
+//    val params = RegMapperParams(log2Up((address.mask+1)/beatBytes), beatBytes, ar.bits.params.idBits)
 //    val in = Wire(Decoupled(new RegMapperInput(params)))
 //
 //    // Prefer to execute reads first
@@ -41,7 +42,7 @@
 //    val mask = uncore.tilelink2.maskGen(ar.bits.addr, ar.bits.size, beatBytes)
 //
 //    in.bits.read  := ar.valid
-//    in.bits.index := addr >> log2Ceil(beatBytes)
+//    in.bits.index := addr >> log2Up(beatBytes)
 //    in.bits.data  := w.bits.data
 //    in.bits.mask  := Mux(ar.valid, mask, w.bits.strb)
 //    in.bits.extra := in_id

@@ -29,32 +29,33 @@ object Convolution_FPGA extends SpatialApp {
 
       // TODO: Better syntax for initialization of lookup tables
       Pipe {
-        kh(0,0) = 1.as[T]
-        kh(1,0) = 2.as[T]
-        kh(2,0) = 1.as[T]
-        kh(0,1) = 0.as[T]
-        kh(1,1) = 0.as[T]
-        kh(2,1) = 0.as[T]
-        kh(0,2) = -1.as[T]
-        kh(1,2) = -2.as[T]
-        kh(2,2) = -1.as[T]
+        // kh(i,j) = Mux(i.to[T] == 0 && j.to[T] == 0, 1.as[T], 2.as[T])
+        Pipe{kh(0,0) = 1.as[T]}
+        Pipe{kh(1,0) = 2.as[T]}
+        Pipe{kh(2,0) = 1.as[T]}
+        Pipe{kh(0,1) = 0.as[T]}
+        Pipe{kh(1,1) = 0.as[T]}
+        Pipe{kh(2,1) = 0.as[T]}
+        Pipe{kh(0,2) = -1.as[T]}
+        Pipe{kh(1,2) = -2.as[T]}
+        Pipe{kh(2,2) = -1.as[T]}
 
-        kv(0,0) = 1.as[T]
-        kv(0,1) = 2.as[T]
-        kv(0,2) = 1.as[T]
-        kv(1,0) = 0.as[T]
-        kv(1,1) = 0.as[T]
-        kv(1,2) = 0.as[T]
-        kv(2,0) = -1.as[T]
-        kv(2,1) = -2.as[T]
-        kv(2,2) = -1.as[T]
+        Pipe{kv(0,0) = 1.as[T]}
+        Pipe{kv(0,1) = 2.as[T]}
+        Pipe{kv(0,2) = 1.as[T]}
+        Pipe{kv(1,0) = 0.as[T]}
+        Pipe{kv(1,1) = 0.as[T]}
+        Pipe{kv(1,2) = 0.as[T]}
+        Pipe{kv(2,0) = -1.as[T]}
+        Pipe{kv(2,1) = -2.as[T]}
+        Pipe{kv(2,2) = -1.as[T]}
       }
 
       val sr = RegFile[T](Kh, Kw)
       val lineOut = SRAM[T](Cmax)
 
       Foreach(0 until R) { r =>
-        lb load img(r, 0::C)
+        lb load img(r, 0::C par 16)
 
         /*println("Row " + r)
         Foreach(0 until Kh) { i =>
@@ -82,8 +83,8 @@ object Convolution_FPGA extends SpatialApp {
 
   @virtualize
   def main() {
-    val R = 15
-    val C = 15
+    val R = 16
+    val C = 16
     val image = (0::R, 0::C){(i,j) => if (j > 3 && i > 3 && j < 11 && i < 11) 256 else 0 }
 
     val output = convolve(image)

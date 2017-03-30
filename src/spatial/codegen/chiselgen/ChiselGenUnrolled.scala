@@ -16,12 +16,12 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
-        emit(src"${is(0)}${suffix} := ${counters(i)}${suffix}(0)");
-        emitGlobal(src"val ${is(0)}${suffix} = Wire(UInt(32.W))")
+        emit(src"${is(0)}${suffix}.number := ${counters(i)}${suffix}(0)")
+        emitGlobal(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
-          emit(src"${iter}${suffix} := ${counters(i)}${suffix}($j)")
-          emitGlobal(src"val ${iter}${suffix} = Wire(UInt(32.W))")
+          emit(src"${iter}${suffix}.number := ${counters(i)}${suffix}($j)")
+          emitGlobal(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
         }
       }
     }
@@ -61,6 +61,14 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     indices.zip(strides).map{case (i,s) => src"$i*$s"}.mkString(" + ")
   }
 
+  override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
+      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+      case IntType()  => false
+      case LongType() => false
+      case FloatType() => true
+      case DoubleType() => true
+      case _ => super.needsFPType(tp)
+  }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case UnrolledForeach(en,cchain,func,iters,valids) =>
@@ -148,13 +156,13 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         inds.zipWithIndex.foreach{ case (ind, i) =>
           emit(src"${lhs}_rVec($i).en := ${parent}_en")
           ind.zipWithIndex.foreach{ case (a, j) =>
-            emit(src"""${lhs}_rVec($i).addr($j) := $a """)
+            emit(src"""${lhs}_rVec($i).addr($j) := ${a}.number """)
           }
         }
         val p = portsOf(lhs, sram, i).head
         emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
         sram.tp.typeArguments.head match { 
-          case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
+          case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
               emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*${p}+i))}""")
             } else {
               emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${sram}_${i}.rPar*${p}+i) }""")
@@ -169,7 +177,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, 32))) """)
       sram.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (hasFracBits(sram.tp.typeArguments.head)) {
+        case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
             emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat.number }""")
           } else {
             emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
@@ -179,7 +187,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       inds.zipWithIndex.foreach{ case (ind, i) =>
         emit(src"${lhs}_wVec($i).en := ${ens(i)}")
         ind.zipWithIndex.foreach{ case (a, j) =>
-          emit(src"""${lhs}_wVec($i).addr($j) := $a """)
+          emit(src"""${lhs}_wVec($i).addr($j) := ${a}.number """)
         }
       }
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
@@ -195,7 +203,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
       emit(src"""${quote(fifo)}_readEn := ${reader}_datapath_en & $en""")
       fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
+        case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) }""")
           } else {
             emit(src"""val ${lhs} = ${fifo}_rdata""")
@@ -212,7 +220,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_enq" else src"${writer}_sm.io.output.ctr_inc"
       emit(src"""${fifo}_writeEn := $enabler & $en""")
       fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (hasFracBits(fifo.tp.typeArguments.head)) {
+        case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(src"""${fifo}_wdata := (0 until $par).map{ i => ${data}(i).number }""")
           } else {
             emit(src"""${fifo}_wdata := ${data}""")

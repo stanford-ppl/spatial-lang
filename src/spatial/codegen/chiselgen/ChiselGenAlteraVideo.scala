@@ -13,7 +13,7 @@ trait ChiselGenAlteraVideo extends ChiselCodegen with FileDependencies {
   var dmas: List[Exp[Any]] = List()
   var decoders: List[Exp[Any]] = List()
 
-  // override protected def bitWidth(tp: Staged[_]): Int = tp match {
+  // override protected def bitWidth(tp: Type[_]): Int = tp match {
   //     case Avalon  => 32
   //     case _ => super.bitWidth(tp)
   // }

@@ -3,6 +3,7 @@ package spatial.api
 import argon.core.Staging
 import spatial.SpatialExp
 
+// TODO: Is this still used by anything? If not, delete
 trait AlteraVideoApi extends AlteraVideoExp with ControllerApi with FIFOApi with RangeApi with PinApi{
   this: SpatialExp =>
 
@@ -16,27 +17,16 @@ trait AlteraVideoApi extends AlteraVideoExp with ControllerApi with FIFOApi with
     DMA_Template(dma_alloc[T](popFrom.s.asInstanceOf[Exp[T]], loadIn.s.asInstanceOf[Exp[T]]))
   }
 
-  /** Internals **/
-  def Decoder[T:Type:Bits,C[T]](
-    popFrom: StreamIn[T],
-    pushTo:     FIFO[T]
-  )(implicit ctx: SrcCtx): Void = {
-
+  def Decoder[T:Type:Bits,C[T]](popFrom: StreamIn[T], pushTo: FIFO[T])(implicit ctx: SrcCtx): Void = {
     Pipe { 
       Decoder_Template(popFrom, pushTo)
       popFrom.value()
       ()
       // pushTo.enq(popFrom.deq())
     }
-  
   }
 
-  def DMA[T:Type:Bits,C[T]](
-    popFrom: FIFO[T],
-    loadIn:  SRAM[T]
-    // frameRdy:  StreamOut[T]
-  )(implicit ctx: SrcCtx): Void = {
-
+  def DMA[T:Type:Bits](popFrom: FIFO[T], loadIn: SRAM1[T] /*frameRdy:  StreamOut[T]*/)(implicit ctx: SrcCtx): Void = {
     Pipe {
       DMA_Template(popFrom, loadIn)
       Pipe (64 by 1) { i =>
@@ -47,7 +37,6 @@ trait AlteraVideoApi extends AlteraVideoExp with ControllerApi with FIFOApi with
       // }
       ()
     }
-  
   }
 
 }
