@@ -35,7 +35,7 @@ class ParallelShiftRegFile(val height: Int, val width: Int, val stride: Int, val
   } .elsewhen(io.shift_en.reduce{_|_}) {
     for (i <- 0 until (stride)) {
       for (row <- 0 until height) {
-        registers(row*size_rounded_up + i) := Mux(io.shift_en(row), io.data_in(i), registers(row*size_rounded_up + i))
+        registers(row*size_rounded_up + i) := Mux(io.shift_en(row), io.data_in(row), registers(row*size_rounded_up + i))
       }
     }
     for (i <- stride until (size_rounded_up)) {
@@ -74,9 +74,11 @@ class ParallelShiftRegFile(val height: Int, val width: Int, val stride: Int, val
   }
 
   def connectShiftPort(data: UInt, row_addr: UInt, en: Bool) {
-    io.data_in(wId) := data
     for (j <- 0 until height) {
-      io.shift_en(j) := en & row_addr === j.U
+      when(j.U === row_addr) {
+        io.data_in(j) := data
+        io.shift_en(j) := en     
+      }
     }
   }
 

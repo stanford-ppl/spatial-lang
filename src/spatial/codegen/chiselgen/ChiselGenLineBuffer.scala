@@ -64,7 +64,7 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
       
     case op@LineBufferLoad(lb,row,col,en) =>
       emit(src"$lb.io.col_addr(0) := ${col}.number")
-      emit(s"val ${quote(lhs)} = ${quote(lb)}.io.data_out(${row}.number)")
+      emit(s"val ${quote(lhs)} = ${quote(lb)}.readRow(${row}.number)")
 
     case op@LineBufferEnq(lb,data,en) =>
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
