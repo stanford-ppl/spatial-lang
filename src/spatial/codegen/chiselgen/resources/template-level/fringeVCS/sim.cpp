@@ -64,7 +64,7 @@ public:
       wdata = NULL;
     }
 
-    delay = abs(rand()) % 100 + 5;
+    delay = abs(rand()) % 150 + 50;
     elapsed = 0;
   }
 

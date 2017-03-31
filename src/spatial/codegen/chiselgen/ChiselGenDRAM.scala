@@ -66,7 +66,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
         case _ => (0 until par).map{ i => src"io.memStreams.loads($id).rdata.bits($i)" }.mkString(",")
       }
       emit(src"""val ${dataStream}_data = Vec(List($allData))""")
-      emitGlobal(src"""val ${dataStream}_ready = io.memStreams.loads($id).rdata.valid""")
+      emitGlobal(src"""val ${dataStream}_ready = io.memStreams.loads($id).rdata.valid // FIXME: Also need to connect this to fifo not empty""")
       emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready // Loopback for tile load/store")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}_data(96, 33) // Bits 33 to 96 are addr")
       emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}_data(32,1) // Bits 1 to 32 are size command")
