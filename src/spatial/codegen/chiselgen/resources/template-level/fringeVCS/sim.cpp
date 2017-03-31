@@ -116,8 +116,24 @@ extern "C" {
     bool cmdIsWr = isWr > 0;
     uint32_t cmdWdata0 = (*(uint32_t*)&wdata0);
     uint32_t cmdWdata1 = (*(uint32_t*)&wdata1);
+    uint32_t cmdWdata2 = (*(uint32_t*)&wdata2);
+    uint32_t cmdWdata3 = (*(uint32_t*)&wdata3);
+    uint32_t cmdWdata4 = (*(uint32_t*)&wdata4);
+    uint32_t cmdWdata5 = (*(uint32_t*)&wdata5);
+    uint32_t cmdWdata6 = (*(uint32_t*)&wdata6);
+    uint32_t cmdWdata7 = (*(uint32_t*)&wdata7);
+    uint32_t cmdWdata8 = (*(uint32_t*)&wdata8);
+    uint32_t cmdWdata9 = (*(uint32_t*)&wdata9);
+    uint32_t cmdWdata10 = (*(uint32_t*)&wdata10);
+    uint32_t cmdWdata11 = (*(uint32_t*)&wdata11);
+    uint32_t cmdWdata12 = (*(uint32_t*)&wdata12);
+    uint32_t cmdWdata13 = (*(uint32_t*)&wdata13);
+    uint32_t cmdWdata14 = (*(uint32_t*)&wdata14);
+    uint32_t cmdWdata15 = (*(uint32_t*)&wdata15);
 
-    uint32_t wdata[16] = { cmdWdata0, cmdWdata1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+
+    uint32_t wdata[16] = { cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3, cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7, cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11, cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15};
     DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata);
     dramRequestQ.push(req);
     req->print();
