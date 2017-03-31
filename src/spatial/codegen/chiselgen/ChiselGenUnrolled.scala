@@ -252,17 +252,19 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
       ens.zipWithIndex.foreach { case (en, i) => 
-        if (needsFPType(lhs.tp)) { lhs.tp match {
+        if (spatialNeedsFPType(lhs.tp.typeArguments.head)) { lhs.tp.typeArguments.head match {
           case FixPtType(s,d,f) => 
+            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
             emit(src"""val ${lhs}_$i = Wire(new FixedPoint($s, $d, $f))""")
             emit(src"""${lhs}_$i := ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
           case _ =>
+            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
             emit(src"""val ${lhs}_$i = ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
         }} else {
+            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
             emit(src"""val ${lhs}_$i = ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
         }
       }
-      emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
       emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
 
 

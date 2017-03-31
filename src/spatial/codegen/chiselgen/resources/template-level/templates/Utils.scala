@@ -3,6 +3,7 @@ package templates
 
 import chisel3._
 import chisel3.util.{log2Ceil, isPow2}
+import chisel3.internal.sourceinfo._
 import types._
 
 object ops {
@@ -11,6 +12,15 @@ object ops {
     def number = {
       b
     }
+
+    // override def connect (rawop: Data)(implicit sourceInfo: SourceInfo, connectionCompileOptions: chisel3.core.CompileOptions): Unit = {
+    //   rawop match {
+    //     case op: FixedPoint =>
+    //       b := op.number
+    //     case op: UInt =>
+    //       b := op
+    //   }
+    // }
 
     def < (c: FixedPoint): Bool = {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) < c
