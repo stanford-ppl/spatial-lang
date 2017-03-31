@@ -115,7 +115,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.number // Assume always an int""")
         }
         val p = portsOf(lhs, sram, i).head
-        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), ${parent}_en $p)""")
+        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), ${parent}_en, $p)""")
         sram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
               emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*$p))""")
