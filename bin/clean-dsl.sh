@@ -1,8 +1,13 @@
 #!/bin/bash
 
 if [ "$SPATIAL_HOME" == "" ]; then
-        echo "Please set SPATIAL_HOME!"
-        exit 1
+  echo "Please set SPATIAL_HOME environment variable."
+  exit 1
+fi
+
+if [ "$ARGON_HOME" == "" ]; then
+  echo "Please set ARGON_HOME environment variable."
+  exit 1
 fi
 
 rm -rf $SPATIAL_HOME/lib_managed
