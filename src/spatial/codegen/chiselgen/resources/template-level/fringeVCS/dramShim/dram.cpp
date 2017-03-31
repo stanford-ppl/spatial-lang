@@ -162,7 +162,7 @@ void dramLoop() {
 
 // Called before simulation begins
 int main(int argc, char **argv) {
-  EPRINTF("[SIM] DRAM process started!\n");
+  EPRINTF("[DRAM] DRAM process started!\n");
 
   // 0. Create Channel structures
   cmdChannel = new Channel(DRAM_CMD_FD, -1, sizeof(dramCmd));
