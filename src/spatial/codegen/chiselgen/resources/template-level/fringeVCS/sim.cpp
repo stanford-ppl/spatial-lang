@@ -1,8 +1,10 @@
+#include <spawn.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
+#include <cstring>
+#include <string>
+#include <cstdlib>
 #include <stdio.h>
-#include <stdlib.h>
 #include <vector>
 #include <queue>
 #include <poll.h>
@@ -11,7 +13,7 @@
 
 using namespace std;
 
-//#include "dramDefs.h"
+#include "dramDefs.h"
 #include "simDefs.h"
 #include "channel.h"
 //#include "svdpi.h"
@@ -24,9 +26,9 @@ Channel *cmdChannel = NULL;
 Channel *respChannel = NULL;
 
 // Master channels to DRAM
-//Channel *dramCmdChannel = new Channel();
-//Channel *dramRespChannel = new Channel();
-//uint64_t globalDRAMID = 0;
+Channel *dramCmdChannel = NULL; 
+Channel *dramRespChannel = NULL;
+uint64_t globalDRAMID =11;
 
 
 int sendResp(simCmd *cmd) {
@@ -373,40 +375,43 @@ extern "C" {
     /**} End Slave interface to Host */
 
     /** Master interfaces to peripheral simulators e.g. DRAM { */
-//      posix_spawn_file_actions_t dramAction;
-//      pid_t dram_pid;
-//
-//      posix_spawn_file_actions_init(&dramAction);
-//
-//      // Create cmdPipe (read) handle at SIM_CMD_FD, respPipe (write) handle at SIM_RESP_FD
-//      // Close old descriptors after dup2
-//      posix_spawn_file_actions_addclose(&dramAction, dramCmdChannel->writeFd());
-//      posix_spawn_file_actions_addclose(&dramAction, dramRespChannel->readFd());
-//      posix_spawn_file_actions_adddup2(&dramAction, dramCmdChannel->readFd(), DRAM_CMD_FD);
-//      posix_spawn_file_actions_adddup2(&dramAction, dramRespChannel->writeFd(), DRAM_RESP_FD);
-//
-//      std::string argsmem[] = {"./dram"};
-//      char *args[] = {&argsmem[0][0],nullptr};
-//
-//      if(posix_spawnp(&sim_pid, args[0], &dramAction, NULL, &args[0], NULL) != 0) {
-//        EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));
-//        exit(-1);
-//      }
-//
-//      // Close Sim side of pipes
-//      close(dramCmdChannel->readFd());
-//      close(dramRespChannel->writeFd());
-//
-//      // Connect with dram simulator
-//      dramCmd cmd;
-//      cmd.id = globalDRAMID++;
-//      cmd.cmd = READY;
-//      cmd.size = 0;
-//      dramCmdChannel->send(&cmd);
-//      dramCmd *resp = recvResp();
-//      ASSERT(resp->id == cmd.id, "DRAM init error: Received ID does not match sent ID\n");
-//      ASSERT(resp->cmd == READY, "DRAM init error: Received cmd is not 'READY'\n");
-//      EPRINTF("DRAM Connection successful!\n");
+
+      posix_spawn_file_actions_t dramAction;
+      pid_t dram_pid;
+
+      dramCmdChannel = new Channel(sizeof(dramCmd));
+      dramRespChannel = new Channel(sizeof(dramCmd));
+      posix_spawn_file_actions_init(&dramAction);
+
+      // Create cmdPipe (read) handle at SIM_CMD_FD, respPipe (write) handle at SIM_RESP_FD
+      // Close old descriptors after dup2
+      posix_spawn_file_actions_addclose(&dramAction, dramCmdChannel->writeFd());
+      posix_spawn_file_actions_addclose(&dramAction, dramRespChannel->readFd());
+      posix_spawn_file_actions_adddup2(&dramAction, dramCmdChannel->readFd(), DRAM_CMD_FD);
+      posix_spawn_file_actions_adddup2(&dramAction, dramRespChannel->writeFd(), DRAM_RESP_FD);
+
+      string argsmem[] = {"./verilog/dram"};
+      char *args[] = {&argsmem[0][0],nullptr};
+
+      if(posix_spawnp(&dram_pid, args[0], &dramAction, NULL, &args[0], NULL) != 0) {
+        EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));
+        exit(-1);
+      }
+
+      // Close Sim side of pipes
+      close(dramCmdChannel->readFd());
+      close(dramRespChannel->writeFd());
+
+      // Connect with dram simulator
+      dramCmd dcmd;
+      dcmd.id = globalDRAMID++;
+      dcmd.cmd = DRAM_READY;
+      dcmd.size = 0;
+      dramCmdChannel->send(&dcmd);
+      dramCmd *resp = (dramCmd*) dramRespChannel->recv();
+      ASSERT(resp->id == dcmd.id, "DRAM init error: Received ID does not match sent ID\n");
+      ASSERT(resp->cmd == DRAM_READY, "DRAM init error: Received cmd is not 'READY'\n");
+      EPRINTF("DRAM Connection successful!\n");
     /** } End master interface*/
   }
 }

@@ -99,7 +99,7 @@ vcs-sw:
 
 vcs-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs vcs"
-	cp chisel/fringeVCS/* verilog-vcs
+	cp -r chisel/fringeVCS/* verilog-vcs
 	make -C verilog-vcs
 	ln -sf verilog-vcs verilog
 
