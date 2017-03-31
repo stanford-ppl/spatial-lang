@@ -879,12 +879,7 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
       val accum = Reg[T](0.as[T])
       Reduce(accum)(iters by 1) { k =>
         mem load srcFPGA(k*ldSize::k*ldSize+ldSize par 16)
-        println()
-        Reduce(Reg[T](0.as[T]))(ldSize by 1){i =>
-          val elem = mem(i)
-          print("" + elem.toText + ", ")
-          elem
-        }{_+_}
+        Reduce(Reg[T](0.as[T]))(ldSize by 1){i => elem = mem(i) }{_+_}
       }{_+_}
       acc := accum
     }
