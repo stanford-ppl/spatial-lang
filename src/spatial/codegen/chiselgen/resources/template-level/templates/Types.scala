@@ -32,6 +32,13 @@ import templates._
 import templates.ops._
 import chisel3.util
 
+import scala.language.experimental.macros
+
+import chisel3.internal._
+import chisel3.internal.firrtl._
+import chisel3.internal.sourceinfo._
+import chisel3.internal.firrtl.PrimOp.AsUIntOp
+
 // Raw numbers
 class RawBits(b: Int) extends Bundle { 
 	val raw = UInt(b.W)
@@ -129,6 +136,15 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 	}
 	
 	// Arithmetic
+	override def connect (rawop: Data)(implicit sourceInfo: SourceInfo, connectionCompileOptions: chisel3.core.CompileOptions): Unit = {
+		rawop match {
+			case op: FixedPoint =>
+				number := op.number
+			case op: UInt =>
+				number := op
+		}
+	}
+
 	def +[T] (rawop: T): FixedPoint = {
 		rawop match {
 			case op: FixedPoint => 
@@ -144,7 +160,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				full_result.cast(result)
 				result
 			case op: UInt => 
-				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this + op_cast
 		}
 	}
@@ -164,7 +180,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				full_result.cast(result)
 				result
 			case op: UInt => 
-				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this - op_cast
 
 		}
@@ -185,7 +201,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				full_result.cast(result)
 				result
 			case op: UInt => 
-				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this * op_cast
 			}
 	}
@@ -209,7 +225,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 					result					
 				}
 			case op: UInt => 
-				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this / op_cast
 		}
 	}
@@ -229,7 +245,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				full_result.cast(result)
 				result
 			case op: UInt =>
-				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this % op_cast
 
 		}
@@ -248,7 +264,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				op.cast(rhs)
 				if (op.s | s) {lhs.number.asSInt < rhs.number.asSInt} else {lhs.number < rhs.number}
 			case op: UInt => 
-				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this < op_cast
 		}
 	}
@@ -266,7 +282,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				op.cast(rhs)
 				if (op.s | s) {lhs.number.asSInt <= rhs.number.asSInt} else {lhs.number <= rhs.number}
 			case op: UInt => 
-				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this <= op_cast
 		}
 	}
@@ -283,7 +299,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				op.cast(rhs)
 				if (op.s | s) {lhs.number.asSInt > rhs.number.asSInt} else {lhs.number > rhs.number}
 			case op: UInt => 
-				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this > op_cast
 		}
 	}
@@ -300,7 +316,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				op.cast(rhs)
 				if (op.s | s) {lhs.number.asSInt >= rhs.number.asSInt} else {lhs.number >= rhs.number}
 			case op: UInt => 
-				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this > op_cast
 		}
 	}

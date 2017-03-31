@@ -66,9 +66,9 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
           emit(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
           emit(src"""${lhs}.number := ${rf}.readValue(${inds(0)}.number, ${inds(1)}.number)""")
         case _ =>
-          emit(src"""${lhs} := ${rf}.readValue(${inds(0)}.number ${inds(1)}.number)""")
+          emit(src"""${lhs} := ${rf}.readValue(${inds(0)}.number, ${inds(1)}.number)""")
       }} else {
-          emit(src"""${lhs} := ${rf}.readValue(${inds(0)}.number ${inds(1)}.number)""")
+          emit(src"""${lhs} := ${rf}.readValue(${inds(0)}.number, ${inds(1)}.number)""")
       }
 
     case op@RegFileStore(rf,inds,data,en) =>

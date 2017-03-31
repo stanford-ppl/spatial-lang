@@ -13,6 +13,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
       val stageDone = Vec(n, Input(Bool()))
       val rst = Input(Bool())
       val forever = Input(Bool())
+      val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
       // FSM signals
       val nextState = Input(UInt(32.W))
       val initState = Input(UInt(32.W))
@@ -46,6 +47,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
     val maxFF = Module(new FF(32))
     maxFF.io.input.enable := io.input.enable
     maxFF.io.input.data := io.input.numIter
+    maxFF.io.input.reset := io.input.rst
     val max = maxFF.io.output.data
 
     val ctr = Module(new SingleCounter(1))
@@ -54,6 +56,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
     ctr.io.input.max := max
     ctr.io.input.stride := 1.U
     ctr.io.input.start := 0.U
+    ctr.io.input.gap := 0.U
     ctr.io.input.reset := io.input.rst | (state === doneState.U)
     val iter = ctr.io.output.count(0)
     io.output.rst_en := (state === resetState.U)
@@ -135,12 +138,14 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable
     doneReg.io.input.reset := ~io.input.enable
+    doneReg.io.input.asyn_reset := false.B
     io.output.done := doneReg.io.output.data | (io.input.doneCondition & io.input.enable)
 
     // Counter for num iterations
     val maxFF = Module(new FF(32))
     maxFF.io.input.enable := io.input.enable
     maxFF.io.input.data := io.input.numIter
+    maxFF.io.input.reset := io.input.rst
     val max = maxFF.io.output.data
 
     val ctr = Module(new SingleCounter(1))

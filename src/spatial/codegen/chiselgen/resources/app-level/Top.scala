@@ -35,8 +35,8 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
   raddr = Input(UInt(p.addrWidth.W))
   wen  = Input(Bool())
   waddr = Input(UInt(p.addrWidth.W))
-  wdata = Input(Bits(p.dataWidth.W))
-  rdata = Output(Bits(p.dataWidth.W))
+  wdata = Input(Bits(64.W))
+  rdata = Output(Bits(64.W))
 
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
