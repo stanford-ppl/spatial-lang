@@ -160,7 +160,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
           }
         }
         val p = portsOf(lhs, sram, i).head
-        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
+        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), ${parent}_en, $p)""")
         sram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
               emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*${p}+i))}""")
@@ -252,17 +252,19 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
       ens.zipWithIndex.foreach { case (en, i) => 
-        if (needsFPType(lhs.tp)) { lhs.tp match {
+        if (spatialNeedsFPType(lhs.tp.typeArguments.head)) { lhs.tp.typeArguments.head match {
           case FixPtType(s,d,f) => 
+            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
             emit(src"""val ${lhs}_$i = Wire(new FixedPoint($s, $d, $f))""")
             emit(src"""${lhs}_$i := ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
           case _ =>
+            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
             emit(src"""val ${lhs}_$i = ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
         }} else {
+            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
             emit(src"""val ${lhs}_$i = ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
         }
       }
-      emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
       emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
 
 

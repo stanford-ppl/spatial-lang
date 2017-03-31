@@ -93,6 +93,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
                 emit(src"""$numWriters, $numReaders, """)
                 emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: Be more precise with parallelizations """)
                 close("))")
+                emit(src"""${lhs}_$i.io.broadcastEn := false.B""")
               }
             case DiagonalMemory(strides, banks, depth, isAccum) =>
               throw new UnsupportedBankingType("Diagonal", lhs)
@@ -114,7 +115,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.number // Assume always an int""")
         }
         val p = portsOf(lhs, sram, i).head
-        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
+        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), ${parent}_en $p)""")
         sram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
               emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*$p))""")
@@ -176,11 +177,15 @@ trait ChiselGenSRAM extends ChiselCodegen {
         (0 to numStagesInbetween).foreach { port =>
           val ctrlId = port + firstActivePort
           val node = allSiblings(ctrlId)
-          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
-          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
+          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else {
+            emit(src"""${mem}_${i}.readTieDown(${port})""")
+            ""
+          }
+          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else {""}
           val empty = if (rd == "" & wr == "") "empty" else ""
           emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
         }
+
 
       }
     }

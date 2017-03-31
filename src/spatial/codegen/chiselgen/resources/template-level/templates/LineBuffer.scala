@@ -73,8 +73,10 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   (0 until num_lines).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i)
     sEn_latch(i).io.input.reset := swap
+    sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)
     sDone_latch(i).io.input.reset := swap
+    sDone_latch(i).io.input.asyn_reset := reset
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled

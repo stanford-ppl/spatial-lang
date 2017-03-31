@@ -271,7 +271,7 @@ class SRAM(val logicalDims: List[Int], val w: Int,
     wId = wId + 1
   }
   var rId = 0
-  def connectRPort(rBundle: Vec[multidimR], port: Int) {
+  def connectRPort(rBundle: Vec[multidimR], en: Bool, port: Int) {
     (0 until rBundle.length).foreach{ i => 
       io.r(i + rId*rPar) := rBundle(i) 
     }
@@ -378,8 +378,10 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*TODO:
   (0 until numBufs).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i)
     sEn_latch(i).io.input.reset := swap
+    sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)
     sDone_latch(i).io.input.reset := swap
+    sDone_latch(i).io.input.asyn_reset := reset
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
@@ -449,10 +451,14 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*TODO:
     }
   }
   var rId = 0
-  def connectRPort(rBundle: Vec[multidimR], port: Int) {
+  def connectRPort(rBundle: Vec[multidimR], en: Bool, port: Int) {
     (0 until rBundle.length).foreach{ i => 
       io.r(i + rId*rPar + port*numReaders*rPar) := rBundle(i) 
     }
+    (0 until numReaders).foreach {i => 
+      io.rSel(port * numReaders + i) := en
+    }
+
     rId = rId + 1
   }
 
@@ -469,8 +475,10 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*TODO:
     // }
   }
  
-  def connectUnreadPorts(ports: List[Int]) { // TODO: Remnant from maxj?
-    // Used for SRAMs
+  def readTieDown(port: Int) { 
+    (0 until numReaders).foreach {i => 
+      io.rSel(port * numReaders + i) := false.B
+    }
   }
 
   def connectUntouchedPorts(ports: List[Int]) {
