@@ -72,7 +72,7 @@ public:
     EPRINTF("---- DRAM REQ ----\n");
     EPRINTF("addr : %lx\n", addr);
     EPRINTF("tag  : %lx\n", tag);
-    EPRINTF("isWr : %lx\n", tag);
+    EPRINTF("isWr : %lx\n", isWr);
     EPRINTF("delay: %u\n", delay);
     if (isWr) {
       EPRINTF("wdata0 : %u\n", wdata[0]);
@@ -159,7 +159,7 @@ extern "C" {
           uint32_t *raddr = (uint32_t*) req->addr;
           for (int i=0; i<16; i++) {
             rdata[i] = raddr[i];
-            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
+//            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
           }
 
         }
