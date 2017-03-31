@@ -194,7 +194,21 @@ public:
     std::string argsmem[] = {path};
     char *args[] = {&argsmem[0][0],nullptr};
 
-    if(posix_spawnp(&sim_pid, args[0], &action, NULL, &args[0], NULL) != 0) {
+    // Pass required environment variables to simulator
+    // LD_LIBRARY_PATH
+    // DRAMSIM_HOME
+    // ..(others)..
+    char *ldPath = getenv("LD_LIBRARY_PATH");
+    char *dramPath = getenv("DRAMSIM_HOME");
+    ASSERT(ldPath != NULL, "ldPath is NULL");
+    ASSERT(dramPath != NULL, "dramPath is NULL");
+
+    std::string ldLib = "LD_LIBRARY_PATH=" + string(getenv("LD_LIBRARY_PATH"));
+    std::string dramSimHome = "DRAMSIM_HOME=" + string(getenv("DRAMSIM_HOME"));
+    std::string envstrings[] = {ldLib, dramSimHome};
+    char *envs[] = {&envstrings[0][0], &envstrings[1][0], nullptr};
+
+    if(posix_spawnp(&sim_pid, args[0], &action, NULL, &args[0], &envs[0]) != 0) {
       EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));
       exit(-1);
     }

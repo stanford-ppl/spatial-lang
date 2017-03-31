@@ -21,15 +21,21 @@ using namespace std;
 #include "vc_hdrs.h"
 #include "svdpi_src.h"
 
+#include <DRAMSim.h>
+
+extern char **environ;
+
 // Slave channels from HOST
 Channel *cmdChannel = NULL;
 Channel *respChannel = NULL;
 
 // Master channels to DRAM
-Channel *dramCmdChannel = NULL; 
+Channel *dramCmdChannel = NULL;
 Channel *dramRespChannel = NULL;
-uint64_t globalDRAMID =11;
+uint64_t globalDRAMID =1;
 
+// DRAMSim2
+DRAMSim::MultiChannelMemorySystem *mem = NULL;
 
 int sendResp(simCmd *cmd) {
   simCmd resp;
@@ -147,6 +153,7 @@ extern "C" {
     DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata);
     dramRequestQ.push(req);
     req->print();
+    mem->addTransaction(cmdIsWr, cmdAddr);
   }
 
   void checkDRAMResponse() {
@@ -320,6 +327,7 @@ extern "C" {
           break;
         case STEP:
           exitTick = true;
+          mem->update();
           break;
         case READ_REG: {
             reg = *((uint32_t*)cmd->data);
@@ -346,6 +354,7 @@ extern "C" {
             break;
           }
         case FIN:
+          mem->printStats(true);
           finishSim = 1;
           exitTick = true;
           break;
@@ -376,42 +385,62 @@ extern "C" {
 
     /** Master interfaces to peripheral simulators e.g. DRAM { */
 
-      posix_spawn_file_actions_t dramAction;
-      pid_t dram_pid;
+//      posix_spawn_file_actions_t dramAction;
+//      pid_t dram_pid;
+//
+//      dramCmdChannel = new Channel(sizeof(dramCmd));
+//      dramRespChannel = new Channel(sizeof(dramCmd));
+//      posix_spawn_file_actions_init(&dramAction);
+//
+//      // Create cmdPipe (read) handle at SIM_CMD_FD, respPipe (write) handle at SIM_RESP_FD
+//      // Close old descriptors after dup2
+//      posix_spawn_file_actions_addclose(&dramAction, dramCmdChannel->writeFd());
+//      posix_spawn_file_actions_addclose(&dramAction, dramRespChannel->readFd());
+//      posix_spawn_file_actions_adddup2(&dramAction, dramCmdChannel->readFd(), DRAM_CMD_FD);
+//      posix_spawn_file_actions_adddup2(&dramAction, dramRespChannel->writeFd(), DRAM_RESP_FD);
+//
+//      string argsmem[] = {"./verilog/dram"};
+//      char *args[] = {&argsmem[0][0],nullptr};
+//
+//      if(posix_spawnp(&dram_pid, args[0], &dramAction, NULL, &args[0], NULL) != 0) {
+//        EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));
+//        exit(-1);
+//      }
+//
+//      // Close Sim side of pipes
+//      close(dramCmdChannel->readFd());
+//      close(dramRespChannel->writeFd());
+//
+//      // Connect with dram simulator
+//      dramCmd dcmd;
+//      dcmd.id = globalDRAMID++;
+//      dcmd.cmd = DRAM_READY;
+//      dcmd.size = 0;
+//      dramCmdChannel->send(&dcmd);
+//      dramCmd *resp = (dramCmd*) dramRespChannel->recv();
+//      ASSERT(resp->id == dcmd.id, "DRAM init error: Received ID does not match sent ID\n");
+//      ASSERT(resp->cmd == DRAM_READY, "DRAM init error: Received cmd is not 'READY'\n");
+//      EPRINTF("DRAM Connection successful!\n");
+    /** } End master interface*/
 
-      dramCmdChannel = new Channel(sizeof(dramCmd));
-      dramRespChannel = new Channel(sizeof(dramCmd));
-      posix_spawn_file_actions_init(&dramAction);
-
-      // Create cmdPipe (read) handle at SIM_CMD_FD, respPipe (write) handle at SIM_RESP_FD
-      // Close old descriptors after dup2
-      posix_spawn_file_actions_addclose(&dramAction, dramCmdChannel->writeFd());
-      posix_spawn_file_actions_addclose(&dramAction, dramRespChannel->readFd());
-      posix_spawn_file_actions_adddup2(&dramAction, dramCmdChannel->readFd(), DRAM_CMD_FD);
-      posix_spawn_file_actions_adddup2(&dramAction, dramRespChannel->writeFd(), DRAM_RESP_FD);
-
-      string argsmem[] = {"./verilog/dram"};
-      char *args[] = {&argsmem[0][0],nullptr};
-
-      if(posix_spawnp(&dram_pid, args[0], &dramAction, NULL, &args[0], NULL) != 0) {
-        EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));
-        exit(-1);
+      int tmp = 0;
+      while (environ[tmp]) {
+        EPRINTF("[SIM] environ[%d] = %s\n", tmp, environ[tmp]);
+        tmp++;
       }
 
-      // Close Sim side of pipes
-      close(dramCmdChannel->readFd());
-      close(dramRespChannel->writeFd());
+      // Set up DRAMSim2 - currently hardcoding some values that should later be
+      // in a config file somewhere
+      char *dramSimHome = getenv("DRAMSIM_HOME");
+      ASSERT(dramSimHome != NULL, "ERROR: DRAMSIM_HOME environment variable is not set")
+      ASSERT(dramSimHome[0] != NULL, "ERROR: DRAMSIM_HOME environment variable set to null string")
 
-      // Connect with dram simulator
-      dramCmd dcmd;
-      dcmd.id = globalDRAMID++;
-      dcmd.cmd = DRAM_READY;
-      dcmd.size = 0;
-      dramCmdChannel->send(&dcmd);
-      dramCmd *resp = (dramCmd*) dramRespChannel->recv();
-      ASSERT(resp->id == dcmd.id, "DRAM init error: Received ID does not match sent ID\n");
-      ASSERT(resp->cmd == DRAM_READY, "DRAM init error: Received cmd is not 'READY'\n");
-      EPRINTF("DRAM Connection successful!\n");
-    /** } End master interface*/
+      string memoryIni = string(dramSimHome) + string("/ini/DDR2_micron_16M_8b_x8_sg3E.ini");
+      string systemIni = string(dramSimHome) + string("spatial.dram.ini");
+      // Connect to DRAMSim2 directly here
+      mem = DRAMSim::getMemorySystemInstance("ini/DDR2_micron_16M_8b_x8_sg3E.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
+
+      uint64_t hardwareClockHz = 150 * 1e6; // Fixing FPGA clock to 150 MHz
+      mem->setCPUClockSpeed(hardwareClockHz);
   }
 }
