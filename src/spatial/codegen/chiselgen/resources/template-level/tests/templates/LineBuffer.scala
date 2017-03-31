@@ -12,6 +12,8 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
   step(1)
   poke(c.io.reset, 0)
 
+  val iters = (c.num_lines + c.extra_rows_to_buffers) * 3
+  for (iter <- )
   // Write c.num_lines * c.line_size elements in
   println("Filling Line buffer...")
   var i = 0

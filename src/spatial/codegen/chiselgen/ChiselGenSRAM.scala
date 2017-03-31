@@ -75,25 +75,28 @@ trait ChiselGenSRAM extends ChiselCodegen {
               val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
               val width = bitWidth(lhs.tp.typeArguments.head)
               if (depth == 1) {
-                val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
+                val numWriters = writersOf(lhs).filter{ write => (dispatchOf(write, lhs) contains i) }.distinct.length
                 val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
                 open(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
                 emit(src"""$numWriters, $numReaders, """)
-                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: Be more precise with parallelizations """)
+                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: this width is redundant """)
                 close("))")
               } else {
                 val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
+                val numBroadcasters = writersOf(lhs).map { write => if (portsOf(write, lhs, i).toList.length > 1) 1 else 0 }.reduce{_+_}
                 // val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
                 // val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.map{w => portsOf(w, lhs, i).head}.groupBy{i=>i}.map{i => i._2.length}.max
                 val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.map{w => portsOf(w, lhs, i).head}.groupBy{i=>i}.map{i => i._2.length}.max
                 nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAMNew[_]]], i)
                 open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
-                emit(src"""$numWriters, $numReaders, """)
-                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: Be more precise with parallelizations """)
+                emit(src"""${numWriters-numBroadcasters}, $numReaders, """)
+                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: this width is redundant """)
                 close("))")
-                emit(src"""${lhs}_$i.io.broadcastEn := false.B""")
+                if (numBroadcasters == 0) {
+                  emit(src"""${lhs}_$i.io.broadcastEn := false.B""")  
+                }
               }
             case DiagonalMemory(strides, banks, depth, isAccum) =>
               throw new UnsupportedBankingType("Diagonal", lhs)
