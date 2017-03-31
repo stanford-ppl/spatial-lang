@@ -863,6 +863,7 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
 
   val paddedCols = 1920
 
+  @virtualize
   def unaligned_1d[T:Type:Num](src: Array[T], ii: Int, numCols: Int) = {
     val iters = ArgIn[Int]
     val srcFPGA = DRAM[T](paddedCols)
@@ -878,7 +879,12 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
       val accum = Reg[T](0.as[T])
       Reduce(accum)(iters by 1) { k =>
         mem load srcFPGA(k*ldSize::k*ldSize+ldSize par 16)
-        Reduce(Reg[T](0.as[T]))(ldSize by 1){i => mem(i) }{_+_}
+        println()
+        Reduce(Reg[T](0.as[T]))(ldSize by 1){i =>
+          val elem = mem(i)
+          print("" + elem.toText + ", ")
+          elem
+        }{_+_}
       }{_+_}
       acc := accum
     }
@@ -895,7 +901,11 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
 
     val dst = unaligned_1d(src, ii, cols)
 
-    val gold = Array.tabulate(ii*cols){ i => i % 256 }.reduce{_+_}
+    val goldArray = Array.tabulate(ii*cols){ i => i % 256 }
+    val gold = goldArray.reduce{_+_}
+
+    printArray(src, "src")
+    printArray(goldArray, "gold")
 
     println("src:" + gold)
     println("dst:" + dst)

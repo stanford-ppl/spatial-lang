@@ -13,7 +13,7 @@ trait AlteraVideoApi extends AlteraVideoExp with ControllerApi with FIFOApi with
     Decoder_Template(decoder_alloc[T](popFrom.s.asInstanceOf[Exp[T]], pushTo.s.asInstanceOf[Exp[T]]))
   }
 
-  def DMA_Template[T:Type:Bits](popFrom: FIFO[T], loadIn: SRAM[T])(implicit ctx: SrcCtx): DMA_Template[T] = {
+  def DMA_Template[T:Type:Bits](popFrom: FIFO[T], loadIn: SRAM1[T])(implicit ctx: SrcCtx): DMA_Template[T] = {
     DMA_Template(dma_alloc[T](popFrom.s.asInstanceOf[Exp[T]], loadIn.s.asInstanceOf[Exp[T]]))
   }
 
@@ -29,7 +29,7 @@ trait AlteraVideoApi extends AlteraVideoExp with ControllerApi with FIFOApi with
   def DMA[T:Type:Bits](popFrom: FIFO[T], loadIn: SRAM1[T] /*frameRdy:  StreamOut[T]*/)(implicit ctx: SrcCtx): Void = {
     Pipe {
       DMA_Template(popFrom, loadIn)
-      Pipe (64 by 1) { i =>
+      Foreach(64 by 1){ i =>
         loadIn(i) = popFrom.deq()
       }
       // Pipe {

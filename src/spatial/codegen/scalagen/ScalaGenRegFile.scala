@@ -2,9 +2,10 @@ package spatial.codegen.scalagen
 
 import spatial.api.{RegisterFileExp, SRAMExp, VectorExp}
 import org.virtualized.SourceContext
+import spatial.analysis.NodeClasses
 
 trait ScalaGenRegFile extends ScalaGenSRAM {
-  val IR: SRAMExp with RegisterFileExp with VectorExp
+  val IR: SRAMExp with RegisterFileExp with VectorExp with NodeClasses
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

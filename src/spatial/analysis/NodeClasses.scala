@@ -106,16 +106,32 @@ trait NodeClasses extends SpatialMetadataExp {
   }
 
   /** Allocations **/
+  def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
+    case Def(SRAMNew(dims)) => dims
+    case Def(DRAMNew(dims)) => dims
+    case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
+    case Def(RegFileNew(dims)) => dims
+    case _ => throw new UndefinedDimensionsError(x, None)(x.ctx)
+  }
+
+  def dimsOf(x: Exp[_]): Seq[Int] = stagedDimsOf(x).map{
+    case Const(c: BigDecimal) => c.toInt
+    case dim => throw new UndefinedDimensionsError(x, Some(dim))(x.ctx)
+  }
+
+  def rankOf(x: Exp[_]): Int = stagedDimsOf(x).length
+  def rankOf(x: MetaAny[_]): Int = rankOf(x.s)
+
   def isAllocation(e: Exp[_]): Boolean = getDef(e).exists(isAllocation)
   def isAllocation(d: Def): Boolean = d match {
     case _:RegNew[_]        => true
     case _:ArgInNew[_]      => true
     case _:ArgOutNew[_]     => true
-    case _:SRAMNew[_]       => true
+    case _:SRAMNew[_,_]     => true
     case _:FIFONew[_]       => true
     case _:LineBufferNew[_] => true
     case _:RegFileNew[_]    => true
-    case _:DRAMNew[_]       => true
+    case _:DRAMNew[_,_]     => true
     case _:StreamInNew[_]   => true
     case _:StreamOutNew[_]  => true
     case _:Forever          => true
@@ -303,11 +319,11 @@ trait NodeClasses extends SpatialMetadataExp {
     case StreamWrite(stream, data, en)       => Some(LocalWrite(stream, value=data, en=en))
 
     // TODO: Address and enable are in different format in parallelized accesses
-    case ParStreamWrite(stream, data, ens) => Some(LocalWrite(stream,value=data))
-    case ParLineBufferEnq(lb,data,ens)     => Some(LocalWrite(lb,value=data))
-    case ParRegFileStore(reg,is,data,ens)  => Some(LocalWrite(reg,value=data))
-    case ParSRAMStore(mem,addr,data,en)    => Some(LocalWrite(mem,value=data))
-    case ParFIFOEnq(fifo,data,ens)         => Some(LocalWrite(fifo,value=data))
+    case ParStreamWrite(stream, data, ens) => Some(LocalWrite(stream))
+    case ParLineBufferEnq(lb,data,ens)     => Some(LocalWrite(lb))
+    case ParRegFileStore(reg,is,data,ens)  => Some(LocalWrite(reg))
+    case ParSRAMStore(mem,addr,data,en)    => Some(LocalWrite(mem))
+    case ParFIFOEnq(fifo,data,ens)         => Some(LocalWrite(fifo))
     case _ => None
   }
   def readerUnapply(d: Def): Option[List[LocalRead]] = d match {

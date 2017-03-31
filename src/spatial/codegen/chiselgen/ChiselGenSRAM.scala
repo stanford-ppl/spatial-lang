@@ -10,7 +10,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   val IR: SpatialExp
   import IR._
 
-  private var nbufs: List[(Sym[SRAMNew[_]], Int)]  = List()
+  private var nbufs: List[(Sym[SRAM[_]], Int)]  = List()
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: SRAMType[_] => src"Array[${tp.child}]"
@@ -87,7 +87,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
                 // val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
                 // val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.map{w => portsOf(w, lhs, i).head}.groupBy{i=>i}.map{i => i._2.length}.max
                 val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.map{w => portsOf(w, lhs, i).head}.groupBy{i=>i}.map{i => i._2.length}.max
-                nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAMNew[_]]], i)
+                nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
                 open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
                 emit(src"""$numWriters, $numReaders, """)

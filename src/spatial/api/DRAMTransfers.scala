@@ -19,7 +19,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
     units:   Seq[Boolean],
     par:     Const[Index],
     isLoad:  Boolean
-  )(implicit mem: Mem[T,C], mC: Meta[C[T]], ctx: SrcCtx): Void = {
+  )(implicit mem: Mem[T,C], mC: Meta[C[T]], mD: Meta[DRAM[T]], ctx: SrcCtx): Void = {
 
     val unitDims = units
     val offchipOffsets = wrap(ofs)
@@ -42,7 +42,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       Stream.Foreach(counters.dropRight(1).map{ctr => ctr()}){ is =>
         val indices = is :+ 0.as[Index]
 
-        val offchipAddr = () => flatIndex( offchipOffsets.zip(indices).map{case (a,b) => a + b}, wrap(dimsOf(offchip)))
+        val offchipAddr = () => flatIndex( offchipOffsets.zip(indices).map{case (a,b) => a + b}, wrap(stagedDimsOf(offchip)))
 
         val onchipOfs   = indices.zip(unitDims).flatMap{case (i,isUnitDim) => if (!isUnitDim) Some(i) else None}
         val onchipAddr  = {i: Index => onchipOfs.take(onchipOfs.length - 1) :+ (onchipOfs.last + i)}
@@ -53,7 +53,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
     }
     else {
       Stream {
-        def offchipAddr = () => flatIndex(offchipOffsets, wrap(dimsOf(offchip)))
+        def offchipAddr = () => flatIndex(offchipOffsets, wrap(stagedDimsOf(offchip)))
         if (isLoad) load(offchipAddr(), {i => List(i) })
         else        store(offchipAddr(), {i => List(i)})
       }
@@ -118,7 +118,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       val offset_bytes = maddr_bytes - start_bytes      // Burst-aligned start address, in bytes
       val raw_end      = maddr_bytes + length_bytes     // Raw end, in bytes, with burst-aligned start
 
-      val end_bytes = mux(raw_end % bytesPerBurst == 0,  0.as[Index], (bytesPerBurst - raw_end) % bytesPerBurst) // Extra useless bytes at end
+      val end_bytes = mux(raw_end % bytesPerBurst == 0,  0.as[Index], bytesPerBurst - raw_end % bytesPerBurst) // Extra useless bytes at end
 
       // FIXME: What to do for bursts which split individual words?
       val start = start_bytes / bytesPerWord                   // Number of WHOLE elements to ignore at start
@@ -240,12 +240,12 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
 
   private[spatial] def copy_sparse[T:Meta:Bits](
     offchip:   Exp[DRAM[T]],
-    onchip:    Exp[SRAM[T]],
-    addresses: Exp[SRAM[Index]],
+    onchip:    Exp[SRAM1[T]],
+    addresses: Exp[SRAM1[Index]],
     size:      Exp[Index],
     par:       Const[Index],
     isLoad:    Boolean
-  )(implicit ctx: SrcCtx): Void = {
+  )(implicit mD: Meta[DRAM[T]], ctx: SrcCtx): Void = {
     val local = SRAM1(onchip)
     val addrs = SRAM1(addresses)
     val dram  = wrap(offchip)
@@ -325,11 +325,12 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
 
   /** Internal **/
 
-  def dense_transfer[T:Meta:Bits,C[T]](
+  def dense_transfer[T:Meta:Bits,C[_]](
     tile:   DRAMDenseTile[T],
     local:  C[T],
     isLoad: Boolean
   )(implicit mem: Mem[T,C], mC: Meta[C[T]], ctx: SrcCtx): Void = {
+    implicit val mD: Meta[DRAM[T]] = tile.dram.tp
 
     // Extract range lengths early to avoid unit pipe insertion eliminating rewrite opportunities
     val dram    = tile.dram
@@ -351,12 +352,11 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   }
 
   def sparse_transfer[T:Meta:Bits](
-    tile: DRAMSparseTile[T],
-    local: SRAM[T],
+    tile:   DRAMSparseTile[T],
+    local:  SRAM1[T],
     isLoad: Boolean
   )(implicit ctx: SrcCtx): Void = {
-    // UNSUPPORTED: Sparse transfer on multidimensional memories
-    if (rankOf(local) > 1) new SparseDataDimensionError(isLoad, rankOf(local))
+    implicit val mD: Meta[DRAM[T]] = tile.dram.tp
 
     val p = extractParFactor(local.p)
     val size = stagedDimsOf(local.s).head
@@ -373,16 +373,16 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     units:   Seq[Boolean],
     par:     Const[Index],
     isLoad:  Boolean
-  )(implicit mem: Mem[T,C], mC: Type[C[T]], ctx: SrcCtx): Void
+  )(implicit mem: Mem[T,C], mC: Type[C[T]], mD: Meta[DRAM[T]], ctx: SrcCtx): Void
 
   private[spatial] def copy_sparse[T:Meta:Bits](
     offchip:   Exp[DRAM[T]],
-    onchip:    Exp[SRAM[T]],
-    addresses: Exp[SRAM[Index]],
+    onchip:    Exp[SRAM1[T]],
+    addresses: Exp[SRAM1[Index]],
     size:      Exp[Index],
     par:       Const[Index],
     isLoad:    Boolean
-  )(implicit ctx: SrcCtx): Void
+  )(implicit mD: Meta[DRAM[T]], ctx: SrcCtx): Void
 
   /** Abstract IR Nodes **/
 
@@ -395,7 +395,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     p:      Const[Index],
     isLoad: Boolean,
     iters:  List[Bound[Index]]
-  )(implicit val mem: Mem[T,C], val mT: Meta[T], val bT: Bits[T], val mC: Meta[C[T]]) extends Op[Void] {
+  )(implicit val mem: Mem[T,C], val mT: Meta[T], val bT: Bits[T], val mC: Meta[C[T]], mD: Meta[DRAM[T]]) extends Op[Void] {
 
     def isStore = !isLoad
 
@@ -406,19 +406,19 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     override def aliases = Nil
 
     def expand(f:Tx)(implicit ctx: SrcCtx): Exp[Void] = {
-      copy_dense(f(dram),f(local),f(ofs),f(lens),units,p,isLoad)(mT,bT,mem,mC,ctx).s
+      copy_dense(f(dram),f(local),f(ofs),f(lens),units,p,isLoad)(mT,bT,mem,mC,mD,ctx).s
     }
   }
 
   case class SparseTransfer[T:Meta:Bits](
     dram:   Exp[DRAM[T]],
-    local:  Exp[SRAM[T]],
-    addrs:  Exp[SRAM[Index]],
+    local:  Exp[SRAM1[T]],
+    addrs:  Exp[SRAM1[Index]],
     size:   Exp[Index],
     p:      Const[Index],
     isLoad: Boolean,
     i:      Bound[Index]
-  ) extends Op[Void] {
+  )(implicit mD: Meta[DRAM[T]]) extends Op[Void] {
     def isStore = !isLoad
 
     def mirror(f:Tx) = op_sparse_transfer(f(dram),f(local),f(addrs),f(size),p,isLoad,i)
@@ -430,7 +430,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     val bT = bits[T]
 
     def expand(f:Tx)(implicit ctx: SrcCtx): Exp[Void] = {
-      copy_sparse(f(dram),f(local),f(addrs),f(size),p,isLoad)(mT,bT,ctx).s
+      copy_sparse(f(dram),f(local),f(addrs),f(size),p,isLoad)(mT,bT,mD,ctx).s
     }
   }
 
@@ -488,7 +488,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     p:      Const[Index],
     isLoad: Boolean,
     iters:  List[Bound[Index]]
-  )(implicit mem: Mem[T,C], mC: Meta[C[T]], ctx: SrcCtx): Exp[Void] = {
+  )(implicit mem: Mem[T,C], mC: Meta[C[T]], mD: Meta[DRAM[T]], ctx: SrcCtx): Exp[Void] = {
 
     val node = DenseTransfer(dram,local,ofs,lens,units,p,isLoad,iters)
 
@@ -499,13 +499,13 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
 
   private def op_sparse_transfer[T:Meta:Bits](
     dram:   Exp[DRAM[T]],
-    local:  Exp[SRAM[T]],
-    addrs:  Exp[SRAM[Index]],
+    local:  Exp[SRAM1[T]],
+    addrs:  Exp[SRAM1[Index]],
     size:   Exp[Index],
     p:      Const[Index],
     isLoad: Boolean,
     i:      Bound[Index]
-  )(implicit ctx: SrcCtx): Exp[Void] = {
+  )(implicit mD: Meta[DRAM[T]], ctx: SrcCtx): Exp[Void] = {
 
     val node = SparseTransfer(dram,local,addrs,size,p,isLoad,i)
 

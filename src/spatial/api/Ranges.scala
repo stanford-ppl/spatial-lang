@@ -67,6 +67,10 @@ trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
 trait RangeExp extends Staging with MemoryExp {
   this: SpatialExp =>
 
+  implicit class IndexRangeInternalOps(x: Index) {
+    def toRange(implicit ctx: SrcCtx): Range = index_to_range(x)
+  }
+
   case class Wildcard()
 
   case class Range(start: Option[Index], end: Index, step: Option[Index], p: Option[Index], isUnit: Boolean) {

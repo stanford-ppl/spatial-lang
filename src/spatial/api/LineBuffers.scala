@@ -187,10 +187,4 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     stageWrite(linebuffer)(LineBufferEnq(linebuffer,data,en))(ctx)
   }
 
-  /** Internal **/
-  override def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
-    case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
-    case _ => super.stagedDimsOf(x)
-  }
-
 }

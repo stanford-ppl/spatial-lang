@@ -132,7 +132,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
             } else {
               emit(src"val ${accum}_wren = ${childrenOf(lhs).dropRight(1).last}_done // TODO: Skeptical these codegen rules are correct")              
             }
-          case Def(_:SRAMNew[_]) => 
+          case Def(_:SRAMNew[_,_]) =>
             emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
         }
         emit(src"val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
@@ -271,7 +271,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     case ParRegFileStore(rf, inds, data, ens) => //FIXME: Not correct for more than par=1
       val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
       ens.zipWithIndex.foreach{ case (en, i) => 
-        emit(s"""${quote(rf)}.connectWPort(${quote(data)}($i).number, ${quote(inds(i)(0))}.number, ${quote(inds(i)(1))}.number, ${quote(en)} & ${quote(parent)}_datapath_en)""")
+        emit(s"""${quote(rf)}.connectWPort(${data(i)}.number, ${quote(inds(i)(0))}.number, ${quote(inds(i)(1))}.number, ${quote(en)} & ${quote(parent)}_datapath_en)""")
       }
       
 

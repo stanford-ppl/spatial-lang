@@ -18,7 +18,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       s match {
         case lhs: Sym[_] =>
           lhs match {
-              case Def(e: DRAMNew[_]) => s"x${lhs.id}_dram"
+              case Def(e: DRAMNew[_,_]) => s"x${lhs.id}_dram"
             case _ =>
               super.quote(s)
           }

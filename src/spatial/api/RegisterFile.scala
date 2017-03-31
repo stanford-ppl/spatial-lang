@@ -9,9 +9,7 @@ import forge._
 trait RegisterFileApi extends RegisterFileExp {
   this: SpatialExp =>
 
-  object RegFile {
-    @api def apply[T:Meta:Bits](dims: Index*): RegFile[T] = wrap(regfile_new[T](unwrap(dims)))
-  }
+  @api def RegFile[T:Meta:Bits](dims: Index*): RegFile[T] = wrap(regfile_new[T](unwrap(dims)))
 }
 
 trait RegisterFileExp extends Staging with SRAMExp {
@@ -163,12 +161,4 @@ trait RegisterFileExp extends Staging with SRAMExp {
   )(implicit ctx: SrcCtx) = {
     stageWrite(reg)(ParRegFileShiftIn(reg, inds, dim, data, en))(ctx)
   }
-
-
-  /** Internal **/
-  override def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
-    case Def(RegFileNew(dims)) => dims
-    case _ => super.stagedDimsOf(x)
-  }
-
 }

@@ -15,7 +15,7 @@ trait CppGenDRAM extends CppGenSRAM {
       s match {
         case lhs: Sym[_] =>
           lhs match {
-            case Def(e: DRAMNew[_])=> s"""x${lhs.id}_${nameOf(lhs).getOrElse("dram")}""" 
+            case Def(e: DRAMNew[_,_])=> s"""x${lhs.id}_${nameOf(lhs).getOrElse("dram")}"""
             case _ =>
               super.quote(s)
           }

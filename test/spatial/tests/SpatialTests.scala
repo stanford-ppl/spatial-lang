@@ -136,7 +136,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   }
 
   // A[B] = C
-  object NDScatterTest extends SpatialTest {
+  /*object NDScatterTest extends SpatialTest {
     import IR._
 
     @virtualize
@@ -155,7 +155,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
         A(b) scatter c
       }
     }
-  }
+  }*/
 
   object UntransferredValueTest extends SpatialTest {
     import IR._
@@ -200,7 +200,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   "ReduceTest" should "compile" in { ReduceTest.main(noargs) }
   "FoldAccumTest" should "compile" in { FoldAccumTest.main(noargs) }
   "MemReduceTest" should "compile" in { MemReduceTest.main(noargs) }
-  a [TestBenchFailed] should be thrownBy { NDScatterTest.main(noargs) }
+  // a [TestBenchFailed] should be thrownBy { NDScatterTest.main(noargs) }
   a [TestBenchFailed] should be thrownBy { UntransferredValueTest.main(noargs) }
   a [TestBenchFailed] should be thrownBy { DRAMSizeTest.main(noargs) }
 }

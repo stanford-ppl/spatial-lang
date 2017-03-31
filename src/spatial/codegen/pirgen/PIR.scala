@@ -291,8 +291,8 @@ trait PIR {
     var regs: Set[LocalComponent] = Set.empty
     var deps: Set[AbstractComputeUnit] = Set.empty
 
-    val regTable = mutable.HashMap[Symbol, LocalComponent]()
-    val expTable = mutable.HashMap[LocalComponent, List[Symbol]]()
+    val regTable: mutable.HashMap[Symbol,LocalComponent] = mutable.HashMap[Symbol, LocalComponent]()
+    val expTable: mutable.HashMap[LocalComponent,List[Symbol]] = mutable.HashMap[LocalComponent, List[Symbol]]()
 
     def iterators = regTable.iterator.collect{case (exp, reg: CounterReg) => (exp,reg) }
     def valids    = regTable.iterator.collect{case (exp, reg: ValidReg) => (exp,reg) }

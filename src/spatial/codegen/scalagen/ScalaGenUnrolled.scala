@@ -1,9 +1,10 @@
 package spatial.codegen.scalagen
 
+import spatial.analysis.NodeClasses
 import spatial.api.UnrolledExp
 
 trait ScalaGenUnrolled extends ScalaGenMemories {
-  val IR: UnrolledExp
+  val IR: UnrolledExp with NodeClasses
   import IR._
 
   private def emitUnrolledLoop(

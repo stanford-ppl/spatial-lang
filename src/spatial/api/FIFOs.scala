@@ -22,9 +22,9 @@ trait FIFOExp extends Staging with MemoryExp with SpatialExceptions {
     @api def deq(): T = this.deq(true)
     @api def deq(en: Bool): T = wrap(fifo_deq(this.s, en.s))
 
-    @api def load(dram: DRAM[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
-    @api def load(dram: DRAMDenseTile[T]): Void = dense_transfer(dram, this, isLoad = true)
-    //def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void = copy_sparse(dram, this, isLoad = true)
+    @api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    @api def load(dram: DRAMDenseTile1[T]): Void = dense_transfer(dram, this, isLoad = true)
+    // @api def gather(dram: DRAMSparseTile[T]): Void = copy_sparse(dram, this, isLoad = true)
   }
 
 
@@ -78,8 +78,8 @@ trait FIFOExp extends Staging with MemoryExp with SpatialExceptions {
 
   /** Internals **/
   def sizeOf(fifo: FIFO[_])(implicit ctx: SrcCtx): Index = wrap(sizeOf(fifo.s))
-  def sizeOf[T](fifo: Exp[FIFO[T]])(implicit ctx: SrcCtx): Exp[Index] = fifo match {
-    case Op(FIFONew(size)) => size
+  def sizeOf(fifo: Exp[FIFO[_]])(implicit ctx: SrcCtx): Exp[Index] = fifo match {
+    case Def(FIFONew(size)) => size
     case x => throw new UndefinedDimensionsError(x, None)
   }
 }

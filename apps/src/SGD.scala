@@ -76,18 +76,18 @@ object SGD extends SpatialApp {
           Sequential.Foreach(tileSize by 1) {i => 
             val y_err = Reg[T]
             // val update = SRAM[T](D)
-            val x_tile = SRAM[T](1, D)
+            val x_tile = SRAM[T](D)
             Parallel{
               x_tile load x(b+i, 0 :: D par ip)
             }
             Pipe{ // This Foreach is here to make sure y_hat resets properly
               val y_hat = Reg[T]
-              Reduce(y_hat)(D by 1 par ip){ j => x_tile(0,j) * sgdmodel(j) }{_+_}
+              Reduce(y_hat)(D by 1 par ip){ j => x_tile(j) * sgdmodel(j) }{_+_}
               y_err := y_hat.value - y_tile(i)
             }
 
             Foreach (D by 1 par ip) { j =>
-              sgdmodel(j) = sgdmodel(j) + x_tile(0,j)*y_err.value*A
+              sgdmodel(j) = sgdmodel(j) + x_tile(j)*y_err.value*A
             }
           }
         }

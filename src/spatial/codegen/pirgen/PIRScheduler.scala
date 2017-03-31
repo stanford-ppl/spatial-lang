@@ -325,11 +325,11 @@ trait PIRScheduler extends PIRTraversal {
     // --- Writes
     // Only for the data, not for the address, unless the memory is a local accumulator
     // TODO: Support enables!
-    case FIFOEnq(fifo, data, en)          => allocateFifoPush(fifo, data, ctx)
-    case ParFIFOEnq(fifo, data, ens) => allocateFifoPush(fifo, data, ctx)
+    case FIFOEnq(fifo, data, en)     => allocateFifoPush(fifo, data, ctx)
+    case ParFIFOEnq(fifo, data, ens) => allocateFifoPush(fifo, data.head, ctx)
 
-    case SRAMStore(mem, dims, is, ofs, data, en)        => bufferWrite(mem,data,Some(is, dims),ctx)
-    case ParSRAMStore(sram, addr, data, ens) => bufferWrite(sram,data,Some(addr.head, stagedDimsOf(sram)),ctx)
+    case SRAMStore(mem, dims, is, ofs, data, en) => bufferWrite(mem, data, Some(is, dims),ctx)
+    case ParSRAMStore(sram, addr, data, ens)     => bufferWrite(sram, data.head, Some(addr.head, stagedDimsOf(sram)),ctx)
 
     case RegWrite(reg, data, en) => allocateRegWrite(lhs, reg, data, ctx)
 

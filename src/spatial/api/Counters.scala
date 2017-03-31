@@ -13,7 +13,11 @@ trait CounterExp extends Staging with RangeExp with SpatialExceptions {
   this: SpatialExp =>
 
   /** API **/
-  case class Counter(s: Exp[Counter]) extends Template[Counter]
+  case class Counter(s: Exp[Counter]) extends MetaAny[Counter] {
+    @api override def ===(that: Counter) = this.s == that.s
+    @api override def =!=(that: Counter) = this.s != that.s
+    @api override def toText = textify(this)
+  }
   case class CounterChain(s: Exp[CounterChain]) extends Template[CounterChain]
 
   /** Direct methods **/

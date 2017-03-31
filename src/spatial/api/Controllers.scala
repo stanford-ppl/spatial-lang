@@ -113,23 +113,23 @@ trait ControllerApi extends ControllerExp with RegApi {
 
   protected class ForeachClass(style: ControlStyle) {
     /** 1 dimensional parallel foreach **/
-    def apply(domain1D: Counter)(func: Index => Void)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1D), {x: List[Index] => func(x.head) }, style)
+    def apply(domain1D: Counter)(func: Index => Any)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1D), {x: List[Index] => func(x.head); Unit() }, style)
       ()
     }
     /** 2 dimensional parallel foreach **/
-    def apply(domain1: Counter, domain2: Counter)(func: (Index,Index) => Void)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1,domain2), {x: List[Index] => func(x(0),x(1)) }, style)
+    def apply(domain1: Counter, domain2: Counter)(func: (Index,Index) => Any)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1,domain2), {x: List[Index] => func(x(0),x(1)); Unit() }, style)
       ()
     }
     /** 3 dimensional parallel foreach **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(func: (Index,Index,Index) => Void)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1,domain2,domain3), {x: List[Index] => func(x(0),x(1),x(2)) }, style)
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(func: (Index,Index,Index) => Any)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1,domain2,domain3), {x: List[Index] => func(x(0),x(1),x(2)); Unit() }, style)
       ()
     }
     /** N dimensional parallel foreach **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1,domain2,domain3,domain4) ++ domain5plus, func, style)
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(func: List[Index] => Any)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1,domain2,domain3,domain4) ++ domain5plus, func.andThen(_ => Unit()), style)
       ()
     }
     def apply(domain: Seq[Counter])(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
@@ -147,13 +147,24 @@ trait ControllerApi extends ControllerExp with RegApi {
   object Foreach   extends ForeachClass(InnerPipe)
 
   object Accel {
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { accel_blk(func, false); () }
-    def apply(ctr: Counter)(func: => Void)(implicit ctx: SrcCtx) = { accel_blk(func, ctr); () }
+    def apply(func: => Any)(implicit ctx: SrcCtx): Void = {
+      val f = () => { func; Unit() }
+      accel_blk(f(), false); ()
+    }
+    def apply(ctr: Counter)(func: => Any)(implicit ctx: SrcCtx) = {
+      val f = () => { func; Unit() }
+      accel_blk(f(), ctr); ()
+    }
   }
+
+  // NOTE: Making applies here not take Void results in ambiguity between 1D foreach and unit pipe
 
   object Pipe extends ForeachClass(InnerPipe) {
     /** "Pipelined" unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
+      val f = () => { func; Unit() }
+      unit_pipe(f(), SeqPipe); ()
+    }
     def Foreach   = new ForeachClass(InnerPipe)
     def Reduce    = ReduceClass(InnerPipe)
     def Fold      = FoldClass(InnerPipe)
@@ -163,7 +174,10 @@ trait ControllerApi extends ControllerExp with RegApi {
 
   object Sequential extends ForeachClass(SeqPipe) {
     /** Sequential unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
+      val f = () => { func; Unit() }
+      unit_pipe(f(), SeqPipe); ()
+    }
     def Foreach   = new ForeachClass(SeqPipe)
     def Reduce    = ReduceClass(SeqPipe)
     def Fold      = FoldClass(SeqPipe)
@@ -173,7 +187,10 @@ trait ControllerApi extends ControllerExp with RegApi {
 
   object Stream extends ForeachClass(StreamPipe) {
     /** Streaming unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, StreamPipe); () }
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
+      val f = () => { func; Unit() }
+      unit_pipe(f(), StreamPipe); ()
+    }
     def Foreach   = new ForeachClass(StreamPipe)
     def Reduce    = ReduceClass(StreamPipe)
     def Fold      = FoldClass(StreamPipe)
@@ -182,7 +199,10 @@ trait ControllerApi extends ControllerExp with RegApi {
   }
 
   object Parallel {
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { parallel_pipe(func); () }
+    def apply(func: => Any)(implicit ctx: SrcCtx): Void = {
+      val f = () => { func; Unit() }
+      parallel_pipe(f()); ()
+    }
   }
 }
 
@@ -190,12 +210,14 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
   this: SpatialExp =>
 
   /** API **/
-  case class Controller(s: Exp[Controller]) extends Template[Controller]
   implicit object ControllerType extends Meta[Controller] {
     override def wrapped(x: Exp[Controller]) = Controller(x)
     override def stagedClass = classOf[Controller]
     override def isPrimitive = true
   }
+
+  case class Controller(s: Exp[Controller]) extends Template[Controller]
+
 
   private[spatial] def accel_blk(func: => Void, ctr: Counter)(implicit ctx: SrcCtx): Controller = {
     if (isForever(ctr.s)) {

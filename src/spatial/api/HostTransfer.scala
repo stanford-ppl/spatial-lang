@@ -14,22 +14,16 @@ trait HostTransferApi extends HostTransferExp with ArrayExtApi {
   @api def getArg[T:Meta:Bits](reg: Reg[T]): T = wrap(get_arg(reg.s))
   @api def setMem[T:Meta:Bits](dram: DRAM[T], data: Array[T]): Void = Void(set_mem(dram.s, data.s))
   @api def getMem[T:Meta:Bits](dram: DRAM[T]): Array[T] = {
-    val array = Array.empty[T](productTree(wrap(dimsOf(dram.s))))
+    val array = Array.empty[T](productTree(wrap(stagedDimsOf(dram.s))))
     get_mem(dram.s, array.s)
     array
   }
 
   @api def setMem[T:Meta:Bits](dram: DRAM[T], matrix: Matrix[T]): Void = setMem(dram, matrix.data)
-  @api def getMatrix[T:Meta:Bits](dram: DRAM[T])(implicit ctx: SrcCtx): Matrix[T] = {
-    val dims = dimsOf(dram.s)
-    if (dims.length != 2) {
-      error(ctx, u"Cannot get matrix for ${dram.s} since it is ${dims}-dimensional.")
-      wrap(fresh[Matrix[T]])
-    }
-    else {
-      val data = getMem(dram)
-      matrix(data, wrap(dims(0)), wrap(dims(1)))
-    }
+  @api def getMatrix[T:Meta:Bits](dram: DRAM2[T])(implicit ctx: SrcCtx): Matrix[T] = {
+    val dims = stagedDimsOf(dram.s)
+    val data = getMem(dram)
+    matrix(data, wrap(dims(0)), wrap(dims(1)))
   }
 }
 
