@@ -209,10 +209,6 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     def foreach(block: Int => Unit) { map(block) }
 
-    def vectorize[T:Type:Bits](block: Int => Exp[T])(implicit ctx: SrcCtx): Exp[Vector[T]] = {
-      IR.vectorize(map(block))
-    }
-
     // --- Each unrolling rule should do at least one of three things:
     // 1. Split a given vector as the substitution for the single original symbol
     def duplicate[A](s: Sym[A], d: Op[A]): List[Exp[_]] = map{_ =>
@@ -248,31 +244,31 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   val writeParallelizer: PartialFunction[(Unroller, Def, SrcCtx),Exp[Void]] = {
     case (lanes, e@RegFileStore(reg,inds,data,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
-      val datas = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
+      val datas = lanes.map{p => f(data) }
       val ens   = lanes.map{p => f(en) }
       par_regfile_store(f(reg),addrs,datas,ens)(e.mT,e.bT,ctx)
 
     case (lanes, e@LineBufferEnq(lb,data,en), ctx) =>
-      val datas = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
-      val enables = lanes.map{p => bool_and(f(en), globalValid) }
-      par_linebuffer_enq(f(lb), datas, enables)(e.mT,e.bT,ctx)
+      val datas = lanes.map{p => f(data) }
+      val ens   = lanes.map{p => bool_and(f(en), globalValid) }
+      par_linebuffer_enq(f(lb), datas, ens)(e.mT,e.bT,ctx)
 
     case (lanes, e@FIFOEnq(fifo, data, en), ctx) =>
-      val datas  = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
-      val enables = lanes.map{p => bool_and( f(en), globalValid) }
-      par_fifo_enq(f(fifo), datas, enables)(e.mT,e.bT,ctx)
+      val datas = lanes.map{p => f(data) }
+      val ens   = lanes.map{p => bool_and( f(en), globalValid) }
+      par_fifo_enq(f(fifo), datas, ens)(e.mT,e.bT,ctx)
 
     case (lanes, e@StreamWrite(stream, data, en), ctx) =>
-      val datas   = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
-      val enables = lanes.map{p => bool_and( f(en), globalValid) }
-      par_stream_write(f(stream), datas, enables)(e.mT,e.bT,ctx)
+      val datas = lanes.map{p => f(data) }
+      val ens   = lanes.map{p => bool_and( f(en), globalValid) }
+      par_stream_write(f(stream), datas, ens)(e.mT,e.bT,ctx)
 
     // TODO: Assuming dims and ofs are not needed for now
     case (lanes, e@SRAMStore(sram,dims,inds,ofs,data,en), ctx) =>
-      val addrs  = lanes.map{p => inds.map(f(_)) }
-      val values = lanes.vectorize{p => f(data)}(e.mT,e.bT,ctx)
-      val ens    = lanes.map{p => bool_and(f(en), globalValid) }
-      par_sram_store(f(sram), addrs, values, ens)(e.mT,e.bT,ctx)
+      val addrs = lanes.map{p => inds.map(f(_)) }
+      val datas = lanes.map{p => f(data) }
+      val ens   = lanes.map{p => bool_and(f(en), globalValid) }
+      par_sram_store(f(sram), addrs, datas, ens)(e.mT,e.bT,ctx)
   }
 
   val readParallelizer: PartialFunction[(Unroller, Def, SrcCtx),Exp[Vector[_]]] = {

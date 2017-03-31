@@ -52,7 +52,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   case class ParSRAMStore[T:Type:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
-    data: Exp[Vector[T]],
+    data: Seq[Exp[T]],
     ens:  Seq[Exp[Bool]]
   ) extends EnabledOp[Void](ens:_*) {
     def mirror(f:Tx) = par_sram_store(f(sram),addr.map{inds => f(inds)},f(data),f(ens))
@@ -69,7 +69,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
 
   case class ParFIFOEnq[T:Type:Bits](
     fifo: Exp[FIFO[T]],
-    data: Exp[Vector[T]],
+    data: Seq[Exp[T]],
     ens:  Seq[Exp[Bool]]
   ) extends EnabledOp[Void](ens:_*) {
     def mirror(f:Tx) = par_fifo_enq(f(fifo),f(data),f(ens))
@@ -87,7 +87,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
 
   case class ParStreamWrite[T:Type:Bits](
     stream: Exp[StreamOut[T]],
-    data:   Exp[Vector[T]],
+    data:   Seq[Exp[T]],
     ens:    Seq[Exp[Bool]]
   ) extends EnabledOp[Void](ens:_*) {
     def mirror(f:Tx) = par_stream_write(f(stream),f(data),f(ens))
@@ -108,7 +108,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
 
   case class ParLineBufferEnq[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
-    data:       Exp[Vector[T]],
+    data:       Seq[Exp[T]],
     ens:        Seq[Exp[Bool]]
   ) extends EnabledOp[Void](ens:_*) {
     def mirror(f:Tx) = par_linebuffer_enq(f(linebuffer),f(data),f(ens))
@@ -129,7 +129,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   case class ParRegFileStore[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Seq[Exp[Index]]],
-    data: Exp[Vector[T]],
+    data: Seq[Exp[T]],
     ens:  Seq[Exp[Bool]]
   ) extends EnabledOp[Void](ens:_*) {
     def mirror(f:Tx) = par_regfile_store(f(reg),inds.map(is => f(is)),f(data),f(ens))
@@ -177,7 +177,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   private[spatial] def par_sram_store[T:Type:Bits](
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
-    data: Exp[Vector[T]],
+    data: Seq[Exp[T]],
     ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(sram)( ParSRAMStore(sram, addr, data, ens) )(ctx)
@@ -193,7 +193,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
 
   private[spatial] def par_fifo_enq[T:Type:Bits](
     fifo: Exp[FIFO[T]],
-    data: Exp[Vector[T]],
+    data: Seq[Exp[T]],
     ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(fifo)( ParFIFOEnq(fifo, data, ens) )(ctx)
@@ -209,7 +209,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
 
   private[spatial] def par_stream_write[T:Type:Bits](
     stream: Exp[StreamOut[T]],
-    data:   Exp[Vector[T]],
+    data:   Seq[Exp[T]],
     ens:    Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx): Exp[Void] = {
     stageWrite(stream)( ParStreamWrite(stream, data, ens) )(ctx)
@@ -227,7 +227,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
 
   private[spatial] def par_linebuffer_enq[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
-    data:       Exp[Vector[T]],
+    data:       Seq[Exp[T]],
     ens:        Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx) = {
     stageWrite(linebuffer)(ParLineBufferEnq(linebuffer,data,ens))(ctx)
@@ -245,7 +245,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   private[spatial] def par_regfile_store[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Seq[Exp[Index]]],
-    data: Exp[Vector[T]],
+    data: Seq[Exp[T]],
     ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx) = {
     stageWrite(reg)(ParRegFileStore(reg, inds, data, ens))(ctx)

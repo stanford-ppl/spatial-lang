@@ -9,11 +9,11 @@ import forge._
 trait SRAMApi extends SRAMExp {
   this: SpatialExp =>
 
-  @api def SRAM[T:Meta:Bits](c: Index): SRAM1[T] = SRAM1(sram_alloc[T](Seq(c.s)))
-  @api def SRAM[T:Meta:Bits](r: Index, c: Index): SRAM2[T] = SRAM2(sram_alloc[T](Seq(r.s,c.s)))
-  @api def SRAM[T:Meta:Bits](p: Index, r: Index, c: Index): SRAM3[T] = SRAM3(sram_alloc[T](Seq(p.s,r.s,c.s)))
-  @api def SRAM[T:Meta:Bits](q: Index, p: Index, r: Index, c: Index): SRAM4[T] = SRAM4(sram_alloc[T](Seq(q.s,p.s,r.s,c.s)))
-  @api def SRAM[T:Meta:Bits](m: Index, q: Index, p: Index, r: Index, c: Index): SRAM5[T] = SRAM5(sram_alloc[T](Seq(m.s,q.s,p.s,r.s,c.s)))
+  @api def SRAM[T:Meta:Bits](c: Index): SRAM1[T] = SRAM1(sram_alloc[T,SRAM1](Seq(c.s)))
+  @api def SRAM[T:Meta:Bits](r: Index, c: Index): SRAM2[T] = SRAM2(sram_alloc[T,SRAM2](Seq(r.s,c.s)))
+  @api def SRAM[T:Meta:Bits](p: Index, r: Index, c: Index): SRAM3[T] = SRAM3(sram_alloc[T,SRAM3](Seq(p.s,r.s,c.s)))
+  @api def SRAM[T:Meta:Bits](q: Index, p: Index, r: Index, c: Index): SRAM4[T] = SRAM4(sram_alloc[T,SRAM4](Seq(q.s,p.s,r.s,c.s)))
+  @api def SRAM[T:Meta:Bits](m: Index, q: Index, p: Index, r: Index, c: Index): SRAM5[T] = SRAM5(sram_alloc[T,SRAM5](Seq(m.s,q.s,p.s,r.s,c.s)))
 }
 
 
@@ -21,9 +21,10 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
   this: SpatialExp =>
 
   /** Infix methods **/
-  type SRAM[T] = SRAMN[T]
+  type SRAM[T] = SRAMN[T,_]
 
-  class SRAMN[T:Meta:Bits](val s: Exp[SRAM[T]]) extends Template[SRAM[T]] {
+  abstract class SRAMN[T:Meta:Bits,C[_]<:SRAM[_]] extends Template[C[T]] {
+    def s: Exp[SRAM[T]]
     protected def ofs = lift[Int, Index](0).s
     protected[spatial] var p: Option[Index] = None
 
@@ -32,7 +33,7 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
     @api def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = dense_transfer(dram, this, isLoad = true)
   }
 
-  case class SRAM1[T:Meta:Bits](override val s: Exp[SRAM[T]]) extends SRAM[T](s) {
+  case class SRAM1[T:Meta:Bits](s: Exp[SRAM1[T]]) extends SRAMN[T,SRAM1] {
     @api def apply(a: Index)
       = wrap(sram_load(this.s, stagedDimsOf(s), Seq(a.s), ofs, bool(true)))
     @api def update(a: Index, data: T): Void
@@ -41,28 +42,28 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
 
     @api def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void = sparse_transfer(dram, this, isLoad = true)
   }
-  case class SRAM2[T:Meta:Bits](override val s: Exp[SRAM[T]]) extends SRAM[T](s) {
+  case class SRAM2[T:Meta:Bits](s: Exp[SRAM2[T]]) extends SRAMN[T,SRAM2] {
     @api def apply(a: Index, b: Index)
       = wrap(sram_load(this.s, stagedDimsOf(s), Seq(a.s,b.s), ofs, bool(true)))
     @api def update(a: Index, b: Index, data: T): Void
       = Void(sram_store(this.s, stagedDimsOf(s), Seq(a.s,b.s), ofs, data.s, bool(true)))
     @api def par(p: Index): SRAM2[T] = { val x = SRAM2(s); x.p = Some(p); x }
   }
-  case class SRAM3[T:Meta:Bits](override val s: Exp[SRAM[T]]) extends SRAM[T](s) {
+  case class SRAM3[T:Meta:Bits](s: Exp[SRAM3[T]]) extends SRAMN[T,SRAM3] {
     @api def apply(a: Index, b: Index, c: Index)
       = wrap(sram_load(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s), ofs, bool(true)))
     @api def update(a: Index, b: Index, c: Index, data: T): Void
       = Void(sram_store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s), ofs, data.s, bool(true)))
     @api def par(p: Index): SRAM3[T] = { val x = SRAM3(s); x.p = Some(p); x }
   }
-  case class SRAM4[T:Meta:Bits](override val s: Exp[SRAM[T]]) extends SRAM[T](s) {
+  case class SRAM4[T:Meta:Bits](s: Exp[SRAM4[T]]) extends SRAMN[T,SRAM4] {
     @api def apply(a: Index, b: Index, c: Index, d: Index)
       = wrap(sram_load(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s), ofs, bool(true)))
     @api def update(a: Index, b: Index, c: Index, d: Index, data: T): Void
       = Void(sram_store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s), ofs, data.s, bool(true)))
     @api def par(p: Index): SRAM4[T] = { val x = SRAM4(s); x.p = Some(p); x }
   }
-  case class SRAM5[T:Meta:Bits](override val s: Exp[SRAM[T]]) extends SRAM[T](s) {
+  case class SRAM5[T:Meta:Bits](s: Exp[SRAM5[T]]) extends SRAMN[T,SRAM5] {
     @api def apply(a: Index, b: Index, c: Index, d: Index, e: Index)
       = wrap(sram_load(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s,e.s), ofs, bool(true)))
     @api def update(a: Index, b: Index, c: Index, d: Index, e: Index, data: T): Void
@@ -75,11 +76,11 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
     def child: Meta[T]
     def isPrimitive = false
   }
-  case class SRAMNType[T:Bits](child: Meta[T]) extends Meta[SRAMN[T]] with SRAMType[T] {
+  /*case class SRAMNType[T:Bits](child: Meta[T]) extends Meta[SRAMN[T]] with SRAMType[T] {
     override def wrapped(x: Exp[SRAMN[T]]) = new SRAMN(x)(child,bits[T])
     override def typeArguments = List(child)
     override def stagedClass = classOf[SRAMN[T]]
-  }
+  }*/
   case class SRAM1Type[T:Bits](child: Meta[T]) extends Meta[SRAM1[T]] with SRAMType[T] {
     override def wrapped(x: Exp[SRAM1[T]]) = SRAM1(x)(child,bits[T])
     override def typeArguments = List(child)
@@ -106,14 +107,14 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
     override def stagedClass = classOf[SRAM5[T]]
   }
 
-  implicit def sramNType[T:Meta:Bits]: Meta[SRAMN[T]] = SRAMNType(meta[T])
+  //implicit def sramNType[T:Meta:Bits]: Meta[SRAMN[T]] = SRAMNType(meta[T])
   implicit def sram1Type[T:Meta:Bits]: Meta[SRAM1[T]] = SRAM1Type(meta[T])
   implicit def sram2Type[T:Meta:Bits]: Meta[SRAM2[T]] = SRAM2Type(meta[T])
   implicit def sram3Type[T:Meta:Bits]: Meta[SRAM3[T]] = SRAM3Type(meta[T])
   implicit def sram4Type[T:Meta:Bits]: Meta[SRAM4[T]] = SRAM4Type(meta[T])
   implicit def sram5Type[T:Meta:Bits]: Meta[SRAM5[T]] = SRAM5Type(meta[T])
 
-  class SRAMIsMemory[T:Meta:Bits,C[T]<:SRAM[T]](implicit mC: Meta[C[T]]) extends Mem[T,C] {
+  class SRAMIsMemory[T:Meta:Bits,C[T]<:SRAMN[T,C]](implicit mC: Meta[C[T]]) extends Mem[T,C] {
     def load(mem: C[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = {
       wrap(sram_load(mem.s, stagedDimsOf(mem.s), unwrap(is), lift[Int,Index](0).s, en.s))
     }
@@ -124,7 +125,7 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
       stagedDimsOf(mem.s).map{d => Counter(0, wrap(d), 1, 1) }
     }
   }
-  implicit def sramNIsMemory[T:Meta:Bits]: Mem[T,SRAMN] = new SRAMIsMemory[T,SRAMN]
+  //implicit def sramNIsMemory[T:Meta:Bits]: Mem[T,SRAMN] = new SRAMIsMemory[T,SRAMN]
   implicit def sram1IsMemory[T:Meta:Bits]: Mem[T,SRAM1] = new SRAMIsMemory[T,SRAM1]
   implicit def sram2IsMemory[T:Meta:Bits]: Mem[T,SRAM2] = new SRAMIsMemory[T,SRAM2]
   implicit def sram3IsMemory[T:Meta:Bits]: Mem[T,SRAM3] = new SRAMIsMemory[T,SRAM3]
@@ -132,8 +133,8 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
   implicit def sram5IsMemory[T:Meta:Bits]: Mem[T,SRAM5] = new SRAMIsMemory[T,SRAM5]
 
   /** IR Nodes **/
-  case class SRAMNew[T:Type:Bits](dims: Seq[Exp[Index]]) extends Op[SRAM[T]] {
-    def mirror(f:Tx) = sram_alloc[T](f(dims))
+  case class SRAMNew[T:Type:Bits,C[_]<:SRAM[_]](dims: Seq[Exp[Index]]) extends Op[C[T]] {
+    def mirror(f:Tx) = sram_alloc[T,C](f(dims))
     val mT = typ[T]
     val bT = bits[T]
   }
@@ -149,8 +150,8 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
   }
 
   /** Constructors **/
-  def sram_alloc[T:Type:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Exp[SRAM[T]] = {
-    stageMutable( SRAMNew[T](dims) )(ctx)
+  def sram_alloc[T:Type:Bits,C[_]<:SRAM[_]](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Exp[C[T]] = {
+    stageMutable( SRAMNew[T,C](dims) )(ctx)
   }
   def sram_load[T:Type:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[T] = {
     if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)(ctx)

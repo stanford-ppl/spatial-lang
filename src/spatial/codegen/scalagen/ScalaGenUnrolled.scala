@@ -58,7 +58,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories {
       val dims = stagedDimsOf(sram)
       open(src"val $lhs = {")
       inds.indices.foreach{i =>
-        oobUpdate(op.mT, sram, lhs,inds(i)){ emit(src"if (${ens(i)}) $sram.update(${flattenAddress(dims, inds(i))}, $data($i))") }
+        oobUpdate(op.mT, sram, lhs,inds(i)){ emit(src"if (${ens(i)}) $sram.update(${flattenAddress(dims, inds(i))}, ${data(i)})") }
       }
       close("}")
 
@@ -73,7 +73,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories {
     case ParFIFOEnq(fifo, data, ens) =>
       open(src"val $lhs = {")
       ens.zipWithIndex.foreach{case (en,i) =>
-        emit(src"if ($en) $fifo.enqueue($data($i))")
+        emit(src"if ($en) $fifo.enqueue(${data(i)})")
       }
       close("}")
 
@@ -88,7 +88,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories {
     case ParStreamWrite(strm, data, ens) =>
       open(src"val $lhs = {")
       ens.zipWithIndex.foreach{case (en,i) =>
-        emit(src"if ($en) $strm.enqueue($data($i))")
+        emit(src"if ($en) $strm.enqueue(${data(i)})")
       }
       close("}")
 
