@@ -11,3 +11,4 @@ rm -rf $SPATIAL_HOME/target
 rm -rf $SPATIAL_HOME/gen
 rm -rf $SPATIAL_HOME/apps/target
 rm -rf $ARGON_HOME/target
+rm -rf $ARGON_HOME/lib_managed

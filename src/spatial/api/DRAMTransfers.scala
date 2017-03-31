@@ -2,7 +2,7 @@ package spatial.api
 
 import argon.core.Staging
 import argon.ops.CastApi
-import macros.struct
+import forge._
 import org.virtualized._
 import spatial.SpatialExp
 

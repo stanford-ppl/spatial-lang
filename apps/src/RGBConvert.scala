@@ -1,6 +1,6 @@
 import spatial._
 import org.virtualized._
-import macros._
+import forge._
 
 /*object Video extends SpatialApp {
   import IR._
