@@ -68,6 +68,10 @@ class ParallelShiftRegFile(val height: Int, val width: Int, val stride: Int, val
   def connectWPort(data: UInt, row_addr: UInt, col_addr: UInt, en: Bool) {
     io.data_in(wId) := data
     io.w_en(wId) := en
+    // If there is write port, tie down shift ens
+    for (j <- 0 until height) {
+      io.shift_en(j) := false.B
+    }
     io.w_rowAddr(wId) := row_addr
     io.w_colAddr(wId) := col_addr
     wId = wId + 1
@@ -75,9 +79,11 @@ class ParallelShiftRegFile(val height: Int, val width: Int, val stride: Int, val
 
   def connectShiftPort(data: UInt, row_addr: UInt, en: Bool) {
     for (j <- 0 until height) {
+      // If there is shift port, tie down wens
+      io.w_en(j) := false.B
       when(j.U === row_addr) {
         io.data_in(j) := data
-        io.shift_en(j) := en     
+        io.shift_en(j) := en   
       }
     }
   }
