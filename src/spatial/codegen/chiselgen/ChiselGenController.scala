@@ -299,6 +299,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
           val Def(CounterChainNew(ctrs)) = cchain.get
           emitCounterChain(cchain.get, ctrs, src"_copy$c")
           emit(src"""${cchain.get}_copy${c}_en := ${c}_done""")
+          emit(src"""${cchain.get}_copy${c}_resetter := ${sym}_sm.io.output.rst_en""")
         }
         emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")
       }
