@@ -67,7 +67,7 @@ class FringeContextVCS : public FringeContextBase<void> {
   }
 
   simCmd* recvResp() {
-    return respChannel->recv();
+    return (simCmd*) respChannel->recv();
   }
 
 public:
@@ -179,8 +179,8 @@ public:
   }
 
   FringeContextVCS(std::string path = "") : FringeContextBase(path) {
-    cmdChannel = new Channel();
-    respChannel = new Channel();
+    cmdChannel = new Channel(sizeof(simCmd));
+    respChannel = new Channel(sizeof(simCmd));
 
     posix_spawn_file_actions_init(&action);
 

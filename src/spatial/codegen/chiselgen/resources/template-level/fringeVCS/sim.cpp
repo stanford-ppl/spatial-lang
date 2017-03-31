@@ -11,6 +11,7 @@
 
 using namespace std;
 
+//#include "dramDefs.h"
 #include "simDefs.h"
 #include "channel.h"
 //#include "svdpi.h"
@@ -18,8 +19,15 @@ using namespace std;
 #include "vc_hdrs.h"
 #include "svdpi_src.h"
 
+// Slave channels from HOST
 Channel *cmdChannel = NULL;
 Channel *respChannel = NULL;
+
+// Master channels to DRAM
+//Channel *dramCmdChannel = new Channel();
+//Channel *dramRespChannel = new Channel();
+//uint64_t globalDRAMID = 0;
+
 
 int sendResp(simCmd *cmd) {
   simCmd resp;
@@ -72,7 +80,7 @@ public:
     EPRINTF("---- DRAM REQ ----\n");
     EPRINTF("addr : %lx\n", addr);
     EPRINTF("tag  : %lx\n", tag);
-    EPRINTF("isWr : %lx\n", isWr);
+    EPRINTF("isWr : %d\n", isWr);
     EPRINTF("delay: %u\n", delay);
     if (isWr) {
       EPRINTF("wdata0 : %u\n", wdata[0]);
@@ -182,8 +190,6 @@ extern "C" {
             rdata[14],
             rdata[15]
           );
-     
-
       }
 
 
@@ -229,7 +235,7 @@ extern "C" {
 
     // Handle new incoming operations
     while (!exitTick) {
-      simCmd *cmd = cmdChannel->recv();
+      simCmd *cmd = (simCmd*) cmdChannel->recv();
       simCmd readResp;
       uint32_t reg = 0;
       uint64_t data = 0;
@@ -245,15 +251,33 @@ extern "C" {
           resp.cmd = cmd->cmd;
           *(uint64_t*)resp.data = (uint64_t)ptr;
           resp.size = sizeof(size_t);
-          EPRINTF("[SIM] MALLOC(%u), returning %lx\n", size, ptr);
+          EPRINTF("[SIM] MALLOC(%lu), returning %p\n", size, (void*)ptr);
           respChannel->send(&resp);
+
+          // Send malloc request to DRAM
+//          dramCmd dcmd;
+//          dcmd.id = globalDRAMID++;
+//          dcmd.cmd = MALLOC;
+//          std::memcpy(dcmd.data, &size, sizeof(size_t));
+//          dcmd.size = sizeof(size_t);
+//          dramCmdChannel->send(&dcmd);
+//          dramCmd *dresp = dramRespChannel->recv();
+//          ASSERT(dcmd.id == dresp->id, "malloc resp->id does not match cmd.id!");
+//          ASSERT(dcmd.cmd == dresp->cmd, "malloc resp->cmd does not match cmd.cmd!");
           break;
         }
         case FREE: {
           void *ptr = (void*)(*(uint64_t*)cmd->data);
           ASSERT(ptr != NULL, "Attempting to call free on null pointer\n");
-          EPRINTF("[SIM] FREE(%lx)\n", ptr);
+          EPRINTF("[SIM] FREE(%p)\n", ptr);
 
+          // Send free request to DRAM
+//          dramCmd dcmd;
+//          dcmd.id = globalID++;
+//          dcmd.cmd = FREE;
+//          std::memcpy(dcmd.data, &ptr, sizeof(uint64_t));
+//          dcmd.size = sizeof(uint64_t);
+//          dramCmdChannel->send(&dcmd);
           break;
         }
         case MEMCPY_H2D: {
@@ -261,7 +285,7 @@ extern "C" {
           void *dst = (void*)data[0];
           size_t size = data[1];
 
-          EPRINTF("[SIM] Received memcpy request to %lx, size %u\n", dst, size);
+          EPRINTF("[SIM] Received memcpy request to %p, size %lu\n", (void*)dst, size);
 
           // Now to receive 'size' bytes from the cmd stream
           cmdChannel->recvFixedBytes(dst, size);
@@ -334,16 +358,55 @@ extern "C" {
   void sim_init() {
     EPRINTF("[SIM] Sim process started!\n");
 
-    // 0. Create Channel structures
-    cmdChannel = new Channel(SIM_CMD_FD, -1);
-    respChannel = new Channel(-1, SIM_RESP_FD);
+    /**
+     * Slave interface to host {
+     */
+      // 0. Create Channel structures
+      cmdChannel = new Channel(SIM_CMD_FD, -1, sizeof(simCmd));
+      respChannel = new Channel(-1, SIM_RESP_FD, sizeof(simCmd));
 
-    // 1. Read command
-    simCmd *cmd = cmdChannel->recv();
-    EPRINTF("[SIM] Received:\n");
-    cmdChannel->printPkt(cmd);
+      // 1. Read command
+      simCmd *cmd = (simCmd*) cmdChannel->recv();
 
-    // 2. Send response
-    sendResp(cmd);
+      // 2. Send response
+      sendResp(cmd);
+    /**} End Slave interface to Host */
+
+    /** Master interfaces to peripheral simulators e.g. DRAM { */
+//      posix_spawn_file_actions_t dramAction;
+//      pid_t dram_pid;
+//
+//      posix_spawn_file_actions_init(&dramAction);
+//
+//      // Create cmdPipe (read) handle at SIM_CMD_FD, respPipe (write) handle at SIM_RESP_FD
+//      // Close old descriptors after dup2
+//      posix_spawn_file_actions_addclose(&dramAction, dramCmdChannel->writeFd());
+//      posix_spawn_file_actions_addclose(&dramAction, dramRespChannel->readFd());
+//      posix_spawn_file_actions_adddup2(&dramAction, dramCmdChannel->readFd(), DRAM_CMD_FD);
+//      posix_spawn_file_actions_adddup2(&dramAction, dramRespChannel->writeFd(), DRAM_RESP_FD);
+//
+//      std::string argsmem[] = {"./dram"};
+//      char *args[] = {&argsmem[0][0],nullptr};
+//
+//      if(posix_spawnp(&sim_pid, args[0], &dramAction, NULL, &args[0], NULL) != 0) {
+//        EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));
+//        exit(-1);
+//      }
+//
+//      // Close Sim side of pipes
+//      close(dramCmdChannel->readFd());
+//      close(dramRespChannel->writeFd());
+//
+//      // Connect with dram simulator
+//      dramCmd cmd;
+//      cmd.id = globalDRAMID++;
+//      cmd.cmd = READY;
+//      cmd.size = 0;
+//      dramCmdChannel->send(&cmd);
+//      dramCmd *resp = recvResp();
+//      ASSERT(resp->id == cmd.id, "DRAM init error: Received ID does not match sent ID\n");
+//      ASSERT(resp->cmd == READY, "DRAM init error: Received cmd is not 'READY'\n");
+//      EPRINTF("DRAM Connection successful!\n");
+    /** } End master interface*/
   }
 }
