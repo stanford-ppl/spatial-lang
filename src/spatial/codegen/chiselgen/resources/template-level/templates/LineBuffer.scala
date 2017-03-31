@@ -163,6 +163,14 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     }    
   }
   
+  def readRow(row: UInt): UInt = { // Parallel row read is unimplemented!
+    val readableData = (0 until row_rPar).map { i =>
+      (i.U -> io.data_out(i))
+    }
+    MuxLookup(row, 0.U,  readableData)
+  }
+
+
   def connectStageCtrl(done: Bool, en: Bool, ports: List[Int]) {
     ports.foreach{ port => 
       io.sEn(port) := en

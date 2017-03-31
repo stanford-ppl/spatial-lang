@@ -2,6 +2,7 @@ package fringe
 
 import chisel3._
 import chisel3.util._
+import templates.Utils.log2Up
 
 /**
  * Regfile: Regfile parameterized by width and height similar to SRAM
@@ -11,7 +12,7 @@ import chisel3.util._
  * @param numArgOuts: Number of 'argOut' registers that can be written to in parallel
  */
 class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0) extends Module {
-  val addrWidth = log2Ceil(d)
+  val addrWidth = log2Up(d)
   val argInRange = List(0, 1) ++ ((2) until (2 + numArgIns - 2)).toList
   val argOutRange = List(1) ++ ((numArgIns) until (numArgIns + numArgOuts - 1)).toList
 

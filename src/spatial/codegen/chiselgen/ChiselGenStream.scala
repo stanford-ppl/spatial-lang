@@ -44,7 +44,7 @@ trait ChiselGenStream extends ChiselCodegen {
     case StreamWrite(stream, data, en) =>
       emitGlobal(src"""val ${stream}_valid = Wire(Bool())""")
       emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
-      emitGlobal(src"""val ${stream}_data = Wire(UInt(65.W))""")
+      emitGlobal(src"""val ${stream}_data = Wire(UInt(97.W))""")
       emit(src"""${stream}_data := $data""")
     case _ => super.emitNode(lhs, rhs)
   }

@@ -60,6 +60,31 @@ public:
     }
   }
 
+  void sendFixedBytes(void *src, size_t numBytes) {
+    ASSERT(src, "[sendFixedBytes] Src memory is null\n");
+    uint8_t *bsrc = (uint8_t*)src;
+    std::vector<pollfd> plist = { {pipeFd[WRITE], POLLOUT} };
+    size_t totalBytesWritten = 0;
+
+    for (int rval; (rval=poll(&plist[0], plist.size(), /*timeout*/-1)) > 0; ) {
+      if (plist[0].revents & POLLOUT) {
+        int bytesWritten = write(pipeFd[WRITE], &bsrc[totalBytesWritten], numBytes-totalBytesWritten);
+        if (bytesWritten < 0) {
+          EPRINTF("send error: %s\n", strerror(errno));
+        } else {
+          totalBytesWritten += bytesWritten;
+          EPRINTF("Total bytes written: %d\n", totalBytesWritten);
+        }
+
+        if (totalBytesWritten >= numBytes) {
+          break;
+        }
+      } else {
+        break; // nothing left to read
+      }
+    }
+  }
+
 	simCmd* recv() {
     memset(buf, 0, sizeof(simCmd));
 
@@ -67,8 +92,8 @@ public:
 
     for (int rval; (rval=poll(&plist[0], plist.size(), /*timeout*/-1)) > 0; ) {
       if (plist[0].revents & POLLIN) {
-        int bytesRead = read(pipeFd[READ], buf, sizeof(simCmd));
-        if (bytesRead > 0) {
+        int bytesread = read(pipeFd[READ], buf, sizeof(simCmd));
+        if (bytesread > 0) {
           break;
         }
       } else {
@@ -77,6 +102,30 @@ public:
     }
     return (simCmd*)buf;
 	}
+
+  void recvFixedBytes(void *dst, size_t numBytes) {
+    ASSERT(dst, "[recvFixedBytes] Destination memory is null\n");
+    uint8_t *bdst = (uint8_t*)dst;
+    std::vector<pollfd> plist = { {pipeFd[READ], POLLIN} };
+    size_t totalBytesRead = 0;
+
+    for (int rval; (rval=poll(&plist[0], plist.size(), /*timeout*/-1)) > 0; ) {
+      if (plist[0].revents & POLLIN) {
+        int bytesRead = read(pipeFd[READ], &bdst[totalBytesRead], numBytes-totalBytesRead);
+        if (bytesRead < 0) {
+          EPRINTF("recvFixedBytes error @totalBytesRead = %d, &bdst = %lx: %s\n", totalBytesRead, &bdst[totalBytesRead], strerror(errno));
+        } else {
+          totalBytesRead += bytesRead;
+          EPRINTF("Total bytes read: %d\n", totalBytesRead);
+        }
+        if (totalBytesRead >= numBytes) {
+          break;
+        }
+      } else {
+        break; // nothing left to read
+      }
+    }
+  }
 };
 
 #endif // __CHANNEL_H

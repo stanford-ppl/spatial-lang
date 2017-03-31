@@ -49,7 +49,7 @@ trait VectorExp extends Staging with BitsExp with CustomBitWidths {
   case class ListVector[T:Staged:Bits](elems: Seq[Exp[T]])(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
     def mirror(f:Tx) = vector_new(f(elems))
   }
-  case class VectorApply[T:Staged:Bits](vector: Exp[Vector[T]], index: Int) extends Op[T] {
+  case class VectorApply[T:Staged](vector: Exp[Vector[T]], index: Int) extends Op[T] {
     def mirror(f:Tx) = vector_apply(f(vector), index)
   }
   case class VectorSlice[T:Staged:Bits](vector: Exp[Vector[T]], start: Int, end: Int)(implicit val W: INT[Vector[T]]) extends Op[Vector[T]] {
@@ -62,7 +62,7 @@ trait VectorExp extends Staging with BitsExp with CustomBitWidths {
     stage(ListVector(elems))(ctx)
   }
 
-  private[spatial] def vector_apply[T:Staged:Bits](vector: Exp[Vector[T]], index: Int)(implicit ctx: SrcCtx): Exp[T] = vector match {
+  private[spatial] def vector_apply[T:Staged](vector: Exp[Vector[T]], index: Int)(implicit ctx: SrcCtx): Exp[T] = vector match {
     case Op(ListVector(elems)) =>
       if (index < 0 || index >= elems.length) {
         new InvalidVectorApplyIndex(vector, index)

@@ -13,35 +13,35 @@ object ops {
     }
 
     def < (c: FixedPoint): Bool = {
-      Utils.FixedPoint(c.s, c.d, c.f, b) < c
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) < c
     }
 
     def > (c: FixedPoint): Bool = {
-      Utils.FixedPoint(c.s, c.d, c.f, b) > c
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) > c
     }
 
     def === (c: FixedPoint): Bool = {
-      Utils.FixedPoint(c.s, c.d, c.f, b) === c      
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) === c      
     }
 
     def - (c: FixedPoint): FixedPoint = {
-      Utils.FixedPoint(c.s, c.d, c.f, b) - c      
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) - c      
     }
 
     def + (c: FixedPoint): FixedPoint = {
-      Utils.FixedPoint(c.s, c.d, c.f, b) + c      
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) + c      
     }
 
     def * (c: FixedPoint): FixedPoint = {
-      Utils.FixedPoint(c.s, c.d, c.f, b) * c      
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) * c      
     }
 
     def / (c: FixedPoint): FixedPoint = {
-      Utils.FixedPoint(c.s, c.d, c.f, b) / c      
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) / c      
     }
 
     def % (c: FixedPoint): FixedPoint = {
-      Utils.FixedPoint(c.s, c.d, c.f, b) % c      
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) % c      
     }
 
     def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
@@ -92,6 +92,7 @@ object Utils {
     init match {
       case i: Double => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
       case i: UInt => cst.number := i
+      case i: FixedPoint => cst.number := i.number
       case i: Int => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
     }
     cst
