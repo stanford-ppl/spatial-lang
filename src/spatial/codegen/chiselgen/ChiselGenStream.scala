@@ -27,7 +27,6 @@ trait ChiselGenStream extends ChiselCodegen {
       s"$bus" match {
         case "BurstFullDataBus" => 
         case "BurstAckBus" => 
-          
         case _ =>
           emit(src"// New stream in $lhs")
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]

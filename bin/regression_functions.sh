@@ -588,7 +588,7 @@ comp_time=(\`cat log | grep \"Total time:\" | sed 's/.*time: //g' | sed 's/ seco
 
 # Compile backend
 cd ${5}/out
-make sim 2>&1 | tee -a ${5}/log
+make vcs 2>&1 | tee -a ${5}/log
 
 # Check for crashes in backend compilation
 wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\\|ChiselException\" | wc -l)
