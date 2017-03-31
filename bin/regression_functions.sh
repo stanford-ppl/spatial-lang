@@ -453,7 +453,7 @@ echo "language: c
 notifications:
   email:
     recipients: mattfel@stanford.edu
-    on_failure: change # default: always
+    on_failure: never # default: always
 script:
   - bash ./status.sh
 " > .travis.yml

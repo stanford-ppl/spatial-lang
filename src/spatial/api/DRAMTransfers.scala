@@ -2,9 +2,9 @@ package spatial.api
 
 import argon.core.Staging
 import argon.ops.CastApi
-import forge.struct
 import org.virtualized._
 import spatial.SpatialExp
+import forge._
 
 trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi with CastApi with RangeApi with PinApi with StreamApi {
   this: SpatialExp =>

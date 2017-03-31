@@ -518,7 +518,7 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
 
   def singleFifoLoad[T:Type:Num](src1: Array[T], in: Int) = {
 
-    val P1 = 16 (16 -> 16)
+    val P1 = 4 (16 -> 16)
 
     val N = ArgIn[Int]
     setArg(N, in)
@@ -566,7 +566,7 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   val tileSize = 64
   def parFifoLoad[T:Type:Num](src1: Array[T], src2: Array[T], src3: Array[T], in: Int) = {
 
-    val P1 = 16 (16 -> 16)
+    val P1 = 2 (16 -> 16)
 
     val N = ArgIn[Int]
     setArg(N, in)
@@ -1318,7 +1318,7 @@ object DotProductFSM extends SpatialApp { // Regression (FSM) // Args: none
   }
 }
 
-object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: 5.25
+object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
   import IR._
   type T = FixPt[TRUE,_16,_16]
 

@@ -151,6 +151,8 @@ def main():
   cp = " -cp "
   cp = cp + old_cp + os.pathsep
   cp = cp + ARGON_HOME + classes
+  cp = cp + ARGON_HOME + "/scala-virtualized" + classes
+  cp = cp + ARGON_HOME + "/forge" + classes
 
   #test cp    
   cp = cp + SPATIAL_HOME + classes

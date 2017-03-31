@@ -246,7 +246,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val rhs = Wire(new FixedPoint(upcasted_type))
 				this.cast(lhs)
 				op.cast(rhs)
-				lhs.number < rhs.number
+				if (op.s | s) {lhs.number.asSInt < rhs.number.asSInt} else {lhs.number < rhs.number}
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
 				this < op_cast
@@ -264,7 +264,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val rhs = Wire(new FixedPoint(upcasted_type))
 				this.cast(lhs)
 				op.cast(rhs)
-				lhs.number <= rhs.number
+				if (op.s | s) {lhs.number.asSInt <= rhs.number.asSInt} else {lhs.number <= rhs.number}
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
 				this <= op_cast
@@ -281,7 +281,24 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val rhs = Wire(new FixedPoint(upcasted_type))
 				this.cast(lhs)
 				op.cast(rhs)
-				lhs.number > rhs.number
+				if (op.s | s) {lhs.number.asSInt > rhs.number.asSInt} else {lhs.number > rhs.number}
+			case op: UInt => 
+				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
+				this > op_cast
+		}
+	}
+
+	def >=[T] (rawop: T): Bool = { // TODO: Probably completely wrong for signed fixpts
+		rawop match { 
+			case op: FixedPoint => 
+				// Compute upcasted type and return type
+				val upcasted_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+				// Get upcasted operators
+				val lhs = Wire(new FixedPoint(upcasted_type))
+				val rhs = Wire(new FixedPoint(upcasted_type))
+				this.cast(lhs)
+				op.cast(rhs)
+				if (op.s | s) {lhs.number.asSInt >= rhs.number.asSInt} else {lhs.number >= rhs.number}
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, this.d, this.f, op)
 				this > op_cast

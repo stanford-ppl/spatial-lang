@@ -58,7 +58,8 @@ trait CppGenHostTransfer extends CppCodegen  {
     case GetArg(reg)    => 
       reg.tp.typeArguments.head match {
         case FixPtType(s,d,f) => if (f != 0) {
-            emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._1}) / (1 << $f);", forceful = true)            
+            emit(src"int32_t ${lhs}_tmp = c1->getArg(${argMapping(reg)._1});", forceful = true)            
+            emit(src"${lhs.tp} ${lhs} = (${lhs.tp}) ${lhs}_tmp / (1 << $f);", forceful = true)            
           } else {
             emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._1});", forceful = true)
           }
@@ -86,7 +87,8 @@ trait CppGenHostTransfer extends CppCodegen  {
             emit(src"vector<int32_t>* ${data}_rawified = new vector<int32_t>((*${data}).size());")
             emit(src"c1->memcpy(&(*${data}_rawified)[0], $dram, (*${data}_rawified).size() * sizeof(int32_t));", forceful = true)
             open(src"for (int ${data}_i = 0; ${data}_i < (*${data}).size(); ${data}_i++) {")
-              emit(src"(*${data})[${data}_i] = (double) (*${data}_rawified)[${data}_i] / (1 << $f);")
+              emit(src"int32_t ${data}_tmp = (*${data}_rawified)[${data}_i];")
+              emit(src"(*${data})[${data}_i] = (double) ${data}_tmp / (1 << $f);")
             close("}")
           case _ => emit(src"c1->memcpy(&(*$data)[0], $dram, (*${data}).size() * sizeof(int32_t));", forceful = true)
         }

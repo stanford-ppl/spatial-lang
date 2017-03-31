@@ -234,7 +234,6 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
-      emitGlobal(src"val ${strm}_data = Wire(Vec($par, UInt(32.W)))")
       emit(src"${strm}_data := $data")
       emit(src"${strm}_en := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
 
