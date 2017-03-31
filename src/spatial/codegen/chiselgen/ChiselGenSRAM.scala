@@ -93,6 +93,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
                 emit(src"""$numWriters, $numReaders, """)
                 emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: Be more precise with parallelizations """)
                 close("))")
+                emit(src"""${lhs}_$i.io.broadcastEn := false.B""")
               }
             case DiagonalMemory(strides, banks, depth, isAccum) =>
               throw new UnsupportedBankingType("Diagonal", lhs)
@@ -176,11 +177,15 @@ trait ChiselGenSRAM extends ChiselCodegen {
         (0 to numStagesInbetween).foreach { port =>
           val ctrlId = port + firstActivePort
           val node = allSiblings(ctrlId)
-          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
-          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
+          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else {
+            emit(src"""${mem}_${i}.readTieDown(${port})""")
+            ""
+          }
+          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else {""}
           val empty = if (rd == "" & wr == "") "empty" else ""
           emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
         }
+
 
       }
     }

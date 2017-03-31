@@ -469,8 +469,10 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*TODO:
     // }
   }
  
-  def connectUnreadPorts(ports: List[Int]) { // TODO: Remnant from maxj?
-    // Used for SRAMs
+  def readTieDown(port: Int) { 
+    (0 until numReaders*rPar).foreach {i => 
+      io.rSel(port * numReaders*rPar + i) := false.B
+    }
   }
 
   def connectUntouchedPorts(ports: List[Int]) {
