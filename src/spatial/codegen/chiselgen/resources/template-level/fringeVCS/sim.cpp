@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <vector>
 #include <queue>
+#include <map>
 #include <poll.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -67,6 +68,7 @@ public:
   uint32_t delay;
   uint32_t elapsed;
   uint64_t issued;
+  bool completed;
 
   DRAMRequest(uint64_t a, uint64_t t, bool wr, uint32_t *wd, uint64_t issueCycle) {
     addr = a;
@@ -84,16 +86,11 @@ public:
     delay = abs(rand()) % 150 + 50;
     elapsed = 0;
     issued = issueCycle;
+    completed = false;
   }
 
   void print() {
-    EPRINTF("---- DRAM REQ ----\n");
-    EPRINTF("addr: %lx, tag: %lx, isWr: %d, delay: %u, issued=%lu\n", addr, tag, isWr, delay, issued);
-    if (isWr) {
-      EPRINTF("wdata0 : %u\n", wdata[0]);
-      EPRINTF("wdata1 : %u\n", wdata[1]);
-    }
-    EPRINTF("------------------\n");
+    EPRINTF("[DRAMRequest] addr: %lx, tag: %lx, isWr: %d, delay: %u, issued=%lu\n", addr, tag, isWr, delay, issued);
   }
 
   ~DRAMRequest() {
@@ -101,14 +98,84 @@ public:
   }
 };
 
+struct AddrTag {
+  uint64_t addr;
+  uint64_t tag;
+
+  AddrTag(uint64_t a, uint64_t t) {
+    addr = a;
+    tag = t;
+  }
+
+	bool operator==(const AddrTag &o) const {
+			return addr == o.addr && tag == o.tag;
+	}
+
+	bool operator<(const AddrTag &o) const {
+			return addr < o.addr || (addr == o.addr && tag < o.tag);
+	}
+};
+
 std::queue<DRAMRequest*> dramRequestQ;
+std::map<struct AddrTag, DRAMRequest*> addrToReqMap;
+
 class DRAMCallbackMethods {
 public:
   void txComplete(unsigned id, uint64_t addr, uint64_t tag, uint64_t clock_cycle) {
     EPRINTF("[txComplete] id = %u, addr = %p, tag = %lx, clock_cycle = %lu, finished = %lu\n", id, (void*)addr, tag, clock_cycle, numCycles);
+
+    // Find transaction, mark it as done, remove entry from map
+    struct AddrTag at(addr, tag);
+    std::map<struct AddrTag, DRAMRequest*>::iterator it = addrToReqMap.find(at);
+    ASSERT(it != addrToReqMap.end(), "address/tag tuple not found in addrToReqMap!");
+    DRAMRequest* req = it->second;
+    req->completed = true;
+    addrToReqMap.erase(at);
+
+    // If request happens to be in front of queue, pop and poke DRAM response
+    if (req == dramRequestQ.front()) {
+      EPRINTF("[txComplete] Completed TX is at head of queue\n");
+      dramRequestQ.pop();
+
+      uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+      if (req->isWr) {
+        // Write request: Update 1 burst-length bytes at *addr
+        uint32_t *waddr = (uint32_t*) req->addr;
+        for (int i=0; i<16; i++) {
+          waddr[i] = req->wdata[i];
+        }
+      } else {
+        // Read request: Read burst-length bytes at *addr
+        uint32_t *raddr = (uint32_t*) req->addr;
+        for (int i=0; i<16; i++) {
+          rdata[i] = raddr[i];
+//            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
+        }
+      }
+
+      pokeDRAMResponse(
+          req->tag,
+          rdata[0],
+          rdata[1],
+          rdata[2],
+          rdata[3],
+          rdata[4],
+          rdata[5],
+          rdata[6],
+          rdata[7],
+          rdata[8],
+          rdata[9],
+          rdata[10],
+          rdata[11],
+          rdata[12],
+          rdata[13],
+          rdata[14],
+          rdata[15]
+        );
+    }
   }
 };
-
 
 extern "C" {
   void sendDRAMRequest(
@@ -153,62 +220,16 @@ extern "C" {
     uint32_t cmdWdata14 = (*(uint32_t*)&wdata14);
     uint32_t cmdWdata15 = (*(uint32_t*)&wdata15);
 
-
-
     uint32_t wdata[16] = { cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3, cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7, cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11, cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15};
+
+    mem->addTransaction(cmdIsWr, cmdAddr, cmdTag);
+
     DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata, numCycles);
     dramRequestQ.push(req);
     req->print();
-    mem->addTransaction(cmdIsWr, cmdAddr, cmdTag);
-  }
 
-  void checkDRAMResponse() {
-    if (dramRequestQ.size() > 0) {
-      DRAMRequest *req = dramRequestQ.front();
-      req->elapsed++;
-      if(req->elapsed == req->delay) {
-        dramRequestQ.pop();
-
-        uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-        if (req->isWr) {
-          // Write request: Update 1 burst-length bytes at *addr
-          uint32_t *waddr = (uint32_t*) req->addr;
-          for (int i=0; i<16; i++) {
-            waddr[i] = req->wdata[i];
-          }
-        } else {
-          // Read request: Read burst-length bytes at *addr
-          uint32_t *raddr = (uint32_t*) req->addr;
-          for (int i=0; i<16; i++) {
-            rdata[i] = raddr[i];
-//            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
-          }
-
-        }
-        pokeDRAMResponse(
-            req->tag,
-            rdata[0],
-            rdata[1],
-            rdata[2],
-            rdata[3],
-            rdata[4],
-            rdata[5],
-            rdata[6],
-            rdata[7],
-            rdata[8],
-            rdata[9],
-            rdata[10],
-            rdata[11],
-            rdata[12],
-            rdata[13],
-            rdata[14],
-            rdata[15]
-          );
-      }
-
-
-    }
+    struct AddrTag at(cmdAddr, cmdTag);
+    addrToReqMap[at] = req;
   }
 
   // Function is called every clock cycle
@@ -216,10 +237,6 @@ extern "C" {
     bool exitTick = false;
     int finishSim = 0;
     numCycles++;
-
-   // Check for DRAM response and send it to design
-
-   checkDRAMResponse();
 
     // Handle pending operations, if any
     if (pendingOps.size() > 0) {
