@@ -44,7 +44,7 @@ namespace DRAMSim
 
 	class MultiChannelMemorySystem {
 		public: 
-			bool addTransaction(bool isWrite, uint64_t addr);
+			bool addTransaction(bool isWrite, uint64_t addr, uint64_t tag);
 			void setCPUClockSpeed(uint64_t cpuClkFreqHz);
 			void update();
 			void printStats(bool finalStats);

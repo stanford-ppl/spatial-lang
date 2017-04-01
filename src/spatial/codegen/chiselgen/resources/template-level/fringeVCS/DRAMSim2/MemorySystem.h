@@ -49,7 +49,7 @@
 
 namespace DRAMSim
 {
-typedef CallbackBase<void,unsigned,uint64_t,uint64_t> Callback_t;
+typedef CallbackBase<void,unsigned,uint64_t,uint64_t,uint64_t> Callback_t;
 class MemorySystem : public SimulatorObject
 {
 	ostream &dramsim_log;
@@ -59,7 +59,7 @@ public:
 	virtual ~MemorySystem();
 	void update();
 	bool addTransaction(Transaction *trans);
-	bool addTransaction(bool isWrite, uint64_t addr);
+	bool addTransaction(bool isWrite, uint64_t addr, uint64_t tag);
 	void printStats(bool finalStats);
 	bool WillAcceptTransaction();
 	void RegisterCallbacks(

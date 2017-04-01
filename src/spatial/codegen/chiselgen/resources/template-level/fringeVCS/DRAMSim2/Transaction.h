@@ -56,6 +56,7 @@ public:
 	//fields
 	TransactionType transactionType;
 	uint64_t address;
+	uint64_t tag;
 	void *data;
 	uint64_t timeAdded;
 	uint64_t timeReturned;
@@ -63,7 +64,7 @@ public:
 
 	friend ostream &operator<<(ostream &os, const Transaction &t);
 	//functions
-	Transaction(TransactionType transType, uint64_t addr, void *data);
+	Transaction(TransactionType transType, uint64_t addr, void *data, uint64_t tag);
 	Transaction(const Transaction &t);
 
 	BusPacketType getBusPacketType()

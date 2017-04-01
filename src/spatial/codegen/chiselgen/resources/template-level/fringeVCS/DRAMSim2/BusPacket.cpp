@@ -45,7 +45,7 @@
 using namespace DRAMSim;
 using namespace std;
 
-BusPacket::BusPacket(BusPacketType packtype, uint64_t physicalAddr, 
+BusPacket::BusPacket(BusPacketType packtype, uint64_t physicalAddr, uint64_t tag,
 		unsigned col, unsigned rw, unsigned r, unsigned b, void *dat, 
 		ostream &dramsim_log_) :
 	dramsim_log(dramsim_log_),
@@ -55,6 +55,7 @@ BusPacket::BusPacket(BusPacketType packtype, uint64_t physicalAddr,
 	bank(b),
 	rank(r),
 	physicalAddress(physicalAddr),
+	tag(tag),
 	data(dat)
 {}
 

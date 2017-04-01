@@ -127,7 +127,7 @@ void MemoryController::receiveFromBus(BusPacket *bpacket)
 	}
 
 	//add to return read data queue
-	returnTransaction.push_back(new Transaction(RETURN_DATA, bpacket->physicalAddress, bpacket->data));
+	returnTransaction.push_back(new Transaction(RETURN_DATA, bpacket->physicalAddress, bpacket->data, bpacket->tag));
 	totalReadsPerBank[SEQUENTIAL(bpacket->rank,bpacket->bank)]++;
 
 	// this delete statement saves a mindboggling amount of memory
@@ -139,7 +139,7 @@ void MemoryController::returnReadData(const Transaction *trans)
 {
 	if (parentMemorySystem->ReturnReadData!=NULL)
 	{
-		(*parentMemorySystem->ReturnReadData)(parentMemorySystem->systemID, trans->address, currentClockCycle);
+		(*parentMemorySystem->ReturnReadData)(parentMemorySystem->systemID, trans->address, trans->tag, currentClockCycle);
 	}
 }
 
@@ -211,7 +211,7 @@ void MemoryController::update()
 			//inform upper levels that a write is done
 			if (parentMemorySystem->WriteDataDone!=NULL)
 			{
-				(*parentMemorySystem->WriteDataDone)(parentMemorySystem->systemID,outgoingDataPacket->physicalAddress, currentClockCycle);
+				(*parentMemorySystem->WriteDataDone)(parentMemorySystem->systemID,outgoingDataPacket->physicalAddress, outgoingDataPacket->tag, currentClockCycle);
 			}
 
 			(*ranks)[outgoingDataPacket->rank]->receiveFromBus(outgoingDataPacket);
@@ -286,7 +286,8 @@ void MemoryController::update()
 		if (poppedBusPacket->busPacketType == WRITE || poppedBusPacket->busPacketType == WRITE_P)
 		{
 
-			writeDataToSend.push_back(new BusPacket(DATA, poppedBusPacket->physicalAddress, poppedBusPacket->column,
+			writeDataToSend.push_back(new BusPacket(DATA, poppedBusPacket->physicalAddress, poppedBusPacket->tag,
+                                          poppedBusPacket->column,
 			                                    poppedBusPacket->row, poppedBusPacket->rank, poppedBusPacket->bank,
 			                                    poppedBusPacket->data, dramsim_log));
 			writeDataCountdown.push_back(WL);
@@ -530,13 +531,13 @@ void MemoryController::update()
 			transactionQueue.erase(transactionQueue.begin()+i);
 
 			//create activate command to the row we just translated
-			BusPacket *ACTcommand = new BusPacket(ACTIVATE, transaction->address,
+			BusPacket *ACTcommand = new BusPacket(ACTIVATE, transaction->address, transaction->tag,
 					newTransactionColumn, newTransactionRow, newTransactionRank,
 					newTransactionBank, 0, dramsim_log);
 
 			//create read or write command and enqueue it
 			BusPacketType bpType = transaction->getBusPacketType();
-			BusPacket *command = new BusPacket(bpType, transaction->address,
+			BusPacket *command = new BusPacket(bpType, transaction->address, transaction->tag,
 					newTransactionColumn, newTransactionRow, newTransactionRank,
 					newTransactionBank, transaction->data, dramsim_log);
 
