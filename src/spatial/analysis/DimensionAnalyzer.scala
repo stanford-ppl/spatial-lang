@@ -26,7 +26,7 @@ trait DimensionAnalyzer extends SpatialTraversal {
     case _:SRAMNew[_,_]     => checkOnchipDims(lhs, stagedDimsOf(lhs))(lhs.ctx)
     case _:FIFONew[_]       => checkOnchipDims(lhs, List(sizeOf(lhs.asInstanceOf[Exp[FIFO[Any]]])))(lhs.ctx)
     case _:LineBufferNew[_] => checkOnchipDims(lhs, stagedDimsOf(lhs))(lhs.ctx)
-    case _:RegFileNew[_]    => checkOnchipDims(lhs, stagedDimsOf(lhs))(lhs.ctx)
+    case _:RegFileNew[_,_]  => checkOnchipDims(lhs, stagedDimsOf(lhs))(lhs.ctx)
     case _ => super.visit(lhs, rhs)
   }
 

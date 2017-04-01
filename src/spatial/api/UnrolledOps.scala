@@ -44,7 +44,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
     ens:  Seq[Exp[Bool]]
-  )(implicit val vT: Type[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
+  )(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
     def mirror(f:Tx) = par_sram_load(f(sram), addr.map{inds => f(inds)}, f(ens))
     val mT = typ[T]
   }
@@ -62,7 +62,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   case class ParFIFODeq[T:Type:Bits](
     fifo: Exp[FIFO[T]],
     ens:  Seq[Exp[Bool]]
-  )(implicit val vT: Type[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
+  )(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
     def mirror(f:Tx) = par_fifo_deq(f(fifo),f(ens))
     val mT = typ[T]
   }
@@ -79,7 +79,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
   case class ParStreamRead[T:Type:Bits](
     stream: Exp[StreamIn[T]],
     ens:    Seq[Exp[Bool]]
-  )(implicit val vT: Type[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
+  )(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
     def mirror(f:Tx) = par_stream_read(f(stream),f(ens))
     val mT = typ[T]
     val bT = bits[T]
@@ -100,7 +100,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     rows:       Seq[Exp[Index]],
     cols:       Seq[Exp[Index]],
     ens:        Seq[Exp[Bool]]
-  )(implicit val vT: Type[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
+  )(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
     def mirror(f:Tx) = par_linebuffer_load(f(linebuffer),f(rows),f(cols),f(ens))
     override def aliases = Nil
     val mT = typ[T]
@@ -120,7 +120,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     reg:  Exp[RegFile[T]],
     inds: Seq[Seq[Exp[Index]]],
     ens:  Seq[Exp[Bool]]
-  )(implicit val vT: Type[Vector[T]]) extends EnabledOp[Vector[T]](ens:_*) {
+  )(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
     def mirror(f:Tx) = par_regfile_load(f(reg),inds.map(is => f(is)),f(ens))
     override def aliases = Nil
     val mT = typ[T]
@@ -169,7 +169,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     sram: Exp[SRAM[T]],
     addr: Seq[Seq[Exp[Index]]],
     ens:  Seq[Exp[Bool]]
-  )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
+  )(implicit ctx: SrcCtx) = {
     implicit val vT = VecType[T](addr.length)
     stage( ParSRAMLoad(sram, addr, ens) )(ctx)
   }
@@ -179,14 +179,14 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     addr: Seq[Seq[Exp[Index]]],
     data: Seq[Exp[T]],
     ens:  Seq[Exp[Bool]]
-  )(implicit ctx: SrcCtx): Exp[Void] = {
+  )(implicit ctx: SrcCtx) = {
     stageWrite(sram)( ParSRAMStore(sram, addr, data, ens) )(ctx)
   }
 
   private[spatial] def par_fifo_deq[T:Type:Bits](
     fifo: Exp[FIFO[T]],
     ens:  Seq[Exp[Bool]]
-  )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
+  )(implicit ctx: SrcCtx) = {
     implicit val vT = VecType[T](ens.length)
     stageWrite(fifo)( ParFIFODeq(fifo, ens) )(ctx)
   }
@@ -195,14 +195,14 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     fifo: Exp[FIFO[T]],
     data: Seq[Exp[T]],
     ens:  Seq[Exp[Bool]]
-  )(implicit ctx: SrcCtx): Exp[Void] = {
+  )(implicit ctx: SrcCtx) = {
     stageWrite(fifo)( ParFIFOEnq(fifo, data, ens) )(ctx)
   }
 
   private[spatial] def par_stream_read[T:Type:Bits](
     stream: Exp[StreamIn[T]],
     ens:    Seq[Exp[Bool]]
-  )(implicit ctx: SrcCtx): Exp[Vector[T]] = {
+  )(implicit ctx: SrcCtx) = {
     implicit val vT = VecType[T](ens.length)
     stageWrite(stream)( ParStreamRead(stream, ens) )(ctx)
   }

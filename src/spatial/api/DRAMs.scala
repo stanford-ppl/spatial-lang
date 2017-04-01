@@ -37,7 +37,7 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
 
     @api def store(sram: SRAM1[T]): Void = dense_transfer(this.toTile, sram, isLoad = false)
     @api def store(fifo: FIFO[T]): Void = dense_transfer(this.toTile, fifo, isLoad = false)
-    @api def store(regs: RegFile[T]): Void = dense_transfer(this.toTile, regs, isLoad = false)
+    @api def store(regs: RegFile1[T]): Void = dense_transfer(this.toTile, regs, isLoad = false)
     @api def address: Index = wrap(get_dram_addr(this.s))
   }
 
@@ -48,7 +48,7 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
     @api def apply(rows: Range, cols: Range) = DRAMDenseTile2(this.s, Seq(rows, cols))
 
     @api def store(sram: SRAM2[T]): Void = dense_transfer(this.toTile, sram, isLoad = false)
-    @api def store(regs: RegFile[T]): Void = dense_transfer(this.toTile, regs, isLoad = false)
+    @api def store(regs: RegFile2[T]): Void = dense_transfer(this.toTile, regs, isLoad = false)
     @api def address: Index = wrap(get_dram_addr(this.s))
   }
 
@@ -63,7 +63,6 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
     @api def apply(p: Range, r: Range, c: Range) = DRAMDenseTile3(this.s, Seq(p, r, c))
 
     @api def store(sram: SRAM3[T]): Void = dense_transfer(this.toTile, sram, isLoad = false)
-    @api def store(regs: RegFile[T]): Void = dense_transfer(this.toTile, regs, isLoad = false)
     @api def address: Index = wrap(get_dram_addr(this.s))
   }
   case class DRAM4[T:Meta:Bits](s: Exp[DRAM4[T]]) extends Template[DRAM4[T]] with DRAM[T] {
@@ -85,7 +84,6 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
     @api def apply(q: Range, p: Range, r: Range, c: Range) = DRAMDenseTile4(this.s, Seq(q, p, r, c))
 
     @api def store(sram: SRAM4[T]): Void = dense_transfer(this.toTile, sram, isLoad = false)
-    @api def store(regs: RegFile[T]): Void = dense_transfer(this.toTile, regs, isLoad = false)
     @api def address: Index = wrap(get_dram_addr(this.s))
   }
 
@@ -125,7 +123,6 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
     @api def apply(x: Range, q: Range, p: Range, r: Range, c: Range) = DRAMDenseTile5(this.s, Seq(x, q, p, r, c))
 
     @api def store(sram: SRAM4[T]): Void = dense_transfer(this.toTile, sram, isLoad = false)
-    @api def store(regs: RegFile[T]): Void = dense_transfer(this.toTile, regs, isLoad = false)
     @api def address: Index = wrap(get_dram_addr(this.s))
   }
 
@@ -137,25 +134,22 @@ trait DRAMExp extends Staging with SRAMExp with FIFOExp with RangeExp with Spati
   }
 
   case class DRAMDenseTile1[T:Meta:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
-    @api def store(sram: SRAM1[T]): Void   = dense_transfer(this, sram, isLoad = false)
-    @api def store(fifo: FIFO[T]): Void    = dense_transfer(this, fifo, isLoad = false)
-    @api def store(regs: RegFile[T]): Void = dense_transfer(this, regs, isLoad = false)
+    @api def store(sram: SRAM1[T]): Void    = dense_transfer(this, sram, isLoad = false)
+    @api def store(fifo: FIFO[T]): Void     = dense_transfer(this, fifo, isLoad = false)
+    @api def store(regs: RegFile1[T]): Void = dense_transfer(this, regs, isLoad = false)
   }
   case class DRAMDenseTile2[T:Meta:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
-    @api def store(sram: SRAM2[T]): Void   = dense_transfer(this, sram, isLoad = false)
-    @api def store(regs: RegFile[T]): Void = dense_transfer(this, regs, isLoad = false)
+    @api def store(sram: SRAM2[T]): Void    = dense_transfer(this, sram, isLoad = false)
+    @api def store(regs: RegFile2[T]): Void = dense_transfer(this, regs, isLoad = false)
   }
   case class DRAMDenseTile3[T:Meta:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
     @api def store(sram: SRAM3[T]): Void   = dense_transfer(this, sram, isLoad = false)
-    @api def store(regs: RegFile[T]): Void = dense_transfer(this, regs, isLoad = false)
   }
   case class DRAMDenseTile4[T:Meta:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
     @api def store(sram: SRAM4[T]): Void   = dense_transfer(this, sram, isLoad = false)
-    @api def store(regs: RegFile[T]): Void = dense_transfer(this, regs, isLoad = false)
   }
   case class DRAMDenseTile5[T:Meta:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
     @api def store(sram: SRAM2[T]): Void   = dense_transfer(this, sram, isLoad = false)
-    @api def store(regs: RegFile[T]): Void = dense_transfer(this, regs, isLoad = false)
   }
 
   /** Sparse Tiles are limited to 1D right now **/

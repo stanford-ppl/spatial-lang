@@ -130,7 +130,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case _:SRAMNew[_,_]     => true
     case _:FIFONew[_]       => true
     case _:LineBufferNew[_] => true
-    case _:RegFileNew[_]    => true
+    case _:RegFileNew[_,_]  => true
     case _:DRAMNew[_,_]     => true
     case _:StreamInNew[_]   => true
     case _:StreamOutNew[_]  => true

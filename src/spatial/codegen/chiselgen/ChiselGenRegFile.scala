@@ -17,7 +17,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       s match {
         case lhs: Sym[_] =>
           lhs match {
-            case Def(e: RegFileNew[_]) =>
+            case Def(e: RegFileNew[_,_]) =>
               s"""x${lhs.id}_${nameOf(lhs).getOrElse("regfile")}"""
             case _ =>
               super.quote(s)

@@ -9,31 +9,37 @@ import forge._
 trait RegisterFileApi extends RegisterFileExp {
   this: SpatialExp =>
 
-  @api def RegFile[T:Meta:Bits](dims: Index*): RegFile[T] = wrap(regfile_new[T](unwrap(dims)))
+  @api def RegFile[T:Meta:Bits](cols: Index): RegFile1[T] = wrap(regfile_new[T,RegFile1](cols.s))
+  @api def RegFile[T:Meta:Bits](rows: Index, cols: Index): RegFile2[T] = wrap(regfile_new[T,RegFile2](rows.s,cols.s))
 }
 
-trait RegisterFileExp extends Staging with SRAMExp {
+trait RegisterFileExp extends Staging {
   this: SpatialExp =>
 
-  case class RegFile[T:Meta:Bits](s: Exp[RegFile[T]]) extends Template[RegFile[T]] {
-    @api def apply(indices: Index*): T = wrap(regfile_load(s, unwrap(indices), bool(true)))
+  trait RegFile[T] { this: Template[_] =>
+    def s: Exp[RegFile[T]]
+  }
 
-    @CurriedUpdate
-    def update(indices: Index*)(data: T): Void = {
-      Void(regfile_store(s, unwrap(indices), data.s, bool(true)))
-    }
+  case class RegFile1[T:Meta:Bits](s: Exp[RegFile1[T]]) extends Template[RegFile1[T]] with RegFile[T] {
+    @api def apply(i: Index): T = wrap(regfile_load(s, Seq(i.s), bool(true)))
+    @api def update(i: Index, data: T): Void = Void(regfile_store(s, Seq(i.s), data.s, bool(true)))
 
     @api def <<=(data: T): Void = wrap(regfile_shiftin(s, Seq(int32(0)), 0, data.s, bool(true)))
     @api def <<=(data: Vector[T]): Void = wrap(par_regfile_shiftin(s, Seq(int32(0)), 0, data.s, bool(true)))
 
-    @api def apply(i: Index, y: Wildcard)(implicit ctx: SrcCtx) = {
-      if (stagedDimsOf(s).length != 2) error(ctx, s"Cannot view a ${stagedDimsOf(s).length}-dimensional register file in 2 dimensions.")
-      RegFileView(s, Seq(i,lift[Int,Index](0)), 1)
-    }
-    @api def apply(y: Wildcard, i: Index)(implicit ctx: SrcCtx) = {
-      if (stagedDimsOf(s).length != 2) error(ctx, s"Cannot view a ${stagedDimsOf(s).length}-dimensional register file in 2 dimensions.")
-      RegFileView(s, Seq(lift[Int,Index](0),i), 0)
-    }
+    @api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    @api def load(dram: DRAMDenseTile1[T]): Void = dense_transfer(dram, this, isLoad = true)
+  }
+
+  case class RegFile2[T:Meta:Bits](s: Exp[RegFile2[T]]) extends Template[RegFile2[T]] with RegFile[T] {
+    @api def apply(r: Index, c: Index): T = wrap(regfile_load(s, Seq(r.s, c.s), bool(true)))
+    @api def update(r: Index, c: Index, data: T): Void = Void(regfile_store(s, Seq(r.s, c.s), data.s, bool(true)))
+
+    @api def apply(i: Index, y: Wildcard) = RegFileView(s, Seq(i,lift[Int,Index](0)), 1)
+    @api def apply(y: Wildcard, i: Index) = RegFileView(s, Seq(lift[Int,Index](0),i), 0)
+
+    @api def load(dram: DRAM2[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    @api def load(dram: DRAMDenseTile2[T]): Void = dense_transfer(dram, this, isLoad = true)
   }
 
   case class RegFileView[T:Meta:Bits](s: Exp[RegFile[T]], i: Seq[Index], dim: Int) {
@@ -43,35 +49,45 @@ trait RegisterFileExp extends Staging with SRAMExp {
 
   /** Type classes **/
   // Meta
-  case class RegFileType[T:Bits](child: Meta[T]) extends Meta[RegFile[T]] {
-    override def wrapped(x: Exp[RegFile[T]]) = RegFile(x)(child,bits[T])
-    override def typeArguments = List(child)
-    override def stagedClass = classOf[RegFile[T]]
-    override def isPrimitive = false
+  trait RegFileType[T] {
+    def child: Meta[T]
+    def isPrimitive = false
   }
-  implicit def regFileType[T:Meta:Bits]: Meta[RegFile[T]] = RegFileType(typ[T])
+  case class RegFile1Type[T:Bits](child: Meta[T]) extends Meta[RegFile1[T]] with RegFileType[T] {
+    override def wrapped(x: Exp[RegFile1[T]]) = RegFile1(x)(child,bits[T])
+    override def typeArguments = List(child)
+    override def stagedClass = classOf[RegFile1[T]]
+  }
+  case class RegFile2Type[T:Bits](child: Meta[T]) extends Meta[RegFile2[T]] with RegFileType[T] {
+    override def wrapped(x: Exp[RegFile2[T]]) = RegFile2(x)(child,bits[T])
+    override def typeArguments = List(child)
+    override def stagedClass = classOf[RegFile2[T]]
+  }
+
+  implicit def regFile1Type[T:Meta:Bits]: Meta[RegFile1[T]] = RegFile1Type(typ[T])
+  implicit def regFile2Type[T:Meta:Bits]: Meta[RegFile2[T]] = RegFile2Type(typ[T])
 
 
   // Mem
-  class RegFileIsMemory[T:Meta:Bits] extends Mem[T, RegFile] {
-    def load(mem: RegFile[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = {
+  class RegFileIsMemory[T:Meta:Bits,C[T]](implicit mC: Meta[C[T]], ev: C[T] <:< RegFile[T]) extends Mem[T, C] {
+    def load(mem: C[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = {
       wrap(regfile_load(mem.s, unwrap(is), en.s))
     }
 
-    def store(mem: RegFile[T], is: Seq[Index], data: T, en: Bool)(implicit ctx: SrcCtx): Void = {
+    def store(mem: C[T], is: Seq[Index], data: T, en: Bool)(implicit ctx: SrcCtx): Void = {
       wrap(regfile_store(mem.s, unwrap(is), data.s, en.s))
     }
-    def iterators(mem: RegFile[T])(implicit ctx: SrcCtx): Seq[Counter] = {
+    def iterators(mem: C[T])(implicit ctx: SrcCtx): Seq[Counter] = {
       stagedDimsOf(mem.s).map{d => Counter(0, wrap(d), 1, 1) }
     }
   }
-  implicit def regfileIsMemory[T:Meta:Bits]: Mem[T, RegFile] = new RegFileIsMemory[T]
-
+  implicit def regfile1IsMemory[T:Meta:Bits]: Mem[T,RegFile1] = new RegFileIsMemory[T,RegFile1]
+  implicit def regfile2IsMemory[T:Meta:Bits]: Mem[T,RegFile2] = new RegFileIsMemory[T,RegFile2]
 
 
   /** IR Nodes **/
-  case class RegFileNew[T:Type:Bits](dims: Seq[Exp[Index]]) extends Op[RegFile[T]] {
-    def mirror(f:Tx) = regfile_new[T](f(dims))
+  case class RegFileNew[T:Type:Bits,C[_]<:RegFile[_]](dims: Seq[Exp[Index]])(implicit cT: Type[C[T]]) extends Op[C[T]] {
+    def mirror(f:Tx) = regfile_new[T,C](f(dims):_*)
     val mT = typ[T]
   }
 
@@ -121,8 +137,8 @@ trait RegisterFileExp extends Staging with SRAMExp {
 
 
   /** Constructors **/
-  private[spatial] def regfile_new[T:Type:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx) = {
-    stageMutable(RegFileNew[T](dims))(ctx)
+  private[spatial] def regfile_new[T:Type:Bits,C[_]<:RegFile[_]](dims: Exp[Index]*)(implicit cT: Type[C[T]], ctx: SrcCtx) = {
+    stageMutable(RegFileNew[T,C](dims))(ctx)
   }
 
   private[spatial] def regfile_load[T:Type:Bits](

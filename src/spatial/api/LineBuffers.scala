@@ -3,6 +3,7 @@ package spatial.api
 import argon.core.Staging
 import argon.typeclasses.CustomBitWidths
 import spatial.SpatialExp
+import forge._
 
 trait LineBufferApi extends LineBufferExp {
   this: SpatialExp =>
@@ -12,11 +13,11 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
   this: SpatialExp =>
 
   case class LineBuffer[T:Meta:Bits](s: Exp[LineBuffer[T]]) extends Template[LineBuffer[T]] {
-    def apply(row: Index, col: Index)(implicit ctx: SrcCtx): T = {
+    @api def apply(row: Index, col: Index): T = {
       wrap(linebuffer_load(s, row.s, col.s, bool(true)))
     }
 
-    def apply(row: Index, cols: Range)(implicit ctx: SrcCtx): Vector[T] = {
+    @api def apply(row: Index, cols: Range)(implicit ctx: SrcCtx): Vector[T] = {
       // UNSUPPORTED: Strided range apply of line buffer
       cols.step.map(_.s) match {
         case None | Some(Const(1)) =>
@@ -28,7 +29,7 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
       val exp = linebuffer_col_slice(s, row.s, start, length.s)
       exp.tp.wrapped(exp)
     }
-    def apply(rows: Range, col: Index)(implicit ctx: SrcCtx): Vector[T] = {
+    @api def apply(rows: Range, col: Index)(implicit ctx: SrcCtx): Vector[T] = {
       // UNSUPPORTED: Strided range apply of line buffer
       rows.step.map(_.s) match {
         case None | Some(Const(1)) =>
@@ -41,20 +42,18 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
       exp.tp.wrapped(exp)
     }
 
-    def enq(data: T, en: Bool)(implicit ctx: SrcCtx): Void = Void(linebuffer_enq(this.s, data.s, en.s))
+    @api def enq(data: T, en: Bool): Void = Void(linebuffer_enq(this.s, data.s, en.s))
 
-    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = {
-      if (!dram.ranges.head.isUnit || dram.ranges.length != 2) {
+    @api def load(dram: DRAMDenseTile1[T])(implicit ctx: SrcCtx): Void = {
+      /*if (!dram.ranges.head.isUnit || dram.ranges.length != 2) {
         error(ctx, "Loading into a LineBuffer from DRAM must be row-based")
-      }
+      }*/
       dense_transfer(dram, this, isLoad = true)
     }
   }
 
   object LineBuffer {
-    def apply[T:Meta:Bits](rows: Index, cols: Index)(implicit ctx: SrcCtx): LineBuffer[T] = {
-      wrap(linebuffer_new[T](rows.s, cols.s))
-    }
+    @api def apply[T:Meta:Bits](rows: Index, cols: Index): LineBuffer[T] = wrap(linebuffer_new[T](rows.s, cols.s))
   }
 
 
@@ -94,7 +93,7 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     row:        Exp[Index],
     colStart:   Exp[Index],
     length:     Exp[Index]
-  )(implicit val vT: Type[Vector[T]]) extends Op[Vector[T]] {
+  )(implicit val vT: Type[VectorN[T]]) extends Op[VectorN[T]] {
     def mirror(f:Tx) = linebuffer_col_slice(f(linebuffer),f(row),f(colStart),f(length))
     override def aliases = Nil
     val mT = typ[T]
@@ -105,7 +104,7 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     rowStart:   Exp[Index],
     length:     Exp[Index],
     col:        Exp[Index]
-  )(implicit val vT: Type[Vector[T]]) extends Op[Vector[T]] {
+  )(implicit val vT: Type[VectorN[T]]) extends Op[VectorN[T]] {
     def mirror(f:Tx) = linebuffer_row_slice(f(linebuffer),f(rowStart),f(length),f(col))
     override def aliases = Nil
     val mT = typ[T]
@@ -146,7 +145,7 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     colStart:   Exp[Index],
     length:     Exp[Index]
   )(implicit ctx: SrcCtx) = {
-    implicit val vT: Type[Vector[T]] = length match {
+    implicit val vT = length match {
       case Final(c) => VecType[T](c.toInt)
       case _ =>
         error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
@@ -161,7 +160,7 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     length:     Exp[Index],
     col:        Exp[Index]
   )(implicit ctx: SrcCtx) = {
-    implicit val vT: Type[Vector[T]] = length match {
+    implicit val vT = length match {
       case Final(c) => VecType[T](c.toInt)
       case _ =>
         error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
