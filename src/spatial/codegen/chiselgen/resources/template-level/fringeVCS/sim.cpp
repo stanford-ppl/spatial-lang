@@ -66,8 +66,9 @@ public:
   uint32_t *wdata;
   uint32_t delay;
   uint32_t elapsed;
+  uint64_t issued;
 
-  DRAMRequest(uint64_t a, uint64_t t, bool wr, uint32_t *wd) {
+  DRAMRequest(uint64_t a, uint64_t t, bool wr, uint32_t *wd, uint64_t issueCycle) {
     addr = a;
     tag = t;
     isWr = wr;
@@ -82,14 +83,12 @@ public:
 
     delay = abs(rand()) % 150 + 50;
     elapsed = 0;
+    issued = issueCycle;
   }
 
   void print() {
     EPRINTF("---- DRAM REQ ----\n");
-    EPRINTF("addr : %lx\n", addr);
-    EPRINTF("tag  : %lx\n", tag);
-    EPRINTF("isWr : %d\n", isWr);
-    EPRINTF("delay: %u\n", delay);
+    EPRINTF("addr: %lx, tag: %lx, isWr: %d, delay: %u, issued=%lu\n", addr, tag, isWr, delay, issued);
     if (isWr) {
       EPRINTF("wdata0 : %u\n", wdata[0]);
       EPRINTF("wdata1 : %u\n", wdata[1]);
@@ -103,6 +102,13 @@ public:
 };
 
 std::queue<DRAMRequest*> dramRequestQ;
+class DRAMCallbackMethods {
+public:
+  void txComplete(unsigned id, uint64_t addr, uint64_t clock_cycle) {
+    EPRINTF("[txComplete] id = %u, addr = %p, clock_cycle = %lu, finished = %lu\n", id, (void*)addr, clock_cycle, numCycles);
+  }
+};
+
 
 extern "C" {
   void sendDRAMRequest(
@@ -150,7 +156,7 @@ extern "C" {
 
 
     uint32_t wdata[16] = { cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3, cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7, cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11, cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15};
-    DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata);
+    DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata, numCycles);
     dramRequestQ.push(req);
     req->print();
     mem->addTransaction(cmdIsWr, cmdAddr);
@@ -442,5 +448,10 @@ extern "C" {
 
       uint64_t hardwareClockHz = 150 * 1e6; // Fixing FPGA clock to 150 MHz
       mem->setCPUClockSpeed(hardwareClockHz);
+
+      // Add callbacks
+      DRAMCallbackMethods callbackMethods;
+      DRAMSim::TransactionCompleteCB *rwCb = new DRAMSim::Callback<DRAMCallbackMethods, void, unsigned, uint64_t, uint64_t>(&callbackMethods, &DRAMCallbackMethods::txComplete);
+      mem->RegisterCallbacks(rwCb, rwCb, NULL);
   }
 }
