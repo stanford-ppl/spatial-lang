@@ -812,7 +812,7 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
 object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
   import IR._
 
-  val tileSize = 16
+  val tileSize = 64
   val p = 2
 
   def blockreduce_1d[T:Staged:Num](src: Array[T], size: Int) = {

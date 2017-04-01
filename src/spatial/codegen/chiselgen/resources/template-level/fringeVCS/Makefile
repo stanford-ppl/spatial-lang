@@ -7,7 +7,7 @@ CC_OPTS=-LDFLAGS -lstdc++ -CFLAGS "-O0 -g -I${VCS_HOME}/include -I../../cpp/frin
 
 sim:
 	export LM_LICENSE_FILE=27000@cadlic0.stanford.edu
-	bash vcs ${VCS_OPTS} -cpp ${CC} ${CC_OPTS} -o accel.bit.bin ${TOP}.v ${TOP}-harness.sv sim.cpp
+	vcs ${VCS_OPTS} -cpp ${CC} ${CC_OPTS} -o accel.bit.bin ${TOP}.v ${TOP}-harness.sv sim.cpp
 
 clean:
 	rm -rf *.o *.csrc *.daidir ${TOP} simv ucli.key *.cmd *.in *.out *.vcd *.vpd Sim

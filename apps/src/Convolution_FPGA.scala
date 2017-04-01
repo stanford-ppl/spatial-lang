@@ -30,7 +30,8 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
       // TODO: Better syntax for initialization of lookup tables
       Pipe {
         // Foreach(Kh by 1, Kw by 1) { (i,j) => 
-        //   kh(i,j) = Mux(unwrap(i.to[T] == 0.as[T] && j.to[T] == 0.as[T]), 1, 2).as[T]
+        //   kh(i,j) = mux((i.to[T] == 0.as[T] && j.to[T] == 0.as[T]), 1.as[T], 2.as[T])
+        //   kv(i,j) = mux((i.to[T] == 0.as[T] && j.to[T] == 0.as[T]), 1.as[T], 2.as[T])
         // }
         Pipe{kh(0,0) = 1.as[T]}
         Pipe{kh(1,0) = 2.as[T]}

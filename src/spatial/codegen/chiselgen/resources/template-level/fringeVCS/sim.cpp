@@ -72,11 +72,25 @@ public:
     EPRINTF("---- DRAM REQ ----\n");
     EPRINTF("addr : %lx\n", addr);
     EPRINTF("tag  : %lx\n", tag);
-    EPRINTF("isWr : %lx\n", tag);
+    EPRINTF("isWr : %lx\n", isWr);
     EPRINTF("delay: %u\n", delay);
     if (isWr) {
       EPRINTF("wdata0 : %u\n", wdata[0]);
       EPRINTF("wdata1 : %u\n", wdata[1]);
+      EPRINTF("wdata2 : %u\n", wdata[2]);
+      EPRINTF("wdata3 : %u\n", wdata[3]);
+      EPRINTF("wdata4 : %u\n", wdata[4]);
+      EPRINTF("wdata5 : %u\n", wdata[5]);
+      EPRINTF("wdata6 : %u\n", wdata[6]);
+      EPRINTF("wdata7 : %u\n", wdata[7]);
+      EPRINTF("wdata8 : %u\n", wdata[8]);
+      EPRINTF("wdata9 : %u\n", wdata[9]);
+      EPRINTF("wdata10 : %u\n", wdata[10]);
+      EPRINTF("wdata11 : %u\n", wdata[11]);
+      EPRINTF("wdata12 : %u\n", wdata[12]);
+      EPRINTF("wdata13 : %u\n", wdata[13]);
+      EPRINTF("wdata14 : %u\n", wdata[14]);
+      EPRINTF("wdata15 : %u\n", wdata[15]);
     }
     EPRINTF("------------------\n");
   }

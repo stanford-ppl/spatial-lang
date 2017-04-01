@@ -229,7 +229,8 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
 
     case e@ParStreamRead(strm, ens) =>
-      emit(src"""val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
+      emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
+      emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
 
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length
