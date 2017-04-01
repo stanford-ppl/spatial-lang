@@ -106,6 +106,14 @@ class ParallelShiftRegFile(val height: Int, val width: Int, val stride: Int, val
       }
     }
     result
+
+    // // // Sum hack because chisel keeps messing things up
+    // val result = Wire(UInt(32.W))
+    // val flat = row_addr*width.U + col_addr
+    // result := (0 until width).map { i=> 
+    //   (0 until height).map{ j => Mux(j.U === row_addr && i.U === col_addr, io.data_out(i), 0.U) }.reduce{_+_}}.reduce{_+_}
+    // result
+
   }
 
 

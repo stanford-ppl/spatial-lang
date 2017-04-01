@@ -69,6 +69,7 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
         Sequential.Foreach(0 until C) { c =>
           Foreach(0 until Kh par Kh){i => sr(i, *) <<= lb(i, c) }
 
+          
           val horz = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * kh(i,j) }{_+_}
           val vert = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * kv(i,j) }{_+_}
 
