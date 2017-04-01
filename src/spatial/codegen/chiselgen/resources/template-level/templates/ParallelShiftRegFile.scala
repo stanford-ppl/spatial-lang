@@ -89,11 +89,22 @@ class ParallelShiftRegFile(val height: Int, val width: Int, val stride: Int, val
   }
 
   def readValue(row_addr: UInt, col_addr:UInt): UInt = {
+    // // chisel seems to have broke MuxLookup here...
+    // val result = Wire(UInt(32.W))
+    // val regvals = (0 until width*height).map{ i => 
+    //   (i.U -> io.data_out(i)) 
+    // }
+    // result := chisel3.util.MuxLookup(row_addr*width.U + col_addr, 0.U, regvals)
+    // result
+
     val result = Wire(UInt(32.W))
-    val regvals = (0 until width*height).map{ i => 
-      (i.U -> io.data_out(i)) 
+    val flat = row_addr*width.U + col_addr
+    val bitvec = Vec((0 until width*height).map{ i => i.U === flat })
+    for (i <- 0 until width*height) {
+      when(i.U === flat) {
+        result := io.data_out(i)
+      }
     }
-    result := chisel3.util.MuxLookup(row_addr*width.U + col_addr, 0.U, regvals)
     result
   }
 
