@@ -55,7 +55,7 @@ int sendResp(simCmd *cmd) {
   return cmd->id;
 }
 
-int numCycles = 0;
+uint64_t numCycles = 0;
 queue<simCmd*> pendingOps;
 
 class DRAMRequest {
@@ -104,8 +104,8 @@ public:
 std::queue<DRAMRequest*> dramRequestQ;
 class DRAMCallbackMethods {
 public:
-  void txComplete(unsigned id, uint64_t addr, uint64_t clock_cycle) {
-    EPRINTF("[txComplete] id = %u, addr = %p, clock_cycle = %lu, finished = %lu\n", id, (void*)addr, clock_cycle, numCycles);
+  void txComplete(unsigned id, uint64_t addr, uint64_t tag, uint64_t clock_cycle) {
+    EPRINTF("[txComplete] id = %u, addr = %p, tag = %lx, clock_cycle = %lu, finished = %lu\n", id, (void*)addr, tag, clock_cycle, numCycles);
   }
 };
 
@@ -159,7 +159,7 @@ extern "C" {
     DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata, numCycles);
     dramRequestQ.push(req);
     req->print();
-    mem->addTransaction(cmdIsWr, cmdAddr);
+    mem->addTransaction(cmdIsWr, cmdAddr, cmdTag);
   }
 
   void checkDRAMResponse() {
@@ -451,7 +451,7 @@ extern "C" {
 
       // Add callbacks
       DRAMCallbackMethods callbackMethods;
-      DRAMSim::TransactionCompleteCB *rwCb = new DRAMSim::Callback<DRAMCallbackMethods, void, unsigned, uint64_t, uint64_t>(&callbackMethods, &DRAMCallbackMethods::txComplete);
+      DRAMSim::TransactionCompleteCB *rwCb = new DRAMSim::Callback<DRAMCallbackMethods, void, unsigned, uint64_t, uint64_t, uint64_t>(&callbackMethods, &DRAMCallbackMethods::txComplete);
       mem->RegisterCallbacks(rwCb, rwCb, NULL);
   }
 }
