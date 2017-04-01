@@ -263,8 +263,14 @@ class SRAM(val logicalDims: List[Int], val w: Int,
   var wId = 0
   def connectWPort(wBundle: Vec[multidimW], en: Bool, ports: List[Int]) {
     val port = ports(0) // Should never have more than 1 for SRAM
-    (0 until wBundle.length).foreach{ i => 
-      io.w(i + wId*wPar) := wBundle(i) 
+    (0 until wPar).foreach{ i => 
+      if (i < wBundle.length) {
+        io.w(i + numWriters*wPar*port + wId*wPar) := wBundle(i) 
+      } else {
+        io.w(i + numWriters*wPar*port + wId*wPar).en := false.B
+        io.w(i + numWriters*wPar*port + wId*wPar).data := 0.U(w.W)
+        io.w(i + numWriters*wPar*port + wId*wPar).addr.foreach{case a => a := 0.U }
+      }
     }
     io.globalWEn(wId) := en 
     io.wSel(wId) := en & ( wBundle.map{ _.en}.reduce{_||_} )
@@ -435,8 +441,14 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val w: Int, /*TODO:
     if (ports.length == 1) {
       val port = ports(0)
       val wId = wIdMap(port)
-      (0 until wBundle.length).foreach{ i => 
-        io.w(i + numWriters*wPar*port + wId*wPar) := wBundle(i) 
+      (0 until wPar).foreach{ i => 
+        if (i < wBundle.length) {
+          io.w(i + numWriters*wPar*port + wId*wPar) := wBundle(i) 
+        } else {
+          io.w(i + numWriters*wPar*port + wId*wPar).en := false.B
+        }
+      }
+      (wBundle.length until wPar).foreach { i => 
       }
       io.writerStage := port.U
       io.globalWEn(port * numWriters + wId) := en 

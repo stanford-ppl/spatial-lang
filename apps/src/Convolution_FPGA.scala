@@ -30,7 +30,8 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
       // TODO: Better syntax for initialization of lookup tables
       Pipe {
         // Foreach(Kh by 1, Kw by 1) { (i,j) => 
-        //   kh(i,j) = Mux(unwrap(i.to[T] == 0.as[T] && j.to[T] == 0.as[T]), 1, 2).as[T]
+        //   kh(i,j) = mux((i.to[T] == 0.as[T] && j.to[T] == 0.as[T]), 1.as[T], 2.as[T])
+        //   kv(i,j) = mux((i.to[T] == 0.as[T] && j.to[T] == 0.as[T]), 1.as[T], 2.as[T])
         // }
         Pipe{kh(0,0) = 1.as[T]}
         Pipe{kh(1,0) = 2.as[T]}
@@ -68,6 +69,7 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
         Sequential.Foreach(0 until C) { c =>
           Foreach(0 until Kh par Kh){i => sr(i, *) <<= lb(i, c) }
 
+          
           val horz = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * kh(i,j) }{_+_}
           val vert = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * kv(i,j) }{_+_}
 
@@ -90,7 +92,7 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
     val border = 3
     // val image = (0::R, 0::C){(i,j) => if (j > 3 && i > 3 && j < 11 && i < 11) 256 else 0 }
     val image = (0::R, 0::C){(i,j) => if (j > border && j < C-border && i > border && i < C - border) i*16 else 0}
-    
+    val ids = (0::R, 0::C){(i,j) => if (i < 2) 0 else 1}
 
     val kh = List((List(1,2,1), List(0,0,0), List(-1,-2,-1)))
     val kv = List((List(1,0,-1), List(2,0,-2), List(1,0,-1)))
@@ -122,15 +124,17 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
       abs(px00 * 1 + px01 * 2 + px02 * 1 - px20 * 1 - px21 * 2 - px22 * 1) + abs(px00 * 1 - px02 * 1 + px10 * 2 - px12 * 2 + px20 * 1 - px22 * 1)
     };
 
+    // // This contains the "weird scheduling bug"
+
     // printMatrix(image, "Image")
     // printMatrix(gold, "Gold")
     // printMatrix(output, "Output")
 
-    // This contains the "weird scheduling bug"
-    // val gold_sum = gold.map{g => g}.reduce{_+_} 
-    // val output_sum = output.map{o => o}.reduce{_+_}
-    // val cksum = gold_sum == output_sum
-    val cksum = gold.zip(output){(g, o) => g == o}.reduce{_&&_}
+    val gold_sum = gold.map{g => g}.reduce{_+_} 
+    val output_sum = output.zip(ids){case (o,i) => i * o}.reduce{_+_}
+    println("gold " + gold_sum + " =?= output " + output_sum)
+    val cksum = gold_sum == output_sum
+    // val cksum = gold.zip(output){(g, o) => g == o}.reduce{_&&_}
     println("PASS: " + cksum + " (Convolution_FPGA)")
 
 

@@ -103,6 +103,9 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
           emit(src"""${mem}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
         }
 
+        emit(src"""${mem}.lockUnusedCtrl() // Specific method for linebufs, since there is one ctrl port per line, but possibly not an access per line """)
+
+
       }
     }
 

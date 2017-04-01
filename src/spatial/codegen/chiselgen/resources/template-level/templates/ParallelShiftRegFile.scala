@@ -68,6 +68,10 @@ class ParallelShiftRegFile(val height: Int, val width: Int, val stride: Int, val
   def connectWPort(data: UInt, row_addr: UInt, col_addr: UInt, en: Bool) {
     io.data_in(wId) := data
     io.w_en(wId) := en
+    // If there is write port, tie down shift ens
+    for (j <- 0 until height) {
+      io.shift_en(j) := false.B
+    }
     io.w_rowAddr(wId) := row_addr
     io.w_colAddr(wId) := col_addr
     wId = wId + 1
@@ -75,20 +79,41 @@ class ParallelShiftRegFile(val height: Int, val width: Int, val stride: Int, val
 
   def connectShiftPort(data: UInt, row_addr: UInt, en: Bool) {
     for (j <- 0 until height) {
+      // If there is shift port, tie down wens
+      io.w_en(j) := false.B
       when(j.U === row_addr) {
         io.data_in(j) := data
-        io.shift_en(j) := en     
+        io.shift_en(j) := en   
       }
     }
   }
 
   def readValue(row_addr: UInt, col_addr:UInt): UInt = {
+    // // chisel seems to have broke MuxLookup here...
+    // val result = Wire(UInt(32.W))
+    // val regvals = (0 until width*height).map{ i => 
+    //   (i.U -> io.data_out(i)) 
+    // }
+    // result := chisel3.util.MuxLookup(row_addr*width.U + col_addr, 0.U, regvals)
+    // result
+
     val result = Wire(UInt(32.W))
-    val regvals = (0 until width*height).map{ i => 
-      (i.U -> io.data_out(i)) 
+    val flat = row_addr*width.U + col_addr
+    val bitvec = Vec((0 until width*height).map{ i => i.U === flat })
+    for (i <- 0 until width*height) {
+      when(i.U === flat) {
+        result := io.data_out(i)
+      }
     }
-    result := chisel3.util.MuxLookup(row_addr*width.U + col_addr, 0.U, regvals)
     result
+
+    // // // Sum hack because chisel keeps messing things up
+    // val result = Wire(UInt(32.W))
+    // val flat = row_addr*width.U + col_addr
+    // result := (0 until width).map { i=> 
+    //   (0 until height).map{ j => Mux(j.U === row_addr && i.U === col_addr, io.data_out(i), 0.U) }.reduce{_+_}}.reduce{_+_}
+    // result
+
   }
 
 

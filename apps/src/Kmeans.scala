@@ -63,6 +63,11 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
 
       Sequential.Foreach(iters by 1){epoch =>
 
+        // Flush centroid accumulator
+        Foreach(K by 1, D par P0){(ct,d) =>
+          newCents(ct,d) = 0.as[T]
+        }
+
         // For each set of points
         Foreach(N by BN par PX){i =>
           val pts = SRAM[T](BN, BD)
@@ -73,7 +78,8 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
             // Find the index of the closest centroid
             val accum = Reg[Tup2[Int,T]]( pack(0.as[Int], 100000.as[T]) )
             val minCent = Reduce(accum)(K par PX){ct =>
-              val dist = Reduce(Reg[T])(D par P2){d => (pts(pt,d) - cts(ct,d)) ** 2 }{_+_}
+              val dist = Reg[T](100000.as[T])
+              Reduce(dist)(D par P2){d => (pts(pt,d) - cts(ct,d)) ** 2 }{_+_}
               pack(ct, dist.value)
             }{(a,b) =>
               mux(a._2 < b._2, a, b)
@@ -95,11 +101,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
         // Average each new centroid
         // val centsOut = SRAM[T](MAXK, MAXD)
         Foreach(K by 1, D par P0){(ct,d) =>
-          cts(ct, d) = newCents(ct,d) / centCount(ct)
-        }
-        // Flush centroid accumulator
-        Foreach(K by 1, D par P0){(ct,d) =>
-          newCents(ct,d) = 0.as[T]
+          cts(ct, d) = mux(centCount(ct) == 0.as[T], 0.as[T], newCents(ct,d) / centCount(ct))
         }
       }
 
