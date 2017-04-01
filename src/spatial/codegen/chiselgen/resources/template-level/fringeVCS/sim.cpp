@@ -10,7 +10,9 @@
 #include <map>
 #include <poll.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
 
 using namespace std;
 
@@ -402,6 +404,7 @@ extern "C" {
   // Called before simulation begins
   void sim_init() {
     EPRINTF("[SIM] Sim process started!\n");
+    prctl(PR_SET_PDEATHSIG, SIGHUP);
 
     /**
      * Slave interface to host {
