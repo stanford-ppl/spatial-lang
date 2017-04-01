@@ -119,23 +119,14 @@ struct AddrTag {
 std::queue<DRAMRequest*> dramRequestQ;
 std::map<struct AddrTag, DRAMRequest*> addrToReqMap;
 
-class DRAMCallbackMethods {
-public:
-  void txComplete(unsigned id, uint64_t addr, uint64_t tag, uint64_t clock_cycle) {
-    EPRINTF("[txComplete] id = %u, addr = %p, tag = %lx, clock_cycle = %lu, finished = %lu\n", id, (void*)addr, tag, clock_cycle, numCycles);
-
-    // Find transaction, mark it as done, remove entry from map
-    struct AddrTag at(addr, tag);
-    std::map<struct AddrTag, DRAMRequest*>::iterator it = addrToReqMap.find(at);
-    ASSERT(it != addrToReqMap.end(), "address/tag tuple not found in addrToReqMap!");
-    DRAMRequest* req = it->second;
-    req->completed = true;
-    addrToReqMap.erase(at);
-
-    // If request happens to be in front of queue, pop and poke DRAM response
-    if (req == dramRequestQ.front()) {
-      EPRINTF("[txComplete] Completed TX is at head of queue\n");
+void checkAndSendDRAMResponse() {
+  // If request happens to be in front of queue, pop and poke DRAM response
+  if (dramRequestQ.size() > 0) {
+    DRAMRequest *req = dramRequestQ.front();
+    if (req->completed) {
       dramRequestQ.pop();
+      EPRINTF("[Sending DRAM resp to]: ");
+      req->print();
 
       uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -150,7 +141,7 @@ public:
         uint32_t *raddr = (uint32_t*) req->addr;
         for (int i=0; i<16; i++) {
           rdata[i] = raddr[i];
-//            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
+  //            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
         }
       }
 
@@ -174,6 +165,23 @@ public:
           rdata[15]
         );
     }
+  }
+}
+
+
+class DRAMCallbackMethods {
+public:
+  void txComplete(unsigned id, uint64_t addr, uint64_t tag, uint64_t clock_cycle) {
+    EPRINTF("[txComplete] id = %u, addr = %p, tag = %lx, clock_cycle = %lu, finished = %lu\n", id, (void*)addr, tag, clock_cycle, numCycles);
+
+    // Find transaction, mark it as done, remove entry from map
+    struct AddrTag at(addr, tag);
+    std::map<struct AddrTag, DRAMRequest*>::iterator it = addrToReqMap.find(at);
+    ASSERT(it != addrToReqMap.end(), "address/tag tuple not found in addrToReqMap!");
+    DRAMRequest* req = it->second;
+    req->completed = true;
+    addrToReqMap.erase(at);
+    checkAndSendDRAMResponse();
   }
 };
 
@@ -264,6 +272,9 @@ extern "C" {
       }
       free(cmd);
     }
+
+    // Drain an element from DRAM queue if it exists
+    checkAndSendDRAMResponse();
 
     // Handle new incoming operations
     while (!exitTick) {
