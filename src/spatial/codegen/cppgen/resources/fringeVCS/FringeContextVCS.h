@@ -205,8 +205,9 @@ public:
 
     std::string ldLib = "LD_LIBRARY_PATH=" + string(getenv("LD_LIBRARY_PATH"));
     std::string dramSimHome = "DRAMSIM_HOME=" + string(getenv("DRAMSIM_HOME"));
-    std::string envstrings[] = {ldLib, dramSimHome};
-    char *envs[] = {&envstrings[0][0], &envstrings[1][0], nullptr};
+    std::string idealDram = "USE_IDEAL_DRAM=" + string(getenv("USE_IDEAL_DRAM"));
+    std::string envstrings[] = {ldLib, dramSimHome, idealDram};
+    char *envs[] = {&envstrings[0][0], &envstrings[1][0], &envstrings[2][0], nullptr};
 
     if(posix_spawnp(&sim_pid, args[0], &action, NULL, &args[0], &envs[0]) != 0) {
       EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));

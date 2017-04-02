@@ -39,6 +39,7 @@ uint64_t globalDRAMID =1;
 
 // DRAMSim2
 DRAMSim::MultiChannelMemorySystem *mem = NULL;
+bool useIdealDRAM = false;
 
 int sendResp(simCmd *cmd) {
   simCmd resp;
@@ -125,6 +126,15 @@ void checkAndSendDRAMResponse() {
   // If request happens to be in front of queue, pop and poke DRAM response
   if (dramRequestQ.size() > 0) {
     DRAMRequest *req = dramRequestQ.front();
+
+    if (useIdealDRAM) {
+      req->elapsed++;
+      if (req->elapsed == req->delay) {
+        req->completed = true;
+        EPRINTF("[idealDRAM txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)req->addr, req->tag, numCycles);
+      }
+    }
+
     if (req->completed) {
       dramRequestQ.pop();
       EPRINTF("[Sending DRAM resp to]: ");
@@ -174,7 +184,7 @@ void checkAndSendDRAMResponse() {
 class DRAMCallbackMethods {
 public:
   void txComplete(unsigned id, uint64_t addr, uint64_t tag, uint64_t clock_cycle) {
-    EPRINTF("[txComplete] id = %u, addr = %p, tag = %lx, clock_cycle = %lu, finished = %lu\n", id, (void*)addr, tag, clock_cycle, numCycles);
+    EPRINTF("[txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)addr, tag, numCycles);
 
     // Find transaction, mark it as done, remove entry from map
     struct AddrTag at(addr, tag);
@@ -232,14 +242,15 @@ extern "C" {
 
     uint32_t wdata[16] = { cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3, cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7, cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11, cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15};
 
-    mem->addTransaction(cmdIsWr, cmdAddr, cmdTag);
-
     DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata, numCycles);
     dramRequestQ.push(req);
     req->print();
 
-    struct AddrTag at(cmdAddr, cmdTag);
-    addrToReqMap[at] = req;
+    if (!useIdealDRAM) {
+      mem->addTransaction(cmdIsWr, cmdAddr, cmdTag);
+      struct AddrTag at(cmdAddr, cmdTag);
+      addrToReqMap[at] = req;
+    }
   }
 
   // Function is called every clock cycle
@@ -363,7 +374,9 @@ extern "C" {
           break;
         case STEP:
           exitTick = true;
-          mem->update();
+          if (!useIdealDRAM) {
+            mem->update();
+          }
           break;
         case READ_REG: {
             reg = *((uint32_t*)cmd->data);
@@ -390,7 +403,9 @@ extern "C" {
             break;
           }
         case FIN:
-          mem->printStats(true);
+          if (!useIdealDRAM) {
+            mem->printStats(true);
+          }
           finishSim = 1;
           exitTick = true;
           break;
@@ -466,23 +481,37 @@ extern "C" {
         tmp++;
       }
 
-      // Set up DRAMSim2 - currently hardcoding some values that should later be
-      // in a config file somewhere
-      char *dramSimHome = getenv("DRAMSIM_HOME");
-      ASSERT(dramSimHome != NULL, "ERROR: DRAMSIM_HOME environment variable is not set")
-      ASSERT(dramSimHome[0] != NULL, "ERROR: DRAMSIM_HOME environment variable set to null string")
+      char *idealDRAM = getenv("USE_IDEAL_DRAM");
+      EPRINTF("idealDRAM = %s\n", idealDRAM);
+      if (idealDRAM != NULL) {
 
-      string memoryIni = string(dramSimHome) + string("/ini/DDR2_micron_16M_8b_x8_sg3E.ini");
-      string systemIni = string(dramSimHome) + string("spatial.dram.ini");
-      // Connect to DRAMSim2 directly here
-      mem = DRAMSim::getMemorySystemInstance("ini/DDR2_micron_16M_8b_x8_sg3E.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
+        if (idealDRAM[0] != 0 && atoi(idealDRAM) > 0) {
+          useIdealDRAM = true;
+        }
+      } else {
+        useIdealDRAM = false;
+      }
 
-      uint64_t hardwareClockHz = 150 * 1e6; // Fixing FPGA clock to 150 MHz
-      mem->setCPUClockSpeed(hardwareClockHz);
+      if (!useIdealDRAM) {
+        // Set up DRAMSim2 - currently hardcoding some values that should later be
+        // in a config file somewhere
+        char *dramSimHome = getenv("DRAMSIM_HOME");
+        ASSERT(dramSimHome != NULL, "ERROR: DRAMSIM_HOME environment variable is not set")
+        ASSERT(dramSimHome[0] != NULL, "ERROR: DRAMSIM_HOME environment variable set to null string")
 
-      // Add callbacks
-      DRAMCallbackMethods callbackMethods;
-      DRAMSim::TransactionCompleteCB *rwCb = new DRAMSim::Callback<DRAMCallbackMethods, void, unsigned, uint64_t, uint64_t, uint64_t>(&callbackMethods, &DRAMCallbackMethods::txComplete);
-      mem->RegisterCallbacks(rwCb, rwCb, NULL);
+
+        string memoryIni = string(dramSimHome) + string("/ini/DDR2_micron_16M_8b_x8_sg3E.ini");
+        string systemIni = string(dramSimHome) + string("spatial.dram.ini");
+        // Connect to DRAMSim2 directly here
+        mem = DRAMSim::getMemorySystemInstance("ini/DDR2_micron_16M_8b_x8_sg3E.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
+
+        uint64_t hardwareClockHz = 150 * 1e6; // Fixing FPGA clock to 150 MHz
+        mem->setCPUClockSpeed(hardwareClockHz);
+
+        // Add callbacks
+        DRAMCallbackMethods callbackMethods;
+        DRAMSim::TransactionCompleteCB *rwCb = new DRAMSim::Callback<DRAMCallbackMethods, void, unsigned, uint64_t, uint64_t, uint64_t>(&callbackMethods, &DRAMCallbackMethods::txComplete);
+        mem->RegisterCallbacks(rwCb, rwCb, NULL);
+      }
   }
 }
