@@ -30,18 +30,20 @@ class UpDownCtr(val w: Int) extends Module {
   reg.io.init := configInit
 
   // If inc and dec go high at the same time, the counter
-  // should be unaffected. Catch that with an xor
-  reg.io.enable := (io.inc ^ io.dec) | io.init
+  // should change value based on strideInc and strideDec
+  reg.io.enable := io.inc | io.dec | io.init
 
-  val incval = reg.io.out + io.strideInc
-  val decval = reg.io.out - io.strideDec
+  val incval = Mux(io.inc, io.strideInc, 0.U)
+  val decval = Mux(io.dec, io.strideDec, 0.U)
+  val incr = incval - decval
 
-  io.isMax := incval > io.max
-  reg.io.in := Mux (io.init, io.initval, Mux(io.inc, incval, decval))
+  val newval = reg.io.out + incr
+  io.isMax := newval > io.max
+  reg.io.in := Mux (io.init, io.initval, newval)
   io.gtz := (reg.io.out > 0.U)
   io.out := reg.io.out
-  io.nextInc := incval
-  io.nextDec := decval
+  io.nextInc := reg.io.out + io.strideInc
+  io.nextDec := reg.io.out - io.strideDec
 }
 
 
