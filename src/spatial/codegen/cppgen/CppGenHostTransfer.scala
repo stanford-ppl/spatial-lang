@@ -12,6 +12,14 @@ trait CppGenHostTransfer extends CppCodegen  {
   val IR: SpatialExp
   import IR._
 
+  override protected def spatialNeedsFPType(tp: Staged[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
+      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+      case IntType()  => false
+      case LongType() => false
+      case FloatType() => true
+      case DoubleType() => true
+      case _ => super.needsFPType(tp)
+  }
 
   override def quote(s: Exp[_]): String = {
   	if (SpatialConfig.enableNaming) {
@@ -50,7 +58,8 @@ trait CppGenHostTransfer extends CppCodegen  {
     case GetArg(reg)    => 
       reg.tp.typeArguments.head match {
         case FixPtType(s,d,f) => if (f != 0) {
-            emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._1}) / (1 << $f);", forceful = true)            
+            emit(src"int32_t ${lhs}_tmp = c1->getArg(${argMapping(reg)._1});", forceful = true)            
+            emit(src"${lhs.tp} ${lhs} = (${lhs.tp}) ${lhs}_tmp / (1 << $f);", forceful = true)            
           } else {
             emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._1});", forceful = true)
           }
@@ -58,7 +67,7 @@ trait CppGenHostTransfer extends CppCodegen  {
             emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._1});", forceful = true)
         }
     case SetMem(dram, data) => 
-      if (needsFPType(dram.tp.typeArguments.head)) {
+      if (spatialNeedsFPType(dram.tp.typeArguments.head)) {
         dram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => 
             emit(src"vector<int32_t>* ${dram}_rawified = new vector<int32_t>((*${data}).size());")
@@ -72,13 +81,14 @@ trait CppGenHostTransfer extends CppCodegen  {
         emit(src"c1->memcpy($dram, &(*${data})[0], (*${data}).size() * sizeof(int32_t));", forceful = true)
       }
     case GetMem(dram, data) => 
-      if (needsFPType(dram.tp.typeArguments.head)) {
+      if (spatialNeedsFPType(dram.tp.typeArguments.head)) {
         dram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => 
             emit(src"vector<int32_t>* ${data}_rawified = new vector<int32_t>((*${data}).size());")
             emit(src"c1->memcpy(&(*${data}_rawified)[0], $dram, (*${data}_rawified).size() * sizeof(int32_t));", forceful = true)
             open(src"for (int ${data}_i = 0; ${data}_i < (*${data}).size(); ${data}_i++) {")
-              emit(src"(*${data})[${data}_i] = (double) (*${data}_rawified)[${data}_i] / (1 << $f);")
+              emit(src"int32_t ${data}_tmp = (*${data}_rawified)[${data}_i];")
+              emit(src"(*${data})[${data}_i] = (double) ${data}_tmp / (1 << $f);")
             close("}")
           case _ => emit(src"c1->memcpy(&(*$data)[0], $dram, (*${data}).size() * sizeof(int32_t));", forceful = true)
         }

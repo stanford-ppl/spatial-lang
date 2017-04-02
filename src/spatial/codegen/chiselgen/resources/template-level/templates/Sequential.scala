@@ -13,6 +13,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
       val stageDone = Vec(n, Input(Bool()))
       val rst = Input(Bool())
       val forever = Input(Bool())
+      val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
       // FSM signals
       val nextState = Input(UInt(32.W))
       val initState = Input(UInt(32.W))
@@ -46,14 +47,17 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
     val maxFF = Module(new FF(32))
     maxFF.io.input.enable := io.input.enable
     maxFF.io.input.data := io.input.numIter
+    maxFF.io.input.reset := io.input.rst
     val max = maxFF.io.output.data
 
     val ctr = Module(new SingleCounter(1))
     ctr.io.input.enable := io.input.enable & io.input.stageDone(lastState-2) // TODO: Is this wrong? It still works...  
-    ctr.io.input.reset := (state === doneState.U)
     ctr.io.input.saturate := false.B
     ctr.io.input.max := max
     ctr.io.input.stride := 1.U
+    ctr.io.input.start := 0.U
+    ctr.io.input.gap := 0.U
+    ctr.io.input.reset := io.input.rst | (state === doneState.U)
     val iter = ctr.io.output.count(0)
     io.output.rst_en := (state === resetState.U)
 
@@ -129,17 +133,20 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
     stateFSM.io.input.data := io.input.nextState
     stateFSM.io.input.init := io.input.initState
+    stateFSM.io.input.reset := reset
     stateFSM.io.input.enable := io.input.enable & state === doneState.U
     io.output.state := stateFSM.io.output.data
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable
     doneReg.io.input.reset := ~io.input.enable
+    doneReg.io.input.asyn_reset := false.B
     io.output.done := doneReg.io.output.data | (io.input.doneCondition & io.input.enable)
 
     // Counter for num iterations
     val maxFF = Module(new FF(32))
     maxFF.io.input.enable := io.input.enable
     maxFF.io.input.data := io.input.numIter
+    maxFF.io.input.reset := io.input.rst
     val max = maxFF.io.output.data
 
     val ctr = Module(new SingleCounter(1))

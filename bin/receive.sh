@@ -92,10 +92,10 @@ tim=`sed -n '2p' $packet`
 branch=`sed -n '11p' $packet`
 dirname="${REGRESSION_HOME}/testdir-${branch}.${tim}.${type_todo}.${tests_todo}"
 ARGON_HOME="$dirname/argon"
-VIRTUALIZED_HOME="$dirname/scala-virtualized"
+VIRTUALIZED_HOME="$dirname/argon/scala-virtualized"
 SPATIAL_HOME="$dirname/spatial"
 WIKI_HOME="$SPATIAL_HOME/spatial-lang.wiki"
-wiki_file="${WIKI_HOME}/Branch-${branch}-Backend-${type_todo}-Regression.md"
+wiki_file="${WIKI_HOME}/Branch:${branch}-Backend:${type_todo}.md"
 spatial_hash=`sed -n '8p' $packet`
 argon_hash=`sed -n '9p' $packet`
 virtualized_hash=`sed -n '10p' $packet`
@@ -167,10 +167,10 @@ git_things() {
   git clone git@github.com:stanford-ppl/argon.git > /dev/null 2>&1
   logger "Cloning done!"
   exists "$ARGON_HOME" 1
-  logger "Cloning virtualized..."
-  git clone git@github.com:stanford-ppl/scala-virtualized.git > /dev/null 2>&1
-  logger "Cloning done!"
-  exists "$VIRTUALIZED_HOME" 1
+  #logger "Cloning virtualized..."
+  #git clone git@github.com:stanford-ppl/scala-virtualized.git > /dev/null 2>&1
+  #logger "Cloning done!"
+  #exists "$VIRTUALIZED_HOME" 1
   cd $SPATIAL_HOME
   logger "Switching spatial commit (${spatial_hash})"
   git fetch > /dev/null 2>&1
@@ -180,12 +180,15 @@ git_things() {
   logger "Switching argon commit (${argon_hash})"
   git fetch > /dev/null 2>&1
   git checkout ${argon_hash} > /tmp/gitstuff 2>&1
+  logger "Getting submodules"
+  rm -rf scala-virtualized
+  git submodule update --init
   checkout_success "Argon"
-  cd $VIRTUALIZED_HOME
-  logger "Switching virtualized commit (${virtualized_hash})"
-  git fetch > /dev/null 2>&1
-  git checkout ${virtualized_hash} > /tmp/gitstuff 2>&1
-  checkout_success "Virtualized"
+#  cd $VIRTUALIZED_HOME
+#  logger "Switching virtualized commit (${virtualized_hash})"
+#  git fetch > /dev/null 2>&1
+#  git checkout ${virtualized_hash} > /tmp/gitstuff 2>&1
+#  checkout_success "Virtualized"
 
   cd $SPATIAL_HOME
   checkout_success "Spatial"

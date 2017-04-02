@@ -1,17 +1,25 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.RegExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
 trait ChiselGenReg extends ChiselCodegen {
-  val IR: RegExp with SpatialExp
+  val IR: SpatialExp
   import IR._
 
   var argIns: List[Sym[Reg[_]]] = List()
   var argOuts: List[Sym[Reg[_]]] = List()
   private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
+
+  override protected def spatialNeedsFPType(tp: Staged[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
+      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+      case IntType()  => false
+      case LongType() => false
+      case FloatType() => true
+      case DoubleType() => true
+      case _ => super.needsFPType(tp)
+  }
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -20,7 +28,7 @@ trait ChiselGenReg extends ChiselCodegen {
           lhs match {
             case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
             case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
-            case Def(RegNew(_)) => s"""x${lhs.id}_${nameOf(lhs).getOrElse("reg")}"""
+            case Def(RegNew(_)) => s"""x${lhs.id}_${nameOf(lhs).getOrElse("reg").replace("$","")}"""
             case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
             case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
             case _ => super.quote(s)
@@ -46,19 +54,22 @@ trait ChiselGenReg extends ChiselCodegen {
       emit(src"val $lhs = Array($init)")
     case RegNew(init)    => 
       val width = bitWidth(init.tp)
+      emitGlobal(src"val ${lhs}_initval = ${init}")
       val duplicates = duplicatesOf(lhs)  
       duplicates.zipWithIndex.foreach{ case (d, i) => 
+        val numBroadcasters = writersOf(lhs).map { write => if (portsOf(write, lhs, i).toList.length > 1) 1 else 0 }.reduce{_+_}
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => 
             fps match {
               case FixPtSum => 
                 if (d.isAccum) {
-                  if (!needsFPType(lhs.tp.typeArguments.head)) {
-                    emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: Create correct accum based on type""")  
+                  if (!spatialNeedsFPType(lhs.tp.typeArguments.head)) {
+                    Console.println(s"tp ${lhs.tp.typeArguments.head} has fp ${spatialNeedsFPType(lhs.tp.typeArguments.head)}")
+                    emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) """)  
                   } else {
                     lhs.tp.typeArguments.head match {
-                      case FixPtType(s,d,f) => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","FixedPoint", List(${if (s) 1 else 0},$d,$f))) // TODO: Create correct accum based on type""")  
-                      case _ => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: Create correct accum based on type""")  
+                      case FixPtType(s,d,f) => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","FixedPoint", List(${if (s) 1 else 0},$d,$f)))""")  
+                      case _ => emitGlobal(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: No match""")  
                     }                  
 
                   }
@@ -66,6 +77,9 @@ trait ChiselGenReg extends ChiselCodegen {
                   if (d.depth > 1) {
                     nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
                     emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
+                    if (numBroadcasters == 0){
+                      emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
+                    }
                   } else {
                     emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
                   }              
@@ -74,6 +88,9 @@ trait ChiselGenReg extends ChiselCodegen {
                 if (d.depth > 1) {
                   nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
                   emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
+                  if (numBroadcasters == 0){
+                    emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
+                  }
                 } else {
                   emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
                 }
@@ -82,6 +99,9 @@ trait ChiselGenReg extends ChiselCodegen {
             if (d.depth > 1) {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
               emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
+              if (numBroadcasters == 0){
+                emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
+              }
             } else {
               emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
             }
@@ -89,7 +109,7 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg)) {
-        if (needsFPType(reg.tp.typeArguments.head)) {
+        if (spatialNeedsFPType(reg.tp.typeArguments.head)) {
           reg.tp.typeArguments.head match {
             case FixPtType(s,d,f) => 
               emitGlobal(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
@@ -107,25 +127,31 @@ trait ChiselGenReg extends ChiselCodegen {
             case Some(fps: ReduceFunction) => 
               fps match {
                 case FixPtSum =>
-                  if (needsFPType(reg.tp.typeArguments.head)) {
+                  if (spatialNeedsFPType(reg.tp.typeArguments.head)) {
                     reg.tp.typeArguments.head match {
-                      case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval // get reset value that was created by reduce controller""")                    
+                      case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval) // get reset value that was created by reduce controller""")                    
                     }
                   } else {
                     emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")                    
                   }
                   
                 case _ =>  
-                  reg.tp.typeArguments.head match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
-                    case FixPtType(s,d,f) => emit(src"""val $lhs = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_${inst}.read(${port.head})""")
+                  lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+                    case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
                     case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
                   }
               }
             case _ =>
-              emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
+              lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+                case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+                case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
+              }
           }
         } else {
-          emit(src"""val ${lhs} = ${reg}_${inst}.read(${port.head})""")
+          lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+            case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+            case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
+          }
         }
       }
 
@@ -135,7 +161,7 @@ trait ChiselGenReg extends ChiselCodegen {
       if (isArgOut(reg)) {
         emit(src"""val $reg = RegInit(0.U) // HW-accessible register""")
         v.tp match {
-          case FixPtType(_,_,_) => if (needsFPType(v.tp)) {
+          case FixPtType(_,_,_) => if (spatialNeedsFPType(v.tp)) {
               emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
             } else {
               emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""") 
@@ -153,7 +179,7 @@ trait ChiselGenReg extends ChiselCodegen {
                 case FixPtSum =>
                   if (dup.isAccum) {
                     v.tp match {
-                      case FixPtType(s,_,_) => if (needsFPType(v.tp)) {
+                      case FixPtType(s,_,_) => if (spatialNeedsFPType(v.tp)) {
                           emit(src"""${reg}_${ii}.io.next := ${v}.number""")
                         } else {
                           emit(src"""${reg}_${ii}.io.next := ${v}""")
@@ -161,22 +187,29 @@ trait ChiselGenReg extends ChiselCodegen {
                       case _ => emit(src"""${reg}_${ii}.io.next := ${v}""")
                     }
                     emit(src"""${reg}_${ii}.io.enable := ${reg}_wren""")
+                    emit(src"""${reg}_${ii}.io.init := ${reg}_initval.number""")
                     emit(src"""${reg}_${ii}.io.reset := Utils.delay(${reg}_resetter, 2)""")
                     emit(src"""${reg} := ${reg}_${ii}.io.output""")
                     emitGlobal(src"""val ${reg} = Wire(UInt(32.W))""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                     emit(src"""${reg}_${ii}.write($reg, $en & Utils.delay(${reg}_wren,1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
+                    emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
+                    emit(src"""${reg}_$ii.io.input.reset := reset""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   emit(src"""${reg}_${ii}.write($v, $en & Utils.delay(${reg}_wren,1), false.B, List(${ports.mkString(",")}))""")
+                  emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
+                  emit(src"""${reg}_$ii.io.input.reset := reset""")
               }
             }
           case _ => // Not an accum
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
               emit(src"""${reg}_${ii}.write($v, $en & ${parent}_datapath_en, false.B, List(${ports.mkString(",")}))""")
+              emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
+              emit(src"""${reg}_$ii.io.input.reset := reset""")
             }
         }
       }

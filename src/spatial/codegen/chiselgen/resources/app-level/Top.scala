@@ -25,7 +25,8 @@ case class TopParams(
   val v: Int,
   val numArgIns: Int,
   val numArgOuts: Int,
-  val numMemoryStreams: Int,
+  val loadStreamInfo: List[StreamParInfo],
+  val storeStreamInfo: List[StreamParInfo],
   target: String
 )
 
@@ -34,8 +35,8 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
   raddr = Input(UInt(p.addrWidth.W))
   wen  = Input(Bool())
   waddr = Input(UInt(p.addrWidth.W))
-  wdata = Input(Bits(p.dataWidth.W))
-  rdata = Output(Bits(p.dataWidth.W))
+  wdata = Input(Bits(64.W))
+  rdata = Output(Bits(64.W))
 
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
@@ -70,14 +71,21 @@ class AWSInterface(p: TopParams) extends TopInterface {
  * @param numArgIns: Number of input scalar arguments
  * @param numArgOuts: Number of output scalar arguments
  */
-class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStreams: Int = 1, target: String = "") extends Module {
+class Top(
+  val w: Int,
+  val numArgIns: Int,
+  val numArgOuts: Int,
+  val loadStreamInfo: List[StreamParInfo],
+  val storeStreamInfo: List[StreamParInfo],
+  target: String = "") extends Module {
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
   val v = 16
-  val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, numMemoryStreams, target)
+  val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, target)
 
   val io = target match {
     case "verilator"  => IO(new VerilatorInterface(topParams))
+    case "vcs"        => IO(new VerilatorInterface(topParams))
     case "aws"        => IO(new AWSInterface(topParams))
     case "zynq"       => IO(new ZynqInterface(topParams))
     case "de1soc"     => IO(new DE1SoCInterface(topParams))
@@ -85,12 +93,12 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
   }
 
   // Accel
-  val accel = Module(new AccelTop(w, numArgIns, numArgOuts, numMemoryStreams))
+  val accel = Module(new AccelTop(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
 
   target match {
-    case "verilator" =>
+    case "verilator" | "vcs" =>
       // Simulation Fringe
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numMemoryStreams))
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
       val topIO = io.asInstanceOf[VerilatorInterface]
 
       // Fringe <-> Host connections
@@ -150,7 +158,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
 
     case "zynq" =>
       // Zynq Fringe
-      val fringe = Module(new FringeZynq(w, numArgIns, numArgOuts, numMemoryStreams))
+      val fringe = Module(new FringeZynq(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
       val topIO = io.asInstanceOf[ZynqInterface]
 
       // Fringe <-> Host connections
@@ -170,7 +178,7 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
 
     case "aws" =>
       // Simulation Fringe
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numMemoryStreams))
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
       val topIO = io.asInstanceOf[AWSInterface]
 
       // Fringe <-> DRAM connections

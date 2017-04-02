@@ -11,6 +11,7 @@ class Pulser() extends Module {
     val out = Output(UInt(1.W))
   })
 
-  val commandReg = Reg(Bits(1.W), io.in, 0.U)
+  // val commandReg = Reg(Bits(1.W), io.in, 0.U)
+  val commandReg = RegNext(io.in, 0.U)
   io.out := io.in & (commandReg ^ io.in)
 }

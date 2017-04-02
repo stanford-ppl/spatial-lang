@@ -40,9 +40,17 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
   subWriter.io.input.max := (p/pW).U
   subWriter.io.input.enable := io.push
   subWriter.io.input.stride := 1.U
+  subWriter.io.input.gap := 0.U
+  subWriter.io.input.start := 0.U
+  subWriter.io.input.reset := reset
+  subWriter.io.input.saturate := false.B
   subReader.io.input.max := (p/pR).U
   subReader.io.input.enable := io.pop
   subReader.io.input.stride := 1.U
+  subReader.io.input.gap := 0.U
+  subReader.io.input.start := 0.U
+  subReader.io.input.reset := reset
+  subReader.io.input.saturate := false.B
 
   // Create head and reader counters
   val writer = Module(new SingleCounter(1))
@@ -50,9 +58,17 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
   writer.io.input.max := (depth/p).U
   writer.io.input.enable := io.push & subWriter.io.output.done
   writer.io.input.stride := 1.U
+  writer.io.input.gap := 0.U
+  writer.io.input.start := 0.U
+  writer.io.input.reset := reset
+  writer.io.input.saturate := false.B
   reader.io.input.max := (depth/p).U
   reader.io.input.enable := io.pop & subReader.io.output.done
   reader.io.input.stride := 1.U
+  reader.io.input.gap := 0.U
+  reader.io.input.start := 0.U
+  reader.io.input.reset := reset
+  reader.io.input.saturate := false.B  
 
   // Connect pusher
   if (pW == pR) {

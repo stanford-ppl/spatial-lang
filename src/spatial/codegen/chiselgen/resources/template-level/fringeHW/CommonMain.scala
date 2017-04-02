@@ -23,6 +23,16 @@ trait CommonMain {
   def dut: () => DUTType
   def tester: DUTType => ArgsTester[DUTType]
 
+  def supportedTarget(t: String) = t match {
+    case "aws" => true
+    case "zynq" => true
+    case "verilator" => true
+    case "vcs" => true
+    case _ => false
+  }
+
+  def target = if (args.size > 0) args(0) else "verilator"
+
   def separateChiselArgs(args: Array[String]) = {
     val argSeparator = "--testArgs"
     val (chiselArgs, otherArgs) = if (args.contains("--testArgs")) {
@@ -38,11 +48,14 @@ trait CommonMain {
   def main(args: Array[String]) {
     val splitArgs = separateChiselArgs(args)
     this.args = splitArgs.testArgs
+
+    Predef.assert(supportedTarget(target), s"ERROR: Unsupported Fringe target '$target'")
+
     if (splitArgs.chiselArgs.contains("--test-command")) {
       val cmd = splitArgs.chiselArgs(splitArgs.chiselArgs.indexOf("--test-command")+1)
       Driver.run(dut, cmd)(tester)
     } else if (splitArgs.chiselArgs.contains("--verilog")) {
-      chisel3.Driver.execute(Array[String]("--target-dir", "verilog"), dut)
+      chisel3.Driver.execute(Array[String]("--target-dir", s"verilog-${target}"), dut)
     } else {
       Driver.execute(splitArgs.chiselArgs, dut)(tester)
     }

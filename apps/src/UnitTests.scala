@@ -518,7 +518,7 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
 
   def singleFifoLoad[T:Staged:Num](src1: Array[T], in: Int) = {
 
-    val P1 = 16 (16 -> 16)
+    val P1 = 4 (16 -> 16)
 
     val N = ArgIn[Int]
     setArg(N, in)
@@ -566,7 +566,7 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   val tileSize = 64
   def parFifoLoad[T:Staged:Num](src1: Array[T], src2: Array[T], src3: Array[T], in: Int) = {
 
-    val P1 = 16 (16 -> 16)
+    val P1 = 2 (16 -> 16)
 
     val N = ArgIn[Int]
     setArg(N, in)
@@ -785,7 +785,7 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
       Sequential.Foreach(rowsIn by tileDim1, colsIn by tileDim2) { (i,j) =>
         val tile = SRAM[T](tileDim1, tileDim2)
         tile load srcFPGA(i::i+tileDim1, j::j+tileDim2 par 16)
-        dstFPGA (i::i+tileDim1, j::j+tileDim2 par 16) store tile
+        dstFPGA (i::i+tileDim1, j::j+tileDim2 par 8) store tile
       }
     }
     getMem(dstFPGA)
@@ -812,7 +812,7 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
 object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
   import IR._
 
-  val tileSize = 16
+  val tileSize = 64
   val p = 2
 
   def blockreduce_1d[T:Staged:Num](src: Array[T], size: Int) = {
@@ -843,7 +843,7 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
 
     val dst = blockreduce_1d(src, size)
 
-    val tsArr = Array.tabulate(tileSize){i => i}
+    val tsArr = Array.tabulate(tileSize){i => i % 256}
     val perArr = Array.tabulate(size/tileSize){i => i}
     val gold = tsArr.map{ i => perArr.map{j => src(i+j*tileSize)}.reduce{_+_}}
 
@@ -1013,6 +1013,7 @@ object ScatterGather extends SpatialApp { // Regression (Sparse) // Args: none
   @virtualize
   def main() = {
     // val size = args(0).to[Int]
+
 
     val size = maxNumAddrs
     val dataSize = offchip_dataSize
@@ -1318,7 +1319,7 @@ object DotProductFSM extends SpatialApp { // Regression (FSM) // Args: none
   }
 }
 
-object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: 5.25
+object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
   import IR._
   type T = FixPt[TRUE,_16,_16]
 

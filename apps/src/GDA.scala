@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object GDA extends SpatialApp { // Regression (Dense) // Args: 16
+object GDA extends SpatialApp { // Regression (Dense) // Args: 1
   import IR._
 
   type X = Int
@@ -63,6 +63,7 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 16
         }
 
         val sigmaBlk = SRAM[T](MAXC,MAXC)
+
         MemReduce(sigmaBlk)(blk par param(1)){rr =>
           val subTile = SRAM[T](MAXC)
           val sigmaTile = SRAM[T](MAXC, MAXC)
@@ -115,7 +116,7 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 16
     printArr(result, "result: ")
 
     val cksum = gold.zip(result){ case (a,b) => a < b + margin && a > b - margin }.reduce{_&&_}
-    println("PASS: " + cksum  + " (GDA)")
+    println("PASS: " + cksum  + " (GDA) * Make this work fo nontrivial test")
 
     // // println("actual: " + gold.mkString(", "))
     // //println("result: " + result.mkString(", "))

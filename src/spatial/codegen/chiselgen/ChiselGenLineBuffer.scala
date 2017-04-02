@@ -36,7 +36,13 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LineBufferNew(rows, cols) =>
-      emitGlobal(s"val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, /* extra_rows_to_buffer = */ 1, 1, $rows))  // Data type: ${remap(op.mT)}")
+      val row_rPar = s"$rows" // TODO: Do correct analysis here!
+      val row_wPar = 1 // TODO: Do correct analysis here!
+      val col_rPar = 1 // TODO: Do correct analysis here!
+      val col_wPar = 1 // TODO: Do correct analysis here!
+      emitGlobal(s"""val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, 1, 
+        ${col_wPar}, ${col_rPar}, 
+        ${row_wPar}, ${row_rPar}))  // Data type: ${remap(op.mT)}""")
       linebufs = linebufs :+ lhs.asInstanceOf[Sym[LineBufferNew[_]]]
       
     case op@LineBufferRowSlice(lb,row,len,col) =>
@@ -57,49 +63,53 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
       // close("}")
       
     case op@LineBufferLoad(lb,row,col,en) =>
-      emit(src"$lb.io.col_addr := $col")
-      emit(s"val ${quote(lhs)} = ${quote(lb)}.io.data_out($row)")
+      emit(src"$lb.io.col_addr(0) := ${col}.number")
+      emit(s"val ${quote(lhs)} = ${quote(lb)}.readRow(${row}.number)")
 
     case op@LineBufferEnq(lb,data,en) =>
-      emit(src"$lb.io.data_in := $data")
-      emit(src"$lb.io.w_en := $en")
+      val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
+      emit(src"$lb.io.data_in(0) := ${data}.number")
+      emit(src"$lb.io.w_en := $en & ${parent}_datapath_en")
       
     case _ => super.emitNode(lhs, rhs)
   }
 
-  // override protected def emitFileFooter() {
-  //   withStream(getStream("BufferControlCxns")) {
-  //     linebufs.foreach{ mem => 
-  //       val readers = readersOf(mem)
-  //       val writers = writersOf(mem)
-  //       // Console.println(s"working on $mem $i $readers $readers $writers $writers")
-  //       // Console.println(s"${readers.map{case (_, readers) => readers}}")
+  override protected def emitFileFooter() {
+    withStream(getStream("BufferControlCxns")) {
+      linebufs.foreach{ mem => 
+        val readers = readersOf(mem)
+        val writers = writersOf(mem)
+        // Console.println(s"working on ${quote(mem)} $readers $writers")
   //       // Console.println(s"innermost ${readers.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
   //       // Console.println(s"middle ${parentOf(readers.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
   //       // Console.println(s"outermost ${childrenOf(parentOf(readers.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
-  //       val allSiblings = childrenOf(parentOf(readers.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
-  //       val readSiblings = readers.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-  //       val writeSiblings = writers.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-  //       val writersNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
-  //       val readersNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
-  //       val firstActivePort = math.min( readersNumbers.min, writersNumbers.min )
-  //       val lastActivePort = math.max( readersNumbers.max, writersNumbers.max )
-  //       val numStagesInbetween = lastActivePort - firstActivePort
+        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(0) }.groupBy{a => portsOf(a, mem, 0) }
+        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(0) }.groupBy{a => portsOf(a, mem, 0) }
+        val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,0)}.head}.head.node).get)
+        val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, 0)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+        val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, 0)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+        val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
+        val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
+        val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
+        val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
+        val numStagesInbetween = lastActivePort - firstActivePort
 
-  //       // map port on memory to child of parent
-  //       (0 to numStagesInbetween).foreach { port =>
-  //         val ctrlId = port + firstActivePort
-  //         val node = allSiblings(ctrlId)
-  //         val rd = if (readersNumbers.toList.contains(ctrlId)) {"read"} else ""
-  //         val wr = if (writersNumbers.toList.contains(ctrlId)) {"write"} else ""
-  //         val empty = if (rd == "" & wr == "") "empty" else ""
-  //         emit(src"""${mem}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
-  //       }
+        (0 to numStagesInbetween).foreach { port =>
+          val ctrlId = port + firstActivePort
+          val node = allSiblings(ctrlId)
+          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
+          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
+          val empty = if (rd == "" & wr == "") "empty" else ""
+          emit(src"""${mem}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
+        }
 
-  //     }
-  //   }
+        emit(src"""${mem}.lockUnusedCtrl() // Specific method for linebufs, since there is one ctrl port per line, but possibly not an access per line """)
 
-  //   super.emitFileFooter()
-  // }
+
+      }
+    }
+
+    super.emitFileFooter()
+  }
 
 }

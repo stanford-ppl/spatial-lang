@@ -3,7 +3,72 @@ package templates
 
 import chisel3._
 import chisel3.util.{log2Ceil, isPow2}
+import chisel3.internal.sourceinfo._
 import types._
+
+object ops {
+  implicit class UIntOps(val b:UInt) {
+    // Define number so that we can be compatible with FixedPoint type
+    def number = {
+      b
+    }
+
+    // override def connect (rawop: Data)(implicit sourceInfo: SourceInfo, connectionCompileOptions: chisel3.core.CompileOptions): Unit = {
+    //   rawop match {
+    //     case op: FixedPoint =>
+    //       b := op.number
+    //     case op: UInt =>
+    //       b := op
+    //   }
+    // }
+
+    def < (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) < c
+    }
+
+    def > (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) > c
+    }
+
+    def === (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) === c      
+    }
+
+    def - (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) - c      
+    }
+
+    def + (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) + c      
+    }
+
+    def * (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) * c      
+    }
+
+    def / (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) / c      
+    }
+
+    def % (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) % c      
+    }
+
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+
+
+  }
+  implicit class IntOps(val b: Int) {
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+    def FP(s: Int, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+  }
+}
 
 object Utils {
   def delay[T <: chisel3.core.Data](sig: T, length: Int):T = {
@@ -29,11 +94,15 @@ object Utils {
   }
 
   // Helper for making fixedpt when you know the value at creation time
+  def FixedPoint[T](s: Int, d: Int, f: Int, init: T): types.FixedPoint = {
+    FixedPoint(s > 0, d, f, init)
+  }
   def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T): types.FixedPoint = {
     val cst = Wire(new types.FixedPoint(s, d, f))
     init match {
       case i: Double => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
       case i: UInt => cst.number := i
+      case i: FixedPoint => cst.number := i.number
       case i: Int => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
     }
     cst

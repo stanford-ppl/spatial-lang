@@ -88,8 +88,10 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
   (0 until numBufs).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i)
     sEn_latch(i).io.input.reset := swap
+    sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)
     sDone_latch(i).io.input.reset := swap
+    sDone_latch(i).io.input.asyn_reset := reset
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
@@ -154,11 +156,19 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
     }
   }
 
-  def chain_pass(data: UInt, en: Bool) { // Method specifically for handling reg chains that pass counter values between metapipe stages
-      io.input.data := data
-      io.input.enable := en
-      io.input.reset := false.B
-      io.writerStage := 0.U
+  def chain_pass[T](dat: T, en: Bool) { // Method specifically for handling reg chains that pass counter values between metapipe stages
+    dat match {
+      case data: UInt => 
+        io.input.data := data
+      case data: FixedPoint => 
+        io.input.data := data.number
+    }
+    io.input.enable := en
+    io.input.reset := reset
+    io.input.init := 0.U
+    io.writerStage := 0.U
+    io.broadcast.enable := false.B
+
   }
 
   def connectStageCtrl(done: Bool, en: Bool, ports: List[Int]) {

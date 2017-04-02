@@ -77,15 +77,15 @@ zynq-sw:
 
 zynq-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs zynq"
-	cp chisel/fringeZynq/* verilog
+	cp chisel/fringeZynq/* verilog-zynq
 	mv verilog/fsbl.elf._ verilog/fsbl.elf
 	mv verilog/u-boot.elf._ verilog/u-boot.elf
 	make -C verilog
 
 zynq-clean:
-	make -C verilog clean
+	make -C verilog-zynq clean
 	make -C cpp clean
-	rm -rf verilog
+	rm -rf verilog-zynq
 	rm -f TopZynq.tar.gz
 
 de1soc: 
@@ -100,6 +100,25 @@ de1soc:
 de1soc-clean:
 	rm -rf verilog
 
+vcs: vcs-hw vcs-sw
+	tar -czf TopVCS.tar.gz -C verilog-vcs accel.bit.bin -C ../cpp Top
+
+vcs-sw:
+	cp vcs.mk cpp/Makefile
+	make -C cpp
+	ln -sf cpp/Top .
+
+vcs-hw:
+	sbt "run-main top.Instantiator --verilog --testArgs vcs"
+	cp chisel/fringeVCS/* verilog-vcs
+	make -C verilog-vcs
+	ln -sf verilog-vcs verilog
+
+vcs-clean:
+	make -C verilog-vcs clean
+	make -C cpp clean
+	rm -rf verilog-vcs
+	rm -f verilog TopVCS.tar.gz
 
 sim-clean:
 	make -C ${VERILATOR_SRC} clean

@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object Convolution_FPGA extends SpatialApp {
+object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
   import IR._
 
   val Kh = 3
@@ -29,7 +29,10 @@ object Convolution_FPGA extends SpatialApp {
 
       // TODO: Better syntax for initialization of lookup tables
       Pipe {
-        // kh(i,j) = Mux(i.to[T] == 0 && j.to[T] == 0, 1.as[T], 2.as[T])
+        // Foreach(Kh by 1, Kw by 1) { (i,j) => 
+        //   kh(i,j) = mux((i.to[T] == 0.as[T] && j.to[T] == 0.as[T]), 1.as[T], 2.as[T])
+        //   kv(i,j) = mux((i.to[T] == 0.as[T] && j.to[T] == 0.as[T]), 1.as[T], 2.as[T])
+        // }
         Pipe{kh(0,0) = 1.as[T]}
         Pipe{kh(1,0) = 2.as[T]}
         Pipe{kh(2,0) = 1.as[T]}
@@ -55,7 +58,7 @@ object Convolution_FPGA extends SpatialApp {
       val lineOut = SRAM[T](Cmax)
 
       Foreach(0 until R) { r =>
-        lb load img(r, 0::C par 16)
+        lb load img(r, 0::C)
 
         /*println("Row " + r)
         Foreach(0 until Kh) { i =>
@@ -63,16 +66,17 @@ object Convolution_FPGA extends SpatialApp {
           println("")
         }*/
 
-        Foreach(0 until C) { c =>
+        Sequential.Foreach(0 until C) { c =>
           Foreach(0 until Kh par Kh){i => sr(i, *) <<= lb(i, c) }
 
+          
           val horz = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * kh(i,j) }{_+_}
           val vert = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * kv(i,j) }{_+_}
 
           lineOut(c) = abs(horz.value) + abs(vert.value) // Technically should be sqrt(horz**2 + vert**2)
         }
 
-        imgOut(r, 0::C) store lineOut
+        imgOut(r, 0::C par 16) store lineOut
       }
 
     }
@@ -85,13 +89,55 @@ object Convolution_FPGA extends SpatialApp {
   def main() {
     val R = 16
     val C = 16
-    val image = (0::R, 0::C){(i,j) => if (j > 3 && i > 3 && j < 11 && i < 11) 256 else 0 }
+    val border = 3
+    // val image = (0::R, 0::C){(i,j) => if (j > 3 && i > 3 && j < 11 && i < 11) 256 else 0 }
+    val image = (0::R, 0::C){(i,j) => if (j > border && j < C-border && i > border && i < C - border) i*16 else 0}
+    val ids = (0::R, 0::C){(i,j) => if (i < 2) 0 else 1}
+
+    val kh = List((List(1,2,1), List(0,0,0), List(-1,-2,-1)))
+    val kv = List((List(1,0,-1), List(2,0,-2), List(1,0,-1)))
 
     val output = convolve(image)
 
-    val gold = (0::R, 0::C){(i,j) => if (j == 7) 1 else 0 }
+    /*
+      Filters: 
+      1   2   1 
+      0   0   0 
+     -1  -2  -1
 
-    printMatrix(image, "Image")
-    printMatrix(output, "Output")
+      1   0  -1 
+      2   0  -2 
+      1   0  -1
+
+    */
+    val gold = (0::R, 0::C){(i,j) => 
+      // Shift result down by 2 and over by 2 because of the way accel is written
+      val px00 = if ((j-2) > border && (j-2) < C-border && (i-2) > border && (i-2) < C - border) (i-2)*16 else 0
+      val px01 = if ((j-1) > border && (j-1) < C-border && (i-2) > border && (i-2) < C - border) (i-2)*16 else 0
+      val px02 = if ((j+0) > border && (j+0) < C-border && (i-2) > border && (i-2) < C - border) (i-2)*16 else 0
+      val px10 = if ((j-2) > border && (j-2) < C-border && (i-1) > border && (i-1) < C - border) (i-1)*16 else 0
+      val px11 = if ((j-1) > border && (j-1) < C-border && (i-1) > border && (i-1) < C - border) (i-1)*16 else 0
+      val px12 = if ((j+0) > border && (j+0) < C-border && (i-1) > border && (i-1) < C - border) (i-1)*16 else 0
+      val px20 = if ((j-2) > border && (j-2) < C-border && (i+0) > border && (i+0) < C - border) (i+0)*16 else 0
+      val px21 = if ((j-1) > border && (j-1) < C-border && (i+0) > border && (i+0) < C - border) (i+0)*16 else 0
+      val px22 = if ((j+0) > border && (j+0) < C-border && (i+0) > border && (i+0) < C - border) (i+0)*16 else 0
+      abs(px00 * 1 + px01 * 2 + px02 * 1 - px20 * 1 - px21 * 2 - px22 * 1) + abs(px00 * 1 - px02 * 1 + px10 * 2 - px12 * 2 + px20 * 1 - px22 * 1)
+    };
+
+    // // This contains the "weird scheduling bug"
+
+    // printMatrix(image, "Image")
+    // printMatrix(gold, "Gold")
+    // printMatrix(output, "Output")
+
+    val gold_sum = gold.map{g => g}.reduce{_+_} 
+    val output_sum = output.zip(ids){case (o,i) => i * o}.reduce{_+_}
+    println("gold " + gold_sum + " =?= output " + output_sum)
+    val cksum = gold_sum == output_sum
+    // val cksum = gold.zip(output){(g, o) => g == o}.reduce{_&&_}
+    println("PASS: " + cksum + " (Convolution_FPGA)")
+
+
+
   }
 }

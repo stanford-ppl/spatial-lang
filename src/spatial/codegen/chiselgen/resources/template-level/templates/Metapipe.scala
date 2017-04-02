@@ -14,6 +14,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
       val stageDone = Vec(n, Input(Bool()))
       val rst = Input(Bool())
       val forever = Input(Bool())
+      val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
       // FSM signals
       val nextState = Input(UInt(32.W))
 
@@ -49,6 +50,8 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
   val maxFF = Module(new FF(32))
   maxFF.io.input.enable := io.input.enable
   maxFF.io.input.data := io.input.numIter
+  maxFF.io.input.init := 0.U
+  maxFF.io.input.reset := io.input.rst
   val max = maxFF.io.output.data
 
   val doneClear = RegInit(0.U)
@@ -56,16 +59,19 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
     val ff = Module(new SRFF())
     ff.io.input.set := io.input.stageDone(i)
     ff.io.input.asyn_reset := doneClear
+    ff.io.input.reset := false.B
     ff
   }
   val doneMask = doneFF.zipWithIndex.map { case (ff, i) => ff.io.output.data }
 
   val ctr = Module(new SingleCounter(1))
   ctr.io.input.enable := doneClear
-  ctr.io.input.reset := (state === doneState.U)
   ctr.io.input.saturate := true.B
   ctr.io.input.max := max
   ctr.io.input.stride := 1.U
+  ctr.io.input.start := 0.U
+  ctr.io.input.gap := 0.U
+  ctr.io.input.reset := io.input.rst | (state === doneState.U)
   io.output.rst_en := (state === resetState.U)
 
 
@@ -93,7 +99,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
             case ((en, done), ii) => 
               en := ~done & (ii.U >= cycsSinceDone.io.output.data) & (io.input.numIter != 0.U)
           }
-          io.output.stageEnable.drop(fillStateID+1).foreach { en => en := 0.U }
+          io.output.stageEnable.drop(fillStateID+1).foreach { en => en := false.B }
           val doneMaskInts = doneMask.take(fillStateID+1).map {Mux(_, 1.U(bitsToAddress(n).W), 0.U(bitsToAddress(n).W))}
           val doneTree = doneMaskInts.reduce {_ + _} + cycsSinceDone.io.output.data === (fillStateID+1).U
           // val doneTree = doneMask.take(fillStateID+1).reduce {_ & _}
@@ -103,7 +109,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
             if (i+1 == steadyState) { // If moving to steady state
               stateFF.io.input.data := Mux(cycsSinceDone.io.output.data === 0.U & ctr.io.output.count(0) + 1.U < max , 
                           steadyState.U, 
-                          Mux(io.input.forever, steadyState.U, cycsSinceDone.io.input.data + 1.U + stateFF.io.output.data + {if (n == 2) 1.U else 0.U}) // TODO: HACK FOR 2 STAGE, 1 ITER!
+                          Mux(io.input.forever, steadyState.U, cycsSinceDone.io.output.data + 2.U + stateFF.io.output.data) 
                         ) // If already in drain step, bypass steady state
             } else {
               cycsSinceDone.io.input.data := cycsSinceDone.io.output.data + 1.U
