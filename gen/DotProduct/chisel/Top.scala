@@ -51,6 +51,7 @@ class ZynqInterface(p: TopParams) extends TopInterface {
 class DE1SoCInterface(p: TopParams) extends TopInterface {
   private val axiLiteParams = new AXI4BundleParameters(16, p.dataWidth, 1)
   val S_AVALON = new AvalonSlave(axiLiteParams)
+  val S_STREAM = new AvalonStream(axiLiteParams)
 }
 
 class AWSInterface(p: TopParams) extends TopInterface {
@@ -118,6 +119,24 @@ class Top(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStre
 
       // Fringe <-> Host connections
       fringe.io.S_AVALON <> topIO.S_AVALON
+
+      // TODO: In DE1SoC, Top takes the streamIn / Out signals and connect these directly to 
+      // the resampler. Would be more preferrable if we move these part to fringe...
+      // Accel <-> Stream
+      accel.io.stream_in_data                 := topIO.S_STREAM.stream_in_data         
+      accel.io.stream_in_startofpacket        := topIO.S_STREAM.stream_in_startofpacket
+      accel.io.stream_in_endofpacket          := topIO.S_STREAM.stream_in_endofpacket  
+      accel.io.stream_in_empty                := topIO.S_STREAM.stream_in_empty        
+      accel.io.stream_in_valid                := topIO.S_STREAM.stream_in_valid        
+      accel.io.stream_out_ready               := topIO.S_STREAM.stream_out_ready       
+       
+      // Video Stream Outputs
+      topIO.S_STREAM.stream_in_ready          := accel.io.stream_in_ready          
+      topIO.S_STREAM.stream_out_data          := accel.io.stream_out_data          
+      topIO.S_STREAM.stream_out_startofpacket := accel.io.stream_out_startofpacket 
+      topIO.S_STREAM.stream_out_endofpacket   := accel.io.stream_out_endofpacket   
+      topIO.S_STREAM.stream_out_empty         := accel.io.stream_out_empty         
+      topIO.S_STREAM.stream_out_valid         := accel.io.stream_out_valid         
 
       accel.io.argIns := fringe.io.argIns
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>

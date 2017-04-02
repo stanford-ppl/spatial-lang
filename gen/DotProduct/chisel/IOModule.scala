@@ -27,6 +27,21 @@ trait IOModule extends Module {
     // Scalars
     val argIns = Input(Vec(io_numArgIns, UInt(io_w.W)))
     val argOuts = Vec(io_numArgOuts, Decoupled((UInt(io_w.W))))
+    // Video Stream Inputs 
+    val stream_in_data            = Input(UInt(24.W))
+    val stream_in_startofpacket   = Input(Bool())
+    val stream_in_endofpacket     = Input(Bool())
+    val stream_in_empty           = Input(UInt(2.W))
+    val stream_in_valid           = Input(Bool()) 
+    val stream_out_ready          = Input(Bool())
+     
+    // Video Stream Outputs
+    val stream_in_ready           = Output(Bool())
+    val stream_out_data           = Output(UInt(16.W))
+    val stream_out_startofpacket  = Output(Bool())
+    val stream_out_endofpacket    = Output(Bool())
+    val stream_out_empty          = Output(UInt(1.W))
+    val stream_out_valid          = Output(Bool())
     
   })
 }

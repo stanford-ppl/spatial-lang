@@ -91,6 +91,7 @@ zynq-clean:
 de1soc: 
 	sbt "run-main top.Instantiator --verilog --testArgs de1soc"
 	sed -i 's/SRFF/SRFF_sp/g' verilog/Top.v
+	cp -r chisel/fringeDE1SoC/simulation verilog
 	cp -r chisel/fringeDE1SoC/* verilog
 	cp verilog/Top.v verilog/Computer_System/synthesis/submodules
 	cd verilog && ./compile.sh

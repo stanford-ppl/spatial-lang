@@ -23,6 +23,7 @@ object Instantiator extends CommonMain {
     case "aws" => true
     case "zynq" => true
     case "verilator" => true
+    case "de1soc" => true
     case _ => false
   }
   

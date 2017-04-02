@@ -40,6 +40,7 @@ trait CppGenCounter extends CppCodegen with FileDependencies {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case CounterNew(start,end,step,par) => 
     case CounterChainNew(ctrs) => 
+    case Forever() =>
     case _ => super.emitNode(lhs, rhs)
   }
 

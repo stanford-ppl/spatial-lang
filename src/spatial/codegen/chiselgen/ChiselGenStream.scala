@@ -27,7 +27,24 @@ trait ChiselGenStream extends ChiselCodegen {
       s"$bus" match {
         case "BurstFullDataBus" => 
         case "BurstAckBus" => 
-          
+        case "VideoCamera" => 
+        //  emitGlobal("val $lhs_en = Bool()")
+          emit(src"// video in camera, node = $lhs", forceful=true)
+          emit(src"// reset and output logic for video camera", forceful=true)
+          emit(src"when (reset) {", forceful=true)
+          emit(src"  io.stream_out_data           := 0.U ", forceful=true)
+          emit(src"  io.stream_out_startofpacket  := 0.U ", forceful=true)
+          emit(src"  io.stream_out_endofpacket    := 0.U ", forceful=true)
+          emit(src"  io.stream_out_empty          := 0.U ", forceful=true)
+          emit(src"  io.stream_out_valid          := 0.U ", forceful=true)
+          emit(src"} .elsewhen (io.stream_out_ready | ~io.stream_out_valid) { ", forceful=true)
+          emit(src"  io.stream_out_data           := converted_data ", forceful=true)
+          emit(src"  io.stream_out_startofpacket  := io.stream_in_startofpacket ", forceful=true)
+          emit(src"  io.stream_out_endofpacket    := io.stream_in_endofpacket ", forceful=true)
+          emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
+          emit(src"  io.stream_out_valid          := io.stream_in_valid  ", forceful=true)
+          emit(src"} ", forceful=true) 
+
         case _ =>
           emit(src"// New stream in $lhs")
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
@@ -35,17 +52,24 @@ trait ChiselGenStream extends ChiselCodegen {
     case StreamOutNew(bus) =>
       s"$bus" match {
         case "BurstCmdBus" => 
+        case "VGA" =>
+          emit(src"// EMITTING FOR VGA; in OUTPUT REGISTERS, Output Register section $lhs", forceful=true)
         case _ =>
           emit(src"// New stream out $lhs")
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
     case StreamRead(stream, en) =>
-      emit(src"""val $lhs = ${stream}_data""")  // Ignores enable for now
+      emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
+//      emit(src"""val $lhs = ${stream}_data""")  // Ignores enable for now
+      
+
     case StreamWrite(stream, data, en) =>
       emitGlobal(src"""val ${stream}_valid = Wire(Bool())""")
       emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
-      emitGlobal(src"""val ${stream}_data = Wire(UInt(65.W))""")
+      emitGlobal(src"""val ${stream}_data = Wire(UInt(16.W))""")
+      emitGlobal(src"""val converted_data = Wire(UInt(16.W))""")
       emit(src"""${stream}_data := $data""")
+      emit(src"""converted_data := ${stream}_data""")
     case _ => super.emitNode(lhs, rhs)
   }
 

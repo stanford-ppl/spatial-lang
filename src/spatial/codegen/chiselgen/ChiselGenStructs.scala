@@ -25,6 +25,7 @@ trait ChiselGenStructs extends ChiselCodegen {
       val width = bitWidth(x.fields(idx)._2)
       val prec = x.fields.take(idx)
       val precBits = prec.map{case (_,bt) => bitWidth(bt)}.sum
+//      Console.println(s"$idx, $width, $prec, $precBits, ${x.fields(idx)._2}, ${x.fields}, $field")
       (precBits, width)
   }
 
@@ -54,18 +55,46 @@ trait ChiselGenStructs extends ChiselCodegen {
     }
   } 
 
-  override protected def remap(tp: Staged[_]): String = tp match {
-    // case tp: DRAMType[_] => src"Array[${tp.child}]"
-    case _ => super.remap(tp)
-  }
+//  override protected def remap(tp: Staged[_]): String = tp match {
+//    // case tp: DRAMType[_] => src"Array[${tp.child}]"
+//    case _ => super.remap(tp)
+//  }
+//
+//  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
+//    case SimpleStruct(tuples)  =>
+//      val items = tuples.map{ t => 
+//        val width = bitWidth(t._2.tp)
+//        if (width > 1 & !needsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} 
+//      }.mkString(",")
+//      emit(src"val $lhs = Utils.Cat($items)")
+//    case FieldApply(struct, field) =>
+//      val (start, width) = tupCoordinates(struct.tp, field)      
+//      emit(src"val $lhs = ${struct}(${start+width-1}, $start)")
+//
+//      // }
+//
+//    case _ => super.emitNode(lhs, rhs)
+//  }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SimpleStruct(tuples)  =>
       val items = tuples.map{ t => 
         val width = bitWidth(t._2.tp)
-        if (width > 1 & !needsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} 
+        if (src"${t._1}" == "offset") {
+          src"${t._2}"
+        } else {
+          if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
+        }
       }.mkString(",")
-      emit(src"val $lhs = Utils.Cat($items)")
+      val totalWidth = tuples.map{ t => 
+        if (src"${t._1}" == "offset"){
+          64
+        } else {
+          bitWidth(t._2.tp)  
+        }
+      }.reduce{_+_}
+      emitGlobal(src"val $lhs = Wire(UInt(${totalWidth}.W))")
+      emit(src"$lhs := Utils.Cat($items)")
     case FieldApply(struct, field) =>
       val (start, width) = tupCoordinates(struct.tp, field)      
       emit(src"val $lhs = ${struct}(${start+width-1}, $start)")
@@ -74,7 +103,4 @@ trait ChiselGenStructs extends ChiselCodegen {
 
     case _ => super.emitNode(lhs, rhs)
   }
-
-
-
 }

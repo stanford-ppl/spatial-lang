@@ -10,7 +10,9 @@ dist/*
 out/*
 out2/*
 out3/*
-# gen/*
+gen/*
+gen_gold*
+test_all.sh
 target/
 logs/*
 lib_managed/
