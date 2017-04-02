@@ -193,7 +193,6 @@ public:
     DRAMRequest* req = it->second;
     req->completed = true;
     addrToReqMap.erase(at);
-    checkAndSendDRAMResponse();
   }
 };
 
