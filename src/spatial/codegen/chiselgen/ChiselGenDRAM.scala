@@ -103,10 +103,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := ~${cmdStream}_data(0)")
       emitGlobal(src"val ${cmdStream}_valid = Wire(Bool())")
       emitGlobal(src"val ${cmdStream}_ready = io.memStreams.stores($id).wdata.ready")
-      emitGlobal(src"""val ${ackStream}_valid = io.memStreams.stores($id).wresp""")
-      // emitGlobal(src"""val ${ackStream}_valid = io.memStreams.stores($id).wresp""")
-      // emit(src"""io.memStreams.stores($id).wresp.ready := ${ackStream}_ready""")
+      emitGlobal(src"""val ${ackStream}_valid = io.memStreams.stores($id).wresp.valid""")
       emitGlobal(src"""val ${ackStream}_ready = Wire(Bool())""")
+      emit(src"""io.memStreams.stores($id).wresp.ready := ${ackStream}_ready""")
 
     case FringeSparseLoad(dram,addrStream,dataStream) =>
       open(src"val $lhs = $addrStream.foreach{addr => ")

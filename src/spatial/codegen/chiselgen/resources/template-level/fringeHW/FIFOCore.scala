@@ -19,14 +19,7 @@ case class FIFOOpcode(val d: Int, val v: Int) extends Bundle {
   }
 }
 
-class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
-  val addrWidth = log2Up(d/v)
-  val bankSize = d/v
-  // Check for sizes and v
-  Predef.assert(d%v == 0, s"Unsupported FIFO size ($d)/banking($v) combination; $d must be a multiple of $v")
-  Predef.assert(isPow2(v), s"Unsupported banking number $v; must be a power-of-2")
-  Predef.assert(isPow2(d), s"Unsupported FIFO size $d; must be a power-of-2")
-
+abstract class FIFOBase(val w: Int, val d: Int, val v: Int) extends Module {
   val io = IO(new Bundle {
     val enq = Input(Vec(v, Bits(w.W)))
     val enqVld = Input(Bool())
@@ -37,6 +30,14 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
     val almostEmpty = Output(Bool())
     val config = Input(new FIFOOpcode(d, v))
   })
+
+  val addrWidth = log2Up(d/v)
+  val bankSize = d/v
+
+  // Check for sizes and v
+  Predef.assert(d%v == 0, s"Unsupported FIFO size ($d)/banking($v) combination; $d must be a multiple of $v")
+  Predef.assert(isPow2(v), s"Unsupported banking number $v; must be a power-of-2")
+  Predef.assert(isPow2(d), s"Unsupported FIFO size $d; must be a power-of-2")
 
   // Create size register
   val sizeUDC = Module(new UpDownCtr(log2Up(d+1)))
@@ -56,6 +57,16 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   sizeUDC.io.inc := writeEn
   sizeUDC.io.dec := readEn
 
+  io.empty := empty
+  io.almostEmpty := almostEmpty
+  io.full := full
+}
+
+class FIFOCounter(override val d: Int, override val v: Int) extends FIFOBase(1, d, v) {
+  io.deq.foreach { d => d := ~empty }
+}
+
+class FIFOCore(override val w: Int, override val d: Int, override val v: Int) extends FIFOBase(w, d, v) {
   // Create wptr (tail) counter chain
   val wptrConfig = Wire(new CounterChainOpcode(log2Up(bankSize+1), 2, 0, 0))
   wptrConfig.chain(0) := io.config.chainWrite
@@ -145,10 +156,6 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
     }
     io.deq(i) := rdata
   }
-
-  io.empty := empty
-  io.almostEmpty := almostEmpty
-  io.full := full
 }
 
 //class FIFO(val w: Int, val d: Int, val v: Int, val inst: FIFOConfig) extends ConfigurableModule[FIFOOpcode] {
