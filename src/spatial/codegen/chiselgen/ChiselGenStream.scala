@@ -25,16 +25,12 @@ trait ChiselGenStream extends ChiselCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
       s"$bus".replace("(","").replace(")","") match {
-        case "BurstFullDataBus" =>
-          emitGlobal(src"""// val ${quote(lhs)}_data = // Data bus handled at dense node codegen""")
-          emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
-          emitGlobal(src"// New stream in (BurstFullDataBus) ${quote(lhs)}")
         case "BurstDataBus" =>
           emitGlobal(src"""// val ${quote(lhs)}_data = // Data bus handled at dense node codegen""")
           emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
           emitGlobal(src"// New stream in (BurstFullDataBus) ${quote(lhs)}")
         case "BurstAckBus" =>
-          emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W)) // TODO: What is width of burstackbus?""")
+          emitGlobal(src"""//val ${quote(lhs)}_data = Wire(UInt(97.W)) // TODO: What is width of burstackbus?""")
           emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
           emitGlobal(src"// New stream in (BurstAckBus) ${quote(lhs)}")
         case _ =>
@@ -44,7 +40,11 @@ trait ChiselGenStream extends ChiselCodegen {
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
     case StreamOutNew(bus) =>
-      s"$bus" match {
+      s"$bus".replace("(","").replace(")","") match {
+        case "BurstFullDataBus" =>
+          emitGlobal(src"""// val ${quote(lhs)}_data = // Data bus handled at dense node codegen""")
+          emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
+          emitGlobal(src"// New stream in (BurstFullDataBus) ${quote(lhs)}")
         case "BurstCmdBus" =>
           emitGlobal(src"// New stream out (BurstCmdBus) ${quote(lhs)}")
           emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
