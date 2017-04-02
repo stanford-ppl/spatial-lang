@@ -855,7 +855,7 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
     //    (0 until tileSize) foreach { i => assert(dst(i) == gold(i)) }
   }
 }
-
+/*
 object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
   import IR._
 
@@ -910,6 +910,7 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
     //    (0 until tileSize) foreach { i => assert(dst(i) == gold(i)) }
   }
 }
+ */
 
 // Args: 192 384
 object BlockReduce2D extends SpatialApp { // Regression (Unit) // Args: 192 384
