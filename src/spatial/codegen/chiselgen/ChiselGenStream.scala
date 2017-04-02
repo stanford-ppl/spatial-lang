@@ -24,14 +24,22 @@ trait ChiselGenStream extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
-      s"$bus" match {
+      s"$bus".replace("(","").replace(")","") match {
         case "BurstFullDataBus" =>
+          emitGlobal(src"""// val ${quote(lhs)}_data = // Data bus handled at dense node codegen""")
+          emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
+          emitGlobal(src"// New stream in (BurstFullDataBus) ${quote(lhs)}")
+        case "BurstDataBus" =>
+          emitGlobal(src"""// val ${quote(lhs)}_data = // Data bus handled at dense node codegen""")
+          emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
           emitGlobal(src"// New stream in (BurstFullDataBus) ${quote(lhs)}")
         case "BurstAckBus" =>
+          emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W)) // TODO: What is width of burstackbus?""")
+          emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
           emitGlobal(src"// New stream in (BurstAckBus) ${quote(lhs)}")
         case _ =>
-          emit(src"// New stream in $lhs")
-          emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W)) // WTF is 97?""")
+          emitGlobal(s"// Cannot gen stream for $bus")
+          emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W))""")
           emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
@@ -39,9 +47,11 @@ trait ChiselGenStream extends ChiselCodegen {
       s"$bus" match {
         case "BurstCmdBus" =>
           emitGlobal(src"// New stream out (BurstCmdBus) ${quote(lhs)}")
+          emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
+          emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
         case _ =>
           emitGlobal(src"// New stream out ${quote(lhs)}")
-          emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W)) // WTF is 97?""")
+          emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W))""")
           emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }

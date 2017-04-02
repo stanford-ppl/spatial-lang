@@ -28,7 +28,18 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
     } else {
       super.quote(s)
     }
-  } 
+  }
+
+  private def findDenseConsumer(denseXfer: Exp[_]): Exp[_] = {
+    /* The rdata_ready must be tied to the same enable signal for the consuming stage
+       Currently, this means finding the last leaf node in the children of a 
+       FringeDenseLoad's parent
+    */
+    val parent = parentOf(denseXfer).get
+    val lastChild = childrenOf(parent).last
+    childrenOf(lastChild).last
+
+  }
 
   override protected def remap(tp: Staged[_]): String = tp match {
     case tp: DRAMType[_] => src"Array[${tp.child}]"
@@ -67,7 +78,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       }
       emit(src"""val ${dataStream}_data = Vec(List($allData))""")
       emitGlobal(src"""val ${dataStream}_ready = io.memStreams.loads($id).rdata.valid // FIXME: Also need to connect this to fifo not empty""")
-      emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready // Loopback for tile load/store")
+      val consumeReady = findDenseConsumer(lhs)
+      emit(src"io.memStreams.loads($id).rdata.ready := ${consumeReady}_en // Loopback for tile load/store, tied to consumer")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}_data(96, 33) // Bits 33 to 96 are addr")
       emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}_data(32,1) // Bits 1 to 32 are size command")
       emit(src"io.memStreams.loads($id).cmd.valid :=  ${cmdStream}_valid// LSB is enable, instead of pulser?? Reg(UInt(1.W), pulser.io.out)")
@@ -98,7 +110,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := ~${cmdStream}_data(0)")
       emitGlobal(src"val ${cmdStream}_ready = true.B // Assume cmd fifo will never fill up")
       emitGlobal(src"""val ${dataStream}_ready = true.B // Assume cmd fifo will never fill up""")
-      emitGlobal(src"""val ${ackStream}_ready = io.memStreams.stores($id).wresp  // [sic] rData signal is used for write ack""")
+      val ackReady = findDenseConsumer(lhs)
+      emitGlobal(src"""val ${ackStream}_ready = Wire(Bool())""")
+      emit(src"""${ackStream}_ready := ${ackReady}_en & io.memStreams.stores($id).wresp  // Not really tested well""")
       emitGlobal(src"val ${ackStream}_data = 0.U // Definitely wrong signal")
 
     case FringeSparseLoad(dram,addrStream,dataStream) =>
