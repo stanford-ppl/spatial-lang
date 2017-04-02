@@ -36,7 +36,7 @@ trait CppGenDRAM extends CppGenSRAM {
     case op@DRAMNew(dims) => 
       emit(src"""uint64_t ${lhs} = c1->malloc(sizeof(int32_t) * ${dims.map(quote).mkString("*")});""")
       emit(src"c1->setArg(${argMapping(lhs)._1}, $lhs); // (memstream in: ${argMapping(lhs)._2}, out: ${{argMapping(lhs)._3}})")
-      emit(src"""printf("Allocate mem of size ${dims.map(quote).mkString("*")} at %x\n", ${lhs});""")
+      emit(src"""printf("Allocate mem of size ${dims.map(quote).mkString("*")} at %p\n", (void*)${lhs});""")
       // emit(src"""uint64_t ${lhs} = (uint64_t) ${lhs}_void;""")
 
 

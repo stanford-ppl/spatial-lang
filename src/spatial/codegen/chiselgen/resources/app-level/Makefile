@@ -99,7 +99,7 @@ vcs-sw:
 
 vcs-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs vcs"
-	cp chisel/fringeVCS/* verilog-vcs
+	cp -r chisel/fringeVCS/* verilog-vcs
 	make -C verilog-vcs
 	ln -sf verilog-vcs verilog
 
@@ -107,7 +107,7 @@ vcs-clean:
 	make -C verilog-vcs clean
 	make -C cpp clean
 	rm -rf verilog-vcs
-	rm -f verilog TopVCS.tar.gz
+	rm -f verilog TopVCS.tar.gz Top *.log
 
 sim-clean:
 	make -C ${VERILATOR_SRC} clean
