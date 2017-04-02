@@ -2,7 +2,7 @@
 if [[ "$USE_IDEAL_DRAM" = "0" || "$USE_IDEAL_DRAM" = "1" ]]; then
 	ideal=$USE_IDEAL_DRAM
 else
-	ideal=1
+	ideal=0
 fi
 export USE_IDEAL_DRAM=$ideal
 export DRAMSIM_HOME=`pwd`/verilog/DRAMSim2

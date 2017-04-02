@@ -229,14 +229,25 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
 
     case e@ParStreamRead(strm, ens) =>
-      emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
-      emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
+      val isAck = strm match {
+        case Def(StreamInNew(bus)) => bus match {
+          case BurstAckBus => true
+          case _ => false
+        }
+        case _ => false
+      }
+      if (!isAck) {
+        emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
+        emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
+      } else {
+        emit(src"""// Do not read from dummy ack stream $strm""")        
+      }
 
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       emit(src"${strm}_data := $data")
-      emit(src"${strm}_en := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
+      emit(src"${strm}_valid := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
       
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 

@@ -30,17 +30,6 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
     }
   }
 
-  private def findDenseConsumer(denseXfer: Exp[_]): Exp[_] = {
-    /* The rdata_ready must be tied to the same enable signal for the consuming stage
-       Currently, this means finding the last leaf node in the children of a 
-       FringeDenseLoad's parent
-    */
-    val parent = parentOf(denseXfer).get
-    val lastChild = childrenOf(parent).last
-    childrenOf(lastChild).last
-
-  }
-
   override protected def remap(tp: Staged[_]): String = tp match {
     case tp: DRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
@@ -77,14 +66,16 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
         case _ => (0 until par).map{ i => src"io.memStreams.loads($id).rdata.bits($i)" }.mkString(",")
       }
       emit(src"""val ${dataStream}_data = Vec(List($allData))""")
-      emitGlobal(src"""val ${dataStream}_ready = io.memStreams.loads($id).rdata.valid""")
-      val consumeReady = findDenseConsumer(lhs)
-      emit(src"io.memStreams.loads($id).rdata.ready := ${consumeReady}_en // Contains stage enable, rdatavalid, and fifo status")
+      emitGlobal(src"""val ${dataStream}_valid = io.memStreams.loads($id).rdata.valid""")
+      emitGlobal(src"""val ${dataStream}_ready = Wire(Bool())""")
+      emitGlobal(src"val ${cmdStream}_ready = io.memStreams.loads($id).cmd.ready")
+      emitGlobal(src"val ${cmdStream}_valid = Wire(Bool())")
+      emitGlobal(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
+      emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready // Contains stage enable, rdatavalid, and fifo status")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}_data(96, 33) // Bits 33 to 96 are addr")
       emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}_data(32,1) // Bits 1 to 32 are size command")
       emit(src"io.memStreams.loads($id).cmd.valid :=  ${cmdStream}_valid// LSB is enable, instead of pulser?? Reg(UInt(1.W), pulser.io.out)")
       emit(src"io.memStreams.loads($id).cmd.bits.isWr := ~${cmdStream}_data(0)")
-      emitGlobal(src"val ${cmdStream}_ready = true.B // Assume cmd fifo will never fill up")
 
 
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
@@ -101,20 +92,21 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"""// Connect streams to ports on mem controller""")
       val allData = (0 until par).map{ i => src"io.memStreams.stores($id).rdata.bits($i)" }.mkString(",")
       emitGlobal(src"val ${dataStream}_data = Wire(Vec($par, UInt(33.W)))")
-      emitGlobal(src"""val ${dataStream}_en = Wire(Bool())""")
+      emitGlobal(src"""val ${dataStream}_valid = Wire(Bool())""")
+      emitGlobal(src"""val ${dataStream}_ready = io.memStreams.stores($id).wdata.ready""")
       emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}_data).foreach{case (wport, wdata) => wport := wdata(32,1) /*LSB is status bit*/}""")
-      emit(src"""io.memStreams.stores($id).wdata.valid := ${dataStream}_en""")
-      val ackReady = findDenseConsumer(lhs)
-      emit(src"""// CHISEL3 currently crashes because we connect a Bool to a Bool here......... WTF! io.memStreams.stores($id).wdata.ready := ${ackReady}_en // Contains stage enable, wdatavalid, and fifo status""")
+      emit(src"""io.memStreams.stores($id).wdata.valid := ${dataStream}_valid""")
+      emitGlobal(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}_data(96, 33) // Bits 33 to 96 (AND BEYOND???) are addr")
       emit(src"io.memStreams.stores($id).cmd.bits.size := ${cmdStream}_data(32,1) // Bits 1 to 32 are size command")
       emit(src"io.memStreams.stores($id).cmd.valid :=  ${cmdStream}_valid")
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := ~${cmdStream}_data(0)")
-      emitGlobal(src"val ${cmdStream}_ready = true.B // Assume cmd fifo will never fill up")
-      emitGlobal(src"""val ${dataStream}_ready = true.B // Assume cmd fifo will never fill up""")
+      emitGlobal(src"val ${cmdStream}_valid = Wire(Bool())")
+      emitGlobal(src"val ${cmdStream}_ready = io.memStreams.stores($id).wdata.ready")
+      emitGlobal(src"""val ${ackStream}_valid = io.memStreams.stores($id).wresp""")
+      // emitGlobal(src"""val ${ackStream}_valid = io.memStreams.stores($id).wresp""")
+      // emit(src"""io.memStreams.stores($id).wresp.ready := ${ackStream}_ready""")
       emitGlobal(src"""val ${ackStream}_ready = Wire(Bool())""")
-      emit(src"""${ackStream}_ready := io.memStreams.stores($id).wresp  // Not really tested well""")
-      emitGlobal(src"val ${ackStream}_data = 0.U // Definitely wrong signal")
 
     case FringeSparseLoad(dram,addrStream,dataStream) =>
       open(src"val $lhs = $addrStream.foreach{addr => ")
