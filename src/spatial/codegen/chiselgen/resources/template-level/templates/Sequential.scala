@@ -133,6 +133,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
     stateFSM.io.input.data := io.input.nextState
     stateFSM.io.input.init := io.input.initState
+    stateFSM.io.input.reset := reset
     stateFSM.io.input.enable := io.input.enable & state === doneState.U
     io.output.state := stateFSM.io.output.data
 
