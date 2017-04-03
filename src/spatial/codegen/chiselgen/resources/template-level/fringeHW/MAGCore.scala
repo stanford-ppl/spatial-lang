@@ -403,6 +403,7 @@ class MAGCore(
   io.app.stores.map{_.wresp}.zip(wrespFifos) foreach { case (wresp, fifo) =>
     wresp.bits  := fifo.io.deq(0)
     wresp.valid := ~fifo.io.empty
+    fifo.io.deqVld := wresp.ready
   }
 }
 
