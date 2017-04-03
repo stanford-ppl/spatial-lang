@@ -26,33 +26,15 @@ trait ChiselGenStream extends ChiselCodegen {
     case StreamInNew(bus) =>
       s"$bus".replace("(","").replace(")","") match {
         case "BurstDataBus" =>
-          // emitGlobal(src"""val ${quote(lhs)}_data = // Data bus handled at dense node codegen""")
-          // emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
-          emitGlobal(src"// New stream in (BurstFullDataBus) ${quote(lhs)}")
         case "BurstAckBus" =>
-          // emitGlobal(src"""//val ${quote(lhs)}_data = Wire(UInt(97.W)) // TODO: What is width of burstackbus?""")
-          // emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
-          emitGlobal(src"// New stream in (BurstAckBus) ${quote(lhs)}")
         case _ =>
-          emitGlobal(s"// Cannot gen stream for $bus")
-          emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W))""")
-          emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
     case StreamOutNew(bus) =>
       s"$bus".replace("(","").replace(")","") match {
         case "BurstFullDataBus" =>
-          // emitGlobal(src"""// val ${quote(lhs)}_data = // Data bus handled at dense node codegen""")
-          // emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
-          emitGlobal(src"// New stream in (BurstFullDataBus) ${quote(lhs)}")
         case "BurstCmdBus" =>
-          emitGlobal(src"// New stream out (BurstCmdBus) ${quote(lhs)}")
-          // emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
-          // emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
         case _ =>
-          emitGlobal(src"// New stream out ${quote(lhs)}")
-          emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W))""")
-          emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
     case StreamRead(stream, en) =>
@@ -64,14 +46,18 @@ trait ChiselGenStream extends ChiselCodegen {
         case _ => false
       }
       if (!isAck) {
-        emit(src"""val $lhs = ${stream}_data""")  // Ignores enable for now
+        val streamID = streamIns.indexOf(stream.asInstanceOf[Sym[Reg[_]]])
+        Predef.assert(streamID != -1, s"Stream ${quote(stream)} not present in streamIns")
+        emit(src"""val ${quote(lhs)} = io.streamIns.bits.data // Will use ID=$streamID in next change. StreamRead(stream = $stream, en = $en)""")  // Ignores enable for now
       } else {
         emit(src"""// read is of burstAck on $stream""")
       }
 
     case StreamWrite(stream, data, en) =>
-      emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
-      emit(src"""${stream}_data := $data""")
+        val streamID = streamOuts.indexOf(stream.asInstanceOf[Sym[Reg[_]]])
+        Predef.assert(streamID != -1, s"Stream ${quote(stream)} not present in streamOuts")
+        emit(src"""io.streamOuts.bits.data := ${quote(data)} // Will use ID=$streamID in next change. StreamWrite(stream = $stream, data = $data, en = $en)""")  // Ignores enable for now
+        emit(src"""io.streamOuts.valid := ${parentOf(lhs).get}_done & $en""")
     case _ => super.emitNode(lhs, rhs)
   }
 
