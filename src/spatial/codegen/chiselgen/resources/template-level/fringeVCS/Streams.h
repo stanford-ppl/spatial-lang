@@ -63,3 +63,16 @@ public:
     close(fd);
   }
 };
+
+// Input stream
+InputStream *inStream = NULL;
+
+// Output stream
+OutputStream *outStream = NULL;
+
+void initStreams() {
+  // Initialize simulation streams
+  inStream = new InputStream("");
+  outStream = new OutputStream("");
+}
+
