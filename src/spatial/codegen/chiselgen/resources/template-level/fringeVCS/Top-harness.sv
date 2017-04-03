@@ -78,6 +78,17 @@ module test;
   reg [31:0] io_dram_resp_bits_tag;
   reg [31:0] io_dram_resp_bits_streamId;
 
+  wire        io_streamIn_ready;
+  reg         io_streamIn_valid;
+  reg  [31:0] io_streamIn_bits_data;
+  reg  [31:0] io_streamIn_bits_tag;
+  reg         io_streamIn_bits_last;
+  reg         io_streamOut_ready;
+  wire        io_streamOut_valid;
+  wire [31:0] io_streamOut_bits_data;
+  wire [31:0] io_streamOut_bits_tag;
+  wire        io_streamOut_bits_last;
+
   /*** DUT instantiation ***/
   Top Top(
     .clock(clock),
@@ -128,7 +139,17 @@ module test;
     .io_dram_resp_bits_rdata_14(io_dram_resp_bits_rdata_14),
     .io_dram_resp_bits_rdata_15(io_dram_resp_bits_rdata_15),
     .io_dram_resp_bits_tag(io_dram_resp_bits_tag),
-    .io_dram_resp_bits_streamId(io_dram_resp_bits_streamId)
+    .io_dram_resp_bits_streamId(io_dram_resp_bits_streamId),
+    .io_streamIn_ready(io_streamIn_ready),
+    .io_streamIn_valid(io_streamIn_valid),
+    .io_streamIn_bits_data(io_streamIn_bits_data),
+    .io_streamIn_bits_tag(io_streamIn_bits_tag),
+    .io_streamIn_bits_last(io_streamIn_bits_last),
+    .io_streamOut_ready(io_streamOut_ready),
+    .io_streamOut_valid(io_streamOut_valid),
+    .io_streamOut_bits_data(io_streamOut_bits_data),
+    .io_streamOut_bits_tag(io_streamOut_bits_tag),
+    .io_streamOut_bits_last(io_streamOut_bits_last)
 );
 
   function void readRegRaddr(input int r);
