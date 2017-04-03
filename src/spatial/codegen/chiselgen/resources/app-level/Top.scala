@@ -58,8 +58,8 @@ class ZynqInterface(p: TopParams) extends TopInterface {
 class AWSInterface(p: TopParams) extends TopInterface {
   val enable = Input(UInt(p.dataWidth.W))
   val done = Output(UInt(p.dataWidth.W))
-  val scalarIns = Input(Vec(p.numArgIns, UInt(p.dataWidth.W)))
-  val scalarOuts = Output(Vec(p.numArgOuts, UInt(p.dataWidth.W)))
+  val scalarIns = Input(Vec(p.numArgIns, UInt(64.W)))
+  val scalarOuts = Output(Vec(p.numArgOuts, UInt(64.W)))
 
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
