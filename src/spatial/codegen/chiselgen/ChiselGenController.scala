@@ -186,7 +186,8 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
 
     if (isStreamChild(sym)) {
-      emit(src"""val ${sym}_datapath_en = ${sym}_en""")  
+      emitGlobal(src"""val ${sym}_datapath_en = Wire(Bool())""")
+      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done""")  
     } else if (isFSM) {
       emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_done""")        
     } else {
@@ -276,14 +277,16 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         val readiers = listensTo(c).distinct.map { fifo => 
           fifo match {
             case Def(FIFONew(size)) => src"~${fifo}.io.empty"
-            case Def(StreamInNew(bus)) => src"${fifo}_ready"
+            case Def(StreamInNew(bus)) => 
+              emit(src"${fifo}_ready := ${c}_datapath_en")
+              src"${fifo}_valid"
             case _ => src"${fifo}_en" // parent node
           }
         }.mkString(" & ")
         val holders = (pushesTo(c)).distinct.map { fifo => 
           fifo match {
             case Def(FIFONew(size)) => src"~${fifo}.io.full"
-            case Def(StreamOutNew(bus)) => src"${fifo}_ready /*not sure if this sig exists*/"
+            case Def(StreamOutNew(bus)) => src"${fifo}_ready"
           }
         }.mkString(" & ")
 

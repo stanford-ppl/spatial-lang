@@ -193,7 +193,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")
         val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enabler = if (loadCtrlOf(sram).contains(parent)) src"${parent}_enq" else src"${parent}_datapath_en"
+        val enabler = if (loadCtrlOf(sram).contains(parent)) src"${parent}_datapath_en" else src"${parent}_datapath_en"
         emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enabler}, List(${p}))""")
       }
 
@@ -217,7 +217,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val writer = writersOf(fifo).head.ctrlNode  
       // Check if this is a tile consumer
 
-      val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_enq" else src"${writer}_sm.io.output.ctr_inc"
+      val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       emit(src"""${fifo}_writeEn := $enabler & $en""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
@@ -229,14 +229,25 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       }
 
     case e@ParStreamRead(strm, ens) =>
-      emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
-      emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
+      val isAck = strm match {
+        case Def(StreamInNew(bus)) => bus match {
+          case BurstAckBus => true
+          case _ => false
+        }
+        case _ => false
+      }
+      if (!isAck) {
+        emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
+        emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
+      } else {
+        emit(src"""// Do not read from dummy ack stream $strm""")        
+      }
 
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       emit(src"${strm}_data := $data")
-      emit(src"${strm}_en := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
+      emit(src"${strm}_valid := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
       
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 

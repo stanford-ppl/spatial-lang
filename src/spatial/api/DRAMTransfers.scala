@@ -101,7 +101,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       Pipe {
         val size = Reg[Index]
         Pipe{size := issueQueue.deq()}
-        Foreach(size.value par target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
+        Foreach(size.value by target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
           val ack  = ackStream.value()
         }
       }
@@ -168,7 +168,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       Pipe {
         val size = Reg[Index]
         Pipe{size := issueQueue.deq()}
-        Foreach(size.value par target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
+        Foreach(size.value by target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
           val ack  = ackStream.value()
         }
       }

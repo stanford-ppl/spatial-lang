@@ -3,7 +3,7 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
+import spatial.analysis.SpatialMetadataExp 
 import spatial.SpatialExp
 import scala.collection.mutable.HashMap
 
@@ -20,13 +20,19 @@ trait ChiselGenStream extends ChiselCodegen {
       case _ => super.quote(s)
 
     }
-  } 
+  }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
-      s"$bus" match {
-        case "BurstFullDataBus" => 
-        case "BurstAckBus" => 
+      s"$bus".replace("(","").replace(")","") match {
+        case "BurstDataBus" =>
+          // emitGlobal(src"""val ${quote(lhs)}_data = // Data bus handled at dense node codegen""")
+          // emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
+          emitGlobal(src"// New stream in (BurstFullDataBus) ${quote(lhs)}")
+        case "BurstAckBus" =>
+          // emitGlobal(src"""//val ${quote(lhs)}_data = Wire(UInt(97.W)) // TODO: What is width of burstackbus?""")
+          // emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
+          emitGlobal(src"// New stream in (BurstAckBus) ${quote(lhs)}")
         case "VideoCamera" => 
         //  emitGlobal("val $lhs_en = Bool()")
           emit(src"// video in camera, node = $lhs", forceful=true)
@@ -46,29 +52,47 @@ trait ChiselGenStream extends ChiselCodegen {
           emit(src"} ", forceful=true) 
 
         case _ =>
-          emit(src"// New stream in $lhs")
+          emitGlobal(s"// Cannot gen stream for $bus")
+          emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W))""")
+          emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
     case StreamOutNew(bus) =>
-      s"$bus" match {
-        case "BurstCmdBus" => 
+      s"$bus".replace("(","").replace(")","") match {
+        case "BurstFullDataBus" =>
+          // emitGlobal(src"""// val ${quote(lhs)}_data = // Data bus handled at dense node codegen""")
+          // emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
+          emitGlobal(src"// New stream in (BurstFullDataBus) ${quote(lhs)}")
+        case "BurstCmdBus" =>
+          emitGlobal(src"// New stream out (BurstCmdBus) ${quote(lhs)}")
+          // emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
+          // emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
         case "VGA" =>
           emit(src"// EMITTING FOR VGA; in OUTPUT REGISTERS, Output Register section $lhs", forceful=true)
         case _ =>
-          emit(src"// New stream out $lhs")
+          emitGlobal(src"// New stream out ${quote(lhs)}")
+          emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W))""")
+          emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
     case StreamRead(stream, en) =>
-      emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
-//      emit(src"""val $lhs = ${stream}_data""")  // Ignores enable for now
+      val isAck = stream match {
+        case Def(StreamInNew(bus)) => bus match {
+          case BurstAckBus => true
+          case _ => false
+        }
+        case _ => false
+      }
+      if (!isAck) {
+        // emit(src"""val $lhs = ${stream}_data""")  // Ignores enable for now  
+        emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
+      } else {
+        emit(src"""// read is of burstAck on $stream""")
+      }
       
-
     case StreamWrite(stream, data, en) =>
-      emitGlobal(src"""val ${stream}_valid = Wire(Bool())""")
-      emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
       emitGlobal(src"""val ${stream}_data = Wire(UInt(16.W))""")
       emitGlobal(src"""val converted_data = Wire(UInt(16.W))""")
-//      emitGlobal(src"""val ${stream}_data = Wire(UInt(97.W))""")
       emit(src"""${stream}_data := $data""")
       emit(src"""converted_data := ${stream}_data""")
     case _ => super.emitNode(lhs, rhs)
@@ -83,9 +107,9 @@ trait ChiselGenStream extends ChiselCodegen {
     //   emit(s"""val pop = Vec(${streamIns.length}, Output(Bool()))""")
     //   streamIns.zipWithIndex.foreach{ case(p,i) =>
     //     withStream(getStream("GlobalWires")) {
-    //       emit(s"""val ${quote(p)}_data = io.StreamIns.data($i) // ( ${nameOf(p).getOrElse("")} )""")  
-    //       emit(s"""val ${quote(p)}_ready = io.StreamIns.ready($i) // ( ${nameOf(p).getOrElse("")} )""")  
-    //       emit(s"""val ${quote(p)}_pop = io.StreamIns.pop($i) // ( ${nameOf(p).getOrElse("")} )""")  
+    //       emit(s"""val ${quote(p)}_data = io.StreamIns.data($i) // ( ${nameOf(p).getOrElse("")} )""")
+    //       emit(s"""val ${quote(p)}_ready = io.StreamIns.ready($i) // ( ${nameOf(p).getOrElse("")} )""")
+    //       emit(s"""val ${quote(p)}_pop = io.StreamIns.pop($i) // ( ${nameOf(p).getOrElse("")} )""")
     //     }
     //     emit(s"""//  ${quote(p)} = streamIns($i) ( ${nameOf(p).getOrElse("")} )""")
     //   // streamInsByName = streamInsByName :+ s"${quote(p)}"
@@ -98,9 +122,9 @@ trait ChiselGenStream extends ChiselCodegen {
     //   emit(s"""val push = Vec(${streamOuts.length}, Output(Bool()))""")
     //   streamOuts.zipWithIndex.foreach{ case(p,i) =>
     //     withStream(getStream("GlobalWires")) {
-    //       emit(s"""val ${quote(p)}_data = io.StreamOuts.data($i) // ( ${nameOf(p).getOrElse("")} )""")  
-    //       emit(s"""val ${quote(p)}_ready = io.StreamOuts.ready($i) // ( ${nameOf(p).getOrElse("")} )""")  
-    //       emit(s"""val ${quote(p)}_push = io.StreamOuts.pop($i) // ( ${nameOf(p).getOrElse("")} )""")  
+    //       emit(s"""val ${quote(p)}_data = io.StreamOuts.data($i) // ( ${nameOf(p).getOrElse("")} )""")
+    //       emit(s"""val ${quote(p)}_ready = io.StreamOuts.ready($i) // ( ${nameOf(p).getOrElse("")} )""")
+    //       emit(s"""val ${quote(p)}_push = io.StreamOuts.pop($i) // ( ${nameOf(p).getOrElse("")} )""")
     //     }
     //     emit(s"""//  ${quote(p)} = streamOuts($i) ( ${nameOf(p).getOrElse("")} )""")
     //   // streamOutsByName = streamOutsByName :+ s"${quote(p)}"
