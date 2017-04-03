@@ -70,8 +70,14 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
           Foreach(0 until Kh par Kh){i => sr(i, *) <<= lb(i, c) }
 
           
-          val horz = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * kh(i,j) }{_+_}
-          val vert = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => sr(i,j) * kv(i,j) }{_+_}
+          val horz = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => 
+            val number = mux((r < 2) || (c < 2) , 0.as[T], sr(i,j))
+            number * kh(i,j) 
+          }{_+_}
+          val vert = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => 
+            val number = mux((r < 2) || (c < 2) , 0.as[T], sr(i,j))
+            number * kv(i,j) 
+          }{_+_}
 
           lineOut(c) = abs(horz.value) + abs(vert.value) // Technically should be sqrt(horz**2 + vert**2)
         }
