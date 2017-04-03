@@ -413,8 +413,13 @@
    {
       datum _lockedAddress
       {
-         value = "1";
+         value = "0";
          type = "boolean";
+      }
+      datum baseAddress
+      {
+         value = "0";
+         type = "String";
       }
    }
    element Nios2
@@ -597,8 +602,13 @@
    {
       datum _lockedAddress
       {
-         value = "1";
+         value = "0";
          type = "boolean";
+      }
+      datum baseAddress
+      {
+         value = "8256";
+         type = "String";
       }
    }
    element System_PLL
@@ -665,6 +675,22 @@
          type = "int";
       }
    }
+   element Video_In_Subsystem.edge_detection_control_slave
+   {
+      datum baseAddress
+      {
+         value = "12400";
+         type = "String";
+      }
+   }
+   element Video_In_Subsystem.top_avalon_slave
+   {
+      datum baseAddress
+      {
+         value = "262144";
+         type = "String";
+      }
+   }
 }
 ]]></parameter>
  <parameter name="clockCrossingAdapter" value="HANDSHAKE" />
@@ -709,13 +735,17 @@
  <interface name="ps2_port" internal="PS2_Port.external_interface" />
  <interface name="ps2_port_dual" internal="PS2_Port_Dual.external_interface" />
  <interface name="pushbuttons" internal="Pushbuttons.external_connection" />
- <interface name="sdram" internal="SDRAM.wire" />
+ <interface name="sdram" internal="SDRAM.wire" type="conduit" dir="end" />
  <interface
    name="sdram_clk"
    internal="System_PLL.sdram_clk"
    type="clock"
    dir="start" />
- <interface name="slider_switches" internal="Slider_Switches.external_connection" />
+ <interface
+   name="slider_switches"
+   internal="Slider_Switches.external_connection"
+   type="conduit"
+   dir="end" />
  <interface
    name="system_pll_ref_clk"
    internal="System_PLL.ref_clk"
@@ -726,10 +756,22 @@
    internal="System_PLL.ref_reset"
    type="reset"
    dir="end" />
- <interface name="vga" internal="VGA_Subsystem.vga" />
- <interface name="vga_pll_ref_clk" internal="VGA_Subsystem.vga_pll_ref_clk" />
- <interface name="vga_pll_ref_reset" internal="VGA_Subsystem.vga_pll_ref_reset" />
- <interface name="video_in" internal="Video_In_Subsystem.video_in" />
+ <interface name="vga" internal="VGA_Subsystem.vga" type="conduit" dir="end" />
+ <interface
+   name="vga_pll_ref_clk"
+   internal="VGA_Subsystem.vga_pll_ref_clk"
+   type="clock"
+   dir="end" />
+ <interface
+   name="vga_pll_ref_reset"
+   internal="VGA_Subsystem.vga_pll_ref_reset"
+   type="reset"
+   dir="end" />
+ <interface
+   name="video_in"
+   internal="Video_In_Subsystem.video_in"
+   type="conduit"
+   dir="end" />
  <module name="ADC" kind="altera_up_avalon_adc" version="16.1" enabled="0">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="100000000" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
@@ -1983,9 +2025,9 @@
    name="Onchip_SRAM"
    kind="altera_avalon_onchip_memory2"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="allowInSystemMemoryContentEditor" value="false" />
-  <parameter name="autoInitializationFileName">Computer_System_Onchip_SRAM</parameter>
+  <parameter name="autoInitializationFileName">$${FILENAME}_Onchip_SRAM</parameter>
   <parameter name="blockType" value="AUTO" />
   <parameter name="copyInitFile" value="false" />
   <parameter name="dataWidth" value="32" />
@@ -2035,7 +2077,7 @@
    name="Pixel_DMA_Addr_Translation"
    kind="altera_up_avalon_video_dma_ctrl_addr_trans"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="ADDRESS_TRANSLATION_MASK" value="3221225472" />
  </module>
  <module
@@ -2060,7 +2102,7 @@
    name="SDRAM"
    kind="altera_avalon_new_sdram_controller"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="TAC" value="5.5" />
   <parameter name="TMRD" value="3" />
   <parameter name="TRCD" value="20.0" />
@@ -2070,7 +2112,7 @@
   <parameter name="casLatency" value="3" />
   <parameter name="clockRate" value="100000000" />
   <parameter name="columnWidth" value="10" />
-  <parameter name="componentName">Computer_System_SDRAM</parameter>
+  <parameter name="componentName" value="$${FILENAME}_SDRAM" />
   <parameter name="dataWidth" value="16" />
   <parameter name="generateSimulationModel" value="true" />
   <parameter name="initNOPDelay" value="0.0" />
@@ -2089,7 +2131,7 @@
    name="Slider_Switches"
    kind="altera_avalon_pio"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="bitClearingEdgeCapReg" value="false" />
   <parameter name="bitModifyingOutReg" value="false" />
   <parameter name="captureEdge" value="false" />
@@ -2120,32 +2162,31 @@
   <parameter name="CIII_boards" value="DE0" />
   <parameter name="CIV_boards" value="DE2-115" />
   <parameter name="CV_boards" value="DE1-SoC" />
-  <parameter name="MAX10_boards" value="DE10-Lite" />
   <parameter name="device_family" value="Cyclone V" />
   <parameter name="gui_outclk" value="100.0" />
   <parameter name="gui_refclk" value="50.0" />
   <parameter name="other_boards" value="None" />
  </module>
- <module name="VGA_Subsystem" kind="VGA_Subsystem" version="1.0" enabled="0">
+ <module name="VGA_Subsystem" kind="VGA_Subsystem" version="1.0" enabled="1">
   <parameter name="AUTO_DEVICE" value="5CSEMA5F31C6" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="AUTO_DEVICE_SPEEDGRADE" value="6" />
   <parameter name="AUTO_GENERATION_ID" value="0" />
-  <parameter name="AUTO_PIXEL_DMA_MASTER_ADDRESS_MAP" value="" />
-  <parameter name="AUTO_PIXEL_DMA_MASTER_ADDRESS_WIDTH" value="AddressWidth = -1" />
-  <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="11" />
+  <parameter name="AUTO_PIXEL_DMA_MASTER_ADDRESS_MAP"><![CDATA[<address-map><slave name='SDRAM.s1' start='0x0' end='0x4000000' /><slave name='Onchip_SRAM.s2' start='0x8000000' end='0x8040000' /></address-map>]]></parameter>
+  <parameter name="AUTO_PIXEL_DMA_MASTER_ADDRESS_WIDTH" value="AddressWidth = 28" />
+  <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="8" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="100000000" />
-  <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="11" />
-  <parameter name="AUTO_UNIQUE_ID">Computer_System_VGA_Subsystem</parameter>
-  <parameter name="AUTO_VGA_PLL_REF_CLK_CLOCK_DOMAIN" value="8" />
+  <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="8" />
+  <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_VGA_Subsystem</parameter>
+  <parameter name="AUTO_VGA_PLL_REF_CLK_CLOCK_DOMAIN" value="4" />
   <parameter name="AUTO_VGA_PLL_REF_CLK_CLOCK_RATE" value="0" />
-  <parameter name="AUTO_VGA_PLL_REF_CLK_RESET_DOMAIN" value="8" />
+  <parameter name="AUTO_VGA_PLL_REF_CLK_RESET_DOMAIN" value="4" />
  </module>
  <module
    name="Video_In_DMA_Addr_Translation"
    kind="altera_up_avalon_video_dma_ctrl_addr_trans"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="ADDRESS_TRANSLATION_MASK" value="3221225472" />
  </module>
  <module
@@ -2157,10 +2198,14 @@
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="AUTO_DEVICE_SPEEDGRADE" value="6" />
   <parameter name="AUTO_GENERATION_ID" value="0" />
-  <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="6" />
+  <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="8" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="100000000" />
-  <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="6" />
+  <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="8" />
   <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_Video_In_Subsystem</parameter>
+  <parameter name="AUTO_VIDEO_IN_DMA_MASTER_ADDRESS_MAP"><![CDATA[<address-map><slave name='SDRAM.s1' start='0x0' end='0x4000000' /><slave name='Onchip_SRAM.s1' start='0x8000000' end='0x8040000' /></address-map>]]></parameter>
+  <parameter
+     name="AUTO_VIDEO_IN_DMA_MASTER_ADDRESS_WIDTH"
+     value="AddressWidth = 28" />
  </module>
  <connection
    kind="avalon"
@@ -2763,7 +2808,16 @@
    start="ARM_A9_HPS.h2f_lw_axi_master"
    end="SysID.control_slave">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00042040" />
+  <parameter name="baseAddress" value="0x2040" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="16.1"
+   start="ARM_A9_HPS.h2f_lw_axi_master"
+   end="Video_In_Subsystem.edge_detection_control_slave">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x3070" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -2772,7 +2826,7 @@
    start="ARM_A9_HPS.h2f_lw_axi_master"
    end="LEDs.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00040000" />
+  <parameter name="baseAddress" value="0x0000" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -2871,7 +2925,7 @@
    start="ARM_A9_HPS.h2f_lw_axi_master"
    end="Video_In_Subsystem.top_avalon_slave">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x0000" />
+  <parameter name="baseAddress" value="0x00040000" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -3147,6 +3201,15 @@
  <connection
    kind="avalon"
    version="16.1"
+   start="Video_In_DMA_Addr_Translation.master"
+   end="Video_In_Subsystem.video_in_dma_control_slave">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="16.1"
    start="JTAG_to_FPGA_Bridge.master"
    end="F2H_Mem_Window_00000000.windowed_slave">
   <parameter name="arbitrationPriority" value="1" />
@@ -3187,6 +3250,24 @@
    end="Onchip_SRAM.s2">
   <parameter name="arbitrationPriority" value="1" />
   <parameter name="baseAddress" value="0x08000000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="16.1"
+   start="Video_In_Subsystem.video_in_dma_master"
+   end="Onchip_SRAM.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x08000000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="16.1"
+   start="Video_In_Subsystem.video_in_dma_master"
+   end="SDRAM.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0000" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection

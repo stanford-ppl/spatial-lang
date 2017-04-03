@@ -6,7 +6,7 @@
    version="1.0"
    description=""
    tags=""
-   categories="" />
+   categories="System" />
  <parameter name="bonusData"><![CDATA[bonusData 
 {
    element Char_Buf_Subsystem
@@ -163,7 +163,7 @@
   <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="1" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="1" />
-  <parameter name="AUTO_UNIQUE_ID">VGA_Subsystem_Char_Buf_Subsystem</parameter>
+  <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_Char_Buf_Subsystem</parameter>
  </module>
  <module name="Sys_Clk" kind="clock_source" version="16.1" enabled="1">
   <parameter name="clockFrequency" value="50000000" />

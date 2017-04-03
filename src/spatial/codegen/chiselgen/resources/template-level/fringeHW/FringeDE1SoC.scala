@@ -11,7 +11,25 @@ import templates.Utils.log2Up
  * @param numArgIns: Number of input scalar arguments
  * @param numArgOuts: Number of output scalar arguments
  */
-class FringeDE1SoC(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numMemoryStreams: Int = 1) extends Module {
+class FringeDE1SoC(
+  val w: Int,
+  val numArgIns: Int,
+  val numArgOuts: Int,
+  val loadStreamInfo: List[StreamParInfo],
+  val storeStreamInfo: List[StreamParInfo]
+) extends Module {
+  val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
+  val addrWidth = log2Up(numRegs)
+
+  val commandReg = 0  // TODO: These vals are used in test only, logic below does not use them.
+  val statusReg = 1   //       Changing these values alone has no effect on the logic below.
+
+  // Some constants (mostly MAG-related) that will later become module parameters
+  val v = 16 // Number of words in the same stream
+  val numOutstandingBursts = 1024  // Picked arbitrarily
+  val burstSizeBytes = 64
+  val d = 16 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
+
   val axiLiteParams = new AXI4BundleParameters(16, w, 1)
   val io = IO(new Bundle {
     // Host scalar interface
@@ -27,7 +45,7 @@ class FringeDE1SoC(val w: Int, val numArgIns: Int, val numArgOuts: Int, val numM
   })
 
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, 0))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
 
   // Connect to Avalon Slave
   // Avalon is using reset and write_n
@@ -50,8 +68,10 @@ object FringeDE1SoC {
   val w = 32
   val numArgIns = 5
   val numArgOuts = 1
+  val loadStreamInfo = List[StreamParInfo]()
+  val storeStreamInfo = List[StreamParInfo]()
 
   def main(args: Array[String]) {
-    Driver.execute(Array[String]("--target-dir", "chisel_out/FringeDE1SoC"), () => new FringeDE1SoC(w, numArgIns, numArgOuts))
+    Driver.execute(Array[String]("--target-dir", "chisel_out/FringeDE1SoC"), () => new FringeDE1SoC(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
   }
 }

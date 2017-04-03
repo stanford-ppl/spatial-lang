@@ -122,7 +122,7 @@ class Top(
 
     case "de1soc" =>
       // DE1SoC Fringe
-      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, numMemoryStreams))
+      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
       val topIO = io.asInstanceOf[DE1SoCInterface]
 
       // Fringe <-> Host connections

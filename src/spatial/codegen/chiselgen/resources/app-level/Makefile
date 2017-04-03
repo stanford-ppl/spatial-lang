@@ -90,11 +90,11 @@ zynq-clean:
 
 de1soc: 
 	sbt "run-main top.Instantiator --verilog --testArgs de1soc"
-	sed -i 's/SRFF/SRFF_sp/g' verilog/Top.v
-	cp -r chisel/fringeDE1SoC/simulation verilog
-	cp -r chisel/fringeDE1SoC/* verilog
-	cp verilog/Top.v verilog/Computer_System/synthesis/submodules
-	cd verilog && ./compile.sh
+	sed -i 's/SRFF/SRFF_sp/g' verilog-de1soc/Top.v
+	cp -r chisel/fringeDE1SoC/simulation verilog-de1soc/
+	cp -r chisel/fringeDE1SoC/* verilog-de1soc/
+	cp verilog-de1soc/Top.v verilog-de1soc/Computer_System/synthesis/submodules
+	cd verilog-de1soc && ./compile.sh
 	echo "sp.rbf generated. Please copy it to your working dir on FPGA ARM"
 
 de1soc-clean:

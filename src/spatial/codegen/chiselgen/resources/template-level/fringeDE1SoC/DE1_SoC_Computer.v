@@ -395,7 +395,7 @@ Computer_System The_System (
 //	.audio_DACLRCK								(AUD_DACLRCK),
 
 	// Slider Switches
-//	.slider_switches_export					(SW),
+	.slider_switches_export					(SW),
 
 	// Pushbuttons
 //	.pushbuttons_export						(~KEY[3:0]),
@@ -424,37 +424,37 @@ Computer_System The_System (
 //	.irda_TXD									(IRDA_TXD),
 
 	// VGA Subsystem
-//	.vga_pll_ref_clk_clk 					(CLOCK2_50),
-//	.vga_pll_ref_reset_reset				(1'b0),
-//	.vga_CLK										(VGA_CLK),
-//	.vga_BLANK									(VGA_BLANK_N),
-//	.vga_SYNC									(VGA_SYNC_N),
-//	.vga_HS										(VGA_HS),
-//	.vga_VS										(VGA_VS),
-//	.vga_R										(VGA_R),
-//	.vga_G										(VGA_G),
-//	.vga_B										(VGA_B),
+	.vga_pll_ref_clk_clk 					(CLOCK2_50),
+	.vga_pll_ref_reset_reset				(1'b0),
+	.vga_CLK										(VGA_CLK),
+	.vga_BLANK									(VGA_BLANK_N),
+	.vga_SYNC									(VGA_SYNC_N),
+	.vga_HS										(VGA_HS),
+	.vga_VS										(VGA_VS),
+	.vga_R										(VGA_R),
+	.vga_G										(VGA_G),
+	.vga_B										(VGA_B),
 	
 	// Video In Subsystem
-//	.video_in_TD_CLK27 						(TD_CLK27),
-//	.video_in_TD_DATA							(TD_DATA),
-//	.video_in_TD_HS							(TD_HS),
-//	.video_in_TD_VS							(TD_VS),
-//	.video_in_clk27_reset					(),
-//	.video_in_TD_RESET						(TD_RESET_N),
-//	.video_in_overflow_flag					(),
+	.video_in_TD_CLK27 						(TD_CLK27),
+	.video_in_TD_DATA							(TD_DATA),
+	.video_in_TD_HS							(TD_HS),
+	.video_in_TD_VS							(TD_VS),
+	.video_in_clk27_reset					(),
+	.video_in_TD_RESET						(TD_RESET_N),
+	.video_in_overflow_flag					(),
 	
 	// SDRAM
-//	.sdram_clk_clk								(DRAM_CLK),
-//   .sdram_addr									(DRAM_ADDR),
-//	.sdram_ba									(DRAM_BA),
-//	.sdram_cas_n								(DRAM_CAS_N),
-//	.sdram_cke									(DRAM_CKE),
-//	.sdram_cs_n									(DRAM_CS_N),
-//	.sdram_dq									(DRAM_DQ),
-//	.sdram_dqm									({DRAM_UDQM,DRAM_LDQM}),
-//	.sdram_ras_n								(DRAM_RAS_N),
-//	.sdram_we_n									(DRAM_WE_N),
+	.sdram_clk_clk								(DRAM_CLK),
+   	.sdram_addr									(DRAM_ADDR),
+	.sdram_ba									(DRAM_BA),
+	.sdram_cas_n								(DRAM_CAS_N),
+	.sdram_cke									(DRAM_CKE),
+	.sdram_cs_n									(DRAM_CS_N),
+	.sdram_dq									(DRAM_DQ),
+	.sdram_dqm									({DRAM_UDQM,DRAM_LDQM}),
+	.sdram_ras_n								(DRAM_RAS_N),
+	.sdram_we_n									(DRAM_WE_N),
 	
 	////////////////////////////////////
 	// HPS Side

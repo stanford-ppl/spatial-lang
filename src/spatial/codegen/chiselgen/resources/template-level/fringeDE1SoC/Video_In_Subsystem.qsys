@@ -29,7 +29,7 @@
    {
       datum _sortIndex
       {
-         value = "9";
+         value = "6";
          type = "int";
       }
    }
@@ -61,7 +61,7 @@
    {
       datum _sortIndex
       {
-         value = "6";
+         value = "7";
          type = "int";
       }
    }
@@ -69,7 +69,7 @@
    {
       datum _sortIndex
       {
-         value = "8";
+         value = "9";
          type = "int";
       }
    }
@@ -85,7 +85,7 @@
    {
       datum _sortIndex
       {
-         value = "7";
+         value = "8";
          type = "int";
       }
    }
@@ -112,7 +112,9 @@
  <instanceScript></instanceScript>
  <interface
    name="edge_detection_control_slave"
-   internal="Edge_Detection_Subsystem.edge_detection_control_slave" />
+   internal="Edge_Detection_Subsystem.edge_detection_control_slave"
+   type="avalon"
+   dir="end" />
  <interface name="sys_clk" internal="Sys_Clk.clk_in" type="clock" dir="end" />
  <interface
    name="sys_reset"
@@ -125,16 +127,26 @@
    internal="Top.avalon_slave"
    type="avalon"
    dir="end" />
- <interface name="video_in" internal="Video_In.external_interface" />
+ <interface
+   name="video_in"
+   internal="Video_In.external_interface"
+   type="conduit"
+   dir="end" />
  <interface
    name="video_in_dma_control_slave"
-   internal="Video_In_DMA.avalon_dma_control_slave" />
- <interface name="video_in_dma_master" internal="Video_In_DMA.avalon_dma_master" />
+   internal="Video_In_DMA.avalon_dma_control_slave"
+   type="avalon"
+   dir="end" />
+ <interface
+   name="video_in_dma_master"
+   internal="Video_In_DMA.avalon_dma_master"
+   type="avalon"
+   dir="start" />
  <module
    name="Edge_Detection_Subsystem"
    kind="Edge_Detection_Subsystem"
    version="1.0"
-   enabled="0">
+   enabled="1">
   <parameter name="AUTO_DEVICE" value="5CSEMA5F31C6" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="AUTO_DEVICE_SPEEDGRADE" value="6" />
@@ -142,7 +154,7 @@
   <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="1" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="1" />
-  <parameter name="AUTO_UNIQUE_ID">Video_In_Subsystem_Edge_Detection_Subsystem</parameter>
+  <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_Edge_Detection_Subsystem</parameter>
  </module>
  <module name="Sys_Clk" kind="clock_source" version="16.1" enabled="1">
   <parameter name="clockFrequency" value="50000000" />
@@ -155,7 +167,7 @@
    name="Video_In"
    kind="altera_up_avalon_video_decoder"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="video_source">On-board Video In (NTSC or PAL)</parameter>
@@ -164,7 +176,7 @@
    name="Video_In_CSC"
    kind="altera_up_avalon_video_csc"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="csc_type">444 YCrCb to 24-bit RGB</parameter>
@@ -173,7 +185,7 @@
    name="Video_In_Chroma_Resampler"
    kind="altera_up_avalon_video_chroma_resampler"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="input_type" value="YCrCb 422" />
@@ -183,7 +195,7 @@
    name="Video_In_Clipper"
    kind="altera_up_avalon_video_clipper"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="add_bottom" value="0" />
@@ -207,7 +219,7 @@
    name="Video_In_DMA"
    kind="altera_up_avalon_video_dma_controller"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="addr_mode" value="X-Y" />
@@ -235,7 +247,7 @@
    name="Video_In_Scaler"
    kind="altera_up_avalon_video_scaler"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="color_bits" value="16" />
@@ -260,7 +272,7 @@
    kind="avalon_streaming"
    version="16.1"
    start="Video_In_CSC.avalon_csc_source"
-   end="Video_In_RGB_Resampler.avalon_rgb_sink" />
+   end="Top.avalon_streaming_sink" />
  <connection
    kind="avalon_streaming"
    version="16.1"
@@ -269,13 +281,13 @@
  <connection
    kind="avalon_streaming"
    version="16.1"
-   start="Video_In_RGB_Resampler.avalon_rgb_source"
-   end="Video_In_Clipper.avalon_clipper_sink" />
+   start="Video_In_Scaler.avalon_scaler_source"
+   end="Video_In_DMA.avalon_dma_sink" />
  <connection
    kind="avalon_streaming"
    version="16.1"
-   start="Video_In_Scaler.avalon_scaler_source"
-   end="Video_In_DMA.avalon_dma_sink" />
+   start="Top.avalon_streaming_source"
+   end="Video_In_Clipper.avalon_clipper_sink" />
  <connection
    kind="avalon_streaming"
    version="16.1"
@@ -296,11 +308,6 @@
    kind="clock"
    version="16.1"
    start="Sys_Clk.clk"
-   end="Video_In_RGB_Resampler.clk" />
- <connection
-   kind="clock"
-   version="16.1"
-   start="Sys_Clk.clk"
    end="Video_In_Clipper.clk" />
  <connection
    kind="clock"
@@ -312,6 +319,11 @@
    version="16.1"
    start="Sys_Clk.clk"
    end="Video_In_DMA.clk" />
+ <connection
+   kind="clock"
+   version="16.1"
+   start="Sys_Clk.clk"
+   end="Video_In_RGB_Resampler.clk" />
  <connection kind="clock" version="16.1" start="Sys_Clk.clk" end="Top.clock_sink" />
  <connection
    kind="clock"
@@ -337,11 +349,6 @@
    kind="reset"
    version="16.1"
    start="Sys_Clk.clk_reset"
-   end="Video_In_RGB_Resampler.reset" />
- <connection
-   kind="reset"
-   version="16.1"
-   start="Sys_Clk.clk_reset"
    end="Video_In_Clipper.reset" />
  <connection
    kind="reset"
@@ -353,6 +360,16 @@
    version="16.1"
    start="Sys_Clk.clk_reset"
    end="Video_In_DMA.reset" />
+ <connection
+   kind="reset"
+   version="16.1"
+   start="Sys_Clk.clk_reset"
+   end="Video_In_RGB_Resampler.reset" />
+ <connection
+   kind="reset"
+   version="16.1"
+   start="Sys_Clk.clk_reset"
+   end="Top.reset_sink" />
  <connection
    kind="reset"
    version="16.1"
