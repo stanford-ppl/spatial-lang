@@ -277,9 +277,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         val readiers = listensTo(c).distinct.map { fifo => 
           fifo match {
             case Def(FIFONew(size)) => src"~${fifo}.io.empty"
-            case Def(StreamInNew(bus)) => 
-              emit(src"${fifo}_ready := ${c}_datapath_en")
-              src"${fifo}_valid"
+            case Def(StreamInNew(bus)) => src"${fifo}_valid"
             case _ => src"${fifo}_en" // parent node
           }
         }.mkString(" & ")

@@ -45,6 +45,7 @@ trait ChiselGenStream extends ChiselCodegen {
         }
         case _ => false
       }
+      emit(src"""${stream}_ready := ${en} & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
       if (!isAck) {
         val streamID = streamIns.indexOf(stream.asInstanceOf[Sym[Reg[_]]])
         Predef.assert(streamID != -1, s"Stream ${quote(stream)} not present in streamIns")
