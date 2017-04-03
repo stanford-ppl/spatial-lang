@@ -54,10 +54,25 @@ trait ChiselGenStream extends ChiselCodegen {
       }
 
     case StreamWrite(stream, data, en) =>
+      val externalStream = stream match {
+        case Def(StreamOutNew(bus)) => s"$bus".replace("(","").replace(")","") match {
+          case "BustFullDataBus" => false
+          case "BurstCmdBus" => false
+          case _ => true
+        }
+        case _ => false
+			}
+
+      if (externalStream) {
         val streamID = streamOuts.indexOf(stream.asInstanceOf[Sym[Reg[_]]])
         Predef.assert(streamID != -1, s"Stream ${quote(stream)} not present in streamOuts")
         emit(src"""io.streamOuts.bits.data := ${quote(data)}.asUInt() // Will use ID=$streamID in next change. StreamWrite(stream = $stream, data = $data, en = $en)""")  // Ignores enable for now
         emit(src"""io.streamOuts.valid := ${parentOf(lhs).get}_done & $en""")
+      } else {
+        emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
+        emit(src"""${stream}_data := $data""")
+      }
+
     case _ => super.emitNode(lhs, rhs)
   }
 
