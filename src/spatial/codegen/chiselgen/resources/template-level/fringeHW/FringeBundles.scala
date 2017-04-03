@@ -105,6 +105,8 @@ class StreamIO(val w: Int) extends Bundle {
   val data = UInt(w.W)
   val tag = UInt(w.W)
   val last = Bool()
+
+  override def cloneType(): this.type = new StreamIO(w).asInstanceOf[this.type]
 }
 
 object StreamOut {

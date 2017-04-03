@@ -40,6 +40,12 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
+
+  // Input streams
+  val streamIn = StreamIn(p.dataWidth)
+
+  // Output streams
+  val streamOut = StreamOut(p.dataWidth)
 }
 
 class ZynqInterface(p: TopParams) extends TopInterface {
@@ -112,6 +118,14 @@ class Top(
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
+
+      // Fringe <-> Peripheral connections
+      fringe.io.streamInTop <> topIO.streamIn
+      fringe.io.streamOutTop <> topIO.streamOut
+
+      // Fringe <-> Accel stream connections
+      accel.io.streamIns <> fringe.io.streamInAccel
+      fringe.io.streamOutAccel <> accel.io.streamOuts
 
     case "zynq" =>
       // Zynq Fringe
