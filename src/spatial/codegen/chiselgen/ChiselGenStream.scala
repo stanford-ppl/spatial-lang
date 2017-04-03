@@ -66,9 +66,7 @@ trait ChiselGenStream extends ChiselCodegen {
       if (externalStream) {
         val streamID = streamOuts.indexOf(stream.asInstanceOf[Sym[Reg[_]]])
         Predef.assert(streamID != -1, s"Stream ${quote(stream)} not present in streamOuts")
-        // TODO: Using 'asUInt' is causing numbers to double if number is a FixPt, not sure why
-        // Ugly, unsafe hack to 'fix' that temporarily
-        emit(src"""io.streamOuts.bits.data := ${quote(data)}.asUInt()(${quote(data)}.getWidth-1, 1) // Will use ID=$streamID in next change. StreamWrite(stream = $stream, data = $data, en = $en)""")  // Ignores enable for now
+        emit(src"""io.streamOuts.bits.data := ${quote(data)}.number // Will use ID=$streamID in next change. StreamWrite(stream = $stream, data = $data, en = $en)""")  // Ignores enable for now
         emit(src"""io.streamOuts.valid := ${parentOf(lhs).get}_done & $en""")
       } else {
         emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
