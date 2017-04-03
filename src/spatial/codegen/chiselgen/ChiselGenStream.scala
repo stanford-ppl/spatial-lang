@@ -64,11 +64,11 @@ trait ChiselGenStream extends ChiselCodegen {
         case _ => false
       }
       if (!isAck) {
-        emit(src"""val $lhs = ${stream}_data""")  // Ignores enable for now  
+        emit(src"""val $lhs = ${stream}_data""")  // Ignores enable for now
       } else {
         emit(src"""// read is of burstAck on $stream""")
       }
-      
+
     case StreamWrite(stream, data, en) =>
       emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
       emit(src"""${stream}_data := $data""")
