@@ -180,6 +180,13 @@ void checkAndSendDRAMResponse() {
   }
 }
 
+void sendInputStream() {
+  static uint32_t data = 0;
+  static uint32_t tag = numCycles;
+  uint32_t last = 0;
+  writeStream(data++, tag, last);
+}
+
 
 class DRAMCallbackMethods {
 public:
@@ -252,6 +259,22 @@ extern "C" {
     }
   }
 
+  // Read valid data from streamOut
+  void readOutputStream(
+      int data,
+      int tag,
+      int last
+    ) {
+    // view addr as uint64_t without doing sign extension
+    uint32_t udata = *(uint32_t*)&data;
+    uint32_t utag = *(uint32_t*)&tag;
+    bool blast = last > 0;
+
+    // Currently just print read data out to console
+    EPRINTF("[readOutputStream] data = %08x, tag = %08x, last = %x\n", udata, utag, blast);
+  }
+
+
   // Function is called every clock cycle
   int tick() {
     bool exitTick = false;
@@ -287,6 +310,9 @@ extern "C" {
 
     // Drain an element from DRAM queue if it exists
     checkAndSendDRAMResponse();
+
+    // Every few cycles, send something to input stream
+    sendInputStream();
 
     // Handle new incoming operations
     while (!exitTick) {
