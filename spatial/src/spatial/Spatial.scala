@@ -9,6 +9,8 @@ import argon.core.Staging
 import argon.ops._
 import argon.traversal.IRPrinter
 import argon.{AppCore, CompilerCore, LibCore}
+import forge._
+import org.virtualized.EmptyContext
 import spatial.api._
 import spatial.dse._
 import spatial.analysis._
@@ -23,7 +25,7 @@ protected trait SpatialExp extends Staging
   with ArrayExp with ArrayExtExp with BoolExp with CastExp with FixPtExp with FltPtExp
   with HashMapExp with IfThenElseExp with StructExp
   with TextExp with TupleExp with VoidExp with MatrixExp
-  with DebuggingExp with TemplatesExp
+  with DebuggingExp with TemplatesExp with BitOpsExp
 
   with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
@@ -32,19 +34,35 @@ protected trait SpatialExp extends Staging
 
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
 
+trait SpatialImplicits{this: SpatialApi =>
+  // HACK: Insert Void where required to make programs not have to include () at the end of ... => Void functions
+  implicit def insert_void[T:Meta](x: T): Void = Unit()(EmptyContext)
+
+  // Hacks required to allow .to[T] syntax on various primitive types
+  // Naming is apparently important here (has to have same names as in Predef)
+  implicit class longWrapper(x: scala.Long) {
+    @api def to[B:Meta](implicit cast: Cast[scala.Long,B]): B = cast(x)
+  }
+  implicit class floatWrapper(x: scala.Float) {
+    @api def to[B:Meta](implicit cast: Cast[scala.Float,B]): B = cast(x)
+  }
+  implicit class doubleWrapper(x: scala.Double) {
+    @api def to[B:Meta](implicit cast: Cast[scala.Double,B]): B = cast(x)
+  }
+}
 
 protected trait SpatialApi extends SpatialExp
   with ArrayApi with ArrayExtApi with BoolApi with CastApi with FixPtApi with FltPtApi
   with HashMapApi with IfThenElseApi with StructApi
   with TextApi with TupleApi with VoidApi with MatrixApi
-  with DebuggingApi
+  with DebuggingApi with BitsOpsApi
 
   with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
   with StreamApi with PinApi with AlteraVideoApi
   with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
 
-  with SpatialMetadataApi with BankingMetadataApi
+  with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits
 
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen

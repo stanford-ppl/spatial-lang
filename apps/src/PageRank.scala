@@ -64,8 +64,8 @@ object PageRank extends SpatialApp {
 
     Accel {
       Sequential.Foreach(iters by 1){ iter =>
-        // val oldPrIdx = iter % 2.as[SInt]
-        // val newPrIdx = mux(oldPrIdx == 1, 0.as[SInt], 1.as[SInt])
+        // val oldPrIdx = iter % 2.to[SInt]
+        // val newPrIdx = mux(oldPrIdx == 1, 0.to[SInt], 1.to[SInt])
         Sequential.Foreach(NP by tileSize) { tid =>
           val currentPR = SRAM[T](tileSize)
           val initPR = SRAM[T](tileSize)
@@ -100,7 +100,7 @@ object PageRank extends SpatialApp {
               val addr = edges(i) // Write addr to both tiles, but only inc one addr
               val onchip = addr >= tid && addr < tid+tileSize
               offAddr := offAddr.value + mux(onchip, 0, 1)
-              offLoc(i) = mux(onchip, offAddr.value, -1.as[Int])
+              offLoc(i) = mux(onchip, offAddr.value, -1.to[Int])
             }
 
             // Set up gather addresses
@@ -121,14 +121,14 @@ object PageRank extends SpatialApp {
 
               val offchipRank = gatheredPR(off)
 
-              val rank = mux(off == -1.as[Int], onchipRank, offchipRank)
+              val rank = mux(off == -1.to[Int], onchipRank, offchipRank)
 
               rank / counts(i)
             }{_+_}
-            //val pr = Reduce(numEdges.value by 1)(0.as[T]){ i => frontier(i) / counts(i).to[T] }{_+_}
+            //val pr = Reduce(numEdges.value by 1)(0.to[T]){ i => frontier(i) / counts(i).to[T] }{_+_}
 
             // Update PR
-            currentPR(pid) = pr.value * damp + (1.as[T] - damp)
+            currentPR(pid) = pr.value * damp + (1.to[T] - damp)
 
             // Reset counts (Plasticine: assume this is done by CUs)
             /*Parallel{
@@ -154,9 +154,9 @@ object PageRank extends SpatialApp {
     val pages = Array.tabulate(NP){i => random[X](3)}
     val edges = Array.tabulate(NP){i => Array.tabulate(edges_per_page) {j =>
       if (i < edges_per_page) j else i - j}}.flatten
-    val counts = Array.tabulate(NP){i => Array.tabulate(edges_per_page) { j => edges_per_page.as[X] }}.flatten
+    val counts = Array.tabulate(NP){i => Array.tabulate(edges_per_page) { j => edges_per_page.to[X] }}.flatten
     val edgeId = Array.tabulate(NP){i => i*edges_per_page }
-    val edgeLen = Array.tabulate(NP){i => edges_per_page.as[Int] }
+    val edgeLen = Array.tabulate(NP){i => edges_per_page.to[Int] }
 
     val result = pagerank(pages, edges, counts, edgeId, edgeLen, iters, damp, NP)
 
@@ -181,7 +181,7 @@ object PageRank extends SpatialApp {
           p/c
         }.reduce{_+_}
         // println("new pr for " + i + " is " + pr)
-        gold(i) = pr*damp + (1.as[X]-damp)
+        gold(i) = pr*damp + (1.to[X]-damp)
       }
     }
 

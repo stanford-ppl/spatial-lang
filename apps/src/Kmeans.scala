@@ -12,7 +12,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
   val innerPar = 1
   val outerPar = 1
   val element_max = 10
-  val margin = (element_max * 0.2).as[X]
+  val margin = (element_max * 0.2).to[X]
 
   val MAXK = num_cents
   val MAXD = dim
@@ -71,7 +71,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
           // For each point in this set
           MemFold(newCents)(BN par PX){pt =>
             // Find the index of the closest centroid
-            val accum = Reg[Tup2[Int,T]]( pack(0.as[Int], 100000.as[T]) )
+            val accum = Reg[Tup2[Int,T]]( pack(0.to[Int], 100000.to[T]) )
             val minCent = Reduce(accum)(K par PX){ct =>
               val dist = Reduce(Reg[T])(D par P2){d => (pts(pt,d) - cts(ct,d)) ** 2 }{_+_}
               pack(ct, dist.value)
@@ -82,8 +82,8 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
             // Store this point to the set of accumulators
             val localCent = SRAM[T](MAXK,MAXD)
             Foreach(K by 1, D par P2){(ct,d) =>
-              val elem = mux(d == DM1, 1.as[T], pts(pt, d))
-              localCent(ct, d) = mux(ct == minCent.value._1, elem, 0.as[T])
+              val elem = mux(d == DM1, 1.to[T], pts(pt, d))
+              localCent(ct, d) = mux(ct == minCent.value._1, elem, 0.to[T])
             }
             localCent
           }{_+_} // Add the current point to the accumulators for this centroid
@@ -99,7 +99,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
         }
         // Flush centroid accumulator
         Foreach(K by 1, D par P0){(ct,d) =>
-          newCents(ct,d) = 0.as[T]
+          newCents(ct,d) = 0.to[T]
         }
       }
 
@@ -121,12 +121,12 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
     val K = num_cents //args(2).to[SInt];
     val D = dim //args(3).to[SInt];
 
-    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) + i }}
-    val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else random[X](element_max) + (i*N/K) }}
-    // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else if (d == 0) random[X](element_max) + i else 0.as[X]}}
-    // val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else if (d == 0) random[X](element_max) + i else 0.as[X]}}
-    // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else 5*i }}
-    // val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.as[X] else 5*i+1 }}
+    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else random[X](element_max) + i }}
+    val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else random[X](element_max) + (i*N/K) }}
+    // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else if (d == 0) random[X](element_max) + i else 0.to[X]}}
+    // val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else if (d == 0) random[X](element_max) + i else 0.to[X]}}
+    // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else 5*i }}
+    // val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else 5*i+1 }}
 
     // println("points: ")
     // for (i <- 0 until N) { println(i.mkString + ": " + pts(i).mkString(", ")) }
@@ -153,9 +153,9 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
         if (map.contains(k)) {
           val wp = map(k)
           val n  = wp(D - 1)
-          cts(k) = Array.tabulate(D){d => if (d == D-1) 1.as[X] else wp(d)/n }          
+          cts(k) = Array.tabulate(D){d => if (d == D-1) 1.to[X] else wp(d)/n }
         } else {
-          cts(k) = Array.tabulate(D){d => 0.as[X]}
+          cts(k) = Array.tabulate(D){d => 0.to[X]}
         }
       }
     }

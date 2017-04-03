@@ -27,15 +27,15 @@ object Convolution_CGRA extends SpatialApp {
 
       // TODO: Better syntax for initialization of lookup tables
       Pipe {
-        kh(0,0) = 1.as[T]
-        kh(1,0) = 2.as[T]
-        kh(2,0) = 1.as[T]
-        kh(0,1) = 0.as[T]
-        kh(1,1) = 0.as[T]
-        kh(2,1) = 0.as[T]
-        kh(0,2) = -1.as[T]
-        kh(1,2) = -2.as[T]
-        kh(2,2) = -1.as[T]
+        kh(0,0) = 1.to[T]
+        kh(1,0) = 2.to[T]
+        kh(2,0) = 1.to[T]
+        kh(0,1) = 0.to[T]
+        kh(1,1) = 0.to[T]
+        kh(2,1) = 0.to[T]
+        kh(0,2) = -1.to[T]
+        kh(1,2) = -2.to[T]
+        kh(2,2) = -1.to[T]
       }
 
       val lineOut = SRAM[T](Cmax)
@@ -62,7 +62,7 @@ object Convolution_CGRA extends SpatialApp {
 
             Foreach(Kw by 1) { j =>
               Foreach(B by 1) { cc =>
-                val prev = mux(i == 0, 0.as[T], out(cc))
+                val prev = mux(i == 0, 0.to[T], out(cc))
                 out(cc) = prev + sr(cc) * kh(i, j)
               }
             }

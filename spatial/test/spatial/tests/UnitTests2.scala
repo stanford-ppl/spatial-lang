@@ -37,7 +37,7 @@ object BlockReduce2D extends SpatialTest {
   def main() = {
     val numRows = args(0).to[Int]
     val numCols = args(1).to[Int]
-    val src = Array.tabulate(numRows) { i => Array.tabulate(numCols) { j => 1.as[Int] } } //i*numCols + j} }
+    val src = Array.tabulate(numRows) { i => Array.tabulate(numCols) { j => 1.to[Int] } } //i*numCols + j} }
     val flatsrc = src.flatten
 
     val result = blockreduce_2d(flatsrc, numRows, numCols)
