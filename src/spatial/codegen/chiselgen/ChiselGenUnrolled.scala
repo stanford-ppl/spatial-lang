@@ -121,7 +121,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
       emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
       if (styleOf(lhs) == InnerPipe) {
-        emit(src"val ${accum}_wren = ${cchain}_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
+        emit(src"val ${accum}_wren = ${lhs}_datapath_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
         accum match { 
@@ -236,6 +236,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         }
         case _ => false
       }
+      emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
       if (!isAck) {
         emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
         emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")

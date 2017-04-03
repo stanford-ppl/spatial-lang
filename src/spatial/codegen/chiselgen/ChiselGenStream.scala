@@ -63,6 +63,7 @@ trait ChiselGenStream extends ChiselCodegen {
         }
         case _ => false
       }
+      emit(src"""${stream}_ready := ${en} & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
       if (!isAck) {
         emit(src"""val $lhs = ${stream}_data""")  // Ignores enable for now  
       } else {
