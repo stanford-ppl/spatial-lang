@@ -25,6 +25,7 @@ using namespace std;
 #include "svdpi_src.h"
 
 #include <DRAMSim.h>
+#include <Streams.h>
 
 extern char **environ;
 
@@ -40,6 +41,12 @@ uint64_t globalDRAMID =1;
 // DRAMSim2
 DRAMSim::MultiChannelMemorySystem *mem = NULL;
 bool useIdealDRAM = false;
+
+// Input stream
+InputStream *inStream = NULL;
+
+// Output stream
+OutputStream *outStream = NULL;
 
 int sendResp(simCmd *cmd) {
   simCmd resp;
@@ -180,14 +187,6 @@ void checkAndSendDRAMResponse() {
   }
 }
 
-void sendInputStream() {
-  static uint32_t data = 0;
-  static uint32_t tag = numCycles;
-  uint32_t last = 0;
-  writeStream(data++, tag, last);
-}
-
-
 class DRAMCallbackMethods {
 public:
   void txComplete(unsigned id, uint64_t addr, uint64_t tag, uint64_t clock_cycle) {
@@ -258,23 +257,23 @@ extern "C" {
       addrToReqMap[at] = req;
     }
   }
+}
 
-  // Read valid data from streamOut
-  void readOutputStream(
-      int data,
-      int tag,
-      int last
-    ) {
+extern "C" {
+  // Callback function from SV when there is valid data
+  // Currently output stream is always ready, so there is no feedback going from C++ -> SV
+  void readOutputStream(int data, int tag, int last) {
     // view addr as uint64_t without doing sign extension
     uint32_t udata = *(uint32_t*)&data;
     uint32_t utag = *(uint32_t*)&tag;
     bool blast = last > 0;
 
     // Currently just print read data out to console
-    EPRINTF("[readOutputStream] data = %08x, tag = %08x, last = %x\n", udata, utag, blast);
+    outStream->recv(udata, utag, blast);
   }
+}
 
-
+extern "C" {
   // Function is called every clock cycle
   int tick() {
     bool exitTick = false;
@@ -311,8 +310,8 @@ extern "C" {
     // Drain an element from DRAM queue if it exists
     checkAndSendDRAMResponse();
 
-    // Every few cycles, send something to input stream
-    sendInputStream();
+    // Check if input stream has new data
+    inStream->send();
 
     // Handle new incoming operations
     while (!exitTick) {
@@ -538,5 +537,9 @@ extern "C" {
         DRAMSim::TransactionCompleteCB *rwCb = new DRAMSim::Callback<DRAMCallbackMethods, void, unsigned, uint64_t, uint64_t, uint64_t>(&callbackMethods, &DRAMCallbackMethods::txComplete);
         mem->RegisterCallbacks(rwCb, rwCb, NULL);
       }
+
+      // Initialize simulation streams
+      inStream = new InputStream("");
+      outStream = new OutputStream("");
   }
 }
