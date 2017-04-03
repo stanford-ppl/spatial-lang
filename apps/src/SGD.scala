@@ -113,15 +113,15 @@ object SGD extends SpatialApp {
     val A = args(2).to[T] // Should be somewhere around 0.0001 for point-wise sgd
     val D = modelSize
 
-    val sX = Array.fill(N){ Array.fill(D){ random[T](3.as[T])} }
-    val sY = Array.fill(N)( random[T](10.as[T]) )
+    val sX = Array.fill(N){ Array.fill(D){ random[T](3.to[T])} }
+    val sY = Array.fill(N)( random[T](10.to[T]) )
     val id = Array.tabulate(D){ i => i }
     val ep = Array.tabulate(E){ i => i }
 
     val result = sgd_onept(sX.flatten, sY, A, E, N)
 
     val gold = Array.empty[T](D)
-    (0 until D) foreach { j => gold(j) = 0.as[T] }
+    (0 until D) foreach { j => gold(j) = 0.to[T] }
 
     (0 until E) foreach { i =>
       val y_hat = sX.zip(sY){ case (row, y) => row.zip(gold) {_*_}.reduce{_+_} }

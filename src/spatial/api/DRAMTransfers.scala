@@ -40,7 +40,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
     // Metaprogrammed (unstaged) if-then-else
     if (counters.length > 1) {
       Stream.Foreach(counters.dropRight(1).map{ctr => ctr()}){ is =>
-        val indices = is :+ 0.as[Index]
+        val indices = is :+ 0.to[Index]
 
         val offchipAddr = () => flatIndex( offchipOffsets.zip(indices).map{case (a,b) => a + b}, wrap(stagedDimsOf(offchip)))
 
@@ -109,7 +109,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
 
     @virtualize
     def alignmentCalc(offchipAddr: => Index) = {
-      val elementsPerBurst = (target.burstSize/bits[T].length).as[Index]
+      val elementsPerBurst = (target.burstSize/bits[T].length).to[Index]
       val bytesPerBurst = target.burstSize/8
 
       val maddr_bytes  = offchipAddr * bytesPerWord     // Raw address in bytes
@@ -118,7 +118,7 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       val offset_bytes = maddr_bytes - start_bytes      // Burst-aligned start address, in bytes
       val raw_end      = maddr_bytes + length_bytes     // Raw end, in bytes, with burst-aligned start
 
-      val end_bytes = mux(raw_end % bytesPerBurst == 0,  0.as[Index], bytesPerBurst - raw_end % bytesPerBurst) // Extra useless bytes at end
+      val end_bytes = mux(raw_end % bytesPerBurst == 0,  0.to[Index], bytesPerBurst - raw_end % bytesPerBurst) // Extra useless bytes at end
 
       // FIXME: What to do for bursts which split individual words?
       val start = start_bytes / bytesPerWord                   // Number of WHOLE elements to ignore at start

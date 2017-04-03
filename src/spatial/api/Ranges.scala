@@ -51,6 +51,8 @@ trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
 
     @api def ::(start: Index): Range = range_alloc(Some(start), lft(x), None, None)
     @api def ::(start: scala.Int): Range = range_alloc(Some(lft(start)), lft(x), None, None)
+
+    @api def to[B:Meta](implicit cast: Cast[scala.Int,B]): B = cast(x)
   }
 
   // Implicitly get value of register to use in counter definitions

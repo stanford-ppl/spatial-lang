@@ -71,7 +71,7 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 128 6
 
     val a = Array.tabulate(M){ j => Array.tabulate(P){ i => (i + j * P) % 8 } } // Standard array
     val b = Array.tabulate(P){ j => Array.tabulate(N){ i => (i + j * N) % 8 } } // Standard array
-    val c_init = Array.fill(M){ Array.fill(N){ 0.as[X] } }
+    val c_init = Array.fill(M){ Array.fill(N){ 0.to[X] } }
     // val a = Array.fill(M){ Array.fill(P){random[T](100)} }
     // val b = Array.fill(P){ Array.fill(N){random[T](100)} }
 

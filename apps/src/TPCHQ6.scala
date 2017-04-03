@@ -92,8 +92,8 @@ object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 384
           val disct = disctsTile(j)
           val quant = quantsTile(j)
           val price = pricesTile(j)
-          val valid = date > minDate && date < maxDate && disct >= MIN_DISC.as[T] && disct <= MAX_DISC.as[T] && quant < 24
-          mux(valid, price * disct, 0.as[T])
+          val valid = date > minDate && date < maxDate && disct >= MIN_DISC.to[T] && disct <= MAX_DISC.to[T] && quant < 24
+          mux(valid, price * disct, 0.to[T])
         }{_+_}
       }{_+_}
 
@@ -125,7 +125,7 @@ object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 384
                                        quants(i) < 24 && discts(i) >= MIN_DISC  && discts(i) <= MAX_DISC}
     // printArr(conds, "conds: ")
 
-    val gold = Array.tabulate(N){i => if (conds(i)) prices(i) * discts(i) else 0.as[FT] }.reduce{_+_}
+    val gold = Array.tabulate(N){i => if (conds(i)) prices(i) * discts(i) else 0.to[FT] }.reduce{_+_}
 
     println("expected " + gold)
     println("result " + result)

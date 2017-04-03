@@ -14,5 +14,8 @@ trait PinExp {
 
   type Pin = spatial.targets.Pin
   type Bus = spatial.targets.Bus
+
+  def Bus(valid: String, data: String*) = PinBus(Pin(valid), data.map(Pin(_)))
+  def Pin(name: String) = new Pin(name)
 }
 

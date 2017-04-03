@@ -220,7 +220,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     // NOTE: This assumes that the node has no meaningful return value (i.e. all are Pipeline or Unit)
     // Bad things can happen here if you're not careful!
     def split[T:Type](orig: Sym[T], vec: Exp[Vector[_]])(implicit ctx: SrcCtx): List[Exp[T]] = map{p =>
-      val element = vector_apply[T](vec.asInstanceOf[Exp[Vector[T]]], p)(typ[T],ctx)
+      // FIXME: Now assumes little-endian vectors!
+      val element = vector_apply[T](vec.asInstanceOf[Exp[Vector[T]]], P - 1 - p)(typ[T],ctx)
       register(orig -> element)
       element
     }

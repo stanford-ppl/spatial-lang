@@ -33,7 +33,7 @@ trait AlteraVideoApi extends AlteraVideoExp with ControllerApi with FIFOApi with
         loadIn(i) = popFrom.deq()
       }
       // Pipe {
-      //   frameRdy.push(1.as[T])
+      //   frameRdy.push(1.to[T])
       // }
       ()
     }

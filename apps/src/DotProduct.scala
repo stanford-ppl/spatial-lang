@@ -29,14 +29,14 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1920
     setMem(b, bIn)
 
     Accel {
-      out := Reduce(Reg[T](0.as[T]))(N by B par P1){i =>
+      out := Reduce(Reg[T](0.to[T]))(N by B par P1){i =>
         val aBlk = SRAM[T](B)
         val bBlk = SRAM[T](B)
         Parallel {
           aBlk load a(i::i+B par 16)
           bBlk load b(i::i+B par 16)
         }
-        Reduce(Reg[T](0.as[T]))(B par P2){ii => aBlk(ii) * bBlk(ii) }{_+_}
+        Reduce(Reg[T](0.to[T]))(B par P2){ii => aBlk(ii) * bBlk(ii) }{_+_}
       }{_+_}
     }
     getArg(out)

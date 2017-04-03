@@ -113,23 +113,23 @@ trait ControllerApi extends ControllerExp with RegApi {
 
   protected class ForeachClass(style: ControlStyle) {
     /** 1 dimensional parallel foreach **/
-    def apply(domain1D: Counter)(func: Index => Any)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1D), {x: List[Index] => func(x.head); Unit() }, style)
+    def apply(domain1D: Counter)(func: Index => Void)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1D), {x: List[Index] => func(x.head) }, style)
       ()
     }
     /** 2 dimensional parallel foreach **/
-    def apply(domain1: Counter, domain2: Counter)(func: (Index,Index) => Any)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1,domain2), {x: List[Index] => func(x(0),x(1)); Unit() }, style)
+    def apply(domain1: Counter, domain2: Counter)(func: (Index,Index) => Void)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1,domain2), {x: List[Index] => func(x(0),x(1)) }, style)
       ()
     }
     /** 3 dimensional parallel foreach **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(func: (Index,Index,Index) => Any)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1,domain2,domain3), {x: List[Index] => func(x(0),x(1),x(2)); Unit() }, style)
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(func: (Index,Index,Index) => Void)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1,domain2,domain3), {x: List[Index] => func(x(0),x(1),x(2)) }, style)
       ()
     }
     /** N dimensional parallel foreach **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(func: List[Index] => Any)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1,domain2,domain3,domain4) ++ domain5plus, func.andThen(_ => Unit()), style)
+    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
+      foreachND(List(domain1,domain2,domain3,domain4) ++ domain5plus, func, style)
       ()
     }
     def apply(domain: Seq[Counter])(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
@@ -147,7 +147,7 @@ trait ControllerApi extends ControllerExp with RegApi {
   object Foreach   extends ForeachClass(InnerPipe)
 
   object Accel {
-    def apply(func: => Any)(implicit ctx: SrcCtx): Void = {
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
       val f = () => { func; Unit() }
       accel_blk(f(), false); ()
     }
@@ -161,10 +161,7 @@ trait ControllerApi extends ControllerExp with RegApi {
 
   object Pipe extends ForeachClass(InnerPipe) {
     /** "Pipelined" unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
-      val f = () => { func; Unit() }
-      unit_pipe(f(), SeqPipe); ()
-    }
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
     def Foreach   = new ForeachClass(InnerPipe)
     def Reduce    = ReduceClass(InnerPipe)
     def Fold      = FoldClass(InnerPipe)
@@ -174,10 +171,7 @@ trait ControllerApi extends ControllerExp with RegApi {
 
   object Sequential extends ForeachClass(SeqPipe) {
     /** Sequential unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
-      val f = () => { func; Unit() }
-      unit_pipe(f(), SeqPipe); ()
-    }
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
     def Foreach   = new ForeachClass(SeqPipe)
     def Reduce    = ReduceClass(SeqPipe)
     def Fold      = FoldClass(SeqPipe)
@@ -187,10 +181,7 @@ trait ControllerApi extends ControllerExp with RegApi {
 
   object Stream extends ForeachClass(StreamPipe) {
     /** Streaming unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
-      val f = () => { func; Unit() }
-      unit_pipe(f(), StreamPipe); ()
-    }
+    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, StreamPipe); () }
     def Foreach   = new ForeachClass(StreamPipe)
     def Reduce    = ReduceClass(StreamPipe)
     def Fold      = FoldClass(StreamPipe)

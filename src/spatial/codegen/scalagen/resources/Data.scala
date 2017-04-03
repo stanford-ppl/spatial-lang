@@ -63,10 +63,18 @@ case object FloatFormat extends FloatPoint(24,8)
 case object DoubleFormat extends FloatPoint(53,11)
 
 // TODO: Need to model effects of limited precision
+// TODO: Bitwise operations on floating point values?
 case class Number(value: BigDecimal, valid: Boolean, fmt: NumberFormat) extends Data(valid) {
   def fixValue: BigInt = fmt match {
     case FixedPoint(s,i,f) => (value * math.pow(2,f)).toBigInt
     case _ => throw new Exception("Cannot get fixed point representation of a floating point number")
+  }
+
+  def bits: Array[Bit] = fmt match {
+    case FixedPoint(s,i,f) =>
+      Array.tabulate(i+f){i => Bit(this.fixValue.testBit(i), this.valid) }
+
+    case FloatPoint(g,e) => throw new Exception("TODO: Bitwise operations on floating point valus not yet supported")
   }
 
   def unary_-() = Number(-this.value, valid, fmt)
@@ -114,6 +122,24 @@ object Number {
   def apply(value: BigInt, valid: Boolean, fmt: NumberFormat): Number = fmt match {
     case FixedPoint(s,i,f) => Number(BigDecimal(value) / math.pow(2,f), valid, fmt)
     case FloatPoint(_,_)   => Number(BigDecimal(value), valid, fmt)
+  }
+  // Array format is big-endian (first (head) is LSB, last bit in Array is MSB)
+  def apply(bits: Array[Bit], fmt: NumberFormat): Number = fmt match {
+    case FixedPoint(signed,i,f) =>
+      val valid = bits.forall(_.valid) // Should this be forall or exists?
+
+      if (signed && bits.last.value) { // Is negative number
+        var x = BigInt(-1) // Start with all 1s
+        bits.zipWithIndex.foreach { case (bit, i) => if (!bit.value) x = x.flipBit(i) }
+        Number(x, valid, fmt)
+      }
+      else {
+        var x = BigInt(0) // Start with all 0s
+        bits.zipWithIndex.foreach { case (bit, i) => if (bit.value) x = x.flipBit(i) }
+        Number(x, valid, fmt)
+      }
+
+    case FloatPoint(_,_) => throw new Exception("TODO: Bitwise operators not yet defined for floating point")
   }
 
   def sqrt(x: Number) = Number(Math.sqrt(x.toDouble), x.valid, x.fmt)

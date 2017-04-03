@@ -170,7 +170,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     addr: Seq[Seq[Exp[Index]]],
     ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx) = {
-    implicit val vT = VecType[T](addr.length)
+    implicit val vT = vectorNType[T](addr.length)
     stage( ParSRAMLoad(sram, addr, ens) )(ctx)
   }
 
@@ -187,7 +187,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     fifo: Exp[FIFO[T]],
     ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx) = {
-    implicit val vT = VecType[T](ens.length)
+    implicit val vT = vectorNType[T](ens.length)
     stageWrite(fifo)( ParFIFODeq(fifo, ens) )(ctx)
   }
 
@@ -203,7 +203,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     stream: Exp[StreamIn[T]],
     ens:    Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx) = {
-    implicit val vT = VecType[T](ens.length)
+    implicit val vT = vectorNType[T](ens.length)
     stageWrite(stream)( ParStreamRead(stream, ens) )(ctx)
   }
 
@@ -221,7 +221,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     cols:       Seq[Exp[Index]],
     ens:        Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx) = {
-    implicit val vT = VecType[T](ens.length)
+    implicit val vT = vectorNType[T](ens.length)
     stageWrite(linebuffer)(ParLineBufferLoad(linebuffer,rows,cols,ens))(ctx)
   }
 
@@ -238,7 +238,7 @@ trait UnrolledExp extends Staging with ControllerExp with VectorExp {
     inds: Seq[Seq[Exp[Index]]],
     ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx) = {
-    implicit val vT = VecType[T](ens.length)
+    implicit val vT = vectorNType[T](ens.length)
     stageCold(ParRegFileLoad(reg, inds, ens))(ctx)
   }
 

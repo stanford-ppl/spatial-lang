@@ -51,7 +51,7 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 1
           }
           Foreach(bm by 1, bn by 1 par mp){ (ii,jj) =>    // MetaPipe?
             val prod = Reduce(Reg[T])(bp by 1 par ip){kk => tileA(ii, kk) * tileB(kk, jj) }{_+_}
-            val prev = mux(k == 0, 0.as[T], tileC(ii,jj))
+            val prev = mux(k == 0, 0.to[T], tileC(ii,jj))
             tileC(ii,jj) = prev + prod.value // Is a unit pipe that should be recognized as accum
           }
         }

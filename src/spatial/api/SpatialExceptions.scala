@@ -194,8 +194,8 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
   })
 
   class InvalidVectorSlice(vector: Exp[_], start: Int, end: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(u"Attempted to slice vector $vector from $start to $end, creating an empty vector")
-    error("Creation of empty vectors is currently disallowed.")
+    error(u"Attempted to slice vector $vector $end::$start, creating an empty vector")
+    error("Note that Vectors in Spatial are little-endian (last element in Vector is index 0).")
   })
 
   class NonConstantInitError(ctx: SrcCtx) extends UserError(ctx, {

@@ -231,7 +231,7 @@ object Niter extends SpatialApp {  // Regression (Unit) // Args: 100
         Sequential.Foreach(N by tileSize){ i =>
           val redMax = Reg[Int](999)
           Pipe{ redMax := min(tileSize, N.value-i) }
-          val accum = Reduce(Reg[T](0.as[T]))(redMax par innerPar){ ii =>
+          val accum = Reduce(Reg[T](0.to[T]))(redMax par innerPar){ ii =>
             (i + ii).to[T]
           } {_+_}
           Pipe { out := accum }
@@ -531,7 +531,7 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
       val f1 = FIFO[T](tileSize)
       Foreach(N by tileSize) { i =>
         f1 load src1FPGA(i::i+tileSize par P1)
-        val accum = Reduce(Reg[T](0.as[T]))(tileSize by 1){i =>
+        val accum = Reduce(Reg[T](0.to[T]))(tileSize by 1){i =>
           f1.deq()
         }{_+_}
         Pipe { out := accum }
@@ -589,7 +589,7 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
           f2 load src2FPGA(i::i+tileSize par P1)
           f3 load src3FPGA(i::i+tileSize par P1)
         }
-        val accum = Reduce(Reg[T](0.as[T]))(tileSize by 1){i =>
+        val accum = Reduce(Reg[T](0.to[T]))(tileSize by 1){i =>
           f1.deq() * f2.deq() * f3.deq()
         }{_+_}
         Pipe { out := accum }
@@ -678,7 +678,7 @@ object FifoLoadStore extends SpatialApp { // Regression (Unit) // Args: none
 object SimpleReduce extends SpatialApp { // Regression (Unit) // Args: 7
   import IR._
 
-  val N = 16.as[Int]
+  val N = 16.to[Int]
 
   def simpleReduce[T:Type:Num](xin: T) = {
     val P = param(8)
@@ -688,7 +688,7 @@ object SimpleReduce extends SpatialApp { // Regression (Unit) // Args: 7
     setArg(x, xin)
 
     Accel {
-      out := Reduce(Reg[T](0.as[T]))(N by 1){ ii =>
+      out := Reduce(Reg[T](0.to[T]))(N by 1){ ii =>
         x.value * ii.to[T]
       }{_+_}
     }
@@ -732,11 +732,11 @@ object SimpleFold extends SpatialApp { // Regression (Unit) // Args: 1920
     setMem(v1, src)
 
     Accel {
-      val accum = Reg[T](0.as[T])
+      val accum = Reg[T](0.to[T])
       Reduce(accum)(N by tileSize par outerPar){ i =>
         val b1 = SRAM[T](tileSize)
         b1 load v1(i::i+tileSize par 16)
-        Reduce(Reg[T](0.as[T]))(tileSize par innerPar){ ii =>
+        Reduce(Reg[T](0.to[T]))(tileSize par innerPar){ ii =>
           b1(ii)
         } {_+_}
       } {_+_}
@@ -876,10 +876,10 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
 
     Accel {
       val mem = SRAM[T](16)
-      val accum = Reg[T](0.as[T])
+      val accum = Reg[T](0.to[T])
       Reduce(accum)(iters by 1) { k =>
         mem load srcFPGA(k*ldSize::k*ldSize+ldSize par 16)
-        Reduce(Reg[T](0.as[T]))(ldSize by 1){i => elem = mem(i) }{_+_}
+        Reduce(Reg[T](0.to[T]))(ldSize by 1){i => mem(i) }{_+_}
       }{_+_}
       acc := accum
     }

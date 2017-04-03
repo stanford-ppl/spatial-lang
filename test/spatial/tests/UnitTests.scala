@@ -219,7 +219,7 @@ object ParFifoLoad extends SpatialTest {
           f1 load src1FPGA(i::i+tileSize)
           f2 load src2FPGA(i::i+tileSize)
         }
-        val accum = Reduce(Reg[T](0.as[T]))(tileSize by 1){i =>
+        val accum = Reduce(Reg[T](0.to[T]))(tileSize by 1){i =>
           f1.deq() * f2.deq()
         }{_+_}
         Pipe { out := accum }
@@ -308,7 +308,7 @@ object SimpleReduce extends SpatialTest { // Args: 72
   import IR._
   IR.testArgs = List("72")
 
-  val N = 96.as[Int]
+  val N = 96.to[Int]
 
   def simpleReduce[T:Meta:Num](xin: T) = {
     val P = param(8)
@@ -318,7 +318,7 @@ object SimpleReduce extends SpatialTest { // Args: 72
     setArg(x, xin)
 
     Accel {
-      out := Reduce(Reg[T](0.as[T]))(N by 1){ ii =>
+      out := Reduce(Reg[T](0.to[T]))(N by 1){ ii =>
         x.value * ii.to[T]
       }{_+_}
     }
@@ -361,7 +361,7 @@ object Niter extends SpatialTest {
     Accel {
       Sequential {
         Sequential.Foreach(N by tileSize){ i =>
-          val accum = Reduce(Reg[T](0.as[T]))(tileSize par innerPar){ ii =>
+          val accum = Reduce(Reg[T](0.to[T]))(tileSize par innerPar){ ii =>
             (i + ii).to[T]
           } {_+_}
           Pipe { out := accum }
@@ -411,11 +411,11 @@ object SimpleFold extends SpatialTest {
     setMem(v1, src)
 
     Accel {
-      val accum = Reg[T](0.as[T])
+      val accum = Reg[T](0.to[T])
       Reduce(accum)(N by tileSize par outerPar){ i =>
         val b1 = SRAM[T](tileSize)
         b1 load v1(i::i+tileSize)
-        Reduce(Reg[T](0.as[T]))(tileSize par innerPar){ ii =>
+        Reduce(Reg[T](0.to[T]))(tileSize par innerPar){ ii =>
           b1(ii)
         } {_+_}
       } {_+_}
@@ -560,10 +560,10 @@ object UnalignedLd extends SpatialTest {
 
     Accel {
       val mem = SRAM[T](96)
-      val accum = Reg[T](0.as[T])
+      val accum = Reg[T](0.to[T])
       Reduce(accum)(iters by 1) { k =>
         mem load srcFPGA(k*numCols::k*numCols+numCols)
-        Reduce(Reg[T](0.as[T]))(numCols by 1){i => mem(i) }{_+_}
+        Reduce(Reg[T](0.to[T]))(numCols by 1){i => mem(i) }{_+_}
       }{_+_}
       acc := accum
     }

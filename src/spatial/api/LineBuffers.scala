@@ -146,10 +146,10 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     length:     Exp[Index]
   )(implicit ctx: SrcCtx) = {
     implicit val vT = length match {
-      case Final(c) => VecType[T](c.toInt)
+      case Final(c) => vectorNType[T](c.toInt)
       case _ =>
         error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
-        VecType[T](0)
+        vectorNType[T](0)
     }
     stageCold(LineBufferColSlice(linebuffer, row, colStart, length))(ctx)
   }
@@ -161,10 +161,10 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     col:        Exp[Index]
   )(implicit ctx: SrcCtx) = {
     implicit val vT = length match {
-      case Final(c) => VecType[T](c.toInt)
+      case Final(c) => vectorNType[T](c.toInt)
       case _ =>
         error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
-        VecType[T](0)
+        vectorNType[T](0)
     }
     stageCold(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)
   }
