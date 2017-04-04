@@ -212,7 +212,7 @@ class Counter(val par: List[Int]) extends Module {
   // Wire up the saturates between ctrs
   ctrs(0).io.input.saturate := io.input.saturate
   (1 until depth).foreach { i =>
-    ctrs(i).io.input.saturate := io.input.saturate & ctrs.drop(i-1).map{ ctr => ctr.io.output.saturated }.reduce{_&_}
+    ctrs(i).io.input.saturate := io.input.saturate & ctrs.take(i).map{ ctr => ctr.io.output.saturated }.reduce{_&_}
   }
 
   // Wire up the outputs

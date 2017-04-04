@@ -153,6 +153,7 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
 
   maxes.foreach { max => 
   strides.foreach { stride => 
+    println("------" + max + "--------" + stride)
     val alignedMax = max.zip(stride).zip(c.par).map {case ((m,s),p) => 
       if (m % (s*p) == 0) m else m - (m % (s*p)) + (s*p) 
     }
@@ -180,7 +181,7 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
           } else {
             increments % alignedMax(i) // TODO: Not sure if this is correct, only testing saturating ctrs now
           }
-          val ctrAddr = c.par.take(i+1).reduce{_+_} - c.par(i)
+          val ctrAddr = c.par.drop(i).reduce{_+_} - c.par(i)
           (0 until p).foreach{ k => 
             val test = peek(c.io.output.counts(ctrAddr+k))
 //             if (test != base + k*stride(i)) {
@@ -190,8 +191,9 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
 //       base = ${base} (incs % ${alignedMax(i)})
 // """)
 //             }
-            println("[stat] counter " + ctrAddr + " + " + k + " is " + test + " but expected " + {base + stride(ii)*k} + "(" + base + "+" + k + "*" + stride(i) + ")")
-            expect(c.io.output.counts(ctrAddr+k), base + k*stride(ii))
+            // if (test != base + k*stride(i)) println("WRONG!")
+            // println("[stat] counter " + {ctrAddr + k} + " is " + test + " but expected " + {base + stride(i)*k} + "(" + base + "+" + k + "*" + stride(i) + ")")
+            expect(c.io.output.counts(ctrAddr+k), base + k*stride(i))
           }
         }
         println("")
@@ -199,10 +201,10 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
 
       enable = 0
       poke(c.io.input.enable, enable)
-      c.io.input.starts.zip(start).foreach{ case (wire, value) => poke(wire,value) }
+      c.io.input.starts.zipWithIndex.foreach{ case (wire, i) => poke(wire,start(start.length - 1 -i)) }
       step(5)
-      c.io.input.maxes.zip(max).foreach{ case (wire, value) => poke(wire,value) }
-      c.io.input.strides.zip(stride).foreach{ case (wire, value) => poke(wire,value) }
+      c.io.input.maxes.zipWithIndex.foreach{ case (wire, i) => poke(wire,max(max.length - 1 - i)) }
+      c.io.input.strides.zipWithIndex.foreach{ case (wire, i) => poke(wire,stride(stride.length - 1 - i)) }
       poke(c.io.input.reset, 1)
       step(1)
       enable = 1
@@ -211,7 +213,7 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
       poke(c.io.input.reset, 0)
 
       // for (i <- 0 until (totalTicks*1.1).toInt) {
-      for (i <- 0 until (10).toInt) {
+      for (i <- 0 until (8).toInt) {
         testOneStep
       }
 
