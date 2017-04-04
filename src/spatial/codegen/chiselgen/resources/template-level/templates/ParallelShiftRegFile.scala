@@ -10,8 +10,8 @@ import templates.Utils.log2Up
 class ParallelShiftRegFile(val height: Int, val width: Int, val stride: Int, val wPar: Int = 1) extends Module {
 
   def this(tuple: (Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4)
-  val io = IO(new Bundle { // TODO: follow io.input and io.output convention
-    val data_in  = Vec(wPar*height, Input(UInt(32.W)))
+  val io = IO(new Bundle { 
+    val data_in  = Vec(wPar*height, Input(UInt(32.W))) // TODO: Should probalby use stride, not wpar
     val w_rowAddr   = Vec(wPar*height, Input(UInt(log2Up(((width+stride-1)/stride)*stride + 1).W)))
     val w_colAddr   = Vec(wPar*height, Input(UInt(log2Up(((width+stride-1)/stride)*stride + 1).W)))
     val w_en     = Vec(wPar*height, Input(Bool()))

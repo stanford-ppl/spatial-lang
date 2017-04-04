@@ -153,7 +153,8 @@ object Arguments {
   )
   val ParallelShiftRegFile = List( // Arguments are (size, stride)
     (1,6,1,1),
-    (1,3,1,1)
+    (1,3,1,1),
+    (3,7,1,1)
   )
   val RegFile = List( // Arguments are (size)
     (10)
