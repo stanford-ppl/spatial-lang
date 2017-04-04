@@ -35,7 +35,7 @@ import org.virtualized._
 
 
 
-object SGD extends SpatialApp { // SGD (Dense) // Args: 40 32 0.0001
+object SGD extends SpatialApp { // Regression (Dense) // Args: 40 32 0.0001
   import IR._
 
   type T = FixPt[TRUE,_16,_16]
