@@ -25,7 +25,7 @@ protected trait SpatialExp extends Staging
   with DebuggingExp
 
   with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
-  with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
+  with MemoryExp with ParameterExp with RangeExp with RegExp with ShiftRegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
   with StreamExp with PinExp with AlteraVideoExp
   with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
 
@@ -39,7 +39,7 @@ protected trait SpatialApi extends SpatialExp
   with DebuggingApi
 
   with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
-  with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
+  with MemoryApi with ParameterApi with RangeApi with RegApi with ShiftRegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
   with StreamApi with PinApi with AlteraVideoApi
   with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
 
@@ -53,7 +53,7 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenDebugging
 
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
-  with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
+  with ScalaGenRange with ScalaGenReg with ScalaGenShiftReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
   with ScalaGenStream
   with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine {
 
@@ -140,6 +140,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val rewriter       = new RewriteTransformer { val IR: self.type = self }
 
   lazy val unroller       = new UnrollingTransformer { val IR: self.type = self }
+
+  lazy val pipeRetimer    = new PipeRetimer { val IR: self.type = self }
 
   lazy val bufferAnalyzer = new BufferAnalyzer { val IR: self.type = self; def localMems = uctrlAnalyzer.localMems }
   lazy val streamAnalyzer = new StreamAnalyzer { 
@@ -240,6 +242,10 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   passes += bufferAnalyzer    // Set top controllers for n-buffers
   passes += streamAnalyzer    // Set stream pipe children fifo dependencies
   passes += argMapper         // Get address offsets for each used DRAM object
+  passes += printer
+
+  // --- Pipeline retiming
+  passes += pipeRetimer
   passes += printer
 
   // --- Code generation
