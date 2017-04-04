@@ -35,9 +35,23 @@ object UserVectors extends SpatialApp {
       val A = 10.to[Q4]
       val B = 11.to[Q4]
       val C = 12.to[Q4]
-      val v = Vector(A, B, C)
+      val v = Vector.LittleEndian(A, B, C)
+      val vb = v.as12b
+      val x = vb(7::0) // bits from (B,C)   0b1011,1100
+
+      val v = Vector.BigEndian(A, B, C)
+      val vb = v.as12b
+      val x = vb(7::0) // bits from (B,C)
+
+
+
+      val x = v.le(0) // C
+              v.be(0) // A
+
       val vb = v.as12b
       println(vb) // Should be 0b1010,1011,1100
+
+      vb.le(0)
 
       val x = vb(7::0)
       println(x.as8b) // Should be 0b1011,1100
