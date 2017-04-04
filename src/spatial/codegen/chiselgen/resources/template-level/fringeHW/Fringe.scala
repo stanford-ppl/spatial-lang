@@ -49,6 +49,13 @@ class Fringe(
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
     val dram = new DRAMStream(w, v)
+
+    //Accel stream IO
+    val streamInTop = StreamIn(w)
+    val streamOutTop = StreamOut(w)
+    val streamInAccel = StreamOut(w)
+    val streamOutAccel = StreamIn(w)
+
   })
 
   // Scalar, command, and status register file
@@ -88,20 +95,11 @@ class Fringe(
   val magConfig = Wire(new MAGOpcode())
   magConfig.scatterGather := false.B
   mag.io.config := magConfig
-//  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.cmd.bits := in.cmd.bits }
-//  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.cmd.valid := in.cmd.valid }
-//  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.wdata.bits := in.wdata.bits }
-//  mag.io.app.zip(io.memStreams) foreach { case (magIn, in) => magIn.wdata.valid := in.wdata.valid }
-//  io.memStreams.zip(mag.io.app) foreach { case (in, magIn) => in.rdata.bits := magIn.rdata.bits }
-//  io.memStreams.zip(mag.io.app) foreach { case (in, magIn) => in.rdata.valid := magIn.rdata.valid }
-//  io.dram.cmd.bits := mag.io.dram.cmd.bits
-//  io.dram.cmd.valid := mag.io.dram.cmd.valid
-//  mag.io.dram.cmd.ready := io.dram.cmd.ready
-//
-//  mag.io.dram.resp.bits := io.dram.resp.bits
-//  mag.io.dram.resp.valid := io.dram.resp.valid
-//  io.dram.resp.ready := mag.io.dram.cmd.ready
 
   mag.io.app <> io.memStreams
   mag.io.dram <> io.dram
+
+  // In simulation, streams are just pass through
+  io.streamInAccel <> io.streamInTop
+  io.streamOutTop <> io.streamOutAccel
 }

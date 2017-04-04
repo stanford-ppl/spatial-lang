@@ -2,6 +2,7 @@ module test;
   import "DPI" function void sim_init();
   import "DPI" function int tick();
   import "DPI" function void sendDRAMRequest(longint addr, int tag, int isWr, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
+  import "DPI" function void readOutputStream(int data, int tag, int last);
 
   // Export functionality to C layer
   export "DPI" function start;
@@ -11,6 +12,7 @@ module test;
   export "DPI" function readRegRdataHi32;
   export "DPI" function readRegRdataLo32;
   export "DPI" function pokeDRAMResponse;
+  export "DPI" function writeStream;
 
   reg clock = 1;
   reg reset = 1;
@@ -78,6 +80,17 @@ module test;
   reg [31:0] io_dram_resp_bits_tag;
   reg [31:0] io_dram_resp_bits_streamId;
 
+  wire        io_streamIn_ready;
+  reg         io_streamIn_valid;
+  reg  [31:0] io_streamIn_bits_data;
+  reg  [31:0] io_streamIn_bits_tag;
+  reg         io_streamIn_bits_last;
+  reg         io_streamOut_ready;
+  wire        io_streamOut_valid;
+  wire [31:0] io_streamOut_bits_data;
+  wire [31:0] io_streamOut_bits_tag;
+  wire        io_streamOut_bits_last;
+
   /*** DUT instantiation ***/
   Top Top(
     .clock(clock),
@@ -128,7 +141,17 @@ module test;
     .io_dram_resp_bits_rdata_14(io_dram_resp_bits_rdata_14),
     .io_dram_resp_bits_rdata_15(io_dram_resp_bits_rdata_15),
     .io_dram_resp_bits_tag(io_dram_resp_bits_tag),
-    .io_dram_resp_bits_streamId(io_dram_resp_bits_streamId)
+    .io_dram_resp_bits_streamId(io_dram_resp_bits_streamId),
+    .io_streamIn_ready(io_streamIn_ready),
+    .io_streamIn_valid(io_streamIn_valid),
+    .io_streamIn_bits_data(io_streamIn_bits_data),
+    .io_streamIn_bits_tag(io_streamIn_bits_tag),
+    .io_streamIn_bits_last(io_streamIn_bits_last),
+    .io_streamOut_ready(io_streamOut_ready),
+    .io_streamOut_valid(io_streamOut_valid),
+    .io_streamOut_bits_data(io_streamOut_bits_data),
+    .io_streamOut_bits_tag(io_streamOut_bits_tag),
+    .io_streamOut_bits_last(io_streamOut_bits_last)
 );
 
   function void readRegRaddr(input int r);
@@ -188,6 +211,17 @@ module test;
     io_dram_resp_bits_rdata_15 = rdata15;
   endfunction
 
+  function void writeStream(
+    input int data,
+    input int tag,
+    input int last
+  );
+    io_streamIn_valid = 1;
+    io_streamIn_bits_data = data;
+    io_streamIn_bits_tag = tag;
+    io_streamIn_bits_last = last;
+  endfunction
+
   initial begin
     /*** VCD & VPD dump ***/
       $dumpfile("Top.vcd");
@@ -221,12 +255,23 @@ module test;
         io_dram_cmd_bits_wdata_15
       );
     end
+
+    if (io_streamOut_valid) begin
+      readOutputStream(
+        io_streamOut_bits_data,
+        io_streamOut_bits_tag,
+        io_streamOut_bits_last
+      );
+    end
+
   endfunction
 
   always @(negedge clock) begin
     io_wen = 0;
     io_dram_resp_valid = 0;
     io_dram_cmd_ready = 1;
+    io_streamIn_valid = 0;
+    io_streamOut_ready = 1;
 
     if (tick()) begin
       $dumpflush;

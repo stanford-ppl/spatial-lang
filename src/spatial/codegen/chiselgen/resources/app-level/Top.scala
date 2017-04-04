@@ -40,6 +40,12 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
+
+  // Input streams
+  val streamIn = StreamIn(p.dataWidth)
+
+  // Output streams
+  val streamOut = StreamOut(p.dataWidth)
 }
 
 class ZynqInterface(p: TopParams) extends TopInterface {
@@ -52,8 +58,8 @@ class ZynqInterface(p: TopParams) extends TopInterface {
 class AWSInterface(p: TopParams) extends TopInterface {
   val enable = Input(UInt(p.dataWidth.W))
   val done = Output(UInt(p.dataWidth.W))
-  val scalarIns = Input(Vec(p.numArgIns, UInt(p.dataWidth.W)))
-  val scalarOuts = Output(Vec(p.numArgOuts, UInt(p.dataWidth.W)))
+  val scalarIns = Input(Vec(p.numArgIns, UInt(64.W)))
+  val scalarOuts = Output(Vec(p.numArgOuts, UInt(64.W)))
 
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
@@ -112,6 +118,14 @@ class Top(
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
+
+      // Fringe <-> Peripheral connections
+      fringe.io.streamInTop <> topIO.streamIn
+      fringe.io.streamOutTop <> topIO.streamOut
+
+      // Fringe <-> Accel stream connections
+      accel.io.streamIns <> fringe.io.streamInAccel
+      fringe.io.streamOutAccel <> accel.io.streamOuts
 
     case "zynq" =>
       // Zynq Fringe
