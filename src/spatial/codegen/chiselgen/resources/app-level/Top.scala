@@ -27,6 +27,8 @@ case class TopParams(
   val numArgOuts: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
+  val streamInsInfo: List[StreamParInfo],
+  val streamOutsInfo: List[StreamParInfo],
   target: String
 )
 
@@ -42,10 +44,9 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
   val dram = new DRAMStream(p.dataWidth, p.v)
 
   // Input streams
-  val streamIn = StreamIn(p.dataWidth)
+  val genericStreamIn = StreamIn(32)
+  val genericStreamOut = StreamOut(32)
 
-  // Output streams
-  val streamOut = StreamOut(p.dataWidth)
 }
 
 class ZynqInterface(p: TopParams) extends TopInterface {
@@ -77,11 +78,13 @@ class Top(
   val numArgOuts: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
+  val streamInsInfo: List[StreamParInfo],
+  val streamOutsInfo: List[StreamParInfo],
   target: String = "") extends Module {
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
   val v = 16
-  val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, target)
+  val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, target)
 
   val io = target match {
     case "verilator"  => IO(new VerilatorInterface(topParams))
@@ -92,12 +95,12 @@ class Top(
   }
 
   // Accel
-  val accel = Module(new AccelTop(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+  val accel = Module(new AccelTop(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
 
   target match {
     case "verilator" | "vcs" =>
       // Simulation Fringe
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
       val topIO = io.asInstanceOf[VerilatorInterface]
 
       // Fringe <-> Host connections
@@ -120,16 +123,16 @@ class Top(
       fringe.io.done := accel.io.done
 
       // Fringe <-> Peripheral connections
-      fringe.io.streamInTop <> topIO.streamIn
-      fringe.io.streamOutTop <> topIO.streamOut
+      fringe.io.genericStreamInTop <> topIO.genericStreamIn
+      fringe.io.genericStreamOutTop <> topIO.genericStreamOut
 
       // Fringe <-> Accel stream connections
-      accel.io.streamIns <> fringe.io.streamInAccel
-      fringe.io.streamOutAccel <> accel.io.streamOuts
+      accel.io.genericStreams <> fringe.io.genericStreamsAccel
+      fringe.io.genericStreamsAccel <> accel.io.genericStreams
 
     case "zynq" =>
       // Zynq Fringe
-      val fringe = Module(new FringeZynq(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+      val fringe = Module(new FringeZynq(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
       val topIO = io.asInstanceOf[ZynqInterface]
 
       // Fringe <-> Host connections
@@ -149,7 +152,7 @@ class Top(
 
     case "aws" =>
       // Simulation Fringe
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
       val topIO = io.asInstanceOf[AWSInterface]
 
       // Fringe <-> DRAM connections

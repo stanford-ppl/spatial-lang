@@ -89,6 +89,7 @@ object Arguments {
     // (true, 8, 8)
   )
   val Counter = List(
+    List(1,1,1),
     List(2,2,2),
     List(4,1,1)
   )

@@ -142,16 +142,16 @@ module test;
     .io_dram_resp_bits_rdata_15(io_dram_resp_bits_rdata_15),
     .io_dram_resp_bits_tag(io_dram_resp_bits_tag),
     .io_dram_resp_bits_streamId(io_dram_resp_bits_streamId),
-    .io_streamIn_ready(io_streamIn_ready),
-    .io_streamIn_valid(io_streamIn_valid),
-    .io_streamIn_bits_data(io_streamIn_bits_data),
-    .io_streamIn_bits_tag(io_streamIn_bits_tag),
-    .io_streamIn_bits_last(io_streamIn_bits_last),
-    .io_streamOut_ready(io_streamOut_ready),
-    .io_streamOut_valid(io_streamOut_valid),
-    .io_streamOut_bits_data(io_streamOut_bits_data),
-    .io_streamOut_bits_tag(io_streamOut_bits_tag),
-    .io_streamOut_bits_last(io_streamOut_bits_last)
+    .io_genericStreamIn_ready(io_genericStreamIn_ready),
+    .io_genericStreamIn_valid(io_genericStreamIn_valid),
+    .io_genericStreamIn_bits_data(io_genericStreamIn_bits_data),
+    .io_genericStreamIn_bits_tag(io_genericStreamIn_bits_tag),
+    .io_genericStreamIn_bits_last(io_genericStreamIn_bits_last),
+    .io_genericStreamOut_ready(io_genericStreamOut_ready),
+    .io_genericStreamOut_valid(io_genericStreamOut_valid),
+    .io_genericStreamOut_bits_data(io_genericStreamOut_bits_data),
+    .io_genericStreamOut_bits_tag(io_genericStreamOut_bits_tag),
+    .io_genericStreamOut_bits_last(io_genericStreamOut_bits_last)
 );
 
   function void readRegRaddr(input int r);
