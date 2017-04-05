@@ -1391,7 +1391,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
 
     // Create HW accelerator
     Accel {
-      y := x * 9
+      y := (x * 9)/4 + 7
     }
 
 
@@ -1399,7 +1399,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = N * 9
+    val gold = (N * 9)/4 + 7
     println("expected: " + gold)
     println("result: " + result)
 
