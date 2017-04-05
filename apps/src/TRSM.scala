@@ -155,8 +155,8 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
 
 
   val inner_N = 4   // inner_N < k usually
-  val full_N = 4
-  val full_K = 4
+  val full_N = 8
+  val full_K = 8
   // val aligned_N = 192
   val margin = 1
 
