@@ -26,11 +26,11 @@ trait ChiselGenStructs extends ChiselCodegen {
   protected def tupCoordinates(tp: Staged[_],field: String): (Int,Int) = tp match {
     case x: Tup2Type[_,_] => field match {
       case "_1" => 
-        val s = bitWidth(x.m1)
+        val s = 0
         val width = bitWidth(x.m2)
         (s, width)
       case "_2" => 
-        val s = 0
+        val s = bitWidth(x.m2)
         val width = bitWidth(x.m1)
         (s, width)
       }
@@ -82,7 +82,7 @@ trait ChiselGenStructs extends ChiselCodegen {
         } else {
           if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
         }
-      }.mkString(",")
+      }.reverse.mkString(",")
       val totalWidth = tuples.map{ t => 
         if (src"${t._1}" == "offset"){
           64

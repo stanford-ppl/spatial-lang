@@ -230,7 +230,7 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
     val B = Array.fill(full_N){ Array.fill(full_K){ random[T](2)} }
     val L = Array.tabulate(full_N){ i => Array.tabulate(full_N){ j =>
       if (j > i) 0.as[T] 
-      else if (j == i) random[T](10) + 1
+      else if (j == i) random[T](8) + 1
       else random[T](2)
     }}
 
