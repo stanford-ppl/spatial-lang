@@ -15,10 +15,7 @@ trait SimCodegen extends Codegen with FileDependencies {
   var hw = false
 
   //RUBEN TODO: We dont support wildcard yet
-  dependencies ::= AlwaysDep("simgen", "Controllers.scala")
-  dependencies ::= AlwaysDep("simgen", "Data.scala")
-  dependencies ::= AlwaysDep("simgen", "Module.scala")
-  dependencies ::= AlwaysDep("simgen", "State.scala")
+  dependencies ::= DirDep("simgen", "")
 
   override protected def emitBlock(b: Block[_]): Unit = {
     visitBlock(b)

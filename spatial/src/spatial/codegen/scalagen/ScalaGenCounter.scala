@@ -9,7 +9,7 @@ trait ScalaGenCounter extends ScalaCodegen with FileDependencies {
   val IR: CounterExp
   import IR._
 
-  dependencies ::= AlwaysDep("scalagen", "Counter.scala")
+  dependencies ::= FileDep("scalagen", "Counter.scala")
 
   override protected def remap(tp: Type[_]): String = tp match {
     case CounterType      => src"Counterlike"

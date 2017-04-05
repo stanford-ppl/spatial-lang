@@ -24,7 +24,7 @@ object BitSelects extends SpatialApp {
   }
 }
 
-object UserVectors extends SpatialApp {
+/*object UserVectors extends SpatialApp {
   import IR._
 
   type Q4 = FixPt[FALSE,_4,_0]
@@ -61,7 +61,7 @@ object UserVectors extends SpatialApp {
       assert(v(2) == A, "2nd element of vector should be A")
     }
   }
-}
+}*/
 
 object TwiddlingWithStructs extends SpatialApp {
   import IR._

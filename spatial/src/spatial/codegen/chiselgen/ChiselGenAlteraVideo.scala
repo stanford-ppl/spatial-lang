@@ -18,20 +18,22 @@ trait ChiselGenAlteraVideo extends ChiselCodegen with FileDependencies {
   //     case _ => super.bitWidth(tp)
   // }
 
+//  dependencies ::= FileDep("chiselgen", "altera-goodies/address_map_arm.h")
+//  dependencies ::= FileDep("chiselgen", "altera-goodies/interfaces.v")
+//  dependencies ::= FileDep("chiselgen", "altera-goodies/StreamPixBuffer2ARM.scala")
+//  dependencies ::= FileDep("chiselgen", "altera-goodies/altera_up_avalon_video_decoder")
+//  dependencies ::= FileDep("chiselgen", "altera-goodies/altera_up_avalon_video_dma_controller")
+
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case AxiMSNew() =>
-      dependencies ::= AlwaysDep("chiselgen", "altera-goodies/address_map_arm.h")
-      dependencies ::= AlwaysDep("chiselgen", "altera-goodies/interfaces.v")
-      dependencies ::= AlwaysDep("chiselgen", "altera-goodies/StreamPixBuffer2ARM.scala")
+
     case DecoderTemplateNew(popFrom, pushTo) => 
-      dependencies ::= AlwaysDep("chiselgen", "altera-goodies/altera_up_avalon_video_decoder")
       dmas = dmas :+ lhs
       emit(src"${pushTo}.io.in := io.video_decoder_ios.stream_out_data(0)")
       emit(src"${pushTo}.io.push := io.video_decoder_ios.stream_out_valid(0)")
 
     case DMATemplateNew(popFrom, loadIn) => 
-      dependencies ::= AlwaysDep("chiselgen", "altera-goodies/altera_up_avalon_video_dma_controller")
       decoders = decoders :+ lhs
       emit(src"io.dma_tomem_ios.stream_data(0) := ${popFrom}.io.out")
       emit(src"${popFrom}.io.pop := io.dma_tomem_ios.stream_valid(0)")

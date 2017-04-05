@@ -7,7 +7,7 @@ trait ScalaGenLineBuffer extends ScalaGenMemories {
   val IR: LineBufferExp
   import IR._
 
-  dependencies ::= AlwaysDep("scalagen", "LineBuffer.scala")
+  dependencies ::= FileDep("scalagen", "LineBuffer.scala")
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: LineBufferType[_] => src"LineBuffer[${tp.child}]"
