@@ -221,7 +221,15 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 					// Get upcasted operators
 					val full_result = Wire(new FixedPoint(upcasted_type))
 					// Do upcasted operation
-					full_result.number := util.Cat(this.number, 0.U((op.f+f+1).W)) / op.number // Not sure why we need the +1 in pow2
+					if (op.s | s) {
+						val numerator = util.Cat(this.number, 0.U((op.f+f+1).W)).toSInt
+						val denominator = op.number.toSInt
+						full_result.number := (numerator/denominator).toUInt
+					} else {
+						val numerator = util.Cat(this.number, 0.U((op.f+f+1).W))
+						val denominator = op.number
+						full_result.number := (numerator/denominator) // Not sure why we need the +1 in pow2
+					}
 					// Downcast to result
 					val result = Wire(new FixedPoint(return_type))
 					full_result.cast(result)
