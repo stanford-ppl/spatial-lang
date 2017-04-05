@@ -18,6 +18,11 @@ trait ChiselGenStructs extends ChiselCodegen {
       case _ => super.needsFPType(tp)
   }
 
+  def dumprint(tp:Staged[_]): String = tp match {
+    case FixPtType(s,d,f) => s"$s,$d,$f "
+    case _=> "na "
+  }
+
   protected def tupCoordinates(tp: Staged[_],field: String): (Int,Int) = tp match {
     case x: Tup2Type[_,_] => field match {
       case "_1" => 
@@ -30,7 +35,7 @@ trait ChiselGenStructs extends ChiselCodegen {
         (s, width)
       }
     case x: StructType[_] =>
-      val idx = x.fields.length - 1 - x.fields.indexWhere(_._1 == field)
+      val idx = x.fields.indexWhere(_._1 == field)
       val width = bitWidth(x.fields(idx)._2)
       val prec = x.fields.take(idx)
       val precBits = prec.map{case (_,bt) => bitWidth(bt)}.sum

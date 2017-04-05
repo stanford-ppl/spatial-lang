@@ -54,8 +54,8 @@ class Fringe(
 
     //Accel stream IO
     val genericStreamsAccel = new GenericStreams(streamInsInfo, streamOutsInfo)
-    val genericStreamOutTop = StreamOut(w)
-    val genericStreamInTop = StreamIn(w)
+    val genericStreamOutTop = new StreamOutAccel(ParStreamInfo(w, 1))
+    val genericStreamInTop = new StreamInAccel(ParStreamInfo(w, 1))
 
   })
 

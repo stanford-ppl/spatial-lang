@@ -24,16 +24,20 @@ trait ChiselGenStream extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
-      s"$bus".replace("(","").replace(")","") match {
-        case "BurstDataBus" =>
-        case "BurstAckBus" =>
+      emitGlobal(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
+      emitGlobal(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
+      bus match {
+        case BurstDataBus() =>
+        case BurstAckBus =>
         case _ =>
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
     case StreamOutNew(bus) =>
-      s"$bus".replace("(","").replace(")","") match {
-        case "BurstFullDataBus" =>
-        case "BurstCmdBus" =>
+      emitGlobal(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
+      emitGlobal(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
+      bus match {
+        case BurstFullDataBus() =>
+        case BurstCmdBus =>
         case _ =>
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
@@ -47,9 +51,9 @@ trait ChiselGenStream extends ChiselCodegen {
       }
       emit(src"""${stream}_ready := ${en} & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
       if (!isAck) {
-        val streamID = streamIns.indexOf(stream.asInstanceOf[Sym[Reg[_]]])
-        Predef.assert(streamID != -1, s"Stream ${quote(stream)} not present in streamIns")
-        emit(src"""val ${quote(lhs)} = io.streamIns.bits.data // Will use ID=$streamID in next change. StreamRead(stream = $stream, en = $en)""")  // Ignores enable for now
+        val id = argMapping(stream)._1
+        Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamIns")
+        emit(src"""val ${quote(lhs)} = io.genericStreams.ins($id).rdata.bits """)  // Ignores enable for now
       } else {
         emit(src"""// read is of burstAck on $stream""")
       }
@@ -64,13 +68,14 @@ trait ChiselGenStream extends ChiselCodegen {
         case _ => false
 			}
 
+      emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
       if (externalStream) {
-        val streamID = streamOuts.indexOf(stream.asInstanceOf[Sym[Reg[_]]])
-        Predef.assert(streamID != -1, s"Stream ${quote(stream)} not present in streamOuts")
-        emit(src"""io.streamOuts.bits.data := ${quote(data)}.number // Will use ID=$streamID in next change. StreamWrite(stream = $stream, data = $data, en = $en)""")  // Ignores enable for now
-        emit(src"""io.streamOuts.valid := ${parentOf(lhs).get}_done & $en""")
+        val id = argMapping(stream)._1
+
+        Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
+        emit(src"""io.genericStreams.outs($id).wdata.bits := ${quote(data)}.number """)  // Ignores enable for now
+        emit(src"""io.genericStreams.outs($id).wdata.valid := ${stream}_valid""")
       } else {
-        emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
         emit(src"""${stream}_data := $data""")
       }
 

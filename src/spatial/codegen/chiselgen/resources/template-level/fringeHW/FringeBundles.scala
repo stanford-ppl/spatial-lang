@@ -112,7 +112,6 @@ class GenericStreams(streamIns: List[StreamParInfo], streamOuts: List[StreamParI
 }
 
 class StreamIO(val w: Int) extends Bundle {
-  val data = UInt(w.W)
   val tag = UInt(w.W)
   val last = Bool()
 
@@ -127,16 +126,17 @@ object StreamIn {
   def apply(w: Int) = Flipped(Decoupled(new StreamIO(w)))
 }
 
-class StreamOutAccel(p: StreamParInfo) extends Bundle {
-  def apply(w: Int) = Decoupled(new StreamIO(p.w))
+class StreamOutAccel(p: StreamParInfo) extends StreamIO(64) {
+  val wdata = Flipped(Decoupled(UInt(p.w.W)))
 
   override def cloneType(): this.type = {
     new StreamOutAccel(p).asInstanceOf[this.type] 
   }
 }
 
-class StreamInAccel(p: StreamParInfo) extends Bundle {
-  def apply(w: Int) = Flipped(Decoupled(new StreamIO(p.w)))
+class StreamInAccel(p: StreamParInfo) extends StreamIO(64) {
+  val rdata = Decoupled(UInt(p.w.W))
+
   override def cloneType(): this.type = {
     new StreamInAccel(p).asInstanceOf[this.type] 
   }
