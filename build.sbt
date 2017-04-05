@@ -21,6 +21,7 @@ val commonSettings = assemblySettings ++ Seq(
 
 )
 
+publishArtifact := false
 
 lazy val virtualized = (project in file("scala-virtualized"))
   .settings(assemblySettings)
