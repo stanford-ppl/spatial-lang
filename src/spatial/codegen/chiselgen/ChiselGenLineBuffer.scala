@@ -43,6 +43,7 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
       emitGlobal(s"""val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, 1, 
         ${col_wPar}, ${col_rPar}, 
         ${row_wPar}, ${row_rPar}))  // Data type: ${remap(op.mT)}""")
+      emitGlobal(src"$lhs.io.reset := reset")
       linebufs = linebufs :+ lhs.asInstanceOf[Sym[LineBufferNew[_]]]
       
     case op@LineBufferRowSlice(lb,row,len,col) =>
@@ -70,7 +71,7 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"$lb.io.data_in(0) := ${data}.number")
       emit(src"$lb.io.w_en := $en & ${parent}_datapath_en")
-      
+
     case _ => super.emitNode(lhs, rhs)
   }
 
