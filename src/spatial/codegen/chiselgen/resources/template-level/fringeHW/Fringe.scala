@@ -17,7 +17,8 @@ class Fringe(
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
-  val streamOutsInfo: List[StreamParInfo]
+  val streamOutsInfo: List[StreamParInfo],
+  val blockingDRAMIssue: Boolean = false
 ) extends Module {
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
@@ -92,7 +93,7 @@ class Fringe(
   }
 
   // Memory address generator
-  val mag = Module(new MAGCore(w, d, v, loadStreamInfo, storeStreamInfo, numOutstandingBursts, burstSizeBytes))
+  val mag = Module(new MAGCore(w, d, v, loadStreamInfo, storeStreamInfo, numOutstandingBursts, burstSizeBytes, blockingDRAMIssue))
   val magConfig = Wire(new MAGOpcode())
   magConfig.scatterGather := false.B
   mag.io.config := magConfig

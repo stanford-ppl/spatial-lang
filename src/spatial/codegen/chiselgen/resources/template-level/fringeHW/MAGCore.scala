@@ -13,7 +13,8 @@ class MAGCore(
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val numOutstandingBursts: Int,
-  val burstSizeBytes: Int
+  val burstSizeBytes: Int,
+  val blockingDRAMIssue: Boolean = false
 ) extends Module { // AbstractMAG(w, d, v, numOutstandingBursts, burstSizeBytes) {
 
   // The data bus width to DRAM is 1-burst wide
@@ -90,14 +91,6 @@ class MAGCore(
   sizeFifo.io.enq.zip(cmds) foreach { case (enq, cmd) => enq(0) := cmd.bits.size }
   sizeFifo.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid & ~io.config.scatterGather }
 
-//  val sizeIn = Wire(Vec(v, UInt(w.W)))
-//  sizeIn.zipWithIndex.foreach { case (wire, i) =>
-//    wire := (if (i == 0) io.app.cmd.bits.size else 0.U)
-//  }
-//  sizeFifo.io.enq := sizeIn
-//  sizeFifo.io.enqVld := io.app.cmd.valid & ~io.config.scatterGather
-//  sizeFifo.io.enq := Wire(Vec(List.tabulate(v) { i => if (i == 0) io.app.cmd.bits.size else Wire(0.U) }))
-
   val sizeTop = sizeFifo.io.deq(0)
   val sizeInBursts = extractBurstAddr(sizeTop) + (extractBurstOffset(sizeTop) != 0.U)
 
@@ -111,8 +104,22 @@ class MAGCore(
   val wdataFifo = Module(new FIFOArbiterWidthConvert(wins, vins, 32, 16, d))
   val wrPhase = Module(new SRFF())
 
+
   val burstVld = ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
   val dramReady = io.dram.cmd.ready
+
+  // For blocking calls, create a new 'issued' signal. This wire is high if we have
+  // a request in flight
+  val issued = Wire(Bool())
+  val issuedFF = Module(new FF(1))
+  issuedFF.io.init := 0.U
+  issuedFF.io.in := Mux(issued, ~io.dram.resp.valid, burstVld)
+  issuedFF.io.enable := 1.U
+  if (blockingDRAMIssue) {
+    issued := issuedFF.io.out
+  } else { // Non-blocking, this should be a no-op
+    issued := false.B
+  }
 
   wdataFifo.io.forceTag.bits := addrFifo.io.tag - loadStreamInfo.size.U
   wdataFifo.io.forceTag.valid := addrFifo.io.tag >= loadStreamInfo.size.U
@@ -124,7 +131,7 @@ class MAGCore(
   burstCounter.io.max := Mux(io.config.scatterGather, 1.U, sizeInBursts)
   burstCounter.io.stride := 1.U
   burstCounter.io.reset := 0.U
-  burstCounter.io.enable := Mux(io.config.scatterGather, ~addrFifo.io.empty, burstVld) & dramReady
+  burstCounter.io.enable := Mux(io.config.scatterGather, ~addrFifo.io.empty, burstVld) & dramReady & ~issued
   burstCounter.io.saturate := 0.U
 
   // Burst Tag counter
@@ -132,7 +139,7 @@ class MAGCore(
   burstTagCounter.io.max := numOutstandingBursts.U
   burstTagCounter.io.stride := 1.U
   burstTagCounter.io.reset := 0.U
-  burstTagCounter.io.enable := Mux(io.config.scatterGather, ~addrFifo.io.empty, burstVld) & dramReady
+  burstTagCounter.io.enable := Mux(io.config.scatterGather, ~addrFifo.io.empty, burstVld) & dramReady & ~issued
   burstCounter.io.saturate := 0.U
   val elementID = burstTagCounter.io.out(log2Up(v)-1, 0)
 
@@ -149,7 +156,7 @@ class MAGCore(
   addrFifo.io.deqVld := burstCounter.io.done
   isWrFifo.io.deqVld := burstCounter.io.done
   sizeFifo.io.deqVld := burstCounter.io.done
-  wdataFifo.io.deqVld := burstVld & isWrFifo.io.deq(0) & dramReady // io.config.isWr & burstVld
+  wdataFifo.io.deqVld := burstVld & isWrFifo.io.deq(0) & dramReady & ~issued // io.config.isWr & burstVld
 //  addrFifo.io.deqVld := burstCounter.io.done & ~ccache.io.full
 //  wdataFifo.io.deqVld := Mux(io.config.scatterGather, burstCounter.io.done & ~ccache.io.full, io.config.isWr & burstVld)
 
@@ -266,11 +273,20 @@ class MAGCore(
   io.dram.cmd.bits.isWr := isWrFifo.io.deq(0)
   wrPhase.io.input.set := (~isWrFifo.io.empty & isWrFifo.io.deq(0))
   wrPhase.io.input.reset := templates.Utils.delay(burstVld,1)
-  io.dram.cmd.valid := burstVld
+  io.dram.cmd.valid := burstVld & ~issued
 
-//  rdata := Mux(io.config.scatterGather, gatherData, io.dram.resp.bits.rdata)
-//  vldOut := Mux(io.config.scatterGather, completed, io.dram.vldIn)
-  val streamTagFromDRAM = getStreamTag(io.dram.resp.bits.tag)
+  val issuedTag = Wire(UInt(w.W))
+  if (blockingDRAMIssue) {
+    val issuedTagFF = Module(new FF(w))
+    issuedTagFF.io.init := 0.U
+    issuedTagFF.io.in := Cat(tagOut.streamTag, tagOut.burstTag)
+    issuedTagFF.io.enable := burstVld & ~issued
+    issuedTag := issuedTagFF.io.out
+  } else {
+    issuedTag := 0.U
+  }
+
+  val streamTagFromDRAM = if (blockingDRAMIssue) getStreamTag(issuedTag) else getStreamTag(io.dram.resp.bits.tag)
 
   val rdataFifos = List.tabulate(loadStreamInfo.size) { i =>
     val m = Module(new WidthConverterFIFO(32, io.dram.resp.bits.rdata.size, loadStreamInfo(i).w, loadStreamInfo(i).v, d))
