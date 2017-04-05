@@ -110,6 +110,37 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     }
   } 
 
+  private def beneathForever(lhs: Sym[Any]):Boolean = { // TODO: Make a counterOf() method that will just grab me Some(counter) that I can check
+    if (parentOf(lhs).isDefined) {
+      val parent = parentOf(lhs).get
+      parent match {
+        case Def(Hwblock(_,isFrvr)) => true
+        case Def(e: ParallelPipe) => false
+        case Def(e: UnitPipe) => false
+        case Def(e: OpForeach) => e.cchain match {
+          case Def(Forever()) => true
+          case _ => false
+        }
+        case Def(e: OpReduce[_]) => e.cchain match {
+          case Def(Forever()) => true
+          case _ => false
+        }
+        case Def(e: OpMemReduce[_,_]) => false
+        case Def(e: UnrolledForeach) => e.cchain match {
+          case Def(Forever()) => true
+          case _ => false
+        }
+        case Def(e: UnrolledReduce[_,_]) => e.cchain match {
+          case Def(Forever()) => true
+          case _ => false
+        }
+        case _ => false 
+      }
+    } else {
+      false
+    }
+  }
+
   def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]]) = {
     val stages = childrenOf(controller)
     inds.foreach { idx =>
@@ -169,6 +200,12 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       List("1.U") // Unit pipe
     }
 
+    // Special match if this is HWblock, there is no forever cchain, just the forever flag
+    sym match {
+      case Def(Hwblock(_,isFrvr)) => if (isFrvr) hasForever = true
+      case _ =>
+    }
+
 
     val constrArg = if (isInner) {s"${numIter.length} /*TODO: don't need*/, ${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
 
@@ -187,7 +224,11 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
 
     if (isStreamChild(sym)) {
       emitGlobal(src"""val ${sym}_datapath_en = Wire(Bool())""")
-      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done""")  
+      if (beneathForever(sym)) {
+        emit(src"""${sym}_datapath_en := ${sym}_en // Immediate parent has forever counter, so never mask out datapath_en""")    
+      } else {
+        emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done""")  
+      }
     } else if (isFSM) {
       emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_done""")        
     } else {
@@ -331,7 +372,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       emit(s"""done_latch.io.input.reset := ${quote(lhs)}_resetter""")
       emit(s"""done_latch.io.input.asyn_reset := ${quote(lhs)}_resetter""")
       emit(s"""io.done := done_latch.io.output.data""")
-      if (isForever) emit(s"""${quote(lhs)}_sm.io.input.forever := true.B""")
+      // if (isForever) emit(s"""${quote(lhs)}_sm.io.input.forever := true.B""")
 
       emitBlock(func)
       toggleEn() // turn off

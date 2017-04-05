@@ -65,7 +65,7 @@ class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
       io.output.rst_en := false.B
       stateFF.io.input.data := runningState.U
     }.elsewhen (state === runningState.U) {  // STEADY
-      (0 until n).foreach { i => io.output.stageEnable(i) := ~doneMask(i) }
+      (0 until n).foreach { i => io.output.stageEnable(i) := Mux(io.input.forever, true.B, ~doneMask(i)) }
 
       val doneTree = doneMask.reduce { _ & _ }
       when(doneTree === 1.U) {
