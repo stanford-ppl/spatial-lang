@@ -14,7 +14,11 @@ trait SimCodegen extends Codegen with FileDependencies {
   override val ext: String = "scala"
   var hw = false
 
-  dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/simgen/resources/*")
+  //RUBEN TODO: We dont support wildcard yet
+  dependencies ::= AlwaysDep("simgen", "Controllers.scala")
+  dependencies ::= AlwaysDep("simgen", "Data.scala")
+  dependencies ::= AlwaysDep("simgen", "Module.scala")
+  dependencies ::= AlwaysDep("simgen", "State.scala")
 
   override protected def emitBlock(b: Block[_]): Unit = {
     visitBlock(b)

@@ -8,7 +8,7 @@ trait SimGenCounter extends SimCodegen with FileDependencies {
   val IR: CounterExp
   import IR._
 
-  dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/scalagen/resources/Counter.scala")
+  dependencies ::= AlwaysDep("scalagen", "Counter.scala")
 
   override protected def remap(tp: Type[_]): String = tp match {
     case CounterType      => src"Counterlike"

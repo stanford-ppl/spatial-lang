@@ -14,7 +14,7 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
   var streamCtrCopy = List[Bound[_]]()
   var controllerStack = scala.collection.mutable.Stack[Exp[_]]()
 
-  // dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/chiselgen/resources/Counter.chisel")
+  // dependencies ::= AlwaysDep("chiselgen", "resources/Counter.chisel")
 
   def emitCounterChain(lhs: Exp[_], ctrs: Seq[Exp[Counter]], suffix: String = ""): Unit = {
     val counter_data = ctrs.map{ c => c match {
