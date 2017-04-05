@@ -27,6 +27,7 @@ abstract class FIFOBase(val w: Int, val d: Int, val v: Int) extends Module {
     val deqVld = Input(Bool())
     val full = Output(Bool())
     val empty = Output(Bool())
+    val almostFull = Output(Bool())
     val almostEmpty = Output(Bool())
     val config = Input(new FIFOOpcode(d, v))
   })
@@ -42,14 +43,25 @@ abstract class FIFOBase(val w: Int, val d: Int, val v: Int) extends Module {
   // Create size register
   val sizeUDC = Module(new UpDownCtr(log2Up(d+1)))
   val size = sizeUDC.io.out
-  val empty = (size < Mux(io.config.chainRead, 1.U, v.U))
-  val almostEmpty = sizeUDC.io.nextDec === 0.U
-  val full = sizeUDC.io.isMax
+  val remainingSlots = d.U - size
+  val nextRemainingSlots = d.U - sizeUDC.io.nextInc
+
+  val strideInc = Mux(io.config.chainWrite, 1.U, v.U)
+  val strideDec = Mux(io.config.chainRead, 1.U, v.U)
+
+  // FIFO is full if #rem elements (d - size) < strideInc
+  // FIFO is emty if elements (size) < strideDec
+  // FIFO is almostFull if the next enqVld will make it full
+  val empty = size < strideDec
+  val almostEmpty = sizeUDC.io.nextDec < strideDec
+  val full = remainingSlots < strideInc
+  val almostFull = nextRemainingSlots < strideInc
+
   sizeUDC.io.initval := 0.U
   sizeUDC.io.max := d.U
   sizeUDC.io.init := 0.U
-  sizeUDC.io.strideInc := Mux(io.config.chainWrite, 1.U, v.U)
-  sizeUDC.io.strideDec := Mux(io.config.chainRead, 1.U, v.U)
+  sizeUDC.io.strideInc := strideInc
+  sizeUDC.io.strideDec := strideDec
   sizeUDC.io.init := 0.U
 
   val writeEn = io.enqVld & ~full
@@ -60,6 +72,7 @@ abstract class FIFOBase(val w: Int, val d: Int, val v: Int) extends Module {
   io.empty := empty
   io.almostEmpty := almostEmpty
   io.full := full
+  io.almostFull := almostFull
 }
 
 class FIFOCounter(override val d: Int, override val v: Int) extends FIFOBase(1, d, v) {
