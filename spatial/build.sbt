@@ -1,34 +1,26 @@
-name := "spatial"
-
-organization := "stanford-ppl"
-
 scalaVersion in ThisBuild := "2.12.1"
 
-version := "1.0"
+organization in ThisBuild := "ppl-stanford"
 
-isSnapshot := true
+version in ThisBuild := "1.0"
 
-excludeFilter in unmanagedSources := "*template-level*" || "*app-level*" || "*resources*"
+isSnapshot in ThisBuild := true
 
 val scalatestVersion = "3.0.1"
 val paradiseVersion = "2.1.0"
 
-libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test"
+publishArtifact := false
 
-scalaSource in Compile := baseDirectory(_/ "src").value
-scalaSource in Test := baseDirectory(_/"test").value
-resourceDirectory in Compile :=  baseDirectory(_/ "resources").value
-
-//paradise
-resolvers += Resolver.sonatypeRepo("snapshots")
-resolvers += Resolver.sonatypeRepo("releases")
-addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
-
-
-/*
-lazy val spatial = (project in file("."))
+lazy val spatial = (project in file("core"))
   .settings(Seq(
+
     libraryDependencies += "stanford-ppl" %% "argon" % version.value,
-    libraryDependencies += "stanford-ppl" %% "forge" % version.value
+    libraryDependencies += "stanford-ppl" %% "forge" % version.value,
+    libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
+
+    //paradise
+    resolvers += Resolver.sonatypeRepo("snapshots"),
+    resolvers += Resolver.sonatypeRepo("releases"),
+    addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
+
   ))
-*/

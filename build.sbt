@@ -1,8 +1,10 @@
 scalaVersion in ThisBuild := "2.12.1"
 
-organization := "ppl-stanford"
+organization in ThisBuild := "ppl-stanford"
 
-version := "1.0"
+version in ThisBuild := "1.0"
+
+isSnapshot in ThisBuild := true
 
 val scalatestVersion = "3.0.1"
 val paradiseVersion = "2.1.0"
@@ -34,7 +36,7 @@ lazy val argon = (project in file("argon/core"))
   .dependsOn(forge, virtualized)
   .settings(commonSettings)
 
-lazy val spatial = project
+lazy val spatial = (project in file("spatial/core"))
   .dependsOn(argon, forge, virtualized)
   .settings(commonSettings)
   .settings(assemblyJarName in assembly := "spatial-lang.jar")
