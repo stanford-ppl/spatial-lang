@@ -8,7 +8,7 @@ trait ScalaGenBits extends ScalaCodegen {
   val IR: Staging
   import IR._
 
-  dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/scalagen/resources/Data.scala")
+  dependencies ::= AlwaysDep("scalagen", "Data.scala")
 
   def invalid(tp: Type[_]): String = tp match {
     case _ => throw new Exception(u"Don't know how to generate invalid for type $tp")

@@ -9,7 +9,7 @@ trait CppGenCounter extends CppCodegen with FileDependencies {
   val IR: CounterExp
   import IR._
 
-  // dependencies ::= AlwaysDep(s"${SpatialConfig.HOME}/src/spatial/codegen/cppgen/resources/Counter.cpp")
+  // dependencies ::= AlwaysDep("cppgen", "Counter.cpp")
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
