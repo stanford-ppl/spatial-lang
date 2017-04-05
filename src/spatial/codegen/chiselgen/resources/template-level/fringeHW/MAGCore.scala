@@ -305,6 +305,9 @@ class MAGCore(
     wresp.valid := ~fifo.io.empty
     fifo.io.deqVld := wresp.ready
   }
+
+  io.dram.resp.ready := ~(rdataFifos.map { fifo => fifo.io.full | fifo.io.almostFull }.reduce{_|_})
+
 }
 
 //class MemoryTester (
