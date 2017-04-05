@@ -83,7 +83,7 @@ module test;
   wire        io_genericStreamIn_ready;
   reg         io_genericStreamIn_valid;
   reg  [31:0] io_genericStreamIn_bits_data;
-//  reg  [31:0] io_genericStreamIn_bits_tag = 0;
+  reg  [31:0] io_genericStreamIn_bits_tag = 0;
 
   reg         io_genericStreamIn_bits_last;
   reg         io_genericStreamOut_ready;
@@ -146,7 +146,7 @@ module test;
     .io_genericStreamIn_ready(io_genericStreamIn_ready),
     .io_genericStreamIn_valid(io_genericStreamIn_valid),
     .io_genericStreamIn_bits_data(io_genericStreamIn_bits_data),
-//    .io_genericStreamIn_bits_tag(io_genericStreamIn_bits_tag),
+    .io_genericStreamIn_bits_tag(io_genericStreamIn_bits_tag),
     .io_genericStreamIn_bits_last(io_genericStreamIn_bits_last),
     .io_genericStreamOut_ready(io_genericStreamOut_ready),
     .io_genericStreamOut_valid(io_genericStreamOut_valid),
@@ -219,7 +219,7 @@ module test;
   );
     io_genericStreamIn_valid = 1;
     io_genericStreamIn_bits_data = data;
-//    io_genericStreamIn_bits_tag = tag;
+    io_genericStreamIn_bits_tag = tag;
     io_genericStreamIn_bits_last = last;
   endfunction
 
@@ -233,7 +233,7 @@ module test;
 
   // 1. If io_dram_cmd_valid, then send send DRAM request to CPP layer
   function void callbacks();
-    if (io_dram_cmd_valid) begin
+    if (io_dram_cmd_valid & ~reset) begin
       sendDRAMRequest(
         io_dram_cmd_bits_addr,
         io_dram_cmd_bits_tag,
@@ -257,11 +257,10 @@ module test;
       );
     end
 
-    if (io_genericStreamOut_valid) begin
+    if (io_genericStreamOut_valid & ~reset) begin
       readOutputStream(
         io_genericStreamOut_bits_data,
-//        io_genericStreamOut_bits_tag,
-        0,
+        io_genericStreamOut_bits_tag,
        io_genericStreamOut_bits_last
       );
     end
@@ -272,8 +271,8 @@ module test;
     io_wen = 0;
     io_dram_resp_valid = 0;
     io_dram_cmd_ready = 1;
-//    io_genericStreamIn_valid = 0;
-//    io_genericStreamOut_ready = 1;
+    io_genericStreamIn_valid = 0;
+    io_genericStreamOut_ready = 1;
 
     if (tick()) begin
       $dumpflush;

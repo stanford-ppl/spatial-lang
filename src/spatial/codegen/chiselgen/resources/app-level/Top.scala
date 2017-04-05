@@ -44,8 +44,8 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
   val dram = new DRAMStream(p.dataWidth, p.v)
 
   // Input streams
-  val genericStreamIn = Decoupled(new StreamInAccel(StreamParInfo(32,1)))
-  val genericStreamOut = Flipped(Decoupled(new StreamOutAccel(StreamParInfo(32,1))))
+  val genericStreamIn = StreamIn(StreamParInfo(32,1))
+  val genericStreamOut = StreamOut(StreamParInfo(32,1))
 
 }
 
@@ -128,7 +128,7 @@ class Top(
 
       // Fringe <-> Accel stream connections
       accel.io.genericStreams <> fringe.io.genericStreamsAccel
-      fringe.io.genericStreamsAccel <> accel.io.genericStreams
+//      fringe.io.genericStreamsAccel <> accel.io.genericStreams
 
     case "zynq" =>
       // Zynq Fringe
