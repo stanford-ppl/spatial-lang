@@ -91,53 +91,62 @@ void checkAndSendDRAMResponse() {
 
     if (useIdealDRAM) {
       req->elapsed++;
-      if (req->elapsed == req->delay) {
+      if (req->elapsed >= req->delay) {
         req->completed = true;
         EPRINTF("[idealDRAM txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)req->addr, req->tag, numCycles);
       }
     }
 
     if (req->completed) {
-      dramRequestQ.pop();
-      EPRINTF("[Sending DRAM resp to]: ");
-      req->print();
+      SV_BIT_PACKED_ARRAY(32, dramRespReady);
+      getDRAMRespReady((svBitVec32*)&dramRespReady);
+      uint32_t ready = (uint32_t)*dramRespReady;
 
-      uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+      if (ready > 0) {
+        dramRequestQ.pop();
+        EPRINTF("[Sending DRAM resp to]: ");
+        req->print();
 
-      if (req->isWr) {
-        // Write request: Update 1 burst-length bytes at *addr
-        uint32_t *waddr = (uint32_t*) req->addr;
-        for (int i=0; i<16; i++) {
-          waddr[i] = req->wdata[i];
+        uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+        if (req->isWr) {
+          // Write request: Update 1 burst-length bytes at *addr
+          uint32_t *waddr = (uint32_t*) req->addr;
+          for (int i=0; i<16; i++) {
+            waddr[i] = req->wdata[i];
+          }
+        } else {
+          // Read request: Read burst-length bytes at *addr
+          uint32_t *raddr = (uint32_t*) req->addr;
+          for (int i=0; i<16; i++) {
+            rdata[i] = raddr[i];
+    //            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
+          }
         }
+
+        pokeDRAMResponse(
+            req->tag,
+            rdata[0],
+            rdata[1],
+            rdata[2],
+            rdata[3],
+            rdata[4],
+            rdata[5],
+            rdata[6],
+            rdata[7],
+            rdata[8],
+            rdata[9],
+            rdata[10],
+            rdata[11],
+            rdata[12],
+            rdata[13],
+            rdata[14],
+            rdata[15]
+          );
       } else {
-        // Read request: Read burst-length bytes at *addr
-        uint32_t *raddr = (uint32_t*) req->addr;
-        for (int i=0; i<16; i++) {
-          rdata[i] = raddr[i];
-  //            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
-        }
+        EPRINTF("[SIM] dramResp not ready, numCycles = %ld\n", numCycles);
       }
 
-      pokeDRAMResponse(
-          req->tag,
-          rdata[0],
-          rdata[1],
-          rdata[2],
-          rdata[3],
-          rdata[4],
-          rdata[5],
-          rdata[6],
-          rdata[7],
-          rdata[8],
-          rdata[9],
-          rdata[10],
-          rdata[11],
-          rdata[12],
-          rdata[13],
-          rdata[14],
-          rdata[15]
-        );
     }
   }
 }

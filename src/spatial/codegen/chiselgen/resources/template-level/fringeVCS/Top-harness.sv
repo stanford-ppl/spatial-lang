@@ -12,6 +12,7 @@ module test;
   export "DPI" function readRegRdataHi32;
   export "DPI" function readRegRdataLo32;
   export "DPI" function pokeDRAMResponse;
+  export "DPI" function getDRAMRespReady;
   export "DPI" function writeStream;
 
   reg clock = 1;
@@ -173,6 +174,10 @@ module test;
     io_wen = 1;
   endfunction
 
+  function void getDRAMRespReady(output bit [31:0] respReady);
+    respReady = io_dram_resp_ready;
+  endfunction
+
   function void pokeDRAMResponse(
     input int tag,
     input int rdata0,
@@ -267,7 +272,9 @@ module test;
 
   endfunction
 
+  int numCycles = 0;
   always @(negedge clock) begin
+    numCycles = numCycles + 1;
     io_wen = 0;
     io_dram_resp_valid = 0;
     io_dram_cmd_ready = 1;
