@@ -153,12 +153,12 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
 
   maxes.foreach { max => 
   strides.foreach { stride => 
-    println("------" + max + "--------" + stride)
-    val alignedMax = max.zip(stride).zip(c.par).map {case ((m,s),p) => 
+    // println("------" + max + "--------" + stride)
+    val alignedMax = max.zip(stride).zip(c.par.reverse).map {case ((m,s),p) => 
       if (m % (s*p) == 0) m else m - (m % (s*p)) + (s*p) 
     }
     numEnabledCycles = 0
-    val stepSizes = c.par.zipWithIndex.map{case (p,i) => p*stride(i) + gap(i)}
+    val stepSizes = c.par.reverse.zipWithIndex.map{case (p,i) => p*stride(i) + gap(i)}
     val totalTicks = alignedMax.reduce{_*_} / stepSizes.reduce{_*_}
 
     def testOneStep() = {
@@ -167,23 +167,24 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
         val expectedCksum = numEnabledCycles 
         val done = if (numEnabledCycles == max.reduce{_*_}) 1 else 0
 
-        c.par.zipWithIndex.foreach{ case (p,ii) => 
+        c.par.reverse.zipWithIndex.foreach{ case (p,ii) => 
           val i = c.par.length - ii - 1
           val ticksToInc = (alignedMax.take(i+1).reduce{_*_} * stepSizes(i)) / (alignedMax(i) * stepSizes.take(i+1).reduce{_*_})
           val period = ticksToInc*alignedMax(i) / stepSizes(i)
           val increments = (numEnabledCycles) / ticksToInc
           val base = if (saturate == 1) {
             if (numEnabledCycles >= totalTicks) {
-              alignedMax(i) - p*stride(i)
+              alignedMax(i) - c.par(ii)*stride(i)
             } else {
               (increments * stepSizes(i)) % alignedMax(i)
             }
           } else {
             increments % alignedMax(i) // TODO: Not sure if this is correct, only testing saturating ctrs now
           }
-          val ctrAddr = c.par.drop(i).reduce{_+_} - c.par(i)
-          (0 until p).foreach{ k => 
+          val ctrAddr = c.par.take(ii+1).reduce{_+_} - c.par(ii)
+          (0 until c.par(ii)).foreach{ k => 
             val test = peek(c.io.output.counts(ctrAddr+k))
+            val expected = base + k*stride(i)
 //             if (test != base + k*stride(i)) {
 //               println(s"""Step ${numEnabledCycles}: (checking ctr${i}.${k} @ ${ctrAddr+k} (hw: ${test} =? ${base+k*stride(i)})
 //   tic each ${ticksToInc} from ${alignedMax.take(i+1).reduce{_*_}} / ${alignedMax(i)}), 
@@ -191,12 +192,12 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
 //       base = ${base} (incs % ${alignedMax(i)})
 // """)
 //             }
-            // if (test != base + k*stride(i)) println("WRONG!")
-            // println("[stat] counter " + {ctrAddr + k} + " is " + test + " but expected " + {base + stride(i)*k} + "(" + base + "+" + k + "*" + stride(i) + ")")
-            expect(c.io.output.counts(ctrAddr+k), base + k*stride(i))
+            // if (test != expected) println("WRONG!")
+            // println("[stat] counter " + {ctrAddr + k} + " is " + test + " but expected " + expected + "(" + base + "+" + k + "*" + stride(i) + ")")
+            expect(c.io.output.counts(ctrAddr+k), expected)
           }
         }
-        println("")
+        // println("")
       }
 
       enable = 0
@@ -213,7 +214,7 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
       poke(c.io.input.reset, 0)
 
       // for (i <- 0 until (totalTicks*1.1).toInt) {
-      for (i <- 0 until (8).toInt) {
+      for (i <- 0 until (20).toInt) {
         testOneStep
       }
 
