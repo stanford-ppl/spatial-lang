@@ -80,16 +80,17 @@ module test;
   reg [31:0] io_dram_resp_bits_tag;
   reg [31:0] io_dram_resp_bits_streamId;
 
-  wire        io_streamIn_ready;
-  reg         io_streamIn_valid;
-  reg  [31:0] io_streamIn_bits_data;
-  reg  [31:0] io_streamIn_bits_tag;
-  reg         io_streamIn_bits_last;
-  reg         io_streamOut_ready;
-  wire        io_streamOut_valid;
-  wire [31:0] io_streamOut_bits_data;
-  wire [31:0] io_streamOut_bits_tag;
-  wire        io_streamOut_bits_last;
+  wire        io_genericStreamIn_ready;
+  reg         io_genericStreamIn_valid;
+  reg  [31:0] io_genericStreamIn_bits_data;
+//  reg  [31:0] io_genericStreamIn_bits_tag = 0;
+
+  reg         io_genericStreamIn_bits_last;
+  reg         io_genericStreamOut_ready;
+  wire        io_genericStreamOut_valid;
+  wire [31:0] io_genericStreamOut_bits_data;
+  wire [31:0] io_genericStreamOut_bits_tag;
+  wire        io_genericStreamOut_bits_last;
 
   /*** DUT instantiation ***/
   Top Top(
@@ -145,7 +146,7 @@ module test;
     .io_genericStreamIn_ready(io_genericStreamIn_ready),
     .io_genericStreamIn_valid(io_genericStreamIn_valid),
     .io_genericStreamIn_bits_data(io_genericStreamIn_bits_data),
-    .io_genericStreamIn_bits_tag(io_genericStreamIn_bits_tag),
+//    .io_genericStreamIn_bits_tag(io_genericStreamIn_bits_tag),
     .io_genericStreamIn_bits_last(io_genericStreamIn_bits_last),
     .io_genericStreamOut_ready(io_genericStreamOut_ready),
     .io_genericStreamOut_valid(io_genericStreamOut_valid),
@@ -216,10 +217,10 @@ module test;
     input int tag,
     input int last
   );
-    io_streamIn_valid = 1;
-    io_streamIn_bits_data = data;
-    io_streamIn_bits_tag = tag;
-    io_streamIn_bits_last = last;
+    io_genericStreamIn_valid = 1;
+    io_genericStreamIn_bits_data = data;
+//    io_genericStreamIn_bits_tag = tag;
+    io_genericStreamIn_bits_last = last;
   endfunction
 
   initial begin
@@ -256,11 +257,12 @@ module test;
       );
     end
 
-    if (io_streamOut_valid) begin
+    if (io_genericStreamOut_valid) begin
       readOutputStream(
-        io_streamOut_bits_data,
-        io_streamOut_bits_tag,
-        io_streamOut_bits_last
+        io_genericStreamOut_bits_data,
+//        io_genericStreamOut_bits_tag,
+        0,
+       io_genericStreamOut_bits_last
       );
     end
 
@@ -270,8 +272,8 @@ module test;
     io_wen = 0;
     io_dram_resp_valid = 0;
     io_dram_cmd_ready = 1;
-    io_streamIn_valid = 0;
-    io_streamOut_ready = 1;
+    io_genericStreamIn_valid = 0;
+    io_genericStreamOut_ready = 1;
 
     if (tick()) begin
       $dumpflush;
