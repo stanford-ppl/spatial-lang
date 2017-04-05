@@ -102,8 +102,8 @@ class DRAMStream(w: Int, v: Int) extends Bundle {
 }
 
 class GenericStreams(streamIns: List[StreamParInfo], streamOuts: List[StreamParInfo]) extends Bundle {
-  val ins = HVec.tabulate(streamIns.size) { i => new StreamInAccel(streamIns(i)) }
-  val outs = HVec.tabulate(streamOuts.size) { i => new StreamOutAccel(streamOuts(i)) }
+  val ins = HVec.tabulate(streamIns.size) { i => Decoupled(new StreamInAccel(streamIns(i))) }
+  val outs = HVec.tabulate(streamOuts.size) { i => Flipped(Decoupled(new StreamOutAccel(streamOuts(i)))) }
 
   override def cloneType(): this.type = {
     new GenericStreams(streamIns, streamOuts).asInstanceOf[this.type]
@@ -126,18 +126,18 @@ object StreamIn {
   def apply(w: Int) = Flipped(Decoupled(new StreamIO(w)))
 }
 
-class StreamOutAccel(p: StreamParInfo) extends StreamIO(64) {
-  val wdata = Flipped(Decoupled(UInt(p.w.W)))
+class StreamOutAccel(p: StreamParInfo) extends Bundle {
+  val data = UInt(p.w.W)
+  val tag = UInt(p.w.W)
+  val last = Bool()
 
-  override def cloneType(): this.type = {
-    new StreamOutAccel(p).asInstanceOf[this.type] 
-  }
+  override def cloneType(): this.type = { new StreamOutAccel(p).asInstanceOf[this.type] }
 }
 
-class StreamInAccel(p: StreamParInfo) extends StreamIO(64) {
-  val rdata = Decoupled(UInt(p.w.W))
+class StreamInAccel(p: StreamParInfo) extends Bundle {
+  val data = UInt(p.w.W)
+  val tag = UInt(p.w.W)
+  val last = Bool()
 
-  override def cloneType(): this.type = {
-    new StreamInAccel(p).asInstanceOf[this.type] 
-  }
+  override def cloneType(): this.type = { new StreamInAccel(p).asInstanceOf[this.type] }
 }

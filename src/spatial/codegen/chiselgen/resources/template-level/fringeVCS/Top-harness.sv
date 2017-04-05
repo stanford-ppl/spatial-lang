@@ -272,8 +272,8 @@ module test;
     io_wen = 0;
     io_dram_resp_valid = 0;
     io_dram_cmd_ready = 1;
-    io_genericStreamIn_valid = 0;
-    io_genericStreamOut_ready = 1;
+//    io_genericStreamIn_valid = 0;
+//    io_genericStreamOut_ready = 1;
 
     if (tick()) begin
       $dumpflush;

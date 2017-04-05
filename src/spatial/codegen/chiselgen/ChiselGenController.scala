@@ -331,6 +331,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       emit(s"""done_latch.io.input.reset := ${quote(lhs)}_resetter""")
       emit(s"""done_latch.io.input.asyn_reset := ${quote(lhs)}_resetter""")
       emit(s"""io.done := done_latch.io.output.data""")
+      if (isForever) emit(s"""${quote(lhs)}_sm.io.input.forever := true.B""")
 
       emitBlock(func)
       toggleEn() // turn off

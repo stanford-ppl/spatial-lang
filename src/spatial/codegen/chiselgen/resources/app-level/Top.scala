@@ -44,8 +44,8 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
   val dram = new DRAMStream(p.dataWidth, p.v)
 
   // Input streams
-  val genericStreamIn = StreamIn(32)
-  val genericStreamOut = StreamOut(32)
+  val genericStreamIn = Decoupled(new StreamInAccel(StreamParInfo(32,1)))
+  val genericStreamOut = Flipped(Decoupled(new StreamOutAccel(StreamParInfo(32,1))))
 
 }
 

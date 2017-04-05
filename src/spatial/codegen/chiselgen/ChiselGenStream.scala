@@ -53,7 +53,7 @@ trait ChiselGenStream extends ChiselCodegen {
       if (!isAck) {
         val id = argMapping(stream)._1
         Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamIns")
-        emit(src"""val ${quote(lhs)} = io.genericStreams.ins($id).rdata.bits """)  // Ignores enable for now
+        emit(src"""val ${quote(lhs)} = io.genericStreams.ins($id).bits.data """)  // Ignores enable for now
       } else {
         emit(src"""// read is of burstAck on $stream""")
       }
@@ -73,8 +73,8 @@ trait ChiselGenStream extends ChiselCodegen {
         val id = argMapping(stream)._1
 
         Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
-        emit(src"""io.genericStreams.outs($id).wdata.bits := ${quote(data)}.number """)  // Ignores enable for now
-        emit(src"""io.genericStreams.outs($id).wdata.valid := ${stream}_valid""")
+        emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now
+        emit(src"""io.genericStreams.outs($id).valid := ${stream}_valid""")
       } else {
         emit(src"""${stream}_data := $data""")
       }
