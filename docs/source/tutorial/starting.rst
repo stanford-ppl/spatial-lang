@@ -6,7 +6,7 @@ Prerequisites
 
 First, make sure to download and install the following prerequisites:
 
-- `Python (2 or 3) <https://www.python.org/downloads/>`
+- `Python (2 or 3) <https://www.python.org/downloads/>`_
 - `Scala SBT <http://www.scala-sbt.org>`_
 - `Java JDK <http://www.oracle.com/technetwork/java/javase/downloads/index.html>`_
 
