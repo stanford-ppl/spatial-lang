@@ -1,6 +1,6 @@
 scalaVersion in ThisBuild := "2.12.1"
 
-organization in ThisBuild := "ppl-stanford"
+organization in ThisBuild := "stanford-ppl"
 
 version in ThisBuild := "1.0"
 
