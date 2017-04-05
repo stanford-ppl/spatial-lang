@@ -125,7 +125,7 @@ trait PipeRetimer extends ForwardTransformer {
       val inputs = onlySyms(d.inputs)
       inputs.foreach{ case input =>
         // input might not need any buffers if its readers don't need to be retimed
-        if (inputRetiming.contains(input)) {\
+        if (inputRetiming.contains(input)) {
           // retime all readers of this input and mark the input itself as retimed
           if (!retimedInputs.contains(input)) {
             inputRetiming(input).retimeReaders(input)
@@ -135,7 +135,7 @@ trait PipeRetimer extends ForwardTransformer {
           if (inputRetiming(input).readers.contains(reader)) {
             val info = inputRetiming(input).readers(reader)
             dbg(tab + c"Buffering input $input to reader $reader")
-            subRules(input) = subst(input)
+            subRules(input) = transformExp(input)(mtyp(input.tp))
             register(input, info.read)
           }
         }
