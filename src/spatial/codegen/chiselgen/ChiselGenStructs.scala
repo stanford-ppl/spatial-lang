@@ -30,11 +30,10 @@ trait ChiselGenStructs extends ChiselCodegen {
         (s, width)
       }
     case x: StructType[_] =>
-      val idx = x.fields.length - 1 - x.fields.indexWhere(_._1 == field)
+      val idx =  x.fields.indexWhere(_._1 == field)
       val width = bitWidth(x.fields(idx)._2)
       val prec = x.fields.take(idx)
       val precBits = prec.map{case (_,bt) => bitWidth(bt)}.sum
-//      Console.println(s"$idx, $width, $prec, $precBits, ${x.fields(idx)._2}, ${x.fields}, $field")
       (precBits, width)
   }
 

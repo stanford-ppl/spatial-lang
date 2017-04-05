@@ -11,7 +11,9 @@ out/*
 out2/*
 out3/*
 gen/*
-gen_gold*
+gen_gold/*
+gen_bak/*
+chisel_test/*
 test_all.sh
 target/
 logs/*

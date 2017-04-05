@@ -2,7 +2,7 @@ import spatial._
 import org.virtualized._
 import forge._
 
-object RGBConvert extends SpatialApp {
+object RGBStream extends SpatialApp {
   import IR._
 
   override val target = targets.DE1
@@ -30,11 +30,9 @@ object RGBConvert extends SpatialApp {
 //    val input  = StreamIn[RGB24](onboardVideo)
     val input  = StreamIn[RtGtBt](onboardVideo)
     val output = StreamOut[RGB](outputVideo)
-    val output = StreamOut[RGB]()
-
 
     Accel(*) {
-      Pipe {
+      Stream {
         val pixel = input.value()
 //        val r = pixel.r.to[UINT5]
 //        val g = pixel.g.to[UINT6]

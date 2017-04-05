@@ -51,6 +51,9 @@ trait ChiselGenStream extends ChiselCodegen {
           emit(src"  io.stream_out_valid          := io.stream_in_valid  ", forceful=true)
           emit(src"} ", forceful=true) 
 
+          emit(src"val ${lhs}_valid = io.stream_in_valid", forceful=true)
+          emit(src"val ${lhs}_ready = io.stream_in_ready", forceful=true)
+
         case _ =>
           emitGlobal(s"// Cannot gen stream for $bus")
           emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W))""")
@@ -69,6 +72,7 @@ trait ChiselGenStream extends ChiselCodegen {
           // emitGlobal(src"""val ${quote(lhs)}_valid = Wire(Bool())""")
         case "VGA" =>
           emit(src"// EMITTING FOR VGA; in OUTPUT REGISTERS, Output Register section $lhs", forceful=true)
+          emit(src"val ${lhs}_ready = io.stream_out_ready", forceful=true)
         case _ =>
           emitGlobal(src"// New stream out ${quote(lhs)}")
           emitGlobal(src"""val ${quote(lhs)}_data = Wire(UInt(97.W))""")
