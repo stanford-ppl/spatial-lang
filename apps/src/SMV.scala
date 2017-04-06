@@ -53,7 +53,7 @@
 //           }
 //           vecGathered := v(csrCols, len)
 
-//           val acc = Reduce(len by 1 par ip)(0.as[T]) { i =>
+//           val acc = Reduce(len by 1 par ip)(0.to[T]) { i =>
 //             csrData(i) * vecGathered(i)
 //           }{_+_}
 

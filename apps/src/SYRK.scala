@@ -7,14 +7,14 @@ import org.virtualized._
  * -------------------------
  *  C := C + AA' with N*K matrix A, updating only lower triangular part of symmetric N*N matrix C.
  */
-object SYRK_col extends SpatialApp {
+object SYRK_col extends SpatialApp { // Regression (Dense) // Args: 64
   import IR._
 
   type T = Int
 
 
-  val full_K = 136
-  val inner_N = 96
+  val full_K = 64
+  val inner_N = 32
   val margin = 1
 
   def syrk_col(C: Array[T], A: Array[T], N: Int) = {
@@ -46,7 +46,7 @@ object SYRK_col extends SpatialApp {
         OCC(tile::tile+inner_N, tile::tile+inner_N) store C_block
 
         // Update C21 by inner_N*inner_N blocks.
-        val C21_height = full_N.value - tile - inner_N.as[Int]
+        val C21_height = full_N.value - tile - inner_N.to[Int]
         Sequential.Foreach(C21_height by inner_N) { r_offset =>
           val r = tile + inner_N + r_offset // Block of C21 starting at r.
           C_block load  OCC(r::r+inner_N, tile::tile+inner_N)
@@ -72,12 +72,12 @@ object SYRK_col extends SpatialApp {
 
   	val N = args(0).to[Int]
     /* TODO(zhangwen): what initial value to give? */
-    val C = Array.tabulate(N){ i => Array.tabulate(N){ j => 0.as[T] } }
+    val C = Array.tabulate(N){ i => Array.tabulate(N){ j => 0.to[T] } }
     //   if (j > i) 0
     //   else if (j == i) 1 random[T](10)
     //   else 1 /*random[T](0.5)*/
     // }}
-    val A = Array.fill(N){ Array.fill(full_K){ 1.as[T] /*random[T](1)}*/ } } 
+    val A = Array.fill(N){ Array.fill(full_K){ 1.to[T] /*random[T](1)}*/ } }
 
     val result = syrk_col(C.flatten, A.flatten, N)
 
@@ -86,7 +86,7 @@ object SYRK_col extends SpatialApp {
       Array.tabulate(N) { j =>
         var A_row_j = A(j)
 
-        if (j > i) 0.as[T]
+        if (j > i) 0.to[T]
         else A_row_i.zip(A_row_j){_*_}.reduce{_+_}
       }
     }

@@ -15,10 +15,10 @@ object LogReg extends SpatialApp {
 
   val A = 1
 
-  def sigmoid[T:Staged:Num](t:T) = 1.as[T]/(exp(-t) + 1.as[T])
+  def sigmoid[T:Type:Num](t:T) = 1.to[T]/(exp(-t) + 1.to[T])
 
   @virtualize
-  def logreg[T:Staged:Num](xIn: Array[T], yIn: Array[T], tt: Array[T], n: Int, it: Int) = {
+  def logreg[T:Type:Num](xIn: Array[T], yIn: Array[T], tt: Array[T], n: Int, it: Int) = {
     val iters = ArgIn[Int]
     val N     = ArgIn[Int]
     setArg(iters, it)
@@ -63,10 +63,10 @@ object LogReg extends SpatialApp {
             }{_+_}
           }
           gradAcc
-        }{(b,g) => b+g*A.as[T]}
+        }{(b,g) => b+g*A.to[T]}
 
         // Flush gradAcc
-        //Pipe(D by 1 par P2) { i => gradAcc(i) = 0.as[T]}
+        //Pipe(D by 1 par P2) { i => gradAcc(i) = 0.to[T]}
       }
       theta(0::D par P2) store btheta // read
     }
