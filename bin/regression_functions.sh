@@ -102,7 +102,9 @@ build_spatial() {
 
   logger "Making spatial..."
   cd $SPATIAL_HOME
-  make full > /tmp/log 2>&1
+  sbt compile > /tmp/log 2>&1
+  make lang > /tmp/log 2>&1
+  make apps > /tmp/log 2>&1
   logger "Spatial done!"
   logger "Checking if spatial made correctly..."
   errs=(`cat /tmp/log | grep "\[.*error.*\]" | wc -l`)

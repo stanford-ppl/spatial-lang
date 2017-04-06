@@ -96,7 +96,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
         }
 
         val centCount = SRAM[T](MAXK)
-        Foreach(K by 1 par PX){ct => centCount(ct) = newCents(ct,DM1) } // Until diagonal banking is allowed
+        Foreach(K by 1 par PX){ct => centCount(ct) = max(newCents(ct,DM1), 1.to[T]) } // Until diagonal banking is allowed
 
         // Average each new centroid
         // val centsOut = SRAM[T](MAXK, MAXD)

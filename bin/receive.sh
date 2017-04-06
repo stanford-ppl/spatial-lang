@@ -160,15 +160,16 @@ git_things() {
   git clone git@github.com:stanford-ppl/spatial-lang.git > /dev/null 2>&1
   logger "Cloning done!"
   exists "$SPATIAL_HOME" 1
-  logger "Cloning submodules..."
   cd $SPATIAL_HOME
-  git submodule update --init
-  logger "Cloning done!"
-  exists "$ARGON_HOME" 1
   logger "Switching spatial commit (${spatial_hash})"
   git fetch > /dev/null 2>&1
   git checkout ${spatial_hash} > /tmp/gitstuff 2>&1
   checkout_success "Spatial"
+  logger "Cloning submodules..."
+  cd $SPATIAL_HOME
+  git submodule update --init
+  logger "Cloning done!"
+  exists "$ARGON_HOME" 2
   cd $ARGON_HOME
   logger "Switching argon commit (${argon_hash})"
   git fetch > /dev/null 2>&1
