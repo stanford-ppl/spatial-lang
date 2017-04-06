@@ -158,6 +158,7 @@ class Top(
 
       // Fringe <-> DRAM connections
       topIO.dram <> fringe.io.dram
+      fringe.io.memStreams <> accel.io.memStreams
 
       // Accel: Scalar and control connections
       accel.io.argIns := topIO.scalarIns
