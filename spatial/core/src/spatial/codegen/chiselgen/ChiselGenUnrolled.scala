@@ -176,13 +176,9 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val dims = stagedDimsOf(sram)
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, 32))) """)
-      sram.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-            emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat.number }""")
-          } else {
-            emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
-          }
-        case _ => emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
+      val datacsv = data.map{d => src"${d}.number"}.mkString(",")
+      data.zipWithIndex.foreach { case (d, i) =>
+        emit(src"""${lhs}_wVec($i).data := ${d}.number""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
         emit(src"${lhs}_wVec($i).en := ${ens(i)}")
@@ -219,14 +215,8 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
       val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       emit(src"""${fifo}_writeEn := $enabler & $en""")
-      fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
-            emit(src"""${fifo}_wdata := (0 until $par).map{ i => ${data}(i).number }""")
-          } else {
-            emit(src"""${fifo}_wdata := ${data}""")
-          }
-        case _ => emit(src"""${fifo}_wdata := ${data}""")
-      }
+      val datacsv = data.map{d => src"${d}.number"}.mkString(",")
+      emit(src"""${fifo}_wdata := Vec(List(${datacsv}))""")
 
     case e@ParStreamRead(strm, ens) =>
       val isAck = strm match {
@@ -246,8 +236,9 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length
+      val datacsv = data.map{d => src"${d}.number"}.mkString(",")
       val en = ens.map(quote).mkString("&")
-      emit(src"${strm}_data := $data")
+      emit(src"${strm}_data := Vec(List(${datacsv}))")
       emit(src"${strm}_valid := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
       
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
@@ -260,7 +251,9 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     case op@ParLineBufferEnq(lb,data,ens) => //FIXME: Not correct for more than par=1
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
-      emit(src"$lb.io.data_in(0) := ${data}(0).number")
+      data.zipWithIndex.foreach { case (d, i) =>
+        emit(src"$lb.io.data_in($i) := ${d}.number")
+      }
       emit(src"""$lb.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & ${parent}_datapath_en""")
 
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
