@@ -27,23 +27,20 @@ object RGBConvert extends SpatialApp {
   def main() {
     val onboardVideo = target.VideoCamera
     val outputVideo: Bus = target.VGA
-//    val input  = StreamIn[RGB24](onboardVideo)
     val input  = StreamIn[RtGtBt](onboardVideo)
     val output = StreamOut[RGB](outputVideo)
-    val output = StreamOut[RGB]()
+    // val output = StreamOut[RGB]()
 
 
     Accel(*) {
       Pipe {
         val pixel = input.value()
-//        val r = pixel.r.to[UINT5]
-//        val g = pixel.g.to[UINT6]
-//        val b = pixel.b.to[UINT5]
-        val r = pixel.tl.to[UINT5]
-//        val tg = pixel.tg
-        val g = pixel.tll.to[UINT6]
-//        val tb = pixel.tb 
-        val b = pixel.tlll.to[UINT5]
+        val r = pixel.r.to[UINT5]
+        val g = pixel.g.to[UINT6]
+        val b = pixel.b.to[UINT5]
+//        val r = pixel.tl.to[UINT5]
+//        val g = pixel.tll.to[UINT6]
+//        val b = pixel.tlll.to[UINT5]
         output := RGB(r,g,b) 
       }
     }

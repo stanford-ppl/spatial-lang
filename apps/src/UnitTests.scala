@@ -808,6 +808,62 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
+object UniqueParallelLoad extends SpatialApp { // Regression (Unit) // Args: none
+  import IR._
+
+  val dim0 = 144
+  val dim1 = 96
+
+  def awkwardload[T:Staged:Num](src1: Array[T], src2: Array[T]):T = {
+
+
+    val mat = DRAM[T](dim0, dim1)
+    val other = DRAM[T](dim1, dim1)
+    val result = ArgOut[T]
+    // Transfer data and start accelerator
+    setMem(mat, src1)
+    setMem(other, src2)
+
+    Accel {
+      val s1 = SRAM[T](dim0, dim1)
+      val s2 = SRAM[T](dim1, dim1)
+      Parallel{
+        s1 load mat(0::dim0, 0::dim1)
+        s2 load other(0::dim1, 0::dim1)
+      }
+
+      val accum = Reg[T](0.as[T])
+      Reduce(accum)(dim0 by 1, dim1 by 1) { (i,j) =>
+        s1(i,j)
+      }{_+_}
+      val accum2 = Reg[T](0.as[T])
+      Reduce(accum2)(dim1 by 1, dim1 by 1) { (i,j) =>
+        s2(i,j)
+      }{_+_}
+      result := accum.value + accum2.value
+    }
+    getArg(result)
+  }
+
+  @virtualize
+  def main() = {
+    val srcA = Array.tabulate(dim0) { i => Array.tabulate(dim1){ j => ((j + i) % 8) }}
+    val srcB = Array.tabulate(dim1) { i => Array.tabulate(dim1){ j => ((j + i) % 8) }}
+
+    val dst = awkwardload(srcA.flatten, srcB.flatten)
+
+    val goldA = srcA.map{ row => row.map{el => el}.reduce{_+_}}.reduce{_+_}
+    val goldB = srcB.map{ row => row.map{el => el}.reduce{_+_}}.reduce{_+_}
+    val gold = goldA + goldB
+
+    println("Gold: " + gold)
+    println("result: " + dst)
+    val cksum = gold == dst
+    println("PASS: " + cksum + " (UniqueParallelLoad)")
+
+  }
+}
+
 
 object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
   import IR._
@@ -1335,7 +1391,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
 
     // Create HW accelerator
     Accel {
-      y := x * 3
+      y := (x * 9)/4 + 7
     }
 
 
@@ -1343,7 +1399,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = N * 3
+    val gold = (N * 9)/4 + 7
     println("expected: " + gold)
     println("result: " + result)
 

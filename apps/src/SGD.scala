@@ -35,13 +35,13 @@ import org.virtualized._
 
 
 
-object SGD extends SpatialApp { 
+object SGD extends SpatialApp { // Regression (Dense) // Args: 40 32 0.0001
   import IR._
 
-  type T = Int
-  val modelSize = 192
-  val tileSize = 96
-  val innerPar = 2
+  type T = FixPt[TRUE,_16,_16]
+  val modelSize = 16
+  val tileSize = 16
+  val innerPar = 1
   val outerPar = 1
   val margin = 1
 
@@ -69,25 +69,24 @@ object SGD extends SpatialApp {
     Accel {
       val y_tile = SRAM[T](tileSize)
       val sgdmodel = SRAM[T](D)
+      Pipe(D by 1) { i => sgdmodel(i) = 0.as[T]}
       Sequential.Foreach(E by 1) { e =>
         Sequential.Foreach (N by tileSize) { b =>
           y_tile load y(b::b+tileSize par op)
-          // Sequential.Foreach.fold(tileSize by 1 par op)(sgdmodel) { i =>
           Sequential.Foreach(tileSize by 1) {i => 
             val y_err = Reg[T]
-            // val update = SRAM[T](D)
-            val x_tile = SRAM[T](1, D)
+            val x_tile = SRAM[T](D)
             Parallel{
               x_tile load x(b+i, 0 :: D par ip)
             }
-            Pipe{ // This Foreach is here to make sure y_hat resets properly
+            Pipe{ 
               val y_hat = Reg[T]
-              Reduce(y_hat)(D by 1 par ip){ j => x_tile(0,j) * sgdmodel(j) }{_+_}
-              y_err := y_hat.value - y_tile(i)
+              Reduce(y_hat)(D by 1 par ip){ j => x_tile(j) * sgdmodel(j) }{_+_}
+              y_err := y_tile(i) - y_hat.value
             }
 
             Foreach (D by 1 par ip) { j =>
-              sgdmodel(j) = sgdmodel(j) + x_tile(0,j)*y_err.value*A
+              sgdmodel(j) = sgdmodel(j) + x_tile(j)*y_err.value*A
             }
           }
         }
@@ -113,30 +112,29 @@ object SGD extends SpatialApp {
     val A = args(2).to[T] // Should be somewhere around 0.0001 for point-wise sgd
     val D = modelSize
 
-    val sX = Array.fill(N){ Array.fill(D){ random[T](3.as[T])} }
-    val sY = Array.fill(N)( random[T](10.as[T]) )
+    val sX = Array.fill(N){ Array.fill(D){ random[T](3.as[T]) + 1.as[T]} }
+    val ideal_model = Array.tabulate(D){ i => 3.as[T]}
+    val sY = Array.tabulate(N){i => ideal_model.zip(sX.apply(i)){_*_}.reduce{_+_}}
     val id = Array.tabulate(D){ i => i }
     val ep = Array.tabulate(E){ i => i }
 
     val result = sgd_onept(sX.flatten, sY, A, E, N)
 
-    val gold = Array.empty[T](D)
-    (0 until D) foreach { j => gold(j) = 0.as[T] }
+    // val gold = Array.empty[T](D)
+    // (0 until D) foreach { j => gold(j) = 0.as[T] }
 
-    (0 until E) foreach { i =>
-      val y_hat = sX.zip(sY){ case (row, y) => row.zip(gold) {_*_}.reduce{_+_} }
-      val y_err = y_hat.zip(sY){case (a,b) => a - b}
-      val update = id.map{ j =>
-        val col = sX.map{_(j)}
-        col.zip(y_err){case (a,b) => a*b}.reduce{_+_}
-      }
+    // (0 until E) foreach { i =>
+    //   (0 until N) foreach { j =>
+    //     val y_hat = sX.apply(j).zip(gold) {_*_}.reduce{_+_}
+    //     val y_err = sY.apply(j) - y_hat
+    //     val update = sX.apply(j).zip(gold){case (x,g) => g + x*A*y_err}
+    //     (0 until D) foreach { q => gold(q) = update(q) }
+    //   }
+    // }
 
-      (0 until D) foreach { j => gold(j) = update(j)*A + gold(j) }
-    }
-
-    val cksum = gold.zip(result){ case (a,b) => a < b + margin && a > b - margin }.reduce{_&&_}
+    val cksum = ideal_model.zip(result){ case (a,b) => a < b + margin && a > b - margin }.reduce{_&&_}
     printArr(result, "result: ")
-    printArr(gold, "gold: ")
-    println("PASS: " + cksum  + " (SGD) *Note that test was designed for minibatch SGD and not true point-wise SGD")
+    printArr(ideal_model, "gold: ")
+    println("PASS: " + cksum  + " (SGD)")
   }
 }

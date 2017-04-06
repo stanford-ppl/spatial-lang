@@ -16,7 +16,9 @@ class FringeDE1SoC(
   val numArgIns: Int,
   val numArgOuts: Int,
   val loadStreamInfo: List[StreamParInfo],
-  val storeStreamInfo: List[StreamParInfo]
+  val storeStreamInfo: List[StreamParInfo],
+  val streamInsInfo: List[StreamParInfo],
+  val streamOutsInfo: List[StreamParInfo]
 ) extends Module {
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
@@ -45,7 +47,7 @@ class FringeDE1SoC(
   })
 
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
 
   // Connect to Avalon Slave
   // Avalon is using reset and write_n
@@ -70,8 +72,10 @@ object FringeDE1SoC {
   val numArgOuts = 1
   val loadStreamInfo = List[StreamParInfo]()
   val storeStreamInfo = List[StreamParInfo]()
+  val streamInsInfo = List[StreamParInfo]()
+  val streamOutsInfo = List[StreamParInfo]()
 
   def main(args: Array[String]) {
-    Driver.execute(Array[String]("--target-dir", "chisel_out/FringeDE1SoC"), () => new FringeDE1SoC(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+    Driver.execute(Array[String]("--target-dir", "chisel_out/FringeDE1SoC"), () => new FringeDE1SoC(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
   }
 }

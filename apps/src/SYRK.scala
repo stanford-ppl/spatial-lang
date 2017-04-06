@@ -7,14 +7,14 @@ import org.virtualized._
  * -------------------------
  *  C := C + AA' with N*K matrix A, updating only lower triangular part of symmetric N*N matrix C.
  */
-object SYRK_col extends SpatialApp {
+object SYRK_col extends SpatialApp { // Regression (Dense) // Args: 64
   import IR._
 
   type T = Int
 
 
-  val full_K = 136
-  val inner_N = 96
+  val full_K = 64
+  val inner_N = 32
   val margin = 1
 
   def syrk_col(C: Array[T], A: Array[T], N: Int) = {

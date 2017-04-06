@@ -195,7 +195,10 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				// Get upcasted operators
 				val full_result = Wire(new FixedPoint(upcasted_type))
 				// Do upcasted operation
-				full_result.number := this.number * op.number
+				val expanded_self = Utils.Cat(Mux(this.isNeg(), (scala.math.pow(2,op.d + op.f)-1).toLong.U((op.d + op.f).W), 0.U((op.d + op.f).W)), this.number)
+				val expanded_op = Utils.Cat(Mux(op.isNeg(), (scala.math.pow(2,d+f)-1).toLong.U((d+f).W), 0.U((d+f).W)), op.number)
+				full_result.number := expanded_self * expanded_op
+
 				// Downcast to result
 				val result = Wire(new FixedPoint(return_type))
 				full_result.cast(result)
@@ -218,7 +221,15 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 					// Get upcasted operators
 					val full_result = Wire(new FixedPoint(upcasted_type))
 					// Do upcasted operation
-					full_result.number := util.Cat(this.number, 0.U((op.f+f+1).W)) / op.number // Not sure why we need the +1 in pow2
+					if (op.s | s) {
+						val numerator = util.Cat(this.number, 0.U((op.f+f+1).W)).asSInt
+						val denominator = op.number.asSInt
+						full_result.number := (numerator/denominator).asUInt
+					} else {
+						val numerator = util.Cat(this.number, 0.U((op.f+f+1).W))
+						val denominator = op.number
+						full_result.number := (numerator/denominator) // Not sure why we need the +1 in pow2
+					}
 					// Downcast to result
 					val result = Wire(new FixedPoint(return_type))
 					full_result.cast(result)

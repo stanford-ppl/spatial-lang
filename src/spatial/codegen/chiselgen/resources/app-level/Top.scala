@@ -27,6 +27,8 @@ case class TopParams(
   val numArgOuts: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
+  val streamInsInfo: List[StreamParInfo],
+  val streamOutsInfo: List[StreamParInfo],
   target: String
 )
 
@@ -40,6 +42,11 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
+
+  // Input streams
+  val genericStreamIn = StreamIn(StreamParInfo(32,1))
+  val genericStreamOut = StreamOut(StreamParInfo(32,1))
+
 }
 
 class ZynqInterface(p: TopParams) extends TopInterface {
@@ -58,8 +65,8 @@ class DE1SoCInterface(p: TopParams) extends TopInterface {
 class AWSInterface(p: TopParams) extends TopInterface {
   val enable = Input(UInt(p.dataWidth.W))
   val done = Output(UInt(p.dataWidth.W))
-  val scalarIns = Input(Vec(p.numArgIns, UInt(p.dataWidth.W)))
-  val scalarOuts = Output(Vec(p.numArgOuts, UInt(p.dataWidth.W)))
+  val scalarIns = Input(Vec(p.numArgIns, UInt(64.W)))
+  val scalarOuts = Output(Vec(p.numArgOuts, UInt(64.W)))
 
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
@@ -77,11 +84,13 @@ class Top(
   val numArgOuts: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
+  val streamInsInfo: List[StreamParInfo],
+  val streamOutsInfo: List[StreamParInfo],
   target: String = "") extends Module {
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
   val v = 16
-  val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, target)
+  val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, target)
 
   val io = target match {
     case "verilator"  => IO(new VerilatorInterface(topParams))
@@ -93,12 +102,12 @@ class Top(
   }
 
   // Accel
-  val accel = Module(new AccelTop(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+  val accel = Module(new AccelTop(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
 
   target match {
     case "verilator" | "vcs" =>
       // Simulation Fringe
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
       val topIO = io.asInstanceOf[VerilatorInterface]
 
       // Fringe <-> Host connections
@@ -122,7 +131,7 @@ class Top(
 
     case "de1soc" =>
       // DE1SoC Fringe
-      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
       val topIO = io.asInstanceOf[DE1SoCInterface]
 
       // Fringe <-> Host connections
@@ -156,9 +165,18 @@ class Top(
       // Top reset is connected to a rst controller on DE1SoC, which converts active low to active high
       accel.reset := reset
 
+//      //
+//      // Fringe <-> Peripheral connections
+//      fringe.io.genericStreamInTop <> topIO.genericStreamIn
+//      fringe.io.genericStreamOutTop <> topIO.genericStreamOut
+//
+//      // Fringe <-> Accel stream connections
+//      accel.io.genericStreams <> fringe.io.genericStreamsAccel
+//      // fringe.io.genericStreamsAccel <> accel.io.genericStreams
+
     case "zynq" =>
       // Zynq Fringe
-      val fringe = Module(new FringeZynq(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+      val fringe = Module(new FringeZynq(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
       val topIO = io.asInstanceOf[ZynqInterface]
 
       // Fringe <-> Host connections
@@ -178,7 +196,7 @@ class Top(
 
     case "aws" =>
       // Simulation Fringe
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
       val topIO = io.asInstanceOf[AWSInterface]
 
       // Fringe <-> DRAM connections

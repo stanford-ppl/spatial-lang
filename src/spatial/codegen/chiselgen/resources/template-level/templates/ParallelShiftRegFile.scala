@@ -10,8 +10,8 @@ import templates.Utils.log2Up
 class ParallelShiftRegFile(val height: Int, val width: Int, val stride: Int, val wPar: Int = 1) extends Module {
 
   def this(tuple: (Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4)
-  val io = IO(new Bundle { // TODO: follow io.input and io.output convention
-    val data_in  = Vec(wPar*height, Input(UInt(32.W)))
+  val io = IO(new Bundle { 
+    val data_in  = Vec(wPar*height, Input(UInt(32.W))) // TODO: Should probalby use stride, not wpar
     val w_rowAddr   = Vec(wPar*height, Input(UInt(log2Up(((width+stride-1)/stride)*stride + 1).W)))
     val w_colAddr   = Vec(wPar*height, Input(UInt(log2Up(((width+stride-1)/stride)*stride + 1).W)))
     val w_en     = Vec(wPar*height, Input(Bool()))
@@ -88,24 +88,25 @@ class ParallelShiftRegFile(val height: Int, val width: Int, val stride: Int, val
     }
   }
 
-  def readValue(row_addr: UInt, col_addr:UInt): UInt = {
-    // // chisel seems to have broke MuxLookup here...
-    // val result = Wire(UInt(32.W))
-    // val regvals = (0 until width*height).map{ i => 
-    //   (i.U -> io.data_out(i)) 
-    // }
-    // result := chisel3.util.MuxLookup(row_addr*width.U + col_addr, 0.U, regvals)
-    // result
-
+  def readValue(row_addr: UInt, col_addr:UInt): UInt = { // This randomly screws up sometimes, so I don't use it anywhere anymore
+    // chisel seems to have broke MuxLookup here...
     val result = Wire(UInt(32.W))
-    val flat = row_addr*width.U + col_addr
-    val bitvec = Vec((0 until width*height).map{ i => i.U === flat })
-    for (i <- 0 until width*height) {
-      when(i.U === flat) {
-        result := io.data_out(i)
-      }
+    val regvals = (0 until width*height).map{ i => 
+      (i.U -> io.data_out(i)) 
     }
+    val flat = row_addr*width.U + col_addr
+    result := chisel3.util.MuxLookup(flat(31,0), 0.U, regvals)
     result
+
+    // val result = Wire(UInt(32.W))
+    // val flat = row_addr*width.U + col_addr
+    // val bitvec = Vec((0 until width*height).map{ i => i.U === flat })
+    // for (i <- 0 until width*height) {
+    //   when(i.U === flat) {
+    //     result := io.data_out(i)
+    //   }
+    // }
+    // result
 
     // // // Sum hack because chisel keeps messing things up
     // val result = Wire(UInt(32.W))

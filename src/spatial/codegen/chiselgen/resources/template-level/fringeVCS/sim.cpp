@@ -16,30 +16,20 @@
 
 using namespace std;
 
-#include "dramDefs.h"
 #include "simDefs.h"
 #include "channel.h"
-//#include "svdpi.h"
-//#include "svImports.h"
+
 #include "vc_hdrs.h"
 #include "svdpi_src.h"
 
-#include <DRAMSim.h>
+#include <DRAM.h>
+#include <Streams.h>
 
 extern char **environ;
 
 // Slave channels from HOST
 Channel *cmdChannel = NULL;
 Channel *respChannel = NULL;
-
-// Master channels to DRAM
-Channel *dramCmdChannel = NULL;
-Channel *dramRespChannel = NULL;
-uint64_t globalDRAMID =1;
-
-// DRAMSim2
-DRAMSim::MultiChannelMemorySystem *mem = NULL;
-bool useIdealDRAM = false;
 
 int sendResp(simCmd *cmd) {
   simCmd resp;
@@ -62,196 +52,21 @@ int sendResp(simCmd *cmd) {
 uint64_t numCycles = 0;
 queue<simCmd*> pendingOps;
 
-class DRAMRequest {
-public:
-  uint64_t addr;
-  uint64_t tag;
-  bool isWr;
-  uint32_t *wdata;
-  uint32_t delay;
-  uint32_t elapsed;
-  uint64_t issued;
-  bool completed;
+extern "C" {
+  // Callback function from SV when there is valid data
+  // Currently output stream is always ready, so there is no feedback going from C++ -> SV
+  void readOutputStream(int data, int tag, int last) {
+    // view addr as uint64_t without doing sign extension
+    uint32_t udata = *(uint32_t*)&data;
+    uint32_t utag = *(uint32_t*)&tag;
+    bool blast = last > 0;
 
-  DRAMRequest(uint64_t a, uint64_t t, bool wr, uint32_t *wd, uint64_t issueCycle) {
-    addr = a;
-    tag = t;
-    isWr = wr;
-    if (isWr) {
-      wdata = (uint32_t*) malloc(16 * sizeof(uint32_t));
-      for (int i=0; i<16; i++) {
-        wdata[i] = wd[i];
-      }
-    } else {
-      wdata = NULL;
-    }
-
-    delay = abs(rand()) % 150 + 50;
-    elapsed = 0;
-    issued = issueCycle;
-    completed = false;
-  }
-
-  void print() {
-    EPRINTF("[DRAMRequest] addr: %lx, tag: %lx, isWr: %d, delay: %u, issued=%lu\n", addr, tag, isWr, delay, issued);
-  }
-
-  ~DRAMRequest() {
-    if (wdata != NULL) free(wdata);
-  }
-};
-
-struct AddrTag {
-  uint64_t addr;
-  uint64_t tag;
-
-  AddrTag(uint64_t a, uint64_t t) {
-    addr = a;
-    tag = t;
-  }
-
-	bool operator==(const AddrTag &o) const {
-			return addr == o.addr && tag == o.tag;
-	}
-
-	bool operator<(const AddrTag &o) const {
-			return addr < o.addr || (addr == o.addr && tag < o.tag);
-	}
-};
-
-std::queue<DRAMRequest*> dramRequestQ;
-std::map<struct AddrTag, DRAMRequest*> addrToReqMap;
-
-void checkAndSendDRAMResponse() {
-  // If request happens to be in front of queue, pop and poke DRAM response
-  if (dramRequestQ.size() > 0) {
-    DRAMRequest *req = dramRequestQ.front();
-
-    if (useIdealDRAM) {
-      req->elapsed++;
-      if (req->elapsed == req->delay) {
-        req->completed = true;
-        EPRINTF("[idealDRAM txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)req->addr, req->tag, numCycles);
-      }
-    }
-
-    if (req->completed) {
-      dramRequestQ.pop();
-      EPRINTF("[Sending DRAM resp to]: ");
-      req->print();
-
-      uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-      if (req->isWr) {
-        // Write request: Update 1 burst-length bytes at *addr
-        uint32_t *waddr = (uint32_t*) req->addr;
-        for (int i=0; i<16; i++) {
-          waddr[i] = req->wdata[i];
-        }
-      } else {
-        // Read request: Read burst-length bytes at *addr
-        uint32_t *raddr = (uint32_t*) req->addr;
-        for (int i=0; i<16; i++) {
-          rdata[i] = raddr[i];
-  //            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
-        }
-      }
-
-      pokeDRAMResponse(
-          req->tag,
-          rdata[0],
-          rdata[1],
-          rdata[2],
-          rdata[3],
-          rdata[4],
-          rdata[5],
-          rdata[6],
-          rdata[7],
-          rdata[8],
-          rdata[9],
-          rdata[10],
-          rdata[11],
-          rdata[12],
-          rdata[13],
-          rdata[14],
-          rdata[15]
-        );
-    }
+    // Currently just print read data out to console
+    outStream->recv(udata, utag, blast);
   }
 }
 
-
-class DRAMCallbackMethods {
-public:
-  void txComplete(unsigned id, uint64_t addr, uint64_t tag, uint64_t clock_cycle) {
-    EPRINTF("[txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)addr, tag, numCycles);
-
-    // Find transaction, mark it as done, remove entry from map
-    struct AddrTag at(addr, tag);
-    std::map<struct AddrTag, DRAMRequest*>::iterator it = addrToReqMap.find(at);
-    ASSERT(it != addrToReqMap.end(), "address/tag tuple not found in addrToReqMap!");
-    DRAMRequest* req = it->second;
-    req->completed = true;
-    addrToReqMap.erase(at);
-  }
-};
-
 extern "C" {
-  void sendDRAMRequest(
-      long long addr,
-      int tag,
-      int isWr,
-      int wdata0,
-      int wdata1,
-      int wdata2,
-      int wdata3,
-      int wdata4,
-      int wdata5,
-      int wdata6,
-      int wdata7,
-      int wdata8,
-      int wdata9,
-      int wdata10,
-      int wdata11,
-      int wdata12,
-      int wdata13,
-      int wdata14,
-      int wdata15
-    ) {
-    // view addr as uint64_t without doing sign extension
-    uint64_t cmdAddr = *(uint64_t*)&addr;
-    uint64_t cmdTag = (uint64_t)(*(uint32_t*)&tag);
-    bool cmdIsWr = isWr > 0;
-    uint32_t cmdWdata0 = (*(uint32_t*)&wdata0);
-    uint32_t cmdWdata1 = (*(uint32_t*)&wdata1);
-    uint32_t cmdWdata2 = (*(uint32_t*)&wdata2);
-    uint32_t cmdWdata3 = (*(uint32_t*)&wdata3);
-    uint32_t cmdWdata4 = (*(uint32_t*)&wdata4);
-    uint32_t cmdWdata5 = (*(uint32_t*)&wdata5);
-    uint32_t cmdWdata6 = (*(uint32_t*)&wdata6);
-    uint32_t cmdWdata7 = (*(uint32_t*)&wdata7);
-    uint32_t cmdWdata8 = (*(uint32_t*)&wdata8);
-    uint32_t cmdWdata9 = (*(uint32_t*)&wdata9);
-    uint32_t cmdWdata10 = (*(uint32_t*)&wdata10);
-    uint32_t cmdWdata11 = (*(uint32_t*)&wdata11);
-    uint32_t cmdWdata12 = (*(uint32_t*)&wdata12);
-    uint32_t cmdWdata13 = (*(uint32_t*)&wdata13);
-    uint32_t cmdWdata14 = (*(uint32_t*)&wdata14);
-    uint32_t cmdWdata15 = (*(uint32_t*)&wdata15);
-
-    uint32_t wdata[16] = { cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3, cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7, cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11, cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15};
-
-    DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata, numCycles);
-    dramRequestQ.push(req);
-    req->print();
-
-    if (!useIdealDRAM) {
-      mem->addTransaction(cmdIsWr, cmdAddr, cmdTag);
-      struct AddrTag at(cmdAddr, cmdTag);
-      addrToReqMap[at] = req;
-    }
-  }
-
   // Function is called every clock cycle
   int tick() {
     bool exitTick = false;
@@ -288,6 +103,9 @@ extern "C" {
     // Drain an element from DRAM queue if it exists
     checkAndSendDRAMResponse();
 
+    // Check if input stream has new data
+    inStream->send();
+
     // Handle new incoming operations
     while (!exitTick) {
       simCmd *cmd = (simCmd*) cmdChannel->recv();
@@ -308,31 +126,12 @@ extern "C" {
           resp.size = sizeof(size_t);
           EPRINTF("[SIM] MALLOC(%lu), returning %p\n", size, (void*)ptr);
           respChannel->send(&resp);
-
-          // Send malloc request to DRAM
-//          dramCmd dcmd;
-//          dcmd.id = globalDRAMID++;
-//          dcmd.cmd = MALLOC;
-//          std::memcpy(dcmd.data, &size, sizeof(size_t));
-//          dcmd.size = sizeof(size_t);
-//          dramCmdChannel->send(&dcmd);
-//          dramCmd *dresp = dramRespChannel->recv();
-//          ASSERT(dcmd.id == dresp->id, "malloc resp->id does not match cmd.id!");
-//          ASSERT(dcmd.cmd == dresp->cmd, "malloc resp->cmd does not match cmd.cmd!");
           break;
         }
         case FREE: {
           void *ptr = (void*)(*(uint64_t*)cmd->data);
           ASSERT(ptr != NULL, "Attempting to call free on null pointer\n");
           EPRINTF("[SIM] FREE(%p)\n", ptr);
-
-          // Send free request to DRAM
-//          dramCmd dcmd;
-//          dcmd.id = globalID++;
-//          dcmd.cmd = FREE;
-//          std::memcpy(dcmd.data, &ptr, sizeof(uint64_t));
-//          dcmd.size = sizeof(uint64_t);
-//          dramCmdChannel->send(&dcmd);
           break;
         }
         case MEMCPY_H2D: {
@@ -396,7 +195,6 @@ extern "C" {
             data = *((uint64_t*)((uint32_t*)cmd->data + 1));
 
             // Perform write
-//            writeReg(reg, (svBitVecVal)data);
             writeReg(reg, data);
             exitTick = true;
             break;
@@ -413,6 +211,14 @@ extern "C" {
       }
     }
     return finishSim;
+  }
+
+  void printAllEnv() {
+    int tmp = 0;
+    while (environ[tmp]) {
+      EPRINTF("[SIM] environ[%d] = %s\n", tmp, environ[tmp]);
+      tmp++;
+    }
   }
 
   // Called before simulation begins
@@ -434,83 +240,8 @@ extern "C" {
       sendResp(cmd);
     /**} End Slave interface to Host */
 
-    /** Master interfaces to peripheral simulators e.g. DRAM { */
+    initDRAM();
 
-//      posix_spawn_file_actions_t dramAction;
-//      pid_t dram_pid;
-//
-//      dramCmdChannel = new Channel(sizeof(dramCmd));
-//      dramRespChannel = new Channel(sizeof(dramCmd));
-//      posix_spawn_file_actions_init(&dramAction);
-//
-//      // Create cmdPipe (read) handle at SIM_CMD_FD, respPipe (write) handle at SIM_RESP_FD
-//      // Close old descriptors after dup2
-//      posix_spawn_file_actions_addclose(&dramAction, dramCmdChannel->writeFd());
-//      posix_spawn_file_actions_addclose(&dramAction, dramRespChannel->readFd());
-//      posix_spawn_file_actions_adddup2(&dramAction, dramCmdChannel->readFd(), DRAM_CMD_FD);
-//      posix_spawn_file_actions_adddup2(&dramAction, dramRespChannel->writeFd(), DRAM_RESP_FD);
-//
-//      string argsmem[] = {"./verilog/dram"};
-//      char *args[] = {&argsmem[0][0],nullptr};
-//
-//      if(posix_spawnp(&dram_pid, args[0], &dramAction, NULL, &args[0], NULL) != 0) {
-//        EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));
-//        exit(-1);
-//      }
-//
-//      // Close Sim side of pipes
-//      close(dramCmdChannel->readFd());
-//      close(dramRespChannel->writeFd());
-//
-//      // Connect with dram simulator
-//      dramCmd dcmd;
-//      dcmd.id = globalDRAMID++;
-//      dcmd.cmd = DRAM_READY;
-//      dcmd.size = 0;
-//      dramCmdChannel->send(&dcmd);
-//      dramCmd *resp = (dramCmd*) dramRespChannel->recv();
-//      ASSERT(resp->id == dcmd.id, "DRAM init error: Received ID does not match sent ID\n");
-//      ASSERT(resp->cmd == DRAM_READY, "DRAM init error: Received cmd is not 'READY'\n");
-//      EPRINTF("DRAM Connection successful!\n");
-    /** } End master interface*/
-
-      int tmp = 0;
-      while (environ[tmp]) {
-        EPRINTF("[SIM] environ[%d] = %s\n", tmp, environ[tmp]);
-        tmp++;
-      }
-
-      char *idealDRAM = getenv("USE_IDEAL_DRAM");
-      EPRINTF("idealDRAM = %s\n", idealDRAM);
-      if (idealDRAM != NULL) {
-
-        if (idealDRAM[0] != 0 && atoi(idealDRAM) > 0) {
-          useIdealDRAM = true;
-        }
-      } else {
-        useIdealDRAM = false;
-      }
-
-      if (!useIdealDRAM) {
-        // Set up DRAMSim2 - currently hardcoding some values that should later be
-        // in a config file somewhere
-        char *dramSimHome = getenv("DRAMSIM_HOME");
-        ASSERT(dramSimHome != NULL, "ERROR: DRAMSIM_HOME environment variable is not set")
-        ASSERT(dramSimHome[0] != NULL, "ERROR: DRAMSIM_HOME environment variable set to null string")
-
-
-        string memoryIni = string(dramSimHome) + string("/ini/DDR2_micron_16M_8b_x8_sg3E.ini");
-        string systemIni = string(dramSimHome) + string("spatial.dram.ini");
-        // Connect to DRAMSim2 directly here
-        mem = DRAMSim::getMemorySystemInstance("ini/DDR2_micron_16M_8b_x8_sg3E.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
-
-        uint64_t hardwareClockHz = 150 * 1e6; // Fixing FPGA clock to 150 MHz
-        mem->setCPUClockSpeed(hardwareClockHz);
-
-        // Add callbacks
-        DRAMCallbackMethods callbackMethods;
-        DRAMSim::TransactionCompleteCB *rwCb = new DRAMSim::Callback<DRAMCallbackMethods, void, unsigned, uint64_t, uint64_t, uint64_t>(&callbackMethods, &DRAMCallbackMethods::txComplete);
-        mem->RegisterCallbacks(rwCb, rwCb, NULL);
-      }
+    initStreams();
   }
 }
