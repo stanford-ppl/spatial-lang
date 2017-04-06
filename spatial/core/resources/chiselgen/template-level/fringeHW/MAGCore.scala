@@ -306,7 +306,12 @@ class MAGCore(
     fifo.io.deqVld := wresp.ready
   }
 
-  io.dram.resp.ready := ~(rdataFifos.map { fifo => fifo.io.full | fifo.io.almostFull }.reduce{_|_})
+  if (rdataFifos.length > 0) {
+    io.dram.resp.ready := ~(rdataFifos.map { fifo => fifo.io.full | fifo.io.almostFull }.reduce{_|_})  
+  } else {
+    io.dram.resp.ready := true.B
+  }
+  
 
 }
 
