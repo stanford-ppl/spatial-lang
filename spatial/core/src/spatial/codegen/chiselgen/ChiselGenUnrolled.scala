@@ -229,16 +229,16 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
       if (!isAck) {
         emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
-        emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
+        emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }.reverse // TODO: Why is this list reversed?""")
       } else {
         emit(src"""// Do not read from dummy ack stream $strm""")        
       }
 
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length
-      val datacsv = data.map{d => src"${d}.number"}.mkString(",")
+      val datacsv = data.reverse.map{d => src"${d}.number"}.mkString(",") 
       val en = ens.map(quote).mkString("&")
-      emit(src"${strm}_data := Vec(List(${datacsv}))")
+      emit(src"${strm}_data := Vec(List(${datacsv})) // TODO: Why is this list reversed?")
       emit(src"${strm}_valid := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
       
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
