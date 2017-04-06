@@ -9,7 +9,7 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
   val Cmax = 100
 
   @virtualize
-  def convolve[T:Staged:Num](image: Matrix[T]): Matrix[T] = {
+  def convolve[T:Type:Num](image: Matrix[T]): Matrix[T] = {
     val B = 16 (1 -> 1 -> 16)
 
     val R = ArgIn[Int]
@@ -29,29 +29,25 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
 
       // TODO: Better syntax for initialization of lookup tables
       Pipe {
-        // Foreach(Kh by 1, Kw by 1) { (i,j) => 
-        //   kh(i,j) = mux((i.to[T] == 0.as[T] && j.to[T] == 0.as[T]), 1.as[T], 2.as[T])
-        //   kv(i,j) = mux((i.to[T] == 0.as[T] && j.to[T] == 0.as[T]), 1.as[T], 2.as[T])
-        // }
-        Pipe{kh(0,0) = 1.as[T]}
-        Pipe{kh(1,0) = 2.as[T]}
-        Pipe{kh(2,0) = 1.as[T]}
-        Pipe{kh(0,1) = 0.as[T]}
-        Pipe{kh(1,1) = 0.as[T]}
-        Pipe{kh(2,1) = 0.as[T]}
-        Pipe{kh(0,2) = -1.as[T]}
-        Pipe{kh(1,2) = -2.as[T]}
-        Pipe{kh(2,2) = -1.as[T]}
+        Pipe{kh(0,0) = 1.to[T]}
+        Pipe{kh(1,0) = 2.to[T]}
+        Pipe{kh(2,0) = 1.to[T]}
+        Pipe{kh(0,1) = 0.to[T]}
+        Pipe{kh(1,1) = 0.to[T]}
+        Pipe{kh(2,1) = 0.to[T]}
+        Pipe{kh(0,2) = -1.to[T]}
+        Pipe{kh(1,2) = -2.to[T]}
+        Pipe{kh(2,2) = -1.to[T]}
 
-        Pipe{kv(0,0) = 1.as[T]}
-        Pipe{kv(0,1) = 2.as[T]}
-        Pipe{kv(0,2) = 1.as[T]}
-        Pipe{kv(1,0) = 0.as[T]}
-        Pipe{kv(1,1) = 0.as[T]}
-        Pipe{kv(1,2) = 0.as[T]}
-        Pipe{kv(2,0) = -1.as[T]}
-        Pipe{kv(2,1) = -2.as[T]}
-        Pipe{kv(2,2) = -1.as[T]}
+        Pipe{kv(0,0) = 1.to[T]}
+        Pipe{kv(0,1) = 2.to[T]}
+        Pipe{kv(0,2) = 1.to[T]}
+        Pipe{kv(1,0) = 0.to[T]}
+        Pipe{kv(1,1) = 0.to[T]}
+        Pipe{kv(1,2) = 0.to[T]}
+        Pipe{kv(2,0) = -1.to[T]}
+        Pipe{kv(2,1) = -2.to[T]}
+        Pipe{kv(2,2) = -1.to[T]}
       }
 
       val sr = RegFile[T](Kh, Kw)
@@ -71,11 +67,11 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
 
           
           val horz = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => 
-            val number = mux((r < 2) || (c < 2) , 0.as[T], sr(i,j))
+            val number = mux((r < 2) || (c < 2) , 0.to[T], sr(i,j))
             number * kh(i,j) 
           }{_+_}
           val vert = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => 
-            val number = mux((r < 2) || (c < 2) , 0.as[T], sr(i,j))
+            val number = mux((r < 2) || (c < 2) , 0.to[T], sr(i,j))
             number * kv(i,j) 
           }{_+_}
 

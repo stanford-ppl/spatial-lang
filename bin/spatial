@@ -3,6 +3,7 @@
 from argparse import ArgumentParser
 import os, sys, datetime
 import subprocess
+from os.path import dirname, abspath
 
 class bcolors:
     HEADER = '\033[95m'
@@ -53,14 +54,14 @@ def main():
   # parser.add_argument("--rw", type=int, help="set number of read/write enabled stages / CU")
   # parser.add_argument("--mems", type=int, help="set number of SRAMs / CU")
 
-  VIRTUALIZED_HOME = os.getenv("VIRTUALIZED_HOME", "")
-  SPATIAL_HOME = os.getenv("SPATIAL_HOME", "")
-  ARGON_HOME = os.getenv("ARGON_HOME", "")
+
+  SPATIAL_HOME = os.getenv("SPATIAL_HOME", dirname(dirname(abspath(__file__))))
+  print( dirname(dirname(abspath(__file__))))
   JAVA_HOME = os.getenv("JAVA_HOME", "")
   java_opts = os.getenv("JAVA_OPTS", "")
 
   if SPATIAL_HOME == "":
-    print 'SPATIAL_HOME is undefined.'
+    print('SPATIAL_HOME is undefined.')
     exit(1)
 
 
@@ -145,38 +146,26 @@ def main():
   # Add classpaths
   # scala_major_id = os.system('sbt scala-version')
   scala_major_id = "scala-2.12"  
-  classes = "/target/" + scala_major_id + "/classes" + os.pathsep
-  test_classes = "/target/" + scala_major_id + "/test-classes" + os.pathsep
+  dsljar = "spatial/target/" + scala_major_id + "/spatial-lang.jar" + os.pathsep
+  appsjar = "apps/target/" + scala_major_id + "/apps.jar" + os.pathsep  
 
   old_cp = os.getenv("CLASSPATH", "")
   cp = " -cp "
   cp = cp + old_cp + os.pathsep
-  cp = cp + ARGON_HOME + classes
-  cp = cp + ARGON_HOME + "/scala-virtualized" + classes
-  cp = cp + ARGON_HOME + "/forge" + classes
-
-  #test cp    
-  cp = cp + SPATIAL_HOME + classes
-  cp = cp + SPATIAL_HOME + "/apps" + classes
-  cp = cp + SPATIAL_HOME + test_classes
-  #cp = cp + VIRTUALIZED_HOME + "/target/" + scala_major_id + os.pathsep
-
-  jars = [os.path.join(d,f) for (d, n, fs) in os.walk(SPATIAL_HOME + "/lib_managed/") for f in fs]
-  for j in jars:
-    cp = cp + j + os.pathsep
+  cp += appsjar
 
   java_opts = java_opts + cp
 
 
   ## Run Spatial
   java_cmd = JAVA_HOME + "/bin/java " + java_opts + " " + opts.app + " "
-    
+  print(java_cmd)
   #print "[ " + bcolors.WARNING + "INFO" + bcolors.ENDC + " ] Running Spatial with options: " + str(java_opts)
   #print java_cmd
 
   ecode = os.system(java_cmd)
   if ecode != 0:
-      print "[" + bcolors.FAIL + "error" + bcolors.ENDC + "] Spatial compilation failed"
+      print("[" + bcolors.FAIL + "error" + bcolors.ENDC + "] Spatial compilation failed")
 
   ## TODO: How to determine publish directory?
   # os.system(SPATIAL_HOME + 'bin/delitec ' + opts.app + ' ' + deliteArgs + ' --dump_exception 2>&1 | tee compile.log')

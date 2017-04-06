@@ -3,31 +3,22 @@ dsl="Spatial"
 lcdsl=`echo "$dsl" | tr '[:upper:]' '[:lower:]'`
 
 if [ "$SPATIAL_HOME" == "" ]; then
-        echo -e "Please set SPATIAL_HOME!"
-        exit 1
+    SPATIAL_HOME=$(dirname $(dirname $(readlink -f "$0")))
 fi
 
-if [ "$VIRTUALIZED_HOME" == "" ]; then
-       echo -e "Please set VIRTUALIZED_HOME!"
-       exit 1
-fi
+echo $SPATIAL_HOME
 
-if [ "$ARGON_HOME" == "" ]; then
-       echo -e "Please set ARGON_HOME!"
-       exit 1
-fi
-
-if [ $1 = 1 ]; then #requested republish
-  cd $VIRTUALIZED_HOME
-  sbt compile && sbt publishLocal
-fi
-
-if [ $2 = 1 ]; then #requested just dsl
+if [ $1 = 1 ]; then #requested just dsl
   cd ${SPATIAL_HOME}
-  sbt compile
+  sbt "; project apps; assembly"
 fi
 
-if [ $3 = 1 ]; then # requested apps
+if [ $1 = 2 ]; then # requested apps
   cd ${SPATIAL_HOME}
-  sbt "; project apps; compile"
+  sbt "; project apps; assembly"
+fi
+
+if [ $1 = 3 ]; then # jar release
+  cd ${SPATIAL_HOME}
+  sbt "; project apps; assembly"
 fi

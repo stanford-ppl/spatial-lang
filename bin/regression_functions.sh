@@ -5,7 +5,7 @@
 ##   and git checkouts on a server-specific basis
 
 spacing=20
-delay=1360
+delay=1400
 numpieces=30
 hist=72
 
@@ -15,14 +15,14 @@ stamp_commit_msgs() {
   spatial_msg=`git log --stat --name-status ${spatial_hash}^..${spatial_hash}`
   cd $ARGON_HOME
   argon_msg=`git log --stat --name-status ${argon_hash}^..${argon_hash}`
-  cd $VIRTUALIZED_HOME
-  virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
+  #cd $VIRTUALIZED_HOME
+  #virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
   echo "
 # Commits
 " >> $wiki_file
   echo -e "\nSpatial commit\n\`\`\`\n${spatial_msg}\n\`\`\`" >> $wiki_file
   echo -e "\nArgon commit\n\`\`\`\n${argon_msg}\n\`\`\`" >> $wiki_file
-  echo -e "\nVirtualized commit\n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
+  #echo -e "\nVirtualized commit\n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
   echo "
 # Test summary
 " >> $wiki_file
@@ -245,7 +245,7 @@ update_log() {
       echo "Compile times (in seconds) by commit (0 = failure)" > $perf_file
       echo "times, 0" >> $perf_file
     fi
-    line="Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} | Virtualized ${virtualized_hash:0:5}"
+    line="Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} " #| Virtualized ${virtualized_hash:0:5}"
     sed -i "2s/$/, $t/" ${perf_file}
     echo "$line" >> ${perf_file}
 
@@ -390,7 +390,7 @@ fi
 
 # Append which combo this update is:
 at=`date +"%Y-%m-%d_%H-%M-%S"`
-line="ZZ ${at} - Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} | Virtualized ${virtualized_hash:0:5}"
+line="ZZ ${at} - Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5}"  #| Virtualized ${virtualized_hash:0:5}"
 echo "$line" >> ${pretty_file}
 
 # Sort file
@@ -604,7 +604,7 @@ if [ \"\$wc\" -ne 0 ]; then
 fi
 
 # Move on to runtime
-rm ${SPATIAL_HOME}/regression_tests/${2}/results/failed_compile_backend_hanging.${3}_${4}
+rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
 touch ${SPATIAL_HOME}/regression_tests/${2}/results/failed_execution_hanging.${3}_${4}
 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
