@@ -46,7 +46,7 @@ object SGD extends SpatialApp { // Regression (Dense) // Args: 40 32 0.0001
   val margin = 1
 
   @virtualize
-  def sgd_onept[T:Staged:Num](x_in: Array[T], y_in: Array[T], alpha: T, epochs: Int, nn: Int) = {
+  def sgd_onept[T:Type:Num](x_in: Array[T], y_in: Array[T], alpha: T, epochs: Int, nn: Int) = {
     val E = ArgIn[Int]
     val N = ArgIn[Int]
     val A = ArgIn[T]
@@ -69,7 +69,7 @@ object SGD extends SpatialApp { // Regression (Dense) // Args: 40 32 0.0001
     Accel {
       val y_tile = SRAM[T](tileSize)
       val sgdmodel = SRAM[T](D)
-      Pipe(D by 1) { i => sgdmodel(i) = 0.as[T]}
+      Pipe(D by 1) { i => sgdmodel(i) = 0.to[T]}
       Sequential.Foreach(E by 1) { e =>
         Sequential.Foreach (N by tileSize) { b =>
           y_tile load y(b::b+tileSize par op)
@@ -112,16 +112,14 @@ object SGD extends SpatialApp { // Regression (Dense) // Args: 40 32 0.0001
     val A = args(2).to[T] // Should be somewhere around 0.0001 for point-wise sgd
     val D = modelSize
 
-    val sX = Array.fill(N){ Array.fill(D){ random[T](3.as[T]) + 1.as[T]} }
-    val ideal_model = Array.tabulate(D){ i => 3.as[T]}
+    val sX = Array.fill(N){ Array.fill(D){ random[T](3.to[T]) + 1.to[T]} }
+    val ideal_model = Array.tabulate(D){ i => 3.to[T]}
     val sY = Array.tabulate(N){i => ideal_model.zip(sX.apply(i)){_*_}.reduce{_+_}}
     val id = Array.tabulate(D){ i => i }
     val ep = Array.tabulate(E){ i => i }
 
     val result = sgd_onept(sX.flatten, sY, A, E, N)
 
-    // val gold = Array.empty[T](D)
-    // (0 until D) foreach { j => gold(j) = 0.as[T] }
 
     // (0 until E) foreach { i =>
     //   (0 until N) foreach { j =>

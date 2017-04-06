@@ -1,0 +1,7 @@
+[submodule "argon"]
+	path = argon
+	url = https://github.com/stanford-ppl/argon
+
+[submodule "scala-virtualized"]
+	path = scala-virtualized
+	url = https://github.com/stanford-ppl/scala-virtualized
