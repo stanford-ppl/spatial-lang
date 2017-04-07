@@ -101,7 +101,8 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
         // Average each new centroid
         // val centsOut = SRAM[T](MAXK, MAXD)
         Foreach(K by 1, D par P0){(ct,d) =>
-          cts(ct, d) = mux(centCount(ct) == 0.to[T], 0.to[T], newCents(ct,d) / centCount(ct))
+          val updateMux = mux(centCount(ct) == 0.to[T], 0.to[T], newCents(ct,d) / centCount(ct))
+          cts(ct, d) = updateMux
         }
       }
 
