@@ -7,12 +7,49 @@ object InOutArg extends SpatialApp {  // Regression (Unit) // Args: 5
   @virtualize
   def main() {
     // Declare SW-HW interface vals
-    val x = ArgIn[Int]
-    val y = ArgOut[Int]
     val N = args(0).to[Int]
+
+    val x = ArgIn[Int]   // setArg('x', N);
+    val y = ArgOut[Int]
 
     // Connect SW vals to HW vals
     setArg(x, N)
+
+
+    /**
+     * FringeContext *c1 = new FringeContext("path_to_bit");
+     * //c1->setArg(0, N);
+     * //c1->run();
+     * //c1->getArg(0);
+     *
+     * int N = atoi(argv[1]);
+     * int out = 0;
+     * Params *p = new Params(N, &out);
+     * c1->run(p);  // c1->run(N, &out);
+     * runFpga(c1, ...);
+     *
+     * class Params {
+     *   int N;
+     *   int *out;
+     *
+     *   Params(int N, int *out): N(N), out(out);
+     *
+     *   void init(FringeContext *c) {
+     *     c->setArg(0, N);
+     *   }
+     *
+     *   void finalize(FringeContext *c) {
+     *     *p = c->getArg(0);
+     *   }
+     * };
+     *
+     * // FringeContext class::run(Params *p)
+     * p->init(this);
+     * // do run stuff
+     * p->finalize(this);
+     *
+     * printf("out = %d\n", out);
+     */
 
     // Create HW accelerator
     Accel {
@@ -458,7 +495,8 @@ object DeviceMemcpy extends SpatialApp { // Regression (Unit) // Args: 50
 object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 100
   import IR._
 
-  val N = 192
+  val N = 32
+//  override val target = targets.AWS_F1
 
   def simpleLoadStore[T:Staged:Num](srcHost: Array[T], value: T) = {
     val loadPar  = 1 (1 -> 1)
