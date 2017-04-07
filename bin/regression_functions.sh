@@ -594,7 +594,8 @@ comp_time=(\`cat log | grep \"Total time:\" | sed 's/.*time: //g' | sed 's/ seco
 # Compile backend
 cd ${5}/out
 
-// Turn off vcd
+// Turn off vcd and dram prints
+sed -i 's/#define EPRINTF(...) fprintf/#define EPRINTF(...) \\/\\/fprintf/g' cpp/fringeVCS/commonDefs.h
 sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
