@@ -10,6 +10,7 @@ dist/*
 out/*
 out2/*
 out3/*
+out4/*
 gen/*
 target/
 logs/*
