@@ -151,7 +151,7 @@ class SingleCounter(val par: Int) extends Module {
 
 
 /*
-     innermost    middle   outermost
+     outermost    middle   innermost
       |     |    |     |    |     |
       |     |    |     |    |     |
       |_____|    |_____|    |_____|
@@ -163,7 +163,7 @@ count(0) 1   2  3    4   5
 
 /**
  * Counter: n-depth counter. Counts up to each max. Lists go from
-            innermost (fastest) to outermost (slowest) counter.
+            outermost (slowest) to innermost (fastest) counter.
  * @param w: Word width
  */
 class Counter(val par: List[Int]) extends Module {
@@ -204,15 +204,15 @@ class Counter(val par: List[Int]) extends Module {
   }
 
   // Wire up the enables between ctrs
-  ctrs(0).io.input.enable := io.input.enable
-  (1 until depth).foreach { i =>
-    ctrs(i).io.input.enable := ctrs(i-1).io.output.done & io.input.enable
+  ctrs(depth-1).io.input.enable := io.input.enable
+  (0 until depth-1).foreach { i =>
+    ctrs(i).io.input.enable := ctrs(i+1).io.output.done & io.input.enable
   }
 
   // Wire up the saturates between ctrs
-  ctrs(depth-1).io.input.saturate := io.input.saturate
-  (0 until depth-1).foreach { i =>
-    ctrs(i).io.input.saturate := io.input.saturate & ctrs.drop(i+1).map{ ctr => ctr.io.output.saturated }.reduce{_&_}
+  ctrs(0).io.input.saturate := io.input.saturate
+  (1 until depth).foreach { i =>
+    ctrs(i).io.input.saturate := io.input.saturate & ctrs.take(i).map{ ctr => ctr.io.output.saturated }.reduce{_&_}
   }
 
   // Wire up the outputs

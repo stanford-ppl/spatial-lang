@@ -28,7 +28,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
     } else {
       super.quote(s)
     }
-  } 
+  }
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: DRAMType[_] => src"Array[${tp.child}]"
@@ -66,13 +66,14 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
         case _ => (0 until par).map{ i => src"io.memStreams.loads($id).rdata.bits($i)" }.mkString(",")
       }
       emit(src"""val ${dataStream}_data = Vec(List($allData))""")
-      emitGlobal(src"""val ${dataStream}_ready = io.memStreams.loads($id).rdata.valid // FIXME: Also need to connect this to fifo not empty""")
-      emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready // Loopback for tile load/store")
-      emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}_data(96, 33) // Bits 33 to 96 are addr")
-      emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}_data(32,1) // Bits 1 to 32 are size command")
+      emit(src"""${dataStream}_valid := io.memStreams.loads($id).rdata.valid""")
+      emit(src"${cmdStream}_ready := io.memStreams.loads($id).cmd.ready")
+      emitGlobal(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
+      emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready // Contains stage enable, rdatavalid, and fifo status")
+      emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}_data(63,0) // Field 0")
+      emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}_data(95,64) // Field 1")
       emit(src"io.memStreams.loads($id).cmd.valid :=  ${cmdStream}_valid// LSB is enable, instead of pulser?? Reg(UInt(1.W), pulser.io.out)")
-      emit(src"io.memStreams.loads($id).cmd.bits.isWr := ~${cmdStream}_data(0)")
-      emitGlobal(src"val ${cmdStream}_ready = true.B // Assume cmd fifo will never fill up")
+      emit(src"io.memStreams.loads($id).cmd.bits.isWr := ~${cmdStream}_data(96) // Field 2")
 
 
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
@@ -89,17 +90,17 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"""// Connect streams to ports on mem controller""")
       val allData = (0 until par).map{ i => src"io.memStreams.stores($id).rdata.bits($i)" }.mkString(",")
       emitGlobal(src"val ${dataStream}_data = Wire(Vec($par, UInt(33.W)))")
-      emitGlobal(src"""val ${dataStream}_en = Wire(Bool())""")
-      emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}_data).foreach{case (wport, wdata) => wport := wdata(32,1) /*LSB is status bit*/}""")
-      emit(src"""io.memStreams.stores($id).wdata.valid := ${dataStream}_en""")
-      emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}_data(96, 33) // Bits 33 to 96 (AND BEYOND???) are addr")
-      emit(src"io.memStreams.stores($id).cmd.bits.size := ${cmdStream}_data(32,1) // Bits 1 to 32 are size command")
-      emit(src"io.memStreams.stores($id).cmd.valid :=  ${cmdStream}_valid")
-      emit(src"io.memStreams.stores($id).cmd.bits.isWr := ~${cmdStream}_data(0)")
-      emitGlobal(src"val ${cmdStream}_ready = true.B // Assume cmd fifo will never fill up")
-      emitGlobal(src"""val ${dataStream}_ready = true.B // Assume cmd fifo will never fill up""")
-      emitGlobal(src"""val ${ackStream}_ready = io.memStreams.stores($id).wresp  // [sic] rData signal is used for write ack""")
-      emitGlobal(src"val ${ackStream}_data = 0.U // Definitely wrong signal")
+      emit(src"""${dataStream}_ready := io.memStreams.stores($id).wdata.ready""")
+      emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}_data).foreach{case (wport, wdata) => wport := wdata(31,0) /*LSB is status bit*/}""")
+      emit(src"""io.memStreams.stores($id).wdata.valid := ${dataStream}_valid""")
+      emitGlobal(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
+      emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}_data(63,0) // Field 0")
+      emit(src"io.memStreams.stores($id).cmd.bits.size := ${cmdStream}_data(95,64) // Field 1")
+      emit(src"io.memStreams.stores($id).cmd.valid :=  ${cmdStream}_valid // Field 2")
+      emit(src"io.memStreams.stores($id).cmd.bits.isWr := ~${cmdStream}_data(96)")
+      emit(src"${cmdStream}_ready := io.memStreams.stores($id).wdata.ready")
+      emit(src"""${ackStream}_valid := io.memStreams.stores($id).wresp.valid""")
+      emit(src"""io.memStreams.stores($id).wresp.ready := ${ackStream}_ready""")
 
     case FringeSparseLoad(dram,addrStream,dataStream) =>
       open(src"val $lhs = $addrStream.foreach{addr => ")
@@ -125,20 +126,16 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
     withStream(getStream("Instantiator")) {
       emit("")
       emit(s"// Memory streams")
-      emit(s"""val numLoadStreams = ${numLoads}""")
-      emit(s"""val numStoreStreams = ${numStores}""")
       emit(s"val loadStreamInfo = List(${loadsList}) ")
       emit(s"val storeStreamInfo = List(${storesList}) ")
-      emit(s"""val numArgIns_mem = ${numLoads} + ${numStores}""")
+      emit(s"""val numArgIns_mem = ${numLoads} /*from loads*/ + ${numStores} /*from stores*/""")
     }
 
     withStream(getStream("IOModule")) {
-      emit("// Tile Load")
-      emit(s"val io_numLoadStreams = ${numLoads}")
-      emit(s"val io_numStoreStreams = ${numStores}")
+      emit("// Memory Streams")
       emit(s"val io_loadStreamInfo = List(${loadsList}) ")
       emit(s"val io_storeStreamInfo = List(${storesList}) ")
-      emit(s"val io_numArgIns_mem = ${numLoads} + ${numStores}")
+      emit(s"val io_numArgIns_mem = ${numLoads} /*from loads*/ + ${numStores} /*from stores*/")
 
     }
 

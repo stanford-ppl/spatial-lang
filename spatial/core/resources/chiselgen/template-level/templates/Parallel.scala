@@ -26,10 +26,11 @@ class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
     }
   })
 
-  // 0: INIT, 1: RESET, 2 stages enabled, 3: DONE
+  // 0: INIT, 1: Separate reset from enables, 2 stages enabled, 3: DONE
   // Name the universal states
   val initState = 0
-  val runningState = initState + 1
+  val bufferState = initState + 1
+  val runningState = bufferState + 1
   val doneState = runningState + 1
 
   // Create FF for holding state
@@ -54,13 +55,17 @@ class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
 
   io.output.rst_en := false.B
 
+  io.output.stageEnable.foreach { s => s := false.B}
   // State Machine
   when(io.input.enable) {
     when(state === initState.U) {   // INIT -> RESET
-      stateFF.io.input.data := runningState.U
+      stateFF.io.input.data := bufferState.U
       io.output.rst_en := true.B
+    }.elsewhen (state === bufferState.U) { // Not sure if this state is needed for stream
+      io.output.rst_en := false.B
+      stateFF.io.input.data := runningState.U
     }.elsewhen (state === runningState.U) {  // STEADY
-      (0 until n).foreach { i => io.output.stageEnable(i) := ~doneMask(i) }
+      (0 until n).foreach { i => io.output.stageEnable(i) := Mux(io.input.forever, true.B, ~doneMask(i)) }
 
       val doneTree = doneMask.reduce { _ & _ }
       when(doneTree === 1.U) {

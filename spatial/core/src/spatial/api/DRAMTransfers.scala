@@ -99,9 +99,11 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       // Ack receiver
       // TODO: Assumes one ack per command
       Pipe {
-        val size = issueQueue.deq()
-        val ack  = ackStream.value()
-        ()
+        val size = Reg[Index]
+        Pipe{size := issueQueue.deq()}
+        Foreach(size.value by target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
+          val ack  = ackStream.value()
+        }
       }
     }
 
@@ -164,9 +166,11 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
       // Ack receive
       // TODO: Assumes one ack per command
       Pipe {
-        val size = issueQueue.deq()
-        val ack  = ackStream.value()
-        ()
+        val size = Reg[Index]
+        Pipe{size := issueQueue.deq()}
+        Foreach(size.value by target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
+          val ack  = ackStream.value()
+        }
       }
     }
 

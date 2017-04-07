@@ -16,7 +16,7 @@ trait CppGenCounter extends CppCodegen with FileDependencies {
       s match {
         case lhs: Sym[_] =>
           lhs match {
-            case Def(CounterNew(s,e,st,p)) => 
+            case Def(CounterNew(s,e,st,p)) =>
               s"x${lhs.id}_ctr"
             case Def(CounterChainNew(ctrs)) =>
               s"x${lhs.id}_ctrchain"
@@ -29,7 +29,7 @@ trait CppGenCounter extends CppCodegen with FileDependencies {
     } else {
       super.quote(s)
     }
-  } 
+  }
 
   override protected def remap(tp: Type[_]): String = tp match {
     case CounterType      => src"Counter"
@@ -38,8 +38,9 @@ trait CppGenCounter extends CppCodegen with FileDependencies {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case CounterNew(start,end,step,par) => 
-    case CounterChainNew(ctrs) => 
+    case CounterNew(start,end,step,par) =>
+    case CounterChainNew(ctrs) =>
+    case Forever() => emit(s"// ${quote(lhs)} = Forever")
     case _ => super.emitNode(lhs, rhs)
   }
 

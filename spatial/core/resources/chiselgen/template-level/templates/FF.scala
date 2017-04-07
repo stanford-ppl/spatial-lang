@@ -164,8 +164,10 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
         io.input.data := data.number
     }
     io.input.enable := en
-    io.input.reset := false.B
+    io.input.reset := reset
+    io.input.init := 0.U
     io.writerStage := 0.U
+    io.broadcast.enable := false.B
 
   }
 

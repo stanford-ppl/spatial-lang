@@ -12,7 +12,7 @@ trait StagedUtilApi extends StagedUtilExp with ArrayApi {
   @virtualize
   @api def printArray[T:Meta](array: Array[T], header: String = ""): Void = {
     println(header)
-    (0 until array.length) foreach { i => print(array(i).toString + " ") }
+    (0 until array.length) foreach { i => print(array(i) + " ") }
     println("")
   }
 
@@ -21,7 +21,7 @@ trait StagedUtilApi extends StagedUtilExp with ArrayApi {
     println(header)
     (0 until matrix.rows) foreach { i =>
       (0 until matrix.cols) foreach { j =>
-        print(matrix(i, j).toString + "\t")
+        print(matrix(i, j) + "\t")
       }
       println("")
     }

@@ -1,23 +1,33 @@
+#include <spawn.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
+#include <cstring>
+#include <string>
+#include <cstdlib>
 #include <stdio.h>
-#include <stdlib.h>
 #include <vector>
 #include <queue>
+#include <map>
 #include <poll.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
 
 using namespace std;
 
 #include "simDefs.h"
 #include "channel.h"
-//#include "svdpi.h"
-//#include "svImports.h"
+
 #include "vc_hdrs.h"
 #include "svdpi_src.h"
 
+#include <DRAM.h>
+#include <Streams.h>
+
+extern char **environ;
+
+// Slave channels from HOST
 Channel *cmdChannel = NULL;
 Channel *respChannel = NULL;
 
@@ -39,166 +49,29 @@ int sendResp(simCmd *cmd) {
   return cmd->id;
 }
 
-int numCycles = 0;
+uint64_t numCycles = 0;
 queue<simCmd*> pendingOps;
 
-class DRAMRequest {
-public:
-  uint64_t addr;
-  uint64_t tag;
-  bool isWr;
-  uint32_t *wdata;
-  uint32_t delay;
-  uint32_t elapsed;
+extern "C" {
+  // Callback function from SV when there is valid data
+  // Currently output stream is always ready, so there is no feedback going from C++ -> SV
+  void readOutputStream(int data, int tag, int last) {
+    // view addr as uint64_t without doing sign extension
+    uint32_t udata = *(uint32_t*)&data;
+    uint32_t utag = *(uint32_t*)&tag;
+    bool blast = last > 0;
 
-  DRAMRequest(uint64_t a, uint64_t t, bool wr, uint32_t *wd) {
-    addr = a;
-    tag = t;
-    isWr = wr;
-    if (isWr) {
-      wdata = (uint32_t*) malloc(16 * sizeof(uint32_t));
-      for (int i=0; i<16; i++) {
-        wdata[i] = wd[i];
-      }
-    } else {
-      wdata = NULL;
-    }
-
-    delay = abs(rand()) % 150 + 50;
-    elapsed = 0;
+    // Currently just print read data out to console
+    outStream->recv(udata, utag, blast);
   }
-
-  void print() {
-    EPRINTF("---- DRAM REQ ----\n");
-    EPRINTF("addr : %lx\n", addr);
-    EPRINTF("tag  : %lx\n", tag);
-    EPRINTF("isWr : %lx\n", tag);
-    EPRINTF("delay: %u\n", delay);
-    if (isWr) {
-      EPRINTF("wdata0 : %u\n", wdata[0]);
-      EPRINTF("wdata1 : %u\n", wdata[1]);
-    }
-    EPRINTF("------------------\n");
-  }
-
-  ~DRAMRequest() {
-    if (wdata != NULL) free(wdata);
-  }
-};
-
-std::queue<DRAMRequest*> dramRequestQ;
+}
 
 extern "C" {
-  void sendDRAMRequest(
-      long long addr,
-      int tag,
-      int isWr,
-      int wdata0,
-      int wdata1,
-      int wdata2,
-      int wdata3,
-      int wdata4,
-      int wdata5,
-      int wdata6,
-      int wdata7,
-      int wdata8,
-      int wdata9,
-      int wdata10,
-      int wdata11,
-      int wdata12,
-      int wdata13,
-      int wdata14,
-      int wdata15
-    ) {
-    // view addr as uint64_t without doing sign extension
-    uint64_t cmdAddr = *(uint64_t*)&addr;
-    uint64_t cmdTag = (uint64_t)(*(uint32_t*)&tag);
-    bool cmdIsWr = isWr > 0;
-    uint32_t cmdWdata0 = (*(uint32_t*)&wdata0);
-    uint32_t cmdWdata1 = (*(uint32_t*)&wdata1);
-    uint32_t cmdWdata2 = (*(uint32_t*)&wdata2);
-    uint32_t cmdWdata3 = (*(uint32_t*)&wdata3);
-    uint32_t cmdWdata4 = (*(uint32_t*)&wdata4);
-    uint32_t cmdWdata5 = (*(uint32_t*)&wdata5);
-    uint32_t cmdWdata6 = (*(uint32_t*)&wdata6);
-    uint32_t cmdWdata7 = (*(uint32_t*)&wdata7);
-    uint32_t cmdWdata8 = (*(uint32_t*)&wdata8);
-    uint32_t cmdWdata9 = (*(uint32_t*)&wdata9);
-    uint32_t cmdWdata10 = (*(uint32_t*)&wdata10);
-    uint32_t cmdWdata11 = (*(uint32_t*)&wdata11);
-    uint32_t cmdWdata12 = (*(uint32_t*)&wdata12);
-    uint32_t cmdWdata13 = (*(uint32_t*)&wdata13);
-    uint32_t cmdWdata14 = (*(uint32_t*)&wdata14);
-    uint32_t cmdWdata15 = (*(uint32_t*)&wdata15);
-
-
-
-    uint32_t wdata[16] = { cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3, cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7, cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11, cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15};
-    DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata);
-    dramRequestQ.push(req);
-    req->print();
-  }
-
-  void checkDRAMResponse() {
-    if (dramRequestQ.size() > 0) {
-      DRAMRequest *req = dramRequestQ.front();
-      req->elapsed++;
-      if(req->elapsed == req->delay) {
-        dramRequestQ.pop();
-
-        uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-        if (req->isWr) {
-          // Write request: Update 1 burst-length bytes at *addr
-          uint32_t *waddr = (uint32_t*) req->addr;
-          for (int i=0; i<16; i++) {
-            waddr[i] = req->wdata[i];
-          }
-        } else {
-          // Read request: Read burst-length bytes at *addr
-          uint32_t *raddr = (uint32_t*) req->addr;
-          for (int i=0; i<16; i++) {
-            rdata[i] = raddr[i];
-            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
-          }
-
-        }
-        pokeDRAMResponse(
-            req->tag,
-            rdata[0],
-            rdata[1],
-            rdata[2],
-            rdata[3],
-            rdata[4],
-            rdata[5],
-            rdata[6],
-            rdata[7],
-            rdata[8],
-            rdata[9],
-            rdata[10],
-            rdata[11],
-            rdata[12],
-            rdata[13],
-            rdata[14],
-            rdata[15]
-          );
-     
-
-      }
-
-
-    }
-  }
-
   // Function is called every clock cycle
   int tick() {
     bool exitTick = false;
     int finishSim = 0;
     numCycles++;
-
-   // Check for DRAM response and send it to design
-
-   checkDRAMResponse();
 
     // Handle pending operations, if any
     if (pendingOps.size() > 0) {
@@ -227,9 +100,15 @@ extern "C" {
       free(cmd);
     }
 
+    // Drain an element from DRAM queue if it exists
+    checkAndSendDRAMResponse();
+
+    // Check if input stream has new data
+    inStream->send();
+
     // Handle new incoming operations
     while (!exitTick) {
-      simCmd *cmd = cmdChannel->recv();
+      simCmd *cmd = (simCmd*) cmdChannel->recv();
       simCmd readResp;
       uint32_t reg = 0;
       uint64_t data = 0;
@@ -245,15 +124,14 @@ extern "C" {
           resp.cmd = cmd->cmd;
           *(uint64_t*)resp.data = (uint64_t)ptr;
           resp.size = sizeof(size_t);
-          EPRINTF("[SIM] MALLOC(%u), returning %lx\n", size, ptr);
+          EPRINTF("[SIM] MALLOC(%lu), returning %p\n", size, (void*)ptr);
           respChannel->send(&resp);
           break;
         }
         case FREE: {
           void *ptr = (void*)(*(uint64_t*)cmd->data);
           ASSERT(ptr != NULL, "Attempting to call free on null pointer\n");
-          EPRINTF("[SIM] FREE(%lx)\n", ptr);
-
+          EPRINTF("[SIM] FREE(%p)\n", ptr);
           break;
         }
         case MEMCPY_H2D: {
@@ -261,7 +139,7 @@ extern "C" {
           void *dst = (void*)data[0];
           size_t size = data[1];
 
-          EPRINTF("[SIM] Received memcpy request to %lx, size %u\n", dst, size);
+          EPRINTF("[SIM] Received memcpy request to %p, size %lu\n", (void*)dst, size);
 
           // Now to receive 'size' bytes from the cmd stream
           cmdChannel->recvFixedBytes(dst, size);
@@ -294,6 +172,9 @@ extern "C" {
           break;
         case STEP:
           exitTick = true;
+          if (!useIdealDRAM) {
+            mem->update();
+          }
           break;
         case READ_REG: {
             reg = *((uint32_t*)cmd->data);
@@ -314,12 +195,14 @@ extern "C" {
             data = *((uint64_t*)((uint32_t*)cmd->data + 1));
 
             // Perform write
-//            writeReg(reg, (svBitVecVal)data);
             writeReg(reg, data);
             exitTick = true;
             break;
           }
         case FIN:
+          if (!useIdealDRAM) {
+            mem->printStats(true);
+          }
           finishSim = 1;
           exitTick = true;
           break;
@@ -330,20 +213,35 @@ extern "C" {
     return finishSim;
   }
 
+  void printAllEnv() {
+    int tmp = 0;
+    while (environ[tmp]) {
+      EPRINTF("[SIM] environ[%d] = %s\n", tmp, environ[tmp]);
+      tmp++;
+    }
+  }
+
   // Called before simulation begins
   void sim_init() {
     EPRINTF("[SIM] Sim process started!\n");
+    prctl(PR_SET_PDEATHSIG, SIGHUP);
 
-    // 0. Create Channel structures
-    cmdChannel = new Channel(SIM_CMD_FD, -1);
-    respChannel = new Channel(-1, SIM_RESP_FD);
+    /**
+     * Slave interface to host {
+     */
+      // 0. Create Channel structures
+      cmdChannel = new Channel(SIM_CMD_FD, -1, sizeof(simCmd));
+      respChannel = new Channel(-1, SIM_RESP_FD, sizeof(simCmd));
 
-    // 1. Read command
-    simCmd *cmd = cmdChannel->recv();
-    EPRINTF("[SIM] Received:\n");
-    cmdChannel->printPkt(cmd);
+      // 1. Read command
+      simCmd *cmd = (simCmd*) cmdChannel->recv();
 
-    // 2. Send response
-    sendResp(cmd);
+      // 2. Send response
+      sendResp(cmd);
+    /**} End Slave interface to Host */
+
+    initDRAM();
+
+    initStreams();
   }
 }

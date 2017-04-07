@@ -110,6 +110,37 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     }
   } 
 
+  private def beneathForever(lhs: Sym[Any]):Boolean = { // TODO: Make a counterOf() method that will just grab me Some(counter) that I can check
+    if (parentOf(lhs).isDefined) {
+      val parent = parentOf(lhs).get
+      parent match {
+        case Def(Hwblock(_,isFrvr)) => true
+        case Def(e: ParallelPipe) => false
+        case Def(e: UnitPipe) => false
+        case Def(e: OpForeach) => e.cchain match {
+          case Def(Forever()) => true
+          case _ => false
+        }
+        case Def(e: OpReduce[_]) => e.cchain match {
+          case Def(Forever()) => true
+          case _ => false
+        }
+        case Def(e: OpMemReduce[_,_]) => false
+        case Def(e: UnrolledForeach) => e.cchain match {
+          case Def(Forever()) => true
+          case _ => false
+        }
+        case Def(e: UnrolledReduce[_,_]) => e.cchain match {
+          case Def(Forever()) => true
+          case _ => false
+        }
+        case _ => false 
+      }
+    } else {
+      false
+    }
+  }
+
   def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]]) = {
     val stages = childrenOf(controller)
     inds.foreach { idx =>
@@ -120,6 +151,29 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
       itersMap += (idx -> stages.toList)
     }
+  }
+
+  def getStreamEnablers(c: Exp[Any]): String = {
+      // If we are inside a stream pipe, the following may be set
+      val readiers = listensTo(c).distinct.map { fifo => 
+        fifo match {
+          case Def(FIFONew(size)) => src"~${fifo}.io.empty"
+          case Def(StreamInNew(bus)) => src"${fifo}_valid"
+          case _ => src"${fifo}_en" // parent node
+        }
+      }.mkString(" & ")
+      val holders = (pushesTo(c)).distinct.map { fifo => 
+        fifo match {
+          case Def(FIFONew(size)) => src"~${fifo}.io.full"
+          case Def(StreamOutNew(bus)) => src"${fifo}_ready"
+        }
+      }.mkString(" & ")
+
+      val hasHolders = if (holders != "") "&" else ""
+      val hasReadiers = if (readiers != "") "&" else ""
+
+      src"${hasHolders} ${holders} ${hasReadiers} ${readiers}"
+
   }
 
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
@@ -169,6 +223,12 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       List("1.U") // Unit pipe
     }
 
+    // Special match if this is HWblock, there is no forever cchain, just the forever flag
+    sym match {
+      case Def(Hwblock(_,isFrvr)) => if (isFrvr) hasForever = true
+      case _ =>
+    }
+
 
     val constrArg = if (isInner) {s"${numIter.length} /*TODO: don't need*/, ${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
 
@@ -186,7 +246,12 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
 
     if (isStreamChild(sym)) {
-      emit(src"""val ${sym}_datapath_en = ${sym}_en""")  
+      emitGlobal(src"""val ${sym}_datapath_en = Wire(Bool())""")
+      if (beneathForever(sym)) {
+        emit(src"""${sym}_datapath_en := ${sym}_en // Immediate parent has forever counter, so never mask out datapath_en""")    
+      } else {
+        emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done""")  
+      }
     } else if (isFSM) {
       emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_done""")        
     } else {
@@ -272,25 +337,10 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         } else {
           emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${c}_done;""")
         }
-        // If we are inside a stream pipe, the following may be set
-        val readiers = listensTo(c).distinct.map { fifo => 
-          fifo match {
-            case Def(FIFONew(size)) => src"~${fifo}.io.empty"
-            case Def(StreamInNew(bus)) => src"${fifo}_ready"
-            case _ => src"${fifo}_en" // parent node
-          }
-        }.mkString(" & ")
-        val holders = (pushesTo(c)).distinct.map { fifo => 
-          fifo match {
-            case Def(FIFONew(size)) => src"~${fifo}.io.full"
-            case Def(StreamOutNew(bus)) => src"${fifo}_ready /*not sure if this sig exists*/"
-          }
-        }.mkString(" & ")
 
-        val hasHolders = if (holders != "") "&" else ""
-        val hasReadiers = if (readiers != "") "&" else ""
+        val streamAddition = getStreamEnablers(c)
 
-        emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx}) ${hasHolders} ${holders} ${hasReadiers} ${readiers}""")  
+        emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx}) ${streamAddition}""")  
 
         // If this is a stream controller, need to set up counter copy for children
 
@@ -319,7 +369,8 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     case Hwblock(func,isForever) =>
       controllerStack.push(lhs)
       toggleEn() // turn on
-      emit(s"""val ${quote(lhs)}_en = io.enable & !io.done;""")
+      val streamAddition = getStreamEnablers(lhs)
+      emit(s"""val ${quote(lhs)}_en = io.enable & !io.done ${streamAddition}""")
       emit(s"""val ${quote(lhs)}_resetter = reset""")
       emitGlobal(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
@@ -330,6 +381,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       emit(s"""done_latch.io.input.reset := ${quote(lhs)}_resetter""")
       emit(s"""done_latch.io.input.asyn_reset := ${quote(lhs)}_resetter""")
       emit(s"""io.done := done_latch.io.output.data""")
+      // if (isForever) emit(s"""${quote(lhs)}_sm.io.input.forever := true.B""")
 
       emitBlock(func)
       toggleEn() // turn off

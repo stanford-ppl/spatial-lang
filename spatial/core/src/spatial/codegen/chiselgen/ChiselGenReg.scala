@@ -57,6 +57,7 @@ trait ChiselGenReg extends ChiselCodegen {
       emitGlobal(src"val ${lhs}_initval = ${init}")
       val duplicates = duplicatesOf(lhs)  
       duplicates.zipWithIndex.foreach{ case (d, i) => 
+        val numBroadcasters = writersOf(lhs).map { write => if (portsOf(write, lhs, i).toList.length > 1) 1 else 0 }.reduce{_+_}
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => 
             fps match {
@@ -76,7 +77,9 @@ trait ChiselGenReg extends ChiselCodegen {
                   if (d.depth > 1) {
                     nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
                     emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
-                    emit(src"${lhs}_${i}.io.broadcast.enable := false.B // TODO: Do analysis to decide if we should put this line")
+                    if (numBroadcasters == 0){
+                      emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
+                    }
                   } else {
                     emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
                   }              
@@ -85,7 +88,9 @@ trait ChiselGenReg extends ChiselCodegen {
                 if (d.depth > 1) {
                   nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
                   emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
-                  emit(src"${lhs}_${i}.io.broadcast.enable := false.B // TODO: Do analysis to decide if we should put this line")
+                  if (numBroadcasters == 0){
+                    emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
+                  }
                 } else {
                   emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
                 }
@@ -94,7 +99,9 @@ trait ChiselGenReg extends ChiselCodegen {
             if (d.depth > 1) {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
               emitGlobal(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
-              emit(src"${lhs}_${i}.io.broadcast.enable := false.B // TODO: Do analysis to decide if we should put this line")
+              if (numBroadcasters == 0){
+                emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
+              }
             } else {
               emitGlobal(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
             }
@@ -181,7 +188,7 @@ trait ChiselGenReg extends ChiselCodegen {
                     }
                     emit(src"""${reg}_${ii}.io.enable := ${reg}_wren""")
                     emit(src"""${reg}_${ii}.io.init := ${reg}_initval.number""")
-                    emit(src"""${reg}_${ii}.io.reset := Utils.delay(${reg}_resetter, 2)""")
+                    emit(src"""${reg}_${ii}.io.reset := reset | Utils.delay(${reg}_resetter, 0) // TODO: Used to be delay 2 but not sure why""")
                     emit(src"""${reg} := ${reg}_${ii}.io.output""")
                     emitGlobal(src"""val ${reg} = Wire(UInt(32.W))""")
                   } else {

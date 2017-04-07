@@ -603,14 +603,14 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   def main() {
     val arraySize = args(0).to[Int]
 
-    val src1 = Array.tabulate(arraySize) { i => (2*i) % 64}
-    val src2 = Array.tabulate(arraySize) { i => i % 64 }
-    val src3 = Array.tabulate(arraySize) { i => i % 64 }
+    val src1 = Array.tabulate(arraySize) { i => i % 64 }
+    val src2 = Array.tabulate(arraySize) { i => i % 64 + 4096}
+    val src3 = Array.tabulate(arraySize) { i => i % 64 + 2*4096}
     val out = parFifoLoad(src1, src2, src3, arraySize)
 
-    val sub1_for_check = Array.tabulate(arraySize-tileSize) {i => 2*i % 64}
-    val sub2_for_check = Array.tabulate(arraySize-tileSize) {i => i % 64}
-    val sub3_for_check = Array.tabulate(arraySize-tileSize) {i => i % 64}
+    val sub1_for_check = Array.tabulate(arraySize-tileSize) {i => i % 64}
+    val sub2_for_check = Array.tabulate(arraySize-tileSize) {i => i % 64 + 4096}
+    val sub3_for_check = Array.tabulate(arraySize-tileSize) {i => i % 64 + 2*4096}
 
     // val gold = src1.zip(src2){_*_}.zipWithIndex.filter( (a:Int, i:Int) => i > arraySize-64).reduce{_+_}
     val gold = src1.zip(src2){_*_}.zip(src3){_*_}.reduce{_+_} - sub1_for_check.zip(sub2_for_check){_*_}.zip(sub3_for_check){_*_}.reduce(_+_)
@@ -808,11 +808,67 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
+object UniqueParallelLoad extends SpatialApp { // Regression (Unit) // Args: none
+  import IR._
+
+  val dim0 = 144
+  val dim1 = 96
+
+  def awkwardload[T:Type:Num](src1: Array[T], src2: Array[T]):T = {
+
+
+    val mat = DRAM[T](dim0, dim1)
+    val other = DRAM[T](dim1, dim1)
+    val result = ArgOut[T]
+    // Transfer data and start accelerator
+    setMem(mat, src1)
+    setMem(other, src2)
+
+    Accel {
+      val s1 = SRAM[T](dim0, dim1)
+      val s2 = SRAM[T](dim1, dim1)
+      Parallel{
+        s1 load mat(0::dim0, 0::dim1)
+        s2 load other(0::dim1, 0::dim1)
+      }
+
+      val accum = Reg[T](0.to[T])
+      Reduce(accum)(dim0 by 1, dim1 by 1) { (i,j) =>
+        s1(i,j)
+      }{_+_}
+      val accum2 = Reg[T](0.to[T])
+      Reduce(accum2)(dim1 by 1, dim1 by 1) { (i,j) =>
+        s2(i,j)
+      }{_+_}
+      result := accum.value + accum2.value
+    }
+    getArg(result)
+  }
+
+  @virtualize
+  def main() = {
+    val srcA = Array.tabulate(dim0) { i => Array.tabulate(dim1){ j => ((j + i) % 8) }}
+    val srcB = Array.tabulate(dim1) { i => Array.tabulate(dim1){ j => ((j + i) % 8) }}
+
+    val dst = awkwardload(srcA.flatten, srcB.flatten)
+
+    val goldA = srcA.map{ row => row.map{el => el}.reduce{_+_}}.reduce{_+_}
+    val goldB = srcB.map{ row => row.map{el => el}.reduce{_+_}}.reduce{_+_}
+    val gold = goldA + goldB
+
+    println("Gold: " + gold)
+    println("result: " + dst)
+    val cksum = gold == dst
+    println("PASS: " + cksum + " (UniqueParallelLoad)")
+
+  }
+}
+
 
 object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
   import IR._
 
-  val tileSize = 16
+  val tileSize = 64
   val p = 2
 
   def blockreduce_1d[T:Type:Num](src: Array[T], size: Int) = {
@@ -855,7 +911,7 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
     //    (0 until tileSize) foreach { i => assert(dst(i) == gold(i)) }
   }
 }
-/*
+
 object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
   import IR._
 
@@ -910,7 +966,7 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
     //    (0 until tileSize) foreach { i => assert(dst(i) == gold(i)) }
   }
 }
- */
+
 
 // Args: 192 384
 object BlockReduce2D extends SpatialApp { // Regression (Unit) // Args: 192 384
@@ -1341,7 +1397,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
 
     // Create HW accelerator
     Accel {
-      y := x * 3
+      y := (x * 9)/4 + 7
     }
 
 
@@ -1349,7 +1405,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = N * 3
+    val gold = (N * 9)/4 + 7
     println("expected: " + gold)
     println("result: " + result)
 

@@ -58,6 +58,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
     case op@RegFileNew(dims) =>
       val par = writersOf(lhs).length
       emitGlobal(s"val ${quote(lhs)} = Module(new templates.ParallelShiftRegFile(${dims(0)}, ${dims(1)}, 1, ${par}/${dims(0)}))")
+      emitGlobal(s"${quote(lhs)}.io.reset := reset")
       // cols = dims(1).toInt
       
     case op@RegFileLoad(rf,inds,en) =>

@@ -121,7 +121,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
       emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
       if (styleOf(lhs) == InnerPipe) {
-        emit(src"val ${accum}_wren = ${cchain}_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
+        emit(src"val ${accum}_wren = ${lhs}_datapath_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
         accum match { 
@@ -160,7 +160,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
           }
         }
         val p = portsOf(lhs, sram, i).head
-        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
+        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), ${parent}_en, $p)""")
         sram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
               emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*${p}+i))}""")
@@ -176,13 +176,9 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val dims = stagedDimsOf(sram)
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, 32))) """)
-      sram.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-            emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat.number }""")
-          } else {
-            emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
-          }
-        case _ => emit(src"""${lhs}_wVec.zip($data).foreach{ case (port, dat) => port.data := dat }""")
+      val datacsv = data.map{d => src"${d}.number"}.mkString(",")
+      data.zipWithIndex.foreach { case (d, i) =>
+        emit(src"""${lhs}_wVec($i).data := ${d}.number""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
         emit(src"${lhs}_wVec($i).en := ${ens(i)}")
@@ -193,7 +189,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")
         val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enabler = if (loadCtrlOf(sram).contains(parent)) src"${parent}_enq" else src"${parent}_datapath_en"
+        val enabler = if (loadCtrlOf(sram).contains(parent)) src"${parent}_datapath_en" else src"${parent}_datapath_en"
         emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enabler}, List(${p}))""")
       }
 
@@ -217,25 +213,33 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val writer = writersOf(fifo).head.ctrlNode  
       // Check if this is a tile consumer
 
-      val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_enq" else src"${writer}_sm.io.output.ctr_inc"
+      val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       emit(src"""${fifo}_writeEn := $enabler & $en""")
-      fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
-            emit(src"""${fifo}_wdata := (0 until $par).map{ i => ${data}(i).number }""")
-          } else {
-            emit(src"""${fifo}_wdata := ${data}""")
-          }
-        case _ => emit(src"""${fifo}_wdata := ${data}""")
-      }
+      val datacsv = data.map{d => src"${d}.number"}.mkString(",")
+      emit(src"""${fifo}_wdata := Vec(List(${datacsv}))""")
 
     case e@ParStreamRead(strm, ens) =>
-      emit(src"""val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
+      val isAck = strm match {
+        case Def(StreamInNew(bus)) => bus match {
+          case BurstAckBus => true
+          case _ => false
+        }
+        case _ => false
+      }
+      emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
+      if (!isAck) {
+        emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
+        emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }.reverse // TODO: Why is this list reversed?""")
+      } else {
+        emit(src"""// Do not read from dummy ack stream $strm""")        
+      }
 
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length
+      val datacsv = data.reverse.map{d => src"${d}.number"}.mkString(",") 
       val en = ens.map(quote).mkString("&")
-      emit(src"${strm}_data := $data")
-      emit(src"${strm}_en := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
+      emit(src"${strm}_data := Vec(List(${datacsv})) // TODO: Why is this list reversed?")
+      emit(src"${strm}_valid := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
       
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 
@@ -247,7 +251,9 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     case op@ParLineBufferEnq(lb,data,ens) => //FIXME: Not correct for more than par=1
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
-      emit(src"$lb.io.data_in(0) := ${data}(0).number")
+      data.zipWithIndex.foreach { case (d, i) =>
+        emit(src"$lb.io.data_in($i) := ${d}.number")
+      }
       emit(src"""$lb.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & ${parent}_datapath_en""")
 
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1

@@ -94,12 +94,16 @@ vcs: vcs-hw vcs-sw
 
 vcs-sw:
 	cp vcs.mk cpp/Makefile
+	cp cpp/cpptypes.h cpp/datastructures
+	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
+	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
 	make -C cpp
 	ln -sf cpp/Top .
 
 vcs-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs vcs"
-	cp chisel/fringeVCS/* verilog-vcs
+	cp -r chisel/template-level/fringeVCS/* verilog-vcs
+	touch in.txt
 	make -C verilog-vcs
 	ln -sf verilog-vcs verilog
 
@@ -107,7 +111,8 @@ vcs-clean:
 	make -C verilog-vcs clean
 	make -C cpp clean
 	rm -rf verilog-vcs
-	rm -f verilog TopVCS.tar.gz
+	rm -f verilog TopVCS.tar.gz Top *.log *.vcd
+	rm -rf target
 
 sim-clean:
 	make -C ${VERILATOR_SRC} clean

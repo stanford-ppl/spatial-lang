@@ -6,106 +6,6 @@ import chisel3.util._
 import templates.SRFF
 import templates.Utils.log2Up
 
-/**
- * DRAM Memory Access Generator
- * MAG config register format
- */
-case class MAGOpcode() extends Bundle {
-  val scatterGather = Bool()
-//  val isWr = Bool()
-
-  override def cloneType(): this.type = {
-    new MAGOpcode().asInstanceOf[this.type]
-  }
-}
-
-class Command(w: Int) extends Bundle {
-  val addr = UInt(w.W)
-  val isWr = Bool()
-  val size = UInt(w.W)
-
-  override def cloneType(): this.type = {
-    new Command(w).asInstanceOf[this.type]
-  }
-}
-
-// Parallelization and word width information
-case class StreamParInfo(w: Int, v: Int)
-
-class MemoryStream(addrWidth: Int) extends Bundle {
-  val cmd = Flipped(Decoupled(new Command(addrWidth)))
-
-  override def cloneType(): this.type = {
-    new MemoryStream(addrWidth).asInstanceOf[this.type]
-  }
-}
-
-class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64) {
-  val rdata = Decoupled(Vec(p.v, UInt(p.w.W)))
-
-  override def cloneType(): this.type = {
-    new LoadStream(p).asInstanceOf[this.type]
-  }
-}
-
-class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64) {
-  val wdata = Flipped(Decoupled(Vec(p.v, UInt(p.w.W))))
-  val wresp = Output(Bool())
-
-  override def cloneType(): this.type = {
-    new StoreStream(p).asInstanceOf[this.type]
-  }
-
-}
-
-class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo]) extends Bundle {
-//  val loads = Vec.tabulate(loadPar.size) { i =>
-//    new LoadStream(loadPar(i))
-//  }
-  val loads = HVec.tabulate(loadPar.size) { i => new LoadStream(loadPar(i)) }
-
-  val stores = HVec.tabulate(storePar.size) { i => new StoreStream(storePar(i)) }
-
-  override def cloneType(): this.type = {
-    new AppStreams(loadPar, storePar).asInstanceOf[this.type]
-  }
-
-}
-
-class DRAMCommand(w: Int, v: Int) extends Bundle {
-  val addr = UInt(64.W)
-  val isWr = Bool() // 1
-  val tag = UInt(w.W)
-  val streamId = UInt(w.W)
-  val wdata = Vec(v, UInt(w.W)) // v
-
-  override def cloneType(): this.type = {
-    new DRAMCommand(w, v).asInstanceOf[this.type]
-  }
-
-}
-
-class DRAMResponse(w: Int, v: Int) extends Bundle {
-  val rdata = Vec(v, UInt(w.W)) // v
-  val tag = UInt(w.W)
-  val streamId = UInt(w.W)
-
-  override def cloneType(): this.type = {
-    new DRAMResponse(w, v).asInstanceOf[this.type]
-  }
-
-}
-
-class DRAMStream(w: Int, v: Int) extends Bundle {
-  val cmd = Decoupled(new DRAMCommand(w, v))
-  val resp = Flipped(Decoupled(new DRAMResponse(w, v)))
-
-  override def cloneType(): this.type = {
-    new DRAMStream(w, v).asInstanceOf[this.type]
-  }
-
-}
-
 class MAGCore(
   val w: Int,
   val d: Int,
@@ -393,9 +293,25 @@ class MAGCore(
     wdata.ready := ~wdataFifo.io.full(i)
   }
 
-  io.app.stores.map{_.wresp}.zipWithIndex.foreach { case (wresp, i) =>
-    wresp := io.dram.resp.valid & streamTagFromDRAM === (i.U + loadStreamInfo.size.U)
+  val wrespFifos = List.tabulate(storeStreamInfo.size) { i =>
+    val m = Module(new FIFOCounter(d, 1))
+    m.io.enq(0) := io.dram.resp.valid
+    m.io.enqVld := io.dram.resp.valid & streamTagFromDRAM === (i + loadStreamInfo.size).U
+    m
   }
+
+  io.app.stores.map{_.wresp}.zip(wrespFifos) foreach { case (wresp, fifo) =>
+    wresp.bits  := fifo.io.deq(0)
+    wresp.valid := ~fifo.io.empty
+    fifo.io.deqVld := wresp.ready
+  }
+
+  if (rdataFifos.length > 0) {
+    io.dram.resp.ready := ~(rdataFifos.map { fifo => fifo.io.full | fifo.io.almostFull }.reduce{_|_})  
+  } else {
+    io.dram.resp.ready := true.B
+  }
+  
 
 }
 

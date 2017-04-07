@@ -16,7 +16,9 @@ class FringeZynq(
   val numArgIns: Int,
   val numArgOuts: Int,
   val loadStreamInfo: List[StreamParInfo],
-  val storeStreamInfo: List[StreamParInfo]
+  val storeStreamInfo: List[StreamParInfo],
+  val streamInsInfo: List[StreamParInfo],
+  val streamOutsInfo: List[StreamParInfo]
 ) extends Module {
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
@@ -49,12 +51,15 @@ class FringeZynq(
 
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
+
+    // Accel stream IO
+    val genericStreams = new GenericStreams(streamInsInfo, streamOutsInfo)
   })
 
   val totalArgOuts = numArgOuts + 1 + 16
 
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, totalArgOuts, loadStreamInfo, storeStreamInfo))
+  val fringeCommon = Module(new Fringe(w, numArgIns, totalArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
 
   // AXI-lite bridge
   val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
@@ -87,7 +92,9 @@ object FringeZynq {
   val numArgOuts = 1
   val loadStreamInfo = List[StreamParInfo]()
   val storeStreamInfo = List[StreamParInfo]()
+  val streamInsInfo = List[StreamParInfo]()
+  val streamOutsInfo = List[StreamParInfo]()
   def main(args: Array[String]) {
-    Driver.execute(Array[String]("--target-dir", "chisel_out/FringeZynq"), () => new FringeZynq(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo))
+    Driver.execute(Array[String]("--target-dir", "chisel_out/FringeZynq"), () => new FringeZynq(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
   }
 }

@@ -17,19 +17,24 @@ trait ChiselGenStructs extends ChiselCodegen {
       case _ => super.needsFPType(tp)
   }
 
+  def dumprint(tp:Type[_]): String = tp match {
+    case FixPtType(s,d,f) => s"$s,$d,$f "
+    case _=> "na "
+  }
+
   protected def tupCoordinates(tp: Type[_],field: String): (Int,Int) = tp match {
     case x: Tup2Type[_,_] => field match {
       case "_1" => 
-        val s = bitWidth(x.m1)
+        val s = 0
         val width = bitWidth(x.m2)
         (s, width)
       case "_2" => 
-        val s = 0
+        val s = bitWidth(x.m2)
         val width = bitWidth(x.m1)
         (s, width)
       }
     case x: StructType[_] =>
-      val idx = x.fields.length - 1 - x.fields.indexWhere(_._1 == field)
+      val idx = x.fields.indexWhere(_._1 == field)
       val width = bitWidth(x.fields(idx)._2)
       val prec = x.fields.take(idx)
       val precBits = prec.map{case (_,bt) => bitWidth(bt)}.sum
@@ -71,9 +76,21 @@ trait ChiselGenStructs extends ChiselCodegen {
     case SimpleStruct(tuples)  =>
       val items = tuples.map{ t => 
         val width = bitWidth(t._2.tp)
-        if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} 
-      }.mkString(",")
-      emit(src"val $lhs = Utils.Cat($items)")
+        if (src"${t._1}" == "offset") {
+          src"${t._2}"
+        } else {
+          if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
+        }
+      }.reverse.mkString(",")
+      val totalWidth = tuples.map{ t => 
+        if (src"${t._1}" == "offset"){
+          64
+        } else {
+          bitWidth(t._2.tp)  
+        }
+      }.reduce{_+_}
+      emitGlobal(src"val $lhs = Wire(UInt(${totalWidth}.W))")
+      emit(src"$lhs := Utils.Cat($items)")
     case FieldApply(struct, field) =>
       val (start, width) = tupCoordinates(struct.tp, field)      
       emit(src"val $lhs = ${struct}(${start+width-1}, $start)")

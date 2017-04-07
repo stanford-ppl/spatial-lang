@@ -75,24 +75,28 @@ trait ChiselGenSRAM extends ChiselCodegen {
               val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
               val width = bitWidth(lhs.tp.typeArguments.head)
               if (depth == 1) {
-                val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
+                val numWriters = writersOf(lhs).filter{ write => (dispatchOf(write, lhs) contains i) }.distinct.length
                 val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
                 open(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
                 emit(src"""$numWriters, $numReaders, """)
-                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: Be more precise with parallelizations """)
+                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: this width is redundant """)
                 close("))")
               } else {
                 val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
+                val numBroadcasters = writersOf(lhs).map { write => if (portsOf(write, lhs, i).toList.length > 1) 1 else 0 }.reduce{_+_}
                 // val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
                 // val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.map{w => portsOf(w, lhs, i).head}.groupBy{i=>i}.map{i => i._2.length}.max
                 val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.map{w => portsOf(w, lhs, i).head}.groupBy{i=>i}.map{i => i._2.length}.max
                 nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
                 open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
-                emit(src"""$numWriters, $numReaders, """)
-                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: Be more precise with parallelizations """)
+                emit(src"""${numWriters-numBroadcasters}, $numReaders, """)
+                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: this width is redundant """)
                 close("))")
+                if (numBroadcasters == 0) {
+                  emit(src"""${lhs}_$i.io.broadcastEn := false.B""")  
+                }
               }
             case DiagonalMemory(strides, banks, depth, isAccum) =>
               throw new UnsupportedBankingType("Diagonal", lhs)
@@ -114,7 +118,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.number // Assume always an int""")
         }
         val p = portsOf(lhs, sram, i).head
-        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
+        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), ${parent}_en, $p)""")
         sram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
               emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*$p))""")
@@ -176,11 +180,15 @@ trait ChiselGenSRAM extends ChiselCodegen {
         (0 to numStagesInbetween).foreach { port =>
           val ctrlId = port + firstActivePort
           val node = allSiblings(ctrlId)
-          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
-          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
+          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else {
+            emit(src"""${mem}_${i}.readTieDown(${port})""")
+            ""
+          }
+          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else {""}
           val empty = if (rd == "" & wr == "") "empty" else ""
           emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
         }
+
 
       }
     }

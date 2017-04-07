@@ -7,26 +7,6 @@ import chisel3.util.MuxLookup
 
 // Note: Can use counter template (with stride)
 // Constant bounds in these counters may save area however
-class TmpCounter(max: Int, reset_val: Int, stride: Int = 1) extends Module {
-  val io = IO(new Bundle {
-    val reset = Input(Bool())
-    val en    = Input(Bool())
-    val count = Output(UInt(log2Ceil(max+stride).W))
-    val wrap  = Output(Bool())
-  })
-
-  def wrapAround(n: UInt, max: UInt) = 
-    Mux(n >= max, n-max, n)
-
-  val x = RegInit(reset_val.asUInt(log2Ceil(max+stride).W))
-  when(io.reset) {
-    x := reset_val.U(log2Ceil(max+stride).W)
-  } .elsewhen(io.en) {
-    x := wrapAround(x + stride.U, max.U)
-  }
-  io.count := x
-  io.wrap := (x+stride.U >= max.U) && io.en
-}
 
 
 // ENHANCEMENT: currently this assumes read col par = 1, read row par = kernel height, and write row/col par is 1 and 1
@@ -73,8 +53,10 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   (0 until num_lines).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i)
     sEn_latch(i).io.input.reset := swap
+    sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)
     sDone_latch(i).io.input.reset := swap
+    sDone_latch(i).io.input.asyn_reset := reset
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
@@ -102,10 +84,14 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // --------------------------------------------------------------------------------------------------------------------------------
   
   // Inner counter over row width -- keep track of write address in current row
-  val WRITE_countRowPx = Module(new TmpCounter(line_size, 0, col_wPar))
-  WRITE_countRowPx.io.en := io.w_en
-  WRITE_countRowPx.io.reset := io.reset | swap
-  val px = WRITE_countRowPx.io.count
+  val WRITE_countRowPx = Module(new SingleCounter(col_wPar))
+  WRITE_countRowPx.io.input.enable := io.w_en
+  WRITE_countRowPx.io.input.reset := io.reset | swap
+  WRITE_countRowPx.io.input.saturate := false.B
+  WRITE_countRowPx.io.input.start := 0.U
+  WRITE_countRowPx.io.input.max := line_size.U
+  WRITE_countRowPx.io.input.stride := 1.U
+  WRITE_countRowPx.io.input.gap := 0.U
   
   // Outer counter over number of SRAM -- keep track of current row
   val WRITE_countRowNum = Module(new NBufCtr())
@@ -119,7 +105,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // Write data_in into line buffer
   for (i <- 0 until (num_lines + extra_rows_to_buffer)) {
     for (j <- 0 until col_wPar) {
-      linebuffer(i).io.w(j).addr(0) := px + j.U
+      linebuffer(i).io.w(j).addr(0) := WRITE_countRowPx.io.output.count(j) + j.U
       linebuffer(i).io.w(j).data := io.data_in(j)
       linebuffer(i).io.globalWEn(0) := cur_row === i.U & io.w_en
       linebuffer(i).io.w(j).en := true.B
@@ -171,10 +157,22 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   }
 
 
+  val availablePorts = (0 until num_lines).map{p => p}
+  var usedPorts = List[Int]()
   def connectStageCtrl(done: Bool, en: Bool, ports: List[Int]) {
     ports.foreach{ port => 
       io.sEn(port) := en
       io.sDone(port) := done
+      usedPorts = usedPorts :+ port
+    }
+  }
+
+  def lockUnusedCtrl() {
+    availablePorts.foreach { p =>
+      if (!usedPorts.contains(p)) {
+        io.sEn(p) := false.B
+        io.sDone(p) := false.B
+      }
     }
   }
 

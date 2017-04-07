@@ -91,11 +91,11 @@ tests_todo=`sed -n '5p' $packet`
 tim=`sed -n '2p' $packet`
 branch=`sed -n '11p' $packet`
 dirname="${REGRESSION_HOME}/testdir-${branch}.${tim}.${type_todo}.${tests_todo}"
-ARGON_HOME="$dirname/argon"
-VIRTUALIZED_HOME="$dirname/argon/scala-virtualized"
-SPATIAL_HOME="$dirname/spatial"
+SPATIAL_HOME="$dirname/spatial-lang"
+ARGON_HOME="$SPATIAL_HOME/argon"
+VIRTUALIZED_HOME="$SPATIAL_HOME/scala-virtualized"
 WIKI_HOME="$SPATIAL_HOME/spatial-lang.wiki"
-wiki_file="${WIKI_HOME}/Branch:${branch}-Backend:${type_todo}.md"
+wiki_file="${WIKI_HOME}/Brnch:${branch}-Trgt:${type_todo}.md"
 spatial_hash=`sed -n '8p' $packet`
 argon_hash=`sed -n '9p' $packet`
 virtualized_hash=`sed -n '10p' $packet`
@@ -147,9 +147,9 @@ git_things() {
   # Clone repos in dirname
   cd $dirname
   export dirname=${dirname}
+  export SPATIAL_HOME=${SPATIAL_HOME}
   export ARGON_HOME=${ARGON_HOME}
   export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
-  export SPATIAL_HOME=${SPATIAL_HOME}
   export WIKI_HOME=${WIKI_HOME}
   export wiki_file=${wiki_file}
   export spatial_hash=${spatial_hash}
@@ -159,36 +159,24 @@ git_things() {
   logger "Cloning spatial... Are your ssh keys set up in git?"
   git clone git@github.com:stanford-ppl/spatial-lang.git > /dev/null 2>&1
   logger "Cloning done!"
-  logger "Changing spatial-lang to spatial"
-  mv spatial-lang spatial > /dev/null 2>&1
-  logger "Done changing! $SPATIAL_HOME"
   exists "$SPATIAL_HOME" 1
-  logger "Cloning argon..."
-  git clone git@github.com:stanford-ppl/argon.git > /dev/null 2>&1
-  logger "Cloning done!"
-  exists "$ARGON_HOME" 1
-  #logger "Cloning virtualized..."
-  #git clone git@github.com:stanford-ppl/scala-virtualized.git > /dev/null 2>&1
-  #logger "Cloning done!"
-  #exists "$VIRTUALIZED_HOME" 1
   cd $SPATIAL_HOME
   logger "Switching spatial commit (${spatial_hash})"
   git fetch > /dev/null 2>&1
   git checkout ${spatial_hash} > /tmp/gitstuff 2>&1
   checkout_success "Spatial"
+  logger "Cloning submodules..."
+  cd $SPATIAL_HOME
+  git submodule update --init
+  logger "Cloning done!"
+  exists "$ARGON_HOME" 2
   cd $ARGON_HOME
   logger "Switching argon commit (${argon_hash})"
   git fetch > /dev/null 2>&1
   git checkout ${argon_hash} > /tmp/gitstuff 2>&1
-  logger "Getting submodules"
-  rm -rf scala-virtualized
-  git submodule update --init
-  checkout_success "Argon"
-#  cd $VIRTUALIZED_HOME
-#  logger "Switching virtualized commit (${virtualized_hash})"
-#  git fetch > /dev/null 2>&1
-#  git checkout ${virtualized_hash} > /tmp/gitstuff 2>&1
-#  checkout_success "Virtualized"
+  cd $VIRTUALIZED_HOME
+  logger "Switching virtualized commit (${virtualized_hash})"
+  git checkout ${virtualized_hash} > /tmp/gitstuff 2>&1
 
   cd $SPATIAL_HOME
   checkout_success "Spatial"

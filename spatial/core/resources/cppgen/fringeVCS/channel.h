@@ -16,24 +16,26 @@
 class Channel {
   int pipeFd[2];
   uint8_t *buf;
-
+  int bufSize = -1;
 public:
-  Channel() {
+  Channel(int bufSize) {
     if (pipe(pipeFd)) {
       EPRINTF("Failed to create pipe, error = %s\n", strerror(errno));
       exit(-1);
     }
 
-    buf = (uint8_t*) malloc(sizeof(simCmd));
-    memset(buf, 0, sizeof(simCmd));
+    buf = (uint8_t*) malloc(bufSize);
+    memset(buf, 0, bufSize);
+    this->bufSize = bufSize;
   }
 
-  Channel(int readfd, int writefd) {
+  Channel(int readfd, int writefd, int bufSize) {
     pipeFd[READ] = readfd;
     pipeFd[WRITE] = writefd;
 
-    buf = (uint8_t*) malloc(sizeof(simCmd));
-    memset(buf, 0, sizeof(simCmd));
+    buf = (uint8_t*) malloc(bufSize);
+    memset(buf, 0, bufSize);
+    this->bufSize = bufSize;
   }
 
   int writeFd() {
@@ -44,16 +46,8 @@ public:
     return pipeFd[READ];
   }
 
-  void printPkt(simCmd *cmd) {
-    EPRINTF("----- printPkt -----\n");
-    EPRINTF("ID   : %d\n", cmd->id);
-    EPRINTF("CMD  : %d\n", cmd->cmd);
-    EPRINTF("SIZE : %lu\n", cmd->size);
-    EPRINTF("----- End printPkt -----\n");
-  }
-
-  void send(simCmd *cmd) {
-    int bytes = write(pipeFd[WRITE], cmd, sizeof(simCmd));
+  void send(void *cmd) {
+    int bytes = write(pipeFd[WRITE], cmd, bufSize);
     if (bytes < 0) {
       EPRINTF("Error sending cmd, error = %s\n", strerror(errno));
       exit(-1);
@@ -73,7 +67,7 @@ public:
           EPRINTF("send error: %s\n", strerror(errno));
         } else {
           totalBytesWritten += bytesWritten;
-          EPRINTF("Total bytes written: %d\n", totalBytesWritten);
+          EPRINTF("Total bytes written: %lu\n", totalBytesWritten);
         }
 
         if (totalBytesWritten >= numBytes) {
@@ -85,14 +79,14 @@ public:
     }
   }
 
-	simCmd* recv() {
-    memset(buf, 0, sizeof(simCmd));
+	void* recv() {
+    memset(buf, 0, bufSize);
 
     std::vector<pollfd> plist = { {pipeFd[READ], POLLIN} };
 
     for (int rval; (rval=poll(&plist[0], plist.size(), /*timeout*/-1)) > 0; ) {
       if (plist[0].revents & POLLIN) {
-        int bytesread = read(pipeFd[READ], buf, sizeof(simCmd));
+        int bytesread = read(pipeFd[READ], buf, bufSize);
         if (bytesread > 0) {
           break;
         }
@@ -100,7 +94,7 @@ public:
         break; // nothing left to read
       }
     }
-    return (simCmd*)buf;
+    return (void*)buf;
 	}
 
   void recvFixedBytes(void *dst, size_t numBytes) {
@@ -113,10 +107,10 @@ public:
       if (plist[0].revents & POLLIN) {
         int bytesRead = read(pipeFd[READ], &bdst[totalBytesRead], numBytes-totalBytesRead);
         if (bytesRead < 0) {
-          EPRINTF("recvFixedBytes error @totalBytesRead = %d, &bdst = %lx: %s\n", totalBytesRead, &bdst[totalBytesRead], strerror(errno));
+          EPRINTF("recvFixedBytes error @totalBytesRead = %lu, &bdst = %p: %s\n", totalBytesRead, (void*)&bdst[totalBytesRead], strerror(errno));
         } else {
           totalBytesRead += bytesRead;
-          EPRINTF("Total bytes read: %d\n", totalBytesRead);
+          EPRINTF("Total bytes read: %lu\n", totalBytesRead);
         }
         if (totalBytesRead >= numBytes) {
           break;

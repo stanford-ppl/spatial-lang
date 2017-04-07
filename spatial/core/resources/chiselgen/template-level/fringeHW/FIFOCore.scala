@@ -19,14 +19,7 @@ case class FIFOOpcode(val d: Int, val v: Int) extends Bundle {
   }
 }
 
-class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
-  val addrWidth = log2Up(d/v)
-  val bankSize = d/v
-  // Check for sizes and v
-  Predef.assert(d%v == 0, s"Unsupported FIFO size ($d)/banking($v) combination; $d must be a multiple of $v")
-  Predef.assert(isPow2(v), s"Unsupported banking number $v; must be a power-of-2")
-  Predef.assert(isPow2(d), s"Unsupported FIFO size $d; must be a power-of-2")
-
+abstract class FIFOBase(val w: Int, val d: Int, val v: Int) extends Module {
   val io = IO(new Bundle {
     val enq = Input(Vec(v, Bits(w.W)))
     val enqVld = Input(Bool())
@@ -34,21 +27,41 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
     val deqVld = Input(Bool())
     val full = Output(Bool())
     val empty = Output(Bool())
+    val almostFull = Output(Bool())
     val almostEmpty = Output(Bool())
     val config = Input(new FIFOOpcode(d, v))
   })
 
+  val addrWidth = log2Up(d/v)
+  val bankSize = d/v
+
+  // Check for sizes and v
+  Predef.assert(d%v == 0, s"Unsupported FIFO size ($d)/banking($v) combination; $d must be a multiple of $v")
+  Predef.assert(isPow2(v), s"Unsupported banking number $v; must be a power-of-2")
+  Predef.assert(isPow2(d), s"Unsupported FIFO size $d; must be a power-of-2")
+
   // Create size register
   val sizeUDC = Module(new UpDownCtr(log2Up(d+1)))
   val size = sizeUDC.io.out
-  val empty = (size < Mux(io.config.chainRead, 1.U, v.U))
-  val almostEmpty = sizeUDC.io.nextDec === 0.U
-  val full = sizeUDC.io.isMax
+  val remainingSlots = d.U - size
+  val nextRemainingSlots = d.U - sizeUDC.io.nextInc
+
+  val strideInc = Mux(io.config.chainWrite, 1.U, v.U)
+  val strideDec = Mux(io.config.chainRead, 1.U, v.U)
+
+  // FIFO is full if #rem elements (d - size) < strideInc
+  // FIFO is emty if elements (size) < strideDec
+  // FIFO is almostFull if the next enqVld will make it full
+  val empty = size < strideDec
+  val almostEmpty = sizeUDC.io.nextDec < strideDec
+  val full = remainingSlots < strideInc
+  val almostFull = nextRemainingSlots < strideInc
+
   sizeUDC.io.initval := 0.U
   sizeUDC.io.max := d.U
   sizeUDC.io.init := 0.U
-  sizeUDC.io.strideInc := Mux(io.config.chainWrite, 1.U, v.U)
-  sizeUDC.io.strideDec := Mux(io.config.chainRead, 1.U, v.U)
+  sizeUDC.io.strideInc := strideInc
+  sizeUDC.io.strideDec := strideDec
   sizeUDC.io.init := 0.U
 
   val writeEn = io.enqVld & ~full
@@ -56,6 +69,17 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
   sizeUDC.io.inc := writeEn
   sizeUDC.io.dec := readEn
 
+  io.empty := empty
+  io.almostEmpty := almostEmpty
+  io.full := full
+  io.almostFull := almostFull
+}
+
+class FIFOCounter(override val d: Int, override val v: Int) extends FIFOBase(1, d, v) {
+  io.deq.foreach { d => d := ~empty }
+}
+
+class FIFOCore(override val w: Int, override val d: Int, override val v: Int) extends FIFOBase(w, d, v) {
   // Create wptr (tail) counter chain
   val wptrConfig = Wire(new CounterChainOpcode(log2Up(bankSize+1), 2, 0, 0))
   wptrConfig.chain(0) := io.config.chainWrite
@@ -145,10 +169,6 @@ class FIFOCore(val w: Int, val d: Int, val v: Int) extends Module {
     }
     io.deq(i) := rdata
   }
-
-  io.empty := empty
-  io.almostEmpty := almostEmpty
-  io.full := full
 }
 
 //class FIFO(val w: Int, val d: Int, val v: Int, val inst: FIFOConfig) extends ConfigurableModule[FIFOOpcode] {

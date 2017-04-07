@@ -4,7 +4,7 @@ package templates
 import chisel3.iotesters.{PeekPokeTester, Driver, ChiselFlatSpec}
 
 class ParallelTests(c: Parallel) extends PeekPokeTester(c) {
-  val latencies = (0 until c.n).map { i => math.abs(rnd.nextInt(8)) + 2 } 
+  val latencies = (0 until c.n).map { i => math.abs(rnd.nextInt(8)) + 5 } 
   latencies.map { a => println("latency of stage = " + a)}
   val maxCycles = latencies.reduce{(a,b) => if (a > b) a else b} + 20
   step(1)
@@ -17,7 +17,7 @@ class ParallelTests(c: Parallel) extends PeekPokeTester(c) {
     step(1)
     val stagesEnabled = (0 until c.n).map {i => peek(c.io.output.stageEnable(i)) }
 
-    (0 until c.n).foreach {i => expect(c.io.output.stageEnable(i), t <= latencies(i))}
+    (0 until c.n).foreach {i => expect(c.io.output.stageEnable(i), t > 0 & t <= latencies(i))}
 
     val isDone = peek(c.io.output.done)
     if (isDone == 1) poke(c.io.input.enable, 0)
@@ -33,7 +33,7 @@ class ParallelTests(c: Parallel) extends PeekPokeTester(c) {
     step(1)
     val stagesEnabled = (0 until c.n).map {i => peek(c.io.output.stageEnable(i)) }
 
-    (0 until c.n).foreach {i => expect(c.io.output.stageEnable(i), t <= latencies(i))}
+    (0 until c.n).foreach {i => expect(c.io.output.stageEnable(i), t > 0 & t <= latencies(i))}
 
     val isDone = peek(c.io.output.done)
     if (isDone == 1) poke(c.io.input.enable, 0)

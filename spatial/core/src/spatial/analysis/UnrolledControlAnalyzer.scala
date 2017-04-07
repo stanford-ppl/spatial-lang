@@ -7,6 +7,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   override val name = "Unrolled Control Analyzer"
 
   var memStreams = Set[(Exp[_], String)]()
+  var genericStreams = Set[(Exp[_], String)]()
   var argPorts = Set[(Exp[_], String)]()
 
   private def visitUnrolled(ctrl: Exp[_])(blk: => Unit) = {
@@ -15,14 +16,21 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
 
   override protected def preprocess[S:Type](block: Block[S]) = {
     memStreams = Set[(Exp[_], String)]()
+    genericStreams = Set[(Exp[_], String)]()
     argPorts = Set[(Exp[_], String)]()
     super.preprocess(block)
   }
 
   override def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
     rhs match {
-      case GetMem(dram, _) => memStreams += ((dram, "output"))
-      case SetMem(dram, _) => memStreams += ((dram, "input"))
+      case GetMem(dram, _) => 
+        memStreams += ((dram, "output"))
+      case SetMem(dram, _) => 
+        memStreams += ((dram, "input"))
+      case StreamInNew(bus) => 
+        genericStreams += ((lhs, "input"))
+      case StreamOutNew(bus) => 
+        genericStreams += ((lhs, "output"))
       case e: ArgInNew[_] => argPorts += ((lhs, "input"))
       case e: ArgOutNew[_] => argPorts += ((lhs, "output"))
       case _ =>

@@ -10,6 +10,7 @@ dist/*
 out/*
 out2/*
 out3/*
+out4/*
 gen/*
 target/
 logs/*
@@ -19,6 +20,8 @@ project/boot/
 project/plugins/project/
 tags
 docs/build/*
+spatial/core/resources/chiselgen/template-level/test_run_dir/templates*
+spatial/*
 
 # Scala-IDE specific
 .scala_dependencies

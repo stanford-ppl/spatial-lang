@@ -36,6 +36,7 @@ def main():
   parser.add_argument("--outdir", dest="outdir", default="", help="location of output dir, relative to ${SPATIAL_HOME}.  Default is gen/<appname>")
   parser.add_argument("--multifile", dest="multifile", default=4, help="Aggressiveness for splitting generated HW code in many files. 0 = no splitting or scoping, 1 = no splitting but yes scoping on inner pipes, 2 = no splitting but yes scoping everywhere, 3 <DEPRECATED> = splitting for inner pipes only, 4 = all blocks")
   parser.add_argument("--emission", dest="emission", default=0, help="Conservativeness when emitting nodes.  0 = crash when emitNode is undefined (release mode), 1 = warn when undefined, 2 = warn when undefined and report when node matched but outside backend rules")
+  parser.add_argument("--regression_cp", dest="cp_reg", default="", help="Temporary fix for regression testing not using the correct classpath")
 
   # # Plasticine work
   # parser.add_argument('--CGRA+', dest='allCGRA', action="store_true", default=False, help="enable ALL PIR features")
@@ -152,7 +153,7 @@ def main():
   old_cp = os.getenv("CLASSPATH", "")
   cp = " -cp "
   cp = cp + old_cp + os.pathsep
-  cp += appsjar
+  cp += opts.cp_reg + appsjar
 
   java_opts = java_opts + cp
 
