@@ -150,7 +150,7 @@ class Streaminner(val ctrDepth : Int, val isFSM: Boolean = false) extends Module
   val maxFF = List.tabulate(ctrDepth) { i => RegInit(0.U) }
 
 
-  io.output.done := Mux(io.input.ctr_done & Mux(io.input.hasStreamIns, true.B, io.input.enable), true.B, false.B) // If there is a streamIn for this stage, then we should not require en=true for done to go high
+  io.output.done := Mux(io.input.forever, false.B, Mux(io.input.ctr_done & Mux(io.input.hasStreamIns, true.B, io.input.enable), true.B, false.B)) // If there is a streamIn for this stage, then we should not require en=true for done to go high
 
 }
 
