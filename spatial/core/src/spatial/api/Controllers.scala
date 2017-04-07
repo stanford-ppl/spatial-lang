@@ -406,7 +406,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
   /** Constructors **/
   def op_accel(func: => Exp[Void], isForever: Boolean)(implicit ctx: SrcCtx): Sym[Controller] = {
     val fBlk = stageBlock{ func }
-    val effects = fBlk.summary
+    val effects = fBlk.summary andAlso Simple
     stageEffectful( Hwblock(fBlk, isForever), effects)(ctx)
   }
 
