@@ -22,6 +22,9 @@ sim: sim-hw
 	ln -sf ${VERILATOR_SRC}/Top .
 
 sim-sw:
+	cp cpp/cpptypes.h cpp/datastructures
+	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
+	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
 	make -C ${VERILATOR_SRC}
 	ln -sf ${VERILATOR_SRC}/Top .
 

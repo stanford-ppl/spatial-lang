@@ -5,7 +5,7 @@
 ##   and git checkouts on a server-specific basis
 
 spacing=20
-delay=1400
+delay=1430
 numpieces=30
 hist=72
 
@@ -593,6 +593,12 @@ comp_time=(\`cat log | grep \"Total time:\" | sed 's/.*time: //g' | sed 's/ seco
 
 # Compile backend
 cd ${5}/out
+
+// Turn off vcd
+sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top-harness.sv
+sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
+sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
+
 make vcs 2>&1 | tee -a ${5}/log
 
 # Check for crashes in backend compilation
