@@ -1,7 +1,6 @@
 package spatial
 
 import argon.core.Reporting
-import spatial.targets._
 
 object SpatialConfig extends Reporting {
   import argon.Config._
@@ -10,15 +9,16 @@ object SpatialConfig extends Reporting {
 
   var targetName: String = getProperty("spatial.fpga", "Default")
 
-  var enableDSE: Boolean = getProperty("spatial.dse", "false") == "true"
-  var enableScala: Boolean = getProperty("spatial.scala", "false") == "true"
-  var enableChisel: Boolean = getProperty("spatial.chisel", "false") == "true"
-  var enablePIR: Boolean = getProperty("spatial.pir", "false") == "true"
-  var enableSplitting: Boolean = getProperty("spatial.splitting", "false") == "true"
-  var enableArchDSE: Boolean = getProperty("spatial.archDSE", "false") == "true"
-  var enableCpp: Boolean = getProperty("spatial.cpp", "false") == "true"
-  var enableNaming: Boolean = getProperty("spatial.naming", "false") == "true"
-  var enableTree: Boolean = getProperty("spatial.tree", "false") == "true"
+  var enableDSE: Boolean = getProperty("spatial.dse", "false").toBoolean
+  var enableDot: Boolean = getProperty("spatial.dot", "false").toBoolean
+  var enableScala: Boolean = getProperty("spatial.scala", "false").toBoolean
+  var enableChisel: Boolean = getProperty("spatial.chisel", "false").toBoolean
+  var enableCpp: Boolean = getProperty("spatial.cpp", "false").toBoolean
+  var enablePIR: Boolean = getProperty("spatial.pir", "false").toBoolean
+  var enableSplitting: Boolean = getProperty("spatial.splitting", "false").toBoolean
+  var enableArchDSE: Boolean = getProperty("spatial.archDSE", "false").toBoolean
+  var enableNaming: Boolean = getProperty("spatial.naming", "false").toBoolean
+  var enableTree: Boolean = getProperty("spatial.tree", "false").toBoolean
   var multifile: Int = getProperty("spatial.multifile", "0").toInt
 
   // Plasticine limits TODO: move to somewhere else?

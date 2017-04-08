@@ -1,6 +1,5 @@
 import spatial._
 import org.virtualized._
-import forge._
 
 object BitSelects extends SpatialApp {
   import IR._

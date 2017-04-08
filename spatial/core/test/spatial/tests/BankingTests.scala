@@ -26,6 +26,10 @@ object TwoDuplicatesSimple extends SpatialTest {
     }
     val result = getMem(dram)
     val gold = Array.tabulate(32){i => i}
+
+    printArray(result, "result")
+    printArray(gold, "gold")
+
     gold.foreach{i => assert(result(i) == i) }
   }
 }

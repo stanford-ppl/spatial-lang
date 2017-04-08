@@ -1,5 +1,6 @@
 package spatial
 
+import argon.codegen.Codegen
 import argon.codegen.scalagen._
 import argon.codegen.chiselgen._
 import argon.codegen.pirgen._
@@ -76,6 +77,13 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine {
 
   override val IR: SpatialCompiler
+
+  override def copyDependencies(out: String): Unit = {
+    dependencies ::= FileDep("scalagen", "Makefile", "../")
+    dependencies ::= FileDep("scalagen", "run.sh", "../")
+    dependencies ::= FileDep("scalagen", "build.sbt", "../")
+    super.copyDependencies(out)
+  }
 }
 
 protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
@@ -176,6 +184,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
   lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableCpp }
   lazy val treegen = new TreeGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableTree }
+
+  def codegenerators = passes.collect{case x: Codegen => x}
 
   // Traversal schedule
   passes += printer
@@ -278,6 +288,19 @@ trait SpatialApp extends AppCore {
   val target = __target
 
   val IR: SpatialIR = new SpatialIR { def target = SpatialApp.this.target }
-  val Lib: SpatialLib = new SpatialLib { def args: Array[String] = stagingArgs }
+  val Lib: SpatialLib = new SpatialLib { }
+
+  override def parseArguments(args: List[String]): Unit = {
+    val parser = new SpatialArgParser
+    val (hadErrors, unmatched) = parser.parseArgs(args, Nil)
+    if (hadErrors) sys.exit(1)
+
+    // Enable Scala by default if nothing is enabled
+    if (!IR.codegenerators.exists(_.shouldRun)) {
+      SpatialConfig.enableScala = true
+    }
+
+    super.parseArguments(unmatched)
+  }
 }
 
