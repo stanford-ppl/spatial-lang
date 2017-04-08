@@ -260,6 +260,7 @@ module test;
         io_dram_cmd_bits_wdata_14,
         io_dram_cmd_bits_wdata_15
       );
+      io_dram_cmd_ready = 1;
     end
 
     if (io_genericStreamOut_valid & ~reset) begin
@@ -277,7 +278,7 @@ module test;
     numCycles = numCycles + 1;
     io_wen = 0;
     io_dram_resp_valid = 0;
-    io_dram_cmd_ready = 1;
+    io_dram_cmd_ready = 0;
     io_genericStreamIn_valid = 0;
     io_genericStreamOut_ready = 1;
 

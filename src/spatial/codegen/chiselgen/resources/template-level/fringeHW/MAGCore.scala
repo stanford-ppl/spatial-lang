@@ -113,7 +113,7 @@ class MAGCore(
   val issued = Wire(Bool())
   val issuedFF = Module(new FF(1))
   issuedFF.io.init := 0.U
-  issuedFF.io.in := Mux(issued, ~io.dram.resp.valid, burstVld)
+  issuedFF.io.in := Mux(issued, ~io.dram.resp.valid, burstVld & dramReady)
   issuedFF.io.enable := 1.U
   if (blockingDRAMIssue) {
     issued := issuedFF.io.out
