@@ -54,28 +54,10 @@ trait CppGenUnrolled extends CppCodegen {
       emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
 
     case UnrolledReduce(en, cchain,_,func,_,iters,valids,_) =>
-      emit(src"/** BEGIN UNROLLED REDUCE **/")
-      open(src"val $lhs = {")
-      emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
-      close("}")
-      emit(src"/** END UNROLLED REDUCE **/")
 
     case ParSRAMLoad(sram,inds,ens) =>
-      val dims = stagedDimsOf(sram)
-      open(src"val $lhs = {")
-      inds.indices.foreach{i =>
-        emit(src"""val a$i = $sram.apply(${flattenAddress(dims, inds(i))})""")
-      }
-      emit(src"Array(" + inds.indices.map{i => src"a$i"}.mkString(", ") + ")")
-      close("}")
 
     case ParSRAMStore(sram,inds,data,ens) =>
-      val dims = stagedDimsOf(sram)
-      open(src"val $lhs = {")
-      inds.indices.foreach{i =>
-        emit(src"if (${ens(i)}) $sram.update(${flattenAddress(dims, inds(i))}, $data($i))")
-      }
-      close("}")
 
     case ParFIFODeq(fifo, ens) =>
 

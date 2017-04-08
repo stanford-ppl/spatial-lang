@@ -135,6 +135,21 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
     }
   }
 
+  object UtilTest extends SpatialTest {
+    import IR._
+
+    @virtualize
+    def main() {
+      val array = Array.tabulate(32){i => random[Int](10) }
+      val matrix = (0::4,0::10){(i,j) => random[Int](10) }
+
+      Accel { }
+
+      printArray(array)
+      printMatrix(matrix)
+    }
+  }
+
   // A[B] = C
   /*object NDScatterTest extends SpatialTest {
     import IR._
@@ -200,6 +215,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   "ReduceTest" should "compile" in { ReduceTest.main(noargs) }
   "FoldAccumTest" should "compile" in { FoldAccumTest.main(noargs) }
   "MemReduceTest" should "compile" in { MemReduceTest.main(noargs) }
+  "UtilTest" should "compile" in { UtilTest.main(noargs) }
   // a [TestBenchFailed] should be thrownBy { NDScatterTest.main(noargs) }
   a [TestBenchFailed] should be thrownBy { UntransferredValueTest.main(noargs) }
   a [TestBenchFailed] should be thrownBy { DRAMSizeTest.main(noargs) }

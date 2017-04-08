@@ -1,6 +1,5 @@
 package spatial
 
-
 import argon.codegen.scalagen._
 import argon.codegen.chiselgen._
 import argon.codegen.pirgen._

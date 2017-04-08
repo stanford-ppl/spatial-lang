@@ -12,12 +12,12 @@ trait CppGenFringeCopy extends CppCodegen {
   import IR._
 
   override def copyDependencies(out: String): Unit = {
-    val cppResourcesPath = s"${sys.env("SPATIAL_HOME")}/src/spatial/codegen/cppgen/resources"
+    val cppResourcesPath = "cppgen"
 
     if (IR.target.name == "AWS_F1") {
-      s"""cp -r $cppResourcesPath/fringeAWS ${out}""".!
+      dependencies ::= DirDep(cppResourcesPath, "fringeAWS")
     } else {
-      s"""cp -r $cppResourcesPath/fringeSW ${out}""".!
+      dependencies ::= DirDep(cppResourcesPath, "fringeSW")
     }
 
     super.copyDependencies(out)

@@ -20,7 +20,6 @@ trait VectorExp extends Staging with BitsExp with TextExp with CustomBitWidths {
   }
 
   @api def Vector$JJ$1to128[T:Meta:Bits](xII$II$1toJJ: T)(implicit ctx: SrcCtx): VectorJJ[T] = {
-    //type V[T] = VectorJJ[T]
     val eII$II$1toJJ = xII.s
     wrap(vector_new[T,VectorJJ](Seq(eII$II$1toJJ)))
   }

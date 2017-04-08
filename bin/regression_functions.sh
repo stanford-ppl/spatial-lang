@@ -5,7 +5,7 @@
 ##   and git checkouts on a server-specific basis
 
 spacing=20
-delay=1400
+delay=1430
 numpieces=30
 hist=72
 
@@ -102,7 +102,9 @@ build_spatial() {
 
   logger "Making spatial..."
   cd $SPATIAL_HOME
-  make full > /tmp/log 2>&1
+  # sbt compile > /tmp/log 2>&1
+  # make lang > /tmp/log 2>&1
+  make apps > /tmp/log 2>&1
   logger "Spatial done!"
   logger "Checking if spatial made correctly..."
   errs=(`cat /tmp/log | grep "\[.*error.*\]" | wc -l`)
@@ -562,11 +564,11 @@ date >> ${5}/log" >> $1
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --scala --multifile=4 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --scala --multifile=4 --regression_cp=\"../../../\" --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --chisel --multifile=4 --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --chisel --multifile=4 --regression_cp=\"../../../\" --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 
@@ -591,6 +593,13 @@ comp_time=(\`cat log | grep \"Total time:\" | sed 's/.*time: //g' | sed 's/ seco
 
 # Compile backend
 cd ${5}/out
+
+// Turn off vcd and dram prints
+sed -i 's/#define EPRINTF(...) fprintf/#define EPRINTF(...) \\/\\/fprintf/g' cpp/fringeVCS/commonDefs.h
+sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top-harness.sv
+sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
+sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
+
 make vcs 2>&1 | tee -a ${5}/log
 
 # Check for crashes in backend compilation

@@ -25,9 +25,9 @@ resolvers ++= Seq(
   Resolver.sonatypeRepo("releases")
 )
 
-scalaSource in Compile := baseDirectory.value / "../templates"
+scalaSource in Compile := baseDirectory.value / "templates"
 
-scalaSource in Test := baseDirectory.value / "../tests"
+scalaSource in Test := baseDirectory.value / "tests"
 
 // Recommendations from http://www.scalatest.org/user_guide/using_scalatest_with_sbt
 logBuffered in Test := false

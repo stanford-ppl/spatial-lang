@@ -88,7 +88,8 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
             // Store this point to the set of accumulators
             val localCent = SRAM[T](MAXK,MAXD)
             Foreach(K by 1, D par P2){(ct,d) =>
-              val elem = mux(d == DM1, 1.to[T], pts(pt, d))
+              //val elem = mux(d == DM1, 1.to[T], pts(pt, d)) // fix for vanishing mux
+              val elem = pts(pt,d)
               localCent(ct, d) = mux(ct == minCent.value._1, elem, 0.to[T])
             }
             localCent
@@ -96,12 +97,13 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
         }
 
         val centCount = SRAM[T](MAXK)
-        Foreach(K by 1 par PX){ct => centCount(ct) = newCents(ct,DM1) } // Until diagonal banking is allowed
+        Foreach(K by 1 par PX){ct => centCount(ct) = max(newCents(ct,DM1), 1.to[T]) } // Until diagonal banking is allowed
 
         // Average each new centroid
         // val centsOut = SRAM[T](MAXK, MAXD)
         Foreach(K by 1, D par P0){(ct,d) =>
-          cts(ct, d) = mux(centCount(ct) == 0.to[T], 0.to[T], newCents(ct,d) / centCount(ct))
+//          val updateMux = mux(centCount(ct) == 0.to[T], 0.to[T], newCents(ct,d) / centCount(ct))
+          cts(ct, d) = mux(centCount(ct) == 0.to[T], 0.to[T], newCents(ct,d) / centCount(ct)) //updateMux
         }
       }
 
