@@ -1,2 +1,0 @@
-- Altera contains a primitive called SRFF. Need to use a different name for our SRFF.
-- Reset might affect reg read / write.

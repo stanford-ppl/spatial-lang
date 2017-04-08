@@ -48,7 +48,7 @@ trait StreamAnalyzer extends CompilerPass {
     }
 
     streamPipes.foreach{pipe =>
-      val childs = childrenOf(pipe)
+      val childs = childrenOf(pipe) :+ pipe
       dbg(u"Stream pipe $pipe with immediate children $childs")
 
       // Link up enables (when data ready on fifo inputs)
