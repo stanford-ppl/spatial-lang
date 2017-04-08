@@ -153,6 +153,29 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     }
   }
 
+  def getStreamEnablers(c: Exp[Any]): String = {
+      // If we are inside a stream pipe, the following may be set
+      val readiers = listensTo(c).distinct.map { fifo => 
+        fifo match {
+          case Def(FIFONew(size)) => src"~${fifo}.io.empty"
+          case Def(StreamInNew(bus)) => src"${fifo}_valid"
+          case _ => src"${fifo}_en" // parent node
+        }
+      }.mkString(" & ")
+      val holders = (pushesTo(c)).distinct.map { fifo => 
+        fifo match {
+          case Def(FIFONew(size)) => src"~${fifo}.io.full"
+          case Def(StreamOutNew(bus)) => src"${fifo}_ready"
+        }
+      }.mkString(" & ")
+
+      val hasHolders = if (holders != "") "&" else ""
+      val hasReadiers = if (readiers != "") "&" else ""
+
+      src"${hasHolders} ${holders} ${hasReadiers} ${readiers}"
+
+  }
+
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
     val isInner = levelOf(sym) match {
@@ -314,25 +337,10 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         } else {
           emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${c}_done;""")
         }
-        // If we are inside a stream pipe, the following may be set
-        val readiers = listensTo(c).distinct.map { fifo => 
-          fifo match {
-            case Def(FIFONew(size)) => src"~${fifo}.io.empty"
-            case Def(StreamInNew(bus)) => src"${fifo}_valid"
-            case _ => src"${fifo}_en" // parent node
-          }
-        }.mkString(" & ")
-        val holders = (pushesTo(c)).distinct.map { fifo => 
-          fifo match {
-            case Def(FIFONew(size)) => src"~${fifo}.io.full"
-            case Def(StreamOutNew(bus)) => src"${fifo}_ready"
-          }
-        }.mkString(" & ")
 
-        val hasHolders = if (holders != "") "&" else ""
-        val hasReadiers = if (readiers != "") "&" else ""
+        val streamAddition = getStreamEnablers(c)
 
-        emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx}) ${hasHolders} ${holders} ${hasReadiers} ${readiers}""")  
+        emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx}) ${streamAddition}""")  
 
         // If this is a stream controller, need to set up counter copy for children
 
@@ -361,7 +369,8 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     case Hwblock(func,isForever) =>
       controllerStack.push(lhs)
       toggleEn() // turn on
-      emit(s"""val ${quote(lhs)}_en = io.enable & !io.done;""")
+      val streamAddition = getStreamEnablers(lhs)
+      emit(s"""val ${quote(lhs)}_en = io.enable & !io.done ${streamAddition}""")
       emit(s"""val ${quote(lhs)}_resetter = reset""")
       emitGlobal(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
