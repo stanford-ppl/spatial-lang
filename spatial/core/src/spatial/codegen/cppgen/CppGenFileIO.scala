@@ -16,7 +16,7 @@ trait CppGenFileIO extends CppCodegen  {
     case CloseFile(file) =>
     	emit(src"${lhs}_file.close();")
     case ReadTokens(file, delim) =>
-    	emit(src"std::vector<${lhs.tp}> ${lhs} = new std::vector<${lhs.tp}>; ")
+    	emit(src"std::vector<${lhs.tp}>* ${lhs} = new std::vector<${lhs.tp}>; ")
     	open(src"if (${file}_file.is_open() {")
     		open(src"while ( ${lhs}_file.good() ) {")
 	    		emit(src"string ${lhs}_str;")

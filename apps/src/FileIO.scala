@@ -7,12 +7,12 @@ object Load1Dcsv extends SpatialApp {
   @virtualize
   def main() {
     val len = 64
-    // val data = loadCSV("/home/mattfel/testdata.csv", " ")
+    val data = loadCSV[Int]("/home/mattfel/testdata.csv", " ")
     // val file = OpenFile("/home/mattfel/testdata.csv".s, false)
     // val tokens = ReadTokens(file, " ".s)
     // CloseFile(file)
     // val data = tokens.map{token => token.to[T]}
-    val data = Array.fill(len) { 1.to[Int] }
+    // val data = Array.fill(len) { 1.to[Int] }
     val srcmem = DRAM[Int](len)
     setMem(srcmem, data)
     val result = ArgOut[Int]
