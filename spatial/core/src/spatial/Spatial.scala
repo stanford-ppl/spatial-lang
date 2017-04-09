@@ -24,7 +24,7 @@ protected trait SpatialExp extends Staging
   with ArrayExp with ArrayExtExp with BoolExp with CastExp with FixPtExp with FltPtExp
   with HashMapExp with IfThenElseExp with StructExp
   with TextExp with TupleExp with VoidExp with MatrixExp
-  with DebuggingExp with TemplatesExp with BitOpsExp
+  with DebuggingExp with TemplatesExp with BitOpsExp with FileIOExp
 
   with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
@@ -61,8 +61,8 @@ protected trait SpatialApi extends SpatialExp
   with StreamApi with PinApi with AlteraVideoApi
   with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
 
-  with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits
-
+  with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits with FileIOApi
+ 
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenArray with ScalaGenSpatialArrayExt with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
