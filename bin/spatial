@@ -16,45 +16,47 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 def main():
-  usage = "Usage: %prog <application runner> [staging args] [options]"
   parser = ArgumentParser(description='SPATIAL')
   parser.add_argument('app', type=str, help='name of application to run')
   parser.add_argument('--DSE', dest='dse', action='store_true',default=False, help='enables design space exploration')
-  
+
   parser.add_argument('-q', dest='quiet', action='store_true',default=False,help='disables background logging')
   parser.add_argument('-v', dest='verbose', action='store_true',default=False,help='enables verbose printout')
 
-  parser.add_argument('--scala', dest='scala', action='store_true', default=True, help='enables scala generation')
+  parser.add_argument('--scala', dest='scala', action='store_true', default=False, help='enables scala generation')
   parser.add_argument('--chisel', dest='chisel', action='store_true', default=False, help='enables chisel generation')
-  parser.add_argument("--cpp", dest="cpp", action="store_true", default=True, help="enables cpp generation")
+  parser.add_argument("--cpp", dest="cpp", action="store_true", default=False, help="enables cpp generation")
   parser.add_argument("--fpga", dest="fpga", default="Default", help="Set name of FPGA target")
 
+  # TODO: It doesn't make sense to have this as an option if the action and default are the same
   parser.add_argument('--naming', dest='naming', action='store_true', default=True, help='generates the debug name for all syms, rather than "x${s.id}" only')
-  parser.add_argument('--debug', dest='debug', action='store_true', default=False, help='enables logging of compiler')
   parser.add_argument('--tree', dest='tree', action='store_true', default=True, help='enables logging of controller tree for visualizing app structure')
+
+  parser.add_argument('--debug', dest='debug', action='store_true', default=False, help='enables logging of compiler')
   parser.add_argument("--dot", dest="dot", action="store_true", default=False, help="enables dot generation")
   parser.add_argument("--outdir", dest="outdir", default="", help="location of output dir, relative to ${SPATIAL_HOME}.  Default is gen/<appname>")
   parser.add_argument("--multifile", dest="multifile", default=4, help="Aggressiveness for splitting generated HW code in many files. 0 = no splitting or scoping, 1 = no splitting but yes scoping on inner pipes, 2 = no splitting but yes scoping everywhere, 3 <DEPRECATED> = splitting for inner pipes only, 4 = all blocks")
   parser.add_argument("--emission", dest="emission", default=0, help="Conservativeness when emitting nodes.  0 = crash when emitNode is undefined (release mode), 1 = warn when undefined, 2 = warn when undefined and report when node matched but outside backend rules")
   parser.add_argument("--regression_cp", dest="cp_reg", default="", help="Temporary fix for regression testing not using the correct classpath")
 
-  # # Plasticine work
-  # parser.add_argument('--CGRA+', dest='allCGRA', action="store_true", default=False, help="enable ALL PIR features")
-  # parser.add_argument('--CGRA*', dest='dseCGRA', action="store_true", default=False, help="enable ALL PIR features")
 
-  # parser.add_argument('--pdse', dest='pdse', action="store_true", default=False, help="enable CGRA DSE")
-  # parser.add_argument('--CGRA', dest='cgra', action='store_true', default=False, help='enables PIR generation')
-  # parser.add_argument('--pdebug', dest='pir_debug', action='store_true', default=False, help='enables PIR debugging output')
-  # parser.add_argument('--split', dest='split', action="store_true", default=False, help="enable PIR CU splitting")
+  parser.add_argument("--clean", dest="clean", action="store_true", default=False, help="clean generate directory before compilation")
+# # Plasticine work
+# parser.add_argument('--CGRA+', dest='allCGRA', action="store_true", default=False, help="enable ALL PIR features")
+# parser.add_argument('--CGRA*', dest='dseCGRA', action="store_true", default=False, help="enable ALL PIR features")
 
-  # parser.add_argument("--sIn", type=int, help="set number of scalar inputs / CU")
-  # parser.add_argument("--sbus", type=int, help="set number of scalars / bus")
-  # parser.add_argument("--vIn", type=int, help="set number of vector inputs / CU")
-  # parser.add_argument("--vOut", type=int, help="set number of vector outputs / CU")
-  # parser.add_argument("--comp", type=int, help="set number of compute-only stages / CU")
-  # parser.add_argument("--rw", type=int, help="set number of read/write enabled stages / CU")
-  # parser.add_argument("--mems", type=int, help="set number of SRAMs / CU")
+# parser.add_argument('--pdse', dest='pdse', action="store_true", default=False, help="enable CGRA DSE")
+# parser.add_argument('--CGRA', dest='cgra', action='store_true', default=False, help='enables PIR generation')
+# parser.add_argument('--pdebug', dest='pir_debug', action='store_true', default=False, help='enables PIR debugging output')
+# parser.add_argument('--split', dest='split', action="store_true", default=False, help="enable PIR CU splitting")
 
+# parser.add_argument("--sIn", type=int, help="set number of scalar inputs / CU")
+# parser.add_argument("--sbus", type=int, help="set number of scalars / bus")
+# parser.add_argument("--vIn", type=int, help="set number of vector inputs / CU")
+# parser.add_argument("--vOut", type=int, help="set number of vector outputs / CU")
+# parser.add_argument("--comp", type=int, help="set number of compute-only stages / CU")
+# parser.add_argument("--rw", type=int, help="set number of read/write enabled stages / CU")
+# parser.add_argument("--mems", type=int, help="set number of SRAMs / CU")
 
   SPATIAL_HOME = os.getenv("SPATIAL_HOME", dirname(dirname(abspath(__file__))))
   print( dirname(dirname(abspath(__file__))))
@@ -65,65 +67,42 @@ def main():
     print('SPATIAL_HOME is undefined.')
     exit(1)
 
-
   (opts, args) = parser.parse_known_args()
 
-  # if opts.sIn > 0:
-  #   java_opts = java_opts + " -Dplasticine.sIn="+str(opts.sIn)
-  # if opts.sbus > 0:
-  #   java_opts = java_opts + " -Dplasticine.sbus="+str(opts.sbus)
-  # if opts.vIn > 0:
-  #   java_opts = java_opts + " -Dplasticine.vIn="+str(opts.vIn)
-  # if opts.vOut > 0:
-  #   java_opts = java_opts + " -Dplasticine.vOut="+str(opts.vOut)
-  # if opts.comp > 0:
-  #   java_opts = java_opts + " -Dplasticine.comp="+str(opts.comp)
-  # if opts.rw > 0:
-  #   java_opts = java_opts + " -Dplasticine.rw="+str(opts.rw)
-  # if opts.mems > 0:
-  #   java_opts = java_opts + " -Dplasticine.mems="+str(opts.mems)
-
-
-  # if opts.allCGRA == True or opts.dseCGRA == True:
+  # if opts.allCGRA or opts.dseCGRA:
   #   opts.cgra = True
   #   opts.pir_debug = True
   #   opts.split = True
   #   opts.debug = True
 
-  # if opts.dseCGRA == True:
+  # if opts.dseCGRA:
   #   opts.pdse = True
 
+  # if opts.pir_debug: java_opts = java_opts + " -Dspatial.pirdebug=true"
+  # if opts.cgra:      java_opts = java_opts + " -Dspatial.cgra=true"
+  # if opts.pdse:      java_opts = java_opts + " -Dspatial.pdse=true"
+  # if opts.split:     java_opts = java_opts + " -Dspatial.split=true"
 
 
-  if opts.quiet == True:
-    java_opts = java_opts + " -Dargon.verbosity=0"
-  elif opts.verbose == True:
-    java_opts = java_opts + " -Dargon.verbosity=2"
+  if opts.quiet:     java_opts = java_opts + " -Dargon.verbosity=0"
+  elif opts.verbose: java_opts = java_opts + " -Dargon.verbosity=2"
 
-  if opts.naming == True:
-    java_opts = java_opts + " -Dspatial.naming=true"
-  if opts.tree == True:
-    java_opts = java_opts + " -Dspatial.tree=true"
-  if opts.dse == True:
-    java_opts = java_opts + " -Dspatial.dse=true"
-  if opts.debug == True:
-    java_opts = java_opts + " -Dspatial.log=true"
+  if opts.naming: java_opts = java_opts + " -Dspatial.naming=true"
+  if opts.tree:   java_opts = java_opts + " -Dspatial.tree=true"
+  if opts.dse:    java_opts = java_opts + " -Dspatial.dse=true"
+  if opts.debug:  java_opts = java_opts + " -Dspatial.log=true"
+  if opts.dot:    java_opts = java_opts + " -Dspatial.dot=true"
+  if opts.scala:  java_opts = java_opts + " -Dspatial.scala=true"
+  if opts.cpp:    java_opts = java_opts + " -Dspatial.cpp=true"
+  if opts.clean:  java_opts = java_opts + " -Dargon.clearGen=true"
 
-  if opts.dot == True:
-    java_opts = java_opts + " -Dspatial.dot=true"
-  if opts.chisel == True:
-    opts.cpp = True
-    opts.scala = False
-    java_opts = java_opts + " -Dspatial.chisel=true"
-  elif opts.scala == True:
-    opts.chisel = False
-    opts.cpp = False
-    java_opts = java_opts + " -Dspatial.scala=true"
-  if opts.cpp == True:
-    java_opts = java_opts + " -Dspatial.cpp=true"
+  if opts.chisel:
+      opts.cpp = True
+      java_opts = java_opts + " -Dspatial.chisel=true"
+
   if opts.outdir != "":
     # Clean outdir
-    os.system("rm -rf " + os.path.join(SPATIAL_HOME, opts.outdir) + "/*")
+    #os.system("rm -rf " + os.path.join(SPATIAL_HOME, opts.outdir) + "/*")
     java_opts = java_opts + " -Dargon.out=" + os.path.join(SPATIAL_HOME, opts.outdir)
 
   java_opts = java_opts + " -Dargon.name=" + opts.app
@@ -131,18 +110,8 @@ def main():
   java_opts = java_opts + " -Dspatial.fpga=" + opts.fpga
   java_opts = java_opts + " -Dargon.multifile=" + "%s" % opts.multifile
   java_opts = java_opts + " -Dspatial.multifile=" + "%s" % opts.multifile
-
-  # if opts.pir_debug == True:
-  #   java_opts = java_opts + " -Dspatial.pirdebug=true"
-  # if opts.cgra == True:
-  #   java_opts = java_opts + " -Dspatial.cgra=true"
-  # if opts.pdse == True:
-  #   java_opts = java_opts + " -Dspatial.pdse=true"
-  # if opts.split == True:
-  #   java_opts = java_opts + " -Dspatial.split=true"
-
-  # ## Should only set for child processes
-  # os.environ["JAVA_OPTS"] = java_opts
+  #java_opts = java_opts + " -Xms128m"
+  #java_opts = java_opts + " -Xmx1024m"
 
   # Add classpaths
   # scala_major_id = os.system('sbt scala-version')
@@ -157,35 +126,17 @@ def main():
 
   java_opts = java_opts + cp
 
+  if JAVA_HOME != "":
+    JAVA_HOME = JAVA_HOME + "/bin/"
 
   ## Run Spatial
-  java_cmd = JAVA_HOME + "/bin/java " + java_opts + " " + opts.app + " "
-  print(java_cmd)
-  #print "[ " + bcolors.WARNING + "INFO" + bcolors.ENDC + " ] Running Spatial with options: " + str(java_opts)
-  #print java_cmd
+  java_cmd = JAVA_HOME + "java " + java_opts + " " + opts.app + " " + " ".join(args)
+  #print(java_cmd)
 
   ecode = os.system(java_cmd)
+
   if ecode != 0:
-      print("[" + bcolors.FAIL + "error" + bcolors.ENDC + "] Spatial compilation failed")
-
-  ## TODO: How to determine publish directory?
-  # os.system(SPATIAL_HOME + 'bin/delitec ' + opts.app + ' ' + deliteArgs + ' --dump_exception 2>&1 | tee compile.log')
-
-  # if opts.maxj and opts.cpp:
-  #   print 'Running Spatial with arguments: ' + ' '.join(args)
-  #   if opts.outdir == "out":
-  #     os.system(publish + 'bin/delite ' + opts.app + ' --no-jvm --no-compile --cpp=1 --maxj=1 --codecache=' + os.getenv("HYPER_HOME", "") + '/spatial/published/Spatial/out ' + ' '.join(args) + ' 2>&1 | tee run.log')
-  #   else:
-  #     os.system(publish + 'bin/delite ' + opts.app + ' --no-jvm --no-compile --cpp=1 --maxj=1 --codecache=' + opts.outdir + ' ' + ' '.join(args[0:]) + ' 2>&1 | tee run.log')
-  # elif opts.chisel and opts.cpp:
-  #   print 'Running Spatial with arguments: ' + ' '.join(args[0:])
-  #   if opts.outdir == "out":
-  #     os.system(publish + 'bin/delite ' + opts.app + ' --no-jvm --no-compile --cpp=1 --chisel=1 --codecache=' + os.getenv("HYPER_HOME", "") + '/spatial/published/Spatial/out ' + ' '.join(args[0:]) + ' 2>&1 | tee run.log')
-  #   else:
-  #     os.system(publish + 'bin/delite ' + opts.app + ' --no-jvm --no-compile --cpp=1 --chisel=1 --codecache=' + opts.outdir + ' ' + ' '.join(args[0:]) + ' 2>&1 | tee run.log')
-  # elif opts.test:
-  #   print 'Running Spatial Scala Test with arguments: ' + ' '.join(args)
-  #   os.system(publish + 'bin/delite ' + opts.app + ' --codecache=' + opts.outdir + ' ' + ' '.join(args) + ' 2>&1 | tee run.log')
+    print("[" + bcolors.FAIL + "error" + bcolors.ENDC + "] Spatial compilation failed")
 
 if __name__ == "__main__":
     main()

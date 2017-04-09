@@ -127,10 +127,9 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
     };
 
     // // This contains the "weird scheduling bug"
-
-    // printMatrix(image, "Image")
-    // printMatrix(gold, "Gold")
-    // printMatrix(output, "Output")
+    printMatrix(image, "Image")
+    printMatrix(gold, "Gold")
+    printMatrix(output, "Output")
 
     val gold_sum = gold.map{g => g}.reduce{_+_} 
     val output_sum = output.zip(ids){case (o,i) => i * o}.reduce{_+_}

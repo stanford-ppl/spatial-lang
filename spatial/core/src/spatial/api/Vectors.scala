@@ -8,8 +8,17 @@ import forge._
 
 trait VectorApi extends VectorExp { this: SpatialExp => }
 
+trait LowPriorityImplicits { this: VectorExp =>
+  implicit def vectorNFakeType[T:Meta:Bits](implicit ctx: SrcCtx): Meta[VectorN[T]] = {
+    error(ctx, u"VectorN value cannot be used directly as a staged type")
+    error("Add a type conversion here using .asVector#, where # is the length of the vector")
+    error(ctx)
+    vectorNType[T](-1)
+  }
+}
+
 @generate
-trait VectorExp extends Staging with BitsExp with TextExp with CustomBitWidths {
+trait VectorExp extends Staging with BitsExp with TextExp with CustomBitWidths with LowPriorityImplicits {
   this: SpatialExp =>
 
   /** Infix methods **/
@@ -17,12 +26,69 @@ trait VectorExp extends Staging with BitsExp with TextExp with CustomBitWidths {
     def s: Exp[Vector[T]]
     def width: Int
     @api def apply(i: Int): T
+
+    @api def apply(range: Range)(implicit mT: Meta[T], bT: Bits[T]): VectorN[T] = {
+      val wordLength = this.width
+      val start = range.start.map(_.s).getOrElse(int32(wordLength-1))
+      val end = range.end.s
+      val step = range.step.map(_.s).getOrElse(int32(1))
+
+      step match {
+        case Const(s: BigDecimal) if s == 1 =>
+        case _ =>
+          error(ctx, "Strides for bit slicing are not currently supported.")
+          error(ctx)
+      }
+
+      (start,end) match {
+        case (Const(x1: BigDecimal), Const(x2: BigDecimal)) =>
+          val msb = Math.max(x1.toInt, x2.toInt)
+          val lsb = Math.min(x1.toInt, x2.toInt)
+          val length = msb - lsb + 1
+          implicit val vT = vectorNType[T](length)
+          // Slice is inclusive on both
+          // TODO: Why is .asInstanceOf required here?
+          wrap(vector_slice[T,VectorN](s.asInstanceOf[Exp[Vector[T]]], msb, lsb))
+
+        case _ =>
+          error(ctx, "Apply range for bit slicing must be statically known.")
+          error(ctx, c"Found $start :: $end")
+          error(ctx)
+          implicit val vT = vectorNType[T](this.width)
+          wrap(fresh[VectorN[T]])
+      }
+    }
+
+    // TODO: Why is .asInstanceOf required here?
+    @generate
+    @api def takeJJ$JJ$1to128(offset: Int)(implicit mT: Meta[T], bT: Bits[T]): VectorJJ[T] = {
+      wrap(vector_slice[T,VectorJJ](s.asInstanceOf[Exp[Vector[T]]], offset+JJ-1, offset))
+    }
   }
 
-  @api def Vector$JJ$1to128[T:Meta:Bits](xII$II$1toJJ: T)(implicit ctx: SrcCtx): VectorJJ[T] = {
-    val eII$II$1toJJ = xII.s
-    wrap(vector_new[T,VectorJJ](Seq(eII$II$1toJJ)))
+  object Vector {
+    // Everything is represented in big-endian internally (normal Array order with 0 first)
+    @api def LittleEndian$JJ$1to128[T:Meta:Bits](xII$II$1toJJ: T): VectorJJ[T] = {
+      val eII$II$1toJJ = xII.s
+      wrap(vector_new[T,VectorJJ](Seq(eII$II$1toJJ).reverse))
+    }
+    @api def BigEndian$JJ$1to128[T:Meta:Bits](xII$II$1toJJ: T): VectorJJ[T] = {
+      val eII$II$1toJJ = xII.s
+      wrap(vector_new[T,VectorJJ](Seq(eII$II$1toJJ)))
+    }
+
+    // Aliases for above (with method names I can immediately understand)
+    @api def ZeroLast$JJ$1to128[T:Meta:Bits](xII$II$1toJJ: T): VectorJJ[T] = {
+      val eII$II$1toJJ = xII.s
+      wrap(vector_new[T,VectorJJ](Seq(eII$II$1toJJ).reverse))
+    }
+    @api def ZeroFirst$JJ$1to128[T:Meta:Bits](xII$II$1toJJ: T): VectorJJ[T] = {
+      val eII$II$1toJJ = xII.s
+      wrap(vector_new[T,VectorJJ](Seq(eII$II$1toJJ)))
+    }
   }
+
+
 
   type VectorJJ$JJ$1to128[T] = Vec[_JJ,T]
 
@@ -94,6 +160,15 @@ trait VectorExp extends Staging with BitsExp with TextExp with CustomBitWidths {
       this.apply(i) =!= that.apply(i)
     }){(a,b) => a || b}
     @api def toText = textify(this)
+
+    @generate
+    @api def asVectorJJ$JJ$1to128: VectorJJ[T] = {
+      if (width != JJ) {
+        implicit val bT: Bits[VectorN[T]] = vectorNBits[T](width, myType)
+        DataConversionOps(this).as[VectorJJ[T]]
+      }
+      else wrap(s.asInstanceOf[Exp[VectorJJ[T]]])
+    }
   }
 
   private[spatial] def vectorNType[T:Type:Bits](len: Int): Type[VectorN[T]] = new Type[VectorN[T]] with VectorType[T] with CanBits[VectorN[T]] {
@@ -152,7 +227,7 @@ trait VectorExp extends Staging with BitsExp with TextExp with CustomBitWidths {
         new InvalidVectorApplyIndex(vector, index)
         fresh[T]
       }
-      else elems(elems.length - 1 - index)  // Little endian
+      else elems(index)  // Little endian
     case _ =>
       // Attempt to give errors about out of bounds applies
       vector.tp match {
@@ -172,8 +247,7 @@ trait VectorExp extends Staging with BitsExp with TextExp with CustomBitWidths {
         fresh[V[T]]
       }
       else {
-        val (from,until) = littleToBig(end,start,elems.length)
-        vector_new[T,V](elems.slice(from, until))
+        vector_new[T,V](elems.slice(start, end+1)) // end is inclusive
       }
     case _ =>
       stage(VectorSlice[T,V](vector, end, start))(ctx)
@@ -182,13 +256,6 @@ trait VectorExp extends Staging with BitsExp with TextExp with CustomBitWidths {
   private[spatial] def lenOf(x: Exp[_])(implicit ctx: SrcCtx): Int = x.tp match {
     case tp: VectorType[_] => tp.width
     case _ => throw new UndefinedDimensionsError(x, None)
-  }
-
-
-  def littleToBig(end: Int, start: Int, length: Int) = {
-    val from = length - 1 - end
-    val until = length - start // end is non-inclusive
-    (from,until)
   }
 
 }

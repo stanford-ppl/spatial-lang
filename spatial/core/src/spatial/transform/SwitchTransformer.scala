@@ -2,7 +2,6 @@ package spatial.transform
 
 import argon.transform.ForwardTransformer
 import spatial.SpatialExp
-import org.virtualized.SourceContext
 import spatial.analysis.SpatialTraversal
 
 trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {

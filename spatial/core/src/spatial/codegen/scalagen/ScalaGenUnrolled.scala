@@ -3,7 +3,7 @@ package spatial.codegen.scalagen
 import spatial.analysis.NodeClasses
 import spatial.api.UnrolledExp
 
-trait ScalaGenUnrolled extends ScalaGenMemories {
+trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
   val IR: UnrolledExp with NodeClasses
   import IR._
 
@@ -52,7 +52,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories {
           oobApply(op.mT,sram,lhs,inds(i)){ emit(src"""if (${ens(i)}) $sram.apply(${flattenAddress(dims, inds(i))}) else ${invalid(op.mT)}""") }
         close("}")
       }
-      emit(src"Array(" + inds.indices.map{i => src"a$i"}.mkString(", ") + ")")
+      emit(src"Array[${op.mT}](" + inds.indices.map{i => src"a$i"}.mkString(", ") + ")")
       close("}")
 
     case op@ParSRAMStore(sram,inds,data,ens) =>
@@ -68,7 +68,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories {
       ens.zipWithIndex.foreach{case (en,i) =>
         emit(src"val a$i = if ($en && $fifo.nonEmpty) $fifo.dequeue() else ${invalid(op.mT)}")
       }
-      emit(src"Array(" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
+      emit(src"Array[${op.mT}](" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
       close("}")
 
     case ParFIFOEnq(fifo, data, ens) =>
@@ -83,7 +83,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories {
       ens.zipWithIndex.foreach{case (en,i) =>
         emit(src"val a$i = if ($en && $strm.nonEmpty) $strm.dequeue() else ${invalid(op.mT)}")
       }
-      emit(src"Array(" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
+      emit(src"Array[${op.mT}](" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
       close("}")
 
     case ParStreamWrite(strm, data, ens) =>
@@ -92,6 +92,44 @@ trait ScalaGenUnrolled extends ScalaGenMemories {
         emit(src"if ($en) $strm.enqueue(${data(i)})")
       }
       close("}")
+
+    case op@ParLineBufferEnq(buffer,data,ens) =>
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        oobUpdate(op.mT, buffer,lhs, Nil){ emit(src"if ($en) $buffer.enq(${data(i)})") }
+      }
+      close("}")
+
+    case op@ParLineBufferLoad(buffer,rows,cols,ens) =>
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        open(src"val a$i = {")
+          oobApply(op.mT, buffer, lhs, List(rows(i),cols(i))){ emit(src"if ($en) $buffer.apply(${rows(i)},${cols(i)}) else ${invalid(op.mT)}") }
+        close("}")
+      }
+      emit(src"Array[${op.mT}](" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
+      close("}")
+
+    case op@ParRegFileStore(rf,inds,data,ens) =>
+      val dims = stagedDimsOf(rf)
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        oobUpdate(op.mT,rf,lhs,inds(i)) { emit(src"if ($en) $rf.update(${flattenAddress(dims,inds(i),None)}, ${data(i)})") }
+      }
+      close("}")
+
+    case op@ParRegFileLoad(rf,inds,ens) =>
+      val dims = stagedDimsOf(rf)
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        open(src"val a$i = {")
+          oobApply(op.mT,rf,lhs,inds(i)){ emit(src"if ($en) $rf.apply(${flattenAddress(dims,inds(i),None)}) else ${invalid(op.mT)}") }
+        close("}")
+      }
+      emit(src"Array[${op.mT}](" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
+      close("}")
+
+
 
     case _ => super.emitNode(lhs, rhs)
   }
