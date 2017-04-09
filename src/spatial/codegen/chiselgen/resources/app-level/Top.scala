@@ -130,6 +130,14 @@ class Top(
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
 
+      // Fringe <-> Peripheral connections
+      fringe.io.genericStreamInTop <> topIO.genericStreamIn
+      fringe.io.genericStreamOutTop <> topIO.genericStreamOut
+
+      // Fringe <-> Accel stream connections
+      accel.io.genericStreams <> fringe.io.genericStreamsAccel
+//      fringe.io.genericStreamsAccel <> accel.io.genericStreams
+
     case "de1soc" =>
       // DE1SoC Fringe
       val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
