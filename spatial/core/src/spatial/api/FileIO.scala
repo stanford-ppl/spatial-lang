@@ -4,15 +4,26 @@ import argon.core.Staging
 import argon.ops.ArrayExtApi
 import spatial.SpatialExp
 import forge._
+import org.virtualized._
 
-// TODO: Is this still used by anything? If not, delete
 trait FileIOApi extends FileIOExp with ArrayExtApi {
   this: SpatialExp =>
 
-  @api def loadCSV[T:Meta:Bits](filename: java.lang.String, len: Index): Array[T] = {
-    val array = Array.empty[T](wrap(len.s))
-    // load_csv(filename, array.s)
-    array
+  @api def loadCSV[T:Meta](filename: Text, delim: Text = ",")(implicit cast: Cast[Text,T]): MetaArray[T] = {
+    val file = open_file(filename.s, write = false)
+    val tokens = wrap(read_tokens(file, delim.s))
+    close_file(file)
+    tokens.map{token => token.to[T] }
+  }
+
+  @virtualize
+  @api def writeCSV[T:Meta](array: MetaArray[T], filename: Text, delim: Text = ""): Void = {
+    val file = open_file(filename.s, write = true)
+    val length = array.length
+    val i = fresh[Index]
+    val token = () => meta[T].ev(array(wrap(i))).toText.s
+    write_tokens(file, delim.s, length.s, token(), i)
+    wrap(close_file(file))
   }
 
 }
@@ -20,21 +31,57 @@ trait FileIOApi extends FileIOExp with ArrayExtApi {
 trait FileIOExp extends Staging with DRAMExp with RegExp {
   this: SpatialExp =>
 
-  // // /** IR Nodes **/
-  // case class LoadCSV[T:Type:Bits](filename: String, array: Exp[MetaArray[T]]) extends Op[Void] {
-  //   def mirror(f:Tx) = load_csv(filename,f(array))
-  //   override def aliases = Nil
-  // }
+  implicit object MetaFileType extends Meta[MetaFile] {
+    override def wrapped(x: Exp[MetaFile]) = MetaFile(x)
+    override def stagedClass = classOf[MetaFile]
+    override def isPrimitive = false
+  }
 
-  // // implicit def loadCSV[T:Meta:Bits] = LoadCSV[T]
+  case class MetaFile(s: Exp[MetaFile]) extends MetaAny[MetaFile] {
+    @api override def ===(that: MetaFile) = this.s == that.s
+    @api override def =!=(that: MetaFile) = this.s != that.s
+    @api override def toText = textify(this)
+  }
 
-  // // /** Constructors **/
-  // def load_csv[T:Type:Bits](filename: String,  array: Exp[MetaArray[T]])(implicit ctx: SrcCtx): Exp[Void] = {
-  //   stageWrite(array)(LoadCSV(filename, array))(ctx)
-  // }
+  /** IR Nodes **/
+  case class OpenFile(filename: Exp[Text], write: Boolean) extends Op[MetaFile] {
+    def mirror(f:Tx) = open_file(f(filename), write)
+  }
 
-  // implicit def LoadCSV[T:Meta:Bits]: Meta[LoadCSV[T]] = LoadCSV(typ[T])
+  case class CloseFile(file: Exp[MetaFile]) extends Op[Void] {
+    def mirror(f:Tx) = close_file(f(file))
+  }
 
+  case class ReadTokens(file: Exp[MetaFile], delim: Exp[Text]) extends Op[MetaArray[Text]] {
+    def mirror(f:Tx) = read_tokens(f(file), f(delim))
+  }
+
+  case class WriteTokens(
+    file:  Exp[MetaFile],
+    delim: Exp[Text],
+    len:   Exp[Index],
+    token: Block[Text],
+    i:     Bound[Index]
+  ) extends Op[Void] {
+    def mirror(f:Tx) = write_tokens(f(file), f(delim), f(len), f(token), i)
+    override def inputs = dyns(file, delim, len) ++ dyns(token)
+    override def binds  = i +: super.binds
+  }
+
+  // Should be able to generalize to ND read/write fairly easily from this
+
+  /** Constructors **/
+  @internal def open_file(filename: Exp[Text], write: Boolean) = stageMutable(OpenFile(filename, write))(ctx)
+  @internal def close_file(file: Exp[MetaFile]) = stageWrite(file)(CloseFile(file))(ctx)
+
+  @internal def read_tokens(file: Exp[MetaFile], delim: Exp[Text]) = {
+    stageWrite(file)(ReadTokens(file, delim))(ctx)
+  }
+  @internal def write_tokens(file: Exp[MetaFile], delim: Exp[Text], len: Exp[Index], token: => Exp[Text], i: Bound[Index]) = {
+    val tBlk = stageBlock{ token }
+    val effects = tBlk.summary andAlso Write(file)
+    stageEffectful(WriteTokens(file, delim, len, tBlk, i), effects)(ctx)
+  }
 
 }
 
