@@ -290,17 +290,17 @@ trait SpatialApp extends AppCore {
   val IR: SpatialIR = new SpatialIR { def target = SpatialApp.this.target }
   val Lib: SpatialLib = new SpatialLib { }
 
-  override def parseArguments(args: List[String]): Unit = {
-    val parser = new SpatialArgParser
-    val (hadErrors, unmatched) = parser.parseArgs(args, Nil)
-    if (hadErrors) sys.exit(1)
+  // override def parseArguments(args: List[String]): Unit = {
+  //   val parser = new SpatialArgParser
+  //   val (hadErrors, unmatched) = parser.parseArgs(args, Nil)
+  //   if (hadErrors) sys.exit(1)
 
-    // Enable Scala by default if nothing is enabled
-    if (!IR.codegenerators.exists(_.shouldRun)) {
-      SpatialConfig.enableScala = true
-    }
+  //   // Enable Scala by default if nothing is enabled
+  //   if (!IR.codegenerators.exists(_.shouldRun)) {
+  //     SpatialConfig.enableScala = true
+  //   }
 
-    super.parseArguments(unmatched)
-  }
+  //   super.parseArguments(unmatched)
+  // }
 }
 
