@@ -1,33 +1,93 @@
 package spatial
 
 import argon.core.Reporting
+import com.typesafe.config.ConfigFactory
+import pureconfig._
 
 object SpatialConfig extends Reporting {
   import argon.Config._
 
-  lazy val HOME = sys.env("SPATIAL_HOME")+"/spatial"
+  val defaultSpatial = ConfigFactory.parseString("""
+spatial {
+  fpga = "Default"
+  sim = true
+  synth = false
+  pir = false
+  dse = false
+  dot = false
+  splitting = false
+  arch-dse = false
+  naming = false
+  tree = false
+}
+""")
 
-  var targetName: String = getProperty("spatial.fpga", "Default")
+  case class SpatialConf(
+    fpga: String,
+    sim: Boolean,
+    synth: Boolean,
+    pir: Boolean,    
+    dse: Boolean,
+    dot: Boolean,
+    splitting: Boolean,
+    archDSE: Boolean,
+    naming: Boolean,
+    tree: Boolean
+  )
 
-  var enableDSE: Boolean = getProperty("spatial.dse", "false").toBoolean
-  var enableDot: Boolean = getProperty("spatial.dot", "false").toBoolean
-  var enableScala: Boolean = getProperty("spatial.scala", "false").toBoolean
-  var enableChisel: Boolean = getProperty("spatial.chisel", "false").toBoolean
-  var enableCpp: Boolean = getProperty("spatial.cpp", "false").toBoolean
-  var enablePIR: Boolean = getProperty("spatial.pir", "false").toBoolean
-  var enableSplitting: Boolean = getProperty("spatial.splitting", "false").toBoolean
-  var enableArchDSE: Boolean = getProperty("spatial.archDSE", "false").toBoolean
-  var enableNaming: Boolean = getProperty("spatial.naming", "false").toBoolean
-  var enableTree: Boolean = getProperty("spatial.tree", "false").toBoolean
-  var multifile: Int = getProperty("spatial.multifile", "0").toInt
+  val mergedSpatialConf = ConfigFactory.load().withFallback(defaultSpatial).resolve()
+  val spatialConf = loadConfig[SpatialConf](mergedSpatialConf, "spatial").right.get
+
+  var targetName: String = spatialConf.fpga
+
+  var enableDSE: Boolean = spatialConf.dse
+  var enableDot: Boolean = spatialConf.dot
+
+  var enableSim: Boolean = spatialConf.sim
+  var enableSynth: Boolean = spatialConf.synth
+  var enablePIR: Boolean = spatialConf.pir
+
+
+
+  var enableSplitting: Boolean = spatialConf.splitting
+  var enableArchDSE: Boolean = spatialConf.archDSE
+  var enableNaming: Boolean = spatialConf.naming
+  var enableTree: Boolean = spatialConf.tree
+
+
+
+  val defaultPlasticine =  ConfigFactory.parseString("""
+plasticine {
+  s-in = 8
+  sbus = 4
+  v-in = 4
+  v-out = 1
+  comp = 8
+  rw = 4
+  mems = 4
+}
+  """)
+
+  case class PlasticineConf(
+    sIn: Int,
+    sbus:Int,
+    vIn: Int,
+    vOut: Int,
+    comp: Int,
+    rw: Int,
+    mems: Int
+  )
+
+  val mergedPlasticineConf = ConfigFactory.load().withFallback(defaultPlasticine).resolve()
+  val plasticineConf = loadConfig[PlasticineConf](mergedPlasticineConf, "plasticine").right.get
 
   // Plasticine limits TODO: move to somewhere else?
-  var sIn: Int = getProperty("plasticine.sIn", "8").toInt
-  var sbus: Int = getProperty("plasticine.sbus", "4").toInt
-  var vIn: Int = getProperty("plasticine.vIn", "4").toInt
-  var vOut: Int = getProperty("plasticine.vOut", "1").toInt
-  var comp: Int = getProperty("plasticine.comp", "8").toInt
-  var readWrite: Int = getProperty("plasticine.rw", "4").toInt
-  var mems: Int = getProperty("plasticine.mems", "4").toInt
+  var sIn: Int = plasticineConf.sIn
+  var sbus: Int = plasticineConf.sbus
+  var vIn: Int = plasticineConf.vIn
+  var vOut: Int = plasticineConf.vOut
+  var comp: Int = plasticineConf.comp
+  var readWrite: Int = plasticineConf.rw
+  var mems: Int = plasticineConf.mems
 
 }

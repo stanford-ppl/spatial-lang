@@ -163,7 +163,7 @@ object LinearWriteRandomRead extends SpatialTest {
 }
 
 class BankingTests extends FlatSpec with Matchers with Exceptions {
-  SpatialConfig.enableScala = true
+  SpatialConfig.enableSim = true
   "TwoDuplicatesSimple" should "have two duplicates of sram" in { TwoDuplicatesSimple.main(Array.empty) }
   "TwoDuplicatesPachinko" should "have two duplicates of sram" in { TwoDuplicatesPachinko.main(Array.empty) }
 

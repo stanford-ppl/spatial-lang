@@ -139,7 +139,7 @@ object OuterSwitchFSMTest extends SpatialTest {
 
 
 class FSMTests extends FlatSpec with Matchers with Exceptions {
-  SpatialConfig.enableScala = true
+  SpatialConfig.enableSim = true
   "BasicFSM" should "compile" in { BasicFSM.main(Array.empty) }
   "BasicCondFSM" should "compile" in { BasicCondFSM.main(Array.empty) }
   "DotProductFSM" should "compile" in { DotProductFSM.main(Array.empty) }

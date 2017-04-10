@@ -2,59 +2,49 @@ package spatial
 
 import argon.ArgonArgParser
 
+
 class SpatialArgParser extends ArgonArgParser {
-  override val scriptName = "spatial"
 
-  addArg(LongSwitch("DSE","enable design space exploration"){
-    SpatialConfig.enableDSE = true })
-
-  addArg(LongSwitch("dot", "enable dot generation"){
-    SpatialConfig.enableDot = true})
-  addArg(LongSwitch("scala","enable scala generation"){
-    SpatialConfig.enableScala = true})
-  addArg(LongSwitch("chisel", "enable chisel generation"){
-    SpatialConfig.enableChisel = true
-    SpatialConfig.enableCpp = true
-  })
-  addArg(LongSwitch("cpp", "enable cpp generation"){
-    SpatialConfig.enableCpp = true })
-
-  addArg(Named("fpga", "set name of FPGA target"){
-    arg => SpatialConfig.targetName = arg })
-
-  addArg(LongSwitch("naming", "generate debug name for all syms, rather than id only"){
-    SpatialConfig.enableNaming = true})
-
-  /*addArg(LongSwitch("debug", "enable compiler logging"){
-    // ???
-  })*/
-
-  addArg(LongSwitch("tree", "enable generation of controller tree html visualization"){
-    SpatialConfig.enableTree = true})
+  override def scriptName = "spatial"
+  override def description = "CLI for spatial"
+  //not sur yet if we must optional()
 
 
-  /** PIR Options **/
-  addArg(LongSwitch("pdse", "enable Plasticine DSE"){
-    SpatialConfig.enableArchDSE = true})
-  addArg(LongSwitch("pir", "enable PIR generation"){
-    SpatialConfig.enablePIR = true})
-  /*addArg(LongSwitch("pdebug", "enable PIR debugging output"){
-    SpatialConfig.??? = true
-  })*/
-  addArg(LongSwitch("split", "enable PIR splitting"){
-    SpatialConfig.enableSplitting = true})
+  parser.opt[Unit]("synth").action( (_,_) => {
+    SpatialConfig.enableSynth = true
+    SpatialConfig.enableSim = false
+    }
+  ).text("enable codegen to chisel + cpp (Synthesis) (disable sim) [false]")
+
+  parser.opt[Unit]("sim").action( (_,_) => {
+      SpatialConfig.enableSim = true
+      SpatialConfig.enableSynth = false
+    }
+  ).text("enable codegen to Scala (Simulation) (disable synth) [true]")
+
+  parser.opt[String]("fpga").action( (x,_) =>
+    SpatialConfig.targetName = x
+  ).text("Set name of FPGA target [Default]")
+
+  parser.opt[Unit]("dse").action( (_,_) =>
+    SpatialConfig.enableDSE = true
+  ).text("enables design space exploration [false]")
+
+  parser.opt[Unit]("naming").action( (_,_) =>
+    SpatialConfig.enableNaming = true
+  ).text("generates the debug name for all syms, rather than \"x${s.id}\" only'")
+
+  parser.opt[Unit]("tree").action( (_,_) =>
+    SpatialConfig.enableNaming = true
+  ).text("enables logging of controller tree for visualizing app structure")
+
+  parser.opt[Unit]("dot").action( (_,_) =>
+    SpatialConfig.enableDot = true
+  ).text("enables dot generation")
 
 
-  addArg(LongSwitch("CGRA+", "enable PIR generation + splitting"){
-    SpatialConfig.enableSplitting = true
-    SpatialConfig.enablePIR = true
-  })
 
-  addArg(LongSwitch("CGRA*", "enable PIR generation + splitting + DSE"){
-    SpatialConfig.enableSplitting = true
-    SpatialConfig.enablePIR = true
-    SpatialConfig.enableArchDSE = true
-  })
+
 
 
 }
