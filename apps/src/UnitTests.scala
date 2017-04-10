@@ -472,9 +472,8 @@ object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 10
     val x = ArgIn[T]
     setArg(x, value)
     Accel {
-      val b1 = SRAM[T](tileSize)
-      Sequential.Foreach(N by tileSize) { i =>
-
+      Sequential.Foreach(N by tileSize par 2) { i =>
+        val b1 = SRAM[T](tileSize)
 
         b1 load srcFPGA(i::i+tileSize par 16)
 
