@@ -9,11 +9,20 @@ import org.virtualized._
 trait FileIOApi extends FileIOExp with ArrayExtApi {
   this: SpatialExp =>
 
-  @api def loadCSV[T:Meta](filename: Text, delim: Text = ",")(implicit cast: Cast[Text,T]): MetaArray[T] = {
+  @api def loadCSV1D[T:Meta](filename: Text, delim: Text = ",")(implicit cast: Cast[Text,T]): MetaArray[T] = {
     val file = open_file(filename.s, write = false)
     val tokens = wrap(read_tokens(file, delim.s))
     close_file(file)
     tokens.map{token => token.to[T] }
+  }
+
+  @api def loadCSV2D[T:Meta](filename: Text, delim1: Text = ",", delim2: Text = "\n")(implicit cast: Cast[Text,T]): Matrix[T] = {
+    val file = open_file(filename.s, write = false)
+    val all_tokens = wrap(read_tokens(file, delim1.s))
+    val row_tokens = wrap(read_tokens(file, delim2.s))
+    close_file(file)
+    val data = all_tokens.map{token => token.to[T] }
+    matrix(data, row_tokens.length, all_tokens.length / row_tokens.length)
   }
 
   @virtualize
