@@ -26,10 +26,14 @@ object Load1Dcsv extends SpatialApp {
       result := accum
     }
 
+
     val r = getArg(result)
 
     val gold = data.reduce{_+_}
 
+    printArray(data)
+    println("Gold sum is " + gold)
+    println("Accel sum is " + result)
     val cksum = gold === r
     println("PASS: " + cksum + " (Load1Dcsv)")
   }

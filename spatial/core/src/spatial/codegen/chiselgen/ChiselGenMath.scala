@@ -50,7 +50,7 @@ trait ChiselGenMath extends ChiselCodegen {
       case FloatType()  => emit(src"val $lhs = Math.sqrt($x.toDouble).toFloat")
     }
 
-    case Mux(sel, a, b) => emit(src"val $lhs = Mux(($sel), $a, $b)")
+    case Mux(sel, a, b) => emit(src"val $lhs = Utils.mux(($sel), $a, $b)")
 
     // Assumes < and > are defined on runtime type...
     case Min(a, b) => emit(src"val $lhs = Mux(($a < $b), $a, $b)")
