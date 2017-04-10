@@ -591,7 +591,7 @@ object UnalignedLd extends SpatialTest {
 }
 
 class UnitTests extends FlatSpec with Matchers {
-  SpatialConfig.enableScala = true
+  SpatialConfig.enableSim = true
   "SimpleSequential" should "compile" in { SimpleSequential.main(Array.empty) }
   "DeviceMemcpy" should "compile" in { DeviceMemcpy.main(Array.empty) }
   "SimpleTileLoadStore" should "compile" in { SimpleTileLoadStore.main(Array.empty) }

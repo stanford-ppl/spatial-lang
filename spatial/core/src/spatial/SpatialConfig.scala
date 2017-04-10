@@ -10,27 +10,29 @@ object SpatialConfig extends Reporting {
   val defaultSpatial = ConfigFactory.parseString("""
 spatial {
   fpga = "Default"
-  platform-target = "scala"
+  sim = true
+  synth = false
+  pir = false
   dse = false
   dot = false
   splitting = false
   arch-dse = false
   naming = false
   tree = false
-  multifile = 0 
 }
 """)
 
   case class SpatialConf(
     fpga: String,
-    platformTarget: String,
+    sim: Boolean,
+    synth: Boolean,
+    pir: Boolean,    
     dse: Boolean,
     dot: Boolean,
     splitting: Boolean,
     archDSE: Boolean,
     naming: Boolean,
-    tree: Boolean,
-    multifile: Int
+    tree: Boolean
   )
 
   val mergedSpatialConf = ConfigFactory.load().withFallback(defaultSpatial).resolve()
@@ -41,32 +43,16 @@ spatial {
   var enableDSE: Boolean = spatialConf.dse
   var enableDot: Boolean = spatialConf.dot
 
-  var enableScala: Boolean = false
-  var enableChisel: Boolean = false
-  var enableCpp: Boolean = false
-  var enablePIR: Boolean = false
+  var enableSim: Boolean = spatialConf.sim
+  var enableSynth: Boolean = spatialConf.synth
+  var enablePIR: Boolean = spatialConf.pir
 
-  def switchTarget(target:String) = {
-    enableScala = false
-    enableChisel = false
-    enableCpp = false
-    enablePIR = false
 
-    target match {
-      case "scala" => enableScala = true
-      case "chisel" => enableChisel = true
-      case "cpp" => enableCpp = true
-      case "pir" => enablePIR = true
-    }
-  }
-
-  switchTarget(spatialConf.platformTarget)
 
   var enableSplitting: Boolean = spatialConf.splitting
   var enableArchDSE: Boolean = spatialConf.archDSE
   var enableNaming: Boolean = spatialConf.naming
   var enableTree: Boolean = spatialConf.tree
-  var multifile: Int = spatialConf.multifile
 
 
 

@@ -179,10 +179,10 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
 
   lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argPorts = uctrlAnalyzer.argPorts; def genericStreams = uctrlAnalyzer.genericStreams;}
 
-  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
-  lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableChisel }
+  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSim }
+  lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
   lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
-  lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableCpp }
+  lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
   lazy val treegen = new TreeGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableTree }
 
   def codegenerators = passes.collect{case x: Codegen => x}
@@ -292,7 +292,15 @@ trait SpatialApp extends AppCore {
 
   override def parseArguments(args: Seq[String]): Unit = {
     val parser = new SpatialArgParser
-    parser.parse(args)
+    parser.parse(args) match {
+      case None =>
+        println("Nothing generated")
+        sys.exit(0)
+      case _ =>
+        println(argon.Config.conf)
+        println(SpatialConfig.spatialConf)
+        println("Starting generation")
+    }
   }
 }
 
