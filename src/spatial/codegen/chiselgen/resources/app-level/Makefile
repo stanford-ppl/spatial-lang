@@ -88,7 +88,11 @@ zynq-clean:
 	rm -rf verilog-zynq
 	rm -f TopZynq.tar.gz
 
-de1soc: 
+de1soc-sw: 
+	cp de1soc.mk cpp/Makefile
+	make -C cpp
+
+de1soc-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs de1soc"
 	sed -i 's/SRFF/SRFF_sp/g' verilog-de1soc/Top.v
 	cp -r chisel/fringeDE1SoC/simulation verilog-de1soc/
