@@ -31,10 +31,10 @@ machine=`hostname`
 cd $here
 
 # Specify tests to run
-types=("chisel")
-dsts=("portland")
-#types=("scala" "chisel")
-#dsts=("max-2" "portland") # CHANGE TUCSON TO PORTLAND ASAP
+# types=("chisel")
+# dsts=("portland")
+types=("scala" "chisel")
+dsts=("max-2" "portland")
 tests=all
 status=debug
 

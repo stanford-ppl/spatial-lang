@@ -87,6 +87,10 @@ def main():
   if opts.quiet:     java_opts = java_opts + " -Dargon.verbosity=0"
   elif opts.verbose: java_opts = java_opts + " -Dargon.verbosity=2"
 
+  if opts.chisel:
+      opts.cpp = True
+      java_opts = java_opts + " -Dspatial.chisel=true"
+
   if opts.naming: java_opts = java_opts + " -Dspatial.naming=true"
   if opts.tree:   java_opts = java_opts + " -Dspatial.tree=true"
   if opts.dse:    java_opts = java_opts + " -Dspatial.dse=true"
@@ -96,9 +100,6 @@ def main():
   if opts.cpp:    java_opts = java_opts + " -Dspatial.cpp=true"
   if opts.clean:  java_opts = java_opts + " -Dargon.clearGen=true"
 
-  if opts.chisel:
-      opts.cpp = True
-      java_opts = java_opts + " -Dspatial.chisel=true"
 
   if opts.outdir != "":
     # Clean outdir
