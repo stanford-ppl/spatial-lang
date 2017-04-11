@@ -145,6 +145,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
 
   lazy val scopeCheck     = new ScopeCheck { val IR: self.type = self }
 
+  lazy val controlSanityCheck = new ControllerSanityCheck { val IR: self.type = self }
+
   lazy val dse = new DSE {
     val IR: self.type = self
     def restricts  = paramAnalyzer.restrict
@@ -188,94 +190,97 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   def codegenerators = passes.collect{case x: Codegen => x}
 
   // Traversal schedule
-  passes += printer
-  passes += scalarAnalyzer    // Perform bound and global analysis
-  passes += scopeCheck        // Check that illegal host values are not used in the accel block
-  passes += levelAnalyzer     // Initial pipe style annotation fixes
-  passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions
+  override def createTraversalSchedule() = {
+    passes += printer
+    passes += scalarAnalyzer    // Perform bound and global analysis
+    passes += scopeCheck        // Check that illegal host values are not used in the accel block
+    passes += levelAnalyzer     // Initial pipe style annotation fixes
+    passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions
 
-  // --- Unit Pipe Insertion
-  passes += printer
-  passes += switchInsert      // Change nested if-then-else statements to Switch controllers
-  passes += printer
-  passes += unitPipeInsert    // Wrap primitives in outer controllers
-  passes += printer
-  passes += regReadCSE        // CSE register reads in inner pipelines
-  passes += printer
+    // --- Unit Pipe Insertion
+    passes += printer
+    passes += switchInsert      // Change nested if-then-else statements to Switch controllers
+    passes += printer
+    passes += unitPipeInsert    // Wrap primitives in outer controllers
+    passes += printer
+    passes += regReadCSE        // CSE register reads in inner pipelines
+    passes += printer
 
-  // --- Pre-Reg Cleanup
-  passes += ctrlAnalyzer      // Control signal analysis
+    // --- Pre-Reg Cleanup
+    passes += ctrlAnalyzer      // Control signal analysis
 
-  // --- Register cleanup
-  passes += printer
-  passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
-  passes += printer
+    // --- Register cleanup
+    passes += printer
+    passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
+    passes += printer
 
-  // --- Pre-DSE Analysis
-  passes += scalarAnalyzer    // Bounds / global analysis
-  passes += affineAnalyzer    // Memory access patterns
-  passes += ctrlAnalyzer      // Control signal analysis
-  passes += memAnalyzer       // Memory banking/buffering
+    // --- Pre-DSE Analysis
+    passes += scalarAnalyzer    // Bounds / global analysis
+    passes += affineAnalyzer    // Memory access patterns
+    passes += ctrlAnalyzer      // Control signal analysis
+    passes += memAnalyzer       // Memory banking/buffering
 
-  // --- DSE
-  passes += dse               // TODO: Design space exploration
+    // --- DSE
+    passes += dse               // TODO: Design space exploration
 
-  // --- Post-DSE Expansion
-  // NOTE: Small compiler pass ordering issue here:
-  // We may need bound information during node expansion,
-  // but we also need to reanalyze bounds to account for expanded nodes
-  // For now just doing it twice
-  passes += scalarAnalyzer    // Bounds / global analysis
-  passes += printer
-  passes += transferExpand    // Expand burst loads/stores from single abstract nodes
-  passes += levelAnalyzer     // Pipe style annotation fixes after expansion
+    // --- Post-DSE Expansion
+    // NOTE: Small compiler pass ordering issue here:
+    // We may need bound information during node expansion,
+    // but we also need to reanalyze bounds to account for expanded nodes
+    // For now just doing it twice
+    passes += scalarAnalyzer    // Bounds / global analysis
+    passes += printer
+    passes += transferExpand    // Expand burst loads/stores from single abstract nodes
+    passes += levelAnalyzer     // Pipe style annotation fixes after expansion
 
-  // --- Post-Expansion Cleanup
-  passes += printer
-  passes += regReadCSE        // CSE register reads in inner pipelines
-  passes += scalarAnalyzer    // Bounds / global analysis
-  passes += ctrlAnalyzer      // Control signal analysis
-  passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
+    // --- Post-Expansion Cleanup
+    passes += printer
+    passes += regReadCSE        // CSE register reads in inner pipelines
+    passes += scalarAnalyzer    // Bounds / global analysis
+    passes += ctrlAnalyzer      // Control signal analysis
+    passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
 
-  // --- Pre-Unrolling Analysis
-  passes += ctrlAnalyzer      // Control signal analysis
-  passes += affineAnalyzer    // Memory access patterns
-  passes += reduceAnalyzer    // Reduce/accumulator specialization
-  passes += memAnalyzer       // Finalize banking/buffering
-  // TODO: models go here
+    // --- Pre-Unrolling Analysis
+    passes += ctrlAnalyzer      // Control signal analysis
+    passes += affineAnalyzer    // Memory access patterns
+    passes += reduceAnalyzer    // Reduce/accumulator specialization
+    passes += memAnalyzer       // Finalize banking/buffering
+    // TODO: models go here
 
-  // --- Design Elaboration
-  passes += printer
-  passes += switchFlatten     // Switch inlining for simplification / optimization
-  passes += printer
-  passes += unroller          // Unrolling
-  passes += printer
-  passes += uctrlAnalyzer     // Readers/writers for CSE
-  passes += printer
-  passes += regReadCSE        // CSE register reads in inner pipelines
-  passes += printer
+    // --- Design Elaboration
+    passes += printer
+    passes += switchFlatten     // Switch inlining for simplification / optimization
+    passes += printer
+    passes += unroller          // Unrolling
+    passes += printer
+    passes += uctrlAnalyzer     // Readers/writers for CSE
+    passes += printer
+    passes += regReadCSE        // CSE register reads in inner pipelines
+    passes += printer
 
-  passes += uctrlAnalyzer     // Analysis for unused register reads
-  passes += printer
-  passes += regCleanup        // Duplicate register reads for each use
-  passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
-  passes += printer
+    passes += uctrlAnalyzer     // Analysis for unused register reads
+    passes += printer
+    passes += regCleanup        // Duplicate register reads for each use
+    passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
+    passes += printer
 
-  // --- Post-Unroll Analysis
-  passes += scopeCheck        // Check that illegal host values are not used in the accel block
-  passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)
-  passes += printer
-  passes += bufferAnalyzer    // Set top controllers for n-buffers
-  passes += streamAnalyzer    // Set stream pipe children fifo dependencies
-  passes += argMapper         // Get address offsets for each used DRAM object
-  passes += printer
+    // --- Post-Unroll Analysis
+    passes += scopeCheck        // Check that illegal host values are not used in the accel block
+    passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)
+    passes += printer
+    passes += bufferAnalyzer    // Set top controllers for n-buffers
+    passes += streamAnalyzer    // Set stream pipe children fifo dependencies
+    passes += argMapper         // Get address offsets for each used DRAM object
+    passes += printer
+    passes += controlSanityCheck
 
-  // --- Code generation
-  passes += scalagen
-  passes += chiselgen
-  passes += pirgen 
-  passes += cppgen
-  passes += treegen
+    // --- Code generation
+    passes += scalagen
+    passes += chiselgen
+    passes += pirgen
+    passes += cppgen
+    passes += treegen
+  }
 }
 
 protected trait SpatialIR extends SpatialCompiler
@@ -297,7 +302,7 @@ trait SpatialApp extends AppCore {
         println("Nothing generated")
         sys.exit(0)
       case _ =>
-        println(argon.Config.conf)
+        //println(argon.Config.conf)
         println(SpatialConfig.spatialConf)
         println("Starting generation")
     }

@@ -23,7 +23,6 @@ spatial CLI for spatial
 Usage: spatial [options]
 
   --help                   prints this usage text
-  -n, --name <value>       name of the app [app]
   -q, --quiet              disable background logging
   -v, --verbose            enable verbose printout
   -c, --clean              Reset output directory
