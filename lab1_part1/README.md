@@ -39,9 +39,9 @@ If you want to know more about kernel modules in Linux, take a look at https://l
 # Board Setup
 To transfer files from your local computer to DE1SoC, run: 
 ```cplusplus
-scp -r YOUR_SRC_DIR USERNAME@ee109-GROUP_NUMBER.stanford.edu:~/YOUR_TARGET_DIR
+scp -r YOUR_SRC_DIR ee109@ee109-GROUP_NUMBER.stanford.edu:~/YOUR_TARGET_DIR
 ```
 To sign in to your FPGA, run: 
 ```cplusplus
-ssh YOUR_USER_NAME@ee109-GROUP_NUMBER.stanford.edu
+ssh ee109@ee109-GROUP_NUMBER.stanford.edu
 ```
