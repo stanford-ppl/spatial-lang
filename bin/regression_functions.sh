@@ -564,11 +564,11 @@ date >> ${5}/log" >> $1
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --scala --multifile=4 --regression_cp=\"../../../\" --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --regression_cp=\"../../../\" --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --chisel --multifile=4 --regression_cp=\"../../../\" --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --regression_cp=\"../../../\" --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 

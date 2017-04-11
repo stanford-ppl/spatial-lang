@@ -89,7 +89,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
             case lhs: Sym[_] =>
               lhs match {
                 case Def(e: Hwblock) =>
-                  s"AccelController"
+                  s"RootController"
                 case Def(e: UnitPipe) =>
                   s"x${lhs.id}_UnitPipe"
                 case Def(e: OpForeach) =>
@@ -105,7 +105,15 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
               super.quote(s)
           }
         } else {
-          super.quote(s)
+          // Always need to remap root controller
+          s match {
+            case lhs: Sym[_] =>
+              lhs match {
+                case Def(e: Hwblock) => s"RootController"
+                case _ => super.quote(s)
+              }
+            case _ => super.quote(s)
+          }
         }
     }
   } 
