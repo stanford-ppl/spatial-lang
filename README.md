@@ -12,16 +12,17 @@ In this lab, you will learn about designing apps in Spatial and interacting with
 
 First, you will need to set up dependencies on your computer. "Getting Started" link gives a quick tutorial on how to install the denpendencies. You will also need to have the lab files on your computer. Run the following command to clone this repository and switch to the ee109 lab branch:
 
-```python
+```bash
 // To get spatial-lang
 git clone https://github.com/stanford-ppl/spatial-lang.git 
-git checkout ee109_labs
+git checkout lab1_release
 
 // To get argon
-git clone https://github.com/stanford-ppl/argon.git
-git checkout ee109_labs
+cd argon
+git submodule update --init 
+git checkout lab1_release
 ```
 
-In spatial-lang directory, there are two directories: lab1_part1 and lab1_part2. Please check the README.md in these two directories to finish these two parts. 
+In spatial-lang directory, there are two directories: lab1_part1 and lab1_part2. READMEs in these two directories provides instructions on how to complete the lab.
 
 If you have any questions, please contact Tian Zhao at tianzhao@stanford.edu.
