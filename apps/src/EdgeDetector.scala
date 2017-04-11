@@ -37,7 +37,7 @@ object EdgeDetector extends SpatialApp {
               sr(1,*) <<= rawdata(j)
               val mean_left = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k) }{_+_} / window.to[T]
               val mean_right = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k+window/2) }{_+_} / window.to[T]
-              val slope = (1.to[T]) / (window/2).to[T]
+              val slope = (mean_left + mean_right) / (window/2).to[T]
               val idx = j + c
               mux(idx < window, pack(idx, 0.to[T]), pack(idx,slope))
             }{(a,b) => mux(a._2 > b._2, a, b)}
