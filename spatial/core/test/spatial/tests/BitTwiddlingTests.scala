@@ -103,7 +103,7 @@ object TwiddlingWithStructs extends SpatialTest {
 }
 
 class BitTwiddling extends FlatSpec with Matchers with Exceptions {
-  SpatialConfig.enableScala = true
+  SpatialConfig.enableSim = true
 
   "Bit selection" should "compile" in { BitSelects.main(Array.empty) }
   "UserVectors" should "compile" in { UserVectors.main(Array.empty) }
