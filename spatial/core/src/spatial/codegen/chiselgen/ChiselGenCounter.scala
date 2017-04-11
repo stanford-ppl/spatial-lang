@@ -86,7 +86,16 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
           super.quote(s)
       }
     } else {
-      super.quote(s)
+      s match {
+        case b: Bound[_] =>
+          if (streamCtrCopy.contains(b)) { 
+            super.quote(s) + getCtrSuffix(controllerStack.head)
+          } else {
+            super.quote(s)
+          }
+        case _ =>
+          super.quote(s)
+      }
     }
   } 
 

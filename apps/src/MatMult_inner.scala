@@ -46,16 +46,16 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 1
           val tileA = SRAM[T](bm, bp)
           val tileB = SRAM[T](bp, bn)
           Parallel {
-            tileA load a(i::i+bm, k::k+bp par 16) // Reads M*N*P times
-            tileB load b(k::k+bp, j::j+bn par 16)
+            tileA load a(i::i+bm, k::k+bp par 1) // Reads M*N*P times
+            tileB load b(k::k+bp, j::j+bn par 1)
           }
-          Foreach(bm by 1, bn by 1 par mp){ (ii,jj) =>    // MetaPipe?
-            val prod = Reduce(Reg[T])(bp by 1 par ip){kk => tileA(ii, kk) * tileB(kk, jj) }{_+_}
+          Foreach(bm by 1, bn by 1 par 1){ (ii,jj) =>    // MetaPipe?
+            val prod = Reduce(Reg[T])(bp by 1 par 4){kk => tileA(ii, kk) * tileB(kk, jj) }{_+_}
             val prev = mux(k == 0, 0.to[T], tileC(ii,jj))
             tileC(ii,jj) = prev + prod.value // Is a unit pipe that should be recognized as accum
           }
         }
-        c(i::i+bm, j::j+bn par 16) store tileC // Writes M*N times
+        c(i::i+bm, j::j+bn par 1) store tileC // Writes M*N times
       }
     }
     getMem(c)

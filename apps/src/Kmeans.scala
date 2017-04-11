@@ -78,7 +78,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
             // Find the index of the closest centroid
             val accum = Reg[Tup2[Int,T]]( pack(0.to[Int], 100000.to[T]) )
             val minCent = Reduce(accum)(K par PX){ct =>
-              val dist = Reg[T](100000.to[T])
+              val dist = Reg[T](0.to[T])
               Reduce(dist)(D par P2){d => (pts(pt,d) - cts(ct,d)) ** 2 }{_+_}
               pack(ct, dist.value)
             }{(a,b) =>
@@ -154,12 +154,12 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
 
       // Average
       for (k <- 0 until K) {
-        if (map.contains(k)) {
+        if (!map.contains(k)) {
+          cts(k) = Array.tabulate(D){d => 0.to[X]}
+        } else {
           val wp = map(k)
           val n  = wp(D - 1)
           cts(k) = Array.tabulate(D){d => if (d == D-1) 1.to[X] else wp(d)/n }
-        } else {
-          cts(k) = Array.tabulate(D){d => 0.to[X]}
         }
       }
     }
