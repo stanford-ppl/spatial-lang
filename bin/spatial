@@ -118,7 +118,7 @@ def main():
   # scala_major_id = os.system('sbt scala-version')
   scala_major_id = "scala-2.12"  
   dsljar = "spatial/target/" + scala_major_id + "/spatial-lang.jar" + os.pathsep
-  appsjar = "apps/target/" + scala_major_id + "/apps.jar" + os.pathsep  
+  appsjar = "apps/target/" + scala_major_id + "/apps.jar" + os.pathsep
 
   old_cp = os.getenv("CLASSPATH", "")
   cp = " -cp "

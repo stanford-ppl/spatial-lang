@@ -220,11 +220,14 @@ trait ChiselGenReg extends ChiselCodegen {
   override protected def emitFileFooter() {
     withStream(getStream("BufferControlCxns")) {
       nbufs.foreach{ case (mem, i) => 
+        // Console.println(src"working on $mem $i")
         // TODO: Does david figure out which controllers' signals connect to which ports on the nbuf already? This is kind of complicated
         val readers = readersOf(mem)
         val writers = writersOf(mem)
         val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
         val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
+        // Console.println(s"read ports $readPorts")
+        // Console.println(s"""topctrl ${readPorts.map{case (_, readers) => s"want ${readers.head}, $mem, $i"}} """)
         val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
         val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
         val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}

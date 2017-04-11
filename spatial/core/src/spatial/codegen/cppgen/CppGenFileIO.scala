@@ -28,7 +28,12 @@ trait CppGenFileIO extends CppCodegen  {
 	  			} else {
 		    		emit(src"string ${lhs}_delim = ${delim};".replace("'","\""))
 	  	  		emit(src"size_t ${lhs}_pos = 0;")
-	  	  		open(src"while ((${lhs}_pos = ${lhs}_line.find(${lhs}_delim)) != std::string::npos) {")
+	  	  		open(src"while (${lhs}_line.find(${lhs}_delim) != std::string::npos | ${lhs}_line.length() > 0) {")
+              open(src"if (${lhs}_line.find(${lhs}_delim) != std::string::npos) {")
+                emit(src"${lhs}_pos = ${lhs}_line.find(${lhs}_delim);")
+              closeopen("} else {")
+                emit(src"${lhs}_pos = ${lhs}_line.length();")
+              close("}")
 	  	  			emit(src"string ${lhs}_token = ${lhs}_line.substr(0, ${lhs}_pos);")
 	  	  			emit(src"${lhs}_line.erase(0, ${lhs}_pos + ${lhs}_delim.length());")
 		  	  		emit(src"${lhs}->push_back(${lhs}_token);")

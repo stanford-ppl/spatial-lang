@@ -4,11 +4,11 @@ import org.virtualized._
 object LogReg extends SpatialApp {
   import IR._
 
-  type X = Float
+  type X = FixPt[TRUE,_16,_16]
 
   val tileSize = 40
-  val innerPar = 8
-  val outerPar = 16
+  val innerPar = 1
+  val outerPar = 1
   val margin = 5
   val dim = 192
   val D = dim
@@ -78,9 +78,9 @@ object LogReg extends SpatialApp {
     val iters = args(0).to[Int]
     val N = args(1).to[Int]
 
-    val sX = Array.fill(N){ Array.fill(D){ random[X](10.0)} }
+    val sX = Array.fill(N){ Array.fill(D){ random[X](10.to[X])} }
     val sY = Array.tabulate(N){ i => i.to[X]} //fill(N)( random[T](10.0) )
-    val theta = Array.fill(D) {random[X](1.0) }
+    val theta = Array.fill(D) {random[X](1.to[X]) }
 
     val result = logreg(sX.flatten,sY, theta, N, iters)
 
