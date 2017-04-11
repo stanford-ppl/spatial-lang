@@ -13,7 +13,7 @@ object ArgInOut extends SpatialApp {
     setArg(x, N)
 
     Accel {
-      y := x + 4
+      // TODO: Set y = x + 4 here
     }
 
     val result = getArg(y)

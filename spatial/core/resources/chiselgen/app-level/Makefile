@@ -91,18 +91,28 @@ zynq-clean:
 	rm -rf verilog-zynq
 	rm -f TopZynq.tar.gz
 
+de1soc: de1soc-hw de1soc-sw
+
 de1soc-sw: 
 	cp de1soc.mk cpp/Makefile
+	cp cpp/cpptypes.h cpp/datastructures
+	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
+	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
 	make -C cpp
+	cp cpp/Top ./
+	cp verilog-de1soc/program_de1soc.sh ./ && chmod +x program_de1soc.sh
+	mkdir prog
+	mv Top program_de1soc.sh sp.rbf ./prog/
 
 de1soc-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs de1soc"
 	sed -i 's/SRFF/SRFF_sp/g' verilog-de1soc/Top.v
-	cp -r chisel/fringeDE1SoC/simulation verilog-de1soc/
-	cp -r chisel/fringeDE1SoC/* verilog-de1soc/
+	cp -r chisel/template-level/fringeDE1SoC/simulation verilog-de1soc/
+	cp -r chisel/template-level/fringeDE1SoC/* verilog-de1soc/
 	cp verilog-de1soc/Top.v verilog-de1soc/Computer_System/synthesis/submodules
-	cd verilog-de1soc && ./compile.sh
+	cd verilog-de1soc && chmod +x compile.sh && ./compile.sh
 	echo "sp.rbf generated. Please copy it to your working dir on FPGA ARM"
+	cp verilog-de1soc/sp.rbf ./
 
 de1soc-clean:
 	rm -rf verilog

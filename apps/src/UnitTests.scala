@@ -1241,44 +1241,44 @@ object ChangingCtrMax extends SpatialApp { // Regression (Unit) // Args: none
 }
 
 
-object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
-  import IR._
-
-  def fifopushpop(N: Int) = {
-    val tileSize = 16 (16 -> 16)
-
-    val size = ArgIn[Int]
-    setArg(size, N)
-    val acc = ArgOut[Int]
-
-    Accel {
-      val f1 = FIFO[Int](tileSize)
-      val accum = Reg[Int](0)
-      Reduce(accum)(size by tileSize){ iter =>
-        Foreach(tileSize by 1){i => f1.enq(iter + i) }
-        Reduce(0)(tileSize by 1){ i =>
-          f1.deq()
-        }{_+_}
-      }{_+_}
-      acc := accum
-    }
-    getArg(acc)
-  }
-
-  @virtualize
-  def main() {
-    val arraySize = args(0).to[Int]
-
-    val gold = Array.tabulate(arraySize){ i => i }.reduce{_+_}
-    val dst = fifopushpop(arraySize)
-
-    println("gold: " + gold)
-    println("dst: " + dst)
-
-    val cksum = dst == gold
-    println("PASS: " + cksum + " (FifoPushPop)")
-  }
-}
+// object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
+//   import IR._
+// 
+//   def fifopushpop(N: Int) = {
+//     val tileSize = 16 (16 -> 16)
+// 
+//     val size = ArgIn[Int]
+//     setArg(size, N)
+//     val acc = ArgOut[Int]
+// 
+//     Accel {
+//       val f1 = FIFO[Int](tileSize)
+//       val accum = Reg[Int](0)
+//       Reduce(accum)(size by tileSize){ iter =>
+//         Foreach(tileSize by 1){i => f1.enq(iter + i) }
+//         Reduce(0)(tileSize by 1){ i =>
+//           f1.deq()
+//         }{_+_}
+//       }{_+_}
+//       acc := accum
+//     }
+//     getArg(acc)
+//   }
+// 
+//   @virtualize
+//   def main() {
+//     val arraySize = args(0).to[Int]
+// 
+//     val gold = Array.tabulate(arraySize){ i => i }.reduce{_+_}
+//     val dst = fifopushpop(arraySize)
+// 
+//     println("gold: " + gold)
+//     println("dst: " + dst)
+// 
+//     val cksum = dst == gold
+//     println("PASS: " + cksum + " (FifoPushPop)")
+//   }
+// }
 
 
  object StreamTest extends SpatialApp {
