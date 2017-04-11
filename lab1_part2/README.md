@@ -56,7 +56,7 @@ make vcs
 This will initiate VCS simulation on tucson.
 
 ## Synthesizing and Running Spatial Apps on DE1-SoC
-On maverick, under the project folder, run:
+On tucson, under the project folder, run:
 ```bash
 make de1soc
 ```
