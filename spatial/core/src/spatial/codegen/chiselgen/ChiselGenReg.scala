@@ -188,7 +188,7 @@ trait ChiselGenReg extends ChiselCodegen {
                     }
                     emit(src"""${reg}_${ii}.io.enable := ${reg}_wren""")
                     emit(src"""${reg}_${ii}.io.init := ${reg}_initval.number""")
-                    emit(src"""${reg}_${ii}.io.reset := reset | Utils.delay(${reg}_resetter, 0) // TODO: Used to be delay 2 but not sure why""")
+                    emit(src"""${reg}_${ii}.io.reset := reset | ${reg}_resetter""")
                     emit(src"""${reg} := ${reg}_${ii}.io.output""")
                     emitGlobal(src"""val ${reg} = Wire(UInt(32.W))""")
                   } else {
