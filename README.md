@@ -16,11 +16,7 @@ First, you will need to set up dependencies on your computer. "Getting Started" 
 // To get spatial-lang
 git clone https://github.com/stanford-ppl/spatial-lang.git 
 git checkout lab1_release
-
-// To get argon
-cd argon
 git submodule update --init 
-git checkout lab1_release
 ```
 
 In spatial-lang directory, there are two directories: lab1_part1 and lab1_part2. READMEs in these two directories provides instructions on how to complete the lab.
