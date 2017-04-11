@@ -559,21 +559,24 @@ date >> ${5}/log" >> $1
   fi
 
   echo "sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
+cd ${SPATIAL_HOME}
   " >> $1
 
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --regression_cp=\"../../../\" --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --regression_cp=\"../../../\" --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 
   # Check for compile errors
-  echo "# Ensure app class exists
+  echo "
+cd ${5}
+# Ensure app class exists
 wc=\$(cat ${5}/log | grep \"Could not find or load main class\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_app_not_written\" \"[STATUS] Declaring failure app_not_written\" 0
