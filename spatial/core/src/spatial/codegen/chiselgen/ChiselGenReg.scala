@@ -201,7 +201,12 @@ trait ChiselGenReg extends ChiselCodegen {
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   emit(src"""${reg}_${ii}.write($v, $en & Utils.delay(${reg}_wren,1), false.B, List(${ports.mkString(",")}))""")
                   emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
-                  emit(src"""${reg}_$ii.io.input.reset := reset""")
+                  if (dup.isAccum) {
+                    emit(src"""${reg}_$ii.io.input.reset := reset | ${reg}_resetter""")  
+                  } else {
+                    emit(src"""${reg}_$ii.io.input.reset := reset""")
+                  }
+                  
               }
             }
           case _ => // Not an accum
