@@ -7,10 +7,10 @@ all: spatial
 
 spatial:
 	$(info $$BRANCH is [${BRANCH}])
-	sbt spatial/assembly
+	sbt spatial/compile
 
 apps:
-	sbt apps/assembly
+	sbt apps/compile
 
 compile:
 	sbt compile

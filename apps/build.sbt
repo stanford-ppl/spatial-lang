@@ -4,6 +4,7 @@ publishArtifact := false
 trapExit := false
 
 scalaSource in Compile := baseDirectory(_/ "src").value
+resourceDirectory in Compile :=  baseDirectory(_/ "resources").value
 
 //paradise
 resolvers += Resolver.sonatypeRepo("snapshots")
