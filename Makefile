@@ -23,6 +23,9 @@ publish-local:
 	cd ../spatial; \
 	sbt publish-local
 
+assembly:
+	sbt spatial/assembly
+
 switch:
 	sh -c 'git pull'
 	sh -c 'git checkout origin/${BRANCH}'

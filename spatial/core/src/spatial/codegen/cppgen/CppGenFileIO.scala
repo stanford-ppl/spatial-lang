@@ -15,7 +15,7 @@ trait CppGenFileIO extends CppCodegen  {
     case OpenFile(filename, isWr) => 
     	val dir = if (isWr) "o" else "i"
     	emit(src"""std::${dir}fstream ${lhs}_file ($filename);""")
-      emit(src"""assert(${lhs}_file.good() && "File $filename does not exist"); """)
+      emit(src"""assert(${lhs}_file.good() && "File ${s"filename".replace("\"","")} does not exist"); """)
     case CloseFile(file) =>
     	emit(src"${file}_file.close();")
     case ReadTokens(file, delim) =>

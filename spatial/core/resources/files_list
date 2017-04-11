@@ -101,7 +101,6 @@
 ./chiselgen/template-level/fringeVCS/DRAMSim2/Rank.h
 ./chiselgen/template-level/fringeVCS/DRAMSim2/IniReader.cpp
 ./chiselgen/template-level/fringeVCS/DRAMSim2/MemoryController.h
-./chiselgen/template-level/fringeVCS/DRAMSim2/.gitignore
 ./chiselgen/template-level/fringeVCS/DRAMSim2/CSVWriter.h
 ./chiselgen/template-level/fringeVCS/DRAMSim2/PrintMacros.cpp
 ./chiselgen/template-level/fringeVCS/DRAMSim2/ClockDomain.cpp
@@ -126,7 +125,6 @@
 ./chiselgen/template-level/fringeVCS/DRAMSim2/spatial.dram.ini
 ./chiselgen/template-level/fringeVCS/DRAMSim2/MultiChannelMemorySystem.h
 ./chiselgen/template-level/fringeVCS/DRAMSim2/addgpl.sh
-./chiselgen/template-level/fringeVCS/DRAMSim2/traces/.gitignore
 ./chiselgen/template-level/fringeVCS/DRAMSim2/traces/mase_art.trc.gz
 ./chiselgen/template-level/fringeVCS/DRAMSim2/traces/k6_aoe_02_short.trc.gz
 ./chiselgen/template-level/fringeVCS/DRAMSim2/traces/README
@@ -136,7 +134,6 @@
 ./chiselgen/template-level/fringeVCS/DRAMSim2/README
 ./chiselgen/template-level/fringeVCS/DRAMSim2/AddressMapping.h
 ./chiselgen/template-level/fringeVCS/DRAMSim2/comparison_gen.py
-./chiselgen/template-level/fringeVCS/DRAMSim2/example_app/.gitignore
 ./chiselgen/template-level/fringeVCS/DRAMSim2/example_app/Makefile
 ./chiselgen/template-level/fringeVCS/DRAMSim2/example_app/dramsim_test.cpp
 ./chiselgen/template-level/fringeVCS/DRAMSim2/example_app/dramsim_test.h
