@@ -1,4 +1,4 @@
-/*import spatial._
+import spatial._
 import org.virtualized._
 
 object FSMExample extends SpatialApp {
@@ -35,15 +35,15 @@ object FSMExample extends SpatialApp {
         }
         else {
           val pixel = input.value
-          val gray = (pixel.r.to[UINT8], pixel.g.to[UINT8] + pixel.b.to[UINT8]) / 3
+          val gray = (pixel.r.to[UINT8] + pixel.g.to[UINT8] + pixel.b.to[UINT8]) / 3
           output := BGR(gray.to[UINT5], gray.to[UINT6], gray.to[UINT5])
         }
       }{state =>
-        mux(state < 2*H*W-1, state + 1, 0.as[Int])
+        mux(state < 2*H*W-1, state + 1, 0.to[Int])
       }
 
       // Version 2
-      FSM[Boolean]{state => true }{state =>
+      /*FSM[Boolean]{state => true }{state =>
         if (state) {
           Foreach(0 until H, 0 until W){(i,j) =>
             val pixel = input.value
@@ -57,9 +57,9 @@ object FSMExample extends SpatialApp {
             output := BGR(gray.to[UINT5], gray.to[UINT6], gray.to[UINT5])
           }
         }
-      }{state => !state }
+      }{state => !state }*/
     }
 
   }
-}*/
+}
 
