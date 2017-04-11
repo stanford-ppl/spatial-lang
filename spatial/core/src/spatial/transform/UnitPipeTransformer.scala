@@ -102,9 +102,11 @@ trait UnitPipeTransformer extends ForwardTransformer {
 
         stage.staticAllocs.foreach(visitStm)
         val pipe = op_unit_pipe(Nil, {
-          stage.nodes.foreach(visitStm)
-          escapingValues.zip(regs).foreach{case (sym, reg) => regWrite(reg, f(sym)) }
-          void
+          isolateSubstScope { // We shouldn't be able to see any substitutions in here from the outside by default
+            stage.nodes.foreach(visitStm)
+            escapingValues.zip(regs).foreach { case (sym, reg) => regWrite(reg, f(sym)) }
+            void
+          }
         })
         levelOf(pipe) = InnerControl
         styleOf(pipe) = InnerPipe
