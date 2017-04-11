@@ -74,7 +74,7 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
   with ScalaGenStream
-  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine {
+  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO {
 
   override val IR: SpatialCompiler
 
@@ -290,7 +290,7 @@ trait SpatialApp extends AppCore {
   import spatial.targets._
 
   private def __target: FPGATarget = Targets.targets.find(_.name == SpatialConfig.targetName).getOrElse{ DefaultTarget }
-  val target = __target
+  def target = __target
 
   val IR: SpatialIR = new SpatialIR { def target = SpatialApp.this.target }
   val Lib: SpatialLib = new SpatialLib { }
