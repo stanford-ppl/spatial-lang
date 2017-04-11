@@ -57,6 +57,8 @@ def main():
 
   (opts, args) = parser.parse_known_args()
 
+  os.system("git pull")
+
   java_cmd = "sbt \"" + sbt_project + "run-main " + opts.app + " " + ' '.join(args) + "\""
   print(java_cmd)
 
