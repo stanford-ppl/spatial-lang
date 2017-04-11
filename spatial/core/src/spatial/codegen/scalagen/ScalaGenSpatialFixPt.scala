@@ -45,14 +45,11 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
     case StringToFixPt(x) => lhs.tp match {
       case FixPtType(s,i,f) => emit(src"val $lhs = Number($x, FixedPoint($s,$i,$f))")
     }
-
     case FixRandom(Some(max)) => lhs.tp match {
-      case IntType()  => emit(src"val $lhs = Number(scala.util.Random.nextInt($max))")
-      case LongType() => emit(src"val $lhs = Number(scala.util.Random.nextLong() % $max)")
+      case FixPtType(s,i,f) => emit(src"val $lhs = Number.random($max, FixedPoint($s,$i,$f))")
     }
     case FixRandom(None) => lhs.tp match {
-      case IntType() => emit(src"val $lhs = Number(scala.util.Random.nextInt())")
-      case LongType() => emit(src"val $lhs = Number(scala.util.Random.nextLong())")
+      case FixPtType(s,i,f) => emit(src"val $lhs = Number.random(FixedPoint($s,$i,$f))")
     }
 
     case _ => super.emitNode(lhs, rhs)

@@ -23,7 +23,6 @@ spatial CLI for spatial
 Usage: spatial [options]
 
   --help                   prints this usage text
-  -n, --name <value>       name of the app [app]
   -q, --quiet              disable background logging
   -v, --verbose            enable verbose printout
   -c, --clean              Reset output directory
@@ -56,8 +55,6 @@ def main():
   sbt_project = 'apps/'
 
   (opts, args) = parser.parse_known_args()
-
-  os.system("git pull")
 
   java_cmd = "sbt \"" + sbt_project + "run-main " + opts.app + " " + ' '.join(args) + "\""
   print(java_cmd)
