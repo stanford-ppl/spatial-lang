@@ -176,7 +176,7 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
-object FileSplitter extends SpatialApp {  // Regression (Unit) // Args: 5
+object FileSplitter extends SpatialApp { // Regression (Unit) // Args: 5
   import IR._
 
   @virtualize
