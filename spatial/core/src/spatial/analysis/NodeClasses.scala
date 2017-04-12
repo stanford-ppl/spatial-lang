@@ -105,6 +105,15 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isFringeNode(e: Exp[_]): Boolean = getDef(e).exists(isFringeNode)
+  def isFringeNode(d: Def): Boolean = d match {
+    case _: FringeDenseLoad[_] => true
+    case _: FringeDenseStore[_] => true
+    case _: FringeSparseLoad[_] => true
+    case _: FringeSparseStore[_] => true
+    case _ => false
+  }
+
   /** Allocations **/
   def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
     case Def(SRAMNew(dims)) => dims
@@ -259,7 +268,7 @@ trait NodeClasses extends SpatialMetadataExp {
   def isPrimitiveNode(e: Exp[_]): Boolean = e match {
     case Const(_) => false
     case Param(_) => false
-    case _        => !isControlNode(e) && !isAllocation(e) && !isStateless(e) && !isGlobal(e)
+    case _        => !isControlNode(e) && !isAllocation(e) && !isStateless(e) && !isGlobal(e) && !isFringeNode(e)
   }
 
   /** Accesses **/

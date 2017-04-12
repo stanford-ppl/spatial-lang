@@ -16,6 +16,7 @@ trait FileIOApi extends FileIOExp with ArrayExtApi {
     tokens.map{token => token.to[T] }
   }
 
+  // FIXME: This may not work if delim2 is not linebreak - maybe should have ND file reading support?
   @api def loadCSV2D[T:Meta](filename: Text, delim1: Text = ",", delim2: Text = "\n")(implicit cast: Cast[Text,T]): Matrix[T] = {
     val file = open_file(filename.s, write = false)
     val all_tokens = wrap(read_tokens(file, delim1.s))
