@@ -71,6 +71,10 @@ sudo rmmod pushbutton_irq_handler
 ```
 
 If you want to know more about kernel modules in Linux, take a look at [Linux Device Driver](https://lwn.net/Kernel/LDD3/)
+After you are done using the board, please close your session by running:
+```bash
+exit
+```
 
 # Board Setup
 In general, to transfer files from your local computer to DE1SoC, run: 

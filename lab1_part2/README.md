@@ -1,8 +1,14 @@
 # ArgInOut
 In class, we went through a "HelloWorld" example. In Part II, we will first go through the process of deploying this example on the DE1SoC board. 
 
-### Completing ArgInOut
-Take a look at $SPATIAL_HOME/apps/src/ArgInOut.scala, and complete it by following the comments in the file. All the exercises will be under $SPATIAL_HOME/apps/problems. After implementing an app in ./problems, you will need to copy it over to $SPATIAL_HOME/apps/src. Every time the $SPATIAL_HOME/apps/src directory is updated, you will need to re-make the apps by running: 
+Before you start, make sure that you are in the directory where you have your spatial set up.
+First, initialize the environment variables by running:
+```bash
+source init-env.sh
+```
+## Completing ArgInOut
+Take a look at $SPATIAL_HOME/apps/src/ArgInOut.scala, and complete it by following the comments in the file. 
+Before running apps, we need to first make them by running:
 ```bash
 make apps
 ```
@@ -13,11 +19,12 @@ First, we want to make sure that the app is functionally correct. To do so, run:
 ```bash
 bin/spatial ArgInOut --scala
 ```
-This will generate the app files under ./gen/ArgInOut. Navigate into ./gen/ArgInOut, and run: 
+This will generate the app files under ./gen/ArgInOut. Navigate into ./gen/ArgInOut and run the functional simulation with argument set to 3:
 ```bash
-./run.sh YOUR_ARG_IN
+cd ./gen/ArgInOut
+chmod +x run.sh
+./run.sh 3
 ```
-YOUR_ARG_IN is a placeholder for your argument in. Here let's choose 3. 
 You will see the following messages in your terminal: 
 ```bash
 [info] Running Main 3
@@ -26,8 +33,9 @@ result: 7
 ```
 
 ### Cycle-accurate Simulation
-After verifying the basic functions, we want to start generating circuit designs. To do so, in $SPATIAL_HOME, run: 
+After verifying the basic functions, we want to start generating circuit designs. To do so, you need to first go back to the home directory of spatial and then generate the chisel project files for ArgInOut:
 ```bash
+cd $SPATIAL_HOME
 bin/spatial ArgInOut --chisel
 ```
 
@@ -141,6 +149,8 @@ Kernel done, test run time = 0 ms
 expected: 8
 result: 8
 ```
+
+All the exercises will be under $SPATIAL_HOME/apps/problems. After implementing an app in ./problems, you will need to copy it over to $SPATIAL_HOME/apps/src. Every time the $SPATIAL_HOME/apps/src directory is updated, you will need to re-make the apps by running: 
 
 # Generate Sum Using FIFO, Reduce and Foreach 
 In this example, we would like to implement an accelerator that takes in a number x, adds from 1 to up to x (not including x), and then return the sum. To make the testing easier, we are setting the size of FIFO to 16. The input number x should be a multiple of 16. Please take a look at apps/src/FifoPushPop.scala and complete the design by following the comments.
