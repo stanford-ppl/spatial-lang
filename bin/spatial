@@ -63,6 +63,25 @@ def main():
 
   if ecode != 0:
     print("[" + bcolors.FAIL + "error" + bcolors.ENDC + "] Spatial compilation failed")
+  else:
+    simScript = open(opts.app + ".sim", 'w')
+    simScript.write("#!/bin/bash\n\n")
+    simScript.write("cd gen/" + opts.app + "\n")
+    simScript.write("bash run.sh $@\n") 
+    simScript.close()
+
+    vcsScript = open(opts.app + ".vcs", "w")
+    vcsScript.write("#!/bin/bash\n\n")
+    #vcsScript.write("pushd .")
+    vcsScript.write("cd gen/" + opts.app + "\n")
+    vcsScript.write("make vcs\n")
+    #vcsScript.write("popd")
+    vcsScript.write("./run.sh $@\n")
+    vcsScript.write("gtkWave Top.vcd &")
+    vcsScript.close()
+
+    os.system("chmod u+x " + opts.app + ".sim")
+    os.system("chmod u+x " + opts.app + ".vcs")
 
 if __name__ == "__main__":
     main()

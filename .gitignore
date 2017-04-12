@@ -1,6 +1,9 @@
 *.class
 *.log
 *.swp
+*.sim
+*.vcs
+*.dat
 
 # sbt specific
 .cache

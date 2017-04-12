@@ -140,23 +140,23 @@ object Number {
       }
 
     case FloatPoint(_,_) => throw new Exception("TODO: Bitwise operators not yet defined for floating point")
+  }
 
-    def random(max: Number, fmt: NumberFormat) = fmt match {
-      case FixedPoint(s,i,f) =>
-        val bits = Array.tabulate(i + f){i => Bit(scala.util.Random.nextBoolean()) }
-        val num = Number(bits, fmt)
-        num % max
+  def random(max: Number, fmt: NumberFormat): Number = fmt match {
+    case FixedPoint(s,i,f) =>
+      val bits = Array.tabulate(i + f){i => Bit(scala.util.Random.nextBoolean()) }
+      val num = Number(bits, fmt)
+      num % max
 
-      case FloatPoint(g,e) => throw new Exception("TODO: Random floating point")
-    }
-    def random(max: Number, fmt: NumberFormat) = fmt match {
-      case FixedPoint(s,i,f) =>
-        val bits = Array.tabulate(i + f){i => Bit(scala.util.Random.nextBoolean()) }
-        Number(bits, fmt)
+    case FloatPoint(g,e) => throw new Exception("TODO: Random floating point")
+  }
 
-      case FloatPoint(g,e) => throw new Exception("TODO: Random fixed point")
-    }
+  def random(fmt: NumberFormat): Number = fmt match {
+    case FixedPoint(s,i,f) =>
+      val bits = Array.tabulate(i + f){i => Bit(scala.util.Random.nextBoolean()) }
+      Number(bits, fmt)
 
+    case FloatPoint(g,e) => throw new Exception("TODO: Random fixed point")
   }
 
   def sqrt(x: Number) = Number(Math.sqrt(x.toDouble), x.valid, x.fmt)
