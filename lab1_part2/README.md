@@ -33,7 +33,7 @@ You will observe some debug information that helps you verify the correctness of
 ### Cycle-accurate Simulation
 After verifying the basic functions, we want to start generating circuit designs. To do so, in $SPATIAL_HOME, run: 
 ```bash
-bin/spatial ArgInOut --chsel
+bin/spatial ArgInOut --chisel
 ```
 
 This will generate the hardware description files under ./gen/ArgInOut. Navigate into ./gen/ArgInOut, and you will see the following folders: 
