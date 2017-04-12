@@ -7,6 +7,10 @@ First, initialize the environment variables by running:
 ```bash
 source init-env.sh
 ```
+If you have not make your spatial yet, run:
+```bash
+make 
+```
 ### Completing ArgInOut
 Take a look at $SPATIAL_HOME/apps/src/ArgInOut.scala, and complete it by following the comments in the file. 
 Before running apps, we need to first make them by running:
