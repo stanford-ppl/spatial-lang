@@ -275,11 +275,16 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
     passes += controlSanityCheck
 
     // --- Code generation
-    passes += scalagen
-    passes += chiselgen
-    passes += pirgen
-    passes += cppgen
-    passes += treegen
+    if (SpatialConfig.enableSim)
+      passes += scalagen
+    if (SpatialConfig.enableSynth) {
+      passes += cppgen
+      passes += chiselgen
+    }
+    if (SpatialConfig.enablePIR)
+      passes += pirgen
+    if (SpatialConfig.enableTree)
+      passes += treegen
   }
 }
 
