@@ -99,10 +99,10 @@ de1soc-sw:
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
 	make -C cpp
-	cp cpp/Top ./
+#	cp cpp/Top ./
 	cp verilog-de1soc/program_de1soc.sh ./ && chmod +x program_de1soc.sh
 	mkdir prog
-	mv Top program_de1soc.sh sp.rbf ./prog/
+	cp Top program_de1soc.sh sp.rbf ./prog/
 
 de1soc-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs de1soc"
