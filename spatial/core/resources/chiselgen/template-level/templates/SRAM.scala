@@ -6,14 +6,14 @@ import scala.collection.mutable.HashMap
 
 
 class flatW(val w: Int) extends Bundle {
-  val addr = UInt(w.W)
+  val addr = UInt(32.W)
   val data = UInt(w.W)
   val en = Bool()
 
   override def cloneType = (new flatW(w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 class flatR(val w: Int) extends Bundle {
-  val addr = UInt(w.W)
+  val addr = UInt(32.W)
   val en = Bool()
 
   override def cloneType = (new flatR(w)).asInstanceOf[this.type] // See chisel3 bug 358

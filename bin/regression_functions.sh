@@ -704,14 +704,19 @@ launch_tests() {
         logger "Writing script for ${i}_${appname}"
         create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
 
+        # Run script
+        logger "Running script for ${i}_${appname}"
+        bash ${vulture_dir}/cmd_file
+        cd ${SPATIAL_HOME}/regression_tests/${ac}
+        
         ((i++))
       fi
     done
-    # Run vulture
-    cd ${SPATIAL_HOME}/regression_tests/${ac}/
-    logger "Executing vulture script in ${ac} directory..."
-    bash ${SPATIAL_HOME}/bin/vulture.sh ${ac}_${branch}_${type_todo}
-    logger "Script executed!"
+    # # Run vulture
+    # cd ${SPATIAL_HOME}/regression_tests/${ac}/
+    # logger "Executing vulture script in ${ac} directory..."
+    # bash ${SPATIAL_HOME}/bin/vulture.sh ${ac}_${branch}_${type_todo}
+    # logger "Script executed!"
 
   done
 
