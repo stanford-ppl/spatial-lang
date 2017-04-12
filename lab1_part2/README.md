@@ -133,16 +133,21 @@ make de1soc
 The synthesis process will start, and will take roughly 15 min to finish. After the synthesis finishes, you will see two generated files under ./prog in the project directory:
 ```bash
 Top
-sp.rbf
+verilog/accel.bit.bin
 program_de1soc.sh
 ```
-Top is the binary that runs on the ARM core, sp.rbf is the bitstream that runs on the FPGA, and program_de1soc.sh is the shell script that programs the FPGA with bitstream. To test them, you will need to copy ./prog to DE1SoC.
-
-To run the app, in the session that connects to your DE1SoC, you will need to enter: 
-```bash
-sudo ./Top YOUR_ARG_IN
+Top is the binary that runs on the ARM core, accel.bit.bin is the bitstream that runs on the FPGA, and program_de1soc.sh is the shell script that programs the FPGA with bitstream. To test them, you will need to copy ./prog to DE1SoC. Here we are using ee109-03 of the DE1SoC boards as an example:
 ```
-Here is an example of running ArgInOut with YOUR_ARG_IN set to 4 on DE1SoC. Your result should look quite similar to this one:
+scp -r ./prog ee109@ee109-03:~/
+
+Then you need to log onto ee109-03 and run the app:
+```bash
+ssh -Y ee109@ee109-03
+cd prog
+sudo ./Top 4
+
+```
+Here is an example of running ArgInOut with argument set to 4 on DE1SoC. Your result should look quite similar to this one:
 ```bash
 tianzhao@client: sudo ./Top 4
 [WARNING]: DELITE_NUM_THREADS undefined, defaulting to 1
@@ -151,8 +156,7 @@ Running cmd ./program_de1soc.sh ./sp.rbf
 Disabling fpga2hps bridge...
 Disabling hps2fpga bridge...
 Disabling lwhps2fpga bridge...
-Loading ./sp.rbf into FPGA device...
-2+1 records in
+Loading ./sp.rbf into FPGA device...  2+1 records in
 2+1 records out
 2892552 bytes (2.9 MB) copied, 0.199989 s, 14.5 MB/s
 Enabling fpga2hps bridge...
@@ -165,10 +169,13 @@ expected: 8
 result: 8
 ```
 
-All the exercises will be under $SPATIAL_HOME/apps/problems. After implementing an app in ./problems, you will need to copy it over to $SPATIAL_HOME/apps/src. Every time the $SPATIAL_HOME/apps/src directory is updated, you will need to re-make the apps by running: 
 
 # Generate Sum Using FIFO, Reduce and Foreach 
-In this example, we would like to implement an accelerator that takes in a number x, adds from 1 to up to x (not including x), and then return the sum. To make the testing easier, we are setting the size of FIFO to 16. The input number x should be a multiple of 16. Please take a look at apps/src/FifoPushPop.scala and complete the design by following the comments.
+All the exercises will be under $SPATIAL_HOME/apps/problems. After implementing an app in ./problems, you will need to copy it over to $SPATIAL_HOME/apps/src. Every time the $SPATIAL_HOME/apps/src directory is updated, you will need to re-make the apps by running: 
+```bash
+make apps
+```
+In this exercise, we would like to implement an accelerator that takes in a number x, adds from 1 to up to x (not including x), and then return the sum. To make the testing easier, we are setting the size of FIFO to 16. The input number x should be a multiple of 16. Please take a look at apps/src/FifoPushPop.scala and complete the design by following the comments.
 
 # MemReduce
 In this example, we are using MemReduce to produce the following matrix A:
@@ -180,16 +187,4 @@ If you observe that synthesizer takes longer than usual to finish, this is expec
 # Streaming Video
 On DE1SoC, the video decoder sends in a 24-bit RGB value; however the VGA port only accepts 16-bit RGB data. In this streaming example, we are implementing an RGB space converter that converts 24-bit RGB to 16-bit RGB. Please take a look at apps/src/RGBConvert.scala, implement and simulate your design. To deploy it on board, you will need to change the bus names. The detailed instructions can be found in RGBConvert.scala. 
 
-
-# Set up Working Environment on tucson
-We will be using the tucson.stanford.edu server to run simulation and synthesis. 
-Once you log in to tucson, add the following lines to your .bashrc: 
-```bash
-export LM_LICENSE_FILE=7195@cadlic0.stanford.edu
-export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
-export PATH=/usr/bin:$VCS_HOME/amd64/bin:$PATH
-export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
-export PATH=$PATH:/opt/intelFPGA_lite/16.1/quartus/bin
-
-```
-This lines include Quartus and VCS onto your $PATH.
+After you generate the bitstream and deploy it on DE1SoC board, you can connect the VGA port to a monitor in the lab, and watch the monitor displaying video streams from the cameras connected to the board. 
