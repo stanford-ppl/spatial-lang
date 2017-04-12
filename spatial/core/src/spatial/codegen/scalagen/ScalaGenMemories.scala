@@ -5,6 +5,8 @@ import org.virtualized.SourceContext
 trait ScalaGenMemories extends ScalaGenBits {
   import IR._
 
+  var enableMemGen: Boolean = false
+
   private def oob(tp: Type[_], mem: Exp[_], lhs: Exp[_], inds: Seq[Exp[_]], pre: String, post: String, isRead: Boolean)(lines: => Unit) = {
     val name = u"$mem"
     val addr = if (inds.isEmpty && pre == "" && post == "") "err.getMessage"

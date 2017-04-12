@@ -12,7 +12,7 @@ trait ScalaGenFIFO extends ScalaGenMemories {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@FIFONew(size)    => emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}] // size: $size")
+    case op@FIFONew(size) => if (enableMemGen) emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}] // size: $size")
     case FIFOEnq(fifo,v,en)  => emit(src"val $lhs = if ($en) $fifo.enqueue($v)")
     case op@FIFODeq(fifo,en) => emit(src"val $lhs = if ($en && $fifo.nonEmpty) $fifo.dequeue() else ${invalid(op.mT)}")
     case _ => super.emitNode(lhs, rhs)

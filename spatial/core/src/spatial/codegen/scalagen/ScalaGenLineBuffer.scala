@@ -16,7 +16,7 @@ trait ScalaGenLineBuffer extends ScalaGenMemories {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LineBufferNew(rows, cols) =>
-      emit(src"val $lhs = LineBuffer[${op.mT}]($rows, $cols, ${invalid(op.mT)})")
+      if (enableMemGen) emit(src"val $lhs = LineBuffer[${op.mT}]($rows, $cols, ${invalid(op.mT)})")
     case op@LineBufferRowSlice(lb,row,len,col) =>
       open(src"val $lhs = Array.tabulate($len){i => ")
         oobApply(op.mT, lb, lhs, Seq(row,col)){ emit(src"$lb.apply($row+i,$col)") }

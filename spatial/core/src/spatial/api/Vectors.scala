@@ -88,6 +88,26 @@ trait VectorExp extends Staging with BitsExp with TextExp with CustomBitWidths w
     }
   }
 
+  object Vectorize {
+    @api def BigEndian[T:Meta:Bits](elems: T*): VectorN[T] = {
+      implicit val vT = vectorNType[T](elems.length)
+      vT.wrapped(vector_new[T,VectorN](elems.map(_.s)))
+    }
+    @api def ZeroFirst[T:Meta:Bits](elems: T*): VectorN[T] = {
+      implicit val vT = vectorNType[T](elems.length)
+      vT.wrapped(vector_new[T,VectorN](elems.map(_.s)))
+    }
+
+
+    @api def LittleEndian[T:Meta:Bits](elems: T*): VectorN[T] = {
+      implicit val vT = vectorNType[T](elems.length)
+      vT.wrapped(vector_new[T,VectorN](elems.reverse.map(_.s)))
+    }
+    @api def ZeroLast[T:Meta:Bits](elems: T*): VectorN[T] = {
+      implicit val vT = vectorNType[T](elems.length)
+      vT.wrapped(vector_new[T,VectorN](elems.reverse.map(_.s)))
+    }
+  }
 
 
   type VectorJJ$JJ$1to128[T] = Vec[_JJ,T]

@@ -172,8 +172,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val bufferAnalyzer = new BufferAnalyzer { val IR: self.type = self; def localMems = uctrlAnalyzer.localMems }
   lazy val streamAnalyzer = new StreamAnalyzer { 
     val IR: self.type = self ;
-    def streamPipes = uctrlAnalyzer.streampipes;
-    def streamEnablers = uctrlAnalyzer.streamEnablers;
+    def streamPipes = uctrlAnalyzer.streampipes
+    def streamEnablers = uctrlAnalyzer.streamEnablers
     def streamHolders = uctrlAnalyzer.streamHolders 
     def streamLoadCtrls = uctrlAnalyzer.streamLoadCtrls 
     def streamParEnqs = uctrlAnalyzer.streamParEnqs
@@ -181,7 +181,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
 
   lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argPorts = uctrlAnalyzer.argPorts; def genericStreams = uctrlAnalyzer.genericStreams;}
 
-  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSim }
+  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSim; def localMems = uctrlAnalyzer.localMems }
   lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
   lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
   lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
