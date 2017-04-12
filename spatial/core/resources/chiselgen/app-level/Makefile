@@ -102,6 +102,9 @@ de1soc-sw:
 #	cp cpp/Top ./
 	cp verilog-de1soc/program_de1soc.sh ./ && chmod +x program_de1soc.sh
 	mkdir prog
+	cd ./prog/ && mkdir verilog
+	cp Top program_de1soc.sh ./prog
+	mv sp.rbf ./prog/verilog/accel.bit.bin
 	cp Top program_de1soc.sh sp.rbf ./prog/
 
 de1soc-hw:
@@ -115,7 +118,8 @@ de1soc-hw:
 	cp verilog-de1soc/sp.rbf ./
 
 de1soc-clean:
-	rm -rf verilog
+	rm -rf verilog-de1soc
+	cd ./cpp && make clean
 
 vcs: vcs-hw vcs-sw
 	tar -czf TopVCS.tar.gz -C verilog-vcs accel.bit.bin -C ../cpp Top

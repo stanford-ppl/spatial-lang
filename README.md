@@ -10,15 +10,23 @@ Spatial is an Argon DSL for programming reconfigurable hardware from a parameter
 # Lab 1
 In this lab, you will learn about designing apps in Spatial and interacting with hardware peripherals on DE1SoC board.
 
-First, you will need to set up dependencies on your computer. "Getting Started" link gives a quick tutorial on how to install the denpendencies. You will also need to have the lab files on your computer. Run the following command to clone this repository and switch to the ee109 lab branch:
+First, you will need to set up spatial on your computer:
 
 ```bash
 // To get spatial-lang
 git clone https://github.com/stanford-ppl/spatial-lang.git 
+cd spatial-lang
 git checkout lab1_release
 git submodule update --init 
+
+// To set up your environment variables
+source init-env.sh
 ```
 
-In spatial-lang directory, there are two directories: lab1_part1 and lab1_part2. READMEs in these two directories provides instructions on how to complete the lab.
+You should verify your environment variables by running:
+```bash
+echo $SPATIAL_HOME
+echo $JAVA_HOME
+```
 
-If you have any questions, please contact Tian Zhao at tianzhao@stanford.edu.
+To finish the lab, please read [part1](https://github.com/stanford-ppl/spatial-lang/tree/lab1_release/lab1_part1) and [part2](https://github.com/stanford-ppl/spatial-lang/tree/lab1_release/lab1_part2) instructions.

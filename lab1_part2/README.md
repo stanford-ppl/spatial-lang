@@ -1,26 +1,11 @@
-# Set up Working Environment on tucson
-We will be using the tucson.stanford.edu server to run simulation and synthesis. 
-Once you log in to tucson, add the following lines to your .bashrc: 
-```bash
-export LM_LICENSE_FILE=7195@cadlic0.stanford.edu
-export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
-export PATH=/usr/bin:$VCS_HOME/amd64/bin:$PATH
-export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
-export PATH=$PATH:/opt/intelFPGA_lite/16.1/quartus/bin
-
-```
-This lines include Quartus and VCS onto your $PATH.
-
 # ArgInOut
-In class, we went through a "HelloWorld" example. In Part II, we will first go through the process of deploying this example on board. 
+In class, we went through a "HelloWorld" example. In Part II, we will first go through the process of deploying this example on the DE1SoC board. 
 
 ### Completing ArgInOut
-Take a look at $SPATIAL_HOME/apps/src/ArgInOut.scala, and complete it by following the comments in the file. All the exercises will be under $SPATIAL_HOME/apps/src. Before running apps, you will need to make them by running: 
+Take a look at $SPATIAL_HOME/apps/src/ArgInOut.scala, and complete it by following the comments in the file. All the exercises will be under $SPATIAL_HOME/apps/problems. After implementing an app in ./problems, you will need to copy it over to $SPATIAL_HOME/apps/src. Every time the $SPATIAL_HOME/apps/src directory is updated, you will need to re-make the apps by running: 
 ```bash
 make apps
 ```
-The compiler will report errors for those apps that have not been completed. Once you compelete all the apps, these errors should disappear.
-
 
 ## Simulating Apps
 ### Functional Simulation
@@ -52,18 +37,70 @@ chisel
 cpp
 ```
 
-The chisel folder contains descriptions for running designs on FPGA. To generate cycle-accurate simulation, we need to first scp the generated project folder onto a server that has vcs installed. In this class, we will use the tucson server to run our simulation. Run: 
+The chisel folder contains descriptions for running designs on FPGA, and the cpp file contains C++ code that runs on the CPU side. To generate cycle-accurate simulation, we need to first scp the generated project folder onto a server that has VCS installed. In this class, we will use the tucson server to run our simulation. Run: 
 ```bash
 cd $SPATIAL_HOME
 scp -r gen/ArgInOut USER_NAME@tucson.stanford.edu:~/YOUR_TARGET_DIR
 ```
-Please make sure that your design files only reside in your home directory.
+YOUR_TARGET_DIR is a placeholder. You should replace it with your working directory on the server.
 On the server side, first navigate into the project folder, then run: 
-```
+```bash
 make vcs
 ./Top YOUR_ARG_IN
 ```
-This will initiate VCS simulation on tucson.
+This will initiate VCS simulation on tucson. You will observe something similar to the following outputs on your terminal:
+```bash
+tianzhao@tucson:~/synthTest/ArgInOut$ ./run.sh 3
+[WARNING]: DELITE_NUM_THREADS undefined, defaulting to 1
+Executing with 1 thread(s)
+Chronologic VCS simulator copyright 1991-2015
+Contains Synopsys proprietary information.
+Compiler version K-2015.09-SP2-7_Full64; Runtime version K-2015.09-SP2-7_Full64;  Apr 11 23:37 2017
+[SIM] Sim process started!
+idealDRAM = 0
+Connection successful!
+== Loading device model file '/home/tianzhao/synthTest/ArgInOut/verilog/DRAMSim2/ini/DDR2_micron_16M_8b_x8_sg3E.ini' == 
+== Loading system model file '/home/tianzhao/synthTest/ArgInOut/verilog/DRAMSim2/spatial.dram.ini' == 
+===== MemorySystem 0 =====
+CH. 0 TOTAL_STORAGE : 16384MB | 16 Ranks | 8 Devices per rank
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+writing vis file to /home/tianzhao/synthTest/ArgInOut/verilog/DRAMSim2/results/dramSimVCS/DDR2_micron_16M_8b_x8_sg3E/16GB.1Ch.16R.scheme2.open_page.32TQ.32CQ.RtB.pRank.vis
+DRAMSim2 Clock Frequency =333333333Hz, CPU Clock Frequency=150000000Hz
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+Design ran for 8 cycles, status = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+Kernel done, test run time = 0 ms
+[readOutputStream] data = 374a656e, tag = 8b3dfe16, last = 1
+expected: 7
+result: 7
+Received SIGHUP (signal 1), exiting.
+			V C S   S i m u l a t i o n   R e p o r t 
+			Time: 59000 ps
+			CPU Time:      0.500 seconds;       Data structure size:   0.0Mb
+			Tue Apr 11 23:37:01 2017
+			Realistic DRAM Simulation
+
+```
 
 ## Synthesizing and Running Spatial Apps on DE1-SoC
 On tucson, under the project folder, run:
@@ -117,3 +154,17 @@ If you observe that synthesizer takes longer than usual to finish, this is expec
 
 # Streaming Video
 On DE1SoC, the video decoder sends in a 24-bit RGB value; however the VGA port only accepts 16-bit RGB data. In this streaming example, we are implementing an RGB space converter that converts 24-bit RGB to 16-bit RGB. Please take a look at apps/src/RGBConvert.scala, implement and simulate your design. To deploy it on board, you will need to change the bus names. The detailed instructions can be found in RGBConvert.scala. 
+
+
+# Set up Working Environment on tucson
+We will be using the tucson.stanford.edu server to run simulation and synthesis. 
+Once you log in to tucson, add the following lines to your .bashrc: 
+```bash
+export LM_LICENSE_FILE=7195@cadlic0.stanford.edu
+export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
+export PATH=/usr/bin:$VCS_HOME/amd64/bin:$PATH
+export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
+export PATH=$PATH:/opt/intelFPGA_lite/16.1/quartus/bin
+
+```
+This lines include Quartus and VCS onto your $PATH.

@@ -3,9 +3,29 @@
 
 In this part, we will write a program that increments the LED register every time we run it. On DE1-SoC, the red LEDs will turn on based on the value stored in the LED register. For example, if the LED register stores 2, only the 2nd-to-the-right LED will turn on to indicate a binary 10. 
 
-Upon startup, DE1SoC loads a bitstream into /dev/fpga that maps a set of peripheral registers to the ARM2FPGA bridge. The ARM2FPGA bridge starts at address 0xff200000, and the register controlling LEDs locates at offset 0x0. Your task is to write 1 to this register whenever the program runs. Take a look at led.c, complete the program by following the comments, and test it by running the following commands on DE1SoC: 
-```cplusplus 
+Upon startup, DE1SoC loads a bitstream into /dev/fpga that maps a set of peripheral registers to the ARM2FPGA bridge. The ARM2FPGA bridge starts at address 0xff200000, and the register controlling LEDs locates at offset 0x0. Your task is to write 1 to this register whenever the program runs. 
+
+To complete the task, first you need to navigate to the project directory:
+```bash
+cd $SPATIAL_HOME
+cd lab1_part1
+cd increment_leds
+```
+
+In increment_leds, you will find three files. Please complete led.c by following the comments.
+
+After you complete it, please upload the increment_leds folder to the board you are assigned to. For example, if you are assigned to ee109-03, here are the instructions to upload, compile, and run the project:
+
+```bash
+cd ../
+scp -r increment_leds ee109@ee109-03:~/
+ssh ee109@ee109-03
+cd increment_leds
 make && sudo ./led
+```
+After you observe that the red LEDs behave as expected, you can quit your session by running: 
+```bash
+exit
 ```
 
 # Part II: Handling Interrupts
@@ -14,34 +34,50 @@ In this part, we will explore how to implement an interrupt handler in Linux. Sp
 
 The ARM processor contains 256 interrupt request (IRQ) lines ranging from IRQ0 to IRQ255. In the default DE1SoC system, the interrupt sender of the pushbutton has been connected to IRQ73. Therefore, our kernel module needs to register an interrupt handler that will listen to IRQ73. 
 
-To register an interrupt handler, we can take a look at the pushbutton_irq_handler.c and complete the program by following the comments.
+To complete the task, first you need to navigate to the project directory and complete the pushbutton_irq_handler.c in it:
+```bash
+cd $SPATIAL_HOME
+cd lab1_part1
+cd pushbutton_irq_handler
+```
 
-We can test our implementation by running: 
-```cplusplus
-make all
-insmod pushbutton_irq_handler.ko
+In pushbutton_irq_handler, you will find three files. Please complete pushbutton_irq_handler.c by following the comments.
+
+After you complete it, please upload the folder to board. For example, if you are assigned to ee109-03, you need to run:
+
+```bash
+cd ../
+scp -r push_button_irq_handler ee109@ee109-03:~/
+ssh ee109@ee109-03
+cd push_button_irq_handler
+make
+```
+
+After you make the kernel module, you will need to insert it into the kernel:
+```bash
+sudo insmod pushbutton_irq_handler.ko
 ```
 
 To confirm that our module is inserted, we can run: 
-```cplusplus
-lsmod
+```bash
+sudo lsmod
 ```
 
 We will observe that the on-board LEDs increment every time we press the pushbutton. 
 
 To stop the kernel module, we can run: 
-```cplusplus
-rmmod pushbutton_irq_handler
+```bash
+sudo rmmod pushbutton_irq_handler
 ```
 
-If you want to know more about kernel modules in Linux, take a look at https://lwn.net/Kernel/LDD3/
+If you want to know more about kernel modules in Linux, take a look at [Linux Device Driver](https://lwn.net/Kernel/LDD3/)
 
 # Board Setup
-To transfer files from your local computer to DE1SoC, run: 
+In general, to transfer files from your local computer to DE1SoC, run: 
 ```cplusplus
-scp -r YOUR_SRC_DIR ee109@ee109-GROUP_NUMBER.stanford.edu:~/YOUR_TARGET_DIR
+scp -r YOUR_SRC_DIR ee109@ee109-GROUP_NUMBER:YOUR_TARGET_DIR
 ```
 To sign in to your FPGA, run: 
-```cplusplus
-ssh ee109@ee109-GROUP_NUMBER.stanford.edu
+```bash
+ssh ee109@ee109-GROUP_NUMBER
 ```
