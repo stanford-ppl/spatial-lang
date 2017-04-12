@@ -705,8 +705,10 @@ launch_tests() {
         create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
 
         # Run script
+        SECONDS=0
         logger "Running script for ${i}_${appname}"
         bash ${cmd_file}
+        logger "Completed test in $SECONDS seconds"
         cd ${SPATIAL_HOME}/regression_tests/${ac}
         
         ((i++))
