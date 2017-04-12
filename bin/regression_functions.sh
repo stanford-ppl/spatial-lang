@@ -706,7 +706,7 @@ launch_tests() {
 
         # Run script
         logger "Running script for ${i}_${appname}"
-        bash ${vulture_dir}/cmd_file
+        bash ${cmd_file}
         cd ${SPATIAL_HOME}/regression_tests/${ac}
         
         ((i++))
