@@ -15,20 +15,30 @@ This lines include Quartus and VCS onto your $PATH.
 In class, we went through a "HelloWorld" example. In Part II, we will first go through the process of deploying this example on board. 
 
 ### Completing ArgInOut
-Take a look at $SPATIAL_HOME/apps/src/ArgInOut.scala, and complete it by following the comments in the file. 
+Take a look at $SPATIAL_HOME/apps/src/ArgInOut.scala, and complete it by following the comments in the file. All the exercises will be under $SPATIAL_HOME/apps/src. Before running apps, you will need to make them by running: 
+```bash
+make apps
+```
+The compiler will report errors for those apps that have not been completed. Once you compelete all the apps, these errors should disappear.
+
 
 ## Simulating Apps
 ### Functional Simulation
 First, we want to make sure that the app is functionally correct. To do so, run: 
 ```bash
-make apps
 bin/spatial ArgInOut --scala
 ```
 This will generate the app files under ./gen/ArgInOut. Navigate into ./gen/ArgInOut, and run: 
 ```bash
 ./run.sh YOUR_ARG_IN
 ```
-You will observe some debug information that helps you verify the correctness of your implementation.
+YOUR_ARG_IN is a placeholder for your argument in. Here let's choose 3. 
+You will see the following messages in your terminal: 
+```bash
+[info] Running Main 3
+expected: 7
+result: 7
+```
 
 ### Cycle-accurate Simulation
 After verifying the basic functions, we want to start generating circuit designs. To do so, in $SPATIAL_HOME, run: 
@@ -45,13 +55,13 @@ cpp
 The chisel folder contains descriptions for running designs on FPGA. To generate cycle-accurate simulation, we need to first scp the generated project folder onto a server that has vcs installed. In this class, we will use the tucson server to run our simulation. Run: 
 ```bash
 cd $SPATIAL_HOME
-scp gen/ArgInOut USER_NAME@tucson.stanford.edu:~/YOUR_TARGET_DIR
+scp -r gen/ArgInOut USER_NAME@tucson.stanford.edu:~/YOUR_TARGET_DIR
 ```
-Please make sure that your design files only reside under your home directory.
+Please make sure that your design files only reside in your home directory.
 On the server side, first navigate into the project folder, then run: 
 ```
 make vcs
-./Top ARG_IN
+./Top YOUR_ARG_IN
 ```
 This will initiate VCS simulation on tucson.
 
@@ -66,13 +76,13 @@ Top
 sp.rbf
 program_de1soc.sh
 ```
-Top is the binary that runs on the ARM core, sp.rbf is the bitstream that runs on the FPGA, and program_de1soc.sh is the shell script that sets /dev/fpga with the bitstream. To test them, you will need to copy ./prog to DE1SoC.
+Top is the binary that runs on the ARM core, sp.rbf is the bitstream that runs on the FPGA, and program_de1soc.sh is the shell script that programs the FPGA with bitstream. To test them, you will need to copy ./prog to DE1SoC.
 
 To run the app, in the session that connects to your DE1SoC, you will need to enter: 
 ```bash
-sudo ./Top ARG_IN
+sudo ./Top YOUR_ARG_IN
 ```
-Here is an example of running ArgInOut with ARG_IN set to 4 on DE1SoC. Your result should look quite similar to this one:
+Here is an example of running ArgInOut with YOUR_ARG_IN set to 4 on DE1SoC. Your result should look quite similar to this one:
 ```bash
 tianzhao@client: sudo ./Top 4
 [WARNING]: DELITE_NUM_THREADS undefined, defaulting to 1
@@ -96,7 +106,7 @@ result: 8
 ```
 
 # Generate Sum Using FIFO, Reduce and Foreach 
-In this example, we would like to implement an accelerator that takes in a number x, adds from 1 to up to x (not including x), and then return the sum. To make the testing easier, we are setting the size of fifo to 16. The input number x should be a multiple of 16. Please take a look at apps/src/FifoPushPop.scala and complete the design by following the comments. You will need to simulate and synthesize this design.
+In this example, we would like to implement an accelerator that takes in a number x, adds from 1 to up to x (not including x), and then return the sum. To make the testing easier, we are setting the size of FIFO to 16. The input number x should be a multiple of 16. Please take a look at apps/src/FifoPushPop.scala and complete the design by following the comments.
 
 # MemReduce
 In this example, we are using MemReduce to produce the following matrix A:
@@ -107,7 +117,3 @@ If you observe that synthesizer takes longer than usual to finish, this is expec
 
 # Streaming Video
 On DE1SoC, the video decoder sends in a 24-bit RGB value; however the VGA port only accepts 16-bit RGB data. In this streaming example, we are implementing an RGB space converter that converts 24-bit RGB to 16-bit RGB. Please take a look at apps/src/RGBConvert.scala, implement and simulate your design. To deploy it on board, you will need to change the bus names. The detailed instructions can be found in RGBConvert.scala. 
-
-
-# Streaming Video Using FSM
-Coming soon

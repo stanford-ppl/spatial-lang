@@ -14,6 +14,7 @@ object ArgInOut extends SpatialApp {
 
     Accel {
       // TODO: Set y = x + 4 here
+      y := x + 4
     }
 
     val result = getArg(y)
