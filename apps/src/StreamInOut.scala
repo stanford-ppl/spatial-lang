@@ -12,7 +12,7 @@ object StreamInOut extends SpatialApp {
     val output = StreamOut[Int32](Output)
 
     Accel(*) {
-      output := input + 4
+      output := input
     }
 
   }

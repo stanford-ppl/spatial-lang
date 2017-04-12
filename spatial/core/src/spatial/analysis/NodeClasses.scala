@@ -178,6 +178,11 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isStreamIn(e: Exp[_]): Boolean = e.tp match {
+    case _:StreamInType[_] => true
+    case _ => false
+  }
+
   def isStreamLoad(e: Exp[_]): Boolean = e match {
     case Def(_:FringeDenseLoad[_]) => true
     case _ => false

@@ -7,17 +7,33 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
   val IR: UnrolledExp with NodeClasses
   import IR._
 
+  def getStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
+    writtenIn(ctrl).filter{x => isStreamIn(x) || isFIFO(x) } ++ childrenOf(ctrl).flatMap(getStreamsAndFIFOs)
+  }
+
   private def emitUnrolledLoop(
+    lhs:    Exp[_],
     cchain: Exp[CounterChain],
     iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bool]]]
   )(func: => Unit): Unit = {
 
+    val ctrs = countersOf(cchain)
+
     for (i <- iters.indices) {
-      open(src"$cchain($i).foreach{case (is,vs) => ")
-      iters(i).zipWithIndex.foreach{case (iter,j) => emit(src"val $iter = is($j)") }
-      valids(i).zipWithIndex.foreach{case (valid,j) => emit(src"val $valid = vs($j)") }
+      if (isForever(ctrs(i))) {
+        val inputs = getStreamsAndFIFOs(lhs)
+        open(src"while(" + inputs.map(quote).map(_ + ".nonEmpty").mkString(" || ") + ") {")
+        iters(i).zipWithIndex.foreach { case (iter, j) => emit(src"val $iter = Number(1,true,FixedPoint(true,32,0))") }
+        valids(i).zipWithIndex.foreach { case (valid, j) => emit(src"val $valid = Bit(true,true)") }
+      }
+      else {
+        open(src"$cchain($i).foreach{case (is,vs) => ")
+        iters(i).zipWithIndex.foreach { case (iter, j) => emit(src"val $iter = is($j)") }
+        valids(i).zipWithIndex.foreach { case (valid, j) => emit(src"val $valid = vs($j)") }
+      }
     }
+
     func
     iters.indices.foreach{_ => close("}") }
   }
@@ -32,7 +48,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
       emit(src"/** BEGIN UNROLLED FOREACH $lhs **/")
       val en = ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")
-      emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
+      emitUnrolledLoop(lhs, cchain, iters, valids){ emitBlock(func) }
       close("}")
       emit(src"/** END UNROLLED FOREACH $lhs **/")
 
@@ -40,7 +56,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
       emit(src"/** BEGIN UNROLLED REDUCE $lhs **/")
       val en = ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")
-      emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
+      emitUnrolledLoop(lhs, cchain, iters, valids){ emitBlock(func) }
       close("}")
       emit(src"/** END UNROLLED REDUCE $lhs **/")
 

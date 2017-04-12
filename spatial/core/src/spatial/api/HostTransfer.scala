@@ -40,10 +40,12 @@ trait HostTransferExp extends Staging with DRAMExp with RegExp {
   case class SetMem[T:Type:Bits](dram: Exp[DRAM[T]], data: Exp[MetaArray[T]]) extends Op[Void] {
     def mirror(f:Tx) = set_mem(f(dram),f(data))
     override def aliases = Nil
+    val mT = typ[T]
   }
   case class GetMem[T:Type:Bits](dram: Exp[DRAM[T]], array: Exp[MetaArray[T]]) extends Op[Void] {
     def mirror(f:Tx) = get_mem(f(dram),f(array))
     override def aliases = Nil
+    val mT = typ[T]
   }
 
   /** Smart Constructors **/
