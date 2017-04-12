@@ -8,7 +8,7 @@ Spatial is an Argon DSL for programming reconfigurable hardware from a parameter
 ## [API](http://spatial-lang.readthedocs.io/en/latest/)
 
 # Lab 1
-In this lab, you will learn about designing apps in Spatial and interacting with hardware peripherals on DE1SoC board.
+In this lab, you will learn about designing apps in Spatial and writing program in Linux to control peripherals on DE1SoC board.
 
 First, you will need to set up spatial on your computer:
 
@@ -33,4 +33,4 @@ echo $JAVA_HOME
 ```
 Please verify that you are using Java 8.
 
-To finish the lab, please read [part1](https://github.com/stanford-ppl/spatial-lang/tree/lab1_release/lab1_part1) and [part2](https://github.com/stanford-ppl/spatial-lang/tree/lab1_release/lab1_part2) instructions.
+To finish the lab, please read [Introduction to Spatial](https://github.com/stanford-ppl/spatial-lang/tree/lab1_release/Intro2Spatial) and [Introduction to Linux](https://github.com/stanford-ppl/spatial-lang/tree/lab1_release/Intro2Linux) instructions.
