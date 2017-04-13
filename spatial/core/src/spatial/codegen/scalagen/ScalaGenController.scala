@@ -22,7 +22,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
       enableMemGen = true
-      localMems.foreach{case lhs@Op(rhs) => if (!isStreamIn(lhs) && !isStreamOut(lhs)) emitNode(lhs.asInstanceOf[Sym[_]], rhs) }
+      localMems.foreach{case lhs@Op(rhs) => if (!isOffChipMemory(lhs)) emitNode(lhs.asInstanceOf[Sym[_]], rhs) }
       enableMemGen = false
 
       emit(src"/** BEGIN HARDWARE BLOCK $lhs **/")
@@ -46,8 +46,8 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
         close("}")
         emit(src"val $lhs = ()")
       }
-      streamOuts.foreach{x =>
-        emit(src"print_$x()") // HACK: Print out streams after block finishes running
+      streamOuts.foreach{case x@Def(StreamOutNew(bus)) =>
+        if (!bus.isInstanceOf[DRAMBus[_]]) emit(src"print_$x()") // HACK: Print out streams after block finishes running
       }
       emit(src"/** END HARDWARE BLOCK $lhs **/")
 
