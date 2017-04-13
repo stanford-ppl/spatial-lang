@@ -102,10 +102,29 @@ object TwiddlingWithStructs extends SpatialTest {
   }
 }
 
+object ShiftTest extends SpatialTest {
+  import IR._
+  IR.testArgs = List("-14", "2")
+
+  @virtualize def main(): Unit = {
+    Accel {
+      val x = args(0).to[Int]
+      val m = args(1).to[Int]
+      val lsh = x << m
+      val rsh = x >> m
+      val ursh = x >>> m
+      assert(lsh == -56, "lsh: " + lsh + ", expected: -56")
+      assert(rsh == -4, "rsh: " + rsh + ", expected: -3")
+      assert(ursh == 1073741820, "ursh: " + ursh + ", expected: 1073741820")
+    }
+  }
+}
+
 class BitTwiddling extends FlatSpec with Matchers with Exceptions {
   SpatialConfig.enableSim = true
 
   "Bit selection" should "compile" in { BitSelects.main(Array.empty) }
   "UserVectors" should "compile" in { UserVectors.main(Array.empty) }
   "TwiddlingWithStructs" should "compile" in { TwiddlingWithStructs.main(Array.empty) }
+  "ShiftTest" should "compile" in { ShiftTest.main(Array.empty) }
 }

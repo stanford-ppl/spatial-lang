@@ -299,12 +299,12 @@ trait SpatialApp extends AppCore {
     val parser = new SpatialArgParser
     parser.parse(args) match {
       case None =>
-        println("Nothing generated")
-        sys.exit(0)
+        //IR.warn("No code generators enabled. Use --sim or --synth to enable generation.")
+        //sys.exit(0)
       case _ =>
         //println(argon.Config.conf)
-        println(SpatialConfig.spatialConf)
-        println("Starting generation")
+        //println(SpatialConfig.spatialConf)
+        //println("Starting generation")
     }
   }
 }
