@@ -240,13 +240,13 @@ packet=$lockfile
 phase="VULTURE"
 launch_tests
 
-# Delay while tests run
-phase="NAPPING"
-for i in `seq 1 $numpieces`; do
-  dots="($i / $numpieces x $((delay/numpieces))s)"
-  logger "Sleeping $dots"
-  sleep $((delay/numpieces))
-done
+# # Delay while tests run
+# phase="NAPPING"
+# for i in `seq 1 $numpieces`; do
+#   dots="($i / $numpieces x $((delay/numpieces))s)"
+#   logger "Sleeping $dots"
+#   sleep $((delay/numpieces))
+# done
 
 # Update result file
 phase="RESULTS"

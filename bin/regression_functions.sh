@@ -4,8 +4,8 @@
 ##   It is called from the receive.sh, which handles path variables
 ##   and git checkouts on a server-specific basis
 
-spacing=17
-delay=1430
+spacing=30
+delay=1530
 numpieces=30
 hist=72
 
@@ -704,14 +704,21 @@ launch_tests() {
         logger "Writing script for ${i}_${appname}"
         create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
 
+        # Run script
+        SECONDS=0
+        logger "Running script for ${i}_${appname}"
+        bash ${cmd_file}
+        logger "Completed test in $SECONDS seconds"
+        cd ${SPATIAL_HOME}/regression_tests/${ac}
+        
         ((i++))
       fi
     done
-    # Run vulture
-    cd ${SPATIAL_HOME}/regression_tests/${ac}/
-    logger "Executing vulture script in ${ac} directory..."
-    bash ${SPATIAL_HOME}/bin/vulture.sh ${ac}_${branch}_${type_todo}
-    logger "Script executed!"
+    # # Run vulture
+    # cd ${SPATIAL_HOME}/regression_tests/${ac}/
+    # logger "Executing vulture script in ${ac} directory..."
+    # bash ${SPATIAL_HOME}/bin/vulture.sh ${ac}_${branch}_${type_todo}
+    # logger "Script executed!"
 
   done
 
