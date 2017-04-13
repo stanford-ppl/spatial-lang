@@ -1,10 +1,9 @@
 package spatial.codegen.scalagen
 
-import spatial.analysis.NodeClasses
-import spatial.api.UnrolledExp
+import spatial.SpatialExp
 
 trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
-  val IR: UnrolledExp with NodeClasses
+  val IR: SpatialExp
   import IR._
 
   def getStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
@@ -23,7 +22,17 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
     for (i <- iters.indices) {
       if (isForever(ctrs(i))) {
         val inputs = getStreamsAndFIFOs(lhs)
-        open(src"while(" + inputs.map(quote).map(_ + ".nonEmpty").mkString(" || ") + ") {")
+        if (inputs.nonEmpty) {
+          emit(src"def hasItems_$lhs: Boolean = " + inputs.map(quote).map(_ + ".nonEmpty").mkString(" || "))
+        }
+        else {
+          emit(s"""print("No Stream inputs detected for loop at ${lhs.ctx}. Enter number of iterations: ")""")
+          emit(src"val ${lhs}_iters_$i = Console.readLine.toInt")
+          emit(src"var ${lhs}_ctr_$i = 0")
+          emit(src"def hasItems_$lhs: Boolean = { val has = ${lhs}_ctr_$i < ${lhs}_iters_$i ; ${lhs}_ctr_$i += 1; has }")
+        }
+
+        open(src"while(hasItems_$lhs) {")
         iters(i).zipWithIndex.foreach { case (iter, j) => emit(src"val $iter = Number(1,true,FixedPoint(true,32,0))") }
         valids(i).zipWithIndex.foreach { case (valid, j) => emit(src"val $valid = Bit(true,true)") }
       }

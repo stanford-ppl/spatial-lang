@@ -1,12 +1,10 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.UnrolledExp
-import spatial.SpatialConfig
-import spatial.analysis.NodeClasses
+import spatial.{SpatialConfig, SpatialExp}
 
 trait CppGenUnrolled extends CppCodegen {
-  val IR: UnrolledExp with NodeClasses
+  val IR: SpatialExp
   import IR._
 
   private def emitUnrolledLoop(

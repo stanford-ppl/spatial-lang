@@ -17,7 +17,7 @@ trait RegApi extends RegExp {
 }
 
 
-trait RegExp extends Staging with MemoryExp {
+trait RegExp extends Staging {
   this: SpatialExp =>
 
   /** Infix methods **/
@@ -74,33 +74,23 @@ trait RegExp extends Staging with MemoryExp {
   }
 
   /** Constructors **/
-  def argin_alloc[T:Type:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
-    stageMutable( ArgInNew[T](init) )(ctx)
-  }
-  def argout_alloc[T:Type:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
-    stageMutable( ArgOutNew[T](init) )(ctx)
-  }
+  @internal def argin_alloc[T:Type:Bits](init: Exp[T]): Sym[Reg[T]] = stageMutable( ArgInNew[T](init) )(ctx)
+  @internal def argout_alloc[T:Type:Bits](init: Exp[T]): Sym[Reg[T]] = stageMutable( ArgOutNew[T](init) )(ctx)
 
-  def reg_alloc[T:Type:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
+  private[spatial] def reg_alloc[T:Type:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
     stageMutable( RegNew[T](init) )(ctx)
   }
 
-  def reg_read[T:Type:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = stageCold( RegRead(reg) )(ctx)
+  private[spatial] def reg_read[T:Type:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = stageCold( RegRead(reg) )(ctx)
 
-  def reg_write[T:Type:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
+  private[spatial] def reg_write[T:Type:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
     stageWrite(reg)( RegWrite(reg, data, en) )(ctx)
   }
 
 
   /** Internal methods **/
-  private[spatial] def isArgIn(x: Exp[_]): Boolean = x match {
-    case Op(ArgInNew(_)) => true
-    case _ => false
-  }
-  private[spatial] def isArgOut(x: Exp[_]): Boolean = x match {
-    case Op(ArgOutNew(_)) => true
-    case _ => false
-  }
+  private[spatial] def isArgIn(x: Exp[_]): Boolean = getDef(x).exists{case ArgInNew(_) => true; case _ => false }
+  private[spatial] def isArgOut(x: Exp[_]): Boolean = getDef(x).exists{case ArgOutNew(_) => true; case _ => false }
 
   private[spatial] sealed abstract class RegisterType
   private[spatial] case object Regular     extends RegisterType

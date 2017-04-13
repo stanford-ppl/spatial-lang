@@ -9,10 +9,10 @@ import spatial.{SpatialApi, SpatialExp}
 //   If view is unstaged, requires unwrapping prior to use in result of Blocks / use as dependencies
 //   However, if view is staged, have mutable sharing..
 
-trait ControllerApi extends ControllerExp with RegApi {
-  this: SpatialExp =>
+trait ControllerApi extends ControllerExp {
+  this: SpatialApi =>
 
-  protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T], fold: Boolean) {
+  protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T], fold: scala.Boolean) {
     /** 1 dimensional memory reduction **/
     def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Type[T], bT: Bits[T], mC: Type[C[T]]): C[T] = {
       mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
@@ -39,13 +39,13 @@ trait ControllerApi extends ControllerExp with RegApi {
   }
 
   protected case class MemReduceClass(style: ControlStyle) {
-    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, false)
-    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), false)
+    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, fold = false)
+    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), fold = false)
   }
 
   protected case class MemFoldClass(style: ControlStyle) {
-    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, true)
-    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), true)
+    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, fold = true)
+    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), fold = true)
   }
 
 
@@ -83,10 +83,10 @@ trait ControllerApi extends ControllerExp with RegApi {
     import org.virtualized.SourceContext
     /** Reduction with implicit accumulator **/
     // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-    def apply(zero: Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, Some(lift[Int,Int32](zero)), None)
-    def apply(zero: Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, Some(lift[Long,Int64](zero)), None)
-    def apply(zero: Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, Some(lift[Float,Float32](zero)), None)
-    def apply(zero: Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, Some(lift[Double,Float64](zero)), None)
+    def apply(zero: scala.Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, Some(lift[Int,Int32](zero)), None)
+    def apply(zero: scala.Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, Some(lift[Long,Int64](zero)), None)
+    def apply(zero: scala.Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, Some(lift[Float,Float32](zero)), None)
+    def apply(zero: scala.Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, Some(lift[Double,Float64](zero)), None)
 
     //def apply(zero: FixPt[_,_,_]) = new ReduceAccum(Reg[FixPt[S,I,F]](zero), style)
     //def apply(zero: FltPt[_,_]) = new ReduceAccum(Reg[FltPt[G,E]](zero), style)
@@ -100,10 +100,10 @@ trait ControllerApi extends ControllerExp with RegApi {
     import org.virtualized.SourceContext
     /** Fold with implicit accumulator **/
     // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-    def apply(zero: Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, None, Some(lift[Int,Int32](zero)))
-    def apply(zero: Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, None, Some(lift[Long,Int64](zero)))
-    def apply(zero: Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, None, Some(lift[Float,Float32](zero)))
-    def apply(zero: Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, None, Some(lift[Double,Float64](zero)))
+    def apply(zero: scala.Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, None, Some(lift[Int,Int32](zero)))
+    def apply(zero: scala.Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, None, Some(lift[Long,Int64](zero)))
+    def apply(zero: scala.Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, None, Some(lift[Float,Float32](zero)))
+    def apply(zero: scala.Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, None, Some(lift[Double,Float64](zero)))
 
     def apply[T](accum: Reg[T]) = {
       val sty = if (style == InnerPipe) MetaPipe else style
@@ -197,7 +197,7 @@ trait ControllerApi extends ControllerExp with RegApi {
   }
 }
 
-trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp with SpatialMetadataExp {
+trait ControllerExp extends Staging {
   this: SpatialExp =>
 
   /** API **/

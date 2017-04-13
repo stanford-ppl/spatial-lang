@@ -9,14 +9,10 @@ trait BitsOpsApi extends BitOpsExp {
   this: SpatialExp =>
 }
 
-trait BitOpsExp extends Staging with BitsExp {
+trait BitOpsExp extends Staging {
   this: SpatialExp =>
 
   type BitVector = VectorN[Bool]
-
-  trait Convert[B] {
-    def apply(x: BitVector)(implicit ctx: SrcCtx): B
-  }
 
   implicit class DataConversionOps[A:Meta:Bits](x: A) {
     @api def apply(i: Int): Bool = dataAsBitVector(x).apply(i)
@@ -166,11 +162,11 @@ trait BitOpsExp extends Staging with BitsExp {
       warn(ctx, u"Bit length mismatch in conversion between ${typ[A]} and ${typ[B]}.")
 
     if (lenA < lenB) {
-      warn(s"Bits (${lenB}::${lenB - lenA}) will be set to zero in result.")
+      warn(s"Bits (${lenB}::${lenA}) will be set to zero in result.")
       warn(ctx)
     }
     else if (lenA > lenB) {
-      warn(s"Bits (${lenA}::${lenA - lenB}) will be dropped.")
+      warn(s"Bits (${lenA}::${lenB}) will be dropped.")
       warn(ctx)
     }
   }

@@ -16,15 +16,17 @@ import forge._
 // may require a Range which is not a StridedRange?
 // :: this distinction is silly, only using one type
 
-trait RangeLowPriorityImplicits { this: RangeApi =>
+trait RangeLowPriorityImplicits {
+  this: SpatialExp =>
+
   // Have to make this a lower priority, otherwise seems to prefer this + Range infix op over the implicit class on Index
   implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range = index_to_range(x)
 }
 
-trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
+trait RangeApi extends RangeExp with RangeLowPriorityImplicits {
   this: SpatialExp =>
 
-  def *()(implicit ctx: SrcCtx) = Wildcard()
+  @api def *() = Wildcard()
 
   implicit class IndexRangeOps(x: Index) {
     private def lft(x: Int)(implicit ctx: SrcCtx) = lift[Int,Index](x)
@@ -57,16 +59,10 @@ trait RangeApi extends RangeExp with MemoryApi with RangeLowPriorityImplicits {
 
   // Implicitly get value of register to use in counter definitions
   implicit def regToIndexRange(x: Reg[Index])(implicit ctx: SrcCtx): IndexRangeOps = IndexRangeOps(x.value)
-
-  /*@api def Range(start: Index, end: Index, stride: Index, par: Index): Range = {
-    range_alloc(Some(start), end, Some(stride), Some(par))
-  }*/
 }
 
 
-
-
-trait RangeExp extends Staging with MemoryExp {
+trait RangeExp extends Staging {
   this: SpatialExp =>
 
   implicit class IndexRangeInternalOps(x: Index) {
@@ -127,7 +123,7 @@ trait RangeExp extends Staging with MemoryExp {
   )*/
 
   /** Constructors **/
-  def range_foreach(start: Exp[Index], end: Exp[Index], step: Exp[Index], func: => Exp[Void], i: Bound[Index])(implicit ctx: SrcCtx) = {
+  @internal def range_foreach(start: Exp[Index], end: Exp[Index], step: Exp[Index], func: => Exp[Void], i: Bound[Index]) = {
     val fBlk = stageBlock { func }
     val effects = fBlk.summary
     stageEffectful(RangeForeach(start, end, step, fBlk, i), effects)(ctx)

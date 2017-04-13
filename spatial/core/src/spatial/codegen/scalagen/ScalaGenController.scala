@@ -4,9 +4,11 @@ import argon.codegen.scalagen.ScalaCodegen
 import spatial.SpatialExp
 import spatial.api.ControllerExp
 
-trait ScalaGenController extends ScalaCodegen with ScalaGenStream {
+trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenMemories {
   val IR: SpatialExp
   import IR._
+
+  def localMems: List[Exp[_]]
 
   private def emitNestedLoop(lhs: Exp[_], cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
     for (i <- iters.indices)
@@ -19,6 +21,10 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
+      enableMemGen = true
+      localMems.foreach{case lhs@Op(rhs) => if (!isOffChipMemory(lhs)) emitNode(lhs.asInstanceOf[Sym[_]], rhs) }
+      enableMemGen = false
+
       emit(src"/** BEGIN HARDWARE BLOCK $lhs **/")
       if (!isForever) {
         open(src"val $lhs = {")
@@ -26,14 +32,22 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream {
         close("}")
       }
       else {
-        emit(src"def hasItems = " + streamIns.map(quote).map(_ + ".nonEmpty").mkString(" || "))
+        if (streamIns.nonEmpty) {
+          emit(src"def hasItems = " + streamIns.map(quote).map(_ + ".nonEmpty").mkString(" || "))
+        }
+        else {
+          emit(s"""print("No Stream inputs detected for loop at ${lhs.ctx}. Enter number of iterations: ")""")
+          emit(src"val ${lhs}_iters = Console.readLine.toInt")
+          emit(src"var ${lhs}_ctr = 0")
+          emit(src"def hasItems: Boolean = { val has = ${lhs}_ctr < ${lhs}_iters ; ${lhs}_ctr += 1; has }")
+        }
         open(src"while(hasItems) {")
           emitBlock(func)
         close("}")
         emit(src"val $lhs = ()")
       }
-      streamOuts.foreach{x =>
-        emit(src"print_$x()") // HACK: Print out streams after block finishes running
+      streamOuts.foreach{case x@Def(StreamOutNew(bus)) =>
+        if (!bus.isInstanceOf[DRAMBus[_]]) emit(src"print_$x()") // HACK: Print out streams after block finishes running
       }
       emit(src"/** END HARDWARE BLOCK $lhs **/")
 

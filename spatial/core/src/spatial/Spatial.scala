@@ -27,7 +27,7 @@ protected trait SpatialExp extends Staging
   with TextExp with TupleExp with VoidExp with MatrixExp
   with DebuggingExp with TemplatesExp with BitOpsExp with FileIOExp
 
-  with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
+  with ControllerExp with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
   with StreamExp with PinExp with AlteraVideoExp
   with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
@@ -57,7 +57,7 @@ protected trait SpatialApi extends SpatialExp
   with TextApi with TupleApi with VoidApi with MatrixApi
   with DebuggingApi with BitsOpsApi
 
-  with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
+  with ControllerApi with CounterApi with DRAMApi with DRAMTransferApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
   with StreamApi with PinApi with AlteraVideoApi
   with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
@@ -172,8 +172,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val bufferAnalyzer = new BufferAnalyzer { val IR: self.type = self; def localMems = uctrlAnalyzer.localMems }
   lazy val streamAnalyzer = new StreamAnalyzer { 
     val IR: self.type = self ;
-    def streamPipes = uctrlAnalyzer.streampipes;
-    def streamEnablers = uctrlAnalyzer.streamEnablers;
+    def streamPipes = uctrlAnalyzer.streampipes
+    def streamEnablers = uctrlAnalyzer.streamEnablers
     def streamHolders = uctrlAnalyzer.streamHolders 
     def streamLoadCtrls = uctrlAnalyzer.streamLoadCtrls 
     def streamParEnqs = uctrlAnalyzer.streamParEnqs
@@ -181,7 +181,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
 
   lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argPorts = uctrlAnalyzer.argPorts; def genericStreams = uctrlAnalyzer.genericStreams;}
 
-  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSim }
+  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSim; def localMems = uctrlAnalyzer.localMems }
   lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
   lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
   lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
@@ -275,11 +275,11 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
     passes += controlSanityCheck
 
     // --- Code generation
-    passes += scalagen
-    passes += chiselgen
-    passes += pirgen
-    passes += cppgen
-    passes += treegen
+    if (SpatialConfig.enableSim)   passes += scalagen
+    if (SpatialConfig.enableSynth) passes += cppgen
+    if (SpatialConfig.enableSynth) passes += chiselgen
+    if (SpatialConfig.enablePIR)   passes += pirgen
+    if (SpatialConfig.enableTree)  passes += treegen
   }
 }
 
@@ -299,12 +299,12 @@ trait SpatialApp extends AppCore {
     val parser = new SpatialArgParser
     parser.parse(args) match {
       case None =>
-        println("Nothing generated")
-        sys.exit(0)
+        //IR.warn("No code generators enabled. Use --sim or --synth to enable generation.")
+        //sys.exit(0)
       case _ =>
         //println(argon.Config.conf)
-        println(SpatialConfig.spatialConf)
-        println("Starting generation")
+        //println(SpatialConfig.spatialConf)
+        //println("Starting generation")
     }
   }
 }

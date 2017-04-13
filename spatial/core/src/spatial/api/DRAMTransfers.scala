@@ -1,24 +1,23 @@
 package spatial.api
 
 import argon.core.Staging
-import argon.ops.CastApi
 import org.virtualized._
-import spatial.SpatialExp
+import spatial._
 import forge._
 
-trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi with CastApi with RangeApi with PinApi with StreamApi {
-  this: SpatialExp =>
+trait DRAMTransferApi extends DRAMTransferExp {
+  this: SpatialApi =>
 
   /** Internals **/
   // Expansion rule for CoarseBurst -  Use coarse_burst(tile,onchip,isLoad) for anything in the frontend
-  private[spatial] def copy_dense[T:Meta:Bits,C[T]](
+  @internal def copy_dense[T:Meta:Bits,C[T]](
     offchip: Exp[DRAM[T]],
     onchip:  Exp[C[T]],
     ofs:     Seq[Exp[Index]],
     lens:    Seq[Exp[Index]],
-    units:   Seq[Boolean],
+    units:   Seq[scala.Boolean],
     par:     Const[Index],
-    isLoad:  Boolean
+    isLoad:  scala.Boolean
   )(implicit mem: Mem[T,C], mC: Meta[C[T]], mD: Meta[DRAM[T]], ctx: SrcCtx): Void = {
 
     val unitDims = units
@@ -242,13 +241,13 @@ trait DRAMTransferApi extends DRAMTransferExp with ControllerApi with FIFOApi wi
   }
 
 
-  private[spatial] def copy_sparse[T:Meta:Bits](
+  @internal def copy_sparse[T:Meta:Bits](
     offchip:   Exp[DRAM[T]],
     onchip:    Exp[SRAM1[T]],
     addresses: Exp[SRAM1[Index]],
     size:      Exp[Index],
     par:       Const[Index],
-    isLoad:    Boolean
+    isLoad:    scala.Boolean
   )(implicit mD: Meta[DRAM[T]], ctx: SrcCtx): Void = {
     val local = SRAM1(onchip)
     val addrs = SRAM1(addresses)
@@ -329,11 +328,11 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
 
   /** Internal **/
 
-  def dense_transfer[T:Meta:Bits,C[_]](
+  @internal def dense_transfer[T:Meta:Bits,C[_]](
     tile:   DRAMDenseTile[T],
     local:  C[T],
     isLoad: Boolean
-  )(implicit mem: Mem[T,C], mC: Meta[C[T]], ctx: SrcCtx): Void = {
+  )(implicit mem: Mem[T,C], mC: Meta[C[T]]): Void = {
     implicit val mD: Meta[DRAM[T]] = tile.dram.tp
 
     // Extract range lengths early to avoid unit pipe insertion eliminating rewrite opportunities
@@ -355,11 +354,11 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     Void(op_dense_transfer(dram,local.s,ofs,lens,units,p,isLoad,iters))
   }
 
-  def sparse_transfer[T:Meta:Bits](
+  @internal def sparse_transfer[T:Meta:Bits](
     tile:   DRAMSparseTile[T],
     local:  SRAM1[T],
     isLoad: Boolean
-  )(implicit ctx: SrcCtx): Void = {
+  ): Void = {
     implicit val mD: Meta[DRAM[T]] = tile.dram.tp
 
     val p = extractParFactor(local.p)
@@ -369,7 +368,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
   }
 
   // Defined in API
-  private[spatial] def copy_dense[T:Meta:Bits,C[T]](
+  @internal def copy_dense[T:Meta:Bits,C[T]](
     offchip: Exp[DRAM[T]],
     onchip:  Exp[C[T]],
     ofs:     Seq[Exp[Index]],
@@ -379,7 +378,7 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     isLoad:  Boolean
   )(implicit mem: Mem[T,C], mC: Type[C[T]], mD: Meta[DRAM[T]], ctx: SrcCtx): Void
 
-  private[spatial] def copy_sparse[T:Meta:Bits](
+  @internal def copy_sparse[T:Meta:Bits](
     offchip:   Exp[DRAM[T]],
     onchip:    Exp[SRAM1[T]],
     addresses: Exp[SRAM1[Index]],
@@ -518,36 +517,36 @@ trait DRAMTransferExp extends Staging { this: SpatialExp =>
     out
   }
 
-  private[spatial] def fringe_dense_load[T:Meta:Bits](
+  @internal def fringe_dense_load[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     cmdStream:  Exp[StreamOut[BurstCmd]],
     dataStream: Exp[StreamIn[T]]
-  )(implicit ctx: SrcCtx): Exp[Void] = {
+  ): Exp[Void] = {
     stageCold(FringeDenseLoad(dram,cmdStream,dataStream))(ctx)
   }
 
-  private[spatial] def fringe_dense_store[T:Meta:Bits](
+  @internal def fringe_dense_store[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     cmdStream:  Exp[StreamOut[BurstCmd]],
     dataStream: Exp[StreamOut[Tup2[T,Bool]]],
     ackStream:  Exp[StreamIn[Bool]]
-  )(implicit ctx: SrcCtx): Exp[Void] = {
+  ): Exp[Void] = {
     stageCold(FringeDenseStore(dram,cmdStream,dataStream,ackStream))(ctx)
   }
 
-  private[spatial] def fringe_sparse_load[T:Meta:Bits](
+  @internal def fringe_sparse_load[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     addrStream: Exp[StreamOut[Index]],
     dataStream: Exp[StreamIn[T]]
-  )(implicit ctx: SrcCtx): Exp[Void] = {
+  ): Exp[Void] = {
     stageCold(FringeSparseLoad(dram,addrStream,dataStream))(ctx)
   }
 
-  private[spatial] def fringe_sparse_store[T:Meta:Bits](
+  @internal def fringe_sparse_store[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
     cmdStream: Exp[StreamOut[Tup2[T,Index]]],
     ackStream: Exp[StreamIn[Bool]]
-  )(implicit ctx: SrcCtx): Exp[Void] = {
+  ): Exp[Void] = {
     stageCold(FringeSparseStore(dram,cmdStream,ackStream))(ctx)
   }
 

@@ -1,11 +1,12 @@
 package spatial.codegen.scalagen
 
-import spatial.api.{RegisterFileExp, SRAMExp, VectorExp}
+import argon.ops.FixPtExp
+import spatial.api.{RegisterFileExp, VectorExp}
 import org.virtualized.SourceContext
 import spatial.analysis.NodeClasses
 
-trait ScalaGenRegFile extends ScalaGenSRAM {
-  val IR: SRAMExp with RegisterFileExp with VectorExp with NodeClasses
+trait ScalaGenRegFile extends ScalaGenMemories {
+  val IR: FixPtExp with RegisterFileExp with VectorExp with NodeClasses
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -30,7 +31,7 @@ trait ScalaGenRegFile extends ScalaGenSRAM {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@RegFileNew(dims) => emit(src"val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})")
+    case op@RegFileNew(dims) => if (enableMemGen) emit(src"val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})")
     case op@RegFileLoad(rf,inds,en) =>
       val dims = stagedDimsOf(rf)
       open(src"val $lhs = {")

@@ -1,9 +1,19 @@
 package spatial.codegen.scalagen
 
+import argon.core.Staging
+import argon.ops.FixPtExp
 import org.virtualized.SourceContext
 
 trait ScalaGenMemories extends ScalaGenBits {
+  val IR: Staging with FixPtExp
   import IR._
+
+  var enableMemGen: Boolean = false
+
+  def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {
+    val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }
+    indices.zip(strides).map{case (i,s) => src"$i*$s" }.mkString(" + ") + ofs.map{o => src" + $o"}.getOrElse("")
+  }
 
   private def oob(tp: Type[_], mem: Exp[_], lhs: Exp[_], inds: Seq[Exp[_]], pre: String, post: String, isRead: Boolean)(lines: => Unit) = {
     val name = u"$mem"

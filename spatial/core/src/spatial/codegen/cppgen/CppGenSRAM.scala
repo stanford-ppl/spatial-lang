@@ -1,10 +1,12 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
+import argon.ops.FixPtExp
 import spatial.api.SRAMExp
 import spatial.SpatialConfig
+
 trait CppGenSRAM extends CppCodegen {
-  val IR: SRAMExp
+  val IR: SRAMExp with FixPtExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

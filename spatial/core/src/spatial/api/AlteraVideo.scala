@@ -1,23 +1,24 @@
 package spatial.api
 
 import argon.core.Staging
-import spatial.SpatialExp
+import spatial._
+import forge._
 
 // TODO: Is this still used by anything? If not, delete
-trait AlteraVideoApi extends AlteraVideoExp with ControllerApi with FIFOApi with RangeApi with PinApi{
-  this: SpatialExp =>
+trait AlteraVideoApi extends AlteraVideoExp {
+  this: SpatialApi =>
 
-  def AXI_Master_Slave()(implicit ctx: SrcCtx): AXI_Master_Slave = AXI_Master_Slave(axi_ms_alloc())
+  @api def AXI_Master_Slave(): AXI_Master_Slave = AXI_Master_Slave(axi_ms_alloc())
 
-  def Decoder_Template[T:Type:Bits](popFrom: StreamIn[T], pushTo: FIFO[T])(implicit ctx: SrcCtx): Decoder_Template[T] = {
+  @api def Decoder_Template[T:Type:Bits](popFrom: StreamIn[T], pushTo: FIFO[T]): Decoder_Template[T] = {
     Decoder_Template(decoder_alloc[T](popFrom.s.asInstanceOf[Exp[T]], pushTo.s.asInstanceOf[Exp[T]]))
   }
 
-  def DMA_Template[T:Type:Bits](popFrom: FIFO[T], loadIn: SRAM1[T])(implicit ctx: SrcCtx): DMA_Template[T] = {
+  @api def DMA_Template[T:Type:Bits](popFrom: FIFO[T], loadIn: SRAM1[T]): DMA_Template[T] = {
     DMA_Template(dma_alloc[T](popFrom.s.asInstanceOf[Exp[T]], loadIn.s.asInstanceOf[Exp[T]]))
   }
 
-  def Decoder[T:Type:Bits,C[T]](popFrom: StreamIn[T], pushTo: FIFO[T])(implicit ctx: SrcCtx): Void = {
+  @api def Decoder[T:Type:Bits,C[T]](popFrom: StreamIn[T], pushTo: FIFO[T]): Void = {
     Pipe { 
       Decoder_Template(popFrom, pushTo)
       popFrom.value()
@@ -26,7 +27,7 @@ trait AlteraVideoApi extends AlteraVideoExp with ControllerApi with FIFOApi with
     }
   }
 
-  def DMA[T:Type:Bits](popFrom: FIFO[T], loadIn: SRAM1[T] /*frameRdy:  StreamOut[T]*/)(implicit ctx: SrcCtx): Void = {
+  @api def DMA[T:Type:Bits](popFrom: FIFO[T], loadIn: SRAM1[T] /*frameRdy:  StreamOut[T]*/): Void = {
     Pipe {
       DMA_Template(popFrom, loadIn)
       Foreach(64 by 1){ i =>
@@ -42,7 +43,7 @@ trait AlteraVideoApi extends AlteraVideoExp with ControllerApi with FIFOApi with
 }
 
 
-trait AlteraVideoExp extends Staging with MemoryExp {
+trait AlteraVideoExp extends Staging {
   this: SpatialExp =>
 
   /** Infix methods **/
@@ -93,13 +94,13 @@ trait AlteraVideoExp extends Staging with MemoryExp {
   }
 
   /** Constructors **/
-  def axi_ms_alloc()(implicit ctx: SrcCtx): Sym[AXI_Master_Slave] = {
+  @internal def axi_ms_alloc(): Sym[AXI_Master_Slave] = {
     stageSimple( AxiMSNew() )(ctx)
   }
-  def decoder_alloc[T:Type:Bits](popFrom: Exp[T], pushTo: Exp[T])(implicit ctx: SrcCtx): Sym[Decoder_Template[T]] = {
+  @internal def decoder_alloc[T:Type:Bits](popFrom: Exp[T], pushTo: Exp[T]): Sym[Decoder_Template[T]] = {
     stageSimple( DecoderTemplateNew[T](popFrom, pushTo) )(ctx)
   }
-  def dma_alloc[T:Type:Bits](popFrom: Exp[T], loadIn: Exp[T])(implicit ctx: SrcCtx): Sym[DMA_Template[T]] = {
+  @internal def dma_alloc[T:Type:Bits](popFrom: Exp[T], loadIn: Exp[T]): Sym[DMA_Template[T]] = {
     stageSimple( DMATemplateNew[T](popFrom, loadIn) )(ctx)
   }
 

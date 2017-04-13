@@ -46,13 +46,10 @@ trait MathApi extends MathExp {
 }
 
 
-trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions {
+trait MathExp extends Staging {
   this: SpatialExp =>
 
-  @api def mux[T:Meta:Bits](select: Bool, a: T, b: T): T = {
-    wrap( math_mux(select.s, a.s, b.s) )
-  }
-
+  @api def mux[T:Meta:Bits](select: Bool, a: T, b: T): T = wrap( math_mux(select.s, a.s, b.s) )
   @api def min[T:Meta:Bits:Order](a: T, b: T): T = wrap( math_min(a.s, b.s) )
   @api def max[T:Meta:Bits:Order](a: T, b: T): T = wrap( math_max(a.s, b.s) )
 
@@ -69,6 +66,17 @@ trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions
     }
   }
 
+  @api def reduceTree[T](xs: Seq[T])(reduce: (T,T) => T): T = reduceTreeLevel(xs, reduce).head
+
+  @api def productTree[T:Num](xs: Seq[T]): T = {
+    if (xs.isEmpty) one[T] else reduceTree(xs){(a,b) => num[T].times(a,b) }
+  }
+
+  @api def sumTree[T:Num](xs: Seq[T]): T = {
+    if (xs.isEmpty) zero[T] else reduceTree(xs){(a,b) => num[T].plus(a,b) }
+  }
+
+
   /** IR Nodes **/
   case class FixAbs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]) extends FixPtOp[S,I,F] { def mirror(f:Tx) = fix_abs(f(x)) }
 
@@ -82,34 +90,34 @@ trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions
   case class Max[T:Type:Bits:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_max(f(a),f(b)) }
 
   /** Constructors **/
-  def fix_abs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]])(implicit ctx: SrcCtx): Exp[FixPt[S,I,F]] = x match {
+  @internal def fix_abs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]): Exp[FixPt[S,I,F]] = x match {
     case Const(c: BigDecimal) => fixpt[S,I,F](c.abs)
     case _ => stage(FixAbs(x))(ctx)
   }
 
-  def flt_abs[G:INT,E:INT](x: Exp[FltPt[G,E]])(implicit ctx: SrcCtx): Exp[FltPt[G,E]] = x match {
-    case Const(c:BigDecimal) => fltpt[G,E](c.abs)
+  @internal def flt_abs[G:INT,E:INT](x: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = x match {
+    case Const(c: BigDecimal) => fltpt[G,E](c.abs)
     case _ => stage(FltAbs(x))(ctx)
   }
-  def flt_log[G:INT,E:INT](x: Exp[FltPt[G,E]])(implicit ctx: SrcCtx): Exp[FltPt[G,E]] = x match {
+  @internal def flt_log[G:INT,E:INT](x: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = x match {
     //case Const(c:BigDecimal) => fltpt[G,E](???) TODO: log of BigDecimal? Change representation?
     case _ => stage(FltLog(x))(ctx)
   }
-  def flt_exp[G:INT,E:INT](x: Exp[FltPt[G,E]])(implicit ctx: SrcCtx): Exp[FltPt[G,E]] = x match {
+  @internal def flt_exp[G:INT,E:INT](x: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = x match {
     //case Const(c:BigDecimal) => fltpt[G,E](???)
     case _ => stage(FltExp(x))(ctx)
   }
-  def flt_sqrt[G:INT,E:INT](x: Exp[FltPt[G,E]])(implicit ctx: SrcCtx): Exp[FltPt[G,E]] = x match {
+  @internal def flt_sqrt[G:INT,E:INT](x: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = x match {
     //case Const(c: BigDecimal) => fltpt[G,E](???)
     case _ => stage(FltSqrt(x))(ctx)
   }
 
-  def math_mux[T:Type:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = select match {
+  @util def math_mux[T:Type:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T]): Exp[T] = select match {
     case Const(true) => a
     case Const(false) => b
     case _ => stage(Mux(select,a,b))(ctx)
   }
-  def math_min[T:Type:Bits:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
+  @internal def math_min[T:Type:Bits:Order](a: Exp[T], b: Exp[T]): Exp[T] = (a,b) match {
     case (Const(_),Const(_)) => implicitly[Order[T]].lessThan(wrap(a),wrap(b)).s match {
       case Const(true) => a
       case Const(false) => b
@@ -117,7 +125,7 @@ trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions
     }
     case _ => stage(Min(a, b))(ctx)
   }
-  def math_max[T:Type:Bits:Order](a: Exp[T], b: Exp[T])(implicit ctx: SrcCtx): Exp[T] = (a,b) match {
+  @internal def math_max[T:Type:Bits:Order](a: Exp[T], b: Exp[T]): Exp[T] = (a,b) match {
     case (Const(_),Const(_)) => implicitly[Order[T]].lessThan(wrap(b),wrap(a)).s match {
       case Const(true) => a
       case Const(false) => b
@@ -128,19 +136,10 @@ trait MathExp extends Staging with FixPtExp with FltPtExp with SpatialExceptions
 
 
   /** Internals **/
-  private def reduceTreeLevel[T](xs: Seq[T], reduce: (T,T) => T)(implicit ctx: SrcCtx): Seq[T] = xs.length match {
+  @internal def reduceTreeLevel[T](xs: Seq[T], reduce: (T,T) => T): Seq[T] = xs.length match {
     case 0 => throw new EmptyReductionTreeLevelException()(ctx)
     case 1 => xs
     case len if len % 2 == 0 => reduceTreeLevel(List.tabulate(len/2){i => reduce( xs(2*i), xs(2*i+1)) }, reduce)
     case len => reduceTreeLevel(List.tabulate(len/2){i => reduce( xs(2*i), xs(2*i+1)) } :+ xs.last, reduce)
-  }
-
-  def reduceTree[T](xs: Seq[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx): T = reduceTreeLevel(xs, reduce).head
-
-  def productTree[T:Num](xs: Seq[T])(implicit ctx: SrcCtx): T = {
-    if (xs.isEmpty) one[T] else reduceTree(xs){(a,b) => num[T].times(a,b) }
-  }
-  def sumTree[T:Num](xs: Seq[T])(implicit ctx: SrcCtx): T = {
-    if (xs.isEmpty) zero[T] else reduceTree(xs){(a,b) => num[T].plus(a,b) }
   }
 }

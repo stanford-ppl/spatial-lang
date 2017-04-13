@@ -75,8 +75,8 @@ trait ScalaGenStream extends ScalaGenMemories {
             emit(src"sys.exit(1)")
           close("}")
         close("}")
+        emit(src"populate_$lhs()")
       }
-      emit(src"populate_$lhs()")
 
     case op@StreamOutNew(bus) =>
       streamOuts :+= lhs

@@ -15,7 +15,7 @@ trait SRAMApi extends SRAMExp {
 }
 
 
-trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with SpatialExceptions {
+trait SRAMExp extends Staging {
   this: SpatialExp =>
 
   /** Infix methods **/
@@ -151,24 +151,24 @@ trait SRAMExp extends Staging with MemoryExp with RangeExp with MathExp with Spa
   }
 
   /** Constructors **/
-  def sram_alloc[T:Type:Bits,C[_]<:SRAM[_]](dims: Exp[Index]*)(implicit ctx: SrcCtx, mC: Type[C[T]]): Exp[C[T]] = {
+  @internal def sram_alloc[T:Type:Bits,C[_]<:SRAM[_]](dims: Exp[Index]*)(implicit mC: Type[C[T]]): Exp[C[T]] = {
     stageMutable( SRAMNew[T,C](dims) )(ctx)
   }
-  def sram_load[T:Type:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[T] = {
+  @internal def sram_load[T:Type:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bool]): Exp[T] = {
     if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)(ctx)
     stage( SRAMLoad(sram, dims, indices, ofs, en) )(ctx)
   }
-  def sram_store[T:Type:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
+  @internal def sram_store[T:Type:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bool]): Exp[Void] = {
     if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)(ctx)
     stageWrite(sram)( SRAMStore(sram, dims, indices, ofs, data, en) )(ctx)
   }
 
   /** Internal Methods **/
-  def flatIndex(indices: Seq[Index], dims: Seq[Index])(implicit ctx: SrcCtx): Index = {
+  private[spatial] def flatIndex(indices: Seq[Index], dims: Seq[Index])(implicit ctx: SrcCtx): Index = {
     val strides = List.tabulate(dims.length){d => productTree(dims.drop(d+1)) }
     sumTree(indices.zip(strides).map{case (a,b) => a*b })
   }
 
-  def constDimsToStrides(dims: Seq[Int]): Seq[Int] = List.tabulate(dims.length){d => dims.drop(d + 1).product}
+  private[spatial] def constDimsToStrides(dims: Seq[Int]): Seq[Int] = List.tabulate(dims.length){d => dims.drop(d + 1).product}
 
 }

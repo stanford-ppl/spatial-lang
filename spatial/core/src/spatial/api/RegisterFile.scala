@@ -1,7 +1,5 @@
 package spatial.api
 
-import org.virtualized.CurriedUpdate
-import org.virtualized.SourceContext
 import argon.core.Staging
 import spatial.SpatialExp
 import forge._
@@ -137,44 +135,44 @@ trait RegisterFileExp extends Staging {
 
 
   /** Constructors **/
-  private[spatial] def regfile_new[T:Type:Bits,C[_]<:RegFile[_]](dims: Exp[Index]*)(implicit cT: Type[C[T]], ctx: SrcCtx) = {
+  @internal def regfile_new[T:Type:Bits,C[_]<:RegFile[_]](dims: Exp[Index]*)(implicit cT: Type[C[T]]) = {
     stageMutable(RegFileNew[T,C](dims))(ctx)
   }
 
-  private[spatial] def regfile_load[T:Type:Bits](
+  @internal def regfile_load[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     en:   Exp[Bool]
-  )(implicit ctx: SrcCtx) = {
+  ) = {
     stageCold(RegFileLoad(reg, inds, en))(ctx)
   }
 
-  private[spatial] def regfile_store[T:Type:Bits](
+  @internal def regfile_store[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     data: Exp[T],
     en:   Exp[Bool]
-  )(implicit ctx: SrcCtx) = {
+  ) = {
     stageWrite(reg)(RegFileStore(reg, inds, data, en))(ctx)
   }
 
-  private[spatial] def regfile_shiftin[T:Type:Bits](
+  @internal def regfile_shiftin[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     dim:  Int,
     data: Exp[T],
     en:   Exp[Bool]
-  )(implicit ctx: SrcCtx) = {
+  ) = {
     stageWrite(reg)(RegFileShiftIn(reg, inds, dim, data, en))(ctx)
   }
 
-  private[spatial] def par_regfile_shiftin[T:Type:Bits](
+  @internal def par_regfile_shiftin[T:Type:Bits](
     reg:  Exp[RegFile[T]],
     inds: Seq[Exp[Index]],
     dim:  Int,
     data: Exp[Vector[T]],
     en:   Exp[Bool]
-  )(implicit ctx: SrcCtx) = {
+  ) = {
     stageWrite(reg)(ParRegFileShiftIn(reg, inds, dim, data, en))(ctx)
   }
 }
