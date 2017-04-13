@@ -30,11 +30,11 @@ object FSMExample extends SpatialApp {
       // Version 1
       FSM[Int]{state => true }{state =>
         if (state >= H*W) {
-          val pixel = input.value
+          val pixel = input.value()
           output := BGR(pixel.b, pixel.g, pixel.r)
         }
         else {
-          val pixel = input.value
+          val pixel = input.value()
           val gray = (pixel.r.to[UINT8] + pixel.g.to[UINT8] + pixel.b.to[UINT8]) / 3
           output := BGR(gray.to[UINT5], gray.to[UINT6], gray.to[UINT5])
         }

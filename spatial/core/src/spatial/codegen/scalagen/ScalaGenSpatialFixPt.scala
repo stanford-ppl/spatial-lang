@@ -34,6 +34,10 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
     case FixLeq(x,y) => emit(src"val $lhs = $x <= $y")
     case FixMod(x,y) => emit(src"val $lhs = $x % $y")
 
+    case FixLsh(x,y) => emit(src"val $lhs = $x << $y")
+    case FixRsh(x,y) => emit(src"val $lhs = $x >> $y")
+    case FixURsh(x,y) => emit(src"val $lhs = $x >>> $y")
+
     case FixNeq(x,y) => emit(src"val $lhs = $x !== $y")
     case FixEql(x,y) => emit(src"val $lhs = $x === $y")
     case FixConvert(x) => lhs.tp match {
