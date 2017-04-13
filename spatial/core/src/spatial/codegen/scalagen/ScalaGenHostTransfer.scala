@@ -1,9 +1,10 @@
 package spatial.codegen.scalagen
 
+import argon.ops.FixPtExp
 import spatial.api.HostTransferExp
 
 trait ScalaGenHostTransfer extends ScalaGenMemories {
-  val IR: HostTransferExp
+  val IR: HostTransferExp with FixPtExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

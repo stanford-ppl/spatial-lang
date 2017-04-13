@@ -30,7 +30,7 @@ trait DebuggingExp extends Staging {
   }
 
   /** Constructors **/
-  def printIf(en: Exp[Bool], x: Exp[Text])(implicit ctx: SrcCtx): Exp[Void] = stageSimple(PrintIf(en,x))(ctx)
-  def printlnIf(en: Exp[Bool], x: Exp[Text])(implicit ctx: SrcCtx): Exp[Void] = stageSimple(PrintlnIf(en,x))(ctx)
-  def assertIf(en: Exp[Bool], cond: Exp[Bool], msg: Option[Exp[Text]])(implicit ctx: SrcCtx) = stageGlobal(AssertIf(en,cond,msg))(ctx)
+  @internal def printIf(en: Exp[Bool], x: Exp[Text]): Exp[Void] = stageSimple(PrintIf(en,x))(ctx)
+  @internal def printlnIf(en: Exp[Bool], x: Exp[Text]): Exp[Void] = stageSimple(PrintlnIf(en,x))(ctx)
+  @internal def assertIf(en: Exp[Bool], cond: Exp[Bool], msg: Option[Exp[Text]]) = stageGlobal(AssertIf(en,cond,msg))(ctx)
 }

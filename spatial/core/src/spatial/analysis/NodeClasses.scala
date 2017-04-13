@@ -128,6 +128,12 @@ trait NodeClasses extends SpatialMetadataExp {
     case dim => throw new UndefinedDimensionsError(x, Some(dim))(x.ctx)
   }
 
+  def sizeOf(fifo: FIFO[_])(implicit ctx: SrcCtx): Index = wrap(sizeOf(fifo.s))
+  def sizeOf(x: Exp[_])(implicit ctx: SrcCtx): Exp[Index] = x match {
+    case Def(FIFONew(size)) => size
+    case _ => throw new UndefinedDimensionsError(x, None)
+  }
+
   def rankOf(x: Exp[_]): Int = stagedDimsOf(x).length
   def rankOf(x: MetaAny[_]): Int = rankOf(x.s)
 

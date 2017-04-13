@@ -1,7 +1,6 @@
 package spatial.api
 
 import argon.core.Staging
-import argon.typeclasses.CustomBitWidths
 import spatial.SpatialExp
 import forge._
 
@@ -9,7 +8,7 @@ trait LineBufferApi extends LineBufferExp {
   this: SpatialExp =>
 }
 
-trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
+trait LineBufferExp extends Staging {
   this: SpatialExp =>
 
   case class LineBuffer[T:Meta:Bits](s: Exp[LineBuffer[T]]) extends Template[LineBuffer[T]] {
@@ -135,16 +134,16 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
 
   /** Constructors **/
 
-  private[spatial] def linebuffer_new[T:Type:Bits](rows: Exp[Index], cols: Exp[Index])(implicit ctx: SrcCtx) = {
+  @internal def linebuffer_new[T:Type:Bits](rows: Exp[Index], cols: Exp[Index]) = {
     stageMutable(LineBufferNew[T](rows, cols))(ctx)
   }
 
-  private[spatial] def linebuffer_col_slice[T:Type:Bits](
+  @internal def linebuffer_col_slice[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     row:        Exp[Index],
     colStart:   Exp[Index],
     length:     Exp[Index]
-  )(implicit ctx: SrcCtx) = {
+  ) = {
     implicit val vT = length match {
       case Final(c) => vectorNType[T](c.toInt)
       case _ =>
@@ -154,12 +153,12 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     stageCold(LineBufferColSlice(linebuffer, row, colStart, length))(ctx)
   }
 
-  private[spatial] def linebuffer_row_slice[T:Type:Bits](
+  @internal def linebuffer_row_slice[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     rowStart:   Exp[Index],
     length:     Exp[Index],
     col:        Exp[Index]
-  )(implicit ctx: SrcCtx) = {
+  ) = {
     implicit val vT = length match {
       case Final(c) => vectorNType[T](c.toInt)
       case _ =>
@@ -169,20 +168,20 @@ trait LineBufferExp extends Staging with SRAMExp with CustomBitWidths {
     stageCold(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)
   }
 
-  private[spatial] def linebuffer_load[T:Type:Bits](
+  @internal def linebuffer_load[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     row:        Exp[Index],
     col:        Exp[Index],
     en:         Exp[Bool]
-  )(implicit ctx: SrcCtx) = {
+  ) = {
     stageWrite(linebuffer)(LineBufferLoad(linebuffer,row,col,en))(ctx)
   }
 
-  private[spatial] def linebuffer_enq[T:Type:Bits](
+  @internal def linebuffer_enq[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     data:       Exp[T],
     en:         Exp[Bool]
-  )(implicit ctx: SrcCtx) = {
+  ) = {
     stageWrite(linebuffer)(LineBufferEnq(linebuffer,data,en))(ctx)
   }
 

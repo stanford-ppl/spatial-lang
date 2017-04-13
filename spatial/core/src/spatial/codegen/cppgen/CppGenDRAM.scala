@@ -1,13 +1,12 @@
 package spatial.codegen.cppgen
 
-import spatial.api.DRAMExp
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
+import spatial.SpatialExp
 import scala.collection.mutable.HashMap
 
 
 trait CppGenDRAM extends CppGenSRAM {
-  val IR: DRAMExp with SpatialMetadataExp
+  val IR: SpatialExp
   import IR._
 
   override def quote(s: Exp[_]): String = {

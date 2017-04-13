@@ -9,14 +9,10 @@ trait BitsOpsApi extends BitOpsExp {
   this: SpatialExp =>
 }
 
-trait BitOpsExp extends Staging with BitsExp {
+trait BitOpsExp extends Staging {
   this: SpatialExp =>
 
   type BitVector = VectorN[Bool]
-
-  trait Convert[B] {
-    def apply(x: BitVector)(implicit ctx: SrcCtx): B
-  }
 
   implicit class DataConversionOps[A:Meta:Bits](x: A) {
     @api def apply(i: Int): Bool = dataAsBitVector(x).apply(i)

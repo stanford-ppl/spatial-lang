@@ -66,20 +66,13 @@ trait FIFOExp extends Staging with MemoryExp with SpatialExceptions {
   }
 
   /** Constructors **/
-  def fifo_alloc[T:Type:Bits](size: Exp[Index])(implicit ctx: SrcCtx): Exp[FIFO[T]] = {
+  @internal def fifo_alloc[T:Type:Bits](size: Exp[Index]): Exp[FIFO[T]] = {
     stageMutable(FIFONew[T](size))(ctx)
   }
-  def fifo_enq[T:Type:Bits](fifo: Exp[FIFO[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[Void] = {
+  @internal def fifo_enq[T:Type:Bits](fifo: Exp[FIFO[T]], data: Exp[T], en: Exp[Bool]): Exp[Void] = {
     stageWrite(fifo)(FIFOEnq(fifo, data, en))(ctx)
   }
-  def fifo_deq[T:Type:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool])(implicit ctx: SrcCtx): Exp[T] = {
+  @internal def fifo_deq[T:Type:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool]): Exp[T] = {
     stageWrite(fifo)(FIFODeq(fifo,en))(ctx)
-  }
-
-  /** Internals **/
-  def sizeOf(fifo: FIFO[_])(implicit ctx: SrcCtx): Index = wrap(sizeOf(fifo.s))
-  def sizeOf(fifo: Exp[FIFO[_]])(implicit ctx: SrcCtx): Exp[Index] = fifo match {
-    case Def(FIFONew(size)) => size
-    case x => throw new UndefinedDimensionsError(x, None)
   }
 }

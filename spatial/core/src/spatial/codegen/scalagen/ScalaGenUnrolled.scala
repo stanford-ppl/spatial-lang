@@ -1,10 +1,9 @@
 package spatial.codegen.scalagen
 
-import spatial.analysis.NodeClasses
-import spatial.api.UnrolledExp
+import spatial.SpatialExp
 
 trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
-  val IR: UnrolledExp with NodeClasses
+  val IR: SpatialExp
   import IR._
 
   def getStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
