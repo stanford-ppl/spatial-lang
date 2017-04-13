@@ -56,13 +56,21 @@ trait ChiselGenSRAM extends ChiselCodegen {
         duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
           mem match {
             case BankedMemory(dims, depth, isAccum) =>
-              val rPar = readersOf(lhs).map { r => 
-                r.node match {
-                  case Def(_: SRAMLoad[_]) => 1
-                  case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
+              val rParZip = readersOf(lhs)
+                .filter{read => dispatchOf(read, lhs) contains i}
+                .map { r => 
+                  val par = r.node match {
+                    case Def(_: SRAMLoad[_]) => 1
+                    case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
+                  }
+                  val port = portsOf(r, lhs, i).toList.head
+                  (par, port)
                 }
-              }.reduce{scala.math.max(_,_)}
-              val wPar = writersOf(lhs).map { w =>
+              val rPar = rParZip.map{_._1}.mkString(",")
+              val rBundling = rParZip.map{_._2}.mkString(",")
+              val wPar = writersOf(lhs)
+                .filter{write => dispatchOf(write, lhs) contains i}
+                .filter{w => portsOf(w, lhs, i).toList.length == 1}.map { w =>
                 w.node match {
                   case Def(_: SRAMStore[_]) => 1
                   case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
@@ -70,33 +78,38 @@ trait ChiselGenSRAM extends ChiselCodegen {
                     case _ => ens.length
                   }
                 }
-              }.reduce{scala.math.max(_,_)}
-
+              }.mkString(",")
+              val broadcasts = writersOf(lhs)
+                .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
+                w.node match {
+                  case Def(_: SRAMStore[_]) => 1
+                  case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
+                    case Op(ListVector(elems)) => elems.length // Was this deprecated?
+                    case _ => ens.length
+                  }
+                }
+              } // Should only have 1 or 0
+              val bPar = if (broadcasts.length == 1) broadcasts.head else 0
               val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
               val width = bitWidth(lhs.tp.typeArguments.head)
               if (depth == 1) {
-                val numWriters = writersOf(lhs).filter{ write => (dispatchOf(write, lhs) contains i) }.distinct.length
-                val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
+                // val numWriters = writersOf(lhs).filter{ write => (dispatchOf(write, lhs) contains i) }.distinct.length
+                // val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
                 open(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
-                emit(src"""$numWriters, $numReaders, """)
-                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: this width is redundant """)
+                emit(src"""List($wPar), List($rPar), "BankedMemory" """)
                 close("))")
               } else {
-                val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
-                val numBroadcasters = writersOf(lhs).map { write => if (portsOf(write, lhs, i).toList.length > 1) 1 else 0 }.reduce{_+_}
+                // val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.length
+                // val numBroadcasters = writersOf(lhs).map { write => if (portsOf(write, lhs, i).toList.length > 1) 1 else 0 }.reduce{_+_}
                 // val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.length
                 // val numWriters = writersOf(lhs).filter{ write => dispatchOf(write, lhs) contains i }.distinct.map{w => portsOf(w, lhs, i).head}.groupBy{i=>i}.map{i => i._2.length}.max
                 val numReaders = readersOf(lhs).filter{ read => dispatchOf(read, lhs) contains i }.distinct.map{w => portsOf(w, lhs, i).head}.groupBy{i=>i}.map{i => i._2.length}.max
                 nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
                 open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
-                emit(src"""${numWriters-numBroadcasters}, $numReaders, """)
-                emit(src"""$wPar, $rPar, "BankedMemory", $width // TODO: this width is redundant """)
+                emit(src"""List($wPar), List($rPar), List($rBundling), $bPar, "BankedMemory" """)
                 close("))")
-                if (numBroadcasters == 0) {
-                  emit(src"""${lhs}_$i.io.broadcastEn := false.B""")  
-                }
               }
             case DiagonalMemory(strides, banks, depth, isAccum) =>
               throw new UnsupportedBankingType("Diagonal", lhs)
@@ -113,24 +126,26 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enable = src"""${parent}_en"""
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, ${width})))""")
-        emit(src"""${lhs}_rVec(0).en := $enable""")
+        emit(src"""${lhs}_rVec(0).en := $enable & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.number // Assume always an int""")
         }
         val p = portsOf(lhs, sram, i).head
-        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), ${parent}_en, $p)""")
+        emit(src"""val ${lhs}_base = ${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
         sram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-              emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*$p))""")
+              emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${quote(lhs)}_base))""")
             } else {
-              emit(src"""val $lhs = ${sram}_$i.io.output.data(${rPar}*$p)""")
+              emit(src"""val $lhs = ${sram}_$i.io.output.data(${lhs}_base)""")
             }
-          case _ => emit(src"""val $lhs = ${sram}_$i.io.output.data(${rPar}*$p)""")
+          case _ => emit(src"""val $lhs = ${sram}_$i.io.output.data(${lhs}_base)""")
         }
       }
 
     case SRAMStore(sram, dims, is, ofs, v, en) =>
       val width = bitWidth(sram.tp.typeArguments.head)
+      val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
+      val enable = src"""${parent}_datapath_en"""
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, ${width}))) """)
       sram.tp.typeArguments.head match { 
@@ -141,15 +156,13 @@ trait ChiselGenSRAM extends ChiselCodegen {
           }
         case _ => emit(src"""${lhs}_wVec(0).data := ${v}""")
       }
-      emit(src"""${lhs}_wVec(0).en := ${en}""")
+      emit(src"""${lhs}_wVec(0).en := ${en} & ${enable}""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.number // Assume always an int""")
       }
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")
-        val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enable = src"""${parent}_datapath_en"""
-        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enable}, List(${p})) """)
+        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, List(${p})) """)
       }
 
     case _ => super.emitNode(lhs, rhs)
@@ -181,7 +194,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
           val ctrlId = port + firstActivePort
           val node = allSiblings(ctrlId)
           val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else {
-            emit(src"""${mem}_${i}.readTieDown(${port})""")
+            // emit(src"""${mem}_${i}.readTieDown(${port})""")
             ""
           }
           val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else {""}

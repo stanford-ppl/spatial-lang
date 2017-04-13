@@ -42,8 +42,8 @@ class MemNDTests(c: MemND) extends PeekPokeTester(c) {
 
   step(1)
   reset(1)
-  poke(c.io.wMask, 1) // Do not mask at all when testing this template directly
-  poke(c.io.rMask, 1) // Do not mask at all when testing this template directly
+  // poke(c.io.wMask, 1) // Do not mask at all when testing this template directly
+  // poke(c.io.rMask, 1) // Do not mask at all when testing this template directly
   // Assume only 2D
   for (i <- 0 until c.dims(0)+1 ) {
     for (j <- 0 until c.dims(1) ) {
@@ -78,57 +78,61 @@ class SRAMTests(c: SRAM) extends PeekPokeTester(c) {
   val N = c.logicalDims.length
 
   reset(1)
-  poke(c.io.wSel(0),1) // Select 0th writer
-  poke(c.io.rSel(0),1) // Select 0th writer
 
   // Write to each address
   for (i <- 0 until c.logicalDims(0)) { // Each row
-    for (j <- 0 until c.logicalDims(1) by c.wPar) {
+    for (j <- 0 until c.logicalDims(1) by c.wPar(0)) {
       // Set addrs
-      (0 until c.numWriters).foreach{ writer => 
-        poke(c.io.globalWEn(writer), true)
-        (0 until c.wPar).foreach { kdim => 
-          poke(c.io.w(writer*c.wPar+kdim).addr(0), i)
-          poke(c.io.w(writer*c.wPar+kdim).addr(1), j+kdim)
-          poke(c.io.w(writer*c.wPar+kdim).data, (i*c.logicalDims(0) + j + kdim)*2)
-          poke(c.io.w(writer*c.wPar+kdim).en, true)
+      var idx = 0
+      (0 until c.wPar.length).foreach{ writer => 
+        (0 until c.wPar(writer)).foreach { kdim => 
+          poke(c.io.w(idx).addr(0), i)
+          poke(c.io.w(idx).addr(1), j+kdim)
+          poke(c.io.w(idx).data, (i*c.logicalDims(0) + j + kdim)*2)
+          if (writer == 0) {
+            poke(c.io.w(idx).en, true)
+          } else {
+            poke(c.io.w(idx).en, false)
+          }
+          idx = idx + 1
         }
       }
       step(1)
     }
   }
   // Turn off wEn
-  (0 until c.numWriters).foreach{ writer => 
-    poke(c.io.globalWEn(writer), false)
-    (0 until c.wPar).foreach { kdim => 
-      poke(c.io.w(writer*c.wPar+kdim).en, false)
-    }
+  (0 until c.wPar.reduce{_+_}).foreach{ wbundle => 
+    poke(c.io.w(wbundle).en, false)
   }
 
   step(30)
 
   // Check each address
   for (i <- 0 until c.logicalDims(0)) { // Each row
-    for (j <- 0 until c.logicalDims(1) by c.rPar) {
+    for (j <- 0 until c.logicalDims(1) by c.rPar(0)) {
       // Set addrs
-      (0 until c.numReaders).foreach{ reader => 
-        (0 until c.rPar).foreach { kdim => 
-          poke(c.io.r(reader*c.rPar+kdim).addr(0), i)
-          poke(c.io.r(reader*c.rPar+kdim).addr(1), j+kdim)
-          poke(c.io.r(reader*c.rPar+kdim).en, true)
+      var idx = 0
+      (0 until c.rPar.length).foreach{ reader => 
+        (0 until c.rPar(reader)).foreach { kdim => 
+          poke(c.io.r(idx).addr(0), i)
+          poke(c.io.r(idx).addr(1), j+kdim)
+          if (reader == 0) {
+            poke(c.io.r(idx).en, true)
+          } else {
+            poke(c.io.r(idx).en, false)
+          }
+          idx = idx + 1
         }
       }
       step(1)
-      (0 until c.rPar).foreach { kdim => 
+      (0 until c.rPar(0)).foreach { kdim => 
         expect(c.io.output.data(kdim), (i*c.logicalDims(0) + j + kdim)*2)
       }
     }
   }
   // Turn off rEn
-  (0 until c.numReaders).foreach{ writer => 
-    (0 until c.rPar).foreach { kdim => 
-      poke(c.io.r(kdim).en, true)
-    }
+  (0 until c.rPar.reduce{_+_}).foreach{ reader => 
+    poke(c.io.r(reader).en, false)
   }
 
   step(1)
@@ -152,43 +156,42 @@ class NBufSRAMTests(c: NBufSRAM) extends PeekPokeTester(c) {
   reset(1)
 
   def fillSRAM(wPort: Int, dat: Int) {
-    poke(c.io.wSel(wPort*c.numWriters + 0),1) // Select 0th writer for this port
-    poke(c.io.globalWEn(wPort*c.numWriters + 0),1) // Select 0th writer for this port
 
     // Write to each address
     for (i <- 0 until c.logicalDims(0)) { // Each row
-      for (j <- 0 until c.logicalDims(1) by c.wPar) {
+      for (j <- 0 until c.logicalDims(1) by c.wPar(0)) {
         // Set addrs
-        (0 until c.numWriters).foreach{ writer => 
-          poke(c.io.globalWEn(writer), true)
-          (0 until c.wPar).foreach { kdim => 
-            poke(c.io.w(wPort*c.wPar*c.numWriters + writer*c.wPar + kdim).addr(0), i)
-            poke(c.io.w(wPort*c.wPar*c.numWriters + writer*c.wPar + kdim).addr(1), j+kdim)
-            poke(c.io.w(wPort*c.wPar*c.numWriters + writer*c.wPar + kdim).data, 1000*dat + i*c.logicalDims(0) + j + kdim)
-            poke(c.io.w(wPort*c.wPar*c.numWriters + writer*c.wPar + kdim).en, true)
+        var idx = 0
+        (0 until c.wPar.length).foreach{ writer => 
+          (0 until c.wPar(writer)).foreach { kdim => 
+            poke(c.io.w(idx).addr(0), i)
+            poke(c.io.w(idx).addr(1), j+kdim)
+            poke(c.io.w(idx).data, 1000*dat + i*c.logicalDims(0) + j + kdim)
+            if (writer == 0) {
+              poke(c.io.w(idx).en, true)
+            } else {             
+              poke(c.io.w(idx).en, false)
+            }
+            idx = idx + 1
           }
         }
         step(1)
       }
     }
     // Turn off wEn
-    (0 until c.numWriters).foreach{ writer => 
-      poke(c.io.globalWEn(wPort*c.numWriters + writer), false) // No idea if this is right
-      (0 until c.wPar).foreach { kdim => 
-        poke(c.io.w(wPort*c.wPar*c.numWriters + writer*c.wPar+kdim).en, false)
-      }
+    (0 until c.wPar.reduce{_+_}).foreach{ writer => 
+      poke(c.io.w(writer).en, false)
     }
 
     step(30)
   }
   def broadcastFillSRAM(dat: Int) {
-    poke(c.io.broadcastEn, 1)
 
     // Write to each address
     for (i <- 0 until c.logicalDims(0)) { // Each row
-      for (j <- 0 until c.logicalDims(1) by c.wPar) {
+      for (j <- 0 until c.logicalDims(1) by c.bPar) {
         // Set addrs
-        (0 until c.wPar).foreach { kdim => 
+        (0 until c.bPar).foreach { kdim => 
           poke(c.io.broadcast(kdim).addr(0), i)
           poke(c.io.broadcast(kdim).addr(1), j+kdim)
           poke(c.io.broadcast(kdim).data, dat + i*c.logicalDims(0) + j + kdim)
@@ -198,38 +201,44 @@ class NBufSRAMTests(c: NBufSRAM) extends PeekPokeTester(c) {
       }
     }
     // Turn off wEn
-    poke(c.io.broadcastEn, 0)
+    (0 until c.bPar).foreach {kdim =>
+      poke(c.io.broadcast(kdim).en, false)
+    }
+    
     step(30)
   }
 
   def readSRAM(rPort: Int, dat: Int, base: Int = 1000) {
-    poke(c.io.rSel(rPort*c.numReaders + 0),1) // Select 0th writer for this port
 
     // Read at each address
     for (i <- 0 until c.logicalDims(0)) { // Each row
-      for (j <- 0 until c.logicalDims(1) by c.rPar) {
+      for (j <- 0 until c.logicalDims(1) by c.rPar(0)) {
         // Set addrs
-        (0 until c.numReaders).foreach{ readers => 
-          (0 until c.rPar).foreach { kdim => 
-            poke(c.io.r(rPort*c.rPar*c.numReaders + readers*c.rPar + kdim).addr(0), i)
-            poke(c.io.r(rPort*c.rPar*c.numReaders + readers*c.rPar + kdim).addr(1), j+kdim)
-            poke(c.io.r(rPort*c.rPar*c.numReaders + readers*c.rPar + kdim).en, true)
+        var idx = 0
+        (0 until c.rPar.length).foreach{ readers => 
+          (0 until c.rPar(readers)).foreach { kdim => 
+            poke(c.io.r(idx).addr(0), i)
+            poke(c.io.r(idx).addr(1), j+kdim)
+            if (readers == 0) {
+              poke(c.io.r(idx).en, true)
+            } else {
+              poke(c.io.r(idx).en, false)
+            }
+            idx = idx + 1
           }
         }
         step(1)
-        (0 until c.rPar).foreach {kdim => 
+        (0 until c.rPar.max).foreach {kdim => 
           val gold = base*dat + i*c.logicalDims(0) + j + kdim
-          // val a = peek(c.io.output.data(rPort*c.rPar*c.numReaders+kdim))
-          // println(s"Expecting $gold but got $a (${a == gold})")
-          expect(c.io.output.data(rPort*c.rPar*c.numReaders + kdim), gold)
+          // val a = peek(c.io.output.data(rPort*c.rPar.max + kdim))
+          // println(s"Expecting $gold but got $a (${a == gold}) on port $rPort")
+          expect(c.io.output.data(rPort*c.rPar.max + kdim), gold)
         }
       }
     }
     // Turn off wEn
-    (0 until c.numReaders).foreach{ writer => 
-      (0 until c.rPar).foreach { kdim => 
-        poke(c.io.r(rPort*c.rPar*c.numReaders + writer*c.rPar+kdim).en, false)
-      }
+    (0 until c.rPar.reduce{_+_}).foreach{ reader => 
+      poke(c.io.r(reader).en, false)
     }
 
     step(30)

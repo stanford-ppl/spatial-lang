@@ -986,7 +986,7 @@ object BlockReduce2D extends SpatialApp { // Regression (Unit) // Args: 192 384
 
     Accel {
       val accum = SRAM[T](tileSize,tileSize)
-      MemReduce(accum)(rowsIn by tileSize, colsIn by tileSize){ (i,j)  =>
+      MemReduce(accum)(rowsIn by tileSize, colsIn by tileSize par 2){ (i,j)  =>
         val tile = SRAM[T](tileSize,tileSize)
         tile load srcFPGA(i::i+tileSize, j::j+tileSize  par 16)
         tile
@@ -1242,8 +1242,49 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
   }
 }
 
+// object MultilevelPar extends SpatialApp { 
+//   import IR._
+//   val dim = 32
+//   val M = dim
+//   val N = dim
 
- object StreamTest extends SpatialApp {
+//   def multilevelpar() = {
+//     val result = DRAM[Int](dim)
+
+//     Accel {
+//       val a = SRAM[Int](M)
+//       val b = SRAM[Int](N)
+//       Foreach(M by 1 par 4, N by 1 par 8) { (i,j) =>
+//         a(i) = i*2
+//         b(j) = j*4
+//       }
+//       val c = SRAM[Int](dim)
+//       Foreach(dim by 1 par 4) { i =>
+//         c(i) = a(i) + b(i)
+//       }
+//       result store c
+//     }
+
+//     getMem(result)
+
+//   }
+
+//   @virtualize
+//   def main() {
+
+//     val gold = Array.tabulate(dim){ i => 6*i }
+//     val ans = multilevelpar()
+
+//     printArray(gold, "Gold:")
+//     printArray(ans, "Result:")
+
+//     val cksum = gold.zip(ans){_==_}.reduce{_&&_}
+//     println("PASS: " + cksum + " (MultilevelPar)")
+//   }
+// }
+
+
+object StreamTest extends SpatialApp {
    import IR._
 
    override val target = targets.DE1

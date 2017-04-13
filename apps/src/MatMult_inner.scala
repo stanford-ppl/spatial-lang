@@ -10,7 +10,7 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 1
   val tileSizeN = 16
   val tileSizeP = 16
   val innerPar = 1
-  val midPar = 1
+  val midPar = 2
   val outerPar = 1
 
   @virtualize
@@ -49,8 +49,8 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 1
             tileA load a(i::i+bm, k::k+bp par 1) // Reads M*N*P times
             tileB load b(k::k+bp, j::j+bn par 1)
           }
-          Foreach(bm by 1, bn by 1 par 1){ (ii,jj) =>    // MetaPipe?
-            val prod = Reduce(Reg[T])(bp by 1 par 4){kk => tileA(ii, kk) * tileB(kk, jj) }{_+_}
+          Foreach(bm by 1, bn by 1 par mp){ (ii,jj) =>    // MetaPipe?
+            val prod = Reduce(Reg[T])(bp by 1 par ip){kk => tileA(ii, kk) * tileB(kk, jj) }{_+_}
             val prev = mux(k == 0, 0.to[T], tileC(ii,jj))
             tileC(ii,jj) = prev + prod.value // Is a unit pipe that should be recognized as accum
           }
@@ -84,8 +84,11 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 1
 
     val gold_cksum = gold.map(a => a).reduce{_+_}
     val result_cksum = result.map(a => a).reduce{_+_}
+    printArray(gold, "Gold: ")
+    printArray(result, "Result: ")
     println("expected cksum: " + gold_cksum)
     println("result cksum:   " + result_cksum)
+
     // (0 until M*N) foreach { i => assert(result(i) == gold(i)) }
 
     val cksum = result_cksum == gold_cksum
