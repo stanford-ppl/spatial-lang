@@ -8,8 +8,9 @@ trait ChiselGenReg extends ChiselCodegen {
   val IR: SpatialExp
   import IR._
 
-  var argIns: List[Sym[Reg[_]]] = List()
-  var argOuts: List[Sym[Reg[_]]] = List()
+  var argIns: List[Sym[Reg[_]]] = Nil
+  var argOuts: List[Sym[Reg[_]]] = Nil
+  var hostIOs: List[Sym[Reg[_]]] = Nil
   private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
@@ -28,6 +29,7 @@ trait ChiselGenReg extends ChiselCodegen {
           lhs match {
             case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
             case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
+            case Def(HostIONew(_)) => s"x${lhs.id}_hostio"
             case Def(RegNew(_)) => s"""x${lhs.id}_${nameOf(lhs).getOrElse("reg").replace("$","")}"""
             case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
             case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
@@ -48,10 +50,15 @@ trait ChiselGenReg extends ChiselCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ArgInNew(init)  => 
       argIns = argIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
-      emit(src"val $lhs = Array($init)")
+      emit(src"val $lhs = Array($init)")  // TODO: Is this used at all?
     case ArgOutNew(init) => 
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
-      emit(src"val $lhs = Array($init)")
+      emit(src"val $lhs = Array($init)")  // TODO: Is this used at all?
+
+    case HostIONew(init) =>
+      hostIOs = hostIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      emit(src"val $lhs = Array($init)")  // TODO: Is this used at all?
+
     case RegNew(init)    => 
       val width = bitWidth(init.tp)
       emitGlobal(src"val ${lhs}_initval = ${init}")
@@ -258,14 +265,18 @@ trait ChiselGenReg extends ChiselCodegen {
       emit("// Scalars")
       emit(s"val numArgIns_reg = ${argIns.length}")
       emit(s"val numArgOuts_reg = ${argOuts.length}")
+      emit(s"val numHostIOs_reg = ${hostIOs.length}")
       // emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
       // emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
-      argIns.zipWithIndex.map { case(p,i) => 
+      argIns.zipWithIndex.foreach { case(p,i) =>
         emit(s"""//${quote(p)} = argIns($i) ( ${nameOf(p).getOrElse("")} )""")
       }
-      argOuts.zipWithIndex.map { case(p,i) => 
+      argOuts.zipWithIndex.foreach { case(p,i) =>
         emit(s"""//${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
+      }
+      hostIOs.zipWithIndex.foreach{ case (p,i) =>
+        emit(s"""//${quote(p)} = hostRegs($i) ( ${nameOf(p).getOrElse("")} ) """)
       }
     }
 
@@ -273,6 +284,7 @@ trait ChiselGenReg extends ChiselCodegen {
       emit("// Scalars")
       emit(s"val io_numArgIns_reg = ${argIns.length}")
       emit(s"val io_numArgOuts_reg = ${argOuts.length}")
+      emit(s"val io_numHostRegs_reg = ${hostIOs.length}")
     }
 
     super.emitFileFooter()
