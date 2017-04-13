@@ -50,8 +50,10 @@ class MemNDTests(c: MemND) extends PeekPokeTester(c) {
       c.io.w.addr.zip(List(i,j)).foreach { case (port, addr) => poke(port, addr) }
       poke(c.io.w.data, (i*c.dims(0) + j)*2)
       poke(c.io.w.en, 1)
+      poke(c.io.wMask, 1)
       step(1) 
       poke(c.io.w.en, 0)
+      poke(c.io.wMask, 0)
       step(1)
     }
   }
@@ -60,9 +62,11 @@ class MemNDTests(c: MemND) extends PeekPokeTester(c) {
     for (j <- 0 until c.dims(1) ) {
       c.io.r.addr.zip(List(i,j)).foreach { case (port, addr) => poke(port, addr) }
       poke(c.io.r.en, 1)
+      poke(c.io.rMask, 1)
       step(1)
       expect(c.io.output.data, 2*(i*c.dims(0) + j))
       poke(c.io.r.en, 0)
+      poke(c.io.rMask, 0)
       step(1)
     }
   }

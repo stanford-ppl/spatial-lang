@@ -9,9 +9,9 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 1
   val tileSizeM = 4
   val tileSizeN = 16
   val tileSizeP = 16
-  val innerPar = 1
+  val innerPar = 4
   val midPar = 2
-  val outerPar = 1
+  val outerPar = 2
 
   @virtualize
   def MatMult_inner[T:Type:Num](A: Array[T], B: Array[T], mm: Int, nn: Int, pp: Int) = {

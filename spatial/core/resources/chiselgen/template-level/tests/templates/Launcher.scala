@@ -137,7 +137,7 @@ object Arguments {
              List(1), List(1), List(1), 1, "strided"),
            ( List(8,12), 3, 32, 
              List(1,1), List(1,1), 
-             List(1), List(1), List(1), 1, "strided"),
+             List(1), List(1), List(2), 1, "strided"),
            ( List(8,12), 3, 32, 
              List(1,2), List(1,2), 
              List(2), List(2), List(2), 2, "strided")

@@ -257,19 +257,16 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
     wInUse(wId) = true
   }
 
-  var rInUse = Array.fill(rPar.length) {false} // Array for tracking which rPar sections are in use
+  var rId = 0
   def connectRPort(rBundle: Vec[multidimR], port: Int): Int = {
-    // Figure out which rPar section this wBundle fits in by finding first false index with same rPar
-    val potentialFits = rPar.zipWithIndex.filter(_._1 == rBundle.length).map(_._2)
-    val rId = potentialFits(potentialFits.map(rInUse(_)).indexWhere(_ == false))
     // Get start index of this section
-    val base = if (rId > 0) {rPar.take(rId).reduce{_+_}} else 0
+    val base = rId
     // Connect to rPar(rId) elements from base
     (0 until rBundle.length).foreach{ i => 
       io.r(base + i) := rBundle(i) 
     }
-    rInUse(rId) = true
-    0
+    rId = rId + rBundle.length
+    base
   }
 
 
@@ -406,7 +403,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
 
     var idx = 0 
     var idx_meaningful = 0 
-    val rSel = statesInR.map{s => s.io.output.count === i.U}
+    val rSel = (0 until numBufs).map{ statesInR(i).io.output.count === _.U}
     (0 until maxR).foreach {lane => // Technically only need per read and not per buf but oh well
       // Assemble buffet of read ports
       val buffet = (0 until numBufs).map {p => 
@@ -424,7 +421,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   }
 
   (0 until numBufs).foreach {i =>
-    val sel = statesOut.map { _.io.output.count === i.U }
+    val sel = (0 until numBufs).map{ statesOut(i).io.output.count === _.U }
     (0 until maxR).foreach{ j => 
       io.output.data(i*maxR + j) := chisel3.util.Mux1H(sel, srams.map{f => f.io.output.data(j)})
     }
