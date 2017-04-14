@@ -144,7 +144,7 @@ object SGD_minibatch extends SpatialApp { // Regression (Dense) // Args: 40 32 0
   type T = FixPt[TRUE,_16,_16]
   val modelSize = 16
   val tileSize = 16
-  val innerPar = 1
+  val innerPar = 4
   val outerPar = 1
   val margin = 1
 
