@@ -63,7 +63,9 @@ class FIFOArbiterWidthConvert(
 
     io.tag := tag
     io.deq := outMux.io.out
-    io.empty := fifos.map {e => e.io.empty}.reduce{_&_}  // emptyMux.io.out
+    val empties = Array.tabulate(numStreams) { i => (i.U -> fifos(i).io.empty) }
+    io.empty := MuxLookup(tag, false.B, empties)
+    //fifos.map {e => e.io.empty}.reduce{_&_}  // emptyMux.io.out
   } else { // Arbiter does nothing if there are no memstreams
     io.tag := 0.U(tagWidth.W)
     io.deq := Vec(List.tabulate(vout) { i => 0.U(wout.W) })

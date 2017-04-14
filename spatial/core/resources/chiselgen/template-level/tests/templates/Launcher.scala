@@ -119,28 +119,28 @@ object Arguments {
   )
   val SRAM = List( // Contain each set of args in its own list
            ( List(1,16), 32, 
-             List(1,1), List(1,1), 1, 1,
-             1, 1, "strided"),
+             List(1,1), List(1,1), 
+             List(1), List(1), "strided"),
            ( List(1,16), 32, 
-             List(1,2), List(1,1), 1, 1,
-             1, 2, "strided"),
+             List(1,2), List(1,1), 
+             List(1), List(2), "strided"),
            ( List(16,16), 32, 
-             List(1,2), List(1,1), 1, 1,
-             2, 2, "strided"),
+             List(1,2), List(1,1), 
+             List(2), List(2), "strided"),
            ( List(16,16), 32, 
-             List(1,1), List(1,1), 1, 1,
-             1, 1, "strided")
+             List(1,1), List(1,1),
+             List(1), List(1), "strided")
         )
   val NBufSRAM = List( 
            ( List(8,12), 2, 32, 
-             List(1,1), List(1,1), 1, 1,
-             1, 1, "strided"),
+             List(1,1), List(1,1), 
+             List(1), List(1), List(1), 1, "strided"),
            ( List(8,12), 3, 32, 
-             List(1,1), List(1,1), 1, 1,
-             1, 1, "strided"),
+             List(1,1), List(1,1), 
+             List(1), List(1), List(2), 1, "strided"),
            ( List(8,12), 3, 32, 
-             List(1,2), List(1,2), 1, 1,
-             2, 2, "strided")
+             List(1,2), List(1,2), 
+             List(2), List(2), List(2), 2, "strided")
         )
   val Innerpipe = List(
     2
