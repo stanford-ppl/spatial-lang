@@ -398,7 +398,7 @@ Computer_System The_System (
 	.slider_switches_export					(SW),
 
 	// Pushbuttons
-//	.pushbuttons_export						(~KEY[3:0]),
+	.pushbuttons_export						(~KEY[3:0]),
 
 	// Expansion JP1
 //	.expansion_jp1_export					({GPIO_0[35:19], GPIO_0[17], GPIO_0[15:3], GPIO_0[1]}),
