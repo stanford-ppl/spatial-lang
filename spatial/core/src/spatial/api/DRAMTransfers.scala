@@ -307,7 +307,8 @@ trait DRAMTransferApi extends DRAMTransferExp {
 
 }
 
-trait DRAMTransferExp extends Staging { this: SpatialExp =>
+trait DRAMTransferExp {
+  this: SpatialExp =>
 
   /** Specialized busses **/
   @struct case class BurstCmd(offset: Index, size: Index, isLoad: Bool)

@@ -2,9 +2,10 @@ package spatial.codegen.simgen
 
 import argon.codegen.StructCodegen
 import argon.ops.StructExp
+import spatial.SpatialExp
 
 trait SimGenStructs extends SimCodegen with StructCodegen {
-  val IR: StructExp
+  val IR: SpatialExp
   import IR._
 
   protected def structName(tp: StructType[_], idx: Int): String = s"Struct$idx"

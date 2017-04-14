@@ -2,10 +2,10 @@ package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.VectorExp
-import spatial.SpatialConfig
+import spatial.{SpatialConfig, SpatialExp}
 
 trait ChiselGenVector extends ChiselCodegen {
-  val IR: VectorExp
+  val IR: SpatialExp
   import IR._
 
   override def quote(s: Exp[_]): String = {

@@ -29,7 +29,7 @@ trait StagedUtilApi extends StagedUtilExp {
 
 }
 
-trait StagedUtilExp extends Staging {
+trait StagedUtilExp  {
   this: SpatialExp =>
 
 

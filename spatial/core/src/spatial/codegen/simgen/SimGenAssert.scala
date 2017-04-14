@@ -1,9 +1,10 @@
 package spatial.codegen.simgen
 
 import argon.ops.AssertExp
+import spatial.SpatialExp
 
 trait SimGenAssert extends SimCodegen {
-  val IR: AssertExp
+  val IR: SpatialExp with AssertExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]) = rhs match {

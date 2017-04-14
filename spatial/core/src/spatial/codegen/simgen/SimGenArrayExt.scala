@@ -1,9 +1,10 @@
 package spatial.codegen.simgen
 
 import argon.ops.ArrayExtExp
+import spatial.SpatialExp
 
 trait SimGenArrayExt extends SimGenArray {
-  val IR: ArrayExtExp
+  val IR: SpatialExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

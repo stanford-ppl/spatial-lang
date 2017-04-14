@@ -1,9 +1,10 @@
 package spatial.codegen.simgen
 
+import spatial.SpatialExp
 import spatial.api.HostTransferExp
 
 trait SimGenHostTransfer extends SimCodegen  {
-  val IR: HostTransferExp
+  val IR: SpatialExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

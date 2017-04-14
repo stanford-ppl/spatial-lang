@@ -1,9 +1,10 @@
 package spatial.codegen.simgen
 
+import spatial.SpatialExp
 import spatial.api.{DRAMExp, DRAMTransferExp}
 
 trait SimGenDRAM extends SimCodegen {
-  val IR: DRAMExp with DRAMTransferExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

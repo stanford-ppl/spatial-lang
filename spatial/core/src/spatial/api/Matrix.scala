@@ -31,7 +31,7 @@ trait MatrixApi extends MatrixExp {
 
 }
 
-trait MatrixExp extends StructExp {
+trait MatrixExp {
   this: SpatialExp =>
 
   case class Matrix[T:Type](s: Exp[Matrix[T]]) extends MetaStruct[Matrix[T]] {

@@ -2,11 +2,11 @@ package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
 import spatial.api.FileIOExp
-import spatial.SpatialConfig
+import spatial.{SpatialConfig, SpatialExp}
 
 
 trait CppGenFileIO extends CppCodegen  {
-  val IR: FileIOExp
+	val IR: SpatialExp
   import IR._
 
 

@@ -1,10 +1,11 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
+import spatial.SpatialExp
 import spatial.api.FileIOExp
 
 trait ScalaGenFileIO extends ScalaCodegen {
-  val IR: FileIOExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

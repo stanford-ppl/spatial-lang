@@ -43,7 +43,7 @@ trait AlteraVideoApi extends AlteraVideoExp {
 }
 
 
-trait AlteraVideoExp extends Staging {
+trait AlteraVideoExp {
   this: SpatialExp =>
 
   /** Infix methods **/

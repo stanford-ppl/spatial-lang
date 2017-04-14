@@ -3,7 +3,8 @@ package spatial.api
 import argon.core.{ArgonExceptions, Staging}
 import spatial.SpatialExp
 
-trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
+trait SpatialExceptions extends ArgonExceptions {
+  self: SpatialExp =>
   // --- Compiler exceptions
 
   class EmptyReductionTreeLevelException(implicit ctx: SrcCtx) extends

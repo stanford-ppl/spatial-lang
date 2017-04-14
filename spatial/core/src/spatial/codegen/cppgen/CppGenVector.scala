@@ -2,10 +2,10 @@ package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
 import spatial.api.VectorExp
-import spatial.SpatialConfig
+import spatial.{SpatialConfig, SpatialExp}
 
 trait CppGenVector extends CppCodegen {
-  val IR: VectorExp
+  val IR: SpatialExp
   import IR._
 
   override def quote(s: Exp[_]): String = {

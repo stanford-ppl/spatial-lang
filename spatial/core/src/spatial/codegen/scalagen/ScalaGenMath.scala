@@ -2,10 +2,11 @@ package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
 import argon.ops.{FixPtExp, FltPtExp}
+import spatial.SpatialExp
 import spatial.api.MathExp
 
 trait ScalaGenMath extends ScalaCodegen {
-  val IR: MathExp with FixPtExp with FltPtExp
+  val IR: SpatialExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

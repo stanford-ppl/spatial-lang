@@ -1,10 +1,10 @@
 package spatial.api
 
-import spatial.SpatialExp
+import spatial.{SpatialApi, SpatialExp}
 import spatial.targets._
 
 trait PinApi extends PinExp {
-  this: SpatialExp =>
+  this: SpatialApi =>
 }
 
 trait PinExp {

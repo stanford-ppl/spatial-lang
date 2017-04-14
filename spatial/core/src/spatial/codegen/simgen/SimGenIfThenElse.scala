@@ -1,9 +1,10 @@
 package spatial.codegen.simgen
 
 import argon.ops.IfThenElseExp
+import spatial.SpatialExp
 
 trait SimGenIfThenElse extends SimCodegen {
-  val IR: IfThenElseExp
+  val IR: SpatialExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

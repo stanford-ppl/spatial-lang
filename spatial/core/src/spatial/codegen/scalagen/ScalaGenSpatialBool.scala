@@ -1,9 +1,10 @@
 package spatial.codegen.scalagen
 
 import argon.ops.BoolExp
+import spatial.SpatialExp
 
 trait ScalaGenSpatialBool extends ScalaGenBits {
-  val IR: BoolExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

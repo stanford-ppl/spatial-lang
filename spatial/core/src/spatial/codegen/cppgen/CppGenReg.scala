@@ -7,7 +7,7 @@ import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
 
 trait CppGenReg extends CppCodegen {
-  val IR: RegExp with SpatialExp
+  val IR: SpatialExp
   import IR._
 
 

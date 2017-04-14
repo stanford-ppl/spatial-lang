@@ -18,7 +18,7 @@ trait StateMachineApi extends StateMachineExp {
   }
 }
 
-trait StateMachineExp extends Staging {
+trait StateMachineExp {
   this: SpatialExp =>
 
   @internal def fsm[T:Type:Bits](start: T, notDone: T => Bool, action: T => Void, nextState: T => T, style: ControlStyle) = {

@@ -1,15 +1,15 @@
 package spatial.api
 
 import argon.core.Staging
-import spatial.SpatialExp
+import spatial.{SpatialApi, SpatialExp}
 import forge._
 
 trait CounterApi extends CounterExp {
-  this: SpatialExp =>
+  this: SpatialApi =>
 
 }
 
-trait CounterExp extends Staging {
+trait CounterExp {
   this: SpatialExp =>
 
   /** API **/

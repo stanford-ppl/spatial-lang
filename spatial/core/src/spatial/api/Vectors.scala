@@ -1,14 +1,17 @@
 package spatial.api
 
-import argon.core.Staging
+import argon.core.{Reporting, Staging}
 import argon.ops.TextExp
 import argon.typeclasses.{BitsExp, CustomBitWidths}
-import spatial.SpatialExp
+import spatial.{SpatialApi, SpatialExp}
 import forge._
 
-trait VectorApi extends VectorExp { this: SpatialExp => }
+trait VectorApi extends VectorExp {
+  this: SpatialApi =>
+}
 
-trait LowPriorityImplicits { this: VectorExp =>
+trait LowPriorityImplicits {
+  this: SpatialExp =>
   implicit def vectorNFakeType[T:Meta:Bits](implicit ctx: SrcCtx): Meta[VectorN[T]] = {
     error(ctx, u"VectorN value cannot be used directly as a staged type")
     error("Add a type conversion here using .asVector#, where # is the length of the vector")
@@ -18,7 +21,7 @@ trait LowPriorityImplicits { this: VectorExp =>
 }
 
 @generate
-trait VectorExp extends Staging with BitsExp with TextExp with CustomBitWidths with LowPriorityImplicits {
+trait VectorExp {
   this: SpatialExp =>
 
   /** Infix methods **/

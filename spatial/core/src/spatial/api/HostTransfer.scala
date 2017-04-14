@@ -27,7 +27,7 @@ trait HostTransferApi extends HostTransferExp {
   }
 }
 
-trait HostTransferExp extends Staging {
+trait HostTransferExp {
   this: SpatialExp =>
 
   /** IR Nodes **/

@@ -4,7 +4,7 @@ import argon.core.Staging
 import forge._
 import spatial.SpatialExp
 
-trait TemplatesExp extends Staging {
+trait TemplatesExp  {
   this: SpatialExp =>
 
   abstract class Template[T:Meta] extends MetaAny[T] {

@@ -197,7 +197,7 @@ trait ControllerApi extends ControllerExp {
   }
 }
 
-trait ControllerExp extends Staging {
+trait ControllerExp {
   this: SpatialExp =>
 
   /** API **/

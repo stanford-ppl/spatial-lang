@@ -1,7 +1,7 @@
 package spatial.api
 
 import argon.core.Staging
-import spatial.SpatialExp
+import spatial.{SpatialApi, SpatialExp}
 import forge._
 
 // N by B
@@ -24,15 +24,15 @@ trait RangeLowPriorityImplicits {
 }
 
 trait RangeApi extends RangeExp with RangeLowPriorityImplicits {
-  this: SpatialExp =>
+  this: SpatialApi =>
 
   @api def *() = Wildcard()
 
   implicit class IndexRangeOps(x: Index) {
-    private def lft(x: Int)(implicit ctx: SrcCtx) = lift[Int,Index](x)
-    @api def by(step: Int): Range = range_alloc(None, x, Some(lft(step)), None)
-    @api def par(p: Int): Range = range_alloc(None, x, None, Some(lft(p)))
-    @api def until(end: Int): Range = range_alloc(Some(x), lft(end), None, None)
+    private def lft(x: scala.Int)(implicit ctx: SrcCtx) = lift[scala.Int,Index](x)
+    @api def by(step: scala.Int): Range = range_alloc(None, x, Some(lft(step)), None)
+    @api def par(p: scala.Int): Range = range_alloc(None, x, None, Some(lft(p)))
+    @api def until(end: scala.Int): Range = range_alloc(Some(x), lft(end), None, None)
 
     @api def by(step: Index): Range = range_alloc(None, x, Some(step), None)
     @api def par(p: Index): Range = range_alloc(None, x, None, Some(p))
@@ -62,7 +62,7 @@ trait RangeApi extends RangeExp with RangeLowPriorityImplicits {
 }
 
 
-trait RangeExp extends Staging {
+trait RangeExp {
   this: SpatialExp =>
 
   implicit class IndexRangeInternalOps(x: Index) {
