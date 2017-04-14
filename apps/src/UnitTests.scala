@@ -33,6 +33,23 @@ object InOutArg extends SpatialApp {  // Regression (Unit) // Args: 5
   }
 }
 
+object SimpleHostIO extends SpatialApp {
+  import IR._
+
+  @virtualize def main(): Unit = {
+    val x = HostIO[Int]
+
+    setArg(x, 32)
+
+    Accel {
+      x := x + 4
+    }
+
+    println("expected: " + 36)
+    println("result: " + getArg(x))
+  }
+}
+
 
 // Args: None
 object MultiplexedWriteTest extends SpatialApp { // Regression (Unit) // Args: none

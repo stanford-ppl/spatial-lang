@@ -10,7 +10,7 @@ trait ChiselGenReg extends ChiselCodegen {
 
   var argIns: List[Sym[Reg[_]]] = Nil
   var argOuts: List[Sym[Reg[_]]] = Nil
-  var hostIOs: List[Sym[Reg[_]]] = Nil
+  //var hostIOs: List[Sym[Reg[_]]] = Nil
   private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
@@ -56,8 +56,11 @@ trait ChiselGenReg extends ChiselCodegen {
       emit(src"val $lhs = Array($init)")  // TODO: Is this used at all?
 
     case HostIONew(init) =>
-      hostIOs = hostIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
-      emit(src"val $lhs = Array($init)")  // TODO: Is this used at all?
+      // argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      // val width = bitWidth(init.tp)
+//      emitGlobal(src"val $lhs = Module(new FF($width)) // ${nameOf(lhs).getOrElse("")}")
+//      emit(src"""io.argOuts(${argMapping(reg)._1}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
+//      emit(src"""io.argOuts(${argMapping(reg)._1}).valid := $en & ${parent}_en""")
 
     case RegNew(init)    => 
       val width = bitWidth(init.tp)
@@ -125,7 +128,8 @@ trait ChiselGenReg extends ChiselCodegen {
         } else {
           emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)._1})""")
         }
-      } else {
+      }
+      else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
         val duplicates = duplicatesOf(reg)
@@ -178,7 +182,21 @@ trait ChiselGenReg extends ChiselCodegen {
         
         emit(src"""io.argOuts(${argMapping(reg)._1}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
         emit(src"""io.argOuts(${argMapping(reg)._1}).valid := $en & ${parent}_en""")
-      } else {         
+      }
+      /*else if (isHostIO(reg)) {
+        emit(src"""val $reg = RegInit(0.U) // Host IO register""")
+        v.tp match {
+          case FixPtType(_,_,_) =>
+            if (spatialNeedsFPType(v.tp)) {
+              emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
+            }
+            else {
+              emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
+            }
+          case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
+        }
+      }*/
+      else {
         reduceType(reg) match {
           case Some(fps: ReduceFunction) => // is an accumulator
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
@@ -265,7 +283,7 @@ trait ChiselGenReg extends ChiselCodegen {
       emit("// Scalars")
       emit(s"val numArgIns_reg = ${argIns.length}")
       emit(s"val numArgOuts_reg = ${argOuts.length}")
-      emit(s"val numHostIOs_reg = ${hostIOs.length}")
+      // emit(s"val numHostIOs_reg = ${hostIOs.length}")
       // emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
       // emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
       argIns.zipWithIndex.foreach { case(p,i) =>
@@ -275,16 +293,16 @@ trait ChiselGenReg extends ChiselCodegen {
         emit(s"""//${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }
-      hostIOs.zipWithIndex.foreach{ case (p,i) =>
+      /*hostIOs.zipWithIndex.foreach{ case (p,i) =>
         emit(s"""//${quote(p)} = hostRegs($i) ( ${nameOf(p).getOrElse("")} ) """)
-      }
+      }*/
     }
 
     withStream(getStream("IOModule")) {
       emit("// Scalars")
       emit(s"val io_numArgIns_reg = ${argIns.length}")
       emit(s"val io_numArgOuts_reg = ${argOuts.length}")
-      emit(s"val io_numHostRegs_reg = ${hostIOs.length}")
+      //emit(s"val io_numHostRegs_reg = ${hostIOs.length}")
     }
 
     super.emitFileFooter()
