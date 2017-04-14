@@ -56,9 +56,10 @@ trait StateMachineExp extends Staging {
     nextState: => Exp[T],
     state:     Bound[T]
   ) = {
-    val dBlk = stageBlock{ notDone }
-    val aBlk = stageBlock{ action }
-    val nBlk = stageBlock{ nextState }
+    // TODO: Do these need to be cold?
+    val dBlk = stageColdBlock{ notDone }
+    val aBlk = stageColdBlock{ action }
+    val nBlk = stageColdBlock{ nextState }
     val effects = dBlk.summary andAlso aBlk.summary andAlso nBlk.summary
     stageEffectful(StateMachine(enable, start, dBlk, aBlk, nBlk, state), effects)(ctx)
   }

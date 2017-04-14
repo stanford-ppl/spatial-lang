@@ -392,7 +392,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val is = lanes.indices
     val vs = lanes.indexValids
 
-    val blk = stageBlock { unrollMap(func, lanes); void }
+    val blk = stageColdBlock { unrollMap(func, lanes); void }
 
 
     val effects = blk.summary
@@ -491,7 +491,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val vs = lanes.indexValids
     val mC = typ[Reg[T]]
 
-    val blk = stageLambda(f(accum)) {
+    val blk = stageColdLambda(f(accum)) {
       dbgs("Unrolling map")
       val values = unrollMap(func, lanes)(mT,ctx)
       val valids = () => lanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b) } }
@@ -547,7 +547,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val mvs = mapLanes.indexValids
     val partial = func.result
 
-    val blk = stageLambda(f(accum)) {
+    val blk = stageColdLambda(f(accum)) {
       dbgs(s"[Accum-fold $lhs] Unrolling map")
       val mems = unrollMap(func, mapLanes)
       val mvalids = () => mapLanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b)} }
@@ -573,7 +573,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
           itersRed.foreach{i => dbgs(s"  $i -> ${f(i)}") }
         }
 
-        val rBlk = stageBlock {
+        val rBlk = stageColdBlock {
           dbgs(c"[Accum-fold $lhs] Unrolling map loads")
           dbgs(c"  memories: $mems")
 

@@ -14,7 +14,7 @@ trait SwitchExp extends Staging {
 
   @util def create_switch[T:Type](cases: Seq[() => Exp[T]]): Exp[T] = {
     var cs: Seq[Exp[T]] = Nil
-    val block = stageBlock{ cs = cases.map{c => c() }; cs.last }
+    val block = stageHotBlock{ cs = cases.map{c => c() }; cs.last }
     val effects = block.summary
     stageEffectful(Switch(block, cs), effects)(ctx)
   }
@@ -25,7 +25,7 @@ trait SwitchExp extends Staging {
 
   case class Switch[T:Type](body: Block[T], cases: Seq[Exp[T]]) extends Op[T] {
     def mirror(f:Tx) = {
-      val body2 = stageBlock{ f(body) }
+      val body2 = stageHotBlock{ f(body) }
       val cases2 = f(cases)
       op_switch(body2, cases2)
     }
@@ -34,7 +34,7 @@ trait SwitchExp extends Staging {
   }
 
   @util def op_case[T:Type](cond: Exp[Bool], body: => Exp[T]): Exp[T] = {
-    val block = stageBlock{ body }
+    val block = stageColdBlock{ body }
     val effects = block.summary.star
     stageEffectful(SwitchCase(cond, block), effects)(ctx)
   }
