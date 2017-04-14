@@ -29,6 +29,7 @@ trait ChiselGenReg extends ChiselCodegen {
           lhs match {
             case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
             case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
+            case Def(HostIONew(_)) => s"x${lhs.id}_hostio"
             case Def(RegNew(_)) => s"""x${lhs.id}_${nameOf(lhs).getOrElse("reg").replace("$","")}"""
             case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
             case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
@@ -51,6 +52,14 @@ trait ChiselGenReg extends ChiselCodegen {
       argIns = argIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case ArgOutNew(init) => 
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
+
+    case HostIONew(init) =>
+      // argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      // val width = bitWidth(init.tp)
+//      emitGlobal(src"val $lhs = Module(new FF($width)) // ${nameOf(lhs).getOrElse("")}")
+//      emit(src"""io.argOuts(${argMapping(reg)._1}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
+//      emit(src"""io.argOuts(${argMapping(reg)._1}).valid := $en & ${parent}_en""")
+
     case RegNew(init)    => 
       val width = bitWidth(init.tp)
       emitGlobal(src"val ${lhs}_initval = ${init}")
@@ -117,7 +126,8 @@ trait ChiselGenReg extends ChiselCodegen {
         } else {
           emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)._1})""")
         }
-      } else {
+      }
+      else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
         val duplicates = duplicatesOf(reg)
@@ -163,7 +173,21 @@ trait ChiselGenReg extends ChiselCodegen {
         
         emit(src"""io.argOuts(${argMapping(reg)._1}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
         emit(src"""io.argOuts(${argMapping(reg)._1}).valid := $en & ${parent}_en""")
-      } else {         
+      }
+      /*else if (isHostIO(reg)) {
+        emit(src"""val $reg = RegInit(0.U) // Host IO register""")
+        v.tp match {
+          case FixPtType(_,_,_) =>
+            if (spatialNeedsFPType(v.tp)) {
+              emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
+            }
+            else {
+              emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
+            }
+          case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
+        }
+      }*/
+      else {
         reduceType(reg) match {
           case Some(fps: ReduceFunction) => // is an accumulator
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
@@ -246,10 +270,10 @@ trait ChiselGenReg extends ChiselCodegen {
       emit(s"val numArgIOs_reg = ${argIOs.length}")
       // emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
       // emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
-      argIns.zipWithIndex.map { case(p,i) => 
+      argIns.zipWithIndex.foreach { case(p,i) =>
         emit(s"""//${quote(p)} = argIns($i) ( ${nameOf(p).getOrElse("")} )""")
       }
-      argOuts.zipWithIndex.map { case(p,i) => 
+      argOuts.zipWithIndex.foreach { case(p,i) =>
         emit(s"""//${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }
