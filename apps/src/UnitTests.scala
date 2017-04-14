@@ -1534,3 +1534,36 @@ object DiagBanking extends SpatialApp {  // Regression (Unit) // Args: none
     println("PASS: " + cksum + " (DiagBanking)")
   }
 }
+
+object MultiArgOut extends SpatialApp {  // Regression (Unit) // Args: 5 10
+  import IR._
+  type T = Int
+
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val a = ArgIn[T]
+    val b = ArgIn[T]
+    val x = ArgOut[T]
+    val y = ArgOut[T]
+    val i = args(0).to[T]
+    val j = args(1).to[T]
+    setArg(a, i)
+    setArg(b, j)
+
+
+    Accel {
+      x := a
+      y := b
+    }
+
+
+    // Extract results from accelerator
+    val xx = getArg(x)
+    val yy = getArg(y)
+
+    println("xx = " + xx + ", yy = " + yy)
+    val cksum = (xx == i) && (yy == j)
+    println("PASS: " + cksum + " (MultiArgOut)")
+  }
+}
