@@ -44,9 +44,9 @@
 
 module Computer_System_mm_interconnect_1_router_002_default_decode
   #(
-     parameter DEFAULT_CHANNEL = -1,
-               DEFAULT_WR_CHANNEL = 0,
-               DEFAULT_RD_CHANNEL = 1,
+     parameter DEFAULT_CHANNEL = 0,
+               DEFAULT_WR_CHANNEL = -1,
+               DEFAULT_RD_CHANNEL = -1,
                DEFAULT_DESTID = 0 
    )
   (output [91 - 89 : 0] default_destination_id,
@@ -120,7 +120,7 @@ module Computer_System_mm_interconnect_1_router_002
     localparam PKT_PROTECTION_L = 104;
     localparam ST_DATA_W = 116;
     localparam ST_CHANNEL_W = 8;
-    localparam DECODER_TYPE = 1;
+    localparam DECODER_TYPE = 0;
 
     localparam PKT_TRANS_WRITE = 59;
     localparam PKT_TRANS_READ  = 60;
@@ -134,12 +134,13 @@ module Computer_System_mm_interconnect_1_router_002
     // Figure out the number of bits to mask off for each slave span
     // during address decoding
     // -------------------------------------------------------
+    localparam PAD0 = log2ceil(64'h10 - 64'h0); 
     // -------------------------------------------------------
     // Work out which address bits are significant based on the
     // address range of the slaves. If the required width is too
     // large or too small, we use the address field width instead.
     // -------------------------------------------------------
-    localparam ADDR_RANGE = 64'h0;
+    localparam ADDR_RANGE = 64'h10;
     localparam RANGE_ADDR_WIDTH = log2ceil(ADDR_RANGE);
     localparam OPTIMIZED_ADDR_H = (RANGE_ADDR_WIDTH > PKT_ADDR_W) ||
                                   (RANGE_ADDR_WIDTH == 0) ?
@@ -149,7 +150,6 @@ module Computer_System_mm_interconnect_1_router_002
     localparam RG = RANGE_ADDR_WIDTH;
     localparam REAL_ADDRESS_RANGE = OPTIMIZED_ADDR_H - PKT_ADDR_L;
 
-    reg [PKT_DEST_ID_W-1 : 0] destid;
 
     // -------------------------------------------------------
     // Pass almost everything through, untouched
@@ -158,48 +158,37 @@ module Computer_System_mm_interconnect_1_router_002
     assign src_valid         = sink_valid;
     assign src_startofpacket = sink_startofpacket;
     assign src_endofpacket   = sink_endofpacket;
-    wire [8-1 : 0] default_rd_channel;
-    wire [8-1 : 0] default_wr_channel;
+    wire [PKT_DEST_ID_W-1:0] default_destid;
+    wire [8-1 : 0] default_src_channel;
 
 
 
 
-    // -------------------------------------------------------
-    // Write and read transaction signals
-    // -------------------------------------------------------
-    wire write_transaction;
-    assign write_transaction = sink_data[PKT_TRANS_WRITE];
-    wire read_transaction;
-    assign read_transaction  = sink_data[PKT_TRANS_READ];
 
 
     Computer_System_mm_interconnect_1_router_002_default_decode the_default_decode(
-      .default_destination_id (),
-      .default_wr_channel   (default_wr_channel),
-      .default_rd_channel   (default_rd_channel),
-      .default_src_channel  ()
+      .default_destination_id (default_destid),
+      .default_wr_channel   (),
+      .default_rd_channel   (),
+      .default_src_channel  (default_src_channel)
     );
 
     always @* begin
         src_data    = sink_data;
-        src_channel = write_transaction ? default_wr_channel : default_rd_channel;
+        src_channel = default_src_channel;
+        src_data[PKT_DEST_ID_H:PKT_DEST_ID_L] = default_destid;
 
         // --------------------------------------------------
-        // DestinationID Decoder
-        // Sets the channel based on the destination ID.
+        // Address Decoder
+        // Sets the channel and destination ID based on the address
         // --------------------------------------------------
-        destid      = sink_data[PKT_DEST_ID_H : PKT_DEST_ID_L];
-
-
-
-        if (destid == 0  && write_transaction) begin
-            src_channel = 8'b01;
-        end
-
-        if (destid == 0  && read_transaction) begin
-            src_channel = 8'b10;
-        end
-
+           
+         
+          // ( 0 .. 10 )
+          src_channel = 8'b1;
+          src_data[PKT_DEST_ID_H:PKT_DEST_ID_L] = 0;
+	     
+        
 
 end
 

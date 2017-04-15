@@ -63,6 +63,9 @@ trait ChiselGenStream extends ChiselCodegen {
           emit(src"// EMITTING FOR VGA; in OUTPUT REGISTERS, Output Register section $lhs", forceful=true)
           emit(src"io.stream_out_valid := ${lhs}_valid", forceful=true)
           emit(src"${lhs}_ready := io.stream_out_ready", forceful=true)
+        case LEDR =>
+          emit(src"// LEDR, node = $lhs", forceful=true)
+          emit(src"io.led_stream_out_data := converted_data")
         case _ =>
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
@@ -99,6 +102,12 @@ trait ChiselGenStream extends ChiselCodegen {
               emit(src"""${stream}_data := $data""")
               emit(src"""converted_data := ${stream}_data""")
               emit(src"""${stream}_valid := ${en} & ${parentOf(lhs).get}_datapath_en""")
+            case LEDR =>
+              emitGlobal(src"""val ${stream}_data = Wire(UInt(32.W))""")
+              emitGlobal(src"""val converted_data = Wire(UInt(32.W))""")
+              emit(src"""${stream}_data := $data""")
+              emit(src"""converted_data := ${stream}_data""")
+
             case _ => 
               val externalStream = stream match {
                 case Def(StreamOutNew(bus)) => s"$bus".replace("(","").replace(")","") match {

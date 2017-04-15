@@ -60,6 +60,11 @@ class DE1SoCInterface(p: TopParams) extends TopInterface {
   private val axiLiteParams = new AXI4BundleParameters(16, p.dataWidth, 1)
   val S_AVALON = new AvalonSlave(axiLiteParams)
   val S_STREAM = new AvalonStream(axiLiteParams)
+  // For led output data
+  val LEDR_STREAM_address = Output(UInt(4.W))
+  val LEDR_STREAM_chipselect = Output(Wire(Bool()))
+  val LEDR_STREAM_writedata = Output(UInt(32.W))
+  val LEDR_STREAM_write_n = Output(Wire(Bool()))
 }
 
 class AWSInterface(p: TopParams) extends TopInterface {
@@ -155,7 +160,6 @@ class Top(
       accel.io.stream_in_empty                := topIO.S_STREAM.stream_in_empty        
       accel.io.stream_in_valid                := topIO.S_STREAM.stream_in_valid        
       accel.io.stream_out_ready               := topIO.S_STREAM.stream_out_ready       
-       
       // Video Stream Outputs
       topIO.S_STREAM.stream_in_ready          := accel.io.stream_in_ready          
       topIO.S_STREAM.stream_out_data          := accel.io.stream_out_data          
@@ -163,6 +167,12 @@ class Top(
       topIO.S_STREAM.stream_out_endofpacket   := accel.io.stream_out_endofpacket   
       topIO.S_STREAM.stream_out_empty         := accel.io.stream_out_empty         
       topIO.S_STREAM.stream_out_valid         := accel.io.stream_out_valid         
+
+      // LED Stream Outputs
+      topIO.LEDR_STREAM_writedata             := accel.io.led_stream_out_data
+      topIO.LEDR_STREAM_chipselect            := 1.U
+      topIO.LEDR_STREAM_write_n               := 0.U      
+      topIO.LEDR_STREAM_address               := 0.U
 
       accel.io.argIns := fringe.io.argIns
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>

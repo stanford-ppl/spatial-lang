@@ -128,6 +128,11 @@
    type="avalon"
    dir="end" />
  <interface
+   name="top_io_ledr_stream"
+   internal="Top.io_LEDR_STREAM"
+   type="avalon"
+   dir="start" />
+ <interface
    name="video_in"
    internal="Video_In.external_interface"
    type="conduit"
@@ -365,11 +370,6 @@
    version="16.1"
    start="Sys_Clk.clk_reset"
    end="Video_In_RGB_Resampler.reset" />
- <connection
-   kind="reset"
-   version="16.1"
-   start="Sys_Clk.clk_reset"
-   end="Top.reset_sink" />
  <connection
    kind="reset"
    version="16.1"

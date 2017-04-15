@@ -16,6 +16,10 @@ module Computer_System_Video_In_Subsystem (
 		input  wire [31:0] top_avalon_slave_writedata,              //                             .writedata
 		input  wire        top_avalon_slave_write_n,                //                             .write_n
 		input  wire        top_avalon_slave_chipselect,             //                             .chipselect
+		output wire [31:0] top_io_ledr_stream_writedata,            //           top_io_ledr_stream.writedata
+		output wire [3:0]  top_io_ledr_stream_address,              //                             .address
+		output wire        top_io_ledr_stream_write_n,              //                             .write_n
+		output wire        top_io_ledr_stream_chipselect,           //                             .chipselect
 		input  wire        video_in_TD_CLK27,                       //                     video_in.TD_CLK27
 		input  wire [7:0]  video_in_TD_DATA,                        //                             .TD_DATA
 		input  wire        video_in_TD_HS,                          //                             .TD_HS
@@ -123,7 +127,11 @@ module Computer_System_Video_In_Subsystem (
 		.io_S_STREAM_stream_out_endofpacket   (top_avalon_streaming_source_endofpacket),   //                        .endofpacket
 		.io_S_STREAM_stream_out_startofpacket (top_avalon_streaming_source_startofpacket), //                        .startofpacket
 		.io_S_STREAM_stream_out_ready         (top_avalon_streaming_source_ready),         //                        .ready
-		.io_S_STREAM_stream_out_valid         (top_avalon_streaming_source_valid)          //                        .valid
+		.io_S_STREAM_stream_out_valid         (top_avalon_streaming_source_valid),         //                        .valid
+		.io_LEDR_STREAM_writedata             (top_io_ledr_stream_writedata),              //          io_LEDR_STREAM.writedata
+		.io_LEDR_STREAM_address               (top_io_ledr_stream_address),                //                        .address
+		.io_LEDR_STREAM_write_n               (top_io_ledr_stream_write_n),                //                        .write_n
+		.io_LEDR_STREAM_chipselect            (top_io_ledr_stream_chipselect)              //                        .chipselect
 	);
 
 	Computer_System_Video_In_Subsystem_Video_In video_in (
