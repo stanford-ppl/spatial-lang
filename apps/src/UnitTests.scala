@@ -33,20 +33,53 @@ object InOutArg extends SpatialApp {  // Regression (Unit) // Args: 5
   }
 }
 
-object SimpleHostIO extends SpatialApp {
+object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
-  @virtualize def main(): Unit = {
-    val x = HostIO[Int]
-
-    setArg(x, 32)
+  @virtualize def main(): Unit = { 
+    val cst1 = 32
+    val cst2 = 23
+    val cst3 = 11
+    val cst4 = 7
+    val io1 = HostIO[Int]
+    val io2 = HostIO[Int]
+    val x1 = ArgIn[Int]
+    val x2 = ArgIn[Int]
+    val y1 = ArgOut[Int]
+    val y2 = ArgOut[Int]
+    val m1 = DRAM[Int](16)
+    val m2 = DRAM[Int](16)
+    setArg(io1, cst1)
+    setArg(io2, cst2)
+    setArg(x1, cst3)
+    setArg(x2, cst4)
+    val data = Array.tabulate(16){i => i}
+    setMem(m1, data)
 
     Accel {
-      x := x + 4
+      Pipe { io1 := io1.value + 2}
+      Pipe { io2 := io2.value + 4}
+      Pipe { y1 := x1.value + 6 }
+      Pipe { y2 := x2.value + 8 }
+      val sram = SRAM[Int](16)
+      sram load m1
+      m2 store sram
     }
 
-    println("expected: " + 36)
-    println("result: " + getArg(x))
+    val r1 = getArg(io1)
+    val g1 = cst1 + 2
+    val r2 = getArg(io2)
+    val g2 = cst2 + 4
+    val r3 = getArg(y1)
+    val g3 = cst3 + 6
+    val r4 = getArg(y2)
+    val g4 = cst4 + 8
+    val r5 = getMem(m2)
+    println("expected: " + g1 + ", " + g2 + ", " + g3 + ", " + g4)
+    println("expected: " + r1 + ", " + r2 + ", " + r3 + ", " + r4)
+    printArray(r5, "Mem: ")
+    val cksum = r1 == g1 && r2 == g2 && r3 == g3 && r4 == g4 && data.zip(r5){_==_}.reduce{_&&_}
+    println("PASS: " + cksum + "(SimpleHostIO)")
   }
 }
 
@@ -1552,7 +1585,7 @@ object DiagBanking extends SpatialApp {  // Regression (Unit) // Args: none
   }
 }
 
-object MultiArgOut extends SpatialApp {  // Regression (Unit) // Args: 5 10
+object MultiArgOut extends SpatialApp { 
   import IR._
   type T = Int
 

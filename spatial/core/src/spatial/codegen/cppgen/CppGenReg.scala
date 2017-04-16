@@ -40,6 +40,8 @@ trait CppGenReg extends CppCodegen {
       emit(src"//${lhs.tp}* $lhs = new ${lhs.tp} {0}; // Initialize cpp argin ???")
     case ArgOutNew(init) => 
       emit(src"//int32_t* $lhs = new int32_t {0}; // Initialize cpp argout ???")
+    case HostIONew(init) => 
+      emit(src"//${lhs.tp}* $lhs = new ${lhs.tp} {0}; // Initialize cpp argout ???")
     case RegRead(reg)    => 
       emit(src"${lhs.tp} $lhs = $reg;")
     case RegWrite(reg,v,en) => 

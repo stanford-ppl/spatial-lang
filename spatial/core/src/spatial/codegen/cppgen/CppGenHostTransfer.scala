@@ -44,27 +44,27 @@ trait CppGenHostTransfer extends CppCodegen  {
     case SetArg(reg, v) => 
       reg.tp.typeArguments.head match {
         case FixPtType(s,d,f) => if (f != 0) {
-            emit(src"c1->setArg(${argMapping(reg)._1}, $v * (1 << $f)); // $lhs", forceful = true)
+            emit(src"c1->setArg(${argMapping(reg)._2}, $v * (1 << $f), ${isHostIO(reg)}); // $lhs", forceful = true)
             emit(src"${reg.tp} $reg = $v;")
           } else {
-            emit(src"c1->setArg(${argMapping(reg)._1}, $v); // $lhs", forceful = true)
+            emit(src"c1->setArg(${argMapping(reg)._2}, $v, ${isHostIO(reg)}); // $lhs", forceful = true)
             emit(src"${reg.tp} $reg = $v;")
           }
         case _ => 
-            emit(src"c1->setArg(${argMapping(reg)._1}, $v); // $lhs", forceful = true)
+            emit(src"c1->setArg(${argMapping(reg)._2}, $v, ${isHostIO(reg)}); // $lhs", forceful = true)
             emit(src"${reg.tp} $reg = $v;")
 
       }
     case GetArg(reg)    => 
       reg.tp.typeArguments.head match {
         case FixPtType(s,d,f) => if (f != 0) {
-            emit(src"int32_t ${lhs}_tmp = c1->getArg(${argMapping(reg)._1});", forceful = true)            
+            emit(src"int32_t ${lhs}_tmp = c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)});", forceful = true)            
             emit(src"${lhs.tp} ${lhs} = (${lhs.tp}) ${lhs}_tmp / (1 << $f);", forceful = true)            
           } else {
-            emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._1});", forceful = true)
+            emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)});", forceful = true)
           }
         case _ => 
-            emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._1});", forceful = true)
+            emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)});", forceful = true)
         }
     case SetMem(dram, data) => 
       if (spatialNeedsFPType(dram.tp.typeArguments.head)) {

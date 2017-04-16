@@ -54,6 +54,7 @@ trait ChiselGenReg extends ChiselCodegen {
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
 
     case HostIONew(init) =>
+      argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
       // argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       // val width = bitWidth(init.tp)
 //      emitGlobal(src"val $lhs = Module(new FF($width)) // ${nameOf(lhs).getOrElse("")}")
@@ -116,18 +117,15 @@ trait ChiselGenReg extends ChiselCodegen {
         } // TODO: Figure out which reg is really the accum
       }
     case RegRead(reg)    => 
-      if (isArgIn(reg)) {
+      if (isArgIn(reg) | isHostIO(reg)) {
         if (spatialNeedsFPType(reg.tp.typeArguments.head)) {
           reg.tp.typeArguments.head match {
             case FixPtType(s,d,f) => 
               emitGlobal(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
-              emitGlobal(src"""${lhs}.number := io.argIns(${argMapping(reg)._1})""")
+              emitGlobal(src"""${lhs}.number := io.argIns(${argMapping(reg)._2})""")
           }
-        } else {
-          emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)._1})""")
         }
-      }
-      else {
+      } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
         val duplicates = duplicatesOf(reg)
@@ -167,27 +165,12 @@ trait ChiselGenReg extends ChiselCodegen {
 
     case RegWrite(reg,v,en) => 
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
-      if (isArgOut(reg)) {
+      if (isArgOut(reg) | isHostIO(reg)) {
         emit(src"""val $reg = RegInit(0.U) // HW-accessible register""")
         emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
-        
-        emit(src"""io.argOuts(${argMapping(reg)._1}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
-        emit(src"""io.argOuts(${argMapping(reg)._1}).valid := $en & ${parent}_en""")
-      }
-      /*else if (isHostIO(reg)) {
-        emit(src"""val $reg = RegInit(0.U) // Host IO register""")
-        v.tp match {
-          case FixPtType(_,_,_) =>
-            if (spatialNeedsFPType(v.tp)) {
-              emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
-            }
-            else {
-              emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
-            }
-          case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
-        }
-      }*/
-      else {
+        emit(src"""io.argOuts(${argMapping(reg)._3}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
+        emit(src"""io.argOuts(${argMapping(reg)._3}).valid := $en & ${parent}_datapath_en""")
+      } else {
         reduceType(reg) match {
           case Some(fps: ReduceFunction) => // is an accumulator
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>

@@ -25,6 +25,7 @@ case class TopParams(
   val v: Int,
   val numArgIns: Int,
   val numArgOuts: Int,
+  val numArgIOs: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -61,6 +62,8 @@ class AWSInterface(p: TopParams) extends TopInterface {
   val done = Output(UInt(p.dataWidth.W))
   val scalarIns = Input(Vec(p.numArgIns, UInt(64.W)))
   val scalarOuts = Output(Vec(p.numArgOuts, UInt(64.W)))
+  val scalarIOIns = Input(Vec(p.numArgIOs, UInt(64.W)))
+  val scalarIOOuts = Output(Vec(p.numArgIOs, UInt(64.W)))
 
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
@@ -76,6 +79,7 @@ class Top(
   val w: Int,
   val numArgIns: Int,
   val numArgOuts: Int,
+  val numArgIOs: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -84,7 +88,7 @@ class Top(
   val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
   val v = 16
-  val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, target)
+  val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, target)
 
   val io = target match {
     case "verilator"  => IO(new VerilatorInterface(topParams))
@@ -95,12 +99,12 @@ class Top(
   }
 
   // Accel
-  val accel = Module(new AccelTop(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+  val accel = Module(new AccelTop(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
 
   target match {
     case "verilator" | "vcs" =>
       // Simulation Fringe
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
       val topIO = io.asInstanceOf[VerilatorInterface]
 
       // Fringe <-> Host connections
@@ -116,9 +120,18 @@ class Top(
       if (accel.io.argIns.length > 0) {
         accel.io.argIns := fringe.io.argIns
       }
-      fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
-          fringeArgOut.bits := accelArgOut.bits
-          fringeArgOut.valid := 1.U
+      // if (accel.io.argIOIns.length > 0) {
+      //   accel.io.argIOIns := fringe.io.argIOIns        
+      // }
+      // fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
+      //     fringeArgOut.bits := accelArgOut.bits
+      //     fringeArgOut.valid := 1.U
+      // }
+      if (accel.io.argOuts.length > 0) {      
+        fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
+            fringeArgOut.bits := accelArgOut.bits
+            fringeArgOut.valid := accelArgOut.valid
+        }
       }
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
@@ -134,7 +147,7 @@ class Top(
 
     case "zynq" =>
       // Zynq Fringe
-      val fringe = Module(new FringeZynq(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+      val fringe = Module(new FringeZynq(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
       val topIO = io.asInstanceOf[ZynqInterface]
 
       // Fringe <-> Host connections
@@ -148,13 +161,18 @@ class Top(
           fringeArgOut.bits := accelArgOut.bits
           fringeArgOut.valid := 1.U
       }
+      // accel.io.argIOIns := fringe.io.argIOIns
+      // fringe.io.argIOOuts.zip(accel.io.argIOOuts) foreach { case (fringeArgOut, accelArgOut) =>
+      //     fringeArgOut.bits := accelArgOut.bits
+      //     fringeArgOut.valid := 1.U
+      // }
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
       accel.reset := ~reset
 
     case "aws" =>
       // Simulation Fringe
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
       val topIO = io.asInstanceOf[AWSInterface]
 
       // Fringe <-> DRAM connections
@@ -163,6 +181,8 @@ class Top(
       // Accel: Scalar and control connections
       accel.io.argIns := topIO.scalarIns
       topIO.scalarOuts.zip(accel.io.argOuts) foreach { case (ioOut, accelOut) => ioOut := accelOut.bits }
+      // accel.io.argIOIns := topIO.scalarIOIns
+      // topIO.scalarIOOuts.zip(accel.io.argIOOuts) foreach { case (ioOut, accelOut) => ioOut := accelOut.bits }
       accel.io.enable := topIO.enable
       topIO.done := accel.io.done
     case _ =>
