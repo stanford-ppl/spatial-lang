@@ -133,6 +133,11 @@
    type="avalon"
    dir="start" />
  <interface
+   name="top_io_switches_stream"
+   internal="Top.io_SWITCHES_STREAM"
+   type="avalon"
+   dir="start" />
+ <interface
    name="video_in"
    internal="Video_In.external_interface"
    type="conduit"

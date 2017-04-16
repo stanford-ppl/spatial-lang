@@ -62,8 +62,13 @@ class FringeDE1SoC(
   io.enable := fringeCommon.io.enable
   fringeCommon.io.done := io.done
 
-  io.argIns := fringeCommon.io.argIns
-  fringeCommon.io.argOuts <> io.argOuts
+  if (io.argIns.length > 0) {
+    io.argIns := fringeCommon.io.argIns
+  }
+  
+  if (io.argOuts.length > 0) {
+    fringeCommon.io.argOuts <> io.argOuts
+  }
 }
 
 object FringeDE1SoC {

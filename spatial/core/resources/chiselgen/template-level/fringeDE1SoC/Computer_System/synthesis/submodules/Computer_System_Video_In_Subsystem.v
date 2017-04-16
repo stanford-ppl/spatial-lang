@@ -20,6 +20,9 @@ module Computer_System_Video_In_Subsystem (
 		output wire [3:0]  top_io_ledr_stream_address,              //                             .address
 		output wire        top_io_ledr_stream_write_n,              //                             .write_n
 		output wire        top_io_ledr_stream_chipselect,           //                             .chipselect
+		output wire [31:0] top_io_switches_stream_address,          //       top_io_switches_stream.address
+		input  wire [31:0] top_io_switches_stream_readdata,         //                             .readdata
+		output wire        top_io_switches_stream_read_n,           //                             .read_n
 		input  wire        video_in_TD_CLK27,                       //                     video_in.TD_CLK27
 		input  wire [7:0]  video_in_TD_DATA,                        //                             .TD_DATA
 		input  wire        video_in_TD_HS,                          //                             .TD_HS
@@ -131,7 +134,10 @@ module Computer_System_Video_In_Subsystem (
 		.io_LEDR_STREAM_writedata             (top_io_ledr_stream_writedata),              //          io_LEDR_STREAM.writedata
 		.io_LEDR_STREAM_address               (top_io_ledr_stream_address),                //                        .address
 		.io_LEDR_STREAM_write_n               (top_io_ledr_stream_write_n),                //                        .write_n
-		.io_LEDR_STREAM_chipselect            (top_io_ledr_stream_chipselect)              //                        .chipselect
+		.io_LEDR_STREAM_chipselect            (top_io_ledr_stream_chipselect),             //                        .chipselect
+		.io_SWITCHES_STREAM_address           (top_io_switches_stream_address),            //      io_SWITCHES_STREAM.address
+		.io_SWITCHES_STREAM_readdata          (top_io_switches_stream_readdata),           //                        .readdata
+		.io_SWITCHES_STREAM_read              (top_io_switches_stream_read_n)              //                        .read_n
 	);
 
 	Computer_System_Video_In_Subsystem_Video_In video_in (

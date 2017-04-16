@@ -60,11 +60,20 @@ class DE1SoCInterface(p: TopParams) extends TopInterface {
   private val axiLiteParams = new AXI4BundleParameters(16, p.dataWidth, 1)
   val S_AVALON = new AvalonSlave(axiLiteParams)
   val S_STREAM = new AvalonStream(axiLiteParams)
+
   // For led output data
   val LEDR_STREAM_address = Output(UInt(4.W))
   val LEDR_STREAM_chipselect = Output(Wire(Bool()))
   val LEDR_STREAM_writedata = Output(UInt(32.W))
   val LEDR_STREAM_write_n = Output(Wire(Bool()))
+
+  // For switch input data
+  val SWITCHES_STREAM_address = Output(UInt(32.W))
+  val SWITCHES_STREAM_readdata = Input(UInt(32.W))
+  // This read control signal is not needed by the switches interface
+  // By default this is a read_n signal
+  // TODO: fix the naming of read control signal
+  val SWITCHES_STREAM_read = Output(Wire(Bool()))
 }
 
 class AWSInterface(p: TopParams) extends TopInterface {
@@ -126,10 +135,17 @@ class Top(
       // Fringe <-> DRAM connections
       topIO.dram <> fringe.io.dram
 
-      accel.io.argIns := fringe.io.argIns
-      fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
-          fringeArgOut.bits := accelArgOut.bits
-          fringeArgOut.valid := 1.U
+    
+      if (accel.io.argIns.length > 0) {
+        accel.io.argIns := fringe.io.argIns
+      }
+
+      
+      if (accel.io.argOuts.length > 0) {
+        fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
+            fringeArgOut.bits := accelArgOut.bits
+            fringeArgOut.valid := 1.U
+        }
       }
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
@@ -174,11 +190,22 @@ class Top(
       topIO.LEDR_STREAM_write_n               := 0.U      
       topIO.LEDR_STREAM_address               := 0.U
 
-      accel.io.argIns := fringe.io.argIns
-      fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
-          fringeArgOut.bits := accelArgOut.bits
-          fringeArgOut.valid := 1.U
+      // Switch Stream Outputs
+      topIO.SWITCHES_STREAM_address                       := 0.U
+      accel.io.switch_stream_in_data                      := topIO.SWITCHES_STREAM_readdata
+      topIO.SWITCHES_STREAM_read                          := 0.U
+
+      if (accel.io.argIns.length > 0) {
+        accel.io.argIns := fringe.io.argIns
       }
+
+      if (accel.io.argOuts.length > 0) {
+        fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
+            fringeArgOut.bits := accelArgOut.bits
+            fringeArgOut.valid := 1.U
+        }
+      }
+
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
       // Top reset is connected to a rst controller on DE1SoC, which converts active low to active high

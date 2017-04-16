@@ -77,6 +77,7 @@ module Computer_System (
 		output wire        memory_mem_odt,                  //                     .mem_odt
 		output wire [3:0]  memory_mem_dm,                   //                     .mem_dm
 		input  wire        memory_oct_rzqin,                //                     .oct_rzqin
+		input  wire [3:0]  pushbuttons_export,              //          pushbuttons.export
 		output wire [12:0] sdram_addr,                      //                sdram.addr
 		output wire [1:0]  sdram_ba,                        //                     .ba
 		output wire        sdram_cas_n,                     //                     .cas_n
@@ -109,7 +110,7 @@ module Computer_System (
 		output wire        video_in_overflow_flag           //                     .overflow_flag
 	);
 
-	wire          system_pll_sys_clk_clk;                                                       // System_PLL:sys_clk_clk -> [ARM_A9_HPS:f2h_axi_clk, ARM_A9_HPS:h2f_axi_clk, ARM_A9_HPS:h2f_lw_axi_clk, LEDs:clk, Onchip_SRAM:clk, Pixel_DMA_Addr_Translation:clk, SDRAM:clk, Slider_Switches:clk, SysID:clock, VGA_Subsystem:sys_clk_clk, Video_In_DMA_Addr_Translation:clk, Video_In_Subsystem:sys_clk_clk, mm_interconnect_0:System_PLL_sys_clk_clk, mm_interconnect_1:System_PLL_sys_clk_clk, mm_interconnect_2:System_PLL_sys_clk_clk, mm_interconnect_3:System_PLL_sys_clk_clk, rst_controller:clk, rst_controller_003:clk]
+	wire          system_pll_sys_clk_clk;                                                       // System_PLL:sys_clk_clk -> [ARM_A9_HPS:f2h_axi_clk, ARM_A9_HPS:h2f_axi_clk, ARM_A9_HPS:h2f_lw_axi_clk, LEDs:clk, Onchip_SRAM:clk, Pixel_DMA_Addr_Translation:clk, Pushbuttons:clk, SDRAM:clk, Slider_Switches:clk, SysID:clock, VGA_Subsystem:sys_clk_clk, Video_In_DMA_Addr_Translation:clk, Video_In_Subsystem:sys_clk_clk, mm_interconnect_0:System_PLL_sys_clk_clk, mm_interconnect_1:System_PLL_sys_clk_clk, mm_interconnect_2:System_PLL_sys_clk_clk, mm_interconnect_3:System_PLL_sys_clk_clk, rst_controller:clk, rst_controller_003:clk]
 	wire    [1:0] arm_a9_hps_h2f_axi_master_awburst;                                            // ARM_A9_HPS:h2f_AWBURST -> mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_awburst
 	wire    [3:0] arm_a9_hps_h2f_axi_master_arlen;                                              // ARM_A9_HPS:h2f_ARLEN -> mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_arlen
 	wire   [15:0] arm_a9_hps_h2f_axi_master_wstrb;                                              // ARM_A9_HPS:h2f_WSTRB -> mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_wstrb
@@ -222,6 +223,9 @@ module Computer_System (
 	wire    [2:0] arm_a9_hps_h2f_lw_axi_master_awsize;                                          // ARM_A9_HPS:h2f_lw_AWSIZE -> mm_interconnect_1:ARM_A9_HPS_h2f_lw_axi_master_awsize
 	wire          arm_a9_hps_h2f_lw_axi_master_awvalid;                                         // ARM_A9_HPS:h2f_lw_AWVALID -> mm_interconnect_1:ARM_A9_HPS_h2f_lw_axi_master_awvalid
 	wire          arm_a9_hps_h2f_lw_axi_master_rvalid;                                          // mm_interconnect_1:ARM_A9_HPS_h2f_lw_axi_master_rvalid -> ARM_A9_HPS:h2f_lw_RVALID
+	wire   [31:0] video_in_subsystem_top_io_switches_stream_readdata;                           // mm_interconnect_1:Video_In_Subsystem_top_io_switches_stream_readdata -> Video_In_Subsystem:top_io_switches_stream_readdata
+	wire   [31:0] video_in_subsystem_top_io_switches_stream_address;                            // Video_In_Subsystem:top_io_switches_stream_address -> mm_interconnect_1:Video_In_Subsystem_top_io_switches_stream_address
+	wire          video_in_subsystem_top_io_switches_stream_read;                               // Video_In_Subsystem:top_io_switches_stream_read_n -> mm_interconnect_1:Video_In_Subsystem_top_io_switches_stream_read
 	wire          video_in_subsystem_top_io_ledr_stream_chipselect;                             // Video_In_Subsystem:top_io_ledr_stream_chipselect -> mm_interconnect_1:Video_In_Subsystem_top_io_ledr_stream_chipselect
 	wire    [3:0] video_in_subsystem_top_io_ledr_stream_address;                                // Video_In_Subsystem:top_io_ledr_stream_address -> mm_interconnect_1:Video_In_Subsystem_top_io_ledr_stream_address
 	wire   [31:0] video_in_subsystem_top_io_ledr_stream_writedata;                              // Video_In_Subsystem:top_io_ledr_stream_writedata -> mm_interconnect_1:Video_In_Subsystem_top_io_ledr_stream_writedata
@@ -246,6 +250,11 @@ module Computer_System (
 	wire   [31:0] mm_interconnect_1_leds_s1_writedata;                                          // mm_interconnect_1:LEDs_s1_writedata -> LEDs:writedata
 	wire   [31:0] mm_interconnect_1_slider_switches_s1_readdata;                                // Slider_Switches:readdata -> mm_interconnect_1:Slider_Switches_s1_readdata
 	wire    [1:0] mm_interconnect_1_slider_switches_s1_address;                                 // mm_interconnect_1:Slider_Switches_s1_address -> Slider_Switches:address
+	wire          mm_interconnect_1_pushbuttons_s1_chipselect;                                  // mm_interconnect_1:Pushbuttons_s1_chipselect -> Pushbuttons:chipselect
+	wire   [31:0] mm_interconnect_1_pushbuttons_s1_readdata;                                    // Pushbuttons:readdata -> mm_interconnect_1:Pushbuttons_s1_readdata
+	wire    [1:0] mm_interconnect_1_pushbuttons_s1_address;                                     // mm_interconnect_1:Pushbuttons_s1_address -> Pushbuttons:address
+	wire          mm_interconnect_1_pushbuttons_s1_write;                                       // mm_interconnect_1:Pushbuttons_s1_write -> Pushbuttons:write_n
+	wire   [31:0] mm_interconnect_1_pushbuttons_s1_writedata;                                   // mm_interconnect_1:Pushbuttons_s1_writedata -> Pushbuttons:writedata
 	wire   [31:0] mm_interconnect_1_pixel_dma_addr_translation_slave_readdata;                  // Pixel_DMA_Addr_Translation:slave_readdata -> mm_interconnect_1:Pixel_DMA_Addr_Translation_slave_readdata
 	wire          mm_interconnect_1_pixel_dma_addr_translation_slave_waitrequest;               // Pixel_DMA_Addr_Translation:slave_waitrequest -> mm_interconnect_1:Pixel_DMA_Addr_Translation_slave_waitrequest
 	wire    [1:0] mm_interconnect_1_pixel_dma_addr_translation_slave_address;                   // mm_interconnect_1:Pixel_DMA_Addr_Translation_slave_address -> Pixel_DMA_Addr_Translation:slave_address
@@ -291,9 +300,10 @@ module Computer_System (
 	wire    [3:0] mm_interconnect_3_video_in_subsystem_video_in_dma_control_slave_byteenable;   // mm_interconnect_3:Video_In_Subsystem_video_in_dma_control_slave_byteenable -> Video_In_Subsystem:video_in_dma_control_slave_byteenable
 	wire          mm_interconnect_3_video_in_subsystem_video_in_dma_control_slave_write;        // mm_interconnect_3:Video_In_Subsystem_video_in_dma_control_slave_write -> Video_In_Subsystem:video_in_dma_control_slave_write
 	wire   [31:0] mm_interconnect_3_video_in_subsystem_video_in_dma_control_slave_writedata;    // mm_interconnect_3:Video_In_Subsystem_video_in_dma_control_slave_writedata -> Video_In_Subsystem:video_in_dma_control_slave_writedata
+	wire          irq_mapper_receiver0_irq;                                                     // Pushbuttons:irq -> irq_mapper:receiver0_irq
 	wire   [31:0] arm_a9_hps_f2h_irq0_irq;                                                      // irq_mapper:sender_irq -> ARM_A9_HPS:f2h_irq_p0
 	wire   [31:0] arm_a9_hps_f2h_irq1_irq;                                                      // irq_mapper_001:sender_irq -> ARM_A9_HPS:f2h_irq_p1
-	wire          rst_controller_reset_out_reset;                                               // rst_controller:reset_out -> [LEDs:reset_n, Onchip_SRAM:reset, Pixel_DMA_Addr_Translation:reset, SDRAM:reset_n, Slider_Switches:reset_n, SysID:reset_n, Video_In_DMA_Addr_Translation:reset, mm_interconnect_0:SDRAM_reset_reset_bridge_in_reset_reset, mm_interconnect_0:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_1:SysID_reset_reset_bridge_in_reset_reset, mm_interconnect_1:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_2:Pixel_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_2:VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, rst_translator:in_reset]
+	wire          rst_controller_reset_out_reset;                                               // rst_controller:reset_out -> [LEDs:reset_n, Onchip_SRAM:reset, Pixel_DMA_Addr_Translation:reset, Pushbuttons:reset_n, SDRAM:reset_n, Slider_Switches:reset_n, SysID:reset_n, Video_In_DMA_Addr_Translation:reset, mm_interconnect_0:SDRAM_reset_reset_bridge_in_reset_reset, mm_interconnect_0:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_1:SysID_reset_reset_bridge_in_reset_reset, mm_interconnect_1:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_2:Pixel_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_2:VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, rst_translator:in_reset]
 	wire          rst_controller_reset_out_reset_req;                                           // rst_controller:reset_req -> [Onchip_SRAM:reset_req, rst_translator:reset_req_in]
 	wire          arm_a9_hps_h2f_reset_reset;                                                   // ARM_A9_HPS:h2f_rst_n -> [rst_controller:reset_in0, rst_controller_001:reset_in0, rst_controller_002:reset_in0, rst_controller_003:reset_in0]
 	wire          system_pll_reset_source_reset;                                                // System_PLL:reset_source_reset -> [rst_controller:reset_in1, rst_controller_001:reset_in1, rst_controller_002:reset_in1]
@@ -548,6 +558,18 @@ module Computer_System (
 		.master_writedata   (pixel_dma_addr_translation_master_writedata)                     //       .writedata
 	);
 
+	Computer_System_Pushbuttons pushbuttons (
+		.clk        (system_pll_sys_clk_clk),                      //                 clk.clk
+		.reset_n    (~rst_controller_reset_out_reset),             //               reset.reset_n
+		.address    (mm_interconnect_1_pushbuttons_s1_address),    //                  s1.address
+		.write_n    (~mm_interconnect_1_pushbuttons_s1_write),     //                    .write_n
+		.writedata  (mm_interconnect_1_pushbuttons_s1_writedata),  //                    .writedata
+		.chipselect (mm_interconnect_1_pushbuttons_s1_chipselect), //                    .chipselect
+		.readdata   (mm_interconnect_1_pushbuttons_s1_readdata),   //                    .readdata
+		.in_port    (pushbuttons_export),                          // external_connection.export
+		.irq        (irq_mapper_receiver0_irq)                     //                 irq.irq
+	);
+
 	Computer_System_SDRAM sdram (
 		.clk            (system_pll_sys_clk_clk),                   //   clk.clk
 		.reset_n        (~rst_controller_reset_out_reset),          // reset.reset_n
@@ -672,6 +694,9 @@ module Computer_System (
 		.top_io_ledr_stream_address              (video_in_subsystem_top_io_ledr_stream_address),                                //                             .address
 		.top_io_ledr_stream_write_n              (video_in_subsystem_top_io_ledr_stream_write),                                  //                             .write_n
 		.top_io_ledr_stream_chipselect           (video_in_subsystem_top_io_ledr_stream_chipselect),                             //                             .chipselect
+		.top_io_switches_stream_address          (video_in_subsystem_top_io_switches_stream_address),                            //       top_io_switches_stream.address
+		.top_io_switches_stream_readdata         (video_in_subsystem_top_io_switches_stream_readdata),                           //                             .readdata
+		.top_io_switches_stream_read_n           (video_in_subsystem_top_io_switches_stream_read),                               //                             .read_n
 		.video_in_TD_CLK27                       (video_in_TD_CLK27),                                                            //                     video_in.TD_CLK27
 		.video_in_TD_DATA                        (video_in_TD_DATA),                                                             //                             .TD_DATA
 		.video_in_TD_HS                          (video_in_TD_HS),                                                               //                             .TD_HS
@@ -819,6 +844,9 @@ module Computer_System (
 		.Video_In_Subsystem_top_io_ledr_stream_chipselect                         (video_in_subsystem_top_io_ledr_stream_chipselect),                             //                                                                   .chipselect
 		.Video_In_Subsystem_top_io_ledr_stream_write                              (~video_in_subsystem_top_io_ledr_stream_write),                                 //                                                                   .write
 		.Video_In_Subsystem_top_io_ledr_stream_writedata                          (video_in_subsystem_top_io_ledr_stream_writedata),                              //                                                                   .writedata
+		.Video_In_Subsystem_top_io_switches_stream_address                        (video_in_subsystem_top_io_switches_stream_address),                            //                          Video_In_Subsystem_top_io_switches_stream.address
+		.Video_In_Subsystem_top_io_switches_stream_read                           (~video_in_subsystem_top_io_switches_stream_read),                              //                                                                   .read
+		.Video_In_Subsystem_top_io_switches_stream_readdata                       (video_in_subsystem_top_io_switches_stream_readdata),                           //                                                                   .readdata
 		.LEDs_s1_address                                                          (mm_interconnect_1_leds_s1_address),                                            //                                                            LEDs_s1.address
 		.LEDs_s1_write                                                            (mm_interconnect_1_leds_s1_write),                                              //                                                                   .write
 		.LEDs_s1_readdata                                                         (mm_interconnect_1_leds_s1_readdata),                                           //                                                                   .readdata
@@ -831,6 +859,11 @@ module Computer_System (
 		.Pixel_DMA_Addr_Translation_slave_writedata                               (mm_interconnect_1_pixel_dma_addr_translation_slave_writedata),                 //                                                                   .writedata
 		.Pixel_DMA_Addr_Translation_slave_byteenable                              (mm_interconnect_1_pixel_dma_addr_translation_slave_byteenable),                //                                                                   .byteenable
 		.Pixel_DMA_Addr_Translation_slave_waitrequest                             (mm_interconnect_1_pixel_dma_addr_translation_slave_waitrequest),               //                                                                   .waitrequest
+		.Pushbuttons_s1_address                                                   (mm_interconnect_1_pushbuttons_s1_address),                                     //                                                     Pushbuttons_s1.address
+		.Pushbuttons_s1_write                                                     (mm_interconnect_1_pushbuttons_s1_write),                                       //                                                                   .write
+		.Pushbuttons_s1_readdata                                                  (mm_interconnect_1_pushbuttons_s1_readdata),                                    //                                                                   .readdata
+		.Pushbuttons_s1_writedata                                                 (mm_interconnect_1_pushbuttons_s1_writedata),                                   //                                                                   .writedata
+		.Pushbuttons_s1_chipselect                                                (mm_interconnect_1_pushbuttons_s1_chipselect),                                  //                                                                   .chipselect
 		.Slider_Switches_s1_address                                               (mm_interconnect_1_slider_switches_s1_address),                                 //                                                 Slider_Switches_s1.address
 		.Slider_Switches_s1_readdata                                              (mm_interconnect_1_slider_switches_s1_readdata),                                //                                                                   .readdata
 		.SysID_control_slave_address                                              (mm_interconnect_1_sysid_control_slave_address),                                //                                                SysID_control_slave.address
@@ -899,12 +932,13 @@ module Computer_System (
 	);
 
 	Computer_System_irq_mapper irq_mapper (
-		.clk        (),                        //       clk.clk
-		.reset      (),                        // clk_reset.reset
-		.sender_irq (arm_a9_hps_f2h_irq0_irq)  //    sender.irq
+		.clk           (),                         //       clk.clk
+		.reset         (),                         // clk_reset.reset
+		.receiver0_irq (irq_mapper_receiver0_irq), // receiver0.irq
+		.sender_irq    (arm_a9_hps_f2h_irq0_irq)   //    sender.irq
 	);
 
-	Computer_System_irq_mapper irq_mapper_001 (
+	Computer_System_irq_mapper_001 irq_mapper_001 (
 		.clk        (),                        //       clk.clk
 		.reset      (),                        // clk_reset.reset
 		.sender_irq (arm_a9_hps_f2h_irq1_irq)  //    sender.irq

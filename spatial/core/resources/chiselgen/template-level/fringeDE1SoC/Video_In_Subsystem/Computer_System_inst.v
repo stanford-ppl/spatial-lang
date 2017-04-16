@@ -72,6 +72,7 @@
 		.memory_mem_odt                  (<connected-to-memory_mem_odt>),                  //                     .mem_odt
 		.memory_mem_dm                   (<connected-to-memory_mem_dm>),                   //                     .mem_dm
 		.memory_oct_rzqin                (<connected-to-memory_oct_rzqin>),                //                     .oct_rzqin
+		.pushbuttons_export              (<connected-to-pushbuttons_export>),              //          pushbuttons.export
 		.sdram_addr                      (<connected-to-sdram_addr>),                      //                sdram.addr
 		.sdram_ba                        (<connected-to-sdram_ba>),                        //                     .ba
 		.sdram_cas_n                     (<connected-to-sdram_cas_n>),                     //                     .cas_n

@@ -50,6 +50,11 @@ trait ChiselGenStream extends ChiselCodegen {
           emit(src"io.stream_in_ready := ${lhs}_ready", forceful=true)
           emit(src"${lhs}_valid := io.stream_in_valid", forceful=true)
 
+        case SliderSwitch =>
+          emit(src"// switch, node = $lhs", forceful=true)
+//          emit(src"${lhs}_ready := 1.U", forceful=true)
+          emit(src"${lhs}_valid := 1.U", forceful=true)
+
         case _ =>
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
@@ -63,9 +68,14 @@ trait ChiselGenStream extends ChiselCodegen {
           emit(src"// EMITTING FOR VGA; in OUTPUT REGISTERS, Output Register section $lhs", forceful=true)
           emit(src"io.stream_out_valid := ${lhs}_valid", forceful=true)
           emit(src"${lhs}_ready := io.stream_out_ready", forceful=true)
+          emit(src"// EMITTING VGA GLOBAL")
+          emitGlobal(src"""val ${stream}_data = Wire(UInt(16.W))""")
+          emitGlobal(src"""val converted_data = Wire(UInt(16.W))""")
         case LEDR =>
           emit(src"// LEDR, node = $lhs", forceful=true)
-          emit(src"io.led_stream_out_data := converted_data")
+          emit(src"${lhs}_ready := 1.U", forceful=true)
+          emit(src"${lhs}_valid := 1.U", forceful=true)
+        //  emit(src"io.led_stream_out_data := converted_data", forceful=true)
         case _ =>
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
@@ -83,6 +93,8 @@ trait ChiselGenStream extends ChiselCodegen {
           case Def(StreamInNew(bus)) => bus match {
             case VideoCamera => 
               emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
+            case SliderSwitch => 
+              emit(src"""val $lhs = io.switch_stream_in_data""")
             case _ => 
               val id = argMapping(stream)._1
               Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamIns")
@@ -97,16 +109,14 @@ trait ChiselGenStream extends ChiselCodegen {
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
             case VGA => 
-              emitGlobal(src"""val ${stream}_data = Wire(UInt(16.W))""")
-              emitGlobal(src"""val converted_data = Wire(UInt(16.W))""")
               emit(src"""${stream}_data := $data""")
               emit(src"""converted_data := ${stream}_data""")
               emit(src"""${stream}_valid := ${en} & ${parentOf(lhs).get}_datapath_en""")
             case LEDR =>
               emitGlobal(src"""val ${stream}_data = Wire(UInt(32.W))""")
-              emitGlobal(src"""val converted_data = Wire(UInt(32.W))""")
+        //      emitGlobal(src"""val converted_data = Wire(UInt(32.W))""")
               emit(src"""${stream}_data := $data""")
-              emit(src"""converted_data := ${stream}_data""")
+              emit(src"""io.led_stream_out_data := ${stream}_data""")
 
             case _ => 
               val externalStream = stream match {
