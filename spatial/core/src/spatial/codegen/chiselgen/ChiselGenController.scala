@@ -238,7 +238,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     }
 
 
-    val constrArg = if (isInner) {s"${numIter.length} /*TODO: don't need*/, ${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
+    val constrArg = if (isInner) {s"${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
 
     emit(src"""val ${sym}_offset = 0 // TODO: Compute real delays""")
     emitModule(src"${sym}_sm", s"${smStr}", s"${constrArg}")

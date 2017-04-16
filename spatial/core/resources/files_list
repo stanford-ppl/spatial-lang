@@ -205,6 +205,7 @@
 ./chiselgen/template-level/templates/FF.scala
 ./chiselgen/template-level/templates/Accum.scala
 ./chiselgen/template-level/templates/Sequential.scala
+./chiselgen/template-level/templates/Streampipe.scala
 ./chiselgen/template-level/templates/ParallelShiftRegFile.scala
 ./chiselgen/template-level/templates/Parallel.scala
 ./chiselgen/template-level/templates/SRAM.scala
