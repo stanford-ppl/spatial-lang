@@ -190,9 +190,8 @@ stamp_commit_msgs
 
 stamp_app_comments() {
   cd ${SPATIAL_HOME}/regression_tests
-  comments=(`find . -type f -maxdepth 3 -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g"`)
-  echo -e "\n# Pass Comments:" >> $wiki_file
-  echo -e "\n${comments}" >> $wiki_file
+  echo -e "\n# Pass Comments:\n" >> $wiki_file
+  find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g" >> $wiki_file
 }
 
 update_log() {

@@ -256,6 +256,6 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
     }.flatten
 
     val cksum = B_check.zip(B_computed){ (a,b) => a > b - margin && a < b + margin}.reduce{_&&_}
-    println("PASS: " + cksum + " (TRSM) * Need to test with bigger dimensions!")
+    println("PASS: " + cksum + " (TRSM)")
   }
 }

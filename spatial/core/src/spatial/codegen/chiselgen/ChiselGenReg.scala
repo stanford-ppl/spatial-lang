@@ -3,6 +3,7 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.SpatialConfig
 import spatial.SpatialExp
+import scala.collection.mutable.Map
 
 trait ChiselGenReg extends ChiselCodegen {
   val IR: SpatialExp
@@ -11,6 +12,7 @@ trait ChiselGenReg extends ChiselCodegen {
   var argIns: List[Sym[Reg[_]]] = List()
   var argOuts: List[Sym[Reg[_]]] = List()
   var argIOs: List[Sym[Reg[_]]] = List()
+  var outMuxMap: Map[Sym[Reg[_]], Int] = Map()
   private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
@@ -51,15 +53,34 @@ trait ChiselGenReg extends ChiselCodegen {
     case ArgInNew(init)  => 
       argIns = argIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case ArgOutNew(init) => 
+      if (writersOf(lhs).length > 1) {
+        emitGlobal(src"val ${lhs}_data_options = Wire(Vec(${writersOf(lhs).length}, UInt(64.W)))", forceful=true)
+        emitGlobal(src"val ${lhs}_en_options = Wire(Vec(${writersOf(lhs).length}, Bool()))", forceful=true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${nameOf(lhs).getOrElse("")}""", forceful=true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options.reduce{_|_}""", forceful=true)
+        outMuxMap += (lhs.asInstanceOf[Sym[Reg[_]]] -> 0)
+      } else {
+        emitGlobal(src"val ${lhs}_data_options = Wire(UInt(64.W))", forceful=true)
+        emitGlobal(src"val ${lhs}_en_options = Wire(Bool())", forceful=true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := ${lhs}_data_options // ${nameOf(lhs).getOrElse("")}""", forceful=true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options""", forceful=true)
+      }
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
 
     case HostIONew(init) =>
+      if (writersOf(lhs).length > 1) {
+        emitGlobal(src"val ${lhs}_data_options = Wire(Vec(${writersOf(lhs).length}, UInt(64.W)))", forceful = true)
+        emitGlobal(src"val ${lhs}_en_options = Wire(Vec(${writersOf(lhs).length}, Bool()))", forceful = true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${nameOf(lhs).getOrElse("")}""", forceful = true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options.reduce{_|_}""", forceful = true)
+        outMuxMap += (lhs.asInstanceOf[Sym[Reg[_]]] -> 0)
+      } else {
+        emitGlobal(src"val ${lhs}_data_options = Wire(UInt(64.W))", forceful = true)
+        emitGlobal(src"val ${lhs}_en_options = Wire(Bool())", forceful = true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := ${lhs}_data_options // ${nameOf(lhs).getOrElse("")}""", forceful = true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options""", forceful = true)
+      }
       argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
-      // argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
-      // val width = bitWidth(init.tp)
-//      emitGlobal(src"val $lhs = Module(new FF($width)) // ${nameOf(lhs).getOrElse("")}")
-//      emit(src"""io.argOuts(${argMapping(reg)._1}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
-//      emit(src"""io.argOuts(${argMapping(reg)._1}).valid := $en & ${parent}_en""")
 
     case RegNew(init)    => 
       val width = bitWidth(init.tp)
@@ -166,10 +187,15 @@ trait ChiselGenReg extends ChiselCodegen {
     case RegWrite(reg,v,en) => 
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg) | isHostIO(reg)) {
-        emit(src"""val $reg = RegInit(0.U) // HW-accessible register""")
-        emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
-        emit(src"""io.argOuts(${argMapping(reg)._3}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
-        emit(src"""io.argOuts(${argMapping(reg)._3}).valid := $en & ${parent}_datapath_en""")
+        if (writersOf(reg).length > 1) {
+          val id = outMuxMap(reg.asInstanceOf[Sym[Reg[_]]])
+          emit(src"""${reg}_data_options($id) := ${v}.number""")
+          emit(src"""${reg}_en_options($id) := $en & ${parent}_datapath_en""")
+          outMuxMap += (reg.asInstanceOf[Sym[Reg[_]]] -> {id + 1})
+        } else {
+          emit(src"""${reg}_data_options := ${v}.number""")
+          emit(src"""${reg}_en_options := $en & ${parent}_datapath_en""")
+        }
       } else {
         reduceType(reg) match {
           case Some(fps: ReduceFunction) => // is an accumulator

@@ -28,9 +28,19 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
       case SetMem(dram, _) => 
         memStreams += ((dram, "input"))
       case StreamInNew(bus) => 
-        genericStreams += ((lhs, "input"))
+        bus match {
+          case BurstDataBus() =>
+          case BurstAckBus =>
+          case _ =>
+            genericStreams += ((lhs, "input"))
+        }
       case StreamOutNew(bus) => 
-        genericStreams += ((lhs, "output"))
+        bus match {
+          case BurstFullDataBus() =>
+          case BurstCmdBus =>
+          case _ =>
+            genericStreams += ((lhs, "output"))
+        }
       case e: ArgInNew[_] => argPorts += ((lhs, "input"))
       case e: ArgOutNew[_] => argPorts += ((lhs, "output"))
       case e: HostIONew[_] => argPorts += ((lhs, "bidirectional"))

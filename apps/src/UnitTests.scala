@@ -59,6 +59,7 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     Accel {
       Pipe { io1 := io1.value + 2}
       Pipe { io2 := io2.value + 4}
+      Pipe { y2 := 999 }
       Pipe { y1 := x1.value + 6 }
       Pipe { y2 := x2.value + 8 }
       val sram = SRAM[Int](16)
@@ -79,7 +80,7 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     println("expected: " + r1 + ", " + r2 + ", " + r3 + ", " + r4)
     printArray(r5, "Mem: ")
     val cksum = r1 == g1 && r2 == g2 && r3 == g3 && r4 == g4 && data.zip(r5){_==_}.reduce{_&&_}
-    println("PASS: " + cksum + "(SimpleHostIO)")
+    println("PASS: " + cksum + " (SimpleHostIO)")
   }
 }
 
