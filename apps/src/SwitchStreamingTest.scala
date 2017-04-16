@@ -22,9 +22,6 @@ object SwitchStreamingTest extends SpatialApp {
     val input = StreamIn[UINT32](inputSwitch)
     val outputLEDR: Bus = target.LEDR
     val output = StreamOut[UINT32](outputLEDR)
-    // Switch example
-    // val inputSwitch = target.SliderSwitch
-    // val input = StreamIn[UINT32](inputSwitch)
     Accel(*) {
       val switchVal = input.value()
       // Assign to a value of switch

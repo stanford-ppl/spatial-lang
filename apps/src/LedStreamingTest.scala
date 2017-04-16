@@ -20,15 +20,8 @@ object LedStreamingTest extends SpatialApp {
     // LEDR example
     val outputLEDR: Bus = target.LEDR
     val output = StreamOut[UINT32](outputLEDR)
-    // Switch example
-    // val inputSwitch = target.SliderSwitch
-    // val input = StreamIn[UINT32](inputSwitch)
     Accel(*) {
-      // val switchVal = input.value()
-      // Assign to a value of switch
-      // outputLEDR := swtichVal
-      // Assign to a constant
-      output := 8
+      output := 4
     }
   }
 }
