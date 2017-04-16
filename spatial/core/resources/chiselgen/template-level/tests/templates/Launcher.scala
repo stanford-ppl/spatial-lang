@@ -143,7 +143,7 @@ object Arguments {
              List(2), List(2), List(2), 2, BankedMemory)
         )
   val Innerpipe = List(
-    2
+    false
   )
   val Parallel = List(
     3
