@@ -3,10 +3,17 @@
 In class, we went through a "HelloWorld" example. We will first go through the process of deploying this example on the DE1SoC board. 
 
 Before you start, make sure that you are in the directory where you have your spatial set up.
-First, initialize the environment variables by running:
+If you are using Ubuntu, you can run the following commands to set up the environment variables:
 ```bash
 source init-env.sh
 ```
+If you are using Mac, you need to run the following commands to set up the environment variables: 
+```bash
+export SPATIAL_HOME=`pwd`
+export PUB_HOME=${SPATIAL_HOME}
+export TEMPLATES_HOME=${SPATIAL_HOME}/spatial/src/spatial/codegen/chiselgen/resources/template-level
+```
+
 If you have not make your spatial yet, run:
 ```bash
 make 
