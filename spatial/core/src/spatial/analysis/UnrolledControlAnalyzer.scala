@@ -1,5 +1,4 @@
 package spatial.analysis
-import scala.collection.mutable.HashMap
 
 trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   import IR._

@@ -1,10 +1,9 @@
 package spatial.analysis
 
-import org.virtualized.SourceContext
-import spatial.SpatialExp
+import spatial._
+import forge._
 
-trait NodeUtils extends NodeClasses {
-  this: SpatialExp =>
+trait NodeUtils { this: SpatialExp =>
 
   /**
     * Least common multiple of two integers (smallest integer which has integer divisors a and b)
@@ -217,22 +216,22 @@ trait NodeUtils extends NodeClasses {
       }
     }
   }
-  def checkConcurrentReaders(mem: Exp[_]): Boolean = checkAccesses(readersOf(mem)){(a,b) =>
+  private[spatial] def checkConcurrentReaders(mem: Exp[_])(implicit ctx: SrcCtx): Boolean = checkAccesses(readersOf(mem)){(a,b) =>
     if (areConcurrent(a,b)) {new ConcurrentReadersError(mem, a.node, b.node); true } else false
   }
-  def checkConcurrentWriters(mem: Exp[_]): Boolean = checkAccesses(writersOf(mem)){(a,b) =>
+  private[spatial] def checkConcurrentWriters(mem: Exp[_])(implicit ctx: SrcCtx): Boolean = checkAccesses(writersOf(mem)){(a,b) =>
     if (areConcurrent(a,b)) {new ConcurrentWritersError(mem, a.node, b.node); true } else false
   }
-  def checkPipelinedReaders(mem: Exp[_]): Boolean = checkAccesses(readersOf(mem)){(a,b) =>
+  private[spatial] def checkPipelinedReaders(mem: Exp[_])(implicit ctx: SrcCtx): Boolean = checkAccesses(readersOf(mem)){(a,b) =>
     if (arePipelined(a,b)) {new PipelinedReadersError(mem, a.node, b.node); true } else false
   }
-  def checkPipelinedWriters(mem: Exp[_]): Boolean = checkAccesses(writersOf(mem)){(a,b) =>
+  private[spatial] def checkPipelinedWriters(mem: Exp[_])(implicit ctx: SrcCtx): Boolean = checkAccesses(writersOf(mem)){(a,b) =>
     if (arePipelined(a,b)) {new PipelinedWritersError(mem, a.node, b.node); true } else false
   }
-  def checkMultipleReaders(mem: Exp[_]): Boolean = if (readersOf(mem).length > 1) {
+  private[spatial] def checkMultipleReaders(mem: Exp[_])(implicit ctx: SrcCtx): Boolean = if (readersOf(mem).length > 1) {
     new MultipleReadersError(mem, readersOf(mem).map(_.node)); true
   } else false
-  def checkMultipleWriters(mem: Exp[_]): Boolean = if (writersOf(mem).length > 1) {
+  private[spatial] def checkMultipleWriters(mem: Exp[_])(implicit ctx: SrcCtx): Boolean = if (writersOf(mem).length > 1) {
     new MultipleWritersError(mem, writersOf(mem).map(_.node)); true
   } else false
 

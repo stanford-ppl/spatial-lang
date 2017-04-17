@@ -1,12 +1,9 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.{SpatialApi, SpatialExp}
-import argon.ops.{FixPtExp, FltPtExp}
+import spatial._
 import forge._
 
-trait MathApi extends MathExp {
-  this: SpatialApi =>
+trait MathApi extends MathExp { this: SpatialApi =>
 
   /** Absolute value **/
   @api def abs[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = FixPt(fix_abs(x.s))
@@ -46,8 +43,7 @@ trait MathApi extends MathExp {
 }
 
 
-trait MathExp {
-  this: SpatialExp =>
+trait MathExp { this: SpatialExp =>
 
   @api def mux[T:Meta:Bits](select: Bool, a: T, b: T): T = wrap( math_mux(select.s, a.s, b.s) )
   @api def min[T:Meta:Bits:Order](a: T, b: T): T = wrap( math_min(a.s, b.s) )

@@ -1,16 +1,11 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 import forge._
 
-trait SwitchApi extends SwitchExp {
-  this: SpatialApi =>
+trait SwitchApi extends SwitchExp { this: SpatialApi => }
 
-}
-
-trait SwitchExp {
-  this: SpatialExp =>
+trait SwitchExp { this: SpatialExp =>
 
   @util def create_switch[T:Type](cases: Seq[() => Exp[T]]): Exp[T] = {
     var cs: Seq[Exp[T]] = Nil

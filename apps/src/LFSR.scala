@@ -1,12 +1,13 @@
-import spatial._
 import org.virtualized._
+import spatial._
 
 object LFSR extends SpatialApp {
+
   import IR._
 
-  type UInt16 = FixPt[FALSE,_16,_0]
+  type UInt16 = FixPt[FALSE, _16, _0]
   type Bit = Boolean
-  type UInt15 = FixPt[FALSE,_15,_0]
+  type UInt15 = FixPt[FALSE, _15, _0]
 
   @struct class NextState(lsb: Bit, msbs: UInt15)
 

@@ -1,14 +1,10 @@
 package spatial.api
 
-import argon.core.Staging
-import argon.ops.ArrayApi
 import spatial._
-import org.virtualized._
 import forge._
+import org.virtualized._
 
-trait StagedUtilApi extends StagedUtilExp {
-  this: SpatialApi =>
-
+trait StagedUtilApi extends StagedUtilExp { this: SpatialApi =>
   @virtualize
   @api def printArray[T:Meta](array: Array[T], header: String = ""): Void = {
     println(header)
@@ -29,8 +25,4 @@ trait StagedUtilApi extends StagedUtilExp {
 
 }
 
-trait StagedUtilExp  {
-  this: SpatialExp =>
-
-
-}
+trait StagedUtilExp { this: SpatialExp => }

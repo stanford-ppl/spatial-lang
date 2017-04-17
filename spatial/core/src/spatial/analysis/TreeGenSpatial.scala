@@ -1,7 +1,5 @@
 package spatial.analysis
 
-import argon.traversal.Traversal
-import spatial.SpatialExp
 import argon.Config
 import java.io.PrintWriter
 

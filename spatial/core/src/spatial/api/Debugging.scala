@@ -1,11 +1,9 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 import forge._
 
-trait DebuggingApi extends DebuggingExp {
-  this: SpatialApi =>
+trait DebuggingApi extends DebuggingExp { this: SpatialApi =>
 
 
   @api def println(): Void = println("")
@@ -21,8 +19,7 @@ trait DebuggingApi extends DebuggingExp {
 }
 
 
-trait DebuggingExp {
-  this: SpatialExp =>
+trait DebuggingExp { this: SpatialExp =>
 
   /** Debugging IR Nodes **/
   case class PrintIf(en: Exp[Bool], x: Exp[Text]) extends EnabledOp[Void](en) { def mirror(f:Tx) = printIf(f(en),f(x)) }

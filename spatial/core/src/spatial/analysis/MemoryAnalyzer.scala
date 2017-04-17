@@ -1,9 +1,8 @@
 package spatial.analysis
 
 import argon.traversal.CompilerPass
+import spatial._
 import org.virtualized.SourceContext
-import spatial.SpatialExp
-import scala.collection.mutable
 
 trait MemoryAnalyzer extends CompilerPass {
   val IR: SpatialExp

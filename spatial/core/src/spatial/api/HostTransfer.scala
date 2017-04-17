@@ -1,11 +1,9 @@
 package spatial.api
-import spatial._
 
-import argon.core.Staging
+import spatial._
 import forge._
 
-trait HostTransferApi extends HostTransferExp {
-  this: SpatialApi =>
+trait HostTransferApi extends HostTransferExp { this: SpatialApi =>
 
   @api def setArg[A,T:Bits](reg: Reg[T], value: A)(implicit lift: Lift[A,T]): Void = {
     implicit val mT: Meta[T] = lift.staged
@@ -27,8 +25,7 @@ trait HostTransferApi extends HostTransferExp {
   }
 }
 
-trait HostTransferExp {
-  this: SpatialExp =>
+trait HostTransferExp { this: SpatialExp =>
 
   /** IR Nodes **/
   case class SetArg[T:Type:Bits](reg: Exp[Reg[T]], value: Exp[T]) extends Op[Void] {

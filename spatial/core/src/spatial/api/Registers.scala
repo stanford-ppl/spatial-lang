@@ -8,7 +8,10 @@ trait RegApi extends RegExp {
 
   @api def ArgIn[T:Meta:Bits]: Reg[T] = Reg(argin_alloc[T](unwrap(zero[T])))
   @api def ArgOut[T:Meta:Bits]: Reg[T] = Reg(argout_alloc[T](unwrap(zero[T])))
-  @api def HostIO[T:Meta:Bits]: Reg[T] = Reg(hostio_alloc[T](zero[T].s))
+  @api def HostIO[T:Meta:Bits]: Reg[T] = Reg(hostio_alloc[T](unwrap(zero[T])))
+
+  @api def Reg[T:Meta:Bits]: Reg[T] = Reg(reg_alloc[T](unwrap(zero[T])))
+  @api def Reg[T:Meta:Bits](reset: T): Reg[T] = Reg(reg_alloc[T](unwrap(reset)))
 
   @api implicit def readReg[T](reg: Reg[T]): T = reg.value
 }

@@ -4,8 +4,7 @@ import spatial._
 import forge._
 
 // TODO: Is this still used by anything? If not, delete
-trait AlteraVideoApi extends AlteraVideoExp {
-  this: SpatialApi =>
+trait AlteraVideoApi extends AlteraVideoExp { this: SpatialApi =>
 
   @api def AXI_Master_Slave(): AXI_Master_Slave = AXI_Master_Slave(axi_ms_alloc())
 

@@ -5,10 +5,9 @@ import argon.codegen.scalagen._
 import argon.codegen.chiselgen._
 import argon.codegen.pirgen._
 import argon.codegen.cppgen._
-import argon.core.Staging
-import argon.ops._
 import argon.traversal.IRPrinter
 import argon._
+import argon.typeclasses.ArithExp
 import forge._
 import org.virtualized.EmptyContext
 import spatial.api._
@@ -21,8 +20,8 @@ import spatial.codegen.pirgen._
 import spatial.codegen.cppgen._
 
 
-protected trait SpatialExp extends Staging
-  with ArgonExp with MatrixExp
+protected trait SpatialExp
+  extends ArgonExp with SpatialExceptions with MatrixExp
   with DebuggingExp with TemplatesExp with BitOpsExp with FileIOExp
   with ControllerExp with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
@@ -50,12 +49,10 @@ trait SpatialImplicits{this: SpatialApi =>
 protected trait SpatialApi extends SpatialExp
   with ArgonApi with MatrixApi
   with DebuggingApi with BitsOpsApi
-
   with ControllerApi with CounterApi with DRAMApi with DRAMTransferApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
   with StreamApi with PinApi with AlteraVideoApi
   with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
-
   with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits with FileIOApi
  
 

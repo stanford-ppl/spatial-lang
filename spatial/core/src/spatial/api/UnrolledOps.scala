@@ -1,14 +1,10 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 
-trait UnrolledApi extends UnrolledExp {
-  this: SpatialApi =>
-}
+trait UnrolledApi extends UnrolledExp { this: SpatialApi => }
 
-trait UnrolledExp  {
-  this: SpatialExp =>
+trait UnrolledExp { this: SpatialExp =>
 
   /** IR Nodes **/
   case class UnrolledForeach(
