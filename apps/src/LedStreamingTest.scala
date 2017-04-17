@@ -1,27 +1,24 @@
 import spatial._
 import org.virtualized._
-import forge._
 
 object LedStreamingTest extends SpatialApp {
   import IR._
-
   override val target = targets.DE1
 
-  type UINT2 = FixPt[FALSE,_2,_0]
-  type UINT3 = FixPt[FALSE,_3,_0]
-  type UINT5 = FixPt[FALSE,_5,_0]
-  type UINT6 = FixPt[FALSE,_6,_0]
-  type UINT9 = FixPt[FALSE,_9,_0]
-  type UINT7 = FixPt[FALSE,_7,_0]
-  type UINT32 = FixPt[FALSE,_32,_0]
-
+  type bit = FixPt[FALSE,_1,_0]
+  @struct class LEDs(LED0: bit = 0, LED1: bit = 0, LED2: bit = 0,
+                     LED3: bit = 0, LED4: bit = 0, LED5: bit = 0,
+                     LED6: bit = 0, LED7: bit = 0, LED8: bit = 0,
+                     LED9: bit = 0)
   @virtualize
   def main() {
-    // LEDR example
     val outputLEDR: Bus = target.LEDR
-    val output = StreamOut[UINT32](outputLEDR)
+    val output = StreamOut[LEDRArray](outputLEDR)
+
     Accel(*) {
-      output := 4
+      val leds := LEDs(LED5 = 1, LED6 = 1)
+      output := leds
     }
   }
 }
+
