@@ -20,21 +20,22 @@ here=`pwd`
 cd ${SPATIAL_HOME}
 spatial_hash=`git rev-parse HEAD`
 spatial_hash_message=`git log --stat --name-status HEAD^..HEAD`
-# cd argon
-# argon_hash=`git rev-parse HEAD`
-# argon_hash_message=`git log --stat --name-status HEAD^..HEAD`
-# cd ../scala-virtualized
-# virtualized_hash=`git rev-parse HEAD`
-# virtualized_hash_message=`git log --stat --name-status HEAD^..HEAD`
+cd argon
+argon_hash=`git rev-parse HEAD`
+argon_hash_message=`git log --stat --name-status HEAD^..HEAD`
+cd ../scala-virtualized
+virtualized_hash=`git rev-parse HEAD`
+virtualized_hash_message=`git log --stat --name-status HEAD^..HEAD`
+cd ../
 at=`date +"%Y-%m-%d_%H-%M-%S"`
 machine=`hostname`
 cd $here
 
 # Specify tests to run
-types=("chisel")
-dsts=("portland")
-# types=("scala" "chisel")
-# dsts=("max-2" "portland")
+# types=("chisel")
+# dsts=("portland")
+types=("scala" "chisel")
+dsts=("max-2" "portland")
 tests=all
 status=debug
 
@@ -79,4 +80,4 @@ else
 	exit 0
 fi
 
-echo "**** TEMPORARILY TURNED OFF MAX2"
+# echo "**** TEMPORARILY TURNED OFF MAX2"
