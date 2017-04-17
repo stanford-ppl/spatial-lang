@@ -51,7 +51,12 @@ cd $SPATIAL_HOME
 bin/spatial ArgInOut --chisel
 ```
 
-This will generate the hardware description files under ./gen/ArgInOut. Navigate into ./gen/ArgInOut, and you will see the following folders: 
+This will generate the hardware description files under ./gen/ArgInOut. 
+If you want to edit the same app and regenerate it, you will have to remove the old folder of this app before regeneration. To do this, run: 
+```bash
+rm -rf $SPATIAL_HOME/gen/APP_NAME
+```
+Navigate into ./gen/ArgInOut, and you will see the following folders: 
 ```bash
 chisel
 cpp
