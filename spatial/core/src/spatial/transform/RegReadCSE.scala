@@ -92,7 +92,7 @@ trait RegReadCSE extends ForwardTransformer {
 
         case None =>
           val lhs2 = mirror(lhs,rhs)
-          getDef(lhs2).foreach{d => defCache(d) = syms(lhs2).toList }
+          getDef(lhs2).foreach{d => defCache += d -> syms(lhs2).toList }
           lhs2
       }
 
