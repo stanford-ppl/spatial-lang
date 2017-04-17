@@ -4,6 +4,9 @@ import chisel3._
 import chisel3.util
 import scala.collection.mutable.HashMap
 
+sealed trait BankingMode
+object DiagonalMemory extends BankingMode
+object BankedMemory extends BankingMode
 
 class flatW(val w: Int) extends Bundle {
   val addr = UInt(32.W)
@@ -137,20 +140,20 @@ class MemND(val dims: List[Int], bitWidth: Int = 32) extends Module {
 */
 class SRAM(val logicalDims: List[Int], val bitWidth: Int, 
            val banks: List[Int], val strides: List[Int], 
-           val wPar: List[Int], val rPar: List[Int], val bankingMode: String) extends Module { 
+           val wPar: List[Int], val rPar: List[Int], val bankingMode: BankingMode) extends Module { 
 
   // Overloaded construters
   // Tuple unpacker
   def this(tuple: (List[Int], Int, List[Int], List[Int], 
-           List[Int], List[Int], String)) = this(tuple._1,tuple._2,tuple._3,tuple._4,tuple._5,tuple._6,tuple._7)
+           List[Int], List[Int], BankingMode)) = this(tuple._1,tuple._2,tuple._3,tuple._4,tuple._5,tuple._6,tuple._7)
   // Bankmode-less
   def this(logicalDims: List[Int], bitWidth: Int, 
            banks: List[Int], strides: List[Int], 
-           wPar: List[Int], rPar: List[Int]) = this(logicalDims, bitWidth, banks, strides, wPar, rPar, "strided")
+           wPar: List[Int], rPar: List[Int]) = this(logicalDims, bitWidth, banks, strides, wPar, rPar, BankedMemory)
   // If 1D, spatial will make banks and strides scalars instead of lists
   def this(logicalDims: List[Int], bitWidth: Int, 
            banks: Int, strides: Int, 
-           wPar: List[Int], rPar: List[Int]) = this(logicalDims, bitWidth, List(banks), List(strides), wPar, rPar, "strided")
+           wPar: List[Int], rPar: List[Int]) = this(logicalDims, bitWidth, List(banks), List(strides), wPar, rPar, BankedMemory)
 
   val depth = logicalDims.reduce{_*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
@@ -176,8 +179,14 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
 
   // Get info on physical dims
   // TODO: Upcast dims to evenly bank
-  val physicalDims = logicalDims.zip(banks).map { case (dim, b) => dim/b}
-  val numMems = banks.reduce{_*_}
+  val physicalDims = bankingMode match {
+    case DiagonalMemory => logicalDims.zipWithIndex.map { case (dim, i) => if (i == N - 1) math.ceil(dim.toDouble/banks.head).toInt else dim}
+    case BankedMemory => logicalDims.zip(banks).map { case (dim, b) => math.ceil(dim.toDouble/b).toInt}
+  }
+  val numMems = bankingMode match {
+    case DiagonalMemory => banks.head
+    case BankedMemory => banks.reduce{_*_}
+  }
 
   // Create physical mems
   val m = (0 until numMems).map{ i => Module(new MemND(physicalDims))}
@@ -190,14 +199,21 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
   val wConversions = io.w.map{ wbundle => 
     // Writer conversion
     val convertedW = Wire(new multidimW(N,bitWidth))
-    val physicalAddrsW = wbundle.addr.zip(banks).map{ case (logical, b) => logical / b.U }
-    physicalAddrsW.zipWithIndex.foreach { case (calculatedAddr, i) => convertedW.addr(i) := calculatedAddr}
+    val physicalAddrs = bankingMode match {
+      case DiagonalMemory => wbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical / banks.head.U else logical}
+      case BankedMemory => wbundle.addr.zip(banks).map{ case (logical, b) => logical / b.U }
+    }
+    physicalAddrs.zipWithIndex.foreach { case (calculatedAddr, i) => convertedW.addr(i) := calculatedAddr}
     convertedW.data := wbundle.data
     convertedW.en := wbundle.en
-    val bankCoordsW = wbundle.addr.zip(banks).map{ case (logical, b) => logical % b.U }
-    val bankCoordW = bankCoordsW.zipWithIndex.map{ case (c, i) => c*(banks.drop(i).reduce{_*_}/banks(i)).U }.reduce{_+_}
+    val flatBankId = bankingMode match {
+      case DiagonalMemory => wbundle.addr.reduce{_+_} % banks.head.U
+      case BankedMemory => 
+        val bankCoords = wbundle.addr.zip(banks).map{ case (logical, b) => logical % b.U }
+        bankCoords.zipWithIndex.map{ case (c, i) => c*(banks.drop(i).reduce{_*_}/banks(i)).U }.reduce{_+_}
+    }
 
-    (convertedW, bankCoordW)
+    (convertedW, flatBankId)
   }
   val convertedWVec = wConversions.map{_._1}
   val bankIdW = wConversions.map{_._2}
@@ -205,13 +221,19 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
   val rConversions = io.r.map{ rbundle => 
     // Reader conversion
     val convertedR = Wire(new multidimR(N,bitWidth))
-    val physicalAddrs = rbundle.addr.zip(banks).map{ case (logical, b) => logical / b.U }
+    val physicalAddrs = bankingMode match {
+      case DiagonalMemory => rbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical / banks.head.U else logical}
+      case BankedMemory => rbundle.addr.zip(banks).map{ case (logical, b) => logical / b.U }
+    }
     physicalAddrs.zipWithIndex.foreach { case (calculatedAddr, i) => convertedR.addr(i) := calculatedAddr}
     convertedR.en := rbundle.en
-    val bankCoordsR = rbundle.addr.zip(banks).map{ case (logical, b) => logical % b.U }
-    val bankCoordR = bankCoordsR.zipWithIndex.map{ case (c, i) => c*(banks.drop(i).reduce{_*_}/banks(i)).U }.reduce{_+_}
-
-    (convertedR, bankCoordR)
+    val flatBankId = bankingMode match {
+      case DiagonalMemory => rbundle.addr.reduce{_+_} % banks.head.U
+      case BankedMemory => 
+        val bankCoords = rbundle.addr.zip(banks).map{ case (logical, b) => logical % b.U }
+        bankCoords.zipWithIndex.map{ case (c, i) => c*(banks.drop(i).reduce{_*_}/banks(i)).U }.reduce{_+_}
+    }
+    (convertedR, flatBankId)
   }
   val convertedRVec = rConversions.map{_._1}
   val bankIdR = rConversions.map{_._2}
@@ -290,20 +312,20 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
 
 class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, /*TODO: width, get rid of this!*/
            val banks: List[Int], val strides: List[Int], 
-           val wPar: List[Int], val rPar: List[Int], val rBundling: List[Int], val bPar: Int, val bankingMode: String) extends Module { 
+           val wPar: List[Int], val rPar: List[Int], val rBundling: List[Int], val bPar: Int, val bankingMode: BankingMode) extends Module { 
 
   // Overloaded construters
   // Tuple unpacker
   def this(tuple: (List[Int], Int, Int, List[Int], List[Int], 
-           List[Int], List[Int], List[Int], Int, String)) = this(tuple._1,tuple._2,tuple._3,tuple._4,tuple._5,tuple._6,tuple._7,tuple._8,tuple._9,tuple._10)
+           List[Int], List[Int], List[Int], Int, BankingMode)) = this(tuple._1,tuple._2,tuple._3,tuple._4,tuple._5,tuple._6,tuple._7,tuple._8,tuple._9,tuple._10)
   // Bankmode-less
   def this(logicalDims: List[Int], numBufs: Int, bitWidth: Int, 
            banks: List[Int], strides: List[Int], 
-           wPar: List[Int], rPar: List[Int], rBundling: List[Int], bPar: Int) = this(logicalDims, numBufs, bitWidth, banks, strides, wPar, rPar, rBundling, bPar, "strided")
+           wPar: List[Int], rPar: List[Int], rBundling: List[Int], bPar: Int) = this(logicalDims, numBufs, bitWidth, banks, strides, wPar, rPar, rBundling, bPar, BankedMemory)
   // If 1D, spatial will make banks and strides scalars instead of lists
   def this(logicalDims: List[Int], numBufs: Int, bitWidth: Int, 
            banks: Int, strides: Int, 
-           wPar: List[Int], rPar: List[Int], rBundling: List[Int], bPar: Int) = this(logicalDims, numBufs, bitWidth, List(banks), List(strides), wPar, rPar, rBundling, bPar, "strided")
+           wPar: List[Int], rPar: List[Int], rBundling: List[Int], bPar: Int) = this(logicalDims, numBufs, bitWidth, List(banks), List(strides), wPar, rPar, rBundling, bPar, BankedMemory)
 
   val depth = logicalDims.reduce{_*_} // Size of memory
   val N = logicalDims.length // Number of dimensions

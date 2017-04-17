@@ -1514,3 +1514,73 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
   }
 }
 
+object DiagBanking extends SpatialApp {  // Regression (Unit) // Args: none
+  import IR._
+  type T = Int
+
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val colpar = 8
+    val rowpar = 3
+    val M = 64
+    val N = 32
+    val x_data = (0::M, 0::N){(i,j) => (i*N + j).to[T]}
+    val x = DRAM[T](M,N)
+    val s = ArgOut[T]
+
+    setMem(x, x_data)
+
+    Accel {
+      val xx = SRAM[T](M,N)
+      xx load x(0 :: M, 0 :: N par colpar)
+      s := Reduce(Reg[T](0.to[T]))(N by 1, M by 1 par rowpar) { (j,i) => 
+        xx(i,j)
+      }{_+_}
+    }
+
+
+    // Extract results from accelerator
+    val result = getArg(s)
+
+    // Create validation checks and debug code
+    val gold = x_data.reduce{_+_}
+    println("Result: (gold) " + gold + " =?= " + result)
+
+    val cksum = gold == result
+    println("PASS: " + cksum + " (DiagBanking)")
+  }
+}
+
+object MultiArgOut extends SpatialApp {  // Regression (Unit) // Args: 5 10
+  import IR._
+  type T = Int
+
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val a = ArgIn[T]
+    val b = ArgIn[T]
+    val x = ArgOut[T]
+    val y = ArgOut[T]
+    val i = args(0).to[T]
+    val j = args(1).to[T]
+    setArg(a, i)
+    setArg(b, j)
+
+
+    Accel {
+      x := a
+      y := b
+    }
+
+
+    // Extract results from accelerator
+    val xx = getArg(x)
+    val yy = getArg(y)
+
+    println("xx = " + xx + ", yy = " + yy)
+    val cksum = (xx == i) && (yy == j)
+    println("PASS: " + cksum + " (MultiArgOut)")
+  }
+}

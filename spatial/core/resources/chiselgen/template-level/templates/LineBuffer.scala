@@ -77,7 +77,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   //   - W par less useful since conv is often compute bound
   // val linebuffer = List.fill(num_lines + extra_rows_to_buffer)(Mem(line_size, UInt(32.W)))
   val linebuffer = List.fill(num_lines + extra_rows_to_buffer)(Module(new SRAM(List(line_size), 32, 
-    List(col_wPar max col_rPar), List(1), List(col_wPar), List(col_rPar), "strided")))
+    List(col_wPar max col_rPar), List(1), List(col_wPar), List(col_rPar), BankedMemory)))
   
   // --------------------------------------------------------------------------------------------------------------------------------
   // Write logic

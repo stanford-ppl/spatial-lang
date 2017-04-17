@@ -176,12 +176,24 @@ object Number {
     case FloatPoint(g,e) => throw new Exception("TODO: Random fixed point")
   }
 
+  // TODO: Fix these!
   def sqrt(x: Number) = Number(Math.sqrt(x.toDouble), x.valid, x.fmt)
   def exp(x: Number) = Number(Math.exp(x.toDouble), x.valid, x.fmt)
   def log(x: Number) = Number(Math.log(x.toDouble), x.valid, x.fmt)
   def abs(x: Number) = Number(x.value.abs, x.valid, x.fmt)
   def min(x: Number, y: Number) = if (x < y) x else y
   def max(x: Number, y: Number) = if (x > y) x else y
+
+  def sin(x: Number) = Number(Math.sin(x.toDouble), x.valid, x.fmt)
+  def cos(x: Number) = Number(Math.cos(x.toDouble), x.valid, x.fmt)
+  def tan(x: Number) = Number(Math.tan(x.toDouble), x.valid, x.fmt)
+  def sinh(x: Number) = Number(Math.sinh(x.toDouble), x.valid, x.fmt)
+  def cosh(x: Number) = Number(Math.cosh(x.toDouble), x.valid, x.fmt)
+  def tanh(x: Number) = Number(Math.tanh(x.toDouble), x.valid, x.fmt)
+  def asin(x: Number) = Number(Math.asin(x.toDouble), x.valid, x.fmt)
+  def acos(x: Number) = Number(Math.acos(x.toDouble), x.valid, x.fmt)
+  def atan(x: Number) = Number(Math.atan(x.toDouble), x.valid, x.fmt)
+
 }
 
 object X {
