@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object GDA extends SpatialApp { // Regression (Dense) // Args: 1
+object GDA extends SpatialApp { // Regression (Dense) // Args: 64
   import IR._
 
   type X = Int
@@ -116,7 +116,7 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 1
     printArr(result, "result: ")
 
     val cksum = gold.zip(result){ case (a,b) => a < b + margin && a > b - margin }.reduce{_&&_}
-    println("PASS: " + cksum  + " (GDA) * Make this work fo nontrivial test")
+    println("PASS: " + cksum  + " (GDA)")
 
     // // println("actual: " + gold.mkString(", "))
     // //println("result: " + result.mkString(", "))

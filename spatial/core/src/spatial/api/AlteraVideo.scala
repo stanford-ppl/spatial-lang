@@ -1,6 +1,5 @@
 package spatial.api
 
-import argon.core.Staging
 import spatial._
 import forge._
 
@@ -43,8 +42,7 @@ trait AlteraVideoApi extends AlteraVideoExp {
 }
 
 
-trait AlteraVideoExp {
-  this: SpatialExp =>
+trait AlteraVideoExp { this: SpatialExp =>
 
   /** Infix methods **/
   // TODO: Do these need to be staged types?

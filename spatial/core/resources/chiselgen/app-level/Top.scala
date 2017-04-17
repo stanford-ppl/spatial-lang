@@ -113,7 +113,9 @@ class Top(
       // Fringe <-> DRAM connections
       topIO.dram <> fringe.io.dram
 
-      accel.io.argIns := fringe.io.argIns
+      if (accel.io.argIns.length > 0) {
+        accel.io.argIns := fringe.io.argIns
+      }
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
           fringeArgOut.bits := accelArgOut.bits
           fringeArgOut.valid := 1.U

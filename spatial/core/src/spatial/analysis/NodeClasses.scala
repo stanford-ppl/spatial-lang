@@ -179,6 +179,9 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isHostIn(e: Exp[_]): Boolean = isHostIO(e) && writersOf(e).isEmpty
+  def isHostOut(e: Exp[_]): Boolean = isHostIO(e) && readersOf(e).isEmpty
+
   def isFIFO(e: Exp[_]): Boolean = e.tp match {
     case _:FIFOType[_] => true
     case _ => false
@@ -236,7 +239,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case _:DRAMType[_]      => true
     case _:StreamInType[_]  => true
     case _:StreamOutType[_] => true
-    case _:RegType[_]       => isArgIn(e) || isArgOut(e)
+    case _:RegType[_]       => isArgIn(e) || isArgOut(e) || isHostIO(e)
     case _ => false
   }
 

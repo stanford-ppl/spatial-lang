@@ -94,6 +94,10 @@ object SSV2D extends SpatialApp {
 
     println(data.rows + " x " + data.cols + " matrix:")
     printMatrix(data)
+    val slice0 = Array.tabulate(memcols){ i => data.apply(0,i)}
+    val slice1 = Array.tabulate(memcols){ i => data.apply(1,i)}
+    printArray(slice0, "Slice 0")
+    printArray(slice1, "Slice 1")
 
     Accel{
       val fpgamem = SRAM[T](rowtile, coltile)
