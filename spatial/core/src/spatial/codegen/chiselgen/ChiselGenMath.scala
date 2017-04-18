@@ -51,6 +51,25 @@ trait ChiselGenMath extends ChiselCodegen {
       case FloatType()  => emit(src"val $lhs = Math.sqrt($x.toDouble).toFloat")
     }
 
+    case FltSin(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltCos(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltTan(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltSinh(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltCosh(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltTanh(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltAsin(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltAcos(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltAtan(x) =>
+      throw new TrigInAccelException(lhs)
+
     case Mux(sel, a, b) => emit(src"val $lhs = Utils.mux(($sel), $a, $b)")
 
     // Assumes < and > are defined on runtime type...
