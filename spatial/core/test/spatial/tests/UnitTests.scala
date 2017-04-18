@@ -1,6 +1,6 @@
 package spatial.tests
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{FlatSpec, Matchers,Tag}
 import spatial._
 import org.virtualized._
 
@@ -590,6 +590,32 @@ object UnalignedLd extends SpatialTest {
   }
 }
 
+object PipeRetimer extends Tag("PipeRetimer") with SpatialTest {
+  import IR._
+  @virtualize
+  def main() {
+    // add one to avoid dividing by zero
+    val a = random[Int](10) + 1
+    val b = random[Int](10) + 1
+
+    val aIn = ArgIn[Int]
+    val bIn = ArgIn[Int]
+    setArg(aIn, a)
+    setArg(bIn, b)
+
+    val out1 = ArgOut[Int]
+    val out2 = ArgOut[Int]
+    Accel {
+      out1 := (aIn * bIn) + aIn
+      out2 := (aIn / bIn) + aIn
+    }
+    val gold1 = (a * b) + a
+    val gold2 = (a / b) + a
+    val cksum = gold1 == getArg(out1) && gold2 == getArg(out2)
+    println("PASS: " + cksum + " (PipeRetimer)")
+  }
+}
+
 class UnitTests extends FlatSpec with Matchers {
   SpatialConfig.enableSim = true
   "SimpleSequential" should "compile" in { SimpleSequential.main(Array.empty) }
@@ -604,4 +630,5 @@ class UnitTests extends FlatSpec with Matchers {
   "Memcpy2D" should "compile" in { Memcpy2D.main(Array.empty) }
   "BlockReduce1D" should "compile" in { BlockReduce1D.main(Array.empty) }
   "UnalignedLd" should "compile" in { UnalignedLd.main(Array.empty) }
+  "PipeRetimer" should "compile" taggedAs(PipeRetimer) in { PipeRetimer.main(Array.empty) }
 }

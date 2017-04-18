@@ -1,6 +1,5 @@
 package spatial.targets
 
-// TODO: Name?
 object DE1 extends FPGATarget {
   val name = "DE1"
   def burstSize = 96  // ???
