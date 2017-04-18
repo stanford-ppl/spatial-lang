@@ -257,18 +257,20 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(src"""$lb.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & ${parent}_datapath_en""")
 
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
+      val dispatch = dispatchOf(lhs, rf).toList.head
+      val port = portsOf(lhs, rf, dispatch).toList.head
       ens.zipWithIndex.foreach { case (en, i) => 
         if (spatialNeedsFPType(lhs.tp.typeArguments.head)) { lhs.tp.typeArguments.head match {
           case FixPtType(s,d,f) => 
             emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
             emit(src"""val ${lhs}_$i = Wire(new FixedPoint($s, $d, $f))""")
-            emit(src"""${lhs}_$i := ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
+            emit(src"""${lhs}_$i := ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
           case _ =>
             emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_$i = ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
+            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
         }} else {
             emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_$i = ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
+            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
         }
       }
       emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
@@ -276,8 +278,11 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     case ParRegFileStore(rf, inds, data, ens) => //FIXME: Not correct for more than par=1
       val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-      ens.zipWithIndex.foreach{ case (en, i) => 
-        emit(s"""${quote(rf)}.connectWPort(${data(i)}.number, ${quote(inds(i)(0))}.number, ${quote(inds(i)(1))}.number, ${quote(en)} & ${quote(parent)}_datapath_en)""")
+      duplicatesOf(rf).zipWithIndex.foreach{case (mem, ii) => 
+        val port = portsOf(lhs, rf, ii)
+        ens.zipWithIndex.foreach{ case (en, i) => 
+          emit(s"""${quote(rf)}_${ii}.connectWPort(${data(i)}.number, ${quote(inds(i)(0))}.number, ${quote(inds(i)(1))}.number, ${quote(en)} & ${quote(parent)}_datapath_en, List(${port.toList.mkString(",")}))""")
+        }
       }
       
 

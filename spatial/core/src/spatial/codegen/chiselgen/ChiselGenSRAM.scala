@@ -17,6 +17,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.remap(tp)
   }
 
+  protected def newWire(tp: Type[_]): String = tp match {
+    case FixPtType(s,d,f) => src"new FixedPoint($s, $d, $f)"
+    case IntType() => "UInt(32.W)"
+    case LongType() => "UInt(32.W)"
+    case BoolType => "Bool()"
+    case tp: ArrayType[_] => src"Wire(Vec(999, ${newWire(tp.typeArguments.head)}"
+    case _ => throw new NoWireConstructorException(s"$tp")
+  }
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
     case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
     case IntType()  => false
@@ -134,7 +142,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val rPar = 1 // Because this is SRAMLoad node    
       val width = bitWidth(sram.tp.typeArguments.head)
       emit(s"""// Assemble multidimR vector""")
-      dispatch.foreach{ i => 
+      dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enable = src"""${parent}_en"""
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, ${width})))""")
@@ -144,14 +152,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
         }
         val p = portsOf(lhs, sram, i).head
         emit(src"""val ${lhs}_base = ${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
-        sram.tp.typeArguments.head match { 
-          case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-              emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${quote(lhs)}_base))""")
-            } else {
-              emit(src"""val $lhs = ${sram}_$i.io.output.data(${lhs}_base)""")
-            }
-          case _ => emit(src"""val $lhs = ${sram}_$i.io.output.data(${lhs}_base)""")
-        }
+        emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""") 
+        emit(src"""${lhs}.number := ${sram}_$i.io.output.data(${lhs}_base)""")
       }
 
     case SRAMStore(sram, dims, is, ofs, v, en) =>
@@ -160,14 +162,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val enable = src"""${parent}_datapath_en"""
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, ${width}))) """)
-      sram.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-            emit(src"""${lhs}_wVec(0).data := ${v}.number""")
-          } else {
-            emit(src"""${lhs}_wVec(0).data := ${v}""")
-          }
-        case _ => emit(src"""${lhs}_wVec(0).data := ${v}""")
-      }
+      emit(src"""${lhs}_wVec(0).data := ${v}.number""")
       emit(src"""${lhs}_wVec(0).en := ${en} & ${enable}""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.number // Assume always an int""")

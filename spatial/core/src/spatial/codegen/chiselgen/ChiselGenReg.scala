@@ -5,7 +5,7 @@ import spatial.SpatialConfig
 import spatial.SpatialExp
 import scala.collection.mutable.Map
 
-trait ChiselGenReg extends ChiselCodegen {
+trait ChiselGenReg extends ChiselGenSRAM {
   val IR: SpatialExp
   import IR._
 
@@ -138,13 +138,8 @@ trait ChiselGenReg extends ChiselCodegen {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg) | isHostIO(reg)) {
-        if (spatialNeedsFPType(reg.tp.typeArguments.head)) {
-          reg.tp.typeArguments.head match {
-            case FixPtType(s,d,f) => 
-              emitGlobal(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
-              emitGlobal(src"""${lhs}.number := io.argIns(${argMapping(reg)._2})""")
-          }
-        }
+        emitGlobal(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)})""")
+        emitGlobal(src"""${lhs}.number := io.argIns(${argMapping(reg)._2})""")
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
@@ -207,7 +202,7 @@ trait ChiselGenReg extends ChiselCodegen {
                     emit(src"""${reg}_${ii}.io.init := ${reg}_initval.number""")
                     emit(src"""${reg}_${ii}.io.reset := reset | ${reg}_resetter""")
                     emit(src"""${reg} := ${reg}_${ii}.io.output""")
-                    emitGlobal(src"""val ${reg} = Wire(UInt(32.W))""")
+                    emitGlobal(src"""val ${reg} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                     emit(src"""${reg}_${ii}.write($reg, $en & Utils.delay(${reg}_wren,1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
