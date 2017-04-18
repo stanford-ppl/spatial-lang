@@ -1,7 +1,5 @@
 package spatial.analysis
 
-import org.virtualized.SourceContext
-
 /**
   * Basic control style annotation checking / fixing.
   * Also includes other high level sanity checks.

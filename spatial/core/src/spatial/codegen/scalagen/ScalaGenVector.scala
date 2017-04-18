@@ -2,10 +2,11 @@ package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaGenText
 import argon.ops.{FixPtExp, FltPtExp}
+import spatial.SpatialExp
 import spatial.api.{BitOpsExp, VectorExp}
 
 trait ScalaGenVector extends ScalaGenBits with ScalaGenText {
-  val IR: VectorExp with BitOpsExp with FltPtExp with FixPtExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

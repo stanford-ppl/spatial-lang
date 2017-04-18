@@ -1,7 +1,5 @@
 package spatial.analysis
 
-import org.virtualized.SourceContext
-
 /** Used to make sure the user (and David) didn't do anything stupid **/
 trait ScopeCheck extends SpatialTraversal {
   import IR._

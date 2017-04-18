@@ -1,25 +1,21 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.SpatialExp
-import argon.ops.OverloadHack
+import spatial._
 import forge._
 
 
-trait ParameterApi extends ParameterExp with OverloadHack {
-  this: SpatialExp =>
+trait ParameterApi extends ParameterExp { this: SpatialApi =>
 
-  implicit class ParamCreate(x: Int) {
+  implicit class ParamCreate(x: scala.Int) {
     // 1 (1 -> 5)
-    @api def apply(range: (Int,Int))(implicit ov1: Overload1): Int32 = createParam(x, range._1, 1, range._2)
+    @api def apply(range: (scala.Int, scala.Int))(implicit ov1: Overload0): Int32 = createParam(x, range._1, 1, range._2)
     // 1 (1 -> 3 -> 5)
-    @api def apply(range: ((Int,Int), Int))(implicit ov2: Overload2): Int32 = createParam(x, range._1._1, range._1._2, range._2)
+    @api def apply(range: ((scala.Int, scala.Int), scala.Int))(implicit ov2: Overload2): Int32 = createParam(x, range._1._1, range._1._2, range._2)
   }
 }
 
 
-trait ParameterExp extends Staging {
-  this: SpatialExp =>
+trait ParameterExp { this: SpatialExp =>
 
   @internal def createParam(default: Int, start: Int, stride: Int, end: Int): Int32 = {
     val p = intParam(default)

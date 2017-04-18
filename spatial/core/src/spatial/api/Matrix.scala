@@ -1,11 +1,9 @@
 package spatial.api
-import spatial._
 
-import argon.ops.{ArrayExtApi, ArrayExtExp, StructExp}
+import spatial._
 import forge._
 
-trait MatrixApi extends MatrixExp {
-  this: SpatialApi =>
+trait MatrixApi extends MatrixExp { this: SpatialApi =>
 
   implicit class MatrixConstructor(ranges: (Range, Range) ) {
     @api def apply[A,T](func: (Index,Index) => A)(implicit lft: Lift[A,T]): Matrix[T] = {
@@ -31,8 +29,7 @@ trait MatrixApi extends MatrixExp {
 
 }
 
-trait MatrixExp extends StructExp {
-  this: SpatialExp =>
+trait MatrixExp { this: SpatialExp =>
 
   case class Matrix[T:Type](s: Exp[Matrix[T]]) extends MetaStruct[Matrix[T]] {
     private[spatial] def data(implicit ctx: SrcCtx): MetaArray[T] = field[MetaArray[T]]("data")
@@ -56,6 +53,4 @@ trait MatrixExp extends StructExp {
     override def fields = Seq("data" -> ArrayType(child), "rows" -> IntType, "cols" -> IntType)
   }
   implicit def matrixType[T:Meta]: StructType[Matrix[T]] = MatrixType(meta[T])
-
-
 }

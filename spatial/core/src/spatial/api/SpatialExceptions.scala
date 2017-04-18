@@ -1,9 +1,8 @@
 package spatial.api
 
-import argon.core.{ArgonExceptions, Staging}
-import spatial.SpatialExp
+import spatial._
 
-trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
+trait SpatialExceptions {this: SpatialExp =>
   // --- Compiler exceptions
 
   class EmptyReductionTreeLevelException(implicit ctx: SrcCtx) extends
@@ -86,8 +85,8 @@ trait SpatialExceptions extends ArgonExceptions { self: SpatialExp =>
     case n => s"${n}th"
   }
 
-  class InvalidOnchipDimensionError(mem: Exp[_], dim: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
-    error(ctx, u"Memory $mem defined here has invalid ${nth(dim)} dimension.")
+  class InvalidOnchipDimensionError(mem: Exp[_], dim: Int) extends UserError(mem.ctx, {
+    error(mem.ctx, u"Memory $mem defined here has invalid ${nth(dim)} dimension.")
     error("Only functions of constants and DSE parameters are allowed as dimensions of on-chip memories")
   })
 

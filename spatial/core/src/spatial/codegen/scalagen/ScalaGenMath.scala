@@ -2,10 +2,11 @@ package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
 import argon.ops.{FixPtExp, FltPtExp}
+import spatial.SpatialExp
 import spatial.api.MathExp
 
 trait ScalaGenMath extends ScalaCodegen {
-  val IR: MathExp with FixPtExp with FltPtExp
+  val IR: SpatialExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
@@ -13,19 +14,19 @@ trait ScalaGenMath extends ScalaCodegen {
 
     case FltAbs(x)  => emit(src"val $lhs = if ($x < 0) -$x else $x")
 
-    // TODO: log, exp, and sqrt on BigDecimal?
-    case FltLog(x)  => x.tp match {
-      case DoubleType() => emit(src"val $lhs = Math.log($x)")
-      case FloatType()  => emit(src"val $lhs = Math.log($x.toDouble).toFloat")
-    }
-    case FltExp(x)  => x.tp match {
-      case DoubleType() => emit(src"val $lhs = Math.exp($x)")
-      case FloatType()  => emit(src"val $lhs = Math.exp($x.toDouble).toFloat")
-    }
-    case FltSqrt(x) => x.tp match {
-      case DoubleType() => emit(src"val $lhs = Math.sqrt($x)")
-      case FloatType()  => emit(src"val $lhs = Math.sqrt($x.toDouble).toFloat")
-    }
+    case FltLog(x) => emit(src"val $lhs = Number.log($x)")
+    case FltExp(x) => emit(src"val $lhs = Number.exp($x)")
+    case FltSqrt(x) => emit(src"val $lhs = Number.sqrt($x)")
+
+    case FltSin(x) => emit(src"val $lhs = Number.sin($x)")
+    case FltCos(x) => emit(src"val $lhs = Number.cos($x)")
+    case FltTan(x) => emit(src"val $lhs = Number.tan($x)")
+    case FltSinh(x) => emit(src"val $lhs = Number.sinh($x)")
+    case FltCosh(x) => emit(src"val $lhs = Number.cosh($x)")
+    case FltTanh(x) => emit(src"val $lhs = Number.tanh($x)")
+    case FltAsin(x) => emit(src"val $lhs = Number.asin($x)")
+    case FltAcos(x) => emit(src"val $lhs = Number.acos($x)")
+    case FltAtan(x) => emit(src"val $lhs = Number.atan($x)")
 
     case Mux(sel, a, b) => emit(src"val $lhs = if ($sel) $a else $b")
 

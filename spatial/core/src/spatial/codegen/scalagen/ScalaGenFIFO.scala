@@ -1,9 +1,10 @@
 package spatial.codegen.scalagen
 
+import spatial.SpatialExp
 import spatial.api.FIFOExp
 
 trait ScalaGenFIFO extends ScalaGenMemories {
-  val IR: FIFOExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

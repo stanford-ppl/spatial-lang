@@ -3,9 +3,10 @@ package spatial.codegen.scalagen
 import argon.ops.FixPtExp
 import spatial.api.{DRAMExp, DRAMTransferExp, PinExp}
 import org.virtualized.SourceContext
+import spatial.SpatialExp
 
 trait ScalaGenDRAM extends ScalaGenMemories {
-  val IR: FixPtExp with DRAMExp with PinExp with DRAMTransferExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

@@ -3,9 +3,10 @@ package spatial.codegen.scalagen
 import argon.core.Staging
 import argon.ops.FixPtExp
 import org.virtualized.SourceContext
+import spatial.SpatialExp
 
 trait ScalaGenMemories extends ScalaGenBits {
-  val IR: Staging with FixPtExp
+  val IR: SpatialExp
   import IR._
 
   var enableMemGen: Boolean = false

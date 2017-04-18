@@ -1,9 +1,11 @@
 package spatial.codegen.simgen
 
+
 import argon.ops.PrintExp
+import spatial.SpatialExp
 
 trait SimGenPrint extends SimCodegen {
-  val IR: PrintExp
+  val IR: SpatialExp with PrintExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]) = rhs match {

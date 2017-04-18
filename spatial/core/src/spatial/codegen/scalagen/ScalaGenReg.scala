@@ -2,10 +2,11 @@ package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
 import argon.ops.FixPtExp
+import spatial.SpatialExp
 import spatial.api.RegExp
 
 trait ScalaGenReg extends ScalaCodegen with ScalaGenMemories {
-  val IR: RegExp with FixPtExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

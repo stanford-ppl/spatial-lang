@@ -1,10 +1,11 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
+import spatial.SpatialExp
 import spatial.api.DebuggingExp
 
 trait ScalaGenDebugging extends ScalaCodegen {
-  val IR: DebuggingExp
+  val IR: SpatialExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]) = rhs match {

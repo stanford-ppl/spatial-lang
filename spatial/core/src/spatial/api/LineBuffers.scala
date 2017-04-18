@@ -1,15 +1,11 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.SpatialExp
+import spatial._
 import forge._
 
-trait LineBufferApi extends LineBufferExp {
-  this: SpatialExp =>
-}
+trait LineBufferApi extends LineBufferExp { this: SpatialApi => }
 
-trait LineBufferExp extends Staging {
-  this: SpatialExp =>
+trait LineBufferExp { this: SpatialExp =>
 
   case class LineBuffer[T:Meta:Bits](s: Exp[LineBuffer[T]]) extends Template[LineBuffer[T]] {
     @api def apply(row: Index, col: Index): T = {

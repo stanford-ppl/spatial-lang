@@ -1,10 +1,11 @@
 package spatial.codegen.simgen
 
+import spatial.SpatialExp
 import spatial.analysis.NodeClasses
 import spatial.api.ControllerExp
 
 trait SimGenController extends SimCodegen {
-  val IR: ControllerExp with NodeClasses
+  val IR: SpatialExp
   import IR._
 
   def getAncestors(node: Exp[_]): Seq[Exp[_]] = parentOf(node) match {

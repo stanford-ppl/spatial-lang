@@ -1,10 +1,11 @@
 package spatial.codegen.simgen
 
 import argon.ops.FixPtExp
+import spatial.SpatialExp
 import spatial.api.SRAMExp
 
 trait SimGenSRAM extends SimCodegen {
-  val IR: SRAMExp with FixPtExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

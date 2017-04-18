@@ -1,8 +1,7 @@
 package spatial.analysis
 
-import scala.collection.mutable.HashMap
 import argon.traversal.CompilerPass
-import spatial.{SpatialConfig, SpatialExp}
+import spatial._
 
 trait ArgMappingAnalyzer extends CompilerPass {
   val IR: SpatialExp

@@ -1,26 +1,23 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.SpatialExp
+import spatial._
 import forge._
 
 trait RegApi extends RegExp {
-  this: SpatialExp =>
+  this: SpatialApi =>
 
-  @api def ArgIn[T:Meta:Bits]: Reg[T] = Reg(argin_alloc[T](zero[T].s))
-  @api def ArgOut[T:Meta:Bits]: Reg[T] = Reg(argout_alloc[T](zero[T].s))
+  @api def ArgIn[T:Meta:Bits]: Reg[T] = Reg(argin_alloc[T](unwrap(zero[T])))
+  @api def ArgOut[T:Meta:Bits]: Reg[T] = Reg(argout_alloc[T](unwrap(zero[T])))
+  @api def HostIO[T:Meta:Bits]: Reg[T] = Reg(hostio_alloc[T](unwrap(zero[T])))
 
-  @api def HostIO[T:Meta:Bits]: Reg[T] = Reg(hostio_alloc[T](zero[T].s))
-
-  @api def Reg[T:Meta:Bits]: Reg[T] = Reg(reg_alloc[T](zero[T].s))
-  @api def Reg[T:Meta:Bits](init: T): Reg[T] = Reg(reg_alloc[T](init.s))
+  @api def Reg[T:Meta:Bits]: Reg[T] = Reg(reg_alloc[T](unwrap(zero[T])))
+  @api def Reg[T:Meta:Bits](reset: T): Reg[T] = Reg(reg_alloc[T](unwrap(reset)))
 
   @api implicit def readReg[T](reg: Reg[T]): T = reg.value
 }
 
 
-trait RegExp extends Staging {
-  this: SpatialExp =>
+trait RegExp { this: SpatialExp =>
 
   /** Infix methods **/
   case class Reg[T:Meta:Bits](s: Exp[Reg[T]]) extends Template[Reg[T]] {

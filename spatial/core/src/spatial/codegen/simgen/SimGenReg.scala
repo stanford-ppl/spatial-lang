@@ -1,10 +1,11 @@
 package spatial.codegen.simgen
 
 import argon.codegen.scalagen.ScalaCodegen
+import spatial.SpatialExp
 import spatial.api.RegExp
 
 trait SimGenReg extends SimCodegen {
-  val IR: RegExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

@@ -3,10 +3,10 @@ package spatial.codegen.scalagen
 import argon.codegen.FileDependencies
 import argon.codegen.scalagen.ScalaCodegen
 import spatial.api.CounterExp
-import spatial.SpatialConfig
+import spatial.{SpatialConfig, SpatialExp}
 
 trait ScalaGenCounter extends ScalaCodegen with FileDependencies {
-  val IR: CounterExp
+  val IR: SpatialExp
   import IR._
 
   dependencies ::= FileDep("scalagen", "Counter.scala")

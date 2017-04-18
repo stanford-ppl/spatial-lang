@@ -3,10 +3,11 @@ package spatial.codegen.scalagen
 import argon.ops.FixPtExp
 import spatial.api.{RegisterFileExp, VectorExp}
 import org.virtualized.SourceContext
+import spatial.SpatialExp
 import spatial.analysis.NodeClasses
 
 trait ScalaGenRegFile extends ScalaGenMemories {
-  val IR: FixPtExp with RegisterFileExp with VectorExp with NodeClasses
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

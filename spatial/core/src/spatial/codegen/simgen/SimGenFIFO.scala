@@ -1,9 +1,10 @@
 package spatial.codegen.simgen
 
+import spatial.SpatialExp
 import spatial.api.FIFOExp
 
 trait SimGenFIFO extends SimCodegen {
-  val IR: FIFOExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

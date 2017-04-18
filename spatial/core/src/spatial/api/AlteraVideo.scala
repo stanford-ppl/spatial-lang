@@ -1,12 +1,10 @@
 package spatial.api
 
-import argon.core.Staging
 import spatial._
 import forge._
 
 // TODO: Is this still used by anything? If not, delete
-trait AlteraVideoApi extends AlteraVideoExp {
-  this: SpatialApi =>
+trait AlteraVideoApi extends AlteraVideoExp { this: SpatialApi =>
 
   @api def AXI_Master_Slave(): AXI_Master_Slave = AXI_Master_Slave(axi_ms_alloc())
 
@@ -43,8 +41,7 @@ trait AlteraVideoApi extends AlteraVideoExp {
 }
 
 
-trait AlteraVideoExp extends Staging {
-  this: SpatialExp =>
+trait AlteraVideoExp { this: SpatialExp =>
 
   /** Infix methods **/
   // TODO: Do these need to be staged types?

@@ -1,13 +1,10 @@
 package spatial.api
 
-import argon.core.Staging
-import argon.ops.ArrayExtApi
-import spatial.SpatialExp
+import spatial._
 import forge._
 import org.virtualized._
 
-trait FileIOApi extends FileIOExp with ArrayExtApi {
-  this: SpatialExp =>
+trait FileIOApi { this: SpatialApi =>
 
   @api def loadCSV1D[T:Meta](filename: Text, delim: Text = ",")(implicit cast: Cast[Text,T]): MetaArray[T] = {
     val file = open_file(filename.s, write = false)
@@ -38,8 +35,7 @@ trait FileIOApi extends FileIOExp with ArrayExtApi {
 
 }
 
-trait FileIOExp extends Staging with DRAMExp with RegExp {
-  this: SpatialExp =>
+trait FileIOExp { this: SpatialExp =>
 
   implicit object MetaFileType extends Meta[MetaFile] {
     override def wrapped(x: Exp[MetaFile]) = MetaFile(x)

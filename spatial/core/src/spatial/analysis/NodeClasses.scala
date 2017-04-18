@@ -1,10 +1,9 @@
 package spatial.analysis
 
-import spatial.SpatialExp
+import spatial._
 import org.virtualized.SourceContext
 
-trait NodeClasses extends SpatialMetadataExp {
-  this: SpatialExp =>
+trait NodeClasses { this: SpatialExp =>
 
   /** Parallelization factors **/
   def parFactorsOf(x: Exp[_]): Seq[Const[Index]] = x match {

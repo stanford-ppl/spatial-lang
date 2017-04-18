@@ -1,10 +1,11 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
+import spatial.SpatialExp
 import spatial.api.DebuggingExp
 
 trait CppGenDebugging extends CppCodegen {
-  val IR: DebuggingExp
+  val IR: SpatialExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
