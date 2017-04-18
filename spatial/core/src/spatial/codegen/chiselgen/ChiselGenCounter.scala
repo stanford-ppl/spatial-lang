@@ -17,10 +17,14 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
   // dependencies ::= AlwaysDep("chiselgen", "resources/Counter.chisel")
 
   def emitCounterChain(lhs: Exp[_], ctrs: Seq[Exp[Counter]], suffix: String = ""): Unit = {
+    var isForever = false
     val counter_data = ctrs.map{ c => c match {
       case Def(CounterNew(start, end, step, par)) => (src"$start", src"$end", src"$step", {s"$par"}.split('.').take(1)(0))
-      case Def(Forever()) => ("0.U", "0.U", "0.U", "0")
+      case Def(Forever()) => 
+        isForever = true
+        ("0.U", "999.U", "1.U", "1") 
     }}
+
     emitGlobal(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
     // emitGlobal(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
     emitGlobal(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
@@ -47,7 +51,7 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
         case Def(CounterNew(_,_,_,p)) => 
           val Const(xx: BigDecimal) = p
           xx
-        case Def(Forever()) => 0
+        case Def(Forever()) => 1
       }
       emit(s"""val ${quote(c)}${suffix} = (0 until $x).map{ j => ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")
     }
