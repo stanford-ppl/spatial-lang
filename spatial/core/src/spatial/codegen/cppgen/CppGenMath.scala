@@ -50,6 +50,25 @@ trait CppGenMath extends CppCodegen {
       case FloatType()  => emit(src"${lhs.tp} $lhs = Math.sqrt($x.toDouble).toFloat")
     }
 
+    case FltSin(x) =>
+      emit(src"${lhs.tp} ${lhs} = sin($x);")
+    case FltCos(x) =>
+      emit(src"${lhs.tp} ${lhs} = cos($x);")
+    case FltTan(x) =>
+      emit(src"${lhs.tp} ${lhs} = tan($x);")
+    case FltSinh(x) =>
+      emit(src"${lhs.tp} ${lhs} = sinh($x);")
+    case FltCosh(x) =>
+      emit(src"${lhs.tp} ${lhs} = cosh($x);")
+    case FltTanh(x) =>
+      emit(src"${lhs.tp} ${lhs} = tanh($x);")
+    case FltAsin(x) =>
+      emit(src"${lhs.tp} ${lhs} = asin($x);")
+    case FltAcos(x) =>
+      emit(src"${lhs.tp} ${lhs} = acos($x);")
+    case FltAtan(x) =>
+      emit(src"${lhs.tp} ${lhs} = atan($x);")
+
     case Mux(sel, a, b) => 
       emit(src"${lhs.tp} $lhs;")
       emit(src"if ($sel){ $lhs = $a; } else { $lhs = $b; }")
