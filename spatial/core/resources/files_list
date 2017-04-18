@@ -68,6 +68,17 @@
 ./cppgen/fringeZynq/Makefile
 ./cppgen/fringeZynq/ZynqUtils.h
 ./cppgen/fringeZynq/ZynqAddressMap.h
+./cppgen/fringeDE1SoC/FringeContextBase.h
+./cppgen/fringeDE1SoC/FringeContextZynq
+./cppgen/fringeDE1SoC/DE1SoCAddressMap.h
+./cppgen/fringeDE1SoC/Makefile
+./cppgen/fringeDE1SoC/ZynqAddressMap
+./cppgen/fringeDE1SoC/utils/set_perms
+./cppgen/fringeDE1SoC/utils/run.sh
+./cppgen/fringeDE1SoC/FringeContext.h
+./cppgen/fringeDE1SoC/ZynqUtils.cpp
+./cppgen/fringeDE1SoC/FringeContextDE1SoC.h
+./cppgen/fringeDE1SoC/ZynqUtils.h
 ./scalagen/run.sh
 ./scalagen/Counter.scala
 ./scalagen/build.sbt

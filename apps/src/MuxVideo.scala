@@ -13,6 +13,7 @@ object MuxVideo extends SpatialApp {
   type UINT8 = FixPt[FALSE,_8,_0]
   type UINT7 = FixPt[FALSE,_7,_0]
   type UINT32 = FixPt[FALSE,_32,_0]
+  type UINT10 = FixPt[FALSE,_10,_0]
 
   @struct case class bBgGrR(tlll: UINT3, b: UINT5, tll: UINT2, g: UINT6, tl: UINT3, r: UINT5)
   @struct case class BGR(b: UINT5, g: UINT6, r: UINT5)
@@ -22,7 +23,7 @@ object MuxVideo extends SpatialApp {
     val switch = target.SliderSwitch
     val onboardVideo = target.VideoCamera
     val outputVideo: Bus = target.VGA
-    val swInput = StreamIn[UINT32](switch)
+    val swInput = StreamIn[UINT10](switch)
     val input  = StreamIn[bBgGrR](onboardVideo)
     val output = StreamOut[BGR](outputVideo)
 
