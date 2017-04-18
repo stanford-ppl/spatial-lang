@@ -109,39 +109,3 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
 
   }
 }
-
-// Inner pipe
-class Streaminner(val ctrDepth : Int, val isFSM: Boolean = false) extends Module {
-
-  // States
-  val pipeInit = 0
-  val pipeRun = 1
-  val pipeDone = 2
-  val pipeSpinWait = 3
-
-  // Module IO
-  val io = IO(new Bundle {
-    val input = new Bundle {
-      val enable = Input(Bool())
-      val ctr_done = Input(Bool())
-      val ctr_maxIn = Vec(ctrDepth, Input(UInt(32.W))) // TODO: Deprecate this maxIn/maxOut business if all is well without it
-      val forever = Input(Bool())
-      val rst = Input(Bool())
-      val hasStreamIns = Input(Bool()) // If there is a streamIn for this stage, then we should not require en=true for done to go high
-    }
-    val output = new Bundle {
-      val done = Output(Bool())
-      val ctr_en = Output(Bool())
-      val ctr_inc = Output(Bool()) // Same thing as ctr_en
-      val rst_en = Output(Bool())
-      val ctr_maxOut = Vec(ctrDepth, Output(UInt(32.W)))
-    }
-  })
-
-  val state = RegInit(pipeInit.U)
-  val maxFF = List.tabulate(ctrDepth) { i => RegInit(0.U) }
-
-
-  io.output.done := Mux(io.input.forever, false.B, Mux(io.input.ctr_done & Mux(io.input.hasStreamIns, true.B, io.input.enable), true.B, false.B)) // If there is a streamIn for this stage, then we should not require en=true for done to go high
-
-}
