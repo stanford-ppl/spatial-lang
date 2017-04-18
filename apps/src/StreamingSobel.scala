@@ -27,7 +27,6 @@ object StreamingSobel extends SpatialApp { // Regression (Dense) // Args: none
 
     val imgIn  = StreamIn[Pixel24](target.VideoCamera)
     val imgOut = StreamOut[Pixel16](target.VGA)
-    val grayOut = StreamOut[Pixel16](target.VGA) // Lies
 
     Accel {
       val kh = RegFile[Int12](Kh, Kw)
@@ -61,14 +60,11 @@ object StreamingSobel extends SpatialApp { // Regression (Dense) // Args: none
       val fifoOut = FIFO[Int12](128)
       val lb = LineBuffer[Int12](Kh, Cmax)
 
-      val fifoGrayOut = FIFO[Int12](128)
-
       Stream(*) { _ =>
         val pixel = imgIn.value()
         val grayPixel = (pixel.b.to[Int12] + pixel.g.to[Int12] + pixel.r.to[Int12]) / 3
         // println(pixel + " -> " + grayPixel)
         fifoIn.enq( grayPixel )
-        fifoGrayOut.enq(grayPixel)
 
         Foreach(0 until R, 0 until Cmax) { (r, c) =>
           lb.enq(fifoIn.deq(), true)
@@ -90,9 +86,6 @@ object StreamingSobel extends SpatialApp { // Regression (Dense) // Args: none
 
         val pixelOut = fifoOut.deq()
         imgOut := Pixel16(pixelOut.to[UInt5], pixelOut.to[UInt6], pixelOut.to[UInt5])
-
-        val grayPixelOut = fifoGrayOut.deq()
-        grayOut := Pixel16(grayPixelOut.to[UInt5], grayPixelOut.to[UInt6], grayPixelOut.to[UInt5])
       }
 
       ()
