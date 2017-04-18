@@ -93,9 +93,14 @@ trait ChiselGenStructs extends ChiselCodegen {
       emit(src"$lhs := Utils.Cat($items)")
     case FieldApply(struct, field) =>
       val (start, width) = tupCoordinates(struct.tp, field)      
-      emit(src"val $lhs = ${struct}(${start+width-1}, $start)")
-
-      // }
+      if (spatialNeedsFPType(lhs.tp)) {
+        lhs.tp match {
+          case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${struct}(${start+width-1}, $start))""")
+          case _ => emit(src"val $lhs = ${struct}(${start+width-1}, $start)")
+        }
+      } else {
+        emit(src"val $lhs = ${struct}(${start+width-1}, $start)")
+      }
 
     case _ => super.emitNode(lhs, rhs)
   }

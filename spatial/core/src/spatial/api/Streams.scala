@@ -18,7 +18,7 @@ trait StreamApi extends StreamExp {
     StreamOut(stream_out[T](bus))
   }
 
-  @api implicit def readStream[T](stream: StreamIn[T])(implicit ctx: SrcCtx): T = stream.value
+  @api implicit def readStream[T](stream: StreamIn[T]): T = stream.value
 }
 
 trait StreamExp extends Staging with PinExp {
@@ -78,25 +78,25 @@ trait StreamExp extends Staging with PinExp {
 
 
   /** Constructors **/
-  private[spatial] def stream_in[T:Type:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamIn[T]] = {
+  @internal def stream_in[T:Type:Bits](bus: Bus): Exp[StreamIn[T]] = {
     stageMutable(StreamInNew[T](bus))(ctx)
   }
 
-  private[spatial] def stream_out[T:Type:Bits](bus: Bus)(implicit ctx: SrcCtx): Exp[StreamOut[T]] = {
+  @internal def stream_out[T:Type:Bits](bus: Bus): Exp[StreamOut[T]] = {
     stageMutable(StreamOutNew[T](bus))(ctx)
   }
 
-  private[spatial] def stream_read[T:Type:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool])(implicit ctx: SrcCtx) = {
+  @internal def stream_read[T:Type:Bits](stream: Exp[StreamIn[T]], en: Exp[Bool]) = {
     stageWrite(stream)(StreamRead(stream, en))(ctx)
   }
 
-  private[spatial] def stream_write[T:Type:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx) = {
+  @internal def stream_write[T:Type:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bool]) = {
     stageWrite(stream)(StreamWrite(stream, data, en))(ctx)
   }
 
 
   /** Internals **/
-  private[spatial] def bus_check[T:Type:Bits](bus: Bus)(implicit ctx: SrcCtx): Unit = {
+  @internal def bus_check[T:Type:Bits](bus: Bus): Unit = {
     if (bits[T].length < bus.length) {
       warn(ctx, s"Bus length is greater than size of StreamIn type - will use first ${bits[T].length} bits in the bus")
       warn(ctx)

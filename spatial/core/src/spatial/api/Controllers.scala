@@ -9,10 +9,10 @@ import spatial.{SpatialApi, SpatialExp}
 //   If view is unstaged, requires unwrapping prior to use in result of Blocks / use as dependencies
 //   However, if view is staged, have mutable sharing..
 
-trait ControllerApi extends ControllerExp with RegApi {
-  this: SpatialExp =>
+trait ControllerApi extends ControllerExp {
+  this: SpatialApi =>
 
-  protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T], fold: Boolean) {
+  protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T], fold: scala.Boolean) {
     /** 1 dimensional memory reduction **/
     def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Type[T], bT: Bits[T], mC: Type[C[T]]): C[T] = {
       mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
@@ -39,13 +39,13 @@ trait ControllerApi extends ControllerExp with RegApi {
   }
 
   protected case class MemReduceClass(style: ControlStyle) {
-    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, false)
-    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), false)
+    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, fold = false)
+    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), fold = false)
   }
 
   protected case class MemFoldClass(style: ControlStyle) {
-    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, true)
-    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), true)
+    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, fold = true)
+    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), fold = true)
   }
 
 
@@ -83,10 +83,10 @@ trait ControllerApi extends ControllerExp with RegApi {
     import org.virtualized.SourceContext
     /** Reduction with implicit accumulator **/
     // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-    def apply(zero: Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, Some(lift[Int,Int32](zero)), None)
-    def apply(zero: Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, Some(lift[Long,Int64](zero)), None)
-    def apply(zero: Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, Some(lift[Float,Float32](zero)), None)
-    def apply(zero: Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, Some(lift[Double,Float64](zero)), None)
+    def apply(zero: scala.Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, Some(lift[Int,Int32](zero)), None)
+    def apply(zero: scala.Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, Some(lift[Long,Int64](zero)), None)
+    def apply(zero: scala.Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, Some(lift[Float,Float32](zero)), None)
+    def apply(zero: scala.Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, Some(lift[Double,Float64](zero)), None)
 
     //def apply(zero: FixPt[_,_,_]) = new ReduceAccum(Reg[FixPt[S,I,F]](zero), style)
     //def apply(zero: FltPt[_,_]) = new ReduceAccum(Reg[FltPt[G,E]](zero), style)
@@ -100,10 +100,10 @@ trait ControllerApi extends ControllerExp with RegApi {
     import org.virtualized.SourceContext
     /** Fold with implicit accumulator **/
     // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-    def apply(zero: Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, None, Some(lift[Int,Int32](zero)))
-    def apply(zero: Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, None, Some(lift[Long,Int64](zero)))
-    def apply(zero: Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, None, Some(lift[Float,Float32](zero)))
-    def apply(zero: Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, None, Some(lift[Double,Float64](zero)))
+    def apply(zero: scala.Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, None, Some(lift[Int,Int32](zero)))
+    def apply(zero: scala.Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, None, Some(lift[Long,Int64](zero)))
+    def apply(zero: scala.Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, None, Some(lift[Float,Float32](zero)))
+    def apply(zero: scala.Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, None, Some(lift[Double,Float64](zero)))
 
     def apply[T](accum: Reg[T]) = {
       val sty = if (style == InnerPipe) MetaPipe else style
@@ -197,7 +197,7 @@ trait ControllerApi extends ControllerExp with RegApi {
   }
 }
 
-trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp with SpatialMetadataExp {
+trait ControllerExp extends Staging {
   this: SpatialExp =>
 
   /** API **/
@@ -273,10 +273,10 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val rV = (fresh[T], fresh[T])
     val iters = List.tabulate(domain.length){_ => fresh[Index] }
 
-    val mBlk  = stageBlock{ map(wrap(iters)).s }
-    val ldBlk = stageLambda(reg.s) { reg.value.s }
-    val rBlk  = stageBlock{ reduce(wrap(rV._1),wrap(rV._2)).s }
-    val stBlk = stageLambda(reg.s, rBlk.result){ unwrap( reg := wrap(rBlk.result) ) }
+    val mBlk  = stageColdBlock{ map(wrap(iters)).s }
+    val ldBlk = stageColdLambda(reg.s) { reg.value.s }
+    val rBlk  = stageColdBlock{ reduce(wrap(rV._1),wrap(rV._2)).s }
+    val stBlk = stageColdLambda(reg.s, rBlk.result){ unwrap( reg := wrap(rBlk.result) ) }
 
     val cchain = CounterChain(domain: _*)
     val z = ident.map(_.s)
@@ -304,11 +304,11 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     val ctrsRed = mem.iterators(accum)
     val itersRed = ctrsRed.map{_ => fresh[Index] }
 
-    val mBlk  = stageBlock{ map(wrap(itersMap)).s }
-    val rBlk  = stageBlock{ reduce(wrap(rV._1), wrap(rV._2)).s }
-    val ldResBlk = stageLambda(mBlk.result){ mem.load(wrap(mBlk.result), wrap(itersRed), true).s }
-    val ldAccBlk = stageLambda(accum.s) { mem.load(accum, wrap(itersRed), true).s }
-    val stAccBlk = stageLambda(accum.s, rBlk.result){ mem.store(accum, wrap(itersRed), wrap(rBlk.result), true).s }
+    val mBlk  = stageColdBlock{ map(wrap(itersMap)).s }
+    val rBlk  = stageColdBlock{ reduce(wrap(rV._1), wrap(rV._2)).s }
+    val ldResBlk = stageColdLambda(mBlk.result){ mem.load(wrap(mBlk.result), wrap(itersRed), true).s }
+    val ldAccBlk = stageColdLambda(accum.s) { mem.load(accum, wrap(itersRed), true).s }
+    val stAccBlk = stageColdLambda(accum.s, rBlk.result){ mem.store(accum, wrap(itersRed), wrap(rBlk.result), true).s }
 
     val cchainMap = CounterChain(domain: _*)
     val cchainRed = CounterChain(ctrsRed: _*)
@@ -324,7 +324,6 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
   /** IR Nodes **/
   case class Hwblock(func: Block[Void], isForever: Boolean) extends Op[Controller] {
     def mirror(f:Tx) = op_accel(f(func), isForever)
-    override def freqs = cold(func)
   }
 
   abstract class EnabledController extends Op[Controller] {
@@ -335,12 +334,10 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
 
   case class UnitPipe(en: Seq[Exp[Bool]], func: Block[Void]) extends EnabledController {
     def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bool]]) = op_unit_pipe(f(en) ++ addEn, f(func))
-    override def freqs = cold(func)
   }
 
   case class ParallelPipe(en: Seq[Exp[Bool]], func: Block[Void]) extends EnabledController {
     def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bool]]) = op_parallel_pipe(f(en) ++ addEn, f(func))
-    override def freqs = cold(func)
   }
 
 
@@ -348,7 +345,6 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     def mirror(f:Tx) = op_foreach(f(cchain), f(func), iters)
 
     override def inputs = dyns(cchain) ++ dyns(func)
-    override def freqs  = cold(func) ++ normal(cchain)
     override def binds  = super.binds ++ iters
   }
 
@@ -367,7 +363,6 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     def mirror(f:Tx) = op_reduce(f(cchain), f(accum), f(map), f(load), f(reduce), f(store), f(ident), f(fold), rV, iters)
 
     override def inputs = dyns(cchain) ++ dyns(map) ++ dyns(reduce) ++ dyns(accum) ++ dyns(load) ++ dyns(store) ++ dyns(ident)
-    override def freqs  = cold(map) ++ cold(reduce) ++ normal(cchain) ++ normal(accum) ++ hot(load) ++ hot(store)
     override def binds  = super.binds ++ iters ++ List(rV._1, rV._2)
     override def aliases = Nil
     val mT = typ[T]
@@ -394,7 +389,6 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
 
     override def inputs = dyns(cchainMap) ++ dyns(cchainRed) ++ dyns(accum) ++ dyns(map) ++ dyns(reduce) ++
                           dyns(ident) ++ dyns(loadRes) ++ dyns(loadAcc) ++ dyns(storeAcc)
-    override def freqs = cold(map) ++ cold(reduce) ++ normal(cchainMap) ++ normal(cchainRed) ++ normal(accum)
     override def binds = super.binds ++ itersMap ++ itersRed ++ List(rV._1, rV._2)
     override def aliases = Nil
 
@@ -405,19 +399,19 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
 
   /** Constructors **/
   def op_accel(func: => Exp[Void], isForever: Boolean)(implicit ctx: SrcCtx): Sym[Controller] = {
-    val fBlk = stageBlock{ func }
+    val fBlk = stageColdBlock{ func }
     val effects = fBlk.summary andAlso Simple
     stageEffectful( Hwblock(fBlk, isForever), effects)(ctx)
   }
 
   def op_unit_pipe(en: Seq[Exp[Bool]], func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
-    val fBlk = stageBlock{ func }
+    val fBlk = stageColdBlock{ func }
     val effects = fBlk.summary
     stageEffectful( UnitPipe(en, fBlk), effects)(ctx)
   }
 
   def op_parallel_pipe(en: Seq[Exp[Bool]], func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
-    val fBlk = stageBlock{ func }
+    val fBlk = stageColdBlock{ func }
     val effects = fBlk.summary
     val pipe = stageEffectful( ParallelPipe(en, fBlk), effects)(ctx)
     styleOf(pipe) = ForkJoin
@@ -426,7 +420,7 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
   }
 
   def op_foreach(domain: Exp[CounterChain], func: => Exp[Void], iters: List[Bound[Index]])(implicit ctx: SrcCtx): Sym[Controller] = {
-    val fBlk = stageBlock{ func }
+    val fBlk = stageColdBlock{ func }
     val effects = fBlk.summary.star
     stageEffectful( OpForeach(domain, fBlk, iters), effects)(ctx)
   }
@@ -444,10 +438,10 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     iters:  List[Bound[Index]]
   )(implicit ctx: SrcCtx): Sym[Controller] = {
 
-    val mBlk  = stageBlock{ map }
-    val ldBlk = stageLambda(reg){ load }
-    val rBlk  = stageBlock{ reduce }
-    val stBlk = stageLambda(reg, rBlk.result){ store }
+    val mBlk  = stageColdBlock{ map }
+    val ldBlk = stageColdLambda(reg){ load }
+    val rBlk  = stageColdBlock{ reduce }
+    val stBlk = stageColdLambda(reg, rBlk.result){ store }
 
     val effects = mBlk.summary andAlso ldBlk.summary andAlso rBlk.summary andAlso stBlk.summary
     stageEffectful( OpReduce[T](cchain, reg, mBlk, ldBlk, rBlk, stBlk, ident, fold, rV, iters), effects)(ctx)
@@ -468,11 +462,11 @@ trait ControllerExp extends Staging with RegExp with SRAMExp with CounterExp wit
     itersRed:  Seq[Bound[Index]]
   )(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Type[C[T]]): Sym[Controller] = {
 
-    val mBlk = stageBlock{ map }
-    val ldResBlk = stageLambda(mBlk.result){ loadRes }
-    val ldAccBlk = stageLambda(accum){ loadAcc }
-    val rBlk = stageBlock{ reduce }
-    val stBlk = stageLambda(accum, rBlk.result){ storeAcc }
+    val mBlk = stageColdBlock{ map }
+    val ldResBlk = stageColdLambda(mBlk.result){ loadRes }
+    val ldAccBlk = stageColdLambda(accum){ loadAcc }
+    val rBlk = stageColdBlock{ reduce }
+    val stBlk = stageColdLambda(accum, rBlk.result){ storeAcc }
 
     val effects = mBlk.summary andAlso ldResBlk.summary andAlso ldAccBlk.summary andAlso rBlk.summary andAlso stBlk.summary
     stageEffectful( OpMemReduce[T,C](cchainMap, cchainRed, accum, mBlk, ldResBlk, ldAccBlk, rBlk, stBlk, ident, fold, rV, itersMap, itersRed), effects)(ctx)

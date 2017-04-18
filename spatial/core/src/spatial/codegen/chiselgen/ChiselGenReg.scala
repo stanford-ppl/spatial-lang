@@ -3,6 +3,7 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.SpatialConfig
 import spatial.SpatialExp
+import scala.collection.mutable.Map
 
 trait ChiselGenReg extends ChiselCodegen {
   val IR: SpatialExp
@@ -10,6 +11,8 @@ trait ChiselGenReg extends ChiselCodegen {
 
   var argIns: List[Sym[Reg[_]]] = List()
   var argOuts: List[Sym[Reg[_]]] = List()
+  var argIOs: List[Sym[Reg[_]]] = List()
+  var outMuxMap: Map[Sym[Reg[_]], Int] = Map()
   private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
@@ -28,6 +31,7 @@ trait ChiselGenReg extends ChiselCodegen {
           lhs match {
             case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
             case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
+            case Def(HostIONew(_)) => s"x${lhs.id}_hostio"
             case Def(RegNew(_)) => s"""x${lhs.id}_${nameOf(lhs).getOrElse("reg").replace("$","")}"""
             case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
             case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
@@ -48,10 +52,36 @@ trait ChiselGenReg extends ChiselCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ArgInNew(init)  => 
       argIns = argIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
-      emit(src"val $lhs = Array($init)")
     case ArgOutNew(init) => 
+      if (writersOf(lhs).length > 1) {
+        emitGlobal(src"val ${lhs}_data_options = Wire(Vec(${writersOf(lhs).length}, UInt(64.W)))", forceful=true)
+        emitGlobal(src"val ${lhs}_en_options = Wire(Vec(${writersOf(lhs).length}, Bool()))", forceful=true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${nameOf(lhs).getOrElse("")}""", forceful=true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options.reduce{_|_}""", forceful=true)
+        outMuxMap += (lhs.asInstanceOf[Sym[Reg[_]]] -> 0)
+      } else {
+        emitGlobal(src"val ${lhs}_data_options = Wire(UInt(64.W))", forceful=true)
+        emitGlobal(src"val ${lhs}_en_options = Wire(Bool())", forceful=true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := ${lhs}_data_options // ${nameOf(lhs).getOrElse("")}""", forceful=true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options""", forceful=true)
+      }
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
-      emit(src"val $lhs = Array($init)")
+
+    case HostIONew(init) =>
+      if (writersOf(lhs).length > 1) {
+        emitGlobal(src"val ${lhs}_data_options = Wire(Vec(${writersOf(lhs).length}, UInt(64.W)))", forceful = true)
+        emitGlobal(src"val ${lhs}_en_options = Wire(Vec(${writersOf(lhs).length}, Bool()))", forceful = true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${nameOf(lhs).getOrElse("")}""", forceful = true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options.reduce{_|_}""", forceful = true)
+        outMuxMap += (lhs.asInstanceOf[Sym[Reg[_]]] -> 0)
+      } else {
+        emitGlobal(src"val ${lhs}_data_options = Wire(UInt(64.W))", forceful = true)
+        emitGlobal(src"val ${lhs}_en_options = Wire(Bool())", forceful = true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := ${lhs}_data_options // ${nameOf(lhs).getOrElse("")}""", forceful = true)
+        emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options""", forceful = true)
+      }
+      argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
+
     case RegNew(init)    => 
       val width = bitWidth(init.tp)
       emitGlobal(src"val ${lhs}_initval = ${init}")
@@ -108,15 +138,13 @@ trait ChiselGenReg extends ChiselCodegen {
         } // TODO: Figure out which reg is really the accum
       }
     case RegRead(reg)    => 
-      if (isArgIn(reg)) {
+      if (isArgIn(reg) | isHostIO(reg)) {
         if (spatialNeedsFPType(reg.tp.typeArguments.head)) {
           reg.tp.typeArguments.head match {
             case FixPtType(s,d,f) => 
               emitGlobal(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
-              emitGlobal(src"""${lhs}.number := io.argIns(${argMapping(reg)._1})""")
+              emitGlobal(src"""${lhs}.number := io.argIns(${argMapping(reg)._2})""")
           }
-        } else {
-          emitGlobal(src"""val $lhs = io.argIns(${argMapping(reg)._1})""")
         }
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
@@ -158,37 +186,27 @@ trait ChiselGenReg extends ChiselCodegen {
 
     case RegWrite(reg,v,en) => 
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
-      if (isArgOut(reg)) {
-        emit(src"""val $reg = RegInit(0.U) // HW-accessible register""")
-        v.tp match {
-          case FixPtType(_,_,_) => if (spatialNeedsFPType(v.tp)) {
-              emit(src"""$reg := Mux($en & ${parent}_en, ${v}.number, $reg)""")
-            } else {
-              emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""") 
-            }
-          case _ => emit(src"""$reg := Mux($en & ${parent}_en, $v, $reg)""")
+      if (isArgOut(reg) | isHostIO(reg)) {
+        if (writersOf(reg).length > 1) {
+          val id = outMuxMap(reg.asInstanceOf[Sym[Reg[_]]])
+          emit(src"""${reg}_data_options($id) := ${v}.number""")
+          emit(src"""${reg}_en_options($id) := $en & ${parent}_datapath_en""")
+          outMuxMap += (reg.asInstanceOf[Sym[Reg[_]]] -> {id + 1})
+        } else {
+          emit(src"""${reg}_data_options := ${v}.number""")
+          emit(src"""${reg}_en_options := $en & ${parent}_datapath_en""")
         }
-        
-        emit(src"""io.argOuts(${argMapping(reg)._1}).bits := ${reg} // ${nameOf(reg).getOrElse("")}""")
-        emit(src"""io.argOuts(${argMapping(reg)._1}).valid := $en & ${parent}_en""")
-      } else {         
+      } else {
         reduceType(reg) match {
           case Some(fps: ReduceFunction) => // is an accumulator
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               fps match {
                 case FixPtSum =>
                   if (dup.isAccum) {
-                    v.tp match {
-                      case FixPtType(s,_,_) => if (spatialNeedsFPType(v.tp)) {
-                          emit(src"""${reg}_${ii}.io.next := ${v}.number""")
-                        } else {
-                          emit(src"""${reg}_${ii}.io.next := ${v}""")
-                        }
-                      case _ => emit(src"""${reg}_${ii}.io.next := ${v}""")
-                    }
+                    emit(src"""${reg}_${ii}.io.next := ${v}.number""")
                     emit(src"""${reg}_${ii}.io.enable := ${reg}_wren""")
                     emit(src"""${reg}_${ii}.io.init := ${reg}_initval.number""")
-                    emit(src"""${reg}_${ii}.io.reset := reset | Utils.delay(${reg}_resetter, 0) // TODO: Used to be delay 2 but not sure why""")
+                    emit(src"""${reg}_${ii}.io.reset := reset | ${reg}_resetter""")
                     emit(src"""${reg} := ${reg}_${ii}.io.output""")
                     emitGlobal(src"""val ${reg} = Wire(UInt(32.W))""")
                   } else {
@@ -201,7 +219,12 @@ trait ChiselGenReg extends ChiselCodegen {
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   emit(src"""${reg}_${ii}.write($v, $en & Utils.delay(${reg}_wren,1), false.B, List(${ports.mkString(",")}))""")
                   emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
-                  emit(src"""${reg}_$ii.io.input.reset := reset""")
+                  if (dup.isAccum) {
+                    emit(src"""${reg}_$ii.io.input.reset := reset | ${reg}_resetter""")  
+                  } else {
+                    emit(src"""${reg}_$ii.io.input.reset := reset""")
+                  }
+                  
               }
             }
           case _ => // Not an accum
@@ -220,11 +243,14 @@ trait ChiselGenReg extends ChiselCodegen {
   override protected def emitFileFooter() {
     withStream(getStream("BufferControlCxns")) {
       nbufs.foreach{ case (mem, i) => 
+        // Console.println(src"working on $mem $i")
         // TODO: Does david figure out which controllers' signals connect to which ports on the nbuf already? This is kind of complicated
         val readers = readersOf(mem)
         val writers = writersOf(mem)
         val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
         val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
+        // Console.println(s"read ports $readPorts")
+        // Console.println(s"""topctrl ${readPorts.map{case (_, readers) => s"want ${readers.head}, $mem, $i"}} """)
         val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
         val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
         val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
@@ -250,13 +276,18 @@ trait ChiselGenReg extends ChiselCodegen {
       emit("// Scalars")
       emit(s"val numArgIns_reg = ${argIns.length}")
       emit(s"val numArgOuts_reg = ${argOuts.length}")
+      emit(s"val numArgIOs_reg = ${argIOs.length}")
       // emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
       // emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
-      argIns.zipWithIndex.map { case(p,i) => 
+      argIns.zipWithIndex.foreach { case(p,i) =>
         emit(s"""//${quote(p)} = argIns($i) ( ${nameOf(p).getOrElse("")} )""")
       }
-      argOuts.zipWithIndex.map { case(p,i) => 
+      argOuts.zipWithIndex.foreach { case(p,i) =>
         emit(s"""//${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
+      // argOutsByName = argOutsByName :+ s"${quote(p)}"
+      }
+      argIOs.zipWithIndex.map { case(p,i) => 
+        emit(s"""//${quote(p)} = argIOs($i) ( ${nameOf(p).getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }
     }
@@ -265,6 +296,7 @@ trait ChiselGenReg extends ChiselCodegen {
       emit("// Scalars")
       emit(s"val io_numArgIns_reg = ${argIns.length}")
       emit(s"val io_numArgOuts_reg = ${argOuts.length}")
+      emit(s"val io_numArgIOs_reg = ${argIOs.length}")
     }
 
     super.emitFileFooter()

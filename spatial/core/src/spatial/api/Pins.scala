@@ -17,5 +17,9 @@ trait PinExp {
 
   def Bus(valid: String, data: String*) = PinBus(Pin(valid), data.map(Pin(_)))
   def Pin(name: String) = new Pin(name)
+
+
+  case object GPInput extends Bus { val length = 32 }
+  case object GPOutput extends Bus { val length = 32 }
 }
 

@@ -9,7 +9,7 @@ trait CounterApi extends CounterExp {
 
 }
 
-trait CounterExp extends Staging with RangeExp with SpatialExceptions {
+trait CounterExp extends Staging {
   this: SpatialExp =>
 
   /** API **/

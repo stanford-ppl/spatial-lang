@@ -31,6 +31,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
   }
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
+    new java.io.File(Config.genDir).mkdirs()
     controller_tree = { new PrintWriter(Config.genDir + "/controller_tree.html") }
   	controller_tree.write("""<!DOCTYPE html>
 <html>

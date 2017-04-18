@@ -1,10 +1,11 @@
 package spatial.codegen.scalagen
 
-import spatial.api.{DRAMExp, PinExp}
+import argon.ops.FixPtExp
+import spatial.api.{DRAMExp, DRAMTransferExp, PinExp}
 import org.virtualized.SourceContext
 
-trait ScalaGenDRAM extends ScalaGenSRAM {
-  val IR: DRAMExp with PinExp
+trait ScalaGenDRAM extends ScalaGenMemories {
+  val IR: FixPtExp with DRAMExp with PinExp with DRAMTransferExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

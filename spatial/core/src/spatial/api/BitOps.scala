@@ -9,14 +9,10 @@ trait BitsOpsApi extends BitOpsExp {
   this: SpatialExp =>
 }
 
-trait BitOpsExp extends Staging with BitsExp {
+trait BitOpsExp extends Staging {
   this: SpatialExp =>
 
   type BitVector = VectorN[Bool]
-
-  trait Convert[B] {
-    def apply(x: BitVector)(implicit ctx: SrcCtx): B
-  }
 
   implicit class DataConversionOps[A:Meta:Bits](x: A) {
     @api def apply(i: Int): Bool = dataAsBitVector(x).apply(i)
@@ -47,42 +43,9 @@ trait BitOpsExp extends Staging with BitsExp {
       bitVectorAsData[B](vector, enWarn = true)
     }
 
-    @api def apply(range: Range): BitVector = {
-      val wordLength = vector.width
-      val start = range.start.map(_.s).getOrElse(int32(wordLength-1))
-      val end = range.end.s
-      val step = range.step.map(_.s).getOrElse(int32(1))
-
-      step match {
-        case Const(s: BigDecimal) if s == 1 =>
-        case _ =>
-          error(ctx, "Strides for bit slicing are not currently supported.")
-          error(ctx)
-      }
-
-      (start,end) match {
-        case (Const(msb: BigDecimal), Const(lsb: BigDecimal)) =>
-          val length = msb.toInt - lsb.toInt + 1
-          implicit val vT = vectorNType[Bool](length)
-          wrap(vector_slice[Bool,VectorN](vector.s,msb.toInt,lsb.toInt))
-        case _ =>
-          error(ctx, "Apply range for bit slicing must be statically known.")
-          error(ctx, c"Found $start :: $end")
-          error(ctx)
-          implicit val vT = vectorNType[Bool](vector.width)
-          wrap(fresh[BitVector])
-      }
-    }
-
-    @generate
-    @api def takeJJ$JJ$1to128(offset: Int): VectorJJ[Bool] = {
-      wrap(vector_slice[Bool,VectorJJ](vector.s, offset+JJ, offset))
-    }
-
     @generate
     @api def asJJb$JJ$1to128: VectorJJ[Bool] = this.as[VectorJJ[Bool]]
   }
-
 
   @internal def dataAsBitVector[A:Meta:Bits](x: A)(implicit ctx: SrcCtx): BitVector = typ[A] match {
     case tp: StructType[_] =>
@@ -93,7 +56,7 @@ trait BitOpsExp extends Staging with BitsExp {
       }
       val width = fieldTypes.map{case Bits(bT) => bT.length }.sum
       implicit val vT = vectorNType[Bool](width)
-      wrap(vector_concat[Bool,VectorN](fieldBits.reverse)) // big endian (List) -> little endian
+      wrap(vector_concat[Bool,VectorN](fieldBits)) // big endian (List)
 
     case tp: VectorType[_] =>
       val width = bits[A].length
@@ -109,7 +72,7 @@ trait BitOpsExp extends Staging with BitsExp {
         val mT = tp.child
         val Bits(bT) = mT
         val elems = List.tabulate(tp.width) { i => dataAsBitVector(vector.apply(i))(mtyp(mT), mbits(bT), ctx).s }
-        wrap(vector_concat[Bool, VectorN](elems.reverse))   // big endian (List) to little-endian
+        wrap(vector_concat[Bool, VectorN](elems))   // big endian (List)
       }
 
     case _ =>
@@ -141,7 +104,8 @@ trait BitOpsExp extends Staging with BitsExp {
 
       val trueBits = vector_slice(x.s, max, offset)(typ[Bool], bits[Bool], ctx, fvT)
       val zeroBits = fvB2.zero.s
-      val fieldBits = fvT.wrapped(vector_concat[Bool,VectorN](Seq(zeroBits,trueBits))(typ[Bool],bits[Bool],ctx,fvT))
+      // Note that this is big-endian concatenation (everything internally is big-endian)
+      val fieldBits = fvT.wrapped(vector_concat[Bool,VectorN](Seq(trueBits,zeroBits))(typ[Bool],bits[Bool],ctx,fvT))
 
       val field = bitVectorAsData(fieldBits, enWarn = false)(mT, bT, fvT, ctx)
       mT.unwrapped(field)
@@ -192,8 +156,17 @@ trait BitOpsExp extends Staging with BitsExp {
 
 
   @internal def checkLengthMismatch[A:Meta:Bits,B:Meta:Bits]()(implicit ctx: SrcCtx): Unit = {
-    if (bits[A].length != bits[B].length) {
-      warn(ctx, u"Bit length mismatch in conversion between ${typ[A]} and ${typ[B]}. Remaining MSBs will be set to zero.")
+    val lenA = bits[A].length
+    val lenB = bits[B].length
+    if (lenA != lenB)
+      warn(ctx, u"Bit length mismatch in conversion between ${typ[A]} and ${typ[B]}.")
+
+    if (lenA < lenB) {
+      warn(s"Bits (${lenB}::${lenA}) will be set to zero in result.")
+      warn(ctx)
+    }
+    else if (lenA > lenB) {
+      warn(s"Bits (${lenA}::${lenB}) will be dropped.")
       warn(ctx)
     }
   }

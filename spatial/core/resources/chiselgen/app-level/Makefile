@@ -29,6 +29,9 @@ sim-sw:
 
 sim-hw:
 	rm -rf ${VERILATOR_SRC}
+	cp cpp/cpptypes.h cpp/datastructures
+	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
+	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
 	sbt "run-main top.Instantiator --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs"
 	cp verilator.mk ${VERILATOR_SRC}/Makefile
 	mv ${VERILATOR_SRC}/top* ${VERILATOR_SRC}/verilator_srcs_tmp
@@ -118,6 +121,7 @@ de1soc-hw:
 
 de1soc-clean:
 	rm -rf verilog-de1soc
+	rm -rf ./prog
 	cd ./cpp && make clean
 
 vcs: vcs-hw vcs-sw

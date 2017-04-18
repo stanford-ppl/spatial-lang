@@ -154,26 +154,28 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, 32)))""")
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         inds.zipWithIndex.foreach{ case (ind, i) =>
-          emit(src"${lhs}_rVec($i).en := ${parent}_en")
+          emit(src"${lhs}_rVec($i).en := ${parent}_en & ${ens(i)}")
           ind.zipWithIndex.foreach{ case (a, j) =>
             emit(src"""${lhs}_rVec($i).addr($j) := ${a}.number """)
           }
         }
         val p = portsOf(lhs, sram, i).head
-        emit(src"""${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), ${parent}_en, $p)""")
+        emit(src"""val ${lhs}_base = ${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
         sram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-              emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${rPar}*${p}+i))}""")
+              emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${quote(lhs)}_base+i))}""")
             } else {
-              emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${sram}_${i}.rPar*${p}+i) }""")
+              emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${lhs}_base+i) }""")
             }
-          case _ => emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${rPar}*${p}+i) }""")
+          case _ => emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$i.io.output.data(${lhs}_base+i) }""")
         }
         
       }
 
     case ParSRAMStore(sram,inds,data,ens) =>
       val dims = stagedDimsOf(sram)
+      val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
+      val enable = if (loadCtrlOf(sram).contains(parent)) src"${parent}_datapath_en" else src"${parent}_datapath_en"
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, 32))) """)
       val datacsv = data.map{d => src"${d}.number"}.mkString(",")
@@ -181,16 +183,14 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         emit(src"""${lhs}_wVec($i).data := ${d}.number""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${lhs}_wVec($i).en := ${ens(i)}")
+        emit(src"${lhs}_wVec($i).en := ${ens(i)} & $enable")
         ind.zipWithIndex.foreach{ case (a, j) =>
           emit(src"""${lhs}_wVec($i).addr($j) := ${a}.number """)
         }
       }
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")
-        val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enabler = if (loadCtrlOf(sram).contains(parent)) src"${parent}_datapath_en" else src"${parent}_datapath_en"
-        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, ${enabler}, List(${p}))""")
+        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, List(${p}))""")
       }
 
     case ParFIFODeq(fifo, ens) =>
@@ -229,16 +229,16 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
       if (!isAck) {
         emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
-        emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }.reverse // TODO: Why is this list reversed?""")
+        emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
       } else {
         emit(src"""// Do not read from dummy ack stream $strm""")        
       }
 
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length
-      val datacsv = data.reverse.map{d => src"${d}.number"}.mkString(",") 
+      val datacsv = data.map{d => src"${d}.number"}.mkString(",")
       val en = ens.map(quote).mkString("&")
-      emit(src"${strm}_data := Vec(List(${datacsv})) // TODO: Why is this list reversed?")
+      emit(src"${strm}_data := Vec(List(${datacsv}))")
       emit(src"${strm}_valid := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
       
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>

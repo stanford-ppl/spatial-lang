@@ -1,11 +1,11 @@
 package spatial.api
+import spatial._
 
 import argon.ops.{ArrayExtApi, ArrayExtExp, StructExp}
-import spatial.SpatialExp
 import forge._
 
-trait MatrixApi extends MatrixExp with RangeExp with ArrayExtApi {
-  this: SpatialExp =>
+trait MatrixApi extends MatrixExp {
+  this: SpatialApi =>
 
   implicit class MatrixConstructor(ranges: (Range, Range) ) {
     @api def apply[A,T](func: (Index,Index) => A)(implicit lft: Lift[A,T]): Matrix[T] = {
@@ -31,7 +31,7 @@ trait MatrixApi extends MatrixExp with RangeExp with ArrayExtApi {
 
 }
 
-trait MatrixExp extends StructExp with ArrayExtExp {
+trait MatrixExp extends StructExp {
   this: SpatialExp =>
 
   case class Matrix[T:Type](s: Exp[Matrix[T]]) extends MetaStruct[Matrix[T]] {
@@ -43,7 +43,7 @@ trait MatrixExp extends StructExp with ArrayExtExp {
     @api def update(i: Index, j: Index, elem: T): Void = wrap(array_update(data.s, (i*cols + j).s, elem.s))
   }
 
-  protected def matrix[T:Type](data: MetaArray[T], rows: Index, cols: Index)(implicit ctx: SrcCtx): Matrix[T] = {
+  @internal def matrix[T:Type](data: MetaArray[T], rows: Index, cols: Index): Matrix[T] = {
     struct[Matrix[T]]("data" -> data.s, "rows" -> rows.s, "cols" -> cols.s)
   }
 

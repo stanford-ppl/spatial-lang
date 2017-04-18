@@ -1,12 +1,13 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
+import argon.ops.{FixPtExp, FltPtExp}
 import spatial.api.MathExp
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
 
 trait CppGenMath extends CppCodegen {
-  val IR: MathExp with SpatialMetadataExp
+  val IR: MathExp with SpatialMetadataExp with FixPtExp with FltPtExp
   import IR._
 
   override def quote(s: Exp[_]): String = {

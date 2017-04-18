@@ -26,8 +26,16 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) < c
     }
 
+    def <= (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <= c
+    }
+
     def > (c: FixedPoint): Bool = {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) > c
+    }
+
+    def >= (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) >= c
     }
 
     def === (c: FixedPoint): Bool = {
@@ -136,6 +144,14 @@ object Utils {
     }
 
     util.Cat(raw_x1,raw_x2,raw_x3)
+  }
+
+  def mux[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data](cond: T1, op1: T2, op2: T2): T2 = {
+    val bool_cond = cond match {
+      case x:Bool => x
+      case x:UInt => x(0)
+    }
+    Mux(bool_cond, op1, op2)
   }
 
 

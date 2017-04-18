@@ -4,8 +4,8 @@
 ##   It is called from the receive.sh, which handles path variables
 ##   and git checkouts on a server-specific basis
 
-spacing=20
-delay=1430
+spacing=30
+delay=1530
 numpieces=30
 hist=72
 
@@ -15,14 +15,14 @@ stamp_commit_msgs() {
   spatial_msg=`git log --stat --name-status ${spatial_hash}^..${spatial_hash}`
   cd $ARGON_HOME
   argon_msg=`git log --stat --name-status ${argon_hash}^..${argon_hash}`
-  #cd $VIRTUALIZED_HOME
-  #virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
+  cd $VIRTUALIZED_HOME
+  virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
   echo "
 # Commits
 " >> $wiki_file
   echo -e "\nSpatial commit\n\`\`\`\n${spatial_msg}\n\`\`\`" >> $wiki_file
   echo -e "\nArgon commit\n\`\`\`\n${argon_msg}\n\`\`\`" >> $wiki_file
-  #echo -e "\nVirtualized commit\n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nVirtualized commit\n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
   echo "
 # Test summary
 " >> $wiki_file
@@ -190,9 +190,8 @@ stamp_commit_msgs
 
 stamp_app_comments() {
   cd ${SPATIAL_HOME}/regression_tests
-  comments=(`find . -type f -maxdepth 3 -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g"`)
-  echo -e "\n# Pass Comments:" >> $wiki_file
-  echo -e "\n${comments}" >> $wiki_file
+  echo -e "\n# Pass Comments:\n" >> $wiki_file
+  find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g" >> $wiki_file
 }
 
 update_log() {
@@ -559,21 +558,24 @@ date >> ${5}/log" >> $1
   fi
 
   echo "sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
+cd ${SPATIAL_HOME}
   " >> $1
 
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --scala --multifile=4 --regression_cp=\"../../../\" --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} ${args} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --chisel --multifile=4 --regression_cp=\"../../../\" --outdir=${SPATIAL_HOME}/regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 
   # Check for compile errors
-  echo "# Ensure app class exists
+  echo "
+cd ${5}
+# Ensure app class exists
 wc=\$(cat ${5}/log | grep \"Could not find or load main class\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_app_not_written\" \"[STATUS] Declaring failure app_not_written\" 0
@@ -701,14 +703,21 @@ launch_tests() {
         logger "Writing script for ${i}_${appname}"
         create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
 
+        # Run script
+        SECONDS=0
+        logger "Running script for ${i}_${appname}"
+        bash ${cmd_file}
+        logger "Completed test in $SECONDS seconds"
+        cd ${SPATIAL_HOME}/regression_tests/${ac}
+        
         ((i++))
       fi
     done
-    # Run vulture
-    cd ${SPATIAL_HOME}/regression_tests/${ac}/
-    logger "Executing vulture script in ${ac} directory..."
-    bash ${SPATIAL_HOME}/bin/vulture.sh ${ac}_${branch}_${type_todo}
-    logger "Script executed!"
+    # # Run vulture
+    # cd ${SPATIAL_HOME}/regression_tests/${ac}/
+    # logger "Executing vulture script in ${ac} directory..."
+    # bash ${SPATIAL_HOME}/bin/vulture.sh ${ac}_${branch}_${type_todo}
+    # logger "Script executed!"
 
   done
 

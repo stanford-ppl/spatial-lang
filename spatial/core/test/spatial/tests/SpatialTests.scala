@@ -11,7 +11,7 @@ import spatial.{SpatialApp, SpatialConfig, SpatialIR}
 trait SpatialTestIR extends SpatialIR with RunnerCore { self =>
   override val testbench = true
   override def settings() {
-    Config.verbosity = 1
+    Config.verbosity = 3
   }
 }
 
@@ -23,7 +23,7 @@ trait SpatialTest extends SpatialApp {
 
 class SpatialTests extends FlatSpec with Matchers with Exceptions {
   val noargs = Array[String]()
-  SpatialConfig.enableScala = true
+  SpatialConfig.enableSim = true
 
   // --- Tests
   object NumericTest extends SpatialTest {

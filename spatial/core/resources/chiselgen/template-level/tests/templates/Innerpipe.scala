@@ -10,26 +10,26 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   poke(c.io.input.enable, 1)
   val timeout = 999
 
-  val maxes = (0 until c.ctrDepth).map { i => math.abs(rnd.nextInt(20)) + 2 } 
+  val maxes = (0 until 2).map { i => math.abs(rnd.nextInt(20)) + 2 } 
   maxes.map { a => println("max of ctr = " + a) }
-  var cnts = Array.tabulate(c.ctrDepth) { i => 0 }
+  var cnts = Array.tabulate(2) { i => 0 }
 
-  (0 until c.ctrDepth).foreach { i => poke(c.io.input.ctr_maxIn(i), maxes(i))}
+  // (0 until 2).foreach { i => poke(c.io.input.ctr_maxIn(i), maxes(i))}
 
   def handleStep {
     val cnt_en = peek(c.io.output.ctr_en).toInt
     if (cnt_en == 1) {
       cnts(0) += 1
       // println(s"cnts ${cnts(0)} ${cnts(1)}")
-      (0 until c.ctrDepth-1).foreach { i =>
-        val m = peek(c.io.output.ctr_maxOut(i))
+      (0 until 2-1).foreach { i =>
+        val m = maxes(i)
         if (cnts(i) >= m) {
           cnts(i+1) += 1
           cnts(i) = 0
         }
       }
-      val last = peek(c.io.output.ctr_maxOut(c.ctrDepth-1))
-      if (cnts(c.ctrDepth-1) == last) {
+      val last = maxes(2-1)
+      if (cnts(2-1) == last) {
         poke(c.io.input.ctr_done, 1)
       }
     }
@@ -61,7 +61,7 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   poke(c.io.input.enable, 1)
   numEnCycles = 0
   done = peek(c.io.output.done).toInt
-  (0 until c.ctrDepth).foreach { i => cnts(i) = 0 }
+  (0 until 2).foreach { i => cnts(i) = 0 }
   while (done != 1) {
     handleStep
     done = peek(c.io.output.done).toInt
@@ -85,7 +85,7 @@ class InnerpipeTester extends ChiselFlatSpec {
   behavior of "Innerpipe"
   backends foreach {backend =>
     it should s"correctly add randomly generated numbers $backend" in {
-      Driver(() => new Innerpipe(2))(c => new InnerpipeTests(c)) should be (true)
+      Driver(() => new Innerpipe(false))(c => new InnerpipeTests(c)) should be (true)
     }
   }
 }

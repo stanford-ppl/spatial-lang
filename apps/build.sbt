@@ -1,8 +1,11 @@
 val paradiseVersion = "2.1.0"
 
 publishArtifact := false
+trapExit := false
 
 scalaSource in Compile := baseDirectory(_/ "src").value
+resourceDirectory in Compile :=  baseDirectory(_/ "resources").value
+//fork := true
 
 //paradise
 resolvers += Resolver.sonatypeRepo("snapshots")

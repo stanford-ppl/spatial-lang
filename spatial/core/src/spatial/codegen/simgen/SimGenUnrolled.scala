@@ -1,10 +1,9 @@
 package spatial.codegen.simgen
 
-import spatial.analysis.NodeClasses
-import spatial.api.UnrolledExp
+import spatial.SpatialExp
 
 trait SimGenUnrolled extends SimCodegen {
-  val IR: UnrolledExp with NodeClasses
+  val IR: SpatialExp
   import IR._
 
   private def emitUnrolledLoop(

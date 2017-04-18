@@ -34,6 +34,10 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
     case FixLeq(x,y) => emit(src"val $lhs = $x <= $y")
     case FixMod(x,y) => emit(src"val $lhs = $x % $y")
 
+    case FixLsh(x,y) => emit(src"val $lhs = $x << $y")
+    case FixRsh(x,y) => emit(src"val $lhs = $x >> $y")
+    case FixURsh(x,y) => emit(src"val $lhs = $x >>> $y")
+
     case FixNeq(x,y) => emit(src"val $lhs = $x !== $y")
     case FixEql(x,y) => emit(src"val $lhs = $x === $y")
     case FixConvert(x) => lhs.tp match {
@@ -45,14 +49,11 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
     case StringToFixPt(x) => lhs.tp match {
       case FixPtType(s,i,f) => emit(src"val $lhs = Number($x, FixedPoint($s,$i,$f))")
     }
-
     case FixRandom(Some(max)) => lhs.tp match {
-      case IntType()  => emit(src"val $lhs = Number(scala.util.Random.nextInt($max))")
-      case LongType() => emit(src"val $lhs = Number(scala.util.Random.nextLong() % $max)")
+      case FixPtType(s,i,f) => emit(src"val $lhs = Number.random($max, FixedPoint($s,$i,$f))")
     }
     case FixRandom(None) => lhs.tp match {
-      case IntType() => emit(src"val $lhs = Number(scala.util.Random.nextInt())")
-      case LongType() => emit(src"val $lhs = Number(scala.util.Random.nextLong())")
+      case FixPtType(s,i,f) => emit(src"val $lhs = Number.random(FixedPoint($s,$i,$f))")
     }
 
     case _ => super.emitNode(lhs, rhs)

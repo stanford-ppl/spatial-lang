@@ -10,6 +10,8 @@ trait RegApi extends RegExp {
   @api def ArgIn[T:Meta:Bits]: Reg[T] = Reg(argin_alloc[T](zero[T].s))
   @api def ArgOut[T:Meta:Bits]: Reg[T] = Reg(argout_alloc[T](zero[T].s))
 
+  @api def HostIO[T:Meta:Bits]: Reg[T] = Reg(hostio_alloc[T](zero[T].s))
+
   @api def Reg[T:Meta:Bits]: Reg[T] = Reg(reg_alloc[T](zero[T].s))
   @api def Reg[T:Meta:Bits](init: T): Reg[T] = Reg(reg_alloc[T](init.s))
 
@@ -17,7 +19,7 @@ trait RegApi extends RegExp {
 }
 
 
-trait RegExp extends Staging with MemoryExp {
+trait RegExp extends Staging {
   this: SpatialExp =>
 
   /** Infix methods **/
@@ -61,6 +63,12 @@ trait RegExp extends Staging with MemoryExp {
     val mT = typ[T]
     val bT = bits[T]
   }
+  case class HostIONew[T:Type:Bits](init: Exp[T]) extends Op[Reg[T]] {
+    def mirror(f:Tx) = hostio_alloc[T](f(init))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
+
   case class RegRead[T:Type:Bits](reg: Exp[Reg[T]]) extends Op[T] {
     def mirror(f:Tx) = reg_read(f(reg))
     val mT = typ[T]
@@ -74,42 +82,36 @@ trait RegExp extends Staging with MemoryExp {
   }
 
   /** Constructors **/
-  def argin_alloc[T:Type:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
-    stageMutable( ArgInNew[T](init) )(ctx)
-  }
-  def argout_alloc[T:Type:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
-    stageMutable( ArgOutNew[T](init) )(ctx)
-  }
+  @internal def argin_alloc[T:Type:Bits](init: Exp[T]): Sym[Reg[T]] = stageMutable( ArgInNew[T](init) )(ctx)
+  @internal def argout_alloc[T:Type:Bits](init: Exp[T]): Sym[Reg[T]] = stageMutable( ArgOutNew[T](init) )(ctx)
+  @internal def hostio_alloc[T:Type:Bits](init: Exp[T]): Sym[Reg[T]] = stageMutable( HostIONew[T](init) )(ctx)
 
-  def reg_alloc[T:Type:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
+  private[spatial] def reg_alloc[T:Type:Bits](init: Exp[T])(implicit ctx: SrcCtx): Sym[Reg[T]] = {
     stageMutable( RegNew[T](init) )(ctx)
   }
 
-  def reg_read[T:Type:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = stageCold( RegRead(reg) )(ctx)
+  private[spatial] def reg_read[T:Type:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = stageCold( RegRead(reg) )(ctx)
 
-  def reg_write[T:Type:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
+  private[spatial] def reg_write[T:Type:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
     stageWrite(reg)( RegWrite(reg, data, en) )(ctx)
   }
 
 
   /** Internal methods **/
-  private[spatial] def isArgIn(x: Exp[_]): Boolean = x match {
-    case Op(ArgInNew(_)) => true
-    case _ => false
-  }
-  private[spatial] def isArgOut(x: Exp[_]): Boolean = x match {
-    case Op(ArgOutNew(_)) => true
-    case _ => false
-  }
+  private[spatial] def isArgIn(x: Exp[_]): Boolean = getDef(x).exists{case ArgInNew(_) => true; case _ => false }
+  private[spatial] def isArgOut(x: Exp[_]): Boolean = getDef(x).exists{case ArgOutNew(_) => true; case _ => false }
+  private[spatial] def isHostIO(x: Exp[_]): Boolean = getDef(x).exists{case HostIONew(_) => true; case _ => false }
 
   private[spatial] sealed abstract class RegisterType
   private[spatial] case object Regular     extends RegisterType
   private[spatial] case object ArgumentIn  extends RegisterType
   private[spatial] case object ArgumentOut extends RegisterType
+  private[spatial] case object HostInOut   extends RegisterType
 
   private[spatial] def regType(x: Exp[_]) = {
     if      (isArgIn(x))  ArgumentIn
     else if (isArgOut(x)) ArgumentOut
+    else if (isHostIO(x)) HostInOut
     else                  Regular
   }
 
@@ -117,6 +119,7 @@ trait RegExp extends Staging with MemoryExp {
     case Op(RegNew(init))    => init
     case Op(ArgInNew(init))  => init
     case Op(ArgOutNew(init)) => init
+    case Op(HostIONew(init)) => init
   }
 
 }

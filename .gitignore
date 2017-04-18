@@ -1,6 +1,9 @@
 *.class
 *.log
 *.swp
+*.sim
+*.vcs
+*.dat
 
 # sbt specific
 .cache
@@ -25,7 +28,6 @@ project/plugins/project/
 tags
 docs/build/*
 spatial/core/resources/chiselgen/template-level/test_run_dir/templates*
-spatial/*
 
 # Scala-IDE specific
 .scala_dependencies

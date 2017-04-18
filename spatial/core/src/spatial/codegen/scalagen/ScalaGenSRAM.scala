@@ -1,9 +1,10 @@
 package spatial.codegen.scalagen
 
+import argon.ops.FixPtExp
 import spatial.api.SRAMExp
 
 trait ScalaGenSRAM extends ScalaGenMemories {
-  val IR: SRAMExp
+  val IR: SRAMExp with FixPtExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -11,13 +12,8 @@ trait ScalaGenSRAM extends ScalaGenMemories {
     case _ => super.remap(tp)
   }
 
-  def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {
-    val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }
-    indices.zip(strides).map{case (i,s) => src"$i*$s" }.mkString(" + ") + ofs.map{o => src" + $o"}.getOrElse("")
-  }
-
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@SRAMNew(dims) => emit(src"""val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})""")
+    case op@SRAMNew(dims) => if (enableMemGen) emit(src"""val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})""")
     case op@SRAMLoad(sram, dims, is, ofs, en) =>
       open(src"val $lhs = {")
         oobApply(op.mT,sram,lhs,is){ emit(src"""if ($en) $sram.apply(${flattenAddress(dims,is,Some(ofs))}) else ${invalid(op.mT)}""") }

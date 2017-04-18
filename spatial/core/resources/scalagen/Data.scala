@@ -65,6 +65,11 @@ case object DoubleFormat extends FloatPoint(53,11)
 // TODO: Need to model effects of limited precision
 // TODO: Bitwise operations on floating point values?
 case class Number(value: BigDecimal, valid: Boolean, fmt: NumberFormat) extends Data(valid) {
+  def intValue: Int = fmt match {
+    case FixedPoint(s,i,0) => value.toIntExact
+    case _ => throw new Exception("Cannot get fixed point representation of a floating point number")
+  }
+
   def fixValue: BigInt = fmt match {
     case FixedPoint(s,i,f) => (value * math.pow(2,f)).toBigInt
     case _ => throw new Exception("Cannot get fixed point representation of a floating point number")
@@ -76,6 +81,8 @@ case class Number(value: BigDecimal, valid: Boolean, fmt: NumberFormat) extends 
 
     case FloatPoint(g,e) => throw new Exception("TODO: Bitwise operations on floating point valus not yet supported")
   }
+
+  def withValid(valid: Boolean) = this.copy(valid = valid)
 
   def unary_-() = Number(-this.value, valid, fmt)
   def unary_~() = Number(~this.fixValue, valid, fmt)
@@ -92,6 +99,16 @@ case class Number(value: BigDecimal, valid: Boolean, fmt: NumberFormat) extends 
   def >=(that: Number) = Bit(this.value >= that.value, this.valid && that.valid)
   def !==(that: Number) = Bit(this.value != that.value, this.valid && that.valid)
   def ===(that: Number) = Bit(this.value == that.value, this.valid && that.valid)
+
+  def <<(that: Number) = Number(this.fixValue << that.intValue, this.valid && that.valid, fmt)
+  def >>(that: Number) = Number(this.fixValue >> that.intValue, this.valid && that.valid, fmt)
+  def >>>(that: Number) = {
+    // Unsigned right shift isn't supported in BigInt because BigInt technically has infinite precision
+    // But we're only using BigInt to model arbitrary precision data here
+    val zeros = List.fill(that.intValue)(Bit(false))
+    val bits = this.bits.drop(that.intValue) // Drop that number of lsbs
+    Number(bits ++ zeros, fmt).withValid(this.valid && that.valid)
+  }
 
   def toDouble: Double = value.toDouble
   def toInt: Int = value.toInt
@@ -140,6 +157,23 @@ object Number {
       }
 
     case FloatPoint(_,_) => throw new Exception("TODO: Bitwise operators not yet defined for floating point")
+  }
+
+  def random(max: Number, fmt: NumberFormat): Number = fmt match {
+    case FixedPoint(s,i,f) =>
+      val bits = Array.tabulate(i + f){i => Bit(scala.util.Random.nextBoolean()) }
+      val num = Number(bits, fmt)
+      num % max
+
+    case FloatPoint(g,e) => throw new Exception("TODO: Random floating point")
+  }
+
+  def random(fmt: NumberFormat): Number = fmt match {
+    case FixedPoint(s,i,f) =>
+      val bits = Array.tabulate(i + f){i => Bit(scala.util.Random.nextBoolean()) }
+      Number(bits, fmt)
+
+    case FloatPoint(g,e) => throw new Exception("TODO: Random fixed point")
   }
 
   def sqrt(x: Number) = Number(Math.sqrt(x.toDouble), x.valid, x.fmt)

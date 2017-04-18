@@ -89,7 +89,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
             case lhs: Sym[_] =>
               lhs match {
                 case Def(e: Hwblock) =>
-                  s"AccelController"
+                  s"RootController"
                 case Def(e: UnitPipe) =>
                   s"x${lhs.id}_UnitPipe"
                 case Def(e: OpForeach) =>
@@ -105,7 +105,15 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
               super.quote(s)
           }
         } else {
-          super.quote(s)
+          // Always need to remap root controller
+          s match {
+            case lhs: Sym[_] =>
+              lhs match {
+                case Def(e: Hwblock) => s"RootController"
+                case _ => super.quote(s)
+              }
+            case _ => super.quote(s)
+          }
         }
     }
   } 
@@ -230,7 +238,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     }
 
 
-    val constrArg = if (isInner) {s"${numIter.length} /*TODO: don't need*/, ${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
+    val constrArg = if (isInner) {s"${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
 
     emit(src"""val ${sym}_offset = 0 // TODO: Compute real delays""")
     emitModule(src"${sym}_sm", s"${smStr}", s"${constrArg}")

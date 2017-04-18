@@ -22,24 +22,23 @@ trait ScalaGenVector extends ScalaGenBits with ScalaGenText {
     case vT:VectorType[_] =>
       vT.child match {
         case BoolType() =>
-          emit(src"""val $lhs = "0b" + $x.sliding(4,4).map{_.reverse.map{x => if (x) "1" else "0"}.mkString("")}.toList.reverse.mkString(",")""")
+          emit(src"""val $lhs = "0b" + $x.sliding(4,4).map{_.reverse.map{x => if (x) "1" else "0"}.mkString("")}.toList.reverse.mkString("_")""")
         case _ =>
-          emit(src"""val $lhs = "Vector(" + $x.reverse.mkString(", ") + ")" """)
+          emit(src"""val $lhs = "Vector.ZeroFirst(" + $x.mkString(", ") + ")" """)
       }
     case _ => super.emitToString(lhs,x,tp)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case ListVector(elems)      => emit(src"val $lhs = Array(" + elems.reverse.map(quote).mkString(",") + ")")
+    case ListVector(elems)      => emit(src"val $lhs = Array(" + elems.map(quote).mkString(",") + ")")
     case VectorApply(vector, i) => emit(src"val $lhs = $vector.apply($i)")
     case VectorSlice(vector, end, start) =>
      emit(src"val $lhs = $vector.slice($start, $end+1)") // end is non-inclusive
 
     case VectorConcat(vectors) =>
-      // val v = concat(a(4::0), b(4::0), c(4::0))
+      // val v = concat(c(4::0), b(4::0), a(4::0))
       // v(12) // should give a(2)
-      // code generated as v(15 - 1 - 12) = v(2)
-      val concat = vectors.reverse.map(quote).mkString(" ++ ")
+      val concat = vectors.map(quote).mkString(" ++ ")
       emit(src"val $lhs = $concat")
 
     // Other cases (Structs, Vectors) are taken care of using rewrite rules

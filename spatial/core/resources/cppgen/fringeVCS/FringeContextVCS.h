@@ -27,6 +27,7 @@ class FringeContextVCS : public FringeContextBase<void> {
   uint64_t numCycles = 0;
   uint32_t numArgIns = 0;
   uint32_t numArgOuts = 0;
+  uint32_t numArgIOs = 0;
 
   const uint32_t burstSizeBytes = 64;
   const uint32_t commandReg = 0;
@@ -255,14 +256,19 @@ public:
     }
   }
 
-  virtual void setArg(uint32_t arg, uint64_t data) {
+  virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
     writeReg(arg+2, data);
     numArgIns++;
+    if (isIO) numArgIOs++;
   }
 
-  virtual uint64_t getArg(uint32_t arg) {
+  virtual uint64_t getArg(uint32_t arg, bool isIO) {
     numArgOuts++;
-    return readReg(numArgIns+2+arg);
+    if (isIO) {
+      return readReg(2+arg);
+    } else {
+      return readReg(numArgIns-numArgIOs+2+arg);  
+    }
   }
 
   ~FringeContextVCS() {

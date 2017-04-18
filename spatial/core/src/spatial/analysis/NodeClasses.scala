@@ -105,6 +105,15 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isFringeNode(e: Exp[_]): Boolean = getDef(e).exists(isFringeNode)
+  def isFringeNode(d: Def): Boolean = d match {
+    case _: FringeDenseLoad[_] => true
+    case _: FringeDenseStore[_] => true
+    case _: FringeSparseLoad[_] => true
+    case _: FringeSparseStore[_] => true
+    case _ => false
+  }
+
   /** Allocations **/
   def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
     case Def(SRAMNew(dims)) => dims
@@ -117,6 +126,12 @@ trait NodeClasses extends SpatialMetadataExp {
   def dimsOf(x: Exp[_]): Seq[Int] = stagedDimsOf(x).map{
     case Const(c: BigDecimal) => c.toInt
     case dim => throw new UndefinedDimensionsError(x, Some(dim))(x.ctx)
+  }
+
+  def sizeOf(fifo: FIFO[_])(implicit ctx: SrcCtx): Index = wrap(sizeOf(fifo.s))
+  def sizeOf(x: Exp[_])(implicit ctx: SrcCtx): Exp[Index] = x match {
+    case Def(FIFONew(size)) => size
+    case _ => throw new UndefinedDimensionsError(x, None)
   }
 
   def rankOf(x: Exp[_]): Int = stagedDimsOf(x).length
@@ -164,8 +179,21 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => false
   }
 
+  def isHostIn(e: Exp[_]): Boolean = isHostIO(e) && writersOf(e).isEmpty
+  def isHostOut(e: Exp[_]): Boolean = isHostIO(e) && readersOf(e).isEmpty
+
   def isFIFO(e: Exp[_]): Boolean = e.tp match {
     case _:FIFOType[_] => true
+    case _ => false
+  }
+
+  def isStreamIn(e: Exp[_]): Boolean = e.tp match {
+    case _:StreamInType[_] => true
+    case _ => false
+  }
+
+  def isStreamOut(e: Exp[_]): Boolean = e.tp match {
+    case _:StreamOutType[_] => true
     case _ => false
   }
 
@@ -211,7 +239,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case _:DRAMType[_]      => true
     case _:StreamInType[_]  => true
     case _:StreamOutType[_] => true
-    case _:RegType[_]       => isArgIn(e) || isArgOut(e)
+    case _:RegType[_]       => isArgIn(e) || isArgOut(e) || isHostIO(e)
     case _ => false
   }
 
@@ -259,7 +287,7 @@ trait NodeClasses extends SpatialMetadataExp {
   def isPrimitiveNode(e: Exp[_]): Boolean = e match {
     case Const(_) => false
     case Param(_) => false
-    case _        => !isControlNode(e) && !isAllocation(e) && !isStateless(e) && !isGlobal(e)
+    case _        => !isControlNode(e) && !isAllocation(e) && !isStateless(e) && !isGlobal(e) && !isFringeNode(e)
   }
 
   /** Accesses **/

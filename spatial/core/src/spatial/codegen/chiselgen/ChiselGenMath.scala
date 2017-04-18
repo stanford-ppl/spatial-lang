@@ -1,12 +1,13 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
+import argon.ops.{FixPtExp, FltPtExp}
 import spatial.api.MathExp
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
 
 trait ChiselGenMath extends ChiselCodegen {
-  val IR: MathExp with SpatialMetadataExp
+  val IR: MathExp with SpatialMetadataExp with FixPtExp with FltPtExp
   import IR._
 
   override def quote(s: Exp[_]): String = {
@@ -50,7 +51,7 @@ trait ChiselGenMath extends ChiselCodegen {
       case FloatType()  => emit(src"val $lhs = Math.sqrt($x.toDouble).toFloat")
     }
 
-    case Mux(sel, a, b) => emit(src"val $lhs = Mux(($sel), $a, $b)")
+    case Mux(sel, a, b) => emit(src"val $lhs = Utils.mux(($sel), $a, $b)")
 
     // Assumes < and > are defined on runtime type...
     case Min(a, b) => emit(src"val $lhs = Mux(($a < $b), $a, $b)")

@@ -1,5 +1,6 @@
 package spatial
 
+import argon.codegen.Codegen
 import argon.codegen.scalagen._
 import argon.codegen.chiselgen._
 import argon.codegen.pirgen._
@@ -24,9 +25,9 @@ protected trait SpatialExp extends Staging
   with ArrayExp with ArrayExtExp with BoolExp with CastExp with FixPtExp with FltPtExp
   with HashMapExp with IfThenElseExp with StructExp
   with TextExp with TupleExp with VoidExp with MatrixExp
-  with DebuggingExp with TemplatesExp with BitOpsExp
+  with DebuggingExp with TemplatesExp with BitOpsExp with FileIOExp
 
-  with ControllerExp with CounterExp with DRAMExp with FIFOExp with HostTransferExp with MathExp
+  with ControllerExp with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
   with StreamExp with PinExp with AlteraVideoExp
   with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
@@ -56,13 +57,13 @@ protected trait SpatialApi extends SpatialExp
   with TextApi with TupleApi with VoidApi with MatrixApi
   with DebuggingApi with BitsOpsApi
 
-  with ControllerApi with CounterApi with DRAMApi with FIFOApi with HostTransferApi with MathApi
+  with ControllerApi with CounterApi with DRAMApi with DRAMTransferApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
   with StreamApi with PinApi with AlteraVideoApi
   with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
 
-  with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits
-
+  with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits with FileIOApi
+ 
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenArray with ScalaGenSpatialArrayExt with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
@@ -73,9 +74,16 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
   with ScalaGenStream
-  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine {
+  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO {
 
   override val IR: SpatialCompiler
+
+  override def copyDependencies(out: String): Unit = {
+    dependencies ::= FileDep("scalagen", "Makefile", "../")
+    dependencies ::= FileDep("scalagen", "run.sh", "../")
+    dependencies ::= FileDep("scalagen", "build.sbt", "../")
+    super.copyDependencies(out)
+  }
 }
 
 protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
@@ -84,7 +92,7 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenIfThenElse with ChiselGenController with ChiselGenMath with ChiselGenText
   with ChiselGenDRAM with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
   with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream with ChiselGenStructs with ChiselGenLineBuffer
-  with ChiselGenRegFile with ChiselGenStateMachine{
+  with ChiselGenRegFile with ChiselGenStateMachine with ChiselGenFileIO{
 
   override val IR: SpatialCompiler
 }
@@ -104,7 +112,7 @@ protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenIfThenElse with CppGenController with CppGenMath with CppGenFringeCopy with CppGenText
   with CppGenDRAM with CppGenHostTransfer with CppGenUnrolled with CppGenVector
   with CppGenArray with CppGenArrayExt with CppGenRange with CppGenAlteraVideo with CppGenStream
-  with CppGenHashMap with CppGenStructs with CppGenDebugging {
+  with CppGenHashMap with CppGenStructs with CppGenDebugging with CppGenFileIO{
 
   override val IR: SpatialCompiler
 }
@@ -137,6 +145,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
 
   lazy val scopeCheck     = new ScopeCheck { val IR: self.type = self }
 
+  lazy val controlSanityCheck = new ControllerSanityCheck { val IR: self.type = self }
+
   lazy val dse = new DSE {
     val IR: self.type = self
     def restricts  = paramAnalyzer.restrict
@@ -162,8 +172,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
   lazy val bufferAnalyzer = new BufferAnalyzer { val IR: self.type = self; def localMems = uctrlAnalyzer.localMems }
   lazy val streamAnalyzer = new StreamAnalyzer { 
     val IR: self.type = self ;
-    def streamPipes = uctrlAnalyzer.streampipes;
-    def streamEnablers = uctrlAnalyzer.streamEnablers;
+    def streamPipes = uctrlAnalyzer.streampipes
+    def streamEnablers = uctrlAnalyzer.streamEnablers
     def streamHolders = uctrlAnalyzer.streamHolders 
     def streamLoadCtrls = uctrlAnalyzer.streamLoadCtrls 
     def streamParEnqs = uctrlAnalyzer.streamParEnqs
@@ -171,101 +181,106 @@ protected trait SpatialCompiler extends CompilerCore with SpatialExp with Spatia
 
   lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argPorts = uctrlAnalyzer.argPorts; def genericStreams = uctrlAnalyzer.genericStreams;}
 
-  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableScala }
-  lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableChisel }
+  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSim; def localMems = uctrlAnalyzer.localMems }
+  lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
   lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
-  lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableCpp }
+  lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
   lazy val treegen = new TreeGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableTree }
 
+  def codegenerators = passes.collect{case x: Codegen => x}
+
   // Traversal schedule
-  passes += printer
-  passes += scalarAnalyzer    // Perform bound and global analysis
-  passes += scopeCheck        // Check that illegal host values are not used in the accel block
-  passes += levelAnalyzer     // Initial pipe style annotation fixes
-  passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions
+  override def createTraversalSchedule() = {
+    passes += printer
+    passes += scalarAnalyzer    // Perform bound and global analysis
+    passes += scopeCheck        // Check that illegal host values are not used in the accel block
+    passes += levelAnalyzer     // Initial pipe style annotation fixes
+    passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions
 
-  // --- Unit Pipe Insertion
-  passes += printer
-  passes += switchInsert      // Change nested if-then-else statements to Switch controllers
-  passes += printer
-  passes += unitPipeInsert    // Wrap primitives in outer controllers
-  passes += printer
-  passes += regReadCSE        // CSE register reads in inner pipelines
-  passes += printer
+    // --- Unit Pipe Insertion
+    passes += printer
+    passes += switchInsert      // Change nested if-then-else statements to Switch controllers
+    passes += printer
+    passes += unitPipeInsert    // Wrap primitives in outer controllers
+    passes += printer
+    passes += regReadCSE        // CSE register reads in inner pipelines
+    passes += printer
 
-  // --- Pre-Reg Cleanup
-  passes += ctrlAnalyzer      // Control signal analysis
+    // --- Pre-Reg Cleanup
+    passes += ctrlAnalyzer      // Control signal analysis
 
-  // --- Register cleanup
-  passes += printer
-  passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
-  passes += printer
+    // --- Register cleanup
+    passes += printer
+    passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
+    passes += printer
 
-  // --- Pre-DSE Analysis
-  passes += scalarAnalyzer    // Bounds / global analysis
-  passes += affineAnalyzer    // Memory access patterns
-  passes += ctrlAnalyzer      // Control signal analysis
-  passes += memAnalyzer       // Memory banking/buffering
+    // --- Pre-DSE Analysis
+    passes += scalarAnalyzer    // Bounds / global analysis
+    passes += affineAnalyzer    // Memory access patterns
+    passes += ctrlAnalyzer      // Control signal analysis
+    passes += memAnalyzer       // Memory banking/buffering
 
-  // --- DSE
-  passes += dse               // TODO: Design space exploration
+    // --- DSE
+    passes += dse               // TODO: Design space exploration
 
-  // --- Post-DSE Expansion
-  // NOTE: Small compiler pass ordering issue here:
-  // We may need bound information during node expansion,
-  // but we also need to reanalyze bounds to account for expanded nodes
-  // For now just doing it twice
-  passes += scalarAnalyzer    // Bounds / global analysis
-  passes += printer
-  passes += transferExpand    // Expand burst loads/stores from single abstract nodes
-  passes += levelAnalyzer     // Pipe style annotation fixes after expansion
+    // --- Post-DSE Expansion
+    // NOTE: Small compiler pass ordering issue here:
+    // We may need bound information during node expansion,
+    // but we also need to reanalyze bounds to account for expanded nodes
+    // For now just doing it twice
+    passes += scalarAnalyzer    // Bounds / global analysis
+    passes += printer
+    passes += transferExpand    // Expand burst loads/stores from single abstract nodes
+    passes += levelAnalyzer     // Pipe style annotation fixes after expansion
 
-  // --- Post-Expansion Cleanup
-  passes += printer
-  passes += regReadCSE        // CSE register reads in inner pipelines
-  passes += scalarAnalyzer    // Bounds / global analysis
-  passes += ctrlAnalyzer      // Control signal analysis
-  passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
+    // --- Post-Expansion Cleanup
+    passes += printer
+    passes += regReadCSE        // CSE register reads in inner pipelines
+    passes += scalarAnalyzer    // Bounds / global analysis
+    passes += ctrlAnalyzer      // Control signal analysis
+    passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
 
-  // --- Pre-Unrolling Analysis
-  passes += ctrlAnalyzer      // Control signal analysis
-  passes += affineAnalyzer    // Memory access patterns
-  passes += reduceAnalyzer    // Reduce/accumulator specialization
-  passes += memAnalyzer       // Finalize banking/buffering
-  // TODO: models go here
+    // --- Pre-Unrolling Analysis
+    passes += ctrlAnalyzer      // Control signal analysis
+    passes += affineAnalyzer    // Memory access patterns
+    passes += reduceAnalyzer    // Reduce/accumulator specialization
+    passes += memAnalyzer       // Finalize banking/buffering
+    // TODO: models go here
 
-  // --- Design Elaboration
-  passes += printer
-  passes += switchFlatten     // Switch inlining for simplification / optimization
-  passes += printer
-  passes += unroller          // Unrolling
-  passes += printer
-  passes += uctrlAnalyzer     // Readers/writers for CSE
-  passes += printer
-  passes += regReadCSE        // CSE register reads in inner pipelines
-  passes += printer
+    // --- Design Elaboration
+    passes += printer
+    passes += switchFlatten     // Switch inlining for simplification / optimization
+    passes += printer
+    passes += unroller          // Unrolling
+    passes += printer
+    passes += uctrlAnalyzer     // Readers/writers for CSE
+    passes += printer
+    passes += regReadCSE        // CSE register reads in inner pipelines
+    passes += printer
 
-  passes += uctrlAnalyzer     // Analysis for unused register reads
-  passes += printer
-  passes += regCleanup        // Duplicate register reads for each use
-  passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
-  passes += printer
+    passes += uctrlAnalyzer     // Analysis for unused register reads
+    passes += printer
+    passes += regCleanup        // Duplicate register reads for each use
+    passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
+    passes += printer
 
-  // --- Post-Unroll Analysis
-  passes += scopeCheck        // Check that illegal host values are not used in the accel block
-  passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)
-  passes += printer
-  passes += bufferAnalyzer    // Set top controllers for n-buffers
-  passes += streamAnalyzer    // Set stream pipe children fifo dependencies
-  passes += argMapper         // Get address offsets for each used DRAM object
-  passes += printer
+    // --- Post-Unroll Analysis
+    passes += scopeCheck        // Check that illegal host values are not used in the accel block
+    passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)
+    passes += printer
+    passes += bufferAnalyzer    // Set top controllers for n-buffers
+    passes += streamAnalyzer    // Set stream pipe children fifo dependencies
+    passes += argMapper         // Get address offsets for each used DRAM object
+    passes += printer
+    passes += controlSanityCheck
 
-  // --- Code generation
-  passes += scalagen
-  passes += chiselgen
-  passes += pirgen 
-  passes += cppgen
-  passes += treegen
+    // --- Code generation
+    if (SpatialConfig.enableSim)   passes += scalagen
+    if (SpatialConfig.enableSynth) passes += cppgen
+    if (SpatialConfig.enableSynth) passes += chiselgen
+    if (SpatialConfig.enablePIR)   passes += pirgen
+    if (SpatialConfig.enableTree)  passes += treegen
+  }
 }
 
 protected trait SpatialIR extends SpatialCompiler
@@ -275,9 +290,22 @@ trait SpatialApp extends AppCore {
   import spatial.targets._
 
   private def __target: FPGATarget = Targets.targets.find(_.name == SpatialConfig.targetName).getOrElse{ DefaultTarget }
-  val target = __target
+  def target = __target
 
   val IR: SpatialIR = new SpatialIR { def target = SpatialApp.this.target }
-  val Lib: SpatialLib = new SpatialLib { def args: Array[String] = stagingArgs }
+  val Lib: SpatialLib = new SpatialLib { }
+
+  override def parseArguments(args: Seq[String]): Unit = {
+    val parser = new SpatialArgParser
+    parser.parse(args) match {
+      case None =>
+        //IR.warn("No code generators enabled. Use --sim or --synth to enable generation.")
+        //sys.exit(0)
+      case _ =>
+        //println(argon.Config.conf)
+        //println(SpatialConfig.spatialConf)
+        //println("Starting generation")
+    }
+  }
 }
 

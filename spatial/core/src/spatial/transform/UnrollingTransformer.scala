@@ -220,8 +220,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     // NOTE: This assumes that the node has no meaningful return value (i.e. all are Pipeline or Unit)
     // Bad things can happen here if you're not careful!
     def split[T:Type](orig: Sym[T], vec: Exp[Vector[_]])(implicit ctx: SrcCtx): List[Exp[T]] = map{p =>
-      // FIXME: Now assumes little-endian vectors!
-      val element = vector_apply[T](vec.asInstanceOf[Exp[Vector[T]]], P - 1 - p)(typ[T],ctx)
+      val element = vector_apply[T](vec.asInstanceOf[Exp[Vector[T]]], p)(typ[T],ctx)
       register(orig -> element)
       element
     }
@@ -393,7 +392,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val is = lanes.indices
     val vs = lanes.indexValids
 
-    val blk = stageBlock { unrollMap(func, lanes); void }
+    val blk = stageColdBlock { unrollMap(func, lanes); void }
 
 
     val effects = blk.summary
@@ -492,7 +491,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val vs = lanes.indexValids
     val mC = typ[Reg[T]]
 
-    val blk = stageLambda(f(accum)) {
+    val blk = stageColdLambda(f(accum)) {
       dbgs("Unrolling map")
       val values = unrollMap(func, lanes)(mT,ctx)
       val valids = () => lanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b) } }
@@ -548,7 +547,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val mvs = mapLanes.indexValids
     val partial = func.result
 
-    val blk = stageLambda(f(accum)) {
+    val blk = stageColdLambda(f(accum)) {
       dbgs(s"[Accum-fold $lhs] Unrolling map")
       val mems = unrollMap(func, mapLanes)
       val mvalids = () => mapLanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b)} }
@@ -574,7 +573,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
           itersRed.foreach{i => dbgs(s"  $i -> ${f(i)}") }
         }
 
-        val rBlk = stageBlock {
+        val rBlk = stageColdBlock {
           dbgs(c"[Accum-fold $lhs] Unrolling map loads")
           dbgs(c"  memories: $mems")
 
