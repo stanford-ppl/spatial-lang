@@ -15,12 +15,13 @@ class FringeDE1SoC(
   val w: Int,
   val numArgIns: Int,
   val numArgOuts: Int,
+  val numArgIOs: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
   val streamOutsInfo: List[StreamParInfo]
 ) extends Module {
-  val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
+  val numRegs = numArgIns + numArgOuts + numArgIOs + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
 
   val commandReg = 0  // TODO: These vals are used in test only, logic below does not use them.
@@ -46,8 +47,10 @@ class FringeDE1SoC(
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
   })
 
+  val totalArgOuts = numArgOuts + 1 + 16
+
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
 
   // Connect to Avalon Slave
   // Avalon is using reset and write_n
@@ -75,12 +78,13 @@ object FringeDE1SoC {
   val w = 32
   val numArgIns = 5
   val numArgOuts = 1
+  val numArgIOs = 1
   val loadStreamInfo = List[StreamParInfo]()
   val storeStreamInfo = List[StreamParInfo]()
   val streamInsInfo = List[StreamParInfo]()
   val streamOutsInfo = List[StreamParInfo]()
 
   def main(args: Array[String]) {
-    Driver.execute(Array[String]("--target-dir", "chisel_out/FringeDE1SoC"), () => new FringeDE1SoC(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+    Driver.execute(Array[String]("--target-dir", "chisel_out/FringeDE1SoC"), () => new FringeDE1SoC(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
   }
 }

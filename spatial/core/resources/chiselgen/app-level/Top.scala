@@ -126,7 +126,7 @@ class Top(
     case "verilator" | "vcs" =>
       // Simulation Fringe
       val blockingDRAMIssue = false
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[VerilatorInterface]
 
       // Fringe <-> Host connections
@@ -163,12 +163,11 @@ class Top(
 
     case "de1soc" =>
       // DE1SoC Fringe
-      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
       val topIO = io.asInstanceOf[DE1SoCInterface]
 
       // Fringe <-> Host connections
-      fringe.io.S_AVALON <> topIO.S_AVALON
-
+      fringe.io.S_AVALON <> topIO.S_AVALON 
       // TODO: In DE1SoC, Top takes the streamIn / Out signals and connect these directly to 
       // the resampler. Would be more preferrable if we move these part to fringe...
       // Accel <-> Stream
@@ -250,7 +249,7 @@ class Top(
     case "aws" =>
       // Simulation Fringe
       val blockingDRAMIssue = true  // Allow only one in-flight request, block until response comes back
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[AWSInterface]
 
       // Fringe <-> DRAM connections
