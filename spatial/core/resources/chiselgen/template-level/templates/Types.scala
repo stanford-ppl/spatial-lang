@@ -60,6 +60,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 	def this(s: Int, d: Int, f: Int) = this(s == 1, d, f)
 	def this(tuple: (Boolean, Int, Int)) = this(tuple._1, tuple._2, tuple._3)
 
+	def apply(msb:Int, lsb:Int): UInt = this.number(msb,lsb)
 	// Properties
 	val number = UInt((d + f).W)
 	val debug_overflow = Bool()
