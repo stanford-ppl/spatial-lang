@@ -1,11 +1,11 @@
 package spatial.codegen.scalagen
 
 import argon.ops.FixPtExp
-import spatial.SpatialConfig
+import spatial.{SpatialConfig, SpatialExp}
 import spatial.api.LineBufferExp
 
 trait ScalaGenLineBuffer extends ScalaGenMemories {
-  val IR: LineBufferExp with FixPtExp
+  val IR: SpatialExp
   import IR._
 
   dependencies ::= FileDep("scalagen", "LineBuffer.scala")

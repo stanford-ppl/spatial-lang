@@ -1,9 +1,10 @@
 package spatial.codegen.simgen
 
+import spatial.SpatialExp
 import spatial.api.VectorExp
 
 trait SimGenVector extends SimCodegen {
-  val IR: VectorExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

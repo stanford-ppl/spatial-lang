@@ -1,16 +1,11 @@
 package spatial.api
 
-import argon.core.Staging
-import argon.typeclasses.BitsExp
+import spatial._
 import forge._
-import spatial.SpatialExp
 
-trait BitsOpsApi extends BitOpsExp {
-  this: SpatialExp =>
-}
+trait BitsOpsApi extends BitOpsExp { this: SpatialApi => }
 
-trait BitOpsExp extends Staging {
-  this: SpatialExp =>
+trait BitOpsExp { this: SpatialExp =>
 
   type BitVector = VectorN[Bool]
 

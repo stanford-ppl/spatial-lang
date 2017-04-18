@@ -1,16 +1,11 @@
 package spatial.api
 
-import argon.core.Staging
 import argon.transform.SubstTransformer
-import spatial.SpatialExp
+import spatial._
 
-trait EnabledPrimitivesApi extends EnabledPrimitivesExp {
-  this: SpatialExp =>
-}
+trait EnabledPrimitivesApi extends EnabledPrimitivesExp { this: SpatialApi => }
 
-
-trait EnabledPrimitivesExp extends Staging {
-  this: SpatialExp =>
+trait EnabledPrimitivesExp { this: SpatialExp =>
 
   abstract class EnabledOp[T:Type](ens: Exp[Bool]*) extends Op[T] {
     def enables: Seq[Exp[Bool]] = ens.toSeq

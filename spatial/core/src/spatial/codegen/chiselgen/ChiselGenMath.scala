@@ -3,11 +3,11 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.ops.{FixPtExp, FltPtExp}
 import spatial.api.MathExp
-import spatial.SpatialConfig
+import spatial.{SpatialConfig, SpatialExp}
 import spatial.analysis.SpatialMetadataExp
 
 trait ChiselGenMath extends ChiselCodegen {
-  val IR: MathExp with SpatialMetadataExp with FixPtExp with FltPtExp
+  val IR: SpatialExp
   import IR._
 
   override def quote(s: Exp[_]): String = {

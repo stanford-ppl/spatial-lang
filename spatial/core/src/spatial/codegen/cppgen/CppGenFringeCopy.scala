@@ -8,7 +8,7 @@ import sys.process._
 import scala.language.postfixOps
 
 trait CppGenFringeCopy extends CppCodegen {
-  val IR: SpatialExp with SpatialMetadataExp
+  val IR: SpatialExp
   import IR._
 
   override def copyDependencies(out: String): Unit = {

@@ -2,9 +2,10 @@ package spatial.codegen.simgen
 
 import argon.ops.TextExp
 import argon.utils.escapeString
+import spatial.SpatialExp
 
 trait SimGenText extends SimCodegen {
-  val IR: TextExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

@@ -8,7 +8,7 @@ import spatial.SpatialExp
 
 
 trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
-  val IR: CounterExp with SpatialExp
+  val IR: SpatialExp
   import IR._
 
   var streamCtrCopy = List[Bound[_]]()

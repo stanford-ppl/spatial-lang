@@ -2,7 +2,6 @@ package spatial.analysis
 
 import argon.traversal.CompilerPass
 import spatial.SpatialExp
-import org.virtualized.SourceContext
 
 trait StreamAnalyzer extends CompilerPass {
   val IR: SpatialExp

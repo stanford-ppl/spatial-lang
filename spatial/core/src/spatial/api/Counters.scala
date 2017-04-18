@@ -1,16 +1,11 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.SpatialExp
+import spatial._
 import forge._
 
-trait CounterApi extends CounterExp {
-  this: SpatialExp =>
+trait CounterApi extends CounterExp { this: SpatialApi => }
 
-}
-
-trait CounterExp extends Staging {
-  this: SpatialExp =>
+trait CounterExp { this: SpatialExp =>
 
   /** API **/
   case class Counter(s: Exp[Counter]) extends MetaAny[Counter] {

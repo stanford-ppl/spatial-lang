@@ -1,9 +1,9 @@
 package spatial.analysis
+
 import spatial._
 
-trait BankingMetadataApi extends SpatialMetadataExp with SpatialMetadataApi { this: SpatialApi => }
-trait BankingMetadataExp extends SpatialMetadataExp {
-  this: SpatialExp =>
+trait BankingMetadataApi { this: SpatialApi => }
+trait BankingMetadataExp { this: SpatialExp =>
 
   sealed abstract class Banking { def banks: Int }
   case class StridedBanking(stride: Int, banks: Int) extends Banking  // Strided bank

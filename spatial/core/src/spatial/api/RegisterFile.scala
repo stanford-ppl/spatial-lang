@@ -1,18 +1,15 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.SpatialExp
+import spatial._
 import forge._
 
-trait RegisterFileApi extends RegisterFileExp {
-  this: SpatialExp =>
+trait RegisterFileApi extends RegisterFileExp { this: SpatialApi =>
 
   @api def RegFile[T:Meta:Bits](cols: Index): RegFile1[T] = wrap(regfile_new[T,RegFile1](cols.s))
   @api def RegFile[T:Meta:Bits](rows: Index, cols: Index): RegFile2[T] = wrap(regfile_new[T,RegFile2](rows.s,cols.s))
 }
 
-trait RegisterFileExp extends Staging {
-  this: SpatialExp =>
+trait RegisterFileExp { this: SpatialExp =>
 
   trait RegFile[T] { this: Template[_] =>
     def s: Exp[RegFile[T]]

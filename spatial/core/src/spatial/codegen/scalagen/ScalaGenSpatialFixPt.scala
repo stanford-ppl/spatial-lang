@@ -1,9 +1,10 @@
 package spatial.codegen.scalagen
 
 import argon.ops.{FixPtExp, FltPtExp}
+import spatial.SpatialExp
 
 trait ScalaGenSpatialFixPt extends ScalaGenBits {
-  val IR: FixPtExp with FltPtExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {

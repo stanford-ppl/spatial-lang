@@ -1,18 +1,14 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.SpatialExp
+import spatial._
 import forge._
 
-trait FIFOApi extends FIFOExp {
-  this: SpatialExp =>
+trait FIFOApi extends FIFOExp { this: SpatialApi =>
 
   @api def FIFO[T:Type:Bits](size: Index): FIFO[T] = FIFO(fifo_alloc[T](size.s))
-
 }
 
-trait FIFOExp extends Staging with MemoryExp with SpatialExceptions {
-  this: SpatialExp =>
+trait FIFOExp { this: SpatialExp =>
 
   /** Infix methods **/
   case class FIFO[T:Meta:Bits](s: Exp[FIFO[T]]) extends Template[FIFO[T]] {

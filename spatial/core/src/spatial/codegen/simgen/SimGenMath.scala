@@ -1,10 +1,11 @@
 package spatial.codegen.simgen
 
 import argon.ops.{FixPtExp, FltPtExp}
+import spatial.SpatialExp
 import spatial.api.MathExp
 
 trait SimGenMath extends SimCodegen {
-  val IR: MathExp with FixPtExp with FltPtExp
+  val IR: SpatialExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

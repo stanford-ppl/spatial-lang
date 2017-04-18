@@ -1,11 +1,9 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 import forge._
 
-trait StateMachineApi extends StateMachineExp {
-  this: SpatialApi =>
+trait StateMachineApi extends StateMachineExp { this: SpatialApi =>
 
   object FSM {
     @api def apply[A,T:Bits](init: A)(notDone: T => Boolean)(action: T => Void)(next: T => T)(implicit lift: Lift[A,T]) = {
@@ -18,8 +16,7 @@ trait StateMachineApi extends StateMachineExp {
   }
 }
 
-trait StateMachineExp extends Staging {
-  this: SpatialExp =>
+trait StateMachineExp { this: SpatialExp =>
 
   @internal def fsm[T:Type:Bits](start: T, notDone: T => Bool, action: T => Void, nextState: T => T, style: ControlStyle) = {
     val state = fresh[T]

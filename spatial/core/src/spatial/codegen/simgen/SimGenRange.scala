@@ -1,9 +1,10 @@
 package spatial.codegen.simgen
 
+import spatial.SpatialExp
 import spatial.api.RangeExp
 
 trait SimGenRange extends SimCodegen{
-  val IR: RangeExp
+  val IR: SpatialExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]) = rhs match {

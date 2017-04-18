@@ -12,7 +12,10 @@ trait ChiselGenReg extends ChiselCodegen {
   var argIns: List[Sym[Reg[_]]] = List()
   var argOuts: List[Sym[Reg[_]]] = List()
   var argIOs: List[Sym[Reg[_]]] = List()
+<<<<<<< HEAD
   var outMuxMap: Map[Sym[Reg[_]], Int] = Map()
+=======
+>>>>>>> origin/compile
   private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
@@ -31,7 +34,6 @@ trait ChiselGenReg extends ChiselCodegen {
           lhs match {
             case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
             case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
-            case Def(HostIONew(_)) => s"x${lhs.id}_hostio"
             case Def(RegNew(_)) => s"""x${lhs.id}_${nameOf(lhs).getOrElse("reg").replace("$","")}"""
             case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
             case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
@@ -279,10 +281,10 @@ trait ChiselGenReg extends ChiselCodegen {
       emit(s"val numArgIOs_reg = ${argIOs.length}")
       // emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
       // emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
-      argIns.zipWithIndex.foreach { case(p,i) =>
+      argIns.zipWithIndex.map { case(p,i) => 
         emit(s"""//${quote(p)} = argIns($i) ( ${nameOf(p).getOrElse("")} )""")
       }
-      argOuts.zipWithIndex.foreach { case(p,i) =>
+      argOuts.zipWithIndex.map { case(p,i) => 
         emit(s"""//${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }

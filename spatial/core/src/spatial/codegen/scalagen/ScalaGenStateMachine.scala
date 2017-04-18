@@ -1,10 +1,11 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
+import spatial.SpatialExp
 import spatial.api.StateMachineExp
 
 trait ScalaGenStateMachine extends ScalaCodegen {
-  val IR: StateMachineExp
+  val IR: SpatialExp
   import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

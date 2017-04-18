@@ -1,16 +1,14 @@
 package spatial.api
-import argon.core.Staging
-import argon.ops._
-import spatial.analysis.{SpatialMetadataExp}
-import spatial.{SpatialApi, SpatialExp}
+
+import spatial._
+import forge._
 
 // MemReduce and views
 //   If view is staged, requires either direct access to its target via a def or its own load/store defs
 //   If view is unstaged, requires unwrapping prior to use in result of Blocks / use as dependencies
 //   However, if view is staged, have mutable sharing..
 
-trait ControllerApi extends ControllerExp {
-  this: SpatialApi =>
+trait ControllerApi extends ControllerExp { this: SpatialApi =>
 
   protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T], fold: scala.Boolean) {
     /** 1 dimensional memory reduction **/
@@ -197,8 +195,7 @@ trait ControllerApi extends ControllerExp {
   }
 }
 
-trait ControllerExp extends Staging {
-  this: SpatialExp =>
+trait ControllerExp { this: SpatialExp =>
 
   /** API **/
   implicit object ControllerType extends Meta[Controller] {

@@ -3,10 +3,10 @@ package spatial.codegen.cppgen
 import argon.codegen.FileDependencies
 import argon.codegen.cppgen.CppCodegen
 import spatial.api.CounterExp
-import spatial.SpatialConfig
+import spatial.{SpatialConfig, SpatialExp}
 
 trait CppGenCounter extends CppCodegen with FileDependencies {
-  val IR: CounterExp
+  val IR: SpatialExp
   import IR._
 
   // dependencies ::= AlwaysDep("cppgen", "Counter.cpp")

@@ -1,10 +1,9 @@
 package spatial.transform
 
 import argon.transform.ForwardTransformer
-import spatial.SpatialExp
-import org.virtualized.SourceContext
+import spatial._
 import spatial.api.ControllerApi
-import spatial.SpatialConfig
+import org.virtualized.SourceContext
 
 trait UnrollingTransformer extends ForwardTransformer { self =>
   val IR: SpatialExp with ControllerApi

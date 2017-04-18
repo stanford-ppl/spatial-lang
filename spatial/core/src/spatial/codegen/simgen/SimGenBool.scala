@@ -1,9 +1,10 @@
 package spatial.codegen.simgen
 
 import argon.ops.BoolExp
+import spatial.SpatialExp
 
 trait SimGenBool extends SimCodegen {
-  val IR: BoolExp
+  val IR: SpatialExp
   import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
