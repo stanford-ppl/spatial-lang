@@ -37,6 +37,7 @@ trait LineBufferExp { this: SpatialExp =>
       exp.tp.wrapped(exp)
     }
 
+    @api def enq(data: T): Void = Void(linebuffer_enq(this.s, data.s, bool(true)))
     @api def enq(data: T, en: Bool): Void = Void(linebuffer_enq(this.s, data.s, en.s))
 
     @api def load(dram: DRAMDenseTile1[T])(implicit ctx: SrcCtx): Void = {

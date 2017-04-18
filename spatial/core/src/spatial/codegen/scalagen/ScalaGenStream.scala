@@ -26,7 +26,7 @@ trait ScalaGenStream extends ScalaGenMemories {
         emit("out")
       close("}.toArray")
     case tp: StructType[_] =>
-      emit(s"""val tokens = $line.split(";")""")
+      emit(s"""val tokens = $line.split(";").map(_.trim)""")
       tp.fields.zipWithIndex.foreach{case (field,i) =>
         bitsFromString(s"field$i", s"tokens($i)", field._2)
       }
@@ -72,6 +72,7 @@ trait ScalaGenStream extends ScalaGenMemories {
           open(src"catch {case e: Throwable => ")
             emit(src"""println("There was a problem while opening the specified file for reading.")""")
             emit(src"""println(e.getMessage)""")
+            emit(src"""e.printStackTrace()""")
             emit(src"sys.exit(1)")
           close("}")
         close("}")
@@ -95,6 +96,7 @@ trait ScalaGenStream extends ScalaGenMemories {
         open("catch{ case e: Throwable => ")
           emit(src"""println("There was a problem while opening the specified file for writing.")""")
           emit(src"""println(e.getMessage)""")
+          emit(src"""e.printStackTrace()""")
           emit(src"sys.exit(1)")
         close("}")
 

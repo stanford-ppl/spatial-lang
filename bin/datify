@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+
+import scipy.misc
+import sys
+
+def main():
+
+    img = scipy.misc.imread(sys.argv[1], mode='RGB')
+    data = open(sys.argv[1].replace('.png', '.dat'), 'w')
+
+    rows = img.shape[0]
+    cols = img.shape[1]
+    for row in range(0,rows):
+        for col in range(0,cols):
+            pixel = img[row][col]
+            #print(pixel)
+            dat = str(pixel[2]) + "; " + str(pixel[1]) + "; " + str(pixel[0]) + "\n"
+            data.write(dat)
+
+    print("Rows: " + str(rows))
+    print("Cols: " + str(cols))
+    data.close()
+
+if __name__ == "__main__":
+    main()
