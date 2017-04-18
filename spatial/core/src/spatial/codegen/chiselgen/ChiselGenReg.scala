@@ -12,10 +12,7 @@ trait ChiselGenReg extends ChiselCodegen {
   var argIns: List[Sym[Reg[_]]] = List()
   var argOuts: List[Sym[Reg[_]]] = List()
   var argIOs: List[Sym[Reg[_]]] = List()
-<<<<<<< HEAD
   var outMuxMap: Map[Sym[Reg[_]], Int] = Map()
-=======
->>>>>>> origin/compile
   private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
