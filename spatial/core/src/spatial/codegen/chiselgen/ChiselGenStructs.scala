@@ -104,7 +104,4 @@ trait ChiselGenStructs extends ChiselCodegen {
 
     case _ => super.emitNode(lhs, rhs)
   }
-
-
-
 }

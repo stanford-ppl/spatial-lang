@@ -57,6 +57,26 @@ class ZynqInterface(p: TopParams) extends TopInterface {
   val M_AXI = new AXI4Inlined(axiParams)
 }
 
+class DE1SoCInterface(p: TopParams) extends TopInterface {
+  private val axiLiteParams = new AXI4BundleParameters(16, p.dataWidth, 1)
+  val S_AVALON = new AvalonSlave(axiLiteParams)
+  val S_STREAM = new AvalonStream(axiLiteParams)
+
+  // For led output data
+  val LEDR_STREAM_address = Output(UInt(4.W))
+  val LEDR_STREAM_chipselect = Output(Wire(Bool()))
+  val LEDR_STREAM_writedata = Output(UInt(32.W))
+  val LEDR_STREAM_write_n = Output(Wire(Bool()))
+
+  // For switch input data
+  val SWITCHES_STREAM_address = Output(UInt(32.W))
+  val SWITCHES_STREAM_readdata = Input(UInt(32.W))
+  // This read control signal is not needed by the switches interface
+  // By default this is a read_n signal
+  // TODO: fix the naming of read control signal
+  val SWITCHES_STREAM_read = Output(Wire(Bool()))
+}
+
 class AWSInterface(p: TopParams) extends TopInterface {
   val enable = Input(UInt(p.dataWidth.W))
   val done = Output(UInt(p.dataWidth.W))
@@ -95,6 +115,7 @@ class Top(
     case "vcs"        => IO(new VerilatorInterface(topParams))
     case "aws"        => IO(new AWSInterface(topParams))
     case "zynq"       => IO(new ZynqInterface(topParams))
+    case "de1soc"     => IO(new DE1SoCInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
   }
 
@@ -104,7 +125,8 @@ class Top(
   target match {
     case "verilator" | "vcs" =>
       // Simulation Fringe
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+      val blockingDRAMIssue = false
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[VerilatorInterface]
 
       // Fringe <-> Host connections
@@ -120,13 +142,7 @@ class Top(
       if (accel.io.argIns.length > 0) {
         accel.io.argIns := fringe.io.argIns
       }
-      // if (accel.io.argIOIns.length > 0) {
-      //   accel.io.argIOIns := fringe.io.argIOIns        
-      // }
-      // fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
-      //     fringeArgOut.bits := accelArgOut.bits
-      //     fringeArgOut.valid := 1.U
-      // }
+
       if (accel.io.argOuts.length > 0) {      
         fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
             fringeArgOut.bits := accelArgOut.bits
@@ -144,6 +160,66 @@ class Top(
       // Fringe <-> Accel stream connections
       accel.io.genericStreams <> fringe.io.genericStreamsAccel
 //      fringe.io.genericStreamsAccel <> accel.io.genericStreams
+
+    case "de1soc" =>
+      // DE1SoC Fringe
+      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+      val topIO = io.asInstanceOf[DE1SoCInterface]
+
+      // Fringe <-> Host connections
+      fringe.io.S_AVALON <> topIO.S_AVALON 
+      // TODO: In DE1SoC, Top takes the streamIn / Out signals and connect these directly to 
+      // the resampler. Would be more preferrable if we move these part to fringe...
+      // Accel <-> Stream
+      accel.io.stream_in_data                 := topIO.S_STREAM.stream_in_data         
+      accel.io.stream_in_startofpacket        := topIO.S_STREAM.stream_in_startofpacket
+      accel.io.stream_in_endofpacket          := topIO.S_STREAM.stream_in_endofpacket  
+      accel.io.stream_in_empty                := topIO.S_STREAM.stream_in_empty        
+      accel.io.stream_in_valid                := topIO.S_STREAM.stream_in_valid        
+      accel.io.stream_out_ready               := topIO.S_STREAM.stream_out_ready       
+      // Video Stream Outputs
+      topIO.S_STREAM.stream_in_ready          := accel.io.stream_in_ready          
+      topIO.S_STREAM.stream_out_data          := accel.io.stream_out_data          
+      topIO.S_STREAM.stream_out_startofpacket := accel.io.stream_out_startofpacket 
+      topIO.S_STREAM.stream_out_endofpacket   := accel.io.stream_out_endofpacket   
+      topIO.S_STREAM.stream_out_empty         := accel.io.stream_out_empty         
+      topIO.S_STREAM.stream_out_valid         := accel.io.stream_out_valid         
+
+      // LED Stream Outputs
+      topIO.LEDR_STREAM_writedata             := accel.io.led_stream_out_data
+      topIO.LEDR_STREAM_chipselect            := 1.U
+      topIO.LEDR_STREAM_write_n               := 0.U      
+      topIO.LEDR_STREAM_address               := 0.U
+
+      // Switch Stream Outputs
+      topIO.SWITCHES_STREAM_address                       := 0.U
+      accel.io.switch_stream_in_data                      := topIO.SWITCHES_STREAM_readdata
+      topIO.SWITCHES_STREAM_read                          := 0.U
+
+      if (accel.io.argIns.length > 0) {
+        accel.io.argIns := fringe.io.argIns
+      }
+
+      if (accel.io.argOuts.length > 0) {
+        fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
+            fringeArgOut.bits := accelArgOut.bits
+            fringeArgOut.valid := 1.U
+        }
+      }
+
+      accel.io.enable := fringe.io.enable
+      fringe.io.done := accel.io.done
+      // Top reset is connected to a rst controller on DE1SoC, which converts active low to active high
+      accel.reset := reset
+
+//      //
+//      // Fringe <-> Peripheral connections
+//      fringe.io.genericStreamInTop <> topIO.genericStreamIn
+//      fringe.io.genericStreamOutTop <> topIO.genericStreamOut
+//
+//      // Fringe <-> Accel stream connections
+//      accel.io.genericStreams <> fringe.io.genericStreamsAccel
+//      // fringe.io.genericStreamsAccel <> accel.io.genericStreams
 
     case "zynq" =>
       // Zynq Fringe
@@ -172,11 +248,13 @@ class Top(
 
     case "aws" =>
       // Simulation Fringe
-      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+      val blockingDRAMIssue = true  // Allow only one in-flight request, block until response comes back
+      val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[AWSInterface]
 
       // Fringe <-> DRAM connections
       topIO.dram <> fringe.io.dram
+      fringe.io.memStreams <> accel.io.memStreams
 
       // Accel: Scalar and control connections
       accel.io.argIns := topIO.scalarIns

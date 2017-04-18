@@ -59,6 +59,7 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
       ff.io.enable := io.wen & (io.waddr === i.U)
       ff.io.in := io.wdata
     }
+
     ff.io.init := 0.U
     ff
   }

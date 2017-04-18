@@ -109,4 +109,3 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
 
   }
 }
-

@@ -13,6 +13,7 @@ object ArgInOut extends SpatialApp {
     setArg(x, N)
 
     Accel {
+      // TODO: Set y = x + 4 here
       y := x + 4
     }
 
