@@ -2,13 +2,9 @@ package spatial.codegen.scalagen
 
 import spatial.SpatialExp
 
-trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
+trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM with ScalaGenController {
   val IR: SpatialExp
   import IR._
-
-  def getStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
-    writtenIn(ctrl).filter{x => isStreamIn(x) || isFIFO(x) } ++ childrenOf(ctrl).flatMap(getStreamsAndFIFOs)
-  }
 
   private def emitUnrolledLoop(
     lhs:    Exp[_],
@@ -21,7 +17,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
 
     for (i <- iters.indices) {
       if (isForever(ctrs(i))) {
-        val inputs = getStreamsAndFIFOs(lhs)
+        val inputs = getReadStreamsAndFIFOs(lhs)
         if (inputs.nonEmpty) {
           emit(src"def hasItems_$lhs: Boolean = " + inputs.map(quote).map(_ + ".nonEmpty").mkString(" || "))
         }
@@ -33,7 +29,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
         }
 
         open(src"while(hasItems_$lhs) {")
-        iters(i).zipWithIndex.foreach { case (iter, j) => emit(src"val $iter = Number(1,true,FixedPoint(true,32,0))") }
+        iters(i).zipWithIndex.foreach { case (iter, j) => emit(src"val $iter = Number(BigInt(1),true,FixedPoint(true,32,0))") }
         valids(i).zipWithIndex.foreach { case (valid, j) => emit(src"val $valid = Bit(true,true)") }
       }
       else {
@@ -57,7 +53,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
       emit(src"/** BEGIN UNROLLED FOREACH $lhs **/")
       val en = ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")
-      emitUnrolledLoop(lhs, cchain, iters, valids){ emitBlock(func) }
+      emitUnrolledLoop(lhs, cchain, iters, valids){ emitControlBlock(lhs, func) }
       close("}")
       emit(src"/** END UNROLLED FOREACH $lhs **/")
 
@@ -65,7 +61,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM {
       emit(src"/** BEGIN UNROLLED REDUCE $lhs **/")
       val en = ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")
-      emitUnrolledLoop(lhs, cchain, iters, valids){ emitBlock(func) }
+      emitUnrolledLoop(lhs, cchain, iters, valids){ emitControlBlock(lhs, func) }
       close("}")
       emit(src"/** END UNROLLED REDUCE $lhs **/")
 
