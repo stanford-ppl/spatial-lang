@@ -66,7 +66,7 @@ object StreamingSobel extends SpatialApp { // Regression (Dense) // Args: none
       Stream(*) { _ =>
         val pixel = imgIn.value()
         val grayPixel = (pixel.b.to[Int12] + pixel.g.to[Int12] + pixel.r.to[Int12]) / 3
-        println(pixel + " -> " + grayPixel)
+        // println(pixel + " -> " + grayPixel)
         fifoIn.enq( grayPixel )
         fifoGrayOut.enq(grayPixel)
 
