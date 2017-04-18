@@ -66,17 +66,22 @@ trait ChiselGenSRAM extends ChiselCodegen {
             }
           val rPar = rParZip.map{_._1}.mkString(",")
           val rBundling = rParZip.map{_._2}.mkString(",")
-          val wPar = writersOf(lhs)
+          val wParZip = writersOf(lhs)
             .filter{write => dispatchOf(write, lhs) contains i}
-            .filter{w => portsOf(w, lhs, i).toList.length == 1}.map { w =>
-            w.node match {
-              case Def(_: SRAMStore[_]) => 1
-              case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
-                case Op(ListVector(elems)) => elems.length // Was this deprecated?
-                case _ => ens.length
+            .filter{w => portsOf(w, lhs, i).toList.length == 1}
+            .map { w => 
+              val par = w.node match {
+                case Def(_: SRAMStore[_]) => 1
+                case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
+                  case Op(ListVector(elems)) => elems.length // Was this deprecated?
+                  case _ => ens.length
+                }
               }
+              val port = portsOf(w, lhs, i).toList.head
+              (par, port)
             }
-          }.mkString(",")
+          val wPar = wParZip.map{_._1}.mkString(",")
+          val wBundling = wParZip.map{_._2}.mkString(",")
           val broadcasts = writersOf(lhs)
             .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
             w.node match {
@@ -102,7 +107,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
                 nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
                 open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
                 emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
-                emit(src"""List($wPar), List($rPar), List($rBundling), $bPar, BankedMemory""")
+                emit(src"""List($wPar), List($rPar), """)
+                emit(src"""List($wBundling), List($rBundling), $bPar, BankedMemory""")
                 close("))")
               }
             case DiagonalMemory(strides, banks, depth, isAccum) =>
@@ -115,7 +121,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
                 nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
                 open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
                 emit(src"""List(${Array.fill(dimensions.length){s"$banks"}.mkString(",")}), List(${strides.mkString(",")}),""")
-                emit(src"""List($wPar), List($rPar), List($rBundling), $bPar, DiagonalMemory""")
+                emit(src"""List($wPar), List($rPar), """)
+                emit(src"""List($wBundling), List($rBundling), $bPar, DiagonalMemory""")
                 close("))")
               }
             }

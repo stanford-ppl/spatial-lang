@@ -1618,3 +1618,37 @@ object MultiArgOut extends SpatialApp {
     println("PASS: " + cksum + " (MultiArgOut)")
   }
 }
+
+object MultiWriteBuffer extends SpatialApp { // Regression (Unit) // Args: none
+  import IR._
+
+  @virtualize
+  def main() {
+    val mem = DRAM[Int](32,32)
+    val y = ArgOut[Int]
+
+    Accel {
+      val accum = SRAM[Int](32, 32)
+      MemReduce(accum)(0 until 32) { row => 
+        val sram_seq = SRAM[Int](32,32)
+         Foreach(0 until 32, 0 until 32) { (r, c) => 
+            sram_seq(r,c) = 0
+         }
+         Foreach(0 until 32) { col =>
+            sram_seq(row, col) = 32*(row + col)
+         }
+         sram_seq
+      }  { (sr1, sr2) => sr1 + sr2 }
+
+      mem store accum
+    }
+    
+    val result = getMatrix(mem)
+    val gold = (0::32, 0::32){(i,j) => 32*(i+j)}
+    printMatrix(gold, "Gold:")
+    printMatrix(result, "Result:")
+
+    val cksum = gold.zip(result){_==_}.reduce{_&&_}
+    println("PASS: " + cksum + " (MultiWriteBuffer)")
+  }
+}
