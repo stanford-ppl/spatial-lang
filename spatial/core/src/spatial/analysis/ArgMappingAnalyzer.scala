@@ -41,20 +41,23 @@ trait ArgMappingAnalyzer extends CompilerPass {
     dbg(u"Working on memStreams only, base port = ${base_in}: ${memStreams}")
     memStreams.map{_._1}.toList.distinct.zipWithIndex.foreach{case(m,i) => 
       val entries = memStreams.toList.distinct.filter{_._1 == m}
-      if (entries.length == 1) {
-        if (entries.head._2 == "input") {
-          dbg(u"  - Mapping $m to port -1, ${base_in+p}, -1")
-          argMapping(m) = (i, base_in + p, -1)
-        } else if (entries.head._2 == "output") {
-          dbg(u"  - Mapping $m to port -1, ${base_in+p}, -1")
-          argMapping(m) = (i, base_in + p, -1)          
-        }
+        dbg(u"  - Mapping $m to -1, ${base_in+p}, -1")
+        argMapping(m) = (-1, base_in + p, -1)          
         p = p + 1
-      } else if (entries.length == 2) {
-        dbg(u"  - Mapping $m to -1, ${base_in+p}, ${base_in+p+1}")
-        argMapping(m) = (-1, base_in + p, base_in + p+1)          
-        p = p + 2
-      }
+      // if (entries.length == 1) {
+      //   if (entries.head._2 == "input") {
+      //     dbg(u"  - Mapping $m to port -1, ${base_in+p}, -1")
+      //     argMapping(m) = (i, base_in + p, -1)
+      //   } else if (entries.head._2 == "output") {
+      //     dbg(u"  - Mapping $m to port -1, ${base_in+p}, -1")
+      //     argMapping(m) = (i, base_in + p, -1)          
+      //   }
+      //   p = p + 1
+      // } else if (entries.length == 2) {
+      //   dbg(u"  - Mapping $m to -1, ${base_in+p}, -1")
+      //   argMapping(m) = (-1, base_in + p, -1)          
+      //   p = p + 1
+      // }
     }
 
     var p_out = 0 // Ugly imperative but whatever

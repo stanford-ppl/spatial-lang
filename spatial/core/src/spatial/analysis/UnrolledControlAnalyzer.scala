@@ -22,10 +22,13 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
 
   override def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
     rhs match {
-      case GetMem(dram, _) => 
-        memStreams += ((dram, "output"))
-      case SetMem(dram, _) => 
-        memStreams += ((dram, "input"))
+      case DRAMNew(dims) => 
+        memStreams += ((lhs, "dram"))
+      //   memStreams += ((dram, "output"))
+      // case GetMem(dram, _) => 
+      //   memStreams += ((dram, "output"))
+      // case SetMem(dram, _) => 
+      //   memStreams += ((dram, "input"))
       case StreamInNew(bus) => 
         bus match {
           case BurstDataBus() =>

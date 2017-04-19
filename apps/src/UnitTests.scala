@@ -1473,9 +1473,9 @@ object DotProductFSM extends SpatialApp { // Regression (FSM) // Args: none
   }
 }
 
-object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
+object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
   import IR._
-  type T = FixPt[TRUE,_16,_16]
+  type T = FixPt[TRUE,_13,_3]
 
   @virtualize
   def main() {
@@ -1506,9 +1506,9 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
   }
 }
 
-object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 0.5 0.25
+object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
   import IR._
-  type T = FixPt[TRUE,_8,_8]
+  type T = FixPt[TRUE,_12,_4]
 
   @virtualize
   def main() {
