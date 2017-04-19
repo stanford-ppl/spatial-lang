@@ -5,7 +5,7 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
   import IR._
 
   def fifopushpop(N: Int) = {
-    val tileSize = 16 (16 -> 16)
+    val tileSize = 16
 
     val size = ArgIn[Int]
     setArg(size, N)
