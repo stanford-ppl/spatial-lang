@@ -25,9 +25,9 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
         ("0.U", "999.U", "1.U", "1") 
     }}
 
-    emitGlobal(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
-    // emitGlobal(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
-    emitGlobal(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
+    emitGlobalWire(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
+    // emitGlobalWire(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
+    emitGlobalWire(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
     emit(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix}_maxes = List(${counter_data.map(_._2).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{q => "0.U"}.mkString(",")}) """)

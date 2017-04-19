@@ -14,11 +14,10 @@ trait ChiselGenMath extends ChiselCodegen {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case FixRandom(x)=> s"x${lhs.id}_fixrnd"
-            case FixNeg(x:Exp[_]) => s"x${lhs.id}_neg${quoteOperand(x)}"
-            case FixAdd(x:Exp[_],y:Exp[_]) => s"x${lhs.id}_sum${quoteOperand(x)}_${quoteOperand(y)}"
+          lhs match {
+            case Def(FixRandom(x)) => s"x${lhs.id}_fixrnd"
+            case Def(FixNeg(x:Exp[_]))  => s"x${lhs.id}_neg${quoteOperand(x)}"
+            case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"x${lhs.id}_sum${quoteOperand(x)}_${quoteOperand(y)}"
             case _ => super.quote(s)
           }
         case _ => super.quote(s)
