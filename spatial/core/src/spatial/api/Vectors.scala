@@ -269,9 +269,4 @@ trait VectorExp { this: SpatialExp =>
       stage(VectorSlice[T,V](vector, end, start))(ctx)
   }
 
-  private[spatial] def lenOf(x: Exp[_])(implicit ctx: SrcCtx): Int = x.tp match {
-    case tp: VectorType[_] => tp.width
-    case _ => throw new UndefinedDimensionsError(x, None)
-  }
-
 }
