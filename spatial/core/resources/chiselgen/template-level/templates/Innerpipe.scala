@@ -46,7 +46,7 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
     rstCtr.io.input.enable := state === pipeReset.U
     rstCtr.io.input.reset := (state != pipeReset.U) | io.input.rst
     rstCtr.io.input.saturate := true.B
-    rstCtr.io.input.max := 10.U
+    rstCtr.io.input.max := 2.U
     rstCtr.io.input.gap := 0.U
     rstCtr.io.input.start := 0.U
     rstCtr.io.input.stride := 1.U

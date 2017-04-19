@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object SMV extends SpatialApp { 
+object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
   import IR._
 
   type T = Int //FixPt[Signed,B16,B16]
