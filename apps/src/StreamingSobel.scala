@@ -2,7 +2,7 @@ import spatial._
 import org.virtualized._
 import spatial.targets.DE1
 
-object StreamingSobel extends SpatialApp { // Regression (Dense) // Args: none
+object StreamingSobel extends SpatialApp { 
   import IR._
 
   override val target = DE1

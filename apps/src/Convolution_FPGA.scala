@@ -62,7 +62,7 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
           println("")
         }*/
 
-        Sequential.Foreach(0 until C) { c =>
+        Foreach(0 until C) { c =>
           Foreach(0 until Kh par Kh){i => sr(i, *) <<= lb(i, c) }
 
           

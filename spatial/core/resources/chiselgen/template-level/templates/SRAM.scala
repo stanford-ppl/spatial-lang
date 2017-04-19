@@ -22,7 +22,7 @@ class flatR(val w: Int) extends Bundle {
   override def cloneType = (new flatR(w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 class multidimW(val N: Int, val w: Int) extends Bundle {
-  val addr = Vec(N, UInt(w.W))
+  val addr = Vec(N, UInt(32.W))
   val data = UInt(w.W)
   val en = Bool()
 

@@ -9,8 +9,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
   val IR: SpatialExp
   import IR._
 
-  // private var rows: Int = 0
-  // private var cols: Int = 0
+  private var nbufs: List[(Sym[SRAM[_]], Int)]  = List()
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -35,57 +34,91 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
     case _ => super.remap(tp)
   }
 
-  /* Copied from Scala Gen
-  
-  private def shiftIn(lhs: Exp[_], rf: Exp[_], inds: Seq[Exp[Index]], d: Int, data: Exp[_], isVec: Boolean): Unit = {
-    val len = 1//if (isVec) lenOf(data) else 1
-    val dims = stagedDimsOf(rf)
-    val size = dims(d)
-    val stride = (dims.drop(d+1).map(quote) :+ "1").mkString("*")
-
-    open(src"val $lhs = {")
-      // emit(src"val ofs = ${flattenAddress(dims,inds,None)}")
-      emit(src"val stride = $stride")
-      open(src"for (j <- $size-1 to 0 by - 1) {")
-        if (isVec) emit(src"if (j < $len) $rf.update(ofs+j*stride, $data(j)) else $rf.update(ofs + j*stride, $rf.apply(ofs + (j - $len)*stride))")
-        else       emit(src"if (j < $len) $rf.update(ofs+j*stride, $data) else $rf.update(ofs + j*stride, $rf.apply(ofs + (j - $len)*stride))")
-      close("}")
-    close("}")
-  }
-  */
-
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@RegFileNew(dims) =>
+      val width = bitWidth(lhs.tp.typeArguments.head)
       val par = writersOf(lhs).length
-      emitGlobal(s"val ${quote(lhs)} = Module(new templates.ParallelShiftRegFile(${dims(0)}, ${dims(1)}, 1, ${par}/${dims(0)}))")
-      emitGlobal(s"${quote(lhs)}.io.reset := reset")
-      // cols = dims(1).toInt
+      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
+        val depth = mem match {
+          case BankedMemory(dims, d, isAccum) => d
+          case _ => 1
+        }
+        if (depth == 1) {
+          emitGlobal(s"val ${quote(lhs)}_$i = Module(new templates.ShiftRegFile(${dims(0)}, ${dims(1)}, 1, ${par}/${dims(0)}, false, $width))")
+          emitGlobal(s"${quote(lhs)}_$i.io.reset := reset")
+        } else {
+          nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
+          emitGlobal(s"val ${quote(lhs)}_$i = Module(new templates.NBufShiftRegFile(${dims(0)}, ${dims(1)}, 1, $depth, ${par}/${dims(0)}, $width))")
+          emitGlobal(s"${quote(lhs)}_$i.io.reset := reset")          
+        }
+      }
       
     case op@RegFileLoad(rf,inds,en) =>
-      if (needsFPType(lhs.tp)) { lhs.tp match {
-        case FixPtType(s,d,f) => 
-          emit(src"""val ${lhs} = Wire(new FixedPoint($s, $d, $f))""")
-          emit(src"""${lhs}.number := ${rf}.readValue(${inds(0)}.number, ${inds(1)}.number)""")
-        case _ =>
-          emit(src"""${lhs} := ${rf}.readValue(${inds(0)}.number, ${inds(1)}.number)""")
-      }} else {
-          emit(src"""${lhs} := ${rf}.readValue(${inds(0)}.number, ${inds(1)}.number)""")
-      }
+      val dispatch = dispatchOf(lhs, rf).toList.head
+      val port = portsOf(lhs, rf, dispatch).toList.head
+      emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
+      emit(src"""${lhs}.number := ${rf}_${dispatch}.readValue(${inds(0)}.number, ${inds(1)}.number, $port)""")
 
     case op@RegFileStore(rf,inds,data,en) =>
-      val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-      emit(s"${quote(rf)}.connectWPort(${quote(data)}.number, ${quote(inds(0))}.number, ${quote(inds(1))}.number, ${quote(en)} & ${quote(parent)}_datapath_en)")
-      // TODO: finish this using inds like in Load
+      duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
+        val port = portsOf(lhs, rf, i)
+        val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
+        emit(s"""${quote(rf)}_${i}.connectWPort(${quote(data)}.number, ${quote(inds(0))}.number, ${quote(inds(1))}.number, ${quote(en)} & ${quote(parent)}_datapath_en, List(${port.toList.mkString(",")}))""")
+      }
 
     case RegFileShiftIn(rf,inds,d,data,en)    => 
-      val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-      emit(s"${quote(rf)}.connectShiftPort(${quote(data)}.number, ${quote(inds(0))}.number, ${quote(en)} & ${quote(parent)}_datapath_en)")
-      
+      duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
+        val port = portsOf(lhs, rf, i)
+        val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
+        emit(s"""${quote(rf)}_${i}.connectShiftPort(${quote(data)}.number, ${quote(inds(0))}.number, ${quote(en)} & ${quote(parent)}_datapath_en, List(${port.toList.mkString(",")}))""")
+      }
+
     case ParRegFileShiftIn(rf,i,d,data,en) => 
       emit("ParRegFileShiftIn not implemented!")
       // (copied from ScalaGen) shiftIn(lhs, rf, i, d, data, isVec = true)
 
     case _ => super.emitNode(lhs, rhs)
+  }
+
+
+  override protected def emitFileFooter() {
+    withStream(getStream("BufferControlCxns")) {
+      nbufs.foreach{ case (mem, i) => 
+        val readers = readersOf(mem)
+        val writers = writersOf(mem)
+        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
+        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
+        // Console.println(s"working on $mem $i $readers $readPorts $writers $writePorts")
+        // Console.println(s"${readPorts.map{case (_, readers) => readers}}")
+        // Console.println(s"innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
+        // Console.println(s"middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
+        // Console.println(s"outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
+        val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
+        val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+        val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+        val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
+        val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
+        val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
+        val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
+        val numStagesInbetween = lastActivePort - firstActivePort
+
+        (0 to numStagesInbetween).foreach { port =>
+          val ctrlId = port + firstActivePort
+          val node = allSiblings(ctrlId)
+          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else {
+            // emit(src"""${mem}_${i}.readTieDown(${port})""")
+            ""
+          }
+          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else {""}
+          val empty = if (rd == "" & wr == "") "empty" else ""
+          emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
+        }
+
+
+      }
+    }
+
+    super.emitFileFooter()
   }
 
 }

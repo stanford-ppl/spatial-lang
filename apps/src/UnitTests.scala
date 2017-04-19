@@ -36,7 +36,8 @@ object InOutArg extends SpatialApp {  // Regression (Unit) // Args: 5
 object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
-  @virtualize def main(): Unit = { 
+  @virtualize 
+  def main(): Unit = { 
     val cst1 = 32
     val cst2 = 23
     val cst3 = 11
@@ -47,6 +48,7 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     val x2 = ArgIn[Int]
     val y1 = ArgOut[Int]
     val y2 = ArgOut[Int]
+    val y3 = ArgOut[Int]
     val m1 = DRAM[Int](16)
     val m2 = DRAM[Int](16)
     setArg(io1, cst1)
@@ -62,9 +64,12 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
       Pipe { y2 := 999 }
       Pipe { y1 := x1.value + 6 }
       Pipe { y2 := x2.value + 8 }
-      val sram = SRAM[Int](16)
-      sram load m1
-      m2 store sram
+      val sram1 = SRAM[Int](16)
+      val sram2 = SRAM[Int](16)
+      sram1 load m1
+      sram2 load m1
+      m2 store sram1
+      Pipe { y3 := sram2(3) }
     }
 
     val r1 = getArg(io1)
@@ -76,11 +81,13 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     val r4 = getArg(y2)
     val g4 = cst4 + 8
     val r5 = getMem(m2)
-    println("expected: " + g1 + ", " + g2 + ", " + g3 + ", " + g4)
-    println("expected: " + r1 + ", " + r2 + ", " + r3 + ", " + r4)
+    val g6 = data(3)
+    val r6 = getArg(y3)
+    println("expected: " + g1 + ", " + g2 + ", " + g3 + ", " + g4 + ", "+ g6)
+    println("received: " + r1 + ", " + r2 + ", " + r3 + ", " + r4 + ", "+ r6)
     printArray(r5, "Mem: ")
-    val cksum = r1 == g1 && r2 == g2 && r3 == g3 && r4 == g4 && data.zip(r5){_==_}.reduce{_&&_}
-    println("PASS: " + cksum + " (SimpleHostIO)")
+    val cksum = r1 == g1 && r2 == g2 && r3 == g3 && r4 == g4 && r6 == g6 && data.zip(r5){_==_}.reduce{_&&_}
+    println("PASS: " + cksum + " (MixedIOTest)")
   }
 }
 
@@ -227,7 +234,7 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
-object FileSplitter extends SpatialApp { // Regression (Unit) // Args: 5
+object FileSplitter extends SpatialApp { // Regression (Unit) // Args: 6
   import IR._
 
   @virtualize
@@ -244,7 +251,7 @@ object FileSplitter extends SpatialApp { // Regression (Unit) // Args: 5
     Accel {
       Pipe(5 by 1) { i => 
         Pipe(10 by 1) { j => 
-          Pipe {y := x + 4 + j + i}
+          Pipe {y := 3*(x + 4 + j + i)+x/4}
         }
       }
     }
@@ -254,7 +261,7 @@ object FileSplitter extends SpatialApp { // Regression (Unit) // Args: 5
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = N + 4 + 4 + 9
+    val gold = 3*(N + 4 + 4 + 9) + N / 4
     println("expected: " + gold)
     println("result: " + result)
 
@@ -1473,9 +1480,9 @@ object DotProductFSM extends SpatialApp { // Regression (FSM) // Args: none
   }
 }
 
-object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
+object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
   import IR._
-  type T = FixPt[TRUE,_16,_16]
+  type T = FixPt[TRUE,_13,_3]
 
   @virtualize
   def main() {
@@ -1506,9 +1513,9 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
   }
 }
 
-object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
+object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
   import IR._
-  type T = FixPt[TRUE,_16,_16]
+  type T = FixPt[TRUE,_12,_4]
 
   @virtualize
   def main() {
@@ -1527,11 +1534,11 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
     Accel {
       val xx = SRAM[T](N)
       val yy = SRAM[T](N)
-      xx load x(0 :: N par 16)
+      xx load x(0 :: N par 1)
       Foreach(N by 1) { i => 
         yy(i) = xx(i) * s
       }
-      y(0 :: N par 16) store yy
+      y(0 :: N par 1) store yy
     }
 
 

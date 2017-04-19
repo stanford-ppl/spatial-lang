@@ -213,12 +213,10 @@
 ./chiselgen/template-level/templates/Utils.scala
 ./chiselgen/template-level/templates/LineBuffer.scala
 ./chiselgen/template-level/templates/FIFO.scala
-./chiselgen/template-level/templates/ParallelShiftReg.scala
 ./chiselgen/template-level/templates/FF.scala
 ./chiselgen/template-level/templates/Accum.scala
 ./chiselgen/template-level/templates/Sequential.scala
 ./chiselgen/template-level/templates/Streampipe.scala
-./chiselgen/template-level/templates/ParallelShiftRegFile.scala
 ./chiselgen/template-level/templates/Parallel.scala
 ./chiselgen/template-level/templates/SRAM.scala
 ./chiselgen/template-level/templates/Delay.scala
@@ -236,11 +234,9 @@
 ./chiselgen/template-level/tests/templates/RegFile.scala
 ./chiselgen/template-level/tests/templates/LineBuffer.scala
 ./chiselgen/template-level/tests/templates/FIFO.scala
-./chiselgen/template-level/tests/templates/ParallelShiftReg.scala
 ./chiselgen/template-level/tests/templates/FF.scala
 ./chiselgen/template-level/tests/templates/Accum.scala
 ./chiselgen/template-level/tests/templates/Sequential.scala
-./chiselgen/template-level/tests/templates/ParallelShiftRegFile.scala
 ./chiselgen/template-level/tests/templates/Parallel.scala
 ./chiselgen/template-level/tests/templates/SRAM.scala
 ./chiselgen/template-level/tests/templates/Delay.scala

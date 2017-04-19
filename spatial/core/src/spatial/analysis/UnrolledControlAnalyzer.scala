@@ -5,7 +5,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
 
   override val name = "Unrolled Control Analyzer"
 
-  var memStreams = Set[(Exp[_], String)]()
+  var memStreams = Set[(Exp[_], Int, Int)]()
   var genericStreams = Set[(Exp[_], String)]()
   var argPorts = Set[(Exp[_], String)]()
 
@@ -14,7 +14,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   }
 
   override protected def preprocess[S:Type](block: Block[S]) = {
-    memStreams = Set[(Exp[_], String)]()
+    memStreams = Set[(Exp[_], Int, Int)]()
     genericStreams = Set[(Exp[_], String)]()
     argPorts = Set[(Exp[_], String)]()
     super.preprocess(block)
@@ -22,10 +22,18 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
 
   override def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
     rhs match {
-      case GetMem(dram, _) => 
-        memStreams += ((dram, "output"))
-      case SetMem(dram, _) => 
-        memStreams += ((dram, "input"))
+      case DRAMNew(dims) => 
+        memStreams += ((lhs, 0, 0))
+      case FringeDenseLoad(dram,_,_) =>
+        val prevLoads = memStreams.toList.filter{_._1 == dram}.head._2
+        val prevStores = memStreams.toList.filter{_._1 == dram}.head._3
+        memStreams -= ((dram, prevLoads, prevStores))
+        memStreams += ((dram, prevLoads+1, prevStores))
+      case FringeDenseStore(dram,_,_,_) =>
+        val prevLoads = memStreams.toList.filter{_._1 == dram}.head._2
+        val prevStores = memStreams.toList.filter{_._1 == dram}.head._3
+        memStreams -= ((dram, prevLoads, prevStores))
+        memStreams += ((dram, prevLoads, prevStores+1))
       case StreamInNew(bus) => 
         bus match {
           case BurstDataBus() =>
