@@ -1,7 +1,7 @@
 import org.virtualized._
 import spatial._
 
-object GDA extends SpatialApp { // Regression (Dense) // Args: 1
+object GDA extends SpatialApp { // Regression (Dense) // Args: 64
   import IR._
 
   type X = Int
@@ -54,7 +54,7 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 1
 
       val sigmaOut = SRAM[T](MAXC, MAXC)
 
-      MemReduce(sigmaOut)(R by rTileSize par op) { r =>
+      MemReduce(sigmaOut)(R by rTileSize par op){ r =>
         val gdaYtile = SRAM[Int](rTileSize)
         val gdaXtile = SRAM[T](rTileSize, MAXC)
         val blk = Reg[Int]
@@ -78,12 +78,8 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 1
             sigmaTile(ii, jj) = subTile(ii) * subTile(jj)
           }
           sigmaTile
-        } {
-          _ + _
-        }
-      } {
-        _ + _
-      }
+        }{_+_}
+      }{_+_}
 
       sigma(0 :: C, 0 :: C par 16) store sigmaOut
     }
@@ -116,24 +112,15 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 1
     val result = gda(x.flatten, ys, mu0, mu1)
 
     val gold = x.zip(ys) { (row, y) =>
-      val sub = if (y == 1) row.zip(mu1) {
-        _ - _
-      } else row.zip(mu0) {
-        _ - _
-      }
+      val sub = if (y == 1) row.zip(mu1){_-_} else row.zip(mu0) {_-_}
       Array.tabulate(C) { i => Array.tabulate(C) { j => sub(i) * sub(j) } }.flatten
-    }.reduce { (a, b) => a.zip(b) {
-      _ + _
-    }
-    }
+    }.reduce { (a, b) => a.zip(b) {_+_} }
 
     printArr(gold, "gold: ")
     printArr(result, "result: ")
 
-    val cksum = gold.zip(result) { case (a, b) => a < b + margin && a > b - margin }.reduce {
-      _ && _
-    }
-    println("PASS: " + cksum + " (GDA) * Make this work fo nontrivial test")
+    val cksum = gold.zip(result){ case (a,b) => a < b + margin && a > b - margin }.reduce{_&&_}
+    println("PASS: " + cksum  + " (GDA)")
 
     // // println("actual: " + gold.mkString(", "))
     // //println("result: " + result.mkString(", "))

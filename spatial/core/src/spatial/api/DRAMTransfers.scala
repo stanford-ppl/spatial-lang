@@ -1,12 +1,10 @@
 package spatial.api
 
-import argon.core.Staging
-import org.virtualized._
 import spatial._
 import forge._
+import org.virtualized._
 
-trait DRAMTransferApi extends DRAMTransferExp {
-  this: SpatialApi =>
+trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
 
   /** Internals **/
   // Expansion rule for CoarseBurst -  Use coarse_burst(tile,onchip,isLoad) for anything in the frontend
@@ -307,10 +305,8 @@ trait DRAMTransferApi extends DRAMTransferExp {
 
 }
 
-trait DRAMTransferExp {
-  this: SpatialExp =>
-
-  /** Specialized busses **/
+trait DRAMTransferExp { this: SpatialExp =>
+  /** Specialized buses **/
   @struct case class BurstCmd(offset: Index, size: Index, isLoad: Bool)
   @struct case class IssuedCmd(size: Index, start: Index, end: Index)
 

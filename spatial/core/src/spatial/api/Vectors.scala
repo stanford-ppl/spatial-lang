@@ -1,17 +1,11 @@
 package spatial.api
 
-import argon.core.{Reporting, Staging}
-import argon.ops.TextExp
-import argon.typeclasses.{BitsExp, CustomBitWidths}
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 import forge._
 
-trait VectorApi extends VectorExp {
-  this: SpatialApi =>
-}
+trait VectorApi extends VectorExp { this: SpatialApi => }
 
-trait LowPriorityImplicits {
-  this: SpatialExp =>
+trait LowPriorityImplicits { this: SpatialExp =>
   implicit def vectorNFakeType[T:Meta:Bits](implicit ctx: SrcCtx): Meta[VectorN[T]] = {
     error(ctx, u"VectorN value cannot be used directly as a staged type")
     error("Add a type conversion here using .asVector#, where # is the length of the vector")
@@ -21,8 +15,7 @@ trait LowPriorityImplicits {
 }
 
 @generate
-trait VectorExp {
-  this: SpatialExp =>
+trait VectorExp { this: SpatialExp =>
 
   /** Infix methods **/
   trait Vector[T] { this: MetaAny[_] =>
@@ -274,11 +267,6 @@ trait VectorExp {
       }
     case _ =>
       stage(VectorSlice[T,V](vector, end, start))(ctx)
-  }
-
-  private[spatial] def lenOf(x: Exp[_])(implicit ctx: SrcCtx): Int = x.tp match {
-    case tp: VectorType[_] => tp.width
-    case _ => throw new UndefinedDimensionsError(x, None)
   }
 
 }

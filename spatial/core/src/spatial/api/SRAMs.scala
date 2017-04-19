@@ -1,11 +1,9 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 import forge._
 
-trait SRAMApi extends SRAMExp {
-  this: SpatialApi =>
+trait SRAMApi extends SRAMExp { this: SpatialApi =>
 
   @api def SRAM[T:Meta:Bits](c: Index): SRAM1[T] = SRAM1(sram_alloc[T,SRAM1](c.s))
   @api def SRAM[T:Meta:Bits](r: Index, c: Index): SRAM2[T] = SRAM2(sram_alloc[T,SRAM2](r.s,c.s))
@@ -15,8 +13,7 @@ trait SRAMApi extends SRAMExp {
 }
 
 
-trait SRAMExp {
-  this: SpatialExp =>
+trait SRAMExp { this: SpatialExp =>
 
   /** Infix methods **/
   trait SRAM[T] { this: Template[_] =>

@@ -1,6 +1,5 @@
 package spatial.analysis
 
-
 trait ScalarAnalyzer extends SpatialTraversal {
   import IR._
 

@@ -1,7 +1,6 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 import forge._
 
 // N by B
@@ -16,15 +15,13 @@ import forge._
 // may require a Range which is not a StridedRange?
 // :: this distinction is silly, only using one type
 
-trait RangeLowPriorityImplicits {
-  this: SpatialExp =>
+trait RangeLowPriorityImplicits { this: SpatialExp =>
 
   // Have to make this a lower priority, otherwise seems to prefer this + Range infix op over the implicit class on Index
   implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range = index_to_range(x)
 }
 
-trait RangeApi extends RangeExp with RangeLowPriorityImplicits {
-  this: SpatialApi =>
+trait RangeApi extends RangeExp with RangeLowPriorityImplicits { this: SpatialApi =>
 
   @api def *() = Wildcard()
 
@@ -62,8 +59,7 @@ trait RangeApi extends RangeExp with RangeLowPriorityImplicits {
 }
 
 
-trait RangeExp {
-  this: SpatialExp =>
+trait RangeExp { this: SpatialExp =>
 
   implicit class IndexRangeInternalOps(x: Index) {
     def toRange(implicit ctx: SrcCtx): Range = index_to_range(x)

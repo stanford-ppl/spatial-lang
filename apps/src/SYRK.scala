@@ -39,9 +39,7 @@ object SYRK_col extends SpatialApp { // Regression (Dense) // Args: 64
           val row_len = ii + 1
           Sequential.Foreach(row_len by 1) { jj =>
             val prod = Reg[T]
-            Reduce(prod)(full_K by 1) { k => A1(ii, k) * A1(jj, k) } {
-              _ + _
-            }
+            Reduce(prod)(full_K by 1) { k => A1(ii, k) * A1(jj, k) }{_+_}
             C_block(ii, jj) = C_block(ii, jj) + prod
           }
         }
@@ -57,9 +55,7 @@ object SYRK_col extends SpatialApp { // Regression (Dense) // Args: 64
           // C21_block += A2_block * A1' by inner product.
           Sequential.Foreach(inner_N by 1, inner_N by 1) { (ii, jj) =>
             val prod = Reg[T]
-            Reduce(prod)(full_K by 1) { k => A2_block(ii, k) * A1(jj, k) } {
-              _ + _
-            }
+            Reduce(prod)(full_K by 1) { k => A2_block(ii, k) * A1(jj, k) }{_+_}
             C_block(ii, jj) = C_block(ii, jj) + prod.value
           }
 
@@ -95,19 +91,13 @@ object SYRK_col extends SpatialApp { // Regression (Dense) // Args: 64
         var A_row_j = A(j)
 
         if (j > i) 0.to[T]
-        else A_row_i.zip(A_row_j) {
-          _ * _
-        }.reduce {
-          _ + _
-        }
+        else A_row_i.zip(A_row_j){_*_}.reduce{_+_}
       }
     }
     val C_check = C.flatten.zip(AAT.flatten) { (a, b) => a + b } // C + A*A'
 
     val C_computed = Array.tabulate(N * N) { i => result(i) }
-    val cksum = C_computed.zip(C_check) { (a, b) => a > b - margin && a < b + margin }.reduce {
-      _ && _
-    }
+    val cksum = C_computed.zip(C_check) { (a, b) => a > b - margin && a < b + margin }.reduce{_&&_}
     println("PASS: " + cksum + " (SYRK_col)")
   }
 }

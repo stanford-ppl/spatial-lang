@@ -1,14 +1,11 @@
 package spatial.api
 
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 import spatial.targets._
 
-trait PinApi extends PinExp {
-  this: SpatialApi =>
-}
+trait PinApi extends PinExp { this: SpatialApi => }
 
-trait PinExp {
-  this: SpatialExp =>
+trait PinExp { this: SpatialExp =>
 
   def target: FPGATarget // Needs to be filled in by application, defaults to Default
 

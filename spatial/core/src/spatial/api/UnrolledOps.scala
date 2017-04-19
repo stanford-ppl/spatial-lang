@@ -1,14 +1,10 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 
-trait UnrolledApi extends UnrolledExp {
-  this: SpatialApi =>
-}
+trait UnrolledApi extends UnrolledExp { this: SpatialApi => }
 
-trait UnrolledExp  {
-  this: SpatialExp =>
+trait UnrolledExp { this: SpatialExp =>
 
   /** IR Nodes **/
   case class UnrolledForeach(
@@ -21,7 +17,6 @@ trait UnrolledExp  {
     def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bool]]) = op_unrolled_foreach(f(en)++addEn,f(cchain),f(func),iters,valids)
 
     override def inputs = syms(en) ++ syms(cchain) ++ syms(func)
-    override def freqs = normal(cchain) ++ cold(func)
     override def binds = super.binds ++ iters.flatten ++ valids.flatten
   }
 
@@ -38,7 +33,6 @@ trait UnrolledExp  {
     def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bool]]) = op_unrolled_reduce(f(en)++addEn,f(cchain),f(accum),f(func),f(reduce),iters,valids,rV)
 
     override def inputs = syms(en) ++ syms(cchain, accum) ++ syms(func) ++ syms(reduce)
-    override def freqs = normal(cchain) ++ normal(accum) ++ cold(func) ++ cold(reduce)
     override def binds = super.binds ++ iters.flatten ++ valids.flatten ++ Seq(rV._1, rV._2)
   }
 
@@ -146,7 +140,7 @@ trait UnrolledExp  {
     iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bool]]]
   )(implicit ctx: SrcCtx): Exp[Controller] = {
-    val fBlk = stageBlock { func }
+    val fBlk = stageColdBlock { func }
     val effects = fBlk.summary.star
     stageEffectful(UnrolledForeach(en, cchain, fBlk, iters, valids), effects)(ctx)
   }
@@ -161,8 +155,8 @@ trait UnrolledExp  {
     valids: Seq[Seq[Bound[Bool]]],
     rV:     (Bound[T], Bound[T])
   )(implicit ctx: SrcCtx, mT: Type[T], mC: Type[C[T]]): Exp[Controller] = {
-    val fBlk = stageLambda(accum) { func }
-    val rBlk = stageBlock { reduce }
+    val fBlk = stageColdLambda(accum) { func }
+    val rBlk = stageColdBlock { reduce }
     val effects = fBlk.summary andAlso rBlk.summary
     stageEffectful(UnrolledReduce(en, cchain, accum, fBlk, rBlk, iters, valids, rV), effects.star)(ctx)
   }

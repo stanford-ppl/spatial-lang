@@ -2,7 +2,6 @@ import org.virtualized._
 import spatial._
 
 object Video extends SpatialApp {
-
   import IR._
 
   override val target = targets.DE1

@@ -1,15 +1,10 @@
 package spatial.api
 
-import argon.core.Staging
-import argon.ops.{BoolExp, FixPtExp, VoidExp}
-import argon.typeclasses.NumExp
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 
-trait MemoryApi extends MemoryExp {
-  this: SpatialApi => }
+trait MemoryApi extends MemoryExp { this: SpatialApi => }
 
-trait MemoryExp {
-  this: SpatialExp =>
+trait MemoryExp { this: SpatialExp =>
 
   /** Addressable, potentially multi-dimensional **/
   trait Mem[T,C[_]] {

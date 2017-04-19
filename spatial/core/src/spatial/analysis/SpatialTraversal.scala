@@ -1,7 +1,7 @@
 package spatial.analysis
 
 import argon.traversal.Traversal
-import spatial.SpatialExp
+import spatial._
 
 trait SpatialTraversal extends Traversal {
   val IR: SpatialExp

@@ -1,15 +1,11 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 import forge._
 
-trait LineBufferApi extends LineBufferExp {
-  this: SpatialApi =>
-}
+trait LineBufferApi extends LineBufferExp { this: SpatialApi => }
 
-trait LineBufferExp {
-  this: SpatialExp =>
+trait LineBufferExp { this: SpatialExp =>
 
   case class LineBuffer[T:Meta:Bits](s: Exp[LineBuffer[T]]) extends Template[LineBuffer[T]] {
     @api def apply(row: Index, col: Index): T = {
@@ -41,6 +37,7 @@ trait LineBufferExp {
       exp.tp.wrapped(exp)
     }
 
+    @api def enq(data: T): Void = Void(linebuffer_enq(this.s, data.s, bool(true)))
     @api def enq(data: T, en: Bool): Void = Void(linebuffer_enq(this.s, data.s, en.s))
 
     @api def load(dram: DRAMDenseTile1[T])(implicit ctx: SrcCtx): Void = {

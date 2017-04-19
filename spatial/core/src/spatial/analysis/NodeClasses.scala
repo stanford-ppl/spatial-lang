@@ -1,10 +1,9 @@
 package spatial.analysis
 
-import spatial.SpatialExp
+import spatial._
 import org.virtualized.SourceContext
 
-trait NodeClasses extends SpatialMetadataExp {
-  this: SpatialExp =>
+trait NodeClasses { this: SpatialExp =>
 
   /** Parallelization factors **/
   def parFactorsOf(x: Exp[_]): Seq[Const[Index]] = x match {
@@ -134,6 +133,14 @@ trait NodeClasses extends SpatialMetadataExp {
     case _ => throw new UndefinedDimensionsError(x, None)
   }
 
+  def lenOf(x: Exp[_])(implicit ctx: SrcCtx): Int = x.tp match {
+    case tp: VectorType[_] => tp.width
+    case _ => x match {
+      case Def(ShiftRegNew(size, _)) => size
+      case _ => throw new UndefinedDimensionsError(x, None)
+    }
+  }
+
   def rankOf(x: Exp[_]): Int = stagedDimsOf(x).length
   def rankOf(x: MetaAny[_]): Int = rankOf(x.s)
 
@@ -178,6 +185,9 @@ trait NodeClasses extends SpatialMetadataExp {
     case _:RegType[_] => true
     case _ => false
   }
+
+  def isHostIn(e: Exp[_]): Boolean = isHostIO(e) && writersOf(e).isEmpty
+  def isHostOut(e: Exp[_]): Boolean = isHostIO(e) && readersOf(e).isEmpty
 
   def isFIFO(e: Exp[_]): Boolean = e.tp match {
     case _:FIFOType[_] => true
@@ -236,7 +246,7 @@ trait NodeClasses extends SpatialMetadataExp {
     case _:DRAMType[_]      => true
     case _:StreamInType[_]  => true
     case _:StreamOutType[_] => true
-    case _:RegType[_]       => isArgIn(e) || isArgOut(e)
+    case _:RegType[_]       => isArgIn(e) || isArgOut(e) || isHostIO(e)
     case _ => false
   }
 

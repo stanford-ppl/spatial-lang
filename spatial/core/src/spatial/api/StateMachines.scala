@@ -1,11 +1,9 @@
 package spatial.api
 
-import argon.core.Staging
-import spatial.{SpatialApi, SpatialExp}
+import spatial._
 import forge._
 
-trait StateMachineApi extends StateMachineExp {
-  this: SpatialApi =>
+trait StateMachineApi extends StateMachineExp { this: SpatialApi =>
 
   object FSM {
     @api def apply[A,T:Bits](init: A)(notDone: T => Boolean)(action: T => Void)(next: T => T)(implicit lift: Lift[A,T]) = {
@@ -18,8 +16,7 @@ trait StateMachineApi extends StateMachineExp {
   }
 }
 
-trait StateMachineExp {
-  this: SpatialExp =>
+trait StateMachineExp { this: SpatialExp =>
 
   @internal def fsm[T:Type:Bits](start: T, notDone: T => Bool, action: T => Void, nextState: T => T, style: ControlStyle) = {
     val state = fresh[T]
@@ -56,9 +53,10 @@ trait StateMachineExp {
     nextState: => Exp[T],
     state:     Bound[T]
   ) = {
-    val dBlk = stageBlock{ notDone }
-    val aBlk = stageBlock{ action }
-    val nBlk = stageBlock{ nextState }
+    // TODO: Do these need to be cold?
+    val dBlk = stageColdBlock{ notDone }
+    val aBlk = stageColdBlock{ action }
+    val nBlk = stageColdBlock{ nextState }
     val effects = dBlk.summary andAlso aBlk.summary andAlso nBlk.summary
     stageEffectful(StateMachine(enable, start, dBlk, aBlk, nBlk, state), effects)(ctx)
   }

@@ -19,6 +19,41 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
     iters.indices.foreach{_ => close("}}}") }
   }
 
+  // In Scala simulation, run a pipe until its read fifos and streamIns are empty
+  def getReadStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
+    localMems.filter{mem => readersOf(mem).exists(_.ctrlNode == ctrl) }.filter{mem => isStreamIn(mem) || isFIFO(mem) } ++
+      childrenOf(ctrl).flatMap(getReadStreamsAndFIFOs)
+  }
+
+  def emitControlBlock(lhs: Sym[_], block: Block[_]): Unit = {
+    if (isOuterControl(lhs) && (isStreamPipe(lhs) || getDef(lhs).exists{case Hwblock(_,strm) => strm; case _ => false})) {
+      val children = childrenOf(lhs)
+      blockContents(block).foreach { stm =>
+        val isChild = stm.lhs.exists{s => children.contains(s) }
+
+        if (isChild) {
+          val child = stm.lhs.head
+          val inputs = getReadStreamsAndFIFOs(child)
+          if (inputs.nonEmpty) {
+            // HACK: Run streaming children to completion (exhaust inputs) before moving on to the next
+            // Note that this won't work for cases with feedback, but this is disallowed for now anyway
+            emit(src"def hasItems_${lhs}_$child: Boolean = " + inputs.map(quote).map(_ + ".nonEmpty").mkString(" || "))
+            open(src"while (hasItems_${lhs}_$child) {")
+              visitStm(stm)
+            close("}")
+          }
+          else {
+            visitStm(stm)
+          }
+        }
+        else visitStm(stm)
+      }
+    }
+    else {
+      emitBlock(block)
+    }
+  }
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
       enableMemGen = true
@@ -26,7 +61,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       enableMemGen = false
 
       emit(src"/** BEGIN HARDWARE BLOCK $lhs **/")
-      if (!isForever) {
+      if (!willRunForever(lhs)) {
         open(src"val $lhs = {")
           emitBlock(func)
         close("}")
@@ -42,7 +77,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
           emit(src"def hasItems: Boolean = { val has = ${lhs}_ctr < ${lhs}_iters ; ${lhs}_ctr += 1; has }")
         }
         open(src"while(hasItems) {")
-          emitBlock(func)
+          emitControlBlock(lhs, func)
         close("}")
         emit(src"val $lhs = ()")
       }
@@ -55,7 +90,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       emit(src"/** BEGIN UNIT PIPE $lhs **/")
       val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")
-      emitBlock(func)
+        emitControlBlock(lhs, func)
       close("}")
       emit(src"/** END UNIT PIPE $lhs **/")
 

@@ -67,9 +67,7 @@ object BFS extends SpatialApp {
             frontierNodes(frontierAddr(kk)) = pieceMem(kk)
           }
           nextLen
-        } {
-          _ + _
-        }
+        }{_+_}
 
         Foreach(concatReg by 1) { kk => currentNodes(kk) = frontierNodes(kk) }
         Foreach(concatReg by 1) { kk => frontierLevels(kk) = i + 1 }

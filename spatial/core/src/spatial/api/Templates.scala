@@ -1,11 +1,9 @@
 package spatial.api
 
-import argon.core.Staging
+import spatial._
 import forge._
-import spatial.SpatialExp
 
-trait TemplatesExp  {
-  this: SpatialExp =>
+trait TemplatesExp { this: SpatialExp =>
 
   abstract class Template[T:Meta] extends MetaAny[T] {
     @api def ===(that: T): Bool = this.s == that.s

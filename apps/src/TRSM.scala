@@ -224,9 +224,7 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
     // val image = (0::R, 0::C){(i,j) => if (j > border && j < C-border && i > border && i < C - border) i*16 else 0}
 
     val B = Array.fill(full_N) {
-      Array.fill(full_K) {
-        random[T](2)
-      }
+      Array.fill(full_K) { random[T](2) }
     }
     val L = Array.tabulate(full_N) { i =>
       Array.tabulate(full_N) { j =>
@@ -259,17 +257,11 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
       val aRow = L_check(i)
       Array.tabulate(full_K) { j =>
         val bCol = X_check.map { row => row(j) }
-        aRow.zip(bCol) {
-          _ * _
-        }.reduce {
-          _ + _
-        }
+        aRow.zip(bCol){_*_}.reduce{_+_}
       }
     }.flatten
 
-    val cksum = B_check.zip(B_computed) { (a, b) => a > b - margin && a < b + margin }.reduce {
-      _ && _
-    }
+    val cksum = B_check.zip(B_computed) { (a, b) => a > b - margin && a < b + margin }.reduce{_&&_}
     println("PASS: " + cksum + " (TRSM) * Need to test with bigger dimensions!")
   }
 }

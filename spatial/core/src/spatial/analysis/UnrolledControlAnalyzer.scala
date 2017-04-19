@@ -1,5 +1,4 @@
 package spatial.analysis
-import scala.collection.mutable.HashMap
 
 trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   import IR._
@@ -33,6 +32,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
         genericStreams += ((lhs, "output"))
       case e: ArgInNew[_] => argPorts += ((lhs, "input"))
       case e: ArgOutNew[_] => argPorts += ((lhs, "output"))
+      case e: HostIONew[_] => argPorts += ((lhs, "io"))
       case _ =>
     }
     super.addCommonControlData(lhs, rhs)

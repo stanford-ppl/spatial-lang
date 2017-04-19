@@ -1,9 +1,8 @@
 package spatial.analysis
 
 import argon.traversal.CompilerPass
+import spatial._
 import org.virtualized.SourceContext
-import spatial.SpatialExp
-import scala.collection.mutable
 
 trait MemoryAnalyzer extends CompilerPass {
   val IR: SpatialExp
@@ -496,7 +495,7 @@ trait MemoryAnalyzer extends CompilerPass {
   def bankSRAMAccess(mem: Exp[_], access: Exp[_]): Channels = {
     val patterns = accessPatternOf(access)
     // TODO: SRAM Views: dimensions may change depending on view
-    val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
+    val dims: Seq[Int] = stagedDimsOf(mem).map{case Exact(c) => c.toInt}
     val allStrides = constDimsToStrides(dims)
     val strides = if (patterns.length == 1) List(allStrides.last) else allStrides
 
@@ -521,8 +520,6 @@ trait MemoryAnalyzer extends CompilerPass {
 
   def bankFIFOAccess(mem: Exp[_], access: Exp[_]): Channels = {
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
-
-    // TODO: May want to disable this check for DSE? Or just limit parallelization factors to be legal ones
     // All parallelization factors relative to the memory, except the innermost, must either be empty or only contain 1s
     // Otherwise, we have multiple concurrent reads/writes
     val innerLoopParOnly = factors.drop(1).forall{x => x.isEmpty || x.forall{case Exact(c) => c == 1; case _ => false} }
@@ -571,7 +568,7 @@ trait MemoryAnalyzer extends CompilerPass {
   }
 
   def bankRegFileAccess(mem: Exp[_], access: Exp[_]): Channels = {
-    val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
+    val dims: Seq[Int] = stagedDimsOf(mem).map{case Exact(c) => c.toInt}
     val strides = constDimsToStrides(dims)
 
     val factors  = unrollFactorsOf(access) diff unrollFactorsOf(mem)

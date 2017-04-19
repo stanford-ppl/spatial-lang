@@ -1,11 +1,9 @@
 package spatial.api
-import spatial._
 
-import argon.core.Staging
+import spatial._
 import forge._
 
-trait DRAMApi extends DRAMExp {
-  this: SpatialApi =>
+trait DRAMApi extends DRAMExp { this: SpatialApi =>
 
   type Tile[T] = DRAMDenseTile[T]
   type SparseTile[T] = DRAMSparseTile[T]
@@ -17,8 +15,7 @@ trait DRAMApi extends DRAMExp {
   @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index, d4: Index, d5: Index): DRAM5[T] = DRAM5(dram_alloc[T,DRAM5](d1.s,d2.s,d3.s,d4.s,d5.s))
 }
 
-trait DRAMExp {
-  this: SpatialExp =>
+trait DRAMExp { this: SpatialExp =>
 
   /** Infix methods **/
   trait DRAM[T] { this: Template[_] =>

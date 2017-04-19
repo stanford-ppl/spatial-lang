@@ -4,8 +4,7 @@ import argon.core.Staging
 import spatial.{SpatialApi, SpatialExp}
 import forge._
 
-trait StreamApi extends StreamExp {
-  this: SpatialApi =>
+trait StreamApi extends StreamExp { this: SpatialApi =>
 
   /** Static methods **/
   @api def StreamIn[T:Meta:Bits](bus: Bus): StreamIn[T] = {
@@ -21,8 +20,7 @@ trait StreamApi extends StreamExp {
   @api implicit def readStream[T](stream: StreamIn[T]): T = stream.value
 }
 
-trait StreamExp {
-  this: SpatialExp =>
+trait StreamExp { this: SpatialExp =>
 
   case class StreamIn[T:Meta:Bits](s: Exp[StreamIn[T]]) extends Template[StreamIn[T]] {
     @api def value(): T = this.value(true)

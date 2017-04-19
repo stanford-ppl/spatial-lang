@@ -18,24 +18,18 @@ object CSV1D extends SpatialApp {
 
     Accel {
       val fpgamem = SRAM[T](tilesize)
-      result := Reduce(Reg[T](0.to[T]))(memsize.value by tilesize) { r =>
+      result := Reduce(Reg[T](0.to[T]))(memsize.value by tilesize){ r =>
         fpgamem load srcmem(r :: r + tilesize)
         Reduce(Reg[T](0.to[T]))(tilesize by 1) { i =>
           fpgamem(i)
-        } {
-          _ + _
-        }
-      } {
-        _ + _
-      }
+        }{_+_}
+      }{_+_}
     }
 
 
     val r = getArg(result)
 
-    val gold = data.reduce {
-      _ + _
-    }
+    val gold = data.reduce {_+_}
 
     printArray(data)
     println("Gold sum is " + gold)
@@ -66,20 +60,14 @@ object SSV1D extends SpatialApp {
         fpgamem load srcmem(r :: r + tilesize)
         Reduce(Reg[T](0.to[T]))(tilesize by 1) { i =>
           fpgamem(i)
-        } {
-          _ + _
-        }
-      } {
-        _ + _
-      }
+        }{_+_}
+      }{_+_}
     }
 
 
     val r = getArg(result)
 
-    val gold = data.reduce {
-      _ + _
-    }
+    val gold = data.reduce{_+_}
 
     printArray(data)
     println("Gold sum is " + gold)
@@ -109,6 +97,10 @@ object SSV2D extends SpatialApp {
 
     println(data.rows + " x " + data.cols + " matrix:")
     printMatrix(data)
+    val slice0 = Array.tabulate(memcols){ i => data.apply(0,i)}
+    val slice1 = Array.tabulate(memcols){ i => data.apply(1,i)}
+    printArray(slice0, "Slice 0")
+    printArray(slice1, "Slice 1")
 
     Accel {
       val fpgamem = SRAM[T](rowtile, coltile)
@@ -117,21 +109,14 @@ object SSV2D extends SpatialApp {
         fpgamem load srcmem(r :: r + rowtile, c :: c + coltile)
         Reduce(Reg[T](0.to[T]))(rowtile by 1, coltile by 1) { (i, j) =>
           fpgamem(i, j)
-        } {
-          _ + _
-        }
-      } {
-        _ + _
-      }
-
+        }{_+_}
+      }{_+_}
     }
 
 
     val r = getArg(result)
 
-    val gold = data.reduce {
-      _ + _
-    }
+    val gold = data.reduce {_+_}
 
     println("Gold sum is " + gold)
     println("Accel sum is " + r)
