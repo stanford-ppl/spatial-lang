@@ -1,7 +1,7 @@
 import org.virtualized._
 import spatial._
 
-object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
+object FifoPushPop extends SpatialApp {
   import IR._
 
   def fifopushpop(N: Int) = {
