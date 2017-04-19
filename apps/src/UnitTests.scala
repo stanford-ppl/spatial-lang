@@ -1506,9 +1506,9 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -5.25
   }
 }
 
-object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
+object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 0.5 0.25
   import IR._
-  type T = FixPt[TRUE,_16,_16]
+  type T = FixPt[TRUE,_8,_8]
 
   @virtualize
   def main() {
@@ -1527,11 +1527,11 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
     Accel {
       val xx = SRAM[T](N)
       val yy = SRAM[T](N)
-      xx load x(0 :: N par 16)
+      xx load x(0 :: N par 1)
       Foreach(N by 1) { i => 
         yy(i) = xx(i) * s
       }
-      y(0 :: N par 16) store yy
+      y(0 :: N par 1) store yy
     }
 
 

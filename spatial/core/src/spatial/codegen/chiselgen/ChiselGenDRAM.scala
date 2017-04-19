@@ -10,8 +10,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
 
   var numLoads = 0
   var numStores = 0
-  var loadParMapping = HashMap[Int, Int]() 
-  var storeParMapping = HashMap[Int, Int]() 
+  var loadParMapping = HashMap[Int, (Int,Int)]() 
+  var storeParMapping = HashMap[Int, (Int,Int)]() 
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -53,7 +53,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       }
 
       val id = numLoads
-      loadParMapping += (id -> par)
+      loadParMapping += (id -> (bitWidth(dram.tp.typeArguments.head), par))
       numLoads = numLoads + 1
       emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams.loads(${id}).rdata.valid""")
       emit(src"""// Connect streams to ports on mem controller""")
@@ -84,7 +84,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       }
 
       val id = numStores
-      storeParMapping += (id -> par)
+      storeParMapping += (id -> (bitWidth(dram.tp.typeArguments.head), par))
       numStores = numStores + 1
       // emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${id}).rdata.valid""")
       emit(src"""// Connect streams to ports on mem controller""")
@@ -120,8 +120,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
 
 
   override protected def emitFileFooter() {
-    val loadsList = (0 until numLoads).map{ i => s"StreamParInfo(32, ${loadParMapping(i)})" }.mkString(",")
-    val storesList = (0 until numStores).map{ i => s"StreamParInfo(32, ${storeParMapping(i)})" }.mkString(",")
+    val loadsList = (0 until numLoads).map{ i => s"StreamParInfo(${loadParMapping(i)._1}, ${loadParMapping(i)._2})" }.mkString(",")
+    val storesList = (0 until numStores).map{ i => s"StreamParInfo(${storeParMapping(i)._1}, ${storeParMapping(i)._2})" }.mkString(",")
 
     withStream(getStream("Instantiator")) {
       emit("")

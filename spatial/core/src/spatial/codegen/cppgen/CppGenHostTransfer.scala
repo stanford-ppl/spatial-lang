@@ -8,7 +8,7 @@ import spatial.SpatialExp
 import spatial.analysis.SpatialMetadataExp
 
 
-trait CppGenHostTransfer extends CppCodegen  {
+trait CppGenHostTransfer extends CppGenSRAM  {
   val IR: SpatialExp
   import IR._
 
@@ -67,33 +67,35 @@ trait CppGenHostTransfer extends CppCodegen  {
             emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)});", forceful = true)
         }
     case SetMem(dram, data) => 
+      val rawtp = remapIntType(dram.tp.typeArguments.head)
       if (spatialNeedsFPType(dram.tp.typeArguments.head)) {
         dram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => 
-            emit(src"vector<int32_t>* ${dram}_rawified = new vector<int32_t>((*${data}).size());")
+            emit(src"vector<${rawtp}>* ${dram}_rawified = new vector<${rawtp}>((*${data}).size());")
             open(src"for (int ${dram}_rawified_i = 0; ${dram}_rawified_i < (*${data}).size(); ${dram}_rawified_i++) {")
-              emit(src"(*${dram}_rawified)[${dram}_rawified_i] = (int32_t) ((*${data})[${dram}_rawified_i] * (1 << $f));")
+              emit(src"(*${dram}_rawified)[${dram}_rawified_i] = (${rawtp}) ((*${data})[${dram}_rawified_i] * (1 << $f));")
             close("}")
-            emit(src"c1->memcpy($dram, &(*${dram}_rawified)[0], (*${dram}_rawified).size() * sizeof(int32_t));", forceful = true)
-          case _ => emit(src"c1->memcpy($dram, &(*${data})[0], (*${data}).size() * sizeof(int32_t));", forceful = true)
+            emit(src"c1->memcpy($dram, &(*${dram}_rawified)[0], (*${dram}_rawified).size() * sizeof(${rawtp}));", forceful = true)
+          case _ => emit(src"c1->memcpy($dram, &(*${data})[0], (*${data}).size() * sizeof(${rawtp}));", forceful = true)
         }
       } else {
-        emit(src"c1->memcpy($dram, &(*${data})[0], (*${data}).size() * sizeof(int32_t));", forceful = true)
+        emit(src"c1->memcpy($dram, &(*${data})[0], (*${data}).size() * sizeof(${rawtp}));", forceful = true)
       }
     case GetMem(dram, data) => 
+      val rawtp = remapIntType(dram.tp.typeArguments.head)
       if (spatialNeedsFPType(dram.tp.typeArguments.head)) {
         dram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => 
-            emit(src"vector<int32_t>* ${data}_rawified = new vector<int32_t>((*${data}).size());")
-            emit(src"c1->memcpy(&(*${data}_rawified)[0], $dram, (*${data}_rawified).size() * sizeof(int32_t));", forceful = true)
+            emit(src"vector<${rawtp}>* ${data}_rawified = new vector<${rawtp}>((*${data}).size());")
+            emit(src"c1->memcpy(&(*${data}_rawified)[0], $dram, (*${data}_rawified).size() * sizeof(${rawtp}));", forceful = true)
             open(src"for (int ${data}_i = 0; ${data}_i < (*${data}).size(); ${data}_i++) {")
-              emit(src"int32_t ${data}_tmp = (*${data}_rawified)[${data}_i];")
+              emit(src"${rawtp} ${data}_tmp = (*${data}_rawified)[${data}_i];")
               emit(src"(*${data})[${data}_i] = (double) ${data}_tmp / (1 << $f);")
             close("}")
-          case _ => emit(src"c1->memcpy(&(*$data)[0], $dram, (*${data}).size() * sizeof(int32_t));", forceful = true)
+          case _ => emit(src"c1->memcpy(&(*$data)[0], $dram, (*${data}).size() * sizeof(${rawtp}));", forceful = true)
         }
       } else {
-        emit(src"c1->memcpy(&(*$data)[0], $dram, (*${data}).size() * sizeof(int32_t));", forceful = true)
+        emit(src"c1->memcpy(&(*$data)[0], $dram, (*${data}).size() * sizeof(${rawtp}));", forceful = true)
       }
     case _ => super.emitNode(lhs, rhs)
   }
