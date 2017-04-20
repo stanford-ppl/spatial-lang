@@ -1,21 +1,20 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 64
+object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 128
   import IR._
 
   type X = Int //FixPt[Signed,B16,B16]
 
   val tileSizeM = 4
-  val tileSizeN = 64
-  val tileSizeP = 64
-  val innerPar = 1
-  val midPar = 1
-  val outerPar = 1
-  val storePar = 1
+  val tileSizeN = 16
+  val tileSizeP = 16
+  val innerPar = 4
+  val midPar = 2
+  val outerPar = 2
 
   @virtualize
-  def MatMult_inner[T:Staged:Num](A: Array[T], B: Array[T], mm: Int, nn: Int, pp: Int) = {
+  def MatMult_inner[T:Type:Num](A: Array[T], B: Array[T], mm: Int, nn: Int, pp: Int) = {
     val M = ArgIn[Int]
     val N = ArgIn[Int]
     val P = ArgIn[Int]
@@ -35,7 +34,6 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 6
     val mp = midPar   (1 -> 64)
     val ip = innerPar (1 -> 64)
     val px = 1 (1 -> 1) // Cannot parallelize accum across k blocks
-    val stPar = storePar (1 -> 1)
 
     setMem(a, A)
     setMem(b, B)
@@ -48,16 +46,16 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 6
           val tileA = SRAM[T](bm, bp)
           val tileB = SRAM[T](bp, bn)
           Parallel {
-            tileA load a(i::i+bm par 16, k::k+bp) // Reads M*N*P times
-            tileB load b(k::k+bp par 16, j::j+bn)
+            tileA load a(i::i+bm, k::k+bp par 1) // Reads M*N*P times
+            tileB load b(k::k+bp, j::j+bn par 1)
           }
           Foreach(bm by 1, bn by 1 par mp){ (ii,jj) =>    // MetaPipe?
             val prod = Reduce(Reg[T])(bp by 1 par ip){kk => tileA(ii, kk) * tileB(kk, jj) }{_+_}
-            val prev = mux(k == 0, 0.as[T], tileC(ii,jj))
+            val prev = mux(k == 0, 0.to[T], tileC(ii,jj))
             tileC(ii,jj) = prev + prod.value // Is a unit pipe that should be recognized as accum
           }
         }
-        c(i::i+bm, j::j+bn par stPar) store tileC // Writes M*N times
+        c(i::i+bm, j::j+bn par 1) store tileC // Writes M*N times
       }
     }
     getMem(c)
@@ -69,8 +67,8 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 6
     val N = args(1).to[Int]
     val P = args(2).to[Int]
 
-    val a = Array.tabulate(M){ i => Array.tabulate(P){ j => (i*P + j)%256 } }
-    val b = Array.tabulate(P){ i => Array.tabulate(N){ j => (i*N + j)%256 } }
+    val a = Array.tabulate(M){ i => Array.tabulate(P){ j => (i*P + j)%8 } }
+    val b = Array.tabulate(P){ i => Array.tabulate(N){ j => (i*N + j)%8 } }
     // val a = Array.fill(M){ Array.fill(P){random[T](100)} }
     // val b = Array.fill(P){ Array.fill(N){random[T](100)} }
 
@@ -86,8 +84,11 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 16 64 6
 
     val gold_cksum = gold.map(a => a).reduce{_+_}
     val result_cksum = result.map(a => a).reduce{_+_}
+    printArray(gold, "Gold: ")
+    printArray(result, "Result: ")
     println("expected cksum: " + gold_cksum)
     println("result cksum:   " + result_cksum)
+
     // (0 until M*N) foreach { i => assert(result(i) == gold(i)) }
 
     val cksum = result_cksum == gold_cksum

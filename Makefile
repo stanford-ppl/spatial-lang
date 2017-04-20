@@ -1,20 +1,38 @@
-###.PHONY: spatial 
-.PHONY: apps
+###.PHONY: spatial
+.PHONY: apps spatial compile publish-local clean
 
-all: lang
+BRANCH?=fpga
 
-lang:
-	bin/init-dsl.sh 0 1 0
+all: spatial
 
-repub:
-	bin/init-dsl.sh 1 0 0
-
-full:
-	bin/init-dsl.sh 1 1 1
+spatial:
+	$(info $$BRANCH is [${BRANCH}])
+	sbt spatial/compile
 
 apps:
-	bin/init-dsl.sh 0 0 1
+	sbt apps/compile
 
+compile:
+	sbt compile
+
+publish-local:
+	cd scala-virtualized; \
+	sbt publish-local; \
+	cd ../argon; \
+	sbt publish-local; \
+	cd ../spatial; \
+	sbt publish-local
+
+assembly:
+	sbt spatial/assembly
+
+switch:
+	sh -c 'git pull'
+	sh -c 'git checkout origin/${BRANCH}'
+	sh -c 'git pull'
+	sh -c 'git submodule foreach --recursive git pull'
+	sh -c 'git submodule foreach --recursive checkout origin/${BRANCH}'
+
+	
 clean:
-	bin/clean-dsl.sh
-
+	sbt clean

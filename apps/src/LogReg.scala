@@ -4,21 +4,21 @@ import org.virtualized._
 object LogReg extends SpatialApp {
   import IR._
 
-  type X = Float
+  type X = FixPt[TRUE,_16,_16]
 
   val tileSize = 40
-  val innerPar = 8
-  val outerPar = 16
+  val innerPar = 1
+  val outerPar = 1
   val margin = 5
   val dim = 192
   val D = dim
 
   val A = 1
 
-  def sigmoid[T:Staged:Num](t:T) = 1.as[T]/(exp(-t) + 1.as[T])
+  def sigmoid[T:Type:Num](t:T) = 1.to[T]/(exp(-t) + 1.to[T])
 
   @virtualize
-  def logreg[T:Staged:Num](xIn: Array[T], yIn: Array[T], tt: Array[T], n: Int, it: Int) = {
+  def logreg[T:Type:Num](xIn: Array[T], yIn: Array[T], tt: Array[T], n: Int, it: Int) = {
     val iters = ArgIn[Int]
     val N     = ArgIn[Int]
     setArg(iters, it)
@@ -63,10 +63,10 @@ object LogReg extends SpatialApp {
             }{_+_}
           }
           gradAcc
-        }{(b,g) => b+g*A.as[T]}
+        }{(b,g) => b+g*A.to[T]}
 
         // Flush gradAcc
-        //Pipe(D by 1 par P2) { i => gradAcc(i) = 0.as[T]}
+        //Pipe(D by 1 par P2) { i => gradAcc(i) = 0.to[T]}
       }
       theta(0::D par P2) store btheta // read
     }
@@ -78,9 +78,9 @@ object LogReg extends SpatialApp {
     val iters = args(0).to[Int]
     val N = args(1).to[Int]
 
-    val sX = Array.fill(N){ Array.fill(D){ random[X](10.0)} }
+    val sX = Array.fill(N){ Array.fill(D){ random[X](10.to[X])} }
     val sY = Array.tabulate(N){ i => i.to[X]} //fill(N)( random[T](10.0) )
-    val theta = Array.fill(D) {random[X](1.0) }
+    val theta = Array.fill(D) {random[X](1.to[X]) }
 
     val result = logreg(sX.flatten,sY, theta, N, iters)
 

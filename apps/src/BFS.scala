@@ -1,7 +1,8 @@
-import spatial._
 import org.virtualized._
+import spatial._
 
 object BFS extends SpatialApp {
+
   import IR._
 
   val tileSize = 8000
@@ -9,10 +10,10 @@ object BFS extends SpatialApp {
 
   @virtualize
   def bfs(nodesIn: Array[Int], edgesIn: Array[Int], countsIn: Array[Int], idsIn: Array[Int], n: Int, e: Int) = {
-    val nodes  = DRAM[Int](n)
-    val edges  = DRAM[Int](e)
+    val nodes = DRAM[Int](n)
+    val edges = DRAM[Int](e)
     val counts = DRAM[Int](n)
-    val ids    = DRAM[Int](n)
+    val ids = DRAM[Int](n)
     val result = DRAM[Int](n)
 
     setMem(nodes, nodesIn)
@@ -21,37 +22,37 @@ object BFS extends SpatialApp {
     setMem(ids, idsIn)
 
     Accel {
-      val frontierNodes  = SRAM[Int](tileSize)
+      val frontierNodes = SRAM[Int](tileSize)
       val frontierCounts = SRAM[Int](tileSize)
-      val frontierIds    = SRAM[Int](tileSize)
+      val frontierIds = SRAM[Int](tileSize)
       val frontierLevels = SRAM[Int](tileSize)
-      val currentNodes   = SRAM[Int](tileSize)
-      val pieceMem       = SRAM[Int](tileSize)
+      val currentNodes = SRAM[Int](tileSize)
+      val pieceMem = SRAM[Int](tileSize)
 
       val concatReg = Reg[Int](0)
-      val numEdges  = Reg[Int](1)
+      val numEdges = Reg[Int](1)
 
       Parallel {
-        frontierIds    load ids(0::tileSize)
-        frontierCounts load counts(0::tileSize)
+        frontierIds load ids(0 :: tileSize)
+        frontierCounts load counts(0 :: tileSize)
       }
 
-      Sequential.Foreach(4 by 1){i =>         /* Loop 1 */
-        Reduce(concatReg)(numEdges by 1){k => /* Loop 2 */
-          val nextLen   = Reg[Int]
-          val nextId    = Reg[Int]
-          val lastLen   = Reg[Int]
+      Sequential.Foreach(4 by 1) { i => /* Loop 1 */
+        Reduce(concatReg)(numEdges by 1) { k => /* Loop 2 */
+          val nextLen = Reg[Int]
+          val nextId = Reg[Int]
+          val lastLen = Reg[Int]
 
           val fetch = currentNodes(k)
           val lastFetch = currentNodes(k - 1)
-          nextId  := frontierIds(fetch)
+          nextId := frontierIds(fetch)
           nextLen := frontierCounts(fetch)
           lastLen := frontierCounts(lastFetch)
 
           pieceMem load edges(nextId :: nextId + nextLen)
 
           val frontierAddr = SRAM[Int](tileSize)
-          Foreach(nextLen by 1){ kk =>
+          Foreach(nextLen by 1) { kk =>
             /* Since Loop 2 is a metapipe and we read concatReg before
                we write to it, this means iter0 and iter1 both read
                0 in concatReg.  I.e. we always see the previous iter's
@@ -62,14 +63,14 @@ object BFS extends SpatialApp {
             val plus = mux(k == 0, lift(0), lastLen.value)
             frontierAddr(kk) = kk + concatReg.value + plus
           }
-          Foreach(nextLen by 1){kk =>
+          Foreach(nextLen by 1) { kk =>
             frontierNodes(frontierAddr(kk)) = pieceMem(kk)
           }
           nextLen
         }{_+_}
 
-        Foreach(concatReg by 1){ kk => currentNodes(kk) = frontierNodes(kk) }
-        Foreach(concatReg by 1){ kk => frontierLevels(kk) = i+1 }
+        Foreach(concatReg by 1) { kk => currentNodes(kk) = frontierNodes(kk) }
+        Foreach(concatReg by 1) { kk => frontierLevels(kk) = i + 1 }
         result(currentNodes, concatReg) scatter frontierLevels
         numEdges := concatReg
       }
@@ -81,10 +82,10 @@ object BFS extends SpatialApp {
   @virtualize
   def main() {
     /** TODO **/
-    val nodesIn = Array[Int](3)
-    val edgesIn = Array[Int](3)
-    val countsIn = Array[Int](3)
-    val idsIn = Array[Int](3)
+    val nodesIn = Array.empty[Int](3)
+    val edgesIn = Array.empty[Int](3)
+    val countsIn = Array.empty[Int](3)
+    val idsIn = Array.empty[Int](3)
     val n = 5
     val e = 4
     bfs(nodesIn: Array[Int], edgesIn: Array[Int], countsIn: Array[Int], idsIn: Array[Int], n: Int, e: Int)

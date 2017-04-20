@@ -1,35 +1,35 @@
 import spatial._
 import org.virtualized._
 
-object BlackScholes extends SpatialApp { // Regression (Dense) // Args: 1280
+object BlackScholes extends SpatialApp { 
   import IR._
 
   // .as is for constants, .to is for else
-  type T = Float // FixPt[TRUE,_16,_16]
-  val margin = 0.5.as[T] // Validates true if within +/- margin
+  type T = FixPt[TRUE,_16,_16]
+  val margin = 0.5.to[T] // Validates true if within +/- margin
   val innerPar = 1
   val outerPar = 1
   val tileSize = 640
 
-  final val inv_sqrt_2xPI = 0.39894228040143270286.as[T]
+  final val inv_sqrt_2xPI = 0.39894228040143270286.to[T]
 
   @virtualize 
   def CNDF(x: T) = {
     val ax = abs(x)
 
-    val xNPrimeofX = (ax * ax) * -0.05.as[T] * inv_sqrt_2xPI //exp((ax * ax) * -0.05.as[T]) * inv_sqrt_2xPI
-    val xK2 = 1.as[T] / ((ax * 0.2316419.as[T]) + 1.0.as[T])
+    val xNPrimeofX = (ax * ax) * -0.05.to[T] * inv_sqrt_2xPI //exp((ax * ax) * -0.05.to[T]) * inv_sqrt_2xPI
+    val xK2 = 1.to[T] / ((ax * 0.2316419.to[T]) + 1.0.to[T])
 
     val xK2_2 = xK2 * xK2
     val xK2_3 = xK2_2 * xK2
     val xK2_4 = xK2_3 * xK2
     val xK2_5 = xK2_4 * xK2
 
-    val xLocal_10 = xK2 * 0.319381530.as[T]
-    val xLocal_20 = xK2_2 * -0.356563782.as[T]
-    val xLocal_30 = xK2_3 * 1.781477937.as[T]
-    val xLocal_31 = xK2_4 * -1.821255978.as[T]
-    val xLocal_32 = xK2_5 * 1.330274429.as[T]
+    val xLocal_10 = xK2 * 0.319381530.to[T]
+    val xLocal_20 = xK2_2 * -0.356563782.to[T]
+    val xLocal_30 = xK2_3 * 1.781477937.to[T]
+    val xLocal_31 = xK2_4 * -1.821255978.to[T]
+    val xLocal_32 = xK2_5 * 1.330274429.to[T]
 
     val xLocal_21 = xLocal_20 + xLocal_30
     val xLocal_22 = xLocal_21 + xLocal_31
@@ -37,15 +37,15 @@ object BlackScholes extends SpatialApp { // Regression (Dense) // Args: 1280
     val xLocal_1 = xLocal_23 + xLocal_10
 
     val xLocal0 = xLocal_1 * xNPrimeofX
-    val xLocal  = -xLocal0 + 1.0.as[T]
+    val xLocal  = -xLocal0 + 1.0.to[T]
 
-    mux(x < 0.0.as[T], xLocal0, xLocal)
+    mux(x < 0.0.to[T], xLocal0, xLocal)
   }
 
   @virtualize
   def BlkSchlsEqEuroNoDiv(sptprice: T, strike: T, rate: T, volatility: T, time: T, otype: Int) = {
     val xLogTerm = sptprice / strike /*log( sptprice / strike )*/
-    val xPowerTerm = (volatility * volatility) * 0.5.as[T]
+    val xPowerTerm = (volatility * volatility) * 0.5.to[T]
     val xNum = (rate + xPowerTerm) * time + xLogTerm
     val xDen = volatility * time * time/*sqrt(time)*/
 
@@ -55,8 +55,8 @@ object BlackScholes extends SpatialApp { // Regression (Dense) // Args: 1280
     
     val futureValueX = strike * -rate * time.to[T]//exp(-rate * time.to[T])
 
-    val negNofXd1 = -nofXd1 + 1.0.as[T]
-    val negNofXd2 = -nofXd2 + 1.0.as[T]
+    val negNofXd1 = -nofXd1 + 1.0.to[T]
+    val negNofXd2 = -nofXd2 + 1.0.to[T]
 
     val optionPrice1 = (sptprice * nofXd1) - (futureValueX * nofXd2)
     val optionPrice2 = (futureValueX * negNofXd2) - (sptprice * negNofXd1)
@@ -106,19 +106,19 @@ object BlackScholes extends SpatialApp { // Regression (Dense) // Args: 1280
         val optpriceBlk = SRAM[T](B)
 
         Parallel {
-          typeBlk   load types(i::i+B par IP)
-          priceBlk  load prices(i::i+B par IP)
-          strikeBlk load strike(i::i+B par IP)
-          rateBlk   load rate(i::i+B par IP)
-          volBlk    load vol(i::i+B par IP)
-          timeBlk   load times(i::i+B par IP)
+          typeBlk   load types(i::i+B par 16)
+          priceBlk  load prices(i::i+B par 16)
+          strikeBlk load strike(i::i+B par 16)
+          rateBlk   load rate(i::i+B par 16)
+          volBlk    load vol(i::i+B par 16)
+          timeBlk   load times(i::i+B par 16)
         }
 
         Foreach(B par IP){ j =>
           val price = BlkSchlsEqEuroNoDiv(priceBlk(j), strikeBlk(j), rateBlk(j), volBlk(j), timeBlk(j), typeBlk(j))
           optpriceBlk(j) = price
         }
-        optprice(i::i+B par IP) store optpriceBlk
+        optprice(i::i+B par 16) store optpriceBlk
       }
     }
     getMem(optprice)

@@ -1,17 +1,17 @@
 import spatial._
 import org.virtualized._
 
-object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1920
+object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1280
   import IR._
 
   type X = Int
 
-  val tileSize = 640
+  val tileSize = 320
   val innerPar = 1
   lazy val outerPar = 1
 
   @virtualize
-  def dotproduct[T:Staged:Num](aIn: Array[T], bIn: Array[T]): T = {
+  def dotproduct[T:Type:Num](aIn: Array[T], bIn: Array[T]): T = {
     val B  = tileSize (64 -> 64 -> 19200)
     val P1 = outerPar (1 -> 6)
     val P2 = innerPar (1 -> 192)
@@ -29,14 +29,14 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1920
     setMem(b, bIn)
 
     Accel {
-      out := Reduce(Reg[T](0.as[T]))(N by B par P1){i =>
+      out := Reduce(Reg[T](0.to[T]))(N by B par P1){i =>
         val aBlk = SRAM[T](B)
         val bBlk = SRAM[T](B)
         Parallel {
           aBlk load a(i::i+B par 16)
           bBlk load b(i::i+B par 16)
         }
-        Reduce(Reg[T](0.as[T]))(B par P2){ii => aBlk(ii) * bBlk(ii) }{_+_}
+        Reduce(Reg[T](0.to[T]))(B par P2){ii => aBlk(ii) * bBlk(ii) }{_+_}
       }{_+_}
     }
     getArg(out)
@@ -45,10 +45,8 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1920
   @virtualize
   def main() {
     val N = args(0).to[Int]
-    // val a = Array.fill(N){ random[X] }
-    // val b = Array.fill(N){ random[X] }
-    val a = Array.tabulate(N){ i => i % 256 }
-    val b = Array.tabulate(N){ i => i % 256 }
+    val a = Array.fill(N){ random[X] }
+    val b = Array.fill(N){ random[X] }
 
     val result = dotproduct(a, b)
     val gold = a.zip(b){_*_}.reduce{_+_}
