@@ -20,4 +20,7 @@ object DE1 extends FPGATarget {
     val LEDR8 = 256;
     val LEDR9 = 512;
   }
+
+  case object GPInput extends Bus { def length = 32 }
+  case object GPOutput extends Bus { def length = 32 }
 }
