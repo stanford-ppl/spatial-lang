@@ -7,7 +7,6 @@ trait ControllerSanityCheck extends SpatialTraversal {
 
   override val name = "Control Sanity Check"
   override val recurse = Default
-  override def shouldRun = Config.verbosity >= 2
 
   override def visit(lhs: Sym[_], rhs: Op[_]) = {
     if (isControlNode(lhs)) {

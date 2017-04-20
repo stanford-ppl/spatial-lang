@@ -192,7 +192,7 @@ git_things() {
 test_to_run=${1}
 if [[ "${test_to_run}" = "scala" ]]; then
   # Give others headstart
-  sleep 20
+  sleep 2
 elif [[ "${test_to_run}" = "maxj" ]]; then
   # Give others headstart
   sleep 40

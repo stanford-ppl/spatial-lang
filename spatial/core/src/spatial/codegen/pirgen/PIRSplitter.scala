@@ -13,8 +13,8 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
   override val name = "PIR Splitting"
   override val recurse = Always
 
-  val mappingIn  = mutable.HashMap[Symbol, CU]()
-  val mappingOut = mutable.HashMap[Symbol, List[CU]]()
+  val mappingIn  = mutable.HashMap[Expr, List[CU]]()
+  val mappingOut = mutable.HashMap[Expr, List[List[CU]]]()
 
   //TODO read this from some config file?
   lazy val ComputeMax = SplitCost(
@@ -33,8 +33,12 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
   override def process[S:Type](b: Block[S]) = {
     super.run(b)
     try {
-      val cuMapping = mappingIn.keys.map{k => mappingIn(k).asInstanceOf[ACU] -> mappingOut(k).head.asInstanceOf[ACU] }.toMap
-      swapCUs(mappingOut.values.flatten, cuMapping)
+      val cuMapping = mappingIn.keys.flatMap{k => 
+        mappingIn(k).zip(mappingOut(k)).map { case (cuIn, cuOuts) =>
+          cuIn.asInstanceOf[ACU] -> cuOuts.head.asInstanceOf[ACU]
+        }
+      }.toMap
+      swapCUs(cuMapping)
     }
     catch {case e: SplitException =>
       sys.exit(-1)
@@ -44,13 +48,13 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
     if (isControlNode(lhs) && mappingIn.contains(lhs))
-      mappingOut(lhs) = split(mappingIn(lhs))
+      mappingOut(lhs) = mappingIn(lhs).map(split)
   }
 
   def split(cu: CU): List[CU] = {
     if (cu.allStages.nonEmpty) {
       val others = mutable.ArrayBuffer[CU]()
-      others ++= mappingOut.values.flatten
+      others ++= mappingOut.values.flatten.flatten
 
       val cus = splitCU(cu, ComputeMax, others)
       retime(cus, others)
@@ -58,7 +62,7 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
       cus.foreach{cu =>
         val cost = getStats(cu, others)
         if (cost.mems > ComputeMax.mems)
-          throw new Exception(s"${cu.srams} > ${ComputeMax.mems}, exceeded maximum SRAMs after retiming")
+          throw new Exception(s"${cu.mems} > ${ComputeMax.mems}, exceeded maximum SRAMs after retiming")
 
         others += cu
       }

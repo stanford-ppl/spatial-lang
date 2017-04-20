@@ -20,37 +20,36 @@ trait DRAMExp { this: SpatialExp =>
   /** Infix methods **/
   trait DRAM[T] { this: Template[_] =>
     def s: Exp[DRAM[T]]
-    protected def ranges: Seq[Range] = stagedDimsOf(s).map{d => range_alloc(None, wrap(d),None,None)}
 
     @api def address: Index
   }
 
   case class DRAM1[T:Meta:Bits](s: Exp[DRAM1[T]]) extends Template[DRAM1[T]] with DRAM[T] {
-    @api def toTile: DRAMDenseTile1[T] = DRAMDenseTile1(s, ranges)
+    @api def toTile(ranges: Seq[Range]): DRAMDenseTile1[T] = DRAMDenseTile1(s, ranges)
     @api def apply(range: Range): DRAMDenseTile1[T] = DRAMDenseTile1(this.s, Seq(range))
 
     @api def apply(addrs: SRAM1[Index]): DRAMSparseTile[T] = this.apply(addrs, wrap(stagedDimsOf(addrs.s).head))
     @api def apply(addrs: SRAM1[Index], len: Index): DRAMSparseTile[T] = DRAMSparseTile(this.s, addrs, len)
 
-    @api def store(sram: SRAM1[T]): Void = dense_transfer(this.toTile, sram, isLoad = false)
-    @api def store(fifo: FIFO[T]): Void = dense_transfer(this.toTile, fifo, isLoad = false)
-    @api def store(regs: RegFile1[T]): Void = dense_transfer(this.toTile, regs, isLoad = false)
+    @api def store(sram: SRAM1[T]): Void = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
+    @api def store(fifo: FIFO[T]): Void = dense_transfer(this.toTile(fifo.ranges), fifo, isLoad = false)
+    @api def store(regs: RegFile1[T]): Void = dense_transfer(this.toTile(regs.ranges), regs, isLoad = false)
     @api def address: Index = wrap(get_dram_addr(this.s))
   }
 
   case class DRAM2[T:Meta:Bits](s: Exp[DRAM2[T]]) extends Template[DRAM2[T]] with DRAM[T] {
-    @api def toTile: DRAMDenseTile2[T] = DRAMDenseTile2(this.s, ranges)
+    @api def toTile(ranges: Seq[Range]): DRAMDenseTile2[T] = DRAMDenseTile2(this.s, ranges)
     @api def apply(rows: Index, cols: Range) = DRAMDenseTile1(this.s, Seq(rows.toRange, cols))
     @api def apply(rows: Range, cols: Index) = DRAMDenseTile1(this.s, Seq(rows, cols.toRange))
     @api def apply(rows: Range, cols: Range) = DRAMDenseTile2(this.s, Seq(rows, cols))
 
-    @api def store(sram: SRAM2[T]): Void = dense_transfer(this.toTile, sram, isLoad = false)
-    @api def store(regs: RegFile2[T]): Void = dense_transfer(this.toTile, regs, isLoad = false)
+    @api def store(sram: SRAM2[T]): Void = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
+    @api def store(regs: RegFile2[T]): Void = dense_transfer(this.toTile(regs.ranges), regs, isLoad = false)
     @api def address: Index = wrap(get_dram_addr(this.s))
   }
 
   case class DRAM3[T:Meta:Bits](s: Exp[DRAM3[T]]) extends Template[DRAM3[T]] with DRAM[T] {
-    @api def toTile: DRAMDenseTile3[T] = DRAMDenseTile3(this.s, ranges)
+    @api def toTile(ranges: Seq[Range]): DRAMDenseTile3[T] = DRAMDenseTile3(this.s, ranges)
     @api def apply(p: Index, r: Index, c: Range) = DRAMDenseTile1(this.s, Seq(p.toRange, r.toRange, c))
     @api def apply(p: Index, r: Range, c: Index) = DRAMDenseTile1(this.s, Seq(p.toRange, r, c.toRange))
     @api def apply(p: Index, r: Range, c: Range) = DRAMDenseTile2(this.s, Seq(p.toRange, r, c))
@@ -59,11 +58,11 @@ trait DRAMExp { this: SpatialExp =>
     @api def apply(p: Range, r: Range, c: Index) = DRAMDenseTile2(this.s, Seq(p, r, c.toRange))
     @api def apply(p: Range, r: Range, c: Range) = DRAMDenseTile3(this.s, Seq(p, r, c))
 
-    @api def store(sram: SRAM3[T]): Void = dense_transfer(this.toTile, sram, isLoad = false)
+    @api def store(sram: SRAM3[T]): Void = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
     @api def address: Index = wrap(get_dram_addr(this.s))
   }
   case class DRAM4[T:Meta:Bits](s: Exp[DRAM4[T]]) extends Template[DRAM4[T]] with DRAM[T] {
-    @api def toTile: DRAMDenseTile4[T] = DRAMDenseTile4(this.s, ranges)
+    @api def toTile(ranges: Seq[Range]): DRAMDenseTile4[T] = DRAMDenseTile4(this.s, ranges)
     @api def apply(q: Index, p: Index, r: Index, c: Range) = DRAMDenseTile1(this.s, Seq(q.toRange, p.toRange, r.toRange, c))
     @api def apply(q: Index, p: Index, r: Range, c: Index) = DRAMDenseTile1(this.s, Seq(q.toRange, p.toRange, r, c.toRange))
     @api def apply(q: Index, p: Index, r: Range, c: Range) = DRAMDenseTile2(this.s, Seq(q.toRange, p.toRange, r, c))
@@ -80,12 +79,12 @@ trait DRAMExp { this: SpatialExp =>
     @api def apply(q: Range, p: Range, r: Range, c: Index) = DRAMDenseTile3(this.s, Seq(q, p, r, c.toRange))
     @api def apply(q: Range, p: Range, r: Range, c: Range) = DRAMDenseTile4(this.s, Seq(q, p, r, c))
 
-    @api def store(sram: SRAM4[T]): Void = dense_transfer(this.toTile, sram, isLoad = false)
+    @api def store(sram: SRAM4[T]): Void = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
     @api def address: Index = wrap(get_dram_addr(this.s))
   }
 
   case class DRAM5[T:Meta:Bits](s: Exp[DRAM5[T]]) extends Template[DRAM5[T]] with DRAM[T] {
-    @api def toTile: DRAMDenseTile5[T] = DRAMDenseTile5(this.s, ranges)
+    @api def toTile(ranges: Seq[Range]): DRAMDenseTile5[T] = DRAMDenseTile5(this.s, ranges)
     // I'm not getting carried away, you're getting carried away! By the amazingness of this code!
     @api def apply(x: Index, q: Index, p: Index, r: Index, c: Range) = DRAMDenseTile1(this.s, Seq(x.toRange, q.toRange, p.toRange, r.toRange, c))
     @api def apply(x: Index, q: Index, p: Index, r: Range, c: Index) = DRAMDenseTile1(this.s, Seq(x.toRange, q.toRange, p.toRange, r, c.toRange))
@@ -119,7 +118,7 @@ trait DRAMExp { this: SpatialExp =>
     @api def apply(x: Range, q: Range, p: Range, r: Range, c: Index) = DRAMDenseTile4(this.s, Seq(x, q, p, r, c.toRange))
     @api def apply(x: Range, q: Range, p: Range, r: Range, c: Range) = DRAMDenseTile5(this.s, Seq(x, q, p, r, c))
 
-    @api def store(sram: SRAM4[T]): Void = dense_transfer(this.toTile, sram, isLoad = false)
+    @api def store(sram: SRAM4[T]): Void = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
     @api def address: Index = wrap(get_dram_addr(this.s))
   }
 

@@ -1,21 +1,20 @@
 package spatial.transform
 
 import scala.collection.mutable
-
 import argon.transform.ForwardTransformer
 import spatial._
+import spatial.analysis.ModelingTraversal
 import spatial.models._
 
-trait PipeRetimer extends ForwardTransformer { retimer =>
+trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
   val IR: SpatialExp
   import IR._
 
   override val name = "Pipeline Retimer"
-  lazy val latencyOf = new LatencyModel{val IR: retimer.IR.type = retimer.IR }
 
-  protected override def preprocess[S: Type](block: Block[S]) = {
-    // latencyOf.updateModel(target.latencyModel) // TODO: Update latency model with target-specific values
-    super.preprocess(block)
+  def requiresRetiming(x: Exp[_]) = latencyModel.requiresRegisters(x)
+  def retimingDelay(x: Exp[_], inReduce: Boolean = false): Int = {
+    if (latencyModel.requiresRegisters(x)) latencyModel.latencyOf(x, inReduce).toInt else 0
   }
 
   // track register info for each retimed reader
@@ -32,13 +31,13 @@ trait PipeRetimer extends ForwardTransformer { retimer =>
   // track reader dependencies associated with an input
   class InputInfo {
     // map a reader symbol to the buffer it will read from
-    val readers = mutable.HashMap[Sym[_], ReaderInfo]()
+    val readers = mutable.HashMap[Exp[_], ReaderInfo]()
     // group readers by the size of the register they read from
     object RegSizeOrdering extends Ordering[Int] { def compare(a: Int, b: Int) = b compare a }
-    val readerSizes = mutable.SortedMap[Int, mutable.Set[Sym[_]]]()(RegSizeOrdering)
+    val readerSizes = mutable.SortedMap[Int, mutable.Set[Exp[_]]]()(RegSizeOrdering)
 
     // retime symbol readers, sharing allocated buffers when possible
-    def retimeReaders[U](input: Sym[U]) {
+    def retimeReaders[U](input: Exp[U]) {
       def regAlloc[T](s: Exp[T], size: Int)(implicit ctx: SrcCtx): Exp[ShiftReg[T]] = s.tp match {
         case Bits(bits) =>
           val init = unwrap(bits.zero)(s.tp)
@@ -65,10 +64,10 @@ trait PipeRetimer extends ForwardTransformer { retimer =>
       // map a reader's total register size to the size of the immediate register it will read from after coalescing
       val regSizeMap = sizes.zip(sizesCoalesced).toMap
       readers.foreach{ case (reader, info) =>
-        readerSizes.getOrElseUpdate(regSizeMap(info.size), mutable.Set[Sym[_]]()) += reader
+        readerSizes.getOrElseUpdate(regSizeMap(info.size), mutable.Set[Exp[_]]()) += reader
       }
 
-      dbg(tab + c"Allocating registers for input $input")
+      dbgs(c"Allocating registers for input $input")
       val regReads = mutable.ListBuffer[Exp[_]](input)
       // add sequential reads/writes between split registers after coalescing
       readerSizes.foreach{ case (size, readersSet) =>
@@ -77,7 +76,7 @@ trait PipeRetimer extends ForwardTransformer { retimer =>
         regWrite(reg, f(regReads.last))
         val read = regRead(reg)
         readersSet.foreach{ reader =>
-          dbg(tab + c"  Register: $reg, size: $size, reader: $reader")
+          dbgs(c"  Register: $reg, size: $size, reader: $reader")
           readers(reader).reg = reg
           readers(reader).read = read
         }
@@ -88,41 +87,37 @@ trait PipeRetimer extends ForwardTransformer { retimer =>
 
 
   private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
-    val tab = "  "
     dbg(c"Retiming block $block")
-    // cache symbol latencies to avoid recalculating if they've already been encountered during the traversal
-    val latencyCache = mutable.HashMap[Sym[_], Int]()
 
     // perform recursive search of inputs to determine cumulative symbol latency
-    def symLatency(sym: Sym[_]): Int = if (block.inputs.contains(sym)) 0 else {
-      val inputs = syms(defOf(sym).inputs)
-      val inputLatency = if (inputs.isEmpty) 0 else {
-        inputs.map{ s => latencyCache.getOrElseUpdate(s, symLatency(s))}.max
-      }
-      inputLatency + latencyOf(sym).toInt
-    }
+    val symLatency = pipeDelays(block)
+    def delayOf(x: Exp[_]): Int = symLatency.getOrElse(x, 0L).toInt
+
+    symLatency.foreach{case (s,l) => dbgs(c"  ${str(s)} [$l]")}
 
     // enumerate symbol reader dependencies and calculate required buffer sizes
-    val inputRetiming = mutable.HashMap[Sym[_], InputInfo]()
+    val inputRetiming = mutable.HashMap[Exp[_], InputInfo]()
     stms.foreach{ case TP(reader, d) =>
-      // inputs that are written to need to be filtered
-      val inputs = syms(d.inputs).toSet.diff(effectsOf(reader).writes)
-      val inputLatencies = inputs.map{ sym => symLatency(sym) }
+      dbgs(c"${str(reader)}")
+      // Ignore non-bit based types and constants
+      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
+      val inputLatencies = inputs.map{sym => delayOf(sym) }
       // calculate buffer register size for each input symbol
-      val sizes = inputLatencies.map{ latency => inputLatencies.max - latency }
+      val sizes = inputs.zip(inputLatencies).map{case (in, latency) => retimingDelay(in) + inputLatencies.max - latency }
       // discard symbols for which no register insertion is needed
       val inputsSizes = inputs.zip(sizes).filter{ case (_, size) => size != 0 }
       inputsSizes.foreach{ case (input, size) =>
+        dbgs(c"  ${str(input)} [size: $size]}")
         inputRetiming.getOrElseUpdate(input, new InputInfo()).readers.getOrElseUpdate(reader, new ReaderInfo(size))
       }
     }
 
     // record which inputs have been buffered so retiming occurs only once
-    val retimedInputs = mutable.Set[Sym[_]]()
+    val retimedInputs = mutable.Set[Exp[_]]()
     // traverse the IR, inserting registers allocated above
     stms.foreach{ case stm @ TP(reader, d) =>
       // save substitution rules for restoration after transformation
-      val subRules = mutable.Map[Sym[_], Exp[_]]()
+      val subRules = mutable.Map[Exp[_], Exp[_]]()
 
       val inputs = syms(d.inputs)
       inputs.foreach{ input =>
@@ -136,7 +131,7 @@ trait PipeRetimer extends ForwardTransformer { retimer =>
           // insert buffer register for this reader
           if (inputRetiming(input).readers.contains(reader)) {
             val info = inputRetiming(input).readers(reader)
-            dbg(tab + c"Buffering input $input to reader $reader")
+            dbgs(c"Buffering input $input to reader $reader")
             subRules(input) = transformExp(input)(mtyp(input.tp))
             register(input, info.read)
           }

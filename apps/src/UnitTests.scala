@@ -1631,17 +1631,20 @@ object MultiWriteBuffer extends SpatialApp { // Regression (Unit) // Args: none
 
   @virtualize
   def main() {
-    val mem = DRAM[Int](32,32)
+    val R = 4
+    val C = 4
+
+    val mem = DRAM[Int](R, C)
     val y = ArgOut[Int]
 
     Accel {
-      val accum = SRAM[Int](32, 32)
-      MemReduce(accum)(0 until 32) { row => 
-        val sram_seq = SRAM[Int](32,32)
-         Foreach(0 until 32, 0 until 32) { (r, c) => 
+      val accum = SRAM[Int](R, C)
+      MemReduce(accum)(0 until R) { row =>
+        val sram_seq = SRAM[Int](R, C)
+         Foreach(0 until R, 0 until C) { (r, c) =>
             sram_seq(r,c) = 0
          }
-         Foreach(0 until 32) { col =>
+         Foreach(0 until C) { col =>
             sram_seq(row, col) = 32*(row + col)
          }
          sram_seq
@@ -1651,7 +1654,7 @@ object MultiWriteBuffer extends SpatialApp { // Regression (Unit) // Args: none
     }
     
     val result = getMatrix(mem)
-    val gold = (0::32, 0::32){(i,j) => 32*(i+j)}
+    val gold = (0::R, 0::C){(i,j) => 32*(i+j)}
     printMatrix(gold, "Gold:")
     printMatrix(result, "Result:")
 

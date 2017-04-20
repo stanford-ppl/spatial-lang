@@ -119,18 +119,18 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U //TODO: Really calculate this""")
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
-      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
+      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc & ${lhs}_redLoop_done""")
       if (styleOf(lhs) == InnerPipe) {
-        emit(src"val ${accum}_wren = ${lhs}_datapath_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
+        emit(src"val ${accum}_wren = ${lhs}_datapath_en & ~${lhs}_done & ${lhs}_redLoop_done")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
         accum match { 
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {
             if (true) {
-              emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: Skeptical these codegen rules are correct")
+              emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")
             } else {
-              emit(src"val ${accum}_wren = ${childrenOf(lhs).dropRight(1).last}_done // TODO: Skeptical these codegen rules are correct")              
+              emit(src"val ${accum}_wren = ${childrenOf(lhs).dropRight(1).last}_done & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")              
             }
           case Def(_:SRAMNew[_,_]) =>
             emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")

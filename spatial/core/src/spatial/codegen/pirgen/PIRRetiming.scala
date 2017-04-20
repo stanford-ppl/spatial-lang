@@ -138,27 +138,30 @@ trait PIRRetiming extends PIRTraversal {
 
   def insertFIFO(cu: CU, bus: GlobalBus, depth: Int) {
     dbg(s"Inserting FIFO in $cu for input $bus")
-    val sram = allocateFIFO(bus, depth)
-    cu.srams += sram
+    val sram = allocateFIFO(bus, depth, cu)
+    cu.memMap += sram.mem -> sram
     cu.allStages.foreach{
       case stage@MapStage(op, ins, outs) =>
         stage.ins = ins.map{
-          case LocalRef(_,ScalarIn(`bus`)) => LocalRef(-1, SRAMReadReg(sram))
-          case LocalRef(_,VectorIn(`bus`)) => LocalRef(-1, SRAMReadReg(sram))
+          case LocalRef(_,ScalarIn(`bus`)) => LocalRef(-1, MemLoadReg(sram))
+          case LocalRef(_,VectorIn(`bus`)) => LocalRef(-1, MemLoadReg(sram))
           case ref => ref
         }
       case _ =>
     }
   }
 
-  def allocateFIFO(bus: GlobalBus, depth: Int) = {
+  def allocateFIFO(bus: GlobalBus, depth: Int, cu:CU) = {
     val name = bus match {
       case bus:ScalarBus => bus.name+"_fifo"
       case bus:VectorBus => bus.name+"_fifo"
     }
-    val sram = CUMemory(name, depth, fresh[Int32], fresh[Int32]) //fresh[Any] don't care type
-    sram.mode = FIFOMode
-    sram.vector = Some(bus)
+    val sram = CUMemory(name, depth, fresh[Int32], fresh[Int32], cu) //fresh[Any] don't care type
+    sram.mode = bus match {
+      case bus:ScalarBus => ScalarFIFOMode
+      case bus:VectorBus => VectorFIFOMode
+    }
+    sram.writePort = Some(bus) //TODO: readport?
     sram.banking = Some(Strided(1))
     sram
   }

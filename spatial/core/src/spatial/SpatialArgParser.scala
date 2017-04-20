@@ -42,8 +42,9 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableDot = true
   ).text("enables dot generation")
 
-
-
+  parser.opt[Unit]("pir").action( (_,_) =>
+    SpatialConfig.enablePIR = true
+  ).text("enables PIR generation")
 
 
 

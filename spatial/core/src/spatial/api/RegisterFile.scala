@@ -13,6 +13,8 @@ trait RegisterFileExp { this: SpatialExp =>
 
   trait RegFile[T] { this: Template[_] =>
     def s: Exp[RegFile[T]]
+
+    @util def ranges: Seq[Range] = stagedDimsOf(s).map{d => range_alloc(None, wrap(d),None,None)}
   }
 
   case class RegFile1[T:Meta:Bits](s: Exp[RegFile1[T]]) extends Template[RegFile1[T]] with RegFile[T] {
@@ -22,7 +24,7 @@ trait RegisterFileExp { this: SpatialExp =>
     @api def <<=(data: T): Void = wrap(regfile_shiftin(s, Seq(int32(0)), 0, data.s, bool(true)))
     @api def <<=(data: Vector[T]): Void = wrap(par_regfile_shiftin(s, Seq(int32(0)), 0, data.s, bool(true)))
 
-    @api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    @api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile1[T]): Void = dense_transfer(dram, this, isLoad = true)
   }
 
@@ -33,7 +35,7 @@ trait RegisterFileExp { this: SpatialExp =>
     @api def apply(i: Index, y: Wildcard) = RegFileView(s, Seq(i,lift[Int,Index](0)), 1)
     @api def apply(y: Wildcard, i: Index) = RegFileView(s, Seq(lift[Int,Index](0),i), 0)
 
-    @api def load(dram: DRAM2[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    @api def load(dram: DRAM2[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile2[T]): Void = dense_transfer(dram, this, isLoad = true)
   }
 

@@ -6,6 +6,10 @@ trait LatencyModel {
   val IR: SpatialExp
   import IR._
 
+  var clockRate = 150.0f        // Frequency in MHz
+  var baseCycles = 43000        // Number of cycles required for startup
+  var addRetimeRegisters = true // Enable adding registers after specified comb. logic
+
   def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
 
   def latencyOf(s: Exp[_], inReduce: Boolean): Long = s match {
@@ -24,6 +28,53 @@ trait LatencyModel {
 
   def nbits(e: Exp[_]) = e.tp match { case Bits(bits) => bits.length }
   def sign(e: Exp[_]) = e.tp match { case FixPtType(s,_,_) => s; case _ => true }
+
+  def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
+    // Register File
+    case _:RegFileLoad[_]    => true
+    case _:ParRegFileLoad[_] => true
+    // Streams
+
+    // FIFOs
+    case _:FIFODeq[_]    => true
+    case _:ParFIFODeq[_] => true
+
+    // SRAMs
+    // TODO: Should be a function of number of banks?
+    case _:SRAMLoad[_]     => true
+    case _:ParSRAMLoad[_]  => true
+
+    // LineBuffer
+    case _:LineBufferLoad[_]    => true
+    case _:ParLineBufferLoad[_] => true
+
+    case Not(_)     => true
+    case And(_,_)   => true
+    case Or(_,_)    => true
+    case XOr(_,_)   => true
+    case XNor(_,_)  => true
+    case FixNeg(_)   => true
+    case FixAdd(_,_) => true
+    case FixSub(_,_) => true
+    case FixMul(_,_) => true
+    case FixDiv(_,_) => true
+    case FixMod(_,_) => true
+    case FixLt(_,_)  => true
+    case FixLeq(_,_) => true
+    case FixNeq(_,_) => true
+    case FixEql(_,_) => true
+    case FixAnd(_,_) => true
+    case FixOr(_,_)  => true
+    case FixLsh(_,_) => true
+    case FixRsh(_,_) => true
+    case FixURsh(_,_) => true
+    case FixAbs(_)    => true
+
+    case Mux(_,_,_) => true
+    case Min(_,_)   => true
+    case Max(_,_)   => true
+    case _ => false
+  }
 
   private def latencyOfNode(s: Exp[_], d: Def): Long = d match {
     case d if isAllocation(d) => 0
@@ -81,16 +132,9 @@ trait LatencyModel {
     case FixNeg(_)   => 1
     case FixAdd(_,_) => 1
     case FixSub(_,_) => 1
-    case FixMul(_,_) =>
-      //if (nbits(s) > 32) warn(c"Don't know latency for $d - using default")
-      if (nbits(s) <= 18) 1 else 2
-    case FixDiv(_,_) =>
-      //if (nbits(s) != 32) warn(c"Don't know latency for $d - using default")
-      if (sign(s)) 35 else 38
-    case FixMod(_,_) =>
-      //if (nbits(s) != 32) warn(c"Don't know latency for $d - using default")
-      if (sign(s)) 35 else 38
-
+    case FixMul(_,_) => 1 // TODO
+    case FixDiv(_,_) => 1 // TODO
+    case FixMod(_,_) => 1
     case FixLt(_,_)  => 1
     case FixLeq(_,_) => 1
     case FixNeq(_,_) => 1

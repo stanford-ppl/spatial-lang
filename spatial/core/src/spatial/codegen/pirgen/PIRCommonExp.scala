@@ -1,65 +1,123 @@
 package spatial.codegen.pirgen
-import spatial.SpatialConfig
+
 import spatial.SpatialExp
 import spatial.analysis.SpatialMetadataExp
 import org.virtualized.SourceContext
 
-import scala.collection.mutable
-
 // PIR operations which need the rest of the Spatial IR mixed in
 trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =>
-  type Symbol = Exp[_]
+  type Expr = Exp[_]
   type CUControl = ControlType
 
-  //def str(x: Symbol) = x match {
+  //def str(x: Expr) = x match {
     //case Deff(d) => s"$x = $d"
     //case _ => s"$x"
   //}
-
-  override def isConstant(x:Symbol):Boolean = x match {
-    case Param(c: BigDecimal) => true 
+  override def isConstant(x:Expr):Boolean = x match {
+    case Const(c) => true
+    case Param(c) => true 
     case Final(c) => true 
     case _ => false 
   }
 
-  override def extractConstant(x: Symbol): String = x match {
-    case Const(c: BigDecimal) => s"${c}f"
-    case Param(c: BigDecimal) => s"${c}f"
+  override def extractConstant(x: Expr): ConstReg[AnyVal] = x match {
+    case Const(c: BigDecimal) if c.isWhole => ConstReg(c.toInt) 
+    case Const(c: BigDecimal) => ConstReg(c.toFloat) 
+    case Const(c: Boolean) => ConstReg(c) 
 
-    // TODO: Not quite correct since bound is a double ??
-    case Final(c) if (c.toInt == c)  => s"${c.toInt}i"
-    case Final(c) if (c.toLong == c) => s"${c.toLong}l"
-    case Final(c) if (c.toFloat == c) => s"${c.toFloat}f"
-    case Final(c) => s"${c.toDouble}d"
+    case Param(c: BigDecimal) if c.isWhole => ConstReg(c.toInt) 
+    case Param(c: BigDecimal) => ConstReg(c.toFloat  ) 
+    case Param(c: Boolean) => ConstReg(c) 
+
+    case Final(c: BigInt)  => ConstReg(c.toInt)
 
     case _ => throw new Exception(s"Cannot allocate constant value for $x")
   }
 
-  def isReadInPipe(mem: Symbol, pipe: Symbol, reader: Option[Symbol] = None): Boolean = {
+  def isReadInPipe(mem: Expr, pipe: Expr, reader: Option[Expr] = None): Boolean = {
     readersOf(mem).isEmpty || readersOf(mem).exists{read => reader.forall(_ == read.node) && read.ctrlNode == pipe }
   }
-  def isWrittenInPipe(mem: Symbol, pipe: Symbol, writer: Option[Symbol] = None): Boolean = {
+  def isWrittenInPipe(mem: Expr, pipe: Expr, writer: Option[Expr] = None): Boolean = {
     !isArgIn(mem) && (writersOf(mem).isEmpty || writersOf(mem).exists{write => writer.forall(_ == write.node) && write.ctrlNode == pipe })
   }
-  def isWrittenByUnitPipe(mem: Symbol): Boolean = {
+  def isWrittenByUnitPipe(mem: Expr): Boolean = {
     writersOf(mem).headOption.map{writer => isUnitPipe(writer.ctrlNode)}.getOrElse(true)
   }
-  def isReadOutsidePipe(mem: Symbol, pipe: Symbol, reader: Option[Symbol] = None): Boolean = {
+  def isReadOutsidePipe(mem: Expr, pipe: Expr, reader: Option[Expr] = None): Boolean = {
     isArgOut(mem) || readersOf(mem).exists{read => reader.forall(_ == read.node) && read.ctrlNode != pipe }
   }
 
-  def isBuffer(mem: Symbol): Boolean = isSRAM(mem)
+  def isBuffer(mem: Expr): Boolean = isSRAM(mem)
+
+  def isGetDRAMAddress(mem:Expr) = mem match {
+    case Def(_:GetDRAMAddress[_]) => true
+    case _ => false
+  }
+
+  def isLocalMem(mem: Expr): Boolean = isReg(mem) || isFIFO(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
+
+  def isRemoteMem(mem: Expr): Boolean = isSRAM(mem)
+
+  def isMem(e: Expr):Boolean = isLocalMem(e) | isRemoteMem(e) 
+
+  def isLocalMemReadAccess(acc: Expr) = acc match {
+    case Def(_:RegRead[_]) => true
+    case Def(_:FIFODeq[_]) => true
+    case Def(_:ParFIFODeq[_]) => true
+    case Def(_:StreamWrite[_]) => true
+    case Def(_:ParStreamWrite[_]) => true
+    case _ => false
+  }
+
+  def isLocalMemWriteAccess(acc: Expr) = acc match {
+    case Def(_:RegWrite[_]) => true
+    case Def(_:FIFOEnq[_]) => true
+    case Def(_:ParFIFOEnq[_]) => true
+    case Def(_:StreamRead[_]) => true
+    case Def(_:ParStreamRead[_]) => true
+    case _ => false
+  }
+
+  def isLocalMemAccess(acc: Expr) = isLocalMemReadAccess(acc) || isLocalMemWriteAccess(acc)
+
+  def isRemoteMemAccess(acc:Expr) = acc match {
+    case Def(_:SRAMLoad[_]) => true
+    case Def(_:ParSRAMLoad[_]) => true
+    case Def(_:SRAMStore[_]) => true
+    case Def(_:ParSRAMStore[_]) => true
+    case _ => false
+  }
+
+  def isStage(d: Def): Boolean = d match {
+    case _:CounterNew => false
+    case _:CounterChainNew => false
+    case _:RegNew[_] => false
+    case _:SRAMNew[_,_] => false
+    case _:FIFONew[_] => false
+    case _:StreamInNew[_] => false
+    case _:StreamOutNew[_] => false
+    case _ => true
+  }
+
+  def isStage(e: Expr): Boolean = !isFringe(e) && !isControlNode(e) && getDef(e).exists(isStage)
+
+  //Hack Check if func is inside block reduce
+  def isBlockReduce(func: Block[Any]): Boolean = {
+    func.summary.reads.intersect(func.summary.writes).exists(isSRAM)
+  }
 
   def flattenNDAddress(addr: Exp[Any], dims: Seq[Exp[Index]]) = addr match {
     case Def(ListVector(List(Def(ListVector(indices))))) if indices.nonEmpty => flattenNDIndices(indices, dims)
     case Def(ListVector(indices)) if indices.nonEmpty => flattenNDIndices(indices, dims)
     case _ => throw new Exception(s"Unsupported address in PIR generation: $addr")
   }
-  def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]) = {
-    val cdims = dims.map{case Final(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
-    val strides = List.tabulate(dims.length){d =>
+
+  // returns (sym of flatten addr, List[Addr Stages])
+  def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]):(Expr, List[OpStage]) = {
+    val cdims:Seq[Int] = dims.map{case Final(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
+    val strides:List[Expr] = List.tabulate(dims.length){ d =>
       if (d == dims.length - 1) int32(1)
-      else int32(cdims.drop(d+1).reduce(_*_))
+      else int32(cdims.drop(d+1).product)
     }
     var partialAddr: Exp[Any] = indices.last
     var addrCompute: List[OpStage] = Nil
@@ -71,7 +129,6 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     }
     (partialAddr, addrCompute)
   }
-
 
   def nodeToOp(node: Def): Option[PIROp] = node match {
     case Mux(_,_,_)                      => Some(PIRALUMux)
@@ -120,11 +177,12 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
   }
 
   // HACK
-  def bank(mem: Symbol, access: Symbol, isUnit: Boolean) = {
+  def bank(mem: Expr, access: Expr) = {
     val pattern = accessPatternOf(access).last
     val stride  = 1
 
-    def bankFactor = if (isUnit) 1 else 16
+    val pipe = parentOf(access).get
+    val bankFactor = getInnerPar(pipe) 
 
     val banking = pattern match {
       case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt, bankFactor)
@@ -137,17 +195,17 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     banking match {
       case StridedBanking(stride,f) if f > 1  => Strided(stride)
       case StridedBanking(stride,f) if f == 1 => NoBanks
-      case NoBanking if isUnit                => NoBanks
+      case NoBanking if bankFactor==1         => NoBanks
       case NoBanking                          => Duplicated
     }
   }
 
-  /*def bank(mem: Symbol, access: Symbol, iter: Option[Symbol]) = {
+  /*def bank(mem: Expr, access: Expr, iter: Option[Expr]) = {
     //val indices = accessIndicesOf(access)
     val pattern = accessPatternOf(access)
     val strides = constDimsToStrides(dimsOf(mem).map{case Exact(d) => d.toInt})
 
-    def bankFactor(i: Symbol) = if (iter.isDefined && i == iter.get) 16 else 1
+    def bankFactor(i: Expr) = if (iter.isDefined && i == iter.get) 16 else 1
 
     if (pattern.forall(_ == InvariantAccess)) NoBanks
     else {
@@ -185,5 +243,18 @@ trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =
     case (_, Duplicated) => Duplicated
     case (NoBanks, bank2) => bank2
     case (bank1, NoBanks) => bank1
+  }
+
+  def getInnerPar(pipe:Expr):Int = pipe match {
+    case Def(Hwblock(func,_)) => 1
+    case Def(UnitPipe(en, func)) => 1
+    case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
+      val Def(CounterChainNew(ctrs)) = cchain
+      val ConstReg(par) = extractConstant(parFactorsOf(ctrs.head).head)
+      par.asInstanceOf[Int]
+    case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) =>
+      val Def(CounterChainNew(ctrs)) = cchain
+      val ConstReg(par) = extractConstant(parFactorsOf(ctrs.head).head)
+      par.asInstanceOf[Int]
   }
 }

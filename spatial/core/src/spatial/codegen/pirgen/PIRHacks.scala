@@ -11,61 +11,56 @@ trait PIRHacks extends PIRTraversal {
   override val name = "PIR Hacks"
   override val recurse = Always
 
-  val mappingIn = mutable.HashMap[Symbol, List[CU]]()
+  val mappingIn = mutable.HashMap[Expr, List[List[CU]]]()
 
-  val mappingOut = mutable.HashMap[Symbol, List[CU]]()
+  val mappingOut = mutable.HashMap[Expr, List[List[CU]]]()
 
   override def process[S:Type](b: Block[S]) = {
     msg(s"Starting traversal PIR Hacks")
     for ((pipe, cus) <- mappingIn) {
-      mcHack(pipe, cus)
+      //mcHack(pipe, cus.flatten)
       mappingOut += pipe -> cus
     }
-    streamHack()
-    counterHack()
-
+    //streamHack()
+    //counterHack()
     b
   }
 
-  def mcHack(pipe: Symbol, cus: List[CU]) {
-    def allCUs = mappingIn.values.flatten
+  override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
+    dbgs(s"\n\n//----------- Finishing PIRHacks ------------- //")
+    for (cu <- mappingOut.values.flatten.flatten) {
+      dbgcu(cu)
+    }
+    block
+  }
+
+  def mcHack(pipe: Expr, cus: List[CU]) {
+    def allCUs = mappingIn.values.flatten.flatten
 
     dbg(s"MC Hack")
 
     // Set all CUs which write to a memory controller to StreamCUs
     // Either set parent to a streamcontroller, or make one and redirect parent
     cus.foreach{cu =>
-      val writesMC = globalOutputs(cu) exists (_.isInstanceOf[PIRDRAMBus])
-
-      dbg(s"${cu.name}: $writesMC")
+      dbg(s"${cu.name}: writtenMC${writtenMC(cu).mkString(",")}")
 
       // Set everything but first stages to streaming pipes
-      if (writesMC && cu.deps.nonEmpty) cu.style = StreamCU
+      //if (writesMC && cu.deps.nonEmpty) cu.style = StreamCU
 
 
-      if (writesMC) cu.parent match {
-        case Some(parent: CU) if parent.style != StreamCU =>
+      if (writtenMC(cu).nonEmpty) cu.parent match {
+        case Some(parent: CU) =>
           val cusWithParent = allCUs.filter(_.parent == cu.parent).toSet
-          val cusByMC = cusWithParent.groupBy(writtenMC)
-
-          dbg(s"  cu: $cu")
-          dbg(s"  parent: $parent")
-          dbg(s"  w/ parent: $cusWithParent")
-          dbg(s"  cus by MC: $cusByMC")
-
-          // All CUs with this parent communicate with the same memory controller(s) as this CU
-          if (cusByMC.keys.size == 1) {
+          if (parent.style != StreamCU) {
+            dbg(s"  Set $parent.style from ${parent.style} to StreamCU")
             parent.style = StreamCU
           }
-          /*else {
-            val parent = makeStreamController(pipe, cu.parent)
-            cu.parent = Some(parent)
-            List(parent)
-          }*/
-        /*case None =>
-          val parent = makeStreamController(pipe, None)
-          cu.parent = Some(parent)
-          List(parent)*/
+          cusWithParent.foreach { sib =>
+            if (sib.style != StreamCU) {
+              sib.style = StreamCU
+              dbg(s"  Set $sib.style from ${sib.style} to StreamCU")
+            }
+          }
         case _ =>
       }
     }
@@ -79,7 +74,7 @@ trait PIRHacks extends PIRTraversal {
 
   // Ensure that outer controllers have exactly one leaf
   def streamHack() {
-    val cus = mappingOut.values.flatten.toList
+    val cus = mappingOut.values.flatten.flatten.toList
     for (cu <- cus) {
       if (cu.allStages.isEmpty && !cu.isDummy) {
         val children = cus.filter(_.parent == Some(cu))
@@ -91,13 +86,13 @@ trait PIRHacks extends PIRTraversal {
         val leaves = children.filterNot(deps contains _)
 
         if (leaves.size > 1 && !writesMC) {
-          val leaf = ComputeUnit(quote(cu.pipe)+"_leaf", cu.pipe, UnitCU)
+          val leaf = ComputeUnit(quote(cu.pipe)+"_leaf", cu.pipe, PipeCU)
           copyIterators(leaf, cu)
           leaf.parent = Some(cu)
           leaf.deps ++= leaves
           leaf.isDummy = true
           leaf.cchains += UnitCChain(quote(cu.pipe)+"_unitcc")
-          mappingOut(cu.pipe) = mappingOut(cu.pipe) ++ List(leaf)
+          mappingOut(cu.pipe) = mappingOut(cu.pipe) ++ List(List(leaf))
         }
         else {
           // If we have a child controller leaf which itself has leaves which write to DRAM data bus
@@ -107,13 +102,13 @@ trait PIRHacks extends PIRTraversal {
           }
           if (leafWritesMC) {
             // insert a dummy pipe after the writing leaf
-            val newLeaf = ComputeUnit(quote(cu.pipe)+"_leafX", cu.pipe, UnitCU)
+            val newLeaf = ComputeUnit(quote(cu.pipe)+"_leafX", cu.pipe, PipeCU)
             copyIterators(newLeaf, cu)
             newLeaf.parent = Some(cu)
             newLeaf.deps ++= leaves
             newLeaf.cchains += UnitCChain(quote(cu.pipe)+"_unitcc")
             newLeaf.isDummy = true
-            mappingOut(leaves.last.pipe) = mappingOut(leaves.last.pipe) ++ List(newLeaf)
+            mappingOut(leaves.last.pipe) = mappingOut(leaves.last.pipe) ++ List(List(newLeaf))
           }
         }
       }
@@ -122,15 +117,15 @@ trait PIRHacks extends PIRTraversal {
 
   // Change strides of last counter in inner, parallelized loops to LANES
   def counterHack() {
-    val cus = mappingOut.values.flatten.toList
+    val cus = mappingOut.values.flatten.flatten.toList
     for (cu <- cus) {
       if (!cu.isUnit && (cu.allStages.nonEmpty || cu.isDummy)) {
         cu.cchains.foreach{
           case CChainInstance(name, ctrs) =>
             val innerCtr = ctrs.last
-            if (innerCtr.end != ConstReg("1i")) {
-              assert(innerCtr.stride == ConstReg("1i"))
-              innerCtr.stride = ConstReg(s"${LANES}i")
+            if (innerCtr.end != ConstReg(1)) {
+              assert(innerCtr.stride == ConstReg(1), s"${innerCtr.stride} should be ConstReg(1)")
+              innerCtr.stride = ConstReg(LANES)
             }
 
           case _ => // Do nothing
@@ -154,7 +149,7 @@ trait PIRHacks extends PIRTraversal {
   }
 
 
-  def makeStreamController(pipe: Symbol, parent: Option[ACU]): CU = {
+  def makeStreamController(pipe: Expr, parent: Option[ACU]): CU = {
     val cu = ComputeUnit(quote(pipe)+"_sc", pipe, StreamCU)
     cu.parent = parent
     cu.cchains += UnitCChain(quote(pipe)+"_unitcc")
