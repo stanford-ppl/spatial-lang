@@ -19,7 +19,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   // --- State
   var inHwScope = false // In hardware scope
   var inReduce = false  // In tight reduction cycle (accumulator update)
-  def latencyOf(e: Exp[_]) = if (inHwScope) latencyModel(e, inReduce) else 0L
+  def latencyOf(e: Exp[_]) = latencyModel(e, inReduce)
 
   // TODO: Could optimize further with dynamic programming
   def latencyOfPipe(b: Block[_]): Long = {
@@ -30,7 +30,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     def quickDFS(cur: Exp[_]): Long = cur match {
       case Def(d) if scope.contains(cur) && !isGlobal(cur) =>
         //debug(s"Visit $cur in quickDFS")
-        val deps = syms(d)
+        val deps = exps(d)
         if (deps.isEmpty) {
           warn(cur.ctx, s"$cur = $d has no dependencies but is not global")
           latencyOf(cur)
@@ -40,7 +40,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
         }
       case _ => 0L
     }
-    if (scope.isEmpty) 0L else syms(b).map{e => paths.getOrElseUpdate(e, quickDFS(e)) }.max
+    if (scope.isEmpty) 0L else exps(b).map{e => paths.getOrElseUpdate(e, quickDFS(e)) }.max
   }
   def latencyOfCycle(b: Block[Any]): Long = {
     val outerReduce = inReduce
@@ -50,24 +50,30 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     out
   }
 
+  class GetOrElseUpdateFix[K,V](x: mutable.Map[K,V]) {
+    def getOrElseAdd(k: K, v: => V): V = if (x.contains(k)) x(k) else { val value = v; x(k) = value; value }
+  }
+  implicit def getOrUpdateFix[K,V](x: mutable.Map[K,V]): GetOrElseUpdateFix[K,V] = new GetOrElseUpdateFix[K,V](x)
+
   // Not a true traversal. Should it be?
-  def pipeDelays(b: Block[_], oos: Map[Exp[_],Long] = Map.empty): List[(Exp[_],Long)] = {
-    val scope = getStages(b).filterNot(s => isGlobal(s))
+  def pipeDelaysAndGaps(b: Block[_], oos: Map[Exp[_],Long] = Map.empty) = {
+    val scope = getStages(b).filterNot(s => isGlobal(s)).filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
     val delays = mutable.HashMap[Exp[_],Long]() ++ scope.map{node => node -> 0L}
     val paths  = mutable.HashMap[Exp[_],Long]() ++ oos
 
     def fullDFS(cur: Exp[_]): Long = cur match {
       case Def(d) if scope.contains(cur) =>
-        val deps = syms(d) filter (scope contains _)
+        val deps = exps(d) filter (scope contains _)
 
         if (deps.nonEmpty) {
-          val dlys = deps.map{e => paths.getOrElseUpdate(e, fullDFS(e)) }
+          val dlys = deps.map{e => paths.getOrElseAdd(e, fullDFS(e)) }
           val critical = dlys.max
 
           deps.zip(dlys).foreach{ case(dep, path) =>
             if (path < critical && (critical - path) > delays(dep))
               delays(dep) = critical - path
           }
+          dbgs(c"${str(cur)} [delay = max(" + dlys.mkString(", ") + s") + ${latencyOf(cur)}]")
           critical + latencyOf(cur)
         }
         else latencyOf(cur)
@@ -76,11 +82,17 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
       // Otherwise assume 0 offset
     }
     if (scope.nonEmpty) {
-      val deps = syms(b) filter (scope contains _)
-      deps.foreach{e => paths.getOrElseUpdate(e, fullDFS(e)) }
+      val deps = exps(b) filter (scope contains _)
+      deps.foreach{e => paths.getOrElseAdd(e, fullDFS(e)) }
     }
-    delays.toList
+
+    val delaysOut = Map[Exp[_],Long]() ++ delays
+    val pathsOut = Map[Exp[_],Long]() ++ paths
+    (pathsOut, delaysOut)
   }
+
+  def pipeDelays(b: Block[_], oos: Map[Exp[_],Long] = Map.empty) = pipeDelaysAndGaps(b, oos)._1
+  def pipeGaps(b: Block[_], oos: Map[Exp[_],Long] = Map.empty) = pipeDelaysAndGaps(b, oos)._2
 
 }
 
