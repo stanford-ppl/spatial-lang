@@ -1555,6 +1555,57 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
   }
 }
 
+object SpecialMath extends SpatialApp {
+  import IR._
+  type T = FixPt[TRUE,_8,_8]
+
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val a = 5.625.to[T]
+    val b = 2.to[T]
+    val c = 252.to[T]
+    val A = ArgIn[T]
+    val B = ArgIn[T]
+    val C = ArgIn[T]
+    setArg(A, a)
+    setArg(B, b)
+    setArg(C, c)
+    val N = 1280
+    val unbmul = DRAM[T](N)
+
+    val satadd = ArgOut[T]
+
+
+    Accel {
+      val yy = SRAM[T](N)
+      Foreach(N by 1) { i => 
+        yy(i) = A *& B
+      }
+      unbmul store yy
+      Pipe{ satadd := c <+> a}
+    }
+
+
+    // Extract results from accelerator
+    val unbres = getMem(unbmul)
+    val satres = getArg(satadd)
+
+    // Create validation checks and debug code
+    val gold = (a * b).to[FltPt[_24,_8]]
+    val mean = unbres.map{_.to[FltPt[_24,_8]]}.reduce{_+_} / N
+    printArray(unbres, "got: ")
+
+    val margin = 0.25.to[FltPt[_24,_8]]
+    println("gold: " + gold)
+    println("got: " + mean)
+
+    val cksum = ((gold + margin).to[FltPt[_24,_8]] > mean) && ((gold - margin).to[FltPt[_24,_8]] < mean)
+    println("PASS: " + cksum + " (SpecialMath)")
+  }
+}
+
+
 object DiagBanking extends SpatialApp {  // Regression (Unit) // Args: none
   import IR._
   type T = Int
