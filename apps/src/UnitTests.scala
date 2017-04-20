@@ -1557,13 +1557,13 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
 
 object SpecialMath extends SpatialApp {
   import IR._
-  type T = FixPt[TRUE,_8,_8]
+  type T = FixPt[TRUE,_12,_4]
 
   @virtualize
   def main() {
     // Declare SW-HW interface vals
     val a = 5.625.to[T]
-    val b = 2.to[T]
+    val b = 2.625.to[T]
     val c = 252.to[T]
     val A = ArgIn[T]
     val B = ArgIn[T]
