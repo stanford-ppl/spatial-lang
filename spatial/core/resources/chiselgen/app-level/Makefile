@@ -5,16 +5,15 @@ all: help
 
 help:
 	@echo "------- SUPPORTED MAKE TARGETS -------"
-	@echo "make sim         : Verilator SW + HW build"
-	@echo "make sim-sw      : Verilator SW build"
-	@echo "make sim-hw      : Build Chisel for Verilator"
-	@echo "make aws-sim     : AWS simulation SW + HW build"
-	@echo "make aws-sim-hw  : Build Chisel for AWS simulation"
-	@echo "make zynq        : Zynq SW + HW build"
-	@echo "make zynq-hw     : Build Chisel for Zynq"
-	@echo "make vcs         : VCS SW + HW build"
-	@echo "make vcs-hw      : Build Chisel for VCS"
-	@echo "make sim-clean   : Verilator simulation clean up"
+	@echo "make sim 				: Verilator SW + HW build"
+	@echo "make sim-sw 				: Verilator SW build"
+	@echo "make sim-hw 			: Build Chisel for Verilator"
+	@echo "make aws-sim 		: AWS simulation SW + HW build"
+	@echo "make aws-sim-hw 	: Build Chisel for AWS simulation"
+	@echo "make zynq 				: Zynq SW + HW build"
+	@echo "make zynq-hw    	: Build Chisel for Zynq"
+	@echo "make sim-clean 	: Verilator simulation clean up"
+	@echo "make de1soc	: Build Chisel for DE1-SoC"
 	@echo "------- END HELP -------"
 
 sim: sim-hw
@@ -94,6 +93,36 @@ zynq-clean:
 	make -C cpp clean
 	rm -rf verilog-zynq
 	rm -f TopZynq.tar.gz
+
+de1soc: de1soc-hw de1soc-sw
+
+de1soc-sw: 
+	cp de1soc.mk cpp/Makefile
+	cp cpp/cpptypes.h cpp/datastructures
+	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
+	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
+	make -C cpp
+	ln -sf cpp/Top .
+	cp verilog-de1soc/program_de1soc.sh ./ && chmod +x program_de1soc.sh
+	mkdir prog
+	cd ./prog/ && mkdir verilog
+	cp Top program_de1soc.sh ./prog
+	cp sp.rbf ./prog/verilog/accel.bit.bin
+
+de1soc-hw:
+	sbt "run-main top.Instantiator --verilog --testArgs de1soc"
+	sed -i 's/SRFF/SRFF_sp/g' verilog-de1soc/Top.v
+	cp -r chisel/template-level/fringeDE1SoC/simulation verilog-de1soc/
+	cp -r chisel/template-level/fringeDE1SoC/* verilog-de1soc/
+	cp verilog-de1soc/Top.v verilog-de1soc/Computer_System/synthesis/submodules
+	cd verilog-de1soc && chmod +x compile.sh && ./compile.sh
+	echo "sp.rbf generated. Please copy it to your working dir on FPGA ARM"
+	cp verilog-de1soc/sp.rbf ./
+
+de1soc-clean:
+	rm -rf verilog-de1soc
+	rm -rf ./prog
+	cd ./cpp && make clean
 
 vcs: vcs-hw vcs-sw
 	tar -czf TopVCS.tar.gz -C verilog-vcs accel.bit.bin -C ../cpp Top

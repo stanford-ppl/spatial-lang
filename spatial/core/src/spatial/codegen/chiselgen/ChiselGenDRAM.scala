@@ -8,10 +8,12 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
   val IR: SpatialExp
   import IR._
 
-  var numLoads = 0
-  var numStores = 0
-  var loadParMapping = HashMap[Int, Int]() 
-  var storeParMapping = HashMap[Int, Int]() 
+  var loadsList = List[Exp[_]]()
+  var storesList = List[Exp[_]]()
+  var loadParMapping = List[String]()
+  var storeParMapping = List[String]()
+  // var loadParMapping = HashMap[Int, (Int,Int)]() 
+  // var storeParMapping = HashMap[Int, (Int,Int)]() 
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -42,7 +44,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       }
 
     case GetDRAMAddress(dram) =>
-      val id = argMapping(dram)._1
+      val id = argMapping(dram)._2
       emit(src"""val $lhs = io.argIns($id)""")
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
@@ -52,11 +54,10 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
         case _ => 1
       }
 
-      val id = numLoads
-      loadParMapping += (id -> par)
-      numLoads = numLoads + 1
-      emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams.loads(${id}).rdata.valid""")
-      emit(src"""// Connect streams to ports on mem controller""")
+      val id = loadsList.length
+      loadParMapping = loadParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par})" 
+      loadsList = loadsList :+ dram
+      emitGlobalWire(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams.loads(${id}).rdata.valid""")
       val allData = dram.tp.typeArguments.head match {
         case FixPtType(s,d,f) => if (spatialNeedsFPType(dram.tp.typeArguments.head)) {
             (0 until par).map{ i => src"""Utils.FixedPoint($s,$d,$f,io.memStreams.loads($id).rdata.bits($i))""" }.mkString(",")
@@ -68,13 +69,12 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"""val ${dataStream}_data = Vec(List($allData))""")
       emit(src"""${dataStream}_valid := io.memStreams.loads($id).rdata.valid""")
       emit(src"${cmdStream}_ready := io.memStreams.loads($id).cmd.ready")
-      emitGlobal(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
+      emitGlobalWire(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
       emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready // Contains stage enable, rdatavalid, and fifo status")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}_data(63,0) // Field 0")
       emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}_data(95,64) // Field 1")
       emit(src"io.memStreams.loads($id).cmd.valid :=  ${cmdStream}_valid// LSB is enable, instead of pulser?? Reg(UInt(1.W), pulser.io.out)")
       emit(src"io.memStreams.loads($id).cmd.bits.isWr := ~${cmdStream}_data(96) // Field 2")
-
 
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
       // Get parallelization of datastream
@@ -83,17 +83,17 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
         case _ => 1
       }
 
-      val id = numStores
-      storeParMapping += (id -> par)
-      numStores = numStores + 1
-      // emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${id}).rdata.valid""")
+      val id = storesList.length
+      storeParMapping = storeParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par})" 
+      storesList = storesList :+ dram
+      // emitGlobalWire(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${id}).rdata.valid""")
       emit(src"""// Connect streams to ports on mem controller""")
       val allData = (0 until par).map{ i => src"io.memStreams.stores($id).rdata.bits($i)" }.mkString(",")
-      emitGlobal(src"val ${dataStream}_data = Wire(Vec($par, UInt(33.W)))")
+      emitGlobalWire(src"val ${dataStream}_data = Wire(Vec($par, UInt(33.W)))")
       emit(src"""${dataStream}_ready := io.memStreams.stores($id).wdata.ready""")
       emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}_data).foreach{case (wport, wdata) => wport := wdata(31,0) /*LSB is status bit*/}""")
       emit(src"""io.memStreams.stores($id).wdata.valid := ${dataStream}_valid""")
-      emitGlobal(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
+      emitGlobalWire(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}_data(63,0) // Field 0")
       emit(src"io.memStreams.stores($id).cmd.bits.size := ${cmdStream}_data(95,64) // Field 1")
       emit(src"io.memStreams.stores($id).cmd.valid :=  ${cmdStream}_valid // Field 2")
@@ -120,22 +120,20 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
 
 
   override protected def emitFileFooter() {
-    val loadsList = (0 until numLoads).map{ i => s"StreamParInfo(32, ${loadParMapping(i)})" }.mkString(",")
-    val storesList = (0 until numStores).map{ i => s"StreamParInfo(32, ${storeParMapping(i)})" }.mkString(",")
 
     withStream(getStream("Instantiator")) {
       emit("")
       emit(s"// Memory streams")
-      emit(s"val loadStreamInfo = List(${loadsList}) ")
-      emit(s"val storeStreamInfo = List(${storesList}) ")
-      emit(s"""val numArgIns_mem = ${numLoads} /*from loads*/ + ${numStores} /*from stores*/""")
+      emit(s"""val loadStreamInfo = List(${loadParMapping.mkString(",")}) """)
+      emit(s"""val storeStreamInfo = List(${storeParMapping.mkString(",")}) """)
+      emit(s"""val numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/""")
     }
 
     withStream(getStream("IOModule")) {
       emit("// Memory Streams")
-      emit(s"val io_loadStreamInfo = List(${loadsList}) ")
-      emit(s"val io_storeStreamInfo = List(${storesList}) ")
-      emit(s"val io_numArgIns_mem = ${numLoads} /*from loads*/ + ${numStores} /*from stores*/")
+      emit(s"""val io_loadStreamInfo = List(${loadParMapping.mkString(",")}) """)
+      emit(s"""val io_storeStreamInfo = List(${storeParMapping.mkString(",")}) """)
+      emit(s"val io_numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/")
 
     }
 

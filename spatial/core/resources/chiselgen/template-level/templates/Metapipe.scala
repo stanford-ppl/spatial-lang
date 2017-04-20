@@ -169,8 +169,3 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
   io.output.done := state === doneState.U
 }
 
-
-
-
-class Streampipe(override val n: Int, override val isFSM: Boolean = false) extends Parallel(n) {
-}

@@ -45,16 +45,16 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
 
     val points = DRAM[T](N, D)    // Input points
     val centroids = DRAM[T](num_cents*dim) // Output centroids
-    val init_cents = DRAM[T](K,D) // Output centroids
+    // val init_cents = DRAM[T](K,D) // Output centroids
     setMem(points, points_in)
-    setMem(init_cents, cent_inits)
+    // setMem(init_cents, cent_inits)
 
     Accel { Sequential { // TODO: Remove this Sequential wrapper once David fixes Accel analysis
       val cts = SRAM[T](MAXK, MAXD)
       val newCents = SRAM[T](MAXK,MAXD)
 
       // Load initial centroids (from points)
-      cts load init_cents(0::K, 0::D par 16)
+      cts load points(0::K, 0::D par 16)
 
       // // Initialize newCents
       // Foreach(K by 1, D by 1) {(i,j) => newCents(i,j) = cts(i,j)} 
@@ -139,7 +139,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
 
     val cts = Array.empty[Array[X]](K)
     for (k <- 0 until K) {
-      cts(k) = Array.tabulate(D){i => cnts(k).apply(i) }
+      cts(k) = Array.tabulate(D){i => pts(k).apply(i) }
     }
     val ii = Array.tabulate(K){i => i}
 

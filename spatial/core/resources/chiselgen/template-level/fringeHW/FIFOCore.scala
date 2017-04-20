@@ -81,7 +81,7 @@ class FIFOCounter(override val d: Int, override val v: Int) extends FIFOBase(1, 
 
 class FIFOCore(override val w: Int, override val d: Int, override val v: Int) extends FIFOBase(w, d, v) {
   // Create wptr (tail) counter chain
-  val wptrConfig = Wire(new CounterChainOpcode(log2Up(bankSize+1), 2, 0, 0))
+  val wptrConfig = Wire(new CounterChainOpcode(log2Up(scala.math.max(bankSize,v)+1), 2, 0, 0))
   wptrConfig.chain(0) := io.config.chainWrite
   (0 until 2) foreach { i => i match {
       case 1 => // Localaddr: max = bankSize, stride = 1
@@ -97,7 +97,7 @@ class FIFOCore(override val w: Int, override val d: Int, override val v: Int) ex
         cfg.maxConst := true.B
         cfg.strideConst := true.B
   }}
-  val wptr = Module(new CounterChainCore(log2Up(bankSize+1), 2, 0, 0))
+  val wptr = Module(new CounterChainCore(log2Up(scala.math.max(bankSize,v)+1), 2, 0, 0))
   wptr.io.enable(0) := writeEn & io.config.chainWrite
   wptr.io.enable(1) := writeEn
   wptr.io.config := wptrConfig
@@ -106,7 +106,7 @@ class FIFOCore(override val w: Int, override val d: Int, override val v: Int) ex
 
 
   // Create rptr (head) counter chain
-  val rptrConfig = Wire(new CounterChainOpcode(log2Up(bankSize+1), 2, 0, 0))
+  val rptrConfig = Wire(new CounterChainOpcode(log2Up(scala.math.max(bankSize,v)+1), 2, 0, 0))
   rptrConfig.chain(0) := io.config.chainRead
   (0 until 2) foreach { i => i match {
       case 1 => // Localaddr: max = bankSize, stride = 1
@@ -122,7 +122,7 @@ class FIFOCore(override val w: Int, override val d: Int, override val v: Int) ex
         cfg.maxConst := true.B
         cfg.strideConst := true.B
     }}
-  val rptr = Module(new CounterChainCore(log2Up(bankSize+1), 2, 0, 0))
+  val rptr = Module(new CounterChainCore(log2Up(scala.math.max(bankSize,v)+1), 2, 0, 0))
   rptr.io.enable(0) := readEn & io.config.chainRead
   rptr.io.enable(1) := readEn
   rptr.io.config := rptrConfig

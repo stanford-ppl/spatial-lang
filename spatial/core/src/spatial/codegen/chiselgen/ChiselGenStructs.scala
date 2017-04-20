@@ -89,7 +89,7 @@ trait ChiselGenStructs extends ChiselCodegen {
           bitWidth(t._2.tp)  
         }
       }.reduce{_+_}
-      emitGlobal(src"val $lhs = Wire(UInt(${totalWidth}.W))")
+      emitGlobalWire(src"val $lhs = Wire(UInt(${totalWidth}.W))")
       emit(src"$lhs := Utils.Cat($items)")
     case FieldApply(struct, field) =>
       val (start, width) = tupCoordinates(struct.tp, field)      
@@ -104,7 +104,4 @@ trait ChiselGenStructs extends ChiselCodegen {
 
     case _ => super.emitNode(lhs, rhs)
   }
-
-
-
 }

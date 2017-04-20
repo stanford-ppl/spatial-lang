@@ -1,98 +1,91 @@
-// import spatial.compiler._
-// import spatial.library._
-// import spatial.shared._
+import spatial._
+import org.virtualized._
 
-// // Sparse Matrix Vector multiply
-// object SMV extends SpatialAppCompiler with SMVApp // Regression (Sparse) // Args: 768
-// trait SMVApp extends SpatialApp {
-//   type T = SInt //FixPt[Signed,B16,B16]
-//   type Array[T] = ForgeArray[T]
+object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
+  import IR._
 
-//   val tileSize = 768
-//   val innerPar = 8
-//   val outerPar = 1
-//   val pp = 3840
-//   val maximumNNZ = 60
-//   val margin = 1
+  type T = Int //FixPt[Signed,B16,B16]
 
-//   def smv(AC: Rep[Array[SInt]], AD: Rep[Array[T]], S: Rep[Array[SInt]], V: Rep[Array[T]],nn: Rep[SInt], NNZ: Rep[SInt]) = {
-//     val N = ArgIn[SInt]
-//     setArg(N,nn)
+  val tileSize = 768
+  val innerPar = 8
+  val outerPar = 1
+  val pp = 3840
+  val maximumNNZ = 60
+  val margin = 1
 
-//     val aC = DRAM[SInt](pp,maximumNNZ)
-//     val aD = DRAM[T](pp,maximumNNZ)
-//     val sizes = DRAM[SInt](pp)
-//     val v = DRAM[T](pp)
-//     val out = DRAM[T](N)
+  @virtualize
+  def main() = {
+    val nn = args(0).to[Int]
+    val NNZ = maximumNNZ//args(1).to[Int]
+    val P = pp
 
-//     val op = outerPar (1 -> 6)
-//     val ip = innerPar (1 -> 96)
-//     val stPar    = innerPar (1 -> 1)
+    val AC = Array.tabulate(nn){ i => Array.tabulate(NNZ) { j => (j * 3).to[Int]}}
+    val AD = Array.tabulate(nn){ i => Array.fill(NNZ) {random[Int](5) }}
+    val S = Array.tabulate(nn){ i => NNZ.to[Int] }
+	    val V = Array.tabulate(P){ i => i.to[Int] }
 
-//     setMem(aC, AC)
-//     setMem(aD, AD)
-//     setMem(sizes, S)
-//     setMem(v, V)
+    val N = ArgIn[Int]
+    setArg(N,nn)
 
-//     Accel {
-//       Pipe(N by tileSize){ rowchunk =>
-//         val smvresult = SRAM[T](tileSize)
-//         val smvtileSizes = SRAM[SInt](tileSize)
-//         smvtileSizes := sizes(rowchunk :: rowchunk+tileSize par ip)
-//         Pipe(tileSize by 1 par op){row =>
-//           val csrCols = SRAM[SInt](tileSize)
-//           val csrData = SRAM[T](tileSize)
-//           val vecGathered = SRAM[T](tileSize)
+    val aC = DRAM[Int](pp,maximumNNZ)
+    val aD = DRAM[Int](pp,maximumNNZ)
+    val sizes = DRAM[Int](pp)
+    val v = DRAM[Int](pp)
+    val out = DRAM[Int](N)
 
-//           // Load dense csr piece
-//           val len = smvtileSizes(row)
-//           val OCROW = (rowchunk+row) // TODO: Issue #47
-//           Parallel{
-//             csrCols := aC(OCROW, 0 :: len par ip)
-//             csrData := aD(OCROW, 0 :: len par ip)
-//           }
-//           vecGathered := v(csrCols, len)
+    val op = outerPar (1 -> 6)
+    val ip = innerPar (1 -> 96)
+    val stPar    = innerPar (1 -> 1)
 
-//           val acc = Reduce(len by 1 par ip)(0.to[T]) { i =>
-//             csrData(i) * vecGathered(i)
-//           }{_+_}
+    setMem(aC, AC.flatten)
+    setMem(aD, AD.flatten)
+    setMem(sizes, S)
+    setMem(v, V)
 
-//           smvresult(row) = acc.value
+    Accel {
+      Foreach(N by tileSize){ rowchunk =>
+        val smvresult = SRAM[Int](tileSize)
+        val smvtileSizes = SRAM[Int](tileSize)
+        smvtileSizes load sizes(rowchunk :: rowchunk+tileSize par ip)
+        Foreach(tileSize by 1 par op){row =>
+          val csrCols = SRAM[Int](tileSize)
+          val csrData = SRAM[Int](tileSize)
+          val vecGathered = SRAM[Int](tileSize)
 
-//         }
-//       out(rowchunk::rowchunk+tileSize par stPar) := smvresult
-//       }
-//     }
-//     getMem(out)
-//   }
+          // Load dense csr piece
+          val len = smvtileSizes(row)
+          val OCROW = (rowchunk+row) // TODO: Issue #47
+          Parallel{
+            csrCols load aC(OCROW, 0 :: len par ip)
+            csrData load aD(OCROW, 0 :: len par ip)
+          }
+          vecGathered gather v(csrCols, len)
 
-//   def printArr(a: Rep[Array[T]], str: String = "") {
-//     println(str)
-//     (0 until a.length) foreach { i => print(a(i) + " ") }
-//     println("")
-//   }
+          val acc = Reduce(Reg[Int](0.to[Int]))(len by 1 par ip) { i =>
+            csrData(i) * vecGathered(i)
+          }{_+_}
 
-//   def main() = {
-//     val N = args(0).to[SInt]
-//     val NNZ = maximumNNZ//args(1).to[SInt]
-//     val P = pp
+          smvresult(row) = acc.value
 
-//     val AC = Array.tabulate(N){ i => Array.tabulate(NNZ) { j => j * 3}}
-//     val AD = Array.tabulate(N){ i => Array.fill(NNZ) {random[T](5) }}
-//     val S = Array.tabulate(N){ i => NNZ }
-//     val V = Array.tabulate(P){ i => i }
+        }
+      out(rowchunk::rowchunk+tileSize par stPar) store smvresult
+      }
+    }
+    val smvresult = getMem(out)
 
-//     val smvresult = smv(AC.flatten, AD.flatten, S, V, N, NNZ)
 
-//     val gold = AC.zip(AD) { (col, data) => col.zip(data) {(c, d) =>
-//       d*V(c)
-//     }.reduce{_+_}}
 
-//     printArr(gold, "gold: ")
-//     printArr(smvresult, "smvresult: ")
+    val gold = AC.zip(AD) { (col, data) => col.zip(data) {(c, d) =>
+      d*V(c)
+    }.reduce{_+_}}
 
-//     val cksum = smvresult.zip(gold){(a,b) => a - margin < b && a + margin > b}.reduce{_&&_}
-//     println("PASS: " + cksum + " (SMV)")
+    printArray(gold, "gold: ")
+    printArray(smvresult, "smvresult: ")
 
-//   }
-// }
+    val cksum = smvresult.zip(gold){(a,b) => a - margin < b && a + margin > b}.reduce{_&&_}
+    println("PASS: " + cksum + " (SMV)")
+
+  }
+
+
+}

@@ -14,12 +14,14 @@ class Fringe(
   val w: Int,
   val numArgIns: Int,
   val numArgOuts: Int,
+  val numArgIOs: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
-  val streamOutsInfo: List[StreamParInfo]
+  val streamOutsInfo: List[StreamParInfo],
+  val blockingDRAMIssue: Boolean = false
 ) extends Module {
-  val numRegs = numArgIns + numArgOuts + 2  // (command, status registers)
+  val numRegs = numArgIns + numArgOuts + 2 - numArgIOs // (command, status registers)
   val addrWidth = log2Up(numRegs)
 
   val commandReg = 0  // TODO: These vals are used in test only, logic below does not use them.
@@ -60,7 +62,7 @@ class Fringe(
   })
 
   // Scalar, command, and status register file
-  val regs = Module(new RegFile(regWidth, numRegs, numArgIns+2, numArgOuts+1))
+  val regs = Module(new RegFile(regWidth, numRegs, numArgIns+2, numArgOuts+1, numArgIOs))
   regs.io.raddr := io.raddr
   regs.io.waddr := io.waddr
   regs.io.wen := io.wen
@@ -70,7 +72,7 @@ class Fringe(
   val command = regs.io.argIns(0)   // commandReg = first argIn
   val curStatus = regs.io.argIns(1) // current status
   io.enable := command(0) & ~curStatus(0)          // enable = LSB of first argIn
-  io.argIns := regs.io.argIns.drop(2) // Accel argIns: Everything except first argIn
+  io.argIns.zipWithIndex.foreach{case (p, i) => p := regs.io.argIns(i+2)}
 
   val depulser = Module(new Depulser())
   depulser.io.in := io.done
@@ -92,7 +94,7 @@ class Fringe(
   }
 
   // Memory address generator
-  val mag = Module(new MAGCore(w, d, v, loadStreamInfo, storeStreamInfo, numOutstandingBursts, burstSizeBytes))
+  val mag = Module(new MAGCore(w, d, v, loadStreamInfo, storeStreamInfo, numOutstandingBursts, burstSizeBytes, blockingDRAMIssue))
   val magConfig = Wire(new MAGOpcode())
   magConfig.scatterGather := false.B
   mag.io.config := magConfig

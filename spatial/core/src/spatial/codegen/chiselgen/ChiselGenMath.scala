@@ -14,11 +14,10 @@ trait ChiselGenMath extends ChiselCodegen {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case FixRandom(x)=> s"x${lhs.id}_fixrnd"
-            case FixNeg(x:Exp[_]) => s"x${lhs.id}_neg${quoteOperand(x)}"
-            case FixAdd(x:Exp[_],y:Exp[_]) => s"x${lhs.id}_sum${quoteOperand(x)}_${quoteOperand(y)}"
+          lhs match {
+            case Def(FixRandom(x)) => s"x${lhs.id}_fixrnd"
+            case Def(FixNeg(x:Exp[_]))  => s"x${lhs.id}_neg${quoteOperand(x)}"
+            case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"x${lhs.id}_sum${quoteOperand(x)}_${quoteOperand(y)}"
             case _ => super.quote(s)
           }
         case _ => super.quote(s)
@@ -50,6 +49,25 @@ trait ChiselGenMath extends ChiselCodegen {
       case DoubleType() => emit(src"val $lhs = Math.sqrt($x)")
       case FloatType()  => emit(src"val $lhs = Math.sqrt($x.toDouble).toFloat")
     }
+
+    case FltSin(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltCos(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltTan(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltSinh(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltCosh(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltTanh(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltAsin(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltAcos(x) =>
+      throw new TrigInAccelException(lhs)
+    case FltAtan(x) =>
+      throw new TrigInAccelException(lhs)
 
     case Mux(sel, a, b) => emit(src"val $lhs = Utils.mux(($sel), $a, $b)")
 

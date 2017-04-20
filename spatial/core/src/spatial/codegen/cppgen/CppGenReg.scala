@@ -10,6 +10,7 @@ trait CppGenReg extends CppCodegen {
   val IR: SpatialExp
   import IR._
 
+  var argIOs: List[Sym[Reg[_]]] = List()
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -40,6 +41,9 @@ trait CppGenReg extends CppCodegen {
       emit(src"//${lhs.tp}* $lhs = new ${lhs.tp} {0}; // Initialize cpp argin ???")
     case ArgOutNew(init) => 
       emit(src"//int32_t* $lhs = new int32_t {0}; // Initialize cpp argout ???")
+    case HostIONew(init) => 
+      argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      emit(src"//${lhs.tp}* $lhs = new ${lhs.tp} {0}; // Initialize cpp argout ???")
     case RegRead(reg)    => 
       emit(src"${lhs.tp} $lhs = $reg;")
     case RegWrite(reg,v,en) => 
@@ -48,6 +52,11 @@ trait CppGenReg extends CppCodegen {
   }
 
   override protected def emitFileFooter() {
+    withStream(getStream("DE1SoC", "h")) {
+      argIOs.foreach{a =>
+        emit(src"""#define ${nameOf(a).getOrElse("ERROR: Unnamed IO")} ${2+argMapping(a)._2}""")
+      }
+    }
     super.emitFileFooter()
   }
 }

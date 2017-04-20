@@ -17,6 +17,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.remap(tp)
   }
 
+  protected def newWire(tp: Type[_]): String = tp match {
+    case FixPtType(s,d,f) => src"new FixedPoint($s, $d, $f)"
+    case IntType() => "UInt(32.W)"
+    case LongType() => "UInt(32.W)"
+    case BoolType => "Bool()"
+    case tp: ArrayType[_] => src"Wire(Vec(999, ${newWire(tp.typeArguments.head)}"
+    case _ => throw new NoWireConstructorException(s"$tp")
+  }
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
     case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
     case IntType()  => false
@@ -52,72 +60,77 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@SRAMNew(dimensions) => 
-      withStream(getStream("GlobalWires")) {
-        duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
-          val rParZip = readersOf(lhs)
-            .filter{read => dispatchOf(read, lhs) contains i}
-            .map { r => 
-              val par = r.node match {
-                case Def(_: SRAMLoad[_]) => 1
-                case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
-              }
-              val port = portsOf(r, lhs, i).toList.head
-              (par, port)
+      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
+        val rParZip = readersOf(lhs)
+          .filter{read => dispatchOf(read, lhs) contains i}
+          .map { r => 
+            val par = r.node match {
+              case Def(_: SRAMLoad[_]) => 1
+              case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
             }
-          val rPar = rParZip.map{_._1}.mkString(",")
-          val rBundling = rParZip.map{_._2}.mkString(",")
-          val wPar = writersOf(lhs)
-            .filter{write => dispatchOf(write, lhs) contains i}
-            .filter{w => portsOf(w, lhs, i).toList.length == 1}.map { w =>
-            w.node match {
+            val port = portsOf(r, lhs, i).toList.head
+            (par, port)
+          }
+        val rPar = rParZip.map{_._1}.mkString(",")
+        val rBundling = rParZip.map{_._2}.mkString(",")
+        val wParZip = writersOf(lhs)
+          .filter{write => dispatchOf(write, lhs) contains i}
+          .filter{w => portsOf(w, lhs, i).toList.length == 1}
+          .map { w => 
+            val par = w.node match {
               case Def(_: SRAMStore[_]) => 1
               case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
                 case Op(ListVector(elems)) => elems.length // Was this deprecated?
                 case _ => ens.length
               }
             }
-          }.mkString(",")
-          val broadcasts = writersOf(lhs)
-            .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
-            w.node match {
-              case Def(_: SRAMStore[_]) => 1
-              case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
-                case Op(ListVector(elems)) => elems.length // Was this deprecated?
-                case _ => ens.length
-              }
+            val port = portsOf(w, lhs, i).toList.head
+            (par, port)
+          }
+        val wPar = wParZip.map{_._1}.mkString(",")
+        val wBundling = wParZip.map{_._2}.mkString(",")
+        val broadcasts = writersOf(lhs)
+          .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
+          w.node match {
+            case Def(_: SRAMStore[_]) => 1
+            case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
+              case Op(ListVector(elems)) => elems.length // Was this deprecated?
+              case _ => ens.length
             }
-          } // Should only have 1 or 0
-          val bPar = if (broadcasts.length == 1) broadcasts.head else 0
-          val width = bitWidth(lhs.tp.typeArguments.head)
+          }
+        } // Should only have 1 or 0
+        val bPar = if (broadcasts.length == 1) broadcasts.head else 0
+        val width = bitWidth(lhs.tp.typeArguments.head)
 
-          mem match {
-            case BankedMemory(dims, depth, isAccum) =>
-              val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
-              if (depth == 1) {
-                open(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
-                emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
-                emit(src"""List($wPar), List($rPar), BankedMemory""")
-                close("))")
-              } else {
-                nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-                open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
-                emit(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
-                emit(src"""List($wPar), List($rPar), List($rBundling), $bPar, BankedMemory""")
-                close("))")
-              }
-            case DiagonalMemory(strides, banks, depth, isAccum) =>
-              if (depth == 1) {
-                open(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
-                emit(src"""List(${Array.fill(dimensions.length){s"$banks"}.mkString(",")}), List(${strides.mkString(",")}),""")
-                emit(src"""List($wPar), List($rPar), DiagonalMemory""")
-                close("))")
-              } else {
-                nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-                open(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
-                emit(src"""List(${Array.fill(dimensions.length){s"$banks"}.mkString(",")}), List(${strides.mkString(",")}),""")
-                emit(src"""List($wPar), List($rPar), List($rBundling), $bPar, DiagonalMemory""")
-                close("))")
-              }
+        mem match {
+          case BankedMemory(dims, depth, isAccum) =>
+            val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
+            if (depth == 1) {
+              openGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
+              emitGlobalModule(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
+              emitGlobalModule(src"""List($wPar), List($rPar), BankedMemory""")
+              closeGlobalModule("))")
+            } else {
+              nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
+              openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
+              emitGlobalModule(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
+              emitGlobalModule(src"""List($wPar), List($rPar), """)
+              emitGlobalModule(src"""List($wBundling), List($rBundling), $bPar, BankedMemory""")
+              closeGlobalModule("))")
+            }
+          case DiagonalMemory(strides, banks, depth, isAccum) =>
+            if (depth == 1) {
+              openGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
+              emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}.mkString(",")}), List(${strides.mkString(",")}),""")
+              emitGlobalModule(src"""List($wPar), List($rPar), DiagonalMemory""")
+              closeGlobalModule("))")
+            } else {
+              nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
+              openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
+              emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}.mkString(",")}), List(${strides.mkString(",")}),""")
+              emitGlobalModule(src"""List($wPar), List($rPar), """)
+              emitGlobalModule(src"""List($wBundling), List($rBundling), $bPar, DiagonalMemory""")
+              closeGlobalModule("))")
             }
           }
         }
@@ -127,7 +140,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val rPar = 1 // Because this is SRAMLoad node    
       val width = bitWidth(sram.tp.typeArguments.head)
       emit(s"""// Assemble multidimR vector""")
-      dispatch.foreach{ i => 
+      dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enable = src"""${parent}_en"""
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, ${width})))""")
@@ -137,14 +150,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
         }
         val p = portsOf(lhs, sram, i).head
         emit(src"""val ${lhs}_base = ${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
-        sram.tp.typeArguments.head match { 
-          case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-              emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$i.io.output.data(${quote(lhs)}_base))""")
-            } else {
-              emit(src"""val $lhs = ${sram}_$i.io.output.data(${lhs}_base)""")
-            }
-          case _ => emit(src"""val $lhs = ${sram}_$i.io.output.data(${lhs}_base)""")
-        }
+        emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""") 
+        emit(src"""${lhs}.number := ${sram}_$i.io.output.data(${lhs}_base)""")
       }
 
     case SRAMStore(sram, dims, is, ofs, v, en) =>
@@ -153,14 +160,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val enable = src"""${parent}_datapath_en"""
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, ${width}))) """)
-      sram.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-            emit(src"""${lhs}_wVec(0).data := ${v}.number""")
-          } else {
-            emit(src"""${lhs}_wVec(0).data := ${v}""")
-          }
-        case _ => emit(src"""${lhs}_wVec(0).data := ${v}""")
-      }
+      emit(src"""${lhs}_wVec(0).data := ${v}.number""")
       emit(src"""${lhs}_wVec(0).en := ${en} & ${enable}""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.number // Assume always an int""")

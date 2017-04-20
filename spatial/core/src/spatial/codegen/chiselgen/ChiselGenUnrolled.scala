@@ -17,11 +17,11 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
         emit(src"${is(0)}${suffix}.number := ${counters(i)}${suffix}(0)")
-        emitGlobal(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
+        emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
           emit(src"${iter}${suffix}.number := ${counters(i)}${suffix}($j)")
-          emitGlobal(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
+          emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
         }
       }
     }
@@ -119,18 +119,18 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U //TODO: Really calculate this""")
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
-      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
+      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc & ${lhs}_redLoop_done""")
       if (styleOf(lhs) == InnerPipe) {
-        emit(src"val ${accum}_wren = ${lhs}_datapath_en & ~ ${lhs}_done // TODO: Skeptical these codegen rules are correct")
+        emit(src"val ${accum}_wren = ${lhs}_datapath_en & ~${lhs}_done & ${lhs}_redLoop_done")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
         accum match { 
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {
             if (true) {
-              emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: Skeptical these codegen rules are correct")
+              emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")
             } else {
-              emit(src"val ${accum}_wren = ${childrenOf(lhs).dropRight(1).last}_done // TODO: Skeptical these codegen rules are correct")              
+              emit(src"val ${accum}_wren = ${childrenOf(lhs).dropRight(1).last}_done & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")              
             }
           case Def(_:SRAMNew[_,_]) =>
             emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
@@ -246,7 +246,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         emit(src"$lb.io.col_addr(0) := ${col}.number // Assume we always read from same col")
         emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${row}.number)")
       }
-      emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${rows.length}, UInt(32.W)))""")
+      emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${rows.length}, UInt(32.W)))""")
       emit(s"""${quote(lhs)} := Vec(${(0 until rows.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
 
     case op@ParLineBufferEnq(lb,data,ens) => //FIXME: Not correct for more than par=1
@@ -257,18 +257,20 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(src"""$lb.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & ${parent}_datapath_en""")
 
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
+      val dispatch = dispatchOf(lhs, rf).toList.head
+      val port = portsOf(lhs, rf, dispatch).toList.head
       ens.zipWithIndex.foreach { case (en, i) => 
         if (spatialNeedsFPType(lhs.tp.typeArguments.head)) { lhs.tp.typeArguments.head match {
           case FixPtType(s,d,f) => 
-            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
+            emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
             emit(src"""val ${lhs}_$i = Wire(new FixedPoint($s, $d, $f))""")
-            emit(src"""${lhs}_$i := ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
+            emit(src"""${lhs}_$i := ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
           case _ =>
-            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_$i = ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
+            emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
+            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
         }} else {
-            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_$i = ${rf}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number)""")
+            emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
+            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
         }
       }
       emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
@@ -276,8 +278,11 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     case ParRegFileStore(rf, inds, data, ens) => //FIXME: Not correct for more than par=1
       val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-      ens.zipWithIndex.foreach{ case (en, i) => 
-        emit(s"""${quote(rf)}.connectWPort(${data(i)}.number, ${quote(inds(i)(0))}.number, ${quote(inds(i)(1))}.number, ${quote(en)} & ${quote(parent)}_datapath_en)""")
+      duplicatesOf(rf).zipWithIndex.foreach{case (mem, ii) => 
+        val port = portsOf(lhs, rf, ii)
+        ens.zipWithIndex.foreach{ case (en, i) => 
+          emit(s"""${quote(rf)}_${ii}.connectWPort(${data(i)}.number, ${quote(inds(i)(0))}.number, ${quote(inds(i)(1))}.number, ${quote(en)} & ${quote(parent)}_datapath_en, List(${port.toList.mkString(",")}))""")
+        }
       }
       
 

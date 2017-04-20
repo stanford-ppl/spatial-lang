@@ -40,10 +40,10 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
       val row_wPar = 1 // TODO: Do correct analysis here!
       val col_rPar = 1 // TODO: Do correct analysis here!
       val col_wPar = 1 // TODO: Do correct analysis here!
-      emitGlobal(s"""val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, 1, 
+      emitGlobalModule(s"""val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, 1, 
         ${col_wPar}, ${col_rPar}, 
         ${row_wPar}, ${row_rPar}))  // Data type: ${remap(op.mT)}""")
-      emitGlobal(src"$lhs.io.reset := reset")
+      emitGlobalModule(src"$lhs.io.reset := reset")
       linebufs = linebufs :+ lhs.asInstanceOf[Sym[LineBufferNew[_]]]
       
     case op@LineBufferRowSlice(lb,row,len,col) =>

@@ -103,11 +103,11 @@ object Arguments {
     5,
     8
   )
-  val Delayer = List(
-    10,
-    3,
-    1,
-    0
+  val Retimer = List(
+    (10, 32),
+    (3, 32),
+    (1, 32),
+    (0, 32)
   )
   val Mem1D = List(
     50,
@@ -134,31 +134,29 @@ object Arguments {
   val NBufSRAM = List( 
            ( List(8,12), 2, 32, 
              List(1,1), List(1,1), 
-             List(1), List(1), List(1), 1, BankedMemory),
+             List(1), List(1), List(0), List(1), 1, BankedMemory),
            ( List(8,12), 3, 32, 
              List(1,1), List(1,1), 
-             List(1), List(1), List(2), 1, BankedMemory),
+             List(1), List(1), List(0), List(2), 1, BankedMemory),
            ( List(8,12), 3, 32, 
              List(1,2), List(1,2), 
-             List(2), List(2), List(2), 2, BankedMemory)
+             List(2), List(2), List(0), List(2), 2, BankedMemory)
         )
   val Innerpipe = List(
-    2
+    false
   )
   val Parallel = List(
     3
   )
-  val ParallelShiftReg = List( // Arguments are (size, stride, parallelism)
-    (5,2,5),
-    (3,1,3)
+  val ShiftRegFile = List(
+    (1,6,1,1,false,32),
+    (1,3,1,1,false,32),
+    (3,7,1,1,false,32)
   )
-  val ParallelShiftRegFile = List( // Arguments are (size, stride)
-    (1,6,1,1),
-    (1,3,1,1),
-    (3,7,1,1)
-  )
-  val RegFile = List( // Arguments are (size)
-    (10)
+  val NBufShiftRegFile = List(
+    (1,8,1,3,1,32),
+    (2,8,1,3,1,32),
+    (3,7,1,3,1,32)
   )
   val LineBuffer = List( // Arguments are (#lines, line size, #extra rows to buffer, COL_PAR, ROW_PAR)
     (3,10,1,1,1,1,3),
@@ -300,10 +298,10 @@ object Launcher {
       }) 
   }.toMap
 
-  templates = templates ++ Arguments.Delayer.zipWithIndex.map{ case(arg,i) => 
-    (s"Delayer$i" -> { (backendName: String) =>
-        Driver(() => new Delayer(arg), "verilator") {
-          (c) => new DelayerTests(c)
+  templates = templates ++ Arguments.Retimer.zipWithIndex.map{ case(arg,i) => 
+    (s"Retimer$i" -> { (backendName: String) =>
+        Driver(() => new Retimer(arg), "verilator") {
+          (c) => new RetimerTests(c)
         }
       }) 
   }.toMap
@@ -356,26 +354,18 @@ object Launcher {
       }) 
   }.toMap
 
-  templates = templates ++ Arguments.ParallelShiftReg.zipWithIndex.map{ case(arg,i) => 
-    (s"ParallelShiftReg$i" -> { (backendName: String) =>
-        Driver(() => new ParallelShiftReg(arg), "verilator") {
-          (c) => new ParallelShiftRegTests(c)
+  templates = templates ++ Arguments.ShiftRegFile.zipWithIndex.map{ case(arg,i) => 
+    (s"ShiftRegFile$i" -> { (backendName: String) =>
+        Driver(() => new ShiftRegFile(arg), "verilator") {
+          (c) => new ShiftRegFileTests(c)
         }
       }) 
   }.toMap
 
-  templates = templates ++ Arguments.ParallelShiftRegFile.zipWithIndex.map{ case(arg,i) => 
-    (s"ParallelShiftRegFile$i" -> { (backendName: String) =>
-        Driver(() => new ParallelShiftRegFile(arg), "verilator") {
-          (c) => new ParallelShiftRegFileTests(c)
-        }
-      }) 
-  }.toMap
-
-  templates = templates ++ Arguments.RegFile.zipWithIndex.map{ case(arg,i) => 
-    (s"RegFile$i" -> { (backendName: String) =>
-        Driver(() => new RegFile(arg), "verilator") {
-          (c) => new RegFileTests(c)
+  templates = templates ++ Arguments.NBufShiftRegFile.zipWithIndex.map{ case(arg,i) => 
+    (s"NBufShiftRegFile$i" -> { (backendName: String) =>
+        Driver(() => new NBufShiftRegFile(arg), "verilator") {
+          (c) => new NBufShiftRegFileTests(c)
         }
       }) 
   }.toMap

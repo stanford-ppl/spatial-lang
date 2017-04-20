@@ -15,14 +15,14 @@ stamp_commit_msgs() {
   spatial_msg=`git log --stat --name-status ${spatial_hash}^..${spatial_hash}`
   cd $ARGON_HOME
   argon_msg=`git log --stat --name-status ${argon_hash}^..${argon_hash}`
-  #cd $VIRTUALIZED_HOME
-  #virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
+  cd $VIRTUALIZED_HOME
+  virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
   echo "
 # Commits
 " >> $wiki_file
   echo -e "\nSpatial commit\n\`\`\`\n${spatial_msg}\n\`\`\`" >> $wiki_file
   echo -e "\nArgon commit\n\`\`\`\n${argon_msg}\n\`\`\`" >> $wiki_file
-  #echo -e "\nVirtualized commit\n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nVirtualized commit\n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
   echo "
 # Test summary
 " >> $wiki_file
@@ -37,7 +37,7 @@ coordinate() {
   files=(*)
   new_packets=()
   sorted_packets=()
-  for f in ${files[@]}; do if [[ $f = *".new"* || $f = *".ack"* || $f = *".lock"* ]]; then new_packets+=($f); fi; done
+  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *"$branch"* ]]; then new_packets+=($f); fi; done
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
   rank=-1
@@ -55,7 +55,7 @@ coordinate() {
     # Update active packets list
     files=(*)
     new_packets=()
-    for f in ${files[@]}; do if [[ $f = *".new"* || $f = *".ack"* || $f = *".lock"* ]]; then new_packets+=($f); fi; done
+    for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *"$branch"* ]]; then new_packets+=($f); fi; done
     sorted_packets=()
     sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
     stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
@@ -190,9 +190,8 @@ stamp_commit_msgs
 
 stamp_app_comments() {
   cd ${SPATIAL_HOME}/regression_tests
-  comments=(`find . -type f -maxdepth 3 -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g"`)
-  echo -e "\n# Pass Comments:" >> $wiki_file
-  echo -e "\n${comments}" >> $wiki_file
+  echo -e "\n# Pass Comments:\n" >> $wiki_file
+  find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g" >> $wiki_file
 }
 
 update_log() {
