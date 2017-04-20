@@ -48,7 +48,7 @@ trait CppGenFileIO extends CppCodegen  {
     	emit(" // TODO: MOST LIKELY WRONG, not sure how to use $i")
     	open(src"for (int ${lhs}_id = 0; ${lhs}_id < $len; ${lhs}_id++) {")
     		open(src"if (${file}_file.is_open()) {")
-    			emit(src"${file}_file << ${token};")
+    			emit(src"${file}_file << ${token.result};")
 	    		val chardelim = src"$delim".replace("\"","'")
     			emit(src"""${file}_file << ${chardelim};""")
     		close("}")
