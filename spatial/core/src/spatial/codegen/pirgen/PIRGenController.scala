@@ -167,13 +167,13 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
       mem.writePort match {
         case Some(LocalVectorBus) => // Nothing?
         case Some(vec) => ports += s""".wtPort(${quote(vec)})"""
-        case None => ports += s""".wtPort(None)"""
-        //case None => throw new Exception(s"Memory $mem has no writePort defined")
+        //case None => ports += s""".wtPort(None)"""
+        case None => throw new Exception(s"Memory $mem has no writePort defined")
       }
       mem.readPort match {
         case Some(LocalVectorBus) => // Nothing?
         case Some(vec) => ports += s""".rdPort(${quote(vec)})"""
-        case None if isRemoteMem(compose(mem.mem)) => throw new Exception(s"Memory $mem has no readPort defined")
+        case None if mem.mode==SRAMMode => throw new Exception(s"Memory $mem has no readPort defined")
         case None => 
       }
       mem.readAddr match {

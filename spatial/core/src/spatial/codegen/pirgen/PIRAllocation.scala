@@ -184,7 +184,7 @@ trait PIRAllocation extends PIRTraversal {
     }
     setSwapCUs
     setBanking
-    cuMem.mode = memMode(mem)
+    cuMem.mode = memMode(mem, cu)
   }
   
   /**
@@ -287,13 +287,14 @@ trait PIRAllocation extends PIRTraversal {
     cu
   }
 
-  def memMode(dmem:Expr) = compose(dmem) match {
-    case mem if isReg(mem) | isGetDRAMAddress(mem) => ScalarBufferMode
-    case mem if isStreamIn(mem) => VectorFIFOMode // from Fringe
-    case mem if isFIFO(mem) | isStreamOut(mem) => 
+  def memMode(dmem:Expr, cu:PCU) = (compose(dmem), cu.style) match {
+    case (mem, style) if isReg(mem) | isGetDRAMAddress(mem) => ScalarBufferMode
+    case (mem, style) if isStreamIn(mem) => VectorFIFOMode // from Fringe
+    case (mem, style) if isFIFO(mem) | isStreamOut(mem) => 
       val writer = writerOf(mem)
       if (getInnerPar(writer.ctrlNode)==1) ScalarFIFOMode else VectorFIFOMode
-    case mem if isSRAM(mem) => SRAMMode
+    case (mem, MemoryCU(i)) if isSRAM(mem) => SRAMMode
+    case (mem, PipeCU) if isSRAM(mem) => VectorFIFOMode
   }
 
   /*
@@ -306,11 +307,13 @@ trait PIRAllocation extends PIRTraversal {
     val cuMem = getOrElseUpdate(cu.memMap, dmem, {
       val name = if (isGetDRAMAddress(dmem)) s"${quote(dmem)}"
                  else s"${quote(dmem)}_${quote(dreader)}"
-      val size = compose(dmem) match {
-        case m if isSRAM(m) => dimsOf(m.asInstanceOf[Exp[SRAM[_]]]).product
-        case m if isFIFO(m) => 
+      val size = (compose(dmem), cu.style) match {
+        case (m, MemoryCU(i)) if isSRAM(m) => dimsOf(m.asInstanceOf[Exp[SRAM[_]]]).product
+        case (m, PipeCU) if isSRAM(m) => dimsOf(m.asInstanceOf[Exp[SRAM[_]]]).product
+        case (m, style) if isSRAM(m) => dimsOf(m.asInstanceOf[Exp[SRAM[_]]]).product
+        case (m, style) if isFIFO(m) => 
           sizeOf(m.asInstanceOf[Exp[FIFO[Any]]]) match { case Exact(d) => d.toInt }
-        case m if isReg(m) | isStream(m) | isGetDRAMAddress(m) => 1
+        case (m, style) if isReg(m) | isStream(m) | isGetDRAMAddress(m) => 1
       }
       val cuMem = CUMemory(name, size, dmem, dreader, cu)
       dbgs(s"Add mem=$cuMem to cu=$cu")
@@ -490,7 +493,9 @@ trait PIRAllocation extends PIRTraversal {
           dbgs(s"readerCU = $readerCU")
           val bus = CUVector(s"${quote(dmem)}_${quote(dreader)}_${quote(readerCU.pipe)}") 
           globals += bus
-          readerCU.addReg(dreader, VectorIn(bus))
+          val vfifo = createMem(dmem, dreader, readerCU)
+          readerCU.addReg(dreader, MemLoadReg(vfifo))
+          vfifo.writePort = Some(bus)
           // Schedule address calculation
           val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms)
           val sramCUs = allocateMemoryCU(dmem)
