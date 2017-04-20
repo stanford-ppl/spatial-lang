@@ -45,11 +45,11 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         }
         if (depth == 1) {
           emitGlobalModule(s"val ${quote(lhs)}_$i = Module(new templates.ShiftRegFile(${dims(0)}, ${dims(1)}, 1, ${par}/${dims(0)}, false, $width))")
-          emitGlobalWire(s"${quote(lhs)}_$i.io.reset := reset")
+          emitGlobalModule(s"${quote(lhs)}_$i.io.reset := reset")
         } else {
           nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
           emitGlobalModule(s"val ${quote(lhs)}_$i = Module(new templates.NBufShiftRegFile(${dims(0)}, ${dims(1)}, 1, $depth, ${par}/${dims(0)}, $width))")
-          emitGlobalWire(s"${quote(lhs)}_$i.io.reset := reset")          
+          emitGlobalModule(s"${quote(lhs)}_$i.io.reset := reset")          
         }
       }
       
