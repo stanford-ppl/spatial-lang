@@ -1,12 +1,9 @@
 #!/bin/bash
 
-<<<<<<< HEAD
-export ARGON_HOME=`pwd`/../argon
-export SPATIAL_HOME=`pwd`
-export VIRTUALIZED_HOME=`pwd`/../scala-virtualized
-export PUB_HOME=${SPATIAL_HOME}
-export TEMPLATES_HOME=${SPATIAL_HOME}/src/spatial/codegen/chiselgen/resources/template-level
-#export JAVA_HOME=$(readlink -f $(dirname $(readlink -f $(which java)))/../../)
-=======
-export JAVA_HOME=$(readlink -f $(dirname $(readlink -f $(which java)))/../../)
->>>>>>> compile
+if [ "$(uname)" == "Darwin" ]; then
+	# Do something under Mac OS X platform        
+	export JAVA_HOME=$(/usr/libexec/java_home)
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+	# Do something under GNU/Linux platform
+	export JAVA_HOME=$(readlink -f $(dirname $(readlink -f $(which java)))/../../)
+fi
