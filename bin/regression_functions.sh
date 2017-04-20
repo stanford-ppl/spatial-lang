@@ -14,7 +14,7 @@ stamp_commit_msgs() {
   cd $SPATIAL_HOME
   tag=(`git describe --exact-match HEAD`)
   if [[ ! "${tag[@]}" = "" ]]; then
-    echo -e "\n# Tag = $tag\n"
+    echo -e "\n# Tag = $tag\n" >> $wiki_file
   fi
   spatial_msg=`git log --stat --name-status ${spatial_hash}^..${spatial_hash}`
   cd $ARGON_HOME
@@ -54,7 +54,7 @@ coordinate() {
     fi
 
     logger "This packet (${packet}) is ${rank}-th in line (${stringified})... Waiting $((delay/numpieces)) seconds..."
-    sleep 300
+    sleep 300lon
 
     # Update active packets list
     files=(*)
