@@ -14,7 +14,7 @@ trait ScalaGenFileIO extends ScalaCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case OpenFile(filename, write) => emit(src"val $lhs = new File($filename)")
+    case OpenFile(filename, write) => emit(src"val $lhs = new java.io.File($filename)")
 
     case ReadTokens(file, delim) =>
       open(src"val $lhs = {")
