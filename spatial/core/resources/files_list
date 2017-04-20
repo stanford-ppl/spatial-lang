@@ -208,7 +208,7 @@
 ./chiselgen/template-level/templates/Streampipe.scala
 ./chiselgen/template-level/templates/Parallel.scala
 ./chiselgen/template-level/templates/SRAM.scala
-./chiselgen/template-level/templates/Delay.scala
+./chiselgen/template-level/templates/Retimer.scala
 ./chiselgen/template-level/templates/Innerpipe.scala
 ./chiselgen/template-level/templates/MemController.scala
 ./chiselgen/template-level/templates/BlockSM.scala
@@ -228,7 +228,7 @@
 ./chiselgen/template-level/tests/templates/Sequential.scala
 ./chiselgen/template-level/tests/templates/Parallel.scala
 ./chiselgen/template-level/tests/templates/SRAM.scala
-./chiselgen/template-level/tests/templates/Delay.scala
+./chiselgen/template-level/tests/templates/Retimer.scala
 ./chiselgen/template-level/tests/templates/Innerpipe.scala
 ./chiselgen/template-level/tests/templates/MemController.scala
 ./chiselgen/template-level/TopTest.scala
