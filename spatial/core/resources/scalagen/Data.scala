@@ -11,7 +11,7 @@ object DataImplicits {
   implicit object NumberIsIntegral extends Integral[Number] {
     def quot(x: Number, y: Number): Number = x / y
     def rem(x: Number, y: Number): Number = x % y
-    def compare(x: Number, y: Number): Int = if (x < y) - 1 else if (x > y) 1 else 0
+    def compare(x: Number, y: Number): Int = if (x < y) -1 else if (x > y) 1 else 0
     def plus(x : Number, y : Number) : Number = x + y
     def minus(x : Number, y : Number) : Number = x - y
     def times(x : Number, y : Number) : Number = x * y
@@ -64,7 +64,7 @@ case object DoubleFormat extends FloatPoint(53,11)
 
 // TODO: Need to model effects of limited precision
 // TODO: Bitwise operations on floating point values?
-case class Number(value: BigDecimal, valid: Boolean, fmt: NumberFormat) extends Data(valid) {
+class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) extends Data(valid) {
   def intValue: Int = fmt match {
     case FixedPoint(s,i,0) => value.toIntExact
     case _ => throw new Exception("Cannot get fixed point representation of a floating point number")
@@ -82,7 +82,7 @@ case class Number(value: BigDecimal, valid: Boolean, fmt: NumberFormat) extends 
     case FloatPoint(g,e) => throw new Exception("TODO: Bitwise operations on floating point valus not yet supported")
   }
 
-  def withValid(valid: Boolean) = this.copy(valid = valid)
+  def withValid(valid: Boolean) = Number(value, valid, fmt)
 
   def unary_-() = Number(-this.value, valid, fmt)
   def unary_~() = Number(~this.fixValue, valid, fmt)
@@ -110,6 +110,15 @@ case class Number(value: BigDecimal, valid: Boolean, fmt: NumberFormat) extends 
     Number(bits ++ zeros, fmt).withValid(this.valid && that.valid)
   }
 
+  override def equals(that: Any): Boolean = that match {
+    case that: Int => this === Number(that)
+    case that: Long => this === Number(that)
+    case that: Float => this === Number(that)
+    case that: Double => this === Number(that)
+    case that: Number => this === that && this.fmt == that.fmt
+    case _ => false
+  }
+
   def toDouble: Double = value.toDouble
   def toInt: Int = value.toInt
   def toLong: Long = value.toLong
@@ -118,7 +127,7 @@ case class Number(value: BigDecimal, valid: Boolean, fmt: NumberFormat) extends 
   def until(end: Number) = NumberRange(this, end, Number(1), isInclusive = false)
   def to(end: Number) = NumberRange(this, end, Number(1), isInclusive = true)
 
-  override def toString = if (valid) { value.toString } else { "X" + value.toString + "X" }
+  override def toString = if (valid) { value.bigDecimal.toPlainString } else { "X" + value.bigDecimal.toPlainString + "X" }
 }
 
 // Almost more trouble than it's worth...
@@ -130,6 +139,21 @@ case class NumberRange(override val start: Number, override val end: Number, ove
 }
 
 object Number {
+  def apply(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = fmt match {
+    case FixedPoint(s,i,f) =>
+      val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1 )
+      val MIN_INTEGRAL_VALUE = BigDecimal( if (s) -(BigInt(1) << (i-1)) else BigInt(0) )
+
+      var actualValue = value
+      while (actualValue < MIN_INTEGRAL_VALUE) actualValue = (MAX_INTEGRAL_VALUE - (MIN_INTEGRAL_VALUE - actualValue - 1))
+      while (actualValue > MAX_INTEGRAL_VALUE) actualValue = (MIN_INTEGRAL_VALUE + (MAX_INTEGRAL_VALUE - actualValue + 1))
+
+      val intValue = actualValue * math.pow(2, f)
+      new Number(BigDecimal(Math.floor(intValue.toDouble) / math.pow(2, f)), valid, fmt)
+
+    case FloatPoint(g,e) => new Number(value, valid, fmt)
+  }
+
   def apply(value: Int): Number = Number(BigDecimal(value), true, IntFormat)
   def apply(value: Long): Number = Number(BigDecimal(value), true, LongFormat)
   def apply(value: Float): Number = Number(BigDecimal(value.toDouble), true, FloatFormat)
