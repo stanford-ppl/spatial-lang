@@ -59,7 +59,7 @@ protected trait SpatialApi extends SpatialExp
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenArray with ScalaGenSpatialArrayExt with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
   with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenStructs with ScalaGenSpatialStruct
-  with ScalaGenText with ScalaGenVoid
+  with ScalaGenText with ScalaGenVoid with ScalaGenFunction
   with ScalaGenDebugging
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
@@ -97,7 +97,7 @@ protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenIfThenElse with CppGenController with CppGenMath with CppGenFringeCopy with CppGenText
   with CppGenDRAM with CppGenHostTransfer with CppGenUnrolled with CppGenVector
   with CppGenArray with CppGenArrayExt with CppGenRange with CppGenAlteraVideo with CppGenStream
-  with CppGenHashMap with CppGenStructs with CppGenDebugging with CppGenFileIO{
+  with CppGenHashMap with CppGenStructs with CppGenDebugging with CppGenFileIO with CppGenFunction {
 
   override val IR: SpatialCompiler
 }
