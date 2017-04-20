@@ -109,6 +109,10 @@ object Arguments {
     (1, 32),
     (0, 32)
   )
+  val PRNG = List(
+    1,
+    77
+  )
   val Mem1D = List(
     50,
     1024
@@ -302,6 +306,14 @@ object Launcher {
     (s"Retimer$i" -> { (backendName: String) =>
         Driver(() => new Retimer(arg), "verilator") {
           (c) => new RetimerTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.PRNG.zipWithIndex.map{ case(arg,i) => 
+    (s"PRNG$i" -> { (backendName: String) =>
+        Driver(() => new PRNG(arg), "verilator") {
+          (c) => new PRNGTests(c)
         }
       }) 
   }.toMap
