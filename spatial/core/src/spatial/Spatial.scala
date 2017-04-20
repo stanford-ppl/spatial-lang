@@ -3,11 +3,11 @@ package spatial
 import argon.codegen.Codegen
 import argon.codegen.scalagen._
 import argon.codegen.chiselgen._
-import argon.codegen.pirgen._
+import argon.codegen.dotgen._
 import argon.codegen.cppgen._
+import spatial.codegen.dotgen._
 import argon.traversal.IRPrinter
 import argon._
-import argon.typeclasses.ArithExp
 import forge._
 import org.virtualized.EmptyContext
 import spatial.api._
@@ -59,7 +59,7 @@ protected trait SpatialApi extends SpatialExp
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenArray with ScalaGenSpatialArrayExt with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
   with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenStructs with ScalaGenSpatialStruct
-  with ScalaGenText with ScalaGenVoid
+  with ScalaGenText with ScalaGenVoid with ScalaGenFunction
   with ScalaGenDebugging
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
@@ -87,12 +87,7 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   override val IR: SpatialCompiler
 }
 
-protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen with PIRGenController
-  //with PIRGenCounter with PIRGenReg with PIRGenSRAM with PIRGenFIFO with PIRGenMath 
-  //with PIRGenDRAM with PIRGenStringCast with PIRGenHostTransfer with PIRGenUnrolled with PIRGenVector
-  //with PIRGenArray 
-  {
-
+protected trait PIRGenSpatial extends PIRCodegen with PIRFileGen with PIRGenController {
   override val IR: SpatialCompiler
 }
 
@@ -102,12 +97,23 @@ protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenIfThenElse with CppGenController with CppGenMath with CppGenFringeCopy with CppGenText
   with CppGenDRAM with CppGenHostTransfer with CppGenUnrolled with CppGenVector
   with CppGenArray with CppGenArrayExt with CppGenRange with CppGenAlteraVideo with CppGenStream
-  with CppGenHashMap with CppGenStructs with CppGenDebugging with CppGenFileIO{
+  with CppGenHashMap with CppGenStructs with CppGenDebugging with CppGenFileIO with CppGenFunction {
 
   override val IR: SpatialCompiler
 }
 
 protected trait TreeWriter extends TreeGenSpatial {
+  override val IR: SpatialCompiler
+}
+
+protected trait DotGenSpatial extends DotCodegen with DotFileGen
+  with DotGenEmpty
+  with DotGenBool with DotGenVoid with DotGenFixPt with DotGenFltPt
+  with DotGenCounter with DotGenReg with DotGenSRAM with DotGenFIFO
+  with DotGenIfThenElse with DotGenController with DotGenMath with DotGenText
+  with DotGenDRAM with DotGenHostTransfer with DotGenUnrolled with DotGenVector
+  with DotGenArray with DotGenAlteraVideo with DotGenStream {
+
   override val IR: SpatialCompiler
 }
 
@@ -178,6 +184,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
   lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
   lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
   lazy val treegen = new TreeGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableTree }
+  lazy val dotgen = new DotGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableDot }
 
   def codegenerators = passes.collect{case x: Codegen => x}
 
@@ -278,6 +285,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     if (SpatialConfig.enableSynth) passes += chiselgen
     if (SpatialConfig.enablePIR)   passes += pirgen
     if (SpatialConfig.enableTree)  passes += treegen
+    if (SpatialConfig.enableDot)   passes += dotgen
   }
 }
 

@@ -20,6 +20,8 @@ trait SRAMExp { this: SpatialExp =>
     def s: Exp[SRAM[T]]
     protected def ofs(implicit ctx: SrcCtx) = lift[Int, Index](0).s
     protected[spatial] var p: Option[Index] = None
+
+    @util def ranges: Seq[Range] = stagedDimsOf(s).map{d => range_alloc(None, wrap(d),None,None)}
   }
 
   case class SRAM1[T:Meta:Bits](s: Exp[SRAM1[T]]) extends Template[SRAM1[T]] with SRAM[T] {
@@ -31,7 +33,7 @@ trait SRAMExp { this: SpatialExp =>
 
     @api def gather(dram: DRAMSparseTile[T]): Void = sparse_transfer(dram, this, isLoad = true)
 
-    @api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    @api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile1[T]): Void = dense_transfer(dram, this, isLoad = true)
   }
   case class SRAM2[T:Meta:Bits](s: Exp[SRAM2[T]]) extends Template[SRAM2[T]] with SRAM[T] {
@@ -41,7 +43,7 @@ trait SRAMExp { this: SpatialExp =>
       = Void(sram_store(this.s, stagedDimsOf(s), Seq(a.s,b.s), ofs, data.s, bool(true)))
     @api def par(p: Index): SRAM2[T] = { val x = SRAM2(s); x.p = Some(p); x }
 
-    @api def load(dram: DRAM2[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    @api def load(dram: DRAM2[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile2[T]): Void = dense_transfer(dram, this, isLoad = true)
   }
   case class SRAM3[T:Meta:Bits](s: Exp[SRAM3[T]]) extends Template[SRAM3[T]] with SRAM[T] {
@@ -51,7 +53,7 @@ trait SRAMExp { this: SpatialExp =>
       = Void(sram_store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s), ofs, data.s, bool(true)))
     @api def par(p: Index): SRAM3[T] = { val x = SRAM3(s); x.p = Some(p); x }
 
-    @api def load(dram: DRAM3[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    @api def load(dram: DRAM3[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile3[T]): Void = dense_transfer(dram, this, isLoad = true)
   }
   case class SRAM4[T:Meta:Bits](s: Exp[SRAM4[T]]) extends Template[SRAM4[T]] with SRAM[T] {
@@ -61,7 +63,7 @@ trait SRAMExp { this: SpatialExp =>
       = Void(sram_store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s), ofs, data.s, bool(true)))
     @api def par(p: Index): SRAM4[T] = { val x = SRAM4(s); x.p = Some(p); x }
 
-    @api def load(dram: DRAM4[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    @api def load(dram: DRAM4[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile4[T]): Void = dense_transfer(dram, this, isLoad = true)
   }
   case class SRAM5[T:Meta:Bits](s: Exp[SRAM5[T]]) extends Template[SRAM5[T]] with SRAM[T] {
@@ -71,7 +73,7 @@ trait SRAMExp { this: SpatialExp =>
       = Void(sram_store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s,e.s), ofs, data.s, bool(true)))
     @api def par(p: Index): SRAM5[T] = { val x = SRAM5(s); x.p = Some(p); x }
 
-    @api def load(dram: DRAM5[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    @api def load(dram: DRAM5[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile5[T]): Void = dense_transfer(dram, this, isLoad = true)
   }
 

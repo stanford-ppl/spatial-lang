@@ -6,6 +6,9 @@ trait LatencyModel {
   val IR: SpatialExp
   import IR._
 
+  var clockRate = 150.0f  // Frequency in MHz
+  var baseCycles = 43000  // Number of cycles required for startup
+
   def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
 
   def latencyOf(s: Exp[_], inReduce: Boolean): Long = s match {
@@ -24,6 +27,53 @@ trait LatencyModel {
 
   def nbits(e: Exp[_]) = e.tp match { case Bits(bits) => bits.length }
   def sign(e: Exp[_]) = e.tp match { case FixPtType(s,_,_) => s; case _ => true }
+
+  def requiresRegisters(s: Exp[_]): Boolean = getDef(s).exists{
+    // Register File
+    case _:RegFileLoad[_]    => true
+    case _:ParRegFileLoad[_] => true
+    // Streams
+
+    // FIFOs
+    case _:FIFODeq[_]    => true
+    case _:ParFIFODeq[_] => true
+
+    // SRAMs
+    // TODO: Should be a function of number of banks?
+    case _:SRAMLoad[_]     => true
+    case _:ParSRAMLoad[_]  => true
+
+    // LineBuffer
+    case _:LineBufferLoad[_]    => true
+    case _:ParLineBufferLoad[_] => true
+
+    case Not(_)     => true
+    case And(_,_)   => true
+    case Or(_,_)    => true
+    case XOr(_,_)   => true
+    case XNor(_,_)  => true
+    case FixNeg(_)   => true
+    case FixAdd(_,_) => true
+    case FixSub(_,_) => true
+    case FixMul(_,_) => true
+    case FixDiv(_,_) => true
+    case FixMod(_,_) => true
+    case FixLt(_,_)  => true
+    case FixLeq(_,_) => true
+    case FixNeq(_,_) => true
+    case FixEql(_,_) => true
+    case FixAnd(_,_) => true
+    case FixOr(_,_)  => true
+    case FixLsh(_,_) => true // TODO
+    case FixRsh(_,_) => true // TODO
+    case FixURsh(_,_) => true // TODO
+    case FixAbs(_)    => true
+
+    case Mux(_,_,_) => true
+    case Min(_,_)   => true
+    case Max(_,_)   => true
+    case _ => false
+  }
 
   private def latencyOfNode(s: Exp[_], d: Def): Long = d match {
     case d if isAllocation(d) => 0

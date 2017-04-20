@@ -321,6 +321,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     case OpForeach(cchain,func,iters) =>
       visitCtrl((lhs,false),iters,cchain){ visitBlock(func) }
       addChildDependencyData(lhs, func)
+      iters.foreach { iter => parentOf(iter) = lhs }
 
     case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
       visitCtrl((lhs,false), iters, cchain){
@@ -340,6 +341,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
       isAccum(accum) = true
       parentOf(accum) = lhs
+      iters.foreach { iter => parentOf(iter) = lhs }
       addChildDependencyData(lhs, map)
       isInnerAccum(accum) = isInnerControl(lhs)
 
@@ -356,15 +358,21 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
       isAccum(accum) = true
       parentOf(accum) = lhs
+      itersMap.foreach { iter => parentOf(iter) = lhs }
+      itersRed.foreach { iter => parentOf(iter) = lhs }
       addChildDependencyData(lhs, map)
       isInnerAccum(accum) = isInnerControl(lhs)
 
     case e: DenseTransfer[_,_] =>
       e.iters.foreach{i => parFactorOf(i) = int32(1) }
+      e.iters.foreach { iter => parentOf(iter) = lhs }
       parFactorOf(e.iters.last) = e.p
 
     case e: SparseTransfer[_] =>
       parFactorOf(e.i) = e.p
+
+    case e if isFringe(lhs) =>
+      rhs.allInputs.filter(isStream).foreach { stream => fringeOf(stream) = lhs }
 
     case _ => super.visit(lhs, rhs)
   }

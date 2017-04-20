@@ -14,6 +14,7 @@ trait NodeClasses { this: SpatialExp =>
     case Op(e: SparseTransfer[_])  => Seq(e.p)
     case _ => Nil
   }
+  def parsOf(x: Exp[_]): Seq[Int] = parFactorsOf(x) map{case Const(p: BigDecimal) => p.toInt }
 
   /** Control Nodes **/
   type Ctrl = (Exp[_], Boolean)
@@ -176,6 +177,11 @@ trait NodeClasses { this: SpatialExp =>
     case _ => false
   }
 
+  def isDRAM(e: Exp[_]): Boolean = e.tp match {
+    case _:DRAMType[_] => true
+    case _ => false
+  }
+
   def isSRAM(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] => true
     case _ => false
@@ -203,6 +209,8 @@ trait NodeClasses { this: SpatialExp =>
     case _:StreamOutType[_] => true
     case _ => false
   }
+
+  def isStream(e: Exp[_]): Boolean = isStreamIn(e) || isStreamOut(e)
 
   def isStreamLoad(e: Exp[_]): Boolean = e match {
     case Def(_:FringeDenseLoad[_]) => true
@@ -255,6 +263,14 @@ trait NodeClasses { this: SpatialExp =>
     case _ => false
   }
 
+  def isFringe(e:Exp[_]):Boolean = getDef(e).exists(isFringe)
+  def isFringe(d:Def):Boolean = d match {
+    case _:FringeDenseLoad[_] => true
+    case _:FringeDenseStore[_] => true
+    case _:FringeSparseLoad[_] => true
+    case _:FringeSparseStore[_] => true
+    case _ => false
+  }
 
   /** Host Transfer **/
 
@@ -403,9 +419,64 @@ trait NodeClasses { this: SpatialExp =>
     }
   }
 
+  // Memory, optional value, optional indices, optional enable
+  type ParLocalWrite = (Exp[_], Option[Seq[Exp[_]]], Option[Seq[Seq[Exp[Index]]]], Option[Seq[Exp[Bool]]])
+  // Memory, optional indices, optional enable
+  type ParLocalRead = (Exp[_], Option[Seq[Seq[Exp[Index]]]], Option[Seq[Exp[Bool]]])
+
+  private object ParLocalWrite {
+    def apply(mem: Exp[_]): List[ParLocalWrite] = List( (mem, None, None, None) )
+    def apply(mem: Exp[_], value: Seq[Exp[_]] = null, addrs: Seq[Seq[Exp[Index]]] = null, ens: Seq[Exp[Bool]] = null) = {
+      List( (mem, Option(value), Option(addrs), Option(ens)) )
+    }
+  }
+  private object ParLocalRead {
+    def apply(mem: Exp[_]): List[ParLocalRead] = List( (mem, None, None) )
+    def apply(mem: Exp[_], addrs: Seq[Seq[Exp[Index]]] = null, ens: Seq[Exp[Bool]] = null): List[ParLocalRead] = {
+      List( (mem, Option(addrs), Option(ens)) )
+    }
+  }
+  def parWriterUnapply(d: Def): Option[List[ParLocalWrite]] = d match {
+    //case BurstLoad(dram,fifo,ofs,_,_)       => Some(ParLocalWrite(fifo))
+    case ParSRAMStore(mem,addrs,data,ens)     => Some(ParLocalWrite(mem, value=data, addrs=addrs, ens=ens))
+    case ParFIFOEnq(fifo,data,ens)            => Some(ParLocalWrite(fifo, value=data, ens=ens))
+    case ParStreamWrite(stream, data, ens)    => Some(ParLocalWrite(stream, value=data, ens=ens))
+    case d => writerUnapply(d).map{writer => writer.map{
+      case (mem, value, addr, en) => (mem, value.map{x => Seq(x)}, addr.map{a => Seq(a)}, en.map{e => Seq(e)})
+    }}
+  }
+  def parReaderUnapply(d: Def): Option[List[ParLocalRead]] = d match {
+    //case BurstStore(dram,fifo,ofs,_,_) => Some(ParLocalRead(fifo))
+    case ParSRAMLoad(sram, addrs, ens)   => Some(ParLocalRead(sram, addrs=addrs, ens=ens))
+    case ParFIFODeq(fifo, ens)           => Some(ParLocalRead(fifo, ens=ens))
+    case ParStreamRead(stream, ens)      => Some(ParLocalRead(stream, ens=ens))
+    case d => readerUnapply(d).map{reader => reader.map{
+      case (mem, addr, en) => (mem, addr.map{a => Seq(a)}, en.map{e => Seq(e) })
+    }}
+  }
+  object ParLocalWriter {
+    def unapply(x: Exp[_]): Option[List[ParLocalWrite]] = getDef(x).flatMap(parWriterUnapply)
+    def unapply(d: Def): Option[List[ParLocalWrite]] = parWriterUnapply(d)
+  }
+  object ParLocalReader {
+    def unapply(x: Exp[_]): Option[List[ParLocalRead]] = getDef(x).flatMap(parReaderUnapply)
+    def unapply(d: Def): Option[List[ParLocalRead]] = parReaderUnapply(d)
+  }
+
   def isReader(x: Exp[_]): Boolean = LocalReader.unapply(x).isDefined
   def isReader(d: Def): Boolean = readerUnapply(d).isDefined
   def isWriter(x: Exp[_]): Boolean = LocalWriter.unapply(x).isDefined
   def isWriter(d: Def): Boolean = writerUnapply(d).isDefined
   def isAccess(x: Exp[_]): Boolean = isReader(x) || isWriter(x)
+  def getAccess(x:Exp[_]):Option[Access] = x match {
+    case LocalReader(reads) =>
+      val ras = reads.flatMap{ case (mem, _, _) => readersOf(mem).filter { _.node == x } }
+      assert(ras.size==1)
+      Some(ras.head)
+    case LocalWriter(writes) =>
+      val was = writes.flatMap{ case (mem, _, _, _) => writersOf(mem).filter {_.node == x} }
+      assert(was.size==1)
+      Some(was.head)
+    case _ => None
+  }
 }

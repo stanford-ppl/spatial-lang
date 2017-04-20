@@ -65,6 +65,7 @@ plasticine {
   comp = 8
   rw = 4
   mems = 4
+  lanes = 16
 }
   """)
 
@@ -75,7 +76,8 @@ plasticine {
     vOut: Int,
     comp: Int,
     rw: Int,
-    mems: Int
+    mems: Int,
+    lanes: Int
   )
 
   val mergedPlasticineConf = ConfigFactory.load().withFallback(defaultPlasticine).resolve()
@@ -89,5 +91,5 @@ plasticine {
   var comp: Int = plasticineConf.comp
   var readWrite: Int = plasticineConf.rw
   var mems: Int = plasticineConf.mems
-
+  var lanes: Int = plasticineConf.lanes
 }
