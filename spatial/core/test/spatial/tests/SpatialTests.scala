@@ -208,6 +208,40 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
     }
   }
 
+  object IllegalVarAssignTest extends SpatialTest {
+    import IR._
+
+    @virtualize
+    def main(): Unit = {
+      var x = 0
+      Accel {
+        x = 32
+      }
+      println(x)
+    }
+  }
+
+  object IllegalVarReadTest extends SpatialTest {
+    import IR._
+    @virtualize def main(): Unit = {
+      var x = 32
+      Accel {
+        val m = x + 32
+        println(m)
+      }
+    }
+  }
+
+  object IllegalVarNewTest extends SpatialTest {
+    import IR._
+    @virtualize def main(): Unit = {
+      Accel {
+        var x = 32
+        println(x + 1)
+      }
+    }
+  }
+
   "NumericTest" should "compile" in { NumericTest.main(noargs) }
   "RegTest" should "compile" in { RegTest.main(noargs) }
   "SRAMTest" should "compile" in { SRAMTest.main(noargs) }
@@ -219,4 +253,8 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   // a [TestBenchFailed] should be thrownBy { NDScatterTest.main(noargs) }
   a [TestBenchFailed] should be thrownBy { UntransferredValueTest.main(noargs) }
   a [TestBenchFailed] should be thrownBy { DRAMSizeTest.main(noargs) }
+
+  a [TestBenchFailed] should be thrownBy { IllegalVarAssignTest.main(noargs) }
+  a [TestBenchFailed] should be thrownBy { IllegalVarNewTest.main(noargs) }
+  a [TestBenchFailed] should be thrownBy { IllegalVarReadTest.main(noargs) }
 }

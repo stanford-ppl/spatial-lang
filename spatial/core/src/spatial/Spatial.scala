@@ -59,7 +59,7 @@ protected trait SpatialApi extends SpatialExp
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenArray with ScalaGenSpatialArrayExt with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
   with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenStructs with ScalaGenSpatialStruct
-  with ScalaGenText with ScalaGenVoid with ScalaGenFunction
+  with ScalaGenText with ScalaGenVoid with ScalaGenFunction with ScalaGenVariables
   with ScalaGenDebugging
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
