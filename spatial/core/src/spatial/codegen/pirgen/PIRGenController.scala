@@ -166,6 +166,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
       mem.writePort match {
         case Some(LocalVectorBus) => // Nothing?
+        case Some(LocalReadBus(vfifo)) => ports += s".wtPort(${quote(vfifo)}.readPort)" 
         case Some(vec) => ports += s""".wtPort(${quote(vec)})"""
         //case None => ports += s""".wtPort(None)"""
         case None => throw new Exception(s"Memory $mem has no writePort defined")
@@ -231,7 +232,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case ScalarFIFOMode => "ScalarFIFO"
   }
 
-  def quote(sram: CUMemory): String = sram.name
+  def quote(mem: CUMemory): String = mem.name
 
   def quote(x: GlobalComponent): String = x match {
     case OffChip(name)       => s"${name}_oc"
