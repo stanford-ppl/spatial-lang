@@ -11,6 +11,9 @@
 
 
 
+echo "=========================="
+echo "Merging $1 into $2"
+echo "=========================="
 
 # Clear git merging log
 rm /tmp/pub
@@ -61,7 +64,11 @@ currentbranch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 
 
 # Merge lower into higher
+echo "=========================="
+echo "Checkout $2 for argon"
+echo "=========================="
 cd argon
+git stash
 git checkout $2
 git pull
 git merge origin/$1 | tee -a /tmp/pub
@@ -73,7 +80,11 @@ fi
 sleep 1
 git push
 
+echo "=========================="
+echo "Checkout $2 for spatial-lang"
+echo "=========================="
 cd ../
+git stash
 git checkout $2
 git pull
 git merge origin/$1 | tee -a /tmp/pub
@@ -94,7 +105,17 @@ if [[ $3 = 1 ]]; then
 fi
 
 # Go back to your original branch
+echo "=========================="
+echo "Checkout $currentbranch for argon"
+echo "=========================="
 cd argon
 git checkout $currentbranch
+echo "=========================="
+echo "Checkout $current for spatial-lang"
+echo "=========================="
 cd ..
 git checkout $currentbranch
+cd argon
+git stash pop
+cd ..
+git stash pop
