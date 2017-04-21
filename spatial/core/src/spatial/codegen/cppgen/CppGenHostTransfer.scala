@@ -45,10 +45,10 @@ trait CppGenHostTransfer extends CppGenSRAM  {
       reg.tp.typeArguments.head match {
         case FixPtType(s,d,f) => if (f != 0) {
             emit(src"c1->setArg(${argMapping(reg)._2}, $v * (1 << $f), ${isHostIO(reg)}); // $lhs", forceful = true)
-            emit(src"*$reg = $v;")
+            emit(src"$reg = $v;")
           } else {
             emit(src"c1->setArg(${argMapping(reg)._2}, $v, ${isHostIO(reg)}); // $lhs", forceful = true)
-            emit(src"*$reg = $v;")
+            emit(src"$reg = $v;")
           }
         case _ => 
             emit(src"c1->setArg(${argMapping(reg)._2}, $v, ${isHostIO(reg)}); // $lhs", forceful = true)

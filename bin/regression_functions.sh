@@ -483,9 +483,10 @@ push_travis_ci() {
   if [ -d "${SPATIAL_HOME}/${trackbranch}" ]; then
     logger "Repo Tracker exists, pushing it..."
     cd ${SPATIAL_HOME}/${trackbranch}
+    git pull
     git add -A
     git commit -m "auto update"
-    git push
+    git push | tee -a /tmp/log
   else
     logger "Repo Tracker does not exist, skipping it!"
   fi

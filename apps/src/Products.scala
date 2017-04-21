@@ -78,7 +78,7 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 192 192
   }
 }
 
-object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1280
+object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1000
   import IR._
 
   type X = Int
@@ -107,13 +107,15 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1280
 
     Accel {
       out := Reduce(Reg[T](0.to[T]))(N by B par P1){i =>
+        val ts = Reg[Int](0)
+        ts := min(B, N-i)
         val aBlk = SRAM[T](B)
         val bBlk = SRAM[T](B)
         Parallel {
-          aBlk load a(i::i+B par 16)
-          bBlk load b(i::i+B par 16)
+          aBlk load a(i::i+ts.value par 16)
+          bBlk load b(i::i+ts.value par 16)
         }
-        Reduce(Reg[T](0.to[T]))(B par P2){ii => aBlk(ii) * bBlk(ii) }{_+_}
+        Reduce(Reg[T](0.to[T]))(ts.value par P2){ii => aBlk(ii) * bBlk(ii) }{_+_}
       }{_+_}
     }
     getArg(out)

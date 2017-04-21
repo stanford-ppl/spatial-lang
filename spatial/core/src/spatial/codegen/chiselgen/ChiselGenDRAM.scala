@@ -37,6 +37,15 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
     case _ => super.remap(tp)
   }
 
+  protected def getLastChild(lhs: Exp[_]): Exp[_] = {
+    var nextLevel = childrenOf(lhs)
+    if (nextLevel.length == 0) {
+      lhs
+    } else {
+      getLastChild(nextLevel.last)
+    }
+  }
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims) => 
       if (argMapping(lhs) == (-1,-1,-1)) {
@@ -57,7 +66,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       val id = loadsList.length
       loadParMapping = loadParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par})" 
       loadsList = loadsList :+ dram
-      emitGlobalWire(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams.loads(${id}).rdata.valid""")
+      val turnstiling_stage = getLastChild(parentOf(lhs).get)
+      emitGlobalWire(src"""val ${turnstiling_stage}_enq = io.memStreams.loads(${id}).rdata.valid""")
       val allData = dram.tp.typeArguments.head match {
         case FixPtType(s,d,f) => if (spatialNeedsFPType(dram.tp.typeArguments.head)) {
             (0 until par).map{ i => src"""Utils.FixedPoint($s,$d,$f,io.memStreams.loads($id).rdata.bits($i))""" }.mkString(",")
