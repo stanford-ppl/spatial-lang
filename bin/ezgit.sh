@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Script for quickly merging two branches into one-another.  For example
-#   branch.sh develop fpga will merge develop into fpga branch, then merge
-#   the fpga into develop.  Call this script from your spatial-lang home
+# Script for quickly merging a branch further from master into a branch closer
+#   to master.  For example ezgit.sh develop fpga will merge fpga branch into develop branch.  
+#   Call this script from your spatial-lang home
 
 # Usage: 
 #   arg 1 = upper branch name (develop, pre-master, master, etc..)
@@ -27,35 +27,37 @@ fi
 # Get current branch
 currentbranch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 
-# Checkout lower branch
-cd ../argon
-git checkout $2
-cd ..
-git checkout $2
 
-# Merge higher into lower
-cd argon
-git merge origin/$1 | tee -a /tmp/pub
-error=(`cat /tmp/pub | grep "CONFLICT" | wc -l`)
-if [[ $error != 0 ]]; then
-	echo "Conflict error merging $1 into $2.  Please resolve"
-	exit 1
-fi
-sleep 1
-git push
 
-cd ../
-git merge origin/$1 | tee -a /tmp/pub
-error=(`cat /tmp/pub | grep "CONFLICT" | wc -l`)
-if [[ $error != 0 ]]; then
-	echo "Conflict error merging $1 into $2.  Please resolve"
-	exit 1
-fi
-sleep 1
-git add argon
-git add scala-virtualized
-git commit -m "auto merge"
-git push
+# # Checkout lower branch
+# cd ../argon
+# git checkout $2
+# cd ..
+# git checkout $2
+
+# # Merge higher into lower
+# cd argon
+# git merge origin/$1 | tee -a /tmp/pub
+# error=(`cat /tmp/pub | grep "CONFLICT" | wc -l`)
+# if [[ $error != 0 ]]; then
+# 	echo "Conflict error merging $1 into $2.  Please resolve"
+# 	exit 1
+# fi
+# sleep 1
+# git push
+
+# cd ../
+# git merge origin/$1 | tee -a /tmp/pub
+# error=(`cat /tmp/pub | grep "CONFLICT" | wc -l`)
+# if [[ $error != 0 ]]; then
+# 	echo "Conflict error merging $1 into $2.  Please resolve"
+# 	exit 1
+# fi
+# sleep 1
+# git add argon
+# git add scala-virtualized
+# git commit -m "auto merge"
+# git push
 
 
 # Merge lower into higher
@@ -63,7 +65,7 @@ cd argon
 git checkout $1
 git pull
 git merge origin/$2 | tee -a /tmp/pub
-error=(`cat /tmp/pub | grep "CONFLICT" | wc -l`)
+error=(`cat /tmp/pub | grep -i "conflict\|error" | wc -l`)
 if [[ $error != 0 ]]; then
 	echo "Conflict error merging $1 into $2.  Please resolve"
 	exit 1
@@ -75,7 +77,7 @@ cd ../
 git checkout $1
 git pull
 git merge origin/$2 | tee -a /tmp/pub
-error=(`cat /tmp/pub | grep "CONFLICT" | wc -l`)
+error=(`cat /tmp/pub | grep -i "conflict\|error" | wc -l`)
 if [[ $error != 0 ]]; then
 	echo "Conflict error merging $1 into $2.  Please resolve"
 	exit 1
