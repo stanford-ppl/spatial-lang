@@ -1620,7 +1620,7 @@ object SpecialMath extends SpatialApp {
     Accel {
       val yy = SRAM[T](N)
       Foreach(N by 1) { i => 
-        yy(i) = A *& B
+        yy(i) = A <*&> B
       }
       unbmul store yy
       Pipe{ satadd := c <+> a}
