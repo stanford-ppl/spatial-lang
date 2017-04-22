@@ -133,6 +133,14 @@ trait NodeClasses { this: SpatialExp =>
     case _ => throw new UndefinedDimensionsError(x, None)
   }
 
+  def lenOf(x: Exp[_])(implicit ctx: SrcCtx): Int = x.tp match {
+    case tp: VectorType[_] => tp.width
+    case _ => x match {
+      case Def(ShiftRegNew(size, _)) => size
+      case _ => throw new UndefinedDimensionsError(x, None)
+    }
+  }
+
   def rankOf(x: Exp[_]): Int = stagedDimsOf(x).length
   def rankOf(x: MetaAny[_]): Int = rankOf(x.s)
 

@@ -57,7 +57,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       val id = loadsList.length
       loadParMapping = loadParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par})" 
       loadsList = loadsList :+ dram
-      emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams.loads(${id}).rdata.valid""")
+      emitGlobalWire(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams.loads(${id}).rdata.valid""")
       val allData = dram.tp.typeArguments.head match {
         case FixPtType(s,d,f) => if (spatialNeedsFPType(dram.tp.typeArguments.head)) {
             (0 until par).map{ i => src"""Utils.FixedPoint($s,$d,$f,io.memStreams.loads($id).rdata.bits($i))""" }.mkString(",")
@@ -69,7 +69,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"""val ${dataStream}_data = Vec(List($allData))""")
       emit(src"""${dataStream}_valid := io.memStreams.loads($id).rdata.valid""")
       emit(src"${cmdStream}_ready := io.memStreams.loads($id).cmd.ready")
-      emitGlobal(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
+      emitGlobalWire(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
       emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready // Contains stage enable, rdatavalid, and fifo status")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}_data(63,0) // Field 0")
       emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}_data(95,64) // Field 1")
@@ -86,14 +86,14 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       val id = storesList.length
       storeParMapping = storeParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par})" 
       storesList = storesList :+ dram
-      // emitGlobal(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${id}).rdata.valid""")
+      // emitGlobalWire(src"""val ${childrenOf(childrenOf(parentOf(lhs).get).apply(1)).apply(1)}_enq = io.memStreams(${id}).rdata.valid""")
       emit(src"""// Connect streams to ports on mem controller""")
       val allData = (0 until par).map{ i => src"io.memStreams.stores($id).rdata.bits($i)" }.mkString(",")
-      emitGlobal(src"val ${dataStream}_data = Wire(Vec($par, UInt(33.W)))")
+      emitGlobalWire(src"val ${dataStream}_data = Wire(Vec($par, UInt(33.W)))")
       emit(src"""${dataStream}_ready := io.memStreams.stores($id).wdata.ready""")
       emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}_data).foreach{case (wport, wdata) => wport := wdata(31,0) /*LSB is status bit*/}""")
       emit(src"""io.memStreams.stores($id).wdata.valid := ${dataStream}_valid""")
-      emitGlobal(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
+      emitGlobalWire(src"""val ${cmdStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}_data(63,0) // Field 0")
       emit(src"io.memStreams.stores($id).cmd.bits.size := ${cmdStream}_data(95,64) // Field 1")
       emit(src"io.memStreams.stores($id).cmd.valid :=  ${cmdStream}_valid // Field 2")

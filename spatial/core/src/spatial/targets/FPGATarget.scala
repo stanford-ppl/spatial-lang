@@ -3,6 +3,7 @@ package spatial.targets
 abstract class FPGATarget {
   def name: String    // FPGA name
   def burstSize: Int  // Size of DRAM burst (in bits)
+  def latencyModel: Option[String] = None
 }
 
 case class Pin(name: String) {

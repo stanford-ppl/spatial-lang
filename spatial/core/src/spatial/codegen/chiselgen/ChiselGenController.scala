@@ -254,7 +254,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
 
     if (isStreamChild(sym)) {
-      emitGlobal(src"""val ${sym}_datapath_en = Wire(Bool())""")
+      emitGlobalWire(src"""val ${sym}_datapath_en = Wire(Bool())""")
       if (beneathForever(sym)) {
         emit(src"""${sym}_datapath_en := ${sym}_en // Immediate parent has forever counter, so never mask out datapath_en""")    
       } else {
@@ -283,7 +283,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     /* Counter Signals for controller (used for determining done) */
     if (smStr != "Parallel" & smStr != "Streampipe") {
       if (cchain.isDefined) {
-        emitGlobal(src"""val ${cchain.get}_en = Wire(Bool())""") 
+        emitGlobalWire(src"""val ${cchain.get}_en = Wire(Bool())""") 
         sym match { 
           case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
           case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
@@ -337,9 +337,9 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     if (!isInner) {
       emit(src"""// ---- Begin $smStr ${sym} Children Signals ----""")
       childrenOf(sym).zipWithIndex.foreach { case (c, idx) =>
-        emitGlobal(src"""val ${c}_done = Wire(Bool())""")
-        emitGlobal(src"""val ${c}_en = Wire(Bool())""")
-        emitGlobal(src"""val ${c}_resetter = Wire(Bool())""")
+        emitGlobalWire(src"""val ${c}_done = Wire(Bool())""")
+        emitGlobalWire(src"""val ${c}_en = Wire(Bool())""")
+        emitGlobalWire(src"""val ${c}_resetter = Wire(Bool())""")
         if (smStr == "Streampipe" & cchain.isDefined) {
           emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${cchain.get}_copy${c}_done;""")
         } else {
@@ -353,7 +353,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         // If this is a stream controller, need to set up counter copy for children
 
         if (smStr == "Streampipe" & cchain.isDefined) {
-          emitGlobal(src"""val ${cchain.get}_copy${c}_en = Wire(Bool())""") 
+          emitGlobalWire(src"""val ${cchain.get}_copy${c}_en = Wire(Bool())""") 
           val Def(CounterChainNew(ctrs)) = cchain.get
           emitCounterChain(cchain.get, ctrs, src"_copy$c")
           emit(src"""${cchain.get}_copy${c}_en := ${c}_done""")
@@ -380,7 +380,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       val streamAddition = getStreamEnablers(lhs)
       emit(s"""val ${quote(lhs)}_en = io.enable & !io.done ${streamAddition}""")
       emit(s"""val ${quote(lhs)}_resetter = reset""")
-      emitGlobal(s"""val ${quote(lhs)}_done = Wire(Bool())""")
+      emitGlobalWire(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       // Emit unit counter for this

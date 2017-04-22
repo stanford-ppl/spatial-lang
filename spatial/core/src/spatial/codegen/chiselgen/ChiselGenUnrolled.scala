@@ -17,11 +17,11 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
         emit(src"${is(0)}${suffix}.number := ${counters(i)}${suffix}(0)")
-        emitGlobal(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
+        emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
           emit(src"${iter}${suffix}.number := ${counters(i)}${suffix}($j)")
-          emitGlobal(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
+          emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
         }
       }
     }
@@ -246,7 +246,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         emit(src"$lb.io.col_addr(0) := ${col}.number // Assume we always read from same col")
         emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${row}.number)")
       }
-      emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${rows.length}, UInt(32.W)))""")
+      emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${rows.length}, UInt(32.W)))""")
       emit(s"""${quote(lhs)} := Vec(${(0 until rows.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
 
     case op@ParLineBufferEnq(lb,data,ens) => //FIXME: Not correct for more than par=1
@@ -262,14 +262,14 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       ens.zipWithIndex.foreach { case (en, i) => 
         if (spatialNeedsFPType(lhs.tp.typeArguments.head)) { lhs.tp.typeArguments.head match {
           case FixPtType(s,d,f) => 
-            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
+            emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
             emit(src"""val ${lhs}_$i = Wire(new FixedPoint($s, $d, $f))""")
             emit(src"""${lhs}_$i := ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
           case _ =>
-            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
+            emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
             emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
         }} else {
-            emitGlobal(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
+            emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
             emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
         }
       }

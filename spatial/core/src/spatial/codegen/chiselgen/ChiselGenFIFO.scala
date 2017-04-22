@@ -80,7 +80,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
       emit(src"""val ${lhs}_wdata = Wire(Vec($wPar, UInt(${width}.W)))""")
       emit(src"""val ${lhs}_readEn = Wire(Bool())""")
       emit(src"""val ${lhs}_writeEn = Wire(Bool())""")
-      emitGlobal(s"""val ${quote(lhs)} = Module(new FIFO($rPar, $wPar, $size, $width)) // ${nameOf(lhs).getOrElse("")}""")
+      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FIFO($rPar, $wPar, $size, $width)) // ${nameOf(lhs).getOrElse("")}""")
       emit(src"""val ${lhs}_rdata = ${lhs}.io.out""")
       emit(src"""${lhs}.io.in := ${lhs}_wdata""")
       emit(src"""${lhs}.io.pop := ${lhs}_readEn""")

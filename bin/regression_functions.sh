@@ -12,6 +12,10 @@ hist=72
 stamp_commit_msgs() {
   logger "Stamping commit messages"
   cd $SPATIAL_HOME
+  tag=(`git describe --exact-match HEAD`)
+  if [[ ! "${tag[@]}" = "" ]]; then
+    echo -e "\n# Tag = $tag\n" >> $wiki_file
+  fi
   spatial_msg=`git log --stat --name-status ${spatial_hash}^..${spatial_hash}`
   cd $ARGON_HOME
   argon_msg=`git log --stat --name-status ${argon_hash}^..${argon_hash}`
@@ -37,7 +41,7 @@ coordinate() {
   files=(*)
   new_packets=()
   sorted_packets=()
-  for f in ${files[@]}; do if [[ $f = *".new"* || $f = *".ack"* || $f = *".lock"* ]]; then new_packets+=($f); fi; done
+  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *"$branch"* ]]; then new_packets+=($f); fi; done
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
   rank=-1
@@ -50,12 +54,12 @@ coordinate() {
     fi
 
     logger "This packet (${packet}) is ${rank}-th in line (${stringified})... Waiting $((delay/numpieces)) seconds..."
-    sleep $((delay/numpieces))
+    sleep 300lon
 
     # Update active packets list
     files=(*)
     new_packets=()
-    for f in ${files[@]}; do if [[ $f = *".new"* || $f = *".ack"* || $f = *".lock"* ]]; then new_packets+=($f); fi; done
+    for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *"$branch"* ]]; then new_packets+=($f); fi; done
     sorted_packets=()
     sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
     stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )

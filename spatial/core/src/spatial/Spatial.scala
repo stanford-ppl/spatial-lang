@@ -25,7 +25,7 @@ protected trait SpatialExp
   with DebuggingExp with TemplatesExp with BitOpsExp with FileIOExp
   with ControllerExp with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
-  with StreamExp with PinExp with AlteraVideoExp
+  with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp
   with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
 
@@ -51,7 +51,7 @@ protected trait SpatialApi extends SpatialExp
   with DebuggingApi with BitsOpsApi
   with ControllerApi with CounterApi with DRAMApi with DRAMTransferApi with FIFOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
-  with StreamApi with PinApi with AlteraVideoApi
+  with StreamApi with PinApi with AlteraVideoApi with ShiftRegApi
   with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
   with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits with FileIOApi
  
@@ -61,11 +61,10 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenStructs with ScalaGenSpatialStruct
   with ScalaGenText with ScalaGenVoid
   with ScalaGenDebugging
-
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
   with ScalaGenStream
-  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO {
+  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO with ScalaGenShiftReg {
 
   override val IR: SpatialCompiler
 
@@ -83,7 +82,7 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenIfThenElse with ChiselGenController with ChiselGenMath with ChiselGenText
   with ChiselGenDRAM with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
   with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream with ChiselGenStructs with ChiselGenLineBuffer
-  with ChiselGenRegFile with ChiselGenStateMachine with ChiselGenFileIO{
+  with ChiselGenRegFile with ChiselGenStateMachine with ChiselGenFileIO with ChiselGenRetiming {
 
   override val IR: SpatialCompiler
 }
@@ -137,6 +136,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
   lazy val scopeCheck     = new ScopeCheck { val IR: self.type = self }
 
   lazy val controlSanityCheck = new ControllerSanityCheck { val IR: self.type = self }
+
+  lazy val retiming = new PipeRetimer { val IR: self.type = self }
 
   lazy val dse = new DSE {
     val IR: self.type = self
@@ -255,14 +256,20 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
     passes += printer
 
+    // --- Retiming
+    // passes += retiming          // Add delay shift registers where necessary
+    passes += printer
+
     // --- Post-Unroll Analysis
-    passes += scopeCheck        // Check that illegal host values are not used in the accel block
     passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)
     passes += printer
     passes += bufferAnalyzer    // Set top controllers for n-buffers
     passes += streamAnalyzer    // Set stream pipe children fifo dependencies
     passes += argMapper         // Get address offsets for each used DRAM object
     passes += printer
+
+    // --- Sanity Checks
+    passes += scopeCheck        // Check that illegal host values are not used in the accel block
     passes += controlSanityCheck
 
     // --- Code generation

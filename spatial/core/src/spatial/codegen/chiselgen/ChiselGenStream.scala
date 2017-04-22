@@ -25,8 +25,8 @@ trait ChiselGenStream extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
-      emitGlobal(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
-      emitGlobal(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
+      emitGlobalWire(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
+      emitGlobalWire(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
       bus match {
         case BurstDataBus() =>
         case BurstAckBus =>
@@ -59,8 +59,8 @@ trait ChiselGenStream extends ChiselCodegen {
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
     case StreamOutNew(bus) =>
-      emitGlobal(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
-      emitGlobal(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
+      emitGlobalWire(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
+      emitGlobalWire(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
       bus match {
         case BurstFullDataBus() =>
         case BurstCmdBus =>
@@ -106,16 +106,16 @@ trait ChiselGenStream extends ChiselCodegen {
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
             case VGA => 
-              emitGlobal(src"""// EMITTING VGA GLOBAL""")
-              emitGlobal(src"""val ${stream}_data = Wire(UInt(16.W))""")
-              emitGlobal(src"""val converted_data = Wire(UInt(16.W))""")
+              emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
+              emitGlobalWire(src"""val ${stream}_data = Wire(UInt(16.W))""")
+              emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
               emit(src"""// emiiting data for stream ${stream}""")
               emit(src"""${stream}_data := $data""")
               emit(src"""converted_data := ${stream}_data""")
               emit(src"""${stream}_valid := ${en} & ${parentOf(lhs).get}_datapath_en""")
             case LEDR =>
-              emitGlobal(src"""val ${stream}_data = Wire(UInt(32.W))""")
-        //      emitGlobal(src"""val converted_data = Wire(UInt(32.W))""")
+              emitGlobalWire(src"""val ${stream}_data = Wire(UInt(32.W))""")
+        //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
               emit(src"""${stream}_data := $data""")
               emit(src"""io.led_stream_out_data := ${stream}_data""")
 
