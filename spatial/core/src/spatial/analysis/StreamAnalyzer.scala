@@ -7,9 +7,18 @@ trait StreamAnalyzer extends CompilerPass {
   val IR: SpatialExp
   import IR._
 
+  protected def getLastChild(lhs: Exp[_]): Exp[_] = {
+    var nextLevel = childrenOf(lhs)
+    if (nextLevel.length == 0) {
+      lhs
+    } else {
+      getLastChild(nextLevel.last)
+    }
+  }
+
   override val name = "Stream Analyzer"
   def streamPipes: Seq[Exp[_]]
-  def streamLoadCtrls: Seq[Exp[_]]
+  def streamLoadCtrls: Seq[Exp[_]] // List of all FringeDenseLoad nodes
   def streamParEnqs: Seq[Exp[_]]
   def streamEnablers: Seq[Exp[_]]
   def streamHolders: Seq[Exp[_]]
@@ -18,30 +27,32 @@ trait StreamAnalyzer extends CompilerPass {
     // Set metadata for tileloads
     streamLoadCtrls.foreach{ ctrl =>  // So hacky, please fix
       dbg(u"Trying to match ctrl $ctrl to a ParFifo or ParSRAM write")
-      val a = parentOf(ctrl).get
-      val b = childrenOf(a)
-      if (b.length > 0) {
-        val c = childrenOf(b.last)
-        if (c.length > 0) {
-          val d = c.last
-          val specificCtrl = d
-          var connectLoad: Option[Exp[Any]] = None
-          streamParEnqs.foreach { pe => 
-            dbg(u"  Attempting to match $pe (parent ${parentOf(pe).get} to $d")
-            pe match {
-              case Def(ParFIFOEnq(fifo, data, ens)) => 
-                if (s"${parentOf(pe).get}" == s"$d") {
-                  loadCtrlOf(fifo) = List(specificCtrl)
-                  dbg(u"  It's a match! $fifo to $specificCtrl")
-                }
-              case Def(ParSRAMStore(sram,inds,data,ens)) => 
-                if (s"${parentOf(pe).get}" == s"$d") {
-                  loadCtrlOf(sram) = List(specificCtrl)
-                  dbg(u"  It's a match! $sram to $specificCtrl")
-                }
-              case _ =>
+      val candidate = getLastChild(parentOf(ctrl).get)
+      var connectLoad: Option[Exp[Any]] = None
+      streamParEnqs.foreach { pe => 
+        dbg(u"  Attempting to match $pe (parent ${parentOf(pe).get} to $candidate")
+        pe match {
+          case Def(ParFIFOEnq(fifo, data, ens)) => 
+            if (s"${parentOf(pe).get}" == s"$candidate") {
+              loadCtrlOf(fifo) = List(candidate)
+              dbg(u"  It's a match! $fifo to $candidate")
             }
-          }
+          case Def(FIFOEnq(fifo, data, ens)) => 
+            if (s"${parentOf(pe).get}" == s"$candidate") {
+              loadCtrlOf(fifo) = List(candidate)
+              dbg(u"  It's a match! $fifo to $candidate")
+            }
+          case Def(ParSRAMStore(sram,inds,data,ens)) => 
+            if (s"${parentOf(pe).get}" == s"$candidate") {
+              loadCtrlOf(sram) = List(candidate)
+              dbg(u"  It's a match! $sram to $candidate")
+            }
+          case Def(SRAMStore(sram, dims, is, ofs, v, en)) => 
+            if (s"${parentOf(pe).get}" == s"$candidate") {
+              loadCtrlOf(sram) = List(candidate)
+              dbg(u"  It's a match! $sram to $candidate")
+            }
+          case _ =>
         }
       }
     }

@@ -38,12 +38,12 @@ trait CppGenReg extends CppCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ArgInNew(init)  => 
-      emit(src"//${lhs.tp}* $lhs = new ${lhs.tp} {0}; // Initialize cpp argin ???")
+      emit(src"${lhs.tp} $lhs = 0; // Initialize cpp argin ???")
     case ArgOutNew(init) => 
-      emit(src"//int32_t* $lhs = new int32_t {0}; // Initialize cpp argout ???")
+      emit(src"//${lhs.tp}* $lhs = new int32_t {0}; // Initialize cpp argout ???")
     case HostIONew(init) => 
       argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
-      emit(src"//${lhs.tp}* $lhs = new ${lhs.tp} {0}; // Initialize cpp argout ???")
+      emit(src"${lhs.tp} $lhs = 0; // Initialize cpp argout ???")
     case RegRead(reg)    => 
       emit(src"${lhs.tp} $lhs = $reg;")
     case RegWrite(reg,v,en) => 

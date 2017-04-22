@@ -78,12 +78,12 @@ public:
     tester->test();
   }
 
-  virtual void setArg(uint32_t arg, uint64_t data) {
+  virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
     writeReg(arg+2, data);
     numArgIns++;
   }
 
-  virtual uint64_t getArg(uint32_t arg) {
+  virtual uint64_t getArg(uint32_t arg, bool isIO) {
     readReg(numArgIns+2+arg);
     numArgOuts++;
 

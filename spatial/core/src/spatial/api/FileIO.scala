@@ -13,7 +13,7 @@ trait FileIOApi { this: SpatialApi =>
     tokens.map{token => token.to[T] }
   }
 
-  // FIXME: This may not work if delim2 is not linebreak - maybe should have ND file reading support?
+  // FIXME: This will not work if delim2 is not \n, so we need to have a read_tokens take multiple delimiters
   @api def loadCSV2D[T:Meta](filename: Text, delim1: Text = ",", delim2: Text = "\n")(implicit cast: Cast[Text,T]): Matrix[T] = {
     val file = open_file(filename.s, write = false)
     val all_tokens = wrap(read_tokens(file, delim1.s))
@@ -24,12 +24,37 @@ trait FileIOApi { this: SpatialApi =>
   }
 
   @virtualize
-  @api def writeCSV[T:Meta](array: MetaArray[T], filename: Text, delim: Text = ""): Void = {
+  @api def writeCSV1D[T:Meta](array: MetaArray[T], filename: Text, delim: Text = ","): Void = {
     val file = open_file(filename.s, write = true)
     val length = array.length
     val i = fresh[Index]
     val token = () => meta[T].ev(array(wrap(i))).toText.s
     write_tokens(file, delim.s, length.s, token(), i)
+    wrap(close_file(file))
+  }
+
+  @virtualize
+  @api def writeCSV2D[T:Meta](matrix: Matrix[T], filename: Text, delim1: Text = ",", delim2: Text = "\n"): Void = {
+    val file = open_file(filename.s, write = true)
+    val rows = matrix.rows
+    val cols = matrix.cols
+    val dummy = fresh[Index]
+
+    for (i <- 0 until rows) {
+      val j = fresh[Index]
+      val token = () => meta[T].ev(matrix(i, wrap(j))).toText.s
+      write_tokens(file, delim1.s, cols.s, token(), j)
+      write_tokens(file, delim2.s, int32(1), "".s, dummy)
+      ()
+    }
+
+    // for (i <- 0 until rows) {
+    //   val j = fresh[Index]
+    //   val row = matrix(i)
+    //   val token = () => meta[T].ev(row(wrap(j))).toText.s
+    //   write_tokens(file, delim1.s, cols.s, token, j)
+    //   write_tokens(file, delim2.s, wrap(1), () => " ".toText.s, dummy)
+    // }
     wrap(close_file(file))
   }
 

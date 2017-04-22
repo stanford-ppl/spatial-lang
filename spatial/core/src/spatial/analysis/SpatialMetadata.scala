@@ -227,6 +227,18 @@ trait SpatialMetadataExp extends IndexPatternExp { this: SpatialExp =>
   }
 
   /**
+    * Total latency of a controller
+    **/
+
+  case class AggregateLatency(latency: Int) extends Metadata[AggregateLatency] {
+    def mirror(f:Tx) = this
+  }
+  object aggregateLatencyOf {
+    def apply(x: Exp[_]): Int = metadata[AggregateLatency](x).map{a => a.latency}.getOrElse(0)
+    def update(x: Exp[_], latency: Int): Unit = metadata.add(x, AggregateLatency(latency))
+  }
+
+  /**
     * Map for tracking which control nodes are the tile transfer nodes for a given memory, since this
     * alters the enable signal
     **/

@@ -72,7 +72,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
 
     def alignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = {
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
-      val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
+      // val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
       val dataStream = StreamOut[Tup2[T,Bool]](BurstFullDataBus[T]())
       val ackStream  = StreamIn[Bool](BurstAckBus)
 
@@ -83,7 +83,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
           val size = requestLength
           val size_bytes = size * bytesPerWord
           cmdStream := BurstCmd(addr_bytes, size_bytes, false)
-          issueQueue.enq(size)
+          // issueQueue.enq(size)
         }
         // Data loading
         Foreach(requestLength par p){i =>
@@ -95,13 +95,13 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
       fringe_dense_store(offchip, cmdStream.s, dataStream.s, ackStream.s)
       // Ack receiver
       // TODO: Assumes one ack per command
-      Pipe {
-        val size = Reg[Index]
-        Pipe{size := issueQueue.deq()}
-        Foreach(size.value by target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
+      // Pipe {
+        // val size = Reg[Index]
+        // Pipe{size := issueQueue.deq()}
+        Foreach(requestLength by target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
           val ack  = ackStream.value()
         }
-      }
+      // }
     }
 
     case class AlignmentData(start: Index, end: Index, size: Index, addr_bytes: Index, size_bytes: Index)
@@ -173,7 +173,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
 
     def alignedLoad(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = {
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
-      val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
+      // val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
       val dataStream = StreamIn[T](BurstDataBus[T]())
 
       // Command generator
@@ -185,19 +185,19 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
         val size_bytes = size * bytesPerWord
 
         cmdStream := BurstCmd(addr_bytes, size_bytes, true)
-        issueQueue.enq( size )
+        // issueQueue.enq( size )
       }
       // Fringe
       fringe_dense_load(offchip, cmdStream.s, dataStream.s)
       // Data receiver
-      Pipe {
-        Pipe { val size = issueQueue.deq() }
+      // Pipe {
+        // Pipe { val size = issueQueue.deq() }
         Foreach(requestLength par p){i =>
           val data = dataStream.value()
           val addr = onchipAddr(i)
           mem.store(local, addr, data, true)
         }
-      }
+      // }
     }
     @virtualize
     def unalignedLoad(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = {

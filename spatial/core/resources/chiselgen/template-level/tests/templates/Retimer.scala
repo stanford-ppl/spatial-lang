@@ -7,9 +7,8 @@ import org.scalatest.Assertions._
 class RetimerTests(c: Retimer) extends PeekPokeTester(c) {
   step(1)
   reset(1)
+  poke(c.io.input.en, true)
   var memory = Array.tabulate(c.length+1) { i => 0 }
-  poke(c.io.input.en, 1)
-  poke(c.io.input.init, 0)
   var head = 0
   var tail = if (c.length > 0) 1 else 0
   for (i <- 0 until 100) {
@@ -29,13 +28,5 @@ class RetimerTests(c: Retimer) extends PeekPokeTester(c) {
 
 }
 
-// class RetimerTester extends ChiselFlatSpec {
-//   behavior of "Retimer"
-//   backends foreach {backend =>
-//     it should s"correctly add randomly generated numbers $backend" in {
-//       Driver(() => new Retimer(10))(c => new RetimerTests(c)) should be (true)
-//     }
-//   }
-// }
 
 

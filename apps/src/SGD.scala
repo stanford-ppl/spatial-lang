@@ -135,7 +135,7 @@ object SGD extends SpatialApp { // Regression (Dense) // Args: 40 32 0.0001
     //   }
     // }
 
-    val cksum = ideal_model.zip(result) { case (a, b) => a < b + margin && a > b - margin }.reduce{_&&_}
+    val cksum = ideal_model.zip(result) { case (a, b) => abs(a - b) < margin }.reduce{_&&_}
     printArr(result, "result: ")
     printArr(ideal_model, "gold: ")
     println("PASS: " + cksum + " (SGD)")
@@ -236,7 +236,7 @@ object SGD_minibatch extends SpatialApp { // Regression (Dense) // Args: 40 32 0
     //   }
     // }
 
-    val cksum = ideal_model.zip(result){ case (a,b) => a < b + margin && a > b - margin }.reduce{_&&_}
+    val cksum = ideal_model.zip(result){ case (a,b) => abs(a - b) < margin }.reduce{_&&_}
     printArr(result, "result: ")
     printArr(ideal_model, "gold: ")
     println("PASS: " + cksum  + " (SGD_minibatch)")

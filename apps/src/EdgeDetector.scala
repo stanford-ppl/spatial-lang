@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object EdgeDetector extends SpatialApp { 
+object EdgeDetector extends SpatialApp { // Regression (Dense) // Args: none
   import IR._
   type T = FixPt[TRUE,_16,_16]
 
@@ -10,7 +10,7 @@ object EdgeDetector extends SpatialApp {
     type T = FixPt[TRUE,_16,_16]
     val rowtile = 16
     val coltile = 64
-    val data = loadCSV2D[T]("/home/mattfel/spatial-lang/spatial/core/resources/cppgen/testdata/slacsample2d.csv", ",", "\n")
+    val data = loadCSV2D[T]("/remote/regression/data/slacsample2d.csv", ",", "\n")
     val memrows = ArgIn[Int]
     val memcols = ArgIn[Int]
     setArg(memrows, data.rows.to[Int])
@@ -52,16 +52,18 @@ object EdgeDetector extends SpatialApp {
 
     // Extract results from accelerator
     val results = getMem(dstmem)
+    val gold = loadCSV1D[Int]("/remote/regression/data/edge_gold.csv", ",")
+    val margin = 2.to[Int]
 
     // Create validation checks and debug code
     printArray(results, "Results:")
 
-    // val cksum = gold == result
-    // println("PASS: " + cksum + " (FixPtInOutArg)")
+    val cksum = results.zip(gold) {case (a,b) => a < b + margin && a > b - margin}.reduce{_&&_}
+    println("PASS: " + cksum + " (EdgeDetector)")
   }
 }
 
-object Differentiator extends SpatialApp { 
+object Differentiator extends SpatialApp { // Regression (Dense) // Args: none
   import IR._
   type T = FixPt[TRUE,_16,_16]
 
@@ -69,7 +71,7 @@ object Differentiator extends SpatialApp {
   def main() {
     type T = FixPt[TRUE,_16,_16]
     val coltile = 64
-    val data = loadCSV1D[T]("/home/mattfel/spatial-lang/spatial/core/resources/cppgen/testdata/slacsample1d.csv", ",")
+    val data = loadCSV1D[T]("/remote/regression/data/slacsample1d.csv", ",")
     val memcols = ArgIn[Int]
     setArg(memcols, data.length.to[Int])
     val srcmem = DRAM[T](memcols)
@@ -102,10 +104,16 @@ object Differentiator extends SpatialApp {
     // Extract results from accelerator
     val results = getMem(dstmem)
 
+    // // Write answer for first time
+    // writeCSV1D(results, "/remote/regression/data/deriv_gold.csv", ",")
+    // Read answer
+    val gold = loadCSV1D[T]("/remote/regression/data/deriv_gold.csv", ",")
+
     // Create validation checks and debug code
     printArray(results, "Results:")
+    val margin = 0.5.to[T]
 
-    // val cksum = gold == result
-    // println("PASS: " + cksum + " (FixPtInOutArg)")
+    val cksum = gold.zip(results){case (a,b) => abs(a-b) < margin}.reduce{_&&_}
+    println("PASS: " + cksum + " (Differentiator)")
   }
 }
