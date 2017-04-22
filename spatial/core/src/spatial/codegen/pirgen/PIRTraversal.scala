@@ -292,7 +292,7 @@ trait PIRTraversal extends SpatialTraversal {
 
   def writerOf(mem:Expr):Access = {
     val writers = writersOf(mem)
-    assert(writers.size==1, s"Plasticine only support single writer mem=${qdef(mem)} writers=${writers.mkString(",")}")
+    assert(writers.size==1, s"Plasticine only support single writer mem=${qdef(mem)} writers=[${writers.mkString(",")}]")
     writers.head
   }
 
