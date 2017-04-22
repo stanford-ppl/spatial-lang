@@ -33,6 +33,9 @@ switch:
 	sh -c 'git submodule foreach --recursive git pull'
 	sh -c 'git submodule foreach --recursive checkout origin/${BRANCH}'
 
-	
+resources:
+	cd spatial/core/resources
+	find . -not -path '*/\.*' -type f > files_list
+
 clean:
 	sbt clean
