@@ -31,7 +31,6 @@ cd ../
 currentbranch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 
 
-
 # # Checkout lower branch
 # cd ../argon
 # git checkout $1
