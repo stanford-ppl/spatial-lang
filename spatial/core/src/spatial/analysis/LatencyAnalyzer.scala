@@ -62,7 +62,6 @@ trait LatencyAnalyzer extends ModelingTraversal {
       case Hwblock(blk, isForever) =>
         inHwScope = true
         val body = latencyOfBlock(blk).sum
-        aggregateLatencyOf(lhs) = body.toInt
         inHwScope = false
         body
 
@@ -77,7 +76,6 @@ trait LatencyAnalyzer extends ModelingTraversal {
         dbgs(s"Pipe $lhs: ")
         val pipe = latencyOfPipe(func)
         dbgs(s"- pipe = $pipe")
-        aggregateLatencyOf(lhs) = pipe.toInt
         pipe + latencyOf(lhs)
 
       case OpForeach(cchain, func, iters) if isInnerPipe(lhs) =>
@@ -85,7 +83,6 @@ trait LatencyAnalyzer extends ModelingTraversal {
         dbgs(s"Foreach $lhs (N = $N):")
         val pipe = latencyOfPipe(func)
         dbgs(s"- pipe = $pipe")
-        aggregateLatencyOf(lhs) = pipe.toInt
         pipe + N - 1 + latencyOf(lhs)
 
       case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) if isInnerPipe(lhs) =>
@@ -107,7 +104,6 @@ trait LatencyAnalyzer extends ModelingTraversal {
         dbgs(s"- tree  = $internal")
         dbgs(s"- cycle = $cycle")
 
-        aggregateLatencyOf(lhs) = (body + internal).toInt // TODO: Body vs internal vs cycle?
         body + internal + N*cycle + latencyOf(lhs)
 
       // --- Sequential
@@ -117,7 +113,6 @@ trait LatencyAnalyzer extends ModelingTraversal {
         val stages = latencyOfBlock(func)
         stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
 
-        aggregateLatencyOf(lhs) = stages.reduce{_+_}.toInt
         stages.sum + latencyOf(lhs)
 
 
@@ -127,7 +122,6 @@ trait LatencyAnalyzer extends ModelingTraversal {
         dbgs(s"Outer Foreach $lhs (N = $N):")
         val stages = latencyOfBlock(func)
         stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
-        aggregateLatencyOf(lhs) = stages.reduce{_+_}.toInt
 
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
@@ -145,7 +139,6 @@ trait LatencyAnalyzer extends ModelingTraversal {
         val stages = mapStages :+ reduceStage
 
         stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
-        aggregateLatencyOf(lhs) = stages.reduce{_+_}.toInt
 
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
@@ -166,7 +159,6 @@ trait LatencyAnalyzer extends ModelingTraversal {
         val stages = mapStages :+ reduceStage
 
         stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
-        aggregateLatencyOf(lhs) = stages.reduce{_+_}.toInt
 
         if (isMetaPipe(lhs)) { stages.max * (Nm - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * Nm + latencyOf(lhs) }

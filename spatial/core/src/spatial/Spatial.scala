@@ -179,6 +179,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
 
   lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argPorts = uctrlAnalyzer.argPorts; def genericStreams = uctrlAnalyzer.genericStreams;}
 
+  lazy val innerpipeRetimer  = new InnerpipeRetimeAnalyzer { val IR: self.type = self;}
+
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSim; def localMems = uctrlAnalyzer.localMems }
   lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
   lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
@@ -265,6 +267,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
 
     // --- Retiming
     // passes += retiming          // Add delay shift registers where necessary
+    passes += innerpipeRetimer
     passes += printer
 
     // --- Post-Unroll Analysis

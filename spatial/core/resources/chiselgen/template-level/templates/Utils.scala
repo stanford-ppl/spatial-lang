@@ -7,9 +7,34 @@ import chisel3.internal.sourceinfo._
 import types._
 
 object ops {
+
+  implicit class ArrayOps[T](val b:Array[types.FixedPoint]) {
+    def raw = {
+      chisel3.util.Cat(b.map{_.raw})
+    }
+  }
+
+  implicit class IndexedSeqOps[T](val b:scala.collection.immutable.IndexedSeq[types.FixedPoint]) {
+    def raw = {
+      chisel3.util.Cat(b.map{_.raw})
+    }
+  }
+
+  implicit class VecOps[T](val b:chisel3.core.Vec[types.FixedPoint]) {
+    def raw = {
+      chisel3.util.Cat(b.map{_.raw})
+    }
+  }
+
   implicit class UIntOps(val b:UInt) {
     // Define number so that we can be compatible with FixedPoint type
     def number = {
+      b
+    }
+    def raw = {
+      b
+    }
+    def r = {
       b
     }
 
@@ -108,10 +133,10 @@ object Utils {
   def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T): types.FixedPoint = {
     val cst = Wire(new types.FixedPoint(s, d, f))
     init match {
-      case i: Double => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
-      case i: UInt => cst.number := i
-      case i: FixedPoint => cst.number := i.number
-      case i: Int => cst.number := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
+      case i: Double => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
+      case i: UInt => cst.raw := i
+      case i: FixedPoint => cst.raw := i.raw
+      case i: Int => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
     }
     cst
   }
@@ -119,11 +144,11 @@ object Utils {
   def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data](x1: T1, x2: T2): UInt = {
     val raw_x1 = x1 match {
       case x:UInt => x
-      case x:FixedPoint => x.number
+      case x:FixedPoint => x.raw
     }
     val raw_x2 = x2 match {
       case x:UInt => x
-      case x:FixedPoint => x.number
+      case x:FixedPoint => x.raw
     }
 
     util.Cat(raw_x1,raw_x2)
@@ -132,15 +157,15 @@ object Utils {
   def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3): UInt = {
     val raw_x1 = x1 match {
       case x:UInt => x
-      case x:FixedPoint => x.number
+      case x:FixedPoint => x.raw
     }
     val raw_x2 = x2 match {
       case x:UInt => x
-      case x:FixedPoint => x.number
+      case x:FixedPoint => x.raw
     }
     val raw_x3 = x3 match {
       case x:UInt => x
-      case x:FixedPoint => x.number
+      case x:FixedPoint => x.raw
     }
 
     util.Cat(raw_x1,raw_x2,raw_x3)
@@ -169,8 +194,8 @@ object Utils {
     }
   }
 
-  def log2Up[T](number:T): Int = {
-    number match {
+  def log2Up[T](raw:T): Int = {
+    raw match {
       case n: Int => 1 max log2Ceil(1 max n)
       case n: scala.math.BigInt => 1 max log2Ceil(1.asInstanceOf[scala.math.BigInt] max n)
     }

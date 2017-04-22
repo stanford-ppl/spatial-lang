@@ -16,11 +16,11 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
-        emit(src"${is(0)}${suffix}.number := ${counters(i)}${suffix}(0)")
+        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0)")
         emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
-          emit(src"${iter}${suffix}.number := ${counters(i)}${suffix}($j)")
+          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j)")
           emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
         }
       }
@@ -156,7 +156,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         inds.zipWithIndex.foreach{ case (ind, i) =>
           emit(src"${lhs}_rVec($i).en := ${parent}_en & ${ens(i)}")
           ind.zipWithIndex.foreach{ case (a, j) =>
-            emit(src"""${lhs}_rVec($i).addr($j) := ${a}.number """)
+            emit(src"""${lhs}_rVec($i).addr($j) := ${a}.raw """)
           }
         }
         val p = portsOf(lhs, sram, i).head
@@ -178,14 +178,14 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val enable = if (loadCtrlOf(sram).contains(parent)) src"${parent}_datapath_en" else src"${parent}_datapath_en"
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, 32))) """)
-      val datacsv = data.map{d => src"${d}.number"}.mkString(",")
+      val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
       data.zipWithIndex.foreach { case (d, i) =>
-        emit(src"""${lhs}_wVec($i).data := ${d}.number""")
+        emit(src"""${lhs}_wVec($i).data := ${d}.raw""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
         emit(src"${lhs}_wVec($i).en := ${ens(i)} & $enable")
         ind.zipWithIndex.foreach{ case (a, j) =>
-          emit(src"""${lhs}_wVec($i).addr($j) := ${a}.number """)
+          emit(src"""${lhs}_wVec($i).addr($j) := ${a}.raw """)
         }
       }
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
@@ -215,7 +215,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
       val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       emit(src"""${fifo}_writeEn := $enabler & $en""")
-      val datacsv = data.map{d => src"${d}.number"}.mkString(",")
+      val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
       emit(src"""${fifo}_wdata := Vec(List(${datacsv}))""")
 
     case e@ParStreamRead(strm, ens) =>
@@ -236,15 +236,15 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
 
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length
-      val datacsv = data.map{d => src"${d}.number"}.mkString(",")
+      val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
       val en = ens.map(quote).mkString("&")
       emit(src"${strm}_data := Vec(List(${datacsv}))")
       emit(src"${strm}_valid := $en & ${parentOf(lhs).get}_datapath_en & ~${parentOf(lhs).get}_done /*mask off double-enq for sram loads*/")
       
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 
-        emit(src"$lb.io.col_addr(0) := ${col}.number // Assume we always read from same col")
-        emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${row}.number)")
+        emit(src"$lb.io.col_addr(0) := ${col}.raw // Assume we always read from same col")
+        emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${row}.raw)")
       }
       emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${rows.length}, UInt(32.W)))""")
       emit(s"""${quote(lhs)} := Vec(${(0 until rows.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
@@ -252,7 +252,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
     case op@ParLineBufferEnq(lb,data,ens) => //FIXME: Not correct for more than par=1
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       data.zipWithIndex.foreach { case (d, i) =>
-        emit(src"$lb.io.data_in($i) := ${d}.number")
+        emit(src"$lb.io.data_in($i) := ${d}.raw")
       }
       emit(src"""$lb.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & ${parent}_datapath_en""")
 
@@ -264,13 +264,13 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
           case FixPtType(s,d,f) => 
             emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
             emit(src"""val ${lhs}_$i = Wire(new FixedPoint($s, $d, $f))""")
-            emit(src"""${lhs}_$i := ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
+            emit(src"""${lhs}_$i := ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
           case _ =>
             emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
+            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
         }} else {
             emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.number, ${inds(i)(1)}.number, $port)""")
+            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
         }
       }
       emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
@@ -281,7 +281,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       duplicatesOf(rf).zipWithIndex.foreach{case (mem, ii) => 
         val port = portsOf(lhs, rf, ii)
         ens.zipWithIndex.foreach{ case (en, i) => 
-          emit(s"""${quote(rf)}_${ii}.connectWPort(${data(i)}.number, ${quote(inds(i)(0))}.number, ${quote(inds(i)(1))}.number, ${quote(en)} & ${quote(parent)}_datapath_en, List(${port.toList.mkString(",")}))""")
+          emit(s"""${quote(rf)}_${ii}.connectWPort(${data(i)}.raw, ${quote(inds(i)(0))}.raw, ${quote(inds(i)(1))}.raw, ${quote(en)} & ${quote(parent)}_datapath_en, List(${port.toList.mkString(",")}))""")
         }
       }
       

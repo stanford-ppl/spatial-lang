@@ -18,7 +18,8 @@ trait CppGenSRAM extends CppCodegen {
     case IntType() => "int32_t"
     case LongType() => "int32_t"
     case FixPtType(s,d,f) => 
-      if (d+f > 16) "int32_t"
+      if (d+f > 32) "int64_t"
+      else if (d+f > 16) "int32_t"
       else if (d+f > 8) "int16_t"
       else if (d+f > 4) "int8_t"
       else if (d+f > 2) "int2_t"

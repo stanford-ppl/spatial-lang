@@ -197,6 +197,7 @@
 ./chiselgen/template-level/fringeHW/SRAM.scala
 ./chiselgen/template-level/templates/Counter.scala
 ./chiselgen/template-level/templates/Types.scala
+./chiselgen/template-level/templates/PRNG.scala
 ./chiselgen/template-level/templates/Metapipe.scala
 ./chiselgen/template-level/templates/RegFile.scala
 ./chiselgen/template-level/templates/Utils.scala

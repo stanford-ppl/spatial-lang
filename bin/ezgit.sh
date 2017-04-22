@@ -12,7 +12,7 @@
 
 
 echo "=========================="
-echo "Merging $1 into $2"
+echo "Merging $1 --> $2"
 echo "=========================="
 
 # Clear git merging log
@@ -23,6 +23,7 @@ git pull
 virtbranch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 if [[ $virtbranch != "argon" ]]; then
 	echo "Why are you on $virtbranch branch instead of argon branch for scala-virtualized?"
+	rm /tmp/pub
 	exit 1
 fi
 cd ../
@@ -75,6 +76,7 @@ git merge origin/$1 | tee -a /tmp/pub
 error=(`cat /tmp/pub | grep -i "conflict\|error" | wc -l`)
 if [[ $error != 0 ]]; then
 	echo "Conflict error merging $1 into $2.  Please resolve"
+	rm /tmp/pub
 	exit 1
 fi
 sleep 1
@@ -91,6 +93,7 @@ git merge origin/$1 | tee -a /tmp/pub
 error=(`cat /tmp/pub | grep -i "conflict\|error" | wc -l`)
 if [[ $error != 0 ]]; then
 	echo "Conflict error merging $1 into $2.  Please resolve"
+	rm /tmp/pub
 	exit 1
 fi
 sleep 1
@@ -101,6 +104,9 @@ git push
 
 # Regression test
 if [[ $3 = 1 ]]; then
+	echo "=========================="
+	echo "Running regression on $2 branch"
+	echo "=========================="
 	bash bin/run_regression.sh
 fi
 
@@ -119,3 +125,4 @@ cd argon
 git stash pop
 cd ..
 git stash pop
+rm /tmp/pub

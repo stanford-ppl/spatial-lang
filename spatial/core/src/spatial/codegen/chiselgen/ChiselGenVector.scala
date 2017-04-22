@@ -12,11 +12,10 @@ trait ChiselGenVector extends ChiselCodegen {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case ListVector(_)=> s"x${lhs.id}_vecified"
-            case VectorApply(_,i:Int) => s"x${lhs.id}_elem${i}"
-            case VectorSlice(_,s:Int,e:Int) => s"x${lhs.id}_slice${s}to${e}"
+          lhs match {
+            case Def(ListVector(_))=> s"x${lhs.id}_vecified"
+            case Def(VectorApply(_,i:Int)) => s"x${lhs.id}_elem${i}"
+            case Def(VectorSlice(_,s:Int,e:Int)) => s"x${lhs.id}_slice${s}to${e}"
             case _ => super.quote(s)
           }
         case _ => super.quote(s)
