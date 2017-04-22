@@ -244,7 +244,10 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += regReadCSE        // CSE register reads in inner pipelines
     passes += scalarAnalyzer    // Bounds / global analysis
     passes += ctrlAnalyzer      // Control signal analysis
+
+    passes += printer
     passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
+    passes += printer
 
     // --- Pre-Unrolling Analysis
     passes += ctrlAnalyzer      // Control signal analysis
