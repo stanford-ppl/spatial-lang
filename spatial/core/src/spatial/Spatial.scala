@@ -115,6 +115,11 @@ protected trait DotGenSpatial extends DotCodegen with DotFileGen
   with DotGenArray with DotGenAlteraVideo with DotGenStream {
 
   override val IR: SpatialCompiler
+
+  override def copyDependencies(out: String): Unit = {
+    dependencies ::= FileDep("dotgen", "run.sh", "../")
+    super.copyDependencies(out)
+  }
 }
 
 

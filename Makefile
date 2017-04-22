@@ -34,8 +34,7 @@ switch:
 	sh -c 'git submodule foreach --recursive checkout origin/${BRANCH}'
 
 resources:
-	cd spatial/core/resources
-	find . -not -path '*/\.*' -type f > files_list
+	bash bin/update_resources.sh
 
 clean:
 	sbt clean
