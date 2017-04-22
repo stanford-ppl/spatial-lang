@@ -397,4 +397,14 @@ trait SpatialMetadataExp extends IndexPatternExp { this: SpatialExp =>
     def update(e: Exp[_], should: Boolean) = metadata.add(e, MShouldDuplicate(should))
   }
 
+  /**
+    * Latency of a given inner pipe body - used for control signal generation
+    */
+  case class MBodyLatency(latency: Seq[Long]) extends Metadata[MBodyLatency] { def mirror(f:Tx) = this }
+  object bodyLatency {
+    def apply(e: Exp[_]): Seq[Long] = metadata[MBodyLatency](e).map(_.latency).getOrElse(Nil)
+    def update(e: Exp[_], latency: Seq[Long]): Unit = metadata.add(e, MBodyLatency(latency))
+    def update(e: Exp[_], latency: Long): Unit = metadata.add(e, MBodyLatency(Seq(latency)))
+  }
+
 }

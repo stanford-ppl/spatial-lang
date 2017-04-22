@@ -32,7 +32,7 @@ trait ScopeCheck extends SpatialTraversal {
         case lhs @ Op(ReadVar(v)) if !definedSyms.contains(v) =>
           error(lhs.ctx, u"Variable $v defined outside Accel cannot be read within Accel.")
           error("Use an ArgIn, HostIO, or DRAM to pass values from the host to the accelerator.")
-          error(lhs.ctx)
+          error(lhs.ctx, showCaret = true)
 
         case lhs @ Op(NewVar(init)) =>
           error(lhs.ctx, u"Variables cannot be created within the Accel scope.")
@@ -42,9 +42,13 @@ trait ScopeCheck extends SpatialTraversal {
         // Only give errors for assigns when var was defined outside Accel
         case lhs @ Op(AssignVar(v, x)) if !definedSyms.contains(v) =>
           error(lhs.ctx, u"Variable $v defined outside Accel cannot be assigned within Accel.")
-          error("Use an ArgOut, HostIO, or DRAM to pass values from the host to the accelerator.")
-          error(lhs.ctx)
+          error("Use an ArgOut, HostIO, or DRAM to pass values from the accelerator to the host.")
+          error(lhs.ctx, showCaret = true)
 
+        case lhs @ Op(ArrayApply(Def(InputArguments()), _)) =>
+          error(lhs.ctx, "Input arguments cannot be accessed in Accel scope.")
+          error("Use an ArgIn or HostIO to pass values from the host to the accelerator.")
+          error(lhs.ctx, showCaret = true)
         case _ =>
       }
 
