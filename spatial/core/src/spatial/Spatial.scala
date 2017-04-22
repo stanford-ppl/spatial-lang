@@ -141,6 +141,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
 
   lazy val scopeCheck     = new ScopeCheck { val IR: self.type = self }
 
+  lazy val latencyAnalyzer = new LatencyAnalyzer { val IR: self.type = self }
+
   lazy val controlSanityCheck = new ControllerSanityCheck { val IR: self.type = self }
 
   lazy val retiming = new PipeRetimer { val IR: self.type = self }
@@ -264,7 +266,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += printer
 
     // --- Retiming
-    // passes += retiming          // Add delay shift registers where necessary
+    passes += retiming          // Add delay shift registers where necessary
     passes += printer
 
     // --- Post-Unroll Analysis
@@ -273,6 +275,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += bufferAnalyzer    // Set top controllers for n-buffers
     passes += streamAnalyzer    // Set stream pipe children fifo dependencies
     passes += argMapper         // Get address offsets for each used DRAM object
+    passes += latencyAnalyzer   // Get delay lengths of inner pipes (used for retiming control signals)
     passes += printer
 
     // --- Sanity Checks

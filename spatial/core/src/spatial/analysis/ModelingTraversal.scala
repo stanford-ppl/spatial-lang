@@ -19,7 +19,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   // --- State
   var inHwScope = false // In hardware scope
   var inReduce = false  // In tight reduction cycle (accumulator update)
-  def latencyOf(e: Exp[_]) = latencyModel(e, inReduce)
+  def latencyOf(e: Exp[_]) = if (inHwScope) latencyModel(e, inReduce) else 0L
 
   // TODO: Could optimize further with dynamic programming
   def latencyOfPipe(b: Block[_]): Long = {
@@ -32,7 +32,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
         //debug(s"Visit $cur in quickDFS")
         val deps = exps(d)
         if (deps.isEmpty) {
-          warn(cur.ctx, s"$cur = $d has no dependencies but is not global")
+          if (effectsOf(cur).isPure) warn(cur.ctx, s"[Compiler] $cur = $d has no dependencies but is not global?")
           latencyOf(cur)
         }
         else {
