@@ -86,9 +86,9 @@ object SYRK_col extends SpatialApp { // Regression (Dense) // Args: 64
     val result = syrk_col(C.flatten, A.flatten, N)
 
     val AAT = Array.tabulate(N) { i => // A*A', with zeros above diagonal.
-      var A_row_i = A(i)
+      val A_row_i = A(i)
       Array.tabulate(N) { j =>
-        var A_row_j = A(j)
+        val A_row_j = A(j)
 
         if (j > i) 0.to[T]
         else A_row_i.zip(A_row_j){_*_}.reduce{_+_}
