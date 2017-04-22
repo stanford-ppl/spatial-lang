@@ -128,6 +128,7 @@ trait RegisterCleanup extends ForwardTransformer {
   })
 
   override protected def transformBlock[T:Type](b: Block[T]): Block[T] = transformBlock(b, {stms =>
+    stms.foreach(stm => dbg(c"$stm"))
     visitStms(stms)
     if (ctrl != null && statelessSubstRules.contains((ctrl.node,ctrl))) {
       val rules = statelessSubstRules((ctrl.node, ctrl)).map { case (s, s2) => s -> s2() }

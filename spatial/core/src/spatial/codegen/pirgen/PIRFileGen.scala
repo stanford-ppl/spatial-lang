@@ -14,11 +14,11 @@ trait PIRFileGen extends FileGen {
   override protected def emitFileHeader() {
     emit("import pir.graph")
     emit("import pir.graph._")
-    emit("import pir.graph.enums._")
     emit("import pir.codegen._")
     emit("import pir.plasticine.config._")
     emit("import pir.Design")
-    emit("import pir.misc._")
+    emit("import pir.util.enums._")
+    emit("import pir.util._")
     emit("import pir.PIRApp")
     emit("")
     open(s"""object ${Config.name} extends PIRApp {""")

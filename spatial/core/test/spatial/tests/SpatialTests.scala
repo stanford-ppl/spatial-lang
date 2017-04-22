@@ -1,7 +1,6 @@
 package spatial.tests
 
-import org.virtualized.SourceContext
-import org.virtualized.virtualize
+import org.virtualized.{SourceContext, struct, virtualize}
 import org.scalatest.{FlatSpec, Matchers}
 import argon._
 import argon.core.Exceptions
