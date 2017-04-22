@@ -62,6 +62,7 @@ trait PIR {
   }
 
   case object LocalVectorBus extends VectorBus("LocalVector")
+  case class LocalReadBus(mem:CUMemory) extends VectorBus(s"$mem.localRead")
   case class InputArg(override val name: String) extends ScalarBus(name) {
     override def toString = s"ain$name"
   }
@@ -206,12 +207,14 @@ trait PIR {
 
 
   // --- Compute unit memories
-  case class CUMemory(name: String, size: Int, mem: Expr, reader: Expr, cu:AbstractComputeUnit) {
+  case class CUMemory(name: String, mem: Expr, reader: Expr, cu:AbstractComputeUnit) {
     var mode: LocalMemoryMode = SRAMMode
     var bufferDepth: Int = 1
     var banking: Option[SRAMBanking] = None
+    var size = 1
 
-    var writePort: Option[GlobalBus] = None
+    // writePort either from bus or for sram can be from a vector FIFO
+    var writePort: Option[GlobalBus] = None 
     var readPort: Option[GlobalBus] = None
     var readAddr: Option[Addr] = None
     var writeAddr: Option[Addr] = None
@@ -225,10 +228,11 @@ trait PIR {
     override def toString = name
 
     def copyMem(name: String) = {
-      val copy = CUMemory(name, size, mem, reader, cu)
+      val copy = CUMemory(name, mem, reader, cu)
       copy.mode = this.mode
       copy.bufferDepth = this.bufferDepth
       copy.banking = this.banking
+      copy.size = this.size
       copy.writePort = this.writePort 
       copy.readPort = this.readPort 
       copy.readAddr = this.readAddr

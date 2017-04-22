@@ -23,3 +23,17 @@ object ArgInOut extends SpatialApp {
     println("result: " + result)
   }
 }
+
+
+object StructTest extends SpatialApp {
+  import IR._
+
+  @struct case class MyStruct(x: FixPt[TRUE,_32,_0], y: FixPt[TRUE,_32,_0])
+
+  @virtualize def main(): Unit = {
+    val x = ArgOut[MyStruct]
+    Accel {
+      x := MyStruct(32, 32)
+    }
+  }
+}

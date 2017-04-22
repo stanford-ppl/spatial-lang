@@ -59,7 +59,7 @@ protected trait SpatialApi extends SpatialExp
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenArray with ScalaGenSpatialArrayExt with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
   with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenStructs with ScalaGenSpatialStruct
-  with ScalaGenText with ScalaGenVoid with ScalaGenFunction
+  with ScalaGenText with ScalaGenVoid with ScalaGenFunction with ScalaGenVariables
   with ScalaGenDebugging
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
@@ -115,6 +115,11 @@ protected trait DotGenSpatial extends DotCodegen with DotFileGen
   with DotGenArray with DotGenAlteraVideo with DotGenStream {
 
   override val IR: SpatialCompiler
+
+  override def copyDependencies(out: String): Unit = {
+    dependencies ::= FileDep("dotgen", "run.sh", "../")
+    super.copyDependencies(out)
+  }
 }
 
 
@@ -140,6 +145,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
   lazy val paramAnalyzer  = new ParameterAnalyzer{val IR: self.type = self }
 
   lazy val scopeCheck     = new ScopeCheck { val IR: self.type = self }
+
+  lazy val latencyAnalyzer = new LatencyAnalyzer { val IR: self.type = self }
 
   lazy val controlSanityCheck = new ControllerSanityCheck { val IR: self.type = self }
 
@@ -237,7 +244,10 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += regReadCSE        // CSE register reads in inner pipelines
     passes += scalarAnalyzer    // Bounds / global analysis
     passes += ctrlAnalyzer      // Control signal analysis
+
+    passes += printer
     passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
+    passes += printer
 
     // --- Pre-Unrolling Analysis
     passes += ctrlAnalyzer      // Control signal analysis
@@ -264,7 +274,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += printer
 
     // --- Retiming
-    // passes += retiming          // Add delay shift registers where necessary
+    passes += retiming          // Add delay shift registers where necessary
     passes += printer
 
     // --- Post-Unroll Analysis
@@ -273,6 +283,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += bufferAnalyzer    // Set top controllers for n-buffers
     passes += streamAnalyzer    // Set stream pipe children fifo dependencies
     passes += argMapper         // Get address offsets for each used DRAM object
+    passes += latencyAnalyzer   // Get delay lengths of inner pipes (used for retiming control signals)
     passes += printer
 
     // --- Sanity Checks

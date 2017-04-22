@@ -120,6 +120,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
         case _: SRAMNew[_, _] if cus.contains(lhs)        => emitCUs(lhs)
         case _ if isFringe(lhs) && cus.contains(lhs)      => emitCUs(lhs)
         case _ if isControlNode(lhs) && cus.contains(lhs) => emitCUs(lhs)
+        case _ =>
       }
       rhs.blocks.foreach(emitBlock)
     }

@@ -178,12 +178,21 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
     else super.apply(b)
   }
 
-  override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
+  private def transformCtrl[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
     if (isInnerControl(lhs)) {
       val retimeEnables = rhs.blocks.map{_ => true }.toList
       withRetime(retimeEnables, ctx) { super.transform(lhs, rhs) }
     }
-    else
-      super.transform(lhs, rhs)
+    else super.transform(lhs, rhs)
+  }
+
+  override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
+    case _:Hwblock =>
+      inHwScope = true
+      val lhs2 = transformCtrl(lhs, rhs)
+      inHwScope = false
+      lhs2
+
+    case _ => transformCtrl(lhs, rhs)
   }
 }

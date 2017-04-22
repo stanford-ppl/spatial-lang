@@ -13,14 +13,12 @@ val assemblySettings = Seq(
   test in assembly := {}
 )
 val commonSettings = assemblySettings ++ Seq(
-
   libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
 
   //paradise
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
-
 )
 
 publishArtifact := false

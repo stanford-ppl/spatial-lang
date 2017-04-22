@@ -1,5 +1,6 @@
 package spatial.models
 
+import argon.Config
 import spatial.SpatialExp
 
 trait LatencyModel {
@@ -9,15 +10,24 @@ trait LatencyModel {
   var clockRate = 150.0f        // Frequency in MHz
   var baseCycles = 43000        // Number of cycles required for startup
   var addRetimeRegisters = true // Enable adding registers after specified comb. logic
+  var modelVerbosity = 1
+
+  def silence(): Unit = { modelVerbosity = -1 }
 
   def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
 
-  def latencyOf(s: Exp[_], inReduce: Boolean): Long = s match {
-    case Exact(_) => 0
-    case Final(_) => 0
-    case Def(d) if inReduce  => latencyOfNodeInReduce(s, d)
-    case Def(d) if !inReduce => latencyOfNode(s, d)
-    case _ => 0
+  def latencyOf(s: Exp[_], inReduce: Boolean): Long = {
+    val prevVerbosity = Config.verbosity
+    Config.verbosity = modelVerbosity
+    val latency = s match {
+      case Exact(_) => 0
+      case Final(_) => 0
+      case Def(d) if inReduce  => latencyOfNodeInReduce(s, d)
+      case Def(d) if !inReduce => latencyOfNode(s, d)
+      case _ => 0
+    }
+    Config.verbosity = prevVerbosity
+    latency
   }
 
   private def latencyOfNodeInReduce(s: Exp[_], d: Def): Long = d match {
@@ -47,6 +57,9 @@ trait LatencyModel {
     // LineBuffer
     case _:LineBufferLoad[_]    => true
     case _:ParLineBufferLoad[_] => true
+
+    // Shift Register
+    // None
 
     case Not(_)     => true
     case And(_,_)   => true
@@ -98,8 +111,10 @@ trait LatencyModel {
     case _:ParRegFileShiftIn[_] => 1
 
     // Streams
-    case _:StreamRead[_]  => 0
-    case _:StreamWrite[_] => 1
+    case _:StreamRead[_]     => 0
+    case _:ParStreamRead[_]  => 0
+    case _:StreamWrite[_]    => 0
+    case _:ParStreamWrite[_] => 0
 
     // FIFOs
     case _:FIFOEnq[_]    => 1
@@ -119,6 +134,14 @@ trait LatencyModel {
     case _:ParLineBufferEnq[_]  => 1
     case _:LineBufferLoad[_]    => 1
     case _:ParLineBufferLoad[_] => 1
+
+    // Shift Register
+    case _:ShiftRegNew[_] => 0
+    case ShiftRegRead(reg@Op(ShiftRegNew(size,_))) => size
+    case _:ShiftRegWrite[_] => 0
+
+    // DRAM
+    case GetDRAMAddress(_) => 0
 
     // Boolean operations
     case Not(_)     => 1
@@ -244,6 +267,15 @@ trait LatencyModel {
     case _:OpMemReduce[_,_]    => 1
     case _:UnrolledForeach     => 1
     case _:UnrolledReduce[_,_] => 1
+
+    // Host/Debugging/Unsynthesizable nodes
+    case _:PrintIf   => 0
+    case _:PrintlnIf => 0
+    case _:AssertIf  => 0
+    case _:ToString[_] => 0
+    case _:TextConcat => 0
+    case FixRandom(_) => 0
+    case FltRandom(_) => 0
 
     case _ =>
       warn(s"Don't know latency of $d - using default of 0")

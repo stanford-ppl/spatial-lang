@@ -7,8 +7,8 @@ trait DebuggingApi extends DebuggingExp { this: SpatialApi =>
 
 
   @api def println(): Void = println("")
-  @api def print[T:Type](x: T): Void = Void(printIf(bool(true),textify(x).s))
-  @api def println[T:Type](x: T): Void = Void(printlnIf(bool(true),textify(x).s))
+  @api def print[A,T<:MetaAny[T]](x: A)(implicit lift: Lift[A,T]): Void = Void(printIf(bool(true),lift(x).toText.s))
+  @api def println[A,T<:MetaAny[T]](x: A)(implicit lift: Lift[A,T]): Void = Void(printlnIf(bool(true),lift(x).toText.s))
 
   @api def print(x: java.lang.String): Void = print(string2text(x))
   @api def println(x: java.lang.String): Void = println(string2text(x))

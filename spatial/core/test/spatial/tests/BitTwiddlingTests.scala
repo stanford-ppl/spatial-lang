@@ -107,9 +107,11 @@ object ShiftTest extends SpatialTest {
   IR.testArgs = List("-14", "2")
 
   @virtualize def main(): Unit = {
+    val x = ArgIn[Int]
+    val m = ArgIn[Int]
+    setArg(x, args(0).to[Int])
+    setArg(m, args(1).to[Int])
     Accel {
-      val x = args(0).to[Int]
-      val m = args(1).to[Int]
       val lsh = x << m
       val rsh = x >> m
       val ursh = x >>> m
