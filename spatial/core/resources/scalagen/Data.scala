@@ -144,12 +144,23 @@ object Number {
       val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1 )
       val MIN_INTEGRAL_VALUE = BigDecimal( if (s) -(BigInt(1) << (i-1)) else BigInt(0) )
 
-      var actualValue = value
-      while (actualValue < MIN_INTEGRAL_VALUE) actualValue = (MAX_INTEGRAL_VALUE - (MIN_INTEGRAL_VALUE - actualValue - 1))
-      while (actualValue > MAX_INTEGRAL_VALUE) actualValue = (MIN_INTEGRAL_VALUE + (MAX_INTEGRAL_VALUE - actualValue + 1))
+      val intValue = value * math.pow(2, f)
+      val number = new Number(BigDecimal(Math.floor(intValue.toDouble) / math.pow(2, f)), valid, fmt)
 
-      val intValue = actualValue * math.pow(2, f)
-      new Number(BigDecimal(Math.floor(intValue.toDouble) / math.pow(2, f)), valid, fmt)
+      if (number.value < MIN_INTEGRAL_VALUE || number.value > MAX_INTEGRAL_VALUE) {
+        val b = number.bits
+        Number(b, fmt)
+      }
+      else number
+
+//      while (actualValue < MIN_INTEGRAL_VALUE) actualValue = (MAX_INTEGRAL_VALUE - (MIN_INTEGRAL_VALUE - actualValue - 1))
+
+//      println("value: " + actualValue)
+
+//      while (actualValue > MAX_INTEGRAL_VALUE) actualValue = (MIN_INTEGRAL_VALUE + (MAX_INTEGRAL_VALUE - actualValue + 1))
+
+//      println("value: " + actualValue)
+
 
     case FloatPoint(g,e) => new Number(value, valid, fmt)
   }
