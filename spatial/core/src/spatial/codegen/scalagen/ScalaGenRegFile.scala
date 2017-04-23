@@ -32,7 +32,7 @@ trait ScalaGenRegFile extends ScalaGenMemories {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@RegFileNew(dims) => if (enableMemGen) emit(src"val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})")
+    case op@RegFileNew(dims) => emitMem(lhs, src"$lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})")
     case op@RegFileLoad(rf,inds,en) =>
       val dims = stagedDimsOf(rf)
       open(src"val $lhs = {")
