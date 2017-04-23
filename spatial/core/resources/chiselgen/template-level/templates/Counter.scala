@@ -76,6 +76,7 @@ class RedxnCtr() extends Module {
       val max      = Input(UInt(32.W))
       val enable = Input(Bool())
       val reset = Input(Bool())
+      val saturate = Input(Bool())
     }
     val output = new Bundle {
       val done      = Output(Bool())
@@ -84,7 +85,7 @@ class RedxnCtr() extends Module {
 
   val cnt = RegInit(0.U(32.W))
 
-  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.U === io.input.max, 0.U, cnt+1.U), cnt)
+  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.U === io.input.max, Mux(io.input.saturate, cnt, 0.U), cnt+1.U), cnt)
   cnt := Mux(io.input.reset, 0.U, nextCntUp)
 
   io.output.done := cnt + 1.U === io.input.max

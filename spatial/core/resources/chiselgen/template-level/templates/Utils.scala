@@ -126,6 +126,9 @@ object Utils {
     }
   }
 
+  def risingEdge(sig:Bool): Bool = {
+    sig & Utils.delay(~sig,1)
+  }
   // Helper for making fixedpt when you know the value at creation time
   def FixedPoint[T](s: Int, d: Int, f: Int, init: T): types.FixedPoint = {
     FixedPoint(s > 0, d, f, init)

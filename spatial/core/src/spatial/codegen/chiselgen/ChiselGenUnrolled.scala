@@ -117,7 +117,10 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       // Set up accumulator signals
       emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
-      emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U //TODO: Really calculate this""")
+      if (SpatialConfig.enableRetiming) emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := ${bodyLatency(lhs).reduce{_+_}}.U""")
+      else emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U""")
+      emit(s"""${quote(lhs)}_redLoopCtr.io.input.reset := reset | ${quote(cchain)}_resetter""")
+      emit(s"""${quote(lhs)}_redLoopCtr.io.input.saturate := true.B""")
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
       emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc & ${lhs}_redLoop_done""")
       if (styleOf(lhs) == InnerPipe) {

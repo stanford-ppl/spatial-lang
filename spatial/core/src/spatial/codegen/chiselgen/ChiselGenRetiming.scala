@@ -14,7 +14,9 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
       s match {
         case lhs: Sym[_] =>
           lhs match {
-            case Def(ShiftRegNew(size, init)) => s"x${lhs.id}_retimer$size"
+            case Def(ShiftRegNew(size, init)) => 
+              if (size == 1) s"x${lhs.id}_latch"
+              else s"x${lhs.id}_retimer$size"
             case Def(ShiftRegRead(sr)) => s"x${lhs.id}_retimer${quoteOperand2(sr)}"
             case _ => super.quote(s)
           }
@@ -55,8 +57,9 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
       
 
     case ShiftRegWrite(shiftReg, data, en) => 
+      val parent = parentOf(lhs).get
       emit(src"${shiftReg}.io.input.data := ${data}.raw")
-      emit(src"${shiftReg}.io.input.en := $en")
+      emit(src"${shiftReg}.io.input.en := $en & ${parent}_datapath_en")
 
     case _ =>
       super.emitNode(lhs, rhs)

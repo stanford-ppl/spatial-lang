@@ -64,6 +64,9 @@ trait RangeExp { this: SpatialExp =>
   implicit class IndexRangeInternalOps(x: Index) {
     def toRange(implicit ctx: SrcCtx): Range = index_to_range(x)
   }
+  implicit class Int64RangeInternalOps(x: Int64) {
+    def toRange64(implicit ctx: SrcCtx): Range64 = index_to_range64(x)
+  }
 
   case class Wildcard()
 
@@ -89,10 +92,36 @@ trait RangeExp { this: SpatialExp =>
     }
   }
 
+  case class Range64(start: Option[Int64], end: Int64, step: Option[Index], p: Option[Index], isUnit: Boolean) {
+    @api def by(step: Index): Range64 = Range64(start, end, Some(step), p, isUnit = false)
+    @api def par(p: Index): Range64 = Range64(start, end, step, Some(p), isUnit = false)
+
+    // @api def ::(start2: Int64): Range64 = Range64(Some(start2), end, start, p, isUnit = false)
+
+    // @api def foreach(func: Index => Void): Void = {
+    //   val i = fresh[Index]
+    //   val fBlk = () => func(wrap(i)).s
+    //   val begin  = start.map(_.s).getOrElse(int64(0))
+    //   val stride = step.map(_.s).getOrElse(int32(1))
+    //   Void(range_foreach(begin, end.s, stride, fBlk(), i))
+    // }
+
+    // @api def length: Int64 = (start, end, step) match { 
+    //   case (None, e, None) => e
+    //   case (Some(s), e, None) => e - s
+    //   case (None, e, Some(st)) => (e + st.to[Int64] - 1) / st.to[Int64]
+    //   case (Some(s), e, Some(st)) => (e - s + st.to[Int64] - 1) / st.to[Int64]
+    // }
+  }
+
   protected def range_alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index], isUnit: Boolean = false) = {
     Range(start,end,stride,par,isUnit)
   }
+  protected def range_alloc64(start: Option[Int64], end: Int64, stride: Option[Index], par: Option[Index], isUnit: Boolean = false) = {
+    Range64(start,end,stride,par,isUnit)
+  }
   protected def index_to_range(x: Index)(implicit ctx: SrcCtx) = range_alloc(Some(x), x + 1, None, None, isUnit = true)
+  protected def index_to_range64(x: Int64)(implicit ctx: SrcCtx) = range_alloc64(Some(x), x + 1, None, None, isUnit = true)
 
   /** IR Nodes **/
   case class RangeForeach(
