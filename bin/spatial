@@ -67,7 +67,7 @@ def main():
     simScript = open(opts.app + ".sim", 'w')
     simScript.write("#!/bin/bash\n\n")
     simScript.write("cd gen/" + opts.app + "\n")
-    simScript.write("bash run.sh $@\n") 
+    simScript.write("bash run.sh \"$@\"\n") 
     simScript.close()
 
     vcsScript = open(opts.app + ".vcs", "w")
@@ -76,7 +76,7 @@ def main():
     vcsScript.write("cd gen/" + opts.app + "\n")
     vcsScript.write("make vcs\n")
     #vcsScript.write("popd")
-    vcsScript.write("./run.sh $@\n")
+    vcsScript.write("./run.sh \"$@\"\n")
     vcsScript.write("gtkWave Top.vcd &")
     vcsScript.close()
 
