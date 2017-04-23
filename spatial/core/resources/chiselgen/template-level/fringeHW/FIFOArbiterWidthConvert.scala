@@ -13,8 +13,8 @@ class FIFOArbiterWidthConvert(
   val d: Int
 ) extends Module {
 
-  val tagWidth = log2Up(numStreams)
   val numStreams = win.size
+  val tagWidth = log2Up(numStreams)
 
   val io = IO(new Bundle {
     val enq = Input(HVec.tabulate(numStreams) { i =>  Vec(vin(i), Bits(win(i).W))})

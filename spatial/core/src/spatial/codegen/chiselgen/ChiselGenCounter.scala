@@ -12,7 +12,6 @@ trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
   import IR._
 
   var streamCtrCopy = List[Bound[_]]()
-  var controllerStack = scala.collection.mutable.Stack[Exp[_]]()
 
   // dependencies ::= AlwaysDep("chiselgen", "resources/Counter.chisel")
 

@@ -1,30 +1,3 @@
-// /*
-//  Copyright (c) 2011, 2012, 2013, 2014 The University of Sydney.
-//  All Rights Reserved.  Redistribution and use in source and
-//  binary forms, with or without modification, are permitted
-//  provided that the following conditions are met:
-//     * Redistributions of source code must retain the above
-//       copyright notice, this list of conditions and the following
-//       two paragraphs of disclaimer.
-//     * Redistributions in binary form must reproduce the above
-//       copyright notice, this list of conditions and the following
-//       two paragraphs of disclaimer in the documentation and/or other materials
-//       provided with the distribution.
-//     * Neither the name of the Regents nor the names of its contributors
-//       may be used to endorse or promote products derived from this
-//       software without specific prior written permission.
-//  IN NO EVENT SHALL REGENTS BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
-//  SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS,
-//  ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
-//  REGENTS HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//  REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
-//  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-//  A PARTICULAR PURPOSE. THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF
-//  ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS". REGENTS HAS NO OBLIGATION
-//  TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
-//  MODIFICATIONS.
-// */
-
 package types
 
 import chisel3._
@@ -67,6 +40,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 	val number = UInt((d + f).W)
 	val debug_overflow = Bool()
 
+	def raw():UInt = number
+	def r():UInt = number
 	// Conversions
 	def storeRaw(dst: RawBits): Unit = {
 		dst.raw := number
@@ -77,18 +52,20 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 		// Compute new frac part
 		// val new_frac = Wire(UInt(dst.f.W))
+		val shave_f = f - dst.f
+		val shave_d = d - dst.d
 		val new_frac = if (dst.f < f) { // shrink decimals
 			rounding match {
 				case "truncate" => 
-					val shave = f - dst.f
-					number(shave + dst.f - 1, shave)
-					// (0 until dst.f).map{ i => number(shave + i)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
+					number(shave_f + dst.f - 1, shave_f)
+					// (0 until dst.f).map{ i => number(shave_f + i)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
 				case "unbiased" => 
-					0.U(dst.f.W)
-					// TODO: Add rng
+					val prng = Module(new PRNG(scala.math.abs(scala.util.Random.nextInt)))
+					prng.io.en := true.B
+					val salted = number + prng.io.output(shave_f-1,0)
+					salted(shave_f + dst.f -1, shave_f)
 				case "biased" =>
-					0.U(dst.f.W)
-					// TODO: force direction
+					Mux(number(shave_f-1), number + 1.U(shave_f.W) << (shave_f-1), number) // NOT TESTED!!
 				case _ =>
 					0.U(dst.f.W)
 					// TODO: throw error
@@ -106,12 +83,22 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		val new_dec = if (dst.d < d) { // shrink decimals
 			saturating match { 
 				case "lazy" =>
-					val shave = d - dst.d
-					dst.debug_overflow := (0 until shave).map{i => number(d + f - 1 - i)}.reduce{_||_}
+					dst.debug_overflow := (0 until shave_d).map{i => number(d + f - 1 - i)}.reduce{_||_}
 					number(dst.d + f - 1, f)
 					// (0 until dst.d).map{i => number(f + i) * scala.math.pow(2,i).toInt.U}.reduce{_+_}
 				case "saturation" =>
-					// TODO: Do something good
+					val sign = number(f + d - 1)
+					// TODO: IMPLEMENT LOGIC FOR UNSIGNED NUMBERS
+					Mux(sign, 
+							Mux(number(f+d-1,f+d-1-shave_d) === chisel3.util.Cat((0 until shave_d).map{_ => true.B}), // TODO: NOT CONFIDENT AT ALL IN THE NEGATIVE SATURATION LOGIC
+									number(dst.d+f-1, f),
+									1.U((dst.d+f).W) << (dst.d+f-1)
+								 ),
+							Mux(number(f+d-1,f+d-1-shave_d) === 0.U(shave_d.W), 
+									number(dst.d+f-1, f),
+									chisel3.util.Cat((0 until dst.d+f-1).map{_ => true.B})
+								 )
+					)
 					0.U(dst.d.W)
 				case _ =>
 					0.U(dst.d.W)
@@ -167,6 +154,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				this + op_cast
 		}
 	}
+	def <+>[T] (rawop: T): FixedPoint = {this.*(rawop, saturating = "saturation")}
 
 	def -[T] (rawop: T): FixedPoint = {
 		rawop match { 
@@ -188,8 +176,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 		}
 	}
+	def <->[T] (rawop: T): FixedPoint = {this.*(rawop, saturating = "saturation")}
 
-	def *[T] (rawop: T): FixedPoint = {
+	def *[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FixedPoint = {
 		rawop match { 
 			case op: FixedPoint => 
 				// Compute upcasted type and return type
@@ -204,13 +193,16 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 				// Downcast to result
 				val result = Wire(new FixedPoint(return_type))
-				full_result.cast(result)
+				full_result.cast(result, rounding = rounding)
 				result
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this * op_cast
 			}
 	}
+	def *&[T] (rawop: T): FixedPoint = {this.*(rawop, rounding = "unbiased")}
+	def <*&>[T] (rawop: T): FixedPoint = {this.*(rawop, rounding = "unbiased", saturating = "saturation")}
+	def <*>[T] (rawop: T): FixedPoint = {this.*(rawop, saturating = "saturation")}
 
 	def /[T] (rawop: T): FixedPoint = {
 		rawop match { 
@@ -243,6 +235,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				this / op_cast
 		}
 	}
+	def /&[T] (rawop: T): FixedPoint = {this.*(rawop, rounding = "unbiased")}
+	def </&>[T] (rawop: T): FixedPoint = {this.*(rawop, rounding = "unbiased", saturating = "saturation")}
+	def </>[T] (rawop: T): FixedPoint = {this.*(rawop, saturating = "saturation")}
 
 	def %[T] (rawop: T): FixedPoint = {
 		rawop match { 

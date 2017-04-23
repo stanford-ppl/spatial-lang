@@ -89,7 +89,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
     case FIFOEnq(fifo,v,en) => 
       val writer = writersOf(fifo).head.ctrlNode  // Not using 'en' or 'shuffle'
       emit(src"""${fifo}_writeEn := ${writer}_ctr_en & $en """)
-      emit(src"""${fifo}_wdata := Vec(List(${v}.number))""")
+      emit(src"""${fifo}_wdata := Vec(List(${v}.raw))""")
 
 
     case FIFODeq(fifo,en) =>
