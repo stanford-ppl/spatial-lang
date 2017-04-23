@@ -82,7 +82,7 @@ trait RegisterCleanup extends ForwardTransformer {
       dbg("")
       dbg("[reg write]")
       dbg(c"$lhs = $rhs")
-      if (readersOf(reg).isEmpty && !isArgOut(reg)) {
+      if (readersOf(reg).isEmpty && !isOffChipMemory(reg)) {
         dbg(c"REMOVING register write $lhs")
         constant[T](FakeSymbol)  // Shouldn't be used
       }
