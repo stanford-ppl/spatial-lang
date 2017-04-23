@@ -25,7 +25,7 @@ trait CppGenFileIO extends CppCodegen  {
 	    		emit(src"string ${lhs}_line;")
   	  		emit(src"""getline (${file}_file, ${lhs}_line);""")
   	  		if (src"""${delim}""" == """"\n"""") {
-		  	  		emit(src"${lhs}->push_back(${lhs}_line);")
+		  	  		emit(src"""if (${lhs}_line != "") {${lhs}->push_back(${lhs}_line);}""")
 	  			} else {
 		    		emit(src"string ${lhs}_delim = ${delim};".replace("'","\""))
 	  	  		emit(src"size_t ${lhs}_pos = 0;")
@@ -45,10 +45,10 @@ trait CppGenFileIO extends CppCodegen  {
   	  emit(src"${file}_file.clear();")
 			emit(src"${file}_file.seekg(0, ${file}_file.beg);")
     case WriteTokens(file, delim, len, token, i) =>
-    	emit(" // TODO: MOST LIKELY WRONG, not sure how to use $i")
-    	open(src"for (int ${lhs}_id = 0; ${lhs}_id < $len; ${lhs}_id++) {")
+    	open(src"for (int ${i} = 0; ${i} < $len; ${i}++) {")
     		open(src"if (${file}_file.is_open()) {")
-    			emit(src"${file}_file << ${token};")
+          visitBlock(token)
+    			emit(src"${file}_file << ${token.result};")
 	    		val chardelim = src"$delim".replace("\"","'")
     			emit(src"""${file}_file << ${chardelim};""")
     		close("}")

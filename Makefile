@@ -33,7 +33,9 @@ switch:
 	sh -c 'git submodule foreach --recursive git pull'
 	sh -c 'git submodule foreach --recursive checkout origin/${BRANCH}'
 
-	
+resources:
+	bash bin/update_resources.sh
+
 clean:
 	sbt clean
 

@@ -227,6 +227,18 @@ trait SpatialMetadataExp extends IndexPatternExp { this: SpatialExp =>
   }
 
   /**
+    * Total latency of a controller
+    **/
+
+  case class AggregateLatency(latency: Int) extends Metadata[AggregateLatency] {
+    def mirror(f:Tx) = this
+  }
+  object aggregateLatencyOf {
+    def apply(x: Exp[_]): Int = metadata[AggregateLatency](x).map{a => a.latency}.getOrElse(0)
+    def update(x: Exp[_], latency: Int): Unit = metadata.add(x, AggregateLatency(latency))
+  }
+
+  /**
     * Map for tracking which control nodes are the tile transfer nodes for a given memory, since this
     * alters the enable signal
     **/
@@ -270,6 +282,17 @@ trait SpatialMetadataExp extends IndexPatternExp { this: SpatialExp =>
 
     def update(arg: Exp[_], id: (Int, Int,Int) ): Unit = metadata.add(arg, ArgMap(id._1, id._2, id._3))
 
+  }
+
+  /**
+    * Fringe that the StreamIn or StreamOut is associated with
+    **/
+  case class Fringe(fringe: Exp[_]) extends Metadata[Fringe] {
+    def mirror(f:Tx) = Fringe(f(fringe))
+  }
+  object fringeOf {
+    def apply(x: Exp[_]): Option[Exp[_]] = metadata[Fringe](x).map(_.fringe)
+    def update(x: Exp[_], fringe: Exp[_]) = metadata.add(x, Fringe(fringe))
   }
 
   /**
@@ -384,6 +407,16 @@ trait SpatialMetadataExp extends IndexPatternExp { this: SpatialExp =>
   object shouldDuplicate {
     def apply(e: Exp[_]) = metadata[MShouldDuplicate](e).exists(_.should)
     def update(e: Exp[_], should: Boolean) = metadata.add(e, MShouldDuplicate(should))
+  }
+
+  /**
+    * Latency of a given inner pipe body - used for control signal generation
+    */
+  case class MBodyLatency(latency: Seq[Long]) extends Metadata[MBodyLatency] { def mirror(f:Tx) = this }
+  object bodyLatency {
+    def apply(e: Exp[_]): Seq[Long] = metadata[MBodyLatency](e).map(_.latency).getOrElse(Nil)
+    def update(e: Exp[_], latency: Seq[Long]): Unit = metadata.add(e, MBodyLatency(latency))
+    def update(e: Exp[_], latency: Long): Unit = metadata.add(e, MBodyLatency(Seq(latency)))
   }
 
 }

@@ -33,27 +33,25 @@ object StreamingSobel extends SpatialApp {
       val kv = RegFile[Int12](Kh, Kw)
 
       // TODO: Better syntax for initialization of lookup tables
-      Pipe {
-        Pipe{kh(0,0) = 1 }
-        Pipe{kh(1,0) = 2 }
-        Pipe{kh(2,0) = 1 }
-        Pipe{kh(0,1) = 0 }
-        Pipe{kh(1,1) = 0 }
-        Pipe{kh(2,1) = 0 }
-        Pipe{kh(0,2) = -1 }
-        Pipe{kh(1,2) = -2 }
-        Pipe{kh(2,2) = -1 }
+      kh(0,0) = 1
+      kh(1,0) = 2
+      kh(2,0) = 1
+      kh(0,1) = 0
+      kh(1,1) = 0
+      kh(2,1) = 0
+      kh(0,2) = -1
+      kh(1,2) = -2
+      kh(2,2) = -1
 
-        Pipe{kv(0,0) = 1 }
-        Pipe{kv(0,1) = 2 }
-        Pipe{kv(0,2) = 1 }
-        Pipe{kv(1,0) = 0 }
-        Pipe{kv(1,1) = 0 }
-        Pipe{kv(1,2) = 0 }
-        Pipe{kv(2,0) = -1 }
-        Pipe{kv(2,1) = -2 }
-        Pipe{kv(2,2) = -1 }
-      }
+      kv(0,0) = 1
+      kv(0,1) = 2
+      kv(0,2) = 1
+      kv(1,0) = 0
+      kv(1,1) = 0
+      kv(1,2) = 0
+      kv(2,0) = -1
+      kv(2,1) = -2
+      kv(2,2) = -1
 
       val sr = RegFile[Int12](Kh, Kw)
       val fifoIn = FIFO[Int12](128)
@@ -63,7 +61,6 @@ object StreamingSobel extends SpatialApp {
       Stream(*) { _ =>
         val pixel = imgIn.value()
         val grayPixel = (pixel.b.to[Int12] + pixel.g.to[Int12] + pixel.r.to[Int12]) / 3
-        // println(pixel + " -> " + grayPixel)
         fifoIn.enq( grayPixel )
 
         Foreach(0 until R, 0 until Cmax) { (r, c) =>

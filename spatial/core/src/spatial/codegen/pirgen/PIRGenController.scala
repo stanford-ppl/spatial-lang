@@ -1,99 +1,20 @@
 package spatial.codegen.pirgen
 
-import argon.codegen.pirgen.PIRCodegen
-import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
-import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
-import scala.collection.mutable.Map
-import argon.Config
+import scala.collection.mutable
 
-trait PIRGenController extends PIRTraversal with PIRCodegen {
+trait PIRGenController extends PIRCodegen with PIRTraversal {
   val IR: SpatialExp with PIRCommonExp
   import IR._
 
-  val genControlLogic = false
+  def cus: mutable.Map[Expr,List[List[ComputeUnit]]]
   var allocatedReduce: Set[ReduceReg] = Set.empty
-
-  lazy val allocater = new PIRAllocation{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
-  lazy val scheduler = new PIRScheduler{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
-  lazy val optimizer = new PIROptimizer{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
-  lazy val splitter  = new PIRSplitter{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
-  lazy val hacks     = new PIRHacks{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
-  lazy val dse       = new PIRDSE{val IR: PIRGenController.this.IR.type = PIRGenController.this.IR}
-
-  val cus = Map[Exp[Any],List[ComputeUnit]]()
-
-  private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
-    for (i <- iters.indices)
-      open(src"$cchain($i).foreach{case (is,vs) => is.zip(vs).foreach{case (${iters(i)},v) => if (v) {")
-
-    func
-
-    iters.indices.foreach{_ => close("}}}") }
-  }
+  val genControlLogic = false
 
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
-    // -- CU allocation
-    allocater.run(block)
-    // -- CU scheduling
-    scheduler.mappingIn ++= allocater.mapping
-    scheduler.globals ++= allocater.globals
-    scheduler.run(block)
-    // -- Optimization
-    optimizer.globals ++= scheduler.globals
-    optimizer.mapping ++= scheduler.mappingOut
-    optimizer.run(block)
-
-    if (SpatialConfig.enableSplitting) {
-      splitter.globals ++= optimizer.globals
-      splitter.mappingIn ++= optimizer.mapping
-      splitter.run(block)
-
-      hacks.mappingIn ++= splitter.mappingOut
-      hacks.globals ++= splitter.globals
-    }
-    else {
-      for ((s,cu) <- optimizer.mapping) hacks.mappingIn(s) = List(cu)
-      hacks.globals ++= optimizer.globals
-    }
-    hacks.run(block)
-
-    cus ++= hacks.mappingOut
-    globals ++= hacks.globals
-
-
-    if (SpatialConfig.enableArchDSE) {
-      dse.globals ++= optimizer.globals
-      dse.mappingIn ++= optimizer.mapping
-      dse.run(block)
-    }
-
-    msg("Starting traversal PIR Generation")
-    generateHeader()
+    val blk = super.preprocess(block) // generateHeader
     generateGlobals()
-    block
-  }
-
-  def generateHeader() {
-    emit("import pir.graph")
-    emit("import pir.graph._")
-    emit("import pir.graph.enums._")
-    emit("import pir.codegen._")
-    emit("import pir.plasticine.config._")
-    emit("import pir.Design")
-    emit("import pir.misc._")
-    emit("import pir.PIRApp")
-    emit("")
-    open(s"""object ${Config.name}Design extends PIRApp {""")
-    //emit(s"""override val arch = SN_4x4""")
-    open(s"""def main(args: String*)(top:Top) = {""")
-  }
-
-  def generateFooter() {
-    emit(s"")
-    close("}")
-    close("}")
+    blk
   }
 
   def generateGlobals() {
@@ -102,22 +23,13 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     mcs.foreach(emitComponent _)
   }
 
-  override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
-    generateFooter()
-    msg("Done.")
-    val nCUs = cus.values.flatten.filter{cu => cu.allStages.nonEmpty || cu.isDummy }.size
-    msg(s"NUMBER OF CUS: $nCUs")
-    //sys.exit()
-    block
-  }
-
-  def emitAllStages(cu: CU) {
+  def emitAllStages(cu: ComputeUnit) {
     var i = 1
     var r = 1
     def emitStages(stages: Iterable[Stage]) = stages.foreach{
       case MapStage(op,inputs,outputs) =>
-        val ins = inputs.map(quote(_)).mkString(", ")
-        val outs = outputs.map(quote(_)).mkString(", ")
+        val ins = inputs.map(quote).mkString(", ")
+        val outs = outputs.map(quote).mkString(", ")
         emit(s"""Stage(stage($i), operands=List($ins), op=$op, results=List($outs))""")
         i += 1
 
@@ -132,29 +44,47 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     if (cu.controlStages.nonEmpty && genControlLogic) {
       i = 0
       val nCompute = cu.controlStages.length
-      emit(s"stage = ControlStages(${nCompute})")
+      emit(s"stage = ControlStages($nCompute)")
       emitStages(cu.controlStages)
     }
     for ((srams,stages) <- cu.writeStages if stages.nonEmpty) {
       i = 1
       val nWrites  = stages.filter{_.isInstanceOf[MapStage]}.length
-      emit(s"stage = stage0 +: WAStages(${nWrites}, ${srams.map(quote(_))})")
+      emit(s"stage = CU.emptyStage +: WAStages($nWrites, ${srams.map(quote)})")
+      emitStages(stages)
+    }
+    for ((srams,stages) <- cu.readStages if stages.nonEmpty) {
+      i = 1
+      val nReads  = stages.filter{_.isInstanceOf[MapStage]}.length
+      emit(s"stage = CU.emptyStage +: RAStages($nReads, ${srams.map(quote)})")
       emitStages(stages)
     }
     if (cu.computeStages.nonEmpty) {
       i = 1
       val nCompute = cu.computeStages.filter{_.isInstanceOf[MapStage]}.length
-      emit(s"stage = stage0 +: Stages(${nCompute})")
+      emit(s"stage = CU.emptyStage +: Stages($nCompute)")
       emitStages(cu.computeStages)
     }
   }
-  //override def quote(s: Exp[_]): String = {
+  //override def quote(s: Exp[_]): String
 
   def cuDeclaration(cu: CU) = {
+    val decs = mutable.ListBuffer[String]()
+    decs += s"""name="${cu.name}""""
     val parent = cu.parent.map(_.name).getOrElse("top")
-    val deps = cu.deps.map{dep => dep.name }.mkString("List(", ", ", ")")
 
-    s"""${quote(cu)}(name = "${cu.name}", parent=$parent, deps=$deps)"""
+    //TODO: refactor this
+    if (cu.style.isInstanceOf[MemoryCU]) {
+      decs += s"""parent="$parent"""" // MemoryPipeline's parent might be declared later 
+    } else {
+      decs += s"""parent=$parent"""
+    }
+    cu.style match {
+      case FringeCU(dram, mode) =>
+        decs += s"""offchip=${quote(dram)}, mctpe=$mode"""
+      case _ =>
+    }
+    s"${quote(cu)}(${decs.mkString(",")})"
   }
 
   def preallocateRegisters(cu: CU) = cu.regs.foreach{
@@ -169,71 +99,39 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case _ => //nothing
   }
 
-  def generateCU(pipe: Exp[Any], cu: CU, suffix: String = "") {
+  override def emitCU(lhs: Exp[_], cu: CU): Unit = {
+    val Def(rhs) = lhs
+    //emit(s"""// Def($lhs) = $rhs [isControlNode=${isControlNode(lhs)}]""")
+
+    val srams = cu.srams // Memories with address calculation
+    val mems = cu.mems.diff(srams) // Without address calculation
+
     open(s"val ${cu.name} = ${cuDeclaration(cu)} { implicit CU => ")
-    emit(s"val stage0 = CU.emptyStage")
     preallocateRegisters(cu)                // Includes scalar inputs/outputs, temps, accums
+    mems.foreach(emitComponent(_))      // Declare mems without addr calculation first. 
+                                        // Counter bounds might depends on scalarBuffer
     cu.cchains.foreach(emitComponent(_))    // Allocate all counterchains
-    cu.srams.foreach(emitComponent(_))      // Allocate all SRAMs
+    srams.foreach(emitComponent(_))      // Allocate all SRAMs. address calculation might depends on counters
+    emitFringeVectors(cu)
     preallocateFeedbackRegs(cu)             // Local write addresses
 
-    emitAllStages(cu)
+    cu.style match {
+      case PipeCU => emitAllStages(cu)
+      case MemoryCU(i) => emitAllStages(cu)
+      case _ => 
+    }
 
     close("}")
   }
 
-  private def emitController(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    //case isControlNode(lhs) && cus.contains(lhs) =>
-    case rhs if isControlNode(lhs) => //generateCU(lhs, cu)
-      //emit(s"$lhs = $rhs")
-    case _ => 
-  }
-
-  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
-    emitController(lhs, rhs)
-    rhs match {
-      case Hwblock(func,_) =>
-        emitBlock(func)
-
-      case UnitPipe(en, func) =>
-
-      case ParallelPipe(en, func) => 
-        emitBlock(func)
-
-      case OpForeach(cchain, func, iters) =>
-        emitNestedLoop(cchain, iters){ emitBlock(func) }
-
-      case OpReduce(cchain, accum, map, load, reduce, store, ident, fold, rV, iters) =>
-        emitNestedLoop(cchain, iters){
-          visitBlock(map)
-          visitBlock(load)
-          visitBlock(reduce)
-          emitBlock(store)
-        }
-
-      case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,ident,fold,rV,itersMap,itersRed) =>
-        emitNestedLoop(cchainMap, itersMap){
-          visitBlock(map)
-          emitNestedLoop(cchainRed, itersRed){
-            visitBlock(loadRes)
-            visitBlock(loadAcc)
-            visitBlock(reduce)
-            visitBlock(storeAcc)
-          }
-        }
-
-      case _ => super.emitNode(lhs, rhs)
-    }
-  }
-
   def quoteInCounter(reg: LocalScalar) = reg match {
-    case reg:ScalarIn => s"CU.scalarIn(stage0, ${quote(reg)}).out"
-    case reg:ConstReg => s"""${quote(reg)}.out"""
+    case reg@MemLoadReg(mem) => s"$mem.load"
+    case reg:ConstReg[_] => s"""${quote(reg)}"""
   }
 
   def emitComponent(x: Any): Unit = x match {
     case CChainCopy(name, inst, owner) =>
-      emit(s"""val $name = CounterChain.copy(${owner.name}, "$name")""")
+      emit(s"""val $name = CounterChain.copy("${owner.name}", "$name")""")
 
     case CChainInstance(name, ctrs) =>
       for (ctr <- ctrs) emitComponent(ctr)
@@ -243,75 +141,71 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case UnitCChain(name) =>
       emit(s"""val $name = CounterChain(name = "$name", (Const("0i"), Const("1i"), Const("1i")))""")
 
-    case ctr@CUCounter(start, end, stride) =>
-      emit(s"""val ${ctr.name} = (${quoteInCounter(start)}, ${quoteInCounter(end)}, ${quoteInCounter(stride)}) // Counter""")
+    case ctr@CUCounter(start, end, stride, par) =>
+      emit(s"""val ${ctr.name} = Counter(min=${quoteInCounter(start)}, max=${quoteInCounter(end)}, step=${quoteInCounter(stride)}, par=$par) // Counter""")
 
-    case sram: CUMemory =>
-      var decl = s"""val ${sram.name} = ${quote(sram.mode)}(size = ${sram.size}"""
-
-      sram.writeCtrl match {
-        case Some(cchain) => decl += s""", writeCtr = ${cchain.name}(0)"""
-        case None if sram.mode != SRAMMode => // Ok
-        case None => throw new Exception(s"No write controller defined for $sram")
+    case mem: CUMemory =>
+      dbgs(s"Emitting mem:$mem")
+      val decl = mutable.ListBuffer[String]()
+      val lhs = mem.cu.style match {
+        case _:FringeCU => s"""CU.mcfifos += "${getField(mem.mem).get}" -> """
+        case _ => s"val ${mem.name} = " 
+      }
+      
+      if (mem.mode!=ScalarBufferMode) {
+        decl += s"""size = ${mem.size}"""
       }
 
-      sram.banking match {
-        case Some(banking) => decl += s", banking = $banking"
-        case None => throw new Exception(s"No banking defined for $sram")
+      mem.banking match {
+        case Some(banking) if mem.mode==SRAMMode => decl += s"banking = $banking"
+        case Some(_) =>
+        case None => //ScalarBuffer doesn't have banking
       }
 
-      if (sram.bufferDepth > 1 && sram.mode != FIFOMode) {
-        var buffering = s", buffering = MultiBuffer(${sram.bufferDepth}"
-        sram.swapRead match {
-          case Some(cchain) => buffering += s", swapRead = ${cchain.name}(0)"
-          case None => throw new Exception(s"No swap read controller defined for $sram")
-        }
+      var ports = ""
 
-        sram.swapWrite match {
-          case Some(cchain) => buffering += s", swapWrite = ${cchain.name}(0)"
-          case None if sram.mode != SRAMMode => // Ok
-          case None => throw new Exception(s"No swap write controller defined for $sram")
-        }
-        decl += s"$buffering)"
-      }
-      else if (sram.mode != FIFOMode) {
-        decl += ", buffering = SingleBuffer()"
-      }
-      decl += ")"
-
-      sram.vector match {
+      mem.writePort match {
         case Some(LocalVectorBus) => // Nothing?
-        case Some(vec) => decl += s""".wtPort(${quote(vec)})"""
-        case None => throw new Exception(s"Memory $sram has no vector defined")
+        case Some(LocalReadBus(vfifo)) => ports += s".wtPort(${quote(vfifo)}.readPort)" 
+        case Some(vec) => ports += s""".wtPort(${quote(vec)})"""
+        //case None => ports += s""".wtPort(None)"""
+        case None => throw new Exception(s"Memory $mem has no writePort defined")
       }
-      sram.readAddr match {
-        case Some(_:CounterReg | _:ConstReg) => decl += s""".rdAddr(${quote(sram.readAddr.get)})"""
+      mem.readPort match {
+        case Some(LocalVectorBus) => // Nothing?
+        case Some(vec) => ports += s""".rdPort(${quote(vec)})"""
+        case None if mem.mode==SRAMMode => throw new Exception(s"Memory $mem has no readPort defined")
+        case None => 
+      }
+      mem.readAddr match {
+        case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".rdAddr(${quote(mem.readAddr.get)})"""
         case Some(_:ReadAddrWire) =>
-        case None if sram.mode == FIFOMode => // ok
-        case addr => throw new Exception(s"Disallowed memory read address in $sram: $addr")
+        case None if mem.mode != SRAMMode => // ok
+        case addr => ports += s""".rdAddr($addr)"""
+        //case addr => throw new Exception(s"Disallowed memory read address in $mem: $addr") //TODO
       }
-      sram.writeAddr match {
-        case Some(_:CounterReg | _:ConstReg) => decl += s""".wtAddr(${quote(sram.writeAddr.get)})"""
+      mem.writeAddr match {
+        case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".wtAddr(${quote(mem.writeAddr.get)})"""
         case Some(_:WriteAddrWire | _:FeedbackAddrReg) =>
-        case None if sram.mode != SRAMMode => // ok
-        case addr => throw new Exception(s"Disallowed memory write address in $sram: $addr")
+        case None if mem.mode != SRAMMode => // ok
+        case addr => ports += s""".wtAddr($addr)""" //TODO
+        //case addr => throw new Exception(s"Disallowed memory write address in $mem: $addr")
       }
-      if (sram.mode != SRAMMode) {
-        sram.writeStart match {
-          case Some(start) => decl += s""".wtStart(${quoteInCounter(start)})"""
+      if (mem.mode != SRAMMode) {
+        mem.writeStart match {
+          case Some(start) => ports += s""".wtStart(${quoteInCounter(start)})"""
           case _ =>
         }
-        sram.writeEnd match {
-          case Some(end) => decl += s""".wtEnd(${quoteInCounter(end)})"""
+        mem.writeEnd match {
+          case Some(end) => ports += s""".wtEnd(${quoteInCounter(end)})"""
           case _ =>
         }
       }
 
+      emit(s"""$lhs ${quote(mem.mode)}(${decl.mkString(",")})$ports""")
 
-      emit(decl)
-
-    case mc@MemoryController(name,region,mode) =>
-      emit(s"val ${quote(mc)} = MemoryController($mode, ${quote(region)})")
+    case mc@MemoryController(name,region,mode,parent) =>
+      emit(s"""val ${quote(mc)} = MemoryController($mode, ${quote(region)}).parent("${cus(parent).head.head.name}")""")
 
     case mem: OffChip   => emit(s"""val ${quote(mem)} = OffChip("${mem.name}")""")
     case bus: InputArg  => emit(s"""val ${quote(bus)} = ArgIn("${bus.name}")""")
@@ -319,18 +213,26 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case bus: ScalarBus => emit(s"""val ${quote(bus)} = Scalar("${bus.name}")""")
     case bus: VectorBus => emit(s"""val ${quote(bus)} = Vector("${bus.name}")""")
 
-    case x => throw new Exception(s"Don't know how to generate PIR component $x")
+    case _ => throw new Exception(s"Don't know how to generate PIR component $x")
   }
 
-  override def quote(x: Symbol):String = s"$x"
+  def emitFringeVectors(cu:ComputeUnit) = {
+    if (isFringe(cu.pipe)) {
+      cu.fringeVectors.foreach { case (field, vec) =>
+        emit(s"""CU.mcvecs += "$field" -> ${quote(vec)}""")
+      }
+    }
+  }
 
   def quote(mode: LocalMemoryMode): String = mode match {
     case SRAMMode => "SRAM"
-    case FIFOMode => "FIFO"
+    case VectorFIFOMode => "VectorFIFO"
     case FIFOOnWriteMode => "SemiFIFO"
+    case ScalarBufferMode => "ScalarBuffer"
+    case ScalarFIFOMode => "ScalarFIFO"
   }
 
-  def quote(sram: CUMemory): String = sram.name
+  def quote(mem: CUMemory): String = mem.name
 
   def quote(x: GlobalComponent): String = x match {
     case OffChip(name)       => s"${name}_oc"
@@ -338,29 +240,26 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case InputArg(name)      => s"${name}_argin"
     case OutputArg(name)     => s"${name}_argout"
     case LocalVectorBus      => "local"
-    case PIRDRAMDataIn(mc)      => s"${quote(mc)}.vdata"
-    case PIRDRAMDataOut(mc)     => s"${quote(mc)}.vdata"
+    case PIRDRAMDataIn(mc)      => s"${quote(mc)}.data"
+    case PIRDRAMDataOut(mc)     => s"${quote(mc)}.data"
     case PIRDRAMOffset(mc)      => s"${quote(mc)}.ofs"
     case PIRDRAMLength(mc)      => s"${quote(mc)}.len"
     case PIRDRAMAddress(mc)     => s"${quote(mc)}.addrs"
-    case bus:ScalarBus       => s"${bus.name}_scalar"
-    case bus:VectorBus       => s"${bus.name}_vector"
+    case bus:ScalarBus       => s"${bus.name}_s"
+    case bus:VectorBus       => s"${bus.name}_v"
   }
 
   def quote(cu: CU): String = cu.style match {
-    case UnitCU if cu.allStages.isEmpty && !cu.isDummy => "Sequential" // outer unit is "Sequential"
-    case UnitCU       => "UnitPipeline"
     case StreamCU if cu.allStages.isEmpty && !cu.isDummy => "StreamController"
-    case StreamCU     => "StreamPipeline"
-    case UnitStreamCU if cu.allStages.isEmpty && !cu.isDummy => "StreamController" // TODO
-    case UnitStreamCU => "StreamPipeline" // TODO
-    case PipeCU       => "Pipeline"
+    case PipeCU => "Pipeline"
     case MetaPipeCU   => "MetaPipeline"
     case SequentialCU => "Sequential"
+    case MemoryCU(i)     => "MemoryPipeline"
+    case FringeCU(dram, mode)     => "MemoryController"
   }
 
   def quote(reg: LocalComponent): String = reg match {
-    case ConstReg(c)             => s"""Const("$c")"""              // Constant
+    case ConstReg(c)             => s"""Const($c)"""              // Constant
     case CounterReg(cchain, idx) => s"${cchain.name}($idx)"         // Counter
     case ValidReg(cchain,idx)    => s"${cchain.name}.valids($idx)"  // Counter valid
 
@@ -368,11 +267,11 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case ReadAddrWire(mem)       => s"${quote(mem)}.readAddr"       // Read address wire
     case FeedbackAddrReg(mem)    => s"wr${reg.id}"                  // Local write address register
     case FeedbackDataReg(mem)    => quote(mem)                      // Local write data register
-    case SRAMReadReg(mem)        => quote(mem)                      // SRAM read
+    case MemLoadReg(mem)        => quote(mem)                      // SRAM read
 
     case reg:ReduceReg           => s"rr${reg.id}"                  // Reduction register
     case reg:AccumReg            => s"ar${reg.id}"                  // After preallocation
-    case reg:TempReg             => s"tr${reg.id}"                  // Temporary register
+    case reg:TempReg             => reg.toString                  // Temporary register
     case reg:ControlReg          => s"cr${reg.id}"                  // Control register
 
     case ScalarIn(bus)           => quote(bus)                      // Scalar input
@@ -382,7 +281,7 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
   }
 
   def quote(ref: LocalRef): String = ref match {
-    case LocalRef(stage, reg: ConstReg)   => quote(reg)
+    case LocalRef(stage, reg: ConstReg[_])   => quote(reg)
     case LocalRef(stage, reg: CounterReg) => if (stage >= 0) s"CU.ctr(stage($stage), ${quote(reg)})" else quote(reg)
     case LocalRef(stage, reg: ValidReg)   => quote(reg)
 
@@ -396,15 +295,11 @@ trait PIRGenController extends PIRTraversal with PIRCodegen {
     case LocalRef(stage, reg: AccumReg)    => s"CU.accum(stage($stage), ${quote(reg)})"
     case LocalRef(stage, reg: TempReg)     => s"CU.temp(stage($stage), ${quote(reg)})"
     case LocalRef(stage, reg: ControlReg)  => s"CU.ctrl(stage($stage), ${quote(reg)})"
-    case LocalRef(stage, reg: SRAMReadReg) => if (stage >= 0) s"CU.load(stage($stage), ${quote(reg)})" else s"${quote(reg)}.load"
+    case LocalRef(stage, reg: MemLoadReg) => if (stage >= 0) s"CU.load(stage($stage), ${quote(reg)})" else s"${quote(reg)}.load"
 
     case LocalRef(stage, reg: ScalarIn)  => s"CU.scalarIn(stage($stage), ${quote(reg)})"
     case LocalRef(stage, reg: ScalarOut) => s"CU.scalarOut(stage($stage), ${quote(reg)})"
     case LocalRef(stage, reg: VectorIn)  => s"CU.vecIn(stage($stage), ${quote(reg)})"
     case LocalRef(stage, reg: VectorOut) => s"CU.vecOut(stage($stage), ${quote(reg)})"
-  }
-
-  override protected def quoteConst(c: Const[_]): String = (c.tp, c) match {
-    case _ => s"Const($c)"
   }
 }

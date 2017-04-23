@@ -103,11 +103,15 @@ object Arguments {
     5,
     8
   )
-  val Delayer = List(
-    10,
-    3,
+  val Retimer = List(
+    (10, 32),
+    (3, 32),
+    (1, 32),
+    (0, 32)
+  )
+  val PRNG = List(
     1,
-    0
+    77
   )
   val Mem1D = List(
     50,
@@ -298,10 +302,18 @@ object Launcher {
       }) 
   }.toMap
 
-  templates = templates ++ Arguments.Delayer.zipWithIndex.map{ case(arg,i) => 
-    (s"Delayer$i" -> { (backendName: String) =>
-        Driver(() => new Delayer(arg), "verilator") {
-          (c) => new DelayerTests(c)
+  templates = templates ++ Arguments.Retimer.zipWithIndex.map{ case(arg,i) => 
+    (s"Retimer$i" -> { (backendName: String) =>
+        Driver(() => new Retimer(arg), "verilator") {
+          (c) => new RetimerTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.PRNG.zipWithIndex.map{ case(arg,i) => 
+    (s"PRNG$i" -> { (backendName: String) =>
+        Driver(() => new PRNG(arg), "verilator") {
+          (c) => new PRNGTests(c)
         }
       }) 
   }.toMap

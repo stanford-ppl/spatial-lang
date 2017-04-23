@@ -4,9 +4,10 @@ package templates
 import chisel3.iotesters.{PeekPokeTester, Driver, ChiselFlatSpec}
 import org.scalatest.Assertions._
 
-class DelayerTests(c: Delayer) extends PeekPokeTester(c) {
+class RetimerTests(c: Retimer) extends PeekPokeTester(c) {
   step(1)
   reset(1)
+  poke(c.io.input.en, true)
   var memory = Array.tabulate(c.length+1) { i => 0 }
   var head = 0
   var tail = if (c.length > 0) 1 else 0
@@ -27,13 +28,5 @@ class DelayerTests(c: Delayer) extends PeekPokeTester(c) {
 
 }
 
-class DelayerTester extends ChiselFlatSpec {
-  behavior of "Delayer"
-  backends foreach {backend =>
-    it should s"correctly add randomly generated numbers $backend" in {
-      Driver(() => new Delayer(10))(c => new DelayerTests(c)) should be (true)
-    }
-  }
-}
 
 

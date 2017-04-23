@@ -1555,6 +1555,97 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
   }
 }
 
+object MaskedWrite extends SpatialApp {  // Regression (Unit) // Args: 31
+  import IR._
+  type T = Int
+
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val N = 128
+    val a = args(0).to[T]
+    val y = DRAM[T](N)
+    val s = ArgIn[T]
+
+    setArg(s, a)
+
+    Accel {
+      val yy = SRAM[T](N)
+      Foreach(2*N by 1) { i =>
+        if (i < s.value) { yy(i) = 1.to[T]}
+      }
+      Foreach(2*N by 1) { i =>
+        if (i >= s.value) { if (i < N) {yy(i) = 2.to[T] }}
+      }
+      y(0 :: N par 1) store yy
+    }
+
+
+    // Extract results from accelerator
+    val result = getMem(y)
+
+    // Create validation checks and debug code
+    val gold = Array.tabulate(N){i => if (i < a) {1} else {2}}
+    printArray(gold, "expected: ")
+    printArray(result, "got: ")
+
+    val cksum = gold.zip(result){_ == _}.reduce{_&&_}
+    println("PASS: " + cksum + " (MaskedWrite)")
+  }
+}
+
+
+object SpecialMath extends SpatialApp {
+  import IR._
+  type T = FixPt[TRUE,_12,_4]
+
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val a = 5.625.to[T]
+    val b = 2.625.to[T]
+    val c = 252.to[T]
+    val A = ArgIn[T]
+    val B = ArgIn[T]
+    val C = ArgIn[T]
+    setArg(A, a)
+    setArg(B, b)
+    setArg(C, c)
+    val N = 1280
+    val unbmul = DRAM[T](N)
+
+    val satadd = ArgOut[T]
+
+
+    Accel {
+      val yy = SRAM[T](N)
+      Foreach(N by 1) { i => 
+        yy(i) = A <*&> B
+      }
+      unbmul store yy
+      Pipe{ satadd := c <+> a}
+    }
+
+
+    // Extract results from accelerator
+    val unbres = getMem(unbmul)
+    val satres = getArg(satadd)
+
+    // Create validation checks and debug code
+    val gold = (a * b).to[FltPt[_24,_8]]
+    val mean = unbres.map{_.to[FltPt[_24,_8]]}.reduce{_+_} / N
+    printArray(unbres, "got: ")
+
+    val margin = 0.25.to[FltPt[_24,_8]]
+    println("gold: " + gold)
+    println("got: " + mean)
+
+    val cksum = ((gold + margin).to[FltPt[_24,_8]] > mean) && ((gold - margin).to[FltPt[_24,_8]] < mean)
+    println("PASS: " + cksum + " (SpecialMath)")
+  }
+}
+
+
 object DiagBanking extends SpatialApp {  // Regression (Unit) // Args: none
   import IR._
   type T = Int
@@ -1631,17 +1722,20 @@ object MultiWriteBuffer extends SpatialApp { // Regression (Unit) // Args: none
 
   @virtualize
   def main() {
-    val mem = DRAM[Int](32,32)
+    val R = 4
+    val C = 4
+
+    val mem = DRAM[Int](R, C)
     val y = ArgOut[Int]
 
     Accel {
-      val accum = SRAM[Int](32, 32)
-      MemReduce(accum)(0 until 32) { row => 
-        val sram_seq = SRAM[Int](32,32)
-         Foreach(0 until 32, 0 until 32) { (r, c) => 
+      val accum = SRAM[Int](R, C)
+      MemReduce(accum)(0 until R) { row =>
+        val sram_seq = SRAM[Int](R, C)
+         Foreach(0 until R, 0 until C) { (r, c) =>
             sram_seq(r,c) = 0
          }
-         Foreach(0 until 32) { col =>
+         Foreach(0 until C) { col =>
             sram_seq(row, col) = 32*(row + col)
          }
          sram_seq
@@ -1651,7 +1745,7 @@ object MultiWriteBuffer extends SpatialApp { // Regression (Unit) // Args: none
     }
     
     val result = getMatrix(mem)
-    val gold = (0::32, 0::32){(i,j) => 32*(i+j)}
+    val gold = (0::R, 0::C){(i,j) => 32*(i+j)}
     printMatrix(gold, "Gold:")
     printMatrix(result, "Result:")
 

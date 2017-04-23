@@ -10,23 +10,30 @@ trait PIROptimizer extends PIRTraversal {
 
   override val name = "PIR Optimization"
 
-  val mapping = mutable.HashMap[Symbol, CU]()
+  val mapping = mutable.HashMap[Expr, List[CU]]()
 
-  def cus = mapping.values
+  def cus = mapping.values.flatMap{cus => cus}.toList
 
   override def process[S:Type](b: Block[S]): Block[S] = {
     msg("Starting traversal PIR Optimizer")
-    for (cu <- cus) removeRouteThrus(cu)
+    for (cu <- cus) removeRouteThrus(cu) // Remove route through stages
     for (cu <- cus) removeUnusedCUComponents(cu)
     for (cu <- cus) removeDeadStages(cu)
-    removeEmptyCUs(mapping.values.toList)
+    removeEmptyCUs(cus)
     removeUnusedGlobalBuses()
     for (cu <- cus) removeDeadStages(cu)
-    removeEmptyCUs(mapping.values.toList)
-
-    b
+    removeEmptyCUs(cus)
+    super.process(b)
   }
 
+  override def postprocess[S:Type](b: Block[S]): Block[S] = {
+    dbgs(s"\n\n//----------- Finishing PIRHacks ------------- //")
+    dbg(s"Mapping:")
+    mapping.foreach { case (sym, cus) =>
+      dbg(s"${sym} -> [${cus.mkString(",")}]")
+    }
+    super.postprocess(b)
+  }
 
   def removeUnusedCUComponents(cu: CU) {
     dbg(s"")
@@ -172,7 +179,7 @@ trait PIROptimizer extends PIRTraversal {
     // 1. This CU has no children, no write stages, and no compute stages
     // 2. This CU has a sibling (same parent) CU or no counterchain instances
     val children = cus.filter{c => c.parent.contains(cu) }
-    if (cu.writeStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty) {
+    if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty) {
       val sibling = cus.find{c => c != cu && c.parent == cu.parent}
 
       val globallyUsedCCs = cus.filterNot(_ != cu).flatMap(usedCChains(_))
@@ -198,7 +205,8 @@ trait PIROptimizer extends PIRTraversal {
         }
       }
       if (usedCCs.isEmpty || sibling.isDefined) {
-        mapping.retain{case (pipe,c) => c != cu }
+        dbg(s"Removing empty CU $cu")
+        mapping.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
       }
     }
   }

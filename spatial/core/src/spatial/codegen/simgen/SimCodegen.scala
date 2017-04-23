@@ -15,7 +15,7 @@ trait SimCodegen extends Codegen with FileDependencies {
   var hw = false
 
   //RUBEN TODO: We dont support wildcard yet
-  dependencies ::= DirDep("simgen", "")
+  dependencies ::= DirDep("simgen", "", "files_list")
 
   override protected def emitBlock(b: Block[_]): Unit = {
     visitBlock(b)

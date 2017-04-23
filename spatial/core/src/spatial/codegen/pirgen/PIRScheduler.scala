@@ -1,6 +1,6 @@
 package spatial.codegen.pirgen
-import spatial.{SpatialExp,SpatialConfig}
-import spatial.api._
+
+import spatial.SpatialExp
 
 import scala.collection.mutable
 
@@ -11,347 +11,194 @@ trait PIRScheduler extends PIRTraversal {
   override val name = "PIR Scheduler"
   override val recurse = Always
 
-  val mappingIn  = mutable.HashMap[Symbol, PCU]()
-  val mappingOut = mutable.HashMap[Symbol, CU]()
+  implicit val mappingIn  = mutable.HashMap[Expr, List[PCU]]()
+  val mappingOut = mutable.HashMap[Expr, List[CU]]()
 
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
-    val cuMapping = mappingIn.keys.map{s =>
+    val cuMapping:Map[ACU, ACU] = mappingIn.keys.flatMap{s =>
 
       dbg(s"${mappingIn(s)} -> ${mappingOut(s)}")
 
-      mappingIn(s).asInstanceOf[ACU] -> mappingOut(s).asInstanceOf[ACU]
+      mappingIn(s).zip(mappingOut(s)).map { case (pcu, cu) =>
+        pcu.asInstanceOf[ACU] -> cu.asInstanceOf[ACU]
+      }
     }.toMap
 
     // Swap dependencies, parents, cchain owners from pcu to cu
 
-    swapCUs(mappingOut.values, cuMapping)
+    swapCUs(cuMapping)
 
     for ((k,v) <- cuMapping) {
-      dbg(s"$k -> $v")
+      dbgs(s"$k -> $v")
     }
 
-    for (cu <- mappingOut.values) {
-      dbg(s"")
-      dbg(s"Generated CU: $cu")
-      dbg(s"Counter chains: ")
-      cu.cchains.foreach{cchain =>
-        dbg(s"  $cchain")
-      }
-
-      if (cu.srams.nonEmpty) {
-        dbg(s"SRAMs: ")
-        for (sram <- cu.srams) {
-          dbg(s"""  $sram [${sram.mode}] (sym: ${sram.mem}, reader: ${sram.reader})""")
-          dbg(s"""    banking   = ${sram.banking.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    vector    = ${sram.vector.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    writeAddr = ${sram.writeAddr.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    readAddr  = ${sram.readAddr.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    start     = ${sram.writeStart.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    end       = ${sram.writeEnd.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    swapWrite = ${sram.swapWrite.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    swapRead  = ${sram.swapRead.map(_.toString).getOrElse("N/A")}""")
-          dbg(s"""    writeCtrl = ${sram.writeCtrl.map(_.toString).getOrElse("N/A")}""")
-        }
-      }
-
-      for (srams <- cu.writeStages.keys) {
-        dbg(s"Generated write stages ($srams): ")
-        cu.writeStages(srams).foreach(stage => dbg(s"  $stage"))
-      }
-      dbg("Generated compute stages: ")
-      cu.computeStages.foreach(stage => dbg(s"  $stage"))
-
-      dbg(s"CU global inputs:")
-      globalInputs(cu).foreach{in => dbg(s"  $in") }
+    dbgs(s"\n\n//----------- Finishing Scheduling ------------- //")
+    for (cu <- mappingOut.values.flatten) {
+      dbgcu(cu)
     }
     block
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
-    if (isControlNode(lhs) && mappingIn.contains(lhs))
+    if ((isControlNode(lhs) || isSRAM(lhs) || isFringe(lhs)) && mappingIn.contains(lhs))
       schedulePCU(lhs, mappingIn(lhs))
   }
 
-  def schedulePCU(pipe: Symbol, pcu: PCU) {
-    val cu = pcu.copyToConcrete()
+  def schedulePCU(sym: Expr, pcus: List[PCU]):Unit = {
+    mappingOut += sym -> pcus.map { pcu =>
+      dbgblk(s"Scheduling $sym CU: $pcu") {
+        dbgpcu(pcu)
 
-    dbg(s"\n\n\n")
-    dbg(s"Scheduling $pipe CU: $pcu")
-    for ((s,r) <- cu.regTable) {
-      dbg(s"  $s -> $r")
-    }
-    dbg(s"  SRAMs:")
-    for (sram <- pcu.srams) {
-      dbg(s"""    $sram (sym: ${sram.mem}, reader: ${sram.reader})""")
-    }
-    dbg(s"  Write stages:")
-    for ((k,v) <- pcu.writeStages) {
-      dbg(s"    Memories: " + k.mkString(", "))
-      for (stage <- v._2) dbg(s"      $stage")
-    }
-    dbg(s"  Compute stages:")
-    for (stage <- pcu.computeStages) dbg(s"    $stage")
+        val cu = pcu.copyToConcrete()
 
-    val origRegs = cu.regs
-    var writeStageRegs = cu.regs
+        val origRegs = cu.regs
+        var writeStageRegs = cu.regs
+        var readStageRegs = cu.regs
 
-    // --- Schedule write contexts
-    for ((srams,grp) <- pcu.writeStages) {
-      val writer = grp._1
-      val stages = grp._2
-      val ctx = WriteContext(cu, writer, srams)
-      ctx.init()
-      stages.foreach{stage => scheduleStage(stage, ctx) }
+        // --- Schedule write contexts
+        for ((srams, (writer, stages)) <- pcu.writeStages) {
+          val ctx = WriteContext(cu, writer, srams)
+          ctx.init()
+          stages.foreach{stage => scheduleStage(stage, ctx) }
 
-      writeStageRegs ++= cu.regs
-      cu.regs = origRegs
-    }
+          writeStageRegs ++= cu.regs
+          cu.regs = origRegs
+        }
+        // --- Schedule read contexts
+        for ((srams, (reader, stages)) <- pcu.readStages) {
+          val ctx = ReadContext(cu, reader, srams)
+          ctx.init()
+          stages.foreach{stage => scheduleStage(stage, ctx) }
 
-    // --- Schedule compute context
-    val ctx = ComputeContext(cu)
-    pcu.computeStages.foreach{stage => scheduleStage(stage, ctx) }
-    cu.regs ++= writeStageRegs
+          readStageRegs ++= cu.regs //TODO: should writeStageRegs been removed?
+          cu.regs = origRegs
+        }
 
-    mappingOut += pipe -> cu
-  }
-
-  def scheduleStage(stage: PseudoStage, ctx: CUContext) = stage match {
-    case DefStage(lhs@Def(rhs), isReduce) =>
-      //dbg(s"""$lhs = $rhs ${if (isReduce) "[REDUCE]" else ""}""")
-      if (isReduce) reduceNodeToStage(lhs,rhs,ctx)
-      else          mapNodeToStage(lhs,rhs,ctx)
-
-    case WriteAddrStage(mem, addr) =>
-      //dbg(s"$mem @ $addr [WRITE]")
-      writeAddrToStage(mem, addr, ctx)
-
-    case FifoOnWriteStage(mem, start, end) =>
-      //dbg(s"$mem [WRITE]")
-      fifoOnWriteToStage(mem, start, end, ctx)
-
-    case OpStage(op, ins, out, isReduce) =>
-      //dbg(s"""$out = $op(${ins.mkString(",")}) [OP]""")
-      opStageToStage(op, ins, out, ctx, isReduce)
-  }
-
+        // --- Schedule compute context
   // If addr is a counter or const, just returns that register back. Otherwise returns address wire
-  def allocateAddrReg(sram: CUMemory, addr: Symbol, ctx: CUContext, write: Boolean, local: Boolean = false):LocalComponent = {
-    val wire = if (write && local) FeedbackAddrReg(sram)
-               else if (write)     WriteAddrWire(sram)
-               else                ReadAddrWire(sram)
+  //def allocateAddrReg(sram: CUMemory, addr: Expr, ctx: CUContext, local: Boolean = false):LocalComponent = {
+  //}
 
-    val addrReg = ctx.reg(addr)
-    propagateReg(addr, addrReg, wire, ctx)
-  }
-
-  def writeAddrToStage(mem: Symbol, addr: Symbol, ctx: CUContext, local: Boolean = false) {
-    //dbg(s"Setting write address for " + ctx.memories(mem).mkString(", "))
-
-    ctx.memories(mem).foreach{sram =>
-      sram.writeAddr = Some(allocateAddrReg(sram, addr, ctx, write=true, local=local).asInstanceOf[WriteAddr]) //TODO
-    }
-  }
-  def fifoOnWriteToStage(mem: Symbol, start: Option[Symbol], end: Option[Symbol], ctx: CUContext) {
-    //dbg(s"Setting FIFO-on-write for " + ctx.memories(mem).mkString(", "))
-
-    ctx.memories(mem).foreach{sram =>
-      if (sram.mode != FIFOMode) sram.mode = FIFOOnWriteMode
-      sram.writeAddr = None
-      sram.writeCtrl = None
-      sram.swapWrite = None
-
-      //val parentCtr = ctx.cu.parent.flatMap{parent => parent.cchains.find{case _:UnitCChain | _:CChainInstance => true; case _ => false}}
-
-      //sram.swapWrite = parentCtr.flatMap{ctr => ctx.cu.cchains.find(_.name == ctr.name) }
-
-      // HACK: Raghu and Yaqi don't like unaligned loads
-      //if (!SpatialConfig.checkBounds) {
-      if (true) {
-        sram.writeStart = None
-        sram.writeEnd = None
+        val ctx = ComputeContext(cu)
+        pcu.computeStages.foreach{stage => scheduleStage(stage, ctx) }
+        cu.regs ++= writeStageRegs
+        cu.regs ++= readStageRegs
+        cu
       }
-      else {
-        start match {
-          case Some(e) => ctx.reg(e) match {
-            case x: LocalScalar => sram.writeStart = Some(x)
-            case x => throw new Exception(s"Invalid FIFO-on-write start $x")
-          }
-          case None => // Do nothing
-        }
-        end match {
-          case Some(e) => ctx.reg(e) match {
-            case x: LocalScalar => sram.writeEnd = Some(x)
-            case x => throw new Exception(s"Invalid FIFO-on-write start $x")
-          }
-          case None => // No end
-        }
+
+    }
+  }
+
+  def scheduleStage(stage: PseudoStage, ctx: CUContext):Unit = dbgblk(s"Scheduling stage:$stage") {
+    stage match {
+      case DefStage(lhs@Def(rhs), isReduce) =>
+        //dbg(s"""$lhs = $rhs ${if (isReduce) "[REDUCE]" else ""}""")
+        if (isReduce)   reduceNodeToStage(lhs,rhs,ctx)
+        else            mapNodeToStage(lhs,rhs,ctx)
+
+      case AddrStage(dmem, addr) =>
+        //dbg(s"$mem @ $addr [WRITE]")
+        addrToStage(dmem, addr, ctx)
+
+      case OpStage(op, ins, out, isReduce) =>
+        //dbg(s"""$out = $op(${ins.mkString(",")}) [OP]""")
+        opStageToStage(op, ins, out, ctx, isReduce)
+    }
+  }
+
+  def addrToStage(dmem: Expr, addr: Expr, ctx: CUContext) {
+    ctx.memories(dmem).foreach{sram =>
+      val wire = ctx match {
+        case WriteContext(cu, pipe, srams) => WriteAddrWire(sram)
+        case ReadContext(cu, pipe, srams) => ReadAddrWire(sram) 
       }
-    }
-  }
-
-  def bufferWrite(mem: Symbol, data: Symbol, isdim: Option[(Seq[Exp[Index]], Seq[Exp[Index]])], ctx: CUContext) {
-    if (isReadInPipe(mem, ctx.pipe)) {
-      val flatOpt = isdim.map{ case (a, dims) => flattenNDIndices(a, dims) }
-      val addr = flatOpt.map(_._1)
-      val addrStages = flatOpt.map(_._2).getOrElse(Nil)
-      addrStages.foreach{stage => scheduleStage(stage, ctx) }
-      addr.foreach{a => writeAddrToStage(mem, a, ctx, local=true) }
-
-      // TODO: Should we allow multiple versions of local accumulator?
-      ctx.memories(mem).foreach{sram =>
-        propagateReg(data, ctx.reg(data), FeedbackDataReg(sram), ctx)
+      val addrReg = addr match {
+        case bound:Bound[_] => ctx.reg(addr)
+        case lhs@Def(rhs) => 
+          mapNodeToStage(lhs, rhs, ctx)
+          ctx.reg(addr)
       }
-    }
-    // Push data out to global bus (even for local accumulators)
-    if (ctx.isUnit) {
-      val bus = CUScalar(quote(mem))
-      globals += bus
-      propagateReg(data, ctx.reg(data), ScalarOut(bus), ctx)
-    }
-    else {
-      val bus = CUVector(quote(mem))
-      globals += bus
-      propagateReg(data, ctx.reg(data), VectorOut(bus), ctx)
-    }
-  }
-
-  def allocateFifoPop(lhs: Symbol, fifo: Symbol, ctx: CUContext) = writersOf(fifo).head.ctrlNode match {
-    /*case tx@Def(e:BurstLoad[_]) =>
-      val dram = allocateDRAM(tx, e.dram, MemLoad)
-      ctx.addReg(lhs, VectorIn(PIRDRAMDataIn(dram)))*/
-
-    case x => ctx.memOption(fifo, lhs) match {
-      case Some(sram) =>
-        ctx.addReg(lhs, SRAMReadReg(sram))
-
-      case None =>
-        if (isUnitPipe(x)) {
-          val bus = CUScalar(quote(fifo))
-          globals += bus
-          ctx.addReg(lhs, ScalarIn(bus))
-        }
-        else {
-          val bus = CUVector(quote(fifo))
-          globals += bus
-          ctx.addReg(lhs, VectorIn(bus))
-        }
-    }
-  }
-
-  def allocateSRAMRead(lhs: Symbol, mem: Symbol, dim:Seq[Exp[Index]], is: Seq[Exp[Index]], ctx: CUContext) {
-    val sram = ctx.mem(mem, lhs)
-    val (addr, addrStages) = flattenNDIndices(is, dim)
-    addrStages.foreach{stage => scheduleStage(stage, ctx) }
-    sram.readAddr = Some(allocateAddrReg(sram, addr, ctx, write=false, local=true).asInstanceOf[ReadAddr]) //TODO
-    ctx.addReg(lhs, SRAMReadReg(sram))
-  }
-
-  def allocateFifoPush(fifo: Symbol, data: Symbol, ctx: CUContext) = readersOf(fifo).head.ctrlNode match {
-    /*case tx@Def(e:BurstStore[_]) =>
-      val dram = allocateDRAM(tx, e.dram, MemStore)
-      propagateReg(data, ctx.reg(data), VectorOut(PIRDRAMDataOut(dram)), ctx)*/
-
-    case _ => bufferWrite(fifo,data,None,ctx)
-  }
-
-  // Cases: 1. Inner Accumulator (read -> write)
-  //        2. Outer Accumulator (read -> write)
-  //        3. Local register but not accumulator (e.g. write -> read)
-  //        4. Scalar output (read globally)
-  // (1, 2, and 3 are mutually exclusive)
-  // - 1: Ignore. Inner reductions are handled differently
-  // - 2: Update producer of data to have accumulator as output
-  // - 3: Update reg to map to register of data (for later use in reads)
-  // - 4: If any of first 3 options, add bypass data to scalar out, otherwise update producer
-  def allocateRegWrite(writer: Symbol, reg: Symbol, data: Symbol, ctx: CUContext) {
-    val isLocallyRead    = isReadInPipe(reg, ctx.pipe)
-    val isLocallyWritten = isWrittenInPipe(reg, ctx.pipe, Some(writer)) // Always true?
-    val isInnerAcc = isInnerAccum(reg) && isLocallyRead && isLocallyWritten
-    val isOuterAcc = isAccum(reg) && !isInnerAcc && isLocallyRead && isLocallyWritten
-    val isRemotelyRead = isReadOutsidePipe(reg, ctx.pipe)
-
-    val Def(d) = writer
-
-    //dbg(s"[REG WRITE] $writer = $d")
-    //dbg(s"  Reg = $reg, data = $data")
-    //dbg(s"  localRead:$isLocallyRead, localWrite:$isLocallyWritten, innerAcc:$isInnerAcc, outerAcc:$isOuterAcc, remoteRead:$isRemotelyRead")
-
-    if (isOuterAcc) { // Case 2
-      val out = ctx.cu.getOrElse(reg){ allocateLocal(reg, ctx.pipe) }
-      propagateReg(data, ctx.reg(data), out, ctx)
-    }
-    else if (!isInnerAcc) { // Case 3
-      ctx.addReg(reg, ctx.reg(data))
-    }
-    if (isRemotelyRead) {
-      // Handle registers for cross-lane accumulation specially
-      val start = if (isInnerAcc) ctx.reg(data) else ctx.reg(reg)
-      if (isArgOut(reg)) {
-        val bus = OutputArg(quote(reg))
-        globals += bus
-        propagateReg(reg, start, ScalarOut(bus), ctx)
-      }
-      else if (ctx.isUnit || isInnerAcc) {
-        val bus = CUScalar(quote(reg))
-        globals += bus
-        propagateReg(reg, start, ScalarOut(bus), ctx)
-      }
-      else {
-        val bus = CUVector(quote(reg))
-        globals += bus
-        propagateReg(reg, start, VectorOut(bus), ctx)
+      val reg = propagateReg(addr, addrReg, wire, ctx).asInstanceOf[Addr]
+      ctx match {
+        case WriteContext(cu, pipe, srams) => 
+          dbgs(s"Setting write address for ${ctx.memories(dmem).mkString(", ")} to $reg")
+          sram.writeAddr = Some(reg)
+        case ReadContext(cu, pipe, srams) => 
+          dbgs(s"Setting read address for ${ctx.memories(dmem).mkString(", ")} to $reg")
+          sram.readAddr = Some(reg)
       }
     }
   }
 
-
-  def mapNodeToStage(lhs: Symbol, rhs: Def, ctx: CUContext) = rhs match {
+  def mapNodeToStage(lhs: Expr, rhs: Def, ctx: CUContext) = rhs match {
     // --- Reads
-    case FIFODeq(fifo, en)     => allocateFifoPop(lhs, fifo, ctx)
-    case ParFIFODeq(fifo, ens) => allocateFifoPop(lhs, fifo, ctx)
+    case ParLocalReader(reads) =>
+      if (usersOf(lhs).nonEmpty) {
+        decompose(lhs).foreach { case dreader =>
+          assert(ctx.getReg(dreader).nonEmpty, s"reader: ${qdef(dreader)} was not allocated in ${ctx.cu} during allocation")
+        }
+      }
 
-    case SRAMLoad(mem, dim, is, ofs,en)     => allocateSRAMRead(lhs, mem, dim, is, ctx)
-    case ParSRAMLoad(mem, addr,ens) => allocateSRAMRead(lhs, mem, stagedDimsOf(mem), addr.head, ctx)
+    case GetDRAMAddress(dram) => // equivalent to RegRead 
 
-    case ListVector(elems) => ctx.addReg(lhs, ctx.reg(elems.head))
+    case ParLocalWriter(writes) =>
+      val (mem, value, addrs, ens) = writes.head 
+      value.map(_.head).foreach { data =>
+        dbgs(s"data:$data ddata:[${decompose(data).mkString(",")}] writer:$lhs dwriters:[${decompose(lhs).mkString(",")}]")
+        decompose(data).zip(decompose(lhs)).foreach { case (ddata, dwriter) =>
+          if (getRemoteReaders(mem, lhs).nonEmpty || isArgOut(mem)) {
+            assert(ctx.getReg(dwriter).nonEmpty, s"writer: ${qdef(dwriter)} was not allocated in ${ctx.cu} during allocation")
+            val ddataReg = ctx.cu.getOrElseUpdate(ddata)(const(ddata))
+            dbgs(s"Propogating $ddataReg to $dwriter")
+            propagateReg(ddata, ddataReg, ctx.reg(dwriter), ctx)
+          }
+        }
+      }
+
+    case ListVector(elems) => 
+      assert(elems.size==1, s"ListVector elems size is not 1! elems:[${elems.mkString(",")}]")
+      //ctx.addReg(lhs, ctx.reg(elems.head)) //TODO: is size of elems always be 1 for pir?
+      decompose(lhs).zip(elems.flatMap(decompose)).foreach { case (lhs, elem) =>
+        ctx.addReg(lhs, ctx.reg(elem))
+      }
+
     case VectorApply(vec, idx) =>
       if (idx != 0) throw new Exception("Expected parallelization of 1 in inner loop in PIR gen")
-      ctx.addReg(lhs, ctx.reg(vec))
+      decompose(vec).zip(decompose(lhs)).foreach { case (vec, lhs) =>
+        ctx.addReg(lhs, ctx.reg(vec))
+      }
 
-    case RegRead(reg) =>
-      val input = ctx.cu.getOrElse(reg){ allocateLocal(reg, ctx.pipe, read=Some(lhs)) }
-      ctx.addReg(lhs, input)
+    case SimpleStruct(elems) =>
+      decompose(lhs).foreach { elem => ctx.cu.getOrElseUpdate(elem)(allocateLocal(elem)) }
 
-    // --- Writes
-    // Only for the data, not for the address, unless the memory is a local accumulator
-    // TODO: Support enables!
-    case FIFOEnq(fifo, data, en)     => allocateFifoPush(fifo, data, ctx)
-    case ParFIFOEnq(fifo, data, ens) => allocateFifoPush(fifo, data.head, ctx)
-
-    case SRAMStore(mem, dims, is, ofs, data, en) => bufferWrite(mem, data, Some(is, dims),ctx)
-    case ParSRAMStore(sram, addr, data, ens)     => bufferWrite(sram, data.head, Some(addr.head, stagedDimsOf(sram)),ctx)
-
-    case RegWrite(reg, data, en) => allocateRegWrite(lhs, reg, data, ctx)
+    case FieldApply(struct, fieldName) =>
+      val ele = lookupField(struct, fieldName).getOrElse(
+        throw new Exception(s"Cannot lookup struct:$struct with fieldName:$fieldName in ${qdef(lhs)}"))
+      ctx.addReg(lhs, ctx.reg(ele))
 
     // --- Constants
-    case c if isConstant(lhs) => ctx.cu.getOrElse(lhs){ allocateLocal(lhs, ctx.pipe) }
+    case c if isConstant(lhs) => ctx.cu.getOrElseUpdate(lhs){ extractConstant(lhs) }
+
+    case FltConvert(x) =>
+      if (lhs.tp==x.tp) ctx.addReg(lhs, ctx.reg(x))
+      else throw new Exception(s"TODO: add FltConvert in hardware lhs:$lhs lhs.tp:${lhs.tp}, x:$x, x.tp:${x.tp}")
 
     // --- All other ops
     case d => nodeToOp(d) match {
       case Some(op) =>
-        val inputs = dyns(rhs)
+        val inputs = rhs.expInputs
         opStageToStage(op, inputs, lhs, ctx, false)
 
-      case None => stageWarn(s"No ALU operation known for $lhs = $rhs")
+      case None => warn(s"No ALU operation known for $lhs = $rhs")
     }
   }
 
-  def reduceNodeToStage(lhs: Symbol, rhs: Def, ctx: CUContext) = nodeToOp(rhs) match {
-    case Some(op) => opStageToStage(op, dyns(rhs), lhs, ctx, true)
-    case _ => stageWarn(s"No ALU reduce operation known for $lhs = $rhs")
+  def reduceNodeToStage(lhs: Expr, rhs: Def, ctx: CUContext) = nodeToOp(rhs) match {
+    case Some(op) => opStageToStage(op, syms(rhs), lhs, ctx, true)
+    case _ => warn(s"No ALU reduce operation known for $lhs = $rhs")
   }
 
-  def opStageToStage(op: PIROp, ins: Seq[Symbol], out: Symbol, ctx: CUContext, isReduce: Boolean) {
+  def opStageToStage(op: PIROp, ins: Seq[Expr], out: Expr, ctx: CUContext, isReduce: Boolean) {
     if (isReduce) {
       // By convention, the inputs to the reduction tree is the first argument to the node
       // This input must be in the previous stage's reduction register
@@ -359,14 +206,22 @@ trait PIRScheduler extends PIRTraversal {
       // of the previous stage from a temporary register to the reduction register
       //dbg(s"[REDUCE] $op, ins = $ins, out = $out")
 
-      val input = ins.head
-      val accum = ins.last //TODO
-      //val accum = aliasOf(ins.last)
+      val inputs = mutable.ListBuffer[Expr]()
+      val accums = mutable.ListBuffer[Expr]()
+      ins.foreach {
+        case in@Def(RegRead(reg)) if isAccum(reg) & isWrittenInPipe(reg, ctx.cu.pipe) => accums += in
+        case in => inputs += in
+      }
+      assert(accums.size==1, s"accums:[${accums.mkString(",")}]")
+      assert(inputs.size==1, s"inputs:[${inputs.mkString(",")}]")
+      val accum = accums.head 
+      val input = inputs.head
+
       val inputReg = ctx.reg(input)
       val usedInput = propagateReg(input, inputReg, ReduceReg(), ctx)
       val zero = accum match {
-        case Def(RegRead(reg)) => ConstReg(extractConstant(resetValue(reg)))
-        case _ => ConstReg("0l")
+        case Def(RegRead(reg)) => extractConstant(resetValue(reg))
+        case _ => ConstReg(0)
       }
       val acc = ReduceReg()
       val stage = ReduceStage(op, zero, ctx.refIn(usedInput), acc)
@@ -385,13 +240,13 @@ trait PIRScheduler extends PIRTraversal {
       if (isControlStage) {
         val n = ctx.controlStageNum
         val inputs = inputRegs.map{reg => ctx.refIn(reg, n) }
-        val output = ctx.cu.getOrElse(out){ ControlReg() }
+        val output = ctx.cu.getOrElseUpdate(out){ ControlReg() }
         val stage = MapStage(op, inputs, List(ctx.refOut(output, n)))
         ctx.addControlStage(stage)
       }
       // HACK: Skip control logic generation for now...
       else if (hasControlLogic && op == PIRALUMux) {
-        val skip = inputRegs.drop(1).find{case _:ConstReg => false; case _ => true}
+        val skip = inputRegs.drop(1).find{case _:ConstReg[_] => false; case _ => true}
         ctx.addReg(out, skip.getOrElse(inputRegs.drop(1).head))
       }
       else if (hasControlLogic) {
@@ -399,7 +254,7 @@ trait PIRScheduler extends PIRTraversal {
       }
       else {
         val inputs = inputRegs.map{reg => ctx.refIn(reg) }
-        val output = ctx.cu.getOrElse(out){ TempReg() }
+        val output = ctx.cu.getOrElseUpdate(out){ allocateLocal(out) }
         val stage = MapStage(op, inputs, List(ctx.refOut(output)))
         ctx.addStage(stage)
       }

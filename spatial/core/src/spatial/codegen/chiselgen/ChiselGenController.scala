@@ -237,13 +237,12 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       case _ =>
     }
 
-
     val constrArg = if (isInner) {s"${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
 
-    emit(src"""val ${sym}_offset = 0 // TODO: Compute real delays""")
+    emit(src"""val ${sym}_retime = ${aggregateLatencyOf(sym)}""")
     emitModule(src"${sym}_sm", s"${smStr}", s"${constrArg}")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
-    emit(src"""${sym}_done := Utils.delay(${sym}_sm.io.output.done, ${sym}_offset)""")
+    emit(src"""${sym}_done := Utils.delay(${sym}_sm.io.output.done, ${sym}_retime)""")
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
 
     smStr match {
@@ -301,16 +300,16 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
           emit(src"""${ctr}_resetter := ${sym}_rst_en""")
         }
         if (isInner) { 
-          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 + ${sym}_offset)""")
+          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 + ${sym}_retime)""")
         }
       } else {
         emit(src"""// ---- Single Iteration for $smStr ${sym} ----""")
         if (isInner) { 
           if (isStreamChild(sym)) {
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_en, 1 + ${sym}_offset) // stream kiddo""")
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_en, 1 + ${sym}_retime) // stream kiddo""")
             emit(src"""val ${sym}_ctr_en = ${sym}_done // stream kiddo""")
           } else {
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_sm.io.output.ctr_en, 1 + ${sym}_offset)""")
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_sm.io.output.ctr_en, 1 + ${sym}_retime)""")
             emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")            
           }
         } else {

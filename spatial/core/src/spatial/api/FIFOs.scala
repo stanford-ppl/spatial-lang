@@ -18,9 +18,11 @@ trait FIFOExp { this: SpatialExp =>
     @api def deq(): T = this.deq(true)
     @api def deq(en: Bool): T = wrap(fifo_deq(this.s, en.s))
 
-    @api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile, this, isLoad = true)
+    //@api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile1[T]): Void = dense_transfer(dram, this, isLoad = true)
     // @api def gather(dram: DRAMSparseTile[T]): Void = copy_sparse(dram, this, isLoad = true)
+
+    @util def ranges: Seq[Range] = Seq(range_alloc(None, wrap(sizeOf(s)),None,None))
   }
 
 
