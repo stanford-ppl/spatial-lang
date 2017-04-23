@@ -72,7 +72,7 @@ git stash
 git checkout $2
 git pull
 git merge origin/$1 | tee -a /tmp/pub
-error=(`cat /tmp/pub | grep -i "conflict\|error" | wc -l`)
+error=(`cat /tmp/pub | grep -i "conflict\|error\|fatal" | wc -l`)
 if [[ $error != 0 ]]; then
 	echo "Conflict error merging $1 into $2.  Please resolve"
 	rm /tmp/pub
@@ -89,7 +89,7 @@ git stash
 git checkout $2
 git pull
 git merge origin/$1 | tee -a /tmp/pub
-error=(`cat /tmp/pub | grep -i "conflict\|error" | wc -l`)
+error=(`cat /tmp/pub | grep -i "conflict\|error\|fatal" | wc -l`)
 if [[ $error != 0 ]]; then
 	echo "Conflict error merging $1 into $2.  Please resolve"
 	rm /tmp/pub
