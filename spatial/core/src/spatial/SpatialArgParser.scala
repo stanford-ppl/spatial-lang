@@ -7,20 +7,18 @@ class SpatialArgParser extends ArgonArgParser {
 
   override def scriptName = "spatial"
   override def description = "CLI for spatial"
-  //not sur yet if we must optional()
+  //not sur yet if we must optional() // TODO: ???
 
 
-  parser.opt[Unit]("synth").action( (_,_) => {
+  parser.opt[Unit]("synth").action{ (_,_) =>
     SpatialConfig.enableSynth = true
     SpatialConfig.enableSim = false
-    }
-  ).text("enable codegen to chisel + cpp (Synthesis) (disable sim) [false]")
+  }.text("enable codegen to chisel + cpp (Synthesis) (disable sim) [false]")
 
-  parser.opt[Unit]("sim").action( (_,_) => {
-      SpatialConfig.enableSim = true
-      SpatialConfig.enableSynth = false
-    }
-  ).text("enable codegen to Scala (Simulation) (disable synth) [true]")
+  parser.opt[Unit]("sim").action { (_,_) =>
+    SpatialConfig.enableSim = true
+    SpatialConfig.enableSynth = false
+  }.text("enable codegen to Scala (Simulation) (disable synth) [true]")
 
   parser.opt[String]("fpga").action( (x,_) =>
     SpatialConfig.targetName = x
@@ -42,9 +40,11 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableDot = true
   ).text("enables dot generation")
 
-  parser.opt[Unit]("pir").action( (_,_) =>
+  parser.opt[Unit]("pir").action { (_,_) =>
+    SpatialConfig.enableSim = false
+    SpatialConfig.enableSynth = false
     SpatialConfig.enablePIR = true
-  ).text("enables PIR generation")
+  }.text("enables PIR generation")
 
 
 
