@@ -10,9 +10,10 @@ object SwitchHostIO extends SpatialApp {
   @virtualize 
   def main() { 
     val io1 = HostIO[Int]
-    val swInput = StreamIn[UINT10](target.SliderSwitch)
+    val switch = target.SliderSwitch
+    val swInput = StreamIn[Int](switch)
     Accel(*) {
-      Pipe { io1 := swInput.value().to[Int] }
+      Pipe { io1 := swInput.value() }
     }
 
     val r1 = getArg(io1)

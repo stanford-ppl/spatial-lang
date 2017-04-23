@@ -87,7 +87,6 @@ object StreamingSobel extends SpatialApp {
         val pixelOut = fifoOut.deq()
         imgOut := Pixel16(pixelOut.to[UInt5], pixelOut.to[UInt6], pixelOut.to[UInt5])
       }
-
       ()
     }
   }

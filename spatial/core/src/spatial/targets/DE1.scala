@@ -6,9 +6,9 @@ object DE1 extends FPGATarget {
 
   case object VideoCamera extends Bus {def length = 24}
   case object VGA extends Bus {def length = 16}
-  case object SliderSwitch extends Bus {def length = 10}
+  case object SliderSwitch extends Bus {def length = 32}
   case object LEDR extends Bus {
-    def length = 10; 
+    def length = 32; 
     val LEDR0 = 1;
     val LEDR1 = 2;
     val LEDR2 = 4;
