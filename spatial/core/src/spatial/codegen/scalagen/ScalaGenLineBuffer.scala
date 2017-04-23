@@ -1,8 +1,6 @@
 package spatial.codegen.scalagen
 
-import argon.ops.FixPtExp
-import spatial.{SpatialConfig, SpatialExp}
-import spatial.api.LineBufferExp
+import spatial._
 
 trait ScalaGenLineBuffer extends ScalaGenMemories {
   val IR: SpatialExp
@@ -16,8 +14,7 @@ trait ScalaGenLineBuffer extends ScalaGenMemories {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@LineBufferNew(rows, cols) =>
-      if (enableMemGen) emit(src"val $lhs = LineBuffer[${op.mT}]($rows, $cols, ${invalid(op.mT)})")
+    case op@LineBufferNew(rows, cols) => emitMem(lhs, src"$lhs = LineBuffer[${op.mT}]($rows, $cols, ${invalid(op.mT)})")
     case op@LineBufferRowSlice(lb,row,len,col) =>
       open(src"val $lhs = Array.tabulate($len){i => ")
         oobApply(op.mT, lb, lhs, Seq(row,col)){ emit(src"$lb.apply($row+i,$col)") }

@@ -9,7 +9,9 @@ trait ScalaGenMemories extends ScalaGenBits {
   val IR: SpatialExp
   import IR._
 
-  var enableMemGen: Boolean = false
+  var globalMems: Boolean = false
+
+  def emitMem(lhs: Exp[_], x: String) = if (globalMems) emit(s"if ($lhs == null) $x") else emit("val " + x)
 
   def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {
     val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }

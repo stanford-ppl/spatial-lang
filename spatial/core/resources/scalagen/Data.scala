@@ -34,6 +34,7 @@ class FixedPoint(val signed: Boolean, val intBits: Int, val fracBits: Int) exten
     case that: FixedPoint => this.signed == that.signed && this.intBits == that.intBits && this.fracBits == that.fracBits
     case _ => false
   }
+  override def hashCode() = (signed,intBits,fracBits).hashCode()
 }
 object FixedPoint {
   def unapply(x: NumberFormat): Option[(Boolean, Int, Int)] = x match {
@@ -48,6 +49,7 @@ class FloatPoint(val sigBits: Int, val expBits: Int) extends NumberFormat {
     case that: FloatPoint => this.sigBits == that.sigBits && this.expBits == that.expBits
     case _ => false
   }
+  override def hashCode() = (sigBits, expBits).hashCode()
 }
 object FloatPoint {
   def unapply(x: NumberFormat): Option[(Int, Int)] = x match {
@@ -110,6 +112,11 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
     Number(bits ++ zeros, fmt).withValid(this.valid && that.valid)
   }
 
+  /*override def canEqual(that: Any): Boolean = that match {
+    case _:Int | _:Long | _:Float | _:Double | _:Number => true
+    case _ => false
+  }*/
+
   override def equals(that: Any): Boolean = that match {
     case that: Int => this === Number(that)
     case that: Long => this === Number(that)
@@ -118,6 +125,7 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
     case that: Number => this === that && this.fmt == that.fmt
     case _ => false
   }
+  override def hashCode() = (value,fmt).hashCode()
 
   def toDouble: Double = value.toDouble
   def toInt: Int = value.toInt
@@ -144,12 +152,23 @@ object Number {
       val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1 )
       val MIN_INTEGRAL_VALUE = BigDecimal( if (s) -(BigInt(1) << (i-1)) else BigInt(0) )
 
-      var actualValue = value
-      while (actualValue < MIN_INTEGRAL_VALUE) actualValue = (MAX_INTEGRAL_VALUE - (MIN_INTEGRAL_VALUE - actualValue - 1))
-      while (actualValue > MAX_INTEGRAL_VALUE) actualValue = (MIN_INTEGRAL_VALUE + (MAX_INTEGRAL_VALUE - actualValue + 1))
+      val intValue = value * math.pow(2, f)
+      val number = new Number(BigDecimal(Math.floor(intValue.toDouble) / math.pow(2, f)), valid, fmt)
 
-      val intValue = actualValue * math.pow(2, f)
-      new Number(BigDecimal(Math.floor(intValue.toDouble) / math.pow(2, f)), valid, fmt)
+      if (number.value < MIN_INTEGRAL_VALUE || number.value > MAX_INTEGRAL_VALUE) {
+        val b = number.bits
+        Number(b, fmt)
+      }
+      else number
+
+//      while (actualValue < MIN_INTEGRAL_VALUE) actualValue = (MAX_INTEGRAL_VALUE - (MIN_INTEGRAL_VALUE - actualValue - 1))
+
+//      println("value: " + actualValue)
+
+//      while (actualValue > MAX_INTEGRAL_VALUE) actualValue = (MIN_INTEGRAL_VALUE + (MAX_INTEGRAL_VALUE - actualValue + 1))
+
+//      println("value: " + actualValue)
+
 
     case FloatPoint(g,e) => new Number(value, valid, fmt)
   }

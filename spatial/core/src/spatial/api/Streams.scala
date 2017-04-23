@@ -96,12 +96,12 @@ trait StreamExp { this: SpatialExp =>
   /** Internals **/
   @internal def bus_check[T:Type:Bits](bus: Bus): Unit = {
     if (bits[T].length < bus.length) {
-      warn(ctx, s"Bus length is greater than size of StreamIn type - will use first ${bits[T].length} bits in the bus")
+      warn(ctx, s"Bus length is greater than size of StreamIn type - will use the first ${bits[T].length} bits in the bus")
       warn(ctx)
     }
     else if (bits[T].length > bus.length) {
-      error(ctx, s"Bus length is smaller than size of StreamIn type")
-      error(ctx)
+      warn(ctx, s"Bus length is smaller than size of StreamIn type - will set the first ${bus.length} bits in the stream")
+      warn(ctx)
     }
   }
 
