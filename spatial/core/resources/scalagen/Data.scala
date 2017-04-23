@@ -34,6 +34,7 @@ class FixedPoint(val signed: Boolean, val intBits: Int, val fracBits: Int) exten
     case that: FixedPoint => this.signed == that.signed && this.intBits == that.intBits && this.fracBits == that.fracBits
     case _ => false
   }
+  override def hashCode() = (signed,intBits,fracBits).hashCode()
 }
 object FixedPoint {
   def unapply(x: NumberFormat): Option[(Boolean, Int, Int)] = x match {
@@ -48,6 +49,7 @@ class FloatPoint(val sigBits: Int, val expBits: Int) extends NumberFormat {
     case that: FloatPoint => this.sigBits == that.sigBits && this.expBits == that.expBits
     case _ => false
   }
+  override def hashCode() = (sigBits, expBits).hashCode()
 }
 object FloatPoint {
   def unapply(x: NumberFormat): Option[(Int, Int)] = x match {
@@ -110,6 +112,11 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
     Number(bits ++ zeros, fmt).withValid(this.valid && that.valid)
   }
 
+  /*override def canEqual(that: Any): Boolean = that match {
+    case _:Int | _:Long | _:Float | _:Double | _:Number => true
+    case _ => false
+  }*/
+
   override def equals(that: Any): Boolean = that match {
     case that: Int => this === Number(that)
     case that: Long => this === Number(that)
@@ -118,6 +125,7 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
     case that: Number => this === that && this.fmt == that.fmt
     case _ => false
   }
+  override def hashCode() = (value,fmt).hashCode()
 
   def toDouble: Double = value.toDouble
   def toInt: Int = value.toInt
