@@ -15,6 +15,10 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableSim = false
   }.text("enable codegen to chisel + cpp (Synthesis) (disable sim) [false]")
 
+  parser.opt[Unit]("retiming").action{ (_,_) =>
+    SpatialConfig.enableRetiming = true
+  }.text("enable retiming [false]")
+
   parser.opt[Unit]("sim").action { (_,_) =>
     SpatialConfig.enableSim = true
     SpatialConfig.enableSynth = false
