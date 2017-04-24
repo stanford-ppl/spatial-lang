@@ -64,14 +64,21 @@ trait PIROptimizer extends PIRTraversal {
 
     if (unusedCopies.nonEmpty) {
       dbgs(s"Removing unused counterchain copies from $cu")
-      unusedCopies.foreach{cc => dbgs(s"  $cc")}
-
+      unusedCopies.foreach{cc => dbgs(s"$cc")}
       cu.cchains --= unusedCopies
+    }
+
+    var refMems = usedMem(cu) 
+    val unusedFifos = cu.fifos.filterNot{ fifo => refMems.contains(fifo) }
+    if (unusedFifos.nonEmpty) {
+      dbgs(s"Removing unused fifos from $cu")
+      unusedFifos.foreach{ fifo => dbgs(s"$fifo")}
+      cu.memMap.retain { case (e, m) => !unusedFifos.contains(m) }
     }
   }
 
 
-  def removeUnusedGlobalBuses() {
+  def removeUnusedGlobalBuses() = dbgl(s"Checking Unused GlobalBuses ...") {
     val buses = globals.collect{case bus:GlobalBus if isInterCU(bus) => bus}
     val inputs = cus.flatMap{cu => globalInputs(cu) }.toSet
 
@@ -105,12 +112,12 @@ trait PIROptimizer extends PIRTraversal {
   // effectively no-ops in PIR, which makes detecting route through cases difficult.
   // Once scheduled, a typical route-through case just looks like a CU with a single stage
   // which takes a vecIn and bypasses to a vecOut, which is easier to pattern match on
-  def removeRouteThrus(cu: CU) = if (cu.parent.isDefined) {
-    dbgs(s"Checking $cu for route through stages: ")
+  def removeRouteThrus(cu: CU) = if (cu.parent.isDefined) dbgblk(s"Checking $cu for route through stages: "){
     cu.computeStages.foreach{stage => dbgs(s"  $stage") }
 
     val bypassStages = cu.computeStages.flatMap{
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,VectorIn(in: PIRDRAMDataIn))), List(LocalRef(_,VectorOut(out: VectorBus)))) =>
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.isDefined =>
+        val in = mem.writePort.get
         if (isInterCU(out)) {
           dbgs(s"Found route-thru: $in -> $out")
           swapBus(cus, out, in)
@@ -118,7 +125,8 @@ trait PIROptimizer extends PIRTraversal {
         }
         else None
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,ScalarIn(in: ScalarBus))), List(LocalRef(_,ScalarOut(out: OutputArg)))) =>
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: OutputArg)))) if mem.writePort.isDefined =>
+        val in = mem.writePort.get
         if (isInterCU(in)) {
           dbgs(s"Found route-thru: $in -> $out")
           swapBus(cus, in, out)
@@ -126,8 +134,15 @@ trait PIROptimizer extends PIRTraversal {
         }
         else None
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,VectorIn(in: VectorBus))), List(LocalRef(_,VectorOut(out: VectorBus)))) =>
-        cus.find{cu => vectorOutputs(cu) contains in} match {
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.isDefined =>
+        val in = mem.writePort.get
+        cus.find{cu => in match {
+            case in:VectorBus =>
+              vectorOutputs(cu) contains in
+            case in:ScalarBus =>
+              scalarOutputs(cu) contains in
+          }
+        } match {
           case Some(producer) if producer.parent == cu.parent =>
             // If both are buses to/from MC/Args, do nothing
             // If out is a bus to MC/Args, swap writers of in to write out instead
@@ -183,9 +198,13 @@ trait PIROptimizer extends PIRTraversal {
   def removeEmptyCUs(cus: List[CU]) = cus.foreach {cu =>
     // 1. This CU has no children, no write stages, and no compute stages
     // 2. This CU has a sibling (same parent) CU or no counterchain instances
+    // 3. This is not a FingeCU
+    // 4. No other CU is making copy of current CU's cchain
     val children = cus.filter{c => c.parent.contains(cu) }
     val isFringe = cu.style.isInstanceOf[FringeCU]
-    if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty && !isFringe) {
+    val isCopied = cus.exists { other => other.cchains.exists{ case CChainCopy(_, _, owner) => owner == cu; case _ => false } }
+
+    if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty && !isFringe && !isCopied) {
       val sibling = cus.find{c => c != cu && c.parent == cu.parent}
 
       val globallyUsedCCs = cus.filterNot(_ != cu).flatMap(usedCChains(_))

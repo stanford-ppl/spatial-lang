@@ -5,7 +5,7 @@ import scala.collection.mutable
 // Common PIR operations (which don't need Spatial IR mixin)
 trait PIRCommon extends PIR {
   private def collectX[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
-    case cu: ComputeUnit => func(cu.allStages) ++ func(cu.cchains) ++ func(cu.mems)
+    case cu: ComputeUnit => func(cu.allStages) ++ func(cu.cchains) ++ func(cu.mems) ++ func(cu.fringeVectors.values)
 
     case cchain: CChainInstance => func(cchain.counters)
     case cchain: CChainCopy => func(cchain.inst)
@@ -69,6 +69,19 @@ trait PIRCommon extends PIR {
     case _ => Set.empty
   }
 
+  def usedMem(x:Any):Set[CUMemory] = x match {
+    case MemLoadReg(mem) => Set(mem)
+    case LocalReadBus(mem) => Set(mem)
+    case x:CUMemory if x.mode == SRAMMode => 
+      usedMem(x.readAddr ++ x.writeAddr ++ x.writeStart ++ x.writeEnd ++ x.writePort) + x
+    case x:CUMemory => Set(x)
+    case x:Stage => usedMem(x.inputMems)
+    case x:CUCounter => usedMem(x.start) ++ usedMem(x.end) ++ usedMem(x.stride)
+    case x:ComputeUnit if x.style.isInstanceOf[FringeCU] => usedMem(x.mems)
+    case x:ComputeUnit => usedMem(x.allStages) ++ usedMem(x.cchains) ++ usedMem(x.srams)
+    case _ => collectX[CUMemory](x)(usedMem)
+  }
+
   def isReadable(x: LocalComponent): Boolean = x match {
     case _:ScalarOut | _:VectorOut => false
     case _:ScalarIn  | _:VectorIn  => true
@@ -96,6 +109,11 @@ trait PIRCommon extends PIR {
     case _:PIRDRAMBus | _:InputArg | _:OutputArg => false
     case LocalVectorBus => false
     case _ => true
+  }
+
+  def memRef(x: LocalComponent):Option[CUMemory] = x match {
+    case MemLoadReg(mem) => Some(mem)
+    case _ => None
   }
 
 }
