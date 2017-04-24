@@ -79,10 +79,10 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
       // Command generator
       Pipe {
         Pipe {
-          val addr_bytes = offchipAddr * bytesPerWord + dram.address
+          val addr_bytes = (offchipAddr * bytesPerWord).to[Int64] + dram.address
           val size = requestLength
           val size_bytes = size * bytesPerWord
-          cmdStream := BurstCmd(addr_bytes, size_bytes, false)
+          cmdStream := BurstCmd(addr_bytes.to[Int64], size_bytes, false)
           // issueQueue.enq(size)
         }
         // Data loading
@@ -104,7 +104,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
       // }
     }
 
-    case class AlignmentData(start: Index, end: Index, size: Index, addr_bytes: Index, size_bytes: Index)
+    case class AlignmentData(start: Index, end: Index, size: Index, addr_bytes: Int64, size_bytes: Index)
 
     @virtualize
     def alignmentCalc(offchipAddr: => Index) = {
@@ -126,7 +126,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
       val size  = requestLength + start + extra                // Total number of WHOLE elements to expect
 
       val size_bytes = length_bytes + start_bytes + end_bytes  // Burst aligned length
-      val addr_bytes = offset_bytes + dram.address             // Burst-aligned offchip byte address
+      val addr_bytes = offset_bytes.to[Int64] + dram.address             // Burst-aligned offchip byte address
 
       AlignmentData(start, end, size, addr_bytes, size_bytes)
     }
@@ -146,7 +146,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
         Pipe {
           val aligned = alignmentCalc(offchipAddr)
 
-          cmdStream := BurstCmd(aligned.addr_bytes, aligned.size_bytes, false)
+          cmdStream := BurstCmd(aligned.addr_bytes.to[Int64], aligned.size_bytes, false)
           issueQueue.enq(aligned.size)
           startBound := aligned.start
           endBound := aligned.end
@@ -178,13 +178,13 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
 
       // Command generator
       Pipe {
-        val addr = offchipAddr * bytesPerWord + dram.address
+        val addr = (offchipAddr * bytesPerWord).to[Int64] + dram.address
         val size = requestLength
 
         val addr_bytes = addr
         val size_bytes = size * bytesPerWord
 
-        cmdStream := BurstCmd(addr_bytes, size_bytes, true)
+        cmdStream := BurstCmd(addr_bytes.to[Int64], size_bytes, true)
         // issueQueue.enq( size )
       }
       // Fringe
@@ -209,7 +209,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
       Pipe {
         val aligned = alignmentCalc(offchipAddr)
 
-        cmdStream := BurstCmd(aligned.addr_bytes, aligned.size_bytes, true)
+        cmdStream := BurstCmd(aligned.addr_bytes.to[Int64], aligned.size_bytes, true)
         issueQueue.enq( IssuedCmd(aligned.size, aligned.start, aligned.end) )
       }
 
@@ -258,12 +258,12 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
     Stream {
       // Gather
       if (isLoad) {
-        val addrBus = StreamOut[Index](GatherAddrBus)
+        val addrBus = StreamOut[Int64](GatherAddrBus)
         val dataBus = StreamIn[T](GatherDataBus[T]())
 
         // Send
         Foreach(requestLength par p){i =>
-          val addr = addrs(i) * bytesPerWord + dram.address
+          val addr = (addrs(i) * bytesPerWord).to[Int64] + dram.address
 
           val addr_bytes = addr
           addrBus := addr_bytes
@@ -278,12 +278,12 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
       }
       // Scatter
       else {
-        val cmdBus = StreamOut[Tup2[T,Index]](ScatterCmdBus[T]())
+        val cmdBus = StreamOut[Tup2[T,Int64]](ScatterCmdBus[T]())
         val ackBus = StreamIn[Bool](ScatterAckBus)
 
         // Send
         Foreach(requestLength par p){i =>
-          val addr = addrs(i) * bytesPerWord + dram.address
+          val addr = (addrs(i) * bytesPerWord).to[Int64] + dram.address
           val data = local(i)
 
           val addr_bytes = addr
@@ -307,7 +307,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
 
 trait DRAMTransferExp { this: SpatialExp =>
   /** Specialized buses **/
-  @struct case class BurstCmd(offset: Index, size: Index, isLoad: Bool)
+  @struct case class BurstCmd(offset: Int64, size: Index, isLoad: Bool)
   @struct case class IssuedCmd(size: Index, start: Index, end: Index)
 
   abstract class DRAMBus[T:Type:Bits] extends Bus { def length = bits[T].length }
@@ -317,10 +317,10 @@ trait DRAMTransferExp { this: SpatialExp =>
   case class BurstDataBus[T:Type:Bits]() extends DRAMBus[T]
   case class BurstFullDataBus[T:Type:Bits]() extends DRAMBus[Tup2[T,Bool]]
 
-  case object GatherAddrBus extends DRAMBus[Index]
+  case object GatherAddrBus extends DRAMBus[Int64]
   case class GatherDataBus[T:Type:Bits]() extends DRAMBus[T]
 
-  case class ScatterCmdBus[T:Type:Bits]() extends DRAMBus[Tup2[T, Index]]
+  case class ScatterCmdBus[T:Type:Bits]() extends DRAMBus[Tup2[T, Int64]]
   case object ScatterAckBus extends DRAMBus[Bool]
 
   /** Internal **/
@@ -458,7 +458,7 @@ trait DRAMTransferExp { this: SpatialExp =>
 
   case class FringeSparseLoad[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
-    addrStream: Exp[StreamOut[Index]],
+    addrStream: Exp[StreamOut[Int64]],
     dataStream: Exp[StreamIn[T]]
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_sparse_load(f(dram),f(addrStream),f(dataStream))
@@ -468,7 +468,7 @@ trait DRAMTransferExp { this: SpatialExp =>
 
   case class FringeSparseStore[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
-    cmdStream: Exp[StreamOut[Tup2[T,Index]]],
+    cmdStream: Exp[StreamOut[Tup2[T,Int64]]],
     ackStream: Exp[StreamIn[Bool]]
   ) extends Op[Void] {
     def mirror(f:Tx) = fringe_sparse_store(f(dram),f(cmdStream),f(ackStream))
@@ -533,7 +533,7 @@ trait DRAMTransferExp { this: SpatialExp =>
 
   @internal def fringe_sparse_load[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
-    addrStream: Exp[StreamOut[Index]],
+    addrStream: Exp[StreamOut[Int64]],
     dataStream: Exp[StreamIn[T]]
   ): Exp[Void] = {
     stageCold(FringeSparseLoad(dram,addrStream,dataStream))(ctx)
@@ -541,7 +541,7 @@ trait DRAMTransferExp { this: SpatialExp =>
 
   @internal def fringe_sparse_store[T:Meta:Bits](
     dram:       Exp[DRAM[T]],
-    cmdStream: Exp[StreamOut[Tup2[T,Index]]],
+    cmdStream: Exp[StreamOut[Tup2[T,Int64]]],
     ackStream: Exp[StreamIn[Bool]]
   ): Exp[Void] = {
     stageCold(FringeSparseStore(dram,cmdStream,ackStream))(ctx)

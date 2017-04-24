@@ -1595,16 +1595,17 @@ object MaskedWrite extends SpatialApp {  // Regression (Unit) // Args: 31
 }
 
 
-object SpecialMath extends SpatialApp {
+object SpecialMath extends SpatialApp { // Regression (Unit) // args: 2.625 5.625 4094
   import IR._
   type T = FixPt[TRUE,_12,_4]
 
   @virtualize
   def main() {
     // Declare SW-HW interface vals
-    val a = 5.625.to[T]
-    val b = 2.625.to[T]
-    val c = 252.to[T]
+    val a = args(0).to[T] //2.625.to[T]
+    val b = args(1).to[T] //5.625.to[T]
+    val c = args(2).to[T] //4094.to[T]
+    assert(b.to[FltPt[_24,_8]] + c.to[FltPt[_24,_8]] > 4096.to[FltPt[_24,_8]])
     val A = ArgIn[T]
     val B = ArgIn[T]
     val C = ArgIn[T]
@@ -1620,10 +1621,10 @@ object SpecialMath extends SpatialApp {
     Accel {
       val yy = SRAM[T](N)
       Foreach(N by 1) { i => 
-        yy(i) = A <*&> B
+        yy(i) = A *& B // Unbiased rounding, mean(yy) should be close to a*b
       }
       unbmul store yy
-      Pipe{ satadd := c <+> a}
+      Pipe{ satadd := C <+> B}
     }
 
 
@@ -1632,16 +1633,16 @@ object SpecialMath extends SpatialApp {
     val satres = getArg(satadd)
 
     // Create validation checks and debug code
-    val gold = (a * b).to[FltPt[_24,_8]]
+    val gold_unb = (a * b).to[FltPt[_24,_8]]
+    val gold_sat = 4095.9735.to[T]
     val mean = unbres.map{_.to[FltPt[_24,_8]]}.reduce{_+_} / N
-    printArray(unbres, "got: ")
 
-    val margin = 0.25.to[FltPt[_24,_8]]
-    println("gold: " + gold)
-    println("got: " + mean)
+    val margin = scala.math.pow(2,-5).to[FltPt[_24,_8]]
+    println("Unbiased Rounding: |" + gold_unb + " - " + mean + "| = " + abs(gold_unb-mean) + " <? " + margin)
+    println("Saturating Addition: " + satres + " =?= " + gold_sat)
 
-    val cksum = ((gold + margin).to[FltPt[_24,_8]] > mean) && ((gold - margin).to[FltPt[_24,_8]] < mean)
-    println("PASS: " + cksum + " (SpecialMath)")
+    val cksum = (abs(gold_unb - mean).to[FltPt[_24,_8]] < margin) //&& satres == gold_sat 
+    println("PASS: " + cksum + " (SpecialMath) * Fix saturated addition check, which is currently turned off")
   }
 }
 
@@ -1722,8 +1723,8 @@ object MultiWriteBuffer extends SpatialApp { // Regression (Unit) // Args: none
 
   @virtualize
   def main() {
-    val R = 4
-    val C = 4
+    val R = 16
+    val C = 16
 
     val mem = DRAM[Int](R, C)
     val y = ArgOut[Int]

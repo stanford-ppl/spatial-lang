@@ -22,6 +22,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case IntType() => "UInt(32.W)"
     case LongType() => "UInt(32.W)"
     case BoolType => "Bool()"
+    case tp: VectorType[_] => src"Vec(${tp.width}, ${newWire(tp.typeArguments.head)})"
     case tp: ArrayType[_] => src"Wire(Vec(999, ${newWire(tp.typeArguments.head)}"
     case _ => throw new NoWireConstructorException(s"$tp")
   }
@@ -146,12 +147,12 @@ trait ChiselGenSRAM extends ChiselCodegen {
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, ${width})))""")
         emit(src"""${lhs}_rVec(0).en := $enable & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
-          emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.number // Assume always an int""")
+          emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.raw // Assume always an int""")
         }
         val p = portsOf(lhs, sram, i).head
         emit(src"""val ${lhs}_base = ${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
         emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""") 
-        emit(src"""${lhs}.number := ${sram}_$i.io.output.data(${lhs}_base)""")
+        emit(src"""${lhs}.raw := ${sram}_$i.io.output.data(${lhs}_base)""")
       }
 
     case SRAMStore(sram, dims, is, ofs, v, en) =>
@@ -160,10 +161,10 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val enable = src"""${parent}_datapath_en"""
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, ${width}))) """)
-      emit(src"""${lhs}_wVec(0).data := ${v}.number""")
+      emit(src"""${lhs}_wVec(0).data := ${v}.raw""")
       emit(src"""${lhs}_wVec(0).en := ${en} & ${enable}""")
       is.zipWithIndex.foreach{ case(ind,j) => 
-        emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.number // Assume always an int""")
+        emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.raw // Assume always an int""")
       }
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
         val p = portsOf(lhs, sram, i).mkString(",")

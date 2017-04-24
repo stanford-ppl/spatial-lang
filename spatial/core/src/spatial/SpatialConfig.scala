@@ -15,6 +15,7 @@ spatial {
   pir = false
   dse = false
   dot = false
+  retiming = false
   splitting = false
   arch-dse = false
   naming = false
@@ -29,6 +30,7 @@ spatial {
     pir: Boolean,    
     dse: Boolean,
     dot: Boolean,
+    retiming: Boolean,
     splitting: Boolean,
     archDSE: Boolean,
     naming: Boolean,
@@ -46,6 +48,8 @@ spatial {
   var enableSim: Boolean = spatialConf.sim
   var enableSynth: Boolean = spatialConf.synth
   var enablePIR: Boolean = spatialConf.pir
+
+  var enableRetiming: Boolean = spatialConf.retiming
 
 
 

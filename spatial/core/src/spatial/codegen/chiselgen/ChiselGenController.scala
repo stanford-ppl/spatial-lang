@@ -228,7 +228,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
         }
       }
     } else { 
-      List("1.U") // Unit pipe
+      List("1.U") // Unit pipe:
     }
 
     // Special match if this is HWblock, there is no forever cchain, just the forever flag
@@ -239,15 +239,17 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
 
     val constrArg = if (isInner) {s"${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
 
-    emit(src"""val ${sym}_retime = ${aggregateLatencyOf(sym)}""")
+    val lat = if (SpatialConfig.enableRetiming) {if (bodyLatency(sym).length == 0) {0} else {bodyLatency(sym).reduce{_+_}}}
+              else {0}
+    if (isInner) emit(s"""val ${quote(sym)}_retime = ${lat}""")
     emitModule(src"${sym}_sm", s"${smStr}", s"${constrArg}")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
-    emit(src"""${sym}_done := Utils.delay(${sym}_sm.io.output.done, ${sym}_retime)""")
+    emit(src"""${sym}_done := ${sym}_sm.io.output.done""")
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
 
     smStr match {
       case s @ ("Metapipe" | "Seqpipe") =>
-        emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).number""")
+        emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw""")
       case _ =>
     }
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
@@ -262,7 +264,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     } else if (isFSM) {
       emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_done""")        
     } else {
-      emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc // TODO: Make sure this is a safe assignment""")
+      emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc""")
     }
     
     val hasStreamIns = if (listensTo(sym).length > 0) { // Please simplify this mess
@@ -300,7 +302,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
           emit(src"""${ctr}_resetter := ${sym}_rst_en""")
         }
         if (isInner) { 
-          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 + ${sym}_retime)""")
+          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 /*+ ${sym}_retime */) // Already has redloopctr""")
         }
       } else {
         emit(src"""// ---- Single Iteration for $smStr ${sym} ----""")
@@ -309,7 +311,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
             emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_en, 1 + ${sym}_retime) // stream kiddo""")
             emit(src"""val ${sym}_ctr_en = ${sym}_done // stream kiddo""")
           } else {
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_sm.io.output.ctr_en, 1 + ${sym}_retime)""")
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(Utils.risingEdge(${sym}_sm.io.output.ctr_en), 1 + ${sym}_retime)""")
             emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")            
           }
         } else {

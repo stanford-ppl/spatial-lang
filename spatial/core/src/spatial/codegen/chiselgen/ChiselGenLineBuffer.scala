@@ -64,12 +64,12 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
       // close("}")
       
     case op@LineBufferLoad(lb,row,col,en) =>
-      emit(src"$lb.io.col_addr(0) := ${col}.number")
-      emit(s"val ${quote(lhs)} = ${quote(lb)}.readRow(${row}.number)")
+      emit(src"$lb.io.col_addr(0) := ${col}.raw")
+      emit(s"val ${quote(lhs)} = ${quote(lb)}.readRow(${row}.raw)")
 
     case op@LineBufferEnq(lb,data,en) =>
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
-      emit(src"$lb.io.data_in(0) := ${data}.number")
+      emit(src"$lb.io.data_in(0) := ${data}.raw")
       emit(src"$lb.io.w_en := $en & ${parent}_datapath_en")
 
     case _ => super.emitNode(lhs, rhs)

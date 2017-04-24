@@ -274,7 +274,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += printer
 
     // --- Retiming
-    passes += retiming          // Add delay shift registers where necessary
+    if (SpatialConfig.enableRetiming)   passes += retiming // Add delay shift registers where necessary
     passes += printer
 
     // --- Post-Unroll Analysis

@@ -76,18 +76,18 @@ trait ChiselGenStructs extends ChiselCodegen {
     case SimpleStruct(tuples)  =>
       val items = tuples.map{ t => 
         val width = bitWidth(t._2.tp)
-        if (src"${t._1}" == "offset") {
-          src"${t._2}"
-        } else {
+        // if (src"${t._1}" == "offset") {
+        //   src"${t._2}"
+        // } else {
           if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
-        }
+        // }
       }.reverse.mkString(",")
       val totalWidth = tuples.map{ t => 
-        if (src"${t._1}" == "offset"){
-          64
-        } else {
+        // if (src"${t._1}" == "offset"){
+        //   64
+        // } else {
           bitWidth(t._2.tp)  
-        }
+        // }
       }.reduce{_+_}
       emitGlobalWire(src"val $lhs = Wire(UInt(${totalWidth}.W))")
       emit(src"$lhs := Utils.Cat($items)")
