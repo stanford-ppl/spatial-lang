@@ -20,7 +20,7 @@ trait ScalaGenFileIO extends ScalaCodegen {
       open(src"val $lhs = {")
         emit(src"val scanner = new java.util.Scanner($file)")
         emit(src"val tokens = new scala.collection.mutable.ArrayBuffer[String]() ")
-        emit(src"""scanner.useDelimiter("\\s" + $delim + "\\s|\\s\n\\s")""")
+        emit(src"""scanner.useDelimiter("\\s*" + $delim + "\\s*|\\s*\n\\s*")""")
         open(src"while (scanner.hasNext) {")
           emit(src"tokens += scanner.next.trim")
         close("}")
