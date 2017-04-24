@@ -35,7 +35,13 @@ trait PIROptimizer extends PIRTraversal {
     super.postprocess(b)
   }
 
-  def removeUnusedCUComponents(cu: CU) = dbgl(s"Checking CU $cu for unused components...") {
+  def removeUnusedCUComponents(cu: CU) = {
+    removeUnusedStages(cu)
+    removeUnusedCChainCopy(cu)
+    //removeUnusedFIFO(cu)
+  }
+
+  def removeUnusedStages(cu: CU) = dbgl(s"Checking CU $cu for unused stages...") {
     val stages = cu.allStages.toList
     // Remove all unused temporary registers
     val ins  = stages.flatMap{stage => stage.inputMems.filter{t => isReadable(t) && isWritable(t) }}.toSet
@@ -57,7 +63,9 @@ trait PIROptimizer extends PIRTraversal {
       }
       cu.regs --= unusedRegs
     }
+  }
 
+  def removeUnusedCChainCopy(cu: CU) = dbgl(s"Checking CU $cu for unused CChainCopy...") {
     // Remove unused counterchain copies
     val usedCCs = usedCChains(cu)
     val unusedCopies = cu.cchains.collect{case cc:CChainCopy if !usedCCs.contains(cc) => cc}
@@ -67,7 +75,9 @@ trait PIROptimizer extends PIRTraversal {
       unusedCopies.foreach{cc => dbgs(s"$cc")}
       cu.cchains --= unusedCopies
     }
+  }
 
+  def removeUnusedFIFO(cu: CU) = dbgl(s"Checking CU $cu for unused FIFO...") {
     var refMems = usedMem(cu) 
     val unusedFifos = cu.fifos.filterNot{ fifo => refMems.contains(fifo) }
     if (unusedFifos.nonEmpty) {
