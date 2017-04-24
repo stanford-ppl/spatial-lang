@@ -104,6 +104,12 @@ trait CounterExp { this: SpatialExp =>
     case Op(CounterChainNew(ctrs)) => ctrs
     case _ => Nil
   }
+
+  private[spatial] def counterStarts(x: Exp[CounterChain]): Seq[Option[Exp[Index]]] = countersOf(x) map {
+    case Def(CounterNew(start,_,_,_)) => Some(start)
+    case _ => None
+  }
+
   def isForeverCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).exists(isForever)
   def isUnitCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).forall(isUnitCounter)
 }
