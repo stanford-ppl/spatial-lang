@@ -11,8 +11,12 @@
 
 function git {
 	# Delete those god damn lock files
-	rm .git/modules/argon/index.lock
-	rm .git/index.lock
+	if [[ -f .git/modules/argon/index.lock ]]; then
+		rm .git/modules/argon/index.lock
+	fi
+	if [[ -f .git/index.lock ]]; then 
+		rm .git/index.lock
+	fi
 	git $1 $2 $3 $4 $5 $6 $7 $8 $9 $10
 }
 
