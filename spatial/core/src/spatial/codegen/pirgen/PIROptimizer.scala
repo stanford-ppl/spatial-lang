@@ -38,7 +38,7 @@ trait PIROptimizer extends PIRTraversal {
   def removeUnusedCUComponents(cu: CU) = {
     removeUnusedStages(cu)
     removeUnusedCChainCopy(cu)
-    //removeUnusedFIFO(cu)
+    removeUnusedFIFO(cu)
   }
 
   def removeUnusedStages(cu: CU) = dbgl(s"Checking CU $cu for unused stages...") {
