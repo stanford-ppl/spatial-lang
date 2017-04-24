@@ -67,10 +67,6 @@ currentbranch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 # git commit -m "auto merge"
 # git push
 
-# Delete those god damn lock files
-rm .git/modules/argon/index.lock
-rm .git/index.lock
-
 # Merge lower into higher
 echo "=========================="
 echo "Checkout $2 for argon"

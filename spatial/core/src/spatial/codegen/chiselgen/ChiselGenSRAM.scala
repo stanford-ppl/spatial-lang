@@ -26,7 +26,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emitGlobalModule(src"${lhs}_inhibit.io.input.asyn_reset := reset")
       emitGlobalModule(src"val ${lhs}_inhibitor = ${lhs}_inhibit.io.output.data")
       if (cchain.isDefined) {
-        emit(src"${lhs}_inhibit.io.input.set := ${cchain}.io.output.done")  
+        emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
       } else {
         emit(src"${lhs}_inhibit.io.input.set := Utils.delay(${lhs}_en, 1 + ${lhs}_retime)")
       }

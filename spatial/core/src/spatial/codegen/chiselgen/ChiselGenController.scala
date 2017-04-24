@@ -401,7 +401,7 @@ trait ChiselGenController extends ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
-      emitInhibitor(lhs, None)
+      if (styleOf(lhs) == InnerPipe) emitInhibitor(lhs, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)

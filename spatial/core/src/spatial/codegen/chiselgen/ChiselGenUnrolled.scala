@@ -140,7 +140,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         }
         emit(src"val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
       }
-      emitInhibitor(lhs, Some(cchain))
+      if (styleOf(lhs) == InnerPipe) emitInhibitor(lhs, Some(cchain))
       // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
       emit(src"//val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
