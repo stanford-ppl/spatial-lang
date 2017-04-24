@@ -179,7 +179,8 @@ trait PIROptimizer extends PIRTraversal {
     // 1. This CU has no children, no write stages, and no compute stages
     // 2. This CU has a sibling (same parent) CU or no counterchain instances
     val children = cus.filter{c => c.parent.contains(cu) }
-    if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty) {
+    val isFringe = cu.style.isInstanceOf[FringeCU]
+    if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty && !isFringe) {
       val sibling = cus.find{c => c != cu && c.parent == cu.parent}
 
       val globallyUsedCCs = cus.filterNot(_ != cu).flatMap(usedCChains(_))
