@@ -9,7 +9,7 @@
 #   arg 2 = upper branch name
 #   arg 3 = Run regression on higher branch? (1 or 0)
 
-function git {
+function gitt {
 	# Delete those god damn lock files
 	if [[ -f .git/modules/argon/index.lock ]]; then
 		rm .git/modules/argon/index.lock
@@ -43,43 +43,43 @@ currentbranch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 
 # # Checkout lower branch
 # cd ../argon
-# git checkout $1
+# gitt checkout $1
 # cd ..
-# git checkout $1
+# gitt checkout $1
 
 # # Merge higher into lower
 # cd argon
-# git merge origin/$2 | tee -a /tmp/pub
+# gitt merge origin/$2 | tee -a /tmp/pub
 # error=(`cat /tmp/pub | grep "CONFLICT" | wc -l`)
 # if [[ $error != 0 ]]; then
 # 	echo "Conflict error merging $2 into $1.  Please resolve"
 # 	exit 1
 # fi
 # sleep 1
-# git push
+# gitt push
 
 # cd ../
-# git merge origin/$2 | tee -a /tmp/pub
+# gitt merge origin/$2 | tee -a /tmp/pub
 # error=(`cat /tmp/pub | grep "CONFLICT" | wc -l`)
 # if [[ $error != 0 ]]; then
 # 	echo "Conflict error merging $2 into $1.  Please resolve"
 # 	exit 1
 # fi
 # sleep 1
-# git add argon
-# git add scala-virtualized
-# git commit -m "auto merge"
-# git push
+# gitt add argon
+# gitt add scala-virtualized
+# gitt commit -m "auto merge"
+# gitt push
 
 # Merge lower into higher
 echo "=========================="
 echo "Checkout $2 for argon"
 echo "=========================="
 cd argon
-git stash
-git checkout $2
-git pull
-git merge origin/$1 | tee -a /tmp/pub
+gitt stash
+gitt checkout $2
+gitt pull
+gitt merge origin/$1 | tee -a /tmp/pub
 error=(`cat /tmp/pub | grep -i "conflict\|error\|fatal" | wc -l`)
 if [[ $error != 0 ]]; then
 	echo "Conflict error merging $1 into $2.  Please resolve"
@@ -87,16 +87,16 @@ if [[ $error != 0 ]]; then
 	exit 1
 fi
 sleep 1
-git push
+gitt push
 
 echo "=========================="
 echo "Checkout $2 for spatial-lang"
 echo "=========================="
 cd ../
-git stash
-git checkout $2
-git pull
-git merge origin/$1 | tee -a /tmp/pub
+gitt stash
+gitt checkout $2
+gitt pull
+gitt merge origin/$1 | tee -a /tmp/pub
 error=(`cat /tmp/pub | grep -i "conflict\|error\|fatal" | wc -l`)
 if [[ $error != 0 ]]; then
 	echo "Conflict error merging $1 into $2.  Please resolve"
@@ -104,10 +104,10 @@ if [[ $error != 0 ]]; then
 	exit 1
 fi
 sleep 1
-git add argon
-git add scala-virtualized
-git commit -m "auto merge"
-git push
+gitt add argon
+gitt add scala-virtualized
+gitt commit -m "auto merge"
+gitt push
 
 # Regression test
 if [[ $3 = 1 ]]; then
@@ -122,14 +122,14 @@ echo "=========================="
 echo "Checkout $currentbranch for argon"
 echo "=========================="
 cd argon
-git checkout $currentbranch
+gitt checkout $currentbranch
 echo "=========================="
 echo "Checkout $current for spatial-lang"
 echo "=========================="
 cd ..
-git checkout $currentbranch
+gitt checkout $currentbranch
 cd argon
-git stash pop
+gitt stash pop
 cd ..
-git stash pop
+gitt stash pop
 rm /tmp/pub
