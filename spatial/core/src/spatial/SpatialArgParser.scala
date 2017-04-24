@@ -28,6 +28,10 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableDSE = true
   ).text("enables design space exploration [false]")
 
+  parser.opt[Unit]("retiming").action( (_,_) =>
+    SpatialConfig.enableRetiming = true
+  ).text("enables inner pipeline retiming [false]")
+
   parser.opt[Unit]("naming").action( (_,_) =>
     SpatialConfig.enableNaming = true
   ).text("generates the debug name for all syms, rather than \"x${s.id}\" only'")

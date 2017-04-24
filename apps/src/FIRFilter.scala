@@ -30,3 +30,35 @@ object FIRFilter extends SpatialApp {
     }
   }
 }
+
+object FIRFilter2 extends SpatialApp {
+  import IR._
+
+  override val target = targets.DE1
+  val Nmax = 16
+
+  @virtualize def main(): Unit = {
+    val file = loadCSV1D[Int]("weights.csv")
+    val N = ArgIn[Int]
+    setArg(N, file.length)
+    val weights = DRAM[Int](N)
+    setMem(weights, file)
+
+    val in = StreamIn[Int](target.GPInput)
+    val out = StreamOut[Int](target.GPOutput)
+
+    Accel {
+      val w = RegFile[Int](Nmax)
+      val tapOuts = RegFile[Int](Nmax + 1)
+      val in_t = Reg[Int]
+
+      w load weights(0::N)
+
+      Stream(*){ _ =>
+        in_t := in
+        Foreach(Nmax par Nmax){i => tapOuts(i+1) = w(i)*in_t + tapOuts(i)}
+        out := tapOuts(N)
+      }
+    }
+  }
+}
