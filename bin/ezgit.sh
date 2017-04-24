@@ -9,7 +9,12 @@
 #   arg 2 = upper branch name
 #   arg 3 = Run regression on higher branch? (1 or 0)
 
-
+function git {
+	# Delete those god damn lock files
+	rm .git/modules/argon/index.lock
+	rm .git/index.lock
+	git $1 $2 $3 $4 $5 $6 $7 $8 $9 $10
+}
 
 echo "=========================="
 echo "Merging $1 --> $2"
@@ -62,6 +67,9 @@ currentbranch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 # git commit -m "auto merge"
 # git push
 
+# Delete those god damn lock files
+rm .git/modules/argon/index.lock
+rm .git/index.lock
 
 # Merge lower into higher
 echo "=========================="

@@ -122,6 +122,12 @@ object Utils {
             regs(i) := regs(i-1)
           }
           (regs(length-1)).asInstanceOf[T]
+        case s:FixedPoint =>
+          regs(0) := s.r
+          (length-1 until 0 by -1).map { i => 
+            regs(i) := regs(i-1)
+          }
+          (regs(length-1)).asInstanceOf[T]
       }
     }
   }

@@ -45,7 +45,14 @@ for type in ${types[@]}; do
 packet="Creation Time- $at | Status- $status | Type- $type | tests- $tests | User- $USER | Origin- $machine | Destination- ${dsts[$i]} | Branch- $branch | Spatial- ${spatial_hash:0:5} | Argon- ${argon_hash:0:5} | Virtualized- ${virtualized_hash:0:5}"
 
 # echo -e "$packet"
-path="/remote/regression/${type}"
+if [[ $type = "scala" ]]; then
+	path="/kunle/users/mattfel/regression/${type}"
+elif [[ $type = "chisel" ]]; then
+	path="/home/regression/$type"
+else
+	echo "Unrecognized test $type"
+	exit 1
+fi
 
 echo -e "$packet
 $at
