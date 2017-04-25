@@ -51,6 +51,10 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) < c
     }
 
+    def ^ (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) ^ c
+    }
+
     def <= (c: FixedPoint): Bool = {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <= c
     }
