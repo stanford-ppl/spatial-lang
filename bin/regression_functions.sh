@@ -183,8 +183,9 @@ logger "Cleaning old markdown file..."
 rm $wiki_file > /dev/null 2>&1
 touch $wiki_file
 logger "Putting timestamp in wiki"
+duration=$SECONDS
 echo -e "
-Edited at `date`
+Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
 * <---- indicates relative amount of work needed before app will **pass**" > $wiki_file
 
 for ac in ${types_list[@]}; do

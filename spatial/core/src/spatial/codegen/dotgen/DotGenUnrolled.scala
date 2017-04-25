@@ -1,7 +1,8 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen._
-import spatial.SpatialExp
+import argon.Config
+import spatial.{SpatialConfig, SpatialExp}
 
 trait DotGenUnrolled extends DotCodegen with DotGenReg {
   val IR: SpatialExp
@@ -9,7 +10,14 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case _ if isControlNode(lhs) =>
-      emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ emitVert(lhs); rhs.blocks.foreach(emitBlock) }
+      rhs match { 
+        case Hwblock(_,_) => super.emitNode(lhs,rhs)
+        case _ =>
+          emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
+            if (Config.dotDetail == 0) emitVert(lhs);
+            rhs.blocks.foreach(emitBlock) 
+          }
+      }
 
     //case UnrolledForeach(en,cchain,func,iters,valids) =>
 

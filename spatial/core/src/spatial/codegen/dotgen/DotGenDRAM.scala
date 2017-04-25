@@ -16,8 +16,8 @@ trait DotGenDRAM extends DotGenSRAM {
   def emitFringe(lhs:Sym[_], rhs:Op[_]):Unit = {
       emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(filled).color(lightgrey)){
         //emitVert(lhs)
-        rhs.allInputs.filter(isDRAM(_)).foreach(emitVert)
-        rhs.allInputs.filter(isStream(_)).foreach(emitVert)
+        rhs.allInputs.filter(isDRAM(_)).foreach(emitVert(_, false))
+        rhs.allInputs.filter(isStream(_)).foreach(emitVert(_, false))
       }
   }
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

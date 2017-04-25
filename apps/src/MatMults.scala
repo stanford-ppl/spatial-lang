@@ -6,9 +6,9 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 128 6
 
   type X = Int
 
-  val innerPar = 1
-  val midPar = 2
-  val outerPar = 2
+  val innerPar = 4
+  val midPar = 4
+  val outerPar = 1
 
   @virtualize
   def MatMult_outer[T:Type:Num](A: Array[T], B: Array[T], C_init: Array[T], mm: Int, nn: Int, pp: Int) = {
