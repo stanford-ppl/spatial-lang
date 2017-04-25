@@ -24,45 +24,29 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
   }
 
   def emitAllStages(cu: ComputeUnit) {
-    var i = 1
-    var r = 1
-    def emitStages(stages: Iterable[Stage]) = stages.foreach{
+    def emitStages(stages: Iterable[Stage], prefix:String="") = stages.foreach{
       case MapStage(op,inputs,outputs) =>
         val ins = inputs.map(quote).mkString(", ")
         val outs = outputs.map(quote).mkString(", ")
-        emit(s"""Stage(stage($i), operands=List($ins), op=$op, results=List($outs))""")
-        i += 1
+        emit(s"""${prefix}Stage(operands=List($ins), op=$op, results=List($outs))""")
 
       case ReduceStage(op,init,in,acc) =>
-        emit(s"""val (rs$r, ${quote(acc)}) = Stage.reduce(op=$op, init=${quote(init)})""")
+        emit(s"""val (_, ${quote(acc)}) = Stage.reduce(op=$op, init=${quote(init)})""")
         allocatedReduce += acc
-        r += 1
     }
 
     emit(s"var stage: List[Stage] = Nil")
 
     if (cu.controlStages.nonEmpty && genControlLogic) {
-      i = 0
-      val nCompute = cu.controlStages.length
-      emit(s"stage = ControlStages($nCompute)")
       emitStages(cu.controlStages)
     }
     for ((srams,stages) <- cu.writeStages if stages.nonEmpty) {
-      i = 1
-      val nWrites  = stages.filter{_.isInstanceOf[MapStage]}.length
-      emit(s"stage = CU.emptyStage +: WAStages($nWrites, ${srams.map(quote)})")
-      emitStages(stages)
+      emitStages(stages,"WA")
     }
     for ((srams,stages) <- cu.readStages if stages.nonEmpty) {
-      i = 1
-      val nReads  = stages.filter{_.isInstanceOf[MapStage]}.length
-      emit(s"stage = CU.emptyStage +: RAStages($nReads, ${srams.map(quote)})")
-      emitStages(stages)
+      emitStages(stages,"RA")
     }
     if (cu.computeStages.nonEmpty) {
-      i = 1
-      val nCompute = cu.computeStages.filter{_.isInstanceOf[MapStage]}.length
-      emit(s"stage = CU.emptyStage +: Stages($nCompute)")
       emitStages(cu.computeStages)
     }
   }
@@ -89,7 +73,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
   def preallocateRegisters(cu: CU) = cu.regs.foreach{
     case reg:TempReg        => emit(s"val ${quote(reg)} = CU.temp")
-    case reg@AccumReg(init) => emit(s"val ${quote(reg)} = CU.accum(init = ${quote(init)})")
+    //case reg@AccumReg(init) => emit(s"val ${quote(reg)} = CU.accum(init = ${quote(init)})")
     case reg:ControlReg if genControlLogic => emit(s"val ${quote(reg)} = CU.ctrl")
     case _ => // No preallocation
   }
@@ -168,8 +152,8 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
         case Some(LocalVectorBus) => // Nothing?
         case Some(LocalReadBus(vfifo)) => ports += s".wtPort(${quote(vfifo)}.readPort)" 
         case Some(vec) => ports += s""".wtPort(${quote(vec)})"""
-        //case None => ports += s""".wtPort(None)"""
-        case None => throw new Exception(s"Memory $mem has no writePort defined")
+        case None => ports += s""".wtPort(None)"""
+        //case None => throw new Exception(s"Memory $mem has no writePort defined")
       }
       mem.readPort match {
         case Some(LocalVectorBus) => // Nothing?
@@ -282,7 +266,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
   def quote(ref: LocalRef): String = ref match {
     case LocalRef(stage, reg: ConstReg[_])   => quote(reg)
-    case LocalRef(stage, reg: CounterReg) => if (stage >= 0) s"CU.ctr(stage($stage), ${quote(reg)})" else quote(reg)
+    case LocalRef(stage, reg: CounterReg) => s"CU.ctr(${quote(reg)})"
     case LocalRef(stage, reg: ValidReg)   => quote(reg)
 
     case LocalRef(stage, wire: WriteAddrWire)  => quote(wire)
@@ -291,15 +275,15 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case LocalRef(stage, reg: FeedbackDataReg) => s"CU.store(stage($stage), ${quote(reg)})"
 
     case LocalRef(stage, reg: ReduceReg) if allocatedReduce.contains(reg) => quote(reg)
-    case LocalRef(stage, reg: ReduceReg)   => s"CU.reduce(stage($stage))"
-    case LocalRef(stage, reg: AccumReg)    => s"CU.accum(stage($stage), ${quote(reg)})"
-    case LocalRef(stage, reg: TempReg)     => s"CU.temp(stage($stage), ${quote(reg)})"
-    case LocalRef(stage, reg: ControlReg)  => s"CU.ctrl(stage($stage), ${quote(reg)})"
-    case LocalRef(stage, reg: MemLoadReg) => if (stage >= 0) s"CU.load(stage($stage), ${quote(reg)})" else s"${quote(reg)}.load"
+    case LocalRef(stage, reg: ReduceReg)   => s"CU.reduce"
+    case LocalRef(stage, reg: AccumReg)    => s"CU.accum(${quote(reg)})"
+    case LocalRef(stage, reg: TempReg)     => s"${quote(reg)}"
+    case LocalRef(stage, reg: ControlReg)  => s"CU.ctrl(${quote(reg)})"
+    case LocalRef(stage, reg: MemLoadReg) => s"CU.load(${quote(reg)})"
 
-    case LocalRef(stage, reg: ScalarIn)  => s"CU.scalarIn(stage($stage), ${quote(reg)})"
-    case LocalRef(stage, reg: ScalarOut) => s"CU.scalarOut(stage($stage), ${quote(reg)})"
-    case LocalRef(stage, reg: VectorIn)  => s"CU.vecIn(stage($stage), ${quote(reg)})"
-    case LocalRef(stage, reg: VectorOut) => s"CU.vecOut(stage($stage), ${quote(reg)})"
+    case LocalRef(stage, reg: ScalarIn)  => s"CU.scalarIn(${quote(reg)})"
+    case LocalRef(stage, reg: ScalarOut) => s"CU.scalarOut(${quote(reg)})"
+    case LocalRef(stage, reg: VectorIn)  => s"CU.vecIn(${quote(reg)})"
+    case LocalRef(stage, reg: VectorOut) => s"CU.vecOut(${quote(reg)})"
   }
 }

@@ -179,6 +179,8 @@ trait PIRScheduler extends PIRTraversal {
     // --- Constants
     case c if isConstant(lhs) => ctx.cu.getOrElseUpdate(lhs){ extractConstant(lhs) }
 
+    case FixConvert(x) => ctx.addReg(lhs, ctx.reg(x))
+
     case FltConvert(x) =>
       if (lhs.tp==x.tp) ctx.addReg(lhs, ctx.reg(x))
       else throw new Exception(s"TODO: add FltConvert in hardware lhs:$lhs lhs.tp:${lhs.tp}, x:$x, x.tp:${x.tp}")

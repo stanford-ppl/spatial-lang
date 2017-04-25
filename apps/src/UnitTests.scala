@@ -1753,3 +1753,45 @@ object MultiWriteBuffer extends SpatialApp { // Regression (Unit) // Args: none
     println("PASS: " + cksum + " (MultiWriteBuffer)")
   }
 }
+
+object MemReduceOffset extends SpatialApp {
+  import IR._
+
+  @virtualize def main(): Unit = {
+    val y = ArgOut[Int]
+
+    Accel {
+      val accum = SRAM[Int](32, 32)
+      // TODO: Use MemReduce to generate entries for
+      // matrix A as defined in README.md.
+      MemReduce(accum)(1 until 33){i =>
+        val values = SRAM[Int](32, 32)
+        Foreach(0 until i, 0 until i){ (j, k) =>
+          values(j,k) = 0
+        }
+        Foreach(i until 32){ j =>
+          Foreach(i until 32){ k =>
+            values(j,k) = 64
+          }
+          Foreach(0 until i){ k =>
+            values(j,k) = 32
+          }
+          Foreach(0 until i){ k =>
+            values(k,j) = 32
+          }
+        }
+
+        Foreach(0 until 32, 0 until 32) {(i,j) => print(values(i,j) + " ") }
+        println("")
+
+        values
+      }{ (x, y) => x + y }
+
+      y := accum(0,0)
+    }
+
+    val result = getArg(y)
+    println("expected: " + 0)
+    println("result: " + result)
+  }
+}
