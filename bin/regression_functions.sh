@@ -54,7 +54,7 @@ coordinate() {
     fi
 
     logger "This packet (${packet}) is ${rank}-th in line (${stringified})... Waiting $((delay/numpieces)) seconds..."
-    sleep 300lon
+    sleep 300
 
     # Update active packets list
     files=(*)

@@ -6,7 +6,7 @@ import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
 
-trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
+trait ChiselGenController extends ChiselGenCounter{
   val IR: SpatialExp
   import IR._
 
@@ -302,7 +302,8 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
           emit(src"""${ctr}_resetter := ${sym}_rst_en""")
         }
         if (isInner) { 
-          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 /*+ ${sym}_retime */) // Already has redloopctr""")
+          val dlay = if (SpatialConfig.enableRetiming) {src"${sym}_retime"} else "1"
+          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, $dlay)""")
         }
       } else {
         emit(src"""// ---- Single Iteration for $smStr ${sym} ----""")
@@ -400,7 +401,8 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
-      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
+      withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)
       }
@@ -410,7 +412,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
-      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+      withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)
       } 
@@ -420,7 +422,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters))
-      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+      withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitNestedLoop(cchain, iters){ emitBlock(func) }
       }

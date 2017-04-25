@@ -575,7 +575,7 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
 
   def singleFifoLoad[T:Type:Num](src1: Array[T], in: Int) = {
 
-    val P1 = 4 (16 -> 16)
+    val P1 = 1 (16 -> 16)
 
     val N = ArgIn[Int]
     setArg(N, in)
@@ -588,7 +588,7 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
       val f1 = FIFO[T](tileSize)
       Foreach(N by tileSize) { i =>
         f1 load src1FPGA(i::i+tileSize par P1)
-        val accum = Reduce(Reg[T](0.to[T]))(tileSize by 1 par 4){i =>
+        val accum = Reduce(Reg[T](0.to[T]))(tileSize by 1 par 1){i =>
           f1.deq()
         }{_+_}
         Pipe { out := accum }
@@ -623,7 +623,7 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   val tileSize = 64
   def parFifoLoad[T:Type:Num](src1: Array[T], src2: Array[T], src3: Array[T], in: Int) = {
 
-    val P1 = 2 (16 -> 16)
+    val P1 = 1 (16 -> 16)
 
     val N = ArgIn[Int]
     setArg(N, in)
@@ -738,7 +738,6 @@ object SimpleReduce extends SpatialApp { // Regression (Unit) // Args: 7
   val N = 16.to[Int]
 
   def simpleReduce[T:Type:Num](xin: T) = {
-    val P = param(8)
 
     val x = ArgIn[T]
     val out = ArgOut[T]
@@ -1595,7 +1594,7 @@ object MaskedWrite extends SpatialApp {  // Regression (Unit) // Args: 31
 }
 
 
-object SpecialMath extends SpatialApp { // Regression (Unit) // args: 2.625 5.625 4094
+object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 2.625 5.625 4094
   import IR._
   type T = FixPt[TRUE,_12,_4]
 
@@ -1752,5 +1751,47 @@ object MultiWriteBuffer extends SpatialApp { // Regression (Unit) // Args: none
 
     val cksum = gold.zip(result){_==_}.reduce{_&&_}
     println("PASS: " + cksum + " (MultiWriteBuffer)")
+  }
+}
+
+object MemReduceOffset extends SpatialApp {
+  import IR._
+
+  @virtualize def main(): Unit = {
+    val y = ArgOut[Int]
+
+    Accel {
+      val accum = SRAM[Int](32, 32)
+      // TODO: Use MemReduce to generate entries for
+      // matrix A as defined in README.md.
+      MemReduce(accum)(1 until 33){i =>
+        val values = SRAM[Int](32, 32)
+        Foreach(0 until i, 0 until i){ (j, k) =>
+          values(j,k) = 0
+        }
+        Foreach(i until 32){ j =>
+          Foreach(i until 32){ k =>
+            values(j,k) = 64
+          }
+          Foreach(0 until i){ k =>
+            values(j,k) = 32
+          }
+          Foreach(0 until i){ k =>
+            values(k,j) = 32
+          }
+        }
+
+        Foreach(0 until 32, 0 until 32) {(i,j) => print(values(i,j) + " ") }
+        println("")
+
+        values
+      }{ (x, y) => x + y }
+
+      y := accum(0,0)
+    }
+
+    val result = getArg(y)
+    println("expected: " + 0)
+    println("result: " + result)
   }
 }

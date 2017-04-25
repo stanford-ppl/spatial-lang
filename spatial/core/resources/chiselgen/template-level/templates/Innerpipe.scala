@@ -83,7 +83,7 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
         state := pipeSpinWait.U
       }.elsewhen( state === pipeSpinWait.U ) {
         io.output.done := false.B
-        state := pipeSpinWait.U;
+        state := pipeInit.U;
       } 
     }.otherwise {
       io.output.done := Mux(io.input.ctr_done, true.B, false.B)

@@ -437,7 +437,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     load:   Block[T],             // Load function from accumulator
     store:  Block[Void],          // Store function to accumulator
     rV:     (Bound[T], Bound[T]), // Bound symbols used to reify rFunc
-    iters:  Seq[Bound[Index]]     // Iterators for entire reduction (used to determine when to reset)
+    iters:  Seq[Bound[Index]],    // Iterators for entire reduction (used to determine when to reset)
+    start:  Seq[Exp[Index]]       // Start for each iterator
   )(implicit ctx: SrcCtx) = {
     def reduce(x: Exp[T], y: Exp[T]) = withSubstScope(rV._1 -> x, rV._2 -> y){ inlineBlock(rFunc) }
 
@@ -445,7 +446,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     val result = inReduction{
       val accValue = inlineBlock(load)
-      val isFirst = reduceTree(iters.map{i => fix_eql(i, int32(0)) }){(x,y) => bool_and(x,y) }
+      val isFirst = reduceTree(iters.zip(start).map{case (i,st) => fix_eql(i, st) }){(x,y) => bool_and(x,y) }
 
       isReduceStarter(accValue) = true
 
@@ -489,6 +490,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val inds2 = lanes.indices
     val vs = lanes.indexValids
     val mC = typ[Reg[T]]
+    val start = counterStarts(cchain).map(_.getOrElse(int32(0)))
 
     val blk = stageColdLambda(f(accum)) {
       dbgs("Unrolling map")
@@ -497,11 +499,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
       if (isOuterControl(lhs)) {
         dbgs("Unrolling unit pipe reduce")
-        Pipe { Void(unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.map(_.head))) }
+        Pipe { Void(unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.map(_.head), start)) }
       }
       else {
         dbgs("Unrolling inner reduce")
-        unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.map(_.head))
+        unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.map(_.head), start)
       }
       void
     }
@@ -545,6 +547,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val isMap2 = mapLanes.indices
     val mvs = mapLanes.indexValids
     val partial = func.result
+    val start = counterStarts(cchainMap).map(_.getOrElse(int32(0)))
 
     val blk = stageColdLambda(f(accum)) {
       dbgs(s"[Accum-fold $lhs] Unrolling map")
@@ -556,7 +559,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
         op_unit_pipe(globalValids, {
           val values = inReduction{ mems.map{mem => withSubstScope(partial -> mem){ inlineBlock(loadRes)(mT) }} }
           val foldValue = if (fold) { Some( inlineBlock(loadAcc)(mT) ) } else None
-          inReduction{ unrollReduceAccumulate[T](values, mvalids(), ident, foldValue, rFunc, loadAcc, storeAcc, rV, isMap2.map(_.head)) }
+          inReduction{ unrollReduceAccumulate[T](values, mvalids(), ident, foldValue, rFunc, loadAcc, storeAcc, rV, isMap2.map(_.head), start) }
           void
         })
       }
@@ -611,7 +614,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
             val result = inReduction{
               val treeResult = unrollReduceTree(inputs, valids, ident, reduce)
-              val isFirst = reduceTree(isMap2.map{is => fix_eql(is.head, int32(0)) }){(x,y) => bool_and(x,y) }
+              val isFirst = reduceTree(isMap2.map(_.head).zip(start).map{case (i,st) => fix_eql(i, st) }){(x,y) => bool_and(x,y) }
 
               isReduceStarter(accValue) = true
 

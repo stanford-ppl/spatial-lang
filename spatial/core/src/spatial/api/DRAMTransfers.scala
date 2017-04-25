@@ -60,14 +60,26 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
     // as long as the value of the register read is known to be exactly some value.
     // FIXME: We should also be checking if the start address is aligned...
     def store(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = requestLength.s match {
-      case Exact(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 => alignedStore(offchipAddr, onchipAddr)
-      case x =>
-        //error(c"Unaligned store! Burst length: ${str(x)}")
+      case Exact(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 =>
+        dbg(u"$onchip => $offchip: Using aligned store ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
+        alignedStore(offchipAddr, onchipAddr)
+      case Exact(c: BigInt) =>
+        dbg(u"$onchip => $offchip: Using unaligned store ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
+        unalignedStore(offchipAddr, onchipAddr)
+      case _ =>
+        dbg(u"$onchip => $offchip: Using unaligned store (request length is statically unknown)")
         unalignedStore(offchipAddr, onchipAddr)
     }
     def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = requestLength.s match {
-      case Exact(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 => alignedLoad(offchipAddr, onchipAddr)
-      case _ => unalignedLoad(offchipAddr, onchipAddr)
+      case Exact(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 =>
+        dbg(u"$offchip => $onchip: Using aligned load ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
+        alignedLoad(offchipAddr, onchipAddr)
+      case Exact(c: BigInt) =>
+        dbg(u"$offchip => $onchip: Using unaligned load ($c * ${bits[T].length} % ${target.burstSize}* ${c*bits[T].length % target.burstSize})")
+        unalignedLoad(offchipAddr, onchipAddr)
+      case _ =>
+        dbg(u"$offchip => $onchip: Using unaligned load (request length is statically unknown)")
+        unalignedLoad(offchipAddr, onchipAddr)
     }
 
     def alignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): Void = {

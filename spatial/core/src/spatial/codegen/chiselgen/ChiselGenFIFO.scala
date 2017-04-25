@@ -78,12 +78,10 @@ trait ChiselGenFIFO extends ChiselCodegen {
       }.max
       val width = bitWidth(lhs.tp.typeArguments.head)
       emit(src"""val ${lhs}_wdata = Wire(Vec($wPar, UInt(${width}.W)))""")
-      emit(src"""val ${lhs}_readEn = Wire(Bool())""")
       emit(src"""val ${lhs}_writeEn = Wire(Bool())""")
       emitGlobalModule(s"""val ${quote(lhs)} = Module(new FIFO($rPar, $wPar, $size, $width)) // ${nameOf(lhs).getOrElse("")}""")
       emit(src"""val ${lhs}_rdata = ${lhs}.io.out""")
       emit(src"""${lhs}.io.in := ${lhs}_wdata""")
-      emit(src"""${lhs}.io.pop := ${lhs}_readEn""")
       emit(src"""${lhs}.io.push := ${lhs}_writeEn""")
 
     case FIFOEnq(fifo,v,en) => 
@@ -94,7 +92,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
 
     case FIFODeq(fifo,en) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${fifo}_readEn := ${reader}_ctr_en & $en""")
+      emit(src"""${fifo}.io.pop := ${reader}_ctr_en & $en & ${reader}_inhibitor""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(0))""")

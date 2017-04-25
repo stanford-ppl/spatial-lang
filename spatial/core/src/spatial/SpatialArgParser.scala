@@ -15,6 +15,10 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableSim = false
   }.text("enable codegen to chisel + cpp (Synthesis) (disable sim) [false]")
 
+  parser.opt[Unit]("retiming").action{ (_,_) =>
+    SpatialConfig.enableRetiming = true
+  }.text("enable retiming [false]")
+
   parser.opt[Unit]("sim").action { (_,_) =>
     SpatialConfig.enableSim = true
     SpatialConfig.enableSynth = false
@@ -27,6 +31,10 @@ class SpatialArgParser extends ArgonArgParser {
   parser.opt[Unit]("dse").action( (_,_) =>
     SpatialConfig.enableDSE = true
   ).text("enables design space exploration [false]")
+
+  parser.opt[Unit]("retiming").action( (_,_) =>
+    SpatialConfig.enableRetiming = true
+  ).text("enables inner pipeline retiming [false]")
 
   parser.opt[Unit]("naming").action( (_,_) =>
     SpatialConfig.enableNaming = true

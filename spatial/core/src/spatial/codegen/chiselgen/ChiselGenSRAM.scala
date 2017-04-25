@@ -17,6 +17,25 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.remap(tp)
   }
 
+  // Emit an SRFF that will block a counter from incrementing after the counter reaches the max
+  //  rather than spinning even when there is retiming and the surrounding loop has a delayed
+  //  view of the counter done signal
+  protected def emitInhibitor(lhs: Exp[_], cchain: Option[Exp[_]]): Unit = {
+    if (SpatialConfig.enableRetiming) {
+      emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF())")
+      emitGlobalModule(src"${lhs}_inhibit.io.input.asyn_reset := reset")
+      emitGlobalModule(src"val ${lhs}_inhibitor = ${lhs}_inhibit.io.output.data")
+      if (cchain.isDefined) {
+        emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
+      } else {
+        emit(src"${lhs}_inhibit.io.input.set := Utils.delay(${lhs}_en, 1 + ${lhs}_retime)")
+      }
+      emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_rst_en")
+    } else {
+      emitGlobalModule(src"val ${lhs}_inhibitor = false.B")      
+    }
+  }
+
   protected def newWire(tp: Type[_]): String = tp match {
     case FixPtType(s,d,f) => src"new FixedPoint($s, $d, $f)"
     case IntType() => "UInt(32.W)"

@@ -122,7 +122,7 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
     case that: Long => this === Number(that)
     case that: Float => this === Number(that)
     case that: Double => this === Number(that)
-    case that: Number => this === that && this.fmt == that.fmt
+    case that: Number => this === Number(that.value, that.valid, this.fmt)
     case _ => false
   }
   override def hashCode() = (value,fmt).hashCode()

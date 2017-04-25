@@ -23,6 +23,7 @@ trait RegExp { this: SpatialExp =>
   case class Reg[T:Meta:Bits](s: Exp[Reg[T]]) extends Template[Reg[T]] {
     @api def value: T = wrap(reg_read(this.s))
     @api def :=(data: T): Void = Void(reg_write(this.s, data.s, bool(true)))
+    // @api def reset(cond: T): Void =
   }
 
   /** Staged Type **/
