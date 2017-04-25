@@ -205,6 +205,9 @@ elif [[ "${test_to_run}" = "maxj" ]]; then
   sleep 40
 fi
 
+# Reset counter for how long this test takes
+SECONDS=0
+
 # Receive and parse packet
 phase="INIT"
 get_packet
