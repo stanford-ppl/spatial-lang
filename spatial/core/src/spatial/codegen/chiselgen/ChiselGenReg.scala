@@ -78,14 +78,17 @@ trait ChiselGenReg extends ChiselGenSRAM {
               case FixPtSum => 
                 if (d.isAccum) {
                   if (!spatialNeedsFPType(lhs.tp.typeArguments.head)) {
-                    Console.println(s"tp ${lhs.tp.typeArguments.head} has fp ${spatialNeedsFPType(lhs.tp.typeArguments.head)}")
                     emitGlobalModule(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) """)  
                   } else {
                     lhs.tp.typeArguments.head match {
                       case FixPtType(s,d,f) => emitGlobalModule(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","FixedPoint", List(${if (s) 1 else 0},$d,$f)))""")  
                       case _ => emitGlobalModule(src"""val ${lhs}_${i} = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: No match""")  
                     }                  
-
+                  }
+                  // Figure out if we need to tie down direct ports
+                  val direct_tiedown = writersOf(lhs).map{w => reduceType(w.node).isDefined}.reduce{_&_}
+                  if (direct_tiedown) {
+                    emitGlobalModule(src"""${lhs}_${i}.io.input.direct_enable := false.B""")
                   }
                 } else {
                   if (d.depth > 1) {
@@ -130,7 +133,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
         val port = portsOf(lhs, reg, inst)
         val duplicates = duplicatesOf(reg)
         if (duplicates(inst).isAccum) {
-          reduceType(reg) match {
+          reduceType(lhs) match {
             case Some(fps: ReduceFunction) => 
               fps match {
                 case FixPtSum =>
@@ -167,27 +170,20 @@ trait ChiselGenReg extends ChiselGenSRAM {
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg) | isHostIO(reg)) {
         val id = argMapping(reg)._3
-        // if (writersOf(reg).length > 1) {
-        //   val id = outMuxMap(reg.asInstanceOf[Sym[Reg[_]]])
           emit(src"val ${lhs}_wId = getArgOutLane($id)")
           emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.number""")
           emit(src"""${reg}_en_options(${lhs}_wId) := $en & ${parent}_datapath_en""")
-        //   outMuxMap += (reg.asInstanceOf[Sym[Reg[_]]] -> {id + 1})
-        // } else {
-        //   emit(src"""${reg}_data_options := ${v}.number""")
-        //   emit(src"""${reg}_en_options := $en & ${parent}_datapath_en""")
-        // }
       } else {
-        reduceType(reg) match {
+        reduceType(lhs) match {
           case Some(fps: ReduceFunction) => // is an accumulator
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               fps match {
                 case FixPtSum =>
                   if (dup.isAccum) {
-                    emit(src"""${reg}_${ii}.io.next := ${v}.number""")
-                    emit(src"""${reg}_${ii}.io.enable := ${reg}_wren""")
-                    emit(src"""${reg}_${ii}.io.init := ${reg}_initval.number""")
-                    emit(src"""${reg}_${ii}.io.reset := reset | ${reg}_resetter""")
+                    emit(src"""${reg}_${ii}.io.input.next := ${v}.number""")
+                    emit(src"""${reg}_${ii}.io.input.enable := ${reg}_wren""")
+                    emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
+                    emit(src"""${reg}_${ii}.io.input.reset := reset | ${reg}_resetter""")
                     emit(src"""${reg} := ${reg}_${ii}.io.output""")
                     emitGlobalWire(src"""val ${reg} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
