@@ -443,6 +443,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     def reduce(x: Exp[T], y: Exp[T]) = withSubstScope(rV._1 -> x, rV._2 -> y){ inlineBlock(rFunc) }
 
     val treeResult = unrollReduceTree[T](inputs, valids, ident, reduce)
+    val redType = reduceType(rFunc.result)
 
     val result = inReduction{
       val accValue = inlineBlock(load)
@@ -457,13 +458,16 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
         // FOLD: On first iteration, use init value rather than zero
         case Some(init) =>
           val accumOrFirst = math_mux(isFirst, init, accValue)
+          reduceType(accumOrFirst) = redType
           reduce(treeResult, accumOrFirst)
 
         // REDUCE: On first iteration, store result of tree, do not include value from accum
         // TODO: Could also have third case where we use ident instead of loaded value. Is one better?
         case None =>
           val res2 = reduce(treeResult, accValue)
-          math_mux(isFirst, treeResult, res2)
+          val mux = math_mux(isFirst, treeResult, res2)
+          reduceType(mux) = redType
+          mux
       }
     }
 
@@ -626,7 +630,9 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
               else {
                 // REDUCE: On first iteration, store result of tree, do not include value from accum
                 val res2 = reduce(treeResult, accValue)
-                math_mux(isFirst, treeResult, res2)
+                val mux = math_mux(isFirst, treeResult, res2)
+                reduceType(mux) = reduceType(rFunc.result)
+                mux
               }
             }
 
