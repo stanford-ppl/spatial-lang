@@ -7,7 +7,7 @@ import spatial.SpatialConfig
 import spatial.SpatialExp
 
 
-trait ChiselGenCounter extends ChiselCodegen with FileDependencies {
+trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
   val IR: SpatialExp
   import IR._
 

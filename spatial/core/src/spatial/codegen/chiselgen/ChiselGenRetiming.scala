@@ -59,7 +59,7 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
     case ShiftRegWrite(shiftReg, data, en) => 
       val parent = parentOf(lhs).get
       emit(src"${shiftReg}.io.input.data := ${data}.raw")
-      emit(src"${shiftReg}.io.input.en := $en & ${parent}_datapath_en")
+      emit(src"${shiftReg}.io.input.en := true.B //$en & ${parent}_datapath_en")
 
     case _ =>
       super.emitNode(lhs, rhs)

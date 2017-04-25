@@ -4,7 +4,14 @@
 # NOTE: This script belongs on a server dedicated to regression testing
 
 export LANG=en_US.UTF-8
-REGRESSION_HOME="/remote/regression/${1}"
+if [[ $1 = "chisel" ]]; then
+  REGRESSION_HOME="/home/regression/${1}"
+elif [[ $1 = "scala" ]]; then
+  REGRESSION_HOME="/kunle/users/mattfel/regression/${1}"
+else
+  echo "Unrecognized test $1" | tee -a /tmp/log
+  exit 1
+fi
 
 ## Helper for deleting directories when you still have those nfs files stuck in use
 # 1 - directory to delete

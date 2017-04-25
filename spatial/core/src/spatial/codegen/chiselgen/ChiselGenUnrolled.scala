@@ -6,7 +6,7 @@ import spatial.SpatialConfig
 import spatial.SpatialExp
 
 
-trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
+trait ChiselGenUnrolled extends ChiselGenController {
   val IR: SpatialExp
   import IR._
 
@@ -117,12 +117,12 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       // Set up accumulator signals
       emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
-      if (SpatialConfig.enableRetiming) emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := ${bodyLatency(lhs).reduce{_+_}}.U""")
-      else emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U""")
+      val redmax = if (SpatialConfig.enableRetiming) {if (bodyLatency(lhs).length > 0) {bodyLatency(lhs).reduce{_+_}} else 1} else 1
+      emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := ${redmax}.U""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.reset := reset | ${quote(cchain)}_resetter""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.saturate := true.B""")
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
-      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc & ${lhs}_redLoop_done""")
+      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
       if (styleOf(lhs) == InnerPipe) {
         emit(src"val ${accum}_wren = ${lhs}_datapath_en & ~${lhs}_done & ${lhs}_redLoop_done")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
@@ -140,6 +140,8 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         }
         emit(src"val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
       }
+      if (styleOf(lhs) == InnerPipe) emitInhibitor(lhs, Some(cchain))
+      // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
       emit(src"//val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
@@ -200,7 +202,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}_readEn := ${reader}_datapath_en & $en""")
+      emit(src"""${quote(fifo)}.io.pop := ${reader}_datapath_en & $en & ~${reader}_inhibitor""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) }""")
