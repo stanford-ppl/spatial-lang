@@ -11,7 +11,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   override val name = "Unrolling Transformer"
 
-  def strMeta(e: Exp[_]): Unit = metadata.get(e).foreach{m => dbgs(c" - ${m._1}: ${m._2}") }
+  def strMeta(e: Exp[_]): Unit = metadata.get(e).foreach{m => logs(c" - ${m._1}: ${m._2}") }
 
   /**
     * Clone functions - used to add extra rules (primarily for metadata) during unrolling
@@ -99,7 +99,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     // For each memory this access reads, set the new dispatch value
     reads.foreach{mem =>
-      dbgs(c"Registering read of $mem: $original -> $unrolled")
+      dbgs(u"Registering read of $mem: " + c"$original -> $unrolled")
       dbgs(c"  Channels: $channels")
       dbgs(c"  ${str(original)}")
       dbgs(c"  ${str(unrolled)}")
@@ -308,8 +308,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
       registerAccess(lhs, lhs2)
-      dbgs(s"Unrolling $lhs = $rhs"); strMeta(lhs)
-      dbgs(s"Created ${str(lhs2)}"); strMeta(lhs2)
+      logs(s"Unrolling $lhs = $rhs"); strMeta(lhs)
+      logs(s"Created ${str(lhs2)}"); strMeta(lhs2)
       lanes.split(lhs, lhs2)(mtyp(lhs.tp),ctx)
 
     case LocalWriter(writes) if writes.forall(w => lanes.isCommon(w.mem)) && writeParallelizer.isDefinedAt((lanes,rhs,ctx)) =>
@@ -317,8 +317,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
       registerAccess(lhs, lhs2)
-      dbgs(s"Unrolling $lhs = $rhs"); strMeta(lhs)
-      dbgs(s"Created ${str(lhs2)}"); strMeta(lhs2)
+      logs(s"Unrolling $lhs = $rhs"); strMeta(lhs)
+      logs(s"Created ${str(lhs2)}"); strMeta(lhs2)
       lanes.unify(lhs, lhs2)
 
     case e: OpForeach        => unrollControllers(lhs,rhs,lanes){ unrollForeachNode(lhs, e) }
@@ -327,26 +327,26 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     case _ if isControlNode(lhs) => unrollControllers(lhs,rhs,lanes){ cloneOp(lhs, rhs) }
 
     case e: RegNew[_] =>
-      dbgs(s"Duplicating $lhs = $rhs")
+      logs(s"Duplicating $lhs = $rhs")
       val dups = lanes.duplicate(lhs, rhs)
-      dbgs(s"  Created registers: ")
+      logs(s"  Created registers: ")
       lanes.foreach{p => dbgs(s"  $p: $lhs -> ${f(lhs)}") }
       dups
 
     case _ =>
-      dbgs(s"Duplicating $lhs = $rhs")
+      logs(s"Duplicating $lhs = $rhs")
       val dups = lanes.duplicate(lhs, rhs)
       dups
   }
 
 
   def unrollControllers[T](lhs: Sym[T], rhs: Op[T], lanes: Unroller)(unroll: => Exp[_]) = {
-    dbgs(s"Unrolling controller:")
-    dbgs(s"$lhs = $rhs")
+    logs(s"Unrolling controller:")
+    logs(s"$lhs = $rhs")
     if (lanes.size > 1) {
       val lhs2 = op_parallel_pipe(globalValids, {
         lanes.foreach{p =>
-          dbgs(s"$lhs duplicate ${p+1}/${lanes.size}")
+          logs(s"$lhs duplicate ${p+1}/${lanes.size}")
           unroll
         }
         void
@@ -354,7 +354,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       lanes.unify(lhs, lhs2)
     }
     else {
-      dbgs(s"$lhs duplicate 1/1")
+      logs(s"$lhs duplicate 1/1")
       val first = lanes.inLane(0){ unroll }
       lanes.unify(lhs, first)
     }
@@ -385,7 +385,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     func:   Block[Void],
     iters:  Seq[Bound[Index]]
   )(implicit ctx: SrcCtx) = {
-    dbgs(s"Unrolling foreach $lhs")
+    logs(s"Unrolling foreach $lhs")
 
     val lanes = Unroller(cchain, iters, isInnerControl(lhs))
     val is = lanes.indices
@@ -398,7 +398,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val lhs2 = stageEffectful(UnrolledForeach(globalValids, cchain, blk, is, vs), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
 
-    dbgs(s"Created foreach ${str(lhs2)}")
+    logs(s"Created foreach ${str(lhs2)}")
     lhs2
   }
   def unrollForeachNode(lhs: Sym[_], rhs: OpForeach)(implicit ctx: SrcCtx) = {
@@ -489,7 +489,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     rV:     (Bound[T],Bound[T]),  // Bound symbols used to reify rFunc
     iters:  Seq[Bound[Index]]     // Bound iterators for map loop
   )(implicit mT: Type[T], bT: Bits[T], ctx: SrcCtx) = {
-    dbgs(s"Unrolling pipe-fold $lhs")
+    logs(s"Unrolling pipe-fold $lhs")
     val lanes = Unroller(cchain, iters, isInnerControl(lhs))
     val inds2 = lanes.indices
     val vs = lanes.indexValids
@@ -497,16 +497,16 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val start = counterStarts(cchain).map(_.getOrElse(int32(0)))
 
     val blk = stageColdLambda(f(accum)) {
-      dbgs("Unrolling map")
+      logs("Unrolling map")
       val values = unrollMap(func, lanes)(mT,ctx)
       val valids = () => lanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b) } }
 
       if (isOuterControl(lhs)) {
-        dbgs("Unrolling unit pipe reduce")
+        logs("Unrolling unit pipe reduce")
         Pipe { Void(unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.map(_.head), start)) }
       }
       else {
-        dbgs("Unrolling inner reduce")
+        logs("Unrolling inner reduce")
         unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.map(_.head), start)
       }
       void
@@ -517,7 +517,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val effects = blk.summary
     val lhs2 = stageEffectful(UnrolledReduce(globalValids, cchain, accum, blk, rFunc2, inds2, vs, rV2)(mT,mC), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
-    dbgs(s"Created reduce ${str(lhs2)}")
+    logs(s"Created reduce ${str(lhs2)}")
     lhs2
   }
   def unrollReduceNode[T](lhs: Sym[_], rhs: OpReduce[T])(implicit ctx: SrcCtx) = {
@@ -543,7 +543,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     itersMap: Seq[Bound[Index]],    // Bound iterators for map loop
     itersRed: Seq[Bound[Index]]     // Bound iterators for reduce loop
   )(implicit mT: Type[T], bT: Bits[T], mC: Type[C[T]], ctx: SrcCtx) = {
-    dbgs(s"Unrolling accum-fold $lhs")
+    logs(s"Unrolling accum-fold $lhs")
 
     def reduce(x: Exp[T], y: Exp[T]) = withSubstScope(rV._1 -> x, rV._2 -> y){ inlineBlock(rFunc)(mT) }
 
@@ -554,12 +554,12 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val start = counterStarts(cchainMap).map(_.getOrElse(int32(0)))
 
     val blk = stageColdLambda(f(accum)) {
-      dbgs(s"[Accum-fold $lhs] Unrolling map")
+      logs(s"[Accum-fold $lhs] Unrolling map")
       val mems = unrollMap(func, mapLanes)
       val mvalids = () => mapLanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b)} }
 
       if (isUnitCounterChain(cchainRed)) {
-        dbgs(s"[Accum-fold $lhs] Unrolling unit pipe reduction")
+        logs(s"[Accum-fold $lhs] Unrolling unit pipe reduction")
         op_unit_pipe(globalValids, {
           val values = inReduction{ mems.map{mem => withSubstScope(partial -> mem){ inlineBlock(loadRes)(mT) }} }
           val foldValue = if (fold) { Some( inlineBlock(loadAcc)(mT) ) } else None
@@ -568,20 +568,20 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
         })
       }
       else {
-        dbgs(s"[Accum-fold $lhs] Unrolling pipe-reduce reduction")
+        logs(s"[Accum-fold $lhs] Unrolling pipe-reduce reduction")
         tab += 1
 
         val reduceLanes = Unroller(cchainRed, itersRed, true)
         val isRed2 = reduceLanes.indices
         val rvs = reduceLanes.indexValids
         reduceLanes.foreach{p =>
-          dbgs(s"Lane #$p")
-          itersRed.foreach{i => dbgs(s"  $i -> ${f(i)}") }
+          logs(s"Lane #$p")
+          itersRed.foreach{i => logs(s"  $i -> ${f(i)}") }
         }
 
         val rBlk = stageColdBlock {
-          dbgs(c"[Accum-fold $lhs] Unrolling map loads")
-          dbgs(c"  memories: $mems")
+          logs(c"[Accum-fold $lhs] Unrolling map loads")
+          logs(c"  memories: $mems")
 
           val values: Seq[Seq[Exp[T]]] = inReduction {
             mems.map{mem =>
@@ -591,28 +591,28 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
             }
           }
 
-          dbgs(s"[Accum-fold $lhs] Unrolling accum loads")
+          logs(s"[Accum-fold $lhs] Unrolling accum loads")
           reduceLanes.foreach{p =>
-            dbgs(s"Lane #$p")
-            itersRed.foreach{i => dbgs(s"  $i -> ${f(i)}") }
+            logs(s"Lane #$p")
+            itersRed.foreach{i => logs(s"  $i -> ${f(i)}") }
           }
 
           val accValues = inReduction{ unrollMap(loadAcc, reduceLanes)(mT,ctx) }
 
-          dbgs(s"[Accum-fold $lhs] Unrolling reduction trees and cycles")
+          logs(s"[Accum-fold $lhs] Unrolling reduction trees and cycles")
           reduceLanes.foreach{p =>
             val laneValid = reduceTree(reduceLanes.valids(p)){(a,b) => bool_and(a,b)}
 
-            dbgs(s"Lane #$p:")
+            logs(s"Lane #$p:")
             tab += 1
             val inputs = values.map(_.apply(p)) // The pth value of each vector load
             val valids = mvalids().map{mvalid => bool_and(mvalid, laneValid) }
 
-            dbgs("Valids:")
-            valids.foreach{s => dbgs(s"  ${str(s)}")}
+            logs("Valids:")
+            valids.foreach{s => logs(s"  ${str(s)}")}
 
-            dbgs("Inputs:")
-            inputs.foreach{s => dbgs(s"  ${str(s)}") }
+            logs("Inputs:")
+            inputs.foreach{s => logs(s"  ${str(s)}") }
 
             val accValue = accValues(p)
 
@@ -643,7 +643,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
             tab -= 1
           }
 
-          dbgs(s"[Accum-fold $lhs] Unrolling accumulator store")
+          logs(s"[Accum-fold $lhs] Unrolling accumulator store")
           inReduction{ unrollMap(storeAcc, reduceLanes) }
           void
         }
@@ -665,7 +665,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val lhs2 = stageEffectful(UnrolledReduce(globalValids, cchainMap, accum, blk, rFunc2, isMap2, mvs, rV2)(mT,mC), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
 
-    dbgs(s"[Accum-fold] Created reduce ${str(lhs2)}")
+    logs(s"[Accum-fold] Created reduce ${str(lhs2)}")
     lhs2
   }
   def unrollMemReduceNode[T,C[T]](lhs: Sym[_], rhs: OpMemReduce[T,C])(implicit ctx: SrcCtx) = {
@@ -680,7 +680,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       case _ => mirror(lhs, rhs)
     }).asInstanceOf[Exp[A]]
 
-    dbgs(c"Cloning $lhs = $rhs")
+    logs(c"Cloning $lhs = $rhs")
     strMeta(lhs)
 
     val (lhs2, isNew) = transferMetadataIfNew(lhs){ cloneOrMirror(lhs, rhs)(mtyp(lhs.tp), lhs.ctx) }
@@ -690,7 +690,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     }
 
     if (isNew) cloneFuncs.foreach{func => func(lhs2) }
-    dbgs(c"Created ${str(lhs2)}")
+    logs(c"Created ${str(lhs2)}")
     strMeta(lhs2)
 
     lhs2

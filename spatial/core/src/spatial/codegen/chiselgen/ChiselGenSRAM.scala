@@ -199,14 +199,22 @@ trait ChiselGenSRAM extends ChiselCodegen {
       nbufs.foreach{ case (mem, i) => 
         val readers = readersOf(mem)
         val writers = writersOf(mem)
-        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
-        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
+        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }.toList
+        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }.toList
         // Console.println(s"working on $mem $i $readers $readPorts $writers $writePorts")
         // Console.println(s"${readPorts.map{case (_, readers) => readers}}")
         // Console.println(s"innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
         // Console.println(s"middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
         // Console.println(s"outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
-        val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
+        val readCtrls = readPorts.map{case (port, readers) =>
+          val readTops = readers.flatMap{a => topControllerOf(a, mem, i) }
+          readTops.headOption.getOrElse{throw new Exception(u"Memory $mem, instance $i, port $port had no read top controllers") }
+        }
+        if (readCtrls.isEmpty) throw new Exception(u"Memory $mem, instance $i had no readers?")
+
+        // childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
+
+        val allSiblings = childrenOf(parentOf(readCtrls.head.node).get)
         val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
         val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
         val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }

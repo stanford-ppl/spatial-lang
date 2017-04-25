@@ -14,6 +14,7 @@ val assemblySettings = Seq(
 )
 val commonSettings = assemblySettings ++ Seq(
   libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
+  incOptions := incOptions.value.withRecompileOnMacroDef(false),
 
   //paradise
   resolvers += Resolver.sonatypeRepo("snapshots"),
