@@ -37,30 +37,28 @@ stamp_commit_msgs() {
 ## Function for finding filse with older timestamps.
 ##   This tester will yield to any active or new tests who are older
 coordinate() {
+  check_packet
   cd ${REGRESSION_HOME}
   files=(*)
   new_packets=()
   sorted_packets=()
-  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *"$branch"* ]]; then new_packets+=($f); fi; done
+  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *".$branch."* ]]; then new_packets+=($f); fi; done
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
   rank=-1
   for i in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$i]}"* ]]; then rank=${i}; fi; done
   while [ $rank != 0 ]; do
     # Sanity check
-    if [ $rank = -1 ]; then 
-      logger "CRITICAL ERROR: This packet ${packet} was not found in waiting list ${stringified}"
-      exit 1
-    fi
+    check_packet
 
-    logger "This packet (${packet}) is ${rank}-th in line (${stringified})... Waiting $((delay/numpieces)) seconds..."
+    logger "This packet (${packet}) is ${rank}-th in line (${stringified})... Waiting 300 seconds..."
     sleep 300
 
     # Update active packets list
     files=(*)
     new_packets=()
-    for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *"$branch"* ]]; then new_packets+=($f); fi; done
     sorted_packets=()
+    for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *"$branch"* ]]; then new_packets+=($f); fi; done
     sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
     stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
     rank=-1
@@ -71,8 +69,27 @@ coordinate() {
   cd -
 }
 
+## Function for checking if packet still exists, and quit if it doesn't
+check_packet() {
+  ret=(`pwd`)
+  cd ${REGRESSION_HOME}
+  files=(*)
+  new_packets=()
+  sorted_packets=()
+  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *".$branch."* ]]; then new_packets+=($f); fi; done
+  sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
+  stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
+  rank=-1
+  for i in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$i]}"* ]]; then rank=${i}; fi; done
+  if [ $rank = -1 ]; then
+    logger "Packet for $packet disappeared from list $stringified!  Quitting ungracefully!"
+    exit 1
+  fi
+}
+
 ## Function for building spatial
 build_spatial() {
+  check_packet
   logger "Cleaning old regression directories..."
   cd ${REGRESSION_HOME}
   files=(*)
@@ -91,11 +108,13 @@ build_spatial() {
   fi
 
   for i in `seq 0 $rank`; do
+    check_packet
     logger "Cleaning ${sorted_testdirs[$i]}..."
     cmd="stubborn_delete ${sorted_testdirs[$i]}"
     eval "$cmd"
   done
   logger "Cleanup done!"
+  check_packet
   
   # logger "Patching the nsc library thing..."
   # cd $DELITE_HOME
@@ -164,8 +183,9 @@ logger "Cleaning old markdown file..."
 rm $wiki_file > /dev/null 2>&1
 touch $wiki_file
 logger "Putting timestamp in wiki"
+duration=$SECONDS
 echo -e "
-Edited at `date`
+Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
 * <---- indicates relative amount of work needed before app will **pass**" > $wiki_file
 
 for ac in ${types_list[@]}; do
@@ -541,7 +561,7 @@ function report {
     cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
     exit 0
   else
-    echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2})\" >> ${log}
+    echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2} - ${5})\" >> ${log}
     touch ${SPATIAL_HOME}/regression_tests/${2}/results/\${1}.${3}_${4}
     exit 1
   fi
@@ -684,6 +704,7 @@ launch_tests() {
   rm -rf ${SPATIAL_HOME}/regression_tests;mkdir ${SPATIAL_HOME}/regression_tests
 
   for ac in ${types_list[@]}; do 
+    check_packet
     logger "Preparing vulture directory for $ac..."
     # Create vulture dir
     rm -rf ${SPATIAL_HOME}/regression_tests/${ac};mkdir ${SPATIAL_HOME}/regression_tests/${ac}
@@ -693,6 +714,7 @@ launch_tests() {
     # Create the package for each app
     i=0
     for t in ${test_list[@]}; do
+      check_packet
       if [[ $t == *"|${ac}|"* && (${tests_todo} == "all" || $t == *"|${tests_todo}|"*) ]]; then
         appname=(`echo $t | sed 's/|.*$//g'`)
         appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/-/ /g'`)

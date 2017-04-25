@@ -92,7 +92,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
 
     case FIFODeq(fifo,en) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${fifo}.io.pop := ${reader}_ctr_en & $en & ${reader}_inhibitor""")
+      emit(src"""${fifo}.io.pop := ${reader}_ctr_en & $en & ~${reader}_inhibitor""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(0))""")
