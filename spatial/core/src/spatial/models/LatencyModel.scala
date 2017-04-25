@@ -82,6 +82,7 @@ trait LatencyModel {
     case FixRsh(_,_) => true
     case FixURsh(_,_) => true
     case FixAbs(_)    => true
+    case FixConvert(_) => true
 
     case Mux(_,_,_) => true
     case Min(_,_)   => true
