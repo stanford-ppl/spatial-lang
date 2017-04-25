@@ -11,7 +11,7 @@ class UIntAccumTests(c: UIntAccum) extends PeekPokeTester(c) {
   val numResets = 3
   var init = 0
   var count = 0
-  poke(c.io.init, init)
+  poke(c.io.input.init, init)
   step(1)
 
   for (iter <- 0 until numResets) {
@@ -25,16 +25,16 @@ class UIntAccumTests(c: UIntAccum) extends PeekPokeTester(c) {
         case "min" => if(count < acc) count else acc
       }
       count = if(en == 1) next else count
-      poke(c.io.next, acc)
-      poke(c.io.enable, en)
+      poke(c.io.input.next, acc)
+      poke(c.io.input.enable, en)
       step(1)
       // expect(c.io.output, count)
     }
-    poke(c.io.enable, 0)
+    poke(c.io.input.enable, 0)
     step(3)
-    poke(c.io.reset, 1)
+    poke(c.io.input.reset, 1)
     step(1)
-    poke(c.io.reset, 0)
+    poke(c.io.input.reset, 0)
     step(1)
 
     count = 0
@@ -47,7 +47,7 @@ class SpecialAccumTests(c: SpecialAccum) extends PeekPokeTester(c) {
   var init = 0
   var result: Int = 0
   var count: Double = 0
-  poke(c.io.init, init)
+  poke(c.io.input.init, init)
   step(1)
 
   for (iter <- 0 until numResets) {
@@ -56,16 +56,16 @@ class SpecialAccumTests(c: SpecialAccum) extends PeekPokeTester(c) {
       val acc = c.typ match {
         case "UInt" => 
           val num = rnd.nextInt(10)
-          poke(c.io.next, num)
+          poke(c.io.input.next, num)
           num.toDouble
         case "FixedPoint" =>
           val num = rnd.nextFloat*10
           val acc_rounded = ((num*scala.math.pow(2,c.params(2))).toInt)/scala.math.pow(2,c.params(2))
-          poke(c.io.next, (num*scala.math.pow(2,c.params(2))).toInt)
+          poke(c.io.input.next, (num*scala.math.pow(2,c.params(2))).toInt)
           acc_rounded
         case "FloatingPoint" => 
           val num = rnd.nextInt(10)
-          poke(c.io.next, num)
+          poke(c.io.input.next, num)
           num.toDouble
       }
       val en = rnd.nextInt(2)
@@ -75,7 +75,7 @@ class SpecialAccumTests(c: SpecialAccum) extends PeekPokeTester(c) {
         case "min" => if(count < acc) count else acc
       }
       step(1)
-      poke(c.io.enable, en)
+      poke(c.io.input.enable, en)
       val (hw, factor) = c.typ match {
         case "UInt" => (peek(c.io.output), 1)
         case "FixedPoint" => (peek(c.io.output), scala.math.pow(2,c.params(2)).toInt)
@@ -85,13 +85,13 @@ class SpecialAccumTests(c: SpecialAccum) extends PeekPokeTester(c) {
       count = if(en == 1) next else count
       result = (count*factor).toInt
     }
-    poke(c.io.enable, 0)
+    poke(c.io.input.enable, 0)
     step(c.latency)
     // expect(c.io.output, result)
     step(3)
-    poke(c.io.reset, 1)
+    poke(c.io.input.reset, 1)
     step(1)
-    poke(c.io.reset, 0)
+    poke(c.io.input.reset, 0)
     step(1)
   }
 

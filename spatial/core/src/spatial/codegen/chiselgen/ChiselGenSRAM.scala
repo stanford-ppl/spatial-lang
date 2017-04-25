@@ -32,7 +32,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       }
       emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_rst_en")
     } else {
-      emitGlobalModule(src"val ${lhs}_inhibitor = true.B")      
+      emitGlobalModule(src"val ${lhs}_inhibitor = false.B")      
     }
   }
 
