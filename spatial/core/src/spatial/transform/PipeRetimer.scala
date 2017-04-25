@@ -14,8 +14,8 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
   override def shouldRun = !SpatialConfig.enablePIR
 
   def requiresRetiming(x: Exp[_]) = latencyModel.requiresRegisters(x)
-  def retimingDelay(x: Exp[_], inReduce: Boolean = false): Int = {
-    if (latencyModel.requiresRegisters(x)) latencyModel.latencyOf(x, inReduce).toInt else 0
+  def retimingDelay(x: Exp[_]): Int = {
+    if (latencyModel.requiresRegisters(x)) latencyOf(x).toInt else 0
   }
 
   // track register info for each retimed reader

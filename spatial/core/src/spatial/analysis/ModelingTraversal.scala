@@ -19,7 +19,15 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   // --- State
   var inHwScope = false // In hardware scope
   var inReduce = false  // In tight reduction cycle (accumulator update)
-  def latencyOf(e: Exp[_]) = if (inHwScope) latencyModel(e, inReduce) else 0L
+  def latencyOf(e: Exp[_]) = {
+    // HACK: For now, disable retiming in reduction cycles by making everything have 0 latency
+    // This means everything will be purely combinational logic between the accumulator read and write
+    val inReductionCycle = reduceType(e).isDefined
+    if (inReductionCycle) 0L else {
+
+      if (inHwScope) latencyModel(e, inReduce) else 0L
+    }
+  }
 
   // TODO: Could optimize further with dynamic programming
   def latencyOfPipe(b: Block[_]): Long = {
@@ -58,6 +66,14 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   // Not a true traversal. Should it be?
   def pipeDelaysAndGaps(b: Block[_], oos: Map[Exp[_],Long] = Map.empty) = {
     val scope = getStages(b).filterNot(s => isGlobal(s)).filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
+
+    val localReads  = scope.collect{case reader @ LocalReader(reads) => reader -> reads.head.mem }
+    val localWrites = scope.collect{case writer @ LocalWriter(writes) => writer -> writes.head.mem }
+
+    val localAccums = localWrites.flatMap{case (writer,writtenMem) =>
+      localReads.find{case (reader,readMem) => readMem == writtenMem && writer.dependsOn(reader) }.map{x => (x._1,writer,writtenMem) }
+    }
+
     val delays = mutable.HashMap[Exp[_],Long]() ++ scope.map{node => node -> 0L}
     val paths  = mutable.HashMap[Exp[_],Long]() ++ oos
 
@@ -66,13 +82,23 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
         val deps = exps(d) filter (scope contains _)
 
         if (deps.nonEmpty) {
-          val dlys = deps.map{e => paths.getOrElseAdd(e, fullDFS(e)) }
+          val (accumDeps, nonAccumDeps) = deps.partition{dep => localAccums.exists{_._1 == dep}}
+
+          val dlys = nonAccumDeps.map{e => paths.getOrElseAdd(e, fullDFS(e)) }
           val critical = dlys.max
 
-          deps.zip(dlys).foreach{ case(dep, path) =>
+          nonAccumDeps.zip(dlys).foreach{ case(dep, path) =>
             if (path < critical && (critical - path) > delays(dep))
               delays(dep) = critical - path
           }
+          // FIXME: Assumes each accumulator read is used exactly once.
+          // TODO: Also requires a backwards pass when the accumulator reads have dependencies. Works only for regs now
+          accumDeps.foreach{dep =>
+            delays(dep) = 0
+            paths(dep) = critical
+            fullDFS(dep)
+          }
+
           dbgs(c"${str(cur)} [delay = max(" + dlys.mkString(", ") + s") + ${latencyOf(cur)}]")
           critical + latencyOf(cur)
         }

@@ -391,7 +391,9 @@ trait SpatialMetadataExp extends IndexPatternExp { this: SpatialExp =>
     def update(e: Exp[_], node: Exp[_]) = metadata.add(e, PartOfTree(node))
   }
 
-
+  /**
+    * Flag for stateless nodes which require duplication for each use
+    */
   case class MShouldDuplicate(should: Boolean) extends Metadata[MShouldDuplicate] { def mirror(f:Tx) = this }
   object shouldDuplicate {
     def apply(e: Exp[_]) = metadata[MShouldDuplicate](e).exists(_.should)
@@ -408,4 +410,12 @@ trait SpatialMetadataExp extends IndexPatternExp { this: SpatialExp =>
     def update(e: Exp[_], latency: Long): Unit = metadata.add(e, MBodyLatency(Seq(latency)))
   }
 
+  /**
+    * Flag for primitive nodes which are innermost loop invariant
+    */
+  case class MLoopInvariant(is: Boolean) extends Metadata[MLoopInvariant] { def mirror(f:Tx) = this }
+  object isLoopInvariant {
+    def apply(e: Exp[_]): Boolean = metadata[MLoopInvariant](e).exists(_.is)
+    def update(e: Exp[_], is: Boolean): Unit = metadata.add(e, MLoopInvariant(is))
+  }
 }

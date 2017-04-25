@@ -24,7 +24,9 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var level = 0
   var controller: Option[Ctrl] = None
   var pendingNodes: Map[Exp[_], Seq[Exp[_]]] = Map.empty
-  var unrollFactors: List[List[Const[Index]]] = Nil
+  var unrollFactors: List[List[Const[Index]]] = Nil       // Parallel loop unrolling factors (head = innermost)
+  var loopIterators: List[Bound[Index]] = Nil             // Loop iterators (last = innermost)
+  var inInnerLoop: Boolean = false                        // Is the innermost loop iterator an inner controller?
 
   var localMems: List[Exp[_]] = Nil
   var metapipes: List[Exp[_]] = Nil
@@ -80,15 +82,21 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
   def visitCtrl(ctrl: Ctrl, inds: Seq[Bound[Index]], cchain: Exp[CounterChain])(blk: => Unit): Unit = {
     val prevUnrollFactors = unrollFactors
+    val prevLoopIterators = loopIterators
+    val prevIsInnerLoop = inInnerLoop
     val factors = parFactorsOf(cchain)
 
     // ASSUMPTION: Currently only parallelizes by innermost loop
     inds.zip(factors).foreach{case (i,f) => parFactorOf(i) = f }
     unrollFactors = factors.lastOption.toList +: unrollFactors
+    loopIterators = loopIterators ++ inds
+    inInnerLoop = isInnerControl(ctrl) // This version of the method is only called for loops
 
     visitCtrl(ctrl)(blk)
 
     unrollFactors = prevUnrollFactors
+    loopIterators = prevLoopIterators
+    inInnerLoop = prevIsInnerLoop
   }
 
   /** Helper methods **/
@@ -222,10 +230,20 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
   /** Common method for all nodes **/
   def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
-    // Set total unrolling factors of this node's scope + internal unrolling factors in this node
-    unrollFactorsOf(lhs) = parFactorsOf(lhs) +: unrollFactors // (9)
-
     if (controller.isDefined) {
+      // Set total unrolling factors of this node's scope + internal unrolling factors in this node
+
+      if (isPrimitiveNode(lhs) && inInnerLoop) {
+        isLoopInvariant(lhs) = !lhs.dependsOn(loopIterators.last)
+      }
+
+      if (isPrimitiveNode(lhs) && isLoopInvariant(lhs)) {
+        unrollFactorsOf(lhs) = parFactorsOf(lhs) +: unrollFactors.drop(1) // Everything except innermost loop
+      }
+      else {
+        unrollFactorsOf(lhs) = parFactorsOf(lhs) +: unrollFactors // (9)
+      }
+
       val ctrl: Ctrl   = controller.get
       val parent: Ctrl = if (isControlNode(lhs)) (lhs, false) else ctrl
 
