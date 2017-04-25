@@ -28,6 +28,7 @@ class FringeContextDE1SoC : public FringeContextBase<void> {
 public:
   uint32_t numArgIns = 0;
   uint32_t numArgOuts = 0;
+  uint32_t numArgIOs = 0;
   std::string bitfile = "";
 
   FringeContextDE1SoC(std::string path = "") : FringeContextBase(path) {
@@ -109,15 +110,19 @@ public:
 //    }
   }
 
-  virtual void setArg(uint32_t arg, uint64_t data) {
-		writeReg(arg+2, data);
+  virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
+    writeReg(arg+2, data);
     numArgIns++;
+    if (isIO) numArgIOs++;
   }
 
-  virtual uint64_t getArg(uint32_t arg) {
+  virtual uint64_t getArg(uint32_t arg, bool isIO) {
     numArgOuts++;
-    return readReg(numArgIns+2+arg);
-
+    if (isIO) {
+      return readReg(2+arg);
+    } else {
+      return readReg(numArgIns-numArgIOs+2+arg);  
+    }
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {

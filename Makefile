@@ -38,3 +38,10 @@ resources:
 
 clean:
 	sbt clean
+
+sim-clean:
+	rm *.sim
+	rm *.vcs
+
+synth-clean:
+	rm -rf ./gen

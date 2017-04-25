@@ -163,7 +163,8 @@ class Top(
 
     case "de1soc" =>
       // DE1SoC Fringe
-      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+      val blockingDRAMIssue = false
+      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[DE1SoCInterface]
 
       // Fringe <-> Host connections
@@ -203,7 +204,7 @@ class Top(
       if (accel.io.argOuts.length > 0) {
         fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
             fringeArgOut.bits := accelArgOut.bits
-            fringeArgOut.valid := 1.U
+            fringeArgOut.valid := accelArgOut.valid
         }
       }
 

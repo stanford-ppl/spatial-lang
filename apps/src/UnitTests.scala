@@ -49,14 +49,14 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     val y1 = ArgOut[Int]
     val y2 = ArgOut[Int]
     val y3 = ArgOut[Int]
-    val m1 = DRAM[Int](16)
-    val m2 = DRAM[Int](16)
+//    val m1 = DRAM[Int](16)
+//    val m2 = DRAM[Int](16)
     setArg(io1, cst1)
     setArg(io2, cst2)
     setArg(x1, cst3)
     setArg(x2, cst4)
-    val data = Array.tabulate(16){i => i}
-    setMem(m1, data)
+//    val data = Array.tabulate(16){i => i}
+//    setMem(m1, data)
 
     Accel {
       Pipe { io1 := io1.value + 2}
@@ -64,12 +64,12 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
       Pipe { y2 := 999 }
       Pipe { y1 := x1.value + 6 }
       Pipe { y2 := x2.value + 8 }
-      val sram1 = SRAM[Int](16)
-      val sram2 = SRAM[Int](16)
-      sram1 load m1
-      sram2 load m1
-      m2 store sram1
-      Pipe { y3 := sram2(3) }
+ //     val sram1 = SRAM[Int](16)
+ //     val sram2 = SRAM[Int](16)
+ //     sram1 load m1
+ //     sram2 load m1
+ //     m2 store sram1
+ //     Pipe { y3 := sram2(3) }
     }
 
     val r1 = getArg(io1)
@@ -80,14 +80,14 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     val g3 = cst3 + 6
     val r4 = getArg(y2)
     val g4 = cst4 + 8
-    val r5 = getMem(m2)
-    val g6 = data(3)
+//    val r5 = getMem(m2)
+//    val g6 = data(3)
     val r6 = getArg(y3)
-    println("expected: " + g1 + ", " + g2 + ", " + g3 + ", " + g4 + ", "+ g6)
-    println("received: " + r1 + ", " + r2 + ", " + r3 + ", " + r4 + ", "+ r6)
-    printArray(r5, "Mem: ")
-    val cksum = r1 == g1 && r2 == g2 && r3 == g3 && r4 == g4 && r6 == g6 && data.zip(r5){_==_}.reduce{_&&_}
-    println("PASS: " + cksum + " (MixedIOTest)")
+    println("expected: " + g1 + ", " + g2 + ", " + g3 + ", " + g4)
+    println("received: " + r1 + ", " + r2 + ", " + r3 + ", " + r4)
+//    printArray(r5, "Mem: ")
+//   val cksum = r1 == g1 && r2 == g2 && r3 == g3 && r4 == g4 && r6 == g6 && data.zip(r5){_==_}.reduce{_&&_}
+//    println("PASS: " + cksum + " (MixedIOTest)")
   }
 }
 
