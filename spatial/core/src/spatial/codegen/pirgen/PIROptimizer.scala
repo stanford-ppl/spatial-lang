@@ -27,54 +27,76 @@ trait PIROptimizer extends PIRTraversal {
   }
 
   override def postprocess[S:Type](b: Block[S]): Block[S] = {
-    dbgs(s"\n\n//----------- Finishing PIRHacks ------------- //")
-    dbg(s"Mapping:")
+    dbgs(s"\n\n//----------- Finishing PIROptimizer ------------- //")
+    dbgs(s"Mapping:")
     mapping.foreach { case (sym, cus) =>
-      dbg(s"${sym} -> [${cus.mkString(",")}]")
+      dbgs(s"${sym} -> [${cus.mkString(",")}]")
     }
     super.postprocess(b)
   }
 
-  def removeUnusedCUComponents(cu: CU) {
-    dbg(s"")
-    dbg(s"Checking CU $cu for unused components...")
+  def removeUnusedCUComponents(cu: CU) = {
+    removeUnusedStages(cu)
+    removeUnusedCChainCopy(cu)
+    removeUnusedFIFO(cu)
+  }
 
-    val stages = cu.allStages.collect{case m:MapStage => m}
+  def removeUnusedStages(cu: CU) = dbgl(s"Checking CU $cu for unused stages...") {
+    val stages = cu.allStages.toList
     // Remove all unused temporary registers
     val ins  = stages.flatMap{stage => stage.inputMems.filter{t => isReadable(t) && isWritable(t) }}.toSet
     val outs = stages.flatMap{stage => stage.outputMems.filter{t => isReadable(t) && isWritable(t) }}.toSet
     val unusedRegs = outs diff ins
-
-    if (unusedRegs.nonEmpty) {
-      dbg(s"Removing unused registers from $cu: ")
-      unusedRegs.foreach{reg => dbg(s"  $reg")}
-
-      stages.foreach{stage => stage.outs = stage.outs.filterNot{ref => unusedRegs contains ref.reg}}
-      cu.regs --= unusedRegs
+    stages.foreach { stage =>
+      dbgblk(s"$stage") {
+        stage.inputMems.foreach { in => dbgs(s"in=$in isReadable=${isReadable(in)} isWritable=${isWritable(in)}") }
+        stage.outputMems.foreach { out => dbgs(s"out=$out isReadable=${isReadable(out)} isWritable=${isWritable(out)}") }
+      }
     }
 
+    if (unusedRegs.nonEmpty) {
+      dbgs(s"Removing unused registers from $cu: [${unusedRegs.mkString(",")}]")
+
+      stages.foreach{ 
+        case stage:MapStage => stage.outs = stage.outs.filterNot{ref => unusedRegs contains ref.reg} 
+        case stage:ReduceStage => // Cannot remove register in reduce stage
+      }
+      cu.regs --= unusedRegs
+    }
+  }
+
+  def removeUnusedCChainCopy(cu: CU) = dbgl(s"Checking CU $cu for unused CChainCopy...") {
     // Remove unused counterchain copies
     val usedCCs = usedCChains(cu)
     val unusedCopies = cu.cchains.collect{case cc:CChainCopy if !usedCCs.contains(cc) => cc}
 
     if (unusedCopies.nonEmpty) {
-      dbg(s"Removing unused counterchain copies from $cu")
-      unusedCopies.foreach{cc => dbg(s"  $cc")}
-
+      dbgs(s"Removing unused counterchain copies from $cu")
+      unusedCopies.foreach{cc => dbgs(s"$cc")}
       cu.cchains --= unusedCopies
     }
   }
 
+  def removeUnusedFIFO(cu: CU) = dbgl(s"Checking CU $cu for unused FIFO...") {
+    var refMems = usedMem(cu) 
+    val unusedFifos = cu.fifos.filterNot{ fifo => refMems.contains(fifo) }
+    if (unusedFifos.nonEmpty) {
+      dbgs(s"Removing unused fifos from $cu")
+      unusedFifos.foreach{ fifo => dbgs(s"$fifo")}
+      cu.memMap.retain { case (e, m) => !unusedFifos.contains(m) }
+    }
+  }
 
-  def removeUnusedGlobalBuses() {
+
+  def removeUnusedGlobalBuses() = dbgl(s"Checking Unused GlobalBuses ...") {
     val buses = globals.collect{case bus:GlobalBus if isInterCU(bus) => bus}
     val inputs = cus.flatMap{cu => globalInputs(cu) }.toSet
 
-    dbg(s"Buses: ")
-    buses.foreach{bus => dbg(s"  $bus")}
+    dbgs(s"Buses: ")
+    buses.foreach{bus => dbgs(s"  $bus")}
 
-    dbg(s"Used buses: ")
-    inputs.foreach{in => dbg(s"  $in")}
+    dbgs(s"Used buses: ")
+    inputs.foreach{in => dbgs(s"  $in")}
 
 
     val unusedBuses = buses filterNot(inputs contains _)
@@ -86,7 +108,7 @@ trait PIROptimizer extends PIRTraversal {
     }
     def isUnusedRef(ref: LocalRef) = isUnusedReg(ref.reg)
 
-    dbg(s"Removing unused global buses:\n  " + unusedBuses.mkString("\n  "))
+    dbgs(s"Removing unused global buses:\n  " + unusedBuses.mkString("\n  "))
     cus.foreach{cu =>
       val stages = cu.allStages.collect{case m:MapStage => m}
       stages.foreach{stage => stage.outs = stage.outs.filterNot(isUnusedRef) }
@@ -100,29 +122,37 @@ trait PIROptimizer extends PIRTraversal {
   // effectively no-ops in PIR, which makes detecting route through cases difficult.
   // Once scheduled, a typical route-through case just looks like a CU with a single stage
   // which takes a vecIn and bypasses to a vecOut, which is easier to pattern match on
-  def removeRouteThrus(cu: CU) = if (cu.parent.isDefined) {
-    dbg(s"Checking $cu for route through stages: ")
-    cu.computeStages.foreach{stage => dbg(s"  $stage") }
+  def removeRouteThrus(cu: CU) = if (cu.parent.isDefined) dbgblk(s"Checking $cu for route through stages: "){
+    cu.computeStages.foreach{stage => dbgs(s"  $stage") }
 
     val bypassStages = cu.computeStages.flatMap{
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,VectorIn(in: PIRDRAMDataIn))), List(LocalRef(_,VectorOut(out: VectorBus)))) =>
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.isDefined & mem.mode==VectorFIFOMode =>
+        val in = mem.writePort.get
         if (isInterCU(out)) {
-          dbg(s"Found route-thru: $in -> $out")
+          dbgs(s"Found route-thru: $in -> $out")
           swapBus(cus, out, in)
           Some(bypass)
         }
         else None
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,ScalarIn(in: ScalarBus))), List(LocalRef(_,ScalarOut(out: OutputArg)))) =>
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: OutputArg)))) if mem.writePort.isDefined & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
+        val in = mem.writePort.get
         if (isInterCU(in)) {
-          dbg(s"Found route-thru: $in -> $out")
+          dbgs(s"Found route-thru: $in -> $out")
           swapBus(cus, in, out)
           Some(bypass)
         }
         else None
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,VectorIn(in: VectorBus))), List(LocalRef(_,VectorOut(out: VectorBus)))) =>
-        cus.find{cu => vectorOutputs(cu) contains in} match {
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.isDefined & mem.mode==VectorFIFOMode=>
+        val in = mem.writePort.get
+        cus.find{cu => in match {
+            case in:VectorBus =>
+              vectorOutputs(cu) contains in
+            case in:ScalarBus =>
+              scalarOutputs(cu) contains in
+          }
+        } match {
           case Some(producer) if producer.parent == cu.parent =>
             // If both are buses to/from MC/Args, do nothing
             // If out is a bus to MC/Args, swap writers of in to write out instead
@@ -132,7 +162,7 @@ trait PIROptimizer extends PIRTraversal {
               val orig = if (isInterCU(out)) out else in
               val swap = if (isInterCU(out)) in else out
 
-              dbg(s"Found route-thru $in -> $out, swap: $orig -> $swap")
+              dbgs(s"Found route-thru $in -> $out, swap: $orig -> $swap")
               swapBus(cus, orig, swap)
               Some(bypass)
             }
@@ -147,7 +177,7 @@ trait PIROptimizer extends PIRTraversal {
               val orig = if (isInterCU(out)) out else in
               val swap = if (isInterCU(out)) in else out
 
-              dbg(s"Found route-thru $in -> $out, swap: $orig -> $swap")
+              dbgs(s"Found route-thru $in -> $out, swap: $orig -> $swap")
               swapBus(cus, orig, swap)
               Some(bypass)
             }
@@ -157,8 +187,8 @@ trait PIROptimizer extends PIRTraversal {
       case _ => None
     }
     if (bypassStages.nonEmpty) {
-      dbg(s"  Removing route through stages: ")
-      bypassStages.foreach{stage => dbg(s"    $stage")}
+      dbgs(s"  Removing route through stages: ")
+      bypassStages.foreach{stage => dbgs(s"    $stage")}
       removeComputeStages(cu, bypassStages.toSet)
     }
   }
@@ -168,8 +198,8 @@ trait PIROptimizer extends PIRTraversal {
   def removeDeadStages(cu: CU) {
     val deadStages = cu.computeStages.collect{case stage:MapStage if stage.outs.isEmpty => stage}
     if (deadStages.nonEmpty) {
-      dbg(s"Removing dead stages from $cu: ")
-      deadStages.foreach{stage => dbg(s"  $stage") }
+      dbgs(s"Removing dead stages from $cu: ")
+      deadStages.foreach{stage => dbgs(s"  $stage") }
       removeComputeStages(cu, deadStages.toSet)
     }
   }
@@ -178,36 +208,27 @@ trait PIROptimizer extends PIRTraversal {
   def removeEmptyCUs(cus: List[CU]) = cus.foreach {cu =>
     // 1. This CU has no children, no write stages, and no compute stages
     // 2. This CU has a sibling (same parent) CU or no counterchain instances
+    // 3. This is not a FingeCU
+    // 4. No other CU is making copy of current CU's cchain
     val children = cus.filter{c => c.parent.contains(cu) }
-    if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty) {
-      val sibling = cus.find{c => c != cu && c.parent == cu.parent}
+    val isFringe = cu.style.isInstanceOf[FringeCU]
 
-      val globallyUsedCCs = cus.filterNot(_ != cu).flatMap(usedCChains(_))
+    val isCopied = cus.exists { other => 
+      other.cchains.exists { 
+        case copy@CChainCopy(_, inst, owner) if owner == cu => true
+        case _ => false
+      } 
+    }
 
-      val usedCCs = cu.cchains.filter{
-        case _:CChainCopy => false
-        case cc:CChainInstance => globallyUsedCCs.exists(_.name == cc)
-        case cc:UnitCChain => globallyUsedCCs.exists(_.name == cc)
-      }
-      if (sibling.isDefined && usedCCs.nonEmpty) {
-        val sib = sibling.get
-        sib.cchains ++= usedCCs
-        // Change owners of cchains, bypass dependencies
-        cus.foreach{c =>
-          c.cchains.foreach{
-            case cchain@CChainCopy(name, inst, `cu`) => cchain.owner = sib
-            case _ => // No action
-          }
-          if (c.deps.contains(cu)) {
-            c.deps -= cu
-            c.deps ++= cu.deps
-          }
+    if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty && !isFringe && !isCopied) {
+      cus.foreach{ c =>
+        if (c.deps.contains(cu)) {
+          c.deps -= cu
+          c.deps ++= cu.deps
         }
       }
-      if (usedCCs.isEmpty || sibling.isDefined) {
-        dbg(s"Removing empty CU $cu")
-        mapping.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
-      }
+      dbgs(s"Removing empty CU $cu")
+      mapping.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
     }
   }
 

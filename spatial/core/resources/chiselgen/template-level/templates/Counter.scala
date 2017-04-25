@@ -124,9 +124,9 @@ class SingleCounter(val par: Int) extends Module {
   if (par > 0) {
     val base = Module(new FF(32))
     val init = io.input.start
-    base.io.input.init := init
-    base.io.input.reset := io.input.reset
-    base.io.input.enable := io.input.reset | io.input.enable
+    base.io.input(0).init := init
+    base.io.input(0).reset := io.input.reset
+    base.io.input(0).enable := io.input.reset | io.input.enable
 
     val count = base.io.output.data
     val newval = count + (io.input.stride * par.U) + io.input.gap
@@ -134,7 +134,7 @@ class SingleCounter(val par: Int) extends Module {
     val wasMax = RegNext(isMax, false.B)
     val wasEnabled = RegNext(io.input.enable, false.B)
     val next = Mux(isMax, Mux(io.input.saturate, count, init), newval)
-    base.io.input.data := Mux(io.input.reset, init, next)
+    base.io.input(0).data := Mux(io.input.reset, init, next)
 
     (0 until par).foreach { i => io.output.count(i) := count + i.U*io.input.stride }
     (0 until par).foreach { i => 

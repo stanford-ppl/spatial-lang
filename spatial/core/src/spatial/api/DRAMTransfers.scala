@@ -107,13 +107,13 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
       fringe_dense_store(offchip, cmdStream.s, dataStream.s, ackStream.s)
       // Ack receiver
       // TODO: Assumes one ack per command
-      // Pipe {
+       Pipe {
         // val size = Reg[Index]
         // Pipe{size := issueQueue.deq()}
         Foreach(requestLength by target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
           val ack  = ackStream.value()
         }
-      // }
+      }
     }
 
     case class AlignmentData(start: Index, end: Index, size: Index, addr_bytes: Int64, size_bytes: Index)

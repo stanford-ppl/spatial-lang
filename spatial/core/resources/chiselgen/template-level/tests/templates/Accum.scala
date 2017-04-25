@@ -11,7 +11,7 @@ class UIntAccumTests(c: UIntAccum) extends PeekPokeTester(c) {
   val numResets = 3
   var init = 0
   var count = 0
-  poke(c.io.input.init, init)
+  poke(c.io.init, init)
   step(1)
 
   for (iter <- 0 until numResets) {
@@ -25,16 +25,16 @@ class UIntAccumTests(c: UIntAccum) extends PeekPokeTester(c) {
         case "min" => if(count < acc) count else acc
       }
       count = if(en == 1) next else count
-      poke(c.io.input.next, acc)
-      poke(c.io.input.enable, en)
+      poke(c.io.next, acc)
+      poke(c.io.enable, en)
       step(1)
       // expect(c.io.output, count)
     }
-    poke(c.io.input.enable, 0)
+    poke(c.io.enable, 0)
     step(3)
-    poke(c.io.input.reset, 1)
+    poke(c.io.reset, 1)
     step(1)
-    poke(c.io.input.reset, 0)
+    poke(c.io.reset, 0)
     step(1)
 
     count = 0

@@ -9,14 +9,14 @@ import chisel3.iotesters.{PeekPokeTester, Driver, ChiselFlatSpec}
  */
 class FFTests(c: FF) extends PeekPokeTester(c) {
   val initval = 10
-  poke(c.io.input.init, initval)
+  poke(c.io.input(0).init, initval)
   step(1)
   reset(1)
   expect(c.io.output.data, initval)
 
   // overwrite init
-  poke(c.io.input.data, 0)
-  poke(c.io.input.enable, 1)
+  poke(c.io.input(0).data, 0)
+  poke(c.io.input(0).enable, 1)
   step(1)
   expect(c.io.output.data, 0)
   step(1)
@@ -25,8 +25,8 @@ class FFTests(c: FF) extends PeekPokeTester(c) {
   for (i <- 0 until numCycles) {
     val newenable = rnd.nextInt(2)
     val oldout = peek(c.io.output.data)
-    poke(c.io.input.data, i)
-    poke(c.io.input.enable, newenable)
+    poke(c.io.input(0).data, i)
+    poke(c.io.input(0).enable, newenable)
     step(1)
     if (newenable == 1) {
       // val a = peek(c.io.output.data)
@@ -38,8 +38,8 @@ class FFTests(c: FF) extends PeekPokeTester(c) {
       expect(c.io.output.data, oldout)
     }
   }
-  poke(c.io.input.reset, 1)
-  poke(c.io.input.enable, 0)
+  poke(c.io.input(0).reset, 1)
+  poke(c.io.input(0).enable, 0)
   // val b = peek(c.io.output.data)
   // println(s"expect $b to be $initval")
   expect(c.io.output.data, initval)
@@ -47,7 +47,7 @@ class FFTests(c: FF) extends PeekPokeTester(c) {
   // val cc = peek(c.io.output.data)
   // println(s"expect $cc to be $initval")
   expect(c.io.output.data, initval)
-  poke(c.io.input.reset, 0)
+  poke(c.io.input(0).reset, 0)
   step(1)
   // val d = peek(c.io.output.data)
   // println(s"expect $d to be $initval")
@@ -60,7 +60,7 @@ class NBufFFTests(c: NBufFF) extends PeekPokeTester(c) {
   var stageActives = Array.tabulate(c.numBufs) { i => 0 }
   val latencies = (0 until c.numBufs).map { i => math.abs(rnd.nextInt(15)) + 5 } 
   val shortestLatency = latencies.min
-  poke(c.io.input.init, initval)
+  poke(c.io.input(0).init, initval)
   var stageCounts = Array.tabulate(c.numBufs) { i => 0 }
   var stagesDone = 0
   step(5)
@@ -95,10 +95,10 @@ class NBufFFTests(c: NBufFF) extends PeekPokeTester(c) {
     }
   }
   def write(data: Int = 0) {
-    poke(c.io.input.data, data)
-    poke(c.io.input.enable, 1)
+    poke(c.io.input(0).data, data)
+    poke(c.io.input(0).enable, 1)
     step(1)
-    poke(c.io.input.enable, 0)
+    poke(c.io.input(0).enable, 0)
   }
   def read(stage: Int, data: Int) {
     (0 until c.numBufs).foreach { i => 
