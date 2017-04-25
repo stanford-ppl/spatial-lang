@@ -41,17 +41,17 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
 
   val stateFF = Module(new FF(32))
-  stateFF.io.input.enable := true.B // TODO: Do we need this line?
-  stateFF.io.input.init := 0.U
-  stateFF.io.input.reset := io.input.rst
+  stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
+  stateFF.io.input(0).init := 0.U
+  stateFF.io.input(0).reset := io.input.rst
   val state = stateFF.io.output.data
 
   // Counter for num iterations
   val maxFF = Module(new FF(32))
-  maxFF.io.input.enable := io.input.enable
-  maxFF.io.input.data := io.input.numIter
-  maxFF.io.input.init := 0.U
-  maxFF.io.input.reset := io.input.rst
+  maxFF.io.input(0).enable := io.input.enable
+  maxFF.io.input(0).data := io.input.numIter
+  maxFF.io.input(0).init := 0.U
+  maxFF.io.input(0).reset := io.input.rst
   val max = maxFF.io.output.data
 
   val doneClear = RegInit(0.U)
@@ -77,8 +77,8 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
   // Counter for handling drainage while in fill state
   val cycsSinceDone = Module(new FF(bitsToAddress(n)))
-  cycsSinceDone.io.input.init := 0.U
-  cycsSinceDone.io.input.reset := (state === doneState.U)
+  cycsSinceDone.io.input(0).init := 0.U
+  cycsSinceDone.io.input(0).reset := (state === doneState.U)
 
   // // Provide default value for enable and doneClear
   // io.output.stageEnable.foreach { _ := UInt(0) }
@@ -86,10 +86,10 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
   when(io.input.enable) {
     when(state === initState.U) {   // INIT -> RESET
-      stateFF.io.input.data := resetState.U
+      stateFF.io.input(0).data := resetState.U
       io.output.stageEnable.foreach { s => s := false.B}
     }.elsewhen (state === resetState.U) {  // RESET -> FILL
-      stateFF.io.input.data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, steadyState.U, doneState.U), fillState.U) // Go directly to done if niters = 0
+      stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, steadyState.U, doneState.U), fillState.U) // Go directly to done if niters = 0
       io.output.stageEnable.foreach { s => s := false.B}
     }.elsewhen (state < steadyState.U) {  // FILL -> STEADY
       for ( i <- fillState until steadyState) {
@@ -107,18 +107,18 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
           when (doneTree === 1.U) {
             if (i+1 == steadyState) { // If moving to steady state
-              stateFF.io.input.data := Mux(cycsSinceDone.io.output.data === 0.U & ctr.io.output.count(0) + 1.U < max , 
+              stateFF.io.input(0).data := Mux(cycsSinceDone.io.output.data === 0.U & ctr.io.output.count(0) + 1.U < max , 
                           steadyState.U, 
                           Mux(io.input.forever, steadyState.U, cycsSinceDone.io.output.data + 2.U + stateFF.io.output.data) 
                         ) // If already in drain step, bypass steady state
             } else {
-              cycsSinceDone.io.input.data := cycsSinceDone.io.output.data + 1.U
-              cycsSinceDone.io.input.enable := ctr.io.output.count(0) + 1.U === max 
-              stateFF.io.input.data := (i+1).U
+              cycsSinceDone.io.input(0).data := cycsSinceDone.io.output.data + 1.U
+              cycsSinceDone.io.input(0).enable := ctr.io.output.count(0) + 1.U === max 
+              stateFF.io.input(0).data := (i+1).U
             }
           }.otherwise {
-            cycsSinceDone.io.input.enable := false.B
-            stateFF.io.input.data := state
+            cycsSinceDone.io.input(0).enable := false.B
+            stateFF.io.input(0).data := state
           }
         }
       }
@@ -129,12 +129,12 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
       doneClear := doneTree
       when (doneTree === 1.U) {
         when(ctr.io.output.count(0) === (max - 1.U)) {
-          stateFF.io.input.data := Mux(io.input.forever, steadyState.U, drainState.U)
+          stateFF.io.input(0).data := Mux(io.input.forever, steadyState.U, drainState.U)
         }.otherwise {
-          stateFF.io.input.data := state
+          stateFF.io.input(0).data := state
         }
       }.otherwise {
-        stateFF.io.input.data := state
+        stateFF.io.input(0).data := state
       }
     }.elsewhen (state < doneState.U) {   // DRAIN
       for ( i <- drainState until doneState) {
@@ -146,22 +146,22 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
           val doneTree = doneMask.takeRight(n - drainStateID - 1).reduce {_&_}
           doneClear := doneTree
           when (doneTree === 1.U) {
-            stateFF.io.input.data := (i+1).U
+            stateFF.io.input(0).data := (i+1).U
           }.otherwise {
-            stateFF.io.input.data := state
+            stateFF.io.input(0).data := state
           }
         }
       }
     }.elsewhen (state === doneState.U) {  // DONE
       doneClear := false.B
-      stateFF.io.input.data := initState.U
+      stateFF.io.input(0).data := initState.U
     }.otherwise {
-      stateFF.io.input.data := state
+      stateFF.io.input(0).data := state
     }
   }.otherwise {
     (0 until n).foreach { i => io.output.stageEnable(i) := false.B }
     doneClear := false.B
-    stateFF.io.input.data := initState.U
+    stateFF.io.input(0).data := initState.U
   }
 
   // Output logic

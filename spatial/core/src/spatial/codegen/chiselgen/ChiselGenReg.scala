@@ -69,9 +69,12 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case RegNew(init)    => 
       val width = bitWidth(init.tp)
       emitGlobalWire(src"val ${lhs}_initval = ${init}")
-      val duplicates = duplicatesOf(lhs)  
+      val duplicates = duplicatesOf(lhs)
       duplicates.zipWithIndex.foreach{ case (d, i) => 
         val numBroadcasters = writersOf(lhs).map { write => if (portsOf(write, lhs, i).toList.length > 1) 1 else 0 }.reduce{_+_}
+        val numWriters = writersOf(lhs)
+          .filter{write => dispatchOf(write, lhs) contains i}
+          .filter{w => portsOf(w, lhs, i).toList.length == 1}.length
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => 
             fps match {
@@ -93,34 +96,37 @@ trait ChiselGenReg extends ChiselGenSRAM {
                 } else {
                   if (d.depth > 1) {
                     nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
+                    if (numWriters > 1) throw new Exception(s"Cannot yet generate NBufFF ( ${nameOf(lhs).getOrElse("")} = ${numWriters} writes ) with more than one non-broadcasting writer.  Do you really need to express the app this way?")
                     emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
                     if (numBroadcasters == 0){
                       emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
                     }
                   } else {
-                    emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
+                    emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${nameOf(lhs).getOrElse("")}")
                   }              
                 }
               case _ => 
                 if (d.depth > 1) {
                   nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
+                  if (numWriters > 1) throw new Exception(s"Cannot yet generate NBufFF ( ${nameOf(lhs).getOrElse("")} = ${numWriters} writes ) with more than one non-broadcasting writer.  Do you really need to express the app this way?")
                   emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
                   if (numBroadcasters == 0){
                     emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
                   }
                 } else {
-                  emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
+                  emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${nameOf(lhs).getOrElse("")}")
                 }
             }
           case _ =>
             if (d.depth > 1) {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
+              if (numWriters > 1) throw new Exception(s"Cannot yet generate NBufFF ( ${nameOf(lhs).getOrElse("")} = ${numWriters} writes ) with more than one non-broadcasting writer.  Do you really need to express the app this way?")
               emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width})) // ${nameOf(lhs).getOrElse("")}")
               if (numBroadcasters == 0){
                 emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
               }
             } else {
-              emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width})) // ${nameOf(lhs).getOrElse("")}")
+              emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${nameOf(lhs).getOrElse("")}")
             }
         } // TODO: Figure out which reg is really the accum
       }
@@ -189,17 +195,17 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                     emit(src"""${reg}_${ii}.write($reg, $en & Utils.delay(${reg}_wren,1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
-                    emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
-                    emit(src"""${reg}_$ii.io.input.reset := reset""")
+                    emit(src"""${reg}_${ii}.io.input(0).init := ${reg}_initval.number""")
+                    emit(src"""${reg}_$ii.io.input(0).reset := reset""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   emit(src"""${reg}_${ii}.write($v, $en & Utils.delay(${reg}_wren,1), false.B, List(${ports.mkString(",")}))""")
-                  emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
+                  emit(src"""${reg}_${ii}.io.input(0).init := ${reg}_initval.number""")
                   if (dup.isAccum) {
-                    emit(src"""${reg}_$ii.io.input.reset := reset | ${reg}_resetter""")  
+                    emit(src"""${reg}_$ii.io.input(0).reset := reset | ${reg}_resetter""")  
                   } else {
-                    emit(src"""${reg}_$ii.io.input.reset := reset""")
+                    emit(src"""${reg}_$ii.io.input(0).reset := reset""")
                   }
                   
               }
@@ -208,8 +214,8 @@ trait ChiselGenReg extends ChiselGenSRAM {
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
               emit(src"""${reg}_${ii}.write($v, $en & ${parent}_datapath_en, false.B, List(${ports.mkString(",")}))""")
-              emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
-              emit(src"""${reg}_$ii.io.input.reset := reset""")
+              emit(src"""${reg}_${ii}.io.input(0).init := ${reg}_initval.number""")
+              emit(src"""${reg}_$ii.io.input(0).reset := reset""")
             }
         }
       }
