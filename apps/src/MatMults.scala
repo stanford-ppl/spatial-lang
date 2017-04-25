@@ -6,7 +6,7 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 128 6
 
   type X = Int
 
-  val innerPar = 4
+  val innerPar = 1
   val midPar = 2
   val outerPar = 2
 
@@ -24,9 +24,9 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 128 6
     // val c_init = DRAM[T](M, N)
     val c = DRAM[T](M, N)
 
-    val op = 4 (1 -> 1)
-    val mp = 2 (1 -> 16)
-    val ip = 2 (1 -> 64)
+    val op = outerPar (1 -> 1)
+    val mp = midPar (1 -> 16)
+    val ip = innerPar (1 -> 64)
     val px = 1 (1 -> 1) // Cannot parallelize accum across k blocks
 
     val bm = param(4)
