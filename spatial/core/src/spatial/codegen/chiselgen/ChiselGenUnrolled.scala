@@ -77,7 +77,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
       if (styleOf(lhs) != StreamPipe) { 
         emitValids(cchain, iters, valids)
-        withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitParallelizedLoop(iters, cchain)
           emitBlock(func)
@@ -86,7 +86,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
           emitValids(cchain, iters, valids, src"_copy$c")
         }
-        withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
           childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
             emitParallelizedLoop(iters, cchain, src"_copy$c")
@@ -107,6 +107,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         }
 
       }
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain))
       controllerStack.pop()
 
     case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
@@ -123,7 +124,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.saturate := true.B""")
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
       emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
-      if (styleOf(lhs) == InnerPipe) {
+      if (levelOf(lhs) == InnerControl) {
         emit(src"val ${accum}_wren = ${lhs}_datapath_en & ~${lhs}_done & ${lhs}_redLoop_done")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
@@ -140,10 +141,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
         }
         emit(src"val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
       }
-      if (styleOf(lhs) == InnerPipe) emitInhibitor(lhs, Some(cchain))
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain))
       // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
       emit(src"//val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
-      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+      withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitParallelizedLoop(iters, cchain)
         emitBlock(func)

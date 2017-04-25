@@ -16,8 +16,8 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
           lhs match {
             case Def(ShiftRegNew(size, init)) => 
               if (size == 1) s"x${lhs.id}_latch"
-              else s"x${lhs.id}_retimer$size"
-            case Def(ShiftRegRead(sr)) => s"x${lhs.id}_retimer${quoteOperand2(sr)}"
+              else s"x${lhs.id}_rt$size"
+            case Def(ShiftRegRead(sr)) => s"x${lhs.id}_rt"
             case _ => super.quote(s)
           }
         case _ => super.quote(s)
