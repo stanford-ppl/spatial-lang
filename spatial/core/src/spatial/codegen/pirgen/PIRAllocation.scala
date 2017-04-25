@@ -128,7 +128,7 @@ trait PIRAllocation extends PIRTraversal {
         readersOf(sram).zipWithIndex.map { case (readAcc, i) => 
           val reader = readAcc.node
           val dreader = getMatchedDecomposed(dsram, reader) 
-          val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp$i", dsram, MemoryCU(i))
+          val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp$i", dsram, MemoryCU(reader))
           dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}, reader:${quote(dreader)}")
           cu.parent = parentCU
           val psram = createMem(dsram, dreader, cu)
@@ -499,11 +499,15 @@ trait PIRAllocation extends PIRTraversal {
           val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms)
           val sramCUs = allocateMemoryCU(dmem)
           sramCUs.foreach { sramCU =>
-            dbgs(s"sramCUs for dmem=${qdef(dmem)} cu=$sramCU")
-            val sram = sramCU.memMap(mem)
-            sramCU.readStages(List(sram)) = (readerCU.pipe, addrStages)
-            sram.readPort = Some(bus)
-            //sram.readAddr = ad.map(ad => ReadAddrWire(sram))
+            sramCU.style match {
+              case MemoryCU(`reader`) =>
+                dbgs(s"sramCUs for dmem=${qdef(dmem)} cu=$sramCU")
+                val sram = sramCU.memMap(mem)
+                sramCU.readStages(List(sram)) = (readerCU.pipe, addrStages)
+                sram.readPort = Some(bus)
+                //sram.readAddr = ad.map(ad => ReadAddrWire(sram))
+              case _ =>
+            }
           }
         }
       }

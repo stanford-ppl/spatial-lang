@@ -32,7 +32,7 @@ trait PIR {
   case object SequentialCU extends CUStyle
   case object MetaPipeCU extends CUStyle
   case object StreamCU extends CUStyle
-  case class MemoryCU(i:Int) extends CUStyle // i: dispatch number
+  case class MemoryCU(reader:Expr) extends CUStyle // i: dispatch number
   case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 
   // --- Local memory modes
