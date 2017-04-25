@@ -13,6 +13,7 @@ val assemblySettings = Seq(
   test in assembly := {}
 )
 val commonSettings = assemblySettings ++ Seq(
+  incOptions := incOptions.value.withRecompileOnMacroDef(false),
   libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
 
   //paradise
