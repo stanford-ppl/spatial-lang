@@ -27,7 +27,7 @@ trait PIROptimizer extends PIRTraversal {
   }
 
   override def postprocess[S:Type](b: Block[S]): Block[S] = {
-    dbgs(s"\n\n//----------- Finishing PIRHacks ------------- //")
+    dbgs(s"\n\n//----------- Finishing PIROptimizer ------------- //")
     dbgs(s"Mapping:")
     mapping.foreach { case (sym, cus) =>
       dbgs(s"${sym} -> [${cus.mkString(",")}]")
@@ -212,37 +212,23 @@ trait PIROptimizer extends PIRTraversal {
     // 4. No other CU is making copy of current CU's cchain
     val children = cus.filter{c => c.parent.contains(cu) }
     val isFringe = cu.style.isInstanceOf[FringeCU]
-    val isCopied = cus.exists { other => other.cchains.exists{ case CChainCopy(_, _, owner) => owner == cu; case _ => false } }
+
+    val isCopied = cus.exists { other => 
+      other.cchains.exists { 
+        case copy@CChainCopy(_, inst, owner) if owner == cu => true
+        case _ => false
+      } 
+    }
 
     if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty && !isFringe && !isCopied) {
-      val sibling = cus.find{c => c != cu && c.parent == cu.parent}
-
-      val globallyUsedCCs = cus.filterNot(_ != cu).flatMap(usedCChains(_))
-
-      val usedCCs = cu.cchains.filter{
-        case _:CChainCopy => false
-        case cc:CChainInstance => globallyUsedCCs.exists(_.name == cc)
-        case cc:UnitCChain => globallyUsedCCs.exists(_.name == cc)
-      }
-      if (sibling.isDefined && usedCCs.nonEmpty) {
-        val sib = sibling.get
-        sib.cchains ++= usedCCs
-        // Change owners of cchains, bypass dependencies
-        cus.foreach{c =>
-          c.cchains.foreach{
-            case cchain@CChainCopy(name, inst, `cu`) => cchain.owner = sib
-            case _ => // No action
-          }
-          if (c.deps.contains(cu)) {
-            c.deps -= cu
-            c.deps ++= cu.deps
-          }
+      cus.foreach{ c =>
+        if (c.deps.contains(cu)) {
+          c.deps -= cu
+          c.deps ++= cu.deps
         }
       }
-      if (usedCCs.isEmpty || sibling.isDefined) {
-        dbgs(s"Removing empty CU $cu")
-        mapping.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
-      }
+      dbgs(s"Removing empty CU $cu")
+      mapping.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
     }
   }
 
