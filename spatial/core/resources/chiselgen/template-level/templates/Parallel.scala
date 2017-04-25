@@ -35,9 +35,9 @@ class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
 
   // Create FF for holding state
   val stateFF = Module(new FF(2))
-  stateFF.io.input.enable := true.B
-  stateFF.io.input.init := 0.U
-  stateFF.io.input.reset := io.input.rst
+  stateFF.io.input(0).enable := true.B
+  stateFF.io.input(0).init := 0.U
+  stateFF.io.input(0).reset := io.input.rst
   val state = stateFF.io.output.data
 
   // Create vector of registers for holding stage dones
@@ -59,27 +59,27 @@ class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
   // State Machine
   when(io.input.enable) {
     when(state === initState.U) {   // INIT -> RESET
-      stateFF.io.input.data := bufferState.U
+      stateFF.io.input(0).data := bufferState.U
       io.output.rst_en := true.B
     }.elsewhen (state === bufferState.U) { // Not sure if this state is needed for stream
       io.output.rst_en := false.B
-      stateFF.io.input.data := runningState.U
+      stateFF.io.input(0).data := runningState.U
     }.elsewhen (state === runningState.U) {  // STEADY
       (0 until n).foreach { i => io.output.stageEnable(i) := Mux(io.input.forever, true.B, ~doneMask(i)) }
 
       val doneTree = doneMask.reduce { _ & _ }
       when(doneTree === 1.U) {
-        stateFF.io.input.data := Mux(io.input.forever, runningState.U, doneState.U)
+        stateFF.io.input(0).data := Mux(io.input.forever, runningState.U, doneState.U)
       }.otherwise {
-        stateFF.io.input.data := state
+        stateFF.io.input(0).data := state
       }
     }.elsewhen (state === doneState.U) {  // DONE
-      stateFF.io.input.data := initState.U
+      stateFF.io.input(0).data := initState.U
     }.otherwise {
-      stateFF.io.input.data := state
+      stateFF.io.input(0).data := state
     }
   }.otherwise {
-    stateFF.io.input.data := initState.U
+    stateFF.io.input(0).data := initState.U
     (0 until n).foreach { i => io.output.stageEnable(i) := false.B }
   }
 

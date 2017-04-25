@@ -38,16 +38,17 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
     val lastState = doneState - 1
 
     val stateFF = Module(new FF(32))
-    stateFF.io.input.enable := true.B // TODO: Do we need this line?
-    stateFF.io.input.init := 0.U
-    stateFF.io.input.reset := io.input.rst
+    stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
+    stateFF.io.input(0).init := 0.U
+    stateFF.io.input(0).reset := io.input.rst
     val state = stateFF.io.output.data
 
     // Counter for num iterations
     val maxFF = Module(new FF(32))
-    maxFF.io.input.enable := io.input.enable
-    maxFF.io.input.data := io.input.numIter
-    maxFF.io.input.reset := io.input.rst
+    maxFF.io.input(0).enable := io.input.enable
+    maxFF.io.input(0).data := io.input.numIter
+    maxFF.io.input(0).reset := io.input.rst
+    maxFF.io.input(0).init := 0.U
     val max = maxFF.io.output.data
 
     val ctr = Module(new SingleCounter(1))
@@ -63,10 +64,10 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
     when(io.input.enable) {
       when(state === initState.U) {
-        stateFF.io.input.data := resetState.U
+        stateFF.io.input(0).data := resetState.U
         io.output.stageEnable.foreach { s => s := false.B}
       }.elsewhen (state === resetState.U) {
-        stateFF.io.input.data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, firstState.U, doneState.U), firstState.U)
+        stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, firstState.U, doneState.U), firstState.U)
         io.output.stageEnable.foreach { s => s := false.B}
       }.elsewhen (state < lastState.U) {
 
@@ -75,39 +76,39 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
         //   Mux(io.input.stageDone(i), UInt(i+1), 0.U) 
         // }.reduce {_+_}
         // when(state === (doneStageId + 1.U)) {
-        //   stateFF.io.input.data := doneStageId + 2.U
+        //   stateFF.io.input(0).data := doneStageId + 2.U
         // }.otherwise {
-        //   stateFF.io.input.data := state
+        //   stateFF.io.input(0).data := state
         // }
 
         // Less safe but cheap way
         val aStageIsDone = io.input.stageDone.reduce { _ | _ } // TODO: Is it safe to assume children behave properly?
         when(aStageIsDone) {
-          stateFF.io.input.data := state + 1.U
+          stateFF.io.input(0).data := state + 1.U
         }.otherwise {
-          stateFF.io.input.data := state
+          stateFF.io.input(0).data := state
         }
 
       }.elsewhen (state === lastState.U) {
         when(io.input.stageDone(lastState-2)) {
           when(ctr.io.output.done) {
-            stateFF.io.input.data := Mux(io.input.forever, firstState.U, doneState.U)
+            stateFF.io.input(0).data := Mux(io.input.forever, firstState.U, doneState.U)
           }.otherwise {
-            stateFF.io.input.data := firstState.U
+            stateFF.io.input(0).data := firstState.U
           }
         }.otherwise {
-          stateFF.io.input.data := state
+          stateFF.io.input(0).data := state
         }
 
       }.elsewhen (state === doneState.U) {
-        stateFF.io.input.data := initState.U
+        stateFF.io.input(0).data := initState.U
       }.otherwise {
-        stateFF.io.input.data := state
+        stateFF.io.input(0).data := state
       }
     }.otherwise {
-      stateFF.io.input.data := initState.U
+      stateFF.io.input(0).data := initState.U
     }
-  //  stateFF.io.input.data := nextStateMux.io.out
+  //  stateFF.io.input(0).data := nextStateMux.io.out
 
     // Output logic
     io.output.done := state === doneState.U
@@ -122,19 +123,19 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
     val lastState = doneState - 1
 
     val stateFF = Module(new FF(32))
-    stateFF.io.input.enable := true.B // TODO: Do we need this line?
-    stateFF.io.input.init := 0.U
-    stateFF.io.input.reset := io.input.rst
+    stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
+    stateFF.io.input(0).init := 0.U
+    stateFF.io.input(0).reset := io.input.rst
     val state = stateFF.io.output.data
 
     // FSM stuff 
     val stateFSM = Module(new FF(32))
     val doneReg = Module(new SRFF())
 
-    stateFSM.io.input.data := io.input.nextState
-    stateFSM.io.input.init := io.input.initState
-    stateFSM.io.input.reset := reset
-    stateFSM.io.input.enable := io.input.enable & state === doneState.U
+    stateFSM.io.input(0).data := io.input.nextState
+    stateFSM.io.input(0).init := io.input.initState
+    stateFSM.io.input(0).reset := reset
+    stateFSM.io.input(0).enable := io.input.enable & state === doneState.U
     io.output.state := stateFSM.io.output.data
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable
@@ -144,9 +145,10 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
     // Counter for num iterations
     val maxFF = Module(new FF(32))
-    maxFF.io.input.enable := io.input.enable
-    maxFF.io.input.data := io.input.numIter
-    maxFF.io.input.reset := io.input.rst
+    maxFF.io.input(0).enable := io.input.enable
+    maxFF.io.input(0).data := io.input.numIter
+    maxFF.io.input(0).init := 0.U
+    maxFF.io.input(0).reset := io.input.rst
     val max = maxFF.io.output.data
 
     val ctr = Module(new SingleCounter(1))
@@ -160,10 +162,10 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
 
     when(io.input.enable) {
       when(state === initState.U) {
-        stateFF.io.input.data := resetState.U
+        stateFF.io.input(0).data := resetState.U
         io.output.stageEnable.foreach { s => s := false.B}
       }.elsewhen (state === resetState.U) {
-        stateFF.io.input.data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, firstState.U, doneState.U), firstState.U)
+        stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, firstState.U, doneState.U), firstState.U)
         io.output.stageEnable.foreach { s => s := false.B}
       }.elsewhen (state < lastState.U) {
 
@@ -172,39 +174,39 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
         //   Mux(io.input.stageDone(i), UInt(i+1), 0.U) 
         // }.reduce {_+_}
         // when(state === (doneStageId + 1.U)) {
-        //   stateFF.io.input.data := doneStageId + 2.U
+        //   stateFF.io.input(0).data := doneStageId + 2.U
         // }.otherwise {
-        //   stateFF.io.input.data := state
+        //   stateFF.io.input(0).data := state
         // }
 
         // Less safe but cheap way
         val aStageIsDone = io.input.stageDone.reduce { _ | _ } // TODO: Is it safe to assume children behave properly?
         when(aStageIsDone) {
-          stateFF.io.input.data := state + 1.U
+          stateFF.io.input(0).data := state + 1.U
         }.otherwise {
-          stateFF.io.input.data := state
+          stateFF.io.input(0).data := state
         }
 
       }.elsewhen (state === lastState.U) {
         when(io.input.stageDone(lastState-2)) {
           when(ctr.io.output.done) {
-            stateFF.io.input.data := Mux(io.input.forever, firstState.U, doneState.U)
+            stateFF.io.input(0).data := Mux(io.input.forever, firstState.U, doneState.U)
           }.otherwise {
-            stateFF.io.input.data := firstState.U
+            stateFF.io.input(0).data := firstState.U
           }
         }.otherwise {
-          stateFF.io.input.data := state
+          stateFF.io.input(0).data := state
         }
 
       }.elsewhen (state === doneState.U) {
-        stateFF.io.input.data := initState.U
+        stateFF.io.input(0).data := initState.U
       }.otherwise {
-        stateFF.io.input.data := state
+        stateFF.io.input(0).data := state
       }
     }.otherwise {
-      stateFF.io.input.data := initState.U
+      stateFF.io.input(0).data := initState.U
     }
-  //  stateFF.io.input.data := nextStateMux.io.out
+  //  stateFF.io.input(0).data := nextStateMux.io.out
 
     // Output logic
     io.output.ctr_inc := io.input.stageDone(n-1) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge

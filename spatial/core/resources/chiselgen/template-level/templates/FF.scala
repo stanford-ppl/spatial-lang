@@ -23,26 +23,31 @@ class FFOut(val w: Int) extends Bundle {
   override def cloneType = (new FFOut(w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 
-class FF(val w: Int) extends Module {
+class FF(val w: Int, val numWriters: Int = 1) extends Module {
   val io = IO(new Bundle{
-    val input = Input(new FFIn(w))
+    val input = Vec(numWriters, Input(new FFIn(w)))
     val output = Output(new FFOut(w))
   })
   
-  val ff = RegInit(io.input.init)
-  ff := Mux(io.input.reset, io.input.init, Mux(io.input.enable, io.input.data, ff))
-  io.output.data := Mux(io.input.reset, io.input.init, ff)
+  val ff = RegInit(io.input(0).init)
+  val anyReset = io.input.map{_.reset}.reduce{_|_}
+  val anyEnable = io.input.map{_.enable}.reduce{_|_}
+  val wr_data = chisel3.util.Mux1H(io.input.map{_.enable}, io.input.map{_.data})
+  ff := Mux(anyReset, io.input(0).init, Mux(anyEnable, wr_data, ff))
+  io.output.data := Mux(anyReset, io.input(0).init, ff)
 
+  var wId = 0
   def write[T](data: T, en: Bool, reset: Bool, port: List[Int]) {
     data match {
       case d: UInt =>
-        io.input.data := d
+        io.input(wId).data := d
       case d: types.FixedPoint =>
-        io.input.data := d.number
+        io.input(wId).data := d.number
     }
-    io.input.enable := en
-    io.input.reset := reset
+    io.input(wId).enable := en
+    io.input(wId).reset := reset
     // Ignore port
+    wId = wId + 1
   }
 
   def write[T](data: T, en: Bool, reset: Bool, port: Int) {
@@ -55,7 +60,7 @@ class FF(val w: Int) extends Module {
 
 }
 
-class NBufFF(val numBufs: Int, val w: Int) extends Module {
+class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Module {
 
   // Define overloaded
   def this(tuple: (Int, Int)) = this(tuple._1, tuple._2)
@@ -64,7 +69,7 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
     val sEn = Vec(numBufs, Input(Bool()))
     val sDone = Vec(numBufs, Input(Bool()))
     val broadcast = Input(new FFIn(w))
-    val input = Input(new FFIn(w))
+    val input = Vec(numWriters, Input(new FFIn(w)))
     val writerStage = Input(UInt(5.W)) // TODO: Not implemented anywhere, not sure if needed
     val output = Vec(numBufs, Output(new FFOut(w)))
     // val swapAlert = Output(Bool()) // Used for regchains
@@ -115,11 +120,11 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
   ff.zipWithIndex.foreach{ case (f,i) => 
     val wrMask = stateIn.io.output.count === i.U
     val normal =  Wire(new FFIn(w))
-    normal.data := io.input.data
-    normal.init := io.input.init
-    normal.enable := io.input.enable & wrMask
-    normal.reset := io.input.reset
-    f.io.input := Mux(io.broadcast.enable, io.broadcast, normal)
+    normal.data := io.input(0).data
+    normal.init := io.input(0).init
+    normal.enable := io.input(0).enable & wrMask
+    normal.reset := io.input(0).reset
+    f.io.input(0) := Mux(io.broadcast.enable, io.broadcast, normal)
   }
 
   io.output.zip(statesOut).foreach{ case (wire, s) => 
@@ -137,12 +142,12 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
       val port = ports(0)
       data match { 
         case d: UInt => 
-          io.input.data := d
+          io.input(0).data := d
         case d: types.FixedPoint => 
-          io.input.data := d.number
+          io.input(0).data := d.number
       }
-      io.input.enable := en
-      io.input.reset := reset
+      io.input(0).enable := en
+      io.input(0).reset := reset
       io.writerStage := port.U
     } else {
       data match { 
@@ -159,13 +164,13 @@ class NBufFF(val numBufs: Int, val w: Int) extends Module {
   def chain_pass[T](dat: T, en: Bool) { // Method specifically for handling reg chains that pass counter values between metapipe stages
     dat match {
       case data: UInt => 
-        io.input.data := data
+        io.input(0).data := data
       case data: FixedPoint => 
-        io.input.data := data.number
+        io.input(0).data := data.number
     }
-    io.input.enable := en
-    io.input.reset := reset
-    io.input.init := 0.U
+    io.input(0).enable := en
+    io.input(0).reset := reset
+    io.input(0).init := 0.U
     io.writerStage := 0.U
     io.broadcast.enable := false.B
 
@@ -212,10 +217,10 @@ class FFNoInit(val w: Int) extends Module {
   })
 
   val ff = Module(new FF(w))
-  ff.io.input.data := io.input.data
-  ff.io.input.enable := io.input.enable
-  ff.io.input.reset := io.input.reset
-  ff.io.input.init := 0.U(w.W)
+  ff.io.input(0).data := io.input.data
+  ff.io.input(0).enable := io.input.enable
+  ff.io.input(0).reset := io.input.reset
+  ff.io.input(0).init := 0.U(w.W)
   io.output.data := ff.io.output.data
 }
 
@@ -226,10 +231,10 @@ class FFNoInitNoReset(val w: Int) extends Module {
   })
 
   val ff = Module(new FF(w))
-  ff.io.input.data := io.input.data
-  ff.io.input.enable := io.input.enable
-  ff.io.input.reset := false.B
-  ff.io.input.init := 0.U(w.W)
+  ff.io.input(0).data := io.input.data
+  ff.io.input(0).enable := io.input.enable
+  ff.io.input(0).reset := false.B
+  ff.io.input(0).init := 0.U(w.W)
   io.output.data := ff.io.output.data
 }
 
@@ -240,10 +245,10 @@ class FFNoReset(val w: Int) extends Module {
   })
 
   val ff = Module(new FF(w))
-  ff.io.input.data := io.input.data
-  ff.io.input.enable := io.input.enable
-  ff.io.input.reset := false.B
-  ff.io.input.init := io.input.init
+  ff.io.input(0).data := io.input.data
+  ff.io.input(0).enable := io.input.enable
+  ff.io.input(0).reset := false.B
+  ff.io.input(0).init := io.input.init
   io.output.data := ff.io.output.data
 }
 
