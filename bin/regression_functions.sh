@@ -51,7 +51,7 @@ coordinate() {
     # Sanity check
     check_packet
 
-    logger "This packet (${packet}) is ${rank}-th in line (${stringified})... Waiting $((delay/numpieces)) seconds..."
+    logger "This packet (${packet}) is ${rank}-th in line (${stringified})... Waiting 300 seconds..."
     sleep 300
 
     # Update active packets list
