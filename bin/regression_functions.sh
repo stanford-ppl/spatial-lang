@@ -80,7 +80,7 @@ check_packet() {
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
   rank=-1
-  for i in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$i]}"* ]]; then rank=${i}; fi; done
+  for ii in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$ii]}"* ]]; then rank=${ii}; fi; done
   if [ $rank = -1 ]; then
     logger "Packet for $packet disappeared from list $stringified!  Quitting ungracefully!"
     exit 1
@@ -735,7 +735,7 @@ launch_tests() {
         logger "Running script for ${i}_${appname}"
         bash ${cmd_file}
         duration=$(($SECONDS-$start))
-        logger "Completed test in $du ration seconds"
+        logger "Completed test in $duration seconds"
         cd ${SPATIAL_HOME}/regression_tests/${ac}
         
         ((i++))
