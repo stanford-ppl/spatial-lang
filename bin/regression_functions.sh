@@ -561,7 +561,7 @@ function report {
     cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
     exit 0
   else
-    echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2} - ${5})\" >> ${log}
+    echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2} - ${5}/)\" >> ${log}
     touch ${SPATIAL_HOME}/regression_tests/${2}/results/\${1}.${3}_${4}
     exit 1
   fi
@@ -731,9 +731,10 @@ launch_tests() {
         create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
 
         # Run script
-        SECONDS=0
+        start=$SECONDS
         logger "Running script for ${i}_${appname}"
         bash ${cmd_file}
+        duration=$(($SECONDS-$start))
         logger "Completed test in $SECONDS seconds"
         cd ${SPATIAL_HOME}/regression_tests/${ac}
         
