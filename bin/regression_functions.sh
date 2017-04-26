@@ -553,9 +553,9 @@ create_script() {
 # 3 - pass (1) or fail (0)
 function report {
   date >> ${5}/log
-  cd ${5}/out
-  mv build.sbt build.hideme # hide build.sbt so future compiles ignore this one
-  make vcs-clean
+  cd ${5}
+  # mv build.sbt build.hideme # hide build.sbt so future compiles ignore this one
+  rm -rf out
   rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
