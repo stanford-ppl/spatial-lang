@@ -735,7 +735,7 @@ launch_tests() {
         logger "Running script for ${i}_${appname}"
         bash ${cmd_file}
         duration=$(($SECONDS-$start))
-        logger "Completed test in $SECONDS seconds"
+        logger "Completed test in $du ration seconds"
         cd ${SPATIAL_HOME}/regression_tests/${ac}
         
         ((i++))
