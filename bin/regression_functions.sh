@@ -628,6 +628,7 @@ sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top
 sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
 
 make vcs 2>&1 | tee -a ${5}/log
+make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
 
 # Check for crashes in backend compilation
 wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\\|ChiselException\\|\\[vcs-hw\\] Error\" | wc -l)
