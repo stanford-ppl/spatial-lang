@@ -7,7 +7,63 @@ import pureconfig._
 object SpatialConfig extends Reporting {
   import argon.Config._
 
-  val defaultSpatial = ConfigFactory.parseString("""
+  case class SpatialConf(
+    fpga: String,
+    sim: Boolean,
+    synth: Boolean,
+    pir: Boolean,
+    dse: Boolean,
+    dot: Boolean,
+    retiming: Boolean,
+    splitting: Boolean,
+    archDSE: Boolean,
+    naming: Boolean,
+    tree: Boolean
+  )
+  case class PlasticineConf(
+    sinPcu: Int,
+    soutPcu:Int,
+    vinPcu: Int,
+    voutPcu: Int,
+    comp: Int,
+    sinPmu: Int,
+    soutPmu:Int,
+    vinPmu: Int,
+    voutPmu: Int,
+    rw: Int,
+    lanes: Int
+  )
+
+  var targetName: String = _
+
+  var enableDSE: Boolean = _
+  var enableDot: Boolean = _
+
+  var enableSim: Boolean = _
+  var enableSynth: Boolean = _
+  var enablePIR: Boolean = _
+
+  var enableRetiming: Boolean = _
+
+  var enableSplitting: Boolean = _
+  var enableArchDSE: Boolean = _
+  var enableNaming: Boolean = _
+  var enableTree: Boolean = _
+
+  var sIn_PCU: Int = _
+  var sOut_PCU: Int = _
+  var vIn_PCU: Int = _
+  var vOut_PCU: Int = _
+  var stages: Int = _
+  var sIn_PMU: Int = _
+  var sOut_PMU: Int = _
+  var vIn_PMU: Int = _
+  var vOut_PMU: Int = _
+  var readWrite: Int = _
+  var lanes: Int = _
+
+  def init(): Unit = {
+    val defaultSpatial = ConfigFactory.parseString("""
 spatial {
   fpga = "Default"
   sim = true
@@ -23,87 +79,70 @@ spatial {
 }
 """)
 
-  case class SpatialConf(
-    fpga: String,
-    sim: Boolean,
-    synth: Boolean,
-    pir: Boolean,    
-    dse: Boolean,
-    dot: Boolean,
-    retiming: Boolean,
-    splitting: Boolean,
-    archDSE: Boolean,
-    naming: Boolean,
-    tree: Boolean
-  )
+    val mergedSpatialConf = ConfigFactory.load().withFallback(defaultSpatial).resolve()
+    loadConfig[SpatialConf](mergedSpatialConf, "spatial") match {
+      case Right(spatialConf) =>
+        targetName = spatialConf.fpga
 
-  val mergedSpatialConf = ConfigFactory.load().withFallback(defaultSpatial).resolve()
-  val spatialConf = loadConfig[SpatialConf](mergedSpatialConf, "spatial").right.get
+        enableDSE = spatialConf.dse
+        enableDot = spatialConf.dot
 
-  var targetName: String = spatialConf.fpga
+        enableSim = spatialConf.sim
+        enableSynth = spatialConf.synth
+        enablePIR = spatialConf.pir
 
-  var enableDSE: Boolean = spatialConf.dse
-  var enableDot: Boolean = spatialConf.dot
+        enableRetiming = spatialConf.retiming
 
-  var enableSim: Boolean = spatialConf.sim
-  var enableSynth: Boolean = spatialConf.synth
-  var enablePIR: Boolean = spatialConf.pir
+        enableSplitting = spatialConf.splitting
+        enableArchDSE = spatialConf.archDSE
+        enableNaming = spatialConf.naming
+        enableTree = spatialConf.tree
 
-  var enableRetiming: Boolean = spatialConf.retiming
+      case Left(failures) =>
+        error("Unable to read spatial configuration")
+        error(failures.head.description)
+        failures.tail.foreach{x => error(x.description) }
+        sys.exit(-1)
+    }
 
-
-
-  var enableSplitting: Boolean = spatialConf.splitting
-  var enableArchDSE: Boolean = spatialConf.archDSE
-  var enableNaming: Boolean = spatialConf.naming
-  var enableTree: Boolean = spatialConf.tree
-
-
-
-  val defaultPlasticine =  ConfigFactory.parseString("""
+    val defaultPlasticine =  ConfigFactory.parseString("""
 plasticine {
-  s-in-pcu = 10
-  s-out-pcu = 10
-  v-in-pcu = 4
-  v-out-pcu = 1
+  sin-pcu = 10
+  sout-pcu = 10
+  vin-pcu = 4
+  vout-pcu = 1
   comp = 10
-  s-in-pmu = 10
-  s-out-pmu = 10
-  v-in-pmu = 4
-  v-out-pmu = 1
+  sin-pmu = 10
+  sout-pmu = 10
+  vin-pmu = 4
+  vout-pmu = 1
   rw = 10
   lanes = 16
 }
   """)
 
-  case class PlasticineConf(
-    sInPCU: Int,
-    sOutPCU:Int,
-    vInPCU: Int,
-    vOutPCU: Int,
-    comp: Int,
-    sInPMU: Int,
-    sOutPMU:Int,
-    vInPMU: Int,
-    vOutPMU: Int,
-    rw: Int,
-    mems: Int,
-    lanes: Int
-  )
+    val mergedPlasticineConf = ConfigFactory.load().withFallback(defaultPlasticine).resolve()
 
-  val mergedPlasticineConf = ConfigFactory.load().withFallback(defaultPlasticine).resolve()
-  val plasticineConf = loadConfig[PlasticineConf](mergedPlasticineConf, "plasticine").right.get
+    loadConfig[PlasticineConf](mergedPlasticineConf, "plasticine") match {
+      case Right(plasticineConf) =>
+        sIn_PCU = plasticineConf.sinPcu
+        sOut_PCU = plasticineConf.soutPcu
+        vIn_PCU = plasticineConf.vinPcu
+        vOut_PCU = plasticineConf.voutPcu
+        stages = plasticineConf.comp
+        sIn_PMU = plasticineConf.sinPmu
+        sOut_PMU = plasticineConf.soutPmu
+        vIn_PMU = plasticineConf.vinPmu
+        vOut_PMU = plasticineConf.voutPmu
+        readWrite = plasticineConf.rw
+        lanes = plasticineConf.lanes
 
-  // Plasticine limits TODO: move to somewhere else?
-  var sIn_PCU: Int = plasticineConf.sInPCU
-  var sOut_PCU: Int = plasticineConf.sOutPCU
-  var vIn_PCU: Int = plasticineConf.vInPCU
-  var vOut_PCU: Int = plasticineConf.vOutPCU
-  var stages: Int = plasticineConf.comp
-  var sIn_PMU: Int = plasticineConf.sInPMU
-  var sOut_PMU: Int = plasticineConf.sOutPMU
-  var vIn_PMU: Int = plasticineConf.vInPMU
-  var vOut_PMU: Int = plasticineConf.vOutPMU
-  var readWrite: Int = plasticineConf.rw
-  var lanes: Int = plasticineConf.lanes
+      case Left(failures) =>
+        error("Unable to read Plasticine configuration")
+        error(failures.head.description)
+        failures.tail.foreach{x => error(x.description) }
+        sys.exit(-1)
+    }
+  }
+
 }

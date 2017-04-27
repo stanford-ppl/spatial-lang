@@ -313,6 +313,7 @@ trait SpatialApp extends AppCore {
   val Lib: SpatialLib = new SpatialLib { }
 
   override def parseArguments(args: Seq[String]): Unit = {
+    SpatialConfig.init()
     val parser = new SpatialArgParser
     parser.parse(args) match {
       case None =>
