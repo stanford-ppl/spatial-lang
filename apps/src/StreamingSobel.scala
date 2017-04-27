@@ -33,7 +33,7 @@ object StreamingSobel extends SpatialApp {
       val kv = RegFile[Int12](Kh, Kw)
 
       // TODO: Better syntax for initialization of lookup tables
-      kh(0,0) = 1
+      Pipe(kh(0,0) = 1)
       kh(1,0) = 2
       kh(2,0) = 1
       kh(0,1) = 0

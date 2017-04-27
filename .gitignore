@@ -28,6 +28,8 @@ project/plugins/project/
 tags
 docs/build/*
 spatial/core/resources/chiselgen/template-level/test_run_dir/templates*
+bak/
+newCppAPIChanges/
 
 bin/commit
 

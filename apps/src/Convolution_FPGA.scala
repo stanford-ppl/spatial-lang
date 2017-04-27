@@ -7,6 +7,7 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
   val Kh = 3
   val Kw = 3
   val Cmax = 100
+  val test = 0
 
   @virtualize
   def convolve[T:Type:Num](image: Matrix[T]): Matrix[T] = {
