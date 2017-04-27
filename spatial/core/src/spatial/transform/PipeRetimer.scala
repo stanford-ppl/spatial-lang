@@ -38,6 +38,12 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
 
     // retime symbol readers, sharing allocated buffers when possible
     def retimeReaders[U](input: Exp[U]) {
+      def valueDelay[T](size: Int, data: Exp[T])(implicit ctx: SrcCtx): Exp[T] = data.tp match {
+        case Bits(bits) =>
+          value_delay_alloc[T](size, data)(data.tp, bits, ctx)
+        case _ => throw new Exception("Unexpected register type")
+
+      }
       def regAlloc[T](s: Exp[T], size: Int)(implicit ctx: SrcCtx): Exp[ShiftReg[T]] = s.tp match {
         case Bits(bits) =>
           val init = unwrap(bits.zero)(s.tp)
@@ -74,13 +80,14 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
 
         val readersList = readerGroups(totalSize)
         val size = regSizeMap(totalSize) // Look up mapping for this size
-        val reg = regAlloc(input, size)
-        regWrite(reg, f(regReads.last))
-        val read = regRead(reg)
+        // val reg = regAlloc(input, size)
+        // regWrite(reg, f(regReads.last))
+        val read = valueDelay(size, f(regReads.last))
 
         readersList.foreach{ reader =>
-          dbgs(c"  Register: ${str(reg)}, size: $size, reader: $reader")
-          readers(reader).reg = reg
+          // dbgs(c"  Register: ${str(reg)}, size: $size, reader: $reader")
+          dbgs(c"  Delay: $size, reader: $reader")
+          // readers(reader).reg = reg
           readers(reader).read = read
         }
         regReads += read
