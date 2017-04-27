@@ -1,7 +1,5 @@
 package spatial.codegen.pirgen
 
-import scala.collection.mutable
-
 // Common PIR operations (which don't need Spatial IR mixin)
 trait PIRCommon extends PIR {
   private def collectX[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
