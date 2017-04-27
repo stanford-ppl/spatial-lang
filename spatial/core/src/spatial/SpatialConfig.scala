@@ -62,20 +62,19 @@ spatial {
 
   val defaultPlasticine =  ConfigFactory.parseString("""
 plasticine {
-  s-in = 8
-  sbus = 4
+  s-in = 10
+  s-out = 10
   v-in = 4
   v-out = 1
-  comp = 8
-  rw = 4
-  mems = 4
+  comp = 10
+  rw = 10
   lanes = 16
 }
   """)
 
   case class PlasticineConf(
     sIn: Int,
-    sbus:Int,
+    sOut:Int,
     vIn: Int,
     vOut: Int,
     comp: Int,
@@ -89,11 +88,10 @@ plasticine {
 
   // Plasticine limits TODO: move to somewhere else?
   var sIn: Int = plasticineConf.sIn
-  var sbus: Int = plasticineConf.sbus
+  var sOut: Int = plasticineConf.sOut
   var vIn: Int = plasticineConf.vIn
   var vOut: Int = plasticineConf.vOut
-  var comp: Int = plasticineConf.comp
+  var stages: Int = plasticineConf.comp
   var readWrite: Int = plasticineConf.rw
-  var mems: Int = plasticineConf.mems
   var lanes: Int = plasticineConf.lanes
 }

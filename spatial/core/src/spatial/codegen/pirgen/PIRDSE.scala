@@ -43,8 +43,8 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     val invalid = new PrintStream(s"$dir/${name}_invalid.csv")
 
     val header = Utilization()
-    invalid.println("Scl/Bus, SIns_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, VIns_PMU, VOuts_PMU")
-    valid.println  ("Scl/Bus, SIns_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, VIns_PMU, VOuts_PMU, " + header.heading +
+    invalid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU")
+    valid.println  ("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, " + header.heading +
                     ", #ALU,#SRAM,#Vin,#Vout, ALU Util, SRAM Util, VecIn Util, VecOut Util, " +
                     ", SIn/Unit, SOut/Unit, VIn/Unit, VOut/Unit, SIn/Stage, VIn/Stage")
 
@@ -54,26 +54,25 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     var first: String = ""
 
     for (vIns_PCU <- 2 to 6 ; // 5
-        vOuts_PCU <- 1 to 3 ; // 3
-        stages <- 0 to 10 ; // 10
-        sbus <- List(1,2,4) ; // 3
-        sIns_PCU <- 2 to Math.min(vIns_PCU*sbus,16) by 2;
-        vIns_PMU <- vIns_PCU to 6;
-        vOuts_PMU <- vOuts_PCU to 3;
-        sIns_PMU <- sIns_PCU to Math.min(vIns_PMU*sbus,16) by 2) {
-
-    // 8  --- implies existence of a vIns*sbus : sIns crossbar (or some other selection mechanism)
+        vOuts_PCU <- 1 to 4 ; // 4
+        sIns_PCU <- 2 to 6 ;  // 5
+        sOuts_PCU <- 2 to 6 ; // 5
+        stages <- 1 to 10 ;   // 10
+        vIns_PMU <- 2 to 6;   // 5
+        vOuts_PMU <- 1 to 1;  // 1
+        sIns_PMU <- 1 to 10;  // 10
+        sOuts_PMU <- 1 to 1   // 1
+    ) {
       STAGES = stages
-      SCALARS_PER_BUS = sbus
 
       var others = ArrayBuffer[CU]()
-      val pcu = CUCost(sIn=sIns_PCU, vIn=vIns_PCU, vOut=vOuts_PCU, comp=stages)
-      val mcu = MUCost(sIn=sIns_PMU, vIn=vIns_PMU, vOut=vOuts_PMU, read=READ_WRITE, write=READ_WRITE)
+      val pcu = CUCost(sIn=sIns_PCU, sOut=sOuts_PCU, vIn=vIns_PCU, vOut=vOuts_PCU, comp=stages)
+      val mcu = MUCost(sIn=sIns_PMU, sOut=sOuts_PMU, vIn=vIns_PMU, vOut=vOuts_PMU, read=READ_WRITE, write=READ_WRITE)
 
-      val text: String = s"sbus=$sbus, sIn_PCU=$sIns_PCU, vIn_PCU=$vIns_PCU, vOut_PCU=$vOuts_PCU, comps=$stages, " +
-                         s"sIn_PMU=$sIns_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU, read/write=$READ_WRITE"
+      val text: String = s"sIn_PCU=$sIns_PCU, sOut_PCU=$sOuts_PCU, vIn_PCU=$vIns_PCU, vOut_PCU=$vOuts_PCU, comps=$stages, " +
+                         s"sIn_PMU=$sIns_PMU, sOut_PMU=$sOuts_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU, read/write=$READ_WRITE"
 
-      val settingsCSV: String = s"$sbus, $sIns_PCU, $vIns_PCU, $vOuts_PCU, $stages, $sIns_PMU, $vIns_PMU, $vOuts_PMU"
+      val settingsCSV: String = s"$sIns_PCU, $sOuts_PCU, $vIns_PCU, $vOuts_PCU, $stages, $sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU"
 
       try {
         var stats = Utilization()

@@ -10,13 +10,10 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   val IR: SpatialExp with PIRCommonExp
   import IR._
 
-  var SCALARS_PER_BUS = 2
-  var STAGES: Int = 10
+  var STAGES: Int = SpatialConfig.stages                   // Number of compute stages per CU
   def LANES = SpatialConfig.lanes                          // Number of SIMD lanes per CU
   def REDUCE_STAGES = (Math.log(LANES)/Math.log(2)).toInt  // Number of stages required to reduce across all lanes
-  var READ_WRITE = 10
-
-  case class AddrGroup(mems: Seq[CUMemory], stages: Seq[Stage])
+  var READ_WRITE = SpatialConfig.readWrite
 
   abstract class Partition {
     var cchains: Set[CUCChain] = Set[CUCChain]()
@@ -69,15 +66,24 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }
   }
 
-  class MUPartition(write: Map[Int, AddrGroup], read: Map[Int, AddrGroup], cc: Option[CUCChain], edge: Boolean) extends Partition {
-    var wstages = Map[Int, AddrGroup]() ++ write
-    val rstages = Map[Int, AddrGroup]() ++ read
+  class MUPartition(write: Map[Seq[CUMemory],mutable.ArrayBuffer[Stage]], read: Map[Seq[CUMemory],mutable.ArrayBuffer[Stage]], cc: Option[CUCChain], edge: Boolean) extends Partition {
+    var wstages = Map[Seq[CUMemory], mutable.ArrayBuffer[Stage]]()
+    var rstages = Map[Seq[CUMemory], mutable.ArrayBuffer[Stage]]()
     val isEdge: Boolean = edge
     val ctrl: Option[CUCChain] = cc
 
+    write.foreach{case (mems, stages) =>
+      wstages += mems -> mutable.ArrayBuffer[Stage]()
+      wstages(mems) ++= stages
+    }
+    read.foreach{case (mems, stages) =>
+      rstages += mems -> mutable.ArrayBuffer[Stage]()
+      rstages(mems) ++= stages
+    }
+
     def nonEmpty = wstages.nonEmpty || rstages.nonEmpty
 
-    def allStages: Iterable[Stage] = wstages.values.flatMap(_.stages.iterator) ++ rstages.values.flatMap(_.stages.iterator)
+    def allStages: Iterable[Stage] = wstages.values.flatten ++ rstages.values.flatten
   }
 
   def recomputeOwnedCChains(p: Partition, ctrl: Option[CUCChain], isEdge: Boolean) = {
@@ -100,9 +106,17 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     read:  Int = 0  // Read stages
   ) extends PartitionCost {
     def >(that: MUCost) = {
-      this.sIn > that.sIn || this.vIn > that.vIn ||
+      this.sIn > that.sIn || this.sOut > that.sOut || this.vIn > that.vIn ||
       this.vOut > that.vOut || this.write > that.write || this.read > that.read
     }
+    def +(that: MUCost) = MUCost(
+      sIn   = this.sIn + that.sIn,
+      sOut  = this.sOut + that.sOut,
+      vIn   = this.vIn + that.vIn,
+      vOut  = this.vOut + that.vOut,
+      write = this.write + that.write,
+      read  = this.read + that.read
+    )
     //def toUtil = Utilization(alus = comp, sclIn = sIn, sclOut = sOut, vecIn = vIn, vecOut = vOut)
     override def toString = s"  sIn: $sIn, sOut: $sOut, vIn: $vIn, vOut: $vOut, write: $write, read: $read"
   }
@@ -115,7 +129,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     comp:  Int = 0  // Compute stages
   ) extends PartitionCost {
     def >(that: CUCost) = {
-      this.sIn > that.sIn || this.vIn > that.vIn ||
+      this.sIn > that.sIn || this.sOut > that.sOut || this.vIn > that.vIn ||
       this.vOut > that.vOut || this.comp > that.comp
     }
 
@@ -128,39 +142,37 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     */
   def getCost(p: Partition, prev: Seq[Partition], all: List[Stage], others: Iterable[CU], isUnit: Boolean) = p match {
     case pmu: MUPartition => getMUCost(pmu, prev, all, others)
-    case pcu: CUPartition => getCUCost(pcu, prev, all, others, isUnit)
+    case pcu: CUPartition => getCUCost(pcu, prev, all, others, isUnit){p => p.cstages}
   }
 
   def getMUCost(p: MUPartition, prev: Seq[Partition], all: List[Stage], others: Iterable[CU]) = {
-    // TODO
-    MUCost()
+    val readCost = p.rstages.values.map{stages =>
+      val cost = getCUCost(p, prev, all, others, isUnit=false){_ => stages}
+      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,read=cost.comp)
+    }.fold(MUCost()){_+_}
+    val writeCost = p.wstages.values.map{stages =>
+      val cost = getCUCost(p, prev, all, others, isUnit=false){_ => stages}
+      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,write=cost.comp)
+    }.fold(MUCost()){_+_}
+    readCost + writeCost
   }
 
-  def getCUCost(p: CUPartition, prev: Seq[Partition], all: List[Stage], others: Iterable[CU], isUnit: Boolean) = {
+  def getCUCost[P<:Partition](p: P, prev: Seq[Partition], all: List[Stage], others: Iterable[CU], isUnit: Boolean)(getStages: P => Seq[Stage]) = {
+    val local = getStages(p)
+
     dbg(s"\n\n")
-    dbg(s"  Compute stages: ")
-    p.cstages.foreach{stage => dbg(s"    $stage") }
+    dbg(s"  Stages: ")
+    local.foreach{stage => dbg(s"    $stage") }
 
     dbg(s"  CChains: ")
     p.cchains.foreach{cc => dbg(s"    $cc :: " + globalInputs(cc).mkString(", ")) }
 
-    val local  = p.allStages
     val remote = all diff local
 
     val localIns: Set[LocalComponent] = local.flatMap(_.inputMems).toSet.filterNot(isControl)
     val localOuts: Set[LocalComponent] = local.flatMap(_.outputMems).toSet
     val remoteIns: Set[LocalComponent] = remote.flatMap(_.inputMems).toSet
     val remoteOuts: Set[LocalComponent] = remote.flatMap(_.outputMems).toSet
-
-    // val localReads: Set[CUMemory] = localIns.collect{case MemLoadReg(sram) => sram}
-    // val remoteReads: Set[CUMemory] = remoteIns.collect{case MemLoadReg(sram) => sram}
-    // Inserted bypass reads
-    // val localBypasses: Set[CUMemory] = localOuts.collect{case MemLoadReg(sram) => sram}
-    // val remoteBypasses: Set[CUMemory] = remoteOuts.collect{case MemLoadReg(sram) => sram}
-
-    // val localWrites: Set[CUMemory] = localOuts.collect{case FeedbackDataReg(sram) => sram}
-    // val localAddrs: Set[CUMemory] = localOuts.collect{case FeedbackAddrReg(sram) => sram; case ReadAddrWire(sram) => sram}
-    // val remoteAddrs = remoteOuts.collect{case reg:FeedbackAddrReg => reg; case reg:ReadAddrWire => reg}
 
     // --- CU inputs and outputs
     val cuInBuses = globalInputs(localIns) ++ globalInputs(p.cchains)
@@ -171,7 +183,6 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
 
     var vIns: Int   = nVectorIns(cuGrpsIn, others)
     var vOuts: Int  = nVectorOuts(cuGrpsOut, countScalars = false)
-    var vLocal: Int = 0
 
     var sIns = Map[Int, Int]()
     def addIn(part: Int) {
@@ -179,83 +190,6 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       else sIns += part -> (sIns(part) + 1)
     }
     var sOuts: Int = localOuts.count{case ScalarOut(_) => true; case _ => false}
-
-    /*// TODO: Have to be more careful not to double count here!
-    // Can double count for bypasses and multiple outputs for single stage
-
-    // 1. Inputs to account for remotely hosted, locally read SRAMs
-    // EXCEPT ones which we've already inserted bypass vectors for (appear as live ins)
-    // Needs bypass: NO
-    val remoteHostLocalRead = localReads diff remoteBypasses
-    if (!isUnit) {
-      vIns += remoteHostLocalRead.size
-    }
-    else {
-      remoteHostLocalRead.foreach{sram =>
-        addIn(prev.indexWhere(_.srams contains sram))
-      }
-    }
-    dbg(s"    Remotely hosted, locally read: " + remoteHostLocalRead.mkString(", "))
-
-    // 2. Outputs to account for locally hosted, remotely read SRAMs
-    // EXCEPT ones which we've already inserted bypass vectors for (appear as live outs)
-    // Needs bypass: YES
-    val localHostRemoteRead = (remoteReads intersect p.srams) diff localBypasses
-    if (!isUnit) vOuts += localHostRemoteRead.size
-    else         sOuts += localHostRemoteRead.size
-
-    dbg(s"    Locally hosted, remotely read: " + localHostRemoteRead.mkString(", "))
-
-
-    // 3. Outputs to account for feedback data to locally hosted SRAMs
-    // Needs bypass: NO
-    val localHostLocalWrite = localWrites intersect p.srams
-    vLocal += localHostLocalWrite.size
-
-    dbg(s"    Locally hosted, locally written: " + localHostLocalWrite.mkString(", "))
-
-    // 4. Outputs for feedback data to remotely hosted SRAMs
-    // Needs bypass: NO
-    val remoteHostLocalWrite = localWrites diff p.srams
-    if (!isUnit) vOuts += remoteHostLocalWrite.size
-    else         sOuts += remoteHostLocalWrite.size
-
-    dbg(s"    Remotely hosted, locally written: " + remoteHostLocalWrite.mkString(", "))
-
-
-    // 5. Outputs for read or feedback addresses to remotely hosted SRAMs
-    // Needs bypass: NO
-    val remoteHostLocalAddr = localAddrs diff p.srams
-    if (!isUnit) vOuts += remoteHostLocalAddr.size
-    else         sOuts += remoteHostLocalAddr.size
-
-    dbg(s"    Remotely hosted, locally addressed: " + remoteHostLocalAddr.mkString(", "))
-
-
-    // 6. Inputs for read or feedback addresses to locally hosted CUs
-    // Needs bypass: YES
-    val localHostRemoteAddr = remoteAddrs filter {
-      case FeedbackAddrReg(sram) => p.srams contains sram
-      case ReadAddrWire(sram)    => p.srams contains sram
-    }
-    if (!isUnit) {
-      vIns += localHostRemoteAddr.size
-      nSRAMs += localHostRemoteAddr.size // Retiming vector
-    }
-    else {
-      val prevOuts = prev.map(_.allStages.flatMap(_.outputMems).toSet)
-
-      localHostRemoteAddr.foreach{wire =>
-        addIn(prevOuts.indexWhere(_ contains wire))
-      }
-    }
-
-    val remotelyAddressed = localHostRemoteAddr.collect{
-      case FeedbackAddrReg(sram) => sram
-      case ReadAddrWire(sram) => sram
-    }
-    dbg(s"    Locally hosted, remotely addressed: " + remotelyAddressed.mkString(", "))*/
-
 
     // --- Registers
     dbg(s"  Arg ins: " + cuGrpsIn.args.mkString(", "))
@@ -270,7 +204,6 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val liveIns  = localIns intersect remoteOuts
     if (!isUnit) {
       vIns += liveIns.size
-      //nSRAMs += liveIns.size // Retiming vectors
     }
     else {
       liveIns.foreach{in =>
@@ -287,67 +220,20 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
 
     dbg(s"  Live outs: " + liveOuts.mkString(", "))
 
-    // Pack scalar inputs and outputs into vectors
-    sIns.values.foreach{ins =>
-      val grpSize = Math.ceil(ins.toDouble / SCALARS_PER_BUS).toInt
-      vIns += grpSize
-      //nSRAMs += grpSize // Retiming scalar bus
-    }
-
-
-    // Count the scalar/vector outputs for each stage independently to avoid double counting
-    /*
-    var sOuts = 0
-    var vOuts = 0
-
-    p.cstages.foreach{
-      case MapStage(op,ins,outs) =>
-        if (op != Bypass) {
-          ins.foreach{
-            case ref@LocalRef(_,MemLoadReg(sram)) =>
-              if (sramOwners.contains(ref) && localHostRemoteRead.contains(sram)) {
-                if (isUnit) sOuts += 1
-                else        vOuts += 1
-              }
-            case _ => // No output
-          }
-        }
-        val scalOrVec = outs.collect{
-          case _:ScalarOut => false
-          case _:VectorOut => true
-          case reg if (liveOuts contains reg) => !isUnit
-          case ReadAddrWire(sram) if remoteHostLocalAddr contains sram => !isUnit
-          case FeedbackAddrReg(sram) if remoteHostLocalAddr contains sram => !isUnit
-          case FeedbackDataReg(sram) if remoteHostLocalWrite contains sram => !isUnit
-        }
-        if (scalOrVec.nonEmpty) {
-          val isVec = scalOrVec.exists(_ == true)
-          if (isVec) vOuts += 1
-          else       sOuts += 1
-        }
-
-      case ReduceStage(op,init,in,acc) =>
-        if (liveOuts contains acc)
-          sOuts += 1
-    }*/
-
-    vOuts += Math.ceil(sOuts.toDouble / SCALARS_PER_BUS).toInt
-
-
     // --- Bypass stages
-    val bypasses = p.cstages.map{
-      case ReduceStage(op,init,in,acc) =>
+    val bypasses = local.map{
+      case ReduceStage(_,_,in,acc) =>
         val bypassInCost  = if (localIns.contains(in.reg)) 0 else 1
         val bypassOutCost = if (remoteIns.contains(acc))   1 else 0
         bypassInCost + bypassOutCost
-      case MapStage(PIRBypass,ins,outs) => 1
+      case MapStage(PIRBypass,_,_) => 1
       case _ => 0
     }.sum
 
     // --- Compute
-    val rawCompute = p.cstages.map{
-      case MapStage(op,ins,outs) => if (op == PIRBypass) 0 else 1
-      case ReduceStage(op,init,in,acc) => REDUCE_STAGES
+    val rawCompute = local.map{
+      case MapStage(op,_,_) => if (op == PIRBypass) 0 else 1
+      case _:ReduceStage    => REDUCE_STAGES
     }.sum
 
     // Scalars
@@ -445,29 +331,12 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }.sum
   }
   def nUsedStages(cu: CU): Int = {
-    cu.allStages.map{
+    cu.allStages.map {
       case MapStage(op, _, _) if op != PIRBypass => 1
       case _: ReduceStage => REDUCE_STAGES
       case _ => 0
     }.sum
   }
-
-  /*def nMems(cu: CU, others: Iterable[CU]): Int = {
-    val sramWritePorts = cu.mems.flatMap(_.writePort)
-    //TODO: readports?
-    val nonRetimedGroups = groupBuses(globalInputs(cu) diff sramWritePorts)
-    cu.mems.size + nMems(nonRetimedGroups, others)
-  }*/
-  /*def nMems(groups: BusGroups, others: Iterable[CU]): Int = {
-    val scalarGrps = if (groups.scalars.nonEmpty) {
-      val producers = groups.scalars.groupBy{bus => others.find{cu => scalarOutputs(cu) contains bus}}
-      producers.values.map{ss => Math.ceil(ss.size.toDouble / SCALARS_PER_BUS).toInt }.sum
-    }
-    else 0
-
-    scalarGrps
-  }*/
-
 
   def nScalarIn(cu: CU) = {
     val groups = groupBuses(globalInputs(cu))
@@ -482,31 +351,13 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val groups = groupBuses(globalInputs(cu))
     nVectorIns(groups, others)
   }
-  def nVectorIns(groups: BusGroups, others: Iterable[CU]): Int = {
-    val argGrps  = Math.ceil(groups.args.size.toDouble / SCALARS_PER_BUS).toInt
-
-    val scalarGrps = if (groups.scalars.nonEmpty) {
-      val producers = groups.scalars.groupBy{bus => others.find{cu => scalarOutputs(cu) contains bus}}
-      producers.values.map{ss => Math.ceil(ss.size.toDouble / SCALARS_PER_BUS).toInt }.sum
-    }
-    else 0
-
-    groups.vectors.size + argGrps + scalarGrps
-  }
-
+  def nVectorIns(groups: BusGroups, others: Iterable[CU]): Int = groups.vectors.size
 
   def nVectorOuts(cu: CU): Int = {
     val groups = groupBuses(globalOutputs(cu))
     nVectorOuts(groups)
   }
-  def nVectorOuts(groups: BusGroups, countScalars: Boolean = true): Int = {
-    val scalarGrps = if (countScalars) {
-      Math.ceil(groups.scalars.size.toDouble / SCALARS_PER_BUS).toInt
-    }
-    else 0
-
-    groups.vectors.size + scalarGrps
-  }
+  def nVectorOuts(groups: BusGroups, countScalars: Boolean = true): Int = groups.vectors.size
 
   def reportUtil(stats: Utilization) {
     val Utilization(pcus, pmus, ucus, switch, stages, alus, mems, sclIn, sclOut, vecIn, vecOut) = stats

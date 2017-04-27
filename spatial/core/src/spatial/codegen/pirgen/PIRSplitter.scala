@@ -15,15 +15,16 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
   val mappingIn  = mutable.HashMap[Expr, List[CU]]()
   val mappingOut = mutable.HashMap[Expr, List[List[CU]]]()
 
-  //TODO read this from some config file?
   lazy val PCUMax = CUCost(
     sIn=SpatialConfig.sIn,
+    sOut=SpatialConfig.sOut,
     vIn=SpatialConfig.vIn,
     vOut=SpatialConfig.vOut,
-    comp=SpatialConfig.comp
+    comp=STAGES
   )
   lazy val PMUMax = MUCost(
     sIn=SpatialConfig.sIn,
+    sOut=SpatialConfig.sOut,
     vIn=SpatialConfig.vIn,
     vOut=SpatialConfig.vOut,
     read=READ_WRITE,
@@ -31,9 +32,6 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
   )
 
   override def process[S:Type](b: Block[S]) = {
-    STAGES = 10
-    SCALARS_PER_BUS = SpatialConfig.sbus
-
     try {
       visitBlock(b)
 

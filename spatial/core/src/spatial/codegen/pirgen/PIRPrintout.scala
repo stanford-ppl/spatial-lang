@@ -28,6 +28,8 @@ trait PIRPrintout extends PIRTraversal {
     dbg(style + " " + cu.toString)
     dbg("  Parent: " + cu.parentCU.map(_.name).getOrElse("None"))
     dbg("  Lanes: " + cu.lanes)
+    dbg("  Counter chains:")
+    cu.cchains.foreach{cchain => dbg(s"    ${cchain.longString}") }
     dbg("  Compute stages:")
     cu.computeStages.foreach{stage => dbg(s"    $stage") }
     dbg("  Read stages:")
@@ -36,6 +38,17 @@ trait PIRPrintout extends PIRTraversal {
     cu.writeStages.foreach{stage => dbg(s"    $stage") }
     dbg("  Control stages:")
     cu.controlStages.foreach{stage => dbg(s"    $stage") }
+
+    val inputs = groupBuses(globalInputs(cu))
+    val outputs = groupBuses(globalOutputs(cu))
+    dbg("  Scalar Inputs: ")
+    (inputs.args ++ inputs.scalars).foreach{bus => dbg(s"    $bus") }
+    dbg("  Scalar Outputs: ")
+    (outputs.args ++ outputs.scalars).foreach{bus => dbg(s"    $bus") }
+    dbg("  Vector Inputs: ")
+    inputs.vectors.foreach{bus => dbg(s"    $bus") }
+    dbg("  Vector Outputs: ")
+    outputs.vectors.foreach{bus => dbg(s"    $bus") }
 
     cu.style match {
       case _:MemoryCU =>
