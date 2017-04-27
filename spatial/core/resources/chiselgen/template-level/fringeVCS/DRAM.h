@@ -28,6 +28,7 @@ class DRAMRequest {
 public:
   uint64_t addr;
   uint64_t tag;
+  uint64_t channelID;
   bool isWr;
   uint32_t *wdata;
   uint32_t delay;
@@ -55,7 +56,7 @@ public:
   }
 
   void print() {
-    EPRINTF("[DRAMRequest] addr: %lx, tag: %lx, isWr: %d, delay: %u, issued=%lu\n", addr, tag, isWr, delay, issued);
+    EPRINTF("[DRAMRequest CH=%lu] addr: %lx, tag: %lx, isWr: %d, delay: %u, issued=%lu\n", channelID, addr, tag, isWr, delay, issued);
   }
 
   ~DRAMRequest() {
@@ -213,13 +214,15 @@ extern "C" {
 
     DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata, numCycles);
     dramRequestQ.push(req);
-    req->print();
 
     if (!useIdealDRAM) {
       mem->addTransaction(cmdIsWr, cmdAddr, cmdTag);
+      req->channelID = mem->findChannelNumber(addr);
       struct AddrTag at(cmdAddr, cmdTag);
       addrToReqMap[at] = req;
     }
+
+    req->print();
   }
 }
 
@@ -243,12 +246,12 @@ void initDRAM() {
     ASSERT(dramSimHome[0] != NULL, "ERROR: DRAMSIM_HOME environment variable set to null string")
 
 
-    string memoryIni = string(dramSimHome) + string("/ini/DDR2_micron_16M_8b_x8_sg3E.ini");
+    string memoryIni = string(dramSimHome) + string("/ini/DDR3_micron_32M_8B_x8_sg25E.ini");
     string systemIni = string(dramSimHome) + string("spatial.dram.ini");
     // Connect to DRAMSim2 directly here
-    mem = DRAMSim::getMemorySystemInstance("ini/DDR2_micron_16M_8b_x8_sg3E.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
+    mem = DRAMSim::getMemorySystemInstance("ini/DDR3_micron_32M_8B_x8_sg25E.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
 
-    uint64_t hardwareClockHz = 150 * 1e6; // Fixing FPGA clock to 150 MHz
+    uint64_t hardwareClockHz = 1 * 1e9; // Fixing Plasticine clock to 1 GHz
     mem->setCPUClockSpeed(hardwareClockHz);
 
     // Add callbacks
