@@ -81,7 +81,10 @@ public:
   }
 
   void finish() {
-    sendCmd(FIN);
+    int id = sendCmd(FIN);
+    simCmd *resp = recvResp();
+    ASSERT(id == resp->id, "FIN resp->id does not match cmd.id!");
+    ASSERT(FIN == resp->cmd, "FIN resp->cmd does not match cmd.cmd!");
   }
 
   void reset() {
