@@ -194,15 +194,18 @@ trait PIR {
     def nextId(): Int = {id += 1; id}
   }
 
-  sealed abstract class CUCChain(val name: String)
+  sealed abstract class CUCChain(val name: String) { def longString: String }
   case class CChainInstance(override val name: String, counters: Seq[CUCounter]) extends CUCChain(name) {
     override def toString = name
+    def longString: String = s"$name (" + counters.mkString(", ") + ")"
   }
   case class CChainCopy(override val name: String, inst: CUCChain, var owner: AbstractComputeUnit) extends CUCChain(name) {
     override def toString = s"$owner.copy($name)"
+    def longString: String = this.toString
   }
   case class UnitCChain(override val name: String) extends CUCChain(name) {
     override def toString = name
+    def longString: String = this.toString + " [unit]"
   }
 
 
@@ -360,6 +363,8 @@ trait PIR {
       case _ => if (innerPar.isDefined) innerPar.get else 1
     }
     def allParents: Iterable[CU] = parentCU ++ parentCU.map(_.allParents).getOrElse(Nil)
+    def isPMU = style.isInstanceOf[MemoryCU]
+    def isPCU = !isPMU && !style.isInstanceOf[FringeCU]
   }
 
   type PCU = PseudoComputeUnit
@@ -379,6 +384,7 @@ trait PIR {
 
     def copyToConcrete(): ComputeUnit = {
       val cu = ComputeUnit(name, pipe, style)
+      cu.innerPar = this.innerPar
       cu.parent = this.parent
       cu.cchains ++= this.cchains
       cu.memMap ++= this.memMap

@@ -78,8 +78,8 @@ object BlackScholes extends SpatialApp {
 
     val size = stypes.length; bound(size) = 9995328
 
-    lazy val N = 96000000.to[Int] //ArgIn[SInt]
-    //setArg(N, size)
+    val N = ArgIn[Int]
+    setArg(N, size)
 
     val types    = DRAM[Int](N)
     val prices   = DRAM[Float](N)

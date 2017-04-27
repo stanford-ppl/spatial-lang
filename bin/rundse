@@ -1,0 +1,10 @@
+#!/bin/bash
+
+ # TODO: PageRank, CNN?
+files=( "DotProduct" "OuterProduct" "TPCHQ6" "BlackScholes" "MatMult_outer" "MatMult_inner" "GDA" "LogReg" "SGD" "Kmeans" "SMV" "BFS")
+for app in "${files[@]}"
+do
+  echo $app
+  rm -r gen/$app
+  bin/spatial $app --cgra*
+done

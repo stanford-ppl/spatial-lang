@@ -237,8 +237,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       register(orig -> element)
       element
     }
-    // 3. Create an unrolled clone of symbol s for each lane
-    def unify(orig: Exp[_], unrolled: Exp[_]): List[Exp[_]] = {
+    // 3. Create an unrolled mapping of symbol (orig -> unrolled) for each lane
+    def unify[T](orig: Exp[T], unrolled: Exp[T]): List[Exp[T]] = {
       foreach{p => register(orig -> unrolled) }
       List(unrolled)
     }
@@ -320,9 +320,19 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     * Create duplicates of the given node or special case, vectorized version
     * NOTE: Only can be used within reify scope
     **/
+  def shouldUnrollAccess(lhs: Sym[_], rhs: Op[_], lanes: Unroller): Boolean = rhs match {
+    case LocalReader(reads)  => !isLoopInvariant(lhs) && reads.forall{r => lanes.isCommon(r.mem) }
+    case LocalWriter(writes) => !isLoopInvariant(lhs) && writes.forall{r => lanes.isCommon(r.mem) }
+  }
+  def shouldUnifyAccess(lhs: Sym[_], rhs: Op[_], lanes: Unroller): Boolean = rhs match {
+    case LocalReader(reads)  => isLoopInvariant(lhs) && reads.forall{r => lanes.isCommon(r.mem) }
+    case LocalWriter(writes) => isLoopInvariant(lhs) && writes.forall{r => lanes.isCommon(r.mem) }
+    case _ => isLoopInvariant(lhs)
+  }
+
   def unroll[T](lhs: Sym[T], rhs: Op[T], lanes: Unroller)(implicit ctx: SrcCtx): List[Exp[_]] = rhs match {
     // Account for the edge ca e with FIFO writing
-    case LocalReader(reads) if reads.forall{r => lanes.isCommon(r.mem)} && readParallelizer.isDefinedAt((lanes,rhs,ctx)) =>
+    case LocalReader(_) if shouldUnrollAccess(lhs, rhs, lanes) && readParallelizer.isDefinedAt((lanes,rhs,ctx)) =>
       val lhs2 = readParallelizer.apply((lanes,rhs,ctx))
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
@@ -331,7 +341,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       logs(s"Created ${str(lhs2)}"); strMeta(lhs2)
       lanes.split(lhs, lhs2)(mtyp(lhs.tp),ctx)
 
-    case LocalWriter(writes) if writes.forall(w => lanes.isCommon(w.mem)) && writeParallelizer.isDefinedAt((lanes,rhs,ctx)) =>
+    case LocalWriter(_) if shouldUnrollAccess(lhs, rhs, lanes) && writeParallelizer.isDefinedAt((lanes,rhs,ctx)) =>
       val lhs2 = writeParallelizer.apply((lanes,rhs,ctx))
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
@@ -351,6 +361,12 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       logs(s"  Created registers: ")
       lanes.foreach{p => dbgs(s"  $p: $lhs -> ${f(lhs)}") }
       dups
+
+    // For inner loop invariant ops, no need to copy the operation - can just do once and broadcast to all lanes
+    case _:EnabledOp[_] if shouldUnifyAccess(lhs, rhs, lanes) =>
+      logs(s"Unifying $lhs = $rhs (loop invariant)")
+      val lhs2 = lanes.inLane(0){ cloneOp(lhs, rhs) } // Doesn't matter which lane, as long as it's in one of them
+      lanes.unify(lhs, lhs2)
 
     case _ =>
       logs(s"Duplicating $lhs = $rhs")
