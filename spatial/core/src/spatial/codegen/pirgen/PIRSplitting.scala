@@ -200,9 +200,9 @@ trait PIRSplitting extends PIRTraversal {
       val in = reg match {
         case _:ConstReg[_] | _:CounterReg => reg
         case _:ValidReg | _:ControlReg => reg
-        case _:ReduceMem[_]    => if (localOuts.contains(reg)) reg else portIn(reg, isScalar)
-        case MemLoadReg(sram) => if (cu.mems.contains(sram)) reg else portIn(reg, isScalar)
-        case _                 => if (cu.regs.contains(reg)) reg else portIn(reg, isScalar)
+        case _:ReduceMem[_]   => if (localOuts.contains(reg)) reg else portIn(reg, isScalar)
+        case MemLoadReg(sram) => reg
+        case _                => if (cu.regs.contains(reg)) reg else portIn(reg, isScalar)
       }
       cu.regs += in
       ctx.refIn(in)
@@ -211,9 +211,9 @@ trait PIRSplitting extends PIRTraversal {
       val outs = reg match {
         case _:ScalarOut => List(reg)
         case _:VectorOut => List(reg)
-        case FeedbackAddrReg(sram) => if (cu.mems.contains(sram)) List(reg) else List(portOut(reg,isScalar))
-        case FeedbackDataReg(sram) => if (cu.mems.contains(sram)) List(reg) else List(portOut(reg,isScalar))
-        case ReadAddrWire(sram) => if (cu.mems.contains(sram)) List(reg) else List(portOut(reg,isScalar))
+        case FeedbackAddrReg(sram) => List(reg)
+        case FeedbackDataReg(sram) => List(reg)
+        case ReadAddrWire(sram) => List(reg)
         case MemLoadReg(sram) => List(portOut(reg,isScalar))
         case _ =>
           val local  = if (localIns.contains(reg)) List(reg) else Nil
@@ -338,10 +338,10 @@ trait PIRSplitting extends PIRTraversal {
         case stage@MapStage(_,ins,_) => stage.ins = ins.map{in => swap_cchains_Ref(in) }
         case _ =>
       }
-      cu.mems.foreach{sram =>
+      /*cu.mems.foreach{sram =>
         sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]} //TODO refactor this
         sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]}
-      }
+      }*/
     }
 
     cu

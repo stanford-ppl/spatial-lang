@@ -93,6 +93,9 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     }
     hacks.run(block)
 
+    printout.splitMappingIn ++= hacks.mappingOut
+    printout.run(block)
+
     cus ++= hacks.mappingOut
     dbgblk(s"Mapping: ") {
       cus.foreach { case (sym, cus) =>
