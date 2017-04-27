@@ -23,6 +23,11 @@ trait ShiftRegExp { this: SpatialExp =>
   implicit def shiftRegType[T:Meta:Bits]: Meta[ShiftReg[T]] = ShiftRegType(meta[T])
 
   /** IR Nodes **/
+  case class ValueDelay[T:Type:Bits](size: Int, data: Exp[T]) extends Op[T] {
+    def mirror(f:Tx) = value_delay_alloc[T](size, f(data))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
   case class ShiftRegNew[T:Type:Bits](size: Int, init: Exp[T]) extends Op[ShiftReg[T]] {
     def mirror(f:Tx) = shift_reg_alloc[T](size, f(init))
     val mT = typ[T]
@@ -41,6 +46,9 @@ trait ShiftRegExp { this: SpatialExp =>
   }
 
   /** Constructors **/
+  private[spatial] def value_delay_alloc[T:Type:Bits](size: Int, data: Exp[T])(implicit ctx: SrcCtx): Sym[T] = {
+    stageCold( ValueDelay[T](size, data) )(ctx)
+  }
   private[spatial] def shift_reg_alloc[T:Type:Bits](size: Int, init: Exp[T])(implicit ctx: SrcCtx): Sym[ShiftReg[T]] = {
     stageMutable( ShiftRegNew[T](size, init) )(ctx)
   }

@@ -14,6 +14,8 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
       s match {
         case lhs: Sym[_] =>
           lhs match {
+            case Def(ValueDelay(size, data)) =>
+              s"${quote(data)}_D${size}"
             case Def(ShiftRegNew(size, init)) => 
               if (size == 1) s"x${lhs.id}_latch"
               else s"x${lhs.id}_rt$size"
@@ -35,6 +37,16 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
 
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
+
+    case ValueDelay(size, data) => 
+      // emit(src"""val $lhs = Utils.delay($data, $size)""")
+      lhs.tp match {
+        case a:VectorType[_] =>
+          emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
+          emit(src"(0 until ${a.width}).foreach{i => ${lhs}(i).raw := chisel3.util.ShiftRegister(${data}(i).r, $size)}")
+        case _ =>
+          emit(src"""val $lhs = chisel3.util.ShiftRegister($data, $size)""")
+      }
 
     case ShiftRegNew(size, init) => 
       emitGlobalRetiming(src"val $lhs = Module(new Retimer($size, ${bitWidth(lhs.tp.typeArguments.head)}))")

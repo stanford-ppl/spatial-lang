@@ -1,18 +1,13 @@
 package spatial.codegen.pirgen
 
 import spatial.SpatialExp
-import spatial.analysis.SpatialMetadataExp
 import org.virtualized.SourceContext
 
 // PIR operations which need the rest of the Spatial IR mixed in
-trait PIRCommonExp extends PIRCommon with SpatialMetadataExp { self:SpatialExp =>
+trait PIRCommonExp extends PIRCommon { self: SpatialExp =>
   type Expr = Exp[_]
   type CUControl = ControlType
 
-  //def str(x: Expr) = x match {
-    //case Deff(d) => s"$x = $d"
-    //case _ => s"$x"
-  //}
   override def isConstant(x:Expr):Boolean = x match {
     case Const(c) => true
     case Param(c) => true 

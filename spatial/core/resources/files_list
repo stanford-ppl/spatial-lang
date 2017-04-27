@@ -2,7 +2,6 @@
 ./simgen/Controllers.scala
 ./simgen/Data.scala
 ./simgen/State.scala
-./files_list
 ./cppgen/datastructures/cppDeliteArraydouble.h
 ./cppgen/datastructures/cppRefint32_t.h
 ./cppgen/datastructures/static/cppList.h

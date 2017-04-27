@@ -46,80 +46,97 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 	def storeRaw(dst: RawBits): Unit = {
 		dst.raw := number
 	}
-	def cast(dst: FixedPoint, rounding: String = "truncate", saturating: String = "lazy"): Unit = {
-		val new_width = dst.d + dst.f
-		val new_raw = Wire(UInt(new_width.W))
+
+	def msb():Bool = number(d+f-1)
+
+	def cast(dst: FixedPoint, rounding: String = "truncate", saturating: String = "lazy", expect_neg: Bool = false.B, expect_pos: Bool = false.B): Unit = {
+		val has_frac = dst.f > 0
+		val has_dec = dst.d > 0
+		val up_frac = dst.f max 1
+		val up_dec = dst.d max 1
+		val tmp_frac = Wire(UInt(up_frac.W))
+		val new_frac = Wire(UInt(up_frac.W))
+		val new_dec = Wire(UInt(up_dec.W))
+		if (!has_frac) { tmp_frac := 0.U(1.W) }
+		if (!has_frac) { new_frac := 0.U(1.W) }
+		if (!has_dec) { new_dec := 0.U(1.W) }
 
 		// Compute new frac part
 		// val new_frac = Wire(UInt(dst.f.W))
 		val shave_f = f - dst.f
 		val shave_d = d - dst.d
-		val new_frac = if (dst.f < f) { // shrink decimals
-			rounding match {
-				case "truncate" => 
-					number(shave_f + dst.f - 1, shave_f)
-					// (0 until dst.f).map{ i => number(shave_f + i)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
-				case "unbiased" => 
-					val prng = Module(new PRNG(scala.math.abs(scala.util.Random.nextInt)))
-					prng.io.en := true.B
-					val salted = number + prng.io.output(shave_f-1,0)
-					salted(shave_f + dst.f -1, shave_f)
-				case "biased" =>
-					Mux(number(shave_f-1), number + 1.U(shave_f.W) << (shave_f-1), number) // NOT TESTED!!
-				case _ =>
-					0.U(dst.f.W)
-					// TODO: throw error
+		if (has_frac) {
+			if (dst.f < f) { // shrink decimals
+				rounding match {
+					case "truncate" => 
+						tmp_frac := number(shave_f + dst.f - 1, shave_f)
+						// (0 until dst.f).map{ i => number(shave_f + i)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
+					case "unbiased" => 
+						val prng = Module(new PRNG(scala.math.abs(scala.util.Random.nextInt)))
+						prng.io.en := true.B
+						val salted = number + prng.io.output(shave_f-1,0)
+						tmp_frac := salted(shave_f + dst.f -1, shave_f)
+					// case "biased" =>
+					// 	Mux(number(shave_f-1), number + 1.U(shave_f.W) << (shave_f-1), number(shave_f + dst.f - 1, shave_f)) // NOT TESTED!!
+					case _ =>
+						tmp_frac := 0.U(dst.f.W)
+						// TODO: throw error
+				}
+			} else if (dst.f > f) { // expand decimals
+				val expand = dst.f - f
+				tmp_frac := util.Cat(number(f-1,0), 0.U(expand.W))
+				// (0 until dst.f).map{ i => if (i < expand) {0.U} else {number(i - expand)*scala.math.pow(2,i).toInt.U}}.reduce{_+_}
+			} else { // keep same
+				tmp_frac := number(dst.f-1,0)
+				// (0 until dst.f).map{ i => number(i)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
 			}
-		} else if (dst.f > f) { // expand decimals
-			val expand = dst.f - f
-			util.Cat(number(f,0), 0.U(expand.W))
-			// (0 until dst.f).map{ i => if (i < expand) {0.U} else {number(i - expand)*scala.math.pow(2,i).toInt.U}}.reduce{_+_}
-		} else { // keep same
-			if (dst.f > 0) number(dst.f-1,0) else (0.U(1.W))
-			// (0 until dst.f).map{ i => number(i)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
 		}
 
-		// Compute new dec part
-		val new_dec = if (dst.d < d) { // shrink decimals
-			saturating match { 
-				case "lazy" =>
-					dst.debug_overflow := (0 until shave_d).map{i => number(d + f - 1 - i)}.reduce{_||_}
-					number(dst.d + f - 1, f)
-					// (0 until dst.d).map{i => number(f + i) * scala.math.pow(2,i).toInt.U}.reduce{_+_}
-				case "saturation" =>
-					val sign = number(f + d - 1)
-					// TODO: IMPLEMENT LOGIC FOR UNSIGNED NUMBERS
-					Mux(sign, 
-							Mux(number(f+d-1,f+d-1-shave_d) === chisel3.util.Cat((0 until shave_d).map{_ => true.B}), // TODO: NOT CONFIDENT AT ALL IN THE NEGATIVE SATURATION LOGIC
-									number(dst.d+f-1, f),
-									1.U((dst.d+f).W) << (dst.d+f-1)
-								 ),
-							Mux(number(f+d-1,f+d-1-shave_d) === 0.U(shave_d.W), 
-									number(dst.d+f-1, f),
-									chisel3.util.Cat((0 until dst.d+f-1).map{_ => true.B})
-								 )
-					)
-					0.U(dst.d.W)
-				case _ =>
-					0.U(dst.d.W)
+		// Compute new dec part (concatenated with frac part from before)
+		if (has_dec) {
+			if (dst.d < d) { // shrink decimals
+				saturating match { 
+					case "lazy" =>
+						dst.debug_overflow := (0 until shave_d).map{i => number(d + f - 1 - i)}.reduce{_||_}
+						new_frac := tmp_frac
+						new_dec := number(dst.d + f - 1, f)
+						// (0 until dst.d).map{i => number(f + i) * scala.math.pow(2,i).toInt.U}.reduce{_+_}
+					case "saturation" =>
+						val sign = number.msb
+						val overflow = (sign & expect_pos) | (~sign & expect_neg)
+					  val not_saturated = ( number(f+d-1,f+d-1-shave_d) === 0.U(shave_d.W) ) | ( ~number(f+d-1,f+d-1-shave_d) === 0.U(shave_d.W) )
+
+					  val saturated_frac = Mux(expect_pos, chisel3.util.Cat((0 until up_frac).map{_ => true.B}), Mux(expect_neg, 0.U(up_frac.W), 0.U(up_frac.W)))
+					  val saturated_dec = Mux(expect_pos, chisel3.util.Cat((0 until dst.d).map{_ => true.B}), Mux(expect_neg, 1.U((dst.d).W) << (dst.d-1), 1.U((dst.d).W) << (dst.d-1))) 
+
+					  new_frac := Mux(not_saturated & ~overflow, tmp_frac, saturated_frac)
+					  new_dec := Mux(not_saturated & ~overflow, util.Cat(number(dst.d + f - 1, f), new_frac), saturated_dec)
+					case _ =>
+						new_frac := tmp_frac
+						new_dec := 0.U(dst.d.W)
+				}
+			} else if (dst.d > d) { // expand decimals
+				val expand = dst.d - d
+				val sgn_extend = if (s) { number(d+f-1) } else {0.U(1.W)}
+				new_frac := tmp_frac
+				new_dec := util.Cat(util.Fill(expand, sgn_extend), number(f+d-1, f))
+				// (0 until dst.d).map{ i => if (i >= dst.d - expand) {sgn_extend*scala.math.pow(2,i).toInt.U} else {number(i+f)*scala.math.pow(2,i).toInt.U }}.reduce{_+_}
+			} else { // keep same
+				new_frac := tmp_frac
+				new_dec := number(f+d-1, f)
+				// (0 until dst.d).map{ i => number(i + f)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
 			}
-		} else if (dst.d > d) { // expand decimals
-			val expand = dst.d - d
-			val sgn_extend = if (s) { number(d+f-1) } else {0.U(1.W)}
-			util.Cat(util.Fill(expand, sgn_extend), number(f+d-1, f))
-			// (0 until dst.d).map{ i => if (i >= dst.d - expand) {sgn_extend*scala.math.pow(2,i).toInt.U} else {number(i+f)*scala.math.pow(2,i).toInt.U }}.reduce{_+_}
-		} else { // keep same
-			number(f+d-1, f)
-			// (0 until dst.d).map{ i => number(i + f)*scala.math.pow(2,i).toInt.U }.reduce{_+_}
+
 		}
 
-		val ftest = 0.U(4.W)
-		val dtest = 1.U(4.W)
-		if (dst.f > 0) {
-			dst.number := util.Cat(new_dec, new_frac)	
-		} else {
-			dst.number := new_dec
+		if (has_dec & has_frac) {
+			dst.number := chisel3.util.Cat(new_dec, new_frac)	
+		} else if (has_dec & !has_frac) {
+			dst.number := new_dec		
+		} else if (!has_dec & has_frac) {
+			dst.number := new_frac
 		}
+		
 		
 		// dst.number := util.Cat(new_dec, new_frac) //new_frac + new_dec*(scala.math.pow(2,dst.f).toInt.U)
 
@@ -135,7 +152,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		}
 	}
 
-	def +[T] (rawop: T): FixedPoint = {
+	def +[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FixedPoint = {
 		rawop match {
 			case op: FixedPoint => 
 				// Compute upcasted type and return type
@@ -143,20 +160,26 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
 				// Get upcasted operators
 				val full_result = Wire(new FixedPoint(upcasted_type))
+				val lhs = Wire(new FixedPoint(upcasted_type))
+				val rhs = Wire(new FixedPoint(upcasted_type))
 				// Do upcasted operation
-				full_result.number := this.number + op.number
+				this.cast(lhs)
+				op.cast(rhs)
+				full_result.number := lhs.number + rhs.number
 				// Downcast to result
 				val result = Wire(new FixedPoint(return_type))
-				full_result.cast(result)
+				val expect_neg = if (op.s | s) {lhs.msb & rhs.msb} else false.B
+				val expect_pos = if (op.s | s) {~lhs.msb & ~rhs.msb} else true.B
+				full_result.cast(result, rounding = rounding, saturating = saturating, expect_neg = expect_neg, expect_pos = expect_pos)
 				result
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this + op_cast
 		}
 	}
-	def <+>[T] (rawop: T): FixedPoint = {this.*(rawop, saturating = "saturation")}
+	def <+>[T] (rawop: T): FixedPoint = {this.+(rawop, saturating = "saturation")}
 
-	def -[T] (rawop: T): FixedPoint = {
+	def -[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FixedPoint = {
 		rawop match { 
 			case op: FixedPoint => 
 				// Compute upcasted type and return type
@@ -164,11 +187,17 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
 				// Get upcasted operators
 				val full_result = Wire(new FixedPoint(upcasted_type))
+				val lhs = Wire(new FixedPoint(upcasted_type))
+				val rhs = Wire(new FixedPoint(upcasted_type))
 				// Do upcasted operation
-				full_result.number := this.number - op.number
+				this.cast(lhs)
+				op.cast(rhs)
+				full_result.number := lhs.number - rhs.number
 				// Downcast to result
 				val result = Wire(new FixedPoint(return_type))
-				full_result.cast(result)
+				val expect_neg = if (op.s | s) {(lhs.msb & ~rhs.msb)} else true.B
+				val expect_pos = if (op.s | s) {(~lhs.msb & rhs.msb)} else false.B
+				full_result.cast(result, rounding = rounding, saturating = saturating, expect_neg = expect_neg, expect_pos = expect_pos)
 				result
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
@@ -176,7 +205,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 		}
 	}
-	def <->[T] (rawop: T): FixedPoint = {this.*(rawop, saturating = "saturation")}
+	def <->[T] (rawop: T): FixedPoint = {this.-(rawop, saturating = "saturation")}
 
 	def *[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FixedPoint = {
 		rawop match { 
@@ -193,7 +222,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 				// Downcast to result
 				val result = Wire(new FixedPoint(return_type))
-				full_result.cast(result, rounding = rounding)
+				val expect_neg = if (op.s | s) {(this.msb ^ op.msb)} else false.B
+				val expect_pos = if (op.s | s) {~(this.msb ^ op.msb)} else true.B
+				full_result.cast(result, rounding = rounding, saturating = saturating, expect_neg = expect_neg, expect_pos = expect_pos)
 				result
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
@@ -204,7 +235,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 	def <*&>[T] (rawop: T): FixedPoint = {this.*(rawop, rounding = "unbiased", saturating = "saturation")}
 	def <*>[T] (rawop: T): FixedPoint = {this.*(rawop, saturating = "saturation")}
 
-	def /[T] (rawop: T): FixedPoint = {
+	def /[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FixedPoint = {
 		rawop match { 
 			case op: FixedPoint => 
 				if (op.f + f == 0) {
@@ -227,7 +258,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 					}
 					// Downcast to result
 					val result = Wire(new FixedPoint(return_type))
-					full_result.cast(result)
+					val expect_neg = if (op.s | s) {(op.msb ^ this.msb)} else false.B
+					val expect_pos = if (op.s | s) {~(this.msb ^ op.msb)} else true.B
+					full_result.cast(result, rounding = rounding, saturating = saturating, expect_neg = expect_neg, expect_pos = expect_pos)
 					result					
 				}
 			case op: UInt => 
@@ -235,9 +268,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				this / op_cast
 		}
 	}
-	def /&[T] (rawop: T): FixedPoint = {this.*(rawop, rounding = "unbiased")}
-	def </&>[T] (rawop: T): FixedPoint = {this.*(rawop, rounding = "unbiased", saturating = "saturation")}
-	def </>[T] (rawop: T): FixedPoint = {this.*(rawop, saturating = "saturation")}
+	def /&[T] (rawop: T): FixedPoint = {this./(rawop, rounding = "unbiased")}
+	def </&>[T] (rawop: T): FixedPoint = {this./(rawop, rounding = "unbiased", saturating = "saturation")}
+	def </>[T] (rawop: T): FixedPoint = {this./(rawop, saturating = "saturation")}
 
 	def %[T] (rawop: T): FixedPoint = {
 		rawop match { 

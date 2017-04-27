@@ -42,6 +42,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case LongType() => "UInt(32.W)"
     case BoolType => "Bool()"
     case tp: VectorType[_] => src"Vec(${tp.width}, ${newWire(tp.typeArguments.head)})"
+    case tp: StructType[_] => src"UInt(${bitWidth(tp)}.W)"
+    case tp: IssuedCmd => src"UInt(${bitWidth(tp)}.W)"
     case tp: ArrayType[_] => src"Wire(Vec(999, ${newWire(tp.typeArguments.head)}"
     case _ => throw new NoWireConstructorException(s"$tp")
   }

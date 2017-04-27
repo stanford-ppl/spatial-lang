@@ -7,8 +7,8 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 192 192
 
   val tileSize1 = 64
   val tileSize2 = 64
-  val op = 1
-  val ip = 1
+  val op = 2
+  val ip = 2
 
   @virtualize
   def outerproduct[T:Type:Num](a: Array[T], b: Array[T]) = {

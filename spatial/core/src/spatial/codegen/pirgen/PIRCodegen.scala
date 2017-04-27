@@ -60,6 +60,13 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     def composed = PIRCodegen.this.composed
   }
 
+  lazy val printout = new PIRPrintout {
+    override val IR: PIRCodegen.this.IR.type = PIRCodegen.this.IR
+    def globals = PIRCodegen.this.globals
+    def decomposed = PIRCodegen.this.decomposed
+    def composed = PIRCodegen.this.composed
+  }
+
 
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
     globals.clear
@@ -73,6 +80,9 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     optimizer.run(block)
 
     if (SpatialConfig.enableSplitting) {
+      printout.mappingIn ++= optimizer.mapping
+      printout.run(block)
+
       splitter.mappingIn ++= optimizer.mapping
       splitter.run(block)
 

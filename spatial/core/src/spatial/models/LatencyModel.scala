@@ -146,6 +146,7 @@ trait LatencyModel {
     case _:ParLineBufferLoad[_] => 1
 
     // Shift Register
+    case ValueDelay(size, data) => 0 // wrong but it works???
     case _:ShiftRegNew[_] => 0
     case ShiftRegRead(reg@Op(ShiftRegNew(size,_))) => size
     case _:ShiftRegWrite[_] => 0

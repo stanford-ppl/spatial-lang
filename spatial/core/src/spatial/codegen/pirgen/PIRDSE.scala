@@ -5,8 +5,8 @@ import spatial.SpatialExp
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
 import java.io.PrintStream
+import java.nio.file.{Files, Paths}
 
 trait PIRDSE extends PIRSplitting with PIRRetiming {
   val IR: SpatialExp with PIRCommonExp
@@ -34,94 +34,95 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     dbg(s"Running design space exploration")
     this.silence()
 
-    val pwd = Config.genDir 
-    val dir = s"${pwd}/data"
+    val pwd = sys.env("SPATIAL_HOME")
+    val dir = s"$pwd/csvs"
+    Files.createDirectories(Paths.get(dir))
+
     val name = Config.name
-    val valid = new PrintStream(s"$dir/${name}.csv")
+    val valid = new PrintStream(s"$dir/$name.csv")
     val invalid = new PrintStream(s"$dir/${name}_invalid.csv")
 
-    val header = SplitStats()
-    invalid.println("Scl/Bus, SIns, VIns, Vouts, Compute, Read/Write, Stages, SRAMs")
-    valid.println  ("Scl/Bus, SIns, VIns, Vouts, Compute, Read/Write, Stages, SRAMs," + header.heading +
+    val header = Utilization()
+    invalid.println("Scl/Bus, SIns_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, VIns_PMU, VOuts_PMU")
+    valid.println  ("Scl/Bus, SIns_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, VIns_PMU, VOuts_PMU, " + header.heading +
                     ", #ALU,#SRAM,#Vin,#Vout, ALU Util, SRAM Util, VecIn Util, VecOut Util, " +
-                    ", SIn/CU, SOut/CU, VIn/CU, VOut/CU, SIn/Stage, VIn/Stage")
+                    ", SIn/Unit, SOut/Unit, VIn/Unit, VOut/Unit, SIn/Stage, VIn/Stage")
 
     // Total: ~38,000 combinations...
     var pass = 0
     var fail = 0
     var first: String = ""
 
-    for (vIns <- 2 to 6 ; // 5
-        vOuts <- 1 to 3 ; // 3 
-        readWrite <- 1 to 6 ; // 7
-        comps <- 0 to (10-readWrite) ; // 5
-        mmems <- vIns-2 to vIns ; // 3
+    for (vIns_PCU <- 2 to 6 ; // 5
+        vOuts_PCU <- 1 to 3 ; // 3
+        stages <- 0 to 10 ; // 10
         sbus <- List(1,2,4) ; // 3
-        sIns <- 2 to Math.min(vIns*sbus,16) by 2 ) { // 8
+        sIns_PCU <- 2 to Math.min(vIns_PCU*sbus,16) by 2;
+        vIns_PMU <- vIns_PCU to 6;
+        vOuts_PMU <- vOuts_PCU to 3;
+        sIns_PMU <- sIns_PCU to Math.min(vIns_PMU*sbus,16) by 2) {
+
     // 8  --- implies existence of a vIns*sbus : sIns crossbar (or some other selection mechanism)
-      val stages = comps + readWrite
       STAGES = stages
       SCALARS_PER_BUS = sbus
 
       var others = ArrayBuffer[CU]()
-      val pipe = SplitCost(sIn= sIns, vIn=vIns, vOut=vOuts, vLoc=1, comp=comps, write=readWrite, read=readWrite, mems=mmems)
-      val unit = SplitCost(sIn= sIns, vIn=vIns, vOut=vOuts, vLoc=1, comp=comps, write=readWrite, read=readWrite, mems=mmems)
+      val pcu = CUCost(sIn=sIns_PCU, vIn=vIns_PCU, vOut=vOuts_PCU, comp=stages)
+      val mcu = MUCost(sIn=sIns_PMU, vIn=vIns_PMU, vOut=vOuts_PMU, read=READ_WRITE, write=READ_WRITE)
+
+      val text: String = s"sbus=$sbus, sIn_PCU=$sIns_PCU, vIn_PCU=$vIns_PCU, vOut_PCU=$vOuts_PCU, comps=$stages, " +
+                         s"sIn_PMU=$sIns_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU, read/write=$READ_WRITE"
+
+      val settingsCSV: String = s"$sbus, $sIns_PCU, $vIns_PCU, $vOuts_PCU, $stages, $sIns_PMU, $vIns_PMU, $vOuts_PMU"
 
       try {
-        var nPipes = 0
-        var nUnits = 0
-        var stats = SplitStats()
+        var stats = Utilization()
 
         for (orig <- cus) {
-          val max = if (orig.isUnit) unit else pipe
-          val split = splitCU(orig, max, others)
+          val split = splitCU(orig, pcu, mcu, others)
           retime(split, others)
 
           for (cu <- split) {
-            val cost = getStats(cu, others)
-            if (cost.mems > max.mems)
-              throw new SplitException(s"$orig requires ${cost.mems} > ${max.mems} SRAMs after retiming")
+            val cost = getUtil(cu, others)
 
             stats += cost
-            if (cu.allStages.nonEmpty) {
-              if (cu.isUnit) nUnits += 1 else nPipes += 1
-            }
             others += cu
           }
         }
-        val nALUs = LANES * (nPipes + nUnits) * (comps + readWrite)
-        val nMems = mmems * (nPipes + nUnits)
-        val nVIns = vIns  * (nPipes + nUnits)
-        val nVOut = vOuts * (nPipes + nUnits)
+        val nPCUs = stats.pcus
+        val nPMUs = stats.pmus
+
+        val nALUs = (LANES * nPCUs * stages) + (nPMUs * READ_WRITE)
+        val nMems = nPMUs
+        val nVIns = (vIns_PCU * nPCUs) + (vIns_PMU * nPMUs)
+        val nVOut = (vOuts_PCU * nPCUs) + (vOuts_PMU * nPMUs)
 
         val aluUtil = stats.alus.toFloat / nALUs
         val memUtil = stats.mems.toFloat / nMems
-        val vInUtil = stats.mems.toFloat / nVIns
-        val vOutUtil = stats.mems.toFloat / nVOut
+        val vInUtil = stats.vecIn.toFloat / nVIns
+        val vOutUtil = stats.vecOut.toFloat / nVOut
 
-        val avgSIn  = stats.sclIn.toFloat / (nPipes + nUnits)
-        val avgSOut = stats.sclOut.toFloat / (nPipes + nUnits)
-        val avgVIn  = stats.vecIn.toFloat / (nPipes + nUnits)
-        val avgVOut = stats.vecOut.toFloat / (nPipes + nUnits)
+        val avgSIn  = stats.sclIn.toFloat / (nPCUs + nPMUs)
+        val avgSOut = stats.sclOut.toFloat / (nPCUs + nPMUs)
+        val avgVIn  = stats.vecIn.toFloat / (nPCUs + nPMUs)
+        val avgVOut = stats.vecOut.toFloat / (nPCUs + nPMUs)
 
         val sInPerStage = stats.sclIn.toFloat / (stats.alus.toFloat / LANES)
         val vInPerStage = stats.vecIn.toFloat / (stats.alus.toFloat / LANES)
 
-        if (pass == 0) {
-          first = s"sbus=$sbus, sIn=$sIns, vIn=$vIns, vOut=$vOuts, comps=$comps, read/write=$readWrite, mems=$mmems"
-        }
+        if (pass == 0) first = text
         pass += 1
 
-        System.out.println(s"sbus=$sbus, sIn=$sIns, vIn=$vIns, vOut=$vOuts, comps=$comps, read/write=$readWrite, mems=$mmems: PASS")
-        valid.println(s"$sbus, $sIns, $vIns, $vOuts, $comps, $readWrite, $stages, $mmems, " + stats.toString +
+        System.out.println(text + ": PASS")
+        valid.println(settingsCSV + ", " + stats.toString +
                       s",$nALUs,$nMems,$nVIns,$nVOut, $aluUtil, $memUtil, $vInUtil, $vOutUtil, " +
                       s",$avgSIn,$avgSOut,$avgVIn,$avgVOut, $sInPerStage, $vInPerStage")
       }
       catch {case e:SplitException =>
         fail += 1
-        System.out.println(s"sbus=$sbus, sIn=$sIns, vIn=$vIns, vOut=$vOuts, comps=$comps, read/write=$readWrite, mems=$mmems: FAIL")
-        System.out.println(e.msg)
-        invalid.println(s"$sbus, $sIns, $vIns, $vOuts, $comps, $readWrite, $stages, $mmems")
+        System.out.println(text + ": FAIL")
+        dbg(e.msg)
+        invalid.println(settingsCSV)
       }
     }
     valid.close()
