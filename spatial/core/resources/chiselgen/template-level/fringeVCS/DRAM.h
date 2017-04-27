@@ -246,10 +246,10 @@ void initDRAM() {
     ASSERT(dramSimHome[0] != NULL, "ERROR: DRAMSIM_HOME environment variable set to null string")
 
 
-    string memoryIni = string(dramSimHome) + string("/ini/DDR3_micron_32M_8B_x8_sg25E.ini");
+    string memoryIni = string(dramSimHome) + string("/ini/DDR3_micron_32M_8B_x4_sg125.ini");
     string systemIni = string(dramSimHome) + string("spatial.dram.ini");
     // Connect to DRAMSim2 directly here
-    mem = DRAMSim::getMemorySystemInstance("ini/DDR3_micron_32M_8B_x8_sg25E.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
+    mem = DRAMSim::getMemorySystemInstance("ini/DDR3_micron_32M_8B_x4_sg125.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
 
     uint64_t hardwareClockHz = 1 * 1e9; // Fixing Plasticine clock to 1 GHz
     mem->setCPUClockSpeed(hardwareClockHz);
