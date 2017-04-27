@@ -286,7 +286,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
     val lat = if (SpatialConfig.enableRetiming) {if (bodyLatency(sym).length == 0) {0} else {bodyLatency(sym).reduce{_+_}}}
               else {0}
-    if (isInner) emit(s"""val ${quote(sym)}_retime = ${lat}""")
+    emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
     emitModule(src"${sym}_sm", s"${smStr}", s"${constrArg}")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
     emit(src"""${sym}_done := ${sym}_sm.io.output.done""")
