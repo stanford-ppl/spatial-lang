@@ -5,11 +5,11 @@ object OuterProduct extends SpatialApp { //Regression (Dense) // Args: 76800 768
   import IR._
   type X = Int
 
-  val ip = 2 // 16
-  val op = 2 // 6
+  val ip = 16
+  val op = 6
 
-  val tileSize1 = 64
-  val tileSize2 = 64
+  val tileSize1 = 48
+  val tileSize2 = 48
 
   @virtualize
   def outerproduct[T:Type:Num](a: Array[T], b: Array[T]) = {

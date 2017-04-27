@@ -1033,6 +1033,7 @@ object BlockReduce2D extends SpatialApp {
   val N = 1920
   val tileSize = 16
 
+  @virtualize
   def blockreduce_2d[T:Type:Num](src: Array[T], rows: Int, cols: Int) = {
     val rowsIn = ArgIn[Int]; setArg(rowsIn, rows)
     val colsIn = ArgIn[Int]; setArg(colsIn, cols)
@@ -1108,6 +1109,7 @@ object ScatterGather extends SpatialApp {
   val offchip_dataSize = maxNumAddrs*6
   val P = param(1)
 
+  @virtualize
   def scattergather[T:Type:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
 
     val srcAddrs = DRAM[Int](maxNumAddrs)
