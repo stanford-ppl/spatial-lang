@@ -37,6 +37,9 @@ object ops {
     def r = {
       b
     }
+    def msb = {
+      b(b.getWidth-1)
+    }
 
     // override def connect (rawop: Data)(implicit sourceInfo: SourceInfo, connectionCompileOptions: chisel3.core.CompileOptions): Unit = {
     //   rawop match {
@@ -49,6 +52,10 @@ object ops {
 
     def < (c: FixedPoint): Bool = {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) < c
+    }
+
+    def ^ (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) ^ c
     }
 
     def <= (c: FixedPoint): Bool = {
@@ -118,6 +125,12 @@ object Utils {
           (regs(length-1) === 1.U).asInstanceOf[T]
         case s:UInt => 
           regs(0) := s
+          (length-1 until 0 by -1).map { i => 
+            regs(i) := regs(i-1)
+          }
+          (regs(length-1)).asInstanceOf[T]
+        case s:FixedPoint =>
+          regs(0) := s.r
           (length-1 until 0 by -1).map { i => 
             regs(i) := regs(i-1)
           }

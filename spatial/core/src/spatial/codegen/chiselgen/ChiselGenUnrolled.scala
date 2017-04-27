@@ -1,39 +1,18 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.UnrolledExp
+import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
+import spatial.analysis.SpatialMetadataExp 
 import spatial.SpatialExp
+import scala.collection.mutable.HashMap
+import spatial.targets.DE1._
 
 
-trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
+trait ChiselGenUnrolled extends ChiselGenController {
   val IR: SpatialExp
   import IR._
 
-
-  def emitParallelizedLoop(iters: Seq[Seq[Bound[Index]]], cchain: Exp[CounterChain], suffix: String = "") = {
-    val Def(CounterChainNew(counters)) = cchain
-
-    iters.zipWithIndex.foreach{ case (is, i) =>
-      if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
-        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0)")
-        emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
-      } else { // This level IS parallelized, index into the counters correctly
-        is.zipWithIndex.foreach{ case (iter, j) =>
-          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j)")
-          emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
-        }
-      }
-    }
-  }
-
-  def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]], suffix: String = "") {
-    valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
-      layer.zip(count).foreach{ case (v, c) =>
-        emit(src"val ${v}${suffix} = ${c}${suffix} < ${cchain}${suffix}_maxes(${i})")
-      }
-    }
-  }
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -77,16 +56,20 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
       if (styleOf(lhs) != StreamPipe) { 
         emitValids(cchain, iters, valids)
-        withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitParallelizedLoop(iters, cchain)
           emitBlock(func)
         }
       } else {
-        childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
-          emitValids(cchain, iters, valids, src"_copy$c")
+        if (childrenOf(lhs).length > 0) {
+          childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
+            emitValids(cchain, iters, valids, src"_copy$c")
+          }          
+        } else {
+          emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situatio with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
         }
-        withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+        withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
           childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
             emitParallelizedLoop(iters, cchain, src"_copy$c")
@@ -107,6 +90,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         }
 
       }
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain))
       controllerStack.pop()
 
     case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
@@ -117,13 +101,13 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       // Set up accumulator signals
       emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
-      if (SpatialConfig.enableRetiming) emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := ${bodyLatency(lhs).reduce{_+_}}.U""")
-      else emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := 1.U""")
+      val redmax = if (SpatialConfig.enableRetiming) {if (bodyLatency(lhs).length > 0) {bodyLatency(lhs).reduce{_+_}} else 1} else 1
+      emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := ${redmax}.U""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.reset := reset | ${quote(cchain)}_resetter""")
       emit(s"""${quote(lhs)}_redLoopCtr.io.input.saturate := true.B""")
       emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
-      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc & ${lhs}_redLoop_done""")
-      if (styleOf(lhs) == InnerPipe) {
+      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
+      if (levelOf(lhs) == InnerControl) {
         emit(src"val ${accum}_wren = ${lhs}_datapath_en & ~${lhs}_done & ${lhs}_redLoop_done")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
@@ -140,8 +124,10 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
         }
         emit(src"val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
       }
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain))
+      // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
       emit(src"//val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
-      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+      withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitParallelizedLoop(iters, cchain)
         emitBlock(func)
@@ -200,7 +186,7 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}_readEn := ${reader}_datapath_en & $en""")
+      emit(src"""${quote(fifo)}.io.pop := ${reader}_datapath_en & $en & ~${reader}_inhibitor""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) }""")
@@ -222,20 +208,32 @@ trait ChiselGenUnrolled extends ChiselCodegen with ChiselGenController {
       emit(src"""${fifo}_wdata := Vec(List(${datacsv}))""")
 
     case e@ParStreamRead(strm, ens) =>
-      val isAck = strm match {
+      strm match {
         case Def(StreamInNew(bus)) => bus match {
-          case BurstAckBus => true
-          case _ => false
+          case VideoCamera => 
+            emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
+          case SliderSwitch => 
+            emit(src"""val $lhs = io.switch_stream_in_data""")
+          case _ => 
+            val isAck = strm match { // TODO: Make this clean, just working quickly to fix bug for Tian
+              case Def(StreamInNew(bus)) => bus match {
+                case BurstAckBus => true
+                case _ => false
+              }
+              case _ => false
+            }
+            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
+            if (!isAck) {
+              emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
+              emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
+            } else {
+              emit(src"""// Do not read from dummy ack stream $strm""")        
+            }
+
+
         }
-        case _ => false
       }
-      emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
-      if (!isAck) {
-        emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
-        emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
-      } else {
-        emit(src"""// Do not read from dummy ack stream $strm""")        
-      }
+
 
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length

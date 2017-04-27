@@ -83,7 +83,7 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
         state := pipeSpinWait.U
       }.elsewhen( state === pipeSpinWait.U ) {
         io.output.done := false.B
-        state := pipeSpinWait.U;
+        state := pipeInit.U;
       } 
     }.otherwise {
       io.output.done := Mux(io.input.ctr_done, true.B, false.B)
@@ -96,10 +96,10 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
     val stateFSM = Module(new FF(32))
     val doneReg = Module(new SRFF())
 
-    stateFSM.io.input.data := io.input.nextState
-    stateFSM.io.input.init := io.input.initState
-    stateFSM.io.input.enable := io.input.enable
-    stateFSM.io.input.reset := reset
+    stateFSM.io.input(0).data := io.input.nextState
+    stateFSM.io.input(0).init := io.input.initState
+    stateFSM.io.input(0).enable := io.input.enable
+    stateFSM.io.input(0).reset := reset
     io.output.state := stateFSM.io.output.data
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable

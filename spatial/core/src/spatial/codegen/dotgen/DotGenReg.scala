@@ -2,6 +2,9 @@ package spatial.codegen.dotgen
 
 import argon.codegen.dotgen._
 import spatial.SpatialExp
+import argon.Config
+import spatial.{SpatialConfig, SpatialExp}
+
 
 trait DotGenReg extends DotCodegen {
   val IR: SpatialExp
@@ -24,6 +27,13 @@ trait DotGenReg extends DotCodegen {
     }
   }
 
+  def emitRetimeRead(reader:Sym[_], sr: Exp[_]) = {
+    emitEdge(sr, reader)
+  }
+  def emitRetimeWrite(writer:Sym[_], sr: Exp[_]) = {
+    emitEdge(writer, sr)
+  }
+
   def emitMemWrite(writer:Sym[_]) = {
     val LocalWriter(writes) = writer
     writes.foreach { case (mem, value, _, _) =>
@@ -36,11 +46,16 @@ trait DotGenReg extends DotCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case ArgInNew(init)  => emitVert(lhs)
-    case ArgOutNew(init) => emitVert(lhs)
+    case ArgInNew(init)  => emitVert(lhs, forceful=true)
+    case ArgOutNew(init) => emitVert(lhs, forceful=true)
     case RegNew(init)    => emitVert(lhs)
-    case RegRead(reg)    => emitMemRead(lhs)
-    case RegWrite(reg,v,en) => emitMemWrite(lhs)
+    case RegRead(reg)    => if (Config.dotDetail == 0) {emitMemRead(lhs)} else {
+                  emitVert(lhs)
+                  emitEdge(reg, lhs)
+                }
+    case RegWrite(reg,v,en) => if (Config.dotDetail == 0) {emitMemWrite(lhs)} else {
+                  emitEdge(v, reg)
+                }
     case _ => super.emitNode(lhs, rhs)
   }
 

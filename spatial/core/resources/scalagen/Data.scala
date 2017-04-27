@@ -102,6 +102,15 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
   def !==(that: Number) = Bit(this.value != that.value, this.valid && that.valid)
   def ===(that: Number) = Bit(this.value == that.value, this.valid && that.valid)
 
+  def <+>(that: Number) = Number.saturating(this.value + that.value, this.valid && that.valid, fmt)
+  def <->(that: Number) = Number.saturating(this.value - that.value, this.valid && that.valid, fmt)
+  def <*>(that: Number) = Number.saturating(this.value * that.value, this.valid && that.valid, fmt)
+  def </>(that: Number) = Number.saturating(this.value / that.value, this.valid && that.valid, fmt)
+  def *&(that: Number)  = Number.unbiased(this.value * that.value, this.valid && that.valid, fmt)
+  def /&(that: Number)  = Number.unbiased(this.value / that.value, this.valid && that.valid, fmt)
+  def <*&>(that: Number) = Number.unbiasedSat(this.value * that.value, this.valid && that.valid, fmt)
+  def </&>(that: Number) = Number.unbiasedSat(this.value / that.value, this.valid && that.valid, fmt)
+
   def <<(that: Number) = Number(this.fixValue << that.intValue, this.valid && that.valid, fmt)
   def >>(that: Number) = Number(this.fixValue >> that.intValue, this.valid && that.valid, fmt)
   def >>>(that: Number) = {
@@ -122,7 +131,7 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
     case that: Long => this === Number(that)
     case that: Float => this === Number(that)
     case that: Double => this === Number(that)
-    case that: Number => this === that && this.fmt == that.fmt
+    case that: Number => this === Number(that.value, that.valid, this.fmt)
     case _ => false
   }
   override def hashCode() = (value,fmt).hashCode()
@@ -147,31 +156,40 @@ case class NumberRange(override val start: Number, override val end: Number, ove
 }
 
 object Number {
-  def apply(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = fmt match {
+  private def create(value: BigDecimal, valid: Boolean, fmt: NumberFormat, saturating: Boolean, unbiased: Boolean) = fmt match {
     case FixedPoint(s,i,f) =>
       val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1 )
       val MIN_INTEGRAL_VALUE = BigDecimal( if (s) -(BigInt(1) << (i-1)) else BigInt(0) )
 
       val intValue = value * math.pow(2, f)
-      val number = new Number(BigDecimal(Math.floor(intValue.toDouble) / math.pow(2, f)), valid, fmt)
+      val number = if (unbiased) {
+        val rand = scala.util.Random.nextDouble() // uniform between 0 and 1
+        val added = intValue + rand
+        new Number(BigDecimal(added.toBigInt) / math.pow(2, f), valid, fmt)
+      }
+      else {
+        new Number(BigDecimal(intValue.toBigInt) / math.pow(2, f), valid, fmt) // Floor followed by divide
+      }
 
-      if (number.value < MIN_INTEGRAL_VALUE || number.value > MAX_INTEGRAL_VALUE) {
+      if (saturating && number.value < MIN_INTEGRAL_VALUE) {
+        new Number(MIN_INTEGRAL_VALUE, valid, fmt)
+      }
+      else if (saturating && number.value > MAX_INTEGRAL_VALUE) {
+        new Number(MAX_INTEGRAL_VALUE, valid, fmt)
+      }
+      else if (number.value < MIN_INTEGRAL_VALUE || number.value > MAX_INTEGRAL_VALUE) {
         val b = number.bits
         Number(b, fmt)
       }
       else number
 
-//      while (actualValue < MIN_INTEGRAL_VALUE) actualValue = (MAX_INTEGRAL_VALUE - (MIN_INTEGRAL_VALUE - actualValue - 1))
-
-//      println("value: " + actualValue)
-
-//      while (actualValue > MAX_INTEGRAL_VALUE) actualValue = (MIN_INTEGRAL_VALUE + (MAX_INTEGRAL_VALUE - actualValue + 1))
-
-//      println("value: " + actualValue)
-
-
     case FloatPoint(g,e) => new Number(value, valid, fmt)
   }
+
+  def unbiased(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = create(value,valid,fmt,saturating = false, unbiased = true)
+  def saturating(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = create(value,valid,fmt,saturating = true, unbiased = false)
+  def unbiasedSat(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = create(value,valid,fmt,saturating = true, unbiased = true)
+  def apply(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = create(value,valid,fmt,saturating = false, unbiased = false)
 
   def apply(value: Int): Number = Number(BigDecimal(value), true, IntFormat)
   def apply(value: Long): Number = Number(BigDecimal(value), true, LongFormat)

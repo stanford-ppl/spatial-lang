@@ -70,7 +70,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     scheduler.run(block)
     // -- Optimization
     optimizer.mapping ++= scheduler.mappingOut
-    //optimizer.run(block) //FIXME optimizer is removing necessary CUs
+    optimizer.run(block)
 
     if (SpatialConfig.enableSplitting) {
       splitter.mappingIn ++= optimizer.mapping

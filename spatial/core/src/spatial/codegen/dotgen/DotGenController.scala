@@ -2,6 +2,7 @@ package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
 import argon.codegen.dotgen._
+import argon.Config
 import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
@@ -26,10 +27,20 @@ trait DotGenController extends DotCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case rhs if isControlNode(lhs) =>
-      emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ emitVert(lhs); rhs.blocks.foreach(emitBlock) }
+    case Hwblock(func, isFrvr) =>
+      toggleEn()
+      emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
+        if (Config.dotDetail == 0) emitVert(lhs);
+        rhs.blocks.foreach(emitBlock) 
+      }
+      toggleEn()
 
-    //case Hwblock(func) =>
+    case rhs if isControlNode(lhs) =>
+      emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
+        if (Config.dotDetail == 0) emitVert(lhs);
+        rhs.blocks.foreach(emitBlock) 
+      }
+
 
     //case UnitPipe(en,func) =>
 

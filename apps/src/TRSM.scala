@@ -154,6 +154,7 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
   // val aligned_N = 192
   val margin = 1
 
+  @virtualize
   def trsm(B: Array[T], L: Array[T]) = {
 
     val OCB = DRAM[T](full_N, full_K)

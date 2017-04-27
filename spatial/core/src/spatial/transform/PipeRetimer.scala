@@ -14,8 +14,8 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
   override def shouldRun = !SpatialConfig.enablePIR
 
   def requiresRetiming(x: Exp[_]) = latencyModel.requiresRegisters(x)
-  def retimingDelay(x: Exp[_], inReduce: Boolean = false): Int = {
-    if (latencyModel.requiresRegisters(x)) latencyModel.latencyOf(x, inReduce).toInt else 0
+  def retimingDelay(x: Exp[_]): Int = {
+    if (latencyModel.requiresRegisters(x)) latencyOf(x).toInt else 0
   }
 
   // track register info for each retimed reader
@@ -35,10 +35,15 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
     val readers = mutable.HashMap[Exp[_], ReaderInfo]()
     // group readers by the size of the register they read from
     object RegSizeOrdering extends Ordering[Int] { def compare(a: Int, b: Int) = b compare a }
-    val readerSizes = mutable.SortedMap[Int, mutable.Set[Exp[_]]]()(RegSizeOrdering)
 
     // retime symbol readers, sharing allocated buffers when possible
     def retimeReaders[U](input: Exp[U]) {
+      def valueDelay[T](size: Int, data: Exp[T])(implicit ctx: SrcCtx): Exp[T] = data.tp match {
+        case Bits(bits) =>
+          value_delay_alloc[T](size, data)(data.tp, bits, ctx)
+        case _ => throw new Exception("Unexpected register type")
+
+      }
       def regAlloc[T](s: Exp[T], size: Int)(implicit ctx: SrcCtx): Exp[ShiftReg[T]] = s.tp match {
         case Bits(bits) =>
           val init = unwrap(bits.zero)(s.tp)
@@ -59,26 +64,30 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
       }
 
       // group and sort all the register sizes dependent symbols read from
-      val sizes = readers.map{ case (_, info) => info.size }.toList.sorted
+      val readerGroups: Map[Int,List[Exp[_]]] = readers.toList.groupBy(_._2.size).mapValues(_.map(_._1))
+
+      val sizes = readerGroups.keySet.toList.sorted
       // calculate register allocation sizes after coalescing
       val sizesCoalesced = (0 :: sizes).sliding(2).map{ case List(a, b) => b - a}.toList
       // map a reader's total register size to the size of the immediate register it will read from after coalescing
       val regSizeMap = sizes.zip(sizesCoalesced).toMap
-      readers.foreach{ case (reader, info) =>
-        readerSizes.getOrElseUpdate(regSizeMap(info.size), mutable.Set[Exp[_]]()) += reader
-      }
 
-      dbgs(c"Allocating registers for input $input")
+      dbgs(c"Allocating registers for node $input:")
       val regReads = mutable.ListBuffer[Exp[_]](input)
       // add sequential reads/writes between split registers after coalescing
-      readerSizes.foreach{ case (size, readersSet) =>
+      sizes.foreach{ totalSize =>
         implicit val ctx: SrcCtx = input.ctx
-        val reg = regAlloc(input, size)
-        regWrite(reg, f(regReads.last))
-        val read = regRead(reg)
-        readersSet.foreach{ reader =>
-          dbgs(c"  Register: $reg, size: $size, reader: $reader")
-          readers(reader).reg = reg
+
+        val readersList = readerGroups(totalSize)
+        val size = regSizeMap(totalSize) // Look up mapping for this size
+        // val reg = regAlloc(input, size)
+        // regWrite(reg, f(regReads.last))
+        val read = valueDelay(size, f(regReads.last))
+
+        readersList.foreach{ reader =>
+          // dbgs(c"  Register: ${str(reg)}, size: $size, reader: $reader")
+          dbgs(c"  Delay: $size, reader: $reader")
+          // readers(reader).reg = reg
           readers(reader).read = read
         }
         regReads += read
@@ -96,6 +105,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
 
     symLatency.foreach{case (s,l) => dbgs(c"  ${str(s)} [$l]")}
 
+    dbgs("Calculating delays for each node: ")
     // enumerate symbol reader dependencies and calculate required buffer sizes
     val inputRetiming = mutable.HashMap[Exp[_], InputInfo]()
     stms.foreach{ case TP(reader, d) =>
@@ -103,8 +113,14 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
       // Ignore non-bit based types and constants
       val inputs = exps(d).filterNot(isGlobal(_)).filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
       val inputLatencies = inputs.map{sym => delayOf(sym) }
+
+      val criticalPath = if (inputLatencies.isEmpty) 0 else inputLatencies.max
+
+      dbgs("  " + inputs.zip(inputLatencies).map{case (in, latency) => c"$in: $latency"}.mkString(", ") + s" (max: $criticalPath)")
+
       // calculate buffer register size for each input symbol
-      val sizes = inputs.zip(inputLatencies).map{case (in, latency) => retimingDelay(in) + inputLatencies.max - latency }
+      val sizes = inputs.zip(inputLatencies).map{case (in, latency) => retimingDelay(in) + criticalPath - latency }
+
       // discard symbols for which no register insertion is needed
       val inputsSizes = inputs.zip(sizes).filter{ case (_, size) => size != 0 }
       inputsSizes.foreach{ case (input, size) =>

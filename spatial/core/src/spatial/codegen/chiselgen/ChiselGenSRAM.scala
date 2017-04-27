@@ -17,12 +17,33 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.remap(tp)
   }
 
+  // Emit an SRFF that will block a counter from incrementing after the counter reaches the max
+  //  rather than spinning even when there is retiming and the surrounding loop has a delayed
+  //  view of the counter done signal
+  protected def emitInhibitor(lhs: Exp[_], cchain: Option[Exp[_]]): Unit = {
+    if (SpatialConfig.enableRetiming) {
+      emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF())")
+      emitGlobalModule(src"${lhs}_inhibit.io.input.asyn_reset := reset")
+      emitGlobalModule(src"val ${lhs}_inhibitor = ${lhs}_inhibit.io.output.data")
+      if (cchain.isDefined) {
+        emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
+      } else {
+        emit(src"${lhs}_inhibit.io.input.set := Utils.delay(${lhs}_en, 1 + ${lhs}_retime)")
+      }
+      emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_rst_en")
+    } else {
+      emitGlobalModule(src"val ${lhs}_inhibitor = false.B")      
+    }
+  }
+
   protected def newWire(tp: Type[_]): String = tp match {
     case FixPtType(s,d,f) => src"new FixedPoint($s, $d, $f)"
     case IntType() => "UInt(32.W)"
     case LongType() => "UInt(32.W)"
     case BoolType => "Bool()"
     case tp: VectorType[_] => src"Vec(${tp.width}, ${newWire(tp.typeArguments.head)})"
+    case tp: StructType[_] => src"UInt(${bitWidth(tp)}.W)"
+    case tp: IssuedCmd => src"UInt(${bitWidth(tp)}.W)"
     case tp: ArrayType[_] => src"Wire(Vec(999, ${newWire(tp.typeArguments.head)}"
     case _ => throw new NoWireConstructorException(s"$tp")
   }
@@ -180,14 +201,22 @@ trait ChiselGenSRAM extends ChiselCodegen {
       nbufs.foreach{ case (mem, i) => 
         val readers = readersOf(mem)
         val writers = writersOf(mem)
-        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
-        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
+        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }.toList
+        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }.toList
         // Console.println(s"working on $mem $i $readers $readPorts $writers $writePorts")
         // Console.println(s"${readPorts.map{case (_, readers) => readers}}")
         // Console.println(s"innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
         // Console.println(s"middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
         // Console.println(s"outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
-        val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
+        val readCtrls = readPorts.map{case (port, readers) =>
+          val readTops = readers.flatMap{a => topControllerOf(a, mem, i) }
+          readTops.headOption.getOrElse{throw new Exception(u"Memory $mem, instance $i, port $port had no read top controllers") }
+        }
+        if (readCtrls.isEmpty) throw new Exception(u"Memory $mem, instance $i had no readers?")
+
+        // childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
+
+        val allSiblings = childrenOf(parentOf(readCtrls.head.node).get)
         val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
         val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
         val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }

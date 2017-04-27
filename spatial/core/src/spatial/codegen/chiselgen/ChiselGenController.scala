@@ -6,7 +6,7 @@ import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
 
-trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
+trait ChiselGenController extends ChiselGenCounter{
   val IR: SpatialExp
   import IR._
 
@@ -31,6 +31,37 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     func
 
     iters.indices.foreach{_ => close("}}}") }
+  }
+
+  def emitParallelizedLoop(iters: Seq[Seq[Bound[Index]]], cchain: Exp[CounterChain], suffix: String = "") = {
+    val Def(CounterChainNew(counters)) = cchain
+
+    iters.zipWithIndex.foreach{ case (is, i) =>
+      if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
+        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0)")
+        emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
+      } else { // This level IS parallelized, index into the counters correctly
+        is.zipWithIndex.foreach{ case (iter, j) =>
+          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j)")
+          emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
+        }
+      }
+    }
+  }
+
+  def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]], suffix: String = "") {
+    valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
+      layer.zip(count).foreach{ case (v, c) =>
+        emit(src"val ${v}${suffix} = ${c}${suffix} < ${cchain}${suffix}_maxes(${i})")
+      }
+    }
+  }
+  def emitValidsDummy(iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]], suffix: String = "") {
+    valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
+      layer.zip(count).foreach{ case (v, c) =>
+        emit(src"val ${v}${suffix} = true.B")
+      }
+    }
   }
 
   protected def computeSuffix(s: Bound[_]): String = {
@@ -161,6 +192,20 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     }
   }
 
+  def ctrIsForever(cchain: Exp[_]):Boolean = {
+    var isForever = false
+    cchain match {
+      case Def(CounterChainNew(ctrs)) => 
+        ctrs.foreach{c => c match {
+          case Def(Forever()) => 
+            isForever = true
+          case _ => 
+        }}
+      }
+    isForever
+
+  }
+
   def getStreamEnablers(c: Exp[Any]): String = {
       // If we are inside a stream pipe, the following may be set
       val readiers = listensTo(c).distinct.map { fifo => 
@@ -284,25 +329,29 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
     /* Counter Signals for controller (used for determining done) */
     if (smStr != "Parallel" & smStr != "Streampipe") {
       if (cchain.isDefined) {
-        emitGlobalWire(src"""val ${cchain.get}_en = Wire(Bool())""") 
-        sym match { 
-          case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
-          case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
-            if (isStreamChild(sym)) {
-              emit(src"${cchain.get}_en := ${sym}_datapath_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
-            } else {
-              emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
-            } 
-        }
-        emit(src"""// ---- Counter Connections for $smStr ${sym} (${cchain.get}) ----""")
-        val ctr = cchain.get
-        if (isStreamChild(sym)) {
-          emit(src"""${ctr}_resetter := ${sym}_done // Do not use rst_en for stream kiddo""")
-        } else {
-          emit(src"""${ctr}_resetter := ${sym}_rst_en""")
-        }
-        if (isInner) { 
-          emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1 /*+ ${sym}_retime */) // Already has redloopctr""")
+        if (!ctrIsForever(cchain.get)) {
+          emitGlobalWire(src"""val ${cchain.get}_en = Wire(Bool())""") 
+          sym match { 
+            case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
+            case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
+              if (isStreamChild(sym)) {
+                emit(src"${cchain.get}_en := ${sym}_datapath_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
+              } else {
+                emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
+              } 
+          }
+          emit(src"""// ---- Counter Connections for $smStr ${sym} (${cchain.get}) ----""")
+          val ctr = cchain.get
+          if (isStreamChild(sym)) {
+            emit(src"""${ctr}_resetter := ${sym}_done // Do not use rst_en for stream kiddo""")
+          } else {
+            emit(src"""${ctr}_resetter := ${sym}_rst_en""")
+          }
+          if (isInner) { 
+            val dlay = if (SpatialConfig.enableRetiming) {src"${sym}_retime"} else "1"
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, $dlay)""")
+          }
+
         }
       } else {
         emit(src"""// ---- Single Iteration for $smStr ${sym} ----""")
@@ -400,7 +449,8 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
-      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
+      withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)
       }
@@ -410,7 +460,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
-      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+      withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)
       } 
@@ -420,7 +470,7 @@ trait ChiselGenController extends ChiselCodegen with ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters))
-      withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
+      withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitNestedLoop(cchain, iters){ emitBlock(func) }
       }

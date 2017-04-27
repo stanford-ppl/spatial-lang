@@ -551,11 +551,13 @@ trait PIRAllocation extends PIRTraversal {
         case Right(dmems) if dmems.size==1 => dmems
         case Right(dmems) => throw new Exception(s"PIR don't support struct load/gather ${qdef(fringe)}") 
       }
-      dmems.foreach { case (field, dmem) =>
-        val bus = CUVector(s"${quote(dmem)}_${quote(fringe)}_$field")
-        cu.fringeVectors += field -> bus
-        globals += bus
-        readerCUs.foreach { _.memMap(dmem).writePort = Some(bus) }
+      dmems.foreach { 
+        case ("ack", _) => //PIR doesn't uses contorl in spatial
+        case (field, dmem) =>
+          val bus = CUVector(s"${quote(dmem)}_${quote(fringe)}_$field")
+          cu.fringeVectors += field -> bus
+          globals += bus
+          readerCUs.foreach { _.memMap(dmem).writePort = Some(bus) }
       }
     }
     streamOuts.foreach { streamOut =>

@@ -82,6 +82,16 @@ trait LatencyModel {
     case FixRsh(_,_) => true
     case FixURsh(_,_) => true
     case FixAbs(_)    => true
+    case FixConvert(_) => true
+
+    case SatAdd(x,y) => true
+    case SatSub(x,y) => true
+    case SatMul(x,y) => true
+    case SatDiv(x,y) => true
+    case UnbMul(x,y) => true
+    case UnbDiv(x,y) => true
+    case UnbSatMul(x,y) => true
+    case UnbSatDiv(x,y) => true
 
     case Mux(_,_,_) => true
     case Min(_,_)   => true
@@ -168,6 +178,16 @@ trait LatencyModel {
     case FixRsh(_,_) => 1 // TODO
     case FixURsh(_,_) => 1 // TODO
     case FixAbs(_)    => 1
+
+    // Saturating and/or unbiased math
+    case SatAdd(x,y) => 1
+    case SatSub(x,y) => 1
+    case SatMul(x,y) => 1
+    case SatDiv(x,y) => 1
+    case UnbMul(x,y) => 1
+    case UnbDiv(x,y) => 1
+    case UnbSatMul(x,y) => 1
+    case UnbSatDiv(x,y) => 1
 
     // Floating point math
     // TODO: Floating point for things besides single precision

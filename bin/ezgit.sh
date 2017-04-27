@@ -9,7 +9,15 @@
 #   arg 2 = upper branch name
 #   arg 3 = Run regression on higher branch? (1 or 0)
 
-
+function conflict {
+	# Delete those god damn lock files
+	if [[ -f .git/modules/argon/index.lock ]]; then
+		rm .git/modules/argon/index.lock
+	fi
+	if [[ -f .git/index.lock ]]; then 
+		rm .git/index.lock
+	fi
+}
 
 echo "=========================="
 echo "Merging $1 --> $2"
@@ -62,11 +70,11 @@ currentbranch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 # git commit -m "auto merge"
 # git push
 
-
 # Merge lower into higher
 echo "=========================="
 echo "Checkout $2 for argon"
 echo "=========================="
+conflict
 cd argon
 git stash
 git checkout $2
@@ -85,6 +93,7 @@ echo "=========================="
 echo "Checkout $2 for spatial-lang"
 echo "=========================="
 cd ../
+conflict
 git stash
 git checkout $2
 git pull
@@ -113,15 +122,18 @@ fi
 echo "=========================="
 echo "Checkout $currentbranch for argon"
 echo "=========================="
+conflict
 cd argon
 git checkout $currentbranch
 echo "=========================="
 echo "Checkout $current for spatial-lang"
 echo "=========================="
 cd ..
+conflict
 git checkout $currentbranch
 cd argon
 git stash pop
 cd ..
+conflict
 git stash pop
 rm /tmp/pub

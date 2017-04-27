@@ -112,7 +112,7 @@ protected trait DotGenSpatial extends DotCodegen with DotFileGen
   with DotGenCounter with DotGenReg with DotGenSRAM with DotGenFIFO
   with DotGenIfThenElse with DotGenController with DotGenMath with DotGenText
   with DotGenDRAM with DotGenHostTransfer with DotGenUnrolled with DotGenVector
-  with DotGenArray with DotGenAlteraVideo with DotGenStream {
+  with DotGenArray with DotGenAlteraVideo with DotGenStream with DotGenRetiming{
 
   override val IR: SpatialCompiler
 
@@ -294,9 +294,9 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     if (SpatialConfig.enableSim)   passes += scalagen
     if (SpatialConfig.enableSynth) passes += cppgen
     if (SpatialConfig.enableSynth) passes += chiselgen
+    if (SpatialConfig.enableDot)   passes += dotgen
     if (SpatialConfig.enablePIR)   passes += pirgen
     if (SpatialConfig.enableTree)  passes += treegen
-    if (SpatialConfig.enableDot)   passes += dotgen
   }
 }
 
