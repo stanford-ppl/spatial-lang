@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# declare an array called array and define 3 vales
+files=( "DotProduct" "OuterProduct" )
+#files=( "OuterProduct" )
+for app in "${files[@]}"
+do
+  echo $app
+  rm -r gen/$app
+  bin/spatial $app --synth --naming 1
+
+  cd gen/$app/
+  make vcs
+  source run.sh 6400 > sim.log
+  grep "Design ran for" sim.log
+  grep "PASS" sim.log
+  cd ../../
+done

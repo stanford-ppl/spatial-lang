@@ -34,7 +34,7 @@ WHERE
 
 */
 
-object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 384
+object TPCHQ6 extends SpatialApp { //Regression (Dense) // Args: 384
   import IR._
 
   type FT = Int
