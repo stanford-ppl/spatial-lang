@@ -8,8 +8,6 @@ trait PIRRetiming extends PIRTraversal {
   val IR: SpatialExp with PIRCommonExp
   import IR._
 
-  var STAGES: Int = 10
-
   /**
    * For all vector inputs for each CU, if inputs have mismatched delays or come
    * from other stages (and LCA is not a stream controller), put them through a retiming FIFO

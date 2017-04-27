@@ -131,13 +131,12 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case mem: CUMemory =>
       dbgs(s"Emitting mem:$mem")
       val decl = mutable.ListBuffer[String]()
-      val lhs = mem.cu.style match {
-        case _:FringeCU => s"""CU.mcfifos += "${getField(mem.mem).get}" -> """
-        case _ => s"val ${mem.name} = " 
+      val lhs = s"val ${mem.name} = " 
+      if (mem.cu.style.isInstanceOf[FringeCU]) {
+        decl += s"""name="${getField(mem.mem).get}""""
       }
-      
       if (mem.mode!=ScalarBufferMode) {
-        decl += s"""size = ${mem.size}"""
+        decl += s"""size=${mem.size}"""
       }
 
       mem.banking match {
@@ -203,7 +202,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
   def emitFringeVectors(cu:ComputeUnit) = {
     if (isFringe(cu.pipe)) {
       cu.fringeVectors.foreach { case (field, vec) =>
-        emit(s"""CU.mcvecs += "$field" -> ${quote(vec)}""")
+        emit(s"""CU.newVout("$field", ${quote(vec)})""")
       }
     }
   }

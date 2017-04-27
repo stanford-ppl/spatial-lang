@@ -149,7 +149,7 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 1
             tileC(ii,jj) = prev + prod.value // Is a unit pipe that should be recognized as accum
           }
         }
-        c(i::i+bm, j::j+bn par 1) store tileC // Writes M*N times
+        c(i::i+bm, j::j+bn) store tileC // Writes M*N times
       }
     }
     getMem(c)
