@@ -37,6 +37,9 @@ object ops {
     def r = {
       b
     }
+    def msb = {
+      b(b.getWidth-1)
+    }
 
     // override def connect (rawop: Data)(implicit sourceInfo: SourceInfo, connectionCompileOptions: chisel3.core.CompileOptions): Unit = {
     //   rawop match {
@@ -133,6 +136,13 @@ object Utils {
           }
           (regs(length-1)).asInstanceOf[T]
       }
+    }
+  }
+
+  def ShiftRegister[T <: chisel3.core.Data](data: T, size: Int):T = {
+    data match {
+      case d: UInt => chisel3.util.ShiftRegister(data, size)
+      case d: FixedPoint => chisel3.util.ShiftRegister(data, size)
     }
   }
 

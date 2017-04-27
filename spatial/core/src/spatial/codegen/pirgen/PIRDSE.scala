@@ -173,7 +173,6 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
       result
     }
 
-    Console.print("Writing results to file...")
 
     val pwd = sys.env("SPATIAL_HOME")
     val dir = s"$pwd/csvs"
@@ -182,6 +181,8 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     val name = Config.name
     val valid = new PrintStream(s"$dir/$name.csv")
     val invalid = new PrintStream(s"$dir/${name}_invalid.csv")
+
+    Console.print(s"Writing results to file $dir/$name.csv...")
 
     val header = Utilization()
     invalid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU")
