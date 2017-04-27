@@ -15,7 +15,7 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
         case lhs: Sym[_] =>
           lhs match {
             case Def(ValueDelay(size, data)) =>
-              s"${data.id}_D${size}"
+              s"${quote(data)}_D${size}"
             case Def(ShiftRegNew(size, init)) => 
               if (size == 1) s"x${lhs.id}_latch"
               else s"x${lhs.id}_rt$size"
