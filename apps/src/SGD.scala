@@ -39,10 +39,12 @@ object SGD extends SpatialApp { // Regression (Dense) // Args: 40 32 0.0001
 
   type T = FixPt[TRUE, _16, _16]
   val modelSize = 16
-  val tileSize = 16
-  val innerPar = 1
-  val outerPar = 1
   val margin = 1
+
+  val innerPar = 16
+  val outerPar = 12
+
+  val tileSize = 192
 
   @virtualize
   def sgd_onept[T: Type : Num](x_in: Array[T], y_in: Array[T], alpha: T, epochs: Int, nn: Int) = {

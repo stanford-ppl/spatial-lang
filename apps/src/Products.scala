@@ -5,10 +5,11 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 192 192
   import IR._
   type X = Int
 
-  val tileSize1 = 64
-  val tileSize2 = 64
-  val op = 1
-  val ip = 1
+  val ip = 16
+  val op = 6
+
+  val tileSize1 = 48
+  val tileSize2 = 48
 
   @virtualize
   def outerproduct[T:Type:Num](a: Array[T], b: Array[T]) = {
@@ -83,9 +84,10 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1270
 
   type X = Int
 
-  val tileSize = 320
-  val innerPar = 2
-  lazy val outerPar = 4
+  val innerPar = 16
+  val outerPar = 9
+
+  val tileSize = 2000
 
   @virtualize
   def dotproduct[T:Type:Num](aIn: Array[T], bIn: Array[T]): T = {
@@ -107,13 +109,13 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1270
 
     Accel {
       out := Reduce(Reg[T](0.to[T]))(N by B par P1){i =>
-        val ts = Reg[Int](0)
-        ts := min(B, N-i)
+        //val ts = Reg[Int](0)
+        //ts := min(B, N-i)
         val aBlk = SRAM[T](B)
         val bBlk = SRAM[T](B)
         Parallel {
-          aBlk load a(i::i+ts.value par 16)
-          bBlk load b(i::i+ts.value par 16)
+          aBlk load a(i::i+B par 16)
+          bBlk load b(i::i+B par 16)
         }
         Reduce(Reg[T](0.to[T]))(ts.value par P2){ii => aBlk(ii) * bBlk(ii) }{_+_}
       }{_+_}
