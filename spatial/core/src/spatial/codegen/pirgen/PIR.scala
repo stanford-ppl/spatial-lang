@@ -32,7 +32,7 @@ trait PIR {
   case object SequentialCU extends CUStyle
   case object MetaPipeCU extends CUStyle
   case object StreamCU extends CUStyle
-  case class MemoryCU(i:Int) extends CUStyle // i: dispatch number
+  case class MemoryCU(reader:Expr) extends CUStyle // i: dispatch number
   case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 
   // --- Local memory modes
@@ -287,13 +287,12 @@ trait PIR {
     val pipe: Expr
     var style: CUStyle
     var parent: Option[AbstractComputeUnit] = None
-    var innerPar:Option[Int] = None
-    def isUnit = style match { // TODO: remove this. This should no longer be used
+    var innerPar: Option[Int] = None
+    /*def isUnit = style match { // TODO: remove this. This should no longer be used
       case MemoryCU(i) => throw new Exception(s"isUnit is not defined on MemoryCU")
       case FringeCU(dram, mode) => throw new Exception(s"isUnit is not defined on FringeCU")
       case _ => innerPar == Some(1)
-    }
-    def isMemoryUnit = false //cuType == BurstTransfer || cuType == RandomTransfer
+    }*/
 
     var cchains: Set[CUCChain] = Set.empty
     val memMap: mutable.Map[Expr, CUMemory] = mutable.Map.empty
@@ -344,7 +343,7 @@ trait PIR {
   type CU = ComputeUnit
   case class ComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends AbstractComputeUnit {
     val writeStages   = mutable.HashMap[Seq[CUMemory], mutable.ArrayBuffer[Stage]]()
-    val readStages   = mutable.HashMap[Seq[CUMemory], mutable.ArrayBuffer[Stage]]()
+    val readStages    = mutable.HashMap[Seq[CUMemory], mutable.ArrayBuffer[Stage]]()
     val computeStages = mutable.ArrayBuffer[Stage]()
     val controlStages = mutable.ArrayBuffer[Stage]()
 
@@ -355,6 +354,12 @@ trait PIR {
                                      computeStages.iterator ++
                                      controlStages.iterator
     var isDummy: Boolean = false
+    def lanes: Int = style match {
+      case _:MemoryCU => 1
+      case _:FringeCU => 0
+      case _ => if (innerPar.isDefined) innerPar.get else 1
+    }
+    def allParents: Iterable[CU] = parentCU ++ parentCU.map(_.allParents).getOrElse(Nil)
   }
 
   type PCU = PseudoComputeUnit

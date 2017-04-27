@@ -119,7 +119,7 @@ trait PIRHacks extends PIRTraversal {
   def counterHack() {
     val cus = mappingOut.values.flatten.flatten.toList
     for (cu <- cus) {
-      if (!cu.isUnit && (cu.allStages.nonEmpty || cu.isDummy)) {
+      if (cu.lanes > 1 && (cu.allStages.nonEmpty || cu.isDummy)) {
         cu.cchains.foreach{
           case CChainInstance(name, ctrs) =>
             val innerCtr = ctrs.last
