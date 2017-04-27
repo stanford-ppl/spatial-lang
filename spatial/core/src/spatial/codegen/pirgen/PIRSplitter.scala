@@ -16,17 +16,17 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
   val mappingOut = mutable.HashMap[Expr, List[List[CU]]]()
 
   lazy val PCUMax = CUCost(
-    sIn=SpatialConfig.sIn,
-    sOut=SpatialConfig.sOut,
-    vIn=SpatialConfig.vIn,
-    vOut=SpatialConfig.vOut,
+    sIn=SpatialConfig.sIn_PCU,
+    sOut=SpatialConfig.sOut_PCU,
+    vIn=SpatialConfig.vIn_PCU,
+    vOut=SpatialConfig.vOut_PCU,
     comp=STAGES
   )
   lazy val PMUMax = MUCost(
-    sIn=SpatialConfig.sIn,
-    sOut=SpatialConfig.sOut,
-    vIn=SpatialConfig.vIn,
-    vOut=SpatialConfig.vOut,
+    sIn=SpatialConfig.sIn_PMU,
+    sOut=SpatialConfig.sOut_PMU,
+    vIn=SpatialConfig.vIn_PMU,
+    vOut=SpatialConfig.vOut_PMU,
     read=READ_WRITE,
     write=READ_WRITE
   )

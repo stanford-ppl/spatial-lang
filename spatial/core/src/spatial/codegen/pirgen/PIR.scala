@@ -363,6 +363,8 @@ trait PIR {
       case _ => if (innerPar.isDefined) innerPar.get else 1
     }
     def allParents: Iterable[CU] = parentCU ++ parentCU.map(_.allParents).getOrElse(Nil)
+    def isPMU = style.isInstanceOf[MemoryCU]
+    def isPCU = !isPMU && !style.isInstanceOf[FringeCU]
   }
 
   type PCU = PseudoComputeUnit

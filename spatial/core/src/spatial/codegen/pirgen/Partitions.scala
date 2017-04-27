@@ -17,7 +17,6 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
 
   abstract class Partition {
     var cchains: Set[CUCChain] = Set[CUCChain]()
-    recomputeCChains(false)
 
     def nonEmpty: Boolean
     def allStages: Iterable[Stage]
@@ -36,6 +35,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     var cstages: List[Stage] = compute.toList
     val isEdge: Boolean = edge
     val ctrl: Option[CUCChain] = cc
+    recomputeCChains(false)
 
     def nonEmpty = cstages.nonEmpty
     def allStages = cstages
@@ -80,6 +80,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       rstages += mems -> mutable.ArrayBuffer[Stage]()
       rstages(mems) ++= stages
     }
+    recomputeCChains(false)
 
     def nonEmpty = wstages.nonEmpty || rstages.nonEmpty
 
@@ -262,7 +263,8 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     pmus:   Int = 0,    // Memory units
     ucus:   Int = 0,    // Unit compute
     switch: Int = 0,    // Parent controllers in switches
-    stages: Int = 0,    // Used stages (ignores parallelization)
+    addr:   Int = 0,    // Used address stages
+    stages: Int = 0,    // Used compute stages (ignores parallelization)
     alus:   Int = 0,    // ALUs
     mems:   Int = 0,    // SRAMs
     sclIn:  Int = 0,    // Scalar Inputs
@@ -275,6 +277,8 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       pmus   = this.pmus + that.pmus,
       ucus   = this.ucus + that.ucus,
       switch = this.switch + that.switch,
+      addr   = this.addr + that.addr,
+      stages = this.stages + that.stages,
       alus   = this.alus + that.alus,
       mems   = this.mems + that.mems,
       sclIn  = this.sclIn + that.sclIn,
@@ -290,18 +294,20 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
 
   def getUtil(cu: CU, others: Iterable[CU]): Utilization = cu.style match {
     case _:MemoryCU =>
+      val vIn = nVectorIns(cu, others)
+      val vOut = nVectorOuts(cu)
       Utilization(
         pmus   = 1,
         mems   = 1,
-        stages = nUsedStages(cu),
+        addr   = nUsedStages(cu),
         alus   = nUsedALUs(cu),
         sclIn  = nScalarIn(cu),
         sclOut = nScalarOut(cu),
-        vecIn  = nVectorIns(cu, others),
-        vecOut = nVectorOuts(cu)
+        vecIn  = Math.max(1, vIn),
+        vecOut = Math.max(1, vOut)
       )
 
-    case _:FringeCU => Utilization()  // TODO
+    case _:FringeCU => Utilization(ucus = 1)  // TODO
 
     case _ =>
       val nChildren = others.count{_.parent.contains(cu)}
@@ -360,12 +366,137 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   def nVectorOuts(groups: BusGroups, countScalars: Boolean = true): Int = groups.vectors.size
 
   def reportUtil(stats: Utilization) {
-    val Utilization(pcus, pmus, ucus, switch, stages, alus, mems, sclIn, sclOut, vecIn, vecOut) = stats
-    dbg(s"  pcus: $pcus, pmus: $pmus, ucus: $ucus, switch: $switch, stages: $stages, alus: $alus,")
+    val Utilization(pcus, pmus, ucus, switch, addr, stages, alus, mems, sclIn, sclOut, vecIn, vecOut) = stats
+    dbg(s"  pcus: $pcus, pmus: $pmus, ucus: $ucus, switch: $switch, addr: $addr, stages: $stages, alus: $alus,")
     dbg(s"  mems: $mems, sclIn: $sclIn, sclOut: $sclOut, vecIn: $vecIn, vecOut: $vecOut")
   }
 
 
+  def tallyCUs(cus: Iterable[CU]): Unit = {
+    val total = cus.map { cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+
+    val pmuOnly = cus.filter(_.isPMU).map{cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+    val pcuOnly = cus.filter(_.isPCU).map{cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+
+    val nPCUs = total.pcus
+    val nPMUs = total.pmus
+    val nSwitch = total.switch
+
+    val nALUs = (LANES * nPCUs * SpatialConfig.stages) + (nPMUs * SpatialConfig.readWrite)
+    val nMems = nPMUs
+    val nSIns = (SpatialConfig.sIn_PCU * nPCUs) + (SpatialConfig.sIn_PMU * nPMUs)
+    val nSOut = (SpatialConfig.sOut_PCU * nPCUs) + (SpatialConfig.sOut_PMU * nPMUs)
+    val nVIns = (SpatialConfig.vIn_PCU * nPCUs) + (SpatialConfig.vIn_PMU * nPMUs)
+    val nVOut = (SpatialConfig.vOut_PCU * nPCUs) + (SpatialConfig.vOut_PMU * nPMUs)
+
+    val aluUtil  = total.alus.toFloat / nALUs
+    val memUtil  = total.mems.toFloat / nMems
+    val sInUtil  = total.sclIn.toFloat / nSIns
+    val sOutUtil = total.sclOut.toFloat / nSOut
+    val vInUtil  = total.vecIn.toFloat / nVIns
+    val vOutUtil = total.vecOut.toFloat / nVOut
+
+    /** PCU only **/
+    val aluUtil_PCU  = pcuOnly.alus.toFloat / (LANES * nPCUs * SpatialConfig.stages)
+    val sInUtil_PCU  = pcuOnly.sclIn.toFloat / (SpatialConfig.sIn_PCU * nPCUs)
+    val sOutUtil_PCU = pcuOnly.sclOut.toFloat / (SpatialConfig.sOut_PCU * nPCUs)
+    val vInUtil_PCU  = pcuOnly.vecIn.toFloat / (SpatialConfig.vIn_PCU * nPCUs)
+    val vOutUtil_PCU = pcuOnly.vecOut.toFloat / (SpatialConfig.vOut_PCU * nPCUs)
+
+    val avgSIn_PCU  = pcuOnly.sclIn.toFloat / nPCUs
+    val avgSOut_PCU = pcuOnly.sclOut.toFloat / nPCUs
+    val avgVIn_PCU  = pcuOnly.vecIn.toFloat / nPCUs
+    val avgVOut_PCU = pcuOnly.vecOut.toFloat / nPCUs
+
+    val sInPerStage_PCU  = pcuOnly.sclIn.toFloat / (pcuOnly.stages + pcuOnly.addr)
+    val sOutPerStage_PCU = pcuOnly.sclOut.toFloat / (pcuOnly.stages + pcuOnly.addr)
+    val vInPerStage_PCU  = pcuOnly.vecIn.toFloat / (pcuOnly.stages + pcuOnly.addr)
+    val vOutPerStage_PCU = pcuOnly.vecOut.toFloat / (pcuOnly.stages + pcuOnly.addr)
+
+    /** PMU only **/
+    val aluUtil_PMU  = pmuOnly.alus.toFloat / (nPMUs * SpatialConfig.readWrite)
+    val sInUtil_PMU  = pmuOnly.sclIn.toFloat / (SpatialConfig.sIn_PMU * nPMUs)
+    val sOutUtil_PMU = pmuOnly.sclOut.toFloat / (SpatialConfig.sOut_PMU * nPMUs)
+    val vInUtil_PMU  = pmuOnly.vecIn.toFloat / (SpatialConfig.vIn_PMU * nPMUs)
+    val vOutUtil_PMU = pmuOnly.vecOut.toFloat / (SpatialConfig.vOut_PMU * nPMUs)
+
+    val avgSIn_PMU  = pmuOnly.sclIn.toFloat / nPMUs
+    val avgSOut_PMU = pmuOnly.sclOut.toFloat / nPMUs
+    val avgVIn_PMU  = pmuOnly.vecIn.toFloat / nPMUs
+    val avgVOut_PMU = pmuOnly.vecOut.toFloat / nPMUs
+
+    val sInPerStage_PMU  = pmuOnly.sclIn.toFloat / (pmuOnly.stages + pmuOnly.addr)
+    val sOutPerStage_PMU = pmuOnly.sclOut.toFloat / (pmuOnly.stages + pmuOnly.addr)
+    val vInPerStage_PMU  = pmuOnly.vecIn.toFloat / (pmuOnly.stages + pmuOnly.addr)
+    val vOutPerStage_PMU = pmuOnly.vecOut.toFloat / (pmuOnly.stages + pmuOnly.addr)
+
+    report("Total Utilization:")
+    report(n"PCUs:  $nPCUs")
+    report(n"PMUs:  $nPMUs")
+    report("")
+    report(n"   ALUs: ${total.alus}/$nALUs" + "\t" + p"($aluUtil)")
+    report(n"  SRAMs: ${total.mems}/$nMems" + "\t" + p"($memUtil)")
+    report(n"   SIns: ${total.sclIn}/$nSIns" + "\t" + p"($sInUtil)")
+    report(n"  SOuts: ${total.sclOut}/$nSOut" + "\t" + p"($sOutUtil)")
+    report(n"   VIns: ${total.vecIn}/$nVIns" + "\t" + p"($vInUtil)")
+    report(n"  VOuts: ${total.vecOut}/$nVOut" + "\t" + p"($vOutUtil)")
+    report("")
+    report("")
+    report("PCU Statistics:")
+    report(n"   ALUs: ${pcuOnly.alus}/${LANES * nPCUs * SpatialConfig.stages}"+"\t" + p"($aluUtil_PCU)")
+    report(n"   SIns: ${pcuOnly.sclIn}/${SpatialConfig.sIn_PCU * nPCUs}"+"\t" + p"($sInUtil_PCU)")
+    report(n"  SOuts: ${pcuOnly.sclOut}/${SpatialConfig.sOut_PCU * nPCUs}"+"\t" + p"($sOutUtil_PCU)")
+    report(n"   VIns: ${pcuOnly.vecIn}/${SpatialConfig.vIn_PCU * nPCUs}"+"\t" + p"($vInUtil_PCU)")
+    report(n"  VOuts: ${pcuOnly.vecOut}/${SpatialConfig.vOut_PCU * nPCUs}"+"\t" + p"($vOutUtil_PCU)")
+    report("")
+    report(n"   SIn / PCU: $avgSIn_PCU")
+    report(n"  SOut / PCU: $avgSOut_PCU")
+    report(n"   VIn / PCU: $avgVIn_PCU")
+    report(n"  VOut / PCU: $avgVOut_PCU")
+    report("")
+    report(n"   SIn / Stage: $sInPerStage_PCU")
+    report(n"  SOut / Stage: $sOutPerStage_PCU")
+    report(n"   VIn / Stage: $vInPerStage_PCU")
+    report(n"  VOut / Stage: $vOutPerStage_PCU")
+    report("")
+    report("")
+    report("PMU Statistics:")
+    report(n"   ALUs: ${pmuOnly.alus}/${nPMUs * SpatialConfig.readWrite}" + "\t" + p"($aluUtil_PMU)")
+    report(n"   SIns: ${pmuOnly.sclIn}/${SpatialConfig.sIn_PMU * nPMUs}" + "\t" + p"($sInUtil_PMU)")
+    report(n"  SOuts: ${pmuOnly.sclOut}/${SpatialConfig.sOut_PMU * nPMUs}" + "\t" + p"($sOutUtil_PMU)")
+    report(n"   VIns: ${pmuOnly.vecIn}/${SpatialConfig.vIn_PMU * nPMUs}" + "\t" + p"($vInUtil_PMU)")
+    report(n"  VOuts: ${pmuOnly.vecOut}/${SpatialConfig.vOut_PMU * nPMUs}" + "\t" + p"($vOutUtil_PMU)")
+    report("")
+    report(n"   SIn / PMU: $avgSIn_PMU")
+    report(n"  SOut / PMU: $avgSOut_PMU")
+    report(n"   VIn / PMU: $avgVIn_PMU")
+    report(n"  VOut / PMU: $avgVOut_PMU")
+    report("")
+    report(n"   SIn / Stage: $sInPerStage_PMU")
+    report(n"  SOut / Stage: $sOutPerStage_PMU")
+    report(n"   VIn / Stage: $vInPerStage_PMU")
+    report(n"  VOut / Stage: $vOutPerStage_PMU")
+
+    def quotePercent(x: Any): String = x match {
+      case f: Float  => if (f.isInfinite || f.isNaN) "-" else "%.1f".format(f * 100) + "%"
+      case f: Double => if (f.isInfinite || f.isNaN) "-" else "%.1f".format(f.toFloat * 100) + "%"
+      case _ => x.toString
+    }
+
+    implicit class PercentReportHelper(sc: StringContext) {
+      def p(args: Any*): String = sc.raw(args.map(quotePercent): _*).stripMargin
+    }
+
+    def quoteNumber(x: Any): String = x match {
+      case f: Float  => if (f.isInfinite || f.isNaN) "-" else "%.2f".format(f)
+      case f: Double => if (f.isInfinite || f.isNaN) "-" else "%.2f".format(f.toFloat)
+      case _ => x.toString
+    }
+
+    implicit class NumberReportHelper(sc: StringContext) {
+      def n(args: Any*): String = sc.raw(args.map(quoteNumber): _*).stripMargin
+    }
+  }
 
 
 }

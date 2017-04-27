@@ -37,6 +37,12 @@ trait PIRSplitting extends PIRTraversal {
 
   // TODO: PMU splitting. For now just throws an exception if it doesn't fit the specified constraints
   def splitPMU(cu: CU, archMU: MUCost, others: Iterable[CU]): List[CU] = {
+    if (cu.lanes > LANES) {
+      var errReport = s"Failed splitting in PMU $cu"
+      errReport += s"\nCU had ${cu.lanes} lanes, greater than allowed $LANES"
+      throw new SplitException(errReport) with NoStackTrace
+    }
+
     val allStages = cu.allStages.toList
     val ctrl = cu.cchains.find{case _:UnitCChain | _:CChainInstance => true; case _ => false}
 

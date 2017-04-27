@@ -62,22 +62,30 @@ spatial {
 
   val defaultPlasticine =  ConfigFactory.parseString("""
 plasticine {
-  s-in = 10
-  s-out = 10
-  v-in = 4
-  v-out = 1
+  s-in-pcu = 10
+  s-out-pcu = 10
+  v-in-pcu = 4
+  v-out-pcu = 1
   comp = 10
+  s-in-pmu = 10
+  s-out-pmu = 10
+  v-in-pmu = 4
+  v-out-pmu = 1
   rw = 10
   lanes = 16
 }
   """)
 
   case class PlasticineConf(
-    sIn: Int,
-    sOut:Int,
-    vIn: Int,
-    vOut: Int,
+    sInPCU: Int,
+    sOutPCU:Int,
+    vInPCU: Int,
+    vOutPCU: Int,
     comp: Int,
+    sInPMU: Int,
+    sOutPMU:Int,
+    vInPMU: Int,
+    vOutPMU: Int,
     rw: Int,
     mems: Int,
     lanes: Int
@@ -87,11 +95,15 @@ plasticine {
   val plasticineConf = loadConfig[PlasticineConf](mergedPlasticineConf, "plasticine").right.get
 
   // Plasticine limits TODO: move to somewhere else?
-  var sIn: Int = plasticineConf.sIn
-  var sOut: Int = plasticineConf.sOut
-  var vIn: Int = plasticineConf.vIn
-  var vOut: Int = plasticineConf.vOut
+  var sIn_PCU: Int = plasticineConf.sInPCU
+  var sOut_PCU: Int = plasticineConf.sOutPCU
+  var vIn_PCU: Int = plasticineConf.vInPCU
+  var vOut_PCU: Int = plasticineConf.vOutPCU
   var stages: Int = plasticineConf.comp
+  var sIn_PMU: Int = plasticineConf.sInPMU
+  var sOut_PMU: Int = plasticineConf.sOutPMU
+  var vIn_PMU: Int = plasticineConf.vInPMU
+  var vOut_PMU: Int = plasticineConf.vOutPMU
   var readWrite: Int = plasticineConf.rw
   var lanes: Int = plasticineConf.lanes
 }
