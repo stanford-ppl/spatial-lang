@@ -80,7 +80,7 @@ check_packet() {
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
   rank=-1
-  for i in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$i]}"* ]]; then rank=${i}; fi; done
+  for ii in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$ii]}"* ]]; then rank=${ii}; fi; done
   if [ $rank = -1 ]; then
     logger "Packet for $packet disappeared from list $stringified!  Quitting ungracefully!"
     exit 1
@@ -561,7 +561,7 @@ function report {
     cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
     exit 0
   else
-    echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2} - ${5})\" >> ${log}
+    echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2} - ${5}/)\" >> ${log}
     touch ${SPATIAL_HOME}/regression_tests/${2}/results/\${1}.${3}_${4}
     exit 1
   fi
@@ -628,6 +628,7 @@ sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top
 sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
 
 make vcs 2>&1 | tee -a ${5}/log
+make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
 
 # Check for crashes in backend compilation
 wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\\|ChiselException\\|\\[vcs-hw\\] Error\" | wc -l)
@@ -731,10 +732,11 @@ launch_tests() {
         create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
 
         # Run script
-        SECONDS=0
+        start=$SECONDS
         logger "Running script for ${i}_${appname}"
         bash ${cmd_file}
-        logger "Completed test in $SECONDS seconds"
+        duration=$(($SECONDS-$start))
+        logger "Completed test in $duration seconds"
         cd ${SPATIAL_HOME}/regression_tests/${ac}
         
         ((i++))
