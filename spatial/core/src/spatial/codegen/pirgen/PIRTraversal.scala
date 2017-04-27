@@ -8,12 +8,9 @@ import scala.reflect.runtime.universe._
 
 import spatial.SpatialExp
 
-trait PIRTraversal extends SpatialTraversal {
+trait PIRTraversal extends SpatialTraversal with Partitions {
   val IR: SpatialExp with PIRCommonExp
   import IR._
-
-  val LANES = SpatialConfig.lanes                          // Number of SIMD lanes per CU
-  val REDUCE_STAGES = (Math.log(LANES)/Math.log(2)).toInt  // Number of stages required to reduce across all lanes
 
   var listing = false
   var listingSaved = false

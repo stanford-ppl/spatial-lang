@@ -35,6 +35,7 @@ trait MathApi extends MathExp { this: SpatialApi =>
       error(ctx, "Exponentiation of fixed point types is not yet implemented.")
       error(ctx)
       wrap(fresh[T])
+
     case t: FltPtType[g,e] =>
       implicit val bG = t.mG.asInstanceOf[INT[g]]
       implicit val bE = t.mE.asInstanceOf[INT[e]]
