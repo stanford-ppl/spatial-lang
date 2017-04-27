@@ -1,39 +1,18 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.UnrolledExp
+import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
+import spatial.analysis.SpatialMetadataExp 
 import spatial.SpatialExp
+import scala.collection.mutable.HashMap
+import spatial.targets.DE1._
 
 
 trait ChiselGenUnrolled extends ChiselGenController {
   val IR: SpatialExp
   import IR._
 
-
-  def emitParallelizedLoop(iters: Seq[Seq[Bound[Index]]], cchain: Exp[CounterChain], suffix: String = "") = {
-    val Def(CounterChainNew(counters)) = cchain
-
-    iters.zipWithIndex.foreach{ case (is, i) =>
-      if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
-        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0)")
-        emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
-      } else { // This level IS parallelized, index into the counters correctly
-        is.zipWithIndex.foreach{ case (iter, j) =>
-          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j)")
-          emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
-        }
-      }
-    }
-  }
-
-  def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]], suffix: String = "") {
-    valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
-      layer.zip(count).foreach{ case (v, c) =>
-        emit(src"val ${v}${suffix} = ${c}${suffix} < ${cchain}${suffix}_maxes(${i})")
-      }
-    }
-  }
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -83,8 +62,12 @@ trait ChiselGenUnrolled extends ChiselGenController {
           emitBlock(func)
         }
       } else {
-        childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
-          emitValids(cchain, iters, valids, src"_copy$c")
+        if (childrenOf(lhs).length > 0) {
+          childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
+            emitValids(cchain, iters, valids, src"_copy$c")
+          }          
+        } else {
+          emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situatio with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
         }
         withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
@@ -225,20 +208,32 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(src"""${fifo}_wdata := Vec(List(${datacsv}))""")
 
     case e@ParStreamRead(strm, ens) =>
-      val isAck = strm match {
+      strm match {
         case Def(StreamInNew(bus)) => bus match {
-          case BurstAckBus => true
-          case _ => false
+          case VideoCamera => 
+            emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
+          case SliderSwitch => 
+            emit(src"""val $lhs = io.switch_stream_in_data""")
+          case _ => 
+            val isAck = strm match { // TODO: Make this clean, just working quickly to fix bug for Tian
+              case Def(StreamInNew(bus)) => bus match {
+                case BurstAckBus => true
+                case _ => false
+              }
+              case _ => false
+            }
+            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
+            if (!isAck) {
+              emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
+              emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
+            } else {
+              emit(src"""// Do not read from dummy ack stream $strm""")        
+            }
+
+
         }
-        case _ => false
       }
-      emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
-      if (!isAck) {
-        emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
-        emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
-      } else {
-        emit(src"""// Do not read from dummy ack stream $strm""")        
-      }
+
 
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length

@@ -37,6 +37,9 @@ object ops {
     def r = {
       b
     }
+    def msb = {
+      b(b.getWidth-1)
+    }
 
     // override def connect (rawop: Data)(implicit sourceInfo: SourceInfo, connectionCompileOptions: chisel3.core.CompileOptions): Unit = {
     //   rawop match {
