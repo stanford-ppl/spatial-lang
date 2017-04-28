@@ -4,7 +4,7 @@ import org.virtualized._
 object LogReg extends SpatialApp {
   import IR._
 
-  type X = FixPt[TRUE,_16,_16]
+  type X = Float //FixPt[TRUE,_16,_16]
 
   val margin = 5
   val dim = 192
