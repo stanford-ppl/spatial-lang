@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object OuterProduct extends SpatialApp { //Regression (Dense) // Args: 76800 76800 
+object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 76800 76800 
   import IR._
   type X = Int
 
@@ -85,7 +85,7 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 640
   type X = Int
 
   val innerPar = 16
-  val outerPar = 9
+  val outerPar = 2
 
   val tileSize = 2000
 

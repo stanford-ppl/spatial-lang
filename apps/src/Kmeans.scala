@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object Kmeans extends SpatialApp { //Regression (Dense) // Args: 8 96
+object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
   import IR._
 
   type X = Int

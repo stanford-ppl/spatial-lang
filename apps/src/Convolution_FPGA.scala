@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object Convolution_FPGA extends SpatialApp { 
+object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
   import IR._
 
   val Kh = 3
