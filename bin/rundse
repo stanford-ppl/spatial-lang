@@ -1,11 +1,10 @@
 #!/bin/bash
 
- # TODO: PageRank, CNN?
-files=( "DotProduct" "OuterProduct" "TPCHQ6" "BlackScholes" "MatMult_outer" "MatMult_inner" "GDA" "LogReg" "SGD" "Kmeans" "SMV" "BFS")
-#files=( "MatMult_outer" "LogReg" "SGD" "Kmeans" "SMV" "BFS")
+files=( "DotProduct" "OuterProduct" "TPCHQ6" "BlackScholes" "MatMult_outer" "MatMult_inner" "GDA" "LogReg" "SGD" "Kmeans" "SMV" "BFS" "PageRank")
+rm -rf dse.log
 for app in "${files[@]}"
 do
   echo $app
   rm -r gen/$app
-  bin/spatial $app --cgra* --threads 32 2>&1 | tee ${app}_dse.log
+  bin/spatial $app --cgra* --threads 32 2>&1 | tee -a dse.log
 done
