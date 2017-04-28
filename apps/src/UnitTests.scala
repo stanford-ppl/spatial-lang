@@ -534,14 +534,14 @@ object SimpleTileLoadStore extends SpatialApp {
       Sequential.Foreach(N by tileSize par 2) { i =>
         val b1 = SRAM[T](tileSize)
 
-        b1 load srcFPGA(i::i+tileSize par 16)
+        b1 load srcFPGA(i::i+tileSize par 1)
 
         val b2 = SRAM[T](tileSize)
         Foreach(tileSize by 1 par 4) { ii =>
           b2(ii) = b1(ii) * x
         }
 
-        dstFPGA(i::i+tileSize par 16) store b2
+        dstFPGA(i::i+tileSize par 1) store b2
       }
     }
     getMem(dstFPGA)
@@ -574,9 +574,10 @@ object SingleFifoLoad extends SpatialApp {
   
   val tileSize = 32
 
+  @virtualize
   def singleFifoLoad[T:Type:Num](src1: Array[T], in: Int) = {
 
-    val P1 = 1 (16 -> 16)
+    val P1 = 4 (16 -> 16)
 
     val N = ArgIn[Int]
     setArg(N, in)

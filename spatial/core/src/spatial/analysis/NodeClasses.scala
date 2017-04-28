@@ -220,6 +220,8 @@ trait NodeClasses { this: SpatialExp =>
   def isParEnq(e: Exp[_]): Boolean = e match {
     case Def(_:ParFIFOEnq[_]) => true
     case Def(_:ParSRAMStore[_]) => true
+    case Def(_:FIFOEnq[_]) => true
+    case Def(_:SRAMStore[_]) => true
     case Def(_:ParLineBufferEnq[_]) => true
     case _ => false
   }

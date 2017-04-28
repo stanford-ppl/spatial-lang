@@ -92,7 +92,11 @@ trait ChiselGenStream extends ChiselCodegen {
               emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
             case SliderSwitch => 
               emit(src"""val $lhs = io.switch_stream_in_data""")
-            case _ => 
+            case BurstDataBus() => 
+              emit(src"""${stream}_ready := $en & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
+              emit(src"""val $lhs = (0 until 1).map{ i => ${stream}_data(i) }""")
+
+            case _ =>
               val id = argMapping(stream)._1
               Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamIns")
               emit(src"""val ${quote(lhs)} = io.genericStreams.ins($id).bits.data """)  // Ignores enable for now

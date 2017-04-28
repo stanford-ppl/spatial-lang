@@ -86,13 +86,14 @@ trait ChiselGenFIFO extends ChiselCodegen {
 
     case FIFOEnq(fifo,v,en) => 
       val writer = writersOf(fifo).head.ctrlNode  // Not using 'en' or 'shuffle'
-      emit(src"""${fifo}_writeEn := ${writer}_ctr_en & $en """)
+      val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
+      emit(src"""${fifo}_writeEn := $enabler & $en """)
       emit(src"""${fifo}_wdata := Vec(List(${v}.raw))""")
 
 
     case FIFODeq(fifo,en) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${fifo}.io.pop := ${reader}_ctr_en & $en & ~${reader}_inhibitor""")
+      emit(src"""${fifo}.io.pop := ${reader}_datapath_en & $en & ~${reader}_inhibitor""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(0))""")

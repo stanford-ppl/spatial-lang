@@ -73,7 +73,7 @@ object SGD extends SpatialApp { //Regression (Dense) // Args: 40 32 0.0001
       Pipe(D by 1) { i => sgdmodel(i) = 0.to[T] }
       Sequential.Foreach(E by 1) { e =>
         Sequential.Foreach(N by tileSize) { b =>
-          y_tile load y(b :: b + tileSize par op)
+          y_tile load y(b :: b + tileSize par ip)
           Sequential.Foreach(tileSize by 1) { i =>
             val y_err = Reg[T]
             val x_tile = SRAM[T](D)

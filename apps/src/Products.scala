@@ -6,7 +6,7 @@ object OuterProduct extends SpatialApp { //Regression (Dense) // Args: 76800 768
   type X = Int
 
   val ip = 2
-  val op = 1
+  val op = 2
 
   val tileSize1 = 48
   val tileSize2 = 48
