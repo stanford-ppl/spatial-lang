@@ -106,7 +106,7 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 96 9
 
   val innerPar = 2
   val midPar = 2
-  val outerPar = 2
+  val outerPar = 8
 
   val tsm = 16
   val tsn = 48
