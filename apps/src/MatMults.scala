@@ -107,16 +107,10 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 96 9
   val innerPar = 2
   val midPar = 2
   val outerPar = 8
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 
   val tsm = 16
   val tsn = 48
   val tsp = 48
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
   @virtualize
   def MatMult_inner[T:Type:Num](A: Array[T], B: Array[T], mm: Int, nn: Int, pp: Int) = {
