@@ -26,31 +26,31 @@ trait StreamAnalyzer extends CompilerPass {
   override protected def process[S: Type](block: Block[S]) = {
     // Set metadata for tileloads
     streamLoadCtrls.foreach{ ctrl =>  // So hacky, please fix
-      dbg(u"Trying to match ctrl $ctrl to a ParFifo or ParSRAM write")
+      dbg(u"Trying to match ctrl $ctrl to a consuming Fifo or SRAM write")
       val candidate = getLastChild(parentOf(ctrl).get)
       var connectLoad: Option[Exp[Any]] = None
       streamParEnqs.foreach { pe => 
-        dbg(u"  Attempting to match $pe (parent ${parentOf(pe).get} to $candidate")
+        dbg(u"  Attempting to match enq/store $pe (inside ctrl ${parentOf(pe).get} to $candidate)")
         pe match {
           case Def(ParFIFOEnq(fifo, data, ens)) => 
             if (s"${parentOf(pe).get}" == s"$candidate") {
               loadCtrlOf(fifo) = List(candidate)
-              dbg(u"  It's a match! $fifo to $candidate")
+              dbg(u"    It's a match! $fifo fifo to ctrl $candidate")
             }
           case Def(FIFOEnq(fifo, data, ens)) => 
             if (s"${parentOf(pe).get}" == s"$candidate") {
               loadCtrlOf(fifo) = List(candidate)
-              dbg(u"  It's a match! $fifo to $candidate")
+              dbg(u"    It's a match! $fifo fifo to ctrl $candidate")
             }
           case Def(ParSRAMStore(sram,inds,data,ens)) => 
             if (s"${parentOf(pe).get}" == s"$candidate") {
               loadCtrlOf(sram) = List(candidate)
-              dbg(u"  It's a match! $sram to $candidate")
+              dbg(u"    It's a match! $sram sram to ctrl $candidate")
             }
           case Def(SRAMStore(sram, dims, is, ofs, v, en)) => 
             if (s"${parentOf(pe).get}" == s"$candidate") {
               loadCtrlOf(sram) = List(candidate)
-              dbg(u"  It's a match! $sram to $candidate")
+              dbg(u"    It's a match! $sram sram to ctrl $candidate")
             }
           case _ =>
         }
@@ -76,7 +76,7 @@ trait StreamAnalyzer extends CompilerPass {
         while (nextLevel.isDefined) {
             dbg(c"    # Checking if ${nextLevel.get} is a stream child")
             if (childs.contains(nextLevel.get)) {
-                dbg(c"    # MATCH on ${nextLevel.get}")
+                dbg(c"    # MATCH on ${nextLevel.get}, so ${parentOf(deq).get} listens to $fifo")
                 listensTo(parentOf(deq).get) = fifo +: listensTo(parentOf(deq).get)
                 nextLevel = None
             } else {
@@ -99,7 +99,7 @@ trait StreamAnalyzer extends CompilerPass {
         while (nextLevel.isDefined) {
             dbg(c"    # Checking if ${nextLevel.get} is a stream child")
             if (childs.contains(nextLevel.get)) {
-                dbg(c"    # MATCH on ${nextLevel.get}")
+                dbg(c"    # MATCH on ${nextLevel.get}, so ${parentOf(enq).get} pushes to to $fifo")
                 pushesTo(parentOf(enq).get) = fifo +: pushesTo(parentOf(enq).get)
                 nextLevel = None
             } else {

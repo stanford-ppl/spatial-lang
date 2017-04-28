@@ -89,7 +89,7 @@ object CSV2D extends SpatialApp {
   }
 }
 
-object SSV1D extends SpatialApp {
+object SSV1D extends SpatialApp { // Regression (Unit) // Args: none
 
   import IR._
 
@@ -127,7 +127,7 @@ object SSV1D extends SpatialApp {
   }
 }
 
-object SSV2D extends SpatialApp { 
+object SSV2D extends SpatialApp { // Regression (Unit) // Args: none
 
   import IR._
 

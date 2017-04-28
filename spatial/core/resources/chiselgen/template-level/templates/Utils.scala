@@ -12,17 +12,34 @@ object ops {
     def raw = {
       chisel3.util.Cat(b.map{_.raw})
     }
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      chisel3.util.Cat(b.map{_.raw}).FP(s, d, f)
+    }
+  }
+  implicit class ArrayBoolOps[T](val b:Array[Bool]) {
+    def raw = {
+      chisel3.util.Cat(b.map{_.raw})
+    }
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      chisel3.util.Cat(b.map{_.raw}).FP(s, d, f)
+    }
   }
 
   implicit class IndexedSeqOps[T](val b:scala.collection.immutable.IndexedSeq[types.FixedPoint]) {
     def raw = {
       chisel3.util.Cat(b.map{_.raw})
     }
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      chisel3.util.Cat(b.map{_.raw}).FP(s, d, f)
+    }
   }
 
   implicit class VecOps[T](val b:chisel3.core.Vec[types.FixedPoint]) {
     def raw = {
       chisel3.util.Cat(b.map{_.raw})
+    }
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      chisel3.util.Cat(b.map{_.raw}).FP(s, d, f)
     }
   }
 
@@ -145,6 +162,15 @@ object Utils {
       case d: FixedPoint => chisel3.util.ShiftRegister(data, size)
     }
   }
+
+  // def Reverse[T <: chisel3.core.Data](data: T):T = {
+  //   data match {
+  //     case d: UInt => chisel3.util.Reverse(d)
+  //     case d: FixedPoint => 
+  //       val res = Wire(new FixedPoint(d.s, d.d, d.f))
+  //       res.r := chisel3.util.Reverse(d.r)
+  //   }
+  // }
 
   def risingEdge(sig:Bool): Bool = {
     sig & Utils.delay(~sig,1)

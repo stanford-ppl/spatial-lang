@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object EdgeDetector extends SpatialApp { 
+object EdgeDetector extends SpatialApp { // Regression (Dense) // Args: none
   import IR._
   type T = FixPt[TRUE,_16,_16]
 
@@ -63,7 +63,7 @@ object EdgeDetector extends SpatialApp {
   }
 }
 
-object Differentiator extends SpatialApp {
+object Differentiator extends SpatialApp { // Regression (Dense) // Args: none
   import IR._
   type T = FixPt[TRUE,_16,_16]
 

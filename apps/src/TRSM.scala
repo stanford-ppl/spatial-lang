@@ -70,7 +70,7 @@ import spatial._
 // */
 
 
-object TRSM extends SpatialApp {
+object TRSM extends SpatialApp { // Regression (Dense) // Args: none
   import IR._
 
   type T = FixPt[TRUE, _16, _16]
