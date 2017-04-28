@@ -1,0 +1,35 @@
+#!/bin/bash
+
+app=$1
+regen="${@: -1}"
+args="${@:2}"
+
+# 1>&2 (stderr)
+# 1>&3 (console)
+# | tee /dev/fd/3 (both console and log)
+
+export LOG_FILE=results.log
+export JAVA_OPTS="-Xmx512m"
+export _JAVA_OPTIONS="-Xms1024m -Xmx64G -Xss256m"
+
+timestemp=$(date +"%c")
+exec 3>&1 1>>${LOG_FILE} 2>&1
+
+echo $app 1>&3 
+
+if [ $regen = true ]; then
+	rm -r gen/$app
+	bin/spatial $app --synth >> spatial.log 2>&1
+fi
+
+cd gen/$app/
+
+if [ $regen = true ]; then
+	make vcs >> build.log 2>&1
+fi
+
+source run.sh $args &> sim.log
+cycle=$(grep "Design ran for" sim.log)
+pass=$(grep "PASS" sim.log)
+echo "$timestemp $app $cycle args=[$args] $pass" | tee /dev/fd/3
+cd ../../

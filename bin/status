@@ -1,0 +1,8 @@
+#!/bin/bash
+
+app=$1
+
+tail -20 spatial.log
+tail -50 gen/$app/build.log
+tail gen/$app/sim.log
+tail $LOG_FILE
