@@ -70,6 +70,7 @@ class SpatialArgParser extends ArgonArgParser {
   }
 
   parser.opt[Unit]("pirsim").action{ (_,_) =>
+    warn("Here be dragons.")
     SpatialConfig.enableSim = false
     SpatialConfig.enableSynth = true
     SpatialConfig.enablePIR = false

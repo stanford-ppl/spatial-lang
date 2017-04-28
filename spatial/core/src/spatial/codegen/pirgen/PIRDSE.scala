@@ -108,7 +108,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
           //val perc = (100 * n) / 3465
 
           var others = ArrayBuffer[CU]()
-          val pcu = CUCost(sIn=sIns_PCU, sOut=sOuts_PCU, vIn=vIns_PCU, vOut=vOuts_PCU, comp=stages, regsMax=regsMax_PMU)
+          val pcu = CUCost(sIn=sIns_PCU, sOut=sOuts_PCU, vIn=vIns_PCU, vOut=vOuts_PCU, comp=stages, regsMax=regsMax_PCU)
 
           val text: String = s"stages=$stages, sIn_PCU=$sIns_PCU, sOut_PCU=$sOuts_PCU, vIn_PCU=$vIns_PCU, vOut_PCU=$vOuts_PCU, " + pmuText
 
@@ -162,7 +162,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
             fail += 1
             //Console.println(s"$n [$perc%]: " + text + ": FAIL")
             //dbg(e.msg)
-            entries(n-1) = "F" + settingsCSV
+            entries(n-1) = "F" + settingsCSV + "\n" + e.msg + "\n"
           }
         }
         (entries, pass, fail, first)
@@ -185,7 +185,6 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     Config.verbosity = prevVerbosity
     Console.print(s"Writing results to file $dir/$name.csv...")
 
-    invalid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W")
     valid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W, " + Statistics.header)
 
     results.foreach{case (entries, _, _, _) =>

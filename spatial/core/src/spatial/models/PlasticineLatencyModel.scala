@@ -1,105 +1,9 @@
 package spatial.models
 
-import argon.Config
-import spatial.SpatialExp
-
-trait LatencyModel {
-  val IR: SpatialExp
+trait PlasticineLatencyModel extends LatencyModel {
   import IR._
 
-  var clockRate = 150.0f        // Frequency in MHz
-  var baseCycles = 43000        // Number of cycles required for startup
-  var addRetimeRegisters = true // Enable adding registers after specified comb. logic
-  var modelVerbosity = 1
-
-  def silence(): Unit = { modelVerbosity = -1 }
-
-  def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
-
-  def latencyOf(s: Exp[_], inReduce: Boolean): Long = {
-    val prevVerbosity = Config.verbosity
-    Config.verbosity = modelVerbosity
-    val latency = s match {
-      case Exact(_) => 0
-      case Final(_) => 0
-      case Def(d) if inReduce  => latencyOfNodeInReduce(s, d)
-      case Def(d) if !inReduce => latencyOfNode(s, d)
-      case _ => 0
-    }
-    Config.verbosity = prevVerbosity
-    latency
-  }
-
-  private def latencyOfNodeInReduce(s: Exp[_], d: Def): Long = d match {
-    case FltAdd(_,_)     => 1
-    case RegWrite(_,_,_) => 0
-    case _ => latencyOfNode(s, d)
-  }
-
-  def nbits(e: Exp[_]) = e.tp match { case Bits(bits) => bits.length }
-  def sign(e: Exp[_]) = e.tp match { case FixPtType(s,_,_) => s; case _ => true }
-
-  def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
-    // Register File
-    case _:RegFileLoad[_]    => true
-    case _:ParRegFileLoad[_] => true
-    // Streams
-
-    // FIFOs
-    case _:FIFODeq[_]    => true
-    case _:ParFIFODeq[_] => true
-
-    // SRAMs
-    // TODO: Should be a function of number of banks?
-    case _:SRAMLoad[_]     => true
-    case _:ParSRAMLoad[_]  => true
-
-    // LineBuffer
-    case _:LineBufferLoad[_]    => true
-    case _:ParLineBufferLoad[_] => true
-
-    // Shift Register
-    // None
-
-    case Not(_)     => true
-    case And(_,_)   => true
-    case Or(_,_)    => true
-    case XOr(_,_)   => true
-    case XNor(_,_)  => true
-    case FixNeg(_)   => true
-    case FixAdd(_,_) => true
-    case FixSub(_,_) => true
-    case FixMul(_,_) => true
-    case FixDiv(_,_) => true
-    case FixMod(_,_) => true
-    case FixLt(_,_)  => true
-    case FixLeq(_,_) => true
-    case FixNeq(_,_) => true
-    case FixEql(_,_) => true
-    case FixAnd(_,_) => true
-    case FixOr(_,_)  => true
-    case FixLsh(_,_) => true
-    case FixRsh(_,_) => true
-    case FixURsh(_,_) => true
-    case FixAbs(_)    => true
-    case FixConvert(_) => true
-
-    case SatAdd(x,y) => true
-    case SatSub(x,y) => true
-    case SatMul(x,y) => true
-    case SatDiv(x,y) => true
-    case UnbMul(x,y) => true
-    case UnbDiv(x,y) => true
-    case UnbSatMul(x,y) => true
-    case UnbSatDiv(x,y) => true
-
-    case Mux(_,_,_) => true
-    case Min(_,_)   => true
-    case Max(_,_)   => true
-    case _ => false
-  }
-
-  protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
+  override protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
     case d if isAllocation(d) => 0
     case FieldApply(_,_)    => 0
     case VectorApply(_,_)   => 0
@@ -110,15 +14,15 @@ trait LatencyModel {
 
     // Registers
     case _:RegRead[_]  => 0
-    case _:RegWrite[_] => 1
+    case _:RegWrite[_] => 0
 
     // Register File
-    case _:RegFileLoad[_]       => 1
-    case _:ParRegFileLoad[_]    => 1
-    case _:RegFileStore[_]      => 1
-    case _:ParRegFileStore[_]   => 1
-    case _:RegFileShiftIn[_]    => 1
-    case _:ParRegFileShiftIn[_] => 1
+    case _:RegFileLoad[_]       => 0
+    case _:ParRegFileLoad[_]    => 0
+    case _:RegFileStore[_]      => 0
+    case _:ParRegFileStore[_]   => 0
+    case _:RegFileShiftIn[_]    => 0
+    case _:ParRegFileShiftIn[_] => 0
 
     // Streams
     case _:StreamRead[_]     => 0
@@ -127,23 +31,23 @@ trait LatencyModel {
     case _:ParStreamWrite[_] => 0
 
     // FIFOs
-    case _:FIFOEnq[_]    => 1
-    case _:ParFIFOEnq[_] => 1
-    case _:FIFODeq[_]    => 1
-    case _:ParFIFODeq[_] => 1
+    case _:FIFOEnq[_]    => 0
+    case _:ParFIFOEnq[_] => 0
+    case _:FIFODeq[_]    => 0
+    case _:ParFIFODeq[_] => 0
 
     // SRAMs
     // TODO: Should be a function of number of banks?
-    case _:SRAMLoad[_]     => 1
-    case _:ParSRAMLoad[_]  => 1
-    case _:SRAMStore[_]    => 1
-    case _:ParSRAMStore[_] => 1
+    case _:SRAMLoad[_]     => 0
+    case _:ParSRAMLoad[_]  => 0
+    case _:SRAMStore[_]    => 0
+    case _:ParSRAMStore[_] => 0
 
     // LineBuffer
-    case _:LineBufferEnq[_]     => 1
-    case _:ParLineBufferEnq[_]  => 1
-    case _:LineBufferLoad[_]    => 1
-    case _:ParLineBufferLoad[_] => 1
+    case _:LineBufferEnq[_]     => 0
+    case _:ParLineBufferEnq[_]  => 0
+    case _:LineBufferLoad[_]    => 0
+    case _:ParLineBufferLoad[_] => 0
 
     // Shift Register
     case ValueDelay(size, data) => 0 // wrong but it works???
@@ -198,63 +102,63 @@ trait LatencyModel {
 
     case FltAdd(_,_) =>
       //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      14
+      1
 
     case FltSub(_,_) =>
       //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      14
+      1
 
     case FltMul(_,_) =>
       //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      11
+      1
 
     case FltDiv(_,_) =>
       //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      33
+      1
 
     case FltLt(a,_)  =>
       //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
+      1
 
     case FltLeq(a,_) =>
       //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
+      1
 
     case FltNeq(a,_) =>
       //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
+      1
 
     case FltEql(a,_) =>
       //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
+      1
 
     case FltAbs(_) => 1
     case FltLog(_) =>
       //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      35
+      1
 
     case FltExp(_) =>
       //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      27
+      1
 
     case FltSqrt(_) =>
       //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      28
+      1
 
     case Mux(_,_,_) => 1
     case Min(_,_)   => 1
     case Max(_,_)   => 1
 
     case FixConvert(_) => 1
-    case FltConvert(_) => 6 // TODO
+    case FltConvert(_) => 1 // TODO
 
     case FltPtToFixPt(x) =>
       //if (nbits(s) != 32 && nbits(x) != 32) warn(s"Don't know latency for $d - using default")
-      6
+      1
 
     case FixPtToFltPt(x) =>
       //if (nbits(s) != 32 && nbits(x) != 32) warn(s"Don't know latency for $d - using default")
-      6
+      1
 
     // TODO
     /*case BurstStore(mem,stream,ofs,len,par) =>
@@ -301,5 +205,5 @@ trait LatencyModel {
     case _ =>
       warn(s"Don't know latency of $d - using default of 0")
       0
-    }
+  }
 }

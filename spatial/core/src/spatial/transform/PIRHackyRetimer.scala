@@ -10,7 +10,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
   import IR._
 
   override val name = "Hacky PIR Retimer"
-  override def shouldRun = SpatialConfig.enablePIR
+  override def shouldRun = SpatialConfig.enablePIRSim
 
   def requiresRetiming(x: Exp[_]) = latencyModel.requiresRegisters(x)
   def retimingDelay(x: Exp[_]): Int = {
@@ -27,6 +27,12 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
     var read: Exp[_] = _
   }
 
+  def valueDelay[T](size: Int, data: Exp[T])(implicit ctx: SrcCtx): Exp[T] = data.tp match {
+    case Bits(bits) =>
+      value_delay_alloc[T](size, data)(data.tp, bits, ctx)
+    case _ => throw new Exception("Unexpected register type")
+
+  }
 
   // track reader dependencies associated with an input
   class InputInfo {
@@ -37,12 +43,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
 
     // retime symbol readers, sharing allocated buffers when possible
     def retimeReaders[U](input: Exp[U]) {
-      def valueDelay[T](size: Int, data: Exp[T])(implicit ctx: SrcCtx): Exp[T] = data.tp match {
-        case Bits(bits) =>
-          value_delay_alloc[T](size, data)(data.tp, bits, ctx)
-        case _ => throw new Exception("Unexpected register type")
 
-      }
 
       // group and sort all the register sizes dependent symbols read from
       val readerGroups: Map[Int,List[Exp[_]]] = readers.toList.groupBy(_._2.size).mapValues(_.map(_._1))
@@ -76,12 +77,25 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
     }
   }
 
+  private def retimeReduce[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
+    stms.foreach{
+      case stm@TP(lhs, rhs) if Bits.unapply(lhs.tp).isDefined =>
+        visitStm(stm)
+        val delay = valueDelay(1, f(lhs))(lhs.ctx)
+        register(lhs -> delay)
 
-  private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
+      case stm => visitStm(stm)
+    }
+    val result = typ[T] match { case VoidType => void; case _ => f(block.result) }
+    result.asInstanceOf[Exp[T]]
+  })
+
+
+  private def retimeBlock[T:Type](block: Block[T], cchain: Option[Exp[CounterChain]])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
     dbg(c"Retiming block $block")
 
     // perform recursive search of inputs to determine cumulative symbol latency
-    val symLatency = pipeDelays(block)
+    val symLatency = pipeDelaysHack(block, cchain)
     def delayOf(x: Exp[_]): Int = symLatency.getOrElse(x, 0L).toInt
 
     symLatency.foreach{case (s,l) => dbgs(c"  ${str(s)} [$l]")}
@@ -100,7 +114,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
       dbgs("  " + inputs.zip(inputLatencies).map{case (in, latency) => c"$in: $latency"}.mkString(", ") + s" (max: $criticalPath)")
 
       // calculate buffer register size for each input symbol
-      val sizes = inputs.zip(inputLatencies).map{case (in, latency) => retimingDelay(in) + criticalPath - latency }
+      val sizes = inputs.zip(inputLatencies).map{case (in, latency) => criticalPath - latency }
 
       // discard symbols for which no register insertion is needed
       val inputsSizes = inputs.zip(sizes).filter{ case (_, size) => size != 0 }
@@ -150,38 +164,64 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
 
 
   var retimeBlocks: List[Boolean] = Nil
+  var retimeReduce: List[Boolean] = Nil
   var ctx: Option[SrcCtx] = None
+  var cchain: Option[Exp[CounterChain]] = None
 
-  def withRetime[A](wrap: List[Boolean], srcCtx: SrcCtx)(x: => A) = {
+  def withRetime[A](wrap: List[Boolean], reduce: List[Boolean], srcCtx: SrcCtx, cc: Option[Exp[CounterChain]])(x: => A) = {
     val prevRetime = retimeBlocks
+    val prevReduce = retimeReduce
     val prevCtx = ctx
+    val prevChain = cchain
 
     retimeBlocks = wrap
+    retimeReduce = reduce
     ctx = Some(srcCtx)
+    cchain = cc
     val result = x
 
     retimeBlocks = prevRetime
+    retimeReduce = prevReduce
     ctx = prevCtx
+    cchain = prevChain
     result
   }
 
   override def apply[T:Type](b: Block[T]): Exp[T] = {
     val doWrap = retimeBlocks.headOption.getOrElse(false)
+    val doWrapReduce = retimeReduce.headOption.getOrElse(false)
     if (retimeBlocks.nonEmpty) retimeBlocks = retimeBlocks.drop(1)
+    if (retimeReduce.nonEmpty) retimeReduce = retimeReduce.drop(1)
     dbgs(c"Transforming Block $b [$retimeBlocks]")
-    if (doWrap) {
-      val result = retimeBlock(b)(mtyp(b.tp),ctx.get)
-      result
+    if (doWrapReduce) {
+      retimeReduce(b)(mtyp(b.tp),ctx.get)
+    }
+    else if (doWrap) {
+      retimeBlock(b,cchain)(mtyp(b.tp),ctx.get)
     }
     else super.apply(b)
   }
 
-  private def transformCtrl[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
-    if (isInnerControl(lhs)) {
+  private def transformCtrl[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
+    case op: OpReduce[_] =>
+      val cchain = Some(op.cchain)
+      val retimeEnables = List(true,false,false,false)
+      val reduceEnables = List(false,false,true,false)
+      withRetime(retimeEnables, reduceEnables, ctx, cchain) { super.transform(lhs, rhs) }
+
+    case op: OpMemReduce[_,_] =>
+      val cchain = None
+      val retimeEnables = List(false,false,false,false,false)
+      val reduceEnables = List(false,false,false,true,false)
+      withRetime(retimeEnables, reduceEnables, ctx, cchain) { super.transform(lhs, rhs) }
+
+    case _ if isInnerControl(lhs) =>
+      val cchain = rhs.expInputs.find{case cc@Def(_:CounterChainNew) => true; case _ => false}.map(_.asInstanceOf[Exp[CounterChain]])
       val retimeEnables = rhs.blocks.map{_ => true }.toList
-      withRetime(retimeEnables, ctx) { super.transform(lhs, rhs) }
-    }
-    else super.transform(lhs, rhs)
+      val reduceEnables = rhs.blocks.map{_ => false }.toList
+      withRetime(retimeEnables, reduceEnables, ctx, cchain) { super.transform(lhs, rhs) }
+
+    case _ => super.transform(lhs, rhs)
   }
 
   override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {

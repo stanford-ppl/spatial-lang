@@ -115,8 +115,10 @@ trait PIRSplitting extends PIRTraversal {
 
         errReport += "\nCost for last split option: "
         current addTail remote.popHead()
+        current.cstages.foreach{stage => errReport += s"\n  $stage"}
         val cost = getCost(current)
-        errReport += s"\n$cost"
+        errReport += s"Arch: \n$arch"
+        errReport += s"Cost: \n$cost"
         throw new SplitException(errReport) with NoStackTrace
       }
       else {
