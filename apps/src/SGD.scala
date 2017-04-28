@@ -42,7 +42,7 @@ object SGD extends SpatialApp { //Regression (Dense) // Args: 40 32 0.0001
   val margin = 1
 
   val innerPar = 16
-  val outerPar = 12
+  val outerPar = 16
 
   val tileSize = 192
 
@@ -70,7 +70,7 @@ object SGD extends SpatialApp { //Regression (Dense) // Args: 40 32 0.0001
     Accel {
       val y_tile = SRAM[T](tileSize)
       val sgdmodel = SRAM[T](D)
-      Pipe(D by 1) { i => sgdmodel(i) = 0.to[T] }
+      //Pipe(D by 1) { i => sgdmodel(i) = 0.to[T] }
       Sequential.Foreach(E by 1) { e =>
         Sequential.Foreach(N by tileSize) { b =>
           y_tile load y(b :: b + tileSize par op)
@@ -82,9 +82,7 @@ object SGD extends SpatialApp { //Regression (Dense) // Args: 40 32 0.0001
             }
             Pipe {
               val y_hat = Reg[T]
-              Reduce(y_hat)(D by 1 par ip) { j => x_tile(j) * sgdmodel(j) } {
-                _ + _
-              }
+              Reduce(y_hat)(D by 1 par ip){ j => x_tile(j) * sgdmodel(j) } {_+_}
               y_err := y_tile(i) - y_hat.value
             }
 
@@ -151,7 +149,7 @@ object SGD_minibatch extends SpatialApp { //Regression (Dense) // Args: 40 32 0.
   type T = FixPt[TRUE,_16,_16]
   val modelSize = 16
   val tileSize = 16
-  val innerPar = 4
+  val innerPar = 16
   val outerPar = 1
   val margin = 1
 
@@ -180,7 +178,7 @@ object SGD_minibatch extends SpatialApp { //Regression (Dense) // Args: 40 32 0.
       val y_tile = SRAM[T](tileSize)
       val sgdmodel = SRAM[T](D)
       val x_tile = SRAM[T](tileSize,D)
-      Pipe(D by 1) { i => sgdmodel(i) = 0.to[T]}
+      //Pipe(D by 1) { i => sgdmodel(i) = 0.to[T]} // PIR
       Sequential.Foreach(E by 1) { e =>
 
         Sequential.Foreach (N by tileSize) { b =>

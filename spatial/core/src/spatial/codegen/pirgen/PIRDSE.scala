@@ -37,7 +37,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     Config.verbosity = -1
     Console.println(s"Running design space exploration")
 
-    val unrestrictedPCU = CUCost(sIn=100,sOut=100,vIn=100,vOut=100,comp=10000)
+    val unrestrictedPCU = CUCost(sIn=100,sOut=100,vIn=100,vOut=100,comp=10000,regsMax=1000)
     var mcu = MUCost()
     var foundMCU = false
     breakable{ for(
@@ -171,8 +171,8 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     Files.createDirectories(Paths.get(dir))
 
     val name = Config.name
-    val valid = new PrintStream(s"$dir/$name.csv")
-    val invalid = new PrintStream(s"$dir/${name}_invalid.csv")
+    val valid = new PrintStream(s"$dir/${name}_$LANES.csv")
+    val invalid = new PrintStream(s"$dir/${name}_${LANES}_invalid.csv")
 
     Config.verbosity = prevVerbosity
     Console.print(s"Writing results to file $dir/$name.csv...")

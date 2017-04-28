@@ -66,9 +66,9 @@ object Kmeans extends SpatialApp { //Regression (Dense) // Args: 8 96
       Sequential.Foreach(iters by 1){epoch =>
 
         // Flush centroid accumulator
-        Foreach(K by 1, D par P0){(ct,d) =>
+        /*Foreach(K by 1, D par P0){(ct,d) =>
           newCents(ct,d) = 0.to[T]
-        }
+        }*/ // PIR
 
         // For each set of points
         Foreach(N by BN par PX){i =>
