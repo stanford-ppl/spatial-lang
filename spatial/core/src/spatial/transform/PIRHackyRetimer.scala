@@ -43,8 +43,6 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
 
     // retime symbol readers, sharing allocated buffers when possible
     def retimeReaders[U](input: Exp[U]) {
-
-
       // group and sort all the register sizes dependent symbols read from
       val readerGroups: Map[Int,List[Exp[_]]] = readers.toList.groupBy(_._2.size).mapValues(_.map(_._1))
 
@@ -62,9 +60,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
 
         val readersList = readerGroups(totalSize)
         val size = regSizeMap(totalSize) // Look up mapping for this size
-      // val reg = regAlloc(input, size)
-      // regWrite(reg, f(regReads.last))
-      val read = valueDelay(size, f(regReads.last))
+        val read = valueDelay(size, f(regReads.last))
 
         readersList.foreach{ reader =>
           // dbgs(c"  Register: ${str(reg)}, size: $size, reader: $reader")
@@ -95,7 +91,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
     dbg(c"Retiming block $block")
 
     // perform recursive search of inputs to determine cumulative symbol latency
-    val symLatency = pipeDelaysHack(block, cchain)
+    val (symLatency,delays) = pipeDelaysHack(block, cchain)
     def delayOf(x: Exp[_]): Int = symLatency.getOrElse(x, 0L).toInt
 
     symLatency.foreach{case (s,l) => dbgs(c"  ${str(s)} [$l]")}
@@ -114,7 +110,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
       dbgs("  " + inputs.zip(inputLatencies).map{case (in, latency) => c"$in: $latency"}.mkString(", ") + s" (max: $criticalPath)")
 
       // calculate buffer register size for each input symbol
-      val sizes = inputs.zip(inputLatencies).map{case (in, latency) => criticalPath - latency }
+      val sizes = inputs.zip(inputLatencies).map{case (in, latency) => delays.getOrElse(in,0L).toInt + criticalPath - latency }
 
       // discard symbols for which no register insertion is needed
       val inputsSizes = inputs.zip(sizes).filter{ case (_, size) => size != 0 }
@@ -153,11 +149,12 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
       // restore substitution rules since future instances of this input may not be retimed in the same way
       subRules.foreach{ case (a, b) => register(a,b) }
     }
-
-    val result = typ[T] match {
-      case VoidType => void
-      case _ => f(block.result)
+    if (delays.getOrElse(block.result,0L) > 0) {
+      val delay = valueDelay(delays(block.result).toInt, f(block.result))(block.result.ctx)
+      register(block.result -> delay)
     }
+
+    val result = typ[T] match { case VoidType => void; case _ => f(block.result) }
     result.asInstanceOf[Exp[T]]
   })
 
@@ -203,8 +200,9 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
   }
 
   private def transformCtrl[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
-    case op: OpReduce[_] =>
+    case op: OpReduce[_] if isInnerControl(lhs) =>
       val cchain = Some(op.cchain)
+      // TODO: Fix retiming of map part of this
       val retimeEnables = List(true,false,false,false)
       val reduceEnables = List(false,false,true,false)
       withRetime(retimeEnables, reduceEnables, ctx, cchain) { super.transform(lhs, rhs) }

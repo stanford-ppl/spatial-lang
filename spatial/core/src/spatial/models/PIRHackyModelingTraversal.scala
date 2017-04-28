@@ -63,9 +63,10 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     }
   }
 
-  def pipeDelaysHack(b: Block[_], cchain: Option[Exp[CounterChain]]): Map[Exp[_],Long] = {
+  def pipeDelaysHack(b: Block[_], cchain: Option[Exp[CounterChain]]) = {
     val scope = getStages(b).filterNot(s => isGlobal(s)).filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
     val paths  = mutable.HashMap[Exp[_],Long]()
+    val delays = mutable.HashMap[Exp[_],Long]()
     val par = cchain.map{cc => parsOf(cc).last}.getOrElse(1)
 
     var partitions = mutable.ArrayBuffer[Partition]()
@@ -117,11 +118,17 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
       val offset = (10 * l).toLong
       val nStages = p.stages.size
       var i = 0
+      val lastIndex = p.stages.lastIndexWhere{stage => Bits.unapply(stage.tp).isDefined }
+      val lastOption = if (lastIndex >= 0) Some(p.stages(lastIndex)) else None
       p.stages.foreach{stage =>
         // Last is always 10
-        if (i == nStages - 1) paths(stage) = offset + 9
-        else paths(stage) = offset + i
-        if (latencyOf(stage) > 0) i += 1
+        paths(stage) = offset + i
+        if (lastOption.contains(stage)) {
+          delays(stage) = SpatialConfig.stages - 1 - i
+          i = SpatialConfig.stages - 1
+        }
+        else if (latencyOf(stage) > 0) delays(stage) = 1
+        else delays(stage) = 0
       }
     }
 
@@ -129,7 +136,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
       dbg(s"${str(stage)} [${paths.getOrElse(stage,0L)}]")
     }
 
-    paths.toMap
+    (paths.toMap, delays.toMap)
   }
 
 }
