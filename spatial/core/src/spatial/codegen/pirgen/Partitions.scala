@@ -288,8 +288,9 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     )
 
     override def toString = s"$pcus, $pmus, $ucus, $switch, $alus, $mems, $sclIn, $sclOut, $vecIn, $vecOut"
-
-    def heading = "PCUs, PMUs, UCUs, Switch, ALUs, SRAMs, SclIn, SclOut, VecIn, VecOut"
+  }
+  object Utilization {
+    def header = "PCUs, PMUs, UCUs, Switch, ALUs, SRAMs, SclIn, SclOut, VecIn, VecOut"
   }
 
   def getUtil(cu: CU, others: Iterable[CU]): Utilization = cu.style match {
@@ -371,23 +372,72 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     dbg(s"  mems: $mems, sclIn: $sclIn, sclOut: $sclOut, vecIn: $vecIn, vecOut: $vecOut")
   }
 
+  /** TODO: These are actually pretty useful, may want to move elsewhere **/
+  private def quotePercent(x: Any): String = x match {
+    case f: Float  => if (f.isInfinite || f.isNaN) "-" else "%.1f".format(f * 100) + "%"
+    case f: Double => if (f.isInfinite || f.isNaN) "-" else "%.1f".format(f.toFloat * 100) + "%"
+    case _ => x.toString
+  }
 
-  def tallyCUs(cus: Iterable[CU]): Unit = {
-    val total = cus.map { cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+  private implicit class PercentReportHelper(sc: StringContext) {
+    def p(args: Any*): String = sc.raw(args.map(quotePercent): _*).stripMargin
+  }
 
-    val pmuOnly = cus.filter(_.isPMU).map{cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
-    val pcuOnly = cus.filter(_.isPCU).map{cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+  private def quoteNumber(x: Any): String = x match {
+    case f: Float  => if (f.isInfinite || f.isNaN) "-" else "%.2f".format(f)
+    case f: Double => if (f.isInfinite || f.isNaN) "-" else "%.2f".format(f.toFloat)
+    case _ => x.toString
+  }
 
-    val nPCUs = total.pcus
+  private implicit class NumberReportHelper(sc: StringContext) {
+    def n(args: Any*): String = sc.raw(args.map(quoteNumber): _*).stripMargin
+  }
+
+  case class Statistics(
+    /** Utilizations **/
+    total:   Utilization,
+    pcuOnly: Utilization,
+    pmuOnly: Utilization,
+    /** UCUs **/
+    sIn_UCU: Int = SpatialConfig.sIn_UCU,       // TODO: These aren't used in splitting, ignored for now
+    stages_UCU: Int = SpatialConfig.stages_UCU, // TODO: These aren't used in splitting, ignored for now
+    /** PCUs **/
+    sIn_PCU:  Int = SpatialConfig.sIn_PCU,
+    sOut_PCU: Int = SpatialConfig.sOut_PCU,
+    vIn_PCU:  Int = SpatialConfig.vIn_PCU,
+    vOut_PCU: Int = SpatialConfig.vOut_PCU,
+    stages:   Int = SpatialConfig.stages,
+    /** PMUs **/
+    sIn_PMU:  Int = SpatialConfig.sIn_PMU,
+    sOut_PMU: Int = SpatialConfig.sOut_PMU,
+    vIn_PMU:  Int = SpatialConfig.vIn_PMU,
+    vOut_PMU: Int = SpatialConfig.vOut_PMU,
+    readWrite:Int = SpatialConfig.readWrite
+  ) {
+    val nPCUs = total.pcus - total.ucus
+    val nUCUs = total.ucus
     val nPMUs = total.pmus
     val nSwitch = total.switch
 
-    val nALUs = (LANES * nPCUs * SpatialConfig.stages) + (nPMUs * SpatialConfig.readWrite)
-    val nMems = nPMUs
-    val nSIns = (SpatialConfig.sIn_PCU * nPCUs) + (SpatialConfig.sIn_PMU * nPMUs)
-    val nSOut = (SpatialConfig.sOut_PCU * nPCUs) + (SpatialConfig.sOut_PMU * nPMUs)
-    val nVIns = (SpatialConfig.vIn_PCU * nPCUs) + (SpatialConfig.vIn_PMU * nPMUs)
-    val nVOut = (SpatialConfig.vOut_PCU * nPCUs) + (SpatialConfig.vOut_PMU * nPMUs)
+    val nALUs_PCU = (LANES * nPCUs * stages) + (nUCUs * stages)
+    val nSIns_PCU = (sIn_PCU * nPCUs) + (nUCUs * sIn_PCU)
+    val nSOut_PCU = (sOut_PCU * nPCUs) + (nUCUs * 2)
+    val nVIns_PCU = (vIn_PCU * nPCUs) + (nUCUs * 0)
+    val nVOut_PCU = (vOut_PCU * nPCUs) + (nUCUs * 0)
+
+    val nALUs_PMU = nPMUs * readWrite
+    val nMems_PMU = nPMUs
+    val nSIns_PMU = sIn_PMU * nPMUs
+    val nSOut_PMU = sOut_PMU * nPMUs
+    val nVIns_PMU = vIn_PMU * nPMUs
+    val nVOut_PMU = vOut_PMU * nPMUs
+
+    val nALUs = nALUs_PCU + nALUs_PMU
+    val nMems = nMems_PMU
+    val nSIns = nSIns_PCU + nSIns_PMU
+    val nSOut = nSOut_PCU + nSOut_PMU
+    val nVIns = nVIns_PCU + nVIns_PMU
+    val nVOut = nVOut_PCU + nVOut_PMU
 
     val aluUtil  = total.alus.toFloat / nALUs
     val memUtil  = total.mems.toFloat / nMems
@@ -397,16 +447,16 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val vOutUtil = total.vecOut.toFloat / nVOut
 
     /** PCU only **/
-    val aluUtil_PCU  = pcuOnly.alus.toFloat / (LANES * nPCUs * SpatialConfig.stages)
-    val sInUtil_PCU  = pcuOnly.sclIn.toFloat / (SpatialConfig.sIn_PCU * nPCUs)
-    val sOutUtil_PCU = pcuOnly.sclOut.toFloat / (SpatialConfig.sOut_PCU * nPCUs)
-    val vInUtil_PCU  = pcuOnly.vecIn.toFloat / (SpatialConfig.vIn_PCU * nPCUs)
-    val vOutUtil_PCU = pcuOnly.vecOut.toFloat / (SpatialConfig.vOut_PCU * nPCUs)
+    val aluUtil_PCU  = pcuOnly.alus.toFloat / nALUs_PCU
+    val sInUtil_PCU  = pcuOnly.sclIn.toFloat / nSIns_PCU
+    val sOutUtil_PCU = pcuOnly.sclOut.toFloat / nSOut_PCU
+    val vInUtil_PCU  = pcuOnly.vecIn.toFloat / nVIns_PCU
+    val vOutUtil_PCU = pcuOnly.vecOut.toFloat / nVOut_PCU
 
-    val avgSIn_PCU  = pcuOnly.sclIn.toFloat / nPCUs
-    val avgSOut_PCU = pcuOnly.sclOut.toFloat / nPCUs
-    val avgVIn_PCU  = pcuOnly.vecIn.toFloat / nPCUs
-    val avgVOut_PCU = pcuOnly.vecOut.toFloat / nPCUs
+    val avgSIn_PCU  = pcuOnly.sclIn.toFloat / (nPCUs + nUCUs)
+    val avgSOut_PCU = pcuOnly.sclOut.toFloat / (nPCUs + nUCUs)
+    val avgVIn_PCU  = pcuOnly.vecIn.toFloat / (nPCUs + nUCUs)
+    val avgVOut_PCU = pcuOnly.vecOut.toFloat / (nPCUs + nUCUs)
 
     val sInPerStage_PCU  = pcuOnly.sclIn.toFloat / (pcuOnly.stages + pcuOnly.addr)
     val sOutPerStage_PCU = pcuOnly.sclOut.toFloat / (pcuOnly.stages + pcuOnly.addr)
@@ -414,11 +464,11 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val vOutPerStage_PCU = pcuOnly.vecOut.toFloat / (pcuOnly.stages + pcuOnly.addr)
 
     /** PMU only **/
-    val aluUtil_PMU  = pmuOnly.alus.toFloat / (nPMUs * SpatialConfig.readWrite)
-    val sInUtil_PMU  = pmuOnly.sclIn.toFloat / (SpatialConfig.sIn_PMU * nPMUs)
-    val sOutUtil_PMU = pmuOnly.sclOut.toFloat / (SpatialConfig.sOut_PMU * nPMUs)
-    val vInUtil_PMU  = pmuOnly.vecIn.toFloat / (SpatialConfig.vIn_PMU * nPMUs)
-    val vOutUtil_PMU = pmuOnly.vecOut.toFloat / (SpatialConfig.vOut_PMU * nPMUs)
+    val aluUtil_PMU  = pmuOnly.alus.toFloat / nALUs_PMU
+    val sInUtil_PMU  = pmuOnly.sclIn.toFloat / nSIns_PMU
+    val sOutUtil_PMU = pmuOnly.sclOut.toFloat / nSOut_PMU
+    val vInUtil_PMU  = pmuOnly.vecIn.toFloat / nVIns_PMU
+    val vOutUtil_PMU = pmuOnly.vecOut.toFloat / nVOut_PMU
 
     val avgSIn_PMU  = pmuOnly.sclIn.toFloat / nPMUs
     val avgSOut_PMU = pmuOnly.sclOut.toFloat / nPMUs
@@ -430,72 +480,90 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val vInPerStage_PMU  = pmuOnly.vecIn.toFloat / (pmuOnly.stages + pmuOnly.addr)
     val vOutPerStage_PMU = pmuOnly.vecOut.toFloat / (pmuOnly.stages + pmuOnly.addr)
 
-    report("Total Utilization:")
-    report(n"PCUs:  $nPCUs")
-    report(n"PMUs:  $nPMUs")
-    report("")
-    report(n"   ALUs: ${total.alus}/$nALUs" + "\t" + p"($aluUtil)")
-    report(n"  SRAMs: ${total.mems}/$nMems" + "\t" + p"($memUtil)")
-    report(n"   SIns: ${total.sclIn}/$nSIns" + "\t" + p"($sInUtil)")
-    report(n"  SOuts: ${total.sclOut}/$nSOut" + "\t" + p"($sOutUtil)")
-    report(n"   VIns: ${total.vecIn}/$nVIns" + "\t" + p"($vInUtil)")
-    report(n"  VOuts: ${total.vecOut}/$nVOut" + "\t" + p"($vOutUtil)")
-    report("")
-    report("")
-    report("PCU Statistics:")
-    report(n"   ALUs: ${pcuOnly.alus}/${LANES * nPCUs * SpatialConfig.stages}"+"\t" + p"($aluUtil_PCU)")
-    report(n"   SIns: ${pcuOnly.sclIn}/${SpatialConfig.sIn_PCU * nPCUs}"+"\t" + p"($sInUtil_PCU)")
-    report(n"  SOuts: ${pcuOnly.sclOut}/${SpatialConfig.sOut_PCU * nPCUs}"+"\t" + p"($sOutUtil_PCU)")
-    report(n"   VIns: ${pcuOnly.vecIn}/${SpatialConfig.vIn_PCU * nPCUs}"+"\t" + p"($vInUtil_PCU)")
-    report(n"  VOuts: ${pcuOnly.vecOut}/${SpatialConfig.vOut_PCU * nPCUs}"+"\t" + p"($vOutUtil_PCU)")
-    report("")
-    report(n"   SIn / PCU: $avgSIn_PCU")
-    report(n"  SOut / PCU: $avgSOut_PCU")
-    report(n"   VIn / PCU: $avgVIn_PCU")
-    report(n"  VOut / PCU: $avgVOut_PCU")
-    report("")
-    report(n"   SIn / Stage: $sInPerStage_PCU")
-    report(n"  SOut / Stage: $sOutPerStage_PCU")
-    report(n"   VIn / Stage: $vInPerStage_PCU")
-    report(n"  VOut / Stage: $vOutPerStage_PCU")
-    report("")
-    report("")
-    report("PMU Statistics:")
-    report(n"   ALUs: ${pmuOnly.alus}/${nPMUs * SpatialConfig.readWrite}" + "\t" + p"($aluUtil_PMU)")
-    report(n"   SIns: ${pmuOnly.sclIn}/${SpatialConfig.sIn_PMU * nPMUs}" + "\t" + p"($sInUtil_PMU)")
-    report(n"  SOuts: ${pmuOnly.sclOut}/${SpatialConfig.sOut_PMU * nPMUs}" + "\t" + p"($sOutUtil_PMU)")
-    report(n"   VIns: ${pmuOnly.vecIn}/${SpatialConfig.vIn_PMU * nPMUs}" + "\t" + p"($vInUtil_PMU)")
-    report(n"  VOuts: ${pmuOnly.vecOut}/${SpatialConfig.vOut_PMU * nPMUs}" + "\t" + p"($vOutUtil_PMU)")
-    report("")
-    report(n"   SIn / PMU: $avgSIn_PMU")
-    report(n"  SOut / PMU: $avgSOut_PMU")
-    report(n"   VIn / PMU: $avgVIn_PMU")
-    report(n"  VOut / PMU: $avgVOut_PMU")
-    report("")
-    report(n"   SIn / Stage: $sInPerStage_PMU")
-    report(n"  SOut / Stage: $sOutPerStage_PMU")
-    report(n"   VIn / Stage: $vInPerStage_PMU")
-    report(n"  VOut / Stage: $vOutPerStage_PMU")
-
-    def quotePercent(x: Any): String = x match {
-      case f: Float  => if (f.isInfinite || f.isNaN) "-" else "%.1f".format(f * 100) + "%"
-      case f: Double => if (f.isInfinite || f.isNaN) "-" else "%.1f".format(f.toFloat * 100) + "%"
-      case _ => x.toString
+    def makeReport(): Unit = {
+      report("Total Utilization:")
+      report(n"PCUs:  $nPCUs")
+      report(n"UCUs:  $nUCUs")
+      report(n"PMUs:  $nPMUs")
+      report("")
+      report(n"   ALUs: ${total.alus}/$nALUs" + "\t" + p"($aluUtil)")
+      report(n"  SRAMs: ${total.mems}/$nMems" + "\t" + p"($memUtil)")
+      report(n"   SIns: ${total.sclIn}/$nSIns" + "\t" + p"($sInUtil)")
+      report(n"  SOuts: ${total.sclOut}/$nSOut" + "\t" + p"($sOutUtil)")
+      report(n"   VIns: ${total.vecIn}/$nVIns" + "\t" + p"($vInUtil)")
+      report(n"  VOuts: ${total.vecOut}/$nVOut" + "\t" + p"($vOutUtil)")
+      report("")
+      report("")
+      report("PCU Statistics:")
+      report(n"   ALUs: ${pcuOnly.alus}/$nALUs_PCU"+"\t" + p"($aluUtil_PCU)")
+      report(n"   SIns: ${pcuOnly.sclIn}/$nSIns_PCU"+"\t" + p"($sInUtil_PCU)")
+      report(n"  SOuts: ${pcuOnly.sclOut}/$nSOut_PCU"+"\t" + p"($sOutUtil_PCU)")
+      report(n"   VIns: ${pcuOnly.vecIn}/$nVIns_PCU"+"\t" + p"($vInUtil_PCU)")
+      report(n"  VOuts: ${pcuOnly.vecOut}/$nVOut_PCU"+"\t" + p"($vOutUtil_PCU)")
+      report("")
+      report(n"   SIn / PCU: $avgSIn_PCU")
+      report(n"  SOut / PCU: $avgSOut_PCU")
+      report(n"   VIn / PCU: $avgVIn_PCU")
+      report(n"  VOut / PCU: $avgVOut_PCU")
+      report("")
+      report(n"   SIn / Stage: $sInPerStage_PCU")
+      report(n"  SOut / Stage: $sOutPerStage_PCU")
+      report(n"   VIn / Stage: $vInPerStage_PCU")
+      report(n"  VOut / Stage: $vOutPerStage_PCU")
+      report("")
+      report("")
+      report("PMU Statistics:")
+      report(n"   ALUs: ${pmuOnly.alus}/$nALUs_PMU" + "\t" + p"($aluUtil_PMU)")
+      report(n"   SIns: ${pmuOnly.sclIn}/$nSIns_PMU" + "\t" + p"($sInUtil_PMU)")
+      report(n"  SOuts: ${pmuOnly.sclOut}/$nSOut_PMU" + "\t" + p"($sOutUtil_PMU)")
+      report(n"   VIns: ${pmuOnly.vecIn}/$nVIns_PMU" + "\t" + p"($vInUtil_PMU)")
+      report(n"  VOuts: ${pmuOnly.vecOut}/$nVOut_PMU" + "\t" + p"($vOutUtil_PMU)")
+      report("")
+      report(n"   SIn / PMU: $avgSIn_PMU")
+      report(n"  SOut / PMU: $avgSOut_PMU")
+      report(n"   VIn / PMU: $avgVIn_PMU")
+      report(n"  VOut / PMU: $avgVOut_PMU")
+      report("")
+      report(n"   SIn / Stage: $sInPerStage_PMU")
+      report(n"  SOut / Stage: $sOutPerStage_PMU")
+      report(n"   VIn / Stage: $vInPerStage_PMU")
+      report(n"  VOut / Stage: $vOutPerStage_PMU")
     }
-
-    implicit class PercentReportHelper(sc: StringContext) {
-      def p(args: Any*): String = sc.raw(args.map(quotePercent): _*).stripMargin
+    def toCSV = {
+      s"$nPCUs, $nPMUs, $nUCUs, $nSwitch," +
+      s",${total.alus}, ${total.mems}, ${total.sclIn}, ${total.sclOut}, ${total.vecIn}, ${total.vecOut}," +
+      s",$aluUtil, $memUtil, $sInUtil, $sOutUtil, $vInUtil, $vOutUtil, " +
+      s",$aluUtil_PCU, $sInUtil_PCU, $sOutUtil_PCU, $vInUtil_PCU, $vOutUtil_PCU, " +
+      s",$avgSIn_PCU, $avgSOut_PCU, $avgVIn_PCU, $avgVOut_PCU, " +
+      s",$sInPerStage_PCU, $sOutPerStage_PCU, $vInPerStage_PCU, $vOutPerStage_PCU, " +
+      s",$aluUtil_PMU, $sInUtil_PMU, $sOutUtil_PMU, $vInUtil_PMU, $vOutUtil_PMU, " +
+      s",$avgSIn_PMU, $avgSOut_PMU, $avgVIn_PMU, $avgVOut_PMU, " +
+      s",$sInPerStage_PMU, $sOutPerStage_PMU, $vInPerStage_PMU, $vOutPerStage_PMU"
     }
-
-    def quoteNumber(x: Any): String = x match {
-      case f: Float  => if (f.isInfinite || f.isNaN) "-" else "%.2f".format(f)
-      case f: Double => if (f.isInfinite || f.isNaN) "-" else "%.2f".format(f.toFloat)
-      case _ => x.toString
+  }
+  object Statistics {
+    def header = {
+      "PCUs, PMUs, UCUs, Switch," +
+      ", #ALUs, #SRAMs, #SIns, #SOuts, #Vins, #Vouts," +
+      ", ALU Util, SRAM Util, SIn Util, SOut Util, VecIn Util, VecOut Util, " +
+      ", ALU Util (PCU), SIn Util (PCU), SOut Util (PCU), VIn Util (PCU), VOut Util (PCU), " +
+      ", SIn/PCU, SOut/PCU, VIn/PCU, VOut/PCU, " +
+      ", SIn/Stage (PCU), SOut/Stage (PCU), VIn/Stage (PCU), VOut/Stage (PCU), " +
+      ", ALU Util (PMU), SIn Util (PMU), SOut Util (PMU), VIn Util (PMU), VOut Util (PMU), " +
+      ", SIn/PMU, SOut/PMU, VIn/PMU, VOut/PMU, " +
+      ", SIn/Stage (PMU), SOut/Stage (PMU), VIn/Stage (PMU), VOut/Stage (PMU)"
     }
+  }
 
-    implicit class NumberReportHelper(sc: StringContext) {
-      def n(args: Any*): String = sc.raw(args.map(quoteNumber): _*).stripMargin
-    }
+
+  def tallyCUs(cus: Iterable[CU]): Unit = {
+    val total = cus.map { cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+
+    val pcuOnly = cus.filter(_.isPCU).map{cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+    val pmuOnly = cus.filter(_.isPMU).map{cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+
+    val stats = Statistics(total, pcuOnly, pmuOnly)
+    stats.makeReport()
   }
 
 

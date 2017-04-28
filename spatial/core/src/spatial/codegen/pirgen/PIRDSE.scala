@@ -68,6 +68,9 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     val MUCost(sIns_PMU,sOuts_PMU,vIns_PMU,vOuts_PMU,readWrite,_) = mcu
     READ_WRITE = readWrite
 
+    val pmuText = s"r/w=$readWrite, sIn_PMU=$sIns_PMU, sOut_PMU=$sOuts_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU"
+    val pmuSettings = s"$sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU, $readWrite"
+
     val results = (1 to 10).flatMap{stages =>
       STAGES = stages
       Console.print("stages = " + stages)
@@ -90,18 +93,17 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
           vOuts_PCU <- 1 to maxOut    //
         ) {
           val n = pass + fail + 1
-          val perc = (100 * n) / 3465
+          //val perc = (100 * n) / 3465
 
           var others = ArrayBuffer[CU]()
           val pcu = CUCost(sIn=sIns_PCU, sOut=sOuts_PCU, vIn=vIns_PCU, vOut=vOuts_PCU, comp=stages)
 
-          val text: String = s"stages=$stages, sIn_PCU=$sIns_PCU, sOut_PCU=$sOuts_PCU, vIn_PCU=$vIns_PCU, vOut_PCU=$vOuts_PCU, " +
-            s"r/w=$readWrite, sIn_PMU=$sIns_PMU, sOut_PMU=$sOuts_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU"
+          val text: String = s"stages=$stages, sIn_PCU=$sIns_PCU, sOut_PCU=$sOuts_PCU, vIn_PCU=$vIns_PCU, vOut_PCU=$vOuts_PCU, " + pmuText
 
-          val settingsCSV: String = s"$sIns_PCU, $sOuts_PCU, $vIns_PCU, $vOuts_PCU, $stages, $sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU"
+          val settingsCSV: String = s"$sIns_PCU, $sOuts_PCU, $vIns_PCU, $vOuts_PCU, $stages, " + pmuSettings
 
           try {
-            var stats = Utilization()
+            var util = Utilization()
 
             for (orig <- cus) {
               val split = splitCU(orig, pcu, mcu, others)
@@ -110,55 +112,37 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
               for (cu <- split) {
                 val cost = getUtil(cu, others)
 
-                stats += cost
+                util += cost
                 others += cu
               }
             }
-            val nPCUs = stats.pcus
-            val nPMUs = stats.pmus
             val pcuOnly = others.filter(_.isPCU).map{cu => getUtil(cu, others.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+            val pmuOnly = others.filter(_.isPMU).map{cu => getUtil(cu, others.filterNot(_ == cu)) }.fold(Utilization()){_+_}
 
-            val nALUs = (LANES * nPCUs * stages) + (nPMUs * readWrite)
-            val nMems = nPMUs
-            val nSIns = (sIns_PCU * nPCUs) + (sIns_PMU * nPMUs)
-            val nSOut = (sOuts_PCU * nPCUs) + (sOuts_PMU * nPMUs)
-            val nVIns = (vIns_PCU * nPCUs) + (vIns_PMU * nPMUs)
-            val nVOut = (vOuts_PCU * nPCUs) + (vOuts_PMU * nPMUs)
-
-            val aluUtil = stats.alus.toFloat / nALUs
-            val memUtil = stats.mems.toFloat / nMems
-            val sInUtil  = stats.sclIn.toFloat / nSIns
-            val sOutUtil = stats.sclOut.toFloat / nSOut
-            val vInUtil = stats.vecIn.toFloat / nVIns
-            val vOutUtil = stats.vecOut.toFloat / nVOut
-
-            /** PCU only **/
-            val aluUtil_PCU  = pcuOnly.alus.toFloat / (LANES * nPCUs * stages)
-            val sInUtil_PCU  = pcuOnly.sclIn.toFloat / (sIns_PCU * nPCUs)
-            val sOutUtil_PCU = pcuOnly.sclOut.toFloat / (sOuts_PCU * nPCUs)
-            val vInUtil_PCU  = pcuOnly.vecIn.toFloat / (vIns_PCU * nPCUs)
-            val vOutUtil_PCU = pcuOnly.vecOut.toFloat / (vOuts_PCU * nPCUs)
-
-            val avgSIn_PCU  = pcuOnly.sclIn.toFloat / nPCUs
-            val avgSOut_PCU = pcuOnly.sclOut.toFloat / nPCUs
-            val avgVIn_PCU  = pcuOnly.vecIn.toFloat / nPCUs
-            val avgVOut_PCU = pcuOnly.vecOut.toFloat / nPCUs
-
-            val sInPerStage_PCU  = pcuOnly.sclIn.toFloat / (pcuOnly.stages + pcuOnly.addr)
-            val sOutPerStage_PCU = pcuOnly.sclOut.toFloat / (pcuOnly.stages + pcuOnly.addr)
-            val vInPerStage_PCU  = pcuOnly.vecIn.toFloat / (pcuOnly.stages + pcuOnly.addr)
-            val vOutPerStage_PCU = pcuOnly.vecOut.toFloat / (pcuOnly.stages + pcuOnly.addr)
+            val stats = Statistics(
+              /** Utilization **/
+              total = util,
+              pcuOnly = pcuOnly,
+              pmuOnly = pmuOnly,
+              /** PCUS **/
+              sIn_PCU  = sIns_PCU,
+              sOut_PCU = sOuts_PCU,
+              vIn_PCU  = vIns_PCU,
+              vOut_PCU = vOuts_PCU,
+              stages   = stages,
+              /** PMUs **/
+              sIn_PMU   = sIns_PMU,
+              sOut_PMU  = sOuts_PMU,
+              vIn_PMU   = vIns_PMU,
+              vOut_PMU  = vOuts_PMU,
+              readWrite = readWrite
+            )
 
             if (pass == 0) first = text
             pass += 1
 
             //Console.println(s"$n [$perc%]: " + text + s": PASS [PCUs:$nPCUs/PMUs:$nPMUs]")
-            entries(n-1) = "P" + (settingsCSV + ", " + stats.toString +
-              s",$nALUs, $nMems, $nSIns, $nSOut, $nVIns, $nVOut," +
-              s",$aluUtil, $memUtil, $sInUtil, $sOutUtil, $vInUtil, $vOutUtil, " +
-              s",$aluUtil_PCU, $sInUtil_PCU, $sOutUtil_PCU, $vInUtil_PCU, $vOutUtil_PCU, " +
-              s",$avgSIn_PCU, $avgSOut_PCU, $avgVIn_PCU, $avgVOut_PCU, " +
-              s",$sInPerStage_PCU, $sOutPerStage_PCU, $vInPerStage_PCU, $vOutPerStage_PCU")
+            entries(n-1) = "P" + (settingsCSV + "," + stats.toCSV)
           }
           catch {case e:SplitException =>
             fail += 1
@@ -187,14 +171,8 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     Config.verbosity = prevVerbosity
     Console.print(s"Writing results to file $dir/$name.csv...")
 
-    val header = Utilization()
-    invalid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU")
-    valid.println  ("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, " + header.heading +
-      ", #ALU, #SRAM, #SIn, #SOut, #Vin, #Vout," +
-      ", ALU Util, SRAM Util, SIn Util, SOut Util, VecIn Util, VecOut Util, " +
-      ", ALU Util (PCU), SIn Util (PCU), SOut Util (PCU), VIn Util (PCU), VOut Util (PCU), " +
-      ", SIn/PCU, SOut/PCU, VIn/PCU, VOut/PCU," +
-      ", SIn/Stage (PCU), SOut/Stage (PCU), VIn/Stage (PCU), VOut/Stage (PCU)")
+    invalid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W")
+    valid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W, " + Statistics.header)
 
     results.foreach{case (entries, _, _, _) =>
       entries.foreach{entry =>

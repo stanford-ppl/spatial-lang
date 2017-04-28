@@ -3,15 +3,14 @@ package spatial.transform
 import scala.collection.mutable
 import argon.transform.ForwardTransformer
 import spatial._
-import spatial.analysis.ModelingTraversal
 import spatial.models._
 
-trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
+trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal { retimer =>
   val IR: SpatialExp
   import IR._
 
-  override val name = "Pipeline Retimer"
-  override def shouldRun = !SpatialConfig.enablePIR
+  override val name = "Hacky PIR Retimer"
+  override def shouldRun = SpatialConfig.enablePIR
 
   def requiresRetiming(x: Exp[_]) = latencyModel.requiresRegisters(x)
   def retimingDelay(x: Exp[_]): Int = {
@@ -62,9 +61,9 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
 
         val readersList = readerGroups(totalSize)
         val size = regSizeMap(totalSize) // Look up mapping for this size
-        // val reg = regAlloc(input, size)
-        // regWrite(reg, f(regReads.last))
-        val read = valueDelay(size, f(regReads.last))
+      // val reg = regAlloc(input, size)
+      // regWrite(reg, f(regReads.last))
+      val read = valueDelay(size, f(regReads.last))
 
         readersList.foreach{ reader =>
           // dbgs(c"  Register: ${str(reg)}, size: $size, reader: $reader")

@@ -319,15 +319,30 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   /**
     * Create duplicates of the given node or special case, vectorized version
     * NOTE: Only can be used within reify scope
+    * TODO: Whitelist loop invariant nodes
     **/
   def shouldUnrollAccess(lhs: Sym[_], rhs: Op[_], lanes: Unroller): Boolean = rhs match {
-    case LocalReader(reads)  => !isLoopInvariant(lhs) && reads.forall{r => lanes.isCommon(r.mem) }
-    case LocalWriter(writes) => !isLoopInvariant(lhs) && writes.forall{r => lanes.isCommon(r.mem) }
+    case LocalReader(reads) if reads.forall{r => lanes.isCommon(r.mem) } => rhs match {
+      case _:SRAMLoad[_] => !isLoopInvariant(lhs)
+      case _ => true
+    }
+
+    case LocalWriter(writes) if writes.forall{r => lanes.isCommon(r.mem) } => rhs match {
+      case _:SRAMStore[_] => !isLoopInvariant(lhs)
+      case _ => true
+    }
+    case _ => false
   }
   def shouldUnifyAccess(lhs: Sym[_], rhs: Op[_], lanes: Unroller): Boolean = rhs match {
-    case LocalReader(reads)  => isLoopInvariant(lhs) && reads.forall{r => lanes.isCommon(r.mem) }
-    case LocalWriter(writes) => isLoopInvariant(lhs) && writes.forall{r => lanes.isCommon(r.mem) }
-    case _ => isLoopInvariant(lhs)
+    case LocalReader(reads)  if isLoopInvariant(lhs) && reads.forall{r => lanes.isCommon(r.mem) } => rhs match {
+      case _:SRAMLoad[_] => true
+      case _ => false
+    }
+    case LocalWriter(writes) if isLoopInvariant(lhs) && writes.forall{r => lanes.isCommon(r.mem) } => rhs match {
+      case _:SRAMStore[_] => true
+      case _ => false
+    }
+    case _ => false
   }
 
   def unroll[T](lhs: Sym[T], rhs: Op[T], lanes: Unroller)(implicit ctx: SrcCtx): List[Exp[_]] = rhs match {
