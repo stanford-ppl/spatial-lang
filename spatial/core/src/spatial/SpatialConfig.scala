@@ -72,6 +72,8 @@ object SpatialConfig extends Reporting {
   var regs_PMU: Int = _
   var lanes: Int = _
 
+  var threads: Int = 8
+
   def init(): Unit = {
     val defaultSpatial = ConfigFactory.parseString("""
 spatial {

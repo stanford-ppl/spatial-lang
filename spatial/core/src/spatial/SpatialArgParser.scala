@@ -77,4 +77,8 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableSplitting = true
   }
 
+  parser.opt[Int]("threads").action{ (t,_) =>
+    SpatialConfig.threads = t
+  }
+
 }

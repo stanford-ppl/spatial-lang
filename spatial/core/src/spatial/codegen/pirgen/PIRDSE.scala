@@ -5,6 +5,8 @@ import spatial.{SpatialConfig, SpatialExp}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.parallel._
+
 import java.io.PrintStream
 import java.nio.file.{Files, Paths}
 
@@ -73,12 +75,20 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     val pmuSettings = s"$sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU, $readWrite"
 
     // Can't have less than REDUCE_STAGES stages (otherwise no room to do reduce)
+    val regsMaxs  = 2 to 16 by 2        // 8
+    val vIns_PCUs = 2 to 10             // 9
+    val sIns_PCUs = 1 +: (2 to 10 by 2) // 6
+
+    val threads = regsMaxs.flatMap{r => vIns_PCUs.flatMap{v => sIns_PCUs.map{s => (r,v,s) }}}.par
+
+    threads.tasksupport = new ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(SpatialConfig.threads))
+
     val results = (REDUCE_STAGES to 10).flatMap{stages =>
       STAGES = stages
       Console.print("stages = " + stages)
       val start = System.currentTimeMillis()
 
-      val result = (2 to 16 by 2).par.map{regsMax_PCU =>
+      val result = threads.map{case (regsMax_PCU, vIns_PCU, sIns_PCU) =>
         val maxSOut = Math.min(10, regsMax_PCU)  // Can't have more outputs than the number of live registers
         val maxVOut = Math.min(6, regsMax_PCU)
 
@@ -91,8 +101,6 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
         for (
           //stages    <- 1 to 10;     // 10
           //sIns_PCU  <- 1 to 10;     // 10
-          vIns_PCU  <- 2 to 10;       // 9
-          sIns_PCU  <- 1 +: (2 to 10 by 2); // 6
           sOuts_PCU <- 1 to maxSOut;   //
           vOuts_PCU <- 1 to maxVOut    //
         ) {
