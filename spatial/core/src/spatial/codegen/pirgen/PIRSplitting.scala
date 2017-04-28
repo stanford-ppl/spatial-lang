@@ -27,7 +27,7 @@ trait PIRSplitting extends PIRTraversal {
     Nodes must be duplicated/created depending on how the graph is partitioned
     Could model this as conditional costs for nodes in context of their partition?
    **/
-  def splitCU(cu: CU, archCU: CUCost, archMU: MUCost, others: Iterable[CU]): List[CU] = cu.style match {
+  def splitCU(cu: CU, archCU: CUCost, archMU: MUCost, others: Seq[CU]): List[CU] = cu.style match {
     case _:MemoryCU => splitPMU(cu, archMU, others)
     case _:FringeCU => List(cu)
     case _ if cu.computeStages.isEmpty => List(cu)
@@ -36,7 +36,7 @@ trait PIRSplitting extends PIRTraversal {
 
 
   // TODO: PMU splitting. For now just throws an exception if it doesn't fit the specified constraints
-  def splitPMU(cu: CU, archMU: MUCost, others: Iterable[CU]): List[CU] = {
+  def splitPMU(cu: CU, archMU: MUCost, others: Seq[CU]): List[CU] = {
     if (cu.lanes > LANES) {
       var errReport = s"Failed splitting in PMU $cu"
       errReport += s"\nCU had ${cu.lanes} lanes, greater than allowed $LANES"
@@ -73,7 +73,7 @@ trait PIRSplitting extends PIRTraversal {
     List(cu)
   }
 
-  def splitPCU(cu: CU, arch: CUCost, others: Iterable[CU]): List[CU] = {
+  def splitPCU(cu: CU, arch: CUCost, others: Seq[CU]): List[CU] = {
     dbg("\n\n\n")
     dbg(s"Splitting PCU: $cu")
     dbg(s"Compute: ")
@@ -172,8 +172,11 @@ trait PIRSplitting extends PIRTraversal {
     val local = part.cstages
     val remote = orig.allStages.toList diff part.allStages
 
-    val localIns  = local.flatMap(_.inputMems).toSet ++ localInputs(cu.mems)
+    val localIns  = local.flatMap(_.inputMems).toSet
     val localOuts = local.flatMap(_.outputMems).toSet
+
+    val readMems = localIns.collect{case MemLoadReg(mem) => mem }
+    orig.memMap.foreach{case (k,mem) => if (readMems contains mem) cu.memMap += k -> mem }
 
     val remoteIns = remote.flatMap(_.inputMems).toSet
     val remoteOuts = remote.flatMap(_.outputMems).toSet

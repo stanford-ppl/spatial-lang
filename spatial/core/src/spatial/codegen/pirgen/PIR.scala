@@ -92,7 +92,9 @@ trait PIR {
   def groupBuses(x: Iterable[GlobalBus]) = {
     val args    = x.collect{case arg:InputArg => arg}
     val scalars = x.collect{case b:ScalarBus if !b.isInstanceOf[InputArg] => b}
-    val vectors = x.collect{case b:VectorBus => b}
+    val vectors = x.collect{case b:VectorBus if !b.isInstanceOf[LocalReadBus] => b}
+    //val scalarMems = x.collect{case bus@LocalReadBus(mem) if mem.mode == ScalarFIFOMode || mem.mode == ScalarBufferMode => bus }
+    //val vectorMems = x.collect{case bus@LocalReadBus(mem) if mem.mode == SRAMMode || mem.mode == FIFOOnWriteMode || mem.mode == VectorFIFOMode => bus }
     BusGroups(args, scalars, vectors)
   }
 

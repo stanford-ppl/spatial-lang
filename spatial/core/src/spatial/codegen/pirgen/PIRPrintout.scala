@@ -12,13 +12,10 @@ trait PIRPrintout extends PIRTraversal {
 
   val splitMappingIn = mutable.HashMap[Expr, List[List[CU]]]()
 
-  def cusExcept(cu: CU): Iterable[CU] = {
-    val cus = if (splitMappingIn.nonEmpty) splitMappingIn.values.flatten.flatten
-    else mappingIn.values.flatten
-    cus.filterNot(_ == cu)
-  }
+  def cus = if (splitMappingIn.isEmpty) mappingIn.values.toList.flatten else splitMappingIn.values.toList.flatten.flatten
 
   def printCU(cu: CU): Unit = {
+
     val style = cu.style match {
       case _:MemoryCU => "PMU"
       case _:FringeCU => "Fringe"
@@ -26,10 +23,14 @@ trait PIRPrintout extends PIRTraversal {
     }
     dbg("\n")
     dbg(style + " " + cu.toString)
+    dbg("  isPMU: " + cu.isPMU)
+    dbg("  isPCU: " + cu.isPCU)
     dbg("  Parent: " + cu.parentCU.map(_.name).getOrElse("None"))
     dbg("  Lanes: " + cu.lanes)
     dbg("  Counter chains:")
     cu.cchains.foreach{cchain => dbg(s"    ${cchain.longString}") }
+    dbg("  Memories:")
+    cu.mems.foreach{mem => dbg(s"    $mem") }
     dbg("  Compute stages:")
     cu.computeStages.foreach{stage => dbg(s"    $stage") }
     dbg("  Read stages:")
@@ -52,11 +53,11 @@ trait PIRPrintout extends PIRTraversal {
 
     cu.style match {
       case _:MemoryCU =>
-        val cost = getUtil(cu, cusExcept(cu))
+        val cost = getUtil(cu, cus)
         reportUtil(cost)
       case _:FringeCU =>
       case _ =>
-        val cost = getUtil(cu, cusExcept(cu))
+        val cost = getUtil(cu, cus)
         reportUtil(cost)
     }
   }

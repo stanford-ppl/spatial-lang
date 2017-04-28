@@ -145,12 +145,12 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   /**
     * Calculate the total cost for a given partition
     */
-  def getCost(p: Partition, prev: Seq[Partition], all: List[Stage], others: Iterable[CU], isUnit: Boolean) = p match {
+  def getCost(p: Partition, prev: Seq[Partition], all: List[Stage], others: Seq[CU], isUnit: Boolean) = p match {
     case pmu: MUPartition => getMUCost(pmu, prev, all, others)
     case pcu: CUPartition => getCUCost(pcu, prev, all, others, isUnit){p => p.cstages}
   }
 
-  def getMUCost(p: MUPartition, prev: Seq[Partition], all: List[Stage], others: Iterable[CU]) = {
+  def getMUCost(p: MUPartition, prev: Seq[Partition], all: List[Stage], others: Seq[CU]) = {
     val readCost = p.rstages.values.map{stages =>
       val cost = getCUCost(p, prev, all, others, isUnit=false){_ => stages}
       MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,comp=cost.comp)
@@ -162,7 +162,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     readCost + writeCost
   }
 
-  def getCUCost[P<:Partition](p: P, prev: Seq[Partition], all: List[Stage], others: Iterable[CU], isUnit: Boolean)(getStages: P => Seq[Stage]) = {
+  def getCUCost[P<:Partition](p: P, prev: Seq[Partition], all: List[Stage], others: Seq[CU], isUnit: Boolean)(getStages: P => Seq[Stage]) = {
     val local = getStages(p)
 
     dbg(s"\n\n")
@@ -186,8 +186,8 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val cuGrpsIn = groupBuses(cuInBuses)
     val cuGrpsOut = groupBuses(cuOutBuses)
 
-    var vIns: Int   = nVectorIns(cuGrpsIn, others)
-    var vOuts: Int  = nVectorOuts(cuGrpsOut, countScalars = false)
+    var vIns: Int   = cuGrpsIn.vectors.size
+    var vOuts: Int  = cuGrpsOut.vectors.size
 
     var sIns = Map[Int, Int]()
     def addIn(part: Int) {
@@ -318,9 +318,9 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     def header = "PCUs, PMUs, UCUs, Switch, ALUs, SRAMs, SclIn, SclOut, VecIn, VecOut, Regs"
   }
 
-  def getUtil(cu: CU, others: Iterable[CU]): Utilization = cu.style match {
+  def getUtil(cu: CU, cus: Seq[CU]): Utilization = cu.style match {
     case _:MemoryCU =>
-      val vIn = nVectorIns(cu, others)
+      val vIn = nVectorIns(cu)
       val vOut = nVectorOuts(cu)
       val regs = regsPerStage(cu)
       Utilization(
@@ -339,7 +339,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     case _:FringeCU => Utilization(ucus = 1)  // TODO
 
     case _ =>
-      val nChildren = others.count{_.parent.contains(cu)}
+      val nChildren = cus.count{_.parent.contains(cu)}
       val isParent = nChildren > 0
       val isEmpty  = cu.allStages.isEmpty
       val parentIsStream = cu.allParents.exists(_.style == StreamCU)
@@ -360,7 +360,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
           alus   = nUsedALUs(cu),
           sclIn  = nScalarIn(cu),
           sclOut = nScalarOut(cu),
-          vecIn  = nVectorIns(cu, others),
+          vecIn  = nVectorIns(cu),
           vecOut = nVectorOuts(cu),
           regsMax = if (regs.isEmpty) 1 else Math.max(Math.ceil(regs.max.toDouble / cu.lanes).toInt, 1), // per lane
           regsUse = regs.sum
@@ -407,26 +407,13 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }.sum
   }
 
-  def nScalarIn(cu: CU) = {
+  def nScalarIn(cu: CU): Int = {
     val groups = groupBuses(globalInputs(cu))
     groups.args.size + groups.scalars.size
   }
-  def nScalarOut(cu: CU) = {
-    val groups = groupBuses(globalOutputs(cu))
-    groups.scalars.size
-  }
-
-  def nVectorIns(cu: CU, others: Iterable[CU]): Int = {
-    val groups = groupBuses(globalInputs(cu))
-    nVectorIns(groups, others)
-  }
-  def nVectorIns(groups: BusGroups, others: Iterable[CU]): Int = groups.vectors.size
-
-  def nVectorOuts(cu: CU): Int = {
-    val groups = groupBuses(globalOutputs(cu))
-    nVectorOuts(groups)
-  }
-  def nVectorOuts(groups: BusGroups, countScalars: Boolean = true): Int = groups.vectors.size
+  def nScalarOut(cu: CU): Int = groupBuses(globalOutputs(cu)).scalars.size
+  def nVectorIns(cu: CU): Int = groupBuses(globalInputs(cu)).vectors.size
+  def nVectorOuts(cu: CU): Int = groupBuses(globalOutputs(cu)).vectors.size
 
   def reportUtil(stats: Utilization) {
     val Utilization(pcus, pmus, ucus, switch, addr, stages, alus, mems, sclIn, sclOut, vecIn, vecOut, regsMax, regsUse) = stats
@@ -643,11 +630,17 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   }
 
 
-  def tallyCUs(cus: Iterable[CU]): Unit = {
-    val total = cus.map { cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+  def tallyCUs(cus: Seq[CU]): Unit = {
+    val total = cus.map { cu => getUtil(cu, cus) }.fold(Utilization()){_+_}
 
-    val pcuOnly = cus.filter(_.isPCU).map{cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
-    val pmuOnly = cus.filter(_.isPMU).map{cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+    val pcuOnly = cus.filter(_.isPCU).map{cu =>
+      val util = getUtil(cu, cus)
+      dbg(s"$cu: ")
+      reportUtil(util)
+      util
+    }.fold(Utilization()){_+_}
+
+    val pmuOnly = cus.filter(_.isPMU).map{cu => getUtil(cu, cus) }.fold(Utilization()){_+_}
 
     val stats = Statistics(total, pcuOnly, pmuOnly)
     stats.makeReport()

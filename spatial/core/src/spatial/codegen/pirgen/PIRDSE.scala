@@ -120,8 +120,8 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
                 others += cu
               }
             }
-            val pcuOnly = others.filter(_.isPCU).map{cu => getUtil(cu, others.filterNot(_ == cu)) }.fold(Utilization()){_+_}
-            val pmuOnly = others.filter(_.isPMU).map{cu => getUtil(cu, others.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+            val pcuOnly = others.filter(_.isPCU).map{cu => getUtil(cu, others) }.fold(Utilization()){_+_}
+            val pmuOnly = others.filter(_.isPMU).map{cu => getUtil(cu, others) }.fold(Utilization()){_+_}
 
             val stats = Statistics(
               /** Utilization **/

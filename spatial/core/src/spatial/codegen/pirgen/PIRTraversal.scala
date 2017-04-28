@@ -289,7 +289,14 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
 
   def writerOf(mem:Expr):Access = {
     val writers = writersOf(mem)
-    assert(writers.size==1, s"Plasticine only support single writer mem=${qdef(mem)} writers=[${writers.mkString(",")}]")
+    if (writers.size > 1) {
+      error(u"Memory $mem has multiple writers: ")
+      error(mem.ctx)
+      writers.foreach{writer => error(writer.node.ctx, showCaret = true) }
+      error("Plasticine currently only supports 1 writer per memory")
+      sys.exit(-1)
+    }
+    //assert(writers.size==1, u"Plasticine only support single writer mem=${qdef(mem)} writers=[${writers.mkString(",")}]")
     writers.head
   }
 
