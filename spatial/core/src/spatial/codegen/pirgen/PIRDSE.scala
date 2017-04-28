@@ -45,9 +45,10 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
       sOuts_PMU <- 0 to 2;       // 2
       vIns_PMU <- 2 to 6;        // 5
       vOuts_PMU <- 1 to 1;       // 1
-      readWrite <- 1 to 10       // 10
+      readWrite <- 1 to 10;      // 10
+      regs_PMU <- 1 to 16        // 16
     ) {
-      mcu = MUCost(sIn=sIns_PMU, sOut=sOuts_PMU, vIn=vIns_PMU, vOut=vOuts_PMU, read=readWrite, write=readWrite)
+      mcu = MUCost(sIn=sIns_PMU, sOut=sOuts_PMU, vIn=vIns_PMU, vOut=vOuts_PMU, read=readWrite, write=readWrite, regsMax=regs_PMU)
 
       var others = ArrayBuffer[CU]()
 
@@ -65,21 +66,23 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
 
     if (!foundMCU) throw new Exception("Unable to find minimum MCU parameters")
 
-    val MUCost(sIns_PMU,sOuts_PMU,vIns_PMU,vOuts_PMU,readWrite,_) = mcu
+    val MUCost(sIns_PMU,sOuts_PMU,vIns_PMU,vOuts_PMU,readWrite,_,regsMax_PMU,_) = mcu
     READ_WRITE = readWrite
 
     val pmuText = s"r/w=$readWrite, sIn_PMU=$sIns_PMU, sOut_PMU=$sOuts_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU"
     val pmuSettings = s"$sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU, $readWrite"
 
-    val results = (1 to 10).flatMap{stages =>
+    // Can't have less than REDUCE_STAGES stages (otherwise no room to do reduce)
+    val results = (REDUCE_STAGES to 10).flatMap{stages =>
       STAGES = stages
       Console.print("stages = " + stages)
       val start = System.currentTimeMillis()
 
-      val result = (1 to 10).par.map{sIns_PCU =>
-        val maxOut = stages
+      val result = (2 to 16 by 2).par.map{regsMax_PCU =>
+        val maxSOut = Math.min(10, regsMax_PCU)  // Can't have more outputs than the number of live registers
+        val maxVOut = Math.min(6, regsMax_PCU)
 
-        val entries = new Array[String](9*maxOut*maxOut)
+        val entries = new Array[String](9*6*maxSOut*maxVOut)
 
         var pass = 0
         var fail = 0
@@ -89,14 +92,15 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
           //stages    <- 1 to 10;     // 10
           //sIns_PCU  <- 1 to 10;     // 10
           vIns_PCU  <- 2 to 10;       // 9
-          sOuts_PCU <- 1 to maxOut;   //
-          vOuts_PCU <- 1 to maxOut    //
+          sIns_PCU  <- 1 +: (2 to 10 by 2); // 6
+          sOuts_PCU <- 1 to maxSOut;   //
+          vOuts_PCU <- 1 to maxVOut    //
         ) {
           val n = pass + fail + 1
           //val perc = (100 * n) / 3465
 
           var others = ArrayBuffer[CU]()
-          val pcu = CUCost(sIn=sIns_PCU, sOut=sOuts_PCU, vIn=vIns_PCU, vOut=vOuts_PCU, comp=stages)
+          val pcu = CUCost(sIn=sIns_PCU, sOut=sOuts_PCU, vIn=vIns_PCU, vOut=vOuts_PCU, comp=stages, regsMax=regsMax_PMU)
 
           val text: String = s"stages=$stages, sIn_PCU=$sIns_PCU, sOut_PCU=$sOuts_PCU, vIn_PCU=$vIns_PCU, vOut_PCU=$vOuts_PCU, " + pmuText
 
@@ -130,12 +134,14 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
               vIn_PCU  = vIns_PCU,
               vOut_PCU = vOuts_PCU,
               stages   = stages,
+              regs_PCU = regsMax_PCU,
               /** PMUs **/
               sIn_PMU   = sIns_PMU,
               sOut_PMU  = sOuts_PMU,
               vIn_PMU   = vIns_PMU,
               vOut_PMU  = vOuts_PMU,
-              readWrite = readWrite
+              readWrite = readWrite,
+              regs_PMU  = regsMax_PMU
             )
 
             if (pass == 0) first = text
