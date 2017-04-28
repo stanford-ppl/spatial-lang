@@ -27,7 +27,6 @@ object StreamingSobel extends SpatialApp {
 
     val imgIn  = StreamIn[Pixel24](target.VideoCamera)
     val imgOut = StreamOut[Pixel16](target.VGA)
-    val grayOut = StreamOut[Pixel16](target.VGA)
 
     Accel {
       val kh = RegFile[Int16](Kh, Kw)
@@ -63,14 +62,7 @@ object StreamingSobel extends SpatialApp {
       Stream(*) { _ =>
         val pixel = imgIn.value()
         val grayPixel = (pixel.b.to[Int16] + pixel.g.to[Int16] + pixel.r.to[Int16]) / 3
-
-        println(grayPixel.as16b)
-        println("b: " + grayPixel(7::3).as5b)
-        println("g: " + grayPixel(7::2).as6b)
-        println("r: " + grayPixel(7::3).as5b)
-
         fifoIn.enq( grayPixel )
-        grayOut := Pixel16(grayPixel(7::3).as[UInt5], grayPixel(7::2).as[UInt6], grayPixel(7::3).as[UInt5])
 
         Foreach(0 until R, 0 until Cmax) { (r, c) =>
           lb.enq(fifoIn.deq(), true)
