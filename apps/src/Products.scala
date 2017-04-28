@@ -79,7 +79,7 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 76800 76
   }
 }
 
-object DotProduct extends SpatialApp { // Regression (Dense) // Args: 640
+object DotProduct extends SpatialApp { // Regression (Dense) // Args: 8000
   import IR._
 
   type X = Int

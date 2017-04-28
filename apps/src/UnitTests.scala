@@ -827,8 +827,8 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
   val C = 16
 
   def memcpy_2d[T:Type:Num](src: Array[T], rows: Int, cols: Int): Array[T] = {
-    val tileDim1 = param(16)
-    val tileDim2 = 16 (16 -> 16)
+    val tileDim1 = R
+    val tileDim2 = C
 
     val rowsIn = rows
     val colsIn = cols
@@ -842,8 +842,8 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
     Accel {
       Sequential.Foreach(rowsIn by tileDim1, colsIn by tileDim2) { (i,j) =>
         val tile = SRAM[T](tileDim1, tileDim2)
-        tile load srcFPGA(i::i+tileDim1, j::j+tileDim2 par 16)
-        dstFPGA (i::i+tileDim1, j::j+tileDim2 par 8) store tile
+        tile load srcFPGA(i::i+tileDim1, j::j+tileDim2 par 1)
+        dstFPGA (i::i+tileDim1, j::j+tileDim2 par 1) store tile
       }
     }
     getMem(dstFPGA)
@@ -927,8 +927,9 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
   import IR._
 
   val tileSize = 64
-  val p = 2
+  val p = 1
 
+  @virtualize
   def blockreduce_1d[T:Type:Num](src: Array[T], size: Int) = {
     val sizeIn = ArgIn[Int]
     setArg(sizeIn, size)
@@ -940,7 +941,7 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
 
     Accel {
       val accum = SRAM[T](tileSize)
-      MemReduce(accum)(sizeIn by tileSize par 2){ i  =>
+      MemReduce(accum)(sizeIn by tileSize par p){ i  =>
         val tile = SRAM[T](tileSize)
         tile load srcFPGA(i::i+tileSize par 16)
         tile
