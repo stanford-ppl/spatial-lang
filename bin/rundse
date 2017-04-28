@@ -7,5 +7,5 @@ for app in "${files[@]}"
 do
   echo $app
   rm -r gen/$app
-  bin/spatial $app --cgra*
+  bin/spatial $app --cgra* --threads 32 2>&1 | tee ${app}_dse.log
 done

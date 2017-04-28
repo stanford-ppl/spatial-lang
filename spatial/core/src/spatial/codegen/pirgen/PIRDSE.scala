@@ -92,7 +92,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
         val maxSOut = Math.min(10, regsMax_PCU)  // Can't have more outputs than the number of live registers
         val maxVOut = Math.min(6, regsMax_PCU)
 
-        val entries = new Array[String](9*6*maxSOut*maxVOut)
+        val entries = new Array[String](maxSOut*maxVOut)
 
         var pass = 0
         var fail = 0
@@ -189,7 +189,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     valid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W, " + Statistics.header)
 
     results.foreach{case (entries, _, _, _) =>
-      entries.foreach{entry =>
+      entries.filterNot(_ == null).foreach{entry =>
         if (entry.startsWith("P")) valid.println(entry.drop(1))
         else invalid.println(entry.drop(1))
       }
