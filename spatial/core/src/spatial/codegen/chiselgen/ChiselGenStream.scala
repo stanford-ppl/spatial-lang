@@ -47,6 +47,7 @@ trait ChiselGenStream extends ChiselCodegen {
           emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
           emit(src"} ", forceful=true) 
 
+          emit(src"io.led_stream_out_data := io.stream_in_ready", forceful=true)
           emit(src"io.stream_in_ready := ${lhs}_ready", forceful=true)
           emit(src"${lhs}_valid := io.stream_in_valid", forceful=true)
 

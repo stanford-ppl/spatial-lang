@@ -33,25 +33,25 @@ object StreamingSobel extends SpatialApp {
       val kv = RegFile[Int12](Kh, Kw)
 
       // TODO: Better syntax for initialization of lookup tables
-      Pipe(kh(0,0) = 1)
-      kh(1,0) = 2
-      kh(2,0) = 1
-      kh(0,1) = 0
-      kh(1,1) = 0
-      kh(2,1) = 0
-      kh(0,2) = -1
-      kh(1,2) = -2
-      kh(2,2) = -1
+      Pipe{kh(0,0) = 1} 
+      Pipe{kh(1,0) = 2} 
+      Pipe{kh(2,0) = 1}
+      Pipe{kh(0,1) = 0}
+      Pipe{kh(1,1) = 0}
+      Pipe{kh(2,1) = 0}
+      Pipe{kh(0,2) = -1}
+      Pipe{kh(1,2) = -2}
+      Pipe{kh(2,2) = -1}
 
-      kv(0,0) = 1
-      kv(0,1) = 2
-      kv(0,2) = 1
-      kv(1,0) = 0
-      kv(1,1) = 0
-      kv(1,2) = 0
-      kv(2,0) = -1
-      kv(2,1) = -2
-      kv(2,2) = -1
+      Pipe{kv(0,0) = 1} 
+      Pipe{kv(0,1) = 2}
+      Pipe{kv(0,2) = 1}
+      Pipe{kv(1,0) = 0}
+      Pipe{kv(1,1) = 0}
+      Pipe{kv(1,2) = 0}
+      Pipe{kv(2,0) = -1} 
+      Pipe{kv(2,1) = -2}
+      Pipe{kv(2,2) = -1}
 
       val sr = RegFile[Int12](Kh, Kw)
       val fifoIn = FIFO[Int12](128)
@@ -80,7 +80,6 @@ object StreamingSobel extends SpatialApp {
 
           fifoOut.enq( abs(horz.value) + abs(vert.value) ) // Technically should be sqrt(horz**2 + vert**2)
         }
-
 
         val pixelOut = fifoOut.deq()
         imgOut := Pixel16(pixelOut.to[UInt5], pixelOut.to[UInt6], pixelOut.to[UInt5])
