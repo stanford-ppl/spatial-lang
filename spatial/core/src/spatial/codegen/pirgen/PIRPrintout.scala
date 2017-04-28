@@ -34,9 +34,15 @@ trait PIRPrintout extends PIRTraversal {
     dbg("  Compute stages:")
     cu.computeStages.foreach{stage => dbg(s"    $stage") }
     dbg("  Read stages:")
-    cu.readStages.foreach{stage => dbg(s"    $stage") }
+    cu.readStages.foreach { case (mems, stages) =>
+      dbg("    Mems: " + mems.mkString(", "))
+      stages.foreach { stage => dbg(s"      $stage") }
+    }
     dbg("  Write stages:")
-    cu.writeStages.foreach{stage => dbg(s"    $stage") }
+    cu.writeStages.foreach { case (mems, stages) =>
+      dbg("    Mems: " + mems.mkString(", "))
+      stages.foreach { stage => dbg(s"      $stage") }
+    }
     dbg("  Control stages:")
     cu.controlStages.foreach{stage => dbg(s"    $stage") }
 

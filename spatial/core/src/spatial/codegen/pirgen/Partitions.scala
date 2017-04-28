@@ -196,6 +196,28 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }
     var sOuts: Int = localOuts.count{case ScalarOut(_) => true; case _ => false}
 
+    // --- Memory reads
+    val readMems = localIns.collect{case MemLoadReg(mem) => mem }
+    val vectorMems = readMems.filter{mem => mem.mode match {
+      case SRAMMode        => true
+      case FIFOOnWriteMode => true
+      case VectorFIFOMode  => true
+      case _ => false
+    }}
+    val scalarMems = readMems.filter{mem => mem.mode match {
+      case ScalarFIFOMode => true
+      case ScalarBufferMode => true
+      case _ => false
+    }}
+    dbg(s"  Read Mems (Vectors): " + vectorMems.mkString(", "))
+    dbg(s"  Read Mems (Scalars): " + scalarMems.mkString(", "))
+    vIns += vectorMems.size
+    scalarMems.foreach{ _ => addIn(-1) }
+
+    // --- Memory writes
+    // Handled by VectorOuts
+
+
     // --- Registers
     dbg(s"  Arg ins: " + cuGrpsIn.args.mkString(", "))
 
