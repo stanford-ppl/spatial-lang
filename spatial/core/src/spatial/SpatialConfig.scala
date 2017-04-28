@@ -21,6 +21,8 @@ object SpatialConfig extends Reporting {
     tree: Boolean
   )
   case class PlasticineConf(
+    sinUcu: Int,
+    stagesUcu: Int,
     sinPcu: Int,
     soutPcu:Int,
     vinPcu: Int,
@@ -42,6 +44,7 @@ object SpatialConfig extends Reporting {
   var enableSim: Boolean = _
   var enableSynth: Boolean = _
   var enablePIR: Boolean = _
+  var enablePIRSim: Boolean = false
 
   var enableRetiming: Boolean = _
 
@@ -49,6 +52,9 @@ object SpatialConfig extends Reporting {
   var enableArchDSE: Boolean = _
   var enableNaming: Boolean = _
   var enableTree: Boolean = _
+
+  var sIn_UCU: Int = _
+  var stages_UCU: Int = _
 
   var sIn_PCU: Int = _
   var sOut_PCU: Int = _
@@ -107,6 +113,8 @@ spatial {
 
     val defaultPlasticine =  ConfigFactory.parseString("""
 plasticine {
+  sin_ucu = 10
+  stages-ucu = 10
   sin-pcu = 10
   sout-pcu = 10
   vin-pcu = 4
@@ -125,6 +133,8 @@ plasticine {
 
     loadConfig[PlasticineConf](mergedPlasticineConf, "plasticine") match {
       case Right(plasticineConf) =>
+        sIn_UCU = plasticineConf.sinUcu
+        stages_UCU = plasticineConf.stagesUcu
         sIn_PCU = plasticineConf.sinPcu
         sOut_PCU = plasticineConf.soutPcu
         vIn_PCU = plasticineConf.vinPcu
