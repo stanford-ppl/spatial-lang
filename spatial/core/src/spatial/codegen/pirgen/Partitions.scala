@@ -103,27 +103,25 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     sOut:  Int = 0, // Scalar outputs
     vIn:   Int = 0, // Vector inputs
     vOut:  Int = 0, // Vector outputs
-    write: Int = 0, // Write stages
-    read:  Int = 0, // Read stages
+    comp:  Int = 0, // Address computation
     regsMax: Int = 0, // Maximum live values at any given time
     regsUse: Int = 0  // Estimated number of registers used
   ) extends PartitionCost {
     def >(that: MUCost) = {
       this.sIn > that.sIn || this.sOut > that.sOut || this.vIn > that.vIn ||
-      this.vOut > that.vOut || this.write > that.write || this.read > that.read || this.regsMax > that.regsMax
+      this.vOut > that.vOut || this.comp > that.comp || this.regsMax > that.regsMax
     }
     def +(that: MUCost) = MUCost(
       sIn   = this.sIn + that.sIn,
       sOut  = this.sOut + that.sOut,
       vIn   = this.vIn + that.vIn,
       vOut  = this.vOut + that.vOut,
-      write = this.write + that.write,
-      read  = this.read + that.read,
+      comp  = this.comp + that.comp,
       regsMax = Math.max(this.regsMax, that.regsMax),
       regsUse = this.regsUse + that.regsUse
     )
     //def toUtil = Utilization(alus = comp, sclIn = sIn, sclOut = sOut, vecIn = vIn, vecOut = vOut)
-    override def toString = s"  sIn: $sIn, sOut: $sOut, vIn: $vIn, vOut: $vOut, write: $write, read: $read, regsMax: $regsMax, regs: $regsUse"
+    override def toString = s"  sIn: $sIn, sOut: $sOut, vIn: $vIn, vOut: $vOut, comp: $comp, regsMax: $regsMax, regs: $regsUse"
   }
 
   case class CUCost(
@@ -155,11 +153,11 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   def getMUCost(p: MUPartition, prev: Seq[Partition], all: List[Stage], others: Iterable[CU]) = {
     val readCost = p.rstages.values.map{stages =>
       val cost = getCUCost(p, prev, all, others, isUnit=false){_ => stages}
-      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,read=cost.comp)
+      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,comp=cost.comp)
     }.fold(MUCost()){_+_}
     val writeCost = p.wstages.values.map{stages =>
       val cost = getCUCost(p, prev, all, others, isUnit=false){_ => stages}
-      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,write=cost.comp)
+      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,comp=cost.comp)
     }.fold(MUCost()){_+_}
     readCost + writeCost
   }
@@ -258,9 +256,8 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       val reduceRegs = if (local(i-1).isInstanceOf[ReduceStage] || local(i).isInstanceOf[ReduceStage]) 1 else 0
       dbgs(s"$i: " + lives.mkString(", "))
       lives.size + reduceRegs
-    }
+    } :+ cuOutputs.size
 
-    val regsUse = liveRegs.sum
     val regsMax = if (liveRegs.isEmpty) 0 else liveRegs.max
 
     val cost = CUCost(
@@ -269,8 +266,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       vIn  = vIns,
       vOut = vOuts,
       comp = rawCompute + bypasses,
-      regsMax = regsMax,
-      regsUse = regsUse
+      regsMax = regsMax
     )
 
     dbg(s"  $cost")

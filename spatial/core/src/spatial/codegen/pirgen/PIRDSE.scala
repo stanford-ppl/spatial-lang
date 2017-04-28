@@ -48,7 +48,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
       readWrite <- 1 to 10;      // 10
       regs_PMU <- 1 to 16        // 16
     ) {
-      mcu = MUCost(sIn=sIns_PMU, sOut=sOuts_PMU, vIn=vIns_PMU, vOut=vOuts_PMU, read=readWrite, write=readWrite, regsMax=regs_PMU)
+      mcu = MUCost(sIn=sIns_PMU, sOut=sOuts_PMU, vIn=vIns_PMU, vOut=vOuts_PMU, comp=readWrite, regsMax=regs_PMU)
 
       var others = ArrayBuffer[CU]()
 
@@ -66,7 +66,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
 
     if (!foundMCU) throw new Exception("Unable to find minimum MCU parameters")
 
-    val MUCost(sIns_PMU,sOuts_PMU,vIns_PMU,vOuts_PMU,readWrite,_,regsMax_PMU,_) = mcu
+    val MUCost(sIns_PMU,sOuts_PMU,vIns_PMU,vOuts_PMU,readWrite,regsMax_PMU,_) = mcu
     READ_WRITE = readWrite
 
     val pmuText = s"r/w=$readWrite, sIn_PMU=$sIns_PMU, sOut_PMU=$sOuts_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU"
