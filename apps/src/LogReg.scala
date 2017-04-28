@@ -6,14 +6,15 @@ object LogReg extends SpatialApp {
 
   type X = FixPt[TRUE,_16,_16]
 
-  val tileSize = 40
-  val innerPar = 1
-  val outerPar = 1
   val margin = 5
   val dim = 192
   val D = dim
-
   val A = 1
+
+  val innerPar = 16
+  val outerPar = 16
+
+  val tileSize = 10
 
   def sigmoid[T:Type:Num](t:T) = 1.to[T]/(exp(-t) + 1.to[T])
 

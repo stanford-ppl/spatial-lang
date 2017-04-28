@@ -35,22 +35,43 @@ trait PIRSplitting extends PIRTraversal {
   }
 
 
-  // TODO: PMU splitting
-  def splitPMU(cu: CU, archMU: MUCost, others: Iterable[CU]): List[CU] = List(cu)
+  // TODO: PMU splitting. For now just throws an exception if it doesn't fit the specified constraints
+  def splitPMU(cu: CU, archMU: MUCost, others: Iterable[CU]): List[CU] = {
+    if (cu.lanes > LANES) {
+      var errReport = s"Failed splitting in PMU $cu"
+      errReport += s"\nCU had ${cu.lanes} lanes, greater than allowed $LANES"
+      throw new SplitException(errReport) with NoStackTrace
+    }
 
+    val allStages = cu.allStages.toList
+    val ctrl = cu.cchains.find{case _:UnitCChain | _:CChainInstance => true; case _ => false}
 
-  /*def getSRAMOwners(stageGroups: List[List[Stage]]): Set[LocalRef] = {
+    val partitions = mutable.ArrayBuffer[Partition]()
 
-    def sramFromRef(x: LocalRef) = x match {case LocalRef(_,MemLoadReg(sram)) => Some(sram); case _ => None}
-    def sramRefs(x: Seq[LocalRef]) = x.collect{case ref@LocalRef(_,MemLoadReg(_)) => ref}
+    val current = new MUPartition(cu.writeStages.toMap, cu.readStages.toMap, ctrl, false)
 
-    // Group set of stages into references for each memory
-    def groupByMem(stages: List[Stage]): List[List[LocalRef]] = stages.flatMap{stage => sramRefs(stage.inputRefs) }.groupBy(sramFromRef).values.toList
-    // Get reference with lowest stage number
-    def getMemOwner(refs: List[LocalRef]): LocalRef = refs.reduce{(refA,refB) => if (refA.stage < refB.stage) refA else refB}
+    val cost = getMUCost(current, partitions, allStages, others)
 
-    stageGroups.map{stages: List[Stage] => groupByMem(stages) }.flatMap{mems => mems.map{refs => getMemOwner(refs)}}.toSet
-  }*/
+    if (cost > archMU) {
+      var errReport = s"Failed splitting in PMU $cu"
+      errReport += s"\nRead Stages: "
+      current.rstages.foreach{case (mems,stages) =>
+        errReport += s"\n  Memories: " + mems
+        stages.foreach{stage => errReport += s"\n    $stage" }
+      }
+      errReport += s"\nWrite Stages: "
+      current.wstages.foreach{case (mems,stages) =>
+        errReport += s"\n  Memories: " + mems
+        stages.foreach{stage => errReport += s"\n    $stage" }
+      }
+
+      errReport += "\nCost for last split option: "
+      errReport += s"\n$cost"
+      throw new SplitException(errReport) with NoStackTrace
+    }
+
+    List(cu)
+  }
 
   def splitPCU(cu: CU, arch: CUCost, others: Iterable[CU]): List[CU] = {
     dbg("\n\n\n")
@@ -65,7 +86,7 @@ trait PIRSplitting extends PIRTraversal {
     var current: CUPartition = Partition.emptyCU(ctrl, true)
     val remote: CUPartition = new CUPartition(cu.computeStages, ctrl, false)
 
-    def getCost(p: CUPartition): CUCost = getCUCost(p, partitions, allStages, others, isUnit)
+    def getCost(p: CUPartition): CUCost = getCUCost(p, partitions, allStages, others, isUnit){p => p.cstages}
 
     while (remote.nonEmpty) {
       dbg(s"Computing partition ${partitions.length}")
@@ -88,7 +109,7 @@ trait PIRSplitting extends PIRTraversal {
 
       if (current.cstages.isEmpty) {
         // Find first SRAM owner which can still be spliced
-        var errReport = s"Failed splitting in $cu"
+        var errReport = s"Failed splitting in CU $cu"
         errReport += s"\nCompute stages: "
         remote.cstages.foreach{stage => errReport += s"\n  $stage" }
 
@@ -141,9 +162,10 @@ trait PIRSplitting extends PIRTraversal {
   def scheduleCUPartition(orig: CU, part: CUPartition, i: Int, parent: Option[CU]): CU = {
     val isUnit = orig.lanes == 1
 
-    val style = orig.style
-    val cu = ComputeUnit(orig.name+"_"+i, orig.pipe, style)
+    val cu = ComputeUnit(orig.name+"_"+i, orig.pipe, orig.style)
     cu.parent = if (parent.isDefined) parent else orig.parent
+    cu.innerPar = orig.innerPar
+    cu.fringeVectors ++= orig.fringeVectors
     if (parent.isEmpty) cu.deps ++= orig.deps
     if (parent.isEmpty) cu.cchains ++= orig.cchains
 
@@ -200,9 +222,9 @@ trait PIRSplitting extends PIRTraversal {
       val in = reg match {
         case _:ConstReg[_] | _:CounterReg => reg
         case _:ValidReg | _:ControlReg => reg
-        case _:ReduceMem[_]    => if (localOuts.contains(reg)) reg else portIn(reg, isScalar)
-        case MemLoadReg(sram) => if (cu.mems.contains(sram)) reg else portIn(reg, isScalar)
-        case _                 => if (cu.regs.contains(reg)) reg else portIn(reg, isScalar)
+        case _:ReduceMem[_]   => if (localOuts.contains(reg)) reg else portIn(reg, isScalar)
+        case MemLoadReg(sram) => reg
+        case _                => if (cu.regs.contains(reg)) reg else portIn(reg, isScalar)
       }
       cu.regs += in
       ctx.refIn(in)
@@ -211,9 +233,9 @@ trait PIRSplitting extends PIRTraversal {
       val outs = reg match {
         case _:ScalarOut => List(reg)
         case _:VectorOut => List(reg)
-        case FeedbackAddrReg(sram) => if (cu.mems.contains(sram)) List(reg) else List(portOut(reg,isScalar))
-        case FeedbackDataReg(sram) => if (cu.mems.contains(sram)) List(reg) else List(portOut(reg,isScalar))
-        case ReadAddrWire(sram) => if (cu.mems.contains(sram)) List(reg) else List(portOut(reg,isScalar))
+        case FeedbackAddrReg(sram) => List(reg)
+        case FeedbackDataReg(sram) => List(reg)
+        case ReadAddrWire(sram) => List(reg)
         case MemLoadReg(sram) => List(portOut(reg,isScalar))
         case _ =>
           val local  = if (localIns.contains(reg)) List(reg) else Nil
@@ -338,10 +360,10 @@ trait PIRSplitting extends PIRTraversal {
         case stage@MapStage(_,ins,_) => stage.ins = ins.map{in => swap_cchains_Ref(in) }
         case _ =>
       }
-      cu.mems.foreach{sram =>
+      /*cu.mems.foreach{sram =>
         sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]} //TODO refactor this
         sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]}
-      }
+      }*/
     }
 
     cu
