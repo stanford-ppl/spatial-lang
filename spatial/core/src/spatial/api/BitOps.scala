@@ -37,6 +37,13 @@ trait BitOpsExp { this: SpatialExp =>
     @generate
     @api def takeJJ$JJ$1to128(offset: Int): VectorJJ[Bool] = dataAsBitVector(x).takeJJ(offset)
 
+    @generate
+    @api def takeJJMSB$JJ$1to128: VectorJJ[Bool] = {
+      val offset = bits[A].length - JJ
+      dataAsBitVector(x).takeJJ(offset)
+    }
+
+
     // asNb - converts this to VectorN bits (includes bit length mismatch checks)
 
     @generate

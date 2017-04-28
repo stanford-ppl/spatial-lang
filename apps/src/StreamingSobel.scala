@@ -9,9 +9,9 @@ object StreamingSobel extends SpatialApp {
 
   val Kh = 3
   val Kw = 3
-  val Cmax = 512
+  val Cmax = 128
 
-  type Int12 = FixPt[TRUE,_12,_0]
+  type Int16 = FixPt[TRUE,_16,_0]
   type UInt8 = FixPt[FALSE,_8,_0]
   type UInt5 = FixPt[FALSE,_5,_0]
   type UInt6 = FixPt[FALSE,_6,_0]
@@ -27,10 +27,11 @@ object StreamingSobel extends SpatialApp {
 
     val imgIn  = StreamIn[Pixel24](target.VideoCamera)
     val imgOut = StreamOut[Pixel16](target.VGA)
+    val grayOut = StreamOut[Pixel16](target.VGA)
 
     Accel {
-      val kh = RegFile[Int12](Kh, Kw)
-      val kv = RegFile[Int12](Kh, Kw)
+      val kh = RegFile[Int16](Kh, Kw)
+      val kv = RegFile[Int16](Kh, Kw)
 
       // TODO: Better syntax for initialization of lookup tables
       Pipe {
@@ -54,28 +55,35 @@ object StreamingSobel extends SpatialApp {
         kv(2, 2) = -1
       }
 
-      val sr = RegFile[Int12](Kh, Kw)
-      val fifoIn = FIFO[Int12](128)
-      val fifoOut = FIFO[Int12](128)
-      val lb = LineBuffer[Int12](Kh, Cmax)
+      val sr = RegFile[Int16](Kh, Kw)
+      val fifoIn = FIFO[Int16](128)
+      val fifoOut = FIFO[Int16](128)
+      val lb = LineBuffer[Int16](Kh, Cmax)
 
       Stream(*) { _ =>
         val pixel = imgIn.value()
-        val grayPixel = (pixel.b.to[Int12] + pixel.g.to[Int12] + pixel.r.to[Int12]) / 3
+        val grayPixel = (pixel.b.to[Int16] + pixel.g.to[Int16] + pixel.r.to[Int16]) / 3
+
+        println(grayPixel.as16b)
+        println("b: " + grayPixel(7::3).as5b)
+        println("g: " + grayPixel(7::2).as6b)
+        println("r: " + grayPixel(7::3).as5b)
+
         fifoIn.enq( grayPixel )
+        grayOut := Pixel16(grayPixel(7::3).as[UInt5], grayPixel(7::2).as[UInt6], grayPixel(7::3).as[UInt5])
 
         Foreach(0 until R, 0 until Cmax) { (r, c) =>
           lb.enq(fifoIn.deq(), true)
 
           Foreach(0 until Kh par Kh) { i => sr(i, *) <<= lb(i, c) }
 
-          val horz = Reduce(Reg[Int12])(Kh by 1, Kw by 1) { (i, j) =>
-            val number = mux(r < 2 || c < 2, 0.to[Int12], sr(i, j))
+          val horz = Reduce(Reg[Int16])(Kh by 1, Kw by 1) { (i, j) =>
+            val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
             number * kh(i, j)
           }{_+_}
 
-          val vert = Reduce(Reg[Int12])(Kh by 1, Kw by 1) { (i, j) =>
-            val number = mux(r < 2 || c < 2, 0.to[Int12], sr(i, j))
+          val vert = Reduce(Reg[Int16])(Kh by 1, Kw by 1) { (i, j) =>
+            val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
             number * kv(i, j)
           }{_+_}
 
@@ -84,7 +92,8 @@ object StreamingSobel extends SpatialApp {
 
 
         val pixelOut = fifoOut.deq()
-        imgOut := Pixel16(pixelOut.to[UInt5], pixelOut.to[UInt6], pixelOut.to[UInt5])
+        // Ignore MSB - pixelOut is a signed number that's definitely positive, so MSB is always 0
+        imgOut := Pixel16(pixelOut(10::6).as[UInt5], pixelOut(10::5).as[UInt6], pixelOut(10::6).as[UInt5])
       }
 
       ()
