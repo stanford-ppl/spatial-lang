@@ -1,12 +1,14 @@
 package spatial.codegen.pirgen
 
 import argon.Config
-import spatial.SpatialExp
+import spatial.{SpatialConfig, SpatialExp}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
 import java.io.PrintStream
+import java.nio.file.{Files, Paths}
+
+import scala.util.control.Breaks._
 
 trait PIRDSE extends PIRSplitting with PIRRetiming {
   val IR: SpatialExp with PIRCommonExp
@@ -20,116 +22,175 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
   val cus = ArrayBuffer[CU]()
 
   override def process[S:Type](b: Block[S]) = {
-    super.run(b)
+    visitBlock(b)
     dse()
     b
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (isControlNode(lhs) && mappingIn.contains(lhs))
-      cus ++= mappingIn(lhs)
+    if (mappingIn.contains(lhs)) cus ++= mappingIn(lhs)
   }
 
   def dse() {
-    dbg(s"Running design space exploration")
+    val prevVerbosity = Config.verbosity
     this.silence()
+    Config.verbosity = -1
+    Console.println(s"Running design space exploration")
 
-    val pwd = Config.genDir 
-    val dir = s"${pwd}/data"
-    val name = Config.name
-    val valid = new PrintStream(s"$dir/${name}.csv")
-    val invalid = new PrintStream(s"$dir/${name}_invalid.csv")
-
-    val header = SplitStats()
-    invalid.println("Scl/Bus, SIns, VIns, Vouts, Compute, Read/Write, Stages, SRAMs")
-    valid.println  ("Scl/Bus, SIns, VIns, Vouts, Compute, Read/Write, Stages, SRAMs," + header.heading +
-                    ", #ALU,#SRAM,#Vin,#Vout, ALU Util, SRAM Util, VecIn Util, VecOut Util, " +
-                    ", SIn/CU, SOut/CU, VIn/CU, VOut/CU, SIn/Stage, VIn/Stage")
-
-    // Total: ~38,000 combinations...
-    var pass = 0
-    var fail = 0
-    var first: String = ""
-
-    for (vIns <- 2 to 6 ; // 5
-        vOuts <- 1 to 3 ; // 3 
-        readWrite <- 1 to 6 ; // 7
-        comps <- 0 to (10-readWrite) ; // 5
-        mmems <- vIns-2 to vIns ; // 3
-        sbus <- List(1,2,4) ; // 3
-        sIns <- 2 to Math.min(vIns*sbus,16) by 2 ) { // 8
-    // 8  --- implies existence of a vIns*sbus : sIns crossbar (or some other selection mechanism)
-      val stages = comps + readWrite
-      STAGES = stages
-      SCALARS_PER_BUS = sbus
+    val unrestrictedPCU = CUCost(sIn=100,sOut=100,vIn=100,vOut=100,comp=10000)
+    var mcu = MUCost()
+    var foundMCU = false
+    breakable{ for(
+      sIns_PMU <- 1 to 10;       // 10
+      sOuts_PMU <- 0 to 2;       // 2
+      vIns_PMU <- 2 to 6;        // 5
+      vOuts_PMU <- 1 to 1;       // 1
+      readWrite <- 1 to 10       // 10
+    ) {
+      mcu = MUCost(sIn=sIns_PMU, sOut=sOuts_PMU, vIn=vIns_PMU, vOut=vOuts_PMU, read=readWrite, write=readWrite)
 
       var others = ArrayBuffer[CU]()
-      val pipe = SplitCost(sIn= sIns, vIn=vIns, vOut=vOuts, vLoc=1, comp=comps, write=readWrite, read=readWrite, mems=mmems)
-      val unit = SplitCost(sIn= sIns, vIn=vIns, vOut=vOuts, vLoc=1, comp=comps, write=readWrite, read=readWrite, mems=mmems)
 
       try {
-        var nPipes = 0
-        var nUnits = 0
-        var stats = SplitStats()
-
         for (orig <- cus) {
-          val max = if (orig.isUnit) unit else pipe
-          val split = splitCU(orig, max, others)
+          val split = splitCU(orig, unrestrictedPCU, mcu, others)
           retime(split, others)
+          split.foreach{cu => others += cu }
+        }
+        foundMCU = true
+        break // Ugly, but it works.
+      }
+      catch {case e:SplitException => }
+    }}
 
-          for (cu <- split) {
-            val cost = getStats(cu, others)
-            if (cost.mems > max.mems)
-              throw new SplitException(s"$orig requires ${cost.mems} > ${max.mems} SRAMs after retiming")
+    if (!foundMCU) throw new Exception("Unable to find minimum MCU parameters")
 
-            stats += cost
-            if (cu.allStages.nonEmpty) {
-              if (cu.isUnit) nUnits += 1 else nPipes += 1
+    val MUCost(sIns_PMU,sOuts_PMU,vIns_PMU,vOuts_PMU,readWrite,_) = mcu
+    READ_WRITE = readWrite
+
+    val pmuText = s"r/w=$readWrite, sIn_PMU=$sIns_PMU, sOut_PMU=$sOuts_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU"
+    val pmuSettings = s"$sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU, $readWrite"
+
+    val results = (1 to 10).flatMap{stages =>
+      STAGES = stages
+      Console.print("stages = " + stages)
+      val start = System.currentTimeMillis()
+
+      val result = (1 to 10).par.map{sIns_PCU =>
+        val maxOut = stages
+
+        val entries = new Array[String](9*maxOut*maxOut)
+
+        var pass = 0
+        var fail = 0
+        var first: String = ""
+
+        for (
+          //stages    <- 1 to 10;     // 10
+          //sIns_PCU  <- 1 to 10;     // 10
+          vIns_PCU  <- 2 to 10;       // 9
+          sOuts_PCU <- 1 to maxOut;   //
+          vOuts_PCU <- 1 to maxOut    //
+        ) {
+          val n = pass + fail + 1
+          //val perc = (100 * n) / 3465
+
+          var others = ArrayBuffer[CU]()
+          val pcu = CUCost(sIn=sIns_PCU, sOut=sOuts_PCU, vIn=vIns_PCU, vOut=vOuts_PCU, comp=stages)
+
+          val text: String = s"stages=$stages, sIn_PCU=$sIns_PCU, sOut_PCU=$sOuts_PCU, vIn_PCU=$vIns_PCU, vOut_PCU=$vOuts_PCU, " + pmuText
+
+          val settingsCSV: String = s"$sIns_PCU, $sOuts_PCU, $vIns_PCU, $vOuts_PCU, $stages, " + pmuSettings
+
+          try {
+            var util = Utilization()
+
+            for (orig <- cus) {
+              val split = splitCU(orig, pcu, mcu, others)
+              retime(split, others)
+
+              for (cu <- split) {
+                val cost = getUtil(cu, others)
+
+                util += cost
+                others += cu
+              }
             }
-            others += cu
+            val pcuOnly = others.filter(_.isPCU).map{cu => getUtil(cu, others.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+            val pmuOnly = others.filter(_.isPMU).map{cu => getUtil(cu, others.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+
+            val stats = Statistics(
+              /** Utilization **/
+              total = util,
+              pcuOnly = pcuOnly,
+              pmuOnly = pmuOnly,
+              /** PCUS **/
+              sIn_PCU  = sIns_PCU,
+              sOut_PCU = sOuts_PCU,
+              vIn_PCU  = vIns_PCU,
+              vOut_PCU = vOuts_PCU,
+              stages   = stages,
+              /** PMUs **/
+              sIn_PMU   = sIns_PMU,
+              sOut_PMU  = sOuts_PMU,
+              vIn_PMU   = vIns_PMU,
+              vOut_PMU  = vOuts_PMU,
+              readWrite = readWrite
+            )
+
+            if (pass == 0) first = text
+            pass += 1
+
+            //Console.println(s"$n [$perc%]: " + text + s": PASS [PCUs:$nPCUs/PMUs:$nPMUs]")
+            entries(n-1) = "P" + (settingsCSV + "," + stats.toCSV)
+          }
+          catch {case e:SplitException =>
+            fail += 1
+            //Console.println(s"$n [$perc%]: " + text + ": FAIL")
+            //dbg(e.msg)
+            entries(n-1) = "F" + settingsCSV
           }
         }
-        val nALUs = LANES * (nPipes + nUnits) * (comps + readWrite)
-        val nMems = mmems * (nPipes + nUnits)
-        val nVIns = vIns  * (nPipes + nUnits)
-        val nVOut = vOuts * (nPipes + nUnits)
-
-        val aluUtil = stats.alus.toFloat / nALUs
-        val memUtil = stats.mems.toFloat / nMems
-        val vInUtil = stats.mems.toFloat / nVIns
-        val vOutUtil = stats.mems.toFloat / nVOut
-
-        val avgSIn  = stats.sclIn.toFloat / (nPipes + nUnits)
-        val avgSOut = stats.sclOut.toFloat / (nPipes + nUnits)
-        val avgVIn  = stats.vecIn.toFloat / (nPipes + nUnits)
-        val avgVOut = stats.vecOut.toFloat / (nPipes + nUnits)
-
-        val sInPerStage = stats.sclIn.toFloat / (stats.alus.toFloat / LANES)
-        val vInPerStage = stats.vecIn.toFloat / (stats.alus.toFloat / LANES)
-
-        if (pass == 0) {
-          first = s"sbus=$sbus, sIn=$sIns, vIn=$vIns, vOut=$vOuts, comps=$comps, read/write=$readWrite, mems=$mmems"
-        }
-        pass += 1
-
-        System.out.println(s"sbus=$sbus, sIn=$sIns, vIn=$vIns, vOut=$vOuts, comps=$comps, read/write=$readWrite, mems=$mmems: PASS")
-        valid.println(s"$sbus, $sIns, $vIns, $vOuts, $comps, $readWrite, $stages, $mmems, " + stats.toString +
-                      s",$nALUs,$nMems,$nVIns,$nVOut, $aluUtil, $memUtil, $vInUtil, $vOutUtil, " +
-                      s",$avgSIn,$avgSOut,$avgVIn,$avgVOut, $sInPerStage, $vInPerStage")
+        (entries, pass, fail, first)
       }
-      catch {case e:SplitException =>
-        fail += 1
-        System.out.println(s"sbus=$sbus, sIn=$sIns, vIn=$vIns, vOut=$vOuts, comps=$comps, read/write=$readWrite, mems=$mmems: FAIL")
-        System.out.println(e.msg)
-        invalid.println(s"$sbus, $sIns, $vIns, $vOuts, $comps, $readWrite, $stages, $mmems")
+
+      val end = System.currentTimeMillis()
+      Console.println(" [" + (end - start)/1000 + " sec]")
+      result
+    }
+
+
+    val pwd = sys.env("SPATIAL_HOME")
+    val dir = s"$pwd/csvs"
+    Files.createDirectories(Paths.get(dir))
+
+    val name = Config.name
+    val valid = new PrintStream(s"$dir/$name.csv")
+    val invalid = new PrintStream(s"$dir/${name}_invalid.csv")
+
+    Config.verbosity = prevVerbosity
+    Console.print(s"Writing results to file $dir/$name.csv...")
+
+    invalid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W")
+    valid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W, " + Statistics.header)
+
+    results.foreach{case (entries, _, _, _) =>
+      entries.foreach{entry =>
+        if (entry.startsWith("P")) valid.println(entry.drop(1))
+        else invalid.println(entry.drop(1))
       }
     }
     valid.close()
     invalid.close()
 
-    Console.println(s"Pass: $pass (${100.0f * pass.toFloat / (pass + fail)})%")
-    Console.println(s"Fail: $fail (${100.0f * fail.toFloat / (pass + fail)})%")
-    Console.println(s"Smallest: $first")
+    val pass = results.map(_._2).sum
+    val fail = results.map(_._3).sum
+    val first = results.find{x => x._2 > 0}.map(_._4)
+
+    Console.println("done.")
+    Console.println(s"Pass: $pass (${100.0f * pass.toFloat / (pass + fail)}%)")
+    Console.println(s"Fail: $fail (${100.0f * fail.toFloat / (pass + fail)}%)")
+    if (first.isDefined) Console.println(s"Smallest: ${first.get}")
   }
 
 }

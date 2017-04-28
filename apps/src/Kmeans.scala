@@ -1,16 +1,18 @@
 import spatial._
 import org.virtualized._
 
-object Kmeans extends SpatialApp { // Regression (Dense) // Args: 8 96
+object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
   import IR._
 
   type X = Int
 
-  val num_cents = 4
-  val dim = 16
-  val pts_per_ld = 4
-  val innerPar = 1
+  val num_cents = 20
+  val dim = 96
+  val pts_per_ld = 1 // ???
+
+  val innerPar = 16
   val outerPar = 1
+
   val element_max = 10
   val margin = (element_max * 0.2).to[X]
 

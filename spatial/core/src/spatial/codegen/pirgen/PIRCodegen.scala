@@ -60,6 +60,13 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     def composed = PIRCodegen.this.composed
   }
 
+  lazy val printout = new PIRPrintout {
+    override val IR: PIRCodegen.this.IR.type = PIRCodegen.this.IR
+    def globals = PIRCodegen.this.globals
+    def decomposed = PIRCodegen.this.decomposed
+    def composed = PIRCodegen.this.composed
+  }
+
 
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
     globals.clear
@@ -73,6 +80,9 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     optimizer.run(block)
 
     if (SpatialConfig.enableSplitting) {
+      printout.mappingIn ++= optimizer.mapping
+      printout.run(block)
+
       splitter.mappingIn ++= optimizer.mapping
       splitter.run(block)
 
@@ -82,6 +92,9 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
       for ((s,cus) <- optimizer.mapping) hacks.mappingIn(s) = List(cus)
     }
     hacks.run(block)
+
+    printout.splitMappingIn ++= hacks.mappingOut
+    printout.run(block)
 
     cus ++= hacks.mappingOut
     dbgblk(s"Mapping: ") {
@@ -94,16 +107,15 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
       dse.mappingIn ++= optimizer.mapping
       dse.run(block)
     }
+    else {
+      tallyCUs(cus.values.flatten.flatten)
+    }
 
-    msg("Starting traversal PIR Generation")
     super.preprocess(block) // generateHeader
   }
 
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
     super.postprocess(block)
-    msg("Done.")
-    val nCUs = cus.values.flatten.flatten.size
-    msg(s"NUMBER OF CUS: $nCUs")
     block
   }
 

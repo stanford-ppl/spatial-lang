@@ -57,14 +57,13 @@ trait CppGenHostTransfer extends CppGenSRAM  {
       }
     case GetArg(reg)    => 
       reg.tp.typeArguments.head match {
-        case FixPtType(s,d,f) => if (f != 0) {
-            emit(src"int64_t ${lhs}_tmp = c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)});", forceful = true)            
-            emit(src"${lhs.tp} ${lhs} = (${lhs.tp}) ${lhs}_tmp / (1 << $f);", forceful = true)            
-          } else {
-            emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)});", forceful = true)
-          }
+        case FixPtType(s,d,f) => 
+          emit(src"int64_t ${lhs}_tmp = c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)});", forceful = true)            
+          emit(src"bool ${lhs}_sgned = $s & (${lhs}_tmp ^ (1 << ${d+f-1}) > 0); // Determine sign")
+          emit(src"if (${lhs}_sgned) ${lhs}_tmp = ${lhs}_tmp | ~((int64_t) (1 << ${d+f})-1); // Sign-extend if necessary")
+          emit(src"${lhs.tp} ${lhs} = (${lhs.tp}) ${lhs}_tmp / (1 << $f);", forceful = true)            
         case _ => 
-            emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)});", forceful = true)
+          emit(src"${lhs.tp} $lhs = (${lhs.tp}) c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)});", forceful = true)
         }
     case SetMem(dram, data) => 
       val rawtp = remapIntType(dram.tp.typeArguments.head)

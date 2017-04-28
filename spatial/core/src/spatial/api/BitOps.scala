@@ -21,6 +21,17 @@ trait BitOpsExp { this: SpatialExp =>
       bitVectorAsData[B](vector, enWarn = true)
     }
 
+    @api def reverse: A = {
+      val len = bits[A].length
+      implicit val vT = vectorNType[Bool](len)
+      val vector = dataAsBitVector(x)
+      val reversed_elements = (0 until len).map{i =>
+        vector_apply(vector.s, len-1-i)
+      }
+      val vector_reversed = wrap(vector_new[Bool,VectorN](reversed_elements))
+      bitVectorAsData[A](vector_reversed, enWarn = true)
+    }
+
     // takeN(offset) - creates a VectorN slice starting at given little-endian offset
 
     @generate
@@ -33,6 +44,7 @@ trait BitOpsExp { this: SpatialExp =>
   }
 
   implicit class BitVectorOps(vector: BitVector) {
+
     @api def as[B:Meta:Bits] = {
       implicit val vT = vectorNType[Bool](vector.width)
       bitVectorAsData[B](vector, enWarn = true)

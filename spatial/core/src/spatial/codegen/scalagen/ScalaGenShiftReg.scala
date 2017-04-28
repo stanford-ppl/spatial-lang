@@ -16,6 +16,7 @@ trait ScalaGenShiftReg extends ScalaCodegen {
     case op@ShiftRegNew(_, init) => emit(src"val $lhs = ${op.mR}($init)") // Not a memory for now
     case ShiftRegRead(reg)       => emit(src"val $lhs = $reg.apply(0)")
     case ShiftRegWrite(reg,v,en) => emit(src"val $lhs = if ($en) $reg.update(0, $v)")
+    case ValueDelay(size,data)   => emit(src"val $lhs = $data")
     case _ => super.emitNode(lhs, rhs)
   }
 

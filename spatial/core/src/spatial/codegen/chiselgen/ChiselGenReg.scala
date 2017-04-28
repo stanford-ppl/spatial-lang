@@ -132,7 +132,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg) | isHostIO(reg)) {
-        emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)})""")
+        emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)}) // ${nameOf(reg).getOrElse("")}""")
         emitGlobalWire(src"""${lhs}.number := io.argIns(${argMapping(reg)._2})""")
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index

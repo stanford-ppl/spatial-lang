@@ -70,6 +70,17 @@ currentbranch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 # git commit -m "auto merge"
 # git push
 
+# Do warning
+if [[ $2 = "fpga" || $2 = "compile" || $2 = "pir" ]]; then
+	read -p "You are about to merge $1 into $2, which appears to be someone else's working branch.  Continue? [y/N]: " choice
+	echo    # (optional) move to a new line
+	case "$choice" in 
+	  y|Y ) echo "Continuing..";;
+	  n|N ) exit 1;;
+	  * ) exit 1;;
+	esac
+fi
+
 # Merge lower into higher
 echo "=========================="
 echo "Checkout $2 for argon"

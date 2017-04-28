@@ -8,8 +8,6 @@ trait PIRRetiming extends PIRTraversal {
   val IR: SpatialExp with PIRCommonExp
   import IR._
 
-  var STAGES: Int = 10
-
   /**
    * For all vector inputs for each CU, if inputs have mismatched delays or come
    * from other stages (and LCA is not a stream controller), put them through a retiming FIFO
@@ -156,7 +154,7 @@ trait PIRRetiming extends PIRTraversal {
       case bus:ScalarBus => bus.name+"_fifo"
       case bus:VectorBus => bus.name+"_fifo"
     }
-    val sram = CUMemory(name, fresh[Int32], fresh[Int32], cu) //fresh[Any] don't care type
+    val sram = CUMemory(name, null, null, cu)
     sram.mode = bus match {
       case bus:ScalarBus => ScalarFIFOMode
       case bus:VectorBus => VectorFIFOMode

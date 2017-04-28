@@ -54,6 +54,27 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enablePIR = true
   }.text("enables PIR generation")
 
+  parser.opt[Unit]("cgra+").action{ (_,_) =>
+    SpatialConfig.enableSim = false
+    SpatialConfig.enableSynth = false
+    SpatialConfig.enablePIR = true
+    SpatialConfig.enableSplitting = true
+  }
 
+  parser.opt[Unit]("cgra*").action{ (_,_) =>
+    SpatialConfig.enableSim = false
+    SpatialConfig.enableSynth = false
+    SpatialConfig.enablePIR = true
+    SpatialConfig.enableArchDSE = true
+    SpatialConfig.enableSplitting = true
+  }
+
+  parser.opt[Unit]("pirsim").action{ (_,_) =>
+    SpatialConfig.enableSim = false
+    SpatialConfig.enableSynth = true
+    SpatialConfig.enablePIR = false
+    SpatialConfig.enablePIRSim = true
+    SpatialConfig.enableSplitting = true
+  }
 
 }

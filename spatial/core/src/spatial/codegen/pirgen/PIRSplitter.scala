@@ -5,7 +5,6 @@ import spatial.SpatialConfig
 
 import scala.collection.mutable
 
-
 trait PIRSplitter extends PIRSplitting with PIRRetiming {
   val IR: SpatialExp with PIRCommonExp
   import IR._
@@ -16,25 +15,31 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
   val mappingIn  = mutable.HashMap[Expr, List[CU]]()
   val mappingOut = mutable.HashMap[Expr, List[List[CU]]]()
 
-  //TODO read this from some config file?
-  lazy val ComputeMax = SplitCost(
-    sIn=SpatialConfig.sIn,
-    vIn=SpatialConfig.vIn,
-    vOut=SpatialConfig.vOut,
-    vLoc=1,
-    comp=SpatialConfig.comp,
-    write=SpatialConfig.readWrite,
-    read=SpatialConfig.readWrite,
-    mems=SpatialConfig.mems
+  lazy val PCUMax = CUCost(
+    sIn=SpatialConfig.sIn_PCU,
+    sOut=SpatialConfig.sOut_PCU,
+    vIn=SpatialConfig.vIn_PCU,
+    vOut=SpatialConfig.vOut_PCU,
+    comp=STAGES
   )
-  STAGES = 10
-  SCALARS_PER_BUS = SpatialConfig.sbus
+  lazy val PMUMax = MUCost(
+    sIn=SpatialConfig.sIn_PMU,
+    sOut=SpatialConfig.sOut_PMU,
+    vIn=SpatialConfig.vIn_PMU,
+    vOut=SpatialConfig.vOut_PMU,
+    read=READ_WRITE,
+    write=READ_WRITE
+  )
 
   override def process[S:Type](b: Block[S]) = {
-    super.run(b)
     try {
-      val cuMapping = mappingIn.keys.flatMap{k => 
+      visitBlock(b)
+
+      val cuMapping = mappingIn.keys.flatMap{k =>
         mappingIn(k).zip(mappingOut(k)).map { case (cuIn, cuOuts) =>
+          if (cuOuts.isEmpty)
+            throw new Exception(c"$k was split into 0 CUs?")
+
           cuIn.asInstanceOf[ACU] -> cuOuts.head.asInstanceOf[ACU]
         }
       }.toMap
@@ -47,7 +52,7 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (isControlNode(lhs) && mappingIn.contains(lhs))
+    if (mappingIn.contains(lhs))
       mappingOut(lhs) = mappingIn(lhs).map(split)
   }
 
@@ -56,14 +61,11 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
       val others = mutable.ArrayBuffer[CU]()
       others ++= mappingOut.values.flatten.flatten
 
-      val cus = splitCU(cu, ComputeMax, others)
+      val cus = splitCU(cu, PCUMax, PMUMax, others)
       retime(cus, others)
 
       cus.foreach{cu =>
-        val cost = getStats(cu, others)
-        if (cost.mems > ComputeMax.mems)
-          throw new Exception(s"${cu.mems} > ${ComputeMax.mems}, exceeded maximum SRAMs after retiming")
-
+        val cost = getUtil(cu, others)
         others += cu
       }
 

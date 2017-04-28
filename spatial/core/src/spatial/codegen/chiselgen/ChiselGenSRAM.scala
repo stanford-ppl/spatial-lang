@@ -42,6 +42,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case LongType() => "UInt(32.W)"
     case BoolType => "Bool()"
     case tp: VectorType[_] => src"Vec(${tp.width}, ${newWire(tp.typeArguments.head)})"
+    case tp: StructType[_] => src"UInt(${bitWidth(tp)}.W)"
+    case tp: IssuedCmd => src"UInt(${bitWidth(tp)}.W)"
     case tp: ArrayType[_] => src"Wire(Vec(999, ${newWire(tp.typeArguments.head)}"
     case _ => throw new NoWireConstructorException(s"$tp")
   }
@@ -164,7 +166,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enable = src"""${parent}_en"""
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, ${width})))""")
-        emit(src"""${lhs}_rVec(0).en := $enable & $en""")
+        emit(src"""${lhs}_rVec(0).en := chisel3.util.ShiftRegister($enable, ${parent}_retime) & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.raw // Assume always an int""")
         }
@@ -181,7 +183,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, ${width}))) """)
       emit(src"""${lhs}_wVec(0).data := ${v}.raw""")
-      emit(src"""${lhs}_wVec(0).en := ${en} & ${enable}""")
+      emit(src"""${lhs}_wVec(0).en := ${en} & chisel3.util.ShiftRegister(${enable}, ${parent}_retime)""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.raw // Assume always an int""")
       }

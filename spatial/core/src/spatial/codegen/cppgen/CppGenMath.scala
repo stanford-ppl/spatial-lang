@@ -50,6 +50,8 @@ trait CppGenMath extends CppCodegen {
       case FloatType()  => emit(src"${lhs.tp} $lhs = sqrt($x)")
     }
 
+    case FltPow(x,exp) =>
+      emit(src"${lhs.tp} ${lhs} = pow($x, $exp);")
     case FltSin(x) =>
       emit(src"${lhs.tp} ${lhs} = sin($x);")
     case FltCos(x) =>

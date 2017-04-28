@@ -81,6 +81,7 @@ object StreamingSobel extends SpatialApp {
           fifoOut.enq( abs(horz.value) + abs(vert.value) ) // Technically should be sqrt(horz**2 + vert**2)
         }
 
+
         val pixelOut = fifoOut.deq()
         imgOut := Pixel16(pixelOut.to[UInt5], pixelOut.to[UInt6], pixelOut.to[UInt5])
       }

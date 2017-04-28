@@ -109,7 +109,7 @@ def adder(numdigits, dec):
 	else:
 		return 16**-(numdigits-dec-1)
 
-tp = raw_input("Hex to dec? [Y/n]  (no = dec to hex): ")
+tp = raw_input("Hex to dec? [Y/n]  (yes = hex -> dec, no = dec -> hex): ")
 if (tp == "y" or tp == "Y" or tp == ""):
 	hex2dec = True
 else:
