@@ -1,14 +1,15 @@
 import spatial._
 import org.virtualized._
 
-object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 192 192
+object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 76800 76800 
   import IR._
   type X = Int
 
-  val tileSize1 = 64
-  val tileSize2 = 64
-  val op = 1
-  val ip = 1
+  val ip = 2
+  val op = 2
+
+  val tileSize1 = 48
+  val tileSize2 = 48
 
   @virtualize
   def outerproduct[T:Type:Num](a: Array[T], b: Array[T]) = {
@@ -40,8 +41,8 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 192 192
         //val blkA = Reg[Int]
         //val blkB = Reg[Int]
         Parallel {
-          b1 load vec1(i::i+tileSizeA par 16)
-          b2 load vec2(j::j+tileSizeB par 16)
+          b1 load vec1(i::i+tileSizeA par innerPar)
+          b2 load vec2(j::j+tileSizeB par innerPar)
           //Pipe{ blkA := min(sizeA - i, tileSizeA) }
           //Pipe{ blkB := min(sizeB - j, tileSizeB) }
         }
@@ -78,14 +79,15 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 192 192
   }
 }
 
-object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1270
+object DotProduct extends SpatialApp { // Regression (Dense) // Args: 8000
   import IR._
 
   type X = Int
 
-  val tileSize = 320
-  val innerPar = 2
-  lazy val outerPar = 4
+  val innerPar = 16
+  val outerPar = 2
+
+  val tileSize = 2000
 
   @virtualize
   def dotproduct[T:Type:Num](aIn: Array[T], bIn: Array[T]): T = {
@@ -107,15 +109,17 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 1270
 
     Accel {
       out := Reduce(Reg[T](0.to[T]))(N by B par P1){i =>
-        val ts = Reg[Int](0)
-        ts := min(B, N-i)
+        //val ts = Reg[Int](0)
+        //ts := min(B, N-i)
         val aBlk = SRAM[T](B)
         val bBlk = SRAM[T](B)
         Parallel {
-          aBlk load a(i::i+ts.value par 16)
-          bBlk load b(i::i+ts.value par 16)
+          //aBlk load a(i::i+ts.value par P3)
+          //bBlk load b(i::i+ts.value par P3)
+          aBlk load a(i::i+B par P3)
+          bBlk load b(i::i+B par P3)
         }
-        Reduce(Reg[T](0.to[T]))(ts.value par P2){ii => aBlk(ii) * bBlk(ii) }{_+_}
+        Reduce(Reg[T](0.to[T]))(B par P2){ii => aBlk(ii) * bBlk(ii) }{_+_}
       }{_+_}
     }
     getArg(out)

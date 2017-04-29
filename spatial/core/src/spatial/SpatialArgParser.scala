@@ -69,7 +69,17 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableSplitting = true
   }
 
+  parser.opt[Unit]("pirsim").action{ (_,_) =>
+    warn("Here be dragons.")
+    SpatialConfig.enableSim = false
+    SpatialConfig.enableSynth = true
+    SpatialConfig.enablePIR = false
+    SpatialConfig.enablePIRSim = true
+    SpatialConfig.enableSplitting = true
+  }
 
-
+  parser.opt[Int]("threads").action{ (t,_) =>
+    SpatialConfig.threads = t
+  }
 
 }

@@ -27,6 +27,9 @@ trait DotGenReg extends DotCodegen {
     }
   }
 
+  def emitRetime(data:Exp[_], sr: Sym[_]) = {
+    emitEdge(data, sr)
+  }
   def emitRetimeRead(reader:Sym[_], sr: Exp[_]) = {
     emitEdge(sr, reader)
   }

@@ -67,6 +67,7 @@ trait MathExp { this: SpatialExp =>
     @api def **(exp: Int): T = pow(x, exp)
   }
 
+  @api def pow[G:INT,E:INT](base: FltPt[G,E], exp:FltPt[G,E]): FltPt[G,E] = wrap( math_pow(base.s, exp.s) )
   @api def pow[T:Type:Num](x: T, exp: Int)(implicit ctx: SrcCtx): T = {
     if (exp >= 0) productTree(List.fill(exp)(x))
     else {
@@ -94,6 +95,8 @@ trait MathExp { this: SpatialExp =>
   case class FltLog [G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_log(f(x)) }
   case class FltExp [G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_exp(f(x)) }
   case class FltSqrt[G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_sqrt(f(x)) }
+
+  case class FltPow[G:INT,E:INT](x: Exp[FltPt[G,E]], y: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = math_pow(f(x), f(y)) }
 
   case class FltSin[G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = math_sin(f(x)) }
   case class FltCos[G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = math_cos(f(x)) }
@@ -154,6 +157,7 @@ trait MathExp { this: SpatialExp =>
     case _ => stage(Max(a, b))(ctx)
   }
 
+  @internal def math_pow[G:INT,E:INT](x: Exp[FltPt[G,E]], y: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = stage(FltPow(x, y))(ctx)
   @internal def math_sin[G:INT,E:INT](x: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = stage(FltSin(x))(ctx)
   @internal def math_cos[G:INT,E:INT](x: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = stage(FltCos(x))(ctx)
   @internal def math_tan[G:INT,E:INT](x: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = stage(FltTan(x))(ctx)

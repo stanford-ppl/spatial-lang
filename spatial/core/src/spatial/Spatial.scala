@@ -184,6 +184,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     def streamParEnqs = uctrlAnalyzer.streamParEnqs
   }
 
+  lazy val pirRetimer = new PIRHackyRetimer { val IR: self.type  = self }
+
   lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argPorts = uctrlAnalyzer.argPorts; def genericStreams = uctrlAnalyzer.genericStreams;}
 
   lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSim; def localMems = uctrlAnalyzer.localMems }
@@ -259,6 +261,10 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     // --- Design Elaboration
     passes += printer
     passes += switchFlatten     // Switch inlining for simplification / optimization
+
+    passes += printer
+    if (SpatialConfig.enablePIRSim) passes += pirRetimer
+
     passes += printer
     passes += unroller          // Unrolling
     passes += printer
@@ -313,6 +319,7 @@ trait SpatialApp extends AppCore {
   val Lib: SpatialLib = new SpatialLib { }
 
   override def parseArguments(args: Seq[String]): Unit = {
+    SpatialConfig.init()
     val parser = new SpatialArgParser
     parser.parse(args) match {
       case None =>

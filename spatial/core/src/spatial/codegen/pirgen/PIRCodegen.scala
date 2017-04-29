@@ -93,6 +93,9 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     }
     hacks.run(block)
 
+    printout.splitMappingIn ++= hacks.mappingOut
+    printout.run(block)
+
     cus ++= hacks.mappingOut
     dbgblk(s"Mapping: ") {
       cus.foreach { case (sym, cus) =>
@@ -104,16 +107,15 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
       dse.mappingIn ++= optimizer.mapping
       dse.run(block)
     }
+    else {
+      tallyCUs(cus.values.toList.flatten.flatten)
+    }
 
-    msg("Starting traversal PIR Generation")
     super.preprocess(block) // generateHeader
   }
 
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
     super.postprocess(block)
-    msg("Done.")
-    val nCUs = cus.values.flatten.flatten.size
-    msg(s"NUMBER OF CUS: $nCUs")
     block
   }
 
@@ -135,5 +137,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
       rhs.blocks.foreach(emitBlock)
     }
   }
+
+  override protected def emitFat(lhs: Seq[Sym[_]], rhs: Def): Unit = { }
 }
 
