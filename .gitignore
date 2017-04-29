@@ -32,6 +32,8 @@ spatial/core/resources/chiselgen/template-level/test_run_dir/templates*
 bak/
 newCppAPIChanges/
 debug/
+apps/resources/application.conf
+
 bin/commit
 
 # Scala-IDE specific

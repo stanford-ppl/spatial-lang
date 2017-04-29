@@ -112,7 +112,7 @@ protected trait DotGenSpatial extends DotCodegen with DotFileGen
   with DotGenCounter with DotGenReg with DotGenSRAM with DotGenFIFO
   with DotGenIfThenElse with DotGenController with DotGenMath with DotGenText
   with DotGenDRAM with DotGenHostTransfer with DotGenUnrolled with DotGenVector
-  with DotGenArray with DotGenAlteraVideo with DotGenStream with DotGenRetiming{
+  with DotGenArray with DotGenAlteraVideo with DotGenStream with DotGenRetiming with DotGenStruct{
 
   override val IR: SpatialCompiler
 

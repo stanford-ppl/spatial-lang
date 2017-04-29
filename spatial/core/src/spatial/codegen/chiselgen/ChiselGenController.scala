@@ -339,10 +339,11 @@ trait ChiselGenController extends ChiselGenCounter{
       //   }
       // }}.reduce{_|_}
     } else { 
-      sym match {
-        case Def(UnitPipe(_,_)) => false
-        case _ => if (isStreamChild(sym)) true else false 
-      }
+      false
+      // sym match {
+      //   case Def(UnitPipe(_,_)) => false
+      //   case _ => if (isStreamChild(sym)) true else false 
+      // }
     }
     /* Counter Signals for controller (used for determining done) */
     if (smStr != "Parallel" & smStr != "Streampipe") {
