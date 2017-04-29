@@ -3,3 +3,6 @@ MatMult_inner, 48,768,384,tsn,64,tsm,16,ip,16,mp,2,tsp,128,op,1, 534603, 1
 MatMult_inner, 48,768,384,tsn,64,tsm,16,ip,16,mp,4,tsp,128,op,2, 164469, 1
 MatMult_inner, 48,768,384,tsn,64,tsm,16,ip,16,mp,4,tsp,128,op,1, 284433, 1
 MatMult_inner, 48,768,384,tsn,64,tsm,16,ip,16,mp,2,tsp,128,op,2, 286853, 1
+MatMult_inner, 48,768,384,tsn,48,tsm,16,ip,16,mp,16,tsp,48,op,2, 139760, 1
+MatMult_inner, 48,768,384,tsn,64,tsm,16,ip,16,mp,6,tsp,128,op,2, 135664, 0
+MatMult_inner, 48,768,384,tsn,64,tsm,16,ip,16,mp,6,tsp,128,op,1, 210472, 0
