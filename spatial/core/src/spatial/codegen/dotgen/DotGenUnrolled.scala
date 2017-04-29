@@ -8,33 +8,79 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
   val IR: SpatialExp
   import IR._
 
-  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case _ if isControlNode(lhs) =>
-      rhs match { 
-        case Hwblock(_,_) => super.emitNode(lhs,rhs)
-        case _ =>
-          emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
-            if (Config.dotDetail == 0) emitVert(lhs);
-            rhs.blocks.foreach(emitBlock) 
-          }
+  def emitValids(valids: Seq[Seq[Bound[Bool]]]) {
+    valids.foreach{ v =>
+      v.foreach{vv =>
+        emitVert(vv)
       }
+    }
+  }
 
-    //case UnrolledForeach(en,cchain,func,iters,valids) =>
+  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = 
+  if (Config.dotDetail == 0) {
+    rhs match {
+      case _ if isControlNode(lhs) =>
+        rhs match { 
+          case Hwblock(_,_) => super.emitNode(lhs,rhs)
+          case _ =>
+            emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
+              emitVert(lhs);
+              rhs.blocks.foreach(emitBlock) 
+            }
+        }
 
-    //case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
+      case UnrolledForeach(en,cchain,func,iters,valids) =>
 
-    case ParSRAMLoad(sram, inds, ens) => emitMemRead(lhs)
+      case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
 
-    case ParSRAMStore(sram,inds,data,ens) => emitMemWrite(lhs)
+      case ParSRAMLoad(sram, inds, ens) => emitMemRead(lhs)
 
-    case ParFIFODeq(fifo, ens) => emitMemRead(lhs)
+      case ParSRAMStore(sram,inds,data,ens) => emitMemWrite(lhs)
 
-    case ParFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
+      case ParFIFODeq(fifo, ens) => emitMemRead(lhs)
 
-    case ParStreamRead(strm, ens) => emitMemRead(lhs)
+      case ParFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
 
-    case ParStreamWrite(strm, data, ens) => emitMemWrite(lhs)
+      case ParStreamRead(strm, ens) => emitMemRead(lhs)
 
-    case _ => super.emitNode(lhs, rhs)
+      case ParStreamWrite(strm, data, ens) => emitMemWrite(lhs)
+    }    
+  } else {
+
+    rhs match {
+
+      case UnrolledForeach(en,cchain,func,iters,valids) =>
+        emitValids(valids)
+        emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
+          emitVert(lhs);
+          rhs.blocks.foreach(emitBlock) 
+        }
+
+      case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
+        emitValids(valids)
+        emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
+          emitVert(lhs);
+          rhs.blocks.foreach(emitBlock) 
+        }
+
+      case ParSRAMLoad(sram, inds, ens) => emitMemRead(lhs)
+
+      case ParSRAMStore(sram,inds,data,ens) => emitMemWrite(lhs)
+
+      case ParFIFODeq(fifo, ens) => 
+        emitVert(lhs)
+        emitEdge(fifo, lhs)
+
+      case ParFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
+        data.foreach{ a => emitVert(a); emitEdge(a, fifo)}
+        ens.foreach{ a => emitVert(a); emitEn(a, fifo)}
+
+
+      case ParStreamRead(strm, ens) => emitVert(lhs); emitEdge(strm, lhs); ens.foreach{emitEn(_,strm)}
+
+      case ParStreamWrite(strm, data, ens) => data.foreach{emitEdge(_, strm)}; ens.foreach{emitEn(_,strm)}
+
+      case _ => super.emitNode(lhs, rhs)
+    }
   }
 }
