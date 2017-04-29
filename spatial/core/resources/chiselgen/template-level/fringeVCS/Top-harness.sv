@@ -230,9 +230,9 @@ module test;
 
   initial begin
     /*** VCD & VPD dump ***/
-      $dumpfile("Top.vcd");
-      $dumpvars(0, Top);
-      $vcdplusfile("Top.vpd");
+//      $dumpfile("Top.vcd");
+//      $dumpvars(0, Top);
+//      $vcdplusfile("Top.vpd");
       sim_init();
   end
 
@@ -283,14 +283,14 @@ module test;
     io_genericStreamOut_ready = 1;
 
     if (tick()) begin
-      $dumpflush;
+//      $dumpflush;
       $finish;
     end
 
     callbacks();
 
-    $vcdplusflush;
-    $dumpflush;
+//    $vcdplusflush;
+//    $dumpflush;
   end
 
 endmodule
