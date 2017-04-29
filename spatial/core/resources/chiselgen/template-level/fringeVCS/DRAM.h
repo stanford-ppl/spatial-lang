@@ -22,7 +22,7 @@ using namespace std;
 // DRAMSim3
 DRAMSim::MultiChannelMemorySystem *mem = NULL;
 bool useIdealDRAM = false;
-
+bool debug = false;
 extern uint64_t numCycles;
 class DRAMRequest {
 public:
@@ -94,7 +94,9 @@ void checkAndSendDRAMResponse() {
       req->elapsed++;
       if (req->elapsed >= req->delay) {
         req->completed = true;
-        EPRINTF("[idealDRAM txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)req->addr, req->tag, numCycles);
+        if (debug) {
+          EPRINTF("[idealDRAM txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)req->addr, req->tag, numCycles);
+        }
       }
     }
 
@@ -105,8 +107,10 @@ void checkAndSendDRAMResponse() {
 
       if (ready > 0) {
         dramRequestQ.pop();
-        EPRINTF("[Sending DRAM resp to]: ");
-        req->print();
+        if (debug) {
+          EPRINTF("[Sending DRAM resp to]: ");
+          req->print();
+        }
 
         uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -145,7 +149,9 @@ void checkAndSendDRAMResponse() {
             rdata[15]
           );
       } else {
-        EPRINTF("[SIM] dramResp not ready, numCycles = %ld\n", numCycles);
+        if (debug) {
+          EPRINTF("[SIM] dramResp not ready, numCycles = %ld\n", numCycles);
+        }
       }
 
     }
@@ -155,7 +161,9 @@ void checkAndSendDRAMResponse() {
 class DRAMCallbackMethods {
 public:
   void txComplete(unsigned id, uint64_t addr, uint64_t tag, uint64_t clock_cycle) {
-    EPRINTF("[txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)addr, tag, numCycles);
+    if (debug) {
+      EPRINTF("[txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)addr, tag, numCycles);
+    }
 
     // Find transaction, mark it as done, remove entry from map
     struct AddrTag at(addr, tag);
@@ -221,8 +229,9 @@ extern "C" {
       struct AddrTag at(cmdAddr, cmdTag);
       addrToReqMap[at] = req;
     }
-
-    req->print();
+    if (debug) {
+      req->print();
+    }
   }
 }
 
