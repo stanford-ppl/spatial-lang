@@ -22,7 +22,6 @@ trait SpatialTest extends SpatialApp {
 
 class SpatialTests extends FlatSpec with Matchers with Exceptions {
   val noargs = Array[String]()
-  SpatialConfig.enableSim = true
 
   // --- Tests
   object NumericTest extends SpatialTest {

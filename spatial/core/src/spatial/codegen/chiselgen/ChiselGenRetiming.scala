@@ -40,7 +40,13 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
 
     case ValueDelay(size, data) => 
       // emit(src"""val $lhs = Utils.delay($data, $size)""")
-      emit(src"""val $lhs = chisel3.util.ShiftRegister($data, $size)""")
+      lhs.tp match {
+        case a:VectorType[_] =>
+          emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
+          emit(src"(0 until ${a.width}).foreach{i => ${lhs}(i).raw := chisel3.util.ShiftRegister(${data}(i).r, $size)}")
+        case _ =>
+          emit(src"""val $lhs = chisel3.util.ShiftRegister($data, $size)""")
+      }
 
     case ShiftRegNew(size, init) => 
       emitGlobalRetiming(src"val $lhs = Module(new Retimer($size, ${bitWidth(lhs.tp.typeArguments.head)}))")

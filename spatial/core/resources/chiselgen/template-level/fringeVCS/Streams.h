@@ -81,7 +81,7 @@ public:
   // [TODO] In current scheme, output stream is always ready. Model backpressure more accurately.
   void recv(uint32_t udata, uint32_t utag, bool blast) {
     // Currently print read data out to console in addition to file
-    EPRINTF("[readOutputStream] data = %08x, tag = %08x, last = %x\n", udata, utag, blast);
+    //EPRINTF("[readOutputStream] data = %08x, tag = %08x, last = %x\n", udata, utag, blast);
 
     int bytes = write(fd, &udata, sizeof(uint32_t));   // Ignore tag for now
     ASSERT(bytes >= 0, "[OutputStream] Error writing to file '%s': %s\n", filename.c_str(), strerror(errno));

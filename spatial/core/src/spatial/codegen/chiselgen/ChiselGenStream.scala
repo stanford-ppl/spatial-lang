@@ -93,7 +93,11 @@ trait ChiselGenStream extends ChiselCodegen {
               emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
             case SliderSwitch => 
               emit(src"""val $lhs = io.switch_stream_in_data""")
-            case _ => 
+            case BurstDataBus() => 
+              emit(src"""${stream}_ready := $en & ${parentOf(lhs).get}_datapath_en""")
+              emit(src"""val $lhs = (0 until 1).map{ i => ${stream}_data(i) }""")
+
+            case _ =>
               val id = argMapping(stream)._1
               Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamIns")
               emit(src"""val ${quote(lhs)} = io.genericStreams.ins($id).bits.data """)  // Ignores enable for now
@@ -119,27 +123,20 @@ trait ChiselGenStream extends ChiselCodegen {
         //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
               emit(src"""${stream}_data := $data""")
               emit(src"""io.led_stream_out_data := ${stream}_data""")
+            case BurstFullDataBus() =>
+              emit(src"""${stream}_valid := ${parentOf(lhs).get}_datapath_en & $en""")
+              emit(src"""${stream}_data := $data""")
+
+            case BurstCmdBus =>  
+              emit(src"""${stream}_valid := ${parentOf(lhs).get}_datapath_en & $en""")
+              emit(src"""${stream}_data := $data""")
 
             case _ => 
-              val externalStream = stream match {
-                case Def(StreamOutNew(bus)) => s"$bus".replace("(","").replace(")","") match {
-                  case "BustFullDataBus" => false
-                  case "BurstCmdBus" => false
-                  case _ => true
-                }
-
-                case _ => false
-              }
-
-              emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
-              if (externalStream) {
-                val id = argMapping(stream)._1
-                Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
-                emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now
-                emit(src"""io.genericStreams.outs($id).valid := ${stream}_valid""")
-              } else {
-                emit(src"""${stream}_data := $data""")
-              }
+              emit(src"""${stream}_valid := ${parentOf(lhs).get}_datapath_en & $en""")
+              val id = argMapping(stream)._1
+              Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
+              emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now
+              emit(src"""io.genericStreams.outs($id).valid := ${stream}_valid""")
         }
       }
     case _ => super.emitNode(lhs, rhs)

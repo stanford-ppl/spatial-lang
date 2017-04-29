@@ -26,14 +26,30 @@ trait CppGenVector extends CppCodegen {
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: VectorType[_] => src"Array[${tp.child}]"
+    case tp: VectorType[_] => src"vector<${tp.typeArguments.head}>"
     case _ => super.remap(tp)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case ListVector(elems)      => emit(src"val $lhs = Array(" + elems.map(quote).mkString(",") + ")")
-    case VectorApply(vector, i) => emit(src"val $lhs = $vector.apply($i)")
+    case ListVector(elems)      => emit(src"${lhs.tp} $lhs = {" + elems.map(quote).mkString(",") + "};")
+    case VectorApply(vector, i) => emit(src"${lhs.tp} $lhs = $vector >> $i;")
     case VectorSlice(vector, start, end) => emit(src"val $lhs = $vector.slice($start, $end)")
+    case e@DataAsBits(a) => e.mT match {
+      case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
+      case FixPtType(s,d,f) => emit(src"${e.mT} $lhs = (${e.mT}) ${a};")
+      case BoolType()       => emit(src"${e.mT} $lhs = (${e.mT}) ${a};")
+    }
+
+    case BitsAsData(v,mT) => mT match {
+      case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
+      case FixPtType(s,i,f) => 
+        emit(src"${lhs.tp} $lhs;")
+        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < ${i+f}; ${lhs}_i++) { ${lhs} = ${v}[${lhs}_i] << ${lhs}_i; }")
+      case BoolType()       => 
+        emit(src"${lhs.tp} $lhs;")
+        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < 1; ${lhs}_i++) { ${lhs} = ${v}[${lhs}_i] << ${lhs}_i; }")
+    }
+
     case _ => super.emitNode(lhs, rhs)
   }
 }

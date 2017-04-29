@@ -14,6 +14,7 @@ out/*
 out2/*
 out3/*
 out4/*
+csvs/*
 gen/*
 gen_gold/*
 gen_bak/*

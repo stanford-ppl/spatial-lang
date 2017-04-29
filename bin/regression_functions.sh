@@ -559,6 +559,7 @@ function report {
   rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
+    cat ${5}/log | grep \"Design ran for\" >> ${log} 
     touch ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
     echo \${comp_time} >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
     cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}

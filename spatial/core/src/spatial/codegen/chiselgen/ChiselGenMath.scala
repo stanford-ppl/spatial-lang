@@ -50,6 +50,8 @@ trait ChiselGenMath extends ChiselCodegen {
       case FloatType()  => emit(src"val $lhs = Math.sqrt($x.toDouble).toFloat")
     }
 
+    case FltPow(x,y) => if (emitEn) throw new Exception("Pow not implemented in hardware yet!")
+
     case FltSin(x) =>
       throw new TrigInAccelException(lhs)
     case FltCos(x) =>
