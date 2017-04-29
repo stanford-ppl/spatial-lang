@@ -23,8 +23,7 @@ def split_results():
 			if 'PASS' in line:
 				sp = line.split('PDT ')[1].split(' Design ran for ')
 				app = split_by_num(sp[0])[0]
-				if '_' in app:
-					app = app.replace('_','')
+				app = app.strip('_')
 				params = sp[0].split(app)[1]
 				cycle = sp[1].split(' ')[0]
 				passed = line.split('PASS: ')[1].split(' ')[0]

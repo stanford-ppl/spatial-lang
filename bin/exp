@@ -38,8 +38,8 @@ def copyApp(app, args, params):
                 if not found:
                     newapp.write(line)
     for param in params:
-        if not paramFound[param]:
-            print('Param{} not found|||!'.format(param))
+        if param not in paramFound:
+            print('Param {} not found|||!'.format(param))
             exit()
 
 def runApp(app, args, params, regen):
@@ -107,13 +107,13 @@ def main():
     # runApp('MatMult_inner', [48, 768, 384], {'tsm':48, 'tsn':64, 'tsp':64, 'ip':16, 'mp':16, 'op':8}, regen='true')
     # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128,'ip':16, 'mp':16, 'op':10}, regen='true')
 
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':2, 'op':1}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':4, 'op':1}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':6, 'op':1}, regen='true')
+    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':2, 'op':1}, regen='true')
+    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':4, 'op':1}, regen='true')
+    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':6, 'op':1}, regen='true')
 
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':2, 'op':2}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':4, 'op':2}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':6, 'op':2}, regen='true')
+    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':2, 'op':2}, regen='true')
+    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':4, 'op':2}, regen='true')
+    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':6, 'op':2}, regen='true')
     #################################################################################################################
     # status('BlackScholes', [6000], {'ip':16, 'op':1, 'ts':2000}, regen='true')
 
@@ -159,22 +159,23 @@ def main():
     # status('TPCHQ6', [96000], {'ip':16, 'op':8 , 'ts':4000}, regen='true')
     # status('TPCHQ6', [96000], {'ip':16, 'op':10, 'ts':4000}, regen='true')
     #################################################################################################################
+# TODO
     # status('GDA', [64], {'ip':2, 'op':2, 'ts':20}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':2,  'ts':2000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':4,  'ts':2000}, regen='true')
-    # clear('GDA', [384000], {'ip':16, 'op':6,  'ts':2000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':8,  'ts':2000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':10, 'ts':2000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':2,  'ts':3000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':4,  'ts':3000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':6,  'ts':3000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':8,  'ts':3000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':10, 'ts':3000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':2,  'ts':4000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':4,  'ts':4000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':6,  'ts':4000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':8,  'ts':4000}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':10, 'ts':4000}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':2,  'ts':20}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':4,  'ts':20}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':6,  'ts':20}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':8,  'ts':20}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':10, 'ts':20}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':2,  'ts':30}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':4,  'ts':30}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':6,  'ts':30}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':8,  'ts':30}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':10, 'ts':30}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':2,  'ts':40}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':4,  'ts':40}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':6,  'ts':40}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':8,  'ts':40}, regen='true')
+    # status('GDA', [384000], {'ip':16, 'op':10, 'ts':40}, regen='true')
     #################################################################################################################
     # args: iters, N
     # clear('LogReg', [1, 40], {'ip':4, 'op':2, 'ts':10, 'dim':16}, regen='true') 
@@ -190,17 +191,16 @@ def main():
     # clear('LogReg', [5, 1536], {'ip':16, 'op':10, 'ts':65, 'dim':384}, regen='true') 
     #################################################################################################################
     # args: E, N
-    # runApp('SGD', [40, 32, 0.0001], {'ip':16, 'op':12, 'ts':10, 'D':16}, regen='true') 
     # status('SGD', [40, 32, 0.0001], {'ip':16, 'op':12, 'ts':10, 'D':16}, regen='true') 
 
     #################################################################################################################
     # args: N, K
-    # runApp('Kmeans', [2, 40], {'ip':16, 'op':1, 'pts_per_load':1, 'D':96}, regen='true') 
-    # status('Kmeans', [2, 40], {'ip':16, 'op':1, 'pts_per_load':1, 'D':96}, regen='true') 
+    # status('Kmeans', [2, 40], {'ip':16, 'op':1, 'pts_per_ld':1, 'D':96}, regen='true') 
+
+    # runApp('Kmeans', [1536, 20], {'ip':16, 'op':1, 'pts_per_ld':1, 'D':96}, regen='true')  #TODO
 
     #################################################################################################################
     # args: N
-    # runApp('SMV', [768], {'ip':16, 'op':4, 'pp':3840, 'NNZ':60}, regen='true') 
     # status('SMV', [768], {'ip':16, 'op':4, 'pp':3840, 'NNZ':60}, regen='true') 
 
     #################################################################################################################
