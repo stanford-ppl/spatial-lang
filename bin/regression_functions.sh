@@ -588,7 +588,7 @@ date >> ${5}/log" >> $1
     " >> $1
   fi
 
-  echo "sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
+  echo "//sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
 cd ${SPATIAL_HOME}
   " >> $1
 
