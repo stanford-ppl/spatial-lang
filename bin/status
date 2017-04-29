@@ -2,7 +2,8 @@
 
 app=$1
 
-tail -20 spatial.log
-tail -50 gen/$app/build.log
-tail gen/$app/sim.log
-tail $LOG_FILE
+echo "gen/$app/sim.log"
+#tail -F spatial.log
+#tail -F gen/$app/build.log
+tail -F gen/$app/sim.log
+#tail -F $LOG_FILE
