@@ -84,7 +84,8 @@ trait ChiselGenStream extends ChiselCodegen {
         }
         case _ => false
       }
-      emit(src"""${stream}_ready := ${en} & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
+      val parent = parentOf(lhs).get
+      emit(src"""${stream}_ready := ${parent}_en & ${en} & chisel3.util.ShiftRegister(${parent}_datapath_en, ${parent}_retime) """)
       if (!isAck) {
         stream match {
           case Def(StreamInNew(bus)) => bus match {
@@ -92,7 +93,10 @@ trait ChiselGenStream extends ChiselCodegen {
               emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
             case SliderSwitch => 
               emit(src"""val $lhs = io.switch_stream_in_data""")
-            case _ => 
+            case BurstDataBus() => 
+              emit(src"""val $lhs = (0 until 1).map{ i => ${stream}_data(i) }""")
+
+            case _ =>
               val id = argMapping(stream)._1
               Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamIns")
               emit(src"""val ${quote(lhs)} = io.genericStreams.ins($id).bits.data """)  // Ignores enable for now
@@ -103,6 +107,7 @@ trait ChiselGenStream extends ChiselCodegen {
       }
 
     case StreamWrite(stream, data, en) =>
+      val parent = parentOf(lhs).get
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
             case VGA => 
@@ -112,33 +117,26 @@ trait ChiselGenStream extends ChiselCodegen {
               emit(src"""// emiiting data for stream ${stream}""")
               emit(src"""${stream}_data := $data""")
               emit(src"""converted_data := ${stream}_data""")
-              emit(src"""${stream}_valid := ${en} & ${parentOf(lhs).get}_datapath_en""")
+              emit(src"""${stream}_valid := ${parent}_en & ${en} & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime)""")
             case LEDR =>
               emitGlobalWire(src"""val ${stream}_data = Wire(UInt(32.W))""")
         //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
               emit(src"""${stream}_data := $data""")
               emit(src"""io.led_stream_out_data := ${stream}_data""")
+            case BurstFullDataBus() =>
+              emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
+              emit(src"""${stream}_data := $data""")
+
+            case BurstCmdBus =>  
+              emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
+              emit(src"""${stream}_data := $data""")
 
             case _ => 
-              val externalStream = stream match {
-                case Def(StreamOutNew(bus)) => s"$bus".replace("(","").replace(")","") match {
-                  case "BustFullDataBus" => false
-                  case "BurstCmdBus" => false
-                  case _ => true
-                }
-
-                case _ => false
-              }
-
-              emit(src"""${stream}_valid := ${parentOf(lhs).get}_done & $en""")
-              if (externalStream) {
-                val id = argMapping(stream)._1
-                Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
-                emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now
-                emit(src"""io.genericStreams.outs($id).valid := ${stream}_valid""")
-              } else {
-                emit(src"""${stream}_data := $data""")
-              }
+              emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
+              val id = argMapping(stream)._1
+              Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
+              emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now
+              emit(src"""io.genericStreams.outs($id).valid := ${stream}_valid""")
         }
       }
     case _ => super.emitNode(lhs, rhs)

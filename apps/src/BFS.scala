@@ -2,7 +2,6 @@ import org.virtualized._
 import spatial._
 
 object BFS extends SpatialApp {
-
   import IR._
 
   val tileSize = 8000
@@ -88,7 +87,7 @@ object BFS extends SpatialApp {
     val idsIn = Array.empty[Int](3)
     val n = 5
     val e = 4
-    bfs(nodesIn: Array[Int], edgesIn: Array[Int], countsIn: Array[Int], idsIn: Array[Int], n: Int, e: Int)
+    bfs(nodesIn, edgesIn, countsIn, idsIn, n, e)
   }
 
 }

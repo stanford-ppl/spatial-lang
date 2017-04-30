@@ -6,11 +6,14 @@ object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
 
   type T = Int //FixPt[Signed,B16,B16]
 
-  val tileSize = 768
-  val innerPar = 8
-  val outerPar = 1
   val pp = 3840
   val maximumNNZ = 60
+
+  val innerPar = 16
+  val outerPar = 4
+
+  val tileSize = 384
+
   val margin = 1
 
   @virtualize
@@ -22,7 +25,7 @@ object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
     val AC = Array.tabulate(nn){ i => Array.tabulate(NNZ) { j => (j * 3).to[Int]}}
     val AD = Array.tabulate(nn){ i => Array.fill(NNZ) {random[Int](5) }}
     val S = Array.tabulate(nn){ i => NNZ.to[Int] }
-	    val V = Array.tabulate(P){ i => i.to[Int] }
+    val V = Array.tabulate(P){ i => i.to[Int] }
 
     val N = ArgIn[Int]
     setArg(N,nn)

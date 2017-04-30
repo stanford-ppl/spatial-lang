@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object InOutArg extends SpatialApp {  // Regression (Unit) // Args: 5
+object InOutArg extends SpatialApp { // Regression (Unit) // Args: 5
   import IR._
 
   @virtualize
@@ -270,7 +270,7 @@ object FileSplitter extends SpatialApp { // Regression (Unit) // Args: 6
   }
 }
 
-object Niter extends SpatialApp {  // Regression (Unit) // Args: 100
+object Niter extends SpatialApp { // Regression (Unit) // Args: 100
   import IR._
   
   val constTileSize = 16
@@ -534,14 +534,14 @@ object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 10
       Sequential.Foreach(N by tileSize par 2) { i =>
         val b1 = SRAM[T](tileSize)
 
-        b1 load srcFPGA(i::i+tileSize par 16)
+        b1 load srcFPGA(i::i+tileSize par 1)
 
         val b2 = SRAM[T](tileSize)
         Foreach(tileSize by 1 par 4) { ii =>
           b2(ii) = b1(ii) * x
         }
 
-        dstFPGA(i::i+tileSize par 16) store b2
+        dstFPGA(i::i+tileSize par 1) store b2
       }
     }
     getMem(dstFPGA)
@@ -574,9 +574,10 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   
   val tileSize = 32
 
+  @virtualize
   def singleFifoLoad[T:Type:Num](src1: Array[T], in: Int) = {
 
-    val P1 = 1 (16 -> 16)
+    val P1 = 4 (16 -> 16)
 
     val N = ArgIn[Int]
     setArg(N, in)
@@ -826,8 +827,8 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
   val C = 16
 
   def memcpy_2d[T:Type:Num](src: Array[T], rows: Int, cols: Int): Array[T] = {
-    val tileDim1 = param(16)
-    val tileDim2 = 16 (16 -> 16)
+    val tileDim1 = R
+    val tileDim2 = C
 
     val rowsIn = rows
     val colsIn = cols
@@ -841,8 +842,8 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
     Accel {
       Sequential.Foreach(rowsIn by tileDim1, colsIn by tileDim2) { (i,j) =>
         val tile = SRAM[T](tileDim1, tileDim2)
-        tile load srcFPGA(i::i+tileDim1, j::j+tileDim2 par 16)
-        dstFPGA (i::i+tileDim1, j::j+tileDim2 par 8) store tile
+        tile load srcFPGA(i::i+tileDim1, j::j+tileDim2 par 1)
+        dstFPGA (i::i+tileDim1, j::j+tileDim2 par 1) store tile
       }
     }
     getMem(dstFPGA)
@@ -926,8 +927,9 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
   import IR._
 
   val tileSize = 64
-  val p = 2
+  val p = 1
 
+  @virtualize
   def blockreduce_1d[T:Type:Num](src: Array[T], size: Int) = {
     val sizeIn = ArgIn[Int]
     setArg(sizeIn, size)
@@ -939,7 +941,7 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
 
     Accel {
       val accum = SRAM[T](tileSize)
-      MemReduce(accum)(sizeIn by tileSize par 2){ i  =>
+      MemReduce(accum)(sizeIn by tileSize par p){ i  =>
         val tile = SRAM[T](tileSize)
         tile load srcFPGA(i::i+tileSize par 16)
         tile
@@ -1033,6 +1035,7 @@ object BlockReduce2D extends SpatialApp { // Regression (Unit) // Args: 192 384
   val N = 1920
   val tileSize = 16
 
+  @virtualize
   def blockreduce_2d[T:Type:Num](src: Array[T], rows: Int, cols: Int) = {
     val rowsIn = ArgIn[Int]; setArg(rowsIn, rows)
     val colsIn = ArgIn[Int]; setArg(colsIn, cols)
@@ -1108,6 +1111,7 @@ object ScatterGather extends SpatialApp { // Regression (Sparse) // Args: none
   val offchip_dataSize = maxNumAddrs*6
   val P = param(1)
 
+  @virtualize
   def scattergather[T:Type:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
 
     val srcAddrs = DRAM[Int](maxNumAddrs)
@@ -1384,7 +1388,7 @@ object StreamTest extends SpatialApp {
 
 }
 
-object BasicFSM extends SpatialApp { // Regression (FSM) // Args: none
+object BasicFSM extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
   @virtualize
@@ -1410,7 +1414,7 @@ object BasicFSM extends SpatialApp { // Regression (FSM) // Args: none
   }
 }
 
-object BasicCondFSM extends SpatialApp { // Regression (FSM) // Args: none
+object BasicCondFSM extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
   @virtualize
@@ -1440,7 +1444,7 @@ object BasicCondFSM extends SpatialApp { // Regression (FSM) // Args: none
   }
 }
 
-object DotProductFSM extends SpatialApp { // Regression (FSM) // Args: none
+object DotProductFSM extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
   @virtualize
@@ -1514,48 +1518,6 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
 }
 
 object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
-  import IR._
-  type T = FixPt[TRUE,_12,_4]
-
-  @virtualize
-  def main() {
-    // Declare SW-HW interface vals
-    val N = 128
-    val a = args(0).to[T]
-    val b = args(1).to[T]
-    val x_data = Array.tabulate(N){ i => a * i.to[T]}
-    val x = DRAM[T](N)
-    val y = DRAM[T](N)
-    val s = ArgIn[T]
-
-    setMem(x, x_data)
-    setArg(s, b)
-
-    Accel {
-      val xx = SRAM[T](N)
-      val yy = SRAM[T](N)
-      xx load x(0 :: N par 1)
-      Foreach(N by 1) { i => 
-        yy(i) = xx(i) * s
-      }
-      y(0 :: N par 1) store yy
-    }
-
-
-    // Extract results from accelerator
-    val result = getMem(y)
-
-    // Create validation checks and debug code
-    val gold = x_data.map{ dat => dat * b }
-    printArray(gold, "expected: ")
-    printArray(result, "got: ")
-
-    val cksum = gold.zip(result){_ == _}.reduce{_&&_}
-    println("PASS: " + cksum + " (FixPtMem)")
-  }
-}
-
-object MaskedWrite extends SpatialApp {  // Regression (Unit) // Args: 31
   import IR._
   type T = Int
 

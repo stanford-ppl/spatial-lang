@@ -14,6 +14,7 @@ out/*
 out2/*
 out3/*
 out4/*
+csvs/*
 gen/*
 gen_gold/*
 gen_bak/*
@@ -28,6 +29,7 @@ project/plugins/project/
 tags
 docs/build/*
 spatial/core/resources/chiselgen/template-level/test_run_dir/templates*
+apps/resources/application.conf
 
 bin/commit
 

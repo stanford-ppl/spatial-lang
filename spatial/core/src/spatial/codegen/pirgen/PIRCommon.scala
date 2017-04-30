@@ -32,18 +32,21 @@ trait PIRCommon extends PIR {
     case x => throw new Exception(s"Cannot use $x as a LocalMem")
   }
   def globalInputs(a: Any): Set[GlobalBus] = a match {
+    case _:LocalReadBus => Set.empty
     case glob: GlobalBus => Set(glob)
     case ScalarIn(in) => Set(in)
     case VectorIn(in) => Set(in)
-    case mem: CUMemory => globalInputs(mem.readAddr ++ mem.writeAddr ++ mem.writeStart ++ mem.writeEnd ++ mem.writePort ++ mem.readPort)
+    case mem: CUMemory => globalInputs(mem.writeStart ++ mem.writeEnd ++ mem.writePort)
     case counter: CUCounter => globalInputs(List(counter.start, counter.end, counter.stride))
     case stage:Stage => globalInputs(stage.inputMems)
     case _ => collectX[GlobalBus](a)(globalInputs)
   }
   def globalOutputs(a: Any): Set[GlobalBus] = a match {
+    case _:LocalReadBus => Set.empty
     case glob: GlobalBus => Set(glob)
     case ScalarOut(out) => Set(out)
     case VectorOut(out) => Set(out)
+    case mem: CUMemory => globalOutputs(mem.readPort)
     case stage: Stage => globalOutputs(stage.outputMems)
     case _ => collectX[GlobalBus](a)(globalOutputs)
   }

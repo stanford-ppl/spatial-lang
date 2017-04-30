@@ -112,7 +112,7 @@ protected trait DotGenSpatial extends DotCodegen with DotFileGen
   with DotGenCounter with DotGenReg with DotGenSRAM with DotGenFIFO
   with DotGenIfThenElse with DotGenController with DotGenMath with DotGenText
   with DotGenDRAM with DotGenHostTransfer with DotGenUnrolled with DotGenVector
-  with DotGenArray with DotGenAlteraVideo with DotGenStream with DotGenRetiming{
+  with DotGenArray with DotGenAlteraVideo with DotGenStream with DotGenRetiming with DotGenStruct{
 
   override val IR: SpatialCompiler
 
@@ -183,6 +183,8 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     def streamLoadCtrls = uctrlAnalyzer.streamLoadCtrls 
     def streamParEnqs = uctrlAnalyzer.streamParEnqs
   }
+
+  lazy val pirRetimer = new PIRHackyRetimer { val IR: self.type  = self }
 
   lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argPorts = uctrlAnalyzer.argPorts; def genericStreams = uctrlAnalyzer.genericStreams;}
 
@@ -259,6 +261,10 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     // --- Design Elaboration
     passes += printer
     passes += switchFlatten     // Switch inlining for simplification / optimization
+
+    passes += printer
+    if (SpatialConfig.enablePIRSim) passes += pirRetimer
+
     passes += printer
     passes += unroller          // Unrolling
     passes += printer
@@ -313,6 +319,7 @@ trait SpatialApp extends AppCore {
   val Lib: SpatialLib = new SpatialLib { }
 
   override def parseArguments(args: Seq[String]): Unit = {
+    SpatialConfig.init()
     val parser = new SpatialArgParser
     parser.parse(args) match {
       case None =>

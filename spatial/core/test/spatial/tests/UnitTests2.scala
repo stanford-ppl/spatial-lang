@@ -439,7 +439,6 @@ object FifoPushPop extends SpatialTest {
 
 
 class UnitTests2 extends FlatSpec with Matchers {
-  SpatialConfig.enableSim = true
   "BlockReduce2D" should "compile" in { BlockReduce2D.main(Array.empty) }
   "ScatterGather" should "compile" in { ScatterGather.main(Array.empty) }
   "InOutArg" should "compile" in { InOutArg.main(Array.empty) }

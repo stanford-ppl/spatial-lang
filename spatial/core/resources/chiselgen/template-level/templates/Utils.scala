@@ -12,17 +12,34 @@ object ops {
     def raw = {
       chisel3.util.Cat(b.map{_.raw})
     }
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      chisel3.util.Cat(b.map{_.raw}).FP(s, d, f)
+    }
+  }
+  implicit class ArrayBoolOps[T](val b:Array[Bool]) {
+    def raw = {
+      chisel3.util.Cat(b.map{_.raw})
+    }
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      chisel3.util.Cat(b.map{_.raw}).FP(s, d, f)
+    }
   }
 
   implicit class IndexedSeqOps[T](val b:scala.collection.immutable.IndexedSeq[types.FixedPoint]) {
     def raw = {
       chisel3.util.Cat(b.map{_.raw})
     }
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      chisel3.util.Cat(b.map{_.raw}).FP(s, d, f)
+    }
   }
 
   implicit class VecOps[T](val b:chisel3.core.Vec[types.FixedPoint]) {
     def raw = {
       chisel3.util.Cat(b.map{_.raw})
+    }
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      chisel3.util.Cat(b.map{_.raw}).FP(s, d, f)
     }
   }
 
@@ -146,6 +163,15 @@ object Utils {
     }
   }
 
+  // def Reverse[T <: chisel3.core.Data](data: T):T = {
+  //   data match {
+  //     case d: UInt => chisel3.util.Reverse(d)
+  //     case d: FixedPoint => 
+  //       val res = Wire(new FixedPoint(d.s, d.d, d.f))
+  //       res.r := chisel3.util.Reverse(d.r)
+  //   }
+  // }
+
   def risingEdge(sig:Bool): Bool = {
     sig & Utils.delay(~sig,1)
   }
@@ -192,6 +218,78 @@ object Utils {
     }
 
     util.Cat(raw_x1,raw_x2,raw_x3)
+  }
+  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data, T4 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3, x4: T4): UInt = {
+    val raw_x1 = x1 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x2 = x2 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x3 = x3 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x4 = x4 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+
+    util.Cat(raw_x1,raw_x2,raw_x3,raw_x4)
+  }
+  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data, T4 <: chisel3.core.Data, T5 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3, x4: T4, x5: T5): UInt = {
+    val raw_x1 = x1 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x2 = x2 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x3 = x3 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x4 = x4 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x5 = x5 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+
+    util.Cat(raw_x1,raw_x2,raw_x3,raw_x4,raw_x5)
+  }
+  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data, T4 <: chisel3.core.Data, T5 <: chisel3.core.Data, T6 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3, x4: T4, x5: T5, x6: T6): UInt = {
+    val raw_x1 = x1 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x2 = x2 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x3 = x3 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x4 = x4 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x5 = x5 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+    val raw_x6 = x6 match {
+      case x:UInt => x
+      case x:FixedPoint => x.raw
+    }
+
+    util.Cat(raw_x1,raw_x2,raw_x3,raw_x4,raw_x5,raw_x6)
   }
 
   def mux[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data](cond: T1, op1: T2, op2: T2): T2 = {

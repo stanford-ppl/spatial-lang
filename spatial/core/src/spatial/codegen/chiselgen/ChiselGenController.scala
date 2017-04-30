@@ -96,6 +96,23 @@ trait ChiselGenController extends ChiselGenCounter{
 
   }
 
+  protected def hasCopiedCounter(lhs: Exp[_]): Boolean = {
+    if (parentOf(lhs).isDefined) {
+      val parent = parentOf(lhs).get
+      val hasCChain = parent match {
+        case Def(UnitPipe(_,_)) => false
+        case _ => true
+      }
+      if (styleOf(parent) == StreamPipe & hasCChain) {
+        true
+      } else {
+        false
+      }
+    } else {
+      false
+    }
+  }
+
   protected def isImmediateStreamChild(lhs: Exp[_]): Boolean = {
     var result = false
     if (parentOf(lhs).isDefined) {
@@ -231,13 +248,19 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
+    val hasStreamIns = if (listensTo(sym).length > 0) { // Please simplify this mess
+      true
+    } else { 
+      false
+    }
+
     val isInner = levelOf(sym) match {
       case InnerControl => true
       case OuterControl => false
       case _ => false
     }
     val smStr = if (isInner) {
-      if (isStreamChild(sym)) {
+      if (isStreamChild(sym) & hasStreamIns ) {
         "Streaminner"
       } else {
         "Innerpipe"
@@ -299,9 +322,9 @@ trait ChiselGenController extends ChiselGenCounter{
     }
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
 
-    if (isStreamChild(sym)) {
+    if (isStreamChild(sym) & hasStreamIns) {
       emitGlobalWire(src"""val ${sym}_datapath_en = Wire(Bool())""")
-      if (beneathForever(sym)) {
+      if (beneathForever(sym) /*| hasCopiedCounter(sym)*/) {
         emit(src"""${sym}_datapath_en := ${sym}_en // Immediate parent has forever counter, so never mask out datapath_en""")    
       } else {
         emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done""")  
@@ -312,20 +335,6 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc""")
     }
     
-    val hasStreamIns = if (listensTo(sym).length > 0) { // Please simplify this mess
-      listensTo(sym).map{ fifo => fifo match {
-        case Def(StreamInNew(bus)) => true
-        case _ => sym match {
-          case Def(UnitPipe(_,_)) => false
-          case _ => if (isStreamChild(sym)) true else false 
-        }
-      }}.reduce{_|_}
-    } else { 
-      sym match {
-        case Def(UnitPipe(_,_)) => false
-        case _ => if (isStreamChild(sym)) true else false 
-      }
-    }
     /* Counter Signals for controller (used for determining done) */
     if (smStr != "Parallel" & smStr != "Streampipe") {
       if (cchain.isDefined) {
@@ -334,7 +343,7 @@ trait ChiselGenController extends ChiselGenCounter{
           sym match { 
             case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
             case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
-              if (isStreamChild(sym)) {
+              if (isStreamChild(sym) & hasStreamIns) {
                 emit(src"${cchain.get}_en := ${sym}_datapath_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
               } else {
                 emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
@@ -342,13 +351,13 @@ trait ChiselGenController extends ChiselGenCounter{
           }
           emit(src"""// ---- Counter Connections for $smStr ${sym} (${cchain.get}) ----""")
           val ctr = cchain.get
-          if (isStreamChild(sym)) {
+          if (isStreamChild(sym) & hasStreamIns) {
             emit(src"""${ctr}_resetter := ${sym}_done // Do not use rst_en for stream kiddo""")
           } else {
             emit(src"""${ctr}_resetter := ${sym}_rst_en""")
           }
           if (isInner) { 
-            val dlay = if (SpatialConfig.enableRetiming) {src"${sym}_retime"} else "1"
+            val dlay = if (SpatialConfig.enableRetiming) {src"1 + ${sym}_retime"} else "1"
             emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, $dlay)""")
           }
 
@@ -356,11 +365,11 @@ trait ChiselGenController extends ChiselGenCounter{
       } else {
         emit(src"""// ---- Single Iteration for $smStr ${sym} ----""")
         if (isInner) { 
-          if (isStreamChild(sym)) {
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_en, 1 + ${sym}_retime) // stream kiddo""")
+          if (isStreamChild(sym) & hasStreamIns) {
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_en & ~${sym}_done, 1 + ${sym}_retime) // Disallow consecutive dones from stream inner""")
             emit(src"""val ${sym}_ctr_en = ${sym}_done // stream kiddo""")
           } else {
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(Utils.risingEdge(${sym}_sm.io.output.ctr_en), 1 + ${sym}_retime)""")
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(Utils.risingEdge(${sym}_sm.io.output.ctr_inc), 1 + ${sym}_retime)""")
             emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")            
           }
         } else {

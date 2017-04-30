@@ -83,7 +83,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
         if (deps.nonEmpty) {
           val (accumDeps, nonAccumDeps) = deps.partition{dep => localAccums.exists{_._1 == dep}}
-
+          Console.println(s"accumdups $accumDeps, nonaccumdeps $nonAccumDeps, all deps = $deps")
           val dlys = nonAccumDeps.map{e => paths.getOrElseAdd(e, fullDFS(e)) }
           val critical = dlys.max
 
