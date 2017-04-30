@@ -325,6 +325,24 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     case _ => TempReg(x)
   }
 
+  def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:AbstractComputeUnit):CUMemory = {
+    //HACK: don't know what the original sym is at splitting. 
+    //Probably LocalComponent should keep a copy of sym at allocation time?
+    val memSym = fresh[Int32] 
+    val memAccess = fresh[Int32]
+    val mem = CUMemory(s"$reg", memSym, memAccess, cu)
+    bus match {
+      case bus:ScalarBus =>
+        mem.mode = ScalarFIFOMode
+      case bus:VectorBus =>
+        mem.mode = VectorFIFOMode
+    }
+    mem.size = 1
+    mem.writePort = Some(bus)
+    cu.memMap += memSym -> mem
+    mem
+  }
+
   def const(x:Expr):LocalComponent = x match {
     case c if isConstant(c) => extractConstant(x)
     case _ => throw new Exception(s"${qdef(x)} ${x.tp} is not a constant")
