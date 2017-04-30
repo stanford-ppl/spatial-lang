@@ -10,19 +10,19 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 64
   val C = MAXC
   val margin = 1
 
-  val innerPar = 2
-  val outerPar = 2
+  val ip = 2
+  val op = 2
 
-  val tileSize = 20
+  val ts = 20
 
   @virtualize
   def gda[T: Type : Num](xCPU: Array[T], yCPU: Array[Int], mu0CPU: Array[T], mu1CPU: Array[T]) = {
-    val rTileSize = tileSize(96 -> 19200)
-    val op = outerPar(1 -> 8)
-    val ip = innerPar(1 -> 12)
-    val subLoopPar = innerPar(1 -> 16)
-    val prodLoopPar = innerPar(1 -> 96)
-    val outerAccumPar = innerPar(1 -> 1)
+    val rTileSize = ts(96 -> 19200)
+    //val op = outerPar(1 -> 8)
+    //val ip = innerPar(1 -> 12)
+    val subLoopPar = ip(1 -> 16)
+    val prodLoopPar = ip(1 -> 96)
+    val outerAccumPar = ip(1 -> 1)
 
     val rows = yCPU.length;
     bound(rows) = 360000
