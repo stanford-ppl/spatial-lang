@@ -17,10 +17,11 @@ trait PIRHacks extends PIRTraversal {
 
   override def process[S:Type](b: Block[S]) = {
     msg(s"Starting traversal PIR Hacks")
-    for ((pipe, cus) <- mappingIn) {
+    mappingOut ++= mappingIn
+    /*for ((pipe, cus) <- mappingIn) {
       //mcHack(pipe, cus.flatten)
       mappingOut += pipe -> cus
-    }
+    }*/
     //streamHack()
     //counterHack()
     b
