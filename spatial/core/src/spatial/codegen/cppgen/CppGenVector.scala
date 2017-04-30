@@ -47,7 +47,7 @@ trait CppGenVector extends CppCodegen {
         emit(src"for (int ${lhs}_i = 0; ${lhs}_i < ${i+f}; ${lhs}_i++) { ${lhs} = ${v}[${i+f-1}-${lhs}_i] << ${lhs}_i; }")
       case BoolType()       => 
         emit(src"${lhs.tp} $lhs;")
-        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < 1; ${lhs}_i++) { ${lhs} = ${v}[${i+f-1}-${lhs}_i] << ${lhs}_i; }")
+        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < 1; ${lhs}_i++) { ${lhs} = ${v}[${lhs}_i] << ${lhs}_i; }")
     }
 
     case _ => super.emitNode(lhs, rhs)
