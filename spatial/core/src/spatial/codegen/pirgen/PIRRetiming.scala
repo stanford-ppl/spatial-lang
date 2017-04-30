@@ -1,6 +1,6 @@
 package spatial.codegen.pirgen
 
-import spatial.SpatialExp
+import spatial.{SpatialConfig, SpatialExp}
 
 import scala.collection.mutable._
 
@@ -154,7 +154,9 @@ trait PIRRetiming extends PIRTraversal {
       case bus:ScalarBus => bus.name+"_fifo"
       case bus:VectorBus => bus.name+"_fifo"
     }
-    val sram = CUMemory(name, null, null, cu)
+    val memSym = if (SpatialConfig.DSEMode) null else fresh[Int32]
+    val memAccess = if (SpatialConfig.DSEMode) null else fresh[Int32]
+    val sram = CUMemory(name, memSym, memAccess, cu)
     sram.mode = bus match {
       case bus:ScalarBus => ScalarFIFOMode
       case bus:VectorBus => VectorFIFOMode

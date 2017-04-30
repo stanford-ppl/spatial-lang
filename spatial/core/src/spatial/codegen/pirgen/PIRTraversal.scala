@@ -328,8 +328,8 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
   def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:AbstractComputeUnit):CUMemory = {
     //HACK: don't know what the original sym is at splitting. 
     //Probably LocalComponent should keep a copy of sym at allocation time?
-    val memSym = fresh[Int32] 
-    val memAccess = fresh[Int32]
+    val memSym = if (SpatialConfig.DSEMode) null else fresh[Int32]
+    val memAccess = if (SpatialConfig.DSEMode) null else fresh[Int32]
     val mem = CUMemory(s"$reg", memSym, memAccess, cu)
     bus match {
       case bus:ScalarBus =>

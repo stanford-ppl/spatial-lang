@@ -73,6 +73,7 @@ object SpatialConfig extends Reporting {
   var lanes: Int = _
 
   var threads: Int = 8
+  var DSEMode: Boolean = false
 
   def init(): Unit = {
     val defaultSpatial = ConfigFactory.parseString("""
