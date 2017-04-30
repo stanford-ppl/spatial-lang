@@ -82,6 +82,18 @@ class MAGCore(
   isWrFifo.io.enq.zip(cmds) foreach { case (enq, cmd) => enq(0) := cmd.bits.isWr }
   isWrFifo.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid }
 
+  // isSparse FIFO: Currently a 1-bit FIFO. Ideally we would have a single FIFO
+  // for the entire 'cmd' struct, which would require changes to the FIFO and SRAM templates.
+  val isSparseFifo = Module(new FIFOArbiter(1, d, v, numStreams))
+  val isSparseFifoConfig = Wire(new FIFOOpcode(d, v))
+  isSparseFifoConfig.chainRead := 1.U
+  isSparseFifoConfig.chainWrite := 1.U
+  isSparseFifo.io.config := isSparseFifoConfig
+
+  isSparseFifo.io.forceTag.valid := 0.U
+  isSparseFifo.io.enq.zip(cmds) foreach { case (enq, cmd) => enq(0) := cmd.bits.isSparse }
+  isSparseFifo.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid }
+
   // Size FIFO
   val sizeFifo = Module(new FIFOArbiter(w, d, v, numStreams))
   val sizeFifoConfig = Wire(new FIFOOpcode(d, v))
@@ -155,6 +167,7 @@ class MAGCore(
   ccache.io.isScatter := Bool(false) // TODO: Remove this restriction once ready
 
   isWrFifo.io.deqVld := burstCounter.io.done
+  isSparseFifo.io.deqVld := burstCounter.io.done
   sizeFifo.io.deqVld := burstCounter.io.done
   addrFifo.io.deqVld := burstCounter.io.done & ~ccache.io.full
   wdataFifo.io.deqVld := Mux(io.config.scatterGather, burstCounter.io.done & ~ccache.io.full,
