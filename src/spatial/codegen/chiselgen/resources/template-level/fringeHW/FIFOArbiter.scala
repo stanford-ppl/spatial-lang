@@ -3,7 +3,7 @@ package fringe
 import chisel3._
 import chisel3.util._
 import templates.Utils.log2Up
-
+import scala.language.reflectiveCalls
 
 class FIFOArbiter(
   val w: Int,
@@ -67,7 +67,9 @@ class FIFOArbiter(
 
     io.tag := tag
     io.deq := outMux.io.out
-    io.empty := fifos.map {e => e.io.empty}.reduce{_&_}  // emptyMux.io.out
+    val empties = Array.tabulate(numStreams) { i => (i.U -> fifos(i).io.empty) }
+    io.empty := MuxLookup(tag, false.B, empties)
+    // io.empty := fifos.map {e => e.io.empty}.reduce{_&_}  // emptyMux.io.out
   } else { // Arbiter does nothing if there are no memstreams
     io.tag := 0.U(tagWidth.W)
     io.deq := Vec(List.tabulate(v) { i => 0.U(w.W) })
