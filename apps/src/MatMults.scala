@@ -6,7 +6,7 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 96 9
 
   type X = Int
 
-  val innerPar = 2
+  val innerPar = 16
   val midPar = 2
   val outerPar = 2
 
@@ -104,9 +104,9 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 96 9
 
   type X = Int //FixPt[Signed,B16,B16]
 
-  val innerPar = 2
-  val midPar = 2
-  val outerPar = 2
+  val innerPar = 16
+  val midPar = 1
+  val outerPar = 6
 
   val tsm = 16
   val tsn = 48

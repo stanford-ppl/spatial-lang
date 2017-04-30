@@ -500,7 +500,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val nSOut_PCU = (sOut_PCU * nPCUs) + (nUCUs * 2)
     val nVIns_PCU = (vIn_PCU * nPCUs) + (nUCUs * 0)
     val nVOut_PCU = (vOut_PCU * nPCUs) + (nUCUs * 0)
-    val nRegs_PCU = (LANES * regs_PCU * nPCUs * stages) + (nUCUs * stages)
+    val nRegs_PCU = (LANES * regs_PCU * nPCUs * stages) + (nUCUs * stages * regs_PCU)
 
     val nALUs_PMU = nPMUs * readWrite
     val nMems_PMU = nPMUs
