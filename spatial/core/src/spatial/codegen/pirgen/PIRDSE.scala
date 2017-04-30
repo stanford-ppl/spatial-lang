@@ -38,7 +38,6 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     this.silence()
     Config.verbosity = -1
     Console.println(s"Running design space exploration")
-    SpatialConfig.DSEMode = true
 
     val unrestrictedPCU = CUCost(sIn=100,sOut=100,vIn=100,vOut=100,comp=10000,regsMax=1000)
     var mcu = MUCost()
@@ -173,8 +172,6 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
       Console.println(" [" + (end - start)/1000 + " sec]")
       result
     }
-
-    SpatialConfig.DSEMode = false
 
     val pwd = sys.env("SPATIAL_HOME")
     val dir = s"$pwd/csvs"
