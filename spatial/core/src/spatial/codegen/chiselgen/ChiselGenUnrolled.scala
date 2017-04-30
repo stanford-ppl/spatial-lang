@@ -226,7 +226,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}_writeEn := chisel3.util.ShiftRegister($enabler & ~{writer}_inhibitor, ${writer}_retime) & $en""")
+      emit(src"""${fifo}_writeEn := chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${writer}_retime) & $en""")
       val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
       emit(src"""${fifo}_wdata := Vec(List(${datacsv}))""")
 
