@@ -32,7 +32,7 @@ class FringeContextVCS : public FringeContextBase<void> {
   const uint32_t burstSizeBytes = 64;
   const uint32_t commandReg = 0;
   const uint32_t statusReg = 1;
-  const uint64_t maxCycles = 50000000;
+  const uint64_t maxCycles = 10000000000;
 
   posix_spawn_file_actions_t action;
   int globalID = 1;
