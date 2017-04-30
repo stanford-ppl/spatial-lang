@@ -111,14 +111,14 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
   // TODO: This appears to be overridden?
   protected def quote(x: Expr):String = s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
 
-  def qdef(lhs:Expr):String = {
+  def qdef(lhs:Any):String = {
     val rhs = lhs match {
-      case lhs if (composed.contains(lhs)) => s"-> ${qdef(composed(lhs))}"
+      case lhs:Expr if (composed.contains(lhs)) => s"-> ${qdef(composed(lhs))}"
       case Def(e:UnrolledForeach) => 
         s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
       case Def(e:UnrolledReduce[_,_]) => 
         s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
-      case Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
+      case lhs@Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
       case Op(rhs) => s"$rhs"
       case Def(rhs) => s"$rhs"
       case lhs => s"$lhs"
@@ -289,7 +289,14 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
 
   def writerOf(mem:Expr):Access = {
     val writers = writersOf(mem)
-    assert(writers.size==1, s"Plasticine only support single writer mem=${qdef(mem)} writers=[${writers.mkString(",")}]")
+    if (writers.size > 1) {
+      error(u"Memory $mem has multiple writers: ")
+      error(mem.ctx)
+      writers.foreach{writer => error(writer.node.ctx, showCaret = true) }
+      error("Plasticine currently only supports 1 writer per memory")
+      sys.exit(-1)
+    }
+    //assert(writers.size==1, u"Plasticine only support single writer mem=${qdef(mem)} writers=[${writers.mkString(",")}]")
     writers.head
   }
 
@@ -316,6 +323,24 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
   def allocateLocal(x: Expr): LocalComponent = x match {
     case c if isConstant(c) => extractConstant(x)
     case _ => TempReg(x)
+  }
+
+  def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:AbstractComputeUnit):CUMemory = {
+    //HACK: don't know what the original sym is at splitting. 
+    //Probably LocalComponent should keep a copy of sym at allocation time?
+    val memSym = null
+    val memAccess = null
+    val mem = CUMemory(s"$reg", memSym, memAccess, cu)
+    bus match {
+      case bus:ScalarBus =>
+        mem.mode = ScalarFIFOMode
+      case bus:VectorBus =>
+        mem.mode = VectorFIFOMode
+    }
+    mem.size = 1
+    mem.writePort = Some(bus)
+    cu.memMap += reg -> mem
+    mem
   }
 
   def const(x:Expr):LocalComponent = x match {

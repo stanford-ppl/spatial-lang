@@ -39,7 +39,7 @@ trait PIRFileGen extends FileGen {
   override protected def process[S:Type](b: Block[S]): Block[S] = {
     super.process(b)
     //TODO: Cannot treat this as a dependency because postprocess is called before stream is closed
-    if (sys.env("PIR_HOME") != "") {
+    if (sys.env.get("PIR_HOME").isDefined && sys.env("PIR_HOME") != "") {
       // what should be the cleaner way of doing this?
       val cmd = s"cp ${Config.genDir}/pir/main.scala ${sys.env("PIR_HOME")}/apps/src/${Config.name}.scala"
       println(cmd)

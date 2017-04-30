@@ -108,7 +108,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       // emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
       emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
       if (levelOf(lhs) == InnerControl) {
-        val dlay = if (SpatialConfig.enableRetiming) {bodyLatency(lhs).reduce{_+_}} else 0
+        val dlay = bodyLatency.sum(lhs)
         emit(s"val ${quote(accum)}_wren = chisel3.util.ShiftRegister(${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor, ${quote(lhs)}_retime)")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {

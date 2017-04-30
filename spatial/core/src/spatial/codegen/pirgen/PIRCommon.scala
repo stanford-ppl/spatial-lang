@@ -36,6 +36,7 @@ trait PIRCommon extends PIR {
     case glob: GlobalBus => Set(glob)
     case ScalarIn(in) => Set(in)
     case VectorIn(in) => Set(in)
+    //case MemLoadReg(mem) => Set(LocalReadBus(mem))
     case mem: CUMemory => globalInputs(mem.writeStart ++ mem.writeEnd ++ mem.writePort)
     case counter: CUCounter => globalInputs(List(counter.start, counter.end, counter.stride))
     case stage:Stage => globalInputs(stage.inputMems)

@@ -96,24 +96,38 @@ def main():
     # clear('OuterProduct', [38400, 38400], {'ts1':384, 'ts2':384, 'ip':16, 'op':10}, regen='true') #not finishing
     # clear('OuterProduct', [38400, 38400], {'ts1':768, 'ts2':384, 'ip':16, 'op':10}, regen='true') #syntax error
 
+    #TODO
+    # status('OuterProduct', [76800, 76800], {'ts1':192, 'ts2':192, 'ip':16, 'op':10}, regen='true')
+    # status('OuterProduct', [76800, 76800], {'ts1':384, 'ts2':192, 'ip':16, 'op':10}, regen='true')
+    # status('OuterProduct', [76800, 76800], {'ts1':192, 'ts2':384, 'ip':16, 'op':10}, regen='true')
+    # status('OuterProduct', [76800, 76800], {'ts1':384, 'ts2':384, 'ip':16, 'op':10}, regen='true')
+    # status('OuterProduct', [76800, 76800], {'ts1':192, 'ts2':768, 'ip':16, 'op':10}, regen='true')
+    # status('OuterProduct', [76800, 76800], {'ts1':768, 'ts2':192, 'ip':16, 'op':10}, regen='true')
+
     #################################################################################################################
-    # status('MatMult_inner', [32, 96, 96], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':2, 'mp':8, 'op':2}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':2}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':4}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':8}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':10}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':2}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':48, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':4}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':48, 'tsn':64, 'tsp':64, 'ip':16, 'mp':16, 'op':8}, regen='true')
-    # runApp('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128,'ip':16, 'mp':16, 'op':10}, regen='true')
+    # clear('MatMult_inner', [32, 96, 96], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':2, 'mp':8, 'op':2}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':2}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':4}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':8}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':10}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':2}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':48, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':4}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':48, 'tsn':64, 'tsp':64, 'ip':16, 'mp':16, 'op':8}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128,'ip':16, 'mp':16, 'op':10}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':2, 'op':1}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':4, 'op':1}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':6, 'op':1}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':2, 'op':2}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':4, 'op':2}, regen='true')
+    # clear('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':6, 'op':2}, regen='true')
 
-    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':2, 'op':1}, regen='true')
-    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':4, 'op':1}, regen='true')
-    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':6, 'op':1}, regen='true')
-
-    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':2, 'op':2}, regen='true')
-    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':4, 'op':2}, regen='true')
-    # status('MatMult_inner', [48, 768, 384], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':6, 'op':2}, regen='true')
+    # TODO
+    # status('MatMult_inner', [48, 7680, 3840], {'tsm':16, 'tsn':64, 'tsp':128, 'ip':16, 'mp':6, 'op':2}, regen='true')
+    # status('MatMult_inner', [48, 7680, 3840], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':2}, regen='true') # syntax error
+    # status('MatMult_inner', [48, 7680, 3840], {'tsm':48, 'tsn':48, 'tsp':48, 'ip':16, 'mp':16, 'op':2}, regen='true') # syntax error
+    # status('MatMult_inner', [48, 7680, 3840], {'tsm':48, 'tsn':64, 'tsp':48, 'ip':16, 'mp':16, 'op':2}, regen='true') # sytax error
+    # status('MatMult_inner', [48, 7680, 3840], {'tsm':48, 'tsn':64, 'tsp':64, 'ip':16, 'mp':16, 'op':2}, regen='true')
+    # status('MatMult_inner', [48, 7680, 3840], {'tsm':48, 'tsn':64, 'tsp':64, 'ip':16, 'mp':8, 'op':3}, regen='true')
     #################################################################################################################
     # status('BlackScholes', [6000], {'ip':16, 'op':1, 'ts':2000}, regen='true')
 
@@ -159,23 +173,23 @@ def main():
     # status('TPCHQ6', [96000], {'ip':16, 'op':8 , 'ts':4000}, regen='true')
     # status('TPCHQ6', [96000], {'ip':16, 'op':10, 'ts':4000}, regen='true')
     #################################################################################################################
-# TODO
-    # status('GDA', [64], {'ip':2, 'op':2, 'ts':20}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':2,  'ts':20}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':4,  'ts':20}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':6,  'ts':20}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':8,  'ts':20}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':10, 'ts':20}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':2,  'ts':30}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':4,  'ts':30}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':6,  'ts':30}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':8,  'ts':30}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':10, 'ts':30}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':2,  'ts':40}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':4,  'ts':40}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':6,  'ts':40}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':8,  'ts':40}, regen='true')
-    # status('GDA', [384000], {'ip':16, 'op':10, 'ts':40}, regen='true')
+    # clear('GDA', [64], {'ip':2, 'op':2, 'ts':20}, regen='true')
+    # all failed
+    # clear('GDA', [384000], {'ip':16, 'op':2,  'ts':20}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':4,  'ts':20}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':6,  'ts':20}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':8,  'ts':20}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':10, 'ts':20}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':2,  'ts':30}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':4,  'ts':30}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':6,  'ts':30}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':8,  'ts':30}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':10, 'ts':30}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':2,  'ts':40}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':4,  'ts':40}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':6,  'ts':40}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':8,  'ts':40}, regen='true')
+    # clear('GDA', [384000], {'ip':16, 'op':10, 'ts':40}, regen='true')
     #################################################################################################################
     # args: iters, N
     # clear('LogReg', [1, 40], {'ip':4, 'op':2, 'ts':10, 'dim':16}, regen='true') 
@@ -194,11 +208,13 @@ def main():
     # status('SGD', [40, 32, 0.0001], {'ip':16, 'op':12, 'ts':10, 'D':16}, regen='true') 
 
     #################################################################################################################
-    # args: N, K
+    # args: iters, N
     # status('Kmeans', [2, 40], {'ip':16, 'op':1, 'pts_per_ld':1, 'D':96}, regen='true') 
+    # runApp('Kmeans', [1536, 20], {'ip':16, 'op':1, 'pts_per_ld':1, 'D':96}, regen='true') 
+    # runApp('Kmeans', [50, 1536], {'ip':16, 'op':1, 'numcents':1, 'D':96}, regen='true')
 
-    # runApp('Kmeans', [1536, 20], {'ip':16, 'op':1, 'pts_per_ld':1, 'D':96}, regen='true')  #TODO
-
+    # runApp('Kmeans', [50, 1536], {'ip':16, 'op':1, 'numcents':1, 'pts_per_ld': 384, 'D':96}, regen='true')
+    # runApp('Kmeans', [50, 1536], {'ip':16, 'op':1, 'numcents':1, 'pts_per_ld': 768, 'D':96}, regen='true')
     #################################################################################################################
     # args: N
     # status('SMV', [768], {'ip':16, 'op':4, 'pp':3840, 'NNZ':60}, regen='true') 

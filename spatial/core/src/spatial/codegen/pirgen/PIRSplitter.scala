@@ -20,15 +20,16 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
     sOut=SpatialConfig.sOut_PCU,
     vIn=SpatialConfig.vIn_PCU,
     vOut=SpatialConfig.vOut_PCU,
-    comp=STAGES
+    comp=STAGES,
+    regsMax = SpatialConfig.regs_PCU
   )
   lazy val PMUMax = MUCost(
     sIn=SpatialConfig.sIn_PMU,
     sOut=SpatialConfig.sOut_PMU,
     vIn=SpatialConfig.vIn_PMU,
     vOut=SpatialConfig.vOut_PMU,
-    read=READ_WRITE,
-    write=READ_WRITE
+    comp=READ_WRITE,
+    regsMax = SpatialConfig.regs_PMU
   )
 
   override def process[S:Type](b: Block[S]) = {
@@ -46,6 +47,8 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
       swapCUs(cuMapping)
     }
     catch {case e: SplitException =>
+      error("Failed splitting")
+      error(e.msg)
       sys.exit(-1)
     }
     b
