@@ -18,7 +18,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     def cycles: Long = stages.map(latencyOf).sum
 
     def inputs = {
-      stages.flatMap{case Def(d) => d.expInputs; case _ => Nil} diff stages
+      stages.flatMap{case Def(d) => d.expInputs; case _ => Nil}.distinct diff stages
     }
     def defines(x: Exp[_]) = stages.contains(x)
 
@@ -108,8 +108,13 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
 
     partitions.zipWithIndex.foreach{case (p,i) =>
       dbg(s"Parition #$i")
+      dbg("  Stages: ")
       p.stages.foreach{stage =>
-        dbg(s"  ${str(stage)}")
+        dbg(s"    ${str(stage)}")
+      }
+      dbg("  Inputs: ")
+      p.inputs.foreach{in =>
+        dbg(s"    ${str(in)}")
       }
     }
 
@@ -118,7 +123,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     // Order CUs using BFS
     def bfs(x: Partition): Int = layer.getOrElseAdd(x, {
       dbg(c"Getting layer of partition #${partitions.indexOf(x)}")
-      val ins = x.inputs.flatMap{in => partitions.find(_.defines(in)) }.distinct.filterNot(_ == x)
+      val ins = x.inputs.flatMap{in => partitions.find(_.defines(in)) }.distinct
       dbg(c"  inputs: " + ins.map(x => partitions.indexOf(x)).mkString(", "))
       (-1 +: ins.map(bfs)).max + 1
     })
