@@ -17,7 +17,9 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
 
     def cycles: Long = stages.map(latencyOf).sum
 
-    def inputs = stages.flatMap{case Def(d) => d.expInputs; case _ => Nil} diff stages
+    def inputs = {
+      stages.flatMap{case Def(d) => d.expInputs; case _ => Nil} diff stages
+    }
     def defines(x: Exp[_]) = stages.contains(x)
 
     def cost(others: Seq[Partition], isUnit: Boolean, scope: Seq[Exp[_]]): (Seq[Exp[_]],Seq[Exp[_]],Long) = {
@@ -104,11 +106,20 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
       }
     }
 
+    partitions.zipWithIndex.foreach{case (p,i) =>
+      dbg(s"Parition #$i")
+      p.stages.foreach{stage =>
+        dbg(s"  ${str(stage)}")
+      }
+    }
+
     val layer = mutable.HashMap[Partition, Int]()
 
     // Order CUs using BFS
-    def bfs(x: Partition): Int = layer.getOrElseUpdate(x, {
-      val ins = x.inputs.flatMap{in => partitions.find(_.defines(in)) }.distinct
+    def bfs(x: Partition): Int = layer.getOrElseAdd(x, {
+      dbg(c"Getting layer of partition #${partitions.indexOf(x)}")
+      val ins = x.inputs.flatMap{in => partitions.find(_.defines(in)) }.distinct.filterNot(_ == x)
+      dbg(c"  inputs: " + ins.map(x => partitions.indexOf(x)).mkString(", "))
       (-1 +: ins.map(bfs)).max + 1
     })
     val layers = partitions.map(bfs)

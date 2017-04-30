@@ -46,9 +46,9 @@ object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 384
   val margin = 1
 
   val innerPar = 16
-  val outerPar = 4
+  val outerPar = 2
 
-  val tileSize = 2000
+  val tileSize = 3000
 
   @virtualize
   def tpchq6[T:Type:Num](datesIn: Array[Int], quantsIn: Array[Int], disctsIn: Array[T], pricesIn: Array[T]): T = {
