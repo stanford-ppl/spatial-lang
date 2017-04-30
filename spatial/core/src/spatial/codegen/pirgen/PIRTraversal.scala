@@ -111,14 +111,14 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
   // TODO: This appears to be overridden?
   protected def quote(x: Expr):String = s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
 
-  def qdef(lhs:Expr):String = {
+  def qdef(lhs:Any):String = {
     val rhs = lhs match {
-      case lhs if (composed.contains(lhs)) => s"-> ${qdef(composed(lhs))}"
+      case lhs:Expr if (composed.contains(lhs)) => s"-> ${qdef(composed(lhs))}"
       case Def(e:UnrolledForeach) => 
         s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
       case Def(e:UnrolledReduce[_,_]) => 
         s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
-      case Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
+      case lhs@Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
       case Op(rhs) => s"$rhs"
       case Def(rhs) => s"$rhs"
       case lhs => s"$lhs"
@@ -328,8 +328,8 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
   def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:AbstractComputeUnit):CUMemory = {
     //HACK: don't know what the original sym is at splitting. 
     //Probably LocalComponent should keep a copy of sym at allocation time?
-    val memSym = fresh[Int32] 
-    val memAccess = fresh[Int32]
+    val memSym = null
+    val memAccess = null
     val mem = CUMemory(s"$reg", memSym, memAccess, cu)
     bus match {
       case bus:ScalarBus =>
@@ -339,7 +339,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     }
     mem.size = 1
     mem.writePort = Some(bus)
-    cu.memMap += memSym -> mem
+    cu.memMap += reg -> mem
     mem
   }
 

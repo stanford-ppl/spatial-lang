@@ -300,7 +300,7 @@ trait PIR {
     }*/
 
     var cchains: Set[CUCChain] = Set.empty
-    val memMap: mutable.Map[Expr, CUMemory] = mutable.Map.empty
+    val memMap: mutable.Map[Any, CUMemory] = mutable.Map.empty
     var regs: Set[LocalComponent] = Set.empty
     var deps: Set[AbstractComputeUnit] = Set.empty
 
