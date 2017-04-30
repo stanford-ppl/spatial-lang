@@ -301,8 +301,9 @@ trait ChiselGenController extends ChiselGenCounter{
 
     val constrArg = if (isInner) {s"${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
 
-    val lat = if (SpatialConfig.enableRetiming) {if (bodyLatency(sym).length == 0) {0} else {bodyLatency(sym).reduce{_+_}}}
-              else {0}
+    val lat = bodyLatency.sum(sym)
+    //if (SpatialConfig.enableRetiming) {if (bodyLatency(sym).length == 0) {0} else {bodyLatency(sym).reduce{_+_}}}
+              //else {0}
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
     emitModule(src"${sym}_sm", s"${smStr}", s"${constrArg}")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
@@ -366,7 +367,7 @@ trait ChiselGenController extends ChiselGenCounter{
             emit(src"""${ctr}_resetter := ${sym}_rst_en""")
           }
           if (isInner) { 
-            val dlay = if (SpatialConfig.enableRetiming) {src"1 + ${sym}_retime"} else "1"
+            val dlay = if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {src"1 + ${sym}_retime"} else "1"
             emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, $dlay)""")
           }
 

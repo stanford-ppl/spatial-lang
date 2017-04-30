@@ -21,7 +21,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   //  rather than spinning even when there is retiming and the surrounding loop has a delayed
   //  view of the counter done signal
   protected def emitInhibitor(lhs: Exp[_], cchain: Option[Exp[_]]): Unit = {
-    if (SpatialConfig.enableRetiming) {
+    if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {
       emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF())")
       emitGlobalModule(src"${lhs}_inhibit.io.input.asyn_reset := reset")
       emitGlobalModule(src"val ${lhs}_inhibitor = ${lhs}_inhibit.io.output.data")
