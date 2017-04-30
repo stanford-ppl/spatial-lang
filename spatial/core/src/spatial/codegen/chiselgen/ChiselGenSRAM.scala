@@ -24,15 +24,17 @@ trait ChiselGenSRAM extends ChiselCodegen {
     if (SpatialConfig.enableRetiming) {
       emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF())")
       emitGlobalModule(src"${lhs}_inhibit.io.input.asyn_reset := reset")
-      emitGlobalModule(src"val ${lhs}_inhibitor = ${lhs}_inhibit.io.output.data")
+      emitGlobalModule(src"val ${lhs}_inhibitor = Wire(Bool())")
       if (cchain.isDefined) {
         emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
+        emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | ${cchain.get}.io.output.done")
       } else {
-        emit(src"${lhs}_inhibit.io.input.set := Utils.delay(${lhs}_en, 1 + ${lhs}_retime)")
+        emit(src"${lhs}_inhibit.io.input.set := Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1)")
+        emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1)")
       }
       emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_rst_en")
     } else {
-      emitGlobalModule(src"val ${lhs}_inhibitor = false.B")      
+      emitGlobalModule(src"val ${lhs}_inhibitor = false.B // Maybe connect to ${lhs}_done?  ")      
     }
   }
 

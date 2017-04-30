@@ -588,7 +588,7 @@ date >> ${5}/log" >> $1
     " >> $1
   fi
 
-  echo "sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
+  echo "//sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
 cd ${SPATIAL_HOME}
   " >> $1
 
@@ -692,7 +692,7 @@ launch_tests() {
   test_list=()
   for a in ${annotated_list[@]}; do
     if [[ $a = *"object"*"extends SpatialApp"* ]]; then
-      test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g'`)
+      test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /_/g'`)
     else
       logger "Error setting up test for $a !!!"
     fi
@@ -724,7 +724,7 @@ launch_tests() {
       check_packet
       if [[ $t == *"|${ac}|"* && (${tests_todo} == "all" || $t == *"|${tests_todo}|"*) ]]; then
         appname=(`echo $t | sed 's/|.*$//g'`)
-        appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/-/ /g'`)
+        appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/_/ /g'`)
         # Initialize results
         touch ${SPATIAL_HOME}/regression_tests/${ac}/results/failed_app_initialized.${i}_${appname}
 

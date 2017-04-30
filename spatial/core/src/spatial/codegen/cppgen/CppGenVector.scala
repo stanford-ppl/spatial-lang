@@ -44,7 +44,7 @@ trait CppGenVector extends CppCodegen {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
       case FixPtType(s,i,f) => 
         emit(src"${lhs.tp} $lhs;")
-        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < ${i+f}; ${lhs}_i++) { ${lhs} = ${v}[${lhs}_i] << ${lhs}_i; }")
+        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < ${i+f}; ${lhs}_i++) { ${lhs} = ${v}[${i+f-1}-${lhs}_i] << ${lhs}_i; }")
       case BoolType()       => 
         emit(src"${lhs.tp} $lhs;")
         emit(src"for (int ${lhs}_i = 0; ${lhs}_i < 1; ${lhs}_i++) { ${lhs} = ${v}[${lhs}_i] << ${lhs}_i; }")
