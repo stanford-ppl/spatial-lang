@@ -275,6 +275,7 @@ object Niter extends SpatialApp { // Regression (Unit) // Args: 100
   
   val constTileSize = 16
 
+  @virtualize
   def nIterTest[T:Type:Num](len: Int): T = {
     val innerPar = 1 (1 -> 1)
     val tileSize = constTileSize (constTileSize -> constTileSize)
