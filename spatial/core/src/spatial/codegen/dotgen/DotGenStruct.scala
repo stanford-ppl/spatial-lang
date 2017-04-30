@@ -4,7 +4,8 @@ import argon.codegen.dotgen.DotCodegen
 import spatial.SpatialExp
 import argon.Config
 
-trait DotGenStream extends DotCodegen with DotGenReg {
+
+trait DotGenStruct extends DotCodegen with DotGenReg {
   val IR: SpatialExp
   import IR._
 
@@ -15,10 +16,10 @@ trait DotGenStream extends DotCodegen with DotGenReg {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case StreamInNew(bus) if fringeOf(lhs).nonEmpty => emitVert(lhs)
-    case StreamOutNew(bus) if fringeOf(lhs).nonEmpty => emitVert(lhs)
-    case StreamRead(stream, en) => if (Config.dotDetail > 0) {emitVert(lhs); emitEdge(stream,lhs); emitEn(en,lhs)} else {emitMemRead(lhs)}
-    case StreamWrite(stream, data, en) => if (Config.dotDetail > 0) {emitEdge(data,stream); emitEn(en,stream)} else {emitMemWrite(lhs)}
+    case SimpleStruct(items) => if (Config.dotDetail > 0) {
+      emitVert(lhs)
+      items.foreach{a => emitEdge(a._2, lhs, a._1)}
+    }
     case _ => super.emitNode(lhs, rhs)
   }
 
