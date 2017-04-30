@@ -97,6 +97,12 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     printout.run(block)
 
     cus ++= hacks.mappingOut
+
+    //HACK remove unused copy from parent after splitting
+    cus.foreach { case (sym, cus) =>
+      cus.foreach { _.foreach { cu => optimizer.removeUnusedCChainCopy(cu) } }
+    }
+
     dbgblk(s"Mapping: ") {
       cus.foreach { case (sym, cus) =>
         dbgs(s"$sym -> [${cus.map( cus => s"[${cus.mkString(",")}]").mkString(",")}]")

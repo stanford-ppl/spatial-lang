@@ -235,7 +235,9 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
   def getField(dexp: Expr): Option[String] = {
     decomposeWithFields(compose(dexp)) match {
       case Left(e) => None 
-      case Right(seq) => Some(seq.filter(_._2==dexp).head._1)
+      case Right(seq) => Some(seq.filter(_._2==dexp).headOption.map(_._1).getOrElse(
+        throw new Exception(s"composed $dexp=${compose(dexp)}doesn't contain $dexp. seq=$seq")
+        ))
     }
   }
 

@@ -141,7 +141,7 @@ trait PIRAllocation extends PIRTraversal {
 
   private def initializeMem(cuMem: CUMemory, access: Expr, cu: PCU) {
     val mem = compose(cuMem.mem)
-    cuMem.mode = memMode(mem, access, cu)
+    cuMem.mode = memMode(cuMem.mem, access, cu)
     cuMem.mode match {
       case ScalarBufferMode if isArgIn(mem) | isArgOut(mem) | isGetDRAMAddress(mem)=>
         cuMem.bufferDepth = 1 
@@ -297,6 +297,8 @@ trait PIRAllocation extends PIRTraversal {
       case (mem, PipeCU) if isSRAM(mem) => VectorFIFOMode // Creating FIFO for SRAM Read 
       case (mem, style) if isReg(mem) | isGetDRAMAddress(mem) => ScalarBufferMode
       case (mem, style) if isStreamIn(mem) => VectorFIFOMode // from Fringe
+      case (mem, style) if isStreamOut(mem) & getField(dmem)==Some("data") => 
+        VectorFIFOMode // to Fringe. Only accessable from vector network
       case (mem, style) if isFIFO(mem) | isStreamOut(mem) => 
         val writer = writerOf(mem)
         if (getInnerPar(writer.ctrlNode)==1) ScalarFIFOMode else VectorFIFOMode
@@ -454,17 +456,18 @@ trait PIRAllocation extends PIRTraversal {
         decompose(mem).zip(decompose(writer)).foreach { case (dmem, dwriter) =>
           dbgs(s"dmem:$dmem, dwriter:$dwriter")
           val parBy1 = getInnerPar(writerOf(mem).ctrlNode)==1
-          val (bus, output) = if (isReg(mem) || ((isFIFO(mem) || isStream(mem)) && parBy1)) {
-            val bus = if (isArgOut(mem)) 
-              OutputArg(s"${quote(dmem)}_${quote(dwriter)}") 
-            else
-              CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
-            globals += bus
-            (bus, ScalarOut(bus))
-          } else {
-            val bus = CUVector(s"${quote(dmem)}_${quote(dwriter)}")
-            globals += bus
-            (bus, VectorOut(bus))
+          val bus = mem match {
+            case mem if isArgOut(mem) => OutputArg(s"${quote(dmem)}_${quote(dwriter)}") 
+            case mem if isStreamOut(mem) & getField(dmem)==Some("data") => CUVector(s"${quote(dmem)}_${quote(dwriter)}")
+            case mem if isReg(mem) => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
+            case mem if isFIFO(mem) & parBy1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
+            case mem if isStream(mem) & parBy1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
+            case mem => CUVector(s"${quote(dmem)}_${quote(dwriter)}")
+          }
+          globals += bus
+          val output = bus match {
+            case bus:ScalarBus => ScalarOut(bus)
+            case bus:VectorBus => VectorOut(bus)
           }
           val writerCU = getWriterCU(dwriter) 
           writerCU.addReg(dwriter, output)
