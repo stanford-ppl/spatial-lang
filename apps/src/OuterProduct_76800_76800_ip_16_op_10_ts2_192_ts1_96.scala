@@ -1,14 +1,14 @@
 import spatial._
 import org.virtualized._
 
-object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 192 192
+object OuterProduct_76800_76800_ip_16_op_10_ts2_192_ts1_96 extends SpatialApp { // Regression (Dense) // Args: 192 192
   import IR._
   type X = Int
 
-  val ts1 = 64
-  val ts2 = 64
-  val op = 1
-  val ip = 1
+val ts1 = 96
+val ts2 = 192
+val op = 10
+val ip = 16
 
   @virtualize
   def outerproduct[T:Type:Num](a: Array[T], b: Array[T]) = {

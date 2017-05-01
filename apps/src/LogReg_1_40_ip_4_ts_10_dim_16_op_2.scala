@@ -4,22 +4,19 @@ import org.virtualized._
 object LogReg_1_40_ip_4_ts_10_dim_16_op_2 extends SpatialApp {
   import IR._
 
-  //type X = Float //FixPt[TRUE,_16,_16]
-  type X = Int //FixPt[TRUE,_16,_16]
+  type X = Float //FixPt[TRUE,_16,_16]
 
   val margin = 5
 val dim = 16
   val D = dim
   val A = 1
 
-val ip = 4
-val op = 2
+  val innerPar = 16
+  val outerPar = 16
 
-val ts = 10
+  val tileSize = 10
 
-  //TODO: exp is not supported. Use "fast sigmoid" for now
-  //def sigmoid[T:Type:Num](t:T) = 1.to[T]/(exp(-t) + 1.to[T])
-  def sigmoid[T:Type:Num](t:T) = t/(abs(t) + 1.to[T])
+  def sigmoid[T:Type:Num](t:T) = 1.to[T]/(exp(-t) + 1.to[T])
 
   @virtualize
   def logreg[T:Type:Num](xIn: Array[T], yIn: Array[T], tt: Array[T], n: Int, it: Int) = {
@@ -28,11 +25,11 @@ val ts = 10
     setArg(iters, it)
     setArg(N, n)
 
-    val BN = ts (96 -> 96 -> 9600)
+    val BN = tileSize (96 -> 96 -> 9600)
     val PX = 1 (1 -> 1)
-    val P1 = ip (1 -> 2)
-    val P2 = ip (1 -> 96)
-    val P3 = op (1 -> 96)
+    val P1 = innerPar (1 -> 2)
+    val P2 = innerPar (1 -> 96)
+    val P3 = outerPar (1 -> 96)
 
     val x = DRAM[T](N, D)
     val y = DRAM[T](N)

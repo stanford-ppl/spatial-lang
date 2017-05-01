@@ -1,20 +1,20 @@
 import spatial._
 import org.virtualized._
 
-object LogReg extends SpatialApp {
+object LogReg_2_64_ip_4_ts_16_dim_16_op_2 extends SpatialApp {
   import IR._
 
   type X = FixPt[TRUE,_16,_16]
 
   val margin = 5
-  val dim = 192
+val dim = 16
   val D = dim
   val A = 1
 
-  val ip = 16
-  val op = 16
+val ip = 4
+val op = 2
 
-  val ts = 10
+val ts = 16
 
   //def sigmoid[T:Type:Num](t:T) = 1.to[T]/(exp(-t) + 1.to[T])
   def sigmoid[T:Type:Num](t:T) = 1.to[T]/(abs(-t) + 1.to[T])
