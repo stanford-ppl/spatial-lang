@@ -106,11 +106,15 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 						val overflow = (sign & expect_pos) | (~sign & expect_neg)
 					  val not_saturated = ( number(f+d-1,f+d-1-shave_d) === 0.U(shave_d.W) ) | ( ~number(f+d-1,f+d-1-shave_d) === 0.U(shave_d.W) )
 
-					  val saturated_frac = Mux(expect_pos, chisel3.util.Cat((0 until up_frac).map{_ => true.B}), Mux(expect_neg, 0.U(up_frac.W), 0.U(up_frac.W)))
-					  val saturated_dec = Mux(expect_pos, chisel3.util.Cat((0 until dst.d).map{_ => true.B}), Mux(expect_neg, 1.U((dst.d).W) << (dst.d-1), 1.U((dst.d).W) << (dst.d-1))) 
+					  val saturated_frac = Mux(expect_pos, 
+					  			util.Cat(util.Fill(up_frac, true.B)), 
+					  			Mux(expect_neg, 0.U(up_frac.W), 0.U(up_frac.W)))
+					  val saturated_dec = Mux(expect_pos, 
+					  			util.Cat((0 until up_frac).map{i => if (i == 0 & (dst.s | s)) false.B else true.B}), 
+					  			Mux(expect_neg, 1.U((dst.d).W) << (dst.d-1), 1.U((dst.d).W) << (dst.d-1))) 
 
 					  new_frac := Mux(not_saturated & ~overflow, tmp_frac, saturated_frac)
-					  new_dec := Mux(not_saturated & ~overflow, util.Cat(number(dst.d + f - 1, f), new_frac), saturated_dec)
+					  new_dec := Mux(not_saturated & ~overflow, number(dst.d + f - 1, f), saturated_dec)
 					case _ =>
 						new_frac := tmp_frac
 						new_dec := 0.U(dst.d.W)
@@ -216,8 +220,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				// Get upcasted operators
 				val full_result = Wire(new FixedPoint(upcasted_type))
 				// Do upcasted operation
-				val expanded_self = Utils.Cat(Mux(this.isNeg(), (scala.math.pow(2,op.d + op.f)-1).toLong.U((op.d + op.f).W), 0.U((op.d + op.f).W)), this.number)
-				val expanded_op = Utils.Cat(Mux(op.isNeg(), (scala.math.pow(2,d+f)-1).toLong.U((d+f).W), 0.U((d+f).W)), op.number)
+				val expanded_self = util.Cat(util.Fill(op.d+op.f, this.msb), this.number)
+				val expanded_op = util.Cat(util.Fill(d+f, op.msb), op.number)
 				full_result.number := expanded_self * expanded_op
 
 				// Downcast to result
@@ -247,6 +251,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 					// Get upcasted operators
 					val full_result = Wire(new FixedPoint(upcasted_type))
 					// Do upcasted operation
+					// TODO: Should go back and clean this a little, eventually..
 					if (op.s | s) {
 						val numerator = util.Cat(this.number, 0.U((op.f+f+1).W)).asSInt
 						val denominator = op.number.asSInt

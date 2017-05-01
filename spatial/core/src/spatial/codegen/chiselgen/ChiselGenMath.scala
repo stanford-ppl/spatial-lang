@@ -71,7 +71,7 @@ trait ChiselGenMath extends ChiselCodegen {
     case FltAtan(x) =>
       throw new TrigInAccelException(lhs)
 
-    case Mux(sel, a, b) => emit(src"val $lhs = Utils.mux(($sel), $a, $b)")
+    case Mux(sel, a, b) => emit(src"val $lhs = Utils.mux(($sel), ${a}.r, ${b}.r)")
 
     // Assumes < and > are defined on runtime type...
     case Min(a, b) => emit(src"val $lhs = Mux(($a < $b), $a, $b)")
