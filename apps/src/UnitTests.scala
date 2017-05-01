@@ -1109,7 +1109,7 @@ object GatherStore extends SpatialApp { // Regression (Sparse) // Args: none
 
   val tileSize = 64
   val numAddr = tileSize * 1
-  val numData = numAddr * 6
+  val numData = tileSize * 6
 
   val P = param(1)
 
