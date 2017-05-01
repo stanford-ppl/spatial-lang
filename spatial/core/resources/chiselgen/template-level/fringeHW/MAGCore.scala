@@ -155,11 +155,12 @@ class MAGCore(
   burstCounter.io.saturate := 0.U
 
   // Burst Tag counter
+  val sgWaitForDRAM = Wire(Bool())
   val burstTagCounter = Module(new Counter(log2Up(numOutstandingBursts+1)))
-  burstTagCounter.io.max := numOutstandingBursts.U
+  burstTagCounter.io.max := Mux(scatterGather, v.U, numOutstandingBursts.U)
   burstTagCounter.io.stride := 1.U
   burstTagCounter.io.reset := burstCounter.io.done & ~scatterGather
-  burstTagCounter.io.enable := Mux(scatterGather, ~addrFifo.io.empty, burstVld & dramReady) & ~issued
+  burstTagCounter.io.enable := Mux(scatterGather, ~addrFifo.io.empty & ~sgWaitForDRAM, burstVld & dramReady) & ~issued
   burstCounter.io.saturate := 0.U
   val elementID = burstTagCounter.io.out(log2Up(v)-1, 0)
 
@@ -176,7 +177,7 @@ class MAGCore(
   val sgValidDepulser = Module(new Depulser())
   sgValidDepulser.io.in := ccache.io.miss
   sgValidDepulser.io.rst := dramReady
-  val sgWaitForDRAM = sgValidDepulser.io.out
+  sgWaitForDRAM := sgValidDepulser.io.out
 
   isWrFifo.io.deqVld := burstCounter.io.done
   isSparseFifo.io.deqVld := burstCounter.io.done
