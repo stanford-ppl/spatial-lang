@@ -22,7 +22,7 @@ using namespace std;
 // DRAMSim3
 DRAMSim::MultiChannelMemorySystem *mem = NULL;
 bool useIdealDRAM = false;
-bool debug = false;
+bool debug = true;
 extern uint64_t numCycles;
 class DRAMRequest {
 public:
@@ -168,7 +168,7 @@ public:
     // Find transaction, mark it as done, remove entry from map
     struct AddrTag at(addr, tag);
     std::map<struct AddrTag, DRAMRequest*>::iterator it = addrToReqMap.find(at);
-    ASSERT(it != addrToReqMap.end(), "address/tag tuple not found in addrToReqMap!");
+    ASSERT(it != addrToReqMap.end(), "address/tag tuple (%lx, %lx) not found in addrToReqMap!", addr, tag);
     DRAMRequest* req = it->second;
     req->completed = true;
     addrToReqMap.erase(at);
