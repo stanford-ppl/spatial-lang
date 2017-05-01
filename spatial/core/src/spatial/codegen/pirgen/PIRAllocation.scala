@@ -294,7 +294,8 @@ trait PIRAllocation extends PIRTraversal {
     (compose(dmem), cu.style) match {
       case (mem, MemoryCU(i)) if isSRAM(mem) & isReader(access) => SRAMMode // Creating SRAM
       case (mem, MemoryCU(i)) if isWriter(mem) & isWriter(access) => VectorFIFOMode  // Creating FIFO for SRAM Write
-      case (mem, PipeCU) if isSRAM(mem) => VectorFIFOMode // Creating FIFO for SRAM Read 
+      case (LocalReader(reads), PipeCU) if reads.headOption.map(h => isSRAM(h._1)).getOrElse(false) => 
+        VectorFIFOMode // Creating FIFO for SRAM Read 
       case (mem, style) if isReg(mem) | isGetDRAMAddress(mem) => ScalarBufferMode
       case (mem, style) if isStreamIn(mem) => VectorFIFOMode // from Fringe
       case (mem, style) if isStreamOut(mem) & getField(dmem)==Some("data") => 
@@ -495,7 +496,9 @@ trait PIRAllocation extends PIRTraversal {
           dbgs(s"readerCU = $readerCU")
           val bus = CUVector(s"${quote(dmem)}_${quote(dreader)}_${quote(readerCU.pipe)}") 
           globals += bus
-          val vfifo = createMem(dmem, dreader, readerCU)
+          val vfifo = createMem(dreader, dreader, readerCU) 
+          // use reader as mem since one sram can be read by same cu twice with different address
+          // example:GDA
           readerCU.addReg(dreader, MemLoadReg(vfifo))
           vfifo.writePort = Some(bus)
           // Schedule address calculation
