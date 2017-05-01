@@ -63,8 +63,8 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   }
   implicit def getOrUpdateFix[K,V](x: mutable.Map[K,V]): GetOrElseUpdateFix[K,V] = new GetOrElseUpdateFix[K,V](x)
 
-  // Not a true traversal. Should it be?
-  def pipeDelaysAndGaps(b: Block[_], oos: Map[Exp[_],Long] = Map.empty) = {
+
+  def pipeLatencies(b: Block[_], oos: Map[Exp[_],Long] = Map.empty): (Map[Exp[_],Long], Long) = {
     val scope = getStages(b).filterNot(s => isGlobal(s)).filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
 
     val localReads  = scope.collect{case reader @ LocalReader(reads) => reader -> reads.head.mem }
@@ -73,51 +73,56 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     val localAccums = localWrites.flatMap{case (writer,writtenMem) =>
       localReads.find{case (reader,readMem) => readMem == writtenMem && writer.dependsOn(reader) }.map{x => (x._1,writer,writtenMem) }
     }
+    val accumReads = localAccums.map(_._1)
+    val accumWrites = localAccums.map(_._2)
 
-    val delays = mutable.HashMap[Exp[_],Long]() ++ scope.map{node => node -> 0L}
-    val paths  = mutable.HashMap[Exp[_],Long]() ++ oos
+    val paths = mutable.HashMap[Exp[_],Long]() ++ oos
+    val cycles = mutable.HashMap[Exp[_],Set[Exp[_]]]()
+
+    accumReads.foreach{reader => cycles(reader) = Set(reader) }
 
     def fullDFS(cur: Exp[_]): Long = cur match {
       case Def(d) if scope.contains(cur) =>
-        val deps = exps(d) filter (scope contains _)
+        val deps = d.allInputs filter (scope contains _) // Handles effect scheduling, even though there's no data to pass
 
         if (deps.nonEmpty) {
-          val (accumDeps, nonAccumDeps) = deps.partition{dep => localAccums.exists{_._1 == dep}}
-          val dlys = nonAccumDeps.map{e => paths.getOrElseAdd(e, fullDFS(e)) }
-          val critical = if (dlys.isEmpty) 0 else dlys.max
-
-          nonAccumDeps.zip(dlys).foreach{ case(dep, path) =>
-            if (path < critical && (critical - path) > delays(dep))
-              delays(dep) = critical - path
-          }
-          // FIXME: Assumes each accumulator read is used exactly once.
-          // TODO: Also requires a backwards pass when the accumulator reads have dependencies. Works only for regs now
-          accumDeps.foreach{dep =>
-            delays(dep) = 0
-            paths(dep) = critical
-            fullDFS(dep)
+          val dlys = deps.map{e => paths.getOrElseAdd(e, fullDFS(e)) }
+          val critical = dlys.max
+          if (deps.exists(cycles.keySet.contains _)) {
+            cycles(cur) = cycles.keySet.filter(deps contains _).flatMap{dep => cycles(dep) }.toSet
           }
 
-          dbgs(c"${str(cur)} [delay = max(" + dlys.mkString(", ") + s") + ${latencyOf(cur)}]")
-          critical + latencyOf(cur)
+          dbgs(c"${str(cur)} [delay = max(" + dlys.mkString(", ") + s") + ${latencyOf(cur)}]" + (if (cycles.contains(cur)) "[cycle]" else ""))
+          critical + latencyOf(cur) // TODO + inputDelayOf(cur) -- factor in delays which are external to reduction cycles
         }
         else latencyOf(cur)
 
-      case s => paths.getOrElse(s, 0L) // Get preset out of scope delay
-      // Otherwise assume 0 offset
+      case s => paths.getOrElse(s, 0L) // Get preset out of scope delay, or assume 0 offset
     }
+
     if (scope.nonEmpty) {
+      // Perform forwards pass for normal data dependencies
       val deps = exps(b) filter (scope contains _)
       deps.foreach{e => paths.getOrElseAdd(e, fullDFS(e)) }
+
+      // Perform backwards pass to push unnecessary delays out of reduction cycles
+      // This can create extra registers, but decreases the initiation interval of the cycle
+      // TODO: What to do in case where a node is contained in multiple cycles?
+      accumWrites.foreach{writer =>
+        val cycle = cycles(writer).toList.sortBy{x => -paths(x)} // Highest delay first
+        cycle.sliding(2).foreach{
+          case List(high,low) =>
+            paths(low) = Math.max(paths(high) - latencyOf(low), paths(low))
+          case _ =>
+        }
+
+      }
     }
 
-    val delaysOut = Map[Exp[_],Long]() ++ delays
-    val pathsOut = Map[Exp[_],Long]() ++ paths
-    (pathsOut, delaysOut)
-  }
+    val initiationInterval = if (localAccums.isEmpty) 1L else localAccums.map{case (read,write,_) => paths(write) - paths(read) }.max
 
-  def pipeDelays(b: Block[_], oos: Map[Exp[_],Long] = Map.empty) = pipeDelaysAndGaps(b, oos)._1
-  def pipeGaps(b: Block[_], oos: Map[Exp[_],Long] = Map.empty) = pipeDelaysAndGaps(b, oos)._2
+    (paths.toMap, Math.max(initiationInterval, 1L))
+  }
 
 }
 

@@ -82,7 +82,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
     dbg(c"Retiming block $block")
 
     // perform recursive search of inputs to determine cumulative symbol latency
-    val symLatency = pipeDelays(block)
+    val symLatency = pipeLatencies(block)._1
     def delayOf(x: Exp[_]): Int = symLatency.getOrElse(x, 0L).toInt
 
     symLatency.foreach{case (s,l) => dbgs(c"  ${str(s)} [$l]")}
@@ -91,23 +91,21 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
     // enumerate symbol reader dependencies and calculate required buffer sizes
     val inputRetiming = mutable.HashMap[Exp[_], InputInfo]()
     stms.foreach{ case TP(reader, d) =>
-      dbgs(c"${str(reader)}")
+      dbgs(c"${str(reader)}: ${delayOf(reader)}")
+      val criticalPath = delayOf(reader) - latencyOf(reader)
+
       // Ignore non-bit based types and constants
-      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
-      val inputLatencies = inputs.map{sym => delayOf(sym) }
+      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }
 
-      val criticalPath = if (inputLatencies.isEmpty) 0 else inputLatencies.max
-
-      dbgs("  " + inputs.zip(inputLatencies).map{case (in, latency) => c"$in: $latency"}.mkString(", ") + s" (max: $criticalPath)")
+      dbgs("  " + inputs.map{in => c"$in: ${delayOf(in)}"}.mkString(", ") + s" (max: $criticalPath)")
 
       // calculate buffer register size for each input symbol
-      val sizes = inputs.zip(inputLatencies).map{case (in, latency) => retimingDelay(in) + criticalPath - latency }
+      val sizes = inputs.map{in => retimingDelay(in) + criticalPath - delayOf(in) }
 
       // discard symbols for which no register insertion is needed
-      val inputsSizes = inputs.zip(sizes).filter{ case (_, size) => size != 0 }
-      inputsSizes.foreach{ case (input, size) =>
+      inputs.zip(sizes).filter{case (_, size) => size != 0 }.foreach{ case (input, size) =>
         dbgs(c"  ${str(input)} [size: $size]}")
-        inputRetiming.getOrElseUpdate(input, new InputInfo()).readers.getOrElseUpdate(reader, new ReaderInfo(size))
+        inputRetiming.getOrElseUpdate(input, new InputInfo()).readers.getOrElseUpdate(reader, new ReaderInfo(size.toInt))
       }
     }
 

@@ -2,6 +2,7 @@
 ./simgen/Controllers.scala
 ./simgen/Data.scala
 ./simgen/State.scala
+./files_list
 ./cppgen/datastructures/cppDeliteArraydouble.h
 ./cppgen/datastructures/cppRefint32_t.h
 ./cppgen/datastructures/static/cppList.h
@@ -56,7 +57,18 @@
 ./cppgen/fringeZynq/utils/run.sh
 ./cppgen/fringeZynq/ZynqUtils.cpp
 ./cppgen/fringeZynq/ZynqAddressMap.h
-./cppgen/fringeZynq/FringeContextZynq.h
+./cppgen/fringeDE1SoC/FringeContextBase.h
+./cppgen/fringeDE1SoC/FringeContextZynq
+./cppgen/fringeDE1SoC/DE1SoCAddressMap.h
+./cppgen/fringeDE1SoC/Makefile
+./cppgen/fringeDE1SoC/ZynqAddressMap
+./cppgen/fringeDE1SoC/utils/set_perms
+./cppgen/fringeDE1SoC/utils/run.sh
+./cppgen/fringeDE1SoC/FringeContext.h
+./cppgen/fringeDE1SoC/ZynqUtils.cpp
+./cppgen/fringeDE1SoC/FringeContextDE1SoC.h
+./cppgen/fringeDE1SoC/ZynqUtils.h
+./scalagen/run.sh
 ./cppgen/fringeZynq/FringeContextBase.h
 ./cppgen/fringeSW/DUTTester.h
 ./cppgen/fringeSW/FringeContextSim.h
