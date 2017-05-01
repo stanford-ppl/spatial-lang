@@ -65,7 +65,9 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
 
   def pipeLatencies(b: Block[_], oos: Map[Exp[_],Long] = Map.empty): (Map[Exp[_],Long], Long) = {
-    val scope = getStages(b).filterNot(s => isGlobal(s)).filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
+    val scope = getStages(b).filterNot(s => isGlobal(s))
+                            .filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
+                            .map(_.asInstanceOf[Exp[_]]).toSet
 
     val localReads  = scope.collect{case reader @ LocalReader(reads) => reader -> reads.head.mem }
     val localWrites = scope.collect{case writer @ LocalWriter(writes) => writer -> writes.head.mem }
@@ -83,39 +85,48 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
     def fullDFS(cur: Exp[_]): Long = cur match {
       case Def(d) if scope.contains(cur) =>
-        val deps = d.allInputs filter (scope contains _) // Handles effect scheduling, even though there's no data to pass
+        val deps = scope intersect d.allInputs.toSet // Handles effect scheduling, even though there's no data to pass
 
         if (deps.nonEmpty) {
           val dlys = deps.map{e => paths.getOrElseAdd(e, fullDFS(e)) }
           val critical = dlys.max
-          if (deps.exists(cycles.keySet.contains _)) {
-            cycles(cur) = cycles.keySet.filter(deps contains _).flatMap{dep => cycles(dep) }.toSet
+
+          val cycleSyms = deps intersect cycles.keySet
+          if (cycleSyms.nonEmpty) {
+            cycles(cur) = cycleSyms.flatMap(cycles) + cur
+            dbgs(c"cycle deps of $cur: ${cycles(cur)}")
           }
 
           dbgs(c"${str(cur)} [delay = max(" + dlys.mkString(", ") + s") + ${latencyOf(cur)}]" + (if (cycles.contains(cur)) "[cycle]" else ""))
           critical + latencyOf(cur) // TODO + inputDelayOf(cur) -- factor in delays which are external to reduction cycles
         }
-        else latencyOf(cur)
+        else {
+          dbgs(c"${str(cur)}" + (if (cycles.contains(cur)) "[cycle]" else ""))
+          latencyOf(cur)
+        }
 
       case s => paths.getOrElse(s, 0L) // Get preset out of scope delay, or assume 0 offset
     }
 
     if (scope.nonEmpty) {
       // Perform forwards pass for normal data dependencies
-      val deps = exps(b) filter (scope contains _)
+      val deps = exps(b).toSet intersect scope
       deps.foreach{e => paths.getOrElseAdd(e, fullDFS(e)) }
 
       // Perform backwards pass to push unnecessary delays out of reduction cycles
       // This can create extra registers, but decreases the initiation interval of the cycle
       // TODO: What to do in case where a node is contained in multiple cycles?
-      accumWrites.foreach{writer =>
+      accumWrites.zipWithIndex.foreach{case (writer,i) =>
         val cycle = cycles(writer).toList.sortBy{x => -paths(x)} // Highest delay first
+        dbgs(s"Cycle #$i: " + cycle.map{s => c"($s, ${paths(s)})"}.mkString(", "))
+
         cycle.sliding(2).foreach{
           case List(high,low) =>
             paths(low) = Math.max(paths(high) - latencyOf(low), paths(low))
           case _ =>
         }
 
+        dbgs(s"Cycle #$i: " + cycle.map{s => c"($s, ${paths(s)})"}.mkString(", "))
       }
     }
 
