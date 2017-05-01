@@ -1,17 +1,31 @@
 #!/usr/bin/env python3
 
+from argparse import ArgumentParser
 from matplotlib import pyplot
 import numpy
-from math import sqrt
 import sys
 import os
 
 def main():
+    parser = ArgumentParser()
+    parser.add_argument('type', type=str, help='VGA or CAM')
+    parser.add_argument('file', type=str, help='name of file to load')
+    parser.add_argument('rows', type=int, help='Number of image rows')
+    parser.add_argument('cols', type=int, help='Number of image columns')
+
+    opts = parser.parse_args()
+    outName = opts.file.split('.')[0] + '.png'
 
     data = []
     grayscale = False
+    max = 255.0
+    maxValue = 0
+    mult = 1
+    if opts.type == 'VGA':
+        max = 64.0
+        mult = 2
 
-    with open(sys.argv[1]) as f:
+    with open(opts.file) as f:
         content = f.readlines()
 
         for line in content:
@@ -19,40 +33,48 @@ def main():
 
             if ';' in line:
                 elems = line.split(';')
-                elems = [float(x.strip())/255.0 for x in elems]
-                #data.append(elems[0])
-                #data.append(elems[1])
-                #data.append(elems[2])
-                data.append([elems[2], elems[1], elems[0]])
-                #print(elems)
+                elems = [float(x.strip()) for x in elems]
+                data.append([elems[2]*mult/max, elems[1]/max, elems[0]*mult/max])
+
+                if elems[2]*mult > maxValue: maxValue = elems[2]*mult
+                if elems[1] > maxValue: maxValue = elems[1]*mult
+                if elems[0]*mult > maxValue: maxValue = elems[0]*mult
+
             else:
                 grayscale = True
                 elem = float(line)
+                if elem > maxValue: maxValue = elem
                 data.append(elem)
 
+    if maxValue < 0.1*max:
+        print('Largest pixel value was ' + str(maxValue) + ', < 10% of max (' + str(max) + ') - maybe you made a mistake with bit slicing?')
+    elif maxValue > max:
+        print('Largest pixel value was ' + str(maxValue) + ', > max (' + str(max) + ') - maybe you made a mistake with bit slicing?')
+
+
     length = len(data)
-    h = int(sys.argv[2])
-    w = int(sys.argv[3])
+    h = int(opts.rows)
+    w = int(opts.cols)
     p = 1
     #if not grayscale: p = 3
     if h*w*p != length:
-        print("Cannot display " + str(length) + " elements as " + str(h) + " x " + str(w))
+        print("Cannot display " + str(length) + " pixels as " + str(h) + " x " + str(w))
         exit(-1)
 
     if grayscale:
         img = numpy.array(data).reshape((h,w))
         pyplot.imshow(img, cmap='gray')
         #pyplot.show()
-        pyplot.savefig("out.png")
+        pyplot.savefig(outName)
 
     else:
         img = numpy.array(data).reshape((h,w,3))
         #print(img)
         pyplot.imshow(img, interpolation='nearest')
-        pyplot.savefig("out.png")
+        pyplot.savefig(outName)
 
-    os.system("display out.png")
-    os.system("rm out.png")
+    os.system("display " + outName)
+    #os.system("rm out.png")
 
 if __name__ == "__main__":
     main()

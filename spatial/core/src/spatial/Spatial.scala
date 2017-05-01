@@ -18,6 +18,7 @@ import spatial.codegen.scalagen._
 import spatial.codegen.chiselgen._
 import spatial.codegen.pirgen._
 import spatial.codegen.cppgen._
+import spatial.models.PIRHackyLatencyAnalyzer
 
 
 protected trait SpatialExp
@@ -185,6 +186,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
   }
 
   lazy val pirRetimer = new PIRHackyRetimer { val IR: self.type  = self }
+  lazy val pirTiming  = new PIRHackyLatencyAnalyzer { val IR: self.type = self }
 
   lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argPorts = uctrlAnalyzer.argPorts; def genericStreams = uctrlAnalyzer.genericStreams;}
 
@@ -290,6 +292,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += streamAnalyzer    // Set stream pipe children fifo dependencies
     passes += argMapper         // Get address offsets for each used DRAM object
     passes += latencyAnalyzer   // Get delay lengths of inner pipes (used for retiming control signals)
+    if (SpatialConfig.enablePIRSim) passes += pirTiming // PIR delays (retiming control signals)
     passes += printer
 
     // --- Sanity Checks

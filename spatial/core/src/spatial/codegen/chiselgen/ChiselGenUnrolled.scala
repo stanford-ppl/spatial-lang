@@ -108,7 +108,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       // emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
       emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
       if (levelOf(lhs) == InnerControl) {
-        val dlay = if (SpatialConfig.enableRetiming) {bodyLatency(lhs).reduce{_+_}} else 0
+        val dlay = bodyLatency.sum(lhs)
         emit(s"val ${quote(accum)}_wren = chisel3.util.ShiftRegister(${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor, ${quote(lhs)}_retime)")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
@@ -231,6 +231,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(src"""${fifo}_wdata := Vec(List(${datacsv}))""")
 
     case e@ParStreamRead(strm, ens) =>
+      val parent = parentOf(lhs).get
       strm match {
         case Def(StreamInNew(bus)) => bus match {
           case VideoCamera => 
@@ -245,7 +246,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
               }
               case _ => false
             }
-            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
+            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ShiftRegister(${parent}_datapath_en, ${parent}_retime)""")
             if (!isAck) {
               emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
               emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")

@@ -27,11 +27,13 @@ object SpatialConfig extends Reporting {
     soutPcu:Int,
     vinPcu: Int,
     voutPcu: Int,
+    regsPcu: Int,
     comp: Int,
     sinPmu: Int,
     soutPmu:Int,
     vinPmu: Int,
     voutPmu: Int,
+    regsPmu: Int,
     rw: Int,
     lanes: Int
   )
@@ -61,12 +63,16 @@ object SpatialConfig extends Reporting {
   var vIn_PCU: Int = _
   var vOut_PCU: Int = _
   var stages: Int = _
+  var regs_PCU: Int = _
   var sIn_PMU: Int = _
   var sOut_PMU: Int = _
   var vIn_PMU: Int = _
   var vOut_PMU: Int = _
   var readWrite: Int = _
+  var regs_PMU: Int = _
   var lanes: Int = _
+
+  var threads: Int = 8
 
   def init(): Unit = {
     val defaultSpatial = ConfigFactory.parseString("""
@@ -119,11 +125,13 @@ plasticine {
   sout-pcu = 10
   vin-pcu = 4
   vout-pcu = 1
+  regs-pcu = 16
   comp = 10
   sin-pmu = 10
   sout-pmu = 10
   vin-pmu = 4
   vout-pmu = 1
+  regs-pmu = 16
   rw = 10
   lanes = 16
 }
@@ -140,11 +148,13 @@ plasticine {
         vIn_PCU = plasticineConf.vinPcu
         vOut_PCU = plasticineConf.voutPcu
         stages = plasticineConf.comp
+        regs_PCU = plasticineConf.regsPcu
         sIn_PMU = plasticineConf.sinPmu
         sOut_PMU = plasticineConf.soutPmu
         vIn_PMU = plasticineConf.vinPmu
         vOut_PMU = plasticineConf.voutPmu
         readWrite = plasticineConf.rw
+        regs_PMU = plasticineConf.regsPmu
         lanes = plasticineConf.lanes
 
       case Left(failures) =>

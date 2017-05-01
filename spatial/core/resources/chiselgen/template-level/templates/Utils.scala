@@ -156,12 +156,12 @@ object Utils {
     }
   }
 
-  def ShiftRegister[T <: chisel3.core.Data](data: T, size: Int):T = {
-    data match {
-      case d: UInt => chisel3.util.ShiftRegister(data, size)
-      case d: FixedPoint => chisel3.util.ShiftRegister(data, size)
-    }
-  }
+  // def ShiftRegister[T <: chisel3.core.Data](data: T, size: Int):T = {
+  //   data match {
+  //     case d: UInt => chisel3.util.ShiftRegister(data, size)
+  //     case d: FixedPoint => chisel3.util.ShiftRegister(data, size)
+  //   }
+  // }
 
   // def Reverse[T <: chisel3.core.Data](data: T):T = {
   //   data match {

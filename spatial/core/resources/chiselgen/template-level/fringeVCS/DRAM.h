@@ -22,12 +22,13 @@ using namespace std;
 // DRAMSim3
 DRAMSim::MultiChannelMemorySystem *mem = NULL;
 bool useIdealDRAM = false;
-
+bool debug = false;
 extern uint64_t numCycles;
 class DRAMRequest {
 public:
   uint64_t addr;
   uint64_t tag;
+  uint64_t channelID;
   bool isWr;
   uint32_t *wdata;
   uint32_t delay;
@@ -55,7 +56,7 @@ public:
   }
 
   void print() {
-    EPRINTF("[DRAMRequest] addr: %lx, tag: %lx, isWr: %d, delay: %u, issued=%lu\n", addr, tag, isWr, delay, issued);
+    EPRINTF("[DRAMRequest CH=%lu] addr: %lx, tag: %lx, isWr: %d, delay: %u, issued=%lu\n", channelID, addr, tag, isWr, delay, issued);
   }
 
   ~DRAMRequest() {
@@ -93,7 +94,9 @@ void checkAndSendDRAMResponse() {
       req->elapsed++;
       if (req->elapsed >= req->delay) {
         req->completed = true;
-        EPRINTF("[idealDRAM txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)req->addr, req->tag, numCycles);
+        if (debug) {
+          EPRINTF("[idealDRAM txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)req->addr, req->tag, numCycles);
+        }
       }
     }
 
@@ -104,8 +107,10 @@ void checkAndSendDRAMResponse() {
 
       if (ready > 0) {
         dramRequestQ.pop();
-        EPRINTF("[Sending DRAM resp to]: ");
-        req->print();
+        if (debug) {
+          EPRINTF("[Sending DRAM resp to]: ");
+          req->print();
+        }
 
         uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -144,7 +149,9 @@ void checkAndSendDRAMResponse() {
             rdata[15]
           );
       } else {
-        EPRINTF("[SIM] dramResp not ready, numCycles = %ld\n", numCycles);
+        if (debug) {
+          EPRINTF("[SIM] dramResp not ready, numCycles = %ld\n", numCycles);
+        }
       }
 
     }
@@ -154,7 +161,9 @@ void checkAndSendDRAMResponse() {
 class DRAMCallbackMethods {
 public:
   void txComplete(unsigned id, uint64_t addr, uint64_t tag, uint64_t clock_cycle) {
-    EPRINTF("[txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)addr, tag, numCycles);
+    if (debug) {
+      EPRINTF("[txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)addr, tag, numCycles);
+    }
 
     // Find transaction, mark it as done, remove entry from map
     struct AddrTag at(addr, tag);
@@ -213,12 +222,15 @@ extern "C" {
 
     DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata, numCycles);
     dramRequestQ.push(req);
-    req->print();
 
     if (!useIdealDRAM) {
       mem->addTransaction(cmdIsWr, cmdAddr, cmdTag);
+      req->channelID = mem->findChannelNumber(addr);
       struct AddrTag at(cmdAddr, cmdTag);
       addrToReqMap[at] = req;
+    }
+    if (debug) {
+      req->print();
     }
   }
 }
@@ -243,12 +255,12 @@ void initDRAM() {
     ASSERT(dramSimHome[0] != NULL, "ERROR: DRAMSIM_HOME environment variable set to null string")
 
 
-    string memoryIni = string(dramSimHome) + string("/ini/DDR2_micron_16M_8b_x8_sg3E.ini");
+    string memoryIni = string(dramSimHome) + string("/ini/DDR3_micron_32M_8B_x4_sg125.ini");
     string systemIni = string(dramSimHome) + string("spatial.dram.ini");
     // Connect to DRAMSim2 directly here
-    mem = DRAMSim::getMemorySystemInstance("ini/DDR2_micron_16M_8b_x8_sg3E.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
+    mem = DRAMSim::getMemorySystemInstance("ini/DDR3_micron_32M_8B_x4_sg125.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
 
-    uint64_t hardwareClockHz = 150 * 1e6; // Fixing FPGA clock to 150 MHz
+    uint64_t hardwareClockHz = 1 * 1e9; // Fixing Plasticine clock to 1 GHz
     mem->setCPUClockSpeed(hardwareClockHz);
 
     // Add callbacks

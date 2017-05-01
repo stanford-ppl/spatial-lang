@@ -7,10 +7,10 @@ object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
   type T = Int //FixPt[Signed,B16,B16]
 
   val pp = 3840
-  val maximumNNZ = 60
+  val NNZ = 60
 
-  val innerPar = 16
-  val outerPar = 4
+  val ip = 16
+  val op = 4
 
   val tileSize = 384
 
@@ -19,7 +19,6 @@ object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
   @virtualize
   def main() = {
     val nn = args(0).to[Int]
-    val NNZ = maximumNNZ//args(1).to[Int]
     val P = pp
 
     val AC = Array.tabulate(nn){ i => Array.tabulate(NNZ) { j => (j * 3).to[Int]}}
@@ -30,15 +29,15 @@ object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
     val N = ArgIn[Int]
     setArg(N,nn)
 
-    val aC = DRAM[Int](pp,maximumNNZ)
-    val aD = DRAM[Int](pp,maximumNNZ)
+    val aC = DRAM[Int](pp,NNZ)
+    val aD = DRAM[Int](pp,NNZ)
     val sizes = DRAM[Int](pp)
     val v = DRAM[Int](pp)
     val out = DRAM[Int](N)
 
-    val op = outerPar (1 -> 6)
-    val ip = innerPar (1 -> 96)
-    val stPar    = innerPar (1 -> 1)
+    //val op = op (1 -> 6)
+    //val ip = ip (1 -> 96)
+    val stPar    = ip (1 -> 1)
 
     setMem(aC, AC.flatten)
     setMem(aD, AD.flatten)
@@ -46,11 +45,11 @@ object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
     setMem(v, V)
 
     Accel {
-      Foreach(N by tileSize){ rowchunk =>
+      Foreach(N by tileSize par op){ rowchunk =>
         val smvresult = SRAM[Int](tileSize)
         val smvtileSizes = SRAM[Int](tileSize)
         smvtileSizes load sizes(rowchunk :: rowchunk+tileSize par ip)
-        Foreach(tileSize by 1 par op){row =>
+        Foreach(tileSize by 1){row =>
           val csrCols = SRAM[Int](tileSize)
           val csrData = SRAM[Int](tileSize)
           val vecGathered = SRAM[Int](tileSize)
@@ -69,9 +68,8 @@ object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
           }{_+_}
 
           smvresult(row) = acc.value
-
         }
-      out(rowchunk::rowchunk+tileSize par stPar) store smvresult
+        out(rowchunk::rowchunk+tileSize par stPar) store smvresult
       }
     }
     val smvresult = getMem(out)
