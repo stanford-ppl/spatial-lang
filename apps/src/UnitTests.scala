@@ -275,7 +275,6 @@ object Niter extends SpatialApp { // Regression (Unit) // Args: 100
   
   val constTileSize = 16
 
-  @virtualize
   def nIterTest[T:Type:Num](len: Int): T = {
     val innerPar = 1 (1 -> 1)
     val tileSize = constTileSize (constTileSize -> constTileSize)
@@ -1100,82 +1099,6 @@ object BlockReduce2D extends SpatialApp { // Regression (Unit) // Args: 192 384
   }
 }
 
-// Args: none
-object GatherStore extends SpatialApp { // Regression (Sparse) // Args: none
-  import IR._
-
-//  val tileSize = 384
-//  val maxNumAddrs = 1536
-//  val offchip_dataSize = maxNumAddrs*6
-
-  val tileSize = 64
-  val maxNumAddrs = tileSize * 1
-  val offchip_dataSize = maxNumAddrs * 6
-
-  val P = param(1)
-
-  @virtualize
-  def gatherStore[T:Type:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
-
-    val srcAddrs = DRAM[Int](maxNumAddrs)
-    val gatherData = DRAM[T](offchip_dataSize)
-    val denseResult = DRAM[T](offchip_dataSize)
-
-    setMem(srcAddrs, addrs)
-    setMem(gatherData, offchip_data)
-
-    Accel {
-      val addrs = SRAM[Int](maxNumAddrs)
-      Sequential.Foreach(maxNumAddrs by tileSize) { i =>
-        val sram = SRAM[T](maxNumAddrs)
-        addrs load srcAddrs(i::i + tileSize par P)
-        sram gather gatherData(addrs par P, tileSize)
-        denseResult(i::i+tileSize) store sram
-      }
-    }
-
-    getMem(denseResult)
-  }
-
-  @virtualize
-  def main() = {
-
-    val size = maxNumAddrs
-    val dataSize = offchip_dataSize
-    val addrs = Array.tabulate(size) { i =>
-      // i*2 // for debug
-      // TODO: Macro-virtualized winds up being particularly ugly here..
-      if      (i == 4)  lift(199)
-      else if (i == 6)  lift(offchip_dataSize-2)
-      else if (i == 7)  lift(191)
-      else if (i == 8)  lift(203)
-      else if (i == 9)  lift(381)
-      else if (i == 10) lift(offchip_dataSize-97)
-      else if (i == 15) lift(97)
-      else if (i == 16) lift(11)
-      else if (i == 17) lift(99)
-      else if (i == 18) lift(245)
-      else if (i == 94) lift(3)
-      else if (i == 95) lift(1)
-      else if (i == 83) lift(101)
-      else if (i == 70) lift(203)
-      else if (i == 71) lift(offchip_dataSize-1)
-      else if (i % 2 == 0) i*2
-      else i*2 + offchip_dataSize/2
-    }
-
-    val offchip_data = Array.fill(dataSize){ random[Int](dataSize) }
-
-    val received = gatherStore(addrs, offchip_data, size, dataSize)
-
-    val gold = Array.tabulate(dataSize){ i => offchip_data(addrs(i)) }
-
-    printArray(gold, "gold:")
-    printArray(received, "received:")
-    val cksum = received.zip(gold){_ == _}.reduce{_&&_}
-    println("PASS: " + cksum + " (GatherStore)")
-  }
-}
 
 // Args: none
 object ScatterGather extends SpatialApp { // Regression (Sparse) // Args: none
