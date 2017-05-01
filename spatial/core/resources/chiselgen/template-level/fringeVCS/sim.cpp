@@ -204,6 +204,14 @@ extern "C" {
             mem->printStats(true);
           }
           finishSim = 1;
+
+          simCmd resp;
+          resp.id = cmd->id;
+          resp.cmd = cmd->cmd;
+          resp.size = 0;
+          EPRINTF("[SIM] FIN received, terminating\n");
+          respChannel->send(&resp);
+
           exitTick = true;
           break;
         default:

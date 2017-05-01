@@ -555,7 +555,6 @@ function report {
   date >> ${5}/log
   cd ${5}
   # mv build.sbt build.hideme # hide build.sbt so future compiles ignore this one
-  rm -rf out
   rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
@@ -588,7 +587,7 @@ date >> ${5}/log" >> $1
     " >> $1
   fi
 
-  echo "sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
+  echo "//sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
 cd ${SPATIAL_HOME}
   " >> $1
 
@@ -651,6 +650,16 @@ rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
 touch ${SPATIAL_HOME}/regression_tests/${2}/results/failed_execution_hanging.${3}_${4}
 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
+# Check for annoying vcs assertion and rerun if needed
+wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
+if [ \"\$wc\" -ne 0 ]; then
+  echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
+  echo \"\n\n=========\nSecond Change!\n==========\n\n\" >> ${5}/log
+  make vcs 2>&1 | tee -a ${5}/log
+  make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+  bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+fi
+
 # Check for runtime errors
 wc=\$(cat ${5}/log | grep \"Error: App\\|Segmentation fault\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
@@ -692,7 +701,7 @@ launch_tests() {
   test_list=()
   for a in ${annotated_list[@]}; do
     if [[ $a = *"object"*"extends SpatialApp"* ]]; then
-      test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g'`)
+      test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /_/g'`)
     else
       logger "Error setting up test for $a !!!"
     fi
@@ -724,7 +733,7 @@ launch_tests() {
       check_packet
       if [[ $t == *"|${ac}|"* && (${tests_todo} == "all" || $t == *"|${tests_todo}|"*) ]]; then
         appname=(`echo $t | sed 's/|.*$//g'`)
-        appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/-/ /g'`)
+        appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/_/ /g'`)
         # Initialize results
         touch ${SPATIAL_HOME}/regression_tests/${ac}/results/failed_app_initialized.${i}_${appname}
 
@@ -734,12 +743,12 @@ launch_tests() {
         cmd_file="${vulture_dir}/cmd"
 
         # Create script
-        logger "Writing script for ${i}_${appname}"
+        # logger "Writing script for ${i}_${appname}"
         create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
 
         # Run script
         start=$SECONDS
-        logger "Running script for ${i}_${appname}"
+        logger "Running test: ${i}_${appname}"
         bash ${cmd_file}
         duration=$(($SECONDS-$start))
         logger "Completed test in $duration seconds"

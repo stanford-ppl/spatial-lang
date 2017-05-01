@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 76800 76800 
+object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 480 480
   import IR._
   type X = Int
 

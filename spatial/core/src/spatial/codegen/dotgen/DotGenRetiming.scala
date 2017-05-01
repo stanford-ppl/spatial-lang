@@ -21,9 +21,9 @@ trait DotGenRetiming extends DotGenReg {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case ValueDelay(size, data) => if (Config.dotDetail > 0) emitVert(lhs); emitRetime(data, lhs)
+    case ValueDelay(size, data) => if (Config.dotDetail > 0) {emitVert(lhs); emitRetime(data, lhs)}
     case ShiftRegNew(size, init) => if (Config.dotDetail > 0) emitVert(lhs)
-    case ShiftRegRead(shiftReg) => if (Config.dotDetail > 0) emitVert(lhs); emitRetimeRead(lhs, shiftReg)
+    case ShiftRegRead(shiftReg) => if (Config.dotDetail > 0) {emitVert(lhs); emitRetimeRead(lhs, shiftReg)}
     case ShiftRegWrite(shiftReg, data, en) => if (Config.dotDetail > 0) emitRetimeWrite(data.asInstanceOf[Sym[_]], shiftReg)
     case _ => super.emitNode(lhs, rhs)
   }
