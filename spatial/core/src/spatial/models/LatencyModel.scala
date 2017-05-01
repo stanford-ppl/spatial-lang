@@ -99,7 +99,7 @@ trait LatencyModel {
     case _ => false
   }
 
-  private def latencyOfNode(s: Exp[_], d: Def): Long = d match {
+  protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
     case d if isAllocation(d) => 0
     case FieldApply(_,_)    => 0
     case VectorApply(_,_)   => 0

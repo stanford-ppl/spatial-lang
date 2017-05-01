@@ -251,8 +251,14 @@ trait PIRScheduler extends PIRTraversal {
         val skip = inputRegs.drop(1).find{case _:ConstReg[_] => false; case _ => true}
         ctx.addReg(out, skip.getOrElse(inputRegs.drop(1).head))
       }
+      else if (hasControlLogic && op == PIRBitAnd) {
+        ctx.addReg(out, inputRegs.find{reg => !isControl(reg)}.get)
+      }
       else if (hasControlLogic) {
-        throw new Exception("Cannot skip control logic...")
+        error("Could not skip control logic in operation: ")
+        error(s"$out = $op(" + ins.mkString(", ") + ") [reduce = " + isReduce + "]")
+        error(s"Control registers: " + inputRegs.filter(isControl).mkString(", "))
+        sys.exit(-1)
       }
       else {
         val inputs = inputRegs.map{reg => ctx.refIn(reg) }

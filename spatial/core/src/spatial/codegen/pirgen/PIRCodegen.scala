@@ -108,7 +108,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
       dse.run(block)
     }
     else {
-      tallyCUs(cus.values.flatten.flatten)
+      tallyCUs(cus.values.toList.flatten.flatten)
     }
 
     super.preprocess(block) // generateHeader
@@ -137,5 +137,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
       rhs.blocks.foreach(emitBlock)
     }
   }
+
+  override protected def emitFat(lhs: Seq[Sym[_]], rhs: Def): Unit = { }
 }
 

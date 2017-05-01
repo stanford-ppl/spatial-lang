@@ -1,0 +1,57 @@
+Fri 28 Apr 2017 03:49:26 PM PDT OuterProduct_192_192_ip_2_op_2_ts2_64_ts1_64  args=[192 192 true] 
+Fri 28 Apr 2017 03:49:48 PM PDT OuterProduct_192_192_ip_2_op_2_ts2_64_ts1_64  args=[192 192 true] 
+Fri 28 Apr 2017 03:51:37 PM PDT OuterProduct_192_192_ip_2_op_2_ts2_64_ts1_64  args=[192 192 true] 
+Fri 28 Apr 2017 04:44:11 PM PDT BlackScholes_6000_ip_16_ts_2000_op_1  args=[6000 true] 
+Fri 28 Apr 2017 04:57:35 PM PDT TPCHQ6_384_ip_2_ts_2000_op_1 Design ran for 1204 cycles, status = 1 args=[384 true] PASS: 1 (TPCHQ6)
+Fri 28 Apr 2017 04:58:04 PM PDT GDA_64_ip_2_ts_20_op_2 Design ran for 197263 cycles, status = 1 args=[64 true] PASS: 1 (GDA)
+Fri 28 Apr 2017 04:59:59 PM PDT BlackScholes_6000_ip_16_ts_2000_op_1  args=[6000 true] 
+Fri 28 Apr 2017 05:08:21 PM PDT LogReg_1_40_ip_4_ts_10_dim_16_op_2  args=[1 40 true] 
+Fri 28 Apr 2017 05:11:04 PM PDT LogReg_1_40_ip_4_ts_10_dim_16_op_2 Design ran for 461 cycles, status = 1 args=[1 40 true] PASS: 0 (LogReg)
+Fri 28 Apr 2017 05:18:41 PM PDT SGD_40_32_0.0001_ip_16_ts_10_D_16_op_12  args=[40 32 0.0001 true] 
+Fri 28 Apr 2017 05:25:17 PM PDT Kmeans_2_40_ip_16_D_96_pts_per_load_1_op_1  args=[2 40 true] 
+Fri 28 Apr 2017 05:25:27 PM PDT SGD_40_32_0.0001_ip_16_ts_10_D_16_op_12  args=[40 32 0.0001 true] 
+Fri 28 Apr 2017 05:28:50 PM PDT SGD_40_32_0d0001_ip_16_ts_10_D_16_op_12  args=[40 32 0.0001 true] 
+Fri 28 Apr 2017 05:30:37 PM PDT SGD_40_32_0d0001_ip_16_ts_10_D_16_op_12  args=[40 32 0.0001 true] 
+Fri 28 Apr 2017 05:30:37 PM PDT Kmeans_2_40_ip_16_D_96_pts_per_load_1_op_1  args=[2 40 true] 
+Fri 28 Apr 2017 05:31:56 PM PDT SGD_40_32_0d0001_ip_16_ts_10_D_16_op_12 Design ran for 101838 cycles, status = 1 args=[40 32 0.0001 true] PASS: 1 (SGD)
+Fri 28 Apr 2017 05:31:56 PM PDT Kmeans_2_40_ip_16_D_96_pts_per_load_1_op_1 Design ran for 94036 cycles, status = 1 args=[2 40 true] PASS: 1 (Kmeans)
+Fri 28 Apr 2017 05:37:11 PM PDT SMV_768_ip_16_pp_3840_NNZ_60_op_4  args=[768 true] 
+Fri 28 Apr 2017 05:04:39 PM PDT OuterProduct_64_64_ip_2_op_2_ts2_64_ts1_64 Design ran for 50000001 cycles, status = 0 args=[64 64 true] PASS: 0 (OuterProduct)
+Fri 28 Apr 2017 05:58:29 PM PDT PageRank_2_7680_0d85_ip_1_ts_768  args=[2 7680 0.85 true] 
+Fri 28 Apr 2017 06:01:58 PM PDT PageRank_2_7680_0d85_ip_1_ts_768  args=[2 7680 0.85 true] 
+Fri 28 Apr 2017 06:08:23 PM PDT OuterProduct_192_192_ip_1_op_1_ts2_64_ts1_64 Design ran for 18900 cycles, status = 1 args=[192 192 true] PASS: 1 (OuterProduct)
+Fri 28 Apr 2017 06:10:20 PM PDT OuterProduct_192_192_ip_2_op_2_ts2_64_ts1_64  args=[192 192 true] 
+Fri 28 Apr 2017 06:14:43 PM PDT BlackScholes_6000_ip_16_ts_2000_op_1  args=[6000 true] 
+Fri 28 Apr 2017 06:17:55 PM PDT BlackScholes_6000_ip_16_ts_2000_op_1  args=[6000 true] 
+Fri 28 Apr 2017 06:25:18 PM PDT OuterProduct_192_192_ip_2_op_2_ts2_48_ts1_48 Design ran for 5439 cycles, status = 1 args=[192 192 true] PASS: 1 (OuterProduct)
+Fri 28 Apr 2017 06:30:11 PM PDT BlackScholes_6000_ip_16_ts_2000_op_1  args=[6000 true] 
+Fri 28 Apr 2017 06:40:05 PM PDT BlackScholes_6000_ip_16_ts_2000_op_1  args=[6000 true] 
+Fri 28 Apr 2017 07:01:14 PM PDT DotProduct_768000_ip_16_ts_2560_op_10 Design ran for 130744 cycles, status = 1 args=[768000 true] PASS: 1 (DotProduct)
+Fri 28 Apr 2017 07:03:30 PM PDT DotProduct_768000_ip_16_ts_1920_op_4 Design ran for 147865 cycles, status = 1 args=[768000 true] PASS: 1 (DotProduct)
+Fri 28 Apr 2017 07:03:30 PM PDT DotProduct_768000_ip_16_ts_1920_op_8 Design ran for 136181 cycles, status = 1 args=[768000 true] PASS: 1 (DotProduct)
+Fri 28 Apr 2017 07:03:30 PM PDT DotProduct_768000_ip_16_ts_1920_op_10 Design ran for 133540 cycles, status = 1 args=[768000 true] PASS: 1 (DotProduct)
+Fri 28 Apr 2017 07:18:54 PM PDT OuterProduct_192_192_ip_16_op_10_ts2_48_ts1_48  args=[192 192 true] 
+Fri 28 Apr 2017 07:21:48 PM PDT DotProduct_768000_ip_16_ts_3200_op_12  args=[768000 true] 
+Fri 28 Apr 2017 07:25:57 PM PDT OuterProduct_3840_3840_ip_16_op_10_ts2_192_ts1_96  args=[3840 3840 true] 
+Fri 28 Apr 2017 07:21:48 PM PDT DotProduct_768000_ip_16_ts_3840_op_10 Design ran for 127148 cycles, status = 1 args=[768000 true] PASS: 1 (DotProduct)
+Fri 28 Apr 2017 07:21:48 PM PDT DotProduct_768000_ip_16_ts_3200_op_10 Design ran for 129832 cycles, status = 1 args=[768000 true] PASS: 1 (DotProduct)
+Fri 28 Apr 2017 07:23:26 PM PDT DotProduct_768000_ip_16_ts_3200_op_12 Design ran for 127442 cycles, status = 1 args=[768000 true] PASS: 1 (DotProduct)
+Fri 28 Apr 2017 07:21:48 PM PDT DotProduct_768000_ip_16_ts_3200_op_16 Design ran for 125941 cycles, status = 1 args=[768000 true] PASS: 1 (DotProduct)
+Fri 28 Apr 2017 07:33:05 PM PDT MatMult_inner_48_768_384_tsn_48_tsm_48_ip_2_mp_16_tsp_48_op_4  args=[48 768 384 true] 
+Fri 28 Apr 2017 07:33:05 PM PDT MatMult_inner_48_768_384_tsn_48_tsm_16_ip_2_mp_16_tsp_48_op_10  args=[48 768 384 true] 
+Fri 28 Apr 2017 07:33:05 PM PDT MatMult_inner_48_768_384_tsn_48_tsm_16_ip_2_mp_16_tsp_48_op_4  args=[48 768 384 true] 
+Fri 28 Apr 2017 07:03:30 PM PDT DotProduct_768000_ip_16_ts_1920_op_6 Design ran for 50000001 cycles, status = 0 args=[768000 true] PASS: 0 (DotProduct)
+Fri 28 Apr 2017 07:33:05 PM PDT MatMult_inner_48_768_384_tsn_48_tsm_16_ip_2_mp_16_tsp_48_op_8  args=[48 768 384 true] 
+Fri 28 Apr 2017 07:33:05 PM PDT MatMult_inner_48_768_384_tsn_64_tsm_48_ip_2_mp_16_tsp_64_op_8  args=[48 768 384 true] 
+Fri 28 Apr 2017 07:33:05 PM PDT MatMult_inner_48_768_384_tsn_64_tsm_16_ip_2_mp_16_tsp_128_op_10  args=[48 768 384 true] 
+Fri 28 Apr 2017 07:25:57 PM PDT OuterProduct_3840_3840_ip_16_op_10_ts2_96_ts1_96 Design ran for 1277427 cycles, status = 1 args=[3840 3840 true] PASS: 1 (OuterProduct)
+Fri 28 Apr 2017 07:25:57 PM PDT OuterProduct_3840_3840_ip_16_op_10_ts2_96_ts1_192 Design ran for 1253825 cycles, status = 1 args=[3840 3840 true] PASS: 1 (OuterProduct)
+Fri 28 Apr 2017 07:33:05 PM PDT MatMult_inner_48_768_384_tsn_48_tsm_16_ip_2_mp_16_tsp_48_op_2 Design ran for 193121 cycles, status = 1
+Fri 28 Apr 2017 07:33:05 PM PDT MatMult_inner_48_768_384_tsn_48_tsm_16_ip_2_mp_16_tsp_48_op_2 Design ran for 193121 cycles, status = 1
+Fri 28 Apr 2017 07:25:57 PM PDT OuterProduct_3840_3840_ip_16_op_10_ts2_96_ts1_384 Design ran for 1220410 cycles, status = 1 args=[3840 3840 true] PASS: 1 (OuterProduct)
+Fri 28 Apr 2017 07:19:34 PM PDT OuterProduct_192_192_ip_16_op_10_ts2_48_ts1_48 Design ran for 50000001 cycles, status = 0 args=[192 192 true] PASS: 0 (OuterProduct)
+Fri 28 Apr 2017 07:21:48 PM PDT DotProduct_768000_ip_16_ts_3840_op_12 Design ran for 50000001 cycles, status = 0 args=[768000 true] PASS: 0 (DotProduct)
+Fri 28 Apr 2017 07:21:48 PM PDT DotProduct_768000_ip_16_ts_3200_op_14 Design ran for 50000001 cycles, status = 0 args=[768000 true] PASS: 0 (DotProduct)
+Fri 28 Apr 2017 07:21:48 PM PDT DotProduct_768000_ip_16_ts_3840_op_14 Design ran for 50000001 cycles, status = 0 args=[768000 true] PASS: 0 (DotProduct)
+Fri 28 Apr 2017 07:25:57 PM PDT OuterProduct_3840_3840_ip_16_op_10_ts2_384_ts1_192 Design ran for 50000001 cycles, status = 0 args=[3840 3840 true] PASS: 0 (OuterProduct)
+Fri 28 Apr 2017 07:21:48 PM PDT DotProduct_768000_ip_16_ts_3840_op_16 Design ran for 50000001 cycles, status = 0 args=[768000 true] PASS: 0 (DotProduct)

@@ -1,22 +1,22 @@
 import spatial._
 import org.virtualized._
 
-object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
+object Kmeans extends SpatialApp { // Regression (Dense) // Args: 3 64
   import IR._
 
   type X = Int
 
-  val num_cents = 20
-  val dim = 96
+  val numcents = 16
+  val dim = 32
   val pts_per_ld = 1 // ???
 
-  val innerPar = 16
-  val outerPar = 1
+  val ip = 16
+  val op = 1
 
   val element_max = 10
   val margin = (element_max * 0.2).to[X]
 
-  val MAXK = num_cents
+  val MAXK = numcents
   val MAXD = dim
 
   @virtualize
@@ -28,12 +28,12 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
     val BN = pts_per_ld (96 -> 96 -> 9600)
     val BD = MAXD
     val PX = 1 (1 -> 1)
-    val P0 = innerPar (32 -> 96 -> 192) // Dimensions loaded in parallel
-    val P1 = outerPar (1 -> 12)         // Sets of points calculated in parallel
-    val P2 = innerPar (1 -> 4 -> 96)    // Dimensions accumulated in parallel (outer)
-    val P3 = innerPar (1 -> 4 -> 16)    // Points calculated in parallel
-    val PR = innerPar (1 -> 4 -> 96)
-    val P4 = innerPar (1 -> 4 -> 96)
+    val P0 = ip (32 -> 96 -> 192) // Dimensions loaded in parallel
+    val P1 = op (1 -> 12)         // Sets of points calculated in parallel
+    val P2 = ip (1 -> 4 -> 96)    // Dimensions accumulated in parallel (outer)
+    val P3 = ip (1 -> 4 -> 16)    // Points calculated in parallel
+    val PR = ip (1 -> 4 -> 96)
+    val P4 = ip (1 -> 4 -> 96)
 
     val iters = ArgIn[Int]
     val N     = ArgIn[Int]
@@ -46,26 +46,29 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
     // setArg(D, numDims)
 
     val points = DRAM[T](N, D)    // Input points
-    val centroids = DRAM[T](num_cents*dim) // Output centroids
+    val centroids = DRAM[T](numcents*dim) // Output centroids
     // val init_cents = DRAM[T](K,D) // Output centroids
     setMem(points, points_in)
     // setMem(init_cents, cent_inits)
 
-    Accel { Sequential { // TODO: Remove this Sequential wrapper once David fixes Accel analysis
+
+    Accel {
       val cts = SRAM[T](MAXK, MAXD)
       val newCents = SRAM[T](MAXK,MAXD)
 
       // Load initial centroids (from points)
       cts load points(0::K, 0::D par 16)
 
-      // // Initialize newCents
-      // Foreach(K by 1, D by 1) {(i,j) => newCents(i,j) = cts(i,j)} 
+      // Initialize newCents
+      // FPGA:
+      Foreach(K by 1, D by 1) {(i,j) => newCents(i,j) = cts(i,j)} 
 
       val DM1 = D - 1
 
       Sequential.Foreach(iters by 1){epoch =>
 
         // Flush centroid accumulator
+        // FPGA:
         Foreach(K by 1, D par P0){(ct,d) =>
           newCents(ct,d) = 0.to[T]
         }
@@ -86,6 +89,21 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
             }{(a,b) =>
               mux(a._2 < b._2, a, b)
             }
+            /*// PIR Version
+            val minCent = Reg[Int]
+            val minDist = Reg[T](100000.to[T])
+            Foreach(K par PX){ct =>
+              val dist = Reduce(Reg[T])(D par P2){d =>
+                val cent = mux(epoch == 0, origCts(ct,d), cts(ct,d))
+                (pts(pt,d) - cent) ** 2
+              }{_+_}
+
+              Pipe {
+                val d = dist.value
+                minDist := min(minDist.value, d)
+                minCent := mux(minDist.value == d, ct, minCent.value)
+              }
+            }*/
 
             // Store this point to the set of accumulators
             val localCent = SRAM[T](MAXK,MAXD)
@@ -115,7 +133,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
       }
       // Store the centroids out
       centroids(0::K*D par 16) store flatCts
-    }}
+    }
 
     getMem(centroids)
   }
@@ -124,7 +142,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
   def main() {
     val iters = args(0).to[Int]
     val N = args(1).to[Int]
-    val K = num_cents //args(2).to[SInt];
+    val K = numcents //args(2).to[SInt];
     val D = dim //args(3).to[SInt];
 
     val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else random[X](element_max) + i }}

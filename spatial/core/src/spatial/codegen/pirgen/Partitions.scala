@@ -103,23 +103,25 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     sOut:  Int = 0, // Scalar outputs
     vIn:   Int = 0, // Vector inputs
     vOut:  Int = 0, // Vector outputs
-    write: Int = 0, // Write stages
-    read:  Int = 0  // Read stages
+    comp:  Int = 0, // Address computation
+    regsMax: Int = 0, // Maximum live values at any given time
+    regsUse: Int = 0  // Estimated number of registers used
   ) extends PartitionCost {
     def >(that: MUCost) = {
       this.sIn > that.sIn || this.sOut > that.sOut || this.vIn > that.vIn ||
-      this.vOut > that.vOut || this.write > that.write || this.read > that.read
+      this.vOut > that.vOut || this.comp > that.comp || this.regsMax > that.regsMax
     }
     def +(that: MUCost) = MUCost(
       sIn   = this.sIn + that.sIn,
       sOut  = this.sOut + that.sOut,
       vIn   = this.vIn + that.vIn,
       vOut  = this.vOut + that.vOut,
-      write = this.write + that.write,
-      read  = this.read + that.read
+      comp  = this.comp + that.comp,
+      regsMax = Math.max(this.regsMax, that.regsMax),
+      regsUse = this.regsUse + that.regsUse
     )
     //def toUtil = Utilization(alus = comp, sclIn = sIn, sclOut = sOut, vecIn = vIn, vecOut = vOut)
-    override def toString = s"  sIn: $sIn, sOut: $sOut, vIn: $vIn, vOut: $vOut, write: $write, read: $read"
+    override def toString = s"  sIn: $sIn, sOut: $sOut, vIn: $vIn, vOut: $vOut, comp: $comp, regsMax: $regsMax, regs: $regsUse"
   }
 
   case class CUCost(
@@ -127,38 +129,40 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     sOut:  Int = 0, // Scalar outputs
     vIn:   Int = 0, // Vector inputs
     vOut:  Int = 0, // Vector outputs
-    comp:  Int = 0  // Compute stages
+    comp:  Int = 0, // Compute stages
+    regsMax: Int = 0, // Maximum live values at any given time
+    regsUse: Int = 0  // Estimated number of registers used
   ) extends PartitionCost {
     def >(that: CUCost) = {
       this.sIn > that.sIn || this.sOut > that.sOut || this.vIn > that.vIn ||
-      this.vOut > that.vOut || this.comp > that.comp
+      this.vOut > that.vOut || this.comp > that.comp || this.regsMax > that.regsMax
     }
 
     //def toUtil = Utilization(alus = comp, sclIn = sIn, sclOut = sOut, vecIn = vIn, vecOut = vOut)
-    override def toString = s"  sIn: $sIn, sOut: $sOut, vIn: $vIn, vOut: $vOut, comp: $comp"
+    override def toString = s"  sIn: $sIn, sOut: $sOut, vIn: $vIn, vOut: $vOut, comp: $comp, regsMax: $regsMax, regs: $regsUse"
   }
 
   /**
     * Calculate the total cost for a given partition
     */
-  def getCost(p: Partition, prev: Seq[Partition], all: List[Stage], others: Iterable[CU], isUnit: Boolean) = p match {
+  def getCost(p: Partition, prev: Seq[Partition], all: List[Stage], others: Seq[CU], isUnit: Boolean) = p match {
     case pmu: MUPartition => getMUCost(pmu, prev, all, others)
     case pcu: CUPartition => getCUCost(pcu, prev, all, others, isUnit){p => p.cstages}
   }
 
-  def getMUCost(p: MUPartition, prev: Seq[Partition], all: List[Stage], others: Iterable[CU]) = {
+  def getMUCost(p: MUPartition, prev: Seq[Partition], all: List[Stage], others: Seq[CU]) = {
     val readCost = p.rstages.values.map{stages =>
       val cost = getCUCost(p, prev, all, others, isUnit=false){_ => stages}
-      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,read=cost.comp)
+      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,comp=cost.comp)
     }.fold(MUCost()){_+_}
     val writeCost = p.wstages.values.map{stages =>
       val cost = getCUCost(p, prev, all, others, isUnit=false){_ => stages}
-      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,write=cost.comp)
+      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,comp=cost.comp)
     }.fold(MUCost()){_+_}
     readCost + writeCost
   }
 
-  def getCUCost[P<:Partition](p: P, prev: Seq[Partition], all: List[Stage], others: Iterable[CU], isUnit: Boolean)(getStages: P => Seq[Stage]) = {
+  def getCUCost[P<:Partition](p: P, prev: Seq[Partition], all: List[Stage], others: Seq[CU], isUnit: Boolean)(getStages: P => Seq[Stage]) = {
     val local = getStages(p)
 
     dbg(s"\n\n")
@@ -182,8 +186,8 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val cuGrpsIn = groupBuses(cuInBuses)
     val cuGrpsOut = groupBuses(cuOutBuses)
 
-    var vIns: Int   = nVectorIns(cuGrpsIn, others)
-    var vOuts: Int  = nVectorOuts(cuGrpsOut, countScalars = false)
+    var vIns: Int   = cuGrpsIn.vectors.size
+    var vOuts: Int  = cuGrpsOut.vectors.size
 
     var sIns = Map[Int, Int]()
     def addIn(part: Int) {
@@ -191,6 +195,28 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       else sIns += part -> (sIns(part) + 1)
     }
     var sOuts: Int = localOuts.count{case ScalarOut(_) => true; case _ => false}
+
+    // --- Memory reads
+    val readMems = localIns.collect{case MemLoadReg(mem) => mem }
+    val vectorMems = readMems.filter{mem => mem.mode match {
+      case SRAMMode        => true
+      case FIFOOnWriteMode => true
+      case VectorFIFOMode  => true
+      case _ => false
+    }}
+    val scalarMems = readMems.filter{mem => mem.mode match {
+      case ScalarFIFOMode => true
+      case ScalarBufferMode => true
+      case _ => false
+    }}
+    dbg(s"  Read Mems (Vectors): " + vectorMems.mkString(", "))
+    dbg(s"  Read Mems (Scalars): " + scalarMems.mkString(", "))
+    vIns += vectorMems.size
+    scalarMems.foreach{ _ => addIn(-1) }
+
+    // --- Memory writes
+    // Handled by VectorOuts
+
 
     // --- Registers
     dbg(s"  Arg ins: " + cuGrpsIn.args.mkString(", "))
@@ -240,12 +266,29 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     // Scalars
     val sclIns = sIns.values.sum + cuGrpsIn.args.size + cuGrpsIn.scalars.size
 
+    // Live values throughout CU
+    val cuInputs  = liveIns ++ localIns.filter{case _:VectorIn | _:ScalarIn | _:MemLoadReg | _:CounterReg => true; case _ => false }
+    val cuOutputs = liveOuts ++ localOuts.filter{case _:VectorOut | _:ScalarOut => true; case _ => false }
+
+    val liveRegs = (1 until local.size).map{i =>
+      val prevOut = local.take(i).flatMap(_.outputMems).toSet ++ cuInputs // Values currently available
+      val aftIn   = local.drop(i).flatMap(_.inputMems).toSet  // Values needed locally
+      val aftOut  = local.drop(i).flatMap(_.outputMems).toSet // Values not yet produced
+      val lives = (cuOutputs diff aftOut) ++ (prevOut intersect aftIn) // Values that will be output + values to be used locally
+      val reduceRegs = if (local(i-1).isInstanceOf[ReduceStage] || local(i).isInstanceOf[ReduceStage]) 1 else 0
+      dbgs(s"$i: " + lives.mkString(", "))
+      lives.size + reduceRegs
+    } :+ cuOutputs.size
+
+    val regsMax = if (liveRegs.isEmpty) 0 else liveRegs.max
+
     val cost = CUCost(
       sIn  = sclIns,
       sOut = sOuts,
       vIn  = vIns,
       vOut = vOuts,
-      comp = rawCompute + bypasses
+      comp = rawCompute + bypasses,
+      regsMax = regsMax
     )
 
     dbg(s"  $cost")
@@ -270,7 +313,9 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     sclIn:  Int = 0,    // Scalar Inputs
     sclOut: Int = 0,    // Scalar Outputs
     vecIn:  Int = 0,    // Vector Inputs
-    vecOut: Int = 0     // Vector Outputs
+    vecOut: Int = 0,    // Vector Outputs
+    regsMax: Int = 0,   // Maximum registers live at any given time
+    regsUse: Int = 0    // Total number of used registers
   ) {
     def +(that: Utilization) = Utilization(
       pcus   = this.pcus + that.pcus,
@@ -284,19 +329,22 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       sclIn  = this.sclIn + that.sclIn,
       sclOut = this.sclOut + that.sclOut,
       vecIn  = this.vecIn + that.vecIn,
-      vecOut = this.vecOut + that.vecOut
+      vecOut = this.vecOut + that.vecOut,
+      regsMax = Math.max(this.regsMax, that.regsMax),
+      regsUse = this.regsUse + that.regsUse
     )
 
-    override def toString = s"$pcus, $pmus, $ucus, $switch, $alus, $mems, $sclIn, $sclOut, $vecIn, $vecOut"
+    override def toString = s"$pcus, $pmus, $ucus, $switch, $alus, $mems, $sclIn, $sclOut, $vecIn, $vecOut, $regsMax, $regsUse"
   }
   object Utilization {
-    def header = "PCUs, PMUs, UCUs, Switch, ALUs, SRAMs, SclIn, SclOut, VecIn, VecOut"
+    def header = "PCUs, PMUs, UCUs, Switch, ALUs, SRAMs, SclIn, SclOut, VecIn, VecOut, Regs"
   }
 
-  def getUtil(cu: CU, others: Iterable[CU]): Utilization = cu.style match {
+  def getUtil(cu: CU, cus: Seq[CU]): Utilization = cu.style match {
     case _:MemoryCU =>
-      val vIn = nVectorIns(cu, others)
+      val vIn = nVectorIns(cu)
       val vOut = nVectorOuts(cu)
+      val regs = regsPerStage(cu)
       Utilization(
         pmus   = 1,
         mems   = 1,
@@ -305,13 +353,15 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
         sclIn  = nScalarIn(cu),
         sclOut = nScalarOut(cu),
         vecIn  = Math.max(1, vIn),
-        vecOut = Math.max(1, vOut)
+        vecOut = Math.max(1, vOut),
+        regsMax = if (regs.isEmpty) 2 else 2 + regs.max, // Need at least data and address
+        regsUse = 2 + regs.sum
       )
 
     case _:FringeCU => Utilization(ucus = 1)  // TODO
 
     case _ =>
-      val nChildren = others.count{_.parent.contains(cu)}
+      val nChildren = cus.count{_.parent.contains(cu)}
       val isParent = nChildren > 0
       val isEmpty  = cu.allStages.isEmpty
       val parentIsStream = cu.allParents.exists(_.style == StreamCU)
@@ -319,15 +369,25 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       if (nChildren == 1 && !parentIsStream) Utilization() // Merged with child
       else if (isParent) Utilization(switch = 1)
       else if (isEmpty) Utilization()
-      else Utilization(
-        pcus   = 1,
-        stages = nUsedStages(cu),
-        alus   = nUsedALUs(cu),
-        sclIn  = nScalarIn(cu),
-        sclOut = nScalarOut(cu),
-        vecIn  = nVectorIns(cu, others),
-        vecOut = nVectorOuts(cu)
-      )
+      else {
+        val regs = regsPerStage(cu)
+        /*val reduceRegs = cu.allStages.map{
+          case _:MapStage => 0
+          case _:ReduceStage => cu.lanes*2 + 1
+          case _ => 0
+        }.sum*/
+        Utilization(
+          pcus   = 1,
+          stages = nUsedStages(cu),
+          alus   = nUsedALUs(cu),
+          sclIn  = nScalarIn(cu),
+          sclOut = nScalarOut(cu),
+          vecIn  = nVectorIns(cu),
+          vecOut = nVectorOuts(cu),
+          regsMax = if (regs.isEmpty) 1 else Math.max(Math.ceil(regs.max.toDouble / cu.lanes).toInt, 1), // per lane
+          regsUse = regs.sum
+        )
+      }
   }
 
   def nUsedALUs(cu: CU): Int = {
@@ -344,32 +404,43 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       case _ => 0
     }.sum
   }
+  def regsPerStage(cu: CU): Seq[Int] = {
+    val local = cu.allStages.toList
+    val cuInputs  = local.flatMap(_.inputMems).filter{case _:VectorIn | _:ScalarIn | _:MemLoadReg | _:CounterReg => true; case _ => false }.toSet
+    val cuOutputs = local.flatMap(_.outputMems).filter{case _:VectorOut | _:ScalarOut => true; case _ => false }.toSet
 
-  def nScalarIn(cu: CU) = {
+    dbg(s"  Live values: ")
+    (1 until local.size).flatMap{i =>
+
+      val prevOut = local.take(i).flatMap(_.outputMems).toSet ++ cuInputs // Values currently available
+      val aftIn   = local.drop(i).flatMap(_.inputMems).toSet  // Values needed locally
+      val aftOut  = local.drop(i).flatMap(_.outputMems).toSet // Values not yet produced
+      val lives = (cuOutputs diff aftOut) ++ (prevOut intersect aftIn) // Values that will be output + values to be used locally
+      val reduceRegs = if (local(i-1).isInstanceOf[ReduceStage]) 1 else 0
+      dbgs(s"    $i: " + lives.mkString(", "))
+      local(i - 1) match {
+        case _:ReduceStage => Seq.tabulate(REDUCE_STAGES){j => (lives.size * cu.lanes) + (reduceRegs * cu.lanes / math.pow(2,j).toInt) }
+        case _ => Seq(lives.size * cu.lanes)
+      }
+    } :+ cuOutputs.map{
+      case _:VectorOut => cu.lanes
+      case _:ScalarOut => 1
+      case _ => 0
+    }.sum
+  }
+
+  def nScalarIn(cu: CU): Int = {
     val groups = groupBuses(globalInputs(cu))
     groups.args.size + groups.scalars.size
   }
-  def nScalarOut(cu: CU) = {
-    val groups = groupBuses(globalOutputs(cu))
-    groups.scalars.size
-  }
-
-  def nVectorIns(cu: CU, others: Iterable[CU]): Int = {
-    val groups = groupBuses(globalInputs(cu))
-    nVectorIns(groups, others)
-  }
-  def nVectorIns(groups: BusGroups, others: Iterable[CU]): Int = groups.vectors.size
-
-  def nVectorOuts(cu: CU): Int = {
-    val groups = groupBuses(globalOutputs(cu))
-    nVectorOuts(groups)
-  }
-  def nVectorOuts(groups: BusGroups, countScalars: Boolean = true): Int = groups.vectors.size
+  def nScalarOut(cu: CU): Int = groupBuses(globalOutputs(cu)).scalars.size
+  def nVectorIns(cu: CU): Int = groupBuses(globalInputs(cu)).vectors.size
+  def nVectorOuts(cu: CU): Int = groupBuses(globalOutputs(cu)).vectors.size
 
   def reportUtil(stats: Utilization) {
-    val Utilization(pcus, pmus, ucus, switch, addr, stages, alus, mems, sclIn, sclOut, vecIn, vecOut) = stats
+    val Utilization(pcus, pmus, ucus, switch, addr, stages, alus, mems, sclIn, sclOut, vecIn, vecOut, regsMax, regsUse) = stats
     dbg(s"  pcus: $pcus, pmus: $pmus, ucus: $ucus, switch: $switch, addr: $addr, stages: $stages, alus: $alus,")
-    dbg(s"  mems: $mems, sclIn: $sclIn, sclOut: $sclOut, vecIn: $vecIn, vecOut: $vecOut")
+    dbg(s"  mems: $mems, sclIn: $sclIn, sclOut: $sclOut, vecIn: $vecIn, vecOut: $vecOut, regsMax: $regsMax, regs: $regsUse")
   }
 
   /** TODO: These are actually pretty useful, may want to move elsewhere **/
@@ -407,23 +478,29 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     vIn_PCU:  Int = SpatialConfig.vIn_PCU,
     vOut_PCU: Int = SpatialConfig.vOut_PCU,
     stages:   Int = SpatialConfig.stages,
+    regs_PCU: Int = SpatialConfig.regs_PCU,
     /** PMUs **/
     sIn_PMU:  Int = SpatialConfig.sIn_PMU,
     sOut_PMU: Int = SpatialConfig.sOut_PMU,
     vIn_PMU:  Int = SpatialConfig.vIn_PMU,
     vOut_PMU: Int = SpatialConfig.vOut_PMU,
-    readWrite:Int = SpatialConfig.readWrite
+    readWrite:Int = SpatialConfig.readWrite,
+    regs_PMU: Int = SpatialConfig.regs_PMU
   ) {
     val nPCUs = total.pcus - total.ucus
     val nUCUs = total.ucus
     val nPMUs = total.pmus
     val nSwitch = total.switch
+    val requiredRegs_PCU = pcuOnly.regsMax
+    val requiredRegs_PMU = pmuOnly.regsMax
 
+    // Total available
     val nALUs_PCU = (LANES * nPCUs * stages) + (nUCUs * stages)
     val nSIns_PCU = (sIn_PCU * nPCUs) + (nUCUs * sIn_PCU)
     val nSOut_PCU = (sOut_PCU * nPCUs) + (nUCUs * 2)
     val nVIns_PCU = (vIn_PCU * nPCUs) + (nUCUs * 0)
     val nVOut_PCU = (vOut_PCU * nPCUs) + (nUCUs * 0)
+    val nRegs_PCU = (LANES * regs_PCU * nPCUs * stages) + (nUCUs * stages * regs_PCU)
 
     val nALUs_PMU = nPMUs * readWrite
     val nMems_PMU = nPMUs
@@ -431,6 +508,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val nSOut_PMU = sOut_PMU * nPMUs
     val nVIns_PMU = vIn_PMU * nPMUs
     val nVOut_PMU = vOut_PMU * nPMUs
+    val nRegs_PMU = regs_PMU * nPMUs * readWrite
 
     val nALUs = nALUs_PCU + nALUs_PMU
     val nMems = nMems_PMU
@@ -438,13 +516,16 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val nSOut = nSOut_PCU + nSOut_PMU
     val nVIns = nVIns_PCU + nVIns_PMU
     val nVOut = nVOut_PCU + nVOut_PMU
+    val nRegs = nRegs_PCU + nRegs_PMU
 
+    // Percent used
     val aluUtil  = total.alus.toFloat / nALUs
     val memUtil  = total.mems.toFloat / nMems
     val sInUtil  = total.sclIn.toFloat / nSIns
     val sOutUtil = total.sclOut.toFloat / nSOut
     val vInUtil  = total.vecIn.toFloat / nVIns
     val vOutUtil = total.vecOut.toFloat / nVOut
+    val regsUtil = total.regsUse.toFloat / nRegs
 
     /** PCU only **/
     val aluUtil_PCU  = pcuOnly.alus.toFloat / nALUs_PCU
@@ -452,16 +533,19 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val sOutUtil_PCU = pcuOnly.sclOut.toFloat / nSOut_PCU
     val vInUtil_PCU  = pcuOnly.vecIn.toFloat / nVIns_PCU
     val vOutUtil_PCU = pcuOnly.vecOut.toFloat / nVOut_PCU
+    val regsUtil_PCU = pcuOnly.regsUse.toFloat / nRegs_PCU
 
     val avgSIn_PCU  = pcuOnly.sclIn.toFloat / (nPCUs + nUCUs)
     val avgSOut_PCU = pcuOnly.sclOut.toFloat / (nPCUs + nUCUs)
     val avgVIn_PCU  = pcuOnly.vecIn.toFloat / (nPCUs + nUCUs)
     val avgVOut_PCU = pcuOnly.vecOut.toFloat / (nPCUs + nUCUs)
+    val avgRegs_PCU = pcuOnly.regsUse.toFloat / (nPCUs + nUCUs)
 
     val sInPerStage_PCU  = pcuOnly.sclIn.toFloat / (pcuOnly.stages + pcuOnly.addr)
     val sOutPerStage_PCU = pcuOnly.sclOut.toFloat / (pcuOnly.stages + pcuOnly.addr)
     val vInPerStage_PCU  = pcuOnly.vecIn.toFloat / (pcuOnly.stages + pcuOnly.addr)
     val vOutPerStage_PCU = pcuOnly.vecOut.toFloat / (pcuOnly.stages + pcuOnly.addr)
+    val regsPerStage_PCU = pcuOnly.regsUse.toFloat / (pcuOnly.stages + pcuOnly.addr)
 
     /** PMU only **/
     val aluUtil_PMU  = pmuOnly.alus.toFloat / nALUs_PMU
@@ -469,22 +553,27 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val sOutUtil_PMU = pmuOnly.sclOut.toFloat / nSOut_PMU
     val vInUtil_PMU  = pmuOnly.vecIn.toFloat / nVIns_PMU
     val vOutUtil_PMU = pmuOnly.vecOut.toFloat / nVOut_PMU
+    val regsUtil_PMU = pmuOnly.regsUse.toFloat / nRegs_PMU
 
     val avgSIn_PMU  = pmuOnly.sclIn.toFloat / nPMUs
     val avgSOut_PMU = pmuOnly.sclOut.toFloat / nPMUs
     val avgVIn_PMU  = pmuOnly.vecIn.toFloat / nPMUs
     val avgVOut_PMU = pmuOnly.vecOut.toFloat / nPMUs
+    val avgRegs_PMU = pmuOnly.regsUse.toFloat / nPMUs
 
     val sInPerStage_PMU  = pmuOnly.sclIn.toFloat / (pmuOnly.stages + pmuOnly.addr)
     val sOutPerStage_PMU = pmuOnly.sclOut.toFloat / (pmuOnly.stages + pmuOnly.addr)
     val vInPerStage_PMU  = pmuOnly.vecIn.toFloat / (pmuOnly.stages + pmuOnly.addr)
     val vOutPerStage_PMU = pmuOnly.vecOut.toFloat / (pmuOnly.stages + pmuOnly.addr)
+    val regsPerStage_PMU = pmuOnly.regsUse.toFloat / (pmuOnly.stages + pmuOnly.addr)
 
     def makeReport(): Unit = {
       report("Total Utilization:")
       report(n"PCUs:  $nPCUs")
       report(n"UCUs:  $nUCUs")
       report(n"PMUs:  $nPMUs")
+      report(n"Regs (PCU): $requiredRegs_PCU")
+      report(n"Regs (PMU): $requiredRegs_PMU")
       report("")
       report(n"   ALUs: ${total.alus}/$nALUs" + "\t" + p"($aluUtil)")
       report(n"  SRAMs: ${total.mems}/$nMems" + "\t" + p"($memUtil)")
@@ -492,6 +581,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       report(n"  SOuts: ${total.sclOut}/$nSOut" + "\t" + p"($sOutUtil)")
       report(n"   VIns: ${total.vecIn}/$nVIns" + "\t" + p"($vInUtil)")
       report(n"  VOuts: ${total.vecOut}/$nVOut" + "\t" + p"($vOutUtil)")
+      report(n"   Regs: ${total.regsUse}/$nRegs" + "\t" + p"($regsUtil)")
       report("")
       report("")
       report("PCU Statistics:")
@@ -500,16 +590,19 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       report(n"  SOuts: ${pcuOnly.sclOut}/$nSOut_PCU"+"\t" + p"($sOutUtil_PCU)")
       report(n"   VIns: ${pcuOnly.vecIn}/$nVIns_PCU"+"\t" + p"($vInUtil_PCU)")
       report(n"  VOuts: ${pcuOnly.vecOut}/$nVOut_PCU"+"\t" + p"($vOutUtil_PCU)")
+      report(n"   Regs: ${pcuOnly.regsUse}/$nRegs_PCU"+"\t" + p"($regsUtil_PCU)")
       report("")
       report(n"   SIn / PCU: $avgSIn_PCU")
       report(n"  SOut / PCU: $avgSOut_PCU")
       report(n"   VIn / PCU: $avgVIn_PCU")
       report(n"  VOut / PCU: $avgVOut_PCU")
+      report(n"  Regs / PCU: $avgRegs_PCU")
       report("")
       report(n"   SIn / Stage: $sInPerStage_PCU")
       report(n"  SOut / Stage: $sOutPerStage_PCU")
       report(n"   VIn / Stage: $vInPerStage_PCU")
       report(n"  VOut / Stage: $vOutPerStage_PCU")
+      report(n"  Regs / Stage: $regsPerStage_PCU")
       report("")
       report("")
       report("PMU Statistics:")
@@ -518,49 +611,58 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       report(n"  SOuts: ${pmuOnly.sclOut}/$nSOut_PMU" + "\t" + p"($sOutUtil_PMU)")
       report(n"   VIns: ${pmuOnly.vecIn}/$nVIns_PMU" + "\t" + p"($vInUtil_PMU)")
       report(n"  VOuts: ${pmuOnly.vecOut}/$nVOut_PMU" + "\t" + p"($vOutUtil_PMU)")
+      report(n"   Regs: ${pmuOnly.regsUse}/$nRegs_PMU" + "\t" + p"($regsUtil_PMU)")
       report("")
       report(n"   SIn / PMU: $avgSIn_PMU")
       report(n"  SOut / PMU: $avgSOut_PMU")
       report(n"   VIn / PMU: $avgVIn_PMU")
       report(n"  VOut / PMU: $avgVOut_PMU")
+      report(n"  Regs / PMU: $avgRegs_PMU")
       report("")
       report(n"   SIn / Stage: $sInPerStage_PMU")
       report(n"  SOut / Stage: $sOutPerStage_PMU")
       report(n"   VIn / Stage: $vInPerStage_PMU")
       report(n"  VOut / Stage: $vOutPerStage_PMU")
+      report(n"  Regs / Stage: $regsPerStage_PMU")
     }
     def toCSV = {
-      s"$nPCUs, $nPMUs, $nUCUs, $nSwitch," +
-      s",${total.alus}, ${total.mems}, ${total.sclIn}, ${total.sclOut}, ${total.vecIn}, ${total.vecOut}," +
-      s",$aluUtil, $memUtil, $sInUtil, $sOutUtil, $vInUtil, $vOutUtil, " +
-      s",$aluUtil_PCU, $sInUtil_PCU, $sOutUtil_PCU, $vInUtil_PCU, $vOutUtil_PCU, " +
-      s",$avgSIn_PCU, $avgSOut_PCU, $avgVIn_PCU, $avgVOut_PCU, " +
-      s",$sInPerStage_PCU, $sOutPerStage_PCU, $vInPerStage_PCU, $vOutPerStage_PCU, " +
-      s",$aluUtil_PMU, $sInUtil_PMU, $sOutUtil_PMU, $vInUtil_PMU, $vOutUtil_PMU, " +
-      s",$avgSIn_PMU, $avgSOut_PMU, $avgVIn_PMU, $avgVOut_PMU, " +
-      s",$sInPerStage_PMU, $sOutPerStage_PMU, $vInPerStage_PMU, $vOutPerStage_PMU"
+      s"$nPCUs, $nPMUs, $nUCUs, $nSwitch, $requiredRegs_PCU, $requiredRegs_PMU, " +
+      s", ${total.alus}, ${total.mems}, ${total.sclIn}, ${total.sclOut}, ${total.vecIn}, ${total.vecOut}, ${total.regsUse}, " +
+      s", $aluUtil, $memUtil, $sInUtil, $sOutUtil, $vInUtil, $vOutUtil, $regsUtil, " +
+      s", $aluUtil_PCU, $sInUtil_PCU, $sOutUtil_PCU, $vInUtil_PCU, $vOutUtil_PCU, $regsUtil_PCU, " +
+      s", $avgSIn_PCU, $avgSOut_PCU, $avgVIn_PCU, $avgVOut_PCU, $avgRegs_PCU, " +
+      s", $sInPerStage_PCU, $sOutPerStage_PCU, $vInPerStage_PCU, $vOutPerStage_PCU, $regsPerStage_PCU, " +
+      s", $aluUtil_PMU, $sInUtil_PMU, $sOutUtil_PMU, $vInUtil_PMU, $vOutUtil_PMU, $regsUtil_PMU, " +
+      s", $avgSIn_PMU, $avgSOut_PMU, $avgVIn_PMU, $avgVOut_PMU, $avgRegs_PMU, " +
+      s", $sInPerStage_PMU, $sOutPerStage_PMU, $vInPerStage_PMU, $vOutPerStage_PMU, $regsPerStage_PMU"
     }
   }
   object Statistics {
     def header = {
-      "PCUs, PMUs, UCUs, Switch," +
-      ", #ALUs, #SRAMs, #SIns, #SOuts, #Vins, #Vouts," +
-      ", ALU Util, SRAM Util, SIn Util, SOut Util, VecIn Util, VecOut Util, " +
-      ", ALU Util (PCU), SIn Util (PCU), SOut Util (PCU), VIn Util (PCU), VOut Util (PCU), " +
-      ", SIn/PCU, SOut/PCU, VIn/PCU, VOut/PCU, " +
-      ", SIn/Stage (PCU), SOut/Stage (PCU), VIn/Stage (PCU), VOut/Stage (PCU), " +
-      ", ALU Util (PMU), SIn Util (PMU), SOut Util (PMU), VIn Util (PMU), VOut Util (PMU), " +
-      ", SIn/PMU, SOut/PMU, VIn/PMU, VOut/PMU, " +
-      ", SIn/Stage (PMU), SOut/Stage (PMU), VIn/Stage (PMU), VOut/Stage (PMU)"
+      "PCUs, PMUs, UCUs, Switch, Req Regs (PCU), Req Regs (PMU), " +
+      ", #ALUs, #SRAMs, #SIns, #SOuts, #Vins, #Vouts, #Regs, " +
+      ", ALU Util, SRAM Util, SIn Util, SOut Util, VecIn Util, VecOut Util, Reg Util, " +
+      ", ALU Util (PCU), SIn Util (PCU), SOut Util (PCU), VIn Util (PCU), VOut Util (PCU), Reg Util (PCU), " +
+      ", SIn/PCU, SOut/PCU, VIn/PCU, VOut/PCU, Reg/PCU, " +
+      ", SIn/Stage (PCU), SOut/Stage (PCU), VIn/Stage (PCU), VOut/Stage (PCU), Reg/Stage (PCU), " +
+      ", ALU Util (PMU), SIn Util (PMU), SOut Util (PMU), VIn Util (PMU), VOut Util (PMU), Reg Util (PMU), " +
+      ", SIn/PMU, SOut/PMU, VIn/PMU, VOut/PMU, Reg/PMU, " +
+      ", SIn/Stage (PMU), SOut/Stage (PMU), VIn/Stage (PMU), VOut/Stage (PMU), Reg/Stage (PMU)"
     }
   }
 
 
-  def tallyCUs(cus: Iterable[CU]): Unit = {
-    val total = cus.map { cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+  def tallyCUs(cus: Seq[CU]): Unit = {
+    val total = cus.map { cu => getUtil(cu, cus) }.fold(Utilization()){_+_}
 
-    val pcuOnly = cus.filter(_.isPCU).map{cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
-    val pmuOnly = cus.filter(_.isPMU).map{cu => getUtil(cu, cus.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+    val pcuOnly = cus.filter(_.isPCU).map{cu =>
+      val util = getUtil(cu, cus)
+      dbg(s"$cu: ")
+      reportUtil(util)
+      util
+    }.fold(Utilization()){_+_}
+
+    val pmuOnly = cus.filter(_.isPMU).map{cu => getUtil(cu, cus) }.fold(Utilization()){_+_}
 
     val stats = Statistics(total, pcuOnly, pmuOnly)
     stats.makeReport()

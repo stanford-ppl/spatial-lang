@@ -51,6 +51,7 @@ namespace DRAMSim
 			bool willAcceptTransaction(); 
 			bool willAcceptTransaction(uint64_t addr); 
 			std::ostream &getLogFile();
+      unsigned findChannelNumber(uint64_t addr);
 
 			void RegisterCallbacks( 
 				TransactionCompleteCB *readDone,

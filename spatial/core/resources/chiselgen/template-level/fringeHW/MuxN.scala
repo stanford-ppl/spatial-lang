@@ -4,6 +4,17 @@ import chisel3._
 import chisel3.util._
 import templates.Utils.log2Up
 
+class MuxNType[T<:Data](val t: T, val numInputs: Int) extends Module {
+  val numSelectBits = log2Up(numInputs)
+  val io = IO(new Bundle {
+    val ins = Input(Vec(numInputs, t.cloneType))
+    val sel = Input(Bits(numSelectBits.W))
+    val out = Output(t.cloneType)
+  })
+
+  io.out <> io.ins(io.sel)
+}
+
 class MuxN(val numInputs: Int, w: Int) extends Module {
   val numSelectBits = log2Up(numInputs)
   val io = IO(new Bundle {

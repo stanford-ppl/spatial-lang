@@ -20,9 +20,13 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
   }
 
   // In Scala simulation, run a pipe until its read fifos and streamIns are empty
+  def getWrittenStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
+    localMems.filter{mem => writersOf(mem).exists(_.ctrlNode == ctrl) }.filter{mem => isStreamOut(mem) || isFIFO(mem) } ++ childrenOf(ctrl).flatMap(getWrittenStreamsAndFIFOs)
+  }
+
   def getReadStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
-    localMems.filter{mem => readersOf(mem).exists(_.ctrlNode == ctrl) }.filter{mem => isStreamIn(mem) || isFIFO(mem) } ++
-      childrenOf(ctrl).flatMap(getReadStreamsAndFIFOs)
+    val read = localMems.filter{mem => readersOf(mem).exists(_.ctrlNode == ctrl) }.filter{mem => isStreamIn(mem) || isFIFO(mem) } ++ childrenOf(ctrl).flatMap(getReadStreamsAndFIFOs)
+    read //diff getWrittenStreamsAndFIFOs(ctrl) // Don't also wait for things we're writing to
   }
 
   def emitControlBlock(lhs: Sym[_], block: Block[_]): Unit = {

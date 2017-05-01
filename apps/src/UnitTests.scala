@@ -275,6 +275,7 @@ object Niter extends SpatialApp { // Regression (Unit) // Args: 100
   
   val constTileSize = 16
 
+  @virtualize
   def nIterTest[T:Type:Num](len: Int): T = {
     val innerPar = 1 (1 -> 1)
     val tileSize = constTileSize (constTileSize -> constTileSize)
@@ -1099,6 +1100,82 @@ object BlockReduce2D extends SpatialApp { // Regression (Unit) // Args: 192 384
   }
 }
 
+// Args: none
+object GatherStore extends SpatialApp { // Regression (Sparse) // Args: none
+  import IR._
+
+//  val tileSize = 384
+//  val maxNumAddrs = 1536
+//  val offchip_dataSize = maxNumAddrs*6
+
+  val tileSize = 64
+  val maxNumAddrs = tileSize * 1
+  val offchip_dataSize = maxNumAddrs * 6
+
+  val P = param(1)
+
+  @virtualize
+  def gatherStore[T:Type:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
+
+    val srcAddrs = DRAM[Int](maxNumAddrs)
+    val gatherData = DRAM[T](offchip_dataSize)
+    val denseResult = DRAM[T](offchip_dataSize)
+
+    setMem(srcAddrs, addrs)
+    setMem(gatherData, offchip_data)
+
+    Accel {
+      val addrs = SRAM[Int](maxNumAddrs)
+      Sequential.Foreach(maxNumAddrs by tileSize) { i =>
+        val sram = SRAM[T](maxNumAddrs)
+        addrs load srcAddrs(i::i + tileSize par P)
+        sram gather gatherData(addrs par P, tileSize)
+        denseResult(i::i+tileSize) store sram
+      }
+    }
+
+    getMem(denseResult)
+  }
+
+  @virtualize
+  def main() = {
+
+    val size = maxNumAddrs
+    val dataSize = offchip_dataSize
+    val addrs = Array.tabulate(size) { i =>
+      // i*2 // for debug
+      // TODO: Macro-virtualized winds up being particularly ugly here..
+      if      (i == 4)  lift(199)
+      else if (i == 6)  lift(offchip_dataSize-2)
+      else if (i == 7)  lift(191)
+      else if (i == 8)  lift(203)
+      else if (i == 9)  lift(381)
+      else if (i == 10) lift(offchip_dataSize-97)
+      else if (i == 15) lift(97)
+      else if (i == 16) lift(11)
+      else if (i == 17) lift(99)
+      else if (i == 18) lift(245)
+      else if (i == 94) lift(3)
+      else if (i == 95) lift(1)
+      else if (i == 83) lift(101)
+      else if (i == 70) lift(203)
+      else if (i == 71) lift(offchip_dataSize-1)
+      else if (i % 2 == 0) i*2
+      else i*2 + offchip_dataSize/2
+    }
+
+    val offchip_data = Array.fill(dataSize){ random[Int](dataSize) }
+
+    val received = gatherStore(addrs, offchip_data, size, dataSize)
+
+    val gold = Array.tabulate(dataSize){ i => offchip_data(addrs(i)) }
+
+    printArray(gold, "gold:")
+    printArray(received, "received:")
+    val cksum = received.zip(gold){_ == _}.reduce{_&&_}
+    println("PASS: " + cksum + " (GatherStore)")
+  }
+}
 
 // Args: none
 object ScatterGather extends SpatialApp { // Regression (Sparse) // Args: none
@@ -1198,7 +1275,7 @@ object SequentialWrites extends SpatialApp { // Regression (Unit) // Args: 7
       val in = SRAM[A](T)
       in load src(0::T par 16)
 
-      MemReduce(in)(N by 1){ i =>
+      MemReduce(in)(1 until (N+1) by 1){ ii =>
         val d = SRAM[A](T)
         Foreach(T by 1){ i => d(i) = xx.value + i.to[A] }
         d
@@ -1557,7 +1634,7 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
 }
 
 
-object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.625 14 1.375 -3.5 -5
+object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.625 14 1.875 -3.4375 -5
   import IR._
   type USGN = FixPt[FALSE,_4,_4]
   type SGN = FixPt[TRUE,_4,_4]
@@ -1571,8 +1648,8 @@ object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.62
     val a_sgn = args(3).to[SGN]
     val b_sgn = args(4).to[SGN]
     val c_sgn = args(5).to[SGN]
-    assert(b_usgn.to[FltPt[_24,_8]] + c_usgn.to[FltPt[_24,_8]] > 15.to[FltPt[_24,_8]], "b_usgn + c_usgn must saturate (false,4,4) FP number")
-    assert(b_sgn.to[FltPt[_24,_8]] + c_sgn.to[FltPt[_24,_8]] < -8.to[FltPt[_24,_8]], "b_sgn + c_sgn must saturate (true,4,4) FP number")
+    // assert(b_usgn.to[FltPt[_24,_8]] + c_usgn.to[FltPt[_24,_8]] > 15.to[FltPt[_24,_8]], "b_usgn + c_usgn must saturate (false,4,4) FP number")
+    // assert(b_sgn.to[FltPt[_24,_8]] + c_sgn.to[FltPt[_24,_8]] < -8.to[FltPt[_24,_8]], "b_sgn + c_sgn must saturate (true,4,4) FP number")
     val A_usgn = ArgIn[USGN]
     val B_usgn = ArgIn[USGN]
     val C_usgn = ArgIn[USGN]
@@ -1585,7 +1662,7 @@ object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.62
     setArg(A_sgn, a_sgn)
     setArg(B_sgn, b_sgn)
     setArg(C_sgn, c_sgn)
-    val N = 2560
+    val N = 32
 
     // Conditions we will check
     val unbiased_mul_unsigned = DRAM[USGN](N) // 1
@@ -1593,7 +1670,8 @@ object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.62
     val satur_add_unsigned = ArgOut[USGN] // 3
     val satur_add_signed = ArgOut[SGN] // 4
     val unbiased_sat_mul_unsigned = ArgOut[USGN] // 5
-    val unbiased_sat_mul_signed = ArgOut[SGN] // 6
+    val unbiased_lower_sat_mul_signed = ArgOut[SGN] // 6
+    val unbiased_upper_sat_mul_signed = ArgOut[SGN] // 6
 
 
     Accel {
@@ -1608,7 +1686,8 @@ object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.62
       Pipe{ satur_add_unsigned := C_usgn <+> B_usgn}
       Pipe{ satur_add_signed := C_sgn <+> B_sgn}
       Pipe{ unbiased_sat_mul_unsigned := B_usgn <*&> C_usgn}
-      Pipe{ unbiased_sat_mul_signed := C_sgn <*&> A_sgn}
+      Pipe{ unbiased_lower_sat_mul_signed := C_sgn <*&> A_sgn}
+      Pipe{ unbiased_upper_sat_mul_signed := C_sgn <*&> (-1.to[SGN]*A_sgn)}
     }
 
 
@@ -1618,7 +1697,8 @@ object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.62
     val unbiased_mul_signed_res = getMem(unbiased_mul_signed)
     val satur_add_signed_res = getArg(satur_add_signed)
     val unbiased_sat_mul_unsigned_res = getArg(unbiased_sat_mul_unsigned)
-    val unbiased_sat_mul_signed_res = getArg(unbiased_sat_mul_signed)
+    val unbiased_lower_sat_mul_signed_res = getArg(unbiased_lower_sat_mul_signed)
+    val unbiased_upper_sat_mul_signed_res = getArg(unbiased_upper_sat_mul_signed)
 
     // Create validation checks and debug code
     val gold_unbiased_mul_unsigned = (a_usgn * b_usgn).to[FltPt[_24,_8]]
@@ -1628,7 +1708,8 @@ object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.62
     val gold_satur_add_signed = (-8).to[Float]
     val gold_satur_add_unsigned = (15.9375).to[Float]
     val gold_unbiased_sat_mul_unsigned = (15.9375).to[Float]
-    val gold_unbiased_sat_mul_signed = (-8).to[Float]
+    val gold_unbiased_lower_sat_mul_signed = (-8).to[Float]
+    val gold_unbiased_upper_sat_mul_signed = (7.9375).to[Float]
 
     // Get cksums
     val margin = scala.math.pow(2,-5).to[FltPt[_24,_8]]
@@ -1637,8 +1718,9 @@ object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.62
     val cksum3 = satur_add_unsigned_res == gold_satur_add_unsigned.to[USGN]
     val cksum4 = satur_add_signed_res == gold_satur_add_signed.to[SGN]
     val cksum5 = unbiased_sat_mul_unsigned_res == gold_unbiased_sat_mul_unsigned.to[USGN]
-    val cksum6 = unbiased_sat_mul_signed_res == gold_unbiased_sat_mul_signed.to[SGN]
-    val cksum = cksum1 && cksum2 && cksum3 && cksum4 && cksum5// && cksum6
+    val cksum6 = unbiased_lower_sat_mul_signed_res == gold_unbiased_lower_sat_mul_signed.to[SGN]
+    val cksum7 = unbiased_upper_sat_mul_signed_res == gold_unbiased_upper_sat_mul_signed.to[SGN]
+    val cksum = cksum1 && cksum2 && cksum3 && cksum4 && cksum5 && cksum6 && cksum7
 
     // Helpful prints
     println(cksum1 + " Unbiased Rounding Multiplication Unsigned: |" + gold_unbiased_mul_unsigned + " - " + gold_mean_unsigned + "| = " + abs(gold_unbiased_mul_unsigned-gold_mean_unsigned) + " <? " + margin)
@@ -1646,10 +1728,11 @@ object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.62
     println(cksum3 + " Saturating Addition Unsigned: " + satur_add_unsigned_res + " =?= " + gold_satur_add_unsigned.to[USGN])
     println(cksum4 + " Saturating Addition Signed: " + satur_add_signed_res + " =?= " + gold_satur_add_signed.to[SGN])
     println(cksum5 + " Unbiased Saturating Multiplication Unsigned: " + unbiased_sat_mul_unsigned_res + " =?= " + gold_unbiased_sat_mul_unsigned.to[SGN])
-    println(cksum6 + " Unbiased Saturating Multiplication Signed: " + unbiased_sat_mul_signed_res + " =?= " + gold_unbiased_sat_mul_signed.to[SGN])
+    println(cksum6 + " Unbiased (lower) Saturating Multiplication Signed: " + unbiased_lower_sat_mul_signed_res + " =?= " + gold_unbiased_lower_sat_mul_signed.to[SGN])
+    println(cksum6 + " Unbiased (upper) Saturating Multiplication Signed: " + unbiased_upper_sat_mul_signed_res + " =?= " + gold_unbiased_upper_sat_mul_signed.to[SGN])
 
 
-    println("PASS: " + cksum + " (SpecialMath) * Worth adding checks for saturation nodes when they don't saturate and lower bound saturation. Saturating unbiased mult not working")
+    println("PASS: " + cksum + " (SpecialMath) * Need to check subtraction and division ")
   }
 }
 
@@ -1738,13 +1821,13 @@ object MultiWriteBuffer extends SpatialApp { // Regression (Unit) // Args: none
 
     Accel {
       val accum = SRAM[Int](R, C)
-      MemReduce(accum)(0 until R) { row =>
+      MemReduce(accum)(1 until (R+1)) { row =>
         val sram_seq = SRAM[Int](R, C)
          Foreach(0 until R, 0 until C) { (r, c) =>
             sram_seq(r,c) = 0
          }
          Foreach(0 until C) { col =>
-            sram_seq(row, col) = 32*(row + col)
+            sram_seq(row-1, col) = 32*(row-1 + col)
          }
          sram_seq
       }  { (sr1, sr2) => sr1 + sr2 }
@@ -1762,44 +1845,3 @@ object MultiWriteBuffer extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
-object MemReduceOffset extends SpatialApp {
-  import IR._
-
-  @virtualize def main(): Unit = {
-    val y = ArgOut[Int]
-
-    Accel {
-      val accum = SRAM[Int](32, 32)
-      // TODO: Use MemReduce to generate entries for
-      // matrix A as defined in README.md.
-      MemReduce(accum)(1 until 33){i =>
-        val values = SRAM[Int](32, 32)
-        Foreach(0 until i, 0 until i){ (j, k) =>
-          values(j,k) = 0
-        }
-        Foreach(i until 32){ j =>
-          Foreach(i until 32){ k =>
-            values(j,k) = 64
-          }
-          Foreach(0 until i){ k =>
-            values(j,k) = 32
-          }
-          Foreach(0 until i){ k =>
-            values(k,j) = 32
-          }
-        }
-
-        Foreach(0 until 32, 0 until 32) {(i,j) => print(values(i,j) + " ") }
-        println("")
-
-        values
-      }{ (x, y) => x + y }
-
-      y := accum(0,0)
-    }
-
-    val result = getArg(y)
-    println("expected: " + 0)
-    println("result: " + result)
-  }
-}

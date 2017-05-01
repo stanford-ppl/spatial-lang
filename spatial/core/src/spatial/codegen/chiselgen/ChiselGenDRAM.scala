@@ -85,6 +85,39 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}_data(95,64) // Field 1")
       emit(src"io.memStreams.loads($id).cmd.valid :=  ${cmdStream}_valid// LSB is enable, instead of pulser?? Reg(UInt(1.W), pulser.io.out)")
       emit(src"io.memStreams.loads($id).cmd.bits.isWr := ~${cmdStream}_data(96) // Field 2")
+      emit(src"io.memStreams.loads($id).cmd.bits.isSparse := 0.U")
+
+    case FringeSparseLoad(dram,addrStream,dataStream) =>
+      // Get parallelization of datastream
+      val par = readersOf(dataStream).head.node match {
+        case Def(e@ParStreamRead(strm, ens)) => ens.length
+        case _ => 1
+      }
+      assert(par == 1, s"Unsupported par '$par' for sparse loads! Must be 1 currently")
+
+      val id = loadsList.length
+      loadParMapping = loadParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par})" 
+      loadsList = loadsList :+ dram
+      val turnstiling_stage = getLastChild(parentOf(lhs).get)
+      emitGlobalWire(src"""val ${turnstiling_stage}_enq = io.memStreams.loads(${id}).rdata.valid""")
+      val allData = dram.tp.typeArguments.head match {
+        case FixPtType(s,d,f) => if (spatialNeedsFPType(dram.tp.typeArguments.head)) {
+            (0 until par).map{ i => src"""Utils.FixedPoint($s,$d,$f,io.memStreams.loads($id).rdata.bits($i))""" }.mkString(",")
+          } else {
+            (0 until par).map{ i => src"io.memStreams.loads($id).rdata.bits($i)" }.mkString(",")
+          }
+        case _ => (0 until par).map{ i => src"io.memStreams.loads($id).rdata.bits($i)" }.mkString(",")
+      }
+      emit(src"""val ${dataStream}_data = Vec(List($allData))""")
+      emitGlobalWire(src"""val ${addrStream}_data = Wire(UInt(97.W)) // Not sure if width is right""")
+      emit(src"""${dataStream}_valid := io.memStreams.loads($id).rdata.valid""")
+      emit(src"${addrStream}_ready := io.memStreams.loads($id).cmd.ready")
+      emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready // Contains stage enable, rdatavalid, and fifo status")
+      emit(src"io.memStreams.loads($id).cmd.bits.addr := ${addrStream}_data(63,0) // Field 0")
+      emit(src"io.memStreams.loads($id).cmd.bits.size := 1.U")
+      emit(src"io.memStreams.loads($id).cmd.valid :=  ${addrStream}_valid// LSB is enable, instead of pulser?? Reg(UInt(1.W), pulser.io.out)")
+      emit(src"io.memStreams.loads($id).cmd.bits.isWr := false.B // Field 2")
+      emit(src"io.memStreams.loads($id).cmd.bits.isSparse := 1.U")
 
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
       // Get parallelization of datastream
@@ -108,22 +141,13 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"io.memStreams.stores($id).cmd.bits.size := ${cmdStream}_data(95,64) // Field 1")
       emit(src"io.memStreams.stores($id).cmd.valid :=  ${cmdStream}_valid // Field 2")
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := ~${cmdStream}_data(96)")
+      emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
       emit(src"${cmdStream}_ready := io.memStreams.stores($id).wdata.ready")
       emit(src"""${ackStream}_valid := io.memStreams.stores($id).wresp.valid""")
       emit(src"""io.memStreams.stores($id).wresp.ready := ${ackStream}_ready""")
 
-    case FringeSparseLoad(dram,addrStream,dataStream) =>
-      open(src"val $lhs = $addrStream.foreach{addr => ")
-        emit(src"$dataStream.enqueue( $dram(addr) )")
-      close("}")
-      emit(src"$addrStream.clear()")
-
     case FringeSparseStore(dram,cmdStream,ackStream) =>
-      open(src"val $lhs = $cmdStream.foreach{cmd => ")
-        emit(src"$dram(cmd._2) = cmd._1 ")
-        emit(src"$ackStream.enqueue(true)")
-      close("}")
-      emit(src"$cmdStream.clear()")
+      assert(false, "FringeSparseStore TODO")
 
     case _ => super.emitNode(lhs, rhs)
   }
