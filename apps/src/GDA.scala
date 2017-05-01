@@ -10,10 +10,17 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 80
   val C = MAXC
   val margin = 1
 
+<<<<<<< Updated upstream
   val ip = 2
   val op = 2
 
   val ts = 20
+=======
+  val innerPar = 1
+  val outerPar = 1
+
+  val tileSize = 2000
+>>>>>>> Stashed changes
 
   @virtualize
   def gda[T: Type : Num](xCPU: Array[T], yCPU: Array[Int], mu0CPU: Array[T], mu1CPU: Array[T]) = {
