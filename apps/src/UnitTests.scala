@@ -1108,25 +1108,25 @@ object GatherStore extends SpatialApp { // Regression (Sparse) // Args: none
 //  val offchip_dataSize = maxNumAddrs*6
 
   val tileSize = 64
-  val maxNumAddrs = tileSize * 1
-  val offchip_dataSize = maxNumAddrs * 6
+  val numAddr = tileSize * 1
+  val numData = numAddr * 6
 
   val P = param(1)
 
   @virtualize
-  def gatherStore[T:Type:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
+  def gatherStore[T:Type:Num](addrs: Array[Int], offchip_data: Array[T]) = {
 
-    val srcAddrs = DRAM[Int](maxNumAddrs)
-    val gatherData = DRAM[T](offchip_dataSize)
-    val denseResult = DRAM[T](offchip_dataSize)
+    val srcAddrs = DRAM[Int](numAddr)
+    val gatherData = DRAM[T](numData)
+    val denseResult = DRAM[T](numAddr)
 
     setMem(srcAddrs, addrs)
     setMem(gatherData, offchip_data)
 
     Accel {
-      val addrs = SRAM[Int](maxNumAddrs)
-      Sequential.Foreach(maxNumAddrs by tileSize) { i =>
-        val sram = SRAM[T](maxNumAddrs)
+      val addrs = SRAM[Int](tileSize)
+      Sequential.Foreach(numAddr by tileSize) { i =>
+        val sram = SRAM[T](tileSize)
         addrs load srcAddrs(i::i + tileSize par P)
         sram gather gatherData(addrs par P, tileSize)
         denseResult(i::i+tileSize) store sram
@@ -1139,9 +1139,7 @@ object GatherStore extends SpatialApp { // Regression (Sparse) // Args: none
   @virtualize
   def main() = {
 
-    val size = maxNumAddrs
-    val dataSize = offchip_dataSize
-    val addrs = Array.tabulate(size) { i =>
+    val addrs = Array.tabulate(numAddr) { i =>
       // i*2 // for debug
       // TODO: Macro-virtualized winds up being particularly ugly here..
       if      (i == 4)  lift(199)
@@ -1163,11 +1161,14 @@ object GatherStore extends SpatialApp { // Regression (Sparse) // Args: none
       else i*2 + offchip_dataSize/2
     }
 
-    val offchip_data = Array.fill(dataSize){ random[Int](dataSize) }
+    val offchip_data = Array.fill(numData){ random[Int](numData) }
 
-    val received = gatherStore(addrs, offchip_data, size, dataSize)
+    val received = gatherStore(addrs, offchip_data)
 
-    val gold = Array.tabulate(dataSize){ i => offchip_data(addrs(i)) }
+    val gold = Array.tabulate(numAddr){ i =>
+      println("i = " + i + ", addrs(i) = " + addrs(i))
+      offchip_data(addrs(i))
+    }
 
     printArray(gold, "gold:")
     printArray(received, "received:")

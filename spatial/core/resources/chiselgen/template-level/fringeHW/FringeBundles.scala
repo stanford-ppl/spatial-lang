@@ -71,7 +71,9 @@ class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo]) ex
 
 class DRAMCommand(w: Int, v: Int) extends Bundle {
   val addr = UInt(64.W)
+  val rawAddr = UInt(64.W)
   val isWr = Bool() // 1
+  val isSparse = Bool()
   val tag = UInt(w.W)
   val streamId = UInt(w.W)
   val wdata = Vec(v, UInt(w.W)) // v

@@ -27,19 +27,23 @@ extern uint64_t numCycles;
 class DRAMRequest {
 public:
   uint64_t addr;
+  uint64_t rawAddr;
   uint64_t tag;
   uint64_t channelID;
   bool isWr;
+  bool isSparse;
   uint32_t *wdata;
   uint32_t delay;
   uint32_t elapsed;
   uint64_t issued;
   bool completed;
 
-  DRAMRequest(uint64_t a, uint64_t t, bool wr, uint32_t *wd, uint64_t issueCycle) {
+  DRAMRequest(uint64_t a, uint64_t ra, uint64_t t, bool wr, bool sparse, uint32_t *wd, uint64_t issueCycle) {
     addr = a;
+    rawAddr = ra;
     tag = t;
     isWr = wr;
+    isSparse = sparse;
     if (isWr) {
       wdata = (uint32_t*) malloc(16 * sizeof(uint32_t));
       for (int i=0; i<16; i++) {
@@ -56,7 +60,7 @@ public:
   }
 
   void print() {
-    EPRINTF("[DRAMRequest CH=%lu] addr: %lx, tag: %lx, isWr: %d, delay: %u, issued=%lu\n", channelID, addr, tag, isWr, delay, issued);
+    EPRINTF("[DRAMRequest CH=%lu] addr: %lx (%lx), tag: %lx, isWr: %d, isSparse: %d, issued=%lu\n", channelID, addr, rawAddr, tag, isWr, isSparse, issued);
   }
 
   ~DRAMRequest() {
@@ -176,10 +180,12 @@ public:
 };
 
 extern "C" {
-  void sendDRAMRequest(
+  int sendDRAMRequest(
       long long addr,
+      long long rawAddr,
       int tag,
       int isWr,
+      int isSparse,
       int wdata0,
       int wdata1,
       int wdata2,
@@ -199,8 +205,10 @@ extern "C" {
     ) {
     // view addr as uint64_t without doing sign extension
     uint64_t cmdAddr = *(uint64_t*)&addr;
+    uint64_t cmdRawAddr = *(uint64_t*)&rawAddr;
     uint64_t cmdTag = (uint64_t)(*(uint32_t*)&tag);
     bool cmdIsWr = isWr > 0;
+    bool cmdIsSparse = isSparse > 0;
     uint32_t cmdWdata0 = (*(uint32_t*)&wdata0);
     uint32_t cmdWdata1 = (*(uint32_t*)&wdata1);
     uint32_t cmdWdata2 = (*(uint32_t*)&wdata2);
@@ -220,18 +228,33 @@ extern "C" {
 
     uint32_t wdata[16] = { cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3, cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7, cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11, cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15};
 
-    DRAMRequest *req = new DRAMRequest(cmdAddr, cmdTag, cmdIsWr, wdata, numCycles);
-    dramRequestQ.push(req);
+    DRAMRequest *req = new DRAMRequest(cmdAddr, cmdRawAddr, cmdTag, cmdIsWr, cmdIsSparse, wdata, numCycles);
 
     if (!useIdealDRAM) {
-      mem->addTransaction(cmdIsWr, cmdAddr, cmdTag);
-      req->channelID = mem->findChannelNumber(addr);
       struct AddrTag at(cmdAddr, cmdTag);
-      addrToReqMap[at] = req;
+      bool skipIssue = false;
+
+      if (cmdIsSparse) {
+        std::map<struct AddrTag, DRAMRequest*>::iterator it = addrToReqMap.find(at);
+        if (it == addrToReqMap.end()) {
+          EPRINTF("[SendDRAMRequest] Sparse request (%lx, %lx) will be issued\n", addr, tag);
+        } else {
+          skipIssue = true;
+          DRAMRequest* req = it->second;
+          EPRINTF("[SendDRAMRequest] Sparse request (%lx (%lx), %lx) in flight, will not be re-issued\n", addr, req->rawAddr, tag);
+        }
+      }
+      if (!skipIssue) {
+        dramRequestQ.push(req);
+        mem->addTransaction(cmdIsWr, cmdAddr, cmdTag);
+        req->channelID = mem->findChannelNumber(addr);
+        addrToReqMap[at] = req;
+      }
     }
     if (debug) {
       req->print();
     }
+    return 1;
   }
 }
 

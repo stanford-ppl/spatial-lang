@@ -94,12 +94,14 @@ class MAGCore(
   isSparseFifo.io.enq.zip(cmds) foreach { case (enq, cmd) => enq(0) := cmd.bits.isSparse }
   isSparseFifo.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid }
 
+  io.dram.cmd.bits.isSparse := isSparseFifo.io.deq(0)(0) & ~isSparseFifo.io.empty
   val scatterGather = Wire(Bool())
-  val sgPulse = Wire(Bool())
-  scatterGather := isSparseFifo.io.deq(0)(0) & ~isSparseFifo.io.empty
-  val sgPulser = Module(new Pulser())
-  sgPulser.io.in := scatterGather
-  sgPulse := sgPulser.io.out
+  scatterGather := io.config.scatterGather
+//  val sgPulse = Wire(Bool())
+//  scatterGather := isSparseFifo.io.deq(0)(0) & ~isSparseFifo.io.empty
+//  val sgPulser = Module(new Pulser())
+//  sgPulser.io.in := scatterGather
+//  sgPulse := sgPulser.io.out
 
   // Size FIFO
   val sizeFifo = Module(new FIFOArbiter(w, d, v, numStreams))
@@ -255,6 +257,7 @@ class MAGCore(
   tagOut.burstTag := Mux(scatterGather, burstAddrs(0), burstTagCounter.io.out)
 
   io.dram.cmd.bits.addr := Cat((burstAddrs(0) + burstCounter.io.out), 0.U(log2Up(burstSizeBytes).W))
+  io.dram.cmd.bits.rawAddr := addrFifo.io.deq(0)
   io.dram.cmd.bits.tag := Cat(tagOut.streamTag, tagOut.burstTag)
   io.dram.cmd.bits.streamId := tagOut.streamTag
   io.dram.cmd.bits.wdata := wdataFifo.io.deq
