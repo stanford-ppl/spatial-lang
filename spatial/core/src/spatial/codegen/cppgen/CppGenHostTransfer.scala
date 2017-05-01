@@ -59,7 +59,7 @@ trait CppGenHostTransfer extends CppGenSRAM  {
       reg.tp.typeArguments.head match {
         case FixPtType(s,d,f) => 
           emit(src"int64_t ${lhs}_tmp = c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)});", forceful = true)            
-          emit(src"bool ${lhs}_sgned = $s & (${lhs}_tmp & (1 << ${d+f-1}) > 0); // Determine sign")
+          emit(src"bool ${lhs}_sgned = $s & ((${lhs}_tmp & (1 << ${d+f-1})) > 0); // Determine sign")
           emit(src"if (${lhs}_sgned) ${lhs}_tmp = ${lhs}_tmp | ~((int64_t) (1 << ${d+f})-1); // Sign-extend if necessary //TODO: FIX WARNING HERE!")
           emit(src"${lhs.tp} ${lhs} = (${lhs.tp}) ${lhs}_tmp / (1 << $f);", forceful = true)            
         case _ => 
