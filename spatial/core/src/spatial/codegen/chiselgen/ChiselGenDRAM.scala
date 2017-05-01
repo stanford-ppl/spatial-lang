@@ -109,9 +109,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
         case _ => (0 until par).map{ i => src"io.memStreams.loads($id).rdata.bits($i)" }.mkString(",")
       }
       emit(src"""val ${dataStream}_data = Vec(List($allData))""")
+      emitGlobalWire(src"""val ${addrStream}_data = Wire(UInt(97.W)) // Not sure if width is right""")
       emit(src"""${dataStream}_valid := io.memStreams.loads($id).rdata.valid""")
       emit(src"${addrStream}_ready := io.memStreams.loads($id).cmd.ready")
-      emitGlobalWire(src"""val ${dataStream}_data = Wire(UInt(97.W)) // TODO: What is width of burstcmdbus?""")
       emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready // Contains stage enable, rdatavalid, and fifo status")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${addrStream}_data(63,0) // Field 0")
       emit(src"io.memStreams.loads($id).cmd.bits.size := 1.U")
