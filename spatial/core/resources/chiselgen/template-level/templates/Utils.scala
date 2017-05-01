@@ -125,6 +125,15 @@ object ops {
       Utils.FixedPoint(s, d, f, b)
     }
   }
+
+  implicit class DoubleOps(val b: Double) {
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+    def FP(s: Int, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+  }
 }
 
 object Utils {

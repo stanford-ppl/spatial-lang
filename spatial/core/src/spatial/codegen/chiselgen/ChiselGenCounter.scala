@@ -29,7 +29,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     emitGlobalWire(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
     emit(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix}_maxes = List(${counter_data.map(_._2).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
-    emit(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{q => "0.U"}.mkString(",")}) """)
+    emit(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}.mkString(",")}) """)
     emit(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4).mkString(",")}))) // Par of 0 creates forever counter""")
     emit(src"""${lhs}${suffix}.io.input.maxes.zip(${lhs}${suffix}_maxes).foreach { case (port,max) => port := max.number }""")
     emit(src"""${lhs}${suffix}.io.input.strides.zip(${lhs}${suffix}_strides).foreach { case (port,stride) => port := stride.number }""")
