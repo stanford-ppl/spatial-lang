@@ -4,3 +4,7 @@ BlackScholes, 98304,ip,16,ts,4096,op,2, 56672, 1
 
 BlackScholes, 1966080,ip,16,ts,8192,op,2, 1112672, 1
 
+BlackScholes, 94371840,ip,16,ts,8192,op,2, 53248567, 0
+
+BlackScholes, 94371840,ip,16,ts,32768,op,1, 52416022, 0
+
