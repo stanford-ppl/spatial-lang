@@ -117,13 +117,14 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case CChainCopy(name, inst, owner) =>
       emit(s"""val $name = CounterChain.copy("${owner.name}", "$name")""")
 
-    case CChainInstance(name, ctrs) =>
+    case CChainInstance(name, sym, ctrs) =>
       for (ctr <- ctrs) emitComponent(ctr)
       val ctrList = ctrs.map(_.name).mkString(", ")
-      emit(s"""val $name = CounterChain(name = "$name", $ctrList)""")
+      val iter = nIters(sym)
+      emit(s"""val $name = CounterChain(name = "$name", $ctrList).iter(${iter})""")
 
     case UnitCChain(name) =>
-      emit(s"""val $name = CounterChain(name = "$name", (Const("0i"), Const("1i"), Const("1i")))""")
+      emit(s"""val $name = CounterChain(name = "$name", (Const("0i"), Const("1i"), Const("1i"))).iter(1l)""")
 
     case ctr@CUCounter(start, end, stride, par) =>
       emit(s"""val ${ctr.name} = Counter(min=${quoteInCounter(start)}, max=${quoteInCounter(end)}, step=${quoteInCounter(stride)}, par=$par) // Counter""")

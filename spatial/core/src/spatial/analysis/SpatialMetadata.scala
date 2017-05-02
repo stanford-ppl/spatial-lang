@@ -38,7 +38,7 @@ trait SpatialMetadataExp extends IndexPatternExp { this: SpatialExp =>
     def update(x: Exp[_], value: BigInt): Unit = metadata.add(x, Bound(value))
     def update(x: Exp[_], value: MBound): Unit = metadata.add(x, value)
     def update(x: Exp[_], value: Option[MBound]): Unit = value.foreach{v => boundOf(x) = v }
-    def get(x: Exp[_]): Option[BigInt] = metadata[MBound](x).map(_.bound)
+    def get(x: Exp[_]): Option[BigInt] = getBound(x).map(_.bound)
     def apply(x: Exp[_]): BigInt = boundOf.get(x).get
   }
   private[spatial] def setBound[T:Type](x: T, value: BigInt): Unit = { boundOf(x.s) = value }

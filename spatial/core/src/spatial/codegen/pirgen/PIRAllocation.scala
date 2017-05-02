@@ -53,9 +53,7 @@ trait PIRAllocation extends PIRTraversal {
         Some((cchain, iters, valids))
       case Def(_:UnitPipe | _:Hwblock) => 
         val cu = allocateCU(pipe)
-        val ctr = CUCounter(ConstReg(1), ConstReg(1), ConstReg(1), 1)
-        val cc = CChainInstance(s"${pipe}_unit", List(ctr))
-        cu.cchains += cc
+        val cc = UnitCChain(s"${pipe}_unit")
         None
       case _ => None
     }
@@ -74,7 +72,7 @@ trait PIRAllocation extends PIRTraversal {
           val ConstReg(par) = extractConstant(parFactorsOf(ctr).head)
           allocateCounter(start, end, stride, par.asInstanceOf[Int])
         }
-        val cc = CChainInstance(quote(cchain), counters)
+        val cc = CChainInstance(quote(cchain), cchain, counters)
         cu.cchains += cc
         addIterators(cu, cc, iters, valids)
       }

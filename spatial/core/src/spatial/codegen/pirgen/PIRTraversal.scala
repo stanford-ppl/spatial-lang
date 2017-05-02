@@ -354,7 +354,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     if (destCU != srcCU) {
       val cchainCopies = srcCU.cchains.toList.map{
         case cc@CChainCopy(name, inst, owner) => cc -> cc
-        case cc@CChainInstance(name, ctrs)    => cc -> CChainCopy(name, cc, srcCU)
+        case cc@CChainInstance(name, sym, ctrs)    => cc -> CChainCopy(name, cc, srcCU)
         case cc@UnitCChain(name)              => cc -> CChainCopy(name, cc, srcCU)
       }
       val cchainMapping = Map[CUCChain,CUCChain](cchainCopies:_*)
@@ -376,6 +376,27 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
       cchainMapping
     }
     else Map.empty[CUCChain,CUCChain]
+  }
+
+  def nIters(x: Expr, ignorePar: Boolean = false): Long = x match {
+    case Def(CounterChainNew(ctrs)) =>
+      val loopIters = ctrs.map{
+        case Def(CounterNew(start,end,stride,par)) =>
+          val min = boundOf.get(start).map(_.toDouble).getOrElse(0.0)
+          val max = boundOf.get(end).map(_.toDouble).getOrElse(1.0)
+          val step = boundOf.get(stride).map(_.toDouble).getOrElse(1.0)
+          val p = boundOf.get(par).map(_.toDouble).getOrElse(1.0)
+          dbgs(s"nIter: bounds: min=$min, max=$max, step=$step, p=$p")
+
+          val nIters = Math.ceil(max - min/step)
+          if (ignorePar)
+            nIters.toLong
+          else
+            Math.ceil(nIters/p).toLong
+
+        case Def(Forever()) => 0L
+      }
+      loopIters.fold(1L){_*_}
   }
 
   /*
