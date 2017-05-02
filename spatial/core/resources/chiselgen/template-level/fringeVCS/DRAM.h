@@ -108,7 +108,7 @@ void printQueueStats() {
   EPRINTF("==== dramRequestQ status =====\n");
   while (it != dramRequestQ.end()) {
     DRAMRequest *r = *it;
-    EPRINTF("    addr: %lx (%lx), tag: %lx, completed: %d\n", r->addr, r->rawAddr, r->tag, r->completed);
+    EPRINTF("    addr: %lx (%lx), tag: %lx, sparse = %d, completed: %d\n", r->addr, r->rawAddr, r->tag, r->isSparse, r->completed);
     it++;
   }
   EPRINTF("==== END dramRequestQ status =====\n");
@@ -203,7 +203,7 @@ void checkAndSendDRAMResponse() {
               printQueueStats();
               for (int i = 0; i < 16; i++) {
                 DRAMRequest *head = dramRequestQ.front();
-                ASSERT(head->isSparse, "ERROR: Encountered non-sparse request while popping sparse requests!");
+                ASSERT(head->isSparse, "ERROR: Encountered non-sparse request at (%d) while popping sparse requests! (%lx, %lx)", i, head->addr, head->rawAddr);
                 ASSERT(head->isWr == writeRequest, "ERROR: Sparse request type mismatch");
                 ASSERT(head->tag == tag, "ERROR: Tag mismatch with sparse requests");
                 if (!writeRequest) {
