@@ -1171,6 +1171,95 @@ object GatherStore extends SpatialApp { // Regression (Sparse) // Args: none
   }
 }
 
+object LoadScatter extends SpatialApp { // Regression (Sparse) // Args: none
+  import IR._
+
+  val tileSize = 16
+  val numAddr = tileSize
+  val numData = tileSize * 4
+
+  val P = param(1)
+
+  @virtualize
+  def loadScatter[T:Type:Num](addrs: Array[Int], offchip_data: Array[T]) = {
+
+    val srcAddrs = DRAM[Int](numAddr)
+    val inData = DRAM[T](numData)
+    val scatterResult = DRAM[T](numData)
+
+    setMem(srcAddrs, addrs)
+    setMem(inData, offchip_data)
+
+    Accel {
+      val addrs = SRAM[Int](tileSize)
+      Sequential.Foreach(numAddr by tileSize) { i =>
+        val sram = SRAM[T](tileSize)
+        addrs load srcAddrs(i::i + tileSize par P)
+        sram gather inData(addrs par P, tileSize)
+        scatterResult(addrs par P, tileSize) scatter sram
+      }
+    }
+
+    getMem(scatterResult)
+  }
+
+  @virtualize
+  def main() = {
+
+//    val addrs = Array.tabulate(numAddr) { i =>
+//      // i*2 // for debug
+//      // TODO: Macro-virtualized winds up being particularly ugly here..
+//      if      (i == 4)  lift(199)
+//      else if (i == 6)  lift(numData-2)
+//      else if (i == 7)  lift(191)
+//      else if (i == 8)  lift(203)
+//      else if (i == 9)  lift(381)
+//      else if (i == 10) lift(numData-97)
+//      else if (i == 15) lift(97)
+//      else if (i == 16) lift(11)
+//      else if (i == 17) lift(99)
+//      else if (i == 18) lift(245)
+//      else if (i == 94) lift(3)
+//      else if (i == 95) lift(1)
+//      else if (i == 83) lift(101)
+//      else if (i == 70) lift(203)
+//      else if (i == 71) lift(numData-1)
+//      else if (i % 2 == 0) i*2
+//      else i*2 + numData/2
+//    }
+
+    val nd = numData
+    val na = numAddr
+    val mul = 2
+    val addrs = Array.tabulate(na) { i => i * mul }
+    val offchip_data = Array.tabulate[Int](nd){ i => i * 10 }
+
+    val received = loadScatter(addrs, offchip_data)
+
+    def contains(a: Array[Int], elem: Int) = {
+      a.map { e => e == elem }.reduce {_||_}
+    }
+
+    def indexOf(a: Array[Int], elem: Int) = {
+      val indices = Array.tabulate(a.length.to[Int]) { i => i }
+      if (contains(a, elem)) {
+        a.zip(indices) { case (e, idx) => if (e == elem) idx else lift(0) }.reduce {_+_}
+      } else lift(-1)
+    }
+
+    val gold = Array.tabulate(nd) { i =>
+      if (contains(addrs, i)) offchip_data(indexOf(addrs, i)) else lift(0)
+    }
+
+    printArray(offchip_data, "data:")
+    printArray(addrs, "addrs:")
+    printArray(gold, "gold:")
+    printArray(received, "received:")
+    val cksum = received.zip(gold){_ == _}.reduce{_&&_}
+    println("PASS: " + cksum + " (LoadScatter)")
+  }
+}
+
 // Args: none
 object ScatterGather extends SpatialApp { // Regression (Sparse) // Args: none
   import IR._
