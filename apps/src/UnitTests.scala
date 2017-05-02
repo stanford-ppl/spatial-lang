@@ -1103,9 +1103,9 @@ object BlockReduce2D extends SpatialApp { // Regression (Unit) // Args: 192 384
 object GatherStore extends SpatialApp { // Regression (Sparse) // Args: none
   import IR._
 
-  val tileSize = 64
-  val numAddr = tileSize * 1
-  val numData = tileSize * 6
+  val tileSize = 128
+  val numAddr = tileSize * 100
+  val numData = tileSize * 1000
 
   val P = param(1)
 
