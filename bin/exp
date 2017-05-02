@@ -185,6 +185,10 @@ def expRun():
     # target('MatMult_inner', [48, 7680, 3840], {'tsm':16, 'tsn':128, 'tsp':128, 'ip':16, 'mp':1, 'op':5}, regen='true')
     # target('MatMult_inner', [48, 7680, 3840], {'tsm':16, 'tsn':128, 'tsp':96, 'ip':16, 'mp':1, 'op':4}, regen='true')
     # target('MatMult_inner', [48, 7680, 3840], {'tsm':16, 'tsn':128, 'tsp':96, 'ip':16, 'mp':1, 'op':5}, regen='true')
+
+    # TODO segfaulted
+    # target('MatMult_inner', [48, 7680, 3840], {'tsm':256, 'tsn':80, 'tsp':256, 'ip':16, 'mp':1, 'op':5}, regen='true')
+    # target('MatMult_inner', [128, 7680, 3840], {'tsm':32, 'tsn':80, 'tsp':256, 'ip':16, 'mp':1, 'op':5}, regen='true')
     #################################################################################################################
     #TODO
     # target('BlackScholes', [96000], {'ip':16, 'op':1,  'ts': 1024}, regen='true')
@@ -206,6 +210,11 @@ def expRun():
     # target('BlackScholes', [96000], {'ip':16, 'op':2,  'ts': 8192}, regen='true')
     # target('BlackScholes', [96000], {'ip':16, 'op':4,  'ts': 8192}, regen='true') # not fit 
 
+    # target('BlackScholes', [98304], {'ip':16, 'op':2,  'ts': 2048}, regen='true')
+    # target('BlackScholes', [98304], {'ip':16, 'op':2,  'ts': 4096}, regen='true')
+    # target('BlackScholes', [1966080], {'ip':16, 'op':2,  'ts': 8192}, regen='true')
+    # target('BlackScholes', [94371840], {'ip':16, 'op':2,  'ts': 8192}, regen='true')
+
     #################################################################################################################
     # target('TPCHQ6', [96000], {'ip':16, 'op':1 , 'ts':2000}, regen='true')
     # target('TPCHQ6', [96000], {'ip':16, 'op':2 , 'ts':2000}, regen='true')
@@ -225,26 +234,28 @@ def expRun():
     # target('TPCHQ6', [96000], {'ip':16, 'op':6 , 'ts':4000}, regen='true') 
     # target('TPCHQ6', [96000], {'ip':16, 'op':8 , 'ts':4000}, regen='true')
     # target('TPCHQ6', [96000], {'ip':16, 'op':10, 'ts':4000}, regen='true')
+
+    # target('TPCHQ6', [96000], {'ip':16, 'op':10, 'ts':4000}, regen='true')
     #################################################################################################################
     # TODO
-    target('GDA', [384000], {'ip':16, 'op':4,  'ts':16}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':6,  'ts':16}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':8,  'ts':16}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':10, 'ts':16}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':2,  'ts':32}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':4,  'ts':32}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':6,  'ts':32}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':8,  'ts':32}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':10, 'ts':32}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':2,  'ts':64}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':4,  'ts':64}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':6,  'ts':64}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':8,  'ts':64}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':10, 'ts':64}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':4,  'ts':96}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':6,  'ts':96}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':8,  'ts':96}, regen='true')
-    target('GDA', [384000], {'ip':16, 'op':10, 'ts':96}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':4,  'ts':16}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':6,  'ts':16}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':8,  'ts':16}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':10, 'ts':16}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':2,  'ts':32}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':4,  'ts':32}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':6,  'ts':32}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':8,  'ts':32}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':10, 'ts':32}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':2,  'ts':64}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':4,  'ts':64}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':6,  'ts':64}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':8,  'ts':64}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':10, 'ts':64}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':4,  'ts':96}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':6,  'ts':96}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':8,  'ts':96}, regen='true')
+    # target('GDA', [384000], {'ip':16, 'op':10, 'ts':96}, regen='true')
     #################################################################################################################
     # args: iters, N
 
@@ -257,19 +268,14 @@ def expRun():
     # target('LogReg', [5, 1536], {'ip':16, 'op':4,  'ts':65, 'dim':384}, regen='true') 
     # target('LogReg', [5, 1536], {'ip':16, 'op':8,  'ts':65, 'dim':384}, regen='true') 
     # target('LogReg', [5, 1536], {'ip':16, 'op':10, 'ts':65, 'dim':384}, regen='true') 
+
+    #TODO
+    # target('LogReg', [5, 1536], {'ip':16, 'op':11, 'ts':65, 'dim':384}, regen='true')  # seg faulted
+    # target('LogReg', [5, 1536], {'ip':16, 'op':12, 'ts':65, 'dim':384}, regen='true') # seg faulted
     #################################################################################################################
     # numiter, N, alpha
-    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':2, 'ts':16, 'D':16}, regen='true') 
-    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':2, 'ts':16, 'D':16}, regen='true') 
-    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':2, 'ts':16, 'D':16}, regen='true') 
-    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':2, 'ts':16, 'D':16}, regen='true') 
-    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':12, 'ts':16, 'D':16}, regen='true') 
-    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':12, 'ts':16, 'D':16}, regen='true') 
-    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':12, 'ts':16, 'D':16}, regen='true') 
-    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':12, 'ts':16, 'D':16}, regen='true') 
-    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':12, 'ts':16, 'D':16}, regen='true') 
-    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':12, 'ts':16, 'D':16}, regen='true') 
-    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':12, 'ts':16, 'D':16}, regen='true') 
+    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':1, 'ts':384, 'D':16}, regen='true') 
+    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':1, 'ts':3840, 'D':16}, regen='true') 
 
     #################################################################################################################
     # args: iters, N

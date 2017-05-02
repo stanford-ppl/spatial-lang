@@ -5,3 +5,27 @@ Sun 30 Apr 2017 08:42:11 PM PDT GDA_384000_ip_16_ts_16_op_6  args=[384000 true]
 Sun 30 Apr 2017 08:38:39 PM PDT GDA_384000_ip_16_ts_64_op_6  args=[384000 true] 
 Sun 30 Apr 2017 08:42:14 PM PDT GDA_384000_ip_16_ts_32_op_2  args=[384000 true] 
 Sun 30 Apr 2017 08:42:03 PM PDT GDA_384000_ip_16_ts_16_op_4  args=[384000 true] 
+Mon 01 May 2017 07:26:45 AM PDT MatMult_inner_48_7680_3840_tsn_80_tsm_256_ip_16_mp_1_tsp_256_op_5  args=[48 7680 3840 true] 
+Mon 01 May 2017 07:37:27 AM PDT LogReg_5_1536_ip_16_ts_65_dim_384_op_11  args=[5 1536 true] 
+Mon 01 May 2017 07:37:28 AM PDT LogReg_5_1536_ip_16_ts_65_dim_384_op_12  args=[5 1536 true] 
+Mon 01 May 2017 07:57:43 AM PDT LogReg_2_64_ip_4_ts_16_dim_16_op_2 Design ran for 1168 cycles, status = 1 args=[2 64 true] PASS: 0 (LogReg)
+Mon 01 May 2017 07:57:42 AM PDT GDA_128_ip_16_ts_32_op_2 Design ran for 301942 cycles, status = 1 args=[128 true] PASS: 1 (GDA)
+Mon 01 May 2017 07:59:30 AM PDT SGD_5_38400_0d0001_ip_16_ts_16_D_16_op_2  args=[5 38400 0.0001 true] 
+Mon 01 May 2017 08:00:33 AM PDT SGD_5_38400_0d0001_ip_16_ts_16_D_16_op_2 Design ran for 12257002 cycles, status = 1 args=[5 38400 0.0001 true] PASS: 1 (SGD)
+Sun 30 Apr 2017 08:22:59 PM PDT GDA_384000_ip_16_ts_96_op_10 Design ran for 177196004 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Sun 30 Apr 2017 08:22:55 PM PDT GDA_384000_ip_16_ts_64_op_10 Design ran for 177253862 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Sun 30 Apr 2017 08:42:06 PM PDT GDA_384000_ip_16_ts_16_op_10 Design ran for 177791904 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Sun 30 Apr 2017 08:43:10 PM PDT GDA_384000_ip_16_ts_32_op_10 Design ran for 177431904 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Sun 30 Apr 2017 08:22:48 PM PDT GDA_384000_ip_16_ts_32_op_6 Design ran for 295713207 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Sun 30 Apr 2017 08:22:43 PM PDT GDA_384000_ip_16_ts_16_op_6  args=[384000 true] 
+Sun 30 Apr 2017 08:22:49 PM PDT GDA_384000_ip_16_ts_32_op_8 Design ran for 221787299 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Sun 30 Apr 2017 08:22:44 PM PDT GDA_384000_ip_16_ts_16_op_8  args=[384000 true] 
+Sun 30 Apr 2017 08:22:58 PM PDT GDA_384000_ip_16_ts_96_op_8 Design ran for 221490114 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Sun 30 Apr 2017 08:42:05 PM PDT GDA_384000_ip_16_ts_16_op_8 Design ran for 222237899 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Sun 30 Apr 2017 08:43:41 PM PDT GDA_384000_ip_16_ts_64_op_8 Design ran for 221563732 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Sun 30 Apr 2017 08:42:04 PM PDT GDA_384000_ip_16_ts_16_op_6 Design ran for 296314715 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Mon 01 May 2017 09:49:07 AM PDT SGD_30_38400_0d0001_ip_16_ts_384_D_16_op_1 Design ran for 69993807 cycles, status = 1 args=[30 38400 0.0001 true] PASS: 1 (SGD)
+Sun 30 Apr 2017 08:22:42 PM PDT GDA_384000_ip_16_ts_16_op_4  args=[384000 true] 
+Sun 30 Apr 2017 08:38:38 PM PDT GDA_384000_ip_16_ts_64_op_4 Design ran for 443115256 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Sun 30 Apr 2017 08:22:56 PM PDT GDA_384000_ip_16_ts_96_op_4 Design ran for 442965768 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Sun 30 Apr 2017 08:42:10 PM PDT GDA_384000_ip_16_ts_16_op_4 Design ran for 444468365 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
