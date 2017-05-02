@@ -663,14 +663,14 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   def main() {
     val arraySize = args(0).to[Int]
 
-    val src1 = Array.tabulate(arraySize) { i => i % 64 }
-    val src2 = Array.tabulate(arraySize) { i => i % 64 + 4096}
-    val src3 = Array.tabulate(arraySize) { i => i % 64 + 2*4096}
+    val src1 = Array.tabulate(arraySize) { i => i % 16 }
+    val src2 = Array.tabulate(arraySize) { i => i % 16 + 256}
+    val src3 = Array.tabulate(arraySize) { i => i % 16 + 2*256}
     val out = parFifoLoad(src1, src2, src3, arraySize)
 
-    val sub1_for_check = Array.tabulate(arraySize-tileSize) {i => i % 64}
-    val sub2_for_check = Array.tabulate(arraySize-tileSize) {i => i % 64 + 4096}
-    val sub3_for_check = Array.tabulate(arraySize-tileSize) {i => i % 64 + 2*4096}
+    val sub1_for_check = Array.tabulate(arraySize-tileSize) {i => i % 16}
+    val sub2_for_check = Array.tabulate(arraySize-tileSize) {i => i % 16 + 256}
+    val sub3_for_check = Array.tabulate(arraySize-tileSize) {i => i % 16 + 2*256}
 
     // val gold = src1.zip(src2){_*_}.zipWithIndex.filter( (a:Int, i:Int) => i > arraySize-64).reduce{_+_}
     val gold = src1.zip(src2){_*_}.zip(src3){_*_}.reduce{_+_} - sub1_for_check.zip(sub2_for_check){_*_}.zip(sub3_for_check){_*_}.reduce(_+_)
@@ -1662,7 +1662,7 @@ object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.62
     setArg(A_sgn, a_sgn)
     setArg(B_sgn, b_sgn)
     setArg(C_sgn, c_sgn)
-    val N = 32
+    val N = 256
 
     // Conditions we will check
     val unbiased_mul_unsigned = DRAM[USGN](N) // 1
@@ -1712,7 +1712,7 @@ object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.62
     val gold_unbiased_upper_sat_mul_signed = (7.9375).to[Float]
 
     // Get cksums
-    val margin = scala.math.pow(2,-5).to[FltPt[_24,_8]]
+    val margin = scala.math.pow(2,-4).to[FltPt[_24,_8]]
     val cksum1 = (abs(gold_unbiased_mul_unsigned - gold_mean_unsigned).to[FltPt[_24,_8]] < margin) 
     val cksum2 = (abs(gold_unbiased_mul_signed - gold_mean_signed).to[FltPt[_24,_8]] < margin) 
     val cksum3 = satur_add_unsigned_res == gold_satur_add_unsigned.to[USGN]
