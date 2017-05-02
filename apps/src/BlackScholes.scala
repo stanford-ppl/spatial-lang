@@ -8,8 +8,8 @@ object BlackScholes extends SpatialApp {
 
   val margin = 0.5f // Validates true if within +/- margin
   val ip = 16
-  val op = 1
-  val ts = 2000
+  val op = 2
+  val ts = 2048
 
   final val inv_sqrt_2xPI = 0.39894228040143270286f
 
