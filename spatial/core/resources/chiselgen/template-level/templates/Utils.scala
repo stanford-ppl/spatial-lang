@@ -125,6 +125,15 @@ object ops {
       Utils.FixedPoint(s, d, f, b)
     }
   }
+
+  implicit class DoubleOps(val b: Double) {
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+    def FP(s: Int, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+  }
 }
 
 object Utils {
@@ -156,12 +165,12 @@ object Utils {
     }
   }
 
-  def ShiftRegister[T <: chisel3.core.Data](data: T, size: Int):T = {
-    data match {
-      case d: UInt => chisel3.util.ShiftRegister(data, size)
-      case d: FixedPoint => chisel3.util.ShiftRegister(data, size)
-    }
-  }
+  // def ShiftRegister[T <: chisel3.core.Data](data: T, size: Int):T = {
+  //   data match {
+  //     case d: UInt => chisel3.util.ShiftRegister(data, size)
+  //     case d: FixedPoint => chisel3.util.ShiftRegister(data, size)
+  //   }
+  // }
 
   // def Reverse[T <: chisel3.core.Data](data: T):T = {
   //   data match {

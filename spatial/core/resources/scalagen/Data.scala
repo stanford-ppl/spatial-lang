@@ -156,40 +156,62 @@ case class NumberRange(override val start: Number, override val end: Number, ove
 }
 
 object Number {
-  private def create(value: BigDecimal, valid: Boolean, fmt: NumberFormat, saturating: Boolean, unbiased: Boolean) = fmt match {
-    case FixedPoint(s,i,f) =>
-      val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1 )
-      val MIN_INTEGRAL_VALUE = BigDecimal( if (s) -(BigInt(1) << (i-1)) else BigInt(0) )
-
-      val intValue = value * math.pow(2, f)
-      val number = if (unbiased) {
-        val rand = scala.util.Random.nextDouble() // uniform between 0 and 1
-        val added = intValue + rand
-        new Number(BigDecimal(added.toBigInt) / math.pow(2, f), valid, fmt)
-      }
-      else {
-        new Number(BigDecimal(intValue.toBigInt) / math.pow(2, f), valid, fmt) // Floor followed by divide
-      }
-
-      if (saturating && number.value < MIN_INTEGRAL_VALUE) {
-        new Number(MIN_INTEGRAL_VALUE, valid, fmt)
-      }
-      else if (saturating && number.value > MAX_INTEGRAL_VALUE) {
-        new Number(MAX_INTEGRAL_VALUE, valid, fmt)
-      }
-      else if (number.value < MIN_INTEGRAL_VALUE || number.value > MAX_INTEGRAL_VALUE) {
-        val b = number.bits
-        Number(b, fmt)
-      }
-      else number
-
-    case FloatPoint(g,e) => new Number(value, valid, fmt)
+  private def clamp(bits: BigInt, valid: Boolean, fmt: NumberFormat) = {
+    val FixedPoint(s,i,f) = fmt
+    if (bits < 0) {
+      var x = BigInt(-1)
+      Range(0, i+f).foreach { i => if (!bits.testBit(i)) x = x.flipBit(i) }
+      new Number(BigDecimal(x) / BigDecimal(BigInt(1) << f), valid, fmt)
+    }
+    else {
+      val mask = if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1
+      var x = BigInt(0)
+      Range(0, i+f).foreach { i => if (bits.testBit(i)) x = x.flipBit(i) }
+      new Number(BigDecimal(x) / BigDecimal(BigInt(1) << f), valid, fmt)
+    }
   }
 
-  def unbiased(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = create(value,valid,fmt,saturating = false, unbiased = true)
-  def saturating(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = create(value,valid,fmt,saturating = true, unbiased = false)
-  def unbiasedSat(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = create(value,valid,fmt,saturating = true, unbiased = true)
-  def apply(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = create(value,valid,fmt,saturating = false, unbiased = false)
+  def unbiased(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = {
+    val FixedPoint(s,i,f) = fmt
+    val intValue = value * BigDecimal(BigInt(1) << f)
+    val rand = scala.util.Random.nextFloat() // uniform between 0 and 1
+    val bits = (intValue + rand).toBigInt
+    Number.clamp(bits, valid, fmt)
+  }
+  def saturating(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = {
+    val FixedPoint(s, i, f) = fmt
+    val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1 )
+    val MIN_INTEGRAL_VALUE = BigDecimal( if (s) -(BigInt(1) << (i-1)) else BigInt(0) )
+    if (value < MIN_INTEGRAL_VALUE) {
+      new Number(MIN_INTEGRAL_VALUE, valid, fmt)
+    }
+    else if (value > MAX_INTEGRAL_VALUE) {
+      new Number(MAX_INTEGRAL_VALUE, valid, fmt)
+    }
+    else Number.apply(value, valid, fmt)
+  }
+  def unbiasedSat(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = {
+    val FixedPoint(s,i,f) = fmt
+    val intValue = value * BigDecimal(BigInt(1) << f)
+    val rand = scala.util.Random.nextFloat() // uniform between 0 and 1
+    val bits = intValue + rand
+    val MAX_INTEGRAL_VALUE = BigDecimal(if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1)
+    val MIN_INTEGRAL_VALUE = BigDecimal(if (s) -(BigInt(1) << (i-1)) else BigInt(0))
+    if (bits < MIN_INTEGRAL_VALUE) {
+      new Number(MIN_INTEGRAL_VALUE, valid, fmt)
+    }
+    else if (bits > MAX_INTEGRAL_VALUE) {
+      new Number(MAX_INTEGRAL_VALUE, valid, fmt)
+    }
+    else new Number(bits / BigDecimal(BigInt(1) << f), valid, fmt)
+  }
+  def apply(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = fmt match {
+    case FixedPoint(s,i,f) =>
+      val bits = value * BigDecimal(BigInt(1) << f)
+      Number.clamp(bits.toBigInt, valid, fmt)
+    case FloatPoint(_,_) =>
+      new Number(value, valid, fmt)
+  }
 
   def apply(value: Int): Number = Number(BigDecimal(value), true, IntFormat)
   def apply(value: Long): Number = Number(BigDecimal(value), true, LongFormat)
@@ -198,8 +220,8 @@ object Number {
   def apply(value: String, fmt: NumberFormat): Number = Number(BigDecimal(value), true, fmt)
 
   def apply(value: BigInt, valid: Boolean, fmt: NumberFormat): Number = fmt match {
-    case FixedPoint(s,i,f) => Number(BigDecimal(value) / math.pow(2,f), valid, fmt)
-    case FloatPoint(_,_)   => Number(BigDecimal(value), valid, fmt)
+    case FixedPoint(s,i,f) => Number.clamp(value, valid, fmt)
+    case FloatPoint(_,_)   => Number.apply(BigDecimal(value), valid, fmt)
   }
   // Array format is big-endian (first (head) is LSB, last bit in Array is MSB)
   def apply(bits: Array[Bit], fmt: NumberFormat): Number = fmt match {
@@ -209,12 +231,12 @@ object Number {
       if (signed && bits.last.value) { // Is negative number
         var x = BigInt(-1) // Start with all 1s
         bits.zipWithIndex.foreach { case (bit, i) => if (!bit.value) x = x.flipBit(i) }
-        Number(x, valid, fmt)
+        new Number(BigDecimal(x), valid, fmt)
       }
       else {
         var x = BigInt(0) // Start with all 0s
         bits.zipWithIndex.foreach { case (bit, i) => if (bit.value) x = x.flipBit(i) }
-        Number(x, valid, fmt)
+        new Number(BigDecimal(x), valid, fmt)
       }
 
     case FloatPoint(_,_) => throw new Exception("TODO: Bitwise operators not yet defined for floating point")
@@ -234,7 +256,7 @@ object Number {
       val bits = Array.tabulate(i + f){i => Bit(scala.util.Random.nextBoolean()) }
       Number(bits, fmt)
 
-    case FloatPoint(g,e) => throw new Exception("TODO: Random fixed point")
+    case FloatPoint(g,e) => throw new Exception("TODO: Random floating point")
   }
 
   // TODO: Fix these!

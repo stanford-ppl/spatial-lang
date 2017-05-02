@@ -5,7 +5,7 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 480 480
   import IR._
   type X = Int
 
-  val ip = 2
+  val ip = 16
   val op = 2
 
   val tileSize1 = 48

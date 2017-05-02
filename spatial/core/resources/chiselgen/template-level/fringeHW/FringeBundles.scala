@@ -22,6 +22,7 @@ case class MAGOpcode() extends Bundle {
 class Command(w: Int) extends Bundle {
   val addr = UInt(w.W)
   val isWr = Bool()
+  val isSparse = Bool()
   val size = UInt(w.W)
 
   override def cloneType(): this.type = {
