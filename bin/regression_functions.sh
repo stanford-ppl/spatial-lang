@@ -632,6 +632,7 @@ sed -i 's/#define EPRINTF(...) fprintf/#define EPRINTF(...) \\/\\/fprintf/g' cpp
 sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
+sed -i 's/\\\$vcdpluson/\\/\\/\\\$vcdpluson/g' chisel/template-level/fringeVCS/Top-harness.sv
 
 make vcs 2>&1 | tee -a ${5}/log" >> $1
   if [[ ${type_todo} = "chisel" ]]; then

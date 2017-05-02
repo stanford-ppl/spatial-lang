@@ -77,6 +77,7 @@ class CoalescingCache(val w: Int, val d: Int, val v: Int) extends Module {
   // Create tag array, populate readHit table
   val tags = List.tabulate(d) { i =>
     val ff = Module(new FF(taglen))
+    ff.io.init := 0.U
     ff.io.in := wburstAddr
     ff.io.enable := (io.wen & writeIdx === i.U)
     readHit(i) := io.readEn & valid(i).io.out & (rburstAddr === ff.io.out)
