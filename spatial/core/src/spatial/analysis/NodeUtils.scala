@@ -35,6 +35,18 @@ trait NodeUtils { this: SpatialExp =>
       }
       dfs(Seq(x))
     }
+    def collectDeps(y: PartialFunction[Exp[_],Exp[_]]): Seq[Exp[_]] = {
+      def dfs(frontier: Seq[Exp[_]]): Seq[Exp[_]] = frontier.flatMap{
+        case s @ Def(d) if y.isDefinedAt(s) => y(s) +: dfs(d.inputs)
+        case s if y.isDefinedAt(s) => Seq(y(s))
+        case Def(d) => dfs(d.inputs)
+        case _ => Nil
+      }
+      dfs(Seq(x))
+    }
+    // x: StreamOut, y: StreamOutWrite
+    // y.collectDeps{case Def(StreamInRead(strm)) => strm}
+    // writersOf(x).head.node.collectDeps{case Def(StreamInRead(strm)) => strm }
   }
 
   /**
