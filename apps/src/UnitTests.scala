@@ -663,14 +663,14 @@ object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   def main() {
     val arraySize = args(0).to[Int]
 
-    val src1 = Array.tabulate(arraySize) { i => i % 16 }
-    val src2 = Array.tabulate(arraySize) { i => i % 16 + 256}
-    val src3 = Array.tabulate(arraySize) { i => i % 16 + 2*256}
+    val src1 = Array.tabulate(arraySize) { i => i % 4 }
+    val src2 = Array.tabulate(arraySize) { i => i % 4 + 16}
+    val src3 = Array.tabulate(arraySize) { i => i % 4 + 2*16}
     val out = parFifoLoad(src1, src2, src3, arraySize)
 
-    val sub1_for_check = Array.tabulate(arraySize-tileSize) {i => i % 16}
-    val sub2_for_check = Array.tabulate(arraySize-tileSize) {i => i % 16 + 256}
-    val sub3_for_check = Array.tabulate(arraySize-tileSize) {i => i % 16 + 2*256}
+    val sub1_for_check = Array.tabulate(arraySize-tileSize) {i => i % 4}
+    val sub2_for_check = Array.tabulate(arraySize-tileSize) {i => i % 4 + 16}
+    val sub3_for_check = Array.tabulate(arraySize-tileSize) {i => i % 4 + 2*16}
 
     // val gold = src1.zip(src2){_*_}.zipWithIndex.filter( (a:Int, i:Int) => i > arraySize-64).reduce{_+_}
     val gold = src1.zip(src2){_*_}.zip(src3){_*_}.reduce{_+_} - sub1_for_check.zip(sub2_for_check){_*_}.zip(sub3_for_check){_*_}.reduce(_+_)
