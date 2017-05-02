@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <stdio.h>
 #include <vector>
-#include <queue>
+#include <deque>
 #include <map>
 #include <poll.h>
 #include <fcntl.h>
@@ -24,6 +24,12 @@ DRAMSim::MultiChannelMemorySystem *mem = NULL;
 bool useIdealDRAM = false;
 bool debug = true;
 extern uint64_t numCycles;
+uint32_t wordSizeBytes = 4;
+uint32_t burstSizeBytes = 64;
+uint32_t burstSizeWords = burstSizeBytes / wordSizeBytes;
+
+uint64_t sparseRequestCounter = 0;  // Used to provide unique tags to each sparse request
+
 class DRAMRequest {
 public:
   uint64_t addr;
@@ -86,11 +92,30 @@ struct AddrTag {
 	}
 };
 
-std::queue<DRAMRequest*> dramRequestQ;
+std::deque<DRAMRequest*> dramRequestQ;
 std::map<struct AddrTag, DRAMRequest*> addrToReqMap;
 
+std::map<struct AddrTag, DRAMRequest**> sparseRequestCache;
+
+uint32_t getWordOffset(uint64_t addr) {
+  return (addr & (burstSizeBytes - 1)) >> 2;   // TODO: Use parameters above!
+}
+
+void printQueueStats() {
+  // Ensure that all top 16 requests have been completed
+  deque<DRAMRequest*>::iterator it = dramRequestQ.begin();
+
+  EPRINTF("==== dramRequestQ status =====\n");
+  while (it != dramRequestQ.end()) {
+    DRAMRequest *r = *it;
+    EPRINTF("    addr: %lx (%lx), tag: %lx, completed: %d\n", r->addr, r->rawAddr, r->tag, r->completed);
+    it++;
+  }
+  EPRINTF("==== END dramRequestQ status =====\n");
+}
+
 void checkAndSendDRAMResponse() {
-  // If request happens to be in front of queue, pop and poke DRAM response
+  // If request happens to be in front of deque, pop and poke DRAM response
   if (dramRequestQ.size() > 0) {
     DRAMRequest *req = dramRequestQ.front();
 
@@ -110,48 +135,116 @@ void checkAndSendDRAMResponse() {
       uint32_t ready = (uint32_t)*dramRespReady;
 
       if (ready > 0) {
-        dramRequestQ.pop();
-        if (debug) {
-          EPRINTF("[Sending DRAM resp to]: ");
-          req->print();
-        }
-
-        uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-        if (req->isWr) {
-          // Write request: Update 1 burst-length bytes at *addr
-          uint32_t *waddr = (uint32_t*) req->addr;
-          for (int i=0; i<16; i++) {
-            waddr[i] = req->wdata[i];
+        if (!req->isSparse) {
+          dramRequestQ.pop_front();
+          if (debug) {
+            EPRINTF("[Sending DRAM resp to]: ");
+            req->print();
           }
-        } else {
-          // Read request: Read burst-length bytes at *addr
-          uint32_t *raddr = (uint32_t*) req->addr;
-          for (int i=0; i<16; i++) {
-            rdata[i] = raddr[i];
-    //            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
-          }
-        }
 
-        pokeDRAMResponse(
-            req->tag,
-            rdata[0],
-            rdata[1],
-            rdata[2],
-            rdata[3],
-            rdata[4],
-            rdata[5],
-            rdata[6],
-            rdata[7],
-            rdata[8],
-            rdata[9],
-            rdata[10],
-            rdata[11],
-            rdata[12],
-            rdata[13],
-            rdata[14],
-            rdata[15]
-          );
+          uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+          if (req->isWr) {
+            // Write request: Update 1 burst-length bytes at *addr
+            uint32_t *waddr = (uint32_t*) req->addr;
+            for (int i=0; i<16; i++) {
+              waddr[i] = req->wdata[i];
+            }
+          } else {
+            // Read request: Read burst-length bytes at *addr
+            uint32_t *raddr = (uint32_t*) req->addr;
+            for (int i=0; i<16; i++) {
+              rdata[i] = raddr[i];
+      //            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
+            }
+          }
+
+          pokeDRAMResponse(
+              req->tag,
+              rdata[0],
+              rdata[1],
+              rdata[2],
+              rdata[3],
+              rdata[4],
+              rdata[5],
+              rdata[6],
+              rdata[7],
+              rdata[8],
+              rdata[9],
+              rdata[10],
+              rdata[11],
+              rdata[12],
+              rdata[13],
+              rdata[14],
+              rdata[15]
+            );
+          } else {
+            // Ensure that all top 16 requests have been completed
+            deque<DRAMRequest*>::iterator it = dramRequestQ.begin();
+            bool sparseReqCompleted = true;
+            for (int i = 0; i < 16; i++) {
+              DRAMRequest *r = *it;
+              if (!r->completed) {
+                sparseReqCompleted = false;
+                break;
+              }
+              it++;
+            }
+
+
+            if (sparseReqCompleted) {
+              bool writeRequest = req->isWr;
+              uint64_t tag = req->tag;
+
+              ASSERT(!writeRequest, "Sparse writes not yet supported!\n");
+              uint64_t gatherAddr[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+              uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+              printQueueStats();
+              for (int i = 0; i < 16; i++) {
+                DRAMRequest *head = dramRequestQ.front();
+                ASSERT(head->isSparse, "ERROR: Encountered non-sparse request while popping sparse requests!");
+                ASSERT(head->isWr == writeRequest, "ERROR: Sparse request type mismatch");
+                ASSERT(head->tag == tag, "ERROR: Tag mismatch with sparse requests");
+                if (!writeRequest) {
+                  uint32_t *raddr = (uint32_t*) head->rawAddr;
+                  rdata[i] = *raddr;
+                  gatherAddr[i] = head->rawAddr;
+                } else {
+                  ASSERT(false, "ERROR: Sparse writes not supported yet!");
+                }
+                dramRequestQ.pop_front();
+              }
+
+              EPRINTF("[checkAndSendDRAMResponse] Gather complete with following details:\n");
+              for (int i = 0; i<16; i++) {
+                EPRINTF("---- addr %lx: data %x\n", gatherAddr[i], rdata[i]);
+              }
+
+              printQueueStats();
+
+              pokeDRAMResponse(
+                  req->tag,
+                  rdata[0],
+                  rdata[1],
+                  rdata[2],
+                  rdata[3],
+                  rdata[4],
+                  rdata[5],
+                  rdata[6],
+                  rdata[7],
+                  rdata[8],
+                  rdata[9],
+                  rdata[10],
+                  rdata[11],
+                  rdata[12],
+                  rdata[13],
+                  rdata[14],
+                  rdata[15]
+                );
+
+            }
+          }
       } else {
         if (debug) {
           EPRINTF("[SIM] dramResp not ready, numCycles = %ld\n", numCycles);
@@ -176,6 +269,20 @@ public:
     DRAMRequest* req = it->second;
     req->completed = true;
     addrToReqMap.erase(at);
+
+    if (req->isSparse) { // Mark all waiting transactions done
+      at.tag = at.tag & 0xFFFFFFFF;
+      std::map<struct AddrTag, DRAMRequest**>::iterator it = sparseRequestCache.find(at);
+      ASSERT(it != sparseRequestCache.end(), "Could not find (%lx, %lx) in sparseRequestCache!", addr, tag);
+      DRAMRequest **line = it->second;
+      for (int i = 0; i < 16; i++) {
+        if (line[i] != NULL) {
+          line[i]->completed = true;
+        }
+      }
+      sparseRequestCache.erase(at);
+    }
+
   }
 };
 
@@ -203,6 +310,8 @@ extern "C" {
       int wdata14,
       int wdata15
     ) {
+    int dramReady = 1;  // 1 == ready, 0 == not ready (stall upstream)
+
     // view addr as uint64_t without doing sign extension
     uint64_t cmdAddr = *(uint64_t*)&addr;
     uint64_t cmdRawAddr = *(uint64_t*)&rawAddr;
@@ -228,33 +337,76 @@ extern "C" {
 
     uint32_t wdata[16] = { cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3, cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7, cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11, cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15};
 
+
     DRAMRequest *req = new DRAMRequest(cmdAddr, cmdRawAddr, cmdTag, cmdIsWr, cmdIsSparse, wdata, numCycles);
+    EPRINTF("[sendDRAMRequest] Called with addr: %lx (%lx), tag: %lx, isWr: %d, isSparse: %d\n", cmdAddr, cmdRawAddr, cmdTag, cmdIsWr, cmdIsSparse);
 
     if (!useIdealDRAM) {
-      struct AddrTag at(cmdAddr, cmdTag);
       bool skipIssue = false;
+      struct AddrTag at(cmdAddr, cmdTag);
 
-      if (cmdIsSparse) {
-        std::map<struct AddrTag, DRAMRequest*>::iterator it = addrToReqMap.find(at);
-        if (it == addrToReqMap.end()) {
-          EPRINTF("[SendDRAMRequest] Sparse request (%lx, %lx) will be issued\n", addr, tag);
-        } else {
+			if (!cmdIsSparse) { // Dense request
+        addrToReqMap[at] = req;
+        skipIssue = false;
+      } else {  // Sparse request
+        std::map<struct AddrTag, DRAMRequest**>::iterator it = sparseRequestCache.find(at);
+        EPRINTF("[sendDRAMRequest] Sparse request, looking up (addr = %lx, tag = %lx)\n", at.addr, at.tag);
+        if (it == sparseRequestCache.end()) { // MISS
+          EPRINTF("[sendDRAMRequest] MISS, creating new cache line:\n");
+          skipIssue = false;
+          DRAMRequest **line = new DRAMRequest*[16]; // One outstanding request per word
+          memset(line, 0, 16*sizeof(DRAMRequest*));
+          line[getWordOffset(cmdRawAddr)] = req;
+          for (int i=0; i<16; i++) {
+            EPRINTF("---- %p ", line[i]);
+          }
+          EPRINTF("\n");
+
+          sparseRequestCache[at] = line;
+
+          // Disambiguate each request with unique tag in the addr -> req mapping
+          uint64_t sparseTag = ((sparseRequestCounter++) << 32) | (cmdTag & 0xFFFFFFFF);
+          at.tag = sparseTag;
+          addrToReqMap[at] = req;
+        } else {  // HIT
+          EPRINTF("[sendDRAMRequest] HIT, line:\n");
           skipIssue = true;
-          DRAMRequest* req = it->second;
-          EPRINTF("[SendDRAMRequest] Sparse request (%lx (%lx), %lx) in flight, will not be re-issued\n", addr, req->rawAddr, tag);
+          DRAMRequest **line = it->second;
+          for (int i=0; i<16; i++) {
+            EPRINTF("---- %p ", line[i]);
+          }
+          EPRINTF("\n");
+          EPRINTF("Word offset of %lx = %x\n", cmdRawAddr, getWordOffset(cmdRawAddr));
+          DRAMRequest *r = line[getWordOffset(cmdRawAddr)];
+
+          if (r != NULL) {  // Already a request waiting, stall upstream
+            EPRINTF("[sendDRAMRequest] Req %lx (%lx) already present for given word, stall upstream\n", r->addr, r->rawAddr);
+            dramReady = 0;
+          } else {  // Update word offset with request pointer
+            line[getWordOffset(cmdRawAddr)] = req;
+          }
         }
       }
+
       if (!skipIssue) {
-        dramRequestQ.push(req);
-        mem->addTransaction(cmdIsWr, cmdAddr, cmdTag);
-        req->channelID = mem->findChannelNumber(addr);
-        addrToReqMap[at] = req;
+        mem->addTransaction(cmdIsWr, cmdAddr, at.tag);
+        req->channelID = mem->findChannelNumber(cmdAddr);
+        if (debug) {
+          EPRINTF("[sendDRAMRequest] Issuing following command:");
+          req->print();
+        }
+      } else {
+        if (debug) {
+          EPRINTF("[sendDRAMRequest] Skipping addr = %lx (%lx), tag = %lx\n", cmdAddr, cmdRawAddr, cmdTag);
+        }
       }
     }
-    if (debug) {
-      req->print();
+
+    if (dramReady == 1) {
+      dramRequestQ.push_back(req);
     }
-    return 1;
+
+    return dramReady;
   }
 }
 
