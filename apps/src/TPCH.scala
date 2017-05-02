@@ -34,7 +34,7 @@ WHERE
 
 */
 
-object TPCHQ6_96000_ip_16_ts_4000_op_6 extends SpatialApp { // Regression (Dense) // Args: 384
+object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 384
   import IR._
 
   type FT = Int
@@ -45,10 +45,10 @@ object TPCHQ6_96000_ip_16_ts_4000_op_6 extends SpatialApp { // Regression (Dense
   val MAX_DISC = 9999
   val margin = 1
 
-val ip = 16
-val op = 6
+  val innerPar = 2
+  val outerPar = 2
 
-val ts = 4000
+  val tileSize = 32
 
   @virtualize
   def tpchq6[T:Type:Num](datesIn: Array[Int], quantsIn: Array[Int], disctsIn: Array[T], pricesIn: Array[T]): T = {
@@ -63,9 +63,9 @@ val ts = 4000
     val maxDateIn = MAX_DATE
     val out = ArgOut[T]
 
-val ts = 4000
-val op = 6
-val ip = 16
+    val ts = tileSize (96 -> 96 -> 192000)
+    val op = outerPar (1 -> 6)
+    val ip = innerPar (1 -> 384)
     val lp = 16 (1 -> 384)
 
     setMem(dates, datesIn)
