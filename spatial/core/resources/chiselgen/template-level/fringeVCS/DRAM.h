@@ -184,16 +184,21 @@ bool checkQAndRespond(int id) {
           );
           pokedResponse = true;
         } else {
+          // Ensure that there are at least 16 requests
           // Ensure that all top 16 requests have been completed
           deque<DRAMRequest*>::iterator it = dramRequestQ[id].begin();
           bool sparseReqCompleted = true;
-          for (int i = 0; i < 16; i++) {
-            DRAMRequest *r = *it;
-            if (!r->completed) {
-              sparseReqCompleted = false;
-              break;
+          if (dramRequestQ[id].size() < 16) {
+            sparseReqCompleted = false;
+          } else {
+            for (int i = 0; i < 16; i++) {
+              DRAMRequest *r = *it;
+              if (!r->completed) {
+                sparseReqCompleted = false;
+                break;
+              }
+              it++;
             }
-            it++;
           }
 
 

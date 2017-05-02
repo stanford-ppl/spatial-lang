@@ -1260,8 +1260,7 @@ object LoadScatter extends SpatialApp { // Regression (Sparse) // Args: none
   }
 }
 
-// Args: none
-object ScatterGather extends SpatialApp { // Regression (Sparse) // Args: none
+object ScatterGather extends SpatialApp { // DISABLED Regression (Sparse) // Args: none
   import IR._
 
   val N = 1920
