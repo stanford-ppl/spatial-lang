@@ -24,7 +24,7 @@ using namespace std;
 // DRAMSim3
 DRAMSim::MultiChannelMemorySystem *mem = NULL;
 bool useIdealDRAM = false;
-bool debug = true;
+bool debug = false;
 
 extern uint64_t numCycles;
 uint32_t wordSizeBytes = 4;
@@ -205,8 +205,10 @@ bool checkQAndRespond(int id) {
             uint64_t gatherAddr[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
             uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-            EPRINTF("[checkQ] sparse request completed:\n");
-            printQueueStats(id);
+            if (debug) {
+              EPRINTF("[checkQ] sparse request completed:\n");
+              printQueueStats(id);
+            }
             for (int i = 0; i < 16; i++) {
               DRAMRequest *head = dramRequestQ[id].front();
               ASSERT(head->isSparse, "ERROR: Encountered non-sparse request at (%d) while popping sparse requests! (%lx, %lx)", i, head->addr, head->rawAddr);
@@ -214,7 +216,7 @@ bool checkQAndRespond(int id) {
               ASSERT(head->tag == tag, "ERROR: Tag mismatch with sparse requests");
               if (!writeRequest) {
                 uint32_t *raddr = (uint32_t*) head->rawAddr;
-                EPRINTF("-------- gatherAddr(%d) = %lx\n", i, raddr);
+                if (debug) EPRINTF("-------- gatherAddr(%d) = %lx\n", i, raddr);
                 rdata[i] = *raddr;
                 gatherAddr[i] = head->rawAddr;
               } else {
@@ -223,12 +225,13 @@ bool checkQAndRespond(int id) {
               dramRequestQ[id].pop_front();
             }
 
-            EPRINTF("[checkAndSendDRAMResponse] Gather complete with following details:\n");
-            for (int i = 0; i<16; i++) {
-              EPRINTF("---- addr %lx: data %x\n", gatherAddr[i], rdata[i]);
+            if (debug) {
+              EPRINTF("[checkAndSendDRAMResponse] Gather complete with following details:\n");
+              for (int i = 0; i<16; i++) {
+                EPRINTF("---- addr %lx: data %x\n", gatherAddr[i], rdata[i]);
+              }
+              printQueueStats(id);
             }
-
-            printQueueStats(id);
 
             pokeDRAMResponse(
                 req->tag,
@@ -361,7 +364,9 @@ extern "C" {
 
 
     DRAMRequest *req = new DRAMRequest(cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse, wdata, numCycles);
-    EPRINTF("[sendDRAMRequest] Called with addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d\n", cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse);
+    if (debug) {
+      EPRINTF("[sendDRAMRequest] Called with addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d\n", cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse);
+    }
 
     if (!useIdealDRAM) {
       bool skipIssue = false;
@@ -372,17 +377,19 @@ extern "C" {
         skipIssue = false;
       } else {  // Sparse request
         std::map<struct AddrTag, DRAMRequest**>::iterator it = sparseRequestCache.find(at);
-        EPRINTF("[sendDRAMRequest] Sparse request, looking up (addr = %lx, tag = %lx)\n", at.addr, at.tag);
+        if (debug) EPRINTF("[sendDRAMRequest] Sparse request, looking up (addr = %lx, tag = %lx)\n", at.addr, at.tag);
         if (it == sparseRequestCache.end()) { // MISS
-          EPRINTF("[sendDRAMRequest] MISS, creating new cache line:\n");
+          if (debug) EPRINTF("[sendDRAMRequest] MISS, creating new cache line:\n");
           skipIssue = false;
           DRAMRequest **line = new DRAMRequest*[16]; // One outstanding request per word
           memset(line, 0, 16*sizeof(DRAMRequest*));
           line[getWordOffset(cmdRawAddr)] = req;
-          for (int i=0; i<16; i++) {
-            EPRINTF("---- %p ", line[i]);
+          if (debug) {
+            for (int i=0; i<16; i++) {
+              EPRINTF("---- %p ", line[i]);
+            }
+            EPRINTF("\n");
           }
-          EPRINTF("\n");
 
           sparseRequestCache[at] = line;
 
@@ -391,18 +398,20 @@ extern "C" {
           at.tag = sparseTag;
           addrToReqMap[at] = req;
         } else {  // HIT
-          EPRINTF("[sendDRAMRequest] HIT, line:\n");
+          if (debug) EPRINTF("[sendDRAMRequest] HIT, line:\n");
           skipIssue = true;
           DRAMRequest **line = it->second;
-          for (int i=0; i<16; i++) {
-            EPRINTF("---- %p ", line[i]);
+          if (debug) {
+            for (int i=0; i<16; i++) {
+              EPRINTF("---- %p ", line[i]);
+            }
+            EPRINTF("\n");
           }
-          EPRINTF("\n");
-          EPRINTF("Word offset of %lx = %x\n", cmdRawAddr, getWordOffset(cmdRawAddr));
+
           DRAMRequest *r = line[getWordOffset(cmdRawAddr)];
 
           if (r != NULL) {  // Already a request waiting, stall upstream
-            EPRINTF("[sendDRAMRequest] Req %lx (%lx) already present for given word, stall upstream\n", r->addr, r->rawAddr);
+            if (debug) EPRINTF("[sendDRAMRequest] Req %lx (%lx) already present for given word, stall upstream\n", r->addr, r->rawAddr);
             dramReady = 0;
           } else {  // Update word offset with request pointer
             line[getWordOffset(cmdRawAddr)] = req;
@@ -443,6 +452,18 @@ void initDRAM() {
   } else {
     useIdealDRAM = false;
   }
+
+  char *debugVar = getenv("DRAM_DEBUG");
+  if (debugVar != NULL) {
+    if (debugVar[0] != 0 && atoi(debugVar) > 0) {
+      debug = true;
+      EPRINTF("[DRAM] Verbose debug messages enabled\n");
+    }
+  } else {
+    EPRINTF("[DRAM] Verbose debug messages disabled \n");
+    debug = false;
+  }
+
 
   if (!useIdealDRAM) {
     // Set up DRAMSim2 - currently hardcoding some values that should later be
