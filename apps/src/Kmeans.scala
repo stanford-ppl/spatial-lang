@@ -1,13 +1,13 @@
 import spatial._
 import org.virtualized._
 
-object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
+object Kmeans extends SpatialApp { // Regression (Dense) // Args: 3 64
   import IR._
 
   type X = Int
 
-  val numcents = 20
-  val dim = 96
+  val numcents = 16
+  val dim = 32
   val pts_per_ld = 1 // ???
 
   val ip = 16
@@ -51,25 +51,27 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
     setMem(points, points_in)
     // setMem(init_cents, cent_inits)
 
-    Accel { Sequential { // TODO: Remove this Sequential wrapper once David fixes Accel analysis
-      val origCts = SRAM[T](MAXK, MAXD) // PIR Version
+
+    Accel {
       val cts = SRAM[T](MAXK, MAXD)
       val newCents = SRAM[T](MAXK,MAXD)
 
       // Load initial centroids (from points)
-      origCts load points(0::K, 0::D par 16) // PIR Version
+      cts load points(0::K, 0::D par 16)
 
-      // // Initialize newCents
-      // Foreach(K by 1, D by 1) {(i,j) => newCents(i,j) = cts(i,j)} 
+      // Initialize newCents
+      // FPGA:
+      Foreach(K by 1, D by 1) {(i,j) => newCents(i,j) = cts(i,j)} 
 
       val DM1 = D - 1
 
       Sequential.Foreach(iters by 1){epoch =>
 
         // Flush centroid accumulator
-        /*Foreach(K by 1, D par P0){(ct,d) =>
+        // FPGA:
+        Foreach(K by 1, D par P0){(ct,d) =>
           newCents(ct,d) = 0.to[T]
-        }*/ // PIR
+        }
 
         // For each set of points
         Foreach(N by BN par PX){i =>
@@ -79,15 +81,15 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
           // For each point in this set
           MemFold(newCents)(BN par PX){pt =>
             // Find the index of the closest centroid
-            /*val accum = Reg[Tup2[Int,T]]( pack(0.to[Int], 100000.to[T]) )
+            val accum = Reg[Tup2[Int,T]]( pack(0.to[Int], 100000.to[T]) )
             val minCent = Reduce(accum)(K par PX){ct =>
               val dist = Reg[T](0.to[T])
               Reduce(dist)(D par P2){d => (pts(pt,d) - cts(ct,d)) ** 2 }{_+_}
               pack(ct, dist.value)
             }{(a,b) =>
               mux(a._2 < b._2, a, b)
-            }*/
-            // PIR Version
+            }
+            /*// PIR Version
             val minCent = Reg[Int]
             val minDist = Reg[T](100000.to[T])
             Foreach(K par PX){ct =>
@@ -101,18 +103,17 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
                 minDist := min(minDist.value, d)
                 minCent := mux(minDist.value == d, ct, minCent.value)
               }
-            }
+            }*/
 
             // Store this point to the set of accumulators
             val localCent = SRAM[T](MAXK,MAXD)
             Foreach(K by 1, D par P2){(ct,d) =>
               //val elem = mux(d == DM1, 1.to[T], pts(pt, d)) // fix for vanishing mux
               val elem = pts(pt,d)
-              localCent(ct, d) = mux(ct == minCent.value, elem, 0.to[T])
+              localCent(ct, d) = mux(ct == minCent.value._1, elem, 0.to[T])
             }
             localCent
           }{_+_} // Add the current point to the accumulators for this centroid
-          ()
         }
 
         val centCount = SRAM[T](MAXK)
@@ -132,7 +133,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
       }
       // Store the centroids out
       centroids(0::K*D par 16) store flatCts
-    }}
+    }
 
     getMem(centroids)
   }

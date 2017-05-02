@@ -109,6 +109,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
         case _ => (0 until par).map{ i => src"io.memStreams.loads($id).rdata.bits($i)" }.mkString(",")
       }
       emit(src"""val ${dataStream}_data = Vec(List($allData))""")
+//      emitGlobalWire(src"""val ${addrStream}_data = Wire(UInt(97.W)) // Not sure if width is right""")
       emit(src"""${dataStream}_valid := io.memStreams.loads($id).rdata.valid""")
       emit(src"${addrStream}_ready := io.memStreams.loads($id).cmd.ready")
       emitGlobalWire(src"""val ${addrStream}_data = Wire(Vec(1, UInt(64.W))) // TODO: Vec(1) for address seems ridiculous""")

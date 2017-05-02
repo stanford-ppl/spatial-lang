@@ -226,11 +226,12 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}_writeEn := chisel3.util.ShiftRegister($enabler & ~{writer}_inhibitor, ${writer}_retime) & $en""")
+      emit(src"""${fifo}_writeEn := chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${writer}_retime) & $en""")
       val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
       emit(src"""${fifo}_wdata := Vec(List(${datacsv}))""")
 
     case e@ParStreamRead(strm, ens) =>
+      val parent = parentOf(lhs).get
       strm match {
         case Def(StreamInNew(bus)) => bus match {
           case VideoCamera => 
@@ -245,7 +246,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
               }
               case _ => false
             }
-            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ${parentOf(lhs).get}_datapath_en // TODO: Definitely wrong thing for parstreamread""")
+            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ShiftRegister(${parent}_datapath_en, ${parent}_retime)""")
             if (!isAck) {
               emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
               emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")

@@ -26,7 +26,7 @@ trait BitOpsExp { this: SpatialExp =>
       implicit val vT = vectorNType[Bool](len)
       val vector = dataAsBitVector(x)
       val reversed_elements = (0 until len).map{i =>
-        vector_apply(vector.s, len-1-i)
+        vector_apply(vector.s, i)
       }
       val vector_reversed = wrap(vector_new[Bool,VectorN](reversed_elements))
       bitVectorAsData[A](vector_reversed, enWarn = true)

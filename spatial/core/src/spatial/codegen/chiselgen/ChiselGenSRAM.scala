@@ -27,10 +27,10 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emitGlobalModule(src"val ${lhs}_inhibitor = Wire(Bool())")
       if (cchain.isDefined) {
         emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
-        emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | ${cchain.get}.io.output.done")
+        emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/")
       } else {
-        emit(src"${lhs}_inhibit.io.input.set := Utils.delay(Utils.risingEdge(x994_UnitPipe_sm.io.output.ctr_en), 1)")
-        emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | Utils.delay(Utils.risingEdge(x994_UnitPipe_sm.io.output.ctr_en), 1)")
+        emit(src"${lhs}_inhibit.io.input.set := Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1)")
+        emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1)*/")
       }
       emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_rst_en")
     } else {

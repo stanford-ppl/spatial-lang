@@ -45,6 +45,7 @@ class Streaminner(val isFSM: Boolean = false) extends Module {
   if (!isFSM) {
     val state = RegInit(pipeInit.U)
     io.output.done := Mux(io.input.forever, false.B, Mux(io.input.ctr_done & Mux(io.input.hasStreamIns, true.B, io.input.enable), true.B, false.B)) // If there is a streamIn for this stage, then we should not require en=true for done to go high
+    io.output.rst_en := false.B
   } else { // FSM inner
     val stateFSM = Module(new FF(32))
     val doneReg = Module(new SRFF())

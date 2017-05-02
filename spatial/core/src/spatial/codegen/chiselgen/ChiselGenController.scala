@@ -292,7 +292,7 @@ trait ChiselGenController extends ChiselGenCounter{
             hasForever = true
             // need to change the outer pipe counter interface!!
             emit(src"""val ${sym}_level${i}_iters = 0.U // Count forever""")
-            src"${sym}_level${i}_iters"            
+            src"${sym}_level${i}_iters"
         }
       }
     } else { 
@@ -370,11 +370,11 @@ trait ChiselGenController extends ChiselGenCounter{
             emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_en & ~${sym}_done, 1 + ${sym}_retime) // Disallow consecutive dones from stream inner""")
             emit(src"""val ${sym}_ctr_en = ${sym}_done // stream kiddo""")
           } else {
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(Utils.risingEdge(${sym}_sm.io.output.ctr_en), 1 + ${sym}_retime)""")
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(Utils.risingEdge(${sym}_sm.io.output.ctr_inc), 1 + ${sym}_retime)""")
             emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")            
           }
         } else {
-          emit(s"// How to emit for non-innerpipe unit counter?")
+          emit(s"// TODO: How to properly emit for non-innerpipe unit counter?")
         }
       }
     }
@@ -443,6 +443,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWire(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       // Emit unit counter for this
       emit(s"""val done_latch = Module(new SRFF())""")
       emit(s"""done_latch.io.input.set := ${quote(lhs)}_done""")

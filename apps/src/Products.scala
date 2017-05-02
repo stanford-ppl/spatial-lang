@@ -6,7 +6,7 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 480 480
   type X = Int
 
   val ip = 16
-  val op = 6
+  val op = 2
 
   val tileSize1 = 48
   val tileSize2 = 48
@@ -85,7 +85,7 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 8000
   type X = Int
 
   val innerPar = 16
-  val outerPar = 4
+  val outerPar = 2
 
   val tileSize = 2000
 
@@ -128,8 +128,8 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 8000
   @virtualize
   def main() {
     val N = args(0).to[Int]
-    val a = Array.fill(N){ random[X] }
-    val b = Array.fill(N){ random[X] }
+    val a = Array.fill(N){ random[X](2) }
+    val b = Array.fill(N){ random[X](2) }
 
     val result = dotproduct(a, b)
     val gold = a.zip(b){_*_}.reduce{_+_}

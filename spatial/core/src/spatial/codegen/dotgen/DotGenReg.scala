@@ -58,6 +58,7 @@ trait DotGenReg extends DotCodegen {
                 }
     case RegWrite(reg,v,en) => if (Config.dotDetail == 0) {emitMemWrite(lhs)} else {
                   emitEdge(v, reg)
+                  emitEn(en, reg)
                 }
     case _ => super.emitNode(lhs, rhs)
   }

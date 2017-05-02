@@ -213,9 +213,9 @@ stamp_commit_msgs
 }
 
 stamp_app_comments() {
-  cd ${SPATIAL_HOME}/regression_tests
+  cd ${SPATIAL_HOME}/apps/src
   echo -e "\n# Pass Comments:\n" >> $wiki_file
-  find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g" >> $wiki_file
+  find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/> (/g" | sed "s/$/\n/g" >> $wiki_file
 }
 
 update_log() {
@@ -555,7 +555,6 @@ function report {
   date >> ${5}/log
   cd ${5}
   # mv build.sbt build.hideme # hide build.sbt so future compiles ignore this one
-  rm -rf out
   rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
@@ -581,6 +580,7 @@ export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
 export PATH=/usr/bin:\$VCS_HOME/amd64/bin:$PATH
 export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
 export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
+export _JAVA_OPTIONS=\"-Xmx16g\"
 date >> ${5}/log" >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
@@ -638,7 +638,7 @@ make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this par
 
 # Check for crashes in backend compilation
 wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\\|ChiselException\\|\\[vcs-hw\\] Error\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
+if [[ \"\$wc\" -ne 0 || ! -f ${5}/out/Top ]]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
 fi
 wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\\|fatal error\\|\\[vcs-sw\\] Error\" | wc -l)
@@ -650,6 +650,27 @@ fi
 rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
 touch ${SPATIAL_HOME}/regression_tests/${2}/results/failed_execution_hanging.${3}_${4}
 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+
+# Check for annoying vcs assertion and rerun if needed
+wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
+if [ \"\$wc\" -gt 0 ]; then
+  echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
+  echo \"\n\n=========\nSecond Change!\n==========\n\n\" >> ${5}/log
+  make vcs 2>&1 | tee -a ${5}/log
+  make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+  bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+
+  # Check second time for annoying assert
+  wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
+  if [ \"\$wc\" -gt 1 ]; then
+    echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
+    echo \"\n\n=========\nSecond Change!\n==========\n\n\" >> ${5}/log
+    make vcs 2>&1 | tee -a ${5}/log
+    make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+    bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  fi
+
+fi
 
 # Check for runtime errors
 wc=\$(cat ${5}/log | grep \"Error: App\\|Segmentation fault\" | wc -l)
@@ -692,7 +713,7 @@ launch_tests() {
   test_list=()
   for a in ${annotated_list[@]}; do
     if [[ $a = *"object"*"extends SpatialApp"* ]]; then
-      test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g'`)
+      test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /_/g'`)
     else
       logger "Error setting up test for $a !!!"
     fi
@@ -724,7 +745,7 @@ launch_tests() {
       check_packet
       if [[ $t == *"|${ac}|"* && (${tests_todo} == "all" || $t == *"|${tests_todo}|"*) ]]; then
         appname=(`echo $t | sed 's/|.*$//g'`)
-        appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/-/ /g'`)
+        appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/_/ /g'`)
         # Initialize results
         touch ${SPATIAL_HOME}/regression_tests/${ac}/results/failed_app_initialized.${i}_${appname}
 
@@ -734,12 +755,12 @@ launch_tests() {
         cmd_file="${vulture_dir}/cmd"
 
         # Create script
-        logger "Writing script for ${i}_${appname}"
+        # logger "Writing script for ${i}_${appname}"
         create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
 
         # Run script
         start=$SECONDS
-        logger "Running script for ${i}_${appname}"
+        logger "Running test: ${i}_${appname}"
         bash ${cmd_file}
         duration=$(($SECONDS-$start))
         logger "Completed test in $duration seconds"
