@@ -653,12 +653,23 @@ bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
 # Check for annoying vcs assertion and rerun if needed
 wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
+if [ \"\$wc\" -gt 0 ]; then
   echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
   echo \"\n\n=========\nSecond Change!\n==========\n\n\" >> ${5}/log
   make vcs 2>&1 | tee -a ${5}/log
   make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
   bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+
+  # Check second time for annoying assert
+  wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
+  if [ \"\$wc\" -gt 1 ]; then
+    echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
+    echo \"\n\n=========\nSecond Change!\n==========\n\n\" >> ${5}/log
+    make vcs 2>&1 | tee -a ${5}/log
+    make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+    bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  fi
+
 fi
 
 # Check for runtime errors
