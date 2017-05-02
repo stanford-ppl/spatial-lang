@@ -633,15 +633,24 @@ sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top
 sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
 
-make vcs 2>&1 | tee -a ${5}/log
-make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+make vcs 2>&1 | tee -a ${5}/log" >> $1
+  if [[ ${type_todo} = "chisel" ]]; then
+    echo "make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
+  fi
 
-# Check for crashes in backend compilation
+echo "# Check for crashes in backend compilation
 wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\\|ChiselException\\|\\[vcs-hw\\] Error\" | wc -l)
-if [[ \"\$wc\" -ne 0 || ! -f ${5}/out/Top ]]; then
+if [[ \"\$wc\" -ne 0 ]]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
-fi
-wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\\|fatal error\\|\\[vcs-sw\\] Error\" | wc -l)
+fi" >> $1
+  if [[ ${type_todo} = "chisel" ]]; then
+    echo "# Check for missing Top
+if [[ ! -f ${5}/out/Top ]]; then
+  report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
+fi" >> $1
+  fi
+
+echo "wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\\|fatal error\\|\\[vcs-sw\\] Error\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_cpp_crash\" \"[STATUS] Declaring failure compile_chisel c++ side\" 0
 fi
