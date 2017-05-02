@@ -1,7 +1,7 @@
 module test;
   import "DPI" function void sim_init();
   import "DPI" function int tick();
-  import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int tag, int isWr, int isSparse, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
+  import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int streamId, int tag, int isWr, int isSparse, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
   import "DPI" function void readOutputStream(int data, int tag, int last);
 
   // Export functionality to C layer
@@ -234,9 +234,12 @@ module test;
 
   initial begin
     /*** VCD & VPD dump ***/
-      $dumpfile("Top.vcd");
-      $dumpvars(0, Top);
       $vcdplusfile("Top.vpd");
+      $vcdpluson (0, Top);
+
+//      $dumpfile("Top.vcd");
+//      $dumpvars(0, Top);
+//      $vcdplusfile("Top.vpd");
       sim_init();
   end
 
@@ -246,6 +249,7 @@ module test;
       if (sendDRAMRequest(
         io_dram_cmd_bits_addr,
         io_dram_cmd_bits_rawAddr,
+        io_dram_cmd_bits_streamId,
         io_dram_cmd_bits_tag,
         io_dram_cmd_bits_isWr,
         io_dram_cmd_bits_isSparse,
@@ -290,7 +294,8 @@ module test;
     io_genericStreamOut_ready = 1;
 
     if (tick()) begin
-      $dumpflush;
+      $vcdplusflush;
+//      $dumpflush;
       $finish;
     end
 
