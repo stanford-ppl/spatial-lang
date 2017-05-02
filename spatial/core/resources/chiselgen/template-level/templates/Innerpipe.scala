@@ -90,7 +90,8 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
       io.output.ctr_en := false.B
       io.output.ctr_inc := false.B
       io.output.rst_en := false.B
-      state := pipeInit.U
+      // Line below broke tile stores when there is a stall of some kind.  Why was it there to begin with?
+      // state := pipeInit.U 
     }
   } else { // FSM inner
     val stateFSM = Module(new FF(32))
