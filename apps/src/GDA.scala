@@ -69,7 +69,7 @@ object GDA extends SpatialApp { // Regression (Dense) // Args: 64
 
         val sigmaBlk = SRAM[T](MAXC, MAXC)
 
-        MemReduce(sigmaBlk)(blk par param(1)) { rr =>
+        MemReduce(sigmaBlk par ip)(blk par param(1)) { rr =>
           val subTile = SRAM[T](MAXC)
           val sigmaTile = SRAM[T](MAXC, MAXC)
           Foreach(C par subLoopPar) { cc =>

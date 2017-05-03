@@ -197,7 +197,7 @@ trait PIR {
   }
 
   sealed abstract class CUCChain(val name: String) { def longString: String }
-  case class CChainInstance(override val name: String, counters: Seq[CUCounter]) extends CUCChain(name) {
+  case class CChainInstance(override val name: String, sym:Expr, counters: Seq[CUCounter]) extends CUCChain(name) {
     override def toString = name
     def longString: String = s"$name (" + counters.mkString(", ") + ")"
   }
