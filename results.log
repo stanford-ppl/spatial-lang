@@ -29,3 +29,45 @@ Sun 30 Apr 2017 08:22:42 PM PDT GDA_384000_ip_16_ts_16_op_4  args=[384000 true]
 Sun 30 Apr 2017 08:38:38 PM PDT GDA_384000_ip_16_ts_64_op_4 Design ran for 443115256 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
 Sun 30 Apr 2017 08:22:56 PM PDT GDA_384000_ip_16_ts_96_op_4 Design ran for 442965768 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
 Sun 30 Apr 2017 08:42:10 PM PDT GDA_384000_ip_16_ts_16_op_4 Design ran for 444468365 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Mon 01 May 2017 06:51:57 AM PDT BlackScholes_98304_ip_16_ts_4096_op_2  args=[98304 true] 
+Mon 01 May 2017 09:49:08 AM PDT SGD_30_38400_0d0001_ip_16_ts_3840_D_16_op_1  args=[30 38400 0.0001 true] 
+Mon 01 May 2017 07:28:34 AM PDT TPCHQ6_96000_ip_16_ts_4000_op_10  args=[96000 true] 
+Mon 01 May 2017 06:49:13 AM PDT BlackScholes_98304_ip_16_ts_2048_op_2  args=[98304 true] 
+Mon 01 May 2017 02:31:34 PM PDT MatMult_inner_128_7680_3840_tsn_80_tsm_32_ip_16_mp_1_tsp_256_op_5  args=[128 7680 3840 true] 
+Sun 30 Apr 2017 06:21:23 PM PDT BlackScholes_6000_ip_16_ts_2000_op_1  args=[6000 true] 
+Sun 30 Apr 2017 08:17:01 PM PDT BlackScholes_96000_ip_16_ts_2048_op_1  args=[96000 true] 
+Sun 30 Apr 2017 08:22:57 PM PDT GDA_384000_ip_16_ts_96_op_6  args=[384000 true] 
+Sun 30 Apr 2017 08:38:37 PM PDT GDA_384000_ip_16_ts_64_op_2  args=[384000 true] 
+Sun 30 Apr 2017 08:22:47 PM PDT GDA_384000_ip_16_ts_32_op_4  args=[384000 true] 
+Mon 01 May 2017 06:51:58 AM PDT BlackScholes_1966080_ip_16_ts_8192_op_2  args=[1966080 true] 
+Sun 30 Apr 2017 06:21:20 PM PDT DotProduct_6401_ip_4_ts_320_op_4  args=[6401 true] 
+Sun 30 Apr 2017 06:21:25 PM PDT GDA_384000_ip_16_ts_20_op_2  args=[384000 true] 
+Mon 01 May 2017 06:51:59 AM PDT BlackScholes_94371840_ip_16_ts_8192_op_2  args=[94371840 true] 
+Mon 01 May 2017 10:09:12 PM PDT BlackScholes_98304_ip_16_ts_4096_op_2  args=[98304 true] 
+Mon 01 May 2017 10:09:13 PM PDT BlackScholes_1966080_ip_16_ts_8192_op_2  args=[1966080 true] 
+Mon 01 May 2017 10:09:11 PM PDT BlackScholes_98304_ip_16_ts_2048_op_2  args=[98304 true] 
+Mon 01 May 2017 10:09:14 PM PDT BlackScholes_94371840_ip_16_ts_8192_op_2  args=[94371840 true] 
+Mon 01 May 2017 10:38:23 PM PDT SMV_768_ip_16_pp_3840_NNZ_60_op_4  args=[768 true] 
+Mon 01 May 2017 10:38:16 PM PDT DotProduct_6400_ip_4_ts_320_op_4 Design ran for 1435 cycles, status = 1 args=[6400 true] PASS: 1 (DotProduct)
+Mon 01 May 2017 10:38:17 PM PDT OuterProduct_192_192_ip_2_op_2_ts2_48_ts1_48 Design ran for 5521 cycles, status = 1 args=[192 192 true] PASS: 1 (OuterProduct)
+Mon 01 May 2017 10:38:20 PM PDT TPCHQ6_384_ip_2_ts_2000_op_1 Design ran for 1207 cycles, status = 1 args=[384 true] PASS: 1 (TPCHQ6)
+Mon 01 May 2017 10:38:22 PM PDT LogReg_2_64_ip_4_ts_16_dim_16_op_2 Design ran for 1212 cycles, status = 1 args=[2 64 true] PASS: 0 (LogReg)
+Mon 01 May 2017 10:38:24 PM PDT SGD_40_32_0d0001_ip_16_ts_16_D_16_op_12 Design ran for 83262 cycles, status = 1 args=[40 32 0.0001 true] PASS: 1 (SGD)
+Mon 01 May 2017 10:38:18 PM PDT MatMult_inner_32_96_96_tsn_48_tsm_16_ip_2_mp_8_tsp_48_op_2 Design ran for 9588 cycles, status = 1 args=[32 96 96 true] PASS: 1 (MatMult_inner)
+Mon 01 May 2017 10:38:19 PM PDT BlackScholes_9600_ip_16_ts_320_op_1 Design ran for 7019 cycles, status = 1 args=[9600 true] 
+Mon 01 May 2017 10:38:21 PM PDT GDA_128_ip_16_ts_32_op_2 Design ran for 302068 cycles, status = 1 args=[128 true] PASS: 1 (GDA)
+Mon 01 May 2017 11:00:44 PM PDT BlackScholes_98304_ip_16_ts_2048_op_2 Design ran for 59626 cycles, status = 1 args=[98304 true]  PASS: 1
+Mon 01 May 2017 11:00:45 PM PDT BlackScholes_98304_ip_16_ts_4096_op_2 Design ran for 56672 cycles, status = 1 args=[98304 true]  PASS: 1
+Mon 01 May 2017 11:00:46 PM PDT BlackScholes_1966080_ip_16_ts_8192_op_2 Design ran for 1112672 cycles, status = 1 args=[1966080 true] PASS: 1
+Mon 01 May 2017 11:00:50 PM PDT GDA_38400_ip_16_ts_384_op_10 Design ran for 17747234 cycles, status = 1 args=[38400 true] PASS: 1 (GDA)
+Mon 01 May 2017 11:00:48 PM PDT GDA_38400_ip_16_ts_96_op_10 Design ran for 17733619 cycles, status = 1 args=[38400 true] PASS: 1 (GDA)
+Mon 01 May 2017 11:00:49 PM PDT GDA_38400_ip_16_ts_192_op_10 Design ran for 17737078 cycles, status = 1 args=[38400 true] PASS: 1 (GDA)
+Mon 01 May 2017 11:00:55 PM PDT GDA_38400_ip_16_ts_1200_op_8 Design ran for 22221206 cycles, status = 1 args=[38400 true] PASS: 1 (GDA)
+Mon 01 May 2017 11:00:54 PM PDT GDA_38400_ip_16_ts_1600_op_8 Design ran for 22245060 cycles, status = 1 args=[38400 true] PASS: 1 (GDA)
+Mon 01 May 2017 11:00:51 PM PDT GDA_38400_ip_16_ts_1600_op_6 Design ran for 29598189 cycles, status = 1 args=[38400 true] PASS: 1 (GDA)
+Mon 01 May 2017 11:00:56 PM PDT LogReg_5_7040_ip_16_ts_64_dim_384_op_11 Design ran for 1141505 cycles, status = 1 args=[5 7040 true] PASS: 0 (LogReg)
+Mon 01 May 2017 11:00:47 PM PDT BlackScholes_94371840_ip_16_ts_8192_op_2 Design ran for 53248567 cycles, status = 1 args=[94371840 true] PASS: 0
+Mon 01 May 2017 11:32:35 PM PDT BlackScholes_94371840_ip_16_ts_32768_op_1 Design ran for 52416022 cycles, status = 1 args=[94371840 true] PASS: 0
+Mon 01 May 2017 11:00:52 PM PDT GDA_384000_ip_16_ts_3200_op_6 Design ran for 295307943 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Mon 01 May 2017 11:00:53 PM PDT GDA_384000_ip_16_ts_6400_op_6 Design ran for 295443015 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Tue 02 May 2017 05:03:41 AM PDT GDA_384000_ip_16_ts_6400_op_10 Design ran for 177583553 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)

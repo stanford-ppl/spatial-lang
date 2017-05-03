@@ -7,5 +7,8 @@ sim:
 vcs:
 	sbt compile
 
+vcs-sw:
+	sbt compile
+
 clean:
 	rm -rf target

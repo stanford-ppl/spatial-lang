@@ -102,15 +102,15 @@ def target(app, args, params, regen):
 
 def testRun():
     print('Testing with small sizes')
-    # target('DotProduct', [6400], {'ts':320, 'ip':4, 'op':4}, regen='true')
-    # target('OuterProduct', [192, 192], {'ts1':48, 'ts2':48, 'ip':2, 'op':2}, regen='true')
-    # target('MatMult_inner', [32, 96, 96], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':2, 'mp':8, 'op':2},regen='true')
-    # target('BlackScholes', [9600], {'ip':16, 'op':1, 'ts':320}, regen='true')
-    # target('TPCHQ6', [384], {'ip':2, 'op':1, 'ts':2000}, regen='true')
-    # target('GDA', [128], {'ip':16, 'op':2,  'ts':32}, regen='true')
-    # target('LogReg', [2, 64], {'ip':4, 'op':2, 'ts':16, 'dim':16}, regen='true') 
-    # target('SMV', [768], {'ip':16, 'op':4, 'pp':3840, 'NNZ':60}, regen='true') 
-    # target('SGD', [40, 32, 0.0001], {'ip':16, 'op':12, 'ts':16, 'D':16}, regen='true') 
+    target('DotProduct', [6400], {'ts':320, 'ip':4, 'op':4}, regen='true')
+    target('OuterProduct', [192, 192], {'ts1':48, 'ts2':48, 'ip':2, 'op':2}, regen='true')
+    target('MatMult_inner', [32, 96, 96], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':2, 'mp':8, 'op':2},regen='true')
+    target('BlackScholes', [9600], {'ip':16, 'op':1, 'ts':320}, regen='true')
+    target('TPCHQ6', [384], {'ip':2, 'op':1, 'ts':2000}, regen='true')
+    target('GDA', [128], {'ip':16, 'op':2,  'ts':32}, regen='true')
+    target('LogReg', [2, 64], {'ip':4, 'op':2, 'ts':16, 'dim':16}, regen='true') 
+    target('SMV', [768], {'ip':16, 'op':4, 'pp':3840, 'NNZ':60}, regen='true') 
+    target('SGD', [40, 32, 0.0001], {'ip':16, 'op':12, 'ts':16, 'D':16}, regen='true') 
 
 def expRun():
     # target('DotProduct', [768000], {'ts':1920, 'ip':16, 'op':6}, regen='true') #not finishing
@@ -123,7 +123,6 @@ def expRun():
     # target('DotProduct', [768000], {'ts':1920, 'ip':16, 'op':8}, regen='true')
     # target('DotProduct', [768000], {'ts':1920, 'ip':16, 'op':4}, regen='true')
 
-    # TODO:relunched
     # target('DotProduct', [768000], {'ts':3200, 'ip':16, 'op':10}, regen='true')
     # target('DotProduct', [768000], {'ts':3200, 'ip':16, 'op':12}, regen='true')
     # target('DotProduct', [768000], {'ts':3200, 'ip':16, 'op':16}, regen='true')
@@ -147,7 +146,6 @@ def expRun():
     # target('OuterProduct', [76800, 76800], {'ts1':768, 'ts2':192, 'ip':16, 'op':10}, regen='true') #segfault
     # target('OuterProduct', [76800, 76800], {'ts1':192, 'ts2':192, 'ip':16, 'op':10}, regen='true') # segfault
 
-    #TODO
     # target('OuterProduct', [76800, 76800], {'ts1':96, 'ts2':96, 'ip':16, 'op':10}, regen='true')
     # target('OuterProduct', [76800, 76800], {'ts1':192, 'ts2':96, 'ip':16, 'op':10}, regen='true')
     # target('OuterProduct', [76800, 76800], {'ts1':384, 'ts2':96, 'ip':16, 'op':10}, regen='true')
@@ -185,12 +183,12 @@ def expRun():
     # target('MatMult_inner', [48, 7680, 3840], {'tsm':16, 'tsn':128, 'tsp':128, 'ip':16, 'mp':1, 'op':5}, regen='true')
     # target('MatMult_inner', [48, 7680, 3840], {'tsm':16, 'tsn':128, 'tsp':96, 'ip':16, 'mp':1, 'op':4}, regen='true')
     # target('MatMult_inner', [48, 7680, 3840], {'tsm':16, 'tsn':128, 'tsp':96, 'ip':16, 'mp':1, 'op':5}, regen='true')
-
-    # TODO segfaulted
     # target('MatMult_inner', [48, 7680, 3840], {'tsm':256, 'tsn':80, 'tsp':256, 'ip':16, 'mp':1, 'op':5}, regen='true')
-    # target('MatMult_inner', [128, 7680, 3840], {'tsm':32, 'tsn':80, 'tsp':256, 'ip':16, 'mp':1, 'op':5}, regen='true')
-    #################################################################################################################
+
     #TODO
+    # target('MatMult_inner', [128, 7680, 3840], {'tsn':80,  'tsm':32,  'tsp':256, 'ip':16, 'mp':1, 'op':5}, regen='true')
+    # target('MatMult_inner', [512, 5120, 5120], {'tsn':160, 'tsm':128, 'tsp':512, 'ip':16, 'mp':1, 'op':5}, regen='true')
+    #################################################################################################################
     # target('BlackScholes', [96000], {'ip':16, 'op':1,  'ts': 1024}, regen='true')
     # target('BlackScholes', [96000], {'ip':16, 'op':2,  'ts': 1024}, regen='true')
     # target('BlackScholes', [96000], {'ip':16, 'op':4,  'ts': 1024}, regen='true') # not fit
@@ -210,10 +208,16 @@ def expRun():
     # target('BlackScholes', [96000], {'ip':16, 'op':2,  'ts': 8192}, regen='true')
     # target('BlackScholes', [96000], {'ip':16, 'op':4,  'ts': 8192}, regen='true') # not fit 
 
-    # target('BlackScholes', [98304], {'ip':16, 'op':2,  'ts': 2048}, regen='true')
-    # target('BlackScholes', [98304], {'ip':16, 'op':2,  'ts': 4096}, regen='true')
-    # target('BlackScholes', [1966080], {'ip':16, 'op':2,  'ts': 8192}, regen='true')
+    # target('BlackScholes', [98304],    {'ip':16, 'op':2,  'ts': 2048}, regen='true')
+    # target('BlackScholes', [98304],    {'ip':16, 'op':2,  'ts': 4096}, regen='true')
+    # target('BlackScholes', [1966080],  {'ip':16, 'op':2,  'ts': 8192}, regen='true')
     # target('BlackScholes', [94371840], {'ip':16, 'op':2,  'ts': 8192}, regen='true')
+    # target('BlackScholes', [94371840], {'ip':16, 'op':1,  'ts': 32768}, regen='true')
+    #TODO
+    # target('BlackScholes', [94371840], {'ip':16, 'op':2,  'ts': 16384}, regen='true')
+    # target('BlackScholes', [94371840], {'ip':16, 'op':2,  'ts': 32768}, regen='true')
+    # target('BlackScholes', [94371840], {'ip':16, 'op':2,  'ts': 65536}, regen='true')
+    # target('BlackScholes', [94371840], {'ip':16, 'op':1,  'ts': 65536}, regen='true')
 
     #################################################################################################################
     # target('TPCHQ6', [96000], {'ip':16, 'op':1 , 'ts':2000}, regen='true')
@@ -237,7 +241,6 @@ def expRun():
 
     # target('TPCHQ6', [96000], {'ip':16, 'op':10, 'ts':4000}, regen='true')
     #################################################################################################################
-    # TODO
     # target('GDA', [384000], {'ip':16, 'op':4,  'ts':16}, regen='true')
     # target('GDA', [384000], {'ip':16, 'op':6,  'ts':16}, regen='true')
     # target('GDA', [384000], {'ip':16, 'op':8,  'ts':16}, regen='true')
@@ -256,6 +259,18 @@ def expRun():
     # target('GDA', [384000], {'ip':16, 'op':6,  'ts':96}, regen='true')
     # target('GDA', [384000], {'ip':16, 'op':8,  'ts':96}, regen='true')
     # target('GDA', [384000], {'ip':16, 'op':10, 'ts':96}, regen='true')
+    # target('GDA', [38400 ],  {'ip':16, 'op':10, 'ts':96  }, regen='true')
+    # target('GDA', [38400 ],  {'ip':16, 'op':10, 'ts':192 }, regen='true')
+    # target('GDA', [38400 ],  {'ip':16, 'op':10, 'ts':384 }, regen='true')
+    # target('GDA', [38400 ],  {'ip':16, 'op': 6, 'ts':1600}, regen='true')
+    # target('GDA', [384000],  {'ip':16, 'op': 6, 'ts':3200}, regen='true')
+    # target('GDA', [38400 ],  {'ip':16, 'op': 8, 'ts':1600}, regen='true')
+    # target('GDA', [38400 ],  {'ip':16, 'op': 8, 'ts':1200}, regen='true')
+    #TODO
+    # target('GDA', [384000],  {'ip':16, 'op': 6, 'ts':6400}, regen='true')
+    # target('GDA', [384000],  {'ip':16, 'op': 8, 'ts':6400}, regen='true')
+    # target('GDA', [384000],  {'ip':16, 'op': 10, 'ts':6400}, regen='true')
+
     #################################################################################################################
     # args: iters, N
 
@@ -269,12 +284,12 @@ def expRun():
     # target('LogReg', [5, 1536], {'ip':16, 'op':8,  'ts':65, 'dim':384}, regen='true') 
     # target('LogReg', [5, 1536], {'ip':16, 'op':10, 'ts':65, 'dim':384}, regen='true') 
 
-    #TODO
-    # target('LogReg', [5, 1536], {'ip':16, 'op':11, 'ts':65, 'dim':384}, regen='true')  # seg faulted
-    # target('LogReg', [5, 1536], {'ip':16, 'op':12, 'ts':65, 'dim':384}, regen='true') # seg faulted
+    # target('LogReg', [5, 7040], {'ip':16, 'op':11, 'ts':64, 'dim':384}, regen='true')
+    # target('LogReg', [5, 46080], {'ip':16, 'op':12, 'ts':384, 'dim':384}, regen='true')
     #################################################################################################################
     # numiter, N, alpha
     # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':1, 'ts':384, 'D':16}, regen='true') 
+    # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':1, 'ts':3840, 'D':16}, regen='true') 
     # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':1, 'ts':3840, 'D':16}, regen='true') 
 
     #################################################################################################################

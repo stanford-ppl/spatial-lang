@@ -124,7 +124,7 @@ extern "C" {
           resp.cmd = cmd->cmd;
           *(uint64_t*)resp.data = (uint64_t)ptr;
           resp.size = sizeof(size_t);
-          EPRINTF("[SIM] MALLOC(%lu), returning %p\n", size, (void*)ptr);
+          EPRINTF("[SIM] MALLOC(%lu), returning %p - %p\n", size, (void*)ptr, (void*)((uint8_t*)ptr + size));
           respChannel->send(&resp);
           break;
         }

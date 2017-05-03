@@ -213,9 +213,9 @@ stamp_commit_msgs
 }
 
 stamp_app_comments() {
-  cd ${SPATIAL_HOME}/regression_tests
+  cd ${SPATIAL_HOME}/apps/src
   echo -e "\n# Pass Comments:\n" >> $wiki_file
-  find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g" >> $wiki_file
+  find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/> (/g" | sed "s/$/\n/g" >> $wiki_file
 }
 
 update_log() {
@@ -632,16 +632,26 @@ sed -i 's/#define EPRINTF(...) fprintf/#define EPRINTF(...) \\/\\/fprintf/g' cpp
 sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
+sed -i 's/\\\$vcdpluson/\\/\\/\\\$vcdpluson/g' chisel/template-level/fringeVCS/Top-harness.sv
 
-make vcs 2>&1 | tee -a ${5}/log
-make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+make vcs 2>&1 | tee -a ${5}/log" >> $1
+  if [[ ${type_todo} = "chisel" ]]; then
+    echo "make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
+  fi
 
-# Check for crashes in backend compilation
+echo "# Check for crashes in backend compilation
 wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\\|ChiselException\\|\\[vcs-hw\\] Error\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
+if [[ \"\$wc\" -ne 0 ]]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
-fi
-wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\\|fatal error\\|\\[vcs-sw\\] Error\" | wc -l)
+fi" >> $1
+  if [[ ${type_todo} = "chisel" ]]; then
+    echo "# Check for missing Top
+if [[ ! -f ${5}/out/Top ]]; then
+  report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
+fi" >> $1
+  fi
+
+echo "wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\\|fatal error\\|\\[vcs-sw\\] Error\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_cpp_crash\" \"[STATUS] Declaring failure compile_chisel c++ side\" 0
 fi
@@ -653,12 +663,23 @@ bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
 # Check for annoying vcs assertion and rerun if needed
 wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
+if [ \"\$wc\" -gt 0 ]; then
   echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
   echo \"\n\n=========\nSecond Change!\n==========\n\n\" >> ${5}/log
   make vcs 2>&1 | tee -a ${5}/log
   make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
   bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+
+  # Check second time for annoying assert
+  wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
+  if [ \"\$wc\" -gt 1 ]; then
+    echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
+    echo \"\n\n=========\nSecond Change!\n==========\n\n\" >> ${5}/log
+    make vcs 2>&1 | tee -a ${5}/log
+    make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+    bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  fi
+
 fi
 
 # Check for runtime errors
