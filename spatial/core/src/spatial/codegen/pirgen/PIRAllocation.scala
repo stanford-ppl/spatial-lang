@@ -292,7 +292,7 @@ trait PIRAllocation extends PIRTraversal {
     (compose(dmem), cu.style) match {
       case (mem, MemoryCU(i)) if isSRAM(mem) & isReader(access) => SRAMMode // Creating SRAM
       case (mem, MemoryCU(i)) if isWriter(mem) & isWriter(access) => VectorFIFOMode  // Creating FIFO for SRAM Write
-      case (LocalReader(reads), PipeCU) if reads.headOption.map(h => isSRAM(h._1)).getOrElse(false) => 
+      case (LocalReader(reads), readerCU) if reads.headOption.map(h => isSRAM(h._1)).getOrElse(false) => 
         VectorFIFOMode // Creating FIFO for SRAM Read 
       case (mem, style) if isReg(mem) | isGetDRAMAddress(mem) => ScalarBufferMode
       case (mem, style) if isStreamIn(mem) => VectorFIFOMode // from Fringe

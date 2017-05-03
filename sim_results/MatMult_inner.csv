@@ -1,1 +1,4 @@
 MatMult_inner, 32,96,96,tsn,48,tsm,16,ip,2,mp,8,tsp,48,op,2, 9588, 1
+MatMult_inner, 48,768,384,tsn,192,tsm,8,fpga,false,ip,16,mp,1,tsp,192,op,2, 444839, 1
+MatMult_inner, 48,768,384,tsn,192,tsm,8,fpga,true,ip,16,mp,1,tsp,192,op,2, 399042, 1
+MatMult_inner, 48,1536,384,tsn,192,tsm,8,fpga,false,ip,16,mp,1,tsp,192,op,4, 556176, 1

@@ -66,6 +66,15 @@ trait PIROptimizer extends PIRTraversal {
       }
       cu.regs --= unusedRegs
     }
+    stages.foreach { stage =>
+      if (stage.outputMems.isEmpty) {
+        dbgs(s"Removing stage with no output from $cu: $stage")
+        cu.writeStages.foreach { case (mems, stages) => stages -= stage }
+        cu.readStages.foreach { case (mems, stages) => stages -= stage }
+        cu.computeStages -= stage
+        cu.controlStages -= stage
+      }
+    }
   }
 
   def removeUnusedCChainCopy(cu: CU) = dbgl(s"Checking CU $cu for unused CChainCopy...") {
