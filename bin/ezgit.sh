@@ -148,3 +148,7 @@ cd ..
 conflict
 git stash pop
 rm /tmp/pub
+
+echo "=========================="
+echo "Merge complete!  Probably..."
+echo "=========================="

@@ -9,8 +9,12 @@ object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
   val pp = 3840
   val NNZ = 60
 
-  val ip = 16
-  val op = 4
+//  val ip = 16
+//  val op = 4
+
+  val ip = 1
+  val op = 1
+
 
   val tileSize = 384
 
