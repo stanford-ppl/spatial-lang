@@ -92,7 +92,7 @@ object BFS extends SpatialApp { // DISABLED Regression (Sparse) // Args: none
     val n = 5
     val e = 4
     val result = bfs(nodesIn, edgesIn, countsIn, idsIn, n, e)
-    printArray("result: ", result)
+    printArray(result, "result: ")
   }
 
 }
