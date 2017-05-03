@@ -242,6 +242,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
             val isAck = strm match { // TODO: Make this clean, just working quickly to fix bug for Tian
               case Def(StreamInNew(bus)) => bus match {
                 case BurstAckBus => true
+                case ScatterAckBus => true
                 case _ => false
               }
               case _ => false

@@ -30,6 +30,7 @@ trait ChiselGenStream extends ChiselCodegen {
       bus match {
         case BurstDataBus() =>
         case BurstAckBus =>
+        case ScatterAckBus =>
 //        case _ =>
 //          s"$bus" match => 
         case VideoCamera => 
@@ -80,6 +81,7 @@ trait ChiselGenStream extends ChiselCodegen {
       val isAck = stream match {
         case Def(StreamInNew(bus)) => bus match {
           case BurstAckBus => true
+          case ScatterAckBus => true
           case _ => false
         }
         case _ => false
