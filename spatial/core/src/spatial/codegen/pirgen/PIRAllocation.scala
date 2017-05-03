@@ -319,6 +319,7 @@ trait PIRAllocation extends PIRTraversal {
       initializeMem(cuMem, compose(daccess), cu)
       cuMem
     })
+    dbgs(s"$cu.mems=${cu.mems}")
     cuMem
   }
 

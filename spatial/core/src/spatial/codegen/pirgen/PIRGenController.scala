@@ -89,6 +89,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
     val srams = cu.srams // Memories with address calculation
     val mems = cu.mems.diff(srams) // Without address calculation
+    dbgs(s"$cu.mems=${mems}")
 
     open(s"val ${cu.name} = ${cuDeclaration(cu)} { implicit CU => ")
     preallocateRegisters(cu)                // Includes scalar inputs/outputs, temps, accums

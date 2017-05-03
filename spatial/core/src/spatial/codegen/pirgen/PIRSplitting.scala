@@ -174,7 +174,7 @@ trait PIRSplitting extends PIRTraversal {
     val local = part.cstages
     val remote = orig.allStages.toList diff part.allStages
 
-    val localIns  = local.flatMap(_.inputMems).toSet
+    val localIns  = local.flatMap(_.inputMems).toSet ++ cu.cchains.flatMap(localInputs)
     val localOuts = local.flatMap(_.outputMems).toSet
 
     val readMems = localIns.collect{case MemLoadReg(mem) => mem }

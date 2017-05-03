@@ -32,6 +32,9 @@ trait PIROptimizer extends PIRTraversal {
     mapping.foreach { case (sym, cus) =>
       dbgs(s"${sym} -> [${cus.mkString(",")}]")
     }
+    for (cu <- mapping.values.flatten) {
+      dbgcu(cu)
+    }
     super.postprocess(b)
   }
 
