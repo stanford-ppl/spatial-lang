@@ -110,7 +110,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
        Pipe {
         // val size = Reg[Index]
         // Pipe{size := issueQueue.deq()}
-        Foreach(requestLength by target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
+        Foreach(requestLength by target.burstSize/bits[T].length) {i => 
           val ack  = ackStream.value()
         }
       }
@@ -320,7 +320,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
         fringe_sparse_store(offchip, cmdBus.s, ackBus.s)
         // Receive
         // TODO: Assumes one ack per address
-        Foreach(requestLength par p){i =>
+        Foreach(requestLength by target.burstSize/bits[T].length){i =>
           val ack = ackBus.value()
         }
       }
