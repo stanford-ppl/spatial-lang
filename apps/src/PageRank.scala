@@ -64,14 +64,14 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
 
     Accel {
       val frontierOff = SRAM[Int](tileSize)
-      // Flush frontierOff so we don't cause gather segfault
+      val currentPR = SRAM[T](tileSize)
+      // Flush frontierOff so we don't cause gather segfault. Flush currentPR because mux isn't do what I thought it would
+      Foreach(tileSize by 1) { i => frontierOff(i) = 0.to[Int]; currentPR(i) = 1.to[T]}
 
-      Foreach(tileSize by 1) { i => frontierOff(i) = 0.to[Int] }
       Sequential.Foreach(iters by 1){ iter =>
         // val oldPrIdx = iter % 2.as[SInt]
         // val newPrIdx = mux(oldPrIdx == 1, 0.as[SInt], 1.as[SInt])
         Sequential.Foreach(NP by tileSize) { tid =>
-          val currentPR = SRAM[T](tileSize)
           val initPR = SRAM[T](tileSize)
 
           val edgesId = SRAM[Int](tileSize)
