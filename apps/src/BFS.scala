@@ -1,7 +1,7 @@
 import org.virtualized._
 import spatial._
 
-object BFS extends SpatialApp {
+object BFS extends SpatialApp { // DISABLED Regression (Sparse) // Args: none
   import IR._
 
   val tileSize = 8000
@@ -9,13 +9,11 @@ object BFS extends SpatialApp {
 
   @virtualize
   def bfs(nodesIn: Array[Int], edgesIn: Array[Int], countsIn: Array[Int], idsIn: Array[Int], n: Int, e: Int) = {
-    val nodes = DRAM[Int](n)
     val edges = DRAM[Int](e)
     val counts = DRAM[Int](n)
     val ids = DRAM[Int](n)
     val result = DRAM[Int](n)
 
-    setMem(nodes, nodesIn)
     setMem(edges, edgesIn)
     setMem(counts, countsIn)
     setMem(ids, idsIn)
@@ -31,6 +29,12 @@ object BFS extends SpatialApp {
       val concatReg = Reg[Int](0)
       val numEdges = Reg[Int](1)
 
+      // Flush first few currentNodes 
+      Foreach(5 by 1){i => 
+        Parallel{
+          currentNodes(i) = 0.to[Int]
+        }
+      }
       Parallel {
         frontierIds load ids(0 :: tileSize)
         frontierCounts load counts(0 :: tileSize)
@@ -38,9 +42,9 @@ object BFS extends SpatialApp {
 
       Sequential.Foreach(4 by 1) { i => /* Loop 1 */
         Reduce(concatReg)(numEdges by 1) { k => /* Loop 2 */
-          val nextLen = Reg[Int]
-          val nextId = Reg[Int]
-          val lastLen = Reg[Int]
+          val nextLen = Reg[Int](1)
+          val nextId = Reg[Int](1)
+          val lastLen = Reg[Int](1)
 
           val fetch = currentNodes(k)
           val lastFetch = currentNodes(k - 1)
@@ -87,7 +91,8 @@ object BFS extends SpatialApp {
     val idsIn = Array.empty[Int](3)
     val n = 5
     val e = 4
-    bfs(nodesIn, edgesIn, countsIn, idsIn, n, e)
+    val result = bfs(nodesIn, edgesIn, countsIn, idsIn, n, e)
+    printArray("result: ", result)
   }
 
 }

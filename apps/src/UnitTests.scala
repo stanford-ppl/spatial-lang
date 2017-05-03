@@ -1171,7 +1171,7 @@ object GatherStore extends SpatialApp { // Regression (Sparse) // Args: none
   }
 }
 
-object LoadScatter extends SpatialApp { // DISABLED Regression (Sparse) // Args: none
+object LoadScatter extends SpatialApp { // Regression (Sparse) // Args: none
   import IR._
 
   val tileSize = 128
