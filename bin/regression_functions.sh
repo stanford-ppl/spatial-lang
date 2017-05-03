@@ -639,7 +639,27 @@ make vcs 2>&1 | tee -a ${5}/log" >> $1
     echo "make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
   fi
 
-echo "# Check for crashes in backend compilation
+echo "
+# Check for annoying sbt compile not working
+wc=\$(cat ${5}/log | grep \"No rule to make target\" | wc -l)
+if [ \"\$wc\" -gt 0 ]; then
+  echo \"[APP_RESULT] Annoying SBT crashing on ${3}_${4}.  Rerunning...\" >> ${log}
+  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  cd ../" >> $1
+  # Compile command
+  if [[ ${type_todo} = "scala" ]]; then
+    echo "  # Compile app
+  ${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+    " >> $1
+  elif [[ ${type_todo} = "chisel" ]]; then
+    echo "  # Compile app
+  ${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+    " >> $1
+  fi
+  echo "fi
+
+
+# Check for crashes in backend compilation
 wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\\|ChiselException\\|\\[vcs-hw\\] Error\" | wc -l)
 if [[ \"\$wc\" -ne 0 ]]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
@@ -665,7 +685,7 @@ bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
 if [ \"\$wc\" -gt 0 ]; then
   echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
-  echo \"\n\n=========\nSecond Change!\n==========\n\n\" >> ${5}/log
+  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
   make vcs 2>&1 | tee -a ${5}/log
   make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
   bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
@@ -674,7 +694,7 @@ if [ \"\$wc\" -gt 0 ]; then
   wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
   if [ \"\$wc\" -gt 1 ]; then
     echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
-    echo \"\n\n=========\nSecond Change!\n==========\n\n\" >> ${5}/log
+    echo \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
     make vcs 2>&1 | tee -a ${5}/log
     make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
     bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
