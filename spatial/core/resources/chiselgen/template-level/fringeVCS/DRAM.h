@@ -71,7 +71,8 @@ public:
   }
 
   void print() {
-    EPRINTF("[DRAMRequest CH=%lu] addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d, issued=%lu\n", channelID, addr, rawAddr, streamId, tag, isWr, isSparse, issued);
+    EPRINTF("[DRAMRequest CH=%lu] addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d, issued=%lu ", channelID, addr, rawAddr, streamId, tag, isWr, isSparse, issued);
+    if (isWr) EPRINTF("wdata = %x\n", wdata[0]);
   }
 
   ~DRAMRequest() {
@@ -206,8 +207,10 @@ bool checkQAndRespond(int id) {
             bool writeRequest = req->isWr;
             uint64_t tag = req->tag;
 
-            ASSERT(!writeRequest, "Sparse writes not yet supported!\n");
+//            ASSERT(!writeRequest, "Sparse writes not yet supported!\n");
             uint64_t gatherAddr[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+            uint64_t scatterAddr[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+            uint64_t scatterData[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
             uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
             if (debug) {
@@ -225,15 +228,25 @@ bool checkQAndRespond(int id) {
                 rdata[i] = *raddr;
                 gatherAddr[i] = head->rawAddr;
               } else {
-                ASSERT(false, "ERROR: Sparse writes not supported yet!");
+//                ASSERT(false, "ERROR: Sparse writes not supported yet!");
+                uint32_t *waddr = (uint32_t*) head->rawAddr;
+                if (debug) EPRINTF("-------- scatterAddr(%d) = %lx\n", i, waddr);
+                *waddr = head->wdata[0];
+                scatterAddr[i] = head->rawAddr;
+                scatterData[i] = head->wdata[0];
+
               }
               dramRequestQ[id].pop_front();
             }
 
             if (debug) {
-              EPRINTF("[checkAndSendDRAMResponse] Gather complete with following details:\n");
+              EPRINTF("[checkAndSendDRAMResponse] Sparse complete with following details:\n");
               for (int i = 0; i<16; i++) {
-                EPRINTF("---- addr %lx: data %x\n", gatherAddr[i], rdata[i]);
+                if (writeRequest) {
+                  EPRINTF("---- [scatter] addr %lx: data %x\n", scatterAddr[i], scatterData[i]);
+                } else {
+                  EPRINTF("---- addr %lx: data %x\n", gatherAddr[i], rdata[i]);
+                }
               }
               printQueueStats(id);
             }
@@ -370,7 +383,9 @@ extern "C" {
 
     DRAMRequest *req = new DRAMRequest(cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse, wdata, numCycles);
     if (debug) {
-      EPRINTF("[sendDRAMRequest] Called with addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d\n", cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse);
+//      EPRINTF("[sendDRAMRequest] Called with addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d\n", cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse);
+      EPRINTF("[sendDRAMRequest] Called with ");
+      req->print();
     }
 
     if (!useIdealDRAM) {
