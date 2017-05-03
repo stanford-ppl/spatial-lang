@@ -4,7 +4,7 @@ import org.virtualized._
 object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
   import IR._
 
-  type T = Int //FixPt[Signed,B16,B16]
+  type T = Float //FixPt[Signed,B16,B16]
 
   val pp = 3840
   val maximumNNZ = 60

@@ -71,6 +71,13 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     def composed = PIRCodegen.this.composed
   }
 
+  lazy val areaModel = new PIRAreaModelHack {
+    override def globals = PIRCodegen.this.globals
+    override def composed = PIRCodegen.this.composed
+    override def decomposed = PIRCodegen.this.decomposed
+    override val IR: PIRCodegen.this.IR.type = PIRCodegen.this.IR
+  }
+
 
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
     globals.clear
@@ -85,9 +92,14 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
 
     emitCUStats(optimizer.mapping.values.toList.flatten)
 
+    areaModel.mappingIn ++= optimizer.mapping
+    areaModel.run(block)
+    report("Estimated ASIC area: " + areaModel.totalArea)
+
     if (SpatialConfig.enableSplitting) {
       printout.mappingIn ++= optimizer.mapping
       printout.run(block)
+
 
       splitter.mappingIn ++= optimizer.mapping
       splitter.run(block)

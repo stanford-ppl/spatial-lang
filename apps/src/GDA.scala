@@ -4,7 +4,7 @@ import spatial._
 object GDA extends SpatialApp { // Regression (Dense) // Args: 64
   import IR._
 
-  type X = Int
+  type X = Float
 
   val MAXC = 96
   val C = MAXC

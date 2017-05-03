@@ -4,11 +4,11 @@ import org.virtualized._
 object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
   import IR._
 
-  type X = Int
+  type X = Float
 
   val num_cents = 20
   val dim = 96
-  val pts_per_ld = 1 // ???
+  val pts_per_ld = 20 // ???
 
   val innerPar = 16
   val outerPar = 1
@@ -144,8 +144,8 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
     val K = num_cents //args(2).to[SInt];
     val D = dim //args(3).to[SInt];
 
-    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else random[X](element_max) + i }}
-    val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else random[X](element_max) + (i*N/K) }}
+    val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else random[X](element_max) + i.to[X] }}
+    val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else random[X](element_max) + (i*N/K).to[X] }}
     // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else if (d == 0) random[X](element_max) + i else 0.to[X]}}
     // val cnts = Array.tabulate(K){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else if (d == 0) random[X](element_max) + i else 0.to[X]}}
     // val pts = Array.tabulate(N){i => Array.tabulate(D){d => if (d == D-1) 1.to[X] else 5*i }}
