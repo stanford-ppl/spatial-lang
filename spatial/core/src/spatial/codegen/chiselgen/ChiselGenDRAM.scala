@@ -166,10 +166,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 //      emitGlobalWire(src"""val ${cmdStream}_data = ${cmdStream}_addrData(${dataLSB+dataWidth-1}, ${dataLSB})""")
 
       emitGlobalWire(src"val ${cmdStream}_data = Wire(Vec($par, UInt(${addrWidth+dataWidth}.W)))")
-      emit(src"""io.memStreams.stores($id).wdata.bits.zip(${cmdStream}_data).foreach{case (wport, wdata) => wport := wdata(${dataLSB+dataWidth-1}, ${dataLSB})}""")
-
+      emit(src"""io.memStreams.stores($id).wdata.bits.zip(${cmdStream}_data).foreach{case (wport, wdata) => wport := wdata(${dataWidth-1}, 0)}""")
       emit(src"""io.memStreams.stores($id).wdata.valid := ${cmdStream}_valid""")
-      emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}_data(0)(${addrLSB+addrWidth-1}, ${addrLSB})  // TODO: Hardcoded 0 index")
+      emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}_data(0)(${dataLSB+dataWidth-1}, ${dataWidth})  // TODO: Hardcoded 0 index")
       emit(src"io.memStreams.stores($id).cmd.bits.size := 1.U")
       emit(src"io.memStreams.stores($id).cmd.valid :=  ${cmdStream}_valid")
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := 1.U")
