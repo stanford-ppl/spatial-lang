@@ -95,16 +95,48 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) - c      
     }
 
+    def <-> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <-> c
+    }
+
     def + (c: FixedPoint): FixedPoint = {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) + c      
+    }
+
+    def <+> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <+> c      
     }
 
     def * (c: FixedPoint): FixedPoint = {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) * c      
     }
 
+    def <*> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <*> c      
+    }
+
+    def *& (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) *& c      
+    }
+
+    def <*&> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <*&> c      
+    }
+
     def / (c: FixedPoint): FixedPoint = {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) / c      
+    }
+
+    def </> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) </> c      
+    }
+
+    def /& (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) /& c      
+    }
+
+    def </&> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) </&> c      
     }
 
     def % (c: FixedPoint): FixedPoint = {
@@ -118,6 +150,15 @@ object ops {
 
   }
   implicit class IntOps(val b: Int) {
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+    def FP(s: Int, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+  }
+
+  implicit class DoubleOps(val b: Double) {
     def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
       Utils.FixedPoint(s, d, f, b)
     }

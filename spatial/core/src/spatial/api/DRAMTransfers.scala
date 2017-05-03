@@ -371,7 +371,7 @@ trait DRAMTransferExp { this: SpatialExp =>
     implicit val mD: Meta[DRAM[T]] = tile.dram.tp
 
     val p = extractParFactor(local.p)
-    val size = stagedDimsOf(local.s).head
+    val size = tile.len.s //stagedDimsOf(local.s).head
     val i = fresh[Index]
     Void(op_sparse_transfer(tile.dram, local.s, tile.addrs.s, size, p, isLoad, i))
   }

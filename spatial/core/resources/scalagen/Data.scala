@@ -180,7 +180,7 @@ object Number {
   }
   def saturating(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = {
     val FixedPoint(s, i, f) = fmt
-    val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1 )
+    val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i+f-1)) - 1 else (BigInt(1) << (i+f)) - 1 )/BigDecimal(BigInt(1) << f)
     val MIN_INTEGRAL_VALUE = BigDecimal( if (s) -(BigInt(1) << (i-1)) else BigInt(0) )
     if (value < MIN_INTEGRAL_VALUE) {
       new Number(MIN_INTEGRAL_VALUE, valid, fmt)
@@ -195,7 +195,7 @@ object Number {
     val intValue = value * BigDecimal(BigInt(1) << f)
     val rand = scala.util.Random.nextFloat() // uniform between 0 and 1
     val bits = intValue + rand
-    val MAX_INTEGRAL_VALUE = BigDecimal(if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1)
+    val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i+f-1)) - 1 else (BigInt(1) << (i+f)) - 1 )/BigDecimal(BigInt(1) << f)
     val MIN_INTEGRAL_VALUE = BigDecimal(if (s) -(BigInt(1) << (i-1)) else BigInt(0))
     if (bits < MIN_INTEGRAL_VALUE) {
       new Number(MIN_INTEGRAL_VALUE, valid, fmt)
