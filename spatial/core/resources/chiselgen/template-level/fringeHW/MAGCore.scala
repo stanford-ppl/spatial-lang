@@ -127,7 +127,7 @@ class MAGCore(
   val vins = storeStreamInfo.map {_.v}
   val wdataFifo = Module(new FIFOArbiterWidthConvert(wins, vins, 32, 16, d))
   val wrPhase = Module(new SRFF())
-
+  wrPhase.io.input.asyn_reset := false.B
 
   val burstVld = ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
   val dramReady = io.dram.cmd.ready
@@ -285,8 +285,14 @@ class MAGCore(
   io.dram.cmd.bits.streamId := tagOut.streamTag
   io.dram.cmd.bits.wdata := wdata
   io.dram.cmd.bits.isWr := isWrFifo.io.deq(0)
+
+  val wasSparseWren = Module(new SRFF()) // Hacky way to allow wrPhase to die after sparse write
+  wasSparseWren.io.input.set := sparseWriteEnable
+  wasSparseWren.io.input.reset := ~sparseWriteEnable
+  wasSparseWren.io.input.asyn_reset := false.B
+  
   wrPhase.io.input.set := (~isWrFifo.io.empty & isWrFifo.io.deq(0))
-  wrPhase.io.input.reset := templates.Utils.delay(burstVld,1)
+  wrPhase.io.input.reset := templates.Utils.delay(burstVld | wasSparseWren.io.output.data,1)
   io.dram.cmd.valid := Mux(sparseWriteEnable, sparseWriteEnable, burstVld & ~issued)
 //  io.dram.cmd.valid := Mux(scatterGather, ccache.io.miss, burstVld & ~issued)
 
