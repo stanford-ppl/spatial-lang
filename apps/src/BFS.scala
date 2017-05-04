@@ -36,15 +36,15 @@ object BFS extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 10
       val numEdges = Reg[Int](1)
 
       // Flush first few for scatter safety
-      // Foreach(tileSize by 1){i => 
-      //   Parallel{
-      //     frontierNodes(i) = 0.to[Int]
-      //     // frontierCounts(i) = 0.to[Int]
-      //     frontierLevels(i) = 0.to[Int]
-      //     currentNodes(i) = 0.to[Int]
-      //     pieceMem(i) = 0.to[Int]
-      //   }
-      // }
+      Foreach(20 by 1){i => 
+        Parallel{
+          frontierNodes(i) = 0.to[Int]
+          // frontierCounts(i) = 0.to[Int]
+          frontierLevels(i) = 0.to[Int]
+          currentNodes(i) = 0.to[Int]
+          pieceMem(i) = 0.to[Int]
+        }
+      }
       Parallel {
         frontierIds load ids(0 :: tileSize)
         // frontierCounts load counts(0 :: tileSize)
@@ -104,8 +104,8 @@ object BFS extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 10
     val ed = E //args(1).to[SInt] // Set to roughly max_edges_per_node * N 
 
     val OCnodes = Array.tabulate(N) {i => 0.to[Int]}
-    val OCedges = Array.tabulate(ed){ i => i*2 % E}
-    val OCids = Array.tabulate(N)( i => average_nodes_per_edge*average_nodes_per_edge*i+1 % E)
+    val OCedges = Array.tabulate(ed){ i => i*2 % N}
+    val OCids = Array.tabulate(N)( i => average_nodes_per_edge*average_nodes_per_edge*i+1 % N)
     val OCcounts = Array.tabulate(N){ i => random[Int](average_nodes_per_edge-1)*2+1}
 
     val result = bfs(OCnodes, OCedges, OCcounts, OCids, N, E, average_nodes_per_edge)
