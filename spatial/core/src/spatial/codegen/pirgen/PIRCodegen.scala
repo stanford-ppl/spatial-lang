@@ -94,7 +94,6 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
 
     areaModel.mappingIn ++= optimizer.mapping
     areaModel.run(block)
-    report("Estimated ASIC area: " + areaModel.totalArea)
 
     if (SpatialConfig.enableSplitting) {
       printout.mappingIn ++= optimizer.mapping
