@@ -62,7 +62,7 @@ extern "C" {
     bool blast = last > 0;
 
     // Currently just print read data out to console
-    outStream->recv(udata, utag, blast);
+    //outStream->recv(udata, utag, blast);
   }
 }
 
@@ -104,7 +104,7 @@ extern "C" {
     checkAndSendDRAMResponse();
 
     // Check if input stream has new data
-    inStream->send();
+    //inStream->send();
 
     // Handle new incoming operations
     while (!exitTick) {
