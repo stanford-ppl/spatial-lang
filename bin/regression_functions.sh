@@ -480,7 +480,7 @@ notifications:
     recipients: mattfel@stanford.edu
     on_failure: never # default: always
 script:
-  - bash ./status.sh
+  - sudo bash ./status.sh # Is sudo now needed for travis?
 " > .travis.yml
 
     tracker="${SPATIAL_HOME}/${trackbranch}/results"
