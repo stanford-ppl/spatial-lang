@@ -50,21 +50,24 @@ trait NodeUtils { this: SpatialExp =>
   }
 
   /**
+    * Returns the list of parents of x, ordered outermost to innermost.
+    */
+  def allParents[T](x: T, parent: T => Option[T]): List[Option[T]] = {
+    var path: List[Option[T]] = List(Some(x))
+    var cur: Option[T] = Some(x)
+    while (cur.isDefined) { cur = parent(cur.get); path ::= cur } // prepend
+    path
+  }
+
+  /**
     * Returns the least common ancestor of two nodes in some directed, acyclic graph.
     * If the nodes share no common parent at any point in the tree, the LCA is undefined (None).
     * Also returns the paths from the least common ancestor to each node.
     * The paths do not contain the LCA, as it may be undefined.
     */
   def leastCommonAncestorWithPaths[T](x: T, y: T, parent: T => Option[T]): (Option[T], List[T], List[T]) = {
-    var pathX: List[Option[T]] = List(Some(x))
-    var pathY: List[Option[T]] = List(Some(y))
-
-    var curX: Option[T] = Some(x)
-    while (curX.isDefined) { curX = parent(curX.get); pathX ::= curX }
-
-    var curY: Option[T] = Some(y)
-    while (curY.isDefined) { curY = parent(curY.get); pathY ::= curY }
-
+    val pathX = allParents(x, parent)
+    val pathY = allParents(y, parent)
     // Choose last node where paths are the same
     val lca = pathX.zip(pathY).filter{case (x,y) => x == y}.lastOption.flatMap(_._1)
     val pathToX = pathX.drop(pathX.indexOf(lca)+1).map(_.get)

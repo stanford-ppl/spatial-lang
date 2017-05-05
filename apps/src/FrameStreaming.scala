@@ -12,6 +12,7 @@ object FrameStreaming extends SpatialApp {
   val Cmax = 512
   val Rmax = 512
 
+  type Int12 = FixPt[TRUE,_12,_0]
   @struct case class Pixel24(b: UInt8, g: UInt8, r: UInt8)
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
 
@@ -23,7 +24,7 @@ object FrameStreaming extends SpatialApp {
     setArg(C, cols)
 
     val imgIn  = StreamIn[Pixel24](target.VideoCamera)
-    val imgOut = BufferedOut[Pixel16](Rmax, Cmax)(target.VGA)
+    val imgOut = BufferedOut[Pixel16](target.VGA)
 
     Accel {
       val fifoIn = FIFO[Int12](128)

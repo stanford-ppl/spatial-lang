@@ -17,9 +17,9 @@ trait StreamApi extends StreamExp { this: SpatialApi =>
     StreamOut(stream_out[T](bus))
   }
 
-  @api def BufferedOut[T:Meta:Bus](rows: Index, cols: Index)(bus: Bus): BufferedOut[T] = {
+  @api def BufferedOut[T:Meta:Bits](bus: Bus): BufferedOut[T] = { // (rows: Index, cols: Index)
     bus_check[T](bus)
-    BufferedOut(buffered_out[T](Seq(rows.s,cols.s),bus))
+    BufferedOut(buffered_out[T](Seq(lift(320).s,lift(240).s),bus))
   }
 
   @api implicit def readStream[T](stream: StreamIn[T]): T = stream.value
@@ -124,7 +124,7 @@ trait StreamExp { this: SpatialExp =>
     stageMutable(BufferedOutNew[T](dims, bus))(ctx)
   }
 
-  @internal def buffered_out_write[T:Type:Bus](buffer: Exp[BufferedOut[T]], data: Exp[T], is: Seq[Exp[Index]], en: Exp[Bool]) = {
+  @internal def buffered_out_write[T:Type:Bits](buffer: Exp[BufferedOut[T]], data: Exp[T], is: Seq[Exp[Index]], en: Exp[Bool]) = {
     stageWrite(buffer)(BufferedOutWrite(buffer,data,is,en))(ctx)
   }
 
