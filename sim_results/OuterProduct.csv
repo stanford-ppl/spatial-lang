@@ -1,1 +1,2 @@
 OuterProduct, 192,192,ip,2,op,2,ts2,48,ts1,48, 5521, 1
+OuterProduct, 3840,3840,ip,8,ts1,192,ts2,192,fpga,true,op,2, 1228339, 1
