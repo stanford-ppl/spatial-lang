@@ -9,6 +9,8 @@ notifications:
 #   only:
 #   - fpga
 #   - master
+before_script:
+  - sudo chmod +x /usr/local/bin/sbt # Travis is being so annoying (https://github.com/travis-ci/travis-ci/issues/7703)
 install: 
   - wget https://www.veripool.org/ftp/verilator-3.900.tgz
   - unset VERILATOR_ROOT  # For bash
@@ -21,4 +23,5 @@ before_script:
   - cd ${TEMPLATES_HOME}
 script: 
   - free -k
-  - sudo bash ./run-templates.sh all
+  - bash ./run-templates.sh all
+  - sbt "test:run-main templates.Launcher all"
