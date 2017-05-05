@@ -1171,32 +1171,42 @@ object GatherStore extends SpatialApp { // Regression (Sparse) // Args: none
   }
 }
 
-object LoadScatter extends SpatialApp { // Regression (Sparse) // Args: none
+object ScatterGather extends SpatialApp { // Regression (Sparse) // Args: 160
   import IR._
 
-  val tileSize = 128
-  val numAddr = tileSize * 10
-  val numData = tileSize * 100
+  val tileSize = 32
+  // val tileSize = 128
+  // val numAddr = tileSize * 10
+  // val numData = tileSize * 100
 
   val P = param(1)
 
   @virtualize
-  def loadScatter[T:Type:Num](addrs: Array[Int], offchip_data: Array[T]) = {
+  def loadScatter[T:Type:Num](addrs: Array[Int], offchip_data: Array[T], numAddr: Int, numData: Int) = {
 
-    val srcAddrs = DRAM[Int](numAddr)
-    val inData = DRAM[T](numData)
-    val scatterResult = DRAM[T](numData)
+    val na = ArgIn[Int]
+    setArg(na, numAddr)
+    val nd = ArgIn[Int]
+    setArg(nd, numData)
+    // val scatgats_per = ArgIn[Int]
+    // setArg(scatgats_per, args(1).to[Int])
+
+    val srcAddrs = DRAM[Int](na)
+    val inData = DRAM[T](nd)
+    val scatterResult = DRAM[T](nd)
 
     setMem(srcAddrs, addrs)
     setMem(inData, offchip_data)
 
     Accel {
       val addrs = SRAM[Int](tileSize)
-      Sequential.Foreach(numAddr by tileSize) { i =>
+      Sequential.Foreach(na by tileSize) { i =>
         val sram = SRAM[T](tileSize)
-        addrs load srcAddrs(i::i + tileSize par P)
-        sram gather inData(addrs par P, tileSize)
-        scatterResult(addrs par P, tileSize) scatter sram
+        // val numscats = scatgats_per + random[Int](8) 
+        val numscats = tileSize
+        addrs load srcAddrs(i::i + numscats par P)
+        sram gather inData(addrs par P, numscats)
+        scatterResult(addrs par P, numscats) scatter sram
       }
     }
 
@@ -1228,13 +1238,16 @@ object LoadScatter extends SpatialApp { // Regression (Sparse) // Args: none
 //      else i*2 + numData/2
 //    }
 
+    val numAddr = args(0).to[Int]
+    val mul = 2
+    val numData = numAddr*mul*mul
+
     val nd = numData
     val na = numAddr
-    val mul = 2
     val addrs = Array.tabulate(na) { i => i * mul }
     val offchip_data = Array.tabulate[Int](nd){ i => i * 10 }
 
-    val received = loadScatter(addrs, offchip_data)
+    val received = loadScatter(addrs, offchip_data, na,nd)
 
     def contains(a: Array[Int], elem: Int) = {
       a.map { e => e == elem }.reduce {_||_}
@@ -1258,83 +1271,6 @@ object LoadScatter extends SpatialApp { // Regression (Sparse) // Args: none
     printArray(received, "received:")
     val cksum = received.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (LoadScatter)")
-  }
-}
-
-object ScatterGather extends SpatialApp { // DISABLED Regression (Sparse) // Args: none
-  import IR._
-
-  val N = 1920
-
-  val tileSize = 384
-  val maxNumAddrs = 1536
-  val offchip_dataSize = maxNumAddrs*6
-  val P = param(1)
-
-  @virtualize
-  def scattergather[T:Type:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
-
-    val srcAddrs = DRAM[Int](maxNumAddrs)
-    val gatherData = DRAM[T](offchip_dataSize)
-    val scatterResult = DRAM[T](offchip_dataSize)
-
-    setMem(srcAddrs, addrs)
-    setMem(gatherData, offchip_data)
-
-    Accel {
-      val addrs = SRAM[Int](maxNumAddrs)
-      Sequential.Foreach(maxNumAddrs by tileSize) { i =>
-        val sram = SRAM[T](maxNumAddrs)
-        addrs load srcAddrs(i::i + tileSize par P)
-        sram gather gatherData(addrs par P, tileSize)
-        scatterResult(addrs par P, tileSize) scatter sram // TODO: What to do about parallel scatter when sending to same burst simultaneously???
-      }
-    }
-
-    getMem(scatterResult)
-  }
-
-  @virtualize
-  def main() = {
-    // val size = args(0).to[Int]
-
-
-    val size = maxNumAddrs
-    val dataSize = offchip_dataSize
-    val addrs = Array.tabulate(size) { i =>
-      // i*2 // for debug
-      // TODO: Macro-virtualized winds up being particularly ugly here..
-      if      (i == 4)  lift(199)
-      else if (i == 6)  lift(offchip_dataSize-2)
-      else if (i == 7)  lift(191)
-      else if (i == 8)  lift(203)
-      else if (i == 9)  lift(381)
-      else if (i == 10) lift(offchip_dataSize-97)
-      else if (i == 15) lift(97)
-      else if (i == 16) lift(11)
-      else if (i == 17) lift(99)
-      else if (i == 18) lift(245)
-      else if (i == 94) lift(3)
-      else if (i == 95) lift(1)
-      else if (i == 83) lift(101)
-      else if (i == 70) lift(203)
-      else if (i == 71) lift(offchip_dataSize-1)
-      else if (i % 2 == 0) i*2
-      else i*2 + offchip_dataSize/2
-    }
-    val offchip_data = Array.fill(dataSize){ random[Int](dataSize) }
-    // val offchip_data = Array.tabulate (dataSize) { i => i}
-
-    val received = scattergather(addrs, offchip_data, size, dataSize)
-
-    // printArr(addrs, "addrs: ")
-    // (0 until dataSize) foreach { i => println(i + " match? " + (addrs.map{a => a==i}.reduce{_||_}) ) }
-    val gold = Array.tabulate(dataSize){ i => if (addrs.map{a => a == i}.reduce{_||_}) offchip_data(i) else lift(0) }
-
-    printArray(gold, "gold:")
-    printArray(received, "received:")
-    val cksum = received.zip(gold){_ == _}.reduce{_&&_}
-    println("PASS: " + cksum + " (ScatterGather)")
   }
 }
 

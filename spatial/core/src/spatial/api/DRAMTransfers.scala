@@ -284,7 +284,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
 
         // Send
         Foreach(iters par p){i =>
-          val addr = math_mux((i >= requestLength).s, dram.address.s, ((addrs(i) * bytesPerWord).to[Int64] + dram.address).s)
+          val addr = math_mux((i >= requestLength).s, dram.address.to[Int64].s, ((addrs(i) * bytesPerWord).to[Int64] + dram.address).s)
 
           val addr_bytes = addr
           stream_write(addrBus.s, addr_bytes, true.s)
@@ -310,8 +310,9 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
         // Send
         Foreach(iters par p){i =>
           val pad_addr = wrap(math_max((requestLength-1.to[Index]).s, unwrap(0.to[Index])))
+          val unique_addr = addrs(pad_addr)
           val addr = math_mux((i >= requestLength).s, 
-            ((addrs(pad_addr) * bytesPerWord).to[Int64] + dram.address).s, 
+            ((unique_addr * bytesPerWord).to[Int64] + dram.address).s, 
             ((addrs(i) * bytesPerWord).to[Int64] + dram.address).s
           )
           val data = math_mux((i >= requestLength).s, unwrap(local(pad_addr)), unwrap(local(i)))
