@@ -38,16 +38,16 @@ trait CppGenMath extends CppCodegen {
 
     case FltAbs(x)  => emit(src"${lhs.tp} $lhs = fabs($x);")
     case FltLog(x)  => x.tp match {
-      case DoubleType() => emit(src"${lhs.tp} $lhs = log($x)")
-      case FloatType()  => emit(src"${lhs.tp} $lhs = log($x)")
+      case DoubleType() => emit(src"${lhs.tp} $lhs = log($x);")
+      case FloatType()  => emit(src"${lhs.tp} $lhs = log($x);")
     }
     case FltExp(x)  => x.tp match {
-      case DoubleType() => emit(src"${lhs.tp} $lhs = exp($x)")
-      case FloatType()  => emit(src"${lhs.tp} $lhs = exp($x)")
+      case DoubleType() => emit(src"${lhs.tp} $lhs = exp($x);")
+      case FloatType()  => emit(src"${lhs.tp} $lhs = exp($x);")
     }
     case FltSqrt(x) => x.tp match {
-      case DoubleType() => emit(src"${lhs.tp} $lhs = sqrt($x)")
-      case FloatType()  => emit(src"${lhs.tp} $lhs = sqrt($x)")
+      case DoubleType() => emit(src"${lhs.tp} $lhs = sqrt($x);")
+      case FloatType()  => emit(src"${lhs.tp} $lhs = sqrt($x);")
     }
 
     case FltPow(x,exp) =>
