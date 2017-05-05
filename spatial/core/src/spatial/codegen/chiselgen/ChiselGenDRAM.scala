@@ -4,7 +4,7 @@ import spatial.SpatialConfig
 import spatial.SpatialExp
 import scala.collection.mutable.HashMap
 
-trait ChiselGenDRAM extends ChiselGenSRAM {
+trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
   val IR: SpatialExp
   import IR._
 
@@ -148,7 +148,34 @@ trait ChiselGenDRAM extends ChiselGenSRAM {
       emit(src"""io.memStreams.stores($id).wresp.ready := ${ackStream}_ready""")
 
     case FringeSparseStore(dram,cmdStream,ackStream) =>
-      assert(false, "FringeSparseStore TODO")
+      // Get parallelization of datastream
+      val par = writersOf(cmdStream).head.node match {
+        case Def(e@ParStreamWrite(_, _, ens)) => ens.length
+        case _ => 1
+      }
+      Predef.assert(par == 1, s"Unsupported par '$par', only par=1 currently supported")
+
+      val id = storesList.length
+      storeParMapping = storeParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par})"
+      storesList = storesList :+ dram
+
+      val (addrLSB, addrWidth) = tupCoordinates(cmdStream.tp.typeArguments.head, "_1")
+      val (dataLSB, dataWidth) = tupCoordinates(cmdStream.tp.typeArguments.head, "_2")
+//      emitGlobalWire(src"""val ${cmdStream}_addrData = Wire(UInt(${addrWidth+dataWidth}.W))""")
+//      emitGlobalWire(src"""val ${cmdStream}_addr = ${cmdStream}_addrData(${addrLSB+addrWidth-1}, ${addrLSB})""")
+//      emitGlobalWire(src"""val ${cmdStream}_data = ${cmdStream}_addrData(${dataLSB+dataWidth-1}, ${dataLSB})""")
+
+      emitGlobalWire(src"val ${cmdStream}_data = Wire(Vec($par, UInt(${addrWidth+dataWidth}.W)))")
+      emit(src"""io.memStreams.stores($id).wdata.bits.zip(${cmdStream}_data).foreach{case (wport, wdata) => wport := wdata(${dataWidth-1}, 0)}""")
+      emit(src"""io.memStreams.stores($id).wdata.valid := ${cmdStream}_valid""")
+      emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}_data(0)(${dataLSB+dataWidth-1}, ${dataWidth})  // TODO: Hardcoded 0 index")
+      emit(src"io.memStreams.stores($id).cmd.bits.size := 1.U")
+      emit(src"io.memStreams.stores($id).cmd.valid :=  ${cmdStream}_valid")
+      emit(src"io.memStreams.stores($id).cmd.bits.isWr := 1.U")
+      emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 1.U")
+      emit(src"${cmdStream}_ready := io.memStreams.stores($id).wdata.ready")
+      emit(src"""${ackStream}_valid := io.memStreams.stores($id).wresp.valid""")
+      emit(src"""io.memStreams.stores($id).wresp.ready := ${ackStream}_ready""")
 
     case _ => super.emitNode(lhs, rhs)
   }

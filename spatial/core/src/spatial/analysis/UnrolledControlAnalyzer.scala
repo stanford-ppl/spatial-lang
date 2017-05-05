@@ -38,6 +38,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
         bus match {
           case BurstDataBus() =>
           case BurstAckBus =>
+          case ScatterAckBus =>
           case _ =>
             genericStreams += ((lhs, "input"))
         }

@@ -157,20 +157,34 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
   @virtualize
   def trsm(B: Array[T], L: Array[T]) = {
 
-    val OCB = DRAM[T](full_N, full_K)
-    val OCL = DRAM[T](full_N, full_N)
+    // fixme: do normal DRAM matrices when https://github.com/stanford-ppl/spatial-lang/issues/68 is resolved
+    // val OCB = DRAM[T](full_N, full_K)
+    // val OCL = DRAM[T](full_N, full_N)
+    // setMem(OCB, B)
+    // setMem(OCL, L)
+    val OCB_flat = DRAM[T](full_N * full_K)
+    val OCL_flat = DRAM[T](full_N * full_N)
     val OCX = DRAM[T](full_N * full_K)
-    setMem(OCB, B)
-    setMem(OCL, L)
+    setMem(OCB_flat, B)
+    setMem(OCL_flat, L)
 
 
     Accel {
       val B = SRAM[T](full_N, full_K)
       val L = SRAM[T](full_N, full_N)
+      val B_flat = SRAM[T](full_N * full_K)
+      val L_flat = SRAM[T](full_N * full_N)
       val X = SRAM[T](full_N * full_K)
       Parallel {
-        B load OCB(0 :: full_N, 0 :: full_K)
-        L load OCL(0 :: full_N, 0 :: full_N)
+        B_flat load OCB_flat(0 :: full_N*full_K)
+        L_flat load OCL_flat(0 :: full_N*full_N)
+      }
+      // fixme: do normal DRAM matrices when https://github.com/stanford-ppl/spatial-lang/issues/68 is resolved
+      Foreach(full_N by 1, full_K by 1) { (i,j) => 
+        B(i,j) = B_flat(i*full_K + j)
+      }
+      Foreach(full_N by 1, full_N by 1) { (i,j) => 
+        L(i,j) = L_flat(i*full_N + j)
       }
       Sequential.Foreach(full_N by inner_N) { diag_tile =>
         // // Vertical Blocking

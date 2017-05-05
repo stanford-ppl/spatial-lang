@@ -7,10 +7,10 @@ object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
   type T = Float //FixPt[Signed,B16,B16]
 
   val pp = 3840
-  val maximumNNZ = 60
+  val NNZ = 60
 
-  val innerPar = 16
-  val outerPar = 4
+  val ip = 16
+  val op = 2
 
   val tileSize = 384
 

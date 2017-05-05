@@ -11,7 +11,7 @@ object FrameStreaming extends SpatialApp {
   val Kw = 3
   val Cmax = 512
   val Rmax = 512
-  
+
   @struct case class Pixel24(b: UInt8, g: UInt8, r: UInt8)
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
 
