@@ -30,7 +30,7 @@ cp $newfile $file
 rm $newfile
 
 if [[ $hn = *"testing"* ]]; then # Do sudo because travis is being an asshole (i.e. https://blog.travis-ci.com/2017-05-04-precise-image-updates)
-	# sudo /usr/local/bin/sbt "test:run-main templates.Launcher all"
+	echo "running on travis" # sudo /usr/local/bin/sbt "test:run-main templates.Launcher all"
 else
 	if [[ -n $1 ]]; then
 		sbt "test:run-main templates.Launcher $1"
