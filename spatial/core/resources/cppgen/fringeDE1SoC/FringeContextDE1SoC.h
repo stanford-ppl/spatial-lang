@@ -243,7 +243,7 @@ public:
 
     fprintf(stderr, "Running design..\n");
     double startTime = getTime();
-    while (status == 1) {
+    while (status == 0) {
       status = readReg(statusReg);
     }
     double endTime = getTime();

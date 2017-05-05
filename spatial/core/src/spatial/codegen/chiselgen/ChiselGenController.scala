@@ -442,6 +442,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWire(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       // Emit unit counter for this
       emit(s"""val done_latch = Module(new SRFF())""")
       emit(s"""done_latch.io.input.set := ${quote(lhs)}_done""")

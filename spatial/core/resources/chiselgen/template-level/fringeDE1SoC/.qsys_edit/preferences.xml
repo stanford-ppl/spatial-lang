@@ -4,9 +4,10 @@
  <systemtable filter="All Interfaces">
   <columns>
    <connections preferredWidth="239" />
-   <irq preferredWidth="79" />
+   <irq preferredWidth="34" />
+   <name preferredWidth="325" />
   </columns>
  </systemtable>
- <library expandedCategories="Project/Top,Project,Library" />
- <window width="1100" height="800" x="73" y="56" />
+ <library expandedCategories="Library,Project,Project/Top" />
+ <window width="2495" height="1080" x="65" y="0" />
 </preferences>

@@ -29,7 +29,7 @@
    {
       datum _sortIndex
       {
-         value = "6";
+         value = "8";
          type = "int";
       }
    }
@@ -61,7 +61,7 @@
    {
       datum _sortIndex
       {
-         value = "7";
+         value = "6";
          type = "int";
       }
    }
@@ -85,7 +85,7 @@
    {
       datum _sortIndex
       {
-         value = "8";
+         value = "7";
          type = "int";
       }
    }
@@ -133,10 +133,11 @@
    type="avalon"
    dir="start" />
  <interface
-   name="top_io_switches_stream"
-   internal="Top.io_SWITCHES_STREAM"
+   name="top_io_switch_stream"
+   internal="Top.avalon_master"
    type="avalon"
    dir="start" />
+ <interface name="top_io_switches_stream" internal="Top.io_SWITCHES_STREAM" />
  <interface
    name="video_in"
    internal="Video_In.external_interface"
@@ -246,7 +247,7 @@
    name="Video_In_RGB_Resampler"
    kind="altera_up_avalon_video_rgb_resampler"
    version="16.1"
-   enabled="0">
+   enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="alpha" value="1023" />
@@ -282,7 +283,7 @@
    kind="avalon_streaming"
    version="16.1"
    start="Video_In_CSC.avalon_csc_source"
-   end="Top.avalon_streaming_sink" />
+   end="Video_In_RGB_Resampler.avalon_rgb_sink" />
  <connection
    kind="avalon_streaming"
    version="16.1"
@@ -291,13 +292,18 @@
  <connection
    kind="avalon_streaming"
    version="16.1"
+   start="Video_In_RGB_Resampler.avalon_rgb_source"
+   end="Video_In_Clipper.avalon_clipper_sink" />
+ <connection
+   kind="avalon_streaming"
+   version="16.1"
    start="Video_In_Scaler.avalon_scaler_source"
-   end="Video_In_DMA.avalon_dma_sink" />
+   end="Top.avalon_streaming_sink" />
  <connection
    kind="avalon_streaming"
    version="16.1"
    start="Top.avalon_streaming_source"
-   end="Video_In_Clipper.avalon_clipper_sink" />
+   end="Video_In_DMA.avalon_dma_sink" />
  <connection
    kind="avalon_streaming"
    version="16.1"

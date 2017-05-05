@@ -56,3 +56,9 @@ src/spatial/codegen/chiselgen/resources/altera-goodies/README.md
 # C files
 *.o
 *.d
+
+# Altera specifics
+spatial/core/resources/chiselgen/template-level/fringeDE1SoC/.qsys_edit/*
+spatial/core/resources/chiselgen/template-level/fringeDE1SoC/Top_bak
+Top_tb.v
+history.txt

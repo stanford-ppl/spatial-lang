@@ -870,7 +870,7 @@ agreement for further details.
 		(text "clk27_reset" (rect 197 1651 460 3312)(font "Arial" (color 0 0 0)))
 		(text "TD_RESET" (rect 197 1667 442 3344)(font "Arial" (color 0 0 0)))
 		(text "overflow_flag" (rect 197 1683 472 3376)(font "Arial" (color 0 0 0)))
-		(text " Computer_System " (rect 508 1704 1118 3418)(font "Arial" ))
+		(text " system " (rect 557 1704 1162 3418)(font "Arial" ))
 		(line (pt 192 32)(pt 400 32)(line_width 1))
 		(line (pt 400 32)(pt 400 1704)(line_width 1))
 		(line (pt 192 1704)(pt 400 1704)(line_width 1))
