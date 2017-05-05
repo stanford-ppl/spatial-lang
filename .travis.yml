@@ -21,4 +21,4 @@ before_script:
   - cd ${TEMPLATES_HOME}
 script: 
   - free -k
-  - bash ./run-templates.sh all
+  - sudo bash ./run-templates.sh all
