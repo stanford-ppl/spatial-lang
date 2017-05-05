@@ -32,7 +32,7 @@ class FringeContextVCS : public FringeContextBase<void> {
   const uint32_t burstSizeBytes = 64;
   const uint32_t commandReg = 0;
   const uint32_t statusReg = 1;
-  const uint64_t maxCycles = 500000;
+  const uint64_t maxCycles = 10000000000;
 
   posix_spawn_file_actions_t action;
   int globalID = 1;
@@ -81,7 +81,10 @@ public:
   }
 
   void finish() {
-    sendCmd(FIN);
+    int id = sendCmd(FIN);
+    simCmd *resp = recvResp();
+    ASSERT(id == resp->id, "FIN resp->id does not match cmd.id!");
+    ASSERT(FIN == resp->cmd, "FIN resp->cmd does not match cmd.cmd!");
   }
 
   void reset() {
@@ -198,6 +201,7 @@ public:
     // Pass required environment variables to simulator
     // LD_LIBRARY_PATH
     // DRAMSIM_HOME
+    // DRAM_DEBUG
     // ..(others)..
     char *ldPath = getenv("LD_LIBRARY_PATH");
     char *dramPath = getenv("DRAMSIM_HOME");
@@ -207,8 +211,10 @@ public:
     std::string ldLib = "LD_LIBRARY_PATH=" + string(getenv("LD_LIBRARY_PATH"));
     std::string dramSimHome = "DRAMSIM_HOME=" + string(getenv("DRAMSIM_HOME"));
     std::string idealDram = "USE_IDEAL_DRAM=" + string(getenv("USE_IDEAL_DRAM"));
-    std::string envstrings[] = {ldLib, dramSimHome, idealDram};
-    char *envs[] = {&envstrings[0][0], &envstrings[1][0], &envstrings[2][0], nullptr};
+    std::string dramDebug = "DRAM_DEBUG=" + string(getenv("DRAM_DEBUG"));
+    std::string dramOutstandingBursts = "DRAM_NUM_OUTSTANDING_BURSTS=" + string(getenv("DRAM_NUM_OUTSTANDING_BURSTS"));
+    std::string envstrings[] = {ldLib, dramSimHome, idealDram, dramDebug, dramOutstandingBursts};
+    char *envs[] = {&envstrings[0][0], &envstrings[1][0], &envstrings[2][0], &envstrings[3][0], &envstrings[4][0], nullptr};
 
     if(posix_spawnp(&sim_pid, args[0], &action, NULL, &args[0], &envs[0]) != 0) {
       EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));

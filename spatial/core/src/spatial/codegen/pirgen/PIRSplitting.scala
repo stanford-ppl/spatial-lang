@@ -27,7 +27,7 @@ trait PIRSplitting extends PIRTraversal {
     Nodes must be duplicated/created depending on how the graph is partitioned
     Could model this as conditional costs for nodes in context of their partition?
    **/
-  def splitCU(cu: CU, archCU: CUCost, archMU: MUCost, others: Iterable[CU]): List[CU] = cu.style match {
+  def splitCU(cu: CU, archCU: CUCost, archMU: MUCost, others: Seq[CU]): List[CU] = cu.style match {
     case _:MemoryCU => splitPMU(cu, archMU, others)
     case _:FringeCU => List(cu)
     case _ if cu.computeStages.isEmpty => List(cu)
@@ -36,7 +36,7 @@ trait PIRSplitting extends PIRTraversal {
 
 
   // TODO: PMU splitting. For now just throws an exception if it doesn't fit the specified constraints
-  def splitPMU(cu: CU, archMU: MUCost, others: Iterable[CU]): List[CU] = {
+  def splitPMU(cu: CU, archMU: MUCost, others: Seq[CU]): List[CU] = {
     if (cu.lanes > LANES) {
       var errReport = s"Failed splitting in PMU $cu"
       errReport += s"\nCU had ${cu.lanes} lanes, greater than allowed $LANES"
@@ -73,7 +73,7 @@ trait PIRSplitting extends PIRTraversal {
     List(cu)
   }
 
-  def splitPCU(cu: CU, arch: CUCost, others: Iterable[CU]): List[CU] = {
+  def splitPCU(cu: CU, arch: CUCost, others: Seq[CU]): List[CU] = {
     dbg("\n\n\n")
     dbg(s"Splitting PCU: $cu")
     dbg(s"Compute: ")
@@ -115,8 +115,10 @@ trait PIRSplitting extends PIRTraversal {
 
         errReport += "\nCost for last split option: "
         current addTail remote.popHead()
+        current.cstages.foreach{stage => errReport += s"\n  $stage"}
         val cost = getCost(current)
-        errReport += s"\n$cost"
+        errReport += s"Arch: \n$arch"
+        errReport += s"Cost: \n$cost"
         throw new SplitException(errReport) with NoStackTrace
       }
       else {
@@ -172,8 +174,11 @@ trait PIRSplitting extends PIRTraversal {
     val local = part.cstages
     val remote = orig.allStages.toList diff part.allStages
 
-    val localIns  = local.flatMap(_.inputMems).toSet ++ localInputs(cu.mems)
+    val localIns  = local.flatMap(_.inputMems).toSet ++ cu.cchains.flatMap(localInputs)
     val localOuts = local.flatMap(_.outputMems).toSet
+
+    val readMems = localIns.collect{case MemLoadReg(mem) => mem }
+    orig.memMap.foreach{case (k,mem) => if (readMems contains mem) cu.memMap += k -> mem }
 
     val remoteIns = remote.flatMap(_.inputMems).toSet
     val remoteOuts = remote.flatMap(_.outputMems).toSet
@@ -214,8 +219,14 @@ trait PIRSplitting extends PIRTraversal {
       case bus:VectorBus => VectorOut(bus)
     }
     def portIn(reg: LocalComponent, isScalar: Boolean) = globalBus(reg,isScalar) match {
-      case bus:ScalarBus => ScalarIn(bus)
-      case bus:VectorBus => VectorIn(bus)
+      case bus:ScalarBus => 
+        val fifo = allocateRetimingFIFO(reg, bus, cu)
+        MemLoadReg(fifo)
+        //ScalarIn(bus)
+      case bus:VectorBus => 
+        val fifo = allocateRetimingFIFO(reg, bus, cu)
+        MemLoadReg(fifo)
+        //VectorIn(bus)
     }
 
     def rerefIn(reg: LocalComponent, isScalar: Boolean = isUnit): LocalRef = {
@@ -360,10 +371,10 @@ trait PIRSplitting extends PIRTraversal {
         case stage@MapStage(_,ins,_) => stage.ins = ins.map{in => swap_cchains_Ref(in) }
         case _ =>
       }
-      /*cu.mems.foreach{sram =>
+      cu.mems.foreach{sram =>
         sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]} //TODO refactor this
         sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]}
-      }*/
+      }
     }
 
     cu

@@ -1,15 +1,15 @@
 import spatial._
 import org.virtualized._
 
-object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 480 480
+object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 76800 76800 
   import IR._
-  type X = Int
+  type X = Float
 
-  val ip = 2
-  val op = 2
+  val ip = 16
+  val op = 10
 
-  val tileSize1 = 48
-  val tileSize2 = 48
+  val tileSize1 = 96
+  val tileSize2 = 384
 
   @virtualize
   def outerproduct[T:Type:Num](a: Array[T], b: Array[T]) = {
@@ -82,12 +82,12 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 480 480
 object DotProduct extends SpatialApp { // Regression (Dense) // Args: 8000
   import IR._
 
-  type X = Int
+  type X = Float
 
   val innerPar = 16
-  val outerPar = 2
+  val outerPar = 16
 
-  val tileSize = 2000
+  val tileSize = 3200
 
   @virtualize
   def dotproduct[T:Type:Num](aIn: Array[T], bIn: Array[T]): T = {

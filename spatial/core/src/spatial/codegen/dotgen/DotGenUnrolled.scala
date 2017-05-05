@@ -70,6 +70,7 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
       case ParFIFODeq(fifo, ens) => 
         emitVert(lhs)
         emitEdge(fifo, lhs)
+        ens.foreach{ a => emitEn(a,fifo) }
 
       case ParFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
         data.foreach{ a => emitVert(a); emitEdge(a, fifo)}

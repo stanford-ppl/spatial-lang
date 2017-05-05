@@ -18,6 +18,7 @@ import spatial.codegen.scalagen._
 import spatial.codegen.chiselgen._
 import spatial.codegen.pirgen._
 import spatial.codegen.cppgen._
+import spatial.models.PIRHackyLatencyAnalyzer
 
 
 protected trait SpatialExp
@@ -28,6 +29,7 @@ protected trait SpatialExp
   with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp
   with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
+  with Aliases with StreamTransfersExp
 
 trait SpatialImplicits{this: SpatialApi =>
   // HACK: Insert Void where required to make programs not have to include () at the end of ... => Void functions
@@ -54,6 +56,7 @@ protected trait SpatialApi extends SpatialExp
   with StreamApi with PinApi with AlteraVideoApi with ShiftRegApi
   with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
   with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits with FileIOApi
+  with StreamTransfersApi
  
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
@@ -97,7 +100,8 @@ protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenIfThenElse with CppGenController with CppGenMath with CppGenFringeCopy with CppGenText
   with CppGenDRAM with CppGenHostTransfer with CppGenUnrolled with CppGenVector
   with CppGenArray with CppGenArrayExt with CppGenRange with CppGenAlteraVideo with CppGenStream
-  with CppGenHashMap with CppGenStructs with CppGenDebugging with CppGenFileIO with CppGenFunction {
+  with CppGenHashMap with CppGenStructs with CppGenDebugging with CppGenFileIO with CppGenFunction 
+  with CppGenVariables{
 
   override val IR: SpatialCompiler
 }
@@ -185,6 +189,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
   }
 
   lazy val pirRetimer = new PIRHackyRetimer { val IR: self.type  = self }
+  lazy val pirTiming  = new PIRHackyLatencyAnalyzer { val IR: self.type = self }
 
   lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argPorts = uctrlAnalyzer.argPorts; def genericStreams = uctrlAnalyzer.genericStreams;}
 
@@ -290,6 +295,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += streamAnalyzer    // Set stream pipe children fifo dependencies
     passes += argMapper         // Get address offsets for each used DRAM object
     passes += latencyAnalyzer   // Get delay lengths of inner pipes (used for retiming control signals)
+    if (SpatialConfig.enablePIRSim) passes += pirTiming // PIR delays (retiming control signals)
     passes += printer
 
     // --- Sanity Checks

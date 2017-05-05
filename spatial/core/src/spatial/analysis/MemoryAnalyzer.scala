@@ -461,6 +461,7 @@ trait MemoryAnalyzer extends CompilerPass {
       case _:RegFileType[_]   => bank(mem, bankRegFileAccess, RegFileSettings)
       case _:StreamInType[_]  => bankStream(mem)
       case _:StreamOutType[_] => bankStream(mem)
+      case _:BufferedOutType[_] => bankBufferOut(mem)
       case tp => throw new UndefinedBankingException(tp)(mem.ctx)
     }}
 
@@ -607,4 +608,26 @@ trait MemoryAnalyzer extends CompilerPass {
 
     duplicatesOf(mem) = List(BankedMemory(Seq(StridedBanking(1,par)),1,isAccum=false))
   }
+
+  def bankBufferOut(buffer: Exp[_]): Unit = {
+    val reads = readersOf(buffer)
+    val writes = writersOf(buffer)
+    val accesses = reads ++ writes
+
+    assert(reads.isEmpty)
+
+    // Hack: Find outermost streaming control
+
+    accesses.foreach{access =>
+      dispatchOf.add(access, buffer, 0)
+      portsOf(access, buffer, 0) = Set(0)
+    }
+
+    val par = (1 +: accesses.map{access =>
+      val factors = unrollFactorsOf(access.node) // relative to stream, which always has par of 1
+      factors.flatten.map{case Exact(c) => c.toInt}.product
+    }).max
+
+  }
+
 }

@@ -5,6 +5,8 @@ import spatial.{SpatialConfig, SpatialExp}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.parallel._
+
 import java.io.PrintStream
 import java.nio.file.{Files, Paths}
 
@@ -37,7 +39,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     Config.verbosity = -1
     Console.println(s"Running design space exploration")
 
-    val unrestrictedPCU = CUCost(sIn=100,sOut=100,vIn=100,vOut=100,comp=10000)
+    val unrestrictedPCU = CUCost(sIn=100,sOut=100,vIn=100,vOut=100,comp=10000,regsMax=1000)
     var mcu = MUCost()
     var foundMCU = false
     breakable{ for(
@@ -45,9 +47,10 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
       sOuts_PMU <- 0 to 2;       // 2
       vIns_PMU <- 2 to 6;        // 5
       vOuts_PMU <- 1 to 1;       // 1
-      readWrite <- 1 to 10       // 10
+      readWrite <- 1 to 10;      // 10
+      regs_PMU <- 1 to 16        // 16
     ) {
-      mcu = MUCost(sIn=sIns_PMU, sOut=sOuts_PMU, vIn=vIns_PMU, vOut=vOuts_PMU, read=readWrite, write=readWrite)
+      mcu = MUCost(sIn=sIns_PMU, sOut=sOuts_PMU, vIn=vIns_PMU, vOut=vOuts_PMU, comp=readWrite, regsMax=regs_PMU)
 
       var others = ArrayBuffer[CU]()
 
@@ -65,21 +68,31 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
 
     if (!foundMCU) throw new Exception("Unable to find minimum MCU parameters")
 
-    val MUCost(sIns_PMU,sOuts_PMU,vIns_PMU,vOuts_PMU,readWrite,_) = mcu
+    val MUCost(sIns_PMU,sOuts_PMU,vIns_PMU,vOuts_PMU,readWrite,regsMax_PMU,_) = mcu
     READ_WRITE = readWrite
 
     val pmuText = s"r/w=$readWrite, sIn_PMU=$sIns_PMU, sOut_PMU=$sOuts_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU"
-    val pmuSettings = s"$sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU, $readWrite"
+    val pmuSettings = s"$sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU, $readWrite, $regsMax_PMU"
 
-    val results = (1 to 10).flatMap{stages =>
+    // Can't have less than REDUCE_STAGES stages (otherwise no room to do reduce)
+    val regsMaxs  = 2 to 16 by 2        // 8
+    val vIns_PCUs = 2 to 10             // 9
+    val sIns_PCUs = 1 +: (2 to 10 by 2) // 6
+
+    val threads = regsMaxs.flatMap{r => vIns_PCUs.flatMap{v => sIns_PCUs.map{s => (r,v,s) }}}.par
+
+    threads.tasksupport = new ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(SpatialConfig.threads))
+
+    val results = (REDUCE_STAGES to 16).flatMap{stages =>
       STAGES = stages
       Console.print("stages = " + stages)
       val start = System.currentTimeMillis()
 
-      val result = (1 to 10).par.map{sIns_PCU =>
-        val maxOut = stages
+      val result = threads.map{case (regsMax_PCU, vIns_PCU, sIns_PCU) =>
+        val maxSOut = Math.min(10, regsMax_PCU)  // Can't have more outputs than the number of live registers
+        val maxVOut = Math.min(6, regsMax_PCU)
 
-        val entries = new Array[String](9*maxOut*maxOut)
+        val entries = new Array[String](maxSOut*maxVOut)
 
         var pass = 0
         var fail = 0
@@ -88,19 +101,18 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
         for (
           //stages    <- 1 to 10;     // 10
           //sIns_PCU  <- 1 to 10;     // 10
-          vIns_PCU  <- 2 to 10;       // 9
-          sOuts_PCU <- 1 to maxOut;   //
-          vOuts_PCU <- 1 to maxOut    //
+          sOuts_PCU <- 1 to maxSOut;   //
+          vOuts_PCU <- 1 to maxVOut    //
         ) {
           val n = pass + fail + 1
           //val perc = (100 * n) / 3465
 
           var others = ArrayBuffer[CU]()
-          val pcu = CUCost(sIn=sIns_PCU, sOut=sOuts_PCU, vIn=vIns_PCU, vOut=vOuts_PCU, comp=stages)
+          val pcu = CUCost(sIn=sIns_PCU, sOut=sOuts_PCU, vIn=vIns_PCU, vOut=vOuts_PCU, comp=stages, regsMax=regsMax_PCU)
 
           val text: String = s"stages=$stages, sIn_PCU=$sIns_PCU, sOut_PCU=$sOuts_PCU, vIn_PCU=$vIns_PCU, vOut_PCU=$vOuts_PCU, " + pmuText
 
-          val settingsCSV: String = s"$sIns_PCU, $sOuts_PCU, $vIns_PCU, $vOuts_PCU, $stages, " + pmuSettings
+          val settingsCSV: String = s"$sIns_PCU, $sOuts_PCU, $vIns_PCU, $vOuts_PCU, $stages, $regsMax_PCU, " + pmuSettings
 
           try {
             var util = Utilization()
@@ -116,8 +128,8 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
                 others += cu
               }
             }
-            val pcuOnly = others.filter(_.isPCU).map{cu => getUtil(cu, others.filterNot(_ == cu)) }.fold(Utilization()){_+_}
-            val pmuOnly = others.filter(_.isPMU).map{cu => getUtil(cu, others.filterNot(_ == cu)) }.fold(Utilization()){_+_}
+            val pcuOnly = others.filter(_.isPCU).map{cu => getUtil(cu, others) }.fold(Utilization()){_+_}
+            val pmuOnly = others.filter(_.isPMU).map{cu => getUtil(cu, others) }.fold(Utilization()){_+_}
 
             val stats = Statistics(
               /** Utilization **/
@@ -130,12 +142,14 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
               vIn_PCU  = vIns_PCU,
               vOut_PCU = vOuts_PCU,
               stages   = stages,
+              regs_PCU = regsMax_PCU,
               /** PMUs **/
               sIn_PMU   = sIns_PMU,
               sOut_PMU  = sOuts_PMU,
               vIn_PMU   = vIns_PMU,
               vOut_PMU  = vOuts_PMU,
-              readWrite = readWrite
+              readWrite = readWrite,
+              regs_PMU  = regsMax_PMU
             )
 
             if (pass == 0) first = text
@@ -148,7 +162,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
             fail += 1
             //Console.println(s"$n [$perc%]: " + text + ": FAIL")
             //dbg(e.msg)
-            entries(n-1) = "F" + settingsCSV
+            entries(n-1) = "F" // + settingsCSV + "\n" + e.msg + "\n"
           }
         }
         (entries, pass, fail, first)
@@ -159,29 +173,27 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
       result
     }
 
-
     val pwd = sys.env("SPATIAL_HOME")
     val dir = s"$pwd/csvs"
     Files.createDirectories(Paths.get(dir))
 
     val name = Config.name
-    val valid = new PrintStream(s"$dir/$name.csv")
-    val invalid = new PrintStream(s"$dir/${name}_invalid.csv")
+    val valid = new PrintStream(s"$dir/${name}_$LANES.csv")
+    //val invalid = new PrintStream(s"$dir/${name}_${LANES}_invalid.csv")
 
     Config.verbosity = prevVerbosity
     Console.print(s"Writing results to file $dir/$name.csv...")
 
-    invalid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W")
-    valid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W, " + Statistics.header)
+    valid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, Regs_PCU, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W, Regs_PMU, " + Statistics.header)
 
     results.foreach{case (entries, _, _, _) =>
-      entries.foreach{entry =>
+      entries.filterNot(_ == null).foreach{entry =>
         if (entry.startsWith("P")) valid.println(entry.drop(1))
-        else invalid.println(entry.drop(1))
+        //else invalid.println(entry.drop(1))
       }
     }
     valid.close()
-    invalid.close()
+    //invalid.close()
 
     val pass = results.map(_._2).sum
     val fail = results.map(_._3).sum

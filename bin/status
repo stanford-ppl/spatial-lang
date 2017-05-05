@@ -1,0 +1,9 @@
+#!/bin/bash
+
+app=$1
+
+echo "gen/$app/sim.log"
+#tail -F spatial.log
+#tail -F gen/$app/build.log
+tail -F gen/$app/sim.log
+#tail -F $LOG_FILE

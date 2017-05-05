@@ -6,8 +6,7 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
 
   val Kh = 3
   val Kw = 3
-  val Cmax = 100
-  val test = 0
+  val Cmax = 16
 
   @virtualize
   def convolve[T:Type:Num](image: Matrix[T]): Matrix[T] = {
@@ -65,7 +64,6 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
 
         Foreach(0 until C) { c =>
           Foreach(0 until Kh par Kh){i => sr(i, *) <<= lb(i, c) }
-
           
           val horz = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => 
             val number = mux((r < 2) || (c < 2) , 0.to[T], sr(i,j))

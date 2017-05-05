@@ -22,6 +22,7 @@ case class MAGOpcode() extends Bundle {
 class Command(w: Int) extends Bundle {
   val addr = UInt(w.W)
   val isWr = Bool()
+  val isSparse = Bool()
   val size = UInt(w.W)
 
   override def cloneType(): this.type = {
@@ -70,7 +71,9 @@ class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo]) ex
 
 class DRAMCommand(w: Int, v: Int) extends Bundle {
   val addr = UInt(64.W)
+  val rawAddr = UInt(64.W)
   val isWr = Bool() // 1
+  val isSparse = Bool()
   val tag = UInt(w.W)
   val streamId = UInt(w.W)
   val wdata = Vec(v, UInt(w.W)) // v

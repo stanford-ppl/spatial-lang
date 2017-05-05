@@ -213,9 +213,9 @@ stamp_commit_msgs
 }
 
 stamp_app_comments() {
-  cd ${SPATIAL_HOME}/regression_tests
+  cd ${SPATIAL_HOME}/apps/src
   echo -e "\n# Pass Comments:\n" >> $wiki_file
-  find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g" >> $wiki_file
+  find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/> (/g" | sed "s/$/\n/g" >> $wiki_file
 }
 
 update_log() {
@@ -555,7 +555,6 @@ function report {
   date >> ${5}/log
   cd ${5}
   # mv build.sbt build.hideme # hide build.sbt so future compiles ignore this one
-  rm -rf out
   rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
@@ -581,6 +580,7 @@ export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
 export PATH=/usr/bin:\$VCS_HOME/amd64/bin:$PATH
 export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
 export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
+export _JAVA_OPTIONS=\"-Xmx16g\"
 date >> ${5}/log" >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
@@ -632,16 +632,46 @@ sed -i 's/#define EPRINTF(...) fprintf/#define EPRINTF(...) \\/\\/fprintf/g' cpp
 sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
+sed -i 's/\\\$vcdpluson/\\/\\/\\\$vcdpluson/g' chisel/template-level/fringeVCS/Top-harness.sv
 
-make vcs 2>&1 | tee -a ${5}/log
-make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+make vcs 2>&1 | tee -a ${5}/log" >> $1
+  if [[ ${type_todo} = "chisel" ]]; then
+    echo "make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
+  fi
+
+echo "
+# Check for annoying sbt compile not working
+wc=\$(cat ${5}/log | grep \"No rule to make target\" | wc -l)
+if [ \"\$wc\" -gt 0 ]; then
+  echo \"[APP_RESULT] Annoying SBT crashing on ${3}_${4}.  Rerunning...\" >> ${log}
+  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  cd ../" >> $1
+  # Compile command
+  if [[ ${type_todo} = "scala" ]]; then
+    echo "  # Compile app
+  ${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+    " >> $1
+  elif [[ ${type_todo} = "chisel" ]]; then
+    echo "  # Compile app
+  ${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+    " >> $1
+  fi
+  echo "fi
+
 
 # Check for crashes in backend compilation
 wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\\|ChiselException\\|\\[vcs-hw\\] Error\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
+if [[ \"\$wc\" -ne 0 ]]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
-fi
-wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\\|fatal error\\|\\[vcs-sw\\] Error\" | wc -l)
+fi" >> $1
+  if [[ ${type_todo} = "chisel" ]]; then
+    echo "# Check for missing Top
+if [[ ! -f ${5}/out/Top ]]; then
+  report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
+fi" >> $1
+  fi
+
+echo "wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\\|fatal error\\|\\[vcs-sw\\] Error\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_cpp_crash\" \"[STATUS] Declaring failure compile_chisel c++ side\" 0
 fi
@@ -650,6 +680,27 @@ fi
 rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
 touch ${SPATIAL_HOME}/regression_tests/${2}/results/failed_execution_hanging.${3}_${4}
 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+
+# Check for annoying vcs assertion and rerun if needed
+wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
+if [ \"\$wc\" -gt 0 ]; then
+  echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
+  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  make vcs 2>&1 | tee -a ${5}/log
+  make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+  bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+
+  # Check second time for annoying assert
+  wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
+  if [ \"\$wc\" -gt 1 ]; then
+    echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
+    echo \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
+    make vcs 2>&1 | tee -a ${5}/log
+    make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+    bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  fi
+
+fi
 
 # Check for runtime errors
 wc=\$(cat ${5}/log | grep \"Error: App\\|Segmentation fault\" | wc -l)
@@ -734,12 +785,12 @@ launch_tests() {
         cmd_file="${vulture_dir}/cmd"
 
         # Create script
-        logger "Writing script for ${i}_${appname}"
+        # logger "Writing script for ${i}_${appname}"
         create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
 
         # Run script
         start=$SECONDS
-        logger "Running script for ${i}_${appname}"
+        logger "Running test: ${i}_${appname}"
         bash ${cmd_file}
         duration=$(($SECONDS-$start))
         logger "Completed test in $duration seconds"

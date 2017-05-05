@@ -4,14 +4,14 @@ import spatial._
 object GDA extends SpatialApp { // Regression (Dense) // Args: 64
   import IR._
 
-  type X = Int
+  type X = Float
 
   val MAXC = 96
   val C = MAXC
   val margin = 1
 
-  val innerPar = 2
-  val outerPar = 2
+  val innerPar = 16
+  val outerPar = 4
 
   val tileSize = 20
 
