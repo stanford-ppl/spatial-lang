@@ -10,13 +10,13 @@ notifications:
 #   - fpga
 #   - master
 install: 
-  # - wget https://www.veripool.org/ftp/verilator-3.900.tgz
-  # - unset VERILATOR_ROOT  # For bash
-  # - tar xvzf verilator*.t*gz
-  # - cd verilator*
-  # - ./configure
-  # - make
-  # - sudo make install
+  - wget https://www.veripool.org/ftp/verilator-3.900.tgz
+  - unset VERILATOR_ROOT  # For bash
+  - tar xvzf verilator*.t*gz
+  - cd verilator*
+  - ./configure
+  - make
+  - sudo make install
 before_script:
   - cd ${TEMPLATES_HOME}
   - sudo chmod +x /usr/local/bin/sbt # Travis is being so annoying (https://github.com/travis-ci/travis-ci/issues/7703)
