@@ -31,8 +31,8 @@ cp $newfile $file
 rm $newfile
 
 if [[ -n $1 ]]; then
-	sudo sbt "test:run-main templates.Launcher $1"
+	sbt "test:run-main templates.Launcher $1"
 else
-	sudo sbt "test:run-main templates.Launcher all"
+	sbt "test:run-main templates.Launcher all"
 fi
 
