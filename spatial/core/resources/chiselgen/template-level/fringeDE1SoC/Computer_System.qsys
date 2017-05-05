@@ -161,6 +161,22 @@
          type = "String";
       }
    }
+   element Computer_System
+   {
+      datum _originalDeviceFamily
+      {
+         value = "Cyclone V";
+         type = "String";
+      }
+   }
+   element Computer_System
+   {
+      datum _originalDeviceFamily
+      {
+         value = "Cyclone V";
+         type = "String";
+      }
+   }
    element Expansion_JP1
    {
       datum _sortIndex
@@ -2063,7 +2079,7 @@
    version="16.1"
    enabled="1">
   <parameter name="allowInSystemMemoryContentEditor" value="false" />
-  <parameter name="autoInitializationFileName">$${FILENAME}_Onchip_SRAM</parameter>
+  <parameter name="autoInitializationFileName">Computer_System_Onchip_SRAM</parameter>
   <parameter name="blockType" value="AUTO" />
   <parameter name="copyInitFile" value="false" />
   <parameter name="dataWidth" value="32" />
@@ -2148,7 +2164,7 @@
   <parameter name="casLatency" value="3" />
   <parameter name="clockRate" value="100000000" />
   <parameter name="columnWidth" value="10" />
-  <parameter name="componentName" value="$${FILENAME}_SDRAM" />
+  <parameter name="componentName">Computer_System_SDRAM</parameter>
   <parameter name="dataWidth" value="16" />
   <parameter name="generateSimulationModel" value="true" />
   <parameter name="initNOPDelay" value="0.0" />
@@ -2213,10 +2229,10 @@
   <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="8" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="100000000" />
   <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="8" />
-  <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_VGA_Subsystem</parameter>
-  <parameter name="AUTO_VGA_PLL_REF_CLK_CLOCK_DOMAIN" value="4" />
+  <parameter name="AUTO_UNIQUE_ID">Computer_System_VGA_Subsystem</parameter>
+  <parameter name="AUTO_VGA_PLL_REF_CLK_CLOCK_DOMAIN" value="5" />
   <parameter name="AUTO_VGA_PLL_REF_CLK_CLOCK_RATE" value="0" />
-  <parameter name="AUTO_VGA_PLL_REF_CLK_RESET_DOMAIN" value="4" />
+  <parameter name="AUTO_VGA_PLL_REF_CLK_RESET_DOMAIN" value="5" />
  </module>
  <module
    name="Video_In_DMA_Addr_Translation"
@@ -2243,7 +2259,7 @@
   <parameter
      name="AUTO_TOP_IO_SWITCHES_STREAM_ADDRESS_WIDTH"
      value="AddressWidth = 7" />
-  <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_Video_In_Subsystem</parameter>
+  <parameter name="AUTO_UNIQUE_ID">Computer_System_Video_In_Subsystem</parameter>
   <parameter name="AUTO_VIDEO_IN_DMA_MASTER_ADDRESS_MAP"><![CDATA[<address-map><slave name='SDRAM.s1' start='0x0' end='0x4000000' /><slave name='Onchip_SRAM.s1' start='0x8000000' end='0x8040000' /></address-map>]]></parameter>
   <parameter
      name="AUTO_VIDEO_IN_DMA_MASTER_ADDRESS_WIDTH"
