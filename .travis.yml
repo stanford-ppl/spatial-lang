@@ -22,3 +22,4 @@ before_script:
 script: 
   - free -k
   - sudo bash ./run-templates.sh all
+  - sudo sbt "test:run-main templates.Launcher all"
