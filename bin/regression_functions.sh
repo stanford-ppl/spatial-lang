@@ -699,7 +699,13 @@ if [ \"\$wc\" -gt 0 ]; then
     make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
     bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
   fi
-
+fi
+# Check for annoying refusal to run that happens in scala sometimes
+wc=\$(cat ${5}/log | grep \"PASS\" | wc -l)
+if [ \"\$wc\" -eq 0 ]; then
+  echo \"[APP_RESULT] Annoying refusal to run ${3}_${4}.  Rerunning...\" >> ${log}
+  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 fi
 
 # Check for runtime errors

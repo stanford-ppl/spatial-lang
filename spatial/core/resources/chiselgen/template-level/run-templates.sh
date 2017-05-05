@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # set -ev
 
+hostname
+a=`hostname`
+echo "hostname is $a"
 # sed Launcher to create a launcher for each test
 file=${TEMPLATES_HOME}/tests/templates/Launcher.scala
 # Get list of args
@@ -28,8 +31,8 @@ cp $newfile $file
 rm $newfile
 
 if [[ -n $1 ]]; then
-	sbt "test:run-main templates.Launcher $1"
+	sudo sbt "test:run-main templates.Launcher $1"
 else
-	sbt "test:run-main templates.Launcher all"
+	sudo sbt "test:run-main templates.Launcher all"
 fi
 

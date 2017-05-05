@@ -1,14 +1,18 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 128 64
+object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 96 96
   import IR._
 
-  type X = Int
+  type X = Float
 
-  val innerPar = 2
+  val innerPar = 16
   val midPar = 2
   val outerPar = 2
+
+  val tsm = 16
+  val tsn = 48
+  val tsp = 48
 
   @virtualize
   def MatMult_outer[T:Type:Num](A: Array[T], B: Array[T], C_init: Array[T], mm: Int, nn: Int, pp: Int) = {
@@ -29,9 +33,9 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 128 6
     val ip = innerPar (1 -> 64)
     val px = 1 (1 -> 1) // Cannot parallelize accum across k blocks
 
-    val bm = param(4)
-    val bn = param(16)
-    val bp = param(16)
+    val bm = tsm (48 -> 48 -> 1920)
+    val bn = tsn (48 -> 48 -> 1920)
+    val bp = tsp (48 -> 48 -> 1920)
 
     setMem(a, A)
     setMem(b, B)
@@ -69,8 +73,8 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 128 6
     val N = args(1).to[Int]
     val P = args(2).to[Int]
 
-    val a = Array.tabulate(M){ j => Array.tabulate(P){ i => (i + j * P) % 8 } } // Standard array
-    val b = Array.tabulate(P){ j => Array.tabulate(N){ i => (i + j * N) % 8 } } // Standard array
+    val a = Array.tabulate(M){ j => Array.tabulate(P){ i => ((i + j * P) % 8).to[X] } } // Standard array
+    val b = Array.tabulate(P){ j => Array.tabulate(N){ i => ((i + j * N) % 8).to[X] } } // Standard array
     val c_init = Array.fill(M){ Array.fill(N){ 0.to[X] } }
     // val a = Array.fill(M){ Array.fill(P){random[T](100)} }
     // val b = Array.fill(P){ Array.fill(N){random[T](100)} }
@@ -95,17 +99,18 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 128 6
   }
 }
 
-object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 128
+object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 96 96
   import IR._
 
-  type X = Int //FixPt[Signed,B16,B16]
+  type X = Float //FixPt[Signed,B16,B16]
 
-  val tileSizeM = 4
-  val tileSizeN = 32
-  val tileSizeP = 32
-  val innerPar = 2
-  val midPar = 2
-  val outerPar = 2
+  val innerPar = 16
+  val midPar = 1
+  val outerPar = 6
+
+  val tsm = 16
+  val tsn = 64
+  val tsp = 128
 
   @virtualize
   def MatMult_inner[T:Type:Num](A: Array[T], B: Array[T], mm: Int, nn: Int, pp: Int) = {
@@ -120,9 +125,9 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 1
     val b = DRAM[T](P, N)
     val c = DRAM[T](M, N)
 
-    val bm = tileSizeM (1 -> 1536)
-    val bn = tileSizeN (64 -> 64 -> 1536)
-    val bp = tileSizeP (64 -> 64 -> 1536)
+    val bm = tsm (1 -> 1536)
+    val bn = tsn (64 -> 64 -> 1536)
+    val bp = tsp (64 -> 64 -> 1536)
 
     val op = outerPar (1 -> 6)
     val mp = midPar   (1 -> 64)
@@ -161,8 +166,8 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 8 128 1
     val N = args(1).to[Int]
     val P = args(2).to[Int]
 
-    val a = Array.tabulate(M){ i => Array.tabulate(P){ j => (i*P + j)%8 } }
-    val b = Array.tabulate(P){ i => Array.tabulate(N){ j => (i*N + j)%8 } }
+    val a = Array.tabulate(M){ i => Array.tabulate(P){ j => ((i*P + j)%8).to[X] } }
+    val b = Array.tabulate(P){ i => Array.tabulate(N){ j => ((i*N + j)%8).to[X] } }
     // val a = Array.fill(M){ Array.fill(P){random[T](100)} }
     // val b = Array.fill(P){ Array.fill(N){random[T](100)} }
 
