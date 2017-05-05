@@ -42,12 +42,12 @@ def copyApp(app, args, params):
                 if not found:
                     newapp.write(line)
     for param in params:
-        if param not in paramFound:
+        if param not in paramFound and param!='fpga':
             print('Param {} not found|||!'.format(param))
             exit()
 
 def runApp(app, args, params, regen):
-    print('running {} with args={} and params={}'.format(app, str(args),
+    print('running {} with args={} and params=[{}]'.format(app, str(args),
         '='.join(['{}={}'.format(p,params[p]) for p in params])))
     copyApp(app, args, params)
     newname = newAppName(app, args, params)
@@ -102,15 +102,34 @@ def target(app, args, params, regen):
 
 def testRun():
     print('Testing with small sizes')
-    target('DotProduct', [6400], {'ts':320, 'ip':4, 'op':4}, regen='true')
-    target('OuterProduct', [192, 192], {'ts1':48, 'ts2':48, 'ip':2, 'op':2}, regen='true')
-    target('MatMult_inner', [32, 96, 96], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':2, 'mp':8, 'op':2},regen='true')
-    target('BlackScholes', [9600], {'ip':16, 'op':1, 'ts':320}, regen='true')
-    target('TPCHQ6', [384], {'ip':2, 'op':1, 'ts':2000}, regen='true')
-    target('GDA', [128], {'ip':16, 'op':2,  'ts':32}, regen='true')
-    target('LogReg', [2, 64], {'ip':4, 'op':2, 'ts':16, 'dim':16}, regen='true') 
-    target('SMV', [768], {'ip':16, 'op':4, 'pp':3840, 'NNZ':60}, regen='true') 
-    target('SGD', [40, 32, 0.0001], {'ip':16, 'op':12, 'ts':16, 'D':16}, regen='true') 
+    # target('DotProduct', [6400], {'ts':320, 'ip':4, 'op':4}, regen='true')
+    # target('OuterProduct', [192, 192], {'ts1':48, 'ts2':48, 'ip':2, 'op':2}, regen='true')
+    # target('MatMult_inner', [32, 96, 96], {'tsm':16, 'tsn':48, 'tsp':48, 'ip':2, 'mp':8, 'op':2},regen='true')
+    # target('BlackScholes', [9600], {'ip':16, 'op':1, 'ts':320}, regen='true')
+    # target('TPCHQ6', [384], {'ip':2, 'op':1, 'ts':2000}, regen='true')
+    # target('GDA', [128], {'ip':16, 'op':2,  'ts':32}, regen='true')
+    # target('LogReg', [2, 64], {'ip':4, 'op':2, 'ts':16, 'dim':16}, regen='true') 
+    # target('SMV', [768], {'ip':16, 'op':4, 'pp':3840, 'NNZ':60}, regen='true') 
+    # target('SGD', [40, 32, 0.0001], {'ip':16, 'op':12, 'ts':16, 'D':16}, regen='true') 
+
+def fpgaRun():
+    # target('MatMult_inner', [48, 768, 384], {'tsm':8, 'tsn':192, 'tsp':192, 'ip':16, 'mp':1, 'op':2,'fpga':'true'}, regen='true')
+    # target('Kmeans', [50, 1536], {'ip':8, 'op':1, 'numcents':20, 'pts_per_ld': 96, 'D':96, 'fpga':'true'}, regen='true')
+    # target('LogReg', [5, 1536], {'ip':4, 'op':4, 'ts':192, 'dim':192, 'fpga':'true'}, regen='true')
+    # target('GDA', [384000],  {'ip':8, 'op': 2, 'ts':192, 'fpga':'true'}, regen='true')
+    # target('SGD', [30, 76800, 0.0001], {'ip':16, 'op':2, 'ts':192, 'D':768, 'fpga':'true'}, regen='true') #not sure which one is right
+    # target('SGD', [30, 76800, 0.0001], {'ip':16, 'op':2, 'ts':768, 'D':192, 'fpga':'true'}, regen='true') 
+    # target('LogReg', [5, 1536], {'ip':4, 'op':4, 'ts':192, 'dim':192, 'fpga':'true_novcd'}, regen='true')
+
+    # target('OuterProduct', [3840, 3840],  {'ip':8, 'op': 2, 'ts1':192, 'ts2':192, 'fpga':'true'}, regen='true')
+    # target('Kmeans', [50, 1536], {'ip':8, 'op':1, 'numcents':20, 'pts_per_ld':96,'D':96,'fpga':'true_novcd'}, regen='true')
+    # target('GDA', [38400],  {'ip':8, 'op': 2, 'ts':192, 'fpga':'true_novcd'}, regen='true')
+    # target('SGD', [30, 7680, 0.0001], {'ip':16, 'op':2, 'ts':192, 'D':768, 'fpga':'true_novcd'}, regen='true') #not sure which one is right
+
+    target('Kmeans', [1, 1536], {'ip':8, 'op':1, 'numcents':20, 'pts_per_ld':96,'D':96,'fpga':'true_novcd'}, regen='true')
+    target('SGD', [1, 7680, 0.0001], {'ip':16, 'op':2, 'ts':192, 'D':768, 'fpga':'true_novcd'}, regen='true') #not sure which one is right
+    # target('SGD', [30, 7680, 0.0001], {'ip':16, 'op':2, 'ts':768, 'D':192, 'fpga':'true_novcd'}, regen='true') 
+    pass
 
 def expRun():
     # target('DotProduct', [768000], {'ts':1920, 'ip':16, 'op':6}, regen='true') #not finishing
@@ -184,30 +203,25 @@ def expRun():
     # target('MatMult_inner', [48, 7680, 3840], {'tsm':16, 'tsn':128, 'tsp':96, 'ip':16, 'mp':1, 'op':4}, regen='true')
     # target('MatMult_inner', [48, 7680, 3840], {'tsm':16, 'tsn':128, 'tsp':96, 'ip':16, 'mp':1, 'op':5}, regen='true')
     # target('MatMult_inner', [48, 7680, 3840], {'tsm':256, 'tsn':80, 'tsp':256, 'ip':16, 'mp':1, 'op':5}, regen='true')
+    # target('MatMult_inner', [48, 768, 384], {'tsm':8, 'tsn':192, 'tsp':192, 'ip':16, 'mp':1,'op':2,'fpga':'true'}, regen='true')
 
-    #TODO
     # target('MatMult_inner', [128, 7680, 3840], {'tsn':80,  'tsm':32,  'tsp':256, 'ip':16, 'mp':1, 'op':5}, regen='true')
     # target('MatMult_inner', [512, 5120, 5120], {'tsn':160, 'tsm':128, 'tsp':512, 'ip':16, 'mp':1, 'op':5}, regen='true')
-    #################################################################################################################
-    # target('BlackScholes', [96000], {'ip':16, 'op':1,  'ts': 1024}, regen='true')
-    # target('BlackScholes', [96000], {'ip':16, 'op':2,  'ts': 1024}, regen='true')
-    # target('BlackScholes', [96000], {'ip':16, 'op':4,  'ts': 1024}, regen='true') # not fit
-    # target('BlackScholes', [96000], {'ip':16, 'op':6,  'ts': 1024}, regen='true') # not fit
-    # target('BlackScholes', [96000], {'ip':16, 'op':8,  'ts': 1024}, regen='true') # code size
-    # target('BlackScholes', [96000], {'ip':16, 'op':1,  'ts': 2048}, regen='true') # not fit
-    # target('BlackScholes', [96000], {'ip':16, 'op':2,  'ts': 2048}, regen='true')
-    # target('BlackScholes', [96000], {'ip':16, 'op':4,  'ts': 2048}, regen='true') # not fit
-    # target('BlackScholes', [96000], {'ip':16, 'op':6,  'ts': 2048}, regen='true') # not fit
-    # target('BlackScholes', [96000], {'ip':16, 'op':8,  'ts': 2048}, regen='true') # code size
-    # target('BlackScholes', [96000], {'ip':16, 'op':1,  'ts': 4096}, regen='true')
-    # target('BlackScholes', [96000], {'ip':16, 'op':2,  'ts': 4096}, regen='true')
-    # target('BlackScholes', [96000], {'ip':16, 'op':4,  'ts': 4096}, regen='true') # not fit
-    # target('BlackScholes', [96000], {'ip':16, 'op':6,  'ts': 4096}, regen='true') # not fit
-    # target('BlackScholes', [96000], {'ip':16, 'op':8,  'ts': 4096}, regen='true') # code size
-    # target('BlackScholes', [96000], {'ip':16, 'op':1,  'ts': 8192}, regen='true')
-    # target('BlackScholes', [96000], {'ip':16, 'op':2,  'ts': 8192}, regen='true')
-    # target('BlackScholes', [96000], {'ip':16, 'op':4,  'ts': 8192}, regen='true') # not fit 
+    # target('MatMult_inner', [48, 1152, 384], {'tsm':8, 'tsn':192, 'tsp':192, 'ip':16, 'mp':1, 'op':3,'fpga':'false'}, regen='true')
+    # target('MatMult_inner', [48, 1536, 384], {'tsm':8, 'tsn':192, 'tsp':192, 'ip':16, 'mp':1, 'op':4,'fpga':'false'}, regen='true')
+    # target('MatMult_inner', [48, 1920, 384], {'tsm':8, 'tsn':192, 'tsp':192, 'ip':16, 'mp':1, 'op':5,'fpga':'false'}, regen='true')
+    # target('MatMult_inner', [256, 1920, 384], {'tsm':64, 'tsn':384, 'tsp':192, 'ip':16, 'mp':1, 'op':5,'fpga':'false'}, regen='true')
+    # TODO
+    # target('MatMult_inner', [256, 1920, 384], {'tsm':64, 'tsn':384, 'tsp':192, 'ip':16, 'mp':1, 'op':6,'fpga':'false'}, regen='true')
+    # target('MatMult_inner', [256, 1920, 384], {'tsm':64, 'tsn':384, 'tsp':192, 'ip':16, 'mp':1, 'op':8,'fpga':'false'}, regen='true')
+    # target('MatMult_inner', [256, 1920, 384], {'tsm':64, 'tsn':384, 'tsp':192, 'ip':16, 'mp':1, 'op':10,'fpga':'false'}, regen='true')
 
+    # target('MatMult_inner', [256, 3072, 384], {'tsm':64, 'tsn':384, 'tsp':192, 'ip':16, 'mp':1, 'op':8,'fpga':'false'}, regen='true')
+    # target('MatMult_inner', [256, 3840, 384], {'tsm':64, 'tsn':384, 'tsp':192, 'ip':16, 'mp':1, 'op':10,'fpga':'false'}, regen='true')
+    # target('MatMult_inner', [256, 4224, 384], {'tsm':64, 'tsn':384, 'tsp':192, 'ip':16, 'mp':1, 'op':11,'fpga':'false'}, regen='true')
+    # target('MatMult_inner', [256, 4608, 384], {'tsm':64, 'tsn':384, 'tsp':192, 'ip':16, 'mp':1, 'op':12,'fpga':'false'}, regen='true')
+
+    #################################################################################################################
     # target('BlackScholes', [98304],    {'ip':16, 'op':2,  'ts': 2048}, regen='true')
     # target('BlackScholes', [98304],    {'ip':16, 'op':2,  'ts': 4096}, regen='true')
     # target('BlackScholes', [1966080],  {'ip':16, 'op':2,  'ts': 8192}, regen='true')
@@ -270,6 +284,17 @@ def expRun():
     # target('GDA', [384000],  {'ip':16, 'op': 6, 'ts':6400}, regen='true')
     # target('GDA', [384000],  {'ip':16, 'op': 8, 'ts':6400}, regen='true')
     # target('GDA', [384000],  {'ip':16, 'op': 10, 'ts':6400}, regen='true')
+    # target('GDA', [384000],  {'ip':16, 'op': 6, 'ts':6400}, regen='true')
+    # target('GDA', [384000],  {'ip':16, 'op': 8, 'ts':6400}, regen='true')
+    # target('GDA', [384000],  {'ip':8, 'op': 2, 'ts':192, 'fpga':'false'}, regen='true')
+    # target('GDA', [384000],  {'ip':16, 'op': 6, 'ts':6400, 'fpga':'false'}, regen='true')
+    # target('GDA', [384000],  {'ip':16, 'op': 8, 'ts':6400, 'fpga':'false'}, regen='true')
+    # target('GDA', [384000],  {'ip':16, 'op': 10, 'ts':6400, 'fpga':'false'}, regen='true')
+
+    #TODO
+    # target('GDA', [384000],  {'ip':16, 'op': 6,  'ts':6400, 'fpga':'false_par'}, regen='true')
+    # target('GDA', [384000],  {'ip':16, 'op': 8,  'ts':6400, 'fpga':'false_par'}, regen='true')
+    # target('GDA', [384000],  {'ip':16, 'op': 10, 'ts':6400, 'fpga':'false_par'}, regen='true')
 
     #################################################################################################################
     # args: iters, N
@@ -286,12 +311,17 @@ def expRun():
 
     # target('LogReg', [5, 7040], {'ip':16, 'op':11, 'ts':64, 'dim':384}, regen='true')
     # target('LogReg', [5, 46080], {'ip':16, 'op':12, 'ts':384, 'dim':384}, regen='true')
+    # target('LogReg', [1, 8192], {'ip':16, 'op':16, 'ts':64, 'dim':384}, regen='true') #TODO
     #################################################################################################################
     # numiter, N, alpha
     # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':1, 'ts':384, 'D':16}, regen='true') 
     # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':1, 'ts':3840, 'D':16}, regen='true') 
     # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':1, 'ts':3840, 'D':16}, regen='true') 
 
+    pass
+    #TODO
+    # target('SGD', [2, 76800, 0.0001], {'ip':16, 'op':2, 'ts':7680, 'D':16, 'fpga':'false'}, regen='true') 
+    # target('SGD', [1, 76800, 0.0001], {'ip':16, 'op':5, 'ts':7680, 'D':16, 'fpga':'false'}, regen='true') 
     #################################################################################################################
     # args: iters, N
     # target('Kmeans', [2, 40], {'ip':16, 'op':1, 'pts_per_ld':1, 'D':96}, regen='true') 
@@ -300,20 +330,32 @@ def expRun():
 
     # target('Kmeans', [50, 1536], {'ip':16, 'op':1, 'numcents':1, 'pts_per_ld': 384, 'D':96}, regen='true')
     # target('Kmeans', [50, 1536], {'ip':16, 'op':1, 'numcents':1, 'pts_per_ld': 768, 'D':96}, regen='true')
+    #TODO
+    # target('Kmeans', [50, 1536], {'ip':8, 'op':1, 'numcents':20, 'pts_per_ld': 96, 'D':96, 'fpga':'false'}, regen='true')
     #################################################################################################################
     # args: N
     # target('SMV', [768], {'ip':16, 'op':4, 'pp':3840, 'NNZ':60}, regen='true') 
 
+    #TODO
     # target('SMV', [3840], {'ip':16, 'op':1, 'pp':3840, 'NNZ':60, 'ts':384}, regen='true') 
     # target('SMV', [3840], {'ip':16, 'op':2, 'pp':3840, 'NNZ':60, 'ts':384}, regen='true') 
     # target('SMV', [3840], {'ip':16, 'op':1, 'pp':3840, 'NNZ':60, 'ts':192}, regen='true') 
     # target('SMV', [3840], {'ip':16, 'op':2, 'pp':3840, 'NNZ':60, 'ts':192}, regen='true') 
     # target('SMV', [3840], {'ip':16, 'op':4, 'pp':3840, 'NNZ':60, 'ts':192}, regen='true') 
     # target('SMV', [3840], {'ip':16, 'op':6, 'pp':3840, 'NNZ':60, 'ts':192}, regen='true') 
+    # target('SMV', [38400], {'ip':16, 'op':6, 'pp':3840, 'NNZ':60, 'ts':384}, regen='true') 
+    # target('SMV', [38400], {'ip':16, 'op':6, 'pp':3840, 'NNZ':60, 'ts':768}, regen='true') 
+
+    # target('SMV' , [3840]  , {'ip':16 , 'op':4 , 'pp':3840 , 'NNZ':60 , 'ts':192, 'fpga':'false_novcd'} , regen='true')
+    # target('SMV' , [4608]  , {'ip':16 , 'op':6 , 'pp':3840 , 'NNZ':60 , 'ts':192, 'fpga':'false_novcd'} , regen='true')
+    # target('SMV' , [24576] , {'ip':16 , 'op':8 , 'pp':3840 , 'NNZ':60 , 'ts':768, 'fpga':'false_novcd'} , regen='true')
+    # target('SMV' , [15360] , {'ip':16 , 'op':10 , 'pp':3840 , 'NNZ':60 , 'ts':384, 'fpga':'false_novcd'} , regen='true')
     #################################################################################################################
     # args: iters, Np, damp, op=1
-    # target('PageRank', [2, 7680, 0.85], {'ip':1, 'ts':768}, regen='true')
-    # target('PageRank', [2, 7680, 0.85], {'ip':1, 'ts':768}, regen='true')
+    #TODO
+    # target('PageRank', [1, 768, 0.125], {'ts':16}, regen='true')
+    # target('PageRank', [1, 7680, 0.125], {'ts':768}, regen='true')
+    # target('PageRank', [1, 7680, 0.125], {'ts':768, 'ip':16}, regen='true')
 
     #################################################################################################################
     # args: N
@@ -325,6 +367,7 @@ def main():
     parser.add_argument('--test', dest='test', action='store_true', default=False) 
     parser.add_argument('--run', dest='run', action='store_true', default=False) 
     parser.add_argument('--kill', dest='kill', action='store_true', default=False) 
+    parser.add_argument('--fpga', dest='fpga', action='store_true', default=False) 
     global opts
     (opts, args) = parser.parse_known_args()
 
@@ -338,6 +381,8 @@ def main():
     try:
         if opts.test:
             testRun()
+        elif opts.fpga:
+            fpgaRun()
         else:
             expRun()
         with open(PID_PATH, 'wb') as handle:

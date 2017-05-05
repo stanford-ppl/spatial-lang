@@ -71,3 +71,9 @@ Mon 01 May 2017 11:32:35 PM PDT BlackScholes_94371840_ip_16_ts_32768_op_1 Design
 Mon 01 May 2017 11:00:52 PM PDT GDA_384000_ip_16_ts_3200_op_6 Design ran for 295307943 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
 Mon 01 May 2017 11:00:53 PM PDT GDA_384000_ip_16_ts_6400_op_6 Design ran for 295443015 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
 Tue 02 May 2017 05:03:41 AM PDT GDA_384000_ip_16_ts_6400_op_10 Design ran for 177583553 cycles, status = 1 args=[384000 true] PASS: 1 (GDA)
+Fri 05 May 2017 04:38:04 AM PDT SGD_1_7680_0d0001_ip_16_fpga_true_novcd_ts_192_D_768_op_2  args=[1 7680 0.0001 true] 
+Fri 05 May 2017 04:38:03 AM PDT Kmeans_1_1536_D_96_fpga_true_novcd_ip_8_numcents_20_pts_per_ld_96_op_1  args=[1 1536 true] 
+Fri 05 May 2017 04:45:31 AM PDT Kmeans_1_1536_D_96_fpga_true_novcd_ip_8_numcents_20_pts_per_ld_96_op_1  args=[1 1536 true] 
+Fri 05 May 2017 04:45:32 AM PDT SGD_1_7680_0d0001_ip_16_fpga_true_novcd_ts_192_D_768_op_2  args=[1 7680 0.0001 true] 
+Fri 05 May 2017 05:01:53 AM PDT Kmeans_1_1536_D_96_fpga_true_novcd_ip_8_numcents_20_pts_per_ld_96_op_1 Design ran for 1487871 cycles, status = 1 args=[1 1536 true] PASS: 0 (Kmeans)
+Fri 05 May 2017 05:01:54 AM PDT SGD_1_7680_0d0001_ip_16_fpga_true_novcd_ts_192_D_768_op_2 Design ran for 827408 cycles, status = 1 args=[1 7680 0.0001 true] PASS: 1 (SGD)
