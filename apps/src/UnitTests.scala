@@ -1171,12 +1171,12 @@ object GatherStore extends SpatialApp { // Regression (Sparse) // Args: none
   }
 }
 
-object LoadScatter extends SpatialApp { // DISABLED Regression (Sparse) // Args: none
+object LoadScatter extends SpatialApp { // Regression (Sparse) // Args: none
   import IR._
 
-  val tileSize = 16
-  val numAddr = tileSize
-  val numData = tileSize * 4
+  val tileSize = 128
+  val numAddr = tileSize * 10
+  val numData = tileSize * 100
 
   val P = param(1)
 
@@ -1248,7 +1248,8 @@ object LoadScatter extends SpatialApp { // DISABLED Regression (Sparse) // Args:
     }
 
     val gold = Array.tabulate(nd) { i =>
-      if (contains(addrs, i)) offchip_data(indexOf(addrs, i)) else lift(0)
+//      if (contains(addrs, i)) offchip_data(indexOf(addrs, i)) else lift(0)
+      if (contains(addrs, i)) offchip_data(i) else lift(0)
     }
 
     printArray(offchip_data, "data:")

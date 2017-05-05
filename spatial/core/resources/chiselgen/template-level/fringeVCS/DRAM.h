@@ -33,6 +33,7 @@ uint32_t burstSizeWords = burstSizeBytes / wordSizeBytes;
 
 uint64_t sparseRequestCounter = 0;  // Used to provide unique tags to each sparse request
 
+int sparseCacheSize = -1; // Max. number of lines in cache; -1 == infinity
 class DRAMRequest {
 public:
   uint64_t addr;
@@ -71,7 +72,8 @@ public:
   }
 
   void print() {
-    EPRINTF("[DRAMRequest CH=%lu] addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d, issued=%lu\n", channelID, addr, rawAddr, streamId, tag, isWr, isSparse, issued);
+    EPRINTF("[DRAMRequest CH=%lu] addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d, issued=%lu ", channelID, addr, rawAddr, streamId, tag, isWr, isSparse, issued);
+    if (isWr) EPRINTF("wdata = %x\n", wdata[0]);
   }
 
   ~DRAMRequest() {
@@ -206,8 +208,10 @@ bool checkQAndRespond(int id) {
             bool writeRequest = req->isWr;
             uint64_t tag = req->tag;
 
-            ASSERT(!writeRequest, "Sparse writes not yet supported!\n");
+//            ASSERT(!writeRequest, "Sparse writes not yet supported!\n");
             uint64_t gatherAddr[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+            uint64_t scatterAddr[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+            uint64_t scatterData[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
             uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
             if (debug) {
@@ -225,15 +229,25 @@ bool checkQAndRespond(int id) {
                 rdata[i] = *raddr;
                 gatherAddr[i] = head->rawAddr;
               } else {
-                ASSERT(false, "ERROR: Sparse writes not supported yet!");
+//                ASSERT(false, "ERROR: Sparse writes not supported yet!");
+                uint32_t *waddr = (uint32_t*) head->rawAddr;
+                if (debug) EPRINTF("-------- scatterAddr(%d) = %lx\n", i, waddr);
+                *waddr = head->wdata[0];
+                scatterAddr[i] = head->rawAddr;
+                scatterData[i] = head->wdata[0];
+
               }
               dramRequestQ[id].pop_front();
             }
 
             if (debug) {
-              EPRINTF("[checkAndSendDRAMResponse] Gather complete with following details:\n");
+              EPRINTF("[checkAndSendDRAMResponse] Sparse complete with following details:\n");
               for (int i = 0; i<16; i++) {
-                EPRINTF("---- addr %lx: data %x\n", gatherAddr[i], rdata[i]);
+                if (writeRequest) {
+                  EPRINTF("---- [scatter] addr %lx: data %x\n", scatterAddr[i], scatterData[i]);
+                } else {
+                  EPRINTF("---- addr %lx: data %x\n", gatherAddr[i], rdata[i]);
+                }
               }
               printQueueStats(id);
             }
@@ -314,6 +328,12 @@ public:
   }
 };
 
+bool sparseCacheFull() {
+  if (sparseCacheSize == -1) return false;  // sparseRequestCache is infinitely large
+  else if (sparseRequestCache.size() <= sparseCacheSize) return false;
+  else return true;
+}
+
 extern "C" {
   int sendDRAMRequest(
       long long addr,
@@ -370,7 +390,9 @@ extern "C" {
 
     DRAMRequest *req = new DRAMRequest(cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse, wdata, numCycles);
     if (debug) {
-      EPRINTF("[sendDRAMRequest] Called with addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d\n", cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse);
+//      EPRINTF("[sendDRAMRequest] Called with addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d\n", cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse);
+      EPRINTF("[sendDRAMRequest] Called with ");
+      req->print();
     }
 
     if (!useIdealDRAM) {
@@ -381,45 +403,51 @@ extern "C" {
         addrToReqMap[at] = req;
         skipIssue = false;
       } else {  // Sparse request
-        std::map<struct AddrTag, DRAMRequest**>::iterator it = sparseRequestCache.find(at);
-        if (debug) EPRINTF("[sendDRAMRequest] Sparse request, looking up (addr = %lx, tag = %lx)\n", at.addr, at.tag);
-        if (it == sparseRequestCache.end()) { // MISS
-          if (debug) EPRINTF("[sendDRAMRequest] MISS, creating new cache line:\n");
-          skipIssue = false;
-          DRAMRequest **line = new DRAMRequest*[16]; // One outstanding request per word
-          memset(line, 0, 16*sizeof(DRAMRequest*));
-          line[getWordOffset(cmdRawAddr)] = req;
-          if (debug) {
-            for (int i=0; i<16; i++) {
-              EPRINTF("---- %p ", line[i]);
-            }
-            EPRINTF("\n");
-          }
-
-          sparseRequestCache[at] = line;
-
-          // Disambiguate each request with unique tag in the addr -> req mapping
-          uint64_t sparseTag = ((sparseRequestCounter++) << 32) | (cmdTag & 0xFFFFFFFF);
-          at.tag = sparseTag;
-          addrToReqMap[at] = req;
-        } else {  // HIT
-          if (debug) EPRINTF("[sendDRAMRequest] HIT, line:\n");
+        // Early out if cache is full
+        if (sparseCacheFull()) {
           skipIssue = true;
-          DRAMRequest **line = it->second;
-          if (debug) {
-            for (int i=0; i<16; i++) {
-              EPRINTF("---- %p ", line[i]);
-            }
-            EPRINTF("\n");
-          }
-
-          DRAMRequest *r = line[getWordOffset(cmdRawAddr)];
-
-          if (r != NULL) {  // Already a request waiting, stall upstream
-            if (debug) EPRINTF("[sendDRAMRequest] Req %lx (%lx) already present for given word, stall upstream\n", r->addr, r->rawAddr);
-            dramReady = 0;
-          } else {  // Update word offset with request pointer
+          dramReady = 0;
+        } else {
+          std::map<struct AddrTag, DRAMRequest**>::iterator it = sparseRequestCache.find(at);
+          if (debug) EPRINTF("[sendDRAMRequest] Sparse request, looking up (addr = %lx, tag = %lx)\n", at.addr, at.tag);
+          if (it == sparseRequestCache.end()) { // MISS
+            if (debug) EPRINTF("[sendDRAMRequest] MISS, creating new cache line:\n");
+            skipIssue = false;
+            DRAMRequest **line = new DRAMRequest*[16]; // One outstanding request per word
+            memset(line, 0, 16*sizeof(DRAMRequest*));
             line[getWordOffset(cmdRawAddr)] = req;
+            if (debug) {
+              for (int i=0; i<16; i++) {
+                EPRINTF("---- %p ", line[i]);
+              }
+              EPRINTF("\n");
+            }
+
+            sparseRequestCache[at] = line;
+
+            // Disambiguate each request with unique tag in the addr -> req mapping
+            uint64_t sparseTag = ((sparseRequestCounter++) << 32) | (cmdTag & 0xFFFFFFFF);
+            at.tag = sparseTag;
+            addrToReqMap[at] = req;
+          } else {  // HIT
+            if (debug) EPRINTF("[sendDRAMRequest] HIT, line:\n");
+            skipIssue = true;
+            DRAMRequest **line = it->second;
+            if (debug) {
+              for (int i=0; i<16; i++) {
+                EPRINTF("---- %p ", line[i]);
+              }
+              EPRINTF("\n");
+            }
+
+            DRAMRequest *r = line[getWordOffset(cmdRawAddr)];
+
+            if (r != NULL) {  // Already a request waiting, stall upstream
+              if (debug) EPRINTF("[sendDRAMRequest] Req %lx (%lx) already present for given word, stall upstream\n", r->addr, r->rawAddr);
+              dramReady = 0;
+            } else {  // Update word offset with request pointer
+              line[getWordOffset(cmdRawAddr)] = req;
+            }
           }
         }
       }
@@ -468,6 +496,14 @@ void initDRAM() {
     EPRINTF("[DRAM] Verbose debug messages disabled \n");
     debug = false;
   }
+
+  char *numOutstandingBursts = getenv("DRAM_NUM_OUTSTANDING_BURSTS");
+  if (numOutstandingBursts != NULL) {
+    if (numOutstandingBursts[0] != 0 && atoi(numOutstandingBursts) > 0) {
+      sparseCacheSize = atoi(numOutstandingBursts);
+    }
+  }
+  EPRINTF("[DRAM] Sparse cache size = %d\n", sparseCacheSize);
 
 
   if (!useIdealDRAM) {

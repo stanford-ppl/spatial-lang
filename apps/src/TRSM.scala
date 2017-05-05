@@ -239,13 +239,13 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
     // val image = (0::R, 0::C){(i,j) => if (j > border && j < C-border && i > border && i < C - border) i*16 else 0}
 
     val B = Array.fill(full_N) {
-      Array.fill(full_K) { random[T](2) }
+      Array.fill(full_K) { abs(random[T](2)) }
     }
     val L = Array.tabulate(full_N) { i =>
       Array.tabulate(full_N) { j =>
-        if (j > i) 0.to[T]
-        else if (j == i) random[T](8) + 1
-        else random[T](2)
+        if (j > i) abs(0.to[T])
+        else if (j == i) abs(random[T](8)) + 1
+        else abs(random[T](2))
       }
     }
 
@@ -276,6 +276,8 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
       }
     }.flatten
 
+    printArray(B_check, "Wanted: ")
+    printArray(B_computed, "Computed: ")
     val cksum = B_check.zip(B_computed){ (a,b) => a > b - margin && a < b + margin}.reduce{_&&_}
     println("PASS: " + cksum + " (TRSM)")
   }

@@ -94,7 +94,9 @@ class MAGCore(
   isSparseFifo.io.enq.zip(cmds) foreach { case (enq, cmd) => enq(0) := cmd.bits.isSparse }
   isSparseFifo.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid }
 
-  io.dram.cmd.bits.isSparse := isSparseFifo.io.deq(0)(0) & ~isSparseFifo.io.empty
+  val isSparse = isSparseFifo.io.deq(0)(0) & ~isSparseFifo.io.empty
+  io.dram.cmd.bits.isSparse := isSparse
+
   val scatterGather = Wire(Bool())
   scatterGather := io.config.scatterGather
 //  val sgPulse = Wire(Bool())
@@ -125,7 +127,7 @@ class MAGCore(
   val vins = storeStreamInfo.map {_.v}
   val wdataFifo = Module(new FIFOArbiterWidthConvert(wins, vins, 32, 16, d))
   val wrPhase = Module(new SRFF())
-
+  wrPhase.io.input.asyn_reset := false.B
 
   val burstVld = ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
   val dramReady = io.dram.cmd.ready
@@ -148,12 +150,16 @@ class MAGCore(
   wdataFifo.io.enq.zip(io.app.stores.map{_.wdata}) foreach { case (enq, wdata) => enq := wdata.bits }
   wdataFifo.io.enqVld.zip(io.app.stores.map{_.wdata}) foreach {case (enqVld, wdata) => enqVld := wdata.valid }
 
+  val sparseWriteEnable = Wire(Bool())
+  sparseWriteEnable := (isSparse & isWrFifo.io.deq(0) & ~addrFifo.io.empty)
+
   // Burst offset counter
   val burstCounter = Module(new Counter(w))
   burstCounter.io.max := Mux(scatterGather, 1.U, sizeInBursts)
   burstCounter.io.stride := 1.U
   burstCounter.io.reset := 0.U
-  burstCounter.io.enable := Mux(scatterGather, ~addrFifo.io.empty, burstVld) & dramReady & ~issued
+  burstCounter.io.enable := Mux(sparseWriteEnable, ~addrFifo.io.empty, burstVld) & dramReady & ~issued
+//  burstCounter.io.enable := Mux(scatterGather, ~addrFifo.io.empty, burstVld) & dramReady & ~issued
   burstCounter.io.saturate := 0.U
 
   // Burst Tag counter
@@ -165,6 +171,14 @@ class MAGCore(
   burstTagCounter.io.enable := Mux(scatterGather, ~addrFifo.io.empty & ~sgWaitForDRAM, burstVld & dramReady) & ~issued
   burstCounter.io.saturate := 0.U
   val elementID = burstTagCounter.io.out(log2Up(v)-1, 0)
+
+  // Counter to pick correct wdataFifo for a sparse write
+  val wdataSelectCounter = Module(new Counter(log2Up(v+1)))
+  wdataSelectCounter.io.max := v.U
+  wdataSelectCounter.io.stride := 1.U
+  wdataSelectCounter.io.reset := ~(isSparse & isWrFifo.io.deq(0))
+  wdataSelectCounter.io.enable := sparseWriteEnable & dramReady
+  wdataSelectCounter.io.saturate := 0.U
 
   // Coalescing cache
   val ccache = Module(new CoalescingCache(w, d, v))
@@ -256,15 +270,31 @@ class MAGCore(
   tagOut.streamTag := addrFifo.io.tag
   tagOut.burstTag := Mux(scatterGather, burstAddrs(0), burstTagCounter.io.out)
 
+  val wdata = Vec(List.tabulate(v) { i =>
+    if (i == 0) {
+      val mux = Module(new MuxNType(UInt(w.W), v))
+      mux.io.ins := wdataFifo.io.deq
+      mux.io.sel := wdataSelectCounter.io.out
+      mux.io.out
+    } else wdataFifo.io.deq(i)
+  })
+
   io.dram.cmd.bits.addr := Cat((burstAddrs(0) + burstCounter.io.out), 0.U(log2Up(burstSizeBytes).W))
   io.dram.cmd.bits.rawAddr := addrFifo.io.deq(0)
   io.dram.cmd.bits.tag := Cat(tagOut.streamTag, tagOut.burstTag)
   io.dram.cmd.bits.streamId := tagOut.streamTag
-  io.dram.cmd.bits.wdata := wdataFifo.io.deq
+  io.dram.cmd.bits.wdata := wdata
   io.dram.cmd.bits.isWr := isWrFifo.io.deq(0)
+
+  val wasSparseWren = Module(new SRFF()) // Hacky way to allow wrPhase to die after sparse write
+  wasSparseWren.io.input.set := sparseWriteEnable
+  wasSparseWren.io.input.reset := ~sparseWriteEnable
+  wasSparseWren.io.input.asyn_reset := false.B
+  
   wrPhase.io.input.set := (~isWrFifo.io.empty & isWrFifo.io.deq(0))
-  wrPhase.io.input.reset := templates.Utils.delay(burstVld,1)
-  io.dram.cmd.valid := Mux(scatterGather, ccache.io.miss, burstVld & ~issued)
+  wrPhase.io.input.reset := templates.Utils.delay(burstVld | wasSparseWren.io.output.data,1)
+  io.dram.cmd.valid := Mux(sparseWriteEnable, sparseWriteEnable, burstVld & ~issued)
+//  io.dram.cmd.valid := Mux(scatterGather, ccache.io.miss, burstVld & ~issued)
 
   val issuedTag = Wire(UInt(w.W))
   if (blockingDRAMIssue) {

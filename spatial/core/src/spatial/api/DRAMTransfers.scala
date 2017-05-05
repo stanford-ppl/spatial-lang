@@ -110,7 +110,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
        Pipe {
         // val size = Reg[Index]
         // Pipe{size := issueQueue.deq()}
-        Foreach(requestLength by target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
+        Foreach(requestLength by target.burstSize/bits[T].length) {i => 
           val ack  = ackStream.value()
         }
       }
@@ -308,19 +308,25 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
         val ackBus = StreamIn[Bool](ScatterAckBus)
 
         // Send
-        Foreach(requestLength par p){i =>
-          val addr = (addrs(i) * bytesPerWord).to[Int64] + dram.address
-          val data = local(i)
+        Foreach(iters par p){i =>
+          val pad_addr = wrap(math_max((requestLength-1.to[Index]).s, unwrap(0.to[Index])))
+          val addr = math_mux((i >= requestLength).s, 
+            ((addrs(pad_addr) * bytesPerWord).to[Int64] + dram.address).s, 
+            ((addrs(i) * bytesPerWord).to[Int64] + dram.address).s
+          )
+          val data = math_mux((i >= requestLength).s, unwrap(local(pad_addr)), unwrap(local(i)))
 
           val addr_bytes = addr
-
-          cmdBus := pack(data,addr_bytes)
+          val p = pack(wrap(data), wrap(addr_bytes))
+          stream_write(cmdBus.s, p.s, true.s)
+          ()
+          // cmdBus := pack(data,addr_bytes)
         }
         // Fringe
         fringe_sparse_store(offchip, cmdBus.s, ackBus.s)
         // Receive
         // TODO: Assumes one ack per address
-        Foreach(requestLength par p){i =>
+        Foreach(iters by target.burstSize/bits[T].length){i =>
           val ack = ackBus.value()
         }
       }

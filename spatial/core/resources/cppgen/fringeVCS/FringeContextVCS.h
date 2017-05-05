@@ -212,8 +212,9 @@ public:
     std::string dramSimHome = "DRAMSIM_HOME=" + string(getenv("DRAMSIM_HOME"));
     std::string idealDram = "USE_IDEAL_DRAM=" + string(getenv("USE_IDEAL_DRAM"));
     std::string dramDebug = "DRAM_DEBUG=" + string(getenv("DRAM_DEBUG"));
-    std::string envstrings[] = {ldLib, dramSimHome, idealDram, dramDebug};
-    char *envs[] = {&envstrings[0][0], &envstrings[1][0], &envstrings[2][0], &envstrings[3][0], nullptr};
+    std::string dramOutstandingBursts = "DRAM_NUM_OUTSTANDING_BURSTS=" + string(getenv("DRAM_NUM_OUTSTANDING_BURSTS"));
+    std::string envstrings[] = {ldLib, dramSimHome, idealDram, dramDebug, dramOutstandingBursts};
+    char *envs[] = {&envstrings[0][0], &envstrings[1][0], &envstrings[2][0], &envstrings[3][0], &envstrings[4][0], nullptr};
 
     if(posix_spawnp(&sim_pid, args[0], &action, NULL, &args[0], &envs[0]) != 0) {
       EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));
