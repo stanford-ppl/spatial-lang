@@ -17,6 +17,11 @@ trait StreamApi extends StreamExp { this: SpatialApi =>
     StreamOut(stream_out[T](bus))
   }
 
+  @api def BufferedOut[T:Meta:Bus](rows: Index, cols: Index)(bus: Bus): BufferedOut[T] = {
+    bus_check[T](bus)
+    BufferedOut(buffered_out[T](Seq(rows.s,cols.s),bus))
+  }
+
   @api implicit def readStream[T](stream: StreamIn[T]): T = stream.value
 }
 
@@ -30,6 +35,10 @@ trait StreamExp { this: SpatialExp =>
   case class StreamOut[T:Meta:Bits](s: Exp[StreamOut[T]]) extends Template[StreamOut[T]] {
     @api def :=(value: T): Void = this := (value, true)
     @api def :=(value: T, en: Bool): Void = Void(stream_write(s, value.s, en.s))
+  }
+
+  case class BufferedOut[T:Meta:Bits](s: Exp[BufferedOut[T]]) extends Template[BufferedOut[T]] {
+    @api def update(row: Index, col: Index, data: T): Void = Void(buffered_out_write(s, data.s, Seq(row.s,col.s), bool(true)))
   }
 
   /** Type classes **/
@@ -49,6 +58,14 @@ trait StreamExp { this: SpatialExp =>
     override def isPrimitive = false
   }
   implicit def streamOutType[T:Meta:Bits]: Meta[StreamOut[T]] = StreamOutType(meta[T])
+
+  case class BufferedOutType[T:Bits](child: Meta[T]) extends Meta[BufferedOut[T]] {
+    override def wrapped(x: Exp[BufferedOut[T]]) = BufferedOut(x)(child, bits[T])
+    override def typeArguments = List(child)
+    override def stagedClass = classOf[BufferedOut[T]]
+    override def isPrimitive = false
+  }
+  implicit def bufferedOutType[T:Meta:Bits]: Meta[BufferedOut[T]] = BufferedOutType(meta[T])
 
 
   /** IR Nodes **/
@@ -74,6 +91,17 @@ trait StreamExp { this: SpatialExp =>
     val bT = bits[T]
   }
 
+  case class BufferedOutNew[T:Type:Bits](dims: Seq[Exp[Index]], bus: Bus) extends Op[BufferedOut[T]] {
+    def mirror(f:Tx) = buffered_out[T](f(dims), bus)
+    val mT = typ[T]
+  }
+
+  case class BufferedOutWrite[T:Type:Bits](buffer: Exp[BufferedOut[T]], data: Exp[T], is: Seq[Exp[Index]], en: Exp[Bool]) extends EnabledOp[Void] {
+    def mirror(f:Tx) = buffered_out_write[T](f(buffer),f(data),f(is),f(en))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
+
 
   /** Constructors **/
   @internal def stream_in[T:Type:Bits](bus: Bus): Exp[StreamIn[T]] = {
@@ -92,6 +120,13 @@ trait StreamExp { this: SpatialExp =>
     stageWrite(stream)(StreamWrite(stream, data, en))(ctx)
   }
 
+  @internal def buffered_out[T:Type:Bits](dims: Seq[Exp[Index]], bus: Bus): Exp[BufferedOut[T]] = {
+    stageMutable(BufferedOutNew[T](dims, bus))(ctx)
+  }
+
+  @internal def buffered_out_write[T:Type:Bus](buffer: Exp[BufferedOut[T]], data: Exp[T], is: Seq[Exp[Index]], en: Exp[Bool]) = {
+    stageWrite(buffer)(BufferedOutWrite(buffer,data,is,en))(ctx)
+  }
 
   /** Internals **/
   @internal def bus_check[T:Type:Bits](bus: Bus): Unit = {
