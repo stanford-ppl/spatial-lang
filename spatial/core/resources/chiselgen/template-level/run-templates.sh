@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # set -ev
 
-hostname
-a=`hostname`
-echo "hostname is $a"
+hn=`hostname`
+echo "hostname is $hn"
 # sed Launcher to create a launcher for each test
 file=${TEMPLATES_HOME}/tests/templates/Launcher.scala
 # Get list of args
@@ -30,9 +29,13 @@ sed -n ${endLaunch},$((lines+1))p $file >> $newfile
 cp $newfile $file
 rm $newfile
 
-if [[ -n $1 ]]; then
-	sbt "test:run-main templates.Launcher $1"
+if [[ $hn = *"testing"* ]]; then # Do sudo because travis is being an asshole (i.e. https://blog.travis-ci.com/2017-05-04-precise-image-updates)
+	sudo /usr/local/bin/sbt "test:run-main templates.Launcher all"
 else
-	sbt "test:run-main templates.Launcher all"
+	if [[ -n $1 ]]; then
+		sbt "test:run-main templates.Launcher $1"
+	else
+		sbt "test:run-main templates.Launcher all"
+	fi
 fi
 
