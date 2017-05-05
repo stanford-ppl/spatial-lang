@@ -41,6 +41,16 @@ trait BufferAnalyzer extends CompilerPass {
         else {
           warn(mem.ctx, u"Memory $mem, instance #$i has no associated accesses")
         }
+        // HACK
+        readers.collect{case read@(Def(_:BufferedOutWrite[_]),_) => read }.foreach{read =>
+          val parents = allParents[Ctrl](read.ctrl, {x => parentOf(x)})
+          val i = parents.indexWhere{ctrl => ctrl.isDefined && isStreamPipe(ctrl.get) }
+          if (i > 0 && i < parents.length-1) {
+            dispatchOf(read, mem).foreach{ d =>
+              topControllerOf(read.node, mem, d) = parents(i + 1).get
+            }
+          }
+        }
       }
       dbg("\n")
     }

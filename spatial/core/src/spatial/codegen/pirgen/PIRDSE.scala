@@ -83,7 +83,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
 
     threads.tasksupport = new ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(SpatialConfig.threads))
 
-    val results = (REDUCE_STAGES to 10).flatMap{stages =>
+    val results = (REDUCE_STAGES to 16).flatMap{stages =>
       STAGES = stages
       Console.print("stages = " + stages)
       val start = System.currentTimeMillis()

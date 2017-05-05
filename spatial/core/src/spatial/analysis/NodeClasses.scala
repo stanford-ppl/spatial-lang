@@ -157,6 +157,7 @@ trait NodeClasses { this: SpatialExp =>
     case _:DRAMNew[_,_]     => true
     case _:StreamInNew[_]   => true
     case _:StreamOutNew[_]  => true
+    case _:BufferedOutNew[_] => true
     case _:Forever          => true
     case _ => isDynamicAllocation(d)
   }
@@ -207,6 +208,7 @@ trait NodeClasses { this: SpatialExp =>
 
   def isStreamOut(e: Exp[_]): Boolean = e.tp match {
     case _:StreamOutType[_] => true
+    case _:BufferedOutType[_] => true
     case _ => false
   }
 
@@ -241,6 +243,7 @@ trait NodeClasses { this: SpatialExp =>
     case Def(_:ParFIFOEnq[_]) => true
     case Def(_:StreamWrite[_]) => true
     case Def(_:ParStreamWrite[_]) => true
+    case Def(_:BufferedOutWrite[_]) => true
     case Def(_:DecoderTemplateNew[_]) => true
     case _ => false
   }
@@ -249,6 +252,7 @@ trait NodeClasses { this: SpatialExp =>
     case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] | _:LineBufferType[_] | _:RegFileType[_] => true
     case _:StreamInType[_]  => true
     case _:StreamOutType[_] => true
+    case _:BufferedOutType[_] => true
     case _ => false
   }
 
@@ -256,6 +260,7 @@ trait NodeClasses { this: SpatialExp =>
     case _:DRAMType[_]      => true
     case _:StreamInType[_]  => true
     case _:StreamOutType[_] => true
+    case _:BufferedOutType[_] => true
     case _:RegType[_]       => isArgIn(e) || isArgOut(e) || isHostIO(e)
     case _ => false
   }
@@ -370,6 +375,7 @@ trait NodeClasses { this: SpatialExp =>
     case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
 
     case StreamWrite(stream, data, en)       => Some(LocalWrite(stream, value=data, en=en))
+    case BufferedOutWrite(buffer,data,is,en) => Some(LocalWrite(buffer, value=data, addr=is, en=en))
 
     // TODO: Address and enable are in different format in parallelized accesses
     case ParStreamWrite(stream, data, ens) => Some(LocalWrite(stream))

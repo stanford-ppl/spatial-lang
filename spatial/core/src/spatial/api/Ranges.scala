@@ -23,7 +23,7 @@ trait RangeLowPriorityImplicits { this: SpatialExp =>
 
 trait RangeApi extends RangeExp with RangeLowPriorityImplicits { this: SpatialApi =>
 
-  @api def *() = Wildcard()
+  def * = Wildcard()
 
   implicit class IndexRangeOps(x: Index) {
     private def lft(x: scala.Int)(implicit ctx: SrcCtx) = lift[scala.Int,Index](x)

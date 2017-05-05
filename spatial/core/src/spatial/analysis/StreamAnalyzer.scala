@@ -92,6 +92,7 @@ trait StreamAnalyzer extends CompilerPass {
             case Def(ParFIFOEnq(stream,en,_)) => stream
             case Def(StreamWrite(stream,en,_)) => stream
             case Def(ParStreamWrite(stream,en,_)) => stream
+            case Def(BufferedOutWrite(buffer,_,_,_)) => buffer
             case Def(DecoderTemplateNew(_, pushTo)) => pushTo
         } 
         dbg(c"  # Trying to fit enqueuer $enq from fifo $fifo")
