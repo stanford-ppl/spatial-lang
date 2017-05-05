@@ -481,10 +481,15 @@ void initDRAM() {
     string memoryIni = string(dramSimHome) + string("/ini/DDR3_micron_32M_8B_x4_sg125.ini");
     string systemIni = string(dramSimHome) + string("spatial.dram.ini");
     // Connect to DRAMSim2 directly here
-    mem = DRAMSim::getMemorySystemInstance("ini/DDR3_micron_32M_8B_x4_sg125.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
+		
+		//TODO: CHANGE THIS
+		mem = DRAMSim::getMemorySystemInstance("ini/MAXJ_FPGA.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
+		//mem = DRAMSim::getMemorySystemInstance("ini/DDR3_micron_32M_8B_x4_sg125.ini", "spatial.dram.ini", dramSimHome, "dramSimVCS", 16384);
 
-    uint64_t hardwareClockHz = 1 * 1e9; // Fixing Plasticine clock to 1 GHz
-    mem->setCPUClockSpeed(hardwareClockHz);
+		//TODO: CHANGE THIS
+		uint64_t hardwareClockHz = 1 * 150e6; // Fixing Plasticine clock to 1 GHz
+		//uint64_t hardwareClockHz = 1 * 1e9; // Fixing Plasticine clock to 1 GHz
+		mem->setCPUClockSpeed(hardwareClockHz);
 
     // Add callbacks
     DRAMCallbackMethods callbackMethods;
