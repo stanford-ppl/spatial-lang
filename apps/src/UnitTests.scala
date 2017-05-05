@@ -1583,7 +1583,7 @@ object DotProductFSM extends SpatialApp { // Regression (Unit) // Args: none
 object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
   import IR._
   type T = FixPt[TRUE,_13,_3]
-
+  
   @virtualize
   def main() {
     // Declare SW-HW interface vals
