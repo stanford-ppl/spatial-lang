@@ -1609,12 +1609,12 @@ object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
       val mem = SRAM[Int](128)
 
       if (x <= 4.to[Int]) {
-        i => mem load vecA
-      } else if (x <= 8.to[Int]) {
-        i => mem load vecB
+        mem load vecA
+      } else { if (x <= 8.to[Int]) {
+        mem load vecB
       } else {
-        i => mem load vecC
-      }
+        mem load vecC
+      }}
     
       result store mem
     }      
