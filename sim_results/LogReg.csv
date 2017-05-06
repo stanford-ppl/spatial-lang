@@ -1,3 +1,4 @@
 LogReg, 2,64,ip,4,ts,16,dim,16,op,2, 1168, 0
 LogReg, 2,64,ip,4,ts,16,dim,16,op,2, 1212, 0
 LogReg, 5,7040,ip,16,ts,64,dim,384,op,11, 1141505, 0
+LogReg, 5,1536,ip,16,ts,64,dim,384,op,6, 276201, 0
