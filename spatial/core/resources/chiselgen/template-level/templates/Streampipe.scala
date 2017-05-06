@@ -21,6 +21,7 @@ class Streaminner(val isFSM: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
+      val numIter = Input(UInt(32.W))
       val ctr_done = Input(Bool())
       val forever = Input(Bool())
       val rst = Input(Bool())
@@ -34,8 +35,7 @@ class Streaminner(val isFSM: Boolean = false) extends Module {
     }
     val output = new Bundle {
       val done = Output(Bool())
-      val ctr_en = Output(Bool())
-      val ctr_inc = Output(Bool()) // Same thing as ctr_en
+      val ctr_inc = Output(Bool())
       val rst_en = Output(Bool())
       // FSM signals
       val state = Output(UInt(32.W))

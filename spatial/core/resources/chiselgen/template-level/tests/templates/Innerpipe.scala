@@ -17,7 +17,7 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   // (0 until 2).foreach { i => poke(c.io.input.ctr_maxIn(i), maxes(i))}
 
   def handleStep {
-    val cnt_en = peek(c.io.output.ctr_en).toInt
+    val cnt_en = peek(c.io.output.ctr_inc).toInt
     if (cnt_en == 1) {
       cnts(0) += 1
       // println(s"cnts ${cnts(0)} ${cnts(1)}")
@@ -46,7 +46,7 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   while (done != 1) {
     handleStep
     done = peek(c.io.output.done).toInt
-    val cnt_en = peek(c.io.output.ctr_en).toInt
+    val cnt_en = peek(c.io.output.ctr_inc).toInt
     if (cnt_en == 1) numEnCycles += 1
   }
   poke(c.io.input.enable, 0)
@@ -78,7 +78,7 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   while (done != 1) {
     handleStep
     done = peek(c.io.output.done).toInt
-    val cnt_en = peek(c.io.output.ctr_en).toInt
+    val cnt_en = peek(c.io.output.ctr_inc).toInt
     if (cnt_en == 1) numEnCycles += 1
   }
   poke(c.io.input.enable, 0)

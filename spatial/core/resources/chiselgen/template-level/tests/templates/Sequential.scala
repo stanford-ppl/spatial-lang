@@ -6,7 +6,10 @@ import org.scalatest.Assertions._
 
 class SeqpipeTests(c: Seqpipe) extends PeekPokeTester(c) {
   val numIters = List(0,4,5,8,12)
-  val latencies = (0 until c.n).map { i => math.abs(rnd.nextInt(10)) + 2 } 
+  val latencies = (0 until c.n).map { i => 
+    poke(c.io.input.stageMask(i), 1)
+    math.abs(rnd.nextInt(10)) + 2 
+  } 
   latencies.map { a => println("latency of stage = " + a)}
   val timeout = 500
   var stageDones = Array.tabulate(c.n) { i => 0 }
