@@ -2,6 +2,9 @@ package templates
 
 import chisel3._
 
+
+// DEPRECATED
+
 class FromAccel(val p: Int) extends Bundle {
   // Command signals
   val base   = UInt(32.W)
@@ -12,14 +15,14 @@ class FromAccel(val p: Int) extends Bundle {
 
   // Data signals  
   val data = Vec(p, UInt(32.W))
-  val pop = Bool() // For accel to consume ctrl load fifo
-  val push = Bool() // For accel to push onto store fifo
+  val deq = Bool() // For accel to consume ctrl load fifo
+  val enq = Bool() // For accel to enq onto store fifo
 
   override def cloneType = (new FromAccel(p)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 class ToAccel(val p: Int) extends Bundle {
   val data   = Vec(p, UInt(32.W))
-  val pop   = Bool()
+  val deq   = Bool()
   val valid = Bool()
   val cmdIssued = Bool() // Indicates when command is issued and data has started filling LoadFIFO
   val doneStore = Bool()
@@ -30,7 +33,7 @@ class ToAccel(val p: Int) extends Bundle {
 class FromDRAM(val p: Int) extends Bundle {
   val data   = Vec(p, UInt(32.W))
   val tag = UInt(32.W)
-  val pop = Bool()
+  val deq = Bool()
   val valid = Bool()
 
   override def cloneType = (new FromDRAM(p)).asInstanceOf[this.type] // See chisel3 bug 358
@@ -75,8 +78,8 @@ class MemController(val pLoadAccel: Int, val pStoreAccel: Int, val pStoreDRAM: I
   // Create FIFO to hold data from DRAM
   val loadFifo = Module(new FIFO(pLoadAccel, pLoadDRAM, burstSize))
   loadFifo.io.in := io.DRAMToCtrl.data
-  loadFifo.io.push := io.DRAMToCtrl.valid
-  loadFifo.io.pop := io.AccelToCtrl.pop
+  loadFifo.io.enq := io.DRAMToCtrl.valid
+  loadFifo.io.deq := io.AccelToCtrl.deq
   io.CtrlToAccel.data := loadFifo.io.out
   io.CtrlToAccel.valid := !loadFifo.io.empty | (io.AccelToCtrl.enLoad & io.CtrlToDRAM.size === 0.U)
   io.CtrlToAccel.cmdIssued := !loadFifo.io.empty & Utils.delay(loadFifo.io.empty, 1) // TODO: May cause bug if fifo drains faster than it loads
@@ -85,8 +88,8 @@ class MemController(val pLoadAccel: Int, val pStoreAccel: Int, val pStoreDRAM: I
   // Create FIFO to hold data from Accel
   val storeFifo = Module(new FIFO(pStoreDRAM, pStoreAccel, burstSize))
   storeFifo.io.in := io.AccelToCtrl.data
-  storeFifo.io.push := io.AccelToCtrl.push
-  storeFifo.io.pop := io.DRAMToCtrl.pop
+  storeFifo.io.enq := io.AccelToCtrl.enq
+  storeFifo.io.deq := io.DRAMToCtrl.deq
   io.CtrlToDRAM.data := storeFifo.io.out
   io.CtrlToDRAM.sendBurst := !storeFifo.io.empty & io.AccelToCtrl.enStore //| (io.AccelToCtrl.en & io.CtrlToDRAM.size === 0.U)
   io.CtrlToAccel.doneStore := storeFifo.io.empty & io.AccelToCtrl.enStore

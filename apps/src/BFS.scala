@@ -123,11 +123,10 @@ object BFS extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 10
 }
 
 
-object BFS_Gather extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 10
+object BFS_FSM extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 10
   import IR._
 
   val tileSize = 8000
-  val edges_per_node = 6 // Will make this random later
 
   @virtualize
   def bfs(nodesIn: Array[Int], edgesIn: Array[Int], countsIn: Array[Int], idsIn: Array[Int], n: Int, e: Int, average_nodes_per_edge: Int) = {
@@ -147,6 +146,12 @@ object BFS_Gather extends SpatialApp { // DISABLED Regression (Sparse) // Args: 
     setArg(anpe, average_nodes_per_edge)
 
     Accel {
+
+
+      // FSM[Int]{state => state < 32}{state =>
+      //   bram(state) = state
+      // }{state => state + 1}
+
       val frontierNodes = SRAM[Int](tileSize)
       // val frontierCounts = SRAM[Int](tileSize)
       val frontierIds = SRAM[Int](tileSize)
@@ -235,16 +240,3 @@ object BFS_Gather extends SpatialApp { // DISABLED Regression (Sparse) // Args: 
 
 }
 
-object BFS_FSM extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 10
-  import IR._
-
-  val tileSize = 8000
-  val edges_per_node = 6 // Will make this random later
-
-  @virtualize
-  def bfs(nodesIn: Array[Int], edgesIn: Array[Int], countsIn: Array[Int], idsIn: Array[Int], n: Int, e: Int, average_nodes_per_edge: Int) = { Accel{} } //TODO
-
-  @virtualize
-  def main() {} //TODO
-
-}

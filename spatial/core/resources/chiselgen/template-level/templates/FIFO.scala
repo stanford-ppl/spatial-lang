@@ -12,8 +12,8 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
   val io = IO( new Bundle {
     val in = Vec(pW, Input(UInt(bitWidth.W)))
     val out = Vec(pR, Output(UInt(bitWidth.W)))
-    val push = Input(Bool())
-    val pop = Input(Bool())
+    val enq = Input(Bool())
+    val deq = Input(Bool())
     val empty = Output(Bool())
     val full = Output(Bool())
     val debug = new Bundle {
@@ -28,8 +28,8 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
 
   // Register for tracking number of elements in FIFO
   val elements = Module(new IncDincCtr(pW, pR, depth))
-  elements.io.input.inc_en := io.push
-  elements.io.input.dinc_en := io.pop
+  elements.io.input.inc_en := io.enq
+  elements.io.input.dinc_en := io.deq
 
   // Create physical mems
   val m = (0 until p).map{ i => Module(new Mem1D(depth/p, true, bitWidth))}
@@ -38,14 +38,14 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
   val subWriter = Module(new SingleCounter(1))
   val subReader = Module(new SingleCounter(1))
   subWriter.io.input.max := (p/pW).U
-  subWriter.io.input.enable := io.push
+  subWriter.io.input.enable := io.enq
   subWriter.io.input.stride := 1.U
   subWriter.io.input.gap := 0.U
   subWriter.io.input.start := 0.U
   subWriter.io.input.reset := reset
   subWriter.io.input.saturate := false.B
   subReader.io.input.max := (p/pR).U
-  subReader.io.input.enable := io.pop
+  subReader.io.input.enable := io.deq
   subReader.io.input.stride := 1.U
   subReader.io.input.gap := 0.U
   subReader.io.input.start := 0.U
@@ -56,42 +56,42 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
   val writer = Module(new SingleCounter(1))
   val reader = Module(new SingleCounter(1))
   writer.io.input.max := (depth/p).U
-  writer.io.input.enable := io.push & subWriter.io.output.done
+  writer.io.input.enable := io.enq & subWriter.io.output.done
   writer.io.input.stride := 1.U
   writer.io.input.gap := 0.U
   writer.io.input.start := 0.U
   writer.io.input.reset := reset
   writer.io.input.saturate := false.B
   reader.io.input.max := (depth/p).U
-  reader.io.input.enable := io.pop & subReader.io.output.done
+  reader.io.input.enable := io.deq & subReader.io.output.done
   reader.io.input.stride := 1.U
   reader.io.input.gap := 0.U
   reader.io.input.start := 0.U
   reader.io.input.reset := reset
   reader.io.input.saturate := false.B  
 
-  // Connect pusher
+  // Connect enqer
   if (pW == pR) {
     m.zip(io.in).foreach { case (mem, data) => 
       mem.io.w.addr := writer.io.output.count(0)
       mem.io.w.data := data
-      mem.io.w.en := io.push
+      mem.io.w.en := io.enq
     }
   } else {
     (0 until pW).foreach { w_i => 
       (0 until (p / pW)).foreach { i => 
         m(w_i + i*pW).io.w.addr := writer.io.output.count(0)
         m(w_i + i*pW).io.w.data := io.in(w_i)
-        m(w_i + i*pW).io.w.en := io.push & (subWriter.io.output.count(0) === i.U)
+        m(w_i + i*pW).io.w.en := io.enq & (subWriter.io.output.count(0) === i.U)
       }
     }
   }
 
-  // Connect popper
+  // Connect deqper
   if (pW == pR) {
     m.zip(io.out).foreach { case (mem, data) => 
       mem.io.r.addr := reader.io.output.count(0)
-      mem.io.r.en := io.pop
+      mem.io.r.en := io.deq
       data := mem.io.output.data
     }
   } else {
@@ -100,7 +100,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
       val rData = Wire(Vec( (p/pR), UInt(32.W)))
       (0 until (p / pR)).foreach { i => 
         m(r_i + i*pR).io.r.addr := reader.io.output.count(0)
-        m(r_i + i*pR).io.r.en := io.pop & (subReader.io.output.count(0) === i.U)
+        m(r_i + i*pR).io.r.en := io.deq & (subReader.io.output.count(0) === i.U)
         rSel(i) := subReader.io.output.count(0) === i.U
         // if (i == 0) { // Strangeness from inc-then-read nuisance
         //   rSel((p/pR)-1) := subReader.io.output.count(0) === i.U
@@ -130,18 +130,18 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
   // val rww_c = reader.io.output.countWithoutWrap(0)*(p/pR).U + subReader.io.output.count(0)
   // val r_c = reader.io.output.count(0)*(p/pR).U + subReader.io.output.count(0)
   // val hasData = Module(new SRFF())
-  // hasData.io.input.set := (w_c === r_c) & io.push & !(ovR.io.output.data | ovW.io.output.data)
-  // hasData.io.input.reset := (r_c + 1.U === www_c) & io.pop & !(ovR.io.output.data | ovW.io.output.data)
+  // hasData.io.input.set := (w_c === r_c) & io.enq & !(ovR.io.output.data | ovW.io.output.data)
+  // hasData.io.input.reset := (r_c + 1.U === www_c) & io.deq & !(ovR.io.output.data | ovW.io.output.data)
   // io.empty := !hasData.io.output.data
 
   // // Debugger
-  // val overwrite = hasData.io.output.data & (w_c === r_c) & io.push // TODO: Need to handle sub-counters
-  // val fixed_overwrite = (www_c === r_c + 1.U) & io.pop
+  // val overwrite = hasData.io.output.data & (w_c === r_c) & io.enq // TODO: Need to handle sub-counters
+  // val fixed_overwrite = (www_c === r_c + 1.U) & io.deq
   // ovW.io.input.set := overwrite
   // ovW.io.input.reset := fixed_overwrite
   // io.debug.overwrite := ovW.io.output.data
-  // val overread = !hasData.io.output.data & (w_c === r_c) & io.pop // TODO: Need to handle sub-counters
-  // val fixed_overread = (w_c + 1.U === rww_c) & io.push
+  // val overread = !hasData.io.output.data & (w_c === r_c) & io.deq // TODO: Need to handle sub-counters
+  // val fixed_overread = (w_c + 1.U === rww_c) & io.enq
   // ovR.io.input.set := overread
   // ovR.io.input.reset := fixed_overread
   // io.debug.overread := ovR.io.output.data

@@ -1609,12 +1609,12 @@ object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
       val mem = SRAM[Int](128)
 
       if (x <= 4.to[Int]) {
-        i => mem load vecA
-      } else if (x <= 8.to[Int]) {
-        i => mem load vecB
+        mem load vecA
+      } else { if (x <= 8.to[Int]) {
+        mem load vecB
       } else {
-        i => mem load vecC
-      }
+        mem load vecC
+      }}
     
       result store mem
     }      
@@ -1623,6 +1623,52 @@ object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
     println("Expected array of : " + gold(0) + ", got array of : " + res(0))
     val cksum = res.zip(gold){_==_}.reduce{_&&_}
     println("PASS: " + cksum + " (CtrlEnable)")
+  }
+}
+
+object FifoStackFSM extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
+  import IR._
+
+  @virtualize
+  def main() {
+    val vectorA = Array.fill(128) {
+      random[Int](2)
+    }
+    val vectorB = Array.fill(128) {
+      random[Int](8)
+    }
+    val vectorC = Array.fill(128) {
+      random[Int](14)
+    }
+    val vecA = DRAM[Int](128)
+    val vecB = DRAM[Int](128)
+    val vecC = DRAM[Int](128)
+    val result = DRAM[Int](128)
+    val x = ArgIn[Int]
+    setArg(x, args(0).to[Int])
+    setMem(vecA, vectorA)
+    setMem(vecB, vectorB)
+    setMem(vecC, vectorC)
+    Accel {
+
+
+      val mem = SRAM[Int](128)
+
+      if (x <= 4.to[Int]) {
+        mem load vecA
+      } else { if (x <= 8.to[Int]) {
+        mem load vecB
+      } else {
+        mem load vecC
+      }}
+    
+      result store mem
+    }      
+    val res = getMem(result)
+    val gold = Array.fill(128){ if (args(0).to[Int] <= 4) 4.to[Int] else if (args(0).to[Int] <= 8) 8.to[Int] else 14.to[Int] }
+    println("Expected array of : " + gold(0) + ", got array of : " + res(0))
+    val cksum = res.zip(gold){_==_}.reduce{_&&_}
+    println("PASS: " + cksum + " (FifoStackFSM)")
   }
 }
 
