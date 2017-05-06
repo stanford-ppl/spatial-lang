@@ -50,7 +50,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case UnrolledForeach(en,cchain,func,iters,valids) =>
+    case UnrolledForeach(ens,cchain,func,iters,valids) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
@@ -91,9 +91,11 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
       }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain))
+      val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
+      emit(src"${lhs}_mask := $en")
       controllerStack.pop()
 
-    case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
+    case UnrolledReduce(ens,cchain,accum,func,_,iters,valids,rV) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten))
@@ -133,6 +135,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emitParallelizedLoop(iters, cchain)
         emitBlock(func)
       }
+      val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
+      emit(src"${lhs}_mask := $en")
       controllerStack.pop()
 
     case ParSRAMLoad(sram,inds,ens) =>

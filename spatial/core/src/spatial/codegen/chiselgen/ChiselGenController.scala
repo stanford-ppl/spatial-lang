@@ -308,32 +308,21 @@ trait ChiselGenController extends ChiselGenCounter{
     val constrArg = if (isInner) {s"${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
 
     val lat = bodyLatency.sum(sym)
-    //if (SpatialConfig.enableRetiming) {if (bodyLatency(sym).length == 0) {0} else {bodyLatency(sym).reduce{_+_}}}
-              //else {0}
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
     emitModule(src"${sym}_sm", s"${smStr}", s"${constrArg}")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
     emit(src"""${sym}_done := ${sym}_sm.io.output.done""")
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
-
-    smStr match {
-      case s @ ("Metapipe" | "Seqpipe") =>
-        emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw""")
-      case _ =>
-    }
+    emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw // Unused for inner and parallel""")
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
+    emitGlobalWire(src"""val ${sym}_datapath_en = Wire(Bool())""")
 
-    if (isStreamChild(sym) & hasStreamIns) {
-      emitGlobalWire(src"""val ${sym}_datapath_en = Wire(Bool())""")
-      if (beneathForever(sym) /*| hasCopiedCounter(sym)*/) {
-        emit(src"""${sym}_datapath_en := ${sym}_en // Immediate parent has forever counter, so never mask out datapath_en""")    
-      } else {
-        emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done""")  
-      }
-    } else if (isFSM) {
-      emit(src"""val ${sym}_datapath_en = ${sym}_en & ~${sym}_done""")        
+    if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
+      emit(src"""${sym}_datapath_en := ${sym}_en // Immediate parent has forever counter, so never mask out datapath_en""")    
+    } else if ((isStreamChild(sym) & hasStreamIns) | isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
+      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done""")  
     } else {
-      emit(src"""val ${sym}_datapath_en = ${sym}_sm.io.output.ctr_inc""")
+      emit(src"""${sym}_datapath_en := ${sym}_sm.io.output.ctr_inc""")
     }
     
     /* Counter Signals for controller (used for determining done) */
@@ -379,26 +368,18 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     }
 
-    if (isInner & hasStreamIns) { // Pretty ugly logic and probably misplaced
-      emit(src"${sym}_sm.io.input.hasStreamIns := true.B")
-    } else {
-      emit(src"${sym}_sm.io.input.hasStreamIns := false.B")
-    }
+    val hsi = if (isInner & hasStreamIns) "true.B" else "false.B"
+    val hf = if (hasForever) "true.B" else "false.B"
+    emit(src"${sym}_sm.io.input.hasStreamIns := $hsi")
+    emit(src"${sym}_sm.io.input.forever := $hf")
 
-    if (hasForever) {
-      emit(src"""${sym}_sm.io.input.forever := true.B""")
-    } else {
-      emit(src"""${sym}_sm.io.input.forever := false.B""")
-    }
-
-
-        
     /* Control Signals to Children Controllers */
     if (!isInner) {
       emit(src"""// ---- Begin $smStr ${sym} Children Signals ----""")
       childrenOf(sym).zipWithIndex.foreach { case (c, idx) =>
         emitGlobalWire(src"""val ${c}_done = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_en = Wire(Bool())""")
+        emitGlobalWire(src"""val ${c}_mask = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_resetter = Wire(Bool())""")
         if (smStr == "Streampipe" & cchain.isDefined) {
           emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${cchain.get}_copy${c}_done;""")
@@ -406,12 +387,13 @@ trait ChiselGenController extends ChiselGenCounter{
           emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${c}_done;""")
         }
 
+        emit(src"""${sym}_sm.io.input.stageMask(${idx}) := ${c}_mask;""")
+
         val streamAddition = getStreamEnablers(c)
 
         emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx}) ${streamAddition}""")  
 
         // If this is a stream controller, need to set up counter copy for children
-
         if (smStr == "Streampipe" & cchain.isDefined) {
           emitGlobalWire(src"""val ${cchain.get}_copy${c}_en = Wire(Bool())""") 
           val Def(CounterChainNew(ctrs)) = cchain.get
@@ -456,7 +438,7 @@ trait ChiselGenController extends ChiselGenCounter{
       toggleEn() // turn off
       controllerStack.pop()
 
-    case UnitPipe(en,func) =>
+    case UnitPipe(ens,func) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
@@ -465,9 +447,11 @@ trait ChiselGenController extends ChiselGenCounter{
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)
       }
+      val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
+      emit(src"${lhs}_mask := $en")
       controllerStack.pop()
 
-    case ParallelPipe(en,func) =>
+    case ParallelPipe(ens,func) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitController(lhs, None, None)
@@ -475,6 +459,8 @@ trait ChiselGenController extends ChiselGenCounter{
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)
       } 
+      val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
+      emit(src"${lhs}_mask := $en")
       controllerStack.pop()
 
     case OpForeach(cchain, func, iters) =>

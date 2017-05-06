@@ -150,22 +150,24 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   } else {
                     emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")                    
                   }
-                  
                 case _ =>  
-                  lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+                  lhs.tp match { 
                     case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+                    case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
                     case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
                   }
               }
             case _ =>
-              lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+              lhs.tp match { 
                 case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+                case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
                 case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
               }
           }
         } else {
-          lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+          lhs.tp match { 
             case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+            case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
             case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
           }
         }
