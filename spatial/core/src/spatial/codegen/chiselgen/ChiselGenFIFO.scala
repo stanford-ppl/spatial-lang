@@ -101,8 +101,8 @@ trait ChiselGenFIFO extends ChiselCodegen {
         case _ => emit(src"""val ${lhs} = ${fifo}.io.out(0)""")
       }
 
-    case FIFOEmpty(fifo) =>
-      emit(src"val $lhs = ${fifo}.io.output.empty")
+    case FIFOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
+    case FIFOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")
 
     case _ => super.emitNode(lhs, rhs)
   }

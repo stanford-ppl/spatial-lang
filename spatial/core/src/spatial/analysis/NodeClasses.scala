@@ -129,8 +129,10 @@ trait NodeClasses { this: SpatialExp =>
   }
 
   def sizeOf(fifo: FIFO[_])(implicit ctx: SrcCtx): Index = wrap(sizeOf(fifo.s))
+  def sizeOf(fifo: FILO[_])(implicit ctx: SrcCtx): Index = wrap(sizeOf(fifo.s))
   def sizeOf(x: Exp[_])(implicit ctx: SrcCtx): Exp[Index] = x match {
     case Def(FIFONew(size)) => size
+    case Def(FILONew(size)) => size
     case _ => throw new UndefinedDimensionsError(x, None)
   }
 

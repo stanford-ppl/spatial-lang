@@ -147,6 +147,7 @@
 ./chiselgen/template-level/tests/templates/Parallel.scala
 ./chiselgen/template-level/tests/templates/Counter.scala
 ./chiselgen/template-level/tests/templates/FIFO.scala
+./chiselgen/template-level/tests/templates/FILO.scala
 ./chiselgen/template-level/tests/templates/FF.scala
 ./chiselgen/template-level/fringeDE1SoC/Top.fir
 ./chiselgen/template-level/fringeDE1SoC/Video_In_Subsystem.qsys

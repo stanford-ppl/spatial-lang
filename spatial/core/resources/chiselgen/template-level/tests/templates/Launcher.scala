@@ -81,6 +81,9 @@ object Arguments {
     (6,3,48)
 
   )
+  val FILO = List(
+    (1,1,10)
+  )
   val SingleCounter = List(
     1,3
   )
@@ -258,6 +261,14 @@ object Launcher {
     (s"FIFO$i" -> { (backendName: String) =>
         Driver(() => new FIFO(arg), "verilator") {
           (c) => new FIFOTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.FILO.zipWithIndex.map{ case(arg,i) => 
+    (s"FILO$i" -> { (backendName: String) =>
+        Driver(() => new FILO(arg), "verilator") {
+          (c) => new FILOTests(c)
         }
       }) 
   }.toMap

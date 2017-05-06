@@ -24,7 +24,7 @@ import spatial.models.PIRHackyLatencyAnalyzer
 protected trait SpatialExp
   extends ArgonExp with SpatialExceptions with MatrixExp
   with DebuggingExp with TemplatesExp with BitOpsExp with FileIOExp
-  with ControllerExp with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with HostTransferExp with MathExp
+  with ControllerExp with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with FILOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
   with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp
   with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp

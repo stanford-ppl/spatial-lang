@@ -150,6 +150,62 @@ class SingleCounter(val par: Int) extends Module {
   }
 }
 
+class SingleSCounter(val par: Int) extends Module { // Signed counter, used in FILO
+  val io = IO(new Bundle {
+    val input = new Bundle {
+      val start    = Input(SInt(32.W)) // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
+      val max      = Input(SInt(32.W))
+      val stride   = Input(SInt(32.W))
+      val gap      = Input(SInt(32.W))
+      // val wrap     = BoolInput(()) // TODO: This should let 
+      //                                   user specify (8 by 3) ctr to go
+      //                                   0,3,6 (wrap) 1,4,7 (wrap) 2,5...
+      //                                   instead of default
+      //                                   0,3,6 (wrap) 0,3,6 (wrap) 0,3...
+      val reset  = Input(Bool())
+      val enable = Input(Bool())
+      val saturate = Input(Bool())
+    }
+    val output = new Bundle { 
+      val count      = Vec(par, Output(SInt(32.W)))
+      val countWithoutWrap = Vec(par, Output(SInt(32.W))) // Rough estimate of next val without wrap, used in FIFO
+      val done   = Output(Bool())
+      val extendedDone = Output(Bool())
+      val saturated = Output(Bool())
+    }
+  })
+
+  if (par > 0) {
+    val base = Module(new FF(32))
+    val init = io.input.start
+    base.io.input(0).init := init.asUInt
+    base.io.input(0).reset := io.input.reset
+    base.io.input(0).enable := io.input.reset | io.input.enable
+
+    val count = base.io.output.data.asSInt
+    val newval = count + (io.input.stride * par.S) + io.input.gap
+    val isMax = newval >= io.input.max
+    val wasMax = RegNext(isMax, false.B)
+    val isMin = newval <= 0.S
+    val wasMin = RegNext(isMin, false.B)
+    val wasEnabled = RegNext(io.input.enable, false.B)
+    val next = Mux(isMax, Mux(io.input.saturate, count, init), Mux(isMin, io.input.max - 1.S, newval))
+    base.io.input(0).data := Mux(io.input.reset, init.asUInt, next.asUInt)
+
+    (0 until par).foreach { i => io.output.count(i) := count + i.S*io.input.stride }
+    (0 until par).foreach { i => 
+      io.output.countWithoutWrap(i) := Mux(count === 0.S, io.input.max, count) + i.S*io.input.stride
+    }
+    io.output.done := io.input.enable & isMax
+    io.output.saturated := io.input.saturate & isMax
+    io.output.extendedDone := (io.input.enable | wasEnabled) & (isMax | wasMax)
+  } else { // Forever21 counter
+    io.output.saturated := false.B
+    io.output.extendedDone := false.B
+    io.output.done := false.B
+  }
+}
+
 
 /*
      outermost    middle   innermost
