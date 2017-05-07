@@ -644,8 +644,8 @@ echo "
 wc=\$(cat ${5}/log | grep \"No rule to make target\" | wc -l)
 if [ \"\$wc\" -gt 0 ]; then
   echo \"[APP_RESULT] Annoying SBT crashing on ${3}_${4}.  Rerunning...\" >> ${log}
-  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
-  cd ../" >> $1
+  echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  cd ${5}" >> $1
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "  # Compile app
@@ -685,7 +685,7 @@ bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
 if [ \"\$wc\" -gt 0 ]; then
   echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
-  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
   make vcs 2>&1 | tee -a ${5}/log
   make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
   bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
@@ -694,7 +694,7 @@ if [ \"\$wc\" -gt 0 ]; then
   wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
   if [ \"\$wc\" -gt 1 ]; then
     echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
-    echo \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
+    echo -e \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
     make vcs 2>&1 | tee -a ${5}/log
     make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
     bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
