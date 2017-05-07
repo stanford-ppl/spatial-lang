@@ -1626,7 +1626,7 @@ object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
   }
 }
 
-object FifoStackFSM extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
+object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
   @virtualize
