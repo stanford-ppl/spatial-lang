@@ -18,7 +18,7 @@ trait ScalaGenFIFO extends ScalaGenMemories {
     case FIFOEmpty(fifo)  => emit(src"val $lhs = $fifo.isEmpty")
     case FIFOFull(fifo)  => 
       val Def(FIFONew(size)) = fifo 
-      emit(src"val $lhs = ${fifo}.size >= $size ")
+      emit(src"val $lhs = ${fifo}.size > $size ")
     case op@FIFODeq(fifo,en) => emit(src"val $lhs = if ($en && $fifo.nonEmpty) $fifo.dequeue() else ${invalid(op.mT)}")
     case _ => super.emitNode(lhs, rhs)
   }

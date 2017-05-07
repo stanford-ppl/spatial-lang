@@ -5,7 +5,7 @@ import forge._
 
 trait FILOApi extends FILOExp { this: SpatialApi =>
 
-  @api def FILO[T:Type:Bits](size: Index): FILO[T] = FILO(filo_alloc[T](size.s))
+  @api def FILO[T:Type:Bits](size: Index): FILO[T] = FILO(filo_alloc[T](size.s)) 
 }
 
 trait FILOExp { this: SpatialExp =>
@@ -55,12 +55,12 @@ trait FILOExp { this: SpatialExp =>
     val mT = typ[T]
     val bT = bits[T]
   }
-  case class FILOEnq[T:Type:Bits](filo: Exp[FILO[T]], data: Exp[T], en: Exp[Bool]) extends EnabledOp[Void](en) {
+  case class FILOPush[T:Type:Bits](filo: Exp[FILO[T]], data: Exp[T], en: Exp[Bool]) extends EnabledOp[Void](en) {
     def mirror(f:Tx) = filo_push(f(filo),f(data),f(en))
     val mT = typ[T]
     val bT = bits[T]
   }
-  case class FILODeq[T:Type:Bits](filo: Exp[FILO[T]], en: Exp[Bool]) extends EnabledOp[T](en) {
+  case class FILOPop[T:Type:Bits](filo: Exp[FILO[T]], en: Exp[Bool]) extends EnabledOp[T](en) {
     def mirror(f:Tx) = filo_pop(f(filo), f(en))
     val mT = typ[T]
     val bT = bits[T]
@@ -81,10 +81,10 @@ trait FILOExp { this: SpatialExp =>
     stageMutable(FILONew[T](size))(ctx)
   }
   @internal def filo_push[T:Type:Bits](filo: Exp[FILO[T]], data: Exp[T], en: Exp[Bool]): Exp[Void] = {
-    stageWrite(filo)(FILOEnq(filo, data, en))(ctx)
+    stageWrite(filo)(FILOPush(filo, data, en))(ctx)
   }
   @internal def filo_pop[T:Type:Bits](filo: Exp[FILO[T]], en: Exp[Bool]): Exp[T] = {
-    stageWrite(filo)(FILODeq(filo,en))(ctx)
+    stageWrite(filo)(FILOPop(filo,en))(ctx)
   }
   @internal def filo_empty[T:Type:Bits](filo: Exp[FILO[T]]): Exp[Bool] = {
     stage(FILOEmpty(filo))(ctx)

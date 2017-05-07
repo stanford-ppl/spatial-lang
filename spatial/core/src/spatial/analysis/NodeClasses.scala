@@ -154,6 +154,7 @@ trait NodeClasses { this: SpatialExp =>
     case _:ArgOutNew[_]     => true
     case _:SRAMNew[_,_]     => true
     case _:FIFONew[_]       => true
+    case _:FILONew[_]       => true
     case _:LineBufferNew[_] => true
     case _:RegFileNew[_,_]  => true
     case _:DRAMNew[_,_]     => true
@@ -203,6 +204,11 @@ trait NodeClasses { this: SpatialExp =>
     case _ => false
   }
 
+  def isFILO(e: Exp[_]): Boolean = e.tp match {
+    case _:FILOType[_] => true
+    case _ => false
+  }
+
   def isStreamIn(e: Exp[_]): Boolean = e.tp match {
     case _:StreamInType[_] => true
     case _ => false
@@ -223,8 +229,10 @@ trait NodeClasses { this: SpatialExp =>
 
   def isParEnq(e: Exp[_]): Boolean = e match {
     case Def(_:ParFIFOEnq[_]) => true
+    case Def(_:ParFILOPush[_]) => true
     case Def(_:ParSRAMStore[_]) => true
     case Def(_:FIFOEnq[_]) => true
+    case Def(_:FILOPush[_]) => true
     case Def(_:SRAMStore[_]) => true
     case Def(_:ParLineBufferEnq[_]) => true
     case _ => false
@@ -233,6 +241,8 @@ trait NodeClasses { this: SpatialExp =>
   def isStreamStageEnabler(e: Exp[_]): Boolean = e match {
     case Def(_:FIFODeq[_]) => true
     case Def(_:ParFIFODeq[_]) => true
+    case Def(_:FILOPop[_]) => true
+    case Def(_:ParFILOPop[_]) => true
     case Def(_:StreamRead[_]) => true
     case Def(_:ParStreamRead[_]) => true
     case Def(_:DecoderTemplateNew[_]) => true
@@ -243,6 +253,8 @@ trait NodeClasses { this: SpatialExp =>
   def isStreamStageHolder(e: Exp[_]): Boolean = e match {
     case Def(_:FIFOEnq[_]) => true
     case Def(_:ParFIFOEnq[_]) => true
+    case Def(_:FILOPush[_]) => true
+    case Def(_:ParFILOPush[_]) => true
     case Def(_:StreamWrite[_]) => true
     case Def(_:ParStreamWrite[_]) => true
     case Def(_:BufferedOutWrite[_]) => true
@@ -251,7 +263,7 @@ trait NodeClasses { this: SpatialExp =>
   }
 
   def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
-    case _:SRAMType[_] | _:FIFOType[_] | _:RegType[_] | _:LineBufferType[_] | _:RegFileType[_] => true
+    case _:SRAMType[_] | _:FIFOType[_] | _:FILOType[_] | _:RegType[_] | _:LineBufferType[_] | _:RegFileType[_] => true
     case _:StreamInType[_]  => true
     case _:StreamOutType[_] => true
     case _:BufferedOutType[_] => true
@@ -367,6 +379,7 @@ trait NodeClasses { this: SpatialExp =>
     case RegFileStore(reg,inds,data,en)    => Some(LocalWrite(reg, value=data, addr=inds, en=en))
     case SRAMStore(mem,_,inds,_,data,en)   => Some(LocalWrite(mem, value=data, addr=inds, en=en))
     case FIFOEnq(fifo,data,en)             => Some(LocalWrite(fifo, value=data, en=en))
+    case FILOPush(filo,data,en)             => Some(LocalWrite(filo, value=data, en=en))
 
     case RegFileShiftIn(reg,is,d,data,en)  => Some(LocalWrite(reg, value=data, addr=is, en=en))
     case ParRegFileShiftIn(reg,is,d,data,en) => Some(LocalWrite(reg,value=data, addr=is, en=en))
@@ -385,6 +398,7 @@ trait NodeClasses { this: SpatialExp =>
     case ParRegFileStore(reg,is,data,ens)  => Some(LocalWrite(reg))
     case ParSRAMStore(mem,addr,data,en)    => Some(LocalWrite(mem))
     case ParFIFOEnq(fifo,data,ens)         => Some(LocalWrite(fifo))
+    case ParFILOPush(filo,data,ens)         => Some(LocalWrite(filo))
     case _ => None
   }
   def readerUnapply(d: Def): Option[List[LocalRead]] = d match {
@@ -392,6 +406,7 @@ trait NodeClasses { this: SpatialExp =>
     case RegFileLoad(reg,inds,en)           => Some(LocalRead(reg, addr=inds, en=en))
     case SRAMLoad(mem,dims,inds,ofs,en)     => Some(LocalRead(mem, addr=inds, en=en))
     case FIFODeq(fifo,en)                   => Some(LocalRead(fifo, en=en))
+    case FILOPop(filo,en)                   => Some(LocalRead(filo, en=en))
 
     case LineBufferLoad(lb,row,col,en)      => Some(LocalRead(lb, addr=Seq(row,col), en=en))
     case LineBufferColSlice(lb,row,col,len) => Some(LocalRead(lb, addr=Seq(row,col)))
@@ -409,6 +424,7 @@ trait NodeClasses { this: SpatialExp =>
     case ParRegFileLoad(reg,inds,ens)       => Some(LocalRead(reg))
     case ParSRAMLoad(sram,addr,ens)         => Some(LocalRead(sram))
     case ParFIFODeq(fifo,ens)               => Some(LocalRead(fifo))
+    case ParFILOPop(filo,ens)               => Some(LocalRead(filo))
     case _ => None
   }
 
@@ -450,6 +466,7 @@ trait NodeClasses { this: SpatialExp =>
     //case BurstLoad(dram,fifo,ofs,_,_)       => Some(ParLocalWrite(fifo))
     case ParSRAMStore(mem,addrs,data,ens)     => Some(ParLocalWrite(mem, value=data, addrs=addrs, ens=ens))
     case ParFIFOEnq(fifo,data,ens)            => Some(ParLocalWrite(fifo, value=data, ens=ens))
+    case ParFILOPush(filo,data,ens)            => Some(ParLocalWrite(filo, value=data, ens=ens))
     case ParStreamWrite(stream, data, ens)    => Some(ParLocalWrite(stream, value=data, ens=ens))
     case d => writerUnapply(d).map{writer => writer.map{
       case (mem, value, addr, en) => (mem, value.map{x => Seq(x)}, addr.map{a => Seq(a)}, en.map{e => Seq(e)})
@@ -459,6 +476,7 @@ trait NodeClasses { this: SpatialExp =>
     //case BurstStore(dram,fifo,ofs,_,_) => Some(ParLocalRead(fifo))
     case ParSRAMLoad(sram, addrs, ens)   => Some(ParLocalRead(sram, addrs=addrs, ens=ens))
     case ParFIFODeq(fifo, ens)           => Some(ParLocalRead(fifo, ens=ens))
+    case ParFILOPop(filo, ens)           => Some(ParLocalRead(filo, ens=ens))
     case ParStreamRead(stream, ens)      => Some(ParLocalRead(stream, ens=ens))
     case d => readerUnapply(d).map{reader => reader.map{
       case (mem, addr, en) => (mem, addr.map{a => Seq(a)}, en.map{e => Seq(e) })

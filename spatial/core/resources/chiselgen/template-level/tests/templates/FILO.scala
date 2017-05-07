@@ -12,19 +12,25 @@ class FILOTests(c: FILO) extends PeekPokeTester(c) {
 
   def push(inc: Boolean = true) {
     (0 until c.pW).foreach { i => poke(c.io.in(i), element + i) }
+    if (inc) element += c.pW
     poke(c.io.push, 1)
     step(1)
     poke(c.io.push,0)
-    if (inc) element += c.pW
   }
   def pop(inc: Boolean = true) {
-    poke(c.io.pop, 1)
     if (inc) {
-      val a = peek(c.io.out(0))
-      println(s"Expect $element, got $a (error ${a != element})")
-      (0 until c.pR).foreach { i => expect(c.io.out(i), element + i) }
+      (0 until c.pR).foreach { i => 
+        val expected = element - i -1
+        val index = c.pR-1-i
+
+        // val a = peek(c.io.out(index))
+        // println(s"Expect $expected, got $a (error ${a != expected})")
+
+        expect(c.io.out(index), expected) 
+      }
       element -= c.pR
     }
+    poke(c.io.pop, 1)
     step(1)
     poke(c.io.pop,0)
   }
@@ -62,10 +68,10 @@ class FILOTests(c: FILO) extends PeekPokeTester(c) {
   val numTransactions = c.depth*10
   for (i <- 0 until numTransactions) {
     val newenable = rnd.nextInt(4)
-    if (element < 2*p) push()
-    else if (element >= (c.depth/p)-p) pop()
-    else if (newenable == 1) push()
-    else if (newenable == 2) pop()
+    if (element < 2*p) for (k <- 0 until p / c.pW) push()
+    else if (element >= (c.depth/p)-p) for (k <- 0 until p / c.pR) pop()
+    else if (newenable == 1) for (k <- 0 until p / c.pW) {push()}
+    else if (newenable == 2) for (k <- 0 until p / c.pR) {pop()}
     else step(1)
   }
   

@@ -276,6 +276,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       val ens   = lanes.map{p => bool_and( f(en), globalValid) }
       par_fifo_enq(f(fifo), datas, ens)(e.mT,e.bT,ctx)
 
+    case (lanes, e@FILOPush(filo, data, en), ctx) =>
+      val datas = lanes.map{p => f(data) }
+      val ens   = lanes.map{p => bool_and( f(en), globalValid) }
+      par_filo_push(f(filo), datas, ens)(e.mT,e.bT,ctx)
+
     case (lanes, e@StreamWrite(stream, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
       val ens   = lanes.map{p => bool_and( f(en), globalValid) }
@@ -304,6 +309,10 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     case (lanes, e@FIFODeq(fifo, en), ctx) =>
       val enables = lanes.map{p => bool_and(f(en), globalValid) }
       par_fifo_deq(f(fifo), enables)(mtyp(e.mT),mbits(e.bT),ctx)
+
+    case (lanes, e@FILOPop(filo, en), ctx) =>
+      val enables = lanes.map{p => bool_and(f(en), globalValid) }
+      par_filo_pop(f(filo), enables)(mtyp(e.mT),mbits(e.bT),ctx)
 
     case (lanes, e@StreamRead(stream, en), ctx) =>
       val enables = lanes.map{p => bool_and(f(en), globalValid) }

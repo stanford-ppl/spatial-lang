@@ -186,19 +186,19 @@ class SingleSCounter(val par: Int) extends Module { // Signed counter, used in F
     val newval = count + (io.input.stride * par.S) + io.input.gap
     val isMax = newval >= io.input.max
     val wasMax = RegNext(isMax, false.B)
-    val isMin = newval <= 0.S
+    val isMin = newval < 0.S
     val wasMin = RegNext(isMin, false.B)
     val wasEnabled = RegNext(io.input.enable, false.B)
-    val next = Mux(isMax, Mux(io.input.saturate, count, init), Mux(isMin, io.input.max - 1.S, newval))
+    val next = Mux(isMax, Mux(io.input.saturate, count, init), Mux(isMin, io.input.max + io.input.stride, newval))
     base.io.input(0).data := Mux(io.input.reset, init.asUInt, next.asUInt)
 
     (0 until par).foreach { i => io.output.count(i) := count + i.S*io.input.stride }
     (0 until par).foreach { i => 
       io.output.countWithoutWrap(i) := Mux(count === 0.S, io.input.max, count) + i.S*io.input.stride
     }
-    io.output.done := io.input.enable & isMax
-    io.output.saturated := io.input.saturate & isMax
-    io.output.extendedDone := (io.input.enable | wasEnabled) & (isMax | wasMax)
+    io.output.done := io.input.enable & (isMax | isMin)
+    io.output.saturated := io.input.saturate & ( isMax | isMin )
+    io.output.extendedDone := (io.input.enable | wasEnabled) & ((isMax | wasMax) | (isMin | wasMin))
   } else { // Forever21 counter
     io.output.saturated := false.B
     io.output.extendedDone := false.B

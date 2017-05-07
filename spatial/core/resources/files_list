@@ -524,6 +524,7 @@
 ./chiselgen/template-level/templates/Parallel.scala
 ./chiselgen/template-level/templates/Counter.scala
 ./chiselgen/template-level/templates/FIFO.scala
+./chiselgen/template-level/templates/FILO.scala
 ./chiselgen/template-level/templates/BlockSM.scala
 ./chiselgen/template-level/templates/FF.scala
 ./chiselgen/template-level/build.sbt

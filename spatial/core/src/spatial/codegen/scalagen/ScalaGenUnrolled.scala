@@ -99,6 +99,21 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM with ScalaGenC
       }
       close("}")
 
+    case op@ParFILOPop(filo, ens) =>
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        emit(src"val a$i = if ($en && $filo.nonEmpty) $filo.pop() else ${invalid(op.mT)}")
+      }
+      emit(src"Array[${op.mT}](" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
+      close("}")
+
+    case ParFILOPush(filo, data, ens) =>
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        emit(src"if ($en) $filo.push(${data(i)})")
+      }
+      close("}")
+
     case op@ParStreamRead(strm, ens) =>
       open(src"val $lhs = {")
       ens.zipWithIndex.foreach{case (en,i) =>

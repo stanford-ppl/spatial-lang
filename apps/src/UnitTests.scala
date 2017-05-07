@@ -1631,31 +1631,77 @@ object FifoStackFSM extends SpatialApp { // DISABLED Regression (Unit) // Args: 
 
   @virtualize
   def main() {
-    val fifo_size = 128
-    val fifo_res = ArgOut[Int]
+    val size = 128
+    val fifo_sum = ArgOut[Int]
+    val fifo_last = ArgOut[Int]
+    val stack_sum = ArgOut[Int]
+    val stack_last = ArgOut[Int]
     val init = 0
     val fill = 1
     val drain = 2
     val done = 3
 
     Accel {
-      val fifo = FIFO[Int](fifo_size)
+      val fifo = FIFO[Int](size)
       val fifo_accum = Reg[Int](0)
       FSM[Int](state => state != done) { state =>
         if (state == init || state == fill) {
           fifo.enq(state, !fifo.full)
         } else {
-          fifo_accum := fifo_accum + mux(!fifo.empty, fifo.deq(), 0.to[Int])
+          Pipe{            
+            val f = fifo.deq()
+            fifo_accum := fifo_accum + mux(!fifo.empty, f, 0.to[Int])
+            fifo_last := f
+          }
         }
       } { state => mux(state == 0, fill, mux(fifo.full(), 2, mux(fifo.empty(), 3, state))) }
-      fifo_res := fifo_accum
+      fifo_sum := fifo_accum
+
+
+      val stack = FILO[Int](size)
+      val stack_accum = Reg[Int](0)
+      FSM[Int](state => state != done) { state =>
+        if (state == init || state == fill) {
+          stack.push(state, !stack.full)
+        } else {
+          Pipe{            
+            val f = stack.pop()
+            stack_accum := stack_accum + mux(!stack.empty, f, 0.to[Int])
+            stack_last := f
+          }
+        }
+      } { state => mux(state == 0, fill, mux(stack.full(), 2, mux(stack.empty(), 3, state))) }
+      stack_sum := stack_accum
     }
 
-    val f_res = getArg(fifo_res)
-    val f_gold = init * 1 + fill * (fifo_size-1)
-    println("FIFO: Expected " + f_gold)
-    println( "     Got " + f_res)
-    val cksum = f_gold == f_res
+    val fifo_sum_res = getArg(fifo_sum)
+    val fifo_sum_gold = init * 1 + fill * (size-1)
+    val fifo_last_res = getArg(fifo_last)
+    val fifo_last_gold = fill
+    val stack_sum_res = getArg(stack_sum)
+    val stack_sum_gold = init * 1 + fill * (size-1)
+    val stack_last_res = getArg(stack_last)
+    val stack_last_gold = 0
+
+    println("FIFO: Sum-")
+    println("  Expected " + fifo_sum_gold)
+    println("       Got " + fifo_sum_res)
+    println("FIFO: Last out-")
+    println("  Expected " + fifo_last_gold)
+    println("       Got " + fifo_last_res)
+    println("")
+    println("Stack: Sum-")
+    println("  Expected " + stack_sum_gold)
+    println("       Got " + stack_sum_res)
+    println("Stack: Last out-")
+    println("  Expected " + stack_last_gold)
+    println("       Got " + stack_last_res)
+
+    val cksum1 = fifo_sum_gold == fifo_sum_res
+    val cksum2 = fifo_last_gold == fifo_last_res
+    val cksum3 = stack_sum_gold == stack_sum_res
+    val cksum4 = stack_last_gold == stack_last_res
+    val cksum = cksum1 && cksum2 && cksum3 && cksum4
     println("PASS: " + cksum + " (FifoStackFSM)")
   }
 }
