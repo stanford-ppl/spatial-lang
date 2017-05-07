@@ -444,6 +444,14 @@ trait MemoryAnalyzer extends CompilerPass {
     override def allowPipelinedReaders: Boolean  = false
     override def allowPipelinedWriters: Boolean  = false
   }
+  object FILOSettings extends BankSettings {
+    override def allowMultipleReaders: Boolean   = false
+    override def allowMultipleWriters: Boolean   = false
+    override def allowConcurrentReaders: Boolean = false
+    override def allowConcurrentWriters: Boolean = false
+    override def allowPipelinedReaders: Boolean  = false
+    override def allowPipelinedWriters: Boolean  = false
+  }
   object LineBufferSettings extends BankSettings
   object RegFileSettings extends BankSettings
 
@@ -455,6 +463,7 @@ trait MemoryAnalyzer extends CompilerPass {
 
     localMems.foreach {mem => mem.tp match {
       case _:FIFOType[_] => bank(mem, bankFIFOAccess, FIFOSettings)
+      case _:FILOType[_] => bank(mem, bankFIFOAccess, FILOSettings)
       case _:SRAMType[_] => bank(mem, bankSRAMAccess, SRAMSettings)
       case _:RegType[_]  => bank(mem, bankRegAccess, RegSettings)
       case _:LineBufferType[_] => bank(mem, bankLineBufferAccess, LineBufferSettings)

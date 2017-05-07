@@ -20,17 +20,22 @@ trait ChiselGenSRAM extends ChiselCodegen {
   // Emit an SRFF that will block a counter from incrementing after the counter reaches the max
   //  rather than spinning even when there is retiming and the surrounding loop has a delayed
   //  view of the counter done signal
-  protected def emitInhibitor(lhs: Exp[_], cchain: Option[Exp[_]]): Unit = {
+  protected def emitInhibitor(lhs: Exp[_], cchain: Option[Exp[_]], fsm: Option[Exp[_]] = None): Unit = {
     if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {
       emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF())")
       emitGlobalModule(src"${lhs}_inhibit.io.input.asyn_reset := reset")
       emitGlobalModule(src"val ${lhs}_inhibitor = Wire(Bool())")
-      if (cchain.isDefined) {
-        emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
-        emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/")
+      if (fsm.isDefined) {
+          emit(src"${lhs}_inhibit.io.input.set := ${fsm.get}")  
+          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data")        
       } else {
-        emit(src"${lhs}_inhibit.io.input.set := Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1)")
-        emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1)*/")
+        if (cchain.isDefined) {
+          emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
+          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/")
+        } else {
+          emit(src"${lhs}_inhibit.io.input.set := Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1)")
+          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1)*/")
+        }        
       }
       emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_rst_en")
     } else {

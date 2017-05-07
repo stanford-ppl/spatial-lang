@@ -409,6 +409,26 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		}
 	}
 
+	def =/= [T](r: T): Bool = { // TODO: Probably completely wrong for signed fixpts
+		r match {
+			case op: FixedPoint =>
+				// Compute upcasted type and return type
+				val upcasted_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+				// Get upcasted operators
+				val lhs = Wire(new FixedPoint(upcasted_type))
+				val rhs = Wire(new FixedPoint(upcasted_type))
+				this.cast(lhs)
+				op.cast(rhs)
+				lhs.number =/= rhs.number
+			case op: UInt => 
+				// Compute upcasted type and return type
+				val upcasted_type = (s, d, f)
+				// Get upcasted operators
+				val rhs = Utils.FixedPoint(s,d,f, op)
+				number =/= rhs.number
+		}
+	}
+
 	def isNeg (): Bool = {
 		Mux(s.B && number(f+d-1), true.B, false.B)
 	}

@@ -33,8 +33,8 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       controllerStack.push(lhs)
 
       emitController(lhs, None, None, true)
+      emitInhibitor(lhs, None, Some(notDone.result))
 
-      val extraEn = if (ens.length > 0) {src"""List(${ens.map(quote).mkString(",")}).map(en=>en).reduce{_&&_}"""} else {"true.B"}
       emit("// Emitting notDone")
       emitBlock(notDone)
       emit("// Emitting action")
@@ -44,13 +44,15 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       }
       emit("// Emitting nextState")
       visitBlock(nextState)
-      emit(src"${lhs}_sm.io.input.enable := ${lhs}_en & ${extraEn} ")
+      emit(src"${lhs}_sm.io.input.enable := ${lhs}_en ")
       emit(src"${lhs}_sm.io.input.nextState := ${nextState.result}.number // Assume always int")
       emit(src"${lhs}_sm.io.input.initState := ${start}.number")
       emitGlobalWire(src"val $state = Wire(UInt(32.W))")
       emit(src"$state := ${lhs}_sm.io.output.state")
       emit(src"${lhs}_sm.io.input.doneCondition := ~${notDone.result}")
-
+      val extraEn = if (ens.length > 0) {src"""List(${ens.map(quote).mkString(",")}).map(en=>en).reduce{_&&_}"""} else {"true.B"}
+      emit(src"${lhs}_mask := ${extraEn}")
+      
     case _ => super.emitNode(lhs,rhs)
   }
 }

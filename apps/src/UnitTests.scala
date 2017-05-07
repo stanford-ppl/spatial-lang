@@ -1631,43 +1631,77 @@ object FifoStackFSM extends SpatialApp { // DISABLED Regression (Unit) // Args: 
 
   @virtualize
   def main() {
-    val vectorA = Array.fill(128) {
-      random[Int](2)
-    }
-    val vectorB = Array.fill(128) {
-      random[Int](8)
-    }
-    val vectorC = Array.fill(128) {
-      random[Int](14)
-    }
-    val vecA = DRAM[Int](128)
-    val vecB = DRAM[Int](128)
-    val vecC = DRAM[Int](128)
-    val result = DRAM[Int](128)
-    val x = ArgIn[Int]
-    setArg(x, args(0).to[Int])
-    setMem(vecA, vectorA)
-    setMem(vecB, vectorB)
-    setMem(vecC, vectorC)
+    val size = 128
+    val fifo_sum = ArgOut[Int]
+    val fifo_last = ArgOut[Int]
+    val stack_sum = ArgOut[Int]
+    val stack_last = ArgOut[Int]
+    val init = 0
+    val fill = 1
+    val drain = 2
+    val done = 3
+
     Accel {
+      val fifo = FIFO[Int](size)
+      val fifo_accum = Reg[Int](0)
+      FSM[Int](state => state != done) { state =>
+        if (state == init || state == fill) {
+          fifo.enq(state, !fifo.full)
+        } else {
+          Pipe{            
+            val f = fifo.deq()
+            fifo_accum := fifo_accum + mux(!fifo.empty, f, 0.to[Int])
+            fifo_last := f
+          }
+        }
+      } { state => mux(state == 0, fill, mux(fifo.full(), 2, mux(fifo.empty(), 3, state))) }
+      fifo_sum := fifo_accum
 
 
-      val mem = SRAM[Int](128)
+      val stack = FILO[Int](size)
+      val stack_accum = Reg[Int](0)
+      FSM[Int](state => state != done) { state =>
+        if (state == init || state == fill) {
+          stack.push(state, !stack.full)
+        } else {
+          Pipe{            
+            val f = stack.pop()
+            stack_accum := stack_accum + mux(!stack.empty, f, 0.to[Int])
+            stack_last := f
+          }
+        }
+      } { state => mux(state == 0, fill, mux(stack.full(), 2, mux(stack.empty(), 3, state))) }
+      stack_sum := stack_accum
+    }
 
-      if (x <= 4.to[Int]) {
-        mem load vecA
-      } else { if (x <= 8.to[Int]) {
-        mem load vecB
-      } else {
-        mem load vecC
-      }}
-    
-      result store mem
-    }      
-    val res = getMem(result)
-    val gold = Array.fill(128){ if (args(0).to[Int] <= 4) 4.to[Int] else if (args(0).to[Int] <= 8) 8.to[Int] else 14.to[Int] }
-    println("Expected array of : " + gold(0) + ", got array of : " + res(0))
-    val cksum = res.zip(gold){_==_}.reduce{_&&_}
+    val fifo_sum_res = getArg(fifo_sum)
+    val fifo_sum_gold = init * 1 + fill * (size-1)
+    val fifo_last_res = getArg(fifo_last)
+    val fifo_last_gold = fill
+    val stack_sum_res = getArg(stack_sum)
+    val stack_sum_gold = init * 1 + fill * (size-1)
+    val stack_last_res = getArg(stack_last)
+    val stack_last_gold = 0
+
+    println("FIFO: Sum-")
+    println("  Expected " + fifo_sum_gold)
+    println("       Got " + fifo_sum_res)
+    println("FIFO: Last out-")
+    println("  Expected " + fifo_last_gold)
+    println("       Got " + fifo_last_res)
+    println("")
+    println("Stack: Sum-")
+    println("  Expected " + stack_sum_gold)
+    println("       Got " + stack_sum_res)
+    println("Stack: Last out-")
+    println("  Expected " + stack_last_gold)
+    println("       Got " + stack_last_res)
+
+    val cksum1 = fifo_sum_gold == fifo_sum_res
+    val cksum2 = fifo_last_gold == fifo_last_res
+    val cksum3 = stack_sum_gold == stack_sum_res
+    val cksum4 = stack_last_gold == stack_last_res
+    val cksum = cksum1 && cksum2 && cksum3 && cksum4
     println("PASS: " + cksum + " (FifoStackFSM)")
   }
 }

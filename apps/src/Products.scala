@@ -128,8 +128,8 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 640
   @virtualize
   def main() {
     val N = args(0).to[Int]
-    val a = Array.fill(N){ random[X] }
-    val b = Array.fill(N){ random[X] }
+    val a = Array.fill(N){ random[X](4) }
+    val b = Array.fill(N){ random[X](4) }
 
     val result = dotproduct(a, b)
     val gold = a.zip(b){_*_}.reduce{_+_}
