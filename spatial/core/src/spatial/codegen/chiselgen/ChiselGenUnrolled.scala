@@ -234,6 +234,32 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
       emit(src"""${fifo}.io.in := Vec(List(${datacsv}))""")
 
+    case ParFILOPop(filo, ens) =>
+      val par = ens.length
+      val en = ens.map(quote).mkString("&")
+      val reader = readersOf(filo).head.ctrlNode  // Assuming that each filo has a unique reader
+      emit(src"""${quote(filo)}.io.pop := chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${reader}_retime) & $en""")
+      filo.tp.typeArguments.head match { 
+        case FixPtType(s,d,f) => if (spatialNeedsFPType(filo.tp.typeArguments.head)) {
+            emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(filo)}.io.out(i)) }.reverse""")
+          } else {
+            emit(src"""val ${lhs} = ${filo}.io.out""")
+          }
+        case _ => emit(src"""val ${lhs} = ${filo}.io.out""")
+      }
+
+    case ParFILOPush(filo, data, ens) =>
+      val par = ens.length
+      val en = ens.map(quote).mkString("&")
+      val writer = writersOf(filo).head.ctrlNode  
+      // Check if this is a tile consumer
+
+      // val enabler = if (loadCtrlOf(filo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
+      val enabler = src"${writer}_datapath_en"
+      emit(src"""${filo}.io.push := chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${writer}_retime) & $en""")
+      val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
+      emit(src"""${filo}.io.in := Vec(List(${datacsv}))""")
+
     case e@ParStreamRead(strm, ens) =>
       val parent = parentOf(lhs).get
       strm match {

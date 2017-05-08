@@ -733,6 +733,55 @@ object FifoLoadStore extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
+object StackLoadStore extends SpatialApp { // Regression (Unit) // Args: none
+  import IR._
+
+  val N = 32
+
+  def stackLoadStore[T:Type:Bits](srcHost: Array[T]) = {
+    val tileSize = N
+
+    val srcFPGA = DRAM[T](N)
+    val dstFPGA = DRAM[T](N)
+    setMem(srcFPGA, srcHost)
+
+    Accel {
+      val f1 = FILO[T](tileSize)
+      // Parallel {
+      Sequential {
+        f1 load srcFPGA(0::tileSize par 16)
+        dstFPGA(0::tileSize par 8) store f1
+      }
+      // Pipe(tileSize by 1) { i => // This pipe forces the loadstore to run for enough iters
+      //   dummyOut := i
+      // }
+      // }
+      ()
+    }
+    getMem(dstFPGA)
+  }
+
+  @virtualize
+  def main() {
+    val arraySize = N
+
+    val src = Array.tabulate(arraySize) { i => i % 256 }
+    val dst = stackLoadStore(src)
+
+    val gold = Array.tabulate(arraySize) {i => src(arraySize-1-i) }
+
+    println("gold:")
+    (0 until arraySize) foreach { i => print(gold(i) + " ") }
+    println("")
+    println("dst:")
+    (0 until arraySize) foreach { i => print(dst(i) + " ") }
+    println("")
+
+    val cksum = dst.zip(gold){_ == _}.reduce{_&&_}
+    println("PASS: " + cksum + " (StackLoadStore)")
+  }
+}
+
 
 
 object SimpleReduce extends SpatialApp { // Regression (Unit) // Args: 7
@@ -1633,8 +1682,10 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
   def main() {
     val size = 128
     val fifo_sum = ArgOut[Int]
+    val fifo_sum_almost = ArgOut[Int]
     val fifo_last = ArgOut[Int]
     val stack_sum = ArgOut[Int]
+    val stack_sum_almost = ArgOut[Int]
     val stack_last = ArgOut[Int]
     val init = 0
     val fill = 1
@@ -1644,48 +1695,85 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
     Accel {
       val fifo = FIFO[Int](size)
       val fifo_accum = Reg[Int](0)
+      // Using done/empty
       FSM[Int](state => state != done) { state =>
         if (state == init || state == fill) {
-          fifo.enq(state, !fifo.full)
+          fifo.enq(fifo.numel)
         } else {
           Pipe{            
             val f = fifo.deq()
-            fifo_accum := fifo_accum + mux(!fifo.empty, f, 0.to[Int])
+            fifo_accum := fifo_accum + f
             fifo_last := f
           }
         }
       } { state => mux(state == 0, fill, mux(fifo.full(), 2, mux(fifo.empty(), 3, state))) }
       fifo_sum := fifo_accum
 
+      // Using almostDone/almostEmpty, skips last 2 elements
+      val fifo_almost = FIFO[Int](size)
+      val fifo_accum_almost = Reg[Int](0)
+      FSM[Int](state => state != done) { state =>
+        if (state == init || state == fill) {
+          fifo_almost.enq(fifo_almost.numel)
+        } else {
+          Pipe{            
+            fifo_accum_almost := fifo_accum_almost + fifo_almost.deq()
+          }
+        }
+      } { state => mux(state == 0, fill, mux(fifo_almost.almostFull(), 2, mux(fifo_almost.almostEmpty(), 3, state))) }
+      fifo_sum_almost := fifo_accum_almost
 
       val stack = FILO[Int](size)
       val stack_accum = Reg[Int](0)
+      // Using done/empty
       FSM[Int](state => state != done) { state =>
         if (state == init || state == fill) {
-          stack.push(state, !stack.full)
+          stack.push(stack.numel)
         } else {
           Pipe{            
             val f = stack.pop()
-            stack_accum := stack_accum + mux(!stack.empty, f, 0.to[Int])
+            stack_accum := stack_accum + f
             stack_last := f
           }
         }
       } { state => mux(state == 0, fill, mux(stack.full(), 2, mux(stack.empty(), 3, state))) }
       stack_sum := stack_accum
+
+      // Using almostDone/almostEmpty, skips last element
+      val stack_almost = FILO[Int](size)
+      val stack_accum_almost = Reg[Int](0)
+      FSM[Int](state => state != done) { state =>
+        if (state == init || state == fill) {
+          stack_almost.push(stack_almost.numel)
+        } else {
+          Pipe{            
+            stack_accum_almost := stack_accum_almost + stack_almost.pop()
+          }
+        }
+      } { state => mux(state == 0, fill, mux(stack_almost.almostFull(), 2, mux(stack_almost.almostEmpty(), 3, state))) }
+      stack_sum_almost := stack_accum_almost
+
     }
 
     val fifo_sum_res = getArg(fifo_sum)
-    val fifo_sum_gold = init * 1 + fill * (size-1)
+    val fifo_sum_gold = Array.tabulate(size) {i => i}.reduce{_+_}
+    val fifo_sum_almost_res = getArg(fifo_sum_almost)
+    val fifo_sum_almost_gold = Array.tabulate(size-2) {i => i}.reduce{_+_}
     val fifo_last_res = getArg(fifo_last)
-    val fifo_last_gold = fill
+    val fifo_last_gold = size-1
     val stack_sum_res = getArg(stack_sum)
-    val stack_sum_gold = init * 1 + fill * (size-1)
+    val stack_sum_gold = Array.tabulate(size) {i => i}.reduce{_+_}
     val stack_last_res = getArg(stack_last)
     val stack_last_gold = 0
+    val stack_sum_almost_res = getArg(stack_sum_almost)
+    val stack_sum_almost_gold = Array.tabulate(size-1) {i => i}.reduce{_+_}
 
     println("FIFO: Sum-")
     println("  Expected " + fifo_sum_gold)
     println("       Got " + fifo_sum_res)
+    println("FIFO: Alternate Sum-")
+    println("  Expected " + fifo_sum_almost_gold)
+    println("       Got " + fifo_sum_almost_res)
     println("FIFO: Last out-")
     println("  Expected " + fifo_last_gold)
     println("       Got " + fifo_last_res)
@@ -1693,6 +1781,9 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
     println("Stack: Sum-")
     println("  Expected " + stack_sum_gold)
     println("       Got " + stack_sum_res)
+    println("Stack: Alternate Sum-")
+    println("  Expected " + stack_sum_almost_gold)
+    println("       Got " + stack_sum_almost_res)
     println("Stack: Last out-")
     println("  Expected " + stack_last_gold)
     println("       Got " + stack_last_res)
@@ -1701,7 +1792,9 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
     val cksum2 = fifo_last_gold == fifo_last_res
     val cksum3 = stack_sum_gold == stack_sum_res
     val cksum4 = stack_last_gold == stack_last_res
-    val cksum = cksum1 && cksum2 && cksum3 && cksum4
+    val cksum5 = fifo_sum_almost_gold == fifo_sum_almost_res
+    val cksum6 = stack_sum_almost_gold == stack_sum_almost_res
+    val cksum = cksum1 && cksum2 && cksum3 && cksum4 && cksum5 && cksum6
     println("PASS: " + cksum + " (FifoStackFSM)")
   }
 }

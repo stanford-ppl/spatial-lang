@@ -15,6 +15,9 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
     val out = Vec(pR, Output(UInt(bitWidth.W)))
     val enq = Input(Bool())
     val deq = Input(Bool())
+    val numel = Output(UInt(32.W))
+    val almostEmpty = Output(Bool())
+    val almostFull = Output(Bool())
     val empty = Output(Bool())
     val full = Output(Bool())
     val debug = new Bundle {
@@ -117,6 +120,9 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
   // Check if there is data
   io.empty := elements.io.output.empty
   io.full := elements.io.output.full
+  io.almostEmpty := elements.io.output.almostEmpty
+  io.almostFull := elements.io.output.almostFull
+  io.numel := elements.io.output.numel.asUInt
 
   // Debug signals
   io.debug.overread := elements.io.output.overread
@@ -162,6 +168,9 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
     val pop = Input(Bool())
     val empty = Output(Bool())
     val full = Output(Bool())
+    val almostEmpty = Output(Bool())
+    val almostFull = Output(Bool())
+    val numel = Output(UInt(32.W)) // TODO: Should probably be signed fixpt
     val debug = new Bundle {
       val overwrite = Output(Bool())
       val overread = Output(Bool())
@@ -248,6 +257,9 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val bitWidth: Int = 32) ext
   // Check if there is data
   io.empty := elements.io.output.empty
   io.full := elements.io.output.full
+  io.almostEmpty := elements.io.output.almostEmpty
+  io.almostFull := elements.io.output.almostFull
+  io.numel := elements.io.output.numel.asUInt()
 
   // Debug signals
   io.debug.overread := elements.io.output.overread

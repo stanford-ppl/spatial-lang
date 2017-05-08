@@ -228,6 +228,7 @@ trait ChiselGenController extends ChiselGenCounter{
       val readiers = listensTo(c).distinct.map { fifo => 
         fifo match {
           case Def(FIFONew(size)) => src"~${fifo}.io.empty"
+          case Def(FILONew(size)) => src"~${fifo}.io.empty"
           case Def(StreamInNew(bus)) => src"${fifo}_valid"
           case _ => src"${fifo}_en" // parent node
         }
@@ -235,6 +236,7 @@ trait ChiselGenController extends ChiselGenCounter{
       val holders = (pushesTo(c)).distinct.map { fifo => 
         fifo match {
           case Def(FIFONew(size)) => src"~${fifo}.io.full"
+          case Def(FILONew(size)) => src"~${fifo}.io.full"
           case Def(StreamOutNew(bus)) => src"${fifo}_ready"
         }
       }.mkString(" & ")
