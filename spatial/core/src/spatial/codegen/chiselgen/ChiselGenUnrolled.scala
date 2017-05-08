@@ -67,7 +67,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
             emitValids(cchain, iters, valids, src"_copy$c")
           }          
         } else {
-          emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situatio with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
+          emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situation with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
         }
         withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")

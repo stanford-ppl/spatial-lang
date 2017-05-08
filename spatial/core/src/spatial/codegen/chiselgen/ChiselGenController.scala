@@ -320,11 +320,11 @@ trait ChiselGenController extends ChiselGenCounter{
     emitGlobalWire(src"""val ${sym}_datapath_en = Wire(Bool())""")
 
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
-      emit(src"""${sym}_datapath_en := ${sym}_en // Immediate parent has forever counter, so never mask out datapath_en""")    
+      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_ctr_trivial // Immediate parent has forever counter, so never mask out datapath_en""")    
     } else if ((isStreamChild(sym) & hasStreamIns) | isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
-      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done""")  
+      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial""")  
     } else {
-      emit(src"""${sym}_datapath_en := ${sym}_sm.io.output.ctr_inc""")
+      emit(src"""${sym}_datapath_en := ${sym}_sm.io.output.ctr_inc & ~${sym}_ctr_trivial""")
     }
     
     /* Counter Signals for controller (used for determining done) */
@@ -383,6 +383,7 @@ trait ChiselGenController extends ChiselGenCounter{
         emitGlobalWire(src"""val ${c}_en = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_mask = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_resetter = Wire(Bool())""")
+        emitGlobalWire(src"""val ${c}_ctr_trivial = Wire(Bool())""")
         if (smStr == "Streampipe" & cchain.isDefined) {
           emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${cchain.get}_copy${c}_done;""")
         } else {
@@ -424,6 +425,7 @@ trait ChiselGenController extends ChiselGenCounter{
       val streamAddition = getStreamEnablers(lhs)
       emit(s"""val ${quote(lhs)}_en = io.enable & !io.done ${streamAddition}""")
       emit(s"""val ${quote(lhs)}_resetter = reset""")
+      emitGlobalWire(src"""val ${lhs}_ctr_trivial = false.B""")
       emitGlobalWire(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
@@ -443,6 +445,7 @@ trait ChiselGenController extends ChiselGenCounter{
     case UnitPipe(ens,func) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B""")
       emitController(lhs, None, None)
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
@@ -455,6 +458,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
     case ParallelPipe(ens,func) =>
       val parent_kernel = controllerStack.head 
+      emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B""")
       controllerStack.push(lhs)
       emitController(lhs, None, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
@@ -466,49 +470,13 @@ trait ChiselGenController extends ChiselGenCounter{
       controllerStack.pop()
 
     case OpForeach(cchain, func, iters) =>
-      val parent_kernel = controllerStack.head 
-      controllerStack.push(lhs)
-      emitController(lhs, Some(cchain), Some(iters))
-      withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
-        emit(s"// Controller Stack: ${controllerStack.tail}")
-        emitNestedLoop(cchain, iters){ emitBlock(func) }
-      }
-      controllerStack.pop()
+      throw new Exception("Should not be emitting chisel for Op ctrl node")
 
     case OpReduce(cchain, accum, map, load, reduce, store, fold, zero, rV, iters) =>
-      val parent_kernel = controllerStack.head 
-      controllerStack.push(lhs)
-      emitController(lhs, Some(cchain), Some(iters))
-      open(src"val $lhs = {")
-      emitNestedLoop(cchain, iters){
-        visitBlock(map)
-        visitBlock(load)
-        emit(src"val ${rV._1} = ${load.result}")
-        emit(src"val ${rV._2} = ${map.result}")
-        visitBlock(reduce)
-        emitBlock(store)
-      }
-      close("}")
-      controllerStack.pop()
+      throw new Exception("Should not be emitting chisel for Op ctrl node")
 
     case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,fold,zero,rV,itersMap,itersRed) =>
-      val parent_kernel = controllerStack.head 
-      controllerStack.push(lhs)
-      open(src"val $lhs = { mem op reduce what do i do aaaah")
-      emitNestedLoop(cchainMap, itersMap){
-        visitBlock(map)
-        emitNestedLoop(cchainRed, itersRed){
-          visitBlock(loadRes)
-          visitBlock(loadAcc)
-          emit(src"val ${rV._1} = ${loadRes.result}")
-          emit(src"val ${rV._2} = ${loadAcc.result}")
-          visitBlock(reduce)
-          visitBlock(storeAcc)
-        }
-      }
-      close("}")
-      emit("/** END MEM REDUCE **/")
-      controllerStack.pop()
+      throw new Exception("Should not be emitting chisel for Op ctrl node")
 
     case _ => super.emitNode(lhs, rhs)
   }
