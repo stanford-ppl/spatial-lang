@@ -42,7 +42,9 @@ coordinate() {
   files=(*)
   new_packets=()
   sorted_packets=()
-  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *".$branch."* ]]; then new_packets+=($f); fi; done
+  # Removed this $f = *"$branch"* check in the following 3 places because sbt seems to screw up when used in parallel
+  # for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *".$branch."* ]]; then new_packets+=($f); fi; done
+  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) ]]; then new_packets+=($f); fi; done
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
   rank=-1
@@ -58,7 +60,7 @@ coordinate() {
     files=(*)
     new_packets=()
     sorted_packets=()
-    for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *"$branch"* ]]; then new_packets+=($f); fi; done
+    for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) ]]; then new_packets+=($f); fi; done
     sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
     stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
     rank=-1
@@ -76,7 +78,7 @@ check_packet() {
   files=(*)
   new_packets=()
   sorted_packets=()
-  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *".$branch."* ]]; then new_packets+=($f); fi; done
+  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) ]]; then new_packets+=($f); fi; done
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
   rank=-1

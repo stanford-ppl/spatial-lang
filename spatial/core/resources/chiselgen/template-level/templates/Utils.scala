@@ -43,6 +43,7 @@ object ops {
     }
   }
 
+  
   implicit class UIntOps(val b:UInt) {
     // Define number so that we can be compatible with FixedPoint type
     def number = {

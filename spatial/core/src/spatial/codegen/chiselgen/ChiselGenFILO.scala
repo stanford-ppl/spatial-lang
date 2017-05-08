@@ -43,6 +43,14 @@ trait ChiselGenFILO extends ChiselCodegen {
               s"x${lhs.id}_popFrom${fifo.id}"
             case Def(FILOEmpty(fifo:Sym[_])) =>
               s"x${lhs.id}_isEmpty${fifo.id}"
+            case Def(FILOFull(fifo:Sym[_])) =>
+              s"x${lhs.id}_isFull${fifo.id}"
+            case Def(FILOAlmostEmpty(fifo:Sym[_])) =>
+              s"x${lhs.id}_isAlmostEmpty${fifo.id}"
+            case Def(FILOAlmostFull(fifo:Sym[_])) =>
+              s"x${lhs.id}_isAlmostFull${fifo.id}"
+            case Def(FILONumel(fifo:Sym[_])) =>
+              s"x${lhs.id}_numel${fifo.id}"              
             case _ =>
               super.quote(s)
           }
@@ -103,6 +111,9 @@ trait ChiselGenFILO extends ChiselCodegen {
 
     case FILOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
     case FILOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")
+    case FILOAlmostEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.almostEmpty")
+    case FILOAlmostFull(fifo) => emit(src"val $lhs = ${fifo}.io.almostFull")
+    case FILONumel(fifo) => emit(src"val $lhs = ${fifo}.io.numel")
 
     case _ => super.emitNode(lhs, rhs)
   }

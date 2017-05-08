@@ -50,6 +50,9 @@ class IncDincCtr(inc: Int, dinc: Int, max: Int) extends Module {
       val overwrite      = Output(Bool())
       val empty         = Output(Bool())
       val full          = Output(Bool())
+      val almostEmpty         = Output(Bool())
+      val almostFull          = Output(Bool())
+      val numel         = Output(SInt(32.W))
     }
   })
 
@@ -62,7 +65,10 @@ class IncDincCtr(inc: Int, dinc: Int, max: Int) extends Module {
   io.output.overread := cnt < 0.S
   io.output.overwrite := cnt > max.S
   io.output.empty := cnt === 0.S
+  io.output.almostEmpty := cnt - dinc.S === 0.S
   io.output.full := cnt === max.S
+  io.output.almostFull := cnt + inc.S === max.S
+  io.output.numel := cnt
 }
 
 

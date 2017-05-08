@@ -20,6 +20,9 @@ trait FILOExp { this: SpatialExp =>
 
     @api def empty(): Bool = wrap(filo_empty(this.s))
     @api def full(): Bool = wrap(filo_full(this.s))
+    @api def almostEmpty(): Bool = wrap(filo_almost_empty(this.s))
+    @api def almostFull(): Bool = wrap(filo_almost_full(this.s))
+    @api def numel(): Index = wrap(filo_numel(this.s))
 
     //@api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile1[T]): Void = dense_transfer(dram, this, isLoad = true)
@@ -75,6 +78,21 @@ trait FILOExp { this: SpatialExp =>
     val mT = typ[T]
     val bT = bits[T]
   }
+  case class FILOAlmostEmpty[T:Type:Bits](filo: Exp[FILO[T]]) extends Op[Bool] {
+    def mirror(f:Tx) = filo_almost_empty(f(filo))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
+  case class FILOAlmostFull[T:Type:Bits](filo: Exp[FILO[T]]) extends Op[Bool] {
+    def mirror(f:Tx) = filo_almost_full(f(filo))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
+  case class FILONumel[T:Type:Bits](filo: Exp[FILO[T]]) extends Op[Index] {
+    def mirror(f:Tx) = filo_numel(f(filo))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
 
   /** Constructors **/
   @internal def filo_alloc[T:Type:Bits](size: Exp[Index]): Exp[FILO[T]] = {
@@ -91,5 +109,14 @@ trait FILOExp { this: SpatialExp =>
   }
   @internal def filo_full[T:Type:Bits](filo: Exp[FILO[T]]): Exp[Bool] = {
     stage(FILOFull(filo))(ctx)
+  }
+  @internal def filo_almost_empty[T:Type:Bits](filo: Exp[FILO[T]]): Exp[Bool] = {
+    stage(FILOAlmostEmpty(filo))(ctx)
+  }
+  @internal def filo_almost_full[T:Type:Bits](filo: Exp[FILO[T]]): Exp[Bool] = {
+    stage(FILOAlmostFull(filo))(ctx)
+  }
+  @internal def filo_numel[T:Type:Bits](filo: Exp[FILO[T]]): Exp[Index] = {
+    stage(FILONumel(filo))(ctx)
   }
 }

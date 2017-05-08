@@ -33,6 +33,7 @@ trait DRAMExp { this: SpatialExp =>
 
     @api def store(sram: SRAM1[T]): Void = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
     @api def store(fifo: FIFO[T]): Void = dense_transfer(this.toTile(fifo.ranges), fifo, isLoad = false)
+    @api def store(filo: FILO[T]): Void = dense_transfer(this.toTile(filo.ranges), filo, isLoad = false)
     @api def store(regs: RegFile1[T]): Void = dense_transfer(this.toTile(regs.ranges), regs, isLoad = false)
     @api def address: Int64 = wrap(get_dram_addr(this.s))
   }
@@ -132,6 +133,7 @@ trait DRAMExp { this: SpatialExp =>
   case class DRAMDenseTile1[T:Meta:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
     @api def store(sram: SRAM1[T]): Void    = dense_transfer(this, sram, isLoad = false)
     @api def store(fifo: FIFO[T]): Void     = dense_transfer(this, fifo, isLoad = false)
+    @api def store(filo: FILO[T]): Void     = dense_transfer(this, filo, isLoad = false)
     @api def store(regs: RegFile1[T]): Void = dense_transfer(this, regs, isLoad = false)
   }
   case class DRAMDenseTile2[T:Meta:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
