@@ -23,6 +23,7 @@ test_all.sh
 target/
 logs/*
 lib_managed/
+apps/src/hotfix.scala
 src_managed/
 project/boot/
 project/plugins/project/
