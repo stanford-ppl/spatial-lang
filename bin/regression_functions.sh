@@ -588,7 +588,7 @@ date >> ${5}/log" >> $1
     " >> $1
   fi
 
-  echo "//sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
+  echo "# sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
 cd ${SPATIAL_HOME}
   " >> $1
 
@@ -656,6 +656,13 @@ if [ \"\$wc\" -gt 0 ]; then
   ${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
+  echo "  cd ${5}/out
+  make vcs 2>&1 | tee -a ${5}/log" >> $1
+  if [[ ${type_todo} = "chisel" ]]; then
+    echo "  make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
+  fi
+
+
   echo "fi
 
 
