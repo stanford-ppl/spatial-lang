@@ -457,9 +457,9 @@ trait ChiselGenController extends ChiselGenCounter{
       controllerStack.pop()
 
     case ParallelPipe(ens,func) =>
-      val parent_kernel = controllerStack.head 
-      emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B""")
+      val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
+      emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B""")
       emitController(lhs, None, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")

@@ -303,12 +303,12 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += controlSanityCheck
 
     // --- Code generation
+    if (SpatialConfig.enableTree)  passes += treegen
     if (SpatialConfig.enableSim)   passes += scalagen
     if (SpatialConfig.enableSynth) passes += cppgen
     if (SpatialConfig.enableSynth) passes += chiselgen
     if (SpatialConfig.enableDot)   passes += dotgen
     if (SpatialConfig.enablePIR)   passes += pirgen
-    if (SpatialConfig.enableTree)  passes += treegen
   }
 }
 
