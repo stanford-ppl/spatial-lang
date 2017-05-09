@@ -31,6 +31,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
     case StateMachine(ens,start,notDone,action,nextState,state) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      emit(src"${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B")
 
       emitController(lhs, None, None, true)
       emitInhibitor(lhs, None, Some(notDone.result))
