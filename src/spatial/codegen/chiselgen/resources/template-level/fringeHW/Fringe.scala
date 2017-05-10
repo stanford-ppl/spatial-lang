@@ -59,6 +59,7 @@ class Fringe(
     val genericStreamInTop = StreamIn(StreamParInfo(w, 1))
 
     // Debug
+    val aws_top_enable = Input(Bool()) // For AWS, enable comes in as input to top module
     val dbg_num_enable = Output(UInt(32.W))
     val dbg_num_cmd_valid = Output(UInt(32.W))
     val dbg_num_cmd_valid_enable = Output(UInt(32.W))
@@ -107,7 +108,7 @@ class Fringe(
   val magConfig = Wire(new MAGOpcode())
   magConfig.scatterGather := false.B
   mag.io.config := magConfig
-  mag.io.enable := localEnable
+  mag.io.enable := io.aws_top_enable
   mag.io.app <> io.memStreams
   mag.io.dram <> io.dram
 

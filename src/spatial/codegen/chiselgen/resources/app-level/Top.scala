@@ -175,13 +175,14 @@ class Top(
       accel.io.enable := topIO.enable
       topIO.done := accel.io.done
 
-      io.dbg_num_enable := fringe.io.dbg_num_enable
-      io.dbg_num_cmd_valid := fringe.io.dbg_num_cmd_valid
-      io.dbg_num_cmd_valid_enable := fringe.io.dbg_num_cmd_valid_enable
-      io.dbg_num_cmd_ready := fringe.io.dbg_num_cmd_ready
-      io.dbg_num_cmd_ready_enable := fringe.io.dbg_num_cmd_ready_enable
-      io.dbg_num_resp_valid := fringe.io.dbg_num_resp_valid
-      io.dbg_num_resp_valid_enable := fringe.io.dbg_num_resp_valid_enable
+      fringe.io.aws_top_enable := topIO.enable
+      topIO.dbg_num_enable := fringe.io.dbg_num_enable
+      topIO.dbg_num_cmd_valid := fringe.io.dbg_num_cmd_valid
+      topIO.dbg_num_cmd_valid_enable := fringe.io.dbg_num_cmd_valid_enable
+      topIO.dbg_num_cmd_ready := fringe.io.dbg_num_cmd_ready
+      topIO.dbg_num_cmd_ready_enable := fringe.io.dbg_num_cmd_ready_enable
+      topIO.dbg_num_resp_valid := fringe.io.dbg_num_resp_valid
+      topIO.dbg_num_resp_valid_enable := fringe.io.dbg_num_resp_valid_enable
 
     case _ =>
       throw new Exception(s"Unknown target '$target'")
