@@ -150,22 +150,24 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   } else {
                     emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")                    
                   }
-                  
                 case _ =>  
-                  lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+                  lhs.tp match { 
                     case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+                    case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
                     case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
                   }
               }
             case _ =>
-              lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+              lhs.tp match { 
                 case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+                case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
                 case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
               }
           }
         } else {
-          lhs.tp match { // TODO: If this is a tuple reg, are we guaranteed a field apply later?
+          lhs.tp match { 
             case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+            case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
             case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
           }
         }
@@ -200,7 +202,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-                  emit(src"""${reg}_${ii}.write($v, $en & Utils.delay(${reg}_wren,1), false.B, List(${ports.mkString(",")}))""")
+                  emit(src"""${reg}_${ii}.write($v, $en & Utils.delay(${reg}_wren,0), false.B, List(${ports.mkString(",")}))""")
                   emit(src"""${reg}_${ii}.io.input(0).init := ${reg}_initval.number""")
                   if (dup.isAccum) {
                     emit(src"""${reg}_$ii.io.input(0).reset := reset | ${reg}_resetter""")  

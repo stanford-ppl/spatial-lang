@@ -234,8 +234,8 @@ module test;
 
   initial begin
     /*** VCD & VPD dump ***/
-      $vcdplusfile("Top.vpd");
-      $vcdpluson (0, Top);
+//      $vcdplusfile("Top.vpd");
+//      $vcdpluson (0, Top);
 
 //      $dumpfile("Top.vcd");
 //      $dumpvars(0, Top);

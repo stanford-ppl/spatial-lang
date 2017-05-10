@@ -266,6 +266,7 @@ object Number {
   def abs(x: Number) = Number(x.value.abs, x.valid, x.fmt)
   def min(x: Number, y: Number) = if (x < y) x else y
   def max(x: Number, y: Number) = if (x > y) x else y
+  def pow(x: Number, exp: Number) = Number(Math.pow(x.toDouble, exp.toDouble), x.valid, x.fmt)
 
   def sin(x: Number) = Number(Math.sin(x.toDouble), x.valid, x.fmt)
   def cos(x: Number) = Number(Math.cos(x.toDouble), x.valid, x.fmt)
@@ -276,7 +277,6 @@ object Number {
   def asin(x: Number) = Number(Math.asin(x.toDouble), x.valid, x.fmt)
   def acos(x: Number) = Number(Math.acos(x.toDouble), x.valid, x.fmt)
   def atan(x: Number) = Number(Math.atan(x.toDouble), x.valid, x.fmt)
-
 }
 
 object X {

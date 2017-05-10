@@ -12,6 +12,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
       val enable = Input(Bool())
       val numIter = Input(UInt(32.W))
       val stageDone = Vec(n, Input(Bool()))
+      val stageMask = Vec(n, Input(Bool()))
       val rst = Input(Bool())
       val forever = Input(Bool())
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
@@ -58,7 +59,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
   val doneFF = List.tabulate(n) { i =>
     val ff = Module(new SRFF())
     ff.io.input.set := io.input.stageDone(i)
-    ff.io.input.asyn_reset := doneClear
+    ff.io.input.asyn_reset := doneClear | io.input.rst
     ff.io.input.reset := false.B
     ff
   }
@@ -97,12 +98,12 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
         when((state === i.U)) {
           io.output.stageEnable.zip(doneMask).zipWithIndex.take(fillStateID+1).foreach { 
             case ((en, done), ii) => 
-              en := ~done & (ii.U >= cycsSinceDone.io.output.data) & (io.input.numIter != 0.U)
+              en := ~done & (ii.U >= cycsSinceDone.io.output.data) & (io.input.numIter != 0.U) & io.input.stageMask(ii)
           }
           io.output.stageEnable.drop(fillStateID+1).foreach { en => en := false.B }
-          val doneMaskInts = doneMask.take(fillStateID+1).map {Mux(_, 1.U(bitsToAddress(n).W), 0.U(bitsToAddress(n).W))}
+          val doneMaskInts = doneMask.zip(io.input.stageMask).map{case (a,b) => a | ~b}.take(fillStateID+1).map {Mux(_, 1.U(bitsToAddress(n).W), 0.U(bitsToAddress(n).W))}
           val doneTree = doneMaskInts.reduce {_ + _} + cycsSinceDone.io.output.data === (fillStateID+1).U
-          // val doneTree = doneMask.take(fillStateID+1).reduce {_ & _}
+          // val doneTree = doneMask.zipWithIndex.map{case (a,i) => a | ~io.input.stageMask(i)}.take(fillStateID+1).reduce {_ & _}
           doneClear := doneTree
 
           when (doneTree === 1.U) {
@@ -123,9 +124,9 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
         }
       }
     }.elsewhen (state === steadyState.U) {  // STEADY
-      io.output.stageEnable.zip(doneMask).foreach { case (en, done) => en := ~done }
+      io.output.stageEnable.zipWithIndex.foreach { case (en, i) => en := ~doneMask(i) & io.input.stageMask(i)  }
 
-      val doneTree = doneMask.reduce {_&_}
+      val doneTree = doneMask.zipWithIndex.map{case (a,i) => a | ~io.input.stageMask(i)}.reduce{_ & _}
       doneClear := doneTree
       when (doneTree === 1.U) {
         when(ctr.io.output.count(0) === (max - 1.U)) {
@@ -140,10 +141,9 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
       for ( i <- drainState until doneState) {
         val drainStateID = i - drainState
         when (state === i.U) {
-          io.output.stageEnable.zip(doneMask).takeRight(n - drainStateID - 1).foreach { case (en, done) => en := ~done }
+          io.output.stageEnable.zipWithIndex.takeRight(n - drainStateID - 1).foreach { case (en, i) => en := ~doneMask(i) & io.input.stageMask(i) }
           io.output.stageEnable.dropRight(n - drainStateID - 1).foreach { en => en := 0.U }
-
-          val doneTree = doneMask.takeRight(n - drainStateID - 1).reduce {_&_}
+          val doneTree = doneMask.zipWithIndex.map{case (a,i) => a | ~io.input.stageMask(i)}.takeRight(n - drainStateID - 1).reduce {_&_}
           doneClear := doneTree
           when (doneTree === 1.U) {
             stateFF.io.input(0).data := (i+1).U

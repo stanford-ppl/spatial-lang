@@ -50,7 +50,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case UnrolledForeach(en,cchain,func,iters,valids) =>
+    case UnrolledForeach(ens,cchain,func,iters,valids) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
@@ -67,7 +67,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
             emitValids(cchain, iters, valids, src"_copy$c")
           }          
         } else {
-          emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situatio with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
+          emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situation with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
         }
         withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
@@ -91,9 +91,11 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
       }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain))
+      val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
+      emit(src"${lhs}_mask := $en")
       controllerStack.pop()
 
-    case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
+    case UnrolledReduce(ens,cchain,accum,func,_,iters,valids,rV) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten))
@@ -133,6 +135,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emitParallelizedLoop(iters, cchain)
         emitBlock(func)
       }
+      val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
+      emit(src"${lhs}_mask := $en")
       controllerStack.pop()
 
     case ParSRAMLoad(sram,inds,ens) =>
@@ -208,14 +212,14 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}.io.pop := chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${reader}_retime) & $en""")
+      emit(src"""${quote(fifo)}.io.deq := chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${reader}_retime) & $en""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
-            emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}_rdata(i)) }""")
+            emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(i)) }""")
           } else {
-            emit(src"""val ${lhs} = ${fifo}_rdata""")
+            emit(src"""val ${lhs} = ${fifo}.io.out""")
           }
-        case _ => emit(src"""val ${lhs} = ${fifo}_rdata""")
+        case _ => emit(src"""val ${lhs} = ${fifo}.io.out""")
       }
 
     case ParFIFOEnq(fifo, data, ens) =>
@@ -226,9 +230,35 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}_writeEn := chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${writer}_retime) & $en""")
+      emit(src"""${fifo}.io.enq := chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${writer}_retime) & $en""")
       val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
-      emit(src"""${fifo}_wdata := Vec(List(${datacsv}))""")
+      emit(src"""${fifo}.io.in := Vec(List(${datacsv}))""")
+
+    case ParFILOPop(filo, ens) =>
+      val par = ens.length
+      val en = ens.map(quote).mkString("&")
+      val reader = readersOf(filo).head.ctrlNode  // Assuming that each filo has a unique reader
+      emit(src"""${quote(filo)}.io.pop := chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${reader}_retime) & $en""")
+      filo.tp.typeArguments.head match { 
+        case FixPtType(s,d,f) => if (spatialNeedsFPType(filo.tp.typeArguments.head)) {
+            emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(filo)}.io.out(i)) }.reverse""")
+          } else {
+            emit(src"""val ${lhs} = ${filo}.io.out""")
+          }
+        case _ => emit(src"""val ${lhs} = ${filo}.io.out""")
+      }
+
+    case ParFILOPush(filo, data, ens) =>
+      val par = ens.length
+      val en = ens.map(quote).mkString("&")
+      val writer = writersOf(filo).head.ctrlNode  
+      // Check if this is a tile consumer
+
+      // val enabler = if (loadCtrlOf(filo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
+      val enabler = src"${writer}_datapath_en"
+      emit(src"""${filo}.io.push := chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${writer}_retime) & $en""")
+      val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
+      emit(src"""${filo}.io.in := Vec(List(${datacsv}))""")
 
     case e@ParStreamRead(strm, ens) =>
       val parent = parentOf(lhs).get

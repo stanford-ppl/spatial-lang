@@ -1,12 +1,12 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.FIFOExp
+import spatial.api.FILOExp
 import spatial.api.DRAMTransferExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
-trait ChiselGenFIFO extends ChiselCodegen {
+trait ChiselGenFILO extends ChiselCodegen {
   val IR: SpatialExp
   import IR._
 
@@ -35,22 +35,22 @@ trait ChiselGenFIFO extends ChiselCodegen {
       s match {
         case lhs: Sym[_] =>
           lhs match {
-            case Def(e: FIFONew[_]) =>
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("fifo").replace("$","")}"""
-            case Def(FIFOEnq(fifo:Sym[_],_,_)) =>
-              s"x${lhs.id}_enqTo${fifo.id}"
-            case Def(FIFODeq(fifo:Sym[_],_)) =>
-              s"x${lhs.id}_deqFrom${fifo.id}"
-            case Def(FIFOEmpty(fifo:Sym[_])) =>
+            case Def(e: FILONew[_]) =>
+              s"""x${lhs.id}_${nameOf(lhs).getOrElse("filo").replace("$","")}"""
+            case Def(FILOPush(fifo:Sym[_],_,_)) =>
+              s"x${lhs.id}_pushTo${fifo.id}"
+            case Def(FILOPop(fifo:Sym[_],_)) =>
+              s"x${lhs.id}_popFrom${fifo.id}"
+            case Def(FILOEmpty(fifo:Sym[_])) =>
               s"x${lhs.id}_isEmpty${fifo.id}"
-            case Def(FIFOFull(fifo:Sym[_])) =>
+            case Def(FILOFull(fifo:Sym[_])) =>
               s"x${lhs.id}_isFull${fifo.id}"
-            case Def(FIFOAlmostEmpty(fifo:Sym[_])) =>
+            case Def(FILOAlmostEmpty(fifo:Sym[_])) =>
               s"x${lhs.id}_isAlmostEmpty${fifo.id}"
-            case Def(FIFOAlmostFull(fifo:Sym[_])) =>
+            case Def(FILOAlmostFull(fifo:Sym[_])) =>
               s"x${lhs.id}_isAlmostFull${fifo.id}"
-            case Def(FIFONumel(fifo:Sym[_])) =>
-              s"x${lhs.id}_numel${fifo.id}"
+            case Def(FILONumel(fifo:Sym[_])) =>
+              s"x${lhs.id}_numel${fifo.id}"              
             case _ =>
               super.quote(s)
           }
@@ -63,7 +63,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: FIFOType[_] => src"chisel.collection.mutable.Queue[${tp.child}]"
+    case tp: FILOType[_] => src"chisel.collection.mutable.Queue[${tp.child}]"
     case _ => super.remap(tp)
   }
 
@@ -73,33 +73,33 @@ trait ChiselGenFIFO extends ChiselCodegen {
   // }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@FIFONew(size)   => 
+    case op@FILONew(size)   => 
       val rPar = readersOf(lhs).map { r => 
         r.node match {
-          case Def(_: FIFODeq[_]) => 1
-          case Def(a@ParFIFODeq(q,ens)) => ens.length
+          case Def(_: FILOPop[_]) => 1
+          case Def(a@ParFILOPop(q,ens)) => ens.length
         }
       }.max
       val wPar = writersOf(lhs).map { w =>
         w.node match {
-          case Def(_: FIFOEnq[_]) => 1
-          case Def(a@ParFIFOEnq(q,_,ens)) => ens.length
+          case Def(_: FILOPush[_]) => 1
+          case Def(a@ParFILOPush(q,_,ens)) => ens.length
         }
       }.max
       val width = bitWidth(lhs.tp.typeArguments.head)
-      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FIFO($rPar, $wPar, $size, $width)) // ${nameOf(lhs).getOrElse("")}""")
+      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FILO($rPar, $wPar, $size, $width)) // ${nameOf(lhs).getOrElse("")}""")
 
-    case FIFOEnq(fifo,v,en) => 
+    case FILOPush(fifo,v,en) => 
       val writer = writersOf(fifo).head.ctrlNode  
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.io.enq := ${writer}_en & chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${writer}_retime) & $en """)
+      emit(src"""${fifo}.io.push := ${writer}_en & chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${writer}_retime) & $en """)
       emit(src"""${fifo}.io.in := Vec(List(${v}.raw))""")
 
 
-    case FIFODeq(fifo,en) =>
+    case FILOPop(fifo,en) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${fifo}.io.deq := ${reader}_en & chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${reader}_retime) & $en & ~${reader}_inhibitor""")
+      emit(src"""${fifo}.io.pop := ${reader}_en & chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${reader}_retime) & $en & ~${reader}_inhibitor""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(0))""")
@@ -109,11 +109,11 @@ trait ChiselGenFIFO extends ChiselCodegen {
         case _ => emit(src"""val ${lhs} = ${fifo}.io.out(0)""")
       }
 
-    case FIFOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
-    case FIFOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")
-    case FIFOAlmostEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.almostEmpty")
-    case FIFOAlmostFull(fifo) => emit(src"val $lhs = ${fifo}.io.almostFull")
-    case FIFONumel(fifo) => emit(src"val $lhs = ${fifo}.io.numel")
+    case FILOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
+    case FILOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")
+    case FILOAlmostEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.almostEmpty")
+    case FILOAlmostFull(fifo) => emit(src"val $lhs = ${fifo}.io.almostFull")
+    case FILONumel(fifo) => emit(src"val $lhs = ${fifo}.io.numel")
 
     case _ => super.emitNode(lhs, rhs)
   }

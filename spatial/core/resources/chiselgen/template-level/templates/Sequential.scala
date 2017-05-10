@@ -11,6 +11,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
       val enable = Input(Bool())
       val numIter = Input(UInt(32.W))
       val stageDone = Vec(n, Input(Bool()))
+      val stageMask = Vec(n, Input(Bool()))
       val rst = Input(Bool())
       val forever = Input(Bool())
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
@@ -81,9 +82,17 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
         //   stateFF.io.input(0).data := state
         // }
 
-        // Less safe but cheap way
-        val aStageIsDone = io.input.stageDone.reduce { _ | _ } // TODO: Is it safe to assume children behave properly?
-        when(aStageIsDone) {
+        // // Less safe but cheap way
+        // val aStageIsDone = io.input.stageDone.reduce { _ | _ } // TODO: Is it safe to assume children behave properly?
+        // when(aStageIsDone) {
+        //   stateFF.io.input(0).data := state + 1.U
+        // }.otherwise {
+        //   stateFF.io.input(0).data := state
+        // }
+        // Correct way
+        val stageDones = (0 until n).map{i => (i.U -> {io.input.stageDone(i) | ~io.input.stageMask(i)} )}
+        val myStageIsDone = chisel3.util.MuxLookup( (state - firstState.U), false.B, stageDones) 
+        when(myStageIsDone) {
           stateFF.io.input(0).data := state + 1.U
         }.otherwise {
           stateFF.io.input(0).data := state

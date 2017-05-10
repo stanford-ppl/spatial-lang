@@ -4,7 +4,10 @@ package templates
 import chisel3.iotesters.{PeekPokeTester, Driver, ChiselFlatSpec}
 
 class ParallelTests(c: Parallel) extends PeekPokeTester(c) {
-  val latencies = (0 until c.n).map { i => math.abs(rnd.nextInt(8)) + 5 } 
+  val latencies = (0 until c.n).map { i => 
+    poke(c.io.input.stageMask(i), 1)
+    math.abs(rnd.nextInt(8)) + 5 
+  } 
   latencies.map { a => println("latency of stage = " + a)}
   val maxCycles = latencies.reduce{(a,b) => if (a > b) a else b} + 20
   step(1)
