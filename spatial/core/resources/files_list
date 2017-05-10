@@ -488,6 +488,10 @@
 ./chiselgen/template-level/fringeDE1SoC/DE1_SoC_Computer.pin
 ./chiselgen/template-level/fringeDE1SoC/default_files
 ./chiselgen/template-level/fringeDE1SoC/Top_bak
+./chiselgen/template-level/fringeDE1SoC/Computer_System/synthesis/submodules/Computer_System_mm_interconnect_0_cmd_demux_004.sv
+./chiselgen/template-level/fringeDE1SoC/Computer_System/synthesis/submodules/Computer_System_mm_interconnect_0_router_008.sv
+./chiselgen/template-level/fringeDE1SoC/Computer_System/synthesis/submodules/Computer_System_mm_interconnect_0_rsp_mux_003.sv
+./chiselgen/template-level/fringeDE1SoC/Computer_System/synthesis/submodules/Computer_System_Video_In_Subsystem_Video_In_RGB_Resampler.v
 ./chiselgen/template-level/run-templates.sh
 ./chiselgen/template-level/fringeVCS/Makefile
 ./chiselgen/template-level/fringeVCS/DRAMSim2/Rank.cpp

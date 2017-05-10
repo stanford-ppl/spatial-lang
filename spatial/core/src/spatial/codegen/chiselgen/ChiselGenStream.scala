@@ -32,8 +32,6 @@ trait ChiselGenStream extends ChiselCodegen {
         case BurstAckBus =>
         case ScatterAckBus =>
         case GatherDataBus() =>
-//        case _ =>
-//          s"$bus" match => 
         case VideoCamera => 
           emit(src"// video in camera, node = $lhs", forceful=true)
           emit(src"// reset and output logic for video camera", forceful=true)
@@ -55,12 +53,12 @@ trait ChiselGenStream extends ChiselCodegen {
 
         case SliderSwitch =>
           emit(src"// switch, node = $lhs", forceful=true)
-//          emit(src"${lhs}_ready := 1.U", forceful=true)
           emit(src"${lhs}_valid := 1.U", forceful=true)
 
         case _ =>
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
+
     case StreamOutNew(bus) =>
       emitGlobalWire(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
       emitGlobalWire(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
@@ -77,10 +75,55 @@ trait ChiselGenStream extends ChiselCodegen {
           emit(src"// LEDR, node = $lhs", forceful=true)
           emit(src"${lhs}_ready := 1.U", forceful=true)
           emit(src"${lhs}_valid := 1.U", forceful=true)
-        //  emit(src"io.led_stream_out_data := converted_data", forceful=true)
         case _ =>
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
+    
+    case BufferedOutNew(_, bus) => 
+      bus match {
+        case VGA => 
+          emit (src"// EMITTING FOR BUFFEREDOUT ON VGA $lhs", forceful=true)
+          emit(src"io.buffout_address := ${lhs}_address", forceful=true)
+          emit(src"io.buffout_write := ${lhs}_write", forceful=true)
+          emit(src"io.buffout_writedata := ${lhs}_writedata", forceful=true)
+          emit(src"${lhs}_waitrequest := io.buffout_waitrequest", forceful=true)
+          emitGlobalWire(src"""// Emit to global at BUFFEROUT node""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_address = Wire(UInt(32.W))""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_write = Wire(UInt(1.W))""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_writedata = Wire(UInt(16.W))""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_waitrequest = Wire(Bool())""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_hAddr = Wire(UInt(7.W))""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_wAddr = Wire(UInt(8.W))""", forceful=true)
+      }
+
+    case BufferedOutWrite(buffer, data, is, en) => 
+//      case Def(BufferedOutNew(Seq(lift(320), lift(240)), bus)) => bus match {
+      buffer match {
+        case Def(BufferedOutNew(_, bus)) => bus match {
+          case VGA =>
+            emit (s"// EMITTING FOR BUFFEREDOUT WRITE ON VGA $buffer, $data, $is, $en", forceful=true)
+              is.zipWithIndex.foreach{ case(ind, j) =>
+                emit (src"""// EMITTING FOR BUFFEREDOUT WRITE ON VGA ${lhs}_$j = ${ind}""")
+              }
+            emit(s"// default buffer address: 134217728")
+            emit(s"")
+            
+            emit(src"when(~${buffer}_waitrequest) {", forceful=true)
+            emit(src"  ${buffer}_write := 1.U", forceful=true)
+            emit(src"  ${buffer}_writedata := ${data}.r", forceful=true)
+            emit(src"  ${buffer}_hAddr := ${is(0)}.raw", forceful=true)
+            emit(src"  ${buffer}_wAddr := ${is(1)}.raw", forceful=true)
+            emit(src"  ${buffer}_address := 134217728.U + Utils.Cat(${buffer}_hAddr, ${buffer}_wAddr, false.B)", forceful=true)
+            emit(src"} .otherwise {", forceful=true)
+            emit(src"  ${buffer}_write := 0.U", forceful=true)
+            emit(src"  ${buffer}_writedata := 0.U", forceful=true)
+            emit(src"  ${buffer}_hAddr := 0.U", forceful=true)
+            emit(src"  ${buffer}_wAddr := 0.U", forceful=true)
+            emit(src"  ${buffer}_address := 134217728.U", forceful=true)
+            emit(src"}", forceful=true)
+        }
+      }
+
     case StreamRead(stream, en) =>
       val isAck = stream match {
         case Def(StreamInNew(bus)) => bus match {

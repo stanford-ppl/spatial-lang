@@ -128,16 +128,21 @@
    type="avalon"
    dir="end" />
  <interface
+   name="top_io_buff_out"
+   internal="Top.io_BUFFOUT"
+   type="avalon"
+   dir="start" />
+ <interface
    name="top_io_ledr_stream"
    internal="Top.io_LEDR_STREAM"
    type="avalon"
    dir="start" />
+ <interface name="top_io_switch_stream" internal="Top.avalon_master" />
  <interface
-   name="top_io_switch_stream"
-   internal="Top.avalon_master"
+   name="top_io_switches_stream"
+   internal="Top.io_SWITCHES_STREAM"
    type="avalon"
    dir="start" />
- <interface name="top_io_switches_stream" internal="Top.io_SWITCHES_STREAM" />
  <interface
    name="video_in"
    internal="Video_In.external_interface"
@@ -165,7 +170,7 @@
   <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="1" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="1" />
-  <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_Edge_Detection_Subsystem</parameter>
+  <parameter name="AUTO_UNIQUE_ID">Video_In_Subsystem_Edge_Detection_Subsystem</parameter>
  </module>
  <module name="Sys_Clk" kind="clock_source" version="16.1" enabled="1">
   <parameter name="clockFrequency" value="50000000" />

@@ -3,11 +3,11 @@
  <debug showDebugMenu="0" />
  <systemtable filter="All Interfaces">
   <columns>
-   <connections preferredWidth="239" />
-   <irq preferredWidth="34" />
+   <connections preferredWidth="271" />
+   <irq preferredWidth="79" />
    <name preferredWidth="325" />
   </columns>
  </systemtable>
  <library expandedCategories="Library,Project,Project/Top" />
- <window width="2495" height="1080" x="65" y="0" />
+ <window width="2495" height="1032" x="168" y="222" />
 </preferences>

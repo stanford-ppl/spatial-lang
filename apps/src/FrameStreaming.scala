@@ -6,8 +6,8 @@ object FrameStreaming extends SpatialApp {
   import IR._
 
   override val target = DE1
-  val Cmax = 320
-  val Rmax = 240
+  val Cmax = 240
+  val Rmax = 320
 
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
 
@@ -15,15 +15,11 @@ object FrameStreaming extends SpatialApp {
   def convolveVideoStream(): Unit = {
     val imgOut = BufferedOut[Pixel16](target.VGA)
 
-    Accel {
-      Stream(*) { _ =>
-        Foreach(0 until Rmax, 0 until Cmax){ (r, c) =>
-          val pixel = mux(r > 60 && r < 120 && c > 60 && c < 120, Pixel16(0,63,0), Pixel16(0,0,0))
-          imgOut(r, c) = pixel
-        }
+    Accel (*) {
+      Foreach(0 until Rmax, 0 until Cmax){ (r, c) =>
+        val pixel = mux(r > 60 && r < 120 && c > 60 && c < 120, Pixel16(0,63,0), Pixel16(0,0,0))
+        imgOut(r, c) = pixel
       }
-
-      ()
     }
   }
 

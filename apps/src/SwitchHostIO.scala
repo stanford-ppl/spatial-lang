@@ -13,7 +13,7 @@ object SwitchHostIO extends SpatialApp {
     val switch = target.SliderSwitch
     val swInput = StreamIn[Int](switch)
     Accel(*) {
-      Pipe { io1 := swInput.value() }
+      io1 := swInput.value()
     }
 
     val r1 = getArg(io1)

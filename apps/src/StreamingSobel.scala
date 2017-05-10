@@ -9,7 +9,8 @@ object StreamingSobel extends SpatialApp {
 
   val Kh = 3
   val Kw = 3
-  val Cmax = 128
+  val Rmax = 240
+  val Cmax = 320
 
   type Int16 = FixPt[TRUE,_16,_0]
   type UInt8 = FixPt[FALSE,_8,_0]
@@ -32,7 +33,6 @@ object StreamingSobel extends SpatialApp {
       val kh = RegFile[Int16](Kh, Kw)
       val kv = RegFile[Int16](Kh, Kw)
 
-      // TODO: Better syntax for initialization of lookup tables
       Pipe {
         kh(0, 0) = 1
         kh(1, 0) = 2
@@ -87,7 +87,6 @@ object StreamingSobel extends SpatialApp {
         // Ignore MSB - pixelOut is a signed number that's definitely positive, so MSB is always 0
         imgOut := Pixel16(pixelOut(10::6).as[UInt5], pixelOut(10::5).as[UInt6], pixelOut(10::6).as[UInt5])
       }
-
       ()
     }
   }

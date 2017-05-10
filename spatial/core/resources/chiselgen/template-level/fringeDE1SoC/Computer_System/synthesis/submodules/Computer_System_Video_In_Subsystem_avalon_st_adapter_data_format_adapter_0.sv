@@ -43,20 +43,20 @@
 //   hasInEmpty:         false
 //   inEmptyWidth:       0
 //   hasOutEmpty:        true 
-//   outEmptyWidth:      2
-//   inDataWidth:        24
-//   outDataWidth:       24
+//   outEmptyWidth:      1
+//   inDataWidth:        16
+//   outDataWidth:       16
 //   channelWidth:       0
 //   inErrorWidth:       0
 //   outErrorWidth:      0
-//   inSymbolsPerBeat:   3
-//   outSymbolsPerBeat:  3
-//   maxState:           2
-//   stateWidth:         2
+//   inSymbolsPerBeat:   1
+//   outSymbolsPerBeat:  1
+//   maxState:           1
+//   stateWidth:         1
 //   maxChannel:         0
-//   symbolWidth:        8
-//   numMemSymbols:      2
-//   symbolWidth:        8
+//   symbolWidth:        16
+//   numMemSymbols:      1
+//   symbolWidth:        16
 
 
 // ------------------------------------------
@@ -66,16 +66,16 @@ module Computer_System_Video_In_Subsystem_avalon_st_adapter_data_format_adapter_
  // Interface: in
  output reg         in_ready,
  input              in_valid,
- input [24-1 : 0]    in_data,
+ input [16-1 : 0]    in_data,
  input              in_startofpacket,
  input              in_endofpacket,
  // Interface: out
  input                out_ready,
  output reg           out_valid,
- output reg [24-1: 0]  out_data,
+ output reg [16-1: 0]  out_data,
  output reg           out_startofpacket,
  output reg           out_endofpacket,
- output reg [2-1 : 0] out_empty,
+ output reg           out_empty,
 
   // Interface: clk
  input              clk,

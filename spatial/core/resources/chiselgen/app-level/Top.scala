@@ -75,6 +75,12 @@ class DE1SoCInterface(p: TopParams) extends TopInterface {
   // By default this is a read_n signal
   // TODO: fix the naming of read control signal
   val SWITCHES_STREAM_read = Output(Wire(Bool()))
+
+  // For BufferedOut data that goes to the pixel buffer
+  val BUFFOUT_waitrequest  = Input(UInt(1.W)) 
+  val BUFFOUT_address      = Output(UInt(32.W))
+  val BUFFOUT_write        = Output(UInt(1.W))
+  val BUFFOUT_writedata    = Output(UInt(16.W))
 }
 
 class AWSInterface(p: TopParams) extends TopInterface {
@@ -193,9 +199,15 @@ class Top(
       topIO.LEDR_STREAM_address               := 0.U
 
       // Switch Stream Outputs
-      topIO.SWITCHES_STREAM_address                       := 0.U
-      accel.io.switch_stream_in_data                      := topIO.SWITCHES_STREAM_readdata
-      topIO.SWITCHES_STREAM_read                          := 0.U
+      topIO.SWITCHES_STREAM_address           := 0.U
+      accel.io.switch_stream_in_data          := topIO.SWITCHES_STREAM_readdata
+      topIO.SWITCHES_STREAM_read              := 0.U
+
+      // BufferedOut Outputs
+      accel.io.buffout_waitrequest            := topIO.BUFFOUT_waitrequest
+      topIO.BUFFOUT_address                   := accel.io.buffout_address
+      topIO.BUFFOUT_write                     := accel.io.buffout_write
+      topIO.BUFFOUT_writedata                 := accel.io.buffout_writedata
 
       if (accel.io.argIns.length > 0) {
         accel.io.argIns := fringe.io.argIns
