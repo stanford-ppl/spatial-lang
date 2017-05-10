@@ -191,14 +191,19 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
   lazy val pirRetimer = new PIRHackyRetimer { val IR: self.type  = self }
   lazy val pirTiming  = new PIRHackyLatencyAnalyzer { val IR: self.type = self }
 
-  lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argPorts = uctrlAnalyzer.argPorts; def genericStreams = uctrlAnalyzer.genericStreams;}
+  lazy val argMapper  = new ArgMappingAnalyzer {
+    val IR: self.type = self
+    def memStreams = uctrlAnalyzer.memStreams
+    def argPorts = uctrlAnalyzer.argPorts
+    def genericStreams = uctrlAnalyzer.genericStreams
+  }
 
-  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSim; def localMems = uctrlAnalyzer.localMems }
-  lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
-  lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
-  lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
-  lazy val treegen = new TreeGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableTree }
-  lazy val dotgen = new DotGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableDot }
+  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; def localMems = uctrlAnalyzer.localMems }
+  lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self }
+  lazy val pirgen = new PIRGenSpatial { val IR: self.type = self }
+  lazy val cppgen = new CppGenSpatial { val IR: self.type = self }
+  lazy val treegen = new TreeGenSpatial { val IR: self.type = self }
+  lazy val dotgen = new DotGenSpatial { val IR: self.type = self }
 
   def codegenerators = passes.collect{case x: Codegen => x}
 
@@ -326,18 +331,19 @@ trait SpatialApp extends AppCore {
   val IR: SpatialIR = new SpatialIR { def target = SpatialApp.this.target }
   val Lib: SpatialLib = new SpatialLib { }
 
+  override protected def onException(t: Throwable): Unit = {
+    super.onException(t)
+    IR.error("If you'd like, you can submit this log and your code in a bug report at: ")
+    IR.error("  https://github.com/stanford-ppl/spatial-lang/issues")
+    IR.error("and we'll try to fix it as soon as we can.")
+  }
+
+  final override def main(sargs: Array[String]): Unit = super.main(sargs)
+
   override def parseArguments(args: Seq[String]): Unit = {
     SpatialConfig.init()
     val parser = new SpatialArgParser
-    parser.parse(args) match {
-      case None =>
-        //IR.warn("No code generators enabled. Use --sim or --synth to enable generation.")
-        //sys.exit(0)
-      case _ =>
-        //println(argon.Config.conf)
-        //println(SpatialConfig.spatialConf)
-        //println("Starting generation")
-    }
+    parser.parse(args)
   }
 }
 

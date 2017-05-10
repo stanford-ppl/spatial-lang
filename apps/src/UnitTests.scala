@@ -1928,3 +1928,35 @@ object MultiWriteBuffer extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
+object NestedIfs extends SpatialApp {
+  import IR._
+
+  @virtualize
+  def nestedIfTest(x: Int) = {
+    val in = ArgIn[Int]
+    val out = ArgOut[Int]
+    setArg(in, x)
+    Accel {
+      val sram = SRAM[Int](3)
+
+      if (in >= 42.to[Int]) {
+        if (in <= 43.to[Int]) {
+          sram(in - 41.to[Int]) = 10.to[Int]
+        }
+      } else {
+        if (in <= 2.to[Int]){
+          sram(in) = 20.to[Int]
+        }
+      }
+
+      out := sram(1)
+    }
+    getArg(out)
+  }
+
+  @virtualize
+  def main() {
+    val result = nestedIfTest(43)
+    println("result:   " + result)
+  }
+}
