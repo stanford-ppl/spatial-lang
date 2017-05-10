@@ -62,6 +62,14 @@ class AWSInterface(p: TopParams) extends TopInterface {
   val scalarIns = Input(Vec(p.numArgIns, UInt(64.W)))
   val scalarOuts = Output(Vec(p.numArgOuts, UInt(64.W)))
 
+  val dbg_num_enable = Output(UInt(32.W))
+  val dbg_num_cmd_valid = Output(UInt(32.W))
+  val dbg_num_cmd_valid_enable = Output(UInt(32.W))
+  val dbg_num_cmd_ready = Output(UInt(32.W))
+  val dbg_num_cmd_ready_enable = Output(UInt(32.W))
+  val dbg_num_resp_valid = Output(UInt(32.W))
+  val dbg_num_resp_valid_enable = Output(UInt(32.W))
+
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
 }
@@ -166,6 +174,15 @@ class Top(
       topIO.scalarOuts.zip(accel.io.argOuts) foreach { case (ioOut, accelOut) => ioOut := accelOut.bits }
       accel.io.enable := topIO.enable
       topIO.done := accel.io.done
+
+      io.dbg_num_enable := fringe.io.dbg_num_enable
+      io.dbg_num_cmd_valid := fringe.io.dbg_num_cmd_valid
+      io.dbg_num_cmd_valid_enable := fringe.io.dbg_num_cmd_valid_enable
+      io.dbg_num_cmd_ready := fringe.io.dbg_num_cmd_ready
+      io.dbg_num_cmd_ready_enable := fringe.io.dbg_num_cmd_ready_enable
+      io.dbg_num_resp_valid := fringe.io.dbg_num_resp_valid
+      io.dbg_num_resp_valid_enable := fringe.io.dbg_num_resp_valid_enable
+
     case _ =>
       throw new Exception(s"Unknown target '$target'")
   }

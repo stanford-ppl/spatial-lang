@@ -31,6 +31,16 @@ class MAGCore(
   val tagWidth = log2Up(numStreams)
 
   val io = IO(new Bundle {
+    // Debug
+    val enable = Input(Bool())
+    val dbg_num_enable = Output(UInt(32.W))
+    val dbg_num_cmd_valid = Output(UInt(32.W))
+    val dbg_num_cmd_valid_enable = Output(UInt(32.W))
+    val dbg_num_cmd_ready = Output(UInt(32.W))
+    val dbg_num_cmd_ready_enable = Output(UInt(32.W))
+    val dbg_num_resp_valid = Output(UInt(32.W))
+    val dbg_num_resp_valid_enable = Output(UInt(32.W))
+
 //    val app = Vec(numStreams, new MemoryStream(w, v))
     val app = new AppStreams(loadStreamInfo, storeStreamInfo)
     val dram = new DRAMStream(w, v) // Should not have to pass vector width; must be DRAM burst width
@@ -273,7 +283,8 @@ class MAGCore(
   io.dram.cmd.bits.isWr := isWrFifo.io.deq(0)
   wrPhase.io.input.set := (~isWrFifo.io.empty & isWrFifo.io.deq(0))
   wrPhase.io.input.reset := templates.Utils.delay(burstVld,1)
-  io.dram.cmd.valid := burstVld & ~issued
+  val dramCmdValid =  burstVld & ~issued
+  io.dram.cmd.valid := dramCmdValid
 
   val issuedTag = Wire(UInt(w.W))
   if (blockingDRAMIssue) {
@@ -286,12 +297,13 @@ class MAGCore(
     issuedTag := 0.U
   }
 
+  val respValid = io.dram.resp.valid & io.enable
   val streamTagFromDRAM = if (blockingDRAMIssue) getStreamTag(issuedTag) else getStreamTag(io.dram.resp.bits.tag)
 
   val rdataFifos = List.tabulate(loadStreamInfo.size) { i =>
     val m = Module(new WidthConverterFIFO(32, io.dram.resp.bits.rdata.size, loadStreamInfo(i).w, loadStreamInfo(i).v, d))
     m.io.enq := io.dram.resp.bits.rdata
-    m.io.enqVld := io.dram.resp.valid & streamTagFromDRAM === i.U
+    m.io.enqVld := respValid & streamTagFromDRAM === i.U
     m
   }
 
@@ -311,8 +323,8 @@ class MAGCore(
 
   val wrespFifos = List.tabulate(storeStreamInfo.size) { i =>
     val m = Module(new FIFOCounter(d, 1))
-    m.io.enq(0) := io.dram.resp.valid
-    m.io.enqVld := io.dram.resp.valid & streamTagFromDRAM === (i + loadStreamInfo.size).U
+    m.io.enq(0) := respValid
+    m.io.enqVld := respValid & streamTagFromDRAM === (i + loadStreamInfo.size).U
     m
   }
 
@@ -324,6 +336,62 @@ class MAGCore(
 
   io.dram.resp.ready := ~(rdataFifos.map { fifo => fifo.io.full | fifo.io.almostFull }.reduce{_|_})
 
+  // All debug counters
+  val enableCounter = Module(new Counter(32))
+  enableCounter.io.reset := 0.U
+  enableCounter.io.saturate := 0.U
+  enableCounter.io.max := 100000000.U
+  enableCounter.io.stride := 1.U
+  enableCounter.io.enable := io.enable
+  io.dbg_num_enable := enableCounter.io.out
+
+  val cmdValidCtr = Module(new Counter(32))
+  cmdValidCtr.io.reset := 0.U
+  cmdValidCtr.io.saturate := 0.U
+  cmdValidCtr.io.max := 100000000.U
+  cmdValidCtr.io.stride := 1.U
+  cmdValidCtr.io.enable := dramCmdValid
+  io.dbg_num_cmd_valid := cmdValidCtr.io.out
+
+  val cmdValidEnableCtr = Module(new Counter(32))
+  cmdValidEnableCtr.io.reset := 0.U
+  cmdValidEnableCtr.io.saturate := 0.U
+  cmdValidEnableCtr.io.max := 100000000.U
+  cmdValidEnableCtr.io.stride := 1.U
+  cmdValidEnableCtr.io.enable := dramCmdValid & io.enable
+  io.dbg_num_cmd_valid_enable := cmdValidEnableCtr.io.out
+
+  val numReadyHighCtr = Module(new Counter(32))
+  numReadyHighCtr.io.reset := 0.U
+  numReadyHighCtr.io.saturate := 0.U
+  numReadyHighCtr.io.max := 100000000.U
+  numReadyHighCtr.io.stride := 1.U
+  numReadyHighCtr.io.enable := io.dram.cmd.ready
+  io.dbg_num_cmd_ready := numReadyHighCtr.io.out
+
+  val numReadyAndEnableHighCtr = Module(new Counter(32))
+  numReadyAndEnableHighCtr.io.reset := 0.U
+  numReadyAndEnableHighCtr.io.saturate := 0.U
+  numReadyAndEnableHighCtr.io.max := 100000000.U
+  numReadyAndEnableHighCtr.io.stride := 1.U
+  numReadyAndEnableHighCtr.io.enable := io.dram.cmd.ready & io.enable
+  io.dbg_num_cmd_ready_enable := numReadyAndEnableHighCtr.io.out
+
+  val numRespHighCtr = Module(new Counter(32))
+  numRespHighCtr.io.reset := 0.U
+  numRespHighCtr.io.saturate := 0.U
+  numRespHighCtr.io.max := 100000000.U
+  numRespHighCtr.io.stride := 1.U
+  numRespHighCtr.io.enable := io.dram.resp.valid
+  io.dbg_num_resp_valid := numRespHighCtr.io.out
+
+  val numRespAndEnableHighCtr = Module(new Counter(32))
+  numRespAndEnableHighCtr.io.reset := 0.U
+  numRespAndEnableHighCtr.io.saturate := 0.U
+  numRespAndEnableHighCtr.io.max := 100000000.U
+  numRespAndEnableHighCtr.io.stride := 1.U
+  numRespAndEnableHighCtr.io.enable := io.dram.resp.valid & io.enable
+  io.dbg_num_resp_valid_enable := numRespAndEnableHighCtr.io.out
 }
 
 //class MemoryTester (
