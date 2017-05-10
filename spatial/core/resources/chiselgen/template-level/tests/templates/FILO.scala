@@ -4,33 +4,38 @@ package templates
 import chisel3.iotesters.{PeekPokeTester, Driver, ChiselFlatSpec}
 
 
-class FIFOTests(c: FIFO) extends PeekPokeTester(c) {
+class FILOTests(c: FILO) extends PeekPokeTester(c) {
   reset(1)
   step(5)
-  var pushElement = 0
-  var popElement = 0
+  var element = 0
   val p = scala.math.max(c.pW, c.pR)
 
   def push(inc: Boolean = true) {
-    (0 until c.pW).foreach { i => poke(c.io.in(i), pushElement + i) }
-    poke(c.io.enq, 1)
+    (0 until c.pW).foreach { i => poke(c.io.in(i), element + i) }
+    if (inc) element += c.pW
+    poke(c.io.push, 1)
     step(1)
-    poke(c.io.enq,0)
-    if (inc) pushElement += c.pW
+    poke(c.io.push,0)
   }
   def pop(inc: Boolean = true) {
-    poke(c.io.deq, 1)
     if (inc) {
-      // val a = peek(c.io.out(0))
-      // println(s"Expect $popElement, got $a (error ${a != popElement})")
-      (0 until c.pR).foreach { i => expect(c.io.out(i), popElement + i) }
-      popElement += c.pR      
+      (0 until c.pR).foreach { i => 
+        val expected = element - i -1
+        val index = c.pR-1-i
+
+        // val a = peek(c.io.out(index))
+        // println(s"Expect $expected, got $a (error ${a != expected})")
+
+        expect(c.io.out(index), expected) 
+      }
+      element -= c.pR
     }
+    poke(c.io.pop, 1)
     step(1)
-    poke(c.io.deq,0)
+    poke(c.io.pop,0)
   }
 
-  // fill FIFO halfway
+  // fill FILO halfway
   for (i <- 0 until c.depth/c.pW/2) {
     push()
   }
@@ -38,7 +43,7 @@ class FIFOTests(c: FIFO) extends PeekPokeTester(c) {
   // hold for a bit
   step(5)
 
-  // pop FIFO halfway
+  // pop FILO halfway
   for (i <- 0 until c.depth/c.pR/2) {
     pop()
   }
@@ -63,10 +68,10 @@ class FIFOTests(c: FIFO) extends PeekPokeTester(c) {
   val numTransactions = c.depth*10
   for (i <- 0 until numTransactions) {
     val newenable = rnd.nextInt(4)
-    if (pushElement - popElement < 2*p) push()
-    else if (pushElement - popElement >= (c.depth/p)-p) pop()
-    else if (newenable == 1) push()
-    else if (newenable == 2) pop()
+    if (element < 2*p) for (k <- 0 until p / c.pW) push()
+    else if (element >= (c.depth/p)-p) for (k <- 0 until p / c.pR) pop()
+    else if (newenable == 1) for (k <- 0 until p / c.pW) {push()}
+    else if (newenable == 2) for (k <- 0 until p / c.pR) {pop()}
     else step(1)
   }
   

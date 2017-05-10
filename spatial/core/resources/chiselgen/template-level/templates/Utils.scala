@@ -43,6 +43,7 @@ object ops {
     }
   }
 
+  
   implicit class UIntOps(val b:UInt) {
     // Define number so that we can be compatible with FixedPoint type
     def number = {
@@ -89,6 +90,10 @@ object ops {
 
     def === (c: FixedPoint): Bool = {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) === c      
+    }
+
+    def =/= (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) =/= c      
     }
 
     def - (c: FixedPoint): FixedPoint = {

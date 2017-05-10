@@ -42,7 +42,9 @@ coordinate() {
   files=(*)
   new_packets=()
   sorted_packets=()
-  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *".$branch."* ]]; then new_packets+=($f); fi; done
+  # Removed this $f = *"$branch"* check in the following 3 places because sbt seems to screw up when used in parallel
+  # for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *".$branch."* ]]; then new_packets+=($f); fi; done
+  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) ]]; then new_packets+=($f); fi; done
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
   rank=-1
@@ -58,7 +60,7 @@ coordinate() {
     files=(*)
     new_packets=()
     sorted_packets=()
-    for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *"$branch"* ]]; then new_packets+=($f); fi; done
+    for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) ]]; then new_packets+=($f); fi; done
     sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
     stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
     rank=-1
@@ -76,7 +78,7 @@ check_packet() {
   files=(*)
   new_packets=()
   sorted_packets=()
-  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *".$branch."* ]]; then new_packets+=($f); fi; done
+  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) ]]; then new_packets+=($f); fi; done
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
   rank=-1
@@ -480,7 +482,7 @@ notifications:
     recipients: mattfel@stanford.edu
     on_failure: never # default: always
 script:
-  - bash ./status.sh
+  - sudo bash ./status.sh # Is sudo now needed for travis?
 " > .travis.yml
 
     tracker="${SPATIAL_HOME}/${trackbranch}/results"
@@ -588,7 +590,7 @@ date >> ${5}/log" >> $1
     " >> $1
   fi
 
-  echo "//sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
+  echo "# sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
 cd ${SPATIAL_HOME}
   " >> $1
 
@@ -644,8 +646,8 @@ echo "
 wc=\$(cat ${5}/log | grep \"No rule to make target\" | wc -l)
 if [ \"\$wc\" -gt 0 ]; then
   echo \"[APP_RESULT] Annoying SBT crashing on ${3}_${4}.  Rerunning...\" >> ${log}
-  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
-  cd ../" >> $1
+  echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  cd ${5}" >> $1
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "  # Compile app
@@ -656,6 +658,13 @@ if [ \"\$wc\" -gt 0 ]; then
   ${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
+  echo "  cd ${5}/out
+  make vcs 2>&1 | tee -a ${5}/log" >> $1
+  if [[ ${type_todo} = "chisel" ]]; then
+    echo "  make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
+  fi
+
+
   echo "fi
 
 
@@ -685,7 +694,7 @@ bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
 if [ \"\$wc\" -gt 0 ]; then
   echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
-  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
   make vcs 2>&1 | tee -a ${5}/log
   make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
   bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
@@ -694,12 +703,18 @@ if [ \"\$wc\" -gt 0 ]; then
   wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
   if [ \"\$wc\" -gt 1 ]; then
     echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
-    echo \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
+    echo -e \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
     make vcs 2>&1 | tee -a ${5}/log
     make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
     bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
   fi
-
+fi
+# Check for annoying refusal to run that happens in scala sometimes
+wc=\$(cat ${5}/log | grep \"PASS\" | wc -l)
+if [ \"\$wc\" -eq 0 ]; then
+  echo \"[APP_RESULT] Annoying refusal to run ${3}_${4}.  Rerunning...\" >> ${log}
+  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 fi
 
 # Check for runtime errors

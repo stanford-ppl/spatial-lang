@@ -31,6 +31,7 @@ trait ChiselGenStream extends ChiselCodegen {
         case BurstDataBus() =>
         case BurstAckBus =>
         case ScatterAckBus =>
+        case GatherDataBus() =>
 //        case _ =>
 //          s"$bus" match => 
         case VideoCamera => 
@@ -65,6 +66,8 @@ trait ChiselGenStream extends ChiselCodegen {
       bus match {
         case BurstFullDataBus() =>
         case BurstCmdBus =>
+        case GatherAddrBus =>
+        case ScatterCmdBus() => 
         case VGA =>
           emit(src"// EMITTING FOR VGA; in OUTPUT REGISTERS, Output Register section $lhs", forceful=true)
           emit(src"io.stream_out_valid := ${lhs}_valid", forceful=true)

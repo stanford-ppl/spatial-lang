@@ -72,6 +72,23 @@ trait UnrolledExp { this: SpatialExp =>
     val mT = typ[T]
   }
 
+  case class ParFILOPop[T:Type:Bits](
+    filo: Exp[FILO[T]],
+    ens:  Seq[Exp[Bool]]
+  )(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
+    def mirror(f:Tx) = par_filo_pop(f(filo),f(ens))
+    val mT = typ[T]
+  }
+
+  case class ParFILOPush[T:Type:Bits](
+    filo: Exp[FILO[T]],
+    data: Seq[Exp[T]],
+    ens:  Seq[Exp[Bool]]
+  ) extends EnabledOp[Void](ens:_*) {
+    def mirror(f:Tx) = par_filo_push(f(filo),f(data),f(ens))
+    val mT = typ[T]
+  }
+
   case class ParStreamRead[T:Type:Bits](
     stream: Exp[StreamIn[T]],
     ens:    Seq[Exp[Bool]]
@@ -193,6 +210,22 @@ trait UnrolledExp { this: SpatialExp =>
     ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx) = {
     stageWrite(fifo)( ParFIFOEnq(fifo, data, ens) )(ctx)
+  }
+
+  private[spatial] def par_filo_pop[T:Type:Bits](
+    filo: Exp[FILO[T]],
+    ens:  Seq[Exp[Bool]]
+  )(implicit ctx: SrcCtx) = {
+    implicit val vT = vectorNType[T](ens.length)
+    stageWrite(filo)( ParFILOPop(filo, ens) )(ctx)
+  }
+
+  private[spatial] def par_filo_push[T:Type:Bits](
+    filo: Exp[FILO[T]],
+    data: Seq[Exp[T]],
+    ens:  Seq[Exp[Bool]]
+  )(implicit ctx: SrcCtx) = {
+    stageWrite(filo)( ParFILOPush(filo, data, ens) )(ctx)
   }
 
   private[spatial] def par_stream_read[T:Type:Bits](

@@ -8,7 +8,7 @@ object Kmeans extends SpatialApp { // Regression (Dense) // Args: 2 40
 
   val num_cents = 20
   val dim = 96
-  val pts_per_ld = 384 // ???
+  val pts_per_ld = 20 // ???
 
   val innerPar = 16
   val outerPar = 1

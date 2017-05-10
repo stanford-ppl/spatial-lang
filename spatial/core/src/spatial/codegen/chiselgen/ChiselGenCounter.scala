@@ -31,6 +31,13 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     emit(src"""val ${lhs}${suffix}_maxes = List(${counter_data.map(_._2).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}.mkString(",")}) """)
     emit(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4).mkString(",")}))) // Par of 0 creates forever counter""")
+    val ctrl = usersOf(lhs).head._1
+    if (suffix != "") {
+      emit(src"// this trivial signal will be assigned multiple times but each should be the same")
+      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | ${lhs}${suffix}_maxes.zip(${lhs}${suffix}_starts).map{case (max,start) => max-start}.reduce{_*_} === 0.U""")
+    } else {
+      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.head}_ctr_trivial | ${lhs}${suffix}_maxes.zip(${lhs}${suffix}_starts).map{case (max,start) => max-start}.reduce{_*_} === 0.U""")
+    }
     emit(src"""${lhs}${suffix}.io.input.maxes.zip(${lhs}${suffix}_maxes).foreach { case (port,max) => port := max.number }""")
     emit(src"""${lhs}${suffix}.io.input.strides.zip(${lhs}${suffix}_strides).foreach { case (port,stride) => port := stride.number }""")
     emit(src"""${lhs}${suffix}.io.input.starts.zip(${lhs}${suffix}_starts).foreach { case (port,start) => port := start.number }""")
@@ -116,6 +123,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
       if (styleOf(user) != StreamPipe) emitCounterChain(lhs, ctrs)
     case Forever() => 
       emit("// $lhs = Forever")
+      emit(src"val ${lhs}_trivial = ${controllerStack.tail.head}_ctr_trivial | false.B")
 
     case _ => super.emitNode(lhs, rhs)
   }

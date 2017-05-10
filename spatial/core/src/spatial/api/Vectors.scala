@@ -55,6 +55,9 @@ trait VectorExp { this: SpatialExp =>
       }
     }
 
+    // @api def reverse()(implicit mT: Meta[T], bT: Bits[T]): VectorN[T] = { // TODO: Implementme
+    // }
+
     // TODO: Why is .asInstanceOf required here?
     @generate
     @api def takeJJ$JJ$1to128(offset: Int)(implicit mT: Meta[T], bT: Bits[T]): VectorJJ[T] = {
