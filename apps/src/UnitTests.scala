@@ -689,6 +689,7 @@ object FifoLoadStore extends SpatialApp { // Regression (Unit) // Args: none
 
   val N = 32
 
+  @virtualize
   def fifoLoadStore[T:Type:Bits](srcHost: Array[T]) = {
     val tileSize = N
 
@@ -1542,7 +1543,7 @@ object BasicFSM extends SpatialApp { // Regression (Unit) // Args: none
     Accel {
       val bram = SRAM[Int](32)
 
-      FSM[Int]{state => state < 32}{state =>
+      FSM[Int, Int](0){state => state < 32}{state =>
         bram(state) = state
       }{state => state + 1}
 

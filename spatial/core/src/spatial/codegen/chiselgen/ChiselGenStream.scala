@@ -8,7 +8,7 @@ import spatial.SpatialExp
 import scala.collection.mutable.HashMap
 import spatial.targets.DE1._
 
-trait ChiselGenStream extends ChiselCodegen {
+trait ChiselGenStream extends ChiselGenSRAM {
   val IR: SpatialExp
   import IR._
 
@@ -27,13 +27,12 @@ trait ChiselGenStream extends ChiselCodegen {
     case StreamInNew(bus) =>
       emitGlobalWire(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
       emitGlobalWire(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
+      emitGlobalWire(src"val ${lhs} = Wire(${newWire(readersOf(lhs).head.node.tp)})")
       bus match {
         case BurstDataBus() =>
         case BurstAckBus =>
         case ScatterAckBus =>
         case GatherDataBus() =>
-//        case _ =>
-//          s"$bus" match => 
         case VideoCamera => 
           emit(src"// video in camera, node = $lhs", forceful=true)
           emit(src"// reset and output logic for video camera", forceful=true)
@@ -61,8 +60,14 @@ trait ChiselGenStream extends ChiselCodegen {
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
     case StreamOutNew(bus) =>
+      val wireType = writersOf(lhs).head.node match {
+        case Def(e@ParStreamWrite(_, data, ens)) => src"Vec(${ens.length}, ${newWire(data.head.tp)})"
+        case Def(e@StreamWrite(_, data, _)) => newWire(data.tp)
+      }
+
       emitGlobalWire(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
       emitGlobalWire(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
+      emitGlobalWire(src"val ${lhs} = Wire(${wireType})")
       bus match {
         case BurstFullDataBus() =>
         case BurstCmdBus =>
@@ -80,6 +85,7 @@ trait ChiselGenStream extends ChiselCodegen {
         case _ =>
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
+
     case StreamRead(stream, en) =>
       val isAck = stream match {
         case Def(StreamInNew(bus)) => bus match {
@@ -99,7 +105,7 @@ trait ChiselGenStream extends ChiselCodegen {
             case SliderSwitch => 
               emit(src"""val $lhs = io.switch_stream_in_data""")
             case BurstDataBus() => 
-              emit(src"""val $lhs = (0 until 1).map{ i => ${stream}_data(i) }""")
+              emit(src"""val $lhs = (0 until 1).map{ i => ${stream}(i) }""")
 
             case _ =>
               val id = argMapping(stream)._1
@@ -117,24 +123,24 @@ trait ChiselGenStream extends ChiselCodegen {
         case Def(StreamOutNew(bus)) => bus match {
             case VGA => 
               emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
-              emitGlobalWire(src"""val ${stream}_data = Wire(UInt(16.W))""")
+              emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
               emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
               emit(src"""// emiiting data for stream ${stream}""")
-              emit(src"""${stream}_data := $data""")
-              emit(src"""converted_data := ${stream}_data""")
+              emit(src"""${stream} := $data""")
+              emit(src"""converted_data := ${stream}""")
               emit(src"""${stream}_valid := ${parent}_en & ${en} & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime)""")
             case LEDR =>
-              emitGlobalWire(src"""val ${stream}_data = Wire(UInt(32.W))""")
+              emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
         //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
-              emit(src"""${stream}_data := $data""")
-              emit(src"""io.led_stream_out_data := ${stream}_data""")
+              emit(src"""${stream} := $data""")
+              emit(src"""io.led_stream_out_data := ${stream}""")
             case BurstFullDataBus() =>
               emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
-              emit(src"""${stream}_data := $data""")
+              emit(src"""${stream} := $data""")
 
             case BurstCmdBus =>  
               emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
-              emit(src"""${stream}_data := $data""")
+              emit(src"""${stream} := $data""")
 
             case _ => 
               emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
