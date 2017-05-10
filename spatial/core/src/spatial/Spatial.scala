@@ -261,7 +261,9 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += affineAnalyzer    // Memory access patterns
     passes += reduceAnalyzer    // Reduce/accumulator specialization
     passes += memAnalyzer       // Finalize banking/buffering
+
     // TODO: models go here
+    passes += latencyAnalyzer
 
     // --- Design Elaboration
     passes += printer

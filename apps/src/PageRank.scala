@@ -1,10 +1,10 @@
 import spatial._
 import org.virtualized._
 
-object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 768 0.125
+object PageRank extends SpatialApp {
   import IR._
-  type Elem = FixPt[TRUE,_16,_16] // Float
-  type X = FixPt[TRUE,_16,_16] // Float
+  type Elem = Float //FixPt[Signed, B16, B16]
+  type X = Float
 
   /*
                                           0
@@ -41,7 +41,7 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
   ) = {
 
     val NE = 9216
-    val tileSize = 16 // For now
+    val tileSize = 768 // For now
     val iters = ArgIn[Int]
     val NP    = ArgIn[Int]
     val damp  = ArgIn[T]
@@ -63,15 +63,11 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
     setMem(OCedgeLen, edgeLenIN)
 
     Accel {
-      val frontierOff = SRAM[Int](tileSize)
-      val currentPR = SRAM[T](tileSize)
-      // Flush frontierOff so we don't cause gather segfault. Flush currentPR because mux isn't do what I thought it would
-      Foreach(tileSize by 1) { i => frontierOff(i) = 0.to[Int]; currentPR(i) = 1.to[T]}
-
       Sequential.Foreach(iters by 1){ iter =>
         // val oldPrIdx = iter % 2.as[SInt]
         // val newPrIdx = mux(oldPrIdx == 1, 0.as[SInt], 1.as[SInt])
         Sequential.Foreach(NP by tileSize) { tid =>
+          val currentPR = SRAM[T](tileSize)
           val initPR = SRAM[T](tileSize)
 
           val edgesId = SRAM[Int](tileSize)
@@ -99,36 +95,33 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
 
             // Triage edges based on if they are in current tile or offchip
             val offLoc = SRAM[Int](tileSize)
-            val onChipMask = SRAM[Int](tileSize) // Really bitmask
             val offAddr = Reg[Int](-1)
             Sequential.Foreach(numEdges.value by 1){ i =>
               val addr = edges(i) // Write addr to both tiles, but only inc one addr
-              val onchip = addr >= tid && addr < tid+tileSize
+            val onchip = addr >= tid && addr < tid+tileSize
               offAddr := offAddr.value + mux(onchip, 0, 1)
-              offLoc(i) = mux(onchip, offAddr.value, (tileSize-1).to[Int]) // Probably no need to mux here
-              onChipMask(i) = mux(onchip, 1.to[Int], 0.to[Int])
+              offLoc(i) = mux(onchip, offAddr.value, -1.to[Int])
             }
 
             // Set up gather addresses
+            val frontierOff = SRAM[Int](tileSize)
             Sequential.Foreach(numEdges.value by 1){i =>
               frontierOff(offLoc(i)) = edges(i)
             }
 
             // Gather offchip ranks
             val gatheredPR = SRAM[T](tileSize)
-            val num2gather = max(offAddr.value + 1.to[Int], 0.to[Int]) // Probably no need for mux
-            gatheredPR gather OCpages(frontierOff, num2gather)
+            gatheredPR gather OCpages(frontierOff, offAddr.value)
 
             // Compute new PR
             val pr = Reduce(Reg[T])(numEdges.value by 1){ i =>
               val addr = edges(i)
               val off  = offLoc(i)
-              val mask = onChipMask(i)
               val onchipRank = pageRank(addr - tid)
 
               val offchipRank = gatheredPR(off)
 
-              val rank = mux(mask == 1.to[Int], onchipRank, offchipRank)
+              val rank = mux(off == -1.to[Int], onchipRank, offchipRank)
 
               rank / counts(i)
             }{_+_}
@@ -138,7 +131,10 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
             currentPR(pid) = pr.value * damp + (1.to[T] - damp)
 
             // Reset counts (Plasticine: assume this is done by CUs)
-            Pipe{offAddr := -1}
+            /*Parallel{
+              Pipe{onAddr := 0}
+              Pipe{offAddr := 0}
+            }*/
 
           }
           OCpages(tid::tid+tileSize) store currentPR

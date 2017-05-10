@@ -23,10 +23,10 @@ trait LatencyAnalyzer extends ModelingTraversal {
     case Def(CounterChainNew(ctrs)) =>
       val loopIters = ctrs.map{
         case Def(CounterNew(start,end,stride,par)) =>
-          val min = boundOf.get(start).map(_.toDouble).getOrElse(0.0)
-          val max = boundOf.get(end).map(_.toDouble).getOrElse(1.0)
-          val step = boundOf.get(stride).map(_.toDouble).getOrElse(1.0)
-          val p = boundOf.get(par).map(_.toDouble).getOrElse(1.0)
+          val min = boundOf.get(start).map(_.toDouble).getOrElse{warn(u"Don't know bound of $start"); 0.0}
+          val max = boundOf.get(end).map(_.toDouble).getOrElse{warn(u"Don't know bound of $end"); 1.0}
+          val step = boundOf.get(stride).map(_.toDouble).getOrElse{warn(u"Don't know bound of $stride"); 1.0}
+          val p = boundOf.get(par).map(_.toDouble).getOrElse{warn(u"Don't know bound of $par"); 1.0}
 
           val nIters = Math.ceil(max - min/step)
           if (ignorePar)
