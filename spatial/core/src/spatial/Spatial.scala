@@ -18,8 +18,6 @@ import spatial.codegen.scalagen._
 import spatial.codegen.chiselgen._
 import spatial.codegen.pirgen._
 import spatial.codegen.cppgen._
-import spatial.models.PIRHackyLatencyAnalyzer
-
 
 protected trait SpatialExp
   extends ArgonExp with SpatialExceptions with MatrixExp

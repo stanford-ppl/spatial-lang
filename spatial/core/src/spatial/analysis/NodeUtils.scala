@@ -154,7 +154,7 @@ trait NodeUtils { this: SpatialExp =>
     **/
   def lcaWithCoarseDistance(a: Access, b: Access): (Ctrl, Int) = {
     val (lca, dist) = lcaWithDistance(a.ctrl, b.ctrl)
-    val coarseDistance = if (isMetaPipe(lca)) dist else 0
+    val coarseDistance = if (isMetaPipe(lca) || isStreamPipe(lca)) dist else 0
     (lca, coarseDistance)
   }
 

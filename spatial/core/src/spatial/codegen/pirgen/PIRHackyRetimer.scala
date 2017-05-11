@@ -1,9 +1,9 @@
-package spatial.transform
+package spatial.codegen.pirgen
 
-import scala.collection.mutable
 import argon.transform.ForwardTransformer
 import spatial._
-import spatial.models._
+
+import scala.collection.mutable
 
 trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal { retimer =>
   val IR: SpatialExp

@@ -1,4 +1,6 @@
-package spatial.models
+package spatial.codegen.pirgen
+
+import spatial.models.LatencyModel
 
 trait PlasticineLatencyModel extends LatencyModel {
   import IR._
