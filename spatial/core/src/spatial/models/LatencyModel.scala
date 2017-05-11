@@ -7,7 +7,7 @@ trait LatencyModel {
   val IR: SpatialExp
   import IR._
 
-  var clockRate = 150.0f        // Frequency in MHz
+  var clockRate = 1000.0f        // Frequency in MHz
   var baseCycles = 43000        // Number of cycles required for startup
   var addRetimeRegisters = true // Enable adding registers after specified comb. logic
   var modelVerbosity = 1
