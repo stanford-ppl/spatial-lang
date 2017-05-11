@@ -516,7 +516,7 @@ trait MemoryAnalyzer extends CompilerPass {
     val banking = indexPatternsToBanking(patterns, strides)
 
     val banks = banking.map(_.banks).product
-    val duplicates = channels / banks
+    val duplicates = Math.max(channels / banks, 1)
 
     dbg(s"")
     dbg(s"  access: ${str(access)}")

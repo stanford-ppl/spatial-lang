@@ -349,15 +349,23 @@ trait PIRSplitting extends PIRTraversal {
       // Copy all, but only retain those in the partition
       cu.cchains = cu.cchains.filter{cc => part.cchains.exists{_.name == cc.name}}
 
-      // TODO
-      def tx(cc: CUCChain): CUCChain = {
-        if (f.contains(cc)) f(cc)
+      def tx(cc: CUCChain): CUCChain = f.getOrElse(cc, cc)
+        /*val ins = localInputs(cc)
+        val ins2 = ins.map(x => portIn(x,true))
+        val swap = ins.zip(ins2).toMap*/
+
+        /*cc2 match {
+          case cc: CUChainInstance =>
+          case _ => cc2
+        }*/
+
+        /*if (f.contains(cc)) f(cc)
         else if (f.values.toList.contains(cc)) cc  // HACK: DSE
         else {
           val mapping = f.map{case (k,v) => s"$k -> $v"}.mkString("\n")
           throw new Exception(s"Attempted to copy counter $cc in CU $ctrl, but no such counter exists.\nMapping:\n$mapping")
-        }
-      }
+        }*/
+      //}
       def swap_cchain_Reg(x: LocalComponent) = x match {
         case CounterReg(cc,idx) => CounterReg(tx(cc), idx)
         case ValidReg(cc,idx) => ValidReg(tx(cc), idx)
