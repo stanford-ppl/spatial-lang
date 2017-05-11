@@ -123,6 +123,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
       if (styleOf(user) != StreamPipe) emitCounterChain(lhs, ctrs)
     case Forever() => 
       emit("// $lhs = Forever")
+
     case _ => super.emitNode(lhs, rhs)
   }
 

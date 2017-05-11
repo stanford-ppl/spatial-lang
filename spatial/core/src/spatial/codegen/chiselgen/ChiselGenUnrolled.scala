@@ -279,8 +279,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
             }
             emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ShiftRegister(${parent}_datapath_en, ${parent}_retime)""")
             if (!isAck) {
-              emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}_data(i) }""")
-              emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}_data(i) }""")
+              emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}(i) }""")
+              emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
             } else {
               emit(src"""// Do not read from dummy ack stream $strm""")        
             }
@@ -293,9 +293,9 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case ParStreamWrite(strm, data, ens) =>
       val par = ens.length
       val parent = parentOf(lhs).get
-      val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
+      val datacsv = data.map{d => src"${d}"}.mkString(",")
       val en = ens.map(quote).mkString("&")
-      emit(src"${strm}_data := Vec(List(${datacsv}))")
+      emit(src"${strm} := Vec(List(${datacsv}))")
       emit(src"${strm}_valid := $en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${parent}_retime) & ~${parent}_done /*mask off double-enq for sram loads*/")
       
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
