@@ -4,6 +4,8 @@ import org.virtualized._
 object InOutArg extends SpatialApp {  // Regression (Unit) // Args: 5
   import IR._
 
+  override val target = targets.AWS_F1
+
   @virtualize
   def main() {
     // Declare SW-HW interface vals
@@ -495,8 +497,8 @@ object DeviceMemcpy extends SpatialApp { // Regression (Unit) // Args: 50
 object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 100
   import IR._
 
-  val N = 32
-//  override val target = targets.AWS_F1
+  val N = 256
+  override val target = targets.AWS_F1
 
   def simpleLoadStore[T:Staged:Num](srcHost: Array[T], value: T) = {
     val loadPar  = 1 (1 -> 1)
@@ -600,6 +602,8 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
 
 object ParFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
   import IR._
+
+  override val target = targets.AWS_F1
 
   val tileSize = 64
   def parFifoLoad[T:Staged:Num](src1: Array[T], src2: Array[T], src3: Array[T], in: Int) = {

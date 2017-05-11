@@ -20,6 +20,8 @@ Getting Started
 
 Check out our :doc:`tutorial <tutorial/starting>` to get started!
 
+To run Spatial on the new Amazon EC2 FPGA instances, see :doc:`the AWS Tutorial <aws/intro>`.
+
 
 Contents
 --------
@@ -31,4 +33,5 @@ Contents
    software
    hardware
    tutorial
+   aws
    theory

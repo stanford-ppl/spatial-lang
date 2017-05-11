@@ -4,6 +4,8 @@ import org.virtualized._
 object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 8 128 64
   import IR._
 
+  override val target = targets.AWS_F1
+
   type X = Int
 
   val innerPar = 1
