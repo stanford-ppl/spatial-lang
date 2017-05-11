@@ -23,4 +23,5 @@ object DE1 extends FPGATarget {
 
   case object GPInput extends Bus { def length = 32 }
   case object GPOutput extends Bus { def length = 32 }
+  case object GPIO extends Bus { def length = 32 }
 }

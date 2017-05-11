@@ -6,8 +6,8 @@ object FrameStreaming extends SpatialApp {
   import IR._
 
   override val target = DE1
-  val Cmax = 240
-  val Rmax = 320
+  val Cmax = 320
+  val Rmax = 240
 
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
 

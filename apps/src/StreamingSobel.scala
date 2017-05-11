@@ -16,7 +16,7 @@ object StreamingSobel extends SpatialApp {
   type UInt8 = FixPt[FALSE,_8,_0]
   type UInt5 = FixPt[FALSE,_5,_0]
   type UInt6 = FixPt[FALSE,_6,_0]
-  @struct case class Pixel24(b: UInt8, g: UInt8, r: UInt8)
+//  @struct case class Pixel24(b: UInt8, g: UInt8, r: UInt8)
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
 
   @virtualize
@@ -26,7 +26,7 @@ object StreamingSobel extends SpatialApp {
     setArg(R, rows)
     setArg(C, cols)
 
-    val imgIn  = StreamIn[Pixel24](target.VideoCamera)
+    val imgIn  = StreamIn[Pixel16](target.VideoCamera)
     val imgOut = StreamOut[Pixel16](target.VGA)
 
     Accel {

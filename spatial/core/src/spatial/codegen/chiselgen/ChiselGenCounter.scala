@@ -123,12 +123,6 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
       if (styleOf(user) != StreamPipe) emitCounterChain(lhs, ctrs)
     case Forever() => 
       emit("// $lhs = Forever")
-
-      if (controllerStack.length > 0) {
-        val ctrl = usersOf(lhs).head._1
-        emit(src"val ${lhs}_ctr_trivial = ${controllerStack.head}_ctr_trivial | false.B")
-      }    
-
     case _ => super.emitNode(lhs, rhs)
   }
 
