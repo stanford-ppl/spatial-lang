@@ -63,8 +63,7 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
         // oobApply(op.mT, lb, lhs, Seq(row,col)){ emit(src"$lb.apply($row,$col+i)") }
       // close("}")
       
-    case op@LineBufferLoad(lb,row,col,en) =>
-      emit(src"$lb.io.col_addr(0) := ${col}.raw")
+    case op@LineBufferLoad(lb,row,col,en) => emit(src"$lb.io.col_addr(0) := ${col}.raw")
       emit(s"val ${quote(lhs)} = ${quote(lb)}.readRow(${row}.raw)")
 
     case op@LineBufferEnq(lb,data,en) =>

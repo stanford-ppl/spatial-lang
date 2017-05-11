@@ -11,10 +11,13 @@ trait PIRAreaModelHack extends PIRTraversal {
   val mappingIn  = mutable.HashMap[Expr, List[CU]]()
   var totalArea = 0.0
   var totalMemArea = 0.0
+  var largestMem = 0.0
+  var nPMUs = 0
 
   override protected def postprocess[A:Type](b: Block[A]) = {
     report("Estimated ASIC area: " + totalArea)
     report("Estimated ASIC mem area: " + totalMemArea)
+    report(s"PMUs: $nPMUs x $largestMem")
     super.postprocess(b)
   }
 
@@ -26,6 +29,7 @@ trait PIRAreaModelHack extends PIRTraversal {
         val ccArea = cu.cchains.map(cchainArea).sum
 
         if (cu.isPMU) {
+          nPMUs += 1
           val memArea = cu.mems.map(sramArea).sum
           totalArea += (stageArea + ccArea + memArea)
           totalMemArea += memArea
@@ -95,18 +99,30 @@ trait PIRAreaModelHack extends PIRTraversal {
 
   def sramArea(sram: CUMemory): Double = {
     def cacti(bytes: Double): Double = {
-      if (bytes < 10000)        { 0.000007725*bytes + 0.011 }
+      if (bytes < 1000)         { 0.00001117*bytes + 0.00111 }
+      else if (bytes < 10000)   { 0.000007725*bytes + 0.011 }
       else if (bytes < 1000000) { 0.000007064*bytes + 0.133 }
       else { warn(s"Don't know how to size sram of size $bytes bytes"); 0.0 }
     }
+    var buffers = 1.0
+    try {
+      buffers = duplicatesOf(sram.mem).head.depth.toDouble
+    } catch { case _:Throwable => }
 
-    val area = sram.banking match {
-      case Some(Strided(stride)) => 16 * cacti(4*sram.size.toDouble/16)
-      case Some(Duplicated)      => 16 * cacti(4*sram.size.toDouble)
-      case Some(NoBanks)         => cacti(4*sram.size.toDouble)
-      case _                     => cacti(4*sram.size.toDouble)
+    val area = buffers * (if (sram.size > 8) {
+      sram.banking match {
+        case Some(Strided(stride)) => 16 * cacti(4*sram.size.toDouble/16)
+        case Some(Duplicated)      => 16 * cacti(4*sram.size.toDouble)
+        case Some(NoBanks)         => cacti(4*sram.size.toDouble)
+        case _                     => cacti(4*sram.size.toDouble)
+      }
     }
-    dbg(s"  sram (size: ${sram.size}, banking: ${sram.banking}): $area")
+    else {
+      regArea(false) * sram.size
+    })
+    if (area > largestMem) largestMem = area
+
+    dbg(s"  sram (size: ${sram.size}, banking: ${sram.banking}, buffers: $buffers): $area")
     area
   }
 

@@ -122,7 +122,10 @@ trait SRAMExp { this: SpatialExp =>
       wrap(sram_store[T](mem.s, stagedDimsOf(mem.s),unwrap(is),lift[Int,Index](0).s,data.s,en.s))
     }
     def iterators(mem: C[T])(implicit ctx: SrcCtx): Seq[Counter] = {
-      stagedDimsOf(mem.s).map{d => Counter(0, wrap(d), 1, 1) }
+      stagedDimsOf(mem.s).zipWithIndex.map{case (d,i) =>
+        val par = if (i == stagedDimsOf(mem.s).length-1) mem.p.getOrElse(lift(1)) else lift(1)
+        Counter(0, wrap(d), 1, par)
+      }
     }
   }
   //implicit def sramNIsMemory[T:Meta:Bits]: Mem[T,SRAMN] = new SRAMIsMemory[T,SRAMN]
