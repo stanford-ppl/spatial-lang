@@ -69,6 +69,9 @@ class AWSInterface(p: TopParams) extends TopInterface {
   val dbg_num_cmd_ready_enable = Output(UInt(32.W))
   val dbg_num_resp_valid = Output(UInt(32.W))
   val dbg_num_resp_valid_enable = Output(UInt(32.W))
+  val dbg_num_rdata_enq = Output(UInt(32.W))
+  val dbg_num_rdata_deq = Output(UInt(32.W))
+  val dbg_num_app_rdata_ready = Output(UInt(32.W))
 
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
@@ -183,6 +186,10 @@ class Top(
       topIO.dbg_num_cmd_ready_enable := fringe.io.dbg_num_cmd_ready_enable
       topIO.dbg_num_resp_valid := fringe.io.dbg_num_resp_valid
       topIO.dbg_num_resp_valid_enable := fringe.io.dbg_num_resp_valid_enable
+
+      topIO.dbg_num_rdata_enq := fringe.io.dbg_num_rdata_enq
+      topIO.dbg_num_rdata_deq := fringe.io.dbg_num_rdata_deq
+      topIO.dbg_num_app_rdata_ready := fringe.io.dbg_num_app_rdata_ready
 
     case _ =>
       throw new Exception(s"Unknown target '$target'")

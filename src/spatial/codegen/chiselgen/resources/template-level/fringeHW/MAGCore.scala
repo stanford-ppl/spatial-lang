@@ -40,6 +40,9 @@ class MAGCore(
     val dbg_num_cmd_ready_enable = Output(UInt(32.W))
     val dbg_num_resp_valid = Output(UInt(32.W))
     val dbg_num_resp_valid_enable = Output(UInt(32.W))
+    val dbg_num_rdata_enq = Output(UInt(32.W))
+    val dbg_num_rdata_deq = Output(UInt(32.W))
+    val dbg_num_app_rdata_ready = Output(UInt(32.W))
 
 //    val app = Vec(numStreams, new MemoryStream(w, v))
     val app = new AppStreams(loadStreamInfo, storeStreamInfo)
@@ -303,7 +306,7 @@ class MAGCore(
   val rdataFifos = List.tabulate(loadStreamInfo.size) { i =>
     val m = Module(new WidthConverterFIFO(32, io.dram.resp.bits.rdata.size, loadStreamInfo(i).w, loadStreamInfo(i).v, d))
     m.io.enq := io.dram.resp.bits.rdata
-    m.io.enqVld := respValid & streamTagFromDRAM === i.U
+    m.io.enqVld := respValid & (streamTagFromDRAM === i.U)
     m
   }
 
@@ -324,7 +327,7 @@ class MAGCore(
   val wrespFifos = List.tabulate(storeStreamInfo.size) { i =>
     val m = Module(new FIFOCounter(d, 1))
     m.io.enq(0) := respValid
-    m.io.enqVld := respValid & streamTagFromDRAM === (i + loadStreamInfo.size).U
+    m.io.enqVld := respValid & (streamTagFromDRAM === (i + loadStreamInfo.size).U)
     m
   }
 
@@ -392,6 +395,30 @@ class MAGCore(
   numRespAndEnableHighCtr.io.stride := 1.U
   numRespAndEnableHighCtr.io.enable := io.dram.resp.valid & io.enable
   io.dbg_num_resp_valid_enable := numRespAndEnableHighCtr.io.out
+
+  val rdataEnqCtr = Module(new Counter(32))
+  rdataEnqCtr.io.reset := 0.U
+  rdataEnqCtr.io.saturate := 0.U
+  rdataEnqCtr.io.max := 100000000.U
+  rdataEnqCtr.io.stride := 1.U
+  rdataEnqCtr.io.enable := respValid & (streamTagFromDRAM === 0.U)
+  io.dbg_num_rdata_enq := rdataEnqCtr.io.out
+
+  val rdataDeqCtr = Module(new Counter(32))
+  rdataDeqCtr.io.reset := 0.U
+  rdataDeqCtr.io.saturate := 0.U
+  rdataDeqCtr.io.max := 100000000.U
+  rdataDeqCtr.io.stride := 1.U
+  rdataDeqCtr.io.enable := io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty
+  io.dbg_num_rdata_deq := rdataDeqCtr.io.out
+
+  val appRdataReadyCtr = Module(new Counter(32))
+  appRdataReadyCtr.io.reset := 0.U
+  appRdataReadyCtr.io.saturate := 0.U
+  appRdataReadyCtr.io.max := 100000000.U
+  appRdataReadyCtr.io.stride := 1.U
+  appRdataReadyCtr.io.enable := io.app.loads(0).rdata.ready
+  io.dbg_num_app_rdata_ready := appRdataReadyCtr.io.out
 }
 
 //class MemoryTester (
