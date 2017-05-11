@@ -58,34 +58,37 @@ object StreamingSobel extends SpatialApp {
       val fifoIn = FIFO[Int16](128)
       val fifoOut = FIFO[Int16](128)
       val lb = LineBuffer[Int16](Kh, Cmax)
-      val lbReady = FIFO[Bool](128)
+      // val lbReady = FIFO[Bool](2) // TODO: Not sure if this should be 1, 2, 3, or huge to prevent over-buffering
 
       Stream(*) { _ =>
         val pixel = imgIn.value()
         val grayPixel = (pixel.b.to[Int16] + pixel.g.to[Int16] + pixel.r.to[Int16]) / 3
         fifoIn.enq( grayPixel )
 
-        Pipe {
-          Foreach(0 until Cmax){ _ => lb.enq(fifoIn.deq(), true) }
-          lbReady.enq(true)
-        }
-
         Foreach(0 until R) { r =>
-          lbReady.deq()
-          Foreach(0 until Cmax) { c =>
-            Foreach(0 until Kh par Kh) { i => sr(i, *) <<= lb(i, c) }
 
-            val horz = Reduce(Reg[Int16])(Kh by 1, Kw by 1) { (i, j) =>
-              val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
-              number * kh(i, j)
-            }{_+_}
+          Pipe {
+            Foreach(0 until Cmax){ _ => lb.enq(fifoIn.deq(), true) }
+            // lbReady.enq(true)
+          }
 
-            val vert = Reduce(Reg[Int16])(Kh by 1, Kw by 1) { (i, j) =>
-              val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
-              number * kv(i, j)
-            }{_+_}
+          Pipe {
+            // lbReady.deq()
+            Foreach(0 until Cmax) { c =>
+              Foreach(0 until Kh par Kh) { i => sr(i, *) <<= lb(i, c) }
 
-            fifoOut.enq( abs(horz.value) + abs(vert.value) ) // Technically should be sqrt(horz**2 + vert**2)
+              val horz = Reduce(Reg[Int16])(Kh by 1, Kw by 1) { (i, j) =>
+                val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
+                number * kh(i, j)
+              }{_+_}
+
+              val vert = Reduce(Reg[Int16])(Kh by 1, Kw by 1) { (i, j) =>
+                val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
+                number * kv(i, j)
+              }{_+_}
+
+              fifoOut.enq( abs(horz.value) + abs(vert.value) ) // Technically should be sqrt(horz**2 + vert**2)
+            }
           }
         }
 

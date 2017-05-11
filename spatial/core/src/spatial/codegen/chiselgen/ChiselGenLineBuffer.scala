@@ -5,7 +5,7 @@ import spatial.api.LineBufferExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
-trait ChiselGenLineBuffer extends ChiselCodegen {
+trait ChiselGenLineBuffer extends ChiselGenController {
   val IR: SpatialExp
   import IR._
 
@@ -74,6 +74,16 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
     case _ => super.emitNode(lhs, rhs)
   }
 
+  def getStreamAdjustment(c: Exp[Any]): String = {
+      // If we are inside a stream pipe, the following may be set
+      if (childrenOf(c).length == 0) {
+        getStreamEnablers(c)
+      } else {
+        childrenOf(c).map{getStreamEnablers(_).replace(" ","")}.filter(_ != "").mkString{"&"}
+      }
+
+  }
+
   override protected def emitFileFooter() {
     withStream(getStream("BufferControlCxns")) {
       linebufs.foreach{ mem => 
@@ -94,13 +104,16 @@ trait ChiselGenLineBuffer extends ChiselCodegen {
         val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
         val numStagesInbetween = lastActivePort - firstActivePort
 
+
         (0 to numStagesInbetween).foreach { port =>
           val ctrlId = port + firstActivePort
+          // If the vertex of this linebuf is a stream controller, the _en needs to respect all holder/enabler signals inside of node
           val node = allSiblings(ctrlId)
+          val streamAdjustment = getStreamAdjustment(node)
           val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
           val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
           val empty = if (rd == "" & wr == "") "empty" else ""
-          emit(src"""${mem}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
+          emit(src"""${mem}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en ${streamAdjustment}, List(${port})) /*$rd $wr $empty*/""")
         }
 
         emit(src"""${mem}.lockUnusedCtrl() // Specific method for linebufs, since there is one ctrl port per line, but possibly not an access per line """)
