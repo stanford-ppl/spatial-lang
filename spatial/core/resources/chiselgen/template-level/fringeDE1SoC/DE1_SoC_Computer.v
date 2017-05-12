@@ -401,10 +401,10 @@ Computer_System The_System (
 	.pushbuttons_export						(~KEY[3:0]),
 
 	// Expansion JP1
-//	.expansion_jp1_export					({GPIO_0[35:19], GPIO_0[17], GPIO_0[15:3], GPIO_0[1]}),
+	.expansion_jp1_export					({GPIO_0[35:19], GPIO_0[17], GPIO_0[15:3], GPIO_0[1]}),
 
 	// Expansion JP2
-//	.expansion_jp2_export					({GPIO_1[35:19], GPIO_1[17], GPIO_1[15:3], GPIO_1[1]}),
+	.expansion_jp2_export					({GPIO_1[35:19], GPIO_1[17], GPIO_1[15:3], GPIO_1[1]}),
 
 	// LEDs
 	.leds_export								(LEDR),

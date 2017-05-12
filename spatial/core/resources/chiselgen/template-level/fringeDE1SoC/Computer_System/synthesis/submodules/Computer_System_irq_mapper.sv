@@ -20,9 +20,9 @@
 // Altera IRQ Mapper
 //
 // Parameters
-//   NUM_RCVRS        : 1
+//   NUM_RCVRS        : 3
 //   SENDER_IRW_WIDTH : 32
-//   IRQ_MAP          : 0:1
+//   IRQ_MAP          : 0:1,1:11,2:12
 //
 // -------------------------------------------------------
 
@@ -40,6 +40,8 @@ module Computer_System_irq_mapper
     // IRQ Receivers
     // -------------------
     input                receiver0_irq,
+    input                receiver1_irq,
+    input                receiver2_irq,
 
     // -------------------
     // Command Source (Output)
@@ -52,6 +54,8 @@ module Computer_System_irq_mapper
 	sender_irq = 0;
 
         sender_irq[1] = receiver0_irq;
+        sender_irq[11] = receiver1_irq;
+        sender_irq[12] = receiver2_irq;
     end
 
 endmodule

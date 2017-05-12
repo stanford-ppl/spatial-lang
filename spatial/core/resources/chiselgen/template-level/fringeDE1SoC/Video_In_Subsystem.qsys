@@ -133,6 +133,28 @@
    type="avalon"
    dir="start" />
  <interface
+   name="top_io_gpi1_streamin"
+   internal="Top.io_GPI1_STREAMIN"
+   type="avalon"
+   dir="start" />
+ <interface name="top_io_gpi1_streamout" internal="Top.io_GPI1_STREAMOUT" />
+ <interface
+   name="top_io_gpi2_streamin"
+   internal="Top.io_GPI2_STREAMIN"
+   type="avalon"
+   dir="start" />
+ <interface name="top_io_gpi2_streamout" internal="Top.io_GPI2_STREAMOUT" />
+ <interface
+   name="top_io_gpo1_streamout"
+   internal="Top.io_GPO1_STREAMOUT"
+   type="avalon"
+   dir="start" />
+ <interface
+   name="top_io_gpo2_streamout"
+   internal="Top.io_GPO2_STREAMOUT"
+   type="avalon"
+   dir="start" />
+ <interface
    name="top_io_ledr_stream"
    internal="Top.io_LEDR_STREAM"
    type="avalon"

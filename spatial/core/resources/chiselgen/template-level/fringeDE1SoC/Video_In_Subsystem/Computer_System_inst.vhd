@@ -1,5 +1,7 @@
 	component Computer_System is
 		port (
+			expansion_jp1_export            : inout std_logic_vector(31 downto 0) := (others => 'X'); -- export
+			expansion_jp2_export            : inout std_logic_vector(31 downto 0) := (others => 'X'); -- export
 			hps_io_hps_io_emac1_inst_TX_CLK : out   std_logic;                                        -- hps_io_emac1_inst_TX_CLK
 			hps_io_hps_io_emac1_inst_TXD0   : out   std_logic;                                        -- hps_io_emac1_inst_TXD0
 			hps_io_hps_io_emac1_inst_TXD1   : out   std_logic;                                        -- hps_io_emac1_inst_TXD1
@@ -109,6 +111,8 @@
 
 	u0 : component Computer_System
 		port map (
+			expansion_jp1_export            => CONNECTED_TO_expansion_jp1_export,            --        expansion_jp1.export
+			expansion_jp2_export            => CONNECTED_TO_expansion_jp2_export,            --        expansion_jp2.export
 			hps_io_hps_io_emac1_inst_TX_CLK => CONNECTED_TO_hps_io_hps_io_emac1_inst_TX_CLK, --               hps_io.hps_io_emac1_inst_TX_CLK
 			hps_io_hps_io_emac1_inst_TXD0   => CONNECTED_TO_hps_io_hps_io_emac1_inst_TXD0,   --                     .hps_io_emac1_inst_TXD0
 			hps_io_hps_io_emac1_inst_TXD1   => CONNECTED_TO_hps_io_hps_io_emac1_inst_TXD1,   --                     .hps_io_emac1_inst_TXD1
