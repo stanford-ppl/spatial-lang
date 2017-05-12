@@ -141,7 +141,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
         case _ => false
       }
       val parent = parentOf(lhs).get
-      emit(src"""${stream}_ready := ${en} & chisel3.util.ShiftRegister(${parent}_datapath_en, ${symDelay(en)}) """)
+      emit(src"""${stream}_ready := ${en} & chisel3.util.ShiftRegister(${parent}_datapath_en, ${symDelay(lhs)}) """)
       if (!isAck) {
         stream match {
           case Def(StreamInNew(bus)) => bus match {
@@ -173,22 +173,22 @@ trait ChiselGenStream extends ChiselGenSRAM {
               emit(src"""// emiiting data for stream ${stream}""")
               emit(src"""${stream} := $data""")
               emit(src"""converted_data := ${stream}""")
-              emit(src"""${stream}_valid := ${en} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(en)})""")
+              emit(src"""${stream}_valid := ${en} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)})""")
             case LEDR =>
               emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
         //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
               emit(src"""${stream} := $data""")
               emit(src"""io.led_stream_out_data := ${stream}""")
             case BurstFullDataBus() =>
-              emit(src"""${stream}_valid := ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(en)}) & $en""")
+              emit(src"""${stream}_valid := ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
               emit(src"""${stream} := $data""")
 
             case BurstCmdBus =>  
-              emit(src"""${stream}_valid := chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(en)}) & $en""")
+              emit(src"""${stream}_valid := chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
               emit(src"""${stream} := $data""")
 
             case _ => 
-              emit(src"""${stream}_valid := ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(en)}) & $en""")
+              emit(src"""${stream}_valid := ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
               val id = argMapping(stream)._1
               Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
               emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now

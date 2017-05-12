@@ -86,8 +86,8 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
     def delayOf(x: Exp[_]): Int = symLatency.getOrElse(x, 0L).toInt
 
     symLatency.foreach{case (s,l) =>
-      symDelay(s) = if (SpatialConfig.enableRetiming) l else 0
-      dbgs(c"  ${str(s)} [$l]")
+      symDelay(s) = l - latencyOf(s)
+      dbgs(c"  symDelay ${str(s)} [${l-latencyOf(s)}]")
     }
 
     dbgs("Calculating delays for each node: ")

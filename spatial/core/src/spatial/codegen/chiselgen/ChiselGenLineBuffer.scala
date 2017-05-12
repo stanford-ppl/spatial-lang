@@ -79,7 +79,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       if (childrenOf(c).length == 0) {
         getStreamEnablers(c)
       } else {
-        childrenOf(c).map{getStreamEnablers(_)}.filter(_.trim().length > 0).mkString{" & "}
+        childrenOf(c).map{getStreamEnablers(_)}.filter(_.trim().length > 0).mkString{" "}
       }
 
   }
