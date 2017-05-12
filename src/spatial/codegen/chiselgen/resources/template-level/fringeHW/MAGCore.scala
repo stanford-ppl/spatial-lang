@@ -300,7 +300,7 @@ class MAGCore(
     issuedTag := 0.U
   }
 
-  val respValid = io.dram.resp.valid & io.enable
+  val respValid = io.dram.resp.valid // & io.enable
   val streamTagFromDRAM = if (blockingDRAMIssue) getStreamTag(issuedTag) else getStreamTag(io.dram.resp.bits.tag)
 
   val rdataFifos = List.tabulate(loadStreamInfo.size) { i =>
