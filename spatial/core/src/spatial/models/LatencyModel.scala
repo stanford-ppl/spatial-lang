@@ -121,10 +121,11 @@ trait LatencyModel {
     case _:ParRegFileShiftIn[_] => 1
 
     // Streams
-    case _:StreamRead[_]     => 0
-    case _:ParStreamRead[_]  => 0
-    case _:StreamWrite[_]    => 0
-    case _:ParStreamWrite[_] => 0
+    case _:StreamRead[_]        => 0
+    case _:ParStreamRead[_]     => 0
+    case _:StreamWrite[_]       => 0
+    case _:ParStreamWrite[_]    => 0
+    case _:BufferedOutWrite[_]  => 0
 
     // FIFOs
     case _:FIFOEnq[_]    => 1

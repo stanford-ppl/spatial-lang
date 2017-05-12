@@ -39,13 +39,13 @@
 // ------------------------------------------
 // Generation parameters:
 //   output_name:         Computer_System_mm_interconnect_0_cmd_mux_002
-//   NUM_INPUTS:          3
-//   ARBITRATION_SHARES:  1 1 1
+//   NUM_INPUTS:          4
+//   ARBITRATION_SHARES:  1 1 1 1
 //   ARBITRATION_SCHEME   "round-robin"
 //   PIPELINE_ARB:        1
 //   PKT_TRANS_LOCK:      72 (arbitration locking enabled)
 //   ST_DATA_W:           129
-//   ST_CHANNEL_W:        4
+//   ST_CHANNEL_W:        5
 // ------------------------------------------
 
 module Computer_System_mm_interconnect_0_cmd_mux_002
@@ -55,24 +55,31 @@ module Computer_System_mm_interconnect_0_cmd_mux_002
     // ----------------------
     input                       sink0_valid,
     input [129-1   : 0]  sink0_data,
-    input [4-1: 0]  sink0_channel,
+    input [5-1: 0]  sink0_channel,
     input                       sink0_startofpacket,
     input                       sink0_endofpacket,
     output                      sink0_ready,
 
     input                       sink1_valid,
     input [129-1   : 0]  sink1_data,
-    input [4-1: 0]  sink1_channel,
+    input [5-1: 0]  sink1_channel,
     input                       sink1_startofpacket,
     input                       sink1_endofpacket,
     output                      sink1_ready,
 
     input                       sink2_valid,
     input [129-1   : 0]  sink2_data,
-    input [4-1: 0]  sink2_channel,
+    input [5-1: 0]  sink2_channel,
     input                       sink2_startofpacket,
     input                       sink2_endofpacket,
     output                      sink2_ready,
+
+    input                       sink3_valid,
+    input [129-1   : 0]  sink3_data,
+    input [5-1: 0]  sink3_channel,
+    input                       sink3_startofpacket,
+    input                       sink3_endofpacket,
+    output                      sink3_ready,
 
 
     // ----------------------
@@ -80,7 +87,7 @@ module Computer_System_mm_interconnect_0_cmd_mux_002
     // ----------------------
     output                      src_valid,
     output [129-1    : 0] src_data,
-    output [4-1 : 0] src_channel,
+    output [5-1 : 0] src_channel,
     output                      src_startofpacket,
     output                      src_endofpacket,
     input                       src_ready,
@@ -91,12 +98,12 @@ module Computer_System_mm_interconnect_0_cmd_mux_002
     input clk,
     input reset
 );
-    localparam PAYLOAD_W        = 129 + 4 + 2;
-    localparam NUM_INPUTS       = 3;
+    localparam PAYLOAD_W        = 129 + 5 + 2;
+    localparam NUM_INPUTS       = 4;
     localparam SHARE_COUNTER_W  = 1;
     localparam PIPELINE_ARB     = 1;
     localparam ST_DATA_W        = 129;
-    localparam ST_CHANNEL_W     = 4;
+    localparam ST_CHANNEL_W     = 5;
     localparam PKT_TRANS_LOCK   = 72;
 
     // ------------------------------------------
@@ -115,15 +122,18 @@ module Computer_System_mm_interconnect_0_cmd_mux_002
     wire [PAYLOAD_W - 1 : 0] sink0_payload;
     wire [PAYLOAD_W - 1 : 0] sink1_payload;
     wire [PAYLOAD_W - 1 : 0] sink2_payload;
+    wire [PAYLOAD_W - 1 : 0] sink3_payload;
 
     assign valid[0] = sink0_valid;
     assign valid[1] = sink1_valid;
     assign valid[2] = sink2_valid;
+    assign valid[3] = sink3_valid;
 
     wire [NUM_INPUTS - 1 : 0] eop;
     assign eop[0] = sink0_endofpacket;
     assign eop[1] = sink1_endofpacket;
     assign eop[2] = sink2_endofpacket;
+    assign eop[3] = sink3_endofpacket;
 
     // ------------------------------------------
     // ------------------------------------------
@@ -135,6 +145,7 @@ module Computer_System_mm_interconnect_0_cmd_mux_002
       lock[0] = sink0_data[72];
       lock[1] = sink1_data[72];
       lock[2] = sink2_data[72];
+      lock[3] = sink3_data[72];
     end
     reg [NUM_INPUTS - 1 : 0] locked = '0;
     always @(posedge clk or posedge reset) begin
@@ -177,9 +188,11 @@ module Computer_System_mm_interconnect_0_cmd_mux_002
     // 0      |      1       |  0
     // 1      |      1       |  0
     // 2      |      1       |  0
+    // 3      |      1       |  0
      wire [SHARE_COUNTER_W - 1 : 0] share_0 = 1'd0;
      wire [SHARE_COUNTER_W - 1 : 0] share_1 = 1'd0;
      wire [SHARE_COUNTER_W - 1 : 0] share_2 = 1'd0;
+     wire [SHARE_COUNTER_W - 1 : 0] share_3 = 1'd0;
 
     // ------------------------------------------
     // Choose the share value corresponding to the grant.
@@ -189,7 +202,8 @@ module Computer_System_mm_interconnect_0_cmd_mux_002
       next_grant_share =
     share_0 & { SHARE_COUNTER_W {next_grant[0]} } |
     share_1 & { SHARE_COUNTER_W {next_grant[1]} } |
-    share_2 & { SHARE_COUNTER_W {next_grant[2]} };
+    share_2 & { SHARE_COUNTER_W {next_grant[2]} } |
+    share_3 & { SHARE_COUNTER_W {next_grant[3]} };
     end
 
     // ------------------------------------------
@@ -313,6 +327,7 @@ module Computer_System_mm_interconnect_0_cmd_mux_002
     assign sink0_ready = src_ready && grant[0];
     assign sink1_ready = src_ready && grant[1];
     assign sink2_ready = src_ready && grant[2];
+    assign sink3_ready = src_ready && grant[3];
 
     assign src_valid = |(grant & valid);
 
@@ -320,7 +335,8 @@ module Computer_System_mm_interconnect_0_cmd_mux_002
       src_payload =
       sink0_payload & {PAYLOAD_W {grant[0]} } |
       sink1_payload & {PAYLOAD_W {grant[1]} } |
-      sink2_payload & {PAYLOAD_W {grant[2]} };
+      sink2_payload & {PAYLOAD_W {grant[2]} } |
+      sink3_payload & {PAYLOAD_W {grant[3]} };
     end
 
     // ------------------------------------------
@@ -333,6 +349,8 @@ module Computer_System_mm_interconnect_0_cmd_mux_002
     sink1_startofpacket,sink1_endofpacket};
     assign sink2_payload = {sink2_channel,sink2_data,
     sink2_startofpacket,sink2_endofpacket};
+    assign sink3_payload = {sink3_channel,sink3_data,
+    sink3_startofpacket,sink3_endofpacket};
 
     assign {src_channel,src_data,src_startofpacket,src_endofpacket} = src_payload;
 endmodule

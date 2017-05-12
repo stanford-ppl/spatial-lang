@@ -290,14 +290,32 @@ trait ChiselGenUnrolled extends ChiselGenController {
       }
 
 
-    case ParStreamWrite(strm, data, ens) =>
+    case ParStreamWrite(stream, data, ens) =>
       val par = ens.length
       val parent = parentOf(lhs).get
-      val datacsv = data.map{d => src"${d}"}.mkString(",")
-      val en = ens.map(quote).mkString("&")
-      emit(src"${strm} := Vec(List(${datacsv}))")
-      emit(src"${strm}_valid := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(ens.head)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
-      
+      stream match {
+        case Def(StreamOutNew(bus)) => bus match {
+          case VGA => 
+            emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
+            emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
+            emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
+            emit(src"""// emiiting data for stream ${stream}""")
+            emit(src"""${stream} := ${data.head}""")
+            emit(src"""converted_data := ${stream}""")
+            emit(src"""${stream}_valid := ${parent}_en & ${ens.mkString("&")} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime)""")
+          case LEDR =>
+            emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
+      //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
+            emit(src"""${stream} := $data""")
+            emit(src"""io.led_stream_out_data := ${stream}""")
+          case _ =>
+            val datacsv = data.map{d => src"${d}"}.mkString(",")
+            val en = ens.map(quote).mkString("&")
+            emit(src"${stream} := Vec(List(${datacsv}))")
+            emit(src"${stream}_valid := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${parent}_retime) & ~${parent}_done /*mask off double-enq for sram loads*/")
+        }
+      }
+
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 
         emit(src"$lb.io.col_addr(0) := ${col}.raw // Assume we always read from same col")
