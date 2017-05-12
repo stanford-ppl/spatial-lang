@@ -324,7 +324,7 @@ trait ChiselGenController extends ChiselGenCounter{
     } else if ((isStreamChild(sym) & hasStreamIns) | isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
       emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial""")  
     } else {
-      emit(src"""${sym}_datapath_en := ${sym}_sm.io.output.ctr_inc & ~${sym}_ctr_trivial""")
+      emit(src"""${sym}_datapath_en := ${sym}_sm.io.output.ctr_inc & ~${sym}_done & ~${sym}_ctr_trivial""")
     }
     
     /* Counter Signals for controller (used for determining done) */

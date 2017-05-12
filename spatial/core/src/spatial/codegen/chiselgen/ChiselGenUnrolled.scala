@@ -111,16 +111,16 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
       if (levelOf(lhs) == InnerControl) {
         val dlay = bodyLatency.sum(lhs)
-        emit(s"val ${quote(accum)}_wren = chisel3.util.ShiftRegister(${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor, ${quote(lhs)}_retime)")
+        emit(s"val ${quote(accum)}_wren = ShiftRegister(${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor, ${quote(lhs)}_retime)")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
         accum match { 
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {
             if (true) {
-              emit(src"val ${accum}_wren = chisel3.util.ShiftRegister(${childrenOf(lhs).last}_done, ${quote(lhs)}_retime)// & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")
+              emit(src"val ${accum}_wren = ShiftRegister(${childrenOf(lhs).last}_done, ${quote(lhs)}_retime)// & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")
             } else {
-              emit(src"val ${accum}_wren = chisel3.util.ShiftRegister((${childrenOf(lhs).dropRight(1).last}_done)// & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")              
+              emit(src"val ${accum}_wren = ShiftRegister((${childrenOf(lhs).dropRight(1).last}_done)// & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")              
             }
           case Def(_:SRAMNew[_,_]) =>
             emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
@@ -149,7 +149,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         val k = dispatch.toList.head
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         inds.zipWithIndex.foreach{ case (ind, i) =>
-          emit(src"${lhs}_rVec($i).en := chisel3.util.ShiftRegister(${parent}_en, ${parent}_retime) & ${ens(i)}")
+          emit(src"${lhs}_rVec($i).en := chisel3.util.ShiftRegister(${parent}_en, ${symDelay(ens.head)}) & ${ens(i)}")
           ind.zipWithIndex.foreach{ case (a, j) =>
             emit(src"""${lhs}_rVec($i).addr($j) := ${a}.raw """)
           }
@@ -198,7 +198,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_wVec($i).data := ${d}.raw""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${lhs}_wVec($i).en := ${ens(i)} & chisel3.util.ShiftRegister($enable & ~${parent}_inhibitor, ${parent}_retime)")
+        emit(src"${lhs}_wVec($i).en := ${ens(i)} & chisel3.util.ShiftRegister($enable & ~${parent}_inhibitor, ${symDelay(ens.head)})")
         ind.zipWithIndex.foreach{ case (a, j) =>
           emit(src"""${lhs}_wVec($i).addr($j) := ${a}.raw """)
         }
@@ -212,7 +212,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}.io.deq := chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${reader}_retime) & $en""")
+      emit(src"""${quote(fifo)}.io.deq := chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${symDelay(ens.head)}) & $en""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(i)) }""")
@@ -230,7 +230,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.io.enq := chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${writer}_retime) & $en""")
+      emit(src"""${fifo}.io.enq := chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${symDelay(ens.head)}) & $en""")
       val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
       emit(src"""${fifo}.io.in := Vec(List(${datacsv}))""")
 
@@ -238,7 +238,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(filo).head.ctrlNode  // Assuming that each filo has a unique reader
-      emit(src"""${quote(filo)}.io.pop := chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${reader}_retime) & $en""")
+      emit(src"""${quote(filo)}.io.pop := chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${symDelay(ens.head)}) & $en""")
       filo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(filo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(filo)}.io.out(i)) }.reverse""")
@@ -256,7 +256,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
       // val enabler = if (loadCtrlOf(filo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${filo}.io.push := chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${writer}_retime) & $en""")
+      emit(src"""${filo}.io.push := chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${symDelay(ens.head)}) & $en""")
       val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
       emit(src"""${filo}.io.in := Vec(List(${datacsv}))""")
 
@@ -277,7 +277,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
               }
               case _ => false
             }
-            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ShiftRegister(${parent}_datapath_en, ${parent}_retime)""")
+            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & ShiftRegister(${parent}_datapath_en, ${symDelay(ens.head)})""")
             if (!isAck) {
               emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}(i) }""")
               emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
@@ -296,7 +296,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val datacsv = data.map{d => src"${d}"}.mkString(",")
       val en = ens.map(quote).mkString("&")
       emit(src"${strm} := Vec(List(${datacsv}))")
-      emit(src"${strm}_valid := $en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${parent}_retime) & ~${parent}_done /*mask off double-enq for sram loads*/")
+      emit(src"${strm}_valid := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(ens.head)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
       
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 
