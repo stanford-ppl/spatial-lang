@@ -55,10 +55,10 @@ object StreamingSobel extends SpatialApp {
       }
 
       val sr = RegFile[Int16](Kh, Kw)
-      val fifoIn = FIFO[Int16](128)
-      val fifoOut = FIFO[Int16](128)
+      val fifoIn = FIFO[Int16](Cmax)
+      val fifoOut = FIFO[Int16](Cmax)
       val lb = LineBuffer[Int16](Kh, Cmax)
-      val rowReady = FIFO[Bool](3)
+      val submitReady = FIFO[Bool](3)
       // val lbReady = FIFO[Bool](2) // TODO: Not sure if this should be 1, 2, 3, or huge to prevent over-buffering
 
       Stream(*) { _ =>
@@ -90,12 +90,13 @@ object StreamingSobel extends SpatialApp {
 
               fifoOut.enq( abs(horz.value) + abs(vert.value) ) // Technically should be sqrt(horz**2 + vert**2)
             }
-            rowReady.enq(true)
+            submitReady.enq(true)
           }
+          // Or maybe put submitReady enq here
         }
 
         Pipe {
-          Pipe{ rowReady.deq() }
+          Pipe{ submitReady.deq() }
           Foreach(0 until Cmax) {i => 
             val pixelOut = fifoOut.deq()
             // Ignore MSB - pixelOut is a signed number that's definitely positive, so MSB is always 0
