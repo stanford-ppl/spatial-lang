@@ -85,7 +85,10 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
     val symLatency = pipeLatencies(block)._1
     def delayOf(x: Exp[_]): Int = symLatency.getOrElse(x, 0L).toInt
 
-    symLatency.foreach{case (s,l) => dbgs(c"  ${str(s)} [$l]")}
+    symLatency.foreach{case (s,l) =>
+      symDelay(s) = l
+      dbgs(c"  ${str(s)} [$l]")
+    }
 
     dbgs("Calculating delays for each node: ")
     // enumerate symbol reader dependencies and calculate required buffer sizes
