@@ -2,7 +2,7 @@ import spatial._
 import org.virtualized._
 import spatial.targets.DE1
 
-object StreamingSobel extends SpatialApp { 
+object BOStreamingSobel extends SpatialApp { 
   import IR._
 
   override val target = DE1
@@ -27,7 +27,7 @@ object StreamingSobel extends SpatialApp {
     setArg(C, cols)
 
     val imgIn  = StreamIn[Pixel16](target.VideoCamera)
-    val imgOut = StreamOut[Pixel16](target.VGA)
+    val imgOut = BufferedOut[Pixel16](target.VGA)
 
     Accel {
       val kh = RegFile[Int16](Kh, Kw)
@@ -56,7 +56,6 @@ object StreamingSobel extends SpatialApp {
 
       val sr = RegFile[Int16](Kh, Kw)
       val fifoIn = FIFO[Int16](128)
-      val fifoOut = FIFO[Int16](128)
       val lb = LineBuffer[Int16](Kh, Cmax)
 
       Stream(*) { _ =>
@@ -82,15 +81,11 @@ object StreamingSobel extends SpatialApp {
                 number * kv(i, j)
               }{_+_}
 
-              fifoOut.enq( abs(horz.value) + abs(vert.value) ) // Technically should be sqrt(horz**2 + vert**2)
+              val pixelOut = abs(horz.value) + abs(vert.value)
+              imgOut(r,c) = Pixel16(pixelOut(10::6).as[UInt5], pixelOut(10::5).as[UInt6], pixelOut(10::6).as[UInt5])
             }
           }
         }
-
-
-        val pixelOut = fifoOut.deq()
-        // Ignore MSB - pixelOut is a signed number that's definitely positive, so MSB is always 0
-        imgOut := Pixel16(pixelOut(10::6).as[UInt5], pixelOut(10::5).as[UInt6], pixelOut(10::6).as[UInt5])
       }
       ()
     }
