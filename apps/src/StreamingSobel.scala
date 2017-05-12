@@ -9,8 +9,8 @@ object StreamingSobel extends SpatialApp {
 
   val Kh = 3
   val Kw = 3
-  val Rmax = 240
-  val Cmax = 320
+  val Rmax = 24
+  val Cmax = 42
 
   type Int16 = FixPt[TRUE,_16,_0]
   type UInt8 = FixPt[FALSE,_8,_0]
@@ -58,6 +58,7 @@ object StreamingSobel extends SpatialApp {
       val fifoIn = FIFO[Int16](128)
       val fifoOut = FIFO[Int16](128)
       val lb = LineBuffer[Int16](Kh, Cmax)
+      val rowReady = FIFO[Bool](3)
       // val lbReady = FIFO[Bool](2) // TODO: Not sure if this should be 1, 2, 3, or huge to prevent over-buffering
 
       Stream(*) { _ =>
@@ -85,17 +86,22 @@ object StreamingSobel extends SpatialApp {
               val vert = Reduce(Reg[Int16])(Kh by 1, Kw by 1) { (i, j) =>
                 val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
                 number * kv(i, j)
-              }{_+_}
+              }{_+_};
 
               fifoOut.enq( abs(horz.value) + abs(vert.value) ) // Technically should be sqrt(horz**2 + vert**2)
             }
+            rowReady.enq(true)
           }
         }
 
-
-        val pixelOut = fifoOut.deq()
-        // Ignore MSB - pixelOut is a signed number that's definitely positive, so MSB is always 0
-        imgOut := Pixel16(pixelOut(10::6).as[UInt5], pixelOut(10::5).as[UInt6], pixelOut(10::6).as[UInt5])
+        Pipe {
+          Pipe{ rowReady.deq() }
+          Foreach(0 until Cmax) {i => 
+            val pixelOut = fifoOut.deq()
+            // Ignore MSB - pixelOut is a signed number that's definitely positive, so MSB is always 0
+            imgOut := Pixel16(pixelOut(10::6).as[UInt5], pixelOut(10::5).as[UInt6], pixelOut(10::6).as[UInt5])
+          }
+        }
       }
       ()
     }
