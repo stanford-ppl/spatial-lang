@@ -366,7 +366,7 @@ trait ChiselGenController extends ChiselGenCounter{
             emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")            
           }
         } else {
-          emit(s"// TODO: How to properly emit for non-innerpipe unit counter?")
+          emit(s"// TODO: How to properly emit for non-innerpipe unit counter?  Probably doesn't matter")
         }
       }
     }
