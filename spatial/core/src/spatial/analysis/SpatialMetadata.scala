@@ -413,6 +413,15 @@ trait SpatialMetadataExp extends IndexPatternExp { this: SpatialExp =>
   }
 
   /**
+    * Gives the delay of the given symbol from the start of its parent controller
+    */
+  case class MDelay(latency: Long) extends Metadata[MDelay] { def mirror(f:Tx) = this }
+  object symDelay {
+    def apply(e: Exp[_]): Long = metadata[MDelay](e).map(_.latency).getOrElse(0L)
+    def update(e: Exp[_], delay: Long): Unit = metadata.add(e, MDelay(delay))
+  }
+
+  /**
     * Flag for primitive nodes which are innermost loop invariant
     */
   case class MLoopInvariant(is: Boolean) extends Metadata[MLoopInvariant] { def mirror(f:Tx) = this }
