@@ -99,12 +99,14 @@ de1soc: de1soc-hw de1soc-sw
 de1soc-sw: 
 	cp de1soc.mk cpp/Makefile
 	cp cpp/cpptypes.h cpp/datastructures
+	cp cpp/DE1SoC.h cpp/fringeDE1SoC/
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
 	make -C cpp
 	ln -sf cpp/Top .
 	cp verilog-de1soc/program_de1soc.sh ./ && chmod +x program_de1soc.sh
-	mkdir prog
+	rm -rf ./prog
+	mkdir ./prog
 	cd ./prog/ && mkdir verilog
 	cp Top program_de1soc.sh ./prog
 	cp sp.rbf ./prog/verilog/accel.bit.bin

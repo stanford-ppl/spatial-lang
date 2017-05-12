@@ -20,6 +20,7 @@ trait CppGenStream extends CppCodegen {
 //          emit(src"// New stream out $lhs")
 //      }
 //=======
+    case BufferedOutNew(_, bus) => emit(s"// ${quote(lhs)} = $bus // TODO: No idea what to connect this bus to, should expose periphal pins to something...")
     case StreamInNew(bus) => emit(s"// ${quote(lhs)} = $bus // TODO: No idea what to connect this bus to, should expose periphal pins to something...")
     case StreamOutNew(bus) => emit(s"// ${quote(lhs)} = $bus // TODO: No idea what to connect this bus to, should expose periphal pins to something...")
     case _ => super.emitNode(lhs, rhs)

@@ -30,6 +30,8 @@ project/plugins/project/
 tags
 docs/build/*
 spatial/core/resources/chiselgen/template-level/test_run_dir/templates*
+bak/
+debug/
 apps/resources/application.conf
 
 bin/commit
@@ -54,3 +56,10 @@ src/spatial/codegen/chiselgen/resources/altera-goodies/README.md
 # C files
 *.o
 *.d
+
+# Altera specifics
+spatial/core/resources/chiselgen/template-level/fringeDE1SoC/.qsys_edit/*
+spatial/core/resources/chiselgen/template-level/fringeDE1SoC/Top_bak
+Top_tb.v
+history.txt
+regTests.sh

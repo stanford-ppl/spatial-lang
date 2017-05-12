@@ -158,10 +158,10 @@ plasticine {
         lanes = plasticineConf.lanes
 
       case Left(failures) =>
-        error("Unable to read Plasticine configuration")
-        error(failures.head.description)
-        failures.tail.foreach{x => error(x.description) }
-        sys.exit(-1)
+//        error("Unable to read Plasticine configuration")
+//        error(failures.head.description)
+//        failures.tail.foreach{x => error(x.description) }
+//        sys.exit(-1)
     }
   }
 

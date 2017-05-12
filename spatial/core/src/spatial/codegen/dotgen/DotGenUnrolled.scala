@@ -16,7 +16,7 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
     }
   }
 
-  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = 
+  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
   if (Config.dotDetail == 0) {
     rhs match {
       case _ if isControlNode(lhs) =>
@@ -44,6 +44,8 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
       case ParStreamRead(strm, ens) => emitMemRead(lhs)
 
       case ParStreamWrite(strm, data, ens) => emitMemWrite(lhs)
+
+      case _ => super.emitNode(lhs, rhs)
     }    
   } else {
 
@@ -70,11 +72,11 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
       case ParFIFODeq(fifo, ens) => 
         emitVert(lhs)
         emitEdge(fifo, lhs)
-        ens.foreach{ a => emitEn(a,fifo) }
+        ens.foreach{ a => emitEn(a,lhs) }
 
       case ParFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
         data.foreach{ a => emitVert(a); emitEdge(a, fifo)}
-        ens.foreach{ a => emitVert(a); emitEn(a, fifo)}
+        ens.foreach{ a => emitVert(a); emitEn(a, lhs)}
 
 
       case ParStreamRead(strm, ens) => emitVert(lhs); emitEdge(strm, lhs); ens.foreach{emitEn(_,strm)}
@@ -83,5 +85,6 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
 
       case _ => super.emitNode(lhs, rhs)
     }
+  }
   }
 }
