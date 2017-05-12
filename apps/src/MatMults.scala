@@ -1,10 +1,10 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 96 96
+object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 192 192
   import IR._
 
-  type X = Float
+  type X = FixPt[TRUE,_16,_16]
 
   val innerPar = 16
   val midPar = 2
@@ -99,14 +99,14 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 96 9
   }
 }
 
-object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 96 96
+object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 256 256
   import IR._
 
-  type X = Float //FixPt[Signed,B16,B16]
+  type X = FixPt[TRUE,_16,_16]
 
   val innerPar = 16
-  val midPar = 1
-  val outerPar = 6
+  val midPar = 2
+  val outerPar = 2
 
   val tsm = 16
   val tsn = 64
