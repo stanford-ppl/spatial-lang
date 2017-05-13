@@ -40,6 +40,7 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
 
     case ValueDelay(size, data) => 
       // emit(src"""val $lhs = Utils.delay($data, $size)""")
+      alphaconv_register(src"$lhs")
       lhs.tp match {
         case a:VectorType[_] =>
           emit(src"val $lhs = Wire(${newWire(lhs.tp)})")

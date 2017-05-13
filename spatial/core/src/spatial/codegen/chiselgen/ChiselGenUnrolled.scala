@@ -193,14 +193,14 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val enable = if (loadCtrlOf(sram).contains(parent)) src"${parent}_datapath_en" else src"${parent}_datapath_en"
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, 32))) """)
-      val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
+      val datacsv = data.map{d => src"${d}.r"}.mkString(",")
       data.zipWithIndex.foreach { case (d, i) =>
-        emit(src"""${lhs}_wVec($i).data := ${d}.raw""")
+        emit(src"""${lhs}_wVec($i).data := ${d}.r""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${lhs}_wVec($i).en := ${ens(i)} & chisel3.util.ShiftRegister($enable & ~${parent}_inhibitor, ${symDelay(lhs)})")
+        emit(src"${lhs}_wVec($i).en := ${ens(i)} & ShiftRegister($enable & ~${parent}_inhibitor, ${symDelay(lhs)})")
         ind.zipWithIndex.foreach{ case (a, j) =>
-          emit(src"""${lhs}_wVec($i).addr($j) := ${a}.raw """)
+          emit(src"""${lhs}_wVec($i).addr($j) := ${a}.r """)
         }
       }
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 

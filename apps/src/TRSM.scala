@@ -243,9 +243,12 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
     }
     val L = Array.tabulate(full_N) { i =>
       Array.tabulate(full_N) { j =>
-        if (j > i) abs(0.to[T])
-        else if (j == i) abs(random[T](8)) + 1
-        else abs(random[T](2))
+        if (j > i) 0.to[T]
+        else if (j == i) abs(random[T](5)) + 1
+        else if (i - j == 4) 1.to[T] // Just a courtesy to make the validation easier
+        // else if (i - j == 4) 1.to[T]
+        else 0.to[T]
+        // else abs(random[T](2))
       }
     }
 

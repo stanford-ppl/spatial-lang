@@ -107,7 +107,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
 
       // discard symbols for which no register insertion is needed
       inputs.zip(sizes).filter{case (_, size) => size != 0 }.foreach{ case (input, size) =>
-        dbgs(c"  ${str(input)} [size: $size]}")
+        dbgs(c"  ${str(input)} [size: $size]")
         inputRetiming.getOrElseUpdate(input, new InputInfo()).readers.getOrElseUpdate(reader, new ReaderInfo(size.toInt))
       }
     }
@@ -119,17 +119,22 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
       // save substitution rules for restoration after transformation
       val subRules = mutable.Map[Exp[_], Exp[_]]()
 
-      val inputs = syms(d.inputs)
+      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }
+      //val inputs = syms(d.inputs)
       inputs.foreach{ input =>
+        dbg(c"working on input $input of $reader")
         // input might not need any buffers if its readers don't need to be retimed
         if (inputRetiming.contains(input)) {
+          dbg(c"pass check 1")
           // retime all readers of this input and mark the input itself as retimed
           if (!retimedInputs.contains(input)) {
+            dbg(c"pass check 2")
             inputRetiming(input).retimeReaders(input)
             retimedInputs += input
           }
           // insert buffer register for this reader
           if (inputRetiming(input).readers.contains(reader)) {
+            dbg(c"pass check 3")
             val info = inputRetiming(input).readers(reader)
             dbgs(c"Buffering input $input to reader $reader")
             subRules(input) = transformExp(input)(mtyp(input.tp))
