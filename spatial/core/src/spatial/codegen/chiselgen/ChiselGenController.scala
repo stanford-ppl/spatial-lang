@@ -312,7 +312,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
     val lat = bodyLatency.sum(sym)
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
-    emitModule(src"${sym}_sm", s"${smStr}", s"${constrArg}")
+    emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, retime = ${sym}_retime))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
     emit(src"""${sym}_done := ShiftRegister(${sym}_sm.io.output.done, ${sym}_retime)""")
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
