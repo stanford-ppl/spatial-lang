@@ -39,7 +39,7 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
   })
 
   if (!isFSM) {
-    val state = RegInit(pipeInit.U)
+    val state = RegInit(pipeInit.U(32.W))
 
     // Initialize state and maxFF
     val rstCtr = Module(new SingleCounter(1))
