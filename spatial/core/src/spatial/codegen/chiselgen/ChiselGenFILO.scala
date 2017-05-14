@@ -93,13 +93,13 @@ trait ChiselGenFILO extends ChiselCodegen {
       val writer = writersOf(fifo).head.ctrlNode  
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.io.push := ${writer}_en & chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${writer}_retime) & $en """)
+      emit(src"""${fifo}.io.push := ${writer}_en & chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${symDelay(lhs)}) & $en """)
       emit(src"""${fifo}.io.in := Vec(List(${v}.raw))""")
 
 
     case FILOPop(fifo,en) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${fifo}.io.pop := ${reader}_en & chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${reader}_retime) & $en & ~${reader}_inhibitor""")
+      emit(src"""${fifo}.io.pop := ${reader}_en & chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${symDelay(lhs)}) & $en & ~${reader}_inhibitor""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(0))""")

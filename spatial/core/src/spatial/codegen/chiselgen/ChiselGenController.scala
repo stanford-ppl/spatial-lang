@@ -238,6 +238,7 @@ trait ChiselGenController extends ChiselGenCounter{
           case Def(FIFONew(size)) => src"~${fifo}.io.full"
           case Def(FILONew(size)) => src"~${fifo}.io.full"
           case Def(StreamOutNew(bus)) => src"${fifo}_ready"
+          case Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
         }
       }.mkString(" & ")
 
@@ -311,9 +312,9 @@ trait ChiselGenController extends ChiselGenCounter{
 
     val lat = bodyLatency.sum(sym)
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
-    emitModule(src"${sym}_sm", s"${smStr}", s"${constrArg}")
+    emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, retime = ${sym}_retime))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
-    emit(src"""${sym}_done := ${sym}_sm.io.output.done""")
+    emit(src"""${sym}_done := ShiftRegister(${sym}_sm.io.output.done, ${sym}_retime)""")
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
     emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw // Unused for inner and parallel""")
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
@@ -324,7 +325,7 @@ trait ChiselGenController extends ChiselGenCounter{
     } else if ((isStreamChild(sym) & hasStreamIns) | isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
       emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial""")  
     } else {
-      emit(src"""${sym}_datapath_en := ${sym}_sm.io.output.ctr_inc & ~${sym}_ctr_trivial""")
+      emit(src"""${sym}_datapath_en := ${sym}_sm.io.output.ctr_inc & ~${sym}_done & ~${sym}_ctr_trivial""")
     }
     
     /* Counter Signals for controller (used for determining done) */
@@ -349,8 +350,8 @@ trait ChiselGenController extends ChiselGenCounter{
             emit(src"""${ctr}_resetter := ${sym}_rst_en""")
           }
           if (isInner) { 
-            val dlay = if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {src"1 + ${sym}_retime"} else "1"
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, $dlay)""")
+            // val dlay = if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {src"1 + ${sym}_retime"} else "1"
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1)""")
           }
 
         }
@@ -358,14 +359,14 @@ trait ChiselGenController extends ChiselGenCounter{
         emit(src"""// ---- Single Iteration for $smStr ${sym} ----""")
         if (isInner) { 
           if (isStreamChild(sym) & hasStreamIns) {
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_en & ~${sym}_done, 1 + ${sym}_retime) // Disallow consecutive dones from stream inner""")
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${sym}_en & ~${sym}_done, 1) // Disallow consecutive dones from stream inner""")
             emit(src"""val ${sym}_ctr_en = ${sym}_done // stream kiddo""")
           } else {
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(Utils.risingEdge(${sym}_sm.io.output.ctr_inc), 1 + ${sym}_retime)""")
+            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(Utils.risingEdge(${sym}_sm.io.output.ctr_inc), 1)""")
             emit(src"""val ${sym}_ctr_en = ${sym}_sm.io.output.ctr_inc""")            
           }
         } else {
-          emit(s"// TODO: How to properly emit for non-innerpipe unit counter?")
+          emit(s"// TODO: How to properly emit for non-innerpipe unit counter?  Probably doesn't matter")
         }
       }
     }

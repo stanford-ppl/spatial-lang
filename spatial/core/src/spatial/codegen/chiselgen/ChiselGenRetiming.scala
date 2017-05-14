@@ -40,12 +40,13 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
 
     case ValueDelay(size, data) => 
       // emit(src"""val $lhs = Utils.delay($data, $size)""")
+      alphaconv_register(src"$lhs")
       lhs.tp match {
         case a:VectorType[_] =>
           emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
-          emit(src"(0 until ${a.width}).foreach{i => ${lhs}(i).raw := chisel3.util.ShiftRegister(${data}(i).r, $size)}")
+          emit(src"(0 until ${a.width}).foreach{i => ${lhs}(i).r := ShiftRegister(${data}(i).r, $size)}")
         case _ =>
-          emit(src"""val $lhs = chisel3.util.ShiftRegister($data, $size)""")
+          emit(src"""val $lhs = ShiftRegister($data, $size)""")
       }
 
     case ShiftRegNew(size, init) => 
@@ -53,7 +54,7 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
       init match {
         case Def(ListVector(_)) => 
           emitGlobalRetiming(src"// ${lhs} init is ${init}, must emit in ${controllerStack.head}")
-          emit(src"${lhs}.io.input.init := ${init}.raw")
+          emit(src"${lhs}.io.input.init := ${init}.r")
         case _ => 
           emitGlobalRetiming(src"${lhs}.io.input.init := ${init}.raw")
       }

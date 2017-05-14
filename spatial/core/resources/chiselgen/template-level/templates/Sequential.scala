@@ -5,7 +5,7 @@ import chisel3._
 import Utils._
 import scala.collection.mutable.HashMap
 
-class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
+class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -123,6 +123,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false) extends Module {
     io.output.done := state === doneState.U
     io.output.ctr_inc := io.input.stageDone(n-1) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
     io.output.stageEnable.zipWithIndex.foreach { case (en, i) => en := (state === (i+2).U) }
+    io.output.state := state
   } else { // FSM logic
     // 0: INIT, 1: RESET, 2..2+n-1: stages, n: DONE
     val initState = 0

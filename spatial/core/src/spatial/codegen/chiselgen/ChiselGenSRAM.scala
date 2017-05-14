@@ -31,13 +31,13 @@ trait ChiselGenSRAM extends ChiselCodegen {
       } else {
         if (cchain.isDefined) {
           emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
-          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/")
+          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/ // Correction not needed because _done should mask dp anyway")
         } else {
-          emit(src"${lhs}_inhibit.io.input.set := Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1)")
-          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1)*/")
+          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${lhs}_sm.io.output.ctr_inc)")
+          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
         }        
       }
-      emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_rst_en")
+      emit(src"${lhs}_inhibit.io.input.reset := ShiftRegister(${lhs}_done, 1)")
     } else {
       emitGlobalModule(src"val ${lhs}_inhibitor = false.B // Maybe connect to ${lhs}_done?  ")      
     }
@@ -50,7 +50,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case BoolType => "Bool()"
     case tp: VectorType[_] => src"Vec(${tp.width}, ${newWire(tp.typeArguments.head)})"
     case tp: StructType[_] => src"UInt(${bitWidth(tp)}.W)"
-    case tp: IssuedCmd => src"UInt(${bitWidth(tp)}.W)"
+    // case tp: IssuedCmd => src"UInt(${bitWidth(tp)}.W)"
     case tp: ArrayType[_] => src"Wire(Vec(999, ${newWire(tp.typeArguments.head)}"
     case _ => throw new NoWireConstructorException(s"$tp")
   }
