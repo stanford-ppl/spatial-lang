@@ -202,6 +202,11 @@ for ac in ${types_list[@]}; do
   push_travis_ci $ac $branch $type_todo
 done
 
+# Update regtest timestamp
+if [[ ${this_machine} = *"portland"* ]]; then
+  update_regression_timestamp
+fi
+
 echo -e "\n\n***\n\n" >> $wiki_file
 
 # Link to logs
@@ -212,6 +217,27 @@ echo -e "\n## [Pretty History Log](https://raw.githubusercontent.com/wiki/stanfo
 
 stamp_app_comments
 stamp_commit_msgs
+}
+
+update_regression_timestamp() {
+  old=`pwd`
+  cd ${SPATIAL_HOME}
+  git@github.com:mattfel1/Trackers.git
+  mv Trackers timestamps
+  cd timestamps
+  git checkout timestamps
+  rm timestamp_${branch}.png
+  rm timestamp_${branch}_text
+  touch timestamp_${branch}_text
+  echo "text 0,0 \"" > timestamp_${branch}_text
+  date +"%a %b %d" >> timestamp_${branch}_text
+  date +"%I:%M:%S" >> timestamp_${branch}_text
+  echo "\"" >> timestamp_${branch}_text
+  convert -size 80x30 xc:white -pointsize 12 -fill black -draw @timestamp_${branch}_text timestamp_${branch}.png
+  git add timestamp_${branch}.png
+  git commit -m "update $branch timestamp"
+  git push
+  cd $old
 }
 
 stamp_app_comments() {
