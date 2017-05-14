@@ -480,9 +480,9 @@ trait MemoryAnalyzer extends CompilerPass {
 
 
   def indexPatternsToBanking(patterns: Seq[IndexPattern], strides: Seq[Int]): Seq[Banking] = {
-    var used: Set[Bound[Index]] = Set.empty
+    var used: Set[Exp[Index]] = Set.empty
 
-    def bankFactor(i: Bound[Index]): Int = {
+    def bankFactor(i: Exp[Index]): Int = {
       if (!used.contains(i)) {
         used += i
         parFactorOf(i) match {case Exact(c) => c.toInt }
