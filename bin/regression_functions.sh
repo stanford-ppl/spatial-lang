@@ -222,7 +222,7 @@ stamp_commit_msgs
 update_regression_timestamp() {
   old=`pwd`
   cd ${SPATIAL_HOME}
-  git@github.com:mattfel1/Trackers.git
+  git clone git@github.com:mattfel1/Trackers.git
   mv Trackers timestamps
   cd timestamps
   git checkout timestamps
