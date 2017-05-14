@@ -429,6 +429,10 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWire(src"""val ${lhs}_ctr_trivial = false.B""")
       emitGlobalWire(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
+      emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
+      emit(src"""retime_counter.io.input.start := 0.U; retime_counter.io.input.max := (max_retime.U); retime_counter.io.input.stride := 1.U; retime_counter.io.input.gap := 0.U""")
+      emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := false.B; retime_counter.io.input.enable := true.B;""")
+      emit(src"""val retime_released = retime_counter.io.output.done """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       // Emit unit counter for this
