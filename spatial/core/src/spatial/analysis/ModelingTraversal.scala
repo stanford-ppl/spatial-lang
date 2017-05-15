@@ -122,7 +122,8 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
         cycle.sliding(2).foreach{
           case List(high,low) =>
-            paths(low) = Math.max(paths(high) - latencyOf(low), paths(low))
+            // Move the lower to just before the higher
+            paths(low) = Math.max(paths(high) - latencyOf(high), paths(low))
           case _ =>
         }
 
