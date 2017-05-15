@@ -54,7 +54,20 @@ trait ChiselGenStream extends ChiselGenSRAM {
 
         case SliderSwitch =>
           emit(src"// switch, node = $lhs", forceful=true)
-          emit(src"${lhs}_valid := 1.U", forceful=true)
+          emit(src"// reset and output logic for switch", forceful=true)
+          emit(src"when (reset) {", forceful=true)
+          emit(src"  io.stream_out_data           := 0.U ", forceful=true)
+          emit(src"  io.stream_out_startofpacket  := 0.U ", forceful=true)
+          emit(src"  io.stream_out_endofpacket    := 0.U ", forceful=true)
+          emit(src"  io.stream_out_empty          := 0.U ", forceful=true)
+          emit(src"} .elsewhen (io.stream_out_ready | ~io.stream_out_valid) { ", forceful=true)
+          emit(src"  io.stream_out_data           := converted_data ", forceful=true)
+          emit(src"  io.stream_out_startofpacket  := io.stream_in_startofpacket ", forceful=true)
+          emit(src"  io.stream_out_endofpacket    := io.stream_in_endofpacket ", forceful=true)
+          emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
+          emit(src"} ", forceful=true) 
+          emit(src"io.stream_in_ready := ${lhs}_ready", forceful=true)
+          emit(src"${lhs}_valid := io.stream_in_valid", forceful=true)
 
         case GPInput1 =>
           emit(src"// switch, node = $lhs", forceful=true)

@@ -24,16 +24,16 @@ object Switch2Video extends SpatialApp {
   def main() {
     val switch = target.SliderSwitch
     val outputVideo: Bus = target.VGA
-    val onboardVideo = target.VideoCamera
+//   val onboardVideo = target.VideoCamera
 
-    val input  = StreamIn[bBgGrR](onboardVideo)
+//    val input  = StreamIn[bBgGrR](onboardVideo)
     val swInput = StreamIn[sw3](switch)
     val output = StreamOut[BGR](outputVideo)
 
     val zeros = 0.to[UINT2]
 
     Accel(*) {
-      val rgbBits = input.value()
+//      val rgbBits = input.value()
       val swBits = swInput.value()
       val f0 = swBits.b1
       val f1 = swBits.b2

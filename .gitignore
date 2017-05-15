@@ -62,3 +62,5 @@ spatial/core/resources/chiselgen/template-level/fringeDE1SoC/.qsys_edit/*
 spatial/core/resources/chiselgen/template-level/fringeDE1SoC/Top_bak
 history.txt
 regTests.sh
+./VideoSysSim
+./moduleSims
