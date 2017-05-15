@@ -721,7 +721,8 @@ fi
 # Move on to runtime
 rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
 touch ${SPATIAL_HOME}/regression_tests/${2}/results/failed_execution_hanging.${3}_${4}
-bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+chmod +x ${5}/out/run.sh
+timeout 300 ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
 # Check for annoying vcs assertion and rerun if needed
 wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
@@ -746,7 +747,7 @@ fi
 wc=\$(cat ${5}/log | grep \"PASS\" | wc -l)
 if [ \"\$wc\" -eq 0 ]; then
   echo \"[APP_RESULT] Annoying refusal to run ${3}_${4}.  Rerunning...\" >> ${log}
-  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  echo -i \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
   bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 fi
 
