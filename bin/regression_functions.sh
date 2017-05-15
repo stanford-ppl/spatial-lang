@@ -462,8 +462,8 @@ init_travis_ci() {
   cd ${SPATIAL_HOME}
   cmd="git clone git@github.com:mattfel1/Trackers.git"
   logger "Pulling TRAVIS CI buttons with command: $cmd"
-  eval "$cmd"
-  if [ -d "${SPATIAL_HOME}/Trackers" ]; then
+  eval "$cmd" >> /tmp/log
+  if [ -d "Trackers" ]; then
     logger "Repo Tracker exists, prepping it..."
     trackbranch="Class${1}-Branch${2}-Backend${3}-Tracker"
     mv ${SPATIAL_HOME}/Trackers ${SPATIAL_HOME}/${trackbranch}
