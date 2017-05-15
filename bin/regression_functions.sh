@@ -748,7 +748,7 @@ wc=\$(cat ${5}/log | grep \"PASS\" | wc -l)
 if [ \"\$wc\" -eq 0 ]; then
   echo \"[APP_RESULT] Annoying refusal to run ${3}_${4}.  Rerunning...\" >> ${log}
   echo -i \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
-  bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 fi
 
 # Check for runtime errors
