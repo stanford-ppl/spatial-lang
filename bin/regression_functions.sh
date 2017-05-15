@@ -731,7 +731,7 @@ if [ \"\$wc\" -gt 0 ]; then
   echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
   make vcs 2>&1 | tee -a ${5}/log
   make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
-  bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
   # Check second time for annoying assert
   wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
@@ -740,7 +740,7 @@ if [ \"\$wc\" -gt 0 ]; then
     echo -e \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
     make vcs 2>&1 | tee -a ${5}/log
     make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
-    bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+    timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
   fi
 fi
 # Check for annoying refusal to run that happens in scala sometimes

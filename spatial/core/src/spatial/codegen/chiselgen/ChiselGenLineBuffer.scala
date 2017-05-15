@@ -69,7 +69,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
     case op@LineBufferEnq(lb,data,en) =>
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"$lb.io.data_in(0) := ${data}.raw")
-      emit(src"$lb.io.w_en := $en & ${parent}_datapath_en")
+      emit(src"$lb.io.w_en := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})")
 
     case _ => super.emitNode(lhs, rhs)
   }
