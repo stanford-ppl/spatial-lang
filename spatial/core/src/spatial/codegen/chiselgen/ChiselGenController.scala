@@ -71,7 +71,7 @@ trait ChiselGenController extends ChiselGenCounter{
       var nextLevel: Option[Exp[_]] = Some(controllerStack.head)
       while (nextLevel.isDefined) {
         if (siblings.contains(nextLevel.get)) {
-          if (siblings.indexOf(nextLevel.get) > 0) {result = result + s"_chain.read(${siblings.indexOf(nextLevel.get)})"}
+          if (siblings.indexOf(nextLevel.get) > 0) {result = result + s"_chain_read_${siblings.indexOf(nextLevel.get)}"}
           nextLevel = None
         } else {
           nextLevel = parentOf(nextLevel.get)
@@ -200,9 +200,12 @@ trait ChiselGenController extends ChiselGenCounter{
   def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]]) = {
     val stages = childrenOf(controller)
     inds.foreach { idx =>
-      emit(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
-      stages.zipWithIndex.foreach{ case (s, i) =>
-        emit(src"""${idx}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
+      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
+      (0 until stages.size).foreach{ i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
+      withStream(getStream("BufferControlCxns")) {
+        stages.zipWithIndex.foreach{ case (s, i) =>
+          emit(src"""${idx}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
+        }
       }
       emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
       itersMap += (idx -> stages.toList)

@@ -43,13 +43,17 @@ trait ChiselGenSRAM extends ChiselCodegen {
     }
   }
 
-  def logRetime(lhs: String, data: String, delay: Int, isVec: Boolean = false, vecWidth: Int = 1, wire: String = ""): Unit = {
+  def logRetime(lhs: String, data: String, delay: Int, isVec: Boolean = false, vecWidth: Int = 1, wire: String = "", isBool: Boolean = false): Unit = {
     if (delay > maxretime) maxretime = delay
     if (isVec) {
       emit(src"val $lhs = Wire(${wire})")
       emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := ShiftRegister(${data}(i).r, $delay)}")        
     } else {
-      emit(src"""val $lhs = ShiftRegister($data, $delay)""")
+      if (isBool) {
+        emit(src"""val $lhs = Mux(retime_released, ShiftRegister($data, $delay), false.B)""")
+      } else {
+        emit(src"""val $lhs = ShiftRegister($data, $delay)""")
+      }
     }
   }
 

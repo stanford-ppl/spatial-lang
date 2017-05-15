@@ -4,6 +4,7 @@ import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.ShiftRegExp
 import spatial.{SpatialConfig, SpatialExp}
 import spatial.analysis.SpatialMetadataExp
+// import argon.ops.BoolExp
 
 trait ChiselGenRetiming extends ChiselGenSRAM {
   val IR: SpatialExp
@@ -44,9 +45,11 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
       alphaconv_register(src"$lhs")
       lhs.tp match {
         case a:VectorType[_] =>
-          logRetime(src"$lhs", src"$data", size, isVec = true, vecWidth = a.width, wire = newWire(lhs.tp))
+          logRetime(src"$lhs", src"$data", size, isVec = true, vecWidth = a.width, wire = newWire(lhs.tp), isBool = false/*although what about vec of bools?*/)
+        case BoolType() =>
+          logRetime(src"$lhs", src"$data", size, isVec = false, vecWidth = 0, wire = newWire(lhs.tp), isBool = true)
         case _ =>
-          logRetime(src"$lhs", src"$data", size, isVec = false, vecWidth = 0, wire = newWire(lhs.tp))
+          logRetime(src"$lhs", src"$data", size, isVec = false, vecWidth = 0, wire = newWire(lhs.tp), isBool = false)
       }
 
     case ShiftRegNew(size, init) => 
