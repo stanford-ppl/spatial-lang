@@ -212,7 +212,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}.io.deq := ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${symDelay(lhs)}) & $en""")
+      emit(src"""${quote(fifo)}.io.deq := (${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en""")
       fifo.tp.typeArguments.head match { 
         case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
             emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(i)) }""")
@@ -312,7 +312,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
             val datacsv = data.map{d => src"${d}"}.mkString(",")
             val en = ens.map(quote).mkString("&")
             emit(src"${stream} := Vec(List(${datacsv}))")
-            emit(src"${stream}_valid := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,  ${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
+            emit(src"${stream}_valid := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
         }
       }
 
@@ -329,7 +329,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       data.zipWithIndex.foreach { case (d, i) =>
         emit(src"$lb.io.data_in($i) := ${d}.raw")
       }
-      emit(src"""$lb.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & ${parent}_datapath_en""")
+      emit(src"""$lb.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)})""")
 
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
       val dispatch = dispatchOf(lhs, rf).toList.head
@@ -356,7 +356,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       duplicatesOf(rf).zipWithIndex.foreach{case (mem, ii) => 
         val port = portsOf(lhs, rf, ii)
         ens.zipWithIndex.foreach{ case (en, i) => 
-          emit(s"""${quote(rf)}_${ii}.connectWPort(${data(i)}.raw, ${quote(inds(i)(0))}.raw, ${quote(inds(i)(1))}.raw, ${quote(en)} & ${quote(parent)}_datapath_en, List(${port.toList.mkString(",")}))""")
+          emit(s"""${quote(rf)}_${ii}.connectWPort(${data(i)}.raw, ${quote(inds(i)(0))}.raw, ${quote(inds(i)(1))}.raw, ${quote(en)} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}), List(${port.toList.mkString(",")}))""")
         }
       }
       

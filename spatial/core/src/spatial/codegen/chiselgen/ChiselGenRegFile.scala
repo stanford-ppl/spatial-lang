@@ -63,14 +63,14 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
         val port = portsOf(lhs, rf, i)
         val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-        emit(s"""${quote(rf)}_${i}.connectWPort(${quote(data)}.raw, ${quote(inds(0))}.raw, ${quote(inds(1))}.raw, ${quote(en)} & ShiftRegister(${quote(parent)}_datapath_en & ~${quote(parent)}_inhibitor, ${symDelay(lhs)}), List(${port.toList.mkString(",")}))""")
+        emit(s"""${quote(rf)}_${i}.connectWPort(${quote(data)}.raw, ${quote(inds(0))}.raw, ${quote(inds(1))}.raw, ${quote(en)} & (${quote(parent)}_datapath_en & ~${quote(parent)}_inhibitor).D(${symDelay(lhs)}), List(${port.toList.mkString(",")}))""")
       }
 
     case RegFileShiftIn(rf,inds,d,data,en)    => 
       duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
         val port = portsOf(lhs, rf, i)
         val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-        emit(s"""${quote(rf)}_${i}.connectShiftPort(${quote(data)}.raw, ${quote(inds(0))}.raw, ${quote(en)} & ShiftRegister(${quote(parent)}_datapath_en & ~${quote(parent)}_inhibitor, ${symDelay(lhs)}), List(${port.toList.mkString(",")}))""")
+        emit(s"""${quote(rf)}_${i}.connectShiftPort(${quote(data)}.raw, ${quote(inds(0))}.raw, ${quote(en)} & (${quote(parent)}_datapath_en & ~${quote(parent)}_inhibitor).D(${symDelay(lhs)}), List(${port.toList.mkString(",")}))""")
       }
 
     case ParRegFileShiftIn(rf,i,d,data,en) => 
