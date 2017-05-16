@@ -29,6 +29,11 @@ DRAMs are pointers to locations in the accelerator's main memory comprising dens
 of data between the host and the accelerator. Data may be loaded to and from the accelerator in contiguous chunks (Tiles),
 or by bulk scatter and gather operations (SparseTiles).
 
+A dense :doc:`tile` can be created from a DRAM either using address range selection or by implicit conversion.
+When a Tile is created implicitly, it has the same address space as the entire original DRAM.
+
+In Spatial, DRAMs are specified outside the Accel scope in the host code.
+
 ----------------
 
 **Static Methods**
@@ -68,3 +73,12 @@ or by bulk scatter and gather operations (SparseTiles).
 | | 	                  * **addrs** \- SRAM with addresses to load                                                                                          |
 | |                       * **size** \- the number of addresses to use                                                                                        |
 +---------------------+---------------------------------------------------------------------------------------------------------------------------------------+
+
+--------------
+
+**Implicit methods**
+
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+| |               def   **createTile**\[T::doc:`../../typeclasses/bits`\](dram: :doc:`dram`\[T\]): :doc:`tile`\[T\]                          |
+| |                       Implicitly converts a DRAM to a Tile with the same address space                                                   |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
