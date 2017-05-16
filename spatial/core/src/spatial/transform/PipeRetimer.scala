@@ -22,10 +22,8 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
   // size represents the total buffer size between reader and input symbol
   // if buffers are split, the size of the register for this reader may actually be smaller
   class ReaderInfo(val size: Int) {
-    // register this reader symbol reads from
-    var reg: Exp[ShiftReg[_]] = _
     // register read IR node (not strictly necessary to have only one but it avoids bloating the IR with redundant reads)
-    var read: Exp[_] = _
+    var delay: Exp[_] = _
   }
 
 
@@ -33,16 +31,12 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
   class InputInfo {
     // map a reader symbol to the buffer it will read from
     val readers = mutable.HashMap[Exp[_], ReaderInfo]()
-    // group readers by the size of the register they read from
-    object RegSizeOrdering extends Ordering[Int] { def compare(a: Int, b: Int) = b compare a }
-
     // retime symbol readers, sharing allocated buffers when possible
     def retimeReaders[U](input: Exp[U]) {
       def valueDelay[T](size: Int, data: Exp[T])(implicit ctx: SrcCtx): Exp[T] = data.tp match {
         case Bits(bits) =>
           value_delay_alloc[T](size, data)(data.tp, bits, ctx)
         case _ => throw new Exception("Unexpected register type")
-
       }
 
       // group and sort all the register sizes dependent symbols read from
@@ -64,21 +58,21 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
         val size = regSizeMap(totalSize) // Look up mapping for this size
         // val reg = regAlloc(input, size)
         // regWrite(reg, f(regReads.last))
-        val read = valueDelay(size, f(regReads.last))
+        val delayNode = valueDelay(size, f(regReads.last))
 
         readersList.foreach{ reader =>
           // dbgs(c"  Register: ${str(reg)}, size: $size, reader: $reader")
           dbgs(c"  Delay: $size, reader: $reader")
-          // readers(reader).reg = reg
-          readers(reader).read = read
+          readers(reader).delay = delayNode
         }
-        regReads += read
+        regReads += delayNode
       }
     }
   }
 
 
-  private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
+  // Substitution scope must be isolated so that substitutions on outer symbols (e.g. bound iterators) do not escape
+  private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = isolateSubstScope{ inlineBlock(block, {stms =>
     dbg(c"Retiming block $block")
 
     // perform recursive search of inputs to determine cumulative symbol latency
@@ -138,7 +132,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
             val info = inputRetiming(input).readers(reader)
             dbgs(c"Buffering input $input to reader $reader")
             subRules(input) = transformExp(input)(mtyp(input.tp))
-            register(input, info.read)
+            register(input, info.delay)
           }
         }
       }
@@ -152,7 +146,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
       case _ => f(block.result)
     }
     result.asInstanceOf[Exp[T]]
-  })
+  }) }
 
 
 
