@@ -231,7 +231,7 @@ update_regression_timestamp() {
   touch timestamp_${branch}_text
   echo "text 0,0 \"" > timestamp_${branch}_text
   date +"%a %b %d" >> timestamp_${branch}_text
-  date +"%I:%M:%S" >> timestamp_${branch}_text
+  date +"%I:%M:%S %p" >> timestamp_${branch}_text
   echo "\"" >> timestamp_${branch}_text
   convert -size 80x30 xc:white -pointsize 12 -fill black -draw @timestamp_${branch}_text timestamp_${branch}.png
   git add timestamp_${branch}.png
