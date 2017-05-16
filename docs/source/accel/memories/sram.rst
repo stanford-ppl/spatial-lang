@@ -27,6 +27,7 @@ SRAM
 
 **SRAMs** are on-chip scratchpads with fixed size. SRAMs can be specified as multi-dimensional, but the underlying addressing
 in hardware is always flat. The contents of SRAMs are persistent across loop iterations, even when they are declared in an inner scope.
+Up to 5-dimensional SRAMs are currently supported.
 
 
 ---------------

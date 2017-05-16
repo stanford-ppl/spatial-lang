@@ -33,6 +33,44 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 5
   }
 }
 
+object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
+  import IR._
+
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val i = ArgIn[Int]
+    val y = ArgOut[Int]
+    val ii = args(0).to[Int]
+
+    // Connect SW vals to HW vals
+    setArg(i, ii)
+
+    // Create HW accelerator
+    Accel {
+      val lut = LUT[Int](4, 4)(
+         0,  1,  2,  3,
+         4,  5,  6,  7,
+         8,  9, 10, 11,
+        12, 13, 14, 15
+      )
+      y := lut(1, 3) + lut(3, 3) + lut(i, i)
+    }
+
+
+    // Extract results from accelerator
+    val result = getArg(y)
+
+    // Create validation checks and debug code
+    val gold = 26
+    println("expected: " + gold)
+    println("result: " + result)
+
+    val cksum = gold == result
+    println("PASS: " + cksum + " (InOutArg)")
+  }
+}
+
 object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
