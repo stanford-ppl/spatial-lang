@@ -26,7 +26,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emitGlobalModule(src"val ${lhs}_inhibitor = Wire(Bool())")
       if (fsm.isDefined) {
           emit(src"${lhs}_inhibit.io.input.set := ~${fsm.get}")  
-          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data")        
+          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | ~${fsm.get} // Really want inhibit to turn on at last enabled cycle")        
       } else {
         if (cchain.isDefined) {
           emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
