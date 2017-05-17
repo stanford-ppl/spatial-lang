@@ -43,6 +43,12 @@ object ops {
     }
   }
 
+  implicit class BoolOps(val b:Bool) {
+    def D(delay: Int) = {
+      chisel3.util.ShiftRegister(b, delay)
+    }
+
+  }
   
   implicit class UIntOps(val b:UInt) {
     // Define number so that we can be compatible with FixedPoint type

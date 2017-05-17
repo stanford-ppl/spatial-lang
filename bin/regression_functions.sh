@@ -231,7 +231,7 @@ update_regression_timestamp() {
   touch timestamp_${branch}_text
   echo "text 0,0 \"" > timestamp_${branch}_text
   date +"%a %b %d" >> timestamp_${branch}_text
-  date +"%I:%M:%S" >> timestamp_${branch}_text
+  date +"%I:%M:%S %p" >> timestamp_${branch}_text
   echo "\"" >> timestamp_${branch}_text
   convert -size 80x30 xc:white -pointsize 12 -fill black -draw @timestamp_${branch}_text timestamp_${branch}.png
   git add timestamp_${branch}.png
@@ -462,8 +462,8 @@ init_travis_ci() {
   cd ${SPATIAL_HOME}
   cmd="git clone git@github.com:mattfel1/Trackers.git"
   logger "Pulling TRAVIS CI buttons with command: $cmd"
-  eval "$cmd"
-  if [ -d "${SPATIAL_HOME}/Trackers" ]; then
+  eval "$cmd" >> /tmp/log
+  if [ -d "Trackers" ]; then
     logger "Repo Tracker exists, prepping it..."
     trackbranch="Class${1}-Branch${2}-Backend${3}-Tracker"
     mv ${SPATIAL_HOME}/Trackers ${SPATIAL_HOME}/${trackbranch}
@@ -721,7 +721,8 @@ fi
 # Move on to runtime
 rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
 touch ${SPATIAL_HOME}/regression_tests/${2}/results/failed_execution_hanging.${3}_${4}
-bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+chmod +x ${5}/out/run.sh
+timeout 300 ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
 # Check for annoying vcs assertion and rerun if needed
 wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
@@ -730,7 +731,7 @@ if [ \"\$wc\" -gt 0 ]; then
   echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
   make vcs 2>&1 | tee -a ${5}/log
   make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
-  bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
   # Check second time for annoying assert
   wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
@@ -739,15 +740,15 @@ if [ \"\$wc\" -gt 0 ]; then
     echo -e \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
     make vcs 2>&1 | tee -a ${5}/log
     make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
-    bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+    timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
   fi
 fi
 # Check for annoying refusal to run that happens in scala sometimes
 wc=\$(cat ${5}/log | grep \"PASS\" | wc -l)
 if [ \"\$wc\" -eq 0 ]; then
   echo \"[APP_RESULT] Annoying refusal to run ${3}_${4}.  Rerunning...\" >> ${log}
-  echo \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
-  bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  echo -i \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 fi
 
 # Check for runtime errors
