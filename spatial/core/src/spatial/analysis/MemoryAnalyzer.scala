@@ -468,6 +468,8 @@ trait MemoryAnalyzer extends CompilerPass {
       case _:RegType[_]  => bank(mem, bankRegAccess, RegSettings)
       case _:LineBufferType[_] => bank(mem, bankLineBufferAccess, LineBufferSettings)
       case _:RegFileType[_]   => bank(mem, bankRegFileAccess, RegFileSettings)
+      case _:LUTType[_]  => bank(mem, bankRegFileAccess, RegFileSettings)
+
       case _:StreamInType[_]  => bankStream(mem)
       case _:StreamOutType[_] => bankStream(mem)
       case _:BufferedOutType[_] => bankBufferOut(mem)

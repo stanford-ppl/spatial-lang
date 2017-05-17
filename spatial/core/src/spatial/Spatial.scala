@@ -24,7 +24,7 @@ protected trait SpatialExp
   with DebuggingExp with TemplatesExp with BitOpsExp with FileIOExp
   with ControllerExp with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with FILOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
-  with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp
+  with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp with LUTsExp
   with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
   with Aliases with StreamTransfersExp
@@ -51,7 +51,7 @@ protected trait SpatialApi extends SpatialExp
   with DebuggingApi with BitsOpsApi
   with ControllerApi with CounterApi with DRAMApi with DRAMTransferApi with FIFOApi with FILOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
-  with StreamApi with PinApi with AlteraVideoApi with ShiftRegApi
+  with StreamApi with PinApi with AlteraVideoApi with ShiftRegApi with LUTsApi
   with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
   with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits with FileIOApi
   with StreamTransfersApi
@@ -65,7 +65,7 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
   with ScalaGenStream
-  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO with ScalaGenShiftReg {
+  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO with ScalaGenShiftReg with ScalaGenLUTs {
 
   override val IR: SpatialCompiler
 
