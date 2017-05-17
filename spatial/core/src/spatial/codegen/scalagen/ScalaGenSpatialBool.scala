@@ -1,6 +1,6 @@
 package spatial.codegen.scalagen
 
-import argon.ops.BoolExp
+import argon._
 import spatial.SpatialExp
 
 trait ScalaGenSpatialBool extends ScalaGenBits {
@@ -12,7 +12,7 @@ trait ScalaGenSpatialBool extends ScalaGenBits {
     case _ => super.remap(tp)
   }
 
-  override protected def quoteConst(c: Const[_]): String = c match {
+  override protected def quoteConst(c: Const[?]): String = c match {
     case Const(true)  => "TRUE"
     case Const(false) => "FALSE"
     case _ => super.quoteConst(c)
