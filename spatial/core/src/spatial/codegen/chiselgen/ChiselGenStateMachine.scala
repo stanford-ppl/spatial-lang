@@ -34,11 +34,11 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit(src"${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B")
 
       emitController(lhs, None, None, true)
-      emitInhibitor(lhs, None, Some(notDone.result))
 
       emit("// Emitting notDone")
       emitBlock(notDone)
       emit("// Emitting action")
+      emitInhibitor(lhs, None, Some(notDone.result))
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         visitBlock(action)

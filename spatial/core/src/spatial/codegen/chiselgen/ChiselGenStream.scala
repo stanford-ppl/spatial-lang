@@ -141,7 +141,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
         case _ => false
       }
       val parent = parentOf(lhs).get
-      emit(src"""${stream}_ready := ${en} & chisel3.util.ShiftRegister(${parent}_datapath_en, ${symDelay(lhs)}) """)
+      emit(src"""${stream}_ready := ${en} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)}) """)
       if (!isAck) {
         stream match {
           case Def(StreamInNew(bus)) => bus match {

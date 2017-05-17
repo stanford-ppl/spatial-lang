@@ -4,7 +4,7 @@ package templates
 import chisel3._
 
 //A n-stage Parallel controller
-class Parallel(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) extends Module {
+class Parallel(val n: Int, val isFSM: Boolean = false, val retime:Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -86,7 +86,7 @@ class Parallel(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
   }
 
   // Output logic
-  io.output.done := state === doneState.U
+  io.output.done := Mux(io.input.forever, false.B, state === doneState.U)
   io.output.ctr_inc := false.B // No counters for parallels (BUT MAYBE NEEDED FOR STREAMPIPES)
 }
 
