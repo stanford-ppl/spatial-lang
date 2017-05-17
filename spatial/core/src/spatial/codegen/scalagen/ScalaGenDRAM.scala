@@ -9,8 +9,10 @@ trait ScalaGenDRAM extends ScalaGenMemories {
   val IR: SpatialExp
   import IR._
 
+  dependencies ::= FileDep("scalagen", "DRAMBlock.scala")
+
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: DRAMType[_] => src"Array[${tp.child}]"
+    case tp: DRAMType[_] => src"DRAMBlock[${tp.child}]"
     case _ => super.remap(tp)
   }
 
@@ -18,8 +20,11 @@ trait ScalaGenDRAM extends ScalaGenMemories {
     case op@DRAMNew(dims) =>
       val elementsPerBurst = target.burstSize / op.bT.length
       open(src"val $lhs = {")
-        emit(src"""Array.fill(${dims.map(quote).mkString("*")} + $elementsPerBurst)(${op.zero})""") //${invalid(op.mA)})""")
+        emit(src"""DRAMBlock(${dims.map(quote).mkString("*")} + $elementsPerBurst, ${op.zero})""")
       close("}")
+
+    case op@DRAMDealloc(dram) =>
+        emit(src"$dram.dealloc")
 
     case GetDRAMAddress(dram) =>
       emit(src"val $lhs = 0")
