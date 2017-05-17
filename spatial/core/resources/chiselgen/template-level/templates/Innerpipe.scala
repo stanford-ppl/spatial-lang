@@ -5,7 +5,7 @@ import chisel3._
 import scala.collection.mutable.HashMap
 
 // Inner pipe
-class Innerpipe(val isFSM: Boolean = false) extends Module {
+class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module {
 
   // States
   val pipeInit = 0
@@ -39,7 +39,7 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
   })
 
   if (!isFSM) {
-    val state = RegInit(pipeInit.U)
+    val state = RegInit(pipeInit.U(32.W))
 
     // Initialize state and maxFF
     val rstCtr = Module(new SingleCounter(1))
@@ -79,14 +79,15 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
       }.elsewhen( state === pipeDone.U ) {
         io.output.done := Mux(io.input.forever, false.B, true.B)
         state := pipeSpinWait.U
-      }.elsewhen( state === pipeSpinWait.U ) {
+      }.elsewhen( state >= pipeSpinWait.U ) {
         io.output.done := false.B
-        state := pipeInit.U;
+        state := Mux(state >= (pipeSpinWait + retime).U, pipeInit.U, state + 1.U);
       } 
     }.otherwise {
       io.output.done := Mux(io.input.ctr_done, true.B, false.B)
       io.output.ctr_inc := false.B
       io.output.rst_en := false.B
+      io.output.state := state
       // Line below broke tile stores when there is a stall of some kind.  Why was it there to begin with?
       // state := pipeInit.U 
     }

@@ -16,7 +16,9 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
     }
   }
 
-  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = 
+
+
+  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
   if (Config.dotDetail == 0) {
     rhs match {
       case _ if isControlNode(lhs) =>
@@ -44,6 +46,8 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
       case ParStreamRead(strm, ens) => emitMemRead(lhs)
 
       case ParStreamWrite(strm, data, ens) => emitMemWrite(lhs)
+
+      case _ => super.emitNode(lhs, rhs)
     }    
   } else {
 
@@ -53,6 +57,7 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
         emitValids(valids)
         emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
           emitVert(lhs);
+          iters.flatten.foreach{i => emitVert(i); emitEdge(cchain, i)}
           rhs.blocks.foreach(emitBlock) 
         }
 
@@ -60,21 +65,30 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
         emitValids(valids)
         emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
           emitVert(lhs);
+          iters.flatten.foreach{i => emitVert(i); emitEdge(cchain, i)}
           rhs.blocks.foreach(emitBlock) 
         }
 
-      case ParSRAMLoad(sram, inds, ens) => emitMemRead(lhs)
+      case ParSRAMLoad(sram, inds, ens) => 
+        emitVert(lhs)
+        emitEdge(sram, lhs)
+        inds.foreach{ ind => ind.foreach{ a => emitEdge(a, sram) }}
+        ens.foreach{ a => emitEn(a,lhs) }
 
-      case ParSRAMStore(sram,inds,data,ens) => emitMemWrite(lhs)
+      case ParSRAMStore(sram,inds,data,ens) => 
+        data.foreach{ a => emitVert(a); emitEdge(a, sram)}
+        ens.foreach{ a => emitVert(a); emitEn(a, sram)}
+        inds.foreach{ ind => ind.foreach{ a => emitEdge(a, sram) }}
+
 
       case ParFIFODeq(fifo, ens) => 
         emitVert(lhs)
         emitEdge(fifo, lhs)
-        ens.foreach{ a => emitEn(a,fifo) }
+        ens.foreach{ a => emitEn(a,lhs) }
 
       case ParFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
         data.foreach{ a => emitVert(a); emitEdge(a, fifo)}
-        ens.foreach{ a => emitVert(a); emitEn(a, fifo)}
+        ens.foreach{ a => emitVert(a); emitEn(a, lhs)}
 
 
       case ParStreamRead(strm, ens) => emitVert(lhs); emitEdge(strm, lhs); ens.foreach{emitEn(_,strm)}
@@ -83,5 +97,6 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
 
       case _ => super.emitNode(lhs, rhs)
     }
+  }
   }
 }

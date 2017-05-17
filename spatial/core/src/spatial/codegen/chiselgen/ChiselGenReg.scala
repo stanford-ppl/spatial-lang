@@ -180,7 +180,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
         val id = argMapping(reg)._3
           emit(src"val ${lhs}_wId = getArgOutLane($id)")
           emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.number""")
-          emit(src"""${reg}_en_options(${lhs}_wId) := $en & ${parent}_datapath_en""")
+          emit(src"""${reg}_en_options(${lhs}_wId) := $en & ShiftRegister(${parent}_datapath_en, ${symDelay(lhs)})""")
       } else {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => // is an accumulator
@@ -215,7 +215,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
           case _ => // Not an accum
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-              emit(src"""${reg}_${ii}.write($v, $en & ${parent}_datapath_en, false.B, List(${ports.mkString(",")}))""")
+              emit(src"""${reg}_${ii}.write($v, $en & ShiftRegister(${parent}_datapath_en, ${symDelay(lhs)}), false.B, List(${ports.mkString(",")}))""")
               emit(src"""${reg}_${ii}.io.input(0).init := ${reg}_initval.number""")
               emit(src"""${reg}_$ii.io.input(0).reset := reset""")
             }

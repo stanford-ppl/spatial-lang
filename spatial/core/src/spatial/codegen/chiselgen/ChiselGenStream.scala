@@ -48,17 +48,18 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
           emit(src"} ", forceful=true) 
 
+          emit(src"io.led_stream_out_data := io.stream_in_ready", forceful=true)
           emit(src"io.stream_in_ready := ${lhs}_ready", forceful=true)
           emit(src"${lhs}_valid := io.stream_in_valid", forceful=true)
 
         case SliderSwitch =>
           emit(src"// switch, node = $lhs", forceful=true)
-//          emit(src"${lhs}_ready := 1.U", forceful=true)
           emit(src"${lhs}_valid := 1.U", forceful=true)
 
         case _ =>
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
+
     case StreamOutNew(bus) =>
       val wireType = writersOf(lhs).head.node match {
         case Def(e@ParStreamWrite(_, data, ens)) => src"Vec(${ens.length}, ${newWire(data.head.tp)})"
@@ -81,9 +82,53 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emit(src"// LEDR, node = $lhs", forceful=true)
           emit(src"${lhs}_ready := 1.U", forceful=true)
           emit(src"${lhs}_valid := 1.U", forceful=true)
-        //  emit(src"io.led_stream_out_data := converted_data", forceful=true)
         case _ =>
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
+      }
+    
+    case BufferedOutNew(_, bus) => 
+      bus match {
+        case VGA => 
+          emit (src"// EMITTING FOR BUFFEREDOUT ON VGA $lhs", forceful=true)
+          emit(src"io.buffout_address := ${lhs}_address", forceful=true)
+          emit(src"io.buffout_write := ${lhs}_write", forceful=true)
+          emit(src"io.buffout_writedata := ${lhs}_writedata", forceful=true)
+          emit(src"${lhs}_waitrequest := io.buffout_waitrequest", forceful=true)
+          emitGlobalWire(src"""// Emit to global at BUFFEROUT node""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_address = Wire(UInt(32.W))""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_write = Wire(UInt(1.W))""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_writedata = Wire(UInt(16.W))""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_waitrequest = Wire(Bool())""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_hAddr = Wire(UInt(7.W))""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_wAddr = Wire(UInt(8.W))""", forceful=true)
+      }
+
+    case BufferedOutWrite(buffer, data, is, en) => 
+//      case Def(BufferedOutNew(Seq(lift(320), lift(240)), bus)) => bus match {
+      buffer match {
+        case Def(BufferedOutNew(_, bus)) => bus match {
+          case VGA =>
+            emit (s"// EMITTING FOR BUFFEREDOUT WRITE ON VGA $buffer, $data, $is, $en", forceful=true)
+              is.zipWithIndex.foreach{ case(ind, j) =>
+                emit (src"""// EMITTING FOR BUFFEREDOUT WRITE ON VGA ${lhs}_$j = ${ind}""")
+              }
+            emit(s"// default buffer address: 134217728")
+            emit(s"")
+            
+            emit(src"when(~${buffer}_waitrequest) {", forceful=true)
+            emit(src"  ${buffer}_write := 1.U", forceful=true)
+            emit(src"  ${buffer}_writedata := ${data}.r", forceful=true)
+            emit(src"  ${buffer}_hAddr := ${is(0)}.raw", forceful=true)
+            emit(src"  ${buffer}_wAddr := ${is(1)}.raw", forceful=true)
+            emit(src"  ${buffer}_address := 134217728.U + Utils.Cat(${buffer}_hAddr, ${buffer}_wAddr, false.B)", forceful=true)
+            emit(src"} .otherwise {", forceful=true)
+            emit(src"  ${buffer}_write := 0.U", forceful=true)
+            emit(src"  ${buffer}_writedata := 0.U", forceful=true)
+            emit(src"  ${buffer}_hAddr := 0.U", forceful=true)
+            emit(src"  ${buffer}_wAddr := 0.U", forceful=true)
+            emit(src"  ${buffer}_address := 134217728.U", forceful=true)
+            emit(src"}", forceful=true)
+        }
       }
 
     case StreamRead(stream, en) =>
@@ -96,7 +141,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
         case _ => false
       }
       val parent = parentOf(lhs).get
-      emit(src"""${stream}_ready := ${parent}_en & ${en} & chisel3.util.ShiftRegister(${parent}_datapath_en, ${parent}_retime) """)
+      emit(src"""${stream}_ready := ${en} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)}) """)
       if (!isAck) {
         stream match {
           case Def(StreamInNew(bus)) => bus match {
@@ -128,22 +173,22 @@ trait ChiselGenStream extends ChiselGenSRAM {
               emit(src"""// emiiting data for stream ${stream}""")
               emit(src"""${stream} := $data""")
               emit(src"""converted_data := ${stream}""")
-              emit(src"""${stream}_valid := ${parent}_en & ${en} & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime)""")
+              emit(src"""${stream}_valid := ${en} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)})""")
             case LEDR =>
               emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
         //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
               emit(src"""${stream} := $data""")
               emit(src"""io.led_stream_out_data := ${stream}""")
             case BurstFullDataBus() =>
-              emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
+              emit(src"""${stream}_valid := ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
               emit(src"""${stream} := $data""")
 
             case BurstCmdBus =>  
-              emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
+              emit(src"""${stream}_valid := chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
               emit(src"""${stream} := $data""")
 
             case _ => 
-              emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
+              emit(src"""${stream}_valid := ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
               val id = argMapping(stream)._1
               Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
               emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now

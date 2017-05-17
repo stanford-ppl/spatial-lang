@@ -32,7 +32,7 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
   def pagerank[T:Type:Num](
     pagesIN:  Array[T],
     edgesIN:  Array[Int],
-    countsIN: Array[T],
+    countsIN: Array[Int],
     edgeIdIN: Array[Int],
     edgeLenIN: Array[Int],
     itersIN: Int,
@@ -51,7 +51,7 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
 
     val OCpages    = DRAM[T](NP)
     val OCedges    = DRAM[Int](NE)    // srcs of edges
-    val OCcounts   = DRAM[T](NE)    // counts for each edge
+    val OCcounts   = DRAM[Int](NE)    // counts for each edge
     val OCedgeId   = DRAM[Int](NP) // Start index of edges
     val OCedgeLen  = DRAM[Int](NP) // Number of edges for each page
     // val OCresult   = DRAM[T](np)
@@ -66,18 +66,16 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
       val frontierOff = SRAM[Int](tileSize)
       val currentPR = SRAM[T](tileSize)
       // Flush frontierOff so we don't cause gather segfault. Flush currentPR because mux isn't do what I thought it would
-      Foreach(tileSize by 1) { i => frontierOff(i) = 0.to[Int]; currentPR(i) = 1.to[T]}
+      Foreach(tileSize by 1) { i => frontierOff(i) = 0.to[Int]}
 
       Sequential.Foreach(iters by 1){ iter =>
         // val oldPrIdx = iter % 2.as[SInt]
         // val newPrIdx = mux(oldPrIdx == 1, 0.as[SInt], 1.as[SInt])
         Sequential.Foreach(NP by tileSize) { tid =>
-          val initPR = SRAM[T](tileSize)
-
           val edgesId = SRAM[Int](tileSize)
           val edgesLen = SRAM[Int](tileSize)
           Parallel {
-            initPR load OCpages(tid::tid+tileSize)
+            currentPR load OCpages(tid::tid+tileSize)
             edgesId load OCedgeId(tid :: tid+tileSize)
             edgesLen load OCedgeLen(tid :: tid+tileSize)
           }
@@ -87,11 +85,10 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
             val numEdges = Reg[Int](0)
             Pipe{ numEdges := edgesLen(pid) }
 
-            def pageRank(id: Int) = mux(id <= pid, initPR(pid), currentPR(pid))
 
             // Gather edges indices and counts
             val edges = SRAM[Int](tileSize)
-            val counts = SRAM[T](tileSize)
+            val counts = SRAM[Int](tileSize)
             Parallel {
               edges load OCedges(startId :: startId + numEdges.value)
               counts load OCcounts(startId :: startId + numEdges.value)
@@ -124,13 +121,13 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
               val addr = edges(i)
               val off  = offLoc(i)
               val mask = onChipMask(i)
-              val onchipRank = pageRank(addr - tid)
+              val onchipRank = currentPR(addr - tid)
 
               val offchipRank = gatheredPR(off)
 
               val rank = mux(mask == 1.to[Int], onchipRank, offchipRank)
 
-              rank / counts(i)
+              rank / (counts(i).to[T])
             }{_+_}
             //val pr = Reduce(numEdges.value by 1)(0.as[T]){ i => frontier(i) / counts(i).to[T] }{_+_}
 
@@ -155,9 +152,9 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
     val damp = args(2).to[X]
     val NE = 18432
 
-    val pages = Array.tabulate(NP){i => random[X](3)}
+    val pages = Array.tabulate(NP){i => 4.to[X]}
     val edges = Array.tabulate(NP){i => Array.tabulate(edges_per_page) {j => if (i < edges_per_page) j else i - j}}.flatten
-    val counts = Array.tabulate(NP){i => Array.tabulate(edges_per_page) { j => edges_per_page.to[X] }}.flatten
+    val counts = Array.tabulate(NP){i => Array.tabulate(edges_per_page) { j => edges_per_page.to[Int] }}.flatten
     val edgeId = Array.tabulate(NP){i => i*edges_per_page }
     val edgeLen = Array.tabulate(NP){i => edges_per_page.to[Int] }
 
@@ -181,7 +178,7 @@ object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 
         val these_counts = these_edges.map{j => counts(j)}
         val pr = these_pages.zip(these_counts){ (p,c) =>
           // println("page " + i + " doing " + p + " / " + c)
-          p/c
+          p/c.to[X]
         }.reduce{_+_}
         // println("new pr for " + i + " is " + pr)
         gold(i) = pr*damp + (1.to[X]-damp)

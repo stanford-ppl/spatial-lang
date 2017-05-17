@@ -25,8 +25,8 @@ Tile
 ====
 
 
-A **Tile** describes a continguous slice of a DRAM memory which can be loaded onto the accelerator for processing or which can be updated
-with results once computation is complete.
+A **Tile** describes a continguous slice of a :doc:`dram` memory's address space which can be loaded onto the
+accelerator for processing or which can be updated with results once FPGA computation is complete.
 
 ----------------
 

@@ -11,7 +11,7 @@ trait DotGenVector extends DotCodegen {
 
   override def attr(n:Exp[_]) = n match {
     case lhs: Sym[_] => lhs match {
-      case Def(VectorApply(vector, i)) => super.attr(n).label(src"""$i""")
+      case Def(VectorApply(vector, i)) => super.attr(n).label(src"""apply($i)""")
       case _ => super.attr(n)
     }
     case _ => super.attr(n)

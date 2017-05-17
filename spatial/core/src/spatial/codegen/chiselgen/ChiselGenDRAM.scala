@@ -80,7 +80,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       val (addrMSB, addrLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "offset")
       val (sizeMSB, sizeLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "size")
       val (isLdMSB, isLdLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "isLoad")
-      emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready")
+      emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready/* & ~${turnstiling_stage}_inhibitor*/")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}($addrMSB,$addrLSB)")
       emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}($sizeMSB,$sizeLSB)")
       emit(src"io.memStreams.loads($id).cmd.valid :=  ${cmdStream}_valid")

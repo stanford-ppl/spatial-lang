@@ -6,7 +6,7 @@ import Utils._
 
 import scala.collection.mutable.HashMap
 
-class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
+class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -167,5 +167,6 @@ class Metapipe(val n: Int, val isFSM: Boolean = false) extends Module {
   // Output logic
   io.output.ctr_inc := io.input.stageDone(0) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
   io.output.done := state === doneState.U
+  io.output.state := state
 }
 

@@ -68,8 +68,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     * Unroll numbers - gives the unroll index of each pre-unrolled (prior to transformer) index
     * Used to determine which duplicate a particular memory access should be associated with
     */
-  var unrollNum = Map[Bound[Index], Int]()
-  def withUnrollNums[A](ind: Seq[(Bound[Index], Int)])(blk: => A) = {
+  var unrollNum = Map[Exp[Index], Int]()
+  def withUnrollNums[A](ind: Seq[(Exp[Index], Int)])(blk: => A) = {
     val prevUnroll = unrollNum
     unrollNum ++= ind
     val result = blk
