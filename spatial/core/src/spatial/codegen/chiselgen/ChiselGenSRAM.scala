@@ -25,7 +25,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
       emitGlobalModule(src"val ${lhs}_inhibitor = Wire(Bool())")
       if (fsm.isDefined) {
-          emit(src"${lhs}_inhibit.io.input.set := ${fsm.get}")  
+          emit(src"${lhs}_inhibit.io.input.set := ~${fsm.get}")  
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data")        
       } else {
         if (cchain.isDefined) {

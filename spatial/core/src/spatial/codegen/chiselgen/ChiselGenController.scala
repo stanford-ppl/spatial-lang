@@ -252,6 +252,33 @@ trait ChiselGenController extends ChiselGenCounter{
 
   }
 
+  def getAllStreamLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
+      // If we are inside a stream pipe, the following may be set
+      val readiers = listensTo(c).distinct.map { fifo => 
+        fifo match {
+          case Def(FIFONew(size)) => src"~${fifo}.io.empty"
+          case Def(FILONew(size)) => src"~${fifo}.io.empty"
+          case Def(StreamInNew(bus)) => src"${fifo}_valid & ${fifo}_ready"
+          case _ => src"${fifo}_en" // parent node
+          case _ => ""
+        }
+      }.mkString(" & ")
+      val holders = (pushesTo(c)).distinct.map { fifo => 
+        fifo match {
+          case Def(FIFONew(size)) => src"~${fifo}.io.full"
+          case Def(FILONew(size)) => src"~${fifo}.io.full"
+          case Def(StreamOutNew(bus)) => src"${fifo}_ready & ${fifo}_valid"
+          case Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
+        }
+      }.mkString(" & ")
+
+      val hasHolders = if (holders != "") "&" else ""
+      val hasReadiers = if (readiers != "") "&" else ""
+
+      if (SpatialConfig.enableRetiming) src"${hasHolders} ${holders} ${hasReadiers} ${readiers}" else ""
+
+  }
+
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
     val hasStreamIns = if (listensTo(sym).length > 0) { // Please simplify this mess
@@ -340,9 +367,9 @@ trait ChiselGenController extends ChiselGenCounter{
             case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
             case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
               if (isStreamChild(sym) & hasStreamIns) {
-                emit(src"${cchain.get}_en := ${sym}_datapath_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
+                emit(src"${cchain.get}_en := ${sym}_datapath_en & ~${sym}_inhibitor /*${getAllStreamLogic(sym)}*/") 
               } else {
-                emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
+                emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc // Should probably also add inhibitor")
               } 
           }
           emit(src"""// ---- Counter Connections for $smStr ${sym} (${cchain.get}) ----""")
