@@ -1667,7 +1667,6 @@ object DotProductFSM extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
-// Why don't this app work
 object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
   import IR._
 

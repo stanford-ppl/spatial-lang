@@ -115,7 +115,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
             emit(s"// default buffer address: 134217728")
             emit(s"")
             
-            emit(src"when(~${buffer}_waitrequest) {", forceful=true)
+            emit(src"when(true.B /*~${buffer}_waitrequest*/) {", forceful=true)
             emit(src"  ${buffer}_write := 1.U", forceful=true)
             emit(src"  ${buffer}_writedata := ${data}.r", forceful=true)
             emit(src"  ${buffer}_hAddr := ${is(0)}.raw", forceful=true)

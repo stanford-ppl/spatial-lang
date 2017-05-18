@@ -18,6 +18,8 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
           lhs match {
             case Def(e: RegFileNew[_,_]) =>
               s"""x${lhs.id}_${nameOf(lhs).getOrElse("regfile")}"""
+            case Def(e: LUTNew[_,_]) =>
+              s"""x${lhs.id}_${nameOf(lhs).getOrElse("lut")}"""
             case _ =>
               super.quote(s)
           }
@@ -76,6 +78,29 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
     case ParRegFileShiftIn(rf,i,d,data,en) => 
       emit("ParRegFileShiftIn not implemented!")
       // (copied from ScalaGen) shiftIn(lhs, rf, i, d, data, isVec = true)
+
+    case op@LUTNew(dims, init) =>
+      val width = bitWidth(lhs.tp.typeArguments.head)
+      val f = lhs.tp.typeArguments.head match {
+        case a: FixPtType[_,_,_] => a.fracBits
+        case _ => 0
+      }
+      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
+        val numReaders = readersOf(lhs).filter{read => dispatchOf(read, lhs) contains i}.length
+        emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new LUT(List(${dims.mkString(",")}), List(${init.mkString(",")}), ${numReaders}, $width, $f))""")
+      }
+        // } else {
+        //   nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
+        //   emitGlobalModule(s"val ${quote(lhs)}_$i = Module(new templates.NBufShiftRegFile(${dims(0)}, ${dims(1)}, 1, $depth, ${par}/${dims(0)}, $width))")
+        //   emitGlobalModule(s"${quote(lhs)}_$i.io.reset := reset")          
+        // }
+
+      
+    case op@LUTLoad(lut,inds,en) =>
+      val dispatch = dispatchOf(lhs, lut).toList.head
+      emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
+      val parent = parentOf(lhs).get
+      emit(src"""${lhs}.raw := ${lut}_${dispatch}.connectRPort(List(${inds.map{a => src"${a}.r"}.mkString(",")}), $en & ${parent}_datapath_en.D(${symDelay(lhs)}))""")
 
     case _ => super.emitNode(lhs, rhs)
   }
