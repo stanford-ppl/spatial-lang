@@ -62,7 +62,7 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = 26
+    val gold = 15 + 7 + 5*(ii)
     println("expected: " + gold)
     println("result: " + result)
 
