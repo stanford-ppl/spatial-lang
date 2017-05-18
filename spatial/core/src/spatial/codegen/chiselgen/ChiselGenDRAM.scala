@@ -73,7 +73,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
       // Connect the streams to their IO interface signals
       emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := b}""")
-      emit(src"""${dataStream}_valid := io.memStreams.loads($id).rdata.valid""")
+      emit(src"""${dataStream}_valid := io.memStreams.loads($id).rdata.valid.D(${symDelay(readersOf(dataStream).head.node)})""")
       emit(src"${cmdStream}_ready := io.memStreams.loads($id).cmd.ready")
 
       // Connect the IO interface signals to their streams
