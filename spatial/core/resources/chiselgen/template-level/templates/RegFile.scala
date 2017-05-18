@@ -312,27 +312,37 @@ class LUT(val dims: List[Int], val inits: List[Float], val numReaders: Int, val 
   })
 
   assert(dims.reduce{_*_} == inits.length)
-  val options = (0 until dims.reduce{_*_}).map{ i => (i.U -> (inits(i)*scala.math.pow(2, fracBits)).toInt.U)}
+  val options = (0 until dims.reduce{_*_}).map { i => 
+    val initval = (inits(i)*scala.math.pow(2,fracBits)).toInt
+    // initval.U
+    ( i.U -> initval.U )
+  }
 
   val flat_addr = (0 until numReaders).map{ k => 
     val base = k*dims.length
-    io.addr.zipWithIndex.map{ case (addr, i) => 
-      addr * (dims.drop(i+base).reduce{_*_}/dims(i+base)).U
+    (0 until dims.length).map{ i => 
+      (io.addr(i + base) * (dims.drop(i+base).reduce{_*_}/dims(i+base)).U(32.W))(31,0) // TODO: Why is chisel being so stupid with this type when used in the MuxLookup
     }.reduce{_+_}
   }
 
-  val active_addr = Mux1H(chisel3.util.Cat(io.en), flat_addr)
-  io.data_out := MuxLookup(active_addr, 0.U(width.W), options)
+  val active_addr = Mux1H(io.en, flat_addr)
+
+  // val onehot = (0 until dims.reduce{_*_}).map { i => 
+  //   active_addr === i.U    
+  // }
+
+  // io.data_out := Mux1H(onehot, options)
+  io.data_out := MuxLookup(active_addr, 0.U, options)
 
   var rId = 0
-  def connectRPort(addrs: List[UInt], en: Bool): UInt = {
+  def connectRPort(addrs: List[UInt], en: Bool): Unit = {
     (0 until addrs.length).foreach{ i => 
       val base = rId * addrs.length
       io.addr(base + i) := addrs(i)
     }
     io.en(rId) := en
     rId = rId + 1
-    io.data_out
+    ()
   }
   
 }
