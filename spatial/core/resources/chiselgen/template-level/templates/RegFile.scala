@@ -3,6 +3,7 @@ package templates
 import chisel3._
 import templates.Utils.log2Up
 import chisel3.util.{MuxLookup, Mux1H}
+import Utils._
 
 
 /*
@@ -308,14 +309,14 @@ class LUT(val dims: List[Int], val inits: List[Float], val numReaders: Int, val 
   val io = IO(new Bundle { 
     val addr = Vec(numReaders*dims.length, Input(UInt(32.W)))
     val en = Vec(numReaders, Input(Bool()))
-    val data_out = Output(UInt(width.W))
+    val data_out = Output(new types.FixedPoint(true, 32, 0))
   })
 
   assert(dims.reduce{_*_} == inits.length)
   val options = (0 until dims.reduce{_*_}).map { i => 
     val initval = (inits(i)*scala.math.pow(2,fracBits)).toInt
     // initval.U
-    ( i.U -> initval.U )
+    ( i.U -> initval.S(32.W) )
   }
 
   val flat_addr = (0 until numReaders).map{ k => 
@@ -332,7 +333,8 @@ class LUT(val dims: List[Int], val inits: List[Float], val numReaders: Int, val 
   // }
 
   // io.data_out := Mux1H(onehot, options)
-  io.data_out := MuxLookup(active_addr, 0.U, options)
+  val selected = MuxLookup(active_addr, 0.S, options)
+  io.data_out := Utils.FixedPoint(true,32,0,selected.asUInt) 
 
   var rId = 0
   def connectRPort(addrs: List[UInt], en: Bool): Unit = {
