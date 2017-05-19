@@ -1,4 +1,6 @@
 	Computer_System u0 (
+		.expansion_jp1_export            (<connected-to-expansion_jp1_export>),            //        expansion_jp1.export
+		.expansion_jp2_export            (<connected-to-expansion_jp2_export>),            //        expansion_jp2.export
 		.hps_io_hps_io_emac1_inst_TX_CLK (<connected-to-hps_io_hps_io_emac1_inst_TX_CLK>), //               hps_io.hps_io_emac1_inst_TX_CLK
 		.hps_io_hps_io_emac1_inst_TXD0   (<connected-to-hps_io_hps_io_emac1_inst_TXD0>),   //                     .hps_io_emac1_inst_TXD0
 		.hps_io_hps_io_emac1_inst_TXD1   (<connected-to-hps_io_hps_io_emac1_inst_TXD1>),   //                     .hps_io_emac1_inst_TXD1

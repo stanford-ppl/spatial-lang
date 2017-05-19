@@ -59,7 +59,6 @@ object StreamingSobel extends SpatialApp {
       val fifoOut = FIFO[Int16](Cmax)
       val lb = LineBuffer[Int16](Kh, Cmax)
       val submitReady = FIFO[Bool](3)
-      // val lbReady = FIFO[Bool](2) // TODO: Not sure if this should be 1, 2, 3, or huge to prevent over-buffering
 
       Stream(*) { _ =>
         val pixel = imgIn.value()
@@ -68,13 +67,9 @@ object StreamingSobel extends SpatialApp {
 
         Foreach(0 until R) { r =>
 
-          Pipe {
-            Foreach(0 until Cmax){ _ => lb.enq(fifoIn.deq(), true) }
-            // lbReady.enq(true)
-          }
+          Pipe { Foreach(0 until Cmax){ _ => lb.enq(fifoIn.deq(), true) } }
 
           Pipe {
-            // lbReady.deq()
             Foreach(0 until Cmax) { c =>
               Foreach(0 until Kh par Kh) { i => sr(i, *) <<= lb(i, c) }
 
@@ -92,7 +87,6 @@ object StreamingSobel extends SpatialApp {
             }
             submitReady.enq(true)
           }
-          // Or maybe put submitReady enq here
         }
 
         Pipe {

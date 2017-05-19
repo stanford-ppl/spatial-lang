@@ -56,6 +56,14 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emit(src"// switch, node = $lhs", forceful=true)
           emit(src"${lhs}_valid := 1.U", forceful=true)
 
+        case GPInput1 =>
+          emit(src"// switch, node = $lhs", forceful=true)
+          emit(src"${lhs}_valid := 1.U", forceful=true)
+
+        case GPInput2 =>
+          emit(src"// switch, node = $lhs", forceful=true)
+          emit(src"${lhs}_valid := 1.U", forceful=true)
+
         case _ =>
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
@@ -80,6 +88,14 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emit(src"${lhs}_ready := io.stream_out_ready", forceful=true)
         case LEDR =>
           emit(src"// LEDR, node = $lhs", forceful=true)
+          emit(src"${lhs}_ready := 1.U", forceful=true)
+          emit(src"${lhs}_valid := 1.U", forceful=true)
+        case GPOutput1 => 
+          emit(src"// GPOutput1, node = $lhs", forceful=true)
+          emit(src"${lhs}_ready := 1.U", forceful=true)
+          emit(src"${lhs}_valid := 1.U", forceful=true)
+        case GPOutput2 => 
+          emit(src"// GPOutput2, node = $lhs", forceful=true)
           emit(src"${lhs}_ready := 1.U", forceful=true)
           emit(src"${lhs}_valid := 1.U", forceful=true)
         case _ =>
@@ -149,6 +165,10 @@ trait ChiselGenStream extends ChiselGenSRAM {
               emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
             case SliderSwitch => 
               emit(src"""val $lhs = io.switch_stream_in_data""")
+            case GPInput1 => 
+              emit(src"""val $lhs = io.gpi1_streamin_readdata""")
+            case GPInput2 => 
+              emit(src"""val $lhs = io.gpi2_streamin_readdata""")
             case BurstDataBus() => 
               emit(src"""val $lhs = (0 until 1).map{ i => ${stream}(i) }""")
 
@@ -179,6 +199,14 @@ trait ChiselGenStream extends ChiselGenSRAM {
         //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
               emit(src"""${stream} := $data""")
               emit(src"""io.led_stream_out_data := ${stream}""")
+            case GPOutput1 =>
+              emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
+              emit(src"""${stream} := $data""")
+              emit(src"""io.gpo1_streamout_writedata := ${stream}""")
+            case GPOutput2 =>
+              emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
+              emit(src"""${stream} := $data""")
+              emit(src"""io.gpo2_streamout_writedata := ${stream}""")
             case BurstFullDataBus() =>
               emit(src"""${stream}_valid := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) // Do not delay ready because datapath includes a delayed _valid already """)
               emit(src"""${stream} := $data""")

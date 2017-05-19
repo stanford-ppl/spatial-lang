@@ -16,39 +16,39 @@ module Streaminner(
   input         reset,
   input         io_input_enable,
   input         io_input_ctr_done,
-  input  [31:0] io_input_ctr_maxIn_0,
   input         io_input_forever,
   input         io_input_rst,
   input         io_input_hasStreamIns,
+  input  [31:0] io_input_nextState,
+  input  [31:0] io_input_initState,
+  input         io_input_doneCondition,
   output        io_output_done,
   output        io_output_ctr_en,
   output        io_output_ctr_inc,
   output        io_output_rst_en,
-  output [31:0] io_output_ctr_maxOut_0
+  output [31:0] io_output_state
 );
-  reg  state;
+  reg  _T_32;
   reg [31:0] _GEN_4;
-  reg  maxFF_0;
-  reg [31:0] _GEN_5;
+  wire  _T_35;
   wire  _T_36;
-  wire  _T_37;
-  wire  _T_41;
+  wire  _T_40;
   reg  _GEN_0;
-  reg [31:0] _GEN_6;
+  reg [31:0] _GEN_5;
   reg  _GEN_1;
-  reg [31:0] _GEN_7;
+  reg [31:0] _GEN_6;
   reg  _GEN_2;
-  reg [31:0] _GEN_8;
+  reg [31:0] _GEN_7;
   reg [31:0] _GEN_3;
-  reg [31:0] _GEN_9;
-  assign io_output_done = _T_41;
+  reg [31:0] _GEN_8;
+  assign io_output_done = _T_40;
   assign io_output_ctr_en = _GEN_0;
   assign io_output_ctr_inc = _GEN_1;
   assign io_output_rst_en = _GEN_2;
-  assign io_output_ctr_maxOut_0 = _GEN_3;
-  assign _T_36 = io_input_hasStreamIns ? 1'h1 : io_input_enable;
-  assign _T_37 = io_input_ctr_done & _T_36;
-  assign _T_41 = io_input_forever ? 1'h0 : _T_37;
+  assign io_output_state = _GEN_3;
+  assign _T_35 = io_input_hasStreamIns ? 1'h1 : io_input_enable;
+  assign _T_36 = io_input_ctr_done & _T_35;
+  assign _T_40 = io_input_forever ? 1'h0 : _T_36;
 `ifdef RANDOMIZE
   integer initvar;
   initial begin
@@ -57,36 +57,29 @@ module Streaminner(
     `endif
   `ifdef RANDOMIZE_REG_INIT
   _GEN_4 = {1{$random}};
-  state = _GEN_4[0:0];
+  _T_32 = _GEN_4[0:0];
   `endif
   `ifdef RANDOMIZE_REG_INIT
   _GEN_5 = {1{$random}};
-  maxFF_0 = _GEN_5[0:0];
+  _GEN_0 = _GEN_5[0:0];
   `endif
   `ifdef RANDOMIZE_REG_INIT
   _GEN_6 = {1{$random}};
-  _GEN_0 = _GEN_6[0:0];
+  _GEN_1 = _GEN_6[0:0];
   `endif
   `ifdef RANDOMIZE_REG_INIT
   _GEN_7 = {1{$random}};
-  _GEN_1 = _GEN_7[0:0];
+  _GEN_2 = _GEN_7[0:0];
   `endif
   `ifdef RANDOMIZE_REG_INIT
   _GEN_8 = {1{$random}};
-  _GEN_2 = _GEN_8[0:0];
-  `endif
-  `ifdef RANDOMIZE_REG_INIT
-  _GEN_9 = {1{$random}};
-  _GEN_3 = _GEN_9[31:0];
+  _GEN_3 = _GEN_8[31:0];
   `endif
   end
 `endif
   always @(posedge clock) begin
     if (reset) begin
-      state <= 1'h0;
-    end
-    if (reset) begin
-      maxFF_0 <= 1'h0;
+      _T_32 <= 1'h0;
     end
   end
 endmodule
@@ -156,75 +149,175 @@ module AccelTop(
   output        io_stream_out_endofpacket,
   output        io_stream_out_empty,
   output        io_stream_out_valid,
-  output [31:0] io_led_stream_out_data
+  output [31:0] io_led_stream_out_data,
+  input  [31:0] io_switch_stream_in_data
 );
-  wire  x120_ready;
-  wire  x120_valid;
-  wire  x121_ready;
-  wire  x121_valid;
-  wire  AccelController_ctr_en;
-  wire  AccelController_datapath_en;
-  wire [15:0] x127_tuple;
-  wire [15:0] x121_data;
+  wire  x264_ready;
+  wire  x264_valid;
+  wire  x265_ready;
+  wire  x265_valid;
+  wire  x266_ready;
+  wire  x266_valid;
+  wire  RootController_ctr_en;
+  wire  RootController_datapath_en;
+  wire [15:0] x274_tuple;
+  wire [14:0] x282_tuple;
+  wire [15:0] x266_data;
   wire [15:0] converted_data;
-  wire  _T_75;
-  wire  _T_76;
-  wire  _T_78;
-  wire  _T_79;
+  wire  _T_80;
+  wire  _T_81;
+  wire  _T_83;
+  wire  _T_84;
   wire [15:0] _GEN_1;
   wire  _GEN_2;
   wire  _GEN_3;
   wire [1:0] _GEN_4;
-  wire  _T_81;
-  wire  _T_82;
-  wire  _T_83;
-  wire  AccelController_en;
-  wire  AccelController_sm_clock;
-  wire  AccelController_sm_reset;
-  wire  AccelController_sm_io_input_enable;
-  wire  AccelController_sm_io_input_ctr_done;
-  wire [31:0] AccelController_sm_io_input_ctr_maxIn_0;
-  wire  AccelController_sm_io_input_forever;
-  wire  AccelController_sm_io_input_rst;
-  wire  AccelController_sm_io_input_hasStreamIns;
-  wire  AccelController_sm_io_output_done;
-  wire  AccelController_sm_io_output_ctr_en;
-  wire  AccelController_sm_io_output_ctr_inc;
-  wire  AccelController_sm_io_output_rst_en;
-  wire [31:0] AccelController_sm_io_output_ctr_maxOut_0;
-  wire  _T_84;
-  wire  _T_85;
-  reg  _T_88;
-  reg [31:0] _GEN_6;
+  wire  _T_86;
+  wire  _T_87;
+  wire  _T_88;
+  wire  _T_89;
+  wire  RootController_en;
+  wire  RootController_sm_clock;
+  wire  RootController_sm_reset;
+  wire  RootController_sm_io_input_enable;
+  wire  RootController_sm_io_input_ctr_done;
+  wire  RootController_sm_io_input_forever;
+  wire  RootController_sm_io_input_rst;
+  wire  RootController_sm_io_input_hasStreamIns;
+  wire [31:0] RootController_sm_io_input_nextState;
+  wire [31:0] RootController_sm_io_input_initState;
+  wire  RootController_sm_io_input_doneCondition;
+  wire  RootController_sm_io_output_done;
+  wire  RootController_sm_io_output_ctr_en;
+  wire  RootController_sm_io_output_ctr_inc;
+  wire  RootController_sm_io_output_rst_en;
+  wire [31:0] RootController_sm_io_output_state;
+  wire  _T_90;
+  wire  _T_91;
+  reg  _T_96;
+  reg [31:0] _GEN_20;
   wire  done_latch_clock;
   wire  done_latch_reset;
   wire  done_latch_io_input_set;
   wire  done_latch_io_input_reset;
   wire  done_latch_io_input_asyn_reset;
   wire  done_latch_io_output_data;
-  wire [4:0] x124_apply;
-  wire [5:0] x125_apply;
-  wire [4:0] x126_apply;
-  wire [10:0] _T_101;
-  wire [15:0] _T_102;
+  wire  _T_107;
+  wire  x270;
+  wire [4:0] x271_apply;
+  wire [5:0] x272_apply;
+  wire [4:0] x273_apply;
+  wire [10:0] _T_116;
+  wire [15:0] _T_117;
+  wire [7:0] x275_number;
+  wire  x275_debug_overflow;
+  wire [7:0] x276_number;
+  wire  x276_debug_overflow;
+  wire [8:0] _T_131_number;
+  wire  _T_131_debug_overflow;
+  wire [8:0] _T_137_number;
+  wire  _T_137_debug_overflow;
+  wire [8:0] _T_143_number;
+  wire  _T_143_debug_overflow;
+  wire  _T_149;
+  wire  _T_151;
+  wire [8:0] _T_153;
+  wire [8:0] _T_158;
+  wire  _T_162;
+  wire  _T_164;
+  wire [8:0] _T_166;
+  wire [8:0] _T_171;
+  wire [9:0] _T_172;
+  wire [8:0] _T_173;
+  wire [7:0] x277_sumx275_x276_number;
+  wire  x277_sumx275_x276_debug_overflow;
+  wire  _T_182;
+  wire  _T_184;
+  wire [7:0] _T_186;
+  wire  _T_189;
+  wire [7:0] _T_190;
+  wire [7:0] x278_number;
+  wire  x278_debug_overflow;
+  wire [8:0] _T_199_number;
+  wire  _T_199_debug_overflow;
+  wire [8:0] _T_205_number;
+  wire  _T_205_debug_overflow;
+  wire [8:0] _T_211_number;
+  wire  _T_211_debug_overflow;
+  wire  _T_217;
+  wire  _T_219;
+  wire [8:0] _T_221;
+  wire [8:0] _T_226;
+  wire  _T_230;
+  wire  _T_232;
+  wire [8:0] _T_234;
+  wire [8:0] _T_239;
+  wire [9:0] _T_240;
+  wire [8:0] _T_241;
+  wire [7:0] x279_sumx277_x278_number;
+  wire  x279_sumx277_x278_debug_overflow;
+  wire  _T_250;
+  wire  _T_252;
+  wire [7:0] _T_254;
+  wire  _T_257;
+  wire [7:0] _T_258;
+  wire [31:0] _T_263_number;
+  wire  _T_263_debug_overflow;
+  wire [31:0] _GEN_5;
+  wire [7:0] _T_266;
+  wire [31:0] x280_number;
+  wire  x280_debug_overflow;
+  wire [4:0] x281_number;
+  wire  x281_debug_overflow;
+  wire [9:0] _T_280;
+  wire [14:0] _T_281;
+  wire [15:0] x283;
   reg [31:0] _GEN_0;
-  reg [31:0] _GEN_7;
-  reg [31:0] _GEN_5;
-  reg [31:0] _GEN_8;
-  Streaminner AccelController_sm (
-    .clock(AccelController_sm_clock),
-    .reset(AccelController_sm_reset),
-    .io_input_enable(AccelController_sm_io_input_enable),
-    .io_input_ctr_done(AccelController_sm_io_input_ctr_done),
-    .io_input_ctr_maxIn_0(AccelController_sm_io_input_ctr_maxIn_0),
-    .io_input_forever(AccelController_sm_io_input_forever),
-    .io_input_rst(AccelController_sm_io_input_rst),
-    .io_input_hasStreamIns(AccelController_sm_io_input_hasStreamIns),
-    .io_output_done(AccelController_sm_io_output_done),
-    .io_output_ctr_en(AccelController_sm_io_output_ctr_en),
-    .io_output_ctr_inc(AccelController_sm_io_output_ctr_inc),
-    .io_output_rst_en(AccelController_sm_io_output_rst_en),
-    .io_output_ctr_maxOut_0(AccelController_sm_io_output_ctr_maxOut_0)
+  reg [31:0] _GEN_21;
+  reg [31:0] _GEN_6;
+  reg [31:0] _GEN_22;
+  reg  _GEN_7;
+  reg [31:0] _GEN_23;
+  reg  _GEN_8;
+  reg [31:0] _GEN_24;
+  reg  _GEN_9;
+  reg [31:0] _GEN_25;
+  reg  _GEN_10;
+  reg [31:0] _GEN_26;
+  reg  _GEN_11;
+  reg [31:0] _GEN_27;
+  reg  _GEN_12;
+  reg [31:0] _GEN_28;
+  reg  _GEN_13;
+  reg [31:0] _GEN_29;
+  reg  _GEN_14;
+  reg [31:0] _GEN_30;
+  reg  _GEN_15;
+  reg [31:0] _GEN_31;
+  reg  _GEN_16;
+  reg [31:0] _GEN_32;
+  reg  _GEN_17;
+  reg [31:0] _GEN_33;
+  reg  _GEN_18;
+  reg [31:0] _GEN_34;
+  reg  _GEN_19;
+  reg [31:0] _GEN_35;
+  Streaminner RootController_sm (
+    .clock(RootController_sm_clock),
+    .reset(RootController_sm_reset),
+    .io_input_enable(RootController_sm_io_input_enable),
+    .io_input_ctr_done(RootController_sm_io_input_ctr_done),
+    .io_input_forever(RootController_sm_io_input_forever),
+    .io_input_rst(RootController_sm_io_input_rst),
+    .io_input_hasStreamIns(RootController_sm_io_input_hasStreamIns),
+    .io_input_nextState(RootController_sm_io_input_nextState),
+    .io_input_initState(RootController_sm_io_input_initState),
+    .io_input_doneCondition(RootController_sm_io_input_doneCondition),
+    .io_output_done(RootController_sm_io_output_done),
+    .io_output_ctr_en(RootController_sm_io_output_ctr_en),
+    .io_output_ctr_inc(RootController_sm_io_output_ctr_inc),
+    .io_output_rst_en(RootController_sm_io_output_rst_en),
+    .io_output_state(RootController_sm_io_output_state)
   );
   SRFF_sp done_latch (
     .clock(done_latch_clock),
@@ -235,54 +328,125 @@ module AccelTop(
     .io_output_data(done_latch_io_output_data)
   );
   assign io_done = done_latch_io_output_data;
-  assign io_stream_in_ready = x120_ready;
+  assign io_stream_in_ready = x265_ready;
   assign io_stream_out_data = _GEN_1;
   assign io_stream_out_startofpacket = _GEN_2;
   assign io_stream_out_endofpacket = _GEN_3;
   assign io_stream_out_empty = _GEN_4[0];
-  assign io_stream_out_valid = x121_valid;
-  assign io_led_stream_out_data = _GEN_0;
-  assign x120_ready = AccelController_datapath_en;
-  assign x120_valid = io_stream_in_valid;
-  assign x121_ready = io_stream_out_ready;
-  assign x121_valid = AccelController_datapath_en;
-  assign AccelController_ctr_en = AccelController_sm_io_output_done;
-  assign AccelController_datapath_en = _T_85;
-  assign x127_tuple = _T_102;
-  assign x121_data = x127_tuple;
-  assign converted_data = x121_data;
-  assign _T_75 = ~ io_stream_out_valid;
-  assign _T_76 = io_stream_out_ready | _T_75;
-  assign _T_78 = reset == 1'h0;
-  assign _T_79 = _T_78 & _T_76;
-  assign _GEN_1 = _T_79 ? converted_data : 16'h0;
-  assign _GEN_2 = _T_79 ? io_stream_in_startofpacket : 1'h0;
-  assign _GEN_3 = _T_79 ? io_stream_in_endofpacket : 1'h0;
-  assign _GEN_4 = _T_79 ? io_stream_in_empty : 2'h0;
-  assign _T_81 = io_done == 1'h0;
-  assign _T_82 = io_enable & _T_81;
-  assign _T_83 = _T_82 & x121_ready;
-  assign AccelController_en = _T_83 & x120_valid;
-  assign AccelController_sm_clock = clock;
-  assign AccelController_sm_reset = reset;
-  assign AccelController_sm_io_input_enable = AccelController_en;
-  assign AccelController_sm_io_input_ctr_done = _T_88;
-  assign AccelController_sm_io_input_ctr_maxIn_0 = _GEN_5;
-  assign AccelController_sm_io_input_forever = 1'h1;
-  assign AccelController_sm_io_input_rst = reset;
-  assign AccelController_sm_io_input_hasStreamIns = 1'h1;
-  assign _T_84 = ~ AccelController_ctr_en;
-  assign _T_85 = AccelController_en & _T_84;
+  assign io_stream_out_valid = x266_valid;
+  assign io_led_stream_out_data = {{31'd0}, io_stream_in_ready};
+  assign x264_ready = _T_107;
+  assign x264_valid = 1'h1;
+  assign x265_ready = _T_107;
+  assign x265_valid = io_stream_in_valid;
+  assign x266_ready = io_stream_out_ready;
+  assign x266_valid = _T_107;
+  assign RootController_ctr_en = RootController_sm_io_output_done;
+  assign RootController_datapath_en = _T_91;
+  assign x274_tuple = _T_117;
+  assign x282_tuple = _T_281;
+  assign x266_data = x283;
+  assign converted_data = x266_data;
+  assign _T_80 = ~ io_stream_out_valid;
+  assign _T_81 = io_stream_out_ready | _T_80;
+  assign _T_83 = reset == 1'h0;
+  assign _T_84 = _T_83 & _T_81;
+  assign _GEN_1 = _T_84 ? converted_data : 16'h0;
+  assign _GEN_2 = _T_84 ? io_stream_in_startofpacket : 1'h0;
+  assign _GEN_3 = _T_84 ? io_stream_in_endofpacket : 1'h0;
+  assign _GEN_4 = _T_84 ? io_stream_in_empty : 2'h0;
+  assign _T_86 = io_done == 1'h0;
+  assign _T_87 = io_enable & _T_86;
+  assign _T_88 = _T_87 & x266_ready;
+  assign _T_89 = _T_88 & x265_valid;
+  assign RootController_en = _T_89 & x264_valid;
+  assign RootController_sm_clock = clock;
+  assign RootController_sm_reset = reset;
+  assign RootController_sm_io_input_enable = RootController_en;
+  assign RootController_sm_io_input_ctr_done = _T_96;
+  assign RootController_sm_io_input_forever = 1'h1;
+  assign RootController_sm_io_input_rst = reset;
+  assign RootController_sm_io_input_hasStreamIns = 1'h1;
+  assign RootController_sm_io_input_nextState = _GEN_0;
+  assign RootController_sm_io_input_initState = _GEN_6;
+  assign RootController_sm_io_input_doneCondition = _GEN_7;
+  assign _T_90 = ~ RootController_ctr_en;
+  assign _T_91 = RootController_en & _T_90;
   assign done_latch_clock = clock;
   assign done_latch_reset = reset;
-  assign done_latch_io_input_set = AccelController_ctr_en;
+  assign done_latch_io_input_set = RootController_ctr_en;
   assign done_latch_io_input_reset = reset;
   assign done_latch_io_input_asyn_reset = reset;
-  assign x124_apply = io_stream_in_data[23:19];
-  assign x125_apply = io_stream_in_data[15:10];
-  assign x126_apply = io_stream_in_data[7:3];
-  assign _T_101 = {x124_apply,x125_apply};
-  assign _T_102 = {_T_101,x126_apply};
+  assign _T_107 = RootController_en & RootController_datapath_en;
+  assign x270 = 32'h4 < io_switch_stream_in_data;
+  assign x271_apply = io_stream_in_data[23:19];
+  assign x272_apply = io_stream_in_data[15:10];
+  assign x273_apply = io_stream_in_data[7:3];
+  assign _T_116 = {x271_apply,x272_apply};
+  assign _T_117 = {_T_116,x273_apply};
+  assign x275_number = {{3'd0}, x271_apply};
+  assign x275_debug_overflow = _GEN_8;
+  assign x276_number = {{2'd0}, x272_apply};
+  assign x276_debug_overflow = _GEN_9;
+  assign _T_131_number = _T_173;
+  assign _T_131_debug_overflow = _GEN_10;
+  assign _T_137_number = _T_153;
+  assign _T_137_debug_overflow = _GEN_11;
+  assign _T_143_number = _T_166;
+  assign _T_143_debug_overflow = _GEN_12;
+  assign _T_149 = 1'h0;
+  assign _T_151 = _T_149;
+  assign _T_153 = _T_158;
+  assign _T_158 = {1'h0,x275_number};
+  assign _T_162 = 1'h0;
+  assign _T_164 = _T_162;
+  assign _T_166 = _T_171;
+  assign _T_171 = {1'h0,x276_number};
+  assign _T_172 = _T_137_number + _T_143_number;
+  assign _T_173 = _T_172[8:0];
+  assign x277_sumx275_x276_number = _T_186;
+  assign x277_sumx275_x276_debug_overflow = _T_189;
+  assign _T_182 = 1'h0;
+  assign _T_184 = _T_182;
+  assign _T_186 = _T_190;
+  assign _T_189 = _T_131_number[8];
+  assign _T_190 = _T_131_number[7:0];
+  assign x278_number = {{3'd0}, x273_apply};
+  assign x278_debug_overflow = _GEN_13;
+  assign _T_199_number = _T_241;
+  assign _T_199_debug_overflow = _GEN_14;
+  assign _T_205_number = _T_221;
+  assign _T_205_debug_overflow = _GEN_15;
+  assign _T_211_number = _T_234;
+  assign _T_211_debug_overflow = _GEN_16;
+  assign _T_217 = 1'h0;
+  assign _T_219 = _T_217;
+  assign _T_221 = _T_226;
+  assign _T_226 = {1'h0,x277_sumx275_x276_number};
+  assign _T_230 = 1'h0;
+  assign _T_232 = _T_230;
+  assign _T_234 = _T_239;
+  assign _T_239 = {1'h0,x278_number};
+  assign _T_240 = _T_205_number + _T_211_number;
+  assign _T_241 = _T_240[8:0];
+  assign x279_sumx277_x278_number = _T_254;
+  assign x279_sumx277_x278_debug_overflow = _T_257;
+  assign _T_250 = 1'h0;
+  assign _T_252 = _T_250;
+  assign _T_254 = _T_258;
+  assign _T_257 = _T_199_number[8];
+  assign _T_258 = _T_199_number[7:0];
+  assign _T_263_number = 32'h3;
+  assign _T_263_debug_overflow = _GEN_17;
+  assign _GEN_5 = {{24'd0}, x279_sumx277_x278_number};
+  assign _T_266 = _GEN_5 / _T_263_number;
+  assign x280_number = {{24'd0}, _T_266};
+  assign x280_debug_overflow = _GEN_18;
+  assign x281_number = x280_number[4:0];
+  assign x281_debug_overflow = _GEN_19;
+  assign _T_280 = {x281_number,x281_number};
+  assign _T_281 = {_T_280,x281_number};
+  assign x283 = x270 ? x274_tuple : {{1'd0}, x282_tuple};
 `ifdef RANDOMIZE
   integer initvar;
   initial begin
@@ -290,24 +454,76 @@ module AccelTop(
       #0.002 begin end
     `endif
   `ifdef RANDOMIZE_REG_INIT
-  _GEN_6 = {1{$random}};
-  _T_88 = _GEN_6[0:0];
+  _GEN_20 = {1{$random}};
+  _T_96 = _GEN_20[0:0];
   `endif
   `ifdef RANDOMIZE_REG_INIT
-  _GEN_7 = {1{$random}};
-  _GEN_0 = _GEN_7[31:0];
+  _GEN_21 = {1{$random}};
+  _GEN_0 = _GEN_21[31:0];
   `endif
   `ifdef RANDOMIZE_REG_INIT
-  _GEN_8 = {1{$random}};
-  _GEN_5 = _GEN_8[31:0];
+  _GEN_22 = {1{$random}};
+  _GEN_6 = _GEN_22[31:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_23 = {1{$random}};
+  _GEN_7 = _GEN_23[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_24 = {1{$random}};
+  _GEN_8 = _GEN_24[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_25 = {1{$random}};
+  _GEN_9 = _GEN_25[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_26 = {1{$random}};
+  _GEN_10 = _GEN_26[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_27 = {1{$random}};
+  _GEN_11 = _GEN_27[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_28 = {1{$random}};
+  _GEN_12 = _GEN_28[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_29 = {1{$random}};
+  _GEN_13 = _GEN_29[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_30 = {1{$random}};
+  _GEN_14 = _GEN_30[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_31 = {1{$random}};
+  _GEN_15 = _GEN_31[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_32 = {1{$random}};
+  _GEN_16 = _GEN_32[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_33 = {1{$random}};
+  _GEN_17 = _GEN_33[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_34 = {1{$random}};
+  _GEN_18 = _GEN_34[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_35 = {1{$random}};
+  _GEN_19 = _GEN_35[0:0];
   `endif
   end
 `endif
   always @(posedge clock) begin
     if (reset) begin
-      _T_88 <= 1'h0;
+      _T_96 <= 1'h0;
     end else begin
-      _T_88 <= AccelController_en;
+      _T_96 <= _T_91;
     end
   end
 endmodule
@@ -382,17 +598,17 @@ module RegFile(
   wire [63:0] regs_0_io_init;
   wire [63:0] regs_0_io_out;
   wire  regs_0_io_enable;
+  wire  _T_50;
   wire  _T_51;
-  wire  _T_52;
   wire  regs_1_clock;
   wire  regs_1_reset;
   wire [63:0] regs_1_io_in;
   wire [63:0] regs_1_io_init;
   wire [63:0] regs_1_io_out;
   wire  regs_1_io_enable;
-  wire [63:0] _T_55;
-  wire  _T_58;
+  wire  _T_55;
   wire  _T_59;
+  wire [63:0] _T_63;
   wire  rport_clock;
   wire  rport_reset;
   wire [63:0] rport_io_ins_0;
@@ -401,8 +617,8 @@ module RegFile(
   wire [63:0] rport_io_out;
   wire [63:0] regOuts_0;
   wire [63:0] regOuts_1;
-  wire [63:0] _T_69_0;
-  wire [63:0] _T_69_1;
+  wire [63:0] _T_73_0;
+  wire [63:0] _T_73_1;
   reg  _GEN_0;
   reg [31:0] _GEN_1;
   FF regs_0 (
@@ -430,24 +646,24 @@ module RegFile(
     .io_out(rport_io_out)
   );
   assign io_rdata = rport_io_out;
-  assign io_argIns_0 = _T_69_0;
-  assign io_argIns_1 = _T_69_1;
+  assign io_argIns_0 = _T_73_0;
+  assign io_argIns_1 = _T_73_1;
   assign io_argOuts_0_ready = _GEN_0;
   assign regs_0_clock = clock;
   assign regs_0_reset = reset;
   assign regs_0_io_in = io_wdata;
   assign regs_0_io_init = 64'h0;
-  assign regs_0_io_enable = _T_52;
-  assign _T_51 = io_waddr == 1'h0;
-  assign _T_52 = io_wen & _T_51;
+  assign regs_0_io_enable = _T_51;
+  assign _T_50 = io_waddr == 1'h0;
+  assign _T_51 = io_wen & _T_50;
   assign regs_1_clock = clock;
   assign regs_1_reset = reset;
-  assign regs_1_io_in = _T_55;
+  assign regs_1_io_in = _T_63;
   assign regs_1_io_init = 64'h0;
   assign regs_1_io_enable = _T_59;
-  assign _T_55 = io_argOuts_0_valid ? io_argOuts_0_bits : io_wdata;
-  assign _T_58 = io_wen & io_waddr;
-  assign _T_59 = io_argOuts_0_valid | _T_58;
+  assign _T_55 = io_wen & io_waddr;
+  assign _T_59 = _T_55 ? _T_55 : io_argOuts_0_valid;
+  assign _T_63 = _T_55 ? io_wdata : io_argOuts_0_bits;
   assign rport_clock = clock;
   assign rport_reset = reset;
   assign rport_io_ins_0 = regOuts_0;
@@ -455,8 +671,8 @@ module RegFile(
   assign rport_io_sel = io_raddr;
   assign regOuts_0 = regs_0_io_out;
   assign regOuts_1 = regs_1_io_out;
-  assign _T_69_0 = regOuts_0;
-  assign _T_69_1 = regOuts_1;
+  assign _T_73_0 = regOuts_0;
+  assign _T_73_1 = regOuts_1;
 `ifdef RANDOMIZE
   integer initvar;
   initial begin
@@ -2466,10 +2682,14 @@ module Top(
   output [3:0]  io_LEDR_STREAM_address,
   output        io_LEDR_STREAM_chipselect,
   output [31:0] io_LEDR_STREAM_writedata,
-  output        io_LEDR_STREAM_write_n
+  output        io_LEDR_STREAM_write_n,
+  output [31:0] io_SWITCHES_STREAM_address,
+  input  [31:0] io_SWITCHES_STREAM_readdata,
+  output        io_SWITCHES_STREAM_read
 );
   wire  _T_65;
   wire  _T_70;
+  wire  _T_77;
   wire  accel_clock;
   wire  accel_reset;
   wire  accel_io_enable;
@@ -2487,6 +2707,7 @@ module Top(
   wire  accel_io_stream_out_empty;
   wire  accel_io_stream_out_valid;
   wire [31:0] accel_io_led_stream_out_data;
+  wire [31:0] accel_io_switch_stream_in_data;
   wire  FringeDE1SoC_clock;
   wire  FringeDE1SoC_reset;
   wire [31:0] FringeDE1SoC_io_S_AVALON_readdata;
@@ -2497,11 +2718,13 @@ module Top(
   wire  FringeDE1SoC_io_enable;
   wire  FringeDE1SoC_io_done;
   reg  _GEN_0;
-  reg [31:0] _GEN_3;
-  reg  _GEN_1;
   reg [31:0] _GEN_4;
-  reg  _GEN_2;
+  reg  _GEN_1;
   reg [31:0] _GEN_5;
+  reg  _GEN_2;
+  reg [31:0] _GEN_6;
+  reg  _GEN_3;
+  reg [31:0] _GEN_7;
   AccelTop accel (
     .clock(accel_clock),
     .reset(accel_reset),
@@ -2519,7 +2742,8 @@ module Top(
     .io_stream_out_endofpacket(accel_io_stream_out_endofpacket),
     .io_stream_out_empty(accel_io_stream_out_empty),
     .io_stream_out_valid(accel_io_stream_out_valid),
-    .io_led_stream_out_data(accel_io_led_stream_out_data)
+    .io_led_stream_out_data(accel_io_led_stream_out_data),
+    .io_switch_stream_in_data(accel_io_switch_stream_in_data)
   );
   FringeDE1SoC FringeDE1SoC (
     .clock(FringeDE1SoC_clock),
@@ -2544,8 +2768,11 @@ module Top(
   assign io_LEDR_STREAM_chipselect = 1'h1;
   assign io_LEDR_STREAM_writedata = accel_io_led_stream_out_data;
   assign io_LEDR_STREAM_write_n = 1'h0;
+  assign io_SWITCHES_STREAM_address = 32'h0;
+  assign io_SWITCHES_STREAM_read = 1'h0;
   assign _T_65 = _GEN_1;
   assign _T_70 = _GEN_2;
+  assign _T_77 = _GEN_3;
   assign accel_clock = clock;
   assign accel_reset = reset;
   assign accel_io_enable = FringeDE1SoC_io_enable;
@@ -2555,6 +2782,7 @@ module Top(
   assign accel_io_stream_in_empty = io_S_STREAM_stream_in_empty;
   assign accel_io_stream_in_valid = io_S_STREAM_stream_in_valid;
   assign accel_io_stream_out_ready = io_S_STREAM_stream_out_ready;
+  assign accel_io_switch_stream_in_data = io_SWITCHES_STREAM_readdata;
   assign FringeDE1SoC_clock = clock;
   assign FringeDE1SoC_reset = reset;
   assign FringeDE1SoC_io_S_AVALON_address = io_S_AVALON_address;
@@ -2569,16 +2797,20 @@ module Top(
       #0.002 begin end
     `endif
   `ifdef RANDOMIZE_REG_INIT
-  _GEN_3 = {1{$random}};
-  _GEN_0 = _GEN_3[0:0];
-  `endif
-  `ifdef RANDOMIZE_REG_INIT
   _GEN_4 = {1{$random}};
-  _GEN_1 = _GEN_4[0:0];
+  _GEN_0 = _GEN_4[0:0];
   `endif
   `ifdef RANDOMIZE_REG_INIT
   _GEN_5 = {1{$random}};
-  _GEN_2 = _GEN_5[0:0];
+  _GEN_1 = _GEN_5[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_6 = {1{$random}};
+  _GEN_2 = _GEN_6[0:0];
+  `endif
+  `ifdef RANDOMIZE_REG_INIT
+  _GEN_7 = {1{$random}};
+  _GEN_3 = _GEN_7[0:0];
   `endif
   end
 `endif
