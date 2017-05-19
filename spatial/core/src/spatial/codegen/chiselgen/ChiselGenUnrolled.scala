@@ -265,9 +265,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
       strm match {
         case Def(StreamInNew(bus)) => bus match {
           case VideoCamera => 
-            emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
+            emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
+            emit(src"""${strm}_ready := ${parent}_datapath_en & ${ens.mkString("&")} & chisel3.util.ShiftRegister(${parent}_datapath_en, ${parent}_retime) """)
           case SliderSwitch => 
-            emit(src"""val $lhs = io.switch_stream_in_data""")
+            emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
           case _ => 
             val isAck = strm match { // TODO: Make this clean, just working quickly to fix bug for Tian
               case Def(StreamInNew(bus)) => bus match {
@@ -299,6 +300,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
             emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
             emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
             emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
+            emitGlobalWire(src"""val stream_out_startofpacket = Wire(Bool())""")
+            emitGlobalWire(src"""val stream_out_endofpacket = Wire(Bool())""")
+            emit(src"""stream_out_startofpacket := Utils.risingEdge(${parent}_datapath_en)""")
+            emit(src"""stream_out_endofpacket := ${parent}_done""")
             emit(src"""// emiiting data for stream ${stream}""")
             emit(src"""${stream} := ${data.head}""")
             emit(src"""converted_data := ${stream}""")

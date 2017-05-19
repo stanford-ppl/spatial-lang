@@ -5,6 +5,8 @@ import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
+import spatial.targets.DE1._
+
 
 trait ChiselGenController extends ChiselGenCounter{
   val IR: SpatialExp
@@ -238,9 +240,9 @@ trait ChiselGenController extends ChiselGenCounter{
           case Def(FIFONew(size)) => src"~${fifo}.io.full"
           case Def(FILONew(size)) => src"~${fifo}.io.full"
           case Def(StreamOutNew(bus)) => src"${fifo}_ready"
-          case Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
+          case Def(BufferedOutNew(_, bus)) => src"" // src"~${fifo}_waitrequest"
         }
-      }.mkString(" & ")
+      }.filter(_ != "").mkString(" & ")
 
       val hasHolders = if (holders != "") "&" else ""
       val hasReadiers = if (readiers != "") "&" else ""
@@ -251,11 +253,15 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
-    val hasStreamIns = if (listensTo(sym).length > 0) { // Please simplify this mess
-      true
-    } else { 
-      false
-    }
+    val hasStreamIns = if (listensTo(sym).distinct.filter{ f =>
+      f match {
+        case Def(StreamInNew(bus)) => 
+          bus match {
+            case SliderSwitch => false
+            case _ => true
+          }
+        case _ => false
+      }}.length > 0) true else false
 
     val isInner = levelOf(sym) match {
       case InnerControl => true
@@ -323,7 +329,7 @@ trait ChiselGenController extends ChiselGenCounter{
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
       emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_ctr_trivial // Immediate parent has forever counter, so never mask out datapath_en""")    
     } else if ((isStreamChild(sym) & hasStreamIns) | isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
-      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial""")  
+      emit(src"""${sym}_datapath_en := ${sym}_en /*& ~${sym}_done*/ & ~${sym}_ctr_trivial""")  
     } else {
       emit(src"""${sym}_datapath_en := ${sym}_sm.io.output.ctr_inc & ~${sym}_done & ~${sym}_ctr_trivial""")
     }

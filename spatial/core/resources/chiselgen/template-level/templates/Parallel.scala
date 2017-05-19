@@ -86,7 +86,7 @@ class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
   }
 
   // Output logic
-  io.output.done := state === doneState.U
+  io.output.done := Mux(io.input.forever, false.B, state === doneState.U)
   io.output.ctr_inc := false.B // No counters for parallels (BUT MAYBE NEEDED FOR STREAMPIPES)
 }
 

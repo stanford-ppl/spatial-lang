@@ -34,38 +34,42 @@ trait ChiselGenStream extends ChiselGenSRAM {
         case ScatterAckBus =>
         case GatherDataBus() =>
         case VideoCamera => 
-          emit(src"// video in camera, node = $lhs", forceful=true)
-          emit(src"// reset and output logic for video camera", forceful=true)
-          emit(src"when (reset) {", forceful=true)
-          emit(src"  io.stream_out_data           := 0.U ", forceful=true)
-          emit(src"  io.stream_out_startofpacket  := 0.U ", forceful=true)
-          emit(src"  io.stream_out_endofpacket    := 0.U ", forceful=true)
-          emit(src"  io.stream_out_empty          := 0.U ", forceful=true)
-          emit(src"} .elsewhen (io.stream_out_ready | ~io.stream_out_valid) { ", forceful=true)
-          emit(src"  io.stream_out_data           := converted_data ", forceful=true)
-          emit(src"  io.stream_out_startofpacket  := io.stream_in_startofpacket ", forceful=true)
-          emit(src"  io.stream_out_endofpacket    := io.stream_in_endofpacket ", forceful=true)
-          emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
-          emit(src"} ", forceful=true) 
+          // emit(src"// video in camera, node = $lhs", forceful=true)
+          // emit(src"// reset and output logic for video camera", forceful=true)
+          // emit(src"when (reset) {", forceful=true)
+          // emit(src"  io.stream_out_data           := 0.U ", forceful=true)
+          // emit(src"  io.stream_out_startofpacket  := 0.U ", forceful=true)
+          // emit(src"  io.stream_out_endofpacket    := 0.U ", forceful=true)
+          // emit(src"  io.stream_out_empty          := 0.U ", forceful=true)
+          // emit(src"} .otherwise /*(io.stream_out_ready | ~io.stream_out_valid)*/ { ", forceful=true)
+          // emit(src"  io.stream_out_data           := converted_data ", forceful=true)
+          // emit(src"  io.stream_out_startofpacket  := stream_out_startofpacket ", forceful=true)
+          // emit(src"  io.stream_out_endofpacket    := stream_out_endofpacket ", forceful=true)
+          // emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
+          // emit(src"} ", forceful=true) 
 
           emit(src"io.led_stream_out_data := io.stream_in_ready", forceful=true)
           emit(src"io.stream_in_ready := ${lhs}_ready", forceful=true)
-          emit(src"${lhs}_valid := io.stream_in_valid", forceful=true)
+          emit(src"""${lhs}_valid := io.stream_in_valid // .. Or is io.stream_in_valid not connected?!""", forceful=true)
+          emit(src"io.led_stream_out_data := true.B | (${lhs}_valid << 1) | (${lhs}_ready << 2)", forceful=true)
+
+
+          // emit(src"${lhs}_valid := io.stream_in_valid", forceful=true)
 
         case SliderSwitch =>
-          emit(src"// switch, node = $lhs", forceful=true)
-          emit(src"// reset and output logic for switch", forceful=true)
-          emit(src"when (reset) {", forceful=true)
-          emit(src"  io.stream_out_data           := 0.U ", forceful=true)
-          emit(src"  io.stream_out_startofpacket  := 0.U ", forceful=true)
-          emit(src"  io.stream_out_endofpacket    := 0.U ", forceful=true)
-          emit(src"  io.stream_out_empty          := 0.U ", forceful=true)
-          emit(src"} .elsewhen (io.stream_out_ready | ~io.stream_out_valid) { ", forceful=true)
-          emit(src"  io.stream_out_data           := converted_data ", forceful=true)
-          emit(src"  io.stream_out_startofpacket  := io.stream_in_startofpacket ", forceful=true)
-          emit(src"  io.stream_out_endofpacket    := io.stream_in_endofpacket ", forceful=true)
-          emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
-          emit(src"} ", forceful=true) 
+          // emit(src"// switch, node = $lhs", forceful=true)
+          // emit(src"// reset and output logic for switch", forceful=true)
+          // emit(src"when (reset) {", forceful=true)
+          // emit(src"  io.stream_out_data           := 0.U ", forceful=true)
+          // emit(src"  io.stream_out_startofpacket  := 0.U ", forceful=true)
+          // emit(src"  io.stream_out_endofpacket    := 0.U ", forceful=true)
+          // emit(src"  io.stream_out_empty          := 0.U ", forceful=true)
+          // emit(src"} .elsewhen (io.stream_out_ready | ~io.stream_out_valid) { ", forceful=true)
+          // emit(src"  io.stream_out_data           := converted_data ", forceful=true)
+          // emit(src"  io.stream_out_startofpacket  := io.stream_in_startofpacket ", forceful=true)
+          // emit(src"  io.stream_out_endofpacket    := io.stream_in_endofpacket ", forceful=true)
+          // emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
+          // emit(src"} ", forceful=true) 
           emit(src"io.stream_in_ready := ${lhs}_ready", forceful=true)
           emit(src"${lhs}_valid := io.stream_in_valid", forceful=true)
 
@@ -96,6 +100,20 @@ trait ChiselGenStream extends ChiselGenSRAM {
         case GatherAddrBus =>
         case ScatterCmdBus() => 
         case VGA =>
+          emit(src"// video in camera, node = $lhs", forceful=true)
+          emit(src"// reset and output logic for video camera", forceful=true)
+          emit(src"when (reset) {", forceful=true)
+          emit(src"  io.stream_out_data           := 0.U ", forceful=true)
+          emit(src"  io.stream_out_startofpacket  := 0.U ", forceful=true)
+          emit(src"  io.stream_out_endofpacket    := 0.U ", forceful=true)
+          emit(src"  io.stream_out_empty          := 0.U ", forceful=true)
+          emit(src"} .otherwise /*(io.stream_out_ready | ~io.stream_out_valid)*/ { ", forceful=true)
+          emit(src"  io.stream_out_data           := converted_data ", forceful=true)
+          emit(src"  io.stream_out_startofpacket  := stream_out_startofpacket ", forceful=true)
+          emit(src"  io.stream_out_endofpacket    := stream_out_endofpacket ", forceful=true)
+          emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
+          emit(src"} ", forceful=true) 
+
           emit(src"// EMITTING FOR VGA; in OUTPUT REGISTERS, Output Register section $lhs", forceful=true)
           emit(src"io.stream_out_valid := ${lhs}_valid", forceful=true)
           emit(src"${lhs}_ready := io.stream_out_ready", forceful=true)
@@ -128,8 +146,8 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emitGlobalWire(src"""val ${lhs}_write = Wire(UInt(1.W))""", forceful=true)
           emitGlobalWire(src"""val ${lhs}_writedata = Wire(UInt(16.W))""", forceful=true)
           emitGlobalWire(src"""val ${lhs}_waitrequest = Wire(Bool())""", forceful=true)
-          emitGlobalWire(src"""val ${lhs}_hAddr = Wire(UInt(7.W))""", forceful=true)
-          emitGlobalWire(src"""val ${lhs}_wAddr = Wire(UInt(8.W))""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_hAddr = Wire(UInt(8.W))""", forceful=true)
+          emitGlobalWire(src"""val ${lhs}_wAddr = Wire(UInt(9.W))""", forceful=true)
       }
 
     case BufferedOutWrite(buffer, data, is, en) => 
@@ -137,26 +155,27 @@ trait ChiselGenStream extends ChiselGenSRAM {
       buffer match {
         case Def(BufferedOutNew(_, bus)) => bus match {
           case VGA =>
-            emit (s"// EMITTING FOR BUFFEREDOUT WRITE ON VGA $buffer, $data, $is, $en", forceful=true)
+            emit (s"// EMITTING FOR BUFFEREDOUT WRITE ON VGA $buffer, $data, $is, $en")
               is.zipWithIndex.foreach{ case(ind, j) =>
                 emit (src"""// EMITTING FOR BUFFEREDOUT WRITE ON VGA ${lhs}_$j = ${ind}""")
               }
             emit(s"// default buffer address: 134217728")
             emit(s"")
             
-            emit(src"when(~${buffer}_waitrequest) {", forceful=true)
-            emit(src"  ${buffer}_write := 1.U", forceful=true)
-            emit(src"  ${buffer}_writedata := ${data}.r", forceful=true)
-            emit(src"  ${buffer}_hAddr := ${is(0)}.raw", forceful=true)
-            emit(src"  ${buffer}_wAddr := ${is(1)}.raw", forceful=true)
-            emit(src"  ${buffer}_address := 134217728.U + Utils.Cat(${buffer}_hAddr, ${buffer}_wAddr, false.B)", forceful=true)
-            emit(src"} .otherwise {", forceful=true)
-            emit(src"  ${buffer}_write := 0.U", forceful=true)
-            emit(src"  ${buffer}_writedata := 0.U", forceful=true)
-            emit(src"  ${buffer}_hAddr := 0.U", forceful=true)
-            emit(src"  ${buffer}_wAddr := 0.U", forceful=true)
-            emit(src"  ${buffer}_address := 134217728.U", forceful=true)
-            emit(src"}", forceful=true)
+            emit(src"when(true.B /*~${buffer}_waitrequest*/) {")
+            emit(src"  ${buffer}_write := 1.U")
+            emit(src"  ${buffer}_writedata := ${data}.r")
+            emit(src"  ${buffer}_hAddr := ${is(0)}.raw")
+            emit(src"  ${buffer}_wAddr := ${is(1)}.raw")
+            emit(src"  ${buffer}_address := 134217728.U + Utils.Cat(${buffer}_hAddr, ${buffer}_wAddr, false.B)")
+            emit(src"} .otherwise {")
+            emit(src"  ${buffer}_write := 0.U")
+            emit(src"  ${buffer}_writedata := 0.U")
+            emit(src"  ${buffer}_hAddr := 0.U")
+            emit(src"  ${buffer}_wAddr := 0.U")
+            emit(src"  ${buffer}_address := 134217728.U")
+            emit(src"}")
+            // emit(src"io.led_stream_out_data := true.B | (~${buffer}_waitrequest << 1) | (${buffer}_waitrequest << 2)")
         }
       }
 
@@ -203,9 +222,23 @@ trait ChiselGenStream extends ChiselGenSRAM {
               emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
               emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
               emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
+              emitGlobalWire(src"""val stream_out_startofpacket = Wire(Bool())""")
+              emitGlobalWire(src"""val stream_out_endofpacket = Wire(Bool())""")
               emit(src"""// emiiting data for stream ${stream}""")
               emit(src"""${stream} := $data""")
               emit(src"""converted_data := ${stream}""")
+              val sources = lhs.collectDeps{case Def(StreamRead(strm,_)) => strm}
+              sources.find{ _ match {
+                case Def(StreamInNew(strm)) => 
+                  strm == VideoCamera
+              }}
+              if (sources.length > 0) {
+                emit(src"""stream_out_startofpacket := io.stream_in_startofpacket""")
+                emit(src"""stream_out_endofpacket := io.stream_in_endofpacket""")                
+              } else {
+                emit(src"""stream_out_startofpacket := Utils.risingEdge(${parent}_datapath_en)""")
+                emit(src"""stream_out_endofpacket := ${parent}_done""")
+              }
               emit(src"""${stream}_valid := ${parent}_en & ${en} & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime)""")
             case LEDR =>
               emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
