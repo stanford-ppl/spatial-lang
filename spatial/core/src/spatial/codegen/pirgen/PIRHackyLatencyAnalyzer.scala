@@ -1,4 +1,4 @@
-package spatial.models
+package spatial.codegen.pirgen
 
 import spatial.SpatialExp
 import spatial.analysis.ModelingTraversal

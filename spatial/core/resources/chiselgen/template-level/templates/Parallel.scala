@@ -4,7 +4,7 @@ package templates
 import chisel3._
 
 //A n-stage Parallel controller
-class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
+class Parallel(val n: Int, val isFSM: Boolean = false, val retime:Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())

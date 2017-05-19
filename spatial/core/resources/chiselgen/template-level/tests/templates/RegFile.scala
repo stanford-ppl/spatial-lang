@@ -45,6 +45,7 @@ class ShiftRegFileTests(c: ShiftRegFile) extends PeekPokeTester(c) {
   }
 }
 
+
 class NBufShiftRegFileTests(c: NBufShiftRegFile) extends PeekPokeTester(c) {
 
   poke(c.io.reset, 1)

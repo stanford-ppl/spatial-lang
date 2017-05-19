@@ -121,6 +121,7 @@ trait NodeClasses { this: SpatialExp =>
 
   /** Allocations **/
   def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
+    case Def(LUTNew(dims,_)) => dims.map{d => int32(d)(x.ctx) }
     case Def(SRAMNew(dims)) => dims
     case Def(DRAMNew(dims)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
@@ -128,9 +129,12 @@ trait NodeClasses { this: SpatialExp =>
     case _ => throw new UndefinedDimensionsError(x, None)(x.ctx)
   }
 
-  def dimsOf(x: Exp[_]): Seq[Int] = stagedDimsOf(x).map{
-    case Const(c: BigDecimal) => c.toInt
-    case dim => throw new UndefinedDimensionsError(x, Some(dim))(x.ctx)
+  def dimsOf(x: Exp[_]): Seq[Int] = x match {
+    case Def(LUTNew(dims,_)) => dims
+    case _ => stagedDimsOf(x).map{
+      case Const(c: BigDecimal) => c.toInt
+      case dim => throw new UndefinedDimensionsError(x, Some(dim))(x.ctx)
+    }
   }
 
   def sizeOf(fifo: FIFO[_])(implicit ctx: SrcCtx): Index = wrap(sizeOf(fifo.s))
@@ -149,7 +153,7 @@ trait NodeClasses { this: SpatialExp =>
     }
   }
 
-  def rankOf(x: Exp[_]): Int = stagedDimsOf(x).length
+  def rankOf(x: Exp[_]): Int = dimsOf(x).length
   def rankOf(x: MetaAny[_]): Int = rankOf(x.s)
 
   def isAllocation(e: Exp[_]): Boolean = getDef(e).exists(isAllocation)
@@ -162,6 +166,7 @@ trait NodeClasses { this: SpatialExp =>
     case _:FILONew[_]       => true
     case _:LineBufferNew[_] => true
     case _:RegFileNew[_,_]  => true
+    case _:LUTNew[_,_]      => true
     case _:DRAMNew[_,_]     => true
     case _:StreamInNew[_]   => true
     case _:StreamOutNew[_]  => true
@@ -269,6 +274,7 @@ trait NodeClasses { this: SpatialExp =>
 
   def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] | _:FIFOType[_] | _:FILOType[_] | _:RegType[_] | _:LineBufferType[_] | _:RegFileType[_] => true
+    case _:LUTType[_] => true
     case _:StreamInType[_]  => true
     case _:StreamOutType[_] => true
     case _:BufferedOutType[_] => true
@@ -409,6 +415,7 @@ trait NodeClasses { this: SpatialExp =>
   def readerUnapply(d: Def): Option[List[LocalRead]] = d match {
     case RegRead(reg)                       => Some(LocalRead(reg))
     case RegFileLoad(reg,inds,en)           => Some(LocalRead(reg, addr=inds, en=en))
+    case LUTLoad(lut,inds,en)               => Some(LocalRead(lut, addr=inds, en=en))
     case SRAMLoad(mem,dims,inds,ofs,en)     => Some(LocalRead(mem, addr=inds, en=en))
     case FIFODeq(fifo,en)                   => Some(LocalRead(fifo, en=en))
     case FILOPop(filo,en)                   => Some(LocalRead(filo, en=en))

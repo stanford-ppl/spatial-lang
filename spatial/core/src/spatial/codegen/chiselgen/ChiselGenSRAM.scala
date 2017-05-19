@@ -22,12 +22,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
   //  view of the counter done signal
   protected def emitInhibitor(lhs: Exp[_], cchain: Option[Exp[_]], fsm: Option[Exp[_]] = None): Unit = {
     if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {
-      emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF())")
-      emitGlobalModule(src"${lhs}_inhibit.io.input.asyn_reset := reset")
+      emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
       emitGlobalModule(src"val ${lhs}_inhibitor = Wire(Bool())")
       if (fsm.isDefined) {
-          emit(src"${lhs}_inhibit.io.input.set := ${fsm.get}")  
-          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data")        
+          emit(src"${lhs}_inhibit.io.input.set := ~${fsm.get}")  
+          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | ~${fsm.get} // Really want inhibit to turn on at last enabled cycle")        
       } else {
         if (cchain.isDefined) {
           emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
@@ -37,9 +36,24 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
         }        
       }
-      emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_rst_en")
+      emit(src"${lhs}_inhibit.io.input.reset := ShiftRegister(${lhs}_done, 0)")
+      emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
     } else {
       emitGlobalModule(src"val ${lhs}_inhibitor = false.B // Maybe connect to ${lhs}_done?  ")      
+    }
+  }
+
+  def logRetime(lhs: String, data: String, delay: Int, isVec: Boolean = false, vecWidth: Int = 1, wire: String = "", isBool: Boolean = false): Unit = {
+    if (delay > maxretime) maxretime = delay
+    if (isVec) {
+      emit(src"val $lhs = Wire(${wire})")
+      emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := ShiftRegister(${data}(i).r, $delay)}")        
+    } else {
+      if (isBool) {
+        emit(src"""val $lhs = Mux(retime_released, ShiftRegister($data, $delay), false.B)""")
+      } else {
+        emit(src"""val $lhs = ShiftRegister($data, $delay)""")
+      }
     }
   }
 
@@ -50,7 +64,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case BoolType => "Bool()"
     case tp: VectorType[_] => src"Vec(${tp.width}, ${newWire(tp.typeArguments.head)})"
     case tp: StructType[_] => src"UInt(${bitWidth(tp)}.W)"
-    case tp: IssuedCmd => src"UInt(${bitWidth(tp)}.W)"
+    // case tp: IssuedCmd => src"UInt(${bitWidth(tp)}.W)"
     case tp: ArrayType[_] => src"Wire(Vec(999, ${newWire(tp.typeArguments.head)}"
     case _ => throw new NoWireConstructorException(s"$tp")
   }
@@ -171,9 +185,9 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"""// Assemble multidimR vector""")
       dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enable = src"""${parent}_en"""
+        val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, ${width})))""")
-        emit(src"""${lhs}_rVec(0).en := chisel3.util.ShiftRegister($enable, ${parent}_retime) & $en""")
+        emit(src"""${lhs}_rVec(0).en := ShiftRegister($enable, ${symDelay(lhs)}) & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.raw // Assume always an int""")
         }
@@ -186,11 +200,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case SRAMStore(sram, dims, is, ofs, v, en) =>
       val width = bitWidth(sram.tp.typeArguments.head)
       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-      val enable = src"""${parent}_datapath_en"""
+      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, ${width}))) """)
       emit(src"""${lhs}_wVec(0).data := ${v}.raw""")
-      emit(src"""${lhs}_wVec(0).en := ${en} & chisel3.util.ShiftRegister(${enable}, ${parent}_retime)""")
+      emit(src"""${lhs}_wVec(0).en := ${en} & ShiftRegister(${enable}, ${symDelay(lhs)})""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.raw // Assume always an int""")
       }

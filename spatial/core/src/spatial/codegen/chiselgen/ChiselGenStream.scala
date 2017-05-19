@@ -189,7 +189,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
         case _ => false
       }
       val parent = parentOf(lhs).get
-      emit(src"""${stream}_ready := ${parent}_en & ${en} & chisel3.util.ShiftRegister(${parent}_datapath_en, ${parent}_retime) """)
+      emit(src"""${stream}_ready := ${en} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)}) """)
       if (!isAck) {
         stream match {
           case Def(StreamInNew(bus)) => bus match {
@@ -239,7 +239,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
                 emit(src"""stream_out_startofpacket := Utils.risingEdge(${parent}_datapath_en)""")
                 emit(src"""stream_out_endofpacket := ${parent}_done""")
               }
-              emit(src"""${stream}_valid := ${parent}_en & ${en} & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime)""")
+              emit(src"""${stream}_valid := ${en} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)})""")
             case LEDR =>
               emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
         //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
@@ -254,15 +254,15 @@ trait ChiselGenStream extends ChiselGenSRAM {
               emit(src"""${stream} := $data""")
               emit(src"""io.gpo2_streamout_writedata := ${stream}""")
             case BurstFullDataBus() =>
-              emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
+              emit(src"""${stream}_valid := ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
               emit(src"""${stream} := $data""")
 
             case BurstCmdBus =>  
-              emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
+              emit(src"""${stream}_valid := chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
               emit(src"""${stream} := $data""")
 
             case _ => 
-              emit(src"""${stream}_valid := ${parent}_en & chisel3.util.ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${parent}_retime) & $en""")
+              emit(src"""${stream}_valid := ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
               val id = argMapping(stream)._1
               Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
               emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now

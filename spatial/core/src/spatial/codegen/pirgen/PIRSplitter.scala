@@ -51,6 +51,14 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
       error(e.msg)
       sys.exit(-1)
     }
+    dbgs(s"\n\n//----------- Finishing PIRSplitter ------------- //")
+    dbgs(s"Mapping:")
+    mappingOut.foreach { case (sym, cus) =>
+      dbgs(s"${sym} -> [${cus.mkString(",")}]")
+    }
+    for (cu <- mappingOut.values.flatten.flatten) {
+      dbgcu(cu)
+    }
     b
   }
 

@@ -4,10 +4,12 @@ import argon.codegen.chiselgen.ChiselCodegen
 import spatial.api.ShiftRegExp
 import spatial.{SpatialConfig, SpatialExp}
 import spatial.analysis.SpatialMetadataExp
+// import argon.ops.BoolExp
 
 trait ChiselGenRetiming extends ChiselGenSRAM {
   val IR: SpatialExp
   import IR._
+
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -40,12 +42,14 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
 
     case ValueDelay(size, data) => 
       // emit(src"""val $lhs = Utils.delay($data, $size)""")
+      alphaconv_register(src"$lhs")
       lhs.tp match {
         case a:VectorType[_] =>
-          emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
-          emit(src"(0 until ${a.width}).foreach{i => ${lhs}(i).raw := chisel3.util.ShiftRegister(${data}(i).r, $size)}")
+          logRetime(src"$lhs", src"$data", size, isVec = true, vecWidth = a.width, wire = newWire(lhs.tp), isBool = false/*although what about vec of bools?*/)
+        case BoolType() =>
+          logRetime(src"$lhs", src"$data", size, isVec = false, vecWidth = 0, wire = newWire(lhs.tp), isBool = true)
         case _ =>
-          emit(src"""val $lhs = chisel3.util.ShiftRegister($data, $size)""")
+          logRetime(src"$lhs", src"$data", size, isVec = false, vecWidth = 0, wire = newWire(lhs.tp), isBool = false)
       }
 
     case ShiftRegNew(size, init) => 
@@ -53,7 +57,7 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
       init match {
         case Def(ListVector(_)) => 
           emitGlobalRetiming(src"// ${lhs} init is ${init}, must emit in ${controllerStack.head}")
-          emit(src"${lhs}.io.input.init := ${init}.raw")
+          emit(src"${lhs}.io.input.init := ${init}.r")
         case _ => 
           emitGlobalRetiming(src"${lhs}.io.input.init := ${init}.raw")
       }
@@ -76,5 +80,12 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
     case _ =>
       super.emitNode(lhs, rhs)
   }
+
+  override protected def emitFileFooter() {
+
+    emitGlobalWire(s"val max_retime = $maxretime")
+    super.emitFileFooter()
+  }
+
 
 }

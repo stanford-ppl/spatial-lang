@@ -73,7 +73,7 @@ trait ChiselGenController extends ChiselGenCounter{
       var nextLevel: Option[Exp[_]] = Some(controllerStack.head)
       while (nextLevel.isDefined) {
         if (siblings.contains(nextLevel.get)) {
-          if (siblings.indexOf(nextLevel.get) > 0) {result = result + s"_chain.read(${siblings.indexOf(nextLevel.get)})"}
+          if (siblings.indexOf(nextLevel.get) > 0) {result = result + s"_chain_read_${siblings.indexOf(nextLevel.get)}"}
           nextLevel = None
         } else {
           nextLevel = parentOf(nextLevel.get)
@@ -202,9 +202,12 @@ trait ChiselGenController extends ChiselGenCounter{
   def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]]) = {
     val stages = childrenOf(controller)
     inds.foreach { idx =>
-      emit(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
-      stages.zipWithIndex.foreach{ case (s, i) =>
-        emit(src"""${idx}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
+      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
+      (0 until stages.size).foreach{ i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
+      withStream(getStream("BufferControlCxns")) {
+        stages.zipWithIndex.foreach{ case (s, i) =>
+          emit(src"""${idx}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
+        }
       }
       emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
       itersMap += (idx -> stages.toList)
@@ -240,7 +243,7 @@ trait ChiselGenController extends ChiselGenCounter{
           case Def(FIFONew(size)) => src"~${fifo}.io.full"
           case Def(FILONew(size)) => src"~${fifo}.io.full"
           case Def(StreamOutNew(bus)) => src"${fifo}_ready"
-          case Def(BufferedOutNew(_, bus)) => src"" // src"~${fifo}_waitrequest"
+          case Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"
         }
       }.filter(_ != "").mkString(" & ")
 
@@ -248,6 +251,33 @@ trait ChiselGenController extends ChiselGenCounter{
       val hasReadiers = if (readiers != "") "&" else ""
 
       src"${hasHolders} ${holders} ${hasReadiers} ${readiers}"
+
+  }
+
+  def getAllStreamLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
+      // If we are inside a stream pipe, the following may be set
+      val readiers = listensTo(c).distinct.map { fifo => 
+        fifo match {
+          case Def(FIFONew(size)) => src"~${fifo}.io.empty"
+          case Def(FILONew(size)) => src"~${fifo}.io.empty"
+          case Def(StreamInNew(bus)) => src"${fifo}_valid & ${fifo}_ready"
+          case _ => src"${fifo}_en" // parent node
+          case _ => ""
+        }
+      }.mkString(" & ")
+      val holders = (pushesTo(c)).distinct.map { fifo => 
+        fifo match {
+          case Def(FIFONew(size)) => src"~${fifo}.io.full"
+          case Def(FILONew(size)) => src"~${fifo}.io.full"
+          case Def(StreamOutNew(bus)) => src"${fifo}_ready & ${fifo}_valid"
+          case Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
+        }
+      }.mkString(" & ")
+
+      val hasHolders = if (holders != "") "&" else ""
+      val hasReadiers = if (readiers != "") "&" else ""
+
+      if (SpatialConfig.enableRetiming) src"${hasHolders} ${holders} ${hasReadiers} ${readiers}" else ""
 
   }
 
@@ -318,7 +348,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
     val lat = bodyLatency.sum(sym)
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
-    emitModule(src"${sym}_sm", s"${smStr}", s"${constrArg}")
+    emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, retime = ${sym}_retime))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
     emit(src"""${sym}_done := ShiftRegister(${sym}_sm.io.output.done, ${sym}_retime)""")
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
@@ -343,9 +373,9 @@ trait ChiselGenController extends ChiselGenCounter{
             case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
             case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
               if (isStreamChild(sym) & hasStreamIns) {
-                emit(src"${cchain.get}_en := ${sym}_datapath_en // Stream kiddo, so only inc when _enq is ready (may be wrong)")
+                emit(src"${cchain.get}_en := ${sym}_datapath_en & ~${sym}_inhibitor /*${getAllStreamLogic(sym)}*/") 
               } else {
-                emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc")
+                emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc // Should probably also add inhibitor")
               } 
           }
           emit(src"""// ---- Counter Connections for $smStr ${sym} (${cchain.get}) ----""")
@@ -435,6 +465,10 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWire(src"""val ${lhs}_ctr_trivial = false.B""")
       emitGlobalWire(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
+      emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
+      emit(src"""retime_counter.io.input.start := 0.U; retime_counter.io.input.max := (max_retime.U); retime_counter.io.input.stride := 1.U; retime_counter.io.input.gap := 0.U""")
+      emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := false.B; retime_counter.io.input.enable := true.B;""")
+      emit(src"""val retime_released = retime_counter.io.output.done """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       // Emit unit counter for this

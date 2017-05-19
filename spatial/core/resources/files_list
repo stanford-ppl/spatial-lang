@@ -1,12 +1,3 @@
-./dummyfilebecausefiles_listscrewsup
-./cppgen/fringeSW/FringeContextBase.h
-./cppgen/fringeSW/DUTTester.h
-./cppgen/fringeSW/Callbacks.h
-./cppgen/fringeSW/FringeContextSim.h
-./cppgen/fringeSW/PeekPokeTester.h
-./cppgen/fringeSW/DUT.h
-./cppgen/fringeSW/FringeContext.h
-./cppgen/fringeSW/DUT.mk
 ./cppgen/fringeDE1SoC/Makefile
 ./cppgen/fringeDE1SoC/FringeContextBase.h
 ./cppgen/fringeDE1SoC/DE1SoCAddressMap.h
@@ -150,7 +141,6 @@
 ./scalagen/Data.scala
 ./scalagen/build.sbt
 ./scalagen/Counter.scala
-./files_list
 ./simgen/Data.scala
 ./simgen/State.scala
 ./simgen/Controllers.scala

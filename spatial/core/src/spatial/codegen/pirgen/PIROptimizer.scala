@@ -32,6 +32,9 @@ trait PIROptimizer extends PIRTraversal {
     mapping.foreach { case (sym, cus) =>
       dbgs(s"${sym} -> [${cus.mkString(",")}]")
     }
+    for (cu <- mapping.values.flatten) {
+      dbgcu(cu)
+    }
     super.postprocess(b)
   }
 
@@ -62,6 +65,15 @@ trait PIROptimizer extends PIRTraversal {
         case stage:ReduceStage => // Cannot remove register in reduce stage
       }
       cu.regs --= unusedRegs
+    }
+    stages.foreach { stage =>
+      if (stage.outputMems.isEmpty) {
+        dbgs(s"Removing stage with no output from $cu: $stage")
+        cu.writeStages.foreach { case (mems, stages) => stages -= stage }
+        cu.readStages.foreach { case (mems, stages) => stages -= stage }
+        cu.computeStages -= stage
+        cu.controlStages -= stage
+      }
     }
   }
 
