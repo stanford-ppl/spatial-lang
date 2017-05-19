@@ -72,7 +72,7 @@ public:
   }
 
   void print() {
-    EPRINTF("[DRAMRequest CH=%lu] addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d, issued=%lu ", channelID, addr, rawAddr, streamId, tag, isWr, isSparse, issued);
+    EPRINTF("[DRAMRequest CH=%lu] addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d, issued=%lu \n", channelID, addr, rawAddr, streamId, tag, isWr, isSparse, issued);
     if (isWr) EPRINTF("wdata = %x\n", wdata[0]);
   }
 

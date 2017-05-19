@@ -277,7 +277,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
               }
               case _ => false
             }
-            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)})""")
+            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) // Do not delay ready because datapath includes a delayed _valid already """)
             if (!isAck) {
               // emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}(i) }""")
               emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
@@ -302,7 +302,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
             emit(src"""// emiiting data for stream ${stream}""")
             emit(src"""${stream} := ${data.head}""")
             emit(src"""converted_data := ${stream}""")
-            emit(src"""${stream}_valid := ${parent}_en & ${ens.mkString("&")} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})""")
+            emit(src"""${stream}_valid := ${ens.mkString("&")} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})""")
           case LEDR =>
             emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
       //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
