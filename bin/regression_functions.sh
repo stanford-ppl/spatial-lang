@@ -164,7 +164,7 @@ git push
 logger "Removing packet ${packet} so those waiting are clear to launch"
 rm $packet
 
-# stubborn_delete ${dirname}
+stubborn_delete ${dirname}
 
 ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 

@@ -50,9 +50,9 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     Accel {
       val lut = LUT[Int](4, 4)(
          0,  1,  2,  3,
-         4,  5,  6,  7,
-         8,  9, 10, 11,
-        12, 13, 14, 15
+         4,  -5,  6,  7,
+         8,  9, -10, 11,
+        12, 13, 14, -15
       )
       y := lut(1, 3) + lut(3, 3) + lut(i, i)
     }
@@ -62,7 +62,7 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = 15 + 7 + 5*(ii)
+    val gold = -15 + 7 - 5*(ii)
     println("expected: " + gold)
     println("result: " + result)
 
@@ -957,8 +957,10 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
 object UniqueParallelLoad extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
-  val dim0 = 144
-  val dim1 = 96
+  val dim0 = 144 //144
+  val dim1 = 96 //96
+  // val dim0 = 48
+  // val dim1 = 16
 
   def awkwardload[T:Type:Num](src1: Array[T], src2: Array[T]):T = {
 
