@@ -1,6 +1,6 @@
 package spatial.codegen.scalagen
 
-import argon.core.Staging
+import argon.core.cake.Staging
 import argon.ops.FixPtExp
 import org.virtualized.SourceContext
 import spatial.SpatialExp

@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import argon.core.Staging
+import argon.core.cake.Staging
 import spatial.SpatialConfig
 
 trait ScalaGenBits extends ScalaCodegen {

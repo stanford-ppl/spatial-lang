@@ -8,6 +8,7 @@ import argon.codegen.cppgen._
 import spatial.codegen.dotgen._
 import argon.traversal.IRPrinter
 import argon._
+import argon.core.cake
 import forge._
 import org.virtualized.EmptyContext
 import spatial.api._
@@ -36,13 +37,13 @@ trait SpatialImplicits{this: SpatialApi =>
   // Hacks required to allow .to[T] syntax on various primitive types
   // Naming is apparently important here (has to have same names as in Predef)
   implicit class longWrapper(x: scala.Long) {
-    @api def to[B:Meta](implicit cast: Cast[scala.Long,B]): B = cast(x)
+    @api def to[B:Meta](implicit cast: cake.Cast[scala.Long,B]): B = cast(x)
   }
   implicit class floatWrapper(x: scala.Float) {
-    @api def to[B:Meta](implicit cast: Cast[scala.Float,B]): B = cast(x)
+    @api def to[B:Meta](implicit cast: cake.Cast[scala.Float,B]): B = cast(x)
   }
   implicit class doubleWrapper(x: scala.Double) {
-    @api def to[B:Meta](implicit cast: Cast[scala.Double,B]): B = cast(x)
+    @api def to[B:Meta](implicit cast: cake.Cast[scala.Double,B]): B = cast(x)
   }
 }
 

@@ -1,6 +1,6 @@
 package spatial.api
 
-import argon.core.Staging
+import argon.core.cake.Staging
 import spatial.{SpatialApi, SpatialExp}
 import forge._
 

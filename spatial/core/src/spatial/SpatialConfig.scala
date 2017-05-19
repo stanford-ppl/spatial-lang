@@ -1,6 +1,6 @@
 package spatial
 
-import argon.core.Reporting
+import argon.core.cake.Reporting
 import com.typesafe.config.ConfigFactory
 import pureconfig._
 
