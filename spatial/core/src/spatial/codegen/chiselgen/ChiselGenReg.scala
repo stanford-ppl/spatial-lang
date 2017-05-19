@@ -228,30 +228,9 @@ trait ChiselGenReg extends ChiselGenSRAM {
   override protected def emitFileFooter() {
     withStream(getStream("BufferControlCxns")) {
       nbufs.foreach{ case (mem, i) => 
-        // Console.println(src"working on $mem $i")
-        // TODO: Does david figure out which controllers' signals connect to which ports on the nbuf already? This is kind of complicated
-        val readers = readersOf(mem)
-        val writers = writersOf(mem)
-        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
-        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
-        // Console.println(s"read ports $readPorts")
-        // Console.println(s"""topctrl ${readPorts.map{case (_, readers) => s"want ${readers.head}, $mem, $i"}} """)
-        val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
-        val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
-        val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
-        val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
-        val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
-        val numStagesInbetween = lastActivePort - firstActivePort
-
-        (0 to numStagesInbetween).foreach { port =>
-          val ctrlId = port + firstActivePort
-          val node = allSiblings(ctrlId)
-          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
-          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
-          val empty = if (rd == "" & wr == "") "empty" else ""
-          emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
+        val info = bufferControlInfo(mem, i)
+        info.zipWithIndex.foreach{ case (inf, port) => 
+          emit(src"""${mem}_${i}.connectStageCtrl(${quote(inf._1)}_done, ${quote(inf._1)}_en, List(${port})) ${inf._2}""")
         }
       }
     }

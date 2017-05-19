@@ -261,7 +261,6 @@ trait ChiselGenController extends ChiselGenCounter{
           case Def(FIFONew(size)) => src"~${fifo}.io.empty"
           case Def(FILONew(size)) => src"~${fifo}.io.empty"
           case Def(StreamInNew(bus)) => src"${fifo}_valid & ${fifo}_ready"
-          case _ => src"${fifo}_en" // parent node
           case _ => ""
         }
       }.mkString(" & ")

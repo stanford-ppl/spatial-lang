@@ -250,7 +250,7 @@ object Linebuf extends SpatialApp {
 
     Accel(*) {
 
-      val fifoIn = FIFO[Int16](2*Cmax)
+      // val fifoIn = FIFO[Int16](2*Cmax)
       // val fifoOut = FIFO[Int16](2*Cmax)
       val lb = LineBuffer[Int16](1, Cmax)
       // val submitReady = FIFO[Bool](3)
@@ -260,18 +260,16 @@ object Linebuf extends SpatialApp {
         Foreach(0 until Cmax) { _ => 
           val pixel = imgIn.value()
           val grayPixel = (pixel.b.to[Int16] + pixel.g.to[Int16] + pixel.r.to[Int16]) / 3
-          fifoIn.enq( grayPixel )
+          lb.enq( grayPixel )
         }
 
-        Foreach(0 until Cmax) { c => 
-          lb.enq(fifoIn.deq,true)
-        }
+        // Foreach(0 until Cmax) { c => 
+        //   lb.enq(fifoIn.deq,true)
+        // }
 
         Foreach(0 until Cmax) { c =>
-          Foreach(0 until 1) { trickery =>
-            val result = lb(trickery,c)
-            imgOut(r,c) = Pixel16(result(5::1).as[UInt5], result(5::0).as[UInt6], result(5::1).as[UInt5]) // Technically should be sqrt(horz**2 + vert**2)
-          }
+          val result = lb(0,c)
+          imgOut(r,c) = Pixel16(result(5::1).as[UInt5], result(5::0).as[UInt6], result(5::1).as[UInt5]) // Technically should be sqrt(horz**2 + vert**2)
           // imgOut(r,c) = Pixel16(result(10::6).as[UInt5], result(10::5).as[UInt6], result(10::6).as[UInt5]) // Technically should be sqrt(horz**2 + vert**2)
         }
 
@@ -384,7 +382,7 @@ object SwitchVid extends SpatialApp { // BUSTED.  HOW TO USE SWITCHES?
 
 //  @struct case class Pixel24(b: UInt8, g: UInt8, r: UInt8)
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
-  @struct class sw3(b1: Bool, b2: Bool, b3: Bool)
+  @struct class sw3(sel: UInt5, unused: UInt5)
 
   @virtualize
   def convolveVideoStream(rows: Int, cols: Int): Unit = {
@@ -398,11 +396,21 @@ object SwitchVid extends SpatialApp { // BUSTED.  HOW TO USE SWITCHES?
       Foreach(0 until Rmax) { i =>
         Foreach(0 until Cmax) { j => 
           val swBits = swInput.value()
-          val f0 = swBits.b1
+          val f0 = swBits.sel
           val pixel = imgIn.value()
+          val rpixel = Pixel16(0.to[UInt5], 0.to[UInt6], pixel.r)
+          val gpixel = Pixel16(0.to[UInt5], pixel.g, 0.to[UInt5])
+          val bpixel = Pixel16(pixel.b, 0.to[UInt6], 0.to[UInt5])
+          val funpixel = Pixel16(pixel.r, pixel.b.as[UInt6], pixel.g.as[UInt5])
           val grayVal = (pixel.b.to[Int16] + pixel.g.to[Int16] + pixel.r.to[Int16]) / 3
           val grayPixel = Pixel16(grayVal.to[UInt5], grayVal.to[UInt6], grayVal.to[UInt5])
-          fifoIn.enq(mux(f0, grayPixel, pixel))
+          val muxpix = mux(f0 <= 0, pixel,
+                        mux(f0 <= 1, rpixel,
+                        mux(f0 <= 2, gpixel,
+                        mux(f0 <= 4, bpixel,
+                        mux(f0 <= 8, funpixel,
+                        mux(f0 <= 16, grayPixel, pixel))))))
+          fifoIn.enq(muxpix)
         }
         Foreach(0 until Cmax) { j => 
           val pixel = fifoIn.deq()
