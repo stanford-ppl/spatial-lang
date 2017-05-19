@@ -63,8 +63,13 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         // oobApply(op.mT, lb, lhs, Seq(row,col)){ emit(src"$lb.apply($row,$col+i)") }
       // close("}")
       
-    case op@LineBufferLoad(lb,row,col,en) => emit(src"$lb.io.col_addr(0) := ${col}.raw")
-      emit(s"val ${quote(lhs)} = ${quote(lb)}.readRow(${row}.raw)")
+    case op@LineBufferLoad(lb,row,col,en) => 
+      emit(src"$lb.io.col_addr(0) := ${col}.raw")
+      val rowtext = row match {
+        case c: Const[_] => "0.U"
+        case _ => src"${row}.r"
+      }
+      emit(s"val ${quote(lhs)} = ${quote(lb)}.readRow(${rowtext})")
 
     case op@LineBufferEnq(lb,data,en) =>
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode

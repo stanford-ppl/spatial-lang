@@ -23,8 +23,8 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     // val w_done   = Input(UInt(1.W))
 
     // Buffering signals
-    val sEn = Vec(num_lines, Input(Bool()))
-    val sDone = Vec(num_lines, Input(Bool()))
+    val sEn = Vec(num_lines + extra_rows_to_buffer, Input(Bool())) // Too many but at least this is safe
+    val sDone = Vec(num_lines + extra_rows_to_buffer, Input(Bool())) // Too many but at least this is safe
 
     // val r_done   = Input(UInt(1.W)) // Like double buffering
 
@@ -46,11 +46,11 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   //              etc. 
   
   // Buffering logic
-  val sEn_latch = (0 until num_lines).map{i => Module(new SRFF())}
-  val sDone_latch = (0 until num_lines).map{i => Module(new SRFF())}
+  val sEn_latch = (0 until num_lines + extra_rows_to_buffer).map{i => Module(new SRFF())}
+  val sDone_latch = (0 until num_lines + extra_rows_to_buffer).map{i => Module(new SRFF())}
   val swap = Wire(Bool())
   // Latch whether each buffer's stage is enabled and when they are done
-  (0 until num_lines).foreach{ i => 
+  (0 until num_lines + extra_rows_to_buffer).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i)
     sEn_latch(i).io.input.reset := swap
     sEn_latch(i).io.input.asyn_reset := reset

@@ -324,7 +324,11 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 
         emit(src"$lb.io.col_addr(0) := ${col}.raw // Assume we always read from same col")
-        emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${row}.raw)")
+        val rowtext = row match {
+          case c: Const[_] => "0.U"
+          case _ => src"${row}.r"
+        }
+        emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${rowtext})")
       }
       emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${rows.length}, UInt(32.W)))""")
       emit(s"""${quote(lhs)} := Vec(${(0 until rows.length).map{i => src"${lhs}_$i"}.mkString(",")})""")

@@ -277,7 +277,7 @@ trait ChiselGenController extends ChiselGenCounter{
       val hasHolders = if (holders != "") "&" else ""
       val hasReadiers = if (readiers != "") "&" else ""
 
-      if (SpatialConfig.enableRetiming) src"${hasHolders} ${holders} ${hasReadiers} ${readiers}" else ""
+      if (SpatialConfig.enableRetiming) src"${hasHolders} ${holders} ${hasReadiers} ${readiers}" else " "
 
   }
 

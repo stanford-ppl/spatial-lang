@@ -98,3 +98,47 @@ object BOStreamingSobel extends SpatialApp {
     convolveVideoStream(R, C)
   }
 }
+
+
+object SimplestTest extends SpatialApp { 
+  import IR._
+
+  override val target = DE1
+
+  val Kh = 3
+  val Kw = 3
+  val Rmax = 240
+  val Cmax = 320
+
+  type Int16 = FixPt[TRUE,_16,_0]
+  type UInt8 = FixPt[FALSE,_8,_0]
+  type UInt5 = FixPt[FALSE,_5,_0]
+  type UInt6 = FixPt[FALSE,_6,_0]
+//  @struct case class Pixel24(b: UInt8, g: UInt8, r: UInt8)
+  @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
+
+  @virtualize
+  def convolveVideoStream(rows: Int, cols: Int): Unit = {
+    val R = Rmax
+    val C = Cmax
+
+    val imgIn  = StreamIn[Pixel16](target.VideoCamera)
+    val imgOut = BufferedOut[Pixel16](target.VGA)
+
+    Accel(*) {
+     
+      Foreach(0 until Rmax, 0 until Cmax) {(i,j) =>
+        imgOut(i,j) = Pixel16(imgIn.value().b, 0.to[UInt6], 0.to[UInt5])
+      }
+
+      ()
+    }
+  }
+
+  @virtualize
+  def main() {
+    val R = args(0).to[Int]
+    val C = Cmax
+    convolveVideoStream(R, C)
+  }
+}
