@@ -26,6 +26,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
       emitGlobalWire(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
+      emitGlobalWire(src"""val ${lhs}_now_valid = Wire(Bool())""", forceful = true)
       emitGlobalWire(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
       emitGlobalWire(src"val ${lhs} = Wire(${newWire(readersOf(lhs).head.node.tp)})")
       bus match {
@@ -189,7 +190,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
         case _ => false
       }
       val parent = parentOf(lhs).get
-      emit(src"""${stream}_ready := ${en} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) // Do not delay ready because datapath includes a delayed _valid already """)
+      emit(src"""${stream}_ready := ${en} & (${parent}_datapath_en & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
       if (!isAck) {
         stream match {
           case Def(StreamInNew(bus)) => bus match {

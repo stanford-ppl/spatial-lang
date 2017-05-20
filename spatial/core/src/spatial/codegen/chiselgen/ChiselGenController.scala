@@ -263,7 +263,7 @@ trait ChiselGenController extends ChiselGenCounter{
         fifo match {
           case Def(FIFONew(size)) => src"~${fifo}.io.empty"
           case Def(FILONew(size)) => src"~${fifo}.io.empty"
-          case Def(StreamInNew(bus)) => src"${fifo}_valid & ${fifo}_ready"
+          case Def(StreamInNew(bus)) => src"${fifo}_now_valid & ${fifo}_ready"
           case _ => ""
         }
       }.mkString(" & ")
@@ -375,7 +375,7 @@ trait ChiselGenController extends ChiselGenCounter{
             case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
             case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
               if (isStreamChild(sym) & hasStreamIns) {
-                emit(src"${cchain.get}_en := ${sym}_datapath_en & ~${sym}_inhibitor /*${getAllStreamLogic(sym)}*/") 
+                emit(src"${cchain.get}_en := ${sym}_datapath_en & ~${sym}_inhibitor ${getAllStreamLogic(sym)}") 
               } else {
                 emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc // Should probably also add inhibitor")
               } 
