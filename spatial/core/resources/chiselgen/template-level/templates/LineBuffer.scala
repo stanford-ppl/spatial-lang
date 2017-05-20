@@ -33,6 +33,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     // val row_addr = Input(UInt(1.W)) // ENHANCEMENT: Eventually will be a Vec, but for now ROW_PAR is 1 or num_lines only
     // val data_out = Vec(ROW_PAR, Vec(COL_PAR, Output(UInt(32.W)))) // TODO: Don't use Vec(Vec) since Chisel will switch inputs and outputs
     val data_out = Vec(row_rPar * col_rPar, Output(UInt(32.W)))
+    val swap = Output(Bool()) // for debugging
     // val row_wrap = Output(UInt(1.W))
   })
   
@@ -60,6 +61,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
+  io.swap := swap
 
   // assert(ROW_PAR == 1 || ROW_PAR == num_lines)
 

@@ -16,8 +16,8 @@ object FIRFilter extends SpatialApp {
     val weights = DRAM[Int](N)
     setMem(weights, weightArray)
 
-    val in = StreamIn[Int](target.GPInput)
-    val out = StreamOut[Int](target.GPOutput)
+    val in = StreamIn[Int](target.GPInput1)
+    val out = StreamOut[Int](target.GPOutput1)
     Accel {
       val w = RegFile[Int](Nmax)
       val taps = RegFile[Int](Nmax)
@@ -44,8 +44,8 @@ object FIRFilter2 extends SpatialApp {
     val weights = DRAM[Int](N)
     setMem(weights, file)
 
-    val in = StreamIn[Int](target.GPInput)
-    val out = StreamOut[Int](target.GPOutput)
+    val in = StreamIn[Int](target.GPInput1)
+    val out = StreamOut[Int](target.GPOutput1)
 
     Accel {
       val w = RegFile[Int](Nmax)

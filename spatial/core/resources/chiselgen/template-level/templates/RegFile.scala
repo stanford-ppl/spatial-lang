@@ -322,7 +322,7 @@ class LUT(val dims: List[Int], val inits: List[Float], val numReaders: Int, val 
   val flat_addr = (0 until numReaders).map{ k => 
     val base = k*dims.length
     (0 until dims.length).map{ i => 
-      (io.addr(i + base) * (dims.drop(i+base).reduce{_*_}/dims(i+base)).U(32.W))(31,0) // TODO: Why is chisel being so stupid with this type when used in the MuxLookup
+      (io.addr(i + base) * (dims.drop(i).reduce{_*_}/dims(i)).U(32.W))(31,0) // TODO: Why is chisel being so stupid with this type when used in the MuxLookup
     }.reduce{_+_}
   }
 

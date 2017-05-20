@@ -37,7 +37,12 @@ trait NodeClasses { this: SpatialExp =>
   def isInnerPipe(e: Exp[_]): Boolean = styleOf(e) == InnerPipe || (styleOf(e) == MetaPipe && isInnerControl(e))
   def isInnerPipe(e: Ctrl): Boolean = e.isInner || isInnerPipe(e.node)
   def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe
-  def isStreamPipe(e: Exp[_]): Boolean = styleOf(e) == StreamPipe
+  def isStreamPipe(e: Exp[_]): Boolean = {
+    e match {
+      case Def(Hwblock(_,isFrvr)) => isFrvr
+      case _ => styleOf(e) == StreamPipe
+    }
+  }
   def isMetaPipe(e: Ctrl): Boolean = !e.isInner && isMetaPipe(e.node)
   def isStreamPipe(e: Ctrl): Boolean = !e.isInner && isStreamPipe(e.node)
 
