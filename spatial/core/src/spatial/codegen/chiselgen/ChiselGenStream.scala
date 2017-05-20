@@ -26,6 +26,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
       emitGlobalWire(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
+      emitGlobalWire(src"""val ${lhs}_now_valid = Wire(Bool())""", forceful = true)
       emitGlobalWire(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
       emitGlobalWire(src"val ${lhs} = Wire(${newWire(readersOf(lhs).head.node.tp)})")
       bus match {
