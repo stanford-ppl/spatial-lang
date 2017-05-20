@@ -109,13 +109,11 @@ object LinebufRaster extends SpatialApp { // try arg = 100
         Foreach(0 until dwell) { _ => 
           Foreach(0 until Rmax){ r =>
             Foreach(0 until Cmax) { c => 
-              Foreach(0 until dumbdelay) { cc => 
                 val bluepixel = mux(abs(r - i) < 4, Pixel16(31.to[UInt5],0,0), Pixel16(0,0,0))
                 val greenpixel = mux(abs(r - i) < 4, Pixel16(0,31.to[UInt6],0), Pixel16(0,0,0))
                 val redpixel = mux(abs(r - i) < 4, Pixel16(0,0,31.to[UInt5]), Pixel16(0,0,0))
                 val pixel = mux(c < Cmax/3, bluepixel, mux(c < Cmax*2/3, greenpixel, redpixel))
-                lb.enq(pixel, cc == 0)
-              }
+                lb.enq(pixel)
             }
             Foreach(0 until Cmax) { c => 
               imgOut(r, c) = lb(0, c)

@@ -95,7 +95,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       linebufs.foreach{ mem => 
         val info = bufferControlInfo(mem, 0)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""${mem}.connectStageCtrl(${quote(inf._1)}_done, ${quote(inf._1)}_en, List(${port})) ${inf._2}""")
+          emit(src"""${mem}.connectStageCtrl(${quote(inf._1)}_done, ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
         }
 
 

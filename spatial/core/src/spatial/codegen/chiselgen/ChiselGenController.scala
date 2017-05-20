@@ -234,10 +234,13 @@ trait ChiselGenController extends ChiselGenCounter{
         fifo match {
           case Def(FIFONew(size)) => src"~${fifo}.io.empty"
           case Def(FILONew(size)) => src"~${fifo}.io.empty"
-          case Def(StreamInNew(bus)) => src"${fifo}_valid"
+          case Def(StreamInNew(bus)) => bus match {
+            case SliderSwitch => ""
+            case _ => src"${fifo}_valid"
+          }
           case _ => src"${fifo}_en" // parent node
         }
-      }.mkString(" & ")
+      }.filter(_ != "").mkString(" & ")
       val holders = (pushesTo(c)).distinct.map { fifo => 
         fifo match {
           case Def(FIFONew(size)) => src"~${fifo}.io.full"
@@ -417,6 +420,7 @@ trait ChiselGenController extends ChiselGenCounter{
       childrenOf(sym).zipWithIndex.foreach { case (c, idx) =>
         emitGlobalWire(src"""val ${c}_done = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_en = Wire(Bool())""")
+        emitGlobalWire(src"""val ${c}_base_en = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_mask = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_resetter = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_ctr_trivial = Wire(Bool())""")
@@ -430,7 +434,8 @@ trait ChiselGenController extends ChiselGenCounter{
 
         val streamAddition = getStreamEnablers(c)
 
-        emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx}) ${streamAddition}""")  
+        emit(src"""${c}_base_en := ${sym}_sm.io.output.stageEnable(${idx})""")  
+        emit(src"""${c}_en := ${c}_base_en ${streamAddition}""")  
 
         // If this is a stream controller, need to set up counter copy for children
         if (smStr == "Streampipe" & cchain.isDefined) {
