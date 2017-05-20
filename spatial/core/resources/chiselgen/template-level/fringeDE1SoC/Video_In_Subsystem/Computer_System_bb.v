@@ -1,5 +1,7 @@
 
 module Computer_System (
+	expansion_jp1_export,
+	expansion_jp2_export,
 	hps_io_hps_io_emac1_inst_TX_CLK,
 	hps_io_hps_io_emac1_inst_TXD0,
 	hps_io_hps_io_emac1_inst_TXD1,
@@ -105,6 +107,8 @@ module Computer_System (
 	video_in_TD_RESET,
 	video_in_overflow_flag);	
 
+	inout	[31:0]	expansion_jp1_export;
+	inout	[31:0]	expansion_jp2_export;
 	output		hps_io_hps_io_emac1_inst_TX_CLK;
 	output		hps_io_hps_io_emac1_inst_TXD0;
 	output		hps_io_hps_io_emac1_inst_TXD1;
