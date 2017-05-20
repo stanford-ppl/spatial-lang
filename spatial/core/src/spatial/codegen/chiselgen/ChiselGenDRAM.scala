@@ -72,8 +72,10 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emitGlobalWire(src"""val ${turnstiling_stage}_enq = io.memStreams.loads(${id}).rdata.valid""")
 
       // Connect the streams to their IO interface signals
-      emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := b}""")
-      emit(src"""${dataStream}_valid := io.memStreams.loads($id).rdata.valid.D(${symDelay(readersOf(dataStream).head.node)})""")
+      emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := ShiftRegister(b, ${symDelay(readersOf(dataStream).head.node)})}""")
+      emitGlobalWire(src"""val ${dataStream}_now_valid = Wire(Bool())""")
+      emit(src"""${dataStream}_now_valid := io.memStreams.loads($id).rdata.valid""")
+      emit(src"""${dataStream}_valid := ${dataStream}_now_valid.D(${symDelay(readersOf(dataStream).head.node)})""")
       emit(src"${cmdStream}_ready := io.memStreams.loads($id).cmd.ready.D(${symDelay(writersOf(cmdStream).head.node)})")
 
       // Connect the IO interface signals to their streams
