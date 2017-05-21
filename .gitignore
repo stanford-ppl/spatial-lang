@@ -10,10 +10,7 @@
 .history
 .lib/
 dist/*
-out/*
-out2/*
-out3/*
-out4/*
+out*
 csvs/*
 gen/*
 gen_gold/*
