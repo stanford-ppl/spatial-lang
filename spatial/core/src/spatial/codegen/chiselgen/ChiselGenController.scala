@@ -343,7 +343,7 @@ trait ChiselGenController extends ChiselGenCounter{
     // Special match if this is HWblock, there is no forever cchain, just the forever flag
     sym match {
       case Def(Hwblock(_,isFrvr)) => if (isFrvr) hasForever = true
-      case _ =>
+      case _ =>;
     }
 
     val constrArg = if (isInner) {s"${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
@@ -360,9 +360,9 @@ trait ChiselGenController extends ChiselGenCounter{
 
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
       emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_ctr_trivial // Immediate parent has forever counter, so never mask out datapath_en""")    
-    } else if ((isStreamChild(sym) & hasStreamIns & cchain.isDefined)) { // for FSM or hasStreamIns, tie en directly to datapath_en
+    } else if ((isStreamChild(sym) & hasStreamIns & cchain.isDefined) | isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
       emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial""")  
-    } else if ((isStreamChild(sym) & hasStreamIns) | isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
+    } else if ((isStreamChild(sym) & hasStreamIns)) { // for FSM or hasStreamIns, tie en directly to datapath_en
       emit(src"""${sym}_datapath_en := ${sym}_en /*& ~${sym}_done*/ & ~${sym}_ctr_trivial""")  
     } else {
       emit(src"""${sym}_datapath_en := ${sym}_sm.io.output.ctr_inc & ~${sym}_done & ~${sym}_ctr_trivial""")
