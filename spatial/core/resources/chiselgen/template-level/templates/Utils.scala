@@ -236,114 +236,114 @@ object Utils {
     init match {
       case i: Double => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
       case i: Bool => cst.r := i
-      case i: UInt => if (f > 0) cst.r := Cat(i, 0.U(f.W)) else cst.r := i
+      case i: UInt => if (f > 0) cst.r := chisel3.util.Cat(i, 0.U(f.W)) else cst.r := i
       case i: FixedPoint => cst.raw := i.raw
       case i: Int => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
     }
     cst
   }
 
-  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data](x1: T1, x2: T2): UInt = {
-    val raw_x1 = x1 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x2 = x2 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
+  // def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data](x1: T1, x2: T2): UInt = {
+  //   val raw_x1 = x1 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x2 = x2 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
 
-    util.Cat(raw_x1,raw_x2)
-  }
+  //   util.Cat(raw_x1,raw_x2)
+  // }
 
-  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3): UInt = {
-    val raw_x1 = x1 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x2 = x2 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x3 = x3 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
+  // def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3): UInt = {
+  //   val raw_x1 = x1 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x2 = x2 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x3 = x3 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
 
-    util.Cat(raw_x1,raw_x2,raw_x3)
-  }
-  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data, T4 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3, x4: T4): UInt = {
-    val raw_x1 = x1 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x2 = x2 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x3 = x3 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x4 = x4 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
+  //   util.Cat(raw_x1,raw_x2,raw_x3)
+  // }
+  // def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data, T4 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3, x4: T4): UInt = {
+  //   val raw_x1 = x1 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x2 = x2 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x3 = x3 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x4 = x4 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
 
-    util.Cat(raw_x1,raw_x2,raw_x3,raw_x4)
-  }
-  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data, T4 <: chisel3.core.Data, T5 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3, x4: T4, x5: T5): UInt = {
-    val raw_x1 = x1 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x2 = x2 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x3 = x3 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x4 = x4 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x5 = x5 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
+  //   util.Cat(raw_x1,raw_x2,raw_x3,raw_x4)
+  // }
+  // def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data, T4 <: chisel3.core.Data, T5 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3, x4: T4, x5: T5): UInt = {
+  //   val raw_x1 = x1 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x2 = x2 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x3 = x3 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x4 = x4 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x5 = x5 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
 
-    util.Cat(raw_x1,raw_x2,raw_x3,raw_x4,raw_x5)
-  }
-  def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data, T4 <: chisel3.core.Data, T5 <: chisel3.core.Data, T6 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3, x4: T4, x5: T5, x6: T6): UInt = {
-    val raw_x1 = x1 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x2 = x2 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x3 = x3 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x4 = x4 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x5 = x5 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
-    val raw_x6 = x6 match {
-      case x:UInt => x
-      case x:FixedPoint => x.raw
-    }
+  //   util.Cat(raw_x1,raw_x2,raw_x3,raw_x4,raw_x5)
+  // }
+  // def Cat[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data, T3 <: chisel3.core.Data, T4 <: chisel3.core.Data, T5 <: chisel3.core.Data, T6 <: chisel3.core.Data](x1: T1, x2: T2, x3: T3, x4: T4, x5: T5, x6: T6): UInt = {
+  //   val raw_x1 = x1 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x2 = x2 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x3 = x3 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x4 = x4 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x5 = x5 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
+  //   val raw_x6 = x6 match {
+  //     case x:UInt => x
+  //     case x:FixedPoint => x.raw
+  //   }
 
-    util.Cat(raw_x1,raw_x2,raw_x3,raw_x4,raw_x5,raw_x6)
-  }
+  //   util.Cat(raw_x1,raw_x2,raw_x3,raw_x4,raw_x5,raw_x6)
+  // }
 
   def mux[T1 <: chisel3.core.Data, T2 <: chisel3.core.Data](cond: T1, op1: T2, op2: T2): T2 = {
     val bool_cond = cond match {

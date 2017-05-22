@@ -298,6 +298,26 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		}
 	}
 
+
+	def >>[T] (shift: Int, sgnextend: Boolean = false): FixedPoint = {
+		val return_type = (s, d, f)
+		val result = Wire(new FixedPoint(return_type))
+		if (sgnextend) {
+			result.r := util.Cat(util.Fill(shift, number.msb), number(d+f-1, shift))
+		} else {
+			result.r := this.number >> shift			
+		}
+		result
+	}
+	def >>>[T] (shift: Int): FixedPoint = {this.>>(shift, sgnextend = true)}
+
+	def <<[T] (shift: Int): FixedPoint = {
+		val return_type = (s, d, f)
+		val result = Wire(new FixedPoint(return_type))
+		result.r := this.number << shift			
+		result
+	}
+
 	def <[T] (rawop: T): Bool = { // TODO: Probably completely wrong for signed fixpts
 		rawop match { 
 			case op: FixedPoint => 

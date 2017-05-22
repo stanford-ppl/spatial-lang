@@ -76,7 +76,7 @@ trait ChiselGenStructs extends ChiselGenSRAM {
         // if (src"${t._1}" == "offset") {
         //   src"${t._2}"
         // } else {
-          if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}"} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
+          if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}.r"} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
         // }
       }.reverse.mkString(",")
       val totalWidth = tuples.map{ t => 
@@ -87,7 +87,7 @@ trait ChiselGenStructs extends ChiselGenSRAM {
         // }
       }.reduce{_+_}
       emitGlobalWire(src"val $lhs = Wire(UInt(${totalWidth}.W))")
-      emit(src"$lhs := Utils.Cat($items)")
+      emit(src"$lhs := chisel3.util.Cat($items)")
     case FieldApply(struct, field) =>
       val (msb, lsb) = tupCoordinates(struct.tp, field)      
       if (spatialNeedsFPType(lhs.tp)) {

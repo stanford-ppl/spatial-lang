@@ -185,7 +185,21 @@ trait ChiselGenReg extends ChiselGenSRAM {
       if (isArgOut(reg) | isHostIO(reg)) {
         val id = argMapping(reg)._3
           emit(src"val ${lhs}_wId = getArgOutLane($id)")
-          emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.number""")
+          v.tp match {
+            case FixPtType(s,d,f) => 
+              if (s) {
+                val pad = 64 - d - f
+                if (pad > 0) {
+                  emit(src"""${reg}_data_options(${lhs}_wId) := util.Cat(util.Fill($pad, ${v}.msb), ${v}.r)""")  
+                } else {
+                  emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+                }
+              } else {
+                emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+              }
+            case _ => 
+              emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+            }
           emit(src"""${reg}_en_options(${lhs}_wId) := $en & ShiftRegister(${parent}_datapath_en, ${symDelay(lhs)})""")
       } else {
         reduceType(lhs) match {

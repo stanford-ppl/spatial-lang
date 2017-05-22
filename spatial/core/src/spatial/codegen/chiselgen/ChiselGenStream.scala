@@ -168,7 +168,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
             emit(src"  ${buffer}_writedata := ${data}.r")
             emit(src"  ${buffer}_hAddr := ${is(0)}.raw")
             emit(src"  ${buffer}_wAddr := ${is(1)}.raw")
-            emit(src"  ${buffer}_address := 134217728.U + Utils.Cat(${buffer}_hAddr, ${buffer}_wAddr, false.B)")
+            emit(src"  ${buffer}_address := 134217728.U + chisel3.util.Cat(${buffer}_hAddr, ${buffer}_wAddr, false.B)")
             emit(src"} .otherwise {")
             emit(src"  ${buffer}_write := 0.U")
             emit(src"  ${buffer}_writedata := 0.U")
