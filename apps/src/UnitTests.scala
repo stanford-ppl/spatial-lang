@@ -1871,7 +1871,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
   }
 }
 
-object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
+object MaskedWrite extends SpatialApp {  // Regression (Unit) // Args: 5
   import IR._
   type T = Int
 
@@ -1910,7 +1910,47 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
   }
 }
 
+object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
+  import IR._
+  type T = FixPt[TRUE,_16,_16]
 
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val N = 128
+    val a = args(0).to[T]
+    val b = args(1).to[T]
+    val x_data = Array.tabulate(N){ i => a * i.to[T]}
+    val x = DRAM[T](N)
+    val y = DRAM[T](N)
+    val s = ArgIn[T]
+
+    setMem(x, x_data)
+    setArg(s, b)
+
+    Accel {
+      val xx = SRAM[T](N)
+      val yy = SRAM[T](N)
+      xx load x(0 :: N par 16)
+      Foreach(N by 1) { i => 
+        yy(i) = xx(i) * s
+      }
+      y(0 :: N par 16) store yy
+    }
+
+
+    // Extract results from accelerator
+    val result = getMem(y)
+
+    // Create validation checks and debug code
+    val gold = x_data.map{ dat => dat * b }
+    printArray(gold, "expected: ")
+    printArray(result, "got: ")
+
+    val cksum = gold.zip(result){_ == _}.reduce{_&&_}
+    println("PASS: " + cksum + " (FixPtMem)")
+  }
+}
 object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.625 14 1.875 -3.4375 -5
   import IR._
   type USGN = FixPt[FALSE,_4,_4]

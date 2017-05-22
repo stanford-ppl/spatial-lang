@@ -235,7 +235,8 @@ object Utils {
     val cst = Wire(new types.FixedPoint(s, d, f))
     init match {
       case i: Double => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
-      case i: UInt => cst.raw := i
+      case i: Bool => cst.r := i
+      case i: UInt => if (f > 0) cst.r := Cat(i, 0.U(f.W)) else cst.r := i
       case i: FixedPoint => cst.raw := i.raw
       case i: Int => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
     }

@@ -146,7 +146,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(s"""// Assemble multidimR vector""")
       emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, 32)))""")
       if (dispatch.toList.length == 1) {
-        val k = dispatch.toList.head
+        val k = dispatch.toList.head 
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         inds.zipWithIndex.foreach{ case (ind, i) =>
           emit(src"${lhs}_rVec($i).en := chisel3.util.ShiftRegister(${parent}_en, ${symDelay(lhs)}) & ${ens(i)}")
@@ -158,7 +158,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""val ${lhs}_base = ${sram}_$k.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
         sram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-              emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base+i))}""")
+              emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""") 
+              emit(s"""(0 until ${rPar}).foreach{i => ${quote(lhs)}(i).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base+i) }""")
             } else {
               emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$k.io.output.data(${lhs}_base+i) }""")
             }
@@ -176,7 +177,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
           emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${lhs}_rVec.toArray), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
           sram.tp.typeArguments.head match { 
             case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-                emit(s"""${quote(lhs)}($k) := Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k))""")
+                emit(s"""${quote(lhs)}($k).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k)""")
               } else {
                 emit(src"""$lhs := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
               }

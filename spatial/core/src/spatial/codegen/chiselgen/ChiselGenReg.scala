@@ -152,21 +152,27 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   }
                 case _ =>  
                   lhs.tp match { 
-                    case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+                    case FixPtType(s,d,f) => 
+                      emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
+                      emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
                     case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
                     case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
                   }
               }
             case _ =>
               lhs.tp match { 
-                case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+                case FixPtType(s,d,f) => 
+                  emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
+                  emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
                 case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
                 case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
               }
           }
         } else {
           lhs.tp match { 
-            case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+            case FixPtType(s,d,f) => 
+              emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
+              emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
             case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
             case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
           }
