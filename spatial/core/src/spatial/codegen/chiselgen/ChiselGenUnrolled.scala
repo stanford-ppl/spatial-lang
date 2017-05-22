@@ -349,13 +349,13 @@ trait ChiselGenUnrolled extends ChiselGenController {
           case FixPtType(s,d,f) => 
             if (i == 0) emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
             emit(src"""val ${lhs}_$i = Wire(new FixedPoint($s, $d, $f))""")
-            emit(src"""${lhs}_$i := ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
+            emit(src"""${lhs}_${i}.r := ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
           case _ =>
             if (i == 0) emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
+            emit(src"""val ${lhs}_${i}.r = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
         }} else {
             if (i == 0) emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
+            emit(src"""val ${lhs}_${i}.r = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
         }
       }
       emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")

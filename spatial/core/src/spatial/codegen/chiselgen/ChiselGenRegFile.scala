@@ -59,7 +59,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       val dispatch = dispatchOf(lhs, rf).toList.head
       val port = portsOf(lhs, rf, dispatch).toList.head
       emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
-      emit(src"""${lhs}.raw := ${rf}_${dispatch}.readValue(${inds(0)}.raw, ${inds(1)}.raw, $port)""")
+      emit(src"""${lhs}.r := ${rf}_${dispatch}.readValue(${inds(0)}.raw, ${inds(1)}.raw, $port)""")
 
     case op@RegFileStore(rf,inds,data,en) =>
       duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 

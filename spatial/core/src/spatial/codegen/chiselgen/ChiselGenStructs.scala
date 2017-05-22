@@ -4,7 +4,7 @@ import argon.codegen.chiselgen.ChiselCodegen
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
-trait ChiselGenStructs extends ChiselCodegen {
+trait ChiselGenStructs extends ChiselGenSRAM {
   val IR: SpatialExp
   import IR._
 
@@ -92,7 +92,9 @@ trait ChiselGenStructs extends ChiselCodegen {
       val (msb, lsb) = tupCoordinates(struct.tp, field)      
       if (spatialNeedsFPType(lhs.tp)) {
         lhs.tp match {
-          case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${struct}($msb, $lsb))""")
+          case FixPtType(s,d,f) => 
+            emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
+            emit(src"""${lhs}.r := ${struct}($msb, $lsb)""")
           case _ => emit(src"val $lhs = ${struct}($msb, $lsb)")
         }
       } else {
