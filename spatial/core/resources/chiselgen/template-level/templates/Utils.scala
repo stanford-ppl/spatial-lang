@@ -354,6 +354,11 @@ object Utils {
   }
 
 
+  def floor(a: UInt): UInt = { a }
+  def ceil(a: UInt): UInt = { a }
+  def floor(a: FixedPoint): FixedPoint = { a.floor() }
+  def ceil(a: FixedPoint): FixedPoint = { a.ceil() }
+
   def min[T <: chisel3.core.Data](a: T, b: T): T = {
     (a,b) match {
       case (aa:UInt,bb:UInt) => Mux(aa < bb, a, b)
