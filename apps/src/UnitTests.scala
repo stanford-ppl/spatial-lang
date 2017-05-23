@@ -626,10 +626,12 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
     setMem(src1FPGA, src1)
 
     Accel {
-      val f1 = FIFO[T](tileSize)
+      val f1 = FIFO[T](3*tileSize)
       Foreach(N by tileSize) { i =>
         f1 load src1FPGA(i::i+tileSize par P1)
-        val accum = Reduce(Reg[T](0.to[T]))(tileSize by 1 par 1){i =>
+        val accum = Reg[T](0.to[T])
+        Pipe {accum.reset}
+        Reduce(accum)(tileSize by 1 par 1){i =>
           f1.deq()
         }{_+_}
         Pipe { out := accum }

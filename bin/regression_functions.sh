@@ -685,10 +685,12 @@ if [ \"\$wc\" -gt 0 ]; then
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "  # Compile app
+  cd ${SPATIAL_HOME}
   ${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "  # Compile app
+  cd ${SPATIAL_HOME}
   ${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
