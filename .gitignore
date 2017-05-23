@@ -52,3 +52,4 @@ src/spatial/codegen/chiselgen/resources/altera-goodies/README.md
 # C files
 *.o
 *.d
+.DS_Store
