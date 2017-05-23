@@ -51,6 +51,8 @@ trait ChiselGenMath extends ChiselCodegen {
     }
 
     case FltPow(x,y) => if (emitEn) throw new Exception("Pow not implemented in hardware yet!")
+    case FixFloor(x) => emit(src"val $lhs = Utils.floor($x)")
+    case FixCeil(x) => emit(src"val $lhs = Utils.ceil($x)")
 
     case FltSin(x) =>
       throw new TrigInAccelException(lhs)
@@ -71,7 +73,14 @@ trait ChiselGenMath extends ChiselCodegen {
     case FltAtan(x) =>
       throw new TrigInAccelException(lhs)
 
-    case Mux(sel, a, b) => emit(src"val $lhs = Utils.mux(($sel), $a, $b)")
+    case Mux(sel, a, b) => 
+      lhs.tp match { 
+        case FixPtType(s,d,f) => 
+          emitGlobalWire(s"""val ${quote(lhs)} = Wire(new FixedPoint($s,$d,$f))""")
+        case _ =>
+          emitGlobalWire(s"""val ${quote(lhs)} = Wire(UInt(${bitWidth(lhs.tp)}.W))""")
+      }
+      emit(src"${lhs}.r := Utils.mux(($sel), ${a}.r, ${b}.r)")
 
     // Assumes < and > are defined on runtime type...
     case Min(a, b) => emit(src"val $lhs = Mux(($a < $b), $a, $b)")

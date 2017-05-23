@@ -4,6 +4,8 @@
 
 `timescale 1 ps / 1 ps
 module Computer_System (
+		inout  wire [31:0] expansion_jp1_export,            //        expansion_jp1.export
+		inout  wire [31:0] expansion_jp2_export,            //        expansion_jp2.export
 		output wire        hps_io_hps_io_emac1_inst_TX_CLK, //               hps_io.hps_io_emac1_inst_TX_CLK
 		output wire        hps_io_hps_io_emac1_inst_TXD0,   //                     .hps_io_emac1_inst_TXD0
 		output wire        hps_io_hps_io_emac1_inst_TXD1,   //                     .hps_io_emac1_inst_TXD1
@@ -110,7 +112,7 @@ module Computer_System (
 		output wire        video_in_overflow_flag           //                     .overflow_flag
 	);
 
-	wire          system_pll_sys_clk_clk;                                                       // System_PLL:sys_clk_clk -> [ARM_A9_HPS:f2h_axi_clk, ARM_A9_HPS:h2f_axi_clk, ARM_A9_HPS:h2f_lw_axi_clk, LEDs:clk, Onchip_SRAM:clk, Pixel_DMA_Addr_Translation:clk, Pushbuttons:clk, SDRAM:clk, Slider_Switches:clk, SysID:clock, VGA_Subsystem:sys_clk_clk, Video_In_DMA_Addr_Translation:clk, Video_In_Subsystem:sys_clk_clk, mm_interconnect_0:System_PLL_sys_clk_clk, mm_interconnect_1:System_PLL_sys_clk_clk, mm_interconnect_2:System_PLL_sys_clk_clk, mm_interconnect_3:System_PLL_sys_clk_clk, rst_controller:clk, rst_controller_003:clk]
+	wire          system_pll_sys_clk_clk;                                                       // System_PLL:sys_clk_clk -> [ARM_A9_HPS:f2h_axi_clk, ARM_A9_HPS:h2f_axi_clk, ARM_A9_HPS:h2f_lw_axi_clk, Expansion_JP1:clk, Expansion_JP2:clk, LEDs:clk, Onchip_SRAM:clk, Pixel_DMA_Addr_Translation:clk, Pushbuttons:clk, SDRAM:clk, Slider_Switches:clk, SysID:clock, VGA_Subsystem:sys_clk_clk, Video_In_DMA_Addr_Translation:clk, Video_In_Subsystem:sys_clk_clk, mm_interconnect_0:System_PLL_sys_clk_clk, mm_interconnect_1:System_PLL_sys_clk_clk, mm_interconnect_2:System_PLL_sys_clk_clk, mm_interconnect_3:System_PLL_sys_clk_clk, mm_interconnect_4:System_PLL_sys_clk_clk, mm_interconnect_5:System_PLL_sys_clk_clk, rst_controller:clk, rst_controller_003:clk]
 	wire    [1:0] arm_a9_hps_h2f_axi_master_awburst;                                            // ARM_A9_HPS:h2f_AWBURST -> mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_awburst
 	wire    [3:0] arm_a9_hps_h2f_axi_master_arlen;                                              // ARM_A9_HPS:h2f_ARLEN -> mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_arlen
 	wire   [15:0] arm_a9_hps_h2f_axi_master_wstrb;                                              // ARM_A9_HPS:h2f_WSTRB -> mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_wstrb
@@ -147,6 +149,10 @@ module Computer_System (
 	wire    [2:0] arm_a9_hps_h2f_axi_master_awsize;                                             // ARM_A9_HPS:h2f_AWSIZE -> mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_awsize
 	wire          arm_a9_hps_h2f_axi_master_awvalid;                                            // ARM_A9_HPS:h2f_AWVALID -> mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_awvalid
 	wire          arm_a9_hps_h2f_axi_master_rvalid;                                             // mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_rvalid -> ARM_A9_HPS:h2f_RVALID
+	wire          video_in_subsystem_top_io_buff_out_waitrequest;                               // mm_interconnect_0:Video_In_Subsystem_top_io_buff_out_waitrequest -> Video_In_Subsystem:top_io_buff_out_waitrequest
+	wire   [31:0] video_in_subsystem_top_io_buff_out_address;                                   // Video_In_Subsystem:top_io_buff_out_address -> mm_interconnect_0:Video_In_Subsystem_top_io_buff_out_address
+	wire          video_in_subsystem_top_io_buff_out_write;                                     // Video_In_Subsystem:top_io_buff_out_write -> mm_interconnect_0:Video_In_Subsystem_top_io_buff_out_write
+	wire   [15:0] video_in_subsystem_top_io_buff_out_writedata;                                 // Video_In_Subsystem:top_io_buff_out_writedata -> mm_interconnect_0:Video_In_Subsystem_top_io_buff_out_writedata
 	wire          video_in_subsystem_video_in_dma_master_waitrequest;                           // mm_interconnect_0:Video_In_Subsystem_video_in_dma_master_waitrequest -> Video_In_Subsystem:video_in_dma_master_waitrequest
 	wire   [31:0] video_in_subsystem_video_in_dma_master_address;                               // Video_In_Subsystem:video_in_dma_master_address -> mm_interconnect_0:Video_In_Subsystem_video_in_dma_master_address
 	wire          video_in_subsystem_video_in_dma_master_write;                                 // Video_In_Subsystem:video_in_dma_master_write -> mm_interconnect_0:Video_In_Subsystem_video_in_dma_master_write
@@ -225,7 +231,7 @@ module Computer_System (
 	wire          arm_a9_hps_h2f_lw_axi_master_rvalid;                                          // mm_interconnect_1:ARM_A9_HPS_h2f_lw_axi_master_rvalid -> ARM_A9_HPS:h2f_lw_RVALID
 	wire   [31:0] video_in_subsystem_top_io_switches_stream_readdata;                           // mm_interconnect_1:Video_In_Subsystem_top_io_switches_stream_readdata -> Video_In_Subsystem:top_io_switches_stream_readdata
 	wire   [31:0] video_in_subsystem_top_io_switches_stream_address;                            // Video_In_Subsystem:top_io_switches_stream_address -> mm_interconnect_1:Video_In_Subsystem_top_io_switches_stream_address
-	wire          video_in_subsystem_top_io_switches_stream_read;                               // Video_In_Subsystem:top_io_switches_stream_read_n -> mm_interconnect_1:Video_In_Subsystem_top_io_switches_stream_read
+	wire          video_in_subsystem_top_io_switches_stream_read;                               // Video_In_Subsystem:top_io_switches_stream_read -> mm_interconnect_1:Video_In_Subsystem_top_io_switches_stream_read
 	wire          video_in_subsystem_top_io_ledr_stream_chipselect;                             // Video_In_Subsystem:top_io_ledr_stream_chipselect -> mm_interconnect_1:Video_In_Subsystem_top_io_ledr_stream_chipselect
 	wire    [3:0] video_in_subsystem_top_io_ledr_stream_address;                                // Video_In_Subsystem:top_io_ledr_stream_address -> mm_interconnect_1:Video_In_Subsystem_top_io_ledr_stream_address
 	wire   [31:0] video_in_subsystem_top_io_ledr_stream_writedata;                              // Video_In_Subsystem:top_io_ledr_stream_writedata -> mm_interconnect_1:Video_In_Subsystem_top_io_ledr_stream_writedata
@@ -300,10 +306,38 @@ module Computer_System (
 	wire    [3:0] mm_interconnect_3_video_in_subsystem_video_in_dma_control_slave_byteenable;   // mm_interconnect_3:Video_In_Subsystem_video_in_dma_control_slave_byteenable -> Video_In_Subsystem:video_in_dma_control_slave_byteenable
 	wire          mm_interconnect_3_video_in_subsystem_video_in_dma_control_slave_write;        // mm_interconnect_3:Video_In_Subsystem_video_in_dma_control_slave_write -> Video_In_Subsystem:video_in_dma_control_slave_write
 	wire   [31:0] mm_interconnect_3_video_in_subsystem_video_in_dma_control_slave_writedata;    // mm_interconnect_3:Video_In_Subsystem_video_in_dma_control_slave_writedata -> Video_In_Subsystem:video_in_dma_control_slave_writedata
+	wire          video_in_subsystem_top_io_gpi1_streamin_chipselect;                           // Video_In_Subsystem:top_io_gpi1_streamin_chipselect -> mm_interconnect_4:Video_In_Subsystem_top_io_gpi1_streamin_chipselect
+	wire   [31:0] video_in_subsystem_top_io_gpi1_streamin_readdata;                             // mm_interconnect_4:Video_In_Subsystem_top_io_gpi1_streamin_readdata -> Video_In_Subsystem:top_io_gpi1_streamin_readdata
+	wire    [3:0] video_in_subsystem_top_io_gpi1_streamin_address;                              // Video_In_Subsystem:top_io_gpi1_streamin_address -> mm_interconnect_4:Video_In_Subsystem_top_io_gpi1_streamin_address
+	wire          video_in_subsystem_top_io_gpi1_streamin_read;                                 // Video_In_Subsystem:top_io_gpi1_streamin_read -> mm_interconnect_4:Video_In_Subsystem_top_io_gpi1_streamin_read
+	wire          video_in_subsystem_top_io_gpo1_streamout_chipselect;                          // Video_In_Subsystem:top_io_gpo1_streamout_chipselect -> mm_interconnect_4:Video_In_Subsystem_top_io_gpo1_streamout_chipselect
+	wire    [3:0] video_in_subsystem_top_io_gpo1_streamout_address;                             // Video_In_Subsystem:top_io_gpo1_streamout_address -> mm_interconnect_4:Video_In_Subsystem_top_io_gpo1_streamout_address
+	wire   [31:0] video_in_subsystem_top_io_gpo1_streamout_writedata;                           // Video_In_Subsystem:top_io_gpo1_streamout_writedata -> mm_interconnect_4:Video_In_Subsystem_top_io_gpo1_streamout_writedata
+	wire          video_in_subsystem_top_io_gpo1_streamout_write;                               // Video_In_Subsystem:top_io_gpo1_streamout_write_n -> mm_interconnect_4:Video_In_Subsystem_top_io_gpo1_streamout_write
+	wire          mm_interconnect_4_expansion_jp1_s1_chipselect;                                // mm_interconnect_4:Expansion_JP1_s1_chipselect -> Expansion_JP1:chipselect
+	wire   [31:0] mm_interconnect_4_expansion_jp1_s1_readdata;                                  // Expansion_JP1:readdata -> mm_interconnect_4:Expansion_JP1_s1_readdata
+	wire    [1:0] mm_interconnect_4_expansion_jp1_s1_address;                                   // mm_interconnect_4:Expansion_JP1_s1_address -> Expansion_JP1:address
+	wire          mm_interconnect_4_expansion_jp1_s1_write;                                     // mm_interconnect_4:Expansion_JP1_s1_write -> Expansion_JP1:write_n
+	wire   [31:0] mm_interconnect_4_expansion_jp1_s1_writedata;                                 // mm_interconnect_4:Expansion_JP1_s1_writedata -> Expansion_JP1:writedata
+	wire          video_in_subsystem_top_io_gpi2_streamin_chipselect;                           // Video_In_Subsystem:top_io_gpi2_streamin_chipselect -> mm_interconnect_5:Video_In_Subsystem_top_io_gpi2_streamin_chipselect
+	wire   [31:0] video_in_subsystem_top_io_gpi2_streamin_readdata;                             // mm_interconnect_5:Video_In_Subsystem_top_io_gpi2_streamin_readdata -> Video_In_Subsystem:top_io_gpi2_streamin_readdata
+	wire    [3:0] video_in_subsystem_top_io_gpi2_streamin_address;                              // Video_In_Subsystem:top_io_gpi2_streamin_address -> mm_interconnect_5:Video_In_Subsystem_top_io_gpi2_streamin_address
+	wire          video_in_subsystem_top_io_gpi2_streamin_read;                                 // Video_In_Subsystem:top_io_gpi2_streamin_read -> mm_interconnect_5:Video_In_Subsystem_top_io_gpi2_streamin_read
+	wire          video_in_subsystem_top_io_gpo2_streamout_chipselect;                          // Video_In_Subsystem:top_io_gpo2_streamout_chipselect -> mm_interconnect_5:Video_In_Subsystem_top_io_gpo2_streamout_chipselect
+	wire    [3:0] video_in_subsystem_top_io_gpo2_streamout_address;                             // Video_In_Subsystem:top_io_gpo2_streamout_address -> mm_interconnect_5:Video_In_Subsystem_top_io_gpo2_streamout_address
+	wire          video_in_subsystem_top_io_gpo2_streamout_write;                               // Video_In_Subsystem:top_io_gpo2_streamout_write_n -> mm_interconnect_5:Video_In_Subsystem_top_io_gpo2_streamout_write
+	wire   [31:0] video_in_subsystem_top_io_gpo2_streamout_writedata;                           // Video_In_Subsystem:top_io_gpo2_streamout_writedata -> mm_interconnect_5:Video_In_Subsystem_top_io_gpo2_streamout_writedata
+	wire          mm_interconnect_5_expansion_jp2_s1_chipselect;                                // mm_interconnect_5:Expansion_JP2_s1_chipselect -> Expansion_JP2:chipselect
+	wire   [31:0] mm_interconnect_5_expansion_jp2_s1_readdata;                                  // Expansion_JP2:readdata -> mm_interconnect_5:Expansion_JP2_s1_readdata
+	wire    [1:0] mm_interconnect_5_expansion_jp2_s1_address;                                   // mm_interconnect_5:Expansion_JP2_s1_address -> Expansion_JP2:address
+	wire          mm_interconnect_5_expansion_jp2_s1_write;                                     // mm_interconnect_5:Expansion_JP2_s1_write -> Expansion_JP2:write_n
+	wire   [31:0] mm_interconnect_5_expansion_jp2_s1_writedata;                                 // mm_interconnect_5:Expansion_JP2_s1_writedata -> Expansion_JP2:writedata
 	wire          irq_mapper_receiver0_irq;                                                     // Pushbuttons:irq -> irq_mapper:receiver0_irq
+	wire          irq_mapper_receiver1_irq;                                                     // Expansion_JP1:irq -> irq_mapper:receiver1_irq
+	wire          irq_mapper_receiver2_irq;                                                     // Expansion_JP2:irq -> irq_mapper:receiver2_irq
 	wire   [31:0] arm_a9_hps_f2h_irq0_irq;                                                      // irq_mapper:sender_irq -> ARM_A9_HPS:f2h_irq_p0
 	wire   [31:0] arm_a9_hps_f2h_irq1_irq;                                                      // irq_mapper_001:sender_irq -> ARM_A9_HPS:f2h_irq_p1
-	wire          rst_controller_reset_out_reset;                                               // rst_controller:reset_out -> [LEDs:reset_n, Onchip_SRAM:reset, Pixel_DMA_Addr_Translation:reset, Pushbuttons:reset_n, SDRAM:reset_n, Slider_Switches:reset_n, SysID:reset_n, Video_In_DMA_Addr_Translation:reset, mm_interconnect_0:SDRAM_reset_reset_bridge_in_reset_reset, mm_interconnect_0:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_1:SysID_reset_reset_bridge_in_reset_reset, mm_interconnect_1:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_2:Pixel_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_2:VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, rst_translator:in_reset]
+	wire          rst_controller_reset_out_reset;                                               // rst_controller:reset_out -> [Expansion_JP1:reset_n, Expansion_JP2:reset_n, LEDs:reset_n, Onchip_SRAM:reset, Pixel_DMA_Addr_Translation:reset, Pushbuttons:reset_n, SDRAM:reset_n, Slider_Switches:reset_n, SysID:reset_n, Video_In_DMA_Addr_Translation:reset, mm_interconnect_0:SDRAM_reset_reset_bridge_in_reset_reset, mm_interconnect_0:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_1:SysID_reset_reset_bridge_in_reset_reset, mm_interconnect_1:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_2:Pixel_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_2:VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_4:Expansion_JP1_reset_reset_bridge_in_reset_reset, mm_interconnect_4:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_5:Expansion_JP2_reset_reset_bridge_in_reset_reset, mm_interconnect_5:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, rst_translator:in_reset]
 	wire          rst_controller_reset_out_reset_req;                                           // rst_controller:reset_req -> [Onchip_SRAM:reset_req, rst_translator:reset_req_in]
 	wire          arm_a9_hps_h2f_reset_reset;                                                   // ARM_A9_HPS:h2f_rst_n -> [rst_controller:reset_in0, rst_controller_001:reset_in0, rst_controller_002:reset_in0, rst_controller_003:reset_in0]
 	wire          system_pll_reset_source_reset;                                                // System_PLL:reset_source_reset -> [rst_controller:reset_in1, rst_controller_001:reset_in1, rst_controller_002:reset_in1]
@@ -505,6 +539,30 @@ module Computer_System (
 		.f2h_irq_p1               (arm_a9_hps_f2h_irq1_irq)               //          f2h_irq1.irq
 	);
 
+	Computer_System_Expansion_JP1 expansion_jp1 (
+		.clk        (system_pll_sys_clk_clk),                        //                 clk.clk
+		.reset_n    (~rst_controller_reset_out_reset),               //               reset.reset_n
+		.address    (mm_interconnect_4_expansion_jp1_s1_address),    //                  s1.address
+		.write_n    (~mm_interconnect_4_expansion_jp1_s1_write),     //                    .write_n
+		.writedata  (mm_interconnect_4_expansion_jp1_s1_writedata),  //                    .writedata
+		.chipselect (mm_interconnect_4_expansion_jp1_s1_chipselect), //                    .chipselect
+		.readdata   (mm_interconnect_4_expansion_jp1_s1_readdata),   //                    .readdata
+		.bidir_port (expansion_jp1_export),                          // external_connection.export
+		.irq        (irq_mapper_receiver1_irq)                       //                 irq.irq
+	);
+
+	Computer_System_Expansion_JP1 expansion_jp2 (
+		.clk        (system_pll_sys_clk_clk),                        //                 clk.clk
+		.reset_n    (~rst_controller_reset_out_reset),               //               reset.reset_n
+		.address    (mm_interconnect_5_expansion_jp2_s1_address),    //                  s1.address
+		.write_n    (~mm_interconnect_5_expansion_jp2_s1_write),     //                    .write_n
+		.writedata  (mm_interconnect_5_expansion_jp2_s1_writedata),  //                    .writedata
+		.chipselect (mm_interconnect_5_expansion_jp2_s1_chipselect), //                    .chipselect
+		.readdata   (mm_interconnect_5_expansion_jp2_s1_readdata),   //                    .readdata
+		.bidir_port (expansion_jp2_export),                          // external_connection.export
+		.irq        (irq_mapper_receiver2_irq)                       //                 irq.irq
+	);
+
 	Computer_System_LEDs leds (
 		.clk        (system_pll_sys_clk_clk),               //                 clk.clk
 		.reset_n    (~rst_controller_reset_out_reset),      //               reset.reset_n
@@ -690,13 +748,33 @@ module Computer_System (
 		.top_avalon_slave_writedata              (mm_interconnect_1_video_in_subsystem_top_avalon_slave_writedata),              //                             .writedata
 		.top_avalon_slave_write_n                (~mm_interconnect_1_video_in_subsystem_top_avalon_slave_write),                 //                             .write_n
 		.top_avalon_slave_chipselect             (mm_interconnect_1_video_in_subsystem_top_avalon_slave_chipselect),             //                             .chipselect
+		.top_io_buff_out_waitrequest             (video_in_subsystem_top_io_buff_out_waitrequest),                               //              top_io_buff_out.waitrequest
+		.top_io_buff_out_address                 (video_in_subsystem_top_io_buff_out_address),                                   //                             .address
+		.top_io_buff_out_write                   (video_in_subsystem_top_io_buff_out_write),                                     //                             .write
+		.top_io_buff_out_writedata               (video_in_subsystem_top_io_buff_out_writedata),                                 //                             .writedata
+		.top_io_gpi1_streamin_address            (video_in_subsystem_top_io_gpi1_streamin_address),                              //         top_io_gpi1_streamin.address
+		.top_io_gpi1_streamin_readdata           (video_in_subsystem_top_io_gpi1_streamin_readdata),                             //                             .readdata
+		.top_io_gpi1_streamin_chipselect         (video_in_subsystem_top_io_gpi1_streamin_chipselect),                           //                             .chipselect
+		.top_io_gpi1_streamin_read               (video_in_subsystem_top_io_gpi1_streamin_read),                                 //                             .read
+		.top_io_gpi2_streamin_address            (video_in_subsystem_top_io_gpi2_streamin_address),                              //         top_io_gpi2_streamin.address
+		.top_io_gpi2_streamin_chipselect         (video_in_subsystem_top_io_gpi2_streamin_chipselect),                           //                             .chipselect
+		.top_io_gpi2_streamin_read               (video_in_subsystem_top_io_gpi2_streamin_read),                                 //                             .read
+		.top_io_gpi2_streamin_readdata           (video_in_subsystem_top_io_gpi2_streamin_readdata),                             //                             .readdata
+		.top_io_gpo1_streamout_writedata         (video_in_subsystem_top_io_gpo1_streamout_writedata),                           //        top_io_gpo1_streamout.writedata
+		.top_io_gpo1_streamout_write_n           (video_in_subsystem_top_io_gpo1_streamout_write),                               //                             .write_n
+		.top_io_gpo1_streamout_chipselect        (video_in_subsystem_top_io_gpo1_streamout_chipselect),                          //                             .chipselect
+		.top_io_gpo1_streamout_address           (video_in_subsystem_top_io_gpo1_streamout_address),                             //                             .address
+		.top_io_gpo2_streamout_address           (video_in_subsystem_top_io_gpo2_streamout_address),                             //        top_io_gpo2_streamout.address
+		.top_io_gpo2_streamout_chipselect        (video_in_subsystem_top_io_gpo2_streamout_chipselect),                          //                             .chipselect
+		.top_io_gpo2_streamout_write_n           (video_in_subsystem_top_io_gpo2_streamout_write),                               //                             .write_n
+		.top_io_gpo2_streamout_writedata         (video_in_subsystem_top_io_gpo2_streamout_writedata),                           //                             .writedata
 		.top_io_ledr_stream_writedata            (video_in_subsystem_top_io_ledr_stream_writedata),                              //           top_io_ledr_stream.writedata
 		.top_io_ledr_stream_address              (video_in_subsystem_top_io_ledr_stream_address),                                //                             .address
 		.top_io_ledr_stream_write_n              (video_in_subsystem_top_io_ledr_stream_write),                                  //                             .write_n
 		.top_io_ledr_stream_chipselect           (video_in_subsystem_top_io_ledr_stream_chipselect),                             //                             .chipselect
 		.top_io_switches_stream_address          (video_in_subsystem_top_io_switches_stream_address),                            //       top_io_switches_stream.address
 		.top_io_switches_stream_readdata         (video_in_subsystem_top_io_switches_stream_readdata),                           //                             .readdata
-		.top_io_switches_stream_read_n           (video_in_subsystem_top_io_switches_stream_read),                               //                             .read_n
+		.top_io_switches_stream_read             (video_in_subsystem_top_io_switches_stream_read),                               //                             .read
 		.video_in_TD_CLK27                       (video_in_TD_CLK27),                                                            //                     video_in.TD_CLK27
 		.video_in_TD_DATA                        (video_in_TD_DATA),                                                             //                             .TD_DATA
 		.video_in_TD_HS                          (video_in_TD_HS),                                                               //                             .TD_HS
@@ -763,6 +841,10 @@ module Computer_System (
 		.VGA_Subsystem_pixel_dma_master_readdata                               (vga_subsystem_pixel_dma_master_readdata),                      //                                                                .readdata
 		.VGA_Subsystem_pixel_dma_master_readdatavalid                          (vga_subsystem_pixel_dma_master_readdatavalid),                 //                                                                .readdatavalid
 		.VGA_Subsystem_pixel_dma_master_lock                                   (vga_subsystem_pixel_dma_master_lock),                          //                                                                .lock
+		.Video_In_Subsystem_top_io_buff_out_address                            (video_in_subsystem_top_io_buff_out_address),                   //                              Video_In_Subsystem_top_io_buff_out.address
+		.Video_In_Subsystem_top_io_buff_out_waitrequest                        (video_in_subsystem_top_io_buff_out_waitrequest),               //                                                                .waitrequest
+		.Video_In_Subsystem_top_io_buff_out_write                              (video_in_subsystem_top_io_buff_out_write),                     //                                                                .write
+		.Video_In_Subsystem_top_io_buff_out_writedata                          (video_in_subsystem_top_io_buff_out_writedata),                 //                                                                .writedata
 		.Video_In_Subsystem_video_in_dma_master_address                        (video_in_subsystem_video_in_dma_master_address),               //                          Video_In_Subsystem_video_in_dma_master.address
 		.Video_In_Subsystem_video_in_dma_master_waitrequest                    (video_in_subsystem_video_in_dma_master_waitrequest),           //                                                                .waitrequest
 		.Video_In_Subsystem_video_in_dma_master_write                          (video_in_subsystem_video_in_dma_master_write),                 //                                                                .write
@@ -845,7 +927,7 @@ module Computer_System (
 		.Video_In_Subsystem_top_io_ledr_stream_write                              (~video_in_subsystem_top_io_ledr_stream_write),                                 //                                                                   .write
 		.Video_In_Subsystem_top_io_ledr_stream_writedata                          (video_in_subsystem_top_io_ledr_stream_writedata),                              //                                                                   .writedata
 		.Video_In_Subsystem_top_io_switches_stream_address                        (video_in_subsystem_top_io_switches_stream_address),                            //                          Video_In_Subsystem_top_io_switches_stream.address
-		.Video_In_Subsystem_top_io_switches_stream_read                           (~video_in_subsystem_top_io_switches_stream_read),                              //                                                                   .read
+		.Video_In_Subsystem_top_io_switches_stream_read                           (video_in_subsystem_top_io_switches_stream_read),                               //                                                                   .read
 		.Video_In_Subsystem_top_io_switches_stream_readdata                       (video_in_subsystem_top_io_switches_stream_readdata),                           //                                                                   .readdata
 		.LEDs_s1_address                                                          (mm_interconnect_1_leds_s1_address),                                            //                                                            LEDs_s1.address
 		.LEDs_s1_write                                                            (mm_interconnect_1_leds_s1_write),                                              //                                                                   .write
@@ -931,10 +1013,50 @@ module Computer_System (
 		.Video_In_Subsystem_video_in_dma_control_slave_byteenable        (mm_interconnect_3_video_in_subsystem_video_in_dma_control_slave_byteenable)  //                                                          .byteenable
 	);
 
+	Computer_System_mm_interconnect_4 mm_interconnect_4 (
+		.System_PLL_sys_clk_clk                                   (system_pll_sys_clk_clk),                              //                                 System_PLL_sys_clk.clk
+		.Expansion_JP1_reset_reset_bridge_in_reset_reset          (rst_controller_reset_out_reset),                      //          Expansion_JP1_reset_reset_bridge_in_reset.reset
+		.Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset (rst_controller_reset_out_reset),                      // Video_In_Subsystem_sys_reset_reset_bridge_in_reset.reset
+		.Video_In_Subsystem_top_io_gpi1_streamin_address          (video_in_subsystem_top_io_gpi1_streamin_address),     //            Video_In_Subsystem_top_io_gpi1_streamin.address
+		.Video_In_Subsystem_top_io_gpi1_streamin_chipselect       (video_in_subsystem_top_io_gpi1_streamin_chipselect),  //                                                   .chipselect
+		.Video_In_Subsystem_top_io_gpi1_streamin_read             (video_in_subsystem_top_io_gpi1_streamin_read),        //                                                   .read
+		.Video_In_Subsystem_top_io_gpi1_streamin_readdata         (video_in_subsystem_top_io_gpi1_streamin_readdata),    //                                                   .readdata
+		.Video_In_Subsystem_top_io_gpo1_streamout_address         (video_in_subsystem_top_io_gpo1_streamout_address),    //           Video_In_Subsystem_top_io_gpo1_streamout.address
+		.Video_In_Subsystem_top_io_gpo1_streamout_chipselect      (video_in_subsystem_top_io_gpo1_streamout_chipselect), //                                                   .chipselect
+		.Video_In_Subsystem_top_io_gpo1_streamout_write           (~video_in_subsystem_top_io_gpo1_streamout_write),     //                                                   .write
+		.Video_In_Subsystem_top_io_gpo1_streamout_writedata       (video_in_subsystem_top_io_gpo1_streamout_writedata),  //                                                   .writedata
+		.Expansion_JP1_s1_address                                 (mm_interconnect_4_expansion_jp1_s1_address),          //                                   Expansion_JP1_s1.address
+		.Expansion_JP1_s1_write                                   (mm_interconnect_4_expansion_jp1_s1_write),            //                                                   .write
+		.Expansion_JP1_s1_readdata                                (mm_interconnect_4_expansion_jp1_s1_readdata),         //                                                   .readdata
+		.Expansion_JP1_s1_writedata                               (mm_interconnect_4_expansion_jp1_s1_writedata),        //                                                   .writedata
+		.Expansion_JP1_s1_chipselect                              (mm_interconnect_4_expansion_jp1_s1_chipselect)        //                                                   .chipselect
+	);
+
+	Computer_System_mm_interconnect_5 mm_interconnect_5 (
+		.System_PLL_sys_clk_clk                                   (system_pll_sys_clk_clk),                              //                                 System_PLL_sys_clk.clk
+		.Expansion_JP2_reset_reset_bridge_in_reset_reset          (rst_controller_reset_out_reset),                      //          Expansion_JP2_reset_reset_bridge_in_reset.reset
+		.Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset (rst_controller_reset_out_reset),                      // Video_In_Subsystem_sys_reset_reset_bridge_in_reset.reset
+		.Video_In_Subsystem_top_io_gpi2_streamin_address          (video_in_subsystem_top_io_gpi2_streamin_address),     //            Video_In_Subsystem_top_io_gpi2_streamin.address
+		.Video_In_Subsystem_top_io_gpi2_streamin_chipselect       (video_in_subsystem_top_io_gpi2_streamin_chipselect),  //                                                   .chipselect
+		.Video_In_Subsystem_top_io_gpi2_streamin_read             (video_in_subsystem_top_io_gpi2_streamin_read),        //                                                   .read
+		.Video_In_Subsystem_top_io_gpi2_streamin_readdata         (video_in_subsystem_top_io_gpi2_streamin_readdata),    //                                                   .readdata
+		.Video_In_Subsystem_top_io_gpo2_streamout_address         (video_in_subsystem_top_io_gpo2_streamout_address),    //           Video_In_Subsystem_top_io_gpo2_streamout.address
+		.Video_In_Subsystem_top_io_gpo2_streamout_chipselect      (video_in_subsystem_top_io_gpo2_streamout_chipselect), //                                                   .chipselect
+		.Video_In_Subsystem_top_io_gpo2_streamout_write           (~video_in_subsystem_top_io_gpo2_streamout_write),     //                                                   .write
+		.Video_In_Subsystem_top_io_gpo2_streamout_writedata       (video_in_subsystem_top_io_gpo2_streamout_writedata),  //                                                   .writedata
+		.Expansion_JP2_s1_address                                 (mm_interconnect_5_expansion_jp2_s1_address),          //                                   Expansion_JP2_s1.address
+		.Expansion_JP2_s1_write                                   (mm_interconnect_5_expansion_jp2_s1_write),            //                                                   .write
+		.Expansion_JP2_s1_readdata                                (mm_interconnect_5_expansion_jp2_s1_readdata),         //                                                   .readdata
+		.Expansion_JP2_s1_writedata                               (mm_interconnect_5_expansion_jp2_s1_writedata),        //                                                   .writedata
+		.Expansion_JP2_s1_chipselect                              (mm_interconnect_5_expansion_jp2_s1_chipselect)        //                                                   .chipselect
+	);
+
 	Computer_System_irq_mapper irq_mapper (
 		.clk           (),                         //       clk.clk
 		.reset         (),                         // clk_reset.reset
 		.receiver0_irq (irq_mapper_receiver0_irq), // receiver0.irq
+		.receiver1_irq (irq_mapper_receiver1_irq), // receiver1.irq
+		.receiver2_irq (irq_mapper_receiver2_irq), // receiver2.irq
 		.sender_irq    (arm_a9_hps_f2h_irq0_irq)   //    sender.irq
 	);
 

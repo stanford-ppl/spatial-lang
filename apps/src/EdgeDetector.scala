@@ -17,7 +17,8 @@ object EdgeDetector extends SpatialApp { // Regression (Dense) // Args: none
     setArg(memcols, data.cols.to[Int])
     val srcmem = DRAM[T](memrows, memcols)
     setMem(srcmem, data)
-    val dstmem = DRAM[Int](memrows)
+    val risingEdges = DRAM[Int](memrows)
+    // val fallingEdges = DRAM[Int](memrows)
 
     val window = 16
 
@@ -34,7 +35,7 @@ object EdgeDetector extends SpatialApp { // Regression (Dense) // Args: none
             rawdata load srcmem(r + rr, c::c+coltile)
             // Scan through tile to get deriv
             val localMax = Reduce(Reg[Tup2[Int,T]](pack(0.to[Int], -1000.to[T])))(coltile by 1) { j => 
-              sr(1,*) <<= rawdata(j)
+              sr(0,*) <<= rawdata(j)
               val mean_right = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k) }{_+_} / window.to[T]
               val mean_left = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k+window/2) }{_+_} / window.to[T]
               val slope = (mean_right - mean_left) / (window/2).to[T]
@@ -45,13 +46,13 @@ object EdgeDetector extends SpatialApp { // Regression (Dense) // Args: none
           }{(a,b) => mux(a._2 > b._2, a, b)}
           results(rr) = globalMax._1
         }
-        dstmem(r::r+rowtile) store results
+        risingEdges(r::r+rowtile) store results
       }
     }
 
 
     // Extract results from accelerator
-    val results = getMem(dstmem)
+    val results = getMem(risingEdges)
     val gold = loadCSV1D[Int]("/remote/regression/data/edge_gold.csv", ",")
     val margin = 2.to[Int]
 
@@ -84,12 +85,13 @@ object Differentiator extends SpatialApp { // Regression (Dense) // Args: none
       val sr = RegFile[T](1,window)
       val rawdata = SRAM[T](coltile)
       val results = SRAM[T](coltile)
-      // Work on each tile of a row
+      Foreach(window by 1) { i => results(i) = 0} // Temporary fix to regression screwing up write to address 1 only
+      // Work on each tile of a row 
       Foreach(memcols by coltile) { c =>
         rawdata load srcmem(c::c+coltile)
         // Scan through tile to get deriv
         Foreach(coltile by 1) { j => 
-          sr(1,*) <<= rawdata(j)
+          sr(0,*) <<= rawdata(j)
           val mean_right = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k) }{_+_} / window.to[T]
           val mean_left = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k+window/2) }{_+_} / window.to[T]
           val slope = (mean_right - mean_left) / (window/2).to[T]
@@ -114,6 +116,6 @@ object Differentiator extends SpatialApp { // Regression (Dense) // Args: none
     val margin = 0.5.to[T]
 
     val cksum = gold.zip(results){case (a,b) => abs(a-b) < margin}.reduce{_&&_}
-    println("PASS: " + cksum + " (Differentiator)")
+    println("PASS: " + cksum + " (Differentiator) * Look into issue with addr 1 screwing up with --retiming on and --naming off but only with waveforms off in dc6db05")
   }
 }

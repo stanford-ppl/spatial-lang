@@ -72,7 +72,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     READ_WRITE = readWrite
 
     val pmuText = s"r/w=$readWrite, sIn_PMU=$sIns_PMU, sOut_PMU=$sOuts_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU"
-    val pmuSettings = s"$sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU, $readWrite"
+    val pmuSettings = s"$sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU, $readWrite, $regsMax_PMU"
 
     // Can't have less than REDUCE_STAGES stages (otherwise no room to do reduce)
     val regsMaxs  = 2 to 16 by 2        // 8
@@ -83,7 +83,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
 
     threads.tasksupport = new ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(SpatialConfig.threads))
 
-    val results = (REDUCE_STAGES to 10).flatMap{stages =>
+    val results = (REDUCE_STAGES to 16).flatMap{stages =>
       STAGES = stages
       Console.print("stages = " + stages)
       val start = System.currentTimeMillis()
@@ -112,7 +112,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
 
           val text: String = s"stages=$stages, sIn_PCU=$sIns_PCU, sOut_PCU=$sOuts_PCU, vIn_PCU=$vIns_PCU, vOut_PCU=$vOuts_PCU, " + pmuText
 
-          val settingsCSV: String = s"$sIns_PCU, $sOuts_PCU, $vIns_PCU, $vOuts_PCU, $stages, " + pmuSettings
+          val settingsCSV: String = s"$sIns_PCU, $sOuts_PCU, $vIns_PCU, $vOuts_PCU, $stages, $regsMax_PCU, " + pmuSettings
 
           try {
             var util = Utilization()
@@ -162,7 +162,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
             fail += 1
             //Console.println(s"$n [$perc%]: " + text + ": FAIL")
             //dbg(e.msg)
-            entries(n-1) = "F" + settingsCSV + "\n" + e.msg + "\n"
+            entries(n-1) = "F" // + settingsCSV + "\n" + e.msg + "\n"
           }
         }
         (entries, pass, fail, first)
@@ -173,28 +173,27 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
       result
     }
 
-
     val pwd = sys.env("SPATIAL_HOME")
     val dir = s"$pwd/csvs"
     Files.createDirectories(Paths.get(dir))
 
     val name = Config.name
     val valid = new PrintStream(s"$dir/${name}_$LANES.csv")
-    val invalid = new PrintStream(s"$dir/${name}_${LANES}_invalid.csv")
+    //val invalid = new PrintStream(s"$dir/${name}_${LANES}_invalid.csv")
 
     Config.verbosity = prevVerbosity
     Console.print(s"Writing results to file $dir/$name.csv...")
 
-    valid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W, " + Statistics.header)
+    valid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, Regs_PCU, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W, Regs_PMU, " + Statistics.header)
 
     results.foreach{case (entries, _, _, _) =>
       entries.filterNot(_ == null).foreach{entry =>
         if (entry.startsWith("P")) valid.println(entry.drop(1))
-        else invalid.println(entry.drop(1))
+        //else invalid.println(entry.drop(1))
       }
     }
     valid.close()
-    invalid.close()
+    //invalid.close()
 
     val pass = results.map(_._2).sum
     val fail = results.map(_._3).sum

@@ -9,6 +9,13 @@ trait BitOpsExp { this: SpatialExp =>
 
   type BitVector = VectorN[Bool]
 
+  implicit class VarDataConversionOps[A:Meta:Bits](x: Var[A]) { // TODO: Proper way to define conversion ops on vars?
+    @api def reverse: A = {
+      readVar(x).reverse
+    }
+
+  }
+
   implicit class DataConversionOps[A:Meta:Bits](x: A) {
     @api def apply(i: Int): Bool = dataAsBitVector(x).apply(i)
     @api def apply(range: Range): BitVector = dataAsBitVector(x).apply(range)
@@ -26,11 +33,12 @@ trait BitOpsExp { this: SpatialExp =>
       implicit val vT = vectorNType[Bool](len)
       val vector = dataAsBitVector(x)
       val reversed_elements = (0 until len).map{i =>
-        vector_apply(vector.s, len-1-i)
+        vector_apply(vector.s, i)
       }
       val vector_reversed = wrap(vector_new[Bool,VectorN](reversed_elements))
       bitVectorAsData[A](vector_reversed, enWarn = true)
     }
+
 
     // takeN(offset) - creates a VectorN slice starting at given little-endian offset
 

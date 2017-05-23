@@ -1,4 +1,0 @@
-Kmeans, 1,1536,D,96,fpga,true,novcd,ip,8,numcents,20,pts,per,ld,96,op,1, 1487871, 0
-Kmeans, 1,1536,D,96,fpga,false,ip,16,numcents,20,pts,per,ld,384,op,1, 1485431, 0
-Kmeans, 1,6144,D,96,fpga,false,ip,16,numcents,20,pts,per,ld,1536,op,1, 5933891, 0
-Kmeans, 1,6144,D,96,fpga,false,ip,16,numcents,20,pts,per,ld,1536,op,1, 5933892, 0

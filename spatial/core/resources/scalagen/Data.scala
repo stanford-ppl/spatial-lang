@@ -88,6 +88,14 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
 
   def unary_-() = Number(-this.value, valid, fmt)
   def unary_~() = Number(~this.fixValue, valid, fmt)
+  def floor() = {
+    val adjustment = if (this < 0) -1 else 0
+    Number(this.value - (this.value % 1) + adjustment, this.valid, fmt)
+  }
+  def ceil() = {
+    val adjustment = if (this.fixValue == 0) 0 else {if (this < 0) 0 else 1}
+    Number(this.value - (this.value % 1) + adjustment , this.valid, fmt)
+  }
   def +(that: Number) = Number(this.value + that.value, this.valid && that.valid, fmt)
   def -(that: Number) = Number(this.value - that.value, this.valid && that.valid, fmt)
   def *(that: Number) = Number(this.value * that.value, this.valid && that.valid, fmt)
@@ -180,7 +188,7 @@ object Number {
   }
   def saturating(value: BigDecimal, valid: Boolean, fmt: NumberFormat): Number = {
     val FixedPoint(s, i, f) = fmt
-    val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1 )
+    val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i+f-1)) - 1 else (BigInt(1) << (i+f)) - 1 )/BigDecimal(BigInt(1) << f)
     val MIN_INTEGRAL_VALUE = BigDecimal( if (s) -(BigInt(1) << (i-1)) else BigInt(0) )
     if (value < MIN_INTEGRAL_VALUE) {
       new Number(MIN_INTEGRAL_VALUE, valid, fmt)
@@ -195,7 +203,7 @@ object Number {
     val intValue = value * BigDecimal(BigInt(1) << f)
     val rand = scala.util.Random.nextFloat() // uniform between 0 and 1
     val bits = intValue + rand
-    val MAX_INTEGRAL_VALUE = BigDecimal(if (s) (BigInt(1) << (i-1)) - 1 else (BigInt(1) << i) - 1)
+    val MAX_INTEGRAL_VALUE = BigDecimal( if (s) (BigInt(1) << (i+f-1)) - 1 else (BigInt(1) << (i+f)) - 1 )/BigDecimal(BigInt(1) << f)
     val MIN_INTEGRAL_VALUE = BigDecimal(if (s) -(BigInt(1) << (i-1)) else BigInt(0))
     if (bits < MIN_INTEGRAL_VALUE) {
       new Number(MIN_INTEGRAL_VALUE, valid, fmt)
@@ -266,6 +274,7 @@ object Number {
   def abs(x: Number) = Number(x.value.abs, x.valid, x.fmt)
   def min(x: Number, y: Number) = if (x < y) x else y
   def max(x: Number, y: Number) = if (x > y) x else y
+  def pow(x: Number, exp: Number) = Number(Math.pow(x.toDouble, exp.toDouble), x.valid, x.fmt)
 
   def sin(x: Number) = Number(Math.sin(x.toDouble), x.valid, x.fmt)
   def cos(x: Number) = Number(Math.cos(x.toDouble), x.valid, x.fmt)
@@ -276,7 +285,6 @@ object Number {
   def asin(x: Number) = Number(Math.asin(x.toDouble), x.valid, x.fmt)
   def acos(x: Number) = Number(Math.acos(x.toDouble), x.valid, x.fmt)
   def atan(x: Number) = Number(Math.atan(x.toDouble), x.valid, x.fmt)
-
 }
 
 object X {

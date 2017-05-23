@@ -42,7 +42,9 @@ coordinate() {
   files=(*)
   new_packets=()
   sorted_packets=()
-  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *".$branch."* ]]; then new_packets+=($f); fi; done
+  # Removed this $f = *"$branch"* check in the following 3 places because sbt seems to screw up when used in parallel
+  # for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *".$branch."* ]]; then new_packets+=($f); fi; done
+  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) ]]; then new_packets+=($f); fi; done
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
   rank=-1
@@ -58,7 +60,7 @@ coordinate() {
     files=(*)
     new_packets=()
     sorted_packets=()
-    for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *"$branch"* ]]; then new_packets+=($f); fi; done
+    for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) ]]; then new_packets+=($f); fi; done
     sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
     stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
     rank=-1
@@ -76,7 +78,7 @@ check_packet() {
   files=(*)
   new_packets=()
   sorted_packets=()
-  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) && $f = *".$branch."* ]]; then new_packets+=($f); fi; done
+  for f in ${files[@]}; do if [[ ($f = *".new"* || $f = *".ack"* || $f = *".lock"*) ]]; then new_packets+=($f); fi; done
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   stringified=$( IFS=$' '; echo "${sorted_packets[*]}" )
   rank=-1
@@ -162,7 +164,8 @@ git push
 logger "Removing packet ${packet} so those waiting are clear to launch"
 rm $packet
 
-# stubborn_delete ${dirname}
+sleep 1000
+stubborn_delete ${dirname}
 
 ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 
@@ -200,6 +203,11 @@ for ac in ${types_list[@]}; do
   push_travis_ci $ac $branch $type_todo
 done
 
+# Update regtest timestamp
+if [[ ${this_machine} = *"portland"* ]]; then
+  update_regression_timestamp
+fi
+
 echo -e "\n\n***\n\n" >> $wiki_file
 
 # Link to logs
@@ -212,10 +220,31 @@ stamp_app_comments
 stamp_commit_msgs
 }
 
+update_regression_timestamp() {
+  old=`pwd`
+  cd ${SPATIAL_HOME}
+  git clone git@github.com:mattfel1/Trackers.git
+  mv Trackers timestamps
+  cd timestamps
+  git checkout timestamps
+  rm timestamp_${branch}.png
+  rm timestamp_${branch}_text
+  touch timestamp_${branch}_text
+  echo "text 0,0 \"" > timestamp_${branch}_text
+  date +"%a %b %d" >> timestamp_${branch}_text
+  date +"%I:%M:%S %p" >> timestamp_${branch}_text
+  echo "\"" >> timestamp_${branch}_text
+  convert -size 80x30 xc:white -pointsize 12 -fill black -draw @timestamp_${branch}_text timestamp_${branch}.png
+  git add timestamp_${branch}.png
+  git commit -m "update $branch timestamp"
+  git push
+  cd $old
+}
+
 stamp_app_comments() {
-  cd ${SPATIAL_HOME}/regression_tests
+  cd ${SPATIAL_HOME}/apps/src
   echo -e "\n# Pass Comments:\n" >> $wiki_file
-  find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/* (/g" | sed "s/*//g" >> $wiki_file
+  find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/> (/g" | sed "s/$/\n/g" >> $wiki_file
 }
 
 update_log() {
@@ -434,8 +463,8 @@ init_travis_ci() {
   cd ${SPATIAL_HOME}
   cmd="git clone git@github.com:mattfel1/Trackers.git"
   logger "Pulling TRAVIS CI buttons with command: $cmd"
-  eval "$cmd"
-  if [ -d "${SPATIAL_HOME}/Trackers" ]; then
+  eval "$cmd" >> /tmp/log
+  if [ -d "Trackers" ]; then
     logger "Repo Tracker exists, prepping it..."
     trackbranch="Class${1}-Branch${2}-Backend${3}-Tracker"
     mv ${SPATIAL_HOME}/Trackers ${SPATIAL_HOME}/${trackbranch}
@@ -480,7 +509,7 @@ notifications:
     recipients: mattfel@stanford.edu
     on_failure: never # default: always
 script:
-  - bash ./status.sh
+  - sudo bash ./status.sh # Is sudo now needed for travis?
 " > .travis.yml
 
     tracker="${SPATIAL_HOME}/${trackbranch}/results"
@@ -555,7 +584,6 @@ function report {
   date >> ${5}/log
   cd ${5}
   # mv build.sbt build.hideme # hide build.sbt so future compiles ignore this one
-  rm -rf out
   rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
   if [ \${3} = 1 ]; then
     echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
@@ -581,6 +609,7 @@ export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
 export PATH=/usr/bin:\$VCS_HOME/amd64/bin:$PATH
 export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
 export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
+export _JAVA_OPTIONS=\"-Xmx16g\"
 date >> ${5}/log" >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
@@ -588,18 +617,25 @@ date >> ${5}/log" >> $1
     " >> $1
   fi
 
-  echo "sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
+  echo "# sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
 cd ${SPATIAL_HOME}
   " >> $1
+
+  # Include retiming if this is a retiming branch
+  if [[ ${branch} = *"retim"* ]]; then
+    retime_flag="--retiming"
+  else
+    retime_flag=""
+  fi
 
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --sim --multifile=4 ${retime_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --synth --multifile=4 ${retime_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 
@@ -632,16 +668,53 @@ sed -i 's/#define EPRINTF(...) fprintf/#define EPRINTF(...) \\/\\/fprintf/g' cpp
 sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
+sed -i 's/\\\$vcdpluson/\\/\\/\\\$vcdpluson/g' chisel/template-level/fringeVCS/Top-harness.sv
 
-make vcs 2>&1 | tee -a ${5}/log
-make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+make vcs 2>&1 | tee -a ${5}/log" >> $1
+  if [[ ${type_todo} = "chisel" ]]; then
+    echo "make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
+  fi
+
+echo "
+# Check for annoying sbt compile not working
+wc=\$(cat ${5}/log | grep \"No rule to make target\" | wc -l)
+if [ \"\$wc\" -gt 0 ]; then
+  echo \"[APP_RESULT] Annoying SBT crashing on ${3}_${4}.  Rerunning...\" >> ${log}
+  echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  cd ${5}" >> $1
+  # Compile command
+  if [[ ${type_todo} = "scala" ]]; then
+    echo "  # Compile app
+  ${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+    " >> $1
+  elif [[ ${type_todo} = "chisel" ]]; then
+    echo "  # Compile app
+  ${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+    " >> $1
+  fi
+  echo "  cd ${5}/out
+  make vcs 2>&1 | tee -a ${5}/log" >> $1
+  if [[ ${type_todo} = "chisel" ]]; then
+    echo "  make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
+  fi
+
+
+  echo "fi
+
 
 # Check for crashes in backend compilation
 wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\\|ChiselException\\|\\[vcs-hw\\] Error\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
+if [[ \"\$wc\" -ne 0 ]]; then
   report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
-fi
-wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\\|fatal error\\|\\[vcs-sw\\] Error\" | wc -l)
+fi" >> $1
+  if [[ ${type_todo} = "chisel" ]]; then
+    echo "# Check for missing Top
+if [[ ! -f ${5}/out/Top ]]; then
+  report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
+fi" >> $1
+  fi
+
+echo "wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\\|fatal error\\|\\[vcs-sw\\] Error\" | wc -l)
 if [ \"\$wc\" -ne 0 ]; then
   report \"failed_compile_cpp_crash\" \"[STATUS] Declaring failure compile_chisel c++ side\" 0
 fi
@@ -649,7 +722,35 @@ fi
 # Move on to runtime
 rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
 touch ${SPATIAL_HOME}/regression_tests/${2}/results/failed_execution_hanging.${3}_${4}
-bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+chmod +x ${5}/out/run.sh
+timeout 300 ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+
+# Check for annoying vcs assertion and rerun if needed
+wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
+if [ \"\$wc\" -gt 0 ]; then
+  echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
+  echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  make vcs 2>&1 | tee -a ${5}/log
+  make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+  timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+
+  # Check second time for annoying assert
+  wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
+  if [ \"\$wc\" -gt 1 ]; then
+    echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
+    echo -e \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
+    make vcs 2>&1 | tee -a ${5}/log
+    make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
+    timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  fi
+fi
+# Check for annoying refusal to run that happens in scala sometimes
+wc=\$(cat ${5}/log | grep \"PASS\" | wc -l)
+if [ \"\$wc\" -eq 0 ]; then
+  echo \"[APP_RESULT] Annoying refusal to run ${3}_${4}.  Rerunning...\" >> ${log}
+  echo -i \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
+  timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+fi
 
 # Check for runtime errors
 wc=\$(cat ${5}/log | grep \"Error: App\\|Segmentation fault\" | wc -l)
@@ -692,7 +793,7 @@ launch_tests() {
   test_list=()
   for a in ${annotated_list[@]}; do
     if [[ $a = *"object"*"extends SpatialApp"* ]]; then
-      test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /-/g'`)
+      test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /_/g'`)
     else
       logger "Error setting up test for $a !!!"
     fi
@@ -724,7 +825,7 @@ launch_tests() {
       check_packet
       if [[ $t == *"|${ac}|"* && (${tests_todo} == "all" || $t == *"|${tests_todo}|"*) ]]; then
         appname=(`echo $t | sed 's/|.*$//g'`)
-        appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/-/ /g'`)
+        appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/_/ /g'`)
         # Initialize results
         touch ${SPATIAL_HOME}/regression_tests/${ac}/results/failed_app_initialized.${i}_${appname}
 
@@ -734,12 +835,12 @@ launch_tests() {
         cmd_file="${vulture_dir}/cmd"
 
         # Create script
-        logger "Writing script for ${i}_${appname}"
+        # logger "Writing script for ${i}_${appname}"
         create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
 
         # Run script
         start=$SECONDS
-        logger "Running script for ${i}_${appname}"
+        logger "Running test: ${i}_${appname}"
         bash ${cmd_file}
         duration=$(($SECONDS-$start))
         logger "Completed test in $duration seconds"

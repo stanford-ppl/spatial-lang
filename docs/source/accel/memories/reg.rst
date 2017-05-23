@@ -28,9 +28,12 @@ Reg
 **Reg** defines a hardware register used to hold a scalar value.
 The default reset value for a Reg is the numeric zero value for it's specified type.
 
-**ArgIn** and **ArgOut** are specialized forms of Reg which are used to transfer scalar values
-to and from the accelerator, respectively.
+**ArgIn**, **ArgOut**, and **HostIO** are specialized forms of Reg which are used to transfer scalar values
+to and from the accelerator. ArgIns and ArgOuts are used for setup values at the initialization of the FPGA.
 ArgIns may not be written to, while ArgOuts generally should not be read from.
+HostIOs are for values which may be continuously changed or read by the host during FPGA execution.
+
+In Spatial, ArgIns, ArgOuts, and HostIO registers are specified outside the Accel block, in host code.
 
 
 -----------------
@@ -60,6 +63,14 @@ ArgIns may not be written to, while ArgOuts generally should not be read from.
 | |               def   **apply**\[T::doc:`../../typeclasses/bits`\]: :doc:`reg`\[T\]                                                        |
 | |                       Creates an output argument register of type T with reset value zero                                                |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
+
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+|      `object`         **HostIO**                                                                                                           |
++=====================+======================================================================================================================+
+| |               def   **apply**\[T::doc:`../../typeclasses/bits`\]: :doc:`reg`\[T\]                                                        |
+| |                       Creates an host input/output register of type T with reset value zero                                              |
++---------------------+----------------------------------------------------------------------------------------------------------------------+
+
 
 -------------
 

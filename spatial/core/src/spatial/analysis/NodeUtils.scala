@@ -35,6 +35,28 @@ trait NodeUtils { this: SpatialExp =>
       }
       dfs(Seq(x))
     }
+    def collectDeps(y: PartialFunction[Exp[_],Exp[_]]): Seq[Exp[_]] = {
+      def dfs(frontier: Seq[Exp[_]]): Seq[Exp[_]] = frontier.flatMap{
+        case s @ Def(d) if y.isDefinedAt(s) => y(s) +: dfs(d.inputs)
+        case s if y.isDefinedAt(s) => Seq(y(s))
+        case Def(d) => dfs(d.inputs)
+        case _ => Nil
+      }
+      dfs(Seq(x))
+    }
+    // x: StreamOut, y: StreamOutWrite
+    // y.collectDeps{case Def(StreamInRead(strm)) => strm}
+    // writersOf(x).head.node.collectDeps{case Def(StreamInRead(strm)) => strm }
+  }
+
+  /**
+    * Returns the list of parents of x, ordered outermost to innermost.
+    */
+  def allParents[T](x: T, parent: T => Option[T]): List[Option[T]] = {
+    var path: List[Option[T]] = List(Some(x))
+    var cur: Option[T] = Some(x)
+    while (cur.isDefined) { cur = parent(cur.get); path ::= cur } // prepend
+    path
   }
 
   /**
@@ -44,15 +66,8 @@ trait NodeUtils { this: SpatialExp =>
     * The paths do not contain the LCA, as it may be undefined.
     */
   def leastCommonAncestorWithPaths[T](x: T, y: T, parent: T => Option[T]): (Option[T], List[T], List[T]) = {
-    var pathX: List[Option[T]] = List(Some(x))
-    var pathY: List[Option[T]] = List(Some(y))
-
-    var curX: Option[T] = Some(x)
-    while (curX.isDefined) { curX = parent(curX.get); pathX ::= curX }
-
-    var curY: Option[T] = Some(y)
-    while (curY.isDefined) { curY = parent(curY.get); pathY ::= curY }
-
+    val pathX = allParents(x, parent)
+    val pathY = allParents(y, parent)
     // Choose last node where paths are the same
     val lca = pathX.zip(pathY).filter{case (x,y) => x == y}.lastOption.flatMap(_._1)
     val pathToX = pathX.drop(pathX.indexOf(lca)+1).map(_.get)
@@ -139,7 +154,7 @@ trait NodeUtils { this: SpatialExp =>
     **/
   def lcaWithCoarseDistance(a: Access, b: Access): (Ctrl, Int) = {
     val (lca, dist) = lcaWithDistance(a.ctrl, b.ctrl)
-    val coarseDistance = if (isMetaPipe(lca)) dist else 0
+    val coarseDistance = if (isMetaPipe(lca) || isStreamPipe(lca)) dist else 0
     (lca, coarseDistance)
   }
 

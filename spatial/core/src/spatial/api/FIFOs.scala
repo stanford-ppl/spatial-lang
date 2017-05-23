@@ -18,6 +18,12 @@ trait FIFOExp { this: SpatialExp =>
     @api def deq(): T = this.deq(true)
     @api def deq(en: Bool): T = wrap(fifo_deq(this.s, en.s))
 
+    @api def empty(): Bool = wrap(fifo_empty(this.s))
+    @api def full(): Bool = wrap(fifo_full(this.s))
+    @api def almostEmpty(): Bool = wrap(fifo_almost_empty(this.s))
+    @api def almostFull(): Bool = wrap(fifo_almost_full(this.s))
+    @api def numel(): Index = wrap(fifo_numel(this.s))
+
     //@api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile1[T]): Void = dense_transfer(dram, this, isLoad = true)
     // @api def gather(dram: DRAMSparseTile[T]): Void = copy_sparse(dram, this, isLoad = true)
@@ -62,6 +68,31 @@ trait FIFOExp { this: SpatialExp =>
     val mT = typ[T]
     val bT = bits[T]
   }
+  case class FIFOEmpty[T:Type:Bits](fifo: Exp[FIFO[T]]) extends Op[Bool] {
+    def mirror(f:Tx) = fifo_empty(f(fifo))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
+  case class FIFOFull[T:Type:Bits](fifo: Exp[FIFO[T]]) extends Op[Bool] {
+    def mirror(f:Tx) = fifo_full(f(fifo))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
+  case class FIFOAlmostEmpty[T:Type:Bits](fifo: Exp[FIFO[T]]) extends Op[Bool] {
+    def mirror(f:Tx) = fifo_almost_empty(f(fifo))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
+  case class FIFOAlmostFull[T:Type:Bits](fifo: Exp[FIFO[T]]) extends Op[Bool] {
+    def mirror(f:Tx) = fifo_almost_full(f(fifo))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
+  case class FIFONumel[T:Type:Bits](fifo: Exp[FIFO[T]]) extends Op[Index] {
+    def mirror(f:Tx) = fifo_numel(f(fifo))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
 
   /** Constructors **/
   @internal def fifo_alloc[T:Type:Bits](size: Exp[Index]): Exp[FIFO[T]] = {
@@ -72,5 +103,20 @@ trait FIFOExp { this: SpatialExp =>
   }
   @internal def fifo_deq[T:Type:Bits](fifo: Exp[FIFO[T]], en: Exp[Bool]): Exp[T] = {
     stageWrite(fifo)(FIFODeq(fifo,en))(ctx)
+  }
+  @internal def fifo_empty[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bool] = {
+    stageCold(FIFOEmpty(fifo))(ctx)
+  }
+  @internal def fifo_full[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bool] = {
+    stageCold(FIFOFull(fifo))(ctx)
+  }
+  @internal def fifo_almost_empty[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bool] = {
+    stageCold(FIFOAlmostEmpty(fifo))(ctx)
+  }
+  @internal def fifo_almost_full[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bool] = {
+    stageCold(FIFOAlmostFull(fifo))(ctx)
+  }
+  @internal def fifo_numel[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Index] = {
+    stageCold(FIFONumel(fifo))(ctx)
   }
 }

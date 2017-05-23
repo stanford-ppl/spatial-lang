@@ -17,7 +17,7 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   // (0 until 2).foreach { i => poke(c.io.input.ctr_maxIn(i), maxes(i))}
 
   def handleStep {
-    val cnt_en = peek(c.io.output.ctr_en).toInt
+    val cnt_en = peek(c.io.output.ctr_inc).toInt
     if (cnt_en == 1) {
       cnts(0) += 1
       // println(s"cnts ${cnts(0)} ${cnts(1)}")
@@ -37,17 +37,24 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
     poke(c.io.input.ctr_done,0)
   }
 
+  poke(c.io.input.rst, 1)
+  step(1)
+  poke(c.io.input.rst, 0)
+
   var numEnCycles = 0
   var done = peek(c.io.output.done).toInt
   while (done != 1) {
     handleStep
     done = peek(c.io.output.done).toInt
-    val cnt_en = peek(c.io.output.ctr_en).toInt
+    val cnt_en = peek(c.io.output.ctr_inc).toInt
     if (cnt_en == 1) numEnCycles += 1
   }
   poke(c.io.input.enable, 0)
+  poke(c.io.input.rst, 1)
+  step(1)
+  poke(c.io.input.rst, 0)
   if ( (numEnCycles > timeout) | (numEnCycles < 2) ) {
-    println("ERROR: Either timeout or did not run at all!")
+    println("ERROR: Either timeout or did not run at all! (" + numEnCycles + " cycles)")
     expect(c.io.output.done, 999) // TODO: Figure out how to "expect" signals that are not hw IO
   }
   val expectedCycs = maxes.reduce{_*_}
@@ -58,19 +65,26 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   println(s"numiters $numEnCycles")
   step(20)
 
+  poke(c.io.input.rst, 1)
+  step(1)
+  poke(c.io.input.rst, 0)
+  step(1)
+
   poke(c.io.input.enable, 1)
+  step(1)
   numEnCycles = 0
   done = peek(c.io.output.done).toInt
   (0 until 2).foreach { i => cnts(i) = 0 }
   while (done != 1) {
     handleStep
     done = peek(c.io.output.done).toInt
-    val cnt_en = peek(c.io.output.ctr_en).toInt
+    val cnt_en = peek(c.io.output.ctr_inc).toInt
     if (cnt_en == 1) numEnCycles += 1
   }
   poke(c.io.input.enable, 0)
+
   if ( (numEnCycles > timeout) | (numEnCycles < 2) ) {
-    println("ERROR: Either timeout or did not run at all!")
+    println("ERROR: Either timeout or did not run at all! (" + numEnCycles + " cycles)")
     expect(c.io.output.done, 999) // TODO: Figure out how to "expect" signals that are not hw IO
   }
   if ( numEnCycles != expectedCycs ) {

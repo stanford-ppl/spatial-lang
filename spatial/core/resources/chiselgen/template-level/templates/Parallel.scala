@@ -4,11 +4,13 @@ package templates
 import chisel3._
 
 //A n-stage Parallel controller
-class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
+class Parallel(val n: Int, val isFSM: Boolean = false, val retime:Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
+      val numIter = Input(UInt(32.W))
       val stageDone = Vec(n, Input(Bool()))
+      val stageMask = Vec(n, Input(Bool()))
       val forever = Input(Bool())
       val rst = Input(Bool())
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
@@ -43,9 +45,9 @@ class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
   // Create vector of registers for holding stage dones
   val doneFF = List.tabulate(n) { i =>
     val ff = Module(new SRFF())
-    ff.io.input.set := io.input.stageDone(i)
+    ff.io.input.set := io.input.stageDone(i) | ~io.input.stageMask(i)
     ff.io.input.asyn_reset := false.B
-    ff.io.input.reset := state === doneState.U
+    ff.io.input.reset := state === doneState.U | io.input.rst
     ff
   }
   val doneMask = doneFF.map { _.io.output.data }
@@ -84,7 +86,7 @@ class Parallel(val n: Int, val isFSM: Boolean = false) extends Module {
   }
 
   // Output logic
-  io.output.done := state === doneState.U
+  io.output.done := Mux(io.input.forever, false.B, state === doneState.U)
   io.output.ctr_inc := false.B // No counters for parallels (BUT MAYBE NEEDED FOR STREAMPIPES)
 }
 

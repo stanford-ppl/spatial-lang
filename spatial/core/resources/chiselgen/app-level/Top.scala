@@ -75,6 +75,36 @@ class DE1SoCInterface(p: TopParams) extends TopInterface {
   // By default this is a read_n signal
   // TODO: fix the naming of read control signal
   val SWITCHES_STREAM_read = Output(Wire(Bool()))
+
+  // For BufferedOut data that goes to the pixel buffer
+  val BUFFOUT_waitrequest  = Input(UInt(1.W)) 
+  val BUFFOUT_address      = Output(UInt(32.W))
+  val BUFFOUT_write        = Output(UInt(1.W))
+  val BUFFOUT_writedata    = Output(UInt(16.W))
+
+  // For GPI1 interface that reads from the JP1
+  val GPI1_STREAMIN_chipselect  = Output(UInt(1.W))
+  val GPI1_STREAMIN_address     = Output(UInt(4.W))
+  val GPI1_STREAMIN_readdata    = Input(UInt(32.W))
+  val GPI1_STREAMIN_read        = Output(UInt(1.W))
+
+  // For GPI1 interface that writes to the JP1
+  val GPO1_STREAMOUT_chipselect = Output(UInt(1.W))
+  val GPO1_STREAMOUT_address    = Output(UInt(4.W))
+  val GPO1_STREAMOUT_writedata  = Output(UInt(32.W))
+  val GPO1_STREAMOUT_writen     = Output(UInt(1.W))
+
+  // For GPI2 interface that reads from the JP2
+  val GPI2_STREAMIN_chipselect  = Output(UInt(1.W))
+  val GPI2_STREAMIN_address     = Output(UInt(4.W))
+  val GPI2_STREAMIN_readdata    = Input(UInt(32.W))
+  val GPI2_STREAMIN_read        = Output(UInt(1.W))
+
+  // For GPI2 interface that writes to the JP2
+  val GPO2_STREAMOUT_chipselect = Output(UInt(1.W))
+  val GPO2_STREAMOUT_address    = Output(UInt(4.W))
+  val GPO2_STREAMOUT_writedata  = Output(UInt(32.W))
+  val GPO2_STREAMOUT_writen     = Output(UInt(1.W))
 }
 
 class AWSInterface(p: TopParams) extends TopInterface {
@@ -163,13 +193,12 @@ class Top(
 
     case "de1soc" =>
       // DE1SoC Fringe
-      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+      val blockingDRAMIssue = false
+      val fringe = Module(new FringeDE1SoC(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[DE1SoCInterface]
 
       // Fringe <-> Host connections
       fringe.io.S_AVALON <> topIO.S_AVALON 
-      // TODO: In DE1SoC, Top takes the streamIn / Out signals and connect these directly to 
-      // the resampler. Would be more preferrable if we move these part to fringe...
       // Accel <-> Stream
       accel.io.stream_in_data                 := topIO.S_STREAM.stream_in_data         
       accel.io.stream_in_startofpacket        := topIO.S_STREAM.stream_in_startofpacket
@@ -177,6 +206,7 @@ class Top(
       accel.io.stream_in_empty                := topIO.S_STREAM.stream_in_empty        
       accel.io.stream_in_valid                := topIO.S_STREAM.stream_in_valid        
       accel.io.stream_out_ready               := topIO.S_STREAM.stream_out_ready       
+
       // Video Stream Outputs
       topIO.S_STREAM.stream_in_ready          := accel.io.stream_in_ready          
       topIO.S_STREAM.stream_out_data          := accel.io.stream_out_data          
@@ -192,9 +222,39 @@ class Top(
       topIO.LEDR_STREAM_address               := 0.U
 
       // Switch Stream Outputs
-      topIO.SWITCHES_STREAM_address                       := 0.U
-      accel.io.switch_stream_in_data                      := topIO.SWITCHES_STREAM_readdata
-      topIO.SWITCHES_STREAM_read                          := 0.U
+      topIO.SWITCHES_STREAM_address           := 0.U
+      accel.io.switch_stream_in_data          := topIO.SWITCHES_STREAM_readdata
+      topIO.SWITCHES_STREAM_read              := 0.U
+
+      // BufferedOut Outputs
+      accel.io.buffout_waitrequest            := topIO.BUFFOUT_waitrequest
+      topIO.BUFFOUT_address                   := accel.io.buffout_address
+      topIO.BUFFOUT_write                     := accel.io.buffout_write
+      topIO.BUFFOUT_writedata                 := accel.io.buffout_writedata
+
+      // GPI1 StreamIn
+      topIO.GPI1_STREAMIN_chipselect          := 1.U
+      topIO.GPI1_STREAMIN_address             := 0.U
+      topIO.GPI1_STREAMIN_read                := 1.U
+      accel.io.gpi1_streamin_readdata         := topIO.GPI1_STREAMIN_readdata
+
+      // GPO1 StreamOut
+      topIO.GPO1_STREAMOUT_chipselect         := 1.U
+      topIO.GPO1_STREAMOUT_address            := 0.U
+      topIO.GPO1_STREAMOUT_writen             := 0.U
+      topIO.GPO1_STREAMOUT_writedata          := accel.io.gpo1_streamout_writedata
+      
+      // GPI2 StreamIn
+      topIO.GPI2_STREAMIN_chipselect          := 1.U
+      topIO.GPI2_STREAMIN_address             := 0.U
+      topIO.GPI2_STREAMIN_read                := 1.U
+      accel.io.gpi2_streamin_readdata         := topIO.GPI2_STREAMIN_readdata
+
+      // GPO2 StreamOut
+      topIO.GPO2_STREAMOUT_chipselect         := 1.U
+      topIO.GPO2_STREAMOUT_address            := 0.U
+      topIO.GPO2_STREAMOUT_writen             := 0.U
+      topIO.GPO2_STREAMOUT_writedata          := accel.io.gpo2_streamout_writedata
 
       if (accel.io.argIns.length > 0) {
         accel.io.argIns := fringe.io.argIns
@@ -203,7 +263,7 @@ class Top(
       if (accel.io.argOuts.length > 0) {
         fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
             fringeArgOut.bits := accelArgOut.bits
-            fringeArgOut.valid := 1.U
+            fringeArgOut.valid := accelArgOut.valid
         }
       }
 
@@ -211,15 +271,6 @@ class Top(
       fringe.io.done := accel.io.done
       // Top reset is connected to a rst controller on DE1SoC, which converts active low to active high
       accel.reset := reset
-
-//      //
-//      // Fringe <-> Peripheral connections
-//      fringe.io.genericStreamInTop <> topIO.genericStreamIn
-//      fringe.io.genericStreamOutTop <> topIO.genericStreamOut
-//
-//      // Fringe <-> Accel stream connections
-//      accel.io.genericStreams <> fringe.io.genericStreamsAccel
-//      // fringe.io.genericStreamsAccel <> accel.io.genericStreams
 
     case "zynq" =>
       // Zynq Fringe

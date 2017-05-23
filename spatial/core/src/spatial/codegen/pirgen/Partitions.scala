@@ -500,7 +500,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val nSOut_PCU = (sOut_PCU * nPCUs) + (nUCUs * 2)
     val nVIns_PCU = (vIn_PCU * nPCUs) + (nUCUs * 0)
     val nVOut_PCU = (vOut_PCU * nPCUs) + (nUCUs * 0)
-    val nRegs_PCU = (regs_PCU * nPCUs * stages) + (nUCUs * stages)
+    val nRegs_PCU = (LANES * regs_PCU * nPCUs * stages) + (nUCUs * stages * regs_PCU)
 
     val nALUs_PMU = nPMUs * readWrite
     val nMems_PMU = nPMUs
@@ -627,14 +627,14 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }
     def toCSV = {
       s"$nPCUs, $nPMUs, $nUCUs, $nSwitch, $requiredRegs_PCU, $requiredRegs_PMU, " +
-      s",${total.alus}, ${total.mems}, ${total.sclIn}, ${total.sclOut}, ${total.vecIn}, ${total.vecOut}, ${total.regsUse}" +
-      s",$aluUtil, $memUtil, $sInUtil, $sOutUtil, $vInUtil, $vOutUtil, $regsUtil, " +
-      s",$aluUtil_PCU, $sInUtil_PCU, $sOutUtil_PCU, $vInUtil_PCU, $vOutUtil_PCU, $regsUtil_PCU, " +
-      s",$avgSIn_PCU, $avgSOut_PCU, $avgVIn_PCU, $avgVOut_PCU, $avgRegs_PCU, " +
-      s",$sInPerStage_PCU, $sOutPerStage_PCU, $vInPerStage_PCU, $vOutPerStage_PCU, $regsPerStage_PCU, " +
-      s",$aluUtil_PMU, $sInUtil_PMU, $sOutUtil_PMU, $vInUtil_PMU, $vOutUtil_PMU, $regsUtil_PMU, " +
-      s",$avgSIn_PMU, $avgSOut_PMU, $avgVIn_PMU, $avgVOut_PMU, $avgRegs_PMU, " +
-      s",$sInPerStage_PMU, $sOutPerStage_PMU, $vInPerStage_PMU, $vOutPerStage_PMU, $regsPerStage_PMU"
+      s", ${total.alus}, ${total.mems}, ${total.sclIn}, ${total.sclOut}, ${total.vecIn}, ${total.vecOut}, ${total.regsUse}, " +
+      s", $aluUtil, $memUtil, $sInUtil, $sOutUtil, $vInUtil, $vOutUtil, $regsUtil, " +
+      s", $aluUtil_PCU, $sInUtil_PCU, $sOutUtil_PCU, $vInUtil_PCU, $vOutUtil_PCU, $regsUtil_PCU, " +
+      s", $avgSIn_PCU, $avgSOut_PCU, $avgVIn_PCU, $avgVOut_PCU, $avgRegs_PCU, " +
+      s", $sInPerStage_PCU, $sOutPerStage_PCU, $vInPerStage_PCU, $vOutPerStage_PCU, $regsPerStage_PCU, " +
+      s", $aluUtil_PMU, $sInUtil_PMU, $sOutUtil_PMU, $vInUtil_PMU, $vOutUtil_PMU, $regsUtil_PMU, " +
+      s", $avgSIn_PMU, $avgSOut_PMU, $avgVIn_PMU, $avgVOut_PMU, $avgRegs_PMU, " +
+      s", $sInPerStage_PMU, $sOutPerStage_PMU, $vInPerStage_PMU, $vOutPerStage_PMU, $regsPerStage_PMU"
     }
   }
   object Statistics {

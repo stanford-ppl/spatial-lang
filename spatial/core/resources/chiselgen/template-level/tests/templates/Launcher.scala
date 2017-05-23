@@ -81,6 +81,15 @@ object Arguments {
     (6,3,48)
 
   )
+  val FILO = List(
+    (1,1,10),
+    (2,2,30),
+    (4,4,52),
+    (4,1,56),
+    (1,4,56),
+    (3,6,48),
+    (6,3,48)
+  )
   val SingleCounter = List(
     1,3
   )
@@ -162,9 +171,9 @@ object Arguments {
     (2,8,1,3,1,32),
     (3,7,1,3,1,32)
   )
-  val LineBuffer = List( // Arguments are (#lines, line size, #extra rows to buffer, COL_PAR, ROW_PAR)
-    (3,10,1,1,1,1,3),
-    (5,10,2,1,1,1,5)
+  val LineBuffer = List( 
+    (3,10,1,1,1,1,3,2),
+    (5,10,2,1,1,1,5,2)
   )
 }
 // End args
@@ -258,6 +267,14 @@ object Launcher {
     (s"FIFO$i" -> { (backendName: String) =>
         Driver(() => new FIFO(arg), "verilator") {
           (c) => new FIFOTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.FILO.zipWithIndex.map{ case(arg,i) => 
+    (s"FILO$i" -> { (backendName: String) =>
+        Driver(() => new FILO(arg), "verilator") {
+          (c) => new FILOTests(c)
         }
       }) 
   }.toMap

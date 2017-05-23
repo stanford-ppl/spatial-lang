@@ -10,10 +10,7 @@
 .history
 .lib/
 dist/*
-out/*
-out2/*
-out3/*
-out4/*
+out*
 csvs/*
 gen/*
 gen_gold/*
@@ -23,12 +20,16 @@ test_all.sh
 target/
 logs/*
 lib_managed/
+apps/src/hotfix.scala
 src_managed/
 project/boot/
 project/plugins/project/
 tags
 docs/build/*
 spatial/core/resources/chiselgen/template-level/test_run_dir/templates*
+bak/
+debug/
+apps/resources/application.conf
 
 bin/commit
 
@@ -52,4 +53,14 @@ src/spatial/codegen/chiselgen/resources/altera-goodies/README.md
 # C files
 *.o
 *.d
+
+# Mac specific
 .DS_Store
+
+# Altera specifics
+spatial/core/resources/chiselgen/template-level/fringeDE1SoC/.qsys_edit/*
+spatial/core/resources/chiselgen/template-level/fringeDE1SoC/Top_bak
+history.txt
+regTests.sh
+./VideoSysSim
+./moduleSims

@@ -95,6 +95,7 @@ sleep 2 # Because wft
 # Set vars based on this packet
 type_todo=`sed -n '4p' $packet`
 tests_todo=`sed -n '5p' $packet`
+this_machine=`sed -n '10p' $packet`
 tim=`sed -n '2p' $packet`
 branch=`sed -n '9p' $packet`
 dirname="${REGRESSION_HOME}/testdir-${branch}.${tim}.${type_todo}.${tests_todo}"

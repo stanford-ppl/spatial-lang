@@ -408,6 +408,17 @@ trait SpatialMetadataExp extends IndexPatternExp { this: SpatialExp =>
     def apply(e: Exp[_]): Seq[Long] = metadata[MBodyLatency](e).map(_.latency).getOrElse(Nil)
     def update(e: Exp[_], latency: Seq[Long]): Unit = metadata.add(e, MBodyLatency(latency))
     def update(e: Exp[_], latency: Long): Unit = metadata.add(e, MBodyLatency(Seq(latency)))
+
+    def sum(e: Exp[_]): Long = if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) bodyLatency(e).sum else 0L
+  }
+
+  /**
+    * Gives the delay of the given symbol from the start of its parent controller
+    */
+  case class MDelay(latency: Long) extends Metadata[MDelay] { def mirror(f:Tx) = this }
+  object symDelay {
+    def apply(e: Exp[_]): Long = metadata[MDelay](e).map(_.latency).getOrElse(0L)
+    def update(e: Exp[_], delay: Long): Unit = metadata.add(e, MDelay(delay))
   }
 
   /**

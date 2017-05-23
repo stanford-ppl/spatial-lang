@@ -16,13 +16,33 @@ module Computer_System_Video_In_Subsystem (
 		input  wire [31:0] top_avalon_slave_writedata,              //                             .writedata
 		input  wire        top_avalon_slave_write_n,                //                             .write_n
 		input  wire        top_avalon_slave_chipselect,             //                             .chipselect
+		input  wire        top_io_buff_out_waitrequest,             //              top_io_buff_out.waitrequest
+		output wire [31:0] top_io_buff_out_address,                 //                             .address
+		output wire        top_io_buff_out_write,                   //                             .write
+		output wire [15:0] top_io_buff_out_writedata,               //                             .writedata
+		output wire [3:0]  top_io_gpi1_streamin_address,            //         top_io_gpi1_streamin.address
+		input  wire [31:0] top_io_gpi1_streamin_readdata,           //                             .readdata
+		output wire        top_io_gpi1_streamin_chipselect,         //                             .chipselect
+		output wire        top_io_gpi1_streamin_read,               //                             .read
+		output wire [3:0]  top_io_gpi2_streamin_address,            //         top_io_gpi2_streamin.address
+		output wire        top_io_gpi2_streamin_chipselect,         //                             .chipselect
+		output wire        top_io_gpi2_streamin_read,               //                             .read
+		input  wire [31:0] top_io_gpi2_streamin_readdata,           //                             .readdata
+		output wire [31:0] top_io_gpo1_streamout_writedata,         //        top_io_gpo1_streamout.writedata
+		output wire        top_io_gpo1_streamout_write_n,           //                             .write_n
+		output wire        top_io_gpo1_streamout_chipselect,        //                             .chipselect
+		output wire [3:0]  top_io_gpo1_streamout_address,           //                             .address
+		output wire [3:0]  top_io_gpo2_streamout_address,           //        top_io_gpo2_streamout.address
+		output wire        top_io_gpo2_streamout_chipselect,        //                             .chipselect
+		output wire        top_io_gpo2_streamout_write_n,           //                             .write_n
+		output wire [31:0] top_io_gpo2_streamout_writedata,         //                             .writedata
 		output wire [31:0] top_io_ledr_stream_writedata,            //           top_io_ledr_stream.writedata
 		output wire [3:0]  top_io_ledr_stream_address,              //                             .address
 		output wire        top_io_ledr_stream_write_n,              //                             .write_n
 		output wire        top_io_ledr_stream_chipselect,           //                             .chipselect
 		output wire [31:0] top_io_switches_stream_address,          //       top_io_switches_stream.address
 		input  wire [31:0] top_io_switches_stream_readdata,         //                             .readdata
-		output wire        top_io_switches_stream_read_n,           //                             .read_n
+		output wire        top_io_switches_stream_read,             //                             .read
 		input  wire        video_in_TD_CLK27,                       //                     video_in.TD_CLK27
 		input  wire [7:0]  video_in_TD_DATA,                        //                             .TD_DATA
 		input  wire        video_in_TD_HS,                          //                             .TD_HS
@@ -52,44 +72,49 @@ module Computer_System_Video_In_Subsystem (
 	wire         video_in_clipper_avalon_clipper_source_ready;                 // Video_In_Scaler:stream_in_ready -> Video_In_Clipper:stream_out_ready
 	wire         video_in_clipper_avalon_clipper_source_startofpacket;         // Video_In_Clipper:stream_out_startofpacket -> Video_In_Scaler:stream_in_startofpacket
 	wire         video_in_clipper_avalon_clipper_source_endofpacket;           // Video_In_Clipper:stream_out_endofpacket -> Video_In_Scaler:stream_in_endofpacket
+	wire         video_in_csc_avalon_csc_source_valid;                         // Video_In_CSC:stream_out_valid -> Video_In_RGB_Resampler:stream_in_valid
+	wire  [23:0] video_in_csc_avalon_csc_source_data;                          // Video_In_CSC:stream_out_data -> Video_In_RGB_Resampler:stream_in_data
+	wire         video_in_csc_avalon_csc_source_ready;                         // Video_In_RGB_Resampler:stream_in_ready -> Video_In_CSC:stream_out_ready
+	wire         video_in_csc_avalon_csc_source_startofpacket;                 // Video_In_CSC:stream_out_startofpacket -> Video_In_RGB_Resampler:stream_in_startofpacket
+	wire         video_in_csc_avalon_csc_source_endofpacket;                   // Video_In_CSC:stream_out_endofpacket -> Video_In_RGB_Resampler:stream_in_endofpacket
 	wire         video_in_avalon_decoder_source_valid;                         // Video_In:stream_out_valid -> Video_In_Chroma_Resampler:stream_in_valid
 	wire  [15:0] video_in_avalon_decoder_source_data;                          // Video_In:stream_out_data -> Video_In_Chroma_Resampler:stream_in_data
 	wire         video_in_avalon_decoder_source_ready;                         // Video_In_Chroma_Resampler:stream_in_ready -> Video_In:stream_out_ready
 	wire         video_in_avalon_decoder_source_startofpacket;                 // Video_In:stream_out_startofpacket -> Video_In_Chroma_Resampler:stream_in_startofpacket
 	wire         video_in_avalon_decoder_source_endofpacket;                   // Video_In:stream_out_endofpacket -> Video_In_Chroma_Resampler:stream_in_endofpacket
-	wire         video_in_scaler_avalon_scaler_source_valid;                   // Video_In_Scaler:stream_out_valid -> Video_In_DMA:stream_valid
-	wire  [15:0] video_in_scaler_avalon_scaler_source_data;                    // Video_In_Scaler:stream_out_data -> Video_In_DMA:stream_data
-	wire         video_in_scaler_avalon_scaler_source_ready;                   // Video_In_DMA:stream_ready -> Video_In_Scaler:stream_out_ready
-	wire         video_in_scaler_avalon_scaler_source_startofpacket;           // Video_In_Scaler:stream_out_startofpacket -> Video_In_DMA:stream_startofpacket
-	wire         video_in_scaler_avalon_scaler_source_endofpacket;             // Video_In_Scaler:stream_out_endofpacket -> Video_In_DMA:stream_endofpacket
+	wire         video_in_rgb_resampler_avalon_rgb_source_valid;               // Video_In_RGB_Resampler:stream_out_valid -> Video_In_Clipper:stream_in_valid
+	wire  [15:0] video_in_rgb_resampler_avalon_rgb_source_data;                // Video_In_RGB_Resampler:stream_out_data -> Video_In_Clipper:stream_in_data
+	wire         video_in_rgb_resampler_avalon_rgb_source_ready;               // Video_In_Clipper:stream_in_ready -> Video_In_RGB_Resampler:stream_out_ready
+	wire         video_in_rgb_resampler_avalon_rgb_source_startofpacket;       // Video_In_RGB_Resampler:stream_out_startofpacket -> Video_In_Clipper:stream_in_startofpacket
+	wire         video_in_rgb_resampler_avalon_rgb_source_endofpacket;         // Video_In_RGB_Resampler:stream_out_endofpacket -> Video_In_Clipper:stream_in_endofpacket
 	wire         edge_detection_subsystem_video_stream_source_valid;           // Edge_Detection_Subsystem:video_stream_source_valid -> Video_In_CSC:stream_in_valid
 	wire  [23:0] edge_detection_subsystem_video_stream_source_data;            // Edge_Detection_Subsystem:video_stream_source_data -> Video_In_CSC:stream_in_data
 	wire         edge_detection_subsystem_video_stream_source_ready;           // Video_In_CSC:stream_in_ready -> Edge_Detection_Subsystem:video_stream_source_ready
 	wire         edge_detection_subsystem_video_stream_source_startofpacket;   // Edge_Detection_Subsystem:video_stream_source_startofpacket -> Video_In_CSC:stream_in_startofpacket
 	wire         edge_detection_subsystem_video_stream_source_endofpacket;     // Edge_Detection_Subsystem:video_stream_source_endofpacket -> Video_In_CSC:stream_in_endofpacket
-	wire         video_in_csc_avalon_csc_source_valid;                         // Video_In_CSC:stream_out_valid -> avalon_st_adapter:in_0_valid
-	wire  [23:0] video_in_csc_avalon_csc_source_data;                          // Video_In_CSC:stream_out_data -> avalon_st_adapter:in_0_data
-	wire         video_in_csc_avalon_csc_source_ready;                         // avalon_st_adapter:in_0_ready -> Video_In_CSC:stream_out_ready
-	wire         video_in_csc_avalon_csc_source_startofpacket;                 // Video_In_CSC:stream_out_startofpacket -> avalon_st_adapter:in_0_startofpacket
-	wire         video_in_csc_avalon_csc_source_endofpacket;                   // Video_In_CSC:stream_out_endofpacket -> avalon_st_adapter:in_0_endofpacket
+	wire         video_in_scaler_avalon_scaler_source_valid;                   // Video_In_Scaler:stream_out_valid -> avalon_st_adapter:in_0_valid
+	wire  [15:0] video_in_scaler_avalon_scaler_source_data;                    // Video_In_Scaler:stream_out_data -> avalon_st_adapter:in_0_data
+	wire         video_in_scaler_avalon_scaler_source_ready;                   // avalon_st_adapter:in_0_ready -> Video_In_Scaler:stream_out_ready
+	wire         video_in_scaler_avalon_scaler_source_startofpacket;           // Video_In_Scaler:stream_out_startofpacket -> avalon_st_adapter:in_0_startofpacket
+	wire         video_in_scaler_avalon_scaler_source_endofpacket;             // Video_In_Scaler:stream_out_endofpacket -> avalon_st_adapter:in_0_endofpacket
 	wire         avalon_st_adapter_out_0_valid;                                // avalon_st_adapter:out_0_valid -> Top:io_S_STREAM_stream_in_valid
-	wire  [23:0] avalon_st_adapter_out_0_data;                                 // avalon_st_adapter:out_0_data -> Top:io_S_STREAM_stream_in_data
+	wire  [15:0] avalon_st_adapter_out_0_data;                                 // avalon_st_adapter:out_0_data -> Top:io_S_STREAM_stream_in_data
 	wire         avalon_st_adapter_out_0_ready;                                // Top:io_S_STREAM_stream_in_ready -> avalon_st_adapter:out_0_ready
 	wire         avalon_st_adapter_out_0_startofpacket;                        // avalon_st_adapter:out_0_startofpacket -> Top:io_S_STREAM_stream_in_startofpacket
 	wire         avalon_st_adapter_out_0_endofpacket;                          // avalon_st_adapter:out_0_endofpacket -> Top:io_S_STREAM_stream_in_endofpacket
-	wire   [1:0] avalon_st_adapter_out_0_empty;                                // avalon_st_adapter:out_0_empty -> Top:io_S_STREAM_stream_in_empty
+	wire         avalon_st_adapter_out_0_empty;                                // avalon_st_adapter:out_0_empty -> Top:io_S_STREAM_stream_in_empty
 	wire         top_avalon_streaming_source_valid;                            // Top:io_S_STREAM_stream_out_valid -> avalon_st_adapter_001:in_0_valid
 	wire  [15:0] top_avalon_streaming_source_data;                             // Top:io_S_STREAM_stream_out_data -> avalon_st_adapter_001:in_0_data
 	wire         top_avalon_streaming_source_ready;                            // avalon_st_adapter_001:in_0_ready -> Top:io_S_STREAM_stream_out_ready
 	wire         top_avalon_streaming_source_startofpacket;                    // Top:io_S_STREAM_stream_out_startofpacket -> avalon_st_adapter_001:in_0_startofpacket
 	wire         top_avalon_streaming_source_endofpacket;                      // Top:io_S_STREAM_stream_out_endofpacket -> avalon_st_adapter_001:in_0_endofpacket
 	wire         top_avalon_streaming_source_empty;                            // Top:io_S_STREAM_stream_out_empty -> avalon_st_adapter_001:in_0_empty
-	wire         avalon_st_adapter_001_out_0_valid;                            // avalon_st_adapter_001:out_0_valid -> Video_In_Clipper:stream_in_valid
-	wire  [15:0] avalon_st_adapter_001_out_0_data;                             // avalon_st_adapter_001:out_0_data -> Video_In_Clipper:stream_in_data
-	wire         avalon_st_adapter_001_out_0_ready;                            // Video_In_Clipper:stream_in_ready -> avalon_st_adapter_001:out_0_ready
-	wire         avalon_st_adapter_001_out_0_startofpacket;                    // avalon_st_adapter_001:out_0_startofpacket -> Video_In_Clipper:stream_in_startofpacket
-	wire         avalon_st_adapter_001_out_0_endofpacket;                      // avalon_st_adapter_001:out_0_endofpacket -> Video_In_Clipper:stream_in_endofpacket
-	wire         rst_controller_reset_out_reset;                               // rst_controller:reset_out -> [Top:reset, Video_In:reset, Video_In_CSC:reset, Video_In_Chroma_Resampler:reset, Video_In_Clipper:reset, Video_In_DMA:reset, Video_In_Scaler:reset, avalon_st_adapter:in_rst_0_reset, avalon_st_adapter_001:in_rst_0_reset]
+	wire         avalon_st_adapter_001_out_0_valid;                            // avalon_st_adapter_001:out_0_valid -> Video_In_DMA:stream_valid
+	wire  [15:0] avalon_st_adapter_001_out_0_data;                             // avalon_st_adapter_001:out_0_data -> Video_In_DMA:stream_data
+	wire         avalon_st_adapter_001_out_0_ready;                            // Video_In_DMA:stream_ready -> avalon_st_adapter_001:out_0_ready
+	wire         avalon_st_adapter_001_out_0_startofpacket;                    // avalon_st_adapter_001:out_0_startofpacket -> Video_In_DMA:stream_startofpacket
+	wire         avalon_st_adapter_001_out_0_endofpacket;                      // avalon_st_adapter_001:out_0_endofpacket -> Video_In_DMA:stream_endofpacket
+	wire         rst_controller_reset_out_reset;                               // rst_controller:reset_out -> [Top:reset, Video_In:reset, Video_In_CSC:reset, Video_In_Chroma_Resampler:reset, Video_In_Clipper:reset, Video_In_DMA:reset, Video_In_RGB_Resampler:reset, Video_In_Scaler:reset, avalon_st_adapter:in_rst_0_reset, avalon_st_adapter_001:in_rst_0_reset]
 
 	Computer_System_Video_In_Subsystem_Edge_Detection_Subsystem edge_detection_subsystem (
 		.edge_detection_control_slave_address    (edge_detection_control_slave_address),                         // edge_detection_control_slave.address
@@ -137,7 +162,27 @@ module Computer_System_Video_In_Subsystem (
 		.io_LEDR_STREAM_chipselect            (top_io_ledr_stream_chipselect),             //                        .chipselect
 		.io_SWITCHES_STREAM_address           (top_io_switches_stream_address),            //      io_SWITCHES_STREAM.address
 		.io_SWITCHES_STREAM_readdata          (top_io_switches_stream_readdata),           //                        .readdata
-		.io_SWITCHES_STREAM_read              (top_io_switches_stream_read_n)              //                        .read_n
+		.io_SWITCHES_STREAM_read              (top_io_switches_stream_read),               //                        .read
+		.io_BUFFOUT_waitrequest               (top_io_buff_out_waitrequest),               //              io_BUFFOUT.waitrequest
+		.io_BUFFOUT_address                   (top_io_buff_out_address),                   //                        .address
+		.io_BUFFOUT_write                     (top_io_buff_out_write),                     //                        .write
+		.io_BUFFOUT_writedata                 (top_io_buff_out_writedata),                 //                        .writedata
+		.io_GPI2_STREAMIN_address             (top_io_gpi2_streamin_address),              //        io_GPI2_STREAMIN.address
+		.io_GPI2_STREAMIN_chipselect          (top_io_gpi2_streamin_chipselect),           //                        .chipselect
+		.io_GPI2_STREAMIN_read                (top_io_gpi2_streamin_read),                 //                        .read
+		.io_GPI2_STREAMIN_readdata            (top_io_gpi2_streamin_readdata),             //                        .readdata
+		.io_GPI1_STREAMIN_address             (top_io_gpi1_streamin_address),              //        io_GPI1_STREAMIN.address
+		.io_GPI1_STREAMIN_readdata            (top_io_gpi1_streamin_readdata),             //                        .readdata
+		.io_GPI1_STREAMIN_chipselect          (top_io_gpi1_streamin_chipselect),           //                        .chipselect
+		.io_GPI1_STREAMIN_read                (top_io_gpi1_streamin_read),                 //                        .read
+		.io_GPO1_STREAMOUT_writedata          (top_io_gpo1_streamout_writedata),           //       io_GPO1_STREAMOUT.writedata
+		.io_GPO1_STREAMOUT_writen             (top_io_gpo1_streamout_write_n),             //                        .write_n
+		.io_GPO1_STREAMOUT_chipselect         (top_io_gpo1_streamout_chipselect),          //                        .chipselect
+		.io_GPO1_STREAMOUT_address            (top_io_gpo1_streamout_address),             //                        .address
+		.io_GPO2_STREAMOUT_address            (top_io_gpo2_streamout_address),             //       io_GPO2_STREAMOUT.address
+		.io_GPO2_STREAMOUT_chipselect         (top_io_gpo2_streamout_chipselect),          //                        .chipselect
+		.io_GPO2_STREAMOUT_writen             (top_io_gpo2_streamout_write_n),             //                        .write_n
+		.io_GPO2_STREAMOUT_writedata          (top_io_gpo2_streamout_writedata)            //                        .writedata
 	);
 
 	Computer_System_Video_In_Subsystem_Video_In video_in (
@@ -188,38 +233,53 @@ module Computer_System_Video_In_Subsystem (
 	);
 
 	Computer_System_Video_In_Subsystem_Video_In_Clipper video_in_clipper (
-		.clk                      (sys_clk_clk),                                          //                   clk.clk
-		.reset                    (rst_controller_reset_out_reset),                       //                 reset.reset
-		.stream_in_data           (avalon_st_adapter_001_out_0_data),                     //   avalon_clipper_sink.data
-		.stream_in_startofpacket  (avalon_st_adapter_001_out_0_startofpacket),            //                      .startofpacket
-		.stream_in_endofpacket    (avalon_st_adapter_001_out_0_endofpacket),              //                      .endofpacket
-		.stream_in_valid          (avalon_st_adapter_001_out_0_valid),                    //                      .valid
-		.stream_in_ready          (avalon_st_adapter_001_out_0_ready),                    //                      .ready
-		.stream_out_ready         (video_in_clipper_avalon_clipper_source_ready),         // avalon_clipper_source.ready
-		.stream_out_data          (video_in_clipper_avalon_clipper_source_data),          //                      .data
-		.stream_out_startofpacket (video_in_clipper_avalon_clipper_source_startofpacket), //                      .startofpacket
-		.stream_out_endofpacket   (video_in_clipper_avalon_clipper_source_endofpacket),   //                      .endofpacket
-		.stream_out_valid         (video_in_clipper_avalon_clipper_source_valid)          //                      .valid
+		.clk                      (sys_clk_clk),                                            //                   clk.clk
+		.reset                    (rst_controller_reset_out_reset),                         //                 reset.reset
+		.stream_in_data           (video_in_rgb_resampler_avalon_rgb_source_data),          //   avalon_clipper_sink.data
+		.stream_in_startofpacket  (video_in_rgb_resampler_avalon_rgb_source_startofpacket), //                      .startofpacket
+		.stream_in_endofpacket    (video_in_rgb_resampler_avalon_rgb_source_endofpacket),   //                      .endofpacket
+		.stream_in_valid          (video_in_rgb_resampler_avalon_rgb_source_valid),         //                      .valid
+		.stream_in_ready          (video_in_rgb_resampler_avalon_rgb_source_ready),         //                      .ready
+		.stream_out_ready         (video_in_clipper_avalon_clipper_source_ready),           // avalon_clipper_source.ready
+		.stream_out_data          (video_in_clipper_avalon_clipper_source_data),            //                      .data
+		.stream_out_startofpacket (video_in_clipper_avalon_clipper_source_startofpacket),   //                      .startofpacket
+		.stream_out_endofpacket   (video_in_clipper_avalon_clipper_source_endofpacket),     //                      .endofpacket
+		.stream_out_valid         (video_in_clipper_avalon_clipper_source_valid)            //                      .valid
 	);
 
 	Computer_System_Video_In_Subsystem_Video_In_DMA video_in_dma (
-		.clk                  (sys_clk_clk),                                        //                      clk.clk
-		.reset                (rst_controller_reset_out_reset),                     //                    reset.reset
-		.stream_data          (video_in_scaler_avalon_scaler_source_data),          //          avalon_dma_sink.data
-		.stream_startofpacket (video_in_scaler_avalon_scaler_source_startofpacket), //                         .startofpacket
-		.stream_endofpacket   (video_in_scaler_avalon_scaler_source_endofpacket),   //                         .endofpacket
-		.stream_valid         (video_in_scaler_avalon_scaler_source_valid),         //                         .valid
-		.stream_ready         (video_in_scaler_avalon_scaler_source_ready),         //                         .ready
-		.slave_address        (video_in_dma_control_slave_address),                 // avalon_dma_control_slave.address
-		.slave_byteenable     (video_in_dma_control_slave_byteenable),              //                         .byteenable
-		.slave_read           (video_in_dma_control_slave_read),                    //                         .read
-		.slave_write          (video_in_dma_control_slave_write),                   //                         .write
-		.slave_writedata      (video_in_dma_control_slave_writedata),               //                         .writedata
-		.slave_readdata       (video_in_dma_control_slave_readdata),                //                         .readdata
-		.master_address       (video_in_dma_master_address),                        //        avalon_dma_master.address
-		.master_waitrequest   (video_in_dma_master_waitrequest),                    //                         .waitrequest
-		.master_write         (video_in_dma_master_write),                          //                         .write
-		.master_writedata     (video_in_dma_master_writedata)                       //                         .writedata
+		.clk                  (sys_clk_clk),                               //                      clk.clk
+		.reset                (rst_controller_reset_out_reset),            //                    reset.reset
+		.stream_data          (avalon_st_adapter_001_out_0_data),          //          avalon_dma_sink.data
+		.stream_startofpacket (avalon_st_adapter_001_out_0_startofpacket), //                         .startofpacket
+		.stream_endofpacket   (avalon_st_adapter_001_out_0_endofpacket),   //                         .endofpacket
+		.stream_valid         (avalon_st_adapter_001_out_0_valid),         //                         .valid
+		.stream_ready         (avalon_st_adapter_001_out_0_ready),         //                         .ready
+		.slave_address        (video_in_dma_control_slave_address),        // avalon_dma_control_slave.address
+		.slave_byteenable     (video_in_dma_control_slave_byteenable),     //                         .byteenable
+		.slave_read           (video_in_dma_control_slave_read),           //                         .read
+		.slave_write          (video_in_dma_control_slave_write),          //                         .write
+		.slave_writedata      (video_in_dma_control_slave_writedata),      //                         .writedata
+		.slave_readdata       (video_in_dma_control_slave_readdata),       //                         .readdata
+		.master_address       (video_in_dma_master_address),               //        avalon_dma_master.address
+		.master_waitrequest   (video_in_dma_master_waitrequest),           //                         .waitrequest
+		.master_write         (video_in_dma_master_write),                 //                         .write
+		.master_writedata     (video_in_dma_master_writedata)              //                         .writedata
+	);
+
+	Computer_System_Video_In_Subsystem_Video_In_RGB_Resampler video_in_rgb_resampler (
+		.clk                      (sys_clk_clk),                                            //               clk.clk
+		.reset                    (rst_controller_reset_out_reset),                         //             reset.reset
+		.stream_in_startofpacket  (video_in_csc_avalon_csc_source_startofpacket),           //   avalon_rgb_sink.startofpacket
+		.stream_in_endofpacket    (video_in_csc_avalon_csc_source_endofpacket),             //                  .endofpacket
+		.stream_in_valid          (video_in_csc_avalon_csc_source_valid),                   //                  .valid
+		.stream_in_ready          (video_in_csc_avalon_csc_source_ready),                   //                  .ready
+		.stream_in_data           (video_in_csc_avalon_csc_source_data),                    //                  .data
+		.stream_out_ready         (video_in_rgb_resampler_avalon_rgb_source_ready),         // avalon_rgb_source.ready
+		.stream_out_startofpacket (video_in_rgb_resampler_avalon_rgb_source_startofpacket), //                  .startofpacket
+		.stream_out_endofpacket   (video_in_rgb_resampler_avalon_rgb_source_endofpacket),   //                  .endofpacket
+		.stream_out_valid         (video_in_rgb_resampler_avalon_rgb_source_valid),         //                  .valid
+		.stream_out_data          (video_in_rgb_resampler_avalon_rgb_source_data)           //                  .data
 	);
 
 	Computer_System_Video_In_Subsystem_Video_In_Scaler video_in_scaler (
@@ -238,16 +298,16 @@ module Computer_System_Video_In_Subsystem (
 	);
 
 	Computer_System_Video_In_Subsystem_avalon_st_adapter #(
-		.inBitsPerSymbol (8),
+		.inBitsPerSymbol (16),
 		.inUsePackets    (1),
-		.inDataWidth     (24),
+		.inDataWidth     (16),
 		.inChannelWidth  (0),
 		.inErrorWidth    (0),
 		.inUseEmptyPort  (0),
 		.inUseValid      (1),
 		.inUseReady      (1),
 		.inReadyLatency  (0),
-		.outDataWidth    (24),
+		.outDataWidth    (16),
 		.outChannelWidth (0),
 		.outErrorWidth   (0),
 		.outUseEmptyPort (1),
@@ -255,19 +315,19 @@ module Computer_System_Video_In_Subsystem (
 		.outUseReady     (1),
 		.outReadyLatency (0)
 	) avalon_st_adapter (
-		.in_clk_0_clk        (sys_clk_clk),                                  // in_clk_0.clk
-		.in_rst_0_reset      (rst_controller_reset_out_reset),               // in_rst_0.reset
-		.in_0_data           (video_in_csc_avalon_csc_source_data),          //     in_0.data
-		.in_0_valid          (video_in_csc_avalon_csc_source_valid),         //         .valid
-		.in_0_ready          (video_in_csc_avalon_csc_source_ready),         //         .ready
-		.in_0_startofpacket  (video_in_csc_avalon_csc_source_startofpacket), //         .startofpacket
-		.in_0_endofpacket    (video_in_csc_avalon_csc_source_endofpacket),   //         .endofpacket
-		.out_0_data          (avalon_st_adapter_out_0_data),                 //    out_0.data
-		.out_0_valid         (avalon_st_adapter_out_0_valid),                //         .valid
-		.out_0_ready         (avalon_st_adapter_out_0_ready),                //         .ready
-		.out_0_startofpacket (avalon_st_adapter_out_0_startofpacket),        //         .startofpacket
-		.out_0_endofpacket   (avalon_st_adapter_out_0_endofpacket),          //         .endofpacket
-		.out_0_empty         (avalon_st_adapter_out_0_empty)                 //         .empty
+		.in_clk_0_clk        (sys_clk_clk),                                        // in_clk_0.clk
+		.in_rst_0_reset      (rst_controller_reset_out_reset),                     // in_rst_0.reset
+		.in_0_data           (video_in_scaler_avalon_scaler_source_data),          //     in_0.data
+		.in_0_valid          (video_in_scaler_avalon_scaler_source_valid),         //         .valid
+		.in_0_ready          (video_in_scaler_avalon_scaler_source_ready),         //         .ready
+		.in_0_startofpacket  (video_in_scaler_avalon_scaler_source_startofpacket), //         .startofpacket
+		.in_0_endofpacket    (video_in_scaler_avalon_scaler_source_endofpacket),   //         .endofpacket
+		.out_0_data          (avalon_st_adapter_out_0_data),                       //    out_0.data
+		.out_0_valid         (avalon_st_adapter_out_0_valid),                      //         .valid
+		.out_0_ready         (avalon_st_adapter_out_0_ready),                      //         .ready
+		.out_0_startofpacket (avalon_st_adapter_out_0_startofpacket),              //         .startofpacket
+		.out_0_endofpacket   (avalon_st_adapter_out_0_endofpacket),                //         .endofpacket
+		.out_0_empty         (avalon_st_adapter_out_0_empty)                       //         .empty
 	);
 
 	Computer_System_Video_In_Subsystem_avalon_st_adapter_001 #(

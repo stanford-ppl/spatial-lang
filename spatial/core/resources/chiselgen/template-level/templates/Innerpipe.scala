@@ -5,7 +5,7 @@ import chisel3._
 import scala.collection.mutable.HashMap
 
 // Inner pipe
-class Innerpipe(val isFSM: Boolean = false) extends Module {
+class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module {
 
   // States
   val pipeInit = 0
@@ -18,6 +18,7 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
+      val numIter = Input(UInt(32.W))
       val ctr_done = Input(Bool())
       val rst = Input(Bool())
       val forever = Input(Bool())
@@ -30,8 +31,7 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
     }
     val output = new Bundle {
       val done = Output(Bool())
-      val ctr_en = Output(Bool())
-      val ctr_inc = Output(Bool()) // Same thing as ctr_en
+      val ctr_inc = Output(Bool())
       val rst_en = Output(Bool())
       // FSM signals
       val state = Output(UInt(32.W))
@@ -39,7 +39,7 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
   })
 
   if (!isFSM) {
-    val state = RegInit(pipeInit.U)
+    val state = RegInit(pipeInit.U(32.W))
 
     // Initialize state and maxFF
     val rstCtr = Module(new SingleCounter(1))
@@ -56,7 +56,6 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
       // Change states
       when( state === pipeInit.U ) {
         io.output.done := false.B
-        io.output.ctr_en := false.B
         io.output.ctr_inc := false.B
         io.output.rst_en := false.B
         state := pipeReset.U
@@ -70,7 +69,6 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
         }
       }.elsewhen( state === pipeRun.U ) {
         io.output.done := false.B
-        io.output.ctr_en := true.B;
         io.output.ctr_inc := true.B
         when (io.input.ctr_done) {
           io.output.ctr_inc := false.B
@@ -81,16 +79,17 @@ class Innerpipe(val isFSM: Boolean = false) extends Module {
       }.elsewhen( state === pipeDone.U ) {
         io.output.done := Mux(io.input.forever, false.B, true.B)
         state := pipeSpinWait.U
-      }.elsewhen( state === pipeSpinWait.U ) {
+      }.elsewhen( state >= pipeSpinWait.U ) {
         io.output.done := false.B
-        state := pipeInit.U;
+        state := Mux(state >= (pipeSpinWait + retime).U, pipeInit.U, state + 1.U);
       } 
     }.otherwise {
       io.output.done := Mux(io.input.ctr_done, true.B, false.B)
-      io.output.ctr_en := false.B
       io.output.ctr_inc := false.B
       io.output.rst_en := false.B
-      state := pipeInit.U
+      io.output.state := state
+      // Line below broke tile stores when there is a stall of some kind.  Why was it there to begin with?
+      // state := pipeInit.U 
     }
   } else { // FSM inner
     val stateFSM = Module(new FF(32))

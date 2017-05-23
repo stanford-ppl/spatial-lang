@@ -15,9 +15,9 @@ trait CppGenFringeCopy extends CppCodegen {
     val cppResourcesPath = "cppgen"
 
     if (IR.target.name == "AWS_F1") {
-      dependencies ::= DirDep(cppResourcesPath, "fringeAWS", "files_list")
+      dependencies ::= DirDep(cppResourcesPath, "fringeAWS")
     } else {
-      dependencies ::= DirDep(cppResourcesPath, "fringeSW", "files_list")
+      dependencies ::= DirDep(cppResourcesPath, "fringeSW")
     }
 
     super.copyDependencies(out)

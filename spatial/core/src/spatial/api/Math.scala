@@ -17,6 +17,9 @@ trait MathApi extends MathExp { this: SpatialApi =>
   /** Square root **/
   @api def sqrt[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_sqrt(x.s))
 
+  @api def floor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = FixPt[S,I,F](fix_floor(x.s))
+  @api def ceil[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = FixPt[S,I,F](fix_ceil(x.s))
+
   // TODO: These should probably be added to Num instead
   @api def abs[T:Meta:Num](x: T): T = typ[T] match {
     case t: FixPtType[s,i,f] =>
@@ -90,6 +93,8 @@ trait MathExp { this: SpatialExp =>
 
   /** IR Nodes **/
   case class FixAbs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]) extends FixPtOp[S,I,F] { def mirror(f:Tx) = fix_abs(f(x)) }
+  case class FixFloor[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]) extends FixPtOp[S,I,F] { def mirror(f:Tx) = fix_floor(f(x)) }
+  case class FixCeil[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]) extends FixPtOp[S,I,F] { def mirror(f:Tx) = fix_ceil(f(x)) }
 
   case class FltAbs [G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_abs(f(x)) }
   case class FltLog [G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = flt_log(f(x)) }
@@ -116,6 +121,20 @@ trait MathExp { this: SpatialExp =>
   @internal def fix_abs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]): Exp[FixPt[S,I,F]] = x match {
     case Const(c: BigDecimal) => fixpt[S,I,F](c.abs)
     case _ => stage(FixAbs(x))(ctx)
+  }
+
+  @internal def fix_floor[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]): Exp[FixPt[S,I,F]] = x match {
+    case Const(c: BigDecimal) => 
+      val res = if (c % 1 == 0) c else BigDecimal(c.toInt)
+      fixpt[S,I,F](res)
+    case _ => stage(FixFloor(x))(ctx)
+  }
+
+  @internal def fix_ceil[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]): Exp[FixPt[S,I,F]] = x match {
+    case Const(c: BigDecimal) => 
+      val res = if (c % 1 == 0) c else BigDecimal(c.toInt + 1)
+      fixpt[S,I,F](res)
+    case _ => stage(FixCeil(x))(ctx)
   }
 
   @internal def flt_abs[G:INT,E:INT](x: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = x match {

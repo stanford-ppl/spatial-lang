@@ -157,20 +157,34 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
   @virtualize
   def trsm(B: Array[T], L: Array[T]) = {
 
-    val OCB = DRAM[T](full_N, full_K)
-    val OCL = DRAM[T](full_N, full_N)
+    // fixme: do normal DRAM matrices when https://github.com/stanford-ppl/spatial-lang/issues/68 is resolved
+    // val OCB = DRAM[T](full_N, full_K)
+    // val OCL = DRAM[T](full_N, full_N)
+    // setMem(OCB, B)
+    // setMem(OCL, L)
+    val OCB_flat = DRAM[T](full_N * full_K)
+    val OCL_flat = DRAM[T](full_N * full_N)
     val OCX = DRAM[T](full_N * full_K)
-    setMem(OCB, B)
-    setMem(OCL, L)
+    setMem(OCB_flat, B)
+    setMem(OCL_flat, L)
 
 
     Accel {
       val B = SRAM[T](full_N, full_K)
       val L = SRAM[T](full_N, full_N)
+      val B_flat = SRAM[T](full_N * full_K)
+      val L_flat = SRAM[T](full_N * full_N)
       val X = SRAM[T](full_N * full_K)
       Parallel {
-        B load OCB(0 :: full_N, 0 :: full_K)
-        L load OCL(0 :: full_N, 0 :: full_N)
+        B_flat load OCB_flat(0 :: full_N*full_K)
+        L_flat load OCL_flat(0 :: full_N*full_N)
+      }
+      // fixme: do normal DRAM matrices when https://github.com/stanford-ppl/spatial-lang/issues/68 is resolved
+      Foreach(full_N by 1, full_K by 1) { (i,j) => 
+        B(i,j) = B_flat(i*full_K + j)
+      }
+      Foreach(full_N by 1, full_N by 1) { (i,j) => 
+        L(i,j) = L_flat(i*full_N + j)
       }
       Sequential.Foreach(full_N by inner_N) { diag_tile =>
         // // Vertical Blocking
@@ -225,13 +239,16 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
     // val image = (0::R, 0::C){(i,j) => if (j > border && j < C-border && i > border && i < C - border) i*16 else 0}
 
     val B = Array.fill(full_N) {
-      Array.fill(full_K) { random[T](2) }
+      Array.fill(full_K) { abs(random[T](2)) }
     }
     val L = Array.tabulate(full_N) { i =>
       Array.tabulate(full_N) { j =>
         if (j > i) 0.to[T]
-        else if (j == i) random[T](8) + 1
-        else random[T](2)
+        else if (j == i) abs(random[T](5)) + 1
+        else if (i - j == 4) 1.to[T] // Just a courtesy to make the validation easier
+        // else if (i - j == 4) 1.to[T]
+        else 0.to[T]
+        // else abs(random[T](2))
       }
     }
 
@@ -262,6 +279,8 @@ object TRSM extends SpatialApp { // Regression (Dense) // Args: none
       }
     }.flatten
 
+    printArray(B_check, "Wanted: ")
+    printArray(B_computed, "Computed: ")
     val cksum = B_check.zip(B_computed){ (a,b) => a > b - margin && a < b + margin}.reduce{_&&_}
     println("PASS: " + cksum + " (TRSM)")
   }

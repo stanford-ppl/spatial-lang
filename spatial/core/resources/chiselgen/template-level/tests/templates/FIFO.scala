@@ -13,13 +13,13 @@ class FIFOTests(c: FIFO) extends PeekPokeTester(c) {
 
   def push(inc: Boolean = true) {
     (0 until c.pW).foreach { i => poke(c.io.in(i), pushElement + i) }
-    poke(c.io.push, 1)
+    poke(c.io.enq, 1)
     step(1)
-    poke(c.io.push,0)
+    poke(c.io.enq,0)
     if (inc) pushElement += c.pW
   }
   def pop(inc: Boolean = true) {
-    poke(c.io.pop, 1)
+    poke(c.io.deq, 1)
     if (inc) {
       // val a = peek(c.io.out(0))
       // println(s"Expect $popElement, got $a (error ${a != popElement})")
@@ -27,7 +27,7 @@ class FIFOTests(c: FIFO) extends PeekPokeTester(c) {
       popElement += c.pR      
     }
     step(1)
-    poke(c.io.pop,0)
+    poke(c.io.deq,0)
   }
 
   // fill FIFO halfway

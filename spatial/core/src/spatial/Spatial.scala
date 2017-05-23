@@ -19,15 +19,15 @@ import spatial.codegen.chiselgen._
 import spatial.codegen.pirgen._
 import spatial.codegen.cppgen._
 
-
 protected trait SpatialExp
   extends ArgonExp with SpatialExceptions with MatrixExp
   with DebuggingExp with TemplatesExp with BitOpsExp with FileIOExp
-  with ControllerExp with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with HostTransferExp with MathExp
+  with ControllerExp with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with FILOExp with HostTransferExp with MathExp
   with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
-  with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp
+  with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp with LUTsExp
   with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
+  with Aliases with StreamTransfersExp
 
 trait SpatialImplicits{this: SpatialApi =>
   // HACK: Insert Void where required to make programs not have to include () at the end of ... => Void functions
@@ -49,22 +49,23 @@ trait SpatialImplicits{this: SpatialApi =>
 protected trait SpatialApi extends SpatialExp
   with ArgonApi with MatrixApi
   with DebuggingApi with BitsOpsApi
-  with ControllerApi with CounterApi with DRAMApi with DRAMTransferApi with FIFOApi with HostTransferApi with MathApi
+  with ControllerApi with CounterApi with DRAMApi with DRAMTransferApi with FIFOApi with FILOApi with HostTransferApi with MathApi
   with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
-  with StreamApi with PinApi with AlteraVideoApi with ShiftRegApi
+  with StreamApi with PinApi with AlteraVideoApi with ShiftRegApi with LUTsApi
   with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
   with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits with FileIOApi
+  with StreamTransfersApi
  
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenArray with ScalaGenSpatialArrayExt with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt
   with ScalaGenHashMap with ScalaGenIfThenElse with ScalaGenStructs with ScalaGenSpatialStruct
   with ScalaGenText with ScalaGenVoid with ScalaGenFunction with ScalaGenVariables
-  with ScalaGenDebugging
+  with ScalaGenDebugging with ScalaGenFILO
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
   with ScalaGenStream
-  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO with ScalaGenShiftReg {
+  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO with ScalaGenShiftReg with ScalaGenLUTs {
 
   override val IR: SpatialCompiler
 
@@ -82,7 +83,7 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenIfThenElse with ChiselGenController with ChiselGenMath with ChiselGenText
   with ChiselGenDRAM with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
   with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream with ChiselGenStructs with ChiselGenLineBuffer
-  with ChiselGenRegFile with ChiselGenStateMachine with ChiselGenFileIO with ChiselGenRetiming {
+  with ChiselGenRegFile with ChiselGenStateMachine with ChiselGenFileIO with ChiselGenRetiming with ChiselGenFILO {
 
   override val IR: SpatialCompiler
 }
@@ -97,7 +98,8 @@ protected trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenIfThenElse with CppGenController with CppGenMath with CppGenFringeCopy with CppGenText
   with CppGenDRAM with CppGenHostTransfer with CppGenUnrolled with CppGenVector
   with CppGenArray with CppGenArrayExt with CppGenRange with CppGenAlteraVideo with CppGenStream
-  with CppGenHashMap with CppGenStructs with CppGenDebugging with CppGenFileIO with CppGenFunction {
+  with CppGenHashMap with CppGenStructs with CppGenDebugging with CppGenFileIO with CppGenFunction 
+  with CppGenVariables{
 
   override val IR: SpatialCompiler
 }
@@ -112,7 +114,7 @@ protected trait DotGenSpatial extends DotCodegen with DotFileGen
   with DotGenCounter with DotGenReg with DotGenSRAM with DotGenFIFO
   with DotGenIfThenElse with DotGenController with DotGenMath with DotGenText
   with DotGenDRAM with DotGenHostTransfer with DotGenUnrolled with DotGenVector
-  with DotGenArray with DotGenAlteraVideo with DotGenStream with DotGenRetiming{
+  with DotGenArray with DotGenAlteraVideo with DotGenStream with DotGenRetiming with DotGenStruct{
 
   override val IR: SpatialCompiler
 
@@ -185,15 +187,21 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
   }
 
   lazy val pirRetimer = new PIRHackyRetimer { val IR: self.type  = self }
+  lazy val pirTiming  = new PIRHackyLatencyAnalyzer { val IR: self.type = self }
 
-  lazy val argMapper  = new ArgMappingAnalyzer { val IR: self.type = self; def memStreams = uctrlAnalyzer.memStreams; def argPorts = uctrlAnalyzer.argPorts; def genericStreams = uctrlAnalyzer.genericStreams;}
+  lazy val argMapper  = new ArgMappingAnalyzer {
+    val IR: self.type = self
+    def memStreams = uctrlAnalyzer.memStreams
+    def argPorts = uctrlAnalyzer.argPorts
+    def genericStreams = uctrlAnalyzer.genericStreams
+  }
 
-  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSim; def localMems = uctrlAnalyzer.localMems }
-  lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
-  lazy val pirgen = new PIRGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enablePIR }
-  lazy val cppgen = new CppGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableSynth }
-  lazy val treegen = new TreeGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableTree }
-  lazy val dotgen = new DotGenSpatial { val IR: self.type = self; override def shouldRun = SpatialConfig.enableDot }
+  lazy val scalagen = new ScalaGenSpatial { val IR: self.type = self; def localMems = uctrlAnalyzer.localMems }
+  lazy val chiselgen = new ChiselGenSpatial { val IR: self.type = self }
+  lazy val pirgen = new PIRGenSpatial { val IR: self.type = self }
+  lazy val cppgen = new CppGenSpatial { val IR: self.type = self }
+  lazy val treegen = new TreeGenSpatial { val IR: self.type = self }
+  lazy val dotgen = new DotGenSpatial { val IR: self.type = self }
 
   def codegenerators = passes.collect{case x: Codegen => x}
 
@@ -256,7 +264,9 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += affineAnalyzer    // Memory access patterns
     passes += reduceAnalyzer    // Reduce/accumulator specialization
     passes += memAnalyzer       // Finalize banking/buffering
+
     // TODO: models go here
+    passes += latencyAnalyzer
 
     // --- Design Elaboration
     passes += printer
@@ -290,6 +300,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += streamAnalyzer    // Set stream pipe children fifo dependencies
     passes += argMapper         // Get address offsets for each used DRAM object
     passes += latencyAnalyzer   // Get delay lengths of inner pipes (used for retiming control signals)
+    if (SpatialConfig.enablePIRSim) passes += pirTiming // PIR delays (retiming control signals)
     passes += printer
 
     // --- Sanity Checks
@@ -297,12 +308,12 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += controlSanityCheck
 
     // --- Code generation
+    if (SpatialConfig.enableTree)  passes += treegen
     if (SpatialConfig.enableSim)   passes += scalagen
     if (SpatialConfig.enableSynth) passes += cppgen
     if (SpatialConfig.enableSynth) passes += chiselgen
     if (SpatialConfig.enableDot)   passes += dotgen
     if (SpatialConfig.enablePIR)   passes += pirgen
-    if (SpatialConfig.enableTree)  passes += treegen
   }
 }
 
@@ -318,18 +329,19 @@ trait SpatialApp extends AppCore {
   val IR: SpatialIR = new SpatialIR { def target = SpatialApp.this.target }
   val Lib: SpatialLib = new SpatialLib { }
 
+  override protected def onException(t: Throwable): Unit = {
+    super.onException(t)
+    IR.error("If you'd like, you can submit this log and your code in a bug report at: ")
+    IR.error("  https://github.com/stanford-ppl/spatial-lang/issues")
+    IR.error("and we'll try to fix it as soon as we can.")
+  }
+
+  final override def main(sargs: Array[String]): Unit = super.main(sargs)
+
   override def parseArguments(args: Seq[String]): Unit = {
     SpatialConfig.init()
     val parser = new SpatialArgParser
-    parser.parse(args) match {
-      case None =>
-        //IR.warn("No code generators enabled. Use --sim or --synth to enable generation.")
-        //sys.exit(0)
-      case _ =>
-        //println(argon.Config.conf)
-        //println(SpatialConfig.spatialConf)
-        //println("Starting generation")
-    }
+    parser.parse(args)
   }
 }
 
