@@ -34,7 +34,7 @@ WHERE
 
 */
 
-object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 3840
+object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 384
   import IR._
 
   type FT = Int
@@ -46,9 +46,9 @@ object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 3840
   val margin = 1
 
   val innerPar = 16
-  val outerPar = 2
+  val outerPar = 4
 
-  val tileSize = 384
+  val tileSize = 4000 
 
   @virtualize
   def tpchq6[T:Type:Num](datesIn: Array[Int], quantsIn: Array[Int], disctsIn: Array[T], pricesIn: Array[T]): T = {

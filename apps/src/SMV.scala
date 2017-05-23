@@ -1,16 +1,16 @@
 import spatial._
 import org.virtualized._
 
-object SMV extends SpatialApp {  // Regression (Sparse) // Args: 1536
+object SMV extends SpatialApp {  // Regression (Sparse) // Args: 768
   import IR._
 
   type T = Int //FixPt[Signed,B16,B16]
 
   val pp = 3840
-  val NNZ = 60
+  val maximumNNZ = 60
 
-  val ip = 1
-  val op = 2
+  val innerPar = 16
+  val outerPar = 2
 
   val tileSize = 384
 
@@ -19,6 +19,7 @@ object SMV extends SpatialApp {  // Regression (Sparse) // Args: 1536
   @virtualize
   def main() = {
     val nn = args(0).to[Int]
+    val NNZ = maximumNNZ//args(1).to[Int]
     val P = pp
 
     val AC = Array.tabulate(nn){ i => Array.tabulate(NNZ) { j => (j * 3).to[Int]}}
@@ -29,15 +30,15 @@ object SMV extends SpatialApp {  // Regression (Sparse) // Args: 1536
     val N = ArgIn[Int]
     setArg(N,nn)
 
-    val aC = DRAM[Int](pp,NNZ)
-    val aD = DRAM[Int](pp,NNZ)
+    val aC = DRAM[Int](pp,maximumNNZ)
+    val aD = DRAM[Int](pp,maximumNNZ)
     val sizes = DRAM[Int](pp)
     val v = DRAM[Int](pp)
     val out = DRAM[Int](N)
 
-    //val op = op (1 -> 6)
-    //val ip = ip (1 -> 96)
-    val stPar    = ip (1 -> 1)
+    val op = outerPar (1 -> 6)
+    val ip = innerPar (1 -> 96)
+    val stPar    = innerPar (1 -> 1)
 
     setMem(aC, AC.flatten)
     setMem(aD, AD.flatten)

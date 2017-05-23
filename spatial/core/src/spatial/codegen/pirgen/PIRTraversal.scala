@@ -388,7 +388,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
           val p = boundOf.get(par).map(_.toDouble).getOrElse(1.0)
           dbgs(s"nIter: bounds: min=$min, max=$max, step=$step, p=$p")
 
-          val nIters = Math.ceil(max - min/step)
+          val nIters = Math.ceil((max - min)/step)
           if (ignorePar)
             nIters.toLong
           else

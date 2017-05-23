@@ -1,15 +1,15 @@
 import spatial._
 import org.virtualized._
 
-object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 640 640
+object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 76800 76800 
   import IR._
-  type X = FixPt[TRUE,_32,_0]
+  type X = Int
 
-  val ip = 8
-  val op = 2
+  val ip = 16
+  val op = 10
 
-  val tileSize1 = 32
-  val tileSize2 = 32
+  val tileSize1 = 384
+  val tileSize2 = 96
 
   @virtualize
   def outerproduct[T:Type:Num](a: Array[T], b: Array[T]) = {
@@ -18,8 +18,8 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 640 640
     val outerPar  = op (1 -> 4)
     val innerPar  = ip (1 -> 256)
 
-    val M = a.length;  bound(M) = 38400
-    val N = b.length;  bound(N) = 38400
+    val M = a.length;  bound(M) = 3840
+    val N = b.length;  bound(N) = 3840
 
     val sizeA = ArgIn[Int]
     val sizeB = ArgIn[Int]
@@ -79,15 +79,15 @@ object OuterProduct extends SpatialApp { // Regression (Dense) // Args: 640 640
   }
 }
 
-object DotProduct extends SpatialApp { // Regression (Dense) // Args: 640
+object DotProduct extends SpatialApp { // Regression (Dense) // Args: 8000
   import IR._
 
-  type X = FixPt[TRUE,_32,_0]
+  type X = Int
 
   val innerPar = 16
-  val outerPar = 2
+  val outerPar = 8
 
-  val tileSize = 32
+  val tileSize = 3200
 
   @virtualize
   def dotproduct[T:Type:Num](aIn: Array[T], bIn: Array[T]): T = {
@@ -96,7 +96,7 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 640
     val P2 = innerPar (1 -> 192)
     val P3 = innerPar (1 -> 192)
 
-    val size = aIn.length; bound(size) = 1920000
+    val size = aIn.length; bound(size) = 768000 
 
     val N = ArgIn[Int]
     setArg(N, size)
@@ -128,8 +128,8 @@ object DotProduct extends SpatialApp { // Regression (Dense) // Args: 640
   @virtualize
   def main() {
     val N = args(0).to[Int]
-    val a = Array.fill(N){ random[X](4) }
-    val b = Array.fill(N){ random[X](4) }
+    val a = Array.fill(N){ random[X] }
+    val b = Array.fill(N){ random[X] }
 
     val result = dotproduct(a, b)
     val gold = a.zip(b){_*_}.reduce{_+_}

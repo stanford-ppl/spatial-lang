@@ -12,9 +12,9 @@ object LogReg extends SpatialApp {
   val A = 1
 
   val innerPar = 16
-  val outerPar = 10
+  val outerPar = 8
 
-  val tileSize = 64
+  val tileSize = 10
 
   def sigmoid[T:Type:Num](t:T) = 1.to[T]/(exp(-t) + 1.to[T])
 
