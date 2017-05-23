@@ -27,6 +27,8 @@ trait ScalaGenMath extends ScalaCodegen {
     case FltAsin(x) => emit(src"val $lhs = Number.asin($x)")
     case FltAcos(x) => emit(src"val $lhs = Number.acos($x)")
     case FltAtan(x) => emit(src"val $lhs = Number.atan($x)")
+    case FixFloor(x) => emit(src"val $lhs = ${x}.floor()")
+    case FixCeil(x) => emit(src"val $lhs = ${x}.ceil()")
     case FltPow(x,exp) => emit(src"val $lhs = Number.pow($x, $exp);")
 
 

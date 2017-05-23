@@ -95,6 +95,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   def registerAccess(original: Exp[_], unrolled: Exp[_] /*, pars: Option[Seq[Int]]*/): Unit = {
     val reads = unrolled match { case LocalReader(rds) => rds.map(_._1); case _ => Nil }
+    val resets = unrolled match { case LocalResetter(rsts) => rsts.map(_._1); case _ => Nil }
     val writes = unrolled match { case LocalWriter(wrts) => wrts.map(_._1); case _ => Nil }
     //val accesses = reads ++ writes
 
@@ -340,6 +341,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       case _:SRAMStore[_] => !isLoopInvariant(lhs)
       case _ => true
     }
+
+    case LocalResetter(resets) if resets.forall{r => lanes.isCommon(r.mem) } => rhs match {
+      case _:SRAMStore[_] => !isLoopInvariant(lhs)
+      case _ => true
+    }
     case _ => false
   }
   def shouldUnifyAccess(lhs: Sym[_], rhs: Op[_], lanes: Unroller): Boolean = rhs match {
@@ -348,6 +354,10 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       case _ => false
     }
     case LocalWriter(writes) if isLoopInvariant(lhs) && writes.forall{r => lanes.isCommon(r.mem) } => rhs match {
+      case _:SRAMStore[_] => true
+      case _ => false
+    }
+    case LocalResetter(resets) if isLoopInvariant(lhs) && resets.forall{r => lanes.isCommon(r.mem) } => rhs match {
       case _:SRAMStore[_] => true
       case _ => false
     }
@@ -366,6 +376,15 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       lanes.split(lhs, lhs2)(mtyp(lhs.tp),ctx)
 
     case LocalWriter(_) if shouldUnrollAccess(lhs, rhs, lanes) && writeParallelizer.isDefinedAt((lanes,rhs,ctx)) =>
+      val lhs2 = writeParallelizer.apply((lanes,rhs,ctx))
+      transferMetadata(lhs, lhs2)
+      cloneFuncs.foreach{func => func(lhs2) }
+      registerAccess(lhs, lhs2)
+      logs(s"Unrolling $lhs = $rhs"); strMeta(lhs)
+      logs(s"Created ${str(lhs2)}"); strMeta(lhs2)
+      lanes.unify(lhs, lhs2)
+
+    case LocalResetter(_) if shouldUnrollAccess(lhs, rhs, lanes) && writeParallelizer.isDefinedAt((lanes,rhs,ctx)) =>
       val lhs2 = writeParallelizer.apply((lanes,rhs,ctx))
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }
