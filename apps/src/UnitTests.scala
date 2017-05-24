@@ -54,7 +54,10 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
          8,  9, -10, 11,
         12, 13, 14, -15
       )
-      y := lut(1, 3) + lut(3, 3) + lut(i, i)
+      val red = Reduce(Reg[Int](0))(3 by 1 par 3) {q =>
+        lut(q,q)
+      }{_+_}
+      y := lut(1, 3) + lut(3, 3) + red + lut(i,0)
     }
 
 
@@ -62,7 +65,7 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = -15 + 7 - 5*(ii)
+    val gold = -15 + 7 - 0 - 5 - 10 + 4*ii
     println("expected: " + gold)
     println("result: " + result)
 
@@ -93,7 +96,8 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     setArg(io2, cst2)
     setArg(x1, cst3)
     setArg(x2, cst4)
-    val data = Array.tabulate(16){i => i}
+    val data = Array.const[Int](0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15)
+    // val data = Array.tabulate(16){i => i}
     setMem(m1, data)
 
     Accel {
@@ -630,7 +634,7 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
       Foreach(N by tileSize) { i =>
         f1 load src1FPGA(i::i+tileSize par P1)
         val accum = Reg[T](0.to[T])
-        Pipe {accum.reset}
+        accum.reset
         Reduce(accum)(tileSize by 1 par 1){i =>
           f1.deq()
         }{_+_}
