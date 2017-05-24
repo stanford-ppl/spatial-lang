@@ -113,6 +113,10 @@ trait MathExp { this: SpatialExp =>
   case class FltAcos[G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = math_acos(f(x)) }
   case class FltAtan[G:INT,E:INT](x: Exp[FltPt[G,E]]) extends FltPtOp[G,E] { def mirror(f:Tx) = math_atan(f(x)) }
 
+  case class OneHotMux[T:Type:Bits](selects: Seq[Exp[Bool]], datas: Seq[Exp[T]]) extends Op[T] {
+    def mirror(f:Tx) = onehot_mux(f(selects),f(datas))
+  }
+
   case class Mux[T:Type:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_mux(f(select),f(a),f(b)) }
   case class Min[T:Type:Bits:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_min(f(a),f(b)) }
   case class Max[T:Type:Bits:Order](a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_max(f(a),f(b)) }
@@ -152,6 +156,10 @@ trait MathExp { this: SpatialExp =>
   @internal def flt_sqrt[G:INT,E:INT](x: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = x match {
     //case Const(c: BigDecimal) => fltpt[G,E](???)
     case _ => stage(FltSqrt(x))(ctx)
+  }
+
+  @util def onehot_mux[T:Type:Bits](selects: Seq[Exp[Bool]], datas: Seq[Exp[T]]): Exp[T] = {
+    stage(OneHotMux(selects,datas))(ctx)
   }
 
   @util def math_mux[T:Type:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T]): Exp[T] = select match {
