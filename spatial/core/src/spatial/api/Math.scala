@@ -115,6 +115,7 @@ trait MathExp { this: SpatialExp =>
 
   case class OneHotMux[T:Type:Bits](selects: Seq[Exp[Bool]], datas: Seq[Exp[T]]) extends Op[T] {
     def mirror(f:Tx) = onehot_mux(f(selects),f(datas))
+    val mT = typ[T]
   }
 
   case class Mux[T:Type:Bits](select: Exp[Bool], a: Exp[T], b: Exp[T]) extends Op[T] { def mirror(f:Tx) = math_mux(f(select),f(a),f(b)) }

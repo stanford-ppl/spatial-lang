@@ -1,6 +1,6 @@
 
-Vector Inner Product
-====================
+1. Vector Inner Product
+=======================
 
 Inner product (also called dot product) is an extremely simple linear algebra kernel, defined as the
 sum of the element-wise products between two vectors of data. For this example, we'll assume that the
@@ -22,6 +22,8 @@ Let's look at how to write it in Spatial. Let's start with the application's tem
             ???
         }
     }
+
+Let's look at the host side first. For now, let's say we're loading our vectors from
 
 We first need some local memory to hold our vectors. Let's suppose for now each one has a size of 100::
 

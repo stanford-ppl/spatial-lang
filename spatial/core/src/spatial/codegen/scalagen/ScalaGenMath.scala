@@ -1,11 +1,8 @@
 package spatial.codegen.scalagen
 
-import argon.codegen.scalagen.ScalaCodegen
-import argon.ops.{FixPtExp, FltPtExp}
 import spatial.SpatialExp
-import spatial.api.MathExp
 
-trait ScalaGenMath extends ScalaCodegen {
+trait ScalaGenMath extends ScalaGenBits {
   val IR: SpatialExp
   import IR._
 
@@ -33,6 +30,13 @@ trait ScalaGenMath extends ScalaCodegen {
 
 
     case Mux(sel, a, b) => emit(src"val $lhs = if ($sel) $a else $b")
+    case op @ OneHotMux(selects,datas) =>
+      open(src"val $lhs = {")
+        selects.indices.foreach { i =>
+          emit(src"""${if (i == 0) "if" else "else if"} (${selects(i)}) { ${datas(i)} }""")
+        }
+        emit(src"else { ${invalid(op.mT)} }")
+      close("}")
 
     // Assumes < and > are defined on runtime type...
     case Min(a, b) => emit(src"val $lhs = if ($a < $b) $a else $b")
