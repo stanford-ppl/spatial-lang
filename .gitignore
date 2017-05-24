@@ -10,10 +10,7 @@
 .history
 .lib/
 dist/*
-out/*
-out2/*
-out3/*
-out4/*
+out*
 csvs/*
 gen/*
 gen_gold/*
@@ -60,6 +57,7 @@ src/spatial/codegen/chiselgen/resources/altera-goodies/README.md
 # Altera specifics
 spatial/core/resources/chiselgen/template-level/fringeDE1SoC/.qsys_edit/*
 spatial/core/resources/chiselgen/template-level/fringeDE1SoC/Top_bak
-Top_tb.v
 history.txt
 regTests.sh
+./VideoSysSim
+./moduleSims

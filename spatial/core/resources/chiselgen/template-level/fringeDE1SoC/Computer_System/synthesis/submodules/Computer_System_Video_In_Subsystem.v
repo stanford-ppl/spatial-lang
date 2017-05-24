@@ -20,6 +20,22 @@ module Computer_System_Video_In_Subsystem (
 		output wire [31:0] top_io_buff_out_address,                 //                             .address
 		output wire        top_io_buff_out_write,                   //                             .write
 		output wire [15:0] top_io_buff_out_writedata,               //                             .writedata
+		output wire [3:0]  top_io_gpi1_streamin_address,            //         top_io_gpi1_streamin.address
+		input  wire [31:0] top_io_gpi1_streamin_readdata,           //                             .readdata
+		output wire        top_io_gpi1_streamin_chipselect,         //                             .chipselect
+		output wire        top_io_gpi1_streamin_read,               //                             .read
+		output wire [3:0]  top_io_gpi2_streamin_address,            //         top_io_gpi2_streamin.address
+		output wire        top_io_gpi2_streamin_chipselect,         //                             .chipselect
+		output wire        top_io_gpi2_streamin_read,               //                             .read
+		input  wire [31:0] top_io_gpi2_streamin_readdata,           //                             .readdata
+		output wire [31:0] top_io_gpo1_streamout_writedata,         //        top_io_gpo1_streamout.writedata
+		output wire        top_io_gpo1_streamout_write_n,           //                             .write_n
+		output wire        top_io_gpo1_streamout_chipselect,        //                             .chipselect
+		output wire [3:0]  top_io_gpo1_streamout_address,           //                             .address
+		output wire [3:0]  top_io_gpo2_streamout_address,           //        top_io_gpo2_streamout.address
+		output wire        top_io_gpo2_streamout_chipselect,        //                             .chipselect
+		output wire        top_io_gpo2_streamout_write_n,           //                             .write_n
+		output wire [31:0] top_io_gpo2_streamout_writedata,         //                             .writedata
 		output wire [31:0] top_io_ledr_stream_writedata,            //           top_io_ledr_stream.writedata
 		output wire [3:0]  top_io_ledr_stream_address,              //                             .address
 		output wire        top_io_ledr_stream_write_n,              //                             .write_n
@@ -150,7 +166,23 @@ module Computer_System_Video_In_Subsystem (
 		.io_BUFFOUT_waitrequest               (top_io_buff_out_waitrequest),               //              io_BUFFOUT.waitrequest
 		.io_BUFFOUT_address                   (top_io_buff_out_address),                   //                        .address
 		.io_BUFFOUT_write                     (top_io_buff_out_write),                     //                        .write
-		.io_BUFFOUT_writedata                 (top_io_buff_out_writedata)                  //                        .writedata
+		.io_BUFFOUT_writedata                 (top_io_buff_out_writedata),                 //                        .writedata
+		.io_GPI2_STREAMIN_address             (top_io_gpi2_streamin_address),              //        io_GPI2_STREAMIN.address
+		.io_GPI2_STREAMIN_chipselect          (top_io_gpi2_streamin_chipselect),           //                        .chipselect
+		.io_GPI2_STREAMIN_read                (top_io_gpi2_streamin_read),                 //                        .read
+		.io_GPI2_STREAMIN_readdata            (top_io_gpi2_streamin_readdata),             //                        .readdata
+		.io_GPI1_STREAMIN_address             (top_io_gpi1_streamin_address),              //        io_GPI1_STREAMIN.address
+		.io_GPI1_STREAMIN_readdata            (top_io_gpi1_streamin_readdata),             //                        .readdata
+		.io_GPI1_STREAMIN_chipselect          (top_io_gpi1_streamin_chipselect),           //                        .chipselect
+		.io_GPI1_STREAMIN_read                (top_io_gpi1_streamin_read),                 //                        .read
+		.io_GPO1_STREAMOUT_writedata          (top_io_gpo1_streamout_writedata),           //       io_GPO1_STREAMOUT.writedata
+		.io_GPO1_STREAMOUT_writen             (top_io_gpo1_streamout_write_n),             //                        .write_n
+		.io_GPO1_STREAMOUT_chipselect         (top_io_gpo1_streamout_chipselect),          //                        .chipselect
+		.io_GPO1_STREAMOUT_address            (top_io_gpo1_streamout_address),             //                        .address
+		.io_GPO2_STREAMOUT_address            (top_io_gpo2_streamout_address),             //       io_GPO2_STREAMOUT.address
+		.io_GPO2_STREAMOUT_chipselect         (top_io_gpo2_streamout_chipselect),          //                        .chipselect
+		.io_GPO2_STREAMOUT_writen             (top_io_gpo2_streamout_write_n),             //                        .write_n
+		.io_GPO2_STREAMOUT_writedata          (top_io_gpo2_streamout_writedata)            //                        .writedata
 	);
 
 	Computer_System_Video_In_Subsystem_Video_In video_in (

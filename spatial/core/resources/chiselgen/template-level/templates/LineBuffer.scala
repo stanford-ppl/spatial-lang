@@ -13,9 +13,9 @@ import chisel3.util.MuxLookup
 // See comments below: first should implement read col par, and also read row par == 1
 class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffer: Int, 
   val col_wPar: Int, val col_rPar:Int, 
-  val row_wPar: Int, val row_rPar:Int = 1) extends Module {
+  val row_wPar: Int, val row_rPar:Int, val numAccessors: Int) extends Module {
 
-  def this(tuple: (Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7)
+  def this(tuple: (Int, Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7, tuple._8)
   val io = IO(new Bundle {
     val data_in  = Vec(col_wPar, Input(UInt(32.W)))
     val w_en     = Input(Bool())
@@ -23,8 +23,8 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     // val w_done   = Input(UInt(1.W))
 
     // Buffering signals
-    val sEn = Vec(num_lines, Input(Bool()))
-    val sDone = Vec(num_lines, Input(Bool()))
+    val sEn = Vec(numAccessors, Input(Bool())) // Too many but at least this is safe
+    val sDone = Vec(numAccessors, Input(Bool())) // Too many but at least this is safe
 
     // val r_done   = Input(UInt(1.W)) // Like double buffering
 
@@ -33,6 +33,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     // val row_addr = Input(UInt(1.W)) // ENHANCEMENT: Eventually will be a Vec, but for now ROW_PAR is 1 or num_lines only
     // val data_out = Vec(ROW_PAR, Vec(COL_PAR, Output(UInt(32.W)))) // TODO: Don't use Vec(Vec) since Chisel will switch inputs and outputs
     val data_out = Vec(row_rPar * col_rPar, Output(UInt(32.W)))
+    val swap = Output(Bool()) // for debugging
     // val row_wrap = Output(UInt(1.W))
   })
   
@@ -46,11 +47,11 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   //              etc. 
   
   // Buffering logic
-  val sEn_latch = (0 until num_lines).map{i => Module(new SRFF())}
-  val sDone_latch = (0 until num_lines).map{i => Module(new SRFF())}
+  val sEn_latch = (0 until numAccessors).map{i => Module(new SRFF())}
+  val sDone_latch = (0 until numAccessors).map{i => Module(new SRFF())}
   val swap = Wire(Bool())
   // Latch whether each buffer's stage is enabled and when they are done
-  (0 until num_lines).foreach{ i => 
+  (0 until numAccessors).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i)
     sEn_latch(i).io.input.reset := swap
     sEn_latch(i).io.input.asyn_reset := reset
@@ -60,6 +61,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
+  io.swap := swap
 
   // assert(ROW_PAR == 1 || ROW_PAR == num_lines)
 

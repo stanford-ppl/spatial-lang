@@ -51,6 +51,8 @@ trait ChiselGenMath extends ChiselCodegen {
     }
 
     case FltPow(x,y) => if (emitEn) throw new Exception("Pow not implemented in hardware yet!")
+    case FixFloor(x) => emit(src"val $lhs = Utils.floor($x)")
+    case FixCeil(x) => emit(src"val $lhs = Utils.ceil($x)")
 
     case FltSin(x) =>
       throw new TrigInAccelException(lhs)

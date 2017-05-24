@@ -37,7 +37,12 @@ trait NodeClasses { this: SpatialExp =>
   def isInnerPipe(e: Exp[_]): Boolean = styleOf(e) == InnerPipe || (styleOf(e) == MetaPipe && isInnerControl(e))
   def isInnerPipe(e: Ctrl): Boolean = e.isInner || isInnerPipe(e.node)
   def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe
-  def isStreamPipe(e: Exp[_]): Boolean = styleOf(e) == StreamPipe
+  def isStreamPipe(e: Exp[_]): Boolean = {
+    e match {
+      case Def(Hwblock(_,isFrvr)) => isFrvr
+      case _ => styleOf(e) == StreamPipe
+    }
+  }
   def isMetaPipe(e: Ctrl): Boolean = !e.isInner && isMetaPipe(e.node)
   def isStreamPipe(e: Ctrl): Boolean = !e.isInner && isStreamPipe(e.node)
 
@@ -366,6 +371,12 @@ trait NodeClasses { this: SpatialExp =>
     def en = x._3
   }
 
+  type LocalReset = (Exp[_], Option[Exp[Bool]])
+  implicit class LocalResetOps(x: LocalReset) {
+    def mem = x._1
+    def en = x._2
+  }
+
   private object LocalWrite {
     def apply(mem: Exp[_]): List[LocalWrite] = List( (mem, None, None, None) )
     def apply(mem: Exp[_], value: Exp[_] = null, addr: Seq[Exp[Index]] = null, en: Exp[Bool] = null) = {
@@ -377,6 +388,13 @@ trait NodeClasses { this: SpatialExp =>
     def apply(mem: Exp[_]): List[LocalRead] = List( (mem, None, None) )
     def apply(mem: Exp[_], addr: Seq[Exp[Index]] = null, en: Exp[Bool] = null): List[LocalRead] = {
       List( (mem, Option(addr), Option(en)) )
+    }
+  }
+
+  private object LocalReset {
+    def apply(mem: Exp[_]): List[LocalReset] = List( (mem, None) )
+    def apply(mem: Exp[_], en: Exp[Bool] = null): List[LocalReset] = {
+      List( (mem, Option(en)) )
     }
   }
 
@@ -435,9 +453,18 @@ trait NodeClasses { this: SpatialExp =>
     case _ => None
   }
 
+  def resetterUnapply(d: Def): Option[List[LocalReset]] = d match {
+    case RegReset(reg, en)                       => Some(LocalReset(reg, en=en))
+    case _ => None
+  }
+
   object LocalWriter {
     def unapply(x: Exp[_]): Option[List[LocalWrite]] = getDef(x).flatMap(writerUnapply)
     def unapply(d: Def): Option[List[LocalWrite]] = writerUnapply(d)
+  }
+  object LocalResetter {
+    def unapply(x: Exp[_]): Option[List[LocalReset]] = getDef(x).flatMap(resetterUnapply)
+    def unapply(d: Def): Option[List[LocalReset]] = resetterUnapply(d)
   }
   object LocalReader {
     def unapply(x: Exp[_]): Option[List[LocalRead]] = getDef(x).flatMap(readerUnapply)
@@ -502,6 +529,8 @@ trait NodeClasses { this: SpatialExp =>
   def isReader(d: Def): Boolean = readerUnapply(d).isDefined
   def isWriter(x: Exp[_]): Boolean = LocalWriter.unapply(x).isDefined
   def isWriter(d: Def): Boolean = writerUnapply(d).isDefined
+  def isResetter(x: Exp[_]): Boolean = LocalResetter.unapply(x).isDefined
+  def isResetter(d: Def): Boolean = resetterUnapply(d).isDefined
   def isAccess(x: Exp[_]): Boolean = isReader(x) || isWriter(x)
   def getAccess(x:Exp[_]):Option[Access] = x match {
     case LocalReader(reads) =>
@@ -512,6 +541,10 @@ trait NodeClasses { this: SpatialExp =>
       val was = writes.flatMap{ case (mem, _, _, _) => writersOf(mem).filter {_.node == x} }
       assert(was.size==1)
       Some(was.head)
+    case LocalResetter(resetters) =>
+      val ras = resetters.flatMap{ case (mem, _) => resettersOf(mem).filter {_.node == x} }
+      assert(ras.size==1)
+      Some(ras.head)
     case _ => None
   }
 }

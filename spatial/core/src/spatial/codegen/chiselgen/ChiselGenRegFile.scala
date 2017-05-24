@@ -59,7 +59,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       val dispatch = dispatchOf(lhs, rf).toList.head
       val port = portsOf(lhs, rf, dispatch).toList.head
       emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
-      emit(src"""${lhs}.raw := ${rf}_${dispatch}.readValue(${inds(0)}.raw, ${inds(1)}.raw, $port)""")
+      emit(src"""${lhs}.r := ${rf}_${dispatch}.readValue(${inds(0)}.raw, ${inds(1)}.raw, $port)""")
 
     case op@RegFileStore(rf,inds,data,en) =>
       duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
@@ -100,8 +100,8 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       val dispatch = dispatchOf(lhs, lut).toList.head
       emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
       val parent = parentOf(lhs).get
-      emit(src"""${lut}_${dispatch}.connectRPort(List(${inds.map{a => src"${a}.r"}.mkString(",")}), $en & ${parent}_datapath_en.D(${symDelay(lhs)}))""")
-      emit(src"""${lhs}.raw := ${lut}_${dispatch}.io.data_out.raw""")
+      emit(src"""val ${lhs}_id = ${lut}_${dispatch}.connectRPort(List(${inds.map{a => src"${a}.r"}.mkString(",")}), $en & ${parent}_datapath_en.D(${symDelay(lhs)}))""")
+      emit(src"""${lhs}.raw := ${lut}_${dispatch}.io.data_out(${lhs}_id).raw""")
 
     case _ => super.emitNode(lhs, rhs)
   }
@@ -110,36 +110,10 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
   override protected def emitFileFooter() {
     withStream(getStream("BufferControlCxns")) {
       nbufs.foreach{ case (mem, i) => 
-        val readers = readersOf(mem)
-        val writers = writersOf(mem)
-        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
-        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
-        // Console.println(s"working on $mem $i $readers $readPorts $writers $writePorts")
-        // Console.println(s"${readPorts.map{case (_, readers) => readers}}")
-        // Console.println(s"innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
-        // Console.println(s"middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
-        // Console.println(s"outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
-        val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
-        val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
-        val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
-        val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
-        val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
-        val numStagesInbetween = lastActivePort - firstActivePort
-
-        (0 to numStagesInbetween).foreach { port =>
-          val ctrlId = port + firstActivePort
-          val node = allSiblings(ctrlId)
-          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else {
-            // emit(src"""${mem}_${i}.readTieDown(${port})""")
-            ""
-          }
-          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else {""}
-          val empty = if (rd == "" & wr == "") "empty" else ""
-          emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
+        val info = bufferControlInfo(mem, i)
+        info.zipWithIndex.foreach{ case (inf, port) => 
+          emit(src"""${mem}_${i}.connectStageCtrl(${quote(inf._1)}_done, ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
         }
-
 
       }
     }

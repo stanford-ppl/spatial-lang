@@ -146,7 +146,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(s"""// Assemble multidimR vector""")
       emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, 32)))""")
       if (dispatch.toList.length == 1) {
-        val k = dispatch.toList.head
+        val k = dispatch.toList.head 
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         inds.zipWithIndex.foreach{ case (ind, i) =>
           emit(src"${lhs}_rVec($i).en := chisel3.util.ShiftRegister(${parent}_en, ${symDelay(lhs)}) & ${ens(i)}")
@@ -158,7 +158,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""val ${lhs}_base = ${sram}_$k.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
         sram.tp.typeArguments.head match { 
           case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-              emit(s"""val ${quote(lhs)} = (0 until ${rPar}).map{i => Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base+i))}""")
+              emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""") 
+              emit(s"""(0 until ${rPar}).foreach{i => ${quote(lhs)}(i).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base+i) }""")
             } else {
               emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$k.io.output.data(${lhs}_base+i) }""")
             }
@@ -176,7 +177,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
           emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${lhs}_rVec.toArray), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
           sram.tp.typeArguments.head match { 
             case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-                emit(s"""${quote(lhs)}($k) := Utils.FixedPoint($s,$d,$f, ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k))""")
+                emit(s"""${quote(lhs)}($k).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k)""")
               } else {
                 emit(src"""$lhs := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
               }
@@ -265,9 +266,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
       strm match {
         case Def(StreamInNew(bus)) => bus match {
           case VideoCamera => 
-            emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
+            emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
+            emit(src"""${strm}_ready := ${parent}_datapath_en & ${ens.mkString("&")} & chisel3.util.ShiftRegister(${parent}_datapath_en, ${parent}_retime) """)
           case SliderSwitch => 
-            emit(src"""val $lhs = io.switch_stream_in_data""")
+            emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
           case _ => 
             val isAck = strm match { // TODO: Make this clean, just working quickly to fix bug for Tian
               case Def(StreamInNew(bus)) => bus match {
@@ -277,7 +279,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
               }
               case _ => false
             }
-            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) // Do not delay ready because datapath includes a delayed _valid already """)
+            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${parent}_datapath_en & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
             if (!isAck) {
               // emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}(i) }""")
               emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
@@ -299,6 +301,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
             emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
             emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
             emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
+            emitGlobalWire(src"""val stream_out_startofpacket = Wire(Bool())""")
+            emitGlobalWire(src"""val stream_out_endofpacket = Wire(Bool())""")
+            emit(src"""stream_out_startofpacket := Utils.risingEdge(${parent}_datapath_en)""")
+            emit(src"""stream_out_endofpacket := ${parent}_done""")
             emit(src"""// emiiting data for stream ${stream}""")
             emit(src"""${stream} := ${data.head}""")
             emit(src"""converted_data := ${stream}""")
@@ -319,7 +325,11 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 
         emit(src"$lb.io.col_addr(0) := ${col}.raw // Assume we always read from same col")
-        emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${row}.raw)")
+        val rowtext = row match {
+          case c: Const[_] => "0.U"
+          case _ => src"${row}.r"
+        }
+        emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${rowtext})")
       }
       emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${rows.length}, UInt(32.W)))""")
       emit(s"""${quote(lhs)} := Vec(${(0 until rows.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
@@ -337,15 +347,15 @@ trait ChiselGenUnrolled extends ChiselGenController {
       ens.zipWithIndex.foreach { case (en, i) => 
         if (spatialNeedsFPType(lhs.tp.typeArguments.head)) { lhs.tp.typeArguments.head match {
           case FixPtType(s,d,f) => 
-            emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
+            if (i == 0) emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
             emit(src"""val ${lhs}_$i = Wire(new FixedPoint($s, $d, $f))""")
-            emit(src"""${lhs}_$i := ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
+            emit(src"""${lhs}_${i}.r := ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
           case _ =>
-            emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
+            if (i == 0) emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
+            emit(src"""val ${lhs}_${i}.r = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
         }} else {
-            emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_$i = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
+            if (i == 0) emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
+            emit(src"""val ${lhs}_${i}.r = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
         }
       }
       emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")

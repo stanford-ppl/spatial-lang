@@ -165,6 +165,17 @@ trait SpatialMetadataExp extends IndexPatternExp { this: SpatialExp =>
   }
 
   /**
+    * List of resetters for a given memory
+    **/
+  case class Resetters(resetters: List[Access]) extends Metadata[Resetters] {
+    def mirror(f:Tx) = Resetters(resetters.map(mirrorAccess(_,f)))
+  }
+  object resettersOf {
+    def apply(x: Exp[_]): List[Access] = metadata[Resetters](x).map(_.resetters).getOrElse(Nil)
+    def update(x: Exp[_], resetters: List[Access]) = metadata.add(x, Resetters(resetters))
+  }
+
+  /**
     * Controller children
     * An unordered set of control nodes inside given (outer) control node.
     **/
