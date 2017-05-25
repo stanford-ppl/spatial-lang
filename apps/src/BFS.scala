@@ -142,8 +142,8 @@ object BFS_FSM extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 1
     val depth = ArgIn[Int]
     val d = args(1).to[Int]
     setArg(depth, d)
-    val anpe = ArgIn[Int]
-    setArg(anpe, average_nodes_per_edge)
+    // val anpe = ArgIn[Int]
+    // setArg(anpe, average_nodes_per_edge)
 
     Accel {
       val init = 0
@@ -163,6 +163,8 @@ object BFS_FSM extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 1
         if (state == init.to[Int]) {
           frontier(0) = 0.to[Int]
         } else if (state == gatherEdgeInfo.to[Int]) {
+          // Increment layer
+          layer :+= 1
           // Collect edge ids and lens
           idList gather ids(frontier par 1, size.value)
           lenList gather lens(frontier par 1, size.value)

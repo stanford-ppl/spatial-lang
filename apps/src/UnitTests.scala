@@ -33,6 +33,86 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 5
   }
 }
 
+object TensorLoadStore extends SpatialApp { // DISABLED Regression (Unit) // args: 32 4 4 4 4
+  import IR._
+
+  @virtualize
+  def main() {
+    // For 3D
+    val tsP = 2
+    val tsR = 2
+    val tsC = 16
+    val P = ArgIn[Int]
+    val R = ArgIn[Int]
+    val C = ArgIn[Int]
+    val c = args(0).to[Int]
+    val r = args(1).to[Int]
+    val p = args(2).to[Int]
+    setArg(P, p)
+    setArg(R, r)
+    setArg(C, c)
+    val srcDRAM3 = DRAM[Int](P,R,C)
+    val dstDRAM3 = DRAM[Int](P,R,C)
+    val data3 = (0::p, 0::r, 0::c){(p,r,c) => r+c+p /*random[Int](5)*/}
+    setMem(srcDRAM3, data3)
+
+    // For 4D
+    val tsX = 2
+    val X = ArgIn[Int]
+    val x = args(3).to[Int]
+    setArg(X, x)
+    val srcDRAM4 = DRAM[Int](X,P,R,C)
+    val dstDRAM4 = DRAM[Int](X,P,R,C)
+    val data4 = (0::x, 0::p, 0::r, 0::c){(x,p,r,c) => x+r+c+p /*random[Int](5)*/}
+    setMem(srcDRAM4, data4)
+
+    // For 5D
+    val tsY = 2
+    val Y = ArgIn[Int]
+    val y = args(4).to[Int]
+    setArg(Y, y)
+    val srcDRAM5 = DRAM[Int](Y,X,P,R,C)
+    val dstDRAM5 = DRAM[Int](Y,X,P,R,C)
+    val data5 = (0::y, 0::x, 0::p, 0::r, 0::c){(y,x,p,r,c) => y+x+r+c+p /*random[Int](5)*/}
+    setMem(srcDRAM5, data5)
+
+    Accel {
+      val sram3 = SRAM[Int](tsP,tsR,tsC)
+      Foreach(P by tsP, R by tsR, C by tsC) { (i,j,k) => 
+        sram3 load srcDRAM3(i::i+tsP, j::j+tsR, k::k+tsC)
+        dstDRAM3(i::i+tsP, j::j+tsR, k::k+tsC) store sram3
+      }
+      val sram4 = SRAM[Int](tsX,tsP,tsR,tsC)
+      Foreach(X by tsX, P by tsP, R by tsR, C by tsC) { case List(h,i,j,k) => 
+        sram4 load srcDRAM4(h::h+tsX, i::i+tsP, j::j+tsR, k::k+tsC)
+        dstDRAM4(h::h+tsX, i::i+tsP, j::j+tsR, k::k+tsC) store sram4
+      }
+      val sram5 = SRAM[Int](tsY,tsX,tsP,tsR,tsC)
+      Foreach(Y by tsY, X by tsX, P by tsP, R by tsR, C by tsC) { case List(g,h,i,j,k) => 
+        sram5 load srcDRAM5(g::g+tsY, h::h+tsX, i::i+tsP, j::j+tsR, k::k+tsC)
+        dstDRAM5(g::g+tsY, h::h+tsX, i::i+tsP, j::j+tsR, k::k+tsC) store sram5
+      }
+    }
+
+
+    // Extract results from accelerator
+    val result3 = getTensor3(dstDRAM3)
+    printTensor3(result3, "got: ")
+    printTensor3(data3, "wanted; ")
+    println("")
+    val result4 = getTensor4(dstDRAM4)
+    printTensor4(result4, "got: ")
+    printTensor4(data4, "wanted; ")
+    println("")
+    val result5 = getTensor5(dstDRAM5)
+    printTensor5(result5, "got: ")
+    printTensor5(data5, "wanted; ")
+
+    val cksum = result3.zip(data3){_ == _}.reduce{_&&_} && result4.zip(data4){_ == _}.reduce{_&&_} && result5.zip(data5){_ == _}.reduce{_&&_}
+    println("PASS: " + cksum + " (TensorLoadStore)")
+  }
+}
+
 object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
   import IR._
 
@@ -54,7 +134,10 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
          8,  9, -10, 11,
         12, 13, 14, -15
       )
-      y := lut(1, 3) + lut(3, 3) + lut(i, i)
+      val red = Reduce(Reg[Int](0))(3 by 1 par 3) {q =>
+        lut(q,q)
+      }{_+_}
+      y := lut(1, 3) + lut(3, 3) + red + lut(i,0)
     }
 
 
@@ -62,7 +145,7 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = -15 + 7 - 5*(ii)
+    val gold = -15 + 7 - 0 - 5 - 10 + 4*ii
     println("expected: " + gold)
     println("result: " + result)
 
@@ -93,7 +176,8 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     setArg(io2, cst2)
     setArg(x1, cst3)
     setArg(x2, cst4)
-    val data = Array.tabulate(16){i => i}
+    val data = Array.const[Int](0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15)
+    // val data = Array.tabulate(16){i => i}
     setMem(m1, data)
 
     Accel {
@@ -218,10 +302,11 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
       Sequential.Foreach(N by T){i =>
         wt load weights(i::i+T par 16)
         in load inputs(i::i+T par 16)
-
+        val niter = Reg[Int]
+        niter.reset
         Foreach(I by 1){x =>
-          val niter = Reg[Int]
-          niter := x+1
+          // niter := niter + 1
+          niter :+= 1
           MemReduce(wt)(niter by 1){ k =>  // s0 write
             in
           }{_+_}
@@ -630,7 +715,7 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
       Foreach(N by tileSize) { i =>
         f1 load src1FPGA(i::i+tileSize par P1)
         val accum = Reg[T](0.to[T])
-        Pipe {accum.reset}
+        accum.reset
         Reduce(accum)(tileSize by 1 par 1){i =>
           f1.deq()
         }{_+_}
@@ -2173,16 +2258,17 @@ object NestedIfs extends SpatialApp {
     setArg(in, x)
     Accel {
       val sram = SRAM[Int](3)
-      if (in >= 42.to[Int]) {
-        if (in <= 43.to[Int]) {
-          sram(in - 41.to[Int]) = 10.to[Int]
+      if (in >= 42.to[Int]) {     // if (43 >= 42)
+        if (in <= 43.to[Int]) {   // if (43 <= 43)
+          sram(in - 41.to[Int]) = 10.to[Int] // sram(2) = 10
         }
-      } else {
+      }
+      else {
         if (in <= 2.to[Int]){
           sram(in) = 20.to[Int]
         }
       }
-      out := sram(1)
+      out := sram(2)
     }
     getArg(out)
   }

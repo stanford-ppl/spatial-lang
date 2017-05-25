@@ -20,6 +20,8 @@ Getting Started
 
 Check out our :doc:`tutorial <tutorial/starting>` to get started!
 
+If you prefer to learn by example, take a look at our :doc:`Spatial code examples <examples>`
+
 
 Contents
 --------
@@ -31,4 +33,5 @@ Contents
    software
    hardware
    tutorial
+   examples
    theory

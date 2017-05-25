@@ -23,6 +23,27 @@ trait HostTransferApi extends HostTransferExp { this: SpatialApi =>
     val data = getMem(dram)
     matrix(data, wrap(dims(0)), wrap(dims(1)))
   }
+
+  @api def setMem[T:Meta:Bits](dram: DRAM[T], tensor3: Tensor3[T]): Void = setMem(dram, tensor3.data)
+  @api def getTensor3[T:Meta:Bits](dram: DRAM3[T])(implicit ctx: SrcCtx): Tensor3[T] = {
+    val dims = stagedDimsOf(dram.s)
+    val data = getMem(dram)
+    tensor3(data, wrap(dims(0)), wrap(dims(1)), wrap(dims(2)))
+  }
+
+  @api def setMem[T:Meta:Bits](dram: DRAM[T], tensor4: Tensor4[T]): Void = setMem(dram, tensor4.data)
+  @api def getTensor4[T:Meta:Bits](dram: DRAM4[T])(implicit ctx: SrcCtx): Tensor4[T] = {
+    val dims = stagedDimsOf(dram.s)
+    val data = getMem(dram)
+    tensor4(data, wrap(dims(0)), wrap(dims(1)), wrap(dims(2)), wrap(dims(3)))
+  }
+
+  @api def setMem[T:Meta:Bits](dram: DRAM[T], tensor5: Tensor5[T]): Void = setMem(dram, tensor5.data)
+  @api def getTensor5[T:Meta:Bits](dram: DRAM5[T])(implicit ctx: SrcCtx): Tensor5[T] = {
+    val dims = stagedDimsOf(dram.s)
+    val data = getMem(dram)
+    tensor5(data, wrap(dims(0)), wrap(dims(1)), wrap(dims(2)), wrap(dims(3)), wrap(dims(4)))
+  }
 }
 
 trait HostTransferExp { this: SpatialExp =>

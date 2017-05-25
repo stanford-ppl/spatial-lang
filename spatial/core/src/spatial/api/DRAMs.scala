@@ -10,7 +10,7 @@ trait DRAMApi extends DRAMExp { this: SpatialApi =>
 
   @api def DRAM[T:Type:Bits](d1: Index): DRAM1[T] = DRAM1(dram_alloc[T,DRAM1](d1.s))
   @api def DRAM[T:Type:Bits](d1: Index, d2: Index): DRAM2[T] = DRAM2(dram_alloc[T,DRAM2](d1.s,d2.s))
-  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index): DRAM3[T] = DRAM3(dram_alloc[T,DRAM3](d1.s,d2.s))
+  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index): DRAM3[T] = DRAM3(dram_alloc[T,DRAM3](d1.s,d2.s,d3.s))
   @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index, d4: Index): DRAM4[T] = DRAM4(dram_alloc[T,DRAM4](d1.s,d2.s,d3.s,d4.s))
   @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index, d4: Index, d5: Index): DRAM5[T] = DRAM5(dram_alloc[T,DRAM5](d1.s,d2.s,d3.s,d4.s,d5.s))
 }
@@ -119,7 +119,7 @@ trait DRAMExp { this: SpatialExp =>
     @api def apply(x: Range, q: Range, p: Range, r: Range, c: Index) = DRAMDenseTile4(this.s, Seq(x, q, p, r, c.toRange))
     @api def apply(x: Range, q: Range, p: Range, r: Range, c: Range) = DRAMDenseTile5(this.s, Seq(x, q, p, r, c))
 
-    @api def store(sram: SRAM4[T]): Void = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
+    @api def store(sram: SRAM5[T]): Void = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
     @api def address: Int64 = wrap(get_dram_addr(this.s))
   }
 
@@ -147,7 +147,7 @@ trait DRAMExp { this: SpatialExp =>
     @api def store(sram: SRAM4[T]): Void   = dense_transfer(this, sram, isLoad = false)
   }
   case class DRAMDenseTile5[T:Meta:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
-    @api def store(sram: SRAM2[T]): Void   = dense_transfer(this, sram, isLoad = false)
+    @api def store(sram: SRAM5[T]): Void   = dense_transfer(this, sram, isLoad = false)
   }
 
   /** Sparse Tiles are limited to 1D right now **/

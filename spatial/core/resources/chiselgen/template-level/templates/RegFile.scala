@@ -330,7 +330,7 @@ class LUT(val dims: List[Int], val inits: List[Float], val numReaders: Int, val 
 
   // io.data_out := Mux1H(onehot, options)
   (0 until numReaders).foreach{i =>
-    io.data_out(i) := Utils.FixedPoint(true,32,0,flat_addr(i).asUInt)
+    io.data_out(i) := MuxLookup(flat_addr(i), 0.S, options).asUInt
   }
   // val selected = MuxLookup(active_addr, 0.S, options)
 
