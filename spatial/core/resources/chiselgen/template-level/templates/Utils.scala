@@ -158,6 +158,10 @@ object ops {
       Utils.FixedPoint(s, d, f, b)
     }
 
+    def cast(c: FixedPoint): Unit = {
+      c.r := Utils.FixedPoint(c.s,c.d,c.f,b).r
+    }
+
 
   }
   implicit class IntOps(val b: Int) {
