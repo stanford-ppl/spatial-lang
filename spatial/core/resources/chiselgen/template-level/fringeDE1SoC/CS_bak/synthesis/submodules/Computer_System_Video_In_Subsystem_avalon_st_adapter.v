@@ -7,16 +7,16 @@
 
 `timescale 1 ps / 1 ps
 module Computer_System_Video_In_Subsystem_avalon_st_adapter #(
-		parameter inBitsPerSymbol = 8,
+		parameter inBitsPerSymbol = 16,
 		parameter inUsePackets    = 1,
-		parameter inDataWidth     = 24,
+		parameter inDataWidth     = 16,
 		parameter inChannelWidth  = 0,
 		parameter inErrorWidth    = 0,
 		parameter inUseEmptyPort  = 0,
 		parameter inUseValid      = 1,
 		parameter inUseReady      = 1,
 		parameter inReadyLatency  = 0,
-		parameter outDataWidth    = 24,
+		parameter outDataWidth    = 16,
 		parameter outChannelWidth = 0,
 		parameter outErrorWidth   = 0,
 		parameter outUseEmptyPort = 1,
@@ -26,17 +26,17 @@ module Computer_System_Video_In_Subsystem_avalon_st_adapter #(
 	) (
 		input  wire        in_clk_0_clk,        // in_clk_0.clk
 		input  wire        in_rst_0_reset,      // in_rst_0.reset
-		input  wire [23:0] in_0_data,           //     in_0.data
+		input  wire [15:0] in_0_data,           //     in_0.data
 		input  wire        in_0_valid,          //         .valid
 		output wire        in_0_ready,          //         .ready
 		input  wire        in_0_startofpacket,  //         .startofpacket
 		input  wire        in_0_endofpacket,    //         .endofpacket
-		output wire [23:0] out_0_data,          //    out_0.data
+		output wire [15:0] out_0_data,          //    out_0.data
 		output wire        out_0_valid,         //         .valid
 		input  wire        out_0_ready,         //         .ready
 		output wire        out_0_startofpacket, //         .startofpacket
 		output wire        out_0_endofpacket,   //         .endofpacket
-		output wire [1:0]  out_0_empty          //         .empty
+		output wire        out_0_empty          //         .empty
 	);
 
 	generate
@@ -45,7 +45,7 @@ module Computer_System_Video_In_Subsystem_avalon_st_adapter #(
 		// has been instantiated this module with a set of parameters different
 		// from those it was generated for.  This will usually result in a
 		// non-functioning system.
-		if (inBitsPerSymbol != 8)
+		if (inBitsPerSymbol != 16)
 		begin
 			initial begin
 				$display("Generated module instantiated with wrong parameters");
@@ -63,7 +63,7 @@ module Computer_System_Video_In_Subsystem_avalon_st_adapter #(
 			instantiated_with_wrong_parameters_error_see_comment_above
 					inusepackets_check ( .error(1'b1) );
 		end
-		if (inDataWidth != 24)
+		if (inDataWidth != 16)
 		begin
 			initial begin
 				$display("Generated module instantiated with wrong parameters");
@@ -126,7 +126,7 @@ module Computer_System_Video_In_Subsystem_avalon_st_adapter #(
 			instantiated_with_wrong_parameters_error_see_comment_above
 					inreadylatency_check ( .error(1'b1) );
 		end
-		if (outDataWidth != 24)
+		if (outDataWidth != 16)
 		begin
 			initial begin
 				$display("Generated module instantiated with wrong parameters");

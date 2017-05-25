@@ -141,6 +141,26 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
+  def appendResetter(resetter: Exp[_], ctrl: Ctrl) = {
+    val LocalResetter(resetters) = resetter
+    resetters.foreach{case (mem,en) =>
+      val access = (resetter, ctrl)
+
+      if (!resettersOf(mem).contains(access))
+        resettersOf(mem) = access +: resettersOf(mem)
+
+      dbg(c"Added resetter $resetter of $mem in $ctrl")
+    }
+  }
+
+  def addResetter(resetter: Exp[_], ctrl: Ctrl) = {
+    if (isInnerControl(ctrl))
+      appendResetter(resetter, ctrl)
+    else {
+      throw new Exception("Cannot have resetter outside of an inner pipe!")
+    }
+  }
+
   // (1, 7)
   def addAllocation(alloc: Exp[_], ctrl: Exp[_]) = {
     dbg(c"Setting parent of $alloc to $ctrl")
@@ -260,6 +280,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       if (isStreamStageHolder(lhs)) addStreamEnq(lhs, parent.node)
       if (isReader(lhs)) addReader(lhs, parent)               // (4)
       if (isWriter(lhs)) addWriter(lhs, parent)               // (5, 6, 10)
+      if (isResetter(lhs)) addResetter(lhs, parent)
     }
     else {
       checkPendingNodes(lhs, rhs, None)

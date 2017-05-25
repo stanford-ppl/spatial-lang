@@ -72,9 +72,10 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emitGlobalWire(src"""val ${turnstiling_stage}_enq = io.memStreams.loads(${id}).rdata.valid""")
 
       // Connect the streams to their IO interface signals
-      emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := b}""")
-      emit(src"""${dataStream}_valid := io.memStreams.loads($id).rdata.valid""")
-      emit(src"${cmdStream}_ready := io.memStreams.loads($id).cmd.ready")
+      emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := ShiftRegister(b, ${symDelay(readersOf(dataStream).head.node)})}""")
+      emit(src"""${dataStream}_now_valid := io.memStreams.loads($id).rdata.valid""")
+      emit(src"""${dataStream}_valid := ${dataStream}_now_valid.D(${symDelay(readersOf(dataStream).head.node)})""")
+      emit(src"${cmdStream}_ready := io.memStreams.loads($id).cmd.ready.D(${symDelay(writersOf(cmdStream).head.node)})")
 
       // Connect the IO interface signals to their streams
       val (addrMSB, addrLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "offset")
@@ -101,9 +102,10 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       val turnstiling_stage = getLastChild(parentOf(lhs).get)
       emitGlobalWire(src"""val ${turnstiling_stage}_enq = io.memStreams.loads(${id}).rdata.valid""")
 
-      emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := b}""")
-      emit(src"""${dataStream}_valid := io.memStreams.loads($id).rdata.valid""")
-      emit(src"${addrStream}_ready := io.memStreams.loads($id).cmd.ready")
+      emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := ShiftRegister(b, ${symDelay(readersOf(dataStream).head.node)})}""")
+      emit(src"""${dataStream}_now_valid := io.memStreams.loads($id).rdata.valid""")
+      emit(src"""${dataStream}_valid := ${dataStream}_now_valid.D(${symDelay(readersOf(dataStream).head.node)})""")
+      emit(src"${addrStream}_ready := io.memStreams.loads($id).cmd.ready.D(${symDelay(writersOf(addrStream).head.node)})")
       emit(src"io.memStreams.loads($id).rdata.ready := ${dataStream}_ready")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${addrStream}(0).r // TODO: Is sparse addr stream always a vec?")
       emit(src"io.memStreams.loads($id).cmd.bits.size := 1.U")
@@ -137,8 +139,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emit(src"io.memStreams.stores($id).cmd.valid :=  ${cmdStream}_valid")
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := ~${cmdStream}($isLdMSB,$isLdLSB)")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
-      emit(src"${cmdStream}_ready := io.memStreams.stores($id).wdata.ready")
-      emit(src"""${ackStream}_valid := io.memStreams.stores($id).wresp.valid""")
+      emit(src"${cmdStream}_ready := io.memStreams.stores($id).wdata.ready.D(${symDelay(writersOf(cmdStream).head.node)})")
+      emit(src"""${ackStream}_now_valid := io.memStreams.stores($id).wresp.valid""")
+      emit(src"""${ackStream}_valid := ${ackStream}_now_valid.D(${symDelay(readersOf(ackStream).head.node)})""")
       emit(src"""io.memStreams.stores($id).wresp.ready := ${ackStream}_ready""")
 
     case FringeSparseStore(dram,cmdStream,ackStream) =>
@@ -162,8 +165,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emit(src"io.memStreams.stores($id).cmd.valid :=  ${cmdStream}_valid")
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := 1.U")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 1.U")
-      emit(src"${cmdStream}_ready := io.memStreams.stores($id).wdata.ready")
-      emit(src"""${ackStream}_valid := io.memStreams.stores($id).wresp.valid""")
+      emit(src"${cmdStream}_ready := io.memStreams.stores($id).wdata.ready.D(${symDelay(writersOf(cmdStream).head.node)})")
+      emit(src"""${ackStream}_now_valid := io.memStreams.stores($id).wresp.valid""")
+      emit(src"""${ackStream}_valid := ${ackStream}_now_valid.D(${symDelay(readersOf(ackStream).head.node)})""")
       emit(src"""io.memStreams.stores($id).wresp.ready := ${ackStream}_ready""")
 
     case _ => super.emitNode(lhs, rhs)

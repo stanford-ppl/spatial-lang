@@ -2,6 +2,8 @@ package templates
 
 import chisel3._
 import templates.Utils.log2Up
+import chisel3.util.{MuxLookup, Mux1H}
+import Utils._
 
 
 /*
@@ -298,8 +300,49 @@ class NBufShiftRegFile(val height: Int, val width: Int, val stride: Int, val num
     }
   }
 
-
-
   
 }
 
+class LUT(val dims: List[Int], val inits: List[Float], val numReaders: Int, val width: Int, val fracBits: Int) extends Module {
+
+  def this(tuple: (List[Int], List[Float], Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
+  val io = IO(new Bundle { 
+    val addr = Vec(numReaders*dims.length, Input(UInt(32.W)))
+    // val en = Vec(numReaders, Input(Bool()))
+    val data_out = Vec(numReaders, Output(new types.FixedPoint(true, 32, 0)))
+  })
+
+  assert(dims.reduce{_*_} == inits.length)
+  val options = (0 until dims.reduce{_*_}).map { i => 
+    val initval = (inits(i)*scala.math.pow(2,fracBits)).toInt
+    // initval.U
+    ( i.U -> initval.S(32.W) )
+  }
+
+  val flat_addr = (0 until numReaders).map{ k => 
+    val base = k*dims.length
+    (0 until dims.length).map{ i => 
+      (io.addr(i + base) * (dims.drop(i).reduce{_*_}/dims(i)).U(32.W))(31,0) // TODO: Why is chisel being so stupid with this type when used in the MuxLookup
+    }.reduce{_+_}
+  }
+
+  // val active_addr = Mux1H(io.en, flat_addr)
+
+  // io.data_out := Mux1H(onehot, options)
+  (0 until numReaders).foreach{i =>
+    io.data_out(i) := MuxLookup(flat_addr(i), 0.S, options).asUInt
+  }
+  // val selected = MuxLookup(active_addr, 0.S, options)
+
+  var rId = 0
+  def connectRPort(addrs: List[UInt], en: Bool): Int = {
+    (0 until addrs.length).foreach{ i => 
+      val base = rId * addrs.length
+      io.addr(base + i) := addrs(i)
+    }
+    // io.en(rId) := en
+    rId = rId + 1
+    rId - 1
+  }
+  
+}

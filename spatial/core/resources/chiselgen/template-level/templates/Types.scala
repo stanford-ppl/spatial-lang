@@ -146,6 +146,14 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 	}
 	
+
+	def raw_dec[T] (): UInt = {
+		this.number(d+f-1, f)
+	}
+	def raw_frac[T] (): UInt = {
+		this.number(f, 0)
+	}
+
 	// Arithmetic
 	override def connect (rawop: Data)(implicit sourceInfo: SourceInfo, connectionCompileOptions: chisel3.core.CompileOptions): Unit = {
 		rawop match {
@@ -296,6 +304,40 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				this % op_cast
 
 		}
+	}
+
+	def floor[T] (): FixedPoint = {
+		val return_type = (s, d, f)
+		val result = Wire(new FixedPoint(return_type))
+		result.r := util.Cat(this.raw_dec, util.Fill(f, false.B))			
+		result
+	}
+
+	def ceil[T] (): FixedPoint = {
+		val return_type = (s, d, f)
+		val result = Wire(new FixedPoint(return_type))
+		val stay = this.raw_frac === 0.U
+		result.r := Mux(stay, this.number.r, util.Cat(this.raw_dec + 1.U, util.Fill(f, false.B)))
+		result
+	}
+
+	def >>[T] (shift: Int, sgnextend: Boolean = false): FixedPoint = {
+		val return_type = (s, d, f)
+		val result = Wire(new FixedPoint(return_type))
+		if (sgnextend) {
+			result.r := util.Cat(util.Fill(shift, number.msb), number(d+f-1, shift))
+		} else {
+			result.r := this.number >> shift			
+		}
+		result
+	}
+	def >>>[T] (shift: Int): FixedPoint = {this.>>(shift, sgnextend = true)}
+
+	def <<[T] (shift: Int): FixedPoint = {
+		val return_type = (s, d, f)
+		val result = Wire(new FixedPoint(return_type))
+		result.r := this.number << shift			
+		result
 	}
 
 	def <[T] (rawop: T): Bool = { // TODO: Probably completely wrong for signed fixpts

@@ -17,6 +17,48 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.remap(tp)
   }
 
+  protected def bufferControlInfo(mem: Exp[_], i: Int = 0): List[(Exp[_], String)] = {
+    val readers = readersOf(mem)
+    val writers = writersOf(mem)
+    val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }.toList
+    val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }.toList
+    // Console.println(s"working on $mem $i $readers $readPorts $writers $writePorts")
+    // Console.println(s"${readPorts.map{case (_, readers) => readers}}")
+    // Console.println(s"innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
+    // Console.println(s"middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
+    // Console.println(s"outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
+    val readCtrls = readPorts.map{case (port, readers) =>
+      val readTops = readers.flatMap{a => topControllerOf(a, mem, i) }
+      readTops.headOption.getOrElse{throw new Exception(u"Memory $mem, instance $i, port $port had no read top controllers") }
+    }
+    if (readCtrls.isEmpty) throw new Exception(u"Memory $mem, instance $i had no readers?")
+
+    // childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
+
+    val allSiblings = childrenOf(parentOf(readCtrls.head.node).get)
+    val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+    val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+    val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
+    val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
+    val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
+    val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
+    val numStagesInbetween = lastActivePort - firstActivePort
+
+    val info = (0 to numStagesInbetween).map { port =>
+      val ctrlId = port + firstActivePort
+      val node = allSiblings(ctrlId)
+      val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else {
+        // emit(src"""${mem}_${i}.readTieDown(${port})""")
+        ""
+      }
+      val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else {""}
+      val empty = if (rd == "" & wr == "") "empty" else ""
+      (node, src"/*$rd $wr $empty*/")
+    }
+
+    info.toList
+  }
+
   // Emit an SRFF that will block a counter from incrementing after the counter reaches the max
   //  rather than spinning even when there is retiming and the surrounding loop has a delayed
   //  view of the counter done signal
@@ -26,7 +68,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emitGlobalModule(src"val ${lhs}_inhibitor = Wire(Bool())")
       if (fsm.isDefined) {
           emit(src"${lhs}_inhibit.io.input.set := ~${fsm.get}")  
-          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data")        
+          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | ~${fsm.get} // Really want inhibit to turn on at last enabled cycle")        
       } else {
         if (cchain.isDefined) {
           emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
@@ -220,45 +262,10 @@ trait ChiselGenSRAM extends ChiselCodegen {
   override protected def emitFileFooter() {
     withStream(getStream("BufferControlCxns")) {
       nbufs.foreach{ case (mem, i) => 
-        val readers = readersOf(mem)
-        val writers = writersOf(mem)
-        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }.toList
-        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }.toList
-        // Console.println(s"working on $mem $i $readers $readPorts $writers $writePorts")
-        // Console.println(s"${readPorts.map{case (_, readers) => readers}}")
-        // Console.println(s"innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
-        // Console.println(s"middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
-        // Console.println(s"outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
-        val readCtrls = readPorts.map{case (port, readers) =>
-          val readTops = readers.flatMap{a => topControllerOf(a, mem, i) }
-          readTops.headOption.getOrElse{throw new Exception(u"Memory $mem, instance $i, port $port had no read top controllers") }
+        val info = bufferControlInfo(mem, i)
+        info.zipWithIndex.foreach{ case (inf, port) => 
+          emit(src"""${mem}_${i}.connectStageCtrl(${quote(inf._1)}_done, ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
         }
-        if (readCtrls.isEmpty) throw new Exception(u"Memory $mem, instance $i had no readers?")
-
-        // childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
-
-        val allSiblings = childrenOf(parentOf(readCtrls.head.node).get)
-        val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
-        val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
-        val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
-        val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
-        val numStagesInbetween = lastActivePort - firstActivePort
-
-        (0 to numStagesInbetween).foreach { port =>
-          val ctrlId = port + firstActivePort
-          val node = allSiblings(ctrlId)
-          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else {
-            // emit(src"""${mem}_${i}.readTieDown(${port})""")
-            ""
-          }
-          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else {""}
-          val empty = if (rd == "" & wr == "") "empty" else ""
-          emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
-        }
-
-
       }
     }
 

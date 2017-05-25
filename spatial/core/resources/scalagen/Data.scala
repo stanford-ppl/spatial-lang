@@ -88,6 +88,14 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
 
   def unary_-() = Number(-this.value, valid, fmt)
   def unary_~() = Number(~this.fixValue, valid, fmt)
+  def floor() = {
+    val adjustment = if (this < 0) -1 else 0
+    Number(this.value - (this.value % 1) + adjustment, this.valid, fmt)
+  }
+  def ceil() = {
+    val adjustment = if (this.fixValue == 0) 0 else {if (this < 0) 0 else 1}
+    Number(this.value - (this.value % 1) + adjustment , this.valid, fmt)
+  }
   def +(that: Number) = Number(this.value + that.value, this.valid && that.valid, fmt)
   def -(that: Number) = Number(this.value - that.value, this.valid && that.valid, fmt)
   def *(that: Number) = Number(this.value * that.value, this.valid && that.valid, fmt)

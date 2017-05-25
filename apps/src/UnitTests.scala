@@ -50,11 +50,14 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     Accel {
       val lut = LUT[Int](4, 4)(
          0,  1,  2,  3,
-         4,  5,  6,  7,
-         8,  9, 10, 11,
-        12, 13, 14, 15
+         4,  -5,  6,  7,
+         8,  9, -10, 11,
+        12, 13, 14, -15
       )
-      y := lut(1, 3) + lut(3, 3) + lut(i, i)
+      val red = Reduce(Reg[Int](0))(3 by 1 par 3) {q =>
+        lut(q,q)
+      }{_+_}
+      y := lut(1, 3) + lut(3, 3) + red + lut(i,0)
     }
 
 
@@ -62,7 +65,7 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = 26
+    val gold = -15 + 7 - 0 - 5 - 10 + 4*ii
     println("expected: " + gold)
     println("result: " + result)
 
@@ -93,7 +96,8 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     setArg(io2, cst2)
     setArg(x1, cst3)
     setArg(x2, cst4)
-    val data = Array.tabulate(16){i => i}
+    val data = Array.const[Int](0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15)
+    // val data = Array.tabulate(16){i => i}
     setMem(m1, data)
 
     Accel {
@@ -626,10 +630,12 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
     setMem(src1FPGA, src1)
 
     Accel {
-      val f1 = FIFO[T](tileSize)
+      val f1 = FIFO[T](3*tileSize)
       Foreach(N by tileSize) { i =>
         f1 load src1FPGA(i::i+tileSize par P1)
-        val accum = Reduce(Reg[T](0.to[T]))(tileSize by 1 par 1){i =>
+        val accum = Reg[T](0.to[T])
+        accum.reset
+        Reduce(accum)(tileSize by 1 par 1){i =>
           f1.deq()
         }{_+_}
         Pipe { out := accum }
@@ -957,8 +963,10 @@ object Memcpy2D extends SpatialApp { // Regression (Unit) // Args: none
 object UniqueParallelLoad extends SpatialApp { // Regression (Unit) // Args: none
   import IR._
 
-  val dim0 = 144
-  val dim1 = 96
+  val dim0 = 144 //144
+  val dim1 = 96 //96
+  // val dim0 = 48
+  // val dim1 = 16
 
   def awkwardload[T:Type:Num](src1: Array[T], src2: Array[T]):T = {
 
@@ -1667,7 +1675,6 @@ object DotProductFSM extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
-// Why don't this app work
 object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
   import IR._
 
@@ -1870,7 +1877,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
   }
 }
 
-object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
+object MaskedWrite extends SpatialApp {  // Regression (Unit) // Args: 5
   import IR._
   type T = Int
 
@@ -1909,7 +1916,47 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
   }
 }
 
+object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
+  import IR._
+  type T = FixPt[TRUE,_16,_16]
 
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val N = 128
+    val a = args(0).to[T]
+    val b = args(1).to[T]
+    val x_data = Array.tabulate(N){ i => a * i.to[T]}
+    val x = DRAM[T](N)
+    val y = DRAM[T](N)
+    val s = ArgIn[T]
+
+    setMem(x, x_data)
+    setArg(s, b)
+
+    Accel {
+      val xx = SRAM[T](N)
+      val yy = SRAM[T](N)
+      xx load x(0 :: N par 16)
+      Foreach(N by 1) { i => 
+        yy(i) = xx(i) * s
+      }
+      y(0 :: N par 16) store yy
+    }
+
+
+    // Extract results from accelerator
+    val result = getMem(y)
+
+    // Create validation checks and debug code
+    val gold = x_data.map{ dat => dat * b }
+    printArray(gold, "expected: ")
+    printArray(result, "got: ")
+
+    val cksum = gold.zip(result){_ == _}.reduce{_&&_}
+    println("PASS: " + cksum + " (FixPtMem)")
+  }
+}
 object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.625 14 1.875 -3.4375 -5
   import IR._
   type USGN = FixPt[FALSE,_4,_4]
@@ -2130,16 +2177,17 @@ object NestedIfs extends SpatialApp {
     setArg(in, x)
     Accel {
       val sram = SRAM[Int](3)
-      if (in >= 42.to[Int]) {
-        if (in <= 43.to[Int]) {
-          sram(in - 41.to[Int]) = 10.to[Int]
+      if (in >= 42.to[Int]) {     // if (43 >= 42)
+        if (in <= 43.to[Int]) {   // if (43 <= 43)
+          sram(in - 41.to[Int]) = 10.to[Int] // sram(2) = 10
         }
-      } else {
+      }
+      else {
         if (in <= 2.to[Int]){
           sram(in) = 20.to[Int]
         }
       }
-      out := sram(1)
+      out := sram(2)
     }
     getArg(out)
   }

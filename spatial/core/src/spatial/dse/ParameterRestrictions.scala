@@ -1,7 +1,7 @@
 package spatial.dse
 
 import spatial.SpatialExp
-import argon.utils.recursive.collectSet
+import argon.util.utils.recursive.collectSet
 
 trait ParameterRestrictions { this: SpatialExp =>
   private type RRange = scala.collection.immutable.Range

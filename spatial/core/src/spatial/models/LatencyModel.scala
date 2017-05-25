@@ -289,6 +289,8 @@ trait LatencyModel {
     case _:OpMemReduce[_,_]    => 1
     case _:UnrolledForeach     => 1
     case _:UnrolledReduce[_,_] => 1
+    case _:Switch[_]           => 0
+    case _:SwitchCase[_]       => 0
 
     // Host/Debugging/Unsynthesizable nodes
     case _:PrintIf   => 0

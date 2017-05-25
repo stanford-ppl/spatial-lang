@@ -1,11 +1,8 @@
 package spatial.codegen.scalagen
 
-import argon.codegen.scalagen.ScalaCodegen
-import argon.ops.{FixPtExp, FltPtExp}
 import spatial.SpatialExp
-import spatial.api.MathExp
 
-trait ScalaGenMath extends ScalaCodegen {
+trait ScalaGenMath extends ScalaGenBits {
   val IR: SpatialExp
   import IR._
 
@@ -27,10 +24,19 @@ trait ScalaGenMath extends ScalaCodegen {
     case FltAsin(x) => emit(src"val $lhs = Number.asin($x)")
     case FltAcos(x) => emit(src"val $lhs = Number.acos($x)")
     case FltAtan(x) => emit(src"val $lhs = Number.atan($x)")
+    case FixFloor(x) => emit(src"val $lhs = ${x}.floor()")
+    case FixCeil(x) => emit(src"val $lhs = ${x}.ceil()")
     case FltPow(x,exp) => emit(src"val $lhs = Number.pow($x, $exp);")
 
 
     case Mux(sel, a, b) => emit(src"val $lhs = if ($sel) $a else $b")
+    case op @ OneHotMux(selects,datas) =>
+      open(src"val $lhs = {")
+        selects.indices.foreach { i =>
+          emit(src"""${if (i == 0) "if" else "else if"} (${selects(i)}) { ${datas(i)} }""")
+        }
+        emit(src"else { ${invalid(op.mT)} }")
+      close("}")
 
     // Assumes < and > are defined on runtime type...
     case Min(a, b) => emit(src"val $lhs = if ($a < $b) $a else $b")

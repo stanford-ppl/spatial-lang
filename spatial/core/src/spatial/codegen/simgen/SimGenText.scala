@@ -1,7 +1,7 @@
 package spatial.codegen.simgen
 
-import argon.ops.TextExp
-import argon.utils.escapeString
+import argon.core.compiler._
+import argon.util.escapeString
 import spatial.SpatialExp
 
 trait SimGenText extends SimCodegen {
