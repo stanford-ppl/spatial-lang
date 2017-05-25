@@ -100,8 +100,8 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       val dispatch = dispatchOf(lhs, lut).toList.head
       emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
       val parent = parentOf(lhs).get
-      emit(src"""${lut}_${dispatch}.connectRPort(List(${inds.map{a => src"${a}.r"}.mkString(",")}), $en & ${parent}_datapath_en.D(${symDelay(lhs)}))""")
-      emit(src"""${lhs}.raw := ${lut}_${dispatch}.io.data_out.raw""")
+      emit(src"""val ${lhs}_id = ${lut}_${dispatch}.connectRPort(List(${inds.map{a => src"${a}.r"}.mkString(",")}), $en & ${parent}_datapath_en.D(${symDelay(lhs)}))""")
+      emit(src"""${lhs}.raw := ${lut}_${dispatch}.io.data_out(${lhs}_id).raw""")
 
     case _ => super.emitNode(lhs, rhs)
   }
