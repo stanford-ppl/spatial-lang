@@ -33,7 +33,7 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 5
   }
 }
 
-object TensorLoadStore extends SpatialApp { // DISABLED Regression (Unit) // args: 32 4 4 4 4
+object TensorLoadStore extends SpatialApp { // Regression (Unit) // args: 32 4 4 4 4
   import IR._
 
   @virtualize

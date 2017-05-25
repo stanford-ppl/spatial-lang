@@ -11,8 +11,8 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 192 
   val outerPar = 2
 
   val tsm = 16
-  val tsn = 48
-  val tsp = 48
+  val tsn = 64
+  val tsp = 128
 
   @virtualize
   def MatMult_outer[T:Type:Num](A: Array[T], B: Array[T], C_init: Array[T], mm: Int, nn: Int, pp: Int) = {
@@ -44,25 +44,24 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 192 
     Accel {
       Sequential.Foreach(M by bm, N by bn par op) { (i,j) =>
         val tileC = SRAM[T](bm, bn)
-        tileC load c(i::i+bm, j::j+bn par 16)
-        Foreach(P by bp){ k =>
-        //MemFold(tileC)(P by bp) { k =>
+        tileC load c(i::i+bm, j::j+bn par ip)
+        MemFold(tileC)(P by bp) { k =>
           val tileA = SRAM[T](bm, bp) 
           val tileB = SRAM[T](bp, bn)
-          val accum = SRAM[T](bp, mp)
+          val accum = SRAM[T](bm, bn)
           Parallel {
-            tileA load a(i::i+bm, k::k+bp par 16)
-            tileB load b(k::k+bp, j::j+bn par 16)
+            tileA load a(i::i+bm, k::k+bp par ip)
+            tileB load b(k::k+bp, j::j+bn par ip)
           }
-          MemFold(tileC)(bp by 1 par mp){ kk =>
+          MemReduce(accum)(bp by 1 par mp){ kk =>
             val tileC_partial = SRAM[T](bm,bn)
             Foreach(bm by 1, bn by 1 par ip){ (ii,jj) =>
               tileC_partial(ii,jj) = tileA(ii,kk) * tileB(kk,jj)
             }
             tileC_partial
           }{_+_}
-        }
-        c(i::i+bm, j::j+bn par 16) store tileC
+        }{_+_}
+        c(i::i+bm, j::j+bn par ip) store tileC
       }
     }
     getMem(c)
@@ -98,6 +97,7 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 192 
     val cksum = result.zip(gold){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (MatMult_outer)")
   }
+
 }
 
 object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 256 256
