@@ -38,13 +38,14 @@ trait StagedUtilApi extends StagedUtilExp { this: SpatialApi =>
     }
   }
 
+  @virtualize
   @api def printTensor4[T: Meta](tensor: Tensor4[T], header: String = ""): Void = {
     println(header)
     (0 until tensor.dim0) foreach { i =>
       (0 until tensor.dim1) foreach { j =>
         (0 until tensor.dim2) foreach { k => 
           (0 until tensor.dim3) foreach { l => 
-            print(" " + tensor(i, j, k, l).toString + "\t")
+            print(tensor(i, j, k, l).toString + "\t")
           }
           println("")
         }
@@ -58,6 +59,7 @@ trait StagedUtilApi extends StagedUtilExp { this: SpatialApi =>
     }
   }
 
+  @virtualize
   @api def printTensor5[T: Meta](tensor: Tensor5[T], header: String = ""): Void = {
     println(header)
     (0 until tensor.dim0) foreach { i =>
