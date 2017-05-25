@@ -36,7 +36,7 @@ trait SpatialExceptions {this: SpatialExp =>
   })
 
   class UndefinedDispatchException(access: Exp[_], mem: Exp[_]) extends
-  CompilerException(1005, c"Access $access had no dispatch information for memory $mem", {
+  CompilerException(1005, c"""Access $access had no dispatch information for memory $mem (${nameOf(mem).getOrElse("noname")})""", {
     error(c"Access $access had no dispatch information for memory $mem")
   })
 

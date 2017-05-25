@@ -33,7 +33,7 @@ trait StagedUtilApi extends StagedUtilExp { this: SpatialApi =>
         }
         println("")
       }
-      (0 until tensor.dim2) foreach {_ => print("-----")}
+      (0 until tensor.dim2) foreach {_ => print("--\t")}
       println("")
     }
   }
@@ -49,12 +49,10 @@ trait StagedUtilApi extends StagedUtilExp { this: SpatialApi =>
           }
           println("")
         }
-        (0 until tensor.dim3) foreach {_ => print("-----")}
+        (0 until tensor.dim3) foreach {_ => print("--\t")}
         println("")
       }
-      (0 until tensor.dim3) foreach {_ => print("-----")}
-      println("")
-      (0 until tensor.dim3) foreach {_ => print("-----")}
+      (0 until tensor.dim3) foreach {_ => print("--\t")}
       println("")
     }
   }
@@ -71,19 +69,13 @@ trait StagedUtilApi extends StagedUtilExp { this: SpatialApi =>
             }
             println("")
           }
-          (0 until tensor.dim4) foreach {_ => print("-----")}
+          (0 until tensor.dim4) foreach {_ => print("--\t")}
           println("")
         }
-        (0 until tensor.dim4) foreach {_ => print("-----")}
-        println("")
-        (0 until tensor.dim4) foreach {_ => print("-----")}
+        (0 until tensor.dim4) foreach {_ => print("--\t")}
         println("")
       }
-      (0 until tensor.dim4) foreach {_ => print("-----")}
-      println("")
-      (0 until tensor.dim4) foreach {_ => print("-----")}
-      println("")
-      (0 until tensor.dim4) foreach {_ => print("-----")}
+      (0 until tensor.dim4) foreach {_ => print("--\t")}
       println("")
     }
   }
