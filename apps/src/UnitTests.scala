@@ -2258,16 +2258,17 @@ object NestedIfs extends SpatialApp {
     setArg(in, x)
     Accel {
       val sram = SRAM[Int](3)
-      if (in >= 42.to[Int]) {
-        if (in <= 43.to[Int]) {
-          sram(in - 41.to[Int]) = 10.to[Int]
+      if (in >= 42.to[Int]) {     // if (43 >= 42)
+        if (in <= 43.to[Int]) {   // if (43 <= 43)
+          sram(in - 41.to[Int]) = 10.to[Int] // sram(2) = 10
         }
-      } else {
+      }
+      else {
         if (in <= 2.to[Int]){
           sram(in) = 20.to[Int]
         }
       }
-      out := sram(1)
+      out := sram(2)
     }
     getArg(out)
   }
