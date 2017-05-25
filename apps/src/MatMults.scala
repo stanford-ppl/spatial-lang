@@ -45,15 +45,15 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 192 
       Sequential.Foreach(M by bm, N by bn par op) { (i,j) =>
         val tileC = SRAM[T](bm, bn)
         tileC load c(i::i+bm, j::j+bn par 16)
-        Foreach(P by bp par px) { k =>
+        MemFold(tileC)(P by bp) { k =>
           val tileA = SRAM[T](bm, bp) 
           val tileB = SRAM[T](bp, bn)
+          val accum = SRAM[T](bp, mp)
           Parallel {
             tileA load a(i::i+bm, k::k+bp par 16)
             tileB load b(k::k+bp, j::j+bn par 16)
           }
-          // Requires tileC NOT to be reset until next j
-          MemFold(tileC)(bp by 1 par mp){ kk =>
+          MemReduce(accum)(bp by 1 par mp){ kk =>
             val tileC_partial = SRAM[T](bm,bn)
             Foreach(bm by 1, bn by 1 par ip){ (ii,jj) =>
               tileC_partial(ii,jj) = tileA(ii,kk) * tileB(kk,jj)
