@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object InOutArg extends SpatialApp { // Regression (Unit) // Args: 5
+object InOutArg extends SpatialApp { // Regression (Unit) // Args: 32
   import IR._
 
   @virtualize
@@ -33,7 +33,7 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 5
   }
 }
 
-object TensorLoadStore extends SpatialApp { // Regression (Unit) // args: 32 4 4 4 4
+object TensorLoadStore extends SpatialApp { // Regression (Unit) // Args: 32 4 4 4 4
   import IR._
 
   @virtualize
