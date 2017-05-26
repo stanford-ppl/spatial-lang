@@ -1,8 +1,8 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen._
+import argon.core.Config
 import spatial.SpatialExp
-import argon.Config
 import spatial.{SpatialConfig, SpatialExp}
 
 

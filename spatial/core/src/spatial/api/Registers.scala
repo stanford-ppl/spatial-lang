@@ -14,6 +14,14 @@ trait RegApi extends RegExp {
   @api def Reg[T:Meta:Bits](reset: T): Reg[T] = Reg(reg_alloc[T](unwrap(reset)))
 
   @api implicit def readReg[T](reg: Reg[T]): T = reg.value
+
+  implicit class RegNumericOperators[T:Type:Num](reg: Reg[T]) {
+    @api def :+=(data: T): Void = reg := (reg.value + data)
+    @api def :-=(data: T): Void = reg := (reg.value - data)
+    @api def :*=(data: T): Void = reg := (reg.value * data)
+    
+  }
+
 }
 
 

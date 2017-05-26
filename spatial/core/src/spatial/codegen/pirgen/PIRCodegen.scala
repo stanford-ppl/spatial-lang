@@ -3,8 +3,8 @@ package spatial.codegen.pirgen
 import java.io.{PrintStream, PrintWriter}
 import java.nio.file.{Files, Paths}
 
-import argon.Config
 import argon.codegen.{Codegen, FileDependencies}
+import argon.core.Config
 import spatial.{SpatialConfig, SpatialExp}
 
 import scala.collection.mutable

@@ -1,7 +1,8 @@
 package spatial.analysis
 
-import argon.Config
 import java.io.PrintWriter
+
+import argon.core.Config
 
 trait TreeGenSpatial extends SpatialTraversal {
   import IR._

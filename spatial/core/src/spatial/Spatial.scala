@@ -7,7 +7,7 @@ import argon.codegen.dotgen._
 import argon.codegen.cppgen._
 import spatial.codegen.dotgen._
 import argon.traversal.IRPrinter
-import argon._
+import argon.core.compiler._
 import argon.core.cake
 import forge._
 import org.virtualized.EmptyContext

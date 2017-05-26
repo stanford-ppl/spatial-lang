@@ -1,6 +1,7 @@
 package spatial.analysis
 
-import argon.{State,Config}
+import argon.State
+import argon.core.Config
 
 trait ControllerSanityCheck extends SpatialTraversal {
   import IR._

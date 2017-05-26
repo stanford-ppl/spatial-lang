@@ -1,8 +1,8 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
+import argon.core.Config
 import spatial.SpatialExp
-import argon.Config
 
 trait DotGenStream extends DotCodegen with DotGenReg {
   val IR: SpatialExp

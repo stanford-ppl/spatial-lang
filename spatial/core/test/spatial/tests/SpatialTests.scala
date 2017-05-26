@@ -2,8 +2,8 @@ package spatial.tests
 
 import org.virtualized.{SourceContext, struct, virtualize}
 import org.scalatest.{FlatSpec, Matchers}
-import argon._
-import argon.core.Exceptions
+import argon.core.compiler._
+import argon.core.{Config, Exceptions}
 import spatial.{SpatialApp, SpatialConfig, SpatialIR}
 
 // Create a testbench IR which runs Scala tests

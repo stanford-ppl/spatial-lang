@@ -1,7 +1,7 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen._
-import argon.Config
+import argon.core.Config
 import spatial.{SpatialConfig, SpatialExp}
 
 trait DotGenUnrolled extends DotCodegen with DotGenReg {

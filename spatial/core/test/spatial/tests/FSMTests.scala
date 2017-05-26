@@ -1,7 +1,6 @@
 package spatial.tests
 
-import argon.core.Exceptions
-import argon.Config
+import argon.core.{Config, Exceptions}
 import org.scalatest.{FlatSpec, Matchers}
 import spatial.SpatialConfig
 import org.virtualized._

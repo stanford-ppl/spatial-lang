@@ -1,7 +1,7 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
-import argon.Config
+import argon.core.Config
 import spatial.SpatialExp
 
 trait DotGenFIFO extends DotCodegen with DotGenReg {

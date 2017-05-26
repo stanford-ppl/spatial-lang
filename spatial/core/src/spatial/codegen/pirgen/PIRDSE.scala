@@ -1,14 +1,14 @@
 package spatial.codegen.pirgen
 
-import argon.Config
 import spatial.{SpatialConfig, SpatialExp}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.parallel._
-
 import java.io.PrintStream
 import java.nio.file.{Files, Paths}
+
+import argon.core.Config
 
 import scala.util.control.Breaks._
 

@@ -1,6 +1,6 @@
 package spatial.models
 
-import argon.Config
+import argon.core.Config
 import spatial.SpatialExp
 
 trait LatencyModel {

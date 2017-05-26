@@ -1,6 +1,6 @@
 package spatial.codegen.scalagen
 
-import argon._
+import argon.core.compiler._
 import spatial.SpatialExp
 
 trait ScalaGenSpatialBool extends ScalaGenBits {

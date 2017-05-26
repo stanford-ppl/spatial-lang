@@ -1,11 +1,9 @@
 package spatial
 
-import argon.core.cake.LayerReporting
 import com.typesafe.config.ConfigFactory
 import pureconfig._
 
-object SpatialConfig extends LayerReporting {
-  import argon.Config._
+object SpatialConfig {
 
   case class SpatialConf(
     fpga: String,
