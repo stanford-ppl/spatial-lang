@@ -2,7 +2,7 @@ import spatial._
 import org.virtualized._
 import spatial.targets.DE1
 
-object VideoStabilization extends SpatialApp { 
+object VideoStabilization extends SpatialApp {
   import IR._
 
   override val target = DE1
@@ -105,8 +105,9 @@ object VideoStabilization extends SpatialApp {
       val fifoOut = FIFO[Int16](C)
       val lb = LineBuffer[Int16](lb_height, lb_width)
 
-      val fifoDescriptor = FIFO[UInt1](16000)
+      val fifoDescriptor = FIFO[UInt1](1600)
       val numDescriptors = Reg[Int16](0)
+      val numDescriptorsPrev = Reg[Int16](0)
 
       // val lastDescriptor = RegFile[UInt1](16)
 
@@ -135,7 +136,7 @@ object VideoStabilization extends SpatialApp {
         //  col = col + 1
         // }
 
-        Foreach(0 until R, 0 until C){ (r, c) => 
+        Foreach(0 until R, 0 until C){ (r, c) =>
           Sequential {
             val grayscale_pixel = fifoIn.deq()
             lb.enq(grayscale_pixel)
@@ -165,39 +166,64 @@ object VideoStabilization extends SpatialApp {
                 ring_values(i) = 0
                 ring_values(i+16) = 0
                 if (ring_pixel_val < (grayscale_pixel - t)) {
-                    ring_values(i) = -1
-                    ring_values(i+16) = -1
+                  ring_values(i) = -1
+                  ring_values(i+16) = -1
                 }
                 if (ring_pixel_val > (grayscale_pixel + t)) {
-                    ring_values(i) = 1
-                    ring_values(i+16) = 1
+                  ring_values(i) = 1
+                  ring_values(i+16) = 1
                 }
               }
             }
 
-            // Figure out if 12 continguous values below or above threshold
+            val brief_descriptor = RegFile[UInt1](16)
+            Foreach(0 until 16){ i =>
+              Sequential {
+                val pt1 = descriptor_coord_1(i)
+                val pt2 = descriptor_coord_2(i)
+                brief_descriptor(i) = 0.to[UInt1]
+                if (sr(pt1.x.to[Index], pt1.y.to[Index]) > sr(pt2.x.to[Index], pt2.y.to[Index])) {
+                  brief_descriptor(i) = 1.to[UInt1]
+                }
+              }
+            }
+
+            // Figure out if 12 contiguous values below or above threshold
             running_count := 1
             curr := ring_values(0)
             is_feature := 0
             Foreach(1 until 32){ i =>
               if (ring_values(i) == curr.value) {
-                  running_count := running_count.value + 1
+                running_count := running_count.value + 1
               } else {
-                  running_count := 1
-                  curr := ring_values(i)
+                running_count := 1
+                curr := ring_values(i)
               }
 
               if (running_count.value == 12.to[Int16] && curr.value != 0.to[Int16]) {
-                  is_feature := 1
-                  println(r + " " + c)
-                  // println(r + " " + c + " " + ring_values(0) + " " + ring_values(1) + " " +
-                  //   ring_values(2) + " " + ring_values(3) + " " + ring_values(4) + " " +
-                  //   ring_values(5) + " " + ring_values(6) + " " + ring_values(7) + " " +
-                  //   ring_values(8) + " " + ring_values(9) + " " + ring_values(10) + " " +
-                  //   ring_values(11) + " " + ring_values(12) + " " + ring_values(13) + " " +
-                  //   ring_values(14) + " " + ring_values(15))
-                  // println(" grayscale " + grayscale_pixel + " " + (grayscale_pixel + t))
-                  // TODO: does Spatial have break statement?
+                is_feature := 1
+                println(r + " " + c)
+                Foreach(0 until 16){ i =>
+                  fifoDescriptor.enq(brief_descriptor(i))
+                  // lastDescriptor(i) = brief_descriptor(i)
+                }
+                numDescriptors := numDescriptors.value + 1
+                // println(r + " " + c + " " + ring_values(0) + " " + ring_values(1) + " " +
+                //   ring_values(2) + " " + ring_values(3) + " " + ring_values(4) + " " +
+                //   ring_values(5) + " " + ring_values(6) + " " + ring_values(7) + " " +
+                //   ring_values(8) + " " + ring_values(9) + " " + ring_values(10) + " " +
+                //   ring_values(11) + " " + ring_values(12) + " " + ring_values(13) + " " +
+                //   ring_values(14) + " " + ring_values(15))
+                // println(" grayscale " + grayscale_pixel + " " + (grayscale_pixel + t))
+                // TODO: does Spatial have break statement?
+              }
+
+              if (running_count.value == 12.to[Int16] && curr.value != 0.to[Int16]) {
+                Foreach(0 until 16){ i =>
+                  fifoDescriptor.enq(brief_descriptor(i))
+                  // lastDescriptor(i) = brief_descriptor(i)
+                }
+                numDescriptors := numDescriptors.value + 1
               }
             }
 
@@ -207,38 +233,67 @@ object VideoStabilization extends SpatialApp {
             //   fifoOut.enq(grayscale_pixel)
             // }
 
-            // There's a problem somewhere in the first Foreach loop:
-            // Internal exception #1005: Access x2404 had no dispatch information for memory x2403
-            if ((is_feature.value == 1.to[Int16]) && (r > 4.to[Index])) {
-              val brief_descriptor = RegFile[UInt1](16)
-              Foreach(0 until 16){ i =>
-                val pt1 = descriptor_coord_1(i)
-                val pt2 = descriptor_coord_2(i)
-                if (sr(pt1.x.to[Index], pt1.y.to[Index]) > sr(pt2.x.to[Index], pt2.y.to[Index])) {
-                  brief_descriptor(i) = 1.to[UInt1]
-                }
-                else {
-                  brief_descriptor(i) = 0.to[UInt1]
-                }
-              }
-              // println(brief_descriptor(0) + " " + brief_descriptor(1) + " " +
-              //         brief_descriptor(2) + " " + brief_descriptor(3) + " " + brief_descriptor(4) + " " +
-              //         brief_descriptor(5) + " " + brief_descriptor(6) + " " + brief_descriptor(7) + " " +
-              //         brief_descriptor(8) + " " + brief_descriptor(9) + " " + brief_descriptor(10) + " " +
-              //         brief_descriptor(11) + " " + brief_descriptor(12) + " " + brief_descriptor(13) + " " +
-              //         brief_descriptor(14) + " " + brief_descriptor(15))
-              // Do some stuff
-              Foreach(0 until 16){ i =>
-                fifoDescriptor.enq(brief_descriptor(i))
-                // lastDescriptor(i) = brief_descriptor(i)
-              }
-              numDescriptors := numDescriptors.value + 1
-            }
+            // // There's a problem somewhere in the first Foreach loop:
+            // // Internal exception #1005: Access x2404 had no dispatch information for memory x2403
+            // val feature = mux[Int16](is_feature.value == 1.to[Int16], 1, 0)
+
+            // if ((is_feature.value == 1.to[Int16]) && (r > 4.to[Index])) {
+            // // if (1.to[Int16] == 1.to[Int16]) {
+            // // if (feature.value == 1.to[Int16]) {
+            //   val brief_descriptor = RegFile[UInt1](16)
+            //   Foreach(0 until 16){ i =>
+            //     Sequential {
+            //       val pt1 = descriptor_coord_1(i)
+            //       val pt2 = descriptor_coord_2(i)
+            //       brief_descriptor(i) = 0.to[UInt1]
+            //       if (sr(pt1.x.to[Index], pt1.y.to[Index]) > sr(pt2.x.to[Index], pt2.y.to[Index])) {
+            //         brief_descriptor(i) = 1.to[UInt1]
+            //       }
+            //     }
+            //   }
+            //   // println(brief_descriptor(0) + " " + brief_descriptor(1) + " " +
+            //   //         brief_descriptor(2) + " " + brief_descriptor(3) + " " + brief_descriptor(4) + " " +
+            //   //         brief_descriptor(5) + " " + brief_descriptor(6) + " " + brief_descriptor(7) + " " +
+            //   //         brief_descriptor(8) + " " + brief_descriptor(9) + " " + brief_descriptor(10) + " " +
+            //   //         brief_descriptor(11) + " " + brief_descriptor(12) + " " + brief_descriptor(13) + " " +
+            //   //         brief_descriptor(14) + " " + brief_descriptor(15))
+            //   Do some stuff
+            //   Foreach(0 until 16){ i =>
+            //     fifoDescriptor.enq(brief_descriptor(i))
+            //     // lastDescriptor(i) = brief_descriptor(i)
+            //   }
+            //   numDescriptors := numDescriptors.value + 1
+            // }
+
+            // val brief_descriptor = RegFile[UInt1](16)
+            // Foreach(0 until 16){ i =>
+            //   Sequential {
+            //     val pt1 = descriptor_coord_1(i)
+            //     val pt2 = descriptor_coord_2(i)
+            //     brief_descriptor(i) = 0.to[UInt1]
+            //     if (sr(pt1.x.to[Index], pt1.y.to[Index]) > sr(pt2.x.to[Index], pt2.y.to[Index])) {
+            //       brief_descriptor(i) = 1.to[UInt1]
+            //     }
+            //   }
+            // }
+            // mux[Void](is_feature.value == 1.to[Int16], fifoDescriptor.enq(brief_descriptor(0)), numDescriptors := numDescriptors.value + 1)
+            // // Foreach(0 until 1){ _ =>
+            // //   if (is_feature.value == is_feature.value) {
+            // //   // if (1.to[Int16] == 1.to[Int16]) {
+            // //     Foreach(0 until 16){ i =>
+            // //       fifoDescriptor.enq(brief_descriptor(i))
+            // //       // lastDescriptor(i) = brief_descriptor(i)
+            // //     }
+            // //     numDescriptors := numDescriptors.value + 1
+            // //   }
+            // // }
 
             fifoOut.enq(mux[Int16]((is_feature.value == 1.to[Int16]) && (r > 4.to[Index]), 255, grayscale_pixel))
           }
         }
-        
+
+        // numDescriptorsPrev := numDescriptors.value
+
         // TODO: This step should be performed outside of the Foreach loop over the whole frame. You will need to dequeue pixels from fifOut, and send it to imgOut (The StreamOut port).
         // YOUR CODE HERE:
         val pixel_value = fifoOut.deq()
