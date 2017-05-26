@@ -185,10 +185,12 @@ object BFS_FSM extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 1
           }
           result(frontier, size) scatter depths
         }
-      }{state => mux(state == init.to[Int], gatherEdgeInfo, 
-                  mux(state == gatherEdgeInfo, denseEdgeLoads,
-                    mux(state == denseEdgeLoads, scatterDepths, 
-                      mux(state == scatterDepths && layer.value < depth, gatherEdgeInfo, done))))
+      }{state => 
+
+        mux(state == init.to[Int], gatherEdgeInfo, 
+          mux(state == gatherEdgeInfo, denseEdgeLoads,
+            mux(state == denseEdgeLoads, scatterDepths, 
+              mux(state == scatterDepths && layer.value < depth, gatherEdgeInfo, done))))
         }
 
     }

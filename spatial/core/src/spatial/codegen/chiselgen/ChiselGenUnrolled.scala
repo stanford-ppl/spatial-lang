@@ -352,10 +352,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
             emit(src"""${lhs}_${i}.r := ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
           case _ =>
             if (i == 0) emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_${i}.r = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
+            emit(src"""val ${lhs}_${i} = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
         }} else {
             if (i == 0) emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_${i}.r = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
+            emit(src"""val ${lhs}_${i} = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
         }
       }
       emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
@@ -366,7 +366,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       duplicatesOf(rf).zipWithIndex.foreach{case (mem, ii) => 
         val port = portsOf(lhs, rf, ii)
         ens.zipWithIndex.foreach{ case (en, i) => 
-          emit(s"""${quote(rf)}_${ii}.connectWPort(${data(i)}.raw, ${quote(inds(i)(0))}.raw, ${quote(inds(i)(1))}.raw, ${quote(en)} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}), List(${port.toList.mkString(",")}))""")
+          emit(s"""${quote(rf)}_${ii}.connectWPort(${quote(data(i))}.raw, ${quote(inds(i)(0))}.raw, ${quote(inds(i)(1))}.raw, ${quote(en)} & (${quote(parent)}_datapath_en & ~${quote(parent)}_inhibitor).D(${symDelay(lhs)}), List(${port.toList.mkString(",")}))""")
         }
       }
       
