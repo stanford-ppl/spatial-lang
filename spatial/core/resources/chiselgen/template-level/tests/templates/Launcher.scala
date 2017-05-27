@@ -162,15 +162,18 @@ object Arguments {
     3
   )
   val ShiftRegFile = List(
-    (List(6,1),1,1,false,32),
-    (List(3,1),1,1,false,32),
-    (List(7,3),1,1,false,32)
+    (List(6),1,1,false,32),
+    (List(1,3),1,1,false,32),
+    (List(3,7),1,3,false,32),
+    (List(3,4,7),1,12,false,32)
   )
   val NBufShiftRegFile = List(
-    (List(8,1),1,3,1,32),
-    (List(8,2),1,3,1,32),
-    (List(7,3),1,3,1,32)
+    (List(8),1,2,1,32),
+    (List(1,8),1,3,1,32),
+    (List(3,7),1,3,3,32),
+    (List(3,4,7),1,3,12,32)
   )
+
   val LineBuffer = List( 
     (3,10,1,1,1,1,3,2),
     (5,10,2,1,1,1,5,2)

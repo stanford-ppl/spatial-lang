@@ -46,11 +46,11 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
           case _ => 1
         }
         if (depth == 1) {
-          emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new templates.ShiftRegFile(List(${dims.mkString(",")}), 1, ${par}/${dims(0)}, false, $width))""")
+          emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new templates.ShiftRegFile(List(${dims.mkString(",")}), 1, ${par}, false, $width))""")
           emitGlobalModule(s"${quote(lhs)}_$i.io.reset := reset")
         } else {
           nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-          emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new templates.NBufShiftRegFile(List(${dims.mkString(",")}), 1, $depth, ${par}/${dims(0)}, $width))""")
+          emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new templates.NBufShiftRegFile(List(${dims.mkString(",")}), 1, $depth, ${par}, $width))""")
           emitGlobalModule(s"${quote(lhs)}_$i.io.reset := reset")          
         }
       }
@@ -58,21 +58,50 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
     case op@RegFileLoad(rf,inds,en) =>
       val dispatch = dispatchOf(lhs, rf).toList.head
       val port = portsOf(lhs, rf, dispatch).toList.head
+      val addr = inds.map{i => src"${i}.r"}.mkString(",")
       emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
-      emit(src"""${lhs}.r := ${rf}_${dispatch}.readValue(${inds(0)}.raw, ${inds(1)}.raw, $port)""")
+      emit(src"""${lhs}.r := ${rf}_${dispatch}.readValue(List($addr)), $port)""")
 
     case op@RegFileStore(rf,inds,data,en) =>
       duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
+        val width = bitWidth(rf.tp.typeArguments.head)
         val port = portsOf(lhs, rf, i)
         val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-        emit(s"""${quote(rf)}_${i}.connectWPort(${quote(data)}.raw, ${quote(inds(0))}.raw, ${quote(inds(1))}.raw, ${quote(en)} & (${quote(parent)}_datapath_en & ~${quote(parent)}_inhibitor).D(${symDelay(lhs)}), List(${port.toList.mkString(",")}))""")
+        val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
+        emit(s"""// Assemble multidimW vector""")
+        emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimRegW(${inds.length}, ${width}))) """)
+        emit(src"""${lhs}_wVec(0).data := ${data}.r""")
+        emit(src"""${lhs}_wVec(0).en := ${en} & ${enable}.D(${symDelay(lhs)})""")
+        inds.zipWithIndex.foreach{ case(ind,j) => 
+          emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.r // Assume always an int""")
+        }
+        emit(src"""${lhs}_wVec(0).shiftEn := false.B""")
+        duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
+          val p = portsOf(lhs, rf, i).mkString(",")
+          emit(src"""${rf}_$i.connectWPort(${lhs}_wVec, List(${p})) """)
+        }
+
       }
 
     case RegFileShiftIn(rf,inds,d,data,en)    => 
       duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
+        val width = bitWidth(rf.tp.typeArguments.head)
         val port = portsOf(lhs, rf, i)
         val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-        emit(s"""${quote(rf)}_${i}.connectShiftPort(${quote(data)}.raw, ${quote(inds(0))}.raw, ${quote(en)} & (${quote(parent)}_datapath_en & ~${quote(parent)}_inhibitor).D(${symDelay(lhs)}), List(${port.toList.mkString(",")}))""")
+        val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
+        emit(s"""// Assemble multidimW vector""")
+        emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimRegW(${inds.length}, ${width}))) """)
+        emit(src"""${lhs}_wVec(0).data := ${data}.r""")
+        emit(src"""${lhs}_wVec(0).shiftEn := ${en} & ${enable}.D(${symDelay(lhs)})""")
+        inds.zipWithIndex.foreach{ case(ind,j) => 
+          emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.r // Assume always an int""")
+        }
+        emit(src"""${lhs}_wVec(0).en := false.B""")
+        duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
+          val p = portsOf(lhs, rf, i).mkString(",")
+          emit(src"""${rf}_$i.connectWPort(${lhs}_wVec, List(${p})) """)
+        }
+
       }
 
     case ParRegFileShiftIn(rf,i,d,data,en) => 
