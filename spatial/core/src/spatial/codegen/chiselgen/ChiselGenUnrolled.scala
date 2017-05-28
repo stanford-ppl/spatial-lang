@@ -213,53 +213,42 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}.io.deq := (${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en""")
-      fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
-            emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(i)) }""")
-          } else {
-            emit(src"""val ${lhs} = ${fifo}.io.out""")
-          }
-        case _ => emit(src"""val ${lhs} = ${fifo}.io.out""")
-      }
+      emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
+      emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en)""")
+      emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
+
+      // fifo.tp.typeArguments.head match { 
+      //   case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
+      //       emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(i)) }""")
+      //     } else {
+      //       emit(src"""val ${lhs} = ${fifo}.io.out""")
+      //     }
+      //   case _ => emit(src"""val ${lhs} = ${fifo}.io.out""")
+      // }
 
     case ParFIFOEnq(fifo, data, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       val writer = writersOf(fifo).head.ctrlNode  
-      // Check if this is a tile consumer
-
-      // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.io.enq := ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en""")
-      val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
-      emit(src"""${fifo}.io.in := Vec(List(${datacsv}))""")
+      val datacsv = data.map{d => src"${d}.r"}.mkString(",")
+      emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
 
     case ParFILOPop(filo, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(filo).head.ctrlNode  // Assuming that each filo has a unique reader
-      emit(src"""${quote(filo)}.io.pop := (${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en""")
-      filo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(filo.tp.typeArguments.head)) {
-            emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(filo)}.io.out(i)) }.reverse""")
-          } else {
-            emit(src"""val ${lhs} = ${filo}.io.out""")
-          }
-        case _ => emit(src"""val ${lhs} = ${filo}.io.out""")
-      }
+      emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
+      emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en).reverse""")
+      emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
 
     case ParFILOPush(filo, data, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       val writer = writersOf(filo).head.ctrlNode  
-      // Check if this is a tile consumer
-
-      // val enabler = if (loadCtrlOf(filo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${filo}.io.push := ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en""")
-      val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
-      emit(src"""${filo}.io.in := Vec(List(${datacsv}))""")
+      val datacsv = data.map{d => src"${d}.r"}.mkString(",")
+      emit(src"""${filo}.connectPushPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
 
     case e@ParStreamRead(strm, ens) =>
       val parent = parentOf(lhs).get

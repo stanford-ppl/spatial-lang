@@ -68,27 +68,24 @@ object Arguments {
   val SRFF = List(
     "null"
   )
-  val MemController = List(
-    1
-  )
   val FIFO = List(
-    (1,1,10),
-    (2,2,30),
-    (4,4,52),
-    (4,1,56),
-    (1,4,56),
-    (3,6,48),
-    (6,3,48)
+    (1,1,10,1,1),
+    (2,2,30,1,1),
+    (4,4,52,1,1),
+    (4,1,56,1,1),
+    (1,4,56,1,1),
+    (3,6,48,1,1),
+    (6,3,48,1,1)
 
   )
   val FILO = List(
-    (1,1,10),
-    (2,2,30),
-    (4,4,52),
-    (4,1,56),
-    (1,4,56),
-    (3,6,48),
-    (6,3,48)
+    (1,1,10,1,1),
+    (2,2,30,1,1),
+    (4,4,52,1,1),
+    (4,1,56,1,1),
+    (1,4,56,1,1),
+    (3,6,48,1,1),
+    (6,3,48,1,1)
   )
   val SingleCounter = List(
     1,3
@@ -255,14 +252,6 @@ object Launcher {
     (s"SRFF$i" -> { (backendName: String) =>
         Driver(() => new SRFF(arg), "verilator") {
           (c) => new SRFFTests(c)
-        }
-      }) 
-  }.toMap
-
-  templates = templates ++ Arguments.MemController.zipWithIndex.map{ case(arg,i) => 
-    (s"MemController$i" -> { (backendName: String) =>
-        Driver(() => new MemController(arg), "verilator") {
-          (c) => new MemControllerTests(c)
         }
       }) 
   }.toMap

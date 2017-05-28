@@ -438,7 +438,7 @@ trait MemoryAnalyzer extends CompilerPass {
   object RegSettings extends BankSettings
   object FIFOSettings extends BankSettings {
     override def allowMultipleReaders: Boolean   = false
-    override def allowMultipleWriters: Boolean   = false
+    override def allowMultipleWriters: Boolean   = true
     override def allowConcurrentReaders: Boolean = false
     override def allowConcurrentWriters: Boolean = false
     override def allowPipelinedReaders: Boolean  = false

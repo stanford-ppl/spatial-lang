@@ -6,7 +6,7 @@ import spatial.api.DRAMTransferExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
-trait ChiselGenFIFO extends ChiselCodegen {
+trait ChiselGenFIFO extends ChiselGenSRAM {
   val IR: SpatialExp
   import IR._
 
@@ -74,6 +74,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@FIFONew(size)   => 
+      // ASSERT that all pars are the same!
       val rPar = readersOf(lhs).map { r => 
         r.node match {
           case Def(_: FIFODeq[_]) => 1
@@ -87,27 +88,19 @@ trait ChiselGenFIFO extends ChiselCodegen {
         }
       }.max
       val width = bitWidth(lhs.tp.typeArguments.head)
-      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FIFO($rPar, $wPar, $size, $width)) // ${nameOf(lhs).getOrElse("")}""")
+      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FIFO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${nameOf(lhs).getOrElse("")}""")
 
     case FIFOEnq(fifo,v,en) => 
       val writer = writersOf(fifo).head.ctrlNode  
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.io.enq := ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en """)
-      emit(src"""${fifo}.io.in := Vec(List(${v}.raw))""")
+      emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), ${writer}_en & ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
 
 
     case FIFODeq(fifo,en) =>
       val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${fifo}.io.deq := ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${symDelay(lhs)}) & $en /*& ~${reader}_inhibitor*/ // Why inhibit not delayed previously?""")
-      fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
-            emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(0))""")
-          } else {
-            emit(src"""val ${lhs} = ${fifo}.io.out(0)""")
-          }
-        case _ => emit(src"""val ${lhs} = ${fifo}.io.out(0)""")
-      }
+      emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
+      emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${reader}_en & (${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en & ~${reader}_inhibitor).apply(0)""")
 
     case FIFOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
     case FIFOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")
