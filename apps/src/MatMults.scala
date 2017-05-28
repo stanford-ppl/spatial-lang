@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 192 192
+object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 256 256
   import IR._
 
   type X = FixPt[TRUE,_16,_16]

@@ -68,27 +68,24 @@ object Arguments {
   val SRFF = List(
     "null"
   )
-  val MemController = List(
-    1
-  )
   val FIFO = List(
-    (1,1,10),
-    (2,2,30),
-    (4,4,52),
-    (4,1,56),
-    (1,4,56),
-    (3,6,48),
-    (6,3,48)
+    (1,1,10,1,1),
+    (2,2,30,1,1),
+    (4,4,52,1,1),
+    (4,1,56,1,1),
+    (1,4,56,1,1),
+    (3,6,48,1,1),
+    (6,3,48,1,1)
 
   )
   val FILO = List(
-    (1,1,10),
-    (2,2,30),
-    (4,4,52),
-    (4,1,56),
-    (1,4,56),
-    (3,6,48),
-    (6,3,48)
+    (1,1,10,1,1),
+    (2,2,30,1,1),
+    (4,4,52,1,1),
+    (4,1,56,1,1),
+    (1,4,56,1,1),
+    (3,6,48,1,1),
+    (6,3,48,1,1)
   )
   val SingleCounter = List(
     1,3
@@ -162,15 +159,19 @@ object Arguments {
     3
   )
   val ShiftRegFile = List(
-    (1,6,1,1,false,32),
-    (1,3,1,1,false,32),
-    (3,7,1,1,false,32)
+    (List(6),1,1,false,32),
+    (List(1,3),1,1,false,32),
+    (List(3,7),1,3,false,32),
+    (List(3,4,7),1,12,false,32)
   )
   val NBufShiftRegFile = List(
-    (1,8,1,3,1,32),
-    (2,8,1,3,1,32),
-    (3,7,1,3,1,32)
+    (List(8),1,2,1,32),
+    (List(1,8),1,3,1,32),
+    (List(3,7),1,3,3,32),
+    (List(3,3),1,3,3,32),
+    (List(3,4,7),1,3,12,32)
   )
+
   val LineBuffer = List( 
     (3,10,1,1,1,1,3,2),
     (5,10,2,1,1,1,5,2)
@@ -251,14 +252,6 @@ object Launcher {
     (s"SRFF$i" -> { (backendName: String) =>
         Driver(() => new SRFF(arg), "verilator") {
           (c) => new SRFFTests(c)
-        }
-      }) 
-  }.toMap
-
-  templates = templates ++ Arguments.MemController.zipWithIndex.map{ case(arg,i) => 
-    (s"MemController$i" -> { (backendName: String) =>
-        Driver(() => new MemController(arg), "verilator") {
-          (c) => new MemControllerTests(c)
         }
       }) 
   }.toMap
