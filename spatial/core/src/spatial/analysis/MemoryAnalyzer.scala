@@ -437,7 +437,7 @@ trait MemoryAnalyzer extends CompilerPass {
   object SRAMSettings extends BankSettings
   object RegSettings extends BankSettings
   object FIFOSettings extends BankSettings {
-    override def allowMultipleReaders: Boolean   = false
+    override def allowMultipleReaders: Boolean   = true
     override def allowMultipleWriters: Boolean   = true
     override def allowConcurrentReaders: Boolean = false
     override def allowConcurrentWriters: Boolean = false
@@ -445,8 +445,8 @@ trait MemoryAnalyzer extends CompilerPass {
     override def allowPipelinedWriters: Boolean  = false
   }
   object FILOSettings extends BankSettings {
-    override def allowMultipleReaders: Boolean   = false
-    override def allowMultipleWriters: Boolean   = false
+    override def allowMultipleReaders: Boolean   = true
+    override def allowMultipleWriters: Boolean   = true
     override def allowConcurrentReaders: Boolean = false
     override def allowConcurrentWriters: Boolean = false
     override def allowPipelinedReaders: Boolean  = false
