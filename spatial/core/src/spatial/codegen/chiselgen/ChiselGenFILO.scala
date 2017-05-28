@@ -91,14 +91,14 @@ trait ChiselGenFILO extends ChiselGenSRAM {
       emitGlobalModule(s"""val ${quote(lhs)} = Module(new FILO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${nameOf(lhs).getOrElse("")}""")
 
     case FILOPush(fifo,v,en) => 
-      val writer = writersOf(fifo).head.ctrlNode  
+      val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
       emit(src"""${fifo}.connectPushPort(Vec(List(${v}.r)), ${writer}_en & ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
 
 
     case FILOPop(fifo,en) =>
-      val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
+      val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
       emit(src"""${lhs}.r := ${fifo}.connectPopPort(${reader}_en & (${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en & ~${reader}_inhibitor).apply(0)""")
 

@@ -212,7 +212,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case ParFIFODeq(fifo, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
-      val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
+      val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
       emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en)""")
       emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
@@ -229,7 +229,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case ParFIFOEnq(fifo, data, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
-      val writer = writersOf(fifo).head.ctrlNode  
+      val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${writer}_datapath_en"
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
       emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
@@ -237,7 +237,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case ParFILOPop(filo, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
-      val reader = readersOf(filo).head.ctrlNode  // Assuming that each filo has a unique reader
+      val reader = readersOf(filo).find{_.node == lhs}.get.ctrlNode
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
       emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en).reverse""")
       emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
@@ -245,7 +245,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case ParFILOPush(filo, data, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
-      val writer = writersOf(filo).head.ctrlNode  
+      val writer = writersOf(filo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${writer}_datapath_en"
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
       emit(src"""${filo}.connectPushPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
