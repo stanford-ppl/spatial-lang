@@ -48,6 +48,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         if (depth == 1) {
           emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new templates.ShiftRegFile(List(${dims.mkString(",")}), 1, ${par}, false, $width))""")
           emitGlobalModule(s"${quote(lhs)}_$i.io.reset := reset")
+          emitGlobalModule(s"${quote(lhs)}_$i.io.dump_en := false.B")
         } else {
           nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
           emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new templates.NBufShiftRegFile(List(${dims.mkString(",")}), 1, $depth, ${par}, $width))""")
@@ -99,7 +100,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         emit(src"""${lhs}_wVec(0).en := false.B""")
         duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
           val p = portsOf(lhs, rf, i).mkString(",")
-          emit(src"""${rf}_$i.connectWPort(${lhs}_wVec, List(${p})) """)
+          emit(src"""${rf}_$i.connectShiftPort(${lhs}_wVec, List(${p})) """)
         }
 
       }

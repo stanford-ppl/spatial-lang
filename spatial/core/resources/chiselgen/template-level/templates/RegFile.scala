@@ -62,7 +62,6 @@ class ShiftRegFile(val dims: List[Int], val stride: Int, val wPar: Int, val isBu
   // }
 
 
-
   if (!isBuf) {
     // Connect a w port to each reg
     (dims.reduce{_*_}-1 to 0 by -1).foreach { i => 
@@ -80,7 +79,7 @@ class ShiftRegFile(val dims: List[Int], val stride: Int, val wPar: Int, val isBu
         if (wPar > 1) {
           // Address flattening
           val flat_w_addrs = io.w.map{ bundle =>
-            bundle.addr.zipWithIndex.map{case (a, i) => a * (dims.drop(i).reduce{_*_}/dims(i)).U}.reduce{_+_}
+            bundle.addr.zipWithIndex.map{case (a, ii) => a * (dims.drop(ii).reduce{_*_}/dims(ii)).U}.reduce{_+_}(31,0)
           }
 
           val write_here = (0 until wPar).map{ ii => io.w(ii).en & (flat_w_addrs(ii) === i.U) }
