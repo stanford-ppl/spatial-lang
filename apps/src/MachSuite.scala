@@ -2,22 +2,9 @@ import spatial._
 import org.virtualized._
 
 object AES extends SpatialApp { // Regression (Dense) // Args: none
-	/*
-		Properties:
-			256-bit (32-byte) key ???
-			128-bit (16-byte) plaintext
-		
-	*/
   import IR._
 
   type UInt8 = FixPt[FALSE,_8,_0]
-  @virtualize
-  def naive_aes(plaintext_sram: SRAM[UInt8], sbox_sram: SRAM[UInt8], 
-  							key_sram: SRAM[UInt8], mix_lut: LUT[UInt8]): Unit = {
-
-  }
-
-
   @virtualize
   def main() = {
   	// Setup off-chip data
@@ -224,5 +211,111 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
   	val cksum = ciphertext_gold.zip(ciphertext){_ == _}.reduce{_&&_}
   	println("PASS: " + cksum + " (AES)")
 
+  }
+}
+
+
+object Viterbi extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+  import IR._
+
+  /*
+
+                    ←       N_OBS            →
+
+          State 63 ----- State 63 ----- State 63                
+        /  .        \ /            \ /                     P(obs | state) = emission_probs   
+       /   .         X              X                                         (N_STATES x N_TOKENS)
+      /    .        / \            / \                        
+     O----State k  ----- State k  ----- State k  ...            
+      \    .        \ /            \ /                          
+       \   .         X              X                          shortest path to (state, obs) = llike
+        \  .        / \            / \                                                          (N_OBS x N_STATES)
+          State 0  ----- State 0  ----- State 0                  
+      ↑               ↑                                                           
+    init_states     transition_probs                        
+     (N_STATES)       (N_STATES x N_STATES)
+
+						obs_vec
+						 (N_OBS, max value = N_TOKENS)
+
+
+  */
+
+  type T = FixPt[TRUE,_16,_16]
+
+  @virtualize
+  def main() = {
+  	// Setup dimensions of problem
+  	val N_STATES = 64
+  	val N_TOKENS = 64
+  	val N_OBS = 140
+
+  	// Setup data
+  	val init_states = Array[T](4.6977033615112305.to[T],3.6915655136108398.to[T],4.8652229309082031.to[T],4.7658410072326660.to[T],
+  		4.0006790161132812.to[T],3.9517300128936768.to[T],3.4640796184539795.to[T],3.4600069522857666.to[T],4.2856273651123047.to[T],
+  		3.6522088050842285.to[T],4.8189344406127930.to[T],3.8075556755065918.to[T],3.8743767738342285.to[T],5.4135279655456543.to[T],
+  		4.9173111915588379.to[T],3.6458325386047363.to[T],5.8528852462768555.to[T],11.3210048675537109.to[T],4.9971127510070801.to[T],
+  		5.1006979942321777.to[T],3.5980830192565918.to[T],5.3161897659301758.to[T],3.4544019699096680.to[T],3.7314746379852295.to[T],
+  		4.9998908042907715.to[T],3.4898567199707031.to[T],4.2091164588928223.to[T],3.5122559070587158.to[T],3.9326364994049072.to[T],
+  		7.2767667770385742.to[T],3.6539671421051025.to[T],4.0916681289672852.to[T],3.5044839382171631.to[T],4.5234117507934570.to[T],
+  		3.7673256397247314.to[T],4.0265331268310547.to[T],3.7147023677825928.to[T],6.7589721679687500.to[T],3.5749390125274658.to[T],
+  		3.7701597213745117.to[T],3.5728175640106201.to[T],5.0258340835571289.to[T],4.9390106201171875.to[T],5.7208223342895508.to[T],
+  		6.3652114868164062.to[T],3.5838112831115723.to[T],5.0102572441101074.to[T],4.0017414093017578.to[T],4.2373661994934082.to[T],
+  		3.8841004371643066.to[T],5.3679313659667969.to[T],3.9980680942535400.to[T],3.5181968212127686.to[T],4.7306714057922363.to[T],
+  		5.5075111389160156.to[T],5.1880970001220703.to[T],4.8259010314941406.to[T],4.2589011192321777.to[T],5.6381106376647949.to[T],
+  		3.4522385597229004.to[T],3.5920252799987793.to[T],4.2071061134338379.to[T],5.0856294631958008.to[T],6.0637059211730957.to[T])
+
+  	val obs_vec = Array[Int](0,27,49,52,20,31,63,63,29,0,47,4,38,38,38,38,4,43,7,28,31,
+  											 7,7,7,57,2,2,43,52,52,43,3,43,13,54,44,51,32,9,9,15,45,21,
+  											 33,61,45,62,0,55,15,55,30,13,13,53,13,13,50,57,57,34,26,21,
+  											 43,7,12,41,41,41,17,17,30,41,8,58,58,58,31,52,54,54,54,54,
+  											 54,54,15,54,54,54,54,52,56,52,21,21,21,28,18,18,15,40,1,62,
+  											 40,6,46,24,47,2,2,53,41,0,55,38,5,57,57,57,57,14,57,34,37,
+  											 57,30,30,5,1,5,62,25,59,5,2,43,30,26,38,38)
+
+  	val raw_transitions = loadCSV1D[T]("/remote/regression/data/machsuite/viterbi_transition.csv", "\n")
+  	val raw_emissions = loadCSV1D[T]("/remote/regression/data/machsuite/viterbi_emission.csv", "\n")
+  	val transitions = raw_transitions.reshape(N_STATES, N_STATES)
+  	val emissions = raw_emissions.reshape(N_STATES, N_TOKENS)
+
+  	// Handle DRAMs
+  	val init_dram = DRAM[T](N_STATES)
+  	val obs_dram = DRAM[Int](N_OBS)
+  	// val transitions_dram = DRAM[T](N_STATES,N_STATES)
+  	val emissions_dram = DRAM[T](N_STATES,N_TOKENS)
+  	val llike_dram = DRAM[T](N_STATES,N_OBS)
+  	setMem(init_dram,init_states)
+  	setMem(obs_dram, obs_vec)
+  	// setMem(transitions_dram,transitions)
+  	setMem(emissions_dram,emissions)
+
+
+  	Accel{
+  		// Load data structures
+  		val obs_sram = SRAM[Int](N_OBS)
+  		val init_sram = SRAM[T](N_STATES)
+  		// val transitions_sram = SRAM[T](N_STATES,N_STATES)
+  		val emissions_sram = SRAM[T](N_STATES,N_TOKENS)
+  		val llike_sram = SRAM[T](N_STATES,N_OBS)
+
+  		Parallel{
+  			obs_sram load obs_dram
+  			init_sram load init_dram
+  			// transitions_sram load transitions_dram
+  			emissions_sram load emissions_dram
+  		}
+
+  		// First Setup
+  		Foreach(0 until N_STATES) { s => llike_sram(0,s) = init_sram(s) + emissions_sram(s, obs_sram(0))}
+
+
+  		// Store result
+  		llike_dram store llike_sram
+  	}
+  	
+
+  	val llike = getMatrix(llike_dram)
+
+  	printMatrix(llike, "log-likelihood")
   }
 }
