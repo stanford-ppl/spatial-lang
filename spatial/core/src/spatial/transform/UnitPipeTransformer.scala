@@ -14,7 +14,7 @@ trait UnitPipeTransformer extends ForwardTransformer {
   import IR._
 
   override val name = "Unit Pipe Transformer"
-  override val allowPretransform = true
+  //override val allowPretransform = true
 
   private class PipeStage(val isControl: Boolean) {
     val allocs = ArrayBuffer[Stm]()
