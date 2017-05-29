@@ -343,26 +343,22 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
 
     case ParRegFileStore(rf, inds, data, ens) => //FIXME: Not correct for more than par=1
+      val width = bitWidth(rf.tp.typeArguments.head)
+      val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
+      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
+      emit(s"""// Assemble multidimW vector""")
+      emit(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, ${width}))) """)
+      (0 until ens.length).foreach{ k => 
+        emit(src"""${lhs}_wVec($k).data := ${data(k)}.r""")
+        emit(src"""${lhs}_wVec($k).en := ${ens(k)} & ${enable}.D(${symDelay(lhs)})""")
+        inds(k).zipWithIndex.foreach{ case(ind,j) => 
+          emit(src"""${lhs}_wVec($k).addr($j) := ${ind}.r // Assume always an int""")
+        }
+        emit(src"""${lhs}_wVec($k).shiftEn := false.B""")
+      }
       duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
-        val width = bitWidth(rf.tp.typeArguments.head)
-        val port = portsOf(lhs, rf, i)
-        val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-        val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
-        emit(s"""// Assemble multidimW vector""")
-        emit(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, ${width}))) """)
-        (0 until ens.length).foreach{ k => 
-          emit(src"""${lhs}_wVec($k).data := ${data(k)}.r""")
-          emit(src"""${lhs}_wVec($k).en := ${ens(k)} & ${enable}.D(${symDelay(lhs)})""")
-          inds(k).zipWithIndex.foreach{ case(ind,j) => 
-            emit(src"""${lhs}_wVec($k).addr($j) := ${ind}.r // Assume always an int""")
-          }
-          emit(src"""${lhs}_wVec($k).shiftEn := false.B""")
-        }
-        duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
-          val p = portsOf(lhs, rf, i).mkString(",")
-          emit(src"""${rf}_$i.connectWPort(${lhs}_wVec, List(${p})) """)
-        }
-
+        val p = portsOf(lhs, rf, i).mkString(",")
+        emit(src"""${rf}_$i.connectWPort(${lhs}_wVec, List(${p})) """)
       }
 
     case _ => super.emitNode(lhs, rhs)

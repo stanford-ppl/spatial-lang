@@ -95,7 +95,7 @@ class ShiftRegFile(val dims: List[Int], val stride: Int, val wPar: Int, val isBu
           registers(i) := Mux(shift_axis, registers(producing_reg), Mux(has_writer | has_shifter, write_data.data, registers(i)))
         } else {
           // Address flattening
-          val flat_w_addrs = io.w(0).addr.zipWithIndex.map{case (a, i) => a * (dims.drop(i).reduce{_*_}/dims(i)).U}.reduce{_+_}
+          val flat_w_addrs = io.w(0).addr.zipWithIndex.map{case (a, i) => a * (dims.drop(i).reduce{_*_}/dims(i)).U}.reduce{_+_}(31,0)
 
           val write_here = io.w(0).en & (flat_w_addrs === i.U)
           val shift_entry_here =  io.w(0).shiftEn & (flat_w_addrs === i.U) 

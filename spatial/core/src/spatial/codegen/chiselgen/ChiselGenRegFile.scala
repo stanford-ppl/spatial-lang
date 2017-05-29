@@ -61,7 +61,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       val port = portsOf(lhs, rf, dispatch).toList.head
       val addr = inds.map{i => src"${i}.r"}.mkString(",")
       emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
-      emit(src"""${lhs}.r := ${rf}_${dispatch}.readValue(List($addr)), $port)""")
+      emit(src"""${lhs}.r := ${rf}_${dispatch}.readValue(List($addr), $port)""")
 
     case op@RegFileStore(rf,inds,data,en) =>
       duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 

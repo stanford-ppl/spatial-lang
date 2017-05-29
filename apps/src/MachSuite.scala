@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object AES extends SpatialApp { 
+object AES extends SpatialApp { // Regression (Dense) // Args: none
 	/*
 		Properties:
 			256-bit (32-byte) key ???
@@ -70,9 +70,9 @@ object AES extends SpatialApp {
   	setMem(sbox_dram, sbox)
 
   	// Debugging support
-  	val niter = ArgIn[Int]
-  	setArg(niter, args(0).to[Int])
-  	val key_debug = DRAM[UInt8](32)
+  	val niter = 15 //ArgIn[Int]
+  	// setArg(niter, args(0).to[Int])
+  	// val key_debug = DRAM[UInt8](32)
 
   	Accel{
   		// Setup data structures
@@ -96,7 +96,7 @@ object AES extends SpatialApp {
 		    Pipe{key_sram(3) = key_sram(3) ^ sbox_sram(key_sram(28).as[Int])}
 		    rcon := (((rcon)<<1) ^ ((((rcon)>>7) & 1) * 0x1b))
 
-		    Foreach(4 until 16 by 4) {i =>
+		    Sequential.Foreach(4 until 16 by 4) {i =>
 		    	Pipe{key_sram(i) = key_sram(i) ^ key_sram(i-4)}
 		    	Pipe{key_sram(i+1) = key_sram(i+1) ^ key_sram(i-3)}
 		    	Pipe{key_sram(i+2) = key_sram(i+2) ^ key_sram(i-2)}
@@ -108,57 +108,54 @@ object AES extends SpatialApp {
 				Pipe{key_sram(18) = key_sram(18) ^ sbox_sram(key_sram(14).as[Int])}
 				Pipe{key_sram(19) = key_sram(19) ^ sbox_sram(key_sram(15).as[Int])}
 
-				Foreach(20 until 32 by 4) {i => 
+				Sequential.Foreach(20 until 32 by 4) {i => 
 					Pipe{key_sram(i) = key_sram(i) ^ key_sram(i-4)}
-					Pipe{key_sram(i+1) = key_sram(i) ^ key_sram(i-3)}
-					Pipe{key_sram(i+2) = key_sram(i) ^ key_sram(i-2)}
-					Pipe{key_sram(i+3) = key_sram(i) ^ key_sram(i-1)}
+					Pipe{key_sram(i+1) = key_sram(i+1) ^ key_sram(i-3)}
+					Pipe{key_sram(i+2) = key_sram(i+2) ^ key_sram(i-2)}
+					Pipe{key_sram(i+3) = key_sram(i+3) ^ key_sram(i-1)}
 				}
 		  }
 
 		  def shift_rows(): Unit = {
-	  		Foreach(4 by 1){ i => 
-	  			val row = RegFile[UInt8](1,4)
+	  		Sequential.Foreach(4 by 1){ i => 
+	  			val row = RegFile[UInt8](4)
 	  			Foreach(4 by 1){ j => 
 		  			val col_addr = (j - i) % 4
-		  			row(0,col_addr) = plaintext_sram(i,j)
+		  			row(col_addr) = plaintext_sram(i,j)
 		  		}
 		  		Foreach(4 by 1){ j => 
-		  			plaintext_sram(i,j) = row(0,j)
+		  			plaintext_sram(i,j) = row(j)
 		  		}
 	  		}
 		  }
 
 		  def substitute_bytes(): Unit = {
-	  		Foreach(4 by 1, 4 by 1){(i,j) => 
+	  		Sequential.Foreach(4 by 1, 4 by 1){(i,j) => 
 	  			val addr = plaintext_sram(i,j).as[Int]
 	  			val subst = sbox_sram(addr)
 	  			plaintext_sram(i,j) = subst
 	  		}
 		  }
 
+			def rj_xtime(x: UInt8): UInt8 = {
+				mux(((x & 0x80.to[UInt8]) > 0.to[UInt8]), ((x << 1) ^ 0x1b.to[UInt8]), x << 1)
+			}
+
 		  def mix_columns(): Unit = {
-	  		Foreach(4 by 1){j => 
-		  		val col = RegFile[UInt8](1,4)
-	  			Foreach(4 by 1) { i => 
-		  			val mixed = Reduce(Reg[UInt8](0))(4 by 1){k => 
-		  				val el = plaintext_sram(k, j)
-		  				val mix = mix_lut(i,k)
-		  				mux(mix == 1, el, 
-		  					mux(mix == 2, el << 1,
-		  						el ^ (el << 1) /*else if (a<=3)*/))
-		  			}{_^_}
-		  			col(0,i) = mixed
-		  		}
-		  		Foreach(4 by 1) {i => 
-		  			plaintext_sram(i,j) = col(0,i)
-		  		}
+	  		Sequential.Foreach(4 by 1){j => 
+		  		val col = RegFile[UInt8](4)
+		  		Sequential.Foreach(4 by 1) { i => col(i) = plaintext_sram(i,j) }
+		  		val e = Reduce(Reg[UInt8](0))(4 by 1) { i => col(i) }{_^_}
+		  		Pipe{plaintext_sram(0,j) = col(0) ^ e ^ rj_xtime(col(0) ^ col(1))}
+		  		Pipe{plaintext_sram(1,j) = col(1) ^ e ^ rj_xtime(col(1) ^ col(2))}
+		  		Pipe{plaintext_sram(2,j) = col(2) ^ e ^ rj_xtime(col(2) ^ col(3))}
+		  		Pipe{plaintext_sram(3,j) = col(3) ^ e ^ rj_xtime(col(3) ^ col(0))}
 	  		}
 		  }
 
 		  def add_round_key(round: Index): Unit = {
 	  		Foreach(4 by 1, 4 by 1) { (i,j) => 
-	  			val key = mux(round % 2 == 1, key_sram(i*4+j+16), key_sram(i*4+j))
+	  			val key = mux(round % 2 == 1, key_sram(i+j*4+16), key_sram(i+j*4))
 	  			plaintext_sram(i,j) = plaintext_sram(i,j) ^ key
 	  		}
 		  }
@@ -172,7 +169,7 @@ object AES extends SpatialApp {
 
 	  	// gh issue #83
 	  	Foreach(4 by 1, 4 by 1){(i,j) => 
-	  		plaintext_sram(i,j) = plaintext_flat(i*4+j)
+	  		plaintext_sram(i,j) = plaintext_flat(i+j*4)
 	  	} 
 
 	  	// Do AES
@@ -188,28 +185,29 @@ object AES extends SpatialApp {
 	  		}
 
 	  		// MixColumns
-	  		if (round > 0 && round < (niter-1)) {
+	  		if (round > 0 && round < 14 ) {
 	  			mix_columns()
+	  		}
+
+	  		// Expand key
+	  		if (round > 0 && ((round % 2) == 0)) {
+	  			expand_key()
 	  		}
 
 	  		// AddRoundKey
 	  		add_round_key(round)
 
-	  		// Expand key
-	  		if (round > 0 && round < (niter-1)) {
-	  			expand_key()
-	  		}
 	  	}
 
 	  	// Reshape plaintext_sram (gh issue # 83)
 	  	Foreach(4 by 1, 4 by 1) {(i,j) => 
-	  		plaintext_flat(i*4+j) = plaintext_sram(i,j)
+	  		plaintext_flat(i+j*4) = plaintext_sram(i,j)
 	  	}
 
 	  	ciphertext_dram store plaintext_flat
 
-	  	// Debugging
-	  	key_debug store key_sram
+	  	// // Debugging
+	  	// key_debug store key_sram
 
   	}
 
@@ -219,9 +217,9 @@ object AES extends SpatialApp {
   	printArray(ciphertext_gold, "Expected: ")
   	printArray(ciphertext, "Got: ")
 
-  	// Debugging
-  	val key_dbg = getMem(key_debug)
-  	printArray(key_dbg, "Key: ")
+  	// // Debugging
+  	// val key_dbg = getMem(key_debug)
+  	// printArray(key_dbg, "Key: ")
 
   	val cksum = ciphertext_gold.zip(ciphertext){_ == _}.reduce{_&&_}
   	println("PASS: " + cksum + " (AES)")
