@@ -2,7 +2,7 @@ package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
 import spatial.SpatialExp
-import spatial.api.ControllerExp
+import spatial.lang.ControllerExp
 
 trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenMemories {
   val IR: SpatialExp

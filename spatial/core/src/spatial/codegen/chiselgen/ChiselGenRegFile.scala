@@ -1,7 +1,7 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.{ChiselCodegen}
-import spatial.api.RegisterFileExp
+import spatial.lang.RegisterFileExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 

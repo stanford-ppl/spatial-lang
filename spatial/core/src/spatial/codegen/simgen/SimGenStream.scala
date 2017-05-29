@@ -1,7 +1,7 @@
 package spatial.codegen.simgen
 
 import spatial.SpatialExp
-import spatial.api.StreamExp
+import spatial.lang.StreamExp
 
 trait SimGenStream extends SimCodegen {
   val IR: SpatialExp

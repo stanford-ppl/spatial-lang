@@ -3,7 +3,7 @@ package spatial.codegen.dotgen
 import argon.codegen.dotgen.DotCodegen
 import argon.codegen.dotgen._
 import argon.core.Config
-import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
+import spatial.lang.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp

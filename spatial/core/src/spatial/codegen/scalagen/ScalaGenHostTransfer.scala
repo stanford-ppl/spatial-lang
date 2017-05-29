@@ -2,7 +2,7 @@ package spatial.codegen.scalagen
 
 import argon.ops.FixPtExp
 import spatial.SpatialExp
-import spatial.api.HostTransferExp
+import spatial.lang.HostTransferExp
 
 trait ScalaGenHostTransfer extends ScalaGenMemories {
   val IR: SpatialExp

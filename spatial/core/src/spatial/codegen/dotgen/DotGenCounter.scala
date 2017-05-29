@@ -3,7 +3,7 @@ package spatial.codegen.dotgen
 import argon.codegen.FileDependencies
 import argon.codegen.dotgen.DotCodegen
 import argon.core.Config
-import spatial.api.CounterExp
+import spatial.lang.CounterExp
 import spatial.SpatialExp
 
 trait DotGenCounter extends DotCodegen with FileDependencies {

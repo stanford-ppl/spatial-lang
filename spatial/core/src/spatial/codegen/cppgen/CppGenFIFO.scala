@@ -1,7 +1,7 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.FIFOExp
+import spatial.lang.FIFOExp
 import spatial.{SpatialConfig, SpatialExp}
 
 trait CppGenFIFO extends CppCodegen {

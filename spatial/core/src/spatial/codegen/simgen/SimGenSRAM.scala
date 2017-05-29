@@ -2,7 +2,7 @@ package spatial.codegen.simgen
 
 import argon.ops.FixPtExp
 import spatial.SpatialExp
-import spatial.api.SRAMExp
+import spatial.lang.SRAMExp
 
 trait SimGenSRAM extends SimCodegen {
   val IR: SpatialExp

@@ -2,7 +2,7 @@ package spatial.codegen.chiselgen
 
 import argon.codegen.FileDependencies
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.CounterExp
+import spatial.lang.CounterExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 

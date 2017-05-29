@@ -1,9 +1,9 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.HostTransferExp
+import spatial.lang.HostTransferExp
 import spatial.SpatialConfig
-import spatial.api.RegExp
+import spatial.lang.RegExp
 import spatial.SpatialExp
 import spatial.analysis.SpatialMetadataExp
 

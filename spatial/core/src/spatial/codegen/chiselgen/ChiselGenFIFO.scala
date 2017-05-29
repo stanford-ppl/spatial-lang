@@ -1,8 +1,8 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.FIFOExp
-import spatial.api.DRAMTransferExp
+import spatial.lang.FIFOExp
+import spatial.lang.DRAMTransferExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 

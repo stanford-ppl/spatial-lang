@@ -2,7 +2,7 @@ package spatial.transform
 
 import argon.transform.ForwardTransformer
 import spatial.SpatialExp
-import spatial.api.ControllerApi
+import spatial.lang.ControllerApi
 
 import scala.collection.mutable.ArrayBuffer
 

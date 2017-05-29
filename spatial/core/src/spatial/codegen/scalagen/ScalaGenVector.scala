@@ -3,7 +3,7 @@ package spatial.codegen.scalagen
 import argon.codegen.scalagen.ScalaGenText
 import argon.ops.{FixPtExp, FltPtExp}
 import spatial.SpatialExp
-import spatial.api.{BitOpsExp, VectorExp}
+import spatial.lang.{BitOpsExp, VectorExp}
 
 trait ScalaGenVector extends ScalaGenBits with ScalaGenText {
   val IR: SpatialExp

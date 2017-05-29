@@ -2,7 +2,7 @@ package spatial.codegen.cppgen
 
 import argon.codegen.FileDependencies
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.CounterExp
+import spatial.lang.CounterExp
 import spatial.{SpatialConfig, SpatialExp}
 
 trait CppGenCounter extends CppCodegen with FileDependencies {

@@ -1,7 +1,7 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.HostTransferExp
+import spatial.lang.HostTransferExp
 import spatial.{SpatialConfig, SpatialExp}
 
 trait ChiselGenHostTransfer extends ChiselCodegen  {

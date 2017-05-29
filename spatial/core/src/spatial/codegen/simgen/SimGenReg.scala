@@ -2,7 +2,7 @@ package spatial.codegen.simgen
 
 import argon.codegen.scalagen.ScalaCodegen
 import spatial.SpatialExp
-import spatial.api.RegExp
+import spatial.lang.RegExp
 
 trait SimGenReg extends SimCodegen {
   val IR: SpatialExp

@@ -1,7 +1,7 @@
 package spatial.codegen.simgen
 
 import spatial.SpatialExp
-import spatial.api.VectorExp
+import spatial.lang.VectorExp
 
 trait SimGenVector extends SimCodegen {
   val IR: SpatialExp

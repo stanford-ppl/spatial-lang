@@ -1,7 +1,7 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.FileIOExp
+import spatial.lang.FileIOExp
 import spatial.{SpatialConfig, SpatialExp}
 
 

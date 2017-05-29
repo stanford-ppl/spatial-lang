@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.ops.FixPtExp
-import spatial.api.{DRAMExp, DRAMTransferExp, PinExp}
+import spatial.lang.{DRAMExp, DRAMTransferExp, PinExp}
 import org.virtualized.SourceContext
 import spatial.SpatialExp
 

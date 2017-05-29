@@ -2,7 +2,7 @@ package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
 import spatial.SpatialExp
-import spatial.api.DebuggingExp
+import spatial.lang.DebuggingExp
 
 trait CppGenDebugging extends CppCodegen {
   val IR: SpatialExp

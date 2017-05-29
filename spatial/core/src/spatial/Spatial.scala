@@ -11,7 +11,7 @@ import argon.core.compiler._
 import argon.core.cake
 import forge._
 import org.virtualized.EmptyContext
-import spatial.api._
+import spatial.lang._
 import spatial.dse._
 import spatial.analysis._
 import spatial.transform._

@@ -1,7 +1,7 @@
 package spatial.codegen.simgen
 
 import spatial.SpatialExp
-import spatial.api.{DRAMExp, DRAMTransferExp}
+import spatial.lang.{DRAMExp, DRAMTransferExp}
 
 trait SimGenDRAM extends SimCodegen {
   val IR: SpatialExp

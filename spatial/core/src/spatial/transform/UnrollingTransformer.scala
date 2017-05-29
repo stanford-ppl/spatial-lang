@@ -2,7 +2,7 @@ package spatial.transform
 
 import argon.transform.ForwardTransformer
 import spatial._
-import spatial.api.ControllerApi
+import spatial.lang.ControllerApi
 import org.virtualized.SourceContext
 
 trait UnrollingTransformer extends ForwardTransformer { self =>

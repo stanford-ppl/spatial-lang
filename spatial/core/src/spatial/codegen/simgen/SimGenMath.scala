@@ -2,7 +2,7 @@ package spatial.codegen.simgen
 
 import argon.ops.{FixPtExp, FltPtExp}
 import spatial.SpatialExp
-import spatial.api.MathExp
+import spatial.lang.MathExp
 
 trait SimGenMath extends SimCodegen {
   val IR: SpatialExp

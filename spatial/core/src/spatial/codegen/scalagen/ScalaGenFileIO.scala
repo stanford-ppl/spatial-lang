@@ -2,7 +2,7 @@ package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
 import spatial.SpatialExp
-import spatial.api.FileIOExp
+import spatial.lang.FileIOExp
 
 trait ScalaGenFileIO extends ScalaCodegen {
   val IR: SpatialExp

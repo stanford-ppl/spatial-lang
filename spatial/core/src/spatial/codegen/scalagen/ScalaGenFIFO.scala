@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import spatial.SpatialExp
-import spatial.api.FIFOExp
+import spatial.lang.FIFOExp
 
 trait ScalaGenFIFO extends ScalaGenMemories {
   val IR: SpatialExp

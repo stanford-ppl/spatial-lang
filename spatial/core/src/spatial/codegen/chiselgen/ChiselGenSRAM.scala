@@ -1,7 +1,7 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.SRAMExp
+import spatial.lang.SRAMExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 

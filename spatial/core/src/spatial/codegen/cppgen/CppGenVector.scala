@@ -1,7 +1,7 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.VectorExp
+import spatial.lang.VectorExp
 import spatial.{SpatialConfig, SpatialExp}
 
 trait CppGenVector extends CppCodegen {

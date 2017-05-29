@@ -2,7 +2,7 @@ package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
 import spatial.SpatialExp
-import spatial.api.StateMachineExp
+import spatial.lang.StateMachineExp
 
 trait ScalaGenStateMachine extends ScalaCodegen {
   val IR: SpatialExp

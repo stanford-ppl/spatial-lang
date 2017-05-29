@@ -2,7 +2,7 @@ package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
 import spatial.SpatialExp
-import spatial.api.DebuggingExp
+import spatial.lang.DebuggingExp
 
 trait ScalaGenDebugging extends ScalaCodegen {
   val IR: SpatialExp

@@ -1,7 +1,7 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.FileIOExp
+import spatial.lang.FileIOExp
 import spatial.{SpatialConfig, SpatialExp}
 
 trait ChiselGenFileIO extends ChiselCodegen  {

@@ -2,7 +2,7 @@ package spatial.codegen.scalagen
 
 import argon.ops.FixPtExp
 import spatial.SpatialExp
-import spatial.api.SRAMExp
+import spatial.lang.SRAMExp
 
 trait ScalaGenSRAM extends ScalaGenMemories {
   val IR: SpatialExp

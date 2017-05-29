@@ -1,7 +1,7 @@
 package spatial.codegen.simgen
 
 import argon.codegen.FileDependencies
-import spatial.api.CounterExp
+import spatial.lang.CounterExp
 import spatial.{SpatialConfig, SpatialExp}
 
 trait SimGenCounter extends SimCodegen with FileDependencies {

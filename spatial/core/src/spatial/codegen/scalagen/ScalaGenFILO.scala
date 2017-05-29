@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import spatial.SpatialExp
-import spatial.api.FILOExp
+import spatial.lang.FILOExp
 
 trait ScalaGenFILO extends ScalaGenMemories {
   val IR: SpatialExp

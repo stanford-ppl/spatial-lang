@@ -1,7 +1,7 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
+import spatial.lang.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp 
 import spatial.SpatialExp

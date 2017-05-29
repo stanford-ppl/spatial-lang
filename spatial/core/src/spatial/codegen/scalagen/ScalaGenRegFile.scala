@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.ops.FixPtExp
-import spatial.api.{RegisterFileExp, VectorExp}
+import spatial.lang.{RegisterFileExp, VectorExp}
 import org.virtualized.SourceContext
 import spatial.SpatialExp
 import spatial.analysis.NodeClasses

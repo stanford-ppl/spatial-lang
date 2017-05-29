@@ -1,7 +1,7 @@
 package spatial.codegen.simgen
 
 import spatial.SpatialExp
-import spatial.api.FIFOExp
+import spatial.lang.FIFOExp
 
 trait SimGenFIFO extends SimCodegen {
   val IR: SpatialExp

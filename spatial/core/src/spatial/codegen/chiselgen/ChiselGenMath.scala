@@ -2,7 +2,7 @@ package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.ops.{FixPtExp, FltPtExp}
-import spatial.api.MathExp
+import spatial.lang.MathExp
 import spatial.{SpatialConfig, SpatialExp}
 import spatial.analysis.SpatialMetadataExp
 

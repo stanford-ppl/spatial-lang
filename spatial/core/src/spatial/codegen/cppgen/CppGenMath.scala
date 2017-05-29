@@ -2,7 +2,7 @@ package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
 import argon.ops.{FixPtExp, FltPtExp}
-import spatial.api.MathExp
+import spatial.lang.MathExp
 import spatial.{SpatialConfig, SpatialExp}
 import spatial.analysis.SpatialMetadataExp
 

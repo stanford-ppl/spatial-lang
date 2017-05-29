@@ -2,7 +2,7 @@ package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
 import argon.ops.FixPtExp
-import spatial.api.SRAMExp
+import spatial.lang.SRAMExp
 import spatial.{SpatialConfig, SpatialExp}
 
 trait CppGenSRAM extends CppCodegen {
