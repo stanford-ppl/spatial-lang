@@ -212,54 +212,43 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case ParFIFODeq(fifo, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
-      val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${quote(fifo)}.io.deq := (${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en""")
-      fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
-            emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(i)) }""")
-          } else {
-            emit(src"""val ${lhs} = ${fifo}.io.out""")
-          }
-        case _ => emit(src"""val ${lhs} = ${fifo}.io.out""")
-      }
+      val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
+      emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
+      emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en)""")
+      emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
+
+      // fifo.tp.typeArguments.head match { 
+      //   case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
+      //       emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(i)) }""")
+      //     } else {
+      //       emit(src"""val ${lhs} = ${fifo}.io.out""")
+      //     }
+      //   case _ => emit(src"""val ${lhs} = ${fifo}.io.out""")
+      // }
 
     case ParFIFOEnq(fifo, data, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
-      val writer = writersOf(fifo).head.ctrlNode  
-      // Check if this is a tile consumer
-
-      // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
+      val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.io.enq := ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en""")
-      val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
-      emit(src"""${fifo}.io.in := Vec(List(${datacsv}))""")
+      val datacsv = data.map{d => src"${d}.r"}.mkString(",")
+      emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
 
     case ParFILOPop(filo, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
-      val reader = readersOf(filo).head.ctrlNode  // Assuming that each filo has a unique reader
-      emit(src"""${quote(filo)}.io.pop := (${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en""")
-      filo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(filo.tp.typeArguments.head)) {
-            emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(filo)}.io.out(i)) }.reverse""")
-          } else {
-            emit(src"""val ${lhs} = ${filo}.io.out""")
-          }
-        case _ => emit(src"""val ${lhs} = ${filo}.io.out""")
-      }
+      val reader = readersOf(filo).find{_.node == lhs}.get.ctrlNode
+      emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
+      emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en).reverse""")
+      emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
 
     case ParFILOPush(filo, data, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
-      val writer = writersOf(filo).head.ctrlNode  
-      // Check if this is a tile consumer
-
-      // val enabler = if (loadCtrlOf(filo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
+      val writer = writersOf(filo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${filo}.io.push := ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en""")
-      val datacsv = data.map{d => src"${d}.raw"}.mkString(",")
-      emit(src"""${filo}.io.in := Vec(List(${datacsv}))""")
+      val datacsv = data.map{d => src"${d}.r"}.mkString(",")
+      emit(src"""${filo}.connectPushPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
 
     case e@ParStreamRead(strm, ens) =>
       val parent = parentOf(lhs).get
@@ -344,34 +333,33 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
       val dispatch = dispatchOf(lhs, rf).toList.head
       val port = portsOf(lhs, rf, dispatch).toList.head
-      ens.zipWithIndex.foreach { case (en, i) => 
-        if (spatialNeedsFPType(lhs.tp.typeArguments.head)) { lhs.tp.typeArguments.head match {
-          case FixPtType(s,d,f) => 
-            if (i == 0) emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, new FixedPoint($s, $d, $f)))""")
-            emit(src"""val ${lhs}_$i = Wire(new FixedPoint($s, $d, $f))""")
-            emit(src"""${lhs}_${i}.r := ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
-          case _ =>
-            if (i == 0) emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_${i} = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
-        }} else {
-            if (i == 0) emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, UInt(32.W)))""")
-            emit(src"""val ${lhs}_${i} = ${rf}_${dispatch}.readValue(${inds(i)(0)}.raw, ${inds(i)(1)}.raw, $port)""")
-        }
+      emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, ${newWire(lhs.tp.typeArguments.head)}))""")
+      ens.zipWithIndex.foreach { case (en, i) =>
+        val addr = inds(i).map{id => src"${id}.r"}.mkString(",") 
+        emit(src"""val ${lhs}_$i = Wire(${newWire(lhs.tp.typeArguments.head)})""")
+        emit(src"""${lhs}(${i}).r := ${rf}_${dispatch}.readValue(List(${addr}), $port)""")
       }
-      emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
+      // emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
 
 
     case ParRegFileStore(rf, inds, data, ens) => //FIXME: Not correct for more than par=1
+      val width = bitWidth(rf.tp.typeArguments.head)
       val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-      duplicatesOf(rf).zipWithIndex.foreach{case (mem, ii) => 
-        val port = portsOf(lhs, rf, ii)
-        ens.zipWithIndex.foreach{ case (en, i) => 
-          emit(s"""${quote(rf)}_${ii}.connectWPort(${quote(data(i))}.raw, ${quote(inds(i)(0))}.raw, ${quote(inds(i)(1))}.raw, ${quote(en)} & (${quote(parent)}_datapath_en & ~${quote(parent)}_inhibitor).D(${symDelay(lhs)}), List(${port.toList.mkString(",")}))""")
+      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
+      emit(s"""// Assemble multidimW vector""")
+      emit(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, ${width}))) """)
+      (0 until ens.length).foreach{ k => 
+        emit(src"""${lhs}_wVec($k).data := ${data(k)}.r""")
+        emit(src"""${lhs}_wVec($k).en := ${ens(k)} & ${enable}.D(${symDelay(lhs)})""")
+        inds(k).zipWithIndex.foreach{ case(ind,j) => 
+          emit(src"""${lhs}_wVec($k).addr($j) := ${ind}.r // Assume always an int""")
         }
+        emit(src"""${lhs}_wVec($k).shiftEn := false.B""")
       }
-      
-
-
+      duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
+        val p = portsOf(lhs, rf, i).mkString(",")
+        emit(src"""${rf}_$i.connectWPort(${lhs}_wVec, List(${p})) """)
+      }
 
     case _ => super.emitNode(lhs, rhs)
   }
