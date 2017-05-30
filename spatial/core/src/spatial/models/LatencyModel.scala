@@ -78,6 +78,7 @@ trait LatencyModel {
     case FixEql(_,_) => true
     case FixAnd(_,_) => true
     case FixOr(_,_)  => true
+    case FixXor(_,_) => true
     case FixLsh(_,_) => true
     case FixRsh(_,_) => true
     case FixURsh(_,_) => true
@@ -176,6 +177,7 @@ trait LatencyModel {
     case FixEql(_,_) => 1
     case FixAnd(_,_) => 1
     case FixOr(_,_)  => 1
+    case FixXor(_,_) => 1
     case FixLsh(_,_) => 1 // TODO
     case FixRsh(_,_) => 1 // TODO
     case FixURsh(_,_) => 1 // TODO

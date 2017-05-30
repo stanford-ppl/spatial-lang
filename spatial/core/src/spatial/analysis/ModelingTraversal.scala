@@ -108,26 +108,41 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
       case s => paths.getOrElse(s, 0L) // Get preset out of scope delay, or assume 0 offset
     }
 
+    // Perform backwards pass to push unnecessary delays out of reduction cycles
+    // This can create extra registers, but decreases the initiation interval of the cycle
+    def reverseDFS(cur: Exp[_], scope: Set[Exp[_]]): Unit = cur match {
+      case s: Sym[_] if scope contains cur =>
+        val forward = s.dependents
+        if (forward.nonEmpty) {
+          val earliestConsumer = forward.map{e => paths.getOrElse(e, 0L) - latencyOf(e) }.min
+          paths(cur) = Math.max(earliestConsumer, paths.getOrElse(cur, 0L))
+        }
+        getDef(s).foreach{d => d.allInputs.foreach{in => reverseDFS(in, scope) }}
+
+      case _ => // Do nothing
+    }
+
     if (scope.nonEmpty) {
       // Perform forwards pass for normal data dependencies
       val deps = exps(b).toSet intersect scope
       deps.foreach{e => paths.getOrElseAdd(e, fullDFS(e)) }
 
-      // Perform backwards pass to push unnecessary delays out of reduction cycles
-      // This can create extra registers, but decreases the initiation interval of the cycle
       // TODO: What to do in case where a node is contained in multiple cycles?
       accumWrites.zipWithIndex.foreach{case (writer,i) =>
-        val cycle = cycles(writer).toList.sortBy{x => -paths(x)} // Highest delay first
-        dbgs(s"Cycle #$i: " + cycle.map{s => c"($s, ${paths(s)})"}.mkString(", "))
+        val cycle = cycles(writer)
+        val cycleList = cycle.toList
+        dbgs(s"Cycle #$i: " + cycleList.map{s => c"($s, ${paths(s)})"}.mkString(", "))
 
-        cycle.sliding(2).foreach{
+        reverseDFS(writer, cycle)
+
+        /*cycle.sliding(2).foreach{
           case List(high,low) =>
             // Move the lower to just before the higher
             paths(low) = Math.max(paths(high) - latencyOf(high), paths(low))
           case _ =>
-        }
+        }*/
 
-        dbgs(s"Cycle #$i: " + cycle.map{s => c"($s, ${paths(s)})"}.mkString(", "))
+        dbgs(s"Cycle #$i: " + cycleList.map{s => c"($s, ${paths(s)})"}.mkString(", "))
       }
     }
 
