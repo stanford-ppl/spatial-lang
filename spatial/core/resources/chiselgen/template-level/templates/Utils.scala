@@ -357,7 +357,7 @@ object Utils {
       case i: Double => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
       case i: Bool => cst.r := i
       case i: UInt => if (f > 0) cst.r := chisel3.util.Cat(i, 0.U(f.W)) else cst.r := i
-      case i: SInt => FixedPoint(s,d,f,i.asUInt)
+      case i: SInt => cst.r := FixedPoint(s,d,f,i.asUInt).r
       case i: FixedPoint => cst.raw := i.raw
       case i: Int => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
     }

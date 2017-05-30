@@ -90,7 +90,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
     (0 until pW).foreach { w_i => 
       (0 until (p / pW)).foreach { i => 
         val data_options = Vec((0 until numWriters).map{ q => io.in(q*pW + w_i)}.toList)
-        m(w_i + i*pW).io.w.addr := writer.io.output.count(0)
+        m(w_i + i*pW).io.w.addr := writer.io.output.count(0).asUInt
         m(w_i + i*pW).io.w.data := Mux1H(enq_options, data_options)
         m(w_i + i*pW).io.w.en := enq_options.reduce{_|_} & (subWriter.io.output.count(0) === i.S)
       }
@@ -109,7 +109,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       val rSel = Wire(Vec( (p/pR), Bool()))
       val rData = Wire(Vec( (p/pR), UInt(32.W)))
       (0 until (p / pR)).foreach { i => 
-        m(r_i + i*pR).io.r.addr := reader.io.output.count(0)
+        m(r_i + i*pR).io.r.addr := reader.io.output.count(0).asUInt
         m(r_i + i*pR).io.r.en := deq_options.reduce{_|_} & (subReader.io.output.count(0) === i.S)
         rSel(i) := subReader.io.output.count(0) === i.S
         // if (i == 0) { // Strangeness from inc-then-read nuisance
