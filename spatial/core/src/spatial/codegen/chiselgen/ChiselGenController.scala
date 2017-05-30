@@ -40,11 +40,11 @@ trait ChiselGenController extends ChiselGenCounter{
 
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
-        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0)")
+        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0).r")
         emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
-          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j)")
+          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j).r")
           emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
         }
       }
@@ -54,7 +54,7 @@ trait ChiselGenController extends ChiselGenCounter{
   def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
-        emit(src"val ${v}${suffix} = ${c}${suffix} < ${cchain}${suffix}_maxes(${i})")
+        emit(src"val ${v}${suffix} = Mux(${cchain}${suffix}_strides($i) >= 0.S, ${c}${suffix} < ${cchain}${suffix}_stops(${i}), ${c}${suffix} > ${cchain}${suffix}_stops(${i})) // TODO: Generate these inside counter")
       }
     }
   }
@@ -472,7 +472,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWire(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
       emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
-      emit(src"""retime_counter.io.input.start := 0.U; retime_counter.io.input.max := (max_retime.U); retime_counter.io.input.stride := 1.U; retime_counter.io.input.gap := 0.U""")
+      emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
       emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := false.B; retime_counter.io.input.enable := true.B;""")
       emit(src"""val retime_released = retime_counter.io.output.done """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }

@@ -40,7 +40,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // ENHANCEMENT: should r_en RAMs (currently not supported, but saves power)
   // ENHANCEMENT: enq multiple @ once since banked -- COL_WRITE_PAR, ROW_WRITE_PAR (and change names of 2 PARs above to COL/ROW_READ_PAR)
   // ENHANCEMENT: could keep internal state of whether we are initializing (false means steady state),
-  //                val initializing_state = Reg(init=reset_val.asUInt(log2Ceil(max+1).W))
+  //                val initializing_state = Reg(init=reset_val.asUInt(log2Ceil(stop+1).W))
   //                ...
   //              and also other info, e.g. set an output high when line fills
   //                row_wrap := WRITE_countRowNum.io.wrap
@@ -90,15 +90,15 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   WRITE_countRowPx.io.input.enable := io.w_en
   WRITE_countRowPx.io.input.reset := io.reset | swap
   WRITE_countRowPx.io.input.saturate := false.B
-  WRITE_countRowPx.io.input.start := 0.U
-  WRITE_countRowPx.io.input.max := line_size.U
-  WRITE_countRowPx.io.input.stride := 1.U
-  WRITE_countRowPx.io.input.gap := 0.U
+  WRITE_countRowPx.io.input.start := 0.S
+  WRITE_countRowPx.io.input.stop := line_size.S
+  WRITE_countRowPx.io.input.stride := 1.S
+  WRITE_countRowPx.io.input.gap := 0.S
   
   // Outer counter over number of SRAM -- keep track of current row
   val WRITE_countRowNum = Module(new NBufCtr())
   WRITE_countRowNum.io.input.start := 0.U 
-  WRITE_countRowNum.io.input.max := (num_lines+extra_rows_to_buffer).U
+  WRITE_countRowNum.io.input.stop := (num_lines+extra_rows_to_buffer).U
   WRITE_countRowNum.io.input.enable := swap
   WRITE_countRowNum.io.input.countUp := true.B
 
@@ -107,7 +107,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // Write data_in into line buffer
   for (i <- 0 until (num_lines + extra_rows_to_buffer)) {
     for (j <- 0 until col_wPar) {
-      linebuffer(i).io.w(j).addr(0) := WRITE_countRowPx.io.output.count(j) + j.U
+      linebuffer(i).io.w(j).addr(0) := (WRITE_countRowPx.io.output.count(j) + j.S).asUInt
       linebuffer(i).io.w(j).data := io.data_in(j)
       linebuffer(i).io.w(j).en := true.B & cur_row === i.U & io.w_en
     }
@@ -131,7 +131,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     val c = Module(new NBufCtr())
     // c.io.input.start := (num_lines+extra_rows_to_buffer-1-i).U
     c.io.input.start := (extra_rows_to_buffer+i).U
-    c.io.input.max := (num_lines+extra_rows_to_buffer).U
+    c.io.input.stop := (num_lines+extra_rows_to_buffer).U
     c.io.input.enable := swap
     c.io.input.countUp := true.B
     c

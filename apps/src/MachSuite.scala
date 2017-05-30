@@ -4,6 +4,13 @@ import org.virtualized._
 object AES extends SpatialApp { // Regression (Dense) // Args: none
   import IR._
 
+  /*
+  TODO: Optimize/parallelize many of the memory accesses here and pipeline as much as possible
+  
+  MachSuite Concerns: 
+  	- Mix rows math seemed wrong in their implementation
+  	- Not exactly sure what was going on with their expand_key step
+	*/
   type UInt8 = FixPt[FALSE,_8,_0]
   @virtualize
   def main() = {
@@ -67,12 +74,12 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
   		val plaintext_sram = SRAM[UInt8](4,4)
   		val sbox_sram = SRAM[UInt8](256)
   		val key_sram = SRAM[UInt8](32)
-  		val mix_lut = LUT[Int](4,4)(
-  				2, 3, 1, 1,
-  				1, 2, 3, 1,
-  				1, 1, 2, 3,
-  				3, 1, 1, 2
-  			)
+  		// val mix_lut = LUT[Int](4,4)(
+  		// 		2, 3, 1, 1,
+  		// 		1, 2, 3, 1,
+  		// 		1, 1, 2, 3,
+  		// 		3, 1, 1, 2
+  		// 	)
   		val rcon = Reg[UInt8](1)
 
   		// Specify methods
@@ -239,6 +246,10 @@ object Viterbi extends SpatialApp { // DISABLED Regression (Dense) // Args: none
 						 (N_OBS, max value = N_TOKENS)
 
 
+	TODO: Eliminate backprop step and do everything feed-forward
+	MachSuite Concerns:
+		- Constructing path step by step seems to give the wrong result because they do extra math in the backprop step
+
   */
 
   type T = FixPt[TRUE,_16,_16]
@@ -249,6 +260,10 @@ object Viterbi extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   	val N_STATES = 64
   	val N_TOKENS = 64
   	val N_OBS = 140
+
+  	// debugging
+  	val steps_to_take = ArgIn[Int]
+  	setArg(steps_to_take, args(0).to[Int])
 
   	// Setup data
   	val init_states = Array[T](4.6977033615112305.to[T],3.6915655136108398.to[T],4.8652229309082031.to[T],4.7658410072326660.to[T],
@@ -278,15 +293,24 @@ object Viterbi extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   	val transitions = raw_transitions.reshape(N_STATES, N_STATES)
   	val emissions = raw_emissions.reshape(N_STATES, N_TOKENS)
 
+  	val correct_path = Array[Int](27,27,27,27,27,31,63,63,63,63,47,4,38,38,38,38,7,7,7,
+  																7,7,7,7,7,2,2,2,43,52,52,43,43,43,43,43,44,44,32,9,9,
+  																15,45,45,45,45,45,45,0,55,55,55,30,13,13,13,13,13,13,
+  																57,57,21,21,21,21,7,41,41,41,41,17,17,30,41,41,58,58,
+  																58,31,54,54,54,54,54,54,54,54,54,54,54,54,52,52,52,21,
+  																21,21,28,18,18,40,40,40,40,40,40,46,46,2,2,2,53,53,53,
+  																55,38,57,57,57,57,57,57,57,57,57,57,30,30,5,5,5,5,5,5,
+  																5,5,30,30,26,38,38)
   	// Handle DRAMs
   	val init_dram = DRAM[T](N_STATES)
   	val obs_dram = DRAM[Int](N_OBS)
-  	// val transitions_dram = DRAM[T](N_STATES,N_STATES)
+  	val transitions_dram = DRAM[T](N_STATES,N_STATES)
   	val emissions_dram = DRAM[T](N_STATES,N_TOKENS)
-  	val llike_dram = DRAM[T](N_STATES,N_OBS)
+  	val llike_dram = DRAM[T](N_OBS,N_STATES)
+  	val path_dram = DRAM[Int](N_OBS)
   	setMem(init_dram,init_states)
   	setMem(obs_dram, obs_vec)
-  	// setMem(transitions_dram,transitions)
+  	setMem(transitions_dram,transitions)
   	setMem(emissions_dram,emissions)
 
 
@@ -294,28 +318,63 @@ object Viterbi extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   		// Load data structures
   		val obs_sram = SRAM[Int](N_OBS)
   		val init_sram = SRAM[T](N_STATES)
-  		// val transitions_sram = SRAM[T](N_STATES,N_STATES)
+  		val transitions_sram = SRAM[T](N_STATES,N_STATES)
   		val emissions_sram = SRAM[T](N_STATES,N_TOKENS)
-  		val llike_sram = SRAM[T](N_STATES,N_OBS)
+  		val llike_sram = SRAM[T](N_OBS, N_STATES)
+  		val path_sram = SRAM[Int](N_OBS)
 
   		Parallel{
   			obs_sram load obs_dram
   			init_sram load init_dram
-  			// transitions_sram load transitions_dram
+  			transitions_sram load transitions_dram
   			emissions_sram load emissions_dram
   		}
 
-  		// First Setup
-  		Foreach(0 until N_STATES) { s => llike_sram(0,s) = init_sram(s) + emissions_sram(s, obs_sram(0))}
+  		// from --> to
+  		Sequential.Foreach(0 until steps_to_take) { step => 
+  			val obs = obs_sram(step)
+  			Sequential.Foreach(0 until N_STATES) { to => 
+	  			val emission = emissions_sram(to, obs)
+  				val best_hop = Reg[T](15)
+  				best_hop.reset
+  				Reduce(best_hop)(0 until N_STATES) { from => 
+  					val base = llike_sram(step-1, from) + transitions_sram(from,to)
+  					base + emission
+  				} { (a,b) => mux(a < b, a, b)}
+  				llike_sram(step,to) = mux(step == 0, emission + init_sram(to), best_hop)
+  			}
+  		}
 
+  		// to <-- from
+  		Sequential.Foreach(steps_to_take-1 until -1 by -1) { step => 
+  			val from = path_sram(step+1)
+  			val min_pack = Reg[Tup2[Int, T]](pack(-1.to[Int], 15.to[T]))
+  			min_pack.reset
+  			Reduce(min_pack)(0 until N_STATES){ to => 
+  				val jump_cost = mux(step == steps_to_take-1, 0.to[T], transitions_sram(to, from))
+  				val p = llike_sram(step,to) + jump_cost
+  				pack(to,p)
+  			}{(a,b) => mux(a._2 < b._2, a, b)}
+  			path_sram(step) = min_pack._1
+  		}
 
-  		// Store result
+  		// Store results
   		llike_dram store llike_sram
+  		path_dram store path_sram
   	}
-  	
 
+  	// Get data structures
   	val llike = getMatrix(llike_dram)
+  	val path = getMem(path_dram)
 
+  	// Print data structures
   	printMatrix(llike, "log-likelihood")
+  	printArray(path, "path taken")
+  	printArray(correct_path, "correct path")
+
+  	// Check results
+  	val cksum = correct_path.zip(path){_ == _}.reduce{_&&_}
+  	println("PASS: " + cksum + " (Viterbi)")
+
   }
 }
