@@ -15,7 +15,9 @@ trait SwitchExp { this: SpatialExp =>
   }
 
   case class SwitchCase[T:Type](cond: Exp[Bool], body: Block[T]) extends Op[T] {
-    def mirror(f:Tx) = op_case(f(cond), f(body))
+    def mirror(f:Tx) = op_case(f(cond), () => f(body))
+
+    override def freqs = cold(body)
   }
 
   case class Switch[T:Type](body: Block[T], cases: Seq[Exp[T]]) extends Op[T] {
@@ -24,12 +26,13 @@ trait SwitchExp { this: SpatialExp =>
       val cases2 = f(cases)
       op_switch(body2, cases2)
     }
+    override def inputs = dyns(body)
     override def binds = super.binds ++ dyns(cases)
     override def freqs = hot(body)   // Move everything except cases out of body
   }
 
-  @util def op_case[T:Type](cond: Exp[Bool], body: => Exp[T]): Exp[T] = {
-    val block = stageColdBlock{ body }
+  @util def op_case[T:Type](cond: Exp[Bool], body: () => Exp[T]): Exp[T] = {
+    val block = stageColdBlock{ body() }
     val effects = block.summary.star
     stageEffectful(SwitchCase(cond, block), effects)(ctx)
   }

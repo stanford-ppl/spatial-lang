@@ -13,27 +13,8 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
   var controlStyle: Option[ControlStyle] = None
   var controlLevel: Option[ControlLevel] = None
 
-  /*var enableBits: Seq[Exp[Bool]] = Nil
-
-  // Single global valid - should only be used in inner pipes - creates AND tree
-  def globalEnable(implicit ctx: SrcCtx) = {
-    if (enableBits.isEmpty) bool(true)
-    else reduceTree(enableBits){(a,b) => bool_and(a,b) }
-  }
-
-  // Sequence of valid bits associated with current unrolling scope
-  def globalEnables(implicit ctx: SrcCtx) = if (enableBits.nonEmpty) enableBits else Seq(bool(true))
-
-  def withEnable[T](en: Exp[Bool])(blk: => T): T = {
-    val prevEnables = enableBits
-    enableBits = en +: enableBits
-    val result = blk
-    enableBits = prevEnables
-    result
-  }*/
-
   def create_case[T:Type](cond: Exp[Bool], body: Block[T])(implicit ctx: SrcCtx) = () => {
-    val c = op_case(cond, { f(body) })
+    val c = op_case(cond, () => f(body) )
     dbg(c"  ${str(c)}")
     styleOf(c) = controlStyle.getOrElse(InnerPipe)
     levelOf(c) = controlLevel.getOrElse(InnerControl)
