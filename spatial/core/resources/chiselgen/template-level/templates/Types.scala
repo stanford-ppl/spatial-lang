@@ -251,7 +251,11 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		rawop match { 
 			case op: FixedPoint => 
 				if (op.f + f == 0) {
-					(this.number / op.number).FP(op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+					if (op.s | s) {
+						(this.number.asSInt / op.number.asSInt).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
+					} else {
+						(this.number / op.number).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
+					}
 				} else {
 					// Compute upcasted type and return type
 					val upcasted_type = (op.s | s, op.d + d, op.f + f + 1)
@@ -356,7 +360,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this < op_cast
 			case op: SInt => 
-				number < op.asUInt
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number < op_cast
 		}
 	}
 
@@ -379,7 +384,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this ^ op_cast
 			case op: SInt => 
-				this ^ op.asUInt
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number ^ op_cast
 		}
 	}
 
@@ -402,7 +408,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this & op_cast
 			case op: SInt => 
-				this & op.asUInt
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				this & op_cast
 		}
 	}
 
@@ -425,7 +432,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this | op_cast
 			case op: SInt => 
-				this | op.asUInt
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				this | op_cast
 		}
 	}
 
@@ -445,7 +453,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this <= op_cast
 			case op: SInt => 
-				number <= op.asUInt
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number <= op_cast
 		}
 	}
 	
@@ -464,7 +473,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this > op_cast
 			case op: SInt => 
-				number > op.asUInt
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number > op_cast
 		}
 	}
 
@@ -481,9 +491,10 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				if (op.s | s) {lhs.number.asSInt >= rhs.number.asSInt} else {lhs.number >= rhs.number}
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
-				this > op_cast
+				this >= op_cast
 			case op: SInt => 
-				number >= op.asUInt
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number >= op_cast
 		}
 	}
 
@@ -505,7 +516,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val rhs = Utils.FixedPoint(s,d,f, op)
 				number === rhs.number
 			case op: SInt => 
-				number === op.asUInt
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number === op_cast
 		}
 	}
 
@@ -527,7 +539,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				val rhs = Utils.FixedPoint(s,d,f, op)
 				number =/= rhs.number
 			case op: SInt => 
-				number =/= op.asUInt
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number =/= op_cast
 		}
 	}
 
