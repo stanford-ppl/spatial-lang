@@ -2,6 +2,7 @@ package spatial.lang
 
 import spatial._
 import forge._
+import spatial.nodes.EnabledOp
 
 trait SRAMApi extends SRAMExp { this: SpatialApi =>
 

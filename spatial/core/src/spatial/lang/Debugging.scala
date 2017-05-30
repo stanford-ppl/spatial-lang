@@ -1,34 +1,25 @@
 package spatial.lang
 
-import argon.nodes._
-import spatial._
 import forge._
+import spatial.nodes._
 
-trait DebuggingApi extends DebuggingExp { this: SpatialApi =>
-  @api def println(): MUnit = println("")
-  @api def print[A,T<:MetaAny[T]](x: A)(implicit lift: Lift[A,T]): MUnit = MUnit(printIf(bool(true),lift(x).toText.s))
-  @api def println[A,T<:MetaAny[T]](x: A)(implicit lift: Lift[A,T]): MUnit = MUnit(printlnIf(bool(true),lift(x).toText.s))
-
-  @api def print(x: java.lang.String): MUnit = print(string2text(x))
-  @api def println(x: java.lang.String): MUnit = println(string2text(x))
-
-
-  @api def assert(cond: Bool, msg: Text): MUnit = MUnit(assertIf(bool(true), cond.s, Some(msg.s)))
-  @api def assert(cond: Bool): MUnit = MUnit(assertIf(bool(true), cond.s, None))
+object DebuggingOps {
+  /** Constructors **/
+  @internal def printIf(en: Exp[MBoolean], x: Exp[MString]): Exp[MUnit] = stageSimple(PrintIf(en,x))(ctx)
+  @internal def printlnIf(en: Exp[MBoolean], x: Exp[MString]): Exp[MUnit] = stageSimple(PrintlnIf(en,x))(ctx)
+  @internal def assertIf(en: Exp[MBoolean], cond: Exp[MBoolean], msg: Option[Exp[MString]]) = stageGlobal(AssertIf(en,cond,msg))(ctx)
 }
 
+trait DebuggingApi {
+  import DebuggingOps._
 
-trait DebuggingExp { this: SpatialExp =>
+  @api def println(): MUnit = println("")
+  @api def print[A,T<:MetaAny[T]](x: A)(implicit lift: Lift[A,T]): MUnit = MUnit(printIf(MBoolean.const(true), lift(x).toText.s))
+  @api def println[A,T<:MetaAny[T]](x: A)(implicit lift: Lift[A,T]): MUnit = MUnit(printlnIf(MBoolean.const(true), lift(x).toText.s))
 
-  /** Debugging IR Nodes **/
-  case class PrintIf(en: Exp[Bool], x: Exp[Text]) extends EnabledOp[MUnit](en) { def mirror(f:Tx) = printIf(f(en),f(x)) }
-  case class PrintlnIf(en: Exp[Bool], x: Exp[Text]) extends EnabledOp[MUnit](en) {def mirror(f:Tx) = printlnIf(f(en),f(x)) }
-  case class AssertIf(en: Exp[Bool], cond: Exp[Bool], msg: Option[Exp[Text]]) extends EnabledOp[MUnit](en) {
-    def mirror(f:Tx) = assertIf(f(en),f(cond),f(msg))
-  }
+  @api def print(x: CString): MUnit = print(MString(x))
+  @api def println(x: CString): MUnit = println(MString(x))
 
-  /** Constructors **/
-  @internal def printIf(en: Exp[Bool], x: Exp[Text]): Exp[MUnit] = stageSimple(PrintIf(en,x))(ctx)
-  @internal def printlnIf(en: Exp[Bool], x: Exp[Text]): Exp[MUnit] = stageSimple(PrintlnIf(en,x))(ctx)
-  @internal def assertIf(en: Exp[Bool], cond: Exp[Bool], msg: Option[Exp[Text]]) = stageGlobal(AssertIf(en,cond,msg))(ctx)
+  @api def assert(cond: MBoolean, msg: MString): MUnit = MUnit(assertIf(MBoolean.const(true), cond.s, Some(msg.s)))
+  @api def assert(cond: MBoolean): MUnit = MUnit(assertIf(MBoolean.const(true), cond.s, None))
 }

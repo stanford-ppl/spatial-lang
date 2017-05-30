@@ -2,6 +2,7 @@ package spatial.lang
 
 import spatial.SpatialExp
 import forge._
+import spatial.nodes.EnabledOp
 
 trait LUTsApi { this: SpatialExp =>
   private def checkDims(dims: Seq[Int], elems: Seq[_])(implicit ctx: SrcCtx) = {

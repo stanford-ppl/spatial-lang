@@ -7,11 +7,6 @@ import argon.codegen.dotgen._
 import argon.codegen.cppgen._
 import spatial.codegen.dotgen._
 import argon.traversal.IRPrinter
-import argon.core.compiler._
-import argon.core.cake
-import forge._
-import org.virtualized.EmptyContext
-import spatial.lang._
 import spatial.dse._
 import spatial.analysis._
 import spatial.transform._
@@ -19,44 +14,6 @@ import spatial.codegen.scalagen._
 import spatial.codegen.chiselgen._
 import spatial.codegen.pirgen._
 import spatial.codegen.cppgen._
-
-protected trait SpatialExp
-  extends ArgonExp with SpatialExceptions with MatrixExp
-  with DebuggingExp with TemplatesExp with BitOpsExp with FileIOExp
-  with ControllerExp with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with FILOExp with HostTransferExp with MathExp
-  with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
-  with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp with LUTsExp
-  with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
-  with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
-  with Aliases with StreamTransfersExp
-
-trait SpatialImplicits{this: SpatialApi =>
-  // HACK: Insert Void where required to make programs not have to include () at the end of ... => Void functions
-  implicit def insert_void[T:Meta](x: T): Void = Unit()(EmptyContext)
-
-  // Hacks required to allow .to[T] syntax on various primitive types
-  // Naming is apparently important here (has to have same names as in Predef)
-  implicit class longWrapper(x: scala.Long) {
-    @api def to[B:Meta](implicit cast: cake.Cast[scala.Long,B]): B = cast(x)
-  }
-  implicit class floatWrapper(x: scala.Float) {
-    @api def to[B:Meta](implicit cast: cake.Cast[scala.Float,B]): B = cast(x)
-  }
-  implicit class doubleWrapper(x: scala.Double) {
-    @api def to[B:Meta](implicit cast: cake.Cast[scala.Double,B]): B = cast(x)
-  }
-}
-
-protected trait SpatialApi extends SpatialExp
-  with ArgonApi with MatrixApi
-  with DebuggingApi with BitsOpsApi
-  with ControllerApi with CounterApi with DRAMApi with DRAMTransferApi with FIFOApi with FILOApi with HostTransferApi with MathApi
-  with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi with VectorApi
-  with StreamApi with PinApi with AlteraVideoApi with ShiftRegApi with LUTsApi
-  with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
-  with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits with FileIOApi
-  with StreamTransfersApi
- 
 
 protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenArray with ScalaGenSpatialArrayExt with ScalaGenSpatialBool with ScalaGenSpatialFixPt with ScalaGenSpatialFltPt

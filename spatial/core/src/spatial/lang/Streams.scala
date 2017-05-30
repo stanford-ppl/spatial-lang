@@ -3,6 +3,7 @@ package spatial.lang
 import argon.core.cake.LayerStaging
 import spatial.{SpatialApi, SpatialExp}
 import forge._
+import spatial.nodes.EnabledOp
 
 trait StreamApi extends StreamExp { this: SpatialApi =>
 

@@ -1,6 +1,7 @@
 package spatial.lang
 
 import spatial._
+import spatial.nodes.EnabledOp
 
 trait UnrolledApi extends UnrolledExp { this: SpatialApi => }
 
