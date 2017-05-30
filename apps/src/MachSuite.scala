@@ -222,7 +222,7 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 
-object Viterbi extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
   import IR._
 
   /*
@@ -262,8 +262,8 @@ object Viterbi extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   	val N_OBS = 140
 
   	// debugging
-  	val steps_to_take = ArgIn[Int]
-  	setArg(steps_to_take, args(0).to[Int])
+  	// val steps_to_take = ArgIn[Int]
+  	// setArg(steps_to_take, args(0).to[Int])
 
   	// Setup data
   	val init_states = Array[T](4.6977033615112305.to[T],3.6915655136108398.to[T],4.8652229309082031.to[T],4.7658410072326660.to[T],
@@ -306,7 +306,7 @@ object Viterbi extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   	val obs_dram = DRAM[Int](N_OBS)
   	val transitions_dram = DRAM[T](N_STATES,N_STATES)
   	val emissions_dram = DRAM[T](N_STATES,N_TOKENS)
-  	val llike_dram = DRAM[T](N_OBS,N_STATES)
+  	// val llike_dram = DRAM[T](N_OBS,N_STATES)
   	val path_dram = DRAM[Int](N_OBS)
   	setMem(init_dram,init_states)
   	setMem(obs_dram, obs_vec)
@@ -331,7 +331,7 @@ object Viterbi extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   		}
 
   		// from --> to
-  		Sequential.Foreach(0 until steps_to_take) { step => 
+  		Sequential.Foreach(0 until N_OBS) { step => 
   			val obs = obs_sram(step)
   			Sequential.Foreach(0 until N_STATES) { to => 
 	  			val emission = emissions_sram(to, obs)
@@ -346,12 +346,12 @@ object Viterbi extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   		}
 
   		// to <-- from
-  		Sequential.Foreach(steps_to_take-1 until -1 by -1) { step => 
+  		Sequential.Foreach(N_OBS-1 until -1 by -1) { step => 
   			val from = path_sram(step+1)
   			val min_pack = Reg[Tup2[Int, T]](pack(-1.to[Int], 15.to[T]))
   			min_pack.reset
   			Reduce(min_pack)(0 until N_STATES){ to => 
-  				val jump_cost = mux(step == steps_to_take-1, 0.to[T], transitions_sram(to, from))
+  				val jump_cost = mux(step == N_OBS-1, 0.to[T], transitions_sram(to, from))
   				val p = llike_sram(step,to) + jump_cost
   				pack(to,p)
   			}{(a,b) => mux(a._2 < b._2, a, b)}
@@ -359,16 +359,16 @@ object Viterbi extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   		}
 
   		// Store results
-  		llike_dram store llike_sram
+  		// llike_dram store llike_sram
   		path_dram store path_sram
   	}
 
   	// Get data structures
-  	val llike = getMatrix(llike_dram)
+  	// val llike = getMatrix(llike_dram)
   	val path = getMem(path_dram)
 
   	// Print data structures
-  	printMatrix(llike, "log-likelihood")
+  	// printMatrix(llike, "log-likelihood")
   	printArray(path, "path taken")
   	printArray(correct_path, "correct path")
 
