@@ -1551,8 +1551,8 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
       val f1 = FIFO[Int](tileSize)
       val accum = Reg[Int](0)
       Sequential.Reduce(accum)(size by tileSize){ iter =>
-        Foreach(tileSize/2 by 1){i => f1.enq(iter + i) }
-        Foreach(tileSize-1 until (tileSize/2)-1 by -1){i => f1.enq(iter + i) }
+        Foreach(tileSize/2 by 1 par 2){i => f1.enq(iter + i) }
+        Foreach(tileSize-1 until (tileSize/2)-1 by -1 par 2){i => f1.enq(iter + i) }
         Reduce(0)(tileSize by 1){ i =>
           f1.deq()
         }{_+_}
@@ -2277,5 +2277,32 @@ object NestedIfs extends SpatialApp {
   def main() {
     val result = nestedIfTest(43)
     println("result:   " + result)
+  }
+}
+
+object Tup2Test extends SpatialApp {
+  import IR._
+
+  @virtualize
+  def foo() : Int = {
+    type Tup = Tup2[Int, Int]
+    val out = ArgOut[Int]
+    val dr = DRAM[Tup](10)
+    Accel {
+      val s = SRAM[Tup](10)
+      s(5) = pack(42, 43)
+      dr(0::10) store s
+
+      val s1 = SRAM[Tup](10)
+      s1 load dr(0::10)
+      out := s1(5)._1 * s1(5)._2
+    }
+    getArg(out)
+  }
+
+  @virtualize
+  def main() {
+    val result = foo()
+    println(result)
   }
 }

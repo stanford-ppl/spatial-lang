@@ -123,7 +123,7 @@ trait NodeClasses { this: SpatialExp =>
   def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
     case Def(LUTNew(dims,_)) => dims.map{d => int32(d)(x.ctx) }
     case Def(SRAMNew(dims)) => dims
-    case Def(DRAMNew(dims)) => dims
+    case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
     case Def(RegFileNew(dims)) => dims
     case _ => throw new UndefinedDimensionsError(x, None)(x.ctx)

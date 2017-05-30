@@ -22,7 +22,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
 
   override def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
     rhs match {
-      case DRAMNew(dims) => 
+      case DRAMNew(dims,zero) =>
         memStreams += ((lhs, 0, 0))
       case FringeDenseLoad(dram,_,_) =>
         val prevLoads = memStreams.toList.filter{_._1 == dram}.head._2

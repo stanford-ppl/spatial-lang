@@ -22,7 +22,7 @@ trait DimensionAnalyzer extends SpatialTraversal {
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case SetArg(reg, value) => softValues += reg -> value
-    case DRAMNew(_)         => offchips += lhs.asInstanceOf[Exp[DRAM[Any]]]
+    case _:DRAMNew[_,_]     => offchips += lhs.asInstanceOf[Exp[DRAM[Any]]]
     case _:SRAMNew[_,_]     => checkOnchipDims(lhs, stagedDimsOf(lhs))(lhs.ctx)
     case _:FIFONew[_]       => checkOnchipDims(lhs, List(sizeOf(lhs.asInstanceOf[Exp[FIFO[Any]]])))(lhs.ctx)
     case _:LineBufferNew[_] => checkOnchipDims(lhs, stagedDimsOf(lhs))(lhs.ctx)

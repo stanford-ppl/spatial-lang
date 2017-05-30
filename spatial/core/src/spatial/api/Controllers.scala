@@ -396,7 +396,7 @@ trait ControllerExp { this: SpatialExp =>
 
   /** Constructors **/
   def op_accel(func: => Exp[Void], isForever: Boolean)(implicit ctx: SrcCtx): Sym[Controller] = {
-    val fBlk = stageColdBlock{ func }
+    val fBlk = stageIsolatedBlock{ func }
     val effects = fBlk.summary andAlso Simple
     stageEffectful( Hwblock(fBlk, isForever), effects)(ctx)
   }

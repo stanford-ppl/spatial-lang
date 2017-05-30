@@ -163,7 +163,7 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
 	  	// gh issue #83
 	  	Foreach(4 by 1, 4 by 1){(i,j) => 
-	  		plaintext_sram(i,j) = plaintext_flat(i+j*4)
+	  		plaintext_sram(i,j) = plaintext_flat(j*4+i) // MachSuite flattens columnwise... Why????
 	  	} 
 
 	  	// Do AES
@@ -195,7 +195,7 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
 	  	// Reshape plaintext_sram (gh issue # 83)
 	  	Foreach(4 by 1, 4 by 1) {(i,j) => 
-	  		plaintext_flat(i+j*4) = plaintext_sram(i,j)
+	  		plaintext_flat(j*4+i) = plaintext_sram(i,j)
 	  	}
 
 	  	ciphertext_dram store plaintext_flat
@@ -248,7 +248,8 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
 
 	TODO: Eliminate backprop step and do everything feed-forward
 	MachSuite Concerns:
-		- Constructing path step by step seems to give the wrong result because they do extra math in the backprop step
+		- Constructing path step by step seems to give the wrong result because they do extra math in the backprop step. 
+		       Why do you need to do math when going backwards? I thought you just read off the result
 
   */
 
