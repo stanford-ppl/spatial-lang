@@ -64,8 +64,8 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
   	setMem(sbox_dram, sbox)
 
   	// Debugging support
-  	val niter = 15 //ArgIn[Int]
-  	// setArg(niter, args(0).to[Int])
+  	val niter = ArgIn[Int] // 15
+  	setArg(niter, args(0).to[Int])
   	// val key_debug = DRAM[UInt8](32)
 
   	Accel{
@@ -139,7 +139,8 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 	  		Sequential.Foreach(4 by 1){j => 
 		  		val col = RegFile[UInt8](4)
 		  		Sequential.Foreach(4 by 1) { i => col(i) = plaintext_sram(i,j) }
-		  		val e = Reduce(Reg[UInt8](0))(4 by 1) { i => col(i) }{_^_}
+		  		// val e = Reduce(Reg[UInt8](0))(4 by 1 par 4) { i => col(i) }{_^_}
+		  		val e = col(0) ^ col(1) ^ col(2) ^ col(3)
 		  		Pipe{plaintext_sram(0,j) = col(0) ^ e ^ rj_xtime(col(0) ^ col(1))}
 		  		Pipe{plaintext_sram(1,j) = col(1) ^ e ^ rj_xtime(col(1) ^ col(2))}
 		  		Pipe{plaintext_sram(2,j) = col(2) ^ e ^ rj_xtime(col(2) ^ col(3))}
@@ -216,7 +217,7 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
   	// printArray(key_dbg, "Key: ")
 
   	val cksum = ciphertext_gold.zip(ciphertext){_ == _}.reduce{_&&_}
-  	println("PASS: " + cksum + " (AES)")
+  	println("PASS: " + cksum + " (AES) * For retiming, need to fix ^ reduction if not parallelized")
 
   }
 }
@@ -379,3 +380,50 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
 
   }
 }
+
+
+object Stencil2D extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+  import IR._
+
+  /*
+
+
+
+  */
+
+  type T = FixPt[TRUE,_16,_16]
+
+  @virtualize
+  def main() = {
+
+  	// Problem properties
+  	val ROWS = 128
+  	val COLS = 64
+  	val filter_size = 9
+
+  	// Setup data
+  	val filter = Array[Int](468,909,379,165,886,771,159,963,553)
+  	val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/stencil2d_data.csv", "\n")
+  	val data = raw_data.reshape(ROWS, COLS)
+
+  	// Setup DRAMs
+  	val data_dram = DRAM[Int](ROWS,COLS)
+  	val result_dram = DRAM[Int](ROWS,COLS)
+  	val filter_dram = DRAM[Int](filter_size)
+
+  	setMem(data_dram, data)
+  	setMem(filter_dram, filter)
+
+  	Accel {
+
+  	}
+
+  	val result_data = getMem(result_dram)
+  	val raw_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/stencil2d_gold.csv", "\n")
+  	val gold = raw_gold.reshape(ROWS,COLS)
+
+
+  }
+}
+
+
