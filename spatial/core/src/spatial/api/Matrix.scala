@@ -2,8 +2,37 @@ package spatial.api
 
 import spatial._
 import forge._
+import org.virtualized._
 
 trait MatrixApi extends MatrixExp { this: SpatialApi =>
+
+  implicit class VectorReshaper[T](a: MetaArray[T]) {
+    private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Meta[T]]
+    @virtualize
+    @api def reshape(dim0: Int, dim1: Int): Matrix[T] = {
+      assert(dim0*dim1 == a.length, s"Number of elements in vector (${a.length}) must match number of elements in matrix (${dim0}x${dim1})")
+      matrix(a, dim0, dim1)
+    }
+    @virtualize
+    @api def reshape(dim0: Int, dim1: Int, dim2: Int): Tensor3[T] = {
+      assert(dim0*dim1*dim2 == a.length, s"Number of elements in vector (${a.length}) must match number of elements in matrix (${dim0}x${dim1}x${dim2})")
+      tensor3(a, dim0, dim1, dim2)
+    }
+    @virtualize
+    @api def reshape(dim0: Int, dim1: Int, dim2: Int, dim3: Int): Tensor4[T] = {
+      assert(dim0*dim1*dim2*dim3 == a.length, s"Number of elements in vector (${a.length}) must match number of elements in matrix (${dim0}x${dim1}x${dim2}x${dim3})")
+      tensor4(a, dim0, dim1, dim2, dim3)
+    }
+    @virtualize
+    @api def reshape(dim0: Int, dim1: Int, dim2: Int, dim3: Int, dim4: Int): Tensor5[T] = {
+      assert(dim0*dim1*dim2*dim3*dim4 == a.length, s"Number of elements in vector (${a.length}) must match number of elements in matrix (${dim0}x${dim1}x${dim2}x${dim3}x${dim4})")
+      tensor5(a, dim0, dim1, dim2, dim3, dim4)
+    }
+
+
+  }
+
+
 
   implicit class MatrixConstructor(ranges: (Range, Range) ) {
     @api def apply[A,T](func: (Index,Index) => A)(implicit lft: Lift[A,T]): Matrix[T] = {
@@ -79,6 +108,12 @@ trait MatrixApi extends MatrixExp { this: SpatialApi =>
     @api def map[R:Type](func: T => R): Matrix[R] = matrix(a.data.map(func), a.rows, a.cols)
     @api def zip[S:Type,R:Type](b: Matrix[S])(func: (T,S) => R): Matrix[R] = matrix(a.data.zip(b.data)(func), a.rows, a.cols)
     @api def reduce(rfunc: (T,T) => T): T = a.data.reduce(rfunc)
+    @api def transpose(): Matrix[T] = {
+      val data = Array.tabulate(a.cols){j => Array.tabulate(a.rows){i =>
+        a(i,j)
+      }}.flatten
+      matrix(data, a.cols, a.rows)
+    }
   }
   implicit class Tensor3Ops[T](a: Tensor3[T]) {
     private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Meta[T]]

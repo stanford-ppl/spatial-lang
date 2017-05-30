@@ -55,10 +55,10 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
     val ctr = Module(new SingleCounter(1))
     ctr.io.input.enable := io.input.enable & io.input.stageDone(lastState-2) // TODO: Is this wrong? It still works...  
     ctr.io.input.saturate := false.B
-    ctr.io.input.max := max
-    ctr.io.input.stride := 1.U
-    ctr.io.input.start := 0.U
-    ctr.io.input.gap := 0.U
+    ctr.io.input.stop := max.asSInt
+    ctr.io.input.stride := 1.S
+    ctr.io.input.start := 0.S
+    ctr.io.input.gap := 0.S
     ctr.io.input.reset := io.input.rst | (state === doneState.U)
     val iter = ctr.io.output.count(0)
     io.output.rst_en := (state === resetState.U)
@@ -165,8 +165,10 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
     ctr.io.input.enable := io.input.enable & io.input.stageDone(lastState-2) // TODO: Is this wrong? It still works...  
     ctr.io.input.reset := (state === doneState.U)
     ctr.io.input.saturate := false.B
-    ctr.io.input.max := max
-    ctr.io.input.stride := 1.U
+    ctr.io.input.start := 0.S
+    ctr.io.input.gap := 0.S
+    ctr.io.input.stop := max.asSInt
+    ctr.io.input.stride := 1.S
     val iter = ctr.io.output.count(0)
     io.output.rst_en := (state === resetState.U)
 

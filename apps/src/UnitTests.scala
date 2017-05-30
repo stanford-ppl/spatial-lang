@@ -1551,8 +1551,8 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
       val f1 = FIFO[Int](tileSize)
       val accum = Reg[Int](0)
       Sequential.Reduce(accum)(size by tileSize){ iter =>
-        Foreach(tileSize/2 by 1 par 2){i => f1.enq(iter + i) }
-        Foreach(tileSize/2 until tileSize by 1 par 2){i => f1.enq(iter + i) }
+        Foreach(tileSize/2 by 1){i => f1.enq(iter + i) }
+        Foreach(tileSize-1 until (tileSize/2)-1 by -1){i => f1.enq(iter + i) }
         Reduce(0)(tileSize by 1){ i =>
           f1.deq()
         }{_+_}
@@ -1865,7 +1865,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
         }
       } { state => mux(state == 0, fill, mux(stack.full(), 2, mux(stack.empty(), 3, state))) }
       stack_sum := stack_accum
-
+      
       // Using almostDone/almostEmpty, skips last element
       val stack_almost = FILO[Int](size)
       val stack_accum_almost = Reg[Int](0)
@@ -1879,7 +1879,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
         }
       } { state => mux(state == 0, fill, mux(stack_almost.almostFull(), 2, mux(stack_almost.almostEmpty(), 3, state))) }
       stack_sum_almost := stack_accum_almost
-
+      
     }
 
     val fifo_sum_res = getArg(fifo_sum)
@@ -1942,7 +1942,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
 
     // Create HW accelerator
     Accel {
-      y := (x * 9)/4 + 7
+      y := ((x * 9)-10)/ -1 + 7
     }
 
 
@@ -1950,7 +1950,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = (N * 9)/4 + 7
+    val gold = ((N * 9)-10)/ -1 + 7
     println("expected: " + gold)
     println("result: " + result)
 

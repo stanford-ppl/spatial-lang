@@ -28,20 +28,20 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     // emitGlobalWire(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
     emitGlobalWire(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
     emit(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
-    emit(src"""val ${lhs}${suffix}_maxes = List(${counter_data.map(_._2).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
+    emit(src"""val ${lhs}${suffix}_stops = List(${counter_data.map(_._2).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}.mkString(",")}) """)
     emit(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4).mkString(",")}))) // Par of 0 creates forever counter""")
     val ctrl = usersOf(lhs).head._1
     if (suffix != "") {
       emit(src"// this trivial signal will be assigned multiple times but each should be the same")
-      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | ${lhs}${suffix}_maxes.zip(${lhs}${suffix}_starts).map{case (max,start) => max-start}.reduce{_*_} === 0.U""")
+      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => stop-start}.reduce{_*_} === 0.S""")
     } else {
-      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.head}_ctr_trivial | ${lhs}${suffix}_maxes.zip(${lhs}${suffix}_starts).map{case (max,start) => max-start}.reduce{_*_} === 0.U""")
+      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.head}_ctr_trivial | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => stop-start}.reduce{_*_} === 0.S""")
     }
-    emit(src"""${lhs}${suffix}.io.input.maxes.zip(${lhs}${suffix}_maxes).foreach { case (port,max) => port := max.number }""")
-    emit(src"""${lhs}${suffix}.io.input.strides.zip(${lhs}${suffix}_strides).foreach { case (port,stride) => port := stride.number }""")
-    emit(src"""${lhs}${suffix}.io.input.starts.zip(${lhs}${suffix}_starts).foreach { case (port,start) => port := start.number }""")
-    emit(src"""${lhs}${suffix}.io.input.gaps.foreach { gap => gap := 0.U }""")
+    emit(src"""${lhs}${suffix}.io.input.stops.zip(${lhs}${suffix}_stops).foreach { case (port,stop) => port := stop.r.asSInt }""")
+    emit(src"""${lhs}${suffix}.io.input.strides.zip(${lhs}${suffix}_strides).foreach { case (port,stride) => port := stride.r.asSInt }""")
+    emit(src"""${lhs}${suffix}.io.input.starts.zip(${lhs}${suffix}_starts).foreach { case (port,start) => port := start.r.asSInt }""")
+    emit(src"""${lhs}${suffix}.io.input.gaps.foreach { gap => gap := 0.S }""")
     emit(src"""${lhs}${suffix}.io.input.saturate := false.B""")
     emit(src"""${lhs}${suffix}.io.input.enable := ${lhs}${suffix}_en""")
     emit(src"""${lhs}${suffix}_done := ${lhs}${suffix}.io.output.done""")
