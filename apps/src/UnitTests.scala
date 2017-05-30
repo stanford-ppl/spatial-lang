@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object InOutArg extends SpatialApp { // Regression (Unit) // Args: 5
+object InOutArg extends SpatialApp { // Regression (Unit) // Args: 32
   import IR._
 
   @virtualize
@@ -33,7 +33,7 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 5
   }
 }
 
-object TensorLoadStore extends SpatialApp { // Regression (Unit) // args: 32 4 4 4 4
+object TensorLoadStore extends SpatialApp { // Regression (Unit) // Args: 32 4 4 4 4
   import IR._
 
   @virtualize
@@ -176,7 +176,7 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     setArg(io2, cst2)
     setArg(x1, cst3)
     setArg(x2, cst4)
-    val data = Array.const[Int](0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15)
+    val data = Array[Int](0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15)
     // val data = Array.tabulate(16){i => i}
     setMem(m1, data)
 

@@ -379,6 +379,27 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		}
 	}
 
+	def &[T] (rawop: T): FixedPoint = { 
+		rawop match { 
+			case op: FixedPoint => 
+
+				// Compute upcasted type and return type
+				val upcasted_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+				val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+				// Get upcasted operators
+				val lhs = Wire(new FixedPoint(upcasted_type))
+				val rhs = Wire(new FixedPoint(upcasted_type))
+				val res = Wire(new FixedPoint(return_type))
+				this.cast(lhs)
+				op.cast(rhs)
+				res.r := lhs.r & rhs.r
+				res
+			case op: UInt => 
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
+				this & op_cast
+		}
+	}
+
 	def <=[T] (rawop: T): Bool = { // TODO: Probably completely wrong for signed fixpts
 		rawop match { 
 			case op: FixedPoint => 

@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 192 192
+object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 128 128
   import IR._
 
   type X = FixPt[TRUE,_16,_16]
@@ -12,7 +12,7 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 192 
 
   val tsm = 16
   val tsn = 64
-  val tsp = 128
+  val tsp = 64
 
   @virtualize
   def MatMult_outer[T:Type:Num](A: Array[T], B: Array[T], C_init: Array[T], mm: Int, nn: Int, pp: Int) = {
@@ -100,7 +100,7 @@ object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 192 
 
 }
 
-object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 256 256
+object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 128 128
   import IR._
 
   type X = FixPt[TRUE,_16,_16]
@@ -111,7 +111,7 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 256 
 
   val tsm = 16
   val tsn = 64
-  val tsp = 128
+  val tsp = 64
 
   @virtualize
   def MatMult_inner[T:Type:Num](A: Array[T], B: Array[T], mm: Int, nn: Int, pp: Int) = {
