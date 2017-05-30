@@ -8,11 +8,11 @@ trait DRAMApi extends DRAMExp { this: SpatialApi =>
   type Tile[T] = DRAMDenseTile[T]
   type SparseTile[T] = DRAMSparseTile[T]
 
-  @api def DRAM[T:Type:Bits](d1: Index): DRAM1[T] = DRAM1(dram_alloc[T,DRAM1](d1.s))
-  @api def DRAM[T:Type:Bits](d1: Index, d2: Index): DRAM2[T] = DRAM2(dram_alloc[T,DRAM2](d1.s,d2.s))
-  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index): DRAM3[T] = DRAM3(dram_alloc[T,DRAM3](d1.s,d2.s,d3.s))
-  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index, d4: Index): DRAM4[T] = DRAM4(dram_alloc[T,DRAM4](d1.s,d2.s,d3.s,d4.s))
-  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index, d4: Index, d5: Index): DRAM5[T] = DRAM5(dram_alloc[T,DRAM5](d1.s,d2.s,d3.s,d4.s,d5.s))
+  @api def DRAM[T:Type:Bits](d1: Index): DRAM1[T] = DRAM1(dram_alloc[T,DRAM1](unwrap(bits[T].zero), d1.s))
+  @api def DRAM[T:Type:Bits](d1: Index, d2: Index): DRAM2[T] = DRAM2(dram_alloc[T,DRAM2](unwrap(bits[T].zero),d1.s,d2.s))
+  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index): DRAM3[T] = DRAM3(dram_alloc[T,DRAM3](unwrap(bits[T].zero),d1.s,d2.s,d3.s))
+  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index, d4: Index): DRAM4[T] = DRAM4(dram_alloc[T,DRAM4](unwrap(bits[T].zero),d1.s,d2.s,d3.s,d4.s))
+  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index, d4: Index, d5: Index): DRAM5[T] = DRAM5(dram_alloc[T,DRAM5](unwrap(bits[T].zero),d1.s,d2.s,d3.s,d4.s,d5.s))
 }
 
 trait DRAMExp { this: SpatialExp =>
@@ -195,10 +195,9 @@ trait DRAMExp { this: SpatialExp =>
 
 
   /** IR Nodes **/
-  case class DRAMNew[T:Type:Bits,C[_]<:DRAM[_]](dims: Seq[Exp[Index]])(implicit cT: Type[C[T]]) extends Op2[T,C[T]] {
-    def mirror(f:Tx) = dram_alloc[T,C](f(dims):_*)
+  case class DRAMNew[T:Type:Bits,C[_]<:DRAM[_]](dims: Seq[Exp[Index]], zero: Exp[T])(implicit cT: Type[C[T]]) extends Op2[T,C[T]] {
+    def mirror(f:Tx) = dram_alloc[T,C](f(zero), f(dims):_*)
     val bT = bits[T]
-    def zero: Exp[T] = bT.zero.s
   }
 
   case class GetDRAMAddress[T:Type:Bits](dram: Exp[DRAM[T]]) extends Op[Int64] {
@@ -206,8 +205,8 @@ trait DRAMExp { this: SpatialExp =>
   }
 
   /** Constructors **/
-  def dram_alloc[T:Type:Bits,C[_]<:DRAM[_]](dims: Exp[Index]*)(implicit ctx: SrcCtx, cT: Type[C[T]]): Exp[C[T]] = {
-    stageMutable( DRAMNew[T,C](dims) )(ctx)
+  def dram_alloc[T:Type:Bits,C[_]<:DRAM[_]](zero: Exp[T], dims: Exp[Index]*)(implicit ctx: SrcCtx, cT: Type[C[T]]): Exp[C[T]] = {
+    stageMutable( DRAMNew[T,C](dims, zero) )(ctx)
   }
   def get_dram_addr[T:Type:Bits](dram: Exp[DRAM[T]])(implicit ctx: SrcCtx): Exp[Int64] = {
     stage( GetDRAMAddress(dram) )(ctx)
