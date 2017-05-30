@@ -248,7 +248,8 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
 
 	TODO: Eliminate backprop step and do everything feed-forward
 	MachSuite Concerns:
-		- Constructing path step by step seems to give the wrong result because they do extra math in the backprop step
+		- Constructing path step by step seems to give the wrong result because they do extra math in the backprop step. 
+		       Why do you need to do math when going backwards? I thought you just read off the result
 
   */
 

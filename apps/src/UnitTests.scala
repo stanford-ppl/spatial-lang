@@ -1551,8 +1551,8 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
       val f1 = FIFO[Int](tileSize)
       val accum = Reg[Int](0)
       Sequential.Reduce(accum)(size by tileSize){ iter =>
-        Foreach(tileSize/2 by 1){i => f1.enq(iter + i) }
-        Foreach(tileSize-1 until (tileSize/2)-1 by -1){i => f1.enq(iter + i) }
+        Foreach(tileSize/2 by 1 par 2){i => f1.enq(iter + i) }
+        Foreach(tileSize-1 until (tileSize/2)-1 by -1 par 2){i => f1.enq(iter + i) }
         Reduce(0)(tileSize by 1){ i =>
           f1.deq()
         }{_+_}
