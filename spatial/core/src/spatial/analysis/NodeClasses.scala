@@ -219,6 +219,11 @@ trait NodeClasses { this: SpatialExp =>
     case _ => false
   }
 
+  def isLUT(e: Exp[_]): Boolean = e.tp match {
+    case _:LUTType[_] => true
+    case _ => false
+  }
+
   def isStreamIn(e: Exp[_]): Boolean = e.tp match {
     case _:StreamInType[_] => true
     case _ => false
