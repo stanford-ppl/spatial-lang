@@ -141,7 +141,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       io.in(wId*pW + i) := data(i)
     }
     io.enq(wId) := en
-    wId += data.length
+    wId += 1
   }
 
   var rId = 0
@@ -299,7 +299,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       io.in(wId*pW + i) := data(i)
     }
     io.push(wId) := en
-    wId += data.length
+    wId += 1
   }
 
   var rId = 0
