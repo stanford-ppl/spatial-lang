@@ -769,6 +769,8 @@ elif grep -q \"PASS: 0\" ${5}/log; then
   report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
 elif grep -q \"PASS: false\" ${5}/log; then
   report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
+elif grep -q \"PASS: X\" ${5}/log; then
+  report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
 else 
   report \"failed_execution_nonexistent_validation\" \"[STATUS] Declaring failure no_validation_check\" 0
 fi" >> $1

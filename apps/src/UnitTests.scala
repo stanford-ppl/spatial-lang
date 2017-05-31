@@ -136,8 +136,8 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
       )
       val red = Reduce(Reg[Int](0))(3 by 1 par 3) {q =>
         lut(q,q)
-      }{_+_}
-      y := lut(1, 3) + lut(3, 3) + red + lut(i,0)
+      }{_^_}
+      y := lut(1, 3) ^ lut(3, 3) ^ red ^ lut(i,0)
     }
 
 
@@ -145,7 +145,7 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = -15 + 7 - 0 - 5 - 10 + 4*ii
+    val gold = -15 ^ 7 ^ -0 ^ -5 ^ -10 ^ 4*ii
     println("expected: " + gold)
     println("result: " + result)
 
