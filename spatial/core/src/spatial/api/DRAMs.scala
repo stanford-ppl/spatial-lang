@@ -210,6 +210,10 @@ trait DRAMExp { this: SpatialExp =>
     def mirror(f:Tx) = dram_dealloc(f(dram))
   }
 
+  case class DRAMDealloc[T:Type:Bits](dram: Exp[DRAM[T]]) extends Op[Void] {
+    def mirror(f:Tx) = dram_dealloc(f(dram))
+  }
+
   case class GetDRAMAddress[T:Type:Bits](dram: Exp[DRAM[T]]) extends Op[Int64] {
     def mirror(f:Tx) = get_dram_addr(f(dram))
   }
@@ -217,6 +221,9 @@ trait DRAMExp { this: SpatialExp =>
   /** Constructors **/
   def dram_alloc[T:Type:Bits,C[_]<:DRAM[_]](zero: Exp[T], dims: Exp[Index]*)(implicit ctx: SrcCtx, cT: Type[C[T]]): Exp[C[T]] = {
     stageMutable( DRAMNew[T,C](dims, zero) )(ctx)
+  }
+  def dram_dealloc[T:Type:Bits](dram: Exp[DRAM[T]])(implicit ctx: SrcCtx) = {
+    stage( DRAMDealloc(dram) )(ctx)
   }
   def dram_dealloc[T:Type:Bits](dram: Exp[DRAM[T]])(implicit ctx: SrcCtx) = {
     stage( DRAMDealloc(dram) )(ctx)
