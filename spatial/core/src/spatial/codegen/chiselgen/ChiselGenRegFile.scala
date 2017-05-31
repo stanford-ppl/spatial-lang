@@ -80,7 +80,6 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         emit(src"""${rf}_$i.connectWPort(${lhs}_wVec, List(${p})) """)
       }
 
-      }
 
     case RegFileShiftIn(rf,inds,d,data,en)    => 
       val width = bitWidth(rf.tp.typeArguments.head)
