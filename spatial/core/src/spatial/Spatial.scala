@@ -27,7 +27,7 @@ protected trait SpatialExp
   with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp with LUTsExp
   with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
-  with Aliases with StreamTransfersExp
+  with Aliases with StreamTransfersExp with VarRegExp
 
 trait SpatialImplicits{this: SpatialApi =>
   // HACK: Insert Void where required to make programs not have to include () at the end of ... => Void functions
@@ -65,7 +65,8 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
   with ScalaGenStream
-  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO with ScalaGenShiftReg with ScalaGenLUTs {
+  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO with ScalaGenShiftReg with ScalaGenLUTs
+  with ScalaGenVarReg {
 
   override val IR: SpatialCompiler
 

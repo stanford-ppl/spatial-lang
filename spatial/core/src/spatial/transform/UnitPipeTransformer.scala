@@ -56,6 +56,19 @@ trait UnitPipeTransformer extends ForwardTransformer {
     case _ => throw new UndefinedZeroException(reg, reg.tp.typeArguments.head)
   }
 
+  private def varFromSym[T](s: Exp[T])(implicit ctx: SrcCtx): Exp[VarReg[T]] = {
+    implicit val mT: Type[T] = s.tp
+    var_reg_alloc[T](s.tp)
+  }
+  private def varWrite[T](varr: Exp[VarReg[T]], s: Exp[T])(implicit ctx: SrcCtx): Exp[Void] = {
+    implicit val mT: Type[T] = s.tp
+    var_reg_write(varr, s, bool(true))
+  }
+  private def varRead[T](varr: Exp[VarReg[T]])(implicit ctx: SrcCtx): Exp[T] = {
+    implicit val tp: Type[T] = varr.tp.typeArguments.head.asInstanceOf[Type[T]]
+    var_reg_read(varr)
+  }
+
   private def wrapBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
     dbgs(s"Wrapping block with type ${typ[T]}")
     val stages = ArrayBuffer[PipeStage]()
@@ -93,18 +106,22 @@ trait UnitPipeTransformer extends ForwardTransformer {
         val escaping = calculated.filter{sym => (sym.dependents diff innerDeps).nonEmpty && !isRegisterRead(sym) }
         val (escapingUnits, escapingValues) = escaping.partition{_.tp == VoidType}
 
+        val (escapingBits, escapingVars) = escapingValues.partition{sym => Bits.unapply(sym.tp).isDefined }
+
         dbgs(c"Stage #$i: ")
         dbgs(c"  Escaping symbols: ")
         escapingValues.foreach{e => dbgs(c"    ${str(e)}: ${e.dependents diff innerDeps}")}
 
         // Create registers for escaping primitive values
-        val regs = escapingValues.map{sym => regFromSym(sym) }
+        val regs = escapingBits.map{sym => regFromSym(sym) }
+        val vars = escapingVars.map{sym => varFromSym(sym) }
 
         stage.staticAllocs.foreach(visitStm)
         val pipe = op_unit_pipe(Nil, {
           isolateSubstScope { // We shouldn't be able to see any substitutions in here from the outside by default
             stage.nodes.foreach(visitStm)
-            escapingValues.zip(regs).foreach { case (sym, reg) => regWrite(reg, f(sym)) }
+            escapingBits.zip(regs).foreach { case (sym, reg) => regWrite(reg, f(sym)) }
+            escapingVars.zip(vars).foreach { case (sym, varr) => varWrite(varr, f(sym)) }
             void
           }
         })
@@ -112,7 +129,8 @@ trait UnitPipeTransformer extends ForwardTransformer {
         styleOf(pipe) = InnerPipe
 
         // Outside inserted pipe, replace original escaping values with register reads
-        escapingValues.zip(regs).foreach{case (sym,reg) => register(sym, regRead(reg)) }
+        escapingBits.zip(regs).foreach{case (sym,reg) => register(sym, regRead(reg)) }
+        escapingVars.zip(vars).foreach{case (sym,varr) => register(sym, varRead(varr)) }
 
         // Add (possibly redundant/unused) register reads
         stage.regReads.foreach(visitStm)

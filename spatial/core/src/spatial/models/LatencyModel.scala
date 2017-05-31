@@ -109,6 +109,10 @@ trait LatencyModel {
     case DataAsBits(_)      => 0
     case BitsAsData(_,_)    => 0
 
+    case _:VarRegNew[_]   => 0
+    case _:VarRegRead[_]  => 0
+    case _:VarRegWrite[_] => 0
+
     // Registers
     case _:RegRead[_]  => 0
     case _:RegWrite[_] => 1
