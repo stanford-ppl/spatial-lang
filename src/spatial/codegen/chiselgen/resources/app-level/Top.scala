@@ -47,6 +47,8 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
   val genericStreamIn = StreamIn(StreamParInfo(32,1))
   val genericStreamOut = StreamOut(StreamParInfo(32,1))
 
+  // Debug signals
+  val dbg = new DebugSignals
 }
 
 class ZynqInterface(p: TopParams) extends TopInterface {
@@ -62,16 +64,7 @@ class AWSInterface(p: TopParams) extends TopInterface {
   val scalarIns = Input(Vec(p.numArgIns, UInt(64.W)))
   val scalarOuts = Output(Vec(p.numArgOuts, UInt(64.W)))
 
-  val dbg_num_enable = Output(UInt(32.W))
-  val dbg_num_cmd_valid = Output(UInt(32.W))
-  val dbg_num_cmd_valid_enable = Output(UInt(32.W))
-  val dbg_num_cmd_ready = Output(UInt(32.W))
-  val dbg_num_cmd_ready_enable = Output(UInt(32.W))
-  val dbg_num_resp_valid = Output(UInt(32.W))
-  val dbg_num_resp_valid_enable = Output(UInt(32.W))
-  val dbg_num_rdata_enq = Output(UInt(32.W))
-  val dbg_num_rdata_deq = Output(UInt(32.W))
-  val dbg_num_app_rdata_ready = Output(UInt(32.W))
+  val dbg = new DebugSignals
 
   // DRAM interface - currently only one stream
   val dram = new DRAMStream(p.dataWidth, p.v)
@@ -111,7 +104,7 @@ class Top(
   target match {
     case "verilator" | "vcs" =>
       // Simulation Fringe
-      val blockingDRAMIssue = false
+      val blockingDRAMIssue = true
       val fringe = Module(new Fringe(w, numArgIns, numArgOuts, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[VerilatorInterface]
 
@@ -141,6 +134,7 @@ class Top(
       // Fringe <-> Accel stream connections
       accel.io.genericStreams <> fringe.io.genericStreamsAccel
 //      fringe.io.genericStreamsAccel <> accel.io.genericStreams
+      topIO.dbg <> fringe.io.dbg
 
     case "zynq" =>
       // Zynq Fringe
@@ -179,17 +173,7 @@ class Top(
       topIO.done := accel.io.done
 
       fringe.io.aws_top_enable := topIO.enable
-      topIO.dbg_num_enable := fringe.io.dbg_num_enable
-      topIO.dbg_num_cmd_valid := fringe.io.dbg_num_cmd_valid
-      topIO.dbg_num_cmd_valid_enable := fringe.io.dbg_num_cmd_valid_enable
-      topIO.dbg_num_cmd_ready := fringe.io.dbg_num_cmd_ready
-      topIO.dbg_num_cmd_ready_enable := fringe.io.dbg_num_cmd_ready_enable
-      topIO.dbg_num_resp_valid := fringe.io.dbg_num_resp_valid
-      topIO.dbg_num_resp_valid_enable := fringe.io.dbg_num_resp_valid_enable
-
-      topIO.dbg_num_rdata_enq := fringe.io.dbg_num_rdata_enq
-      topIO.dbg_num_rdata_deq := fringe.io.dbg_num_rdata_deq
-      topIO.dbg_num_app_rdata_ready := fringe.io.dbg_num_app_rdata_ready
+      topIO.dbg <> fringe.io.dbg
 
     case _ =>
       throw new Exception(s"Unknown target '$target'")

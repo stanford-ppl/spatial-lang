@@ -33,16 +33,8 @@ class MAGCore(
   val io = IO(new Bundle {
     // Debug
     val enable = Input(Bool())
-    val dbg_num_enable = Output(UInt(32.W))
-    val dbg_num_cmd_valid = Output(UInt(32.W))
-    val dbg_num_cmd_valid_enable = Output(UInt(32.W))
-    val dbg_num_cmd_ready = Output(UInt(32.W))
-    val dbg_num_cmd_ready_enable = Output(UInt(32.W))
-    val dbg_num_resp_valid = Output(UInt(32.W))
-    val dbg_num_resp_valid_enable = Output(UInt(32.W))
-    val dbg_num_rdata_enq = Output(UInt(32.W))
-    val dbg_num_rdata_deq = Output(UInt(32.W))
-    val dbg_num_app_rdata_ready = Output(UInt(32.W))
+
+    val dbg = new DebugSignals
 
 //    val app = Vec(numStreams, new MemoryStream(w, v))
     val app = new AppStreams(loadStreamInfo, storeStreamInfo)
@@ -346,7 +338,7 @@ class MAGCore(
   enableCounter.io.max := 100000000.U
   enableCounter.io.stride := 1.U
   enableCounter.io.enable := io.enable
-  io.dbg_num_enable := enableCounter.io.out
+  io.dbg.num_enable := enableCounter.io.out
 
   val cmdValidCtr = Module(new Counter(32))
   cmdValidCtr.io.reset := 0.U
@@ -354,7 +346,7 @@ class MAGCore(
   cmdValidCtr.io.max := 100000000.U
   cmdValidCtr.io.stride := 1.U
   cmdValidCtr.io.enable := dramCmdValid
-  io.dbg_num_cmd_valid := cmdValidCtr.io.out
+  io.dbg.num_cmd_valid := cmdValidCtr.io.out
 
   val cmdValidEnableCtr = Module(new Counter(32))
   cmdValidEnableCtr.io.reset := 0.U
@@ -362,7 +354,7 @@ class MAGCore(
   cmdValidEnableCtr.io.max := 100000000.U
   cmdValidEnableCtr.io.stride := 1.U
   cmdValidEnableCtr.io.enable := dramCmdValid & io.enable
-  io.dbg_num_cmd_valid_enable := cmdValidEnableCtr.io.out
+  io.dbg.num_cmd_valid_enable := cmdValidEnableCtr.io.out
 
   val numReadyHighCtr = Module(new Counter(32))
   numReadyHighCtr.io.reset := 0.U
@@ -370,7 +362,7 @@ class MAGCore(
   numReadyHighCtr.io.max := 100000000.U
   numReadyHighCtr.io.stride := 1.U
   numReadyHighCtr.io.enable := io.dram.cmd.ready
-  io.dbg_num_cmd_ready := numReadyHighCtr.io.out
+  io.dbg.num_cmd_ready := numReadyHighCtr.io.out
 
   val numReadyAndEnableHighCtr = Module(new Counter(32))
   numReadyAndEnableHighCtr.io.reset := 0.U
@@ -378,7 +370,7 @@ class MAGCore(
   numReadyAndEnableHighCtr.io.max := 100000000.U
   numReadyAndEnableHighCtr.io.stride := 1.U
   numReadyAndEnableHighCtr.io.enable := io.dram.cmd.ready & io.enable
-  io.dbg_num_cmd_ready_enable := numReadyAndEnableHighCtr.io.out
+  io.dbg.num_cmd_ready_enable := numReadyAndEnableHighCtr.io.out
 
   val numRespHighCtr = Module(new Counter(32))
   numRespHighCtr.io.reset := 0.U
@@ -386,7 +378,7 @@ class MAGCore(
   numRespHighCtr.io.max := 100000000.U
   numRespHighCtr.io.stride := 1.U
   numRespHighCtr.io.enable := io.dram.resp.valid
-  io.dbg_num_resp_valid := numRespHighCtr.io.out
+  io.dbg.num_resp_valid := numRespHighCtr.io.out
 
   val numRespAndEnableHighCtr = Module(new Counter(32))
   numRespAndEnableHighCtr.io.reset := 0.U
@@ -394,7 +386,7 @@ class MAGCore(
   numRespAndEnableHighCtr.io.max := 100000000.U
   numRespAndEnableHighCtr.io.stride := 1.U
   numRespAndEnableHighCtr.io.enable := io.dram.resp.valid & io.enable
-  io.dbg_num_resp_valid_enable := numRespAndEnableHighCtr.io.out
+  io.dbg.num_resp_valid_enable := numRespAndEnableHighCtr.io.out
 
   val rdataEnqCtr = Module(new Counter(32))
   rdataEnqCtr.io.reset := 0.U
@@ -402,7 +394,7 @@ class MAGCore(
   rdataEnqCtr.io.max := 100000000.U
   rdataEnqCtr.io.stride := 1.U
   rdataEnqCtr.io.enable := respValid & (streamTagFromDRAM === 0.U)
-  io.dbg_num_rdata_enq := rdataEnqCtr.io.out
+  io.dbg.num_rdata_enq := rdataEnqCtr.io.out
 
   val rdataDeqCtr = Module(new Counter(32))
   rdataDeqCtr.io.reset := 0.U
@@ -410,7 +402,21 @@ class MAGCore(
   rdataDeqCtr.io.max := 100000000.U
   rdataDeqCtr.io.stride := 1.U
   rdataDeqCtr.io.enable := io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty
-  io.dbg_num_rdata_deq := rdataDeqCtr.io.out
+  io.dbg.num_rdata_deq := rdataDeqCtr.io.out
+
+  val wdataEnqCtr = Module(new Counter(32))
+  wdataEnqCtr.io.reset := 0.U
+  wdataEnqCtr.io.saturate := 0.U
+  wdataEnqCtr.io.max := 100000000.U
+  wdataEnqCtr.io.stride := 1.U
+  wdataEnqCtr.io.enable := io.app.stores(0).wdata.valid
+
+  val wdataDeqCtr = Module(new Counter(32))
+  wdataDeqCtr.io.reset := 0.U
+  wdataDeqCtr.io.saturate := 0.U
+  wdataDeqCtr.io.max := 100000000.U
+  wdataDeqCtr.io.stride := 1.U
+  wdataDeqCtr.io.enable := burstVld & isWrFifo.io.deq(0) & dramReady & ~issued
 
   val appRdataReadyCtr = Module(new Counter(32))
   appRdataReadyCtr.io.reset := 0.U
@@ -418,7 +424,57 @@ class MAGCore(
   appRdataReadyCtr.io.max := 100000000.U
   appRdataReadyCtr.io.stride := 1.U
   appRdataReadyCtr.io.enable := io.app.loads(0).rdata.ready
-  io.dbg_num_app_rdata_ready := appRdataReadyCtr.io.out
+  io.dbg.num_app_rdata_ready := appRdataReadyCtr.io.out
+
+  def getFF[T<:Data](sig: T, en: UInt) = {
+    val in = sig match {
+      case v: Vec[UInt] => v.reverse.reduce { Cat(_,_) }
+      case u: UInt => u
+    }
+
+    val ff = Module(new FF(sig.getWidth))
+    ff.io.init := 15162342.U  // Numbers from "LOST" without first two numbers
+    ff.io.in := in
+    ff.io.enable := en
+    ff.io.out
+  }
+
+  // rdata enq values
+  io.dbg.rdata_enq0_0 := getFF(io.dram.resp.bits.rdata(0), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 0.U))
+  io.dbg.rdata_enq0_1 := getFF(io.dram.resp.bits.rdata(1), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 0.U))
+  io.dbg.rdata_enq0_15 := getFF(io.dram.resp.bits.rdata(15), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 0.U))
+
+  io.dbg.rdata_enq1_0 := getFF(io.dram.resp.bits.rdata(0), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 1.U))
+  io.dbg.rdata_enq1_1 := getFF(io.dram.resp.bits.rdata(1), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 1.U))
+  io.dbg.rdata_enq1_15 := getFF(io.dram.resp.bits.rdata(15), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 1.U))
+
+
+  // rdata deq values
+  io.dbg.rdata_deq0_0   := getFF(rdataFifos(0).io.deq(0), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 0.U)
+  io.dbg.rdata_deq0_1   := getFF(rdataFifos(0).io.deq(1), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 0.U)
+  io.dbg.rdata_deq0_15   := getFF(rdataFifos(0).io.deq(15), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 0.U)
+
+  io.dbg.rdata_deq1_0   := getFF(rdataFifos(0).io.deq(0), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 1.U)
+  io.dbg.rdata_deq1_1   := getFF(rdataFifos(0).io.deq(1), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 1.U)
+  io.dbg.rdata_deq1_15   := getFF(rdataFifos(0).io.deq(15), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 1.U)
+
+
+  // wdata enq values
+  io.dbg.wdata_enq0_0 := getFF(wdataFifo.io.enq(0)(0), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 0.U))
+  io.dbg.wdata_enq0_1 := getFF(wdataFifo.io.enq(0)(1), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 0.U))
+  io.dbg.wdata_enq0_15 := getFF(wdataFifo.io.enq(0)(15), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 0.U))
+  io.dbg.wdata_enq1_0 := getFF(wdataFifo.io.enq(0)(0), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 1.U))
+  io.dbg.wdata_enq1_1 := getFF(wdataFifo.io.enq(0)(1), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 1.U))
+  io.dbg.wdata_enq1_15 := getFF(wdataFifo.io.enq(0)(15), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 1.U))
+
+  // wdata deq values
+  io.dbg.wdata_deq0_0 := getFF(wdataFifo.io.deq(0), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 0.U))
+  io.dbg.wdata_deq0_1 := getFF(wdataFifo.io.deq(1), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 0.U))
+  io.dbg.wdata_deq0_15 := getFF(wdataFifo.io.deq(15), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 0.U))
+  io.dbg.wdata_deq1_0 := getFF(wdataFifo.io.deq(0), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 1.U))
+  io.dbg.wdata_deq1_1 := getFF(wdataFifo.io.deq(1), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 1.U))
+  io.dbg.wdata_deq1_15 := getFF(wdataFifo.io.deq(15), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 1.U))
+
 }
 
 //class MemoryTester (

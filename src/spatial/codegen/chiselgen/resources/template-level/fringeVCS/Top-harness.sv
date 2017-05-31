@@ -239,28 +239,33 @@ module test;
   // 1. If io_dram_cmd_valid, then send send DRAM request to CPP layer
   function void callbacks();
     if (io_dram_cmd_valid & ~reset) begin
-      sendDRAMRequest(
-        io_dram_cmd_bits_addr,
-        io_dram_cmd_bits_tag,
-        io_dram_cmd_bits_isWr,
-        io_dram_cmd_bits_wdata_0,
-        io_dram_cmd_bits_wdata_1,
-        io_dram_cmd_bits_wdata_2,
-        io_dram_cmd_bits_wdata_3,
-        io_dram_cmd_bits_wdata_4,
-        io_dram_cmd_bits_wdata_5,
-        io_dram_cmd_bits_wdata_6,
-        io_dram_cmd_bits_wdata_7,
-        io_dram_cmd_bits_wdata_8,
-        io_dram_cmd_bits_wdata_9,
-        io_dram_cmd_bits_wdata_10,
-        io_dram_cmd_bits_wdata_11,
-        io_dram_cmd_bits_wdata_12,
-        io_dram_cmd_bits_wdata_13,
-        io_dram_cmd_bits_wdata_14,
-        io_dram_cmd_bits_wdata_15
-      );
-      io_dram_cmd_ready = 1;
+      if (io_dram_cmd_ready) begin
+        sendDRAMRequest(
+          io_dram_cmd_bits_addr,
+          io_dram_cmd_bits_tag,
+          io_dram_cmd_bits_isWr,
+          io_dram_cmd_bits_wdata_0,
+          io_dram_cmd_bits_wdata_1,
+          io_dram_cmd_bits_wdata_2,
+          io_dram_cmd_bits_wdata_3,
+          io_dram_cmd_bits_wdata_4,
+          io_dram_cmd_bits_wdata_5,
+          io_dram_cmd_bits_wdata_6,
+          io_dram_cmd_bits_wdata_7,
+          io_dram_cmd_bits_wdata_8,
+          io_dram_cmd_bits_wdata_9,
+          io_dram_cmd_bits_wdata_10,
+          io_dram_cmd_bits_wdata_11,
+          io_dram_cmd_bits_wdata_12,
+          io_dram_cmd_bits_wdata_13,
+          io_dram_cmd_bits_wdata_14,
+          io_dram_cmd_bits_wdata_15
+        );
+      end else begin
+        io_dram_cmd_ready = 1;
+      end
+    end else begin
+      io_dram_cmd_ready = 0;
     end
 
     if (io_genericStreamOut_valid & ~reset) begin
@@ -274,11 +279,11 @@ module test;
   endfunction
 
   int numCycles = 0;
-  always @(negedge clock) begin
+  always @(posedge clock) begin
     numCycles = numCycles + 1;
     io_wen = 0;
     io_dram_resp_valid = 0;
-    io_dram_cmd_ready = 0;
+//    io_dram_cmd_ready = 0;
     io_genericStreamIn_valid = 0;
     io_genericStreamOut_ready = 1;
 
