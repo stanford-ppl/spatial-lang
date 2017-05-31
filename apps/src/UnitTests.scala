@@ -1,7 +1,7 @@
 import spatial._
 import org.virtualized._
 
-object InOutArg extends SpatialApp { // Regression (Unit) // Args: 5
+object InOutArg extends SpatialApp { // Regression (Unit) // Args: 32
   import IR._
 
   @virtualize
@@ -33,6 +33,86 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 5
   }
 }
 
+object TensorLoadStore extends SpatialApp { // Regression (Unit) // Args: 32 4 4 4 4
+  import IR._
+
+  @virtualize
+  def main() {
+    // For 3D
+    val tsP = 2
+    val tsR = 2
+    val tsC = 16
+    val P = ArgIn[Int]
+    val R = ArgIn[Int]
+    val C = ArgIn[Int]
+    val c = args(0).to[Int]
+    val r = args(1).to[Int]
+    val p = args(2).to[Int]
+    setArg(P, p)
+    setArg(R, r)
+    setArg(C, c)
+    val srcDRAM3 = DRAM[Int](P,R,C)
+    val dstDRAM3 = DRAM[Int](P,R,C)
+    val data3 = (0::p, 0::r, 0::c){(p,r,c) => r+c+p /*random[Int](5)*/}
+    setMem(srcDRAM3, data3)
+
+    // For 4D
+    val tsX = 2
+    val X = ArgIn[Int]
+    val x = args(3).to[Int]
+    setArg(X, x)
+    val srcDRAM4 = DRAM[Int](X,P,R,C)
+    val dstDRAM4 = DRAM[Int](X,P,R,C)
+    val data4 = (0::x, 0::p, 0::r, 0::c){(x,p,r,c) => x+r+c+p /*random[Int](5)*/}
+    setMem(srcDRAM4, data4)
+
+    // For 5D
+    val tsY = 2
+    val Y = ArgIn[Int]
+    val y = args(4).to[Int]
+    setArg(Y, y)
+    val srcDRAM5 = DRAM[Int](Y,X,P,R,C)
+    val dstDRAM5 = DRAM[Int](Y,X,P,R,C)
+    val data5 = (0::y, 0::x, 0::p, 0::r, 0::c){(y,x,p,r,c) => y+x+r+c+p /*random[Int](5)*/}
+    setMem(srcDRAM5, data5)
+
+    Accel {
+      val sram3 = SRAM[Int](tsP,tsR,tsC)
+      Foreach(P by tsP, R by tsR, C by tsC) { (i,j,k) => 
+        sram3 load srcDRAM3(i::i+tsP, j::j+tsR, k::k+tsC)
+        dstDRAM3(i::i+tsP, j::j+tsR, k::k+tsC) store sram3
+      }
+      val sram4 = SRAM[Int](tsX,tsP,tsR,tsC)
+      Foreach(X by tsX, P by tsP, R by tsR, C by tsC) { case List(h,i,j,k) => 
+        sram4 load srcDRAM4(h::h+tsX, i::i+tsP, j::j+tsR, k::k+tsC)
+        dstDRAM4(h::h+tsX, i::i+tsP, j::j+tsR, k::k+tsC) store sram4
+      }
+      val sram5 = SRAM[Int](tsY,tsX,tsP,tsR,tsC)
+      Foreach(Y by tsY, X by tsX, P by tsP, R by tsR, C by tsC) { case List(g,h,i,j,k) => 
+        sram5 load srcDRAM5(g::g+tsY, h::h+tsX, i::i+tsP, j::j+tsR, k::k+tsC)
+        dstDRAM5(g::g+tsY, h::h+tsX, i::i+tsP, j::j+tsR, k::k+tsC) store sram5
+      }
+    }
+
+
+    // Extract results from accelerator
+    val result3 = getTensor3(dstDRAM3)
+    printTensor3(result3, "got: ")
+    printTensor3(data3, "wanted; ")
+    println("")
+    val result4 = getTensor4(dstDRAM4)
+    printTensor4(result4, "got: ")
+    printTensor4(data4, "wanted; ")
+    println("")
+    val result5 = getTensor5(dstDRAM5)
+    printTensor5(result5, "got: ")
+    printTensor5(data5, "wanted; ")
+
+    val cksum = result3.zip(data3){_ == _}.reduce{_&&_} && result4.zip(data4){_ == _}.reduce{_&&_} && result5.zip(data5){_ == _}.reduce{_&&_}
+    println("PASS: " + cksum + " (TensorLoadStore)")
+  }
+}
+
 object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
   import IR._
 
@@ -54,7 +134,10 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
          8,  9, -10, 11,
         12, 13, 14, -15
       )
-      y := lut(1, 3) + lut(3, 3) + lut(i, i)
+      val red = Reduce(Reg[Int](0))(3 by 1 par 3) {q =>
+        lut(q,q)
+      }{_+_}
+      y := lut(1, 3) + lut(3, 3) + red + lut(i,0)
     }
 
 
@@ -62,7 +145,7 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = -15 + 7 - 5*(ii)
+    val gold = -15 + 7 - 0 - 5 - 10 + 4*ii
     println("expected: " + gold)
     println("result: " + result)
 
@@ -93,7 +176,8 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     setArg(io2, cst2)
     setArg(x1, cst3)
     setArg(x2, cst4)
-    val data = Array.tabulate(16){i => i}
+    val data = Array[Int](0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15)
+    // val data = Array.tabulate(16){i => i}
     setMem(m1, data)
 
     Accel {
@@ -218,10 +302,11 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
       Sequential.Foreach(N by T){i =>
         wt load weights(i::i+T par 16)
         in load inputs(i::i+T par 16)
-
+        val niter = Reg[Int]
+        niter.reset
         Foreach(I by 1){x =>
-          val niter = Reg[Int]
-          niter := x+1
+          // niter := niter + 1
+          niter :+= 1
           MemReduce(wt)(niter by 1){ k =>  // s0 write
             in
           }{_+_}
@@ -626,10 +711,12 @@ object SingleFifoLoad extends SpatialApp { // Regression (Unit) // Args: 384
     setMem(src1FPGA, src1)
 
     Accel {
-      val f1 = FIFO[T](tileSize)
+      val f1 = FIFO[T](3*tileSize)
       Foreach(N by tileSize) { i =>
         f1 load src1FPGA(i::i+tileSize par P1)
-        val accum = Reduce(Reg[T](0.to[T]))(tileSize by 1 par 1){i =>
+        val accum = Reg[T](0.to[T])
+        accum.reset
+        Reduce(accum)(tileSize by 1 par 1){i =>
           f1.deq()
         }{_+_}
         Pipe { out := accum }
@@ -1463,8 +1550,9 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
     Accel {
       val f1 = FIFO[Int](tileSize)
       val accum = Reg[Int](0)
-      Reduce(accum)(size by tileSize){ iter =>
-        Foreach(tileSize by 1){i => f1.enq(iter + i) }
+      Sequential.Reduce(accum)(size by tileSize){ iter =>
+        Foreach(tileSize/2 by 1 par 2){i => f1.enq(iter + i) }
+        Foreach(tileSize-1 until (tileSize/2)-1 by -1 par 2){i => f1.enq(iter + i) }
         Reduce(0)(tileSize by 1){ i =>
           f1.deq()
         }{_+_}
@@ -1777,7 +1865,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
         }
       } { state => mux(state == 0, fill, mux(stack.full(), 2, mux(stack.empty(), 3, state))) }
       stack_sum := stack_accum
-
+      
       // Using almostDone/almostEmpty, skips last element
       val stack_almost = FILO[Int](size)
       val stack_accum_almost = Reg[Int](0)
@@ -1791,7 +1879,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
         }
       } { state => mux(state == 0, fill, mux(stack_almost.almostFull(), 2, mux(stack_almost.almostEmpty(), 3, state))) }
       stack_sum_almost := stack_accum_almost
-
+      
     }
 
     val fifo_sum_res = getArg(fifo_sum)
@@ -1854,7 +1942,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
 
     // Create HW accelerator
     Accel {
-      y := (x * 9)/4 + 7
+      y := ((x * 9)-10)/ -1 + 7
     }
 
 
@@ -1862,7 +1950,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = (N * 9)/4 + 7
+    val gold = ((N * 9)-10)/ -1 + 7
     println("expected: " + gold)
     println("result: " + result)
 
@@ -1871,7 +1959,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
   }
 }
 
-object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
+object MaskedWrite extends SpatialApp {  // Regression (Unit) // Args: 5
   import IR._
   type T = Int
 
@@ -1910,7 +1998,47 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 1.25 0.75
   }
 }
 
+object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
+  import IR._
+  type T = FixPt[TRUE,_16,_16]
 
+  @virtualize
+  def main() {
+    // Declare SW-HW interface vals
+    val N = 128
+    val a = args(0).to[T]
+    val b = args(1).to[T]
+    val x_data = Array.tabulate(N){ i => a * i.to[T]}
+    val x = DRAM[T](N)
+    val y = DRAM[T](N)
+    val s = ArgIn[T]
+
+    setMem(x, x_data)
+    setArg(s, b)
+
+    Accel {
+      val xx = SRAM[T](N)
+      val yy = SRAM[T](N)
+      xx load x(0 :: N par 16)
+      Foreach(N by 1) { i => 
+        yy(i) = xx(i) * s
+      }
+      y(0 :: N par 16) store yy
+    }
+
+
+    // Extract results from accelerator
+    val result = getMem(y)
+
+    // Create validation checks and debug code
+    val gold = x_data.map{ dat => dat * b }
+    printArray(gold, "expected: ")
+    printArray(result, "got: ")
+
+    val cksum = gold.zip(result){_ == _}.reduce{_&&_}
+    println("PASS: " + cksum + " (FixPtMem)")
+  }
+}
 object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.625 14 1.875 -3.4375 -5
   import IR._
   type USGN = FixPt[FALSE,_4,_4]
@@ -2131,16 +2259,17 @@ object NestedIfs extends SpatialApp {
     setArg(in, x)
     Accel {
       val sram = SRAM[Int](3)
-      if (in >= 42.to[Int]) {
-        if (in <= 43.to[Int]) {
-          sram(in - 41.to[Int]) = 10.to[Int]
+      if (in >= 42.to[Int]) {     // if (43 >= 42)
+        if (in <= 43.to[Int]) {   // if (43 <= 43)
+          sram(in - 41.to[Int]) = 10.to[Int] // sram(2) = 10
         }
-      } else {
+      }
+      else {
         if (in <= 2.to[Int]){
           sram(in) = 20.to[Int]
         }
       }
-      out := sram(1)
+      out := sram(2)
     }
     getArg(out)
   }
@@ -2148,5 +2277,32 @@ object NestedIfs extends SpatialApp {
   def main() {
     val result = nestedIfTest(43)
     println("result:   " + result)
+  }
+}
+
+object Tup2Test extends SpatialApp {
+  import IR._
+
+  @virtualize
+  def foo() : Int = {
+    type Tup = Tup2[Int, Int]
+    val out = ArgOut[Int]
+    val dr = DRAM[Tup](10)
+    Accel {
+      val s = SRAM[Tup](10)
+      s(5) = pack(42, 43)
+      dr(0::10) store s
+
+      val s1 = SRAM[Tup](10)
+      s1 load dr(0::10)
+      out := s1(5)._1 * s1(5)._2
+    }
+    getArg(out)
+  }
+
+  @virtualize
+  def main() {
+    val result = foo()
+    println(result)
   }
 }

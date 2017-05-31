@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+
+# Why were we using python3 before?
 
 import scipy.misc
 import sys

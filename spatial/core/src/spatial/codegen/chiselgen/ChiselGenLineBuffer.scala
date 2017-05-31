@@ -37,12 +37,13 @@ trait ChiselGenLineBuffer extends ChiselGenController {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LineBufferNew(rows, cols) =>
       val row_rPar = s"$rows" // TODO: Do correct analysis here!
+      val accessors = bufferControlInfo(lhs, 0).length
       val row_wPar = 1 // TODO: Do correct analysis here!
       val col_rPar = 1 // TODO: Do correct analysis here!
       val col_wPar = 1 // TODO: Do correct analysis here!
       emitGlobalModule(s"""val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, 1, 
         ${col_wPar}, ${col_rPar}, 
-        ${row_wPar}, ${row_rPar}))  // Data type: ${remap(op.mT)}""")
+        ${row_wPar}, ${row_rPar}, $accessors))  // Data type: ${remap(op.mT)}""")
       emitGlobalModule(src"$lhs.io.reset := reset")
       linebufs = linebufs :+ lhs.asInstanceOf[Sym[LineBufferNew[_]]]
       
@@ -63,8 +64,13 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         // oobApply(op.mT, lb, lhs, Seq(row,col)){ emit(src"$lb.apply($row,$col+i)") }
       // close("}")
       
-    case op@LineBufferLoad(lb,row,col,en) => emit(src"$lb.io.col_addr(0) := ${col}.raw")
-      emit(s"val ${quote(lhs)} = ${quote(lb)}.readRow(${row}.raw)")
+    case op@LineBufferLoad(lb,row,col,en) => 
+      emit(src"$lb.io.col_addr(0) := ${col}.raw")
+      val rowtext = row match {
+        case c: Const[_] => "0.U"
+        case _ => src"${row}.r"
+      }
+      emit(s"val ${quote(lhs)} = ${quote(lb)}.readRow(${rowtext})")
 
     case op@LineBufferEnq(lb,data,en) =>
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
@@ -87,36 +93,13 @@ trait ChiselGenLineBuffer extends ChiselGenController {
   override protected def emitFileFooter() {
     withStream(getStream("BufferControlCxns")) {
       linebufs.foreach{ mem => 
-        val readers = readersOf(mem)
-        val writers = writersOf(mem)
-        // Console.println(s"working on ${quote(mem)} $readers $writers")
-  //       // Console.println(s"innermost ${readers.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
-  //       // Console.println(s"middle ${parentOf(readers.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
-  //       // Console.println(s"outermost ${childrenOf(parentOf(readers.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
-        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(0) }.groupBy{a => portsOf(a, mem, 0) }
-        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(0) }.groupBy{a => portsOf(a, mem, 0) }
-        val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,0)}.head}.head.node).get)
-        val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, 0)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, 0)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
-        val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
-        val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
-        val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
-        val numStagesInbetween = lastActivePort - firstActivePort
-
-
-        (0 to numStagesInbetween).foreach { port =>
-          val ctrlId = port + firstActivePort
-          // If the vertex of this linebuf is a stream controller, the _en needs to respect all holder/enabler signals inside of node
-          val node = allSiblings(ctrlId)
-          val streamAdjustment = getStreamAdjustment(node)
-          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
-          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
-          val empty = if (rd == "" & wr == "") "empty" else ""
-          emit(src"""${mem}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en ${streamAdjustment}, List(${port})) /*$rd $wr $empty*/""")
+        val info = bufferControlInfo(mem, 0)
+        info.zipWithIndex.foreach{ case (inf, port) => 
+          emit(src"""${mem}.connectStageCtrl(${quote(inf._1)}_done, ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
         }
 
-        emit(src"""${mem}.lockUnusedCtrl() // Specific method for linebufs, since there is one ctrl port per line, but possibly not an access per line """)
+
+        // emit(src"""${mem}.lockUnusedCtrl() // Specific method for linebufs, since there is one ctrl port per line, but possibly not an access per line """)
 
 
       }

@@ -14,6 +14,14 @@ trait RegApi extends RegExp {
   @api def Reg[T:Meta:Bits](reset: T): Reg[T] = Reg(reg_alloc[T](unwrap(reset)))
 
   @api implicit def readReg[T](reg: Reg[T]): T = reg.value
+
+  implicit class RegNumericOperators[T:Type:Num](reg: Reg[T]) {
+    @api def :+=(data: T): Void = reg := (reg.value + data)
+    @api def :-=(data: T): Void = reg := (reg.value - data)
+    @api def :*=(data: T): Void = reg := (reg.value * data)
+    
+  }
+
 }
 
 
@@ -23,7 +31,8 @@ trait RegExp { this: SpatialExp =>
   case class Reg[T:Meta:Bits](s: Exp[Reg[T]]) extends Template[Reg[T]] {
     @api def value: T = wrap(reg_read(this.s))
     @api def :=(data: T): Void = Void(reg_write(this.s, data.s, bool(true)))
-    // @api def reset(cond: T): Void =
+    @api def reset(cond: Bool): Void = wrap(reg_reset(this.s, cond.s))
+    @api def reset: Void = wrap(reg_reset(this.s, bool(true)))
   }
 
   /** Staged Type **/
@@ -78,6 +87,11 @@ trait RegExp { this: SpatialExp =>
     val mT = typ[T]
     val bT = bits[T]
   }
+  case class RegReset[T:Type:Bits](reg: Exp[Reg[T]], en: Exp[Bool]) extends EnabledOp[Void](en) {
+    def mirror(f:Tx) = reg_reset(f(reg), f(en))
+    val mT = typ[T]
+    val bT = bits[T]
+  }
 
   /** Constructors **/
   @internal def argin_alloc[T:Type:Bits](init: Exp[T]): Sym[Reg[T]] = stageMutable( ArgInNew[T](init) )(ctx)
@@ -92,6 +106,10 @@ trait RegExp { this: SpatialExp =>
 
   private[spatial] def reg_write[T:Type:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
     stageWrite(reg)( RegWrite(reg, data, en) )(ctx)
+  }
+
+  private[spatial] def reg_reset[T:Type:Bits](reg: Exp[Reg[T]], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
+    stageWrite(reg)( RegReset(reg, en) )(ctx)
   }
 
 

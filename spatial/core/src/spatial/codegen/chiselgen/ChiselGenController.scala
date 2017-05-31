@@ -5,6 +5,8 @@ import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
 import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
+import spatial.targets.DE1._
+
 
 trait ChiselGenController extends ChiselGenCounter{
   val IR: SpatialExp
@@ -38,11 +40,11 @@ trait ChiselGenController extends ChiselGenCounter{
 
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
-        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0)")
+        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0).r")
         emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
-          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j)")
+          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j).r")
           emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
         }
       }
@@ -52,7 +54,7 @@ trait ChiselGenController extends ChiselGenCounter{
   def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
-        emit(src"val ${v}${suffix} = ${c}${suffix} < ${cchain}${suffix}_maxes(${i})")
+        emit(src"val ${v}${suffix} = Mux(${cchain}${suffix}_strides($i) >= 0.S, ${c}${suffix} < ${cchain}${suffix}_stops(${i}), ${c}${suffix} > ${cchain}${suffix}_stops(${i})) // TODO: Generate these inside counter")
       }
     }
   }
@@ -232,10 +234,13 @@ trait ChiselGenController extends ChiselGenCounter{
         fifo match {
           case Def(FIFONew(size)) => src"~${fifo}.io.empty"
           case Def(FILONew(size)) => src"~${fifo}.io.empty"
-          case Def(StreamInNew(bus)) => src"${fifo}_valid"
+          case Def(StreamInNew(bus)) => bus match {
+            case SliderSwitch => ""
+            case _ => src"${fifo}_valid"
+          }
           case _ => src"${fifo}_en" // parent node
         }
-      }.mkString(" & ")
+      }.filter(_ != "").mkString(" & ")
       val holders = (pushesTo(c)).distinct.map { fifo => 
         fifo match {
           case Def(FIFONew(size)) => src"~${fifo}.io.full"
@@ -243,7 +248,7 @@ trait ChiselGenController extends ChiselGenCounter{
           case Def(StreamOutNew(bus)) => src"${fifo}_ready"
           case Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"
         }
-      }.mkString(" & ")
+      }.filter(_ != "").mkString(" & ")
 
       val hasHolders = if (holders != "") "&" else ""
       val hasReadiers = if (readiers != "") "&" else ""
@@ -258,8 +263,7 @@ trait ChiselGenController extends ChiselGenCounter{
         fifo match {
           case Def(FIFONew(size)) => src"~${fifo}.io.empty"
           case Def(FILONew(size)) => src"~${fifo}.io.empty"
-          case Def(StreamInNew(bus)) => src"${fifo}_valid & ${fifo}_ready"
-          case _ => src"${fifo}_en" // parent node
+          case Def(StreamInNew(bus)) => src"${fifo}_now_valid & ${fifo}_ready"
           case _ => ""
         }
       }.mkString(" & ")
@@ -275,17 +279,21 @@ trait ChiselGenController extends ChiselGenCounter{
       val hasHolders = if (holders != "") "&" else ""
       val hasReadiers = if (readiers != "") "&" else ""
 
-      if (SpatialConfig.enableRetiming) src"${hasHolders} ${holders} ${hasReadiers} ${readiers}" else ""
+      if (SpatialConfig.enableRetiming) src"${hasHolders} ${holders} ${hasReadiers} ${readiers}" else " "
 
   }
 
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
-    val hasStreamIns = if (listensTo(sym).length > 0) { // Please simplify this mess
-      true
-    } else { 
-      false
-    }
+    val hasStreamIns = if (listensTo(sym).distinct.filter{ f =>
+      f match {
+        case Def(StreamInNew(bus)) => 
+          bus match {
+            case SliderSwitch => false
+            case _ => true
+          }
+        case _ => false
+      }}.length > 0) true else false
 
     val isInner = levelOf(sym) match {
       case InnerControl => true
@@ -335,7 +343,7 @@ trait ChiselGenController extends ChiselGenCounter{
     // Special match if this is HWblock, there is no forever cchain, just the forever flag
     sym match {
       case Def(Hwblock(_,isFrvr)) => if (isFrvr) hasForever = true
-      case _ =>
+      case _ =>;
     }
 
     val constrArg = if (isInner) {s"${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
@@ -352,8 +360,10 @@ trait ChiselGenController extends ChiselGenCounter{
 
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
       emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_ctr_trivial // Immediate parent has forever counter, so never mask out datapath_en""")    
-    } else if ((isStreamChild(sym) & hasStreamIns) | isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
+    } else if ((isStreamChild(sym) & hasStreamIns & cchain.isDefined) | isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
       emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial""")  
+    } else if ((isStreamChild(sym) & hasStreamIns)) { // for FSM or hasStreamIns, tie en directly to datapath_en
+      emit(src"""${sym}_datapath_en := ${sym}_en /*& ~${sym}_done*/ & ~${sym}_ctr_trivial""")  
     } else {
       emit(src"""${sym}_datapath_en := ${sym}_sm.io.output.ctr_inc & ~${sym}_done & ~${sym}_ctr_trivial""")
     }
@@ -367,7 +377,7 @@ trait ChiselGenController extends ChiselGenCounter{
             case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
             case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
               if (isStreamChild(sym) & hasStreamIns) {
-                emit(src"${cchain.get}_en := ${sym}_datapath_en & ~${sym}_inhibitor /*${getAllStreamLogic(sym)}*/") 
+                emit(src"${cchain.get}_en := ${sym}_datapath_en & ~${sym}_inhibitor ${getAllStreamLogic(sym)}") 
               } else {
                 emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc // Should probably also add inhibitor")
               } 
@@ -412,6 +422,7 @@ trait ChiselGenController extends ChiselGenCounter{
       childrenOf(sym).zipWithIndex.foreach { case (c, idx) =>
         emitGlobalWire(src"""val ${c}_done = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_en = Wire(Bool())""")
+        emitGlobalWire(src"""val ${c}_base_en = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_mask = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_resetter = Wire(Bool())""")
         emitGlobalWire(src"""val ${c}_ctr_trivial = Wire(Bool())""")
@@ -425,7 +436,8 @@ trait ChiselGenController extends ChiselGenCounter{
 
         val streamAddition = getStreamEnablers(c)
 
-        emit(src"""${c}_en := ${sym}_sm.io.output.stageEnable(${idx}) ${streamAddition}""")  
+        emit(src"""${c}_base_en := ${sym}_sm.io.output.stageEnable(${idx})""")  
+        emit(src"""${c}_en := ${c}_base_en ${streamAddition}""")  
 
         // If this is a stream controller, need to set up counter copy for children
         if (smStr == "Streampipe" & cchain.isDefined) {
@@ -460,7 +472,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWire(s"""val ${quote(lhs)}_done = Wire(Bool())""")
       emitController(lhs, None, None)
       emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
-      emit(src"""retime_counter.io.input.start := 0.U; retime_counter.io.input.max := (max_retime.U); retime_counter.io.input.stride := 1.U; retime_counter.io.input.gap := 0.U""")
+      emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
       emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := false.B; retime_counter.io.input.enable := true.B;""")
       emit(src"""val retime_released = retime_counter.io.output.done """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }

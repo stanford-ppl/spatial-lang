@@ -13,9 +13,9 @@ class FILOTests(c: FILO) extends PeekPokeTester(c) {
   def push(inc: Boolean = true) {
     (0 until c.pW).foreach { i => poke(c.io.in(i), element + i) }
     if (inc) element += c.pW
-    poke(c.io.push, 1)
+    poke(c.io.push(0), 1)
     step(1)
-    poke(c.io.push,0)
+    poke(c.io.push(0),0)
   }
   def pop(inc: Boolean = true) {
     if (inc) {
@@ -30,9 +30,9 @@ class FILOTests(c: FILO) extends PeekPokeTester(c) {
       }
       element -= c.pR
     }
-    poke(c.io.pop, 1)
+    poke(c.io.pop(0), 1)
     step(1)
-    poke(c.io.pop,0)
+    poke(c.io.pop(0),0)
   }
 
   // fill FILO halfway

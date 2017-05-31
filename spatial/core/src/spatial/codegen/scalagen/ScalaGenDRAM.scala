@@ -17,10 +17,10 @@ trait ScalaGenDRAM extends ScalaGenMemories {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@DRAMNew(dims) =>
+    case op@DRAMNew(dims,zero) =>
       val elementsPerBurst = target.burstSize / op.bT.length
       open(src"val $lhs = {")
-        emit(src"""DRAMBlock(${dims.map(quote).mkString("*")} + $elementsPerBurst, ${op.zero})""")
+        emit(src"""DRAMBlock(${dims.map(quote).mkString("*")} + $elementsPerBurst, ${zero})""")
       close("}")
 
     case op@DRAMDealloc(dram) =>

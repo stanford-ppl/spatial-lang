@@ -6,7 +6,7 @@ import spatial.api.DRAMTransferExp
 import spatial.SpatialConfig
 import spatial.SpatialExp
 
-trait ChiselGenFILO extends ChiselCodegen {
+trait ChiselGenFILO extends ChiselGenSRAM {
   val IR: SpatialExp
   import IR._
 
@@ -74,6 +74,7 @@ trait ChiselGenFILO extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@FILONew(size)   => 
+      // ASSERT that all pars are the same!
       val rPar = readersOf(lhs).map { r => 
         r.node match {
           case Def(_: FILOPop[_]) => 1
@@ -87,27 +88,19 @@ trait ChiselGenFILO extends ChiselCodegen {
         }
       }.max
       val width = bitWidth(lhs.tp.typeArguments.head)
-      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FILO($rPar, $wPar, $size, $width)) // ${nameOf(lhs).getOrElse("")}""")
+      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FILO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${nameOf(lhs).getOrElse("")}""")
 
     case FILOPush(fifo,v,en) => 
-      val writer = writersOf(fifo).head.ctrlNode  
+      val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.io.push := ${writer}_en & chisel3.util.ShiftRegister($enabler & ~${writer}_inhibitor, ${symDelay(lhs)}) & $en """)
-      emit(src"""${fifo}.io.in := Vec(List(${v}.raw))""")
+      emit(src"""${fifo}.connectPushPort(Vec(List(${v}.r)), ${writer}_en & ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
 
 
     case FILOPop(fifo,en) =>
-      val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${fifo}.io.pop := ${reader}_en & chisel3.util.ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${symDelay(lhs)}) & $en & ~${reader}_inhibitor""")
-      fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
-            emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(0))""")
-          } else {
-            emit(src"""val ${lhs} = ${fifo}.io.out(0)""")
-          }
-        case _ => emit(src"""val ${lhs} = ${fifo}.io.out(0)""")
-      }
+      val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
+      emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
+      emit(src"""${lhs}.r := ${fifo}.connectPopPort(${reader}_en & (${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en & ~${reader}_inhibitor).apply(0)""")
 
     case FILOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
     case FILOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")

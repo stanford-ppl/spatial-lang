@@ -152,21 +152,27 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   }
                 case _ =>  
                   lhs.tp match { 
-                    case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+                    case FixPtType(s,d,f) => 
+                      emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
+                      emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
                     case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
                     case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
                   }
               }
             case _ =>
               lhs.tp match { 
-                case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+                case FixPtType(s,d,f) => 
+                  emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
+                  emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
                 case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
                 case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
               }
           }
         } else {
           lhs.tp match { 
-            case FixPtType(s,d,f) => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}).FP($s, $d, $f)""")
+            case FixPtType(s,d,f) => 
+              emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
+              emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
             case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
             case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
           }
@@ -174,12 +180,33 @@ trait ChiselGenReg extends ChiselGenSRAM {
       }
 
 
+    case RegReset(reg,en) => 
+      val parent = parentOf(lhs).get
+      emitGlobalWire(src"val ${reg}_manual_reset = Wire(Bool())")
+      emit(src"${reg}_manual_reset := $en & ${parent}_datapath_en.D(${symDelay(lhs)}) ")
+
+
     case RegWrite(reg,v,en) => 
+      val manualReset = if (resettersOf(reg).length > 0) {s"| ${quote(reg)}_manual_reset"} else ""
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg) | isHostIO(reg)) {
         val id = argMapping(reg)._3
           emit(src"val ${lhs}_wId = getArgOutLane($id)")
-          emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.number""")
+          v.tp match {
+            case FixPtType(s,d,f) => 
+              if (s) {
+                val pad = 64 - d - f
+                if (pad > 0) {
+                  emit(src"""${reg}_data_options(${lhs}_wId) := util.Cat(util.Fill($pad, ${v}.msb), ${v}.r)""")  
+                } else {
+                  emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+                }
+              } else {
+                emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+              }
+            case _ => 
+              emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+            }
           emit(src"""${reg}_en_options(${lhs}_wId) := $en & ShiftRegister(${parent}_datapath_en, ${symDelay(lhs)})""")
       } else {
         reduceType(lhs) match {
@@ -191,23 +218,23 @@ trait ChiselGenReg extends ChiselGenSRAM {
                     emit(src"""${reg}_${ii}.io.input.next := ${v}.number""")
                     emit(src"""${reg}_${ii}.io.input.enable := ${reg}_wren""")
                     emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
-                    emit(src"""${reg}_${ii}.io.input.reset := reset | ${reg}_resetter""")
+                    emit(src"""${reg}_${ii}.io.input.reset := reset | ${reg}_resetter ${manualReset}""")
                     emit(src"""${reg} := ${reg}_${ii}.io.output""")
                     emitGlobalWire(src"""val ${reg} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-                    emit(src"""${reg}_${ii}.write($reg, $en & Utils.delay(${reg}_wren,1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
+                    emit(src"""${reg}_${ii}.write($reg, $en & (${reg}_wren).D(1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
                     emit(src"""${reg}_${ii}.io.input(0).init := ${reg}_initval.number""")
-                    emit(src"""${reg}_$ii.io.input(0).reset := reset""")
+                    emit(src"""${reg}_$ii.io.input(0).reset := reset ${manualReset}""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-                  emit(src"""${reg}_${ii}.write($v, $en & Utils.delay(${reg}_wren,0), false.B, List(${ports.mkString(",")}))""")
+                  emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren).D(0), false.B, List(${ports.mkString(",")}))""")
                   emit(src"""${reg}_${ii}.io.input(0).init := ${reg}_initval.number""")
                   if (dup.isAccum) {
-                    emit(src"""${reg}_$ii.io.input(0).reset := reset | ${reg}_resetter""")  
+                    emit(src"""${reg}_$ii.io.input(0).reset := reset | ${reg}_resetter ${manualReset}""")  
                   } else {
-                    emit(src"""${reg}_$ii.io.input(0).reset := reset""")
+                    emit(src"""${reg}_$ii.io.input(0).reset := reset ${manualReset}""")
                   }
                   
               }
@@ -217,7 +244,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
               val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
               emit(src"""${reg}_${ii}.write($v, $en & ShiftRegister(${parent}_datapath_en, ${symDelay(lhs)}), false.B, List(${ports.mkString(",")}))""")
               emit(src"""${reg}_${ii}.io.input(0).init := ${reg}_initval.number""")
-              emit(src"""${reg}_$ii.io.input(0).reset := reset""")
+              emit(src"""${reg}_$ii.io.input(0).reset := reset ${manualReset}""")
             }
         }
       }
@@ -228,30 +255,9 @@ trait ChiselGenReg extends ChiselGenSRAM {
   override protected def emitFileFooter() {
     withStream(getStream("BufferControlCxns")) {
       nbufs.foreach{ case (mem, i) => 
-        // Console.println(src"working on $mem $i")
-        // TODO: Does david figure out which controllers' signals connect to which ports on the nbuf already? This is kind of complicated
-        val readers = readersOf(mem)
-        val writers = writersOf(mem)
-        val readPorts = readers.filter{reader => dispatchOf(reader, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
-        val writePorts = writers.filter{writer => dispatchOf(writer, mem).contains(i) }.groupBy{a => portsOf(a, mem, i) }
-        // Console.println(s"read ports $readPorts")
-        // Console.println(s"""topctrl ${readPorts.map{case (_, readers) => s"want ${readers.head}, $mem, $i"}} """)
-        val allSiblings = childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
-        val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-        val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
-        val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
-        val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
-        val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
-        val numStagesInbetween = lastActivePort - firstActivePort
-
-        (0 to numStagesInbetween).foreach { port =>
-          val ctrlId = port + firstActivePort
-          val node = allSiblings(ctrlId)
-          val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else ""
-          val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else ""
-          val empty = if (rd == "" & wr == "") "empty" else ""
-          emit(src"""${mem}_${i}.connectStageCtrl(${quote(node)}_done, ${quote(node)}_en, List(${port})) /*$rd $wr $empty*/""")
+        val info = bufferControlInfo(mem, i)
+        info.zipWithIndex.foreach{ case (inf, port) => 
+          emit(src"""${mem}_${i}.connectStageCtrl(${quote(inf._1)}_done, ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
         }
       }
     }

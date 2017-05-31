@@ -46,10 +46,10 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
     rstCtr.io.input.enable := state === pipeReset.U
     rstCtr.io.input.reset := (state != pipeReset.U) | io.input.rst
     rstCtr.io.input.saturate := true.B
-    rstCtr.io.input.max := 2.U
-    rstCtr.io.input.gap := 0.U
-    rstCtr.io.input.start := 0.U
-    rstCtr.io.input.stride := 1.U
+    rstCtr.io.input.stop := 2.S
+    rstCtr.io.input.gap := 0.S
+    rstCtr.io.input.start := 0.S
+    rstCtr.io.input.stride := 1.S
 
     // Only start the state machine when the enable signal is set
     when (io.input.enable) {

@@ -146,6 +146,14 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 	}
 	
+
+	def raw_dec[T] (): UInt = {
+		this.number(d+f-1, f)
+	}
+	def raw_frac[T] (): UInt = {
+		this.number(f, 0)
+	}
+
 	// Arithmetic
 	override def connect (rawop: Data)(implicit sourceInfo: SourceInfo, connectionCompileOptions: chisel3.core.CompileOptions): Unit = {
 		rawop match {
@@ -243,7 +251,11 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		rawop match { 
 			case op: FixedPoint => 
 				if (op.f + f == 0) {
-					(this.number / op.number).FP(op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+					if (op.s | s) {
+						(this.number.asSInt / op.number.asSInt).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
+					} else {
+						(this.number / op.number).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
+					}
 				} else {
 					// Compute upcasted type and return type
 					val upcasted_type = (op.s | s, op.d + d, op.f + f + 1)
@@ -298,6 +310,40 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		}
 	}
 
+	def floor[T] (): FixedPoint = {
+		val return_type = (s, d, f)
+		val result = Wire(new FixedPoint(return_type))
+		result.r := util.Cat(this.raw_dec, util.Fill(f, false.B))			
+		result
+	}
+
+	def ceil[T] (): FixedPoint = {
+		val return_type = (s, d, f)
+		val result = Wire(new FixedPoint(return_type))
+		val stay = this.raw_frac === 0.U
+		result.r := Mux(stay, this.number.r, util.Cat(this.raw_dec + 1.U, util.Fill(f, false.B)))
+		result
+	}
+
+	def >>[T] (shift: Int, sgnextend: Boolean = false): FixedPoint = {
+		val return_type = (s, d, f)
+		val result = Wire(new FixedPoint(return_type))
+		if (sgnextend) {
+			result.r := util.Cat(util.Fill(shift, number.msb), number(d+f-1, shift))
+		} else {
+			result.r := this.number >> shift			
+		}
+		result
+	}
+	def >>>[T] (shift: Int): FixedPoint = {this.>>(shift, sgnextend = true)}
+
+	def <<[T] (shift: Int): FixedPoint = {
+		val return_type = (s, d, f)
+		val result = Wire(new FixedPoint(return_type))
+		result.r := this.number << shift			
+		result
+	}
+
 	def <[T] (rawop: T): Bool = { // TODO: Probably completely wrong for signed fixpts
 		rawop match { 
 			case op: FixedPoint => 
@@ -313,6 +359,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this < op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number < op_cast
 		}
 	}
 
@@ -334,6 +383,57 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this ^ op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number ^ op_cast
+		}
+	}
+
+	def &[T] (rawop: T): FixedPoint = { 
+		rawop match { 
+			case op: FixedPoint => 
+
+				// Compute upcasted type and return type
+				val upcasted_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+				val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+				// Get upcasted operators
+				val lhs = Wire(new FixedPoint(upcasted_type))
+				val rhs = Wire(new FixedPoint(upcasted_type))
+				val res = Wire(new FixedPoint(return_type))
+				this.cast(lhs)
+				op.cast(rhs)
+				res.r := lhs.r & rhs.r
+				res
+			case op: UInt => 
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
+				this & op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				this & op_cast
+		}
+	}
+
+	def |[T] (rawop: T): FixedPoint = { 
+		rawop match { 
+			case op: FixedPoint => 
+
+				// Compute upcasted type and return type
+				val upcasted_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+				val return_type = (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
+				// Get upcasted operators
+				val lhs = Wire(new FixedPoint(upcasted_type))
+				val rhs = Wire(new FixedPoint(upcasted_type))
+				val res = Wire(new FixedPoint(return_type))
+				this.cast(lhs)
+				op.cast(rhs)
+				res.r := lhs.r | rhs.r
+				res
+			case op: UInt => 
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
+				this | op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				this | op_cast
 		}
 	}
 
@@ -352,6 +452,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this <= op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number <= op_cast
 		}
 	}
 	
@@ -369,6 +472,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this > op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number > op_cast
 		}
 	}
 
@@ -385,7 +491,10 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				if (op.s | s) {lhs.number.asSInt >= rhs.number.asSInt} else {lhs.number >= rhs.number}
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
-				this > op_cast
+				this >= op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number >= op_cast
 		}
 	}
 
@@ -406,6 +515,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				// Get upcasted operators
 				val rhs = Utils.FixedPoint(s,d,f, op)
 				number === rhs.number
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number === op_cast
 		}
 	}
 
@@ -426,6 +538,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				// Get upcasted operators
 				val rhs = Utils.FixedPoint(s,d,f, op)
 				number =/= rhs.number
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(true, op.getWidth max this.d, this.f, op.asUInt)
+				number =/= op_cast
 		}
 	}
 

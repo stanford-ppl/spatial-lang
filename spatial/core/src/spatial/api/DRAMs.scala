@@ -8,11 +8,11 @@ trait DRAMApi extends DRAMExp { this: SpatialApi =>
   type Tile[T] = DRAMDenseTile[T]
   type SparseTile[T] = DRAMSparseTile[T]
 
-  @api def DRAM[T:Type:Bits](d1: Index): DRAM1[T] = DRAM1(dram_alloc[T,DRAM1](d1.s))
-  @api def DRAM[T:Type:Bits](d1: Index, d2: Index): DRAM2[T] = DRAM2(dram_alloc[T,DRAM2](d1.s,d2.s))
-  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index): DRAM3[T] = DRAM3(dram_alloc[T,DRAM3](d1.s,d2.s))
-  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index, d4: Index): DRAM4[T] = DRAM4(dram_alloc[T,DRAM4](d1.s,d2.s,d3.s,d4.s))
-  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index, d4: Index, d5: Index): DRAM5[T] = DRAM5(dram_alloc[T,DRAM5](d1.s,d2.s,d3.s,d4.s,d5.s))
+  @api def DRAM[T:Type:Bits](d1: Index): DRAM1[T] = DRAM1(dram_alloc[T,DRAM1](unwrap(bits[T].zero), d1.s))
+  @api def DRAM[T:Type:Bits](d1: Index, d2: Index): DRAM2[T] = DRAM2(dram_alloc[T,DRAM2](unwrap(bits[T].zero),d1.s,d2.s))
+  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index): DRAM3[T] = DRAM3(dram_alloc[T,DRAM3](unwrap(bits[T].zero),d1.s,d2.s,d3.s))
+  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index, d4: Index): DRAM4[T] = DRAM4(dram_alloc[T,DRAM4](unwrap(bits[T].zero),d1.s,d2.s,d3.s,d4.s))
+  @api def DRAM[T:Type:Bits](d1: Index, d2: Index, d3: Index, d4: Index, d5: Index): DRAM5[T] = DRAM5(dram_alloc[T,DRAM5](unwrap(bits[T].zero),d1.s,d2.s,d3.s,d4.s,d5.s))
 }
 
 trait DRAMExp { this: SpatialExp =>
@@ -124,7 +124,7 @@ trait DRAMExp { this: SpatialExp =>
     @api def apply(x: Range, q: Range, p: Range, r: Range, c: Index) = DRAMDenseTile4(this.s, Seq(x, q, p, r, c.toRange))
     @api def apply(x: Range, q: Range, p: Range, r: Range, c: Range) = DRAMDenseTile5(this.s, Seq(x, q, p, r, c))
 
-    @api def store(sram: SRAM4[T]): Void = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
+    @api def store(sram: SRAM5[T]): Void = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
     @api def address: Int64 = wrap(get_dram_addr(this.s))
     @api def dealloc = wrap(dram_dealloc(this.s))
   }
@@ -153,7 +153,7 @@ trait DRAMExp { this: SpatialExp =>
     @api def store(sram: SRAM4[T]): Void   = dense_transfer(this, sram, isLoad = false)
   }
   case class DRAMDenseTile5[T:Meta:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
-    @api def store(sram: SRAM2[T]): Void   = dense_transfer(this, sram, isLoad = false)
+    @api def store(sram: SRAM5[T]): Void   = dense_transfer(this, sram, isLoad = false)
   }
 
   /** Sparse Tiles are limited to 1D right now **/
@@ -201,10 +201,9 @@ trait DRAMExp { this: SpatialExp =>
 
 
   /** IR Nodes **/
-  case class DRAMNew[T:Type:Bits,C[_]<:DRAM[_]](dims: Seq[Exp[Index]])(implicit cT: Type[C[T]]) extends Op2[T,C[T]] {
-    def mirror(f:Tx) = dram_alloc[T,C](f(dims):_*)
+  case class DRAMNew[T:Type:Bits,C[_]<:DRAM[_]](dims: Seq[Exp[Index]], zero: Exp[T])(implicit cT: Type[C[T]]) extends Op2[T,C[T]] {
+    def mirror(f:Tx) = dram_alloc[T,C](f(zero), f(dims):_*)
     val bT = bits[T]
-    def zero: Exp[T] = bT.zero.s
   }
 
   case class DRAMDealloc[T:Type:Bits](dram: Exp[DRAM[T]]) extends Op[Void] {
@@ -216,8 +215,8 @@ trait DRAMExp { this: SpatialExp =>
   }
 
   /** Constructors **/
-  def dram_alloc[T:Type:Bits,C[_]<:DRAM[_]](dims: Exp[Index]*)(implicit ctx: SrcCtx, cT: Type[C[T]]): Exp[C[T]] = {
-    stageMutable( DRAMNew[T,C](dims) )(ctx)
+  def dram_alloc[T:Type:Bits,C[_]<:DRAM[_]](zero: Exp[T], dims: Exp[Index]*)(implicit ctx: SrcCtx, cT: Type[C[T]]): Exp[C[T]] = {
+    stageMutable( DRAMNew[T,C](dims, zero) )(ctx)
   }
   def dram_dealloc[T:Type:Bits](dram: Exp[DRAM[T]])(implicit ctx: SrcCtx) = {
     stage( DRAMDealloc(dram) )(ctx)

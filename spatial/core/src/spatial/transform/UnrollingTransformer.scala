@@ -95,6 +95,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   def registerAccess(original: Exp[_], unrolled: Exp[_] /*, pars: Option[Seq[Int]]*/): Unit = {
     val reads = unrolled match { case LocalReader(rds) => rds.map(_._1); case _ => Nil }
+    val resets = unrolled match { case LocalResetter(rsts) => rsts.map(_._1); case _ => Nil }
     val writes = unrolled match { case LocalWriter(wrts) => wrts.map(_._1); case _ => Nil }
     //val accesses = reads ++ writes
 
@@ -118,55 +119,62 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       dbgs(c"  ${str(original)}")
       dbgs(c"  ${str(unrolled)}")
       dbgs(c"  Unroll numbers: $unrollInts")
+      val dispatchers = dispatchOf.get(unrolled, mem)
 
-      val origDispatches = dispatchOf(unrolled, mem)
-      if (origDispatches.size != 1) {
-        error(c"Readers should have exactly one dispatch, $original -> $unrolled had ${origDispatches.size}")
-        sys.exit()
+      if (dispatchers.isEmpty) {
+        warn(c"Memory $mem had no dispatchers for $unrolled")
+        warn(c"(This is likely a compiler bug where an unused memory access was not removed)")
       }
-      val dispatches = origDispatches.flatMap{orig =>
-        dbgs(c"  Dispatch #$orig: ")
-        dbgs(c"    Previous unroll numbers: ")
-        val others = pachinko.getOrElse( (original,mem,orig), Nil)
 
-        val banking = duplicatesOf(mem).apply(orig) match {
-          case banked: BankedMemory => banked.dims.map(_.banks)
-          case diagonal: DiagonalMemory => Seq(diagonal.banks) ++ List.fill(diagonal.nDims - 1)(1)
+      dispatchers.foreach{origDispatches =>
+        if (origDispatches.size != 1) {
+          error(c"Readers should have exactly one dispatch, $original -> $unrolled had ${origDispatches.size}")
+          sys.exit()
         }
+        val dispatches = origDispatches.flatMap{orig =>
+          dbgs(c"  Dispatch #$orig: ")
+          dbgs(c"    Previous unroll numbers: ")
+          val others = pachinko.getOrElse( (original,mem,orig), Nil)
 
-        // Address channels taken care of by banking
-        val bankedChannels = accessPatternOf.get(original).map{ patterns =>
-          val iters = patterns.map(_.index)
-          iters.distinct.map{
-            case x@Some(i) =>
-              val requiredBanking = parFactorOf(i) match {case Exact(p) => p.toInt }
-              val actualBanking = banking(iters.indexOf(x))
-              Math.min(requiredBanking, actualBanking) // actual may be higher than required, or vice versa
-            case None => 1
+          val banking = duplicatesOf(mem).apply(orig) match {
+            case banked: BankedMemory => banked.dims.map(_.banks)
+            case diagonal: DiagonalMemory => Seq(diagonal.banks) ++ List.fill(diagonal.nDims - 1)(1)
           }
-        }.getOrElse(Seq(1))
 
-        val banks = bankedChannels.product
-        val duplicates = (channels + banks - 1) / banks // ceiling(channels/banks)
+          // Address channels taken care of by banking
+          val bankedChannels = accessPatternOf.get(original).map{ patterns =>
+            val iters = patterns.map(_.index)
+            iters.distinct.map{
+              case x@Some(i) =>
+                val requiredBanking = parFactorOf(i) match {case Exact(p) => p.toInt }
+                val actualBanking = banking(iters.indexOf(x))
+                Math.min(requiredBanking, actualBanking) // actual may be higher than required, or vice versa
+              case None => 1
+            }
+          }.getOrElse(Seq(1))
 
-        dbgs(c"    Bankings: $banking")
-        dbgs(c"    Banked Channels: $bankedChannels ($banks)")
-        dbgs(c"    Duplicates: $duplicates")
+          val banks = bankedChannels.product
+          val duplicates = (channels + banks - 1) / banks // ceiling(channels/banks)
 
-        others.foreach{other => dbgs(c"      $other") }
+          dbgs(c"    Bankings: $banking")
+          dbgs(c"    Banked Channels: $bankedChannels ($banks)")
+          dbgs(c"    Duplicates: $duplicates")
 
-        val dispatchStart = orig + duplicates * others.count{p => p == unrollInts }
-        pachinko += (original,mem,orig) -> (unrollInts +: others)
+          others.foreach{other => dbgs(c"      $other") }
 
-        val dispatches = List.tabulate(duplicates){i => dispatchStart + i}.toSet
+          val dispatchStart = orig + duplicates * others.count{p => p == unrollInts }
+          pachinko += (original,mem,orig) -> (unrollInts +: others)
 
-        dbgs(c"    Setting new dispatch values: $dispatches")
+          val dispatches = List.tabulate(duplicates){i => dispatchStart + i}.toSet
 
-        //dispatchOf(unrolled, mem) = Set(dispatch)
-        dispatches.foreach{d => portsOf(unrolled, mem, d) = portsOf(unrolled, mem, orig) }
-        dispatches
+          dbgs(c"    Setting new dispatch values: $dispatches")
+
+          //dispatchOf(unrolled, mem) = Set(dispatch)
+          dispatches.foreach{d => portsOf(unrolled, mem, d) = portsOf(unrolled, mem, orig) }
+          dispatches
+        }
+        dispatchOf(unrolled, mem) = dispatches
       }
-      dispatchOf(unrolled, mem) = dispatches
     }
   }
 
@@ -340,6 +348,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       case _:SRAMStore[_] => !isLoopInvariant(lhs)
       case _ => true
     }
+
+    case LocalResetter(resets) if resets.forall{r => lanes.isCommon(r.mem) } => rhs match {
+      case _:SRAMStore[_] => !isLoopInvariant(lhs)
+      case _ => true
+    }
     case _ => false
   }
   def shouldUnifyAccess(lhs: Sym[_], rhs: Op[_], lanes: Unroller): Boolean = rhs match {
@@ -348,6 +361,10 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       case _ => false
     }
     case LocalWriter(writes) if isLoopInvariant(lhs) && writes.forall{r => lanes.isCommon(r.mem) } => rhs match {
+      case _:SRAMStore[_] => true
+      case _ => false
+    }
+    case LocalResetter(resets) if isLoopInvariant(lhs) && resets.forall{r => lanes.isCommon(r.mem) } => rhs match {
       case _:SRAMStore[_] => true
       case _ => false
     }
@@ -366,6 +383,15 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
       lanes.split(lhs, lhs2)(mtyp(lhs.tp),ctx)
 
     case LocalWriter(_) if shouldUnrollAccess(lhs, rhs, lanes) && writeParallelizer.isDefinedAt((lanes,rhs,ctx)) =>
+      val lhs2 = writeParallelizer.apply((lanes,rhs,ctx))
+      transferMetadata(lhs, lhs2)
+      cloneFuncs.foreach{func => func(lhs2) }
+      registerAccess(lhs, lhs2)
+      logs(s"Unrolling $lhs = $rhs"); strMeta(lhs)
+      logs(s"Created ${str(lhs2)}"); strMeta(lhs2)
+      lanes.unify(lhs, lhs2)
+
+    case LocalResetter(_) if shouldUnrollAccess(lhs, rhs, lanes) && writeParallelizer.isDefinedAt((lanes,rhs,ctx)) =>
       val lhs2 = writeParallelizer.apply((lanes,rhs,ctx))
       transferMetadata(lhs, lhs2)
       cloneFuncs.foreach{func => func(lhs2) }

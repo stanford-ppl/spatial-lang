@@ -70,6 +70,9 @@ trait CppGenMath extends CppCodegen {
       emit(src"${lhs.tp} ${lhs} = acos($x);")
     case FltAtan(x) =>
       emit(src"${lhs.tp} ${lhs} = atan($x);")
+    case FixFloor(x) => emit(src"${lhs.tp} $lhs = floor($x);")
+    case FixCeil(x) => emit(src"${lhs.tp} $lhs = ceil($x);")
+
 
     case Mux(sel, a, b) => 
       emit(src"${lhs.tp} $lhs;")

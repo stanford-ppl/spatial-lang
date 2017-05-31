@@ -164,6 +164,7 @@ git push
 logger "Removing packet ${packet} so those waiting are clear to launch"
 rm $packet
 
+sleep 1000
 stubborn_delete ${dirname}
 
 ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
@@ -684,10 +685,12 @@ if [ \"\$wc\" -gt 0 ]; then
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "  # Compile app
+  cd ${SPATIAL_HOME}
   ${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "  # Compile app
+  cd ${SPATIAL_HOME}
   ${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
