@@ -229,7 +229,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-                  emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren).D(0), false.B, List(${ports.mkString(",")}))""")
+                  emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren).D(${symDelay(lhs)}), false.B, List(${ports.mkString(",")}))""")
                   emit(src"""${reg}_${ii}.io.input(0).init := ${reg}_initval.number""")
                   if (dup.isAccum) {
                     emit(src"""${reg}_$ii.io.input(0).reset := reset | ${reg}_resetter ${manualReset}""")  

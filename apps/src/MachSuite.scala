@@ -64,8 +64,8 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
   	setMem(sbox_dram, sbox)
 
   	// Debugging support
-  	val niter = ArgIn[Int] // 15
-  	setArg(niter, args(0).to[Int])
+  	val niter = 15
+  	// setArg(niter, args(0).to[Int])
   	// val key_debug = DRAM[UInt8](32)
 
   	Accel{
@@ -264,7 +264,7 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
   	val N_OBS = 140
 
   	// debugging
-  	// val steps_to_take = ArgIn[Int]
+  	val steps_to_take = N_OBS //ArgIn[Int] //
   	// setArg(steps_to_take, args(0).to[Int])
 
   	// Setup data
@@ -333,11 +333,11 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
   		}
 
   		// from --> to
-  		Sequential.Foreach(0 until N_OBS) { step => 
+  		Sequential.Foreach(0 until steps_to_take) { step => 
   			val obs = obs_sram(step)
   			Sequential.Foreach(0 until N_STATES) { to => 
 	  			val emission = emissions_sram(to, obs)
-  				val best_hop = Reg[T](15)
+  				val best_hop = Reg[T](0x4000)
   				best_hop.reset
   				Reduce(best_hop)(0 until N_STATES) { from => 
   					val base = llike_sram(step-1, from) + transitions_sram(from,to)
@@ -348,12 +348,12 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
   		}
 
   		// to <-- from
-  		Sequential.Foreach(N_OBS-1 until -1 by -1) { step => 
+  		Sequential.Foreach(steps_to_take-1 until -1 by -1) { step => 
   			val from = path_sram(step+1)
-  			val min_pack = Reg[Tup2[Int, T]](pack(-1.to[Int], 15.to[T]))
+  			val min_pack = Reg[Tup2[Int, T]](pack(-1.to[Int], (0x4000).to[T]))
   			min_pack.reset
   			Reduce(min_pack)(0 until N_STATES){ to => 
-  				val jump_cost = mux(step == N_OBS-1, 0.to[T], transitions_sram(to, from))
+  				val jump_cost = mux(step == steps_to_take-1, 0.to[T], transitions_sram(to, from))
   				val p = llike_sram(step,to) + jump_cost
   				pack(to,p)
   			}{(a,b) => mux(a._2 < b._2, a, b)}
