@@ -113,6 +113,8 @@ trait LatencyModel {
     case _:VarRegRead[_]  => 0
     case _:VarRegWrite[_] => 0
 
+    case _:LUTLoad[_] => 0
+
     // Registers
     case _:RegRead[_]  => 0
     case _:RegWrite[_] => 1
