@@ -79,7 +79,7 @@ class IncDincCtr(inc: Int, dinc: Int, stop: Int) extends Module {
 class RedxnCtr() extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
-      val stop      = Input(UInt(32.W))
+      val stop      = Input(SInt(32.W))
       val enable = Input(Bool())
       val reset = Input(Bool())
       val saturate = Input(Bool())
@@ -89,12 +89,14 @@ class RedxnCtr() extends Module {
     }
   })
 
-  val cnt = RegInit(0.U(32.W))
+  val cnt = RegInit(0.S(32.W))
 
-  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.U === io.input.stop, Mux(io.input.saturate, cnt, 0.U), cnt+1.U), cnt)
-  cnt := Mux(io.input.reset, 0.U, nextCntUp)
+  val isDone = cnt + 1.S >= io.input.stop
 
-  io.output.done := cnt + 1.U === io.input.stop
+  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.S === io.input.stop, Mux(io.input.saturate, cnt, 0.S), cnt+1.S), cnt)
+  cnt := Mux(io.input.reset, 0.S, nextCntUp)
+
+  io.output.done := isDone
 }
 
 /**

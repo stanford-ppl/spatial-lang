@@ -139,8 +139,8 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 	  		Sequential.Foreach(4 by 1){j => 
 		  		val col = RegFile[UInt8](4)
 		  		Sequential.Foreach(4 by 1) { i => col(i) = plaintext_sram(i,j) }
-		  		// val e = Reduce(Reg[UInt8](0))(4 by 1 par 4) { i => col(i) }{_^_}
-		  		val e = col(0) ^ col(1) ^ col(2) ^ col(3)
+		  		val e = Reduce(Reg[UInt8](0))(4 by 1 par 4) { i => col(i) }{_^_}
+		  		// val e = col(0) ^ col(1) ^ col(2) ^ col(3)
 		  		Pipe{plaintext_sram(0,j) = col(0) ^ e ^ rj_xtime(col(0) ^ col(1))}
 		  		Pipe{plaintext_sram(1,j) = col(1) ^ e ^ rj_xtime(col(1) ^ col(2))}
 		  		Pipe{plaintext_sram(2,j) = col(2) ^ e ^ rj_xtime(col(2) ^ col(3))}
