@@ -223,7 +223,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
                     emitGlobalWire(src"""val ${reg} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-                    emit(src"""${reg}_${ii}.write($reg, $en & (${reg}_wren.D(1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
+                    emit(src"""${reg}_${ii}.write($reg, $en & (${reg}_wren).D(1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
                     emit(src"""${reg}_${ii}.io.input(0).init := ${reg}_initval.number""")
                     emit(src"""${reg}_$ii.io.input(0).reset := reset ${manualReset}""")
                   }
