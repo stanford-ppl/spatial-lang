@@ -55,12 +55,6 @@ trait SpatialExceptions {this: SpatialExp =>
     error(c"Parent $parent does not appear to contain $access while running childContaining")
   })
 
-  class AmbiguousMetaPipeException(mem: Exp[_], metapipes: Map[Ctrl, Seq[Access]]) extends
-  CompilerException(1009, c"Ambiguous metapipes for readers/writers of $mem: ${metapipes.keySet}", {
-    error(c"Ambiguous metapipes for readers/writers of $mem:")
-    metapipes.foreach{case (pipe,accesses) => error(c"  $pipe: $accesses")}
-  })
-
   class UndefinedPipeDistanceException(a: Ctrl, b: Ctrl) extends
   CompilerException(1010, c"Controllers $a and $b have an undefined pipe distance because they occur in parallel", {
     error(c"Controllers $a and $b have an undefined pipe distance because they occur in parallel")

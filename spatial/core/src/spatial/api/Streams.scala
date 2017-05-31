@@ -1,6 +1,5 @@
 package spatial.api
 
-import argon.core.Staging
 import spatial.{SpatialApi, SpatialExp}
 import forge._
 
@@ -19,7 +18,7 @@ trait StreamApi extends StreamExp { this: SpatialApi =>
 
   @api def BufferedOut[T:Meta:Bits](bus: Bus): BufferedOut[T] = { // (rows: Index, cols: Index)
     bus_check[T](bus)
-    BufferedOut(buffered_out[T](Seq(lift(320).s,lift(240).s),bus))
+    BufferedOut(buffered_out[T](Seq(lift(240).s,lift(320).s),bus))
   }
 
   @api implicit def readStream[T](stream: StreamIn[T]): T = stream.value

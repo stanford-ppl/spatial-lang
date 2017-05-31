@@ -4,17 +4,34 @@
 
 import scipy.misc
 import sys
+from skimage import img_as_ubyte
 
 def main():
 
-    img = scipy.misc.imread(sys.argv[1], mode='RGB')
+    image = scipy.misc.imread(sys.argv[1], mode='RGB')
+    img = img_as_ubyte(image)
+
     data = open(sys.argv[1].replace('.png', '.dat'), 'w')
+
+    try:
+        style = sys.argv[2]
+    except:
+        style = 'RGB'
+
+    if style == 'VGA':
+        print("Using VGA encoding")
 
     rows = img.shape[0]
     cols = img.shape[1]
     for row in range(0,rows):
         for col in range(0,cols):
             pixel = img[row][col]
+
+            if style == 'VGA':
+                pixel[0] = pixel[0] / 8
+                pixel[1] = pixel[1] / 4
+                pixel[2] = pixel[2] / 8
+
             #print(pixel)
             dat = str(pixel[2]) + "; " + str(pixel[1]) + "; " + str(pixel[0]) + "\n"
             data.write(dat)
