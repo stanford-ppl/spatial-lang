@@ -18,6 +18,24 @@ trait BufferAnalyzer extends CompilerPass {
 
       dbg(u"Memory $mem: ")
 
+      // HACK: Only used in Scala generation right now
+      if (isBufferedOut(mem)) {
+        /*val commonCtrl = writers.map(_.ctrl).reduce{(a,b) => lca(a,b).get }
+        val children = childrenOf(commonCtrl)
+        val topIndex = children.lastIndexWhere{child => writers.exists(_.ctrl == child) }
+        val top = if (topIndex < 0) children.last else children(topIndex)
+        writers.foreach{wr =>
+          dispatchOf(wr, mem).foreach{d => topControllerOf(wr.node, mem, d) = top }
+        }*/
+        writers.foreach{ wr =>
+          val parents = allParents[Ctrl](wr.ctrl, { x => parentOf(x) })
+          val i = parents.indexWhere { ctrl => ctrl.isDefined && isStreamPipe(ctrl.get) }
+          if (i >= 0 && i < parents.length - 1) {
+            dispatchOf(wr, mem).foreach { d => topControllerOf(wr.node, mem, d) = parents(i + 1).get }
+          }
+        }
+      }
+
       duplicates.zipWithIndex.foreach{case (dup, i) =>
         dbg(c"  #$i: $dup")
         val reads = readers.filter{read => dispatchOf(read, mem) contains i }
@@ -42,15 +60,9 @@ trait BufferAnalyzer extends CompilerPass {
           warn(mem.ctx, u"Memory $mem, instance #$i has no associated accesses")
         }
         // HACK
-        readers.collect{case read@(Def(_:BufferedOutWrite[_]),_) => read }.foreach{read =>
-          val parents = allParents[Ctrl](read.ctrl, {x => parentOf(x)})
-          val i = parents.indexWhere{ctrl => ctrl.isDefined && isStreamPipe(ctrl.get) }
-          if (i > 0 && i < parents.length-1) {
-            dispatchOf(read, mem).foreach{ d =>
-              topControllerOf(read.node, mem, d) = parents(i + 1).get
-            }
-          }
-        }
+        /*writers.collect{case wr@(Def(_:BufferedOutWrite[_]),_) => wr }.foreach{wr =>
+
+        }*/
       }
       dbg("\n")
     }

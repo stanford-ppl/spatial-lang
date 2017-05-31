@@ -1,6 +1,7 @@
 import scala.language.implicitConversions
 import scala.math.Integral
 import scala.collection.immutable.NumericRange
+import java.lang.ArithmeticException
 
 object DataImplicits {
   implicit def numberToInt(x: Number): Int = x.toInt
@@ -86,6 +87,8 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
 
   def withValid(valid: Boolean) = Number(value, valid, fmt)
 
+  def valueOrX(value: => Number): Number = try { value } catch {case e: Throwable => X(fmt) }
+
   def unary_-() = Number(-this.value, valid, fmt)
   def unary_~() = Number(~this.fixValue, valid, fmt)
   def floor() = {
@@ -99,8 +102,8 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
   def +(that: Number) = Number(this.value + that.value, this.valid && that.valid, fmt)
   def -(that: Number) = Number(this.value - that.value, this.valid && that.valid, fmt)
   def *(that: Number) = Number(this.value * that.value, this.valid && that.valid, fmt)
-  def /(that: Number) = Number(this.value / that.value, this.valid && that.valid, fmt)
-  def %(that: Number) = Number(this.value % that.value, this.valid && that.valid, fmt)
+  def /(that: Number) = valueOrX{ Number(this.value / that.value, this.valid && that.valid, fmt) }
+  def %(that: Number) = valueOrX{ Number(this.value % that.value, this.valid && that.valid, fmt) }
   def &(that: Number) = Number(this.fixValue & that.fixValue, this.valid && that.valid, fmt)
   def ^(that: Number) = Number(this.fixValue ^ that.fixValue, this.valid && that.valid, fmt)
   def |(that: Number) = Number(this.fixValue | that.fixValue, this.valid && that.valid, fmt)
@@ -116,9 +119,9 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
   def <*>(that: Number) = Number.saturating(this.value * that.value, this.valid && that.valid, fmt)
   def </>(that: Number) = Number.saturating(this.value / that.value, this.valid && that.valid, fmt)
   def *&(that: Number)  = Number.unbiased(this.value * that.value, this.valid && that.valid, fmt)
-  def /&(that: Number)  = Number.unbiased(this.value / that.value, this.valid && that.valid, fmt)
+  def /&(that: Number)  = valueOrX { Number.unbiased(this.value / that.value, this.valid && that.valid, fmt) }
   def <*&>(that: Number) = Number.unbiasedSat(this.value * that.value, this.valid && that.valid, fmt)
-  def </&>(that: Number) = Number.unbiasedSat(this.value / that.value, this.valid && that.valid, fmt)
+  def </&>(that: Number) = valueOrX { Number.unbiasedSat(this.value / that.value, this.valid && that.valid, fmt) }
 
   def <<(that: Number) = Number(this.fixValue << that.intValue, this.valid && that.valid, fmt)
   def >>(that: Number) = Number(this.fixValue >> that.intValue, this.valid && that.valid, fmt)

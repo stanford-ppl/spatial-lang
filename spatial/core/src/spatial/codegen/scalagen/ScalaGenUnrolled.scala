@@ -55,6 +55,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM with ScalaGenC
       open(src"val $lhs = if ($en) {")
       emitUnrolledLoop(lhs, cchain, iters, valids){ emitControlBlock(lhs, func) }
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END UNROLLED FOREACH $lhs **/")
 
     case UnrolledReduce(ens,cchain,_,func,_,iters,valids,_) =>
@@ -63,6 +64,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM with ScalaGenC
       open(src"val $lhs = if ($en) {")
       emitUnrolledLoop(lhs, cchain, iters, valids){ emitControlBlock(lhs, func) }
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END UNROLLED REDUCE $lhs **/")
 
     case op@ParSRAMLoad(sram,inds,ens) =>

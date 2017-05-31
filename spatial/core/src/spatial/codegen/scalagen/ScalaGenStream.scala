@@ -8,6 +8,7 @@ trait ScalaGenStream extends ScalaGenMemories {
 
   var streamIns: List[Exp[_]] = Nil
   var streamOuts: List[Exp[_]] = Nil
+  var bufferedOuts: List[Exp[_]] = Nil
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: StreamInType[_]  => src"scala.collection.mutable.Queue[${tp.child}]"
@@ -112,6 +113,40 @@ trait ScalaGenStream extends ScalaGenMemories {
 
     case op@StreamWrite(strm, data, en) => emit(src"val $lhs = if ($en) $strm.enqueue($data)")
     case op@StreamRead(strm, en) => emit(src"val $lhs = if ($en && $strm.nonEmpty) $strm.dequeue() else ${invalid(op.mT)}")
+
+    case op@BufferedOutNew(dims, bus) =>
+      bufferedOuts :+= lhs
+      emit(src"""val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})""")
+
+      val name = nameOf(lhs).map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
+      emit(src"""print("Enter name of file to use for BufferedOut $name: ")""")
+      emit(src"var ${lhs}_writer: java.io.PrintWriter = null")
+      open(src"try {")
+        emit(src"val filename = Console.readLine()")
+        emit(src"${lhs}_writer = new java.io.PrintWriter(new java.io.File(filename))")
+      close("}")
+      open("catch{ case e: Throwable => ")
+        emit(src"""println("There was a problem while opening the specified file for writing.")""")
+        emit(src"""println(e.getMessage)""")
+        emit(src"""e.printStackTrace()""")
+        emit(src"sys.exit(1)")
+      close("}")
+
+      open(src"def dump_$lhs(): Unit = {")
+        open(src"$lhs.foreach{elem => ")
+          bitsToString("line", "elem", op.mT)
+          emit(src"${lhs}_writer.println(line)")
+        close("}")
+      close("}")
+      emit(src"def close_$lhs(): Unit = ${lhs}_writer.close()")
+
+
+    case op@BufferedOutWrite(buffer,data,inds,en) =>
+      val dims = stagedDimsOf(buffer)
+      open(src"val $lhs = {")
+        oobUpdate(op.mT,buffer,lhs,inds){ emit(src"if ($en) $buffer.update(${flattenAddress(dims,inds,None)}, $data)") }
+      close("}")
+
     case _ => super.emitNode(lhs, rhs)
   }
 

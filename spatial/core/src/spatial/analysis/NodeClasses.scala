@@ -121,6 +121,7 @@ trait NodeClasses { this: SpatialExp =>
 
   /** Allocations **/
   def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
+    case Def(BufferedOutNew(dims,_)) => dims
     case Def(LUTNew(dims,_)) => dims.map{d => int32(d)(x.ctx) }
     case Def(SRAMNew(dims)) => dims
     case Def(DRAMNew(dims,_)) => dims
@@ -231,6 +232,10 @@ trait NodeClasses { this: SpatialExp =>
 
   def isStreamOut(e: Exp[_]): Boolean = e.tp match {
     case _:StreamOutType[_] => true
+    case _:BufferedOutType[_] => true
+    case _ => false
+  }
+  def isBufferedOut(e: Exp[_]): Boolean = e.tp match {
     case _:BufferedOutType[_] => true
     case _ => false
   }
