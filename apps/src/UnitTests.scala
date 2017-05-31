@@ -495,8 +495,8 @@ object DeviceMemcpy extends SpatialApp { // Regression (Unit) // Args: 50
 object SimpleTileLoadStore extends SpatialApp { // Regression (Unit) // Args: 100
   import IR._
 
-  val N = 32
-//  override val target = targets.AWS_F1
+  val N = 256
+  override val target = targets.AWS_F1
 
   def simpleLoadStore[T:Staged:Num](srcHost: Array[T], value: T) = {
     val loadPar  = 1 (1 -> 1)
