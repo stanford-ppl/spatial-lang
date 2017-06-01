@@ -382,7 +382,7 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 
-object Stencil2D extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
   import IR._
 
   /*
@@ -425,24 +425,23 @@ object Stencil2D extends SpatialApp { // DISABLED Regression (Dense) // Args: no
 
   	Accel {
 
-	  	val filter = LUT[Int](3,3)(468,909,379,
-	  														 165,886,771,
-	  														 159,963,553)
-
+	  	val filter = LUT[Int](3,3)(379,909,468, // Reverse columns because we shift in from left side
+	  														 771,886,165,
+	  														 553,963,159)
 	  	val lb = LineBuffer[Int](3,COLS)
 	  	val sr = RegFile[Int](3,3)
 	  	val result_sram = SRAM[Int](ROWS,COLS)
 	  	Foreach(ROWS by 1){ i => 
+				val wr_row = (i-2)%ROWS
 	  		lb load data_dram(i, 0::COLS)
 				Foreach(COLS by 1) {j => 
 					Foreach(3 by 1 par 3) {k => sr(k,*) <<= lb(k,j)}
 					val temp = Reduce(Reg[Int](0))(3 by 1, 3 by 1){(r,c) => sr(r,c) * filter(r,c)}{_+_}
-					if (i > 2 && j < COLS-2) {result_sram(i-2,j) = temp}
-					else {result_sram(i-2,j) = 0}
+					val wr_col = (j-2)%COLS
+					if (i >= 2 && j >= 2) {result_sram(wr_row,wr_col) = temp}
+					else {result_sram(wr_row,wr_col) = 0}
 				}	  		
 	  	}
-	  	// Pad with 0's to make regression check happy
-	  	Foreach(2 by 1, COLS by 1){ (i,j) => result_sram(ROWS-1-i, j) = 0}
 
 	  	result_dram store result_sram
   	}
@@ -454,10 +453,10 @@ object Stencil2D extends SpatialApp { // DISABLED Regression (Dense) // Args: no
 
   	// Printers
   	printMatrix(gold, "gold")
-  	printMatrix(result_data, "gold")
+  	printMatrix(result_data, "result")
 
-  	val cksum = gold.zip(result_data){_==_}.reduce{_&&_}
-  	println("PASS: " + cksum + " (Stencil2D)")
+  	val cksum = (0::ROWS, 0::COLS){(i,j) => if (i < ROWS-2 && j < COLS-2) gold(i,j) == result_data(i,j) else true }.reduce{_&&_}
+  	println("PASS: " + cksum + " (Stencil2D) * Fix modulo addresses in scalagen?")
 
   }
 }

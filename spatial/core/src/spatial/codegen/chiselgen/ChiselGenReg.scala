@@ -216,14 +216,14 @@ trait ChiselGenReg extends ChiselGenSRAM {
                 case FixPtSum =>
                   if (dup.isAccum) {
                     emit(src"""${reg}_${ii}.io.input.next := ${v}.number""")
-                    emit(src"""${reg}_${ii}.io.input.enable := ${reg}_wren""")
+                    emit(src"""${reg}_${ii}.io.input.enable := ${reg}_wren.D(${symDelay(lhs)})""")
                     emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
                     emit(src"""${reg}_${ii}.io.input.reset := reset | ${reg}_resetter ${manualReset}""")
                     emit(src"""${reg} := ${reg}_${ii}.io.output""")
                     emitGlobalWire(src"""val ${reg} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-                    emit(src"""${reg}_${ii}.write($reg, $en & (${reg}_wren).D(1) /* TODO: This delay actually depends on latency of reduction function */, false.B, List(${ports.mkString(",")}))""")
+                    emit(src"""${reg}_${ii}.write($reg, $en & (${reg}_wren).D(${symDelay(lhs)}+1), false.B, List(${ports.mkString(",")}))""")
                     emit(src"""${reg}_${ii}.io.input(0).init := ${reg}_initval.number""")
                     emit(src"""${reg}_$ii.io.input(0).reset := reset ${manualReset}""")
                   }
