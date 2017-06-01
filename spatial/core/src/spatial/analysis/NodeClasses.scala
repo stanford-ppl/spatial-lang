@@ -19,8 +19,8 @@ trait NodeClasses { this: SpatialExp =>
   /** Control Nodes **/
   type Ctrl = (Exp[_], Boolean)
   implicit class CtrlOps(x: Ctrl) {
-    def node: Exp[_] = x._1
-    def isInner: Boolean = x._2
+    def node: Exp[_] = if (x == null) null else x._1
+    def isInner: Boolean = if (x == null) false else x._2
   }
 
   def isControlNode(e: Exp[_]): Boolean = isPipeline(e) || isParallel(e) || isDRAMTransfer(e) || isSwitch(e) || isSwitchCase(e)
