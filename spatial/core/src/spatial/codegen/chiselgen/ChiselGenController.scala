@@ -516,6 +516,61 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"${lhs}_mask := $en")
       controllerStack.pop()
 
+    case op@Switch(body,selects,cases) =>
+      emit(s"// Switch with $selects $cases")
+      // emitBlock(body)
+      val parent_kernel = controllerStack.head 
+      controllerStack.push(lhs)
+      emit(src"""val ${lhs}_done = ${parent_kernel}_done""")
+      emit(src"""val ${lhs}_en = ${parent_kernel}_en""")
+      emit(src"""val ${lhs}_base_en = ${parent_kernel}_base_en""")
+      emit(src"""val ${lhs}_mask = ${parent_kernel}_mask""")
+      emit(src"""val ${lhs}_resetter = ${parent_kernel}_resetter""")
+      emit(src"""val ${lhs}_datapath_en = ${parent_kernel}_datapath_en""")
+      emit(src"""val ${lhs}_ctr_trivial = ${parent_kernel}_ctr_trivial | false.B""")
+      if (Bits.unapply(op.mT).isDefined) {
+        emit(src"val ${lhs}_onehot_selects = Vec(${selects.length}, Wire(Bool()))")
+        selects.indices.foreach { i =>
+          emit(src"${lhs}_onehot_selects($i) := ${selects(i)}")
+        }
+        cases.collect{case s: Sym[_] => stmOf(s)}.foreach{ stm => 
+          visitStm(stm)
+          // Probably need to match on type of stm and grab the return values
+        }
+      } else {
+        selects.indices.foreach{i => 
+          emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
+        }
+        cases.collect{case s: Sym[_] => stmOf(s)}.foreach(visitStm)
+        // (0 until selects.length).foreach{ i =>
+        //   emit(src"val ${cases(i)}_mask = ${selects(i)}")
+        // }
+      }
+      controllerStack.pop()
+
+
+    case SwitchCase(body) =>
+      // open(src"val $lhs = {")
+      val parent_kernel = controllerStack.head 
+      controllerStack.push(lhs)
+      emit(src"""val ${lhs}_done = ${parent_kernel}_done""")
+      emit(src"""val ${lhs}_en = ${parent_kernel}_en""")
+      emit(src"""val ${lhs}_base_en = ${parent_kernel}_base_en""")
+      emit(src"""val ${lhs}_mask = ${parent_kernel}_mask & ${lhs}_switch_select""")
+      emit(src"""val ${lhs}_resetter = ${parent_kernel}_resetter""")
+      emit(src"""val ${lhs}_datapath_en = ${parent_kernel}_datapath_en""")
+      emit(src"""val ${lhs}_ctr_trivial = ${parent_kernel}_ctr_trivial | false.B""")
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
+      withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
+        emit(s"// Controller Stack: ${controllerStack.tail}")
+        emitBlock(body)
+      }
+      // val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
+      // emit(src"${lhs}_mask := $en")
+      controllerStack.pop()
+
+      // close("}")
+
     case OpForeach(cchain, func, iters) =>
       throw new Exception("Should not be emitting chisel for Op ctrl node")
 

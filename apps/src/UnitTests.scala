@@ -129,7 +129,7 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     // Create HW accelerator
     Accel {
       val lut = LUT[Int](4, 4)(
-         0,  1,  2,  3,
+         0,  (1*1E0).to[Int],  2,  3,
          4,  -5,  6,  7,
          8,  9, -10, 11,
         12, 13, 14, -15
