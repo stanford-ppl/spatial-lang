@@ -588,8 +588,14 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""${lhs}_ctr_trivial := ${parent_kernel}_ctr_trivial | false.B""")
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
-        emit(s"// Controller Stack: ${controllerStack.tail}")
-        emitBlock(body)
+        if (blockContents(body).length > 0) {
+          emit(s"// Controller Stack: ${controllerStack.tail}")
+          emitBlock(body)
+        } else {
+          emit(s"// Body of this case is empty")
+          emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
+          emit(src"""val ${lhs}_done_sniff := ${parent_kernel}_en // Route through""")
+        }
       }
       // val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
       // emit(src"${lhs}_mask := $en")
