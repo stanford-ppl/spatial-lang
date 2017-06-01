@@ -1997,7 +1997,7 @@ object MaskedWrite extends SpatialApp {  // Regression (Unit) // Args: 5
         if (i < s.value) { yy(i) = 1.to[T]}
       }
       Foreach(2*N by 1) { i =>
-        if (i >= s.value) { if (i < N) {yy(i) = 2.to[T] }}
+        if ((i >= s.value) && (i < N)) {yy(i) = 2.to[T] }
       }
       y(0 :: N par 1) store yy
     }

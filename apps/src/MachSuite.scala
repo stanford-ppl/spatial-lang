@@ -462,65 +462,87 @@ object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 
-object Stencil3D extends SpatialApp { // DISABLED Regression (Dense) // Args: none
-  import IR._
-
-  /*
-                                                                      
-                                                                          
-      ↗      ___________________                  ___________________                                                                  
-   HEIGHT  /                   /|               /000000000000000000 /|                                                                
-          / ←    COLS     →   / |              / x  x  x  x  x  00 /0|                        
-  ↙      /__________________ /  |             /__________________ / 0|                                                                 
-        |                   |   |            |X  X  X  X  X  X 00| x0|      
-    ↑   |    ←___           |   |            |                 00|  0|      
-        |    /__/           |   |            |    VALID DATA   00|  0|      
-        |  ↑|   |           |   |            |X  X  X  X  X  X 00| x0|      
-        |  3|   | ----->    |   |   --->     |                 00|  0|        
- ROWS   |  ↓|___|           |   |            |X  X  X  X  X  X 00| x0|      
-        |                   |   |            |                 00|  0|      
-        |                   |   |            |X  X  X  X  X  X 00| x0|      
-        |                   |  /             |                 00| 0/      
-    ↓   |                   | /              |0000000000000000000|0/       
-        |                   |/               |0000000000000000000|/        
-         ```````````````````                  ```````````````````      
-                                               
-                                               
-  */
-
-
-  @virtualize
-  def main() = {
-
-  	// // Problem properties
-  	// val ROWS = 128
-  	// val COLS = 64
-  	// val filter_size = 9
-
-  	// // Setup data
-  	// val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/stencil2d_data.csv", "\n")
-  	// val data = raw_data.reshape(ROWS, COLS)
-
-  	// // Setup DRAMs
-  	// val data_dram = DRAM[Int](ROWS,COLS)
-  	// val result_dram = DRAM[Int](ROWS,COLS)
-
-  	// setMem(data_dram, data)
-
-  	Accel {
-  	}
-
-  	// // Get results
-  	// val result_data = getMatrix(result_dram)
-  	// val raw_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/stencil2d_gold.csv", "\n")
-  	// val gold = raw_gold.reshape(ROWS,COLS)
-
-  	// // Printers
-  	// printMatrix(gold, "gold")
-  	// printMatrix(result_data, "gold")
-
-  	// val cksum = gold.zip(result_data){_==_}.reduce{_&&_}
-  	// println("PASS: " + cksum + " (Stencil2D)")
-
-  }
-}
+//object Stencil3D extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+//  import IR._
+//
+//  /*
+//                                                                      
+//   INDX(_row_size,_col_size,_i,_j,_k) ((_i)+_row_size*((_j)+_col_size*(_k)))
+//                                                         
+//  H   ↗        ___________________                  ___________________                                                                  
+//   E         /                   /|               /000000000000000000 /|                                                                
+//    I       / ←    COL      →   / |              / x  x  x  x  x  00 /0|                        
+//  ↙  G     /__________________ /  |             /__________________ / 0|                                                                 
+//      H   |                   |   |            |X  X  X  X  X  X 00| x0|      
+//       T  |     ___           |   |            |                 00|  0|      
+//          |    /__/|          |   |            |    VALID DATA   00|  0|      
+//    ↑     |  ↑|   ||          |   |            |X  X  X  X  X  X 00| x0|      
+//          |  3|   || ----->   |   |   --->     |                 00|  0|        
+//   ROWS   |  ↓|___|/          |   |            |X  X  X  X  X  X 00| x0|      
+//          |                   |   |            |                 00|  0|      
+//          |                   |   |            |X  X  X  X  X  X 00| x0|      
+//          |                   |  /             |                 00| 0/      
+//    ↓     |                   | /              |0000000000000000000|0/ 
+//          |                   |/               |0000000000000000000|/        
+//           ```````````````````                  ```````````````````      
+//                                                 
+//                                                 
+//  */
+//
+//
+//  @virtualize
+//  def main() = {
+//
+//  	// Problem properties
+//  	val ROWS = 16 // Leading dim
+//  	val COLS = 32
+//    val HEIGHT = 32
+//  	val filter_size = 3*3*3
+//
+//  	// Setup data
+//  	val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/stencil3d_data.csv", "\n")
+//  	val data = raw_data.reshape(HEIGHT, COLS, ROWS)
+//
+//  	// Setup DRAMs
+//  	val data_dram = DRAM[Int](HEIGHT, COLS, ROWS)
+//  	val result_dram = DRAM[Int](HEIGHT, COLS, ROWS)
+//
+//  	setMem(data_dram, data)
+//
+//  	Accel {
+//      val filter = LUT[Int](3,3,3)(  0,  0,  0,
+//                                     0, -6,  0,
+//                                     0,  0,  0,
+//
+//                                     0, -6,  0,
+//                                    -6,  1, -6,
+//                                     0, -6,  0,
+//
+//                                     0,  0,  0,
+//                                     0, -6,  0,
+//                                     0,  0,  0)
+//
+//      val lbs = Array.tabulate(COLS){i => LineBuffer[Int](3,ROWS)} 
+//              /* Each vertical slat of the cube gets loaded into a linebuffer and passed along 3 buffers.
+//                 We need to maintain one vertical slat linebuffer per COL of the cube*/
+//      val sr = RegFile[Int](3,3,3)
+//      val result_sram = SRAM[Int](HEIGHT,ROWS,COLS)
+//
+//
+//
+//  	}
+//
+//  	// // Get results
+//  	// val result_data = getMatrix(result_dram)
+//  	// val raw_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/stencil2d_gold.csv", "\n")
+//  	// val gold = raw_gold.reshape(ROWS,COLS)
+//
+//  	// // Printers
+//  	// printMatrix(gold, "gold")
+//  	// printMatrix(result_data, "gold")
+//
+//  	// val cksum = gold.zip(result_data){_==_}.reduce{_&&_}
+//  	// println("PASS: " + cksum + " (Stencil2D)")
+//
+//  }
+//}
