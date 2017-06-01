@@ -594,7 +594,7 @@ trait ChiselGenController extends ChiselGenCounter{
         } else {
           emit(s"// Body of this case is empty")
           emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
-          emit(src"""val ${lhs}_done_sniff := ${parent_kernel}_en // Route through""")
+          emit(src"""${lhs}_done_sniff := ${parent_kernel}_en // Route through""")
         }
       }
       // val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
