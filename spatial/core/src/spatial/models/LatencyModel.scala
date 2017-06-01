@@ -139,6 +139,11 @@ trait LatencyModel {
     case _:ParFIFOEnq[_] => 1
     case _:FIFODeq[_]    => 1
     case _:ParFIFODeq[_] => 1
+    case _:FIFONumel[_]  => 0
+    case _:FIFOAlmostEmpty[_] => 0
+    case _:FIFOAlmostFull[_]  => 0
+    case _:FIFOEmpty[_]       => 0
+    case _:FIFOFull[_]        => 0
 
     // SRAMs
     // TODO: Should be a function of number of banks?

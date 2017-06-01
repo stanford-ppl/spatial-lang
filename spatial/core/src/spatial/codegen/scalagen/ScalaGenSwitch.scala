@@ -8,7 +8,7 @@ trait ScalaGenSwitch extends ScalaGenBits {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@Switch(body,selects,cases) =>
-      emitBlock(body)
+      visitBlock(body)
       if (Bits.unapply(op.mT).isDefined) {
         open(src"val $lhs = {")
           selects.indices.foreach { i =>
