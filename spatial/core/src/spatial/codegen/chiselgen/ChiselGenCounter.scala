@@ -21,7 +21,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
       case Def(CounterNew(start, end, step, par)) => (src"$start", src"$end", src"$step", {s"$par"}.split('.').take(1)(0))
       case Def(Forever()) => 
         isForever = true
-        ("0.U", "999.U", "1.U", "1") 
+        ("0.S", "999.S", "1.S", "1") 
     }}
 
     emitGlobalWire(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
