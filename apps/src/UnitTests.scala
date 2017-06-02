@@ -1781,7 +1781,7 @@ object DotProductFSM extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
-object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
+object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 9
   import IR._
 
   @virtualize
@@ -1822,7 +1822,7 @@ object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
     val gold = Array.fill(128){ if (args(0).to[Int] <= 4) 4.to[Int] else if (args(0).to[Int] <= 8) 8.to[Int] else 14.to[Int] }
     println("Expected array of : " + gold(0) + ", got array of : " + res(0))
     val cksum = res.zip(gold){_==_}.reduce{_&&_}
-    println("PASS: " + cksum + " (CtrlEnable) * Try making input arg > 8 and see if it still passes")
+    println("PASS: " + cksum + " (CtrlEnable)")
   }
 }
 

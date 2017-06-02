@@ -367,7 +367,7 @@ trait ChiselGenController extends ChiselGenCounter{
         case Def(SwitchCase(_)) => 
           emit(src"""${parentOf(sym).get}_done := ${sym}_done""")
           val streamAddition = getStreamEnablers(sym)
-          emit(src"""${sym}_en := ${parentOf(sym).get}_en & ${streamAddition}""")  
+          emit(src"""${sym}_en := ${parentOf(sym).get}_en ${streamAddition}""")  
           emit(src"""${sym}_resetter := ${parentOf(sym).get}_resetter""")
 
         case _ =>
