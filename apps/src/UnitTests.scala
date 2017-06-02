@@ -129,7 +129,7 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     // Create HW accelerator
     Accel {
       val lut = LUT[Int](4, 4)(
-         0,  1,  2,  3,
+         0,  (1*1E0).to[Int],  2,  3,
          4,  -5,  6,  7,
          8,  9, -10, 11,
         12, 13, 14, -15
@@ -1780,14 +1780,14 @@ object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
 
   @virtualize
   def main() {
-    val vectorA = Array.fill(128) {
-      random[Int](2)
+    val vectorA = Array.fill[Int](128) {
+      4 // Please don't change this to random
     }
-    val vectorB = Array.fill(128) {
-      random[Int](8)
+    val vectorB = Array.fill[Int](128) {
+      8 // Please don't change this to random
     }
-    val vectorC = Array.fill(128) {
-      random[Int](14)
+    val vectorC = Array.fill[Int](128) {
+      14 // Please don't change this to random
     }
     val vecA = DRAM[Int](128)
     val vecB = DRAM[Int](128)
@@ -1804,11 +1804,11 @@ object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
 
       if (x <= 4.to[Int]) {
         mem load vecA
-      } else { if (x <= 8.to[Int]) {
+      } else if (x <= 8.to[Int]) {
         mem load vecB
       } else {
         mem load vecC
-      }}
+      }
     
       result store mem
     }      
@@ -1816,7 +1816,7 @@ object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
     val gold = Array.fill(128){ if (args(0).to[Int] <= 4) 4.to[Int] else if (args(0).to[Int] <= 8) 8.to[Int] else 14.to[Int] }
     println("Expected array of : " + gold(0) + ", got array of : " + res(0))
     val cksum = res.zip(gold){_==_}.reduce{_&&_}
-    println("PASS: " + cksum + " (CtrlEnable)")
+    println("PASS: " + cksum + " (CtrlEnable) * Try making input arg > 8 and see if it still passes")
   }
 }
 
@@ -1997,7 +1997,7 @@ object MaskedWrite extends SpatialApp {  // Regression (Unit) // Args: 5
         if (i < s.value) { yy(i) = 1.to[T]}
       }
       Foreach(2*N by 1) { i =>
-        if (i >= s.value) { if (i < N) {yy(i) = 2.to[T] }}
+        if ((i >= s.value) && (i < N)) {yy(i) = 2.to[T] }
       }
       y(0 :: N par 1) store yy
     }

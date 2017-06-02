@@ -289,9 +289,9 @@ class NBufShiftRegFile(val dims: List[Int], val stride: Int, val numBufs: Int, v
   
 }
 
-class LUT(val dims: List[Int], val inits: List[Float], val numReaders: Int, val width: Int, val fracBits: Int) extends Module {
+class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val width: Int, val fracBits: Int) extends Module {
 
-  def this(tuple: (List[Int], List[Float], Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
+  def this(tuple: (List[Int], List[Double], Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
   val io = IO(new Bundle { 
     val addr = Vec(numReaders*dims.length, Input(UInt(32.W)))
     // val en = Vec(numReaders, Input(Bool()))

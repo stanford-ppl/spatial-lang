@@ -101,6 +101,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
         case GatherAddrBus =>
         case ScatterCmdBus() => 
         case VGA =>
+          throw new Exception("Please use BufferedOut instead of StreamOut for a VGA!")
           emit(src"// video in camera, node = $lhs", forceful=true)
           emit(src"// reset and output logic for video camera", forceful=true)
           emit(src"when (reset) {", forceful=true)
