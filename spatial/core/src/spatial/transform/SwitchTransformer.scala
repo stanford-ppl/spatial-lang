@@ -33,15 +33,26 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
     levelOf(c) = controlLevel.getOrElse(InnerControl)
     c
   }
-
-  // if (x) { blkA }
-  // else if (y) { blkB }
-  // else { blkC }
-  //
-  // IfThenElse(x, blkA, blkX)
-  // blkX:
-  //   IfThenElse(y, blkB, blkC)
-
+  /**
+    * Note: A sequence of if-then-else statements will be nested in the IR as follows:
+    *
+    * if (x) { blkA }
+    * else if (y) { blkB }
+    * else if (z) { blkC }
+    * else { blkD }
+    *
+    * // Logic to compute x
+    * IfThenElse(x, blkA, blkX)
+    * blkX:
+    *   // Logic to compute y
+    *   IfThenElse(y, blkB, blkY)
+    *   blkY:
+    *     // Logic to compute z
+    *     IfThenElse(z, blkC, blkD)
+    *
+    * This means, except in trivial cases, IfThenElses will often not be perfectly nested, as the block containing
+    * an IfThenElse will usually also contain the corresponding condition logic
+    */
   def extractSwitches[T:Type](
     elseBlock: Block[T],
     precCond:  Exp[Bool],
