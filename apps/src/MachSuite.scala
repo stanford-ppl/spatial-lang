@@ -64,7 +64,8 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
   	setMem(sbox_dram, sbox)
 
   	// Debugging support
-  	val niter = 15
+    val niter = 15
+  	// val niter = ArgIn[Int]
   	// setArg(niter, args(0).to[Int])
   	// val key_debug = DRAM[UInt8](32)
 
@@ -171,22 +172,22 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 	  	Sequential.Foreach(niter by 1) { round => 
 	  		// SubBytes
 	  		if (round > 0) {
-	  			substitute_bytes()
+	  			Pipe{substitute_bytes()}
 	  		}
 
 	  		// ShiftRows
 	  		if (round > 0) {
-	  			shift_rows()
+	  			Pipe{shift_rows()}
 	  		}
 
 	  		// MixColumns
 	  		if (round > 0 && round < 14 ) {
-	  			mix_columns()
+	  			Pipe{mix_columns()}
 	  		}
 
 	  		// Expand key
 	  		if (round > 0 && ((round % 2) == 0)) {
-	  			expand_key()
+	  			Pipe{expand_key()}
 	  		}
 
 	  		// AddRoundKey

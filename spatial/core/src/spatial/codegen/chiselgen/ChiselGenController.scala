@@ -588,13 +588,21 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""${lhs}_ctr_trivial := ${parent_kernel}_ctr_trivial | false.B""")
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
-        if (blockContents(body).length > 0) {
+        // if (blockContents(body).length > 0) {
+        if (childrenOf(lhs).filter(isControlNode(_)).length == 1) { // Body contains only primitives
           emit(s"// Controller Stack: ${controllerStack.tail}")
+          emitBlock(body)            
+          // Console.println(s"body is ${blockContents(body).collect{case s: Sym[_] => s}}")
+          // emit(s"""// No control nodes to connect the done_sniff""")
+          // emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
+          // emit(src"""${lhs}_done_sniff := ${parent_kernel}_en // Route through""")
+        } else if (childrenOf(lhs).filter(isControlNode(_)).length == 0) { // Body contains only primitives
           emitBlock(body)
-        } else {
           emit(s"// Body of this case is empty")
           emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
-          emit(src"""${lhs}_done_sniff := ${parent_kernel}_en // Route through""")
+          emit(src"""${lhs}_done_sniff := ${lhs}_en // Route through""")
+        } else {
+          throw new Exception("Please put a pipe around your multiple controllers inside the if statement")
         }
       }
       // val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
