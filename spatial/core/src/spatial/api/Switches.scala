@@ -25,7 +25,7 @@ trait SwitchExp { this: SpatialExp =>
       val body2 = stageHotBlock{ f(body) }
       op_switch(body2, f(selects), f(cases))
     }
-    override def inputs = dyns(body) ++ dyns(selects)
+    override def inputs = dyns(selects)
     override def binds = dyns(cases)
     override def freqs = hot(body)   // Move everything except cases out of body
     val mT = typ[T]
