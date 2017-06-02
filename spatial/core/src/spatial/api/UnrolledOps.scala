@@ -157,7 +157,7 @@ trait UnrolledExp { this: SpatialExp =>
     iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bool]]]
   )(implicit ctx: SrcCtx): Exp[Controller] = {
-    val fBlk = stageColdBlock { func }
+    val fBlk = stageSealedBlock { func }
     val effects = fBlk.summary.star
     stageEffectful(UnrolledForeach(en, cchain, fBlk, iters, valids), effects)(ctx)
   }
@@ -173,7 +173,7 @@ trait UnrolledExp { this: SpatialExp =>
     rV:     (Bound[T], Bound[T])
   )(implicit ctx: SrcCtx, mT: Type[T], mC: Type[C[T]]): Exp[Controller] = {
     val fBlk = stageColdLambda(accum) { func }
-    val rBlk = stageColdBlock { reduce }
+    val rBlk = stageSealedBlock { reduce }
     val effects = fBlk.summary andAlso rBlk.summary
     stageEffectful(UnrolledReduce(en, cchain, accum, fBlk, rBlk, iters, valids, rV), effects.star)(ctx)
   }
