@@ -13,7 +13,7 @@ trait SimGenDRAM extends SimCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@DRAMNew(dims) =>
+    case op@DRAMNew(dims,zero) =>
       emit(src"""val $lhs = new Array[${op.mA}](${dims.map(quote).mkString("*")})""")
 
     case GetDRAMAddress(dram) =>

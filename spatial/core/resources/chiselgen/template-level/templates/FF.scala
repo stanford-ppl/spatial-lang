@@ -104,14 +104,14 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
 
   val stateIn = Module(new NBufCtr())
   stateIn.io.input.start := 0.U 
-  stateIn.io.input.max := numBufs.U
+  stateIn.io.input.stop := numBufs.U
   stateIn.io.input.enable := swap
   stateIn.io.input.countUp := false.B
 
   val statesOut = (0 until numBufs).map{  i => 
     val c = Module(new NBufCtr())
     c.io.input.start := i.U
-    c.io.input.max := numBufs.U
+    c.io.input.stop := numBufs.U
     c.io.input.enable := swap
     c.io.input.countUp := false.B
     c

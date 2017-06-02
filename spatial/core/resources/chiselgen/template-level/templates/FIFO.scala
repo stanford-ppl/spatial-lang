@@ -45,36 +45,36 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   // Create head and reader sub counters
   val subWriter = Module(new SingleCounter(1))
   val subReader = Module(new SingleCounter(1))
-  subWriter.io.input.max := (p/pW).U
+  subWriter.io.input.stop := (p/pW).S
   subWriter.io.input.enable := enq_options.reduce{_|_}
-  subWriter.io.input.stride := 1.U
-  subWriter.io.input.gap := 0.U
-  subWriter.io.input.start := 0.U
+  subWriter.io.input.stride := 1.S
+  subWriter.io.input.gap := 0.S
+  subWriter.io.input.start := 0.S
   subWriter.io.input.reset := reset
   subWriter.io.input.saturate := false.B
-  subReader.io.input.max := (p/pR).U
+  subReader.io.input.stop := (p/pR).S
   subReader.io.input.enable := deq_options.reduce{_|_}
-  subReader.io.input.stride := 1.U
-  subReader.io.input.gap := 0.U
-  subReader.io.input.start := 0.U
+  subReader.io.input.stride := 1.S
+  subReader.io.input.gap := 0.S
+  subReader.io.input.start := 0.S
   subReader.io.input.reset := reset
   subReader.io.input.saturate := false.B
 
   // Create head and reader counters
   val writer = Module(new SingleCounter(1))
   val reader = Module(new SingleCounter(1))
-  writer.io.input.max := (depth/p).U
+  writer.io.input.stop := (depth/p).S
   writer.io.input.enable := enq_options.reduce{_|_} & subWriter.io.output.done
-  writer.io.input.stride := 1.U
-  writer.io.input.gap := 0.U
-  writer.io.input.start := 0.U
+  writer.io.input.stride := 1.S
+  writer.io.input.gap := 0.S
+  writer.io.input.start := 0.S
   writer.io.input.reset := reset
   writer.io.input.saturate := false.B
-  reader.io.input.max := (depth/p).U
+  reader.io.input.stop := (depth/p).S
   reader.io.input.enable := deq_options.reduce{_|_} & subReader.io.output.done
-  reader.io.input.stride := 1.U
-  reader.io.input.gap := 0.U
-  reader.io.input.start := 0.U
+  reader.io.input.stride := 1.S
+  reader.io.input.gap := 0.S
+  reader.io.input.start := 0.S
   reader.io.input.reset := reset
   reader.io.input.saturate := false.B  
 
@@ -82,7 +82,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   if (pW == pR) {
     m.zipWithIndex.foreach { case (mem, i) => 
       val data_options = Vec((0 until numWriters).map{ q => io.in(q*pW + i)}.toList)
-      mem.io.w.addr := writer.io.output.count(0)
+      mem.io.w.addr := writer.io.output.count(0).asUInt
       mem.io.w.data := Mux1H(enq_options, data_options)
       mem.io.w.en := enq_options.reduce{_|_}
     }
@@ -90,9 +90,9 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
     (0 until pW).foreach { w_i => 
       (0 until (p / pW)).foreach { i => 
         val data_options = Vec((0 until numWriters).map{ q => io.in(q*pW + w_i)}.toList)
-        m(w_i + i*pW).io.w.addr := writer.io.output.count(0)
+        m(w_i + i*pW).io.w.addr := writer.io.output.count(0).asUInt
         m(w_i + i*pW).io.w.data := Mux1H(enq_options, data_options)
-        m(w_i + i*pW).io.w.en := enq_options.reduce{_|_} & (subWriter.io.output.count(0) === i.U)
+        m(w_i + i*pW).io.w.en := enq_options.reduce{_|_} & (subWriter.io.output.count(0) === i.S)
       }
     }
   }
@@ -100,7 +100,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   // Connect deqper
   if (pW == pR) {
     m.zipWithIndex.foreach { case (mem, i) => 
-      mem.io.r.addr := reader.io.output.count(0)
+      mem.io.r.addr := reader.io.output.count(0).asUInt
       mem.io.r.en := deq_options.reduce{_|_}
       io.out(i) := mem.io.output.data
     }
@@ -109,9 +109,9 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       val rSel = Wire(Vec( (p/pR), Bool()))
       val rData = Wire(Vec( (p/pR), UInt(32.W)))
       (0 until (p / pR)).foreach { i => 
-        m(r_i + i*pR).io.r.addr := reader.io.output.count(0)
-        m(r_i + i*pR).io.r.en := deq_options.reduce{_|_} & (subReader.io.output.count(0) === i.U)
-        rSel(i) := subReader.io.output.count(0) === i.U
+        m(r_i + i*pR).io.r.addr := reader.io.output.count(0).asUInt
+        m(r_i + i*pR).io.r.en := deq_options.reduce{_|_} & (subReader.io.output.count(0) === i.S)
+        rSel(i) := subReader.io.output.count(0) === i.S
         // if (i == 0) { // Strangeness from inc-then-read nuisance
         //   rSel((p/pR)-1) := subReader.io.output.count(0) === i.U
         // } else {
@@ -141,7 +141,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       io.in(wId*pW + i) := data(i)
     }
     io.enq(wId) := en
-    wId += data.length
+    wId += 1
   }
 
   var rId = 0
@@ -216,7 +216,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
 
   // Create head and reader sub counters
   val subAccessor = Module(new SingleSCounter(1))
-  subAccessor.io.input.max := (p).S
+  subAccessor.io.input.stop := (p).S
   subAccessor.io.input.enable := push_options.reduce{_|_} | pop_options.reduce{_|_}
   subAccessor.io.input.stride := Mux(push_options.reduce{_|_}, pW.S, -pR.S)
   subAccessor.io.input.gap := 0.S
@@ -227,7 +227,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
 
   // Create head and reader counters
   val accessor = Module(new SingleSCounter(1))
-  accessor.io.input.max := (depth/p).S
+  accessor.io.input.stop := (depth/p).S
   accessor.io.input.enable := (push_options.reduce{_|_} & subAccessor.io.output.done) | (pop_options.reduce{_|_} & subAccessor_prev === 0.S)
   accessor.io.input.stride := Mux(push_options.reduce{_|_}, 1.S, -1.S)
   accessor.io.input.gap := 0.S
@@ -299,7 +299,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       io.in(wId*pW + i) := data(i)
     }
     io.push(wId) := en
-    wId += data.length
+    wId += 1
   }
 
   var rId = 0

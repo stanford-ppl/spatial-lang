@@ -647,12 +647,14 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
       if (isUnitCounterChain(cchainRed)) {
         logs(s"[Accum-fold $lhs] Unrolling unit pipe reduction")
-        op_unit_pipe(globalValids, {
+        val rpipe = op_unit_pipe(globalValids, {
           val values = inReduction(false){ mems.map{mem => withSubstScope(partial -> mem){ inlineBlock(loadRes)(mT) }} }
           val foldValue = if (fold) { Some( inlineBlock(loadAcc)(mT) ) } else None
           inReduction(false){ unrollReduceAccumulate[T](values, mvalids(), ident, foldValue, rFunc, loadAcc, storeAcc, rV, isMap2.map(_.head), start, isInner = false) }
           void
         })
+        styleOf(rpipe) = InnerPipe
+        levelOf(rpipe) = InnerControl
       }
       else {
         logs(s"[Accum-fold $lhs] Unrolling pipe-reduce reduction")

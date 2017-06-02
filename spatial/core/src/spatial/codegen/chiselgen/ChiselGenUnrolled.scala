@@ -100,28 +100,33 @@ trait ChiselGenUnrolled extends ChiselGenController {
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten))
       emitValids(cchain, iters, valids)
-      // Set up accumulator signals
-      // emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
-      // emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
-      // val redmax = if (SpatialConfig.enableRetiming) {if (bodyLatency(lhs).length > 0) {bodyLatency(lhs).reduce{_+_}} else 1} else 1
-      // emit(s"""${quote(lhs)}_redLoopCtr.io.input.max := ${redmax}.U""")
-      // emit(s"""${quote(lhs)}_redLoopCtr.io.input.reset := reset | ${quote(cchain)}_resetter""")
-      // emit(s"""${quote(lhs)}_redLoopCtr.io.input.saturate := true.B""")
-      // emit(s"""val ${quote(lhs)}_redLoop_done = ${quote(lhs)}_redLoopCtr.io.output.done;""")
-      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc""")
+      // Set up accumulator signals if we do not recognize reduction function
+      reduceType(lhs) match {
+        case Some(fps: ReduceFunction) => 
+          fps match {
+            case FixPtSum => // Optimized for this case (1 issue per cycle)
+              emit(src"""val ${lhs}_redxn_done = true.B""")
+            case _ => // Not optimized for this case
+              emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
+              emit(src"""val ${lhs}_redxn_done = ${lhs}_redLoopCtr.io.output.done""")
+              emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
+              emit(s"""${quote(lhs)}_redLoopCtr.io.input.stop := ${quote(lhs)}_retime.S""")
+              emit(s"""${quote(lhs)}_redLoopCtr.io.input.reset := reset | ${quote(lhs)}_redxn_done.D(1)""")
+              emit(s"""${quote(lhs)}_redLoopCtr.io.input.saturate := false.B""")
+          }
+          case _ => 
+            throw new Exception("Cannot emit UnrolledReduce for a nonexistent reduce function!")
+        }
+      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc & ${lhs}_redxn_done""")
       if (levelOf(lhs) == InnerControl) {
         val dlay = bodyLatency.sum(lhs)
-        emit(s"val ${quote(accum)}_wren = ShiftRegister(${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor, ${quote(lhs)}_retime)")
+        emit(s"val ${quote(accum)}_wren = Mux(retime_released, (${quote(lhs)}_redxn_done & ${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor), false.B)")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
         accum match { 
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {
-            if (true) {
-              emit(src"val ${accum}_wren = ShiftRegister(${childrenOf(lhs).last}_done, ${quote(lhs)}_retime)// & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")
-            } else {
-              emit(src"val ${accum}_wren = ShiftRegister((${childrenOf(lhs).dropRight(1).last}_done)// & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")              
-            }
+            emit(src"val ${accum}_wren = Mux(retime_released, (${childrenOf(lhs).last}_done), false.B) // & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")
           case Def(_:SRAMNew[_,_]) =>
             emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
         }
@@ -350,7 +355,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, ${width}))) """)
       (0 until ens.length).foreach{ k => 
         emit(src"""${lhs}_wVec($k).data := ${data(k)}.r""")
-        emit(src"""${lhs}_wVec($k).en := ${ens(k)} & ${enable}.D(${symDelay(lhs)})""")
+        emit(src"""${lhs}_wVec($k).en := ${ens(k)} & (${enable}).D(${symDelay(lhs)})""")
         inds(k).zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${lhs}_wVec($k).addr($j) := ${ind}.r // Assume always an int""")
         }

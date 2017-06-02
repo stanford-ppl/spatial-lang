@@ -14,7 +14,7 @@ trait ControllerSanityCheck extends SpatialTraversal {
       val blocks = rhs.blocks
       blocks.foreach{block =>
         val primitives = getPrimitiveNodes(block)
-        val controllers = getControlNodes(block)
+        val controllers = getControlNodes(block).filterNot(isPrimitiveControl)
 
         if (primitives.nonEmpty && controllers.nonEmpty && Config.verbosity <= 2) {
           warn(lhs.ctx, c"[Compiler] The contents of block ${str(lhs)} appear to have been incorrectly CSEd (see log file #${State.paddedPass}.")

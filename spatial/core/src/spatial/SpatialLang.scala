@@ -4,6 +4,7 @@ import argon._
 import forge._
 import spatial.analysis._
 import spatial.lang._
+import spatial.targets.FPGATarget
 
 trait SpatialCommonAliases extends SpatialLangAliases {
   type Counter = spatial.lang.Counter
@@ -27,6 +28,13 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   type Range64 = spatial.lang.Range64
   type Wildcard = spatial.lang.Wildcard
 
+  type BufferedOut[T] = spatial.lang.BufferedOut[T]
+  val BufferedOut = spatial.lang.BufferedOut
+  type StreamIn[T] = spatial.lang.StreamIn[T]
+  val StreamIn = spatial.lang.StreamIn
+  type StreamOut[T] = spatial.lang.StreamOut[T]
+  val StreamOut = spatial.lang.StreamOut
+
   type Vector[T] = spatial.lang.Vector[T]
   val Vector = spatial.lang.Vector
   type VectorN[T] = spatial.lang.VectorN[T]
@@ -36,9 +44,7 @@ trait SpatialCommonAliases extends SpatialLangAliases {
 }
 
 protected trait SpatialExp extends ArgonExp with SpatialCommonAliases
-    with BitOpsExp
     with MatrixExp
-    with TemplatesExp
     with FileIOExp
     with ControllerExp
     with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with FILOExp with HostTransferExp with MathExp
@@ -47,6 +53,9 @@ protected trait SpatialExp extends ArgonExp with SpatialCommonAliases
     with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
     with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
     with StreamTransfersExp
+{
+  def target: FPGATarget // Needs to be filled in by application, defaults to Default
+}
 
 trait SpatialImplicits {
   // HACK: Insert MUnit where required to make programs not have to include () at the end of ... => MUnit functions
@@ -82,10 +91,11 @@ trait SpatialLangInternal extends ArgonLangInternal with SpatialExp {
   val DebuggingOps = spatial.lang.DebuggingOps
 
   val MFile = spatial.lang.File
+  val SwitchOps = spatial.lang.SwitchOps
 }
 
 trait SpatialLangExternal extends ArgonLangExternal with SpatialApi {
-
+  type File = spatial.lang.File
 }
 
 object compiler extends SpatialLangInternal

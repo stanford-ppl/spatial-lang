@@ -394,7 +394,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   val statesInW = wHashmap.map { t =>
     val c = Module(new NBufCtr())
     c.io.input.start := (t._1).U
-    c.io.input.max := numBufs.U
+    c.io.input.stop := numBufs.U
     c.io.input.enable := swap
     c.io.input.countUp := false.B
     (t._1 -> c)
@@ -402,7 +402,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   val statesInR = (0 until numBufs).map{  i => 
     val c = Module(new NBufCtr())
     c.io.input.start := i.U 
-    c.io.input.max := numBufs.U
+    c.io.input.stop := numBufs.U
     c.io.input.enable := swap
     c.io.input.countUp := true.B
     c
@@ -411,7 +411,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   val statesOut = (0 until numBufs).map{  i => 
     val c = Module(new NBufCtr())
     c.io.input.start := i.U 
-    c.io.input.max := numBufs.U
+    c.io.input.stop := numBufs.U
     c.io.input.enable := swap
     c.io.input.countUp := false.B
     c

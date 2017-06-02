@@ -129,15 +129,15 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     // Create HW accelerator
     Accel {
       val lut = LUT[Int](4, 4)(
-         0,  1,  2,  3,
+         0,  (1*1E0).to[Int],  2,  3,
          4,  -5,  6,  7,
          8,  9, -10, 11,
         12, 13, 14, -15
       )
       val red = Reduce(Reg[Int](0))(3 by 1 par 3) {q =>
         lut(q,q)
-      }{_+_}
-      y := lut(1, 3) + lut(3, 3) + red + lut(i,0)
+      }{_^_}
+      y := lut(1, 3) ^ lut(3, 3) ^ red ^ lut(i,0)
     }
 
 
@@ -145,7 +145,7 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = -15 + 7 - 0 - 5 - 10 + 4*ii
+    val gold = -15 ^ 7 ^ -0 ^ -5 ^ -10 ^ 4*ii
     println("expected: " + gold)
     println("result: " + result)
 
@@ -357,14 +357,15 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
-object FileSplitter extends SpatialApp { // Regression (Unit) // Args: 6
+object ArbitraryLambda extends SpatialApp { // Regression (Unit) // Args: 8
   import IR._
 
   @virtualize
   def main() {
     // Declare SW-HW interface vals
     val x = ArgIn[Int]
-    val y = ArgOut[Int]
+    val r_xor = ArgOut[Int]
+    val f_xor = ArgOut[Int]
     val N = args(0).to[Int]
 
     // Connect SW vals to HW vals
@@ -372,24 +373,41 @@ object FileSplitter extends SpatialApp { // Regression (Unit) // Args: 6
 
     // Create HW accelerator
     Accel {
-      Pipe(5 by 1) { i => 
-        Pipe(10 by 1) { j => 
-          Pipe {y := 3*(x + 4 + j + i)+x/4}
-        }
-      }
+      val reduce_xor = Reg[Int](99)
+      Reduce(reduce_xor)(x by 1){i =>
+        val temp = mux(i % 3 == 1, i, i+1)
+        temp
+      } { _^_ }
+      r_xor := reduce_xor
+
+      val fold_xor = Reg[Int](99)
+      Fold(fold_xor)(x by 1){i =>
+        val temp = Reg[Int](0)
+        temp := mux(i % 3 == 1, i, i+1)
+        temp
+      } { _^_ }
+      f_xor := fold_xor
     }
 
 
     // Extract results from accelerator
-    val result = getArg(y)
+    val reduce_xor_result = getArg(r_xor)
+    val fold_xor_result = getArg(f_xor)
 
     // Create validation checks and debug code
-    val gold = 3*(N + 4 + 4 + 9) + N / 4
-    println("expected: " + gold)
-    println("result: " + result)
+    val gold_reduce_xor = Array.tabulate(N){i => if (i % 3 == 1) i else i+1}.reduce{_^_}
+    val gold_fold_xor = Array.tabulate(N){i => if (i % 3 == 1) i else i+1}.reduce{_^_} ^ 99
+    println("Reduce XOR: ")
+    println("  expected: " + gold_reduce_xor)
+    println("  result: " + reduce_xor_result)
+    println("Reduce XOR: ")
+    println("  expected: " + gold_fold_xor)
+    println("  result: " + fold_xor_result)
 
-    val cksum = gold == result
-    println("PASS: " + cksum + " (FileSplitter)")
+    val cksum_reduce_xor = gold_reduce_xor == reduce_xor_result
+    val cksum_fold_xor = gold_fold_xor == fold_xor_result
+    val cksum = cksum_reduce_xor && cksum_fold_xor
+    println("PASS: " + cksum + " (ArbitraryLambda)")
   }
 }
 
@@ -1550,8 +1568,9 @@ object FifoPushPop extends SpatialApp { // Regression (Unit) // Args: 384
     Accel {
       val f1 = FIFO[Int](tileSize)
       val accum = Reg[Int](0)
-      Reduce(accum)(size by tileSize){ iter =>
-        Foreach(tileSize by 1){i => f1.enq(iter + i) }
+      Sequential.Reduce(accum)(size by tileSize){ iter =>
+        Foreach(tileSize/2 by 1 par 2){i => f1.enq(iter + i) }
+        Foreach(tileSize-1 until (tileSize/2)-1 by -1 par 2){i => f1.enq(iter + i) }
         Reduce(0)(tileSize by 1){ i =>
           f1.deq()
         }{_+_}
@@ -1761,14 +1780,14 @@ object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
 
   @virtualize
   def main() {
-    val vectorA = Array.fill(128) {
-      random[Int](2)
+    val vectorA = Array.fill[Int](128) {
+      4 // Please don't change this to random
     }
-    val vectorB = Array.fill(128) {
-      random[Int](8)
+    val vectorB = Array.fill[Int](128) {
+      8 // Please don't change this to random
     }
-    val vectorC = Array.fill(128) {
-      random[Int](14)
+    val vectorC = Array.fill[Int](128) {
+      14 // Please don't change this to random
     }
     val vecA = DRAM[Int](128)
     val vecB = DRAM[Int](128)
@@ -1785,11 +1804,11 @@ object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
 
       if (x <= 4.to[Int]) {
         mem load vecA
-      } else { if (x <= 8.to[Int]) {
+      } else if (x <= 8.to[Int]) {
         mem load vecB
       } else {
         mem load vecC
-      }}
+      }
     
       result store mem
     }      
@@ -1797,7 +1816,7 @@ object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 7
     val gold = Array.fill(128){ if (args(0).to[Int] <= 4) 4.to[Int] else if (args(0).to[Int] <= 8) 8.to[Int] else 14.to[Int] }
     println("Expected array of : " + gold(0) + ", got array of : " + res(0))
     val cksum = res.zip(gold){_==_}.reduce{_&&_}
-    println("PASS: " + cksum + " (CtrlEnable)")
+    println("PASS: " + cksum + " (CtrlEnable) * Try making input arg > 8 and see if it still passes")
   }
 }
 
@@ -1864,7 +1883,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
         }
       } { state => mux(state == 0, fill, mux(stack.full(), 2, mux(stack.empty(), 3, state))) }
       stack_sum := stack_accum
-
+      
       // Using almostDone/almostEmpty, skips last element
       val stack_almost = FILO[Int](size)
       val stack_accum_almost = Reg[Int](0)
@@ -1878,7 +1897,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
         }
       } { state => mux(state == 0, fill, mux(stack_almost.almostFull(), 2, mux(stack_almost.almostEmpty(), 3, state))) }
       stack_sum_almost := stack_accum_almost
-
+      
     }
 
     val fifo_sum_res = getArg(fifo_sum)
@@ -1941,7 +1960,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
 
     // Create HW accelerator
     Accel {
-      y := (x * 9)/4 + 7
+      y := ((x * 9)-10)/ -1 + 7
     }
 
 
@@ -1949,7 +1968,7 @@ object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = (N * 9)/4 + 7
+    val gold = ((N * 9)-10)/ -1 + 7
     println("expected: " + gold)
     println("result: " + result)
 
@@ -1978,7 +1997,7 @@ object MaskedWrite extends SpatialApp {  // Regression (Unit) // Args: 5
         if (i < s.value) { yy(i) = 1.to[T]}
       }
       Foreach(2*N by 1) { i =>
-        if (i >= s.value) { if (i < N) {yy(i) = 2.to[T] }}
+        if ((i >= s.value) && (i < N)) {yy(i) = 2.to[T] }
       }
       y(0 :: N par 1) store yy
     }
@@ -2276,5 +2295,32 @@ object NestedIfs extends SpatialApp {
   def main() {
     val result = nestedIfTest(43)
     println("result:   " + result)
+  }
+}
+
+object Tup2Test extends SpatialApp {
+  import IR._
+
+  @virtualize
+  def foo() : Int = {
+    type Tup = Tup2[Int, Int]
+    val out = ArgOut[Int]
+    val dr = DRAM[Tup](10)
+    Accel {
+      val s = SRAM[Tup](10)
+      s(5) = pack(42, 43)
+      dr(0::10) store s
+
+      val s1 = SRAM[Tup](10)
+      s1 load dr(0::10)
+      out := s1(5)._1 * s1(5)._2
+    }
+    getArg(out)
+  }
+
+  @virtualize
+  def main() {
+    val result = foo()
+    println(result)
   }
 }

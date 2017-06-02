@@ -19,13 +19,14 @@ trait NodeClasses { this: SpatialExp =>
   /** Control Nodes **/
   type Ctrl = (Exp[_], Boolean)
   implicit class CtrlOps(x: Ctrl) {
-    def node: Exp[_] = x._1
-    def isInner: Boolean = x._2
+    def node: Exp[_] = if (x == null) null else x._1
+    def isInner: Boolean = if (x == null) false else x._2
   }
 
   def isControlNode(e: Exp[_]): Boolean = isPipeline(e) || isParallel(e) || isDRAMTransfer(e) || isSwitch(e) || isSwitchCase(e)
   def isOuterControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == OuterControl
   def isInnerControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == InnerControl
+  def isPrimitiveControl(e: Exp[_]): Boolean = (isSwitch(e) || isSwitchCase(e)) && levelOf(e) == InnerControl
 
   def isOuterPipeline(e: Exp[_]): Boolean = isOuterControl(e) && isPipeline(e)
   def isInnerPipeline(e: Exp[_]): Boolean = isInnerControl(e) && isPipeline(e)
@@ -121,9 +122,10 @@ trait NodeClasses { this: SpatialExp =>
 
   /** Allocations **/
   def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
+    case Def(BufferedOutNew(dims,_)) => dims
     case Def(LUTNew(dims,_)) => dims.map{d => int32(d)(x.ctx) }
     case Def(SRAMNew(dims)) => dims
-    case Def(DRAMNew(dims)) => dims
+    case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
     case Def(RegFileNew(dims)) => dims
     case _ => throw new UndefinedDimensionsError(x, None)(x.ctx)
@@ -219,6 +221,11 @@ trait NodeClasses { this: SpatialExp =>
     case _ => false
   }
 
+  def isLUT(e: Exp[_]): Boolean = e.tp match {
+    case _:LUTType[_] => true
+    case _ => false
+  }
+
   def isStreamIn(e: Exp[_]): Boolean = e.tp match {
     case _:StreamInType[_] => true
     case _ => false
@@ -226,6 +233,10 @@ trait NodeClasses { this: SpatialExp =>
 
   def isStreamOut(e: Exp[_]): Boolean = e.tp match {
     case _:StreamOutType[_] => true
+    case _:BufferedOutType[_] => true
+    case _ => false
+  }
+  def isBufferedOut(e: Exp[_]): Boolean = e.tp match {
     case _:BufferedOutType[_] => true
     case _ => false
   }

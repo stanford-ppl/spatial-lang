@@ -135,70 +135,62 @@ object BitOps {
   }
 }
 
-// TODO: Proper way to define conversion ops on vars?
-class VarDataConversionOps[A:Type:Bits](x: Var[A]) {
-  @api def reverse: A = {
-    readVar(x).reverse
-  }
-}
 
 
-class DataConversionOps[A:Type:Bits](x: A) {
+trait BitOpsApi {
   import BitOps._
 
-  @api def apply(i: Int): Bit = dataAsBitVector(x).apply(i)
-  @api def apply(range: Range): BitVector = dataAsBitVector(x).apply(range)
-
-  @api def as[B:Type:Bits]: B = {
-    checkLengthMismatch[A,B]()
-    val len = bits[B].length
-    implicit val vT = VectorN.typeFromLen[Bit](len)
-    val vector = dataAsBitVector(x)
-    bitVectorAsData[B](vector, enWarn = true)
+  // TODO: Proper way to define conversion ops on vars?
+  implicit class VarDataConversionOps[A:Type:Bits](x: Var[A]) {
+    @api def reverse: A = readVar(x).reverse
   }
 
-  @api def reverse: A = {
-    val len = bits[A].length
-    implicit val vT = VectorN.typeFromLen[Bit](len)
-    val vector = dataAsBitVector(x)
-    val reversed_elements = (0 until len).map{i => Vector.select(vector.s, i) }
-    val vector_reversed = wrap(Vector.fromseq[Bit,VectorN](reversed_elements))
-    bitVectorAsData[A](vector_reversed, enWarn = true)
+  implicit class DataConversionOps[A:Type:Bits](x: A) {
+    @api def apply(i: Int): Bit = dataAsBitVector(x).apply(i)
+    @api def apply(range: Range): BitVector = dataAsBitVector(x).apply(range)
+
+    @api def as[B:Type:Bits]: B = {
+      checkLengthMismatch[A,B]()
+      val len = bits[B].length
+      implicit val vT = VectorN.typeFromLen[Bit](len)
+      val vector = dataAsBitVector(x)
+      bitVectorAsData[B](vector, enWarn = true)
+    }
+
+    @api def reverse: A = {
+      val len = bits[A].length
+      implicit val vT = VectorN.typeFromLen[Bit](len)
+      val vector = dataAsBitVector(x)
+      val reversed_elements = (0 until len).map{i => Vector.select(vector.s, i) }
+      val vector_reversed = wrap(Vector.fromseq[Bit,VectorN](reversed_elements))
+      bitVectorAsData[A](vector_reversed, enWarn = true)
+    }
+
+
+    // takeN(offset) - creates a VectorN slice starting at given little-endian offset
+    @generate
+    @api def takeJJ$JJ$1to128(offset: Int): VectorJJ[Bit] = dataAsBitVector(x).takeJJ(offset)
+
+    @generate
+    @api def takeJJMSB$JJ$1to128: VectorJJ[Bit] = {
+      val offset = bits[A].length - JJ
+      dataAsBitVector(x).takeJJ(offset)
+    }
+
+
+    // asNb - converts this to VectorN bits (includes bit length mismatch checks)
+    @generate
+    @api def asJJb$JJ$1to128: VectorJJ[Bit] = this.as[VectorJJ[Bit]]
   }
 
 
-  // takeN(offset) - creates a VectorN slice starting at given little-endian offset
+  implicit class BitVectorOps(vector: BitVector) {
+    @api def as[B:Type:Bits] = {
+      implicit val vT = VectorN.typeFromLen[Bit](vector.width)
+      bitVectorAsData[B](vector, enWarn = true)
+    }
 
-  @generate
-  @api def takeJJ$JJ$1to128(offset: Int): VectorJJ[Bit] = dataAsBitVector(x).takeJJ(offset)
-
-  @generate
-  @api def takeJJMSB$JJ$1to128: VectorJJ[Bit] = {
-    val offset = bits[A].length - JJ
-    dataAsBitVector(x).takeJJ(offset)
+    @generate
+    @api def asJJb$JJ$1to128: VectorJJ[Bit] = this.as[VectorJJ[Bit]]
   }
-
-
-  // asNb - converts this to VectorN bits (includes bit length mismatch checks)
-  @generate
-  @api def asJJb$JJ$1to128: VectorJJ[Bit] = this.as[VectorJJ[Bit]]
-}
-
-
-class BitVectorOps(vector: BitVector) {
-  import BitOps._
-
-  @api def as[B:Type:Bits] = {
-    implicit val vT = VectorN.typeFromLen[Bit](vector.width)
-    bitVectorAsData[B](vector, enWarn = true)
-  }
-
-  @generate
-  @api def asJJb$JJ$1to128: VectorJJ[Bit] = this.as[VectorJJ[Bit]]
-}
-
-trait BitOpsExp {
-  implicit def varToVarConversionOps[A:Type:Bits](x: Var[A]): VarDataConversionOps[A] = new VarDataConversionOps(x)
-  implicit def dataToDataConversionOps[A:Type:Bits](x: A): DataConversionOps[A] = new DataConversionOps[A](x)
-  implicit def bitVectorToBitVectorOps(x: BitVector): BitVectorOps = new BitVectorOps(x)
 }

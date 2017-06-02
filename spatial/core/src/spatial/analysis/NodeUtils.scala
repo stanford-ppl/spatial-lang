@@ -190,7 +190,18 @@ trait NodeUtils { this: SpatialExp =>
     val metapipeLCAs = lcas.filter(_._2 != 0).groupBy(_._1).mapValues(_.map(_._3))
 
     // Hierarchical metapipelining is currently disallowed
-    if (metapipeLCAs.keys.size > 1) throw new AmbiguousMetaPipeException(mem, metapipeLCAs)
+    if (metapipeLCAs.keys.size > 1) {
+      error(c"Ambiguous metapipes for readers/writers of $mem:")
+      metapipeLCAs.foreach{case (pipe,accs) =>
+        error(c"  metapipe: $pipe ")
+        error(c"  accesses: " + accs.map(x => c"$x").mkString(","))
+      }
+      error(c"  readers:")
+      readers.foreach{rd => error(c"    $rd") }
+      error(c"  writers:")
+      writers.foreach{wr => error(c"    $wr") }
+      logError()
+    }
 
     val metapipe = metapipeLCAs.keys.headOption
 

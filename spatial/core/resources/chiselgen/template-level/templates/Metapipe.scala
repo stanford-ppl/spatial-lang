@@ -68,10 +68,10 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
   val ctr = Module(new SingleCounter(1))
   ctr.io.input.enable := doneClear
   ctr.io.input.saturate := true.B
-  ctr.io.input.max := max
-  ctr.io.input.stride := 1.U
-  ctr.io.input.start := 0.U
-  ctr.io.input.gap := 0.U
+  ctr.io.input.stop := max.asSInt
+  ctr.io.input.stride := 1.S
+  ctr.io.input.start := 0.S
+  ctr.io.input.gap := 0.S
   ctr.io.input.reset := io.input.rst | (state === doneState.U)
   io.output.rst_en := (state === resetState.U)
 
@@ -108,13 +108,13 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
 
           when (doneTree === 1.U) {
             if (i+1 == steadyState) { // If moving to steady state
-              stateFF.io.input(0).data := Mux(cycsSinceDone.io.output.data === 0.U & ctr.io.output.count(0) + 1.U < max , 
+              stateFF.io.input(0).data := Mux(cycsSinceDone.io.output.data === 0.U & ctr.io.output.count(0) + 1.S < max.asSInt , 
                           steadyState.U, 
                           Mux(io.input.forever, steadyState.U, cycsSinceDone.io.output.data + 2.U + stateFF.io.output.data) 
                         ) // If already in drain step, bypass steady state
             } else {
               cycsSinceDone.io.input(0).data := cycsSinceDone.io.output.data + 1.U
-              cycsSinceDone.io.input(0).enable := ctr.io.output.count(0) + 1.U === max 
+              cycsSinceDone.io.input(0).enable := ctr.io.output.count(0) + 1.S === max.asSInt
               stateFF.io.input(0).data := (i+1).U
             }
           }.otherwise {
@@ -129,7 +129,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
       val doneTree = doneMask.zipWithIndex.map{case (a,i) => a | ~io.input.stageMask(i)}.reduce{_ & _}
       doneClear := doneTree
       when (doneTree === 1.U) {
-        when(ctr.io.output.count(0) === (max - 1.U)) {
+        when(ctr.io.output.count(0) === (max.asSInt - 1.S)) {
           stateFF.io.input(0).data := Mux(io.input.forever, steadyState.U, drainState.U)
         }.otherwise {
           stateFF.io.input(0).data := state

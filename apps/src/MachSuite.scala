@@ -2,22 +2,16 @@ import spatial._
 import org.virtualized._
 
 object AES extends SpatialApp { // Regression (Dense) // Args: none
-	/*
-		Properties:
-			256-bit (32-byte) key ???
-			128-bit (16-byte) plaintext
-		
-	*/
   import IR._
 
+  /*
+  TODO: Optimize/parallelize many of the memory accesses here and pipeline as much as possible
+  
+  MachSuite Concerns: 
+  	- Mix rows math seemed wrong in their implementation
+  	- Not exactly sure what was going on with their expand_key step
+	*/
   type UInt8 = FixPt[FALSE,_8,_0]
-  @virtualize
-  def naive_aes(plaintext_sram: SRAM[UInt8], sbox_sram: SRAM[UInt8], 
-  							key_sram: SRAM[UInt8], mix_lut: LUT[UInt8]): Unit = {
-
-  }
-
-
   @virtualize
   def main() = {
   	// Setup off-chip data
@@ -70,7 +64,8 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
   	setMem(sbox_dram, sbox)
 
   	// Debugging support
-  	val niter = 15 //ArgIn[Int]
+    val niter = 15
+  	// val niter = ArgIn[Int]
   	// setArg(niter, args(0).to[Int])
   	// val key_debug = DRAM[UInt8](32)
 
@@ -80,12 +75,12 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
   		val plaintext_sram = SRAM[UInt8](4,4)
   		val sbox_sram = SRAM[UInt8](256)
   		val key_sram = SRAM[UInt8](32)
-  		val mix_lut = LUT[Int](4,4)(
-  				2, 3, 1, 1,
-  				1, 2, 3, 1,
-  				1, 1, 2, 3,
-  				3, 1, 1, 2
-  			)
+  		// val mix_lut = LUT[Int](4,4)(
+  		// 		2, 3, 1, 1,
+  		// 		1, 2, 3, 1,
+  		// 		1, 1, 2, 3,
+  		// 		3, 1, 1, 2
+  		// 	)
   		val rcon = Reg[UInt8](1)
 
   		// Specify methods
@@ -145,7 +140,8 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 	  		Sequential.Foreach(4 by 1){j => 
 		  		val col = RegFile[UInt8](4)
 		  		Sequential.Foreach(4 by 1) { i => col(i) = plaintext_sram(i,j) }
-		  		val e = Reduce(Reg[UInt8](0))(4 by 1) { i => col(i) }{_^_}
+		  		val e = Reduce(Reg[UInt8](0))(4 by 1 par 4) { i => col(i) }{_^_}
+		  		// val e = col(0) ^ col(1) ^ col(2) ^ col(3)
 		  		Pipe{plaintext_sram(0,j) = col(0) ^ e ^ rj_xtime(col(0) ^ col(1))}
 		  		Pipe{plaintext_sram(1,j) = col(1) ^ e ^ rj_xtime(col(1) ^ col(2))}
 		  		Pipe{plaintext_sram(2,j) = col(2) ^ e ^ rj_xtime(col(2) ^ col(3))}
@@ -169,29 +165,29 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
 	  	// gh issue #83
 	  	Foreach(4 by 1, 4 by 1){(i,j) => 
-	  		plaintext_sram(i,j) = plaintext_flat(i+j*4)
+	  		plaintext_sram(i,j) = plaintext_flat(j*4+i) // MachSuite flattens columnwise... Why????
 	  	} 
 
 	  	// Do AES
 	  	Sequential.Foreach(niter by 1) { round => 
 	  		// SubBytes
 	  		if (round > 0) {
-	  			substitute_bytes()
+	  			Pipe{substitute_bytes()}
 	  		}
 
 	  		// ShiftRows
 	  		if (round > 0) {
-	  			shift_rows()
+	  			Pipe{shift_rows()}
 	  		}
 
 	  		// MixColumns
 	  		if (round > 0 && round < 14 ) {
-	  			mix_columns()
+	  			Pipe{mix_columns()}
 	  		}
 
 	  		// Expand key
 	  		if (round > 0 && ((round % 2) == 0)) {
-	  			expand_key()
+	  			Pipe{expand_key()}
 	  		}
 
 	  		// AddRoundKey
@@ -201,7 +197,7 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
 	  	// Reshape plaintext_sram (gh issue # 83)
 	  	Foreach(4 by 1, 4 by 1) {(i,j) => 
-	  		plaintext_flat(i+j*4) = plaintext_sram(i,j)
+	  		plaintext_flat(j*4+i) = plaintext_sram(i,j)
 	  	}
 
 	  	ciphertext_dram store plaintext_flat
@@ -222,7 +218,332 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
   	// printArray(key_dbg, "Key: ")
 
   	val cksum = ciphertext_gold.zip(ciphertext){_ == _}.reduce{_&&_}
-  	println("PASS: " + cksum + " (AES)")
+  	println("PASS: " + cksum + " (AES) * For retiming, need to fix ^ reduction if not parallelized")
 
   }
 }
+
+
+object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
+  import IR._
+
+  /*
+
+                    ←       N_OBS            →
+
+          State 63 ----- State 63 ----- State 63                
+        /  .        \ /            \ /                     P(obs | state) = emission_probs   
+       /   .         X              X                                         (N_STATES x N_TOKENS)
+      /    .        / \            / \                        
+     O----State k  ----- State k  ----- State k  ...            
+      \    .        \ /            \ /                          
+       \   .         X              X                          shortest path to (state, obs) = llike
+        \  .        / \            / \                                                          (N_OBS x N_STATES)
+          State 0  ----- State 0  ----- State 0                  
+      ↑               ↑                                                           
+    init_states     transition_probs                        
+     (N_STATES)       (N_STATES x N_STATES)
+
+						obs_vec
+						 (N_OBS, max value = N_TOKENS)
+
+
+	TODO: Eliminate backprop step and do everything feed-forward
+	MachSuite Concerns:
+		- Constructing path step by step seems to give the wrong result because they do extra math in the backprop step. 
+		       Why do you need to do math when going backwards? I thought you just read off the result
+
+  */
+
+  type T = FixPt[TRUE,_16,_16]
+
+  @virtualize
+  def main() = {
+  	// Setup dimensions of problem
+  	val N_STATES = 64
+  	val N_TOKENS = 64
+  	val N_OBS = 140
+
+  	// debugging
+  	val steps_to_take = N_OBS //ArgIn[Int] //
+  	// setArg(steps_to_take, args(0).to[Int])
+
+  	// Setup data
+  	val init_states = Array[T](4.6977033615112305.to[T],3.6915655136108398.to[T],4.8652229309082031.to[T],4.7658410072326660.to[T],
+  		4.0006790161132812.to[T],3.9517300128936768.to[T],3.4640796184539795.to[T],3.4600069522857666.to[T],4.2856273651123047.to[T],
+  		3.6522088050842285.to[T],4.8189344406127930.to[T],3.8075556755065918.to[T],3.8743767738342285.to[T],5.4135279655456543.to[T],
+  		4.9173111915588379.to[T],3.6458325386047363.to[T],5.8528852462768555.to[T],11.3210048675537109.to[T],4.9971127510070801.to[T],
+  		5.1006979942321777.to[T],3.5980830192565918.to[T],5.3161897659301758.to[T],3.4544019699096680.to[T],3.7314746379852295.to[T],
+  		4.9998908042907715.to[T],3.4898567199707031.to[T],4.2091164588928223.to[T],3.5122559070587158.to[T],3.9326364994049072.to[T],
+  		7.2767667770385742.to[T],3.6539671421051025.to[T],4.0916681289672852.to[T],3.5044839382171631.to[T],4.5234117507934570.to[T],
+  		3.7673256397247314.to[T],4.0265331268310547.to[T],3.7147023677825928.to[T],6.7589721679687500.to[T],3.5749390125274658.to[T],
+  		3.7701597213745117.to[T],3.5728175640106201.to[T],5.0258340835571289.to[T],4.9390106201171875.to[T],5.7208223342895508.to[T],
+  		6.3652114868164062.to[T],3.5838112831115723.to[T],5.0102572441101074.to[T],4.0017414093017578.to[T],4.2373661994934082.to[T],
+  		3.8841004371643066.to[T],5.3679313659667969.to[T],3.9980680942535400.to[T],3.5181968212127686.to[T],4.7306714057922363.to[T],
+  		5.5075111389160156.to[T],5.1880970001220703.to[T],4.8259010314941406.to[T],4.2589011192321777.to[T],5.6381106376647949.to[T],
+  		3.4522385597229004.to[T],3.5920252799987793.to[T],4.2071061134338379.to[T],5.0856294631958008.to[T],6.0637059211730957.to[T])
+
+  	val obs_vec = Array[Int](0,27,49,52,20,31,63,63,29,0,47,4,38,38,38,38,4,43,7,28,31,
+  											 7,7,7,57,2,2,43,52,52,43,3,43,13,54,44,51,32,9,9,15,45,21,
+  											 33,61,45,62,0,55,15,55,30,13,13,53,13,13,50,57,57,34,26,21,
+  											 43,7,12,41,41,41,17,17,30,41,8,58,58,58,31,52,54,54,54,54,
+  											 54,54,15,54,54,54,54,52,56,52,21,21,21,28,18,18,15,40,1,62,
+  											 40,6,46,24,47,2,2,53,41,0,55,38,5,57,57,57,57,14,57,34,37,
+  											 57,30,30,5,1,5,62,25,59,5,2,43,30,26,38,38)
+
+  	val raw_transitions = loadCSV1D[T]("/remote/regression/data/machsuite/viterbi_transition.csv", "\n")
+  	val raw_emissions = loadCSV1D[T]("/remote/regression/data/machsuite/viterbi_emission.csv", "\n")
+  	val transitions = raw_transitions.reshape(N_STATES, N_STATES)
+  	val emissions = raw_emissions.reshape(N_STATES, N_TOKENS)
+
+  	val correct_path = Array[Int](27,27,27,27,27,31,63,63,63,63,47,4,38,38,38,38,7,7,7,
+  																7,7,7,7,7,2,2,2,43,52,52,43,43,43,43,43,44,44,32,9,9,
+  																15,45,45,45,45,45,45,0,55,55,55,30,13,13,13,13,13,13,
+  																57,57,21,21,21,21,7,41,41,41,41,17,17,30,41,41,58,58,
+  																58,31,54,54,54,54,54,54,54,54,54,54,54,54,52,52,52,21,
+  																21,21,28,18,18,40,40,40,40,40,40,46,46,2,2,2,53,53,53,
+  																55,38,57,57,57,57,57,57,57,57,57,57,30,30,5,5,5,5,5,5,
+  																5,5,30,30,26,38,38)
+  	// Handle DRAMs
+  	val init_dram = DRAM[T](N_STATES)
+  	val obs_dram = DRAM[Int](N_OBS)
+  	val transitions_dram = DRAM[T](N_STATES,N_STATES)
+  	val emissions_dram = DRAM[T](N_STATES,N_TOKENS)
+  	// val llike_dram = DRAM[T](N_OBS,N_STATES)
+  	val path_dram = DRAM[Int](N_OBS)
+  	setMem(init_dram,init_states)
+  	setMem(obs_dram, obs_vec)
+  	setMem(transitions_dram,transitions)
+  	setMem(emissions_dram,emissions)
+
+
+  	Accel{
+  		// Load data structures
+  		val obs_sram = SRAM[Int](N_OBS)
+  		val init_sram = SRAM[T](N_STATES)
+  		val transitions_sram = SRAM[T](N_STATES,N_STATES)
+  		val emissions_sram = SRAM[T](N_STATES,N_TOKENS)
+  		val llike_sram = SRAM[T](N_OBS, N_STATES)
+  		val path_sram = SRAM[Int](N_OBS)
+
+  		Parallel{
+  			obs_sram load obs_dram
+  			init_sram load init_dram
+  			transitions_sram load transitions_dram
+  			emissions_sram load emissions_dram
+  		}
+
+  		// from --> to
+  		Sequential.Foreach(0 until steps_to_take) { step => 
+  			val obs = obs_sram(step)
+  			Sequential.Foreach(0 until N_STATES) { to => 
+	  			val emission = emissions_sram(to, obs)
+  				val best_hop = Reg[T](0x4000)
+  				best_hop.reset
+  				Reduce(best_hop)(0 until N_STATES) { from => 
+  					val base = llike_sram(step-1, from) + transitions_sram(from,to)
+  					base + emission
+  				} { (a,b) => mux(a < b, a, b)}
+  				llike_sram(step,to) = mux(step == 0, emission + init_sram(to), best_hop)
+  			}
+  		}
+
+  		// to <-- from
+  		Sequential.Foreach(steps_to_take-1 until -1 by -1) { step => 
+  			val from = path_sram(step+1)
+  			val min_pack = Reg[Tup2[Int, T]](pack(-1.to[Int], (0x4000).to[T]))
+  			min_pack.reset
+  			Reduce(min_pack)(0 until N_STATES){ to => 
+  				val jump_cost = mux(step == steps_to_take-1, 0.to[T], transitions_sram(to, from))
+  				val p = llike_sram(step,to) + jump_cost
+  				pack(to,p)
+  			}{(a,b) => mux(a._2 < b._2, a, b)}
+  			path_sram(step) = min_pack._1
+  		}
+
+  		// Store results
+  		// llike_dram store llike_sram
+  		path_dram store path_sram
+  	}
+
+  	// Get data structures
+  	// val llike = getMatrix(llike_dram)
+  	val path = getMem(path_dram)
+
+  	// Print data structures
+  	// printMatrix(llike, "log-likelihood")
+  	printArray(path, "path taken")
+  	printArray(correct_path, "correct path")
+
+  	// Check results
+  	val cksum = correct_path.zip(path){_ == _}.reduce{_&&_}
+  	println("PASS: " + cksum + " (Viterbi)")
+
+  }
+}
+
+
+object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
+  import IR._
+
+  /*
+           ←    COLS     →   
+         ___________________             ___________________                         
+        |                   |           |X  X  X  X  X  X 00|          
+    ↑   |    ←3→            |           |                 00|          
+        |    ___            |           |    VALID DATA   00|          
+        |  ↑|   |           |           |X  X  X  X  X  X 00|          
+        |  3|   | ----->    |    ->     |                 00|            
+ ROWS   |  ↓|___|           |           |X  X  X  X  X  X 00|          
+        |                   |           |                 00|          
+        |                   |           |X  X  X  X  X  X 00|          
+        |                   |           |                 00|          
+    ↓   |                   |           |0000000000000000000|          
+        |                   |           |0000000000000000000|          
+         ```````````````````             ```````````````````      
+                                               
+                                               
+  */
+
+
+  @virtualize
+  def main() = {
+
+  	// Problem properties
+  	val ROWS = 128
+  	val COLS = 64
+  	val filter_size = 9
+
+  	// Setup data
+  	val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/stencil2d_data.csv", "\n")
+  	val data = raw_data.reshape(ROWS, COLS)
+
+  	// Setup DRAMs
+  	val data_dram = DRAM[Int](ROWS,COLS)
+  	val result_dram = DRAM[Int](ROWS,COLS)
+
+  	setMem(data_dram, data)
+
+  	Accel {
+
+	  	val filter = LUT[Int](3,3)(379,909,468, // Reverse columns because we shift in from left side
+	  														 771,886,165,
+	  														 553,963,159)
+	  	val lb = LineBuffer[Int](3,COLS)
+	  	val sr = RegFile[Int](3,3)
+	  	val result_sram = SRAM[Int](ROWS,COLS)
+	  	Foreach(ROWS by 1){ i => 
+				val wr_row = (i-2)%ROWS
+	  		lb load data_dram(i, 0::COLS)
+				Foreach(COLS by 1) {j => 
+					Foreach(3 by 1 par 3) {k => sr(k,*) <<= lb(k,j)}
+					val temp = Reduce(Reg[Int](0))(3 by 1, 3 by 1){(r,c) => sr(r,c) * filter(r,c)}{_+_}
+					val wr_col = (j-2)%COLS
+					if (i >= 2 && j >= 2) {result_sram(wr_row,wr_col) = temp}
+					else {result_sram(wr_row,wr_col) = 0}
+				}	  		
+	  	}
+
+	  	result_dram store result_sram
+  	}
+
+  	// Get results
+  	val result_data = getMatrix(result_dram)
+  	val raw_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/stencil2d_gold.csv", "\n")
+  	val gold = raw_gold.reshape(ROWS,COLS)
+
+  	// Printers
+  	printMatrix(gold, "gold")
+  	printMatrix(result_data, "result")
+
+  	val cksum = (0::ROWS, 0::COLS){(i,j) => if (i < ROWS-2 && j < COLS-2) gold(i,j) == result_data(i,j) else true }.reduce{_&&_}
+  	println("PASS: " + cksum + " (Stencil2D) * Fix modulo addresses in scalagen?")
+
+  }
+}
+
+
+//object Stencil3D extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+//  import IR._
+//
+//  /*
+//                                                                      
+//   INDX(_row_size,_col_size,_i,_j,_k) ((_i)+_row_size*((_j)+_col_size*(_k)))
+//                                                         
+//  H   ↗        ___________________                  ___________________                                                                  
+//   E         /                   /|               /000000000000000000 /|                                                                
+//    I       / ←    COL      →   / |              / x  x  x  x  x  00 /0|                        
+//  ↙  G     /__________________ /  |             /__________________ / 0|                                                                 
+//      H   |                   |   |            |X  X  X  X  X  X 00| x0|      
+//       T  |     ___           |   |            |                 00|  0|      
+//          |    /__/|          |   |            |    VALID DATA   00|  0|      
+//    ↑     |  ↑|   ||          |   |            |X  X  X  X  X  X 00| x0|      
+//          |  3|   || ----->   |   |   --->     |                 00|  0|        
+//   ROWS   |  ↓|___|/          |   |            |X  X  X  X  X  X 00| x0|      
+//          |                   |   |            |                 00|  0|      
+//          |                   |   |            |X  X  X  X  X  X 00| x0|      
+//          |                   |  /             |                 00| 0/      
+//    ↓     |                   | /              |0000000000000000000|0/ 
+//          |                   |/               |0000000000000000000|/        
+//           ```````````````````                  ```````````````````      
+//                                                 
+//                                                 
+//  */
+//
+//
+//  @virtualize
+//  def main() = {
+//
+//  	// Problem properties
+//  	val ROWS = 16 // Leading dim
+//  	val COLS = 32
+//    val HEIGHT = 32
+//  	val filter_size = 3*3*3
+//
+//  	// Setup data
+//  	val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/stencil3d_data.csv", "\n")
+//  	val data = raw_data.reshape(HEIGHT, COLS, ROWS)
+//
+//  	// Setup DRAMs
+//  	val data_dram = DRAM[Int](HEIGHT, COLS, ROWS)
+//  	val result_dram = DRAM[Int](HEIGHT, COLS, ROWS)
+//
+//  	setMem(data_dram, data)
+//
+//  	Accel {
+//      val filter = LUT[Int](3,3,3)(  0,  0,  0,
+//                                     0, -6,  0,
+//                                     0,  0,  0,
+//
+//                                     0, -6,  0,
+//                                    -6,  1, -6,
+//                                     0, -6,  0,
+//
+//                                     0,  0,  0,
+//                                     0, -6,  0,
+//                                     0,  0,  0)
+//
+//      val lbs = Array.tabulate(COLS){i => LineBuffer[Int](3,ROWS)} 
+//              /* Each vertical slat of the cube gets loaded into a linebuffer and passed along 3 buffers.
+//                 We need to maintain one vertical slat linebuffer per COL of the cube*/
+//      val sr = RegFile[Int](3,3,3)
+//      val result_sram = SRAM[Int](HEIGHT,ROWS,COLS)
+//
+//
+//
+//  	}
+//
+//  	// // Get results
+//  	// val result_data = getMatrix(result_dram)
+//  	// val raw_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/stencil2d_gold.csv", "\n")
+//  	// val gold = raw_gold.reshape(ROWS,COLS)
+//
+//  	// // Printers
+//  	// printMatrix(gold, "gold")
+//  	// printMatrix(result_data, "gold")
+//
+//  	// val cksum = gold.zip(result_data){_==_}.reduce{_&&_}
+//  	// println("PASS: " + cksum + " (Stencil2D)")
+//
+//  }
+//}

@@ -21,7 +21,7 @@ trait DotGenDRAM extends DotGenSRAM {
       }
   }
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@DRAMNew(dims) => // emitVert(lhs)
+    case op@DRAMNew(dims,zero) => // emitVert(lhs)
     case GetDRAMAddress(dram) =>
     case FringeDenseLoad(dram,cmdStream,dataStream) => emitFringe(lhs, rhs)
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) => emitFringe(lhs, rhs)

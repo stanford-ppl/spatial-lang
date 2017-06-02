@@ -20,8 +20,9 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
   }
 
   // In Scala simulation, run a pipe until its read fifos and streamIns are empty
-  def getWrittenStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
-    localMems.filter{mem => writersOf(mem).exists(_.ctrlNode == ctrl) }.filter{mem => isStreamOut(mem) || isFIFO(mem) } ++ childrenOf(ctrl).flatMap(getWrittenStreamsAndFIFOs)
+  def dumpBufferedOuts(ctrl: Exp[_]): Unit = {
+    val outs = localMems.filter{mem => writersOf(mem).exists{wr => topControllerOf(wr.node,mem,0).exists(_.node == ctrl) } }
+    outs.filter(isBufferedOut).foreach{buff => emit(src"dump_$buff()") }
   }
 
   def getReadStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
@@ -29,8 +30,12 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
     read //diff getWrittenStreamsAndFIFOs(ctrl) // Don't also wait for things we're writing to
   }
 
+  def isStreaming(ctrl: Exp[_]): Boolean = {
+    isStreamPipe(ctrl) || getDef(ctrl).exists{case Hwblock(_,strm) => strm; case _ => false}
+  }
+
   def emitControlBlock(lhs: Sym[_], block: Block[_]): Unit = {
-    if (isOuterControl(lhs) && (isStreamPipe(lhs) || getDef(lhs).exists{case Hwblock(_,strm) => strm; case _ => false})) {
+    if (isOuterControl(lhs) && isStreaming(lhs)) {
       val children = childrenOf(lhs)
       blockContents(block).foreach { stm =>
         val isChild = stm.lhs.exists{s => children.contains(s) }
@@ -87,6 +92,8 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       streamOuts.foreach{case x@Def(StreamOutNew(bus)) =>
         if (!bus.isInstanceOf[DRAMBus[_]]) emit(src"print_$x()") // HACK: Print out streams after block finishes running
       }
+      dumpBufferedOuts(lhs)
+      bufferedOuts.foreach{buff => emit(src"close_$buff()") }
       globalMems = false
       emit(src"/** END HARDWARE BLOCK $lhs **/")
 
@@ -97,6 +104,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       open(src"val $lhs = if ($en) {")
         emitControlBlock(lhs, func)
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END UNIT PIPE $lhs **/")
 
     case ParallelPipe(ens, func) =>
@@ -105,6 +113,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       open(src"val $lhs = if ($en) {")
       emitBlock(func)
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END PARALLEL PIPE $lhs **/")
 
     case OpForeach(cchain, func, iters) =>
@@ -112,6 +121,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       open(src"val $lhs = {")
         emitNestedLoop(lhs, cchain, iters){ emitBlock(func) }
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END FOREACH $lhs **/")
 
     case OpReduce(cchain, accum, map, load, reduce, store, zero, fold, rV, iters) =>
@@ -126,6 +136,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
         emitBlock(store)
       }
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END REDUCE $lhs **/")
 
     case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) =>
@@ -143,6 +154,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
         }
       }
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END MEM REDUCE $lhs **/")
 
     case _ => super.emitNode(lhs, rhs)

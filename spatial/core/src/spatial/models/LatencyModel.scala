@@ -78,6 +78,7 @@ trait LatencyModel {
     case FixEql(_,_) => true
     case FixAnd(_,_) => true
     case FixOr(_,_)  => true
+    case FixXor(_,_) => true
     case FixLsh(_,_) => true
     case FixRsh(_,_) => true
     case FixURsh(_,_) => true
@@ -108,6 +109,12 @@ trait LatencyModel {
     case DataAsBits(_)      => 0
     case BitsAsData(_,_)    => 0
 
+    case _:VarRegNew[_]   => 0
+    case _:VarRegRead[_]  => 0
+    case _:VarRegWrite[_] => 0
+
+    case _:LUTLoad[_] => 0
+
     // Registers
     case _:RegRead[_]  => 0
     case _:RegWrite[_] => 1
@@ -132,6 +139,11 @@ trait LatencyModel {
     case _:ParFIFOEnq[_] => 1
     case _:FIFODeq[_]    => 1
     case _:ParFIFODeq[_] => 1
+    case _:FIFONumel[_]  => 0
+    case _:FIFOAlmostEmpty[_] => 0
+    case _:FIFOAlmostFull[_]  => 0
+    case _:FIFOEmpty[_]       => 0
+    case _:FIFOFull[_]        => 0
 
     // SRAMs
     // TODO: Should be a function of number of banks?
@@ -176,6 +188,7 @@ trait LatencyModel {
     case FixEql(_,_) => 1
     case FixAnd(_,_) => 1
     case FixOr(_,_)  => 1
+    case FixXor(_,_) => 1
     case FixLsh(_,_) => 1 // TODO
     case FixRsh(_,_) => 1 // TODO
     case FixURsh(_,_) => 1 // TODO

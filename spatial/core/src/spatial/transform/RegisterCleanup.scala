@@ -13,11 +13,11 @@ trait RegisterCleanup extends ForwardTransformer {
   private case object FakeSymbol { override def toString = "\"You done goofed\"" }
 
   // User specific substitutions
-  private var statelessSubstRules = Map[Access, Seq[(Exp[_], () => Exp[_])]]()
+  private var statelessSubstRules = Map[(Exp[_],Exp[_]), Seq[(Exp[_], () => Exp[_])]]()
 
-  val completedMirrors = mutable.HashMap[Access, Exp[_]]()
+  val completedMirrors = mutable.HashMap[(Exp[_],Exp[_]), Exp[_]]()
 
-  def delayedMirror[T:Type](lhs: Sym[T], rhs:Op[T], ctrl: Ctrl)(implicit ctx: SrcCtx) = () => {
+  def delayedMirror[T:Type](lhs: Sym[T], rhs:Op[T], ctrl: Exp[_])(implicit ctx: SrcCtx) = () => {
     val key = (lhs, ctrl)
 
     // scala bug? getOrElseUpdate always creates the value???
@@ -37,8 +37,8 @@ trait RegisterCleanup extends ForwardTransformer {
 
   }
 
-  var ctrl: Ctrl = _
-  def withCtrl[A](c: Ctrl)(blk: => A): A = {
+  var ctrl: Exp[_] = _
+  def withCtrl[A](c: Exp[_])(blk: => A): A = {
     var prev = ctrl
     ctrl = c
     val result = blk
@@ -63,14 +63,14 @@ trait RegisterCleanup extends ForwardTransformer {
         val users = usersOf(lhs).groupBy(_.ctrl).mapValues(_.map(_.node))
 
         val reads = users.map{case (parent, uses) =>
-          val read = delayedMirror(lhs, rhs, parent)
+          val read = delayedMirror(lhs, rhs, parent.node)
 
           dbg(c"ctrl: $parent")
 
           uses.foreach { use =>
-            val subs = (lhs -> read) +: statelessSubstRules.getOrElse((use,parent), Nil)
+            val subs = (lhs -> read) +: statelessSubstRules.getOrElse((use,parent.node), Nil)
             dbg(s"  $use: $lhs -> $read")
-            statelessSubstRules += (use,parent) -> subs
+            statelessSubstRules += (use,parent.node) -> subs
           }
 
           read
@@ -98,7 +98,7 @@ trait RegisterCleanup extends ForwardTransformer {
       }
       else mirrorWithDuplication(lhs, rhs)
 
-    case node if isControlNode(lhs) => withCtrl((lhs,false)) { mirrorWithDuplication(lhs, rhs) }
+    case node if isControlNode(lhs) => withCtrl(lhs){ mirrorWithDuplication(lhs, rhs) }
     case _ => mirrorWithDuplication(lhs, rhs)
   }
 
@@ -120,8 +120,8 @@ trait RegisterCleanup extends ForwardTransformer {
 
   override protected def inlineBlock[T:Type](b: Block[T]): Exp[T] = inlineBlock(b, {stms =>
     visitStms(stms)
-    if (ctrl != null && statelessSubstRules.contains((ctrl.node,ctrl))) {
-      val rules = statelessSubstRules((ctrl.node, ctrl)).map { case (s, s2) => s -> s2() }
+    if (ctrl != null && statelessSubstRules.contains((ctrl,ctrl))) {
+      val rules = statelessSubstRules((ctrl, ctrl)).map { case (s, s2) => s -> s2() }
       withSubstScope(rules: _*) { f(b.result) }
     }
     else f(b.result)
@@ -130,8 +130,8 @@ trait RegisterCleanup extends ForwardTransformer {
   override protected def transformBlock[T:Type](b: Block[T]): Block[T] = transformBlock(b, {stms =>
     stms.foreach(stm => dbg(c"$stm"))
     visitStms(stms)
-    if (ctrl != null && statelessSubstRules.contains((ctrl.node,ctrl))) {
-      val rules = statelessSubstRules((ctrl.node, ctrl)).map { case (s, s2) => s -> s2() }
+    if (ctrl != null && statelessSubstRules.contains((ctrl,ctrl))) {
+      val rules = statelessSubstRules((ctrl, ctrl)).map { case (s, s2) => s -> s2() }
       withSubstScope(rules: _*) { f(b.result) }
     }
     else f(b.result)

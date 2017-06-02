@@ -8,190 +8,189 @@ import forge._
 //   If view is unstaged, requires unwrapping prior to use in result of Blocks / use as dependencies
 //   However, if view is staged, have mutable sharing..
 
-trait ControllerApi extends ControllerExp { this: SpatialApi =>
+case class Controller(s: Exp[Controller]) extends Template[Controller]
 
-  protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T], fold: scala.Boolean) {
-    /** 1 dimensional memory reduction **/
-    def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Type[T], bT: Bits[T], mC: Type[C[T]]): C[T] = {
-      mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
-      accum
-    }
 
-    /** 2 dimensional memory reduction **/
-    def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Type[T], bT: Bits[T], mC: Type[C[T]]): C[T] = {
-      mem_reduceND(List(domain1,domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
-      accum
-    }
-
-    /** 3 dimensional memory reduction **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(map: (Index,Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Type[T], bT: Bits[T], mC: Type[C[T]]): C[T] = {
-      mem_reduceND(List(domain1,domain2,domain3), accum, {x: List[Index] => map(x(0),x(1),x(2)) }, reduce, style, zero, fold)
-      accum
-    }
-
-    /** N dimensional memory reduction **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(map: List[Index] => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Type[T], bT: Bits[T], mC: Type[C[T]]): C[T] = {
-      mem_reduceND(List(domain1,domain2,domain3,domain4) ++ domain5plus, accum, map, reduce, style, zero, fold)
-      accum
-    }
+protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, zero: Option[T], fold: scala.Boolean) {
+  /** 1 dimensional memory reduction **/
+  def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Type[T], bT: Bits[T], mC: Type[C[T]]): C[T] = {
+    mem_reduceND(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
+    accum
   }
 
-  protected case class MemReduceClass(style: ControlStyle) {
-    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, fold = false)
-    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), fold = false)
+  /** 2 dimensional memory reduction **/
+  def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Type[T], bT: Bits[T], mC: Type[C[T]]): C[T] = {
+    mem_reduceND(List(domain1,domain2), accum, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
+    accum
   }
 
-  protected case class MemFoldClass(style: ControlStyle) {
-    def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, fold = true)
-    def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), fold = true)
+  /** 3 dimensional memory reduction **/
+  def apply(domain1: Counter, domain2: Counter, domain3: Counter)(map: (Index,Index,Index) => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Type[T], bT: Bits[T], mC: Type[C[T]]): C[T] = {
+    mem_reduceND(List(domain1,domain2,domain3), accum, {x: List[Index] => map(x(0),x(1),x(2)) }, reduce, style, zero, fold)
+    accum
   }
 
+  /** N dimensional memory reduction **/
+  def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(map: List[Index] => C[T])(reduce: (T,T) => T)(implicit ctx: SrcCtx, mem: Mem[T,C], mT: Type[T], bT: Bits[T], mC: Type[C[T]]): C[T] = {
+    mem_reduceND(List(domain1,domain2,domain3,domain4) ++ domain5plus, accum, map, reduce, style, zero, fold)
+    accum
+  }
+}
 
-  protected class ReduceAccum[T](accum: Option[Reg[T]], style: ControlStyle, zero: Option[T], fold: Option[T]) {
-    /** 1 dimensional reduction **/
-    def apply(domain1D: Counter)(map: Index => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Type[T], bits: Bits[T]): Reg[T] = {
-      val acc = accum.getOrElse(Reg[T])
-      reduceND(List(domain1D), acc, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
-      acc
-    }
-    /** 2 dimensional reduction **/
-    def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Type[T], bits: Bits[T]): Reg[T] = {
-      val acc = accum.getOrElse(Reg[T])
-      reduceND(List(domain1, domain2), acc, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
-      acc
-    }
+protected case class MemReduceClass(style: ControlStyle) {
+  def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, fold = false)
+  def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), fold = false)
+}
 
-    /** 3 dimensional reduction **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(map: (Index,Index,Index) => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Type[T], bits: Bits[T]): Reg[T] = {
-      val acc = accum.getOrElse(Reg[T])
-      reduceND(List(domain1, domain2, domain3), acc, {x: List[Index] => map(x(0),x(1),x(2)) }, reduce, style, zero, fold)
-      acc
-    }
+protected case class MemFoldClass(style: ControlStyle) {
+  def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, None, fold = true)
+  def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, Some(zero), fold = true)
+}
 
-    /** N dimensional reduction **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(map: List[Index] => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Type[T], bits: Bits[T]): Reg[T] = {
-      val acc = accum.getOrElse(Reg[T])
-      reduceND(List(domain1, domain2, domain3, domain4) ++ domain5plus, acc, map, reduce, style, zero, fold)
-      acc
-    }
-
+protected class ReduceAccum[T](accum: Option[Reg[T]], style: ControlStyle, zero: Option[T], fold: Option[T]) {
+  /** 1 dimensional reduction **/
+  def apply(domain1D: Counter)(map: Index => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Type[T], bits: Bits[T]): Reg[T] = {
+    val acc = accum.getOrElse(Reg[T])
+    reduceND(List(domain1D), acc, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
+    acc
+  }
+  /** 2 dimensional reduction **/
+  def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Type[T], bits: Bits[T]): Reg[T] = {
+    val acc = accum.getOrElse(Reg[T])
+    reduceND(List(domain1, domain2), acc, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
+    acc
   }
 
-  protected case class ReduceClass(style: ControlStyle) extends ReduceAccum(None, style, None, None) {
-    import org.virtualized.SourceContext
-    /** Reduction with implicit accumulator **/
-    // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-    def apply(zero: scala.Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, Some(lift[Int,Int32](zero)), None)
-    def apply(zero: scala.Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, Some(lift[Long,Int64](zero)), None)
-    def apply(zero: scala.Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, Some(lift[Float,Float32](zero)), None)
-    def apply(zero: scala.Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, Some(lift[Double,Float64](zero)), None)
-
-    //def apply(zero: FixPt[_,_,_]) = new ReduceAccum(Reg[FixPt[S,I,F]](zero), style)
-    //def apply(zero: FltPt[_,_]) = new ReduceAccum(Reg[FltPt[G,E]](zero), style)
-
-    /** Reduction with explicit accumulator **/
-    // TODO: Should initial value of accumulator be assumed to be the identity value?
-    def apply[T](accum: Reg[T]) = new ReduceAccum(Some(accum), style, None, None)
+  /** 3 dimensional reduction **/
+  def apply(domain1: Counter, domain2: Counter, domain3: Counter)(map: (Index,Index,Index) => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Type[T], bits: Bits[T]): Reg[T] = {
+    val acc = accum.getOrElse(Reg[T])
+    reduceND(List(domain1, domain2, domain3), acc, {x: List[Index] => map(x(0),x(1),x(2)) }, reduce, style, zero, fold)
+    acc
   }
 
-  protected case class FoldClass(style: ControlStyle) {
-    import org.virtualized.SourceContext
-    /** Fold with implicit accumulator **/
-    // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-    def apply(zero: scala.Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, None, Some(lift[Int,Int32](zero)))
-    def apply(zero: scala.Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, None, Some(lift[Long,Int64](zero)))
-    def apply(zero: scala.Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, None, Some(lift[Float,Float32](zero)))
-    def apply(zero: scala.Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, None, Some(lift[Double,Float64](zero)))
-
-    def apply[T](accum: Reg[T]) = {
-      val sty = if (style == InnerPipe) MetaPipe else style
-      MemReduceAccum(accum, sty, None, true)
-    }
+  /** N dimensional reduction **/
+  def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(map: List[Index] => T)(reduce: (T,T) => T)(implicit ctx: SrcCtx, mT: Type[T], bits: Bits[T]): Reg[T] = {
+    val acc = accum.getOrElse(Reg[T])
+    reduceND(List(domain1, domain2, domain3, domain4) ++ domain5plus, acc, map, reduce, style, zero, fold)
+    acc
   }
 
-  protected class ForeachClass(style: ControlStyle) {
-    /** 1 dimensional parallel foreach **/
-    def apply(domain1D: Counter)(func: Index => Void)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1D), {x: List[Index] => func(x.head) }, style)
-      ()
-    }
-    /** 2 dimensional parallel foreach **/
-    def apply(domain1: Counter, domain2: Counter)(func: (Index,Index) => Void)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1,domain2), {x: List[Index] => func(x(0),x(1)) }, style)
-      ()
-    }
-    /** 3 dimensional parallel foreach **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter)(func: (Index,Index,Index) => Void)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1,domain2,domain3), {x: List[Index] => func(x(0),x(1),x(2)) }, style)
-      ()
-    }
-    /** N dimensional parallel foreach **/
-    def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
-      foreachND(List(domain1,domain2,domain3,domain4) ++ domain5plus, func, style)
-      ()
-    }
-    def apply(domain: Seq[Counter])(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
-      foreachND(domain, func, style)
-      ()
-    }
+}
+
+protected case class ReduceClass(style: ControlStyle) extends ReduceAccum(None, style, None, None) {
+  import org.virtualized.SourceContext
+  /** Reduction with implicit accumulator **/
+  // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
+  def apply(zero: scala.Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, Some(lift[Int,Int32](zero)), None)
+  def apply(zero: scala.Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, Some(lift[Long,Int64](zero)), None)
+  def apply(zero: scala.Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, Some(lift[Float,Float32](zero)), None)
+  def apply(zero: scala.Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, Some(lift[Double,Float64](zero)), None)
+
+  //def apply(zero: FixPt[_,_,_]) = new ReduceAccum(Reg[FixPt[S,I,F]](zero), style)
+  //def apply(zero: FltPt[_,_]) = new ReduceAccum(Reg[FltPt[G,E]](zero), style)
+
+  /** Reduction with explicit accumulator **/
+  // TODO: Should initial value of accumulator be assumed to be the identity value?
+  def apply[T](accum: Reg[T]) = new ReduceAccum(Some(accum), style, None, None)
+}
+
+protected case class FoldClass(style: ControlStyle) {
+  import org.virtualized.SourceContext
+  /** Fold with implicit accumulator **/
+  // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
+  def apply(zero: scala.Int) = new ReduceAccum(Some(Reg[Int32](int2fixpt[TRUE,_32,_0](zero))), style, None, Some(lift[Int,Int32](zero)))
+  def apply(zero: scala.Long) = new ReduceAccum(Some(Reg[Int64](long2fixpt[TRUE,_64,_0](zero))), style, None, Some(lift[Long,Int64](zero)))
+  def apply(zero: scala.Float) = new ReduceAccum(Some(Reg[Float32](float2fltpt[_24,_8](zero))), style, None, Some(lift[Float,Float32](zero)))
+  def apply(zero: scala.Double) = new ReduceAccum(Some(Reg[Float64](double2fltpt[_53,_11](zero))), style, None, Some(lift[Double,Float64](zero)))
+
+  def apply[T](accum: Reg[T]) = {
+    val sty = if (style == InnerPipe) MetaPipe else style
+    MemReduceAccum(accum, sty, None, true)
   }
+}
 
-  object MemReduce extends MemReduceClass(MetaPipe)
-  object MemFold   extends MemFoldClass(MetaPipe)
-
-  object Reduce    extends ReduceClass(InnerPipe)
-  object Fold      extends FoldClass(InnerPipe)
-
-  object Foreach   extends ForeachClass(InnerPipe)
-
-  object Accel {
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
-      val f = () => { func; Unit() }
-      accel_blk(f(), false); ()
-    }
-    def apply(ctr: Counter)(func: => Any)(implicit ctx: SrcCtx) = {
-      val f = () => { func; Unit() }
-      accel_blk(f(), ctr); ()
-    }
+protected class ForeachClass(style: ControlStyle) {
+  /** 1 dimensional parallel foreach **/
+  def apply(domain1D: Counter)(func: Index => Void)(implicit ctx: SrcCtx): Void = {
+    foreachND(List(domain1D), {x: List[Index] => func(x.head) }, style)
+    ()
   }
-
-  // NOTE: Making applies here not take Void results in ambiguity between 1D foreach and unit pipe
-
-  object Pipe extends ForeachClass(InnerPipe) {
-    /** "Pipelined" unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
-    def Foreach   = new ForeachClass(InnerPipe)
-    def Reduce    = ReduceClass(InnerPipe)
-    def Fold      = FoldClass(InnerPipe)
-    def MemReduce = MemReduceClass(MetaPipe)
-    def MemFold   = MemFoldClass(MetaPipe)
+  /** 2 dimensional parallel foreach **/
+  def apply(domain1: Counter, domain2: Counter)(func: (Index,Index) => Void)(implicit ctx: SrcCtx): Void = {
+    foreachND(List(domain1,domain2), {x: List[Index] => func(x(0),x(1)) }, style)
+    ()
   }
-
-  object Sequential extends ForeachClass(SeqPipe) {
-    /** Sequential unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
-    def Foreach   = new ForeachClass(SeqPipe)
-    def Reduce    = ReduceClass(SeqPipe)
-    def Fold      = FoldClass(SeqPipe)
-    def MemReduce = MemReduceClass(SeqPipe)
-    def MemFold   = MemFoldClass(SeqPipe)
+  /** 3 dimensional parallel foreach **/
+  def apply(domain1: Counter, domain2: Counter, domain3: Counter)(func: (Index,Index,Index) => Void)(implicit ctx: SrcCtx): Void = {
+    foreachND(List(domain1,domain2,domain3), {x: List[Index] => func(x(0),x(1),x(2)) }, style)
+    ()
   }
-
-  object Stream extends ForeachClass(StreamPipe) {
-    /** Streaming unit controller **/
-    def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, StreamPipe); () }
-    def Foreach   = new ForeachClass(StreamPipe)
-    def Reduce    = ReduceClass(StreamPipe)
-    def Fold      = FoldClass(StreamPipe)
-    def MemReduce = MemReduceClass(StreamPipe)
-    def MemFold   = MemFoldClass(StreamPipe)
+  /** N dimensional parallel foreach **/
+  def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
+    foreachND(List(domain1,domain2,domain3,domain4) ++ domain5plus, func, style)
+    ()
   }
+  def apply(domain: Seq[Counter])(func: List[Index] => Void)(implicit ctx: SrcCtx): Void = {
+    foreachND(domain, func, style)
+    ()
+  }
+}
 
-  object Parallel {
-    def apply(func: => Any)(implicit ctx: SrcCtx): Void = {
-      val f = () => { func; Unit() }
-      parallel_pipe(f()); ()
-    }
+object MemReduce extends MemReduceClass(MetaPipe)
+object MemFold   extends MemFoldClass(MetaPipe)
+
+object Reduce    extends ReduceClass(InnerPipe)
+object Fold      extends FoldClass(InnerPipe)
+
+object Foreach   extends ForeachClass(InnerPipe)
+
+object Accel {
+  def apply(func: => Void)(implicit ctx: SrcCtx): Void = {
+    val f = () => { func; Unit() }
+    accel_blk(f(), false); ()
+  }
+  def apply(ctr: Counter)(func: => Any)(implicit ctx: SrcCtx) = {
+    val f = () => { func; Unit() }
+    accel_blk(f(), ctr); ()
+  }
+}
+
+// NOTE: Making applies here not take Void results in ambiguity between 1D foreach and unit pipe
+
+object Pipe extends ForeachClass(InnerPipe) {
+  /** "Pipelined" unit controller **/
+  def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
+  def Foreach   = new ForeachClass(InnerPipe)
+  def Reduce    = ReduceClass(InnerPipe)
+  def Fold      = FoldClass(InnerPipe)
+  def MemReduce = MemReduceClass(MetaPipe)
+  def MemFold   = MemFoldClass(MetaPipe)
+}
+
+object Sequential extends ForeachClass(SeqPipe) {
+  /** Sequential unit controller **/
+  def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, SeqPipe); () }
+  def Foreach   = new ForeachClass(SeqPipe)
+  def Reduce    = ReduceClass(SeqPipe)
+  def Fold      = FoldClass(SeqPipe)
+  def MemReduce = MemReduceClass(SeqPipe)
+  def MemFold   = MemFoldClass(SeqPipe)
+}
+
+object Stream extends ForeachClass(StreamPipe) {
+  /** Streaming unit controller **/
+  def apply(func: => Void)(implicit ctx: SrcCtx): Void = { unit_pipe(func, StreamPipe); () }
+  def Foreach   = new ForeachClass(StreamPipe)
+  def Reduce    = ReduceClass(StreamPipe)
+  def Fold      = FoldClass(StreamPipe)
+  def MemReduce = MemReduceClass(StreamPipe)
+  def MemFold   = MemFoldClass(StreamPipe)
+}
+
+object Parallel {
+  def apply(func: => Any)(implicit ctx: SrcCtx): Void = {
+    val f = () => { func; Unit() }
+    parallel_pipe(f()); ()
   }
 }
 
@@ -204,7 +203,7 @@ trait ControllerExp { this: SpatialExp =>
     override def isPrimitive = true
   }
 
-  case class Controller(s: Exp[Controller]) extends Template[Controller]
+
 
 
   private[spatial] def accel_blk(func: => Void, ctr: Counter)(implicit ctx: SrcCtx): Controller = {
@@ -396,7 +395,7 @@ trait ControllerExp { this: SpatialExp =>
 
   /** Constructors **/
   def op_accel(func: => Exp[Void], isForever: Boolean)(implicit ctx: SrcCtx): Sym[Controller] = {
-    val fBlk = stageColdBlock{ func }
+    val fBlk = stageIsolatedBlock{ func }
     val effects = fBlk.summary andAlso Simple
     stageEffectful( Hwblock(fBlk, isForever), effects)(ctx)
   }

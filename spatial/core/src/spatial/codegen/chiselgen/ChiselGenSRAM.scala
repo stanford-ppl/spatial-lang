@@ -156,8 +156,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
             val port = portsOf(r, lhs, i).toList.head
             (par, port)
           }
-        val rPar = rParZip.map{_._1}.mkString(",")
-        val rBundling = rParZip.map{_._2}.mkString(",")
+        val rPar = if (rParZip.length == 0) "1" else rParZip.map{_._1}.mkString(",")
+        val rBundling = if (rParZip.length == 0) "0" else rParZip.map{_._2}.mkString(",")
         val wParZip = writersOf(lhs)
           .filter{write => dispatchOf(write, lhs) contains i}
           .filter{w => portsOf(w, lhs, i).toList.length == 1}
@@ -172,8 +172,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
             val port = portsOf(w, lhs, i).toList.head
             (par, port)
           }
-        val wPar = wParZip.map{_._1}.mkString(",")
-        val wBundling = wParZip.map{_._2}.mkString(",")
+        val wPar = if (wParZip.length == 0) "1" else wParZip.map{_._1}.mkString(",")
+        val wBundling = if (wParZip.length == 0) "0" else wParZip.map{_._2}.mkString(",")
         val broadcasts = writersOf(lhs)
           .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
           w.node match {

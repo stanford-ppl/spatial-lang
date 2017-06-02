@@ -162,8 +162,124 @@ object ops {
       c.r := Utils.FixedPoint(c.s,c.d,c.f,b).r
     }
 
+  }
+
+  implicit class SIntOps(val b:SInt) {
+    // Define number so that we can be compatible with FixedPoint type
+    def number = {
+      b.asUInt
+    }
+    def raw = {
+      b.asUInt
+    }
+    def r = {
+      b.asUInt
+    }
+    def msb = {
+      b(b.getWidth-1)
+    }
+
+    // override def connect (rawop: Data)(implicit sourceInfo: SourceInfo, connectionCompileOptions: chisel3.core.CompileOptions): Unit = {
+    //   rawop match {
+    //     case op: FixedPoint =>
+    //       b := op.number
+    //     case op: UInt =>
+    //       b := op
+    //   }
+    // }
+
+    def < (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) < c
+    }
+
+    def ^ (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) ^ c
+    }
+
+    def <= (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <= c
+    }
+
+    def > (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) > c
+    }
+
+    def >= (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) >= c
+    }
+
+    def === (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) === c      
+    }
+
+    def =/= (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) =/= c      
+    }
+
+    def - (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) - c      
+    }
+
+    def <-> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <-> c
+    }
+
+    def + (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) + c      
+    }
+
+    def <+> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <+> c      
+    }
+
+    def * (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) * c      
+    }
+
+    def <*> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <*> c      
+    }
+
+    def *& (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) *& c      
+    }
+
+    def <*&> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <*&> c      
+    }
+
+    def / (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) / c      
+    }
+
+    def </> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) </> c      
+    }
+
+    def /& (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) /& c      
+    }
+
+    def </&> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) </&> c      
+    }
+
+    def % (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) % c      
+    }
+
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+
+    def cast(c: FixedPoint): Unit = {
+      c.r := Utils.FixedPoint(c.s,c.d,c.f,b).r
+    }
+
 
   }
+
+
   implicit class IntOps(val b: Int) {
     def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
       Utils.FixedPoint(s, d, f, b)
@@ -241,6 +357,7 @@ object Utils {
       case i: Double => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
       case i: Bool => cst.r := i
       case i: UInt => if (f > 0) cst.r := chisel3.util.Cat(i, 0.U(f.W)) else cst.r := i
+      case i: SInt => cst.r := FixedPoint(s,d,f,i.asUInt).r
       case i: FixedPoint => cst.raw := i.raw
       case i: Int => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
     }
