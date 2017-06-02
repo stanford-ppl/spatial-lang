@@ -18,6 +18,7 @@ trait SwitchExp { this: SpatialExp =>
     def mirror(f:Tx) = op_case(() => f(body))
 
     override def freqs = cold(body)
+    val mT = typ[T]
   }
 
   case class Switch[T:Type](body: Block[T], selects: Seq[Exp[Bool]], cases: Seq[Exp[T]]) extends Op[T] {
