@@ -26,7 +26,8 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
 
 
   def create_case[T:Type](cond: Exp[Bool], body: Block[T])(implicit ctx: SrcCtx) = () => {
-    val c = withEnable(cond){ op_case(() => f(body) ) }
+    dbg(c"Creating SwitchCase from cond $cond and body $body")
+    val c = withEnable(cond){ op_case(() => f(body) )}
     dbg(c"  ${str(c)}")
     styleOf(c) = controlStyle.getOrElse(InnerPipe)
     levelOf(c) = controlLevel.getOrElse(InnerControl)
@@ -42,15 +43,25 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
   //   IfThenElse(y, blkB, blkC)
 
   def extractSwitches[T:Type](
-    elsep:    Block[T],
-    precCond: Exp[Bool],
-    selects:  Seq[Exp[Bool]],
-    cases:    Seq[() => Exp[T]]
+    elseBlock: Block[T],
+    precCond:  Exp[Bool],
+    selects:   Seq[Exp[Bool]],
+    cases:     Seq[() => Exp[T]]
   )(implicit ctx: SrcCtx): (Seq[Exp[Bool]], Seq[() => Exp[T]]) = {
+    val contents = blockContents(elseBlock)
+    // Only create a flattened switch if the else block contains no enabled operations
+    val shouldNest = contents.map(_.rhs).exists{case _:EnabledOp[_] | _:EnabledController => true; case _ => false}
 
-    elsep.result match {
-      case Op(IfThenElse(cond,thenBlk,elseBlk)) =>
+    elseBlock.result match {
+      case Op(IfThenElse(cond,thenBlk,elseBlk)) if !shouldNest =>
+        // Mirror all primitives within the else block prior to the inner if-then-else
+        // This will push these statements outside the switch, but this is expected
+        withEnable(precCond){ visitStms(contents.dropRight(1)) }
+
         val cond2 = f(cond)
+        dbg(c"Transforming condition ${str(cond)}")
+        dbg(c"is now ${str(cond2)}")
+
         val caseCond = bool_and(cond2, precCond)
         val elseCond = bool_and(bool_not(cond2), precCond)
 
@@ -59,7 +70,7 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
         extractSwitches[T](elseBlk.asInstanceOf[Block[T]], elseCond, selects :+ caseCond, cases :+ scase)
 
       case _ =>
-        val default = create_case(precCond, elsep)
+        val default = create_case(precCond, elseBlock)
         (selects :+ precCond, cases :+ default)
     }
   }
@@ -102,12 +113,10 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
     case _ => super.transform(lhs, rhs)
   }
 
-  override def mirror(lhs: Seq[Sym[_]], rhs: Def): Seq[Exp[_]] = transferMetadataIfNew(lhs){
-    lhs.head match {
-      case Def(op: EnabledController) => Seq(op.mirrorWithEn(f, enable.toSeq))
-      case Def(op: EnabledOp[_]) if enable.isDefined => Seq(op.mirrorWithEn(f, enable.get))
-      case _ => rhs.mirrorNode(lhs, f)
-    }
-  }._1
+  override def mirror(lhs: Seq[Sym[_]], rhs: Def): Seq[Exp[_]] = rhs match {
+    case op: EnabledController => transferMetadataIfNew(lhs){ Seq(op.mirrorWithEn(f, enable.toSeq)) }._1
+    case op: EnabledOp[_] if enable.isDefined => transferMetadataIfNew(lhs){ Seq(op.mirrorWithEn(f, enable.get)) }._1
+    case _ => super.mirror(lhs, rhs)
+  }
 
 }
