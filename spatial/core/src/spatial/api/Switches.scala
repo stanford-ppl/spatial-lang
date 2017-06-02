@@ -9,9 +9,9 @@ trait SwitchExp { this: SpatialExp =>
 
   @util def create_switch[T:Type](selects: Seq[Exp[Bool]], cases: Seq[() => Exp[T]]): Exp[T] = {
     var cs: Seq[Exp[T]] = Nil
-    val block = stageHotBlock{ cs = cases.map{c => c() }; cs.last }
-    val effects = block.summary
-    stageEffectful(Switch(block, selects, cs), effects)(ctx)
+    val body = stageHotBlock{ cs = cases.map{c => c() }; cs.last }
+    val effects = body.summary
+    stageEffectful(Switch(body, selects, cs), effects)(ctx)
   }
 
   case class SwitchCase[T:Type](body: Block[T]) extends Op[T] {
@@ -27,7 +27,7 @@ trait SwitchExp { this: SpatialExp =>
       op_switch(body2, f(selects), f(cases))
     }
     override def inputs = dyns(body) ++ dyns(selects)
-    override def binds = super.binds ++ dyns(cases)
+    override def binds = dyns(cases)
     override def freqs = hot(body)   // Move everything except cases out of body
     val mT = typ[T]
   }
