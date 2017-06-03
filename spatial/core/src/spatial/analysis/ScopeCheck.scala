@@ -5,7 +5,7 @@ trait ScopeCheck extends SpatialTraversal {
   import IR._
 
   override val name = "Accel Scope Check"
-  override val recurse = Default
+  override val recurse = Always
 
   def transferError(s: Exp[_]): Unit = {
     error(s.ctx, u"Untransferred host value $s was used in the Accel scope.")
@@ -81,6 +81,20 @@ trait ScopeCheck extends SpatialTraversal {
         }
       }
 
+    case Switch(body,selects,cases) =>
+      val contents = blockContents(body).flatMap(_.lhs).map(_.asInstanceOf[Exp[_]])
+      val missing = cases.toSet diff contents.toSet
+      val extra   = contents.toSet diff cases.toSet
+      if (extra.nonEmpty) {
+        error(c"Switch ${str(lhs)} had extra statements: ")
+        extra.foreach{c => error(c"  ${str(c)}")}
+        error(lhs.ctx)
+      }
+      if (missing.nonEmpty) {
+        error(c"Switch ${str(lhs)} was missing statements: ")
+        missing.foreach{c => error(c"  ${str(c)}")}
+        error(lhs.ctx)
+      }
 
     case _ => super.visit(lhs, rhs)
   }
