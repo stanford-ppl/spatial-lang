@@ -552,7 +552,7 @@ trait DRAMTransferExp { this: SpatialExp =>
     cmdStream:  Exp[StreamOut[BurstCmd]],
     dataStream: Exp[StreamIn[T]]
   ): Exp[Void] = {
-    stageCold(FringeDenseLoad(dram,cmdStream,dataStream))(ctx)
+    stageUnique(FringeDenseLoad(dram,cmdStream,dataStream))(ctx)
   }
 
   @internal def fringe_dense_store[T:Meta:Bits](
@@ -561,7 +561,7 @@ trait DRAMTransferExp { this: SpatialExp =>
     dataStream: Exp[StreamOut[Tup2[T,Bool]]],
     ackStream:  Exp[StreamIn[Bool]]
   ): Exp[Void] = {
-    stageCold(FringeDenseStore(dram,cmdStream,dataStream,ackStream))(ctx)
+    stageUnique(FringeDenseStore(dram,cmdStream,dataStream,ackStream))(ctx)
   }
 
   @internal def fringe_sparse_load[T:Meta:Bits](
@@ -569,7 +569,7 @@ trait DRAMTransferExp { this: SpatialExp =>
     addrStream: Exp[StreamOut[Int64]],
     dataStream: Exp[StreamIn[T]]
   ): Exp[Void] = {
-    stageCold(FringeSparseLoad(dram,addrStream,dataStream))(ctx)
+    stageUnique(FringeSparseLoad(dram,addrStream,dataStream))(ctx)
   }
 
   @internal def fringe_sparse_store[T:Meta:Bits](
@@ -577,7 +577,7 @@ trait DRAMTransferExp { this: SpatialExp =>
     cmdStream: Exp[StreamOut[Tup2[T,Int64]]],
     ackStream: Exp[StreamIn[Bool]]
   ): Exp[Void] = {
-    stageCold(FringeSparseStore(dram,cmdStream,ackStream))(ctx)
+    stageUnique(FringeSparseStore(dram,cmdStream,ackStream))(ctx)
   }
 
 }

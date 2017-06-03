@@ -270,9 +270,9 @@ trait ControllerExp { this: SpatialExp =>
     val rV = (fresh[T], fresh[T])
     val iters = List.tabulate(domain.length){_ => fresh[Index] }
 
-    val mBlk  = stageColdBlock{ map(wrap(iters)).s }
+    val mBlk  = stageSealedBlock{ map(wrap(iters)).s }
     val ldBlk = stageColdLambda(reg.s) { reg.value.s }
-    val rBlk  = stageColdBlock{ reduce(wrap(rV._1),wrap(rV._2)).s }
+    val rBlk  = stageSealedBlock{ reduce(wrap(rV._1),wrap(rV._2)).s }
     val stBlk = stageColdLambda(reg.s, rBlk.result){ unwrap( reg := wrap(rBlk.result) ) }
 
     val cchain = CounterChain(domain: _*)
@@ -301,8 +301,8 @@ trait ControllerExp { this: SpatialExp =>
     val ctrsRed = mem.iterators(accum)
     val itersRed = ctrsRed.map{_ => fresh[Index] }
 
-    val mBlk  = stageColdBlock{ map(wrap(itersMap)).s }
-    val rBlk  = stageColdBlock{ reduce(wrap(rV._1), wrap(rV._2)).s }
+    val mBlk  = stageSealedBlock{ map(wrap(itersMap)).s }
+    val rBlk  = stageSealedBlock{ reduce(wrap(rV._1), wrap(rV._2)).s }
     val ldResBlk = stageColdLambda(mBlk.result){ mem.load(wrap(mBlk.result), wrap(itersRed), true).s }
     val ldAccBlk = stageColdLambda(accum.s) { mem.load(accum, wrap(itersRed), true).s }
     val stAccBlk = stageColdLambda(accum.s, rBlk.result){ mem.store(accum, wrap(itersRed), wrap(rBlk.result), true).s }
@@ -402,13 +402,13 @@ trait ControllerExp { this: SpatialExp =>
   }
 
   def op_unit_pipe(en: Seq[Exp[Bool]], func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
-    val fBlk = stageColdBlock{ func }
+    val fBlk = stageSealedBlock{ func }
     val effects = fBlk.summary
     stageEffectful( UnitPipe(en, fBlk), effects)(ctx)
   }
 
   def op_parallel_pipe(en: Seq[Exp[Bool]], func: => Exp[Void])(implicit ctx: SrcCtx): Sym[Controller] = {
-    val fBlk = stageColdBlock{ func }
+    val fBlk = stageSealedBlock{ func }
     val effects = fBlk.summary
     val pipe = stageEffectful( ParallelPipe(en, fBlk), effects)(ctx)
     styleOf(pipe) = ForkJoin
@@ -417,7 +417,7 @@ trait ControllerExp { this: SpatialExp =>
   }
 
   def op_foreach(domain: Exp[CounterChain], func: => Exp[Void], iters: List[Bound[Index]])(implicit ctx: SrcCtx): Sym[Controller] = {
-    val fBlk = stageColdBlock{ func }
+    val fBlk = stageSealedBlock{ func }
     val effects = fBlk.summary.star
     stageEffectful( OpForeach(domain, fBlk, iters), effects)(ctx)
   }
@@ -435,9 +435,9 @@ trait ControllerExp { this: SpatialExp =>
     iters:  List[Bound[Index]]
   )(implicit ctx: SrcCtx): Sym[Controller] = {
 
-    val mBlk  = stageColdBlock{ map }
+    val mBlk  = stageSealedBlock{ map }
     val ldBlk = stageColdLambda(reg){ load }
-    val rBlk  = stageColdBlock{ reduce }
+    val rBlk  = stageSealedBlock{ reduce }
     val stBlk = stageColdLambda(reg, rBlk.result){ store }
 
     val effects = mBlk.summary andAlso ldBlk.summary andAlso rBlk.summary andAlso stBlk.summary
@@ -459,10 +459,10 @@ trait ControllerExp { this: SpatialExp =>
     itersRed:  Seq[Bound[Index]]
   )(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Type[C[T]]): Sym[Controller] = {
 
-    val mBlk = stageColdBlock{ map }
+    val mBlk = stageSealedBlock{ map }
     val ldResBlk = stageColdLambda(mBlk.result){ loadRes }
     val ldAccBlk = stageColdLambda(accum){ loadAcc }
-    val rBlk = stageColdBlock{ reduce }
+    val rBlk = stageSealedBlock{ reduce }
     val stBlk = stageColdLambda(accum, rBlk.result){ storeAcc }
 
     val effects = mBlk.summary andAlso ldResBlk.summary andAlso ldAccBlk.summary andAlso rBlk.summary andAlso stBlk.summary

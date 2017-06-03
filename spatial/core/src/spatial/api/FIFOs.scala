@@ -105,18 +105,18 @@ trait FIFOExp { this: SpatialExp =>
     stageWrite(fifo)(FIFODeq(fifo,en))(ctx)
   }
   @internal def fifo_empty[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bool] = {
-    stageCold(FIFOEmpty(fifo))(ctx)
+    stage(FIFOEmpty(fifo))(ctx)
   }
   @internal def fifo_full[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bool] = {
-    stageCold(FIFOFull(fifo))(ctx)
+    stage(FIFOFull(fifo))(ctx)
   }
   @internal def fifo_almost_empty[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bool] = {
-    stageCold(FIFOAlmostEmpty(fifo))(ctx)
+    stage(FIFOAlmostEmpty(fifo))(ctx)
   }
   @internal def fifo_almost_full[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bool] = {
-    stageCold(FIFOAlmostFull(fifo))(ctx)
+    stage(FIFOAlmostFull(fifo))(ctx)
   }
   @internal def fifo_numel[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Index] = {
-    stageCold(FIFONumel(fifo))(ctx)
+    stage(FIFONumel(fifo))(ctx)
   }
 }

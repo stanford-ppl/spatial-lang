@@ -163,7 +163,7 @@ trait RegisterFileExp { this: SpatialExp =>
     inds: Seq[Exp[Index]],
     en:   Exp[Bool]
   ) = {
-    stageCold(RegFileLoad(reg, inds, en))(ctx)
+    stage(RegFileLoad(reg, inds, en))(ctx)
   }
 
   @internal def regfile_store[T:Type:Bits](
