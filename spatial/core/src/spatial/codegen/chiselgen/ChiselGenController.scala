@@ -563,12 +563,13 @@ trait ChiselGenController extends ChiselGenCounter{
             emit(src"${lhs}_onehot_selects($i) := ${cases(i)}_switch_select")
             emit(src"${lhs}_data_options($i) := ${cases(i)}")
           }
+          emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})")
+          emit(src"$lhs := Mux1H(${lhs}_onehot_selects, ${lhs}_data_options).r")
 
           cases.collect{case s: Sym[_] => stmOf(s)}.foreach{ stm => 
             visitStm(stm)
             // Probably need to match on type of stm and grab the return values
           }
-          emit(src"val $lhs = Mux1H(${lhs}_onehot_selects, ${lhs}_data_options)")
         } else {
           val anyCaseDone = cases.map{c => src"${c}_done"}.mkString(" | ")
           emit(src"""${lhs}_done := $anyCaseDone // Safe to assume Switch is done when ANY child is done?""")
