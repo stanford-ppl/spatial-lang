@@ -47,13 +47,13 @@ trait ShiftRegExp { this: SpatialExp =>
 
   /** Constructors **/
   private[spatial] def value_delay_alloc[T:Type:Bits](size: Int, data: Exp[T])(implicit ctx: SrcCtx): Sym[T] = {
-    stageCold( ValueDelay[T](size, data) )(ctx)
+    stageUnique( ValueDelay[T](size, data) )(ctx)
   }
   private[spatial] def shift_reg_alloc[T:Type:Bits](size: Int, init: Exp[T])(implicit ctx: SrcCtx): Sym[ShiftReg[T]] = {
     stageMutable( ShiftRegNew[T](size, init) )(ctx)
   }
   private[spatial] def shift_reg_read[T:Type:Bits](shiftReg: Exp[ShiftReg[T]])(implicit ctx: SrcCtx): Sym[T] = {
-    stageCold( ShiftRegRead(shiftReg) )(ctx)
+    stageUnique( ShiftRegRead(shiftReg) )(ctx)
   }
   private[spatial] def shift_reg_write[T:Type:Bits](shiftReg: Exp[ShiftReg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
     stageWrite(shiftReg)( ShiftRegWrite(shiftReg, data, en) )(ctx)

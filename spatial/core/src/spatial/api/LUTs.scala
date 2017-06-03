@@ -119,7 +119,7 @@ trait LUTsExp { this: SpatialExp =>
   }
 
   @internal def lut_load[T:Type:Bits](lut: Exp[LUT[T]], inds: Seq[Exp[Index]], en: Exp[Bool]) = {
-    def node = stageCold(LUTLoad(lut, inds, en))(ctx)
+    def node = stage(LUTLoad(lut, inds, en))(ctx)
 
     if (inds.forall{case Const(c: BigDecimal) => true; case _ => false}) lut match {
       case Op(LUTNew(dims, elems)) =>

@@ -75,7 +75,7 @@ trait CounterExp { this: SpatialExp =>
 
   /** Constructors **/
   def counter_new(start: Exp[Index], end: Exp[Index], step: Exp[Index], par: Const[Index])(implicit ctx: SrcCtx): Sym[Counter] = {
-    val counter = stageCold(CounterNew(start,end,step,par))(ctx)
+    val counter = stageUnique(CounterNew(start,end,step,par))(ctx)
     par match {
       case Const(0) =>
         warn(ctx)
@@ -90,9 +90,9 @@ trait CounterExp { this: SpatialExp =>
     }
     counter
   }
-  def counterchain_new(counters: Seq[Exp[Counter]])(implicit ctx: SrcCtx) = stageCold(CounterChainNew(counters))(ctx)
+  def counterchain_new(counters: Seq[Exp[Counter]])(implicit ctx: SrcCtx) = stageUnique(CounterChainNew(counters))(ctx)
 
-  def forever_counter()(implicit ctx: SrcCtx) = stageCold(Forever())(ctx)
+  def forever_counter()(implicit ctx: SrcCtx) = stageUnique(Forever())(ctx)
 
   /** Internals **/
   def isUnitCounter(x: Exp[Counter]): Boolean = x match {

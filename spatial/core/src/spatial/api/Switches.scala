@@ -34,7 +34,7 @@ trait SwitchExp { this: SpatialExp =>
 
   @util def op_case[T:Type](body: () => Exp[T]): Exp[T] = {
     val block = stageSealedBlock{ body() }
-    val effects = block.summary.star andAlso Cold
+    val effects = block.summary.star andAlso Sticky
     stageEffectful(SwitchCase(block), effects)(ctx)
   }
 

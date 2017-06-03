@@ -268,7 +268,7 @@ trait UnrolledExp { this: SpatialExp =>
     ens:  Seq[Exp[Bool]]
   )(implicit ctx: SrcCtx) = {
     implicit val vT = vectorNType[T](ens.length)
-    stageCold(ParRegFileLoad(reg, inds, ens))(ctx)
+    stage(ParRegFileLoad(reg, inds, ens))(ctx)
   }
 
   private[spatial] def par_regfile_store[T:Type:Bits](
