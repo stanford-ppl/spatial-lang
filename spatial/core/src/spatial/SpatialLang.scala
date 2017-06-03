@@ -25,6 +25,17 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   type FILO[T] = spatial.lang.FILO[T]
   val FILO = spatial.lang.FILO
 
+  type LineBuffer[T] = spatial.lang.LineBuffer[T]
+  val LineBuffer = spatial.lang.LineBuffer
+
+  type LUT[T] = spatial.lang.LUT[T]
+  val LUT = spatial.lang.LUT
+  type LUT1[T] = spatial.lang.LUT1[T]
+  type LUT2[T] = spatial.lang.LUT2[T]
+  type LUT3[T] = spatial.lang.LUT3[T]
+  type LUT4[T] = spatial.lang.LUT4[T]
+  type LUT5[T] = spatial.lang.LUT5[T]
+
   type Range = spatial.lang.Range
   val Range = spatial.lang.Range
   type Range64 = spatial.lang.Range64
@@ -51,7 +62,7 @@ protected trait SpatialExp extends ArgonExp with SpatialCommonAliases
     with ControllerExp
     with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with FILOExp with HostTransferExp with MathExp
     with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
-    with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp with LUTsExp
+    with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp
     with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
     with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
     with StreamTransfersExp
