@@ -587,8 +587,8 @@ object NW extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   
     LETTER KEY:         Scores                   Ptrs                                                                                                  
       a = 0                   T  T  C  G                T  T  C  G                                                                                                                          
-      c = 1                0 -1 -2 -3 -4 ...         0  ←  ←  ←  ← ...    seqa = -TT-C                                                                                                                  
-      g = 2             T -1  0  0 -1 -2          T  ↑  ↖  ↖  ←  ←        seqb = -TTGC or something                                                                                                                   
+      c = 1                0 -1 -2 -3 -4 ...         0  ←  ←  ←  ← ...                                                                                                        
+      g = 2             T -1  0  0 -1 -2          T  ↑  ↖  ↖  ←  ←                                                                                                                          
       t = 3             C -2 -1 -1  1  0          C  ↑  ↑  ↑  ↖  ←                                                                                                                         
       - = 4             G -3 -2 -2  0  2          G  ↑  ↑  ↑  ↑  ↖                                                                                                                                  
       _ = 5             A -4 -3 -3 -1  1          A  ↑  ↑  ↑  ↑  ↖                                                                                                                                 
@@ -606,38 +606,139 @@ object NW extends SpatialApp { // DISABLED Regression (Dense) // Args: none
                                                                                                            
  */
 
+  @struct case class nw_tuple(score: Int16, ptr: Int16)
 
   @virtualize
   def main() = {
 
+    // FSM setup
+    val traverseState = 0
+    val padBothState = 1
+    val doneState = 4
+
     val MATCH_SCORE = 1
     val MISMATCH_SCORE = -1
-    val GAP_STORE = -1 
+    val GAP_SCORE = -1 
     val seqa_string = "tcgacgaaataggatgacagcacgttctcgtattagagggccgcggtacaaaccaaatgctgcggcgtacagggcacggggcgctgttcgggagatcgggggaatcgtggcgtgggtgattcgccggc".toText
     val seqb_string = "ttcgagggcgcgtgtcgcggtccatcgacatgcccggtcggtgggacgtgggcgcctgatatagaggaatgcgattggaaggtcggacgggtcggcgagttgggcccggtgaatctgccatggtcgat".toText
+    val length = 128
 
-    val seqa_bin = Array.tabulate[UInt8](seqa_string.length){i => 
+    val seqa_bin = Array.tabulate[Int](seqa_string.length){i => 
       val char = seqa_string(i)
-      if (char == "a") {0.to[UInt8]}
-      else if (char == "c") {1.to[UInt8]}
-      else if (char == "g") {2.to[UInt8]}
-      else if (char == "t") {3.to[UInt8]}
-      else {6.to[UInt8]}
+      if (char == "a") {0.to[Int]}
+      else if (char == "c") {1.to[Int]}
+      else if (char == "g") {2.to[Int]}
+      else if (char == "t") {3.to[Int]}
+      else {6.to[Int]}
     } // TODO: Support c++ types with 2 bits in dram
-    val seqb_bin = Array.tabulate[UInt8](seqb_string.length){i => 
+    val seqb_bin = Array.tabulate[Int](seqb_string.length){i => 
       val char = seqb_string(i)
-      if (char == "a") {0.to[UInt8]}
-      else if (char == "c") {1.to[UInt8]}
-      else if (char == "g") {2.to[UInt8]}
-      else if (char == "t") {3.to[UInt8]}
-      else {6.to[UInt8]}
+      if (char == "a") {0.to[Int]}
+      else if (char == "c") {1.to[Int]}
+      else if (char == "g") {2.to[Int]}
+      else if (char == "t") {3.to[Int]}
+      else {6.to[Int]}
     } // TODO: Support c++ types with 2 bits in dram
-    printArray(seqa_bin, "seqa")
+
+    val seqa_dram_raw = DRAM[Int](length)
+    val seqb_dram_raw = DRAM[Int](length)
+    val seqa_dram_aligned = DRAM[Int](length*2)
+    val seqb_dram_aligned = DRAM[Int](length*2)
+    setMem(seqa_dram_raw, seqa_bin)
+    setMem(seqb_dram_raw, seqb_bin)
+
     Accel{
+      val seqa_sram_raw = SRAM[Int](length)
+      val seqb_sram_raw = SRAM[Int](length)
+      val seqa_fifo_aligned = FIFO[Int](length*2)
+      val seqb_fifo_aligned = FIFO[Int](length*2)
+
+      seqa_sram_raw load seqa_dram_raw
+      seqb_sram_raw load seqb_dram_raw
+
+      val score_matrix = SRAM[nw_tuple](length+1,length+1)
+
+      // Build score matrix
+      Foreach(length+1 by 1){ r =>
+        Foreach(length+1 by 1) { c => 
+          val update = if (r == 0) (nw_tuple(-c.as[Int16], 0)) else if (c == 0) (nw_tuple(-r.as[Int16], 1)) else {
+            val match_score = mux(seqa_sram_raw(c-1) == seqb_sram_raw(r-1), MATCH_SCORE.to[Int16], MISMATCH_SCORE.to[Int16])
+            val from_top = score_matrix(r, c-1).score + GAP_SCORE
+            val from_left = score_matrix(r-1, c).score + GAP_SCORE
+            val from_diag = score_matrix(r-1, c-1).score + match_score
+            mux(from_left <= from_top && from_left <= from_diag, nw_tuple(from_left, 0), mux(from_top <= from_diag, nw_tuple(from_top,1), nw_tuple(from_diag, 2)))
+          }
+          score_matrix(r,c) = update
+        }
+      }
+
+      // Read score matrix
+      val row_addr = Reg[Int](length)
+      val col_addr = Reg[Int](length)
+      FSM[Int](state => state != doneState) { state =>
+        if (state == traverseState) {
+          if (score_matrix(row_addr,col_addr).ptr == 2.to[Int16]) {
+            row_addr :-= 1
+            col_addr :-= 1
+            seqa_fifo_aligned.enq(seqa_sram_raw(col_addr))
+            seqb_fifo_aligned.enq(seqb_sram_raw(row_addr))
+          } else if (score_matrix(row_addr,col_addr).ptr == 1.to[Int16]) {
+            row_addr :-= 1
+            seqb_fifo_aligned.enq(seqb_sram_raw(row_addr))  
+            seqa_fifo_aligned.enq(4)          
+          } else {
+            col_addr :-= 1
+            seqa_fifo_aligned.enq(seqa_sram_raw(col_addr))
+            seqb_fifo_aligned.enq(4)          
+          }
+        } else if (state == padBothState) {
+          seqa_fifo_aligned.enq(5)
+          seqb_fifo_aligned.enq(5)
+        } else {}
+      } { state => 
+        mux(state == traverseState && (row_addr == 0.to[Int] || col_addr == 0.to[Int]), padBothState, 
+          mux(state == padBothState && (seqa_fifo_aligned.full || seqb_fifo_aligned.full), doneState, state))// Safe to assume they fill at same time?
+      }
+
+      Parallel{
+        seqa_dram_aligned store seqa_fifo_aligned
+        seqb_dram_aligned store seqb_fifo_aligned
+      }
 
     }
 
-    val seqa_gold_string = "cggccgcttag-tgggtgcggtgctaagggggctagagggcttg-tc-gcggggcacgggacatgcg--gcg-t--cgtaaaccaaacat-g-gcgccgggag-attatgctcttgcacg-acag-ta----g-gat-aaagc---agc-t_________________________________________________________________________________________________________"
-    val seqb_gold_string = "--------tagct-ggtaccgt-ctaa-gtggc--ccggg-ttgagcggctgggca--gg-c-tg-gaag-gttagcgt-aaggagatatagtccg-cgggtgcagggtg-gctggcccgtacagctacctggcgctgtgcgcgggagctt_________________________________________________________________________________________________________"
+    val seqa_aligned_result = getMem(seqa_dram_aligned)
+    val seqb_aligned_result = getMem(seqb_dram_aligned)
+
+    val seqa_gold_string = "cggccgcttag-tgggtgcggtgctaagggggctagagggcttg-tc-gcggggcacgggacatgcg--gcg-t--cgtaaaccaaacat-g-gcgccgggag-attatgctcttgcacg-acag-ta----g-gat-aaagc---agc-t_________________________________________________________________________________________________________".toText
+    val seqb_gold_string = "--------tagct-ggtaccgt-ctaa-gtggc--ccggg-ttgagcggctgggca--gg-c-tg-gaag-gttagcgt-aaggagatatagtccg-cgggtgcagggtg-gctggcccgtacagctacctggcgctgtgcgcgggagctt_________________________________________________________________________________________________________".toText
+
+    val seqa_gold_bin = Array.tabulate[Int](seqa_gold_string.length){i => 
+      val char = seqa_gold_string(i)
+      if (char == "a") {0.to[Int]}
+      else if (char == "c") {1.to[Int]}
+      else if (char == "g") {2.to[Int]}
+      else if (char == "t") {3.to[Int]}
+      else if (char == "-") {4.to[Int]}
+      else if (char == "_") {5.to[Int]}
+      else {6.to[Int]}
+    }
+    val seqb_gold_bin = Array.tabulate[Int](seqb_gold_string.length){i => 
+      val char = seqb_gold_string(i)
+      if (char == "a") {0.to[Int]}
+      else if (char == "c") {1.to[Int]}
+      else if (char == "g") {2.to[Int]}
+      else if (char == "t") {3.to[Int]}
+      else if (char == "-") {4.to[Int]}
+      else if (char == "_") {5.to[Int]}
+      else {6.to[Int]}
+    }
+
+    printArray(seqa_aligned_result, "Aligned result A: ")
+    printArray(seqa_gold_bin, "Gold A: ")
+    printArray(seqb_aligned_result, "Aligned result B: ")
+    printArray(seqb_gold_bin, "Gold B: ")
+
+
   }
 }      

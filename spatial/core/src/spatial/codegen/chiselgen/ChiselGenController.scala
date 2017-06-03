@@ -598,7 +598,7 @@ trait ChiselGenController extends ChiselGenCounter{
         // if (blockContents(body).length > 0) {
         if (childrenOf(lhs).filter(isControlNode(_)).length == 1) { // This is an outer pipe
           emit(s"// Controller Stack: ${controllerStack.tail}")
-          emitBlock(body)            
+          emitBlock(body)
           // Console.println(s"body is ${blockContents(body).collect{case s: Sym[_] => s}}")
           // emit(s"""// No control nodes to connect the done_sniff""")
           // emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
