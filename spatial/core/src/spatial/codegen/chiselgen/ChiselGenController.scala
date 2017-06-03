@@ -365,11 +365,9 @@ trait ChiselGenController extends ChiselGenCounter{
     if (parentOf(sym).isDefined) {
       parentOf(sym).get match {
         case Def(SwitchCase(_)) => 
-          emitGlobalWire(src"""val ${parentOf(sym).get}_done_sniff = Wire(Bool())""")
-          emit(src"""${parentOf(sym).get}_done_sniff := ${sym}_done""")
+          emit(src"""${parentOf(sym).get}_done := ${sym}_done""")
           val streamAddition = getStreamEnablers(sym)
-          emit(src"""${sym}_base_en := ${parentOf(sym).get}_base_en""")  
-          emit(src"""${sym}_en := ${sym}_base_en ${streamAddition}""")  
+          emit(src"""${sym}_en := ${parentOf(sym).get}_en ${streamAddition}""")  
           emit(src"""${sym}_resetter := ${parentOf(sym).get}_resetter""")
 
         case _ =>
@@ -537,32 +535,41 @@ trait ChiselGenController extends ChiselGenCounter{
       controllerStack.pop()
 
     case op@Switch(body,selects,cases) =>
-      emit(s"// Switch with $selects $cases")
       // emitBlock(body)
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitStandardSignals(lhs)
       emit(s"// Controller Stack: ${controllerStack.tail}")
       emit(src"""//${lhs}_en := ${parent_kernel}_en // Set by parent""")
-      emit(src"""//${lhs}_base_en := ${parent_kernel}_base_en // Set by parent""")
+      // emit(src"""//${lhs}_base_en := ${parent_kernel}_base_en // Set by parent""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""//${lhs}_resetter := ${parent_kernel}_resetter // Set by parent""")
       emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en // Not really used probably""")
       emit(src"""${lhs}_ctr_trivial := ${parent_kernel}_ctr_trivial | false.B""")
+      parentOf(lhs).get match {  // This switch is a condition of another switchcase
+        case Def(SwitchCase(_)) => 
+          emit(src"""${parentOf(lhs).get}_done := ${lhs}_done // Route through""")
+        case _ => 
+      }
+      selects.indices.foreach{i => 
+        emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
+      }
+
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         if (Bits.unapply(op.mT).isDefined) {
-          emit(src"val ${lhs}_onehot_selects = Vec(${selects.length}, Wire(Bool()))")
+          emit(src"val ${lhs}_onehot_selects = Wire(Vec(${selects.length}, Bool()))")
+          emit(src"val ${lhs}_data_options = Wire(Vec(${selects.length}, ${newWire(lhs.tp)}))")
           selects.indices.foreach { i =>
-            emit(src"${lhs}_onehot_selects($i) := ${selects(i)}")
+            emit(src"${lhs}_onehot_selects($i) := ${cases(i)}_switch_select")
+            emit(src"${lhs}_data_options($i) := ${cases(i)}")
           }
+
           cases.collect{case s: Sym[_] => stmOf(s)}.foreach{ stm => 
             visitStm(stm)
             // Probably need to match on type of stm and grab the return values
           }
+          emit(src"val $lhs = Mux1H(${lhs}_onehot_selects, ${lhs}_data_options)")
         } else {
-          selects.indices.foreach{i => 
-            emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
-          }
           val anyCaseDone = cases.map{c => src"${c}_done"}.mkString(" | ")
           emit(src"""${lhs}_done := $anyCaseDone // Safe to assume Switch is done when ANY child is done?""")
           cases.collect{case s: Sym[_] => stmOf(s)}.foreach(visitStm)
@@ -574,14 +581,13 @@ trait ChiselGenController extends ChiselGenCounter{
       controllerStack.pop()
 
 
-    case SwitchCase(body) =>
+    case op@SwitchCase(body) =>
       // open(src"val $lhs = {")
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitStandardSignals(lhs)
-      emit(src"""${lhs}_done := ${lhs}_done_sniff""")
       emit(src"""${lhs}_en := ${parent_kernel}_en & ${lhs}_switch_select""")
-      emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")
+      // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""${lhs}_resetter := ${parent_kernel}_resetter""")
       emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en // Not really used probably""")
@@ -589,7 +595,7 @@ trait ChiselGenController extends ChiselGenCounter{
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         // if (blockContents(body).length > 0) {
-        if (childrenOf(lhs).filter(isControlNode(_)).length == 1) { // Body contains only primitives
+        if (childrenOf(lhs).filter(isControlNode(_)).length == 1) { // This is an outer pipe
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitBlock(body)            
           // Console.println(s"body is ${blockContents(body).collect{case s: Sym[_] => s}}")
@@ -598,11 +604,14 @@ trait ChiselGenController extends ChiselGenCounter{
           // emit(src"""${lhs}_done_sniff := ${parent_kernel}_en // Route through""")
         } else if (childrenOf(lhs).filter(isControlNode(_)).length == 0) { // Body contains only primitives
           emitBlock(body)
-          emit(s"// Body of this case is empty")
           emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
-          emit(src"""${lhs}_done_sniff := ${lhs}_en // Route through""")
-        } else {
+          emit(src"""${lhs}_done := ${lhs}_en // Route through""")
+        } else { // More than one control node is children
           throw new Exception("Please put a pipe around your multiple controllers inside the if statement")
+        }
+        if (Bits.unapply(op.mT).isDefined) {
+          emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})")
+          emit(src"$lhs.r := ${body.result}.r")
         }
       }
       // val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")

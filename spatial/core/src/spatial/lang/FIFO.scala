@@ -41,18 +41,18 @@ object FIFO {
     stageWrite(fifo)(FIFODeq(fifo,en))(ctx)
   }
   @internal def is_empty[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bit] = {
-    stageCold(FIFOEmpty(fifo))(ctx)
+    stage(FIFOEmpty(fifo))(ctx)
   }
   @internal def is_full[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bit] = {
-    stageCold(FIFOFull(fifo))(ctx)
+    stage(FIFOFull(fifo))(ctx)
   }
   @internal def is_almost_empty[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bit] = {
-    stageCold(FIFOAlmostEmpty(fifo))(ctx)
+    stage(FIFOAlmostEmpty(fifo))(ctx)
   }
   @internal def is_almost_full[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bit] = {
-    stageCold(FIFOAlmostFull(fifo))(ctx)
+    stage(FIFOAlmostFull(fifo))(ctx)
   }
   @internal def numel[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Index] = {
-    stageCold(FIFONumel(fifo))(ctx)
+    stage(FIFONumel(fifo))(ctx)
   }
 }

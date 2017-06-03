@@ -12,5 +12,5 @@ object CounterChain {
   @api def apply(counters: Counter*): CounterChain = CounterChain(fromseq(unwrap(counters)))
 
   /** Constructors **/
-  @internal def fromseq(counters: Seq[Exp[Counter]]) = stageCold(CounterChainNew(counters))(ctx)
+  @internal def fromseq(counters: Seq[Exp[Counter]]) = stageUnique(CounterChainNew(counters))(ctx)
 }

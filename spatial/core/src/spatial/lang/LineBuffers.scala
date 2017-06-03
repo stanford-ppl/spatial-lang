@@ -148,7 +148,7 @@ trait LineBufferExp { this: SpatialExp =>
         error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
         vectorNType[T](0)
     }
-    stageCold(LineBufferColSlice(linebuffer, row, colStart, length))(ctx)
+    stageUnique(LineBufferColSlice(linebuffer, row, colStart, length))(ctx)
   }
 
   @internal def linebuffer_row_slice[T:Type:Bits](
@@ -163,7 +163,7 @@ trait LineBufferExp { this: SpatialExp =>
         error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
         vectorNType[T](0)
     }
-    stageCold(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)
+    stageUnique(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)
   }
 
   @internal def linebuffer_load[T:Type:Bits](

@@ -8,7 +8,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
 
   /** Internals **/
   // Expansion rule for CoarseBurst -  Use coarse_burst(tile,onchip,isLoad) for anything in the frontend
-  @internal def copy_dense[T:Meta:Bits,C[T]](
+  @internal def copy_dense[T:Type:Bits,C[T]](
     offchip: Exp[DRAM[T]],
     onchip:  Exp[C[T]],
     ofs:     Seq[Exp[Index]],
@@ -16,7 +16,7 @@ trait DRAMTransferApi extends DRAMTransferExp { this: SpatialApi =>
     units:   Seq[scala.Boolean],
     par:     Const[Index],
     isLoad:  scala.Boolean
-  )(implicit mem: Mem[T,C], mC: Meta[C[T]], mD: Meta[DRAM[T]], ctx: SrcCtx): Void = {
+  )(implicit mem: Mem[T,C], mC: Type[C[T]], mD: Type[DRAM[T]], ctx: SrcCtx): Void = {
 
     val unitDims = units
     val offchipOffsets = wrap(ofs)
@@ -552,7 +552,7 @@ trait DRAMTransferExp { this: SpatialExp =>
     cmdStream:  Exp[StreamOut[BurstCmd]],
     dataStream: Exp[StreamIn[T]]
   ): Exp[Void] = {
-    stageCold(FringeDenseLoad(dram,cmdStream,dataStream))(ctx)
+    stageUnique(FringeDenseLoad(dram,cmdStream,dataStream))(ctx)
   }
 
   @internal def fringe_dense_store[T:Meta:Bits](
@@ -561,7 +561,7 @@ trait DRAMTransferExp { this: SpatialExp =>
     dataStream: Exp[StreamOut[Tup2[T,Bool]]],
     ackStream:  Exp[StreamIn[Bool]]
   ): Exp[Void] = {
-    stageCold(FringeDenseStore(dram,cmdStream,dataStream,ackStream))(ctx)
+    stageUnique(FringeDenseStore(dram,cmdStream,dataStream,ackStream))(ctx)
   }
 
   @internal def fringe_sparse_load[T:Meta:Bits](
@@ -569,7 +569,7 @@ trait DRAMTransferExp { this: SpatialExp =>
     addrStream: Exp[StreamOut[Int64]],
     dataStream: Exp[StreamIn[T]]
   ): Exp[Void] = {
-    stageCold(FringeSparseLoad(dram,addrStream,dataStream))(ctx)
+    stageUnique(FringeSparseLoad(dram,addrStream,dataStream))(ctx)
   }
 
   @internal def fringe_sparse_store[T:Meta:Bits](
@@ -577,7 +577,7 @@ trait DRAMTransferExp { this: SpatialExp =>
     cmdStream: Exp[StreamOut[Tup2[T,Int64]]],
     ackStream: Exp[StreamIn[Bool]]
   ): Exp[Void] = {
-    stageCold(FringeSparseStore(dram,cmdStream,ackStream))(ctx)
+    stageUnique(FringeSparseStore(dram,cmdStream,ackStream))(ctx)
   }
 
 }

@@ -476,7 +476,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val is = lanes.indices
     val vs = lanes.indexValids
 
-    val blk = stageColdBlock { unrollMap(func, lanes); void }
+    val blk = stageSealedBlock { unrollMap(func, lanes); void }
 
 
     val effects = blk.summary
@@ -668,7 +668,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
           itersRed.foreach{i => logs(s"  $i -> ${f(i)}") }
         }
 
-        val rBlk = stageColdBlock {
+        val rBlk = stageSealedBlock {
           logs(c"[Accum-fold $lhs] Unrolling map loads")
           logs(c"  memories: $mems")
 

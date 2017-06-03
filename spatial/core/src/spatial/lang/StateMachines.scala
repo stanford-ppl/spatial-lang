@@ -53,10 +53,10 @@ trait StateMachineExp { this: SpatialExp =>
     nextState: => Exp[T],
     state:     Bound[T]
   ) = {
-    // TODO: Do these need to be cold?
-    val dBlk = stageColdBlock{ notDone }
-    val aBlk = stageColdBlock{ action }
-    val nBlk = stageColdBlock{ nextState }
+    // TODO: Do these need to be sealed?
+    val dBlk = stageSealedBlock{ notDone }
+    val aBlk = stageSealedBlock{ action }
+    val nBlk = stageSealedBlock{ nextState }
     val effects = dBlk.summary andAlso aBlk.summary andAlso nBlk.summary
     stageEffectful(StateMachine(enable, start, dBlk, aBlk, nBlk, state), effects)(ctx)
   }

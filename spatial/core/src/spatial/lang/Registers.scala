@@ -103,7 +103,7 @@ trait RegExp { this: SpatialExp =>
     stageMutable( RegNew[T](init) )(ctx)
   }
 
-  private[spatial] def reg_read[T:Type:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = stageCold( RegRead(reg) )(ctx)
+  private[spatial] def reg_read[T:Type:Bits](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Sym[T] = stageUnique( RegRead(reg) )(ctx)
 
   private[spatial] def reg_write[T:Type:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
     stageWrite(reg)( RegWrite(reg, data, en) )(ctx)

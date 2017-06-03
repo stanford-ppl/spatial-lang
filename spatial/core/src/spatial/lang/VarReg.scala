@@ -21,7 +21,7 @@ trait VarRegExp { this: SpatialExp =>
   }
 
   private[spatial] def var_reg_read[T:Type](reg: Exp[VarReg[T]])(implicit ctx: SrcCtx): Sym[T] = {
-    stageCold( VarRegRead(reg) )(ctx)
+    stageUnique( VarRegRead(reg) )(ctx)
   }
 
   private[spatial] def var_reg_write[T:Type](reg: Exp[VarReg[T]], data: Exp[T], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {

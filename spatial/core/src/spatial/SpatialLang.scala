@@ -22,6 +22,8 @@ trait SpatialCommonAliases extends SpatialLangAliases {
 
   type FIFO[T] = spatial.lang.FIFO[T]
   val FIFO = spatial.lang.FIFO
+  type FILO[T] = spatial.lang.FILO[T]
+  val FILO = spatial.lang.FILO
 
   type Range = spatial.lang.Range
   val Range = spatial.lang.Range
@@ -89,6 +91,8 @@ trait SpatialApi extends ArgonApi with SpatialExp
 trait SpatialLangInternal extends ArgonLangInternal with SpatialExp {
   val BitOps = spatial.lang.BitOps
   val DebuggingOps = spatial.lang.DebuggingOps
+
+  val HostTransferOps = spatial.lang.HostTransferOps
 
   val MFile = spatial.lang.File
   val SwitchOps = spatial.lang.SwitchOps

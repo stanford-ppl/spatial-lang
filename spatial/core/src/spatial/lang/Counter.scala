@@ -2,6 +2,7 @@ package spatial.lang
 
 import forge._
 import spatial.nodes._
+import spatial.InvalidParallelFactorError
 
 case class Counter(s: Exp[Counter]) extends MetaAny[Counter] {
   @api override def ===(that: Counter) = this.s == that.s
@@ -30,7 +31,7 @@ object Counter {
     val p = extractParFactor(par)
     Counter(counter_new(start.s, end.s, step.s, p))
   }
-  @internal def forever_counter() = stageCold(Forever())(ctx)
+  @internal def forever_counter() = stageUnique(Forever())(ctx)
 
   def extractParFactor(par: Option[Index])(implicit ctx: SrcCtx): Const[Index] = par.map(_.s) match {
     case Some(x: Const[_]) if isIndexType(x.tp) => x.asInstanceOf[Const[Index]]
@@ -40,7 +41,7 @@ object Counter {
 
   /** Constructors **/
   def counter_new(start: Exp[Index], end: Exp[Index], step: Exp[Index], par: Const[Index])(implicit ctx: SrcCtx): Sym[Counter] = {
-    val counter = stageCold(CounterNew(start,end,step,par))(ctx)
+    val counter = stageUnique(CounterNew(start,end,step,par))(ctx)
     par match {
       case Const(0) =>
         warn(ctx)
