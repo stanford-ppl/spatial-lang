@@ -2,6 +2,7 @@ Memory Templates
 ================
 
 .. toctree::
+   memories/bufferedout
    memories/bus
    memories/counter
    memories/counterchain
