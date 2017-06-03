@@ -463,23 +463,21 @@ object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 
-object Stencil3D extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
  import IR._
 
  /*
-                                                                     
-  INDX(_row_size,_col_size,_i,_j,_k) ((_i)+_row_size*((_j)+_col_size*(_k)))
-                                                        
+                                                                                                                             
  H   ↗        ___________________                  ___________________                                                                  
   E         /                   /|               /000000000000000000 /|                                                                
-   I       / ←    COL      →   / |              / x  x  x  x  x  00 /0|                        
+   I       / ←    ROW      →   / |              / x  x  x  x  x  00 /0|                        
  ↙  G     /__________________ /  |             /__________________ / 0|                                                                 
      H   |                   |   |            |X  X  X  X  X  X 00| x0|      
       T  |     ___           |   |            |                 00|  0|      
          |    /__/|          |   |            |    VALID DATA   00|  0|      
    ↑     |  ↑|   ||          |   |            |X  X  X  X  X  X 00| x0|      
          |  3|   || ----->   |   |   --->     |                 00|  0|        
-  ROWS   |  ↓|___|/          |   |            |X  X  X  X  X  X 00| x0|      
+  COL    |  ↓|___|/          |   |            |X  X  X  X  X  X 00| x0|      
          |                   |   |            |                 00|  0|      
          |                   |   |            |X  X  X  X  X  X 00| x0|      
          |                   |  /             |                 00| 0/      
@@ -498,6 +496,9 @@ object Stencil3D extends SpatialApp { // DISABLED Regression (Dense) // Args: no
    	val ROWS = 16 // Leading dim
    	val COLS = 32
     val HEIGHT = 32
+    // val num_slices = ArgIn[Int]
+    // setArg(num_slices, args(0).to[Int])
+    val num_slices = HEIGHT
    	val filter_size = 3*3*3
 
    	// Setup data
@@ -512,39 +513,44 @@ object Stencil3D extends SpatialApp { // DISABLED Regression (Dense) // Args: no
 
    	Accel {
       val filter = LUT[Int](3,3,3)(   0,  0,  0,
-                                      0,  1,  0,
+                                      0, -1,  0,
                                       0,  0,  0,
 
-                                      0,  1,  0,
-                                      1, -6,  1,
-                                      0,  1,  0,
+                                      0, -1,  0,
+                                     -1,  6, -1,
+                                      0, -1,  0,
 
                                       0,  0,  0,
-                                      0,  1,  0,
+                                      0, -1,  0,
                                       0,  0,  0)
 
       val result_sram = SRAM[Int](HEIGHT,COLS,ROWS)
       val temp_slice = SRAM[Int](COLS,ROWS)
 
-      Foreach(HEIGHT by 1) { p => 
+      Foreach(num_slices by 1) { p => 
         MemReduce(temp_slice)(-1 until 2 by 1) { slice => 
+          val local_slice = SRAM[Int](COLS,ROWS)
           val lb = LineBuffer[Int](3,ROWS)
           val sr = RegFile[Int](3,3)
-          val result_sram = SRAM[Int](COLS,ROWS)
           Foreach(COLS+1 by 1){ i => 
             lb load data_dram((p+slice)%HEIGHT, i, 0::ROWS)
             Foreach(ROWS+1 by 1) {j => 
               Foreach(3 by 1 par 3) {k => sr(k,*) <<= lb(k,j%ROWS)}
-              val temp = Reduce(Reg[Int](0))(3 by 1, 3 by 1){(r,c) => sr(r,c) * filter(slice,r,c)}{_+_}
-              if (slice == 0 && (p == 0 || p == HEIGHT-1) && (slice == 0 && i > 0 && j > 0)) {result_sram(i-1,j-1) = sr(1,1)} 
-              else if ((p == 0 || p == HEIGHT-1) && (i > 0 && j > 0)) {result_sram(i-1,j-1) = 0}
-              else if (slice == 0 && (i == 1 || i == COLS-2)) {result_sram(i-1, j) = sr(1,1)}
-              else if (slice == 0 && (j == 1 || j == ROWS-2)) {result_sram(i, j-1) = sr(1,1)}
-              else if (i == 0 || j == 0 || i == COLS-1 || j == ROWS-1) {/*do nothing*/}
-              else {result_sram(i-1, j-1) = temp}
+              val temp = Reduce(Reg[Int](0))(3 by 1, 3 by 1){(r,c) => sr(r,c) * filter(slice+1,r,c)}{_+_}
+              // For final version, make wr_value a Mux1H instead of a unique writer per val
+              if (i == 0 || j == 0) {Pipe{}/*do nothing*/}
+              else if (i == 1 || i == COLS || j == 1 || j == ROWS) {
+                Pipe{
+                  if (slice == 0) {local_slice(i-1, j-1) = sr(1,1)} // If on boundary of page, use meat only
+                  else {local_slice(i-1, j-1) = 0} // If on boundary of page, ignore bread
+                }
+              }
+              else if (slice == 0 && (p == 0 || p == HEIGHT-1)) {local_slice(i-1,j-1) = sr(1,1)} // First and last page, use meat only
+              else if ((p == 0 || p == HEIGHT-1)) {local_slice(i-1,j-1) = 0} // First and last page, ignore bread
+              else {local_slice(i-1, j-1) = temp} // Otherwise write convolution result
             }       
           }
-          result_sram
+          local_slice
         }{_+_}
 
         Foreach(COLS by 1, ROWS by 1){(i,j) => result_sram(p, i, j) = temp_slice(i,j)}
@@ -562,7 +568,7 @@ object Stencil3D extends SpatialApp { // DISABLED Regression (Dense) // Args: no
    	val gold = raw_gold.reshape(HEIGHT,COLS,ROWS)
 
    	// Printers
-   	printTensor3(gold, "gold")
+   	printTensor3(gold, "gold") // Least significant dimension is horizontal, second-least is vertical, third least is ---- separated blocks
    	printTensor3(result_data, "results")
 
    	val cksum = gold.zip(result_data){_==_}.reduce{_&&_}
@@ -570,3 +576,68 @@ object Stencil3D extends SpatialApp { // DISABLED Regression (Dense) // Args: no
 
  }
 }
+
+
+object NW extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+ import IR._
+
+ /*
+  
+  Needleman-Wunsch Genetic Alignment algorithm                                                  
+  
+    LETTER KEY:         Scores                   Ptrs                                                                                                  
+      a = 0                   T  T  C  G                T  T  C  G                                                                                                                          
+      c = 1                0 -1 -2 -3 -4 ...         0  ←  ←  ←  ← ...    seqa = -TT-C                                                                                                                  
+      g = 2             T -1  0  0 -1 -2          T  ↑  ↖  ↖  ←  ←        seqb = -TTGC or something                                                                                                                   
+      t = 3             C -2 -1 -1  1  0          C  ↑  ↑  ↑  ↖  ←                                                                                                                         
+      - = 4             G -3 -2 -2  0  2          G  ↑  ↑  ↑  ↑  ↖                                                                                                                                  
+      _ = 5             A -4 -3 -3 -1  1          A  ↑  ↑  ↑  ↑  ↖                                                                                                                                 
+                           .                         .                                                                                                                        
+                           .                         .                       
+                           .                         .                       
+                                                                                                           
+    PTR KEY:                                                                                                                                                                                                      
+      ← = 0 = skipB
+      ↑ = 1 = skipA
+      ↖ = 2 = align                                                                                      
+                                                                                                           
+                                                                                                           
+
+                                                                                                           
+ */
+
+
+  @virtualize
+  def main() = {
+
+    val MATCH_SCORE = 1
+    val MISMATCH_SCORE = -1
+    val GAP_STORE = -1 
+    val seqa_string = "tcgacgaaataggatgacagcacgttctcgtattagagggccgcggtacaaaccaaatgctgcggcgtacagggcacggggcgctgttcgggagatcgggggaatcgtggcgtgggtgattcgccggc".toText
+    val seqb_string = "ttcgagggcgcgtgtcgcggtccatcgacatgcccggtcggtgggacgtgggcgcctgatatagaggaatgcgattggaaggtcggacgggtcggcgagttgggcccggtgaatctgccatggtcgat".toText
+
+    val seqa_bin = Array.tabulate[UInt8](seqa_string.length){i => 
+      val char = seqa_string(i)
+      if (char == "a") {0.to[UInt8]}
+      else if (char == "c") {1.to[UInt8]}
+      else if (char == "g") {2.to[UInt8]}
+      else if (char == "t") {3.to[UInt8]}
+      else {6.to[UInt8]}
+    } // TODO: Support c++ types with 2 bits in dram
+    val seqb_bin = Array.tabulate[UInt8](seqb_string.length){i => 
+      val char = seqb_string(i)
+      if (char == "a") {0.to[UInt8]}
+      else if (char == "c") {1.to[UInt8]}
+      else if (char == "g") {2.to[UInt8]}
+      else if (char == "t") {3.to[UInt8]}
+      else {6.to[UInt8]}
+    } // TODO: Support c++ types with 2 bits in dram
+    printArray(seqa_bin, "seqa")
+    Accel{
+
+    }
+
+    val seqa_gold_string = "cggccgcttag-tgggtgcggtgctaagggggctagagggcttg-tc-gcggggcacgggacatgcg--gcg-t--cgtaaaccaaacat-g-gcgccgggag-attatgctcttgcacg-acag-ta----g-gat-aaagc---agc-t_________________________________________________________________________________________________________"
+    val seqb_gold_string = "--------tagct-ggtaccgt-ctaa-gtggc--ccggg-ttgagcggctgggca--gg-c-tg-gaag-gttagcgt-aaggagatatagtccg-cgggtgcagggtg-gctggcccgtacagctacctggcgctgtgcgcgggagctt_________________________________________________________________________________________________________"
+  }
+}      
