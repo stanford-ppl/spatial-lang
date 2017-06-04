@@ -85,10 +85,10 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
   		// Specify methods
 		  def expand_key(): Unit = {
-		    Pipe{key_sram(0) = key_sram(0) ^ sbox_sram(key_sram(29).as[Int]) ^ rcon}
-		    Pipe{key_sram(1) = key_sram(1) ^ sbox_sram(key_sram(30).as[Int])}
-		    Pipe{key_sram(2) = key_sram(2) ^ sbox_sram(key_sram(31).as[Int])}
-		    Pipe{key_sram(3) = key_sram(3) ^ sbox_sram(key_sram(28).as[Int])}
+		    Pipe{key_sram(0) = key_sram(0) ^ sbox_sram(key_sram(29).as[UInt16].as[Int]) ^ rcon}
+		    Pipe{key_sram(1) = key_sram(1) ^ sbox_sram(key_sram(30).as[UInt16].as[Int])}
+		    Pipe{key_sram(2) = key_sram(2) ^ sbox_sram(key_sram(31).as[UInt16].as[Int])}
+		    Pipe{key_sram(3) = key_sram(3) ^ sbox_sram(key_sram(28).as[UInt16].as[Int])}
 		    rcon := (((rcon)<<1) ^ ((((rcon)>>7) & 1) * 0x1b))
 
 		    Sequential.Foreach(4 until 16 by 4) {i =>
@@ -98,10 +98,10 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 		    	Pipe{key_sram(i+3) = key_sram(i+3) ^ key_sram(i-1)}
 		    }
 			
-				Pipe{key_sram(16) = key_sram(16) ^ sbox_sram(key_sram(12).as[Int])}
-				Pipe{key_sram(17) = key_sram(17) ^ sbox_sram(key_sram(13).as[Int])}
-				Pipe{key_sram(18) = key_sram(18) ^ sbox_sram(key_sram(14).as[Int])}
-				Pipe{key_sram(19) = key_sram(19) ^ sbox_sram(key_sram(15).as[Int])}
+				Pipe{key_sram(16) = key_sram(16) ^ sbox_sram(key_sram(12).as[UInt16].as[Int])}
+				Pipe{key_sram(17) = key_sram(17) ^ sbox_sram(key_sram(13).as[UInt16].as[Int])}
+				Pipe{key_sram(18) = key_sram(18) ^ sbox_sram(key_sram(14).as[UInt16].as[Int])}
+				Pipe{key_sram(19) = key_sram(19) ^ sbox_sram(key_sram(15).as[UInt16].as[Int])}
 
 				Sequential.Foreach(20 until 32 by 4) {i => 
 					Pipe{key_sram(i) = key_sram(i) ^ key_sram(i-4)}
@@ -126,7 +126,7 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
 		  def substitute_bytes(): Unit = {
 	  		Sequential.Foreach(4 by 1, 4 by 1){(i,j) => 
-	  			val addr = plaintext_sram(i,j).as[Int]
+	  			val addr = plaintext_sram(i,j).as[UInt16].as[Int] // Upcast without sign-extend
 	  			val subst = sbox_sram(addr)
 	  			plaintext_sram(i,j) = subst
 	  		}
@@ -341,7 +341,7 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
   				val best_hop = Reg[T](0x4000)
   				best_hop.reset
   				Reduce(best_hop)(0 until N_STATES) { from => 
-  					val base = llike_sram(step-1, from) + transitions_sram(from,to)
+  					val base = llike_sram((step-1) % N_OBS, from) + transitions_sram(from,to)
   					base + emission
   				} { (a,b) => mux(a < b, a, b)}
   				llike_sram(step,to) = mux(step == 0, emission + init_sram(to), best_hop)
@@ -749,7 +749,7 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
     val cksumA = seqa_aligned_result.zip(seqa_gold_bin){_==_}.reduce{_&&_}
     val cksumB = seqb_aligned_result.zip(seqb_gold_bin){_==_}.reduce{_&&_}
     val cksum = cksumA && cksumB
-    println("PASS: " + cksum + " (NW)")
+    println("PASS: " + cksum + " (NW) * Implement nodes for text operations in Scala once refactoring is done")
 
 
 
