@@ -74,7 +74,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/ // Correction not needed because _done should mask dp anyway")
         } else {
-          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${lhs}_sm.io.output.ctr_inc)")
+          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${lhs}_done /*${lhs}_sm.io.output.ctr_inc*/)")
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
         }        
       }

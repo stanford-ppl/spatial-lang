@@ -158,6 +158,10 @@ trait ChiselGenController extends ChiselGenCounter{
                   s"x${lhs.id}_Reduce"
                 case Def(e: OpMemReduce[_,_]) =>
                   s"x${lhs.id}_MemReduce"
+                case Def(e: Switch[_]) =>
+                  s"x${lhs.id}_switch"
+                case Def(e: SwitchCase[_]) =>
+                  s"x${lhs.id}_switchcase"
                 case _ =>
                   super.quote(s)
               }
@@ -540,7 +544,6 @@ trait ChiselGenController extends ChiselGenCounter{
       controllerStack.push(lhs)
       emitStandardSignals(lhs)
       emit(s"// Controller Stack: ${controllerStack.tail}")
-      emit(src"""//${lhs}_en := ${parent_kernel}_en // Set by parent""")
       // emit(src"""//${lhs}_base_en := ${parent_kernel}_base_en // Set by parent""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""//${lhs}_resetter := ${parent_kernel}_resetter // Set by parent""")
@@ -549,7 +552,12 @@ trait ChiselGenController extends ChiselGenCounter{
       parentOf(lhs).get match {  // This switch is a condition of another switchcase
         case Def(SwitchCase(_)) => 
           emit(src"""${parentOf(lhs).get}_done := ${lhs}_done // Route through""")
+          emit(src"""${lhs}_en := ${parent_kernel}_en""")
+        case Def(e: StateMachine[_]) => 
+          emit(src"""${lhs}_en := ${parent_kernel}_en""")
         case _ => 
+          emit(src"""//${lhs}_en := ${parent_kernel}_en // Set by parent""")
+
       }
       selects.indices.foreach{i => 
         emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
@@ -586,12 +594,13 @@ trait ChiselGenController extends ChiselGenCounter{
       // open(src"val $lhs = {")
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      emit(s"// Controller Stack: ${controllerStack.tail}")
       emitStandardSignals(lhs)
       emit(src"""${lhs}_en := ${parent_kernel}_en & ${lhs}_switch_select""")
       // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""${lhs}_resetter := ${parent_kernel}_resetter""")
-      emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en // Not really used probably""")
+      emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en & ${lhs}_switch_select""")
       emit(src"""${lhs}_ctr_trivial := ${parent_kernel}_ctr_trivial | false.B""")
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {

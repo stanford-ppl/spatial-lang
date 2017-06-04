@@ -257,11 +257,12 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
     case e@ParStreamRead(strm, ens) =>
       val parent = parentOf(lhs).get
+      emit(src"""val ${lhs}_rId = getStreamInLane("$strm")""")
       strm match {
         case Def(StreamInNew(bus)) => bus match {
           case VideoCamera => 
             emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
-            emit(src"""${strm}_ready := ${parent}_datapath_en & ${ens.mkString("&")} & chisel3.util.ShiftRegister(${parent}_datapath_en, ${parent}_retime) """)
+            emit(src"""${strm}_ready_options(${lhs}_rId) := ${parent}_datapath_en & ${ens.mkString("&")} & chisel3.util.ShiftRegister(${parent}_datapath_en, ${parent}_retime) """)
           case SliderSwitch => 
             emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
           case _ => 
@@ -273,7 +274,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
               }
               case _ => false
             }
-            emit(src"""${strm}_ready := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${parent}_datapath_en & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
+            emit(src"""${strm}_ready_options(${lhs}_rId) := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${parent}_datapath_en & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
             // if (!isAck) {
             //   // emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}(i) }""")
               emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
@@ -289,30 +290,37 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case ParStreamWrite(stream, data, ens) =>
       val par = ens.length
       val parent = parentOf(lhs).get
+      val datacsv = data.map{d => src"${d}"}.mkString(",")
+      val en = ens.map(quote).mkString("&")
+
+      emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")""")
+      emit(src"""${stream}_valid_options(${lhs}_wId) := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/""")
+      emit(src"""${stream} := Vec(List(${datacsv}))""")
+
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
           case VGA => 
             emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
-            emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
-            emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
+            // emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
+            // emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
             emitGlobalWire(src"""val stream_out_startofpacket = Wire(Bool())""")
             emitGlobalWire(src"""val stream_out_endofpacket = Wire(Bool())""")
             emit(src"""stream_out_startofpacket := Utils.risingEdge(${parent}_datapath_en)""")
             emit(src"""stream_out_endofpacket := ${parent}_done""")
             emit(src"""// emiiting data for stream ${stream}""")
-            emit(src"""${stream} := ${data.head}""")
-            emit(src"""converted_data := ${stream}""")
-            emit(src"""${stream}_valid := ${ens.mkString("&")} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})""")
+            // emit(src"""${stream} := ${data.head}""")
+            // emit(src"""converted_data := ${stream}""")
+            // emit(src"""${stream}_valid := ${ens.mkString("&")} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})""")
           case LEDR =>
-            emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
+            // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
       //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
-            emit(src"""${stream} := $data""")
+            // emit(src"""${stream} := $data""")
             emit(src"""io.led_stream_out_data := ${stream}""")
           case _ =>
-            val datacsv = data.map{d => src"${d}"}.mkString(",")
-            val en = ens.map(quote).mkString("&")
-            emit(src"${stream} := Vec(List(${datacsv}))")
-            emit(src"${stream}_valid := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
+            // val datacsv = data.map{d => src"${d}"}.mkString(",")
+            // val en = ens.map(quote).mkString("&")
+            // emit(src"${stream} := Vec(List(${datacsv}))")
+            // emit(src"${stream}_valid := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
         }
       }
 

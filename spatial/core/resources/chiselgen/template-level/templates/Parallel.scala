@@ -16,7 +16,7 @@ class Parallel(val n: Int, val isFSM: Boolean = false, val retime:Int = 0) exten
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
 
       // FSM signals
-      val nextState = Input(UInt(32.W))
+      val nextState = Input(SInt(32.W))
     }
     val output = new Bundle {
       val done = Output(Bool())
@@ -24,7 +24,7 @@ class Parallel(val n: Int, val isFSM: Boolean = false, val retime:Int = 0) exten
       val rst_en = Output(Bool())
       val ctr_inc = Output(Bool())
       // FSM signals
-      val state = Output(UInt(32.W))
+      val state = Output(SInt(32.W))
     }
   })
 

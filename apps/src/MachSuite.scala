@@ -578,7 +578,7 @@ object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 
-object NW extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+object NW extends SpatialApp { // Regression (Dense) // Args: none
  import IR._
 
  /*
@@ -588,8 +588,8 @@ object NW extends SpatialApp { // DISABLED Regression (Dense) // Args: none
     LETTER KEY:         Scores                   Ptrs                                                                                                  
       a = 0                   T  T  C  G                T  T  C  G                                                                                                                          
       c = 1                0 -1 -2 -3 -4 ...         0  ←  ←  ←  ← ...                                                                                                        
-      g = 2             T -1  0  0 -1 -2          T  ↑  ↖  ↖  ←  ←                                                                                                                          
-      t = 3             C -2 -1 -1  1  0          C  ↑  ↑  ↑  ↖  ←                                                                                                                         
+      g = 2             T -1  1  0 -1 -2          T  ↑  ↖  ←  ←  ←                                                                                                                          
+      t = 3             C -2  0 -1  1  0          C  ↑  ↑  ↑  ↖  ←                                                                                                                         
       - = 4             G -3 -2 -2  0  2          G  ↑  ↑  ↑  ↑  ↖                                                                                                                                  
       _ = 5             A -4 -3 -3 -1  1          A  ↑  ↑  ↑  ↑  ↖                                                                                                                                 
                            .                         .                                                                                                                        
@@ -614,8 +614,11 @@ object NW extends SpatialApp { // DISABLED Regression (Dense) // Args: none
     // FSM setup
     val traverseState = 0
     val padBothState = 1
-    val doneState = 4
+    val doneState = 2
 
+    val SKIPB = 0
+    val SKIPA = 1
+    val ALIGN = 2
     val MATCH_SCORE = 1
     val MISMATCH_SCORE = -1
     val GAP_SCORE = -1 
@@ -663,41 +666,45 @@ object NW extends SpatialApp { // DISABLED Regression (Dense) // Args: none
         Foreach(length+1 by 1) { c => 
           val update = if (r == 0) (nw_tuple(-c.as[Int16], 0)) else if (c == 0) (nw_tuple(-r.as[Int16], 1)) else {
             val match_score = mux(seqa_sram_raw(c-1) == seqb_sram_raw(r-1), MATCH_SCORE.to[Int16], MISMATCH_SCORE.to[Int16])
-            val from_top = score_matrix(r, c-1).score + GAP_SCORE
-            val from_left = score_matrix(r-1, c).score + GAP_SCORE
+            val from_top = score_matrix(r-1, c).score + GAP_SCORE
+            val from_left = score_matrix(r, c-1).score + GAP_SCORE
             val from_diag = score_matrix(r-1, c-1).score + match_score
-            mux(from_left <= from_top && from_left <= from_diag, nw_tuple(from_left, 0), mux(from_top <= from_diag, nw_tuple(from_top,1), nw_tuple(from_diag, 2)))
+            mux(from_left >= from_top && from_left >= from_diag, nw_tuple(from_left, SKIPB), mux(from_top >= from_diag, nw_tuple(from_top,SKIPA), nw_tuple(from_diag, ALIGN)))
           }
           score_matrix(r,c) = update
         }
       }
 
       // Read score matrix
-      val row_addr = Reg[Int](length)
-      val col_addr = Reg[Int](length)
+      val b_addr = Reg[Int](length)
+      val a_addr = Reg[Int](length)
+      val done_backtrack = Reg[Bool](false)
       FSM[Int](state => state != doneState) { state =>
         if (state == traverseState) {
-          if (score_matrix(row_addr,col_addr).ptr == 2.to[Int16]) {
-            row_addr :-= 1
-            col_addr :-= 1
-            seqa_fifo_aligned.enq(seqa_sram_raw(col_addr))
-            seqb_fifo_aligned.enq(seqb_sram_raw(row_addr))
-          } else if (score_matrix(row_addr,col_addr).ptr == 1.to[Int16]) {
-            row_addr :-= 1
-            seqb_fifo_aligned.enq(seqb_sram_raw(row_addr))  
-            seqa_fifo_aligned.enq(4)          
+          if (score_matrix(b_addr,a_addr).ptr == ALIGN.to[Int16]) {
+            done_backtrack := b_addr == 1.to[Int] || a_addr == 1.to[Int]
+            b_addr :-= 1
+            a_addr :-= 1
+            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
+            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)
+          } else if (score_matrix(b_addr,a_addr).ptr == SKIPA.to[Int16]) {
+            done_backtrack := b_addr == 1.to[Int]
+            b_addr :-= 1
+            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)  
+            seqa_fifo_aligned.enq(4, !done_backtrack)          
           } else {
-            col_addr :-= 1
-            seqa_fifo_aligned.enq(seqa_sram_raw(col_addr))
-            seqb_fifo_aligned.enq(4)          
+            done_backtrack := a_addr == 1.to[Int]
+            a_addr :-= 1
+            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
+            seqb_fifo_aligned.enq(4, !done_backtrack)          
           }
         } else if (state == padBothState) {
-          seqa_fifo_aligned.enq(5)
-          seqb_fifo_aligned.enq(5)
+          seqa_fifo_aligned.enq(5, !seqa_fifo_aligned.full) // I think this FSM body either needs to be wrapped in a body or last enq needs to be masked or else we are full before FSM sees full
+          seqb_fifo_aligned.enq(5, !seqb_fifo_aligned.full)
         } else {}
       } { state => 
-        mux(state == traverseState && (row_addr == 0.to[Int] || col_addr == 0.to[Int]), padBothState, 
-          mux(state == padBothState && (seqa_fifo_aligned.full || seqb_fifo_aligned.full), doneState, state))// Safe to assume they fill at same time?
+        mux(state == traverseState && ((b_addr == 0.to[Int]) || (a_addr == 0.to[Int])), padBothState, 
+          mux(seqa_fifo_aligned.full || seqb_fifo_aligned.full, doneState, state))// Safe to assume they fill at same time?
       }
 
       Parallel{
@@ -738,6 +745,12 @@ object NW extends SpatialApp { // DISABLED Regression (Dense) // Args: none
     printArray(seqa_gold_bin, "Gold A: ")
     printArray(seqb_aligned_result, "Aligned result B: ")
     printArray(seqb_gold_bin, "Gold B: ")
+
+    val cksumA = seqa_aligned_result.zip(seqa_gold_bin){_==_}.reduce{_&&_}
+    val cksumB = seqb_aligned_result.zip(seqb_gold_bin){_==_}.reduce{_&&_}
+    val cksum = cksumA && cksumB
+    println("PASS: " + cksum + " (NW)")
+
 
 
   }
