@@ -11,9 +11,9 @@ case class Counter(start: Number, end: Number, step: Number, par: Number) extend
 
   def foreach(func: (Array[Number],Array[Bit]) => Unit): Unit = {
     var i = start
-    while (i < end) {
+    while (if (step > 0) {i < end} else {i > end}) {
       val vec = vecOffsets.map{ofs => Number(ofs + i) } // Create current vector
-      val valids = vec.map{ix => Bit(ix < end) }        // Valid bits
+      val valids = vec.map{ix => Bit(if (step > 0) {ix < end} else {ix > end}) }        // Valid bits
       func(vec, valids)
       i += fullStep
     }

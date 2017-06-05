@@ -206,9 +206,6 @@ elif [[ "${test_to_run}" = "maxj" ]]; then
   sleep 40
 fi
 
-# Reset counter for how long this test takes
-SECONDS=0
-
 # Receive and parse packet
 phase="INIT"
 get_packet
@@ -236,6 +233,9 @@ logger "Sourcing successful!"
 phase="COORDINATION"
 logger "Looking for senior files..."
 coordinate
+
+# Reset counter for how long this test takes
+SECONDS=0
 
 # Build spatial
 phase="BUILD"

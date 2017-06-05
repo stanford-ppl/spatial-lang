@@ -25,8 +25,8 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
 
       // FSM signals
-      val nextState = Input(UInt(32.W))
-      val initState = Input(UInt(32.W))
+      val nextState = Input(SInt(32.W))
+      val initState = Input(SInt(32.W))
       val doneCondition = Input(Bool())
     }
     val output = new Bundle {
@@ -34,7 +34,7 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
       val ctr_inc = Output(Bool())
       val rst_en = Output(Bool())
       // FSM signals
-      val state = Output(UInt(32.W))
+      val state = Output(SInt(32.W))
     }
   })
 
@@ -87,7 +87,7 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
       io.output.done := Mux(io.input.ctr_done, true.B, false.B)
       io.output.ctr_inc := false.B
       io.output.rst_en := false.B
-      io.output.state := state
+      io.output.state := state.asSInt
       // Line below broke tile stores when there is a stall of some kind.  Why was it there to begin with?
       // state := pipeInit.U 
     }
@@ -95,11 +95,11 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
     val stateFSM = Module(new FF(32))
     val doneReg = Module(new SRFF())
 
-    stateFSM.io.input(0).data := io.input.nextState
-    stateFSM.io.input(0).init := io.input.initState
+    stateFSM.io.input(0).data := io.input.nextState.asUInt
+    stateFSM.io.input(0).init := io.input.initState.asUInt
     stateFSM.io.input(0).enable := io.input.enable
     stateFSM.io.input(0).reset := reset
-    io.output.state := stateFSM.io.output.data
+    io.output.state := stateFSM.io.output.data.asSInt
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable
     doneReg.io.input.reset := ~io.input.enable

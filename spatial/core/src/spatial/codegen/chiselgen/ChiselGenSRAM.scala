@@ -74,7 +74,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/ // Correction not needed because _done should mask dp anyway")
         } else {
-          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${lhs}_sm.io.output.ctr_inc)")
+          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${lhs}_done /*${lhs}_sm.io.output.ctr_inc*/)")
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
         }        
       }
@@ -156,8 +156,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
             val port = portsOf(r, lhs, i).toList.head
             (par, port)
           }
-        val rPar = rParZip.map{_._1}.mkString(",")
-        val rBundling = rParZip.map{_._2}.mkString(",")
+        val rPar = if (rParZip.length == 0) "1" else rParZip.map{_._1}.mkString(",")
+        val rBundling = if (rParZip.length == 0) "0" else rParZip.map{_._2}.mkString(",")
         val wParZip = writersOf(lhs)
           .filter{write => dispatchOf(write, lhs) contains i}
           .filter{w => portsOf(w, lhs, i).toList.length == 1}
@@ -172,8 +172,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
             val port = portsOf(w, lhs, i).toList.head
             (par, port)
           }
-        val wPar = wParZip.map{_._1}.mkString(",")
-        val wBundling = wParZip.map{_._2}.mkString(",")
+        val wPar = if (wParZip.length == 0) "1" else wParZip.map{_._1}.mkString(",")
+        val wBundling = if (wParZip.length == 0) "0" else wParZip.map{_._2}.mkString(",")
         val broadcasts = writersOf(lhs)
           .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
           w.node match {

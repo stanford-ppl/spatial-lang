@@ -251,19 +251,19 @@ trait LatencyAnalyzer extends ModelingTraversal {
 
         0L  // TODO
 
-      case Switch(body,cases) =>
+      case Switch(body,selects,cases) =>
         val stages = latencyOfBlock(body).max
         dbgs(s"Switch $lhs: ")
         dbgs(s"-body = $stages")
         stages
 
-      case SwitchCase(cond,body) if isInnerControl(lhs) =>
+      case SwitchCase(body) if isInnerControl(lhs) =>
         val latency = latencyOfPipe(body)
         dbgs(s"Case $lhs:")
         dbgs(s"-body = $latency")
         latency
 
-      case SwitchCase(cond,body) if isOuterControl(lhs) =>
+      case SwitchCase(body) if isOuterControl(lhs) =>
         val stages = latencyOfBlock(body)
         val latency = if (styleOf(lhs) == SeqPipe) stages.sum else (0L +: stages).max
         dbgs(s"Case $lhs:")

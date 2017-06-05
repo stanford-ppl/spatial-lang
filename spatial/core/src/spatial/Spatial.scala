@@ -27,7 +27,7 @@ protected trait SpatialExp
   with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp with LUTsExp
   with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
   with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
-  with Aliases with StreamTransfersExp
+  with Aliases with StreamTransfersExp with VarRegExp
 
 trait SpatialImplicits{this: SpatialApi =>
   // HACK: Insert Void where required to make programs not have to include () at the end of ... => Void functions
@@ -65,7 +65,8 @@ protected trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
   with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
   with ScalaGenStream
-  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO with ScalaGenShiftReg with ScalaGenLUTs {
+  with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO with ScalaGenShiftReg with ScalaGenLUTs
+  with ScalaGenVarReg with ScalaGenSwitch {
 
   override val IR: SpatialCompiler
 
@@ -83,7 +84,8 @@ protected trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenIfThenElse with ChiselGenController with ChiselGenMath with ChiselGenText
   with ChiselGenDRAM with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
   with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream with ChiselGenStructs with ChiselGenLineBuffer
-  with ChiselGenRegFile with ChiselGenStateMachine with ChiselGenFileIO with ChiselGenRetiming with ChiselGenFILO {
+  with ChiselGenRegFile with ChiselGenStateMachine with ChiselGenFileIO with ChiselGenRetiming with ChiselGenFILO
+  with ChiselGenSwitch {
 
   override val IR: SpatialCompiler
 }
@@ -170,7 +172,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
 
   lazy val uctrlAnalyzer  = new UnrolledControlAnalyzer { val IR: self.type = self }
 
-  lazy val switchFlatten  = new SwitchFlattener { val IR: self.type = self }
+  //lazy val switchFlatten  = new SwitchFlattener { val IR: self.type = self }
 
   lazy val rewriter       = new RewriteTransformer { val IR: self.type = self }
 
@@ -259,6 +261,9 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
     passes += printer
 
+    //passes += switchFlatten     // Switch inlining for simplification / optimization
+    //passes += printer
+
     // --- Pre-Unrolling Analysis
     passes += ctrlAnalyzer      // Control signal analysis
     passes += affineAnalyzer    // Memory access patterns
@@ -269,10 +274,7 @@ protected trait SpatialCompiler extends CompilerCore with SpatialApi with PIRCom
     passes += latencyAnalyzer
 
     // --- Design Elaboration
-    passes += printer
-    passes += switchFlatten     // Switch inlining for simplification / optimization
 
-    passes += printer
     if (SpatialConfig.enablePIRSim) passes += pirRetimer
 
     passes += printer

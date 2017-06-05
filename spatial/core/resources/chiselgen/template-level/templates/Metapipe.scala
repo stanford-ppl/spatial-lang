@@ -17,7 +17,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
       val forever = Input(Bool())
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
       // FSM signals
-      val nextState = Input(UInt(32.W))
+      val nextState = Input(SInt(32.W))
 
     }
     val output = new Bundle {
@@ -26,7 +26,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
       val rst_en = Output(Bool())
       val ctr_inc = Output(Bool())
       // FSM signals
-      val state = Output(UInt(32.W))
+      val state = Output(SInt(32.W))
     }
   })
 
@@ -167,6 +167,6 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
   // Output logic
   io.output.ctr_inc := io.input.stageDone(0) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
   io.output.done := state === doneState.U
-  io.output.state := state
+  io.output.state := state.asSInt
 }
 

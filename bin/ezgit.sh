@@ -70,8 +70,8 @@ currentbranch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 # git commit -m "auto merge"
 # git push
 
-# Do warning
-if [[ $2 = "fpga" || $2 = "compile" || $2 = "pir" ]]; then
+# Do warning if you are about to crush someone's working branch
+if [[ $2 = "fpga" || $2 = "compile" || $2 = "pir" || $2 = "retime" ]]; then
 	read -p "You are about to merge $1 into $2, which appears to be someone else's working branch.  Continue? [y/N]: " choice
 	echo    # (optional) move to a new line
 	case "$choice" in 
@@ -81,12 +81,35 @@ if [[ $2 = "fpga" || $2 = "compile" || $2 = "pir" ]]; then
 	esac
 fi
 
+# Do warning if there are things already stashed, since this could wipe previous changes
+stash=`git stash show`
+if [[ $stash = *"No stash found"* ]]; then
+	read -p "You seem to have things stashed in spatial-lang, which is dangerous apparently.  Continue? [y/N]: " choice
+	echo    # (optional) move to a new line
+	case "$choice" in 
+	  y|Y ) echo "Continuing..";;
+	  n|N ) exit 1;;
+	  * ) exit 1;;
+	esac
+fi	
+
 # Merge lower into higher
 echo "=========================="
 echo "Checkout $2 for argon"
 echo "=========================="
 conflict
 cd argon
+# Do warning if there are things already stashed, since this could wipe previous changes
+stash=`git stash show`
+if [[ $stash = *"No stash found"* ]]; then
+	read -p "You seem to have things stashed in argon, which is dangerous apparently.  Continue? [y/N]: " choice
+	echo    # (optional) move to a new line
+	case "$choice" in 
+	  y|Y ) echo "Continuing..";;
+	  n|N ) exit 1;;
+	  * ) exit 1;;
+	esac
+fi	
 git stash
 git checkout $2
 git pull

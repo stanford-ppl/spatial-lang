@@ -42,13 +42,19 @@ status=debug
 # Compile regression test packet
 i=0
 for type in ${types[@]}; do
-packet="Creation Time- $at | Status- $status | Type- $type | tests- $tests | User- $USER | Origin- $machine | Destination- ${dsts[$i]} | Branch- $branch | Spatial- ${spatial_hash:0:5} | Argon- ${argon_hash:0:5} | Virtualized- ${virtualized_hash:0:5}"
+packet="Creation Time- $at | Status- $status | Type- $type | tests- $tests | User- $USERNAME | Origin- $machine | Destination- ${dsts[$i]} | Branch- $branch | Spatial- ${spatial_hash:0:5} | Argon- ${argon_hash:0:5} | Virtualized- ${virtualized_hash:0:5}"
 
 # echo -e "$packet"
 if [[ $type = "scala" ]]; then
 	path="/kunle/users/mattfel/regression/${type}"
+  USERNAME=$USER
 elif [[ $type = "chisel" ]]; then
 	path="/home/regression/$type"
+  if [[ "$SUNETID" != "" ]]; then
+    USERNAME=${SUNETID}
+  else
+    USERNAME=${USER}
+  fi
 else
 	echo "Unrecognized test $type"
 	exit 1
@@ -59,7 +65,7 @@ $at
 $status
 $type
 $tests
-$USER
+$USERNAME
 $machine
 $spatial_hash
 $branch
@@ -68,7 +74,7 @@ ${path}" > /tmp/${at}.${branch}.${type}.new
 
 if [[ $online = 1 ]]; then
 #        echo "skipping scp"
-	scp /tmp/${at}.${branch}.${type}.new ${dsts[$i]}.stanford.edu:${path}
+	scp /tmp/${at}.${branch}.${type}.new ${USERNAME}@${dsts[$i]}.stanford.edu:${path}
 else
 	cp /tmp/${at}.${branch}.${type}.new ${SPATIAL_HOME}/bin/${at}.${branch}.${type}.networkerror
 fi

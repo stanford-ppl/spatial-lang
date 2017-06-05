@@ -60,12 +60,17 @@ object BOStreamingSobel extends SpatialApp {
 
       Stream(*) { _ =>
         val pixel = imgIn.value()
-        val grayPixel = (pixel.b.to[Int16] + pixel.g.to[Int16] + pixel.r.to[Int16]) / 3
+        val grayPixel = (pixel.b.to[Int16]*2 + pixel.g.to[Int16] + pixel.r.to[Int16]*2) / 3
         fifoIn.enq( grayPixel )
 
         Foreach(0 until R) { r =>
 
-          Pipe { Foreach(0 until Cmax){ _ => lb.enq(fifoIn.deq(), true) } }
+          Pipe {
+            Foreach(0 until Cmax){ c =>
+              val pixel = fifoIn.deq()
+              lb.enq(pixel, true)
+            }
+          }
 
           Pipe {
             Foreach(0 until Cmax) { c =>
@@ -73,16 +78,16 @@ object BOStreamingSobel extends SpatialApp {
 
               val horz = Reduce(Reg[Int16])(Kh by 1, Kw by 1) { (i, j) =>
                 val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
-                number * kh(i, j)
+                number * kh(i, j) // 8 bits needed
               }{_+_}
 
               val vert = Reduce(Reg[Int16])(Kh by 1, Kw by 1) { (i, j) =>
                 val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
-                number * kv(i, j)
+                number * kv(i, j)  // 8 bits needed
               }{_+_}
 
-              val pixelOut = abs(horz.value) + abs(vert.value)
-              imgOut(r,c) = Pixel16(pixelOut(10::6).as[UInt5], pixelOut(10::5).as[UInt6], pixelOut(10::6).as[UInt5])
+              val pixelOut = abs(horz.value) + abs(vert.value) // 9 bits
+              imgOut(r,c) = Pixel16(pixelOut(8::4).as[UInt5], pixelOut(8::3).as[UInt6], pixelOut(8::4).as[UInt5])
             }
           }
         }

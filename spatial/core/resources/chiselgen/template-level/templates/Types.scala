@@ -84,7 +84,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				}
 			} else if (dst.f > f) { // expand decimals
 				val expand = dst.f - f
-				tmp_frac := util.Cat(number(f-1,0), 0.U(expand.W))
+				if (f > 0) { tmp_frac := util.Cat(number(f-1,0), 0.U(expand.W))} else {tmp_frac := 0.U(expand.W)}
 				// (0 until dst.f).map{ i => if (i < expand) {0.U} else {number(i - expand)*scala.math.pow(2,i).toInt.U}}.reduce{_+_}
 			} else { // keep same
 				tmp_frac := number(dst.f-1,0)
@@ -187,6 +187,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this + op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op.asUInt)
+				number + op_cast
 		}
 	}
 	def <+>[T] (rawop: T): FixedPoint = {this.+(rawop, saturating = "saturation")}
@@ -214,6 +217,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this - op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op.asUInt)
+				number - op_cast
 
 		}
 	}
@@ -241,6 +247,10 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this * op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op.asUInt)
+				number * op_cast
+
 			}
 	}
 	def *&[T] (rawop: T): FixedPoint = {this.*(rawop, rounding = "unbiased")}
@@ -283,6 +293,10 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this / op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op.asUInt)
+				number / op_cast
+
 		}
 	}
 	def /&[T] (rawop: T): FixedPoint = {this./(rawop, rounding = "unbiased")}

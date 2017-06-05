@@ -178,7 +178,8 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
   }
 
   private def transformCtrl[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
-    if (isInnerControl(lhs)) {
+    // Switches aren't technically inner controllers from PipeRetimer's point of view.
+    if (isInnerControl(lhs) && !isSwitch(rhs)) {
       val retimeEnables = rhs.blocks.map{_ => true }.toList
       withRetime(retimeEnables, ctx) { super.transform(lhs, rhs) }
     }

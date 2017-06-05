@@ -109,6 +109,12 @@ trait LatencyModel {
     case DataAsBits(_)      => 0
     case BitsAsData(_,_)    => 0
 
+    case _:VarRegNew[_]   => 0
+    case _:VarRegRead[_]  => 0
+    case _:VarRegWrite[_] => 0
+
+    case _:LUTLoad[_] => 0
+
     // Registers
     case _:RegRead[_]  => 0
     case _:RegWrite[_] => 1
@@ -133,6 +139,11 @@ trait LatencyModel {
     case _:ParFIFOEnq[_] => 1
     case _:FIFODeq[_]    => 1
     case _:ParFIFODeq[_] => 1
+    case _:FIFONumel[_]  => 0
+    case _:FIFOAlmostEmpty[_] => 0
+    case _:FIFOAlmostFull[_]  => 0
+    case _:FIFOEmpty[_]       => 0
+    case _:FIFOFull[_]        => 0
 
     // SRAMs
     // TODO: Should be a function of number of banks?

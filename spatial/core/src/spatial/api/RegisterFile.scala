@@ -7,6 +7,7 @@ trait RegisterFileApi extends RegisterFileExp { this: SpatialApi =>
 
   @api def RegFile[T:Meta:Bits](cols: Index): RegFile1[T] = wrap(regfile_new[T,RegFile1](cols.s))
   @api def RegFile[T:Meta:Bits](rows: Index, cols: Index): RegFile2[T] = wrap(regfile_new[T,RegFile2](rows.s,cols.s))
+  @api def RegFile[T:Meta:Bits](dim0: Index, dim1: Index, dim2: Index): RegFile3[T] = wrap(regfile_new[T,RegFile3](dim0.s, dim1.s, dim2.s))
 }
 
 trait RegisterFileExp { this: SpatialExp =>
@@ -39,6 +40,18 @@ trait RegisterFileExp { this: SpatialExp =>
     @api def load(dram: DRAMDenseTile2[T]): Void = dense_transfer(dram, this, isLoad = true)
   }
 
+  case class RegFile3[T:Meta:Bits](s: Exp[RegFile3[T]]) extends Template[RegFile3[T]] with RegFile[T] {
+    @api def apply(dim0: Index, dim1: Index, dim2: Index): T = wrap(regfile_load(s, Seq(dim0.s, dim1.s, dim2.s), bool(true)))
+    @api def update(dim0: Index, dim1: Index, dim2: Index, data: T): Void = Void(regfile_store(s, Seq(dim0.s, dim1.s, dim2.s), data.s, bool(true)))
+
+    @api def apply(i: Index, j: Index, y: Wildcard) = RegFileView(s, Seq(i,j,lift[Int,Index](0)), 2)
+    @api def apply(i: Index, y: Wildcard, j: Index) = RegFileView(s, Seq(i,lift[Int,Index](0),j), 1)
+    @api def apply(y: Wildcard, i: Index, j: Index) = RegFileView(s, Seq(lift[Int,Index](0),i,j), 0)
+
+    @api def load(dram: DRAM3[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
+    @api def load(dram: DRAMDenseTile3[T]): Void = dense_transfer(dram, this, isLoad = true)
+  }
+
   case class RegFileView[T:Meta:Bits](s: Exp[RegFile[T]], i: Seq[Index], dim: Int) {
     @api def <<=(data: T): Void = wrap(regfile_shiftin(s, unwrap(i), dim, data.s, bool(true)))
     @api def <<=(data: Vector[T]): Void = wrap(par_regfile_shiftin(s, unwrap(i), dim, data.s, bool(true)))
@@ -60,9 +73,15 @@ trait RegisterFileExp { this: SpatialExp =>
     override def typeArguments = List(child)
     override def stagedClass = classOf[RegFile2[T]]
   }
+  case class RegFile3Type[T:Bits](child: Meta[T]) extends Meta[RegFile3[T]] with RegFileType[T] {
+    override def wrapped(x: Exp[RegFile3[T]]) = RegFile3(x)(child,bits[T])
+    override def typeArguments = List(child)
+    override def stagedClass = classOf[RegFile3[T]]
+  }
 
   implicit def regFile1Type[T:Meta:Bits]: Meta[RegFile1[T]] = RegFile1Type(typ[T])
   implicit def regFile2Type[T:Meta:Bits]: Meta[RegFile2[T]] = RegFile2Type(typ[T])
+  implicit def regFile3Type[T:Meta:Bits]: Meta[RegFile3[T]] = RegFile3Type(typ[T])
 
 
   // Mem
@@ -80,6 +99,7 @@ trait RegisterFileExp { this: SpatialExp =>
   }
   implicit def regfile1IsMemory[T:Meta:Bits]: Mem[T,RegFile1] = new RegFileIsMemory[T,RegFile1]
   implicit def regfile2IsMemory[T:Meta:Bits]: Mem[T,RegFile2] = new RegFileIsMemory[T,RegFile2]
+  implicit def regfile3IsMemory[T:Meta:Bits]: Mem[T,RegFile3] = new RegFileIsMemory[T,RegFile3]
 
 
   /** IR Nodes **/
@@ -143,7 +163,7 @@ trait RegisterFileExp { this: SpatialExp =>
     inds: Seq[Exp[Index]],
     en:   Exp[Bool]
   ) = {
-    stageCold(RegFileLoad(reg, inds, en))(ctx)
+    stage(RegFileLoad(reg, inds, en))(ctx)
   }
 
   @internal def regfile_store[T:Type:Bits](

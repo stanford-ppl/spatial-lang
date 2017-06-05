@@ -337,12 +337,12 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
 
-    case SwitchCase(cond, blk) =>
+    case SwitchCase(blk) =>
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
       addPropagatingNode(lhs, Seq(blk.result))
 
-    case Switch(blk,cases) =>
+    case Switch(blk,selects,cases) =>
       visitCtrl((lhs,false)){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
       addPropagatingNode(lhs, blockContents(blk).flatMap(_.lhs).filter(pendingNodes contains _))
