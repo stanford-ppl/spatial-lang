@@ -29,7 +29,7 @@ class multidimW(val N: Int, val w: Int) extends Bundle {
   override def cloneType = (new multidimW(N, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 class multidimR(val N: Int, val w: Int) extends Bundle {
-  val addr = Vec(N, UInt(w.W))
+  val addr = Vec(N, UInt(32.W))
   val en = Bool()
   
   override def cloneType = (new multidimR(N, w)).asInstanceOf[this.type] // See chisel3 bug 358
@@ -100,7 +100,7 @@ class MemND(val dims: List[Int], bitWidth: Int = 32) extends Module {
   })
 
   // Instantiate 1D mem
-  val m = Module(new Mem1D(depth))
+  val m = Module(new Mem1D(depth,true, bitWidth = bitWidth))
 
   // Address flattening
   m.io.w.addr := io.w.addr.zipWithIndex.map{ case (addr, i) =>
@@ -189,7 +189,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
   }
 
   // Create physical mems
-  val m = (0 until numMems).map{ i => Module(new MemND(physicalDims))}
+  val m = (0 until numMems).map{ i => Module(new MemND(physicalDims, bitWidth))}
 
   // Reconstruct io.w as 2d vector
 
