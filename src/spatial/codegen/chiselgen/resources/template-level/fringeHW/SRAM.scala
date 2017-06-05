@@ -40,25 +40,6 @@ class FFRAM(val w: Int, val d: Int) extends Module {
   io.rdata := rf.io.rdata
 }
 
-class SRAM(val w: Int, val d: Int) extends Module {
-  val addrWidth = log2Up(d)
-  val io = IO(new Bundle {
-    val raddr = Input(UInt(addrWidth.W))
-    val wen = Input(Bool())
-    val waddr = Input(UInt(addrWidth.W))
-    val wdata = Input(UInt(w.W))
-    val rdata = Output(UInt(w.W))
-  })
-
-  val mem = Module(new FFRAM(w, d))
-  mem.io.raddr := io.raddr
-  mem.io.wen := io.wen
-  mem.io.waddr := io.waddr
-  mem.io.wdata := io.wdata
-  io.rdata := mem.io.rdata
-}
-
-
 //class SRAM(val w: Int, val d: Int) extends Module {
 //  val addrWidth = log2Up(d)
 //  val io = IO(new Bundle {
@@ -69,16 +50,40 @@ class SRAM(val w: Int, val d: Int) extends Module {
 //    val rdata = Output(UInt(w.W))
 //  })
 //
-//  val mem = Module(new SRAMVerilog(w, d))
-//  mem.io.clk := clock
+//  val mem = Module(new FFRAM(w, d))
 //  mem.io.raddr := io.raddr
 //  mem.io.wen := io.wen
 //  mem.io.waddr := io.waddr
 //  mem.io.wdata := io.wdata
-//  mem.io.raddrEn := true.B
-//  mem.io.waddrEn := true.B
 //  io.rdata := mem.io.rdata
 //}
+
+class SRAM(val w: Int, val d: Int) extends Module {
+  val addrWidth = log2Up(d)
+  val io = IO(new Bundle {
+    val raddr = Input(UInt(addrWidth.W))
+    val wen = Input(Bool())
+    val waddr = Input(UInt(addrWidth.W))
+    val wdata = Input(UInt(w.W))
+    val rdata = Output(UInt(w.W))
+  })
+
+  val mem = Module(new SRAMVerilog(w, d))
+  mem.io.clk := clock
+  mem.io.raddr := io.raddr
+  mem.io.wen := io.wen
+  mem.io.waddr := io.waddr
+  mem.io.wdata := io.wdata
+  mem.io.raddrEn := true.B
+  mem.io.waddrEn := true.B
+
+  // Implement WRITE_FIRST logic here
+  // equality register
+  val equalReg = RegNext(io.wen & (io.raddr === io.waddr), false.B)
+  val wdataReg = RegNext(io.wdata, 0.U)
+
+  io.rdata := Mux(equalReg, wdataReg, mem.io.rdata)
+}
 
 //class SRAM(val w: Int, val d: Int) extends Module {
 //  val addrWidth = log2Up(d)
