@@ -134,7 +134,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
 
     val stateFF = Module(new FF(32))
     stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
-    stateFF.io.input(0).init := 0.S
+    stateFF.io.input(0).init := 0.U
     stateFF.io.input(0).reset := io.input.rst
     val state = stateFF.io.output.data.asSInt
 
@@ -142,11 +142,11 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
     val stateFSM = Module(new FF(32))
     val doneReg = Module(new SRFF())
 
-    stateFSM.io.input(0).data := io.input.nextState
-    stateFSM.io.input(0).init := io.input.initState
+    stateFSM.io.input(0).data := io.input.nextState.asUInt
+    stateFSM.io.input(0).init := io.input.initState.asUInt
     stateFSM.io.input(0).reset := reset
     stateFSM.io.input(0).enable := io.input.enable & state === doneState.S
-    io.output.state := stateFSM.io.output.data
+    io.output.state := stateFSM.io.output.data.asSInt
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable
     doneReg.io.input.reset := ~io.input.enable
@@ -207,7 +207,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
             stateFF.io.input(0).data := firstState.U
           }
         }.otherwise {
-          stateFF.io.input(0).data := state
+          stateFF.io.input(0).data := state.asUInt
         }
 
       }.elsewhen (state === doneState.S) {

@@ -1857,7 +1857,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
             fifo_last := f
           }
         }
-      } { state => mux(state == 0, fill, mux(fifo.full(), 2, mux(fifo.empty(), 3, state))) }
+      } { state => mux(state == 0, fill, mux(fifo.full() && state == fill, drain, mux(fifo.empty() && state == drain, done, state))) }
       fifo_sum := fifo_accum
 
       // Using almostDone/almostEmpty, skips last 2 elements
@@ -1871,7 +1871,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
             fifo_accum_almost := fifo_accum_almost + fifo_almost.deq()
           }
         }
-      } { state => mux(state == 0, fill, mux(fifo_almost.almostFull(), 2, mux(fifo_almost.almostEmpty(), 3, state))) }
+      } { state => mux(state == 0, fill, mux(fifo_almost.almostFull() && state == fill, drain, mux(fifo_almost.almostEmpty() && state == drain, done, state))) }
       fifo_sum_almost := fifo_accum_almost
 
       val stack = FILO[Int](size)
@@ -1887,7 +1887,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
             stack_last := f
           }
         }
-      } { state => mux(state == 0, fill, mux(stack.full(), 2, mux(stack.empty(), 3, state))) }
+      } { state => mux(state == 0, fill, mux(stack.full() && state == fill, drain, mux(stack.empty() && state == drain, done, state))) }
       stack_sum := stack_accum
       
       // Using almostDone/almostEmpty, skips last element
@@ -1901,7 +1901,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
             stack_accum_almost := stack_accum_almost + stack_almost.pop()
           }
         }
-      } { state => mux(state == 0, fill, mux(stack_almost.almostFull(), 2, mux(stack_almost.almostEmpty(), 3, state))) }
+      } { state => mux(state == 0, fill, mux(stack_almost.almostFull() && state == fill, drain, mux(stack_almost.almostEmpty() && state == drain, done, state))) }
       stack_sum_almost := stack_accum_almost
       
     }

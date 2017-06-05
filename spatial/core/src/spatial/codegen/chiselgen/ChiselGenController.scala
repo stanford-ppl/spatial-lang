@@ -553,8 +553,8 @@ trait ChiselGenController extends ChiselGenCounter{
         case Def(SwitchCase(_)) => 
           emit(src"""${parentOf(lhs).get}_done := ${lhs}_done // Route through""")
           emit(src"""${lhs}_en := ${parent_kernel}_en""")
-        case Def(e: StateMachine[_]) => 
-          emit(src"""${lhs}_en := ${parent_kernel}_en""")
+        case Def(e: StateMachine[_]) =>
+          if (levelOf(parentOf(lhs).get) == InnerControl) emit(src"""${lhs}_en := ${parent_kernel}_en""")
         case _ => 
           emit(src"""//${lhs}_en := ${parent_kernel}_en // Set by parent""")
 

@@ -755,3 +755,42 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
 
   }
 }      
+
+
+object MD_KNN extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+ import IR._
+
+ /*
+  
+  Molecular Dynamics via K-nearest neighbors                                                                
+
+                  ← MAX_NEIGHBORS →   
+                 ___________________   
+                |                   |  
+            ↑   |                   |  
+                |                   |  
+                |                   |  
+                |                   |  
+      N_ATOMS   |                   |  
+                |                   |  
+                |                   |  
+                |                   |  
+            ↓   |                   |  
+                |                   |  
+                 ```````````````````   
+
+                 For each atom (row), get id of its interactions (col), index into idx/y/z, compute potential energy, and sum them all up
+
+                                                                                                           
+ */
+
+  @virtualize
+  def main() = {
+
+    
+    Accel{
+
+    }
+
+  }
+}      

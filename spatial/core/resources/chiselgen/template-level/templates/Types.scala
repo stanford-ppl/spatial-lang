@@ -187,6 +187,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this + op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op.asUInt)
+				number + op_cast
 		}
 	}
 	def <+>[T] (rawop: T): FixedPoint = {this.+(rawop, saturating = "saturation")}
@@ -214,6 +217,9 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this - op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op.asUInt)
+				number - op_cast
 
 		}
 	}
@@ -241,6 +247,10 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this * op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op.asUInt)
+				number * op_cast
+
 			}
 	}
 	def *&[T] (rawop: T): FixedPoint = {this.*(rawop, rounding = "unbiased")}
@@ -283,6 +293,10 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
 				this / op_cast
+			case op: SInt => 
+				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op.asUInt)
+				number / op_cast
+
 		}
 	}
 	def /&[T] (rawop: T): FixedPoint = {this./(rawop, rounding = "unbiased")}
