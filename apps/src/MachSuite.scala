@@ -813,7 +813,6 @@ object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
     setMem(ypos_dram, raw_ypos)
     setMem(zpos_dram, raw_zpos)
     setMem(interactions_dram, raw_interactions)
-<<<<<<< Updated upstream
 
     Accel{
       val xpos_sram = SRAM[T](N_ATOMS)
@@ -932,9 +931,6 @@ object MD_Grid extends SpatialApp { // DISABLED Regression (Dense) // Args: none
     setMem(zpos_dram, raw_zpos)
     setMem(interactions_dram, raw_interactions)
 
-=======
-
->>>>>>> Stashed changes
     Accel{
       val xpos_sram = SRAM[T](N_ATOMS)
       val ypos_sram = SRAM[T](N_ATOMS)
@@ -987,16 +983,10 @@ object MD_Grid extends SpatialApp { // DISABLED Regression (Dense) // Args: none
     printArray(zforce_gold, "Gold z:")
     printArray(zforce_received, "Received z:")
 
-<<<<<<< Updated upstream
     val cksumx = xforce_gold.zip(xforce_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
     val cksumy = yforce_gold.zip(yforce_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
     val cksumz = zforce_gold.zip(zforce_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
-=======
-    val margin = 1.to[T]
-    val cksumx = xforce_gold.zip(xforce_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
-    val cksumy = yforce_gold.zip(yforce_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
-    val cksumz = zforce_gold.zip(zforce_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
->>>>>>> Stashed changes
+
     val cksum = cksumx && cksumy && cksumz
     println("PASS: " + cksum + " (MD_KNN)")
   }
