@@ -17,8 +17,8 @@ module SRAMVerilog
     reg [DWIDTH-1:0] mem [0:WORDS-1];
 
     always @(posedge clk) begin
-        if (wen) mem[waddr] = wdata;
-        rdata = mem[raddr];
+        if (wen) mem[waddr] <= wdata;
+        rdata <= mem[raddr];
     end
 
 endmodule
