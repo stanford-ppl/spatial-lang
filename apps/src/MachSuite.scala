@@ -1043,3 +1043,84 @@ object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
     println("PASS: " + cksum + " (MD_Grid)")
   }
 }      
+
+object KMP extends SpatialApp { // Regression (Dense) // Args: none
+ import IR._
+
+ /*
+  
+  Knuth-Morris-Pratt
+
+  Used https://www.browserling.com/tools/text-to-hex to convert string to hex, and then converted hex to dec                                                               
+                                                                                             
+                                                                                                           
+ */
+
+  @virtualize
+  def main() = {
+
+    val STRING_SIZE = 32411
+    val PATTERN_SIZE = 4
+
+    val raw_string = loadCSV1D[Int]("/remote/regression/data/machsuite/kmp_data.csv", "\n")
+    val raw_pattern = Array[Int](98,117,108,108)
+    val string_dram = DRAM[Int](STRING_SIZE)
+    val pattern_dram = DRAM[Int](PATTERN_SIZE)
+    val nmatches = ArgOut[Int]
+
+    setMem(string_dram, raw_string)
+    setMem(pattern_dram, raw_pattern)
+
+    Accel{
+      val string_sram = SRAM[Int](STRING_SIZE)
+      val pattern_sram = SRAM[Int](PATTERN_SIZE)
+      val kmp_next = SRAM[Int](PATTERN_SIZE)
+      val num_matches = Reg[Int](0)
+
+      string_sram load string_dram
+      pattern_sram load pattern_dram
+
+      // Init kmp_next
+      val k = Reg[Int](0)
+      kmp_next(0) = 0
+      Sequential.Foreach(1 until PATTERN_SIZE by 1) { q => 
+        // val whileCond = Reg[Bool](false)
+        FSM[Int](state => state != 1) { state => 
+          // whileCond := (k > 0) && (pattern_sram(k) != pattern_sram(q))
+          if ((k > 0) && (pattern_sram(k) != pattern_sram(q))) k := 0 // TODO: Will it always bump back to 0 in this step or should it really be kmp_next(q)?
+        }{state => mux((k > 0) && (pattern_sram(k) != pattern_sram(q)), 0, 1)}
+        if (pattern_sram(k) == pattern_sram(q)) {k :+= 1.to[Int]}
+        kmp_next(q) = k
+      }
+
+      // Scan string
+      val q = Reg[Int](0)
+      Sequential.Foreach(0 until STRING_SIZE) { i => 
+        // val whileCond = Reg[Bool](false) 
+        FSM[Int](state => state != 1) { state => 
+          // whileCond := (q > 0) && (pattern_sram(i) != pattern_sram(q))
+          if ((q > 0) && (string_sram(i) != pattern_sram(q))) q := kmp_next(q)
+        }{state => mux((q > 0) && (string_sram(i) != pattern_sram(q)), 0, 1)}
+        if (pattern_sram(q) == string_sram(i)) { q :+= 1 }
+        if (q >= PATTERN_SIZE) {
+          Pipe{
+            num_matches :+= 1
+            val bump = kmp_next(q - 1)
+            q := bump
+          }
+        }
+      }
+
+      nmatches := num_matches
+    }
+
+    val gold_nmatches = 12
+    val computed_nmatches = getArg(nmatches)
+
+    println("Expected " + gold_nmatches + " matches")
+    println("Found " + computed_nmatches)
+
+    val cksum = gold_nmatches == computed_nmatches
+    println("PASS: " + cksum + " (KMP) * Implement string find, string file parser, and string <-> hex <-> dec features once argon refactor is done so we can test any strings")
+  }
+}      
