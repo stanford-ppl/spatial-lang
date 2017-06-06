@@ -89,9 +89,11 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
     when(state === initState.U) {   // INIT -> RESET
       stateFF.io.input(0).data := resetState.U
       io.output.stageEnable.foreach { s => s := false.B}
+      cycsSinceDone.io.input(0).enable := false.B
     }.elsewhen (state === resetState.U) {  // RESET -> FILL
       stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, steadyState.U, doneState.U), fillState.U) // Go directly to done if niters = 0
       io.output.stageEnable.foreach { s => s := false.B}
+      cycsSinceDone.io.input(0).enable := false.B
     }.elsewhen (state < steadyState.U) {  // FILL -> STEADY
       for ( i <- fillState until steadyState) {
         val fillStateID = i - fillState
