@@ -295,9 +295,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val datacsv = data.map{d => src"${d}"}.mkString(",")
       val en = ens.map(quote).mkString("&")
 
-      emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")""")
+      emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")*${ens.length}""")
       emit(src"""${stream}_valid_options(${lhs}_wId) := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/""")
-      emit(src"""${stream} := Vec(List(${datacsv}))""")
+      (0 until ens.length).map{ i => emit(src"""${stream}_data_options(${lhs}_wId + ${i}) := ${data(i)}""")}
+      // emit(src"""${stream} := Vec(List(${datacsv}))""")
 
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
@@ -317,7 +318,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
             // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
       //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
             // emit(src"""${stream} := $data""")
-            emit(src"""io.led_stream_out_data := ${stream}""")
+            // emit(src"""io.led_stream_out_data := ${stream}""")
           case _ =>
             // val datacsv = data.map{d => src"${d}"}.mkString(",")
             // val en = ens.map(quote).mkString("&")

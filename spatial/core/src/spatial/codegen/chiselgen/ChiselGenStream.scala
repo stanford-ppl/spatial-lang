@@ -29,7 +29,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
       emitGlobalWire(src"val ${lhs}_ready = ${lhs}_ready_options.reduce{_|_}")
       emitGlobalWire(src"""val ${lhs}_now_valid = Wire(Bool())""", forceful = true)
       emitGlobalWire(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
-      emitGlobalWire(src"val ${lhs} = Wire(${newWire(readersOf(lhs).head.node.tp)})")
+      emitGlobalWire(src"val ${lhs} = Wire(${newWire(readersOf(lhs).head.node.tp)})", forceful = true)
       bus match {
         case BurstDataBus() =>
         case BurstAckBus =>
@@ -50,10 +50,10 @@ trait ChiselGenStream extends ChiselGenSRAM {
           // emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
           // emit(src"} ", forceful=true) 
 
-          emit(src"io.led_stream_out_data := io.stream_in_ready", forceful=true)
+          // emit(src"io.led_stream_out_data := io.stream_in_ready", forceful=true)
           emit(src"io.stream_in_ready := ${lhs}_ready", forceful=true)
           emit(src"""${lhs}_valid := io.stream_in_valid // .. Or is io.stream_in_valid not connected?!""", forceful=true)
-          emit(src"io.led_stream_out_data := true.B | (${lhs}_valid << 1) | (${lhs}_ready << 2)", forceful=true)
+          // emit(src"io.led_stream_out_data := true.B | (${lhs}_valid << 1) | (${lhs}_ready << 2)", forceful=true)
 
 
           // emit(src"${lhs}_valid := io.stream_in_valid", forceful=true)
@@ -89,14 +89,18 @@ trait ChiselGenStream extends ChiselGenSRAM {
 
     case StreamOutNew(bus) =>
       emitGlobalWire(src"val ${lhs}_valid_options = Wire(Vec(${writersOf(lhs).length}, Bool()))", forceful = true)
-      emitGlobalWire(src"val ${lhs}_valid = ${lhs}_valid_options.reduce{_|_}", forceful = true)
+      emitGlobalWire(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
+      emitGlobalWire(src"${lhs}_valid := ${lhs}_valid_options.reduce{_|_}", forceful = true)
       writersOf(lhs).head.node match {
         case Def(e@ParStreamWrite(_, data, ens)) => 
-          if (writersOf(lhs).length > 1) {throw new Exception("Cannot yet handle multiple writers to a par stream write, please give this code to a developer so they can use it as a driver")}
-          emitGlobalWire(src"val ${lhs} = Wire(Vec(${ens.length}, ${newWire(data.head.tp)}))")
+          emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${ens.length}*${writersOf(lhs).length}, ${newWire(data.head.tp)}))")
+          emitGlobalWire(src"""val ${lhs} = Vec((0 until ${ens.length}).map{i => 
+            val ${lhs}_slice_options = (0 until ${writersOf(lhs).length}).map{j => ${lhs}_data_options(i*${writersOf(lhs).length}+j)}
+            Mux1H(${lhs}_valid_options, ${lhs}_slice_options)
+          }.toList)""")
         case Def(e@StreamWrite(_, data, _)) => 
-          emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${writersOf(lhs).length}, ${newWire(data.tp)}))")
-          emitGlobalWire(src"val ${lhs} = Mux1H(${lhs}_valid_options, ${lhs}_data_options)")
+          emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${writersOf(lhs).length}, ${newWire(data.tp)}))", forceful = true)
+          emitGlobalWire(src"val ${lhs} = Mux1H(${lhs}_valid_options, ${lhs}_data_options)", forceful = true)
       }
 
       emitGlobalWire(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
@@ -131,6 +135,8 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emit(src"// LEDR, node = $lhs", forceful=true)
           emit(src"${lhs}_ready := 1.U", forceful=true)
           emit(src"${lhs}_valid := 1.U", forceful=true)
+          emit(src"""io.led_stream_out_data := ${lhs}""")
+
         case GPOutput1 => 
           emit(src"// GPOutput1, node = $lhs", forceful=true)
           emit(src"${lhs}_ready := 1.U", forceful=true)
@@ -253,16 +259,16 @@ trait ChiselGenStream extends ChiselGenSRAM {
               }
               // emit(src"""${stream}_valid := ${en} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)})""")
             case LEDR =>
-              emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
+              // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
         //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
               // emit(src"""${stream} := $data""")
-              emit(src"""io.led_stream_out_data := ${stream}""")
+              // emit(src"""io.led_stream_out_data := ${stream}""")
             case GPOutput1 =>
-              emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
+              // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
               // emit(src"""${stream} := $data""")
               emit(src"""io.gpo1_streamout_writedata := ${stream}""")
             case GPOutput2 =>
-              emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
+              // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
               // emit(src"""${stream} := $data""")
               emit(src"""io.gpo2_streamout_writedata := ${stream}""")
             case BurstFullDataBus() =>
