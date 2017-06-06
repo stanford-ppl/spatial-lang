@@ -146,10 +146,11 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
     case ParSRAMLoad(sram,inds,ens) =>
       val dispatch = dispatchOf(lhs, sram)
+      val width = bitWidth(sram.tp.typeArguments.head)
       val rPar = inds.length
       val dims = stagedDimsOf(sram)
       emit(s"""// Assemble multidimR vector""")
-      emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, 32)))""")
+      emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, ${width})))""")
       if (dispatch.toList.length == 1) {
         val k = dispatch.toList.head 
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
@@ -195,10 +196,11 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
     case ParSRAMStore(sram,inds,data,ens) =>
       val dims = stagedDimsOf(sram)
+      val width = bitWidth(sram.tp.typeArguments.head)
       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
       val enable = src"${parent}_datapath_en"
       emit(s"""// Assemble multidimW vector""")
-      emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, 32))) """)
+      emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, ${width}))) """)
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
       data.zipWithIndex.foreach { case (d, i) =>
         emit(src"""${lhs}_wVec($i).data := ${d}.r""")
