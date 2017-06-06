@@ -22,8 +22,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
           rhs match {
             case e: UnrolledForeach=> s"x${lhs.id}_unrForeach"
             case e: UnrolledReduce[_,_] => s"x${lhs.id}_unrRed"
-            case e: ParSRAMLoad[_] => s"x${lhs.id}_parLd"
-            case e: ParSRAMStore[_] => s"x${lhs.id}_parSt"
+            case e: ParSRAMLoad[_] => s"""x${lhs.id}_parLd${nameOf(lhs).getOrElse("")}"""
+            case e: ParSRAMStore[_] => s"""x${lhs.id}_parSt${nameOf(lhs).getOrElse("")}"""
             case e: ParFIFODeq[_] => s"x${lhs.id}_parDeq"
             case e: ParFIFOEnq[_] => s"x${lhs.id}_parEnq"
             case _ => super.quote(s)

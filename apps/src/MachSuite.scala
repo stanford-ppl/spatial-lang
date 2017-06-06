@@ -874,30 +874,44 @@ object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
   }
 }      
 
-object MD_Grid extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
  import IR._
 
  /*
   
   Moleckaler Dynamics via the grid, a digital frontier
-
-                  ← N_NEIGHBORS →   
-                 ___________________   
-                |                   |  
-            ↑   |                   |  
-                |                   |  
-                |                   |  
-                |                   |  
-      N_ATOMS   |                   |  
-                |                   |  
-                |                   |  
-                |                   |  
-            ↓   |                   |  
-                |                   |  
-                 ```````````````````   
-
-                 For each atom (row), get id of its interactions (col), index into idx/y/z, compute potential energy, and sum them all up
-
+                                                                             
+                                                                             
+                                                                             
+                                                                             
+                                                                             
+                            ←      BLOCK_SIDE     →                        
+                ↗                                                                                                
+                          __________________________________   
+       BLOCK_SIDE        /                                  /|  
+                        /                                  / |  
+        ↙              /                                  /  |  
+                      /_________________________________ /   |  
+                     |           b1                     |    |  
+           ↑         |        ..  ..  ..                |    |  
+                     |       - - - - - -                |    |  
+                     |      :``::``::``:                |    |  
+           B         |    b1:..::__::..:b1              |    |  
+           L         |      - - /_/| - -                |    |  
+           O         |     :``:|b0||:``:                |    |  
+           C         |   b1:..:|__|/:..:b1              |    |  
+           K         |      - - - -  - -                |    |  
+           |         |     :``::``: :``:                |    |  
+           S         |   b1:..::..: :..:b1              |    |  
+           I         |          b1                      |    |  
+           D         |                                  |   /   
+           E         |                                  |  /   
+                     |                                  | /    
+           ↓         |                                  |/     
+                      ``````````````````````````````````       * Each b0 contains up to "density" number of atoms
+                                                               * For each b0, and then for each atom in b0, compute this atom's
+                                                                    interactions with all atoms in the adjacent (27) b1's
+                                                               * One of the b1's will actually be b0, so skip this contribution                      
                                                                                                            
  */
 
@@ -909,85 +923,123 @@ object MD_Grid extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   def main() = {
 
     val N_ATOMS = 256
-    val N_NEIGHBORS = 16 
+    val DOMAIN_EDGE = 20
+    val BLOCK_SIDE = 4
+    val density = 10
     val lj1 = 1.5.to[T]
     val lj2 = 2.to[T]
-    val raw_xpos = loadCSV1D[T]("/remote/regression/data/machsuite/knn_x.csv", "\n")
-    val raw_ypos = loadCSV1D[T]("/remote/regression/data/machsuite/knn_y.csv", "\n")
-    val raw_zpos = loadCSV1D[T]("/remote/regression/data/machsuite/knn_z.csv", "\n")
-    val raw_interactions_data = loadCSV1D[Int]("/remote/regression/data/machsuite/knn_interactions.csv", "\n")
-    val raw_interactions = raw_interactions_data.reshape(N_ATOMS, N_NEIGHBORS)
 
-    val xpos_dram = DRAM[T](N_ATOMS)
-    val ypos_dram = DRAM[T](N_ATOMS)
-    val zpos_dram = DRAM[T](N_ATOMS)
-    val xforce_dram = DRAM[T](N_ATOMS)
-    val yforce_dram = DRAM[T](N_ATOMS)
-    val zforce_dram = DRAM[T](N_ATOMS)
-    val interactions_dram = DRAM[Int](N_ATOMS, N_NEIGHBORS)
+    val raw_npoints = Array[Int](4,4,3,4,5,5,2,1,1,8,4,8,3,3,7,5,4,5,6,2,2,4,4,3,3,4,7,2,3,2,
+                                 2,1,7,1,3,7,6,3,3,4,3,4,5,5,6,4,2,5,7,6,5,4,3,3,5,4,4,4,3,2,3,2,7,5)
+    val npoints_data = raw_npoints.reshape(BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE)
 
-    setMem(xpos_dram, raw_xpos)
-    setMem(ypos_dram, raw_ypos)
-    setMem(zpos_dram, raw_zpos)
-    setMem(interactions_dram, raw_interactions)
+    val raw_dvec = loadCSV1D[T]("/remote/regression/data/machsuite/grid_dvec.csv", "\n")
+    // Strip x,y,z vectors from raw_dvec
+    val dvec_x_data = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_dvec(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l)}
+    val dvec_y_data = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_dvec(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l+1)}
+    val dvec_z_data = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_dvec(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l+2)}
+
+    val dvec_x_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val dvec_y_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val dvec_z_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val force_x_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val force_y_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val force_z_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val npoints_dram = DRAM[Int](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE)
+
+    setMem(dvec_x_dram, dvec_x_data)
+    setMem(dvec_y_dram, dvec_y_data)
+    setMem(dvec_z_dram, dvec_z_data)
+    setMem(npoints_dram, npoints_data)
 
     Accel{
-      val xpos_sram = SRAM[T](N_ATOMS)
-      val ypos_sram = SRAM[T](N_ATOMS)
-      val zpos_sram = SRAM[T](N_ATOMS)
-      val xforce_sram = SRAM[T](N_ATOMS)
-      val yforce_sram = SRAM[T](N_ATOMS)
-      val zforce_sram = SRAM[T](N_ATOMS)
-      val interactions_sram = SRAM[Int](N_ATOMS, N_NEIGHBORS) // Can also shrink sram and work row by row
+      val dvec_x_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+      val dvec_y_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+      val dvec_z_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+      val npoints_sram = SRAM[Int](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE)
+      val force_x_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+      val force_y_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+      val force_z_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
 
-      xpos_sram load xpos_dram
-      ypos_sram load ypos_dram
-      zpos_sram load zpos_dram
-      interactions_sram load interactions_dram
+      dvec_x_sram load dvec_x_dram
+      dvec_y_sram load dvec_y_dram
+      dvec_z_sram load dvec_z_dram
+      npoints_sram load npoints_dram
 
-      Foreach(N_ATOMS by 1) { atom =>
-        val this_pos = XYZ(xpos_sram(atom), ypos_sram(atom), zpos_sram(atom))
-        val total_force = Reg[XYZ](XYZ(0.to[T], 0.to[T], 0.to[T]))
-        // total_force.reset // Probably unnecessary
-        Reduce(total_force)(N_NEIGHBORS by 1) { neighbor => 
-          val that_id = interactions_sram(atom, neighbor)
-          val that_pos = XYZ(xpos_sram(that_id), ypos_sram(that_id), zpos_sram(that_id))
-          val delta = XYZ(this_pos.x - that_pos.x, this_pos.y - that_pos.y, this_pos.z - that_pos.z)
-          val r2inv = 1.0.to[T]/( delta.x*delta.x + delta.y*delta.y + delta.z*delta.z );
-          // Assume no cutoff and aways account for all nodes in area
-          val r6inv = r2inv * r2inv * r2inv;
-          val potential = r6inv*(lj1*r6inv - lj2);
-          val force = r2inv*potential;
-          XYZ(delta.x*force, delta.y*force, delta.z*force)
+      // Iterate over each block
+      Foreach(BLOCK_SIDE by 1, BLOCK_SIDE by 1, BLOCK_SIDE by 1) { (b0x, b0y, b0z) => 
+        // Iterate over each point in this block, considering boundaries
+        val b0_cube_forces = SRAM[XYZ](density)
+        val b1x_start = max(0.to[Int],b0x-1.to[Int])
+        val b1x_end = min(BLOCK_SIDE.to[Int], b0x+2.to[Int])
+        val b1y_start = max(0.to[Int],b0y-1.to[Int])
+        val b1y_end = min(BLOCK_SIDE.to[Int], b0y+2.to[Int])
+        val b1z_start = max(0.to[Int],b0z-1.to[Int])
+        val b1z_end = min(BLOCK_SIDE.to[Int], b0z+2.to[Int])
+        MemReduce(b0_cube_forces)(b1x_start until b1x_end by 1, b1y_start until b1y_end by 1, b1z_start until b1z_end by 1) { (b1x, b1y, b1z) => 
+          val b1_cube_contributions = SRAM[XYZ](density)
+          // Iterate over points in b0
+          val p_range = npoints_sram(b0x, b0y, b0z)
+          val q_range = npoints_sram(b1x, b1y, b1z)
+          Foreach(0 until p_range) { p_idx =>
+            val px = dvec_x_sram(b0x, b0y, b0z, p_idx)
+            val py = dvec_y_sram(b0x, b0y, b0z, p_idx)
+            val pz = dvec_z_sram(b0x, b0y, b0z, p_idx)
+            val q_sum = Reg[XYZ](XYZ(0.to[T], 0.to[T], 0.to[T]))
+            Reduce(q_sum)(0 until q_range) { q_idx => 
+              val qx = dvec_x_sram(b1x, b1y, b1z, q_idx)
+              val qy = dvec_y_sram(b1x, b1y, b1z, q_idx)
+              val qz = dvec_z_sram(b1x, b1y, b1z, q_idx)
+              if ( !(b0x == b1x && b0y == b1y && b0z == b1z && p_idx == q_idx) ) { // Skip self
+                val delta = XYZ(px - qx, py - qy, pz - qz)
+                val r2inv = 1.0.to[T]/( delta.x*delta.x + delta.y*delta.y + delta.z*delta.z );
+                // Assume no cutoff and aways account for all nodes in area
+                val r6inv = r2inv * r2inv * r2inv;
+                val potential = r6inv*(lj1*r6inv - lj2);
+                val force = r2inv*potential;
+                XYZ(delta.x*force, delta.y*force, delta.z*force)
+              } else {
+                XYZ(0.to[T], 0.to[T], 0.to[T])
+              }
+            }{(a,b) => XYZ(a.x + b.x, a.y + b.y, a.z + b.z)}
+            b1_cube_contributions(p_idx) = q_sum
+          }
+          Foreach(p_range until density) { i => b1_cube_contributions(i) = XYZ(0.to[T], 0.to[T], 0.to[T]) } // Zero out untouched interactions          
+          b1_cube_contributions
         }{(a,b) => XYZ(a.x + b.x, a.y + b.y, a.z + b.z)}
-        xforce_sram(atom) = total_force.x
-        yforce_sram(atom) = total_force.y
-        zforce_sram(atom) = total_force.z
+
+        Foreach(0 until density) { i => 
+          force_x_sram(b0x,b0y,b0z,i) = b0_cube_forces(i).x
+          force_y_sram(b0x,b0y,b0z,i) = b0_cube_forces(i).y
+          force_z_sram(b0x,b0y,b0z,i) = b0_cube_forces(i).z
+        }
       }
-      xforce_dram store xforce_sram
-      yforce_dram store yforce_sram
-      zforce_dram store zforce_sram
+      force_x_dram store force_x_sram
+      force_y_dram store force_y_sram
+      force_z_dram store force_z_sram
+
     }
 
-    val xforce_received = getMem(xforce_dram)
-    val yforce_received = getMem(yforce_dram)
-    val zforce_received = getMem(zforce_dram)
-    val xforce_gold = loadCSV1D[T]("/remote/regression/data/machsuite/knn_x_gold.csv", "\n")
-    val yforce_gold = loadCSV1D[T]("/remote/regression/data/machsuite/knn_y_gold.csv", "\n")
-    val zforce_gold = loadCSV1D[T]("/remote/regression/data/machsuite/knn_z_gold.csv", "\n")
+    val force_x_received = getTensor4(force_x_dram)
+    val force_y_received = getTensor4(force_y_dram)
+    val force_z_received = getTensor4(force_z_dram)
+    val raw_force_gold = loadCSV1D[T]("/remote/regression/data/machsuite/grid_gold.csv", "\n")
+    val force_x_gold = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_force_gold(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l)}
+    val force_y_gold = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_force_gold(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l+1)}
+    val force_z_gold = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_force_gold(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l+2)}
 
-    printArray(xforce_gold, "Gold x:")
-    printArray(xforce_received, "Received x:")
-    printArray(yforce_gold, "Gold y:")
-    printArray(yforce_received, "Received y:")
-    printArray(zforce_gold, "Gold z:")
-    printArray(zforce_received, "Received z:")
 
-    val cksumx = xforce_gold.zip(xforce_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
-    val cksumy = yforce_gold.zip(yforce_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
-    val cksumz = zforce_gold.zip(zforce_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
+    printTensor4(force_x_gold, "Gold x:")
+    printTensor4(force_x_received, "Received x:")
+    printTensor4(force_y_gold, "Gold y:")
+    printTensor4(force_y_received, "Received y:")
+    printTensor4(force_z_gold, "Gold z:")
+    printTensor4(force_z_received, "Received z:")
 
+    val cksumx = force_x_gold.zip(force_x_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
+    val cksumy = force_y_gold.zip(force_y_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
+    val cksumz = force_z_gold.zip(force_z_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
     val cksum = cksumx && cksumy && cksumz
-    println("PASS: " + cksum + " (MD_KNN)")
+    println("PASS: " + cksum + " (MD_Grid)")
   }
 }      
