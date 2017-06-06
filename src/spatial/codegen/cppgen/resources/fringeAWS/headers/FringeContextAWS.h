@@ -309,6 +309,7 @@ public:
     */
     sv_pause(10000); // needed because 'is...done' does not poll read done, only queued (and only 1 burst)
 #else // F1
+    fsync(fd);
     pread(fd, (char *)hostmem, size, 0x10000000 + channel*MEM_16G + devmem);
 #endif // F1
   }

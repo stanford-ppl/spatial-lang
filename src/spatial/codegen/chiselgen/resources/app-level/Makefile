@@ -1,5 +1,5 @@
 VERILATOR_SRC=cpp/verilator
-AWS_SRC=cpp/aws
+AWS_V_DIR=verilog-aws
 timestamp := $(shell /bin/date "+%Y-%m-%d---%H-%M-%S")
 
 all: help
@@ -73,18 +73,16 @@ aws-sim-hw:
 	# ----------------------------------------------------------------------------
 	# Step 1: Make the design
 	# ----------------------------------------------------------------------------
-	# First build chisel, with backend verilator to create the verilog
-	rm -rf ${AWS_SRC}
-	sbt "run-main top.Instantiator --backend-name verilator --target-dir ${AWS_SRC} --testArgs aws"
-	mv ${AWS_SRC}/top* ${AWS_SRC}/aws_srcs_tmp
-	mv ${AWS_SRC}/aws_srcs_tmp/*.v ${AWS_SRC}/
-	rm -rf ${AWS_SRC}/aws_srcs_tmp
+	rm -rf ${AWS_V_DIR}
+	# First use chisel to create the verilog
+	sbt "run-main top.Instantiator --verilog --testArgs aws"
+	cat chisel/fringeVCS/SRAMVerilog.v >> ${AWS_V_DIR}/Top.v
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/${app_name}
 	cp -r $(AWS_HOME)/hdk/cl/examples/cl_dram_dma $(AWS_HOME)/hdk/cl/examples/${app_name}
 	# Add all the static design files
 	cp -f cpp/fringeAWS/design/* $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
-	cp -f ${AWS_SRC}/Top.v $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
+	cp -f ${AWS_V_DIR}/Top.v $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
 	# Run a script to put design together
 	python cpp/fringeAWS/gen_aws_design.py $(AWS_HOME)/hdk/cl/examples/${app_name}
 	# ----------------------------------------------------------------------------
@@ -109,18 +107,16 @@ aws-F1-hw:
 	# ----------------------------------------------------------------------------
 	# Make the design
 	# ----------------------------------------------------------------------------
-	# First build chisel, with backend verilator to create the verilog
-	rm -rf ${AWS_SRC}
-	sbt "run-main top.Instantiator --backend-name verilator --target-dir ${AWS_SRC} --testArgs aws"
-	mv ${AWS_SRC}/top* ${AWS_SRC}/aws_srcs_tmp
-	mv ${AWS_SRC}/aws_srcs_tmp/*.v ${AWS_SRC}/
-	rm -rf ${AWS_SRC}/aws_srcs_tmp
+	rm -rf ${AWS_V_DIR}
+	# First use chisel to create the verilog
+	sbt "run-main top.Instantiator --verilog --testArgs aws"
+	cat chisel/fringeVCS/SRAMVerilog.v >> ${AWS_V_DIR}/Top.v
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/${app_name}
 	cp -r $(AWS_HOME)/hdk/cl/examples/cl_dram_dma $(AWS_HOME)/hdk/cl/examples/${app_name}
 	# Add all the static design files
 	cp -f cpp/fringeAWS/design/* $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
-	cp -f ${AWS_SRC}/Top.v $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
+	cp -f ${AWS_V_DIR}/Top.v $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
 	# Run a script to put design together
 	python cpp/fringeAWS/gen_aws_design.py $(AWS_HOME)/hdk/cl/examples/${app_name}
 

@@ -219,7 +219,7 @@ always_ff @(posedge clk or negedge rst_n) begin
               end
               ready_for_next_cmd <= 0;
               
-              // TEMP HACK FOR F1
+              // TODO: Remove this if block, not needed after Raghu's fix
               if (addr_size_valid) begin
                 current_burst_addr <= addr;
                 if (write_mode) begin
