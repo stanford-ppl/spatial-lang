@@ -1186,7 +1186,8 @@ object GEMM_Blocked extends SpatialApp { // DISABLED Regression (Dense) // Args:
 
  /*
                                                              
-    CONCERNS: We need to figure out how HLS is actually managing the srams, or make our management better                                                                                            
+    CONCERNS: We need to figure out how HLS is actually managing the srams, or make our management better  
+              We cannot do unaligned stores yet, so tilesize of 8 won't work unless we keep ts 16 of c_sram onchip                                                                                          
  */
   type T = FixPt[TRUE,_16,_16]
 
@@ -1210,10 +1211,10 @@ object GEMM_Blocked extends SpatialApp { // DISABLED Regression (Dense) // Args:
     Accel{
       val a_sram = SRAM[T](tileSize)
       val b_sram = SRAM[T](tileSize,tileSize)
-      val c_sram = SRAM[T](dim,tileSize) // No tiling along rows dim in machsuite??
+      val c_sram = SRAM[T](dim,dim) // No tiling along rows dim in machsuite??
+      c_sram load c_dram
 
       Foreach(dim by tileSize) { jj => 
-        c_sram load c_dram(0::dim, jj::jj+tileSize)
         Foreach(dim by tileSize) { kk =>
           b_sram load b_dram(kk::kk+tileSize, jj::jj+tileSize)
           Foreach(dim by 1) { i => 
@@ -1221,13 +1222,13 @@ object GEMM_Blocked extends SpatialApp { // DISABLED Regression (Dense) // Args:
             Foreach(tileSize by 1) { k => 
               val temp_a = a_sram(k)
               Foreach(tileSize by 1) { j => 
-                c_sram(i,j) = c_sram(i,j) + b_sram(k, j) * temp_a
+                c_sram(i,j+jj) = c_sram(i,j+jj) + b_sram(k, j) * temp_a
               }
             }
           } 
         }
-        c_dram(0::dim, jj::jj+tileSize) store c_sram
       }
+      c_dram store c_sram
     }
 
     val c_gold = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_gold.csv", "\n").reshape(dim,dim)
