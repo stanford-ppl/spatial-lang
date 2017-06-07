@@ -382,7 +382,7 @@ trait ChiselGenController extends ChiselGenCounter{
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
     emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, retime = ${sym}_retime))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
-    emit(src"""${sym}_done := ShiftRegister(${sym}_sm.io.output.done, ${sym}_retime)""")
+    emit(src"""${sym}_done := ${sym}_sm.io.output.done.D(${sym}_retime,rr)""")
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
     emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw // Unused for inner and parallel""")
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
@@ -496,7 +496,9 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
       emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
       emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := false.B; retime_counter.io.input.enable := true.B;""")
-      emit(src"""val retime_released = retime_counter.io.output.done """)
+      emitGlobalWire(src"""val retime_released = Wire(Bool())""")
+      emitGlobalWire(src"""val rr = retime_released // Shorthand""")
+      emit(src"""retime_released := retime_counter.io.output.done """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       // Emit unit counter for this
@@ -617,7 +619,7 @@ trait ChiselGenController extends ChiselGenCounter{
           emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
           emit(src"""${lhs}_done := ${lhs}_en // Route through""")
         } else { // More than one control node is children
-          throw new Exception("Please put a pipe around your multiple controllers inside the if statement")
+          // throw new Exception("Please put a pipe around your multiple controllers inside the if statement")
         }
         if (Bits.unapply(op.mT).isDefined) {
           emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})")

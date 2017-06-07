@@ -170,6 +170,8 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     val y1 = ArgOut[Int]
     val y2 = ArgOut[Int]
     val y3 = ArgOut[Int]
+    val y4 = ArgOut[Int]
+    val y5 = ArgOut[Int]
     val m1 = DRAM[Int](16)
     val m2 = DRAM[Int](16)
     setArg(io1, cst1)
@@ -186,6 +188,13 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
       Pipe { y2 := 999 }
       Pipe { y1 := x1.value + 6 }
       Pipe { y2 := x2.value + 8 }
+      val reg = Reg[Int](0) // Nbuffered reg with multi writes, note that it does not do what you think!
+      Foreach(3 by 1) {i => 
+        Pipe{reg :+= 1}
+        Pipe{y4 := reg}
+        Pipe{reg :+= 1}
+        Pipe{y5 := reg}
+      }
       val sram1 = SRAM[Int](16)
       val sram2 = SRAM[Int](16)
       sram1 load m1
@@ -205,10 +214,14 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     val r5 = getMem(m2)
     val g6 = data(3)
     val r6 = getArg(y3)
-    println("expected: " + g1 + ", " + g2 + ", " + g3 + ", " + g4 + ", "+ g6)
-    println("received: " + r1 + ", " + r2 + ", " + r3 + ", " + r4 + ", "+ r6)
+    val g7 = 1
+    val r7 = getArg(y4)
+    val g8 = 2
+    val r8 = getArg(y5)
+    println("expected: " + g1 + ", " + g2 + ", " + g3 + ", " + g4 + ", "+ g6 + ", " + g7 + ", " + g8)
+    println("received: " + r1 + ", " + r2 + ", " + r3 + ", " + r4 + ", "+ r6 + ", " + r7 + ", " + r8)
     printArray(r5, "Mem: ")
-    val cksum = r1 == g1 && r2 == g2 && r3 == g3 && r4 == g4 && r6 == g6 && data.zip(r5){_==_}.reduce{_&&_}
+    val cksum = r1 == g1 && r2 == g2 && r3 == g3 && r4 == g4 && r6 == g6 && data.zip(r5){_==_}.reduce{_&&_} && r7 == g7 && r8 == g8
     println("PASS: " + cksum + " (MixedIOTest)")
   }
 }
@@ -284,6 +297,7 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
   val I = 5
   val N = 192
 
+  @virtualize
   def bubbledwrtest(w: Array[Int], i: Array[Int]): Array[Int] = {
     val T = param(tileSize)
     val P = param(4)

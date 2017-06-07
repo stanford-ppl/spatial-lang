@@ -234,7 +234,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
     case StreamWrite(stream, data, en) =>
       val parent = parentOf(lhs).get
       emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")""")
-      emit(src"""${stream}_valid_options(${lhs}_wId) := ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
+      emit(src"""${stream}_valid_options(${lhs}_wId) := (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) & $en""")
       emit(src"""${stream}_data_options(${lhs}_wId) := $data""")
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
@@ -272,11 +272,11 @@ trait ChiselGenStream extends ChiselGenSRAM {
               // emit(src"""${stream} := $data""")
               emit(src"""io.gpo2_streamout_writedata := ${stream}""")
             case BurstFullDataBus() =>
-              emit(src"""${stream}_valid := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) // Do not delay ready because datapath includes a delayed _valid already """)
+              emit(src"""${stream}_valid := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) // Do not delay ready because datapath includes a delayed _valid already """)
               // emit(src"""${stream} := $data""")
 
             case BurstCmdBus =>  
-              emit(src"""${stream}_valid := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) // Do not delay ready because datapath includes a delayed _valid already """)
+              emit(src"""${stream}_valid := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) // Do not delay ready because datapath includes a delayed _valid already """)
               // emit(src"""${stream} := $data""")
 
             case _ => 

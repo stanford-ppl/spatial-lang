@@ -1124,3 +1124,121 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
     println("PASS: " + cksum + " (KMP) * Implement string find, string file parser, and string <-> hex <-> dec features once argon refactor is done so we can test any strings")
   }
 }      
+
+
+object GEMM_NCubed extends SpatialApp { // Regression (Dense) // Args: none
+ import IR._
+
+ /*
+                                                             
+                                                                                                           
+ */
+  type T = FixPt[TRUE,_16,_16]
+
+  @virtualize
+  def main() = {
+
+    val dim = 64
+
+    val a_data = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_a.csv", "\n").reshape(dim,dim)
+    val b_data = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_b.csv", "\n").reshape(dim,dim)
+
+    val a_dram = DRAM[T](dim,dim)
+    val b_dram = DRAM[T](dim,dim)
+    val c_dram = DRAM[T](dim,dim)
+
+    setMem(a_dram, a_data)
+    setMem(b_dram, b_data)
+
+    Accel{
+      val a_sram = SRAM[T](dim,dim)
+      val b_sram = SRAM[T](dim,dim)
+      val c_sram = SRAM[T](dim,dim)
+
+      a_sram load a_dram
+      b_sram load b_dram
+
+      Foreach(dim by 1) { i => 
+        Foreach(dim by 1) { j => 
+          val sum = Reduce(Reg[T](0))(dim by 1) { k => 
+            a_sram(i,k) * b_sram(k,j)
+          }{_+_}
+          c_sram(i,j) = sum
+        }
+      }
+      c_dram store c_sram
+    }
+
+    val c_gold = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_gold.csv", "\n").reshape(dim,dim)
+    val c_result = getMatrix(c_dram)
+
+    printMatrix(c_gold, "C Gold: ")
+    printMatrix(c_result, "C Result: ")
+
+    val margin = 0.5.to[T]
+    val cksum = c_gold.zip(c_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    println("PASS: " + cksum + " (GEMM_NCubed)")
+  }
+}      
+
+object GEMM_Blocked extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+ import IR._
+
+ /*
+                                                             
+    CONCERNS: We need to figure out how HLS is actually managing the srams, or make our management better                                                                                            
+ */
+  type T = FixPt[TRUE,_16,_16]
+
+  @virtualize
+  def main() = {
+
+    val dim = 64
+    val tileSize = 8
+
+    val a_data = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_a.csv", "\n").reshape(dim,dim)
+    val b_data = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_b.csv", "\n").reshape(dim,dim)
+    val c_init = (0::dim, 0::dim){(i,j) => 0.to[T]}
+    val a_dram = DRAM[T](dim,dim)
+    val b_dram = DRAM[T](dim,dim)
+    val c_dram = DRAM[T](dim,dim)
+
+    setMem(a_dram, a_data)
+    setMem(b_dram, b_data)
+    setMem(c_dram, c_init)
+
+    Accel{
+      val a_sram = SRAM[T](tileSize)
+      val b_sram = SRAM[T](tileSize,tileSize)
+      val c_sram = SRAM[T](dim,tileSize) // No tiling along rows dim in machsuite??
+
+      Foreach(dim by tileSize) { jj => 
+        c_sram load c_dram(0::dim, jj::jj+tileSize)
+        Foreach(dim by tileSize) { kk =>
+          b_sram load b_dram(kk::kk+tileSize, jj::jj+tileSize)
+          Foreach(dim by 1) { i => 
+            a_sram load a_dram(i, kk::kk+tileSize)
+            Foreach(tileSize by 1) { k => 
+              val temp_a = a_sram(k)
+              Foreach(tileSize by 1) { j => 
+                c_sram(i,j) = c_sram(i,j) + b_sram(k, j) * temp_a
+              }
+            }
+          } 
+        }
+        c_dram(0::dim, jj::jj+tileSize) store c_sram
+      }
+    }
+
+    val c_gold = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_gold.csv", "\n").reshape(dim,dim)
+    val c_result = getMatrix(c_dram)
+
+    printMatrix(c_gold, "C Gold: ")
+    printMatrix(c_result, "C Result: ")
+
+    val margin = 0.5.to[T]
+    val cksum = c_gold.zip(c_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    println("PASS: " + cksum + " (GEMM_Blocked)")
+  }
+}      
+
