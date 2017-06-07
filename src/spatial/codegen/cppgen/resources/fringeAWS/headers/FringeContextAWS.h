@@ -284,10 +284,6 @@ public:
     sv_pause(10000); // needed because 'is...done' does not poll bvalid/bready, but only that the cmd is queued (and only 1 burst)
 #else // F1
     pwrite(fd, (char *)hostmem, size, 0x10000000 + channel*MEM_16G + devmem);
-    // TODO: Maybe move fsync to before run(), instead of each time there is a memcpy
-    // "fsync() will make sure the write made it to the target buffer before read is done"
-    // See https://github.com/aws/aws-fpga/tree/prelease/sdk/linux_kernel_drivers/edma#write-synchronization-read-after-write-lack-of-ordering-and-fsync
-    fsync(fd);
 #endif // F1
   }
 
@@ -309,14 +305,22 @@ public:
     */
     sv_pause(10000); // needed because 'is...done' does not poll read done, only queued (and only 1 burst)
 #else // F1
-    fsync(fd);
-    pread(fd, (char *)hostmem, size, 0x10000000 + channel*MEM_16G + devmem);
+    // pread(fd, (char *)hostmem, size, 0x10000000 + channel*MEM_16G + devmem);
+    // TODO: Use single pread as above. 1 burst at a time currently needed to avoid 
+    // missed / incorrect bursts. Likely due to caching but fsync() seems not to fix
+    for (int b=0; b < size/16; ++b) {
+      pread(fd, ((char *)hostmem) + b*16, 16, 0x10000000 + channel*MEM_16G + devmem + b*16);
+    }
 #endif // F1
   }
 
 
   // set enable high in app and poll until done is high
   virtual void run() {
+#ifdef SIM
+#else // F1
+    assert(fsync(fd) == 0); // TODO: Is this needed?
+#endif // F1
     aws_poke(BASE_ADDR + ATG, 0x00000001);
     aws_poke(BASE_ADDR + NUM_INST, 0x00000000);
     uint32_t status;
@@ -325,6 +329,10 @@ public:
       aws_peek(SCALAR_CMD_BASE_ADDR + STATUS_REG_ADDR, &status);
     } while (!status);
     aws_poke(BASE_ADDR + ATG, 0x00000000);
+#ifdef SIM
+#else // F1
+    assert(fsync(fd) == 0); // TODO: Is this needed?
+#endif // F1
   }
 
 
