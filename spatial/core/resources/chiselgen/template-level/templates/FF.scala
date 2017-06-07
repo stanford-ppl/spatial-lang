@@ -41,12 +41,16 @@ class FF(val w: Int, val numWriters: Int = 1) extends Module {
     data match {
       case d: UInt =>
         io.input(wId).data := d
+      case d: SInt => 
+        io.input(wId).data := d.asUInt
       case d: types.FixedPoint =>
         io.input(wId).data := d.number
     }
     init match {
       case d: UInt =>
         io.input(wId).init := d
+      case d: SInt => 
+        io.input(wId).init := d.asUInt
       case d: types.FixedPoint =>
         io.input(wId).init := d.number
     }
@@ -154,12 +158,16 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
       data match { 
         case d: UInt => 
           io.input(wId).data := d
+        case d: SInt => 
+          io.input(wId).data := d.asUInt
         case d: types.FixedPoint => 
           io.input(wId).data := d.number
       }
       init match { 
         case d: UInt => 
           io.input(wId).init := d
+        case d: SInt => 
+          io.input(wId).init := d.asUInt
         case d: types.FixedPoint => 
           io.input(wId).init := d.number
       }

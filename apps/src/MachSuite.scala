@@ -866,9 +866,10 @@ object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
     printArray(zforce_gold, "Gold z:")
     printArray(zforce_received, "Received z:")
 
-    val cksumx = xforce_gold.zip(xforce_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
-    val cksumy = yforce_gold.zip(yforce_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
-    val cksumz = zforce_gold.zip(zforce_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
+    val margin = 0.001.to[T]
+    val cksumx = xforce_gold.zip(xforce_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
+    val cksumy = yforce_gold.zip(yforce_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
+    val cksumz = zforce_gold.zip(zforce_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
     val cksum = cksumx && cksumy && cksumz
     println("PASS: " + cksum + " (MD_KNN)")
   }
@@ -1036,9 +1037,10 @@ object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
     printTensor4(force_z_gold, "Gold z:")
     printTensor4(force_z_received, "Received z:")
 
-    val cksumx = force_x_gold.zip(force_x_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
-    val cksumy = force_y_gold.zip(force_y_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
-    val cksumz = force_z_gold.zip(force_z_received){case (a,b) => abs(a - b) == 0.to[T]}.reduce{_&&_}
+    val margin = 0.001.to[T]
+    val cksumx = force_x_gold.zip(force_x_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
+    val cksumy = force_y_gold.zip(force_y_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
+    val cksumz = force_z_gold.zip(force_z_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
     val cksum = cksumx && cksumy && cksumz
     println("PASS: " + cksum + " (MD_Grid)")
   }
@@ -1241,5 +1243,77 @@ object GEMM_Blocked extends SpatialApp { // Regression (Dense) // Args: none
     val cksum = c_gold.zip(c_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
     println("PASS: " + cksum + " (GEMM_Blocked)")
   }
-}      
+}
 
+object Sort_Merge extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+ import IR._
+
+ /*
+                                                             
+    CONCERNS: We need to figure out how HLS is actually managing the srams, or make our management better  
+              We cannot do unaligned stores yet, so tilesize of 8 won't work unless we keep ts 16 of c_sram onchip                                                                                          
+ */
+
+  @virtualize
+  def main() = {
+
+    val numel = 2048
+    val START = 0
+    val STOP = numel
+
+    val unsorted_data = loadCSV1D[Int]("/remote/regression/data/machsuite/sortmerge_data.csv", "\n")
+
+    val unsorted_dram = DRAM[Int](numel)
+    val sorted_dram = DRAM[Int](numel)
+
+    setMem(unsorted_dram, unsorted_data)
+
+    Accel{
+      val data_sram = SRAM[Int](numel)
+      val temp_sram = SRAM[Int](numel) // Can this be a fifo or stack?
+
+      data_sram load unsorted_dram
+
+
+      FSM[Int,Int](1){m => m < STOP - START} { m =>
+        FSM[Int,Int](START)(i => i < STOP) { i =>
+          val from = i
+          val mid = i+m-1
+          val to = min(i+m+m-1, STOP.to[Int])
+          Foreach(from until mid+1 by 1){ i => temp_sram(i) = data_sram(i) }
+          Foreach(mid+1 until to+1 by 1){ j => temp_sram(mid+1+to-j) = data_sram(j) }
+          val addr_i = Reg[Int](0)
+          val addr_j = Reg[Int](0)
+          Parallel{
+            addr_i := from
+            addr_j := to
+          }
+          Sequential.Foreach(from until to+1 by 1) { k => 
+            val tmp_i = Reg[Int](0)
+            val tmp_j = Reg[Int](0)
+            Pipe{tmp_i := temp_sram(addr_i)}
+            Pipe{tmp_j := temp_sram(addr_j)}
+            if (tmp_j < tmp_i) {
+              data_sram(k) = tmp_j
+              addr_j :-= 1
+            } else {
+              data_sram(k) = tmp_i
+              addr_i :-= 1
+            }
+          }
+        }{ i => i + m + m }
+      }{ m => m + m}
+
+      sorted_dram store data_sram
+    }
+
+    val sorted_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/sortmerge_gold.csv", "\n")
+    val sorted_result = getMem(sorted_dram)
+
+    printArray(sorted_gold, "Sorted Gold: ")
+    printArray(sorted_result, "Sorted Result: ")
+
+    val cksum = sorted_gold.zip(sorted_result){_==_}.reduce{_&&_}
+    println("PASS: " + cksum + " (Sort_Merge)")
+  }
+}
