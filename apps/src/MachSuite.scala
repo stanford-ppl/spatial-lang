@@ -1245,13 +1245,35 @@ object GEMM_Blocked extends SpatialApp { // Regression (Dense) // Args: none
   }
 }
 
-object Sort_Merge extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
  import IR._
 
- /*
-                                                             
-    CONCERNS: We need to figure out how HLS is actually managing the srams, or make our management better  
-              We cannot do unaligned stores yet, so tilesize of 8 won't work unless we keep ts 16 of c_sram onchip                                                                                          
+ /*                                                                                                  
+                              |     |                                                                                                                                                                                        
+                     |        |     |                                      |     |                                                                                                                                                                                     
+                     |  |     |     |  |                             |     |     |                                                                                                                                                                           
+                     |  |  |  |     |  |                          |  |     |     |     |                                                                                                                                                                     
+                     |  |  |  |  |  |  |                          |  |  |  |     |     |                                                                                                                                                                     
+                     |  |  |  |  |  |  |  |                       |  |  |  |  |  |     |                                                                                                                                                                      
+                     |  |  |  |  |  |  |  |                       |  |  |  |  |  |  |  |                                                                                                                                                                        
+                     |  |  |  |  |  |  |  |                       |  |  |  |  |  |  |  |                                                                                                                                                                      
+                                                                  |  |  |  |  |  |  |  |                      
+   Outer FSM iter 1:  ↖↗    ↖↗    ↖↗    ↖↗      Outer FSM iter 2:  ↖.....↖     ↖.....↖                                                                                                                      
+                     fifos numel = 1                               fifos numel = 2                                                            
+                                                                  
+                                                                                                     
+                            |           |                                           |  |                                                                                                   
+                         |  |           |                                        |  |  |                                                                                                   
+                      |  |  |        |  |                                  |  |  |  |  |                                                                                                  
+                   |  |  |  |        |  |                               |  |  |  |  |  |                                                                                                  
+                   |  |  |  |     |  |  |                            |  |  |  |  |  |  |                                                                                                  
+                   |  |  |  |  |  |  |  |                         |  |  |  |  |  |  |  |                                                                                                  
+                   |  |  |  |  |  |  |  |                         |  |  |  |  |  |  |  |                                                                                                  
+                   |  |  |  |  |  |  |  |                         |  |  |  |  |  |  |  |                                                                                                  
+ Outer FSM iter 3:  ↖...........↖               Outer FSM iter 4:                                                                                                     
+                   fifos numel = 4                                 Done
+                                                                                                                                                                                                                   
+                                                                                                                                                                           
  */
 
   @virtualize
@@ -1260,60 +1282,156 @@ object Sort_Merge extends SpatialApp { // DISABLED Regression (Dense) // Args: n
     val numel = 2048
     val START = 0
     val STOP = numel
+    val levels = STOP-START //ArgIn[Int]
+    // setArg(levels, args(0).to[Int])
 
-    val unsorted_data = loadCSV1D[Int]("/remote/regression/data/machsuite/sortmerge_data.csv", "\n")
+    val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_data.csv", "\n")
 
-    val unsorted_dram = DRAM[Int](numel)
-    val sorted_dram = DRAM[Int](numel)
+    val data_dram = DRAM[Int](numel)
+    // val sorted_dram = DRAM[Int](numel)
 
-    setMem(unsorted_dram, unsorted_data)
+    setMem(data_dram, raw_data)
 
     Accel{
       val data_sram = SRAM[Int](numel)
-      val temp_sram = SRAM[Int](numel) // Can this be a fifo or stack?
+      val lower_fifo = FIFO[Int](numel/2)
+      val upper_fifo = FIFO[Int](numel/2)
 
-      data_sram load unsorted_dram
+      data_sram load data_dram
 
 
-      FSM[Int,Int](1){m => m < STOP - START} { m =>
+      FSM[Int,Int](1){m => m < levels} { m =>
         FSM[Int,Int](START)(i => i < STOP) { i =>
           val from = i
           val mid = i+m-1
           val to = min(i+m+m-1, STOP.to[Int])
-          Foreach(from until mid+1 by 1){ i => temp_sram(i) = data_sram(i) }
-          Foreach(mid+1 until to+1 by 1){ j => temp_sram(mid+1+to-j) = data_sram(j) }
-          val addr_i = Reg[Int](0)
-          val addr_j = Reg[Int](0)
-          Parallel{
-            addr_i := from
-            addr_j := to
-          }
+          val lower_tmp = Reg[Int](0)
+          val upper_tmp = Reg[Int](0)
+          Foreach(from until mid+1 by 1){ i => if (i == from) {lower_tmp := data_sram(i)} else {lower_fifo.enq(data_sram(i))} }
+          Foreach(mid+1 until to+1 by 1){ j => if (j == mid+1) {upper_tmp := data_sram(j)} else {upper_fifo.enq(data_sram(j))} }
           Sequential.Foreach(from until to+1 by 1) { k => 
-            val tmp_i = Reg[Int](0)
-            val tmp_j = Reg[Int](0)
-            Pipe{tmp_i := temp_sram(addr_i)}
-            Pipe{tmp_j := temp_sram(addr_j)}
-            if (tmp_j < tmp_i) {
-              data_sram(k) = tmp_j
-              addr_j :-= 1
+            if (lower_tmp < upper_tmp) {
+              data_sram(k) = lower_tmp
+              val next_lower = if (lower_fifo.empty) {0x7FFFFFFF.to[Int]} else {lower_fifo.deq()}
+              lower_tmp := next_lower
             } else {
-              data_sram(k) = tmp_i
-              addr_i :-= 1
+              data_sram(k) = upper_tmp
+              val next_upper = if (upper_fifo.empty) {0x7FFFFFFF.to[Int]} else {upper_fifo.deq()}
+              upper_tmp := next_upper
             }
           }
         }{ i => i + m + m }
       }{ m => m + m}
 
-      sorted_dram store data_sram
+      // sorted_dram store data_sram
+      data_dram store data_sram
     }
 
-    val sorted_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/sortmerge_gold.csv", "\n")
-    val sorted_result = getMem(sorted_dram)
+    val sorted_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_gold.csv", "\n")
+    val sorted_result = getMem(data_dram)
 
     printArray(sorted_gold, "Sorted Gold: ")
     printArray(sorted_result, "Sorted Result: ")
 
     val cksum = sorted_gold.zip(sorted_result){_==_}.reduce{_&&_}
+    // // Use the real way to check if list is sorted instead of using machsuite gold
+    // // This way says I've done goofed, issue #
+    // val cksum = Array.tabulate(STOP-1){ i => pack(sorted_result(i), sorted_result(i+1)) }.map{a => a._1 <= a._2}.reduce{_&&_}
     println("PASS: " + cksum + " (Sort_Merge)")
   }
 }
+
+//object Sort_Radix extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+// import IR._
+//
+// /*                                                                                                  
+//                                                                                                                                                                                                                                 
+//                                                                                                                                                                                                                                                                           
+//                                                                                                                                                                                                                                                                 
+//                                                                                                                                                                                                                                                                 
+//                                                                                                                                                                                                                                                                 
+//                                                                                                                                                                                                                                                                  
+//                                                                                                                                                                                                                                                                    
+//                                                                                                                                                                                                                                                                  
+//                                                                                                                  
+//                                                                                                                                                                                                                
+//                                                                                                                                                  
+//                                                                                                 
+//                                                                                                         
+//                                                                                                                                                                                               
+//                                                                                                                                                                                               
+//                                                                                                                                                                                              
+//                                                                                                                                                                                              
+//                                                                                                                                                                                              
+//                                                                                                                                                                                              
+//                                                                                                                                                                                              
+//                                                                                                                                                                                              
+//                                                                                                                                                                         
+//                                                                                                 
+//                                                                                                                                                                                                                       
+//                                                                                                                                                                           
+// */
+//
+//  @virtualize
+//  def main() = {
+//
+//    val numel = 2048
+//    val NUM_BLOCKS = 512
+//    val EL_PER_BLOCK = 4
+//    val RADIX = 4
+//    val BUCKET_SIZE = NUM_BLOCKS*RADIX
+//
+//    val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_data.csv", "\n")
+//
+//    val data_dram = DRAM[Int](numel)
+//    val sorted_dram = DRAM[Int](numel)
+//
+//    setMem(data_dram, raw_data)
+//
+//    Accel{
+//      val data_sram = SRAM[Int](numel)
+//      val lower_fifo = FIFO[Int](numel/2)
+//      val upper_fifo = FIFO[Int](numel/2)
+//
+//      data_sram load data_dram
+//
+//
+//      FSM[Int,Int](1){m => m < levels} { m =>
+//        FSM[Int,Int](START)(i => i < STOP) { i =>
+//          val from = i
+//          val mid = i+m-1
+//          val to = min(i+m+m-1, STOP.to[Int])
+//          val lower_tmp = Reg[Int](0)
+//          val upper_tmp = Reg[Int](0)
+//          Foreach(from until mid+1 by 1){ i => if (i == from) {lower_tmp := data_sram(i)} else {lower_fifo.enq(data_sram(i))} }
+//          Foreach(mid+1 until to+1 by 1){ j => if (j == mid+1) {upper_tmp := data_sram(j)} else {upper_fifo.enq(data_sram(j))} }
+//          Sequential.Foreach(from until to+1 by 1) { k => 
+//            if (lower_tmp < upper_tmp) {
+//              data_sram(k) = lower_tmp
+//              val next_lower = if (lower_fifo.empty) {0x7FFFFFFF.to[Int]} else {lower_fifo.deq()}
+//              lower_tmp := next_lower
+//            } else {
+//              data_sram(k) = upper_tmp
+//              val next_upper = if (upper_fifo.empty) {0x7FFFFFFF.to[Int]} else {upper_fifo.deq()}
+//              upper_tmp := next_upper
+//            }
+//          }
+//        }{ i => i + m + m }
+//      }{ m => m + m}
+//
+//      sorted_dram store data_sram
+//    }
+//
+//    val sorted_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_gold.csv", "\n")
+//    val sorted_result = getMem(sorted_dram)
+//
+//    printArray(sorted_gold, "Sorted Gold: ")
+//    printArray(sorted_result, "Sorted Result: ")
+//
+//    val cksum = sorted_gold.zip(sorted_result){_==_}.reduce{_&&_}
+//    // // Use the real way to check if list is sorted instead of using machsuite gold
+//    // // This way says I've done goofed, issue #
+//    // val cksum = Array.tabulate(STOP-1){ i => pack(sorted_result(i), sorted_result(i+1)) }.map{a => a._1 <= a._2}.reduce{_&&_}
+//    println("PASS: " + cksum + " (Sort_Radix)")
+//  }
+//}
