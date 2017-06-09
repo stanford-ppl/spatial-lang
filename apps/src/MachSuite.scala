@@ -1487,7 +1487,7 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 
-object SPMV_CRS extends SpatialApp { // Regression (Dense) // Args: none
+object SPMV_CRS extends SpatialApp { // Regression (Sparse) // Args: none
  import IR._
 
  /*                                                                                                  
@@ -1576,7 +1576,7 @@ object SPMV_CRS extends SpatialApp { // Regression (Dense) // Args: none
   }
 }
 
-object SPMV_ELL extends SpatialApp { // Regression (Dense) // Args: none
+object SPMV_ELL extends SpatialApp { // Regression (Sparse) // Args: none
  import IR._
 
  /*                                                                                                  
