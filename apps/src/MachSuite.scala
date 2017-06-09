@@ -1486,3 +1486,149 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
   }
 }
 
+object SPMV_CRS extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+ import IR._
+
+ /*                                                                                                  
+   Sparse Matrix is the IEEE 494 bus interconnect matrix from UF Sparse Datasets   
+
+    Datastructures in CRS:
+              0__1__2__3__4__5_
+      rowid: |__|__|__|__|__|__|
+               |  |____   |_____________                       
+              _↓_______`↓_______________`↓_______
+      cols:  |___________________________________|
+              _↓________↓________________↓_______
+     values: |___________________________________|    
+
+        Use cols to gather from vector:
+              ____________________________________________
+     vector: |____________________________________________|
+
+
+   Concerns:
+      Machsuite assumes everything fits on chip?  So there are no gathers...  Setting tilesize to problem size for now
+ */
+
+  type T = FixPt[TRUE,_32,_32]
+  @virtualize
+  def main() = {
+
+    val NNZ = 1666
+    val N = 494
+    val tileSize = 494
+
+    val raw_values = loadCSV1D[T]("/remote/regression/data/machsuite/crs_values.csv", "\n")
+    val raw_cols = loadCSV1D[Int]("/remote/regression/data/machsuite/crs_cols.csv", "\n")
+    val raw_rowid = loadCSV1D[Int]("/remote/regression/data/machsuite/crs_rowid.csv", "\n")
+    val raw_vec = loadCSV1D[T]("/remote/regression/data/machsuite/crs_vec.csv", "\n")
+
+    val values_dram = DRAM[T](NNZ) 
+    val cols_dram = DRAM[Int](NNZ) 
+    val rowid_dram = DRAM[Int](N+1) 
+    val vec_dram = DRAM[T](N) 
+    val result_dram = DRAM[T](N)
+
+    setMem(values_dram, raw_values)
+    setMem(cols_dram, raw_cols)
+    setMem(rowid_dram, raw_rowid)
+    setMem(vec_dram, raw_vec)
+
+    Accel {
+      val rowid_sram = SRAM[Int](tileSize+1)
+      val cols_sram = SRAM[Int](tileSize)
+      val values_sram = SRAM[T](tileSize)
+      val vec_sram = SRAM[T](tileSize)
+      val result_sram = SRAM[T](tileSize)
+
+      Foreach(N/tileSize by 1) { tile =>
+        rowid_sram load rowid_dram(tile*(tileSize+1) :: (tile+1)*(tileSize+1))
+        Foreach(tileSize by 1) { i => 
+          val start_id = rowid_sram(i)
+          val stop_id = rowid_sram(i+1)
+          cols_sram load cols_dram(start_id :: start_id+stop_id)
+          values_sram load values_dram(start_id :: start_id+stop_id)
+          vec_sram gather vec_dram(cols_sram, stop_id - start_id)
+          val element = Reduce(Reg[T](0))(stop_id - start_id by 1) { j => 
+            values_sram(j) * vec_sram(j)
+          }{_+_}
+          result_sram(i) = element
+        }
+        result_dram(tile*tileSize :: (tile+1)*tileSize) store result_sram
+      }
+    }
+
+    val data_gold = loadCSV1D[T]("/remote/regression/data/machsuite/crs_gold.csv", "\n")
+    val data_result = getMem(result_dram)
+
+    printArray(data_gold, "Gold: ")
+    printArray(data_result, "Result: ")
+
+    val margin = 0.001.to[T]
+    val cksum = data_gold.zip(data_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+
+    println("PASS: " + cksum + " (SPMV_CRS)")
+
+
+  }
+}
+
+object SPMV_ELL extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+ import IR._
+
+ /*                                                                                                  
+   Sparse Matrix is the IEEE 494 bus interconnect matrix from UF Sparse Datasets   
+
+    Datastructures in Ellpack:
+
+                                                                                                                                                 
+                                             ←   L    →
+        _____________________                __________         _________                                                                              
+       | 9  0  2  0  0  0  1 |          ↑   | 0  2  6  |       | 9  2  1 |                                                                             
+       |                     |              |          |       |         |                                                                             
+       | 3  0  0  0  0  2  0 | ===>     N   | 0  5  *  |       | 3  2  * |                                                                             
+       |                     |              |          |       |         |                                                                             
+       | 0  0  0  0  5  0  0 |          ↓   | 4  *  *  |       | 5  *  * |                                                                             
+        `````````````````````                ``````````         `````````                                                                              
+         uncompressed                        cols               data                                                                                             
+                                                                                       
+ */
+
+  type T = FixPt[TRUE,_32,_32]
+  @virtualize
+  def main() = {
+
+    val NNZ = 1666
+    val N = 494
+    val L = 10    
+
+    val raw_values = loadCSV1D[T]("/remote/regression/data/machsuite/ell_values.csv", "\n").reshape(N,L)
+    val raw_cols = loadCSV1D[Int]("/remote/regression/data/machsuite/ell_cols.csv", "\n").reshape(N,L)
+    val raw_vec = loadCSV1D[T]("/remote/regression/data/machsuite/ell_vec.csv", "\n")
+
+    // val values_dram = DRAM[T](N,L) 
+    // val cols_dram = DRAM[Int](N,L) 
+    // val vec_dram = DRAM[T](N) 
+    // val result_dram = DRAM[T](N)
+
+    // setMem(values_dram, raw_values)
+    // setMem(cols_dram, raw_cols)
+    // setMem(vec_dram, raw_vec)
+
+    Accel {}
+
+    // val data_gold = loadCSV1D[T]("/remote/regression/data/machsuite/ell_gold.csv", "\n")
+    // val data_result = getMem(result_dram)
+
+    // printArray(data_gold, "Gold: ")
+    // printArray(data_result, "Result: ")
+
+    // val margin = 0.001.to[T]
+    // val cksum = data_gold.zip(data_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+
+    // println("PASS: " + cksum + " (SPMV_CRS)")
+
+
+  }
+}
+
