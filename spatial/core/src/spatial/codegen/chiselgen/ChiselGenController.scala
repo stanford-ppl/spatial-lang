@@ -565,8 +565,17 @@ trait ChiselGenController extends ChiselGenCounter{
           }
 
       }
-      selects.indices.foreach{i => 
-        emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
+
+      if (levelOf(lhs) == InnerControl) { // If inner, don't worry about condition mutation
+        selects.indices.foreach{i => 
+          emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
+        }
+      } else { // If outer, latch in selects in case the body mutates the condition
+        selects.indices.foreach{i => 
+          emit(src"""val ${cases(i)}_switch_sel_reg = RegInit(false.B)""")
+          emit(src"""${cases(i)}_switch_sel_reg := Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
+          emit(src"""val ${cases(i)}_switch_select = Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
+        }
       }
 
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
@@ -623,7 +632,7 @@ trait ChiselGenController extends ChiselGenCounter{
           emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
           emit(src"""${lhs}_done := ${lhs}_en // Route through""")
         } else { // More than one control node is children
-          // throw new Exception("Please put a pipe around your multiple controllers inside the if statement")
+          throw new Exception("Please put a pipe around your multiple controllers inside the if statement")
         }
         if (Bits.unapply(op.mT).isDefined) {
           emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})")

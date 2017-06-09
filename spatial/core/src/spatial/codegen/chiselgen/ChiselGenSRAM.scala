@@ -149,6 +149,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val rParZip = readersOf(lhs)
           .filter{read => dispatchOf(read, lhs) contains i}
           .map { r => 
+            if (i == 7) Console.println(s"readres of $lhs 7 is $r")
             val par = r.node match {
               case Def(_: SRAMLoad[_]) => 1
               case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
@@ -162,6 +163,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
           .filter{write => dispatchOf(write, lhs) contains i}
           .filter{w => portsOf(w, lhs, i).toList.length == 1}
           .map { w => 
+            if (i == 7) Console.println(s"writers of $lhs 7 is $w")
             val par = w.node match {
               case Def(_: SRAMStore[_]) => 1
               case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
@@ -183,8 +185,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
               case _ => ens.length
             }
           }
-        } // Should only have 1 or 0
-        val bPar = if (broadcasts.length == 1) broadcasts.head else 0
+        }
+        val bPar = if (broadcasts.length > 0) broadcasts.mkString(",") else "0"
         val width = bitWidth(lhs.tp.typeArguments.head)
 
         mem match {
@@ -200,7 +202,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
               openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
               emitGlobalModule(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
               emitGlobalModule(src"""List($wPar), List($rPar), """)
-              emitGlobalModule(src"""List($wBundling), List($rBundling), $bPar, BankedMemory""")
+              emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), BankedMemory""")
               closeGlobalModule("))")
             }
           case DiagonalMemory(strides, banks, depth, isAccum) =>
@@ -214,7 +216,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
               openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
               emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}.mkString(",")}), List(${strides.mkString(",")}),""")
               emitGlobalModule(src"""List($wPar), List($rPar), """)
-              emitGlobalModule(src"""List($wBundling), List($rBundling), $bPar, DiagonalMemory""")
+              emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), DiagonalMemory""")
               closeGlobalModule("))")
             }
           }

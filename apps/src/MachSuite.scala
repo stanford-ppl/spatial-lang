@@ -1341,97 +1341,148 @@ object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
   }
 }
 
-//object Sort_Radix extends SpatialApp { // DISABLED Regression (Dense) // Args: none
-// import IR._
-//
-// /*                                                                                                  
-//                                                                                                                                                                                                                                 
-//                                                                                                                                                                                                                                                                           
-//                                                                                                                                                                                                                                                                 
-//                                                                                                                                                                                                                                                                 
-//                                                                                                                                                                                                                                                                 
-//                                                                                                                                                                                                                                                                  
-//                                                                                                                                                                                                                                                                    
-//                                                                                                                                                                                                                                                                  
-//                                                                                                                  
-//                                                                                                                                                                                                                
-//                                                                                                                                                  
-//                                                                                                 
-//                                                                                                         
-//                                                                                                                                                                                               
-//                                                                                                                                                                                               
-//                                                                                                                                                                                              
-//                                                                                                                                                                                              
-//                                                                                                                                                                                              
-//                                                                                                                                                                                              
-//                                                                                                                                                                                              
-//                                                                                                                                                                                              
-//                                                                                                                                                                         
-//                                                                                                 
-//                                                                                                                                                                                                                       
-//                                                                                                                                                                           
-// */
-//
-//  @virtualize
-//  def main() = {
-//
-//    val numel = 2048
-//    val NUM_BLOCKS = 512
-//    val EL_PER_BLOCK = 4
-//    val RADIX = 4
-//    val BUCKET_SIZE = NUM_BLOCKS*RADIX
-//
-//    val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_data.csv", "\n")
-//
-//    val data_dram = DRAM[Int](numel)
-//    val sorted_dram = DRAM[Int](numel)
-//
-//    setMem(data_dram, raw_data)
-//
-//    Accel{
-//      val data_sram = SRAM[Int](numel)
-//      val lower_fifo = FIFO[Int](numel/2)
-//      val upper_fifo = FIFO[Int](numel/2)
-//
-//      data_sram load data_dram
-//
-//
-//      FSM[Int,Int](1){m => m < levels} { m =>
-//        FSM[Int,Int](START)(i => i < STOP) { i =>
-//          val from = i
-//          val mid = i+m-1
-//          val to = min(i+m+m-1, STOP.to[Int])
-//          val lower_tmp = Reg[Int](0)
-//          val upper_tmp = Reg[Int](0)
-//          Foreach(from until mid+1 by 1){ i => if (i == from) {lower_tmp := data_sram(i)} else {lower_fifo.enq(data_sram(i))} }
-//          Foreach(mid+1 until to+1 by 1){ j => if (j == mid+1) {upper_tmp := data_sram(j)} else {upper_fifo.enq(data_sram(j))} }
-//          Sequential.Foreach(from until to+1 by 1) { k => 
-//            if (lower_tmp < upper_tmp) {
-//              data_sram(k) = lower_tmp
-//              val next_lower = if (lower_fifo.empty) {0x7FFFFFFF.to[Int]} else {lower_fifo.deq()}
-//              lower_tmp := next_lower
-//            } else {
-//              data_sram(k) = upper_tmp
-//              val next_upper = if (upper_fifo.empty) {0x7FFFFFFF.to[Int]} else {upper_fifo.deq()}
-//              upper_tmp := next_upper
-//            }
-//          }
-//        }{ i => i + m + m }
-//      }{ m => m + m}
-//
-//      sorted_dram store data_sram
-//    }
-//
-//    val sorted_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_gold.csv", "\n")
-//    val sorted_result = getMem(sorted_dram)
-//
-//    printArray(sorted_gold, "Sorted Gold: ")
-//    printArray(sorted_result, "Sorted Result: ")
-//
-//    val cksum = sorted_gold.zip(sorted_result){_==_}.reduce{_&&_}
-//    // // Use the real way to check if list is sorted instead of using machsuite gold
-//    // // This way says I've done goofed, issue #
-//    // val cksum = Array.tabulate(STOP-1){ i => pack(sorted_result(i), sorted_result(i+1)) }.map{a => a._1 <= a._2}.reduce{_&&_}
-//    println("PASS: " + cksum + " (Sort_Radix)")
-//  }
-//}
+object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
+ import IR._
+
+ /*                                                                                                  
+    TODO: Cartoon of what this is doing                                                         
+                                                                                                                                                                                                                       
+                                                                                                                                                                           
+ */
+
+  @virtualize
+  def main() = {
+
+    val numel = 2048
+    val NUM_BLOCKS = 512
+    val EL_PER_BLOCK = 4
+    val RADIX = 4
+    val BUCKET_SIZE = NUM_BLOCKS*RADIX
+    val SCAN_BLOCK = 16
+    val SCAN_RADIX = BUCKET_SIZE/SCAN_BLOCK
+    val a = false.to[Bool]
+    val b = true.to[Bool]
+
+    val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_data.csv", "\n")
+
+    val data_dram = DRAM[Int](numel)
+
+    setMem(data_dram, raw_data)
+
+    Accel{
+      val a_sram = SRAM[Int](numel)
+      val b_sram = SRAM[Int](numel)
+      val bucket_sram = SRAM[Int](BUCKET_SIZE)
+      val sum_sram = SRAM[Int](SCAN_RADIX)
+      val valid_buffer = Reg[Bool](false)
+      
+      a_sram load data_dram
+
+      def hist(exp: Index, s: SRAM1[Int]): Unit = {
+        Foreach(NUM_BLOCKS by 1) { blockID => 
+          Sequential.Foreach(4 by 1) {i => 
+            val a_indx = blockID * EL_PER_BLOCK + i
+            val shifted = Reg[Int](0)
+            shifted := s(a_indx) // TODO: Allow just s(a_indx) >> exp syntax
+            // Reduce(shifted)(exp by 1) { k => shifted >> 1}{(a,b) => b}
+            Foreach(exp by 1) { k => shifted := shifted.value >> 1}
+            val bucket_indx = (shifted.value & 0x3.to[Int])*NUM_BLOCKS.to[Int] + blockID + 1.to[Int]
+            bucket_sram(bucket_indx) = bucket_sram(bucket_indx) + 1
+          }
+        }
+      }
+
+      def local_scan(): Unit = {
+        Foreach(SCAN_RADIX by 1) { radixID => 
+          Sequential.Foreach(1 until SCAN_BLOCK by 1) { i => // Loop carry dependency
+            val bucket_indx = radixID*SCAN_BLOCK.to[Int] + i
+            val prev_val = Reg[Int](0)
+            Pipe{ prev_val := bucket_sram(bucket_indx - 1) }
+            Pipe{ bucket_sram(bucket_indx) = bucket_sram(bucket_indx) + prev_val }
+          }
+        }
+      }
+
+      def sum_scan(): Unit = {
+        sum_sram(0) = 0
+        Foreach(1 until SCAN_RADIX by 1) { radixID => 
+          val bucket_indx = radixID*SCAN_BLOCK - 1
+          sum_sram(radixID) = sum_sram(radixID-1) + bucket_sram(bucket_indx)
+        }
+      }
+
+      def last_step_scan(): Unit = {
+        Foreach(SCAN_RADIX by 1) { radixID => 
+          Foreach(SCAN_BLOCK by 1) { i => 
+            val bucket_indx = radixID * SCAN_BLOCK + i
+            bucket_sram(bucket_indx) = bucket_sram(bucket_indx) + sum_sram(radixID)
+          }
+        }
+      }
+
+      def update(exp: Index, s1: SRAM1[Int], s2: SRAM1[Int]): Unit = {
+
+        Foreach(NUM_BLOCKS by 1) { blockID => 
+          Sequential.Foreach(4 by 1) { i => 
+            val shifted = Reg[Int](0)
+            shifted := s1(blockID*EL_PER_BLOCK + i) // TODO: Allow just s(a_indx) >> exp syntax
+            // Reduce(shifted)(exp by 1) { k => shifted >> 1}{(a,b) => b}
+            Foreach(exp by 1) { k => shifted := shifted >> 1}
+            val bucket_indx = (shifted & 0x3.to[Int])*NUM_BLOCKS + blockID
+            val a_indx = blockID * EL_PER_BLOCK + i
+            s2(bucket_sram(bucket_indx)) = s1(a_indx)
+            bucket_sram(bucket_indx) = bucket_sram(bucket_indx) + 1
+          }
+        }
+      }
+
+
+      Sequential.Foreach(32 by 2) { exp => 
+        Foreach(BUCKET_SIZE by 1) { i => bucket_sram(i) = 0 }
+  
+        if (valid_buffer == a) {
+          Pipe{hist(exp, a_sram)}
+        } else {
+          Pipe{hist(exp, b_sram)}
+        }
+
+        local_scan()
+        sum_scan()
+        last_step_scan()
+
+        if (valid_buffer == a) {
+          Pipe{
+            update(exp, a_sram, b_sram)
+            valid_buffer := b
+          }
+        } else {
+          Pipe{
+            update(exp, b_sram, a_sram)
+            valid_buffer := a
+          }
+        }
+
+      }
+
+      if (valid_buffer == a) {
+        data_dram store a_sram
+      } else {
+        data_dram store b_sram
+      }
+
+    }
+
+    val sorted_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_gold.csv", "\n")
+    val sorted_result = getMem(data_dram)
+
+    printArray(sorted_gold, "Sorted Gold: ")
+    printArray(sorted_result, "Sorted Result: ")
+
+    val cksum = sorted_gold.zip(sorted_result){_==_}.reduce{_&&_}
+    // // Use the real way to check if list is sorted instead of using machsuite gold
+    // // This way says I've done goofed, issue #
+    // val cksum = Array.tabulate(STOP-1){ i => pack(sorted_result(i), sorted_result(i+1)) }.map{a => a._1 <= a._2}.reduce{_&&_}
+    println("PASS: " + cksum + " (Sort_Radix)")
+  }
+}
+
