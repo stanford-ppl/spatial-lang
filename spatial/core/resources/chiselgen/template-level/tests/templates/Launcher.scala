@@ -144,13 +144,13 @@ object Arguments {
   val NBufSRAM = List( 
            ( List(8,12), 2, 32, 
              List(1,1), List(1,1), 
-             List(1), List(1), List(0), List(1), 1, BankedMemory),
+             List(1), List(1), List(0), List(1), List(1), BankedMemory),
            ( List(8,12), 3, 32, 
              List(1,1), List(1,1), 
-             List(1), List(1), List(0), List(2), 1, BankedMemory),
+             List(1), List(1), List(0), List(2), List(1), BankedMemory),
            ( List(8,12), 3, 32, 
              List(1,2), List(1,2), 
-             List(2), List(2), List(0), List(2), 2, BankedMemory)
+             List(2), List(2), List(0), List(2), List(2), BankedMemory)
         )
   val Innerpipe = List(
     false

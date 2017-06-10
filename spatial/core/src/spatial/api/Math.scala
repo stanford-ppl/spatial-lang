@@ -14,6 +14,10 @@ trait MathApi extends MathExp { this: SpatialApi =>
   @api def log[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_log(x.s))
   /** Natural exponential (Euler's number, e, raised to the given exponent) **/
   @api def exp[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_exp(x.s))
+  /** Natural exponential computed with Taylor Expansion **/
+  // @api def exp_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F], center: Int, degree: Int): FixPt[S,I,F] = {
+  //   FixPt(fix_taylor_exp(x.s, center, degree))
+  // }
   /** Square root **/
   @api def sqrt[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_sqrt(x.s))
 

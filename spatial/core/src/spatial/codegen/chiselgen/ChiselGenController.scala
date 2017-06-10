@@ -382,7 +382,7 @@ trait ChiselGenController extends ChiselGenCounter{
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
     emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, retime = ${sym}_retime))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
-    emit(src"""${sym}_done := ShiftRegister(${sym}_sm.io.output.done, ${sym}_retime)""")
+    emit(src"""${sym}_done := ${sym}_sm.io.output.done.D(${sym}_retime,rr)""")
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
     emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw // Unused for inner and parallel""")
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
@@ -496,7 +496,9 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
       emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
       emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := false.B; retime_counter.io.input.enable := true.B;""")
-      emit(src"""val retime_released = retime_counter.io.output.done """)
+      emitGlobalWire(src"""val retime_released = Wire(Bool())""")
+      emitGlobalWire(src"""val rr = retime_released // Shorthand""")
+      emit(src"""retime_released := retime_counter.io.output.done """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       // Emit unit counter for this
@@ -553,14 +555,27 @@ trait ChiselGenController extends ChiselGenCounter{
         case Def(SwitchCase(_)) => 
           emit(src"""${parentOf(lhs).get}_done := ${lhs}_done // Route through""")
           emit(src"""${lhs}_en := ${parent_kernel}_en""")
-        case Def(e: StateMachine[_]) =>
-          if (levelOf(parentOf(lhs).get) == InnerControl) emit(src"""${lhs}_en := ${parent_kernel}_en""")
+        // case Def(e: StateMachine[_]) =>
+        //   if (levelOf(parentOf(lhs).get) == InnerControl) emit(src"""${lhs}_en := ${parent_kernel}_en""")
         case _ => 
-          emit(src"""//${lhs}_en := ${parent_kernel}_en // Set by parent""")
+          if (levelOf(parentOf(lhs).get) == InnerControl) {
+            emit(src"""${lhs}_en := ${parent_kernel}_en // Parent is inner, so doesn't know about me :(""")
+          } else {
+            emit(src"""//${lhs}_en := ${parent_kernel}_en // Parent should have set me""")            
+          }
 
       }
-      selects.indices.foreach{i => 
-        emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
+
+      if (levelOf(lhs) == InnerControl) { // If inner, don't worry about condition mutation
+        selects.indices.foreach{i => 
+          emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
+        }
+      } else { // If outer, latch in selects in case the body mutates the condition
+        selects.indices.foreach{i => 
+          emit(src"""val ${cases(i)}_switch_sel_reg = RegInit(false.B)""")
+          emit(src"""${cases(i)}_switch_sel_reg := Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
+          emit(src"""val ${cases(i)}_switch_select = Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
+        }
       }
 
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {

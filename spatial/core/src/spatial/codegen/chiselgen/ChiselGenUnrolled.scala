@@ -22,8 +22,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
           rhs match {
             case e: UnrolledForeach=> s"x${lhs.id}_unrForeach"
             case e: UnrolledReduce[_,_] => s"x${lhs.id}_unrRed"
-            case e: ParSRAMLoad[_] => s"x${lhs.id}_parLd"
-            case e: ParSRAMStore[_] => s"x${lhs.id}_parSt"
+            case e: ParSRAMLoad[_] => s"""x${lhs.id}_parLd${nameOf(lhs).getOrElse("")}"""
+            case e: ParSRAMStore[_] => s"""x${lhs.id}_parSt${nameOf(lhs).getOrElse("")}"""
             case e: ParFIFODeq[_] => s"x${lhs.id}_parDeq"
             case e: ParFIFOEnq[_] => s"x${lhs.id}_parEnq"
             case _ => super.quote(s)
@@ -155,7 +155,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         val k = dispatch.toList.head 
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         inds.zipWithIndex.foreach{ case (ind, i) =>
-          emit(src"${lhs}_rVec($i).en := chisel3.util.ShiftRegister(${parent}_en, ${symDelay(lhs)}) & ${ens(i)}")
+          emit(src"${lhs}_rVec($i).en := (${parent}_en).D(${symDelay(lhs)},rr) & ${ens(i)}")
           ind.zipWithIndex.foreach{ case (a, j) =>
             emit(src"""${lhs}_rVec($i).addr($j) := ${a}.raw """)
           }
@@ -175,7 +175,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
         dispatch.zipWithIndex.foreach{ case (k,id) => 
           val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
-          emit(src"${lhs}_rVec($id).en := chisel3.util.ShiftRegister(${parent}_en, ${parent}_retime) & ${ens(id)}")
+          emit(src"${lhs}_rVec($id).en := (${parent}_en).D(${parent}_retime, rr) & ${ens(id)}")
           inds(k).zipWithIndex.foreach{ case (a, j) =>
             emit(src"""${lhs}_rVec($k).addr($j) := ${a}.raw """)
           }
@@ -264,7 +264,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         case Def(StreamInNew(bus)) => bus match {
           case VideoCamera => 
             emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
-            emit(src"""${strm}_ready_options(${lhs}_rId) := ${parent}_datapath_en & ${ens.mkString("&")} & chisel3.util.ShiftRegister(${parent}_datapath_en, ${parent}_retime) """)
+            emit(src"""${strm}_ready_options(${lhs}_rId) := ${parent}_datapath_en & ${ens.mkString("&")} & (${parent}_datapath_en).D(${parent}_retime, rr) """)
           case SliderSwitch => 
             emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
           case _ => 
@@ -295,9 +295,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val datacsv = data.map{d => src"${d}"}.mkString(",")
       val en = ens.map(quote).mkString("&")
 
-      emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")""")
+      emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")*${ens.length}""")
       emit(src"""${stream}_valid_options(${lhs}_wId) := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/""")
-      emit(src"""${stream} := Vec(List(${datacsv}))""")
+      (0 until ens.length).map{ i => emit(src"""${stream}_data_options(${lhs}_wId + ${i}) := ${data(i)}""")}
+      // emit(src"""${stream} := Vec(List(${datacsv}))""")
 
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
@@ -317,7 +318,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
             // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
       //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
             // emit(src"""${stream} := $data""")
-            emit(src"""io.led_stream_out_data := ${stream}""")
+            // emit(src"""io.led_stream_out_data := ${stream}""")
           case _ =>
             // val datacsv = data.map{d => src"${d}"}.mkString(",")
             // val en = ens.map(quote).mkString("&")
@@ -343,7 +344,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       data.zipWithIndex.foreach { case (d, i) =>
         emit(src"$lb.io.data_in($i) := ${d}.raw")
       }
-      emit(src"""$lb.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)})""")
+      emit(src"""$lb.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
 
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
       val dispatch = dispatchOf(lhs, rf).toList.head
@@ -365,7 +366,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, ${width}))) """)
       (0 until ens.length).foreach{ k => 
         emit(src"""${lhs}_wVec($k).data := ${data(k)}.r""")
-        emit(src"""${lhs}_wVec($k).en := ${ens(k)} & (${enable}).D(${symDelay(lhs)})""")
+        emit(src"""${lhs}_wVec($k).en := ${ens(k)} & (${enable}).D(${symDelay(lhs)}, rr)""")
         inds(k).zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${lhs}_wVec($k).addr($j) := ${ind}.r // Assume always an int""")
         }

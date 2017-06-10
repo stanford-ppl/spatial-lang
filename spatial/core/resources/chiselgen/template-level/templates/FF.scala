@@ -37,12 +37,22 @@ class FF(val w: Int, val numWriters: Int = 1) extends Module {
   io.output.data := Mux(anyReset, io.input(0).init, ff)
 
   var wId = 0
-  def write[T](data: T, en: Bool, reset: Bool, port: List[Int]) {
+  def write[T,A](data: T, en: Bool, reset: Bool, port: List[Int], init: A): Unit = {
     data match {
       case d: UInt =>
         io.input(wId).data := d
+      case d: SInt => 
+        io.input(wId).data := d.asUInt
       case d: types.FixedPoint =>
         io.input(wId).data := d.number
+    }
+    init match {
+      case d: UInt =>
+        io.input(wId).init := d
+      case d: SInt => 
+        io.input(wId).init := d.asUInt
+      case d: types.FixedPoint =>
+        io.input(wId).init := d.number
     }
     io.input(wId).enable := en
     io.input(wId).reset := reset
@@ -50,8 +60,8 @@ class FF(val w: Int, val numWriters: Int = 1) extends Module {
     wId = wId + 1
   }
 
-  def write[T](data: T, en: Bool, reset: Bool, port: Int) {
-    write(data, en, reset, List(port))
+  def write[T,A](data: T, en: Bool, reset: Bool, port: Int, init: A): Unit = {
+    write(data, en, reset, List(port), init)
   }
 
   def read(port: Int) = {
@@ -70,6 +80,7 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
     val sDone = Vec(numBufs, Input(Bool()))
     val broadcast = Input(new FFIn(w))
     val input = Vec(numWriters, Input(new FFIn(w)))
+    val wr_ports = Vec(numWriters, Input(UInt(32.W)))
     val writerStage = Input(UInt(5.W)) // TODO: Not implemented anywhere, not sure if needed
     val output = Vec(numBufs, Output(new FFOut(w)))
     // val swapAlert = Output(Bool()) // Used for regchains
@@ -102,11 +113,14 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
   // io.swapAlert := ~swap & anyEnabled & (0 until numBufs).map{ i => sEn_latch(i).io.output.data === (sDone_latch(i).io.output.data | io.sDone(i))}.reduce{_&_} // Needs to go high when the last done goes high, which is 1 cycle before swap goes high
 
-  val stateIn = Module(new NBufCtr())
-  stateIn.io.input.start := 0.U 
-  stateIn.io.input.stop := numBufs.U
-  stateIn.io.input.enable := swap
-  stateIn.io.input.countUp := false.B
+  val statesIn = (0 until numWriters).map{ i => 
+    val c = Module(new NBufCtr())
+    c.io.input.start := io.wr_ports(i) 
+    c.io.input.stop := numBufs.U
+    c.io.input.enable := swap
+    c.io.input.countUp := false.B
+    c
+  }
 
   val statesOut = (0 until numBufs).map{  i => 
     val c = Module(new NBufCtr())
@@ -118,12 +132,13 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
   }
 
   ff.zipWithIndex.foreach{ case (f,i) => 
-    val wrMask = stateIn.io.output.count === i.U
+    val wrMask = statesIn.zipWithIndex.map{ case (si, ii) => si.io.output.count === i.U }
     val normal =  Wire(new FFIn(w))
-    normal.data := io.input(0).data
-    normal.init := io.input(0).init
-    normal.enable := io.input(0).enable & wrMask
-    normal.reset := io.input(0).reset
+    // val selected = chisel3.util.Mux1H(wrMask, io.input)
+    normal.data := chisel3.util.Mux1H(wrMask, (0 until numWriters).map{i => io.input(i).data})
+    normal.init := chisel3.util.Mux1H(wrMask, (0 until numWriters).map{i => io.input(i).init})
+    normal.enable := chisel3.util.Mux1H(wrMask, (0 until numWriters).map{i => io.input(i).enable}) & wrMask.reduce{_|_}
+    normal.reset := chisel3.util.Mux1H(wrMask, (0 until numWriters).map{i => io.input(i).reset})
     f.io.input(0) := Mux(io.broadcast.enable, io.broadcast, normal)
   }
 
@@ -132,23 +147,34 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
     wire.data := chisel3.util.Mux1H(sel, Vec(ff.map{f => f.io.output.data}))
   }
 
-  def write[T](data: T, en: Bool, reset: Bool, port: Int) {
-    write(data, en, reset, List(port))
+  var wId = 0
+  def write[T,A](data: T, en: Bool, reset: Bool, port: Int, init: A): Unit = {
+    write(data, en, reset, List(port), init)
   }
 
-  def write[T](data: T, en: Bool, reset: Bool, ports: List[Int]) {
-
+  def write[T,A](data: T, en: Bool, reset: Bool, ports: List[Int], init: A): Unit = {
     if (ports.length == 1) {
       val port = ports(0)
       data match { 
         case d: UInt => 
-          io.input(0).data := d
+          io.input(wId).data := d
+        case d: SInt => 
+          io.input(wId).data := d.asUInt
         case d: types.FixedPoint => 
-          io.input(0).data := d.number
+          io.input(wId).data := d.number
       }
-      io.input(0).enable := en
-      io.input(0).reset := reset
-      io.writerStage := port.U
+      init match { 
+        case d: UInt => 
+          io.input(wId).init := d
+        case d: SInt => 
+          io.input(wId).init := d.asUInt
+        case d: types.FixedPoint => 
+          io.input(wId).init := d.number
+      }
+      io.input(wId).enable := en
+      io.input(wId).reset := reset
+      io.wr_ports(wId) := port.U
+      wId = wId + 1
     } else {
       data match { 
         case d: UInt => 
@@ -171,7 +197,7 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
     io.input(0).enable := en
     io.input(0).reset := reset
     io.input(0).init := 0.U
-    io.writerStage := 0.U
+    io.wr_ports(0) := 0.U
     io.broadcast.enable := false.B
 
   }
