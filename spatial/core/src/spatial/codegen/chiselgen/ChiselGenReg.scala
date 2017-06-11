@@ -220,11 +220,11 @@ trait ChiselGenReg extends ChiselGenSRAM {
                     emit(src"""${reg}_${ii}.io.input.enable := ${reg}_wren.D(${symDelay(lhs)})""")
                     emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
                     emit(src"""${reg}_${ii}.io.input.reset := reset | ${reg}_resetter ${manualReset}""")
-                    emit(src"""${reg} := ${reg}_${ii}.io.output""")
-                    emitGlobalWire(src"""val ${reg} = Wire(${newWire(reg.tp.typeArguments.head)})""")
+                    emit(src"""${lhs} := ${reg}_${ii}.io.output""")
+                    emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-                    emit(src"""${reg}_${ii}.write($reg, $en & (${reg}_wren).D(${symDelay(lhs)}+1), reset ${manualReset}, List(${ports.mkString(",")}), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write(${lhs}, $en & (${reg}_wren).D(${symDelay(lhs)}+1), reset ${manualReset}, List(${ports.mkString(",")}), ${reg}_initval.number)""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate

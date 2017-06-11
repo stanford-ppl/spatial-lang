@@ -2051,6 +2051,9 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
     val y = DRAM[T](N)
     val s = ArgIn[T]
 
+    val expo_dram = DRAM[T](1024)
+    val sqroot_dram = DRAM[T](512)
+
     setMem(x, x_data)
     setArg(s, b)
 
@@ -2061,6 +2064,20 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
       Foreach(N by 1) { i => 
         yy(i) = xx(i) * s
       }
+      // Test exp_taylor from -4 to 4
+      val expo = SRAM[T](1024)
+      Foreach(1024 by 1){ i => 
+        val x = (i.as[T] - 512) / 128
+        expo(i) = exp_taylor(x)
+      }
+      // Test sqrt_taylor3 from 0 to 1024
+      val sqroot = SRAM[T](512)
+      Foreach(512 by 1){ i => 
+        sqroot(i) = sqrt_approx(i.as[T]*50 + 5)
+      }
+      expo_dram store expo
+      sqroot_dram store sqroot
+
       y(0 :: N par 16) store yy
     }
 
@@ -2073,10 +2090,23 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
     printArray(gold, "expected: ")
     printArray(result, "got: ")
 
+    val expo_gold = Array.tabulate(1024){ i => exp(((i.to[Float])-512)/128) }
+    val expo_got = getMem(expo_dram)
+    printArray(expo_gold, "e^x gold: ")
+    printArray(expo_got, "e^x taylor: ")
+
+    val sqroot_gold = Array.tabulate(512){ i => sqrt((i.to[Float])*50 + 5) }
+    val sqroot_got = getMem(sqroot_dram)
+    printArray(sqroot_gold, "sqroot gold: ")
+    printArray(sqroot_got, "sqroot taylor: ")
+    // printArray(expo_gold.zip(expo_got){_-_.as[Float]}, "e^x error: ")
+    // printArray(expo_gold.zip(expo_got){_.as[T]-_}, "e^x error: ")
+
     val cksum = gold.zip(result){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (FixPtMem)")
   }
 }
+
 object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.625 14 1.875 -3.4375 -5
   import IR._
   type USGN = FixPt[FALSE,_4,_4]

@@ -24,7 +24,6 @@ trait ChiselGenController extends ChiselGenCounter{
      and keep getting parents of the currentController until we find a match or 
      get to the very top
   */
-  var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
 
   private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
     for (i <- iters.indices)
@@ -64,23 +63,6 @@ trait ChiselGenController extends ChiselGenCounter{
         emit(src"val ${v}${suffix} = true.B")
       }
     }
-  }
-
-  protected def computeSuffix(s: Bound[_]): String = {
-    var result = super.quote(s)
-    if (itersMap.contains(s)) {
-      val siblings = itersMap(s)
-      var nextLevel: Option[Exp[_]] = Some(controllerStack.head)
-      while (nextLevel.isDefined) {
-        if (siblings.contains(nextLevel.get)) {
-          if (siblings.indexOf(nextLevel.get) > 0) {result = result + s"_chain_read_${siblings.indexOf(nextLevel.get)}"}
-          nextLevel = None
-        } else {
-          nextLevel = parentOf(nextLevel.get)
-        }
-      }
-    } 
-    result
   }
 
   protected def isStreamChild(lhs: Exp[_]): Boolean = {
@@ -141,44 +123,40 @@ trait ChiselGenController extends ChiselGenCounter{
   }
 
   override def quote(s: Exp[_]): String = {
-    s match {
-      case b: Bound[_] => computeSuffix(b)
-      case _ =>
-        if (SpatialConfig.enableNaming) {
-          s match {
-            case lhs: Sym[_] =>
-              lhs match {
-                case Def(e: Hwblock) =>
-                  s"RootController"
-                case Def(e: UnitPipe) =>
-                  s"x${lhs.id}_UnitPipe"
-                case Def(e: OpForeach) =>
-                  s"x${lhs.id}_ForEach"
-                case Def(e: OpReduce[_]) =>
-                  s"x${lhs.id}_Reduce"
-                case Def(e: OpMemReduce[_,_]) =>
-                  s"x${lhs.id}_MemReduce"
-                case Def(e: Switch[_]) =>
-                  s"x${lhs.id}_switch"
-                case Def(e: SwitchCase[_]) =>
-                  s"x${lhs.id}_switchcase"
-                case _ =>
-                  super.quote(s)
-              }
+    if (SpatialConfig.enableNaming) {
+      s match {
+        case lhs: Sym[_] =>
+          lhs match {
+            case Def(e: Hwblock) =>
+              s"RootController"
+            case Def(e: UnitPipe) =>
+              s"x${lhs.id}_UnitPipe"
+            case Def(e: OpForeach) =>
+              s"x${lhs.id}_ForEach"
+            case Def(e: OpReduce[_]) =>
+              s"x${lhs.id}_Reduce"
+            case Def(e: OpMemReduce[_,_]) =>
+              s"x${lhs.id}_MemReduce"
+            case Def(e: Switch[_]) =>
+              s"x${lhs.id}_switch"
+            case Def(e: SwitchCase[_]) =>
+              s"x${lhs.id}_switchcase"
             case _ =>
               super.quote(s)
           }
-        } else {
-          // Always need to remap root controller
-          s match {
-            case lhs: Sym[_] =>
-              lhs match {
-                case Def(e: Hwblock) => s"RootController"
-                case _ => super.quote(s)
-              }
+        case _ =>
+          super.quote(s)
+      }
+    } else {
+      // Always need to remap root controller
+      s match {
+        case lhs: Sym[_] =>
+          lhs match {
+            case Def(e: Hwblock) => s"RootController"
             case _ => super.quote(s)
           }
-        }
+        case _ => super.quote(s)
+      }
     }
   } 
 
@@ -224,6 +202,14 @@ trait ChiselGenController extends ChiselGenCounter{
         }
       }
       emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
+      // Associate bound sym with both ctrl node and that ctrl node's cchain
+      stages.foreach{ stage => 
+        stage match { 
+          case Def(s:UnrolledForeach) => cchainPassMap += (s.cchain -> stage)
+          case Def(s:UnrolledReduce[_,_]) => cchainPassMap += (s.cchain -> stage)
+          case _ =>
+        }
+      }
       itersMap += (idx -> stages.toList)
     }
   }
