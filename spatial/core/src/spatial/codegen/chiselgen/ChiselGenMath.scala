@@ -16,8 +16,11 @@ trait ChiselGenMath extends ChiselCodegen {
         case lhs: Sym[_] =>
           lhs match {
             case Def(FixRandom(x)) => s"x${lhs.id}_fixrnd"
-            case Def(FixNeg(x:Exp[_]))  => s"x${lhs.id}_neg${quoteOperand(x)}"
-            case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"x${lhs.id}_sum${quoteOperand(x)}_${quoteOperand(y)}"
+            case Def(FixNeg(x:Exp[_]))  => s"""x${lhs.id}_${nameOf(lhs).getOrElse(s"neg${quoteOperand(x)}")}"""
+            case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${nameOf(lhs).getOrElse("sum")}"""
+            case Def(FixSub(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${nameOf(lhs).getOrElse("sub")}"""
+            case Def(FixDiv(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${nameOf(lhs).getOrElse("div")}"""
+            case Def(FixMul(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${nameOf(lhs).getOrElse("mul")}"""
             case _ => super.quote(s)
           }
         case _ => super.quote(s)

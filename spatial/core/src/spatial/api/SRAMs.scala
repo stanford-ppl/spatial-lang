@@ -33,6 +33,7 @@ trait SRAMExp { this: SpatialExp =>
 
     @api def gather(dram: DRAMSparseTile[T]): Void = sparse_transfer(dram, this, isLoad = true)
 
+    // @api def cols(): Index = field[Index]("c")
     @api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile1[T]): Void = dense_transfer(dram, this, isLoad = true)
   }

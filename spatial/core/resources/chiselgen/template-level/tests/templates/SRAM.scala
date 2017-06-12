@@ -193,9 +193,9 @@ class NBufSRAMTests(c: NBufSRAM) extends PeekPokeTester(c) {
 
     // Write to each address
     for (i <- 0 until c.logicalDims(0)) { // Each row
-      for (j <- 0 until c.logicalDims(1) by c.bPar) {
+      for (j <- 0 until c.logicalDims(1) by c.bPar.head) {
         // Set addrs
-        (0 until c.bPar).foreach { kdim => 
+        (0 until c.bPar.head).foreach { kdim => 
           poke(c.io.broadcast(kdim).addr(0), i)
           poke(c.io.broadcast(kdim).addr(1), j+kdim)
           poke(c.io.broadcast(kdim).data, dat + i*c.logicalDims(0) + j + kdim)
@@ -205,7 +205,7 @@ class NBufSRAMTests(c: NBufSRAM) extends PeekPokeTester(c) {
       }
     }
     // Turn off wEn
-    (0 until c.bPar).foreach {kdim =>
+    (0 until c.bPar.head).foreach {kdim =>
       poke(c.io.broadcast(kdim).en, false)
     }
     

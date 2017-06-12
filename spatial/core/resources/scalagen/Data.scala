@@ -103,7 +103,7 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
   def -(that: Number) = Number(this.value - that.value, this.valid && that.valid, fmt)
   def *(that: Number) = Number(this.value * that.value, this.valid && that.valid, fmt)
   def /(that: Number) = valueOrX{ Number(this.value / that.value, this.valid && that.valid, fmt) }
-  def %(that: Number) = valueOrX{ Number(this.value % that.value, this.valid && that.valid, fmt) }
+  def %(that: Number) = valueOrX{ Number(((this.value % that.value) + that.value) % that.value, this.valid && that.valid, fmt) }
   def &(that: Number) = Number(this.fixValue & that.fixValue, this.valid && that.valid, fmt)
   def ^(that: Number) = Number(this.fixValue ^ that.fixValue, this.valid && that.valid, fmt)
   def |(that: Number) = Number(this.fixValue | that.fixValue, this.valid && that.valid, fmt)

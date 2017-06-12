@@ -24,7 +24,6 @@ trait ChiselGenController extends ChiselGenCounter{
      and keep getting parents of the currentController until we find a match or 
      get to the very top
   */
-  var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
 
   private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
     for (i <- iters.indices)
@@ -64,23 +63,6 @@ trait ChiselGenController extends ChiselGenCounter{
         emit(src"val ${v}${suffix} = true.B")
       }
     }
-  }
-
-  protected def computeSuffix(s: Bound[_]): String = {
-    var result = super.quote(s)
-    if (itersMap.contains(s)) {
-      val siblings = itersMap(s)
-      var nextLevel: Option[Exp[_]] = Some(controllerStack.head)
-      while (nextLevel.isDefined) {
-        if (siblings.contains(nextLevel.get)) {
-          if (siblings.indexOf(nextLevel.get) > 0) {result = result + s"_chain_read_${siblings.indexOf(nextLevel.get)}"}
-          nextLevel = None
-        } else {
-          nextLevel = parentOf(nextLevel.get)
-        }
-      }
-    } 
-    result
   }
 
   protected def isStreamChild(lhs: Exp[_]): Boolean = {
@@ -141,40 +123,40 @@ trait ChiselGenController extends ChiselGenCounter{
   }
 
   override def quote(s: Exp[_]): String = {
-    s match {
-      case b: Bound[_] => computeSuffix(b)
-      case _ =>
-        if (SpatialConfig.enableNaming) {
-          s match {
-            case lhs: Sym[_] =>
-              lhs match {
-                case Def(e: Hwblock) =>
-                  s"RootController"
-                case Def(e: UnitPipe) =>
-                  s"x${lhs.id}_UnitPipe"
-                case Def(e: OpForeach) =>
-                  s"x${lhs.id}_ForEach"
-                case Def(e: OpReduce[_]) =>
-                  s"x${lhs.id}_Reduce"
-                case Def(e: OpMemReduce[_,_]) =>
-                  s"x${lhs.id}_MemReduce"
-                case _ =>
-                  super.quote(s)
-              }
+    if (SpatialConfig.enableNaming) {
+      s match {
+        case lhs: Sym[_] =>
+          lhs match {
+            case Def(e: Hwblock) =>
+              s"RootController"
+            case Def(e: UnitPipe) =>
+              s"x${lhs.id}_UnitPipe"
+            case Def(e: OpForeach) =>
+              s"x${lhs.id}_ForEach"
+            case Def(e: OpReduce[_]) =>
+              s"x${lhs.id}_Reduce"
+            case Def(e: OpMemReduce[_,_]) =>
+              s"x${lhs.id}_MemReduce"
+            case Def(e: Switch[_]) =>
+              s"x${lhs.id}_switch"
+            case Def(e: SwitchCase[_]) =>
+              s"x${lhs.id}_switchcase"
             case _ =>
               super.quote(s)
           }
-        } else {
-          // Always need to remap root controller
-          s match {
-            case lhs: Sym[_] =>
-              lhs match {
-                case Def(e: Hwblock) => s"RootController"
-                case _ => super.quote(s)
-              }
+        case _ =>
+          super.quote(s)
+      }
+    } else {
+      // Always need to remap root controller
+      s match {
+        case lhs: Sym[_] =>
+          lhs match {
+            case Def(e: Hwblock) => s"RootController"
             case _ => super.quote(s)
           }
-        }
+        case _ => super.quote(s)
+      }
     }
   } 
 
@@ -220,6 +202,14 @@ trait ChiselGenController extends ChiselGenCounter{
         }
       }
       emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
+      // Associate bound sym with both ctrl node and that ctrl node's cchain
+      stages.foreach{ stage => 
+        stage match { 
+          case Def(s:UnrolledForeach) => cchainPassMap += (s.cchain -> stage)
+          case Def(s:UnrolledReduce[_,_]) => cchainPassMap += (s.cchain -> stage)
+          case _ =>
+        }
+      }
       itersMap += (idx -> stages.toList)
     }
   }
@@ -378,7 +368,7 @@ trait ChiselGenController extends ChiselGenCounter{
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
     emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, retime = ${sym}_retime))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
-    emit(src"""${sym}_done := ShiftRegister(${sym}_sm.io.output.done, ${sym}_retime)""")
+    emit(src"""${sym}_done := ${sym}_sm.io.output.done.D(${sym}_retime,rr)""")
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
     emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw // Unused for inner and parallel""")
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
@@ -492,7 +482,9 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
       emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
       emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := false.B; retime_counter.io.input.enable := true.B;""")
-      emit(src"""val retime_released = retime_counter.io.output.done """)
+      emitGlobalWire(src"""val retime_released = Wire(Bool())""")
+      emitGlobalWire(src"""val rr = retime_released // Shorthand""")
+      emit(src"""retime_released := retime_counter.io.output.done """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       // Emit unit counter for this
@@ -540,7 +532,6 @@ trait ChiselGenController extends ChiselGenCounter{
       controllerStack.push(lhs)
       emitStandardSignals(lhs)
       emit(s"// Controller Stack: ${controllerStack.tail}")
-      emit(src"""//${lhs}_en := ${parent_kernel}_en // Set by parent""")
       // emit(src"""//${lhs}_base_en := ${parent_kernel}_base_en // Set by parent""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""//${lhs}_resetter := ${parent_kernel}_resetter // Set by parent""")
@@ -549,10 +540,28 @@ trait ChiselGenController extends ChiselGenCounter{
       parentOf(lhs).get match {  // This switch is a condition of another switchcase
         case Def(SwitchCase(_)) => 
           emit(src"""${parentOf(lhs).get}_done := ${lhs}_done // Route through""")
+          emit(src"""${lhs}_en := ${parent_kernel}_en""")
+        // case Def(e: StateMachine[_]) =>
+        //   if (levelOf(parentOf(lhs).get) == InnerControl) emit(src"""${lhs}_en := ${parent_kernel}_en""")
         case _ => 
+          if (levelOf(parentOf(lhs).get) == InnerControl) {
+            emit(src"""${lhs}_en := ${parent_kernel}_en // Parent is inner, so doesn't know about me :(""")
+          } else {
+            emit(src"""//${lhs}_en := ${parent_kernel}_en // Parent should have set me""")            
+          }
+
       }
-      selects.indices.foreach{i => 
-        emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
+
+      if (levelOf(lhs) == InnerControl) { // If inner, don't worry about condition mutation
+        selects.indices.foreach{i => 
+          emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
+        }
+      } else { // If outer, latch in selects in case the body mutates the condition
+        selects.indices.foreach{i => 
+          emit(src"""val ${cases(i)}_switch_sel_reg = RegInit(false.B)""")
+          emit(src"""${cases(i)}_switch_sel_reg := Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
+          emit(src"""val ${cases(i)}_switch_select = Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
+        }
       }
 
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
@@ -586,19 +595,20 @@ trait ChiselGenController extends ChiselGenCounter{
       // open(src"val $lhs = {")
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      emit(s"// Controller Stack: ${controllerStack.tail}")
       emitStandardSignals(lhs)
       emit(src"""${lhs}_en := ${parent_kernel}_en & ${lhs}_switch_select""")
       // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""${lhs}_resetter := ${parent_kernel}_resetter""")
-      emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en // Not really used probably""")
+      emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en & ${lhs}_switch_select""")
       emit(src"""${lhs}_ctr_trivial := ${parent_kernel}_ctr_trivial | false.B""")
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         // if (blockContents(body).length > 0) {
         if (childrenOf(lhs).filter(isControlNode(_)).length == 1) { // This is an outer pipe
           emit(s"// Controller Stack: ${controllerStack.tail}")
-          emitBlock(body)            
+          emitBlock(body)
           // Console.println(s"body is ${blockContents(body).collect{case s: Sym[_] => s}}")
           // emit(s"""// No control nodes to connect the done_sniff""")
           // emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
