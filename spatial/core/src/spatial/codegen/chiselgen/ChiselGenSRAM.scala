@@ -12,6 +12,26 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   private var nbufs: List[(Sym[SRAM[_]], Int)]  = List()
 
+  var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
+  var cchainPassMap = new scala.collection.mutable.HashMap[Exp[_], Exp[_]] // Map from a cchain to its ctrl node, for computing suffix on a cchain before we enter the ctrler
+
+  protected def computeSuffix(s: Bound[_]): String = {
+    var result = super.quote(s)
+    if (itersMap.contains(s)) {
+      val siblings = itersMap(s)
+      var nextLevel: Option[Exp[_]] = Some(controllerStack.head)
+      while (nextLevel.isDefined) {
+        if (siblings.contains(nextLevel.get)) {
+          if (siblings.indexOf(nextLevel.get) > 0) {result = result + s"_chain_read_${siblings.indexOf(nextLevel.get)}"}
+          nextLevel = None
+        } else {
+          nextLevel = parentOf(nextLevel.get)
+        }
+      }
+    } 
+    result
+  }
+
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: SRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
@@ -120,21 +140,25 @@ trait ChiselGenSRAM extends ChiselCodegen {
   }
 
   override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case SRAMNew(dims)=> 
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("sram").replace("$","")}"""
+    s match {
+      case b: Bound[_] => computeSuffix(b)
+      case _ =>
+        if (SpatialConfig.enableNaming) {
+          s match {
+            case lhs: Sym[_] =>
+              val Op(rhs) = lhs
+              rhs match {
+                case SRAMNew(dims)=> 
+                  s"""x${lhs.id}_${nameOf(lhs).getOrElse("sram").replace("$","")}"""
+                case _ =>
+                  super.quote(s)
+              }
             case _ =>
               super.quote(s)
           }
-        case _ =>
+        } else {
           super.quote(s)
-      }
-    } else {
-      super.quote(s)
+        }
     }
   } 
 
@@ -149,7 +173,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val rParZip = readersOf(lhs)
           .filter{read => dispatchOf(read, lhs) contains i}
           .map { r => 
-            if (i == 7) Console.println(s"readres of $lhs 7 is $r")
             val par = r.node match {
               case Def(_: SRAMLoad[_]) => 1
               case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
@@ -163,7 +186,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
           .filter{write => dispatchOf(write, lhs) contains i}
           .filter{w => portsOf(w, lhs, i).toList.length == 1}
           .map { w => 
-            if (i == 7) Console.println(s"writers of $lhs 7 is $w")
             val par = w.node match {
               case Def(_: SRAMStore[_]) => 1
               case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
