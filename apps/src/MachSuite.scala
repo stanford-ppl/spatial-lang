@@ -2104,8 +2104,8 @@ object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
           val phi_x = cos_taylor(phi_bounded) * mux(beyond_left || beyond_right, 1, -1) // cos(real phi)
           val phi_y = sin_taylor(phi_bounded) * mux(beyond_left || beyond_right, 1, -1) // sin(real phi)
           val temp_x = work_x_sram(j, tid)
-          work_x_sram(j, tid) = temp_x * phi_x - work_y_sram(j, tid) * phi_y
-          work_y_sram(j, tid) = temp_x * phi_y + work_y_sram(j, tid) * phi_x
+          Pipe{work_x_sram(j, tid) = temp_x * phi_x - work_y_sram(j, tid) * phi_y}
+          Pipe{work_y_sram(j, tid) = temp_x * phi_y + work_y_sram(j, tid) * phi_x}
         }
       }
 
@@ -2124,8 +2124,8 @@ object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
           Pipe{FFT2(tid, base+j, 2+base+j)}
         }
         val temp_x = work_x_sram(base+3,tid)
-        work_x_sram(base+3,tid) = temp_x * exp_LUT(0) - work_y_sram(base+3,tid)*exp_LUT(1)
-        work_y_sram(base+3,tid) = temp_x * exp_LUT(1) - work_y_sram(base+3,tid)*exp_LUT(0)
+        Pipe{work_x_sram(base+3,tid) = temp_x * exp_LUT(0) - work_y_sram(base+3,tid)*exp_LUT(1)}
+        Pipe{work_y_sram(base+3,tid) = temp_x * exp_LUT(1) - work_y_sram(base+3,tid)*exp_LUT(0)}
         Sequential.Foreach(0 until 2 by 1) { j => 
           Pipe{FFT2(tid, base+2*j, 1+base+2*j)}
         }
@@ -2140,8 +2140,8 @@ object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
                                       -1, -1, -1)
           val temp_x = work_x_sram(5+i, tid)
           val mul_factor = mux(i == 1, 1.to[T], M_SQRT1_2)
-          work_x_sram(5+i, tid) = (temp_x * exp_LUT(0,i) - work_y_sram(5+i,tid) * exp_LUT(1,i))*mul_factor
-          work_y_sram(5+i, tid) = (temp_x * exp_LUT(1,i) + work_y_sram(5+i,tid) * exp_LUT(0,i))*mul_factor
+          Pipe{work_x_sram(5+i, tid) = (temp_x * exp_LUT(0,i) - work_y_sram(5+i,tid) * exp_LUT(1,i))*mul_factor}
+          Pipe{work_y_sram(5+i, tid) = (temp_x * exp_LUT(1,i) + work_y_sram(5+i,tid) * exp_LUT(0,i))*mul_factor}
         }
         // FFT4
         Sequential.Foreach(0 until 2 by 1) { ii =>
@@ -2274,12 +2274,12 @@ object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
         val tmem_x = SRAM[T](8)
         val tmem_y = SRAM[T](8)
         Foreach(8 by 1) { i => 
-          tmem_x(reversed_LUT(i)) = work_x_sram(i, tid)
-          tmem_y(reversed_LUT(i)) = work_y_sram(i, tid)
+          Pipe{tmem_x(reversed_LUT(i)) = work_x_sram(i, tid)}
+          Pipe{tmem_y(reversed_LUT(i)) = work_y_sram(i, tid)}
         }
         Foreach(8 by 1) { i => 
-          work_x_sram(i, tid) = tmem_x(i)
-          work_y_sram(i, tid) = tmem_y(i)
+          Pipe{work_x_sram(i, tid) = tmem_x(i)}
+          Pipe{work_y_sram(i, tid) = tmem_y(i)}
         }
       }
 
@@ -2331,9 +2331,20 @@ object BFS_Bulk extends SpatialApp { // DISABLED Regression (Sparse) // Args: no
     val N_EDGES = N_NODES*EDGE_FACTOR
     val N_LEVELS = 10
 
-    Accel{}
+    val nodes_data = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_bulk_nodes.csv", "\n")
+    val edges_data = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_bulk_edges.csv", "\n")
+
+    val nodes_dram = DRAM[Int](N_NODES)
+    val edges_dram = DRAM[Int](N_EDGES)
+
+    setMem(nodes_dram, nodes_data)
+    setMem(edges_dram, edges_data)
+
+    Accel{
+
+    }
 
     val levels_gold = Array[Int](1,26,184,22,0,0,0,0,0,0)
-    
+
   }
 }

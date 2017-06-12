@@ -317,7 +317,8 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
         wt load weights(i::i+T par 16)
         in load inputs(i::i+T par 16)
         val niter = Reg[Int]
-        niter.reset
+        Pipe{niter.reset}
+        Pipe{niter.reset} // Testing codegen for multiple resetters
         Foreach(I by 1){x =>
           // niter := niter + 1
           niter :+= 1
