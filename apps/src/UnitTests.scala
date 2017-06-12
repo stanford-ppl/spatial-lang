@@ -170,6 +170,8 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     val y1 = ArgOut[Int]
     val y2 = ArgOut[Int]
     val y3 = ArgOut[Int]
+    val y4 = ArgOut[Int]
+    val y5 = ArgOut[Int]
     val m1 = DRAM[Int](16)
     val m2 = DRAM[Int](16)
     setArg(io1, cst1)
@@ -186,6 +188,13 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
       Pipe { y2 := 999 }
       Pipe { y1 := x1.value + 6 }
       Pipe { y2 := x2.value + 8 }
+      val reg = Reg[Int](0) // Nbuffered reg with multi writes, note that it does not do what you think!
+      Foreach(3 by 1) {i => 
+        Pipe{reg :+= 1}
+        Pipe{y4 := reg}
+        Pipe{reg :+= 1}
+        Pipe{y5 := reg}
+      }
       val sram1 = SRAM[Int](16)
       val sram2 = SRAM[Int](16)
       sram1 load m1
@@ -205,11 +214,15 @@ object MixedIOTest extends SpatialApp { // Regression (Unit) // Args: none
     val r5 = getMem(m2)
     val g6 = data(3)
     val r6 = getArg(y3)
-    println("expected: " + g1 + ", " + g2 + ", " + g3 + ", " + g4 + ", "+ g6)
-    println("received: " + r1 + ", " + r2 + ", " + r3 + ", " + r4 + ", "+ r6)
+    val g7 = 1
+    val r7 = getArg(y4)
+    val g8 = 2
+    val r8 = getArg(y5)
+    println("expected: " + g1 + ", " + g2 + ", " + g3 + ", " + g4 + ", "+ g6 + ", " + g7 + ", " + g8)
+    println("received: " + r1 + ", " + r2 + ", " + r3 + ", " + r4 + ", "+ r6 + ", " + r7 + ", " + r8)
     printArray(r5, "Mem: ")
-    val cksum = r1 == g1 && r2 == g2 && r3 == g3 && r4 == g4 && r6 == g6 && data.zip(r5){_==_}.reduce{_&&_}
-    println("PASS: " + cksum + " (MixedIOTest)")
+    val cksum = r1 == g1 && r2 == g2 && r3 == g3 && r4 == g4 && r6 == g6 && data.zip(r5){_==_}.reduce{_&&_} //&& r7 == g7 && r8 == g8
+    println("PASS: " + cksum + " (MixedIOTest) * Note that Scala does not handle the multiple writes in NBufFF correctly")
   }
 }
 
@@ -284,6 +297,7 @@ object BubbledWriteTest extends SpatialApp { // Regression (Unit) // Args: none
   val I = 5
   val N = 192
 
+  @virtualize
   def bubbledwrtest(w: Array[Int], i: Array[Int]): Array[Int] = {
     val T = param(tileSize)
     val P = param(4)
@@ -1857,7 +1871,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
             fifo_last := f
           }
         }
-      } { state => mux(state == 0, fill, mux(fifo.full(), 2, mux(fifo.empty(), 3, state))) }
+      } { state => mux(state == 0, fill, mux(fifo.full() && state == fill, drain, mux(fifo.empty() && state == drain, done, state))) }
       fifo_sum := fifo_accum
 
       // Using almostDone/almostEmpty, skips last 2 elements
@@ -1871,7 +1885,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
             fifo_accum_almost := fifo_accum_almost + fifo_almost.deq()
           }
         }
-      } { state => mux(state == 0, fill, mux(fifo_almost.almostFull(), 2, mux(fifo_almost.almostEmpty(), 3, state))) }
+      } { state => mux(state == 0, fill, mux(fifo_almost.almostFull() && state == fill, drain, mux(fifo_almost.almostEmpty() && state == drain, done, state))) }
       fifo_sum_almost := fifo_accum_almost
 
       val stack = FILO[Int](size)
@@ -1887,7 +1901,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
             stack_last := f
           }
         }
-      } { state => mux(state == 0, fill, mux(stack.full(), 2, mux(stack.empty(), 3, state))) }
+      } { state => mux(state == 0, fill, mux(stack.full() && state == fill, drain, mux(stack.empty() && state == drain, done, state))) }
       stack_sum := stack_accum
       
       // Using almostDone/almostEmpty, skips last element
@@ -1901,7 +1915,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
             stack_accum_almost := stack_accum_almost + stack_almost.pop()
           }
         }
-      } { state => mux(state == 0, fill, mux(stack_almost.almostFull(), 2, mux(stack_almost.almostEmpty(), 3, state))) }
+      } { state => mux(state == 0, fill, mux(stack_almost.almostFull() && state == fill, drain, mux(stack_almost.almostEmpty() && state == drain, done, state))) }
       stack_sum_almost := stack_accum_almost
       
     }
@@ -2037,6 +2051,9 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
     val y = DRAM[T](N)
     val s = ArgIn[T]
 
+    val expo_dram = DRAM[T](1024)
+    val sqroot_dram = DRAM[T](512)
+
     setMem(x, x_data)
     setArg(s, b)
 
@@ -2047,6 +2064,20 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
       Foreach(N by 1) { i => 
         yy(i) = xx(i) * s
       }
+      // Test exp_taylor from -4 to 4
+      val expo = SRAM[T](1024)
+      Foreach(1024 by 1){ i => 
+        val x = (i.as[T] - 512) / 128
+        expo(i) = exp_taylor(x)
+      }
+      // Test sqrt_taylor3 from 0 to 1024
+      val sqroot = SRAM[T](512)
+      Foreach(512 by 1){ i => 
+        sqroot(i) = sqrt_approx(i.as[T]*50 + 5)
+      }
+      expo_dram store expo
+      sqroot_dram store sqroot
+
       y(0 :: N par 16) store yy
     }
 
@@ -2059,10 +2090,23 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
     printArray(gold, "expected: ")
     printArray(result, "got: ")
 
+    val expo_gold = Array.tabulate(1024){ i => exp(((i.to[Float])-512)/128) }
+    val expo_got = getMem(expo_dram)
+    printArray(expo_gold, "e^x gold: ")
+    printArray(expo_got, "e^x taylor: ")
+
+    val sqroot_gold = Array.tabulate(512){ i => sqrt((i.to[Float])*50 + 5) }
+    val sqroot_got = getMem(sqroot_dram)
+    printArray(sqroot_gold, "sqroot gold: ")
+    printArray(sqroot_got, "sqroot taylor: ")
+    // printArray(expo_gold.zip(expo_got){_-_.as[Float]}, "e^x error: ")
+    // printArray(expo_gold.zip(expo_got){_.as[T]-_}, "e^x error: ")
+
     val cksum = gold.zip(result){_ == _}.reduce{_&&_}
     println("PASS: " + cksum + " (FixPtMem)")
   }
 }
+
 object SpecialMath extends SpatialApp { // Regression (Unit) // Args: 0.125 5.625 14 1.875 -3.4375 -5
   import IR._
   type USGN = FixPt[FALSE,_4,_4]

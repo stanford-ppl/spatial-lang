@@ -222,7 +222,6 @@ bool checkQAndRespond(int id) {
               DRAMRequest *head = dramRequestQ[id].front();
               ASSERT(head->isSparse, "ERROR: Encountered non-sparse request at (%d) while popping sparse requests! (%lx, %lx)", i, head->addr, head->rawAddr);
               ASSERT(head->isWr == writeRequest, "ERROR: Sparse request type mismatch");
-              ASSERT(head->tag == tag, "ERROR: Tag mismatch with sparse requests");
               if (!writeRequest) {
                 uint32_t *raddr = (uint32_t*) head->rawAddr;
                 if (debug) EPRINTF("-------- gatherAddr(%d) = %lx\n", i, raddr);

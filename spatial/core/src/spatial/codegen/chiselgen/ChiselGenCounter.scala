@@ -17,12 +17,15 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
 
   def emitCounterChain(lhs: Exp[_], ctrs: Seq[Exp[Counter]], suffix: String = ""): Unit = {
     var isForever = false
+    // Temporarily shove ctrl node onto stack so the following is quoted properly
+    if (cchainPassMap.contains(lhs)) {controllerStack.push(cchainPassMap(lhs))}
     val counter_data = ctrs.map{ c => c match {
       case Def(CounterNew(start, end, step, par)) => (src"$start", src"$end", src"$step", {s"$par"}.split('.').take(1)(0))
       case Def(Forever()) => 
         isForever = true
         ("0.S", "999.S", "1.S", "1") 
     }}
+    if (cchainPassMap.contains(lhs)) {controllerStack.pop()}
 
     emitGlobalWire(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
     // emitGlobalWire(src"""val ${lhs}${suffix}_en = Wire(Bool())""")

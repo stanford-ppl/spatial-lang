@@ -85,10 +85,10 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
   		// Specify methods
 		  def expand_key(): Unit = {
-		    Pipe{key_sram(0) = key_sram(0) ^ sbox_sram(key_sram(29).as[Int]) ^ rcon}
-		    Pipe{key_sram(1) = key_sram(1) ^ sbox_sram(key_sram(30).as[Int])}
-		    Pipe{key_sram(2) = key_sram(2) ^ sbox_sram(key_sram(31).as[Int])}
-		    Pipe{key_sram(3) = key_sram(3) ^ sbox_sram(key_sram(28).as[Int])}
+		    Pipe{key_sram(0) = key_sram(0) ^ sbox_sram(key_sram(29).as[UInt16].as[Int]) ^ rcon}
+		    Pipe{key_sram(1) = key_sram(1) ^ sbox_sram(key_sram(30).as[UInt16].as[Int])}
+		    Pipe{key_sram(2) = key_sram(2) ^ sbox_sram(key_sram(31).as[UInt16].as[Int])}
+		    Pipe{key_sram(3) = key_sram(3) ^ sbox_sram(key_sram(28).as[UInt16].as[Int])}
 		    rcon := (((rcon)<<1) ^ ((((rcon)>>7) & 1) * 0x1b))
 
 		    Sequential.Foreach(4 until 16 by 4) {i =>
@@ -98,10 +98,10 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 		    	Pipe{key_sram(i+3) = key_sram(i+3) ^ key_sram(i-1)}
 		    }
 			
-				Pipe{key_sram(16) = key_sram(16) ^ sbox_sram(key_sram(12).as[Int])}
-				Pipe{key_sram(17) = key_sram(17) ^ sbox_sram(key_sram(13).as[Int])}
-				Pipe{key_sram(18) = key_sram(18) ^ sbox_sram(key_sram(14).as[Int])}
-				Pipe{key_sram(19) = key_sram(19) ^ sbox_sram(key_sram(15).as[Int])}
+				Pipe{key_sram(16) = key_sram(16) ^ sbox_sram(key_sram(12).as[UInt16].as[Int])}
+				Pipe{key_sram(17) = key_sram(17) ^ sbox_sram(key_sram(13).as[UInt16].as[Int])}
+				Pipe{key_sram(18) = key_sram(18) ^ sbox_sram(key_sram(14).as[UInt16].as[Int])}
+				Pipe{key_sram(19) = key_sram(19) ^ sbox_sram(key_sram(15).as[UInt16].as[Int])}
 
 				Sequential.Foreach(20 until 32 by 4) {i => 
 					Pipe{key_sram(i) = key_sram(i) ^ key_sram(i-4)}
@@ -126,7 +126,7 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
 		  def substitute_bytes(): Unit = {
 	  		Sequential.Foreach(4 by 1, 4 by 1){(i,j) => 
-	  			val addr = plaintext_sram(i,j).as[Int]
+	  			val addr = plaintext_sram(i,j).as[UInt16].as[Int] // Upcast without sign-extend
 	  			val subst = sbox_sram(addr)
 	  			plaintext_sram(i,j) = subst
 	  		}
@@ -341,7 +341,7 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
   				val best_hop = Reg[T](0x4000)
   				best_hop.reset
   				Reduce(best_hop)(0 until N_STATES) { from => 
-  					val base = llike_sram(step-1, from) + transitions_sram(from,to)
+  					val base = llike_sram((step-1) % N_OBS, from) + transitions_sram(from,to)
   					base + emission
   				} { (a,b) => mux(a < b, a, b)}
   				llike_sram(step,to) = mux(step == 0, emission + init_sram(to), best_hop)
@@ -578,7 +578,7 @@ object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 
-object NW extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+object NW extends SpatialApp { // Regression (Dense) // Args: none
  import IR._
 
  /*
@@ -587,9 +587,9 @@ object NW extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   
     LETTER KEY:         Scores                   Ptrs                                                                                                  
       a = 0                   T  T  C  G                T  T  C  G                                                                                                                          
-      c = 1                0 -1 -2 -3 -4 ...         0  ←  ←  ←  ← ...    seqa = -TT-C                                                                                                                  
-      g = 2             T -1  0  0 -1 -2          T  ↑  ↖  ↖  ←  ←        seqb = -TTGC or something                                                                                                                   
-      t = 3             C -2 -1 -1  1  0          C  ↑  ↑  ↑  ↖  ←                                                                                                                         
+      c = 1                0 -1 -2 -3 -4 ...         0  ←  ←  ←  ← ...                                                                                                        
+      g = 2             T -1  1  0 -1 -2          T  ↑  ↖  ←  ←  ←                                                                                                                          
+      t = 3             C -2  0 -1  1  0          C  ↑  ↑  ↑  ↖  ←                                                                                                                         
       - = 4             G -3 -2 -2  0  2          G  ↑  ↑  ↑  ↑  ↖                                                                                                                                  
       _ = 5             A -4 -3 -3 -1  1          A  ↑  ↑  ↑  ↑  ↖                                                                                                                                 
                            .                         .                                                                                                                        
@@ -606,38 +606,1686 @@ object NW extends SpatialApp { // DISABLED Regression (Dense) // Args: none
                                                                                                            
  */
 
+  @struct case class nw_tuple(score: Int16, ptr: Int16)
 
   @virtualize
   def main() = {
 
+    // FSM setup
+    val traverseState = 0
+    val padBothState = 1
+    val doneState = 2
+
+    val SKIPB = 0
+    val SKIPA = 1
+    val ALIGN = 2
     val MATCH_SCORE = 1
     val MISMATCH_SCORE = -1
-    val GAP_STORE = -1 
+    val GAP_SCORE = -1 
     val seqa_string = "tcgacgaaataggatgacagcacgttctcgtattagagggccgcggtacaaaccaaatgctgcggcgtacagggcacggggcgctgttcgggagatcgggggaatcgtggcgtgggtgattcgccggc".toText
     val seqb_string = "ttcgagggcgcgtgtcgcggtccatcgacatgcccggtcggtgggacgtgggcgcctgatatagaggaatgcgattggaaggtcggacgggtcggcgagttgggcccggtgaatctgccatggtcgat".toText
+    val length = 128
 
-    val seqa_bin = Array.tabulate[UInt8](seqa_string.length){i => 
+    val seqa_bin = Array.tabulate[Int](seqa_string.length){i => 
       val char = seqa_string(i)
-      if (char == "a") {0.to[UInt8]}
-      else if (char == "c") {1.to[UInt8]}
-      else if (char == "g") {2.to[UInt8]}
-      else if (char == "t") {3.to[UInt8]}
-      else {6.to[UInt8]}
+      if (char == "a") {0.to[Int]}
+      else if (char == "c") {1.to[Int]}
+      else if (char == "g") {2.to[Int]}
+      else if (char == "t") {3.to[Int]}
+      else {6.to[Int]}
     } // TODO: Support c++ types with 2 bits in dram
-    val seqb_bin = Array.tabulate[UInt8](seqb_string.length){i => 
+    val seqb_bin = Array.tabulate[Int](seqb_string.length){i => 
       val char = seqb_string(i)
-      if (char == "a") {0.to[UInt8]}
-      else if (char == "c") {1.to[UInt8]}
-      else if (char == "g") {2.to[UInt8]}
-      else if (char == "t") {3.to[UInt8]}
-      else {6.to[UInt8]}
+      if (char == "a") {0.to[Int]}
+      else if (char == "c") {1.to[Int]}
+      else if (char == "g") {2.to[Int]}
+      else if (char == "t") {3.to[Int]}
+      else {6.to[Int]}
     } // TODO: Support c++ types with 2 bits in dram
-    printArray(seqa_bin, "seqa")
+
+    val seqa_dram_raw = DRAM[Int](length)
+    val seqb_dram_raw = DRAM[Int](length)
+    val seqa_dram_aligned = DRAM[Int](length*2)
+    val seqb_dram_aligned = DRAM[Int](length*2)
+    setMem(seqa_dram_raw, seqa_bin)
+    setMem(seqb_dram_raw, seqb_bin)
+
     Accel{
+      val seqa_sram_raw = SRAM[Int](length)
+      val seqb_sram_raw = SRAM[Int](length)
+      val seqa_fifo_aligned = FIFO[Int](length*2)
+      val seqb_fifo_aligned = FIFO[Int](length*2)
+
+      seqa_sram_raw load seqa_dram_raw
+      seqb_sram_raw load seqb_dram_raw
+
+      val score_matrix = SRAM[nw_tuple](length+1,length+1)
+
+      // Build score matrix
+      Foreach(length+1 by 1){ r =>
+        Foreach(length+1 by 1) { c => 
+          val update = if (r == 0) (nw_tuple(-c.as[Int16], 0)) else if (c == 0) (nw_tuple(-r.as[Int16], 1)) else {
+            val match_score = mux(seqa_sram_raw(c-1) == seqb_sram_raw(r-1), MATCH_SCORE.to[Int16], MISMATCH_SCORE.to[Int16])
+            val from_top = score_matrix(r-1, c).score + GAP_SCORE
+            val from_left = score_matrix(r, c-1).score + GAP_SCORE
+            val from_diag = score_matrix(r-1, c-1).score + match_score
+            mux(from_left >= from_top && from_left >= from_diag, nw_tuple(from_left, SKIPB), mux(from_top >= from_diag, nw_tuple(from_top,SKIPA), nw_tuple(from_diag, ALIGN)))
+          }
+          score_matrix(r,c) = update
+        }
+      }
+
+      // Read score matrix
+      val b_addr = Reg[Int](length)
+      val a_addr = Reg[Int](length)
+      val done_backtrack = Reg[Bool](false)
+      FSM[Int](state => state != doneState) { state =>
+        if (state == traverseState) {
+          if (score_matrix(b_addr,a_addr).ptr == ALIGN.to[Int16]) {
+            done_backtrack := b_addr == 1.to[Int] || a_addr == 1.to[Int]
+            b_addr :-= 1
+            a_addr :-= 1
+            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
+            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)
+          } else if (score_matrix(b_addr,a_addr).ptr == SKIPA.to[Int16]) {
+            done_backtrack := b_addr == 1.to[Int]
+            b_addr :-= 1
+            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)  
+            seqa_fifo_aligned.enq(4, !done_backtrack)          
+          } else {
+            done_backtrack := a_addr == 1.to[Int]
+            a_addr :-= 1
+            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
+            seqb_fifo_aligned.enq(4, !done_backtrack)          
+          }
+        } else if (state == padBothState) {
+          seqa_fifo_aligned.enq(5, !seqa_fifo_aligned.full) // I think this FSM body either needs to be wrapped in a body or last enq needs to be masked or else we are full before FSM sees full
+          seqb_fifo_aligned.enq(5, !seqb_fifo_aligned.full)
+        } else {}
+      } { state => 
+        mux(state == traverseState && ((b_addr == 0.to[Int]) || (a_addr == 0.to[Int])), padBothState, 
+          mux(seqa_fifo_aligned.full || seqb_fifo_aligned.full, doneState, state))// Safe to assume they fill at same time?
+      }
+
+      Parallel{
+        seqa_dram_aligned store seqa_fifo_aligned
+        seqb_dram_aligned store seqb_fifo_aligned
+      }
 
     }
 
-    val seqa_gold_string = "cggccgcttag-tgggtgcggtgctaagggggctagagggcttg-tc-gcggggcacgggacatgcg--gcg-t--cgtaaaccaaacat-g-gcgccgggag-attatgctcttgcacg-acag-ta----g-gat-aaagc---agc-t_________________________________________________________________________________________________________"
-    val seqb_gold_string = "--------tagct-ggtaccgt-ctaa-gtggc--ccggg-ttgagcggctgggca--gg-c-tg-gaag-gttagcgt-aaggagatatagtccg-cgggtgcagggtg-gctggcccgtacagctacctggcgctgtgcgcgggagctt_________________________________________________________________________________________________________"
+    val seqa_aligned_result = getMem(seqa_dram_aligned)
+    val seqb_aligned_result = getMem(seqb_dram_aligned)
+
+    val seqa_gold_string = "cggccgcttag-tgggtgcggtgctaagggggctagagggcttg-tc-gcggggcacgggacatgcg--gcg-t--cgtaaaccaaacat-g-gcgccgggag-attatgctcttgcacg-acag-ta----g-gat-aaagc---agc-t_________________________________________________________________________________________________________".toText
+    val seqb_gold_string = "--------tagct-ggtaccgt-ctaa-gtggc--ccggg-ttgagcggctgggca--gg-c-tg-gaag-gttagcgt-aaggagatatagtccg-cgggtgcagggtg-gctggcccgtacagctacctggcgctgtgcgcgggagctt_________________________________________________________________________________________________________".toText
+
+    val seqa_gold_bin = Array.tabulate[Int](seqa_gold_string.length){i => 
+      val char = seqa_gold_string(i)
+      if (char == "a") {0.to[Int]}
+      else if (char == "c") {1.to[Int]}
+      else if (char == "g") {2.to[Int]}
+      else if (char == "t") {3.to[Int]}
+      else if (char == "-") {4.to[Int]}
+      else if (char == "_") {5.to[Int]}
+      else {6.to[Int]}
+    }
+    val seqb_gold_bin = Array.tabulate[Int](seqb_gold_string.length){i => 
+      val char = seqb_gold_string(i)
+      if (char == "a") {0.to[Int]}
+      else if (char == "c") {1.to[Int]}
+      else if (char == "g") {2.to[Int]}
+      else if (char == "t") {3.to[Int]}
+      else if (char == "-") {4.to[Int]}
+      else if (char == "_") {5.to[Int]}
+      else {6.to[Int]}
+    }
+
+    printArray(seqa_aligned_result, "Aligned result A: ")
+    printArray(seqa_gold_bin, "Gold A: ")
+    printArray(seqb_aligned_result, "Aligned result B: ")
+    printArray(seqb_gold_bin, "Gold B: ")
+
+    val cksumA = seqa_aligned_result.zip(seqa_gold_bin){_==_}.reduce{_&&_}
+    val cksumB = seqb_aligned_result.zip(seqb_gold_bin){_==_}.reduce{_&&_}
+    val cksum = cksumA && cksumB
+    println("PASS: " + cksum + " (NW) * Implement nodes for text operations in Scala once refactoring is done")
+
+
+
   }
 }      
+
+
+object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
+ import IR._
+
+ /*
+  
+  Molecular Dynamics via K-nearest neighbors                                                                
+
+                  ← N_NEIGHBORS →   
+                 ___________________   
+                |                   |  
+            ↑   |                   |  
+                |                   |  
+                |                   |  
+                |                   |  
+      N_ATOMS   |                   |  
+                |                   |  
+                |                   |  
+                |                   |  
+            ↓   |                   |  
+                |                   |  
+                 ```````````````````   
+
+                 For each atom (row), get id of its interactions (col), index into idx/y/z, compute potential energy, and sum them all up
+
+                                                                                                           
+ */
+
+  // Max pos seems to be about 19
+  type T = FixPt[TRUE, _12, _52]
+  @struct case class XYZ(x: T, y: T, z: T) 
+
+  @virtualize
+  def main() = {
+
+    val N_ATOMS = 256
+    val N_NEIGHBORS = 16 
+    val lj1 = 1.5.to[T]
+    val lj2 = 2.to[T]
+    val raw_xpos = loadCSV1D[T]("/remote/regression/data/machsuite/knn_x.csv", "\n")
+    val raw_ypos = loadCSV1D[T]("/remote/regression/data/machsuite/knn_y.csv", "\n")
+    val raw_zpos = loadCSV1D[T]("/remote/regression/data/machsuite/knn_z.csv", "\n")
+    val raw_interactions_data = loadCSV1D[Int]("/remote/regression/data/machsuite/knn_interactions.csv", "\n")
+    val raw_interactions = raw_interactions_data.reshape(N_ATOMS, N_NEIGHBORS)
+
+    val xpos_dram = DRAM[T](N_ATOMS)
+    val ypos_dram = DRAM[T](N_ATOMS)
+    val zpos_dram = DRAM[T](N_ATOMS)
+    val xforce_dram = DRAM[T](N_ATOMS)
+    val yforce_dram = DRAM[T](N_ATOMS)
+    val zforce_dram = DRAM[T](N_ATOMS)
+    val interactions_dram = DRAM[Int](N_ATOMS, N_NEIGHBORS)
+
+    setMem(xpos_dram, raw_xpos)
+    setMem(ypos_dram, raw_ypos)
+    setMem(zpos_dram, raw_zpos)
+    setMem(interactions_dram, raw_interactions)
+
+    Accel{
+      val xpos_sram = SRAM[T](N_ATOMS)
+      val ypos_sram = SRAM[T](N_ATOMS)
+      val zpos_sram = SRAM[T](N_ATOMS)
+      val xforce_sram = SRAM[T](N_ATOMS)
+      val yforce_sram = SRAM[T](N_ATOMS)
+      val zforce_sram = SRAM[T](N_ATOMS)
+      val interactions_sram = SRAM[Int](N_ATOMS, N_NEIGHBORS) // Can also shrink sram and work row by row
+
+      xpos_sram load xpos_dram
+      ypos_sram load ypos_dram
+      zpos_sram load zpos_dram
+      interactions_sram load interactions_dram
+
+      Foreach(N_ATOMS by 1) { atom =>
+        val this_pos = XYZ(xpos_sram(atom), ypos_sram(atom), zpos_sram(atom))
+        val total_force = Reg[XYZ](XYZ(0.to[T], 0.to[T], 0.to[T]))
+        // total_force.reset // Probably unnecessary
+        Reduce(total_force)(N_NEIGHBORS by 1) { neighbor => 
+          val that_id = interactions_sram(atom, neighbor)
+          val that_pos = XYZ(xpos_sram(that_id), ypos_sram(that_id), zpos_sram(that_id))
+          val delta = XYZ(this_pos.x - that_pos.x, this_pos.y - that_pos.y, this_pos.z - that_pos.z)
+          val r2inv = 1.0.to[T]/( delta.x*delta.x + delta.y*delta.y + delta.z*delta.z );
+          // Assume no cutoff and aways account for all nodes in area
+          val r6inv = r2inv * r2inv * r2inv;
+          val potential = r6inv*(lj1*r6inv - lj2);
+          val force = r2inv*potential;
+          XYZ(delta.x*force, delta.y*force, delta.z*force)
+        }{(a,b) => XYZ(a.x + b.x, a.y + b.y, a.z + b.z)}
+        xforce_sram(atom) = total_force.x
+        yforce_sram(atom) = total_force.y
+        zforce_sram(atom) = total_force.z
+      }
+      xforce_dram store xforce_sram
+      yforce_dram store yforce_sram
+      zforce_dram store zforce_sram
+    }
+
+    val xforce_received = getMem(xforce_dram)
+    val yforce_received = getMem(yforce_dram)
+    val zforce_received = getMem(zforce_dram)
+    val xforce_gold = loadCSV1D[T]("/remote/regression/data/machsuite/knn_x_gold.csv", "\n")
+    val yforce_gold = loadCSV1D[T]("/remote/regression/data/machsuite/knn_y_gold.csv", "\n")
+    val zforce_gold = loadCSV1D[T]("/remote/regression/data/machsuite/knn_z_gold.csv", "\n")
+
+    printArray(xforce_gold, "Gold x:")
+    printArray(xforce_received, "Received x:")
+    printArray(yforce_gold, "Gold y:")
+    printArray(yforce_received, "Received y:")
+    printArray(zforce_gold, "Gold z:")
+    printArray(zforce_received, "Received z:")
+
+    val margin = 0.001.to[T]
+    val cksumx = xforce_gold.zip(xforce_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
+    val cksumy = yforce_gold.zip(yforce_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
+    val cksumz = zforce_gold.zip(zforce_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
+    val cksum = cksumx && cksumy && cksumz
+    println("PASS: " + cksum + " (MD_KNN)")
+  }
+}      
+
+object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
+ import IR._
+
+ /*
+  
+  Moleckaler Dynamics via the grid, a digital frontier
+                                                                             
+                                                                             
+                                                                             
+                                                                             
+                                                                             
+                            ←      BLOCK_SIDE     →                        
+                ↗                                                                                                
+                          __________________________________   
+       BLOCK_SIDE        /                                  /|  
+                        /                                  / |  
+        ↙              /                                  /  |  
+                      /_________________________________ /   |  
+                     |           b1                     |    |  
+           ↑         |        ..  ..  ..                |    |  
+                     |       - - - - - -                |    |  
+                     |      :``::``::``:                |    |  
+           B         |    b1:..::__::..:b1              |    |  
+           L         |      - - /_/| - -                |    |  
+           O         |     :``:|b0||:``:                |    |  
+           C         |   b1:..:|__|/:..:b1              |    |  
+           K         |      - - - -  - -                |    |  
+           |         |     :``::``: :``:                |    |  
+           S         |   b1:..::..: :..:b1              |    |  
+           I         |          b1                      |    |  
+           D         |                                  |   /   
+           E         |                                  |  /   
+                     |                                  | /    
+           ↓         |                                  |/     
+                      ``````````````````````````````````       * Each b0 contains up to "density" number of atoms
+                                                               * For each b0, and then for each atom in b0, compute this atom's
+                                                                    interactions with all atoms in the adjacent (27) b1's
+                                                               * One of the b1's will actually be b0, so skip this contribution                      
+                                                                                                           
+ */
+
+  // Max pos seems to be about 19
+  type T = FixPt[TRUE, _12, _52]
+  @struct case class XYZ(x: T, y: T, z: T) 
+
+  @virtualize
+  def main() = {
+
+    val N_ATOMS = 256
+    val DOMAIN_EDGE = 20
+    val BLOCK_SIDE = 4
+    val density = 10
+    val lj1 = 1.5.to[T]
+    val lj2 = 2.to[T]
+
+    val raw_npoints = Array[Int](4,4,3,4,5,5,2,1,1,8,4,8,3,3,7,5,4,5,6,2,2,4,4,3,3,4,7,2,3,2,
+                                 2,1,7,1,3,7,6,3,3,4,3,4,5,5,6,4,2,5,7,6,5,4,3,3,5,4,4,4,3,2,3,2,7,5)
+    val npoints_data = raw_npoints.reshape(BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE)
+
+    val raw_dvec = loadCSV1D[T]("/remote/regression/data/machsuite/grid_dvec.csv", "\n")
+    // Strip x,y,z vectors from raw_dvec
+    val dvec_x_data = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_dvec(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l)}
+    val dvec_y_data = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_dvec(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l+1)}
+    val dvec_z_data = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_dvec(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l+2)}
+
+    val dvec_x_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val dvec_y_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val dvec_z_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val force_x_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val force_y_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val force_z_dram = DRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+    val npoints_dram = DRAM[Int](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE)
+
+    setMem(dvec_x_dram, dvec_x_data)
+    setMem(dvec_y_dram, dvec_y_data)
+    setMem(dvec_z_dram, dvec_z_data)
+    setMem(npoints_dram, npoints_data)
+
+    Accel{
+      val dvec_x_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+      val dvec_y_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+      val dvec_z_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+      val npoints_sram = SRAM[Int](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE)
+      val force_x_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+      val force_y_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+      val force_z_sram = SRAM[T](BLOCK_SIDE,BLOCK_SIDE,BLOCK_SIDE,density)
+
+      dvec_x_sram load dvec_x_dram
+      dvec_y_sram load dvec_y_dram
+      dvec_z_sram load dvec_z_dram
+      npoints_sram load npoints_dram
+
+      // Iterate over each block
+      Foreach(BLOCK_SIDE by 1, BLOCK_SIDE by 1, BLOCK_SIDE by 1) { (b0x, b0y, b0z) => 
+        // Iterate over each point in this block, considering boundaries
+        val b0_cube_forces = SRAM[XYZ](density)
+        val b1x_start = max(0.to[Int],b0x-1.to[Int])
+        val b1x_end = min(BLOCK_SIDE.to[Int], b0x+2.to[Int])
+        val b1y_start = max(0.to[Int],b0y-1.to[Int])
+        val b1y_end = min(BLOCK_SIDE.to[Int], b0y+2.to[Int])
+        val b1z_start = max(0.to[Int],b0z-1.to[Int])
+        val b1z_end = min(BLOCK_SIDE.to[Int], b0z+2.to[Int])
+        MemReduce(b0_cube_forces)(b1x_start until b1x_end by 1, b1y_start until b1y_end by 1, b1z_start until b1z_end by 1) { (b1x, b1y, b1z) => 
+          val b1_cube_contributions = SRAM[XYZ](density)
+          // Iterate over points in b0
+          val p_range = npoints_sram(b0x, b0y, b0z)
+          val q_range = npoints_sram(b1x, b1y, b1z)
+          Foreach(0 until p_range) { p_idx =>
+            val px = dvec_x_sram(b0x, b0y, b0z, p_idx)
+            val py = dvec_y_sram(b0x, b0y, b0z, p_idx)
+            val pz = dvec_z_sram(b0x, b0y, b0z, p_idx)
+            val q_sum = Reg[XYZ](XYZ(0.to[T], 0.to[T], 0.to[T]))
+            Reduce(q_sum)(0 until q_range) { q_idx => 
+              val qx = dvec_x_sram(b1x, b1y, b1z, q_idx)
+              val qy = dvec_y_sram(b1x, b1y, b1z, q_idx)
+              val qz = dvec_z_sram(b1x, b1y, b1z, q_idx)
+              if ( !(b0x == b1x && b0y == b1y && b0z == b1z && p_idx == q_idx) ) { // Skip self
+                val delta = XYZ(px - qx, py - qy, pz - qz)
+                val r2inv = 1.0.to[T]/( delta.x*delta.x + delta.y*delta.y + delta.z*delta.z );
+                // Assume no cutoff and aways account for all nodes in area
+                val r6inv = r2inv * r2inv * r2inv;
+                val potential = r6inv*(lj1*r6inv - lj2);
+                val force = r2inv*potential;
+                XYZ(delta.x*force, delta.y*force, delta.z*force)
+              } else {
+                XYZ(0.to[T], 0.to[T], 0.to[T])
+              }
+            }{(a,b) => XYZ(a.x + b.x, a.y + b.y, a.z + b.z)}
+            b1_cube_contributions(p_idx) = q_sum
+          }
+          Foreach(p_range until density) { i => b1_cube_contributions(i) = XYZ(0.to[T], 0.to[T], 0.to[T]) } // Zero out untouched interactions          
+          b1_cube_contributions
+        }{(a,b) => XYZ(a.x + b.x, a.y + b.y, a.z + b.z)}
+
+        Foreach(0 until density) { i => 
+          force_x_sram(b0x,b0y,b0z,i) = b0_cube_forces(i).x
+          force_y_sram(b0x,b0y,b0z,i) = b0_cube_forces(i).y
+          force_z_sram(b0x,b0y,b0z,i) = b0_cube_forces(i).z
+        }
+      }
+      force_x_dram store force_x_sram
+      force_y_dram store force_y_sram
+      force_z_dram store force_z_sram
+
+    }
+
+    val force_x_received = getTensor4(force_x_dram)
+    val force_y_received = getTensor4(force_y_dram)
+    val force_z_received = getTensor4(force_z_dram)
+    val raw_force_gold = loadCSV1D[T]("/remote/regression/data/machsuite/grid_gold.csv", "\n")
+    val force_x_gold = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_force_gold(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l)}
+    val force_y_gold = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_force_gold(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l+1)}
+    val force_z_gold = (0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::BLOCK_SIDE, 0::density){(i,j,k,l) => raw_force_gold(i*BLOCK_SIDE*BLOCK_SIDE*density*3 + j*BLOCK_SIDE*density*3 + k*density*3 + 3*l+2)}
+
+
+    printTensor4(force_x_gold, "Gold x:")
+    printTensor4(force_x_received, "Received x:")
+    printTensor4(force_y_gold, "Gold y:")
+    printTensor4(force_y_received, "Received y:")
+    printTensor4(force_z_gold, "Gold z:")
+    printTensor4(force_z_received, "Received z:")
+
+    val margin = 0.001.to[T]
+    val cksumx = force_x_gold.zip(force_x_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
+    val cksumy = force_y_gold.zip(force_y_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
+    val cksumz = force_z_gold.zip(force_z_received){case (a,b) => abs(a - b) < margin}.reduce{_&&_}
+    val cksum = cksumx && cksumy && cksumz
+    println("PASS: " + cksum + " (MD_Grid)")
+  }
+}      
+
+object KMP extends SpatialApp { // Regression (Dense) // Args: none
+ import IR._
+
+ /*
+  
+  Knuth-Morris-Pratt
+
+  Used https://www.browserling.com/tools/text-to-hex to convert string to hex, and then converted hex to dec                                                               
+                                                                                             
+                                                                                                           
+ */
+
+  @virtualize
+  def main() = {
+
+    val STRING_SIZE = 32411
+    val PATTERN_SIZE = 4
+
+    val raw_string = loadCSV1D[Int]("/remote/regression/data/machsuite/kmp_data.csv", "\n")
+    val raw_pattern = Array[Int](98,117,108,108)
+    val string_dram = DRAM[Int](STRING_SIZE)
+    val pattern_dram = DRAM[Int](PATTERN_SIZE)
+    val nmatches = ArgOut[Int]
+
+    setMem(string_dram, raw_string)
+    setMem(pattern_dram, raw_pattern)
+
+    Accel{
+      val string_sram = SRAM[Int](STRING_SIZE)
+      val pattern_sram = SRAM[Int](PATTERN_SIZE)
+      val kmp_next = SRAM[Int](PATTERN_SIZE)
+      val num_matches = Reg[Int](0)
+
+      string_sram load string_dram
+      pattern_sram load pattern_dram
+
+      // Init kmp_next
+      val k = Reg[Int](0)
+      kmp_next(0) = 0
+      Sequential.Foreach(1 until PATTERN_SIZE by 1) { q => 
+        // val whileCond = Reg[Bool](false)
+        FSM[Int](state => state != 1) { state => 
+          // whileCond := (k > 0) && (pattern_sram(k) != pattern_sram(q))
+          if ((k > 0) && (pattern_sram(k) != pattern_sram(q))) k := 0 // TODO: Will it always bump back to 0 in this step or should it really be kmp_next(q)?
+        }{state => mux((k > 0) && (pattern_sram(k) != pattern_sram(q)), 0, 1)}
+        if (pattern_sram(k) == pattern_sram(q)) {k :+= 1.to[Int]}
+        kmp_next(q) = k
+      }
+
+      // Scan string
+      val q = Reg[Int](0)
+      Sequential.Foreach(0 until STRING_SIZE) { i => 
+        // val whileCond = Reg[Bool](false) 
+        FSM[Int](state => state != 1) { state => 
+          // whileCond := (q > 0) && (pattern_sram(i) != pattern_sram(q))
+          if ((q > 0) && (string_sram(i) != pattern_sram(q))) q := kmp_next(q)
+        }{state => mux((q > 0) && (string_sram(i) != pattern_sram(q)), 0, 1)}
+        if (pattern_sram(q) == string_sram(i)) { q :+= 1 }
+        if (q >= PATTERN_SIZE) {
+          Pipe{
+            num_matches :+= 1
+            val bump = kmp_next(q - 1)
+            q := bump
+          }
+        }
+      }
+
+      nmatches := num_matches
+    }
+
+    val gold_nmatches = 12
+    val computed_nmatches = getArg(nmatches)
+
+    println("Expected " + gold_nmatches + " matches")
+    println("Found " + computed_nmatches)
+
+    val cksum = gold_nmatches == computed_nmatches
+    println("PASS: " + cksum + " (KMP) * Implement string find, string file parser, and string <-> hex <-> dec features once argon refactor is done so we can test any strings")
+  }
+}      
+
+
+object GEMM_NCubed extends SpatialApp { // Regression (Dense) // Args: none
+ import IR._
+
+ /*
+                                                             
+                                                                                                           
+ */
+  type T = FixPt[TRUE,_16,_16]
+
+  @virtualize
+  def main() = {
+
+    val dim = 64
+
+    val a_data = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_a.csv", "\n").reshape(dim,dim)
+    val b_data = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_b.csv", "\n").reshape(dim,dim)
+
+    val a_dram = DRAM[T](dim,dim)
+    val b_dram = DRAM[T](dim,dim)
+    val c_dram = DRAM[T](dim,dim)
+
+    setMem(a_dram, a_data)
+    setMem(b_dram, b_data)
+
+    Accel{
+      val a_sram = SRAM[T](dim,dim)
+      val b_sram = SRAM[T](dim,dim)
+      val c_sram = SRAM[T](dim,dim)
+
+      a_sram load a_dram
+      b_sram load b_dram
+
+      Foreach(dim by 1) { i => 
+        Foreach(dim by 1) { j => 
+          val sum = Reduce(Reg[T](0))(dim by 1) { k => 
+            a_sram(i,k) * b_sram(k,j)
+          }{_+_}
+          c_sram(i,j) = sum
+        }
+      }
+      c_dram store c_sram
+    }
+
+    val c_gold = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_gold.csv", "\n").reshape(dim,dim)
+    val c_result = getMatrix(c_dram)
+
+    printMatrix(c_gold, "C Gold: ")
+    printMatrix(c_result, "C Result: ")
+
+    val margin = 0.5.to[T]
+    val cksum = c_gold.zip(c_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    println("PASS: " + cksum + " (GEMM_NCubed)")
+  }
+}      
+
+object GEMM_Blocked extends SpatialApp { // Regression (Dense) // Args: none
+ import IR._
+
+ /*
+                                                             
+    CONCERNS: We need to figure out how HLS is actually managing the srams, or make our management better  
+              We cannot do unaligned stores yet, so tilesize of 8 won't work unless we keep ts 16 of c_sram onchip                                                                                          
+ */
+  type T = FixPt[TRUE,_16,_16]
+
+  @virtualize
+  def main() = {
+
+    val dim = 64
+    val tileSize = 8
+
+    val a_data = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_a.csv", "\n").reshape(dim,dim)
+    val b_data = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_b.csv", "\n").reshape(dim,dim)
+    val c_init = (0::dim, 0::dim){(i,j) => 0.to[T]}
+    val a_dram = DRAM[T](dim,dim)
+    val b_dram = DRAM[T](dim,dim)
+    val c_dram = DRAM[T](dim,dim)
+
+    setMem(a_dram, a_data)
+    setMem(b_dram, b_data)
+    setMem(c_dram, c_init)
+
+    Accel{
+      val a_sram = SRAM[T](tileSize)
+      val b_sram = SRAM[T](tileSize,tileSize)
+      val c_sram = SRAM[T](dim,dim) // No tiling along rows dim in machsuite??
+      c_sram load c_dram
+
+      Foreach(dim by tileSize) { jj => 
+        Foreach(dim by tileSize) { kk =>
+          b_sram load b_dram(kk::kk+tileSize, jj::jj+tileSize)
+          Foreach(dim by 1) { i => 
+            a_sram load a_dram(i, kk::kk+tileSize)
+            Foreach(tileSize by 1) { k => 
+              val temp_a = a_sram(k)
+              Foreach(tileSize by 1) { j => 
+                c_sram(i,j+jj) = c_sram(i,j+jj) + b_sram(k, j) * temp_a
+              }
+            }
+          } 
+        }
+      }
+      c_dram store c_sram
+    }
+
+    val c_gold = loadCSV1D[T]("/remote/regression/data/machsuite/gemm_gold.csv", "\n").reshape(dim,dim)
+    val c_result = getMatrix(c_dram)
+
+    printMatrix(c_gold, "C Gold: ")
+    printMatrix(c_result, "C Result: ")
+
+    val margin = 0.5.to[T]
+    val cksum = c_gold.zip(c_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    println("PASS: " + cksum + " (GEMM_Blocked)")
+  }
+}
+
+object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
+ import IR._
+
+ /*                                                                                                  
+                              |     |                                                                                                                                                                                        
+                     |        |     |                                      |     |                                                                                                                                                                                     
+                     |  |     |     |  |                             |     |     |                                                                                                                                                                           
+                     |  |  |  |     |  |                          |  |     |     |     |                                                                                                                                                                     
+                     |  |  |  |  |  |  |                          |  |  |  |     |     |                                                                                                                                                                     
+                     |  |  |  |  |  |  |  |                       |  |  |  |  |  |     |                                                                                                                                                                      
+                     |  |  |  |  |  |  |  |                       |  |  |  |  |  |  |  |                                                                                                                                                                        
+                     |  |  |  |  |  |  |  |                       |  |  |  |  |  |  |  |                                                                                                                                                                      
+                                                                  |  |  |  |  |  |  |  |                      
+   Outer FSM iter 1:  ↖↗    ↖↗    ↖↗    ↖↗      Outer FSM iter 2:  ↖.....↖     ↖.....↖                                                                                                                      
+                     fifos numel = 1                               fifos numel = 2                                                            
+                                                                  
+                                                                                                     
+                            |           |                                           |  |                                                                                                   
+                         |  |           |                                        |  |  |                                                                                                   
+                      |  |  |        |  |                                  |  |  |  |  |                                                                                                  
+                   |  |  |  |        |  |                               |  |  |  |  |  |                                                                                                  
+                   |  |  |  |     |  |  |                            |  |  |  |  |  |  |                                                                                                  
+                   |  |  |  |  |  |  |  |                         |  |  |  |  |  |  |  |                                                                                                  
+                   |  |  |  |  |  |  |  |                         |  |  |  |  |  |  |  |                                                                                                  
+                   |  |  |  |  |  |  |  |                         |  |  |  |  |  |  |  |                                                                                                  
+ Outer FSM iter 3:  ↖...........↖               Outer FSM iter 4:                                                                                                     
+                   fifos numel = 4                                 Done
+                                                                                                                                                                                                                   
+                                                                                                                                                                           
+ */
+
+  @virtualize
+  def main() = {
+
+    val numel = 2048
+    val START = 0
+    val STOP = numel
+    val levels = STOP-START //ArgIn[Int]
+    // setArg(levels, args(0).to[Int])
+
+    val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_data.csv", "\n")
+
+    val data_dram = DRAM[Int](numel)
+    // val sorted_dram = DRAM[Int](numel)
+
+    setMem(data_dram, raw_data)
+
+    Accel{
+      val data_sram = SRAM[Int](numel)
+      val lower_fifo = FIFO[Int](numel/2)
+      val upper_fifo = FIFO[Int](numel/2)
+
+      data_sram load data_dram
+
+
+      FSM[Int,Int](1){m => m < levels} { m =>
+        FSM[Int,Int](START)(i => i < STOP) { i =>
+          val from = i
+          val mid = i+m-1
+          val to = min(i+m+m-1, STOP.to[Int])
+          val lower_tmp = Reg[Int](0)
+          val upper_tmp = Reg[Int](0)
+          Foreach(from until mid+1 by 1){ i => if (i == from) {lower_tmp := data_sram(i)} else {lower_fifo.enq(data_sram(i))} }
+          Foreach(mid+1 until to+1 by 1){ j => if (j == mid+1) {upper_tmp := data_sram(j)} else {upper_fifo.enq(data_sram(j))} }
+          Sequential.Foreach(from until to+1 by 1) { k => 
+            if (lower_tmp < upper_tmp) {
+              data_sram(k) = lower_tmp
+              val next_lower = if (lower_fifo.empty) {0x7FFFFFFF.to[Int]} else {lower_fifo.deq()}
+              lower_tmp := next_lower
+            } else {
+              data_sram(k) = upper_tmp
+              val next_upper = if (upper_fifo.empty) {0x7FFFFFFF.to[Int]} else {upper_fifo.deq()}
+              upper_tmp := next_upper
+            }
+          }
+        }{ i => i + m + m }
+      }{ m => m + m}
+
+      // sorted_dram store data_sram
+      data_dram store data_sram
+    }
+
+    val sorted_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_gold.csv", "\n")
+    val sorted_result = getMem(data_dram)
+
+    printArray(sorted_gold, "Sorted Gold: ")
+    printArray(sorted_result, "Sorted Result: ")
+
+    val cksum = sorted_gold.zip(sorted_result){_==_}.reduce{_&&_}
+    // // Use the real way to check if list is sorted instead of using machsuite gold
+    // // This way says I've done goofed, issue #
+    // val cksum = Array.tabulate(STOP-1){ i => pack(sorted_result(i), sorted_result(i+1)) }.map{a => a._1 <= a._2}.reduce{_&&_}
+    println("PASS: " + cksum + " (Sort_Merge)")
+  }
+}
+
+object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
+ import IR._
+
+ /*                                                                                                  
+    TODO: Cartoon of what this is doing                                                         
+                                                                                                                                                                                                                       
+                                                                                                                                                                           
+ */
+
+  @virtualize
+  def main() = {
+
+    val numel = 2048
+    val NUM_BLOCKS = 512
+    val EL_PER_BLOCK = 4
+    val RADIX = 4
+    val BUCKET_SIZE = NUM_BLOCKS*RADIX
+    val SCAN_BLOCK = 16
+    val SCAN_RADIX = BUCKET_SIZE/SCAN_BLOCK
+    val a = false.to[Bool]
+    val b = true.to[Bool]
+
+    val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_data.csv", "\n")
+
+    val data_dram = DRAM[Int](numel)
+
+    setMem(data_dram, raw_data)
+
+    Accel{
+      val a_sram = SRAM[Int](numel)
+      val b_sram = SRAM[Int](numel)
+      val bucket_sram = SRAM[Int](BUCKET_SIZE)
+      val sum_sram = SRAM[Int](SCAN_RADIX)
+      val valid_buffer = Reg[Bool](false)
+      
+      a_sram load data_dram
+
+      def hist(exp: Index, s: SRAM1[Int]): Unit = {
+        Foreach(NUM_BLOCKS by 1) { blockID => 
+          Sequential.Foreach(4 by 1) {i => 
+            val a_indx = blockID * EL_PER_BLOCK + i
+            val shifted = Reg[Int](0)
+            shifted := s(a_indx) // TODO: Allow just s(a_indx) >> exp syntax
+            // Reduce(shifted)(exp by 1) { k => shifted >> 1}{(a,b) => b}
+            Foreach(exp by 1) { k => shifted := shifted.value >> 1}
+            val bucket_indx = (shifted.value & 0x3.to[Int])*NUM_BLOCKS.to[Int] + blockID + 1.to[Int]
+            bucket_sram(bucket_indx) = bucket_sram(bucket_indx) + 1
+          }
+        }
+      }
+
+      def local_scan(): Unit = {
+        Foreach(SCAN_RADIX by 1) { radixID => 
+          Sequential.Foreach(1 until SCAN_BLOCK by 1) { i => // Loop carry dependency
+            val bucket_indx = radixID*SCAN_BLOCK.to[Int] + i
+            val prev_val = Reg[Int](0)
+            Pipe{ prev_val := bucket_sram(bucket_indx - 1) }
+            Pipe{ bucket_sram(bucket_indx) = bucket_sram(bucket_indx) + prev_val }
+          }
+        }
+      }
+
+      def sum_scan(): Unit = {
+        sum_sram(0) = 0
+        Foreach(1 until SCAN_RADIX by 1) { radixID => 
+          val bucket_indx = radixID*SCAN_BLOCK - 1
+          sum_sram(radixID) = sum_sram(radixID-1) + bucket_sram(bucket_indx)
+        }
+      }
+
+      def last_step_scan(): Unit = {
+        Foreach(SCAN_RADIX by 1) { radixID => 
+          Foreach(SCAN_BLOCK by 1) { i => 
+            val bucket_indx = radixID * SCAN_BLOCK + i
+            bucket_sram(bucket_indx) = bucket_sram(bucket_indx) + sum_sram(radixID)
+          }
+        }
+      }
+
+      def update(exp: Index, s1: SRAM1[Int], s2: SRAM1[Int]): Unit = {
+
+        Foreach(NUM_BLOCKS by 1) { blockID => 
+          Sequential.Foreach(4 by 1) { i => 
+            val shifted = Reg[Int](0)
+            shifted := s1(blockID*EL_PER_BLOCK + i) // TODO: Allow just s(a_indx) >> exp syntax
+            // Reduce(shifted)(exp by 1) { k => shifted >> 1}{(a,b) => b}
+            Foreach(exp by 1) { k => shifted := shifted >> 1}
+            val bucket_indx = (shifted & 0x3.to[Int])*NUM_BLOCKS + blockID
+            val a_indx = blockID * EL_PER_BLOCK + i
+            s2(bucket_sram(bucket_indx)) = s1(a_indx)
+            bucket_sram(bucket_indx) = bucket_sram(bucket_indx) + 1
+          }
+        }
+      }
+
+
+      Sequential.Foreach(32 by 2) { exp => 
+        Foreach(BUCKET_SIZE by 1) { i => bucket_sram(i) = 0 }
+  
+        if (valid_buffer == a) {
+          Pipe{hist(exp, a_sram)}
+        } else {
+          Pipe{hist(exp, b_sram)}
+        }
+
+        local_scan()
+        sum_scan()
+        last_step_scan()
+
+        if (valid_buffer == a) {
+          Pipe{
+            update(exp, a_sram, b_sram)
+            valid_buffer := b
+          }
+        } else {
+          Pipe{
+            update(exp, b_sram, a_sram)
+            valid_buffer := a
+          }
+        }
+
+      }
+
+      if (valid_buffer == a) {
+        data_dram store a_sram
+      } else {
+        data_dram store b_sram
+      }
+
+    }
+
+    val sorted_gold = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_gold.csv", "\n")
+    val sorted_result = getMem(data_dram)
+
+    printArray(sorted_gold, "Sorted Gold: ")
+    printArray(sorted_result, "Sorted Result: ")
+
+    val cksum = sorted_gold.zip(sorted_result){_==_}.reduce{_&&_}
+    // // Use the real way to check if list is sorted instead of using machsuite gold
+    // // This way says I've done goofed, issue #
+    // val cksum = Array.tabulate(STOP-1){ i => pack(sorted_result(i), sorted_result(i+1)) }.map{a => a._1 <= a._2}.reduce{_&&_}
+    println("PASS: " + cksum + " (Sort_Radix)")
+  }
+}
+
+
+object SPMV_CRS extends SpatialApp { // Regression (Sparse) // Args: none
+ import IR._
+
+ /*                                                                                                  
+   Sparse Matrix is the IEEE 494 bus interconnect matrix from UF Sparse Datasets   
+
+    Datastructures in CRS:
+              0__1__2__3__4__5_
+      rowid: |__|__|__|__|__|__|
+               |  |____   |_____________                       
+              _↓_______`↓_______________`↓_______
+      cols:  |___________________________________|
+              _↓________↓________________↓_______
+     values: |___________________________________|    
+
+        Use cols to gather from vector:
+              ____________________________________________
+     vector: |____________________________________________|
+
+
+   Concerns:
+      Machsuite assumes everything fits on chip?  So there are no gathers...  Setting tilesize to problem size for now
+ */
+
+  type T = FixPt[TRUE,_16,_16]
+  @virtualize
+  def main() = {
+
+    val NNZ = 1666
+    val N = 494
+    val tileSize = 494
+
+    val raw_values = loadCSV1D[T]("/remote/regression/data/machsuite/crs_values.csv", "\n")
+    val raw_cols = loadCSV1D[Int]("/remote/regression/data/machsuite/crs_cols.csv", "\n")
+    val raw_rowid = loadCSV1D[Int]("/remote/regression/data/machsuite/crs_rowid.csv", "\n")
+    val raw_vec = loadCSV1D[T]("/remote/regression/data/machsuite/crs_vec.csv", "\n")
+
+    val values_dram = DRAM[T](NNZ) 
+    val cols_dram = DRAM[Int](NNZ) 
+    val rowid_dram = DRAM[Int](N+1) 
+    val vec_dram = DRAM[T](N) 
+    val result_dram = DRAM[T](N)
+
+    setMem(values_dram, raw_values)
+    setMem(cols_dram, raw_cols)
+    setMem(rowid_dram, raw_rowid)
+    setMem(vec_dram, raw_vec)
+
+    Accel {
+      val rowid_sram = SRAM[Int](tileSize+1)
+      val cols_sram = SRAM[Int](tileSize)
+      val values_sram = SRAM[T](tileSize)
+      val vec_sram = SRAM[T](tileSize)
+      val result_sram = SRAM[T](tileSize)
+
+      Foreach(N/tileSize by 1) { tile =>
+        rowid_sram load rowid_dram(tile*(tileSize+1) :: (tile+1)*(tileSize+1))
+        Foreach(tileSize by 1) { i => 
+          val start_id = rowid_sram(i)
+          val stop_id = rowid_sram(i+1)
+          Parallel{
+            cols_sram load cols_dram(start_id :: stop_id)
+            values_sram load values_dram(start_id :: stop_id)
+          }
+          vec_sram gather vec_dram(cols_sram, stop_id - start_id)
+          val element = Reduce(Reg[T](0))(stop_id - start_id by 1) { j => 
+            values_sram(j) * vec_sram(j)
+          }{_+_}
+          result_sram(i) = element
+        }
+        result_dram(tile*tileSize :: (tile+1)*tileSize) store result_sram
+      }
+    }
+
+    val data_gold = loadCSV1D[T]("/remote/regression/data/machsuite/crs_gold.csv", "\n")
+    val data_result = getMem(result_dram)
+
+    printArray(data_gold, "Gold: ")
+    printArray(data_result, "Result: ")
+
+    val margin = 0.2.to[T] // Scala does not stay in bounds as tightly as chisel
+    val cksum = data_gold.zip(data_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+
+    println("PASS: " + cksum + " (SPMV_CRS) * Fix gather on arbitrary width elements (64 for better prec here), issue #126")
+
+
+  }
+}
+
+object SPMV_ELL extends SpatialApp { // Regression (Sparse) // Args: none
+ import IR._
+
+ /*                                                                                                  
+   Sparse Matrix is the IEEE 494 bus interconnect matrix from UF Sparse Datasets   
+
+    Datastructures in Ellpack:
+
+                                                                                                                                                 
+                                             ←   L    →
+        _____________________                __________         _________                                                                              
+       | 9  0  2  0  0  0  1 |          ↑   | 0  2  6  |       | 9  2  1 |                                                                             
+       |                     |              |          |       |         |                                                                             
+       | 3  0  0  0  0  2  0 | ===>     N   | 0  5  *  |       | 3  2  * |                                                                             
+       |                     |              |          |       |         |                                                                             
+       | 0  0  0  0  5  0  0 |          ↓   | 4  *  *  |       | 5  *  * |                                                                             
+        `````````````````````                ``````````         `````````                                                                              
+         uncompressed                        cols               data                                                                                             
+                                                                                       
+ */
+
+  type T = FixPt[TRUE,_16,_16]
+  @virtualize
+  def main() = {
+
+    val NNZ = 1666
+    val N = 494
+    val L = 10    
+    val tileSize = N
+
+    val raw_values = loadCSV1D[T]("/remote/regression/data/machsuite/ell_values.csv", "\n").reshape(N,L)
+    val raw_cols = loadCSV1D[Int]("/remote/regression/data/machsuite/ell_cols.csv", "\n").reshape(N,L)
+    val raw_vec = loadCSV1D[T]("/remote/regression/data/machsuite/ell_vec.csv", "\n")
+
+    val values_dram = DRAM[T](N,L) 
+    val cols_dram = DRAM[Int](N,L) 
+    val vec_dram = DRAM[T](N) 
+    val result_dram = DRAM[T](N)
+
+    setMem(values_dram, raw_values)
+    setMem(cols_dram, raw_cols)
+    setMem(vec_dram, raw_vec)
+
+    Accel {
+      Foreach(N/tileSize by 1){ tile => 
+        val cols_sram = SRAM[Int](tileSize, L)
+        val values_sram = SRAM[T](tileSize, L)
+        val result_sram = SRAM[T](tileSize)
+
+        cols_sram load cols_dram(tile::tile+tileSize, 0::L)
+        values_sram load values_dram(tile::tile+tileSize, 0::L)
+
+        Foreach(tileSize by 1) { i => 
+          val vec_sram = SRAM[T](L)
+          val gather_addrs = SRAM[Int](L)
+          Foreach(L by 1) { j => gather_addrs(j) = cols_sram(i, j) }
+          vec_sram gather vec_dram(gather_addrs, L)
+          val element = Reduce(Reg[T](0))(L by 1) { k => values_sram(i,k) * vec_sram(k) }{_+_}
+          result_sram(i) = element
+        }
+
+        result_dram(tile::tile+tileSize) store result_sram
+
+      }
+    }
+
+    val data_gold = loadCSV1D[T]("/remote/regression/data/machsuite/ell_gold.csv", "\n")
+    val data_result = getMem(result_dram)
+
+    printArray(data_gold, "Gold: ")
+    printArray(data_result, "Result: ")
+    printArray(data_result.zip(data_gold){_-_}, "delta")
+
+    val margin = 0.2.to[T] // Scala does not stay in bounds as tightly as chisel
+    val cksum = data_gold.zip(data_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+
+    println("PASS: " + cksum + " (SPMV_ELL)")
+
+
+  }
+}
+
+object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+ import IR._
+
+ /*                                                                                                  
+
+    Concerns: 
+        It seems like they tried to make their implementation suck.......  What they do in 15 lines and 2 function calls and 3 loops, I can do in 3 lines and 2 loops                                                                   
+ */
+
+  type T = FixPt[TRUE,_32,_32]
+  @virtualize
+  def main() = {
+
+    val input_dimension =  13
+    val possible_outputs =  3
+    val training_sets =   163
+    val nodes_per_layer =  64
+    val layers =            2
+    val learning_rate =  0.01.to[T]
+    val epochs =            1
+    val test_sets =        15
+    val norm_param =    0.005
+
+    val weights1_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights1.csv").reshape(nodes_per_layer, input_dimension)
+    val weights2_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights2.csv").reshape(nodes_per_layer, nodes_per_layer)
+    val weights3_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights3.csv").reshape(possible_outputs, nodes_per_layer)
+    val biases1_data = Array[T](0.4424363035310214.to[T], -0.3605759487709181.to[T], -0.1800804113238152.to[T], 0.4475482605076305.to[T], 0.2529110407603758.to[T], 0.3259778697714617.to[T], 0.1041960938460277.to[T], -0.3466372089684309.to[T], 
+                                -0.4374503127993276.to[T], -0.2281378578606078.to[T], 0.3910031103464617.to[T], -0.2609256571893643.to[T], -0.3656339831086683.to[T], -0.0760290607040628.to[T], -0.4588373423614888.to[T], 0.1558368046570618.to[T], 
+                                -0.4260280767489409.to[T], -0.3310268633360521.to[T], 0.1745415400933488.to[T], 0.4498751132286368.to[T], 0.4881621738418157.to[T], 0.0313833738408521.to[T], -0.4142881870143837.to[T], -0.4180541016388725.to[T], 
+                                -0.4090825437945552.to[T], -0.1823128861843338.to[T], 0.3540602042025437.to[T], 0.2407499552981331.to[T], -0.1762710858978620.to[T], -0.3181977088755831.to[T], 0.4777618767773157.to[T], -0.1697810446803184.to[T], 
+                                -0.1277685203163738.to[T], 0.2106161585006977.to[T], -0.0305131733315050.to[T], 0.1941567759021646.to[T], 0.3048778866473214.to[T], 0.3283480626632970.to[T], 0.1271064708267968.to[T], -0.2605382691901943.to[T], 
+                                -0.2469335535560673.to[T], 0.3442516418428533.to[T], -0.2040267231318595.to[T], -0.2349864396056356.to[T], -0.2486839337156490.to[T], -0.4886791911472256.to[T], -0.0954413719884893.to[T], -0.1880860549218849.to[T], 
+                                -0.3163815120248741.to[T], -0.1337204990829230.to[T], 0.0448823001034440.to[T], 0.3426420791249377.to[T], -0.4847168752144872.to[T], 0.2111538644205979.to[T], 0.0186839142357113.to[T], 0.4633349231714418.to[T], 
+                                -0.1635130463889623.to[T], -0.4267011441212951.to[T], 0.3890460572072034.to[T], -0.4895743890109852.to[T], 0.3582108485013409.to[T], -0.3946298923342171.to[T], 0.2541208441520265.to[T], 0.4900634686483679.to[T])
+    val biases2_data = Array[T](-0.2722149411801414.to[T],-0.2699376595163692.to[T],-0.0372122866449914.to[T],-0.2177302149422325.to[T],0.0758078305226627.to[T],-0.3003439709999060.to[T],-0.0336690138983059.to[T],0.4943792719896820.to[T],
+                                -0.0377358665829968.to[T],-0.0567221705202945.to[T],0.3850230123909625.to[T],-0.1633989954455181.to[T],0.4392228653340066.to[T],-0.0955531329799825.to[T],0.2520228015470677.to[T],0.1898141941820103.to[T],
+                                -0.3549664995255828.to[T],0.1651371873253121.to[T],-0.1033679785704608.to[T],-0.1685862876823516.to[T],-0.0293505404485405.to[T],0.3706532146734764.to[T],-0.3613170078817656.to[T],0.4824061432643633.to[T],
+                                0.1896187478927254.to[T],-0.2126776293049475.to[T],-0.0126461838884445.to[T],0.4762124378489822.to[T],0.2875500687587406.to[T],0.0590929455073977.to[T],-0.4168680512126123.to[T],-0.1379107292489044.to[T],
+                                0.3501585460851093.to[T],0.1764219799533058.to[T],-0.3415926674238837.to[T],-0.3543808637615671.to[T],0.0024131357778179.to[T],-0.4831774217728143.to[T],-0.3226722772300620.to[T],0.4459783015865997.to[T],
+                                -0.3708246347329506.to[T],0.0387690605084077.to[T],0.4859995805692675.to[T],0.0392077948673361.to[T],-0.4220665459792927.to[T],-0.1786287752939952.to[T],-0.2017590557592976.to[T],-0.1009765225174292.to[T],
+                                -0.0620079468218391.to[T],0.4786199296286078.to[T],0.4082284253198464.to[T],-0.2924035215148357.to[T],0.3675676014797002.to[T],-0.4693943384086119.to[T],0.1829641993410900.to[T],-0.0970780986023042.to[T],
+                                -0.0616482142287308.to[T],0.3033711009282011.to[T],0.0942964367596129.to[T],-0.4828301141714391.to[T],0.0490046368042139.to[T],-0.2022200533180573.to[T],0.4035212962460917.to[T],-0.2903405773022628.to[T])
+    val biases3_data = Array[T](0.2550651691246478.to[T],0.0181829230044624.to[T],-0.3539280210774066.to[T])
+    val training_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_training_data.csv").reshape(training_sets, input_dimension)
+    val training_targets_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_training_targets.csv").reshape(training_sets, possible_outputs)
+
+    val weights1_dram = DRAM[T](nodes_per_layer,input_dimension)
+    val weights1_dram_aligned = DRAM[T](nodes_per_layer,input_dimension + (16 - input_dimension))
+    val weights2_dram = DRAM[T](nodes_per_layer,nodes_per_layer)
+    val weights3_dram = DRAM[T](possible_outputs,nodes_per_layer)
+    val biases1_dram = DRAM[T](nodes_per_layer)
+    val biases2_dram = DRAM[T](nodes_per_layer)
+    val biases3_dram = DRAM[T](possible_outputs)
+    val biases3_dram_aligned = DRAM[T](possible_outputs + (16 - possible_outputs))
+    val training_data_dram = DRAM[T](training_sets,input_dimension)
+    val training_targets_dram = DRAM[T](training_sets,possible_outputs)
+
+    setMem(weights1_dram, weights1_data)
+    setMem(weights2_dram, weights2_data)
+    setMem(weights3_dram, weights3_data)
+    setMem(biases1_dram, biases1_data)
+    setMem(biases2_dram, biases2_data)
+    setMem(biases3_dram, biases3_data)
+    setMem(training_data_dram, training_data)
+    setMem(training_targets_dram, training_targets_data)
+
+    Accel{
+
+      def RELU(x: T): T = {
+        1.0.to[T]/(1.0.to[T]+exp_taylor(-x))
+      }
+
+      val biases1_sram = SRAM[T](nodes_per_layer)
+      val biases2_sram = SRAM[T](nodes_per_layer)
+      val biases3_sram = SRAM[T](possible_outputs + (16 - possible_outputs)) // burst aligned
+      val weights1_sram = SRAM[T](nodes_per_layer, input_dimension + (16 - input_dimension)) // burst aligned
+      val weights2_sram = SRAM[T](nodes_per_layer, nodes_per_layer)
+      val weights3_sram = SRAM[T](possible_outputs, nodes_per_layer)
+
+      biases1_sram load biases1_dram
+      biases2_sram load biases2_dram
+      biases3_sram load biases3_dram(0::possible_outputs)
+      weights1_sram load weights1_dram(0::nodes_per_layer, 0::input_dimension)
+      weights2_sram load weights2_dram
+      weights3_sram load weights3_dram
+
+      Sequential.Foreach(training_sets by 1) { i => 
+        val activations1 = SRAM[T](nodes_per_layer)
+        val activations2 = SRAM[T](nodes_per_layer)
+        val activations3 = SRAM[T](possible_outputs)
+        val dactivations1 = SRAM[T](nodes_per_layer)
+        val dactivations2 = SRAM[T](nodes_per_layer)
+        val dactivations3 = SRAM[T](possible_outputs)
+        val training_sram = SRAM[T](input_dimension)
+        val training_targets = SRAM[T](possible_outputs)
+        val net_outputs = SRAM[T](possible_outputs)
+        val delta_outputs = SRAM[T](possible_outputs)
+        val delta_weights1 = SRAM[T](nodes_per_layer,input_dimension)
+        val delta_weights2 = SRAM[T](nodes_per_layer,nodes_per_layer)
+        val delta_weights3 = SRAM[T](possible_outputs,nodes_per_layer)
+        val oracle_activations1 = SRAM[T](nodes_per_layer)
+        val oracle_activations2 = SRAM[T](nodes_per_layer)
+
+        training_sram load training_data_dram(i, 0::input_dimension)
+        training_targets load training_targets_dram(i, 0::possible_outputs)
+
+        // Input Layer 
+        Foreach(nodes_per_layer by 1){ j => 
+          activations1(j) = Reduce(Reg[T](0))(input_dimension by 1) { i => weights1_sram(j, i) * training_sram(i)}{_+_} + biases1_sram(j)
+        }
+
+        // Relu
+        Foreach(nodes_per_layer by 1) { i => 
+          dactivations1(i) = activations1(i)*(1.0.to[T]-activations1(i))
+          activations1(i) = RELU(activations1(i))
+        }
+        
+        // Middle layer
+        Foreach(nodes_per_layer by 1){ j => 
+          activations2(j) = Reduce(Reg[T](0))(nodes_per_layer by 1) { i => weights2_sram(j, i) * training_sram(i)}{_+_} + biases2_sram(j)
+        }
+        
+        // Relu
+        Foreach(nodes_per_layer by 1) { i => 
+          dactivations2(i) = activations2(i)*(1.0.to[T]-activations2(i))
+          activations2(i) = RELU(activations2(i))
+        }
+        
+        // Last layer
+        Foreach(possible_outputs by 1){ j => 
+          activations3(j) = Reduce(Reg[T](0))(nodes_per_layer by 1) { i => weights3_sram(j, i) * training_sram(i)}{_+_} + biases3_sram(j)
+        }
+        
+        // Relu
+        Foreach(possible_outputs by 1) { i => 
+          dactivations3(i) = activations3(i)*(1.0.to[T]-activations3(i))
+          activations3(i) = RELU(activations3(i))
+        }
+        
+        // Softmax
+        val normalize = Reduce(Reg[T](0))(possible_outputs by 1) { i => exp_taylor(-activations3(i)) }{_+_}
+        Foreach(possible_outputs by 1) { i => net_outputs(i) = exp_taylor(-activations3(i))/normalize }
+
+        // Compute output error
+        Foreach(possible_outputs by 1) { i => delta_outputs(i) = -(net_outputs(i) - training_targets(i)) * dactivations3(i) }
+
+        // Delta weights on last layer
+        Foreach(nodes_per_layer by 1, possible_outputs by 1){(i,j) => delta_weights3(i,j) = activations2(i) * delta_outputs(i)}
+
+        // Oracle activation 2
+        Foreach(nodes_per_layer by 1) { i => oracle_activations2(i) = Reduce(Reg[T](0))(possible_outputs by 1){ j => delta_outputs(j) * weights3_sram(i,j) }{_+_}}
+
+        // Delta weights on middle layer
+        Foreach(nodes_per_layer by 1, nodes_per_layer by 1) { (i,j) => delta_weights2(i,j) = activations1(i) - oracle_activations2(j) }
+
+        // Oracle activation 1
+        Foreach(nodes_per_layer by 1) { i => oracle_activations1(i) = Reduce(Reg[T](0))(nodes_per_layer by 1) { j => oracle_activations2(j) * weights2_sram(i,j) }{_+_} }
+
+        // Delta weights on input layer
+        Foreach(input_dimension by 1, nodes_per_layer by 1) { (i,j) => delta_weights1(i,j) = oracle_activations1(i) * delta_outputs(j) }
+
+        // Update input layer weights
+        val norm_temp1 = Reduce(Reg[T](0))(input_dimension by 1, nodes_per_layer by 1){ (i,j) => 
+          Pipe{weights1_sram(i,j) = weights1_sram(i,j) - delta_weights1(i,j) * learning_rate}
+          weights1_sram(i,j) * weights1_sram(i,j)
+        }{_+_}
+        val bias_norm_temp1 = Reduce(Reg[T](0))(nodes_per_layer by 1) { i => 
+          Pipe{biases1_sram(i) = biases1_sram(i) - (oracle_activations1(i)*learning_rate)}
+          biases1_sram(i) * biases1_sram(i)
+        }{_+_}
+
+        val norm1 = sqrt_approx(norm_temp1)
+        val bias_norm1 = sqrt_approx(bias_norm_temp1)
+
+        Foreach(input_dimension by 1, nodes_per_layer by 1){ (i,j) => 
+          weights1_sram(i,j) = weights1_sram(i,j) / norm1
+        }
+        Foreach(nodes_per_layer by 1) {i => biases1_sram(i) = biases1_sram(i)/bias_norm1}
+
+        // Update middle layer weights
+        val norm_temp2 = Reduce(Reg[T](0))(nodes_per_layer by 1, nodes_per_layer by 1){ (i,j) => 
+          Pipe{weights2_sram(i,j) = weights2_sram(i,j) - delta_weights2(i,j) * learning_rate}
+          weights2_sram(i,j) * weights2_sram(i,j)
+        }{_+_}
+        val bias_norm_temp2 = Reduce(Reg[T](0))(nodes_per_layer by 1) { i => 
+          Pipe{biases2_sram(i) = biases2_sram(i) - (oracle_activations2(i)*learning_rate)}
+          biases2_sram(i) * biases2_sram(i)
+        }{_+_}
+
+        val norm2 = sqrt_approx(norm_temp2)
+        val bias_norm2 = sqrt_approx(bias_norm_temp2)
+
+        Foreach(nodes_per_layer by 1, nodes_per_layer by 1){ (i,j) => 
+          weights2_sram(i,j) = weights2_sram(i,j) / norm2
+        }
+        Foreach(nodes_per_layer by 1) {i => biases2_sram(i) = biases2_sram(i)/bias_norm2}
+
+        // Update last layer weights
+        val norm_temp3 = Reduce(Reg[T](0))(nodes_per_layer by 1, possible_outputs by 1){ (i,j) => 
+          Pipe{weights3_sram(i,j) = weights3_sram(i,j) - delta_weights3(i,j) * learning_rate}
+          weights3_sram(i,j) * weights3_sram(i,j)
+        }{_+_}
+        val bias_norm_temp3 = Reduce(Reg[T](0))(possible_outputs by 1) { i => 
+          Pipe{biases3_sram(i) = biases3_sram(i) - (delta_outputs(i)*learning_rate)}
+          biases3_sram(i) * biases3_sram(i)
+        }{_+_}
+
+        val norm3 = sqrt_approx(norm_temp3)
+        val bias_norm3 = sqrt_approx(bias_norm_temp3)
+
+        Foreach(nodes_per_layer by 1, possible_outputs by 1){ (i,j) => 
+          weights3_sram(i,j) = weights3_sram(i,j) / norm3
+        }
+        Foreach(possible_outputs by 1) {i => biases3_sram(i) = biases3_sram(i)/bias_norm3}
+
+      }
+
+      biases1_dram store biases1_sram
+      biases2_dram store biases2_sram
+      biases3_dram_aligned store biases3_sram
+      weights1_dram_aligned store weights1_sram
+      weights2_dram store weights2_sram
+      weights3_dram store weights3_sram
+    }
+
+    val weights1_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights1_gold.csv").reshape(nodes_per_layer, input_dimension)
+    val weights2_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights2_gold.csv").reshape(nodes_per_layer, nodes_per_layer)
+    val weights3_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights3_gold.csv").reshape(possible_outputs, nodes_per_layer)
+    val biases1_gold = Array[T](0.0000002860515429.to[T],0.0000001336923965.to[T],0.0000000086825011.to[T],0.0000000031474389.to[T],0.0000000035227788.to[T],0.0001253960836368.to[T],0.0000262543699298.to[T],0.0001036484182358.to[T],
+                                0.0000907387047426.to[T],0.0001413510538386.to[T],0.0000011456969965.to[T],0.0000010956060781.to[T],0.0000004156118037.to[T],0.0000001589596450.to[T],0.0000000420240903.to[T],0.0000000024325447.to[T],
+                                0.0000017463208003.to[T],-0.0000000063149758.to[T],0.0000110024640267.to[T],0.0000277988468344.to[T],0.0012237898106768.to[T],0.0000387151851673.to[T],0.0000185810900032.to[T],0.0000003594970814.to[T],
+                                0.0000013889375324.to[T],0.0000001017729949.to[T],0.0000000532367727.to[T],0.0000000195062862.to[T],0.0000000018605114.to[T],0.0000000019438707.to[T],-0.0000000011477865.to[T],0.0000712910851704.to[T],
+                                0.0010163792685161.to[T],0.0000471245446582.to[T],0.0000104643762336.to[T],0.0000112266862765.to[T],0.0000044064970721.to[T],0.0000043316804395.to[T],0.0000000771244344.to[T],0.0000000580161255.to[T],
+                                0.0000000992841434.to[T],0.0000000174619020.to[T],0.0000000059206197.to[T],-0.0000000098213873.to[T],0.0000337237896365.to[T],0.0033002772275274.to[T],0.0000029991124506.to[T],0.0000124144984307.to[T],
+                                0.0000016792804727.to[T],0.0000042568583938.to[T],0.0000012227028352.to[T],0.0000000358335915.to[T],0.0000001322583757.to[T],-0.0000000126041656.to[T],0.0000000067318724.to[T],0.0000000062299183.to[T],
+                                0.9999932153359626.to[T],0.0000057036923494.to[T],0.0002671154604164.to[T],0.0000087723167142.to[T],0.0000909511293817.to[T],0.0000037292412118.to[T],0.0000013034513990.to[T],0.0000005887752391.to[T])
+    val biases2_gold = Array[T](-0.1250485269999813.to[T],-0.1250485017387021.to[T],-0.1250484973504203.to[T],-0.1250485017358938.to[T],-0.1250485009840124.to[T],-0.1250486682775984.to[T],-0.1250485023227919.to[T],-0.1252883862387800.to[T],
+                                -0.1250485026328068.to[T],-0.1250491085330709.to[T],-0.1250485063696373.to[T],-0.1250485085867000.to[T],-0.1250484972423835.to[T],-0.1250485026683358.to[T],-0.1250485250778653.to[T],-0.1250485025422989.to[T],-0.1250484960047790.to[T],
+                                -0.1250484973770616.to[T],-0.1250485003694706.to[T],-0.1250484972566906.to[T],-0.1250485239906086.to[T],-0.1250207990375155.to[T],-0.1250485060106542.to[T],-0.1250485544954296.to[T],-0.1250485254338826.to[T],-0.1250485025963228.to[T],
+                                -0.1219759042419306.to[T],-0.1250484960934984.to[T],-0.1250484959715390.to[T],-0.1250484994153161.to[T],-0.1250485176887426.to[T],-0.1250484959992431.to[T],-0.1250485056037944.to[T],-0.1250485177832757.to[T],-0.1250485022914402.to[T],
+                                -0.1250485030360682.to[T],-0.1250484958386799.to[T],-0.1254887690039716.to[T],-0.1250484964411162.to[T],-0.1250484959134374.to[T],-0.1250485189759819.to[T],-0.1250485915607708.to[T],-0.1223892680712233.to[T],-0.1250486149687297.to[T],
+                                -0.1250484961298845.to[T],-0.1250484964566514.to[T],-0.1250484957623608.to[T],-0.1250484989441400.to[T],-0.1250485019080441.to[T],-0.1269407269019648.to[T],-0.1250485026347276.to[T],-0.1250494572844961.to[T],-0.1250484960099129.to[T],
+                                -0.1250484962989789.to[T],-0.1250485238815167.to[T],-0.1250485026797450.to[T],-0.1250485177870162.to[T],-0.1250484983531969.to[T],-0.1250486400266543.to[T],-0.1250485157496926.to[T],-0.1250485025055717.to[T],-0.1250485233060540.to[T],
+                                -0.1250485026934568.to[T],-0.1250485272883554.to[T])
+    val biases3_gold = Array[T](-0.1786819872446880.to[T],-0.1514298249324479.to[T],0.9721840132172598.to[T])
+
+    val weights1_result_aligned = getMatrix(weights1_dram_aligned)
+    val weights1_result = (0::nodes_per_layer, 0::input_dimension){(i,j) => weights1_result_aligned(i,j)}
+    val weights2_result = getMatrix(weights2_dram)
+    val weights3_result = getMatrix(weights3_dram)
+    val biases1_result = getMem(biases1_dram)
+    val biases2_result = getMem(biases2_dram)
+    val biases3_result_aligned = getMem(biases3_dram_aligned)
+    val biases3_result = Array.tabulate(possible_outputs){ i => biases3_result_aligned(i) }
+
+    printMatrix(weights1_gold, "Gold weights 1:")
+    printMatrix(weights1_result, "Result weights 1:")
+    println("")
+    println("")
+    println("")
+    printMatrix(weights2_gold, "Gold weights 2:")
+    printMatrix(weights2_result, "Result weights 2:")
+    println("")
+    println("")
+    println("")
+    printMatrix(weights3_gold, "Gold weights 3:")
+    printMatrix(weights3_result, "Result weights 3:")
+    println("")
+    println("")
+    println("")
+    printArray(biases1_gold, "Gold biases 1:")
+    printArray(biases1_result, "Result biases 1:")
+    println("")
+    println("")
+    println("")
+    printArray(biases2_gold, "Gold biases 2:")
+    printArray(biases2_result, "Result biases 2:")
+    println("")
+    println("")
+    println("")
+    printArray(biases3_gold, "Gold biases 3:")
+    printArray(biases3_result, "Result biases 3:")
+    println("")
+    println("")
+    println("")
+
+    val margin = 0.001.to[T]
+    val cksumW1 = weights1_gold.zip(weights1_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    val cksumW2 = weights2_gold.zip(weights2_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    val cksumW3 = weights3_gold.zip(weights3_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    val cksumB1 = biases1_gold.zip(biases1_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    val cksumB2 = biases2_gold.zip(biases2_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    val cksumB3 = biases3_gold.zip(biases3_result){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    println("Results: W1 " + cksumW1 + ", W2 " + cksumW2 + ", W3 " + cksumW3 + ", B1" + cksumB1 + ", B2 " + cksumB2 + ", B3 " + cksumB3)
+
+    val cksum = cksumW1 && cksumW2 && cksumW3 && cksumB1 && cksumB2 && cksumB3
+    println("PASS: " + cksum + " (Backprop)")
+
+  }
+}
+
+
+object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
+ import IR._
+
+ /*                                                                                                  
+
+   NOTES: This version uses one extra loop than the machsuite implementation because they mutate their counter that holds "odd" inside of the loop,
+          so we can either use an FSM or use strict loops that take this mutation into account and I chose the latter
+ */
+
+  type T = FixPt[TRUE,_32,_32]
+  @virtualize
+  def main() = {
+
+    val FFT_SIZE = 1024
+    val numiter = (scala.math.log(FFT_SIZE) / scala.math.log(2)).to[Int]
+
+    val data_real = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_real.csv", "\n")
+    val data_img = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_img.csv", "\n")
+    val data_twid_real = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_twidreal.csv", "\n")
+    val data_twid_img = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_twidimg.csv", "\n")
+
+    val data_real_dram = DRAM[T](FFT_SIZE)
+    val data_img_dram = DRAM[T](FFT_SIZE)
+    val data_twid_real_dram = DRAM[T](FFT_SIZE/2)
+    val data_twid_img_dram = DRAM[T](FFT_SIZE/2)
+    val result_real_dram = DRAM[T](FFT_SIZE)
+    val result_img_dram = DRAM[T](FFT_SIZE)
+
+    setMem(data_real_dram, data_real)
+    setMem(data_img_dram, data_img)
+    setMem(data_twid_real_dram, data_twid_real)
+    setMem(data_twid_img_dram, data_twid_img)
+
+    Accel{
+      val data_real_sram = SRAM[T](FFT_SIZE)
+      val data_img_sram = SRAM[T](FFT_SIZE)
+      val data_twid_real_sram = SRAM[T](FFT_SIZE/2)
+      val data_twid_img_sram = SRAM[T](FFT_SIZE/2)
+
+      data_real_sram load data_real_dram
+      data_img_sram load data_img_dram
+      data_twid_real_sram load data_twid_real_dram
+      data_twid_img_sram load data_twid_img_dram
+
+      val span = Reg[Int](FFT_SIZE)
+      Foreach(0 until numiter) { log => 
+        span := span >> 1
+        val num_sections = Reduce(Reg[Int](1))(0 until log){i => 2}{_*_}
+        Foreach(0 until num_sections) { section => 
+          val base = span*(2*section+1)
+          Sequential.Foreach(0 until span by 1) { offset => 
+            val odd = base + offset
+            val even = odd ^ span
+
+            val rtemp = data_real_sram(even) + data_real_sram(odd)
+            Pipe{data_real_sram(odd) = data_real_sram(even) - data_real_sram(odd)}
+            Pipe{data_real_sram(even) = rtemp}
+
+            val itemp = data_img_sram(even) + data_img_sram(odd)
+            Pipe{data_img_sram(odd) = data_img_sram(even) - data_img_sram(odd)}
+            Pipe{data_img_sram(even) = itemp}
+            
+            val rootindex = (Reduce(Reg[Int](1))(0 until log){i => 2.to[Int]}{_*_} * even) & (FFT_SIZE - 1).to[Int]
+            if (rootindex > 0.to[Int]) {
+              // println("Accessing " + rootindex + " at " + even )
+              val temp = data_twid_real_sram(rootindex) * data_real_sram(odd) - data_twid_img_sram(rootindex) * data_img_sram(odd)
+              data_img_sram(odd) = data_twid_real_sram(rootindex) * data_img_sram(odd) + data_twid_img_sram(rootindex) * data_real_sram(odd)
+              data_real_sram(odd) = temp
+            }
+          }
+        }
+      }
+      result_real_dram store data_real_sram
+      result_img_dram store data_img_sram
+    }
+
+    val result_real = getMem(result_real_dram)
+    val result_img = getMem(result_img_dram)
+    val gold_real = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_real_gold.csv", "\n")
+    val gold_img = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_img_gold.csv", "\n")
+
+    printArray(gold_real, "Gold real: ")
+    printArray(result_real, "Result real: ")
+    printArray(gold_img, "Gold img: ")
+    printArray(result_img, "Result img: ")
+
+    val margin = 0.01.to[T]
+    val cksumR = gold_real.zip(result_real){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    val cksumI = gold_img.zip(result_img){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    val cksum = cksumR && cksumI
+    println("PASS: " + cksum + " (FFT_Strided)")
+
+  }
+}
+
+object FFT_Transpose extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+ import IR._
+
+ /*                                                                                                  
+    Concerns: Not sure why machsuite makes a data_x and DATA_x when they only dump values from one row of DATA_x to data_x and back
+              Also, is their algorithm even correct?!  It's no balanced, and I can comment out some of their code and it still passes....
+ */
+
+  type T = FixPt[TRUE,_32,_32]
+  @virtualize
+  def main() = {
+
+    val dim = 512
+    val THREADS = 64
+    val stride = THREADS
+    val M_SQRT1_2 = 0.70710678118654752440.to[T]
+    val TWOPI = 6.28318530717959.to[T]
+
+    val data_x = loadCSV1D[T]("/remote/regression/data/machsuite/fft_transpose_x.csv", "\n").reshape(8,stride)
+    val data_y = loadCSV1D[T]("/remote/regression/data/machsuite/fft_transpose_y.csv", "\n").reshape(8,stride)
+
+    val work_x_dram = DRAM[T](8,stride)
+    val work_y_dram = DRAM[T](8,stride)
+    val result_x_dram = DRAM[T](8,stride)
+    val result_y_dram = DRAM[T](8,stride)
+
+    setMem(work_x_dram, data_x)
+    setMem(work_y_dram, data_y)
+
+    Accel{
+      val work_x_sram = SRAM[T](8,stride)
+      val work_y_sram = SRAM[T](8,stride)
+      val smem = SRAM[T](dim)
+
+      work_x_sram load work_x_dram
+      work_y_sram load work_y_dram
+
+      val reversed_LUT = LUT[Int](8)(0,4,2,6,1,5,3,7)
+
+      def twiddles8(tid: Index, i: Int, N: Int): Unit = {
+        Sequential.Foreach(1 until 8 by 1) { j => 
+          val phi = -TWOPI*(i.as[T]*reversed_LUT(j).as[T] / N.as[T]) - TWOPI/4
+          val phi_x = -sin_taylor(phi) // cos(real phi)
+          val phi_y = cos_taylor(phi) // sin(real phi)
+          val temp_x = work_x_sram(j, tid)
+          work_x_sram(j, tid) = temp_x * phi_x - work_y_sram(j, tid) * phi_y
+          work_y_sram(j, tid) = temp_x * phi_y + work_y_sram(j, tid) * phi_x
+        }
+      }
+
+      def FFT2(tid: Index, id0: Int, id1: Int):Unit = {
+        val temp_x = work_x_sram(id0, tid)
+        val temp_y = work_y_sram(id0, tid)
+        work_x_sram(id0, tid) = temp_x + work_x_sram(id1, tid)
+        work_y_sram(id0, tid) = temp_y + work_y_sram(id1, tid)
+        work_x_sram(id1, tid) = temp_x - work_x_sram(id1, tid)
+        work_y_sram(id1, tid) = temp_y - work_y_sram(id1, tid)
+      }
+
+      def FFT4(tid: Index, base: Int):Unit = {
+        val exp_LUT = LUT[T](2)(0, -1)
+        Foreach(0 until 2 by 1) { j => 
+          Pipe{FFT2(tid, base+j, 2+base+j)}
+        }
+        val temp_x = work_x_sram(base+3,tid)
+        work_x_sram(base+3,tid) = temp_x * exp_LUT(0) - work_y_sram(base+3,tid)*exp_LUT(1)
+        work_y_sram(base+3,tid) = temp_x * exp_LUT(1) - work_y_sram(base+3,tid)*exp_LUT(0)
+        Foreach(0 until 2 by 1) { j => 
+          Pipe{FFT2(tid, base+2*j, 1+base+2*j)}
+        }
+      }
+
+      def FFT8(tid: Index):Unit = {
+        Foreach(0 until 4 by 1) { i => 
+          Pipe{FFT2(tid, i, 4+i)}
+        }
+        Sequential.Foreach(0 until 3 by 1) { i => 
+          val exp_LUT = LUT[T](2,3)( 1,  0, -1,
+                                      -1, -1, -1)
+          val temp_x = work_x_sram(5+i, tid)
+          work_x_sram(5+i, tid) = (temp_x * exp_LUT(0,i) - work_y_sram(5+i,tid) * exp_LUT(1,i))*M_SQRT1_2
+          work_y_sram(5+i, tid) = (temp_x * exp_LUT(1,i) + work_y_sram(5+i,tid) * exp_LUT(0,i))*M_SQRT1_2
+        }
+        // FFT4
+        Sequential.Foreach(0 until 2 by 1) { ii =>
+          val base = 4*ii
+          FFT4(tid, base)
+        }
+
+      }
+
+      // Loop 1
+      Foreach(THREADS by 1) { tid => 
+        FFT8(tid)
+        twiddles8(tid, tid, dim)
+      }
+
+      val shuffle_lhs_LUT = LUT[Int](8)(0,4,1,5,2,6,3,7)
+      val shuffle_rhs_LUT = LUT[Int](8)(0,1,4,5,2,3,6,7)
+
+      // Loop 2
+      Foreach(THREADS by 1) { tid => 
+        val sx = 66
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*8+lo // * here but >> above????
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_rhs_LUT(i)
+          smem(lhs_factor*sx + offset) = work_x_sram(rhs_factor, tid)
+        }
+      }
+
+      // Loop 3
+      Foreach(THREADS by 1) { tid => 
+        val sx = 8
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = lo*66 + hi
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_lhs_LUT(i) // [sic]
+          work_x_sram(lhs_factor, tid) = smem(rhs_factor*sx+offset)
+        }
+      }
+
+      // Loop 4
+      Foreach(THREADS by 1) { tid => 
+        val sx = 66
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*8+lo // * here but >> above????
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_rhs_LUT(i)
+          smem(lhs_factor*sx + offset) = work_y_sram(tid, rhs_factor)
+        }
+      }
+
+      // Loop 5
+      Foreach(THREADS by 1) { tid => 
+        val sx = 8
+        val hi = tid >> 3;
+        val lo = tid & 7;
+        val offset = lo*66+hi
+        Foreach(8 by 1) { i => 
+          work_y_sram(i, tid) = smem(i*sx+offset) 
+        }
+      }
+
+      // Loop 6 
+      Foreach(THREADS by 1) { tid => 
+        FFT8(tid)
+        val hi = tid >> 3
+        twiddles8(tid, hi, 64)
+      }
+
+      // Loop 7
+      Foreach(THREADS by 1) { tid => 
+        val sx = 72
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*8 + lo
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_rhs_LUT(i)
+          smem(lhs_factor * sx + offset) = work_x_sram(tid, rhs_factor)
+        }
+      }
+
+      // Loop 8
+      Foreach(THREADS by 1) { tid => 
+        val sx = 8
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*72 + lo
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_lhs_LUT(i) // [sic]
+          work_x_sram(tid, lhs_factor) = smem(rhs_factor * sx + offset)
+        }
+      }
+
+      // Loop 9
+      Foreach(THREADS by 1) { tid => 
+        val sx = 72
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*8 + lo
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_rhs_LUT(i)
+          smem(lhs_factor * sx + offset) = work_y_sram(tid, rhs_factor)
+        }
+      }
+
+      // Loop 10
+      Foreach(THREADS by 1) { tid => 
+        val sx = 8
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*72 + lo
+        Foreach(8 by 1) { i => 
+          work_y_sram(i, tid) = smem(i * sx + offset)
+        }
+      }
+
+      // Loop 11
+      Foreach(THREADS by 1) { tid => 
+        FFT8(tid)
+      }
+
+      result_x_dram store work_x_sram
+      result_y_dram store work_y_sram
+    }
+
+    val result_x = getMatrix(result_x_dram)
+    val result_y = getMatrix(result_y_dram)
+    val gold_x = loadCSV1D[T]("/remote/regression/data/machsuite/fft_transpose_x_gold.csv", "\n").reshape(8,stride)
+    val gold_y = loadCSV1D[T]("/remote/regression/data/machsuite/fft_transpose_y_gold.csv", "\n").reshape(8,stride)
+
+    printMatrix(gold_x, "Gold x: ")
+    printMatrix(result_x, "Result x: ")
+    printMatrix(gold_y, "Gold y: ")
+    printMatrix(result_y, "Result y: ")
+
+    val margin = 0.01.to[T]
+    val cksumR = gold_x.zip(result_x){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    val cksumI = gold_y.zip(result_y){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    val cksum = cksumR && cksumI
+    println("PASS: " + cksum + " (FFT_Transpose)")
+
+  }
+}

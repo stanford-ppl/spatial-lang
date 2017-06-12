@@ -173,10 +173,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       print_stage_suffix(s"$sym", inner)
 
     case Switch(_,selects, cases) =>
-      val inner = levelOf(sym) match { 
-        case InnerControl => true
-        case _ => false
-      }
+      val inner = false
       print_stage_prefix(s"${getScheduling(sym)}Switch",s"",s"$sym", inner)
       cases.foreach { ss => ss match { case s:Sym[_] => 
         val Op(d) = s
@@ -185,10 +182,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       print_stage_suffix(s"$sym", inner)
 
     case SwitchCase(func) =>
-      val inner = levelOf(sym) match { 
-        case InnerControl => true
-        case _ => false
-      }
+      val inner = if (childrenOf(sym).length > 0) false else true
       print_stage_prefix(s"${getScheduling(sym)}SwitchCase",s"",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>
@@ -198,10 +192,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       print_stage_suffix(s"$sym", inner)
 
     case StateMachine(ens,start,notDone,func,nextState,state) =>
-      val inner = levelOf(sym) match { 
-        case InnerControl => true
-        case _ => false
-      }
+      val inner = if (childrenOf(sym).length > 0) false else true
       print_stage_prefix(s"${getScheduling(sym)}FSM",s"",s"$sym", inner)
       val children = getControlNodes(func)
       children.foreach { s =>

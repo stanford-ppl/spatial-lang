@@ -12,6 +12,26 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   private var nbufs: List[(Sym[SRAM[_]], Int)]  = List()
 
+  var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
+  var cchainPassMap = new scala.collection.mutable.HashMap[Exp[_], Exp[_]] // Map from a cchain to its ctrl node, for computing suffix on a cchain before we enter the ctrler
+
+  protected def computeSuffix(s: Bound[_]): String = {
+    var result = super.quote(s)
+    if (itersMap.contains(s)) {
+      val siblings = itersMap(s)
+      var nextLevel: Option[Exp[_]] = Some(controllerStack.head)
+      while (nextLevel.isDefined) {
+        if (siblings.contains(nextLevel.get)) {
+          if (siblings.indexOf(nextLevel.get) > 0) {result = result + s"_chain_read_${siblings.indexOf(nextLevel.get)}"}
+          nextLevel = None
+        } else {
+          nextLevel = parentOf(nextLevel.get)
+        }
+      }
+    } 
+    result
+  }
+
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: SRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
@@ -74,7 +94,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/ // Correction not needed because _done should mask dp anyway")
         } else {
-          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${lhs}_sm.io.output.ctr_inc)")
+          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${lhs}_done /*${lhs}_sm.io.output.ctr_inc*/)")
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
         }        
       }
@@ -120,21 +140,25 @@ trait ChiselGenSRAM extends ChiselCodegen {
   }
 
   override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case SRAMNew(dims)=> 
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("sram").replace("$","")}"""
+    s match {
+      case b: Bound[_] => computeSuffix(b)
+      case _ =>
+        if (SpatialConfig.enableNaming) {
+          s match {
+            case lhs: Sym[_] =>
+              val Op(rhs) = lhs
+              rhs match {
+                case SRAMNew(dims)=> 
+                  s"""x${lhs.id}_${nameOf(lhs).getOrElse("sram").replace("$","")}"""
+                case _ =>
+                  super.quote(s)
+              }
             case _ =>
               super.quote(s)
           }
-        case _ =>
+        } else {
           super.quote(s)
-      }
-    } else {
-      super.quote(s)
+        }
     }
   } 
 
@@ -183,8 +207,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
               case _ => ens.length
             }
           }
-        } // Should only have 1 or 0
-        val bPar = if (broadcasts.length == 1) broadcasts.head else 0
+        }
+        val bPar = if (broadcasts.length > 0) broadcasts.mkString(",") else "0"
         val width = bitWidth(lhs.tp.typeArguments.head)
 
         mem match {
@@ -200,7 +224,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
               openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
               emitGlobalModule(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
               emitGlobalModule(src"""List($wPar), List($rPar), """)
-              emitGlobalModule(src"""List($wBundling), List($rBundling), $bPar, BankedMemory""")
+              emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), BankedMemory""")
               closeGlobalModule("))")
             }
           case DiagonalMemory(strides, banks, depth, isAccum) =>
@@ -214,7 +238,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
               openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
               emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}.mkString(",")}), List(${strides.mkString(",")}),""")
               emitGlobalModule(src"""List($wPar), List($rPar), """)
-              emitGlobalModule(src"""List($wBundling), List($rBundling), $bPar, DiagonalMemory""")
+              emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), DiagonalMemory""")
               closeGlobalModule("))")
             }
           }

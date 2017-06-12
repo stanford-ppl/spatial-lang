@@ -167,7 +167,7 @@ class MAGCore(
   val burstTagCounter = Module(new Counter(log2Up(numOutstandingBursts+1)))
   burstTagCounter.io.max := Mux(scatterGather, v.U, numOutstandingBursts.U)
   burstTagCounter.io.stride := 1.U
-  burstTagCounter.io.reset := burstCounter.io.done & ~scatterGather
+  burstTagCounter.io.reset := 0.U // burstCounter.io.done & ~scatterGather
   burstTagCounter.io.enable := Mux(scatterGather, ~addrFifo.io.empty & ~sgWaitForDRAM, burstVld & dramReady) & ~issued
   burstCounter.io.saturate := 0.U
   val elementID = burstTagCounter.io.out(log2Up(v)-1, 0)

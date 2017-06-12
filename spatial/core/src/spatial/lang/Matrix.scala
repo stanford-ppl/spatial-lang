@@ -146,6 +146,7 @@ trait MatrixExp { this: SpatialExp =>
 
     @api def rows: Index = field[Index]("rows")
     @api def cols: Index = field[Index]("cols")
+    @api def flatten: MetaArray[T] = data
     @api def apply(i: Index, j: Index): T = data.apply(i*cols + j)
     @api def update(i: Index, j: Index, elem: T): Void = wrap(array_update(data.s, (i*cols + j).s, elem.s))
   }
@@ -156,6 +157,7 @@ trait MatrixExp { this: SpatialExp =>
     @api def dim0: Index = field[Index]("dim0")
     @api def dim1: Index = field[Index]("dim1")
     @api def dim2: Index = field[Index]("dim2")
+    @api def flatten: MetaArray[T] = data
     @api def apply(i: Index, j: Index, k: Index): T = data.apply(i*dim1*dim2 + j*dim2 + k)
     @api def update(i: Index, j: Index, k: Index, elem: T): Void = wrap(array_update(data.s, (i*dim1*dim2 + j*dim1 + k).s, elem.s))
   }
@@ -166,6 +168,7 @@ trait MatrixExp { this: SpatialExp =>
     @api def dim1: Index = field[Index]("dim1")
     @api def dim2: Index = field[Index]("dim2")
     @api def dim3: Index = field[Index]("dim3")
+    @api def flatten: MetaArray[T] = data
     @api def apply(i: Index, j: Index, k: Index, l: Index): T = data.apply(i*dim1*dim2*dim3 + j*dim2*dim3 + k*dim3 + l)
     @api def update(i: Index, j: Index, k: Index, l: Index, elem: T): Void = wrap(array_update(data.s, (i*dim1*dim2*dim3 + j*dim2*dim3 + k*dim3 + l).s, elem.s))
   }
@@ -177,6 +180,7 @@ trait MatrixExp { this: SpatialExp =>
     @api def dim2: Index = field[Index]("dim2")
     @api def dim3: Index = field[Index]("dim3")
     @api def dim4: Index = field[Index]("dim4")
+    @api def flatten: MetaArray[T] = data
     @api def apply(i: Index, j: Index, k: Index, l: Index, m: Index): T = data.apply(i*dim1*dim2*dim3*dim4 + j*dim2*dim3*dim4 + k*dim3*dim4 + l*dim4 + m)
     @api def update(i: Index, j: Index, k: Index, l: Index, m: Index, elem: T): Void = wrap(array_update(data.s, (i*dim1*dim2*dim3*dim4 + j*dim2*dim3*dim4 + k*dim3*dim4 + l*dim4 + m).s, elem.s))
   }
