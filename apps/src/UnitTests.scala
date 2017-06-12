@@ -1966,7 +1966,7 @@ object FifoStackFSM extends SpatialApp { // Regression (Unit) // Args: none
 
 object FixPtInOutArg extends SpatialApp {  // Regression (Unit) // Args: -1.5
   import IR._
-  type T = FixPt[TRUE,_13,_3]
+  type T = FixPt[TRUE,_28,_4]
   
   @virtualize
   def main() {
@@ -2038,7 +2038,7 @@ object MaskedWrite extends SpatialApp {  // Regression (Unit) // Args: 5
 
 object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
   import IR._
-  type T = FixPt[TRUE,_16,_16]
+  type T = FixPt[TRUE,_32,_32]
 
   @virtualize
   def main() {
@@ -2046,12 +2046,15 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
     val N = 128
     val a = args(0).to[T]
     val b = args(1).to[T]
+    val TWOPI = 6.28318530717959
     val x_data = Array.tabulate(N){ i => a * i.to[T]}
     val x = DRAM[T](N)
     val y = DRAM[T](N)
     val s = ArgIn[T]
 
     val expo_dram = DRAM[T](1024)
+    val sin_dram = DRAM[T](1024)
+    val cos_dram = DRAM[T](1024)
     val sqroot_dram = DRAM[T](512)
 
     setMem(x, x_data)
@@ -2065,16 +2068,32 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
         yy(i) = xx(i) * s
       }
       // Test exp_taylor from -4 to 4
+      // NOTE: This saturates to 0 if x < -3.5, linear from -3.5 to -1.2, and 5th degree taylor above -1.2
       val expo = SRAM[T](1024)
       Foreach(1024 by 1){ i => 
         val x = (i.as[T] - 512) / 128
         expo(i) = exp_taylor(x)
       }
-      // Test sqrt_taylor3 from 0 to 1024
+      // Test sqrt_approx from 0 to 1024
+      // NOTE: This does a 3rd degree taylor centered at 1 if x < 2, and then linearizes for every order of magnitude after that
       val sqroot = SRAM[T](512)
       Foreach(512 by 1){ i => 
         sqroot(i) = sqrt_approx(i.as[T]*50 + 5)
       }
+      // Test sin and cos from 0 to 2pi
+      // NOTE: These do an amazing job if phi is inside +/- pi/2
+      val sin = SRAM[T](1024)
+      val cos = SRAM[T](1024)
+      Foreach(1024 by 1){ i => 
+        val phi = TWOPI.to[T]*(i.as[T] / 1024.to[T]) - TWOPI.to[T]/2
+        val beyond_left = phi < -TWOPI.to[T]/4
+        val beyond_right = phi > TWOPI.to[T]/4
+        val phi_shift = mux(beyond_left, phi + TWOPI.to[T]/2, mux(beyond_right, phi - TWOPI.to[T]/2, phi))
+        cos(i) = -cos_taylor(phi_shift) * mux(beyond_left || beyond_right, -1.to[T], 1)
+        sin(i) = -sin_taylor(phi_shift) * mux(beyond_left || beyond_right, -1.to[T], 1)
+      }
+      sin_dram store sin
+      cos_dram store cos
       expo_dram store expo
       sqroot_dram store sqroot
 
@@ -2094,6 +2113,16 @@ object FixPtMem extends SpatialApp {  // Regression (Unit) // Args: 5.25 2.125
     val expo_got = getMem(expo_dram)
     printArray(expo_gold, "e^x gold: ")
     printArray(expo_got, "e^x taylor: ")
+
+    val sin_gold = Array.tabulate(1024){ i => sin(TWOPI.to[Float]*((i.to[Float])/1024.to[Float])) }
+    val sin_got = getMem(sin_dram)
+    printArray(sin_gold, "sin gold: ")
+    printArray(sin_got, "sin taylor: ")
+
+    val cos_gold = Array.tabulate(1024){ i => cos(TWOPI.to[Float]*((i.to[Float])/1024.to[Float])) }
+    val cos_got = getMem(cos_dram)
+    printArray(cos_gold, "cos gold: ")
+    printArray(cos_got, "cos taylor: ")
 
     val sqroot_gold = Array.tabulate(512){ i => sqrt((i.to[Float])*50 + 5) }
     val sqroot_got = getMem(sqroot_dram)
