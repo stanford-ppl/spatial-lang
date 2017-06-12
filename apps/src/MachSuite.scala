@@ -1975,7 +1975,6 @@ object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
 
     val FFT_SIZE = 1024
     val numiter = (scala.math.log(FFT_SIZE) / scala.math.log(2)).to[Int]
-    val twoPI = 6.28318530717959.to[T]
 
     val data_real = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_real.csv", "\n")
     val data_img = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_img.csv", "\n")
@@ -2025,7 +2024,7 @@ object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
             
             val rootindex = (Reduce(Reg[Int](1))(0 until log){i => 2.to[Int]}{_*_} * even) & (FFT_SIZE - 1).to[Int]
             if (rootindex > 0.to[Int]) {
-              println("Accessing " + rootindex + " at " + even )
+              // println("Accessing " + rootindex + " at " + even )
               val temp = data_twid_real_sram(rootindex) * data_real_sram(odd) - data_twid_img_sram(rootindex) * data_img_sram(odd)
               data_img_sram(odd) = data_twid_real_sram(rootindex) * data_img_sram(odd) + data_twid_img_sram(rootindex) * data_real_sram(odd)
               data_real_sram(odd) = temp
@@ -2056,98 +2055,237 @@ object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
   }
 }
 
-// object FFT_Transpose extends SpatialApp { // DISABLED Regression (Dense) // Args: none
-//  import IR._
+object FFT_Transpose extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+ import IR._
 
-//  /*                                                                                                  
+ /*                                                                                                  
+    Concerns: Not sure why machsuite makes a data_x and DATA_x when they only dump values from one row of DATA_x to data_x and back
+              Also, is their algorithm even correct?!  It's no balanced, and I can comment out some of their code and it still passes....
+ */
 
-//    NOTES: This version uses one extra loop than the machsuite implementation because they mutate their counter that holds "odd" inside of the loop,
-//           so we can either use an FSM or use strict loops that take this mutation into account and I chose the latter
-//  */
+  type T = FixPt[TRUE,_32,_32]
+  @virtualize
+  def main() = {
 
-//   type T = FixPt[TRUE,_32,_32]
-//   @virtualize
-//   def main() = {
+    val dim = 512
+    val THREADS = 64
+    val stride = THREADS
+    val M_SQRT1_2 = 0.70710678118654752440.to[T]
+    val TWOPI = 6.28318530717959.to[T]
 
-//     val FFT_SIZE = 1024
-//     val numiter = (scala.math.log(FFT_SIZE) / scala.math.log(2)).to[Int]
-//     val twoPI = 6.28318530717959.to[T]
+    val data_x = loadCSV1D[T]("/remote/regression/data/machsuite/fft_transpose_x.csv", "\n").reshape(8,stride)
+    val data_y = loadCSV1D[T]("/remote/regression/data/machsuite/fft_transpose_y.csv", "\n").reshape(8,stride)
 
-//     val data_real = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_real.csv", "\n")
-//     val data_img = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_img.csv", "\n")
-//     val data_twid_real = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_twidreal.csv", "\n")
-//     val data_twid_img = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_twidimg.csv", "\n")
+    val work_x_dram = DRAM[T](8,stride)
+    val work_y_dram = DRAM[T](8,stride)
+    val result_x_dram = DRAM[T](8,stride)
+    val result_y_dram = DRAM[T](8,stride)
 
-//     val data_real_dram = DRAM[T](FFT_SIZE)
-//     val data_img_dram = DRAM[T](FFT_SIZE)
-//     val data_twid_real_dram = DRAM[T](FFT_SIZE/2)
-//     val data_twid_img_dram = DRAM[T](FFT_SIZE/2)
-//     val result_real_dram = DRAM[T](FFT_SIZE)
-//     val result_img_dram = DRAM[T](FFT_SIZE)
+    setMem(work_x_dram, data_x)
+    setMem(work_y_dram, data_y)
 
-//     setMem(data_real_dram, data_real)
-//     setMem(data_img_dram, data_img)
-//     setMem(data_twid_real_dram, data_twid_real)
-//     setMem(data_twid_img_dram, data_twid_img)
+    Accel{
+      val work_x_sram = SRAM[T](8,stride)
+      val work_y_sram = SRAM[T](8,stride)
+      val smem = SRAM[T](dim)
 
-//     Accel{
-//       val data_real_sram = SRAM[T](FFT_SIZE)
-//       val data_img_sram = SRAM[T](FFT_SIZE)
-//       val data_twid_real_sram = SRAM[T](FFT_SIZE/2)
-//       val data_twid_img_sram = SRAM[T](FFT_SIZE/2)
+      work_x_sram load work_x_dram
+      work_y_sram load work_y_dram
 
-//       data_real_sram load data_real_dram
-//       data_img_sram load data_img_dram
-//       data_twid_real_sram load data_twid_real_dram
-//       data_twid_img_sram load data_twid_img_dram
+      val reversed_LUT = LUT[Int](8)(0,4,2,6,1,5,3,7)
 
-//       val span = Reg[Int](FFT_SIZE)
-//       Foreach(0 until numiter) { log => 
-//         span := span >> 1
-//         val num_sections = Reduce(Reg[Int](1))(0 until log){i => 2}{_*_}
-//         Foreach(0 until num_sections) { section => 
-//           val base = span*(2*section+1)
-//           Sequential.Foreach(0 until span by 1) { offset => 
-//             val odd = base + offset
-//             val even = odd ^ span
+      def twiddles8(tid: Index, i: Int, N: Int): Unit = {
+        Sequential.Foreach(1 until 8 by 1) { j => 
+          val phi = -TWOPI*(i.as[T]*reversed_LUT(j).as[T] / N.as[T]) - TWOPI/4
+          val phi_x = -sin_taylor(phi) // cos(real phi)
+          val phi_y = cos_taylor(phi) // sin(real phi)
+          val temp_x = work_x_sram(j, tid)
+          work_x_sram(j, tid) = temp_x * phi_x - work_y_sram(j, tid) * phi_y
+          work_y_sram(j, tid) = temp_x * phi_y + work_y_sram(j, tid) * phi_x
+        }
+      }
 
-//             val rtemp = data_real_sram(even) + data_real_sram(odd)
-//             Pipe{data_real_sram(odd) = data_real_sram(even) - data_real_sram(odd)}
-//             Pipe{data_real_sram(even) = rtemp}
+      def FFT2(tid: Index, id0: Int, id1: Int):Unit = {
+        val temp_x = work_x_sram(id0, tid)
+        val temp_y = work_y_sram(id0, tid)
+        work_x_sram(id0, tid) = temp_x + work_x_sram(id1, tid)
+        work_y_sram(id0, tid) = temp_y + work_y_sram(id1, tid)
+        work_x_sram(id1, tid) = temp_x - work_x_sram(id1, tid)
+        work_y_sram(id1, tid) = temp_y - work_y_sram(id1, tid)
+      }
 
-//             val itemp = data_img_sram(even) + data_img_sram(odd)
-//             Pipe{data_img_sram(odd) = data_img_sram(even) - data_img_sram(odd)}
-//             Pipe{data_img_sram(even) = itemp}
-            
-//             val rootindex = (Reduce(Reg[Int](1))(0 until log){i => 2.to[Int]}{_*_} * even) & (FFT_SIZE - 1).to[Int]
-//             if (rootindex > 0.to[Int]) {
-//               println("Accessing " + rootindex + " at " + even )
-//               val temp = data_twid_real_sram(rootindex) * data_real_sram(odd) - data_twid_img_sram(rootindex) * data_img_sram(odd)
-//               data_img_sram(odd) = data_twid_real_sram(rootindex) * data_img_sram(odd) + data_twid_img_sram(rootindex) * data_real_sram(odd)
-//               data_real_sram(odd) = temp
-//             }
-//           }
-//         }
-//       }
-//       result_real_dram store data_real_sram
-//       result_img_dram store data_img_sram
-//     }
+      def FFT4(tid: Index, base: Int):Unit = {
+        val exp_LUT = LUT[T](2)(0, -1)
+        Foreach(0 until 2 by 1) { j => 
+          Pipe{FFT2(tid, base+j, 2+base+j)}
+        }
+        val temp_x = work_x_sram(base+3,tid)
+        work_x_sram(base+3,tid) = temp_x * exp_LUT(0) - work_y_sram(base+3,tid)*exp_LUT(1)
+        work_y_sram(base+3,tid) = temp_x * exp_LUT(1) - work_y_sram(base+3,tid)*exp_LUT(0)
+        Foreach(0 until 2 by 1) { j => 
+          Pipe{FFT2(tid, base+2*j, 1+base+2*j)}
+        }
+      }
 
-//     val result_real = getMem(result_real_dram)
-//     val result_img = getMem(result_img_dram)
-//     val gold_real = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_real_gold.csv", "\n")
-//     val gold_img = loadCSV1D[T]("/remote/regression/data/machsuite/fft_strided_img_gold.csv", "\n")
+      def FFT8(tid: Index):Unit = {
+        Foreach(0 until 4 by 1) { i => 
+          Pipe{FFT2(tid, i, 4+i)}
+        }
+        Sequential.Foreach(0 until 3 by 1) { i => 
+          val exp_LUT = LUT[T](2,3)( 1,  0, -1,
+                                      -1, -1, -1)
+          val temp_x = work_x_sram(5+i, tid)
+          work_x_sram(5+i, tid) = (temp_x * exp_LUT(0,i) - work_y_sram(5+i,tid) * exp_LUT(1,i))*M_SQRT1_2
+          work_y_sram(5+i, tid) = (temp_x * exp_LUT(1,i) + work_y_sram(5+i,tid) * exp_LUT(0,i))*M_SQRT1_2
+        }
+        // FFT4
+        Sequential.Foreach(0 until 2 by 1) { ii =>
+          val base = 4*ii
+          FFT4(tid, base)
+        }
 
-//     printArray(gold_real, "Gold real: ")
-//     printArray(result_real, "Result real: ")
-//     printArray(gold_img, "Gold img: ")
-//     printArray(result_img, "Result img: ")
+      }
 
-//     val margin = 0.01.to[T]
-//     val cksumR = gold_real.zip(result_real){(a,b) => abs(a-b) < margin}.reduce{_&&_}
-//     val cksumI = gold_img.zip(result_img){(a,b) => abs(a-b) < margin}.reduce{_&&_}
-//     val cksum = cksumR && cksumI
-//     println("PASS: " + cksum + " (FFT_Strided)")
+      // Loop 1
+      Foreach(THREADS by 1) { tid => 
+        FFT8(tid)
+        twiddles8(tid, tid, dim)
+      }
 
-//   }
-// }
+      val shuffle_lhs_LUT = LUT[Int](8)(0,4,1,5,2,6,3,7)
+      val shuffle_rhs_LUT = LUT[Int](8)(0,1,4,5,2,3,6,7)
+
+      // Loop 2
+      Foreach(THREADS by 1) { tid => 
+        val sx = 66
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*8+lo // * here but >> above????
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_rhs_LUT(i)
+          smem(lhs_factor*sx + offset) = work_x_sram(rhs_factor, tid)
+        }
+      }
+
+      // Loop 3
+      Foreach(THREADS by 1) { tid => 
+        val sx = 8
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = lo*66 + hi
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_lhs_LUT(i) // [sic]
+          work_x_sram(lhs_factor, tid) = smem(rhs_factor*sx+offset)
+        }
+      }
+
+      // Loop 4
+      Foreach(THREADS by 1) { tid => 
+        val sx = 66
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*8+lo // * here but >> above????
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_rhs_LUT(i)
+          smem(lhs_factor*sx + offset) = work_y_sram(tid, rhs_factor)
+        }
+      }
+
+      // Loop 5
+      Foreach(THREADS by 1) { tid => 
+        val sx = 8
+        val hi = tid >> 3;
+        val lo = tid & 7;
+        val offset = lo*66+hi
+        Foreach(8 by 1) { i => 
+          work_y_sram(i, tid) = smem(i*sx+offset) 
+        }
+      }
+
+      // Loop 6 
+      Foreach(THREADS by 1) { tid => 
+        FFT8(tid)
+        val hi = tid >> 3
+        twiddles8(tid, hi, 64)
+      }
+
+      // Loop 7
+      Foreach(THREADS by 1) { tid => 
+        val sx = 72
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*8 + lo
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_rhs_LUT(i)
+          smem(lhs_factor * sx + offset) = work_x_sram(tid, rhs_factor)
+        }
+      }
+
+      // Loop 8
+      Foreach(THREADS by 1) { tid => 
+        val sx = 8
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*72 + lo
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_lhs_LUT(i) // [sic]
+          work_x_sram(tid, lhs_factor) = smem(rhs_factor * sx + offset)
+        }
+      }
+
+      // Loop 9
+      Foreach(THREADS by 1) { tid => 
+        val sx = 72
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*8 + lo
+        Foreach(8 by 1) { i => 
+          val lhs_factor = shuffle_lhs_LUT(i)
+          val rhs_factor = shuffle_rhs_LUT(i)
+          smem(lhs_factor * sx + offset) = work_y_sram(tid, rhs_factor)
+        }
+      }
+
+      // Loop 10
+      Foreach(THREADS by 1) { tid => 
+        val sx = 8
+        val hi = tid >> 3
+        val lo = tid & 7
+        val offset = hi*72 + lo
+        Foreach(8 by 1) { i => 
+          work_y_sram(i, tid) = smem(i * sx + offset)
+        }
+      }
+
+      // Loop 11
+      Foreach(THREADS by 1) { tid => 
+        FFT8(tid)
+      }
+
+      result_x_dram store work_x_sram
+      result_y_dram store work_y_sram
+    }
+
+    val result_x = getMatrix(result_x_dram)
+    val result_y = getMatrix(result_y_dram)
+    val gold_x = loadCSV1D[T]("/remote/regression/data/machsuite/fft_transpose_x_gold.csv", "\n").reshape(8,stride)
+    val gold_y = loadCSV1D[T]("/remote/regression/data/machsuite/fft_transpose_y_gold.csv", "\n").reshape(8,stride)
+
+    printMatrix(gold_x, "Gold x: ")
+    printMatrix(result_x, "Result x: ")
+    printMatrix(gold_y, "Gold y: ")
+    printMatrix(result_y, "Result y: ")
+
+    val margin = 0.01.to[T]
+    val cksumR = gold_x.zip(result_x){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    val cksumI = gold_y.zip(result_y){(a,b) => abs(a-b) < margin}.reduce{_&&_}
+    val cksum = cksumR && cksumI
+    println("PASS: " + cksum + " (FFT_Transpose)")
+
+  }
+}

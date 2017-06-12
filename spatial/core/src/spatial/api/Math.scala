@@ -20,6 +20,15 @@ trait MathApi extends MathExp { this: SpatialApi =>
   //   FixPt(x.s)
   // }
   /** Taylor expansion for natural exponential to third degree **/
+  @api def sin_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = { 
+    val ans = x - x*x*x/6 + x*x*x*x*x/120
+    FixPt(ans.s)
+  }
+  @api def cos_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = { 
+    val ans = 1 - x*x/2 + x*x*x*x/24
+    FixPt(ans.s)
+  }
+  /** Taylor expansion for natural exponential to third degree **/
   @api def exp_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = { 
     val ans = mux(x < -3.5.to[FixPt[S,I,F]], 0.to[FixPt[S,I,F]], mux(x < -1.2.to[FixPt[S,I,F]], x*0.1.to[FixPt[S,I,F]] + 0.35.to[FixPt[S,I,F]], 1 + x + x*x/2 + x*x*x/6 + x*x*x*x/24 + x*x*x*x*x/120))
     FixPt(ans.s)

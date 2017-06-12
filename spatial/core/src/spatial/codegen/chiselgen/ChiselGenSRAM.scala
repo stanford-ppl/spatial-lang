@@ -173,7 +173,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val rParZip = readersOf(lhs)
           .filter{read => dispatchOf(read, lhs) contains i}
           .map { r => 
-            if (i == 7) Console.println(s"readres of $lhs 7 is $r")
             val par = r.node match {
               case Def(_: SRAMLoad[_]) => 1
               case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
@@ -187,7 +186,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
           .filter{write => dispatchOf(write, lhs) contains i}
           .filter{w => portsOf(w, lhs, i).toList.length == 1}
           .map { w => 
-            if (i == 7) Console.println(s"writers of $lhs 7 is $w")
             val par = w.node match {
               case Def(_: SRAMStore[_]) => 1
               case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
