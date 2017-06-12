@@ -3,13 +3,14 @@ package spatial.transform
 import argon.transform.ForwardTransformer
 import spatial.SpatialExp
 import spatial.api.ControllerApi
+import spatial.analysis.SpatialTraversal
 
 import scala.collection.mutable.ArrayBuffer
 
 /**
   * Inserts UnitPipe wrappers for primitive nodes in outer control nodes, along with registers for communication
   */
-trait UnitPipeTransformer extends ForwardTransformer {
+trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
   val IR: SpatialExp with ControllerApi
   import IR._
 
@@ -206,6 +207,32 @@ trait UnitPipeTransformer extends ForwardTransformer {
     else super.apply(b)
   }
 
+  def wrapSwitchCase[T:Type](lhs: Exp[T], body: Block[T])(implicit ctx: SrcCtx): Exp[T] = transferMetadataIfNew(lhs){
+    op_case { () =>
+      val reg: Option[Exp[Reg[T]]] = typ[T] match {
+        case Bits(bT) => Some(regFromSym(body.result))
+        case _ => None // Nothing needed for escaping values
+      }
+      val pipe = op_unit_pipe(enable.toList, {
+        wrapBlock(body)
+        reg match {
+          case Some(r) =>
+            val writePipe = op_unit_pipe(enable.toList, { regWrite(r, f(body.result)) })
+            levelOf(writePipe) = InnerControl
+            styleOf(writePipe) = InnerPipe
+            void
+          case None => void
+        }
+      })
+      levelOf(pipe) = OuterControl
+      styleOf(pipe) = MetaPipe
+      reg match {
+        case Some(r) => regRead(r)
+        case _ => void.asInstanceOf[Exp[T]]
+      }
+    }
+  }._1
+
   override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
     // Only insert Unit Pipes into bodies of switch cases in outer scope contexts
     case Hwblock(body,isForever) => inControl(lhs) {
@@ -232,8 +259,16 @@ trait UnitPipeTransformer extends ForwardTransformer {
       lhs2
     }
 
+    // Insert unit pipes in outer switch cases with multiple controllers
     case op@SwitchCase(body) if isOuterControl(lhs) => inControl(lhs) {
-      withWrap(List(true), ctx) { super.transform(lhs, rhs) }
+      val controllers = getControlNodes(body)
+      val primitives = getPrimitiveNodes(body)
+      if (controllers.length > 1 || (primitives.length > 1 && controllers.length >= 1)) {
+        wrapSwitchCase(lhs, body)(mtyp(op.mT),ctx)
+      }
+      else {
+        withWrap(List(true), ctx){ super.transform(lhs, rhs) }
+      }
     }
 
     // Only insert unit pipes in if-then-else statements if in Accel and in an outer controller

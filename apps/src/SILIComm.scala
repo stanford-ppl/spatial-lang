@@ -34,6 +34,7 @@ object SILIComm extends SpatialApp {
     val receiveTarget  = target.SliderSwitch    // Receive Line
     val transmitTarget = target.LEDR            // Transmit Line
     val rx = StreamIn[TENBIT](receiveTarget)
+    val tx = StreamOut[TENBIT](transmitTarget)
 
     val period_time = 50000000;                 // 50 Million Cycles = 1 Second Period
     val io1 = StreamIn[Int](receiveTarget)//= HostIO[Int]
