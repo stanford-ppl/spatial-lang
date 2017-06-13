@@ -116,11 +116,12 @@ object TensorLoadStore extends SpatialApp { // Regression (Unit) // Args: 32 4 4
 object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
   import IR._
 
+  type T = FixPt[TRUE,_32,_32]
   @virtualize
   def main() {
     // Declare SW-HW interface vals
     val i = ArgIn[Int]
-    val y = ArgOut[Int]
+    val y = ArgOut[T]
     val ii = args(0).to[Int]
 
     // Connect SW vals to HW vals
@@ -128,13 +129,13 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
 
     // Create HW accelerator
     Accel {
-      val lut = LUT[Int](4, 4)(
-         0,  (1*1E0).to[Int],  2,  3,
+      val lut = LUT[T](4, 4)(
+         0,  (1*1E0).to[T],  2,  3,
          4,  -5,  6,  7,
          8,  9, -10, 11,
         12, 13, 14, -15
       )
-      val red = Reduce(Reg[Int](0))(3 by 1 par 3) {q =>
+      val red = Reduce(Reg[T](0))(3 by 1 par 3) {q =>
         lut(q,q)
       }{_^_}
       y := lut(1, 3) ^ lut(3, 3) ^ red ^ lut(i,0)
@@ -145,7 +146,7 @@ object LUTTest extends SpatialApp { // Regression (Unit) // Args: 2
     val result = getArg(y)
 
     // Create validation checks and debug code
-    val gold = -15 ^ 7 ^ -0 ^ -5 ^ -10 ^ 4*ii
+    val gold = (-15 ^ 7 ^ -0 ^ -5 ^ -10 ^ 4*ii).to[T]
     println("expected: " + gold)
     println("result: " + result)
 
