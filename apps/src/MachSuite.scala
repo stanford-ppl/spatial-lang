@@ -2352,8 +2352,8 @@ object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
     val unvisited = -1
     val start_id = 38
 
-    val nodes_raw = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_bulk_nodes.csv", "\n")
-    val edges_data = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_bulk_edges.csv", "\n")
+    val nodes_raw = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_nodes.csv", "\n")
+    val edges_data = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_edges.csv", "\n")
 
     val node_starts_data = Array.tabulate[Int](N_NODES){i => nodes_raw(2*i)}
     val node_ends_data = Array.tabulate[Int](N_NODES){i => nodes_raw(2*i+1)}
@@ -2422,7 +2422,7 @@ object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
 }
 
 
-object BFS_Queue extends SpatialApp { // DISABLED Regression (Sparse) // Args: none
+object BFS_Queue extends SpatialApp { // Regression (Sparse) // Args: none
  import IR._
 
  /*                                                                                                  
@@ -2459,8 +2459,8 @@ object BFS_Queue extends SpatialApp { // DISABLED Regression (Sparse) // Args: n
     val unvisited = -1
     val start_id = 38
 
-    val nodes_raw = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_bulk_nodes.csv", "\n")
-    val edges_data = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_bulk_edges.csv", "\n")
+    val nodes_raw = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_nodes.csv", "\n")
+    val edges_data = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_edges.csv", "\n")
 
     val node_starts_data = Array.tabulate[Int](N_NODES){i => nodes_raw(2*i)}
     val node_ends_data = Array.tabulate[Int](N_NODES){i => nodes_raw(2*i+1)}
