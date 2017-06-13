@@ -1,13 +1,14 @@
 package spatial.codegen.chiselgen
 
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.SpatialExp
-import scala.collection.mutable.HashMap
+
+//import scala.collection.mutable.HashMap
 
 trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
-  val IR: SpatialExp
-  import IR._
-
   var loadsList = List[Exp[_]]()
   var storesList = List[Exp[_]]()
   var loadParMapping = List[String]()
@@ -18,14 +19,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
       s match {
-        case lhs: Sym[_] =>
-          lhs match {
-              case Def(e: DRAMNew[_,_]) => s"x${lhs.id}_dram"
-            case _ =>
-              super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
+        case lhs @ Def(e: DRAMNew[_,_]) => s"${lhs}_dram"
+        case _ => super.quote(s)
       }
     } else {
       super.quote(s)
@@ -39,7 +34,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
   protected def getLastChild(lhs: Exp[_]): Exp[_] = {
     var nextLevel = childrenOf(lhs)
-    if (nextLevel.length == 0) {
+    if (nextLevel.isEmpty) {
       lhs
     } else {
       getLastChild(nextLevel.last)
@@ -49,7 +44,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims,zero) =>
       if (argMapping(lhs) == (-1,-1,-1)) {
-        throw new UnusedDRAMException(lhs, nameOf(lhs).getOrElse("noname"))
+        throw new spatial.UnusedDRAMException(lhs, lhs.name.getOrElse("noname"))
       }
 
     case GetDRAMAddress(dram) =>

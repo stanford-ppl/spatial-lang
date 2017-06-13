@@ -1,16 +1,13 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.FileDependencies
-import argon.codegen.chiselgen.ChiselCodegen
-import spatial.lang.CounterExp
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.SpatialExp
-
 
 trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
-  val IR: SpatialExp
-  import IR._
-
   var streamCtrCopy = List[Bound[_]]()
 
   // dependencies ::= AlwaysDep("chiselgen", "resources/Counter.chisel")

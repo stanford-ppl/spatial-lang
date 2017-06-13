@@ -1,12 +1,10 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.SpatialExp
-import spatial.lang.DebuggingExp
+import spatial.compiler._
+import spatial.nodes._
 
 trait CppGenDebugging extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case AssertIf(en, cond, m) => 

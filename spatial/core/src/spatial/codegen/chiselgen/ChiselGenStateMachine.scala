@@ -1,14 +1,12 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.lang.StateMachineExp
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
 import spatial.SpatialConfig
-import spatial.SpatialExp
-import spatial.metadata.SpatialMetadataExp
 
 trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
-  val IR: SpatialExp
-  import IR._
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {

@@ -2,13 +2,13 @@ package spatial.codegen.dotgen
 
 import argon.codegen.dotgen._
 import argon.core.Config
-import spatial.{SpatialConfig, SpatialExp}
+import spatial.compiler._
+import spatial.nodes._
+import spatial.utils._
 
 trait DotGenUnrolled extends DotCodegen with DotGenReg {
-  val IR: SpatialExp
-  import IR._
 
-  def emitValids(valids: Seq[Seq[Bound[Bool]]]) {
+  def emitValids(valids: Seq[Seq[Bound[Bit]]]) {
     valids.foreach{ v =>
       v.foreach{vv =>
         emitVert(vv)
@@ -16,21 +16,16 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
     }
   }
 
-
-
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
-  if (Config.dotDetail == 0) {
-    rhs match {
-      case _ if isControlNode(lhs) =>
-        rhs match { 
-          case Hwblock(_,_) => super.emitNode(lhs,rhs)
-          case _ =>
-            emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
-              emitVert(lhs);
-              rhs.blocks.foreach(emitBlock) 
-            }
-        }
-
+    if (Config.dotDetail == 0) rhs match {
+      case _ if isControlNode(lhs) => rhs match {
+        case Hwblock(_,_) => super.emitNode(lhs,rhs)
+        case _ =>
+          emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){
+            emitVert(lhs);
+            rhs.blocks.foreach(emitBlock)
+          }
+      }
       case UnrolledForeach(en,cchain,func,iters,valids) =>
 
       case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
@@ -49,10 +44,7 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
 
       case _ => super.emitNode(lhs, rhs)
     }    
-  } else {
-
-    rhs match {
-
+    else rhs match {
       case UnrolledForeach(en,cchain,func,iters,valids) =>
         emitValids(valids)
         emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
@@ -97,6 +89,5 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
 
       case _ => super.emitNode(lhs, rhs)
     }
-  }
   }
 }

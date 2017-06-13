@@ -1,13 +1,11 @@
 package spatial.codegen.scalagen
 
-import argon.codegen.scalagen.ScalaGenText
-import argon.ops.{FixPtExp, FltPtExp}
-import spatial.SpatialExp
-import spatial.lang.{BitOpsExp, VectorExp}
+import argon.codegen.scalagen.ScalaGenString
+import argon.nodes._
+import spatial.compiler._
+import spatial.nodes._
 
-trait ScalaGenVector extends ScalaGenBits with ScalaGenText {
-  val IR: SpatialExp
-  import IR._
+trait ScalaGenVector extends ScalaGenBits with ScalaGenString {
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: VectorType[_] => src"Array[${tp.child}]"
@@ -22,7 +20,7 @@ trait ScalaGenVector extends ScalaGenBits with ScalaGenText {
   override def emitToString(lhs: Sym[_], x: Exp[_], tp: Type[_]) = tp match {
     case vT:VectorType[_] =>
       vT.child match {
-        case BoolType() =>
+        case BooleanType() =>
           emit(src"""val $lhs = "0b" + $x.sliding(4,4).map{_.reverse.map{x => if (x) "1" else "0"}.mkString("")}.toList.reverse.mkString("_")""")
         case _ =>
           emit(src"""val $lhs = "Vector.ZeroFirst(" + $x.mkString(", ") + ")" """)
@@ -46,13 +44,13 @@ trait ScalaGenVector extends ScalaGenBits with ScalaGenText {
     case e@DataAsBits(a) => e.mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
       case FixPtType(_,_,_) => emit(src"val $lhs = $a.bits")
-      case BoolType()       => emit(src"val $lhs = Array[Bit]($a)")
+      case BooleanType()    => emit(src"val $lhs = Array[Bit]($a)")
     }
 
     case BitsAsData(v,mT) => mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
       case FixPtType(s,i,f) => emit(src"val $lhs = Number($v, FixedPoint($s,$i,$f))")
-      case BoolType()       => emit(src"val $lhs = $v.head")
+      case BooleanType()    => emit(src"val $lhs = $v.head")
     }
 
     case _ => super.emitNode(lhs, rhs)

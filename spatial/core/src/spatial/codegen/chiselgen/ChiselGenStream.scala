@@ -1,18 +1,12 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
-import spatial.lang.{ControllerExp, CounterExp, UnrolledExp}
-import spatial.SpatialConfig
-import spatial.SpatialExp
-import spatial.metadata.SpatialMetadataExp
-
-import scala.collection.mutable.HashMap
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.targets.DE1._
 
 trait ChiselGenStream extends ChiselGenSRAM {
-  val IR: SpatialExp
-  import IR._
-
   var streamIns: List[Sym[Reg[_]]] = List()
   var streamOuts: List[Sym[Reg[_]]] = List()
 

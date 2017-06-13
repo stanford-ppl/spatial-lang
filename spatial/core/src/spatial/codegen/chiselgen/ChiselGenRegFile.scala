@@ -1,14 +1,13 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.{ChiselCodegen}
-import spatial.lang.RegisterFileExp
+import argon.nodes._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.SpatialExp
 
 trait ChiselGenRegFile extends ChiselGenSRAM {
-  val IR: SpatialExp
-  import IR._
-
   private var nbufs: List[(Sym[SRAM[_]], Int)]  = List()
 
   override def quote(s: Exp[_]): String = {
@@ -17,9 +16,9 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         case lhs: Sym[_] =>
           lhs match {
             case Def(e: RegFileNew[_,_]) =>
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("regfile")}"""
+              s"""x${lhs.id}_${lhs.name.getOrElse("regfile")}"""
             case Def(e: LUTNew[_,_]) =>
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("lut")}"""
+              s"""x${lhs.id}_${lhs.name.getOrElse("lut")}"""
             case _ =>
               super.quote(s)
           }

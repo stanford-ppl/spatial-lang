@@ -293,16 +293,16 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
 
   def this(tuple: (List[Int], List[Double], Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
   val io = IO(new Bundle { 
-    val addr = Vec(numReaders*dims.length, Input(UInt(32.W)))
+    val addr = Vec(numReaders*dims.length, Input(UInt(width.W)))
     // val en = Vec(numReaders, Input(Bool()))
-    val data_out = Vec(numReaders, Output(new types.FixedPoint(true, 32, 0)))
+    val data_out = Vec(numReaders, Output(UInt(width.W)))
   })
 
   assert(dims.reduce{_*_} == inits.length)
   val options = (0 until dims.reduce{_*_}).map { i => 
-    val initval = (inits(i)*scala.math.pow(2,fracBits)).toInt
+    val initval = (inits(i)*scala.math.pow(2,fracBits)).toLong
     // initval.U
-    ( i.U -> initval.S(32.W) )
+    ( i.U -> initval.S(width.W) )
   }
 
   val flat_addr = (0 until numReaders).map{ k => 
@@ -316,7 +316,7 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
 
   // io.data_out := Mux1H(onehot, options)
   (0 until numReaders).foreach{i =>
-    io.data_out(i) := MuxLookup(flat_addr(i), 0.S, options).asUInt
+    io.data_out(i) := MuxLookup(flat_addr(i), 0.S(width.W), options).asUInt
   }
   // val selected = MuxLookup(active_addr, 0.S, options)
 

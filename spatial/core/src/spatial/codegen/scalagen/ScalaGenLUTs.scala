@@ -1,11 +1,10 @@
 package spatial.codegen.scalagen
 
-import spatial.SpatialExp
-import org.virtualized.SourceContext
+import spatial.compiler._
+import spatial.nodes._
+import spatial.utils._
 
 trait ScalaGenLUTs extends ScalaGenMemories {
-  val IR: SpatialExp
-  import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: LUTType[_] => src"Array[${tp.child}]"

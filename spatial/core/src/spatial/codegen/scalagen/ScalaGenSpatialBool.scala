@@ -1,14 +1,12 @@
 package spatial.codegen.scalagen
 
-import argon.core.compiler._
-import spatial.SpatialExp
+import argon.nodes._
+import spatial.compiler._
 
 trait ScalaGenSpatialBool extends ScalaGenBits {
-  val IR: SpatialExp
-  import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case BoolType => "Bit"
+    case BooleanType => "Bit"
     case _ => super.remap(tp)
   }
 
@@ -18,8 +16,8 @@ trait ScalaGenSpatialBool extends ScalaGenBits {
     case _ => super.quoteConst(c)
   }
 
-  override def invalid(tp: IR.Type[_]) = tp match {
-    case BoolType => "Bit(false,false)"
+  override def invalid(tp: Type[_]) = tp match {
+    case BooleanType => "Bit(false,false)"
     case _ => super.invalid(tp)
   }
 
@@ -31,8 +29,8 @@ trait ScalaGenSpatialBool extends ScalaGenBits {
     case XOr(x,y)  => emit(src"val $lhs = $x !== $y")
     case XNor(x,y) => emit(src"val $lhs = $x === $y")
 
-    case RandomBool(None) => emit(src"val $lhs = Bit(java.util.concurrent.ThreadLocalRandom.current().nextBoolean())")
-    case RandomBool(Some(max)) => emit(src"val $lhs = Bit(java.util.concurrent.ThreadLocalRandom.current().nextBoolean() && $max)")
+    case RandomBoolean(None) => emit(src"val $lhs = Bit(java.util.concurrent.ThreadLocalRandom.current().nextBoolean())")
+    case RandomBoolean(Some(max)) => emit(src"val $lhs = Bit(java.util.concurrent.ThreadLocalRandom.current().nextBoolean() && $max)")
     case _ => super.emitNode(lhs, rhs)
   }
 }

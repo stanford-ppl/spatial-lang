@@ -1,14 +1,10 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.lang.RegExp
-import spatial.SpatialConfig
-import spatial.SpatialExp
-import spatial.metadata.SpatialMetadataExp
+import spatial.compiler._
+import spatial.nodes._
 
 trait CppGenStream extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
 //<<<<<<< HEAD

@@ -86,6 +86,12 @@ object utils {
     // writersOf(x).head.node.collectDeps{case Def(StreamInRead(strm)) => strm }
   }
 
+  implicit class IndexRangeInternalOps(x: Index) {
+    @api def toRange: Range = Range.fromIndex(x)
+  }
+  implicit class Int64RangeInternalOps(x: Int64) {
+    @api def toRange64: Range64 = Range64.fromInt64(x)
+  }
 
 
   @stateful def lca(a: Ctrl, b: Ctrl): Option[Ctrl] = leastCommonAncestor[Ctrl](a, b, {x => parentOf(x)})
@@ -453,7 +459,7 @@ object utils {
       implicit val ctx: SrcCtx = x.ctx
       dims.map{d => int32(d) }
     case Def(SRAMNew(dims)) => dims
-    case Def(DRAMNew(dims)) => dims
+    case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
     case Def(RegFileNew(dims)) => dims
     case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx)

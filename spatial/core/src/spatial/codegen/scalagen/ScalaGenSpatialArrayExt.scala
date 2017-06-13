@@ -1,13 +1,11 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaGenArray
-import argon.ops.ArrayExtExp
-import spatial.SpatialExp
+import argon.nodes._
+import spatial.compiler._
 
 // Version of Arrays that uses Number as iterator
 trait ScalaGenSpatialArrayExt extends ScalaGenArray {
-  val IR: SpatialExp
-  import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ArrayUpdate(array, i, data) => emit(src"val $lhs = $array.update($i, $data)")

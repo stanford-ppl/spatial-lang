@@ -1,12 +1,11 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
-import spatial.SpatialExp
-
+import spatial.compiler._
+import spatial.nodes._
+import spatial.utils._
 
 trait DotGenSRAM extends DotCodegen with DotGenReg {
-  val IR: SpatialExp
-  import IR._
 
   override def attr(n:Exp[_]) = n match {
     case n if isSRAM(n) => super.attr(n).shape(box).style(filled).color(cyan)

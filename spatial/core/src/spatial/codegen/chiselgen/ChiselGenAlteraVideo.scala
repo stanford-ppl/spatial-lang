@@ -2,13 +2,10 @@ package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.codegen.FileDependencies
-import spatial.SpatialConfig
-import spatial.SpatialExp
-import spatial.metadata.SpatialMetadataExp
+import spatial.compiler._
+import spatial.nodes._
 
 trait ChiselGenAlteraVideo extends ChiselCodegen with FileDependencies {
-  val IR: SpatialExp
-  import IR._
 
   var dmas: List[Exp[Any]] = List()
   var decoders: List[Exp[Any]] = List()

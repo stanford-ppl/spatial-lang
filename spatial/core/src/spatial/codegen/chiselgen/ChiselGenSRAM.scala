@@ -1,16 +1,16 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.lang.SRAMExp
+import argon.nodes._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.SpatialExp
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
-  val IR: SpatialExp
-  import IR._
-
-  private var nbufs: List[(Sym[SRAM[_]], Int)]  = List()
+  private var nbufs: List[(Sym[SRAM[_]], Int)] = Nil
 
   var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
   var cchainPassMap = new scala.collection.mutable.HashMap[Exp[_], Exp[_]] // Map from a cchain to its ctrl node, for computing suffix on a cchain before we enter the ctrler
@@ -123,12 +123,12 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case FixPtType(s,d,f) => src"new FixedPoint($s, $d, $f)"
     case IntType() => "UInt(32.W)"
     case LongType() => "UInt(32.W)"
-    case BoolType => "Bool()"
+    case BooleanType => "Bool()"
     case tp: VectorType[_] => src"Vec(${tp.width}, ${newWire(tp.typeArguments.head)})"
     case tp: StructType[_] => src"UInt(${bitWidth(tp)}.W)"
     // case tp: IssuedCmd => src"UInt(${bitWidth(tp)}.W)"
     case tp: ArrayType[_] => src"Wire(Vec(999, ${newWire(tp.typeArguments.head)}"
-    case _ => throw new NoWireConstructorException(s"$tp")
+    case _ => throw new spatial.NoWireConstructorException(s"$tp")
   }
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
     case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
@@ -149,7 +149,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
               val Op(rhs) = lhs
               rhs match {
                 case SRAMNew(dims)=> 
-                  s"""x${lhs.id}_${nameOf(lhs).getOrElse("sram").replace("$","")}"""
+                  s"""x${lhs.id}_${lhs.name.getOrElse("sram").replace("$","")}"""
                 case _ =>
                   super.quote(s)
               }

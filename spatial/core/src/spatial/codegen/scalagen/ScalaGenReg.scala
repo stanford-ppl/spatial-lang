@@ -1,13 +1,10 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import argon.ops.FixPtExp
-import spatial.SpatialExp
-import spatial.lang.RegExp
+import spatial.compiler._
+import spatial.nodes._
 
 trait ScalaGenReg extends ScalaCodegen with ScalaGenMemories {
-  val IR: SpatialExp
-  import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: RegType[_] => src"Array[${tp.child}]"

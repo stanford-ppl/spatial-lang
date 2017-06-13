@@ -1,20 +1,19 @@
 package spatial.codegen.cppgen
 
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
 import spatial.SpatialConfig
-import spatial.SpatialExp
-import scala.collection.mutable.HashMap
 
 
 trait CppGenDRAM extends CppGenSRAM {
-  val IR: SpatialExp
-  import IR._
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
           lhs match {
-            case Def(e: DRAMNew[_,_])=> s"""x${lhs.id}_${nameOf(lhs).getOrElse("dram")}"""
+            case Def(e: DRAMNew[_,_])=> s"""x${lhs.id}_${lhs.name.getOrElse("dram")}"""
             case _ =>
               super.quote(s)
           }

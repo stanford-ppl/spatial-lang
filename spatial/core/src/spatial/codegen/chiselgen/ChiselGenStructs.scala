@@ -1,12 +1,12 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
+import argon.nodes._
+import spatial.compiler._
+import spatial.nodes._
 import spatial.SpatialConfig
-import spatial.SpatialExp
+
 
 trait ChiselGenStructs extends ChiselGenSRAM {
-  val IR: SpatialExp
-  import IR._
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
       case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
@@ -19,7 +19,7 @@ trait ChiselGenStructs extends ChiselGenSRAM {
 
 
   protected def tupCoordinates(tp: Type[_],field: String): (Int,Int) = tp match {
-    case x: Tup2Type[_,_] => field match {
+    case x: Tuple2Type[_,_] => field match {
       // A little convoluted because we .reverse simplestructs
       case "_1" => 
         val s = 0
@@ -39,7 +39,7 @@ trait ChiselGenStructs extends ChiselGenSRAM {
   }
 
   override protected def bitWidth(tp: Type[_]): Int = tp match {
-      case e: Tup2Type[_,_]  => super.bitWidth(e.typeArguments(0)) + super.bitWidth(e.typeArguments(1))
+      case e: Tuple2Type[_,_]  => super.bitWidth(e.typeArguments(0)) + super.bitWidth(e.typeArguments(1))
       case _ => super.bitWidth(tp)
   }
 

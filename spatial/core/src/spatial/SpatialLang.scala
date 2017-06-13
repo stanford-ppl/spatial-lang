@@ -77,9 +77,11 @@ trait SpatialCommonAliases extends SpatialLangAliases {
 
   type VarReg[T] = spatial.lang.VarReg[T]
 
-  type Range = spatial.lang.Range
-  val Range = spatial.lang.Range
+  type MRange = spatial.lang.Range
+  val MRange = spatial.lang.Range
+  type CRange = scala.collection.immutable.Range
   type Range64 = spatial.lang.Range64
+  val Range64 = spatial.lang.Range64
   type Wildcard = spatial.lang.Wildcard
 
   type BufferedOut[T] = spatial.lang.BufferedOut[T]
@@ -108,15 +110,16 @@ trait SpatialCommonAliases extends SpatialLangAliases {
 
   val GatherAddrBus = spatial.lang.GatherAddrBus
   type GatherDataBus[T] = spatial.lang.GatherDataBus[T]
+  val GatherDataBus = spatial.lang.GatherDataBus
 
   type ScatterCmdBus[T] = spatial.lang.ScatterCmdBus[T]
+  val ScatterCmdBus = spatial.lang.ScatterCmdBus
   val ScatterAckBus = spatial.lang.ScatterAckBus
 }
 
 protected trait SpatialExp extends ArgonExp with SpatialCommonAliases
   with AlteraVideoExp
   with DRAMTransfersExp
-  with RangeExp
 {
   def target: FPGATarget = SpatialConfig.target // Needs to be filled in by application, defaults to Default
 }
@@ -168,8 +171,6 @@ trait SpatialLangInternal extends ArgonLangInternal with SpatialExp {
 
   type Ctrl = (Exp[_], Boolean)
   type Access = (Exp[_], Ctrl)
-
-
 }
 
 trait SpatialLangExternal extends ArgonLangExternal with SpatialApi {

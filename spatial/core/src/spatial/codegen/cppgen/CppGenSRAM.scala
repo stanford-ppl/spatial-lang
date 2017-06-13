@@ -1,13 +1,12 @@
 package spatial.codegen.cppgen
 
+import argon.nodes._
 import argon.codegen.cppgen.CppCodegen
-import argon.ops.FixPtExp
-import spatial.lang.SRAMExp
-import spatial.{SpatialConfig, SpatialExp}
+import spatial.compiler._
+import spatial.nodes._
+import spatial.SpatialConfig
 
 trait CppGenSRAM extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: SRAMType[_] => src"Array[${tp.child}]"

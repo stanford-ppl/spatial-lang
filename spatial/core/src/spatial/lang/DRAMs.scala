@@ -2,6 +2,7 @@ package spatial.lang
 
 import forge._
 import spatial.nodes._
+import spatial.utils._
 
 trait DRAM[T] { this: Template[_] =>
   def s: Exp[DRAM[T]]
@@ -165,6 +166,6 @@ case class DRAMDenseTile5[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) e
 }
 
 /** Sparse Tiles are limited to 1D right now **/
-case class DRAMSparseTile[T:Meta:Bits](dram: Exp[DRAM[T]], addrs: SRAM1[Index], len: Index) {
+case class DRAMSparseTile[T:Type:Bits](dram: Exp[DRAM[T]], addrs: SRAM1[Index], len: Index) {
   @api def scatter(sram: SRAM1[T]): MUnit = sparse_transfer(this, sram, isLoad = false)
 }

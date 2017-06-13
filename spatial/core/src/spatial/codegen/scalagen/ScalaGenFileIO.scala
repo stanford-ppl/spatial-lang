@@ -1,15 +1,13 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.SpatialExp
-import spatial.lang.FileIOExp
+import spatial.compiler._
+import spatial.nodes._
 
 trait ScalaGenFileIO extends ScalaCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case MetaFileType => src"java.io.File"
+    case FileType => src"java.io.File"
     case _ => super.remap(tp)
   }
 

@@ -1,13 +1,10 @@
 package spatial.codegen.scalagen
 
-import argon.ops.FixPtExp
-import spatial.lang.{DRAMExp, DRAMTransferExp, PinExp}
 import org.virtualized.SourceContext
-import spatial.SpatialExp
+import spatial.compiler._
+import spatial.nodes._
 
 trait ScalaGenDRAM extends ScalaGenMemories {
-  val IR: SpatialExp
-  import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: DRAMType[_] => src"Array[${tp.child}]"

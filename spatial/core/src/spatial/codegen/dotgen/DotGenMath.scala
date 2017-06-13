@@ -2,11 +2,11 @@ package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
 import argon.core.Config
-import spatial.SpatialExp
+import argon.nodes._
+import spatial.compiler._
+import spatial.nodes._
 
 trait DotGenMath extends DotCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override def attr(n:Exp[_]) = n match {
     case lhs: Sym[_] => lhs match {

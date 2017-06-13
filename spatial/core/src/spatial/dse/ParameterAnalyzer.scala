@@ -1,12 +1,12 @@
 package spatial.dse
 
 import spatial.analysis.SpatialTraversal
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait ParameterAnalyzer extends SpatialTraversal {
-  import IR._
-
-  private type RRange = scala.collection.immutable.Range
-
   override val name = "Parameter Analyzer"
   override val recurse = Always
 

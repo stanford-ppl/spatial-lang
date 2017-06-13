@@ -1,18 +1,14 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
-import spatial.lang.{ControllerExp, CounterExp, UnrolledExp}
-import spatial.SpatialConfig
-import spatial.SpatialExp
-import spatial.metadata.SpatialMetadataExp
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.targets.DE1._
+import spatial.SpatialConfig
 
 
 trait ChiselGenController extends ChiselGenCounter{
-  val IR: SpatialExp
-  import IR._
-
-
   /* Set of control nodes which already have their enable signal emitted */
   var enDeclaredSet = Set.empty[Exp[Any]]
 
@@ -50,14 +46,14 @@ trait ChiselGenController extends ChiselGenCounter{
     }
   }
 
-  def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]], suffix: String = "") {
+  def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
         emit(src"val ${v}${suffix} = Mux(${cchain}${suffix}_strides($i) >= 0.S, ${c}${suffix} < ${cchain}${suffix}_stops(${i}), ${c}${suffix} > ${cchain}${suffix}_stops(${i})) // TODO: Generate these inside counter")
       }
     }
   }
-  def emitValidsDummy(iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bool]]], suffix: String = "") {
+  def emitValidsDummy(iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
         emit(src"val ${v}${suffix} = true.B")
@@ -195,7 +191,7 @@ trait ChiselGenController extends ChiselGenCounter{
     val stages = childrenOf(controller)
     inds.foreach { idx =>
       emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
-      (0 until stages.size).foreach{ i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
+      stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
       withStream(getStream("BufferControlCxns")) {
         stages.zipWithIndex.foreach{ case (s, i) =>
           emit(src"""${idx}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
@@ -203,12 +199,10 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
       // Associate bound sym with both ctrl node and that ctrl node's cchain
-      stages.foreach{ stage => 
-        stage match { 
-          case Def(s:UnrolledForeach) => cchainPassMap += (s.cchain -> stage)
-          case Def(s:UnrolledReduce[_,_]) => cchainPassMap += (s.cchain -> stage)
-          case _ =>
-        }
+      stages.foreach{
+        case Def(s:UnrolledForeach) => cchainPassMap += (s.cchain -> stage)
+        case Def(s:UnrolledReduce[_,_]) => cchainPassMap += (s.cchain -> stage)
+        case _ =>
       }
       itersMap += (idx -> stages.toList)
     }
@@ -230,24 +224,20 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def getStreamEnablers(c: Exp[Any]): String = {
       // If we are inside a stream pipe, the following may be set
-      val readiers = listensTo(c).distinct.map { fifo => 
-        fifo match {
-          case Def(FIFONew(size)) => src"~${fifo}.io.empty"
-          case Def(FILONew(size)) => src"~${fifo}.io.empty"
-          case Def(StreamInNew(bus)) => bus match {
-            case SliderSwitch => ""
-            case _ => src"${fifo}_valid"
-          }
-          case _ => src"${fifo}_en" // parent node
+      val readiers = listensTo(c).distinct.map {
+        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty"
+        case fifo @ Def(StreamInNew(bus)) => bus match {
+          case SliderSwitch => ""
+          case _ => src"${fifo}_valid"
         }
+        case fifo => src"${fifo}_en" // parent node
       }.filter(_ != "").mkString(" & ")
-      val holders = (pushesTo(c)).distinct.map { fifo => 
-        fifo match {
-          case Def(FIFONew(size)) => src"~${fifo}.io.full"
-          case Def(FILONew(size)) => src"~${fifo}.io.full"
-          case Def(StreamOutNew(bus)) => src"${fifo}_ready"
-          case Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"
-        }
+      val holders = pushesTo(c).distinct.map {
+        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.full"
+        case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready"
+        case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"
       }.filter(_ != "").mkString(" & ")
 
       val hasHolders = if (holders != "") "&" else ""
@@ -259,21 +249,17 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def getAllStreamLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
       // If we are inside a stream pipe, the following may be set
-      val readiers = listensTo(c).distinct.map { fifo => 
-        fifo match {
-          case Def(FIFONew(size)) => src"~${fifo}.io.empty"
-          case Def(FILONew(size)) => src"~${fifo}.io.empty"
-          case Def(StreamInNew(bus)) => src"${fifo}_now_valid & ${fifo}_ready"
-          case _ => ""
-        }
+      val readiers = listensTo(c).distinct.map {
+        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty"
+        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_now_valid & ${fifo}_ready"
+        case _ => ""
       }.mkString(" & ")
-      val holders = (pushesTo(c)).distinct.map { fifo => 
-        fifo match {
-          case Def(FIFONew(size)) => src"~${fifo}.io.full"
-          case Def(FILONew(size)) => src"~${fifo}.io.full"
-          case Def(StreamOutNew(bus)) => src"${fifo}_ready & ${fifo}_valid"
-          case Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
-        }
+      val holders = (pushesTo(c)).distinct.map {
+        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.full"
+        case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready & ${fifo}_valid"
+        case fifo @ Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
       }.mkString(" & ")
 
       val hasHolders = if (holders != "") "&" else ""
@@ -285,15 +271,11 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
-    val hasStreamIns = if (listensTo(sym).distinct.filter{ f =>
-      f match {
-        case Def(StreamInNew(bus)) => 
-          bus match {
-            case SliderSwitch => false
-            case _ => true
-          }
-        case _ => false
-      }}.length > 0) true else false
+    val hasStreamIns = listensTo(sym).distinct.exists{
+      case Def(StreamInNew(SliderSwitch)) => false
+      case Def(StreamInNew(_))            => true
+      case _ => false
+    }
 
     val isInner = levelOf(sym) match {
       case InnerControl => true
@@ -310,7 +292,7 @@ trait ChiselGenController extends ChiselGenCounter{
       styleOf(sym) match {
         case MetaPipe => s"Metapipe"
         case StreamPipe => "Streampipe"
-        case InnerPipe => throw new OuterLevelInnerStyleException(src"$sym")
+        case InnerPipe => throw new spatial.OuterLevelInnerStyleException(src"$sym")
         case SeqPipe => s"Seqpipe"
         case ForkJoin => s"Parallel"
         case ForkSwitch => s"Match"
@@ -606,14 +588,14 @@ trait ChiselGenController extends ChiselGenCounter{
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         // if (blockContents(body).length > 0) {
-        if (childrenOf(lhs).filter(isControlNode(_)).length == 1) { // This is an outer pipe
+        if (childrenOf(lhs).count(isControlNode) == 1) { // This is an outer pipe
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitBlock(body)
           // Console.println(s"body is ${blockContents(body).collect{case s: Sym[_] => s}}")
           // emit(s"""// No control nodes to connect the done_sniff""")
           // emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
           // emit(src"""${lhs}_done_sniff := ${parent_kernel}_en // Route through""")
-        } else if (childrenOf(lhs).filter(isControlNode(_)).length == 0) { // Body contains only primitives
+        } else if (childrenOf(lhs).count(isControlNode) == 0) { // Body contains only primitives
           emitBlock(body)
           emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
           emit(src"""${lhs}_done := ${lhs}_en // Route through""")
@@ -631,14 +613,9 @@ trait ChiselGenController extends ChiselGenCounter{
 
       // close("}")
 
-    case OpForeach(cchain, func, iters) =>
-      throw new Exception("Should not be emitting chisel for Op ctrl node")
-
-    case OpReduce(cchain, accum, map, load, reduce, store, fold, zero, rV, iters) =>
-      throw new Exception("Should not be emitting chisel for Op ctrl node")
-
-    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,fold,zero,rV,itersMap,itersRed) =>
-      throw new Exception("Should not be emitting chisel for Op ctrl node")
+    case _:OpForeach   => throw new Exception("Should not be emitting chisel for Op ctrl node")
+    case _:OpReduce[_] => throw new Exception("Should not be emitting chisel for Op ctrl node")
+    case _:OpMemReduce[_,_] => throw new Exception("Should not be emitting chisel for Op ctrl node")
 
     case _ => super.emitNode(lhs, rhs)
   }

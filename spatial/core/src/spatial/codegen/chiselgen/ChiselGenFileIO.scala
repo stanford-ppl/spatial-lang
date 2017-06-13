@@ -1,12 +1,10 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.lang.FileIOExp
-import spatial.{SpatialConfig, SpatialExp}
+import spatial.compiler._
+import spatial.nodes._
 
 trait ChiselGenFileIO extends ChiselCodegen  {
-  val IR: SpatialExp
-  import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case OpenFile(filename, isWr) => 

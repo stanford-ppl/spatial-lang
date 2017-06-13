@@ -1,14 +1,13 @@
 package spatial.codegen.chiselgen
 
+import argon.nodes._
 import argon.codegen.chiselgen.ChiselCodegen
-import argon.ops.{FixPtExp, FltPtExp}
-import spatial.lang.MathExp
-import spatial.metadata.SpatialMetadataExp
-import spatial.{SpatialConfig, SpatialExp}
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.SpatialConfig
 
 trait ChiselGenMath extends ChiselCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -16,11 +15,11 @@ trait ChiselGenMath extends ChiselCodegen {
         case lhs: Sym[_] =>
           lhs match {
             case Def(FixRandom(x)) => s"x${lhs.id}_fixrnd"
-            case Def(FixNeg(x:Exp[_]))  => s"""x${lhs.id}_${nameOf(lhs).getOrElse(s"neg${quoteOperand(x)}")}"""
-            case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${nameOf(lhs).getOrElse("sum")}"""
-            case Def(FixSub(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${nameOf(lhs).getOrElse("sub")}"""
-            case Def(FixDiv(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${nameOf(lhs).getOrElse("div")}"""
-            case Def(FixMul(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${nameOf(lhs).getOrElse("mul")}"""
+            case Def(FixNeg(x:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse(s"neg${quoteOperand(x)}")}"""
+            case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("sum")}"""
+            case Def(FixSub(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("sub")}"""
+            case Def(FixDiv(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("div")}"""
+            case Def(FixMul(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("mul")}"""
             case _ => super.quote(s)
           }
         case _ => super.quote(s)
@@ -57,24 +56,15 @@ trait ChiselGenMath extends ChiselCodegen {
     case FixFloor(x) => emit(src"val $lhs = Utils.floor($x)")
     case FixCeil(x) => emit(src"val $lhs = Utils.ceil($x)")
 
-    case FltSin(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltCos(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltTan(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltSinh(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltCosh(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltTanh(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltAsin(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltAcos(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltAtan(x) =>
-      throw new TrigInAccelException(lhs)
+    case FltSin(x)  => throw new spatial.TrigInAccelException(lhs)
+    case FltCos(x)  => throw new spatial.TrigInAccelException(lhs)
+    case FltTan(x)  => throw new spatial.TrigInAccelException(lhs)
+    case FltSinh(x) => throw new spatial.TrigInAccelException(lhs)
+    case FltCosh(x) => throw new spatial.TrigInAccelException(lhs)
+    case FltTanh(x) => throw new spatial.TrigInAccelException(lhs)
+    case FltAsin(x) => throw new spatial.TrigInAccelException(lhs)
+    case FltAcos(x) => throw new spatial.TrigInAccelException(lhs)
+    case FltAtan(x) => throw new spatial.TrigInAccelException(lhs)
 
     case Mux(sel, a, b) => 
       lhs.tp match { 

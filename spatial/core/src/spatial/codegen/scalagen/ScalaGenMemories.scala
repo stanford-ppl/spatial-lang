@@ -1,14 +1,8 @@
 package spatial.codegen.scalagen
 
-import argon.core.cake.LayerStaging
-import argon.ops.FixPtExp
-import org.virtualized.SourceContext
-import spatial.SpatialExp
+import spatial.compiler._
 
 trait ScalaGenMemories extends ScalaGenBits {
-  val IR: SpatialExp
-  import IR._
-
   var globalMems: Boolean = false
 
   def emitMem(lhs: Exp[_], x: String) = if (globalMems) emit(s"if ($lhs == null) $x") else emit("val " + x)
@@ -16,6 +10,11 @@ trait ScalaGenMemories extends ScalaGenBits {
   def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {
     val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }
     indices.zip(strides).map{case (i,s) => src"$i*$s" }.mkString(" + ") + ofs.map{o => src" + $o"}.getOrElse("")
+  }
+
+  def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]]): String = {
+    val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }
+    indices.zip(strides).map{case (i,s) => src"$i*$s"}.mkString(" + ")
   }
 
   private def oob(tp: Type[_], mem: Exp[_], lhs: Exp[_], inds: Seq[Exp[_]], pre: String, post: String, isRead: Boolean)(lines: => Unit) = {

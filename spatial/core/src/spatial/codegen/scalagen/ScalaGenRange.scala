@@ -1,12 +1,10 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.SpatialExp
-import spatial.lang.RangeExp
+import spatial.compiler._
+import spatial.nodes._
 
-trait ScalaGenRange extends ScalaCodegen{
-  val IR: SpatialExp
-  import IR._
+trait ScalaGenRange extends ScalaCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case RangeForeach(start, end, step, func, i) =>
@@ -15,4 +13,5 @@ trait ScalaGenRange extends ScalaCodegen{
       close("}")
     case _ => super.emitNode(lhs, rhs)
   }
+
 }

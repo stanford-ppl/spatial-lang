@@ -3,14 +3,12 @@ package spatial.codegen.dotgen
 import argon.codegen.FileDependencies
 import argon.codegen.dotgen.DotCodegen
 import argon.core.Config
-import spatial.lang.CounterExp
-import spatial.SpatialExp
+import spatial.compiler._
+import spatial.nodes._
 
 trait DotGenCounter extends DotCodegen with FileDependencies {
-  val IR: CounterExp with SpatialExp
-  import IR._
 
-  override def attr(n:Exp[_]) = n match {
+  override def attr(n: Exp[_]) = n match {
     case lhs: Sym[_] => lhs match {
       case Def(CounterChainNew(ctrs)) => super.attr(n).label(src"""cchain_${lhs.id}""").shape(box)
       case _ => super.attr(n)

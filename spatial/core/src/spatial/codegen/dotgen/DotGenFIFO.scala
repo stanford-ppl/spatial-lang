@@ -2,11 +2,11 @@ package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
 import argon.core.Config
-import spatial.SpatialExp
+import spatial.compiler._
+import spatial.nodes._
+import spatial.utils._
 
 trait DotGenFIFO extends DotCodegen with DotGenReg {
-  val IR: SpatialExp
-  import IR._
 
   override def attr(n:Exp[_]) = n match {
     case n if isFIFO(n) => super.attr(n).shape(box).style(filled).color(gold)

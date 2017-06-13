@@ -1,14 +1,13 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
-import spatial.lang.FIFOExp
-import spatial.lang.DRAMTransferExp
+import argon.nodes._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.SpatialExp
 
 trait ChiselGenFIFO extends ChiselGenSRAM {
-  val IR: SpatialExp
-  import IR._
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
       case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
@@ -36,7 +35,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
         case lhs: Sym[_] =>
           lhs match {
             case Def(e: FIFONew[_]) =>
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("fifo").replace("$","")}"""
+              s"""x${lhs.id}_${lhs.name.getOrElse("fifo").replace("$","")}"""
             case Def(FIFOEnq(fifo:Sym[_],_,_)) =>
               s"x${lhs.id}_enqTo${fifo.id}"
             case Def(FIFODeq(fifo:Sym[_],_)) =>

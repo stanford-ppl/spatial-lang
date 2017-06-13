@@ -1,15 +1,13 @@
 package spatial.codegen.cppgen
 
-import argon.codegen.cppgen.CppCodegen
-import spatial.lang.HostTransferExp
+import argon.nodes._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.lang.RegExp
-import spatial.SpatialExp
-import spatial.metadata.SpatialMetadataExp
 
 trait CppGenHostTransfer extends CppGenSRAM  {
-  val IR: SpatialExp
-  import IR._
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
       case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true

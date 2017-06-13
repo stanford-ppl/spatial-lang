@@ -1,16 +1,16 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.{SpatialConfig, SpatialExp}
+import spatial.compiler._
+import spatial.nodes._
+import spatial.SpatialConfig
 
 trait CppGenUnrolled extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
 
   private def emitUnrolledLoop(
     cchain: Exp[CounterChain],
     iters:  Seq[Seq[Bound[Index]]],
-    valids: Seq[Seq[Bound[Bool]]]
+    valids: Seq[Seq[Bound[Bit]]]
   )(func: => Unit): Unit = {
 
     for (i <- iters.indices) {

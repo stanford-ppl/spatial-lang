@@ -2,13 +2,10 @@ package spatial.codegen.scalagen
 
 import argon.codegen.FileDependencies
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.lang.CounterExp
-import spatial.{SpatialConfig, SpatialExp}
+import spatial.compiler._
+import spatial.nodes._
 
 trait ScalaGenCounter extends ScalaCodegen with FileDependencies {
-  val IR: SpatialExp
-  import IR._
-
   dependencies ::= FileDep("scalagen", "Counter.scala")
 
   override protected def remap(tp: Type[_]): String = tp match {

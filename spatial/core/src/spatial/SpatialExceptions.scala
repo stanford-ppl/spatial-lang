@@ -1,6 +1,5 @@
 package spatial
 
-import argon.core.compiler._
 import spatial.compiler._
 
 // --- Compiler exceptions
@@ -75,6 +74,33 @@ class UndefinedControlLevelException(ctrl: Exp[_]) extends
 CompilerException(1012, c"Controller ${str(ctrl)} does not have a control level defined", {
   error(c"Controller ${str(ctrl)} does not have a control level defined")
 })
+
+
+class UnusedDRAMException(dram: Exp[_], name: String) extends
+CompilerException(1020, c"DRAM $dram ($name) was declared as a DRAM in app but is not used by the accel", {
+  error(c"DRAM $dram ($name) was declared as a DRAM in app but is not used by the accel")
+})
+
+class OuterLevelInnerStyleException(name: String) extends
+CompilerException(1022, c"Controller ${name} claims to be an outer level controller but has style of an innerpipe", {
+  error(c"Controller ${name} claims to be an outer level controller but has style of an innerpipe")
+})
+
+class DoublyUsedDRAMException(dram: Exp[_], name: String) extends
+CompilerException(1023, c"DRAM $dram is used twice as a $name.  Please only load from a DRAM once, or else stream signals will interfere", {
+  error(c"DRAM $dram is used twice as a $name.  Please only load from a DRAM once, or else stream signals will interfere")
+})
+
+class TrigInAccelException(lhs: Exp[_]) extends
+CompilerException(1024, c"""Cannot handle trig functions inside of accel block! ${lhs.name.getOrElse("")}""", {
+  error(c"""Cannot handle trig functions inside of accel block! ${lhs.name.getOrElse("")}""")
+})
+
+class NoWireConstructorException(lhs: String) extends
+CompilerException(1025, c"""Cannot create new wire for $lhs""", {
+  error(c"""Cannot create new wire for $lhs""")
+})
+
 
 
 // --- User exceptions

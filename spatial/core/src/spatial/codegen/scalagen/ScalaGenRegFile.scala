@@ -1,14 +1,10 @@
 package spatial.codegen.scalagen
 
-import argon.ops.FixPtExp
-import spatial.lang.{RegisterFileExp, VectorExp}
-import org.virtualized.SourceContext
-import spatial.SpatialExp
-import spatial.analysis.NodeClasses
+import spatial.compiler._
+import spatial.nodes._
+import spatial.utils._
 
 trait ScalaGenRegFile extends ScalaGenMemories {
-  val IR: SpatialExp
-  import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: RegFileType[_] => src"Array[${tp.child}]"
@@ -47,6 +43,26 @@ trait ScalaGenRegFile extends ScalaGenMemories {
 
     case RegFileShiftIn(rf,i,d,data,en)    => shiftIn(lhs, rf, i, d, data, isVec = false, en)
     case ParRegFileShiftIn(rf,i,d,data,en) => shiftIn(lhs, rf, i, d, data, isVec = true, en)
+
+    case op@ParRegFileStore(rf,inds,data,ens) =>
+      val dims = stagedDimsOf(rf)
+      open(src"val $lhs = {")
+        ens.zipWithIndex.foreach{case (en,i) =>
+          oobUpdate(op.mT,rf,lhs,inds(i)) { emit(src"if ($en) $rf.update(${flattenAddress(dims,inds(i),None)}, ${data(i)})") }
+        }
+      close("}")
+
+    case op@ParRegFileLoad(rf,inds,ens) =>
+      val dims = stagedDimsOf(rf)
+      open(src"val $lhs = {")
+        ens.zipWithIndex.foreach{case (en,i) =>
+          open(src"val a$i = {")
+            oobApply(op.mT,rf,lhs,inds(i)){ emit(src"if ($en) $rf.apply(${flattenAddress(dims,inds(i),None)}) else ${invalid(op.mT)}") }
+          close("}")
+        }
+        emit(src"Array[${op.mT}](" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
+      close("}")
+
 
     case _ => super.emitNode(lhs, rhs)
   }

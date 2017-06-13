@@ -48,6 +48,8 @@ object Range {
   @internal def alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index], isUnit: Boolean = false) = {
     Range(start,end,stride,par,isUnit)
   }
+
+
 }
 
 case class Range64(start: Option[Int64], end: Int64, step: Option[Index], p: Option[Index], isUnit: Boolean) {
@@ -86,7 +88,7 @@ trait RangeLowPriorityImplicits {
   implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range = Range.fromIndex(x)
 }
 
-trait RangeApi extends RangeExp with RangeLowPriorityImplicits {
+trait RangeApi extends RangeLowPriorityImplicits {
 
   def * = Wildcard()
 
@@ -121,14 +123,4 @@ trait RangeApi extends RangeExp with RangeLowPriorityImplicits {
 
   // Implicitly get value of register to use in counter definitions
   implicit def regToIndexRange(x: Reg[Index])(implicit ctx: SrcCtx): IndexRangeOps = IndexRangeOps(x.value)
-}
-
-
-trait RangeExp {
-  implicit class IndexRangeInternalOps(x: Index) {
-    @api def toRange: Range = Range.fromIndex(x)
-  }
-  implicit class Int64RangeInternalOps(x: Int64) {
-    @api def toRange64: Range64 = Range64.fromInt64(x)
-  }
 }

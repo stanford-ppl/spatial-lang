@@ -1,14 +1,10 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.lang.ControllerExp
-import spatial.metadata.SpatialMetadataExp
-import spatial.{SpatialConfig, SpatialExp}
+import spatial.compiler._
+import spatial.nodes._
 
 trait CppGenController extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
-
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
@@ -17,7 +13,7 @@ trait CppGenController extends CppCodegen {
       emitBlock(func)
       toggleEn()
       emit(s"time_t tstart = time(0);")
-      val memlist = if (setMems.length > 0) {s""", ${setMems.mkString(",")}"""} else ""
+      val memlist = if (setMems.nonEmpty) {s""", ${setMems.mkString(",")}"""} else ""
       emit(s"c1->run();")
       emit(s"time_t tend = time(0);")
       emit(s"double elapsed = difftime(tend, tstart);")

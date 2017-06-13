@@ -3,14 +3,11 @@ package spatial.codegen.dotgen
 import argon.codegen.dotgen.DotCodegen
 import argon.codegen.dotgen._
 import argon.core.Config
-import spatial.lang.{ControllerExp, CounterExp, UnrolledExp}
-import spatial.SpatialConfig
-import spatial.SpatialExp
-import spatial.metadata.SpatialMetadataExp
+import spatial.compiler._
+import spatial.nodes._
+import spatial.utils._
 
 trait DotGenController extends DotCodegen {
-  val IR: SpatialExp
-  import IR._
 
     //val smStr = styleOf(sym) match {
       //case MetaPipe => s"Metapipe"
@@ -20,7 +17,7 @@ trait DotGenController extends DotCodegen {
       //case ForkJoin => s"Parallel"
     //}
   
-  override def attr(n:Exp[_]):DotAttr = n match {
+  override def attr(n: Exp[_]):DotAttr = n match {
     case n if isOuterControl(n) => super.attr(n).shape(box).style(dashed)
     case n if isInnerControl(n) => super.attr(n).shape(box).style(dashed)
     case n => super.attr(n)
@@ -35,7 +32,7 @@ trait DotGenController extends DotCodegen {
       }
       toggleEn()
 
-    case rhs if isControlNode(lhs) =>
+    case _ if isControlNode(lhs) =>
       emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
         if (Config.dotDetail == 0) emitVert(lhs);
         rhs.blocks.foreach(emitBlock) 

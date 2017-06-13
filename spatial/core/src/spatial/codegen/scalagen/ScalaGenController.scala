@@ -1,13 +1,12 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.SpatialExp
-import spatial.lang.ControllerExp
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenMemories {
-  val IR: SpatialExp
-  import IR._
-
   def localMems: List[Exp[_]]
 
   private def emitNestedLoop(lhs: Exp[_], cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
@@ -116,7 +115,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       dumpBufferedOuts(lhs)
       emit(src"/** END PARALLEL PIPE $lhs **/")
 
-    case OpForeach(cchain, func, iters) =>
+    case OpForeach(en, cchain, func, iters) =>
       emit(src"/** BEGIN FOREACH $lhs **/")
       open(src"val $lhs = {")
         emitNestedLoop(lhs, cchain, iters){ emitBlock(func) }
@@ -124,7 +123,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       dumpBufferedOuts(lhs)
       emit(src"/** END FOREACH $lhs **/")
 
-    case OpReduce(cchain, accum, map, load, reduce, store, zero, fold, rV, iters) =>
+    case OpReduce(en, cchain, accum, map, load, reduce, store, zero, fold, rV, iters) =>
       emit(src"/** BEGIN REDUCE $lhs **/")
       open(src"val $lhs = {")
       emitNestedLoop(lhs, cchain, iters){
@@ -139,7 +138,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       dumpBufferedOuts(lhs)
       emit(src"/** END REDUCE $lhs **/")
 
-    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) =>
+    case OpMemReduce(en, cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) =>
       emit(src"/** BEGIN MEM REDUCE $lhs **/")
       open(src"val $lhs = {")
       emitNestedLoop(lhs, cchainMap, itersMap){

@@ -2,11 +2,12 @@ package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
 import argon.core.Config
-import spatial.SpatialExp
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait DotGenStream extends DotCodegen with DotGenReg {
-  val IR: SpatialExp
-  import IR._
 
   override def attr(n:Exp[_]) = n match {
     case n if isStreamIn(n) => super.attr(n).shape(box).style(filled).color(gold)
