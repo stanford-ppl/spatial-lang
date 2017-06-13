@@ -1,33 +1,166 @@
-package spatial.codegen.pirgen
+package spatial.codegen
 
-import spatial.SpatialExp
-import org.virtualized.SourceContext
+import argon.nodes._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
-// PIR operations which need the rest of the Spatial IR mixed in
-trait PIRCommonExp extends PIRCommon { self: SpatialExp =>
+package object pirgen {
   type Expr = Exp[_]
+  type CU = ComputeUnit
+  type PCU = PseudoComputeUnit
+  type ACU = AbstractComputeUnit
   type CUControl = ControlType
 
-  override def isConstant(x:Expr):Boolean = x match {
-    case Const(c) => true
-    case Param(c) => true 
-    case Final(c) => true 
-    case _ => false 
+  def groupBuses(x: Iterable[GlobalBus]) = {
+    val args    = x.collect{case arg:InputArg => arg}
+    val scalars = x.collect{case b:ScalarBus if !b.isInstanceOf[InputArg] => b}
+    val vectors = x.collect{case b:VectorBus if !b.isInstanceOf[LocalReadBus] => b}
+    //val scalarMems = x.collect{case bus@LocalReadBus(mem) if mem.mode == ScalarFIFOMode || mem.mode == ScalarBufferMode => bus }
+    //val vectorMems = x.collect{case bus@LocalReadBus(mem) if mem.mode == SRAMMode || mem.mode == FIFOOnWriteMode || mem.mode == VectorFIFOMode => bus }
+    BusGroups(args, scalars, vectors)
   }
 
-  override def extractConstant(x: Expr): ConstReg[AnyVal] = x match {
-    case Const(c: BigDecimal) if c.isWhole => ConstReg(c.toInt) 
-    case Const(c: BigDecimal) => ConstReg(c.toFloat) 
-    case Const(c: Boolean) => ConstReg(c) 
+  def isConstant(x: Expr):Boolean = x match {
+    case Const(c) => true
+    case Param(c) => true
+    case Final(c) => true
+    case _ => false
+  }
 
-    case Param(c: BigDecimal) if c.isWhole => ConstReg(c.toInt) 
-    case Param(c: BigDecimal) => ConstReg(c.toFloat  ) 
-    case Param(c: Boolean) => ConstReg(c) 
+  def extractConstant(x: Expr): ConstReg[AnyVal] = x match {
+    case Const(c: BigDecimal) if c.isWhole => ConstReg(c.toInt)
+    case Const(c: BigDecimal) => ConstReg(c.toFloat)
+    case Const(c: Boolean) => ConstReg(c)
+
+    case Param(c: BigDecimal) if c.isWhole => ConstReg(c.toInt)
+    case Param(c: BigDecimal) => ConstReg(c.toFloat  )
+    case Param(c: Boolean) => ConstReg(c)
 
     case Final(c: BigInt)  => ConstReg(c.toInt)
 
     case _ => throw new Exception(s"Cannot allocate constant value for $x")
   }
+
+  private def collectX[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
+    case cu: ComputeUnit => func(cu.allStages) ++ func(cu.cchains) ++ func(cu.mems) ++ func(cu.fringeVectors.values)
+
+    case cchain: CChainInstance => func(cchain.counters)
+    case cchain: CChainCopy => func(cchain.inst)
+    case cchain: UnitCChain => Set.empty
+
+    case iter: Iterator[_] => iter.flatMap(func).toSet
+    case iter: Iterable[_] => func(iter.iterator)
+    case _ => Set.empty
+  }
+
+  def localInputs(a: Any): Set[LocalComponent] = a match {
+    case reg: LocalComponent => Set(reg)
+    case mem: CUMemory => localInputs(mem.readAddr ++ mem.writeAddr ++ mem.writeStart ++ mem.writeEnd ++ mem.writePort ++ mem.readPort)
+    case counter: CUCounter => localInputs(List(counter.start, counter.end, counter.stride))
+    case stage: Stage => stage.inputMems.toSet
+    case _ => collectX[LocalComponent](a)(localInputs)
+  }
+  def localOutputs(a: Any): Set[LocalComponent] = a match {
+    case reg: LocalComponent => Set(reg)
+    case stage: Stage => stage.outputMems.toSet
+    case _ => collectX[LocalComponent](a)(localOutputs)
+  }
+  def localScalar(x:Any):LocalScalar = x match {
+    case x: ConstReg[_] => x
+    case x: MemLoadReg => x
+    case x => throw new Exception(s"Cannot use $x as a LocalMem")
+  }
+  def globalInputs(a: Any): Set[GlobalBus] = a match {
+    case _:LocalReadBus => Set.empty
+    case glob: GlobalBus => Set(glob)
+    case ScalarIn(in) => Set(in)
+    case VectorIn(in) => Set(in)
+    //case MemLoadReg(mem) => Set(LocalReadBus(mem))
+    case mem: CUMemory => globalInputs(mem.writeStart ++ mem.writeEnd ++ mem.writePort)
+    case counter: CUCounter => globalInputs(List(counter.start, counter.end, counter.stride))
+    case stage:Stage => globalInputs(stage.inputMems)
+    case _ => collectX[GlobalBus](a)(globalInputs)
+  }
+  def globalOutputs(a: Any): Set[GlobalBus] = a match {
+    case _:LocalReadBus => Set.empty
+    case glob: GlobalBus => Set(glob)
+    case ScalarOut(out) => Set(out)
+    case VectorOut(out) => Set(out)
+    case mem: CUMemory => globalOutputs(mem.readPort)
+    case stage: Stage => globalOutputs(stage.outputMems)
+    case _ => collectX[GlobalBus](a)(globalOutputs)
+  }
+
+  def scalarInputs(a: Any): Set[ScalarBus]  = globalInputs(a).collect{case x: ScalarBus => x}
+  def scalarOutputs(a: Any): Set[ScalarBus] = globalOutputs(a).collect{case x: ScalarBus => x}
+
+  def vectorInputs(a: Any): Set[VectorBus]  = globalInputs(a).collect{case x: VectorBus => x}
+  def vectorOutputs(a: Any): Set[VectorBus] = globalOutputs(a).collect{case x: VectorBus => x}
+
+  def usedCChains(a: Any): Set[CUCChain] = a match {
+    case cu: ComputeUnit => usedCChains(cu.allStages) ++ usedCChains(cu.mems)
+
+    case stage: Stage => stage.inputMems.collect{case CounterReg(cchain,_) => cchain}.toSet
+    case sram: CUMemory =>
+      (sram.readAddr.collect{case CounterReg(cchain,_) => cchain} ++
+        sram.writeAddr.collect{case CounterReg(cchain,_) => cchain}).toSet
+
+    case iter: Iterator[Any] => iter.flatMap(usedCChains).toSet
+    case iter: Iterable[Any] => usedCChains(iter.iterator)
+    case _ => Set.empty
+  }
+
+  def usedMem(x:Any):Set[CUMemory] = x match {
+    case MemLoadReg(mem) => Set(mem)
+    case LocalReadBus(mem) => Set(mem)
+    case x:CUMemory if x.mode == SRAMMode =>
+      usedMem(x.readAddr ++ x.writeAddr ++ x.writeStart ++ x.writeEnd ++ x.writePort) + x
+    case x:CUMemory => Set(x)
+    case x:Stage => usedMem(x.inputMems)
+    case x:CUCounter => usedMem(x.start) ++ usedMem(x.end) ++ usedMem(x.stride)
+    case x:ComputeUnit if x.style.isInstanceOf[FringeCU] => usedMem(x.mems)
+    case x:ComputeUnit => usedMem(x.allStages) ++ usedMem(x.cchains) ++ usedMem(x.srams)
+    case _ => collectX[CUMemory](x)(usedMem)
+  }
+
+  def isReadable(x: LocalComponent): Boolean = x match {
+    case _:ScalarOut | _:VectorOut => false
+    case _:ScalarIn  | _:VectorIn  => true
+    case _:MemLoadReg => true
+    case _:TempReg | _:AccumReg | _:ReduceReg => true
+    case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => false
+    case _:ControlReg => true
+    case _:ValidReg | _:ConstReg[_] | _:CounterReg => true
+  }
+  def isWritable(x: LocalComponent): Boolean = x match {
+    case _:ScalarOut | _:VectorOut => true
+    case _:ScalarIn  | _:VectorIn  => false
+    case _:MemLoadReg => false
+    case _:TempReg | _:AccumReg | _:ReduceReg => true
+    case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => true
+    case _:ControlReg => true
+    case _:ValidReg | _:ConstReg[_] | _:CounterReg => false
+  }
+  def isControl(x: LocalComponent): Boolean = x match {
+    case _:ValidReg | _:ControlReg => true
+    case _ => false
+  }
+
+  def isInterCU(x: GlobalBus): Boolean = x match {
+    case _:PIRDRAMBus | _:InputArg | _:OutputArg => false
+    case LocalVectorBus => false
+    case _ => true
+  }
+
+  def memRef(x: LocalComponent):Option[CUMemory] = x match {
+    case MemLoadReg(mem) => Some(mem)
+    case _ => None
+  }
+
+
+
 
   def isReadInPipe(mem: Expr, pipe: Expr, reader: Option[Expr] = None): Boolean = {
     readersOf(mem).isEmpty || readersOf(mem).exists{read => reader.forall(_ == read.node) && read.ctrlNode == pipe }
@@ -53,7 +186,7 @@ trait PIRCommonExp extends PIRCommon { self: SpatialExp =>
 
   def isRemoteMem(mem: Expr): Boolean = isSRAM(mem)
 
-  def isMem(e: Expr):Boolean = isLocalMem(e) | isRemoteMem(e) 
+  def isMem(e: Expr):Boolean = isLocalMem(e) | isRemoteMem(e)
 
   def isLocalMemReadAccess(acc: Expr) = acc match {
     case Def(_:RegRead[_]) => true
@@ -98,7 +231,7 @@ trait PIRCommonExp extends PIRCommon { self: SpatialExp =>
 
   //Hack Check if func is inside block reduce
   def isBlockReduce(func: Block[Any]): Boolean = {
-    func.summary.reads.intersect(func.summary.writes).exists(isSRAM)
+    func.effects.reads.intersect(func.effects.writes).exists(isSRAM)
   }
 
   def flattenNDAddress(addr: Exp[Any], dims: Seq[Exp[Index]]) = addr match {
@@ -177,7 +310,7 @@ trait PIRCommonExp extends PIRCommon { self: SpatialExp =>
     val stride  = 1
 
     val pipe = parentOf(access).get
-    val bankFactor = getInnerPar(pipe) 
+    val bankFactor = getInnerPar(pipe)
 
     val banking = pattern match {
       case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt, bankFactor)
@@ -243,7 +376,7 @@ trait PIRCommonExp extends PIRCommon { self: SpatialExp =>
   def getInnerPar(pipe:Expr):Int = pipe match {
     case Def(Hwblock(func,_)) => 1
     case Def(UnitPipe(en, func)) => 1
-    case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
+    case Def(UnrolledForeach(en, cchain, func, iters, valids)) =>
       val Def(CounterChainNew(ctrs)) = cchain
       val ConstReg(par) = extractConstant(parFactorsOf(ctrs.head).head)
       par.asInstanceOf[Int]

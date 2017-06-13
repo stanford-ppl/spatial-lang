@@ -1,19 +1,16 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
-import spatial.lang.{ControllerExp, CounterExp, UnrolledExp}
+import argon.nodes._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.SpatialExp
-import spatial.metadata.SpatialMetadataExp
 
-import scala.collection.mutable.HashMap
 import spatial.targets.DE1._
 
 
 trait ChiselGenUnrolled extends ChiselGenController {
-  val IR: SpatialExp
-  import IR._
-
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -23,8 +20,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
           rhs match {
             case e: UnrolledForeach=> s"x${lhs.id}_unrForeach"
             case e: UnrolledReduce[_,_] => s"x${lhs.id}_unrRed"
-            case e: ParSRAMLoad[_] => s"""x${lhs.id}_parLd${nameOf(lhs).getOrElse("")}"""
-            case e: ParSRAMStore[_] => s"""x${lhs.id}_parSt${nameOf(lhs).getOrElse("")}"""
+            case e: ParSRAMLoad[_] => s"""x${lhs.id}_parLd${lhs.name.getOrElse("")}"""
+            case e: ParSRAMStore[_] => s"""x${lhs.id}_parSt${lhs.name.getOrElse("")}"""
             case e: ParFIFODeq[_] => s"x${lhs.id}_parDeq"
             case e: ParFIFOEnq[_] => s"x${lhs.id}_parEnq"
             case _ => super.quote(s)

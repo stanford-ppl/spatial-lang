@@ -1,13 +1,14 @@
 package spatial.codegen.pirgen
-import spatial.SpatialExp
+
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import org.virtualized.SourceContext
 
 import scala.collection.mutable
 
 trait PIRAllocation extends PIRTraversal {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
-
   override val name = "PIR CU Allocation"
 
   // -- State
@@ -36,7 +37,7 @@ trait PIRAllocation extends PIRTraversal {
     case None => Nil
   }
 
-  def addIterators(cu: PCU, cchain: CChainInstance, inds: Seq[Seq[Exp[Index]]], valids: Seq[Seq[Exp[Bool]]]) {
+  def addIterators(cu: PCU, cchain: CChainInstance, inds: Seq[Seq[Exp[Index]]], valids: Seq[Seq[Exp[Bit]]]) {
     inds.zipWithIndex.foreach{case (is, i) =>
       is.foreach{index => cu.addReg(index, CounterReg(cchain, i)) }
     }

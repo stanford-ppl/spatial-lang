@@ -1,12 +1,12 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.lang.VectorExp
-import spatial.{SpatialConfig, SpatialExp}
+import argon.nodes._
+import spatial.compiler._
+import spatial.nodes._
+import spatial.SpatialConfig
 
 trait ChiselGenVector extends ChiselCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -37,13 +37,13 @@ trait ChiselGenVector extends ChiselCodegen {
     case e@DataAsBits(a) => e.mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
       case FixPtType(s,d,f) => emit(src"val $lhs = ${a}.r")
-      case BoolType()       => emit(src"val $lhs = ${a}.r")
+      case BooleanType()    => emit(src"val $lhs = ${a}.r")
     }
 
     case BitsAsData(v,mT) => mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
       case FixPtType(s,i,f) => emit(src"val $lhs = ${v}.FP($s,$i,$f)")
-      case BoolType()       => emit(src"val $lhs = $v // TODO: Need to do something fancy here?")
+      case BooleanType()    => emit(src"val $lhs = $v // TODO: Need to do something fancy here?")
     }
 
     case _ => super.emitNode(lhs, rhs)
