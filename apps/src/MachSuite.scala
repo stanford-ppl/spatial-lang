@@ -2323,7 +2323,7 @@ object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
 
        * Scan levels straight through, and index into nodes if it matches current horizon
              ___________________
-    levels: |     0             |  starts at -1
+    levels: |     0             |  starts as -1
              `````|`````````````
                   |
              _____🡓_____________
@@ -2394,15 +2394,16 @@ object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
               edges_sram load edges_dram(start::end)
               Sequential.Reduce(node_width)(length by 1) { e =>
                 val tmp_dst = edges_sram(e)
-                if (levels_sram(tmp_dst) == unvisited) { levels_sram(tmp_dst) = horizon+1 }
-                mux(levels_sram(tmp_dst) == unvisited, 1, 0)
+                val dst_level = levels_sram(tmp_dst)
+                if (dst_level == unvisited) { levels_sram(tmp_dst) = horizon+1 }
+                mux(dst_level == unvisited, 1, 0)
               }{_+_}
             }
           }
           node_width
         }{_+_}
         widths_sram(horizon+1) = level_width
-      }{ horizon => mux(horizon > 0 && level_width == 0.to[Int], 11, horizon+1) }
+      }{ horizon => mux(horizon > 0 && level_width == 0.to[Int], N_LEVELS+1, horizon+1) }
 
       widths_dram store widths_sram
 
@@ -2425,15 +2426,99 @@ object BFS_Queue extends SpatialApp { // DISABLED Regression (Sparse) // Args: n
  import IR._
 
  /*                                                                                                  
+          ________________
+    Q:   |          x x x |
+          `````````↑``````
+                   * Grab numel before starting next horizon so we know how many to deq before we hit next frontier
+             ___________________
+    levels: |     0             |  starts as -1
+             `````|`````````````
+                  |
+             _____🡓_____________
+    nodes:  |                   |  contains start and end indices into edges
+             `````|`````````````
+                  |______
+                       /  \
+             _________↙_____🡖__________________________________________
+    edges:  |                                                          |
+             ``````````````````````````````````````````````````````````
+        * Index into levels push them onto queue if they are unvisited
+
+  CONCERNS: This isn't really sparse...
 
  */
 
   @virtualize
   def main() = {
 
+    val SCALE = 8
+    val EDGE_FACTOR = 16
+    val N_NODES = 1 << SCALE
+    val N_EDGES = N_NODES*EDGE_FACTOR
+    val N_LEVELS = 10
+    val unvisited = -1
+    val start_id = 38
+
+    val nodes_raw = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_bulk_nodes.csv", "\n")
+    val edges_data = loadCSV1D[Int]("/remote/regression/data/machsuite/bfs_bulk_edges.csv", "\n")
+
+    val node_starts_data = Array.tabulate[Int](N_NODES){i => nodes_raw(2*i)}
+    val node_ends_data = Array.tabulate[Int](N_NODES){i => nodes_raw(2*i+1)}
+    val node_starts_dram = DRAM[Int](N_NODES)
+    val node_ends_dram = DRAM[Int](N_NODES)
+    val edges_dram = DRAM[Int](N_EDGES)
+    val widths_dram = DRAM[Int](16)
+
+    setMem(node_starts_dram, node_starts_data)
+    setMem(node_ends_dram, node_ends_data)
+    setMem(edges_dram, edges_data)
+
     Accel{
+      val node_starts_sram = SRAM[Int](N_NODES)
+      val node_ends_sram = SRAM[Int](N_NODES)
+      val levels_sram = SRAM[Int](N_NODES)
+      val edges_sram = SRAM[Int](N_NODES) // bigger than necessary
+      val Q = FIFO[Int](N_NODES)
+      val widths_sram = SRAM[Int](16)
+
+      node_starts_sram load node_starts_dram
+      node_ends_sram load node_ends_dram
+
+      Foreach(N_NODES by 1){ i => levels_sram(i) = unvisited }
+      Pipe{levels_sram(start_id) = 0}
+      Foreach(16 by 1) {i => widths_sram(i) = if ( i == 0) 1 else 0}
+      Q.enq(start_id)
+
+      FSM[Int,Int](0)( horizon => horizon < N_LEVELS ) { horizon => 
+        val level_size = Q.numel
+        Sequential.Foreach(level_size by 1) { i => 
+          val n = Q.deq()
+          val start = node_starts_sram(n)
+          val end = node_ends_sram(n)
+          val length = end - start
+          edges_sram load edges_dram(start::end)
+          Sequential.Foreach(length by 1) { e =>
+            val tmp_dst = edges_sram(e)
+            val dst_level = levels_sram(tmp_dst)
+            if (dst_level) { Q.enq(tmp_dst) }
+            if (dst_level) { levels_sram(tmp_dst) = horizon+1 }
+          }
+        }
+        widths_sram(horizon+1) = Q.numel
+      }{ horizon => mux(Q.numel == 0.to[Int], N_LEVELS+1, horizon+1) }
+
+      widths_dram store widths_sram
 
     }
+
+    val widths_gold = Array[Int](1,26,184,22,0,0,0,0,0,0,0,0,0,0,0,0)
+    val widths_result = getMem(widths_dram)
+
+    printArray(widths_gold, "Gold: ")
+    printArray(widths_result, "Received: ")
+
+    val cksum = widths_gold.zip(widths_result){_==_}.reduce{_&&_}
+    println("PASS: " + cksum + " (BFS_Queue)")
 
   }
 }
