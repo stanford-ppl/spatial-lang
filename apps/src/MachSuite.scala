@@ -1681,9 +1681,9 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
     val test_sets =        15
     val norm_param =    0.005
 
-    val weights1_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights1.csv").reshape(nodes_per_layer, input_dimension)
+    val weights1_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights1.csv").reshape(input_dimension, nodes_per_layer)
     val weights2_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights2.csv").reshape(nodes_per_layer, nodes_per_layer)
-    val weights3_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights3.csv").reshape(possible_outputs, nodes_per_layer)
+    val weights3_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights3.csv").reshape(nodes_per_layer, possible_outputs)
     val biases1_data = Array[T](0.4424363035310214.to[T], -0.3605759487709181.to[T], -0.1800804113238152.to[T], 0.4475482605076305.to[T], 0.2529110407603758.to[T], 0.3259778697714617.to[T], 0.1041960938460277.to[T], -0.3466372089684309.to[T], 
                                 -0.4374503127993276.to[T], -0.2281378578606078.to[T], 0.3910031103464617.to[T], -0.2609256571893643.to[T], -0.3656339831086683.to[T], -0.0760290607040628.to[T], -0.4588373423614888.to[T], 0.1558368046570618.to[T], 
                                 -0.4260280767489409.to[T], -0.3310268633360521.to[T], 0.1745415400933488.to[T], 0.4498751132286368.to[T], 0.4881621738418157.to[T], 0.0313833738408521.to[T], -0.4142881870143837.to[T], -0.4180541016388725.to[T], 
@@ -1705,9 +1705,8 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
     val training_targets_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_training_targets.csv").reshape(training_sets, possible_outputs)
 
     val weights1_dram = DRAM[T](nodes_per_layer,input_dimension)
-    val weights1_dram_aligned = DRAM[T](nodes_per_layer,input_dimension + (16 - input_dimension))
     val weights2_dram = DRAM[T](nodes_per_layer,nodes_per_layer)
-    val weights3_dram = DRAM[T](possible_outputs,nodes_per_layer)
+    val weights3_dram = DRAM[T](nodes_per_layer, possible_outputs)
     val biases1_dram = DRAM[T](nodes_per_layer)
     val biases2_dram = DRAM[T](nodes_per_layer)
     val biases3_dram = DRAM[T](possible_outputs)
@@ -1727,20 +1726,21 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
     Accel{
 
       def RELU(x: T): T = {
-        1.0.to[T]/(1.0.to[T]+exp_taylor(-x))
+        // 1.0.to[T]/(1.0.to[T]+exp_taylor(-x))
+        mux(x < -2, 0, mux(x < 2, x*0.25.to[T] + 0.5.to[T], 1))
       }
 
       val biases1_sram = SRAM[T](nodes_per_layer)
       val biases2_sram = SRAM[T](nodes_per_layer)
       val biases3_sram = SRAM[T](possible_outputs + (16 - possible_outputs)) // burst aligned
-      val weights1_sram = SRAM[T](nodes_per_layer, input_dimension + (16 - input_dimension)) // burst aligned
+      val weights1_sram = SRAM[T](input_dimension, nodes_per_layer) 
       val weights2_sram = SRAM[T](nodes_per_layer, nodes_per_layer)
-      val weights3_sram = SRAM[T](possible_outputs, nodes_per_layer)
+      val weights3_sram = SRAM[T](nodes_per_layer, possible_outputs)
 
       biases1_sram load biases1_dram
       biases2_sram load biases2_dram
-      biases3_sram load biases3_dram(0::possible_outputs)
-      weights1_sram load weights1_dram(0::nodes_per_layer, 0::input_dimension)
+      biases3_sram load biases3_dram
+      weights1_sram load weights1_dram
       weights2_sram load weights2_dram
       weights3_sram load weights3_dram
 
@@ -1755,9 +1755,9 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
         val training_targets = SRAM[T](possible_outputs)
         val net_outputs = SRAM[T](possible_outputs)
         val delta_outputs = SRAM[T](possible_outputs)
-        val delta_weights1 = SRAM[T](nodes_per_layer,input_dimension)
+        val delta_weights1 = SRAM[T](input_dimension, nodes_per_layer)
         val delta_weights2 = SRAM[T](nodes_per_layer,nodes_per_layer)
-        val delta_weights3 = SRAM[T](possible_outputs,nodes_per_layer)
+        val delta_weights3 = SRAM[T](nodes_per_layer, possible_outputs)
         val oracle_activations1 = SRAM[T](nodes_per_layer)
         val oracle_activations2 = SRAM[T](nodes_per_layer)
 
@@ -1765,36 +1765,36 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
         training_targets load training_targets_dram(i, 0::possible_outputs)
 
         // Input Layer 
-        Foreach(nodes_per_layer by 1){ j => 
+        Foreach(nodes_per_layer by 1){ j => // Why does machsuite use j and i backwards here??? 
           activations1(j) = Reduce(Reg[T](0))(input_dimension by 1) { i => weights1_sram(j, i) * training_sram(i)}{_+_} + biases1_sram(j)
         }
 
         // Relu
         Foreach(nodes_per_layer by 1) { i => 
-          dactivations1(i) = activations1(i)*(1.0.to[T]-activations1(i))
-          activations1(i) = RELU(activations1(i))
+          Pipe{dactivations1(i) = activations1(i)*(1.0.to[T]-activations1(i))}
+          Pipe{activations1(i) = RELU(activations1(i))}
         }
         
         // Middle layer
-        Foreach(nodes_per_layer by 1){ j => 
-          activations2(j) = Reduce(Reg[T](0))(nodes_per_layer by 1) { i => weights2_sram(j, i) * training_sram(i)}{_+_} + biases2_sram(j)
+        Foreach(nodes_per_layer by 1){ i => 
+          activations2(i) = Reduce(Reg[T](0))(nodes_per_layer by 1) { j => weights2_sram(i, j) * activations1(j)}{_+_} + biases2_sram(i)
         }
         
         // Relu
         Foreach(nodes_per_layer by 1) { i => 
-          dactivations2(i) = activations2(i)*(1.0.to[T]-activations2(i))
-          activations2(i) = RELU(activations2(i))
+          Pipe{dactivations2(i) = activations2(i)*(1.0.to[T]-activations2(i))}
+          Pipe{activations2(i) = RELU(activations2(i))}
         }
         
         // Last layer
-        Foreach(possible_outputs by 1){ j => 
-          activations3(j) = Reduce(Reg[T](0))(nodes_per_layer by 1) { i => weights3_sram(j, i) * training_sram(i)}{_+_} + biases3_sram(j)
+        Foreach(possible_outputs by 1){ i => 
+          activations3(i) = Reduce(Reg[T](0))(nodes_per_layer by 1) { j => weights3_sram(i, j) * activations2(j)}{_+_} + biases3_sram(i)
         }
         
         // Relu
         Foreach(possible_outputs by 1) { i => 
-          dactivations3(i) = activations3(i)*(1.0.to[T]-activations3(i))
-          activations3(i) = RELU(activations3(i))
+          Pipe{dactivations3(i) = activations3(i)*(1.0.to[T]-activations3(i))}
+          Pipe{activations3(i) = RELU(activations3(i))}
         }
         
         // Softmax
@@ -1805,10 +1805,10 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
         Foreach(possible_outputs by 1) { i => delta_outputs(i) = -(net_outputs(i) - training_targets(i)) * dactivations3(i) }
 
         // Delta weights on last layer
-        Foreach(nodes_per_layer by 1, possible_outputs by 1){(i,j) => delta_weights3(i,j) = activations2(i) * delta_outputs(i)}
+        Foreach(nodes_per_layer by 1, possible_outputs by 1){(i,j) => delta_weights3(i,j) = activations2(i) * delta_outputs(j)}
 
         // Oracle activation 2
-        Foreach(nodes_per_layer by 1) { i => oracle_activations2(i) = Reduce(Reg[T](0))(possible_outputs by 1){ j => delta_outputs(j) * weights3_sram(i,j) }{_+_}}
+        Foreach(nodes_per_layer by 1) { i => oracle_activations2(i) = dactivations2(i) * Reduce(Reg[T](0))(possible_outputs by 1){ j => delta_outputs(j) * weights3_sram(i,j) }{_+_}}
 
         // Delta weights on middle layer
         Foreach(nodes_per_layer by 1, nodes_per_layer by 1) { (i,j) => delta_weights2(i,j) = activations1(i) - oracle_activations2(j) }
@@ -1817,7 +1817,7 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
         Foreach(nodes_per_layer by 1) { i => oracle_activations1(i) = Reduce(Reg[T](0))(nodes_per_layer by 1) { j => oracle_activations2(j) * weights2_sram(i,j) }{_+_} }
 
         // Delta weights on input layer
-        Foreach(input_dimension by 1, nodes_per_layer by 1) { (i,j) => delta_weights1(i,j) = oracle_activations1(i) * delta_outputs(j) }
+        Foreach(input_dimension by 1, nodes_per_layer by 1) { (i,j) => delta_weights1(i,j) = oracle_activations1(j) * training_sram(i) }
 
         // Update input layer weights
         val norm_temp1 = Reduce(Reg[T](0))(input_dimension by 1, nodes_per_layer by 1){ (i,j) => 
@@ -1878,7 +1878,7 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
       biases1_dram store biases1_sram
       biases2_dram store biases2_sram
       biases3_dram_aligned store biases3_sram
-      weights1_dram_aligned store weights1_sram
+      weights1_dram store weights1_sram
       weights2_dram store weights2_sram
       weights3_dram store weights3_sram
     }
@@ -1886,26 +1886,11 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
     val weights1_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights1_gold.csv").reshape(nodes_per_layer, input_dimension)
     val weights2_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights2_gold.csv").reshape(nodes_per_layer, nodes_per_layer)
     val weights3_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights3_gold.csv").reshape(possible_outputs, nodes_per_layer)
-    val biases1_gold = Array[T](0.0000002860515429.to[T],0.0000001336923965.to[T],0.0000000086825011.to[T],0.0000000031474389.to[T],0.0000000035227788.to[T],0.0001253960836368.to[T],0.0000262543699298.to[T],0.0001036484182358.to[T],
-                                0.0000907387047426.to[T],0.0001413510538386.to[T],0.0000011456969965.to[T],0.0000010956060781.to[T],0.0000004156118037.to[T],0.0000001589596450.to[T],0.0000000420240903.to[T],0.0000000024325447.to[T],
-                                0.0000017463208003.to[T],-0.0000000063149758.to[T],0.0000110024640267.to[T],0.0000277988468344.to[T],0.0012237898106768.to[T],0.0000387151851673.to[T],0.0000185810900032.to[T],0.0000003594970814.to[T],
-                                0.0000013889375324.to[T],0.0000001017729949.to[T],0.0000000532367727.to[T],0.0000000195062862.to[T],0.0000000018605114.to[T],0.0000000019438707.to[T],-0.0000000011477865.to[T],0.0000712910851704.to[T],
-                                0.0010163792685161.to[T],0.0000471245446582.to[T],0.0000104643762336.to[T],0.0000112266862765.to[T],0.0000044064970721.to[T],0.0000043316804395.to[T],0.0000000771244344.to[T],0.0000000580161255.to[T],
-                                0.0000000992841434.to[T],0.0000000174619020.to[T],0.0000000059206197.to[T],-0.0000000098213873.to[T],0.0000337237896365.to[T],0.0033002772275274.to[T],0.0000029991124506.to[T],0.0000124144984307.to[T],
-                                0.0000016792804727.to[T],0.0000042568583938.to[T],0.0000012227028352.to[T],0.0000000358335915.to[T],0.0000001322583757.to[T],-0.0000000126041656.to[T],0.0000000067318724.to[T],0.0000000062299183.to[T],
-                                0.9999932153359626.to[T],0.0000057036923494.to[T],0.0002671154604164.to[T],0.0000087723167142.to[T],0.0000909511293817.to[T],0.0000037292412118.to[T],0.0000013034513990.to[T],0.0000005887752391.to[T])
-    val biases2_gold = Array[T](-0.1250485269999813.to[T],-0.1250485017387021.to[T],-0.1250484973504203.to[T],-0.1250485017358938.to[T],-0.1250485009840124.to[T],-0.1250486682775984.to[T],-0.1250485023227919.to[T],-0.1252883862387800.to[T],
-                                -0.1250485026328068.to[T],-0.1250491085330709.to[T],-0.1250485063696373.to[T],-0.1250485085867000.to[T],-0.1250484972423835.to[T],-0.1250485026683358.to[T],-0.1250485250778653.to[T],-0.1250485025422989.to[T],-0.1250484960047790.to[T],
-                                -0.1250484973770616.to[T],-0.1250485003694706.to[T],-0.1250484972566906.to[T],-0.1250485239906086.to[T],-0.1250207990375155.to[T],-0.1250485060106542.to[T],-0.1250485544954296.to[T],-0.1250485254338826.to[T],-0.1250485025963228.to[T],
-                                -0.1219759042419306.to[T],-0.1250484960934984.to[T],-0.1250484959715390.to[T],-0.1250484994153161.to[T],-0.1250485176887426.to[T],-0.1250484959992431.to[T],-0.1250485056037944.to[T],-0.1250485177832757.to[T],-0.1250485022914402.to[T],
-                                -0.1250485030360682.to[T],-0.1250484958386799.to[T],-0.1254887690039716.to[T],-0.1250484964411162.to[T],-0.1250484959134374.to[T],-0.1250485189759819.to[T],-0.1250485915607708.to[T],-0.1223892680712233.to[T],-0.1250486149687297.to[T],
-                                -0.1250484961298845.to[T],-0.1250484964566514.to[T],-0.1250484957623608.to[T],-0.1250484989441400.to[T],-0.1250485019080441.to[T],-0.1269407269019648.to[T],-0.1250485026347276.to[T],-0.1250494572844961.to[T],-0.1250484960099129.to[T],
-                                -0.1250484962989789.to[T],-0.1250485238815167.to[T],-0.1250485026797450.to[T],-0.1250485177870162.to[T],-0.1250484983531969.to[T],-0.1250486400266543.to[T],-0.1250485157496926.to[T],-0.1250485025055717.to[T],-0.1250485233060540.to[T],
-                                -0.1250485026934568.to[T],-0.1250485272883554.to[T])
-    val biases3_gold = Array[T](-0.1786819872446880.to[T],-0.1514298249324479.to[T],0.9721840132172598.to[T])
+    val biases1_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_bias1_gold.csv")
+    val biases2_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_bias2_gold.csv")
+    val biases3_gold = Array[T](0.491207045667.to[T],0.077043254627.to[T],-0.867628938584.to[T])
 
-    val weights1_result_aligned = getMatrix(weights1_dram_aligned)
-    val weights1_result = (0::nodes_per_layer, 0::input_dimension){(i,j) => weights1_result_aligned(i,j)}
+    val weights1_result = getMatrix(weights1_dram)
     val weights2_result = getMatrix(weights2_dram)
     val weights3_result = getMatrix(weights3_dram)
     val biases1_result = getMem(biases1_dram)
