@@ -1704,8 +1704,8 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
     val training_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_training_data.csv").reshape(training_sets, input_dimension)
     val training_targets_data = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_training_targets.csv").reshape(training_sets, possible_outputs)
 
-    val weights1_dram = DRAM[T](nodes_per_layer,input_dimension)
-    val weights2_dram = DRAM[T](nodes_per_layer,nodes_per_layer)
+    val weights1_dram = DRAM[T](input_dimension, nodes_per_layer)
+    val weights2_dram = DRAM[T](nodes_per_layer, nodes_per_layer)
     val weights3_dram = DRAM[T](nodes_per_layer, possible_outputs)
     val biases1_dram = DRAM[T](nodes_per_layer)
     val biases2_dram = DRAM[T](nodes_per_layer)
@@ -1883,9 +1883,9 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
       weights3_dram store weights3_sram
     }
 
-    val weights1_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights1_gold.csv").reshape(nodes_per_layer, input_dimension)
+    val weights1_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights1_gold.csv").reshape(input_dimension, nodes_per_layer)
     val weights2_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights2_gold.csv").reshape(nodes_per_layer, nodes_per_layer)
-    val weights3_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights3_gold.csv").reshape(possible_outputs, nodes_per_layer)
+    val weights3_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_weights3_gold.csv").reshape(nodes_per_layer, possible_outputs)
     val biases1_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_bias1_gold.csv")
     val biases2_gold = loadCSV1D[T]("/remote/regression/data/machsuite/backprop_bias2_gold.csv")
     val biases3_gold = Array[T](0.491207045667.to[T],0.077043254627.to[T],-0.867628938584.to[T])
