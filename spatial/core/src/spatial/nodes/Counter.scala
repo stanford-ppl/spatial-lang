@@ -13,8 +13,8 @@ object CounterType extends Type[Counter] {
 
 
 /** IR Nodes **/
-case class CounterNew(start: Exp[Index], end: Exp[Index], step: Exp[Index], par: Const[Index]) extends Op[Counter] {
+case class CounterNew(start: Exp[Index], end: Exp[Index], step: Exp[Index], par: Const[Index]) extends DynamicAlloc[Counter] {
   def mirror(f:Tx) = Counter.counter_new(f(start), f(end), f(step), par)
 }
 
-case class Forever() extends Op[Counter] { def mirror(f:Tx) = Counter.forever_counter() }
+case class Forever() extends Alloc[Counter] { def mirror(f:Tx) = Counter.forever_counter() }

@@ -1,13 +1,14 @@
 package spatial.transform
 
 import argon.transform.ForwardTransformer
-import spatial.SpatialExp
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+
 import scala.collection.mutable
 
 trait RegisterCleanup extends ForwardTransformer {
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Register Cleanup"
 
   private case object FakeSymbol { override def toString = "\"You done goofed\"" }
@@ -46,7 +47,7 @@ trait RegisterCleanup extends ForwardTransformer {
     result
   }
 
-  override def transform[T: Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
+  override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
     case node if isStateless(node) && shouldDuplicate(lhs) =>
       dbg("")
       dbg("[stateless]")
@@ -55,7 +56,7 @@ trait RegisterCleanup extends ForwardTransformer {
 
       if (usersOf(lhs).isEmpty) {
         dbg(c"REMOVING stateless $lhs")
-        constant[T](FakeSymbol)  // Shouldn't be used
+        constant(typ[T])(FakeSymbol)  // Shouldn't be used
       }
       else {
         // For all uses within a single control node, create a single copy of this node
@@ -75,7 +76,7 @@ trait RegisterCleanup extends ForwardTransformer {
 
           read
         }
-        constant[T](FakeSymbol) // mirror(lhs, rhs)
+        constant(typ[T])(FakeSymbol) // mirror(lhs, rhs)
       }
 
     case RegWrite(reg,value,en) =>
@@ -84,7 +85,7 @@ trait RegisterCleanup extends ForwardTransformer {
       dbg(c"$lhs = $rhs")
       if (readersOf(reg).isEmpty && !isOffChipMemory(reg)) {
         dbg(c"REMOVING register write $lhs")
-        constant[T](FakeSymbol)  // Shouldn't be used
+        constant(typ[T])(FakeSymbol)  // Shouldn't be used
       }
       else mirrorWithDuplication(lhs, rhs)
 
@@ -94,7 +95,7 @@ trait RegisterCleanup extends ForwardTransformer {
       dbg(c"$lhs = $rhs")
       if (readersOf(lhs).isEmpty) {
         dbg(c"REMOVING register $lhs")
-        constant[T](FakeSymbol)  // Shouldn't be used
+        constant(typ[T])(FakeSymbol)  // Shouldn't be used
       }
       else mirrorWithDuplication(lhs, rhs)
 

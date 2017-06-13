@@ -3,7 +3,8 @@ package spatial.codegen.cppgen
 import argon.codegen.cppgen.CppCodegen
 import spatial.SpatialExp
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
+import spatial.metadata.SpatialMetadataExp
+
 import sys.process._
 import scala.language.postfixOps
 

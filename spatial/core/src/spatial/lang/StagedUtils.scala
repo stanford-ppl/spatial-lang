@@ -1,19 +1,19 @@
 package spatial.lang
 
-import spatial._
 import forge._
 import org.virtualized._
+import spatial.SpatialApi
 
-trait StagedUtilApi extends StagedUtilExp { this: SpatialApi =>
+trait StagedUtils { this: SpatialApi =>
   @virtualize
-  @api def printArray[T:Meta](array: Array[T], header: String = ""): Void = {
+  @api def printArray[T:Type](array: Array[T], header: String = ""): MUnit = {
     println(header)
     (0 until array.length) foreach { i => print(array(i).toString + " ") }
     println("")
   }
 
   @virtualize
-  @api def printMatrix[T: Meta](matrix: Matrix[T], header: String = ""): Void = {
+  @api def printMatrix[T: Type](matrix: Matrix[T], header: String = ""): MUnit = {
     println(header)
     (0 until matrix.rows) foreach { i =>
       (0 until matrix.cols) foreach { j =>
@@ -24,7 +24,7 @@ trait StagedUtilApi extends StagedUtilExp { this: SpatialApi =>
   }
 
   @virtualize
-  @api def printTensor3[T: Meta](tensor: Tensor3[T], header: String = ""): Void = {
+  @api def printTensor3[T: Type](tensor: Tensor3[T], header: String = ""): MUnit = {
     println(header)
     (0 until tensor.dim0) foreach { i =>
       (0 until tensor.dim1) foreach { j =>
@@ -39,7 +39,7 @@ trait StagedUtilApi extends StagedUtilExp { this: SpatialApi =>
   }
 
   @virtualize
-  @api def printTensor4[T: Meta](tensor: Tensor4[T], header: String = ""): Void = {
+  @api def printTensor4[T: Type](tensor: Tensor4[T], header: String = ""): MUnit = {
     println(header)
     (0 until tensor.dim0) foreach { i =>
       (0 until tensor.dim1) foreach { j =>
@@ -58,7 +58,7 @@ trait StagedUtilApi extends StagedUtilExp { this: SpatialApi =>
   }
 
   @virtualize
-  @api def printTensor5[T: Meta](tensor: Tensor5[T], header: String = ""): Void = {
+  @api def printTensor5[T: Type](tensor: Tensor5[T], header: String = ""): MUnit = {
     println(header)
     (0 until tensor.dim0) foreach { i =>
       (0 until tensor.dim1) foreach { j =>
@@ -79,7 +79,4 @@ trait StagedUtilApi extends StagedUtilExp { this: SpatialApi =>
       println("")
     }
   }
-
 }
-
-trait StagedUtilExp { this: SpatialExp => }

@@ -55,4 +55,20 @@ object FIFO {
   @internal def numel[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Index] = {
     stage(FIFONumel(fifo))(ctx)
   }
+
+  @internal def par_deq[T:Type:Bits](
+    fifo: Exp[FIFO[T]],
+    ens:  Seq[Exp[Bit]]
+  )(implicit ctx: SrcCtx) = {
+    implicit val vT = VectorN.typeFromLen[T](ens.length)
+    stageWrite(fifo)( ParFIFODeq(fifo, ens) )(ctx)
+  }
+
+  @internal def par_enq[T:Type:Bits](
+    fifo: Exp[FIFO[T]],
+    data: Seq[Exp[T]],
+    ens:  Seq[Exp[Bit]]
+  )(implicit ctx: SrcCtx) = {
+    stageWrite(fifo)( ParFIFOEnq(fifo, data, ens) )(ctx)
+  }
 }

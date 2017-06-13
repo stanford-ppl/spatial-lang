@@ -22,7 +22,7 @@ class FIFOIsMemory[T:Type:Bits] extends Mem[T,FIFO] {
 
 
 /** IR Nodes **/
-case class FIFONew[T:Type:Bits](size: Exp[Index]) extends Op2[T,FIFO[T]] {
+case class FIFONew[T:Type:Bits](size: Exp[Index]) extends Alloc[FIFO[T]] {
   def mirror(f:Tx) = FIFO.alloc[T](f(size))
   val mT = typ[T]
   val bT = bits[T]
@@ -61,4 +61,21 @@ case class FIFONumel[T:Type:Bits](fifo: Exp[FIFO[T]]) extends Op[Index] {
   def mirror(f:Tx) = FIFO.numel(f(fifo))
   val mT = typ[T]
   val bT = bits[T]
+}
+
+case class ParFIFODeq[T:Type:Bits](
+  fifo: Exp[FIFO[T]],
+  ens:  Seq[Exp[Bit]]
+)(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
+  def mirror(f:Tx) = FIFO.par_deq(f(fifo),f(ens))
+  val mT = typ[T]
+}
+
+case class ParFIFOEnq[T:Type:Bits](
+  fifo: Exp[FIFO[T]],
+  data: Seq[Exp[T]],
+  ens:  Seq[Exp[Bit]]
+) extends EnabledOp[MUnit](ens:_*) {
+  def mirror(f:Tx) = FIFO.par_enq(f(fifo),f(data),f(ens))
+  val mT = typ[T]
 }

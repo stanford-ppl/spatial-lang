@@ -5,8 +5,7 @@ import spatial.lang.HostTransferExp
 import spatial.SpatialConfig
 import spatial.lang.RegExp
 import spatial.SpatialExp
-import spatial.analysis.SpatialMetadataExp
-
+import spatial.metadata.SpatialMetadataExp
 
 trait CppGenHostTransfer extends CppGenSRAM  {
   val IR: SpatialExp

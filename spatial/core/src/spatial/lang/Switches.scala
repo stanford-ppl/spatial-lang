@@ -3,7 +3,7 @@ package spatial.lang
 import forge._
 import spatial.nodes._
 
-object SwitchOps {
+object Switches {
   @internal def create_switch[T:Type](selects: Seq[Exp[Bit]], cases: Seq[() => Exp[T]]): Exp[T] = {
     var cs: Seq[Exp[T]] = Nil
     val body = stageHotBlock{ cs = cases.map{c => c() }; cs.last }

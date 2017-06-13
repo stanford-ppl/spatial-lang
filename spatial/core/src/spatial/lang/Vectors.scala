@@ -1,7 +1,5 @@
 package spatial.lang
 
-import argon.core.compiler._
-import argon.compiler._
 import forge._
 import spatial.nodes._
 
@@ -210,7 +208,7 @@ object VectorN {
 }
 
 
-trait LowPriorityVectorImplicits { this: VectorExp =>
+trait LowPriorityVectorImplicits {
   implicit def vectorNFakeType[T:Type:Bits](implicit ctx: SrcCtx): Type[VectorN[T]] = {
     error(ctx, u"VectorN value cannot be used directly as a staged type")
     error("Add a type conversion here using .asVector#, where # is the length of the vector")
@@ -218,5 +216,4 @@ trait LowPriorityVectorImplicits { this: VectorExp =>
     VectorN.typeFromLen[T](-1)
   }
 }
-
-trait VectorExp extends LowPriorityVectorImplicits
+trait VectorApi extends LowPriorityVectorImplicits

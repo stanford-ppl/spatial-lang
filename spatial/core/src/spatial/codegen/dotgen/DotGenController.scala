@@ -5,8 +5,8 @@ import argon.codegen.dotgen._
 import argon.core.Config
 import spatial.lang.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
+import spatial.metadata.SpatialMetadataExp
 
 trait DotGenController extends DotCodegen {
   val IR: SpatialExp

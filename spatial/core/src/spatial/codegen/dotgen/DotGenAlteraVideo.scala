@@ -3,8 +3,8 @@ package spatial.codegen.dotgen
 import argon.codegen.dotgen.DotCodegen
 import argon.codegen.FileDependencies
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
+import spatial.metadata.SpatialMetadataExp
 
 trait DotGenAlteraVideo extends DotCodegen with FileDependencies {
   val IR: SpatialExp

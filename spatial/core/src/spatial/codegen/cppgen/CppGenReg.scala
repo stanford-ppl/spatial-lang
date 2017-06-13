@@ -3,8 +3,8 @@ package spatial.codegen.cppgen
 import argon.codegen.cppgen.CppCodegen
 import spatial.lang.RegExp
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
+import spatial.metadata.SpatialMetadataExp
 
 trait CppGenReg extends CppCodegen {
   val IR: SpatialExp

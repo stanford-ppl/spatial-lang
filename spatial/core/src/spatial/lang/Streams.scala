@@ -8,11 +8,11 @@ case class StreamIn[T:Type:Bits](s: Exp[StreamIn[T]]) extends Template[StreamIn[
   @api def value(en: Bit): T = wrap(StreamIn.read(s, en.s)) // Needed?
 }
 case class StreamOut[T:Type:Bits](s: Exp[StreamOut[T]]) extends Template[StreamOut[T]] {
-  @api def :=(value: T): Void = this := (value, true)
-  @api def :=(value: T, en: Bit): Void = MUnit(StreamOut.write(s, value.s, en.s))
+  @api def :=(value: T): MUnit = this := (value, true)
+  @api def :=(value: T, en: Bit): MUnit = MUnit(StreamOut.write(s, value.s, en.s))
 }
 case class BufferedOut[T:Type:Bits](s: Exp[BufferedOut[T]]) extends Template[BufferedOut[T]] {
-  @api def update(row: Index, col: Index, data: T): Void = MUnit(BufferedOut.write(s, data.s, Seq(row.s,col.s), MBoolean.const(true)))
+  @api def update(row: Index, col: Index, data: T): MUnit = MUnit(BufferedOut.write(s, data.s, Seq(row.s,col.s), Bit.const(true)))
 }
 
 private object Streams {
@@ -45,6 +45,10 @@ object StreamIn {
   @internal def read[T:Type:Bits](stream: Exp[StreamIn[T]], en: Exp[Bit]) = {
     stageWrite(stream)(StreamRead(stream, en))(ctx)
   }
+  @internal def par_read[T:Type:Bits](stream: Exp[StreamIn[T]], ens: Seq[Exp[Bit]]) = {
+    implicit val vT = VectorN.typeFromLen[T](ens.length)
+    stageWrite(stream)( ParStreamRead(stream, ens) )(ctx)
+  }
 }
 
 object StreamOut {
@@ -63,6 +67,9 @@ object StreamOut {
   }
   @internal def write[T:Type:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bit]) = {
     stageWrite(stream)(StreamWrite(stream, data, en))(ctx)
+  }
+  @internal def par_write[T:Type:Bits](stream: Exp[StreamOut[T]], data: Seq[Exp[T]], ens: Seq[Exp[Bit]]) = {
+    stageWrite(stream)( ParStreamWrite(stream, data, ens) )(ctx)
   }
 }
 

@@ -2,6 +2,7 @@ package spatial.lang
 
 import spatial._
 import forge._
+import spatial.lang.control.Pipe
 
 // TODO: Is this still used by anything? If not, delete
 trait AlteraVideoApi extends AlteraVideoExp { this: SpatialApi =>

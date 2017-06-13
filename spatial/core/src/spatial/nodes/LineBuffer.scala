@@ -26,7 +26,7 @@ class LineBufferIsMemory[T:Type:Bits] extends Mem[T, LineBuffer] {
 
 
 /** IR Nodes **/
-case class LineBufferNew[T:Type:Bits](rows: Exp[Index], cols: Exp[Index]) extends Op[LineBuffer[T]] {
+case class LineBufferNew[T:Type:Bits](rows: Exp[Index], cols: Exp[Index]) extends Alloc[LineBuffer[T]] {
   def mirror(f:Tx) = LineBuffer.alloc[T](f(rows),f(cols))
   val mT = typ[T]
 }
@@ -74,4 +74,25 @@ case class LineBufferEnq[T:Type:Bits](
   override def aliases = Nil
   val mT = typ[T]
   val bT = bits[T]
+}
+
+case class ParLineBufferLoad[T:Type:Bits](
+  linebuffer: Exp[LineBuffer[T]],
+  rows:       Seq[Exp[Index]],
+  cols:       Seq[Exp[Index]],
+  ens:        Seq[Exp[Bit]]
+)(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
+  def mirror(f:Tx) = LineBuffer.par_load(f(linebuffer),f(rows),f(cols),f(ens))
+  override def aliases = Nil
+  val mT = typ[T]
+}
+
+case class ParLineBufferEnq[T:Type:Bits](
+  linebuffer: Exp[LineBuffer[T]],
+  data:       Seq[Exp[T]],
+  ens:        Seq[Exp[Bit]]
+) extends EnabledOp[MUnit](ens:_*) {
+  def mirror(f:Tx) = LineBuffer.par_enq(f(linebuffer),f(data),f(ens))
+  override def aliases = Nil
+  val mT = typ[T]
 }

@@ -4,8 +4,8 @@ import forge._
 import spatial.nodes._
 
 case class FILO[T:Type:Bits](s: Exp[FILO[T]]) extends Template[FILO[T]] {
-  @api def push(data: T): Void = this.push(data, true)
-  @api def push(data: T, en: Bit): Void = MUnit(FILO.push(this.s, data.s, en.s))
+  @api def push(data: T): MUnit = this.push(data, true)
+  @api def push(data: T, en: Bit): MUnit = MUnit(FILO.push(this.s, data.s, en.s))
 
   @api def pop(): T = this.pop(true)
   @api def pop(en: Bit): T = wrap(FILO.pop(this.s, en.s))
@@ -16,9 +16,9 @@ case class FILO[T:Type:Bits](s: Exp[FILO[T]]) extends Template[FILO[T]] {
   @api def almostFull(): Bit = wrap(FILO.is_almost_full(this.s))
   @api def numel(): Index = wrap(FILO.numel(this.s))
 
-  //@api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
-  @api def load(dram: DRAMDenseTile1[T]): Void = dense_transfer(dram, this, isLoad = true)
-  // @api def gather(dram: DRAMSparseTile[T]): Void = copy_sparse(dram, this, isLoad = true)
+  //@api def load(dram: DRAM1[T]): MUnit = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
+  @api def load(dram: DRAMDenseTile1[T]): MUnit = dense_transfer(dram, this, isLoad = true)
+  // @api def gather(dram: DRAMSparseTile[T]): MUnit = copy_sparse(dram, this, isLoad = true)
 
   @internal def ranges: Seq[Range] = Seq(Range.alloc(None, wrap(sizeOf(s)),None,None))
 }
@@ -35,7 +35,7 @@ object FILO {
   @internal def alloc[T:Type:Bits](size: Exp[Index]): Exp[FILO[T]] = {
     stageMutable(FILONew[T](size))(ctx)
   }
-  @internal def push[T:Type:Bits](filo: Exp[FILO[T]], data: Exp[T], en: Exp[Bit]): Exp[Void] = {
+  @internal def push[T:Type:Bits](filo: Exp[FILO[T]], data: Exp[T], en: Exp[Bit]): Exp[MUnit] = {
     stageWrite(filo)(FILOPush(filo, data, en))(ctx)
   }
   @internal def pop[T:Type:Bits](filo: Exp[FILO[T]], en: Exp[Bit]): Exp[T] = {
@@ -55,6 +55,22 @@ object FILO {
   }
   @internal def numel[T:Type:Bits](filo: Exp[FILO[T]]): Exp[Index] = {
     stage(FILONumel(filo))(ctx)
+  }
+
+  @internal def par_pop[T:Type:Bits](
+    filo: Exp[FILO[T]],
+    ens:  Seq[Exp[Bit]]
+  )(implicit ctx: SrcCtx) = {
+    implicit val vT = VectorN.typeFromLen[T](ens.length)
+    stageWrite(filo)( ParFILOPop(filo, ens) )(ctx)
+  }
+
+  @internal def par_push[T:Type:Bits](
+    filo: Exp[FILO[T]],
+    data: Seq[Exp[T]],
+    ens:  Seq[Exp[Bit]]
+  )(implicit ctx: SrcCtx) = {
+    stageWrite(filo)( ParFILOPush(filo, data, ens) )(ctx)
   }
 }
 

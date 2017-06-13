@@ -1,12 +1,12 @@
 package spatial.transform
 
 import argon.transform.ForwardTransformer
-import spatial.SpatialExp
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait RegReadCSE extends ForwardTransformer {
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Register Read CSE"
 
   // Mechanism to track duplicates that are no longer needed due to CSE'd register reads
@@ -71,12 +71,12 @@ trait RegReadCSE extends ForwardTransformer {
       dbg(c"  effects = $effects")
       dbg(c"  deps = $deps")
 
-      val symsWithSameDef = defCache.getOrElse(rhs2, Nil) intersect context
+      val symsWithSameDef = state.defCache.getOrElse(rhs2, Nil) intersect state.context
       val symsWithSameEffects = symsWithSameDef.find{case Effectful(u2, es) => u2 == effects && es == deps }
 
-      dbg(c"  def cache: ${defCache.getOrElse(rhs2,Nil)}")
+      dbg(c"  def cache: ${state.defCache.getOrElse(rhs2,Nil)}")
       dbg(c"  context:")
-      context.foreach{s => dbg(c"    ${str(s)} [effects = ${effectsOf(s)}, deps = ${depsOf(s)}]")}
+      state.context.foreach{s => dbg(c"    ${str(s)} [effects = ${effectsOf(s)}, deps = ${depsOf(s)}]")}
       dbg(c"  syms with same def: $symsWithSameDef")
       dbg(c"  syms with same effects: $symsWithSameEffects")
 
@@ -92,7 +92,7 @@ trait RegReadCSE extends ForwardTransformer {
 
         case None =>
           val lhs2 = mirror(lhs,rhs)
-          getDef(lhs2).foreach{d => defCache += d -> syms(lhs2).toList }
+          getDef(lhs2).foreach{d => state.defCache += d -> syms(lhs2).toList }
           lhs2
       }
 

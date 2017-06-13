@@ -1,12 +1,30 @@
 package spatial
 
-import argon._
+import argon.{ArgonLangInternal, ArgonLangExternal, ArgonExp, ArgonApi}
 import forge._
-import spatial.analysis._
 import spatial.lang._
+import spatial.metadata._
 import spatial.targets.FPGATarget
 
 trait SpatialCommonAliases extends SpatialLangAliases {
+  type Matrix[T] = spatial.lang.Matrix[T]
+  type Tensor3[T] = spatial.lang.Tensor3[T]
+  type Tensor4[T] = spatial.lang.Tensor4[T]
+  type Tensor5[T] = spatial.lang.Tensor5[T]
+
+  type Controller = spatial.lang.control.Controller
+  val Accel = spatial.lang.control.Accel
+  val Foreach = spatial.lang.control.Foreach
+  val FSM = spatial.lang.control.FSM
+  val Fold = spatial.lang.control.Fold
+  val Reduce = spatial.lang.control.Reduce
+  val MemFold = spatial.lang.control.MemFold
+  val MemReduce = spatial.lang.control.MemReduce
+
+  val Pipe = spatial.lang.control.Pipe
+  val Parallel = spatial.lang.control.Parallel
+  val Stream = spatial.lang.control.Stream
+
   type Counter = spatial.lang.Counter
   val Counter = spatial.lang.Counter
   type CounterChain = spatial.lang.CounterChain
@@ -19,6 +37,8 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   type DRAM3[T] = spatial.lang.DRAM3[T]
   type DRAM4[T] = spatial.lang.DRAM4[T]
   type DRAM5[T] = spatial.lang.DRAM5[T]
+
+  type Mem[T,C] = spatial.lang.Mem[T,C]
 
   type FIFO[T] = spatial.lang.FIFO[T]
   val FIFO = spatial.lang.FIFO
@@ -35,6 +55,28 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   type LUT3[T] = spatial.lang.LUT3[T]
   type LUT4[T] = spatial.lang.LUT4[T]
   type LUT5[T] = spatial.lang.LUT5[T]
+
+  type Reg[T] = spatial.lang.Reg[T]
+  val Reg = spatial.lang.Reg
+  val ArgIn = spatial.lang.ArgIn
+  val ArgOut = spatial.lang.ArgOut
+  val HostIO = spatial.lang.HostIO
+
+  type RegFile[T] = spatial.lang.RegFile[T]
+  val RegFile = spatial.lang.RegFile
+  type RegFile1[T] = spatial.lang.RegFile1[T]
+  type RegFile2[T] = spatial.lang.RegFile2[T]
+  type RegFile3[T] = spatial.lang.RegFile3[T]
+
+  type SRAM[T] = spatial.lang.SRAM[T]
+  val SRAM = spatial.lang.SRAM
+  type SRAM1[T] = spatial.lang.SRAM1[T]
+  type SRAM2[T] = spatial.lang.SRAM2[T]
+  type SRAM3[T] = spatial.lang.SRAM3[T]
+  type SRAM4[T] = spatial.lang.SRAM4[T]
+  type SRAM5[T] = spatial.lang.SRAM5[T]
+
+  type VarReg[T] = spatial.lang.VarReg[T]
 
   type Range = spatial.lang.Range
   val Range = spatial.lang.Range
@@ -54,20 +96,29 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   val VectorN = spatial.lang.VectorN
   type Vec[N,T] = spatial.lang.Vec[N,T]
   val Vec = spatial.lang.Vec
+
+  type BurstCmd = spatial.lang.BurstCmd
+  type IssuedCmd = spatial.lang.IssuedCmd
+  type DRAMBus[T] = spatial.lang.DRAMBus[T]
+  val BurstCmdBus = spatial.lang.BurstCmdBus
+  val BurstAckBus = spatial.lang.BurstAckBus
+  type BurstDataBus[T] = spatial.lang.BurstDataBus[T]
+  type BurstFullDataBus[T] = spatial.lang.BurstFullDataBus[T]
+
+  val GatherAddrBus = spatial.lang.GatherAddrBus
+  type GatherDataBus[T] = spatial.lang.GatherDataBus[T]
+
+  type ScatterCmdBus[T] = spatial.lang.ScatterCmdBus[T]
+  val ScatterAckBus = spatial.lang.ScatterAckBus
 }
 
 protected trait SpatialExp extends ArgonExp with SpatialCommonAliases
-    with MatrixExp
-    with FileIOExp
-    with ControllerExp
-    with CounterExp with DRAMExp with DRAMTransferExp with FIFOExp with FILOExp with HostTransferExp with MathExp
-    with MemoryExp with ParameterExp with RangeExp with RegExp with SRAMExp with StagedUtilExp with UnrolledExp with VectorExp
-    with StreamExp with PinExp with AlteraVideoExp with ShiftRegExp
-    with LineBufferExp with RegisterFileExp with SwitchExp with StateMachineExp with EnabledPrimitivesExp
-    with NodeClasses with NodeUtils with ParameterRestrictions with SpatialMetadataExp with BankingMetadataExp
-    with StreamTransfersExp
+  with AlteraVideoExp
+  with DRAMTransfersExp
+  with RangeExp
+  with SpatialMetadataExp
 {
-  def target: FPGATarget // Needs to be filled in by application, defaults to Default
+  def target: FPGATarget = SpatialConfig.target // Needs to be filled in by application, defaults to Default
 }
 
 trait SpatialImplicits {
@@ -87,30 +138,44 @@ trait SpatialImplicits {
   }
 }
 
-trait SpatialApi extends ArgonApi with SpatialExp
+trait SpatialApi extends ArgonApi with SpatialExp with SpatialImplicits
+  with AlteraVideoApi
   with DebuggingApi
+  with DRAMTransfersApi
+  with FileIOApi
+  with HostTransferApi
+  with MathApi
   with MatrixApi
-  with ControllerApi with CounterApi with DRAMApi with DRAMTransferApi with FIFOApi with FILOApi with HostTransferApi with MathApi
-  with MemoryApi with ParameterApi with RangeApi with RegApi with SRAMApi with StagedUtilApi with UnrolledApi
-  with StreamApi with PinApi with AlteraVideoApi with ShiftRegApi with LUTsApi
-  with LineBufferApi with RegisterFileApi with SwitchApi with StateMachineApi with EnabledPrimitivesApi
-  with SpatialMetadataApi with BankingMetadataApi with SpatialImplicits with FileIOApi
-  with StreamTransfersApi
-
+  with Parameters
+  with RangeApi
+  with RegApi
+  with SRAMApi
+  with StagedUtils
+  with StreamApi
+  with VectorApi
 
 
 trait SpatialLangInternal extends ArgonLangInternal with SpatialExp {
   val BitOps = spatial.lang.BitOps
   val DebuggingOps = spatial.lang.DebuggingOps
+  val Delays = spatial.lang.Delays
+  val VarReg = spatial.lang.VarReg
 
   val HostTransferOps = spatial.lang.HostTransferOps
 
   val MFile = spatial.lang.File
-  val SwitchOps = spatial.lang.SwitchOps
+  val Switches = spatial.lang.Switches
+
+  type Ctrl = (Exp[_], Boolean)
+  type Access = (Exp[_], Ctrl)
+
+
 }
 
 trait SpatialLangExternal extends ArgonLangExternal with SpatialApi {
   type File = spatial.lang.File
+
+  val Math = spatial.lang.Math
 }
 
 object compiler extends SpatialLangInternal

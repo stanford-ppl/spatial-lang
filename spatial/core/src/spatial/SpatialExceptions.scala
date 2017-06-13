@@ -1,6 +1,7 @@
 package spatial
 
 import argon.core.compiler._
+import spatial.compiler._
 
 // --- Compiler exceptions
 

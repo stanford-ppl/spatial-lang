@@ -3,8 +3,8 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.ops.{FixPtExp, FltPtExp}
 import spatial.lang.MathExp
+import spatial.metadata.SpatialMetadataExp
 import spatial.{SpatialConfig, SpatialExp}
-import spatial.analysis.SpatialMetadataExp
 
 trait ChiselGenMath extends ChiselCodegen {
   val IR: SpatialExp

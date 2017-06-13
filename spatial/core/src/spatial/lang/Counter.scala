@@ -2,7 +2,6 @@ package spatial.lang
 
 import forge._
 import spatial.nodes._
-import spatial.InvalidParallelFactorError
 
 case class Counter(s: Exp[Counter]) extends MetaAny[Counter] {
   @api override def ===(that: Counter) = this.s == that.s
@@ -33,12 +32,6 @@ object Counter {
   }
   @internal def forever_counter() = stageUnique(Forever())(ctx)
 
-  def extractParFactor(par: Option[Index])(implicit ctx: SrcCtx): Const[Index] = par.map(_.s) match {
-    case Some(x: Const[_]) if isIndexType(x.tp) => x.asInstanceOf[Const[Index]]
-    case None => intParam(1)
-    case Some(x) => new InvalidParallelFactorError(x)(ctx); intParam(1)
-  }
-
   /** Constructors **/
   def counter_new(start: Exp[Index], end: Exp[Index], step: Exp[Index], par: Const[Index])(implicit ctx: SrcCtx): Sym[Counter] = {
     val counter = stageUnique(CounterNew(start,end,step,par))(ctx)
@@ -58,28 +51,3 @@ object Counter {
   }
 }
 
-
-
-trait CounterExp {
-  /** Direct methods **/
-  //@internal def forever: Counter = Counter(forever_counter())
-
-  /** Internals **/
-  def isUnitCounter(x: Exp[Counter]): Boolean = x match {
-    case Op(CounterNew(Const(0), Const(1), Const(1), _)) => true
-    case _ => false
-  }
-
-  def countersOf(x: Exp[CounterChain]): Seq[Exp[Counter]] = x match {
-    case Op(CounterChainNew(ctrs)) => ctrs
-    case _ => Nil
-  }
-
-  private[spatial] def counterStarts(x: Exp[CounterChain]): Seq[Option[Exp[Index]]] = countersOf(x) map {
-    case Def(CounterNew(start,_,_,_)) => Some(start)
-    case _ => None
-  }
-
-  def isForeverCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).exists(isForever)
-  def isUnitCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).forall(isUnitCounter)
-}

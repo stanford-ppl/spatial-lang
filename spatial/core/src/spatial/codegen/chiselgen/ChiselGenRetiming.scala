@@ -2,8 +2,8 @@ package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.lang.ShiftRegExp
+import spatial.metadata.SpatialMetadataExp
 import spatial.{SpatialConfig, SpatialExp}
-import spatial.analysis.SpatialMetadataExp
 // import argon.ops.BoolExp
 
 trait ChiselGenRetiming extends ChiselGenSRAM {

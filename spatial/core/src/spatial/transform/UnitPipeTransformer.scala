@@ -1,9 +1,12 @@
 package spatial.transform
 
+import argon.nodes._
 import argon.transform.ForwardTransformer
-import spatial.SpatialExp
-import spatial.api.ControllerApi
 import spatial.analysis.SpatialTraversal
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -11,14 +14,11 @@ import scala.collection.mutable.ArrayBuffer
   * Inserts UnitPipe wrappers for primitive nodes in outer control nodes, along with registers for communication
   */
 trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
-  val IR: SpatialExp with ControllerApi
-  import IR._
-
   override val name = "Unit Pipe Transformer"
-  override val allowPretransform = true
-  var enable: Option[Exp[Bool]] = None
+  //override val allowPretransform = true
+  var enable: Option[Exp[Bit]] = None
 
-  def withEnable[T](en: Exp[Bool])(blk: => T)(implicit ctx: SrcCtx): T = {
+  def withEnable[T](en: Exp[Bit])(blk: => T)(implicit ctx: SrcCtx): T = {
     var prevEnable = enable
     dbgs(s"Enable was $enable")
     enable = Some(en) //Some(enable.map(bool_and(_,en)).getOrElse(en) )   TODO: Should this use ANDs?
@@ -54,31 +54,37 @@ trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
   private def regFromSym[T](s: Exp[T])(implicit ctx: SrcCtx): Exp[Reg[T]] = s.tp match {
     case Bits(bits) =>
       val init = unwrap(bits.zero)(s.tp)
-      reg_alloc[T](init)(s.tp, bits, ctx)
-    case _ => throw new UndefinedZeroException(s, s.tp)
+      implicit val mT: Type[T] = s.tp
+      implicit val bT: Bits[T] = bits.asInstanceOf[Bits[T]]
+      Reg.alloc[T](init)
+    case _ => throw new spatial.UndefinedZeroException(s, s.tp)
   }
-  private def regWrite[T](reg: Exp[Reg[T]], s: Exp[T])(implicit ctx: SrcCtx): Exp[Void] = s.tp match {
+  private def regWrite[T](reg: Exp[Reg[T]], s: Exp[T])(implicit ctx: SrcCtx): Exp[MUnit] = s.tp match {
     case Bits(bits) =>
-      reg_write(reg, s, bool(true))(s.tp, bits, ctx)
-    case _ => throw new UndefinedZeroException(s, s.tp)
+      implicit val mT: Type[T] = s.tp
+      implicit val bT: Bits[T] = bits.asInstanceOf[Bits[T]]
+      Reg.write(reg, s, Bit.const(true))
+    case _ => throw new spatial.UndefinedZeroException(s, s.tp)
   }
   private def regRead[T](reg: Exp[Reg[T]])(implicit ctx: SrcCtx): Exp[T] = reg.tp.typeArguments.head match {
     case tp@Bits(bits) =>
-      reg_read(reg)(mtyp(tp), mbits(bits), ctx)
-    case _ => throw new UndefinedZeroException(reg, reg.tp.typeArguments.head)
+      implicit val mT: Type[T] = mtyp(tp)
+      implicit val bT: Bits[T] = mbits(bits)
+      Reg.read(reg)
+    case _ => throw new spatial.UndefinedZeroException(reg, reg.tp.typeArguments.head)
   }
 
   private def varFromSym[T](s: Exp[T])(implicit ctx: SrcCtx): Exp[VarReg[T]] = {
     implicit val mT: Type[T] = s.tp
-    var_reg_alloc[T](s.tp)
+    VarReg.alloc[T](s.tp)
   }
-  private def varWrite[T](varr: Exp[VarReg[T]], s: Exp[T])(implicit ctx: SrcCtx): Exp[Void] = {
+  private def varWrite[T](varr: Exp[VarReg[T]], s: Exp[T])(implicit ctx: SrcCtx): Exp[MUnit] = {
     implicit val mT: Type[T] = s.tp
-    var_reg_write(varr, s, bool(true))
+    VarReg.write(varr, s, Bit.const(true))
   }
   private def varRead[T](varr: Exp[VarReg[T]])(implicit ctx: SrcCtx): Exp[T] = {
     implicit val tp: Type[T] = varr.tp.typeArguments.head.asInstanceOf[Type[T]]
-    var_reg_read(varr)
+    VarReg.read(varr)
   }
 
   private def wrapBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
@@ -116,7 +122,7 @@ trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
         val calculated = stage.nodes.map{case TP(s,d) => s}
         val innerDeps = calculated ++ deps.take(i).flatten // Things in this Unit Pipe
         val escaping = calculated.filter{sym => (sym == block.result || (sym.dependents diff innerDeps).nonEmpty) && !isRegisterRead(sym) }
-        val (escapingUnits, escapingValues) = escaping.partition{_.tp == VoidType}
+        val (escapingUnits, escapingValues) = escaping.partition{_.tp == UnitType}
 
         val (escapingBits, escapingVars) = escapingValues.partition{sym => Bits.unapply(sym.tp).isDefined }
 
@@ -129,12 +135,12 @@ trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
         val vars = escapingVars.map{sym => varFromSym(sym) }
 
         stage.staticAllocs.foreach(visitStm)
-        val pipe = op_unit_pipe(enable.toList, {
+        val pipe = Pipe.op_unit_pipe(enable.toList, () => {
           isolateSubstScope { // We shouldn't be able to see any substitutions in here from the outside by default
             stage.nodes.foreach(visitStm)
             escapingBits.zip(regs).foreach { case (sym, reg) => regWrite(reg, f(sym)) }
             escapingVars.zip(vars).foreach { case (sym, varr) => varWrite(varr, f(sym)) }
-            void
+            unit
           }
         })
         levelOf(pipe) = InnerControl
@@ -160,7 +166,7 @@ trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
         stage.dynamicAllocs.foreach(visitStm)   // Allocations which can rely on reg reads
     }
     val result = typ[T] match {
-      case VoidType => void
+      case UnitType => MUnit()
       case _ => f(block.result)
     }
     result.asInstanceOf[Exp[T]]
@@ -196,39 +202,39 @@ trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
     result
   }
 
-  override def apply[T:Type](b: Block[T]): Exp[T] = {
+  override def apply[T:Type](b: Block[T]): () => Exp[T] = {
     val doWrap = wrapBlocks.headOption.getOrElse(false)
     if (wrapBlocks.nonEmpty) wrapBlocks = wrapBlocks.drop(1)
     dbgs(c"Transforming Block $b [$wrapBlocks]")
     if (doWrap) {
-      val result = wrapBlock(b)(mtyp(b.tp),ctx.get)
+      val result = () => wrapBlock(b)(mtyp(b.tp),ctx.get)
       result
     }
     else super.apply(b)
   }
 
   def wrapSwitchCase[T:Type](lhs: Exp[T], body: Block[T])(implicit ctx: SrcCtx): Exp[T] = transferMetadataIfNew(lhs){
-    op_case { () =>
+    Switches.op_case { () =>
       val reg: Option[Exp[Reg[T]]] = typ[T] match {
         case Bits(bT) => Some(regFromSym(body.result))
         case _ => None // Nothing needed for escaping values
       }
-      val pipe = op_unit_pipe(enable.toList, {
+      val pipe = Pipe.op_unit_pipe(enable.toList, () => {
         wrapBlock(body)
         reg match {
           case Some(r) =>
-            val writePipe = op_unit_pipe(enable.toList, { regWrite(r, f(body.result)) })
+            val writePipe = Pipe.op_unit_pipe(enable.toList, () => { regWrite(r, f(body.result)) })
             levelOf(writePipe) = InnerControl
             styleOf(writePipe) = InnerPipe
-            void
-          case None => void
+            unit
+          case None => unit
         }
       })
       levelOf(pipe) = OuterControl
       styleOf(pipe) = MetaPipe
       reg match {
         case Some(r) => regRead(r)
-        case _ => void.asInstanceOf[Exp[T]]
+        case _ => unit.asInstanceOf[Exp[T]]
       }
     }
   }._1
@@ -254,7 +260,7 @@ trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
         f(body.result)
       }
       val cases2 = f(cases)
-      val lhs2 = op_switch(body2, selects2, cases2)
+      val lhs2 = Switches.op_switch(body2, selects2, cases2)
       transferMetadata(lhs, lhs2)
       lhs2
     }
@@ -263,7 +269,7 @@ trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
     case op@SwitchCase(body) if isOuterControl(lhs) => inControl(lhs) {
       val controllers = getControlNodes(body)
       val primitives = getPrimitiveNodes(body)
-      if (controllers.length > 1 || (primitives.length > 1 && controllers.length >= 1)) {
+      if (controllers.length > 1 || (primitives.length > 1 && controllers.nonEmpty)) {
         wrapSwitchCase(lhs, body)(mtyp(op.mT),ctx)
       }
       else {
@@ -275,7 +281,7 @@ trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
     /*case op @ IfThenElse(cond,thenp,elsep) if inAccel && controlLevel.contains(OuterControl) =>
       withWrap(List(true,true), ctx) { super.transform(lhs, rhs) }*/
 
-    case StateMachine(en,start,notDone,action,nextState,state) if isOuterControl(lhs) => inControl(lhs) {
+    case _:StateMachine[_] if isOuterControl(lhs) => inControl(lhs) {
       withWrap(List(false, true, false), ctx) { super.transform(lhs, rhs) } // Wrap the second block only
     }
 

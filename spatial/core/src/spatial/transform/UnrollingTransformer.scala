@@ -1,14 +1,15 @@
 package spatial.transform
 
+import argon.analysis._
 import argon.transform.ForwardTransformer
-import spatial._
-import spatial.lang.ControllerApi
 import org.virtualized.SourceContext
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+import spatial.SpatialConfig
 
 trait UnrollingTransformer extends ForwardTransformer { self =>
-  val IR: SpatialExp with ControllerApi
-  import IR._
-
   override val name = "Unrolling Transformer"
   var inHwScope: Boolean = false
 
@@ -45,8 +46,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     * Valid bits - tracks all valid bits associated with the current scope to handle edge cases
     * e.g. cases where parallelization is not an even divider of counter max
     */
-  var validBits: Seq[Exp[Bool]] = Nil
-  def withValids[T](valids: Seq[Exp[Bool]])(blk: => T): T = {
+  var validBits: Seq[Exp[Bit]] = Nil
+  def withValids[T](valids: Seq[Exp[Bit]])(blk: => T): T = {
     val prevValids = validBits
     validBits = valids
     val result = blk
@@ -56,12 +57,12 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   // Single global valid - should only be used in inner pipes - creates AND tree
   def globalValid = {
-    if (validBits.isEmpty) bool(true)
-    else reduceTree(validBits){(a,b) => bool_and(a,b) }
+    if (validBits.isEmpty) Bit.const(true)
+    else spatial.lang.Math.reduceTree(validBits){(a,b) => Bit.and(a,b) }
   }
 
   // Sequence of valid bits associated with current unrolling scope
-  def globalValids = if (validBits.nonEmpty) validBits else Seq(bool(true))
+  def globalValids = if (validBits.nonEmpty) validBits else Seq(Bit.const(true))
 
 
   /**
@@ -192,11 +193,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val P = Ps.product
     val N = Ps.length
     val prods = List.tabulate(N){i => Ps.slice(i+1,N).product }
-    val indices: Seq[Seq[Bound[Index]]]    = Ps.map{p => List.fill(p){ fresh[Index] }}
-    val indexValids: Seq[Seq[Bound[Bool]]] = Ps.map{p => List.fill(p){ fresh[Bool] }}
+    val indices: Seq[Seq[Bound[Index]]]   = Ps.map{p => List.fill(p){ fresh[Index] }}
+    val indexValids: Seq[Seq[Bound[Bit]]] = Ps.map{p => List.fill(p){ fresh[Bit] }}
 
     // Valid bits corresponding to each lane
-    lazy val valids: List[Seq[Exp[Bool]]]  = List.tabulate(P){p =>
+    lazy val valids: List[Seq[Exp[Bit]]]  = List.tabulate(P){p =>
       val laneIdxValids = indexValids.zip(parAddr(p)).map{case (vec,i) => vec(i)}
       laneIdxValids ++ validBits
     }
@@ -241,7 +242,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     // NOTE: This assumes that the node has no meaningful return value (i.e. all are Pipeline or Unit)
     // Bad things can happen here if you're not careful!
     def split[T:Type](orig: Sym[T], vec: Exp[Vector[_]])(implicit ctx: SrcCtx): List[Exp[T]] = map{p =>
-      val element = vector_apply[T](vec.asInstanceOf[Exp[Vector[T]]], p)(typ[T],ctx)
+      val element = Vector.select[T](vec.asInstanceOf[Exp[Vector[T]]], p)
       register(orig -> element)
       element
     }
@@ -267,70 +268,70 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     case _ => super.transform(lhs, rhs)
   }).asInstanceOf[Exp[A]]
 
-  val writeParallelizer: PartialFunction[(Unroller, Def, SrcCtx),Exp[Void]] = {
+  val writeParallelizer: PartialFunction[(Unroller, Def, SrcCtx),Exp[MUnit]] = {
     case (lanes, e@RegFileStore(reg,inds,data,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
       val datas = lanes.map{p => f(data) }
       val ens   = lanes.map{p => f(en) }
-      par_regfile_store(f(reg),addrs,datas,ens)(e.mT,e.bT,ctx)
+      RegFile.par_store(f(reg),addrs,datas,ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@LineBufferEnq(lb,data,en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => bool_and(f(en), globalValid) }
-      par_linebuffer_enq(f(lb), datas, ens)(e.mT,e.bT,ctx)
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      LineBuffer.par_enq(f(lb), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@FIFOEnq(fifo, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => bool_and( f(en), globalValid) }
-      par_fifo_enq(f(fifo), datas, ens)(e.mT,e.bT,ctx)
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      FIFO.par_enq(f(fifo), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@FILOPush(filo, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => bool_and( f(en), globalValid) }
-      par_filo_push(f(filo), datas, ens)(e.mT,e.bT,ctx)
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      FILO.par_push(f(filo), datas, ens)(e.mT,e.bT,ctx)
 
     case (lanes, e@StreamWrite(stream, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => bool_and( f(en), globalValid) }
-      par_stream_write(f(stream), datas, ens)(e.mT,e.bT,ctx)
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      StreamOut.par_write(f(stream), datas, ens)(e.mT,e.bT,ctx,state)
 
     // TODO: Assuming dims and ofs are not needed for now
     case (lanes, e@SRAMStore(sram,dims,inds,ofs,data,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => bool_and(f(en), globalValid) }
-      par_sram_store(f(sram), addrs, datas, ens)(e.mT,e.bT,ctx)
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      SRAM.par_store(f(sram), addrs, datas, ens)(e.mT,e.bT,ctx,state)
   }
 
   val readParallelizer: PartialFunction[(Unroller, Def, SrcCtx),Exp[Vector[_]]] = {
     case (lanes, e@RegFileLoad(reg,inds,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
       val ens   = lanes.map{p => f(en) }
-      par_regfile_load(f(reg), addrs, ens)(mtyp(e.mT), mbits(e.bT), ctx)
+      RegFile.par_load(f(reg), addrs, ens)(mtyp(e.mT), mbits(e.bT), ctx, state)
 
     case (lanes, e@LineBufferLoad(lb,row,col,en), ctx) =>
       val rows = lanes.map{p => f(row) }
       val cols = lanes.map{p => f(col) }
       val ens  = lanes.map{p => f(en) }
-      par_linebuffer_load(f(lb), rows, cols, ens)(mtyp(e.mT),mbits(e.bT),ctx)
+      LineBuffer.par_load(f(lb), rows, cols, ens)(mtyp(e.mT),mbits(e.bT),ctx, state)
 
     case (lanes, e@FIFODeq(fifo, en), ctx) =>
-      val enables = lanes.map{p => bool_and(f(en), globalValid) }
-      par_fifo_deq(f(fifo), enables)(mtyp(e.mT),mbits(e.bT),ctx)
+      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      FIFO.par_deq(f(fifo), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     case (lanes, e@FILOPop(filo, en), ctx) =>
-      val enables = lanes.map{p => bool_and(f(en), globalValid) }
-      par_filo_pop(f(filo), enables)(mtyp(e.mT),mbits(e.bT),ctx)
+      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      FILO.par_pop(f(filo), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     case (lanes, e@StreamRead(stream, en), ctx) =>
-      val enables = lanes.map{p => bool_and(f(en), globalValid) }
-      par_stream_read(f(stream), enables)(mtyp(e.mT),mbits(e.bT),ctx)
+      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      StreamIn.par_read(f(stream), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     // TODO: Assuming dims and ofs are not needed for now
     case (lanes, e@SRAMLoad(sram,dims,inds,ofs,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
-      val ens   = lanes.map{p => bool_and(f(en), globalValid) }
-      par_sram_load(f(sram), addrs, ens)(mtyp(e.mT),mbits(e.bT),ctx)
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      SRAM.par_load(f(sram), addrs, ens)(mtyp(e.mT),mbits(e.bT),ctx,state)
   }
 
   /**
@@ -429,7 +430,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     logs(s"Unrolling controller:")
     logs(s"$lhs = $rhs")
     if (lanes.size > 1) {
-      val lhs2 = op_parallel_pipe(globalValids, {
+      val lhs2 = Parallel.op_parallel_pipe(globalValids, () => {
         lanes.foreach{p =>
           logs(s"$lhs duplicate ${p+1}/${lanes.size}")
           unroll

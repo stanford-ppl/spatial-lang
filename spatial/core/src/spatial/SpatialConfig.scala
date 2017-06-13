@@ -2,6 +2,8 @@ package spatial
 
 import com.typesafe.config.ConfigFactory
 import pureconfig._
+import argon.util.Report._
+import spatial.targets.FPGATarget
 
 object SpatialConfig {
 
@@ -37,6 +39,7 @@ object SpatialConfig {
   )
 
   var targetName: String = _
+  var target: FPGATarget = targets.DefaultTarget
 
   var enableDSE: Boolean = _
   var enableDot: Boolean = _

@@ -34,7 +34,7 @@ case class LUT5Type[T:Bits](child: Type[T]) extends Type[LUT5[T]] with LUTType[T
 
 
 /** IR Nodes **/
-case class LUTNew[T:Type:Bits,C[_]<:LUT[_]](dims: Seq[Int], elems: Seq[Exp[T]])(implicit cT: Type[C[T]]) extends Op[C[T]] {
+case class LUTNew[T:Type:Bits,C[_]<:LUT[_]](dims: Seq[Int], elems: Seq[Exp[T]])(implicit cT: Type[C[T]]) extends Alloc[C[T]] {
   def mirror(f:Tx) = LUT.alloc[T,C](dims, f(elems))
   val mT = typ[T]
 }

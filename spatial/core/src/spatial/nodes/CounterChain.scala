@@ -10,6 +10,6 @@ object CounterChainType extends Type[CounterChain] {
   override def stagedClass = classOf[CounterChain]
 }
 
-case class CounterChainNew(counters: Seq[Exp[Counter]]) extends Op[CounterChain] {
+case class CounterChainNew(counters: Seq[Exp[Counter]]) extends DynamicAlloc[CounterChain] {
   def mirror(f:Tx) = CounterChain.fromseq(f(counters))
 }

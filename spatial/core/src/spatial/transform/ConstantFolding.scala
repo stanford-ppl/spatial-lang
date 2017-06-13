@@ -1,16 +1,15 @@
 package spatial.transform
 
 import argon.transform.ForwardTransformer
-import spatial.SpatialExp
+import argon.nodes._
+import spatial.compiler._
+import spatial.metadata._
 
 /**
   * Replaces all fixed and floating point, pure expressions with "final" bounds with corresponding constant values
   * TODO: Is this transformer still needed? Now largely superseded by rewrite rules
   */
 trait ConstantFolding extends ForwardTransformer {
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Constant Folding"
 
   override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = lhs match {
@@ -18,8 +17,17 @@ trait ConstantFolding extends ForwardTransformer {
     case Effectful(effects,deps) => super.transform(lhs, rhs)
 
     case Final(c) => (lhs.tp match {
-      case tp: FixPtType[_,_,_] => fixpt(BigDecimal(c))(tp.mS,tp.mI,tp.mF,ctx)
-      case tp: FltPtType[_,_]   => fltpt(BigDecimal(c))(tp.mG, tp.mE, ctx)
+      case tp: FixPtType[s,i,f] =>
+        implicit val mS = tp.mS.asInstanceOf[BOOL[s]]
+        implicit val mI = tp.mI.asInstanceOf[INT[i]]
+        implicit val mF = tp.mF.asInstanceOf[INT[f]]
+        FixPt.const[s,i,f](BigDecimal(c))
+
+      case tp: FltPtType[g,e]   =>
+        implicit val mG = tp.mG.asInstanceOf[INT[g]]
+        implicit val mE = tp.mE.asInstanceOf[INT[e]]
+        FltPt.const[g,e](BigDecimal(c))
+
       case _ => super.transform(lhs, rhs)
     }).asInstanceOf[Exp[T]]
 

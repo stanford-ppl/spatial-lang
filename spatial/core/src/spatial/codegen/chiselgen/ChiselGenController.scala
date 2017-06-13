@@ -3,8 +3,8 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen.ChiselCodegen
 import spatial.lang.{ControllerExp, CounterExp, UnrolledExp}
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
+import spatial.metadata.SpatialMetadataExp
 import spatial.targets.DE1._
 
 

@@ -2,8 +2,8 @@ package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
 import spatial.lang.ControllerExp
+import spatial.metadata.SpatialMetadataExp
 import spatial.{SpatialConfig, SpatialExp}
-import spatial.analysis.SpatialMetadataExp
 
 trait CppGenController extends CppCodegen {
   val IR: SpatialExp

@@ -67,35 +67,35 @@ object LUT {
 }
 
 case class LUT1[T:Type:Bits](s: Exp[LUT1[T]]) extends Template[LUT1[T]] with LUT[T] {
-  @api def apply(i: Index): T = wrap(LUT.load(s, Seq(i.s), MBoolean.const(true)))
+  @api def apply(i: Index): T = wrap(LUT.load(s, Seq(i.s), Bit.const(true)))
 }
 object LUT1 {
   implicit def lut1Type[T:Type:Bits]: Type[LUT1[T]] = LUT1Type(typ[T])
 }
 
 case class LUT2[T:Type:Bits](s: Exp[LUT2[T]]) extends Template[LUT2[T]] with LUT[T] {
-  @api def apply(r: Index, c: Index): T = wrap(LUT.load(s, Seq(r.s, c.s), MBoolean.const(true)))
+  @api def apply(r: Index, c: Index): T = wrap(LUT.load(s, Seq(r.s, c.s), Bit.const(true)))
 }
 object LUT2 {
   implicit def lut2Type[T:Type:Bits]: Type[LUT2[T]] = LUT2Type(typ[T])
 }
 
 case class LUT3[T:Type:Bits](s: Exp[LUT3[T]]) extends Template[LUT3[T]] with LUT[T] {
-  @api def apply(r: Index, c: Index, p: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s), MBoolean.const(true)))
+  @api def apply(r: Index, c: Index, p: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s), Bit.const(true)))
 }
 object LUT3 {
   implicit def lut3Type[T:Type:Bits]: Type[LUT3[T]] = LUT3Type(typ[T])
 }
 
 case class LUT4[T:Type:Bits](s: Exp[LUT4[T]]) extends Template[LUT4[T]] with LUT[T] {
-  @api def apply(r: Index, c: Index, p: Index, q: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s, q.s), MBoolean.const(true)))
+  @api def apply(r: Index, c: Index, p: Index, q: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s, q.s), Bit.const(true)))
 }
 object LUT4 {
   implicit def lut4Type[T:Type:Bits]: Type[LUT4[T]] = LUT4Type(typ[T])
 }
 
 case class LUT5[T:Type:Bits](s: Exp[LUT5[T]]) extends Template[LUT5[T]] with LUT[T] {
-  @api def apply(r: Index, c: Index, p: Index, q: Index, m: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s, q.s, m.s), MBoolean.const(true)))
+  @api def apply(r: Index, c: Index, p: Index, q: Index, m: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s, q.s, m.s), Bit.const(true)))
 }
 object LUT5 {
   implicit def lut5Type[T:Type:Bits]: Type[LUT5[T]] = LUT5Type(typ[T])

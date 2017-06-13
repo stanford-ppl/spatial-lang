@@ -7,6 +7,8 @@ import forge._
 /** Internal, language type aliases (no cyclic aliases allowed, e.g. cannot have "type X = argon.lang.X") **/
 trait SpatialLangAliases extends ArgonLangAliases with ArgonCoreAliases {
   type Bit = MBoolean
+  val Bit = argon.lang.Boolean
+
   type Bus = spatial.targets.Bus
 
   type BitVector = VectorN[Bit]
@@ -16,4 +18,6 @@ trait SpatialLangAliases extends ArgonLangAliases with ArgonCoreAliases {
 
   type Tile[T] = DRAMDenseTile[T]
   type SparseTile[T] = DRAMSparseTile[T]
+
+  def unit = MUnit.const()
 }

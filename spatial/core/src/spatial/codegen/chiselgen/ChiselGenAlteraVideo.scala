@@ -3,8 +3,8 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.codegen.FileDependencies
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
 import spatial.SpatialExp
+import spatial.metadata.SpatialMetadataExp
 
 trait ChiselGenAlteraVideo extends ChiselCodegen with FileDependencies {
   val IR: SpatialExp

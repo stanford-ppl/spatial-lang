@@ -4,7 +4,7 @@ import forge._
 import spatial.nodes._
 
 case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineBuffer[T]] {
-  @api def apply(row: Index, col: Index): T = wrap(LineBuffer.load(s, row.s, col.s, MBoolean.const(true)))
+  @api def apply(row: Index, col: Index): T = wrap(LineBuffer.load(s, row.s, col.s, Bit.const(true)))
 
   @api def apply(row: Index, cols: Range)(implicit ctx: SrcCtx): Vector[T] = {
     // UNSUPPORTED: Strided range apply of line buffer
@@ -31,8 +31,8 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
     exp.tp.wrapped(exp)
   }
 
-  @api def enq(data: T): MUnit = MUnit(LineBuffer.enq(this.s, data.s, MBoolean.const(true)))
-  @api def enq(data: T, en: Bit): MUnit = MUnit(LineBuffer.neq(this.s, data.s, en.s))
+  @api def enq(data: T): MUnit = MUnit(LineBuffer.enq(this.s, data.s, Bit.const(true)))
+  @api def enq(data: T, en: Bit): MUnit = MUnit(LineBuffer.enq(this.s, data.s, en.s))
 
   @api def load(dram: DRAMDenseTile1[T])(implicit ctx: SrcCtx): MUnit = {
     /*if (!dram.ranges.head.isUnit || dram.ranges.length != 2) {
@@ -47,7 +47,7 @@ object LineBuffer {
   implicit def lineBufferType[T:Type:Bits]: Type[LineBuffer[T]] = LineBufferType(typ[T])
   implicit def linebufferIsMemory[T:Type:Bits]: Mem[T, LineBuffer] = new LineBufferIsMemory[T]
 
-  @api def apply[T:Type:Bits](rows: Index, cols: Index): LineBuffer[T] = wrap(linebuffer_new[T](rows.s, cols.s))
+  @api def apply[T:Type:Bits](rows: Index, cols: Index): LineBuffer[T] = wrap(alloc[T](rows.s, cols.s))
 
   @internal def alloc[T:Type:Bits](rows: Exp[Index], cols: Exp[Index]) = {
     stageMutable(LineBufferNew[T](rows, cols))(ctx)
@@ -60,10 +60,10 @@ object LineBuffer {
     length:     Exp[Index]
   ) = {
     implicit val vT = length match {
-      case Final(c) => vectorNType[T](c.toInt)
+      case Final(c) => VectorN.typeFromLen[T](c.toInt)
       case _ =>
         error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
-        vectorNType[T](0)
+        VectorN.typeFromLen[T](0)
     }
     stageUnique(LineBufferColSlice(linebuffer, row, colStart, length))(ctx)
   }
@@ -75,10 +75,10 @@ object LineBuffer {
     col:        Exp[Index]
   ) = {
     implicit val vT = length match {
-      case Final(c) => vectorNType[T](c.toInt)
+      case Final(c) => VectorN.typeFromLen[T](c.toInt)
       case _ =>
         error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
-        vectorNType[T](0)
+        VectorN.typeFromLen[T](0)
     }
     stageUnique(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)
   }
@@ -99,19 +99,23 @@ object LineBuffer {
   ) = {
     stageWrite(linebuffer)(LineBufferEnq(linebuffer,data,en))(ctx)
   }
-}
 
+  @internal def par_load[T:Type:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    rows:       Seq[Exp[Index]],
+    cols:       Seq[Exp[Index]],
+    ens:        Seq[Exp[Bit]]
+  ) = {
+    implicit val vT = VectorN.typeFromLen[T](ens.length)
+    stageWrite(linebuffer)(ParLineBufferLoad(linebuffer,rows,cols,ens))(ctx)
+  }
 
-trait LineBufferExp { this: SpatialExp =>
-
-
-
-
-  /** Type classes **/
-
-
-  /** Constructors **/
-
-
+  @internal def par_enq[T:Type:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    data:       Seq[Exp[T]],
+    ens:        Seq[Exp[Bit]]
+  ) = {
+    stageWrite(linebuffer)(ParLineBufferEnq(linebuffer,data,ens))(ctx)
+  }
 
 }
