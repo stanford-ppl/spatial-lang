@@ -1,12 +1,10 @@
 package spatial.analysis
 
 import argon.traversal.Traversal
-import spatial._
+import spatial.compiler._
+import spatial.utils._
 
 trait SpatialTraversal extends Traversal {
-  val IR: SpatialExp
-  import IR._
-
   def getStages(blks: Block[_]*): Seq[Sym[_]] = blks.flatMap(blockContents).flatMap(_.lhs)
 
   def getPrimitiveNodes(blks: Block[_]*): Seq[Sym[_]] = getStages(blks:_*).filter(isPrimitiveNode)

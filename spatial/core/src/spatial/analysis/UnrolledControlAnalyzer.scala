@@ -1,8 +1,11 @@
 package spatial.analysis
 
-trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
-  import IR._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
+trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   override val name = "Unrolled Control Analyzer"
 
   var memStreams = Set[(Exp[_], Int, Int)]()

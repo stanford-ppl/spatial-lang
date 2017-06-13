@@ -2,6 +2,7 @@ package spatial.lang
 
 import forge._
 import org.virtualized._
+import spatial.SpatialApi
 import spatial.nodes._
 
 case class File(s: Exp[File]) extends MetaAny[File] {
@@ -20,8 +21,8 @@ object File {
   @internal def read_tokens(file: Exp[MFile], delim: Exp[MString]) = {
     stageWrite(file)(ReadTokens(file, delim))(ctx)
   }
-  @internal def write_tokens(file: Exp[MFile], delim: Exp[MString], len: Exp[Index], token: => Exp[MString], i: Bound[Index]) = {
-    val tBlk = stageBlock{ token }
+  @internal def write_tokens(file: Exp[MFile], delim: Exp[MString], len: Exp[Index], token: Exp[Index] => Exp[MString], i: Bound[Index]) = {
+    val tBlk = stageLambda1(i){ token(i) }
     val effects = tBlk.effects andAlso Write(file)
     stageEffectful(WriteTokens(file, delim, len, tBlk, i), effects)(ctx)
   }
@@ -30,7 +31,7 @@ object File {
 
 
 
-trait FileIOApi {
+trait FileIOApi { this: SpatialApi =>
   import File._
 
   @api def loadCSV1D[T:Type](filename: MString, delim: MString = ",")(implicit cast: Cast[MString,T]): MArray[T] = {
@@ -51,17 +52,17 @@ trait FileIOApi {
   }
 
   @virtualize
-  @api def writeCSV1D[T:Type](array: MArray[T], filename: MString, delim: MString = ","): Void = {
+  @api def writeCSV1D[T:Type](array: MArray[T], filename: MString, delim: MString = ","): MUnit = {
     val file = open_file(filename.s, write = true)
     val length = array.length
     val i = fresh[Index]
-    val token = () => typ[T].ev(array(wrap(i))).toText.s
-    write_tokens(file, delim.s, length.s, token(), i)
+    val token = {i: Exp[Index] => typ[T].ev(array(wrap(i))).toText.s }
+    write_tokens(file, delim.s, length.s, token, i)
     wrap(close_file(file))
   }
 
   @virtualize
-  @api def writeCSV2D[T:Type](matrix: Matrix[T], filename: MString, delim1: MString = ",", delim2: MString = "\n"): Void = {
+  @api def writeCSV2D[T:Type](matrix: Matrix[T], filename: MString, delim1: MString = ",", delim2: MString = "\n"): MUnit = {
     val file = open_file(filename.s, write = true)
     val rows = matrix.rows
     val cols = matrix.cols
@@ -69,9 +70,9 @@ trait FileIOApi {
 
     for (i <- 0 until rows) {
       val j = fresh[Index]
-      val token = () => typ[T].ev(matrix(i, wrap(j))).toText.s
-      write_tokens(file, delim1.s, cols.s, token(), j)
-      write_tokens(file, delim2.s, int32(1), "".s, dummy)
+      val token = {i: Exp[Index] => typ[T].ev(matrix(i, wrap(j))).toText.s }
+      write_tokens(file, delim1.s, cols.s, token, j)
+      write_tokens(file, delim2.s, int32(1), {_: Exp[Index] => MString.const("") }, dummy)
       ()
     }
 

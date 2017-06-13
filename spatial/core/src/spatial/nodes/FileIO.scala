@@ -13,7 +13,7 @@ case class OpenFile(filename: Exp[MString], write: Boolean) extends Op[MFile] {
   def mirror(f:Tx) = MFile.open_file(f(filename), write)
 }
 
-case class CloseFile(file: Exp[MFile]) extends Op[Void] {
+case class CloseFile(file: Exp[MFile]) extends Op[MUnit] {
   def mirror(f:Tx) = MFile.close_file(f(file))
 }
 
@@ -27,7 +27,7 @@ case class WriteTokens(
   len:   Exp[Index],
   token: Block[MString],
   i:     Bound[Index]
-) extends Op[Void] {
+) extends Op[MUnit] {
   def mirror(f:Tx) = MFile.write_tokens(f(file), f(delim), f(len), f(token), i)
   override def inputs = dyns(file, delim, len) ++ dyns(token)
   override def binds  = i +: super.binds

@@ -3,7 +3,6 @@ package spatial
 import argon.{ArgonLangInternal, ArgonLangExternal, ArgonExp, ArgonApi}
 import forge._
 import spatial.lang._
-import spatial.metadata._
 import spatial.targets.FPGATarget
 
 trait SpatialCommonAliases extends SpatialLangAliases {
@@ -103,7 +102,9 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   val BurstCmdBus = spatial.lang.BurstCmdBus
   val BurstAckBus = spatial.lang.BurstAckBus
   type BurstDataBus[T] = spatial.lang.BurstDataBus[T]
+  val BurstDataBus = spatial.lang.BurstDataBus
   type BurstFullDataBus[T] = spatial.lang.BurstFullDataBus[T]
+  val BurstFullDataBus = spatial.lang.BurstFullDataBus
 
   val GatherAddrBus = spatial.lang.GatherAddrBus
   type GatherDataBus[T] = spatial.lang.GatherDataBus[T]
@@ -116,7 +117,6 @@ protected trait SpatialExp extends ArgonExp with SpatialCommonAliases
   with AlteraVideoExp
   with DRAMTransfersExp
   with RangeExp
-  with SpatialMetadataExp
 {
   def target: FPGATarget = SpatialConfig.target // Needs to be filled in by application, defaults to Default
 }

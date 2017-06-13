@@ -1,11 +1,11 @@
 package spatial.analysis
 
-import spatial.SpatialExp
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait LatencyAnalyzer extends ModelingTraversal {
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Latency Analyzer"
 
   override def silence() {
@@ -94,7 +94,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
 
         pipe + latencyOf(lhs)
 
-      case OpForeach(cchain, func, iters) if isInnerControl(lhs) =>
+      case OpForeach(en, cchain, func, iters) if isInnerControl(lhs) =>
         val N = nIters(cchain)
         val pipe = latencyOfPipe(func)
 
@@ -104,7 +104,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
 
         pipe + N - 1 + latencyOf(lhs)
 
-      case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) if isInnerControl(lhs) =>
+      case OpReduce(en, cchain,accum,map,ld,reduce,store,_,_,rV,iters) if isInnerControl(lhs) =>
         val N = nIters(cchain)
         val P = parsOf(cchain).product
 
@@ -169,7 +169,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
 
 
       // --- Metapipeline and Sequential
-      case OpForeach(cchain, func, _) =>
+      case OpForeach(en, cchain, func, _) =>
         val N = nIters(cchain)
         val stages = latencyOfBlock(func)
 
@@ -179,7 +179,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
 
-      case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
+      case OpReduce(en, cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
         val N = nIters(cchain)
         val P = parsOf(cchain).product
 
@@ -196,7 +196,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
 
-      case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
+      case OpMemReduce(en, cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
         val Nm = nIters(cchainMap)
         val Nr = nIters(cchainRed)
         val Pm = parsOf(cchainMap).product // Parallelization factor for map

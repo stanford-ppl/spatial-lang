@@ -1,12 +1,13 @@
 package spatial.analysis
 
 import argon.analysis.AccessPatternAnalyzer
-import spatial.SpatialExp
+import argon.nodes._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
-  override val IR: SpatialExp
-  import IR._
-
   override val name = "Spatial Affine Analysis"
   override val recurse = Default
 

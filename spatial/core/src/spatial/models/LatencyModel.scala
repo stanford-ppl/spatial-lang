@@ -1,12 +1,13 @@
 package spatial.models
 
 import argon.core.Config
-import spatial.SpatialExp
+import argon.nodes._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait LatencyModel {
-  val IR: SpatialExp
-  import IR._
-
   var clockRate = 150.0f        // Frequency in MHz
   var baseCycles = 43000        // Number of cycles required for startup
   var addRetimeRegisters = true // Enable adding registers after specified comb. logic
@@ -159,10 +160,7 @@ trait LatencyModel {
     case _:ParLineBufferLoad[_] => 1
 
     // Shift Register
-    case ValueDelay(size, data) => 0 // wrong but it works???
-    case _:ShiftRegNew[_] => 0
-    case ShiftRegRead(reg@Op(ShiftRegNew(size,_))) => size
-    case _:ShiftRegWrite[_] => 0
+    case DelayLine(size, data) => 0 // wrong but it works???
 
     // DRAM
     case GetDRAMAddress(_) => 0
@@ -310,9 +308,9 @@ trait LatencyModel {
     case _:PrintlnIf => 0
     case _:AssertIf  => 0
     case _:ToString[_] => 0
-    case _:TextConcat => 0
-    case FixRandom(_) => 0
-    case FltRandom(_) => 0
+    case _:StringConcat => 0
+    case FixRandom(_) => 0  // TODO: This is synthesizable now?
+    case FltRandom(_) => 0  // TODO: This is synthesizable now?
 
     case _ =>
       warn(s"Don't know latency of $d - using default of 0")

@@ -34,10 +34,9 @@ case class DRAM5Type[T:Bits](child: Type[T]) extends Type[DRAM5[T]] with DRAMTyp
 
 
 /** IR Nodes **/
-case class DRAMNew[T:Type:Bits,C[_]<:DRAM[_]](dims: Seq[Exp[Index]])(implicit cT: Type[C[T]]) extends Alloc[C[T]] {
+case class DRAMNew[T:Type:Bits,C[_]<:DRAM[_]](dims: Seq[Exp[Index]], zero: Exp[T])(implicit cT: Type[C[T]]) extends Alloc[C[T]] {
   def mirror(f:Tx) = DRAM.alloc[T,C](f(dims):_*)
   val bT = bits[T]
-  def zero: Exp[T] = bT.zero.s
 }
 
 case class GetDRAMAddress[T:Type:Bits](dram: Exp[DRAM[T]]) extends Op[Int64] {

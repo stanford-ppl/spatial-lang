@@ -96,7 +96,7 @@ case class ParRegFileStore[T:Type:Bits](
   inds: Seq[Seq[Exp[Index]]],
   data: Seq[Exp[T]],
   ens:  Seq[Exp[Bit]]
-) extends EnabledOp[Void](ens:_*) {
+) extends EnabledOp[MUnit](ens:_*) {
   def mirror(f:Tx) = RegFile.par_store(f(reg),inds.map(is => f(is)),f(data),f(ens))
   val mT = typ[T]
 }

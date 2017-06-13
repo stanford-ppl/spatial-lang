@@ -82,7 +82,7 @@ case class ParSRAMStore[T:Type:Bits](
   addr: Seq[Seq[Exp[Index]]],
   data: Seq[Exp[T]],
   ens:  Seq[Exp[Bit]]
-) extends EnabledOp[Void](ens:_*) {
+) extends EnabledOp[MUnit](ens:_*) {
   def mirror(f:Tx) = SRAM.par_store(f(sram),addr.map{inds => f(inds)},f(data),f(ens))
   val mT = typ[T]
 }

@@ -1,22 +1,23 @@
 package spatial.analysis
 
 import argon.traversal.CompilerPass
-import spatial.SpatialExp
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait StreamAnalyzer extends CompilerPass {
-  val IR: SpatialExp
-  import IR._
+  override val name = "Stream Analyzer"
 
   protected def getLastChild(lhs: Exp[_]): Exp[_] = {
     var nextLevel = childrenOf(lhs)
-    if (nextLevel.length == 0) {
+    if (nextLevel.isEmpty) {
       lhs
     } else {
       getLastChild(nextLevel.last)
     }
   }
 
-  override val name = "Stream Analyzer"
   def streamPipes: Seq[Exp[_]]
   def streamLoadCtrls: Seq[Exp[_]] // List of all FringeDenseLoad nodes
   def streamParEnqs: Seq[Exp[_]]

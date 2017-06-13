@@ -56,12 +56,12 @@ case class Range64(start: Option[Int64], end: Int64, step: Option[Index], p: Opt
 
   // @api def ::(start2: Int64): Range64 = Range64(Some(start2), end, start, p, isUnit = false)
 
-  // @api def foreach(func: Index => Void): Void = {
+  // @api def foreach(func: Index => MUnit): MUnit = {
   //   val i = fresh[Index]
   //   val fBlk = () => func(wrap(i)).s
   //   val begin  = start.map(_.s).getOrElse(int64(0))
   //   val stride = step.map(_.s).getOrElse(int32(1))
-  //   Void(range_foreach(begin, end.s, stride, fBlk(), i))
+  //   MUnit(range_foreach(begin, end.s, stride, fBlk(), i))
   // }
 
   // @api def length: Int64 = (start, end, step) match {

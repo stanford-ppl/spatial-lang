@@ -1,6 +1,5 @@
 package spatial.transform
 
-import argon.analysis._
 import argon.transform.ForwardTransformer
 import org.virtualized.SourceContext
 import spatial.compiler._
@@ -14,7 +13,6 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   var inHwScope: Boolean = false
 
   def strMeta(e: Exp[_]): Unit = metadata.get(e).foreach{m => logs(c" - ${m._1}: ${m._2}") }
-
 
 
   /**

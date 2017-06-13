@@ -1,8 +1,12 @@
 package spatial.analysis
 
-trait ScalarAnalyzer extends SpatialTraversal {
-  import IR._
+import argon.nodes._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
+trait ScalarAnalyzer extends SpatialTraversal {
   override val name = "Bound Analyzer"
   override val recurse = Always
   private var insideLoop = false

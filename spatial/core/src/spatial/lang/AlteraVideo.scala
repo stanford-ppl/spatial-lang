@@ -1,8 +1,7 @@
 package spatial.lang
 
-import spatial._
+import spatial.{SpatialApi,SpatialExp}
 import forge._
-import spatial.lang.control.Pipe
 
 // TODO: Is this still used by anything? If not, delete
 trait AlteraVideoApi extends AlteraVideoExp { this: SpatialApi =>
@@ -17,7 +16,7 @@ trait AlteraVideoApi extends AlteraVideoExp { this: SpatialApi =>
     DMA_Template(dma_alloc[T](popFrom.s.asInstanceOf[Exp[T]], loadIn.s.asInstanceOf[Exp[T]]))
   }
 
-  @api def Decoder[T:Type:Bits,C[T]](popFrom: StreamIn[T], pushTo: FIFO[T]): Void = {
+  @api def Decoder[T:Type:Bits,C[T]](popFrom: StreamIn[T], pushTo: FIFO[T]): MUnit = {
     Pipe { 
       Decoder_Template(popFrom, pushTo)
       popFrom.value()
@@ -26,7 +25,7 @@ trait AlteraVideoApi extends AlteraVideoExp { this: SpatialApi =>
     }
   }
 
-  @api def DMA[T:Type:Bits](popFrom: FIFO[T], loadIn: SRAM1[T] /*frameRdy:  StreamOut[T]*/): Void = {
+  @api def DMA[T:Type:Bits](popFrom: FIFO[T], loadIn: SRAM1[T] /*frameRdy:  StreamOut[T]*/): MUnit = {
     Pipe {
       DMA_Template(popFrom, loadIn)
       Foreach(64 by 1){ i =>
@@ -47,32 +46,32 @@ trait AlteraVideoExp { this: SpatialExp =>
   /** Infix methods **/
   // TODO: Do these need to be staged types?
   case class AXI_Master_Slave(s: Exp[AXI_Master_Slave]) extends Template[AXI_Master_Slave]
-  case class Decoder_Template[T:Meta:Bits](s: Exp[Decoder_Template[T]]) extends Template[Decoder_Template[T]]
-  case class DMA_Template[T:Meta:Bits](s: Exp[DMA_Template[T]]) extends Template[DMA_Template[T]]
+  case class Decoder_Template[T:Type:Bits](s: Exp[Decoder_Template[T]]) extends Template[Decoder_Template[T]]
+  case class DMA_Template[T:Type:Bits](s: Exp[DMA_Template[T]]) extends Template[DMA_Template[T]]
 
   /** Staged Type **/
-  object AXIMasterSlaveType extends Meta[AXI_Master_Slave] {
+  object AXIMasterSlaveType extends Type[AXI_Master_Slave] {
     override def wrapped(x: Exp[AXI_Master_Slave]) = AXI_Master_Slave(x)
     override def stagedClass = classOf[AXI_Master_Slave]
     override def isPrimitive = false // ???
   }
-  implicit def aXIMasterSlaveType: Meta[AXI_Master_Slave] = AXIMasterSlaveType
+  implicit def aXIMasterSlaveType: Type[AXI_Master_Slave] = AXIMasterSlaveType
 
-  case class DecoderTemplateType[T:Bits](child: Meta[T]) extends Meta[Decoder_Template[T]] {
+  case class DecoderTemplateType[T:Bits](child: Type[T]) extends Type[Decoder_Template[T]] {
     override def wrapped(x: Exp[Decoder_Template[T]]) = Decoder_Template(x)(child,bits[T])
     override def typeArguments = List(child)
     override def stagedClass = classOf[Decoder_Template[T]]
     override def isPrimitive = true // ???
   }
-  implicit def decoderTemplateType[T:Meta:Bits]: Meta[Decoder_Template[T]] = DecoderTemplateType(meta[T])
+  implicit def decoderTemplateType[T:Type:Bits]: Type[Decoder_Template[T]] = DecoderTemplateType(typ[T])
 
-  case class DMATemplateType[T:Bits](child: Meta[T]) extends Meta[DMA_Template[T]] {
+  case class DMATemplateType[T:Bits](child: Type[T]) extends Type[DMA_Template[T]] {
     override def wrapped(x: Exp[DMA_Template[T]]) = DMA_Template[T](x)(child,bits[T])
     override def typeArguments = List(child)
     override def stagedClass = classOf[DMA_Template[T]]
     override def isPrimitive = true // ???
   }
-  implicit def dMATemplateType[T:Meta:Bits]: Meta[DMA_Template[T]] = DMATemplateType(meta[T])
+  implicit def dMATemplateType[T:Type:Bits]: Type[DMA_Template[T]] = DMATemplateType(typ[T])
 
 
   /** IR Nodes **/

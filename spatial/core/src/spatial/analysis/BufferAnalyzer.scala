@@ -1,12 +1,12 @@
 package spatial.analysis
 
 import argon.traversal.CompilerPass
-import spatial.SpatialExp
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait BufferAnalyzer extends CompilerPass {
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Buffer Analyzer"
   def localMems: Seq[Exp[_]]
 

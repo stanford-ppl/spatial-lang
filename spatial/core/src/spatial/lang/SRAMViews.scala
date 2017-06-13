@@ -8,10 +8,10 @@ trait SRAMViewOps extends SRAMOps { this: SpatialOps =>
   protected trait SRAMViewOps[T] {
     def apply(indices: Index*)(implicit ctx: SrcCtx): T
     @CurriedUpdate
-    def update(indices: Index*)(value: T): Void
+    def update(indices: Index*)(value: T): MUnit
 
-    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void
-    def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void
+    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): MUnit
+    def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): MUnit
   }
 
   implicit def sram2sramview[T:Bits](sram: SRAM[T])(implicit ctx: SrcCtx): SRAMView[T]
@@ -40,13 +40,13 @@ trait SRAMViewExp extends SRAMViewOps with SRAMExp { this: SpatialExp =>
       wrap(sram_load(this.sram, unwrap(dims), unwrap(indices), ofs.s))
     }
     @CurriedUpdate
-    override def update(indices: Index*)(value: T): Void = {
+    override def update(indices: Index*)(value: T): MUnit = {
       val (ofs, dims) = ofsAndDims(indices)
       wrap(sram_store(this.sram, unwrap(dims), unwrap(indices), ofs.s, value.s, bool(true)))
     }
 
-    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): Void = copy_burst(dram, this, isLoad = true)
-    def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): Void = copy_sparse(dram, this, isLoad = true)
+    def load(dram: DRAMDenseTile[T])(implicit ctx: SrcCtx): MUnit = copy_burst(dram, this, isLoad = true)
+    def gather(dram: DRAMSparseTile[T])(implicit ctx: SrcCtx): MUnit = copy_sparse(dram, this, isLoad = true)
   }
 
   implicit def sram2sramview[T:Bits](sram: SRAM[T])(implicit ctx: SrcCtx): SRAMView[T] = {
@@ -56,7 +56,7 @@ trait SRAMViewExp extends SRAMViewOps with SRAMExp { this: SpatialExp =>
 
   case class SRAMViewIsMemory[T]()(implicit val bits: Bits[T]) extends Mem[T, SRAMView] {
     def load(mem: SRAMView[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = mem.apply(is: _*)
-    def store(mem: SRAMView[T], is: Seq[Index], v: T, en: Bool)(implicit ctx: SrcCtx): Void = {
+    def store(mem: SRAMView[T], is: Seq[Index], v: T, en: Bool)(implicit ctx: SrcCtx): MUnit = {
       val (ofs, dims) = mem.ofsAndDims(is)
       wrap(sram_store(mem.sram, unwrap(dims), unwrap(is), ofs.s, bits.unwrapped(v), en.s))
     }
@@ -72,7 +72,7 @@ trait SRAMViewExp extends SRAMViewOps with SRAMExp { this: SpatialExp =>
   case class SRAMViewLoad[T:Bits](view: Sym[SRAMView[T]], indices: Seq[Sym[Index]]) extends Op[T] {
     def mirror(f:Tx) =
   }
-  case class SRAMViewStore[T:Bits](view: Sym[SRAMView[T]], indices: Seq[Sym[Index]], value: Sym[T], en: Sym[Bool]) extends Op[Void] {
+  case class SRAMViewStore[T:Bits](view: Sym[SRAMView[T]], indices: Seq[Sym[Index]], value: Sym[T], en: Sym[Bool]) extends Op[MUnit] {
     def mirror(f:Tx) =
   }
 

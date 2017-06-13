@@ -1,11 +1,12 @@
 package spatial.analysis
 
-import argon.State
 import argon.core.Config
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait ControllerSanityCheck extends SpatialTraversal {
-  import IR._
-
   override val name = "Control Sanity Check"
   override val recurse = Default
 
@@ -17,7 +18,7 @@ trait ControllerSanityCheck extends SpatialTraversal {
         val controllers = getControlNodes(block).filterNot(isPrimitiveControl)
 
         if (primitives.nonEmpty && controllers.nonEmpty && Config.verbosity <= 2) {
-          warn(lhs.ctx, c"[Compiler] The contents of block ${str(lhs)} appear to have been incorrectly CSEd (see log file #${State.paddedPass}.")
+          warn(lhs.ctx, c"[Compiler] The contents of block ${str(lhs)} appear to have been incorrectly CSEd (see log file #${state.paddedPass(state.pass-1)}.")
           dbg(c"${str(lhs)}")
           dbg("  Primitives:")
           primitives.foreach{p => dbg(c"    ${str(p)}") }
@@ -26,7 +27,7 @@ trait ControllerSanityCheck extends SpatialTraversal {
           dbg("\n\n\n")
         }
         else if (primitives.nonEmpty && controllers.nonEmpty && Config.verbosity >= 3) {
-          error(lhs.ctx, c"[Compiler] The contents of block ${str(lhs)} appear to have been incorrectly CSEd (see log file #${State.paddedPass}.")
+          error(lhs.ctx, c"[Compiler] The contents of block ${str(lhs)} appear to have been incorrectly CSEd (see log file #${state.paddedPass(state.pass-1)}.")
           dbg(c"${str(lhs)}")
           dbg("  Primitives:")
           primitives.foreach{p => dbg(c"    ${str(p)}") }

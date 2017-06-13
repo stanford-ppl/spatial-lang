@@ -1,11 +1,8 @@
 package spatial.codegen.simgen
 
-import argon.ops.VoidExp
-import spatial.SpatialExp
+import spatial.compiler._
 
-trait SimGenVoid extends SimCodegen {
-  val IR: SpatialExp
-  import IR._
+trait SimGenUnit extends SimCodegen {
 
   override protected def quoteConst(c: Const[_]): String = c match {
     case Const(()) => "()"

@@ -1,12 +1,16 @@
 package spatial.analysis
 
+import argon.core.Config
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+
 import java.io.PrintWriter
 
-import argon.core.Config
 
 trait TreeGenSpatial extends SpatialTraversal {
-  import IR._
-
+  override val name = "Tree Gen"
   // def getStages(blks: Block[_]*): Seq[Sym[_]] = blks.flatMap(blockContents).flatMap(_.lhs)
 
   // def getPrimitiveNodes(blks: Block[_]*): Seq[Sym[_]] = getStages(blks:_*).filter(isPrimitiveNode)
@@ -106,7 +110,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
-    case OpForeach(cchain, func, iters) =>
+    case OpForeach(en, cchain, func, iters) =>
       val inner = levelOf(sym) match { 
       	case InnerControl => true
       	case _ => false
