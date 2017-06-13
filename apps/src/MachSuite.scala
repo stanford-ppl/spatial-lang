@@ -2500,8 +2500,8 @@ object BFS_Queue extends SpatialApp { // DISABLED Regression (Sparse) // Args: n
           Sequential.Foreach(length by 1) { e =>
             val tmp_dst = edges_sram(e)
             val dst_level = levels_sram(tmp_dst)
-            if (dst_level) { Q.enq(tmp_dst) }
-            if (dst_level) { levels_sram(tmp_dst) = horizon+1 }
+            if (dst_level == unvisited) { Q.enq(tmp_dst) }
+            if (dst_level == unvisited) { levels_sram(tmp_dst) = horizon+1 }
           }
         }
         widths_sram(horizon+1) = Q.numel
