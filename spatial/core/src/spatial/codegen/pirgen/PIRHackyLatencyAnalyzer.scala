@@ -1,20 +1,20 @@
 package spatial.codegen.pirgen
 
-import spatial.SpatialExp
 import spatial.analysis.ModelingTraversal
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
-  val IR: SpatialExp
-  import IR._
-
   override val name = "PIR Hacky Latency Analyzer"
 
   override lazy val latencyModel = new PlasticineLatencyModel{val IR: traversal.IR.type = traversal.IR }
 
   // Only count latencies of nodes if they don't have retiming nodes
   override def latencyOf(e: Exp[_]): Long = if (inHwScope) e match {
-    case Def(ValueDelay(size,_)) => size
-    case s: Sym[_] if s.dependents.exists{case Def(_:ValueDelay[_]) => true; case _ => false} => 0
+    case Def(DelayLine(size,_)) => size
+    case s: Sym[_] if s.dependents.exists{case Def(_:DelayLine[_]) => true; case _ => false} => 0
     case _ => latencyModel.latencyOf(e,inReduce)
   } else 0L
 
@@ -104,7 +104,7 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
 
         pipe + latencyOf(lhs)
 
-      case OpForeach(cchain, func, iters) if isInnerControl(lhs) =>
+      case OpForeach(en, cchain, func, iters) if isInnerControl(lhs) =>
         val N = nIters(cchain)
         val pipe = latencyOfPipe(func)
 
@@ -114,7 +114,7 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
 
         pipe + N - 1 + latencyOf(lhs)
 
-      case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) if isInnerControl(lhs) =>
+      case OpReduce(en, cchain,accum,map,ld,reduce,store,_,_,rV,iters) if isInnerControl(lhs) =>
         val N = nIters(cchain)
         val P = parsOf(cchain).product
 
@@ -179,7 +179,7 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
 
 
       // --- Metapipeline and Sequential
-      case OpForeach(cchain, func, _) =>
+      case OpForeach(en, cchain, func, _) =>
         val N = nIters(cchain)
         val stages = latencyOfBlock(func)
 
@@ -189,7 +189,7 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
 
-      case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
+      case OpReduce(en, cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
         val N = nIters(cchain)
         val P = parsOf(cchain).product
 
@@ -206,7 +206,7 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
 
-      case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
+      case OpMemReduce(en, cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
         val Nm = nIters(cchainMap)
         val Nr = nIters(cchainRed)
         val Pm = parsOf(cchainMap).product // Parallelization factor for map

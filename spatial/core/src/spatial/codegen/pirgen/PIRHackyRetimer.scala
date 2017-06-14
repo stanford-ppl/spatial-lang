@@ -1,14 +1,16 @@
 package spatial.codegen.pirgen
 
+import argon.nodes._
 import argon.transform.ForwardTransformer
-import spatial._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+import spatial.SpatialConfig
 
 import scala.collection.mutable
 
 trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal { retimer =>
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Hacky PIR Retimer"
   override def shouldRun = SpatialConfig.enablePIRSim
 
@@ -21,15 +23,15 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
   // size represents the total buffer size between reader and input symbol
   // if buffers are split, the size of the register for this reader may actually be smaller
   class ReaderInfo(val size: Int) {
-    // register this reader symbol reads from
-    var reg: Exp[ShiftReg[_]] = _
     // register read IR node (not strictly necessary to have only one but it avoids bloating the IR with redundant reads)
     var read: Exp[_] = _
   }
 
   def valueDelay[T](size: Int, data: Exp[T])(implicit ctx: SrcCtx): Exp[T] = data.tp match {
     case Bits(bits) =>
-      value_delay_alloc[T](size, data)(data.tp, bits, ctx)
+      implicit val mT: Type[T] = data.tp
+      implicit val bT: Bits[T] = bits.asInstanceOf[Bits[T]]
+      Delays.delayLine[T](size, data)
     case _ => throw new Exception("Unexpected register type")
 
   }
@@ -82,7 +84,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
 
       case stm => visitStm(stm)
     }
-    val result = typ[T] match { case VoidType => void; case _ => f(block.result) }
+    val result = typ[T] match { case UnitType => unit; case _ => f(block.result) }
     result.asInstanceOf[Exp[T]]
   })
 
@@ -102,7 +104,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
     stms.foreach{ case TP(reader, d) =>
       dbgs(c"${str(reader)}")
       // Ignore non-bit based types and constants
-      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
+      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => e.tp == UnitType || Bits.unapply(e.tp).isDefined }
       val inputLatencies = inputs.map{sym => delayOf(sym) }
 
       val criticalPath = if (inputLatencies.isEmpty) 0 else inputLatencies.max
@@ -154,7 +156,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
       register(block.result -> delay)
     }
 
-    val result = typ[T] match { case VoidType => void; case _ => f(block.result) }
+    val result = typ[T] match { case UnitType => unit; case _ => f(block.result) }
     result.asInstanceOf[Exp[T]]
   })
 
@@ -184,17 +186,17 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
     result
   }
 
-  override def apply[T:Type](b: Block[T]): Exp[T] = {
+  override def apply[T:Type](b: Block[T]): () => Exp[T] = {
     val doWrap = retimeBlocks.headOption.getOrElse(false)
     val doWrapReduce = retimeReduce.headOption.getOrElse(false)
     if (retimeBlocks.nonEmpty) retimeBlocks = retimeBlocks.drop(1)
     if (retimeReduce.nonEmpty) retimeReduce = retimeReduce.drop(1)
     dbgs(c"Transforming Block $b [$retimeBlocks]")
     if (doWrapReduce) {
-      retimeReduce(b)(mtyp(b.tp),ctx.get)
+      () => retimeReduce(b)(mtyp(b.tp),ctx.get)
     }
     else if (doWrap) {
-      retimeBlock(b,cchain)(mtyp(b.tp),ctx.get)
+      () => retimeBlock(b,cchain)(mtyp(b.tp),ctx.get)
     }
     else super.apply(b)
   }

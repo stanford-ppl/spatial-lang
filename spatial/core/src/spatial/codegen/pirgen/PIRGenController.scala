@@ -1,11 +1,10 @@
 package spatial.codegen.pirgen
 
-import spatial.SpatialExp
+import spatial.compiler._
+import spatial.utils._
 import scala.collection.mutable
 
 trait PIRGenController extends PIRCodegen with PIRTraversal {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
 
   def cus: mutable.Map[Expr,List[List[ComputeUnit]]]
   var allocatedReduce: Set[ReduceReg] = Set.empty

@@ -1,10 +1,10 @@
 package spatial.codegen.pirgen
 
+import spatial.compiler._
+
 import scala.collection.mutable
 
 trait PIRPrintout extends PIRTraversal {
-  import IR._
-
   override val name = "PIR Printout"
   override val recurse = Always
 

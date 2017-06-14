@@ -1,19 +1,20 @@
 package spatial.codegen.pirgen
 
-import java.io.{PrintStream, PrintWriter}
+import java.io.PrintWriter
 import java.nio.file.{Files, Paths}
 
 import argon.codegen.{Codegen, FileDependencies}
 import argon.core.Config
-import spatial.{SpatialConfig, SpatialExp}
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+import spatial.SpatialConfig
 
 import scala.collection.mutable
 import scala.language.postfixOps
 
 trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
-
   override val name = "PIR Codegen"
   override val lang: String = "pir"
   override val ext: String = "scala"

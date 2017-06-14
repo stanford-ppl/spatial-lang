@@ -1,6 +1,7 @@
 package spatial.codegen.pirgen
 
-import spatial.{SpatialConfig, SpatialExp}
+import spatial.compiler._
+import spatial.SpatialConfig
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -13,9 +14,6 @@ import argon.core.Config
 import scala.util.control.Breaks._
 
 trait PIRDSE extends PIRSplitting with PIRRetiming {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
-
   override val name = "Plasticine DSE"
   override val recurse = Always
 

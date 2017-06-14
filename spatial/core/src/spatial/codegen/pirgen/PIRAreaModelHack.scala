@@ -1,5 +1,8 @@
 package spatial.codegen.pirgen
 
+import spatial.compiler._
+import spatial.metadata._
+
 import scala.collection.mutable
 
 trait PIRAreaModelHack extends PIRTraversal {
