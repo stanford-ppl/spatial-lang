@@ -119,7 +119,7 @@ trait RegisterCleanup extends ForwardTransformer {
 
   /** These require slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
 
-  override protected def inlineBlock[T:Type](b: Block[T]): Exp[T] = inlineBlock(b, {stms =>
+  override protected def blockToFunction0[T:Type](b: Block[T]): Exp[T] = inlineBlock(b, {stms =>
     visitStms(stms)
     if (ctrl != null && statelessSubstRules.contains((ctrl,ctrl))) {
       val rules = statelessSubstRules((ctrl, ctrl)).map { case (s, s2) => s -> s2() }
