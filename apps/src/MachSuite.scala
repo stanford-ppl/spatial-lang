@@ -678,7 +678,7 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
       // Read score matrix
       val b_addr = Reg[Int](length)
       val a_addr = Reg[Int](length)
-      val done_backtrack = Reg[Bool](false)
+      val done_backtrack = Reg[Bit](false)
       FSM[Int](state => state != doneState) { state =>
         if (state == traverseState) {
           if (score_matrix(b_addr,a_addr).ptr == ALIGN.to[Int16]) {
@@ -1086,7 +1086,7 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
       val k = Reg[Int](0)
       kmp_next(0) = 0
       Sequential.Foreach(1 until PATTERN_SIZE by 1) { q => 
-        // val whileCond = Reg[Bool](false)
+        // val whileCond = Reg[Bit](false)
         FSM[Int](state => state != 1) { state => 
           // whileCond := (k > 0) && (pattern_sram(k) != pattern_sram(q))
           if ((k > 0) && (pattern_sram(k) != pattern_sram(q))) k := 0 // TODO: Will it always bump back to 0 in this step or should it really be kmp_next(q)?
@@ -1098,7 +1098,7 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
       // Scan string
       val q = Reg[Int](0)
       Sequential.Foreach(0 until STRING_SIZE) { i => 
-        // val whileCond = Reg[Bool](false) 
+        // val whileCond = Reg[Bit](false)
         FSM[Int](state => state != 1) { state => 
           // whileCond := (q > 0) && (pattern_sram(i) != pattern_sram(q))
           if ((q > 0) && (string_sram(i) != pattern_sram(q))) q := kmp_next(q)
@@ -1360,8 +1360,8 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
     val BUCKET_SIZE = NUM_BLOCKS*RADIX
     val SCAN_BLOCK = 16
     val SCAN_RADIX = BUCKET_SIZE/SCAN_BLOCK
-    val a = false.to[Bool]
-    val b = true.to[Bool]
+    val a = false.to[Bit]
+    val b = true.to[Bit]
 
     val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_data.csv", "\n")
 
@@ -1374,7 +1374,7 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
       val b_sram = SRAM[Int](numel)
       val bucket_sram = SRAM[Int](BUCKET_SIZE)
       val sum_sram = SRAM[Int](SCAN_RADIX)
-      val valid_buffer = Reg[Bool](false)
+      val valid_buffer = Reg[Bit](false)
       
       a_sram load data_dram
 

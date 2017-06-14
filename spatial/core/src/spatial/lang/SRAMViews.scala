@@ -55,8 +55,8 @@ trait SRAMViewExp extends SRAMViewOps with SRAMExp { this: SpatialExp =>
 
 
   case class SRAMViewIsMemory[T]()(implicit val bits: Bits[T]) extends Mem[T, SRAMView] {
-    def load(mem: SRAMView[T], is: Seq[Index], en: Bool)(implicit ctx: SrcCtx): T = mem.apply(is: _*)
-    def store(mem: SRAMView[T], is: Seq[Index], v: T, en: Bool)(implicit ctx: SrcCtx): MUnit = {
+    def load(mem: SRAMView[T], is: Seq[Index], en: Bit)(implicit ctx: SrcCtx): T = mem.apply(is: _*)
+    def store(mem: SRAMView[T], is: Seq[Index], v: T, en: Bit)(implicit ctx: SrcCtx): MUnit = {
       val (ofs, dims) = mem.ofsAndDims(is)
       wrap(sram_store(mem.sram, unwrap(dims), unwrap(is), ofs.s, bits.unwrapped(v), en.s))
     }
@@ -72,7 +72,7 @@ trait SRAMViewExp extends SRAMViewOps with SRAMExp { this: SpatialExp =>
   case class SRAMViewLoad[T:Bits](view: Sym[SRAMView[T]], indices: Seq[Sym[Index]]) extends Op[T] {
     def mirror(f:Tx) =
   }
-  case class SRAMViewStore[T:Bits](view: Sym[SRAMView[T]], indices: Seq[Sym[Index]], value: Sym[T], en: Sym[Bool]) extends Op[MUnit] {
+  case class SRAMViewStore[T:Bits](view: Sym[SRAMView[T]], indices: Seq[Sym[Index]], value: Sym[T], en: Sym[Bit]) extends Op[MUnit] {
     def mirror(f:Tx) =
   }
 

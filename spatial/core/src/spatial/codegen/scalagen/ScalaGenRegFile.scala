@@ -11,7 +11,7 @@ trait ScalaGenRegFile extends ScalaGenMemories {
     case _ => super.remap(tp)
   }
 
-  private def shiftIn(lhs: Exp[_], rf: Exp[_], inds: Seq[Exp[Index]], d: Int, data: Exp[_], isVec: Boolean, en: Exp[Bool]): Unit = {
+  private def shiftIn(lhs: Exp[_], rf: Exp[_], inds: Seq[Exp[Index]], d: Int, data: Exp[_], isVec: Boolean, en: Exp[Bit]): Unit = {
     val len = if (isVec) lenOf(data) else 1
     val dims = stagedDimsOf(rf)
     val size = dims(d)

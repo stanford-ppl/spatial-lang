@@ -2,9 +2,7 @@ import spatial.dsl._
 import org.virtualized._
 import spatial.targets.DE1
 
-object StreamingSobel extends SpatialApp { 
-
-
+object StreamingSobel extends SpatialApp {
   override val target = DE1
 
   val Kh = 3
@@ -16,7 +14,7 @@ object StreamingSobel extends SpatialApp {
   type UInt8 = FixPt[FALSE,_8,_0]
   type UInt5 = FixPt[FALSE,_5,_0]
   type UInt6 = FixPt[FALSE,_6,_0]
-  @struct class sw3(forward: Bool, backward: Bool, unused: UInt8)
+  @struct class sw3(forward: Bit, backward: Bit, unused: UInt8)
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
 
   @virtualize
@@ -96,7 +94,7 @@ object StreamingSobelSRAM extends SpatialApp {
   type UInt8 = FixPt[FALSE,_8,_0]
   type UInt5 = FixPt[FALSE,_5,_0]
   type UInt6 = FixPt[FALSE,_6,_0]
-  @struct class sw3(forward: Bool, backward: Bool, unused: UInt8)
+  @struct class sw3(forward: Bit, backward: Bit, unused: UInt8)
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
 
   @virtualize
@@ -253,8 +251,8 @@ object Shiftreg extends SpatialApp {
       val fifoIn = FIFO[Int16](2*Cmax)
       // val fifoOut = FIFO[Int16](2*Cmax)
       val sr = RegFile[Int16](1, Cmax/4)
-      // val submitReady = FIFO[Bool](3)
-      // val rowReady = FIFO[Bool](3)
+      // val submitReady = FIFO[Bit](3)
+      // val rowReady = FIFO[Bit](3)
 
       Foreach(0 until Rmax) { r =>
         Foreach(0 until Cmax) { _ => 
@@ -411,7 +409,7 @@ object FifoVideo extends SpatialApp {
   val Rmax = 240
   val Cmax = 320
 
-  @struct class sw3(forward: Bool, backward: Bool, unused: UInt8)
+  @struct class sw3(forward: Bit, backward: Bit, unused: UInt8)
 
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
 
