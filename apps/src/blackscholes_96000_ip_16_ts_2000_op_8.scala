@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object BlackScholes_96000_ip_16_ts_2000_op_8 extends SpatialApp {
-  import IR._
+
 
   type T = FixPt[TRUE, _16, _16]
 

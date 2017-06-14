@@ -1,8 +1,8 @@
 import org.virtualized._
-import spatial._
+import spatial.dsl._
 
 object SwitchHostIO extends SpatialApp {
-  import IR._
+
 
   override val target = targets.DE1
   type UINT10 = FixPt[FALSE,_10,_0]

@@ -1,10 +1,10 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 /* Radix-4 FFT program in Spatial. */
 /* Signal size should be powers of four (standard). */
 object FFT4 extends SpatialApp {
-  import IR._
+
 
   /* Use fixed point. */
   type T = FixPt[TRUE,_16,_16]

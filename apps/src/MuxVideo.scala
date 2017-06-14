@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object MuxVideo extends SpatialApp {
-  import IR._
+
 
   override val target = targets.DE1
 

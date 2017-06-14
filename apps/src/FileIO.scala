@@ -1,9 +1,9 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object CSV1D extends SpatialApp { 
 
-  import IR._
+
 
   @virtualize
   def main() {
@@ -42,7 +42,7 @@ object CSV1D extends SpatialApp {
 
 object CSV2D extends SpatialApp { 
 
-  import IR._
+
 
   @virtualize
   def main() {
@@ -91,7 +91,7 @@ object CSV2D extends SpatialApp {
 
 object SSV1D extends SpatialApp { // Regression (Unit) // Args: none
 
-  import IR._
+
 
   @virtualize
   def main() {
@@ -129,7 +129,7 @@ object SSV1D extends SpatialApp { // Regression (Unit) // Args: none
 
 object SSV2D extends SpatialApp { // Regression (Unit) // Args: none
 
-  import IR._
+
 
   @virtualize
   def main() {

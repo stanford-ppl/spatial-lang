@@ -1,8 +1,8 @@
 import org.virtualized._
-import spatial._
+import spatial.dsl._
 
 object MemReduceTest extends SpatialApp {
-  import IR._
+
 
   @virtualize
   def main() {

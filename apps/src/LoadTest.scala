@@ -1,8 +1,8 @@
 import org.virtualized._
-import spatial._
+import spatial.dsl._
 
 object LoadTest extends SpatialApp {
-  import IR._
+
 
   type T = Int
 

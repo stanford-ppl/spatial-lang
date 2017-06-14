@@ -1,9 +1,9 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 import spatial.targets.DE1
 
 object StreamingSobel extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 
@@ -83,7 +83,7 @@ object StreamingSobel extends SpatialApp {
 }
 
 object StreamingSobelSRAM extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 
@@ -169,7 +169,7 @@ object StreamingSobelSRAM extends SpatialApp {
 
 
 object Linebuf extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 
@@ -223,7 +223,7 @@ object Linebuf extends SpatialApp {
 }
 
 object Shiftreg extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 
@@ -299,7 +299,7 @@ object Shiftreg extends SpatialApp {
 
 
 object SwitchVid extends SpatialApp { // BUSTED.  HOW TO USE SWITCHES?
-  import IR._
+
 
   override val target = DE1
 
@@ -357,7 +357,7 @@ object SwitchVid extends SpatialApp { // BUSTED.  HOW TO USE SWITCHES?
 }
 
 object Grayscale extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 
@@ -402,7 +402,7 @@ object Grayscale extends SpatialApp {
 
 
 object FifoVideo extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 

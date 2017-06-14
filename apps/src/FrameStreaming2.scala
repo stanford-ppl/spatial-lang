@@ -1,9 +1,9 @@
-/*import spatial._
+/*import spatial.dsl._
 import org.virtualized._
 import spatial.targets.DE1
 
 object FrameStreaming extends SpatialApp {
-  import IR._
+
 
   override val target = DE1
   val Cmax = 320

@@ -1,9 +1,9 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 import spatial.targets.DE1
 
 object BOStreamingSobel extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 
@@ -106,7 +106,7 @@ object BOStreamingSobel extends SpatialApp {
 
 
 object SimplestTest extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 

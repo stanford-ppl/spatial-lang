@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object AES extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+
 
   /*
   TODO: Optimize/parallelize many of the memory accesses here and pipeline as much as possible
@@ -225,7 +225,7 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+
 
   /*
 
@@ -384,7 +384,7 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+
 
   /*
            ←    COLS     →   
@@ -464,7 +464,7 @@ object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
                                                                                                                              
@@ -579,7 +579,7 @@ object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object NW extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
   
@@ -758,7 +758,7 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
   
@@ -876,7 +876,7 @@ object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
   
@@ -1047,7 +1047,7 @@ object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object KMP extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
   
@@ -1129,7 +1129,7 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object GEMM_NCubed extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
                                                              
@@ -1184,7 +1184,7 @@ object GEMM_NCubed extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object GEMM_Blocked extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
                                                              
@@ -1246,7 +1246,7 @@ object GEMM_Blocked extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*                                                                                                  
                               |     |                                                                                                                                                                                        
@@ -1342,7 +1342,7 @@ object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*                                                                                                  
     TODO: Cartoon of what this is doing                                                         
@@ -1488,7 +1488,7 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object SPMV_CRS extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+
 
  /*                                                                                                  
    Sparse Matrix is the IEEE 494 bus interconnect matrix from UF Sparse Datasets   
@@ -1577,7 +1577,7 @@ object SPMV_CRS extends SpatialApp { // Regression (Sparse) // Args: none
 }
 
 object SPMV_ELL extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+
 
  /*                                                                                                  
    Sparse Matrix is the IEEE 494 bus interconnect matrix from UF Sparse Datasets   
@@ -1659,7 +1659,7 @@ object SPMV_ELL extends SpatialApp { // Regression (Sparse) // Args: none
 }
 
 object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: none
- import IR._
+
 
  /*                                                                                                  
 
@@ -1946,7 +1946,7 @@ object Backprop extends SpatialApp { // DISABLED Regression (Dense) // Args: non
 
 
 object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*                                                                                                  
 
@@ -2041,7 +2041,7 @@ object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*                                                                                                  
     Concerns: Not sure why machsuite makes a data_x and DATA_x when they only dump values from one row of DATA_x to data_x and back
@@ -2302,7 +2302,7 @@ object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+
 
  /*                                                                                                  
 
@@ -2408,7 +2408,7 @@ object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
 
 
 object BFS_Queue extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+
 
  /*                                                                                                  
           ________________

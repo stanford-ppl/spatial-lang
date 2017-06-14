@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object PageRank extends SpatialApp { // DISABLED Regression (Sparse) // Args: 1 768 0.125
-  import IR._
+
   type Elem = FixPt[TRUE,_16,_16] // Float
   type X = FixPt[TRUE,_16,_16] // Float
 

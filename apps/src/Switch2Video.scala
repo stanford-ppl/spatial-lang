@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object Switch2Video extends SpatialApp {
-  import IR._
+
 
   override val target = targets.DE1
 
@@ -44,7 +44,7 @@ object Switch2Video extends SpatialApp {
 }
 
 object DumSwitch extends SpatialApp {
-  import IR._
+
 
   override val target = targets.DE1
 

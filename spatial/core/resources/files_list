@@ -141,10 +141,6 @@
 ./scalagen/Data.scala
 ./scalagen/build.sbt
 ./scalagen/Counter.scala
-./simgen/Data.scala
-./simgen/State.scala
-./simgen/Controllers.scala
-./simgen/Module.scala
 ./chiselgen/altera-goodies/interfaces.v
 ./chiselgen/altera-goodies/altera_up_avalon_video_dma_controller/altera_up_avalon_video_dma_controller_hw.tcl
 ./chiselgen/altera-goodies/altera_up_avalon_video_dma_controller/HAL/src/altera_up_avalon_video_dma_controller.c

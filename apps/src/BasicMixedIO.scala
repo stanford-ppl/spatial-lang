@@ -1,8 +1,7 @@
 import org.virtualized._
-import spatial._
+import spatial.dsl._
 
 object BasicMixedIO extends SpatialApp {
-  import IR._
 
   @virtualize 
   def main() { 

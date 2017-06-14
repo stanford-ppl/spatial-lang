@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+
 
   val Kh = 3
   val Kw = 3

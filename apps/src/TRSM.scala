@@ -1,5 +1,5 @@
 import org.virtualized._
-import spatial._
+import spatial.dsl._
 
 
 // /*
@@ -71,7 +71,7 @@ import spatial._
 
 
 object TRSM extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+
 
   type T = FixPt[TRUE, _16, _16]
 

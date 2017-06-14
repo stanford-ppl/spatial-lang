@@ -1,14 +1,13 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
+import argon.nodes._
+import spatial.compiler._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.SpatialExp
-import scala.collection.mutable.Map
 
 trait ChiselGenReg extends ChiselGenSRAM {
-  val IR: SpatialExp
-  import IR._
-
   var argIns: List[Sym[Reg[_]]] = List()
   var argOuts: List[Sym[Reg[_]]] = List()
   var argIOs: List[Sym[Reg[_]]] = List()
@@ -32,7 +31,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
             case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
             case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
             case Def(HostIONew(_)) => s"x${lhs.id}_hostio"
-            case Def(RegNew(_)) => s"""x${lhs.id}_${nameOf(lhs).getOrElse("reg").replace("$","")}"""
+            case Def(RegNew(_)) => s"""x${lhs.id}_${lhs.name.getOrElse("reg").replace("$","")}"""
             case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
             case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
             case _ => super.quote(s)
@@ -55,14 +54,14 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case ArgOutNew(init) => 
       emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful=true)
       emitGlobalWire(src"val ${lhs}_en_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful=true)
-      emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${nameOf(lhs).getOrElse("")}""", forceful=true)
+      emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${lhs.name.getOrElse("")}""", forceful=true)
       emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options.reduce{_|_}""", forceful=true)
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
 
     case HostIONew(init) =>
       emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful = true)
       emitGlobalWire(src"val ${lhs}_en_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful = true)
-      emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${nameOf(lhs).getOrElse("")}""", forceful = true)
+      emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${lhs.name.getOrElse("")}""", forceful = true)
       emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options.reduce{_|_}""", forceful = true)
       argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
 
@@ -99,43 +98,43 @@ trait ChiselGenReg extends ChiselGenSRAM {
                 } else {
                   if (d.depth > 1) {
                     nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
-                    if (numWriters > 1) warn(s"You have multiple writers to an NBufFF ( ${nameOf(lhs).getOrElse("")} = ${numWriters} writes ).  Have you considered the loop-carry dependency issues?")
-                    emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters})) // ${nameOf(lhs).getOrElse("")}")
+                    if (numWriters > 1) warn(s"You have multiple writers to an NBufFF ( ${lhs.name.getOrElse("")} = ${numWriters} writes ).  Have you considered the loop-carry dependency issues?")
+                    emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters})) // ${lhs.name.getOrElse("")}")
                     if (numBroadcasters == 0){
                       emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
                     }
                   } else {
-                    emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${nameOf(lhs).getOrElse("")}")
+                    emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${lhs.name.getOrElse("")}")
                   }              
                 }
               case _ => 
                 if (d.depth > 1) {
                   nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
-                  if (numWriters > 1) warn(s"You have multiple writers to an NBufFF ( ${nameOf(lhs).getOrElse("")} = ${numWriters} writes ).  Have you considered the loop-carry dependency issues?")
-                  emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters})) // ${nameOf(lhs).getOrElse("")}")
+                  if (numWriters > 1) warn(s"You have multiple writers to an NBufFF ( ${lhs.name.getOrElse("")} = ${numWriters} writes ).  Have you considered the loop-carry dependency issues?")
+                  emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters})) // ${lhs.name.getOrElse("")}")
                   if (numBroadcasters == 0){
                     emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
                   }
                 } else {
-                  emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${nameOf(lhs).getOrElse("")}")
+                  emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${lhs.name.getOrElse("")}")
                 }
             }
           case _ =>
             if (d.depth > 1) {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
-              if (numWriters > 1) warn(s"You have multiple writers to an NBufFF ( ${nameOf(lhs).getOrElse("")} = ${numWriters} writes ).  Have you considered the loop-carry dependency issues?")
-              emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters})) // ${nameOf(lhs).getOrElse("")}")
+              if (numWriters > 1) warn(s"You have multiple writers to an NBufFF ( ${lhs.name.getOrElse("")} = ${numWriters} writes ).  Have you considered the loop-carry dependency issues?")
+              emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters})) // ${lhs.name.getOrElse("")}")
               if (numBroadcasters == 0){
                 emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
               }
             } else {
-              emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${nameOf(lhs).getOrElse("")}")
+              emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${lhs.name.getOrElse("")}")
             }
         } // TODO: Figure out which reg is really the accum
       }
     case RegRead(reg)    => 
       if (isArgIn(reg) | isHostIO(reg)) {
-        emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)}) // ${nameOf(reg).getOrElse("")}""")
+        emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)}) // ${reg.name.getOrElse("")}""")
         emitGlobalWire(src"""${lhs}.number := io.argIns(${argMapping(reg)._2})""")
       } else {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
@@ -158,7 +157,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
                     case FixPtType(s,d,f) => 
                       emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
                       emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
-                    case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
+                    case BooleanType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
                     case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
                   }
               }
@@ -167,7 +166,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
                 case FixPtType(s,d,f) => 
                   emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
                   emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
-                case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
+                case BooleanType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
                 case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
               }
           }
@@ -176,7 +175,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
             case FixPtType(s,d,f) => 
               emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
               emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
-            case BoolType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""") 
+            case BooleanType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
             case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
           }
         }
@@ -267,15 +266,15 @@ trait ChiselGenReg extends ChiselGenSRAM {
       emit(s"val numArgIOs_reg = ${argIOs.length}")
       // emit(src"val argIns = Input(Vec(numArgIns, UInt(w.W)))")
       // emit(src"val argOuts = Vec(numArgOuts, Decoupled((UInt(w.W))))")
-      argIns.zipWithIndex.map { case(p,i) => 
-        emit(s"""//${quote(p)} = argIns($i) ( ${nameOf(p).getOrElse("")} )""")
+      argIns.zipWithIndex.foreach { case(p,i) =>
+        emit(s"""//${quote(p)} = argIns($i) ( ${p.name.getOrElse("")} )""")
       }
-      argOuts.zipWithIndex.map { case(p,i) => 
-        emit(s"""//${quote(p)} = argOuts($i) ( ${nameOf(p).getOrElse("")} )""")
+      argOuts.zipWithIndex.foreach { case(p,i) =>
+        emit(s"""//${quote(p)} = argOuts($i) ( ${p.name.getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }
-      argIOs.zipWithIndex.map { case(p,i) => 
-        emit(s"""//${quote(p)} = argIOs($i) ( ${nameOf(p).getOrElse("")} )""")
+      argIOs.zipWithIndex.foreach { case(p,i) =>
+        emit(s"""//${quote(p)} = argIOs($i) ( ${p.name.getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }
     }

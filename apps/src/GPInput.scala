@@ -1,8 +1,8 @@
 import org.virtualized._
-import spatial._
+import spatial.dsl._
 
 object GPInput extends SpatialApp {
-  import IR._
+
 
   override val target = targets.DE1
 
