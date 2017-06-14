@@ -21,6 +21,7 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   val MemReduce = spatial.lang.control.MemReduce
 
   val Pipe = spatial.lang.control.Pipe
+  val Sequential = spatial.lang.control.Sequential
   val Parallel = spatial.lang.control.Parallel
   val Stream = spatial.lang.control.Stream
 
@@ -143,6 +144,7 @@ trait SpatialImplicits {
 
 trait SpatialApi extends ArgonApi with SpatialExp with SpatialImplicits
   with AlteraVideoApi
+  with BitOpsApi
   with DebuggingApi
   with DRAMTransfersApi
   with FileIOApi
@@ -177,6 +179,7 @@ trait SpatialLangExternal extends ArgonLangExternal with SpatialApi {
   type File = spatial.lang.File
 
   val Math = spatial.lang.Math
+  val bound = spatial.metadata.bound
 }
 
 object compiler extends SpatialLangInternal

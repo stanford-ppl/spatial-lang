@@ -1,12 +1,12 @@
 package spatial.codegen.pirgen
 
-import spatial.{SpatialConfig, SpatialExp}
+import spatial.compiler._
+import spatial.nodes._
+import spatial.utils._
 
 import scala.collection.mutable._
 
 trait PIRRetiming extends PIRTraversal {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
 
   /**
    * For all vector inputs for each CU, if inputs have mismatched delays or come

@@ -1,11 +1,11 @@
 package spatial.tests
 
-import argon.core.Exceptions
 import org.scalatest.{FlatSpec, Matchers}
 import org.virtualized._
+import spatial.nodes.DelayLine
 
 object SimpleRetimePipe extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize def main(): Unit = {
     val a = ArgIn[Int]
@@ -20,7 +20,7 @@ object SimpleRetimePipe extends SpatialTest {
 }
 
 object RetimeLoop extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize def main(): Unit = {
     Accel {
@@ -36,8 +36,8 @@ object RetimeLoop extends SpatialTest {
 }
 
 object NestedPipeTest extends SpatialTest { // Regression (Unit) // Args: 6
-  import IR._
-  IR.testArgs = List("6")
+  import spatial.dsl._
+  testArgs = List("6")
 
   @virtualize
   def main() {
@@ -71,10 +71,10 @@ object NestedPipeTest extends SpatialTest { // Regression (Unit) // Args: 6
 
 
 
-class RetimingTests extends FlatSpec with Matchers with Exceptions {
+class RetimingTests extends FlatSpec with Matchers {
   "SimpleRetimePipe" should "create one delay line" in {
     SimpleRetimePipe.main(Array.empty)
-    val delays = SimpleRetimePipe.IR.NodeData.value.collect{case dly:SimpleRetimePipe.IR.ShiftRegNew[_] => dly }
+    val delays = SimpleRetimePipe.IR.graph.NodeData.value.collect{case dly: DelayLine[_] => dly }
     delays.length shouldBe 3
   }
 

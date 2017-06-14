@@ -6,7 +6,7 @@ import spatial.SpatialApi
 
 trait StagedUtils { this: SpatialApi =>
   @virtualize
-  @api def printArray[T:Type](array: Array[T], header: String = ""): MUnit = {
+  @api def printArray[T:Type](array: MArray[T], header: String = ""): MUnit = {
     println(header)
     (0 until array.length) foreach { i => print(array(i).toString + " ") }
     println("")

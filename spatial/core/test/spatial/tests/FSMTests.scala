@@ -1,12 +1,10 @@
 package spatial.tests
 
-import argon.core.{Config, Exceptions}
 import org.scalatest.{FlatSpec, Matchers}
-import spatial.SpatialConfig
 import org.virtualized._
 
 object BasicFSM extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -27,7 +25,7 @@ object BasicFSM extends SpatialTest {
 }
 
 object BasicCondFSM extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -56,7 +54,7 @@ object BasicCondFSM extends SpatialTest {
 }
 
 object DotProductFSM extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -91,7 +89,7 @@ object DotProductFSM extends SpatialTest {
 }
 
 object OuterSwitchFSMTest extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -137,7 +135,7 @@ object OuterSwitchFSMTest extends SpatialTest {
 }
 
 
-class FSMTests extends FlatSpec with Matchers with Exceptions {
+class FSMTests extends FlatSpec with Matchers {
   "BasicFSM" should "compile" in { BasicFSM.main(Array.empty) }
   "BasicCondFSM" should "compile" in { BasicCondFSM.main(Array.empty) }
   "DotProductFSM" should "compile" in { DotProductFSM.main(Array.empty) }

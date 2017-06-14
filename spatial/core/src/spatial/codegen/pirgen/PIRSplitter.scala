@@ -1,14 +1,11 @@
 package spatial.codegen.pirgen
 
-import spatial.SpatialExp
+import spatial.compiler._
 import spatial.SpatialConfig
 
 import scala.collection.mutable
 
 trait PIRSplitter extends PIRSplitting with PIRRetiming {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
-
   override val name = "PIR Splitting"
   override val recurse = Always
 

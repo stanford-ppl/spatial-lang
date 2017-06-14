@@ -1,31 +1,28 @@
 package spatial.tests
 
-import org.virtualized.{SourceContext, struct, virtualize}
+import org.virtualized._
 import org.scalatest.{FlatSpec, Matchers}
-import argon.core.compiler._
-import argon.core.{Config, Exceptions}
-import spatial.{SpatialApp, SpatialConfig, SpatialIR}
+import argon.core.Config
+import argon.AppRunner
+import argon.core.TestBenchFailed
+import spatial.{SpatialApp, SpatialConfig}
 
-// Create a testbench IR which runs Scala tests
-trait SpatialTestIR extends SpatialIR with RunnerCore { self =>
+// Create a testbench which runs Scala tests
+trait SpatialTest extends SpatialApp with AppRunner {
   override val testbench = true
   override def settings() {
     Config.verbosity = 1
+    SpatialConfig.enableSim = true
   }
 }
 
-trait SpatialTest extends SpatialApp {
-  override val IR: SpatialTestIR = new SpatialTestIR { def target = spatial.targets.DefaultTarget }
-}
 
-
-
-class SpatialTests extends FlatSpec with Matchers with Exceptions {
+class SpatialTests extends FlatSpec with Matchers {
   val noargs = Array[String]()
 
   // --- Tests
   object NumericTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
     @virtualize
     def main() {
       Accel {
@@ -43,7 +40,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   }
 
   object RegTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
     @virtualize
     def main() {
       val in = ArgIn[Int]
@@ -60,7 +57,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   }
 
   object SRAMTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
     @virtualize
     def main() {
       Accel {
@@ -72,7 +69,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   }
 
   object MuxTests extends SpatialTest {
-    import IR._
+    import spatial.dsl._
     @virtualize
     def main() {
       Accel {
@@ -91,7 +88,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
 
 
   object ReduceTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
     @virtualize
     def main() {
       Accel {
@@ -103,7 +100,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   }
 
   object FoldAccumTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
     @virtualize
     def main() {
       Accel {
@@ -117,7 +114,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   }
 
   object MemReduceTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
     @virtualize
     def main() {
       Accel {
@@ -134,7 +131,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   }
 
   object UtilTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
 
     @virtualize
     def main() {
@@ -150,7 +147,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
 
   // A[B] = C
   /*object NDScatterTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
 
     @virtualize
     def main() {
@@ -171,7 +168,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   }*/
 
   object UntransferredValueTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
 
     @virtualize
     def main() {
@@ -185,11 +182,11 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   }
 
   object DRAMSizeTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
 
     @virtualize
     def main() {
-      val arr = args.map { a => a.to[Int] }
+      val arr = args.map{ a => a.to[Int] }
       val x = DRAM[Int](arr.length)
       val N = ArgIn[Int]
       setArg(N, args.length)
@@ -200,14 +197,14 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
           val sram = SRAM[Int](12)
           sram load x(i :: i + 5)
           Reduce(0)(5 by 1) { j => sram(j) } {_ + _}
-        } {_ + _}
+        }{_+_}
       }
       println(getArg(out))
     }
   }
 
   object IllegalVarAssignTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
 
     @virtualize
     def main(): Unit = {
@@ -220,7 +217,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   }
 
   object IllegalVarReadTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
     @virtualize def main(): Unit = {
       var x = 32
       Accel {
@@ -231,7 +228,7 @@ class SpatialTests extends FlatSpec with Matchers with Exceptions {
   }
 
   object IllegalVarNewTest extends SpatialTest {
-    import IR._
+    import spatial.dsl._
     @virtualize def main(): Unit = {
       Accel {
         var x = 32

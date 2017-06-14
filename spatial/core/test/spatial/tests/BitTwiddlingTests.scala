@@ -1,12 +1,12 @@
 package spatial.tests
-import argon.core.Exceptions
+
+import argon.core.TestBenchFailed
 import spatial.SpatialConfig
 import org.scalatest.{FlatSpec, Matchers}
 import org.virtualized._
 
-
 object BitSelects extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -28,7 +28,7 @@ object BitSelects extends SpatialTest {
 }
 
 object UserVectors extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   type Q4 = FixPt[FALSE,_4,_0]
 
@@ -69,7 +69,7 @@ object UserVectors extends SpatialTest {
 }
 
 object TwiddlingWithStructs extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   type UInt8 = FixPt[FALSE,_8,_0]
   type SInt8 = FixPt[TRUE,_8,_0]
@@ -103,8 +103,8 @@ object TwiddlingWithStructs extends SpatialTest {
 }
 
 object ShiftTest extends SpatialTest {
-  import IR._
-  IR.testArgs = List("-14", "2")
+  import spatial.dsl._
+  testArgs = List("-14", "2")
 
   @virtualize def main(): Unit = {
     val x = ArgIn[Int]
@@ -122,7 +122,7 @@ object ShiftTest extends SpatialTest {
   }
 }
 
-class BitTwiddling extends FlatSpec with Matchers with Exceptions {
+class BitTwiddling extends FlatSpec with Matchers {
   SpatialConfig.enableSim = true
 
   "Bit selection" should "compile" in { BitSelects.main(Array.empty) }

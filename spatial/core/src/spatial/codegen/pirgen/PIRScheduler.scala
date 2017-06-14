@@ -1,13 +1,12 @@
 package spatial.codegen.pirgen
 
-import spatial.SpatialExp
+import spatial.compiler._
+import spatial.nodes._
+import spatial.utils._
 
 import scala.collection.mutable
 
 trait PIRScheduler extends PIRTraversal {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
-
   override val name = "PIR Scheduler"
   override val recurse = Always
 

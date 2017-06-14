@@ -1,6 +1,9 @@
 package spatial.lang
 
 import forge._
+import spatial.SpatialApi
+import spatial.nodes._
+import spatial.utils._
 
 object HostTransferOps {
   /** Smart Constructors **/
@@ -18,7 +21,7 @@ object HostTransferOps {
   }
 }
 
-trait HostTransferApi {
+trait HostTransferApi { this: SpatialApi =>
   import HostTransferOps._
 
   @api def setArg[A,T:Bits](reg: Reg[T], value: A)(implicit lift: Lift[A,T]): MUnit = {
@@ -26,9 +29,9 @@ trait HostTransferApi {
     MUnit( set_arg(reg.s, lift.staged.unwrapped(lift(value))) )
   }
   @api def getArg[T:Type:Bits](reg: Reg[T]): T = wrap(get_arg(reg.s))
-  @api def setMem[T:Type:Bits](dram: DRAM[T], data: Array[T]): MUnit = MUnit(set_mem(dram.s, data.s))
-  @api def getMem[T:Type:Bits](dram: DRAM[T]): Array[T] = {
-    val array = Array.empty[T](productTree(wrap(stagedDimsOf(dram.s))))
+  @api def setMem[T:Type:Bits](dram: DRAM[T], data: MArray[T]): MUnit = MUnit(set_mem(dram.s, data.s))
+  @api def getMem[T:Type:Bits](dram: DRAM[T]): MArray[T] = {
+    val array = MArray.empty[T](Math.productTree(wrap(stagedDimsOf(dram.s))))
     get_mem(dram.s, array.s)
     array
   }
