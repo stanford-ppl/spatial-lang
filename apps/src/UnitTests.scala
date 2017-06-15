@@ -1116,6 +1116,7 @@ object UniqueParallelLoad extends SpatialApp { // Regression (Unit) // Args: non
 
   @virtualize
   def main() = {
+    type T = FixPt[TRUE,_32,_32]
     val srcA = Array.tabulate(dim0) { i => Array.tabulate(dim1){ j => ((j + i) % 8) }}
     val srcB = Array.tabulate(dim1) { i => Array.tabulate(dim1){ j => ((j + i) % 8) }}
 
@@ -1215,15 +1216,16 @@ object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
 
   @virtualize
   def main() = {
+    type T = FixPt[TRUE,_32,_32]
     // val size = args(0).to[Int]
     val ii = args(0).to[Int]
     val cols = args(1).to[Int]
     val size = paddedCols
-    val src = Array.tabulate(size) {i => i % 256 }
+    val src = Array.tabulate[T](size) {i => (i % 256).to[T] }
 
     val dst = unaligned_1d(src, ii, cols)
 
-    val goldArray = Array.tabulate(ii*cols){ i => i % 256 }
+    val goldArray = Array.tabulate[T](ii*cols){ i => (i % 256).to[T] }
     val gold = goldArray.reduce{_+_}
 
     printArray(src, "src")
