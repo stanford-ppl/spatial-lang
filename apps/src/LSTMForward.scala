@@ -33,7 +33,7 @@ object LSTMForward extends SpatialApp {
   type X = FixPt[TRUE,_16,_16]
 
   @virtualize
-  def LSTMForward[T:Type:Num](W: Array[T], x: Array[T], bias: Array[T],  mm: Int, nn: Int, N_classes: Int) = {
+  def GateForward[T:Type:Num](W: Array[T], x: Array[T], U: Array[T], h: Array[T], bias: Array[T],  mm: Int, nn: Int, N_classes: Int) = {
     val D_h = ArgIn[Int]
     val d = ArgIn[Int]
     val N = ArgIn[Int]
@@ -44,6 +44,8 @@ object LSTMForward extends SpatialApp {
     val W_i = DRAM[T](D_h, d)
     val x_t = DRAM[T](d, N)
     val b_i = DRAM[T](D_h, N)
+    val U_i = DRAM[T](D_h, D_h)
+    val h_t_1 = DRAM[T](D_h, N)
 
     val bDh = 5
     val bd = 5
@@ -52,29 +54,36 @@ object LSTMForward extends SpatialApp {
     setMem(W_i, W)
     setMem(x_t, x)
     setMem(b_i, bias)
+    setMem(U_i, U)
+    setMem(h_t_1, h)
 
     Accel {
       Sequential.Foreach(D_h by bDh, N by bN) { (i,j) =>
         val tileBias = SRAM[T](bDh, bN)
         tileBias load b_i(i::i+bDh, j::j+bN)
+
         MemFold(tileBias)(d by bd) { k =>
           val tileA = SRAM[T](bDh, bd) 
           val tileB = SRAM[T](bd, bN)
           val accum = SRAM[T](bDh, bN)
           Parallel {
-            tileA load a(i::i+bDh, k::k+bd)
-            tileB load b(k::k+bd, j::j+bN)
+            tileA load W_i(i::i+bDh, k::k+bd)
+            tileB load x_t(k::k+bd, j::j+bN)
           }
 
           MemReduce(accum)(bd by 1){ kk =>
-            val tileBias_partial = SRAM[T](bD)
+            val tileBias_partial = SRAM[T](bDh, bN)
             Foreach(bDh by 1, bN by 1){ (ii,jj) =>
-              tileBias_partial(ii,jj) = tileA(ii,kk) * tileB(kk)
+              tileBias_partial(ii,jj) = tileA(ii,kk) * tileB(kk, jj)
             }
             tileBias_partial 
           }{_+_}
         }{_+_}
+
         b_i(i::i+bDh, j::j+bN) store tileBias
+
+
+
       }
     }
     getMem(b_i)
@@ -87,12 +96,13 @@ object LSTMForward extends SpatialApp {
     val N = 1 
 
     val W_i = Array.tabulate(D_h){ j => Array.tabulate(d){ i => (i + j).to[X] } } 
-    val U_i = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => (i + j).to[X] } } 
     val x_t = Array.tabulate(d) { j => Array.tabulate(N){ i => (i * j).to[X] } } 
-    val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => (i * j).to[X] } } 
     val bias = Array.tabulate(D_h) { j => Array.tabulate(N){ i => 0.to[X] } } 
 
-    val result = LSTMForward(W_i.flatten,  x_t, bias, D, d, N)
+    val U_i = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => (i + j).to[X] } } 
+    val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => (i * j).to[X] } } 
+
+    val result = GateForward(W_i.flatten, x_t.flatten, U_i.flatten, h_t_1.flatten,  bias.flatten, D_h, d, N)
 
     println("result cksum: " + result.map(a => a).reduce{_+_})
   }
