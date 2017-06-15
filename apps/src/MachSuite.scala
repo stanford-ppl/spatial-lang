@@ -1683,8 +1683,8 @@ object Backprop extends SpatialApp { // Regression (Dense) // Args: none
     val possible_outputs =  3
     val training_sets =   163
     val sets_to_do = ArgIn[Int]
-    setArg(sets_to_do, args(0).to[Int])
-    // setArg(sets_to_do, training_sets)
+    // setArg(sets_to_do, args(0).to[Int])
+    setArg(sets_to_do, training_sets)
     val nodes_per_layer =  64
     val layers =            2
     val learning_rate =  0.01.to[T]
