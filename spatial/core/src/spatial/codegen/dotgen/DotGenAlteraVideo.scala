@@ -1,5 +1,6 @@
 package spatial.codegen.dotgen
 
+import argon.internals._
 import argon.codegen.dotgen.DotCodegen
 import argon.codegen.FileDependencies
 import spatial.compiler._

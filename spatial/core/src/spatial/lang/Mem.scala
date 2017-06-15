@@ -1,5 +1,6 @@
 package spatial.lang
 
+import argon.internals._
 import forge._
 
 /** Addressable, potentially multi-dimensional hardware memories **/

@@ -1,105 +1,101 @@
 package spatial
 
+import argon.internals._
 import spatial.compiler._
 
 // --- Compiler exceptions
 
-class EmptyReductionTreeLevelException(implicit ctx: SrcCtx) extends
-CompilerException(1000, u"Cannot create reduction tree for empty list.", {
+class EmptyReductionTreeLevelException(implicit ctx: SrcCtx, state: State) extends
+CompilerException(1000, u"Cannot create reduction tree for empty list."){ def console() = {
   error(ctx, "Cannot create reduction tree for empty list.")
   error(ctx)
-})
+}}
 
-class UndefinedDimensionsError(s: Exp[_], d: Option[Exp[_]])(implicit ctx: SrcCtx) extends
-CompilerException(1001, u"Cannot find dimensions for symbol ${str(s)}.", {
+class UndefinedDimensionsError(s: Exp[_], d: Option[Exp[_]])(implicit ctx: SrcCtx, state: State) extends
+CompilerException(1001, u"Cannot find dimensions for symbol ${str(s)}."){ def console() = {
   error(ctx, s"Cannot locate dimensions for symbol ${str(s)} used here.")
   if (d.isDefined) error(c"  Dimension: $d")
   error(ctx)
-})
+}}
 
-class UndefinedZeroException(s: Exp[_], tp: Type[_])(implicit ctx: SrcCtx) extends
-CompilerException(1002, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s", {
+class UndefinedZeroException(s: Exp[_], tp: Type[_])(implicit ctx: SrcCtx, state: State) extends
+CompilerException(1002, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s"){ def console() = {
   error(ctx, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s")
-})
+}}
 
-class ExternalWriteError(mem: Exp[_], write: Exp[_], ctrl: Ctrl)(implicit ctx: SrcCtx) extends
-CompilerException(1003, c"Found illegal write to memory $mem defined outside an inner controller", {
+class ExternalWriteError(mem: Exp[_], write: Exp[_], ctrl: Ctrl)(implicit ctx: SrcCtx, state: State) extends
+CompilerException(1003, c"Found illegal write to memory $mem defined outside an inner controller"){ def console() = {
   error(ctx, c"Found illegal write to memory $mem defined outside an inner controller")
   error(c"${str(write)}")
   error(c"Current control $ctrl")
-})
+}}
 
-class UndefinedBankingException(tp: Type[_])(implicit ctx: SrcCtx) extends
-CompilerException(1004, c"Don't know how to bank memory type $tp", {
+class UndefinedBankingException(tp: Type[_])(implicit ctx: SrcCtx, state: State) extends
+CompilerException(1004, c"Don't know how to bank memory type $tp"){ def console() = {
   error(ctx, c"Don't know how to bank memory type $tp")
-})
+}}
 
-class UndefinedDispatchException(access: Exp[_], mem: Exp[_]) extends
-CompilerException(1005, c"""Access $access had no dispatch information for memory $mem (${mem.name.getOrElse("noname")})""", {
+class UndefinedDispatchException(access: Exp[_], mem: Exp[_])(implicit state: State) extends
+CompilerException(1005, c"""Access $access had no dispatch information for memory $mem (${mem.name.getOrElse("noname")}}"""){ def console() = {
   error(c"Access $access had no dispatch information for memory $mem")
-})
+}}
 
-class UndefinedPortsException(access: Exp[_], mem: Exp[_], idx: Option[Int]) extends
-CompilerException(1006, c"Access $access had no ports for memory $mem" + idx.map{i => c", index $i"}.getOrElse(""), {
+class UndefinedPortsException(access: Exp[_], mem: Exp[_], idx: Option[Int])(implicit state: State) extends
+CompilerException(1006, c"Access $access had no ports for memory $mem" + idx.map{i => c", index $i"}.getOrElse("")){ def console() = {
   error(c"Access $access had no ports for memory $mem" + idx.map{i => c", index $i"}.getOrElse(""))
-})
+}}
 
-class NoCommonParentException(a: Ctrl, b: Ctrl) extends
-CompilerException(1007, c"Controllers $a and $b had no common parent while finding LCA with distance", {
+class NoCommonParentException(a: Ctrl, b: Ctrl)(implicit state: State) extends
+CompilerException(1007, c"Controllers $a and $b had no common parent while finding LCA with distance"){ def console() = {
   error(c"Controllers $a and $b had no common parent while finding LCA with distance")
-})
+}}
 
-class UndefinedChildException(parent: Ctrl, access: Access) extends
-CompilerException(1008, c"Parent $parent does not appear to contain $access while running childContaining", {
+class UndefinedChildException(parent: Ctrl, access: Access)(implicit state: State) extends
+CompilerException(1008, c"Parent $parent does not appear to contain $access while running childContaining"){ def console() = {
   error(c"Parent $parent does not appear to contain $access while running childContaining")
-})
+}}
 
-class AmbiguousMetaPipeException(mem: Exp[_], metapipes: Map[Ctrl, Seq[Access]]) extends
-CompilerException(1009, c"Ambiguous metapipes for readers/writers of $mem: ${metapipes.keySet}", {
+class AmbiguousMetaPipeException(mem: Exp[_], metapipes: Map[Ctrl, Seq[Access]])(implicit state: State) extends
+CompilerException(1009, c"Ambiguous metapipes for readers/writers of $mem: ${metapipes.keySet}"){ def console() = {
   error(c"Ambiguous metapipes for readers/writers of $mem:")
   metapipes.foreach{case (pipe,accesses) => error(c"  $pipe: $accesses")}
-})
+}}
 
-class UndefinedPipeDistanceException(a: Ctrl, b: Ctrl) extends
-CompilerException(1010, c"Controllers $a and $b have an undefined pipe distance because they occur in parallel", {
+class UndefinedPipeDistanceException(a: Ctrl, b: Ctrl)(implicit state: State) extends
+CompilerException(1010, c"Controllers $a and $b have an undefined pipe distance because they occur in parallel"){ def console() = {
   error(c"Controllers $a and $b have an undefined pipe distance because they occur in parallel")
-})
+}}
 
-class UndefinedControlStyleException(ctrl: Exp[_]) extends
-CompilerException(1011, c"Controller ${str(ctrl)} does not have a control style defined", {
+class UndefinedControlStyleException(ctrl: Exp[_])(implicit state: State) extends
+CompilerException(1011, c"Controller ${str(ctrl)} does not have a control style defined"){ def console() = {
   error(c"Controller ${str(ctrl)} does not have a control style defined")
-})
+}}
 
-class UndefinedControlLevelException(ctrl: Exp[_]) extends
-CompilerException(1012, c"Controller ${str(ctrl)} does not have a control level defined", {
+class UndefinedControlLevelException(ctrl: Exp[_])(implicit state: State) extends
+CompilerException(1012, c"Controller ${str(ctrl)} does not have a control level defined"){ def console() = {
   error(c"Controller ${str(ctrl)} does not have a control level defined")
-})
+}}
 
 
-class UnusedDRAMException(dram: Exp[_], name: String) extends
-CompilerException(1020, c"DRAM $dram ($name) was declared as a DRAM in app but is not used by the accel", {
+class UnusedDRAMException(dram: Exp[_], name: String)(implicit state: State) extends
+CompilerException(1020, c"DRAM $dram ($name) was declared as a DRAM in app but is not used by the accel"){ def console() = {
   error(c"DRAM $dram ($name) was declared as a DRAM in app but is not used by the accel")
-})
+}}
 
-class OuterLevelInnerStyleException(name: String) extends
-CompilerException(1022, c"Controller ${name} claims to be an outer level controller but has style of an innerpipe", {
-  error(c"Controller ${name} claims to be an outer level controller but has style of an innerpipe")
-})
+class OuterLevelInnerStyleException(name: String)(implicit state: State) extends
+CompilerException(1022, c"Controller $name claims to be an outer level controller but has style of an innerpipe"){ def console() = {
+  error(c"Controller $name claims to be an outer level controller but has style of an innerpipe")
+}}
 
-class DoublyUsedDRAMException(dram: Exp[_], name: String) extends
-CompilerException(1023, c"DRAM $dram is used twice as a $name.  Please only load from a DRAM once, or else stream signals will interfere", {
+class DoublyUsedDRAMException(dram: Exp[_], name: String)(implicit state: State) extends
+CompilerException(1023, c"DRAM $dram is used twice as a $name.  Please only load from a DRAM once, or else stream signals will interfere"){ def console() = {
   error(c"DRAM $dram is used twice as a $name.  Please only load from a DRAM once, or else stream signals will interfere")
-})
+}}
 
-class TrigInAccelException(lhs: Exp[_]) extends
-CompilerException(1024, c"""Cannot handle trig functions inside of accel block! ${lhs.name.getOrElse("")}""", {
+class TrigInAccelException(lhs: Exp[_])(implicit state: State) extends
+CompilerException(1024, c"""Cannot handle trig functions inside of accel block! ${lhs.name.getOrElse("")}"""){ def console() = {
   error(c"""Cannot handle trig functions inside of accel block! ${lhs.name.getOrElse("")}""")
-})
-
-class NoWireConstructorException(lhs: String) extends
-CompilerException(1025, c"""Cannot create new wire for $lhs""", {
-  error(c"""Cannot create new wire for $lhs""")
-})
+}}
 
 
 
@@ -113,118 +109,118 @@ object Nth {
   }
 }
 
-class InvalidOnchipDimensionError(mem: Exp[_], dim: Int) extends UserError(mem.ctx, {
+class InvalidOnchipDimensionError(mem: Exp[_], dim: Int)(implicit state: State) extends UserError(mem.ctx){ def console() = {
   error(mem.ctx, u"Memory $mem defined here has invalid ${Nth(dim)} dimension.")
   error("Only functions of constants and DSE parameters are allowed as dimensions of on-chip memories")
-})
+}}
 
-class InvalidParallelFactorError(par: Exp[_])(implicit ctx: SrcCtx) extends UserError(ctx, {
+class InvalidParallelFactorError(par: Exp[_])(implicit ctx: SrcCtx, state: State) extends UserError(ctx){ def console() = {
   error(ctx, u"Invalid parallelization factor: ${str(par)}")
-})
+}}
 
-class DimensionMismatchError(mem: Exp[_], dims: Int, inds: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+class DimensionMismatchError(mem: Exp[_], dims: Int, inds: Int)(implicit ctx: SrcCtx, state: State) extends UserError(ctx){ def console() = {
   error(ctx, u"Invalid number of indices used to access $mem: Expected $dims, got $inds")
-})
+}}
 
-class SparseAddressDimensionError(dram: Exp[_], d: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+class SparseAddressDimensionError(dram: Exp[_], d: Int)(implicit ctx: SrcCtx, state: State) extends UserError(ctx){ def console() = {
   error(ctx, u"Creation of multi-dimensional sparse DRAM tiles is currently unsupported.")
   error(u"Expected 1D SRAM tile, found ${d}D tile")
-})
-class SparseDataDimensionError(isLoad: Boolean, d: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+}}
+class SparseDataDimensionError(isLoad: Boolean, d: Int)(implicit ctx: SrcCtx, state: State) extends UserError(ctx){ def console() = {
   error(ctx, u"""Multi-dimensional ${if (isLoad) "gather" else "scatter"} is currently unsupported.""")
-})
-class UnsupportedStridedDRAMError(isLoad: Boolean)(implicit ctx: SrcCtx) extends UserError(ctx, {
+}}
+class UnsupportedStridedDRAMError(isLoad: Boolean)(implicit ctx: SrcCtx, state: State) extends UserError(ctx){ def console() = {
   error(ctx, u"""Strided tile ${if (isLoad) "load" else "store"} is currently unsupported""")
-})
+}}
 
-class UnsupportedUnalignedTileStore(implicit ctx: SrcCtx) extends UserError(ctx, {
+class UnsupportedUnalignedTileStore(implicit ctx: SrcCtx, state: State) extends UserError(ctx){ def console() = {
   error(ctx, u"Unaligned tile store is currently unsupported.")
-})
+}}
 
-class ControlInReductionError(ctx: SrcCtx) extends UserError(ctx, {
+class ControlInReductionError(ctx: SrcCtx)(implicit state: State) extends UserError(ctx){ def console() = {
   error(ctx, u"Reduction functions cannot have inner control nodes")
-})
+}}
 
-class ControlInNotDoneError(ctx: SrcCtx) extends UserError(ctx, {
+class ControlInNotDoneError(ctx: SrcCtx)(implicit state: State) extends UserError(ctx){ def console() = {
   error(ctx, "While condition of FSMs cannot have inner control nodes")
-})
+}}
 
-class ControlInNextStateError(ctx: SrcCtx) extends UserError(ctx, {
+class ControlInNextStateError(ctx: SrcCtx)(implicit state: State) extends UserError(ctx){ def console() = {
   error(ctx, "Next state function of FSMs cannot have inner control nodes")
-})
+}}
 
 
-class InvalidOffchipDimensionError(offchip: Exp[_], dim: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+class InvalidOffchipDimensionError(offchip: Exp[_], dim: Int)(implicit ctx: SrcCtx, state: State) extends UserError(ctx){ def console() = {
   error(ctx, u"Offchip memory defined here has invalid ${Nth(dim)} dimension")
   error("Only functions of input arguments, parameters, and constants can be used as DRAM dimensions.")
-})
+}}
 
-class ConcurrentReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+class ConcurrentReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx, state: State) extends UserError(mem.ctxOrElse(ctx)){ def console() = {
   error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal concurrent readers: ")
   error(a.ctxOrElse(ctx), u"  The first read occurs here")
   error(a.ctxOrElse(ctx))
   error(b.ctxOrElse(ctx), u"  The second read occurs here")
   error(b.ctxOrElse(ctx))
-})
+}}
 
-class ConcurrentWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+class ConcurrentWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx, state: State) extends UserError(mem.ctxOrElse(ctx)){ def console() = {
   error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal concurrent writers: ")
   error(a.ctxOrElse(ctx), u"  The first write occurs here")
   error(a.ctxOrElse(ctx))
   error(b.ctxOrElse(ctx), u"  The second write occurs here")
   error(b.ctxOrElse(ctx))
-})
+}}
 
-class PipelinedReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+class PipelinedReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx, state: State) extends UserError(mem.ctxOrElse(ctx)){ def console() = {
   error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal pipelined readers: ")
   error(a.ctxOrElse(ctx), u"  The first read occurs here")
   error(a.ctxOrElse(ctx))
   error(b.ctxOrElse(ctx), u"  The second read occurs here")
   error(b.ctxOrElse(ctx))
-})
+}}
 
-class PipelinedWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+class PipelinedWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx, state: State) extends UserError(mem.ctxOrElse(ctx)){ def console() = {
   error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal pipelined writers: ")
   error(a.ctxOrElse(ctx), u"  The first write occurs here")
   error(a.ctxOrElse(ctx))
   error(b.ctxOrElse(ctx), u"  The second write occurs here")
   error(b.ctxOrElse(ctx))
-})
+}}
 
-class MultipleReadersError(mem: Exp[_], readers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+class MultipleReadersError(mem: Exp[_], readers: List[Exp[_]])(implicit ctx: SrcCtx, state: State) extends UserError(mem.ctxOrElse(ctx)){ def console() = {
   error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal multiple readers: ")
-  readers.foreach{read =>
+  readers.foreach { read =>
     error(read.ctxOrElse(ctx), u"  Read defined here")
     error(read.ctxOrElse(ctx))
   }
-})
+}}
 
-class MultipleWritersError(mem: Exp[_], writers: List[Exp[_]])(implicit ctx: SrcCtx) extends UserError(mem.ctxOrElse(ctx), {
+class MultipleWritersError(mem: Exp[_], writers: List[Exp[_]])(implicit ctx: SrcCtx, state: State) extends UserError(mem.ctxOrElse(ctx)){ def console() = {
   error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal multiple writers: ")
-  writers.foreach{write =>
+  writers.foreach { write =>
     error(write.ctxOrElse(ctx), u"  Write defined here")
     error(write.ctxOrElse(ctx))
   }
-})
+}}
 
-class NoTopError(ctx: SrcCtx) extends ProgramError({
+class NoTopError(ctx: SrcCtx)(implicit state: State) extends ProgramError { def console() = {
   error("An Accel block is required to specify the area of code to optimize for the FPGA.")
   error("No Accel block was specified for this program.")
-})
+}}
 
-class EmptyVectorException(ctx: SrcCtx) extends UserError(ctx, {
+class EmptyVectorException(ctx: SrcCtx)(implicit state: State) extends UserError(ctx){ def console() = {
   error("Attempted to create an empty vector. Empty vectors are currently disallowed.")
-})
+}}
 
-class InvalidVectorApplyIndex(vector: Exp[_], index: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+class InvalidVectorApplyIndex(vector: Exp[_], index: Int)(implicit ctx: SrcCtx, state: State) extends UserError(ctx){ def console() = {
   error(u"Attempted to address vector $vector at invalid index $index.")
-})
+}}
 
-class InvalidVectorSlice(vector: Exp[_], start: Int, end: Int)(implicit ctx: SrcCtx) extends UserError(ctx, {
+class InvalidVectorSlice(vector: Exp[_], start: Int, end: Int)(implicit ctx: SrcCtx, state: State) extends UserError(ctx){ def console() = {
   error(u"Attempted to slice vector $vector $end::$start, creating an empty vector")
   error("Note that Vectors in Spatial are little-endian (last element in Vector is index 0).")
-})
+}}
 
-class NonConstantInitError(ctx: SrcCtx) extends UserError(ctx, {
+class NonConstantInitError(ctx: SrcCtx)(implicit state: State) extends UserError(ctx){ def console() = {
   error(ctx, u"Register must have constant initialization value.")
-})
+}}

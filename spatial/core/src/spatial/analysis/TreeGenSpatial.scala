@@ -1,5 +1,6 @@
 package spatial.analysis
 
+import argon.internals._
 import argon.core.Config
 import spatial.compiler._
 import spatial.metadata._

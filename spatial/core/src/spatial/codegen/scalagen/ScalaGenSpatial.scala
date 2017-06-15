@@ -1,5 +1,6 @@
 package spatial.codegen.scalagen
 
+import argon.internals._
 import argon.codegen.scalagen._
 
 trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen

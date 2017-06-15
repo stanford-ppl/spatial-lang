@@ -1,5 +1,6 @@
 package spatial.codegen.scalagen
 
+import argon.internals._
 import argon.codegen.scalagen.ScalaGenString
 import argon.nodes._
 import spatial.compiler._

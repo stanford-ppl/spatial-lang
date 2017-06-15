@@ -1,5 +1,6 @@
 package spatial.analysis
 
+import argon.internals._
 import org.virtualized.SourceContext
 import spatial.compiler._
 import spatial.metadata._
@@ -140,7 +141,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       appendWriter(writer, ctrl)
     else {
       val mem = LocalWriter.unapply(writer).get.head._1
-      throw new spatial.ExternalWriteError(mem, writer, ctrl)(writer.ctx)
+      throw new spatial.ExternalWriteError(mem, writer, ctrl)(writer.ctx, state)
     }
   }
 

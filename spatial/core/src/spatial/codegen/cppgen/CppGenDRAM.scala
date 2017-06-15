@@ -1,5 +1,6 @@
 package spatial.codegen.cppgen
 
+import argon.internals._
 import spatial.compiler._
 import spatial.metadata._
 import spatial.nodes._

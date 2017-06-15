@@ -1,6 +1,7 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
+import argon.internals._
 import spatial.SpatialConfig
 
 

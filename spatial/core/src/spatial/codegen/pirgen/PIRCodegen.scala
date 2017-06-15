@@ -5,6 +5,7 @@ import java.nio.file.{Files, Paths}
 
 import argon.codegen.{Codegen, FileDependencies}
 import argon.core.Config
+import argon.internals._
 import spatial.compiler._
 import spatial.metadata._
 import spatial.nodes._

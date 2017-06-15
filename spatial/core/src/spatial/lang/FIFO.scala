@@ -1,7 +1,9 @@
 package spatial.lang
 
+import argon.internals._
 import forge._
 import spatial.nodes._
+import spatial.utils._
 
 /** Infix methods **/
 case class FIFO[T:Type:Bits](s: Exp[FIFO[T]]) extends Template[FIFO[T]] {
@@ -18,7 +20,7 @@ case class FIFO[T:Type:Bits](s: Exp[FIFO[T]]) extends Template[FIFO[T]] {
   @api def numel(): Index = wrap(FIFO.numel(this.s))
 
   //@api def load(dram: DRAM1[T]): MUnit = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
-  @api def load(dram: DRAMDenseTile1[T]): MUnit = dense_transfer(dram, this, isLoad = true)
+  @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
   // @api def gather(dram: DRAMSparseTile[T]): MUnit = copy_sparse(dram, this, isLoad = true)
 
   @internal def ranges: Seq[Range] = Seq(Range.alloc(None, wrap(sizeOf(s)),None,None))

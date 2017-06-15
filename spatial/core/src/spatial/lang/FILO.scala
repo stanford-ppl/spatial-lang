@@ -1,7 +1,9 @@
 package spatial.lang
 
+import argon.internals._
 import forge._
 import spatial.nodes._
+import spatial.utils._
 
 case class FILO[T:Type:Bits](s: Exp[FILO[T]]) extends Template[FILO[T]] {
   @api def push(data: T): MUnit = this.push(data, true)
@@ -17,7 +19,7 @@ case class FILO[T:Type:Bits](s: Exp[FILO[T]]) extends Template[FILO[T]] {
   @api def numel(): Index = wrap(FILO.numel(this.s))
 
   //@api def load(dram: DRAM1[T]): MUnit = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
-  @api def load(dram: DRAMDenseTile1[T]): MUnit = dense_transfer(dram, this, isLoad = true)
+  @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
   // @api def gather(dram: DRAMSparseTile[T]): MUnit = copy_sparse(dram, this, isLoad = true)
 
   @internal def ranges: Seq[Range] = Seq(Range.alloc(None, wrap(sizeOf(s)),None,None))

@@ -1,6 +1,9 @@
 package spatial.metadata
 
+import argon.internals._
+import forge._
 import spatial.compiler._
+import spatial.utils._
 
 sealed abstract class Banking { def banks: Int }
 case class StridedBanking(stride: Int, banks: Int) extends Banking  // Strided bank
@@ -32,7 +35,7 @@ case class DiagonalMemory(strides: Seq[Int], banks: Int, depth: Int, isAccum: Bo
   * Metadata for duplicates of a single coherent scratchpad.
   */
 case class Duplicates(dups: Seq[Memory]) extends Metadata[Duplicates] { def mirror(f:Tx) = this }
-object duplicatesOf {
+@stateful object duplicatesOf {
   def apply(mem: Exp[_]): Seq[Memory] = metadata[Duplicates](mem).map(_.dups).getOrElse(Nil)
   def update(mem: Exp[_], dups: Seq[Memory]) = metadata.add(mem, Duplicates(dups))
 }
@@ -43,7 +46,7 @@ object duplicatesOf {
 case class AccessDispatch(mapping: Map[Exp[_], Set[Int]]) extends Metadata[AccessDispatch] {
   def mirror(f:Tx) = AccessDispatch(mapping.map{case (mem,idxs) => f(mem) -> idxs })
 }
-object dispatchOf {
+@stateful object dispatchOf {
   private def get(access: Exp[_]): Option[Map[Exp[_], Set[Int]]] = metadata[AccessDispatch](access).map(_.mapping)
   def get(access: Exp[_], mem: Exp[_]): Option[Set[Int]] = dispatchOf.get(access).flatMap(_.get(mem))
 
@@ -82,7 +85,7 @@ object dispatchOf {
 case class PortIndex(mapping: Map[Exp[_], Map[Int, Set[Int]]]) extends Metadata[PortIndex] {
   def mirror(f:Tx) = PortIndex(mapping.map{case (mem,idxs) => f(mem) -> idxs })
 }
-object portsOf {
+@stateful object portsOf {
   private def get(access: Exp[_]): Option[Map[Exp[_], Map[Int, Set[Int]]]] = metadata[PortIndex](access).map(_.mapping)
 
   def get(access: Exp[_], mem: Exp[_]): Option[Map[Int, Set[Int]]] = portsOf.get(access).flatMap(_.get(mem))
@@ -127,7 +130,7 @@ object portsOf {
 case class TopController(mapping: Map[Exp[_], Map[Int,Ctrl]]) extends Metadata[TopController] {
   def mirror(f:Tx) = TopController(mapping.map{case (mem,ctrls) => f(mem) -> ctrls.map{case (i,ctrl) => i -> mirrorCtrl(ctrl,f) }})
 }
-object topControllerOf {
+@stateful object topControllerOf {
   private def get(access: Exp[_]): Option[Map[Exp[_],Map[Int,Ctrl]]] = metadata[TopController](access).map(_.mapping)
 
   // Get the top controller for the given access, memory, and instance index

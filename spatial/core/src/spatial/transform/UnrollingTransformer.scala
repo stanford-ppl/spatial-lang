@@ -1,5 +1,6 @@
 package spatial.transform
 
+import argon.internals._
 import argon.transform.ForwardTransformer
 import org.virtualized.SourceContext
 import spatial.compiler._

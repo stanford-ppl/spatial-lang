@@ -1,5 +1,6 @@
 package spatial.codegen.scalagen
 
+import argon.internals._
 import spatial.compiler._
 
 trait ScalaGenMemories extends ScalaGenBits {

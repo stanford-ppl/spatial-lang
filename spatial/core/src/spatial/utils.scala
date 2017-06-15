@@ -1,11 +1,13 @@
 package spatial
 
+import argon.internals._
 import argon.nodes._
 import argon.transform.Transformer
 import forge._
 import spatial.compiler._
 import spatial.metadata._
 import spatial.nodes._
+import spatial.lang.Math
 
 object utils {
   /**
@@ -48,8 +50,12 @@ object utils {
   }
 
 
+  @internal def flatIndex(indices: Seq[Index], dims: Seq[Index]): Index = {
+    val strides = List.tabulate(dims.length){d => Math.productTree(dims.drop(d+1)) }
+    Math.sumTree(indices.zip(strides).map{case (a,b) => a*b })
+  }
 
-
+  def constDimsToStrides(dims: Seq[Int]): Seq[Int] = List.tabulate(dims.length){d => dims.drop(d + 1).product}
 
   /**
     * Checks to see if x depends on y (dataflow only, no scheduling dependencies)
@@ -87,7 +93,7 @@ object utils {
   }
 
   implicit class IndexRangeInternalOps(x: Index) {
-    @api def toRange: Range = Range.fromIndex(x)
+    @api def toRange: MRange = MRange.fromIndex(x)
   }
   implicit class Int64RangeInternalOps(x: Int64) {
     @api def toRange64: Range64 = Range64.fromInt64(x)

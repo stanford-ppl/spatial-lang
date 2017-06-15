@@ -1,6 +1,7 @@
 package spatial.codegen.dotgen
 
 import argon.core.Config
+import argon.internals._
 import spatial.compiler._
 import spatial.nodes._
 

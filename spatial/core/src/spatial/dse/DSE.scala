@@ -1,5 +1,6 @@
 package spatial.dse
 
+import argon.internals._
 import argon.traversal.CompilerPass
 import org.virtualized.SourceContext
 import spatial.analysis._

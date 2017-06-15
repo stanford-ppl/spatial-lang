@@ -2,6 +2,7 @@ package spatial.codegen.scalagen
 
 import argon.codegen.FileDependencies
 import argon.codegen.scalagen.ScalaCodegen
+import argon.internals._
 import spatial.compiler._
 import spatial.nodes._
 

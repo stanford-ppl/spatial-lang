@@ -1,5 +1,6 @@
 package spatial.nodes
 
+import argon.internals._
 import spatial.compiler._
 
 

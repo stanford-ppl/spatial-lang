@@ -1,5 +1,6 @@
 package spatial.analysis
 
+import argon.internals._
 import argon.traversal.CompilerPass
 import spatial.compiler._
 import spatial.metadata._
@@ -72,18 +73,12 @@ trait BufferAnalyzer extends CompilerPass {
     dbg(s"--------")
     localMems.foreach{mem =>
       dbg("\n")
-      ctxsOf(mem).headOption match {
-        case Some(ctx) =>
-          dbg(ctx.fileName + ":" + ctx.line + u": Memory $mem")
-          if (ctx.lineContent.isDefined) {
-            dbg(ctx.lineContent.get)
-            dbg(" "*(ctx.column-1) + "^")
-          }
-
-        case None =>
-          dbg(u"Memory: $mem")
+      val ctx = mem.ctx
+      dbg(ctx.fileName + ":" + ctx.line + u": Memory $mem")
+      if (ctx.lineContent.isDefined) {
+        dbg(ctx.lineContent.get)
+        dbg(" "*(ctx.column-1) + "^")
       }
-
       dbg(c"  ${str(mem)}")
 
       val readers = readersOf(mem)

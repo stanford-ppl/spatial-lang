@@ -1,6 +1,7 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
+import argon.internals._
 import spatial.compiler._
 
 trait DotGenHostTransfer extends DotCodegen  {

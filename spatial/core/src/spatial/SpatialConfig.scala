@@ -2,7 +2,7 @@ package spatial
 
 import com.typesafe.config.ConfigFactory
 import pureconfig._
-import argon.util.Report._
+import argon.util.Report
 import spatial.targets.FPGATarget
 
 object SpatialConfig {
@@ -112,9 +112,9 @@ spatial {
         enableTree = spatialConf.tree
 
       case Left(failures) =>
-        error("Unable to read spatial configuration")
-        error(failures.head.description)
-        failures.tail.foreach{x => error(x.description) }
+        Report.error("Unable to read spatial configuration")
+        Report.error(failures.head.description)
+        failures.tail.foreach{x => Report.error(x.description) }
         sys.exit(-1)
     }
 

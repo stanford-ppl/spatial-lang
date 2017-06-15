@@ -1,6 +1,7 @@
 package spatial.models
 
 import argon.core.Config
+import argon.internals._
 import argon.nodes._
 import spatial.compiler._
 import spatial.metadata._

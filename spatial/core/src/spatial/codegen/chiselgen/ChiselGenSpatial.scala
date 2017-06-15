@@ -3,7 +3,7 @@ package spatial.codegen.chiselgen
 import argon.codegen.chiselgen._
 
 trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
-  with ChiselGenBool with ChiselGenUnit with ChiselGenFixPt with ChiselGenFltPt
+  with ChiselGenBoolean with ChiselGenUnit with ChiselGenFixPt with ChiselGenFltPt
   with ChiselGenCounter with ChiselGenReg with ChiselGenSRAM with ChiselGenFIFO
   with ChiselGenIfThenElse with ChiselGenController with ChiselGenMath with ChiselGenString
   with ChiselGenDRAM with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector

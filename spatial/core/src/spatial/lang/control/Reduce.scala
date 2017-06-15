@@ -1,6 +1,7 @@
 package spatial.lang
 package control
 
+import argon.internals._
 import forge._
 import spatial.metadata._
 import spatial.nodes._

@@ -1,5 +1,6 @@
 package spatial.transform
 
+import argon.internals._
 import argon.nodes._
 import argon.transform.ForwardTransformer
 import spatial.analysis.ModelingTraversal

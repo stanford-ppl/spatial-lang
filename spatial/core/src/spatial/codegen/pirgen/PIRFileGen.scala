@@ -2,6 +2,7 @@ package spatial.codegen.pirgen
 
 import argon.codegen.FileGen
 import argon.core.Config
+import argon.internals._
 import spatial.compiler._
 
 import scala.language.postfixOps

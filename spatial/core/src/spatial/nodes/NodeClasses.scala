@@ -1,5 +1,6 @@
 package spatial.nodes
 
+import argon.internals._
 import argon.transform.SubstTransformer
 import spatial.compiler._
 

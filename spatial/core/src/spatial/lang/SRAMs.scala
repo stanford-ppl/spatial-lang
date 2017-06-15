@@ -1,7 +1,9 @@
 package spatial.lang
 
+import argon.internals._
 import forge._
 import spatial.nodes._
+import spatial.utils._
 import spatial.DimensionMismatchError
 
 trait SRAM[T] { this: Template[_] =>
@@ -56,11 +58,11 @@ case class SRAM1[T:Type:Bits](s: Exp[SRAM1[T]]) extends Template[SRAM1[T]] with 
   @api def update(a: Index, data: T): MUnit = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s), ofs, data.s, Bit.const(true)))
   @api def par(p: Index): SRAM1[T] = { val x = SRAM1(s); x.p = Some(p); x }
 
-  @api def gather(dram: DRAMSparseTile[T]): MUnit = sparse_transfer(dram, this, isLoad = true)
+  @api def gather(dram: DRAMSparseTile[T]): MUnit = DRAMTransfers.sparse_transfer(dram, this, isLoad = true)
 
   // @api def cols(): Index = field[Index]("c")
-  @api def load(dram: DRAM1[T]): MUnit = dense_transfer(dram.toTile(ranges), this, isLoad = true)
-  @api def load(dram: DRAMDenseTile1[T]): MUnit = dense_transfer(dram, this, isLoad = true)
+  @api def load(dram: DRAM1[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
+  @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 }
 object SRAM1 {
   implicit def sram1Type[T:Type:Bits]: Type[SRAM1[T]] = SRAM1Type(typ[T])
@@ -74,8 +76,8 @@ case class SRAM2[T:Type:Bits](s: Exp[SRAM2[T]]) extends Template[SRAM2[T]] with 
   = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s,b.s), ofs, data.s, Bit.const(true)))
   @api def par(p: Index): SRAM2[T] = { val x = SRAM2(s); x.p = Some(p); x }
 
-  @api def load(dram: DRAM2[T]): MUnit = dense_transfer(dram.toTile(ranges), this, isLoad = true)
-  @api def load(dram: DRAMDenseTile2[T]): MUnit = dense_transfer(dram, this, isLoad = true)
+  @api def load(dram: DRAM2[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
+  @api def load(dram: DRAMDenseTile2[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 }
 object SRAM2 {
   implicit def sram2Type[T:Type:Bits]: Type[SRAM2[T]] = SRAM2Type(typ[T])
@@ -89,8 +91,8 @@ case class SRAM3[T:Type:Bits](s: Exp[SRAM3[T]]) extends Template[SRAM3[T]] with 
   = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s), ofs, data.s, Bit.const(true)))
   @api def par(p: Index): SRAM3[T] = { val x = SRAM3(s); x.p = Some(p); x }
 
-  @api def load(dram: DRAM3[T]): MUnit = dense_transfer(dram.toTile(ranges), this, isLoad = true)
-  @api def load(dram: DRAMDenseTile3[T]): MUnit = dense_transfer(dram, this, isLoad = true)
+  @api def load(dram: DRAM3[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
+  @api def load(dram: DRAMDenseTile3[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 }
 object SRAM3 {
   implicit def sram3Type[T:Type:Bits]: Type[SRAM3[T]] = SRAM3Type(typ[T])
@@ -104,8 +106,8 @@ case class SRAM4[T:Type:Bits](s: Exp[SRAM4[T]]) extends Template[SRAM4[T]] with 
   = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s), ofs, data.s, Bit.const(true)))
   @api def par(p: Index): SRAM4[T] = { val x = SRAM4(s); x.p = Some(p); x }
 
-  @api def load(dram: DRAM4[T]): MUnit = dense_transfer(dram.toTile(ranges), this, isLoad = true)
-  @api def load(dram: DRAMDenseTile4[T]): MUnit = dense_transfer(dram, this, isLoad = true)
+  @api def load(dram: DRAM4[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
+  @api def load(dram: DRAMDenseTile4[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 }
 object SRAM4 {
   implicit def sram4Type[T:Type:Bits]: Type[SRAM4[T]] = SRAM4Type(typ[T])
@@ -119,23 +121,10 @@ case class SRAM5[T:Type:Bits](s: Exp[SRAM5[T]]) extends Template[SRAM5[T]] with 
   = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s,e.s), ofs, data.s, Bit.const(true)))
   @api def par(p: Index): SRAM5[T] = { val x = SRAM5(s); x.p = Some(p); x }
 
-  @api def load(dram: DRAM5[T]): MUnit = dense_transfer(dram.toTile(ranges), this, isLoad = true)
-  @api def load(dram: DRAMDenseTile5[T]): MUnit = dense_transfer(dram, this, isLoad = true)
+  @api def load(dram: DRAM5[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
+  @api def load(dram: DRAMDenseTile5[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 }
 object SRAM5 {
   implicit def sram5Type[T:Type:Bits]: Type[SRAM5[T]] = SRAM5Type(typ[T])
   implicit def sram5IsMemory[T:Type:Bits]: Mem[T,SRAM5] = new SRAMIsMemory[T,SRAM5]
-}
-
-
-
-trait SRAMApi {
-  /** Internal Methods **/
-  // TODO: Move to Utils
-  @internal def flatIndex(indices: Seq[Index], dims: Seq[Index]): Index = {
-    val strides = List.tabulate(dims.length){d => Math.productTree(dims.drop(d+1)) }
-    Math.sumTree(indices.zip(strides).map{case (a,b) => a*b })
-  }
-
- def constDimsToStrides(dims: Seq[Int]): Seq[Int] = List.tabulate(dims.length){d => dims.drop(d + 1).product}
 }

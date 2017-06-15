@@ -1,5 +1,6 @@
 package spatial.lang
 
+import argon.internals._
 import forge._
 import spatial.nodes._
 import spatial.utils._
@@ -32,11 +33,11 @@ case class DRAM1[T:Type:Bits](s: Exp[DRAM1[T]]) extends Template[DRAM1[T]] with 
   @api def apply(addrs: SRAM1[Index]): DRAMSparseTile[T] = this.apply(addrs, wrap(stagedDimsOf(addrs.s).head))
   @api def apply(addrs: SRAM1[Index], len: Index): DRAMSparseTile[T] = DRAMSparseTile(this.s, addrs, len)
 
-  @api def store(sram: SRAM1[T]): MUnit = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
-  @api def store(fifo: FIFO[T]): MUnit = dense_transfer(this.toTile(fifo.ranges), fifo, isLoad = false)
-  @api def store(filo: FILO[T]): MUnit = dense_transfer(this.toTile(filo.ranges), filo, isLoad = false)
-  @api def store(regs: RegFile1[T]): MUnit = dense_transfer(this.toTile(regs.ranges), regs, isLoad = false)
-  @api def address: Int64 = wrap(get_dram_addr(this.s))
+  @api def store(sram: SRAM1[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
+  @api def store(fifo: FIFO[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(fifo.ranges), fifo, isLoad = false)
+  @api def store(filo: FILO[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(filo.ranges), filo, isLoad = false)
+  @api def store(regs: RegFile1[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(regs.ranges), regs, isLoad = false)
+  @api def address: Int64 = wrap(DRAM.addr(this.s))
 }
 object DRAM1 {
   implicit def dram1Type[T:Type:Bits]: Type[DRAM1[T]] = DRAM1Type(typ[T])
@@ -48,8 +49,8 @@ case class DRAM2[T:Type:Bits](s: Exp[DRAM2[T]]) extends Template[DRAM2[T]] with 
   @api def apply(rows: Range, cols: Index) = DRAMDenseTile1(this.s, Seq(rows, cols.toRange))
   @api def apply(rows: Range, cols: Range) = DRAMDenseTile2(this.s, Seq(rows, cols))
 
-  @api def store(sram: SRAM2[T]): MUnit = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
-  @api def store(regs: RegFile2[T]): MUnit = dense_transfer(this.toTile(regs.ranges), regs, isLoad = false)
+  @api def store(sram: SRAM2[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
+  @api def store(regs: RegFile2[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(regs.ranges), regs, isLoad = false)
   @api def address: Int64 = wrap(DRAM.addr(this.s))
 }
 object DRAM2 {
@@ -66,7 +67,7 @@ case class DRAM3[T:Type:Bits](s: Exp[DRAM3[T]]) extends Template[DRAM3[T]] with 
   @api def apply(p: Range, r: Range, c: Index) = DRAMDenseTile2(this.s, Seq(p, r, c.toRange))
   @api def apply(p: Range, r: Range, c: Range) = DRAMDenseTile3(this.s, Seq(p, r, c))
 
-  @api def store(sram: SRAM3[T]): MUnit = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
+  @api def store(sram: SRAM3[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
   @api def address: Int64 = wrap(DRAM.addr(this.s))
 }
 object DRAM3 {
@@ -91,7 +92,7 @@ case class DRAM4[T:Type:Bits](s: Exp[DRAM4[T]]) extends Template[DRAM4[T]] with 
   @api def apply(q: Range, p: Range, r: Range, c: Index) = DRAMDenseTile3(this.s, Seq(q, p, r, c.toRange))
   @api def apply(q: Range, p: Range, r: Range, c: Range) = DRAMDenseTile4(this.s, Seq(q, p, r, c))
 
-  @api def store(sram: SRAM4[T]): MUnit = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
+  @api def store(sram: SRAM4[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
   @api def address: Int64 = wrap(DRAM.addr(this.s))
 }
 object DRAM4 {
@@ -133,7 +134,7 @@ case class DRAM5[T:Type:Bits](s: Exp[DRAM5[T]]) extends Template[DRAM5[T]] with 
   @api def apply(x: Range, q: Range, p: Range, r: Range, c: Index) = DRAMDenseTile4(this.s, Seq(x, q, p, r, c.toRange))
   @api def apply(x: Range, q: Range, p: Range, r: Range, c: Range) = DRAMDenseTile5(this.s, Seq(x, q, p, r, c))
 
-  @api def store(sram: SRAM5[T]): MUnit = dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
+  @api def store(sram: SRAM5[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
   @api def address: Int64 = wrap(DRAM.addr(this.s))
 }
 object DRAM5 {
@@ -146,26 +147,26 @@ trait DRAMDenseTile[T] {
 }
 
 case class DRAMDenseTile1[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
-  @api def store(sram: SRAM1[T]): MUnit    = dense_transfer(this, sram, isLoad = false)
-  @api def store(fifo: FIFO[T]): MUnit     = dense_transfer(this, fifo, isLoad = false)
-  @api def store(filo: FILO[T]): MUnit     = dense_transfer(this, filo, isLoad = false)
-  @api def store(regs: RegFile1[T]): MUnit = dense_transfer(this, regs, isLoad = false)
+  @api def store(sram: SRAM1[T]): MUnit    = DRAMTransfers.dense_transfer(this, sram, isLoad = false)
+  @api def store(fifo: FIFO[T]): MUnit     = DRAMTransfers.dense_transfer(this, fifo, isLoad = false)
+  @api def store(filo: FILO[T]): MUnit     = DRAMTransfers.dense_transfer(this, filo, isLoad = false)
+  @api def store(regs: RegFile1[T]): MUnit = DRAMTransfers.dense_transfer(this, regs, isLoad = false)
 }
 case class DRAMDenseTile2[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
-  @api def store(sram: SRAM2[T]): MUnit    = dense_transfer(this, sram, isLoad = false)
-  @api def store(regs: RegFile2[T]): MUnit = dense_transfer(this, regs, isLoad = false)
+  @api def store(sram: SRAM2[T]): MUnit    = DRAMTransfers.dense_transfer(this, sram, isLoad = false)
+  @api def store(regs: RegFile2[T]): MUnit = DRAMTransfers.dense_transfer(this, regs, isLoad = false)
 }
 case class DRAMDenseTile3[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
-  @api def store(sram: SRAM3[T]): MUnit   = dense_transfer(this, sram, isLoad = false)
+  @api def store(sram: SRAM3[T]): MUnit   = DRAMTransfers.dense_transfer(this, sram, isLoad = false)
 }
 case class DRAMDenseTile4[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
-  @api def store(sram: SRAM4[T]): MUnit   = dense_transfer(this, sram, isLoad = false)
+  @api def store(sram: SRAM4[T]): MUnit   = DRAMTransfers.dense_transfer(this, sram, isLoad = false)
 }
 case class DRAMDenseTile5[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
-  @api def store(sram: SRAM5[T]): MUnit   = dense_transfer(this, sram, isLoad = false)
+  @api def store(sram: SRAM5[T]): MUnit   = DRAMTransfers.dense_transfer(this, sram, isLoad = false)
 }
 
 /** Sparse Tiles are limited to 1D right now **/
 case class DRAMSparseTile[T:Type:Bits](dram: Exp[DRAM[T]], addrs: SRAM1[Index], len: Index) {
-  @api def scatter(sram: SRAM1[T]): MUnit = sparse_transfer(this, sram, isLoad = false)
+  @api def scatter(sram: SRAM1[T]): MUnit = DRAMTransfers.sparse_transfer(this, sram, isLoad = false)
 }

@@ -1,5 +1,6 @@
 package spatial.analysis
 
+import argon.internals._
 import spatial.compiler._
 import spatial.metadata._
 import spatial.nodes._
@@ -145,7 +146,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
 
         body + N - 1 + latencyOf(lhs)
 
-      case StateMachine(en, start, notDone, action, nextState, state) if isInnerControl(lhs) =>
+      case StateMachine(en, start, notDone, action, nextState, _) if isInnerControl(lhs) =>
         val cont = latencyOfPipe(notDone)
         val act  = latencyOfPipe(action)
         val next = latencyOfPipe(nextState)
@@ -237,7 +238,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
 
-      case StateMachine(en, start, notDone, action, nextState, state) =>
+      case StateMachine(en, start, notDone, action, nextState, _) =>
         val cont      = latencyOfPipe(notDone)
         val actStages = latencyOfBlock(action)
         val next      = latencyOfPipe(nextState)

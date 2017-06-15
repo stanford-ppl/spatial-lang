@@ -1,11 +1,10 @@
 package spatial.lang
 
-import argon.core.ArgonCoreAliases
 import argon.lang.ArgonLangAliases
 import forge._
 
 /** Internal, language type aliases (no cyclic aliases allowed, e.g. cannot have "type X = argon.lang.X") **/
-trait SpatialLangAliases extends ArgonLangAliases with ArgonCoreAliases {
+trait SpatialLangAliases extends ArgonLangAliases {
   type Bit = MBoolean
   val Bit = argon.lang.Boolean
 

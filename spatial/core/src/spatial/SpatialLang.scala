@@ -1,5 +1,6 @@
 package spatial
 
+import argon.internals._
 import argon.{ArgonLangInternal, ArgonLangExternal, ArgonExp, ArgonApi}
 import forge._
 import spatial.lang._
@@ -10,6 +11,13 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   type Tensor3[T] = spatial.lang.Tensor3[T]
   type Tensor4[T] = spatial.lang.Tensor4[T]
   type Tensor5[T] = spatial.lang.Tensor5[T]
+
+  type AXI_Master_Slave = spatial.lang.AXI_Master_Slave
+  val AXI_Master_Slave = spatial.lang.AXI_Master_Slave
+  type Decoder_Template[T] = spatial.lang.Decoder_Template[T]
+  val Decoder_Template = spatial.lang.Decoder_Template
+  type DMA_Template[T] = spatial.lang.DMA_Template[T]
+  val DMA_Template = spatial.lang.DMA_Template
 
   type Controller = spatial.lang.control.Controller
   val Accel = spatial.lang.control.Accel
@@ -38,7 +46,7 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   type DRAM4[T] = spatial.lang.DRAM4[T]
   type DRAM5[T] = spatial.lang.DRAM5[T]
 
-  type Mem[T,C] = spatial.lang.Mem[T,C]
+  type Mem[T,C[_]] = spatial.lang.Mem[T,C]
 
   type FIFO[T] = spatial.lang.FIFO[T]
   val FIFO = spatial.lang.FIFO
@@ -118,10 +126,7 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   val ScatterAckBus = spatial.lang.ScatterAckBus
 }
 
-protected trait SpatialExp extends ArgonExp with SpatialCommonAliases
-  with AlteraVideoExp
-  with DRAMTransfersExp
-{
+protected trait SpatialExp extends ArgonExp with SpatialCommonAliases {
   def target: FPGATarget = SpatialConfig.target // Needs to be filled in by application, defaults to Default
 }
 
@@ -143,7 +148,6 @@ trait SpatialImplicits {
 }
 
 trait SpatialApi extends ArgonApi with SpatialExp with SpatialImplicits
-  with AlteraVideoApi
   with BitOpsApi
   with DebuggingApi
   with DRAMTransfersApi
@@ -154,7 +158,6 @@ trait SpatialApi extends ArgonApi with SpatialExp with SpatialImplicits
   with Parameters
   with RangeApi
   with RegApi
-  with SRAMApi
   with StagedUtils
   with StreamApi
   with VectorApi

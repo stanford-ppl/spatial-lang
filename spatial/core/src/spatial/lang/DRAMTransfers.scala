@@ -1,11 +1,12 @@
 package spatial.lang
 
+import argon.internals._
 import forge._
 import org.virtualized._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.{SpatialExp, SpatialApi}
+import spatial.SpatialApi
 
 /** Specialized buses **/
 @struct case class BurstCmd(offset: Int64, size: Index, isLoad: Bit)
@@ -386,8 +387,7 @@ trait DRAMTransfersApi { self: SpatialApi =>
 }
 
 
-trait DRAMTransfersExp { this: SpatialExp =>
-
+object DRAMTransfers {
   /** Internal **/
   @internal def dense_transfer[T:Type:Bits,C[_]](
     tile:   DRAMDenseTile[T],
@@ -405,8 +405,9 @@ trait DRAMTransfersExp { this: SpatialExp =>
     val p       = extractParFactor(tile.ranges.last.p)
 
     // UNSUPPORTED: Strided ranges for DRAM in burst load/store
-    if (strides.exists{case Const(1) => false ; case _ => true})
-      new spatial.UnsupportedStridedDRAMError(isLoad)(ctx)
+    if (strides.exists{case Const(1) => false ; case _ => true}) {
+      new spatial.UnsupportedStridedDRAMError(isLoad)(ctx, state)
+    }
 
     val localRank = mem.iterators(local).length // TODO: Replace with something else here (this creates counters)
 

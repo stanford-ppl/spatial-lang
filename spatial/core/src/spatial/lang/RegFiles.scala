@@ -1,8 +1,9 @@
 package spatial.lang
 
+import argon.internals._
 import forge._
 import spatial.nodes._
-import spatial.SpatialApi
+import spatial.utils._
 
 trait RegFile[T] { this: Template[_] =>
   def s: Exp[RegFile[T]]
@@ -73,8 +74,8 @@ case class RegFile1[T:Type:Bits](s: Exp[RegFile1[T]]) extends Template[RegFile1[
   @api def <<=(data: T): MUnit = wrap(RegFile.shift_in(s, Seq(int32(0)), 0, data.s, Bit.const(true)))
   @api def <<=(data: Vector[T]): MUnit = wrap(RegFile.par_shift_in(s, Seq(int32(0)), 0, data.s, Bit.const(true)))
 
-  @api def load(dram: DRAM1[T]): MUnit = dense_transfer(dram.toTile(ranges), this, isLoad = true)
-  @api def load(dram: DRAMDenseTile1[T]): MUnit = dense_transfer(dram, this, isLoad = true)
+  @api def load(dram: DRAM1[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
+  @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 }
 object RegFile1 {
   implicit def regFile1Type[T:Type:Bits]: Type[RegFile1[T]] = RegFile1Type(typ[T])
@@ -88,8 +89,8 @@ case class RegFile2[T:Type:Bits](s: Exp[RegFile2[T]]) extends Template[RegFile2[
   @api def apply(i: Index, y: Wildcard) = RegFileView(s, Seq(i,lift[Int,Index](0)), 1)
   @api def apply(y: Wildcard, i: Index) = RegFileView(s, Seq(lift[Int,Index](0),i), 0)
 
-  @api def load(dram: DRAM2[T]): MUnit = dense_transfer(dram.toTile(ranges), this, isLoad = true)
-  @api def load(dram: DRAMDenseTile2[T]): MUnit = dense_transfer(dram, this, isLoad = true)
+  @api def load(dram: DRAM2[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
+  @api def load(dram: DRAMDenseTile2[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 }
 object RegFile2 {
   implicit def regFile2Type[T:Type:Bits]: Type[RegFile2[T]] = RegFile2Type(typ[T])
@@ -104,8 +105,8 @@ case class RegFile3[T:Type:Bits](s: Exp[RegFile3[T]]) extends Template[RegFile3[
   @api def apply(i: Index, y: Wildcard, j: Index) = RegFileView(s, Seq(i,lift[Int,Index](0),j), 1)
   @api def apply(y: Wildcard, i: Index, j: Index) = RegFileView(s, Seq(lift[Int,Index](0),i,j), 0)
 
-  @api def load(dram: DRAM3[T]): MUnit = dense_transfer(dram.toTile(ranges), this, isLoad = true)
-  @api def load(dram: DRAMDenseTile3[T]): MUnit = dense_transfer(dram, this, isLoad = true)
+  @api def load(dram: DRAM3[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
+  @api def load(dram: DRAMDenseTile3[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 }
 object RegFile3 {
   implicit def regFile3Type[T:Type:Bits]: Type[RegFile3[T]] = RegFile3Type(typ[T])
