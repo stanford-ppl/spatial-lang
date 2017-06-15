@@ -1319,13 +1319,17 @@ object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
           Foreach(mid+1 until to+1 by 1){ j => if (j == mid+1) {upper_tmp := data_sram(j)} else {upper_fifo.enq(data_sram(j))} }
           Sequential.Foreach(from until to+1 by 1) { k => 
             if (lower_tmp < upper_tmp) {
-              data_sram(k) = lower_tmp
-              val next_lower = if (lower_fifo.empty) {0x7FFFFFFF.to[Int]} else {lower_fifo.deq()}
-              lower_tmp := next_lower
+              Pipe{
+                data_sram(k) = lower_tmp
+                val next_lower = if (lower_fifo.empty) {0x7FFFFFFF.to[Int]} else {lower_fifo.deq()}
+                lower_tmp := next_lower
+              }
             } else {
-              data_sram(k) = upper_tmp
-              val next_upper = if (upper_fifo.empty) {0x7FFFFFFF.to[Int]} else {upper_fifo.deq()}
-              upper_tmp := next_upper
+              Pipe {
+                data_sram(k) = upper_tmp
+                val next_upper = if (upper_fifo.empty) {0x7FFFFFFF.to[Int]} else {upper_fifo.deq()}
+                upper_tmp := next_upper
+              }
             }
           }
         }{ i => i + m + m }

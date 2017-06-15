@@ -113,7 +113,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
       // save substitution rules for restoration after transformation
       val subRules = mutable.Map[Exp[_], Exp[_]]()
 
-      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }
+      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
       //val inputs = syms(d.inputs)
       inputs.foreach{ input =>
         dbg(c"working on input $input of $reader")
@@ -132,6 +132,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
             val info = inputRetiming(input).readers(reader)
             dbgs(c"Buffering input $input to reader $reader")
             subRules(input) = transformExp(input)(mtyp(input.tp))
+            dbg(c"subrules of $input are ${subRules(input)}")
             register(input, info.delay)
           }
         }
