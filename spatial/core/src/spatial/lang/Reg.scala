@@ -1,7 +1,8 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import forge._
+import spatial.SpatialApi
 import spatial.nodes._
 
 case class Reg[T:Type:Bits](s: Exp[Reg[T]]) extends Template[Reg[T]] {
@@ -55,9 +56,9 @@ trait RegApi {
   @api implicit def readReg[T](reg: Reg[T]): T = reg.value
 
   implicit class RegNumericOperators[T:Type:Num](reg: Reg[T]) {
-    @api def :+=(data: T): MUnit = reg := (reg.value + data)
-    @api def :-=(data: T): MUnit = reg := (reg.value - data)
-    @api def :*=(data: T): MUnit = reg := (reg.value * data)
+    @api def :+=(data: T): MUnit = reg := implicitly[Num[T]].plus(reg.value, data)
+    @api def :-=(data: T): MUnit = reg := implicitly[Num[T]].minus(reg.value, data)
+    @api def :*=(data: T): MUnit = reg := implicitly[Num[T]].times(reg.value, data)
     
   }
 

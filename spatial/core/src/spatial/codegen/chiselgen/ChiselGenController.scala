@@ -1,6 +1,6 @@
 package spatial.codegen.chiselgen
 
-import argon.internals._
+import argon.core._
 import spatial.compiler._
 import spatial.metadata._
 import spatial.nodes._
@@ -201,8 +201,8 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
       // Associate bound sym with both ctrl node and that ctrl node's cchain
       stages.foreach{
-        case Def(s:UnrolledForeach) => cchainPassMap += (s.cchain -> stage)
-        case Def(s:UnrolledReduce[_,_]) => cchainPassMap += (s.cchain -> stage)
+        case stage @ Def(s:UnrolledForeach) => cchainPassMap += (s.cchain -> stage)
+        case stage @ Def(s:UnrolledReduce[_,_]) => cchainPassMap += (s.cchain -> stage)
         case _ =>
       }
       itersMap += (idx -> stages.toList)

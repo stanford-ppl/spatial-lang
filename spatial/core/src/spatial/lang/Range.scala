@@ -1,6 +1,6 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import forge._
 import spatial.nodes._
 
@@ -86,7 +86,7 @@ object Range64 {
 trait RangeLowPriorityImplicits {
 
   // Have to make this a lower priority, otherwise seems to prefer this + Range infix op over the implicit class on Index
-  implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range = Range.fromIndex(x)
+  @api implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range = Range.fromIndex(x)
 }
 
 trait RangeApi extends RangeLowPriorityImplicits {
@@ -94,7 +94,7 @@ trait RangeApi extends RangeLowPriorityImplicits {
   def * = Wildcard()
 
   implicit class IndexRangeOps(x: Index) {
-    private def lft(x: scala.Int)(implicit ctx: SrcCtx) = lift[scala.Int,Index](x)
+    @internal private def lft(x: scala.Int) = lift[scala.Int,Index](x)
     @api def by(step: scala.Int): Range = Range.alloc(None, x, Some(lft(step)), None)
     @api def par(p: scala.Int): Range = Range.alloc(None, x, None, Some(lft(p)))
     @api def until(end: scala.Int): Range = Range.alloc(Some(x), lft(end), None, None)
@@ -107,7 +107,7 @@ trait RangeApi extends RangeLowPriorityImplicits {
   }
 
   implicit class intWrapper(x: scala.Int) {
-    private def lft(x: Int)(implicit ctx: SrcCtx) = lift[Int,Index](x)
+    @internal private def lft(x: Int) = lift[Int,Index](x)
     @api def until(end: Index): Range = Range.alloc(Some(lft(x)), end, None, None)
     @api def by(step: Index): Range = Range.alloc(None, lft(x), Some(step), None)
     @api def par(p: Index): Range = Range.alloc(None, lft(x), None, Some(p))
@@ -123,5 +123,5 @@ trait RangeApi extends RangeLowPriorityImplicits {
   }
 
   // Implicitly get value of register to use in counter definitions
-  implicit def regToIndexRange(x: Reg[Index])(implicit ctx: SrcCtx): IndexRangeOps = IndexRangeOps(x.value)
+  @api implicit def regToIndexRange(x: Reg[Index])(implicit ctx: SrcCtx): IndexRangeOps = IndexRangeOps(x.value)
 }

@@ -1,6 +1,6 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import forge._
 import org.virtualized._
 import argon.nodes._
@@ -8,7 +8,7 @@ import spatial.nodes._
 import spatial.SpatialApi
 
 case class Matrix[T:Type](s: Exp[Matrix[T]]) extends Struct[Matrix[T]] {
-  private[spatial] def data(implicit ctx: SrcCtx): MArray[T] = field[MArray[T]]("data")
+  @internal def data: MArray[T] = field[MArray[T]]("data")
 
   @api def rows: Index = field[Index]("rows")
   @api def cols: Index = field[Index]("cols")
@@ -21,7 +21,7 @@ object Matrix {
 }
 
 case class Tensor3[T:Type](s: Exp[Tensor3[T]]) extends Struct[Tensor3[T]] {
-  private[spatial] def data(implicit ctx: SrcCtx): MArray[T] = field[MArray[T]]("data")
+  @internal def data: MArray[T] = field[MArray[T]]("data")
 
   @api def dim0: Index = field[Index]("dim0")
   @api def dim1: Index = field[Index]("dim1")
@@ -35,7 +35,7 @@ object Tensor3 {
 }
 
 case class Tensor4[T:Type](s: Exp[Tensor4[T]]) extends Struct[Tensor4[T]] {
-  private[spatial] def data(implicit ctx: SrcCtx): MArray[T] = field[MArray[T]]("data")
+  @internal def data: MArray[T] = field[MArray[T]]("data")
 
   @api def dim0: Index = field[Index]("dim0")
   @api def dim1: Index = field[Index]("dim1")
@@ -50,7 +50,7 @@ object Tensor4 {
 }
 
 case class Tensor5[T:Type](s: Exp[Tensor5[T]]) extends Struct[Tensor5[T]] {
-  private[spatial] def data(implicit ctx: SrcCtx): MArray[T] = field[MArray[T]]("data")
+  @internal def data: MArray[T] = field[MArray[T]]("data")
 
   @api def dim0: Index = field[Index]("dim0")
   @api def dim1: Index = field[Index]("dim1")

@@ -1,8 +1,9 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import forge._
 import spatial.nodes._
+import spatial.utils._
 
 case class Counter(s: Exp[Counter]) extends MetaAny[Counter] {
   @api override def ===(that: Counter) = this.s == that.s
@@ -34,7 +35,7 @@ object Counter {
   @internal def forever_counter() = stageUnique(Forever())(ctx)
 
   /** Constructors **/
-  def counter_new(start: Exp[Index], end: Exp[Index], step: Exp[Index], par: Const[Index])(implicit ctx: SrcCtx): Sym[Counter] = {
+  @internal def counter_new(start: Exp[Index], end: Exp[Index], step: Exp[Index], par: Const[Index]): Sym[Counter] = {
     val counter = stageUnique(CounterNew(start,end,step,par))(ctx)
     par match {
       case Const(0) =>

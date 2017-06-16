@@ -1,6 +1,6 @@
 package spatial
 
-import argon.internals._
+import argon.core._
 import argon.nodes._
 import argon.transform.Transformer
 import forge._
@@ -336,7 +336,7 @@ object utils {
   def mirrorAccess(x: Access, f: Transformer): Access = (f(x.node), mirrorCtrl(x.ctrl, f))
 
   /** Parallelization factors **/
-  @stateful def parFactorsOf(x: Exp[_]): Seq[Const[Index]] = x match {
+  @internal def parFactorsOf(x: Exp[_]): Seq[Const[Index]] = x match {
     case Op(CounterNew(start,end,step,par)) => List(par)
     case Op(Forever())             => List(int32(1))
     case Op(CounterChainNew(ctrs)) => ctrs.flatMap{ctr => parFactorsOf(ctr) }
@@ -344,12 +344,14 @@ object utils {
     case Op(e: SparseTransfer[_])  => Seq(e.p)
     case _ => Nil
   }
-  @stateful def parsOf(x: Exp[_]): Seq[Int] = parFactorsOf(x) map{case Const(p: BigDecimal) => p.toInt }
+  @internal def parsOf(x: Exp[_]): Seq[Int] = parFactorsOf(x).map{case Const(p: BigDecimal) => p.toInt }
 
-  @stateful def extractParFactor(par: Option[Index])(implicit ctx: SrcCtx): Const[Index] = par.map(_.s) match {
+  @internal def extractParFactor(par: Option[Index]): Const[Index] = par.map(_.s) match {
     case Some(x: Const[_]) if isIndexType(x.tp) => x.asInstanceOf[Const[Index]]
     case None => intParam(1)
-    case Some(x) => new spatial.InvalidParallelFactorError(x)(ctx); intParam(1)
+    case Some(x) =>
+      new spatial.InvalidParallelFactorError(x)(ctx, state)
+      intParam(1)
   }
 
   /** Control Nodes **/
@@ -392,7 +394,7 @@ object utils {
 
 
   @stateful def isControlNode(e: Exp[_]): Boolean = getDef(e).exists(isControlNode)
-  def isControlNode(d: Def): Boolean = d.isInstanceOf[ControlNode]
+  def isControlNode(d: Def): Boolean = d.isInstanceOf[ControlNode[_]]
 
   @stateful def isDRAMTransfer(e: Exp[_]): Boolean = getDef(e).exists(isDRAMTransfer)
   def isDRAMTransfer(d: Def): Boolean = d.isInstanceOf[DRAMTransfer]
@@ -468,14 +470,14 @@ object utils {
     case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
     case Def(RegFileNew(dims)) => dims
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx)
+    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
   }
 
   @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
     case Def(LUTNew(dims,_)) => dims
     case _ => stagedDimsOf(x).map{
       case Const(c: BigDecimal) => c.toInt
-      case dim => throw new spatial.UndefinedDimensionsError(x, Some(dim))(x.ctx)
+      case dim => throw new spatial.UndefinedDimensionsError(x, Some(dim))(x.ctx, state)
     }
   }
 
@@ -518,8 +520,8 @@ object utils {
   def isStream(e: Exp[_]): Boolean = isStreamIn(e) || isStreamOut(e)
   def isVector(e:Exp[_]): Boolean = e.tp.isInstanceOf[VectorType[_]]
 
-  def isHostIn(e: Exp[_]): Boolean = isHostIO(e) && writersOf(e).isEmpty
-  def isHostOut(e: Exp[_]): Boolean = isHostIO(e) && readersOf(e).isEmpty
+  @stateful def isHostIn(e: Exp[_]): Boolean = isHostIO(e) && writersOf(e).isEmpty
+  @stateful def isHostOut(e: Exp[_]): Boolean = isHostIO(e) && readersOf(e).isEmpty
 
   @stateful def isStreamLoad(e: Exp[_]): Boolean = getDef(e).exists(_.isInstanceOf[FringeDenseLoad[_]])
 
@@ -558,7 +560,7 @@ object utils {
     case _ => false
   }
 
-  def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
+  @stateful def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] | _:FIFOType[_] | _:FILOType[_] | _:RegType[_] | _:LineBufferType[_] | _:RegFileType[_] => true
     case _:LUTType[_] => true
     case _:StreamInType[_]  => true
@@ -567,7 +569,7 @@ object utils {
     case _ => false
   }
 
-  def isOffChipMemory(e: Exp[_]): Boolean = e.tp match {
+ @stateful def isOffChipMemory(e: Exp[_]): Boolean = e.tp match {
     case _:DRAMType[_]        => true
     case _:StreamInType[_]    => true
     case _:StreamOutType[_]   => true
@@ -579,7 +581,7 @@ object utils {
 
 
   @stateful def isFringe(e:Exp[_]):Boolean = getDef(e).exists(isFringe)
-  def isFringe(d:Def):Boolean = d.isInstanceOf[FringeNode]
+  def isFringe(d:Def):Boolean = d.isInstanceOf[FringeNode[_]]
 
   /** Host Transfer **/
   @stateful def isTransfer(e: Exp[_]): Boolean = isTransferToHost(e) || isTransferFromHost(e)
@@ -728,19 +730,19 @@ object utils {
   }
 
   object LocalWriter {
-    def unapply(x: Exp[_]): Option[List[LocalWrite]] = getDef(x).flatMap(writerUnapply)
+    @stateful def unapply(x: Exp[_]): Option[List[LocalWrite]] = getDef(x).flatMap(writerUnapply)
     def unapply(d: Def): Option[List[LocalWrite]] = writerUnapply(d)
   }
   object LocalResetter {
-    def unapply(x: Exp[_]): Option[List[LocalReset]] = getDef(x).flatMap(resetterUnapply)
+    @stateful def unapply(x: Exp[_]): Option[List[LocalReset]] = getDef(x).flatMap(resetterUnapply)
     def unapply(d: Def): Option[List[LocalReset]] = resetterUnapply(d)
   }
   object LocalReader {
-    def unapply(x: Exp[_]): Option[List[LocalRead]] = getDef(x).flatMap(readerUnapply)
+    @stateful def unapply(x: Exp[_]): Option[List[LocalRead]] = getDef(x).flatMap(readerUnapply)
     def unapply(d: Def): Option[List[LocalRead]] = readerUnapply(d)
   }
   object LocalAccess {
-    def unapply(x: Exp[_]): Option[List[Exp[_]]] = getDef(x).flatMap(LocalAccess.unapply)
+    @stateful def unapply(x: Exp[_]): Option[List[Exp[_]]] = getDef(x).flatMap(LocalAccess.unapply)
     def unapply(d: Def): Option[List[Exp[_]]] = {
       val accessed = readerUnapply(d).map(_.map(_.mem)).getOrElse(Nil) ++
         writerUnapply(d).map(_.map(_.mem)).getOrElse(Nil)
@@ -786,22 +788,22 @@ object utils {
     }}
   }
   object ParLocalWriter {
-    def unapply(x: Exp[_]): Option[List[ParLocalWrite]] = getDef(x).flatMap(parWriterUnapply)
+    @stateful def unapply(x: Exp[_]): Option[List[ParLocalWrite]] = getDef(x).flatMap(parWriterUnapply)
     def unapply(d: Def): Option[List[ParLocalWrite]] = parWriterUnapply(d)
   }
   object ParLocalReader {
-    def unapply(x: Exp[_]): Option[List[ParLocalRead]] = getDef(x).flatMap(parReaderUnapply)
+    @stateful def unapply(x: Exp[_]): Option[List[ParLocalRead]] = getDef(x).flatMap(parReaderUnapply)
     def unapply(d: Def): Option[List[ParLocalRead]] = parReaderUnapply(d)
   }
 
-  def isReader(x: Exp[_]): Boolean = LocalReader.unapply(x).isDefined
+  @stateful def isReader(x: Exp[_]): Boolean = LocalReader.unapply(x).isDefined
   def isReader(d: Def): Boolean = readerUnapply(d).isDefined
-  def isWriter(x: Exp[_]): Boolean = LocalWriter.unapply(x).isDefined
+  @stateful def isWriter(x: Exp[_]): Boolean = LocalWriter.unapply(x).isDefined
   def isWriter(d: Def): Boolean = writerUnapply(d).isDefined
-  def isResetter(x: Exp[_]): Boolean = LocalResetter.unapply(x).isDefined
+  @stateful def isResetter(x: Exp[_]): Boolean = LocalResetter.unapply(x).isDefined
   def isResetter(d: Def): Boolean = resetterUnapply(d).isDefined
-  def isAccess(x: Exp[_]): Boolean = isReader(x) || isWriter(x)
-  def getAccess(x:Exp[_]):Option[Access] = x match {
+  @stateful def isAccess(x: Exp[_]): Boolean = isReader(x) || isWriter(x)
+  @stateful def getAccess(x:Exp[_]):Option[Access] = x match {
     case LocalReader(reads) =>
       val ras = reads.flatMap{ case (mem, _, _) => readersOf(mem).filter { _.node == x } }
       assert(ras.size==1)

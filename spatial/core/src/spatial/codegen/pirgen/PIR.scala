@@ -1,6 +1,10 @@
 package spatial.codegen.pirgen
 
+import argon.core._
+import forge._
+
 import scala.collection.mutable
+
 
 // --- Memory controller modes
 sealed abstract class OffchipMemoryMode
@@ -237,7 +241,7 @@ case class CUMemory(name: String, mem: Expr, reader: Expr, cu:AbstractComputeUni
 sealed abstract class PseudoStage { def output: Option[Expr] }
 case class DefStage(op: Expr, isReduce: Boolean = false) extends PseudoStage {
   def output = Some(op)
-  override def toString = s"DefStage(${str(op)}" + (if (isReduce) " [REDUCE]" else "") + ")"
+  override def toString = s"DefStage($op" + (if (isReduce) " [REDUCE]" else "") + ")"
 }
 case class OpStage(op: PIROp, inputs: List[Expr], out: Expr, isReduce: Boolean = false) extends PseudoStage {
   def output = Some(out)
@@ -309,7 +313,7 @@ abstract class AbstractComputeUnit {
     if (expTable.contains(reg)) expTable += reg -> (expTable(reg) :+ exp)
     else                        expTable += reg -> List(exp)
   }
-  def get(x: Expr): Option[LocalComponent] = {
+  @stateful def get(x: Expr): Option[LocalComponent] = {
     if (regTable.contains(x)) regTable.get(x)
     else if (isConstant(x)) {
       val c = extractConstant(x)
@@ -318,7 +322,7 @@ abstract class AbstractComputeUnit {
     }
     else None
   }
-  def getOrElseUpdate(x: Expr)(func: => LocalComponent):LocalComponent = this.get(x) match {
+  @stateful def getOrElseUpdate(x: Expr)(func: => LocalComponent): LocalComponent = this.get(x) match {
     case Some(reg) if regs.contains(reg) => reg // On return this mapping if it is valid
     case _ =>
       val reg = func

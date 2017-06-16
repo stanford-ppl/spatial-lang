@@ -1,8 +1,9 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import forge._
 import argon.nodes._
+import spatial.SpatialApi
 import spatial.nodes._
 
 object Math {
@@ -20,32 +21,7 @@ object Math {
   //   val ans = reg_new(0.to(0 until degree+1).map{ n => scala.math.exp(center) * (0 until n).map{(x.s - center.s)}.reduce{_*_} / scala.math.fac(n)}
   //   FixPt(x.s)
   // }
-  /** Taylor expansion for sin and cos from -pi to pi **/
-  @api def sin_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = { 
-    val ans = x - x*x*x/6 + x*x*x*x*x/120 //- x*x*x*x*x*x*x/5040
-    FixPt(ans.s)
-  }
-  @api def cos_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = { 
-    val ans = 1 - x*x/2 + x*x*x*x/24 //- x*x*x*x*x*x/720
-    FixPt(ans.s)
-  }
-  /** Taylor expansion for natural exponential to third degree **/
-  @api def exp_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = {
-    val ans = mux(x < -3.5.to[FixPt[S,I,F]], 0.to[FixPt[S,I,F]], mux(x < -1.2.to[FixPt[S,I,F]], x*0.1.to[FixPt[S,I,F]] + 0.35.to[FixPt[S,I,F]], 1 + x + x*x/2 + x*x*x/6 + x*x*x*x/24 + x*x*x*x*x/120))
-    FixPt(ans.s)
-  }
-  /** Square root **/
-  @api def sqrt[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_sqrt(x.s))
-  @api def sqrt_approx[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = {
-    // I don't care how inefficient this is, it is just a placeholder for backprop until we implement floats
-    val ans = mux(x < 2.to[FixPt[S,I,F]], 1 + (x-1)/2 -(x-1)*(x-1)/8+(x-1)*(x-1)*(x-1)/16, // 3rd order taylor for values up to 2
-      mux(x < 10.to[FixPt[S,I,F]], x*0.22.to[FixPt[S,I,F]] + 1, // Linearize
-        mux( x < 100.to[FixPt[S,I,F]], x*0.08.to[FixPt[S,I,F]] + 2.5.to[FixPt[S,I,F]], // Linearize
-          mux( x < 1000.to[FixPt[S,I,F]], x*0.028.to[FixPt[S,I,F]] + 8, // Linearize
-            mux( x < 10000.to[FixPt[S,I,F]], x*0.008.to[FixPt[S,I,F]] + 20, // Linearize
-              mux( x < 100000.to[FixPt[S,I,F]], x*0.003.to[FixPt[S,I,F]] + 60, x*0.0002.to[FixPt[S,I,F]] + 300))))))
-    FixPt(ans.s)
-  }
+
   @api def floor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = FixPt[S,I,F](fix_floor(x.s))
   @api def ceil[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = FixPt[S,I,F](fix_ceil(x.s))
 
@@ -187,14 +163,14 @@ object Math {
 
   /** Internals **/
   @internal def reduceTreeLevel[T](xs: Seq[T], reduce: (T,T) => T): Seq[T] = xs.length match {
-    case 0 => throw new spatial.EmptyReductionTreeLevelException()(ctx)
+    case 0 => throw new spatial.EmptyReductionTreeLevelException()
     case 1 => xs
     case len if len % 2 == 0 => reduceTreeLevel(List.tabulate(len/2){i => reduce( xs(2*i), xs(2*i+1)) }, reduce)
     case len => reduceTreeLevel(List.tabulate(len/2){i => reduce( xs(2*i), xs(2*i+1)) } :+ xs.last, reduce)
   }
 }
 
-trait MathApi {
+trait MathApi { this: SpatialApi =>
 
   @api def mux[T:Type:Bits](select: Bit, a: T, b: T): T = Math.mux(select, a, b)
 
@@ -205,12 +181,34 @@ trait MathApi {
   @api def exp[G:INT,E:INT](x: FltPt[G,E]) = Math.exp(x)
   /** Natural exponential computed with Taylor Expansion **/
   // @api def exp_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F], center: Int, degree: Int) = Math.exp_taylor(x, center, degree)
-  @api def sin_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]) = Math.sin_taylor(x)
-  @api def cos_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]) = Math.cos_taylor(x)
-  @api def exp_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]) = Math.exp_taylor(x)
+
+  /** Taylor expansion for sin and cos from -pi to pi **/
+  @api def sin_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = {
+    val ans = x - x*x*x/6 + x*x*x*x*x/120 //- x*x*x*x*x*x*x/5040
+    FixPt(ans.s)
+  }
+  @api def cos_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = {
+    val ans = 1 - x*x/2 + x*x*x*x/24 //- x*x*x*x*x*x/720
+    FixPt(ans.s)
+  }
+  /** Taylor expansion for natural exponential to third degree **/
+  @api def exp_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = {
+    val ans = mux(x < -3.5.to[FixPt[S,I,F]], 0.to[FixPt[S,I,F]], mux(x < -1.2.to[FixPt[S,I,F]], x*0.1.to[FixPt[S,I,F]] + 0.35.to[FixPt[S,I,F]], 1 + x + x*x/2 + x*x*x/6 + x*x*x*x/24 + x*x*x*x*x/120))
+    FixPt(ans.s)
+  }
   /** Square root **/
-  @api def sqrt[G:INT,E:INT](x: FltPt[G,E]) = Math.sqrt(x)
-  @api def sqrt_approx[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]) = Math.sqrt_approx(x)
+  @api def sqrt[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(Math.flt_sqrt(x.s))
+  @api def sqrt_approx[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = {
+    // I don't care how inefficient this is, it is just a placeholder for backprop until we implement floats
+    val ans = mux(x < 2.to[FixPt[S,I,F]], 1 + (x-1)/2 -(x-1)*(x-1)/8+(x-1)*(x-1)*(x-1)/16, // 3rd order taylor for values up to 2
+      mux(x < 10.to[FixPt[S,I,F]], x*0.22.to[FixPt[S,I,F]] + 1, // Linearize
+        mux( x < 100.to[FixPt[S,I,F]], x*0.08.to[FixPt[S,I,F]] + 2.5.to[FixPt[S,I,F]], // Linearize
+          mux( x < 1000.to[FixPt[S,I,F]], x*0.028.to[FixPt[S,I,F]] + 8, // Linearize
+            mux( x < 10000.to[FixPt[S,I,F]], x*0.008.to[FixPt[S,I,F]] + 20, // Linearize
+              mux( x < 100000.to[FixPt[S,I,F]], x*0.003.to[FixPt[S,I,F]] + 60, x*0.0002.to[FixPt[S,I,F]] + 300))))))
+    FixPt(ans.s)
+  }
+
   @api def floor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]) = Math.floor(x)
   @api def ceil[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]) = Math.ceil(x)
 
@@ -235,9 +233,9 @@ trait MathApi {
   val PI = Math.PI
 
   @api def pow[G:INT,E:INT](base: FltPt[G,E], exp:FltPt[G,E]): FltPt[G,E] = Math.pow(base, exp)
-  @api def pow[T:Type:Num](base: T, exp: Int)(implicit ctx: SrcCtx): T = Math.pow(base, exp)
+  @api def pow[T:Type:Num](base: T, exp: scala.Int): T = Math.pow(base, exp)
 
   implicit class MathInfixOps[T:Type:Num](x: T) {
-    @api def **(exp: Int): T = pow(x, exp)
+    @api def **(exp: scala.Int): T = pow(x, exp)
   }
 }

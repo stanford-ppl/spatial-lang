@@ -1,6 +1,6 @@
 package spatial.codegen.scalagen
 
-import argon.internals._
+import argon.core._
 import org.virtualized.SourceContext
 import spatial.compiler._
 import spatial.nodes._

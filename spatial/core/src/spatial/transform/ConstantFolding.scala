@@ -1,6 +1,6 @@
 package spatial.transform
 
-import argon.internals._
+import argon.core._
 import argon.transform.ForwardTransformer
 import argon.nodes._
 import spatial.compiler._

@@ -1,101 +1,102 @@
 package spatial
 
-import argon.internals._
+import argon._
+import argon.core._
 import spatial.compiler._
 
 // --- Compiler exceptions
 
 class EmptyReductionTreeLevelException(implicit ctx: SrcCtx, state: State) extends
-CompilerException(1000, u"Cannot create reduction tree for empty list."){ def console() = {
+CompilerException(1000, u"Cannot create reduction tree for empty list."){
   error(ctx, "Cannot create reduction tree for empty list.")
   error(ctx)
-}}
+}
 
 class UndefinedDimensionsError(s: Exp[_], d: Option[Exp[_]])(implicit ctx: SrcCtx, state: State) extends
-CompilerException(1001, u"Cannot find dimensions for symbol ${str(s)}."){ def console() = {
+CompilerException(1001, u"Cannot find dimensions for symbol ${str(s)}."){
   error(ctx, s"Cannot locate dimensions for symbol ${str(s)} used here.")
   if (d.isDefined) error(c"  Dimension: $d")
   error(ctx)
-}}
+}
 
 class UndefinedZeroException(s: Exp[_], tp: Type[_])(implicit ctx: SrcCtx, state: State) extends
-CompilerException(1002, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s"){ def console() = {
+CompilerException(1002, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s"){
   error(ctx, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s")
-}}
+}
 
 class ExternalWriteError(mem: Exp[_], write: Exp[_], ctrl: Ctrl)(implicit ctx: SrcCtx, state: State) extends
-CompilerException(1003, c"Found illegal write to memory $mem defined outside an inner controller"){ def console() = {
+CompilerException(1003, c"Found illegal write to memory $mem defined outside an inner controller"){
   error(ctx, c"Found illegal write to memory $mem defined outside an inner controller")
   error(c"${str(write)}")
   error(c"Current control $ctrl")
-}}
+}
 
 class UndefinedBankingException(tp: Type[_])(implicit ctx: SrcCtx, state: State) extends
-CompilerException(1004, c"Don't know how to bank memory type $tp"){ def console() = {
+CompilerException(1004, c"Don't know how to bank memory type $tp"){
   error(ctx, c"Don't know how to bank memory type $tp")
-}}
+}
 
 class UndefinedDispatchException(access: Exp[_], mem: Exp[_])(implicit state: State) extends
-CompilerException(1005, c"""Access $access had no dispatch information for memory $mem (${mem.name.getOrElse("noname")}}"""){ def console() = {
+CompilerException(1005, c"""Access $access had no dispatch information for memory $mem (${mem.name.getOrElse("noname")}}"""){
   error(c"Access $access had no dispatch information for memory $mem")
-}}
+}
 
 class UndefinedPortsException(access: Exp[_], mem: Exp[_], idx: Option[Int])(implicit state: State) extends
-CompilerException(1006, c"Access $access had no ports for memory $mem" + idx.map{i => c", index $i"}.getOrElse("")){ def console() = {
+CompilerException(1006, c"Access $access had no ports for memory $mem" + idx.map{i => c", index $i"}.getOrElse("")){
   error(c"Access $access had no ports for memory $mem" + idx.map{i => c", index $i"}.getOrElse(""))
-}}
+}
 
 class NoCommonParentException(a: Ctrl, b: Ctrl)(implicit state: State) extends
-CompilerException(1007, c"Controllers $a and $b had no common parent while finding LCA with distance"){ def console() = {
+CompilerException(1007, c"Controllers $a and $b had no common parent while finding LCA with distance"){
   error(c"Controllers $a and $b had no common parent while finding LCA with distance")
-}}
+}
 
 class UndefinedChildException(parent: Ctrl, access: Access)(implicit state: State) extends
-CompilerException(1008, c"Parent $parent does not appear to contain $access while running childContaining"){ def console() = {
+CompilerException(1008, c"Parent $parent does not appear to contain $access while running childContaining"){
   error(c"Parent $parent does not appear to contain $access while running childContaining")
-}}
+}
 
 class AmbiguousMetaPipeException(mem: Exp[_], metapipes: Map[Ctrl, Seq[Access]])(implicit state: State) extends
-CompilerException(1009, c"Ambiguous metapipes for readers/writers of $mem: ${metapipes.keySet}"){ def console() = {
+CompilerException(1009, c"Ambiguous metapipes for readers/writers of $mem: ${metapipes.keySet}"){
   error(c"Ambiguous metapipes for readers/writers of $mem:")
   metapipes.foreach{case (pipe,accesses) => error(c"  $pipe: $accesses")}
-}}
+}
 
 class UndefinedPipeDistanceException(a: Ctrl, b: Ctrl)(implicit state: State) extends
-CompilerException(1010, c"Controllers $a and $b have an undefined pipe distance because they occur in parallel"){ def console() = {
+CompilerException(1010, c"Controllers $a and $b have an undefined pipe distance because they occur in parallel"){
   error(c"Controllers $a and $b have an undefined pipe distance because they occur in parallel")
-}}
+}
 
 class UndefinedControlStyleException(ctrl: Exp[_])(implicit state: State) extends
-CompilerException(1011, c"Controller ${str(ctrl)} does not have a control style defined"){ def console() = {
+CompilerException(1011, c"Controller ${str(ctrl)} does not have a control style defined"){
   error(c"Controller ${str(ctrl)} does not have a control style defined")
-}}
+}
 
 class UndefinedControlLevelException(ctrl: Exp[_])(implicit state: State) extends
-CompilerException(1012, c"Controller ${str(ctrl)} does not have a control level defined"){ def console() = {
+CompilerException(1012, c"Controller ${str(ctrl)} does not have a control level defined"){
   error(c"Controller ${str(ctrl)} does not have a control level defined")
-}}
+}
 
 
 class UnusedDRAMException(dram: Exp[_], name: String)(implicit state: State) extends
-CompilerException(1020, c"DRAM $dram ($name) was declared as a DRAM in app but is not used by the accel"){ def console() = {
+CompilerException(1020, c"DRAM $dram ($name) was declared as a DRAM in app but is not used by the accel"){
   error(c"DRAM $dram ($name) was declared as a DRAM in app but is not used by the accel")
-}}
+}
 
 class OuterLevelInnerStyleException(name: String)(implicit state: State) extends
-CompilerException(1022, c"Controller $name claims to be an outer level controller but has style of an innerpipe"){ def console() = {
+CompilerException(1022, c"Controller $name claims to be an outer level controller but has style of an innerpipe"){
   error(c"Controller $name claims to be an outer level controller but has style of an innerpipe")
-}}
+}
 
 class DoublyUsedDRAMException(dram: Exp[_], name: String)(implicit state: State) extends
-CompilerException(1023, c"DRAM $dram is used twice as a $name.  Please only load from a DRAM once, or else stream signals will interfere"){ def console() = {
+CompilerException(1023, c"DRAM $dram is used twice as a $name.  Please only load from a DRAM once, or else stream signals will interfere"){
   error(c"DRAM $dram is used twice as a $name.  Please only load from a DRAM once, or else stream signals will interfere")
-}}
+}
 
 class TrigInAccelException(lhs: Exp[_])(implicit state: State) extends
-CompilerException(1024, c"""Cannot handle trig functions inside of accel block! ${lhs.name.getOrElse("")}"""){ def console() = {
+CompilerException(1024, c"""Cannot handle trig functions inside of accel block! ${lhs.name.getOrElse("")}"""){
   error(c"""Cannot handle trig functions inside of accel block! ${lhs.name.getOrElse("")}""")
-}}
+}
 
 
 
@@ -203,10 +204,10 @@ class MultipleWritersError(mem: Exp[_], writers: List[Exp[_]])(implicit ctx: Src
   }
 }}
 
-class NoTopError(ctx: SrcCtx)(implicit state: State) extends ProgramError { def console() = {
+class NoTopError(ctx: SrcCtx)(implicit state: State) extends ProgramError {
   error("An Accel block is required to specify the area of code to optimize for the FPGA.")
   error("No Accel block was specified for this program.")
-}}
+}
 
 class EmptyVectorException(ctx: SrcCtx)(implicit state: State) extends UserError(ctx){ def console() = {
   error("Attempted to create an empty vector. Empty vectors are currently disallowed.")

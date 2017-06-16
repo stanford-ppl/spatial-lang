@@ -1,6 +1,6 @@
 package spatial.transform
 
-import argon.internals._
+import argon.core._
 import argon.transform.ForwardTransformer
 import spatial.compiler._
 import spatial.metadata._
@@ -120,7 +120,7 @@ trait RegisterCleanup extends ForwardTransformer {
 
   /** These require slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
 
-  override protected def blockToFunction0[T:Type](b: Block[T]): Exp[T] = inlineBlock(b, {stms =>
+  override protected def inlineBlock[T](b: Block[T]): Exp[T] = inlineBlockWith(b, {stms =>
     visitStms(stms)
     if (ctrl != null && statelessSubstRules.contains((ctrl,ctrl))) {
       val rules = statelessSubstRules((ctrl, ctrl)).map { case (s, s2) => s -> s2() }
@@ -129,7 +129,7 @@ trait RegisterCleanup extends ForwardTransformer {
     else f(b.result)
   })
 
-  override protected def transformBlock[T:Type](b: Block[T]): Block[T] = transformBlock(b, {stms =>
+  override protected def transformBlock[T,B[T]<:Block[T]](b: B[T]): B[T] = transformBlockWith(b, {stms =>
     stms.foreach(stm => dbg(c"$stm"))
     visitStms(stms)
     if (ctrl != null && statelessSubstRules.contains((ctrl,ctrl))) {

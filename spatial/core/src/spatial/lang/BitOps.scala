@@ -1,6 +1,6 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import argon.nodes._
 import spatial.nodes._
 import forge._
@@ -15,7 +15,7 @@ object BitOps {
       val fieldTypes = tp.fields.map{case (name,mT) => mT }
       val fields = tp.ev(x).fields.map(_._2)
       val fieldBits = fields.zip(fieldTypes).map{case (field,mT@Bits(bT)) =>
-        dataAsBitVector(field)(mtyp(mT),mbits(bT),ctx).s
+        dataAsBitVector(field)(mtyp(mT),mbits(bT),ctx,state).s
       }
       val width = fieldTypes.map{case Bits(bT) => bT.length }.sum
       implicit val vT = VectorN.typeFromLen[Bit](width)
@@ -34,7 +34,7 @@ object BitOps {
         val vector = x.asInstanceOf[Vector[_]]
         val mT = tp.child
         val Bits(bT) = mT
-        val elems = List.tabulate(tp.width) { i => dataAsBitVector(vector.apply(i))(mtyp(mT), mbits(bT), ctx).s }
+        val elems = List.tabulate(tp.width) { i => dataAsBitVector(vector.apply(i))(mtyp(mT), mbits(bT), ctx, state).s }
         wrap(Vector.concat[Bit,VectorN](elems))   // big endian (List)
       }
 
@@ -53,7 +53,7 @@ object BitOps {
 
     if (offset < vecSize && length+offset-1 < vecSize) {
       val fieldBits = fvT.wrapped(Vector.slice(x.s, length + offset - 1, offset))
-      val field = bitVectorAsData(fieldBits, enWarn = false)(mT, bT, fvT, ctx)
+      val field = bitVectorAsData(fieldBits, enWarn = false)(mT, bT, fvT, ctx, state)
       mT.unwrapped(field)
     }
     else if (offset >= vecSize) {
@@ -68,16 +68,16 @@ object BitOps {
       val trueBits = Vector.slice(x.s, max, offset)
       val zeroBits = fvB2.zero.s
       // Note that this is big-endian concatenation (everything internally is big-endian)
-      val fieldBits = fvT.wrapped(Vector.concat[Bit,VectorN](Seq(trueBits,zeroBits))(typ[Bit],bits[Bit],ctx,fvT))
+      val fieldBits = fvT.wrapped(Vector.concat[Bit,VectorN](Seq(trueBits,zeroBits))(typ[Bit],bits[Bit],fvT,ctx,state))
 
-      val field = bitVectorAsData(fieldBits, enWarn = false)(mT, bT, fvT, ctx)
+      val field = bitVectorAsData(fieldBits, enWarn = false)(mT, bT, fvT, ctx, state)
       mT.unwrapped(field)
     }
   }
 
-  @internal def bitVectorAsData[B:Type:Bits](x: BitVector, enWarn: Boolean)(implicit vT: Type[BitVector], ctx: SrcCtx): B = {
+  @internal def bitVectorAsData[B:Type:Bits](x: BitVector, enWarn: Boolean)(implicit vT: Type[BitVector]): B = {
     val Bits(bT) = vT
-    if (enWarn) checkLengthMismatch()(vT,bT,typ[B],bits[B],ctx)
+    if (enWarn) checkLengthMismatch()(vT,bT,typ[B],bits[B],ctx,state)
     val vecSize = x.width
 
     typ[B] match {
@@ -88,7 +88,7 @@ object BitOps {
         val offsets = List.tabulate(sizes.length){i => sizes.drop(i+1).sum }
 
         val fields = (fieldTypes,offsets).zipped.map{case (mT@Bits(bT),offset) =>
-          bitVectorSliceOrElseZero(x,offset)(mtyp(mT),mbits(bT),ctx)
+          bitVectorSliceOrElseZero(x,offset)(mtyp(mT),mbits(bT),ctx,state)
         }
         val namedFields = fieldNames.zip(fields)
 
@@ -109,9 +109,9 @@ object BitOps {
           val elems = List.tabulate(width) { i =>
             val offset = i * bT.length
             val length = bT.length
-            bitVectorSliceOrElseZero(x, offset)(mtyp(mT), mbits(bT), ctx)
+            bitVectorSliceOrElseZero(x, offset)(mtyp(mT), mbits(bT), ctx, state)
           }
-          tp.wrapped(Vector.fromseq(elems)(mtyp(mT), mbits(bT), ctx, mtyp(tp)).asInstanceOf[Exp[B]])
+          tp.wrapped(Vector.fromseq(elems)(mtyp(mT), mbits(bT), mtyp(tp), ctx, state).asInstanceOf[Exp[B]])
         }
 
       case _ => wrap(bits_as_data[B](x.s))
@@ -136,6 +136,45 @@ object BitOps {
   }
 }
 
+class DataConversionOps[A:Type:Bits](x: A) {
+  import BitOps._
+  @api def apply(i: Int): Bit = dataAsBitVector(x).apply(i)
+  @api def apply(range: Range): BitVector = dataAsBitVector(x).apply(range)
+
+  @api def as[B:Type:Bits]: B = {
+    checkLengthMismatch[A,B]()
+    val len = bits[B].length
+    implicit val vT = VectorN.typeFromLen[Bit](len)
+    val vector = dataAsBitVector(x)
+    bitVectorAsData[B](vector, enWarn = true)
+  }
+
+  @api def reverse: A = {
+    val len = bits[A].length
+    implicit val vT = VectorN.typeFromLen[Bit](len)
+    val vector = dataAsBitVector(x)
+    val reversed_elements = (0 until len).map{i => Vector.select(vector.s, i) }
+    val vector_reversed = wrap(Vector.fromseq[Bit,VectorN](reversed_elements))
+    bitVectorAsData[A](vector_reversed, enWarn = true)
+  }
+
+
+  // takeN(offset) - creates a VectorN slice starting at given little-endian offset
+  @generate
+  @api def takeJJ$JJ$1to128(offset: Int): VectorJJ[Bit] = dataAsBitVector(x).takeJJ(offset)
+
+  @generate
+  @api def takeJJMSB$JJ$1to128: VectorJJ[Bit] = {
+    val offset = bits[A].length - JJ
+    dataAsBitVector(x).takeJJ(offset)
+  }
+
+
+  // asNb - converts this to VectorN bits (includes bit length mismatch checks)
+  @generate
+  @api def asJJb$JJ$1to128: VectorJJ[Bit] = this.as[VectorJJ[Bit]]
+}
+
 
 
 trait BitOpsApi {
@@ -146,43 +185,7 @@ trait BitOpsApi {
     @api def reverse: A = readVar(x).reverse
   }
 
-  implicit class DataConversionOps[A:Type:Bits](x: A) {
-    @api def apply(i: Int): Bit = dataAsBitVector(x).apply(i)
-    @api def apply(range: Range): BitVector = dataAsBitVector(x).apply(range)
-
-    @api def as[B:Type:Bits]: B = {
-      checkLengthMismatch[A,B]()
-      val len = bits[B].length
-      implicit val vT = VectorN.typeFromLen[Bit](len)
-      val vector = dataAsBitVector(x)
-      bitVectorAsData[B](vector, enWarn = true)
-    }
-
-    @api def reverse: A = {
-      val len = bits[A].length
-      implicit val vT = VectorN.typeFromLen[Bit](len)
-      val vector = dataAsBitVector(x)
-      val reversed_elements = (0 until len).map{i => Vector.select(vector.s, i) }
-      val vector_reversed = wrap(Vector.fromseq[Bit,VectorN](reversed_elements))
-      bitVectorAsData[A](vector_reversed, enWarn = true)
-    }
-
-
-    // takeN(offset) - creates a VectorN slice starting at given little-endian offset
-    @generate
-    @api def takeJJ$JJ$1to128(offset: Int): VectorJJ[Bit] = dataAsBitVector(x).takeJJ(offset)
-
-    @generate
-    @api def takeJJMSB$JJ$1to128: VectorJJ[Bit] = {
-      val offset = bits[A].length - JJ
-      dataAsBitVector(x).takeJJ(offset)
-    }
-
-
-    // asNb - converts this to VectorN bits (includes bit length mismatch checks)
-    @generate
-    @api def asJJb$JJ$1to128: VectorJJ[Bit] = this.as[VectorJJ[Bit]]
-  }
+  implicit def bitsToDataConversionOps[A:Type:Bits](x: A): DataConversionOps[A] = new DataConversionOps(x)
 
 
   implicit class BitVectorOps(vector: BitVector) {

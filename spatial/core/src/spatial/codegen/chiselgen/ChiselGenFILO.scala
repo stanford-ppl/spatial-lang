@@ -1,6 +1,6 @@
 package spatial.codegen.chiselgen
 
-import argon.internals._
+import argon.core._
 import argon.nodes._
 import spatial.compiler._
 import spatial.metadata._
@@ -89,7 +89,7 @@ trait ChiselGenFILO extends ChiselGenSRAM {
         }
       }.max
       val width = bitWidth(lhs.tp.typeArguments.head)
-      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FILO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${nameOf(lhs).getOrElse("")}""")
+      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FILO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
 
     case FILOPush(fifo,v,en) => 
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode

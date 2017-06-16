@@ -2,7 +2,7 @@ package spatial.codegen.cppgen
 
 import argon.codegen.FileDependencies
 import argon.codegen.cppgen.CppCodegen
-import argon.internals._
+import argon.core._
 import spatial.compiler._
 import spatial.nodes._
 import spatial.SpatialConfig

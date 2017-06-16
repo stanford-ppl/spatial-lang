@@ -1,6 +1,6 @@
 package spatial.metadata
 
-import argon.internals._
+import argon.core._
 import argon.util.recursive.collectSet
 import spatial.compiler._
 

@@ -1,6 +1,6 @@
 package spatial.codegen.pirgen
 
-import argon.internals._
+import argon.core._
 import spatial.compiler._
 import spatial.nodes._
 import spatial.utils._

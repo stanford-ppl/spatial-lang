@@ -18,5 +18,5 @@ trait SpatialLangAliases extends ArgonLangAliases {
   type Tile[T] = DRAMDenseTile[T]
   type SparseTile[T] = DRAMSparseTile[T]
 
-  def unit = MUnit.const()
+  @internal def unit = MUnit.const()
 }

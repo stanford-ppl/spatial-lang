@@ -1,6 +1,6 @@
 package spatial.nodes
 
-import argon.internals._
+import argon.core._
 import spatial.compiler._
 
 object CounterChainType extends Type[CounterChain] {

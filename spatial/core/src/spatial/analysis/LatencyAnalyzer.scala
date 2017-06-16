@@ -1,10 +1,11 @@
 package spatial.analysis
 
-import argon.internals._
+import argon.core._
 import spatial.compiler._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
+import org.virtualized.SourceContext
 
 trait LatencyAnalyzer extends ModelingTraversal {
   override val name = "Latency Analyzer"

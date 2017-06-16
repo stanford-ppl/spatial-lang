@@ -1,7 +1,9 @@
 package spatial.codegen.pirgen
 
-import argon.internals._
+import argon.core._
+import argon.nodes._
 import spatial.compiler._
+import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
@@ -134,7 +136,7 @@ trait PIRScheduler extends PIRTraversal {
     // --- Reads
     case ParLocalReader(reads) =>
       if (usersOf(lhs).nonEmpty) {
-        decompose(lhs).foreach { case dreader =>
+        decompose(lhs).foreach { dreader =>
           assert(ctx.getReg(dreader).nonEmpty, s"reader: ${qdef(dreader)} was not allocated in ${ctx.cu} during allocation")
         }
       }

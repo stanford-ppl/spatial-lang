@@ -1,7 +1,8 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import forge._
+import spatial.metadata._
 import spatial.nodes._
 
 case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineBuffer[T]] {
@@ -39,7 +40,7 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
     /*if (!dram.ranges.head.isUnit || dram.ranges.length != 2) {
       error(ctx, "Loading into a LineBuffer from DRAM must be row-based")
     }*/
-    dense_transfer(dram, this, isLoad = true)
+    DRAMTransfers.dense_transfer(dram, this, isLoad = true)
   }
 }
 

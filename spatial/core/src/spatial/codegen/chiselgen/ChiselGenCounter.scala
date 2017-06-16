@@ -1,7 +1,7 @@
 package spatial.codegen.chiselgen
 
 import argon.codegen.FileDependencies
-import argon.internals._
+import argon.core._
 import spatial.compiler._
 import spatial.metadata._
 import spatial.nodes._

@@ -1,6 +1,6 @@
 package spatial.transform
 
-import argon.internals._
+import argon.core._
 import argon.nodes._
 import argon.transform.ForwardTransformer
 import spatial.analysis.ModelingTraversal
@@ -78,7 +78,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
 
 
   // Substitution scope must be isolated so that substitutions on outer symbols (e.g. bound iterators) do not escape
-  private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = isolateSubstScope{ inlineBlock(block, {stms =>
+  private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = isolateSubstScope{ inlineBlockWith(block, {stms =>
     dbg(c"Retiming block $block")
 
     // perform recursive search of inputs to determine cumulative symbol latency

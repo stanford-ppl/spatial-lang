@@ -1,11 +1,12 @@
 package spatial.dse
 
-import argon.internals._
+import argon.core._
 import spatial.analysis.SpatialTraversal
 import spatial.compiler._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
+import org.virtualized.SourceContext
 
 trait ParameterAnalyzer extends SpatialTraversal {
   override val name = "Parameter Analyzer"

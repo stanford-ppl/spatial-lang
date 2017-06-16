@@ -1,6 +1,6 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import forge._
 import spatial.SpatialApi
 import spatial.nodes._

@@ -1,8 +1,9 @@
 package spatial.nodes
 
-import argon.internals._
-import spatial.compiler._
+import argon.core._
 import forge._
+import spatial.compiler._
+import spatial.utils._
 
 /** Type classes **/
 // --- Staged

@@ -1,6 +1,6 @@
 package spatial.codegen.pirgen
 
-import argon.internals._
+import argon.core._
 import argon.nodes._
 import spatial.analysis.ModelingTraversal
 import spatial.compiler._
@@ -8,6 +8,7 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import spatial.SpatialConfig
+import org.virtualized.SourceContext
 
 import scala.collection.mutable
 

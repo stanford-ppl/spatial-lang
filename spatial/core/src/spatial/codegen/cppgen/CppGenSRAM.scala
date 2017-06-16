@@ -1,6 +1,6 @@
 package spatial.codegen.cppgen
 
-import argon.internals._
+import argon.core._
 import argon.nodes._
 import argon.codegen.cppgen.CppCodegen
 import spatial.compiler._

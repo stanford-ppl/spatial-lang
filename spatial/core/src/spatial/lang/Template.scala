@@ -1,6 +1,6 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import forge._
 
 abstract class Template[T:Type] extends MetaAny[T] {

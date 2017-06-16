@@ -1,8 +1,9 @@
 package spatial.nodes
 
-import argon.internals._
+import argon.core._
 import forge._
 import spatial.compiler._
+import spatial.utils._
 
 case class LineBufferType[T:Bits](child: Type[T]) extends Type[LineBuffer[T]] {
   override def wrapped(x: Exp[LineBuffer[T]]) = LineBuffer(x)(child,bits[T])

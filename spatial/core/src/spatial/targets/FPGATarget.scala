@@ -3,9 +3,6 @@ package spatial.targets
 case class Pin(name: String) {
   override def toString = name
 }
-object Pin {
-  def apply(name: String) = new Pin(name)
-}
 
 abstract class Bus {
   def length: Int
@@ -35,4 +32,7 @@ object Targets {
   var targets: Set[FPGATarget] = Set.empty
   targets += DefaultTarget
   targets += FakeTarget
+
+  val Default = spatial.targets.DefaultTarget
+  val DE1 = spatial.targets.DE1
 }

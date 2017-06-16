@@ -1,11 +1,12 @@
 package spatial.codegen.pirgen
 
-import argon.internals._
+import argon.core._
 import spatial.analysis.ModelingTraversal
 import spatial.compiler._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
+import org.virtualized.SourceContext
 
 trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
   override val name = "PIR Hacky Latency Analyzer"

@@ -1,6 +1,6 @@
 package spatial.codegen.chiselgen
 
-import argon.internals._
+import argon.core._
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.nodes._
 import spatial.compiler._

@@ -1,6 +1,6 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import forge._
 import spatial.nodes._
 
@@ -27,8 +27,8 @@ trait Vector[T] { this: MetaAny[_] =>
 
     (start,end) match {
       case (Const(x1: BigDecimal), Const(x2: BigDecimal)) =>
-        val msb = Math.max(x1.toInt, x2.toInt)
-        val lsb = Math.min(x1.toInt, x2.toInt)
+        val msb = java.lang.Math.max(x1.toInt, x2.toInt)
+        val lsb = java.lang.Math.min(x1.toInt, x2.toInt)
         val length = msb - lsb + 1
         implicit val vT = VectorN.typeFromLen[T](length)
         // Slice is inclusive on both
@@ -94,7 +94,7 @@ object Vector {
   @internal def select[T:Type](vector: Exp[Vector[T]], index: Int): Exp[T] = vector match {
     case Op(ListVector(elems)) =>
       if (index < 0 || index >= elems.length) {
-        new InvalidVectorApplyIndex(vector, index)
+        new spatial.InvalidVectorApplyIndex(vector, index)
         fresh[T]
       }
       else elems(index)  // Little endian
@@ -103,7 +103,7 @@ object Vector {
       vector.tp match {
         case Bits(bV) =>
           if (index < 0 || index >= bV.length)
-            new InvalidVectorApplyIndex(vector, index)
+            new spatial.InvalidVectorApplyIndex(vector, index)
         case _ =>
         // Risky, but ignore warnings for now
       }
@@ -113,7 +113,7 @@ object Vector {
   @internal def slice[T:Type:Bits,V[_]<:Vector[_]](vector: Exp[Vector[T]], end: Int, start: Int)(implicit vT: Type[V[T]]): Exp[V[T]] = vector match {
     case Op(ListVector(elems)) =>
       if (start >= end) {
-        new InvalidVectorSlice(vector, start, end)
+        new spatial.InvalidVectorSlice(vector, start, end)
         fresh[V[T]]
       }
       else {
@@ -149,8 +149,8 @@ case class Vec[N:INT,T:Type:Bits](s: Exp[Vec[N,T]]) extends MetaAny[Vec[N,T]] wi
   val width = INT[N].v
   @api def apply(i: Int): T = wrap(Vector.select(s,i))
 
-  @api def ===(that: Vec[N,T]): MBoolean = reduceTree(Seq.tabulate(width){i => this.apply(i) === that.apply(i) }){(a,b) => a && b }
-  @api def =!=(that: Vec[N,T]): MBoolean = reduceTree(Seq.tabulate(width){i => this.apply(i) =!= that.apply(i) }){(a,b) => a || b }
+  @api def ===(that: Vec[N,T]): MBoolean = Math.reduceTree(Seq.tabulate(width){i => this.apply(i) === that.apply(i) }){(a,b) => a && b }
+  @api def =!=(that: Vec[N,T]): MBoolean = Math.reduceTree(Seq.tabulate(width){i => this.apply(i) =!= that.apply(i) }){(a,b) => a || b }
   @api def toText = MString.ify(this)
 }
 object Vec {
@@ -163,15 +163,15 @@ object Vec {
 // will have to explicitly convert this type to a Vector## type for most operations.
 case class VectorN[T:Type:Bits](width: Int, s: Exp[VectorN[T]])(implicit myType: Type[VectorN[T]]) extends MetaAny[VectorN[T]] with Vector[T] {
   @api def apply(i: Int): T = wrap(Vector.select(s,i))
-  @api def ===(that: VectorN[T]): MBoolean = reduceTree(Seq.tabulate(width){i => this.apply(i) === that.apply(i) }){(a,b) => a && b }
-  @api def =!=(that: VectorN[T]): MBoolean = reduceTree(Seq.tabulate(width){i => this.apply(i) =!= that.apply(i) }){(a,b) => a || b }
+  @api def ===(that: VectorN[T]): MBoolean = Math.reduceTree(Seq.tabulate(width){i => this.apply(i) === that.apply(i) }){(a,b) => a && b }
+  @api def =!=(that: VectorN[T]): MBoolean = Math.reduceTree(Seq.tabulate(width){i => this.apply(i) =!= that.apply(i) }){(a,b) => a || b }
   @api def toText = MString.ify(this)
 
   @generate
   @api def asVectorJJ$JJ$1to128: VectorJJ[T] = {
     if (width != JJ) {
       implicit val bT: Bits[VectorN[T]] = VectorN.bitsFromLen[T](width, myType)
-      DataConversionOps(this).as[VectorJJ[T]]
+      new DataConversionOps(this).as[VectorJJ[T]]
     }
     else wrap(s.asInstanceOf[Exp[VectorJJ[T]]])
   }
@@ -210,7 +210,7 @@ object VectorN {
 
 
 trait LowPriorityVectorImplicits {
-  implicit def vectorNFakeType[T:Type:Bits](implicit ctx: SrcCtx): Type[VectorN[T]] = {
+  @api implicit def vectorNFakeType[T:Type:Bits]: Type[VectorN[T]] = {
     error(ctx, u"VectorN value cannot be used directly as a staged type")
     error("Add a type conversion here using .asVector#, where # is the length of the vector")
     error(ctx)

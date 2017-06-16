@@ -1,7 +1,7 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen._
-import argon.internals._
+import argon.core._
 
 trait DotGenSpatial extends DotCodegen with DotFileGen
   with DotGenEmpty

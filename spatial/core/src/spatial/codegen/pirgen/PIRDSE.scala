@@ -1,6 +1,6 @@
 package spatial.codegen.pirgen
 
-import argon.internals._
+import argon.core._
 import spatial.compiler._
 import spatial.SpatialConfig
 
@@ -80,7 +80,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
 
     val threads = regsMaxs.flatMap{r => vIns_PCUs.flatMap{v => sIns_PCUs.map{s => (r,v,s) }}}.par
 
-    threads.tasksupport = new ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(SpatialConfig.threads))
+    threads.tasksupport = new ForkJoinTaskSupport(new java.util.concurrent.ForkJoinPool(SpatialConfig.threads))
 
     val results = (REDUCE_STAGES to 16).flatMap{stages =>
       STAGES = stages

@@ -1,6 +1,6 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import forge._
 import spatial.nodes._
 import spatial.utils._
@@ -8,7 +8,7 @@ import spatial.DimensionMismatchError
 
 trait SRAM[T] { this: Template[_] =>
   def s: Exp[SRAM[T]]
-  protected def ofs(implicit ctx: SrcCtx) = lift[Int, Index](0).s
+  @internal protected def ofs = lift[Int, Index](0).s
   protected[spatial] var p: Option[Index] = None
 
   @internal def ranges: Seq[Range] = stagedDimsOf(s).map{d => Range.alloc(None, wrap(d),None,None)}
@@ -25,11 +25,11 @@ object SRAM {
     stageMutable( SRAMNew[T,C](dims) )(ctx)
   }
   @internal def load[T:Type:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bit]): Exp[T] = {
-    if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)(ctx)
+    if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)
     stage( SRAMLoad(sram, dims, indices, ofs, en) )(ctx)
   }
   @internal def store[T:Type:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bit]): Exp[MUnit] = {
-    if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)(ctx)
+    if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)
     stageWrite(sram)( SRAMStore(sram, dims, indices, ofs, data, en) )(ctx)
   }
 

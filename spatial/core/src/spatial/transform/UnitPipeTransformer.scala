@@ -1,6 +1,6 @@
 package spatial.transform
 
-import argon.internals._
+import argon.core._
 import argon.nodes._
 import argon.transform.ForwardTransformer
 import spatial.analysis.SpatialTraversal
@@ -88,7 +88,7 @@ trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
     VarReg.read(varr)
   }
 
-  private def wrapBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
+  private def wrapBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlockWith(block, {stms =>
     dbgs(s"Wrapping block with type ${typ[T]}")
     val stages = ArrayBuffer[PipeStage]()
     def curStage = stages.last

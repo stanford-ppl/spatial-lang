@@ -1,11 +1,13 @@
 package spatial.codegen
 
-import argon.internals._
+import argon.core._
 import argon.nodes._
+import forge._
 import spatial.compiler._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
+import org.virtualized.SourceContext
 
 package object pirgen {
   type Expr = Exp[_]
@@ -23,14 +25,14 @@ package object pirgen {
     BusGroups(args, scalars, vectors)
   }
 
-  def isConstant(x: Expr):Boolean = x match {
+  @stateful def isConstant(x: Expr):Boolean = x match {
     case Const(c) => true
     case Param(c) => true
     case Final(c) => true
     case _ => false
   }
 
-  def extractConstant(x: Expr): ConstReg[AnyVal] = x match {
+  @stateful def extractConstant(x: Expr): ConstReg[AnyVal] = x match {
     case Const(c: BigDecimal) if c.isWhole => ConstReg(c.toInt)
     case Const(c: BigDecimal) => ConstReg(c.toFloat)
     case Const(c: Boolean) => ConstReg(c)
@@ -163,33 +165,33 @@ package object pirgen {
 
 
 
-  def isReadInPipe(mem: Expr, pipe: Expr, reader: Option[Expr] = None): Boolean = {
+  @stateful def isReadInPipe(mem: Expr, pipe: Expr, reader: Option[Expr] = None): Boolean = {
     readersOf(mem).isEmpty || readersOf(mem).exists{read => reader.forall(_ == read.node) && read.ctrlNode == pipe }
   }
-  def isWrittenInPipe(mem: Expr, pipe: Expr, writer: Option[Expr] = None): Boolean = {
+  @stateful def isWrittenInPipe(mem: Expr, pipe: Expr, writer: Option[Expr] = None): Boolean = {
     !isArgIn(mem) && (writersOf(mem).isEmpty || writersOf(mem).exists{write => writer.forall(_ == write.node) && write.ctrlNode == pipe })
   }
-  def isWrittenByUnitPipe(mem: Expr): Boolean = {
+  @stateful def isWrittenByUnitPipe(mem: Expr): Boolean = {
     writersOf(mem).headOption.map{writer => isUnitPipe(writer.ctrlNode)}.getOrElse(true)
   }
-  def isReadOutsidePipe(mem: Expr, pipe: Expr, reader: Option[Expr] = None): Boolean = {
+  @stateful def isReadOutsidePipe(mem: Expr, pipe: Expr, reader: Option[Expr] = None): Boolean = {
     isArgOut(mem) || readersOf(mem).exists{read => reader.forall(_ == read.node) && read.ctrlNode != pipe }
   }
 
   def isBuffer(mem: Expr): Boolean = isSRAM(mem)
 
-  def isGetDRAMAddress(mem:Expr) = mem match {
+  @stateful def isGetDRAMAddress(mem:Expr) = mem match {
     case Def(_:GetDRAMAddress[_]) => true
     case _ => false
   }
 
-  def isLocalMem(mem: Expr): Boolean = isReg(mem) || isFIFO(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
+  @stateful def isLocalMem(mem: Expr): Boolean = isReg(mem) || isFIFO(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
 
   def isRemoteMem(mem: Expr): Boolean = isSRAM(mem)
 
-  def isMem(e: Expr):Boolean = isLocalMem(e) | isRemoteMem(e)
+  @stateful def isMem(e: Expr):Boolean = isLocalMem(e) | isRemoteMem(e)
 
-  def isLocalMemReadAccess(acc: Expr) = acc match {
+  @stateful def isLocalMemReadAccess(acc: Expr) = acc match {
     case Def(_:RegRead[_]) => true
     case Def(_:FIFODeq[_]) => true
     case Def(_:ParFIFODeq[_]) => true
@@ -198,7 +200,7 @@ package object pirgen {
     case _ => false
   }
 
-  def isLocalMemWriteAccess(acc: Expr) = acc match {
+  @stateful def isLocalMemWriteAccess(acc: Expr) = acc match {
     case Def(_:RegWrite[_]) => true
     case Def(_:FIFOEnq[_]) => true
     case Def(_:ParFIFOEnq[_]) => true
@@ -207,9 +209,9 @@ package object pirgen {
     case _ => false
   }
 
-  def isLocalMemAccess(acc: Expr) = isLocalMemReadAccess(acc) || isLocalMemWriteAccess(acc)
+  @stateful def isLocalMemAccess(acc: Expr) = isLocalMemReadAccess(acc) || isLocalMemWriteAccess(acc)
 
-  def isRemoteMemAccess(acc:Expr) = acc match {
+  @stateful def isRemoteMemAccess(acc:Expr) = acc match {
     case Def(_:SRAMLoad[_]) => true
     case Def(_:ParSRAMLoad[_]) => true
     case Def(_:SRAMStore[_]) => true
@@ -228,21 +230,21 @@ package object pirgen {
     case _ => true
   }
 
-  def isStage(e: Expr): Boolean = !isFringe(e) && !isControlNode(e) && getDef(e).exists(isStage)
+  @stateful def isStage(e: Expr): Boolean = !isFringe(e) && !isControlNode(e) && getDef(e).exists(isStage)
 
   //Hack Check if func is inside block reduce
   def isBlockReduce(func: Block[Any]): Boolean = {
     func.effects.reads.intersect(func.effects.writes).exists(isSRAM)
   }
 
-  def flattenNDAddress(addr: Exp[Any], dims: Seq[Exp[Index]]) = addr match {
+  @stateful def flattenNDAddress(addr: Exp[Any], dims: Seq[Exp[Index]]) = addr match {
     case Def(ListVector(List(Def(ListVector(indices))))) if indices.nonEmpty => flattenNDIndices(indices, dims)
     case Def(ListVector(indices)) if indices.nonEmpty => flattenNDIndices(indices, dims)
     case _ => throw new Exception(s"Unsupported address in PIR generation: $addr")
   }
 
   // returns (sym of flatten addr, List[Addr Stages])
-  def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]):(Expr, List[OpStage]) = {
+  @stateful def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]):(Expr, List[OpStage]) = {
     val cdims:Seq[Int] = dims.map{case Final(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
     val strides:List[Expr] = List.tabulate(dims.length){ d =>
       if (d == dims.length - 1) int32(1)
@@ -306,7 +308,7 @@ package object pirgen {
   }
 
   // HACK
-  def bank(mem: Expr, access: Expr) = {
+  @stateful def bank(mem: Expr, access: Expr) = {
     val pattern = accessPatternOf(access).last
     val stride  = 1
 
@@ -374,7 +376,7 @@ package object pirgen {
     case (bank1, NoBanks) => bank1
   }
 
-  def getInnerPar(pipe:Expr):Int = pipe match {
+  @stateful def getInnerPar(pipe:Expr):Int = pipe match {
     case Def(Hwblock(func,_)) => 1
     case Def(UnitPipe(en, func)) => 1
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) =>

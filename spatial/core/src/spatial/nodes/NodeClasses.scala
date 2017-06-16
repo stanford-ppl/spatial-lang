@@ -1,6 +1,6 @@
 package spatial.nodes
 
-import argon.internals._
+import argon.core._
 import argon.transform.SubstTransformer
 import spatial.compiler._
 
@@ -8,9 +8,9 @@ abstract class Alloc[T:Type] extends Op[T]
 abstract class DynamicAlloc[T:Type] extends Alloc[T]
 abstract class PrimitiveAlloc[T:Type] extends DynamicAlloc[T]
 
-abstract class FringeNode[T] extends Op[T]
+abstract class FringeNode[T:Type] extends Op[T]
 
-abstract class ControlNode[T] extends Op[T]
+abstract class ControlNode[T:Type] extends Op[T]
 abstract class DRAMTransfer extends ControlNode[MUnit]
 
 abstract class EnabledControlNode extends ControlNode[Controller] {

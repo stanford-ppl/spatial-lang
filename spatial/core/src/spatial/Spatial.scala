@@ -1,7 +1,7 @@
 package spatial
 
-import argon.AppCore
-import argon.core.{ArgonCore, State}
+import argon.ArgonApp
+import argon.core.State
 import argon.traversal.IRPrinter
 import argon.util.Report
 import spatial.dse._
@@ -14,12 +14,12 @@ import spatial.codegen.dotgen.DotGenSpatial
 import spatial.codegen.scalagen.ScalaGenSpatial
 import spatial.targets.{DefaultTarget, FPGATarget, Targets}
 
-trait SpatialDSL extends ArgonCore with SpatialLangExternal
+trait SpatialDSL extends SpatialLangExternal
 object dsl extends SpatialDSL {
   type SpatialApp = spatial.SpatialApp
 }
 
-trait SpatialApp extends AppCore {
+trait SpatialApp extends ArgonApp {
 
   // Traversal schedule
   override def createTraversalSchedule(state: State) = {

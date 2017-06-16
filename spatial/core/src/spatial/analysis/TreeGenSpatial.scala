@@ -1,6 +1,6 @@
 package spatial.analysis
 
-import argon.internals._
+import argon.core._
 import argon.core.Config
 import spatial.compiler._
 import spatial.metadata._
@@ -180,10 +180,7 @@ trait TreeGenSpatial extends SpatialTraversal {
     case Switch(_,selects, cases) =>
       val inner = false
       print_stage_prefix(s"${getScheduling(sym)}Switch",s"",s"$sym", inner)
-      cases.foreach { ss => ss match { case s:Sym[_] => 
-        val Op(d) = s
-        visit(s,d)
-      }}
+      cases.foreach{c => getStm(c).foreach(visitStm) }
       print_stage_suffix(s"$sym", inner)
 
     case SwitchCase(func) =>
@@ -196,7 +193,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
-    case StateMachine(ens,start,notDone,func,nextState,state) =>
+    case StateMachine(ens,start,notDone,func,nextState,_) =>
       val inner = if (childrenOf(sym).length > 0) false else true
       print_stage_prefix(s"${getScheduling(sym)}FSM",s"",s"$sym", inner)
       val children = getControlNodes(func)

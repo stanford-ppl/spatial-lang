@@ -1,8 +1,9 @@
 package spatial.nodes
 
-import argon.internals._
+import argon.core._
 import forge._
 import spatial.compiler._
+import spatial.utils._
 
 case class FILOType[T:Bits](child: Type[T]) extends Type[FILO[T]] {
   override def wrapped(x: Exp[FILO[T]]) = FILO(x)(child,bits[T])

@@ -2,7 +2,7 @@ package spatial.lang
 
 import control._
 
-import argon.internals._
+import argon.core._
 import forge._
 import spatial.nodes._
 

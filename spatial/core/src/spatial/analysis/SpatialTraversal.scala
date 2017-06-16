@@ -1,6 +1,6 @@
 package spatial.analysis
 
-import argon.internals._
+import argon.core._
 import argon.traversal.Traversal
 import spatial.compiler._
 import spatial.utils._

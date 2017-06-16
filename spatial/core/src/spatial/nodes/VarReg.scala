@@ -1,6 +1,6 @@
 package spatial.nodes
 
-import argon.internals._
+import argon.core._
 import spatial.compiler._
 
 case class VarRegType[T](child: Type[T]) extends Type[VarReg[T]] {

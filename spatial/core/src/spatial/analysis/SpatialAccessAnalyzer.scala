@@ -1,7 +1,7 @@
 package spatial.analysis
 
 import argon.analysis.AccessPatternAnalyzer
-import argon.internals._
+import argon.core._
 import argon.nodes._
 import spatial.compiler._
 import spatial.metadata._

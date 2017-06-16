@@ -1,6 +1,6 @@
 package spatial.nodes
 
-import argon.internals._
+import argon.core._
 import spatial.compiler._
 
 /** IR Nodes **/
@@ -11,7 +11,7 @@ case class RangeForeach(
   func:  Lambda1[Index,MUnit],
   i:     Bound[Index]
 ) extends Op[MUnit] {
-  def mirror(f:Tx) = Range.foreach(f(start),f(end),f(step),f(func),i)
+  def mirror(f:Tx) = MRange.foreach(f(start),f(end),f(step),f(func),i)
   override def inputs = dyns(start,end,step) ++ dyns(func)
   override def freqs  = normal(start) ++ normal(end) ++ normal(step) ++ hot(func)
   override def binds  = i +: super.binds

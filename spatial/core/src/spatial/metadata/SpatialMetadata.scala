@@ -1,6 +1,6 @@
 package spatial.metadata
 
-import argon.internals._
+import argon.core._
 import forge._
 import spatial.compiler._
 import spatial.utils._
@@ -8,16 +8,6 @@ import spatial.SpatialConfig
 
 /** User-facing metadata **/
 /**************************/
-@stateful object bound {
-  @api def update[T:Type](x: T, value: scala.Long): Unit = set(x, BigInt(value))
-
-  def set[T:Type](x: T, value: BigInt): Unit = { boundOf(x.s) = value }
-  def get(x: Exp[_]): Option[MBound] = x match {
-    case Const(c: BigDecimal) if c.isWhole => Some(Final(c.toBigInt))
-    case Param(c: BigDecimal) if c.isWhole => Some(Exact(c.toBigInt))
-    case _ => metadata[MBound](x)
-  }
-}
 
 /** Internal metadata **/
 /***********************/
@@ -44,35 +34,44 @@ case class MBound(bound: BigInt, isExact: Boolean, isFinal: Boolean) extends Met
   def update(x: Exp[_], value: BigInt): Unit = metadata.add(x, Bound(value))
   def update(x: Exp[_], value: MBound): Unit = metadata.add(x, value)
   def update(x: Exp[_], value: Option[MBound]): Unit = value.foreach{v => boundOf(x) = v }
-  def get(x: Exp[_]): Option[BigInt] = bound.get(x).map(_.bound)
+  def get(x: Exp[_]): Option[BigInt] = Bound.get(x).map(_.bound)
   def apply(x: Exp[_]): BigInt = boundOf.get(x).get
 }
 
 
 @stateful object Bound {
   def apply(value: BigInt) = MBound(value, isExact = false, isFinal = false)
-  def unapply(x: Exp[_]): Option[BigInt] = bound.get(x) match {
+  def unapply(x: Exp[_]): Option[BigInt] = Bound.get(x) match {
     case Some(MBound(value, _, _)) => Some(value)
     case _ => None
+  }
+
+  def update[T:Type](x: T, value: scala.Long): Unit = set(x, BigInt(value))
+
+  def set[T:Type](x: T, value: BigInt): Unit = { boundOf(x.s) = value }
+  def get(x: Exp[_]): Option[MBound] = x match {
+    case Const(c: BigDecimal) if c.isWhole => Some(Final(c.toBigInt))
+    case Param(c: BigDecimal) if c.isWhole => Some(Exact(c.toBigInt))
+    case _ => metadata[MBound](x)
   }
 }
 @stateful object Exact {
   def apply(value: BigInt) = MBound(value, isExact = true, isFinal = false)
-  def unapply(x: Exp[_]): Option[BigInt] = bound.get(x) match {
+  def unapply(x: Exp[_]): Option[BigInt] = Bound.get(x) match {
     case Some(MBound(value, true, _)) => Some(value)
     case _ => None
   }
 }
 @stateful object Final {
   def apply(value: BigInt) = MBound(value, isExact = true, isFinal = true)
-  def unapply(x: Exp[_]): Option[BigInt] = bound.get(x) match {
+  def unapply(x: Exp[_]): Option[BigInt] = Bound.get(x) match {
     case Some(MBound(value, _, true)) => Some(value)
     case _ => None
   }
 }
 
 @stateful object Bounded {
-  def unapply(x: Exp[_]): Option[MBound] = bound.get(x)
+  def unapply(x: Exp[_]): Option[MBound] = Bound.get(x)
 }
 
 
@@ -311,9 +310,9 @@ case class ReadUsers(users: List[Access]) extends Metadata[ReadUsers] {
 case class ParFactor(factor: Const[Index]) extends Metadata[ParFactor] {
   def mirror(f:Tx) = ParFactor(f(factor).asInstanceOf[Const[Index]])
 }
-@stateful object parFactorOf {
-  def apply(x: Exp[_]): Const[Index] = metadata[ParFactor](x).map(_.factor).getOrElse(int32(1))
-  def update(x: Exp[_], factor: Const[Index]) = metadata.add(x, ParFactor(factor))
+object parFactorOf {
+  @internal def apply(x: Exp[_]): Const[Index] = metadata[ParFactor](x).map(_.factor).getOrElse(int32(1))
+  @stateful def update(x: Exp[_], factor: Const[Index]) = metadata.add(x, ParFactor(factor))
 }
 
 /**

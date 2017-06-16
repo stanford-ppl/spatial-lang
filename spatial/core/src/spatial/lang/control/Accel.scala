@@ -1,15 +1,15 @@
 package spatial.lang
 package control
 
-import argon.internals._
+import argon.core._
 import forge._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
 object Accel {
-  @api def apply(func: => MUnit): Controller = accel_blk(() => func, false)
-  @api def apply(ctr: Counter)(func: => MUnit): Controller = accel_blk(() => func, ctr)
+  @api def apply(func: => MUnit): MUnit = { accel_blk(() => func, false); MUnit() }
+  @api def apply(ctr: Counter)(func: => MUnit): MUnit = { accel_blk(() => func, ctr); MUnit() }
 
   @internal def accel_blk(func: () => MUnit, ctr: Counter): Controller = {
     if (isForever(ctr.s)) {
@@ -28,7 +28,7 @@ object Accel {
   }
 
   /** Constructors **/
-  def op_accel(func: () => Exp[MUnit], isForever: Boolean): Sym[Controller] = {
+  @internal def op_accel(func: () => Exp[MUnit], isForever: Boolean): Sym[Controller] = {
     val fBlk = stageIsolatedBlock{ func() }
     val effects = fBlk.effects andAlso Simple
     stageEffectful( Hwblock(fBlk, isForever), effects)(ctx)

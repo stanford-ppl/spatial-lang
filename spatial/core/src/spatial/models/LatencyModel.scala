@@ -1,8 +1,9 @@
 package spatial.models
 
 import argon.core.Config
-import argon.internals._
+import argon.core._
 import argon.nodes._
+import forge._
 import spatial.compiler._
 import spatial.metadata._
 import spatial.nodes._
@@ -16,9 +17,9 @@ trait LatencyModel {
 
   def silence(): Unit = { modelVerbosity = -1 }
 
-  def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
+  @stateful def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
 
-  def latencyOf(s: Exp[_], inReduce: Boolean): Long = {
+  @stateful def latencyOf(s: Exp[_], inReduce: Boolean): Long = {
     val prevVerbosity = Config.verbosity
     Config.verbosity = modelVerbosity
     val latency = s match {
@@ -41,7 +42,7 @@ trait LatencyModel {
   def nbits(e: Exp[_]) = e.tp match { case Bits(bits) => bits.length }
   def sign(e: Exp[_]) = e.tp match { case FixPtType(s,_,_) => s; case _ => true }
 
-  def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
+  @stateful def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
     // Register File
     case _:RegFileLoad[_]    => true
     case _:ParRegFileLoad[_] => true

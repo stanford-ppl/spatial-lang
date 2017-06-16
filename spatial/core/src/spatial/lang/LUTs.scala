@@ -1,6 +1,6 @@
 package spatial.lang
 
-import argon.internals._
+import argon.core._
 import forge._
 import spatial.nodes._
 
@@ -29,13 +29,13 @@ object LUT {
     LUT5(alloc[T,LUT5](Seq(dim1,dim2,dim3,dim4,dim5), unwrap(elems)))
   }
 
-  private def checkDims(dims: Seq[Int], elems: Seq[_])(implicit ctx: SrcCtx) = {
+  @internal def checkDims(dims: Seq[Int], elems: Seq[_]) = {
     if (dims.product != elems.length) {
       error(ctx, c"Specified dimensions of the LUT do not match the number of supplied elements (${dims.product} != ${elems.length})")
       error(ctx)
     }
   }
-  private[spatial] def flatIndexConst(indices: Seq[Int], dims: Seq[Int])(implicit ctx: SrcCtx): Int = {
+  @internal def flatIndexConst(indices: Seq[Int], dims: Seq[Int])(implicit ctx: SrcCtx): Int = {
     val strides = List.tabulate(dims.length){d => dims.drop(d+1).product }
     indices.zip(strides).map{case (a,b) => a*b }.sum
   }

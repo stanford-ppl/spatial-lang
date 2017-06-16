@@ -1,6 +1,6 @@
 package spatial.transform
 
-import argon.internals._
+import argon.core._
 import argon.transform.ForwardTransformer
 import org.virtualized.SourceContext
 import spatial.compiler._
@@ -149,7 +149,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
               case x@Some(i) =>
                 val requiredBanking = parFactorOf(i) match {case Exact(p) => p.toInt }
                 val actualBanking = banking(iters.indexOf(x))
-                Math.min(requiredBanking, actualBanking) // actual may be higher than required, or vice versa
+                java.lang.Math.min(requiredBanking, actualBanking) // actual may be higher than required, or vice versa
               case None => 1
             }
           }.getOrElse(Seq(1))
@@ -288,7 +288,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     case (lanes, e@FILOPush(filo, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
       val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
-      FILO.par_push(f(filo), datas, ens)(e.mT,e.bT,ctx)
+      FILO.par_push(f(filo), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@StreamWrite(stream, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }

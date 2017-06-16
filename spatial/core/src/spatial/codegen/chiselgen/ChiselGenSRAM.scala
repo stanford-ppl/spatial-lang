@@ -1,6 +1,6 @@
 package spatial.codegen.chiselgen
 
-import argon.internals._
+import argon.core._
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.nodes._
 import spatial.compiler._
@@ -129,7 +129,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case tp: StructType[_] => src"UInt(${bitWidth(tp)}.W)"
     // case tp: IssuedCmd => src"UInt(${bitWidth(tp)}.W)"
     case tp: ArrayType[_] => src"Wire(Vec(999, ${newWire(tp.typeArguments.head)}"
-    case _ => throw new spatial.NoWireConstructorException(s"$tp")
+    case _ => throw new argon.NoWireConstructorException(s"$tp")
   }
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
     case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true

@@ -1,6 +1,6 @@
 package spatial.codegen.pirgen
 
-import argon.internals._
+import argon.core._
 import argon.nodes._
 import argon.transform.ForwardTransformer
 import spatial.compiler._
@@ -76,7 +76,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
     }
   }
 
-  private def retimeReduce[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
+  private def retimeReduce[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = inlineBlockWith(block, {stms =>
     stms.foreach{
       case stm@TP(lhs, rhs) if Bits.unapply(lhs.tp).isDefined =>
         visitStm(stm)
@@ -90,7 +90,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
   })
 
 
-  private def retimeBlock[T:Type](block: Block[T], cchain: Option[Exp[CounterChain]])(implicit ctx: SrcCtx): Exp[T] = inlineBlock(block, {stms =>
+  private def retimeBlock[T:Type](block: Block[T], cchain: Option[Exp[CounterChain]])(implicit ctx: SrcCtx): Exp[T] = inlineBlockWith(block, {stms =>
     dbg(c"Retiming block $block")
 
     // perform recursive search of inputs to determine cumulative symbol latency

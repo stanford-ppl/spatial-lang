@@ -1,6 +1,6 @@
 package spatial
 
-import argon.internals._
+import argon.core._
 import argon.{ArgonLangInternal, ArgonLangExternal, ArgonExp, ArgonApi}
 import forge._
 import spatial.lang._
@@ -108,7 +108,10 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   val Vec = spatial.lang.Vec
 
   type BurstCmd = spatial.lang.BurstCmd
+  val BurstCmd = spatial.lang.BurstCmd
   type IssuedCmd = spatial.lang.IssuedCmd
+  val IssuedCmd = spatial.lang.IssuedCmd
+
   type DRAMBus[T] = spatial.lang.DRAMBus[T]
   val BurstCmdBus = spatial.lang.BurstCmdBus
   val BurstAckBus = spatial.lang.BurstAckBus
@@ -150,7 +153,6 @@ trait SpatialImplicits {
 trait SpatialApi extends ArgonApi with SpatialExp with SpatialImplicits
   with BitOpsApi
   with DebuggingApi
-  with DRAMTransfersApi
   with FileIOApi
   with HostTransferApi
   with MathApi
@@ -161,7 +163,14 @@ trait SpatialApi extends ArgonApi with SpatialExp with SpatialImplicits
   with StagedUtils
   with StreamApi
   with VectorApi
+{
+  type File = spatial.lang.File
+  type Tup2[A,B] = argon.lang.Tuple2[A,B]
 
+  val Math = spatial.lang.Math
+  val bound = spatial.metadata.Bound
+  val targets = spatial.targets.Targets
+}
 
 trait SpatialLangInternal extends ArgonLangInternal with SpatialExp {
   val BitOps = spatial.lang.BitOps
@@ -170,6 +179,9 @@ trait SpatialLangInternal extends ArgonLangInternal with SpatialExp {
   val VarReg = spatial.lang.VarReg
 
   val HostTransferOps = spatial.lang.HostTransferOps
+  val DRAMTransfers = spatial.lang.DRAMTransfers
+  val DRAMTransfersInternal = spatial.lang.internal.DRAMTransfersInternal
+  val FringeTransfers = spatial.lang.FringeTransfers
 
   val MFile = spatial.lang.File
   val Switches = spatial.lang.Switches
@@ -178,11 +190,7 @@ trait SpatialLangInternal extends ArgonLangInternal with SpatialExp {
   type Access = (Exp[_], Ctrl)
 }
 
-trait SpatialLangExternal extends ArgonLangExternal with SpatialApi {
-  type File = spatial.lang.File
-
-  val Math = spatial.lang.Math
-  val bound = spatial.metadata.bound
-}
+trait SpatialLangExternal extends ArgonLangExternal with SpatialApi
 
 object compiler extends SpatialLangInternal
+object internal extends SpatialApi

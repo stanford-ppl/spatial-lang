@@ -3,12 +3,12 @@ package spatial.tests
 import org.virtualized._
 import org.scalatest.{FlatSpec, Matchers}
 import argon.core.Config
-import argon.AppRunner
+import argon.ArgonAppRunner
 import argon.core.TestBenchFailed
 import spatial.{SpatialApp, SpatialConfig}
 
 // Create a testbench which runs Scala tests
-trait SpatialTest extends SpatialApp with AppRunner {
+trait SpatialTest extends SpatialApp with ArgonAppRunner {
   override val testbench = true
   override def settings() {
     Config.verbosity = 1

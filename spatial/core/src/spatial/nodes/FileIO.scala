@@ -1,6 +1,6 @@
 package spatial.nodes
 
-import argon.internals._
+import argon.core._
 import spatial.compiler._
 
 object FileType extends Type[MFile] {
@@ -26,7 +26,7 @@ case class WriteTokens(
   file:  Exp[MFile],
   delim: Exp[MString],
   len:   Exp[Index],
-  token: Block[MString],
+  token: Lambda1[Index,MString],
   i:     Bound[Index]
 ) extends Op[MUnit] {
   def mirror(f:Tx) = MFile.write_tokens(f(file), f(delim), f(len), f(token), i)
