@@ -53,6 +53,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     metadata.clearAll[Children]
     metadata.clearAll[WrittenMems]
     metadata.clearAll[ReadUsers]
+    metadata.clearAll[Resetters]
     metadata.clearAll[MShouldDuplicate]
     super.preprocess(block)
   }

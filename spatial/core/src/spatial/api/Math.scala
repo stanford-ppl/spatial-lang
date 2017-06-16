@@ -19,13 +19,13 @@ trait MathApi extends MathExp { this: SpatialApi =>
   //   val ans = reg_new(0.to(0 until degree+1).map{ n => scala.math.exp(center) * (0 until n).map{(x.s - center.s)}.reduce{_*_} / scala.math.fac(n)}
   //   FixPt(x.s)
   // }
-  /** Taylor expansion for natural exponential to third degree **/
+  /** Taylor expansion for sin and cos from -pi to pi **/
   @api def sin_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = { 
-    val ans = x - x*x*x/6 + x*x*x*x*x/120
+    val ans = x - x*x*x/6 + x*x*x*x*x/120 //- x*x*x*x*x*x*x/5040
     FixPt(ans.s)
   }
   @api def cos_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = { 
-    val ans = 1 - x*x/2 + x*x*x*x/24
+    val ans = 1 - x*x/2 + x*x*x*x/24 //- x*x*x*x*x*x/720
     FixPt(ans.s)
   }
   /** Taylor expansion for natural exponential to third degree **/

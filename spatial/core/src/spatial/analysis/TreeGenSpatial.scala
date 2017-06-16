@@ -40,7 +40,7 @@ trait TreeGenSpatial extends SpatialTraversal {
 <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
 </head><body>
 
-  <div data-role="main" class="ui-content">
+  <div data-role="main" class="ui-content" style="overflow-x:scroll;">
     <h2>Controller Diagram for """)
     controller_tree.write(Config.name)
     controller_tree.write("""</h2>

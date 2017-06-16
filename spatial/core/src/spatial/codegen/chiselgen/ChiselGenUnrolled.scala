@@ -130,7 +130,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
           case Def(_:SRAMNew[_,_]) =>
             emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
         }
-        emit(src"val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
+        emit(src"// Used to be this, but not sure why for outer reduce: val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
+        emit(src"val ${accum}_resetter = ${lhs}_rst_en.D(0)")
       }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain))
       // Create SRFF to block destructive reads after the cchain hits the max, important for retiming

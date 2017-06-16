@@ -70,6 +70,8 @@ trait ChiselGenReg extends ChiselGenSRAM {
       // Console.println(src" working on reg $lhs")
       val width = bitWidth(init.tp)
       emitGlobalWire(src"val ${lhs}_initval = ${init}")
+      resettersOf(lhs).indices.foreach{ i => emitGlobalWire(src"""val ${lhs}_manual_reset_$i = Wire(Bool())""")}
+      if (resettersOf(lhs).length > 0) emitGlobalWire(src"""val ${lhs}_manual_reset = ${resettersOf(lhs).indices.map{i => src"${lhs}_manual_reset_$i"}.mkString(" | ")}""")
       val duplicates = duplicatesOf(lhs)
       duplicates.zipWithIndex.foreach{ case (d, i) => 
         val numBroadcasters = if (writersOf(lhs) == 0) 0 else {writersOf(lhs).map { write => if (portsOf(write, lhs, i).toList.length > 1) 1 else 0 }.reduce{_+_}}
@@ -183,8 +185,9 @@ trait ChiselGenReg extends ChiselGenSRAM {
 
     case RegReset(reg,en) => 
       val parent = parentOf(lhs).get
-      emitGlobalWire(src"val ${reg}_manual_reset = Wire(Bool())")
-      emit(src"${reg}_manual_reset := $en & ${parent}_datapath_en.D(${symDelay(lhs)}) ")
+      val id = resettersOf(reg).map{_._1}.indexOf(lhs)
+      Console.println(s"reg $reg for $lhs is ${quote(reg)}")
+      emit(src"${reg}_manual_reset_$id := $en & ${parent}_datapath_en.D(${symDelay(lhs)}) ")
 
 
     case RegWrite(reg,v,en) => 
