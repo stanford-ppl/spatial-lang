@@ -1,18 +1,19 @@
 VERILATOR_SRC=cpp/verilator
-AWS_SRC=cpp/aws
 
 all: help
 
 help:
 	@echo "------- SUPPORTED MAKE TARGETS -------"
-	@echo "make sim 				: Verilator SW + HW build"
-	@echo "make sim-sw 				: Verilator SW build"
-	@echo "make sim-hw 			: Build Chisel for Verilator"
-	@echo "make aws-sim 		: AWS simulation SW + HW build"
-	@echo "make aws-sim-hw 	: Build Chisel for AWS simulation"
-	@echo "make zynq 				: Zynq SW + HW build"
-	@echo "make zynq-hw    	: Build Chisel for Zynq"
-	@echo "make sim-clean 	: Verilator simulation clean up"
+	@echo "make sim         : Verilator SW + HW build"
+	@echo "make sim-sw      : Verilator SW build"
+	@echo "make sim-hw      : Build Chisel for Verilator"
+	@echo "make aws-sim     : AWS simulation SW + HW build"
+	@echo "make aws-sim-hw  : Build Chisel for AWS simulation"
+	@echo "make zynq        : Zynq SW + HW build"
+	@echo "make zynq-hw     : Build Chisel for Zynq"
+	@echo "make vcs         : VCS SW + HW build"
+	@echo "make vcs-hw      : Build Chisel for VCS"
+	@echo "make sim-clean   : Verilator simulation clean up"
 	@echo "make de1soc	: Build Chisel for DE1-SoC"
 	@echo "------- END HELP -------"
 
@@ -55,16 +56,14 @@ aws-sim: aws-sim-hw
 # Requires sim-hw to have been run in order to get verilog and cpp
 aws-sim-hw:
 	# First build chisel, with backend verilator to create the verilog
-	sbt "run-main top.Instantiator --backend-name verilator --target-dir ${AWS_SRC} --testArgs aws"
-	mv ${AWS_SRC}/example* ${AWS_SRC}/aws_srcs_tmp
-	mv ${AWS_SRC}/aws_srcs_tmp/*.v ${AWS_SRC}/
-	rm -rf ${AWS_SRC}/aws_srcs_tmp
+	sbt "run-main top.Instantiator --verilog --testArgs aws"
+	cat chisel/fringeVCS/SRAMVerilog.v >> verilog-aws/Top.v
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/spatial_design
 	cp -r $(AWS_HOME)/hdk/cl/examples/cl_simple $(AWS_HOME)/hdk/cl/examples/spatial_design
 	# Add all the static design files
 	cp -f cpp/fringeAWS/design/* $(AWS_HOME)/hdk/cl/examples/spatial_design/design/
-	cp -f cpp/aws/Top.v $(AWS_HOME)/hdk/cl/examples/spatial_design/design/
+	cp -f verilog-aws/Top.v $(AWS_HOME)/hdk/cl/examples/spatial_design/design/
 	# Add all the static software files
 	cp -f cpp/TopHost.cpp $(AWS_HOME)/hdk/cl/examples/spatial_design/software/src/
 	cp -f cpp/fringeAWS/headers/* $(AWS_HOME)/hdk/cl/examples/spatial_design/software/include/
