@@ -22,6 +22,8 @@ Check out our :doc:`tutorial <tutorial/starting>` to get started!
 
 If you prefer to learn by example, take a look at our :doc:`Spatial code examples <examples>`
 
+.. To run Spatial on the new Amazon EC2 FPGA instances, see :doc:`the AWS Tutorial <aws/intro>`.
+
 
 Contents
 --------
@@ -34,4 +36,5 @@ Contents
    hardware
    tutorial
    examples
+   .. aws
    theory

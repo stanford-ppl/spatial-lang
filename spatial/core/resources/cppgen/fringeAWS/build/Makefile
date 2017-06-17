@@ -17,7 +17,7 @@
 INCLUDES = -I$(SDK_DIR)/userspace/include -I ../include -I ./datastructures -I ./datastructures/static -I ./datastructures/static/standalone
 
 CC = g++
-CFLAGS = -DCONFIG_LOGLEVEL=4 -D__USE_STD_STRING__ -D__GPLUSPLUS__ -std=c++11 -g -Wall $(INCLUDES)
+CFLAGS = -DCONFIG_LOGLEVEL=4 -D__USE_STD_STRING__ -std=c++11 -g -Wall $(INCLUDES)
 
 LDLIBS = -lfpga_mgmt -lrt -lpthread
 

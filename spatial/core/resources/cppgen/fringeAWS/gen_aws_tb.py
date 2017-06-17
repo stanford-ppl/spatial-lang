@@ -27,7 +27,9 @@ for line in src:
     dst.write(line.replace('string', 'std::string', 1).replace('std::to_string', 'convert_to_string_int32_t').replace(');', ',tmp_buf' + str(global_buf_count) + ');'))
     global_buf_count += 1
   elif 'string_plus' in line:
-    dst.write(line.replace('string', 'std::string', 1).replace('string_plus(', '').replace(', ', ' + ').replace(');', ';'))
+    dst.write(line.replace('string ', 'std::string ', 1).replace('string(', 'std::string(', 1).replace('string_plus(', '').replace(', ', ' + ').replace(');', ';'))
+  elif ' = std::string(argv[i]);' in line:
+    dst.write(line.replace(' = std::string(argv[i]);', ' = string(argv[i]);', 1))
   elif '>>' in line:
     dst.write(line.replace('>>', '> >'))
   else:

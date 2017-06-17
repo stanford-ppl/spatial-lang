@@ -271,8 +271,8 @@ Top Top_inst (
   // input  [1:0] io_waddr,
   // input  [31:0] io_wdata,
   // output [31:0] io_rdata,
-  //.io_dram_cmd_ready(ddr_commands_from_design ? MAG_ready_for_next_cmd : 1'b0),
-  .io_dram_cmd_ready(MAG_ready_for_next_cmd),
+  .io_dram_cmd_ready(ddr_commands_from_design ? MAG_ready_for_next_cmd : 1'b0),
+  //.io_dram_cmd_ready(MAG_ready_for_next_cmd),
   // .io_???(MAG_ready_for_wdata),
   .io_dram_cmd_valid(MAG_addr_size_valid),
   .io_dram_cmd_bits_addr(MAG_addr),
@@ -296,8 +296,8 @@ Top Top_inst (
   .io_dram_cmd_bits_wdata_14( MAG_wdata[479:448]),
   .io_dram_cmd_bits_wdata_15( MAG_wdata[511:480]),
   .io_dram_resp_ready(MAG_wdata_valid),
-  //.io_dram_resp_valid(ddr_commands_from_design ? (MAG_rdata_valid || lcl_cl_sh_ddra.bvalid) : 1'b0), // TODO: Can use _DIRECT signals like below and put this through memory controller too
-  .io_dram_resp_valid(MAG_rdata_valid || lcl_cl_sh_ddra.bvalid), // TODO: Can use _DIRECT signals like below and put this through memory controller too
+  .io_dram_resp_valid(ddr_commands_from_design ? (MAG_rdata_valid || lcl_cl_sh_ddra.bvalid) : 1'b0), // TODO: Can use _DIRECT signals like below and put this through memory controller too
+  //.io_dram_resp_valid(MAG_rdata_valid || lcl_cl_sh_ddra.bvalid), // TODO: Can use _DIRECT signals like below and put this through memory controller too
   .io_dram_resp_bits_rdata_0( MAG_rdata[31 :  0]),
   .io_dram_resp_bits_rdata_1( MAG_rdata[63 : 32]),
   .io_dram_resp_bits_rdata_2( MAG_rdata[95 : 64]),
@@ -986,7 +986,7 @@ cl_sda_slv CL_SDA_SLV (
 //-----------------------------------------
 
 
-`ifndef DISABLE_CHIPSCOPE_DEBUG
+`ifndef DISABLE_VJTAG_DEBUG
 
 cl_ila CL_ILA (
 
@@ -1016,7 +1016,7 @@ cl_vio CL_VIO (
    .clk_extra_a1(clk_extra_a1)
 
 );
-`endif //  `ifndef DISABLE_CHIPSCOPE_DEBUG
+`endif //  `ifndef DISABLE_VJTAG_DEBUG
 
 //----------------------------------------- 
 // Virtual JATG ILA Debug core example 

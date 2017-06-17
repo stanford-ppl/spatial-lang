@@ -34,6 +34,7 @@
 ./cppgen/fringeAWS/gen_aws_tb.py
 ./cppgen/fringeAWS/build/encrypt.tcl
 ./cppgen/fringeAWS/build/Makefile
+./cppgen/fringeAWS/build/load.sh
 ./cppgen/fringeAWS/Top_template
 ./cppgen/fringeAWS/tmp/F1.diff
 ./cppgen/fringeAWS/tmp/SIM.diff
