@@ -157,7 +157,7 @@ class Top(
   target match {
     case "verilator" | "vcs" =>
       // Simulation Fringe
-      val blockingDRAMIssue = false
+      val blockingDRAMIssue = true
       val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[VerilatorInterface]
 
