@@ -398,7 +398,7 @@ object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
            ←    COLS     →   
          ___________________             ___________________                         
         |                   |           |X  X  X  X  X  X 00|          
-    ↑   |    ←3→            |           |                 00|          
+    ↑   |    ←3→            |           |                 00|    * this app pads right and bottom borders with 0      
         |    ___            |           |    VALID DATA   00|          
         |  ↑|   |           |           |X  X  X  X  X  X 00|          
         |  3|   | ----->    |    ->     |                 00|            
@@ -477,19 +477,19 @@ object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
  /*
                                                                                                                              
  H   ↗        ___________________                  ___________________                                                                  
-  E         /                   /|               /000000000000000000 /|                                                                
-   I       / ←    ROW      →   / |              / x  x  x  x  x  00 /0|                        
- ↙  G     /__________________ /  |             /__________________ / 0|                                                                 
-     H   |                   |   |            |X  X  X  X  X  X 00| x0|      
-      T  |     ___           |   |            |                 00|  0|      
-         |    /__/|          |   |            |    VALID DATA   00|  0|      
-   ↑     |  ↑|   ||          |   |            |X  X  X  X  X  X 00| x0|      
-         |  3|   || ----->   |   |   --->     |                 00|  0|        
-  COL    |  ↓|___|/          |   |            |X  X  X  X  X  X 00| x0|      
-         |                   |   |            |                 00|  0|      
-         |                   |   |            |X  X  X  X  X  X 00| x0|      
-         |                   |  /             |                 00| 0/      
-   ↓     |                   | /              |0000000000000000000|0/ 
+  E         /                   /|               /000000000000000000/ |                                                                
+   I       / ←    ROW      →   / |              /0  x  x  x  x    0/ 0|                        
+ ↙  G     /__________________ /  |             /0________________0/  0|                                                                 
+     H   |                   |   |            |0  X  X  X  X  X  0| x0|      
+      T  |     ___           |   |            |0                 0|  0|      
+         |    /__/|          |   |            |0   VALID DATA    0|  0|    *This app frames all borders with original value  
+   ↑     |  ↑|   ||          |   |            |0  X  X  X  X  X  0| x0|      
+         |  3|   || ----->   |   |   --->     |0                 0|  0|        
+  COL    |  ↓|___|/          |   |            |0  X  X  X  X  X  0| x0|      
+         |                   |   |            |0                 0|  0|      
+         |                   |   |            |0  X  X  X  X  X  0| x0|      
+         |                   |  /             |0                 0| 0/      
+   ↓     |                   | /              |0                 0|0/ 
          |                   |/               |0000000000000000000|/        
           ```````````````````                  ```````````````````      
                                                 

@@ -165,11 +165,11 @@ object Arguments {
     (List(3,4,7),1,12,false,32)
   )
   val NBufShiftRegFile = List(
-    (List(8),1,2,1,32),
-    (List(1,8),1,3,1,32),
-    (List(3,7),1,3,3,32),
-    (List(3,3),1,3,3,32),
-    (List(3,4,7),1,3,12,32)
+    (List(8),1,2,Map((0->1)),32),
+    (List(1,8),1,3,Map((0->1)),32),
+    (List(3,7),1,3,Map((0->3)),32),
+    (List(3,3),1,3,Map((0->3)),32),
+    (List(3,4,7),1,3,Map((0->12)),32)
   )
 
   val LineBuffer = List( 

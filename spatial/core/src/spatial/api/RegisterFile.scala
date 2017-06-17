@@ -27,6 +27,9 @@ trait RegisterFileExp { this: SpatialExp =>
 
     @api def load(dram: DRAM1[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile1[T]): Void = dense_transfer(dram, this, isLoad = true)
+
+    @api def reset(cond: Bool): Void = wrap(regfile_reset(this.s, cond.s))
+    @api def reset: Void = wrap(regfile_reset(this.s, bool(true)))
   }
 
   case class RegFile2[T:Meta:Bits](s: Exp[RegFile2[T]]) extends Template[RegFile2[T]] with RegFile[T] {
@@ -38,6 +41,9 @@ trait RegisterFileExp { this: SpatialExp =>
 
     @api def load(dram: DRAM2[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile2[T]): Void = dense_transfer(dram, this, isLoad = true)
+
+    @api def reset(cond: Bool): Void = wrap(regfile_reset(this.s, cond.s))
+    @api def reset: Void = wrap(regfile_reset(this.s, bool(true)))
   }
 
   case class RegFile3[T:Meta:Bits](s: Exp[RegFile3[T]]) extends Template[RegFile3[T]] with RegFile[T] {
@@ -50,6 +56,9 @@ trait RegisterFileExp { this: SpatialExp =>
 
     @api def load(dram: DRAM3[T]): Void = dense_transfer(dram.toTile(ranges), this, isLoad = true)
     @api def load(dram: DRAMDenseTile3[T]): Void = dense_transfer(dram, this, isLoad = true)
+
+    @api def reset(cond: Bool): Void = wrap(regfile_reset(this.s, cond.s))
+    @api def reset: Void = wrap(regfile_reset(this.s, bool(true)))
   }
 
   case class RegFileView[T:Meta:Bits](s: Exp[RegFile[T]], i: Seq[Index], dim: Int) {
@@ -106,6 +115,12 @@ trait RegisterFileExp { this: SpatialExp =>
   case class RegFileNew[T:Type:Bits,C[_]<:RegFile[_]](dims: Seq[Exp[Index]])(implicit cT: Type[C[T]]) extends Op[C[T]] {
     def mirror(f:Tx) = regfile_new[T,C](f(dims):_*)
     val mT = typ[T]
+  }
+
+  case class RegFileReset[T:Type:Bits](rf: Exp[RegFile[T]], en: Exp[Bool]) extends EnabledOp[Void](en) {
+    def mirror(f:Tx) = regfile_reset(f(rf), f(en))
+    val mT = typ[T]
+    val bT = bits[T]
   }
 
   case class RegFileLoad[T:Type:Bits](
@@ -194,4 +209,9 @@ trait RegisterFileExp { this: SpatialExp =>
   ) = {
     stageWrite(reg)(ParRegFileShiftIn(reg, inds, dim, data, en))(ctx)
   }
+
+  private[spatial] def regfile_reset[T:Type:Bits](rf: Exp[RegFile[T]], en: Exp[Bool])(implicit ctx: SrcCtx): Sym[Void] = {
+    stageWrite(rf)( RegFileReset(rf, en) )(ctx)
+  }
+
 }

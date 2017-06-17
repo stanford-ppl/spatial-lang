@@ -92,7 +92,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
       val criticalPath = delayOf(reader) - latencyOf(reader)
 
       // Ignore non-bit based types and constants
-      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }
+      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
 
       dbgs("  " + inputs.map{in => c"$in: ${delayOf(in)}"}.mkString(", ") + s" (max: $criticalPath)")
 

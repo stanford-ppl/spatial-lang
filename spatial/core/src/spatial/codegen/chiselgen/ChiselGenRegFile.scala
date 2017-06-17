@@ -39,22 +39,40 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@RegFileNew(dims) =>
       val width = bitWidth(lhs.tp.typeArguments.head)
-      val par = writersOf(lhs).length
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
+        val writerInfo = writersOf(lhs).zipWithIndex.map{ case (w,ii) => 
+          val port = portsOf(w, lhs, i).head
+          w.node match {
+            case Def(_:RegFileStore[_]) => (port, 1)
+            case Def(_:RegFileShiftIn[_]) => (port, 1)
+            // case Def(_@ParRegFileShiftIn(_,_,d,data,en)) => ${d.length}
+            case Def(_@ParRegFileStore(_,_,_,en)) => (port, en.length)
+          }
+        }
+        val parInfo = writerInfo.groupBy(_._1).map{case (k,v) => src"($k -> ${v.map{_._2}.reduce{_+_}})"}
         val depth = mem match {
           case BankedMemory(dims, d, isAccum) => d
           case _ => 1
         }
         if (depth == 1) {
-          emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new templates.ShiftRegFile(List(${dims.mkString(",")}), 1, ${par}, false, $width))""")
-          emitGlobalModule(s"${quote(lhs)}_$i.io.reset := reset")
+          emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new templates.ShiftRegFile(List(${dims.mkString(",")}), 1, ${writerInfo.map{_._2}.reduce{_+_}}, false, $width))""")
           emitGlobalModule(s"${quote(lhs)}_$i.io.dump_en := false.B")
         } else {
           nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-          emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new templates.NBufShiftRegFile(List(${dims.mkString(",")}), 1, $depth, ${par}, $width))""")
-          emitGlobalModule(s"${quote(lhs)}_$i.io.reset := reset")          
+          emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new NBufShiftRegFile(List(${dims.mkString(",")}), 1, $depth, Map(${parInfo.mkString(",")}), $width))""")          
         }
+        resettersOf(lhs).indices.foreach{ i => emitGlobalWire(src"""val ${lhs}_manual_reset_$i = Wire(Bool())""")}
+        if (resettersOf(lhs).length > 0) {
+          emitGlobalModule(src"""val ${lhs}_manual_reset = ${resettersOf(lhs).indices.map{i => src"${lhs}_manual_reset_$i"}.mkString(" | ")}""")
+          emitGlobalModule(src"""${quote(lhs)}_$i.io.reset := ${lhs}_manual_reset | reset""")
+        } else {emitGlobalModule(s"${quote(lhs)}_$i.io.reset := reset")}
+
       }
+
+    case RegFileReset(rf,en) => 
+      val parent = parentOf(lhs).get
+      val id = resettersOf(rf).map{_._1}.indexOf(lhs)
+      emit(src"${rf}_manual_reset_$id := $en & ${parent}_datapath_en.D(${symDelay(lhs)}) ")
       
     case op@RegFileLoad(rf,inds,en) =>
       val dispatch = dispatchOf(lhs, rf).toList.head
