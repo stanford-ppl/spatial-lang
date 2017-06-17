@@ -463,41 +463,41 @@ class MAGCore(
     ff.io.out
   }
 
-  // rdata enq values
-  io.dbg.rdata_enq0_0 := getFF(io.dram.resp.bits.rdata(0), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 0.U))
-  io.dbg.rdata_enq0_1 := getFF(io.dram.resp.bits.rdata(1), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 0.U))
-  io.dbg.rdata_enq0_15 := getFF(io.dram.resp.bits.rdata(15), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 0.U))
-
-  io.dbg.rdata_enq1_0 := getFF(io.dram.resp.bits.rdata(0), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 1.U))
-  io.dbg.rdata_enq1_1 := getFF(io.dram.resp.bits.rdata(1), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 1.U))
-  io.dbg.rdata_enq1_15 := getFF(io.dram.resp.bits.rdata(15), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 1.U))
-
-
-  // rdata deq values
-  io.dbg.rdata_deq0_0   := getFF(rdataFifos(0).io.deq(0), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 0.U)
-  io.dbg.rdata_deq0_1   := getFF(rdataFifos(0).io.deq(1), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 0.U)
-  io.dbg.rdata_deq0_15   := getFF(rdataFifos(0).io.deq(15), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 0.U)
-
-  io.dbg.rdata_deq1_0   := getFF(rdataFifos(0).io.deq(0), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 1.U)
-  io.dbg.rdata_deq1_1   := getFF(rdataFifos(0).io.deq(1), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 1.U)
-  io.dbg.rdata_deq1_15   := getFF(rdataFifos(0).io.deq(15), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 1.U)
-
-
-  // wdata enq values
-  io.dbg.wdata_enq0_0 := getFF(wdataFifo.io.enq(0)(0), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 0.U))
-  io.dbg.wdata_enq0_1 := getFF(wdataFifo.io.enq(0)(1), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 0.U))
-  io.dbg.wdata_enq0_15 := getFF(wdataFifo.io.enq(0)(15), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 0.U))
-  io.dbg.wdata_enq1_0 := getFF(wdataFifo.io.enq(0)(0), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 1.U))
-  io.dbg.wdata_enq1_1 := getFF(wdataFifo.io.enq(0)(1), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 1.U))
-  io.dbg.wdata_enq1_15 := getFF(wdataFifo.io.enq(0)(15), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 1.U))
-
-  // wdata deq values
-  io.dbg.wdata_deq0_0 := getFF(wdataFifo.io.deq(0), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 0.U))
-  io.dbg.wdata_deq0_1 := getFF(wdataFifo.io.deq(1), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 0.U))
-  io.dbg.wdata_deq0_15 := getFF(wdataFifo.io.deq(15), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 0.U))
-  io.dbg.wdata_deq1_0 := getFF(wdataFifo.io.deq(0), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 1.U))
-  io.dbg.wdata_deq1_1 := getFF(wdataFifo.io.deq(1), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 1.U))
-  io.dbg.wdata_deq1_15 := getFF(wdataFifo.io.deq(15), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 1.U))
+//  // rdata enq values
+//  io.dbg.rdata_enq0_0 := getFF(io.dram.resp.bits.rdata(0), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 0.U))
+//  io.dbg.rdata_enq0_1 := getFF(io.dram.resp.bits.rdata(1), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 0.U))
+//  io.dbg.rdata_enq0_15 := getFF(io.dram.resp.bits.rdata(15), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 0.U))
+//
+//  io.dbg.rdata_enq1_0 := getFF(io.dram.resp.bits.rdata(0), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 1.U))
+//  io.dbg.rdata_enq1_1 := getFF(io.dram.resp.bits.rdata(1), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 1.U))
+//  io.dbg.rdata_enq1_15 := getFF(io.dram.resp.bits.rdata(15), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 1.U))
+//
+//
+//  // rdata deq values
+//  io.dbg.rdata_deq0_0   := getFF(rdataFifos(0).io.deq(0), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 0.U)
+//  io.dbg.rdata_deq0_1   := getFF(rdataFifos(0).io.deq(1), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 0.U)
+//  io.dbg.rdata_deq0_15   := getFF(rdataFifos(0).io.deq(15), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 0.U)
+//
+//  io.dbg.rdata_deq1_0   := getFF(rdataFifos(0).io.deq(0), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 1.U)
+//  io.dbg.rdata_deq1_1   := getFF(rdataFifos(0).io.deq(1), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 1.U)
+//  io.dbg.rdata_deq1_15   := getFF(rdataFifos(0).io.deq(15), io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty & rdataDeqCtr.io.out === 1.U)
+//
+//
+//  // wdata enq values
+//  io.dbg.wdata_enq0_0 := getFF(wdataFifo.io.enq(0)(0), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 0.U))
+//  io.dbg.wdata_enq0_1 := getFF(wdataFifo.io.enq(0)(1), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 0.U))
+//  io.dbg.wdata_enq0_15 := getFF(wdataFifo.io.enq(0)(15), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 0.U))
+//  io.dbg.wdata_enq1_0 := getFF(wdataFifo.io.enq(0)(0), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 1.U))
+//  io.dbg.wdata_enq1_1 := getFF(wdataFifo.io.enq(0)(1), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 1.U))
+//  io.dbg.wdata_enq1_15 := getFF(wdataFifo.io.enq(0)(15), io.app.stores(0).wdata.valid & (wdataEnqCtr.io.out === 1.U))
+//
+//  // wdata deq values
+//  io.dbg.wdata_deq0_0 := getFF(wdataFifo.io.deq(0), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 0.U))
+//  io.dbg.wdata_deq0_1 := getFF(wdataFifo.io.deq(1), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 0.U))
+//  io.dbg.wdata_deq0_15 := getFF(wdataFifo.io.deq(15), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 0.U))
+//  io.dbg.wdata_deq1_0 := getFF(wdataFifo.io.deq(0), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 1.U))
+//  io.dbg.wdata_deq1_1 := getFF(wdataFifo.io.deq(1), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 1.U))
+//  io.dbg.wdata_deq1_15 := getFF(wdataFifo.io.deq(15), burstVld & isWrFifo.io.deq(0) & dramReady & ~issued & (wdataDeqCtr.io.out === 1.U))
 
 }
 
