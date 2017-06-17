@@ -411,21 +411,21 @@ object GEMM_MemoryHierarchy extends SpatialApp { // Regression (Dense) // Args: 
             val tileC_acc = RegFile[T](n_r,n_r)
             Foreach(m_c by n_r){ accum_m =>
               // DATA MOVEMENT
-              Foreach(n_r by 1, n_r by 1 par n_r) { (copy_m, copy_n) => 
+              Foreach(n_r by 1, n_r by 1 par 1) { (copy_m, copy_n) => 
                 // tileC_acc(copy_m, copy_n) = tileC(local_m + accum_m + copy_m, local_n + copy_n) 
                 tileC_acc(copy_m, copy_n) = tileC(local_m + accum_m + copy_m, local_n + copy_n) 
               }
 
-              MemFold(tileC_acc par (n_r,n_r))(k_c by 1) { compute_k =>
+              MemFold(tileC_acc)(k_c by 1) { compute_k =>
                 val tileC_partial = RegFile[T](n_r,n_r)
-                Foreach(n_r by 1, n_r by 1 par n_r) { (compute_m, compute_n) => 
+                Foreach(n_r by 1, n_r by 1 par 1) { (compute_m, compute_n) => 
                   tileC_partial(compute_m, compute_n) = tileA_ip(compute_m, compute_k) * tileB_pj(compute_k, compute_n)
                 }
                 tileC_partial
               }{_+_}
 
               // DATA MOVEMENT
-              Foreach(n_r by 1, n_r by 1 par n_r) { (copy_m, copy_n) =>
+              Foreach(n_r by 1, n_r by 1 par 1) { (copy_m, copy_n) =>
                 tileC(local_m + accum_m + copy_m, local_n + copy_n) = tileC_acc(copy_m, copy_n)
               }
             }
@@ -444,6 +444,6 @@ object GEMM_MemoryHierarchy extends SpatialApp { // Regression (Dense) // Args: 
     printMatrix(result, "Result:")
 
     val cksum = gold.zip(result){_==_}.reduce{_&&_}
-    println("PASS: " + cksum + " (GEMM)")
+    println("PASS: " + cksum + " (GEMM_MemoryHierarchy) * Fix par on outerproduct loops, something is messed up with readers")
   }
 }
