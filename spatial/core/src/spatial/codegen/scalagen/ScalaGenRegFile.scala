@@ -45,6 +45,10 @@ trait ScalaGenRegFile extends ScalaGenMemories {
         oobUpdate(op.mT, rf, lhs, inds){ emit(src"if ($en) $rf.update(${flattenAddress(dims,inds,None)}, $data)") }
       close("}")
 
+    case RegFileReset(rf, en) => 
+      val dims = stagedDimsOf(rf)
+      emit(src"val $lhs = if ($en) {for (${lhs}_addr <- 0 until ${dims.map(quote).mkString{"*"}} ) {$rf.update(${lhs}_addr, 0)} }")
+
     case RegFileShiftIn(rf,i,d,data,en)    => shiftIn(lhs, rf, i, d, data, isVec = false, en)
     case ParRegFileShiftIn(rf,i,d,data,en) => shiftIn(lhs, rf, i, d, data, isVec = true, en)
 

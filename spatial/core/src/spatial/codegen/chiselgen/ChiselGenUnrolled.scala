@@ -129,6 +129,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
             emit(src"val ${accum}_wren = Mux(retime_released, (${childrenOf(lhs).last}_done), false.B) // & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")
           case Def(_:SRAMNew[_,_]) =>
             emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+          case Def(_:RegFileNew[_,_]) =>
+            emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
         }
         emit(src"// Used to be this, but not sure why for outer reduce: val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en.D(0)")

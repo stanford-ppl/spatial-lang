@@ -466,6 +466,7 @@ trait NodeClasses { this: SpatialExp =>
 
   def resetterUnapply(d: Def): Option[List[LocalReset]] = d match {
     case RegReset(reg, en)                       => Some(LocalReset(reg, en=en))
+    case RegFileReset(reg, en)                       => Some(LocalReset(reg, en=en))
     case _ => None
   }
 
