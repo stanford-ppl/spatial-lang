@@ -63,6 +63,8 @@ Once ``create-fpga-image`` has been run, wait for the ``logs`` directory in S3 t
 Step 4: Opening an F1 instance
 ------------------------------
 
+.. highlight:: bash
+
 Start an F1 instance in the AWS console. We tested with Amazon's `FPGA Developer AMI <https://aws.amazon.com/marketplace/pp/B06VVYBLZZ#>`_ although this might not be necessary.
 
 If you already have an existing F1 instance (e.g. for a previous Spatial application), skip to Step 5. If this is your first time starting the F1 instance, follow the one-time setup steps below.
