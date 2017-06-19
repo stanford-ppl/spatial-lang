@@ -33,6 +33,27 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 32
   }
 }
 
+object FloatInOutArg extends SpatialApp {
+  import IR._
+
+  type T = Float
+  @virtualize
+  def main() {
+
+    val in = ArgIn[T]
+    val out = ArgOut[T]
+
+    setArg(in, args(0).to[T])
+    Accel{
+      out := in
+    }
+
+    val result = getArg(out)
+    println("Put in " + in + ", got out " + result)
+  }
+
+}
+
 object TensorLoadStore extends SpatialApp { // Regression (Unit) // Args: 32 4 4 4 4
   import IR._
 
