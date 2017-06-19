@@ -160,14 +160,11 @@ object Reduce extends ReduceClass(InnerPipe) {
     cchain: Exp[CounterChain],
     accum:  Exp[C[T]],
     func:   () => Exp[MUnit],
-    reduce: (Exp[T],Exp[T]) => Exp[T],
     iters:  Seq[Seq[Bound[Index]]],
-    valids: Seq[Seq[Bound[Bit]]],
-    rV:     (Bound[T], Bound[T])
+    valids: Seq[Seq[Bound[Bit]]]
   )(implicit mT: Type[T], mC: Type[C[T]]): Exp[Controller] = {
     val fBlk = stageColdLambda1(accum) { func() }
-    val rBlk = stageColdLambda2(rV._1,rV._2){ reduce(rV._1,rV._2) }
-    val effects = fBlk.effects andAlso rBlk.effects
-    stageEffectful(UnrolledReduce(en, cchain, accum, fBlk, rBlk, iters, valids, rV), effects.star)(ctx)
+    val effects = fBlk.effects
+    stageEffectful(UnrolledReduce(en, cchain, accum, fBlk, iters, valids), effects.star)(ctx)
   }
 }

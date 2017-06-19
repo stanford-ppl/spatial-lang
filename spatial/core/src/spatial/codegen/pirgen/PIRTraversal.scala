@@ -453,7 +453,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     case Def(UnitPipe(en, func)) => blockContents(func)
     case Def(ParallelPipe(en, func)) => blockContents(func)
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => blockContents(func)
-    case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) => blockContents(func)
+    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) => blockContents(func)
     case _ => throw new Exception(s"Don't know how to get stms pipe=${qdef(pipe)}")
   }
 

@@ -164,7 +164,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
-    case UnrolledReduce(en,cchain,_,func,_,iters,valids,_) =>
+    case UnrolledReduce(en,cchain,_,func,iters,valids) =>
       val inner = levelOf(sym) match { 
         case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
         case _ => false

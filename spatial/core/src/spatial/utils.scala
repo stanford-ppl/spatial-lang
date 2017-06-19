@@ -602,7 +602,7 @@ object utils {
 
   /** Stateless Nodes **/
   @stateful def isRegisterRead(e: Exp[_]): Boolean = getDef(e).exists(isRegisterRead)
-  def isRegisterRead(d: Def): Boolean = d.isInstanceOf[RegRead[_]]
+  def isRegisterRead(d: Def): Boolean = d.isInstanceOf[RegRead[_]] || d.isInstanceOf[VarRegRead[_]]
 
   // Nodes which operate on primitives but are allowed to appear outside inner controllers
   // Register reads are considered to be "stateless" because the read is itself akin to creating a wire

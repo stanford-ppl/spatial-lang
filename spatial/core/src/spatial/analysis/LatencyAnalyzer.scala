@@ -136,7 +136,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
 
         pipe + N - 1 + latencyOf(lhs)
 
-      case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) if isInnerControl(lhs) =>
+      case UnrolledReduce(en,cchain,accum,func,iters,valids) if isInnerControl(lhs) =>
         val N = nIters(cchain)
 
         val body = latencyOfPipe(func)
@@ -228,7 +228,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
 
-      case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
+      case UnrolledReduce(en,cchain,accum,func,iters,valids) =>
         val N = nIters(cchain)
         val P = parsOf(cchain).product
         val stages = latencyOfBlock(func)

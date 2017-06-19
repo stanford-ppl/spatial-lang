@@ -52,7 +52,7 @@ trait CppGenUnrolled extends CppCodegen {
     case UnrolledForeach(en, cchain,func,iters,valids) =>
       emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
 
-    case UnrolledReduce(en, cchain,_,func,_,iters,valids,_) =>
+    case UnrolledReduce(en, cchain,_,func,iters,valids) =>
 
     case ParSRAMLoad(sram,inds,ens) =>
 

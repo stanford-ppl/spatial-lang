@@ -598,11 +598,9 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
       }
       unit
     }
-    val rV2 = (fresh[T],fresh[T])
-    val reduce2 = reduce.restage(rV2._1, rV2._2)
 
     val effects = blk.effects
-    val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchain, accum, blk, reduce2, inds2, vs, rV2)(mT,mC), effects.star)(ctx)
+    val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchain, accum, blk, inds2, vs)(mT,mC), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
     logs(s"Created reduce ${str(lhs2)}")
     lhs2
@@ -749,12 +747,8 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
       unit
     }
 
-    val rV2 = (fresh[T],fresh[T])
-    val reduce2 = reduce.restage(rV2._1,rV2._2)
-
     val effects = blk.effects
-
-    val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchainMap, accum, blk, reduce2, isMap2, mvs, rV2)(mT,mC), effects.star)(ctx)
+    val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchainMap, accum, blk, isMap2, mvs)(mT,mC), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
 
     logs(s"[Accum-fold] Created reduce ${str(lhs2)}")

@@ -47,16 +47,16 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM with ScalaGenC
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case UnrolledForeach(ens,cchain,func,iters,valids) =>
       emit(src"/** BEGIN UNROLLED FOREACH $lhs **/")
-      val en = ens.map(quote).mkString(" && ")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")
       emitUnrolledLoop(lhs, cchain, iters, valids){ emitControlBlock(lhs, func) }
       close("}")
       dumpBufferedOuts(lhs)
       emit(src"/** END UNROLLED FOREACH $lhs **/")
 
-    case UnrolledReduce(ens,cchain,_,func,_,iters,valids,_) =>
+    case UnrolledReduce(ens,cchain,_,func,iters,valids) =>
       emit(src"/** BEGIN UNROLLED REDUCE $lhs **/")
-      val en = ens.map(quote).mkString(" && ")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")
       emitUnrolledLoop(lhs, cchain, iters, valids){ emitControlBlock(lhs, func) }
       close("}")

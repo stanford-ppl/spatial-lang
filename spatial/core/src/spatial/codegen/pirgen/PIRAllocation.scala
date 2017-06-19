@@ -52,7 +52,7 @@ trait PIRAllocation extends PIRTraversal {
     val cchainOpt = pipe match {
       case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
         Some((cchain, iters, valids))
-      case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) => 
+      case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
         Some((cchain, iters, valids))
       case Def(_:UnitPipe | _:Hwblock) => 
         val cu = allocateCU(pipe)
@@ -594,7 +594,7 @@ trait PIRAllocation extends PIRTraversal {
           prescheduleStages(lhs, func)
           allocateCChains(lhs) 
 
-        case UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV) =>
+        case UnrolledReduce(en, cchain, accum, func, iters, valids) =>
           allocateCU(lhs)
           prescheduleStages(lhs, func)
           allocateCChains(lhs) 

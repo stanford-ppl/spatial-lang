@@ -58,7 +58,7 @@ trait BufferAnalyzer extends CompilerPass {
           }
         }
         else {
-          warn(mem.ctx, u"Memory $mem, instance #$i has no associated accesses")
+          warn(mem.ctx, u"${mem.tp} $mem, instance #$i has no associated accesses")
         }
         // HACK
         /*writers.collect{case wr@(Def(_:BufferedOutWrite[_]),_) => wr }.foreach{wr =>

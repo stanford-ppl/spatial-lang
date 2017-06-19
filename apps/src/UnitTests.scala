@@ -981,8 +981,6 @@ object SimpleReduce extends SpatialApp { // Regression (Unit) // Args: 7
 
 
 object SimpleFold extends SpatialApp { // Regression (Unit) // Args: 1920
-
-
   val constTileSize = 16
 
   def simple_fold[T:Type:Num](src: Array[T]) = {
@@ -1136,8 +1134,6 @@ object UniqueParallelLoad extends SpatialApp { // Regression (Unit) // Args: non
 
 
 object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
-
-
   val tileSize = 64
   val p = 1
 
@@ -1184,8 +1180,6 @@ object BlockReduce1D extends SpatialApp { // Regression (Unit) // Args: 1920
 }
 
 object UnalignedLd extends SpatialApp { // Regression (Unit) // Args: 100 9
-
-
   val N = 19200
 
   val paddedCols = 1920
@@ -2574,3 +2568,58 @@ object SSV2D extends SpatialApp { // Regression (Unit) // Args: none
     println("PASS: " + cksum + " (SSV2D)")
   }
 }
+
+// Args: 1920
+object OldSimpleFold extends SpatialApp {
+  val constTileSize = 96
+
+  @virtualize def simple_fold[T:Type:Num](src: Array[T]) = {
+    val outerPar = 1 (16 -> 16)
+    val innerPar = 1 (16 -> 16)
+    val tileSize = constTileSize (constTileSize -> constTileSize)
+    val len = src.length; bound(len) = 9216
+
+    val N = ArgIn[Int]
+    val out = ArgOut[T]
+    setArg(N, len)
+
+    val v1 = DRAM[T](N)
+    setMem(v1, src)
+
+    Accel {
+      val accum = Reg[T](0.to[T])
+      val local = SRAM[T](1920)
+      local load v1
+      Reduce(accum)(0 until 1920 par 16){i => local(i) }{_+_}
+      /*Reduce(accum)(N by tileSize par outerPar){ i =>
+        val b1 = SRAM[T](tileSize)
+        b1 load v1(i::i+tileSize par 16)
+        val sum = Reduce(Reg[T](0.to[T]))(tileSize par innerPar){ ii =>
+          b1(ii)
+        } {_+_}
+        println("sum: " + sum.value)
+        sum
+      } {_+_}*/
+      Pipe { out := accum }
+    }
+
+    getArg(out)
+  }
+
+  @virtualize
+  def main() {
+    val len = args(0).to[Int]
+
+    val src = Array.tabulate(len){i => i % 256 }
+    val result = simple_fold(src)
+
+    val gold = src.reduce{_+_}
+    println("expected: " + gold)
+    println("result:   " + result)
+
+    val cksum = result == gold
+    println("PASS: " + cksum + " (SimpleFold)")
+    assert(cksum)
+  }
+}
+

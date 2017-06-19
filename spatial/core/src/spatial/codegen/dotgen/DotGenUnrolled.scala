@@ -29,7 +29,7 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
       }
       case UnrolledForeach(en,cchain,func,iters,valids) =>
 
-      case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
+      case UnrolledReduce(en,cchain,accum,func,iters,valids) =>
 
       case ParSRAMLoad(sram, inds, ens) => emitMemRead(lhs)
 
@@ -54,7 +54,7 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
           rhs.blocks.foreach(emitBlock) 
         }
 
-      case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
+      case UnrolledReduce(en,cchain,accum,func,iters,valids) =>
         emitValids(valids)
         emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
           emitVert(lhs);

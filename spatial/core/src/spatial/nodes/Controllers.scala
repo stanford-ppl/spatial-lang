@@ -113,13 +113,11 @@ case class UnrolledReduce[T,C[T]](
   cchain: Exp[CounterChain],
   accum:  Exp[C[T]],
   func:   Block[MUnit],
-  reduce: Lambda2[T,T,T],
   iters:  Seq[Seq[Bound[Index]]],
-  valids: Seq[Seq[Bound[Bit]]],
-  rV:     (Bound[T], Bound[T])
+  valids: Seq[Seq[Bound[Bit]]]
 )(implicit val mT: Type[T], val mC: Type[C[T]]) extends Loop {
-  def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bit]]) = Reduce.op_unrolled_reduce(f(en)++addEn,f(cchain),f(accum),f(func),f(reduce),iters,valids,rV)
+  def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bit]]) = Reduce.op_unrolled_reduce(f(en)++addEn,f(cchain),f(accum),f(func),iters,valids)
 
-  override def inputs = syms(en) ++ syms(cchain, accum) ++ syms(func) ++ syms(reduce)
-  override def binds = super.binds ++ iters.flatten ++ valids.flatten ++ Seq(rV._1, rV._2)
+  override def inputs = syms(en) ++ syms(cchain, accum) ++ syms(func)
+  override def binds = super.binds ++ iters.flatten ++ valids.flatten
 }

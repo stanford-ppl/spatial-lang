@@ -94,7 +94,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(src"${lhs}_mask := $en")
       controllerStack.pop()
 
-    case UnrolledReduce(ens,cchain,accum,func,_,iters,valids,rV) =>
+    case UnrolledReduce(ens,cchain,accum,func,iters,valids) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten))

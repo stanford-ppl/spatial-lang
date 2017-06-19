@@ -383,7 +383,7 @@ package object pirgen {
       val Def(CounterChainNew(ctrs)) = cchain
       val ConstReg(par) = extractConstant(parFactorsOf(ctrs.head).head)
       par.asInstanceOf[Int]
-    case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) =>
+    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
       val Def(CounterChainNew(ctrs)) = cchain
       val ConstReg(par) = extractConstant(parFactorsOf(ctrs.head).head)
       par.asInstanceOf[Int]

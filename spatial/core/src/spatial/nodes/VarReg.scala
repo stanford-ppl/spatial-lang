@@ -10,7 +10,7 @@ case class VarRegType[T](child: Type[T]) extends Type[VarReg[T]] {
   override def isPrimitive = false
 }
 
-case class VarRegNew[T:Type](tp: Type[T]) extends Op[VarReg[T]] {
+case class VarRegNew[T:Type](tp: Type[T]) extends Alloc[VarReg[T]] {
   def mirror(f:Tx) = VarReg.alloc[T](tp)
   val mT = typ[T]
 }
