@@ -1,4 +1,4 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 
@@ -15,7 +15,6 @@ import org.virtualized._
 */
 
 object Gibbs_Ising2D extends SpatialApp { // DISABLED Regression (Dense) // Args: 200 0.3 2
-  import IR._
   type T = FixPt[TRUE,_32,_32]
   type PROB = FixPt[FALSE, _0, _16]
   @virtualize

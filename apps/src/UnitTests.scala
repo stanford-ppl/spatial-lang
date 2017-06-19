@@ -2409,9 +2409,7 @@ object Tup2Test extends SpatialApp {
 }
 
 
-object CSV1D extends SpatialApp { 
-
-  import IR._
+object CSV1D extends SpatialApp {
 
   @virtualize
   def main() {
@@ -2448,9 +2446,7 @@ object CSV1D extends SpatialApp {
   }
 }
 
-object CSV2D extends SpatialApp { 
-
-  import IR._
+object CSV2D extends SpatialApp {
 
   @virtualize
   def main() {
@@ -2499,8 +2495,6 @@ object CSV2D extends SpatialApp {
 
 object SSV1D extends SpatialApp { // Regression (Unit) // Args: none
 
-  import IR._
-
   @virtualize
   def main() {
     type T = FixPt[TRUE, _16, _16]
@@ -2536,8 +2530,6 @@ object SSV1D extends SpatialApp { // Regression (Unit) // Args: none
 }
 
 object SSV2D extends SpatialApp { // Regression (Unit) // Args: none
-
-  import IR._
 
   @virtualize
   def main() {

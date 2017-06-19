@@ -8,8 +8,6 @@ import spatial.dsl._
   * C := C + AA' with N*K matrix A, updating only lower triangular part of symmetric N*N matrix C.
   */
 object SYRK_col extends SpatialApp { // Regression (Dense) // Args: 64
-  import IR._
-
   type T = Int
 
 

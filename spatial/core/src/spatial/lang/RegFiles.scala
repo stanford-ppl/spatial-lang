@@ -8,9 +8,6 @@ import spatial.utils._
 trait RegFile[T] { this: Template[_] =>
   def s: Exp[RegFile[T]]
 
-  @api def reset(cond: Bit): MUnit = wrap(RegFile.reset(this.s, cond.s))
-  @api def reset: MUnit = wrap(RegFile.reset(this.s, Bit.const(true)))
-
   @internal def ranges: Seq[Range] = stagedDimsOf(s).map{d => Range.alloc(None, wrap(d), None, None)}
 }
 object RegFile {
@@ -83,6 +80,9 @@ case class RegFile1[T:Type:Bits](s: Exp[RegFile1[T]]) extends Template[RegFile1[
 
   @api def load(dram: DRAM1[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+
+  @api def reset(cond: Bit): MUnit = wrap(RegFile.reset(this.s, cond.s))
+  @api def reset: MUnit = wrap(RegFile.reset(this.s, Bit.const(true)))
 }
 object RegFile1 {
   implicit def regFile1Type[T:Type:Bits]: Type[RegFile1[T]] = RegFile1Type(typ[T])
@@ -98,6 +98,9 @@ case class RegFile2[T:Type:Bits](s: Exp[RegFile2[T]]) extends Template[RegFile2[
 
   @api def load(dram: DRAM2[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile2[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+
+  @api def reset(cond: Bit): MUnit = wrap(RegFile.reset(this.s, cond.s))
+  @api def reset: MUnit = wrap(RegFile.reset(this.s, Bit.const(true)))
 }
 object RegFile2 {
   implicit def regFile2Type[T:Type:Bits]: Type[RegFile2[T]] = RegFile2Type(typ[T])
@@ -114,6 +117,9 @@ case class RegFile3[T:Type:Bits](s: Exp[RegFile3[T]]) extends Template[RegFile3[
 
   @api def load(dram: DRAM3[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile3[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+
+  @api def reset(cond: Bit): MUnit = wrap(RegFile.reset(this.s, cond.s))
+  @api def reset: MUnit = wrap(RegFile.reset(this.s, Bit.const(true)))
 }
 object RegFile3 {
   implicit def regFile3Type[T:Type:Bits]: Type[RegFile3[T]] = RegFile3Type(typ[T])

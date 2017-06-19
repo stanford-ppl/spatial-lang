@@ -2,8 +2,6 @@ import spatial.dsl._
 import org.virtualized._
 
 object MatMult_outer extends SpatialApp { // Regression (Dense) // Args: 32 128 128
-
-
   type X = FixPt[TRUE,_16,_16]
 
   val innerPar = 16
@@ -333,7 +331,6 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 128 
 */
 
 object GEMM_MemoryHierarchy extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
   type T = Int
 
   @virtualize
