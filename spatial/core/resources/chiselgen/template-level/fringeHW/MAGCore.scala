@@ -356,99 +356,99 @@ class MAGCore(
   }
 
   // All debug counters
-  val enableCounter = Module(new Counter(32))
-  enableCounter.io.reset := 0.U
-  enableCounter.io.saturate := 0.U
-  enableCounter.io.max := 100000000.U
-  enableCounter.io.stride := 1.U
-  enableCounter.io.enable := io.enable
-  io.dbg.num_enable := enableCounter.io.out
-
-  val cmdValidCtr = Module(new Counter(32))
-  cmdValidCtr.io.reset := 0.U
-  cmdValidCtr.io.saturate := 0.U
-  cmdValidCtr.io.max := 100000000.U
-  cmdValidCtr.io.stride := 1.U
-  cmdValidCtr.io.enable := dramCmdValid
-  io.dbg.num_cmd_valid := cmdValidCtr.io.out
-
-  val cmdValidEnableCtr = Module(new Counter(32))
-  cmdValidEnableCtr.io.reset := 0.U
-  cmdValidEnableCtr.io.saturate := 0.U
-  cmdValidEnableCtr.io.max := 100000000.U
-  cmdValidEnableCtr.io.stride := 1.U
-  cmdValidEnableCtr.io.enable := dramCmdValid & io.enable
-  io.dbg.num_cmd_valid_enable := cmdValidEnableCtr.io.out
-
-  val numReadyHighCtr = Module(new Counter(32))
-  numReadyHighCtr.io.reset := 0.U
-  numReadyHighCtr.io.saturate := 0.U
-  numReadyHighCtr.io.max := 100000000.U
-  numReadyHighCtr.io.stride := 1.U
-  numReadyHighCtr.io.enable := io.dram.cmd.ready
-  io.dbg.num_cmd_ready := numReadyHighCtr.io.out
-
-  val numReadyAndEnableHighCtr = Module(new Counter(32))
-  numReadyAndEnableHighCtr.io.reset := 0.U
-  numReadyAndEnableHighCtr.io.saturate := 0.U
-  numReadyAndEnableHighCtr.io.max := 100000000.U
-  numReadyAndEnableHighCtr.io.stride := 1.U
-  numReadyAndEnableHighCtr.io.enable := io.dram.cmd.ready & io.enable
-  io.dbg.num_cmd_ready_enable := numReadyAndEnableHighCtr.io.out
-
-  val numRespHighCtr = Module(new Counter(32))
-  numRespHighCtr.io.reset := 0.U
-  numRespHighCtr.io.saturate := 0.U
-  numRespHighCtr.io.max := 100000000.U
-  numRespHighCtr.io.stride := 1.U
-  numRespHighCtr.io.enable := io.dram.resp.valid
-  io.dbg.num_resp_valid := numRespHighCtr.io.out
-
-  val numRespAndEnableHighCtr = Module(new Counter(32))
-  numRespAndEnableHighCtr.io.reset := 0.U
-  numRespAndEnableHighCtr.io.saturate := 0.U
-  numRespAndEnableHighCtr.io.max := 100000000.U
-  numRespAndEnableHighCtr.io.stride := 1.U
-  numRespAndEnableHighCtr.io.enable := io.dram.resp.valid & io.enable
-  io.dbg.num_resp_valid_enable := numRespAndEnableHighCtr.io.out
-
-  val rdataEnqCtr = Module(new Counter(32))
-  rdataEnqCtr.io.reset := 0.U
-  rdataEnqCtr.io.saturate := 0.U
-  rdataEnqCtr.io.max := 100000000.U
-  rdataEnqCtr.io.stride := 1.U
-  rdataEnqCtr.io.enable := respValid & (streamTagFromDRAM === 0.U)
-  io.dbg.num_rdata_enq := rdataEnqCtr.io.out
-
-  val rdataDeqCtr = Module(new Counter(32))
-  rdataDeqCtr.io.reset := 0.U
-  rdataDeqCtr.io.saturate := 0.U
-  rdataDeqCtr.io.max := 100000000.U
-  rdataDeqCtr.io.stride := 1.U
-  rdataDeqCtr.io.enable := io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty
-  io.dbg.num_rdata_deq := rdataDeqCtr.io.out
-
-  val wdataEnqCtr = Module(new Counter(32))
-  wdataEnqCtr.io.reset := 0.U
-  wdataEnqCtr.io.saturate := 0.U
-  wdataEnqCtr.io.max := 100000000.U
-  wdataEnqCtr.io.stride := 1.U
-  wdataEnqCtr.io.enable := io.app.stores(0).wdata.valid
-
-  val wdataDeqCtr = Module(new Counter(32))
-  wdataDeqCtr.io.reset := 0.U
-  wdataDeqCtr.io.saturate := 0.U
-  wdataDeqCtr.io.max := 100000000.U
-  wdataDeqCtr.io.stride := 1.U
-  wdataDeqCtr.io.enable := burstVld & isWrFifo.io.deq(0) & dramReady & ~issued
-
-  val appRdataReadyCtr = Module(new Counter(32))
-  appRdataReadyCtr.io.reset := 0.U
-  appRdataReadyCtr.io.saturate := 0.U
-  appRdataReadyCtr.io.max := 100000000.U
-  appRdataReadyCtr.io.stride := 1.U
-  appRdataReadyCtr.io.enable := io.app.loads(0).rdata.ready
-  io.dbg.num_app_rdata_ready := appRdataReadyCtr.io.out
+//  val enableCounter = Module(new Counter(32))
+//  enableCounter.io.reset := 0.U
+//  enableCounter.io.saturate := 0.U
+//  enableCounter.io.max := 100000000.U
+//  enableCounter.io.stride := 1.U
+//  enableCounter.io.enable := io.enable
+//  io.dbg.num_enable := enableCounter.io.out
+//
+//  val cmdValidCtr = Module(new Counter(32))
+//  cmdValidCtr.io.reset := 0.U
+//  cmdValidCtr.io.saturate := 0.U
+//  cmdValidCtr.io.max := 100000000.U
+//  cmdValidCtr.io.stride := 1.U
+//  cmdValidCtr.io.enable := dramCmdValid
+//  io.dbg.num_cmd_valid := cmdValidCtr.io.out
+//
+//  val cmdValidEnableCtr = Module(new Counter(32))
+//  cmdValidEnableCtr.io.reset := 0.U
+//  cmdValidEnableCtr.io.saturate := 0.U
+//  cmdValidEnableCtr.io.max := 100000000.U
+//  cmdValidEnableCtr.io.stride := 1.U
+//  cmdValidEnableCtr.io.enable := dramCmdValid & io.enable
+//  io.dbg.num_cmd_valid_enable := cmdValidEnableCtr.io.out
+//
+//  val numReadyHighCtr = Module(new Counter(32))
+//  numReadyHighCtr.io.reset := 0.U
+//  numReadyHighCtr.io.saturate := 0.U
+//  numReadyHighCtr.io.max := 100000000.U
+//  numReadyHighCtr.io.stride := 1.U
+//  numReadyHighCtr.io.enable := io.dram.cmd.ready
+//  io.dbg.num_cmd_ready := numReadyHighCtr.io.out
+//
+//  val numReadyAndEnableHighCtr = Module(new Counter(32))
+//  numReadyAndEnableHighCtr.io.reset := 0.U
+//  numReadyAndEnableHighCtr.io.saturate := 0.U
+//  numReadyAndEnableHighCtr.io.max := 100000000.U
+//  numReadyAndEnableHighCtr.io.stride := 1.U
+//  numReadyAndEnableHighCtr.io.enable := io.dram.cmd.ready & io.enable
+//  io.dbg.num_cmd_ready_enable := numReadyAndEnableHighCtr.io.out
+//
+//  val numRespHighCtr = Module(new Counter(32))
+//  numRespHighCtr.io.reset := 0.U
+//  numRespHighCtr.io.saturate := 0.U
+//  numRespHighCtr.io.max := 100000000.U
+//  numRespHighCtr.io.stride := 1.U
+//  numRespHighCtr.io.enable := io.dram.resp.valid
+//  io.dbg.num_resp_valid := numRespHighCtr.io.out
+//
+//  val numRespAndEnableHighCtr = Module(new Counter(32))
+//  numRespAndEnableHighCtr.io.reset := 0.U
+//  numRespAndEnableHighCtr.io.saturate := 0.U
+//  numRespAndEnableHighCtr.io.max := 100000000.U
+//  numRespAndEnableHighCtr.io.stride := 1.U
+//  numRespAndEnableHighCtr.io.enable := io.dram.resp.valid & io.enable
+//  io.dbg.num_resp_valid_enable := numRespAndEnableHighCtr.io.out
+//
+//  val rdataEnqCtr = Module(new Counter(32))
+//  rdataEnqCtr.io.reset := 0.U
+//  rdataEnqCtr.io.saturate := 0.U
+//  rdataEnqCtr.io.max := 100000000.U
+//  rdataEnqCtr.io.stride := 1.U
+//  rdataEnqCtr.io.enable := respValid & (streamTagFromDRAM === 0.U)
+//  io.dbg.num_rdata_enq := rdataEnqCtr.io.out
+//
+//  val rdataDeqCtr = Module(new Counter(32))
+//  rdataDeqCtr.io.reset := 0.U
+//  rdataDeqCtr.io.saturate := 0.U
+//  rdataDeqCtr.io.max := 100000000.U
+//  rdataDeqCtr.io.stride := 1.U
+//  rdataDeqCtr.io.enable := io.app.loads(0).rdata.ready & ~rdataFifos(0).io.empty
+//  io.dbg.num_rdata_deq := rdataDeqCtr.io.out
+//
+//  val wdataEnqCtr = Module(new Counter(32))
+//  wdataEnqCtr.io.reset := 0.U
+//  wdataEnqCtr.io.saturate := 0.U
+//  wdataEnqCtr.io.max := 100000000.U
+//  wdataEnqCtr.io.stride := 1.U
+//  wdataEnqCtr.io.enable := io.app.stores(0).wdata.valid
+//
+//  val wdataDeqCtr = Module(new Counter(32))
+//  wdataDeqCtr.io.reset := 0.U
+//  wdataDeqCtr.io.saturate := 0.U
+//  wdataDeqCtr.io.max := 100000000.U
+//  wdataDeqCtr.io.stride := 1.U
+//  wdataDeqCtr.io.enable := burstVld & isWrFifo.io.deq(0) & dramReady & ~issued
+//
+//  val appRdataReadyCtr = Module(new Counter(32))
+//  appRdataReadyCtr.io.reset := 0.U
+//  appRdataReadyCtr.io.saturate := 0.U
+//  appRdataReadyCtr.io.max := 100000000.U
+//  appRdataReadyCtr.io.stride := 1.U
+//  appRdataReadyCtr.io.enable := io.app.loads(0).rdata.ready
+//  io.dbg.num_app_rdata_ready := appRdataReadyCtr.io.out
 
   def getFF[T<:Data](sig: T, en: UInt) = {
     val in = sig match {
