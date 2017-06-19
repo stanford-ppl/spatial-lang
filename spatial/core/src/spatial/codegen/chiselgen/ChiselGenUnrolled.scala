@@ -179,21 +179,20 @@ trait ChiselGenUnrolled extends ChiselGenController {
         dispatch.zipWithIndex.foreach{ case (k,id) => 
           val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
           emit(src"${lhs}_rVec($id).en := (${parent}_en).D(${parent}_retime, rr) & ${ens(id)}")
-          inds(k).zipWithIndex.foreach{ case (a, j) =>
-            emit(src"""${lhs}_rVec($k).addr($j) := ${a}.raw """)
+          inds(id).zipWithIndex.foreach{ case (a, j) =>
+            emit(src"""${lhs}_rVec($id).addr($j) := ${a}.raw """)
           }
           val p = portsOf(lhs, sram, k).head
-          emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${lhs}_rVec.toArray), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
+          emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${lhs}_rVec($id)), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
           sram.tp.typeArguments.head match { 
             case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-                emit(s"""${quote(lhs)}($k).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k)""")
+                emit(s"""${quote(lhs)}($id).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k)""")
               } else {
                 emit(src"""$lhs := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
               }
             case _ => emit(src"""$lhs := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
           }
-
-      }
+        }
         
       }
 
