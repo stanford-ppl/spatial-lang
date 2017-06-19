@@ -2,7 +2,7 @@ package spatial.codegen.chiselgen
 
 import argon.core._
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.compiler._
+import spatial.aliases._
 import spatial.nodes._
 
 trait ChiselGenSwitch extends ChiselCodegen {

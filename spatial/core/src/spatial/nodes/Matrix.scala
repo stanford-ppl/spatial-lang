@@ -2,7 +2,7 @@ package spatial.nodes
 
 import argon.core._
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
 
 case class MatrixType[T](child: Type[T]) extends StructType[Matrix[T]] {
   override def wrapped(x: Exp[Matrix[T]]) = new Matrix(x)(child)

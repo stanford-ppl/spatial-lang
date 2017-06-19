@@ -2,7 +2,7 @@ package spatial.analysis
 
 import argon.core._
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.models.LatencyModel
 import spatial.nodes._
@@ -11,7 +11,7 @@ import spatial.utils._
 import scala.collection.mutable
 
 trait ModelingTraversal extends SpatialTraversal { traversal =>
-  lazy val latencyModel = new LatencyModel{val IR: traversal.IR.type = traversal.IR }
+  lazy val latencyModel = new LatencyModel{ }
 
   protected override def preprocess[S: Type](block: Block[S]) = {
     // latencyOf.updateModel(target.latencyModel) // TODO: Update latency model with target-specific values

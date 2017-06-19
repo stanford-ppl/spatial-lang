@@ -4,7 +4,7 @@ import argon.core._
 import argon.nodes._
 import argon.transform.Transformer
 import forge._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.lang.Math
@@ -569,7 +569,7 @@ object utils {
     case _ => false
   }
 
- @stateful def isOffChipMemory(e: Exp[_]): Boolean = e.tp match {
+  @stateful def isOffChipMemory(e: Exp[_]): Boolean = e.tp match {
     case _:DRAMType[_]        => true
     case _:StreamInType[_]    => true
     case _:StreamOutType[_]   => true
@@ -818,5 +818,7 @@ object utils {
       Some(ras.head)
     case _ => None
   }
+
+
 
 }

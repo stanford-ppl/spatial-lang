@@ -20,3 +20,17 @@ object ArgInOut extends SpatialApp {
     println("result: " + result)
   }
 }
+
+
+object TextTest extends SpatialApp {
+  def test(x: String): String = x
+
+  @virtualize def main(): Unit = {
+    val m = "120"
+    val i = random[Int]
+    val q = m(i)
+    val y = test(q)
+
+    println(y.toText)
+  }
+}

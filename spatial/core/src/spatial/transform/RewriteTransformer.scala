@@ -2,12 +2,12 @@ package spatial.transform
 
 import argon.core._
 import argon.transform.ForwardTransformer
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
-trait RewriteTransformer extends ForwardTransformer{
+case class RewriteTransformer(var IR: State) extends ForwardTransformer{
   override val name = "Rewrite Transformer"
 
   object Mirrored { def unapply[T](x: Exp[T]): Option[Exp[T]] = Some(f(x)) }

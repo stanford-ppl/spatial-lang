@@ -2,14 +2,14 @@ package spatial.metadata
 
 import argon.core._
 import forge._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.utils._
 
 sealed abstract class Banking { def banks: Int }
 case class StridedBanking(stride: Int, banks: Int) extends Banking  // Strided bank
 case object NoBanking extends Banking { def banks = 1 }             // No banking in the given dimension
 
-object Banking {
+@data object Banking {
   def unapply(x: Banking): Option[Int] = Some(x.banks)
 }
 
@@ -35,7 +35,7 @@ case class DiagonalMemory(strides: Seq[Int], banks: Int, depth: Int, isAccum: Bo
   * Metadata for duplicates of a single coherent scratchpad.
   */
 case class Duplicates(dups: Seq[Memory]) extends Metadata[Duplicates] { def mirror(f:Tx) = this }
-@stateful object duplicatesOf {
+@data object duplicatesOf {
   def apply(mem: Exp[_]): Seq[Memory] = metadata[Duplicates](mem).map(_.dups).getOrElse(Nil)
   def update(mem: Exp[_], dups: Seq[Memory]) = metadata.add(mem, Duplicates(dups))
 }
@@ -46,7 +46,7 @@ case class Duplicates(dups: Seq[Memory]) extends Metadata[Duplicates] { def mirr
 case class AccessDispatch(mapping: Map[Exp[_], Set[Int]]) extends Metadata[AccessDispatch] {
   def mirror(f:Tx) = AccessDispatch(mapping.map{case (mem,idxs) => f(mem) -> idxs })
 }
-@stateful object dispatchOf {
+@data object dispatchOf {
   private def get(access: Exp[_]): Option[Map[Exp[_], Set[Int]]] = metadata[AccessDispatch](access).map(_.mapping)
   def get(access: Exp[_], mem: Exp[_]): Option[Set[Int]] = dispatchOf.get(access).flatMap(_.get(mem))
 
@@ -85,7 +85,7 @@ case class AccessDispatch(mapping: Map[Exp[_], Set[Int]]) extends Metadata[Acces
 case class PortIndex(mapping: Map[Exp[_], Map[Int, Set[Int]]]) extends Metadata[PortIndex] {
   def mirror(f:Tx) = PortIndex(mapping.map{case (mem,idxs) => f(mem) -> idxs })
 }
-@stateful object portsOf {
+@data object portsOf {
   private def get(access: Exp[_]): Option[Map[Exp[_], Map[Int, Set[Int]]]] = metadata[PortIndex](access).map(_.mapping)
 
   def get(access: Exp[_], mem: Exp[_]): Option[Map[Int, Set[Int]]] = portsOf.get(access).flatMap(_.get(mem))
@@ -130,7 +130,7 @@ case class PortIndex(mapping: Map[Exp[_], Map[Int, Set[Int]]]) extends Metadata[
 case class TopController(mapping: Map[Exp[_], Map[Int,Ctrl]]) extends Metadata[TopController] {
   def mirror(f:Tx) = TopController(mapping.map{case (mem,ctrls) => f(mem) -> ctrls.map{case (i,ctrl) => i -> mirrorCtrl(ctrl,f) }})
 }
-@stateful object topControllerOf {
+@data object topControllerOf {
   private def get(access: Exp[_]): Option[Map[Exp[_],Map[Int,Ctrl]]] = metadata[TopController](access).map(_.mapping)
 
   // Get the top controller for the given access, memory, and instance index

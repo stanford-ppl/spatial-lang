@@ -1,7 +1,7 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 
 object CounterChainType extends Type[CounterChain] {
   override def wrapped(x: Exp[CounterChain]) = CounterChain(x)

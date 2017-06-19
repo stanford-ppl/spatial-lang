@@ -1,7 +1,7 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 
 case class VarRegType[T](child: Type[T]) extends Type[VarReg[T]] {
   override def wrapped(x: Exp[VarReg[T]]) = new VarReg(x)(child)

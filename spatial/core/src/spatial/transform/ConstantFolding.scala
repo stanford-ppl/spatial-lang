@@ -3,7 +3,7 @@ package spatial.transform
 import argon.core._
 import argon.transform.ForwardTransformer
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 
 /**

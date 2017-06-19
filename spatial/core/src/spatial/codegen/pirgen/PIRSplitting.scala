@@ -1,8 +1,6 @@
 package spatial.codegen.pirgen
 
 import argon.core._
-import spatial.compiler._
-import spatial.SpatialExp
 
 import scala.collection.mutable
 import scala.util.control.NoStackTrace

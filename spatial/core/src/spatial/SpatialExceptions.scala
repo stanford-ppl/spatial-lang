@@ -2,7 +2,7 @@ package spatial
 
 import argon._
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 
 // --- Compiler exceptions
 

@@ -1,7 +1,7 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 
 case class StreamInType[T:Bits](child: Type[T]) extends Type[StreamIn[T]] {
   override def wrapped(x: Exp[StreamIn[T]]) = StreamIn(x)(child, bits[T])

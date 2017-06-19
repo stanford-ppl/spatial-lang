@@ -2,7 +2,7 @@ package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._

@@ -4,7 +4,7 @@ import argon.core._
 import argon.nodes._
 import argon.transform.ForwardTransformer
 import spatial.analysis.ModelingTraversal
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.models._
 import spatial.nodes._

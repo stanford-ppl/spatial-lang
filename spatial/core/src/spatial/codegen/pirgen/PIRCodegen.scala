@@ -6,8 +6,6 @@ import java.nio.file.{Files, Paths}
 import argon.codegen.{Codegen, FileDependencies}
 import argon.core.Config
 import argon.core._
-import spatial.compiler._
-import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import spatial.SpatialConfig
@@ -30,44 +28,44 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
   val cus        = mutable.Map[Expr,List[List[ComputeUnit]]]()
 
   lazy val allocater = new PIRAllocation{
-    override val IR: PIRCodegen.this.IR.type = PIRCodegen.this.IR
+    var IR = PIRCodegen.this.IR
     def globals = PIRCodegen.this.globals
     def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
   }
   lazy val scheduler = new PIRScheduler{
-    override val IR: PIRCodegen.this.IR.type = PIRCodegen.this.IR
+    var IR = PIRCodegen.this.IR
     def globals = PIRCodegen.this.globals
     def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
   }
   lazy val optimizer = new PIROptimizer{
-    override val IR: PIRCodegen.this.IR.type = PIRCodegen.this.IR
+    var IR = PIRCodegen.this.IR
     def globals = PIRCodegen.this.globals
     def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
   }
   lazy val splitter  = new PIRSplitter{
-    override val IR: PIRCodegen.this.IR.type = PIRCodegen.this.IR
+    var IR = PIRCodegen.this.IR
     def globals = PIRCodegen.this.globals
     def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
   }
   lazy val hacks     = new PIRHacks{
-    override val IR: PIRCodegen.this.IR.type = PIRCodegen.this.IR
+    var IR = PIRCodegen.this.IR
     def globals = PIRCodegen.this.globals
     def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
   }
   lazy val dse       = new PIRDSE{
-    override val IR: PIRCodegen.this.IR.type = PIRCodegen.this.IR
+    var IR = PIRCodegen.this.IR
     def globals = PIRCodegen.this.globals
     def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
   }
 
   lazy val printout = new PIRPrintout {
-    override val IR: PIRCodegen.this.IR.type = PIRCodegen.this.IR
+    var IR = PIRCodegen.this.IR
     def globals = PIRCodegen.this.globals
     def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
@@ -77,7 +75,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     override def globals = PIRCodegen.this.globals
     override def composed = PIRCodegen.this.composed
     override def decomposed = PIRCodegen.this.decomposed
-    override val IR: PIRCodegen.this.IR.type = PIRCodegen.this.IR
+    var IR = PIRCodegen.this.IR
   }
 
 

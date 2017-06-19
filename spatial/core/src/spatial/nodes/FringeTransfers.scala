@@ -1,7 +1,7 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 
 /** Fringe IR Nodes **/
 case class FringeDenseLoad[T:Type:Bits](

@@ -3,7 +3,7 @@ package spatial.codegen.pirgen
 import argon.core._
 import argon.nodes._
 import spatial.analysis.ModelingTraversal
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -13,7 +13,7 @@ import org.virtualized.SourceContext
 import scala.collection.mutable
 
 trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
-  lazy val plasticineLatencyModel = new PlasticineLatencyModel{val IR: trv.IR.type = trv.IR }
+  lazy val plasticineLatencyModel = new PlasticineLatencyModel{}
   override def latencyOf(e: Exp[_]) = plasticineLatencyModel.latencyOf(e, inReduce=false)
 
   private case class Partition(compute: Seq[Exp[_]]) {

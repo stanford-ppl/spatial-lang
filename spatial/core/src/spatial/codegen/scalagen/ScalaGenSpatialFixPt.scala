@@ -2,7 +2,8 @@ package spatial.codegen.scalagen
 
 import argon.core._
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
+
 
 trait ScalaGenSpatialFixPt extends ScalaGenBits {
 

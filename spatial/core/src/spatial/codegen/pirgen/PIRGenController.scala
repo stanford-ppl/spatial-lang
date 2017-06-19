@@ -1,7 +1,6 @@
 package spatial.codegen.pirgen
 
 import argon.core._
-import spatial.compiler._
 import spatial.utils._
 import scala.collection.mutable
 

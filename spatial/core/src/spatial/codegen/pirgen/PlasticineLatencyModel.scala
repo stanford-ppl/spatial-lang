@@ -2,7 +2,7 @@ package spatial.codegen.pirgen
 
 import argon.core._
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.nodes._
 import spatial.utils._
 import spatial.models.LatencyModel

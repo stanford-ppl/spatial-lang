@@ -3,7 +3,7 @@ package spatial.codegen.dotgen
 import argon.codegen.dotgen.DotCodegen
 import argon.core.Config
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.nodes._
 import spatial.utils._
 

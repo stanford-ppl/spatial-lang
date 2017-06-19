@@ -4,7 +4,7 @@ import argon.core._
 import argon.traversal.CompilerPass
 import org.virtualized.SourceContext
 import spatial.analysis._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -13,8 +13,8 @@ import spatial.SpatialConfig
 trait DSE extends CompilerPass { dse =>
   override val name = "Design Space Exploration"
 
-  lazy val scalarAnalyzer = new ScalarAnalyzer{val IR: dse.IR.type = dse.IR }
-  lazy val memoryAnalyzer = new MemoryAnalyzer{val IR: dse.IR.type = dse.IR; def localMems = dse.localMems }
+  lazy val scalarAnalyzer = new ScalarAnalyzer{var IR = dse.IR }
+  lazy val memoryAnalyzer = new MemoryAnalyzer{var IR = dse.IR; def localMems = dse.localMems }
 
   def restricts: Set[Restrict]
   def tileSizes: Set[Param[Index]]

@@ -3,7 +3,7 @@ package spatial.codegen.chiselgen
 import argon.core._
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._

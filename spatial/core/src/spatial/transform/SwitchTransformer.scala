@@ -4,12 +4,12 @@ import argon.core._
 import argon.nodes._
 import argon.transform.ForwardTransformer
 import spatial.analysis.SpatialTraversal
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
-trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
+case class SwitchTransformer(var IR: State) extends ForwardTransformer with SpatialTraversal {
   override val name = "Switch Transformer"
 
   var inAccel = false
@@ -128,8 +128,8 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
   }
 
   override def mirror(lhs: Seq[Sym[_]], rhs: Def): Seq[Exp[_]] = rhs match {
-    case op: EnabledControlNode => transferMetadataIfNew(lhs){ Seq(op.mirrorWithEn(f, enable.toSeq)) }._1
-    case op: EnabledOp[_] if enable.isDefined => transferMetadataIfNew(lhs){ Seq(op.mirrorWithEn(f, enable.get)) }._1
+    case op: EnabledControlNode => transferMetadataIfNew(lhs){ Seq(op.mirrorAndEnable(f, enable.toSeq)) }._1
+    case op: EnabledOp[_] if enable.isDefined => transferMetadataIfNew(lhs){ Seq(op.mirrorAndEnable(f, enable.get)) }._1
     case _ => super.mirror(lhs, rhs)
   }
 

@@ -1,7 +1,7 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 
 /** IR Nodes **/
 // Type matters for CSE here!

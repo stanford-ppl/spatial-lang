@@ -2,7 +2,7 @@ package spatial.transform
 
 import argon.core._
 import argon.transform.ForwardTransformer
-import spatial.compiler._
+import spatial.aliases._
 import spatial.nodes._
 
 trait TransferSpecialization extends ForwardTransformer {

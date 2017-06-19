@@ -2,7 +2,7 @@ package spatial.analysis
 
 import argon.core._
 import argon.core.Config
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._

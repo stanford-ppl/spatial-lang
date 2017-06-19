@@ -2,7 +2,7 @@ package spatial.codegen.chiselgen
 
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.nodes._
 
 trait ChiselGenHostTransfer extends ChiselCodegen  {

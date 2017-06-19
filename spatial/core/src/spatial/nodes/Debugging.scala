@@ -1,8 +1,7 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
-
+import spatial.aliases._
 
 /** IR Nodes **/
 case class PrintIf(en: Exp[MBoolean], x: Exp[MString]) extends EnabledOp[MUnit](en) {

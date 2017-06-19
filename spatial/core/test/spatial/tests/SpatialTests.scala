@@ -4,7 +4,7 @@ import org.virtualized._
 import org.scalatest.{FlatSpec, Matchers}
 import argon.core.Config
 import argon.ArgonAppRunner
-import argon.core.TestBenchFailed
+import argon.TestBenchFailed
 import spatial.{SpatialApp, SpatialConfig}
 
 // Create a testbench which runs Scala tests
@@ -105,7 +105,7 @@ class SpatialTests extends FlatSpec with Matchers {
     def main() {
       Accel {
         val product = Reg[Int](1)
-        Reduce(product)(16 by 1) { i => i } {_ * _}
+        Reduce(product)(16 by 1){i => i } {_ * _}
         val sum2 = Reduce(0)(0 :: 1 :: 16 par 2) { i => i } {_ + _}
         println(product.value)
         println(sum2.value)

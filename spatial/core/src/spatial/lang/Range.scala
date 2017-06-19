@@ -17,7 +17,7 @@ import spatial.nodes._
 // :: this distinction is silly, only using one type
 case class Wildcard()
 
-case class Range(start: Option[Index], end: Index, step: Option[Index], p: Option[Index], isUnit: Boolean) {
+case class Range(start: Option[Index], end: Index, step: Option[Index], p: Option[Index], isUnit: CBoolean) {
   @api def by(step: Index): Range = Range(start, end, Some(step), p, isUnit = false)
   @api def par(p: Index): Range = Range(start, end, step, Some(p), isUnit = false)
 
@@ -80,48 +80,4 @@ object Range64 {
   @internal def alloc(start: Option[Int64], end: Int64, stride: Option[Index], par: Option[Index], isUnit: Boolean = false) = {
     Range64(start,end,stride,par,isUnit)
   }
-}
-
-
-trait RangeLowPriorityImplicits {
-
-  // Have to make this a lower priority, otherwise seems to prefer this + Range infix op over the implicit class on Index
-  @api implicit def index2range(x: Index)(implicit ctx: SrcCtx): Range = Range.fromIndex(x)
-}
-
-trait RangeApi extends RangeLowPriorityImplicits {
-
-  def * = Wildcard()
-
-  implicit class IndexRangeOps(x: Index) {
-    @internal private def lft(x: scala.Int) = lift[scala.Int,Index](x)
-    @api def by(step: scala.Int): Range = Range.alloc(None, x, Some(lft(step)), None)
-    @api def par(p: scala.Int): Range = Range.alloc(None, x, None, Some(lft(p)))
-    @api def until(end: scala.Int): Range = Range.alloc(Some(x), lft(end), None, None)
-
-    @api def by(step: Index): Range = Range.alloc(None, x, Some(step), None)
-    @api def par(p: Index): Range = Range.alloc(None, x, None, Some(p))
-    @api def until(end: Index): Range = Range.alloc(Some(x), end, None, None)
-
-    @api def ::(start: Index): Range = Range.alloc(Some(start), x, None, None)
-  }
-
-  implicit class intWrapper(x: scala.Int) {
-    @internal private def lft(x: Int) = lift[Int,Index](x)
-    @api def until(end: Index): Range = Range.alloc(Some(lft(x)), end, None, None)
-    @api def by(step: Index): Range = Range.alloc(None, lft(x), Some(step), None)
-    @api def par(p: Index): Range = Range.alloc(None, lft(x), None, Some(p))
-
-    @api def until(end: scala.Int): Range = Range.alloc(Some(lft(x)), lft(end), None, None)
-    @api def by(step: scala.Int): Range = Range.alloc(None, lft(x), Some(lft(step)), None)
-    @api def par(p: scala.Int): Range = Range.alloc(None, lft(x), None, Some(lft(p)))
-
-    @api def ::(start: Index): Range = Range.alloc(Some(start), lft(x), None, None)
-    @api def ::(start: scala.Int): Range = Range.alloc(Some(lft(start)), lft(x), None, None)
-
-    @api def to[B:Type](implicit cast: Cast[scala.Int,B]): B = cast(x)
-  }
-
-  // Implicitly get value of register to use in counter definitions
-  @api implicit def regToIndexRange(x: Reg[Index])(implicit ctx: SrcCtx): IndexRangeOps = IndexRangeOps(x.value)
 }

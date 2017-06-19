@@ -2,14 +2,14 @@ package spatial.transform
 
 import argon.core._
 import argon.transform.ForwardTransformer
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
 import scala.collection.mutable
 
-trait RegisterCleanup extends ForwardTransformer {
+case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   override val name = "Register Cleanup"
 
   private case object FakeSymbol { override def toString = "\"You done goofed\"" }

@@ -2,7 +2,7 @@ package spatial.codegen.pirgen
 
 import argon.core._
 import spatial.analysis.ModelingTraversal
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -11,7 +11,7 @@ import org.virtualized.SourceContext
 trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
   override val name = "PIR Hacky Latency Analyzer"
 
-  override lazy val latencyModel = new PlasticineLatencyModel{val IR: traversal.IR.type = traversal.IR }
+  override lazy val latencyModel = new PlasticineLatencyModel{}
 
   // Only count latencies of nodes if they don't have retiming nodes
   override def latencyOf(e: Exp[_]): Long = if (inHwScope) e match {

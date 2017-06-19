@@ -3,7 +3,7 @@ package spatial.codegen.dotgen
 import argon.core._
 import argon.codegen.dotgen.DotCodegen
 import argon.codegen.FileDependencies
-import spatial.compiler._
+import spatial.aliases._
 import spatial.nodes._
 
 trait DotGenAlteraVideo extends DotCodegen with FileDependencies {

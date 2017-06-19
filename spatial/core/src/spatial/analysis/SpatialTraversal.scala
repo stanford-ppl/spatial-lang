@@ -2,7 +2,7 @@ package spatial.analysis
 
 import argon.core._
 import argon.traversal.Traversal
-import spatial.compiler._
+import spatial.aliases._
 import spatial.utils._
 
 trait SpatialTraversal extends Traversal {

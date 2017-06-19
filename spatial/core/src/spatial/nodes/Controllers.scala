@@ -1,7 +1,8 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
+import forge._
+import spatial.aliases._
 
 /** IR Nodes **/
 case class Hwblock(func: Block[MUnit], isForever: Boolean) extends Pipeline {

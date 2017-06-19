@@ -1,7 +1,7 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 
 object AXIMasterSlaveType extends Type[AXI_Master_Slave] {
   override def wrapped(x: Exp[AXI_Master_Slave]) = new AXI_Master_Slave(x)

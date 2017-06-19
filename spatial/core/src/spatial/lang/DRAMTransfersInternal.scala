@@ -1,15 +1,18 @@
-package spatial.lang.internal
+package spatial.lang
+
+import control._
+import FringeTransfers._
 
 import argon.core._
-import spatial.internal._
-import spatial.metadata._
-import spatial.nodes._
-import spatial.utils._
-import spatial.lang.FringeTransfers._
 import forge._
 import org.virtualized._
+import spatial.metadata._
+import spatial.utils._
+import spatial.SpatialConfig
 
 object DRAMTransfersInternal {
+  def target = SpatialConfig.target
+
   /** Internals **/
   // Expansion rule for CoarseBurst -  Use coarse_burst(tile,onchip,isLoad) for anything in the frontend
   @internal def copy_dense[T:Type:Bits,C[T]](
@@ -17,9 +20,9 @@ object DRAMTransfersInternal {
     onchip:  Exp[C[T]],
     ofs:     Seq[Exp[Index]],
     lens:    Seq[Exp[Index]],
-    units:   Seq[scala.Boolean],
+    units:   Seq[Boolean],
     par:     Const[Index],
-    isLoad:  scala.Boolean
+    isLoad:  Boolean
   )(implicit mem: Mem[T,C], mC: Type[C[T]], mD: Type[DRAM[T]], ctx: SrcCtx): MUnit = {
 
     val unitDims = units
@@ -38,14 +41,14 @@ object DRAMTransfersInternal {
     val bytesPerWord = bits[T].length / 8 + (if (bits[T].length % 8 != 0) 1 else 0)
 
 
-    // Typeprogrammed (unstaged) if-then-else
+    // Metaprogrammed (unstaged) if-then-else
     if (counters.length > 1) {
       Stream.Foreach(counters.dropRight(1).map{ctr => ctr()}){ is =>
         val indices = is :+ 0.to[Index]
 
         val offchipAddr = () => flatIndex( offchipOffsets.zip(indices).map{case (a,b) => a + b}, wrap(stagedDimsOf(offchip)))
 
-        val onchipOfs   = indices.zip(unitDims).flatMap{case (i,isUnitDim) => if (!isUnitDim) Some(i) else None}
+        val onchipOfs   = indices.zip(unitDims).flatMap{case (i,isUnitDim) => if (!isUnitDim) List(i) else Nil}
         val onchipAddr  = {i: Index => onchipOfs.take(onchipOfs.length - 1) :+ (onchipOfs.last + i)}
 
         if (isLoad) load(offchipAddr(), onchipAddr)
@@ -64,7 +67,7 @@ object DRAMTransfersInternal {
     // as long as the value of the register read is known to be exactly some value.
     // FIXME: We should also be checking if the start address is aligned...
     def store(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = requestLength.s match {
-      case Exact(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 =>
+      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 =>
         dbg(u"$onchip => $offchip: Using aligned store ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
         alignedStore(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
@@ -75,7 +78,7 @@ object DRAMTransfersInternal {
         unalignedStore(offchipAddr, onchipAddr)
     }
     def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = requestLength.s match {
-      case Exact(c: BigInt) if (c*bits[T].length) % target.burstSize == 0 =>
+      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 =>
         dbg(u"$offchip => $onchip: Using aligned load ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
         alignedLoad(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
@@ -124,6 +127,17 @@ object DRAMTransfersInternal {
 
     @virtualize
     def alignmentCalc(offchipAddr: => Index) = {
+      /*
+              ←--------------------------- size ----------------→
+                               ←  (one burst) →
+                     _______________________________
+              |-----:_________|________________|____:------------|
+              0
+          start ----⬏
+            end -----------------------------------⬏
+                                                   extra --------⬏
+
+      */
       val elementsPerBurst = (target.burstSize/bits[T].length).to[Index]
       val bytesPerBurst = target.burstSize/8
 
@@ -137,8 +151,8 @@ object DRAMTransfersInternal {
 
       // FIXME: What to do for bursts which split individual words?
       val start = start_bytes / bytesPerWord                   // Number of WHOLE elements to ignore at start
-      val end   = raw_end / bytesPerWord                       // Index of WHOLE elements to start ignoring at again
       val extra = end_bytes / bytesPerWord                     // Number of WHOLE elements that will be ignored at end
+      val end   = start + requestLength                       // Index of WHOLE elements to start ignoring at again
       val size  = requestLength + start + extra                // Total number of WHOLE elements to expect
 
       val size_bytes = length_bytes + start_bytes + end_bytes  // Burst aligned length
@@ -261,7 +275,7 @@ object DRAMTransfersInternal {
     addresses: Exp[SRAM1[Index]],
     size:      Exp[Index],
     par:       Const[Index],
-    isLoad:    scala.Boolean
+    isLoad:    Boolean
   )(implicit mD: Type[DRAM[T]], ctx: SrcCtx): MUnit = {
     val local = new SRAM1(onchip)
     val addrs = new SRAM1(addresses)

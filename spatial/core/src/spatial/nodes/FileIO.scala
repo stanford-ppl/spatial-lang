@@ -1,7 +1,7 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 
 object FileType extends Type[MFile] {
   override def wrapped(x: Exp[MFile]) = new MFile(x)

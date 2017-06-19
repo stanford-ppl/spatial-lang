@@ -1,7 +1,7 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 
 /** IR Nodes **/
 case class SetArg[T:Type:Bits](reg: Exp[Reg[T]], value: Exp[T]) extends Op[MUnit] {

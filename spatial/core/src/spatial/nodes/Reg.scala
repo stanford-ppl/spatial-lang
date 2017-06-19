@@ -1,13 +1,20 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
+import forge._
+import spatial.aliases._
 
 case class RegType[T:Bits](child: Type[T]) extends Type[Reg[T]] {
   override def wrapped(x: Exp[Reg[T]]) = new Reg(x)(child,bits[T])
   override def typeArguments = List(child)
   override def stagedClass = classOf[Reg[T]]
   override def isPrimitive = false
+}
+
+class RegIsMemory[T:Type:Bits] extends Mem[T, Reg] {
+  @api def load(mem: Reg[T], is: Seq[Index], en: Bit): T = mem.value
+  @api def store(mem: Reg[T], is: Seq[Index], data: T, en: Bit): MUnit = MUnit(Reg.write(mem.s, data.s, en.s))
+  @api def iterators(mem: Reg[T]): Seq[Counter] = Seq(Counter(0, 1, 1, 1))
 }
 
 /** IR Nodes **/

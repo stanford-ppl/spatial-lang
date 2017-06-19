@@ -2,12 +2,12 @@ package spatial.transform
 
 import argon.core._
 import argon.transform.ForwardTransformer
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
-trait RegReadCSE extends ForwardTransformer {
+case class RegReadCSE(var IR: State) extends ForwardTransformer {
   override val name = "Register Read CSE"
 
   // Mechanism to track duplicates that are no longer needed due to CSE'd register reads

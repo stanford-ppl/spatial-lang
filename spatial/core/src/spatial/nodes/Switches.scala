@@ -1,7 +1,7 @@
 package spatial.nodes
 
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 
 case class SwitchCase[T:Type](body: Block[T]) extends Op[T] {
   def mirror(f:Tx) = Switches.op_case(f(body))

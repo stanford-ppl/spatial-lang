@@ -12,10 +12,10 @@ import spatial.codegen.chiselgen.ChiselGenSpatial
 import spatial.codegen.cppgen.CppGenSpatial
 import spatial.codegen.dotgen.DotGenSpatial
 import spatial.codegen.scalagen.ScalaGenSpatial
+import spatial.lang.cake.SpatialExternal
 import spatial.targets.{DefaultTarget, FPGATarget, Targets}
 
-trait SpatialDSL extends SpatialLangExternal
-object dsl extends SpatialDSL {
+object dsl extends SpatialExternal {
   type SpatialApp = spatial.SpatialApp
 }
 
@@ -26,32 +26,33 @@ trait SpatialApp extends ArgonApp {
     lazy val printer = IRPrinter(state)
 
     // Traversals
-    lazy val scalarAnalyzer = new ScalarAnalyzer { val IR = state }
-    lazy val levelAnalyzer  = new PipeLevelAnalyzer { val IR = state }
-    lazy val dimAnalyzer    = new DimensionAnalyzer { val IR = state }
+    lazy val scalarAnalyzer = new ScalarAnalyzer { var IR = state }
+    lazy val levelAnalyzer  = new PipeLevelAnalyzer { var IR = state }
+    lazy val dimAnalyzer    = new DimensionAnalyzer { var IR = state }
 
-    lazy val switchInsert   = new SwitchTransformer { val IR = state }
-    lazy val unitPipeInsert = new UnitPipeTransformer { val IR = state }
+    lazy val affineAnalyzer = new SpatialAccessAnalyzer { var IR = state }
+    lazy val ctrlAnalyzer   = new ControlSignalAnalyzer { var IR = state }
 
-    lazy val affineAnalyzer = new SpatialAccessAnalyzer { val IR = state }
-    lazy val ctrlAnalyzer   = new ControlSignalAnalyzer { val IR = state }
+    lazy val switchInsert   = SwitchTransformer(state)
+    lazy val unitPipeInsert = UnitPipeTransformer(state)
+    lazy val regCleanup     = RegisterCleanup(state)
+    lazy val regReadCSE     = RegReadCSE(state)
+    lazy val rewriter       = RewriteTransformer(state)
+    lazy val unroller       = UnrollingTransformer(state)
 
-    lazy val regCleanup     = new RegisterCleanup { val IR = state }
-    lazy val regReadCSE     = new RegReadCSE { val IR = state }
+    lazy val memAnalyzer    = new MemoryAnalyzer { var IR = state; def localMems = ctrlAnalyzer.localMems }
+    lazy val paramAnalyzer  = new ParameterAnalyzer{var IR = state }
 
-    lazy val memAnalyzer    = new MemoryAnalyzer { val IR = state; def localMems = ctrlAnalyzer.localMems }
-    lazy val paramAnalyzer  = new ParameterAnalyzer{val IR = state }
+    lazy val scopeCheck     = new ScopeCheck { var IR = state }
 
-    lazy val scopeCheck     = new ScopeCheck { val IR = state }
+    lazy val latencyAnalyzer = new LatencyAnalyzer { var IR = state }
 
-    lazy val latencyAnalyzer = new LatencyAnalyzer { val IR = state }
+    lazy val controlSanityCheck = new ControllerSanityCheck { var IR = state }
 
-    lazy val controlSanityCheck = new ControllerSanityCheck { val IR = state }
-
-    lazy val retiming = new PipeRetimer { val IR = state }
+    lazy val retiming = new PipeRetimer { var IR = state }
 
     lazy val dse = new DSE {
-      val IR = state
+      var IR = state
       def restricts  = paramAnalyzer.restrict
       def tileSizes  = paramAnalyzer.tileSizes
       def parFactors = paramAnalyzer.parFactors
@@ -60,14 +61,13 @@ trait SpatialApp extends ArgonApp {
       def top = ctrlAnalyzer.top.get
     }
 
-    lazy val transferExpand = new TransferSpecialization { val IR = state }
-    lazy val reduceAnalyzer = new ReductionAnalyzer { val IR = state }
-    lazy val uctrlAnalyzer  = new UnrolledControlAnalyzer { val IR = state }
-    lazy val rewriter       = new RewriteTransformer { val IR = state }
-    lazy val unroller       = new UnrollingTransformer { val IR = state }
-    lazy val bufferAnalyzer = new BufferAnalyzer { val IR = state; def localMems = uctrlAnalyzer.localMems }
+    lazy val transferExpand = new TransferSpecialization { var IR = state }
+    lazy val reduceAnalyzer = new ReductionAnalyzer { var IR = state }
+    lazy val uctrlAnalyzer  = new UnrolledControlAnalyzer { var IR = state }
+
+    lazy val bufferAnalyzer = new BufferAnalyzer { var IR = state; def localMems = uctrlAnalyzer.localMems }
     lazy val streamAnalyzer = new StreamAnalyzer {
-      val IR = state ;
+      var IR = state ;
       def streamPipes = uctrlAnalyzer.streampipes
       def streamEnablers = uctrlAnalyzer.streamEnablers
       def streamHolders = uctrlAnalyzer.streamHolders
@@ -75,22 +75,22 @@ trait SpatialApp extends ArgonApp {
       def streamParEnqs = uctrlAnalyzer.streamParEnqs
     }
 
-    lazy val pirRetimer = new PIRHackyRetimer { val IR = state }
-    lazy val pirTiming  = new PIRHackyLatencyAnalyzer { val IR = state }
+    lazy val pirRetimer = new PIRHackyRetimer { var IR = state }
+    lazy val pirTiming  = new PIRHackyLatencyAnalyzer { var IR = state }
 
     lazy val argMapper  = new ArgMappingAnalyzer {
-      val IR = state
+      var IR = state
       def memStreams = uctrlAnalyzer.memStreams
       def argPorts = uctrlAnalyzer.argPorts
       def genericStreams = uctrlAnalyzer.genericStreams
     }
 
-    lazy val scalagen = new ScalaGenSpatial { val IR = state; def localMems = uctrlAnalyzer.localMems }
-    lazy val chiselgen = new ChiselGenSpatial { val IR = state }
-    lazy val pirgen = new PIRGenSpatial { val IR = state }
-    lazy val cppgen = new CppGenSpatial { val IR = state }
-    lazy val treegen = new TreeGenSpatial { val IR = state }
-    lazy val dotgen = new DotGenSpatial { val IR = state }
+    lazy val scalagen = new ScalaGenSpatial { var IR = state; def localMems = uctrlAnalyzer.localMems }
+    lazy val chiselgen = new ChiselGenSpatial { var IR = state }
+    lazy val pirgen = new PIRGenSpatial { var IR = state }
+    lazy val cppgen = new CppGenSpatial { var IR = state }
+    lazy val treegen = new TreeGenSpatial { var IR = state }
+    lazy val dotgen = new DotGenSpatial { var IR = state }
 
     passes += printer
     passes += scalarAnalyzer    // Perform bound and global analysis

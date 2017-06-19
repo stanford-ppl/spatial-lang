@@ -2,7 +2,7 @@ package spatial.nodes
 
 import argon.core._
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.lang.Math._
 
 /** IR Nodes **/

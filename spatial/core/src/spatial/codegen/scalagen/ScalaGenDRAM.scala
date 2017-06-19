@@ -2,8 +2,9 @@ package spatial.codegen.scalagen
 
 import argon.core._
 import org.virtualized.SourceContext
-import spatial.compiler._
+import spatial.aliases._
 import spatial.nodes._
+import spatial.SpatialConfig
 
 trait ScalaGenDRAM extends ScalaGenMemories {
 
@@ -14,7 +15,7 @@ trait ScalaGenDRAM extends ScalaGenMemories {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims,zero) =>
-      val elementsPerBurst = target.burstSize / op.bT.length
+      val elementsPerBurst = SpatialConfig.target.burstSize / op.bT.length
       open(src"val $lhs = {")
         emit(src"""Array.fill(${dims.map(quote).mkString("*")} + $elementsPerBurst)($zero)""") //${invalid(op.mA)})""")
       close("}")

@@ -3,14 +3,14 @@ package spatial.transform
 import argon.core._
 import argon.transform.ForwardTransformer
 import org.virtualized.SourceContext
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import spatial.SpatialConfig
 import spatial.lang.Math
 
-trait UnrollingTransformer extends ForwardTransformer { self =>
+case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self =>
   override val name = "Unrolling Transformer"
   var inHwScope: Boolean = false
 
@@ -772,9 +772,9 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Type[A], ctx: SrcCtx): Exp[A] = (lhs match {
-      case Def(op: EnabledControlNode) => op.mirrorWithEn(f, globalValids)
-      case Def(op: EnabledOp[_])       => op.mirrorWithEn(f, globalValid)
-      case _ => rhs.mirror(f)
+      case Def(op: EnabledControlNode) => op.mirrorAndEnable(f, globalValids)
+      case Def(op: EnabledOp[_])       => op.mirrorAndEnable(f, globalValid)
+      case _ => rhs.mirrorNode(f).head
     }).asInstanceOf[Exp[A]]
 
     logs(c"Cloning $lhs = $rhs")

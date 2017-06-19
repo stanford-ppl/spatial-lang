@@ -3,7 +3,7 @@ package spatial.codegen.scalagen
 import argon.core._
 import argon.codegen.scalagen.ScalaGenStructs
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
 
 trait ScalaGenSpatialStruct extends ScalaGenStructs with ScalaGenBits {
 

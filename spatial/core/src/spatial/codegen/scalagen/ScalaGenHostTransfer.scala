@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.nodes._
 
 trait ScalaGenHostTransfer extends ScalaGenMemories {

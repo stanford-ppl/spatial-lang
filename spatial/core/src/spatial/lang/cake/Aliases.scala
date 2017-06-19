@@ -1,11 +1,35 @@
-package spatial
+package spatial.lang.cake
 
-import argon.core._
-import argon.{ArgonLangInternal, ArgonLangExternal, ArgonExp, ArgonApi}
+import argon.lang.cake._
 import forge._
-import spatial.lang._
-import spatial.targets.FPGATarget
 
+/** Language type aliases
+  * NOTE: No cyclic aliases allowed, e.g. cannot have "type X = spatial.lang.X")
+  */
+trait SpatialLangAliases extends ArgonCommonAliases {
+  type Bit = argon.lang.Boolean
+  val Bit = argon.lang.Boolean
+
+  type MRange = spatial.lang.Range
+  val MRange = spatial.lang.Range
+  type CRange = scala.collection.immutable.Range
+
+  type Bus = spatial.targets.Bus
+  type FPGATarget = spatial.targets.FPGATarget
+
+  type BitVector = spatial.lang.VectorN[Bit]
+  @generate type VectorJJ$JJ$1to128[T] = spatial.lang.Vec[_JJ,T]
+
+  type MFile = spatial.lang.File
+
+  type Tile[T] = spatial.lang.DRAMDenseTile[T]
+  type SparseTile[T] = spatial.lang.DRAMSparseTile[T]
+
+  @internal def unit = argon.lang.Unit.const()
+}
+
+
+/** External (outside spatial.lang) aliases **/
 trait SpatialCommonAliases extends SpatialLangAliases {
   type Matrix[T] = spatial.lang.Matrix[T]
   type Tensor3[T] = spatial.lang.Tensor3[T]
@@ -86,12 +110,10 @@ trait SpatialCommonAliases extends SpatialLangAliases {
 
   type VarReg[T] = spatial.lang.VarReg[T]
 
-  type MRange = spatial.lang.Range
-  val MRange = spatial.lang.Range
-  type CRange = scala.collection.immutable.Range
   type Range64 = spatial.lang.Range64
   val Range64 = spatial.lang.Range64
   type Wildcard = spatial.lang.Wildcard
+  val Wildcard = spatial.lang.Wildcard
 
   type BufferedOut[T] = spatial.lang.BufferedOut[T]
   val BufferedOut = spatial.lang.BufferedOut
@@ -129,50 +151,7 @@ trait SpatialCommonAliases extends SpatialLangAliases {
   val ScatterAckBus = spatial.lang.ScatterAckBus
 }
 
-protected trait SpatialExp extends ArgonExp with SpatialCommonAliases {
-  def target: FPGATarget = SpatialConfig.target // Needs to be filled in by application, defaults to Default
-}
-
-trait SpatialImplicits {
-  // HACK: Insert MUnit where required to make programs not have to include () at the end of ... => MUnit functions
-  @api implicit def insert_unit[T:Type](x: T): MUnit = MUnit()
-
-  // Hacks required to allow .to[T] syntax on various primitive types
-  // Naming is apparently important here (has to have same names as in Predef)
-  implicit class longWrapper(x: scala.Long) {
-    @api def to[B:Type](implicit cast: Cast[scala.Long,B]): B = cast(x)
-  }
-  implicit class floatWrapper(x: scala.Float) {
-    @api def to[B:Type](implicit cast: Cast[scala.Float,B]): B = cast(x)
-  }
-  implicit class doubleWrapper(x: scala.Double) {
-    @api def to[B:Type](implicit cast: Cast[scala.Double,B]): B = cast(x)
-  }
-}
-
-trait SpatialApi extends ArgonApi with SpatialExp with SpatialImplicits
-  with BitOpsApi
-  with DebuggingApi
-  with FileIOApi
-  with HostTransferApi
-  with MathApi
-  with MatrixApi
-  with Parameters
-  with RangeApi
-  with RegApi
-  with StagedUtils
-  with StreamApi
-  with VectorApi
-{
-  type File = spatial.lang.File
-  type Tup2[A,B] = argon.lang.Tuple2[A,B]
-
-  val Math = spatial.lang.Math
-  val bound = spatial.metadata.Bound
-  val targets = spatial.targets.Targets
-}
-
-trait SpatialLangInternal extends ArgonLangInternal with SpatialExp {
+trait SpatialInternalAliases extends SpatialCommonAliases with ArgonInternalAliases {
   val BitOps = spatial.lang.BitOps
   val DebuggingOps = spatial.lang.DebuggingOps
   val Delays = spatial.lang.Delays
@@ -180,17 +159,22 @@ trait SpatialLangInternal extends ArgonLangInternal with SpatialExp {
 
   val HostTransferOps = spatial.lang.HostTransferOps
   val DRAMTransfers = spatial.lang.DRAMTransfers
-  val DRAMTransfersInternal = spatial.lang.internal.DRAMTransfersInternal
+  val DRAMTransfersInternal = spatial.lang.DRAMTransfersInternal
   val FringeTransfers = spatial.lang.FringeTransfers
 
   val MFile = spatial.lang.File
   val Switches = spatial.lang.Switches
 
-  type Ctrl = (Exp[_], Boolean)
-  type Access = (Exp[_], Ctrl)
+  type Ctrl = (argon.core.Exp[_], Boolean)
+  type Access = (argon.core.Exp[_], Ctrl)
 }
 
-trait SpatialLangExternal extends ArgonLangExternal with SpatialApi
+trait SpatialExternalAliases extends SpatialCommonAliases with ArgonExternalAliases {
+  type File = spatial.lang.File
+  type Tup2[A,B] = argon.lang.Tuple2[A,B]
+  type Range = spatial.lang.Range
 
-object compiler extends SpatialLangInternal
-object internal extends SpatialApi
+  lazy val Math = spatial.lang.Math
+  lazy val bound = spatial.metadata.Bound
+  lazy val targets = spatial.targets.Targets
+}

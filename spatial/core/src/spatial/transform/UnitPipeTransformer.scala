@@ -4,7 +4,7 @@ import argon.core._
 import argon.nodes._
 import argon.transform.ForwardTransformer
 import spatial.analysis.SpatialTraversal
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -14,7 +14,7 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * Inserts UnitPipe wrappers for primitive nodes in outer control nodes, along with registers for communication
   */
-trait UnitPipeTransformer extends ForwardTransformer with SpatialTraversal {
+case class UnitPipeTransformer(var IR: State) extends ForwardTransformer with SpatialTraversal {
   override val name = "Unit Pipe Transformer"
   //override val allowPretransform = true
   var enable: Option[Exp[Bit]] = None

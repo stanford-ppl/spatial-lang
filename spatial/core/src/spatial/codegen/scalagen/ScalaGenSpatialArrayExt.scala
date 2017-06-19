@@ -3,7 +3,8 @@ package spatial.codegen.scalagen
 import argon.core._
 import argon.codegen.scalagen.ScalaGenArray
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
+import spatial.nodes._
 
 // Version of Arrays that uses Number as iterator
 trait ScalaGenSpatialArrayExt extends ScalaGenArray {

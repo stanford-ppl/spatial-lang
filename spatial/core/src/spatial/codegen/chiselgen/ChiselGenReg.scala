@@ -2,7 +2,7 @@ package spatial.codegen.chiselgen
 
 import argon.core._
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -186,6 +186,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case RegReset(reg,en) => 
       val parent = parentOf(lhs).get
       val id = resettersOf(reg).map{_._1}.indexOf(lhs)
+      Console.println(s"reg $reg for $lhs is ${quote(reg)}")
       emit(src"${reg}_manual_reset_$id := $en & ${parent}_datapath_en.D(${symDelay(lhs)}) ")
 
 

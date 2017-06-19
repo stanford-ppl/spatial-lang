@@ -4,7 +4,7 @@ import argon.codegen.dotgen.DotCodegen
 import argon.core.Config
 import argon.core._
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.nodes._
 
 trait DotGenMath extends DotCodegen {

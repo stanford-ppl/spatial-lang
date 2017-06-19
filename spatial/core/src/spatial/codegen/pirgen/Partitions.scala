@@ -2,7 +2,7 @@ package spatial.codegen.pirgen
 
 import argon.core._
 import spatial.analysis.SpatialTraversal
-import spatial.compiler._
+import spatial.aliases._
 import spatial.SpatialConfig
 
 import scala.collection.mutable

@@ -3,7 +3,7 @@ package spatial.codegen.scalagen
 import argon.codegen.FileDependencies
 import argon.codegen.scalagen.ScalaCodegen
 import argon.core._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.nodes._
 
 trait ScalaGenCounter extends ScalaCodegen with FileDependencies {

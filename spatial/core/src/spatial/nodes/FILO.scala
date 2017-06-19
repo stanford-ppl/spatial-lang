@@ -2,7 +2,7 @@ package spatial.nodes
 
 import argon.core._
 import forge._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.utils._
 
 case class FILOType[T:Bits](child: Type[T]) extends Type[FILO[T]] {

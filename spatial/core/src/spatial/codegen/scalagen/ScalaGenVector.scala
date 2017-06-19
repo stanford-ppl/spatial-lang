@@ -3,7 +3,7 @@ package spatial.codegen.scalagen
 import argon.core._
 import argon.codegen.scalagen.ScalaGenString
 import argon.nodes._
-import spatial.compiler._
+import spatial.aliases._
 import spatial.nodes._
 
 trait ScalaGenVector extends ScalaGenBits with ScalaGenString {

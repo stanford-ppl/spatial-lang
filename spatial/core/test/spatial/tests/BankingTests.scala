@@ -1,5 +1,5 @@
 package spatial.tests
-import argon.core.TestBenchFailed
+import argon.TestBenchFailed
 import org.scalatest.{FlatSpec, Matchers}
 import org.virtualized._
 import spatial.SpatialConfig

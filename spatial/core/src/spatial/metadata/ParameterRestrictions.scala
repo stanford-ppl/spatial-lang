@@ -2,7 +2,7 @@ package spatial.metadata
 
 import argon.core._
 import argon.util.recursive.collectSet
-import spatial.compiler._
+import spatial.aliases._
 
 
 sealed abstract class Restrict {this: Product =>
