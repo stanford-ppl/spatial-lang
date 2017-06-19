@@ -43,7 +43,7 @@ class VecBits[N:INT,T:Type:Bits] extends Bits[Vec[N,T]] with VectorBits[T] {
 
 
 /** IR Nodes **/
-case class ListVector[T:Type:Bits,V[_]<:Vector[_]](elems: Seq[Exp[T]])(implicit vT: Type[V[T]]) extends Op[V[T]] {
+case class ListVector[T:Type:Bits,V[_]<:Vector[_]](elems: Seq[Exp[T]])(implicit vT: Type[V[T]]) extends PrimitiveAlloc[V[T]] {
   def mirror(f:Tx) = Vector.fromseq[T,V](f(elems))
 }
 case class VectorApply[T:Type](vector: Exp[Vector[T]], index: Int) extends Op[T] {

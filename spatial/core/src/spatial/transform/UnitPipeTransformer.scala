@@ -167,7 +167,7 @@ case class UnitPipeTransformer(var IR: State) extends ForwardTransformer with Sp
         stage.dynamicAllocs.foreach(visitStm)   // Allocations which can rely on reg reads
     }
     val result = typ[T] match {
-      case UnitType => MUnit()
+      case UnitType => unit
       case _ => f(block.result)
     }
     result.asInstanceOf[Exp[T]]
