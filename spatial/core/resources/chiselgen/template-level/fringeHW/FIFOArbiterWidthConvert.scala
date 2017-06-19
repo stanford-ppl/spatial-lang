@@ -4,6 +4,7 @@ import util.HVec
 import chisel3._
 import chisel3.util._
 import templates.Utils.log2Up
+import scala.language.reflectiveCalls
 
 class FIFOArbiterWidthConvert(
   val win: List[Int],
