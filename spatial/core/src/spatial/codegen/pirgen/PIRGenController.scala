@@ -30,8 +30,8 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
         val outs = outputs.map(quote).mkString(", ")
         emit(s"""${prefix}Stage(operands=List($ins), op=$op, results=List($outs))""")
 
-      case ReduceStage(op,init,in,acc) =>
-        emit(s"""val (_, ${quote(acc)}) = Stage.reduce(op=$op, init=${quote(init)})""")
+      case ReduceStage(op,init,in,acc, accParent) =>
+        emit(s"""val (_, ${quote(acc)}) = Stage.reduce(op=$op, init=${quote(init)}, accumParent="${accParent.name}")""")
         allocatedReduce += acc
     }
 

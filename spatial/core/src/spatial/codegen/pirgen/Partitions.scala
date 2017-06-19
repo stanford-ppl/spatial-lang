@@ -249,7 +249,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
 
     // --- Bypass stages
     val bypasses = local.map{
-      case ReduceStage(_,_,in,acc) =>
+      case ReduceStage(_,_,in,acc,accParent) =>
         val bypassInCost  = if (localIns.contains(in.reg)) 0 else 1
         val bypassOutCost = if (remoteIns.contains(acc))   1 else 0
         bypassInCost + bypassOutCost

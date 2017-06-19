@@ -278,7 +278,7 @@ trait PIR {
     def inputRefs = ins
     def outputRefs = outs
   }
-  case class ReduceStage(op: PIROp, init: ConstReg[_<:AnyVal], in: LocalRef, acc: ReduceReg) extends Stage {
+  case class ReduceStage(op: PIROp, init: ConstReg[_<:AnyVal], in: LocalRef, acc: ReduceReg, var accParent:AbstractComputeUnit) extends Stage {
     def inputMems = List(in.reg, acc)
     def outputMems = List(acc)
     def inputRefs = List(in)

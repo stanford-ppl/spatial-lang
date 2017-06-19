@@ -221,12 +221,13 @@ trait PIRScheduler extends PIRTraversal {
 
       val inputReg = ctx.reg(input)
       val usedInput = propagateReg(input, inputReg, ReduceReg(), ctx)
-      val zero = accum match {
-        case Def(RegRead(reg)) => extractConstant(resetValue(reg))
-        case _ => ConstReg(0)
-      }
+      val Def(RegRead(accumReg)) = accum
+      val zero = extractConstant(resetValue(accumReg))
       val acc = ReduceReg()
-      val stage = ReduceStage(op, zero, ctx.refIn(usedInput), acc)
+      val accParents = mappingIn(parentOf(accumReg).get)
+      assert(accParents.size==1)
+      val accParent = accParents.head
+      val stage = ReduceStage(op, zero, ctx.refIn(usedInput), acc, accParent=accParent)
       ctx.addReg(out, acc)
       ctx.addStage(stage)
     }

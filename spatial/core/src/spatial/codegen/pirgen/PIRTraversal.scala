@@ -470,7 +470,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
         stage.outs = outs.map{case LocalRef(i,reg) => ctx.refOut(reg) }
         ctx.addStage(stage)
 
-      case stage@ReduceStage(op,init,in,acc) if !remove.contains(stage) =>
+      case stage@ReduceStage(op,init,in,acc,accParent) if !remove.contains(stage) =>
         ctx.addStage(stage)
 
       case _ => // This stage is being removed! Ignore it!
@@ -541,13 +541,21 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     cu.parent = cu.parent.map{parent => mapping.getOrElse(parent,parent) }
     cu.deps = cu.deps.map{dep => mapping.getOrElse(dep, dep) }
     cu.mems.foreach{mem => swapCU_sram(mem) }
-    cu.allStages.foreach{stage => stage.inputMems.foreach(swapCU_reg) }
+    cu.allStages.foreach{stage => swapCU_stage(stage) }
     cu.fringeVectors ++= pcu.fringeVectors
 
     def swapCU_cchain(cchain: CUCChain): Unit = cchain match {
       case cc: CChainCopy => cc.owner = mapping.getOrElse(cc.owner,cc.owner)
       case _ => // No action
     }
+    def swapCU_stage(stage:Stage) = {
+      stage match {
+        case stage:ReduceStage => stage.accParent = mapping.getOrElse(stage.accParent, stage.accParent)
+        case stage =>
+      }
+      stage.inputMems.foreach(swapCU_reg)
+    }
+
     def swapCU_reg(reg: LocalComponent): Unit = reg match {
       case CounterReg(cc,i) => swapCU_cchain(cc)
       case ValidReg(cc,i) => swapCU_cchain(cc)
