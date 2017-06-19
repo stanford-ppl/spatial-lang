@@ -63,7 +63,7 @@ trait PIR {
 
   case object LocalVectorBus extends VectorBus("LocalVector")
   case class LocalReadBus(mem:CUMemory) extends VectorBus(s"$mem.localRead")
-  case class InputArg(override val name: String) extends ScalarBus(name) {
+  case class InputArg(override val name: String, dmem:Expr) extends ScalarBus(name) {
     override def toString = s"ain$name"
   }
   case class OutputArg(override val name: String) extends ScalarBus(name) {

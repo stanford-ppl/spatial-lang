@@ -54,6 +54,7 @@ trait PIRAllocation extends PIRTraversal {
       case Def(_:UnitPipe | _:Hwblock) => 
         val cu = allocateCU(pipe)
         val cc = UnitCChain(s"${pipe}_unit")
+        cu.cchains += cc
         None
       case _ => None
     }
@@ -338,7 +339,7 @@ trait PIRAllocation extends PIRTraversal {
         case reader => decompose(reader)
       }
       decompose(mem).zip(dreaders).foreach { case (dmem, dreader) => 
-        val bus = if (isArgIn(mem) || isGetDRAMAddress(mem)) Some(InputArg(s"${quote(dmem)}")) else None
+        val bus = if (isArgIn(mem) || isGetDRAMAddress(mem)) Some(InputArg(s"${quote(dmem)}", dmem)) else None
         bus.foreach { b => globals += b }
         getReaderCUs(reader).foreach { readerCU =>
           if (!localWritten) { // Write to FIFO/StreamOut/RemoteReg

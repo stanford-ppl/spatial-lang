@@ -35,7 +35,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
         allocatedReduce += acc
     }
 
-    emit(s"var stage: List[Stage] = Nil")
+    //emit(s"var stage: List[Stage] = Nil")
 
     if (cu.controlStages.nonEmpty && genControlLogic) {
       emitStages(cu.controlStages)
@@ -125,7 +125,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
       emit(s"""val $name = CounterChain(name = "$name", $ctrList).iter(${iter})""")
 
     case UnitCChain(name) =>
-      emit(s"""val $name = CounterChain(name = "$name", (Const("0i"), Const("1i"), Const("1i"))).iter(1l)""")
+      emit(s"""val $name = CounterChain(name = "$name", Counter(Const(0), Const(1), Const(1), par=1)).iter(1l)""")
 
     case ctr@CUCounter(start, end, stride, par) =>
       emit(s"""val ${ctr.name} = Counter(min=${quoteInCounter(start)}, max=${quoteInCounter(end)}, step=${quoteInCounter(stride)}, par=$par) // Counter""")
@@ -193,7 +193,8 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
       emit(s"""val ${quote(mc)} = MemoryController($mode, ${quote(region)}).parent("${cus(parent).head.head.name}")""")
 
     case mem: OffChip   => emit(s"""val ${quote(mem)} = OffChip("${mem.name}")""")
-    case bus: InputArg  => emit(s"""val ${quote(bus)} = ArgIn("${bus.name}")""")
+    case bus: InputArg  => 
+      emit(s"""val ${quote(bus)} = ArgIn("${bus.name}")${boundOf.get(compose(bus.dmem)).fold("") { b => s".bound($b)" }}""")
     case bus: OutputArg => emit(s"""val ${quote(bus)} = ArgOut("${bus.name}")""")
     case bus: ScalarBus => emit(s"""val ${quote(bus)} = Scalar("${bus.name}")""")
     case bus: VectorBus => emit(s"""val ${quote(bus)} = Vector("${bus.name}")""")
@@ -222,7 +223,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
   def quote(x: GlobalComponent): String = x match {
     case OffChip(name)       => s"${name}_oc"
     case mc:MemoryController => s"${mc.name}_mc"
-    case InputArg(name)      => s"${name}_argin"
+    case InputArg(name, _)      => s"${name}_argin"
     case OutputArg(name)     => s"${name}_argout"
     case LocalVectorBus      => "local"
     case PIRDRAMDataIn(mc)      => s"${quote(mc)}.data"
