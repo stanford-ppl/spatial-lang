@@ -60,6 +60,12 @@ case class RegFileStore[T:Type:Bits](
   val bT = bits[T]
 }
 
+case class RegFileReset[T:Type:Bits](rf: Exp[RegFile[T]], en: Exp[Bit]) extends EnabledOp[MUnit](en) {
+  def mirror(f:Tx) = RegFile.reset(f(rf), f(en))
+  val mT = typ[T]
+  val bT = bits[T]
+}
+
 case class RegFileShiftIn[T:Type:Bits](
   reg:  Exp[RegFile[T]],
   inds: Seq[Exp[Index]],

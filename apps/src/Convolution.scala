@@ -24,31 +24,13 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
 
     Accel {
       val lb = LineBuffer[T](Kh, Cmax)
-      val kh = RegFile[T](Kh, Kw)
-      val kv = RegFile[T](Kh, Kw)
 
-      // TODO: Better syntax for initialization of lookup tables
-      Pipe {
-        Pipe{kh(0,0) = 1.to[T]}
-        Pipe{kh(1,0) = 2.to[T]}
-        Pipe{kh(2,0) = 1.to[T]}
-        Pipe{kh(0,1) = 0.to[T]}
-        Pipe{kh(1,1) = 0.to[T]}
-        Pipe{kh(2,1) = 0.to[T]}
-        Pipe{kh(0,2) = -1.to[T]}
-        Pipe{kh(1,2) = -2.to[T]}
-        Pipe{kh(2,2) = -1.to[T]}
-
-        Pipe{kv(0,0) = 1.to[T]}
-        Pipe{kv(0,1) = 2.to[T]}
-        Pipe{kv(0,2) = 1.to[T]}
-        Pipe{kv(1,0) = 0.to[T]}
-        Pipe{kv(1,1) = 0.to[T]}
-        Pipe{kv(1,2) = 0.to[T]}
-        Pipe{kv(2,0) = -1.to[T]}
-        Pipe{kv(2,1) = -2.to[T]}
-        Pipe{kv(2,2) = -1.to[T]}
-      }
+      val kh = LUT[T](3,3)(1.to[T], 0.to[T], -1.to[T],
+                           2.to[T], 0.to[T], -2.to[T],
+                           1.to[T], 0.to[T], -1.to[T])
+      val kv = LUT[T](3,3)(1.to[T],  2.to[T],  1.to[T],
+                           0.to[T],  0.to[T],  0.to[T],
+                          -1.to[T], -2.to[T], -1.to[T])
 
       val sr = RegFile[T](Kh, Kw)
       val lineOut = SRAM[T](Cmax)
@@ -63,18 +45,22 @@ object Convolution_FPGA extends SpatialApp { // Regression (Dense) // Args: none
         }*/
 
         Foreach(0 until C) { c =>
+          Pipe{sr.reset(c == 0)}
+
           Foreach(0 until Kh par Kh){i => sr(i, *) <<= lb(i, c) }
           
           val horz = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => 
-            val number = mux((r < 2) || (c < 2) , 0.to[T], sr(i,j))
-            number * kh(i,j) 
+            // val number = mux((r < 2) || (c < 2) , 0.to[T], sr(i,j))
+            // number * kh(i,j) 
+            sr(i,j) * kh(i,j)
           }{_+_}
           val vert = Reduce(Reg[T])(Kh by 1, Kw by 1){ (i,j) => 
-            val number = mux((r < 2) || (c < 2) , 0.to[T], sr(i,j))
-            number * kv(i,j) 
+            // val number = mux((r < 2) || (c < 2) , 0.to[T], sr(i,j))
+            // number * kv(i,j) 
+            sr(i,j) * kv(i,j)
           }{_+_}
 
-          lineOut(c) = abs(horz.value) + abs(vert.value) // Technically should be sqrt(horz**2 + vert**2)
+          lineOut(c) = mux( r < 2, 0.to[T], abs(horz.value) + abs(vert.value)) // Technically should be sqrt(horz**2 + vert**2)
         }
 
         imgOut(r, 0::C par 16) store lineOut

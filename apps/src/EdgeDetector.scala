@@ -91,6 +91,7 @@ object Differentiator extends SpatialApp { // Regression (Dense) // Args: none
         rawdata load srcmem(c::c+coltile)
         // Scan through tile to get deriv
         Foreach(coltile by 1) { j => 
+          // Pipe{sr.reset(j == 0)}
           sr(0,*) <<= rawdata(j)
           val mean_right = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k) }{_+_} / window.to[T]
           val mean_left = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k+window/2) }{_+_} / window.to[T]

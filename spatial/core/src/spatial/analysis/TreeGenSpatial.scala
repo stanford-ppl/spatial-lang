@@ -79,7 +79,7 @@ trait TreeGenSpatial extends SpatialTraversal {
   override protected def visit(sym: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,_) =>
       val inner = levelOf(sym) match { 
-      	case InnerControl => true
+      	case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
       	case _ => false
       }
       print_stage_prefix(s"Hwblock",s"",s"$sym", inner)
@@ -100,7 +100,7 @@ trait TreeGenSpatial extends SpatialTraversal {
 
     case UnitPipe(_,func) =>
       val inner = levelOf(sym) match { 
-      	case InnerControl => true
+      	case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
       	case _ => false
       }
       print_stage_prefix(s"${getScheduling(sym)}Unitpipe",s"",s"$sym", inner)
@@ -142,7 +142,7 @@ trait TreeGenSpatial extends SpatialTraversal {
 
     case UnrolledForeach(en,cchain,func,iters,valids) =>
       val inner = levelOf(sym) match { 
-      	case InnerControl => true
+      	case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
       	case _ => false
       }
   
@@ -166,7 +166,7 @@ trait TreeGenSpatial extends SpatialTraversal {
 
     case UnrolledReduce(en,cchain,_,func,_,iters,valids,_) =>
       val inner = levelOf(sym) match { 
-        case InnerControl => true
+        case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
         case _ => false
       }
       print_stage_prefix(s"${getScheduling(sym)}UnrolledReduce",s"${cchain}",s"$sym", inner)

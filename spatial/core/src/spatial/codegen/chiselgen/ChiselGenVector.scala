@@ -7,7 +7,7 @@ import spatial.aliases._
 import spatial.nodes._
 import spatial.SpatialConfig
 
-trait ChiselGenVector extends ChiselCodegen {
+trait ChiselGenVector extends ChiselGenSRAM {
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -35,6 +35,13 @@ trait ChiselGenVector extends ChiselCodegen {
     case ListVector(elems)      => emit(src"val $lhs = Array(" + elems.map(quote).mkString(",") + ")")
     case VectorApply(vector, i) => emit(src"val $lhs = $vector.apply($i)")
     case VectorSlice(vector, start, end) => emit(src"val $lhs = $vector($start, $end)")
+
+    // TODO: Use memcpy for these data <-> bits operations
+    /*
+      uint32_t dword = 0x4D91A2B4;
+      float f;
+      memcpy(&f, &dw, 4);
+    */
     case e@DataAsBits(a) => e.mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
       case FixPtType(s,d,f) => emit(src"val $lhs = ${a}.r")
@@ -43,7 +50,7 @@ trait ChiselGenVector extends ChiselCodegen {
 
     case BitsAsData(v,mT) => mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
-      case FixPtType(s,i,f) => emit(src"val $lhs = ${v}.FP($s,$i,$f)")
+      case FixPtType(s,i,f) => emit(src"val $lhs = Wire(${newWire(lhs.tp)})"); emit(src"${lhs}.r := ${v}.r")
       case BooleanType()    => emit(src"val $lhs = $v // TODO: Need to do something fancy here?")
     }
 

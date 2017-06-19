@@ -8,6 +8,9 @@ import spatial.utils._
 trait RegFile[T] { this: Template[_] =>
   def s: Exp[RegFile[T]]
 
+  @api def reset(cond: Bit): MUnit = wrap(RegFile.reset(this.s, cond.s))
+  @api def reset: MUnit = wrap(RegFile.reset(this.s, Bit.const(true)))
+
   @internal def ranges: Seq[Range] = stagedDimsOf(s).map{d => Range.alloc(None, wrap(d), None, None)}
 }
 object RegFile {
@@ -26,6 +29,10 @@ object RegFile {
 
   @internal def store[T:Type:Bits](reg: Exp[RegFile[T]], inds: Seq[Exp[Index]], data: Exp[T], en: Exp[Bit]) = {
     stageWrite(reg)(RegFileStore(reg, inds, data, en))(ctx)
+  }
+
+  @internal def reset[T:Type:Bits](rf: Exp[RegFile[T]], en: Exp[Bit]): Sym[MUnit] = {
+    stageWrite(rf)( RegFileReset(rf, en) )(ctx)
   }
 
   @internal def shift_in[T:Type:Bits](
