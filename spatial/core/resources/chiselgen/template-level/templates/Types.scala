@@ -138,7 +138,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		} else if (has_dec & !has_frac) {
 			dst.number := new_dec		
 		} else if (!has_dec & has_frac) {
-			dst.number := new_frac
+			dst.number := tmp_frac
 		}
 		
 		

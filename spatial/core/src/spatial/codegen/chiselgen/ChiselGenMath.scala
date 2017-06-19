@@ -83,7 +83,7 @@ trait ChiselGenMath extends ChiselCodegen {
         case _ =>
           emitGlobalWire(s"""val ${quote(lhs)} = Wire(UInt(${bitWidth(lhs.tp)}.W))""")
       }
-      emit(src"${lhs}.r := Utils.mux(($sel), ${a}.r, ${b}.r)")
+      emit(src"${lhs}.r := Mux(($sel), ${a}.r, ${b}.r)")
 
     // Assumes < and > are defined on runtime type...
     case Min(a, b) => emit(src"val $lhs = Mux(($a < $b), $a, $b)")
