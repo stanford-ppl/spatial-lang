@@ -53,12 +53,13 @@ sim-hw:
 # ------------------------------------------------------------------------------
 
 # TODO: Use the following structure instead:
-# aws-sim: aws-hw  aws-sim-tb
 # aws-hw:
+# aws-sim: aws-hw  aws-sim-tb
 # aws-sim-tb:
-# aws-F1 : aws-F1-afi    aws-F1-sw
-# aws-F1-afi: aws-hw
-# aws-F1-sw :
+# aws-F1 : aws-F1-sw
+# aws-F1-dcp: aws-hw
+# aws-F1-afi: aws-F1-dcp
+# aws-F1-sw : aws-F1-afi
 
 # Run simulation using Vivado XSIM
 aws-sim: aws-sim-hw
@@ -181,8 +182,7 @@ aws-F1-sw:
 	$(eval app_name=$(notdir $(shell pwd)))
 	# ----------------------------------------------------------------------------
 	# Make the host binary
-	# We recommend doing this on the F1 instance (e.g. copy the source over and build)
-	# NOTE: Requires sdk_setup.sh to have been already sourced
+	# NOTE: Requires sdk_setup.sh to have been sourced, and aws-F1-hw to have been run
 	# ----------------------------------------------------------------------------
 	# Add all the static software files
 	cp -f cpp/TopHost.cpp $(AWS_HOME)/hdk/cl/examples/${app_name}/software/runtime/
@@ -195,6 +195,7 @@ aws-F1-sw:
 	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/software/runtime && make all
 	# The 'Top' binary is now in the software/runtime directory mentioned in the previous line
 	# Important: run this on the F1 using sudo, e.g. 'sudo ./Top arg1 arg2'
+	# If this compilation was not done on the F1, you may need to change permissions on the F1, e.g. using 'chmod 700 Top'
 
 # ------------------------------------------------------------------------------
 # END OF AWS TARGETS

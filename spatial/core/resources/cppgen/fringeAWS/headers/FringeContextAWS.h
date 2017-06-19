@@ -283,7 +283,11 @@ public:
     */
     sv_pause(10000); // needed because 'is...done' does not poll bvalid/bready, but only that the cmd is queued (and only 1 burst)
 #else // F1
-    pwrite(fd, (char *)hostmem, size, 0x10000000 + channel*MEM_16G + devmem);
+    // pwrite(fd, (char *)hostmem, size, 0x10000000 + channel*MEM_16G + devmem);
+    // TODO: Use single pwrite as above
+    for (int b=0; b < size/16; ++b) {
+      pwrite(fd, ((char *)hostmem) + b*16, 16, 0x10000000 + channel*MEM_16G + devmem + b*16);
+    }
 #endif // F1
   }
 

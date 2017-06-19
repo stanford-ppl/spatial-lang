@@ -7,7 +7,7 @@ Prerequisites
 Running on EC2 FPGAs requires the following prerequisites:
 
 - An installation of Spatial as described in the :doc:`previous tutorial <../tutorial/starting>`
-- Vivado and a license to run on the desired Amazon FPGA. We tested this tutorial botn on Amazon's `FPGA Developer AMI <https://aws.amazon.com/marketplace/pp/B06VVYBLZZ#>`_ which contains all the required software tools,
+- Vivado and a license to run on the desired Amazon FPGA. We tested this tutorial both on Amazon's `FPGA Developer AMI <https://aws.amazon.com/marketplace/pp/B06VVYBLZZ#>`_ which contains all the required software tools,
   as well as locally by following `these instructions <https://github.com/aws/aws-fpga/blob/06ba5922d888781ee4405865e0367c31b4893199/hdk/docs/on_premise_licensing_help.md>`_.
 
 Setup
