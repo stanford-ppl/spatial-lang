@@ -125,6 +125,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case IntType() => "UInt(32.W)"
     case LongType() => "UInt(32.W)"
     case BoolType => "Bool()"
+    case FltPtType(g,e) => src"DspReal()"
     case tp: VectorType[_] => src"Vec(${tp.width}, ${newWire(tp.typeArguments.head)})"
     case tp: StructType[_] => src"UInt(${bitWidth(tp)}.W)"
     // case tp: IssuedCmd => src"UInt(${bitWidth(tp)}.W)"

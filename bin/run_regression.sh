@@ -32,8 +32,8 @@ machine=`hostname`
 cd $here
 
 # Specify tests to run
-# types=("chisel")
-# dsts=("portland")
+ # types=("chisel")
+ # dsts=("portland")
 types=("scala" "chisel")
 dsts=("max-2" "portland")
 tests=all

@@ -2180,7 +2180,7 @@ object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
 
       def twiddles8(tid: Index, i: Int, N: Int): Unit = {
         Sequential.Foreach(1 until 8 by 1) { j => 
-          val phi = -TWOPI*(i.as[T]*reversed_LUT(j).as[T] / N.as[T])
+          val phi = -TWOPI*(i.to[T]*reversed_LUT(j).to[T] / N.to[T])
           val phi_shifted = phi + TWOPI/2
           val beyond_left = phi_shifted < -TWOPI.to[T]/4
           val beyond_right = phi_shifted > TWOPI.to[T]/4
