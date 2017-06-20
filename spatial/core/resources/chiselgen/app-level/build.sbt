@@ -20,10 +20,19 @@ val defaultVersions = Map(
 libraryDependencies ++= (Seq("chisel3","chisel-iotesters").map {
   dep: String => "edu.berkeley.cs" %% dep % sys.props.getOrElse(dep + "Version", defaultVersions(dep)) })
 
+libraryDependencies ++= Seq(
+  "org.spire-math" %% "spire" % "0.11.0",
+  "org.scalanlp" %% "breeze" % "0.12",
+  "org.scalatest" %% "scalatest" % "2.2.5",
+  "org.scalacheck" %% "scalacheck" % "1.12.4"
+)
+
 resolvers ++= Seq(
   Resolver.sonatypeRepo("snapshots"),
   Resolver.sonatypeRepo("releases")
 )
+
+resourceDirectory in Compile := baseDirectory.value / "chisel" / "template-level" / "resources"
 
 scalaSource in Compile := baseDirectory.value / "chisel" 
 

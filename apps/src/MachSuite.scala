@@ -1,14 +1,6 @@
 import spatial._
 import org.virtualized._
 
-object EmptyAccel extends SpatialApp {
-  import IR._
-
-  @virtualize
-  def main() = {Accel{}}
-}
-
-
 object AES extends SpatialApp { // Regression (Dense) // Args: none
   import IR._
 

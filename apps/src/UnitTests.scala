@@ -36,7 +36,7 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 32
 object FloatInOutArg extends SpatialApp {
   import IR._
 
-  type T = Float
+  type T = Float//FixPt[TRUE,_16,_16]
   @virtualize
   def main() {
 
@@ -45,11 +45,11 @@ object FloatInOutArg extends SpatialApp {
 
     setArg(in, args(0).to[T])
     Accel{
-      out := in
+      out := in + 4.5.to[T]
     }
 
     val result = getArg(out)
-    println("Put in " + in + ", got out " + result)
+    println("Put in " + args(0).to[T] + ", got out " + result)
   }
 
 }
