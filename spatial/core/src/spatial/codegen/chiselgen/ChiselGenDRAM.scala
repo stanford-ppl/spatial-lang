@@ -175,16 +175,16 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
     withStream(getStream("Instantiator")) {
       emit("")
       emit(s"// Memory streams")
-      emit(s"""val loadStreamInfo = List(${loadParMapping.mkString(",")}) """)
-      emit(s"""val storeStreamInfo = List(${storeParMapping.mkString(",")}) """)
-      emit(s"""val numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/""")
+      emit(src"""val loadStreamInfo = List($loadParMapping) """)
+      emit(src"""val storeStreamInfo = List($storeParMapping) """)
+      emit(src"""val numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/""")
     }
 
     withStream(getStream("IOModule")) {
       emit("// Memory Streams")
-      emit(s"""val io_loadStreamInfo = List(${loadParMapping.mkString(",")}) """)
-      emit(s"""val io_storeStreamInfo = List(${storeParMapping.mkString(",")}) """)
-      emit(s"val io_numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/")
+      emit(src"""val io_loadStreamInfo = List($loadParMapping) """)
+      emit(src"""val io_storeStreamInfo = List($storeParMapping) """)
+      emit(src"val io_numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/")
 
     }
 

@@ -212,9 +212,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
           emit(src"""${lhs}_wVec($i).addr($j) := ${a}.r """)
         }
       }
-      duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
-        val p = portsOf(lhs, sram, i).mkString(",")
-        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, List(${p}))""")
+      duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) =>
+        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, List(${portsOf(lhs, sram, i)}))""")
       }
 
     case ParFIFODeq(fifo, ens) =>

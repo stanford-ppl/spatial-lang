@@ -17,21 +17,21 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     var isForever = false
     // Temporarily shove ctrl node onto stack so the following is quoted properly
     if (cchainPassMap.contains(lhs)) {controllerStack.push(cchainPassMap(lhs))}
-    val counter_data = ctrs.map{ c => c match {
-      case Def(CounterNew(start, end, step, par)) => (src"$start", src"$end", src"$step", {s"$par"}.split('.').take(1)(0))
+    val counter_data = ctrs.map{
+      case Def(CounterNew(start, end, step, par)) => (src"$start", src"$end", src"$step", {src"$par"}.split('.').take(1)(0))
       case Def(Forever()) => 
         isForever = true
         ("0.S", "999.S", "1.S", "1") 
-    }}
+    }
     if (cchainPassMap.contains(lhs)) {controllerStack.pop()}
 
     emitGlobalWire(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
     // emitGlobalWire(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
     emitGlobalWire(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
-    emit(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
-    emit(src"""val ${lhs}${suffix}_stops = List(${counter_data.map(_._2).mkString(",")}) // TODO: Safe to get rid of this and connect directly?""")
-    emit(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}.mkString(",")}) """)
-    emit(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4).mkString(",")}))) // Par of 0 creates forever counter""")
+    emit(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3)}) // TODO: Safe to get rid of this and connect directly?""")
+    emit(src"""val ${lhs}${suffix}_stops = List(${counter_data.map(_._2)}) // TODO: Safe to get rid of this and connect directly?""")
+    emit(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}}) """)
+    emit(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4)}))) // Par of 0 creates forever counter""")
     val ctrl = usersOf(lhs).head._1
     if (suffix != "") {
       emit(src"// this trivial signal will be assigned multiple times but each should be the same")

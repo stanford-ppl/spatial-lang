@@ -170,7 +170,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@SRAMNew(dimensions) => 
+    case op@SRAMNew(_) =>
+      val dimensions = dimsOf(lhs)
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
         val rParZip = readersOf(lhs)
           .filter{read => dispatchOf(read, lhs) contains i}
@@ -215,30 +216,30 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
         mem match {
           case BankedMemory(dims, depth, isAccum) =>
-            val strides = s"""List(${dims.map(_.banks).mkString(",")})"""
+            val strides = src"""List(${dims.map(_.banks)})"""
             if (depth == 1) {
-              openGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
-              emitGlobalModule(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
+              openGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, """)
+              emitGlobalModule(src"""List(${dims.map(_.banks)}), $strides,""")
               emitGlobalModule(src"""List($wPar), List($rPar), BankedMemory""")
               closeGlobalModule("))")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-              openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
-              emitGlobalModule(src"""List(${dims.map(_.banks).mkString(",")}), $strides,""")
+              openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List($dimensions), $depth, $width,""")
+              emitGlobalModule(src"""List(${dims.map(_.banks)}), $strides,""")
               emitGlobalModule(src"""List($wPar), List($rPar), """)
               emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), BankedMemory""")
               closeGlobalModule("))")
             }
           case DiagonalMemory(strides, banks, depth, isAccum) =>
             if (depth == 1) {
-              openGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List(${dimensions.mkString(",")}), ${width}, """)
-              emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}.mkString(",")}), List(${strides.mkString(",")}),""")
+              openGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, """)
+              emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}}), List($strides),""")
               emitGlobalModule(src"""List($wPar), List($rPar), DiagonalMemory""")
               closeGlobalModule("))")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-              openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List(${dimensions.mkString(",")}), $depth, ${width},""")
-              emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}.mkString(",")}), List(${strides.mkString(",")}),""")
+              openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List($dimensions), $depth, $width,""")
+              emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}}), List($strides),""")
               emitGlobalModule(src"""List($wPar), List($rPar), """)
               emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), DiagonalMemory""")
               closeGlobalModule("))")
@@ -270,15 +271,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
       val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
       emit(s"""// Assemble multidimW vector""")
-      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, ${width}))) """)
-      emit(src"""${lhs}_wVec(0).data := ${v}.raw""")
-      emit(src"""${lhs}_wVec(0).en := ${en} & ShiftRegister(${enable}, ${symDelay(lhs)})""")
+      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, $width))) """)
+      emit(src"""${lhs}_wVec(0).data := $v.raw""")
+      emit(src"""${lhs}_wVec(0).en := $en & ShiftRegister($enable, ${symDelay(lhs)})""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.raw // Assume always an int""")
       }
-      duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
-        val p = portsOf(lhs, sram, i).mkString(",")
-        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, List(${p})) """)
+      duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) =>
+        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, List(${portsOf(lhs, sram, i)})) """)
       }
 
     case _ => super.emitNode(lhs, rhs)

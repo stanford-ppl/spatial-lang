@@ -481,17 +481,17 @@ object utils {
     }
   }
 
-  @stateful def sizeOf(fifo: FIFO[_])(implicit ctx: SrcCtx): Index = wrap(sizeOf(fifo.s))
-  @stateful def sizeOf(fifo: FILO[_])(implicit ctx: SrcCtx): Index = wrap(sizeOf(fifo.s))
-  @stateful def sizeOf(x: Exp[_])(implicit ctx: SrcCtx): Exp[Index] = x match {
+  @stateful def sizeOf(fifo: FIFO[_]): Index = wrap(sizeOf(fifo.s))
+  @stateful def sizeOf(fifo: FILO[_]): Index = wrap(sizeOf(fifo.s))
+  @stateful def sizeOf(x: Exp[_]): Exp[Index] = x match {
     case Def(FIFONew(size)) => size
     case Def(FILONew(size)) => size
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)
+    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
   }
 
-  @stateful def lenOf(x: Exp[_])(implicit ctx: SrcCtx): Int = x.tp match {
+  @stateful def lenOf(x: Exp[_]): Int = x.tp match {
     case tp: VectorType[_] => tp.width
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)
+    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
   }
 
   @stateful def rankOf(x: Exp[_]): Int = dimsOf(x).length

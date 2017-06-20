@@ -225,14 +225,14 @@ trait ChiselGenReg extends ChiselGenSRAM {
                     emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-                    emit(src"""${reg}_${ii}.write(${lhs}, $en & (${reg}_wren).D(${symDelay(lhs)}+1), reset ${manualReset}, List(${ports.mkString(",")}), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write(${lhs}, $en & (${reg}_wren).D(${symDelay(lhs)}+1), reset ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   if (dup.isAccum) {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren).D(${symDelay(lhs)}), reset | ${reg}_resetter ${manualReset}, List(${ports.mkString(",")}), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren).D(${symDelay(lhs)}), reset | ${reg}_resetter ${manualReset}, List($ports), ${reg}_initval.number)""")
                   } else {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren).D(${symDelay(lhs)}), reset ${manualReset}, List(${ports.mkString(",")}), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren).D(${symDelay(lhs)}), reset ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                   
               }
@@ -240,7 +240,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
           case _ => // Not an accum
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-              emit(src"""${reg}_${ii}.write($v, $en & ShiftRegister(${parent}_datapath_en, ${symDelay(lhs)}), reset ${manualReset}, List(${ports.mkString(",")}), ${reg}_initval.number)""")
+              emit(src"""${reg}_${ii}.write($v, $en & ShiftRegister(${parent}_datapath_en, ${symDelay(lhs)}), reset ${manualReset}, List($ports), ${reg}_initval.number)""")
             }
         }
       }

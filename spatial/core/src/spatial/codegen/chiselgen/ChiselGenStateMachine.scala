@@ -50,7 +50,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emitGlobalWire(src"val $state = Wire(SInt(32.W))")
       emit(src"$state := ${lhs}_sm.io.output.state")
       emit(src"${lhs}_sm.io.input.doneCondition := ~${notDone.result}")
-      val extraEn = if (ens.length > 0) {src"""List(${ens.map(quote).mkString(",")}).map(en=>en).reduce{_&&_}"""} else {"true.B"}
+      val extraEn = if (ens.length > 0) {src"""List($ens).map(en=>en).reduce{_&&_}"""} else {"true.B"}
       emit(src"${lhs}_mask := ${extraEn}")
       
     case _ => super.emitNode(lhs,rhs)

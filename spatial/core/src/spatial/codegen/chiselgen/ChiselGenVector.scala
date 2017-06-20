@@ -31,7 +31,7 @@ trait ChiselGenVector extends ChiselGenSRAM {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case ListVector(elems)      => emit(src"val $lhs = Array(" + elems.map(quote).mkString(",") + ")")
+    case ListVector(elems)      => emit(src"val $lhs = Array($elems)")
     case VectorApply(vector, i) => emit(src"val $lhs = $vector.apply($i)")
     case VectorSlice(vector, start, end) => emit(src"val $lhs = $vector($start, $end)")
 

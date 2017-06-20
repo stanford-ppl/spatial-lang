@@ -74,7 +74,8 @@ trait ChiselGenFILO extends ChiselGenSRAM {
   // }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@FILONew(size)   => 
+    case op@FILONew(_)   =>
+      val size = sizeOf(lhs) match { case Const(c: BigInt) => c.toInt }
       // ASSERT that all pars are the same!
       val rPar = readersOf(lhs).map { r => 
         r.node match {
@@ -89,7 +90,7 @@ trait ChiselGenFILO extends ChiselGenSRAM {
         }
       }.max
       val width = bitWidth(lhs.tp.typeArguments.head)
-      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FILO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
+      emitGlobalModule(src"""val $lhs = Module(new FILO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
 
     case FILOPush(fifo,v,en) => 
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
