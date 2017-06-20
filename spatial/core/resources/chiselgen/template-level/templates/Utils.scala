@@ -5,7 +5,6 @@ import chisel3._
 import chisel3.util.{log2Ceil, isPow2}
 import chisel3.internal.sourceinfo._
 import types._
-import dsptools.numbers._
 
 object ops {
 
@@ -51,17 +50,17 @@ object ops {
 
   }
   
-  implicit class DspRealOps(val b:DspReal) {
-    def raw = {
-      b.node
-    }
-    def number = {
-      b.node
-    }
-    def r = {
-      b.node
-    }
-  }
+  // implicit class DspRealOps(val b:DspReal) {
+  //   def raw = {
+  //     b.node
+  //   }
+  //   def number = {
+  //     b.node
+  //   }
+  //   def r = {
+  //     b.node
+  //   }
+  // }
 
   implicit class UIntOps(val b:UInt) {
     // Define number so that we can be compatible with FixedPoint type
@@ -314,7 +313,7 @@ object ops {
 
 object Utils {
   def getFloatBits(num: Float) = java.lang.Float.floatToRawIntBits(num)
-  def getDoubleBits(num: Double) = java.lang.Double.floatToRawIntBits(num)
+  // def getDoubleBits(num: Double) = java.lang.Double.doubleToRawIntBits(num)
   def delay[T <: chisel3.core.Data](sig: T, length: Int):T = {
     if (length == 0) {
       sig

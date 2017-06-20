@@ -125,7 +125,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case FixPtType(s,d,f) => src"new FixedPoint($s, $d, $f)"
     case IntType() => "UInt(32.W)"
     case LongType() => "UInt(32.W)"
-    case BoolType => "Bool()"
     case FltPtType(g,e) => src"DspReal()"
     case BooleanType => "Bool()"
     case tp: VectorType[_] => src"Vec(${tp.width}, ${newWire(tp.typeArguments.head)})"
@@ -235,13 +234,13 @@ trait ChiselGenSRAM extends ChiselCodegen {
           case DiagonalMemory(strides, banks, depth, isAccum) =>
             if (depth == 1) {
               openGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, """)
-              emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}}), List($strides),""")
+              emitGlobalModule(src"""List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),""")
               emitGlobalModule(src"""List($wPar), List($rPar), DiagonalMemory""")
               closeGlobalModule("))")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
               openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List($dimensions), $depth, $width,""")
-              emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}}), List($strides),""")
+              emitGlobalModule(src"""List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),""")
               emitGlobalModule(src"""List($wPar), List($rPar), """)
               emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), DiagonalMemory""")
               closeGlobalModule("))")

@@ -126,7 +126,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       }
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
         val numReaders = readersOf(lhs).filter{read => dispatchOf(read, lhs) contains i}.length
-        emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new LUT(List($dims), List(${init.mkString(",")}), ${numReaders}, $width, $f))""")
+        emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new LUT(List($dims), List(${init}), ${numReaders}, $width, $f))""")
       }
         // } else {
         //   nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
