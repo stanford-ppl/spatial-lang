@@ -2,6 +2,8 @@ import spatial._
 import org.virtualized._
 
 /*
+ * LSTM expression:
+ *
  * Reference: CS224N, Stanford
  *
  * Dimensions:
@@ -21,6 +23,14 @@ import org.virtualized._
  */
 
 /*
+ * Lookup table for LSTM sigmoid 
+ *
+ * Reference: https://arxiv.org/pdf/1612.00694.pdf 
+ *
+ * Sigmoid input: min: -64, max: 64, sampling point = 2048
+ */
+
+/*
  * Step 1: implement linear transformation
  * Step 2: Sigmoid
  * Step 3: tanh
@@ -28,7 +38,7 @@ import org.virtualized._
  * Step 5: foreach loop
  */
 
-object LSTMForward extends SpatialApp { 
+object LSTM_GateForward extends SpatialApp { 
   import IR._
 
   type X = FixPt[TRUE,_16,_16]
@@ -64,20 +74,26 @@ object LSTMForward extends SpatialApp {
     val b_Wi_d = 5
     
     // Second matmult, col step size
-    val b_Ui_Dh = 2 
+    val b_Ui_Dh = 5 
 
     setMem(Wi, W)
     setMem(xt, x)
-    setMem(bi, bias)
     setMem(Ui, U)
     setMem(h_t_1, h)
+    setMem(bi, bias)
+
+    printArray(W, "Observing Wi = ")
+    printArray(x, "Observing xt = ")
+    printArray(U, "Observing Ui = ")
+    printArray(h, "Observing ht = ")
+    printArray(bias, "Observing bias = ")
 
     Accel {
       Foreach(D_h by b_Dh, N by b_N) { (i,j) =>
         val tile_re = SRAM[T](b_Dh, b_N)
         val tile_bias = SRAM[T](b_Dh, b_N) 
         val tile_WTx = SRAM[T](b_Dh, b_N)
-        val tile_UTh = SRAM[T](b_Dh, b_N)
+        val tile_UTh = SRAM[T](b_Ui_Dh, b_N)
 
         Parallel {
           // W_i^Tx 
@@ -101,14 +117,14 @@ object LSTMForward extends SpatialApp {
 
           // U_i^Th_{t-1}
           Foreach(d by b_Ui_Dh) { k =>
-            val tile_Ui = SRAM[T](b_Ui_Dh, b_Ui_Dh)
+            val tile_Ui = SRAM[T](b_Ui_Dh, b_Ui_Dh) // TODO: what we really need here is 1 step size for row iter and another for col iter
             val tile_ht_1 = SRAM[T](b_Ui_Dh, b_N)
             Parallel {
               tile_Ui load Ui(i::i+b_Ui_Dh, k::k+b_Ui_Dh)
               tile_ht_1 load h_t_1(k::k+b_Ui_Dh, j::j+b_N)
             }
 
-            Foreach(b_Dh by 1, b_N by 1) {(ii,jj) =>
+            Foreach(b_Ui_Dh by 1, b_N by 1) {(ii,jj) =>
               val prodUTh = Reduce(Reg[T])(b_Ui_Dh by 1){ kk => 
                 tile_Ui(ii,kk) * tile_ht_1(kk,jj)
               }{_+_}
@@ -144,14 +160,28 @@ object LSTMForward extends SpatialApp {
     val N = 1 
 
     val W_i = Array.tabulate(D_h){ j => Array.tabulate(d){ i => (i + j).to[X] } } 
-    val x_t = Array.tabulate(d) { j => Array.tabulate(N){ i => (i * j).to[X] } } 
+    val x_t = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 1) * j).to[X] } } 
     val bias = Array.tabulate(D_h) { j => Array.tabulate(N){ i => 0.to[X] } } 
 
     val U_i = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => (i + j).to[X] } } 
-    val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => (i * j).to[X] } } 
+    val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 1) * j).to[X] } } 
 
     val gateResult = GateForward(W_i.flatten, x_t.flatten, U_i.flatten, h_t_1.flatten, bias.flatten, D_h, d, N)
+    printArray(gateResult, "First gate yields: ")
 
-    println("result cksum: " + gateResult.map(a => a).reduce{_+_})
+    // Calculate gold
+    val gold = Array.tabulate(D_h) { i =>
+      val Wi_Row = W_i(i) 
+      val Ui_Row = U_i(i)
+      val biasRow = bias(i)
+      Array.tabulate(N) { j =>
+        val xt_Col = x_t.map(row => row(j))
+        val ht1_Col = h_t_1.map(row => row(j))
+        val bias_col = bias.map(row => row(j))
+        Wi_Row.zip(xt_Col){_*_}.reduce{_+_} + Ui_Row.zip(ht1_Col){_*_}.reduce{_+_} + bias_col(i)
+      }
+    }.flatten
+
+    printArray(gold, "Gold result is: ")
   }
 }
