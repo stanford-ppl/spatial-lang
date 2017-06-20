@@ -203,15 +203,14 @@ case class UnitPipeTransformer(var IR: State) extends ForwardTransformer with Sp
     result
   }
 
-  override def apply[T:Type](b: Block[T]): () => Exp[T] = {
+  override protected def inlineBlock[T](b: Block[T]): Exp[T] = {
     val doWrap = wrapBlocks.headOption.getOrElse(false)
     if (wrapBlocks.nonEmpty) wrapBlocks = wrapBlocks.drop(1)
     dbgs(c"Transforming Block $b [$wrapBlocks]")
     if (doWrap) {
-      val result = () => wrapBlock(b)(mtyp(b.tp),ctx.get)
-      result
+      wrapBlock(b)(mtyp(b.tp),ctx.get)
     }
-    else super.apply(b)
+    else super.inlineBlock(b)
   }
 
   def wrapSwitchCase[T:Type](lhs: Exp[T], body: Block[T])(implicit ctx: SrcCtx): Exp[T] = transferMetadataIfNew(lhs){

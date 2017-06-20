@@ -500,6 +500,7 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
     reduce: (Exp[T], Exp[T]) => Exp[T]
   )(implicit ctx: SrcCtx): Exp[T] = ident match {
     case Some(z) =>
+      dbg(c"Unrolling reduction tree with zero $z")
       val validInputs = inputs.zip(valids).map{case (in,v) => Math.math_mux(v, in, z) }
       Math.reduceTree(validInputs){(x: Exp[T], y: Exp[T]) => reduce(x,y) }
 
@@ -507,6 +508,7 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
       // ASSUMPTION: If any values are invalid, they are at the end of the list (corresponding to highest index values)
       // TODO: This may be incorrect if we parallelize by more than the innermost iterator
       val inputsWithValid = inputs.zip(valids)
+      dbg("Unrolling reduction tree with " + inputsWithValid.length + " inputs: " + inputs.mkString(", "))
       Math.reduceTree(inputsWithValid){(x: (Exp[T], Exp[Bit]), y: (Exp[T],Exp[Bit])) =>
         val res = reduce(x._1, y._1)
         (Math.math_mux(y._2, res, x._1), Bit.or(x._2, y._2)) // res is valid if x or y is valid

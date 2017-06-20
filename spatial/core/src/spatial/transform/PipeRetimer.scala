@@ -173,15 +173,14 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
     result
   }
 
-  override def apply[T:Type](b: Block[T]): () => Exp[T] = {
+  override protected def inlineBlock[T](b: Block[T]): Exp[T] = {
     val doWrap = retimeBlocks.headOption.getOrElse(false)
     if (retimeBlocks.nonEmpty) retimeBlocks = retimeBlocks.drop(1)
     dbgs(c"Transforming Block $b [$retimeBlocks]")
     if (doWrap) {
-      val result = () => retimeBlock(b)(mtyp(b.tp),ctx.get)
-      result
+      retimeBlock(b)(mtyp(b.tp),ctx.get)
     }
-    else super.apply(b)
+    else super.inlineBlock(b)
   }
 
   private def transformCtrl[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {

@@ -76,6 +76,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     val prevCtrl = controller
     val prevReads = pendingNodes
 
+    dbg(c"Setting controller to ${str(ctrl.node)} [${ctrl.isInner}]")
     controller = Some(ctrl)
     blk
 

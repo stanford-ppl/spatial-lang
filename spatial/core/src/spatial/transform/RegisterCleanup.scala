@@ -100,7 +100,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
       }
       else mirrorWithDuplication(lhs, rhs)
 
-    case node if isControlNode(lhs) => withCtrl(lhs){ mirrorWithDuplication(lhs, rhs) }
+    case _ if isControlNode(lhs) => withCtrl(lhs){ mirrorWithDuplication(lhs, rhs) }
     case _ => mirrorWithDuplication(lhs, rhs)
   }
 
@@ -118,19 +118,8 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
     else mirror(lhs, rhs)
   }
 
-  /** These require slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
-
+  /** Requires slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
   override protected def inlineBlock[T](b: Block[T]): Exp[T] = inlineBlockWith(b, {stms =>
-    visitStms(stms)
-    if (ctrl != null && statelessSubstRules.contains((ctrl,ctrl))) {
-      val rules = statelessSubstRules((ctrl, ctrl)).map { case (s, s2) => s -> s2() }
-      withSubstScope(rules: _*) { f(b.result) }
-    }
-    else f(b.result)
-  })
-
-  override protected def transformBlock[T,B[T]<:Block[T]](b: B[T]): B[T] = transformBlockWith(b, {stms =>
-    stms.foreach(stm => dbg(c"$stm"))
     visitStms(stms)
     if (ctrl != null && statelessSubstRules.contains((ctrl,ctrl))) {
       val rules = statelessSubstRules((ctrl, ctrl)).map { case (s, s2) => s -> s2() }

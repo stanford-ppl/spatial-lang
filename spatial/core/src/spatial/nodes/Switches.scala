@@ -3,14 +3,14 @@ package spatial.nodes
 import argon.core._
 import spatial.aliases._
 
-case class SwitchCase[T:Type](body: Block[T]) extends Op[T] {
+case class SwitchCase[T:Type](body: Block[T]) extends ControlNode[T] {
   def mirror(f:Tx) = Switches.op_case(f(body))
 
   override def freqs = cold(body)
   val mT = typ[T]
 }
 
-case class Switch[T:Type](body: Block[T], selects: Seq[Exp[Bit]], cases: Seq[Exp[T]]) extends Op[T] {
+case class Switch[T:Type](body: Block[T], selects: Seq[Exp[Bit]], cases: Seq[Exp[T]]) extends ControlNode[T] {
   def mirror(f:Tx) = {
     val body2 = stageHotBlock{
       val body2 = f(body)

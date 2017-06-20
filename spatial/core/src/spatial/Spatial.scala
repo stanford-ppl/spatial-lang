@@ -23,6 +23,8 @@ trait SpatialApp extends ArgonApp {
 
   // Traversal schedule
   override def createTraversalSchedule(state: State) = {
+    if (SpatialConfig.enableRetiming) Report.warn("Spatial: retiming enabled")
+
     lazy val printer = IRPrinter(state)
 
     // Traversals

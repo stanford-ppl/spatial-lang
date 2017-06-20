@@ -187,19 +187,19 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
     result
   }
 
-  override def apply[T:Type](b: Block[T]): () => Exp[T] = {
+  override protected def inlineBlock[T](b: Block[T]): Exp[T] = {
     val doWrap = retimeBlocks.headOption.getOrElse(false)
     val doWrapReduce = retimeReduce.headOption.getOrElse(false)
     if (retimeBlocks.nonEmpty) retimeBlocks = retimeBlocks.drop(1)
     if (retimeReduce.nonEmpty) retimeReduce = retimeReduce.drop(1)
     dbgs(c"Transforming Block $b [$retimeBlocks]")
     if (doWrapReduce) {
-      () => retimeReduce(b)(mtyp(b.tp),ctx.get)
+      retimeReduce(b)(mtyp(b.tp),ctx.get)
     }
     else if (doWrap) {
-      () => retimeBlock(b,cchain)(mtyp(b.tp),ctx.get)
+      retimeBlock(b,cchain)(mtyp(b.tp),ctx.get)
     }
-    else super.apply(b)
+    else super.inlineBlock(b)
   }
 
   private def transformCtrl[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {

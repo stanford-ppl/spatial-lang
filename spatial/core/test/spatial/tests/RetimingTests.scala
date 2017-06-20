@@ -3,8 +3,16 @@ package spatial.tests
 import org.scalatest.{FlatSpec, Matchers}
 import org.virtualized._
 import spatial.nodes.DelayLine
+import spatial.SpatialConfig
 
-object SimpleRetimePipe extends SpatialTest {
+trait RetimeTest extends SpatialTest {
+  override def settings(): Unit = {
+    super.settings()
+    SpatialConfig.enableRetiming = true
+  }
+}
+
+object SimpleRetimePipe extends RetimeTest {
   import spatial.dsl._
 
   @virtualize def main(): Unit = {
@@ -19,7 +27,7 @@ object SimpleRetimePipe extends SpatialTest {
   }
 }
 
-object RetimeLoop extends SpatialTest {
+object RetimeLoop extends RetimeTest {
   import spatial.dsl._
 
   @virtualize def main(): Unit = {
@@ -35,7 +43,7 @@ object RetimeLoop extends SpatialTest {
   }
 }
 
-object NestedPipeTest extends SpatialTest { // Regression (Unit) // Args: 6
+object NestedPipeTest extends RetimeTest { // Regression (Unit) // Args: 6
   import spatial.dsl._
   testArgs = List("6")
 
@@ -78,7 +86,11 @@ class RetimingTests extends FlatSpec with Matchers {
     delays.length shouldBe 3
   }
 
-  "RetimeLoop" should "be retimed" in { RetimeLoop.main(Array.empty) }
+  "RetimeLoop" should "be retimed" in {
+    RetimeLoop.main(Array.empty)
+  }
 
-  "NestedPipeTest" should "be retimed" in { NestedPipeTest.main(Array.empty) }
+  "NestedPipeTest" should "be retimed" in {
+    NestedPipeTest.main(Array.empty)
+  }
 }
