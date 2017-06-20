@@ -134,7 +134,7 @@ class MAGCore(
   val wrPhase = Module(new SRFF())
   wrPhase.io.input.asyn_reset := false.B
 
-  val burstVld = ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
+  val burstVld = io.enable & ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
   val dramReady = io.dram.cmd.ready
 
   // For blocking calls, create a new 'issued' signal. This wire is high if we have

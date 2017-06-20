@@ -75,7 +75,8 @@ class Fringe(
 
   val command = regs.io.argIns(0)   // commandReg = first argIn
   val curStatus = regs.io.argIns(1) // current status
-  io.enable := command(0) & ~curStatus(0)          // enable = LSB of first argIn
+  val localEnable = command(0) & ~curStatus(0)          // enable = LSB of first argIn
+  io.enable := localEnable
   io.argIns.zipWithIndex.foreach{case (p, i) => p := regs.io.argIns(i+2)}
 
   val depulser = Module(new Depulser())
@@ -102,7 +103,11 @@ class Fringe(
   val magConfig = Wire(new MAGOpcode())
   magConfig.scatterGather := false.B
   mag.io.config := magConfig
-  mag.io.enable := io.aws_top_enable
+  if (FringeGlobals.target == "aws") {
+    mag.io.enable := io.aws_top_enable
+  } else {
+    mag.io.enable := localEnable
+  }
   mag.io.app <> io.memStreams
   mag.io.dram <> io.dram
 
