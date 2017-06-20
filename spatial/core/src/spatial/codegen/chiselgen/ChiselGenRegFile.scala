@@ -55,17 +55,17 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
           case _ => 1
         }
         if (depth == 1) {
-          emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new templates.ShiftRegFile(List($dims), 1, ${writerInfo.map{_._2}.reduce{_+_}}, false, $width))""")
-          emitGlobalModule(s"${quote(lhs)}_$i.io.dump_en := false.B")
+          emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.ShiftRegFile(List(${getConstValues(dims)}), 1, ${writerInfo.map{_._2}.reduce{_+_}}, false, $width))""")
+          emitGlobalModule(src"${lhs}_$i.io.dump_en := false.B")
         } else {
           nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-          emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new NBufShiftRegFile(List($dims), 1, $depth, Map(${parInfo.mkString(",")}), $width))""")
+          emitGlobalModule(src"""val ${lhs}_$i = Module(new NBufShiftRegFile(List(${getConstValues(dims)}), 1, $depth, Map(${parInfo.mkString(",")}), $width))""")
         }
         resettersOf(lhs).indices.foreach{ i => emitGlobalWire(src"""val ${lhs}_manual_reset_$i = Wire(Bool())""")}
         if (resettersOf(lhs).length > 0) {
           emitGlobalModule(src"""val ${lhs}_manual_reset = ${resettersOf(lhs).indices.map{i => src"${lhs}_manual_reset_$i"}.mkString(" | ")}""")
-          emitGlobalModule(src"""${quote(lhs)}_$i.io.reset := ${lhs}_manual_reset | reset""")
-        } else {emitGlobalModule(s"${quote(lhs)}_$i.io.reset := reset")}
+          emitGlobalModule(src"""${lhs}_$i.io.reset := ${lhs}_manual_reset | reset""")
+        } else {emitGlobalModule(src"${lhs}_$i.io.reset := reset")}
 
       }
 
@@ -124,9 +124,10 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         case a: FixPtType[_,_,_] => a.fracBits
         case _ => 0
       }
+      val lut_consts = getConstValues(init)
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
         val numReaders = readersOf(lhs).filter{read => dispatchOf(read, lhs) contains i}.length
-        emitGlobalModule(s"""val ${quote(lhs)}_$i = Module(new LUT(List($dims), List(${init}), ${numReaders}, $width, $f))""")
+        emitGlobalModule(src"""val ${lhs}_$i = Module(new LUT(List($dims), List(${lut_consts.toList}), ${numReaders}, $width, $f))""")
       }
         // } else {
         //   nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
