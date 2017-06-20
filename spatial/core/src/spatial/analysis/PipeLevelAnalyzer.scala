@@ -1,5 +1,11 @@
 package spatial.analysis
 
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+
 /**
   * Basic control style annotation checking / fixing.
   * Also includes other high level sanity checks.
@@ -9,8 +15,6 @@ package spatial.analysis
   *   2. Control nodes are not allowed within state machine termination or state transition functions
   */
 trait PipeLevelAnalyzer extends SpatialTraversal {
-  import IR._
-
   override val name = "Pipe Level Analyzer"
   override val recurse = Default
 
@@ -50,17 +54,17 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
       case _:OpForeach => annotateControl(lhs, isOuter)
       case op:OpReduce[_] =>
         annotateControl(lhs, isOuter)
-        if (containsControl(op.reduce)) new ControlInReductionError(lhs.ctx)
+        if (containsControl(op.reduce)) new spatial.ControlInReductionError(lhs.ctx)
       case op:OpMemReduce[_,_] =>
         annotateControl(lhs, true)
-        if (containsControl(op.reduce)) new ControlInReductionError(lhs.ctx)
+        if (containsControl(op.reduce)) new spatial.ControlInReductionError(lhs.ctx)
       case op:StateMachine[_] =>
         annotateControl(lhs, isOuter)
-        if (hasControlNodes(op.notDone))   new ControlInNotDoneError(lhs.ctx)
-        if (hasControlNodes(op.nextState)) new ControlInNextStateError(lhs.ctx)
+        if (hasControlNodes(op.notDone))   new spatial.ControlInNotDoneError(lhs.ctx)
+        if (hasControlNodes(op.nextState)) new spatial.ControlInNextStateError(lhs.ctx)
 
-      case e: DenseTransfer[_,_] => annotateLeafControl(lhs)
-      case e: SparseTransfer[_]  => annotateLeafControl(lhs)
+      case _: DenseTransfer[_,_] => annotateLeafControl(lhs)
+      case _: SparseTransfer[_]  => annotateLeafControl(lhs)
 
       case _ =>
     }

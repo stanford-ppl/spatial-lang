@@ -1,14 +1,14 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.LineBufferExp
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.SpatialExp
+
 
 trait ChiselGenLineBuffer extends ChiselGenController {
-  val IR: SpatialExp
-  import IR._
-
   private var linebufs: List[Sym[LineBufferNew[_]]]  = List()
 
   override def quote(s: Exp[_]): String = {
@@ -17,7 +17,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         case lhs: Sym[_] =>
           lhs match {
             case Def(e: LineBufferNew[_]) =>
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("linebuf")}"""
+              s"""x${lhs.id}_${lhs.name.getOrElse("linebuf")}"""
             case _ =>
               super.quote(s)
           }

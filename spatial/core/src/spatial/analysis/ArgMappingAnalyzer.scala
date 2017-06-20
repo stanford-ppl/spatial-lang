@@ -1,12 +1,13 @@
 package spatial.analysis
 
+import argon.core._
 import argon.traversal.CompilerPass
-import spatial._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait ArgMappingAnalyzer extends CompilerPass {
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Arg Analyzer"
 
   def memStreams: Set[(Exp[_], Int, Int)]

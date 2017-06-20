@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object AES extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+
 
   /*
   TODO: Optimize/parallelize many of the memory accesses here and pipeline as much as possible
@@ -225,7 +225,7 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+
 
   /*
 
@@ -384,7 +384,7 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+
 
   /*
            ←    COLS     →   
@@ -464,7 +464,7 @@ object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
                                                                                                                              
@@ -579,7 +579,7 @@ object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object NW extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
   
@@ -678,7 +678,7 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
       // Read score matrix
       val b_addr = Reg[Int](length)
       val a_addr = Reg[Int](length)
-      val done_backtrack = Reg[Bool](false)
+      val done_backtrack = Reg[Bit](false)
       FSM[Int](state => state != doneState) { state =>
         if (state == traverseState) {
           if (score_matrix(b_addr,a_addr).ptr == ALIGN.to[Int16]) {
@@ -758,7 +758,7 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
   
@@ -876,7 +876,7 @@ object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
   
@@ -1047,7 +1047,7 @@ object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object KMP extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
   
@@ -1086,7 +1086,7 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
       val k = Reg[Int](0)
       kmp_next(0) = 0
       Sequential.Foreach(1 until PATTERN_SIZE by 1) { q => 
-        // val whileCond = Reg[Bool](false)
+        // val whileCond = Reg[Bit](false)
         FSM[Int](state => state != 1) { state => 
           // whileCond := (k > 0) && (pattern_sram(k) != pattern_sram(q))
           if ((k > 0) && (pattern_sram(k) != pattern_sram(q))) k := 0 // TODO: Will it always bump back to 0 in this step or should it really be kmp_next(q)?
@@ -1098,7 +1098,7 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
       // Scan string
       val q = Reg[Int](0)
       Sequential.Foreach(0 until STRING_SIZE) { i => 
-        // val whileCond = Reg[Bool](false) 
+        // val whileCond = Reg[Bit](false)
         FSM[Int](state => state != 1) { state => 
           // whileCond := (q > 0) && (pattern_sram(i) != pattern_sram(q))
           if ((q > 0) && (string_sram(i) != pattern_sram(q))) q := kmp_next(q)
@@ -1129,7 +1129,7 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object GEMM_NCubed extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
                                                              
@@ -1184,7 +1184,7 @@ object GEMM_NCubed extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object GEMM_Blocked extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*
                                                              
@@ -1246,7 +1246,7 @@ object GEMM_Blocked extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*                                                                                                  
                               |     |                                                                                                                                                                                        
@@ -1346,7 +1346,7 @@ object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*                                                                                                  
     TODO: Cartoon of what this is doing                                                         
@@ -1364,8 +1364,8 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
     val BUCKET_SIZE = NUM_BLOCKS*RADIX
     val SCAN_BLOCK = 16
     val SCAN_RADIX = BUCKET_SIZE/SCAN_BLOCK
-    val a = false.to[Bool]
-    val b = true.to[Bool]
+    val a = false.to[Bit]
+    val b = true.to[Bit]
 
     val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_data.csv", "\n")
 
@@ -1378,7 +1378,7 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
       val b_sram = SRAM[Int](numel)
       val bucket_sram = SRAM[Int](BUCKET_SIZE)
       val sum_sram = SRAM[Int](SCAN_RADIX)
-      val valid_buffer = Reg[Bool](false)
+      val valid_buffer = Reg[Bit](false)
       
       a_sram load data_dram
 
@@ -1492,7 +1492,7 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object SPMV_CRS extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+
 
  /*                                                                                                  
    Sparse Matrix is the IEEE 494 bus interconnect matrix from UF Sparse Datasets   
@@ -1581,7 +1581,7 @@ object SPMV_CRS extends SpatialApp { // Regression (Sparse) // Args: none
 }
 
 object SPMV_ELL extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+
 
  /*                                                                                                  
    Sparse Matrix is the IEEE 494 bus interconnect matrix from UF Sparse Datasets   
@@ -1662,8 +1662,8 @@ object SPMV_ELL extends SpatialApp { // Regression (Sparse) // Args: none
   }
 }
 
+
 object Backprop extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
 
  /*                                                                                                  
     Concerns: 
@@ -2037,7 +2037,7 @@ object Backprop extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*                                                                                                  
 
@@ -2132,7 +2132,7 @@ object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+
 
  /*                                                                                                  
     Concerns: Not sure why machsuite makes a data_x and DATA_x when they only dump values from one row of DATA_x to data_x and back
@@ -2393,7 +2393,7 @@ object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+
 
  /*                                                                                                  
 
@@ -2499,7 +2499,7 @@ object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
 
 
 object BFS_Queue extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+
 
  /*                                                                                                  
           ________________

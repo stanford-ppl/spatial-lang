@@ -1,13 +1,17 @@
 package spatial.analysis
 
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
 import spatial.models.LatencyModel
+import spatial.nodes._
+import spatial.utils._
 
 import scala.collection.mutable
 
 trait ModelingTraversal extends SpatialTraversal { traversal =>
-  import IR._
-
-  lazy val latencyModel = new LatencyModel{val IR: traversal.IR.type = traversal.IR }
+  lazy val latencyModel = new LatencyModel{ }
 
   protected override def preprocess[S: Type](block: Block[S]) = {
     // latencyOf.updateModel(target.latencyModel) // TODO: Update latency model with target-specific values
@@ -66,7 +70,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
   def pipeLatencies(b: Block[_], oos: Map[Exp[_],Long] = Map.empty): (Map[Exp[_],Long], Long) = {
     val scope = getStages(b).filterNot(s => isGlobal(s))
-                            .filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
+                            .filter{e => e.tp == UnitType || Bits.unapply(e.tp).isDefined }
                             .map(_.asInstanceOf[Exp[_]]).toSet
 
     val localReads  = scope.collect{case reader @ LocalReader(reads) => reader -> reads.head.mem }

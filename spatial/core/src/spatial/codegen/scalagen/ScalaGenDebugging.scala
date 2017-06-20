@@ -1,12 +1,11 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.SpatialExp
-import spatial.api.DebuggingExp
+import argon.core._
+import spatial.aliases._
+import spatial.nodes._
 
 trait ScalaGenDebugging extends ScalaCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case PrintIf(en,msg)             => emit(src"val $lhs = if ($en) System.out.print($msg)")
@@ -15,4 +14,5 @@ trait ScalaGenDebugging extends ScalaCodegen {
     case AssertIf(en,cond,None)      => emit(src"val $lhs = if ($en) assert($cond)")
     case _ => super.emitNode(lhs, rhs)
   }
+
 }

@@ -1,8 +1,13 @@
 package spatial.analysis
 
-trait ReductionAnalyzer extends SpatialTraversal {
-  import IR._
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
+trait ReductionAnalyzer extends SpatialTraversal {
   override val name = "Reduction Analyzer"
   override val recurse = Always
 

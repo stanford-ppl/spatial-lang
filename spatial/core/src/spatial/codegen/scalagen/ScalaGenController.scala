@@ -1,13 +1,13 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.SpatialExp
-import spatial.api.ControllerExp
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenMemories {
-  val IR: SpatialExp
-  import IR._
-
   def localMems: List[Exp[_]]
 
   private def emitNestedLoop(lhs: Exp[_], cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
@@ -116,17 +116,19 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       dumpBufferedOuts(lhs)
       emit(src"/** END PARALLEL PIPE $lhs **/")
 
-    case OpForeach(cchain, func, iters) =>
+    case OpForeach(ens, cchain, func, iters) =>
       emit(src"/** BEGIN FOREACH $lhs **/")
-      open(src"val $lhs = {")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
         emitNestedLoop(lhs, cchain, iters){ emitBlock(func) }
       close("}")
       dumpBufferedOuts(lhs)
       emit(src"/** END FOREACH $lhs **/")
 
-    case OpReduce(cchain, accum, map, load, reduce, store, zero, fold, rV, iters) =>
+    case OpReduce(ens, cchain, accum, map, load, reduce, store, zero, fold, rV, iters) =>
       emit(src"/** BEGIN REDUCE $lhs **/")
-      open(src"val $lhs = {")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
       emitNestedLoop(lhs, cchain, iters){
         visitBlock(map)
         visitBlock(load)
@@ -139,9 +141,10 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       dumpBufferedOuts(lhs)
       emit(src"/** END REDUCE $lhs **/")
 
-    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) =>
+    case OpMemReduce(ens, cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) =>
       emit(src"/** BEGIN MEM REDUCE $lhs **/")
-      open(src"val $lhs = {")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
       emitNestedLoop(lhs, cchainMap, itersMap){
         visitBlock(map)
         emitNestedLoop(lhs, cchainRed, itersRed){

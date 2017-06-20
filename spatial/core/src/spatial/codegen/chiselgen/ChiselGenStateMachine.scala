@@ -1,14 +1,13 @@
 package spatial.codegen.chiselgen
 
+import argon.core._
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.StateMachineExp
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
-import spatial.SpatialExp
 
 trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
-  val IR: SpatialExp
-  import IR._
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -51,7 +50,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emitGlobalWire(src"val $state = Wire(SInt(32.W))")
       emit(src"$state := ${lhs}_sm.io.output.state")
       emit(src"${lhs}_sm.io.input.doneCondition := ~${notDone.result}")
-      val extraEn = if (ens.length > 0) {src"""List(${ens.map(quote).mkString(",")}).map(en=>en).reduce{_&&_}"""} else {"true.B"}
+      val extraEn = if (ens.length > 0) {src"""List($ens).map(en=>en).reduce{_&&_}"""} else {"true.B"}
       emit(src"${lhs}_mask := ${extraEn}")
       
     case _ => super.emitNode(lhs,rhs)

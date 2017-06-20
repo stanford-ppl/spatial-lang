@@ -1,18 +1,19 @@
 package spatial.codegen.scalagen
 
-import spatial.SpatialExp
+import argon.core._
 import org.virtualized.SourceContext
+import spatial.aliases._
+import spatial.nodes._
+import spatial.utils._
 
 trait ScalaGenLUTs extends ScalaGenMemories {
-  val IR: SpatialExp
-  import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: LUTType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@LUTNew(dims,elems) => emitMem(lhs, src"""$lhs = Array[${op.mT}](${elems.map(quote).mkString(",")})""")
+    case op@LUTNew(dims,elems) => emitMem(lhs, src"""$lhs = Array[${op.mT}]($elems)""")
     case op@LUTLoad(rf,inds,en) =>
       val dims = dimsOf(rf).map(int32(_))
       open(src"val $lhs = {")

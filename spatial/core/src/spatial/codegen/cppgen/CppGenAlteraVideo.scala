@@ -1,15 +1,11 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
-import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
-import spatial.SpatialExp
+import argon.core._
+import spatial.aliases._
+import spatial.nodes._
 
 trait CppGenAlteraVideo extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
-
 
   // override def quote(s: Exp[_]): String = {
   //   s match {
@@ -17,8 +13,7 @@ trait CppGenAlteraVideo extends CppCodegen {
   //     case _ => super.quote(s)
 
   //   }
-  // } 
-
+  // }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case AxiMSNew() =>

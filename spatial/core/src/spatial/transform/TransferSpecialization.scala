@@ -1,12 +1,11 @@
 package spatial.transform
 
+import argon.core._
 import argon.transform.ForwardTransformer
-import spatial.SpatialExp
+import spatial.aliases._
+import spatial.nodes._
 
 trait TransferSpecialization extends ForwardTransformer {
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Transfer Specialization"
 
   override def transform[T: Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {

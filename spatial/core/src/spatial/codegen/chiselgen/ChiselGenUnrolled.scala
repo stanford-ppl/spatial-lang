@@ -1,18 +1,17 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp 
-import spatial.SpatialExp
-import scala.collection.mutable.HashMap
+
 import spatial.targets.DE1._
 
 
 trait ChiselGenUnrolled extends ChiselGenController {
-  val IR: SpatialExp
-  import IR._
-
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -22,8 +21,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
           rhs match {
             case e: UnrolledForeach=> s"x${lhs.id}_unrForeach"
             case e: UnrolledReduce[_,_] => s"x${lhs.id}_unrRed"
-            case e: ParSRAMLoad[_] => s"""x${lhs.id}_parLd${nameOf(lhs).getOrElse("")}"""
-            case e: ParSRAMStore[_] => s"""x${lhs.id}_parSt${nameOf(lhs).getOrElse("")}"""
+            case e: ParSRAMLoad[_] => s"""x${lhs.id}_parLd${lhs.name.getOrElse("")}"""
+            case e: ParSRAMStore[_] => s"""x${lhs.id}_parSt${lhs.name.getOrElse("")}"""
             case e: ParFIFODeq[_] => s"x${lhs.id}_parDeq"
             case e: ParFIFOEnq[_] => s"x${lhs.id}_parEnq"
             case _ => super.quote(s)
@@ -95,7 +94,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(src"${lhs}_mask := $en")
       controllerStack.pop()
 
-    case UnrolledReduce(ens,cchain,accum,func,_,iters,valids,rV) =>
+    case UnrolledReduce(ens,cchain,accum,func,iters,valids) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten))
@@ -213,9 +212,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
           emit(src"""${lhs}_wVec($i).addr($j) := ${a}.r """)
         }
       }
-      duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
-        val p = portsOf(lhs, sram, i).mkString(",")
-        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, List(${p}))""")
+      duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) =>
+        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, List(${portsOf(lhs, sram, i)}))""")
       }
 
     case ParFIFODeq(fifo, ens) =>

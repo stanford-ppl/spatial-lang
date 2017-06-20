@@ -1,17 +1,18 @@
 package spatial.analysis
 
+import argon.core._
 import argon.traversal.CompilerPass
-import spatial._
 import org.virtualized.SourceContext
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait MemoryAnalyzer extends CompilerPass {
-  val IR: SpatialExp
-  import IR._
-
-  def localMems: Seq[Exp[_]]
-
   override val name = "Memory Analyzer"
   var enableWarn = true
+
+  def localMems: Seq[Exp[_]]
 
   type Channels = (Memory, Int)
   implicit class ChannelOps(x: Channels) {
@@ -37,7 +38,7 @@ trait MemoryAnalyzer extends CompilerPass {
     val dupB = b.duplicates
 
     val memC = if (memA.nDims != memB.nDims) {
-      new DimensionMismatchError(mem, memA.nDims, memB.nDims)(mem.ctx)
+      new spatial.DimensionMismatchError(mem, memA.nDims, memB.nDims)(mem.ctx, state)
       BankedMemory(List.fill(memA.nDims)(NoBanking), Math.max(memA.depth,memB.depth), memA.isAccum || memB.isAccum)
     }
     else (memA,memB) match {
@@ -473,7 +474,7 @@ trait MemoryAnalyzer extends CompilerPass {
       case _:StreamInType[_]  => bankStream(mem)
       case _:StreamOutType[_] => bankStream(mem)
       case _:BufferedOutType[_] => bankBufferOut(mem)
-      case tp => throw new UndefinedBankingException(tp)(mem.ctx)
+      case tp => throw new spatial.UndefinedBankingException(tp)(mem.ctx, state)
     }}
 
     shouldWarn = false // Don't warn user after first run (avoid duplicate warnings)

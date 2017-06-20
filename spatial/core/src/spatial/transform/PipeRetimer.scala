@@ -1,15 +1,19 @@
 package spatial.transform
 
-import scala.collection.mutable
+import argon.core._
+import argon.nodes._
 import argon.transform.ForwardTransformer
-import spatial._
 import spatial.analysis.ModelingTraversal
+import spatial.aliases._
+import spatial.metadata._
 import spatial.models._
+import spatial.nodes._
+import spatial.utils._
+import spatial.SpatialConfig
+
+import scala.collection.mutable
 
 trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Pipeline Retimer"
   override def shouldRun = !SpatialConfig.enablePIR
 
@@ -35,7 +39,9 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
     def retimeReaders[U](input: Exp[U]) {
       def valueDelay[T](size: Int, data: Exp[T])(implicit ctx: SrcCtx): Exp[T] = data.tp match {
         case Bits(bits) =>
-          value_delay_alloc[T](size, data)(data.tp, bits, ctx)
+          implicit val mT = data.tp
+          implicit val bT = bits.asInstanceOf[Bits[T]]
+          Delays.delayLine[T](size, data)
         case _ => throw new Exception("Unexpected register type")
       }
 
@@ -72,7 +78,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
 
 
   // Substitution scope must be isolated so that substitutions on outer symbols (e.g. bound iterators) do not escape
-  private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = isolateSubstScope{ inlineBlock(block, {stms =>
+  private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = isolateSubstScope{ inlineBlockWith(block, {stms =>
     dbg(c"Retiming block $block")
 
     // perform recursive search of inputs to determine cumulative symbol latency
@@ -143,7 +149,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
     }
 
     val result = typ[T] match {
-      case VoidType => void
+      case UnitType => unit
       case _ => f(block.result)
     }
     result.asInstanceOf[Exp[T]]
@@ -167,15 +173,14 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
     result
   }
 
-  override def apply[T:Type](b: Block[T]): Exp[T] = {
+  override protected def inlineBlock[T](b: Block[T]): Exp[T] = {
     val doWrap = retimeBlocks.headOption.getOrElse(false)
     if (retimeBlocks.nonEmpty) retimeBlocks = retimeBlocks.drop(1)
     dbgs(c"Transforming Block $b [$retimeBlocks]")
     if (doWrap) {
-      val result = retimeBlock(b)(mtyp(b.tp),ctx.get)
-      result
+      retimeBlock(b)(mtyp(b.tp),ctx.get)
     }
-    else super.apply(b)
+    else super.inlineBlock(b)
   }
 
   private def transformCtrl[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
