@@ -1,4 +1,4 @@
-module SRAMVerilog
+module SRAMVerilogSim
 #(
     parameter WORDS = 1024,
     parameter AWIDTH = 10,
@@ -16,8 +16,13 @@ module SRAMVerilog
 
     reg [DWIDTH-1:0] mem [0:WORDS-1];
 
+    always @(negedge clk) begin
+      if (wen) begin
+        mem[waddr] <= wdata;
+      end
+    end
+
     always @(posedge clk) begin
-        if (wen) mem[waddr] <= wdata;
         rdata <= mem[raddr];
     end
 
