@@ -661,6 +661,7 @@
 ./chiselgen/template-level/fringeDE1SoC/DE1_SoC_Computer.qpf
 ./chiselgen/template-level/fringeDE1SoC/VGA_Subsystem.qsys
 ./chiselgen/template-level/fringeDE1SoC/Top.fir
+./chiselgen/template-level/fringeHW/FringeGlobals.scala
 ./chiselgen/template-level/fringeHW/CommonMain.scala
 ./chiselgen/template-level/fringeHW/Fringe.scala
 ./chiselgen/template-level/fringeHW/Pulser.scala
@@ -794,7 +795,7 @@
 ./chiselgen/template-level/fringeVCS/DRAMSim2/docs/classes.png
 ./chiselgen/template-level/fringeVCS/DRAMSim2/docs/classes_relationships.dia
 ./chiselgen/template-level/fringeVCS/DRAMSim2/CommandQueue.h
-./chiselgen/template-level/fringeVCS/SRAMVerilog.v
+./chiselgen/template-level/fringeVCS/SRAMVerilogSim.v
 ./chiselgen/template-level/fringeVCS/sim.cpp
 ./chiselgen/template-level/fringeVCS/DRAM.h
 ./chiselgen/template-level/fringeVCS/CoalescingCache.h
@@ -802,6 +803,7 @@
 ./chiselgen/template-level/fringeVCS/Streams.h
 ./chiselgen/template-level/fringeVCS/vc_hdrs.h
 ./chiselgen/template-level/fringeVCS/Top-harness.sv
+./chiselgen/template-level/fringeAWS/SRAMVerilogAWS.v
 ./chiselgen/template-level/build.sbt
 ./chiselgen/template-level/project/build.properties
 ./chiselgen/altera-goodies/altera_up_avalon_video_dma_ctrl_addr_trans/altera_up_avalon_video_dma_ctrl_addr_trans.v
