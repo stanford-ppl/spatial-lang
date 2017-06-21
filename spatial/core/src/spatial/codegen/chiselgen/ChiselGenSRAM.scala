@@ -133,7 +133,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case FixPtType(s,d,f) => src"new FixedPoint($s, $d, $f)"
     case IntType() => "UInt(32.W)"
     case LongType() => "UInt(32.W)"
-    case FltPtType(g,e) => src"DspReal()"
+    case FltPtType(g,e) => src"new FloatingPoint($e, $g)"
     case BooleanType => "Bool()"
     case tp: VectorType[_] => src"Vec(${tp.width}, ${newWire(tp.typeArguments.head)})"
     case tp: StructType[_] => src"UInt(${bitWidth(tp)}.W)"

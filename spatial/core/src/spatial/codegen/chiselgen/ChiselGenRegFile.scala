@@ -143,6 +143,13 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       emit(src"""val ${lhs}_id = ${lut}_${dispatch}.connectRPort(List(${inds.map{a => src"${a}.r"}}), $en & ${parent}_datapath_en.D(${symDelay(lhs)}))""")
       emit(src"""${lhs}.raw := ${lut}_${dispatch}.io.data_out(${lhs}_id).raw""")
 
+    case op@VarRegNew(init)    => 
+    case VarRegRead(reg)       => 
+    case VarRegWrite(reg,v,en) => 
+    case Print(x)   => 
+    case Println(x) => 
+    case PrintlnIf(_,_) => 
+
     case _ => super.emitNode(lhs, rhs)
   }
 

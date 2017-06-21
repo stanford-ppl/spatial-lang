@@ -41,6 +41,7 @@ object ops {
     def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
       chisel3.util.Cat(b.map{_.raw}).FP(s, d, f)
     }
+
   }
 
   implicit class BoolOps(val b:Bool) {
@@ -283,6 +284,9 @@ object ops {
     def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
       Utils.FixedPoint(s, d, f, b)
     }
+    def FlP(m: Int, e: Int): FloatingPoint = {
+      Utils.FloatPoint(m, e, b)
+    }
 
     def cast(c: FixedPoint): Unit = {
       c.r := Utils.FixedPoint(c.s,c.d,c.f,b).r
@@ -299,6 +303,9 @@ object ops {
     def FP(s: Int, d: Int, f: Int): FixedPoint = {
       Utils.FixedPoint(s, d, f, b)
     }
+    def FlP(m: Int, e: Int): FloatingPoint = {
+      Utils.FloatPoint(m, e, b)
+    }
   }
 
   implicit class DoubleOps(val b: Double) {
@@ -307,6 +314,9 @@ object ops {
     }
     def FP(s: Int, d: Int, f: Int): FixedPoint = {
       Utils.FixedPoint(s, d, f, b)
+    }
+    def FlP(m: Int, e: Int): FloatingPoint = {
+      Utils.FloatPoint(m, e, b)
     }
   }
 }
@@ -374,6 +384,18 @@ object Utils {
       case i: SInt => cst.r := FixedPoint(s,d,f,i.asUInt).r
       case i: FixedPoint => cst.raw := i.raw
       case i: Int => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
+    }
+    cst
+  }
+
+  def FloatPoint[T](m: Int, e: Int, init: T): FloatingPoint = {
+    val cst = Wire(new FloatingPoint(m, e))
+    init match {
+      case i: Double => cst.raw := getFloatBits(i.toFloat).U
+      case i: Bool => cst.r := mux(i, getFloatBits(1f).U, getFloatBits(0f).U)
+      // case i: UInt => 
+      // case i: SInt => 
+      case i: Int => cst.raw := getFloatBits(i.toFloat).U
     }
     cst
   }

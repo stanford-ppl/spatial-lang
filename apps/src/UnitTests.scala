@@ -16,6 +16,7 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 32
 
     // Create HW accelerator
     Accel {
+      println("hi")
       Pipe { y := x + 4 }
     }
 
@@ -33,23 +34,31 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 32
   }
 }
 
-object FloatInOutArg extends SpatialApp {
+object FloatInOutArg extends SpatialApp { // Regression (Unit) // Args: 3.2752 -283.70
   import IR._
 
   type T = Float//FixPt[TRUE,_16,_16]
   @virtualize
   def main() {
 
-    val in = ArgIn[T]
-    val out = ArgOut[T]
+    val in1 = ArgIn[T]
+    val in2 = ArgIn[T]
+    val ffadd_out = ArgOut[T]
+    val ffmul_out = ArgOut[T]
 
-    setArg(in, args(0).to[T])
+    setArg(in1, args(0).to[T])
+    setArg(in2, args(1).to[T])
     Accel{
-      out := in + 4.5.to[T]
+      ffadd_out := in1 + in2
+      ffmul_out := in1 * in2
     }
 
-    val result = getArg(out)
-    println("Put in " + args(0).to[T] + ", got out " + result)
+    val ffadd_result = getArg(ffadd_out)
+    val ffmul_result = getArg(ffmul_out)
+    println("" + args(0).to[T] + " + " + args(1).to[T] + " == " + ffadd_result)
+    println("" + args(0).to[T] + " * " + args(1).to[T] + " == " + ffmul_result)
+    val cksum = (ffadd_result == (args(0).to[T] + args(1).to[T]) ) && (ffmul_result == (args(0).to[T] * args(1).to[T]) )
+    println("PASS: " + cksum + " (FloatInOutArg)")
   }
 
 }
