@@ -144,6 +144,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
         val inst = dispatchOf(lhs, reg).head // Reads should only have one index
         val port = portsOf(lhs, reg, inst)
         val duplicates = duplicatesOf(reg)
+        Console.println(s"working on $lhs $reg $inst $duplicates")
         if (duplicates(inst).isAccum) {
           reduceType(lhs) match {
             case Some(fps: ReduceFunction) => 

@@ -706,7 +706,9 @@ class FloatingPoint(val m: Int, val e: Int) extends Bundle {
 		}
 	}
 
-	// def /[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {}
+	// def /[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {
+
+	// }
 
 	// def %[T] (rawop: T): FloatingPoint = {}
 
@@ -714,52 +716,137 @@ class FloatingPoint(val m: Int, val e: Int) extends Bundle {
 
 	// def ceil[T] (): FloatingPoint = {}
 
-	// def >>[T] (shift: Int, sgnextend: Boolean = false): FloatingPoint = {}
+	def >>[T] (shift: Int, sgnextend: Boolean = false): FloatingPoint = {
+		val result = Wire(new FloatingPoint(m, e))
+		result.r := this.r >> shift
+		result
+	}
 	// def >>>[T] (shift: Int): FloatingPoint = {this.>>(shift, sgnextend = true)}
 
-	// def <<[T] (shift: Int): FloatingPoint = {}
+	def <<[T] (shift: Int, sgnextend: Boolean = false): FloatingPoint = {
+		val result = Wire(new FloatingPoint(m, e))
+		result.r := this.r << shift
+		result
+	}
 
-	// def <[T] (rawop: T): Bool = {}
+	def <[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := comp.io.lt
+				result
+		}
+	}
 
-	// def ^[T] (rawop: T): FloatingPoint = {}
+	def ===[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := comp.io.eq
+				result
+		}
+	}
 
-	// def &[T] (rawop: T): FloatingPoint = {}
+	def >[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := comp.io.gt
+				result
+		}
+	}
 
-	// def |[T] (rawop: T): FloatingPoint = {}
+	def >=[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := comp.io.gt | comp.io.eq
+				result
+		}
+	}
 
-	// def <=[T] (rawop: T): Bool = {}
-	
-	// def >[T] (rawop: T): Bool = {}
+	def <=[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := comp.io.lt | comp.io.eq
+				result
+		}
+	}
 
-	// def >=[T] (rawop: T): Bool = {}
+	def =/=[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := ~comp.io.eq
+				result
+		}
+	}
 
-	// def === [T](r: T): Bool = {}
+	def ^[T] (rawop: T): FloatingPoint = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(new FloatingPoint(m, e))
+				result.r := op.r ^ this.r
+				result
+		}
+	}
 
-	// def =/= [T](r: T): Bool = {}
+	def &[T] (rawop: T): FloatingPoint = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(new FloatingPoint(m, e))
+				result.r := op.r & this.r
+				result
+		}
+	}
+
+	def |[T] (rawop: T): FloatingPoint = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(new FloatingPoint(m, e))
+				result.r := op.r | this.r
+				result
+		}
+	}
 
 	// def isNeg (): Bool = {}
 
  //  def unary_-() : FloatingPoint = {}
 
-
-
-	// def * (op: FixedPoint): FixedPoint = {
-	// 	// Compute upcasted type
-	// 	val sign = op.s | s
-	// 	val d_prec = op.d + d
-	// 	val f_prec = op.f + f
-	// 	// Do math on UInts
-	// 	val r1 = Wire(new RawBits(d_prec + f_prec))
-	// 	this.storeRaw(r1)
-	// 	val r2 = Wire(new RawBits(d_prec + f_prec))
-	// 	op.storeRaw(r2)
-	// 	val rawResult = r1 * r2
-	// 	// Store to FixedPoint result
-	// 	val result = Wire(new FixedPoint(sign, scala.math.max(op.d, d), scala.math.max(op.f, f)))
-	// 	rawResult.storeFix(result)
-	// 	result.debug_overflow := Mux(rawResult.raw(0), true.B, false.B)
-	// 	result
-	// }
 
     override def cloneType = (new FloatingPoint(m,e)).asInstanceOf[this.type] // See chisel3 bug 358
 

@@ -34,7 +34,7 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 32
   }
 }
 
-object FloatInOutArg extends SpatialApp { // Regression (Unit) // Args: 3.2752 -283.70
+object FloatBasics extends SpatialApp { // Regression (Unit) // Args: 3.2752 -283.70
   import IR._
 
   type T = Float//FixPt[TRUE,_16,_16]
@@ -45,22 +45,52 @@ object FloatInOutArg extends SpatialApp { // Regression (Unit) // Args: 3.2752 -
     val in2 = ArgIn[T]
     val ffadd_out = ArgOut[T]
     val ffmul_out = ArgOut[T]
+    val ffsub_out = ArgOut[T]
+    val fflt_out = ArgOut[Boolean]
+    val ffgt_out = ArgOut[Boolean]
+    val ffeq_out = ArgOut[Boolean]
 
+    val dram1 = DRAM[T](16)
+    val dram2 = DRAM[T](16)
+
+    val array1 = Array.tabulate[T](16){i => i.to[T]}
+
+    setMem(dram1, array1)
     setArg(in1, args(0).to[T])
     setArg(in2, args(1).to[T])
     Accel{
+      val sram1 = SRAM[T](16)
       ffadd_out := in1 + in2
       ffmul_out := in1 * in2
+      ffsub_out := in1 - in2
+      fflt_out := in1 < in2
+      ffgt_out := in1 > in2
+      ffeq_out := in1 == in2
     }
 
     val ffadd_result = getArg(ffadd_out)
     val ffmul_result = getArg(ffmul_out)
-    println("" + args(0).to[T] + " + " + args(1).to[T] + " == " + ffadd_result)
-    println("" + args(0).to[T] + " * " + args(1).to[T] + " == " + ffmul_result)
-    val cksum = (ffadd_result == (args(0).to[T] + args(1).to[T]) ) && (ffmul_result == (args(0).to[T] * args(1).to[T]) )
-    println("PASS: " + cksum + " (FloatInOutArg)")
-  }
+    val ffsub_result = getArg(ffsub_out)
+    val fflt_result = getArg(fflt_out)
+    val ffgt_result = getArg(ffgt_out)
+    val ffeq_result = getArg(ffeq_out)
 
+    val ffadd_gold = args(0).to[T] + args(1).to[T]
+    val ffmul_gold = args(0).to[T] * args(1).to[T]
+    val ffsub_gold = args(0).to[T] - args(1).to[T]
+    val ffgt_gold = args(0).to[T] > args(1).to[T]
+    val fflt_gold = args(0).to[T] < args(1).to[T]
+    val ffeq_gold = args(0).to[T] == args(1).to[T]
+
+    println("sum: " + ffadd_result + " == " + ffadd_gold)
+    println("prod: " + ffmul_result + " == " + ffmul_gold)
+    println("sub: " + ffsub_result + " == " + ffsub_gold)
+    println("gt: " + ffgt_result + " == " + ffgt_gold)
+    println("lt: " + fflt_result + " == " + fflt_gold)
+    println("eq: " + ffeq_result + " == " + ffeq_gold)
+    val cksum = ffadd_result == ffadd_gold && ffmul_result == ffmul_gold && ffsub_result == ffsub_gold && fflt_result == fflt_gold && ffgt_result == ffgt_gold && ffeq_result == ffeq_gold
+    println("PASS: " + cksum + " (FloatBasics)")
+  }
 }
 
 object TensorLoadStore extends SpatialApp { // Regression (Unit) // Args: 32 4 4 4 4
@@ -1823,7 +1853,7 @@ object DotProductFSM extends SpatialApp { // Regression (Unit) // Args: none
   }
 }
 
-object CtrlEnable extends SpatialApp { // DISABLED Regression (Unit) // Args: 9
+object CtrlEnable extends SpatialApp { // Regression (Unit) // Args: 9
 
 
   @virtualize
