@@ -31,19 +31,20 @@ case class RegReadCSE(var IR: State) extends ForwardTransformer {
 
       val writers = writersOf(reg).map{case (n,c) => (f(n), (f(c._1),c._2)) }.distinct
       val readers = readersOf(reg).map{case (n,c) => (f(n), (f(c._1),c._2)) }.distinct
-      val accesses = writers ++ readers
+      val accesses = (writers ++ readers).map(_.node).distinct
 
       dbg("")
       dbg(u"$reg")
+      dbg(c"CSEd duplicates: $csed")
       accesses.foreach{access =>
         dispatchOf.get(access, reg).foreach{orig =>
           dispatchOf(access, reg) = orig.flatMap{o => mapping.get(o) }
         }
         portsOf.get(access,reg).foreach{orig =>
-          portsOf(access, reg) = orig.flatMap{case (i,ps) => mapping.get(i).map{i2 => i2 -> ps} }
+          portsOf.set(access, reg, orig.flatMap{case (i,ps) => mapping.get(i).map{i2 => i2 -> ps} })
         }
 
-        dbg(u"${str(access.node)}: " + dispatchOf.get(access, reg).map(_.toString).getOrElse(""))
+        dbg(u"${str(access)}: " + dispatchOf.get(access, reg).map(_.toString).getOrElse(""))
       }
     }
 

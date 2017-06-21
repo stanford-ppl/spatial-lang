@@ -99,6 +99,13 @@ CompilerException(1024, c"""Cannot handle trig functions inside of accel block! 
 }
 
 
+class EmptyDispatchException(lhs: Exp[_])(implicit state: State) extends
+CompilerException(1025, c"$lhs had empty dispatch information") {
+  error(s"Access:")
+  error(c"  ${str(lhs)}")
+  error(c"had empty dispatch information.")
+}
+
 
 // --- User exceptions
 object Nth {

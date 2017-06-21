@@ -617,6 +617,8 @@ object utils {
     case _        => !isControlNode(e) && !isAllocation(e) && !isStateless(e) && !isGlobal(e) && !isFringeNode(e)
   }
 
+  @stateful def isNestedPrimitive(e: Exp[_]): Boolean = (isSwitch(e) || isSwitchCase(e)) && isInnerControl(e)
+
   /** Accesses **/
   implicit class AccessOps(x: Access) {
     def node: Exp[_] = x._1
