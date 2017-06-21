@@ -74,6 +74,8 @@ case class AccessDispatch(mapping: Map[Exp[_], Set[Int]]) extends Metadata[Acces
   def get(access: Access, mem: Exp[_]): Option[Set[Int]] = { dispatchOf.get(access.node, mem) }
   def update(access: Access, mem: Exp[_], idxs: Set[Int]) { dispatchOf(access.node, mem) = idxs }
   def add(access: Access, mem: Exp[_], idx: Int) { dispatchOf.add(access.node, mem, idx) }
+
+  def clear(access: Access, mem: Exp[_]): Unit = { dispatchOf(access, mem) = Set[Int]() }
 }
 
 /**
@@ -120,6 +122,14 @@ case class PortIndex(mapping: Map[Exp[_], Map[Int, Set[Int]]]) extends Metadata[
   def apply(access: Access, mem: Exp[_], idx: Int): Set[Int] = { portsOf(access.node, mem, idx) }
   def update(access: Access, mem: Exp[_], idx: Int, ports: Set[Int]): Unit = { portsOf(access.node, mem, idx) = ports }
   def update(access: Access, mem: Exp[_], ports: Map[Int,Set[Int]]): Unit = { portsOf(access.node, mem) = ports }
+
+  def set(access: Exp[_], mem: Exp[_], ports: Map[Int,Set[Int]]): Unit = portsOf.get(access) match {
+    case Some(map) =>
+      val newMap = map.filterKeys(_ != mem) + (mem -> ports)
+      metadata.add(access, PortIndex(newMap))
+    case None =>
+      metadata.add(access, PortIndex(Map(mem -> ports)))
+  }
 }
 
 

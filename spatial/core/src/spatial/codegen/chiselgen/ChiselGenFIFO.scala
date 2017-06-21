@@ -74,7 +74,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@FIFONew(_)   =>
-      val size = sizeOf(lhs) match {case Const(c: BigInt) => c.toInt }
+      val size = sizeOf(lhs) match {case Const(c: BigDecimal) => c.toInt }
       // ASSERT that all pars are the same!
       // Console.println(s"Working on $lhs, readers ${readersOf(lhs)}")
       val rPar = readersOf(lhs).map { r => 
