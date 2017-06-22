@@ -16,6 +16,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
   var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
   var cchainPassMap = new scala.collection.mutable.HashMap[Exp[_], Exp[_]] // Map from a cchain to its ctrl node, for computing suffix on a cchain before we enter the ctrler
 
+  // Helper for getting the BigDecimals inside of Const exps for things like dims, when we know that we need the numbers quoted and not chisel types
+  protected def getConstValues(all: Seq[Exp[_]]): Seq[BigDecimal] = {
+    all.map{i => getConstValue(i)} 
+  }
+  protected def getConstValue(one: Exp[_]): BigDecimal = {
+    one match {case Const(c: BigDecimal) => c }
+  }
+
   protected def computeSuffix(s: Bound[_]): String = {
     var result = super.quote(s)
     if (itersMap.contains(s)) {
@@ -125,6 +133,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case FixPtType(s,d,f) => src"new FixedPoint($s, $d, $f)"
     case IntType() => "UInt(32.W)"
     case LongType() => "UInt(32.W)"
+    case FltPtType(g,e) => src"new FloatingPoint($e, $g)"
     case BooleanType => "Bool()"
     case tp: VectorType[_] => src"Vec(${tp.width}, ${newWire(tp.typeArguments.head)})"
     case tp: StructType[_] => src"UInt(${bitWidth(tp)}.W)"
@@ -233,13 +242,13 @@ trait ChiselGenSRAM extends ChiselCodegen {
           case DiagonalMemory(strides, banks, depth, isAccum) =>
             if (depth == 1) {
               openGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, """)
-              emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}}), List($strides),""")
+              emitGlobalModule(src"""List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),""")
               emitGlobalModule(src"""List($wPar), List($rPar), DiagonalMemory""")
               closeGlobalModule("))")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
               openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List($dimensions), $depth, $width,""")
-              emitGlobalModule(src"""List(${Array.fill(dimensions.length){s"$banks"}}), List($strides),""")
+              emitGlobalModule(src"""List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),""")
               emitGlobalModule(src"""List($wPar), List($rPar), """)
               emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), DiagonalMemory""")
               closeGlobalModule("))")

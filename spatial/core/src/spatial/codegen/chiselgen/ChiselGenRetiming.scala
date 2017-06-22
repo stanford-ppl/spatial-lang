@@ -15,7 +15,11 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
         case lhs: Sym[_] =>
           lhs match {
             case Def(DelayLine(size, data)) =>
-              s"${quote(data)}_D${size}"
+              data match {
+                case Const(_) => src"$data"
+                case _ => s"${quote(data)}_D${size}"
+              }
+              
             /*case Def(ShiftRegNew(size, init)) =>
               if (size == 1) s"x${lhs.id}_latch"
               else s"x${lhs.id}_rt$size"
@@ -40,14 +44,18 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
 
     case DelayLine(size, data) =>
       // emit(src"""val $lhs = Utils.delay($data, $size)""")
-      alphaconv_register(src"$lhs")
-      lhs.tp match {
-        case a:VectorType[_] =>
-          logRetime(src"$lhs", src"$data", size, isVec = true, vecWidth = a.width, wire = newWire(lhs.tp), isBool = false/*although what about vec of bools?*/)
-        case BooleanType() =>
-          logRetime(src"$lhs", src"$data", size, isVec = false, vecWidth = 0, wire = newWire(lhs.tp), isBool = true)
+      data match {
+        case Const(_) => 
         case _ =>
-          logRetime(src"$lhs", src"$data", size, isVec = false, vecWidth = 0, wire = newWire(lhs.tp), isBool = false)
+          alphaconv_register(src"$lhs")
+          lhs.tp match {
+            case a:VectorType[_] =>
+              logRetime(src"$lhs", src"$data", size, isVec = true, vecWidth = a.width, wire = newWire(lhs.tp), isBool = false/*although what about vec of bools?*/)
+            case BooleanType() =>
+              logRetime(src"$lhs", src"$data", size, isVec = false, vecWidth = 0, wire = newWire(lhs.tp), isBool = true)
+            case _ =>
+              logRetime(src"$lhs", src"$data", size, isVec = false, vecWidth = 0, wire = newWire(lhs.tp), isBool = false)
+          }
       }
 
     /*case ShiftRegNew(size, init) =>

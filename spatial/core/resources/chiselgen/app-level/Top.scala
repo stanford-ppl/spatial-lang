@@ -141,6 +141,7 @@ class Top(
   val addrWidth = log2Up(numRegs)
   val v = 16
   val topParams = TopParams(addrWidth, w, v, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, target)
+  FringeGlobals.target = target
 
   val io = target match {
     case "verilator"  => IO(new VerilatorInterface(topParams))
@@ -157,7 +158,7 @@ class Top(
   target match {
     case "verilator" | "vcs" =>
       // Simulation Fringe
-      val blockingDRAMIssue = true
+      val blockingDRAMIssue = false
       val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[VerilatorInterface]
 

@@ -10,7 +10,7 @@ all: dram sim
 
 sim:
 	export LM_LICENSE_FILE=27000@cadlic0.stanford.edu
-	vcs ${VCS_OPTS} -cpp ${CC} ${CC_OPTS} -o accel.bit.bin SRAMVerilog.v ${TOP}.v ${TOP}-harness.sv sim.cpp
+	vcs ${VCS_OPTS} -cpp ${CC} ${CC_OPTS} -o accel.bit.bin SRAMVerilogSim.v ${TOP}.v ${TOP}-harness.sv sim.cpp
 
 dram:
 	make -C DRAMSim2 libdramsim.so

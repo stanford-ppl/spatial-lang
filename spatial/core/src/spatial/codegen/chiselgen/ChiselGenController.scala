@@ -603,7 +603,11 @@ trait ChiselGenController extends ChiselGenCounter{
         } else { // More than one control node is children
           throw new Exception("Please put a pipe around your multiple controllers inside the if statement")
         }
-        if (Bits.unapply(op.mT).isDefined) {
+        val returns_const = lhs match {
+          case Const(_) => false
+          case _ => true
+        }
+        if (Bits.unapply(op.mT).isDefined & returns_const) {
           emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})")
           emit(src"$lhs.r := ${body.result}.r")
         }

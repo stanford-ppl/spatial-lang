@@ -119,7 +119,7 @@ aws-F1-hw:
 	rm -rf ${AWS_V_DIR}
 	# First use chisel to create the verilog
 	sbt "run-main top.Instantiator --verilog --testArgs aws"
-	cat chisel/template-level/fringeVCS/SRAMVerilog.v >> ${AWS_V_DIR}/Top.v
+	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${AWS_V_DIR}/Top.v
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/${app_name}
 	cp -r $(AWS_HOME)/hdk/cl/examples/cl_dram_dma $(AWS_HOME)/hdk/cl/examples/${app_name}

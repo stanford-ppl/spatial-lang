@@ -75,7 +75,7 @@ trait ChiselGenFILO extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@FILONew(_)   =>
-      val size = sizeOf(lhs) match { case Const(c: BigInt) => c.toInt }
+      val size = sizeOf(lhs) match { case Const(c: BigDecimal) => c.toInt }
       // ASSERT that all pars are the same!
       val rPar = readersOf(lhs).map { r => 
         r.node match {

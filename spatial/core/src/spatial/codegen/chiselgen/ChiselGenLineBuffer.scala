@@ -36,14 +36,14 @@ trait ChiselGenLineBuffer extends ChiselGenController {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LineBufferNew(rows, cols) =>
-      val row_rPar = s"$rows" // TODO: Do correct analysis here!
+      val row_rPar = src"${getConstValue(rows)}" // TODO: Do correct analysis here!
       val accessors = bufferControlInfo(lhs, 0).length
       val row_wPar = 1 // TODO: Do correct analysis here!
       val col_rPar = 1 // TODO: Do correct analysis here!
       val col_wPar = 1 // TODO: Do correct analysis here!
-      emitGlobalModule(s"""val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, 1, 
+      emitGlobalModule(src"""val ${lhs} = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, 1, 
         ${col_wPar}, ${col_rPar}, 
-        ${row_wPar}, ${row_rPar}, $accessors))  // Data type: ${remap(op.mT)}""")
+        ${row_wPar}, ${row_rPar}, $accessors))  // Data type: ${op.mT}""")
       emitGlobalModule(src"$lhs.io.reset := reset")
       linebufs = linebufs :+ lhs.asInstanceOf[Sym[LineBufferNew[_]]]
       
