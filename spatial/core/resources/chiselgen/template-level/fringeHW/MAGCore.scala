@@ -205,7 +205,7 @@ class MAGCore(
   sizeFifo.io.deqVld := burstCounter.io.done
   addrFifo.io.deqVld := Mux(scatterGather, ~ccache.io.full & ~sgWaitForDRAM, burstCounter.io.done)
   wdataFifo.io.deqVld := Mux(scatterGather, burstCounter.io.done & ~ccache.io.full,
-                             burstVld & isWrFifo.io.deq(0) & dramReady & ~issued)
+                          Mux(isSparse, wdataSelectCounter.io.done, true.B) & burstVld & isWrFifo.io.deq(0) & dramReady & ~issued)
 
   // Parse Metadata line
   def parseMetadataLine(m: Vec[UInt]) = {
