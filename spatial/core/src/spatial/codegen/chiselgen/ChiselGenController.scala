@@ -612,18 +612,19 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         // if (blockContents(body).length > 0) {
-        if (childrenOf(lhs).count(isControlNode) == 1) { // This is an outer pipe
+        // if (childrenOf(lhs).count(isControlNode) == 1) { // This is an outer pipe
+        if (levelOf(lhs) == OuterControl & childrenOf(lhs).count(isControlNode) == 1) { // This is an outer pipe
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitBlock(body)
           // Console.println(s"body is ${blockContents(body).collect{case s: Sym[_] => s}}")
           // emit(s"""// No control nodes to connect the done_sniff""")
           // emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
           // emit(src"""${lhs}_done_sniff := ${parent_kernel}_en // Route through""")
-        } else if (childrenOf(lhs).count(isControlNode) == 0) { // Body contains only primitives
+        } else if (levelOf(lhs) == InnerControl) { // Body contains only primitives
           emitBlock(body)
           emit(src"""${lhs}_done := ${parent_kernel}_done // Route through""")
         } else { // More than one control node is children
-          throw new Exception("Please put a pipe around your multiple controllers inside the if statement")
+          throw new Exception("Seems like something is messed up with switch cases.  Please put a pipe around your multiple controllers inside the if statement, maybe?")
         }
         val returns_const = lhs match {
           case Const(_) => false
