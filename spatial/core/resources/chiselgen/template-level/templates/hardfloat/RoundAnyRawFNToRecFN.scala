@@ -77,10 +77,10 @@ class
     val neverOverflows =
         ((options & flRoundOpt_neverOverflows) != 0) ||
             (inExpWidth < outExpWidth)
-    val outNaNExp = 7<<(outExpWidth - 2)
-    val outInfExp = 6<<(outExpWidth - 2)
+    val outNaNExp = BigInt(7)<<(outExpWidth - 2)
+    val outInfExp = BigInt(6)<<(outExpWidth - 2)
     val outMaxFiniteExp = outInfExp - 1
-    val outMinNormExp = (1<<(outExpWidth - 1)) + 2
+    val outMinNormExp = (BigInt(1)<<(outExpWidth - 1)) + 2
     val outMinNonzeroExp = outMinNormExp - outSigWidth + 1
 
     //------------------------------------------------------------------------
@@ -99,12 +99,14 @@ class
     //------------------------------------------------------------------------
     val sAdjustedExp =
         if (inExpWidth < outExpWidth)
-            (io.in.sExp +& SInt((1<<outExpWidth) - (1<<inExpWidth))
+            (io.in.sExp +&
+                 SInt((BigInt(1)<<outExpWidth) - (BigInt(1)<<inExpWidth))
             )(outExpWidth, 0).zext
         else if (inExpWidth == outExpWidth)
             io.in.sExp
         else
-            io.in.sExp +& SInt((1<<outExpWidth) - (1<<inExpWidth))
+            io.in.sExp +&
+                SInt((BigInt(1)<<outExpWidth) - (BigInt(1)<<inExpWidth))
     val adjustedSig =
         if (inSigWidth <= outSigWidth + 2)
             io.in.sig<<(outSigWidth - inSigWidth + 2)
@@ -144,21 +146,18 @@ class
 
         //--------------------------------------------------------------------
         //--------------------------------------------------------------------
-        val isNegExp =
-            if (neverUnderflows) Bool(false) else (sAdjustedExp < SInt(0))
         val roundMask =
             if (neverUnderflows)
                 Cat(UInt(0, outSigWidth), doShiftSigDown1, UInt(3, 2))
             else
-                Cat(Fill(outSigWidth + 1, isNegExp) |
-                        lowMask(
-                            sAdjustedExp(outExpWidth, 0),
-                            outMinNormExp - outSigWidth - 1,
-                            outMinNormExp
-                        ) | doShiftSigDown1,
+                Cat(lowMask(
+                        sAdjustedExp(outExpWidth, 0),
+                        outMinNormExp - outSigWidth - 1,
+                        outMinNormExp
+                    ) | doShiftSigDown1,
                     UInt(3, 2)
                 )
-        val shiftedRoundMask = Cat(isNegExp, roundMask)>>1
+        val shiftedRoundMask = Cat(UInt(0, 1), roundMask>>1)
         val roundPosMask = ~shiftedRoundMask & roundMask
         val roundPosBit = (adjustedSig & roundPosMask).orR
         val anyRoundExtra = (adjustedSig & shiftedRoundMask).orR
@@ -213,19 +212,20 @@ class
             )
         common_underflow :=
             (if (neverUnderflows) Bool(false) else
+                 common_totalUnderflow ||
 //*** IF SIG WIDTH IS VERY NARROW, NEED TO ACCOUNT FOR ROUND-EVEN ZEROING
 //***  M.S. BIT OF SUBNORMAL SIG?
-                 anyRound && (sAdjustedExp>>outExpWidth <= SInt(0)) &&
-                     Mux(doShiftSigDown1, roundMask(3), roundMask(2)) &&
-                     ! ((io.detectTininess === tininess_afterRounding) &&
-                            ! Mux(doShiftSigDown1,
-                                  roundMask(4),
-                                  roundMask(3)
-                              ) &&
-                            roundCarry && roundPosBit &&
-                            unboundedRange_roundIncr))
+                     (anyRound && (sAdjustedExp>>outExpWidth <= SInt(0)) &&
+                          Mux(doShiftSigDown1, roundMask(3), roundMask(2)) &&
+                          ! ((io.detectTininess === tininess_afterRounding) &&
+                                 ! Mux(doShiftSigDown1,
+                                       roundMask(4),
+                                       roundMask(3)
+                                   ) &&
+                                 roundCarry && roundPosBit &&
+                                 unboundedRange_roundIncr)))
 
-        common_inexact := anyRound
+        common_inexact := common_totalUnderflow || anyRound
     }
 
     //------------------------------------------------------------------------
@@ -249,7 +249,7 @@ class
     val expOut =
         (common_expOut &
              ~Mux(io.in.isZero || common_totalUnderflow,
-                  UInt(7<<(outExpWidth - 2), outExpWidth + 1),
+                  UInt(BigInt(7)<<(outExpWidth - 2), outExpWidth + 1),
                   UInt(0)
               ) &
              ~Mux(pegMinNonzeroMagOut,
@@ -257,11 +257,11 @@ class
                   UInt(0)
               ) &
              ~Mux(pegMaxFiniteMagOut,
-                  UInt(1<<(outExpWidth - 1), outExpWidth + 1),
+                  UInt(BigInt(1)<<(outExpWidth - 1), outExpWidth + 1),
                   UInt(0)
               ) &
              ~Mux(notNaN_isInfOut,
-                  UInt(1<<(outExpWidth - 2), outExpWidth + 1),
+                  UInt(BigInt(1)<<(outExpWidth - 2), outExpWidth + 1),
                   UInt(0)
               )) |
             Mux(pegMinNonzeroMagOut,
@@ -276,7 +276,7 @@ class
             Mux(isNaNOut,        UInt(outNaNExp, outExpWidth + 1), UInt(0))
     val fractOut =
         Mux(isNaNOut || io.in.isZero || common_totalUnderflow,
-            Mux(isNaNOut, UInt(1)<<(outSigWidth - 2), UInt(0)),
+            Mux(isNaNOut, UInt(BigInt(1)<<(outSigWidth - 2)), UInt(0)),
             common_fractOut
         ) |
         Fill(outSigWidth - 1, pegMaxFiniteMagOut)

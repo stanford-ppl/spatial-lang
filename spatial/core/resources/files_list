@@ -154,6 +154,7 @@
 ./chiselgen/template-level/templates/hardfloat/DivSqrtRecF64_mulAddZ31.scala
 ./chiselgen/template-level/templates/hardfloat/ValExec_INToRecFN.scala
 ./chiselgen/template-level/templates/hardfloat/RecFNToIN.scala
+./chiselgen/template-level/templates/hardfloat/ValExec_DivSqrtRecFN_small.scala
 ./chiselgen/template-level/templates/hardfloat/RoundAnyRawFNToRecFN.scala
 ./chiselgen/template-level/templates/hardfloat/ValExec_MulAddRecFN.scala
 ./chiselgen/template-level/templates/hardfloat/rawFloatFromIN.scala
@@ -165,6 +166,7 @@
 ./chiselgen/template-level/templates/hardfloat/rawFloatFromRecFN.scala
 ./chiselgen/template-level/templates/hardfloat/fNFromRecFN.scala
 ./chiselgen/template-level/templates/hardfloat/ValExec_CompareRecFN.scala
+./chiselgen/template-level/templates/hardfloat/DivSqrtRecFN_small.scala
 ./chiselgen/template-level/templates/hardfloat/common.scala
 ./chiselgen/template-level/templates/hardfloat/ValExec_fNFromRecFN.scala
 ./chiselgen/template-level/templates/hardfloat/INToRecFN.scala

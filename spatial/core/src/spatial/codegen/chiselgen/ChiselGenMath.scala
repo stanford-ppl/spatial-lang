@@ -49,8 +49,8 @@ trait ChiselGenMath extends ChiselCodegen {
       case FloatType()  => emit(src"val $lhs = Math.exp($x.toDouble).toFloat")
     }
     case FltSqrt(x) => x.tp match {
-      case DoubleType() => emit(src"val $lhs = Math.sqrt($x)")
-      case FloatType()  => emit(src"val $lhs = Math.sqrt($x.toDouble).toFloat")
+      case DoubleType() => emit(src"val $lhs = Utils.sqrt($x)")
+      case FloatType()  => emit(src"val $lhs = Utils.sqrt($x)")
     }
 
     case FltPow(x,y) => if (emitEn) throw new Exception("Pow not implemented in hardware yet!")

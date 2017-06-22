@@ -706,9 +706,23 @@ class FloatingPoint(val m: Int, val e: Int) extends Bundle {
 		}
 	}
 
-	// def /[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {
+	def /[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(new FloatingPoint(m, e))
+				val fma = Module(new DivSqrtRecFN_small(m, e, 0))
+				fma.io.a := recFNFromFN(m, e, this.r)
+				fma.io.b := recFNFromFN(m, e, op.r)
+				fma.io.inValid := true.B // TODO: What should this be?
+				fma.io.sqrtOp := false.B // TODO: What should this be?
+				fma.io.roundingMode := 0.U(3.W) // TODO: What should this be?
+				fma.io.detectTininess := false.B // TODO: What should this be?
+				result.r := fNFromRecFN(m, e, fma.io.out)
+				result
+		}
+	}
 
-	// }
 
 	// def %[T] (rawop: T): FloatingPoint = {}
 

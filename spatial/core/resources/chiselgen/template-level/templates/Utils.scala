@@ -322,6 +322,20 @@ object ops {
 }
 
 object Utils {
+
+  def sqrt(num: FloatingPoint): FloatingPoint = {
+    val m = num.m
+    val e = num.e
+    val result = Wire(new FloatingPoint(m, e))
+    val fma = Module(new DivSqrtRecFN_small(m,e,0))
+    fma.io.a := num.r
+    fma.io.inValid := true.B // TODO: What should this be?
+    fma.io.sqrtOp := true.B // TODO: What should this be?
+    fma.io.roundingMode := 0.U(3.W) // TODO: What should this be?
+    fma.io.detectTininess := true.B // TODO: What should this be?
+    result.r := fNFromRecFN(m, e, fma.io.out)
+    result
+  }
   def getFloatBits(num: Float) = java.lang.Float.floatToRawIntBits(num)
   // def getDoubleBits(num: Double) = java.lang.Double.doubleToRawIntBits(num)
   def delay[T <: chisel3.core.Data](sig: T, length: Int):T = {
