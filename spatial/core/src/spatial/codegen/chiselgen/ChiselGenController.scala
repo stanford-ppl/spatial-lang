@@ -580,12 +580,15 @@ trait ChiselGenController extends ChiselGenCounter{
             // Probably need to match on type of stm and grab the return values
           }
         } else {
-          val anyCaseDone = cases.map{c => src"${c}_done"}.mkString(" | ")
-          emit(src"""${lhs}_done := $anyCaseDone // Safe to assume Switch is done when ANY child is done?""")
-          cases.collect{case s: Sym[_] => stmOf(s)}.foreach(visitStm)
-          // (0 until selects.length).foreach{ i =>
-          //   emit(src"val ${cases(i)}_mask = ${selects(i)}")
-          // }
+          // If this is an innerpipe, we need to route the done of the parent downward.  If this is an outerpipe, we need to route the dones of children upward
+          if (levelOf(lhs) == InnerControl) {
+            emit(src"""${lhs}_done := ${parent_kernel}_done""")
+            cases.collect{case s: Sym[_] => stmOf(s)}.foreach(visitStm)
+          } else {
+            val anyCaseDone = cases.map{c => src"${c}_done"}.mkString(" | ")
+            emit(src"""${lhs}_done := $anyCaseDone // Safe to assume Switch is done when ANY child is done?""")
+            cases.collect{case s: Sym[_] => stmOf(s)}.foreach(visitStm)
+          }
         }
       }
       controllerStack.pop()
@@ -601,11 +604,11 @@ trait ChiselGenController extends ChiselGenCounter{
       // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""${lhs}_resetter := ${parent_kernel}_resetter""")
-      emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en & ${lhs}_switch_select""")
+      emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en // & ${lhs}_switch_select // Do not include switch_select because this signal is retimed""")
       emit(src"""${lhs}_ctr_trivial := ${parent_kernel}_ctr_trivial | false.B""")
       if (levelOf(lhs) == InnerControl) {
-        val realctrl = findCtrlAncestor(lhs)
-        emitInhibitor(lhs, None, realctrl)
+        val realctrl = findCtrlAncestor(lhs) // TODO: I don't think this search is needed anymore
+        emitInhibitor(lhs, None, None)
       }
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         // if (blockContents(body).length > 0) {
@@ -618,8 +621,7 @@ trait ChiselGenController extends ChiselGenCounter{
           // emit(src"""${lhs}_done_sniff := ${parent_kernel}_en // Route through""")
         } else if (childrenOf(lhs).count(isControlNode) == 0) { // Body contains only primitives
           emitBlock(body)
-          emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
-          emit(src"""${lhs}_done := ${lhs}_en.D(${symDelay(lhs)},rr) // Route through""")
+          emit(src"""${lhs}_done := ${parent_kernel}_done // Route through""")
         } else { // More than one control node is children
           throw new Exception("Please put a pipe around your multiple controllers inside the if statement")
         }
