@@ -685,6 +685,7 @@ object utils {
 
     case e: DenseTransfer[_,_] if e.isLoad => Some(LocalWrite(e.local, addr=e.iters))
     case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
+    case e: SparseTransferMem[_,_,_] if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
 
     case StreamWrite(stream, data, en)       => Some(LocalWrite(stream, value=data, en=en))
     case BufferedOutWrite(buffer,data,is,en) => Some(LocalWrite(buffer, value=data, addr=is, en=en))
@@ -713,6 +714,8 @@ object utils {
     case e: DenseTransfer[_,_] if e.isStore => Some(LocalRead(e.local, addr=e.iters))
     case e: SparseTransfer[_]  if e.isLoad  => Some(LocalRead(e.addrs))
     case e: SparseTransfer[_]  if e.isStore => Some(LocalRead(e.addrs) ++ LocalRead(e.local))
+    case e: SparseTransferMem[_,_,_] if e.isLoad  => Some(LocalRead(e.addrs))
+    case e: SparseTransferMem[_,_,_] if e.isStore => Some(LocalRead(e.addrs) ++ LocalRead(e.local))
 
     case StreamRead(stream, en)              => Some(LocalRead(stream, en=en))
 

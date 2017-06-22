@@ -20,9 +20,13 @@ case class FILO[T:Type:Bits](s: Exp[FILO[T]]) extends Template[FILO[T]] {
 
   //@api def load(dram: DRAM1[T]): MUnit = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
-  // @api def gather(dram: DRAMSparseTile[T]): MUnit = copy_sparse(dram, this, isLoad = true)
+  @api def gather(dram: DRAMSparseTile[T]): MUnit = DRAMTransfers.sparse_transfer_mem(dram.toSparseTileMem, this, isLoad = true)
+  @api def gather[A[_]](dram: DRAMSparseTileMem[T,A]): MUnit = DRAMTransfers.sparse_transfer_mem(dram, this, isLoad = true)
 
   @internal def ranges: Seq[Range] = Seq(Range.alloc(None, wrap(sizeOf(s)),None,None))
+
+  protected[spatial] var p: Option[Index] = None
+  @api def par(p: Index): FILO[T] = { val x = FILO(s); x.p = Some(p); x }
 }
 
 object FILO {

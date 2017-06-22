@@ -33,6 +33,13 @@ case class DRAM1[T:Type:Bits](s: Exp[DRAM1[T]]) extends Template[DRAM1[T]] with 
   @api def apply(addrs: SRAM1[Index]): DRAMSparseTile[T] = this.apply(addrs, wrap(stagedDimsOf(addrs.s).head))
   @api def apply(addrs: SRAM1[Index], len: Index): DRAMSparseTile[T] = DRAMSparseTile(this.s, addrs, len)
 
+  // TODO: Should this be sizeOf(addrs) or addrs.numel?
+  @api def apply(addrs: FIFO[Index]): DRAMSparseTileMem[T,FIFO] = this.apply(addrs, addrs.numel)
+  @api def apply(addrs: FIFO[Index], len: Index): DRAMSparseTileMem[T,FIFO] = DRAMSparseTileMem(this.s, addrs, len)
+
+  @api def apply(addrs: FILO[Index]): DRAMSparseTileMem[T,FILO] = this.apply(addrs, addrs.numel)
+  @api def apply(addrs: FILO[Index], len: Index): DRAMSparseTileMem[T,FILO] = DRAMSparseTileMem(this.s, addrs, len)
+
   @api def store(sram: SRAM1[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
   @api def store(fifo: FIFO[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(fifo.ranges), fifo, isLoad = false)
   @api def store(filo: FILO[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(filo.ranges), filo, isLoad = false)
@@ -169,4 +176,15 @@ case class DRAMDenseTile5[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) e
 /** Sparse Tiles are limited to 1D right now **/
 case class DRAMSparseTile[T:Type:Bits](dram: Exp[DRAM[T]], addrs: SRAM1[Index], len: Index) {
   @api def scatter(sram: SRAM1[T]): MUnit = DRAMTransfers.sparse_transfer(this, sram, isLoad = false)
+  @api def scatter(fifo: FIFO[T]): MUnit = DRAMTransfers.sparse_transfer_mem(this.toSparseTileMem, fifo, isLoad = false)
+  @api def scatter(filo: FILO[T]): MUnit = DRAMTransfers.sparse_transfer_mem(this.toSparseTileMem, filo, isLoad = false)
+
+  protected[spatial] def toSparseTileMem = DRAMSparseTileMem[T,SRAM1](dram, addrs, len)
+}
+
+// TODO: Should replace DRAMSparseTile when confirmed to work
+case class DRAMSparseTileMem[T:Type:Bits,A[_]](dram: Exp[DRAM[T]], addrs: A[Index], len: Index)(implicit val memA: Mem[Index,A], val mA: Type[A[Index]]) {
+  @api def scatter(sram: SRAM1[T]): MUnit = DRAMTransfers.sparse_transfer_mem(this, sram, isLoad = false)
+  @api def scatter(fifo: FIFO[T]): MUnit = DRAMTransfers.sparse_transfer_mem(this, fifo, isLoad = false)
+  @api def scatter(filo: FILO[T]): MUnit = DRAMTransfers.sparse_transfer_mem(this, filo, isLoad = false)
 }

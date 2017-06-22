@@ -134,6 +134,7 @@ trait SpatialApp extends ArgonApp {
     passes += scalarAnalyzer    // Bounds / global analysis
     passes += printer
     passes += transferExpand    // Expand burst loads/stores from single abstract nodes
+    passes += switchInsert      // Change if-then-else statements from transfers to switches
     passes += levelAnalyzer     // Pipe style annotation fixes after expansion
 
     // --- Post-Expansion Cleanup

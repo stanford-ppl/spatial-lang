@@ -14,6 +14,7 @@ trait SpatialTest extends SpatialApp with ArgonAppRunner {
     Config.verbosity = 1
     SpatialConfig.enableSim = true
   }
+  def runTest(): Unit = this.main(Array.empty)
 }
 
 

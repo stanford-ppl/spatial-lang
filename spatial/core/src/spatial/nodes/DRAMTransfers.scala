@@ -1,6 +1,7 @@
 package spatial.nodes
 
 import argon.core._
+import argon.transform.Transformer
 import forge._
 import spatial.aliases._
 
@@ -51,5 +52,34 @@ case class SparseTransfer[T:Type:Bits](
 
   @internal def expand(f:Tx): Exp[MUnit] = {
     DRAMTransfersInternal.copy_sparse(f(dram),f(local),f(addrs),f(size),p,isLoad)(mT,bT,mD,ctx,state).s
+  }
+}
+
+/** More general version for FIFO and FILO - should be able to replace SparseTransfer when confirmed working **/
+case class SparseTransferMem[T,C[T],A[_]](
+  dram:   Exp[DRAM[T]],
+  local:  Exp[C[T]],
+  addrs:  Exp[A[Index]],
+  size:   Exp[Index],
+  p:      Const[Index],
+  isLoad: Boolean,
+  i:      Bound[Index]
+)(implicit val mT: Type[T],
+  val bT:   Bits[T],
+  val memC: Mem[T,C],
+  val mC:   Type[C[T]],
+  val memA: Mem[Index,A],
+  val mA:   Type[A[Index]],
+  val mD:   Type[DRAM[T]]
+) extends DRAMTransfer {
+  def isStore = !isLoad
+  def mirror(f:Tx) = DRAMTransfers.op_sparse_transfer_mem(f(dram),f(local),f(addrs),f(size),p,isLoad,i)
+
+  override def inputs = dyns(dram, local, addrs, size, p)
+  override def binds = List(i)
+  override def aliases = Nil
+
+  @internal def expand(f:Tx): Exp[MUnit] = {
+    DRAMTransfersInternal.copy_sparse_mem(f(dram), f(local), f(addrs), f(size), p, isLoad)(mT,bT,memC,mC,memA,mA,mD,ctx,state).s
   }
 }
