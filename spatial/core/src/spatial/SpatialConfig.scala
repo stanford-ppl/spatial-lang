@@ -1,11 +1,11 @@
 package spatial
 
-import argon.core.Reporting
 import com.typesafe.config.ConfigFactory
 import pureconfig._
+import argon.util.Report
+import spatial.targets.FPGATarget
 
-object SpatialConfig extends Reporting {
-  import argon.Config._
+object SpatialConfig {
 
   case class SpatialConf(
     fpga: String,
@@ -39,6 +39,7 @@ object SpatialConfig extends Reporting {
   )
 
   var targetName: String = _
+  var target: FPGATarget = targets.DefaultTarget
 
   var enableDSE: Boolean = _
   var enableDot: Boolean = _
@@ -111,9 +112,9 @@ spatial {
         enableTree = spatialConf.tree
 
       case Left(failures) =>
-        error("Unable to read spatial configuration")
-        error(failures.head.description)
-        failures.tail.foreach{x => error(x.description) }
+        Report.error("Unable to read spatial configuration")
+        Report.error(failures.head.description)
+        failures.tail.foreach{x => Report.error(x.description) }
         sys.exit(-1)
     }
 

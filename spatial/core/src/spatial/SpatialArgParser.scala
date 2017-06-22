@@ -1,7 +1,7 @@
 package spatial
 
 import argon.ArgonArgParser
-
+import argon.util.Report._
 
 class SpatialArgParser extends ArgonArgParser {
 

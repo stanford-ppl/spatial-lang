@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object FIRFilter extends SpatialApp {
-  import IR._
+
 
   override val target = targets.DE1
   val Nmax = 16
@@ -32,7 +32,7 @@ object FIRFilter extends SpatialApp {
 }
 
 object FIRFilter2 extends SpatialApp {
-  import IR._
+
 
   override val target = targets.DE1
   val Nmax = 16

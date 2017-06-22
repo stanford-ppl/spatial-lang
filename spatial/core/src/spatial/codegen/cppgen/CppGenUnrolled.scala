@@ -1,16 +1,17 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.{SpatialConfig, SpatialExp}
+import argon.core._
+import spatial.aliases._
+import spatial.nodes._
+import spatial.SpatialConfig
 
 trait CppGenUnrolled extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
 
   private def emitUnrolledLoop(
     cchain: Exp[CounterChain],
     iters:  Seq[Seq[Bound[Index]]],
-    valids: Seq[Seq[Bound[Bool]]]
+    valids: Seq[Seq[Bound[Bit]]]
   )(func: => Unit): Unit = {
 
     for (i <- iters.indices) {
@@ -51,7 +52,7 @@ trait CppGenUnrolled extends CppCodegen {
     case UnrolledForeach(en, cchain,func,iters,valids) =>
       emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
 
-    case UnrolledReduce(en, cchain,_,func,_,iters,valids,_) =>
+    case UnrolledReduce(en, cchain,_,func,iters,valids) =>
 
     case ParSRAMLoad(sram,inds,ens) =>
 

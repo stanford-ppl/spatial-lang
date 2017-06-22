@@ -1,19 +1,20 @@
 package spatial.transform
 
+import argon.core._
 import argon.transform.ForwardTransformer
-import spatial._
-import spatial.api.ControllerApi
 import org.virtualized.SourceContext
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+import spatial.SpatialConfig
+import spatial.lang.Math
 
-trait UnrollingTransformer extends ForwardTransformer { self =>
-  val IR: SpatialExp with ControllerApi
-  import IR._
-
+case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self =>
   override val name = "Unrolling Transformer"
   var inHwScope: Boolean = false
 
   def strMeta(e: Exp[_]): Unit = metadata.get(e).foreach{m => logs(c" - ${m._1}: ${m._2}") }
-
 
 
   /**
@@ -45,8 +46,8 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     * Valid bits - tracks all valid bits associated with the current scope to handle edge cases
     * e.g. cases where parallelization is not an even divider of counter max
     */
-  var validBits: Seq[Exp[Bool]] = Nil
-  def withValids[T](valids: Seq[Exp[Bool]])(blk: => T): T = {
+  var validBits: Seq[Exp[Bit]] = Nil
+  def withValids[T](valids: Seq[Exp[Bit]])(blk: => T): T = {
     val prevValids = validBits
     validBits = valids
     val result = blk
@@ -56,12 +57,12 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   // Single global valid - should only be used in inner pipes - creates AND tree
   def globalValid = {
-    if (validBits.isEmpty) bool(true)
-    else reduceTree(validBits){(a,b) => bool_and(a,b) }
+    if (validBits.isEmpty) Bit.const(true)
+    else spatial.lang.Math.reduceTree(validBits){(a,b) => Bit.and(a,b) }
   }
 
   // Sequence of valid bits associated with current unrolling scope
-  def globalValids = if (validBits.nonEmpty) validBits else Seq(bool(true))
+  def globalValids = if (validBits.nonEmpty) validBits else Seq(Bit.const(true))
 
 
   /**
@@ -148,7 +149,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
               case x@Some(i) =>
                 val requiredBanking = parFactorOf(i) match {case Exact(p) => p.toInt }
                 val actualBanking = banking(iters.indexOf(x))
-                Math.min(requiredBanking, actualBanking) // actual may be higher than required, or vice versa
+                java.lang.Math.min(requiredBanking, actualBanking) // actual may be higher than required, or vice versa
               case None => 1
             }
           }.getOrElse(Seq(1))
@@ -192,11 +193,11 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val P = Ps.product
     val N = Ps.length
     val prods = List.tabulate(N){i => Ps.slice(i+1,N).product }
-    val indices: Seq[Seq[Bound[Index]]]    = Ps.map{p => List.fill(p){ fresh[Index] }}
-    val indexValids: Seq[Seq[Bound[Bool]]] = Ps.map{p => List.fill(p){ fresh[Bool] }}
+    val indices: Seq[Seq[Bound[Index]]]   = Ps.map{p => List.fill(p){ fresh[Index] }}
+    val indexValids: Seq[Seq[Bound[Bit]]] = Ps.map{p => List.fill(p){ fresh[Bit] }}
 
     // Valid bits corresponding to each lane
-    lazy val valids: List[Seq[Exp[Bool]]]  = List.tabulate(P){p =>
+    lazy val valids: List[Seq[Exp[Bit]]]  = List.tabulate(P){p =>
       val laneIdxValids = indexValids.zip(parAddr(p)).map{case (vec,i) => vec(i)}
       laneIdxValids ++ validBits
     }
@@ -241,7 +242,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     // NOTE: This assumes that the node has no meaningful return value (i.e. all are Pipeline or Unit)
     // Bad things can happen here if you're not careful!
     def split[T:Type](orig: Sym[T], vec: Exp[Vector[_]])(implicit ctx: SrcCtx): List[Exp[T]] = map{p =>
-      val element = vector_apply[T](vec.asInstanceOf[Exp[Vector[T]]], p)(typ[T],ctx)
+      val element = Vector.select[T](vec.asInstanceOf[Exp[Vector[T]]], p)
       register(orig -> element)
       element
     }
@@ -267,70 +268,70 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     case _ => super.transform(lhs, rhs)
   }).asInstanceOf[Exp[A]]
 
-  val writeParallelizer: PartialFunction[(Unroller, Def, SrcCtx),Exp[Void]] = {
+  val writeParallelizer: PartialFunction[(Unroller, Def, SrcCtx),Exp[MUnit]] = {
     case (lanes, e@RegFileStore(reg,inds,data,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
       val datas = lanes.map{p => f(data) }
       val ens   = lanes.map{p => f(en) }
-      par_regfile_store(f(reg),addrs,datas,ens)(e.mT,e.bT,ctx)
+      RegFile.par_store(f(reg),addrs,datas,ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@LineBufferEnq(lb,data,en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => bool_and(f(en), globalValid) }
-      par_linebuffer_enq(f(lb), datas, ens)(e.mT,e.bT,ctx)
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      LineBuffer.par_enq(f(lb), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@FIFOEnq(fifo, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => bool_and( f(en), globalValid) }
-      par_fifo_enq(f(fifo), datas, ens)(e.mT,e.bT,ctx)
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      FIFO.par_enq(f(fifo), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@FILOPush(filo, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => bool_and( f(en), globalValid) }
-      par_filo_push(f(filo), datas, ens)(e.mT,e.bT,ctx)
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      FILO.par_push(f(filo), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@StreamWrite(stream, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => bool_and( f(en), globalValid) }
-      par_stream_write(f(stream), datas, ens)(e.mT,e.bT,ctx)
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      StreamOut.par_write(f(stream), datas, ens)(e.mT,e.bT,ctx,state)
 
     // TODO: Assuming dims and ofs are not needed for now
     case (lanes, e@SRAMStore(sram,dims,inds,ofs,data,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => bool_and(f(en), globalValid) }
-      par_sram_store(f(sram), addrs, datas, ens)(e.mT,e.bT,ctx)
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      SRAM.par_store(f(sram), addrs, datas, ens)(e.mT,e.bT,ctx,state)
   }
 
   val readParallelizer: PartialFunction[(Unroller, Def, SrcCtx),Exp[Vector[_]]] = {
     case (lanes, e@RegFileLoad(reg,inds,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
       val ens   = lanes.map{p => f(en) }
-      par_regfile_load(f(reg), addrs, ens)(mtyp(e.mT), mbits(e.bT), ctx)
+      RegFile.par_load(f(reg), addrs, ens)(mtyp(e.mT), mbits(e.bT), ctx, state)
 
     case (lanes, e@LineBufferLoad(lb,row,col,en), ctx) =>
       val rows = lanes.map{p => f(row) }
       val cols = lanes.map{p => f(col) }
       val ens  = lanes.map{p => f(en) }
-      par_linebuffer_load(f(lb), rows, cols, ens)(mtyp(e.mT),mbits(e.bT),ctx)
+      LineBuffer.par_load(f(lb), rows, cols, ens)(mtyp(e.mT),mbits(e.bT),ctx, state)
 
     case (lanes, e@FIFODeq(fifo, en), ctx) =>
-      val enables = lanes.map{p => bool_and(f(en), globalValid) }
-      par_fifo_deq(f(fifo), enables)(mtyp(e.mT),mbits(e.bT),ctx)
+      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      FIFO.par_deq(f(fifo), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     case (lanes, e@FILOPop(filo, en), ctx) =>
-      val enables = lanes.map{p => bool_and(f(en), globalValid) }
-      par_filo_pop(f(filo), enables)(mtyp(e.mT),mbits(e.bT),ctx)
+      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      FILO.par_pop(f(filo), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     case (lanes, e@StreamRead(stream, en), ctx) =>
-      val enables = lanes.map{p => bool_and(f(en), globalValid) }
-      par_stream_read(f(stream), enables)(mtyp(e.mT),mbits(e.bT),ctx)
+      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      StreamIn.par_read(f(stream), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     // TODO: Assuming dims and ofs are not needed for now
     case (lanes, e@SRAMLoad(sram,dims,inds,ofs,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
-      val ens   = lanes.map{p => bool_and(f(en), globalValid) }
-      par_sram_load(f(sram), addrs, ens)(mtyp(e.mT),mbits(e.bT),ctx)
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      SRAM.par_load(f(sram), addrs, ens)(mtyp(e.mT),mbits(e.bT),ctx,state)
   }
 
   /**
@@ -429,12 +430,12 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     logs(s"Unrolling controller:")
     logs(s"$lhs = $rhs")
     if (lanes.size > 1) {
-      val lhs2 = op_parallel_pipe(globalValids, {
+      val lhs2 = Parallel.op_parallel_pipe(globalValids, () => {
         lanes.foreach{p =>
           logs(s"$lhs duplicate ${p+1}/${lanes.size}")
           unroll
         }
-        void
+        unit
       })
       lanes.unify(lhs, lhs2)
     }
@@ -467,7 +468,7 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
   def unrollForeach (
     lhs:    Exp[_],
     cchain: Exp[CounterChain],
-    func:   Block[Void],
+    func:   Block[MUnit],
     iters:  Seq[Bound[Index]]
   )(implicit ctx: SrcCtx) = {
     logs(s"Unrolling foreach $lhs")
@@ -476,10 +477,10 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val is = lanes.indices
     val vs = lanes.indexValids
 
-    val blk = stageSealedBlock { unrollMap(func, lanes); void }
+    val blk = stageSealedBlock { unrollMap(func, lanes); unit }
 
 
-    val effects = blk.summary
+    val effects = blk.effects
     val lhs2 = stageEffectful(UnrolledForeach(globalValids, cchain, blk, is, vs), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
 
@@ -487,71 +488,72 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     lhs2
   }
   def unrollForeachNode(lhs: Sym[_], rhs: OpForeach)(implicit ctx: SrcCtx) = {
-    val OpForeach(cchain, func, iters) = rhs
+    val OpForeach(en, cchain, func, iters) = rhs
     unrollForeach(lhs, f(cchain), func, iters)
   }
 
 
   def unrollReduceTree[T:Type:Bits](
     inputs: Seq[Exp[T]],
-    valids: Seq[Exp[Bool]],
+    valids: Seq[Exp[Bit]],
     ident:   Option[Exp[T]],
     reduce: (Exp[T], Exp[T]) => Exp[T]
   )(implicit ctx: SrcCtx): Exp[T] = ident match {
     case Some(z) =>
-      val validInputs = inputs.zip(valids).map{case (in,v) => math_mux(v, in, z) }
-      reduceTree(validInputs){(x: Exp[T], y: Exp[T]) => reduce(x,y) }
+      dbg(c"Unrolling reduction tree with zero $z")
+      val validInputs = inputs.zip(valids).map{case (in,v) => Math.math_mux(v, in, z) }
+      Math.reduceTree(validInputs){(x: Exp[T], y: Exp[T]) => reduce(x,y) }
 
     case None =>
       // ASSUMPTION: If any values are invalid, they are at the end of the list (corresponding to highest index values)
       // TODO: This may be incorrect if we parallelize by more than the innermost iterator
       val inputsWithValid = inputs.zip(valids)
-      reduceTree(inputsWithValid){(x: (Exp[T], Exp[Bool]), y: (Exp[T],Exp[Bool])) =>
+      dbg("Unrolling reduction tree with " + inputsWithValid.length + " inputs: " + inputs.mkString(", "))
+      Math.reduceTree(inputsWithValid){(x: (Exp[T], Exp[Bit]), y: (Exp[T],Exp[Bit])) =>
         val res = reduce(x._1, y._1)
-        (math_mux(y._2, res, x._1), bool_or(x._2, y._2)) // res is valid if x or y is valid
+        (Math.math_mux(y._2, res, x._1), Bit.or(x._2, y._2)) // res is valid if x or y is valid
       }._1
   }
 
 
-  def unrollReduceAccumulate[T:Type:Bits](
-    inputs: Seq[Exp[T]],          // Symbols to be reduced
-    valids: Seq[Exp[Bool]],       // Data valid bits corresponding to inputs
-    ident:  Option[Exp[T]],       // Optional identity value
-    fold:   Option[Exp[T]],       // Optional fold value
-    rFunc:  Block[T],             // Reduction function
-    load:   Block[T],             // Load function from accumulator
-    store:  Block[Void],          // Store function to accumulator
-    rV:     (Bound[T], Bound[T]), // Bound symbols used to reify rFunc
-    iters:  Seq[Bound[Index]],    // Iterators for entire reduction (used to determine when to reset)
-    start:  Seq[Exp[Index]],      // Start for each iterator
+  def unrollReduceAccumulate[T:Type:Bits,C[T]](
+    accum:  Exp[C[T]],             // Accumulator
+    inputs: Seq[Exp[T]],           // Symbols to be reduced
+    valids: Seq[Exp[Bit]],         // Data valid bits corresponding to inputs
+    ident:  Option[Exp[T]],        // Optional identity value
+    fold:   Option[Exp[T]],        // Optional fold value
+    reduce: Lambda2[T,T,T],        // Reduction function
+    load:   Lambda1[C[T],T],       // Load function from accumulator
+    store:  Lambda2[C[T],T,MUnit], // Store function to accumulator
+    iters:  Seq[Bound[Index]],     // Iterators for entire reduction (used to determine when to reset)
+    start:  Seq[Exp[Index]],       // Start for each iterator
     isInner: Boolean
-  )(implicit ctx: SrcCtx) = {
-    def reduce(x: Exp[T], y: Exp[T]) = withSubstScope(rV._1 -> x, rV._2 -> y){ inlineBlock(rFunc) }
+  )(implicit ctx: SrcCtx): Exp[MUnit] = {
 
-    val treeResult = inReduction(isInner){ unrollReduceTree[T](inputs, valids, ident, reduce) }
-    val redType = reduceType(rFunc.result)
+    val treeResult = inReduction(isInner){ unrollReduceTree[T](inputs, valids, ident, reduce.toFunction2) }
+    val redType = reduceType(reduce.result)
 
     val result = inReduction(isInner){
-      val accValue = inlineBlock(load)
-      val isFirst = reduceTree(iters.zip(start).map{case (i,st) => fix_eql(i, st) }){(x,y) => bool_and(x,y) }
+      val accValue = load.inline(accum)
+      val isFirst = Math.reduceTree(iters.zip(start).map{case (i,st) => FixPt.eql(i, st) }){(x,y) => Bit.and(x,y) }
 
       isReduceStarter(accValue) = true
 
       if (SpatialConfig.enablePIR) {
-        inCycle(redType){ reduce(treeResult, accValue) }
+        inCycle(redType){ reduce.inline(treeResult, accValue) }
       }
       else fold match {
         // FOLD: On first iteration, use init value rather than zero
         case Some(init) =>
-          val accumOrFirst = math_mux(isFirst, init, accValue)
+          val accumOrFirst = Math.math_mux(isFirst, init, accValue)
           reduceType(accumOrFirst) = redType
-          reduce(treeResult, accumOrFirst)
+          reduce.inline(treeResult, accumOrFirst)
 
         // REDUCE: On first iteration, store result of tree, do not include value from accum
         // TODO: Could also have third case where we use ident instead of loaded value. Is one better?
         case None =>
-          val res2 = reduce(treeResult, accValue)
-          val mux = math_mux(isFirst, treeResult, res2)
+          val res2 = reduce.inline(treeResult, accValue)
+          val mux = Math.math_mux(isFirst, treeResult, res2)
           reduceType(mux) = redType
           mux
       }
@@ -559,21 +561,22 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
     isReduceResult(result) = true
 
-    inReduction(isInner){ withSubstScope(rFunc.result -> result){ inlineBlock(store) } }
+    inReduction(isInner){ store.inline(accum, result) }
   }
 
   def unrollReduce[T](
-    lhs:    Exp[_],               // Original pipe symbol
-    cchain: Exp[CounterChain],    // Counterchain
-    accum:  Exp[Reg[T]],          // Accumulator
-    ident:  Option[Exp[T]],       // Optional identity value for reduction
-    fold:   Option[Exp[T]],       // Optional value to fold with reduction
-    load:   Block[T],             // Load function for accumulator
-    store:  Block[Void],          // Store function for accumulator
-    func:   Block[T],             // Map function
-    rFunc:  Block[T],             // Reduce function
-    rV:     (Bound[T],Bound[T]),  // Bound symbols used to reify rFunc
-    iters:  Seq[Bound[Index]]     // Bound iterators for map loop
+    lhs:    Exp[_],                   // Original pipe symbol
+    en:     Seq[Exp[Bit]],            // Enables
+    cchain: Exp[CounterChain],        // Counterchain
+    accum:  Exp[Reg[T]],              // Accumulator
+    ident:  Option[Exp[T]],           // Optional identity value for reduction
+    fold:   Option[Exp[T]],           // Optional value to fold with reduction
+    load:   Lambda1[Reg[T],T],        // Load function for accumulator
+    store:  Lambda2[Reg[T],T,MUnit],  // Store function for accumulator
+    func:   Block[T],                 // Map function
+    reduce: Lambda2[T,T,T],           // Reduce function
+    rV:     (Bound[T],Bound[T]),      // Bound symbols used to reify rFunc
+    iters:  Seq[Bound[Index]]         // Bound iterators for map loop
   )(implicit mT: Type[T], bT: Bits[T], ctx: SrcCtx) = {
     logs(s"Unrolling pipe-fold $lhs")
     val lanes = Unroller(cchain, iters, isInnerControl(lhs))
@@ -582,76 +585,73 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
     val mC = typ[Reg[T]]
     val start = counterStarts(cchain).map(_.getOrElse(int32(0)))
 
-    val blk = stageColdLambda(f(accum)) {
+    val blk = stageColdLambda1(accum) {
       logs("Unrolling map")
       val values = unrollMap(func, lanes)(mT,ctx)
-      val valids = () => lanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b) } }
+      val valids = () => lanes.valids.map{vs => Math.reduceTree(vs){(a,b) => Bit.and(a,b) } }
 
       if (isOuterControl(lhs)) {
         logs("Unrolling unit pipe reduce")
-        Pipe { Void(unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.map(_.head), start, isInner = false)) }
+        Pipe { MUnit(unrollReduceAccumulate[T,Reg](accum, values, valids(), ident, fold, reduce, load, store, inds2.map(_.head), start, isInner = false)) }
       }
       else {
         logs("Unrolling inner reduce")
-        unrollReduceAccumulate[T](values, valids(), ident, fold, rFunc, load, store, rV, inds2.map(_.head), start, isInner = true)
+        unrollReduceAccumulate[T,Reg](accum, values, valids(), ident, fold, reduce, load, store, inds2.map(_.head), start, isInner = true)
       }
-      void
+      unit
     }
-    val rV2 = (fresh[T],fresh[T])
-    val rFunc2 = withSubstScope(rV._1 -> rV2._1, rV._2 -> rV2._2){ transformBlock(rFunc) }
 
-    val effects = blk.summary
-    val lhs2 = stageEffectful(UnrolledReduce(globalValids, cchain, accum, blk, rFunc2, inds2, vs, rV2)(mT,mC), effects.star)(ctx)
+    val effects = blk.effects
+    val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchain, accum, blk, inds2, vs)(mT,mC), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
     logs(s"Created reduce ${str(lhs2)}")
     lhs2
   }
   def unrollReduceNode[T](lhs: Sym[_], rhs: OpReduce[T])(implicit ctx: SrcCtx) = {
-    val OpReduce(cchain,accum,map,load,reduce,store,zero,fold,rV,iters) = rhs
-    unrollReduce[T](lhs, f(cchain), f(accum), zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
+    val OpReduce(en,cchain,accum,map,load,reduce,store,zero,fold,rV,iters) = rhs
+    unrollReduce[T](lhs, f(en), f(cchain), f(accum), zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
   }
 
 
 
   def unrollMemReduce[T,C[T]](
-    lhs:   Exp[_],                  // Original pipe symbol
-    cchainMap: Exp[CounterChain],   // Map counterchain
-    cchainRed: Exp[CounterChain],   // Reduction counterchain
-    accum:    Exp[C[T]],            // Accumulator (external)
-    ident:    Option[Exp[T]],       // Optional identity value for reduction
-    fold:     Boolean,              // Optional value to fold with reduction
-    func:     Block[C[T]],          // Map function
-    loadRes:  Block[T],             // Load function for intermediate values
-    loadAcc:  Block[T],             // Load function for accumulator
-    rFunc:    Block[T],             // Reduction function
-    storeAcc: Block[Void],          // Store function for accumulator
-    rV:       (Bound[T],Bound[T]),  // Bound symbol used to reify rFunc
-    itersMap: Seq[Bound[Index]],    // Bound iterators for map loop
-    itersRed: Seq[Bound[Index]]     // Bound iterators for reduce loop
+    lhs:       Exp[_],                // Original pipe symbol
+    en:        Seq[Exp[Bit]],         // Enables
+    cchainMap: Exp[CounterChain],     // Map counterchain
+    cchainRed: Exp[CounterChain],     // Reduction counterchain
+    accum:     Exp[C[T]],             // Accumulator (external)
+    ident:     Option[Exp[T]],        // Optional identity value for reduction
+    fold:      Boolean,               // Optional value to fold with reduction
+    func:      Block[C[T]],           // Map function
+    loadRes:   Lambda1[C[T],T],       // Load function for intermediate values
+    loadAcc:   Lambda1[C[T],T],       // Load function for accumulator
+    reduce:    Lambda2[T,T,T],        // Reduction function
+    storeAcc:  Lambda2[C[T],T,MUnit], // Store function for accumulator
+    rV:        (Bound[T],Bound[T]),   // Bound symbol used to reify rFunc
+    itersMap:  Seq[Bound[Index]],     // Bound iterators for map loop
+    itersRed:  Seq[Bound[Index]]      // Bound iterators for reduce loop
   )(implicit mT: Type[T], bT: Bits[T], mC: Type[C[T]], ctx: SrcCtx) = {
     logs(s"Unrolling accum-fold $lhs")
-
-    def reduce(x: Exp[T], y: Exp[T]) = withSubstScope(rV._1 -> x, rV._2 -> y){ inlineBlock(rFunc)(mT) }
 
     val mapLanes = Unroller(cchainMap, itersMap, isInnerLoop = false)
     val isMap2 = mapLanes.indices
     val mvs = mapLanes.indexValids
     val partial = func.result
     val start = counterStarts(cchainMap).map(_.getOrElse(int32(0)))
-    val redType = reduceType(rFunc.result)
+    val redType = reduceType(reduce.result)
 
-    val blk = stageColdLambda(f(accum)) {
+    val blk = stageColdLambda1(f(accum)) {
       logs(s"[Accum-fold $lhs] Unrolling map")
       val mems = unrollMap(func, mapLanes)
-      val mvalids = () => mapLanes.valids.map{vs => reduceTree(vs){(a,b) => bool_and(a,b)} }
+      val mvalids = () => mapLanes.valids.map{vs => Math.reduceTree(vs){(a,b) => Bit.and(a,b)} }
 
       if (isUnitCounterChain(cchainRed)) {
         logs(s"[Accum-fold $lhs] Unrolling unit pipe reduction")
-        val rpipe = op_unit_pipe(globalValids, {
-          val values = inReduction(false){ mems.map{mem => withSubstScope(partial -> mem){ inlineBlock(loadRes)(mT) }} }
-          val foldValue = if (fold) { Some( inlineBlock(loadAcc)(mT) ) } else None
-          inReduction(false){ unrollReduceAccumulate[T](values, mvalids(), ident, foldValue, rFunc, loadAcc, storeAcc, rV, isMap2.map(_.head), start, isInner = false) }
-          void
+        val rpipe = Pipe.op_unit_pipe(globalValids, () => {
+          val values = inReduction(false){ mems.map{mem => loadRes.inline(mem) } }
+          val foldValue = if (fold) { Some( loadAcc.inline(accum) ) } else None
+          inReduction(false){ unrollReduceAccumulate[T,C](accum, values, mvalids(), ident, foldValue, reduce, loadAcc, storeAcc, isMap2.map(_.head), start, isInner = false) }
+          unit
         })
         styleOf(rpipe) = InnerPipe
         levelOf(rpipe) = InnerControl
@@ -690,12 +690,12 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
           logs(s"[Accum-fold $lhs] Unrolling reduction trees and cycles")
           reduceLanes.foreach{p =>
-            val laneValid = reduceTree(reduceLanes.valids(p)){(a,b) => bool_and(a,b)}
+            val laneValid = Math.reduceTree(reduceLanes.valids(p)){(a,b) => Bit.and(a,b)}
 
             logs(s"Lane #$p:")
             tab += 1
             val inputs = values.map(_.apply(p)) // The pth value of each vector load
-            val valids = mvalids().map{mvalid => bool_and(mvalid, laneValid) }
+            val valids = mvalids().map{mvalid => Bit.and(mvalid, laneValid) }
 
             logs("Valids:")
             valids.foreach{s => logs(s"  ${str(s)}")}
@@ -706,23 +706,23 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
             val accValue = accValues(p)
 
             val result = inReduction(true){
-              val treeResult = unrollReduceTree(inputs, valids, ident, reduce)
-              val isFirst = reduceTree(isMap2.map(_.head).zip(start).map{case (i,st) => fix_eql(i, st) }){(x,y) => bool_and(x,y) }
+              val treeResult = unrollReduceTree(inputs, valids, ident, reduce.toFunction2)
+              val isFirst = Math.reduceTree(isMap2.map(_.head).zip(start).map{case (i,st) => FixPt.eql(i, st) }){(x,y) => Bit.and(x,y) }
 
               isReduceStarter(accValue) = true
 
               if (SpatialConfig.enablePIR) {
-                inCycle(redType){ reduce(treeResult, accValue) }
+                inCycle(redType){ reduce.inline(treeResult, accValue) }
               }
               else if (fold) {
                 // FOLD: On first iteration, use value of accumulator value rather than zero
                 //val accumOrFirst = math_mux(isFirst, init, accValue)
-                reduce(treeResult, accValue)
+                reduce.inline(treeResult, accValue)
               }
               else {
                 // REDUCE: On first iteration, store result of tree, do not include value from accum
-                val res2 = reduce(treeResult, accValue)
-                val mux = math_mux(isFirst, treeResult, res2)
+                val res2 = reduce.inline(treeResult, accValue)
+                val mux = Math.math_mux(isFirst, treeResult, res2)
                 reduceType(mux) = redType
                 mux
               }
@@ -730,39 +730,35 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
             isReduceResult(result) = true
             isReduceStarter(accValue) = true
-            register(rFunc.result -> result)  // Lane-specific substitution
+            register(reduce.result -> result)  // Lane-specific substitution
 
             tab -= 1
           }
 
           logs(s"[Accum-fold $lhs] Unrolling accumulator store")
           inReduction(false){ unrollMap(storeAcc, reduceLanes) }
-          void
+          unit
         }
 
-        val effects = rBlk.summary
-        val rpipe = stageEffectful(UnrolledForeach(Seq(bool(true)), cchainRed, rBlk, isRed2, rvs), effects.star)(ctx)
+        val effects = rBlk.effects
+        val rpipe = stageEffectful(UnrolledForeach(Nil, cchainRed, rBlk, isRed2, rvs), effects.star)(ctx)
         styleOf(rpipe) = InnerPipe
         levelOf(rpipe) = InnerControl
         tab -= 1
       }
-      void
+      unit
     }
 
-    val rV2 = (fresh[T],fresh[T])
-    val rFunc2 = withSubstScope(rV._1 -> rV2._1, rV._2 -> rV2._2){ transformBlock(rFunc) }
-
-    val effects = blk.summary
-
-    val lhs2 = stageEffectful(UnrolledReduce(globalValids, cchainMap, accum, blk, rFunc2, isMap2, mvs, rV2)(mT,mC), effects.star)(ctx)
+    val effects = blk.effects
+    val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchainMap, accum, blk, isMap2, mvs)(mT,mC), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
 
     logs(s"[Accum-fold] Created reduce ${str(lhs2)}")
     lhs2
   }
   def unrollMemReduceNode[T,C[T]](lhs: Sym[_], rhs: OpMemReduce[T,C])(implicit ctx: SrcCtx) = {
-    val OpMemReduce(cchainMap,cchainRed,accum,func,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) = rhs
-    unrollMemReduce(lhs,f(cchainMap),f(cchainRed),f(accum),f(zero),fold,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed)(rhs.mT,rhs.bT,rhs.mC,ctx)
+    val OpMemReduce(en,cchainMap,cchainRed,accum,func,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) = rhs
+    unrollMemReduce(lhs,f(en),f(cchainMap),f(cchainRed),f(accum),f(zero),fold,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed)(rhs.mT,rhs.bT,rhs.mC,ctx)
   }
 
   override def mirror(lhs: Seq[Sym[_]], rhs: Def): Seq[Exp[_]] = rhs match {
@@ -772,9 +768,9 @@ trait UnrollingTransformer extends ForwardTransformer { self =>
 
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Type[A], ctx: SrcCtx): Exp[A] = (lhs match {
-      case Def(op: EnabledController) => op.mirrorWithEn(f, globalValids)
-      case Def(op: EnabledOp[_])      => op.mirrorWithEn(f, globalValid)
-      case _ => rhs.mirror(f)
+      case Def(op: EnabledControlNode) => op.mirrorAndEnable(f, globalValids)
+      case Def(op: EnabledOp[_])       => op.mirrorAndEnable(f, globalValid)
+      case _ => rhs.mirrorNode(f).head
     }).asInstanceOf[Exp[A]]
 
     logs(c"Cloning $lhs = $rhs")

@@ -1,14 +1,11 @@
 package spatial.codegen.chiselgen
 
-
+import argon.core._
 import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.SRAMExp
-import spatial.SpatialConfig
-import spatial.SpatialExp
+import spatial.aliases._
+import spatial.nodes._
 
 trait ChiselGenSwitch extends ChiselCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     // case op@Switch(body,selects,cases) =>

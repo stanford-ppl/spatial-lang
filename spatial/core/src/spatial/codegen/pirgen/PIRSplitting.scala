@@ -1,14 +1,11 @@
 package spatial.codegen.pirgen
 
-import spatial.SpatialExp
+import argon.core._
 
 import scala.collection.mutable
-
 import scala.util.control.NoStackTrace
 
 trait PIRSplitting extends PIRTraversal {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
 
   class SplitException(val msg: String) extends Exception("Unable to split!")
 

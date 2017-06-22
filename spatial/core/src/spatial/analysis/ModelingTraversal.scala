@@ -1,13 +1,17 @@
 package spatial.analysis
 
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
 import spatial.models.LatencyModel
+import spatial.nodes._
+import spatial.utils._
 
 import scala.collection.mutable
 
 trait ModelingTraversal extends SpatialTraversal { traversal =>
-  import IR._
-
-  lazy val latencyModel = new LatencyModel{val IR: traversal.IR.type = traversal.IR }
+  lazy val latencyModel = new LatencyModel{ }
 
   protected override def preprocess[S: Type](block: Block[S]) = {
     // latencyOf.updateModel(target.latencyModel) // TODO: Update latency model with target-specific values
@@ -64,11 +68,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   implicit def getOrUpdateFix[K,V](x: mutable.Map[K,V]): GetOrElseUpdateFix[K,V] = new GetOrElseUpdateFix[K,V](x)
 
 
-  def pipeLatencies(b: Block[_], oos: Map[Exp[_],Long] = Map.empty): (Map[Exp[_],Long], Long) = {
-    val scope = getStages(b).filterNot(s => isGlobal(s))
-                            .filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
-                            .map(_.asInstanceOf[Exp[_]]).toSet
-
+  def pipeLatencies(result: Seq[Exp[_]], scope: Set[Exp[_]], oos: Map[Exp[_],Long] = Map.empty): (Map[Exp[_],Long], Long) = {
     val localReads  = scope.collect{case reader @ LocalReader(reads) => reader -> reads.head.mem }
     val localWrites = scope.collect{case writer @ LocalWriter(writes) => writer -> writes.head.mem }
 
@@ -89,7 +89,13 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
         if (deps.nonEmpty) {
           val dlys = deps.map{e => paths.getOrElseAdd(e, fullDFS(e)) }
-          val critical = dlys.max
+
+          // Primitives are not allowed to be loops, so the latency of nested symbols must be some function of its blocks
+          // e.g. the max of all or the sum of all
+          // (For now, all cases are just the max of all inputs)
+          val critical = d match {
+            case _ => dlys.max
+          }
 
           val cycleSyms = deps intersect cycles.keySet
           if (cycleSyms.nonEmpty) {
@@ -124,8 +130,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
     if (scope.nonEmpty) {
       // Perform forwards pass for normal data dependencies
-      val deps = exps(b).toSet intersect scope
-      deps.foreach{e => paths.getOrElseAdd(e, fullDFS(e)) }
+      result.foreach{e => paths.getOrElseAdd(e, fullDFS(e)) }
 
       // TODO: What to do in case where a node is contained in multiple cycles?
       accumWrites.zipWithIndex.foreach{case (writer,i) =>

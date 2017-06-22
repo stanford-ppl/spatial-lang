@@ -1,9 +1,13 @@
 package spatial.codegen.pirgen
 
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.nodes._
+import spatial.utils._
 import spatial.models.LatencyModel
 
 trait PlasticineLatencyModel extends LatencyModel {
-  import IR._
 
   override protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
     case d if isAllocation(d) => 0
@@ -52,10 +56,7 @@ trait PlasticineLatencyModel extends LatencyModel {
     case _:ParLineBufferLoad[_] => 0
 
     // Shift Register
-    case ValueDelay(size, data) => 0 // wrong but it works???
-    case _:ShiftRegNew[_] => 0
-    case ShiftRegRead(reg@Op(ShiftRegNew(size,_))) => size
-    case _:ShiftRegWrite[_] => 0
+    case DelayLine(size, data) => 0 // wrong but it works???
 
     // DRAM
     case GetDRAMAddress(_) => 0
@@ -200,7 +201,7 @@ trait PlasticineLatencyModel extends LatencyModel {
     case _:PrintlnIf => 0
     case _:AssertIf  => 0
     case _:ToString[_] => 0
-    case _:TextConcat => 0
+    case _:StringConcat => 0
     case FixRandom(_) => 0
     case FltRandom(_) => 0
 

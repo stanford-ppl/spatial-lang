@@ -1,14 +1,14 @@
 package spatial.codegen.cppgen
 
+import argon.nodes._
 import argon.codegen.cppgen.CppCodegen
-import argon.ops.{FixPtExp, FltPtExp}
-import spatial.api.MathExp
-import spatial.{SpatialConfig, SpatialExp}
-import spatial.analysis.SpatialMetadataExp
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.SpatialConfig
 
 trait CppGenMath extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -50,28 +50,18 @@ trait CppGenMath extends CppCodegen {
       case FloatType()  => emit(src"${lhs.tp} $lhs = sqrt($x);")
     }
 
-    case FltPow(x,exp) =>
-      emit(src"${lhs.tp} ${lhs} = pow($x, $exp);")
-    case FltSin(x) =>
-      emit(src"${lhs.tp} ${lhs} = sin($x);")
-    case FltCos(x) =>
-      emit(src"${lhs.tp} ${lhs} = cos($x);")
-    case FltTan(x) =>
-      emit(src"${lhs.tp} ${lhs} = tan($x);")
-    case FltSinh(x) =>
-      emit(src"${lhs.tp} ${lhs} = sinh($x);")
-    case FltCosh(x) =>
-      emit(src"${lhs.tp} ${lhs} = cosh($x);")
-    case FltTanh(x) =>
-      emit(src"${lhs.tp} ${lhs} = tanh($x);")
-    case FltAsin(x) =>
-      emit(src"${lhs.tp} ${lhs} = asin($x);")
-    case FltAcos(x) =>
-      emit(src"${lhs.tp} ${lhs} = acos($x);")
-    case FltAtan(x) =>
-      emit(src"${lhs.tp} ${lhs} = atan($x);")
-    case FixFloor(x) => emit(src"${lhs.tp} $lhs = floor($x);")
-    case FixCeil(x) => emit(src"${lhs.tp} $lhs = ceil($x);")
+    case FltPow(x,exp) => emit(src"${lhs.tp} $lhs = pow($x, $exp);")
+    case FltSin(x)     => emit(src"${lhs.tp} $lhs = sin($x);")
+    case FltCos(x)     => emit(src"${lhs.tp} $lhs = cos($x);")
+    case FltTan(x)     => emit(src"${lhs.tp} $lhs = tan($x);")
+    case FltSinh(x)    => emit(src"${lhs.tp} $lhs = sinh($x);")
+    case FltCosh(x)    => emit(src"${lhs.tp} $lhs = cosh($x);")
+    case FltTanh(x)    => emit(src"${lhs.tp} $lhs = tanh($x);")
+    case FltAsin(x)    => emit(src"${lhs.tp} $lhs = asin($x);")
+    case FltAcos(x)    => emit(src"${lhs.tp} $lhs = acos($x);")
+    case FltAtan(x)    => emit(src"${lhs.tp} $lhs = atan($x);")
+    case FixFloor(x)   => emit(src"${lhs.tp} $lhs = floor($x);")
+    case FixCeil(x)    => emit(src"${lhs.tp} $lhs = ceil($x);")
 
 
     case Mux(sel, a, b) => 

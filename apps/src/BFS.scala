@@ -1,9 +1,7 @@
 import org.virtualized._
-import spatial._
+import spatial.dsl._
 
 object BFS extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 10
-  import IR._
-
   val tileSize = 8000
   val edges_per_node = 6 // Will make this random later
 
@@ -115,17 +113,12 @@ object BFS extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 10
     printArray(result, "result: ")
     println("Cksum = " + result.reduce{_+_})
     // println("PASS: " + cksum + " (BFS)")
-
-
-
   }
 
 }
 
 
 object BFS_FSM extends SpatialApp { // DISABLED Regression (Sparse) // Args: 6 10
-  import IR._
-
   val tileSize = 8000
 
   @virtualize
