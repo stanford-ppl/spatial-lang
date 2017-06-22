@@ -682,21 +682,21 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
       FSM[Int](state => state != doneState) { state =>
         if (state == traverseState) {
           if (score_matrix(b_addr,a_addr).ptr == ALIGN.to[Int16]) {
+            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
+            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)
             done_backtrack := b_addr == 1.to[Int] || a_addr == 1.to[Int]
             b_addr :-= 1
             a_addr :-= 1
-            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
-            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)
           } else if (score_matrix(b_addr,a_addr).ptr == SKIPA.to[Int16]) {
-            done_backtrack := b_addr == 1.to[Int]
-            b_addr :-= 1
             seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)  
             seqa_fifo_aligned.enq(4, !done_backtrack)          
+            done_backtrack := b_addr == 1.to[Int]
+            b_addr :-= 1
           } else {
-            done_backtrack := a_addr == 1.to[Int]
-            a_addr :-= 1
             seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
             seqb_fifo_aligned.enq(4, !done_backtrack)          
+            done_backtrack := a_addr == 1.to[Int]
+            a_addr :-= 1
           }
         } else if (state == padBothState) {
           seqa_fifo_aligned.enq(5, !seqa_fifo_aligned.full) // I think this FSM body either needs to be wrapped in a body or last enq needs to be masked or else we are full before FSM sees full

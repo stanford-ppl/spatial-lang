@@ -37,6 +37,8 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit("// Emitting notDone")
       emitBlock(notDone)
       emit("// Emitting action")
+      emitGlobalWire(src"val ${notDone.result}_doneCondition = Wire(Bool())")
+      emit(src"${notDone.result}_doneCondition := ~${notDone.result}")
       emitInhibitor(lhs, None, Some(notDone.result))
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
@@ -49,7 +51,9 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit(src"${lhs}_sm.io.input.initState := ${start}.r.asSInt")
       emitGlobalWire(src"val $state = Wire(SInt(32.W))")
       emit(src"$state := ${lhs}_sm.io.output.state")
-      emit(src"${lhs}_sm.io.input.doneCondition := ~${notDone.result}")
+      emitGlobalWire(src"val ${lhs}_doneCondition = Wire(Bool())")
+      emit(src"${lhs}_doneCondition := ~${notDone.result}")
+      emit(src"${lhs}_sm.io.input.doneCondition := ${lhs}_doneCondition")
       val extraEn = if (ens.length > 0) {src"""List($ens).map(en=>en).reduce{_&&_}"""} else {"true.B"}
       emit(src"${lhs}_mask := ${extraEn}")
       

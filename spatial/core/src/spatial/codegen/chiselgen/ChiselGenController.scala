@@ -77,6 +77,23 @@ trait ChiselGenController extends ChiselGenCounter{
 
   }
 
+  protected def findCtrlAncestor(lhs: Exp[_]): Option[Exp[_]] = {
+    var nextLevel: Option[Exp[_]] = Some(lhs)
+    var keep_looking = true
+    while (keep_looking & nextLevel.isDefined) {
+      nextLevel.get match {
+        case Def(_:UnrolledReduce[_,_]) => nextLevel = None; keep_looking = false
+        case Def(_:UnrolledForeach) => nextLevel = None; keep_looking = false
+        case Def(_:Hwblock) => nextLevel = None; keep_looking = false
+        case Def(_:UnitPipe) => nextLevel = None; keep_looking = false
+        case Def(_:ParallelPipe) => nextLevel = None; keep_looking = false 
+        case Def(_:StateMachine[_]) => keep_looking = false 
+        case _ => nextLevel = parentOf(nextLevel.get)
+      }
+    }
+    nextLevel
+  }
+
   protected def hasCopiedCounter(lhs: Exp[_]): Boolean = {
     if (parentOf(lhs).isDefined) {
       val parent = parentOf(lhs).get
@@ -586,7 +603,10 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""${lhs}_resetter := ${parent_kernel}_resetter""")
       emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en & ${lhs}_switch_select""")
       emit(src"""${lhs}_ctr_trivial := ${parent_kernel}_ctr_trivial | false.B""")
-      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
+      if (levelOf(lhs) == InnerControl) {
+        val realctrl = findCtrlAncestor(lhs)
+        emitInhibitor(lhs, None, realctrl)
+      }
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         // if (blockContents(body).length > 0) {
         if (childrenOf(lhs).count(isControlNode) == 1) { // This is an outer pipe
@@ -599,7 +619,7 @@ trait ChiselGenController extends ChiselGenCounter{
         } else if (childrenOf(lhs).count(isControlNode) == 0) { // Body contains only primitives
           emitBlock(body)
           emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
-          emit(src"""${lhs}_done := ${lhs}_en // Route through""")
+          emit(src"""${lhs}_done := ${lhs}_en.D(${symDelay(lhs)},rr) // Route through""")
         } else { // More than one control node is children
           throw new Exception("Please put a pipe around your multiple controllers inside the if statement")
         }
