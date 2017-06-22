@@ -345,4 +345,89 @@ object DRAMTransfersInternal {
       }
     }
   }
+
+  @internal def copy_sparse_mem[T,C[T],A[_]](
+    offchip:   Exp[DRAM[T]],
+    onchip:    Exp[C[T]],
+    addresses: Exp[A[Index]],
+    size:      Exp[Index],
+    par:       Const[Index],
+    isLoad:    Boolean
+  )(implicit mT:   Type[T],
+             bT:   Bits[T],
+             memC: Mem[T,C],
+             mC:   Type[C[T]],
+             memA: Mem[Index,A],
+             mA:   Type[A[Index]],
+             mD:   Type[DRAM[T]],
+             ctx:  SrcCtx
+  ): MUnit = {
+    val local = wrap(onchip)
+    val addrs = wrap(addresses)
+    val dram  = wrap(offchip)
+    val requestLength = wrap(size)
+    val p = wrap(par)
+
+    val bytesPerWord = bits[T].length / 8 + (if (bits[T].length % 8 != 0) 1 else 0)
+
+    // FIXME: Bump up request to nearest multiple of 16 because of fringe
+    val iters = Reg[Index](0)
+    Pipe{
+      iters := Math.mux(requestLength < 16.to[Index], 16.to[Index],
+        Math.mux(requestLength % 16.to[Index] === 0.to[Index], requestLength, requestLength + 16.to[Index] - (requestLength % 16.to[Index]) ))
+      // (requestLength + math_mux((requestLength % 16.to[Index] === 0.to[Index]).s, (0.to[Index]).s, (16.to[Index] - (requestLength % 16.to[Index])).s )).s
+    }
+
+    Stream {
+      // Gather
+      if (isLoad) {
+        val addrBus = StreamOut[Int64](GatherAddrBus)
+        val dataBus = StreamIn[T](GatherDataBus[T]())
+
+        // Send
+        Foreach(iters par p){i =>
+          val addr = ifThenElse(i >= requestLength, dram.address.to[Int64], (memA.load(addrs,Seq(i),true) * bytesPerWord).to[Int64] + dram.address )
+          val addr_bytes = addr
+          addrBus := addr_bytes
+          // addrBus := addr_bytes
+        }
+        // Fringe
+        fringe_sparse_load(offchip, addrBus.s, dataBus.s)
+        // Receive
+        Foreach(iters par p){i =>
+          val data = dataBus.value()
+          memC.store(local, Seq(i), data, i < requestLength)
+        }
+      }
+      // Scatter
+      else {
+        val cmdBus = StreamOut[MTuple2[T,Int64]](ScatterCmdBus[T]())
+        val ackBus = StreamIn[Bit](ScatterAckBus)
+
+        // Send
+        Foreach(iters par p){i =>
+          val pad_addr = Math.max(requestLength - 1, 0.to[Index])
+          // Using ifThenElse instead of syntax sugar out of convenience (sugar needs T <: MetaAny[T] evidence...)
+          //val curAddr  = if (i >= requestLength) memA.load(addrs, Seq(pad_addr), true) else memA.load(addrs, Seq(i), true)
+          //val data     = if (i >= requestLength) memC.load(local, Seq(pad_addr), true) else memC.load(local, Seq(i), true)
+          val curAddr  = ifThenElse(i >= requestLength, memA.load(addrs, Seq(pad_addr), true), memA.load(addrs, Seq(i), true))
+          val data     = ifThenElse(i >= requestLength, memC.load(local, Seq(pad_addr), true), memC.load(local, Seq(i), true))
+
+          val addr     = (curAddr * bytesPerWord).to[Int64] + dram.address
+          val addr_bytes = addr
+
+          cmdBus := pack(data, addr_bytes)
+        }
+        // Fringe
+        fringe_sparse_store(offchip, cmdBus.s, ackBus.s)
+        // Receive
+        // TODO: Assumes one ack per address
+        Foreach(iters by target.burstSize/bits[T].length){i =>
+          val ack = ackBus.value()
+        }
+      }
+    }
+
+  }
+
 }

@@ -49,6 +49,7 @@ class SRAMIsMemory[T:Type:Bits,C[T]](implicit mC: Type[C[T]], ev: C[T] <:< SRAM[
       Counter(0, wrap(d), 1, par)
     }
   }
+  def par(mem: C[T]) = ev(mem).p
 }
 
 

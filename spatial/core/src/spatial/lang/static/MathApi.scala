@@ -68,5 +68,14 @@ trait MathApi { this: SpatialApi =>
   implicit class MathInfixOps[T:Type:Num](x: T) {
     @api def **(exp: scala.Int): T = pow(x, exp)
   }
+
+  /*case class MuxInfixOperator[T:Type:Bits](cond: Bit, thenValue: T)
+
+  implicit class MuxInfixOps(cond: Bit){
+    def ?[T:Type:Bits](thenValue: T) = MuxInfixOperator(cond, thenValue)
+  }
+  implicit class MuxComplete[T:Type:Bits](elseValue: T) {
+    def ::(mio: MuxInfixOperator[T]) = Math.mux(mio.cond, mio.thenValue, elseValue)
+  }*/
 }
 

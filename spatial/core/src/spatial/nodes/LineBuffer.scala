@@ -24,6 +24,7 @@ class LineBufferIsMemory[T:Type:Bits] extends Mem[T, LineBuffer] {
     // Hack: Use only columns for dense transfers
     stagedDimsOf(mem.s).drop(1).map{d => Counter(0, wrap(d), 1, 1) }
   }
+  def par(mem: LineBuffer[T]) = None
 }
 
 

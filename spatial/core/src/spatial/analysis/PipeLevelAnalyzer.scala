@@ -65,6 +65,7 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
 
       case _: DenseTransfer[_,_] => annotateLeafControl(lhs)
       case _: SparseTransfer[_]  => annotateLeafControl(lhs)
+      case _: SparseTransferMem[_,_,_] => annotateLeafControl(lhs)
 
       case _ =>
     }

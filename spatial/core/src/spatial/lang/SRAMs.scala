@@ -12,6 +12,8 @@ trait SRAM[T] { this: Template[_] =>
   protected[spatial] var p: Option[Index] = None
 
   @internal def ranges: Seq[Range] = stagedDimsOf(s).map{d => Range.alloc(None, wrap(d),None,None)}
+
+  @api def dims: List[Index] = wrap(stagedDimsOf(s)).toList
 }
 object SRAM {
   @api def apply[T:Type:Bits](c: Index): SRAM1[T] = SRAM1(SRAM.alloc[T,SRAM1](c.s))
@@ -59,10 +61,13 @@ case class SRAM1[T:Type:Bits](s: Exp[SRAM1[T]]) extends Template[SRAM1[T]] with 
   @api def par(p: Index): SRAM1[T] = { val x = SRAM1(s); x.p = Some(p); x }
 
   @api def gather(dram: DRAMSparseTile[T]): MUnit = DRAMTransfers.sparse_transfer(dram, this, isLoad = true)
+  @api def gather[A[_]](dram: DRAMSparseTileMem[T,A]): MUnit = DRAMTransfers.sparse_transfer_mem(dram, this, isLoad = true)
 
   // @api def cols(): Index = field[Index]("c")
   @api def load(dram: DRAM1[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+
+  @api def length: Index = wrap(stagedDimsOf(s).head)
 }
 object SRAM1 {
   implicit def sram1Type[T:Type:Bits]: Type[SRAM1[T]] = SRAM1Type(typ[T])
@@ -78,6 +83,9 @@ case class SRAM2[T:Type:Bits](s: Exp[SRAM2[T]]) extends Template[SRAM2[T]] with 
 
   @api def load(dram: DRAM2[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile2[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+
+  @api def rows: Index = wrap(stagedDimsOf(s).head)
+  @api def cols: Index = wrap(stagedDimsOf(s).apply(1))
 }
 object SRAM2 {
   implicit def sram2Type[T:Type:Bits]: Type[SRAM2[T]] = SRAM2Type(typ[T])

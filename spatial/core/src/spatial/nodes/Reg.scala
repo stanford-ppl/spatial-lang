@@ -15,6 +15,7 @@ class RegIsMemory[T:Type:Bits] extends Mem[T, Reg] {
   @api def load(mem: Reg[T], is: Seq[Index], en: Bit): T = mem.value
   @api def store(mem: Reg[T], is: Seq[Index], data: T, en: Bit): MUnit = MUnit(Reg.write(mem.s, data.s, en.s))
   @api def iterators(mem: Reg[T]): Seq[Counter] = Seq(Counter(0, 1, 1, 1))
+  def par(mem: Reg[T]) = None
 }
 
 /** IR Nodes **/

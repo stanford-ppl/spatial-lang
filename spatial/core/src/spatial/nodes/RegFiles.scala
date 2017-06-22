@@ -29,6 +29,7 @@ class RegFileIsMemory[T:Type:Bits,C[T]](implicit mC: Type[C[T]], ev: C[T] <:< Re
   @api def load(mem: C[T], is: Seq[Index], en: Bit): T = wrap(RegFile.load(mem.s, unwrap(is), en.s))
   @api def store(mem: C[T], is: Seq[Index], data: T, en: Bit): MUnit = wrap(RegFile.store(mem.s, unwrap(is), data.s, en.s))
   @api def iterators(mem: C[T]): Seq[Counter] = stagedDimsOf(mem.s).map{d => Counter(0, wrap(d), 1, 1) }
+  def par(mem: C[T]) = None
 }
 
 

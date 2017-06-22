@@ -61,10 +61,25 @@ object DRAMTransfers {
   ): MUnit = {
     implicit val mD: Type[DRAM[T]] = tile.dram.tp
 
-    val p = extractParFactor(local.p)
+    val p = extractParFactor(tile.addrs.p)
     val size = tile.len.s //stagedDimsOf(local.s).head
     val i = fresh[Index]
     MUnit(op_sparse_transfer(tile.dram, local.s, tile.addrs.s, size, p, isLoad, i))
+  }
+
+  @internal def sparse_transfer_mem[T,C[T],A[_]](
+    tile:   DRAMSparseTileMem[T,A],
+    local:  C[T],
+    isLoad: Boolean
+  )(implicit mT: Type[T], bT: Bits[T], memC: Mem[T,C], mC: Type[C[T]]): MUnit = {
+    implicit val mD: Type[DRAM[T]] = tile.dram.tp
+    implicit val memA: Mem[Index,A] = tile.memA
+    implicit val mA: Type[A[Index]] = tile.mA
+
+    val p = extractParFactor(memA.par(tile.addrs))
+    val size = tile.len.s
+    val i = fresh[Index]
+    MUnit(op_sparse_transfer_mem(tile.dram, local.s, tile.addrs.s, size, p, isLoad, i))
   }
 
   /** Constructors **/
@@ -77,7 +92,7 @@ object DRAMTransfers {
     p:      Const[Index],
     isLoad: Boolean,
     iters:  List[Bound[Index]]
-  )(implicit mem: Mem[T,C], mC: Type[C[T]], mD: Type[DRAM[T]], ctx: SrcCtx): Exp[MUnit] = {
+  )(implicit mem: Mem[T,C], mC: Type[C[T]], mD: Type[DRAM[T]]): Exp[MUnit] = {
 
     val node = DenseTransfer(dram,local,ofs,lens,units,p,isLoad,iters)
 
@@ -94,9 +109,25 @@ object DRAMTransfers {
     p:      Const[Index],
     isLoad: Boolean,
     i:      Bound[Index]
-  )(implicit mD: Type[DRAM[T]], ctx: SrcCtx): Exp[MUnit] = {
+  )(implicit mD: Type[DRAM[T]]): Exp[MUnit] = {
 
     val node = SparseTransfer(dram,local,addrs,size,p,isLoad,i)
+
+    val out = if (isLoad) stageWrite(local)(node)(ctx) else stageWrite(dram)(node)(ctx)
+    styleOf(out) = InnerPipe
+    out
+  }
+
+  @internal def op_sparse_transfer_mem[T:Type:Bits,C[T],A[_]](
+    dram:   Exp[DRAM[T]],
+    local:  Exp[C[T]],
+    addrs:  Exp[A[Index]],
+    size:   Exp[Index],
+    p:      Const[Index],
+    isLoad: Boolean,
+    i:      Bound[Index]
+  )(implicit memC: Mem[T,C], mC: Type[C[T]], memA: Mem[Index,A], mA: Type[A[Index]], mD: Type[DRAM[T]]) = {
+    val node = SparseTransferMem(dram,local,addrs,size,p,isLoad,i)
 
     val out = if (isLoad) stageWrite(local)(node)(ctx) else stageWrite(dram)(node)(ctx)
     styleOf(out) = InnerPipe

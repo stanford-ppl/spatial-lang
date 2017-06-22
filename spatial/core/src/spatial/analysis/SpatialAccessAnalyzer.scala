@@ -61,6 +61,7 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case e: DenseTransfer[_,_] => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
     case e: SparseTransfer[_]  => accessPatternOf(lhs) = List(LinearAccess(e.i))
+    case e: SparseTransferMem[_,_,_] => accessPatternOf(lhs) = List(LinearAccess(e.i))
     case _ => super.visit(lhs, rhs)
   }
 
