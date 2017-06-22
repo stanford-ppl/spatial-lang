@@ -3,7 +3,7 @@ import spatial.dsl._
 import org.virtualized._
 import org.scalatest.{Matchers, FlatSpec}
 
-object FIFOGatherTest extends SpatialTest {
+object FIFOGatherTest extends SpatialApp {
   val n = 32
   val T = 8
 
@@ -13,11 +13,13 @@ object FIFOGatherTest extends SpatialTest {
     val data = DRAM[Int](N)
     val addr = DRAM[Int](N)
     val out  = DRAM[Int](N)
+    setMem(data, dat)
+    setMem(addr, adr)
+
     Accel {
       val localAddr = FIFO[Int](T)
       val localData = FIFO[Int](T)
       localAddr load addr(0::T)
-
       localData gather data(localAddr)
       out(0::T) store localData
     }
