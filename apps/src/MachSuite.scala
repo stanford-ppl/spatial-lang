@@ -1,8 +1,9 @@
 import spatial.dsl._
 import org.virtualized._
+import spatial.targets._
 
 object AES extends SpatialApp { // Regression (Dense) // Args: none
-
+  override val target = AWS_F1
 
   /*
   TODO: Optimize/parallelize many of the memory accesses here and pipeline as much as possible
@@ -225,6 +226,7 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
   /*
@@ -384,6 +386,7 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
   /*
@@ -464,6 +467,7 @@ object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
  /*
@@ -579,6 +583,7 @@ object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object NW extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
  /*
@@ -682,21 +687,21 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
       FSM[Int](state => state != doneState) { state =>
         if (state == traverseState) {
           if (score_matrix(b_addr,a_addr).ptr == ALIGN.to[Int16]) {
+            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
+            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)
             done_backtrack := b_addr == 1.to[Int] || a_addr == 1.to[Int]
             b_addr :-= 1
             a_addr :-= 1
-            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
-            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)
           } else if (score_matrix(b_addr,a_addr).ptr == SKIPA.to[Int16]) {
-            done_backtrack := b_addr == 1.to[Int]
-            b_addr :-= 1
             seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)  
             seqa_fifo_aligned.enq(4, !done_backtrack)          
+            done_backtrack := b_addr == 1.to[Int]
+            b_addr :-= 1
           } else {
-            done_backtrack := a_addr == 1.to[Int]
-            a_addr :-= 1
             seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
             seqb_fifo_aligned.enq(4, !done_backtrack)          
+            done_backtrack := a_addr == 1.to[Int]
+            a_addr :-= 1
           }
         } else if (state == padBothState) {
           seqa_fifo_aligned.enq(5, !seqa_fifo_aligned.full) // I think this FSM body either needs to be wrapped in a body or last enq needs to be masked or else we are full before FSM sees full
@@ -758,6 +763,7 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
  /*
@@ -876,6 +882,7 @@ object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
  /*
@@ -1047,6 +1054,7 @@ object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object KMP extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
  /*
@@ -1129,6 +1137,7 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object GEMM_NCubed extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
  /*
@@ -1184,6 +1193,7 @@ object GEMM_NCubed extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object GEMM_Blocked extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
  /*
@@ -1246,6 +1256,7 @@ object GEMM_Blocked extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
  /*                                                                                                  
@@ -1346,6 +1357,7 @@ object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
  /*                                                                                                  
@@ -1492,6 +1504,7 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object SPMV_CRS extends SpatialApp { // Regression (Sparse) // Args: none
+  override val target = AWS_F1
 
 
  /*                                                                                                  
@@ -1581,6 +1594,7 @@ object SPMV_CRS extends SpatialApp { // Regression (Sparse) // Args: none
 }
 
 object SPMV_ELL extends SpatialApp { // Regression (Sparse) // Args: none
+  override val target = AWS_F1
 
 
  /*                                                                                                  
@@ -1664,6 +1678,7 @@ object SPMV_ELL extends SpatialApp { // Regression (Sparse) // Args: none
 
 
 object Backprop extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
  /*                                                                                                  
     Concerns: 
@@ -2037,6 +2052,7 @@ object Backprop extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
  /*                                                                                                  
@@ -2132,6 +2148,7 @@ object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
 
 
  /*                                                                                                  
@@ -2393,6 +2410,7 @@ object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
+  override val target = AWS_F1
 
 
  /*                                                                                                  
@@ -2499,6 +2517,7 @@ object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
 
 
 object BFS_Queue extends SpatialApp { // Regression (Sparse) // Args: none
+  override val target = AWS_F1
 
 
  /*                                                                                                  

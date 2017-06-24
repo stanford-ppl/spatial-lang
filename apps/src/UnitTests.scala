@@ -69,7 +69,7 @@ object FloatBasics extends SpatialApp { // Regression (Unit) // Args: 3.2752 -28
       ffsub_out := in1 - in2
       fflt_out := in1 < in2
       ffgt_out := in1 > in2
-      ffeq_out := in1 == in2
+      ffeq_out := in1.value == in2.value
     }
 
     val ffadd_result = getArg(ffadd_out)

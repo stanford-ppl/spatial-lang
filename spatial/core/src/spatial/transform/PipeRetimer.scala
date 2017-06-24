@@ -89,7 +89,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
           // in inner blocks that are also used in outer blocks
           if (prev.hierarchy < hierarchy) prev.value()
 
-          val size = prev.delay - delay
+          val size = delay - prev.delay
           if (size > 0) {
             ValueDelay(input, delay, size, hierarchy, () => delayLine(size, prev.value())(input.ctx))
           } else prev
@@ -118,7 +118,6 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
         }
       }
       val inputDelays = consumerDelays.groupBy(_._1).mapValues(_.map(_._2))
-
       inputDelays.foreach{case (input, consumers) =>
         val consumerGroups = consumers.groupBy(_._2).mapValues(_.map(_._1))
         val delays = consumerGroups.keySet.toList.sorted  // Presort to maximize coalescing

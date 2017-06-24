@@ -77,6 +77,23 @@ trait ChiselGenController extends ChiselGenCounter{
 
   }
 
+  protected def findCtrlAncestor(lhs: Exp[_]): Option[Exp[_]] = {
+    var nextLevel: Option[Exp[_]] = Some(lhs)
+    var keep_looking = true
+    while (keep_looking & nextLevel.isDefined) {
+      nextLevel.get match {
+        case Def(_:UnrolledReduce[_,_]) => nextLevel = None; keep_looking = false
+        case Def(_:UnrolledForeach) => nextLevel = None; keep_looking = false
+        case Def(_:Hwblock) => nextLevel = None; keep_looking = false
+        case Def(_:UnitPipe) => nextLevel = None; keep_looking = false
+        case Def(_:ParallelPipe) => nextLevel = None; keep_looking = false 
+        case Def(_:StateMachine[_]) => keep_looking = false 
+        case _ => nextLevel = parentOf(nextLevel.get)
+      }
+    }
+    nextLevel
+  }
+
   protected def hasCopiedCounter(lhs: Exp[_]): Boolean = {
     if (parentOf(lhs).isDefined) {
       val parent = parentOf(lhs).get
@@ -563,12 +580,15 @@ trait ChiselGenController extends ChiselGenCounter{
             // Probably need to match on type of stm and grab the return values
           }
         } else {
-          val anyCaseDone = cases.map{c => src"${c}_done"}.mkString(" | ")
-          emit(src"""${lhs}_done := $anyCaseDone // Safe to assume Switch is done when ANY child is done?""")
-          cases.collect{case s: Sym[_] => stmOf(s)}.foreach(visitStm)
-          // (0 until selects.length).foreach{ i =>
-          //   emit(src"val ${cases(i)}_mask = ${selects(i)}")
-          // }
+          // If this is an innerpipe, we need to route the done of the parent downward.  If this is an outerpipe, we need to route the dones of children upward
+          if (levelOf(lhs) == InnerControl) {
+            emit(src"""${lhs}_done := ${parent_kernel}_done""")
+            cases.collect{case s: Sym[_] => stmOf(s)}.foreach(visitStm)
+          } else {
+            val anyCaseDone = cases.map{c => src"${c}_done"}.mkString(" | ")
+            emit(src"""${lhs}_done := $anyCaseDone // Safe to assume Switch is done when ANY child is done?""")
+            cases.collect{case s: Sym[_] => stmOf(s)}.foreach(visitStm)
+          }
         }
       }
       controllerStack.pop()
@@ -584,24 +604,27 @@ trait ChiselGenController extends ChiselGenCounter{
       // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""${lhs}_resetter := ${parent_kernel}_resetter""")
-      emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en & ${lhs}_switch_select""")
+      emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en // & ${lhs}_switch_select // Do not include switch_select because this signal is retimed""")
       emit(src"""${lhs}_ctr_trivial := ${parent_kernel}_ctr_trivial | false.B""")
-      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
+      if (levelOf(lhs) == InnerControl) {
+        val realctrl = findCtrlAncestor(lhs) // TODO: I don't think this search is needed anymore
+        emitInhibitor(lhs, None, None)
+      }
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         // if (blockContents(body).length > 0) {
-        if (childrenOf(lhs).count(isControlNode) == 1) { // This is an outer pipe
+        // if (childrenOf(lhs).count(isControlNode) == 1) { // This is an outer pipe
+        if (childrenOf(lhs).count(isControlNode) > 1) {// More than one control node is children
+          throw new Exception(s"Seems like something is messed up with switch cases ($lhs).  Please put a pipe around your multiple controllers inside the if statement, maybe?")
+        } else if (levelOf(lhs) == OuterControl & childrenOf(lhs).count(isControlNode) == 1) { // This is an outer pipe
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitBlock(body)
-          // Console.println(s"body is ${blockContents(body).collect{case s: Sym[_] => s}}")
-          // emit(s"""// No control nodes to connect the done_sniff""")
-          // emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
-          // emit(src"""${lhs}_done_sniff := ${parent_kernel}_en // Route through""")
-        } else if (childrenOf(lhs).count(isControlNode) == 0) { // Body contains only primitives
+        } else if (levelOf(lhs) == OuterControl & childrenOf(lhs).count(isControlNode) == 0) {
+          emit(s"// Controller Stack: ${controllerStack.tail}")
           emitBlock(body)
-          emitGlobalWire(src"""val ${lhs}_done_sniff = Wire(Bool())""")
           emit(src"""${lhs}_done := ${lhs}_en // Route through""")
-        } else { // More than one control node is children
-          throw new Exception("Please put a pipe around your multiple controllers inside the if statement")
+        } else if (levelOf(lhs) == InnerControl) { // Body contains only primitives
+          emitBlock(body)
+          emit(src"""${lhs}_done := ${parent_kernel}_done // Route through""")
         }
         val returns_const = lhs match {
           case Const(_) => false
