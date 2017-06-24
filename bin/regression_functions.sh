@@ -725,7 +725,7 @@ fi
 rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
 touch ${SPATIAL_HOME}/regression_tests/${2}/results/failed_execution_hanging.${3}_${4}
 chmod +x ${5}/out/run.sh
-timeout 350 ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+timeout 400 ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
 # Check for annoying vcs assertion and rerun if needed
 wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
@@ -734,7 +734,7 @@ if [ \"\$wc\" -gt 0 ]; then
   echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
   make vcs 2>&1 | tee -a ${5}/log
   make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
-  timeout 350 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  timeout 400 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
   # Check second time for annoying assert
   wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
@@ -743,7 +743,7 @@ if [ \"\$wc\" -gt 0 ]; then
     echo -e \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
     make vcs 2>&1 | tee -a ${5}/log
     make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
-    timeout 350 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+    timeout 400 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
   fi
 fi
 # Check for annoying refusal to run that happens in scala sometimes
@@ -751,7 +751,7 @@ wc=\$(cat ${5}/log | grep \"PASS\" | wc -l)
 if [ \"\$wc\" -eq 0 ]; then
   echo \"[APP_RESULT] Annoying refusal to run ${3}_${4}.  Rerunning...\" >> ${log}
   echo -i \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
-  timeout 350 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  timeout 400 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 fi
 
 # Check for runtime errors
