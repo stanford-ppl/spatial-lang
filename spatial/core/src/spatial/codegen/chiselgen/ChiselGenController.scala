@@ -579,6 +579,13 @@ trait ChiselGenController extends ChiselGenCounter{
             visitStm(stm)
             // Probably need to match on type of stm and grab the return values
           }
+          if (levelOf(lhs) == InnerControl) {
+            emit(src"""${lhs}_done := ${parent_kernel}_done""")
+          } else {
+            val anyCaseDone = cases.map{c => src"${c}_done"}.mkString(" | ")
+            emit(src"""${lhs}_done := $anyCaseDone // Safe to assume Switch is done when ANY child is done?""")
+          }
+
         } else {
           // If this is an innerpipe, we need to route the done of the parent downward.  If this is an outerpipe, we need to route the dones of children upward
           if (levelOf(lhs) == InnerControl) {
