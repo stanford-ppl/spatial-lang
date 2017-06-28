@@ -6,5 +6,5 @@ echo "gen/$app/sim.log"
 #tail -F spatial.log
 #tail -F gen/$app/build.log
 #tail -F gen/$app/sim.log
-tail -3 gen/$app/sim.log
+tail -10 gen/$app/sim.log
 #tail -F $LOG_FILE

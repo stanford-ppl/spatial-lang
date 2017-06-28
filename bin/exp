@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from os import listdir
-from os.path import isfile, join, basename 
+from os.path import isfile, isdir, join, splitext, basename, dirname 
 import os
 import argparse
 import subprocess
@@ -10,6 +10,7 @@ import time
 import pickle
 import signal
 import psutil
+import shutil
 
 APP_DIR='apps/src/'
 PID_PATH = 'job_pids.pickle'
@@ -71,6 +72,17 @@ def kill_with_pid(proc_pid):
         proc.kill()
     process.kill()
 
+def clearAll():
+    dirs = [join('gen', d) for d in listdir('gen') if isdir(join('gen', d))]
+    for d in dirs:
+        files = [join(d, f) for f in listdir(d) if f != 'sim.log']
+        for f in files:
+            print('removing {}'.format(f))
+            if isdir(f):
+                shutil.rmtree(f)
+            elif isfile(f):
+                os.remove(f)
+            
 count = 0
 def kill(app, args, params, regen):
     global count
@@ -126,9 +138,10 @@ def fpgaRun():
     # target('GDA', [38400],  {'ip':8, 'op': 2, 'ts':192, 'fpga':'true_novcd'}, regen='true')
     # target('SGD', [30, 7680, 0.0001], {'ip':16, 'op':2, 'ts':192, 'D':768, 'fpga':'true_novcd'}, regen='true') #not sure which one is right
 
-    target('Kmeans', [1, 1536], {'ip':8, 'op':1, 'numcents':20, 'pts_per_ld':96,'D':96,'fpga':'true_novcd'}, regen='true')
-    target('SGD', [1, 7680, 0.0001], {'ip':16, 'op':2, 'ts':192, 'D':768, 'fpga':'true_novcd'}, regen='true') #not sure which one is right
+    # target('Kmeans', [1, 1536], {'ip':8, 'op':1, 'numcents':20, 'pts_per_ld':96,'D':96,'fpga':'true_novcd'}, regen='true')
+    # target('SGD', [1, 7680, 0.0001], {'ip':16, 'op':2, 'ts':192, 'D':768, 'fpga':'true_novcd'}, regen='true') #not sure which one is right
     # target('SGD', [30, 7680, 0.0001], {'ip':16, 'op':2, 'ts':768, 'D':192, 'fpga':'true_novcd'}, regen='true') 
+    # target('SMV' , [3840]  , {'ip':4 , 'op':1 , 'pp':3840 , 'NNZ':60 , 'ts':192, 'fpga':'false'} , regen='true')
     pass
 
 def expRun():
@@ -293,6 +306,8 @@ def expRun():
 
     #TODO
     # target('GDA', [384000],  {'ip':16, 'op': 6,  'ts':6400, 'fpga':'false_par'}, regen='true')
+    # target('GDA', [384000],  {'ip':16, 'op': 3,  'ts':6400, 'fpga':'false_par'}, regen='true')
+
     # target('GDA', [384000],  {'ip':16, 'op': 8,  'ts':6400, 'fpga':'false_par'}, regen='true')
     # target('GDA', [384000],  {'ip':16, 'op': 10, 'ts':6400, 'fpga':'false_par'}, regen='true')
 
@@ -312,6 +327,8 @@ def expRun():
     # target('LogReg', [5, 7040], {'ip':16, 'op':11, 'ts':64, 'dim':384}, regen='true')
     # target('LogReg', [5, 46080], {'ip':16, 'op':12, 'ts':384, 'dim':384}, regen='true')
     # target('LogReg', [1, 8192], {'ip':16, 'op':16, 'ts':64, 'dim':384}, regen='true') #TODO
+
+    # target('LogReg', [5, 1536], {'ip':16, 'op':6,  'ts':64, 'dim':384}, regen='true') 
     #################################################################################################################
     # numiter, N, alpha
     # target('SGD', [30, 38400, 0.0001], {'ip':16, 'op':1, 'ts':384, 'D':16}, regen='true') 
@@ -320,6 +337,7 @@ def expRun():
 
     pass
     #TODO
+    # target('SGD', [1, 7680, 0.0001], {'ip':16, 'op':1, 'ts':7680, 'D':768, 'fpga':'false'}, regen='true') 
     # target('SGD', [2, 76800, 0.0001], {'ip':16, 'op':2, 'ts':7680, 'D':16, 'fpga':'false'}, regen='true') 
     # target('SGD', [1, 76800, 0.0001], {'ip':16, 'op':5, 'ts':7680, 'D':16, 'fpga':'false'}, regen='true') 
     #################################################################################################################
@@ -332,6 +350,9 @@ def expRun():
     # target('Kmeans', [50, 1536], {'ip':16, 'op':1, 'numcents':1, 'pts_per_ld': 768, 'D':96}, regen='true')
     #TODO
     # target('Kmeans', [50, 1536], {'ip':8, 'op':1, 'numcents':20, 'pts_per_ld': 96, 'D':96, 'fpga':'false'}, regen='true')
+    # target('Kmeans', [1, 1536], {'ip':16, 'op':1, 'numcents':20, 'pts_per_ld':384,'D':96,'fpga':'false'}, regen='true')
+    # target('Kmeans', [1, 3072], {'ip':16, 'op':1, 'numcents':20, 'pts_per_ld':768,'D':96,'fpga':'false'}, regen='true')
+    # target('Kmeans', [1, 6144], {'ip':16, 'op':1, 'numcents':20, 'pts_per_ld':1536,'D':96,'fpga':'false'}, regen='true')
     #################################################################################################################
     # args: N
     # target('SMV', [768], {'ip':16, 'op':4, 'pp':3840, 'NNZ':60}, regen='true') 
@@ -368,6 +389,7 @@ def main():
     parser.add_argument('--run', dest='run', action='store_true', default=False) 
     parser.add_argument('--kill', dest='kill', action='store_true', default=False) 
     parser.add_argument('--fpga', dest='fpga', action='store_true', default=False) 
+    parser.add_argument('--clearAll', dest='clearAll', action='store_true', default=False) 
     global opts
     (opts, args) = parser.parse_known_args()
 
@@ -379,7 +401,9 @@ def main():
         job_pids = {}
 
     try:
-        if opts.test:
+        if opts.clearAll:
+            clearAll()
+        elif opts.test:
             testRun()
         elif opts.fpga:
             fpgaRun()
