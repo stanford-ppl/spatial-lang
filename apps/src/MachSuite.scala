@@ -621,45 +621,56 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
     val padBothState = 1
     val doneState = 2
 
+    val a = argon.lang.String.char2num("a")
+    val c = argon.lang.String.char2num("c")
+    val g = argon.lang.String.char2num("g")
+    val t = argon.lang.String.char2num("t")
+    val dash = argon.lang.String.char2num("-")
+    val underscore = argon.lang.String.char2num("_")
+
     val SKIPB = 0
     val SKIPA = 1
     val ALIGN = 2
     val MATCH_SCORE = 1
     val MISMATCH_SCORE = -1
     val GAP_SCORE = -1 
-    val seqa_string = "tcgacgaaataggatgacagcacgttctcgtattagagggccgcggtacaaaccaaatgctgcggcgtacagggcacggggcgctgttcgggagatcgggggaatcgtggcgtgggtgattcgccggc".toText
-    val seqb_string = "ttcgagggcgcgtgtcgcggtccatcgacatgcccggtcggtgggacgtgggcgcctgatatagaggaatgcgattggaaggtcggacgggtcggcgagttgggcccggtgaatctgccatggtcgat".toText
+    // val seqa_string = "tcgacgaaataggatgacagcacgttctcgtattagagggccgcggtacaaaccaaatgctgcggcgtacagggcacggggcgctgttcgggagatcgggggaatcgtggcgtgggtgattcgccggc".toText
+    // val seqb_string = "ttcgagggcgcgtgtcgcggtccatcgacatgcccggtcggtgggacgtgggcgcctgatatagaggaatgcgattggaaggtcggacgggtcggcgagttgggcccggtgaatctgccatggtcgat".toText
+    val seqa_string = "tcgacgaaataggatgacagcacgttctcgtattagagggccgcggtacaaaccaaatgctgcggcgtacagggcacggggcgctgttcgggagatcgggggaatcgtggcgtgggtgattcgccggc"
+    val seqb_string = "ttcgagggcgcgtgtcgcggtccatcgacatgcccggtcggtgggacgtgggcgcctgatatagaggaatgcgattggaaggtcggacgggtcggcgagttgggcccggtgaatctgccatggtcgat"
     val length = 128
 
-    val seqa_bin = Array.tabulate[Int](seqa_string.length){i => 
-      val char = seqa_string(i)
-      if (char == "a") {0.to[Int]}
-      else if (char == "c") {1.to[Int]}
-      else if (char == "g") {2.to[Int]}
-      else if (char == "t") {3.to[Int]}
-      else {6.to[Int]}
-    } // TODO: Support c++ types with 2 bits in dram
-    val seqb_bin = Array.tabulate[Int](seqb_string.length){i => 
-      val char = seqb_string(i)
-      if (char == "a") {0.to[Int]}
-      else if (char == "c") {1.to[Int]}
-      else if (char == "g") {2.to[Int]}
-      else if (char == "t") {3.to[Int]}
-      else {6.to[Int]}
-    } // TODO: Support c++ types with 2 bits in dram
+    val seqa_bin = argon.lang.String.string2num(seqa_string)
+    // Array.tabulate[Int](seqa_string.length){i => 
+    //   val char = seqa_string(i)
+    //   if (char == "a") {0.to[Int]}
+    //   else if (char == "c") {1.to[Int]}
+    //   else if (char == "g") {2.to[Int]}
+    //   else if (char == "t") {3.to[Int]}
+    //   else {6.to[Int]}
+    // } // TODO: Support c++ types with 2 bits in dram
+    val seqb_bin = argon.lang.String.string2num(seqb_string)
+    // Array.tabulate[Int](seqb_string.length){i => 
+    //   val char = seqb_string(i)
+    //   if (char == "a") {0.to[Int]}
+    //   else if (char == "c") {1.to[Int]}
+    //   else if (char == "g") {2.to[Int]}
+    //   else if (char == "t") {3.to[Int]}
+    //   else {6.to[Int]}
+    // } // TODO: Support c++ types with 2 bits in dram
 
-    val seqa_dram_raw = DRAM[Int](length)
-    val seqb_dram_raw = DRAM[Int](length)
-    val seqa_dram_aligned = DRAM[Int](length*2)
-    val seqb_dram_aligned = DRAM[Int](length*2)
+    val seqa_dram_raw = DRAM[Int8](length)
+    val seqb_dram_raw = DRAM[Int8](length)
+    val seqa_dram_aligned = DRAM[Int8](length*2)
+    val seqb_dram_aligned = DRAM[Int8](length*2)
     setMem(seqa_dram_raw, seqa_bin)
     setMem(seqb_dram_raw, seqb_bin)
 
     Accel{
-      val seqa_sram_raw = SRAM[Int](length)
-      val seqb_sram_raw = SRAM[Int](length)
-      val seqa_fifo_aligned = FIFO[Int](length*2)
-      val seqb_fifo_aligned = FIFO[Int](length*2)
+      val seqa_sram_raw = SRAM[Int8](length)
+      val seqb_sram_raw = SRAM[Int8](length)
+      val seqa_fifo_aligned = FIFO[Int8](length*2)
+      val seqb_fifo_aligned = FIFO[Int8](length*2)
 
       seqa_sram_raw load seqa_dram_raw
       seqb_sram_raw load seqb_dram_raw
@@ -694,18 +705,18 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
             a_addr :-= 1
           } else if (score_matrix(b_addr,a_addr).ptr == SKIPA.to[Int16]) {
             seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)  
-            seqa_fifo_aligned.enq(4, !done_backtrack)          
+            seqa_fifo_aligned.enq(dash, !done_backtrack)          
             done_backtrack := b_addr == 1.to[Int]
             b_addr :-= 1
           } else {
             seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
-            seqb_fifo_aligned.enq(4, !done_backtrack)          
+            seqb_fifo_aligned.enq(dash, !done_backtrack)          
             done_backtrack := a_addr == 1.to[Int]
             a_addr :-= 1
           }
         } else if (state == padBothState) {
-          seqa_fifo_aligned.enq(5, !seqa_fifo_aligned.full) // I think this FSM body either needs to be wrapped in a body or last enq needs to be masked or else we are full before FSM sees full
-          seqb_fifo_aligned.enq(5, !seqb_fifo_aligned.full)
+          seqa_fifo_aligned.enq(underscore, !seqa_fifo_aligned.full) // I think this FSM body either needs to be wrapped in a body or last enq needs to be masked or else we are full before FSM sees full
+          seqb_fifo_aligned.enq(underscore, !seqb_fifo_aligned.full)
         } else {}
       } { state => 
         mux(state == traverseState && ((b_addr == 0.to[Int]) || (a_addr == 0.to[Int])), padBothState, 
@@ -721,38 +732,42 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
 
     val seqa_aligned_result = getMem(seqa_dram_aligned)
     val seqb_aligned_result = getMem(seqb_dram_aligned)
+    val seqa_aligned_string = argon.lang.String.num2string(seqa_aligned_result)
+    val seqb_aligned_string = argon.lang.String.num2string(seqb_aligned_result)
 
     val seqa_gold_string = "cggccgcttag-tgggtgcggtgctaagggggctagagggcttg-tc-gcggggcacgggacatgcg--gcg-t--cgtaaaccaaacat-g-gcgccgggag-attatgctcttgcacg-acag-ta----g-gat-aaagc---agc-t_________________________________________________________________________________________________________".toText
     val seqb_gold_string = "--------tagct-ggtaccgt-ctaa-gtggc--ccggg-ttgagcggctgggca--gg-c-tg-gaag-gttagcgt-aaggagatatagtccg-cgggtgcagggtg-gctggcccgtacagctacctggcgctgtgcgcgggagctt_________________________________________________________________________________________________________".toText
 
-    val seqa_gold_bin = Array.tabulate[Int](seqa_gold_string.length){i => 
-      val char = seqa_gold_string(i)
-      if (char == "a") {0.to[Int]}
-      else if (char == "c") {1.to[Int]}
-      else if (char == "g") {2.to[Int]}
-      else if (char == "t") {3.to[Int]}
-      else if (char == "-") {4.to[Int]}
-      else if (char == "_") {5.to[Int]}
-      else {6.to[Int]}
-    }
-    val seqb_gold_bin = Array.tabulate[Int](seqb_gold_string.length){i => 
-      val char = seqb_gold_string(i)
-      if (char == "a") {0.to[Int]}
-      else if (char == "c") {1.to[Int]}
-      else if (char == "g") {2.to[Int]}
-      else if (char == "t") {3.to[Int]}
-      else if (char == "-") {4.to[Int]}
-      else if (char == "_") {5.to[Int]}
-      else {6.to[Int]}
-    }
+    // val seqa_gold_bin = argon.lang.String.string2num(seqa_gold_string)
+    // Array.tabulate[Int](seqa_gold_string.length){i => 
+    //   val char = seqa_gold_string(i)
+    //   if (char == "a") {0.to[Int]}
+    //   else if (char == "c") {1.to[Int]}
+    //   else if (char == "g") {2.to[Int]}
+    //   else if (char == "t") {3.to[Int]}
+    //   else if (char == "-") {4.to[Int]}
+    //   else if (char == "_") {5.to[Int]}
+    //   else {6.to[Int]}
+    // }
+    // val seqb_gold_bin = argon.lang.String.string2num(seqb_gold_string)
+    // Array.tabulate[Int](seqb_gold_string.length){i => 
+    //   val char = seqb_gold_string(i)
+    //   if (char == "a") {0.to[Int]}
+    //   else if (char == "c") {1.to[Int]}
+    //   else if (char == "g") {2.to[Int]}
+    //   else if (char == "t") {3.to[Int]}
+    //   else if (char == "-") {4.to[Int]}
+    //   else if (char == "_") {5.to[Int]}
+    //   else {6.to[Int]}
+    // }
 
-    printArray(seqa_aligned_result, "Aligned result A: ")
-    printArray(seqa_gold_bin, "Gold A: ")
-    printArray(seqb_aligned_result, "Aligned result B: ")
-    printArray(seqb_gold_bin, "Gold B: ")
+    println("Result A: " + seqa_aligned_string)
+    println("Gold A: " + seqa_gold_string)
+    println("Result B: " + seqb_aligned_string)
+    println("Gold B: " + seqb_gold_string)
 
-    val cksumA = seqa_aligned_result.zip(seqa_gold_bin){_==_}.reduce{_&&_}
-    val cksumB = seqb_aligned_result.zip(seqb_gold_bin){_==_}.reduce{_&&_}
+    val cksumA = seqa_aligned_string == seqa_gold_string //seqa_aligned_result.zip(seqa_gold_bin){_==_}.reduce{_&&_}
+    val cksumB = seqb_aligned_string == seqb_gold_string //seqb_aligned_result.zip(seqb_gold_bin){_==_}.reduce{_&&_}
     val cksum = cksumA && cksumB
     println("PASS: " + cksum + " (NW) * Implement nodes for text operations in Scala once refactoring is done")
 
