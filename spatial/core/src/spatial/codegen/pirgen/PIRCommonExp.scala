@@ -240,16 +240,18 @@ trait PIRCommonExp extends PIRCommon { self: SpatialExp =>
     case (bank1, NoBanks) => bank1
   }
 
-  def getInnerPar(pipe:Expr):Int = pipe match {
+  def getInnerPar(n:Expr):Int = n match {
     case Def(Hwblock(func,_)) => 1
     case Def(UnitPipe(en, func)) => 1
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
-      val Def(CounterChainNew(ctrs)) = cchain
-      val ConstReg(par) = extractConstant(parFactorsOf(ctrs.head).head)
+      val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
       par.asInstanceOf[Int]
     case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) =>
-      val Def(CounterChainNew(ctrs)) = cchain
-      val ConstReg(par) = extractConstant(parFactorsOf(ctrs.head).head)
+      val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
       par.asInstanceOf[Int]
+    case Def(_:ParSRAMLoad[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:ParSRAMStore[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:SRAMLoad[_]) => 1 
+    case Def(_:SRAMStore[_]) => 1 
   }
 }

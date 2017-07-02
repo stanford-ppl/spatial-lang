@@ -133,7 +133,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case mem: CUMemory =>
       dbgs(s"Emitting mem:$mem")
       val decl = mutable.ListBuffer[String]()
-      val lhs = s"val ${mem.name} = " 
+      val lhs = s"val ${mem.name} =" 
       if (mem.cu.style.isInstanceOf[FringeCU]) {
         decl += s"""name="${getField(mem.mem).get}""""
       }
