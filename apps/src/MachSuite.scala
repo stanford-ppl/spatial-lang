@@ -762,9 +762,9 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
     // }
 
     println("Result A: " + seqa_aligned_string)
-    println("Gold A: " + seqa_gold_string)
+    println("Gold A:   " + seqa_gold_string)
     println("Result B: " + seqb_aligned_string)
-    println("Gold B: " + seqb_gold_string)
+    println("Gold B:   " + seqb_gold_string)
 
     val cksumA = seqa_aligned_string == seqa_gold_string //seqa_aligned_result.zip(seqa_gold_bin){_==_}.reduce{_&&_}
     val cksumB = seqb_aligned_string == seqb_gold_string //seqb_aligned_result.zip(seqb_gold_bin){_==_}.reduce{_&&_}
@@ -1083,23 +1083,27 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
 
   @virtualize
   def main() = {
-
-    val STRING_SIZE = 32411
-    val PATTERN_SIZE = 4
-
-    val raw_string = loadCSV1D[Int]("/remote/regression/data/machsuite/kmp_data.csv", "\n")
-    val raw_pattern = Array[Int](98,117,108,108)
-    val string_dram = DRAM[Int](STRING_SIZE)
-    val pattern_dram = DRAM[Int](PATTERN_SIZE)
+    val raw_string_data = loadCSV1D[MString]("/remote/regression/data/machsuite/kmp_string.csv", "\n")
+    val raw_string_pattern = "bull"//Array[Int](98,117,108,108)
+    val raw_string = argon.lang.String.string2num(raw_string_data(0))
+    val raw_pattern = argon.lang.String.string2num(raw_string_pattern)
+    val STRING_SIZE_NUM = raw_string.length.to[Int]
+    val PATTERN_SIZE_NUM = raw_pattern.length.to[Int]
+    val STRING_SIZE = ArgIn[Int]
+    val PATTERN_SIZE = ArgIn[Int]
+    setArg(STRING_SIZE, STRING_SIZE_NUM)
+    setArg(PATTERN_SIZE, PATTERN_SIZE_NUM)
+    val string_dram = DRAM[Int8](STRING_SIZE)
+    val pattern_dram = DRAM[Int8](PATTERN_SIZE)
     val nmatches = ArgOut[Int]
 
     setMem(string_dram, raw_string)
     setMem(pattern_dram, raw_pattern)
 
     Accel{
-      val string_sram = SRAM[Int](STRING_SIZE)
-      val pattern_sram = SRAM[Int](PATTERN_SIZE)
-      val kmp_next = SRAM[Int](PATTERN_SIZE)
+      val string_sram = SRAM[Int8](32411) // Conveniently sized
+      val pattern_sram = SRAM[Int8](4) // Conveniently sized
+      val kmp_next = SRAM[Int](4) // Conveniently sized
       val num_matches = Reg[Int](0)
 
       string_sram load string_dram
