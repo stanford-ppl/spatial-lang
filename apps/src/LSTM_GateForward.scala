@@ -42,7 +42,7 @@ object LSTM_GateForward extends SpatialApp {
   import IR._
 
   // TODO: need to rethink of precision
-  type X = FixPt[TRUE,_16,_16]
+  type X = FixPt[TRUE,_32,_32]
 
 //  def sigmoid[T:Type:Num](t: T) = 1.to[T]/(exp(-t) + 1.to[T])
 
@@ -118,7 +118,33 @@ object LSTM_GateForward extends SpatialApp {
 
     Accel {
       /*
-       * A function that preforms tile-level batch multiplication of a^Tx
+       * LUT table for sigmoid function:
+       * Lower bound: -32.0
+       * Upper bound: 32.0
+       * Number of samples: 128
+       */
+//      val sigmoidLUT = LUT[T](128)(
+//        1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000,
+//        1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000,
+//        1.0000000000, 0.9999999999, 0.9999999999, 0.9999999998, 0.9999999997, 0.9999999995, 0.9999999992, 0.9999999987,
+//        0.9999999979, 0.9999999966, 0.9999999944, 0.9999999908, 0.9999999848, 0.9999999749, 0.9999999586, 0.9999999317,
+//        0.9999998875, 0.9999998145, 0.9999996941, 0.9999994957, 0.9999991685, 0.9999986290, 0.9999977397, 0.9999962734,
+//        0.9999938558, 0.9999898700, 0.9999832986, 0.9999724643, 0.9999546021, 0.9999251538, 0.9998766054, 0.9997965730,
+//        0.9996646499, 0.9994472214, 0.9990889488, 0.9984988177, 0.9975273768, 0.9959298623, 0.9933071491, 0.9890130574,
+//        0.9820137900, 0.9706877692, 0.9525741268, 0.9241418200, 0.8807970780, 0.8175744762, 0.7310585786, 0.6224593312,
+//        0.5000000000, 0.3775406688, 0.2689414214, 0.1824255238, 0.1192029220, 0.0758581800, 0.0474258732, 0.0293122308,
+//        0.0179862100, 0.0109869426, 0.0066928509, 0.0040701377, 0.0024726232, 0.0015011823, 0.0009110512, 0.0005527786,
+//        0.0003353501, 0.0002034270, 0.0001233946, 0.0000748462, 0.0000453979, 0.0000275357, 0.0000167014, 0.0000101300,
+//        0.0000061442, 0.0000037266, 0.0000022603, 0.0000013710, 0.0000008315, 0.0000005043, 0.0000003059, 0.0000001855,
+//        0.0000001125, 0.0000000683, 0.0000000414, 0.0000000251, 0.0000000152, 0.0000000092, 0.0000000056, 0.0000000034,
+//        0.0000000021, 0.0000000013, 0.0000000008, 0.0000000005, 0.0000000003, 0.0000000002, 0.0000000001, 0.0000000001,
+//        0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000,
+//        0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000)
+
+      /*
+       * A function that preforms tile-level batch multiplication of a^Tx, and pass the result
+       * through a sigmoid LUT
+       * TODO: Anyway to add a mux to switch between two LUT tables?
        * @param tile_re: result tile
        * @param aT: inner product left
        * @param x: inner product right
@@ -241,18 +267,18 @@ object LSTM_GateForward extends SpatialApp {
     val d = 64
     val N = 32
 
-    // TODO: load these matrices with real weights
-    // val W_i = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j)).to[X] } }
-    // val U_i = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 1)).to[X] } }
-    // val W_f = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 2)).to[X] } }
-    // val U_f = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 3)).to[X] } }
-    // val W_o = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 4)).to[X] } }
-    // val U_o = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 5)).to[X] } }
-    // val W_c = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 6)).to[X] } }
-    // val U_c = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 7)).to[X] } }
-    // val x_t = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 6 + j)).to[X] } }
-    // val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 7 + j)).to[X] } }
+//    val W_i = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j)).to[X] } }
+//    val U_i = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 1)).to[X] } }
+//    val W_f = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 2)).to[X] } }
+//    val U_f = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 3)).to[X] } }
+//    val W_o = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 4)).to[X] } }
+//    val U_o = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 5)).to[X] } }
+//    val W_c = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 6)).to[X] } }
+//    val U_c = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 7)).to[X] } }
+//    val x_t = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 6 + j)).to[X] } }
+//    val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 7 + j)).to[X] } }
 
+    TODO: Generate more realistic csv weights
     val W_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
     val U_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
     val W_f = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
