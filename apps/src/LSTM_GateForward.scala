@@ -42,7 +42,7 @@ object LSTM_GateForward extends SpatialApp {
   import IR._
 
   // TODO: need to rethink of precision
-  type X = FixPt[TRUE,_32,_32]
+  type X = FixPt[TRUE,_16,_16]
 
 //  def sigmoid[T:Type:Num](t: T) = 1.to[T]/(exp(-t) + 1.to[T])
 
@@ -242,54 +242,65 @@ object LSTM_GateForward extends SpatialApp {
     val N = 32
 
     // TODO: load these matrices with real weights
-    val W_i = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j)).to[X] } }
-    val U_i = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 1)).to[X] } }
-    val W_f = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 2)).to[X] } }
-    val U_f = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 3)).to[X] } }
-    val W_o = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 4)).to[X] } }
-    val U_o = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 5)).to[X] } }
-    val W_c = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 6)).to[X] } }
-    val U_c = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 7)).to[X] } }
-    val x_t = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 6 + j)).to[X] } }
-    val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 7 + j)).to[X] } }
+    // val W_i = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j)).to[X] } }
+    // val U_i = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 1)).to[X] } }
+    // val W_f = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 2)).to[X] } }
+    // val U_f = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 3)).to[X] } }
+    // val W_o = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 4)).to[X] } }
+    // val U_o = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 5)).to[X] } }
+    // val W_c = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 6)).to[X] } }
+    // val U_c = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 7)).to[X] } }
+    // val x_t = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 6 + j)).to[X] } }
+    // val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 7 + j)).to[X] } }
+
+    val W_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val U_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val W_f = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val U_f = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val W_o = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val U_o = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val W_c = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val U_c = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val x_t = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
+    val h_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
 
     val gateResult = GateForward (
       /* Input gate */
-      W_i.flatten, U_i.flatten,
+      W_i, U_i,
       /* Forget gate */
-      W_f.flatten, U_f.flatten,
+      W_f, U_f,
       /* Output gate */
-      W_o.flatten, U_o.flatten,
+      W_o, U_o,
       /* New memory gate */
-      W_c.flatten, U_c.flatten,
+      W_c, U_c,
       /* Inputs */
-      x_t.flatten, h_t_1.flatten,
+      x_t, h_t_1,
       /* Sizes */
       D_h, d, N
     )
 
-    printArray(gateResult, "First gate yields: ")
+    printArray(gateResult, "Affine gates yields: ")
 
     // Calculate gold
-    val gold = Array.tabulate(D_h) { i =>
-      val Wi_Row = W_i(i)
-      val Ui_Row = U_i(i)
-      val Wf_Row = W_f(i)
-      val Uf_Row = U_f(i)
-      val Wo_Row = W_o(i)
-      val Uo_Row = U_o(i)
-      val Wc_Row = W_c(i)
-      val Uc_Row = U_c(i)
-      Array.tabulate(N) { j =>
-        val xt_Col = x_t.map(row => row(j))
-        val ht1_Col = h_t_1.map(row => row(j))
-        Wi_Row.zip(xt_Col){_*_}.reduce{_+_} + Ui_Row.zip(ht1_Col){_*_}.reduce{_+_} +
-        Wf_Row.zip(xt_Col){_*_}.reduce{_+_} + Uf_Row.zip(ht1_Col){_*_}.reduce{_+_} +
-        Wo_Row.zip(xt_Col){_*_}.reduce{_+_} + Uo_Row.zip(ht1_Col){_*_}.reduce{_+_} +
-        Wc_Row.zip(xt_Col){_*_}.reduce{_+_} + Uc_Row.zip(ht1_Col){_*_}.reduce{_+_}
-      }
-    }.flatten
-
-    printArray(gold, "Gold result is: ")
+//    val gold = Array.tabulate(D_h) { i =>
+//     val Wi_Row = W_i.slice(i, 64)
+//     val Ui_Row = U_i.slice(i, 64)
+//     val Wf_Row = W_f.slice(i, 64)
+//     val Uf_Row = U_f.slice(i, 64)
+//     val Wo_Row = W_o.slice(i, 64)
+//     val Uo_Row = U_o.slice(i, 64)
+//     val Wc_Row = W_c.slice(i, 64)
+//     val Uc_Row = U_c.slice(i, 64)
+//     Array.tabulate(N) { j =>
+//       val xt_Col = x_t.map(row => row(j))
+//       val ht1_Col = h_t_1.map(row => row(j))
+//       Wi_Row.zip(xt_Col){_*_}.reduce{_+_} + Ui_Row.zip(ht1_Col){_*_}.reduce{_+_} +
+//       Wf_Row.zip(xt_Col){_*_}.reduce{_+_} + Uf_Row.zip(ht1_Col){_*_}.reduce{_+_} +
+//       Wo_Row.zip(xt_Col){_*_}.reduce{_+_} + Uo_Row.zip(ht1_Col){_*_}.reduce{_+_} +
+//       Wc_Row.zip(xt_Col){_*_}.reduce{_+_} + Uc_Row.zip(ht1_Col){_*_}.reduce{_+_}
+//     }
+//    }.flatten
+//
+    // printArray(gold, "Gold result is: ")
   }
 }
