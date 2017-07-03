@@ -15,10 +15,12 @@ object SHA extends SpatialApp { // Regression (Dense) // Args: none
   @virtualize
   def main() = {
   	// Setup off-chip data
-    val raw_text = "We choose to go to the moon in this decade and do the other things" //args(0)
+    val max_chars = 64 // 512 bits
+    val raw_text = "We choose to go to the moon" //args(0)
     val data_text = argon.lang.String.string2num(raw_text)
     val len = ArgIn[Int32]
-    val text_dram = DRAM[Int8](128)
+    val text_dram = DRAM[Int8](max_chars)
+    val hash_dram = DRAM[Int8](max_chars)
 
     println("Hashing: " + raw_text + " (len: " + raw_text.length() + ")")
     printArray(data_text, "text as data: ")
@@ -26,25 +28,37 @@ object SHA extends SpatialApp { // Regression (Dense) // Args: none
     setMem(text_dram, data_text)
 
   	Accel{
-  		val text_sram = SRAM[Int8](128)
+  		val text_sram = SRAM[Int8](max_chars)
   		text_sram load text_dram(0::len)
 
-  		// Foreach()
+      // Pack chars into Int32's
+      val packed_sram = SRAM[Int32](max_chars/4)
+      Sequential.Foreach(max_chars/4 by 1){ i => 
+        packed_sram(i) = (text_sram(i*4).as[Int32] << 24) | (text_sram(i*4+1).as[Int32] << 16) | (text_sram(i*4 + 2).as[Int32] << 8) | text_sram(i*4+3).as[Int32]
+      }
 
-  		text_dram store text_sram
+      // Unpack Int32's into chars
+      Foreach(max_chars/4 by 1){ i =>
+        Pipe{text_sram(i*4) = packed_sram(i).apply(31::24).as[Int8]}
+        Pipe{text_sram(i*4+1) = packed_sram(i).apply(23::16).as[Int8]}
+        Pipe{text_sram(i*4+2) = packed_sram(i).apply(15::8).as[Int8]}
+        Pipe{text_sram(i*4+3) = packed_sram(i).apply(7::0).as[Int8]}
+      }
+  		hash_dram store text_sram
   	}
 
-  	val ciphertext = getMem(text_dram)
-  	val ciphertext_gold = Array[Int8](2,1,1)
-  	printArray(ciphertext_gold, "Expected: ")
-  	printArray(ciphertext, "Got: ")
+  	val ciphertext = getMem(hash_dram)
+    val ciphertext_string = argon.lang.String.num2string(ciphertext)
+  	val ciphertext_gold = "9e55f2cf1066c55ff61ba2dab12e5bbba8d1158bda614a870b7d5c5bc6b8fce5"
+  	println("Expected: " + ciphertext_gold)
+  	println("Got:      " + ciphertext_string)
 
   	// // Debugging
   	// val key_dbg = getMem(key_debug)
   	// printArray(key_dbg, "Key: ")
 
-  	// val cksum = ciphertext_gold.zip(ciphertext){_ == _}.reduce{_&&_}
-  	// println("PASS: " + cksum + " (AES) * For retiming, need to fix ^ reduction if not parallelized")
+  	val cksum = ciphertext_gold == ciphertext_string
+  	println("PASS: " + cksum + " (SHA)")
 
   }
 }
