@@ -47,11 +47,19 @@ object LSTM_GateForward extends SpatialApp {
 //  def sigmoid[T:Type:Num](t: T) = 1.to[T]/(exp(-t) + 1.to[T])
 
   @virtualize
-  def GateForward[T:Type:Num](
+  def GateForward[T:Type:Num] (
     /* Input gate */
-    W_in: Array[T], x: Array[T], U_in: Array[T], h: Array[T], mm: Int, nn: Int, N_classes: Int,
+    W_in: Array[T], U_in: Array[T],
     /* Forget gate */
-    W_forget: Array[T], U_forget: Array[T]
+    W_forget: Array[T], U_forget: Array[T],
+    /* Output gate */
+    W_output: Array[T], U_output: Array[T],
+    /* New memory gate */
+    W_new_mem: Array[T], U_new_mem: Array[T],
+    /* Inputs */
+    x: Array[T], h: Array[T],
+    /* Sizes */
+    mm: Int, nn: Int, N_classes: Int
   ) = {
     val D_h = ArgIn[Int]
     val d = ArgIn[Int]
@@ -73,6 +81,14 @@ object LSTM_GateForward extends SpatialApp {
     val Wf = DRAM[T](D_h, d)
     val Uf = DRAM[T](D_h, D_h)
 
+    // Output gate DRAM
+    val Wo = DRAM[T](D_h, d)
+    val Uo = DRAM[T](D_h, D_h)
+
+    // New memory gate
+    val Wc = DRAM[T](D_h, d)
+    val Uc = DRAM[T](D_h, D_h)
+
     // Result matrix
     val result = DRAM[T](D_h, N)
 
@@ -91,6 +107,14 @@ object LSTM_GateForward extends SpatialApp {
     // Forget gate
     setMem(Wf, W_forget)
     setMem(Uf, U_forget)
+
+    // Output gate
+    setMem(Wo, W_output)
+    setMem(Uo, U_output)
+
+    // New memory gate
+    setMem(Wc, W_new_mem)
+    setMem(Uc, U_new_mem)
 
     Accel {
       /*
@@ -144,9 +168,17 @@ object LSTM_GateForward extends SpatialApp {
        */
       def batchMult(
         /* Input gate */
-        Wi: DRAM2[T], x: DRAM2[T], Ui: DRAM2[T], h: DRAM2[T],  m: Int, n: Int, p: Int, q: Int, mm: Int, nn: Int, pp: Int, qq: Int,
+        Wi: DRAM2[T], Ui: DRAM2[T],
         /* Forget gate */
-        Wf: DRAM2[T], Uf: DRAM2[T]
+        Wf: DRAM2[T], Uf: DRAM2[T],
+        /* Output gate */
+        Wo: DRAM2[T], Uo: DRAM2[T],
+        /* New memory gate */
+        Wc: DRAM2[T], Uc: DRAM2[T],
+        /* Inputs */
+        x: DRAM2[T], h: DRAM2[T],
+        /* Sizes */
+        m: Int, n: Int, p: Int, q: Int, mm: Int, nn: Int, pp: Int, qq: Int
       ) = {
         Foreach(m by mm, n by nn) { (i,j) =>
           val tile_re = SRAM[T](mm, nn)
@@ -154,33 +186,49 @@ object LSTM_GateForward extends SpatialApp {
           val tile_UiTh = SRAM[T](mm, nn)
           val tile_WfTx = SRAM[T](mm, nn)
           val tile_UfTh = SRAM[T](mm, nn)
+          val tile_WoTx = SRAM[T](mm, nn)
+          val tile_UoTh = SRAM[T](mm, nn)
+          val tile_WcTx = SRAM[T](mm, nn)
+          val tile_UcTh = SRAM[T](mm, nn)
 
           Parallel {
             tileBatchMult(tile_WiTx, Wi, x, i, j, p, pp, mm, nn)
             tileBatchMult(tile_UiTh, Ui, h, i, j, q, qq, mm, nn)
             tileBatchMult(tile_WfTx, Wf, x, i, j, p, pp, mm, nn)
             tileBatchMult(tile_UfTh, Uf, h, i, j, q, qq, mm, nn)
+            tileBatchMult(tile_WoTx, Wo, x, i, j, p, pp, mm, nn)
+            tileBatchMult(tile_UoTh, Uo, h, i, j, q, qq, mm, nn)
+            tileBatchMult(tile_WcTx, Wc, x, i, j, p, pp, mm, nn)
+            tileBatchMult(tile_UcTh, Uc, h, i, j, q, qq, mm, nn)
           }
 
           // For the whole tile, reduce the three tiles and send it back to mem
           Foreach(mm by 1, nn by 1) { (ii, jj) =>
             // TODO: for now just add them together..
             tile_re(ii, jj) = tile_WiTx(ii, jj) + tile_UiTh(ii, jj) +
-                              tile_WfTx(ii, jj) + tile_UfTh(ii, jj)
+                              tile_WfTx(ii, jj) + tile_UfTh(ii, jj) +
+                              tile_WoTx(ii, jj) + tile_UoTh(ii, jj) +
+                              tile_WcTx(ii, jj) + tile_UcTh(ii, jj)
           }
 
           // TODO: pass to sigmoid here
           result(i::i+mm, j::j+nn) store tile_re
         }
-
-        result
       }
 
       batchMult(
         /* Input gate */
-        Wi, xt, Ui, h_t_1, D_h, N, d, D_h, b_Dh, b_N, b_Wi_d, b_Ui_Dh,
+        Wi, Ui,
         /* Forget gate */
-        Wf, Uf
+        Wf, Uf,
+        /* Output gate */
+        Wo, Uo,
+        /* New memory gate */
+        Wc, Uc,
+        /* Inputs */
+        xt, h_t_1,
+        /* Sizes */
+        D_h, N, d, D_h, b_Dh, b_N, b_Wi_d, b_Ui_Dh
       )
     }
 
@@ -193,23 +241,33 @@ object LSTM_GateForward extends SpatialApp {
     val d = 64
     val N = 32
 
-    val W_i = Array.tabulate(D_h){ j => Array.tabulate(d){ i => (i + j).to[X] } }
-    val U_i = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => (i + j + 1).to[X] } }
-    val W_f = Array.tabulate(D_h){ j => Array.tabulate(d){ i => (i + j + 2).to[X] } }
-    val U_f = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => (i + j + 3).to[X] } }
-    val W_o = Array.tabulate(D_h){ j => Array.tabulate(d){ i => (i + j + 4).to[X] } }
-    val U_o = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => (i + j + 5).to[X] } }
-    val W_g = Array.tabulate(D_h){ j => Array.tabulate(d){ i => (i + j + 6).to[X] } }
-    val U_g = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => (i + j + 7).to[X] } }
-    val x_t = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 6) + j).to[X] } }
-    val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 7) + j).to[X] } }
+    // TODO: load these matrices with real weights
+    val W_i = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j)).to[X] } }
+    val U_i = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 1)).to[X] } }
+    val W_f = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 2)).to[X] } }
+    val U_f = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 3)).to[X] } }
+    val W_o = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 4)).to[X] } }
+    val U_o = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 5)).to[X] } }
+    val W_c = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 6)).to[X] } }
+    val U_c = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 7)).to[X] } }
+    val x_t = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 6 + j)).to[X] } }
+    val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 7 + j)).to[X] } }
 
-    val gateResult = GateForward(
+    val gateResult = GateForward (
       /* Input gate */
-      W_i.flatten, x_t.flatten, U_i.flatten, h_t_1.flatten, D_h, d, N,
+      W_i.flatten, U_i.flatten,
       /* Forget gate */
-      W_f.flatten, U_f.flatten
-     )
+      W_f.flatten, U_f.flatten,
+      /* Output gate */
+      W_o.flatten, U_o.flatten,
+      /* New memory gate */
+      W_c.flatten, U_c.flatten,
+      /* Inputs */
+      x_t.flatten, h_t_1.flatten,
+      /* Sizes */
+      D_h, d, N
+    )
+
     printArray(gateResult, "First gate yields: ")
 
     // Calculate gold
@@ -218,11 +276,17 @@ object LSTM_GateForward extends SpatialApp {
       val Ui_Row = U_i(i)
       val Wf_Row = W_f(i)
       val Uf_Row = U_f(i)
+      val Wo_Row = W_o(i)
+      val Uo_Row = U_o(i)
+      val Wc_Row = W_c(i)
+      val Uc_Row = U_c(i)
       Array.tabulate(N) { j =>
         val xt_Col = x_t.map(row => row(j))
         val ht1_Col = h_t_1.map(row => row(j))
-        Wi_Row.zip(xt_Col){_*_}.reduce{_+_} + Ui_Row.zip(ht1_Col){_*_}.reduce{_+_}  +
-        Wf_Row.zip(xt_Col){_*_}.reduce{_+_} + Uf_Row.zip(ht1_Col){_*_}.reduce{_+_}
+        Wi_Row.zip(xt_Col){_*_}.reduce{_+_} + Ui_Row.zip(ht1_Col){_*_}.reduce{_+_} +
+        Wf_Row.zip(xt_Col){_*_}.reduce{_+_} + Uf_Row.zip(ht1_Col){_*_}.reduce{_+_} +
+        Wo_Row.zip(xt_Col){_*_}.reduce{_+_} + Uo_Row.zip(ht1_Col){_*_}.reduce{_+_} +
+        Wc_Row.zip(xt_Col){_*_}.reduce{_+_} + Uc_Row.zip(ht1_Col){_*_}.reduce{_+_}
       }
     }.flatten
 
