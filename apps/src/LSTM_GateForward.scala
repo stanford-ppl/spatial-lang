@@ -208,7 +208,7 @@ object LSTM_GateForward extends SpatialApp {
       /* Input gate */
       W_i.flatten, x_t.flatten, U_i.flatten, h_t_1.flatten, D_h, d, N,
       /* Forget gate */
-      W_f.flatten, U_f.flatten,
+      W_f.flatten, U_f.flatten
      )
     printArray(gateResult, "First gate yields: ")
 
