@@ -1763,7 +1763,7 @@ object Backprop extends SpatialApp { // Regression (Dense) // Args: none
         val oracle_activations1 = SRAM[T](nodes_per_layer)
         val oracle_activations2 = SRAM[T](nodes_per_layer)
 
-        training_sram load training_data_dram(i*input_dimension::(i+1)*input_dimension)
+        training_sram load trainingedata_dram(i*input_dimension::(i+1)*input_dimension)
         training_targets load training_targets_dram(i*possible_outputs::(i+1)*possible_outputs)
 
         def print_bias1(): Unit = {

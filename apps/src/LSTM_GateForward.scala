@@ -278,7 +278,7 @@ object LSTM_GateForward extends SpatialApp {
 //    val x_t = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 6 + j)).to[X] } }
 //    val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 7 + j)).to[X] } }
 
-    TODO: Generate more realistic csv weights
+    // TODO: Generate more realistic csv weights
     val W_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
     val U_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
     val W_f = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
