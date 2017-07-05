@@ -97,6 +97,11 @@ object LSTM_GateForward extends SpatialApp {
     val b_Wi_d = 16               // First matmult, col step size
     val b_Ui_Dh = 16              // Second matmult, col step size
 
+    // For referencing the range of LUTs
+    val lo = 32.to[T]
+    val revPrec = 2.to[T]
+    val totalSize = 128
+
     setMem(xt, x)
     setMem(h_t_1, h)
 
@@ -119,32 +124,70 @@ object LSTM_GateForward extends SpatialApp {
     Accel {
       /*
        * LUT table for sigmoid function:
-       * Lower bound: -32.0
-       * Upper bound: 32.0
+       * Input lower bound: -32.0
+       * Input upper bound: 32.0
+       * Output lower bound: 0
+       * Output upper bound: 1
        * Number of samples: 128
+       * Precision: 64 / 128 = 0.5
        */
-//      val sigmoidLUT = LUT[T](128)(
-//        1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000,
-//        1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000, 1.0000000000,
-//        1.0000000000, 0.9999999999, 0.9999999999, 0.9999999998, 0.9999999997, 0.9999999995, 0.9999999992, 0.9999999987,
-//        0.9999999979, 0.9999999966, 0.9999999944, 0.9999999908, 0.9999999848, 0.9999999749, 0.9999999586, 0.9999999317,
-//        0.9999998875, 0.9999998145, 0.9999996941, 0.9999994957, 0.9999991685, 0.9999986290, 0.9999977397, 0.9999962734,
-//        0.9999938558, 0.9999898700, 0.9999832986, 0.9999724643, 0.9999546021, 0.9999251538, 0.9998766054, 0.9997965730,
-//        0.9996646499, 0.9994472214, 0.9990889488, 0.9984988177, 0.9975273768, 0.9959298623, 0.9933071491, 0.9890130574,
-//        0.9820137900, 0.9706877692, 0.9525741268, 0.9241418200, 0.8807970780, 0.8175744762, 0.7310585786, 0.6224593312,
-//        0.5000000000, 0.3775406688, 0.2689414214, 0.1824255238, 0.1192029220, 0.0758581800, 0.0474258732, 0.0293122308,
-//        0.0179862100, 0.0109869426, 0.0066928509, 0.0040701377, 0.0024726232, 0.0015011823, 0.0009110512, 0.0005527786,
-//        0.0003353501, 0.0002034270, 0.0001233946, 0.0000748462, 0.0000453979, 0.0000275357, 0.0000167014, 0.0000101300,
-//        0.0000061442, 0.0000037266, 0.0000022603, 0.0000013710, 0.0000008315, 0.0000005043, 0.0000003059, 0.0000001855,
-//        0.0000001125, 0.0000000683, 0.0000000414, 0.0000000251, 0.0000000152, 0.0000000092, 0.0000000056, 0.0000000034,
-//        0.0000000021, 0.0000000013, 0.0000000008, 0.0000000005, 0.0000000003, 0.0000000002, 0.0000000001, 0.0000000001,
-//        0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000,
-//        0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000)
+      val sigmoidLUT = LUT[T](totalSize)(
+        0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T],
+        0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T],
+        0.0000000000.to[T], 0.0000000001.to[T], 0.0000000001.to[T], 0.0000000002.to[T], 0.0000000003.to[T], 0.0000000005.to[T], 0.0000000008.to[T], 0.0000000013.to[T],
+        0.0000000021.to[T], 0.0000000034.to[T], 0.0000000056.to[T], 0.0000000092.to[T], 0.0000000152.to[T], 0.0000000251.to[T], 0.0000000414.to[T], 0.0000000683.to[T],
+        0.0000001125.to[T], 0.0000001855.to[T], 0.0000003059.to[T], 0.0000005043.to[T], 0.0000008315.to[T], 0.0000013710.to[T], 0.0000022603.to[T], 0.0000037266.to[T],
+        0.0000061442.to[T], 0.0000101300.to[T], 0.0000167014.to[T], 0.0000275357.to[T], 0.0000453979.to[T], 0.0000748462.to[T], 0.0001233946.to[T], 0.0002034270.to[T],
+        0.0003353501.to[T], 0.0005527786.to[T], 0.0009110512.to[T], 0.0015011823.to[T], 0.0024726232.to[T], 0.0040701377.to[T], 0.0066928509.to[T], 0.0109869426.to[T],
+        0.0179862100.to[T], 0.0293122308.to[T], 0.0474258732.to[T], 0.0758581800.to[T], 0.1192029220.to[T], 0.1824255238.to[T], 0.2689414214.to[T], 0.3775406688.to[T],
+        0.5000000000.to[T], 0.6224593312.to[T], 0.7310585786.to[T], 0.8175744762.to[T], 0.8807970780.to[T], 0.9241418200.to[T], 0.9525741268.to[T], 0.9706877692.to[T],
+        0.9820137900.to[T], 0.9890130574.to[T], 0.9933071491.to[T], 0.9959298623.to[T], 0.9975273768.to[T], 0.9984988177.to[T], 0.9990889488.to[T], 0.9994472214.to[T],
+        0.9996646499.to[T], 0.9997965730.to[T], 0.9998766054.to[T], 0.9999251538.to[T], 0.9999546021.to[T], 0.9999724643.to[T], 0.9999832986.to[T], 0.9999898700.to[T],
+        0.9999938558.to[T], 0.9999962734.to[T], 0.9999977397.to[T], 0.9999986290.to[T], 0.9999991685.to[T], 0.9999994957.to[T], 0.9999996941.to[T], 0.9999998145.to[T],
+        0.9999998875.to[T], 0.9999999317.to[T], 0.9999999586.to[T], 0.9999999749.to[T], 0.9999999848.to[T], 0.9999999908.to[T], 0.9999999944.to[T], 0.9999999966.to[T],
+        0.9999999979.to[T], 0.9999999987.to[T], 0.9999999992.to[T], 0.9999999995.to[T], 0.9999999997.to[T], 0.9999999998.to[T], 0.9999999999.to[T], 0.9999999999.to[T],
+        1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T],
+        1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T])
+
+      def sigmoid(p: T) = {
+        sigmoidLUT(((p + lo) * revPrec).to[Int])
+      }
+
+      /*
+       * LUT table for tanh function:
+       * Input lower bound: -32.0
+       * Input upper bound: 32.0
+       * Output lower bound: -1
+       * Output upper bound: 1
+       * Number of samples: 128
+       * Precision: 64 / 128 = 0.5
+       */
+      val tanhLUT = LUT[T](totalSize) (
+        -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T],
+        -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T],
+        -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T],
+        -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T],
+        -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T],
+        -0.9999999999.to[T], -0.9999999998.to[T], -0.9999999994.to[T], -0.9999999985.to[T], -0.9999999959.to[T], -0.9999999888.to[T], -0.9999999695.to[T], -0.9999999172.to[T],
+        -0.9999997749.to[T], -0.9999993882.to[T], -0.9999983369.to[T], -0.9999954794.to[T], -0.9999877117.to[T], -0.9999665972.to[T], -0.9999092043.to[T], -0.9997532108.to[T],
+        -0.9993292997.to[T], -0.9981778976.to[T], -0.9950547537.to[T], -0.9866142982.to[T], -0.9640275801.to[T], -0.9051482536.to[T], -0.7615941560.to[T], -0.4621171573.to[T],
+         0.0000000000.to[T],  0.4621171573.to[T],  0.7615941560.to[T],  0.9051482536.to[T],  0.9640275801.to[T],  0.9866142982.to[T],  0.9950547537.to[T],  0.9981778976.to[T],
+         0.9993292997.to[T],  0.9997532108.to[T],  0.9999092043.to[T],  0.9999665972.to[T],  0.9999877117.to[T],  0.9999954794.to[T],  0.9999983369.to[T],  0.9999993882.to[T],
+         0.9999997749.to[T],  0.9999999172.to[T],  0.9999999695.to[T],  0.9999999888.to[T],  0.9999999959.to[T],  0.9999999985.to[T],  0.9999999994.to[T],  0.9999999998.to[T],
+         0.9999999999.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],
+         1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],
+         1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],
+         1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],
+         1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T])
+
+      def tanh(p: T) = {
+        tanhLUT(((p + lo) * revPrec).to[Int])
+      }
 
       /*
        * A function that preforms tile-level batch multiplication of a^Tx, and pass the result
        * through a sigmoid LUT
-       * TODO: Anyway to add a mux to switch between two LUT tables?
+       * TODO: Any ways to add a mux to switch between two LUT tables?
        * @param tile_re: result tile
        * @param aT: inner product left
        * @param x: inner product right
@@ -175,20 +218,21 @@ object LSTM_GateForward extends SpatialApp {
         }
       }
 
+
       /*
-       * A function that does A^Tx + B^Th + Cb
-       * where Wi, x, Ui, h, Cb are DRAM locations
+       * A function that does A^Tx + B^Th
+       * where Wi, x, Ui, h are DRAM locations
        * Assuming that the input matrices are transposed already
        * @param Wi: DRAM matrix
        * @param x: DRAM matrix
        * @param Ui: DRAM matrix
        * @param h: DRAM matrix
-       * @param m: row num of Wi, Ui, Cb
-       * @param n: col num of x, h, Cb
+       * @param m: row num of Wi, Ui
+       * @param n: col num of x, h
        * @param p: col num of Wi  / row num of x
        * @param q: col num of Ui  / row num of h
-       * @param mm: tile step size of Wi, Ui, Cb row
-       * @param nn: tile step size of x, h, Cb col
+       * @param mm: tile step size of Wi, Ui row
+       * @param nn: tile step size of x, h col
        * @param pp: tile step size of Wi col / x row
        * @param qq: tile step size of Ui col / h row
        */
@@ -207,6 +251,9 @@ object LSTM_GateForward extends SpatialApp {
         m: Int, n: Int, p: Int, q: Int, mm: Int, nn: Int, pp: Int, qq: Int
       ) = {
         Foreach(m by mm, n by nn) { (i,j) =>
+          println(">>>>>>>>>>")
+          println(">> i = " + i + " j = " + j)
+          println("<<<<<<<<<<")
           val tile_re = SRAM[T](mm, nn)
           val tile_WiTx = SRAM[T](mm, nn)
           val tile_UiTh = SRAM[T](mm, nn)
@@ -231,13 +278,12 @@ object LSTM_GateForward extends SpatialApp {
           // For the whole tile, reduce the three tiles and send it back to mem
           Foreach(mm by 1, nn by 1) { (ii, jj) =>
             // TODO: for now just add them together..
-            tile_re(ii, jj) = tile_WiTx(ii, jj) + tile_UiTh(ii, jj) +
-                              tile_WfTx(ii, jj) + tile_UfTh(ii, jj) +
-                              tile_WoTx(ii, jj) + tile_UoTh(ii, jj) +
-                              tile_WcTx(ii, jj) + tile_UcTh(ii, jj)
+            tile_re(ii, jj) = sigmoid(tile_WiTx(ii, jj) + tile_UiTh(ii, jj)) +
+                              sigmoid(tile_WfTx(ii, jj) + tile_UfTh(ii, jj)) +
+                              sigmoid(tile_WoTx(ii, jj) + tile_UoTh(ii, jj)) +
+                              tanh(tile_WcTx(ii, jj) + tile_UcTh(ii, jj))
           }
 
-          // TODO: pass to sigmoid here
           result(i::i+mm, j::j+nn) store tile_re
         }
       }
@@ -267,18 +313,8 @@ object LSTM_GateForward extends SpatialApp {
     val d = 64
     val N = 32
 
-//    val W_i = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j)).to[X] } }
-//    val U_i = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 1)).to[X] } }
-//    val W_f = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 2)).to[X] } }
-//    val U_f = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 3)).to[X] } }
-//    val W_o = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 4)).to[X] } }
-//    val U_o = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 5)).to[X] } }
-//    val W_c = Array.tabulate(D_h){ j => Array.tabulate(d){ i => ((i + j + 6)).to[X] } }
-//    val U_c = Array.tabulate(D_h){ j => Array.tabulate(D_h){ i => ((i + j + 7)).to[X] } }
-//    val x_t = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 6 + j)).to[X] } }
-//    val h_t_1 = Array.tabulate(d) { j => Array.tabulate(N){ i => ((i + 7 + j)).to[X] } }
-
-    // TODO: Generate more realistic csv weights
+    // TODO: Generate more realistic csv weights:
+    // Get a pretrained model and fetch out weights from one of the gates
     val W_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
     val U_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
     val W_f = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
@@ -305,7 +341,7 @@ object LSTM_GateForward extends SpatialApp {
       D_h, d, N
     )
 
-    printArray(gateResult, "Affine gates yields: ")
+    printArray(gateResult, "LSTM cell yields: ")
 
     // Calculate gold
 //    val gold = Array.tabulate(D_h) { i =>
