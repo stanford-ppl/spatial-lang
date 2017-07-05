@@ -12,7 +12,7 @@ import scala.collection.mutable
 case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   override val name = "Register Cleanup"
 
-  private case object FakeSymbol { override def toString = "\"You done goofed\"" }
+  private case object MissingReg { override def toString = "\"Used register was removed\"" }
 
   // User specific substitutions
   private var statelessSubstRules = Map[(Exp[_],Exp[_]), Seq[(Exp[_], () => Exp[_])]]()
@@ -57,7 +57,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
 
       if (usersOf(lhs).isEmpty) {
         dbg(c"REMOVING stateless $lhs")
-        constant(typ[T])(FakeSymbol)  // Shouldn't be used
+        constant(typ[T])(MissingReg)  // Shouldn't be used
       }
       else {
         // For all uses within a single control node, create a single copy of this node
@@ -77,7 +77,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
 
           read
         }
-        constant(typ[T])(FakeSymbol) // mirror(lhs, rhs)
+        constant(typ[T])(MissingReg) // mirror(lhs, rhs)
       }
 
     case RegWrite(reg,value,en) =>
@@ -86,7 +86,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
       dbg(c"$lhs = $rhs")
       if (readersOf(reg).isEmpty && !isOffChipMemory(reg)) {
         dbg(c"REMOVING register write $lhs")
-        constant(typ[T])(FakeSymbol)  // Shouldn't be used
+        MUnit.const().asInstanceOf[Exp[T]]
       }
       else mirrorWithDuplication(lhs, rhs)
 
@@ -96,7 +96,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
       dbg(c"$lhs = $rhs")
       if (readersOf(lhs).isEmpty) {
         dbg(c"REMOVING register $lhs")
-        constant(typ[T])(FakeSymbol)  // Shouldn't be used
+        constant(typ[T])(MissingReg)  // Shouldn't be used
       }
       else mirrorWithDuplication(lhs, rhs)
 

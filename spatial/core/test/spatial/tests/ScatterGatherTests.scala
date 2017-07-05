@@ -1,9 +1,10 @@
 package spatial.tests
+
 import spatial.dsl._
 import org.virtualized._
 import org.scalatest.{Matchers, FlatSpec}
 
-object FIFOGatherTest extends SpatialApp {
+object FIFOGatherTest extends SpatialTest {
   val n = 32
   val T = 8
 

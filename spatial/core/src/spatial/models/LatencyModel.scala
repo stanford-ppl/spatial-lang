@@ -121,6 +121,7 @@ trait LatencyModel {
     // Registers
     case _:RegRead[_]  => 0
     case _:RegWrite[_] => 1
+    case _:RegReset[_] => 1
 
     // Register File
     case _:RegFileLoad[_]       => 1
