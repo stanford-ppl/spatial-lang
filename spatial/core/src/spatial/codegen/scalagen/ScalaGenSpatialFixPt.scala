@@ -13,7 +13,9 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
   }
 
   override protected def quoteConst(c: Const[_]): String = (c.tp,c) match {
-    case (FixPtType(sign,int,frac), Const(c: BigDecimal)) => s"Number(BigDecimal($c),true,FixedPoint($sign,$int,$frac))"
+    case (FixPtType(sign,int,frac), Const(c: BigDecimal)) => 
+      if(int > 32 | (!sign & int == 32)) s"Number(BigDecimal(${c}L),true,FixedPoint($sign,$int,$frac))"
+      else s"Number(BigDecimal($c),true,FixedPoint($sign,$int,$frac))"
     case _ => super.quoteConst(c)
   }
 
