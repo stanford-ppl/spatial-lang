@@ -1,20 +1,20 @@
 package spatial.dse
 
+import argon.core._
 import argon.traversal.CompilerPass
-import spatial.{SpatialConfig, SpatialExp}
 import org.virtualized.SourceContext
-
 import spatial.analysis._
-//import spatial.models._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+import spatial.SpatialConfig
 
 trait DSE extends CompilerPass { dse =>
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Design Space Exploration"
 
-  lazy val scalarAnalyzer = new ScalarAnalyzer{val IR: dse.IR.type = dse.IR }
-  lazy val memoryAnalyzer = new MemoryAnalyzer{val IR: dse.IR.type = dse.IR; def localMems = dse.localMems }
+  lazy val scalarAnalyzer = new ScalarAnalyzer{var IR = dse.IR }
+  lazy val memoryAnalyzer = new MemoryAnalyzer{var IR = dse.IR; def localMems = dse.localMems }
 
   def restricts: Set[Restrict]
   def tileSizes: Set[Param[Index]]
@@ -22,6 +22,17 @@ trait DSE extends CompilerPass { dse =>
   def localMems: Seq[Exp[_]]
   def metapipes: Seq[Exp[_]]
   def top: Exp[_]
+
+  def prune(params: Seq[Param[Index]], ranges: Map[Param[Index], CRange], restrict: Set[Restrict]) = {
+    val pruneSingle = params.map{p =>
+      val restricts = restrict.filter(_.dependsOnlyOn(p))
+      if (restricts.nonEmpty)
+        p -> Domain.restricted(ranges(p), {v: Int => p.c = BigDecimal(v) }, { restricts.forall(_.evaluate) })
+      else
+        p -> Domain[Int](ranges(p), {v: Int => p.c = BigDecimal(v)})
+    }
+    pruneSingle.map(_._2)
+  }
 
   override protected def process[S: Type](block: Block[S]) = {
     if (SpatialConfig.enableDSE) {

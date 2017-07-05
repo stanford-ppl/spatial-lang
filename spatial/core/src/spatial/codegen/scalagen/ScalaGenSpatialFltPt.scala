@@ -1,10 +1,10 @@
 package spatial.codegen.scalagen
 
-import spatial.SpatialExp
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
 
 trait ScalaGenSpatialFltPt extends ScalaGenBits {
-  val IR: SpatialExp
-  import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
     case FltPtType(_,_) => "Number"
@@ -16,7 +16,7 @@ trait ScalaGenSpatialFltPt extends ScalaGenBits {
     case _ => super.quoteConst(c)
   }
 
-  override def invalid(tp: IR.Type[_]) = tp match {
+  override def invalid(tp: Type[_]) = tp match {
     case FltPtType(g,e) => src"X(FloatPoint($g,$e))"
     case _ => super.invalid(tp)
   }

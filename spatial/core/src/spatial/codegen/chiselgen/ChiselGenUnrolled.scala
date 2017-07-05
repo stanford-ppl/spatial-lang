@@ -1,18 +1,17 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.{ControllerExp, CounterExp, UnrolledExp}
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp 
-import spatial.SpatialExp
-import scala.collection.mutable.HashMap
+
 import spatial.targets.DE1._
 
 
 trait ChiselGenUnrolled extends ChiselGenController {
-  val IR: SpatialExp
-  import IR._
-
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -22,8 +21,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
           rhs match {
             case e: UnrolledForeach=> s"x${lhs.id}_unrForeach"
             case e: UnrolledReduce[_,_] => s"x${lhs.id}_unrRed"
-            case e: ParSRAMLoad[_] => s"""x${lhs.id}_parLd${nameOf(lhs).getOrElse("")}"""
-            case e: ParSRAMStore[_] => s"""x${lhs.id}_parSt${nameOf(lhs).getOrElse("")}"""
+            case e: ParSRAMLoad[_] => s"""x${lhs.id}_parLd${lhs.name.getOrElse("")}"""
+            case e: ParSRAMStore[_] => s"""x${lhs.id}_parSt${lhs.name.getOrElse("")}"""
             case e: ParFIFODeq[_] => s"x${lhs.id}_parDeq"
             case e: ParFIFOEnq[_] => s"x${lhs.id}_parEnq"
             case _ => super.quote(s)
@@ -95,7 +94,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(src"${lhs}_mask := $en")
       controllerStack.pop()
 
-    case UnrolledReduce(ens,cchain,accum,func,_,iters,valids,rV) =>
+    case UnrolledReduce(ens,cchain,accum,func,iters,valids) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten))
@@ -128,6 +127,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
             // if (childrenOf(lhs).length == 1) {
             emit(src"val ${accum}_wren = Mux(retime_released, (${childrenOf(lhs).last}_done), false.B) // & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")
           case Def(_:SRAMNew[_,_]) =>
+            emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+          case Def(_:RegFileNew[_,_]) =>
             emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
         }
         emit(src"// Used to be this, but not sure why for outer reduce: val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
@@ -177,21 +178,20 @@ trait ChiselGenUnrolled extends ChiselGenController {
         dispatch.zipWithIndex.foreach{ case (k,id) => 
           val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
           emit(src"${lhs}_rVec($id).en := (${parent}_en).D(${parent}_retime, rr) & ${ens(id)}")
-          inds(k).zipWithIndex.foreach{ case (a, j) =>
-            emit(src"""${lhs}_rVec($k).addr($j) := ${a}.raw """)
+          inds(id).zipWithIndex.foreach{ case (a, j) =>
+            emit(src"""${lhs}_rVec($id).addr($j) := ${a}.raw """)
           }
           val p = portsOf(lhs, sram, k).head
-          emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${lhs}_rVec.toArray), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
+          emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${lhs}_rVec($id)), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
           sram.tp.typeArguments.head match { 
             case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-                emit(s"""${quote(lhs)}($k).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k)""")
+                emit(s"""${quote(lhs)}($id).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k)""")
               } else {
                 emit(src"""$lhs := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
               }
             case _ => emit(src"""$lhs := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
           }
-
-      }
+        }
         
       }
 
@@ -212,9 +212,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
           emit(src"""${lhs}_wVec($i).addr($j) := ${a}.r """)
         }
       }
-      duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) => 
-        val p = portsOf(lhs, sram, i).mkString(",")
-        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, List(${p}))""")
+      duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) =>
+        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, List(${portsOf(lhs, sram, i)}))""")
       }
 
     case ParFIFODeq(fifo, ens) =>

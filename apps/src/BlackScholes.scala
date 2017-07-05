@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object BlackScholes extends SpatialApp {
-  import IR._
+
 
   val margin = 0.5f // Validates true if within +/- margin
   val innerPar = 16

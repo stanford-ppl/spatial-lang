@@ -12,7 +12,7 @@ import chisel3.internal.firrtl._
 import chisel3.internal.sourceinfo._
 import chisel3.internal.firrtl.PrimOp.AsUIntOp
 
-// Raw numbers
+// Raw numbers.. This should be deprecated
 class RawBits(b: Int) extends Bundle { 
 	val raw = UInt(b.W)
 
@@ -138,7 +138,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		} else if (has_dec & !has_frac) {
 			dst.number := new_dec		
 		} else if (!has_dec & has_frac) {
-			dst.number := new_frac
+			dst.number := tmp_frac
 		}
 		
 		
@@ -626,199 +626,242 @@ class FixedPointTester(val s: Boolean, val d: Int, val f: Int) extends Module {
 
 
 
-// import Node._
-// import ChiselError._
+class FloatingPoint(val m: Int, val e: Int) extends Bundle {
+	// Overloaded
 
-// /** Factory methods for [[Chisel.Fixed Fixed]] */
-// object Fixed {
-//     /** Convert a double to fixed point with a specified fractional width
-//       * @param x Double to convert
-//       * @param fracWidth the integer fractional width to use in the conversion
-//       * @return A BigInt representing the bits in the fixed point
-//       */
-//     def toFixed(x : Double, fracWidth : Int) : BigInt = BigInt(scala.math.round(x*scala.math.pow(2, fracWidth)))
-//     /** Convert a Float to fixed point with a specified fractional width
-//       * @param x Float to convert
-//       * @param fracWidth the integer fractional width to use in the conversion
-//       * @return A BigInt representing the bits in the fixed point
-//       */
-//     def toFixed(x : Float, fracWidth : Int) : BigInt = BigInt(scala.math.round(x*scala.math.pow(2, fracWidth)))
-//     /** Convert an Int to fixed point with a specified fractional width
-//       * @param x Double to convert
-//       * @param fracWidth the integer fractional width to use in the conversion
-//       * @return A BigInt representing the bits in the fixed point
-//       */
-//     def toFixed(x : Int, fracWidth : Int) : BigInt = BigInt(scala.math.round(x*scala.math.pow(2, fracWidth)))
+	def apply(msb:Int, lsb:Int): UInt = this.number(msb,lsb)
+	def apply(bit:Int): Bool = this.number(bit)
 
-//     /** Create a Fixed [[Chisel.Node]] with specified width and fracWidth
-//       * @param x An Int to convert to fixed point
-//       * @param width the total number of bits to use in the representation
-//       * @param fracWidth the integer fractional width to use in the conversion
-//       * @return A fixed node with the specified parameters
-//       */
-//     def apply(x : Int, width : Int, fracWidth : Int) : Fixed = apply(toFixed(x, fracWidth), width, fracWidth)
-//     /** Create a Fixed [[Chisel.Node]] with specified width and fracWidth
-//       * @param x An Float to convert to fixed point
-//       * @param width the total number of bits to use in the representation
-//       * @param fracWidth the integer fractional width to use in the conversion
-//       * @return A fixed node with the specified parameters
-//       */
-//     def apply(x : Float, width : Int, fracWidth : Int) : Fixed = apply(toFixed(x, fracWidth), width, fracWidth)
-//     /** Create a Fixed [[Chisel.Node]] with specified width and fracWidth
-//       * @param x An Double to convert to fixed point
-//       * @param width the total number of bits to use in the representation
-//       * @param fracWidth the integer fractional width to use in the conversion
-//       * @return A fixed node with the specified parameters
-//       */
-//     def apply(x : Double, width : Int, fracWidth : Int) : Fixed = apply(toFixed(x, fracWidth), width, fracWidth)
-//     /** Create a Fixed [[Chisel.Node]] with specified width and fracWidth
-//       * @param x An BigInt to use literally as the fixed point bits
-//       * @param width the total number of bits to use in the representation
-//       * @param fracWidth the integer fractional width to use
-//       * @return A fixed node with the specified parameters
-//       */
-//     def apply(x : BigInt, width : Int, fracWidth : Int) : Fixed =  {
-//       val res = Lit(x, width){Fixed()}
-//       res.fractionalWidth = fracWidth
-//       res
-//     }
+	// Properties
+	val number = UInt((m + e).W)
 
-//     /** Create a Fixed I/O [[Chisel.Node]] with specified width and fracWidth
-//       * @param dir Direction of I/O for the node, eg) INPUT or OUTPUT
-//       * @param width the total number of bits to use in the representation
-//       * @param fracWidth the integer fractional width to use
-//       * @return A fixed node with the specified parameters
-//       */
-//     def apply(dir : IODirection = null, width : Int = -1, fracWidth : Int = -1) : Fixed = {
-//         val res = new Fixed(fracWidth);
-//         res.create(dir, width)
-//         res
-//     }
-// }
+	def raw():UInt = number
+	def r():UInt = number
 
-// /** A Fixed point data type
-//   * @constructor Use [[Chisel.Fixed$ Fixed]] object to create rather than this class directly */
-// class Fixed(var fractionalWidth : Int = 0) extends Bits with Num[Fixed] {
-//     type T = Fixed
+	def msb():Bool = number(m+e-1)
 
-//     /** Convert a Node to a Fixed data type with the same fractional width as this instantiation */
-//     override def fromNode(n : Node): this.type = {
-//         val res = Fixed(OUTPUT).asTypeFor(n).asInstanceOf[this.type]
-//         res.fractionalWidth = this.getFractionalWidth()
-//         res
-//     }
+	def cast(dst: FloatingPoint, rounding: String = "truncate", saturating: String = "lazy", expect_neg: Bool = false.B, expect_pos: Bool = false.B): Unit = {
+		throw new Exception("Float casting not implemented yet")
+	}
 
-//     /** Create a Fixed representation from an Int */
-//     override def fromInt(x : Int) : this.type = Fixed(x, this.getWidth(), this.getFractionalWidth()).asInstanceOf[this.type]
+	def raw_mantissa[T] (): UInt = {
+		this.number(m+e-1, e)
+	}
+	def raw_exp[T] (): UInt = {
+		this.number(e, 0)
+	}
 
-//     /** clone this Fixed instantiation */
-//     override def cloneType: this.type = Fixed(this.dir, this.getWidth(), this.getFractionalWidth()).asInstanceOf[this.type];
+	// Arithmetic
+	override def connect (rawop: Data)(implicit sourceInfo: SourceInfo, connectionCompileOptions: chisel3.core.CompileOptions): Unit = {
+		rawop match {
+			case op: FixedPoint =>
+				number := op.number
+			case op: UInt =>
+				number := op
+		}
+	}
 
-//     override protected def colonEquals(that : Bits): Unit = that match {
-//       case f: Fixed => {
-//         val res = if((f.getWidth() == this.getWidth()*2) && (f.getFractionalWidth() == this.getFractionalWidth()*2)) {
-//           truncate(f, this.getFractionalWidth())
-//         } else {
-//           checkAligned(f)
-//           f
-//         }
-//         super.colonEquals(res)
-//       }
-//       case _ => illegalAssignment(that)
-//     }
+	def +[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(new FloatingPoint(m, e))
+				val fma = Module(new MulAddRecFN(m, e))
+				fma.io.a := recFNFromFN(m, e, this.r)
+				fma.io.b := recFNFromFN(m, e, Utils.getFloatBits(1.0f).S((m+e).W))
+				fma.io.c := recFNFromFN(m, e, op.r)
+				fma.io.op := 0.U(2.W)
+				result.r := fNFromRecFN(m, e, fma.io.out)
+				result
+		}
+	}
 
-//     def getFractionalWidth() : Int = this.fractionalWidth
+	def -[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(new FloatingPoint(m, e))
+				val fma = Module(new MulAddRecFN(m, e))
+				fma.io.a := recFNFromFN(m, e, this.r)
+				fma.io.b := recFNFromFN(m, e, Utils.getFloatBits(1.0f).S((m+e).W))
+				fma.io.c := recFNFromFN(m, e, op.r)
+				fma.io.op := 1.U(2.W)
+				result.r := fNFromRecFN(m, e, fma.io.out)
+				result
+		}
+	}
 
-//     private def truncate(f : Fixed, truncateAmount : Int) : Fixed = fromSInt(f.toSInt >> UInt(truncateAmount))
-//     private def truncate(f : SInt, truncateAmount : Int) : SInt = f >> UInt(truncateAmount)
+	def *[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(new FloatingPoint(m, e))
+				val fma = Module(new MulAddRecFN(m, e))
+				fma.io.a := recFNFromFN(m, e, this.r)
+				fma.io.b := recFNFromFN(m, e, op.r)
+				fma.io.c := recFNFromFN(m, e, Utils.getFloatBits(0.0f).S((m+e).W))
+				fma.io.op := 0.U(2.W)
+				result.r := fNFromRecFN(m, e, fma.io.out)
+				result
+		}
+	}
 
-//     /** Ensure two Fixed point data types have the same fractional width, Error if not */
-//     private def checkAligned(b : Fixed) {
-//       if(this.getFractionalWidth() != b.getFractionalWidth()) ChiselError.error(this.getFractionalWidth() + " Fractional Bits does not match " + b.getFractionalWidth())
-//       if(this.getWidth() != b.getWidth()) ChiselError.error(this.getWidth() + " Width does not match " + b.getWidth())
-//     }
+	def /[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(new FloatingPoint(m, e))
+				val fma = Module(new DivSqrtRecFN_small(m, e, 0))
+				fma.io.a := recFNFromFN(m, e, this.r)
+				fma.io.b := recFNFromFN(m, e, op.r)
+				fma.io.inValid := true.B // TODO: What should this be?
+				fma.io.sqrtOp := false.B // TODO: What should this be?
+				fma.io.roundingMode := 0.U(3.W) // TODO: What should this be?
+				fma.io.detectTininess := false.B // TODO: What should this be?
+				result.r := fNFromRecFN(m, e, fma.io.out)
+				result
+		}
+	}
 
-//     /** Convert a SInt to a Fixed by reinterpreting the Bits */
-//     private def fromSInt(s : SInt, width : Int = this.getWidth(), fracWidth : Int = this.getFractionalWidth()) : Fixed = {
-//         val res = chiselCast(s){Fixed()}
-//         res.fractionalWidth = fracWidth
-//         res.width = width
-//         res
-//     }
 
-//     // Order Operators
-//     def > (b : Fixed) : Bool = {
-//         checkAligned(b)
-//         this.toSInt > b.toSInt
-//     }
+	// def %[T] (rawop: T): FloatingPoint = {}
 
-//     def < (b : Fixed) : Bool = {
-//         checkAligned(b)
-//         this.toSInt < b.toSInt
-//     }
+	// def floor[T] (): FloatingPoint = {}
 
-//     def >= (b : Fixed) : Bool = {
-//         checkAligned(b)
-//         this.toSInt >= b.toSInt
-//     }
+	// def ceil[T] (): FloatingPoint = {}
 
-//     def <= (b : Fixed) : Bool = {
-//         checkAligned(b)
-//         this.toSInt <= b.toSInt
-//     }
+	def >>[T] (shift: Int, sgnextend: Boolean = false): FloatingPoint = {
+		val result = Wire(new FloatingPoint(m, e))
+		result.r := this.r >> shift
+		result
+	}
+	// def >>>[T] (shift: Int): FloatingPoint = {this.>>(shift, sgnextend = true)}
 
-//     def === (b : Fixed) : Bool = {
-//         checkAligned(b)
-//         this.toSInt === b.toSInt
-//     }
+	def <<[T] (shift: Int, sgnextend: Boolean = false): FloatingPoint = {
+		val result = Wire(new FloatingPoint(m, e))
+		result.r := this.r << shift
+		result
+	}
 
-//     def >> (b : UInt) : Fixed = {
-//         fromSInt(this.toSInt >> b)
-//     }
+	def <[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := comp.io.lt
+				result
+		}
+	}
 
-//     // Arithmetic Operators
-//     def unary_-() : Fixed = Fixed(0, this.getWidth(), this.getFractionalWidth()) - this
+	def ===[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := comp.io.eq
+				result
+		}
+	}
 
-//     def + (b : Fixed) : Fixed = {
-//         checkAligned(b)
-//         fromSInt(this.toSInt + b.toSInt)
-//     }
+	def >[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := comp.io.gt
+				result
+		}
+	}
 
-//     def - (b : Fixed) : Fixed = {
-//         checkAligned(b)
-//         fromSInt(this.toSInt - b.toSInt)
-//     }
+	def >=[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := comp.io.gt | comp.io.eq
+				result
+		}
+	}
 
-//     /** Multiply increasing the Bit Width */
-//     def * (b : Fixed) : Fixed = {
-//         checkAligned(b)
-//         val temp = this.toSInt * b.toSInt
-//         fromSInt(temp, temp.getWidth(), this.getFractionalWidth()*2)
-//     }
+	def <=[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := comp.io.lt | comp.io.eq
+				result
+		}
+	}
 
-//     /** Multiply with one bit of rounding */
-//     def *& (b : Fixed) : Fixed = {
-//         checkAligned(b)
-//         val temp = this.toSInt * b.toSInt
-//         val res = temp + ((temp & UInt(1)<<UInt(this.getFractionalWidth()-1))<<UInt(1))
-//         fromSInt(truncate(res, this.getFractionalWidth()))
-//     }
+	def =/=[T] (rawop: T): Bool = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(Bool())
+				val comp = Module(new CompareRecFN(m, e))
+				comp.io.a := recFNFromFN(m, e, this.r)
+				comp.io.b := recFNFromFN(m, e, op.r)
+				comp.io.signaling := false.B // TODO: What is this bit for?
+				result := ~comp.io.eq
+				result
+		}
+	}
 
-//     /** Multiply truncating the result to the same Fixed format */
-//     def *% (b : Fixed) : Fixed = {
-//         checkAligned(b)
-//         val temp = this.toSInt * b.toSInt
-//         fromSInt(truncate(temp, this.getFractionalWidth()))
-//     }
+	def ^[T] (rawop: T): FloatingPoint = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(new FloatingPoint(m, e))
+				result.r := op.r ^ this.r
+				result
+		}
+	}
 
-//     def / (b : Fixed) : Fixed = {
-//         checkAligned(b)
-//         fromSInt((this.toSInt << UInt(this.getFractionalWidth())) / b.toSInt)
-//     }
+	def &[T] (rawop: T): FloatingPoint = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(new FloatingPoint(m, e))
+				result.r := op.r & this.r
+				result
+		}
+	}
 
-//     /** This is just the modulo of the two fixed point bit representations changed into SInt and operated on */
-//     def % (b : Fixed) : Fixed = {
-//       checkAligned(b)
-//       fromSInt(this.toSInt % b.toSInt)
-//     }
-// }
+	def |[T] (rawop: T): FloatingPoint = {
+		rawop match {
+			case op: FloatingPoint => 
+				assert(op.m == m & op.e == e)
+				val result = Wire(new FloatingPoint(m, e))
+				result.r := op.r | this.r
+				result
+		}
+	}
+
+	// def isNeg (): Bool = {}
+
+ //  def unary_-() : FloatingPoint = {}
+
+
+    override def cloneType = (new FloatingPoint(m,e)).asInstanceOf[this.type] // See chisel3 bug 358
+
+}

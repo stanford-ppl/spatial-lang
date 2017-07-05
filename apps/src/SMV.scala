@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object SPMV_DumbPack extends SpatialApp {  // Regression (Sparse) // Args: 1536
-  import IR._
+
 
   type T = Int //FixPt[Signed,B16,B16]
 

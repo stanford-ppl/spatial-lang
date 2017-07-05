@@ -1,5 +1,5 @@
 import org.virtualized._
-import spatial._
+import spatial.dsl._
 
 
 /*
@@ -35,7 +35,7 @@ import spatial._
 
 
 object SGD extends SpatialApp { // Regression (Dense) // Args: 40 64 0.0001
-  import IR._
+
 
   type TM = FixPt[TRUE, _16, _16]
   type TX = FixPt[TRUE, _16, _16]
@@ -147,7 +147,7 @@ object SGD extends SpatialApp { // Regression (Dense) // Args: 40 64 0.0001
 
 
 object SGD_minibatch extends SpatialApp { // Regression (Dense) // Args: 40 64 0.0001
-  import IR._
+
 
   type TM = FixPt[TRUE,_16,_16]
   type TX = FixPt[TRUE,_16,_16]

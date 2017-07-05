@@ -1,10 +1,14 @@
 package spatial.analysis
 
+import argon.core._
+import argon.nodes._
 import org.virtualized.SourceContext
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait DimensionAnalyzer extends SpatialTraversal {
-  import IR._
-
   override val name = "Dimension Analyzer"
   override val recurse = Always
 
@@ -14,9 +18,11 @@ trait DimensionAnalyzer extends SpatialTraversal {
   private def checkOnchipDims(mem: Exp[_], dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Unit = {
     dbg(u"$mem: " + dims.mkString(", "))
     dims.zipWithIndex.foreach{
-      case (x, i) if x.dependsOnType{case LocalReader(_) => true} => new InvalidOnchipDimensionError(mem,i)
+      case (x, i) if x.dependsOnType{case LocalReader(_) => true} =>
+        new spatial.InvalidOnchipDimensionError(mem,i)
       case (Exact(_), i) =>
-      case (_, i) => new InvalidOnchipDimensionError(mem,i)
+      case (_, i) =>
+        new spatial.InvalidOnchipDimensionError(mem,i)
     }
   }
 
@@ -38,7 +44,9 @@ trait DimensionAnalyzer extends SpatialTraversal {
           assert(softDim.tp match {case IntType() => true; case _ => false})
           softDim.asInstanceOf[Exp[Index]]
         case _ if isGlobal(dim) => dim.asInstanceOf[Exp[Index]]
-        case _ => new InvalidOffchipDimensionError(dram, i)(dram.ctx); int32(0)
+        case _ =>
+          new spatial.InvalidOffchipDimensionError(dram, i)(dram.ctx, state)
+          int32(0)
       }}
       softDimsOf(dram) = softDims
     }

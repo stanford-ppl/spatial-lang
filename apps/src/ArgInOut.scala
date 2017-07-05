@@ -1,9 +1,7 @@
 import org.virtualized._
-import spatial._
+import spatial.dsl._
 
 object ArgInOut extends SpatialApp {
-  import IR._
-
   @virtualize
   def main() {
     val x = ArgIn[Int]
@@ -13,7 +11,6 @@ object ArgInOut extends SpatialApp {
     setArg(x, N)
 
     Accel {
-      // TODO: Set y = x + 4 here
       y := x + 4
     }
 
@@ -21,5 +18,19 @@ object ArgInOut extends SpatialApp {
     val gold = N + 4
     println("expected: " + gold)
     println("result: " + result)
+  }
+}
+
+
+object TextTest extends SpatialApp {
+  def test(x: String): String = x
+
+  @virtualize def main(): Unit = {
+    val m = "120"
+    val i = random[Int]
+    val q = m(i)
+    val y = test(q)
+
+    println(y.toText)
   }
 }

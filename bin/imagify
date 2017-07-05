@@ -1,5 +1,9 @@
+<<<<<<< HEAD
+#!/usr/bin/env python3
+=======
 #!/usr/bin/env python
 
+>>>>>>> origin/develop
 from argparse import ArgumentParser
 from matplotlib import pyplot
 import numpy

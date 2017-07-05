@@ -1,10 +1,10 @@
 package spatial.codegen.scalagen
 
-import spatial.SpatialExp
+import argon.core._
+import spatial.aliases._
+import spatial.nodes._
 
 trait ScalaGenSwitch extends ScalaGenBits {
-  val IR: SpatialExp
-  import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@Switch(body,selects,cases) =>

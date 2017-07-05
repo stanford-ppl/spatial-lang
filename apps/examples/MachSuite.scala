@@ -1,16 +1,9 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
-
-object EmptyAccel extends SpatialApp {
-  import IR._
-
-  @virtualize
-  def main() = {Accel{}}
-}
-
+import spatial.targets._
 
 object AES extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+  override val target = AWS_F1
 
   /*
   TODO: Optimize/parallelize many of the memory accesses here and pipeline as much as possible
@@ -233,7 +226,8 @@ object AES extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+  override val target = AWS_F1
+
 
   /*
 
@@ -392,13 +386,14 @@ object Viterbi extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+  override val target = AWS_F1
+
 
   /*
            ←    COLS     →   
          ___________________             ___________________                         
         |                   |           |X  X  X  X  X  X 00|          
-    ↑   |    ←3→            |           |                 00|          
+    ↑   |    ←3→            |           |                 00|    * this app pads right and bottom borders with 0      
         |    ___            |           |    VALID DATA   00|          
         |  ↑|   |           |           |X  X  X  X  X  X 00|          
         |  3|   | ----->    |    ->     |                 00|            
@@ -472,24 +467,25 @@ object Stencil2D extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*
                                                                                                                              
  H   ↗        ___________________                  ___________________                                                                  
-  E         /                   /|               /000000000000000000 /|                                                                
-   I       / ←    ROW      →   / |              / x  x  x  x  x  00 /0|                        
- ↙  G     /__________________ /  |             /__________________ / 0|                                                                 
-     H   |                   |   |            |X  X  X  X  X  X 00| x0|      
-      T  |     ___           |   |            |                 00|  0|      
-         |    /__/|          |   |            |    VALID DATA   00|  0|      
-   ↑     |  ↑|   ||          |   |            |X  X  X  X  X  X 00| x0|      
-         |  3|   || ----->   |   |   --->     |                 00|  0|        
-  COL    |  ↓|___|/          |   |            |X  X  X  X  X  X 00| x0|      
-         |                   |   |            |                 00|  0|      
-         |                   |   |            |X  X  X  X  X  X 00| x0|      
-         |                   |  /             |                 00| 0/      
-   ↓     |                   | /              |0000000000000000000|0/ 
+  E         /                   /|               /000000000000000000/ |                                                                
+   I       / ←    ROW      →   / |              /0  x  x  x  x    0/ 0|                        
+ ↙  G     /__________________ /  |             /0________________0/  0|                                                                 
+     H   |                   |   |            |0  X  X  X  X  X  0| x0|      
+      T  |     ___           |   |            |0                 0|  0|      
+         |    /__/|          |   |            |0   VALID DATA    0|  0|    *This app frames all borders with original value  
+   ↑     |  ↑|   ||          |   |            |0  X  X  X  X  X  0| x0|      
+         |  3|   || ----->   |   |   --->     |0                 0|  0|        
+  COL    |  ↓|___|/          |   |            |0  X  X  X  X  X  0| x0|      
+         |                   |   |            |0                 0|  0|      
+         |                   |   |            |0  X  X  X  X  X  0| x0|      
+         |                   |  /             |0                 0| 0/      
+   ↓     |                   | /              |0                 0|0/ 
          |                   |/               |0000000000000000000|/        
           ```````````````````                  ```````````````````      
                                                 
@@ -587,7 +583,8 @@ object Stencil3D extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object NW extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*
   
@@ -624,45 +621,56 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
     val padBothState = 1
     val doneState = 2
 
+    val a = argon.lang.String.char2num("a")
+    val c = argon.lang.String.char2num("c")
+    val g = argon.lang.String.char2num("g")
+    val t = argon.lang.String.char2num("t")
+    val dash = argon.lang.String.char2num("-")
+    val underscore = argon.lang.String.char2num("_")
+
     val SKIPB = 0
     val SKIPA = 1
     val ALIGN = 2
     val MATCH_SCORE = 1
     val MISMATCH_SCORE = -1
     val GAP_SCORE = -1 
-    val seqa_string = "tcgacgaaataggatgacagcacgttctcgtattagagggccgcggtacaaaccaaatgctgcggcgtacagggcacggggcgctgttcgggagatcgggggaatcgtggcgtgggtgattcgccggc".toText
-    val seqb_string = "ttcgagggcgcgtgtcgcggtccatcgacatgcccggtcggtgggacgtgggcgcctgatatagaggaatgcgattggaaggtcggacgggtcggcgagttgggcccggtgaatctgccatggtcgat".toText
+    // val seqa_string = "tcgacgaaataggatgacagcacgttctcgtattagagggccgcggtacaaaccaaatgctgcggcgtacagggcacggggcgctgttcgggagatcgggggaatcgtggcgtgggtgattcgccggc".toText
+    // val seqb_string = "ttcgagggcgcgtgtcgcggtccatcgacatgcccggtcggtgggacgtgggcgcctgatatagaggaatgcgattggaaggtcggacgggtcggcgagttgggcccggtgaatctgccatggtcgat".toText
+    val seqa_string = "tcgacgaaataggatgacagcacgttctcgtattagagggccgcggtacaaaccaaatgctgcggcgtacagggcacggggcgctgttcgggagatcgggggaatcgtggcgtgggtgattcgccggc"
+    val seqb_string = "ttcgagggcgcgtgtcgcggtccatcgacatgcccggtcggtgggacgtgggcgcctgatatagaggaatgcgattggaaggtcggacgggtcggcgagttgggcccggtgaatctgccatggtcgat"
     val length = 128
 
-    val seqa_bin = Array.tabulate[Int](seqa_string.length){i => 
-      val char = seqa_string(i)
-      if (char == "a") {0.to[Int]}
-      else if (char == "c") {1.to[Int]}
-      else if (char == "g") {2.to[Int]}
-      else if (char == "t") {3.to[Int]}
-      else {6.to[Int]}
-    } // TODO: Support c++ types with 2 bits in dram
-    val seqb_bin = Array.tabulate[Int](seqb_string.length){i => 
-      val char = seqb_string(i)
-      if (char == "a") {0.to[Int]}
-      else if (char == "c") {1.to[Int]}
-      else if (char == "g") {2.to[Int]}
-      else if (char == "t") {3.to[Int]}
-      else {6.to[Int]}
-    } // TODO: Support c++ types with 2 bits in dram
+    val seqa_bin = argon.lang.String.string2num(seqa_string)
+    // Array.tabulate[Int](seqa_string.length){i => 
+    //   val char = seqa_string(i)
+    //   if (char == "a") {0.to[Int]}
+    //   else if (char == "c") {1.to[Int]}
+    //   else if (char == "g") {2.to[Int]}
+    //   else if (char == "t") {3.to[Int]}
+    //   else {6.to[Int]}
+    // } // TODO: Support c++ types with 2 bits in dram
+    val seqb_bin = argon.lang.String.string2num(seqb_string)
+    // Array.tabulate[Int](seqb_string.length){i => 
+    //   val char = seqb_string(i)
+    //   if (char == "a") {0.to[Int]}
+    //   else if (char == "c") {1.to[Int]}
+    //   else if (char == "g") {2.to[Int]}
+    //   else if (char == "t") {3.to[Int]}
+    //   else {6.to[Int]}
+    // } // TODO: Support c++ types with 2 bits in dram
 
-    val seqa_dram_raw = DRAM[Int](length)
-    val seqb_dram_raw = DRAM[Int](length)
-    val seqa_dram_aligned = DRAM[Int](length*2)
-    val seqb_dram_aligned = DRAM[Int](length*2)
+    val seqa_dram_raw = DRAM[Int8](length)
+    val seqb_dram_raw = DRAM[Int8](length)
+    val seqa_dram_aligned = DRAM[Int8](length*2)
+    val seqb_dram_aligned = DRAM[Int8](length*2)
     setMem(seqa_dram_raw, seqa_bin)
     setMem(seqb_dram_raw, seqb_bin)
 
     Accel{
-      val seqa_sram_raw = SRAM[Int](length)
-      val seqb_sram_raw = SRAM[Int](length)
-      val seqa_fifo_aligned = FIFO[Int](length*2)
-      val seqb_fifo_aligned = FIFO[Int](length*2)
+      val seqa_sram_raw = SRAM[Int8](length)
+      val seqb_sram_raw = SRAM[Int8](length)
+      val seqa_fifo_aligned = FIFO[Int8](length*2)
+      val seqb_fifo_aligned = FIFO[Int8](length*2)
 
       seqa_sram_raw load seqa_dram_raw
       seqb_sram_raw load seqb_dram_raw
@@ -686,29 +694,29 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
       // Read score matrix
       val b_addr = Reg[Int](length)
       val a_addr = Reg[Int](length)
-      val done_backtrack = Reg[Bool](false)
+      val done_backtrack = Reg[Bit](false)
       FSM[Int](state => state != doneState) { state =>
         if (state == traverseState) {
           if (score_matrix(b_addr,a_addr).ptr == ALIGN.to[Int16]) {
+            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
+            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)
             done_backtrack := b_addr == 1.to[Int] || a_addr == 1.to[Int]
             b_addr :-= 1
             a_addr :-= 1
-            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
-            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)
           } else if (score_matrix(b_addr,a_addr).ptr == SKIPA.to[Int16]) {
+            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)  
+            seqa_fifo_aligned.enq(dash, !done_backtrack)          
             done_backtrack := b_addr == 1.to[Int]
             b_addr :-= 1
-            seqb_fifo_aligned.enq(seqb_sram_raw(b_addr-1), !done_backtrack)  
-            seqa_fifo_aligned.enq(4, !done_backtrack)          
           } else {
+            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
+            seqb_fifo_aligned.enq(dash, !done_backtrack)          
             done_backtrack := a_addr == 1.to[Int]
             a_addr :-= 1
-            seqa_fifo_aligned.enq(seqa_sram_raw(a_addr-1), !done_backtrack)
-            seqb_fifo_aligned.enq(4, !done_backtrack)          
           }
         } else if (state == padBothState) {
-          seqa_fifo_aligned.enq(5, !seqa_fifo_aligned.full) // I think this FSM body either needs to be wrapped in a body or last enq needs to be masked or else we are full before FSM sees full
-          seqb_fifo_aligned.enq(5, !seqb_fifo_aligned.full)
+          seqa_fifo_aligned.enq(underscore, !seqa_fifo_aligned.full) // I think this FSM body either needs to be wrapped in a body or last enq needs to be masked or else we are full before FSM sees full
+          seqb_fifo_aligned.enq(underscore, !seqb_fifo_aligned.full)
         } else {}
       } { state => 
         mux(state == traverseState && ((b_addr == 0.to[Int]) || (a_addr == 0.to[Int])), padBothState, 
@@ -724,38 +732,42 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
 
     val seqa_aligned_result = getMem(seqa_dram_aligned)
     val seqb_aligned_result = getMem(seqb_dram_aligned)
+    val seqa_aligned_string = argon.lang.String.num2string(seqa_aligned_result)
+    val seqb_aligned_string = argon.lang.String.num2string(seqb_aligned_result)
 
     val seqa_gold_string = "cggccgcttag-tgggtgcggtgctaagggggctagagggcttg-tc-gcggggcacgggacatgcg--gcg-t--cgtaaaccaaacat-g-gcgccgggag-attatgctcttgcacg-acag-ta----g-gat-aaagc---agc-t_________________________________________________________________________________________________________".toText
     val seqb_gold_string = "--------tagct-ggtaccgt-ctaa-gtggc--ccggg-ttgagcggctgggca--gg-c-tg-gaag-gttagcgt-aaggagatatagtccg-cgggtgcagggtg-gctggcccgtacagctacctggcgctgtgcgcgggagctt_________________________________________________________________________________________________________".toText
 
-    val seqa_gold_bin = Array.tabulate[Int](seqa_gold_string.length){i => 
-      val char = seqa_gold_string(i)
-      if (char == "a") {0.to[Int]}
-      else if (char == "c") {1.to[Int]}
-      else if (char == "g") {2.to[Int]}
-      else if (char == "t") {3.to[Int]}
-      else if (char == "-") {4.to[Int]}
-      else if (char == "_") {5.to[Int]}
-      else {6.to[Int]}
-    }
-    val seqb_gold_bin = Array.tabulate[Int](seqb_gold_string.length){i => 
-      val char = seqb_gold_string(i)
-      if (char == "a") {0.to[Int]}
-      else if (char == "c") {1.to[Int]}
-      else if (char == "g") {2.to[Int]}
-      else if (char == "t") {3.to[Int]}
-      else if (char == "-") {4.to[Int]}
-      else if (char == "_") {5.to[Int]}
-      else {6.to[Int]}
-    }
+    // val seqa_gold_bin = argon.lang.String.string2num(seqa_gold_string)
+    // Array.tabulate[Int](seqa_gold_string.length){i => 
+    //   val char = seqa_gold_string(i)
+    //   if (char == "a") {0.to[Int]}
+    //   else if (char == "c") {1.to[Int]}
+    //   else if (char == "g") {2.to[Int]}
+    //   else if (char == "t") {3.to[Int]}
+    //   else if (char == "-") {4.to[Int]}
+    //   else if (char == "_") {5.to[Int]}
+    //   else {6.to[Int]}
+    // }
+    // val seqb_gold_bin = argon.lang.String.string2num(seqb_gold_string)
+    // Array.tabulate[Int](seqb_gold_string.length){i => 
+    //   val char = seqb_gold_string(i)
+    //   if (char == "a") {0.to[Int]}
+    //   else if (char == "c") {1.to[Int]}
+    //   else if (char == "g") {2.to[Int]}
+    //   else if (char == "t") {3.to[Int]}
+    //   else if (char == "-") {4.to[Int]}
+    //   else if (char == "_") {5.to[Int]}
+    //   else {6.to[Int]}
+    // }
 
-    printArray(seqa_aligned_result, "Aligned result A: ")
-    printArray(seqa_gold_bin, "Gold A: ")
-    printArray(seqb_aligned_result, "Aligned result B: ")
-    printArray(seqb_gold_bin, "Gold B: ")
+    println("Result A: " + seqa_aligned_string)
+    println("Gold A:   " + seqa_gold_string)
+    println("Result B: " + seqb_aligned_string)
+    println("Gold B:   " + seqb_gold_string)
 
-    val cksumA = seqa_aligned_result.zip(seqa_gold_bin){_==_}.reduce{_&&_}
-    val cksumB = seqb_aligned_result.zip(seqb_gold_bin){_==_}.reduce{_&&_}
+    val cksumA = seqa_aligned_string == seqa_gold_string //seqa_aligned_result.zip(seqa_gold_bin){_==_}.reduce{_&&_}
+    val cksumB = seqb_aligned_string == seqb_gold_string //seqb_aligned_result.zip(seqb_gold_bin){_==_}.reduce{_&&_}
     val cksum = cksumA && cksumB
     println("PASS: " + cksum + " (NW) * Implement nodes for text operations in Scala once refactoring is done")
 
@@ -766,7 +778,8 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*
   
@@ -884,7 +897,8 @@ object MD_KNN extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*
   
@@ -1055,7 +1069,8 @@ object MD_Grid extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object KMP extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*
   
@@ -1068,23 +1083,27 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
 
   @virtualize
   def main() = {
-
-    val STRING_SIZE = 32411
-    val PATTERN_SIZE = 4
-
-    val raw_string = loadCSV1D[Int]("/remote/regression/data/machsuite/kmp_data.csv", "\n")
-    val raw_pattern = Array[Int](98,117,108,108)
-    val string_dram = DRAM[Int](STRING_SIZE)
-    val pattern_dram = DRAM[Int](PATTERN_SIZE)
+    val raw_string_data = loadCSV1D[MString]("/remote/regression/data/machsuite/kmp_string.csv", "\n")
+    val raw_string_pattern = "bull"//Array[Int](98,117,108,108)
+    val raw_string = argon.lang.String.string2num(raw_string_data(0))
+    val raw_pattern = argon.lang.String.string2num(raw_string_pattern)
+    val STRING_SIZE_NUM = raw_string.length.to[Int]
+    val PATTERN_SIZE_NUM = raw_pattern.length.to[Int]
+    val STRING_SIZE = ArgIn[Int]
+    val PATTERN_SIZE = ArgIn[Int]
+    setArg(STRING_SIZE, STRING_SIZE_NUM)
+    setArg(PATTERN_SIZE, PATTERN_SIZE_NUM)
+    val string_dram = DRAM[Int8](STRING_SIZE)
+    val pattern_dram = DRAM[Int8](PATTERN_SIZE)
     val nmatches = ArgOut[Int]
 
     setMem(string_dram, raw_string)
     setMem(pattern_dram, raw_pattern)
 
     Accel{
-      val string_sram = SRAM[Int](STRING_SIZE)
-      val pattern_sram = SRAM[Int](PATTERN_SIZE)
-      val kmp_next = SRAM[Int](PATTERN_SIZE)
+      val string_sram = SRAM[Int8](32411) // Conveniently sized
+      val pattern_sram = SRAM[Int8](4) // Conveniently sized
+      val kmp_next = SRAM[Int](4) // Conveniently sized
       val num_matches = Reg[Int](0)
 
       string_sram load string_dram
@@ -1094,7 +1113,7 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
       val k = Reg[Int](0)
       kmp_next(0) = 0
       Sequential.Foreach(1 until PATTERN_SIZE by 1) { q => 
-        // val whileCond = Reg[Bool](false)
+        // val whileCond = Reg[Bit](false)
         FSM[Int](state => state != 1) { state => 
           // whileCond := (k > 0) && (pattern_sram(k) != pattern_sram(q))
           if ((k > 0) && (pattern_sram(k) != pattern_sram(q))) k := 0 // TODO: Will it always bump back to 0 in this step or should it really be kmp_next(q)?
@@ -1106,7 +1125,7 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
       // Scan string
       val q = Reg[Int](0)
       Sequential.Foreach(0 until STRING_SIZE) { i => 
-        // val whileCond = Reg[Bool](false) 
+        // val whileCond = Reg[Bit](false)
         FSM[Int](state => state != 1) { state => 
           // whileCond := (q > 0) && (pattern_sram(i) != pattern_sram(q))
           if ((q > 0) && (string_sram(i) != pattern_sram(q))) q := kmp_next(q)
@@ -1137,7 +1156,8 @@ object KMP extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object GEMM_NCubed extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*
                                                              
@@ -1192,7 +1212,8 @@ object GEMM_NCubed extends SpatialApp { // Regression (Dense) // Args: none
 }      
 
 object GEMM_Blocked extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*
                                                              
@@ -1254,7 +1275,8 @@ object GEMM_Blocked extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*                                                                                                  
                               |     |                                                                                                                                                                                        
@@ -1319,13 +1341,17 @@ object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
           Foreach(mid+1 until to+1 by 1){ j => if (j == mid+1) {upper_tmp := data_sram(j)} else {upper_fifo.enq(data_sram(j))} }
           Sequential.Foreach(from until to+1 by 1) { k => 
             if (lower_tmp < upper_tmp) {
-              data_sram(k) = lower_tmp
-              val next_lower = if (lower_fifo.empty) {0x7FFFFFFF.to[Int]} else {lower_fifo.deq()}
-              lower_tmp := next_lower
+              Pipe{
+                data_sram(k) = lower_tmp
+                val next_lower = if (lower_fifo.empty) {0x7FFFFFFF.to[Int]} else {lower_fifo.deq()}
+                lower_tmp := next_lower
+              }
             } else {
-              data_sram(k) = upper_tmp
-              val next_upper = if (upper_fifo.empty) {0x7FFFFFFF.to[Int]} else {upper_fifo.deq()}
-              upper_tmp := next_upper
+              Pipe {
+                data_sram(k) = upper_tmp
+                val next_upper = if (upper_fifo.empty) {0x7FFFFFFF.to[Int]} else {upper_fifo.deq()}
+                upper_tmp := next_upper
+              }
             }
           }
         }{ i => i + m + m }
@@ -1350,7 +1376,8 @@ object Sort_Merge extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*                                                                                                  
     TODO: Cartoon of what this is doing                                                         
@@ -1368,8 +1395,8 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
     val BUCKET_SIZE = NUM_BLOCKS*RADIX
     val SCAN_BLOCK = 16
     val SCAN_RADIX = BUCKET_SIZE/SCAN_BLOCK
-    val a = false.to[Bool]
-    val b = true.to[Bool]
+    val a = false.to[Bit]
+    val b = true.to[Bit]
 
     val raw_data = loadCSV1D[Int]("/remote/regression/data/machsuite/sort_data.csv", "\n")
 
@@ -1382,7 +1409,7 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
       val b_sram = SRAM[Int](numel)
       val bucket_sram = SRAM[Int](BUCKET_SIZE)
       val sum_sram = SRAM[Int](SCAN_RADIX)
-      val valid_buffer = Reg[Bool](false)
+      val valid_buffer = Reg[Bit](false)
       
       a_sram load data_dram
 
@@ -1496,7 +1523,8 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object SPMV_CRS extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*                                                                                                  
    Sparse Matrix is the IEEE 494 bus interconnect matrix from UF Sparse Datasets   
@@ -1585,7 +1613,8 @@ object SPMV_CRS extends SpatialApp { // Regression (Sparse) // Args: none
 }
 
 object SPMV_ELL extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*                                                                                                  
    Sparse Matrix is the IEEE 494 bus interconnect matrix from UF Sparse Datasets   
@@ -1666,8 +1695,9 @@ object SPMV_ELL extends SpatialApp { // Regression (Sparse) // Args: none
   }
 }
 
+
 object Backprop extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
 
  /*                                                                                                  
     Concerns: 
@@ -2041,7 +2071,8 @@ object Backprop extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*                                                                                                  
 
@@ -2136,7 +2167,8 @@ object FFT_Strided extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*                                                                                                  
     Concerns: Not sure why machsuite makes a data_x and DATA_x when they only dump values from one row of DATA_x to data_x and back
@@ -2176,7 +2208,7 @@ object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
 
       def twiddles8(tid: Index, i: Int, N: Int): Unit = {
         Sequential.Foreach(1 until 8 by 1) { j => 
-          val phi = -TWOPI*(i.as[T]*reversed_LUT(j).as[T] / N.as[T])
+          val phi = -TWOPI*(i.to[T]*reversed_LUT(j).to[T] / N.to[T])
           val phi_shifted = phi + TWOPI/2
           val beyond_left = phi_shifted < -TWOPI.to[T]/4
           val beyond_right = phi_shifted > TWOPI.to[T]/4
@@ -2397,7 +2429,8 @@ object FFT_Transpose extends SpatialApp { // Regression (Dense) // Args: none
 
 
 object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*                                                                                                  
 
@@ -2503,7 +2536,8 @@ object BFS_Bulk extends SpatialApp { // Regression (Sparse) // Args: none
 
 
 object BFS_Queue extends SpatialApp { // Regression (Sparse) // Args: none
- import IR._
+  override val target = AWS_F1
+
 
  /*                                                                                                  
           ________________

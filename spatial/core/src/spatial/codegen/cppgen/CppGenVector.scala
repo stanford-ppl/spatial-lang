@@ -1,12 +1,13 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.VectorExp
-import spatial.{SpatialConfig, SpatialExp}
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.nodes._
+import spatial.SpatialConfig
 
 trait CppGenVector extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -37,7 +38,7 @@ trait CppGenVector extends CppCodegen {
     case e@DataAsBits(a) => e.mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
       case FixPtType(s,d,f) => emit(src"${e.mT} $lhs = (${e.mT}) ${a};")
-      case BoolType()       => emit(src"${e.mT} $lhs = (${e.mT}) ${a};")
+      case BooleanType()    => emit(src"${e.mT} $lhs = (${e.mT}) ${a};")
     }
 
     case BitsAsData(v,mT) => mT match {
@@ -45,7 +46,7 @@ trait CppGenVector extends CppCodegen {
       case FixPtType(s,i,f) => 
         emit(src"${lhs.tp} $lhs;")
         emit(src"for (int ${lhs}_i = 0; ${lhs}_i < ${i+f}; ${lhs}_i++) { ${lhs} = ${v}[${i+f-1}-${lhs}_i] << ${lhs}_i; }")
-      case BoolType()       => 
+      case BooleanType() =>
         emit(src"${lhs.tp} $lhs;")
         emit(src"for (int ${lhs}_i = 0; ${lhs}_i < 1; ${lhs}_i++) { ${lhs} = ${v}[${lhs}_i] << ${lhs}_i; }")
     }

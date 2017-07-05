@@ -1,11 +1,13 @@
 package spatial.analysis
 
-import spatial.SpatialExp
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+import org.virtualized.SourceContext
 
 trait LatencyAnalyzer extends ModelingTraversal {
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Latency Analyzer"
 
   override def silence() {
@@ -23,10 +25,10 @@ trait LatencyAnalyzer extends ModelingTraversal {
     case Def(CounterChainNew(ctrs)) =>
       val loopIters = ctrs.map{
         case Def(CounterNew(start,end,stride,par)) =>
-          val min = boundOf.get(start).map(_.toDouble).getOrElse{warn(u"Don't know bound of $start"); 0.0}
-          val max = boundOf.get(end).map(_.toDouble).getOrElse{warn(u"Don't know bound of $end"); 1.0}
-          val step = boundOf.get(stride).map(_.toDouble).getOrElse{warn(u"Don't know bound of $stride"); 1.0}
-          val p = boundOf.get(par).map(_.toDouble).getOrElse{warn(u"Don't know bound of $par"); 1.0}
+          val min = boundOf.get(start).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $start");*/ 0.0}
+          val max = boundOf.get(end).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $end");*/ 1.0}
+          val step = boundOf.get(stride).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $stride");*/ 1.0}
+          val p = boundOf.get(par).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $par");*/ 1.0}
 
           val nIters = Math.ceil(max - min/step)
           if (ignorePar)
@@ -94,7 +96,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
 
         pipe + latencyOf(lhs)
 
-      case OpForeach(cchain, func, iters) if isInnerControl(lhs) =>
+      case OpForeach(en, cchain, func, iters) if isInnerControl(lhs) =>
         val N = nIters(cchain)
         val pipe = latencyOfPipe(func)
 
@@ -104,7 +106,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
 
         pipe + N - 1 + latencyOf(lhs)
 
-      case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) if isInnerControl(lhs) =>
+      case OpReduce(en, cchain,accum,map,ld,reduce,store,_,_,rV,iters) if isInnerControl(lhs) =>
         val N = nIters(cchain)
         val P = parsOf(cchain).product
 
@@ -134,7 +136,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
 
         pipe + N - 1 + latencyOf(lhs)
 
-      case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) if isInnerControl(lhs) =>
+      case UnrolledReduce(en,cchain,accum,func,iters,valids) if isInnerControl(lhs) =>
         val N = nIters(cchain)
 
         val body = latencyOfPipe(func)
@@ -145,7 +147,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
 
         body + N - 1 + latencyOf(lhs)
 
-      case StateMachine(en, start, notDone, action, nextState, state) if isInnerControl(lhs) =>
+      case StateMachine(en, start, notDone, action, nextState, _) if isInnerControl(lhs) =>
         val cont = latencyOfPipe(notDone)
         val act  = latencyOfPipe(action)
         val next = latencyOfPipe(nextState)
@@ -169,7 +171,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
 
 
       // --- Metapipeline and Sequential
-      case OpForeach(cchain, func, _) =>
+      case OpForeach(en, cchain, func, _) =>
         val N = nIters(cchain)
         val stages = latencyOfBlock(func)
 
@@ -179,7 +181,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
 
-      case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
+      case OpReduce(en, cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
         val N = nIters(cchain)
         val P = parsOf(cchain).product
 
@@ -196,7 +198,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
 
-      case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
+      case OpMemReduce(en, cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
         val Nm = nIters(cchainMap)
         val Nr = nIters(cchainRed)
         val Pm = parsOf(cchainMap).product // Parallelization factor for map
@@ -226,7 +228,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
 
-      case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
+      case UnrolledReduce(en,cchain,accum,func,iters,valids) =>
         val N = nIters(cchain)
         val P = parsOf(cchain).product
         val stages = latencyOfBlock(func)
@@ -237,7 +239,7 @@ trait LatencyAnalyzer extends ModelingTraversal {
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
 
-      case StateMachine(en, start, notDone, action, nextState, state) =>
+      case StateMachine(en, start, notDone, action, nextState, _) =>
         val cont      = latencyOfPipe(notDone)
         val actStages = latencyOfBlock(action)
         val next      = latencyOfPipe(nextState)

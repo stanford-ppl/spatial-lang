@@ -41,6 +41,7 @@ object ops {
     def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
       chisel3.util.Cat(b.map{_.raw}).FP(s, d, f)
     }
+
   }
 
   implicit class BoolOps(val b:Bool) {
@@ -50,6 +51,18 @@ object ops {
 
   }
   
+  // implicit class DspRealOps(val b:DspReal) {
+  //   def raw = {
+  //     b.node
+  //   }
+  //   def number = {
+  //     b.node
+  //   }
+  //   def r = {
+  //     b.node
+  //   }
+  // }
+
   implicit class UIntOps(val b:UInt) {
     // Define number so that we can be compatible with FixedPoint type
     def number = {
@@ -271,6 +284,9 @@ object ops {
     def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
       Utils.FixedPoint(s, d, f, b)
     }
+    def FlP(m: Int, e: Int): FloatingPoint = {
+      Utils.FloatPoint(m, e, b)
+    }
 
     def cast(c: FixedPoint): Unit = {
       c.r := Utils.FixedPoint(c.s,c.d,c.f,b).r
@@ -287,6 +303,9 @@ object ops {
     def FP(s: Int, d: Int, f: Int): FixedPoint = {
       Utils.FixedPoint(s, d, f, b)
     }
+    def FlP(m: Int, e: Int): FloatingPoint = {
+      Utils.FloatPoint(m, e, b)
+    }
   }
 
   implicit class DoubleOps(val b: Double) {
@@ -296,10 +315,29 @@ object ops {
     def FP(s: Int, d: Int, f: Int): FixedPoint = {
       Utils.FixedPoint(s, d, f, b)
     }
+    def FlP(m: Int, e: Int): FloatingPoint = {
+      Utils.FloatPoint(m, e, b)
+    }
   }
 }
 
 object Utils {
+
+  def sqrt(num: FloatingPoint): FloatingPoint = {
+    val m = num.m
+    val e = num.e
+    val result = Wire(new FloatingPoint(m, e))
+    val fma = Module(new DivSqrtRecFN_small(m,e,0))
+    fma.io.a := num.r
+    fma.io.inValid := true.B // TODO: What should this be?
+    fma.io.sqrtOp := true.B // TODO: What should this be?
+    fma.io.roundingMode := 0.U(3.W) // TODO: What should this be?
+    fma.io.detectTininess := true.B // TODO: What should this be?
+    result.r := fNFromRecFN(m, e, fma.io.out)
+    result
+  }
+  def getFloatBits(num: Float) = java.lang.Float.floatToRawIntBits(num)
+  // def getDoubleBits(num: Double) = java.lang.Double.doubleToRawIntBits(num)
   def delay[T <: chisel3.core.Data](sig: T, length: Int):T = {
     if (length == 0) {
       sig
@@ -360,6 +398,18 @@ object Utils {
       case i: SInt => cst.r := FixedPoint(s,d,f,i.asUInt).r
       case i: FixedPoint => cst.raw := i.raw
       case i: Int => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
+    }
+    cst
+  }
+
+  def FloatPoint[T](m: Int, e: Int, init: T): FloatingPoint = {
+    val cst = Wire(new FloatingPoint(m, e))
+    init match {
+      case i: Double => cst.raw := getFloatBits(i.toFloat).U
+      case i: Bool => cst.r := mux(i, getFloatBits(1f).U, getFloatBits(0f).U)
+      // case i: UInt => 
+      // case i: SInt => 
+      case i: Int => cst.raw := getFloatBits(i.toFloat).U
     }
     cst
   }

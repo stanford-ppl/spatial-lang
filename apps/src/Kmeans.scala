@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object Kmeans extends SpatialApp { // Regression (Dense) // Args: 3 64
-  import IR._
+
 
   type X = Int
 

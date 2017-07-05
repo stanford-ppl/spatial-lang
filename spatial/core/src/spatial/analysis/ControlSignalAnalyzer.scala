@@ -1,6 +1,11 @@
 package spatial.analysis
 
+import argon.core._
 import org.virtualized.SourceContext
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 /**
   * (1)  Sets parent control nodes of local memories
@@ -16,8 +21,6 @@ import org.virtualized.SourceContext
   * (11) Determines the top controller
   */
 trait ControlSignalAnalyzer extends SpatialTraversal {
-  import IR._
-
   override val name = "Control Signal Analyzer"
 
   // --- State
@@ -61,7 +64,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   override protected def postprocess[S:Type](block: Block[S]) = {
     top match {
       case Some(ctrl@Op(Hwblock(_,_))) =>
-      case _ => new NoTopError(block.result.ctx)
+      case _ => new spatial.NoTopError(block.result.ctx)
     }
     dbg("Local memories: ")
     localMems.foreach{mem => dbg(c"  $mem")}
@@ -73,6 +76,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     val prevCtrl = controller
     val prevReads = pendingNodes
 
+    dbg(c"Setting controller to ${str(ctrl.node)} [${ctrl.isInner}]")
     controller = Some(ctrl)
     blk
 
@@ -138,7 +142,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       appendWriter(writer, ctrl)
     else {
       val mem = LocalWriter.unapply(writer).get.head._1
-      throw new ExternalWriteError(mem, writer, ctrl)(writer.ctx)
+      throw new spatial.ExternalWriteError(mem, writer, ctrl)(writer.ctx, state)
     }
   }
 
@@ -301,7 +305,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   def addChildDependencyData(lhs: Sym[_], block: Block[_]): Unit = if (isOuterControl(lhs)) {
-    withInnerStms(availStms diff block.inputs.map(stmOf)) {
+    withInnerStms(availStms diff block.inputs.flatMap(getStm)) {
       val children = childrenOf(lhs)
       dbg(c"parent: $lhs")
       val allDeps = Map(children.map { child =>
@@ -358,12 +362,12 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       addChildDependencyData(lhs, action)
       addChildDependencyData(lhs, nextState)
 
-    case OpForeach(cchain,func,iters) =>
+    case OpForeach(en,cchain,func,iters) =>
       visitCtrl((lhs,false),iters,cchain){ visitBlock(func) }
       addChildDependencyData(lhs, func)
       iters.foreach { iter => parentOf(iter) = lhs }
 
-    case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
+    case OpReduce(en,cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
       visitCtrl((lhs,false), iters, cchain){
         visitBlock(map)
 
@@ -385,7 +389,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       addChildDependencyData(lhs, map)
       isInnerAccum(accum) = isInnerControl(lhs)
 
-    case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
+    case OpMemReduce(en,cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
       visitCtrl((lhs,false), itersMap, cchainMap) {
         visitBlock(map)
       }

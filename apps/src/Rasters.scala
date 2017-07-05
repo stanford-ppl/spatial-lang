@@ -1,9 +1,9 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 import spatial.targets.DE1
 
 object MovingBox extends SpatialApp {
-  import IR._
+
 
   override val target = DE1
   val Cmax = 320
@@ -44,7 +44,7 @@ object MovingBox extends SpatialApp {
 }
 
 object ColoredLines extends SpatialApp { // try arg = 100
-  import IR._
+
 
   override val target = DE1
   val Cmax = 320
@@ -85,7 +85,7 @@ object ColoredLines extends SpatialApp { // try arg = 100
 }
 
 object LinebufRaster extends SpatialApp { // try arg = 100
-  import IR._
+
 
   override val target = DE1
   val Cmax = 320
@@ -135,7 +135,7 @@ object LinebufRaster extends SpatialApp { // try arg = 100
 
 
 object ColorSelect extends SpatialApp { // try arg = 100
-  import IR._
+
 
   override val target = DE1
   val Cmax = 320
