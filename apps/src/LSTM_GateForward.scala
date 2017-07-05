@@ -1,4 +1,4 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 /*
@@ -272,7 +272,7 @@ object LSTM_GateForward extends SpatialApp {
         Foreach(m by mm, n by nn) { (i,j) =>
           // Test result
           val reg_ct = Reg[T](0.to[T])
-          val tile_re = SRAM[T](mm, nn)
+          // val tile_re = SRAM[T](mm, nn)
 
           // Meaningful inputs
           val tile_WiTx = SRAM[T](mm, nn)

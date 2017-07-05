@@ -8,15 +8,6 @@ import spatial.nodes._
 trait CppGenStream extends CppCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-//<<<<<<< HEAD
-//    case StreamInNew(bus) => emit(s"$lhs = $bus // TODO: No idea what to connect this bus to, should expose periphal pins to something...")
-//    case StreamOutNew(bus) =>
-//      s"$bus" match {
-//        case "BurstCmdBus" => 
-//        case _ =>
-//          emit(src"// New stream out $lhs")
-//      }
-//=======
     case BufferedOutNew(_, bus) => emit(s"// ${quote(lhs)} = $bus // TODO: No idea what to connect this bus to, should expose periphal pins to something...")
     case StreamInNew(bus) => emit(s"// ${quote(lhs)} = $bus // TODO: No idea what to connect this bus to, should expose periphal pins to something...")
     case StreamOutNew(bus) => emit(s"// ${quote(lhs)} = $bus // TODO: No idea what to connect this bus to, should expose periphal pins to something...")
