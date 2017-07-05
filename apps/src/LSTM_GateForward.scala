@@ -7,10 +7,14 @@ import org.virtualized._
  * Reference: CS224N, Stanford
  *
  * Dimensions:
- * x_t \in d         : input word vector at time t
- * W_i \in D_h*d     : weights matrix to condition x_t
- * h_{t-1} \in D_h   : D_h is the size of hidden layer
- * U^i \in D_h * D_h : weights matrix to condition the previous hidden state
+ * x_t     \in d by N         : input word vector at time t
+ * W       \in D_h by d       : weights matrices to condition x_t
+ * U       \in D_h by D_h     : weights matrix to condition the previous hidden state
+ * i_t     \in D_h by N       : weights matrix of the input gate
+ * f_t     \in D_h by N       : weights matrix of the forget gate
+ * o_t     \in D_h by N       : weights matrix of the output gate
+ * h_{t-1} \in D_h by N       : weights of the last hidden state
+ * h_t \in D_h by N           : weights of the current hidden state
  *
  * Forward network:
  * i_t = sigmoid(W^i x_t + U^i h_{t-1})           (Input gate)
@@ -56,6 +60,8 @@ object LSTM_GateForward extends SpatialApp {
     W_output: Array[T], U_output: Array[T],
     /* New memory gate */
     W_new_mem: Array[T], U_new_mem: Array[T],
+    /* Old memory gate */
+    W_c_t_1: Array[T],
     /* Inputs */
     x: Array[T], h: Array[T],
     /* Sizes */
@@ -89,8 +95,15 @@ object LSTM_GateForward extends SpatialApp {
     val Wc = DRAM[T](D_h, d)
     val Uc = DRAM[T](D_h, D_h)
 
+    // Old memory gate
+    val Wc_t_1 = DRAM[T](D_h, N)
+
     // Result matrix
-    val result = DRAM[T](D_h, N)
+    // val result = DRAM[T](D_h, N)
+    // Result 1: Next memory
+    val next_mem = DRAM[T](D_h, N)
+    // Result 2: Next hidden state
+    val next_hidden_state = DRAM[T](D_h, N)
 
     val b_N = 16                  // Stepsize for going through N classes
     val b_Dh = 16                 // Stepsize for going through hidden size
@@ -121,7 +134,11 @@ object LSTM_GateForward extends SpatialApp {
     setMem(Wc, W_new_mem)
     setMem(Uc, U_new_mem)
 
+    // Old memory gate
+    setMem(Wc_t_1, W_c_t_1)
+
     Accel {
+
       /*
        * LUT table for sigmoid function:
        * Input lower bound: -32.0
@@ -193,7 +210,7 @@ object LSTM_GateForward extends SpatialApp {
        * @param x: inner product right
        * @param i: row index from caller
        * @param j: col index from caller
-       * @param tp: col of aT / row of x
+       * @param tp: row of aT / col of x
        * @param tpp: step size to iterate over tp
        * @param mm: row size of the tile
        * @param nn: col size of the tile
@@ -220,7 +237,7 @@ object LSTM_GateForward extends SpatialApp {
 
 
       /*
-       * A function that does A^Tx + B^Th
+       * The major function that describes the design
        * where Wi, x, Ui, h are DRAM locations
        * Assuming that the input matrices are transposed already
        * @param Wi: DRAM matrix
@@ -236,7 +253,7 @@ object LSTM_GateForward extends SpatialApp {
        * @param pp: tile step size of Wi col / x row
        * @param qq: tile step size of Ui col / h row
        */
-      def batchMult(
+      def forward(
         /* Input gate */
         Wi: DRAM2[T], Ui: DRAM2[T],
         /* Forget gate */
@@ -245,16 +262,19 @@ object LSTM_GateForward extends SpatialApp {
         Wo: DRAM2[T], Uo: DRAM2[T],
         /* New memory gate */
         Wc: DRAM2[T], Uc: DRAM2[T],
+        /* Old memory gate */
+        Wc_t_1: DRAM2[T],
         /* Inputs */
         x: DRAM2[T], h: DRAM2[T],
         /* Sizes */
         m: Int, n: Int, p: Int, q: Int, mm: Int, nn: Int, pp: Int, qq: Int
       ) = {
         Foreach(m by mm, n by nn) { (i,j) =>
-          println(">>>>>>>>>>")
-          println(">> i = " + i + " j = " + j)
-          println("<<<<<<<<<<")
+          // Test result
+          val reg_ct = Reg[T](0.to[T])
           val tile_re = SRAM[T](mm, nn)
+
+          // Meaningful inputs
           val tile_WiTx = SRAM[T](mm, nn)
           val tile_UiTh = SRAM[T](mm, nn)
           val tile_WfTx = SRAM[T](mm, nn)
@@ -263,6 +283,12 @@ object LSTM_GateForward extends SpatialApp {
           val tile_UoTh = SRAM[T](mm, nn)
           val tile_WcTx = SRAM[T](mm, nn)
           val tile_UcTh = SRAM[T](mm, nn)
+          val tile_Wc_t_1 = SRAM[T](mm, nn)
+
+          // Output result 1: new memory weights
+          val tile_new_mem = SRAM[T](mm, nn)
+          // Output result 2: new hidden state weights
+          val tile_new_hidden = SRAM[T](mm, nn)
 
           Parallel {
             tileBatchMult(tile_WiTx, Wi, x, i, j, p, pp, mm, nn)
@@ -273,22 +299,36 @@ object LSTM_GateForward extends SpatialApp {
             tileBatchMult(tile_UoTh, Uo, h, i, j, q, qq, mm, nn)
             tileBatchMult(tile_WcTx, Wc, x, i, j, p, pp, mm, nn)
             tileBatchMult(tile_UcTh, Uc, h, i, j, q, qq, mm, nn)
+            // TODO: reconsider where to add this tile load
+            tile_Wc_t_1 load Wc_t_1(i::i+mm, j::j+nn)
           }
 
+          // Calculating the current memory and the next hidden state needs to be put
+          // into two different states
           // For the whole tile, reduce the three tiles and send it back to mem
           Foreach(mm by 1, nn by 1) { (ii, jj) =>
-            // TODO: for now just add them together..
-            tile_re(ii, jj) = sigmoid(tile_WiTx(ii, jj) + tile_UiTh(ii, jj)) +
-                              sigmoid(tile_WfTx(ii, jj) + tile_UfTh(ii, jj)) +
-                              sigmoid(tile_WoTx(ii, jj) + tile_UoTh(ii, jj)) +
-                              tanh(tile_WcTx(ii, jj) + tile_UcTh(ii, jj))
+            //  i_t    = sigmoid(tile_WiTx(ii, jj) + tile_UiTh(ii, jj))
+            //  f_t    = sigmoid(tile_WfTx(ii, jj) + tile_UfTh(ii, jj))
+            //  o_t    = sigmoid(tile_WoTx(ii, jj) + tile_UoTh(ii, jj))
+            //  c_tl_t = tanh(tile_WcTx(ii, jj) + tile_UcTh(ii, jj))
+
+            // c_t = f_t \times c_{t-1} + i_t \times c_tl_t
+            reg_ct := sigmoid(tile_WfTx(ii, jj) + tile_UfTh(ii, jj)) * tile_Wc_t_1(ii, jj) +
+                             sigmoid(tile_WiTx(ii, jj) + tile_UiTh(ii, jj)) * tanh(tile_WcTx(ii, jj) + tile_UcTh(ii, jj))
+            tile_new_mem(ii, jj) = reg_ct.value
+
+            // h_t = o_t \times tanh(c_t)
+            tile_new_hidden(ii, jj) = sigmoid(tile_WoTx(ii, jj) + tile_UoTh(ii, jj)) * tanh(reg_ct.value)
           }
 
-          result(i::i+mm, j::j+nn) store tile_re
+//          result(i::i+mm, j::j+nn) store tile_re
+          next_mem(i::i+mm, j::j+nn) store tile_new_mem
+          next_hidden_state(i::i+mm, j::j+nn) store tile_new_hidden
         }
       }
 
-      batchMult(
+      /* Main function */
+      forward (
         /* Input gate */
         Wi, Ui,
         /* Forget gate */
@@ -297,6 +337,8 @@ object LSTM_GateForward extends SpatialApp {
         Wo, Uo,
         /* New memory gate */
         Wc, Uc,
+        /* Old memory gate */
+        Wc_t_1,
         /* Inputs */
         xt, h_t_1,
         /* Sizes */
@@ -304,7 +346,8 @@ object LSTM_GateForward extends SpatialApp {
       )
     }
 
-    getMem(result)
+    getMem(next_mem)
+    // TODO: how to get two pieces of memory?
   }
 
   @virtualize
@@ -325,6 +368,7 @@ object LSTM_GateForward extends SpatialApp {
     val U_c = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
     val x_t = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
     val h_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
+    val W_c_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
 
     val gateResult = GateForward (
       /* Input gate */
@@ -335,6 +379,8 @@ object LSTM_GateForward extends SpatialApp {
       W_o, U_o,
       /* New memory gate */
       W_c, U_c,
+      /* Old memory gate */
+      W_c_t_1,
       /* Inputs */
       x_t, h_t_1,
       /* Sizes */
