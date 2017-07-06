@@ -2,7 +2,7 @@ import spatial.dsl._
 import org.virtualized._
 import spatial.targets._
 
-object SHA extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+object SHA extends SpatialApp { // Regression (Dense) // Args: none
   override val target = AWS_F1
 
   type ULong = FixPt[FALSE, _32, _0]
@@ -90,12 +90,12 @@ object SHA extends SpatialApp { // DISABLED Regression (Dense) // Args: none
     		Sequential.Foreach(0 until count by SHA_BLOCKSIZE) { base => 
     			val numel = min(count - base, SHA_BLOCKSIZE.to[Index])
     			// TODO: Can make this one writer only
-    			if (numel == SHA_BLOCKSIZE) {
+    			if (numel == SHA_BLOCKSIZE) {Pipe{
 			      Sequential.Foreach(SHA_BLOCKSIZE/4 by 1){ i => 
 			        sha_data(i) = (buffer(base + i*4).as[ULong]) | (buffer(base + i*4+1).as[ULong] << 8) | (buffer(base + i*4 + 2).as[ULong] << 16) | (buffer(base + i*4+3).as[ULong] << 24)
 			      }
 			      sha_transform()
-		      } else {
+		      }} else {
 						Sequential(0 until numel by 1) { i => 
 			        sha_data(i) = (buffer(base + i*4).as[ULong]) | (buffer(base + i*4+1).as[ULong] << 8) | (buffer(base + i*4 + 2).as[ULong] << 16) | (buffer(base + i*4+3).as[ULong] << 24)
 						}	      	
@@ -125,11 +125,11 @@ object SHA extends SpatialApp { // DISABLED Regression (Dense) // Args: none
 				val hi_bit_count = count_hi.value.to[ULong]
     		val count_final = ((lo_bit_count.to[Int8] >> 3) & 0x3f.to[Int8]).to[Int]
     		sha_data(count_final) = 0x80
-    		if (count_final > 56) {
+    		if (count_final > 56) { Pipe{
     			Foreach(count_final+1 until 16 by 1) { i => sha_data(i) = 0 }
     			sha_transform()
     			sha_data(14) = 0
-    		} else {
+    		}} else {
     			Foreach(count_final+1 until 16 by 1) { i => sha_data(i) = 0 }
     		}
     		Pipe{sha_data(14) = hi_bit_count}
