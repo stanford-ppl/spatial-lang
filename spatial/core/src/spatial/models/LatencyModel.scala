@@ -1,6 +1,5 @@
 package spatial.models
 
-import argon.core.Config
 import argon.core._
 import argon.nodes._
 import forge._
