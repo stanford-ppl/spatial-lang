@@ -35,9 +35,11 @@ object InOutArg extends SpatialApp { // Regression (Unit) // Args: 32
 }
 
 object StreamInOut extends SpatialApp {
+  import spatial.targets.DE1
+
   @virtualize def main(): Unit = {
-    val in  = StreamIn[Int]
-    val out = StreamOut[Int]()
+    val in  = StreamIn[Int](DE1.GPInput1)
+    val out = StreamOut[Int](DE1.GPOutput1)
     Accel(*) {
       out := in
     }
