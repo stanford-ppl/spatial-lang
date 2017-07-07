@@ -7,9 +7,9 @@ import argon.interpreter.{Interpreter => AInterpreter}
 trait Debugging extends AInterpreter {
 
   override def matchNode  = super.matchNode.orElse {
-    case PrintlnIf(a, b) =>
-      if (eval[Boolean](a))
-        println(eval[Any](b).toString)
+    case PrintlnIf(EBoolean(cond), EString(str)) =>
+      if (cond)
+        println(str)
   }
 
 }

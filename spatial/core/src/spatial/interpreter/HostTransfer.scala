@@ -9,18 +9,17 @@ trait HostTransfer extends AInterpreter {
 
   override def matchNode  = super.matchNode.orElse {
 
-    case ArgInNew(a) =>
-      eval[BigDecimal](a)
+    case ArgInNew(EBigDecimal(arg)) =>
+      arg
 
-    case ArgOutNew(a) =>
-      eval[BigDecimal](a)
+    case ArgOutNew(EBigDecimal(arg)) =>
+      arg
     
-    case SetArg(a: Sym[_], b) =>
-      val x = eval[Any](b)
-      updateVar(a, x)
+    case SetArg(arg: Sym[_], EAny(value)) =>
+      updateVar(arg, value)
 
-    case GetArg(a) =>
-      eval[Any](a)
+    case GetArg(EAny(arg)) =>
+      arg
 
   }
 

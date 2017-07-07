@@ -9,11 +9,11 @@ trait IString extends AInterpreter {
 
   override def matchNode  = super.matchNode.orElse {
 
-    case StringConcat(a, b) =>
-      eval[String](a) + eval[String](b)
+    case StringConcat(EString(a), EString(b)) =>
+      a + b
 
-    case ToString(a) =>
-      eval[Any](a).toString
+    case ToString(EAny(a)) =>
+      a.toString
 
   }
 

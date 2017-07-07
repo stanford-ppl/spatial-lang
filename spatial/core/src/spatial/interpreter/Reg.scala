@@ -8,14 +8,13 @@ trait Reg extends AInterpreter {
 
   override def matchNode  = super.matchNode.orElse {
 
-    case RegWrite(a: Sym[_], b, c) =>
-      if (eval[Boolean](c)) {
-        val x = eval[Any](b)
-        updateVar(a, x)
+    case RegWrite(sym: Sym[_], EAny(value), EBoolean(cond)) =>
+      if (cond) {
+        updateVar(sym, value)
       }
 
-    case RegRead(a: Sym[_]) =>
-      variables(a)
+    case RegRead(sym: Sym[_]) =>
+      variables(sym)
 
   }
 

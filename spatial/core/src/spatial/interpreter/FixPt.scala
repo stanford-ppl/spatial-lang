@@ -10,14 +10,12 @@ trait FixPt extends AInterpreter {
 
   override def matchNode  = super.matchNode.orElse {
     
-    case StringToFixPt(a) =>
-      BigDecimal(eval[String](a))
+    case StringToFixPt(EString(str)) =>
+      BigDecimal(str)
       
-    case FixAdd(a, b) =>
-      eval[BigDecimal](a) + eval[BigDecimal](b)
+    case FixAdd(EBigDecimal(a), EBigDecimal(b)) =>
+      a + b
 
   }
 
 }
-
-
