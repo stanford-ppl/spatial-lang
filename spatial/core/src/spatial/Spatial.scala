@@ -12,6 +12,7 @@ import spatial.codegen.chiselgen.ChiselGenSpatial
 import spatial.codegen.cppgen.CppGenSpatial
 import spatial.codegen.dotgen.DotGenSpatial
 import spatial.codegen.scalagen.ScalaGenSpatial
+import spatial.interpreter.Interpreter
 import spatial.lang.cake.SpatialExternal
 import spatial.targets.{DefaultTarget, FPGATarget, Targets}
 
@@ -93,6 +94,7 @@ trait SpatialApp extends ArgonApp {
     lazy val cppgen = new CppGenSpatial { var IR = state }
     lazy val treegen = new TreeGenSpatial { var IR = state }
     lazy val dotgen = new DotGenSpatial { var IR = state }
+    lazy val interpreter = new Interpreter { var IR = state }
 
     passes += printer
     passes += scalarAnalyzer    // Perform bound and global analysis
@@ -202,6 +204,7 @@ trait SpatialApp extends ArgonApp {
     if (SpatialConfig.enableSynth) passes += chiselgen
     if (SpatialConfig.enableDot)   passes += dotgen
     if (SpatialConfig.enablePIR)   passes += pirgen
+    if (SpatialConfig.enableInterpret)   passes += interpreter
   }
 
   def target = SpatialConfig.target

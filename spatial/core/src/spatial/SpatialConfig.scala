@@ -11,6 +11,8 @@ object SpatialConfig {
     fpga: String,
     sim: Boolean,
     synth: Boolean,
+    interpret: Boolean,
+    debug: Boolean,
     pir: Boolean,
     dse: Boolean,
     dot: Boolean,
@@ -20,6 +22,7 @@ object SpatialConfig {
     naming: Boolean,
     tree: Boolean
   )
+
   case class PlasticineConf(
     sinUcu: Int,
     stagesUcu: Int,
@@ -44,6 +47,8 @@ object SpatialConfig {
   var enableDSE: Boolean = _
   var enableDot: Boolean = _
 
+  var debug: Boolean = _
+  var enableInterpret: Boolean = _
   var enableSim: Boolean = _
   var enableSynth: Boolean = _
   var enablePIR: Boolean = _
@@ -79,7 +84,9 @@ object SpatialConfig {
     val defaultSpatial = ConfigFactory.parseString("""
 spatial {
   fpga = "Default"
-  sim = true
+  interpret = false
+  debug = false
+  sim = false
   synth = false
   pir = false
   dse = false
@@ -100,6 +107,8 @@ spatial {
         enableDSE = spatialConf.dse
         enableDot = spatialConf.dot
 
+        debug = spatialConf.debug
+        enableInterpret = spatialConf.interpret
         enableSim = spatialConf.sim
         enableSynth = spatialConf.synth
         enablePIR = spatialConf.pir
