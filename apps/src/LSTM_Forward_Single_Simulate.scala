@@ -1,5 +1,6 @@
 import spatial.dsl._
 import org.virtualized._
+import math._
 
 object LSTM_Forward_Single_Simulate extends SpatialApp {
   import IR._
@@ -25,41 +26,49 @@ object LSTM_Forward_Single_Simulate extends SpatialApp {
 
     println("Fake test Arg = " + y)
 
-    def loadMatrix(fileName: String) : Array[Array[X]]  = {
+    def loadMatrix(fileName: String, nRow: Int, nCol: Int) : Array[Array[X]]  = {
       val csvArray = loadCSV1D[X](fileName, "\n")
-      val csvMat = Array.tabulate(D_h) { h =>
-        Array.tabulate(N) (w => csvArray(h * N + w).to[X])
+      val csvMat = Array.tabulate(nRow) { h =>
+        Array.tabulate(nCol) (w => csvArray(h * N + w).to[X])
       }
 
       return csvMat
     }
 
-    // TODO: Get a pretrained model and fetch out weights from one of the gates
-    val W_i = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_i = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val W_f = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_f = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val W_o = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_o = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val W_c = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_c = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val x_t = loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", "\n")
-    val h_t_1 = loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", "\n")
-    val W_c_t_1 = loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", "\n")
+    def sigmoid(x: X) : X = {
+      return 1 / (1 + math.exp(-x.to[Double]))
+    }
 
-    val gold = Array.tabluate(D_h) { i =>
-      val W_i_Row = W_i(i)
-      val U_i_Row = U_i(i)
-      val W_f_Row = W_f(i)
-      val U_f_Row = W_f(i)
-      val W_o_Row = W_o(i)
-      val U_o_Row = W_o(i)
-      val W_c_Row = W_c(i)
-      val U_c_Row = W_c(i)
+    // TODO: Get a pretrained model and fetch out weights from one of the gates
+    val W_i = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val U_i = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val W_f = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val U_f = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val W_o = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val U_o = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val W_c = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val U_c = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val x_t = loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", D_h, N)
+    val h_t_1 = loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", D_h, N)
+    val W_c_t_1 = loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", D_h, N)
+
+    val goldHidden = Array.tabulate(D_h) { i =>
+      val W_i_row = W_i(i)
+      val U_i_row = U_i(i)
+      val W_f_row = W_f(i)
+      val U_f_row = W_f(i)
+      val W_o_row = W_o(i)
+      val U_o_row = W_o(i)
+      val W_c_row = W_c(i)
+      val U_c_row = W_c(i)
       Array.tabulate(N) { j =>
-         
+        val x_t_col = x_t.map{row => row(j)}
+        val h_t_1_col = h_t_1.map{row => row(j)}
+        val W_c_t_1_col = W_c_t_1.map{row => row(j)}
+
+        sigmoid(W_i_row.zip(x_t_col){_*_}.reduce{_+_} + U_i_row.zip(h_t_1_col){_*_}.reduce{_+_})
       }
     }
-    printArray(gold , "gold = ")
+    printArray(goldHidden, "gold = ")
   }
 }
