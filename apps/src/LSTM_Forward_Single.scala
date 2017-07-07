@@ -33,7 +33,15 @@ import org.virtualized._
  */
 
 /*
- * Foreach loop
+ * Foreach loop: store things in local mems instead of in DRAM
+ */
+
+/*
+ * TODO:
+ * 1. How to get two pieces of memory?
+ * 2. In Spatial, how would I be able to reuse the two LUTs
+ * 3. In Spatial, how would I be able to differentiate between where I am loading into? Mux seems to suffix...
+ * 4. How do I perform simulate?
  */
 
 object LSTM_Forward_Single extends SpatialApp {
@@ -97,10 +105,10 @@ object LSTM_Forward_Single extends SpatialApp {
     // Result 2: Next hidden state
     val next_hidden_state = DRAM[T](D_h, N)
 
-    val b_N = 16                  // Stepsize for going through N classes
-    val b_Dh = 16                 // Stepsize for going through hidden size
-    val b_Wi_d = 16               // First matmult, col step size
-    val b_Ui_Dh = 16              // Second matmult, col step size
+    val b_N = 16                          // Stepsize for going through N classes
+    val b_Dh = 16                         // Stepsize for going through hidden size
+    val b_Wi_d = 16                       // First matmult, col step size
+    val b_Ui_Dh = 16                      // Second matmult, col step size
 
     // For referencing the range of LUTs
     val lo = 32.to[T]
@@ -195,7 +203,6 @@ object LSTM_Forward_Single extends SpatialApp {
       /*
        * A function that preforms tile-level batch multiplication of a^Tx, and pass the result
        * through a sigmoid LUT
-       * TODO: Any ways to add a mux to switch between two LUT tables?
        * @param tile_re: result tile
        * @param aT: inner product left
        * @param x: inner product right
@@ -221,17 +228,16 @@ object LSTM_Forward_Single extends SpatialApp {
             }{_+_}
 
             val prev_aTx = mux(k == 0, 0.to[T], tile_re(ii,jj))
-            tile_re(ii,jj) = prev_aTx + prod_aTx.value
+            tile_re(ii, jj) = prev_aTx + prod_aTx.value
           }
         }
       }
-
 
       /*
        * The major function that describes the design
        * where Wi, x, Ui, h are DRAM locations
        * Assuming that the input matrices are transposed already
-       * @param Wi: DRAM matrix
+       * @param Wi: weights of input gate
        * @param x: DRAM matrix
        * @param Ui: DRAM matrix
        * @param h: DRAM matrix
@@ -245,7 +251,7 @@ object LSTM_Forward_Single extends SpatialApp {
        * @param qq: tile step size of Ui col / h row
        */
       def forward(
-        /* Input gate */
+        /* Gate weights */
         Wi: DRAM2[T], Ui: DRAM2[T],
         /* Forget gate */
         Wf: DRAM2[T], Uf: DRAM2[T],
@@ -263,7 +269,6 @@ object LSTM_Forward_Single extends SpatialApp {
         Foreach(m by mm, n by nn) { (i,j) =>
           // Test result
           val reg_ct = Reg[T](0.to[T])
-          // val tile_re = SRAM[T](mm, nn)
 
           // Meaningful inputs
           val tile_WiTx = SRAM[T](mm, nn)
@@ -281,28 +286,24 @@ object LSTM_Forward_Single extends SpatialApp {
           // Output result 2: new hidden state weights
           val tile_new_hidden = SRAM[T](mm, nn)
 
+          // TODO: received an warning saying that these SRAMs don't have writers.
+          // Seems like a potential issue?
           Parallel {
-            tileBatchMult(tile_WiTx, Wi, x, i, j, p, pp, mm, nn)
-            tileBatchMult(tile_UiTh, Ui, h, i, j, q, qq, mm, nn)
-            tileBatchMult(tile_WfTx, Wf, x, i, j, p, pp, mm, nn)
-            tileBatchMult(tile_UfTh, Uf, h, i, j, q, qq, mm, nn)
-            tileBatchMult(tile_WoTx, Wo, x, i, j, p, pp, mm, nn)
-            tileBatchMult(tile_UoTh, Uo, h, i, j, q, qq, mm, nn)
-            tileBatchMult(tile_WcTx, Wc, x, i, j, p, pp, mm, nn)
-            tileBatchMult(tile_UcTh, Uc, h, i, j, q, qq, mm, nn)
-            // TODO: reconsider where to add this tile load
+            List((tile_WiTx, Wi, x, p, pp), (tile_UiTh, Ui, h, q, qq),
+                 (tile_WfTx, Wf, x, p, pp), (tile_UfTh, Uf, h, q, qq),
+                 (tile_WoTx, Wo, x, p, pp), (tile_UoTh, Uo, h, q, qq),
+                 (tile_WcTx, Wc, x, p, pp), (tile_UcTh, Uc, h, q, qq)
+                 ).foreach { case (tile, w1, x1, len, step) => tileBatchMult(tile, w1, x1, i, j, p, pp, mm, nn)}
             tile_Wc_t_1 load Wc_t_1(i::i+mm, j::j+nn)
           }
 
-          // Calculating the current memory and the next hidden state needs to be put
-          // into two different states
-          // For the whole tile, reduce the three tiles and send it back to mem
           Foreach(mm by 1, nn by 1) { (ii, jj) =>
             //  i_t    = sigmoid(tile_WiTx(ii, jj) + tile_UiTh(ii, jj))
             //  f_t    = sigmoid(tile_WfTx(ii, jj) + tile_UfTh(ii, jj))
             //  o_t    = sigmoid(tile_WoTx(ii, jj) + tile_UoTh(ii, jj))
             //  c_tl_t = tanh(tile_WcTx(ii, jj) + tile_UcTh(ii, jj))
 
+            // TODO: can we parallize these three lines?
             // c_t = f_t \times c_{t-1} + i_t \times c_tl_t
             reg_ct := sigmoid(tile_WfTx(ii, jj) + tile_UfTh(ii, jj)) * tile_Wc_t_1(ii, jj) +
                              sigmoid(tile_WiTx(ii, jj) + tile_UiTh(ii, jj)) * tanh(tile_WcTx(ii, jj) + tile_UcTh(ii, jj))
@@ -336,8 +337,7 @@ object LSTM_Forward_Single extends SpatialApp {
       )
     }
 
-    getMem(next_mem)
-    // TODO: how to get two pieces of memory?
+    (getMem(next_mem), getMem(next_hidden_state))
   }
 
   @virtualize
@@ -359,26 +359,23 @@ object LSTM_Forward_Single extends SpatialApp {
     val h_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
     val W_c_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
 
-    val gateResult = GateForward (
-      /* Input gate */
-      W_i, U_i,
-      /* Forget gate */
-      W_f, U_f,
-      /* Output gate */
-      W_o, U_o,
-      /* New memory gate */
-      W_c, U_c,
-      /* Old memory gate */
-      W_c_t_1,
+    val (gateResult1, gateResult2) = GateForward (
+      /* Weights */
+      W_i, U_i, W_f, U_f, W_o, U_o, W_c, U_c, W_c_t_1,
       /* Inputs */
       x_t, h_t_1,
       /* Sizes */
       D_h, d, N
     )
 
-    printArray(gateResult, "LSTM cell yields: ")
+    printArray(gateResult1, "LSTM cell yields: ")
 
     // Calculate gold
+    //
+    //
+//    Array.tabulate() {
+//
+//    }
 //    val gold = Array.tabulate(D_h) { i =>
 //     val Wi_Row = W_i.slice(i, 64)
 //     val Ui_Row = U_i.slice(i, 64)

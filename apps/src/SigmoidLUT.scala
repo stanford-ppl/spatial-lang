@@ -1,4 +1,4 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object SigmoidLUT extends SpatialApp {
@@ -7,13 +7,13 @@ object SigmoidLUT extends SpatialApp {
 
   @virtualize
   def SigmoidOut[T:Type:Num] (
-    /* Data loaded from csv */   
+    /* Data loaded from csv */
     data: Array[T]
   ) = {
     val totalSize = 8
     val tileSize = 2
 
-    val dataMem = DRAM[T](totalSize) 
+    val dataMem = DRAM[T](totalSize)
     val result = DRAM[T](totalSize)
 
     setMem(dataMem, data)
@@ -46,11 +46,11 @@ object SigmoidLUT extends SpatialApp {
         // 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T])
 
       Foreach(totalSize by tileSize) { k =>
-        val tile_dat = SRAM[T](32)         
+        val tile_dat = SRAM[T](32)
         val tile_re = SRAM[T](32)
-        tile_dat load dataMem(k::k+tileSize) 
+        tile_dat load dataMem(k::k+tileSize)
         Foreach(tileSize by 1) { kk =>
-          // TODO: shifting? 
+          // TODO: shifting?
           tile_re(kk) = sigmoidLUT(((tile_dat(kk) + 32.to[T]) * 2.to[T]).to[Int])
         }
 
@@ -63,8 +63,8 @@ object SigmoidLUT extends SpatialApp {
 
   @virtualize
   def main() = {
-    val dataCSV = loadCSV1D[X]("/home/tianzhao/data/8_by_1_eles.csv", "\n") 
+    val dataCSV = loadCSV1D[X]("/home/tianzhao/data/8_by_1_eles.csv", "\n")
     val sigmoidResult = SigmoidOut(dataCSV)
     printArray(sigmoidResult, "Sigmoid table yields: ")
-  }  
+  }
 }

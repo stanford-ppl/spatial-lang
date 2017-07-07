@@ -23,7 +23,7 @@ object LSTM_Gate_Simulate extends SpatialApp {
 
     val result = getArg(y)
 
-    println("Test Arg = " + y)
+    println("Fake test Arg = " + y)
 
     // TODO: Get a pretrained model and fetch out weights from one of the gates
     val W_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
@@ -37,6 +37,11 @@ object LSTM_Gate_Simulate extends SpatialApp {
     val x_t = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
     val h_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
     val W_c_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
+
+
+    //Array.tabulate(height) { h =>
+    //  Array.tabulate(width)(w => W_i(h * width + w))
+    //}
 
     printArray(W_i , "W_i = ")
   }
