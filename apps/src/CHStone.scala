@@ -151,3 +151,13 @@ object SHA extends SpatialApp { // Regression (Dense) // Args: none
 
   }
 }
+
+
+object JPEG extends SpatialApp { // Regression (Dense) // Args: none
+  override val target = AWS_F1
+
+  @virtualize
+  def main() = {
+  	Accel{}
+  }
+}
