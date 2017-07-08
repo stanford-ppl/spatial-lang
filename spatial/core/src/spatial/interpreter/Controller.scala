@@ -13,7 +13,7 @@ trait Controller extends AInterpreter {
 
     case Hwblock(block, isForever) =>
       if (isForever)
-        while (SpatialConfig.loopInterpreter) {
+        while (SpatialConfig.loopInterpreter && !Interpreter.closed) {
           if (SpatialConfig.debug) {
             println("Press a key to continue the loop (q to quit)")
             SpatialConfig.loopInterpreter = io.StdIn.readLine() != "q"

@@ -12,27 +12,31 @@ import spatial.SpatialConfig
 
 object IStream {
   var streamsIn = Map[String, Queue[Any]]()
-  var streamsOut = Map[String, Queue[Any]]()  
+  var streamsOut = Map[String, Queue[Any]]()
+
+  def addStreamIn(name: String) =
+    streamsIn += ((name, new Queue[Any]()))
+
+  def addStreamOut(name: String) =
+    streamsOut += ((name, new Queue[Any]()))
 }
 
 trait IStream extends AInterpreter {
 
-  def openStream(x: Sym[_]): Stream[Any] =
-    ???
 
   override def matchNode  = super.matchNode.orElse {
 
     case StreamInNew(bus) =>
       val k = bus.toString
       if (!IStream.streamsIn.contains(k))
-        IStream.streamsIn += ((k, new Queue[Any]()))
+        IStream.addStreamIn(k)
 
       IStream.streamsIn(k)
 
     case StreamOutNew(bus) =>
       val k = bus.toString
       if (!IStream.streamsOut.contains(k))
-        IStream.streamsOut += ((k, new Queue[Any]()))
+        IStream.addStreamOut(k)
 
       IStream.streamsOut(k)
       
@@ -40,7 +44,8 @@ trait IStream extends AInterpreter {
     case StreamRead(a: Sym[_], b) =>
       val q = eval[Queue[Any]](a)
       var v: Any = null
-      while (v == null) {
+
+      while (v == null && !Interpreter.closed) {
         if (SpatialConfig.debug)
           println("Waiting for new input in " + a + "...")
 
@@ -53,7 +58,8 @@ trait IStream extends AInterpreter {
         }
           
       }
-      v
+
+      eval[Any](v)
 
     case StreamWrite(a, EAny(b), EBoolean(cond)) =>
       if (cond) {

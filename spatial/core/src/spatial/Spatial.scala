@@ -1,6 +1,7 @@
 package spatial
 
 import argon.ArgonApp
+import argon.ArgonCompiler
 import argon.core.State
 import argon.traversal.IRPrinter
 import argon.util.Report
@@ -20,8 +21,7 @@ object dsl extends SpatialExternal {
   type SpatialApp = spatial.SpatialApp
 }
 
-trait SpatialApp extends ArgonApp {
-
+trait SpatialCompiler extends ArgonCompiler {
   // Traversal schedule
   override def createTraversalSchedule(state: State) = {
     if (SpatialConfig.enableRetiming) Report.warn("Spatial: retiming enabled")
@@ -217,9 +217,6 @@ trait SpatialApp extends ArgonApp {
     Report.error("and we'll try to fix it as soon as we can.")
   }
 
-  // Make the "true" entry point final
-  final override def main(sargs: Array[String]): Unit = super.main(sargs)
-
   override protected def parseArguments(args: Seq[String]): Unit = {
     SpatialConfig.init()
     val parser = new SpatialArgParser
@@ -231,5 +228,13 @@ trait SpatialApp extends ArgonApp {
       }
     }
   }
+  
+}
+
+trait SpatialApp extends ArgonApp with SpatialCompiler {
+
+  // Make the "true" entry point final
+  final override def main(sargs: Array[String]): Unit = super.main(sargs)
+
 }
 
