@@ -7,13 +7,11 @@ import argon.interpreter.{Interpreter => AInterpreter}
 trait FileIO extends AInterpreter {
 
   override def matchNode  = super.matchNode.orElse {  
-      case OpenFile(a, b) =>
-        val x = eval[String](a)
-        val y = eval[Boolean](a)
-        new java.io.File(x)
+      case OpenFile(EString(file), _) =>
+        io.Source.fromFile(file)
 
-      case ReadTokens(file, delim) =>
-        ()
+      case ReadTokens(fileS, delim) =>
+      eval[io.Source](fileS).getLines
     }
 }
 

@@ -15,7 +15,9 @@ trait Interpreter
     with Reg
     with IString
     with FixPt
-    with IArray {
+    with IArray
+    with IStream
+{
 
   override protected def interpretNode(lhs: Sym[_], rhs: Op[_]): Unit = {
 
@@ -25,8 +27,15 @@ trait Interpreter
       println()
       println(lhs, rhs)
       debug
+      println()
+      if (IStream.streamsIn.size > 0) {
+        println("[input streams size]")
+        IStream.streamsIn.foreach { case (k, s) => println(k + ": " + s.size) }
+      }
+      if (IStream.streamsOut.size > 0) {      
+        println("[ouput streams size]")
+        IStream.streamsOut.foreach { case (k, s) => println(k + ": " + s.size) }      }
     }
-
   }
 
 }

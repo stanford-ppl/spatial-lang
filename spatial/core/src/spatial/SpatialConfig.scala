@@ -12,6 +12,7 @@ object SpatialConfig {
     sim: Boolean,
     synth: Boolean,
     interpret: Boolean,
+    inputs: Seq[String],
     debug: Boolean,
     pir: Boolean,
     dse: Boolean,
@@ -47,6 +48,8 @@ object SpatialConfig {
   var enableDSE: Boolean = _
   var enableDot: Boolean = _
 
+  var loopInterpreter = true
+  var inputs: Array[String] = Array()
   var debug: Boolean = _
   var enableInterpret: Boolean = _
   var enableSim: Boolean = _
@@ -87,6 +90,7 @@ spatial {
   interpret = false
   debug = false
   sim = false
+  inputs = ["0", "1", "2", "3", "4"]
   synth = false
   pir = false
   dse = false
@@ -107,6 +111,7 @@ spatial {
         enableDSE = spatialConf.dse
         enableDot = spatialConf.dot
 
+        inputs = spatialConf.inputs.toArray
         debug = spatialConf.debug
         enableInterpret = spatialConf.interpret
         enableSim = spatialConf.sim

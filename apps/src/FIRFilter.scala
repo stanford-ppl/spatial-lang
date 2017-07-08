@@ -3,7 +3,6 @@ import org.virtualized._
 
 object FIRFilter extends SpatialApp {
 
-
   override val target = targets.DE1
   val Nmax = 16
 

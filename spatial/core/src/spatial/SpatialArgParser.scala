@@ -10,7 +10,6 @@ class SpatialArgParser extends ArgonArgParser {
   //not sur yet if we must optional() // TODO: ???
 
 
-
   parser.opt[Unit]("synth").action{ (_,_) =>
     SpatialConfig.enableSynth = true
     SpatialConfig.enableSim = false
@@ -29,6 +28,10 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableSim = false    
     SpatialConfig.enableInterpret = true
   }.text("enable interpreter")
+
+  parser.arg[String]("args...").unbounded().optional().action( (x, _) => {
+    SpatialConfig.inputs = Array(x) ++ SpatialConfig.inputs  
+  }).text("args inputs for the interpreter")
 
   parser.opt[Unit]("debug").action { (_,_) =>
     SpatialConfig.debug = true

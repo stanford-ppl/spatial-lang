@@ -4,6 +4,7 @@ import argon.core._
 import argon.nodes._
 import spatial.nodes._
 import argon.interpreter.{Interpreter => AInterpreter}
+import spatial.SpatialConfig
 
 trait IArray extends AInterpreter {
 
@@ -13,7 +14,7 @@ trait IArray extends AInterpreter {
       array(i.toInt)
 
     case InputArguments() =>
-      Array.tabulate(10)(x => (x + 1).toString)
+      SpatialConfig.inputs
       
 
   }

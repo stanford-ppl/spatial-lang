@@ -1,7 +1,7 @@
 val paradiseVersion = "2.1.0"
 
 publishArtifact := false
-trapExit := false
+trapExit := true
 
 scalaSource in Compile := baseDirectory(_ / "src").value
 resourceDirectory in Compile := baseDirectory(_ / "resources").value
