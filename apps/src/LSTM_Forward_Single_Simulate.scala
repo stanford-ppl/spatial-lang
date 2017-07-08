@@ -39,16 +39,16 @@ object LSTM_Forward_Single_Simulate extends SpatialApp {
     }
 
     // TODO: Get a pretrained model and fetch out weights from one of the gates
-    val W_i = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val U_i = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val W_f = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val U_f = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val W_o = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val U_o = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val W_c = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val U_c = loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val x_t = loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", D_h, N)
-    val h_t_1 = loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", D_h, N)
+    val W_i =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val U_i =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val W_f =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val U_f =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val W_o =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val U_o =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val W_c =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val U_c =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
+    val x_t =     loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", D_h, N)
+    val h_t_1 =   loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", D_h, N)
     val W_c_t_1 = loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", D_h, N)
 
     //val W_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")

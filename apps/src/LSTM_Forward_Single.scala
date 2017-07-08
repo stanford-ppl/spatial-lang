@@ -75,6 +75,9 @@ object LSTM_Forward_Single extends SpatialApp {
     setArg(d, nn)
     setArg(N, N_classes)
 
+    // Mem test mem
+    val testMem = DRAM[T](D_h, N)
+
     // Param weights matrices
     val xt = DRAM[T](d, N)
     val h_t_1 = DRAM[T](D_h, N)
@@ -347,16 +350,16 @@ object LSTM_Forward_Single extends SpatialApp {
     val N = 32
 
     // TODO: Get a pretrained model and fetch out weights from one of the gates
-    val W_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val W_f = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_f = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val W_o = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_o = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val W_c = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_c = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val x_t = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
-    val h_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
+    val W_i =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val U_i =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val W_f =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val U_f =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val W_o =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val U_o =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val W_c =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val U_c =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
+    val x_t =     loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
+    val h_t_1 =   loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
     val W_c_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
 
     val (gateResult1, gateResult2) = GateForward (
