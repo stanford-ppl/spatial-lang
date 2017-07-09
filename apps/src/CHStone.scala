@@ -129,9 +129,9 @@ object SHA extends SpatialApp { // Regression (Dense) // Args: none
     			Foreach(count_final+1 until 16 by 1) { i => sha_data(i) = 0 }
     			sha_transform()
     			sha_data(14) = 0
-    		}} else {
+    		}} else {Pipe{
     			Foreach(count_final+1 until 16 by 1) { i => sha_data(i) = 0 }
-    		}
+        }}
     		Pipe{sha_data(14) = hi_bit_count}
     		Pipe{sha_data(15) = lo_bit_count}
     		sha_transform()
@@ -142,7 +142,7 @@ object SHA extends SpatialApp { // Regression (Dense) // Args: none
   	}
 
   	val hashed_result = getMem(hash_dram)
-  	val hashed_gold = Array[ULong](1453245918L,3827204465L,1028678455L,1470518419L,1762507208L,0,0,0,0,0,0,0,0,0,0,0)
+  	val hashed_gold = Array[ULong](1754467640L,1633762310L,3755791939L,3062269980L,2187536409L,0,0,0,0,0,0,0,0,0,0,0)
   	printArray(hashed_gold, "Expected: ")
   	printArray(hashed_result, "Got: ")
 
@@ -153,11 +153,117 @@ object SHA extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 
-object JPEG extends SpatialApp { // Regression (Dense) // Args: none
+object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   override val target = AWS_F1
+  type UInt8 = FixPt[FALSE, _8, _0]
+  type UInt = FixPt[FALSE, _32, _0]
 
   @virtualize
   def main() = {
-  	Accel{}
+
+    val M_SOI = 216 // Start of image
+    val M_SOF0 = 192 // Baseline DCT ( Huffman ) 
+    val M_SOS = 218 // Start of Scan ( Head of Compressed Data )
+    val M_DHT = 196
+    val M_DQT = 219
+    val M_EOI = 217
+    val DCTSIZE2 = 64
+
+    val jpg_data = loadCSV1D[UInt8]("/remote/regression/data/machsuite/jpeg_input.csv", ",")
+    val numel = jpg_data.length
+    assert(!(jpg_data(0) != 255.to[UInt8] || jpg_data(1) != M_SOI.to[UInt8]), "Not a jpeg file!")
+
+    val jpg_size = ArgIn[Int]
+    setArg(jpg_size, numel)
+    val jpg_dram = DRAM[UInt8](jpg_size)
+    setMem(jpg_dram, jpg_data)
+
+  	Accel{
+      val jpg_sram = SRAM[UInt8](5207)
+      jpg_sram load jpg_dram
+
+      val izigzag_index = LUT[Int](64)( 0.to[Int], 1.to[Int], 8.to[Int], 16.to[Int], 9.to[Int], 2.to[Int], 3.to[Int], 10.to[Int],
+                                    17.to[Int], 24.to[Int], 32.to[Int], 25.to[Int], 18.to[Int], 11.to[Int], 4.to[Int], 5.to[Int],
+                                    12.to[Int], 19.to[Int], 26.to[Int], 33.to[Int], 40.to[Int], 48.to[Int], 41.to[Int], 34.to[Int],
+                                    27.to[Int], 20.to[Int], 13.to[Int], 6.to[Int], 7.to[Int], 14.to[Int], 21.to[Int], 28.to[Int],
+                                    35.to[Int], 42.to[Int], 49.to[Int], 56.to[Int], 57.to[Int], 50.to[Int], 43.to[Int], 36.to[Int],
+                                    29.to[Int], 22.to[Int], 15.to[Int], 23.to[Int], 30.to[Int], 37.to[Int], 44.to[Int], 51.to[Int],
+                                    58.to[Int], 59.to[Int], 52.to[Int], 45.to[Int], 38.to[Int], 31.to[Int], 39.to[Int], 46.to[Int],
+                                    53.to[Int], 60.to[Int], 61.to[Int], 54.to[Int], 47.to[Int], 55.to[Int], 62.to[Int], 63.to[Int]
+                                  )
+
+      val p_jinfo_quant_tbl_quantval = SRAM[UInt](4,DCTSIZE2)
+
+      val unread_marker = Reg[UInt8](0)
+      val scan_ptr = Reg[Int](1)
+
+      def next_marker(): Unit = {
+        val found = Reg[Boolean](false)
+        found.reset
+        FSM[Int](offset => offset != -1.to[Int]){offset => 
+          val addr = scan_ptr + offset
+          if (jpg_sram(addr) == 255.to[UInt8]) {
+            found := true
+            scan_ptr := addr + 1
+          }
+        }{offset => mux(found || offset + scan_ptr > 5207, -1, offset + 1)}
+      }
+
+      def get_sof(): Unit = {
+        val length = Reg[Int](0)
+      }
+
+      def get_dqt(): Unit = {
+        val length = Reg[Int](0)
+        length := (jpg_sram(scan_ptr + 1).as[Int] << 8) | (jpg_sram(scan_ptr + 2).as[Int]) - 2
+        scan_ptr :+= 2
+        // if (length != 65) quit()
+        FSM[Int](iter => iter != -1) { iter => 
+          val tmp = jpg_sram(scan_ptr + 1)
+          scan_ptr :+= 1
+          val prec = tmp >> 4
+          val num = (tmp & 0x0f).as[Int]
+
+          Foreach(DCTSIZE2 by 1){ i => 
+            val tmp = Reg[UInt](0)
+            if (prec == 1.to[UInt8]) {
+              scan_ptr :+= 2
+              tmp := (jpg_sram(scan_ptr).as[UInt] << 8) | jpg_sram(scan_ptr).as[UInt]
+            } else {
+              scan_ptr :+= 1
+              tmp := jpg_sram(scan_ptr).as[UInt]
+            } 
+            p_jinfo_quant_tbl_quantval(num, izigzag_index(i)) = tmp
+          }
+          length := length - (DCTSIZE2 + 1) - mux(prec == 1.to[UInt8], DCTSIZE2, 0)
+        }{iter => mux(length == 0.to[Int], -1, iter + 1)}
+
+        Foreach(4 by 1, 64 by 1){(i,j) => println(" " + i + "," + izigzag_index(j) + " = " + p_jinfo_quant_tbl_quantval(i,izigzag_index(j)))}
+
+      }
+
+      // Read markers
+      FSM[Int,Int](0)(sow_SOI => sow_SOI < 2){sow_SOI => 
+        if (sow_SOI == 0.to[Int]) {
+          Pipe{unread_marker := jpg_sram(1)}
+        } else {
+          next_marker()
+          unread_marker := jpg_sram(scan_ptr)
+        }
+
+        if (unread_marker.value == M_SOI.to[UInt8]) {
+          // Continue normally
+        } else if (unread_marker.value == M_SOF0.to[UInt8]) {
+          get_sof()
+        } else if (unread_marker.value == M_DQT.to[UInt8]) {
+          get_dqt()
+        } else {
+          // Do nothing (probably 0xe0)
+        }
+      }{sow_SOI => 1}
+    }
+
+    val gold_bmp = loadCSV2D[UInt8]("/remote/regression/data/machsuite/jpeg_input.csv", ",", "\n")
+    printMatrix(gold_bmp, "gold")
   }
 }
