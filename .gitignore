@@ -4,6 +4,7 @@
 *.sim
 *.vcs
 *.dat
+*__*.scala
 
 # sbt specific
 .cache

@@ -12,11 +12,11 @@ case class RegReadCSE(var IR: State) extends ForwardTransformer {
 
   // Mechanism to track duplicates that are no longer needed due to CSE'd register reads
   var csedDuplicates = Map[Exp[_], Set[Int]]()
-  def removeDuplicates(reg: Exp[_], dups: Set[Int]) = {
+  private def removeDuplicates(reg: Exp[_], dups: Set[Int]) = {
     csedDuplicates += reg -> (dups ++ csedDuplicates.getOrElse(reg, Set.empty))
   }
 
-  override protected def postprocess[T:Type](block: Block[T]) = {
+  override protected def postprocess[T:Type](block: Block[T]): Block[T] = {
     // Remove CSE'd register duplicates from the metadata
     for ((k,v) <- subst) {
       dbg(c"$k -> $v")
@@ -62,7 +62,7 @@ case class RegReadCSE(var IR: State) extends ForwardTransformer {
 
   // TODO: This creates unused register duplicates in metadata if the inner loop in question was previously unrolled
   // How to handle this?
-  override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx) = rhs match {
+  override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
     case e@RegRead(reg) if inInnerCtrl =>
       dbg(c"Found reg read $lhs = $rhs")
       val rhs2 = RegRead(f(reg))(typ[T],mbits(e.bT)) // Note that this hasn't been staged yet, only created the node

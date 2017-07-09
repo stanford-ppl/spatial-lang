@@ -9,6 +9,10 @@ case class Reg[T:Type:Bits](s: Exp[Reg[T]]) extends Template[Reg[T]] {
   @api def :=(data: T): MUnit = MUnit(Reg.write(this.s, data.s, Bit.const(true)))
   @api def reset(cond: Bit): MUnit = wrap(Reg.reset(this.s, cond.s))
   @api def reset: MUnit = wrap(Reg.reset(this.s, Bit.const(true)))
+
+  @api override def ===(that: Reg[T]): MBoolean = this.value === that.value
+  @api override def =!=(that: Reg[T]): MBoolean = this.value =!= that.value
+  @api override def toText: MString = this.value.toText
 }
 object Reg {
   implicit def regType[T:Type:Bits]: Type[Reg[T]] = RegType(typ[T])
