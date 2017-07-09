@@ -63,4 +63,22 @@ trait FileIOApi { this: SpatialApi =>
     // }
     wrap(close_file(file))
   }
+
+
+  @virtualize
+  @api def loadBinary[T:Type:Num](filename: MString): MArray[T] = {
+    val file = MBinaryFile.open(filename.s, write = false)
+    val array = MBinaryFile.read_values[T](file)
+    MBinaryFile.close(file)
+    wrap(array)
+  }
+
+  @virtualize
+  @api def writeBinary[T:Type:Num](array: MArray[T], filename: MString): MUnit = {
+    val file = MBinaryFile.open(filename.s, write = true)
+    val index = fresh[Index]
+    MBinaryFile.write_values(file, array.length.s, {i => array(wrap(i)).s }, index)
+    wrap(MBinaryFile.close(file))
+  }
+
 }

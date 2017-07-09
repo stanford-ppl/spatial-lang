@@ -40,6 +40,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   }
 
   var ctrl: Exp[_] = _
+  var inHw: Boolean = false
   def withCtrl[A](c: Exp[_])(blk: => A): A = {
     var prev = ctrl
     ctrl = c
@@ -49,7 +50,13 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   }
 
   override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
-    case node if isStateless(node) && shouldDuplicate(lhs) =>
+    case Hwblock(func,_) =>
+      inHw = true
+      val result = super.transform(lhs,rhs)
+      inHw = false
+      result
+
+    case node if inHw && isStateless(node) && shouldDuplicate(lhs) =>
       dbg("")
       dbg("[stateless]")
       dbg(c"$lhs = $rhs")

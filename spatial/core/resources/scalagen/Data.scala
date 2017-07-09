@@ -78,6 +78,12 @@ class Number(val value: BigDecimal, val valid: Boolean, val fmt: NumberFormat) e
     case _ => throw new Exception("Cannot get fixed point representation of a floating point number")
   }
 
+  def fixValueByte: Byte   = this.fixValue.toByte
+  def fixValueShort: Short = this.fixValue.toShort
+  def fixValueInt: Int     = this.fixValue.toInt
+  def fixValueLong: Long   = this.fixValue.toLong
+
+
   def bits: Array[Bit] = fmt match {
     case FixedPoint(s,i,f) =>
       Array.tabulate(i+f){i => Bit(this.fixValue.testBit(i), this.valid) }
@@ -170,7 +176,7 @@ case class NumberRange(override val start: Number, override val end: Number, ove
 object Number {
   private def clamp(bits: BigInt, valid: Boolean, fmt: NumberFormat) = {
     val FixedPoint(s,i,f) = fmt
-    if (bits < 0) {
+    if (s && bits.testBit(i+f-1)) { // Signed (MSB is high and this is a signed type)
       var x = BigInt(-1)
       Range(0, i+f).foreach { i => if (!bits.testBit(i)) x = x.flipBit(i) }
       new Number(BigDecimal(x) / BigDecimal(BigInt(1) << f), valid, fmt)
@@ -235,6 +241,16 @@ object Number {
     case FixedPoint(s,i,f) => Number.clamp(value, valid, fmt)
     case FloatPoint(_,_)   => Number.apply(BigDecimal(value), valid, fmt)
   }
+
+  def fromBits(bits: Array[Bit], fmt: NumberFormat): Number = Number(bits, fmt)
+  def fromBits(num: BigInt, fmt: NumberFormat): Number = fmt match {
+    case FixedPoint(_,i,f) =>
+      val bits = Array.tabulate(i+f){i => Bit(num.testBit(i), true) }
+      fromBits(bits, fmt)
+    case _ =>
+      throw new Exception("fromBits for FloatPoint not yet supported")
+  }
+
   // Array format is big-endian (first (head) is LSB, last bit in Array is MSB)
   def apply(bits: Array[Bit], fmt: NumberFormat): Number = fmt match {
     case FixedPoint(signed,i,f) =>
