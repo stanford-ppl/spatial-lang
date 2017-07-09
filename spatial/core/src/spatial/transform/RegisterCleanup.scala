@@ -56,7 +56,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
       inHw = false
       result
 
-    case node if inHw && isStateless(node) && shouldDuplicate(lhs) =>
+    case node if ((inHw && isStateless(node)) || isRegisterRead(node)) && shouldDuplicate(lhs) =>
       dbg("")
       dbg("[stateless]")
       dbg(c"$lhs = $rhs")
