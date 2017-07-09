@@ -15,6 +15,7 @@ trait BufferAnalyzer extends CompilerPass {
     localMems.foreach{mem =>
       val readers = readersOf(mem)
       val writers = writersOf(mem)
+      val accesses = readers ++ writers
       val duplicates = duplicatesOf(mem)
 
       dbg(u"Memory $mem: ")
@@ -34,6 +35,21 @@ trait BufferAnalyzer extends CompilerPass {
           if (i >= 0 && i < parents.length - 1) {
             dispatchOf(wr, mem).foreach { d => topControllerOf(wr.node, mem, d) = parents(i + 1).get }
           }
+        }
+      }
+
+      accesses.foreach{access =>
+        val dups = dispatchOf.get(access, mem)
+        dups match {
+          case Some(dispatches) =>
+            val invalids = dispatches.filter{x => x >= duplicates.length || x < 0}
+            if (invalids.nonEmpty) {
+              error(c"[Compiler bug] Access $access on $mem is set to use invalid instances: ")
+              error("  Instances: " + invalids.mkString(",") + s" (Largest should be ${duplicates.length-1})")
+              state.logError()
+            }
+          case None =>
+            warn(c"Access $access on $mem has no associated instances")
         }
       }
 

@@ -37,6 +37,7 @@ class RegFileIsMemory[T:Type:Bits,C[T]](implicit mC: Type[C[T]], ev: C[T] <:< Re
 case class RegFileNew[T:Type:Bits,C[_]<:RegFile[_]](dims: Seq[Exp[Index]])(implicit cT: Type[C[T]]) extends Alloc[C[T]] {
   def mirror(f:Tx) = RegFile.alloc[T,C](f(dims):_*)
   val mT = typ[T]
+  val bT = bits[T]
 }
 
 case class RegFileLoad[T:Type:Bits](

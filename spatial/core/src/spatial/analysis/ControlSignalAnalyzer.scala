@@ -259,7 +259,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       // Set total unrolling factors of this node's scope + internal unrolling factors in this node
 
       if (isPrimitiveNode(lhs) && inInnerLoop) {
-        isLoopInvariant(lhs) = !lhs.dependsOn(loopIterators.last)
+        isLoopInvariant(lhs) = !lhs.dependsOn(loopIterators.last) && !isAccessWithoutAddress(lhs)
       }
 
       if (isPrimitiveNode(lhs) && isLoopInvariant(lhs)) {
