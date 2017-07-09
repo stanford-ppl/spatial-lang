@@ -20,6 +20,8 @@ trait Controller extends AInterpreter {
           }
           if (SpatialConfig.loopInterpreter)
             interpretBlock(block)
+          else
+            System.exit(0)
         }
       else
           interpretBlock(block)        

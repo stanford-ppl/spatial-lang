@@ -21,8 +21,10 @@ trait Interpreter
     with Reg
     with IString
     with FixPt
+    with FltPt
     with IArray
     with IStream
+    with IStruct
 {
 
   override def eval[A](x: Any) =
