@@ -20,6 +20,7 @@ trait SpatialLangAliases extends ArgonCommonAliases {
   type BitVector = spatial.lang.VectorN[Bit]
   @generate type VectorJJ$JJ$1to128[T] = spatial.lang.Vec[_JJ,T]
 
+  type MBinaryFile = spatial.lang.BinaryFile
   type MFile = spatial.lang.File
 
   type Tile[T] = spatial.lang.DRAMDenseTile[T]
@@ -163,6 +164,7 @@ trait SpatialInternalAliases extends SpatialCommonAliases with ArgonInternalAlia
   val FringeTransfers = spatial.lang.FringeTransfers
 
   val MFile = spatial.lang.File
+  val MBinaryFile = spatial.lang.BinaryFile
   val Switches = spatial.lang.Switches
 
   type Ctrl = (argon.core.Exp[_], Boolean)

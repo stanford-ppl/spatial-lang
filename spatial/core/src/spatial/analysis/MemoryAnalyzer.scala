@@ -371,7 +371,7 @@ trait MemoryAnalyzer extends CompilerPass {
     dbg("")
     dbg("")
     dbg("-----------------------------------")
-    dbg(u"Inferring instances for memory $mem ")
+    dbg(u"Inferring instances for memory ${str(mem)}")
 
     val writers = writersOf(mem)
     val readers = readersOf(mem)
@@ -599,6 +599,11 @@ trait MemoryAnalyzer extends CompilerPass {
   }
 
   def bankStream(mem: Exp[_]): Unit = {
+    dbg("")
+    dbg("")
+    dbg("-----------------------------------")
+    dbg(u"Inferring instances for memory ${str(mem)}")
+
     val reads = readersOf(mem)
     val writes = writersOf(mem)
     val accesses = reads ++ writes
@@ -608,17 +613,25 @@ trait MemoryAnalyzer extends CompilerPass {
       portsOf(access, mem, 0) = Set(0)
     }
 
-    val par = (1 +: accesses.map{access =>
+    val pars = accesses.map{access =>
       val factors = unrollFactorsOf(access.node) // relative to stream, which always has par of 1
       factors.flatten.map{case Exact(c) => c.toInt}.product
-    }).max
+    }
+
+    val par = (1 +: pars).max
 
     /*val bus = mem match {
       case Op(StreamInNew(bus)) => bus
       case Op(StreamOutNew(bus)) => bus
     }*/
+    val dup = BankedMemory(Seq(StridedBanking(1,par)),1,isAccum=false)
 
-    duplicatesOf(mem) = List(BankedMemory(Seq(StridedBanking(1,par)),1,isAccum=false))
+    dbg(s"")
+    dbg(s"  stream: ${str(mem)}")
+    dbg(s"  accesses: ")
+    accesses.zip(pars).foreach{case (access, p) => dbg(c"    ${str(access.node)} [$p]")}
+    dbg(s"  duplicate: $dup")
+    duplicatesOf(mem) = List(dup)
   }
 
   def bankBufferOut(buffer: Exp[_]): Unit = {

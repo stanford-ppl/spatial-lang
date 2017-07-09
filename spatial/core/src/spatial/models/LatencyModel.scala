@@ -1,6 +1,5 @@
 package spatial.models
 
-import argon.core.Config
 import argon.core._
 import argon.nodes._
 import forge._
@@ -121,6 +120,7 @@ trait LatencyModel {
     // Registers
     case _:RegRead[_]  => 0
     case _:RegWrite[_] => 1
+    case _:RegReset[_] => 1
 
     // Register File
     case _:RegFileLoad[_]       => 1
