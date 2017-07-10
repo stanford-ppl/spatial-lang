@@ -163,7 +163,7 @@ trait LatencyModel {
     case _:ParLineBufferLoad[_] => 1
 
     // Shift Register
-    case DelayLine(size, data) => 0 // wrong but it works???
+    case DelayLine(size, data) => 0 // TODO: Should use different model once these are added?
 
     // DRAM
     case GetDRAMAddress(_) => 0
