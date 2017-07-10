@@ -676,14 +676,18 @@ trait MemoryAnalyzer extends CompilerPass {
         error(access.node.ctx)
       }
 
-      dbg(c"  ${str(access.node)}")
-      dbg(c"  $banking")
+      dbg(c"  access:   ${str(access.node)}")
+      dbg(c"  patterns: $patterns")
+      dbg(c"  banking:  $banking")
 
       (BankedMemory(banking, depth = 1, isAccum = false), duplicates) : Channels
     }
 
     if (channels.nonEmpty) {
       val instance = channels.reduce{(a,b) => mergeChannels(buffer, a, b) }
+
+      dbg(c"instance for $buffer: $instance")
+
       duplicatesOf(buffer) = List(instance._1)
     }
     else {
