@@ -126,12 +126,13 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
   def appendWriter(writer: Exp[_], ctrl: Ctrl) = {
     val LocalWriter(writes) = writer
+    val Def(writeDef) = writer
     writes.foreach{case (mem,value,addr,en) =>
       writersOf(mem) = (writer,ctrl) +: writersOf(mem)      // (5)
       writtenIn(ctrl) = mem +: writtenIn(ctrl)              // (10)
-      value.foreach{v => isAccum(mem) = isAccum(mem) || (v dependsOn mem)  }              // (6)
-      addr.foreach{is => isAccum(mem) = isAccum(mem) || is.exists(i => i dependsOn mem) } // (6)
-      en.foreach{e => isAccum(mem) = isAccum(mem) || (e dependsOn mem) }                  // (6)
+      val isAccumulatingWrite = writeDef.inputs.filterNot(_ == mem).exists{_.dependsOn(mem) }
+      isAccum(mem) = isAccum(mem) || isAccumulatingWrite
+      isAccum(writer) = isAccumulatingWrite
 
       dbgs(c"  Added writer $writer of $mem in $ctrl")
     }

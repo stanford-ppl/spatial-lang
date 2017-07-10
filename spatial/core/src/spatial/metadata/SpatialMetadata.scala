@@ -336,7 +336,7 @@ case class UnrollNumbers(nums: Seq[Int]) extends Metadata[UnrollNumbers] { def m
 }
 
 /**
-  * Identifies whether a memory is an accumulator
+  * Identifies whether a memory or associated write is an accumulator / accumulating write
   */
 case class MAccum(is: Boolean) extends Metadata[MAccum] { def mirror(f:Tx) = this }
 @data object isAccum {
