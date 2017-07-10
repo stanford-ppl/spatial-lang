@@ -125,13 +125,13 @@ object SHA extends SpatialApp { // Regression (Dense) // Args: none
 				val hi_bit_count = count_hi.value.to[ULong]
     		val count_final = ((lo_bit_count.to[Int8] >> 3) & 0x3f.to[Int8]).to[Int]
     		sha_data(count_final) = 0x80
-    		if (count_final > 56) { Pipe{
+    		if (count_final > 56) {
     			Foreach(count_final+1 until 16 by 1) { i => sha_data(i) = 0 }
     			sha_transform()
     			sha_data(14) = 0
-    		}} else {Pipe{
+    		} else {
     			Foreach(count_final+1 until 16 by 1) { i => sha_data(i) = 0 }
-        }}
+        }
     		Pipe{sha_data(14) = hi_bit_count}
     		Pipe{sha_data(15) = lo_bit_count}
     		sha_transform()
@@ -156,7 +156,15 @@ object SHA extends SpatialApp { // Regression (Dense) // Args: none
 object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   override val target = AWS_F1
   type UInt8 = FixPt[FALSE, _8, _0]
+  type UInt2 = FixPt[FALSE, _2, _0]
+  type UInt16 = FixPt[FALSE, _16, _0]
   type UInt = FixPt[FALSE, _32, _0]
+  @struct case class comp_struct(index: UInt8,
+                                 id: UInt8,
+                                 h_samp_factor: UInt8,
+                                 v_samp_factor: UInt8,
+                                 quant_tbl_no: UInt8
+                                )
 
   @virtualize
   def main() = {
@@ -168,6 +176,16 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
     val M_DQT = 219
     val M_EOI = 217
     val DCTSIZE2 = 64
+    val NUM_COMPONENT = 3
+    val SF4_1_1 = 2
+    val SF1_1_1 = 0
+
+    // Validity check values
+    val out_length_get_sof = 17
+    val out_data_precision_get_sof = 8
+    val out_p_jinfo_image_height_get_sof = 59
+    val out_p_jinfo_image_width_get_sof = 90
+    val out_p_jinfo_num_components_get_sof = 3
 
     val jpg_data = loadCSV1D[UInt8]("/remote/regression/data/machsuite/jpeg_input.csv", ",")
     val numel = jpg_data.length
@@ -182,6 +200,7 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
       val jpg_sram = SRAM[UInt8](5207)
       jpg_sram load jpg_dram
 
+      val component = SRAM[comp_struct](NUM_COMPONENT)
       val izigzag_index = LUT[Int](64)( 0.to[Int], 1.to[Int], 8.to[Int], 16.to[Int], 9.to[Int], 2.to[Int], 3.to[Int], 10.to[Int],
                                     17.to[Int], 24.to[Int], 32.to[Int], 25.to[Int], 18.to[Int], 11.to[Int], 4.to[Int], 5.to[Int],
                                     12.to[Int], 19.to[Int], 26.to[Int], 33.to[Int], 40.to[Int], 48.to[Int], 41.to[Int], 34.to[Int],
@@ -192,64 +211,126 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
                                     53.to[Int], 60.to[Int], 61.to[Int], 54.to[Int], 47.to[Int], 55.to[Int], 62.to[Int], 63.to[Int]
                                   )
 
-      val p_jinfo_quant_tbl_quantval = SRAM[UInt](4,DCTSIZE2)
+      val p_jinfo_quant_tbl_quantval = SRAM[UInt16](4,DCTSIZE2)
 
+      val p_jinfo_smp_fact = Reg[UInt2](0)
       val unread_marker = Reg[UInt8](0)
       val scan_ptr = Reg[Int](1)
+
+      def read_word(): UInt16 = {
+        val tmp = (jpg_sram(scan_ptr).as[UInt16] << 8) | (jpg_sram(scan_ptr + 1).as[UInt16])
+        Pipe{scan_ptr :+= 2}
+        tmp
+      }
+      def read_byte(): UInt8 = {
+        val tmp = jpg_sram(scan_ptr)
+        Pipe{scan_ptr :+= 1}
+        tmp
+      }
 
       def next_marker(): Unit = {
         val found = Reg[Boolean](false)
         found.reset
-        FSM[Int](offset => offset != -1.to[Int]){offset => 
-          val addr = scan_ptr + offset
-          if (jpg_sram(addr) == 255.to[UInt8]) {
-            found := true
-            scan_ptr := addr + 1
-          }
-        }{offset => mux(found || offset + scan_ptr > 5207, -1, offset + 1)}
+        FSM[Int](whilst => whilst != -1.to[Int]){whilst => 
+          if (read_byte() == 255.to[UInt8]) {found := true}
+        }{whilst => mux(found || whilst + scan_ptr > 5207, -1, whilst)}
       }
 
-      def get_sof(): Unit = {
-        val length = Reg[Int](0)
-      }
+      def get_dqt(): Unit = { Sequential{
+        val length = Reg[UInt16](0)
+        length := read_word() - 2
+        // Length check
 
-      def get_dqt(): Unit = {
-        val length = Reg[Int](0)
-        length := (jpg_sram(scan_ptr + 1).as[Int] << 8) | (jpg_sram(scan_ptr + 2).as[Int]) - 2
-        scan_ptr :+= 2
+        val p_jinfo_data_precision = read_byte()
+        val p_jinfo_image_height = read_word()
+        val p_jinfo_image_width = read_word()
+        val p_jinfo_num_components = read_byte()
+        println(" " + length.value + " " + p_jinfo_data_precision + " " + p_jinfo_image_height + " " + p_jinfo_image_width + " " + p_jinfo_num_components)
+
+        // if (length.value != out_length_get_sof || p_jinfo_data_precision != out_data_precision_get_sof ...) {error} 
+        Pipe{length :-= 8} // Why the hell do we do this??
+
+        Foreach(NUM_COMPONENT by 1) { i => 
+          val p_comp_info_index = i.as[UInt8]
+          val p_comp_info_id = read_byte()
+          val c = read_byte()
+          val p_comp_info_h_samp_factor = (c >> 4) & 15
+          val p_comp_info_v_samp_factor = (c) & 15
+          val p_comp_info_quant_tbl_no = read_byte()
+
+          // Some more checks here
+
+          println("writnig " + p_comp_info_index + " " + p_comp_info_id + " " + p_comp_info_h_samp_factor + " " + p_comp_info_v_samp_factor + " " + p_comp_info_quant_tbl_no)
+          component(i) = comp_struct(p_comp_info_index, p_comp_info_id, p_comp_info_h_samp_factor, p_comp_info_v_samp_factor, p_comp_info_quant_tbl_no)
+        }
+
+        p_jinfo_smp_fact := mux(component(0).h_samp_factor == 2.to[UInt8], 2, 0)
+      }}
+
+      def get_sof(): Unit = { Sequential{
+        val length = Reg[UInt16](0)
+        length := read_word()
+        val p_jinfo_data_precision = read_byte()
+        val p_jinfo_image_height = read_word()
+        val p_jinfo_image_width = read_word()
+        val p_jinfo_num_components = read_byte()
+        println(" " + length.value + " " + p_jinfo_data_precision + " " + p_jinfo_image_height + " " + p_jinfo_image_width + " " + p_jinfo_num_components)
+
+        // if (length.value != out_length_get_sof || p_jinfo_data_precision != out_data_precision_get_sof ...) {error} 
+        Pipe{length :-= 8} // Why the hell do we do this??
+
+        Foreach(NUM_COMPONENT by 1) { i => 
+          val p_comp_info_index = i.as[UInt8]
+          val p_comp_info_id = read_byte()
+          val c = read_byte()
+          val p_comp_info_h_samp_factor = (c >> 4) & 15
+          val p_comp_info_v_samp_factor = (c) & 15
+          val p_comp_info_quant_tbl_no = read_byte()
+
+          // Some more checks here
+
+          println("writnig " + p_comp_info_index + " " + p_comp_info_id + " " + p_comp_info_h_samp_factor + " " + p_comp_info_v_samp_factor + " " + p_comp_info_quant_tbl_no)
+          component(i) = comp_struct(p_comp_info_index, p_comp_info_id, p_comp_info_h_samp_factor, p_comp_info_v_samp_factor, p_comp_info_quant_tbl_no)
+        }
+
+        p_jinfo_smp_fact := mux(component(0).h_samp_factor == 2.to[UInt8], 2, 0)
+      }}
+
+      def get_dht(): Unit = {Sequential{
+        val length = Reg[UInt16](0)
+        length := read_word() - 2
         // if (length != 65) quit()
-        FSM[Int](iter => iter != -1) { iter => 
-          val tmp = jpg_sram(scan_ptr + 1)
-          scan_ptr :+= 1
+        FSM[Int](whilst => whilst != -1) { whilst => 
+          val tmp = read_byte()
           val prec = tmp >> 4
           val num = (tmp & 0x0f).as[Int]
 
-          Foreach(DCTSIZE2 by 1){ i => 
-            val tmp = Reg[UInt](0)
+          Sequential.Foreach(DCTSIZE2 by 1){ i => 
+            val tmp = Reg[UInt16](0)
             if (prec == 1.to[UInt8]) {
-              scan_ptr :+= 2
-              tmp := (jpg_sram(scan_ptr).as[UInt] << 8) | jpg_sram(scan_ptr).as[UInt]
+              tmp := read_word()
             } else {
-              scan_ptr :+= 1
-              tmp := jpg_sram(scan_ptr).as[UInt]
+              tmp := read_byte().as[UInt16]
             } 
             p_jinfo_quant_tbl_quantval(num, izigzag_index(i)) = tmp
           }
           length := length - (DCTSIZE2 + 1) - mux(prec == 1.to[UInt8], DCTSIZE2, 0)
-        }{iter => mux(length == 0.to[Int], -1, iter + 1)}
+        }{whilst => mux(length > 0.to[UInt16], whilst + 1, -1)}
 
-        Foreach(4 by 1, 64 by 1){(i,j) => println(" " + i + "," + izigzag_index(j) + " = " + p_jinfo_quant_tbl_quantval(i,izigzag_index(j)))}
+        Foreach(4 by 1, 64 by 1) {(i,j) => println(" " + i + "," + izigzag_index(j) + " = " + p_jinfo_quant_tbl_quantval(i,izigzag_index(j)))}
 
-      }
+      }}
 
       // Read markers
       FSM[Int,Int](0)(sow_SOI => sow_SOI < 2){sow_SOI => 
         if (sow_SOI == 0.to[Int]) {
-          Pipe{unread_marker := jpg_sram(1)}
+          Pipe{unread_marker := read_byte()}
         } else {
           next_marker()
-          unread_marker := jpg_sram(scan_ptr)
+          unread_marker := read_byte()
         }
+
+        println("new marker is " + unread_marker)
 
         if (unread_marker.value == M_SOI.to[UInt8]) {
           // Continue normally
@@ -257,10 +338,12 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
           get_sof()
         } else if (unread_marker.value == M_DQT.to[UInt8]) {
           get_dqt()
+        } else if (unread_marker.value == M_DHT.to[UInt8]) {
+          get_dht()          
         } else {
           // Do nothing (probably 0xe0)
         }
-      }{sow_SOI => 1}
+      }{sow_SOI => mux(scan_ptr >= 5207, -1, 1)}
     }
 
     val gold_bmp = loadCSV2D[UInt8]("/remote/regression/data/machsuite/jpeg_input.csv", ",", "\n")
