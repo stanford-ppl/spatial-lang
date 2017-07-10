@@ -73,7 +73,7 @@ object BlackScholes extends SpatialApp {
     stimes:      Array[Float]
   ): Array[Float] = {
     val B  = tileSize (96 -> 96 -> 19200)
-    val OP = outerPar (1 -> 1)
+    val OP = outerPar (1 -> 2)
     val IP = innerPar (1 -> 96)
 
     val size = stypes.length; bound(size) = 9995328
