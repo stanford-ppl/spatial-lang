@@ -527,6 +527,12 @@ trait MemoryAnalyzer extends CompilerPass {
     dbg(s"  channels: $channels")
     dbg(s"  banking: $banking")
     dbg(s"  duplicates: $duplicates")
+    // Generally unsafe to have a writer which requires duplication (reads are ok though)
+    if (duplicates > 1 && writersOf(mem).exists(_.node == access)) {
+      error(access.ctx, u"Unsafe parallelization of write to ${mem.tp} $mem")
+      error(c"Either move memory relative to write or decrease parallelization.")
+      error(access.ctx)
+    }
     (BankedMemory(banking, depth = 1, isAccum = false), duplicates)
   }
 
