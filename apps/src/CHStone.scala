@@ -127,7 +127,7 @@ object SHA extends SpatialApp { // Regression (Dense) // Args: none
     		sha_data(count_final) = 0x80
     		if (count_final > 56) {
     			Foreach(count_final+1 until 16 by 1) { i => sha_data(i) = 0 }
-    			sha_transform()
+    			Sequential(sha_transform())
     			sha_data(14) = 0
     		} else {
     			Foreach(count_final+1 until 16 by 1) { i => sha_data(i) = 0 }
