@@ -69,6 +69,7 @@ trait LatencyModel {
     case XOr(_,_)   => true
     case XNor(_,_)  => true
     case FixNeg(_)   => true
+    case FixInv(_)   => true
     case FixAdd(_,_) => true
     case FixSub(_,_) => true
     case FixMul(_,_) => true
@@ -177,6 +178,7 @@ trait LatencyModel {
     // Fixed point math
     // TODO: Have to get numbers for non-32 bit multiplies and divides
     case FixNeg(_)   => 1
+    case FixInv(_)   => 1
     case FixAdd(_,_) => 1
     case FixSub(_,_) => 1
     case FixMul(_,_) => 1 // TODO
