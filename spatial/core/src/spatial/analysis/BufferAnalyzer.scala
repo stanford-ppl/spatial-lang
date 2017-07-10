@@ -1,12 +1,13 @@
 package spatial.analysis
 
+import argon.core._
 import argon.traversal.CompilerPass
-import spatial.SpatialExp
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait BufferAnalyzer extends CompilerPass {
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Buffer Analyzer"
   def localMems: Seq[Exp[_]]
 
@@ -14,6 +15,7 @@ trait BufferAnalyzer extends CompilerPass {
     localMems.foreach{mem =>
       val readers = readersOf(mem)
       val writers = writersOf(mem)
+      val accesses = readers ++ writers
       val duplicates = duplicatesOf(mem)
 
       dbg(u"Memory $mem: ")
@@ -33,6 +35,21 @@ trait BufferAnalyzer extends CompilerPass {
           if (i >= 0 && i < parents.length - 1) {
             dispatchOf(wr, mem).foreach { d => topControllerOf(wr.node, mem, d) = parents(i + 1).get }
           }
+        }
+      }
+
+      accesses.foreach{access =>
+        val dups = dispatchOf.get(access, mem)
+        dups match {
+          case Some(dispatches) =>
+            val invalids = dispatches.filter{x => x >= duplicates.length || x < 0}
+            if (invalids.nonEmpty) {
+              error(c"[Compiler bug] Access $access on $mem is set to use invalid instances: ")
+              error("  Instances: " + invalids.mkString(",") + s" (Largest should be ${duplicates.length-1})")
+              state.logError()
+            }
+          case None =>
+            warn(c"Access $access on $mem has no associated instances")
         }
       }
 
@@ -57,7 +74,7 @@ trait BufferAnalyzer extends CompilerPass {
           }
         }
         else {
-          warn(mem.ctx, u"Memory $mem, instance #$i has no associated accesses")
+          warn(mem.ctx, u"${mem.tp} $mem, instance #$i has no associated accesses")
         }
         // HACK
         /*writers.collect{case wr@(Def(_:BufferedOutWrite[_]),_) => wr }.foreach{wr =>
@@ -72,18 +89,12 @@ trait BufferAnalyzer extends CompilerPass {
     dbg(s"--------")
     localMems.foreach{mem =>
       dbg("\n")
-      ctxsOf(mem).headOption match {
-        case Some(ctx) =>
-          dbg(ctx.fileName + ":" + ctx.line + u": Memory $mem")
-          if (ctx.lineContent.isDefined) {
-            dbg(ctx.lineContent.get)
-            dbg(" "*(ctx.column-1) + "^")
-          }
-
-        case None =>
-          dbg(u"Memory: $mem")
+      val ctx = mem.ctx
+      dbg(ctx.fileName + ":" + ctx.line + u": Memory $mem")
+      if (ctx.lineContent.isDefined) {
+        dbg(ctx.lineContent.get)
+        dbg(" "*(ctx.column-1) + "^")
       }
-
       dbg(c"  ${str(mem)}")
 
       val readers = readersOf(mem)

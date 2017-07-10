@@ -1,14 +1,13 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.RegExp
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
 import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
-import spatial.SpatialExp
 
 trait CppGenReg extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
 
   var argIOs: List[Sym[Reg[_]]] = List()
 
@@ -19,7 +18,7 @@ trait CppGenReg extends CppCodegen {
           lhs match {
             case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
             case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
-            case Def(RegNew(_)) => s"""x${lhs.id}_${nameOf(lhs).getOrElse("reg")}"""
+            case Def(RegNew(_)) => s"""x${lhs.id}_${lhs.name.getOrElse("reg")}"""
             case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
             case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
             case _ => super.quote(s)
@@ -54,7 +53,7 @@ trait CppGenReg extends CppCodegen {
   override protected def emitFileFooter() {
     withStream(getStream("DE1SoC", "h")) {
       argIOs.foreach{a =>
-        emit(src"""#define ${nameOf(a).getOrElse("ERROR: Unnamed IO")} ${2+argMapping(a)._2}""")
+        emit(src"""#define ${a.name.getOrElse("ERROR: Unnamed IO")} ${2+argMapping(a)._2}""")
       }
     }
     super.emitFileFooter()

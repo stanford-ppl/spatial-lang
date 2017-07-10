@@ -1,12 +1,11 @@
 package spatial.codegen.scalagen
 
+import argon.core._
 import argon.codegen.scalagen.ScalaCodegen
-import argon.core.Staging
-import spatial.SpatialConfig
+import spatial.aliases._
+import spatial.nodes._
 
 trait ScalaGenBits extends ScalaCodegen {
-  val IR: Staging
-  import IR._
 
   dependencies ::= FileDep("scalagen", "Data.scala")
 

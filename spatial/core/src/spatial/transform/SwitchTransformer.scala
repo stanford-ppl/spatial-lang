@@ -1,23 +1,26 @@
 package spatial.transform
 
+import argon.core._
+import argon.nodes._
 import argon.transform.ForwardTransformer
-import spatial.SpatialExp
 import spatial.analysis.SpatialTraversal
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
-trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
-  val IR: SpatialExp
-  import IR._
+case class SwitchTransformer(var IR: State) extends ForwardTransformer with SpatialTraversal {
   override val name = "Switch Transformer"
 
   var inAccel = false
   var controlStyle: Option[ControlStyle] = None
   var controlLevel: Option[ControlLevel] = None
-  var enable: Option[Exp[Bool]] = None
+  var enable: Option[Exp[Bit]] = None
 
-  def withEnable[T](en: Exp[Bool])(blk: => T)(implicit ctx: SrcCtx): T = {
+  def withEnable[T](en: Exp[Bit])(blk: => T)(implicit ctx: SrcCtx): T = {
     var prevEnable = enable
     dbgs(s"Enable was $enable")
-    enable = Some(enable.map(bool_and(_,en)).getOrElse(en) )
+    enable = Some(enable.map(Bit.and(_,en)).getOrElse(en) )
     dbgs(s"Enable is now $enable")
     val result = blk
     enable = prevEnable
@@ -25,9 +28,9 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
   }
 
 
-  def create_case[T:Type](cond: Exp[Bool], body: Block[T])(implicit ctx: SrcCtx) = () => {
+  def create_case[T:Type](cond: Exp[Bit], body: Block[T])(implicit ctx: SrcCtx) = () => {
     dbg(c"Creating SwitchCase from cond $cond and body $body")
-    val c = withEnable(cond){ op_case(() => f(body) )}
+    val c = withEnable(cond){ Switches.op_case(f(body) )}
     dbg(c"  ${str(c)}")
     styleOf(c) = controlStyle.getOrElse(InnerPipe)
     levelOf(c) = controlLevel.getOrElse(InnerControl)
@@ -55,13 +58,13 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
     */
   def extractSwitches[T:Type](
     elseBlock: Block[T],
-    precCond:  Exp[Bool],
-    selects:   Seq[Exp[Bool]],
+    precCond:  Exp[Bit],
+    selects:   Seq[Exp[Bit]],
     cases:     Seq[() => Exp[T]]
-  )(implicit ctx: SrcCtx): (Seq[Exp[Bool]], Seq[() => Exp[T]]) = {
+  )(implicit ctx: SrcCtx): (Seq[Exp[Bit]], Seq[() => Exp[T]]) = {
     val contents = blockContents(elseBlock)
     // Only create a flattened switch if the else block contains no enabled operations
-    val shouldNest = contents.map(_.rhs).exists{case _:EnabledOp[_] | _:EnabledController => true; case _ => false}
+    val shouldNest = contents.map(_.rhs).exists{case _:EnabledOp[_] | _:EnabledControlNode => true; case _ => false}
 
     elseBlock.result match {
       case Op(IfThenElse(cond,thenBlk,elseBlk)) if !shouldNest =>
@@ -73,8 +76,8 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
         dbg(c"Transforming condition ${str(cond)}")
         dbg(c"is now ${str(cond2)}")
 
-        val caseCond = bool_and(cond2, precCond)
-        val elseCond = bool_and(bool_not(cond2), precCond)
+        val caseCond = Bit.and(cond2, precCond)
+        val elseCond = Bit.and(Bit.not(cond2), precCond)
 
         val scase = create_case(caseCond, thenBlk)
 
@@ -107,13 +110,13 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
 
     case op @ IfThenElse(cond,thenBlk,elseBlk) if inAccel =>
       val cond2 = f(cond)
-      val elseCond = bool_not(cond2)
+      val elseCond = Bit.not(cond2)
       val scase = create_case(cond2, thenBlk)
       val (selects, cases) = extractSwitches(elseBlk, elseCond, Seq(cond2), Seq(scase))
 
       // Switch acts as a one-hot mux if the type being selected is bit-based
       dbg(c"Created case symbols: ")
-      val switch = create_switch(selects, cases)
+      val switch = Switches.create_switch(selects, cases)
       dbg(c"Created switch: ${str(switch)}")
 
       styleOf(switch) = ForkSwitch
@@ -125,8 +128,8 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
   }
 
   override def mirror(lhs: Seq[Sym[_]], rhs: Def): Seq[Exp[_]] = rhs match {
-    case op: EnabledController => transferMetadataIfNew(lhs){ Seq(op.mirrorWithEn(f, enable.toSeq)) }._1
-    case op: EnabledOp[_] if enable.isDefined => transferMetadataIfNew(lhs){ Seq(op.mirrorWithEn(f, enable.get)) }._1
+    case op: EnabledControlNode => transferMetadataIfNew(lhs){ Seq(op.mirrorAndEnable(f, enable.toSeq)) }._1
+    case op: EnabledOp[_] if enable.isDefined => transferMetadataIfNew(lhs){ Seq(op.mirrorAndEnable(f, enable.get)) }._1
     case _ => super.mirror(lhs, rhs)
   }
 

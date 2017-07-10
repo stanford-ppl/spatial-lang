@@ -1,8 +1,8 @@
 import org.virtualized._
-import spatial._
+import spatial.dsl._
 
 object GDA extends SpatialApp { // Regression (Dense) // Args: 64
-  import IR._
+
 
   type X = Float
 

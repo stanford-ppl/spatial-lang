@@ -1,4 +1,4 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 /*
@@ -35,7 +35,7 @@ WHERE
 */
 
 object TPCHQ6 extends SpatialApp { // Regression (Dense) // Args: 3840
-  import IR._
+
 
   type FT = Int
 

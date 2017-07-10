@@ -3,7 +3,7 @@ package fringe
 import chisel3._
 import chisel3.util._
 import templates.Utils.log2Up
-
+import scala.language.reflectiveCalls
 
 class FIFOArbiter(
   val w: Int,

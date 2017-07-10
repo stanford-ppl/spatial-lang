@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object LogReg extends SpatialApp {
-  import IR._
+
 
   type X = Float //FixPt[TRUE,_16,_16]
 

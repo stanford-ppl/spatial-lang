@@ -1,14 +1,19 @@
 package spatial.codegen.pirgen
 
-import spatial.SpatialConfig
+import argon.core._
+import argon.nodes._
 import spatial.analysis.ModelingTraversal
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+import spatial.SpatialConfig
+import org.virtualized.SourceContext
 
 import scala.collection.mutable
 
 trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
-  import IR._
-
-  lazy val plasticineLatencyModel = new PlasticineLatencyModel{val IR: trv.IR.type = trv.IR }
+  lazy val plasticineLatencyModel = new PlasticineLatencyModel{}
   override def latencyOf(e: Exp[_]) = plasticineLatencyModel.latencyOf(e, inReduce=false)
 
   private case class Partition(compute: Seq[Exp[_]]) {
@@ -66,7 +71,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
   }
 
   def pipeDelaysHack(b: Block[_], cchain: Option[Exp[CounterChain]]) = {
-    val scope = getStages(b).filterNot(s => isGlobal(s)).filter{e => e.tp == VoidType || Bits.unapply(e.tp).isDefined }
+    val scope = getStages(b).filterNot(s => isGlobal(s)).filter{e => e.tp == UnitType || Bits.unapply(e.tp).isDefined }
     val paths  = mutable.HashMap[Exp[_],Long]()
     val delays = mutable.HashMap[Exp[_],Long]()
     val par = cchain.map{cc => parsOf(cc).last}.getOrElse(1)

@@ -1,16 +1,18 @@
 package spatial.transform
 
+import argon.core._
 import argon.transform.ForwardTransformer
-import spatial.SpatialExp
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+
 import scala.collection.mutable
 
-trait RegisterCleanup extends ForwardTransformer {
-  val IR: SpatialExp
-  import IR._
-
+case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   override val name = "Register Cleanup"
 
-  private case object FakeSymbol { override def toString = "\"You done goofed\"" }
+  private case object MissingReg { override def toString = "\"Used register was removed\"" }
 
   // User specific substitutions
   private var statelessSubstRules = Map[(Exp[_],Exp[_]), Seq[(Exp[_], () => Exp[_])]]()
@@ -38,6 +40,7 @@ trait RegisterCleanup extends ForwardTransformer {
   }
 
   var ctrl: Exp[_] = _
+  var inHw: Boolean = false
   def withCtrl[A](c: Exp[_])(blk: => A): A = {
     var prev = ctrl
     ctrl = c
@@ -46,8 +49,14 @@ trait RegisterCleanup extends ForwardTransformer {
     result
   }
 
-  override def transform[T: Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
-    case node if isStateless(node) && shouldDuplicate(lhs) =>
+  override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
+    case Hwblock(func,_) =>
+      inHw = true
+      val result = withCtrl(lhs){ mirrorWithDuplication(lhs, rhs) }
+      inHw = false
+      result
+
+    case node if ((inHw && isStateless(node)) || isRegisterRead(node)) && shouldDuplicate(lhs) =>
       dbg("")
       dbg("[stateless]")
       dbg(c"$lhs = $rhs")
@@ -55,7 +64,7 @@ trait RegisterCleanup extends ForwardTransformer {
 
       if (usersOf(lhs).isEmpty) {
         dbg(c"REMOVING stateless $lhs")
-        constant[T](FakeSymbol)  // Shouldn't be used
+        constant(typ[T])(MissingReg)  // Shouldn't be used
       }
       else {
         // For all uses within a single control node, create a single copy of this node
@@ -69,13 +78,13 @@ trait RegisterCleanup extends ForwardTransformer {
 
           uses.foreach { use =>
             val subs = (lhs -> read) +: statelessSubstRules.getOrElse((use,parent.node), Nil)
-            dbg(s"  $use: $lhs -> $read")
+            dbg(s"  ($use, ${parent.node}): $lhs -> $read")
             statelessSubstRules += (use,parent.node) -> subs
           }
 
           read
         }
-        constant[T](FakeSymbol) // mirror(lhs, rhs)
+        constant(typ[T])(MissingReg) // mirror(lhs, rhs)
       }
 
     case RegWrite(reg,value,en) =>
@@ -84,7 +93,7 @@ trait RegisterCleanup extends ForwardTransformer {
       dbg(c"$lhs = $rhs")
       if (readersOf(reg).isEmpty && !isOffChipMemory(reg)) {
         dbg(c"REMOVING register write $lhs")
-        constant[T](FakeSymbol)  // Shouldn't be used
+        MUnit.const().asInstanceOf[Exp[T]]
       }
       else mirrorWithDuplication(lhs, rhs)
 
@@ -94,15 +103,16 @@ trait RegisterCleanup extends ForwardTransformer {
       dbg(c"$lhs = $rhs")
       if (readersOf(lhs).isEmpty) {
         dbg(c"REMOVING register $lhs")
-        constant[T](FakeSymbol)  // Shouldn't be used
+        constant(typ[T])(MissingReg)  // Shouldn't be used
       }
       else mirrorWithDuplication(lhs, rhs)
 
-    case node if isControlNode(lhs) => withCtrl(lhs){ mirrorWithDuplication(lhs, rhs) }
+    case _ if isControlNode(lhs) => withCtrl(lhs){ mirrorWithDuplication(lhs, rhs) }
     case _ => mirrorWithDuplication(lhs, rhs)
   }
 
   private def mirrorWithDuplication[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
+    dbg(c"checking ($lhs, $ctrl) for external user rules")
     if ( statelessSubstRules.contains((lhs,ctrl)) ) {
       dbg("")
       dbg(c"[external user, ctrl = $ctrl]")
@@ -116,19 +126,8 @@ trait RegisterCleanup extends ForwardTransformer {
     else mirror(lhs, rhs)
   }
 
-  /** These require slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
-
-  override protected def inlineBlock[T:Type](b: Block[T]): Exp[T] = inlineBlock(b, {stms =>
-    visitStms(stms)
-    if (ctrl != null && statelessSubstRules.contains((ctrl,ctrl))) {
-      val rules = statelessSubstRules((ctrl, ctrl)).map { case (s, s2) => s -> s2() }
-      withSubstScope(rules: _*) { f(b.result) }
-    }
-    else f(b.result)
-  })
-
-  override protected def transformBlock[T:Type](b: Block[T]): Block[T] = transformBlock(b, {stms =>
-    stms.foreach(stm => dbg(c"$stm"))
+  /** Requires slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
+  override protected def inlineBlock[T](b: Block[T]): Exp[T] = inlineBlockWith(b, {stms =>
     visitStms(stms)
     if (ctrl != null && statelessSubstRules.contains((ctrl,ctrl))) {
       val rules = statelessSubstRules((ctrl, ctrl)).map { case (s, s2) => s -> s2() }

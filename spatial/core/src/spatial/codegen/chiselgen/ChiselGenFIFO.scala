@@ -1,14 +1,14 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.FIFOExp
-import spatial.api.DRAMTransferExp
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.SpatialExp
 
 trait ChiselGenFIFO extends ChiselGenSRAM {
-  val IR: SpatialExp
-  import IR._
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
       case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
@@ -36,7 +36,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
         case lhs: Sym[_] =>
           lhs match {
             case Def(e: FIFONew[_]) =>
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("fifo").replace("$","")}"""
+              s"""x${lhs.id}_${lhs.name.getOrElse("fifo").replace("$","")}"""
             case Def(FIFOEnq(fifo:Sym[_],_,_)) =>
               s"x${lhs.id}_enqTo${fifo.id}"
             case Def(FIFODeq(fifo:Sym[_],_)) =>
@@ -73,8 +73,10 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
   // }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@FIFONew(size)   => 
+    case op@FIFONew(_)   =>
+      val size = sizeOf(lhs) match {case Const(c: BigDecimal) => c.toInt }
       // ASSERT that all pars are the same!
+      // Console.println(s"Working on $lhs, readers ${readersOf(lhs)}")
       val rPar = readersOf(lhs).map { r => 
         r.node match {
           case Def(_: FIFODeq[_]) => 1
@@ -88,7 +90,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
         }
       }.max
       val width = bitWidth(lhs.tp.typeArguments.head)
-      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FIFO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${nameOf(lhs).getOrElse("")}""")
+      emitGlobalModule(src"""val $lhs = Module(new FIFO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
 
     case FIFOEnq(fifo,v,en) => 
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode

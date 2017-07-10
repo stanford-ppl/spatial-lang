@@ -1,9 +1,14 @@
 package spatial.analysis
 
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+
 /** Used to make sure the user (and David) didn't do anything stupid **/
 trait ScopeCheck extends SpatialTraversal {
-  import IR._
-
   override val name = "Accel Scope Check"
   override val recurse = Always
 
@@ -15,7 +20,7 @@ trait ScopeCheck extends SpatialTraversal {
   def isTransferException(e: Exp[_]): Boolean = e match {
     case Exact(_) => true
     case Const(_) => true
-    case s: Sym[_] if s.tp == TextType => true   // Exception to allow debug printing to work
+    case s: Sym[_] if s.tp == StringType => true   // Exception to allow debug printing to work
     case s if isOffChipMemory(s) => true
     case _ => false
   }
@@ -53,9 +58,8 @@ trait ScopeCheck extends SpatialTraversal {
       }
 
       val illegalInputs = inputs.filter{
-        case s @ Def(RegRead(_)) => true // Special case on reg reads to disallow const prop through setArg
-                                         // TODO: I actually can't remember what I meant here...
-        case s @ Def(NewVar(_)) => false // Already gave errors for outside vars
+        //case s @ Def(RegRead(reg)) => !isArgIn(reg) // Special case on reg reads of input args
+        case s @ Def(NewVar(_)) => false            // Already gave errors for outside vars
         case s => !isTransferException(s)
       }
       if (illegalInputs.nonEmpty) {

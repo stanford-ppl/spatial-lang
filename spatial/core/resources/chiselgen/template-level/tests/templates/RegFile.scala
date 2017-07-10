@@ -71,7 +71,6 @@ class ShiftRegFileTests(c: ShiftRegFile) extends PeekPokeTester(c) {
 
 
 class NBufShiftRegFileTests(c: NBufShiftRegFile) extends PeekPokeTester(c) {
-
   poke(c.io.reset, 1)
   step(1)
   poke(c.io.reset, 0)
@@ -82,10 +81,10 @@ class NBufShiftRegFileTests(c: NBufShiftRegFile) extends PeekPokeTester(c) {
   var i = 0
   for (cycle <- 0 until numCycles) {
     // Shift random crap
-    val shift_ens = (0 until c.wPar).map{i => if ( cycle > 3 ) rnd.nextInt(2) else 0}
-    val new_datas = (0 until c.wPar).map{i => cycle}
+    val shift_ens = (0 until c.wPar.values.reduce{_+_}).map{i => if ( cycle > 3 ) rnd.nextInt(2) else 0}
+    val new_datas = (0 until c.wPar.values.reduce{_+_}).map{i => cycle}
     // Set addrs
-    (0 until c.wPar).foreach{i => 
+    (0 until c.wPar.values.reduce{_+_}).foreach{i => 
       val coords = if (c.dims.length == 1) List(0) else {
         (0 until c.dims.length).map { k => 
           if (k + 1 < c.dims.length) {(i*c.dims.last / c.dims.drop(k+1).reduce{_*_}) % c.dims(k)} else {i*c.dims.last % c.dims(k)}
@@ -96,8 +95,8 @@ class NBufShiftRegFileTests(c: NBufShiftRegFile) extends PeekPokeTester(c) {
       }
     }
 
-    (0 until c.wPar).foreach { i => poke(c.io.w(i).data, new_datas(i))}
-    (0 until c.wPar).foreach { i => poke(c.io.w(i).shiftEn, shift_ens(i))}
+    (0 until c.wPar.values.reduce{_+_}).foreach { i => poke(c.io.w(i).data, new_datas(i))}
+    (0 until c.wPar.values.reduce{_+_}).foreach { i => poke(c.io.w(i).shiftEn, shift_ens(i))}
     step(1)
     c.io.w.foreach { port => poke(port.shiftEn,0)}
     (0 until c.numBufs).foreach { buf => 

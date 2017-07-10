@@ -1,11 +1,11 @@
 package spatial.tests
-import argon.core.Exceptions
+import argon.TestBenchFailed
 import org.scalatest.{FlatSpec, Matchers}
 import org.virtualized._
 import spatial.SpatialConfig
 
 object TwoDuplicatesSimple extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -36,7 +36,7 @@ object TwoDuplicatesSimple extends SpatialTest {
 
 // Nonsensical app, just to get structure there.
 object TwoDuplicatesPachinko extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -63,7 +63,7 @@ object TwoDuplicatesPachinko extends SpatialTest {
 
 
 object LegalFIFOParallelization extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -83,7 +83,7 @@ object LegalFIFOParallelization extends SpatialTest {
 }
 
 object IllegalFIFOParallelization extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -103,7 +103,7 @@ object IllegalFIFOParallelization extends SpatialTest {
 }
 
 object RegCoalesceTest extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -121,7 +121,7 @@ object RegCoalesceTest extends SpatialTest {
 }
 
 object SRAMCoalesceTest extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -141,7 +141,7 @@ object SRAMCoalesceTest extends SpatialTest {
 }
 
 object LinearWriteRandomRead extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   @virtualize
   def main() {
@@ -162,7 +162,7 @@ object LinearWriteRandomRead extends SpatialTest {
   }
 }
 
-class BankingTests extends FlatSpec with Matchers with Exceptions {
+class BankingTests extends FlatSpec with Matchers {
   SpatialConfig.enableSim = true
   "TwoDuplicatesSimple" should "have two duplicates of sram" in { TwoDuplicatesSimple.main(Array.empty) }
   "TwoDuplicatesPachinko" should "have two duplicates of sram" in { TwoDuplicatesPachinko.main(Array.empty) }

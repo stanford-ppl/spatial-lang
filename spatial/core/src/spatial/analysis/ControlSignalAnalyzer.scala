@@ -1,6 +1,11 @@
 package spatial.analysis
 
+import argon.core._
 import org.virtualized.SourceContext
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 /**
   * (1)  Sets parent control nodes of local memories
@@ -16,8 +21,6 @@ import org.virtualized.SourceContext
   * (11) Determines the top controller
   */
 trait ControlSignalAnalyzer extends SpatialTraversal {
-  import IR._
-
   override val name = "Control Signal Analyzer"
 
   // --- State
@@ -53,6 +56,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     metadata.clearAll[Children]
     metadata.clearAll[WrittenMems]
     metadata.clearAll[ReadUsers]
+    metadata.clearAll[Resetters]
     metadata.clearAll[MShouldDuplicate]
     super.preprocess(block)
   }
@@ -60,7 +64,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   override protected def postprocess[S:Type](block: Block[S]) = {
     top match {
       case Some(ctrl@Op(Hwblock(_,_))) =>
-      case _ => new NoTopError(block.result.ctx)
+      case _ => new spatial.NoTopError(block.result.ctx)
     }
     dbg("Local memories: ")
     localMems.foreach{mem => dbg(c"  $mem")}
@@ -72,6 +76,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     val prevCtrl = controller
     val prevReads = pendingNodes
 
+    dbgs(c"  Setting controller to ${str(ctrl.node)} [${ctrl.isInner}]")
     controller = Some(ctrl)
     blk
 
@@ -108,7 +113,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       if (!readersOf(mem).contains(access))
         readersOf(mem) = access +: readersOf(mem)
 
-      dbg(c"Added reader $reader of $mem in $ctrl")
+      dbgs(c"  Added reader $reader of $mem in $ctrl")
     }
   }
 
@@ -128,7 +133,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       addr.foreach{is => isAccum(mem) = isAccum(mem) || is.exists(i => i dependsOn mem) } // (6)
       en.foreach{e => isAccum(mem) = isAccum(mem) || (e dependsOn mem) }                  // (6)
 
-      dbg(c"Added writer $writer of $mem in $ctrl")
+      dbgs(c"  Added writer $writer of $mem in $ctrl")
     }
   }
 
@@ -137,7 +142,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       appendWriter(writer, ctrl)
     else {
       val mem = LocalWriter.unapply(writer).get.head._1
-      throw new ExternalWriteError(mem, writer, ctrl)(writer.ctx)
+      throw new spatial.ExternalWriteError(mem, writer, ctrl)(writer.ctx, state)
     }
   }
 
@@ -149,7 +154,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       if (!resettersOf(mem).contains(access))
         resettersOf(mem) = access +: resettersOf(mem)
 
-      dbg(c"Added resetter $resetter of $mem in $ctrl")
+      dbgs(c"  Added resetter $resetter of $mem in $ctrl")
     }
   }
 
@@ -163,48 +168,48 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
   // (1, 7)
   def addAllocation(alloc: Exp[_], ctrl: Exp[_]) = {
-    dbg(c"Setting parent of $alloc to $ctrl")
+    dbgs(c"  Setting parent of $alloc to $ctrl")
     parentOf(alloc) = ctrl
     if (isLocalMemory(alloc)) {
-      dbg(c"Registered local memory $alloc")
+      dbgs(c"  Registered local memory $alloc")
       localMems ::= alloc
     }
   }
 
   def addStreamLoadMem(ctrl: Exp[_]) = {
-    dbg(c"Registered stream load $ctrl")
+    dbgs(c"  Registered stream load $ctrl")
     streamLoadCtrls ::= ctrl
   }
 
   def addParEnq(ctrl: Exp[_]) = {
-    dbg(c"Registered par enq $ctrl")
+    dbgs(c"  Registered par enq $ctrl")
     streamParEnqs ::= ctrl
   }
 
 
   def addStreamDeq(stream: Exp[_], ctrl: Exp[_]) = {
     parentOf(stream) = ctrl
-    dbg(c"Registered stream enabler $stream")
+    dbgs(c"  Registered stream enabler $stream")
     streamEnablers ::= stream
   }
 
   def addStreamEnq(stream: Exp[_], ctrl: Exp[_]) = {
     parentOf(stream) = ctrl
-    dbg(c"Registered stream holder $stream")
+    dbgs(c"  Registered stream holder $stream")
     streamHolders ::= stream
   }
 
   // (2, 3)
   def addChild(child: Exp[_], ctrl: Exp[_]) = {
-    dbg(c"Setting parent of $child to $ctrl")
+    dbgs(c"  Setting parent of $child to $ctrl")
     parentOf(child) = ctrl
     childrenOf(ctrl) = childrenOf(ctrl) :+ child
   }
 
 
   def addPendingUse(user: Exp[_], ctrl: Ctrl, pending: Seq[Exp[_]], isBlockResult: Boolean = false): Unit = {
-    dbg(c"Found user ${str(user)} of:")
-    pending.foreach{s => dbg(c"  ${str(s)}")}
+    dbgs(c"  Node is user of:")
+    pending.foreach{s => dbgs(c"  ${str(s)}")}
 
     // Bit of a hack: When the node being used is added as the result of a block (e.g. reduction)
     // which is used in an inner controller, the usersOf list should still see the outer controller as the user
@@ -237,13 +242,13 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   def addPropagatingNode(node: Exp[_], pending: Seq[Exp[_]]) = {
-    dbg(c"Found propagating reader ${str(node)} of:")
-    pending.foreach{s => dbg(c"  ${str(s)}")}
+    dbgs(c"  Node is propagating reader of:")
+    pending.foreach{s => dbgs(c"  ${str(s)}")}
     pendingNodes += node -> (node +: pending)
   }
 
   def addPendingNode(node: Exp[_]) = {
-    dbg(c"Adding pending node $node")
+    dbgs(c"  Adding pending node $node")
     shouldDuplicate(node) = true
     if (!pendingNodes.contains(node)) pendingNodes += node -> List(node)
   }
@@ -254,7 +259,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       // Set total unrolling factors of this node's scope + internal unrolling factors in this node
 
       if (isPrimitiveNode(lhs) && inInnerLoop) {
-        isLoopInvariant(lhs) = !lhs.dependsOn(loopIterators.last)
+        isLoopInvariant(lhs) = !lhs.dependsOn(loopIterators.last) && !isAccessWithoutAddress(lhs)
       }
 
       if (isPrimitiveNode(lhs) && isLoopInvariant(lhs)) {
@@ -266,6 +271,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
       val ctrl: Ctrl   = controller.get
       val parent: Ctrl = if (isControlNode(lhs)) (lhs, false) else ctrl
+      dbgs(c"  parent: $parent, ctrl: $ctrl")
 
       if (parent.node != lhs) parentOf(lhs) = parent.node else parentOf(lhs) = ctrl.node
 
@@ -300,26 +306,27 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   def addChildDependencyData(lhs: Sym[_], block: Block[_]): Unit = if (isOuterControl(lhs)) {
-    withInnerStms(availStms diff block.inputs.map(stmOf)) {
+    withInnerStms(availStms diff block.inputs.flatMap(getStm)) {
       val children = childrenOf(lhs)
-      dbg(c"parent: $lhs")
+      dbgs(c"  parent: $lhs")
       val allDeps = Map(children.map { child =>
-        dbg(c"  child: $child")
+        dbgs(c"    child: $child")
         val schedule = getCustomSchedule(availStms, List(child))
-        schedule.foreach{stm => dbg(c"    $stm")}
+        schedule.foreach{stm => dbgs(c"      $stm")}
         child -> schedule.flatMap(_.lhs).filter { e => children.contains(e) && e != child }
       }: _*)
 
-      dbg(c"dependencies: ")
+      dbgs(c"  dependencies: ")
       allDeps.foreach { case (child, deps) =>
         val fringe = deps diff deps.flatMap(allDeps)
         ctrlDepsOf(child) = fringe.toSet
-        dbg(c"  $child ($fringe)")
+        dbgs(c"    $child ($fringe)")
       }
     }
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = {
+    dbgs(c"$lhs = $rhs")
     addCommonControlData(lhs, rhs)
     analyze(lhs, rhs)
   }
@@ -348,25 +355,37 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       addPropagatingNode(lhs, blockContents(blk).flatMap(_.lhs).filter(pendingNodes contains _))
 
     case StateMachine(_,_,notDone,action,nextState,_) =>
-      visitCtrl((lhs,false)){
+      visitCtrl((lhs,true)){
         visitBlock(notDone)
-        visitBlock(action)
-        visitBlock(nextState)
+        pendingNodes.get(notDone.result).foreach{nodes =>
+          addPendingUse(lhs, (lhs,false), nodes, isBlockResult = true)
+        }
       }
+
+      visitCtrl((lhs,false)){
+        visitBlock(action)
+      }
+      visitCtrl((lhs,true)){
+        visitBlock(nextState)
+        pendingNodes.get(nextState.result).foreach{nodes =>
+          addPendingUse(lhs, (lhs,false), nodes, isBlockResult = true)
+        }
+      }
+
       addChildDependencyData(lhs, notDone)
       addChildDependencyData(lhs, action)
       addChildDependencyData(lhs, nextState)
 
-    case OpForeach(cchain,func,iters) =>
+    case OpForeach(en,cchain,func,iters) =>
       visitCtrl((lhs,false),iters,cchain){ visitBlock(func) }
       addChildDependencyData(lhs, func)
       iters.foreach { iter => parentOf(iter) = lhs }
 
-    case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
+    case OpReduce(en,cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
       visitCtrl((lhs,false), iters, cchain){
         visitBlock(map)
 
-        // Handle the one case where we allow scalar communication between blocks
+        // Handle case where we allow scalar communication between blocks
         pendingNodes.get(map.result).foreach{nodes =>
           addPendingUse(lhs, (lhs,isOuterControl(lhs)), nodes, isBlockResult = true)
         }
@@ -384,7 +403,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       addChildDependencyData(lhs, map)
       isInnerAccum(accum) = isInnerControl(lhs)
 
-    case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
+    case OpMemReduce(en,cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
       visitCtrl((lhs,false), itersMap, cchainMap) {
         visitBlock(map)
       }

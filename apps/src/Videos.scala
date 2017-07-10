@@ -1,10 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 import spatial.targets.DE1
 
-object StreamingSobel extends SpatialApp { 
-  import IR._
-
+object StreamingSobel extends SpatialApp {
   override val target = DE1
 
   val Kh = 3
@@ -16,7 +14,7 @@ object StreamingSobel extends SpatialApp {
   type UInt8 = FixPt[FALSE,_8,_0]
   type UInt5 = FixPt[FALSE,_5,_0]
   type UInt6 = FixPt[FALSE,_6,_0]
-  @struct class sw3(forward: Bool, backward: Bool, unused: UInt8)
+  @struct class sw3(forward: Bit, backward: Bit, unused: UInt8)
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
 
   @virtualize
@@ -56,12 +54,12 @@ object StreamingSobel extends SpatialApp {
         Foreach(0 until Cmax) { c =>
           Foreach(0 until Kh par Kh) { i => sr(i, *) <<= lb(i, c) }
 
-          Reduce(horz)(Kh by 1, Kw by 1 par Kw) { (i, j) =>
+          Reduce(horz)(Kh by 1, Kw by 1 par 1) { (i, j) =>
             val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
             number * kh(i, j)
           }{_+_}
 
-          Reduce(vert)(Kh by 1, Kw by 1 par Kw) { (i, j) =>
+          Reduce(vert)(Kh by 1, Kw by 1 par 1) { (i, j) =>
             val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
             number * kv(i, j)
           }{_+_};
@@ -83,7 +81,7 @@ object StreamingSobel extends SpatialApp {
 }
 
 object StreamingSobelSRAM extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 
@@ -96,7 +94,7 @@ object StreamingSobelSRAM extends SpatialApp {
   type UInt8 = FixPt[FALSE,_8,_0]
   type UInt5 = FixPt[FALSE,_5,_0]
   type UInt6 = FixPt[FALSE,_6,_0]
-  @struct class sw3(forward: Bool, backward: Bool, unused: UInt8)
+  @struct class sw3(forward: Bit, backward: Bit, unused: UInt8)
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
 
   @virtualize
@@ -167,182 +165,9 @@ object StreamingSobelSRAM extends SpatialApp {
   }
 }
 
-object StreamingSobelPaddle extends SpatialApp { 
-  import IR._
-
-  override val target = DE1
-
-  val Kh = 3
-  val Kw = 3
-  val Rmax = 240
-  val Cmax = 320
-
-  type Int16 = FixPt[TRUE,_16,_0]
-  type UInt8 = FixPt[FALSE,_8,_0]
-  type UInt5 = FixPt[FALSE,_5,_0]
-  type UInt6 = FixPt[FALSE,_6,_0]
-  @struct class sw3(forward: Bool, backward: Bool, unused: UInt8)
-  @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
-
-  @virtualize
-  def convolveVideoStream(rows: Int, cols: Int): Unit = {
-    val switch = target.SliderSwitch
-    val swInput = StreamIn[sw3](switch)
-
-    val imgIn  = StreamIn[Pixel16](target.VideoCamera)
-    // val imgOut = BufferedOut[Pixel16](target.VGA)
-    val imgOut = BufferedOut[Pixel16](target.VGA)
-
-    Accel(*) {
-      val kv = LUT[Int16](3, 3)(
-         1,  2,  1,
-         0,  0,  0,
-        -1, -2, -1
-      )
-      val kh = LUT[Int16](3, 3)(
-         1,  0, -1,
-         2,  0, -2,
-         1,  0, -1
-      )
-
-      val sr = RegFile[Int16](Kh, Kw)
-      val lb = LineBuffer[Int16](Kh, Cmax)
-
-      Foreach( 0 until 50) { adjust_cyc => 
-        Foreach(0 until Rmax) { r =>
-          val adjust = mux(adjust_cyc == 0 && r <= 1, mux(swInput.forward, 1.to[FixPt[TRUE, _32,_0]], mux(swInput.backward, -1.to[FixPt[TRUE, _32,_0]], 0.to[FixPt[TRUE, _32,_0]])), 0.to[FixPt[TRUE,_32,_0]])
-          // val adjustReg = Reg[FixPt[TRUE, _32, _0]](0)
-          // adjustReg := adjustReg + adjust
-          Foreach(0 until Cmax + adjust ) { _ => 
-            val pixel = imgIn.value()
-            val grayPixel = (pixel.b.to[Int16] + pixel.g.to[Int16] + pixel.r.to[Int16]) / 3
-            lb.enq(grayPixel)
-          }
-
-          val horz = Reg[Int16](0)
-          val vert = Reg[Int16](0)
-          Foreach(0 until Cmax) { c =>
-            Foreach(0 until Kh par Kh) { i => sr(i, *) <<= lb(i, c) }
-
-            Reduce(horz)(Kh by 1, Kw by 1) { (i, j) =>
-              val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
-              number * kh(i, j)
-            }{_+_}
-
-            Reduce(vert)(Kh by 1, Kw by 1) { (i, j) =>
-              val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
-              number * kv(i, j)
-            }{_+_};
-
-            val result = abs(horz.value) + abs(vert.value)
-            imgOut(r,c) = Pixel16(result(5::1).as[UInt5], result(5::0).as[UInt6], result(5::1).as[UInt5]) // Technically should be sqrt(horz**2 + vert**2)
-          }
-        }
-      }
-    }
-  }
-
-  @virtualize
-  def main() {
-    val R = Rmax
-    val C = Cmax
-    convolveVideoStream(R, C)
-  }
-}
-
-object StreamingSlowbel extends SpatialApp {  // A slow version
-  import IR._
-
-  override val target = DE1
-
-  val Kh = 3
-  val Kw = 3
-  val Rmax = 240
-  val Cmax = 320
-
-  type Int16 = FixPt[TRUE,_16,_0]
-  type UInt8 = FixPt[FALSE,_8,_0]
-  type UInt5 = FixPt[FALSE,_5,_0]
-  type UInt6 = FixPt[FALSE,_6,_0]
-  @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
-
-  @virtualize
-  def convolveVideoStream(rows: Int, cols: Int): Unit = {
-    // val R = ArgIn[Int]
-    // val C = ArgIn[Int]
-    // setArg(R, rows)
-    // setArg(C, cols)
-
-    val imgIn  = StreamIn[Pixel16](target.VideoCamera)
-    // val imgOut = BufferedOut[Pixel16](target.VGA)
-    val imgOut = BufferedOut[Pixel16](target.VGA)
-
-    val cdwell = ArgIn[Int]
-    val rdwell = ArgIn[Int]
-    val cd = args(0).to[Int]
-    setArg(cdwell, cd)
-    val rd = args(1).to[Int]
-    setArg(rdwell, rd)
-
-    Accel(*) {
-      val kv = LUT[Int16](3, 3)(
-         1,  2,  1,
-         0,  0,  0,
-        -1, -2, -1
-      )
-      val kh = LUT[Int16](3, 3)(
-         1,  0, -1,
-         2,  0, -2,
-         1,  0, -1
-      )
-
-      val sr = RegFile[Int16](Kh, Kw)
-      val lb = LineBuffer[Int16](Kh, Cmax)
-      val dumreg = Reg[Int16](0)
-      Foreach(0 until Rmax) { r =>
-        Foreach(0 until rdwell) { rd =>
-          if (rd == 0) dumreg := rd.as[Int16]
-        }
-
-        Foreach(0 until Cmax) { _ => 
-          val pixel = imgIn.value()
-          val grayPixel = (pixel.b.to[Int16] + pixel.g.to[Int16] + pixel.r.to[Int16]) / 3
-          lb.enq(grayPixel)
-        }
-
-        Foreach(0 until Cmax) { c =>
-          Foreach(0 until Kh par Kh) { i => sr(i, *) <<= lb(i, c) }
-
-          val horz = Reduce(Reg[Int16])(Kh by 1, Kw by 1) { (i, j) =>
-            val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
-            number * kh(i, j)
-          }{_+_}
-
-          val vert = Reduce(Reg[Int16])(Kh by 1, Kw by 1) { (i, j) =>
-            val number = mux(r < Kh-1 || c < Kw-1, 0.to[Int16], sr(i, j))
-            number * kv(i, j) + dumreg
-          }{_+_};
-
-          val result = abs(horz.value) + abs(vert.value)
-          Foreach(0 until cdwell) { _ => 
-            imgOut(r,c) = Pixel16(result(5::1).as[UInt5], result(5::0).as[UInt6], result(5::1).as[UInt5]) // Technically should be sqrt(horz**2 + vert**2)
-          }
-        }
-      }
-      ()
-    }
-  }
-
-  @virtualize
-  def main() {
-    val R = Rmax
-    val C = Cmax
-    convolveVideoStream(R, C)
-  }
-}
 
 object Linebuf extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 
@@ -396,7 +221,7 @@ object Linebuf extends SpatialApp {
 }
 
 object Shiftreg extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 
@@ -426,8 +251,8 @@ object Shiftreg extends SpatialApp {
       val fifoIn = FIFO[Int16](2*Cmax)
       // val fifoOut = FIFO[Int16](2*Cmax)
       val sr = RegFile[Int16](1, Cmax/4)
-      // val submitReady = FIFO[Bool](3)
-      // val rowReady = FIFO[Bool](3)
+      // val submitReady = FIFO[Bit](3)
+      // val rowReady = FIFO[Bit](3)
 
       Foreach(0 until Rmax) { r =>
         Foreach(0 until Cmax) { _ => 
@@ -472,7 +297,7 @@ object Shiftreg extends SpatialApp {
 
 
 object SwitchVid extends SpatialApp { // BUSTED.  HOW TO USE SWITCHES?
-  import IR._
+
 
   override val target = DE1
 
@@ -530,7 +355,7 @@ object SwitchVid extends SpatialApp { // BUSTED.  HOW TO USE SWITCHES?
 }
 
 object Grayscale extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 
@@ -575,7 +400,7 @@ object Grayscale extends SpatialApp {
 
 
 object FifoVideo extends SpatialApp { 
-  import IR._
+
 
   override val target = DE1
 
@@ -584,7 +409,7 @@ object FifoVideo extends SpatialApp {
   val Rmax = 240
   val Cmax = 320
 
-  @struct class sw3(forward: Bool, backward: Bool, unused: UInt8)
+  @struct class sw3(forward: Bit, backward: Bit, unused: UInt8)
 
   @struct case class Pixel16(b: UInt5, g: UInt6, r: UInt5)
 

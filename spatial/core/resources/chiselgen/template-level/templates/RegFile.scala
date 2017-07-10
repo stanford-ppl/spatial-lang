@@ -49,7 +49,7 @@ class ShiftRegFile(val dims: List[Int], val stride: Int, val wPar: Int, val isBu
   // if (!isBuf) {io.dump_en := false.B}
 
   // val size_rounded_up = ((dims.head+stride-1)/stride)*stride // Unlike shift reg, for shift reg file it is user's problem if width does not match (no functionality guarantee)
-  val registers = List.fill(dims.reduce{_*_})(Reg(UInt(bitWidth.W))) // Note: Can change to use FF template
+  val registers = List.fill(dims.reduce{_*_})(RegInit(0.U(bitWidth.W))) // Note: Can change to use FF template
   for (i <- 0 until dims.reduce{_*_}) {
     io.data_out(i) := registers(i)
   }
@@ -61,8 +61,7 @@ class ShiftRegFile(val dims: List[Int], val stride: Int, val wPar: Int, val isBu
   //   }.reduce{_+_}
   // }
 
-
-  if (!isBuf) {
+  if (wPar > 0) { // If it is not >0, then this should just be a pass-through in an nbuf
     // Connect a w port to each reg
     (dims.reduce{_*_}-1 to 0 by -1).foreach { i => 
       // Construct n-D coords
@@ -181,13 +180,14 @@ class ShiftRegFile(val dims: List[Int], val stride: Int, val wPar: Int, val isBu
 
 
 // TODO: Currently assumes one write port, possible read port on every buffer
-class NBufShiftRegFile(val dims: List[Int], val stride: Int, val numBufs: Int, val wPar: Int, val bitWidth: Int) extends Module { 
+class NBufShiftRegFile(val dims: List[Int], val stride: Int, val numBufs: Int,
+                       val wPar: Map[Int,Int], val bitWidth: Int) extends Module { 
 
-  def this(tuple: (List[Int], Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
+  def this(tuple: (List[Int], Int, Int, Map[Int,Int], Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
   val io = IO(new Bundle { 
     val sEn = Vec(numBufs, Input(Bool()))
     val sDone = Vec(numBufs, Input(Bool()))
-    val w = Vec(wPar, Input(new multidimRegW(dims.length, bitWidth)))
+    val w = Vec(wPar.values.reduce{_+_}, Input(new multidimRegW(dims.length, bitWidth)))
     val reset    = Input(Bool())
     val data_out = Vec(dims.reduce{_*_}*numBufs, Output(UInt(bitWidth.W)))
   })
@@ -210,7 +210,7 @@ class NBufShiftRegFile(val dims: List[Int], val stride: Int, val numBufs: Int, v
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
 
-  val shiftRegs = (0 until numBufs).map{i => Module(new ShiftRegFile(dims, stride, wPar, isBuf = {i>0}, bitWidth))}
+  val shiftRegs = (0 until numBufs).map{i => Module(new ShiftRegFile(dims, stride, wPar.getOrElse(i,0), isBuf = {i>0}, bitWidth))}
 
   for (i <- 0 until numBufs) {
     for (j <- 0 until dims.reduce{_*_}) {
@@ -218,34 +218,45 @@ class NBufShiftRegFile(val dims: List[Int], val stride: Int, val numBufs: Int, v
     }
   }
 
-  shiftRegs(0).io.w := io.w
-  shiftRegs(0).io.reset := io.reset
-  shiftRegs(0).io.dump_en := false.B
+  wPar.foreach{ case (regId, par) => 
+    val base = ((0 until regId).map{i => wPar.getOrElse(i,0)} :+ 0).reduce{_+_}
+    (0 until par).foreach{ i => shiftRegs(regId).io.w(i) := io.w(base + i)}
+    if (regId == 0) {
+      shiftRegs(regId).io.reset := io.reset
+      shiftRegs(regId).io.dump_en := false.B // No dumping into first regfile
+    }
+  }
 
   for (i <- numBufs-1 to 1 by -1) {
     shiftRegs(i).io.dump_en := swap
     shiftRegs(i).io.dump_data := shiftRegs(i-1).io.data_out
-    shiftRegs(i).io.w.foreach{p => p.shiftEn := false.B; p.en := false.B; p.data := 0.U}
+    if (!wPar.keys.toList.contains(i)) {
+      shiftRegs(i).io.w.foreach{p => p.shiftEn := false.B; p.en := false.B; p.data := 0.U}
+    }
     shiftRegs(i).io.reset := io.reset
   }
 
-
-  // var wIdMap = (0 until numBufs).map{ i => (i -> 0) }.toMap
-  var wId = 0
+  var wIdMap = (0 until numBufs).map{ i => (i -> 0) }.toMap
   def connectWPort(wBundle: Vec[multidimRegW], ports: List[Int]) {
-    assert(ports.head == 0)
+    assert(ports.length == 1)
+    val base = ((0 until ports.head).map{i => wPar.getOrElse(i,0)} :+ 0).reduce{_+_}
+    val portbase = wIdMap(ports.head)
     (0 until wBundle.length).foreach{ i => 
-      io.w(wId+i) := wBundle(i)
+      io.w(base+portbase+i) := wBundle(i)
     }
-    wId += wBundle.length
+    val newbase = portbase + wBundle.length
+    wIdMap += (ports.head -> newbase)
   }
 
   def connectShiftPort(wBundle: Vec[multidimRegW], ports: List[Int]) {
-    assert(ports.head == 0)
+    assert(ports.length == 1)
+    val base = ((0 until ports.head).map{i => wPar.getOrElse(i,0)} :+ 0).reduce{_+_}
+    val portbase = wIdMap(ports.head)
     (0 until wBundle.length).foreach{ i => 
-      io.w(wId+i) := wBundle(i)
+      io.w(base+portbase+i) := wBundle(i)
     }
-    wId += wBundle.length
+    val newbase = portbase + wBundle.length
+    wIdMap += (ports.head -> newbase)
   }
 
   def readValue(addrs: List[UInt], port: Int): UInt = { // This randomly screws up sometimes, so I don't use it anywhere anymore
@@ -293,16 +304,16 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
 
   def this(tuple: (List[Int], List[Double], Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
   val io = IO(new Bundle { 
-    val addr = Vec(numReaders*dims.length, Input(UInt(32.W)))
+    val addr = Vec(numReaders*dims.length, Input(UInt(width.W)))
     // val en = Vec(numReaders, Input(Bool()))
-    val data_out = Vec(numReaders, Output(new types.FixedPoint(true, 32, 0)))
+    val data_out = Vec(numReaders, Output(UInt(width.W)))
   })
 
   assert(dims.reduce{_*_} == inits.length)
   val options = (0 until dims.reduce{_*_}).map { i => 
-    val initval = (inits(i)*scala.math.pow(2,fracBits)).toInt
+    val initval = (inits(i)*scala.math.pow(2,fracBits)).toLong
     // initval.U
-    ( i.U -> initval.S(32.W) )
+    ( i.U -> initval.S(width.W) )
   }
 
   val flat_addr = (0 until numReaders).map{ k => 
@@ -316,7 +327,7 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
 
   // io.data_out := Mux1H(onehot, options)
   (0 until numReaders).foreach{i =>
-    io.data_out(i) := MuxLookup(flat_addr(i), 0.S, options).asUInt
+    io.data_out(i) := MuxLookup(flat_addr(i), 0.S(width.W), options).asUInt
   }
   // val selected = MuxLookup(active_addr, 0.S, options)
 

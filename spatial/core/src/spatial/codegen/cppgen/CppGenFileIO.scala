@@ -1,15 +1,12 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.FileIOExp
-import spatial.{SpatialConfig, SpatialExp}
+import argon.core._
+import spatial.aliases._
+import spatial.nodes._
 
 
 trait CppGenFileIO extends CppCodegen  {
-	val IR: SpatialExp
-  import IR._
-
-
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case OpenFile(filename, isWr) => 

@@ -232,21 +232,27 @@ module test;
     io_genericStreamIn_bits_last = last;
   endfunction
 
-  initial begin
-    /*** VCD & VPD dump ***/
-//      $vcdplusfile("Top.vpd");
-//      $vcdpluson (0, Top);
-
-//      $dumpfile("Top.vcd");
-//      $dumpvars(0, Top);
-//      $vcdplusfile("Top.vpd");
-      sim_init();
-  end
-
   // 1. If io_dram_cmd_valid, then send send DRAM request to CPP layer
-  function void callbacks();
+  function void post_update_callbacks();
     if (io_dram_cmd_valid & ~reset) begin
-      if (sendDRAMRequest(
+      io_dram_cmd_ready = 1;
+    end else begin
+      io_dram_cmd_ready = 0;
+    end
+
+    if (io_genericStreamOut_valid & ~reset) begin
+      readOutputStream(
+        io_genericStreamOut_bits_data,
+        io_genericStreamOut_bits_tag,
+       io_genericStreamOut_bits_last
+      );
+    end
+
+  endfunction
+
+  function void pre_update_callbacks();
+    if (io_dram_cmd_valid & io_dram_cmd_ready) begin
+      sendDRAMRequest(
         io_dram_cmd_bits_addr,
         io_dram_cmd_bits_rawAddr,
         io_dram_cmd_bits_streamId,
@@ -269,40 +275,46 @@ module test;
         io_dram_cmd_bits_wdata_13,
         io_dram_cmd_bits_wdata_14,
         io_dram_cmd_bits_wdata_15
-      )) begin
-      io_dram_cmd_ready = 1;
-    end
-    end
-
-    if (io_genericStreamOut_valid & ~reset) begin
-      readOutputStream(
-        io_genericStreamOut_bits_data,
-        io_genericStreamOut_bits_tag,
-       io_genericStreamOut_bits_last
       );
     end
-
   endfunction
 
+  initial begin
+    /*** VCD & VPD dump ***/
+    $vcdplusfile("Top.vpd");
+//    $vcdpluson (0, Top);
+//    $vcdplusmemon ();
+
+//      $dumpfile("Top.vcd");
+//      $dumpvars(0, Top);
+      sim_init();
+      io_dram_cmd_ready = 0;
+  end
+
   int numCycles = 0;
-  always @(negedge clock) begin
+
+  always @(posedge clock) begin
+
     numCycles = numCycles + 1;
+
+    pre_update_callbacks();
+
     io_wen = 0;
     io_dram_resp_valid = 0;
-    io_dram_cmd_ready = 0;
+//    io_dram_cmd_ready = 0;
     io_genericStreamIn_valid = 0;
     io_genericStreamOut_ready = 1;
 
     if (tick()) begin
-      $vcdplusflush;
+//      $vcdplusflush;
 //      $dumpflush;
       $finish;
     end
 
-    callbacks();
 
-    $vcdplusflush;
-    $dumpflush;
+    post_update_callbacks();
+//    $vcdplusflush;
+//    $dumpflush;
   end
 
 endmodule

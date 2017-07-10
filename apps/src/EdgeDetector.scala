@@ -1,8 +1,8 @@
-import spatial._
+import spatial.dsl._
 import org.virtualized._
 
 object EdgeDetector extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+
   type T = FixPt[TRUE,_16,_16]
 
   @virtualize
@@ -30,11 +30,11 @@ object EdgeDetector extends SpatialApp { // Regression (Dense) // Args: none
       Sequential.Foreach(memrows by rowtile) { r => 
         Sequential.Foreach(rowtile by 1) { rr => 
           // Work on each tile of a row
-          val globalMax = Reduce(Reg[Tup2[Int,T]](pack(0.to[Int], -1000.to[T])))(memcols by coltile) { c =>
+          val globalMax = Reduce(Reg[Tuple2[Int,T]](pack(0.to[Int], -1000.to[T])))(memcols by coltile) { c =>
             // Load tile from row
             rawdata load srcmem(r + rr, c::c+coltile)
             // Scan through tile to get deriv
-            val localMax = Reduce(Reg[Tup2[Int,T]](pack(0.to[Int], -1000.to[T])))(coltile by 1) { j => 
+            val localMax = Reduce(Reg[Tuple2[Int,T]](pack(0.to[Int], -1000.to[T])))(coltile by 1) { j =>
               sr(0,*) <<= rawdata(j)
               val mean_right = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k) }{_+_} / window.to[T]
               val mean_left = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k+window/2) }{_+_} / window.to[T]
@@ -65,7 +65,7 @@ object EdgeDetector extends SpatialApp { // Regression (Dense) // Args: none
 }
 
 object Differentiator extends SpatialApp { // Regression (Dense) // Args: none
-  import IR._
+
   type T = FixPt[TRUE,_16,_16]
 
   @virtualize
@@ -91,6 +91,7 @@ object Differentiator extends SpatialApp { // Regression (Dense) // Args: none
         rawdata load srcmem(c::c+coltile)
         // Scan through tile to get deriv
         Foreach(coltile by 1) { j => 
+          // Pipe{sr.reset(j == 0)}
           sr(0,*) <<= rawdata(j)
           val mean_right = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k) }{_+_} / window.to[T]
           val mean_left = Reduce(Reg[T](0.to[T]))(window/2 by 1) { k => sr(0,k+window/2) }{_+_} / window.to[T]

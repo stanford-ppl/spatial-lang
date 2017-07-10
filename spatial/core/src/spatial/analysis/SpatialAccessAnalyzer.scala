@@ -1,12 +1,14 @@
 package spatial.analysis
 
 import argon.analysis.AccessPatternAnalyzer
-import spatial.SpatialExp
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
-  override val IR: SpatialExp
-  import IR._
-
   override val name = "Spatial Affine Analysis"
   override val recurse = Default
 
@@ -59,6 +61,7 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case e: DenseTransfer[_,_] => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
     case e: SparseTransfer[_]  => accessPatternOf(lhs) = List(LinearAccess(e.i))
+    case e: SparseTransferMem[_,_,_] => accessPatternOf(lhs) = List(LinearAccess(e.i))
     case _ => super.visit(lhs, rhs)
   }
 
