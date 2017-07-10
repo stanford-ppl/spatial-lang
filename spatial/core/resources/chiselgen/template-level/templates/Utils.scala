@@ -46,7 +46,7 @@ object ops {
 
   implicit class BoolOps(val b:Bool) {
     def D(delay: Int, retime_released: Bool = true.B) = {
-      Mux(retime_released, chisel3.util.ShiftRegister(b, delay), false.B)
+      Mux(retime_released, chisel3.util.ShiftRegister(b, delay, false.B, true.B), false.B)
     }
 
   }

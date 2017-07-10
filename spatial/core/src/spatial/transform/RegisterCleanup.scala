@@ -12,7 +12,7 @@ import scala.collection.mutable
 case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   override val name = "Register Cleanup"
 
-  private case object FakeSymbol { override def toString = "\"You done goofed\"" }
+  private case object MissingReg { override def toString = "\"Used register was removed\"" }
 
   // User specific substitutions
   private var statelessSubstRules = Map[(Exp[_],Exp[_]), Seq[(Exp[_], () => Exp[_])]]()
@@ -40,6 +40,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   }
 
   var ctrl: Exp[_] = _
+  var inHw: Boolean = false
   def withCtrl[A](c: Exp[_])(blk: => A): A = {
     var prev = ctrl
     ctrl = c
@@ -49,7 +50,13 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   }
 
   override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
-    case node if isStateless(node) && shouldDuplicate(lhs) =>
+    case Hwblock(func,_) =>
+      inHw = true
+      val result = withCtrl(lhs){ mirrorWithDuplication(lhs, rhs) }
+      inHw = false
+      result
+
+    case node if ((inHw && isStateless(node)) || isRegisterRead(node)) && shouldDuplicate(lhs) =>
       dbg("")
       dbg("[stateless]")
       dbg(c"$lhs = $rhs")
@@ -57,7 +64,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
 
       if (usersOf(lhs).isEmpty) {
         dbg(c"REMOVING stateless $lhs")
-        constant(typ[T])(FakeSymbol)  // Shouldn't be used
+        constant(typ[T])(MissingReg)  // Shouldn't be used
       }
       else {
         // For all uses within a single control node, create a single copy of this node
@@ -71,13 +78,13 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
 
           uses.foreach { use =>
             val subs = (lhs -> read) +: statelessSubstRules.getOrElse((use,parent.node), Nil)
-            dbg(s"  $use: $lhs -> $read")
+            dbg(s"  ($use, ${parent.node}): $lhs -> $read")
             statelessSubstRules += (use,parent.node) -> subs
           }
 
           read
         }
-        constant(typ[T])(FakeSymbol) // mirror(lhs, rhs)
+        constant(typ[T])(MissingReg) // mirror(lhs, rhs)
       }
 
     case RegWrite(reg,value,en) =>
@@ -86,7 +93,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
       dbg(c"$lhs = $rhs")
       if (readersOf(reg).isEmpty && !isOffChipMemory(reg)) {
         dbg(c"REMOVING register write $lhs")
-        constant(typ[T])(FakeSymbol)  // Shouldn't be used
+        MUnit.const().asInstanceOf[Exp[T]]
       }
       else mirrorWithDuplication(lhs, rhs)
 
@@ -96,7 +103,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
       dbg(c"$lhs = $rhs")
       if (readersOf(lhs).isEmpty) {
         dbg(c"REMOVING register $lhs")
-        constant(typ[T])(FakeSymbol)  // Shouldn't be used
+        constant(typ[T])(MissingReg)  // Shouldn't be used
       }
       else mirrorWithDuplication(lhs, rhs)
 
@@ -105,6 +112,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   }
 
   private def mirrorWithDuplication[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
+    dbg(c"checking ($lhs, $ctrl) for external user rules")
     if ( statelessSubstRules.contains((lhs,ctrl)) ) {
       dbg("")
       dbg(c"[external user, ctrl = $ctrl]")

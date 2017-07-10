@@ -371,7 +371,7 @@ trait MemoryAnalyzer extends CompilerPass {
     dbg("")
     dbg("")
     dbg("-----------------------------------")
-    dbg(u"Inferring instances for memory $mem ")
+    dbg(u"Inferring instances for memory ${str(mem)}")
 
     val writers = writersOf(mem)
     val readers = readersOf(mem)
@@ -527,6 +527,12 @@ trait MemoryAnalyzer extends CompilerPass {
     dbg(s"  channels: $channels")
     dbg(s"  banking: $banking")
     dbg(s"  duplicates: $duplicates")
+    // Generally unsafe to have a writer which requires duplication (reads are ok though)
+    if (duplicates > 1 && writersOf(mem).exists(_.node == access)) {
+      error(access.ctx, u"Unsafe parallelization of write to ${mem.tp} $mem")
+      error(c"Either move memory relative to write or decrease parallelization.")
+      error(access.ctx)
+    }
     (BankedMemory(banking, depth = 1, isAccum = false), duplicates)
   }
 
@@ -599,6 +605,11 @@ trait MemoryAnalyzer extends CompilerPass {
   }
 
   def bankStream(mem: Exp[_]): Unit = {
+    dbg("")
+    dbg("")
+    dbg("-----------------------------------")
+    dbg(u"Inferring instances for memory ${str(mem)}")
+
     val reads = readersOf(mem)
     val writes = writersOf(mem)
     val accesses = reads ++ writes
@@ -608,38 +619,86 @@ trait MemoryAnalyzer extends CompilerPass {
       portsOf(access, mem, 0) = Set(0)
     }
 
-    val par = (1 +: accesses.map{access =>
+    val pars = accesses.map{access =>
       val factors = unrollFactorsOf(access.node) // relative to stream, which always has par of 1
       factors.flatten.map{case Exact(c) => c.toInt}.product
-    }).max
+    }
+
+    val par = (1 +: pars).max
 
     /*val bus = mem match {
       case Op(StreamInNew(bus)) => bus
       case Op(StreamOutNew(bus)) => bus
     }*/
+    val dup = BankedMemory(Seq(StridedBanking(1,par)),1,isAccum=false)
 
-    duplicatesOf(mem) = List(BankedMemory(Seq(StridedBanking(1,par)),1,isAccum=false))
+    dbg(s"")
+    dbg(s"  stream: ${str(mem)}")
+    dbg(s"  accesses: ")
+    accesses.zip(pars).foreach{case (access, p) => dbg(c"    ${str(access.node)} [$p]")}
+    dbg(s"  duplicate: $dup")
+    duplicatesOf(mem) = List(dup)
   }
 
+
+
   def bankBufferOut(buffer: Exp[_]): Unit = {
+    dbg("")
+    dbg("")
+    dbg("-----------------------------------")
+    dbg(u"Inferring instances for memory ${str(buffer)}")
+
+    val dims: Seq[Int] = stagedDimsOf(buffer).map{case Exact(c) => c.toInt}
+    val allStrides = constDimsToStrides(dims)
+
     val reads = readersOf(buffer)
     val writes = writersOf(buffer)
     val accesses = reads ++ writes
 
-    assert(reads.isEmpty)
-
-    // Hack: Find outermost streaming control
+    if (reads.nonEmpty) {
+      error(reads.head.node.ctx, s"BufferedOut had read ${str(reads.head.node)}")
+      error(reads.head.node.ctx)
+    }
 
     accesses.foreach{access =>
       dispatchOf.add(access, buffer, 0)
       portsOf(access, buffer, 0) = Set(0)
     }
 
-    val par = (1 +: accesses.map{access =>
-      val factors = unrollFactorsOf(access.node) // relative to stream, which always has par of 1
-      factors.flatten.map{case Exact(c) => c.toInt}.product
-    }).max
+    val channels = accesses.map{access =>
+      val patterns = accessPatternOf(access.node)
+      val strides = if (patterns.length == 1) List(allStrides.last) else allStrides
 
+      // Parallelization factors relative to the accessed memory
+      val factors = unrollFactorsOf(access.node)
+      val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
+
+      val banking = indexPatternsToBanking(patterns, strides)
+      val banks = banking.map(_.banks).product
+      val duplicates = channels / banks
+
+      if (duplicates > 1) {
+        error(access.node.ctx, u"Not able to parallelize random write to BufferedOut $buffer")
+        error(access.node.ctx)
+      }
+
+      dbg(c"  access:   ${str(access.node)}")
+      dbg(c"  patterns: $patterns")
+      dbg(c"  banking:  $banking")
+
+      (BankedMemory(banking, depth = 1, isAccum = false), duplicates) : Channels
+    }
+
+    if (channels.nonEmpty) {
+      val instance = channels.reduce{(a,b) => mergeChannels(buffer, a, b) }
+
+      dbg(c"instance for $buffer: $instance")
+
+      duplicatesOf(buffer) = List(instance._1)
+    }
+    else {
+      duplicatesOf(buffer) = Nil
+    }
   }
 
 }

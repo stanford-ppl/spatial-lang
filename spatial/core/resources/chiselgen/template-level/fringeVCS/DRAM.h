@@ -408,9 +408,9 @@ extern "C" {
           dramReady = 0;
         } else {
           std::map<struct AddrTag, DRAMRequest**>::iterator it = sparseRequestCache.find(at);
-          if (debug) EPRINTF("[sendDRAMRequest] Sparse request, looking up (addr = %lx, tag = %lx)\n", at.addr, at.tag);
+          if (debug) EPRINTF("                  Sparse request, looking up (addr = %lx, tag = %lx)\n", at.addr, at.tag);
           if (it == sparseRequestCache.end()) { // MISS
-            if (debug) EPRINTF("[sendDRAMRequest] MISS, creating new cache line:\n");
+            if (debug) EPRINTF("                  MISS, creating new cache line:\n");
             skipIssue = false;
             DRAMRequest **line = new DRAMRequest*[16]; // One outstanding request per word
             memset(line, 0, 16*sizeof(DRAMRequest*));
@@ -429,7 +429,7 @@ extern "C" {
             at.tag = sparseTag;
             addrToReqMap[at] = req;
           } else {  // HIT
-            if (debug) EPRINTF("[sendDRAMRequest] HIT, line:\n");
+            if (debug) EPRINTF("                  HIT, line:\n");
             skipIssue = true;
             DRAMRequest **line = it->second;
             if (debug) {
@@ -442,7 +442,7 @@ extern "C" {
             DRAMRequest *r = line[getWordOffset(cmdRawAddr)];
 
             if (r != NULL) {  // Already a request waiting, stall upstream
-              if (debug) EPRINTF("[sendDRAMRequest] Req %lx (%lx) already present for given word, stall upstream\n", r->addr, r->rawAddr);
+              if (debug) EPRINTF("                  Req %lx (%lx) already present for given word, stall upstream\n", r->addr, r->rawAddr);
               dramReady = 0;
             } else {  // Update word offset with request pointer
               line[getWordOffset(cmdRawAddr)] = req;
@@ -455,12 +455,12 @@ extern "C" {
         mem->addTransaction(cmdIsWr, cmdAddr, at.tag);
         req->channelID = mem->findChannelNumber(cmdAddr);
         if (debug) {
-          EPRINTF("[sendDRAMRequest] Issuing following command:");
+          EPRINTF("                  Issuing following command:");
           req->print();
         }
       } else {
         if (debug) {
-          EPRINTF("[sendDRAMRequest] Skipping addr = %lx (%lx), tag = %lx\n", cmdAddr, cmdRawAddr, cmdTag);
+          EPRINTF("                  Skipping addr = %lx (%lx), tag = %lx\n", cmdAddr, cmdRawAddr, cmdTag);
         }
       }
     }

@@ -58,9 +58,8 @@ trait ScopeCheck extends SpatialTraversal {
       }
 
       val illegalInputs = inputs.filter{
-        case s @ Def(RegRead(_)) => true // Special case on reg reads to disallow const prop through setArg
-                                         // TODO: I actually can't remember what I meant here...
-        case s @ Def(NewVar(_)) => false // Already gave errors for outside vars
+        //case s @ Def(RegRead(reg)) => !isArgIn(reg) // Special case on reg reads of input args
+        case s @ Def(NewVar(_)) => false            // Already gave errors for outside vars
         case s => !isTransferException(s)
       }
       if (illegalInputs.nonEmpty) {

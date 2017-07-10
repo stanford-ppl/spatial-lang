@@ -288,11 +288,13 @@ module test;
 //      $dumpfile("Top.vcd");
 //      $dumpvars(0, Top);
       sim_init();
+      io_dram_cmd_ready = 0;
   end
 
   int numCycles = 0;
 
   always @(posedge clock) begin
+
     numCycles = numCycles + 1;
 
     pre_update_callbacks();

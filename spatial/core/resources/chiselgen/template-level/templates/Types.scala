@@ -567,6 +567,11 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
     	neg.number := ~number + 1.U
     	neg
     }
+    def unary_~() : FixedPoint = {
+    	val neg = Wire(new FixedPoint(s,d,f))
+    	neg.number := ~number
+    	neg
+    }
 
 
 
