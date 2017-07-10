@@ -76,7 +76,12 @@ object LSTM_Forward_Single extends SpatialApp {
     setArg(N, N_classes)
 
     // Mem test mem
-    val testMem = DRAM[T](D_h, N)
+//    val testMemInput_bfSig = DRAM[T](D_h, N)
+//    val testMemInput_ = DRAM[T](D_h, N)
+//    val testMemInput = DRAM[T](D_h, N)
+//    val testMemInput = DRAM[T](D_h, N)
+//    val testMemInput = DRAM[T](D_h, N)
+//    val testMemInput = DRAM[T](D_h, N)
 
     // Param weights matrices
     val xt = DRAM[T](d, N)
@@ -289,8 +294,6 @@ object LSTM_Forward_Single extends SpatialApp {
           // Output result 2: new hidden state weights
           val tile_new_hidden = SRAM[T](mm, nn)
 
-          // TODO: received an warning saying that these SRAMs don't have writers.
-          // Seems like a potential issue?
           Parallel {
             List((tile_WiTx, Wi, x, p, pp), (tile_UiTh, Ui, h, q, qq),
                  (tile_WfTx, Wf, x, p, pp), (tile_UfTh, Uf, h, q, qq),
@@ -308,12 +311,14 @@ object LSTM_Forward_Single extends SpatialApp {
 
             // TODO: can we parallize these three lines?
             // c_t = f_t \times c_{t-1} + i_t \times c_tl_t
-            reg_ct := sigmoid(tile_WfTx(ii, jj) + tile_UfTh(ii, jj)) * tile_Wc_t_1(ii, jj) +
-                             sigmoid(tile_WiTx(ii, jj) + tile_UiTh(ii, jj)) * tanh(tile_WcTx(ii, jj) + tile_UcTh(ii, jj))
-            tile_new_mem(ii, jj) = reg_ct.value
-
-            // h_t = o_t \times tanh(c_t)
-            tile_new_hidden(ii, jj) = sigmoid(tile_WoTx(ii, jj) + tile_UoTh(ii, jj)) * tanh(reg_ct.value)
+//            reg_ct := sigmoid(tile_WfTx(ii, jj) + tile_UfTh(ii, jj)) * tile_Wc_t_1(ii, jj) +
+//                             sigmoid(tile_WiTx(ii, jj) + tile_UiTh(ii, jj)) * tanh(tile_WcTx(ii, jj) + tile_UcTh(ii, jj))
+//            tile_new_mem(ii, jj) = reg_ct.value
+//
+//            // h_t = o_t \times tanh(c_t)
+//            tile_new_hidden(ii, jj) = sigmoid(tile_WoTx(ii, jj) + tile_UoTh(ii, jj)) * tanh(reg_ct.value)
+              tile_new_mem(ii, jj) = tile_WfTx(ii, jj) + tile_UfTh(ii, jj)
+              tile_new_hidden(ii, jj) = tile_WiTx(ii, jj) + tile_UiTh(ii, jj)
           }
 
           next_mem(i::i+mm, j::j+nn) store tile_new_mem
@@ -350,19 +355,19 @@ object LSTM_Forward_Single extends SpatialApp {
     val N = 32
 
     // TODO: Get a pretrained model and fetch out weights from one of the gates
-    val W_i =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_i =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val W_f =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_f =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val W_o =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_o =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val W_c =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val U_c =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    val x_t =     loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
-    val h_t_1 =   loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
-    val W_c_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_eles.csv", "\n")
+    val W_i =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
+    val U_i =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
+    val W_f =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
+    val U_f =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
+    val W_o =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
+    val U_o =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
+    val W_c =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
+    val U_c =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
+    val x_t =     loadCSV1D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", "\n")
+    val h_t_1 =   loadCSV1D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", "\n")
+    val W_c_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", "\n")
 
-    val (gateResult1, gateResult2) = GateForward (
+    val (nextMem, nextHidden) = GateForward (
       /* Weights */
       W_i, U_i, W_f, U_f, W_o, U_o, W_c, U_c, W_c_t_1,
       /* Inputs */
@@ -371,7 +376,8 @@ object LSTM_Forward_Single extends SpatialApp {
       D_h, d, N
     )
 
-    printArray(gateResult1, "LSTM cell yields: ")
+    printArray(nextMem, "LSTM nextMem = ")
+//    printArray(nextHidden, "LSTM nextHidden = ")
 
     // Calculate gold
     //

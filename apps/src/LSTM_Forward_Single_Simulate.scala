@@ -4,7 +4,8 @@ import org.virtualized._
 object LSTM_Forward_Single_Simulate extends SpatialApp {
   import IR._
 
-  // TODO: need to rethink of precision
+  // TODO: need to conform the result with Spatial sim result
+  // TODO: need to load in more accurate data from tensorflow weights
   type X = FixPt[TRUE,_32,_32]
 
   @virtualize
@@ -39,17 +40,17 @@ object LSTM_Forward_Single_Simulate extends SpatialApp {
     }
 
     // TODO: Get a pretrained model and fetch out weights from one of the gates
-    val W_i =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val U_i =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val W_f =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val U_f =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val W_o =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val U_o =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val W_c =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val U_c =     loadMatrix("/home/tianzhao/data/64_by_64_eles.csv", D_h, d)
-    val x_t =     loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", D_h, N)
-    val h_t_1 =   loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", D_h, N)
-    val W_c_t_1 = loadMatrix("/home/tianzhao/data/64_by_32_eles.csv", D_h, N)
+    val W_i =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
+    val U_i =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
+    val W_f =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
+    val U_f =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
+    val W_o =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
+    val U_o =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
+    val W_c =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
+    val U_c =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
+    val x_t =     loadMatrix("/home/tianzhao/data/64_by_32_basic_eles.csv", D_h, N)
+    val h_t_1 =   loadMatrix("/home/tianzhao/data/64_by_32_basic_eles.csv", D_h, N)
+    val W_c_t_1 = loadMatrix("/home/tianzhao/data/64_by_32_basic_eles.csv", D_h, N)
 
     //val W_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
     //println("first double " + W_i(1))
@@ -69,11 +70,12 @@ object LSTM_Forward_Single_Simulate extends SpatialApp {
         val h_t_1_col = h_t_1.map{row => row(j)}
         val W_c_t_1_col = W_c_t_1.map{row => row(j)}
 
-        val newMemVal = (sigmoid(W_i_row.zip(x_t_col){_*_}.reduce{_+_} + U_i_row.zip(h_t_1_col){_*_}.reduce{_+_}) *
-            tanh(W_c_row.zip(x_t_col){_*_}.reduce{_+_} + U_c_row.zip(h_t_1_col){_*_}.reduce{_+_})) +
-          (W_c_t_1_col(i) * sigmoid(W_f_row.zip(x_t_col){_*_}.reduce{_+_} + U_f_row.zip(h_t_1_col){_*_}.reduce{_+_}))
+        W_i_row.zip(x_t_col){_*_}.reduce{_+_} + U_i_row.zip(h_t_1_col){_*_}.reduce{_+_}
+        //val newMemVal = (sigmoid(W_i_row.zip(x_t_col){_*_}.reduce{_+_} + U_i_row.zip(h_t_1_col){_*_}.reduce{_+_}) *
+        //    tanh(W_c_row.zip(x_t_col){_*_}.reduce{_+_} + U_c_row.zip(h_t_1_col){_*_}.reduce{_+_})) +
+        //  (W_c_t_1_col(i) * sigmoid(W_f_row.zip(x_t_col){_*_}.reduce{_+_} + U_f_row.zip(h_t_1_col){_*_}.reduce{_+_}))
 
-        tanh(newMemVal) * sigmoid(W_o_row.zip(x_t_col){_*_}.reduce{_+_} + U_o_row.zip(h_t_1_col){_*_}.reduce{_+_})
+        //tanh(newMemVal) * sigmoid(W_o_row.zip(x_t_col){_*_}.reduce{_+_} + U_o_row.zip(h_t_1_col){_*_}.reduce{_+_})
       }
     }.flatten
     printArray(goldHidden, "gold = ")
