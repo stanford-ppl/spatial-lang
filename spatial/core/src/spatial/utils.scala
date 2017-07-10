@@ -9,6 +9,8 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.lang.Math
 
+import scala.io.Source
+
 object utils {
   /**
     * Least common multiple of two integers (smallest integer which has integer divisors a and b)
