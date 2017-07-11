@@ -246,19 +246,19 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
       val p_jinfo_MCUWidth = Reg[UInt16](0)
       val p_jinfo_NumMCU = Reg[UInt16](0)
 
+      def read_word(): UInt16 = {
+        val tmp = (jpg_sram(scan_ptr).as[UInt16] << 8) | (jpg_sram(scan_ptr + 1).as[UInt16])
+        Pipe{scan_ptr :+= 2}
+        tmp
+      }
+      def read_byte(): UInt8 = {
+        val tmp = jpg_sram(scan_ptr)
+        Pipe{scan_ptr :+= 1}
+        tmp
+      }
+
       def read_markers(): Unit = {
         val unread_marker = Reg[UInt8](0)
-
-        def read_word(): UInt16 = {
-          val tmp = (jpg_sram(scan_ptr).as[UInt16] << 8) | (jpg_sram(scan_ptr + 1).as[UInt16])
-          Pipe{scan_ptr :+= 2}
-          tmp
-        }
-        def read_byte(): UInt8 = {
-          val tmp = jpg_sram(scan_ptr)
-          Pipe{scan_ptr :+= 1}
-          tmp
-        }
 
         def next_marker(): UInt8 = {
           val potential_marker = Reg[UInt8](0)
@@ -512,11 +512,98 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
 
         // Go to data start
         scan_ptr := p_jinfo_jpeg_data.value
+        val read_position = Reg[UInt8](0)
+        val read_position_idx = Reg[Int](-1)
+        val current_read_byte = Reg[UInt8](0)
         val CurrentMCU = Reg[UInt16](0)
         val HuffBuff = SRAM[UInt16](NUM_COMPONENT,DCTSIZE2)
         val IDCTBuff = SRAM[UInt16](6,DCTSIZE2)
 
+        def pgetc(): UInt8 = {
+          val tmp = read_byte()
+          if (tmp == 255.to[UInt8]){
+            if (read_byte() != 0.to[UInt8]){
+              println("Unanticipated marker detected.")
+              0.to[UInt8]
+            } else {
+              255.to[UInt8]
+            }
+          } else {
+            tmp
+          }
+          // 0.to[UInt8]
+        }
+        def buf_getb(): UInt8 = {
+          if (read_position_idx.value < 0.to[Int]) {
+            current_read_byte := pgetc()
+          //   read_position := 0x80.to[UInt8]
+          //   read_position_idx := 7.to[Int]
+          }
+          // val ret = if ((current_read_byte.value & read_position.value.as[UInt8]) == 0.to[UInt8]){
+          //             0.to[UInt8]
+          //           } else {
+          //             1.to[UInt8]
+          //           }
+          // if (read_position_idx.value == 0.to[Int]){read_position_idx := -1} else {read_position := read_position.value >> 1; read_position_idx :-= 1}
+          // ret
+          0.to[UInt8]
+        }
+        def buf_getv(n: UInt8): UInt8 = {
+          // val ret = Reg[UInt8](0)
+          // val p = n - 1 - read_position_idx.value.as[UInt8]
+          // if (read_position_idx.value > 23.to[Int]) { // Not sure how this is ever possible
+          //   val rv = Reg[UInt8](0)
+          //   rv := current_read_byte.value
+          //   Fold(rv)(p.as[Int] by 1){_ => Reg[UInt8](0)}{(a,b) => a << 1} 
+          //   // rv = (current_read_byte << p);  /* Manipulate buffer */
+          //   current_read_byte := pgetc().as[UInt8]
+          //   val new_rv = Reg[UInt8](0)
+          //   new_rv := current_read_byte.value
+          //   Fold(new_rv)((8 - p).as[Int] by 1){_ => Reg[UInt8](0)}{(a,b) => a >> 1}
+          //   val final_rv = new_rv | rv
+          //   read_position_idx := (7 - p).as[Int]
+          //   read_position := Reduce(Reg[UInt8](1))(read_position_idx - 1 by 1){_ => Reg[UInt8](0)}{(a,b) => a << 1}
+          //   ret := (final_rv)// & lmask[n])
+          //   // more specifically here
+  
+          // }
+          // ret.value
+          0.to[UInt8]
+        }
+        def DecodeHuffman(tbl_no: Index, use_dc: Boolean): UInt8 = {
+          val code = Reg[UInt8](0)
+          code := buf_getb()
+          val l = Reg[Int](1)
+          val max_decode = Reg[UInt16](0)
+          FSM[Int](whilst => whilst != -1.to[Int]){whilst => 
+            code := (code << 1) + buf_getb()
+            max_decode := mux(use_dc, p_jinfo_dc_dhuff_tbl_maxcode(tbl_no, l), p_jinfo_ac_dhuff_tbl_maxcode(tbl_no, l))
+            l :+= 1
+          }{whilst => mux(code.value > max_decode.value.as[UInt8], -1, whilst)}
+          val tbl_ml = mux(use_dc, p_jinfo_dc_dhuff_tbl_ml(tbl_no), p_jinfo_ac_dhuff_tbl_ml(tbl_no))
+          if (code < tbl_ml.as[UInt8]) {
+            val ptr = mux(use_dc, p_jinfo_dc_dhuff_tbl_valptr(tbl_no, l), p_jinfo_ac_dhuff_tbl_valptr(tbl_no, l))
+            val mincode = mux(use_dc, p_jinfo_dc_dhuff_tbl_mincode(tbl_no, l), p_jinfo_ac_dhuff_tbl_mincode(tbl_no, l))
+            val p = ptr + code.value.as[UInt16] - mincode
+            p_jinfo_dc_xhuff_tbl_huffval(tbl_no, p.as[Int])
+          } else {
+            println("HUFFMAN READ ERROR")
+            0.to[UInt8]
+          }
+        }
+        def DecodeHuffMCU(num_cmp: Index): Unit = {
+          val tbl_no = component_acdc(num_cmp).dc
+          val s = DecodeHuffman(tbl_no.to[Index], true)
+          if (s != 0.to[UInt8]){
+            val diff = buf_getv(s)
+            // Was working here
+
+          }
+        }
+
         def decode_block(comp_no: Index, id1: Index, id2:Index): Unit = {
+          val QuantBuff = SRAM[UInt16](DCTSIZE2)
+          DecodeHuffMCU(comp_no)
 
         }
 
@@ -525,7 +612,7 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
         if (p_jinfo_smp_fact == SF4_1_1.to[UInt2]) {
           println("Decode 4:1:1")
           FSM[Int](whilst => whilst != 1){ whilst => 
-            Foreach(4 by 1) { i => 
+            Sequential.Foreach(4 by 1) { i => 
               decode_block(0, i, 0)
             }
 
@@ -556,7 +643,7 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
 
 
 
-object Bug160 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+object Bug162 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   override val target = AWS_F1
   type UInt8 = FixPt[FALSE, _8, _0]
   type UInt2 = FixPt[FALSE, _2, _0]
@@ -585,6 +672,7 @@ object Bug160 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
     val DCTSIZE2 = 64
     val NUM_COMPONENT = 3
     val NUM_HUFF_TBLS = 2
+    val RGB_NUM = 3
     val SF4_1_1 = 2
     val SF1_1_1 = 0
 
@@ -620,8 +708,9 @@ object Bug160 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
                                     53.to[Int], 60.to[Int], 61.to[Int], 54.to[Int], 47.to[Int], 55.to[Int], 62.to[Int], 63.to[Int]
                                   )
 
-      val p_jinfo_quant_tbl_quantval = SRAM[UInt16](4,DCTSIZE2)
+      val scan_ptr = Reg[Int](1)
 
+      val p_jinfo_quant_tbl_quantval = SRAM[UInt16](4,DCTSIZE2)
       val p_jinfo_dc_xhuff_tbl_bits = SRAM[UInt8](NUM_HUFF_TBLS, 36)
       val p_jinfo_dc_xhuff_tbl_huffval = SRAM[UInt8](NUM_HUFF_TBLS, 257)
       val p_jinfo_dc_dhuff_tbl_ml = SRAM[UInt16](NUM_HUFF_TBLS)
@@ -635,6 +724,9 @@ object Bug160 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
       val p_jinfo_ac_dhuff_tbl_mincode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
       val p_jinfo_ac_dhuff_tbl_valptr = SRAM[UInt16](NUM_HUFF_TBLS, 36)
 
+      val out_data_comp_vpos = SRAM[UInt16](RGB_NUM)
+      val out_data_comp_hpos = SRAM[UInt16](RGB_NUM)
+
       val p_jinfo_smp_fact = Reg[UInt2](0)
       val p_jinfo_num_components = Reg[UInt8](0)
       val p_jinfo_jpeg_data = Reg[Int](0)
@@ -644,20 +736,19 @@ object Bug160 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
       val p_jinfo_MCUWidth = Reg[UInt16](0)
       val p_jinfo_NumMCU = Reg[UInt16](0)
 
+      def read_word(): UInt16 = {
+        val tmp = (jpg_sram(scan_ptr).as[UInt16] << 8) | (jpg_sram(scan_ptr + 1).as[UInt16])
+        Pipe{scan_ptr :+= 2}
+        tmp
+      }
+      def read_byte(): UInt8 = {
+        val tmp = jpg_sram(scan_ptr)
+        Pipe{scan_ptr :+= 1}
+        tmp
+      }
+
       def read_markers(): Unit = {
         val unread_marker = Reg[UInt8](0)
-        val scan_ptr = Reg[Int](1)
-
-        def read_word(): UInt16 = {
-          val tmp = (jpg_sram(scan_ptr).as[UInt16] << 8) | (jpg_sram(scan_ptr + 1).as[UInt16])
-          Pipe{scan_ptr :+= 2}
-          tmp
-        }
-        def read_byte(): UInt8 = {
-          val tmp = jpg_sram(scan_ptr)
-          Pipe{scan_ptr :+= 1}
-          tmp
-        }
 
         def next_marker(): UInt8 = {
           val potential_marker = Reg[UInt8](0)
@@ -835,7 +926,7 @@ object Bug160 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
       }
 
       def jpeg_init_decompress(): Unit = {
-        def huff_make_dhuff_tb(idx: Int, p_xhtbl_bits: SRAM2[UInt8], p_dhtbl_ml: SRAM1[UInt16], p_dhtbl_maxcode: SRAM2[UInt16], p_dhtbl_mincode: SRAM2[UInt16], p_dhtbl_valptr: SRAM2[UInt16]): Unit = {
+        def huff_make_dhuff_tb(idx: Int, p_xhtbl_bits: SRAM2[UInt8], p_dhtbl_ml_mem: SRAM1[UInt16], p_dhtbl_maxcode: SRAM2[UInt16], p_dhtbl_mincode: SRAM2[UInt16], p_dhtbl_valptr: SRAM2[UInt16]): Unit = {
           val huffsize = SRAM[UInt16](257)
           val huffcode = SRAM[UInt16](257)
           val p = Reg[Int](0)
@@ -857,24 +948,43 @@ object Bug160 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
 
           FSM[Int](whilst1 => whilst1 != -1) { whilst1 => 
             FSM[Int](whilst2 => whilst2 != -1) { whilst2 => 
-              println("huffocde " + pp + " = " + code)
+              // println("huffocde " + pp + " = " + code )
               huffcode(pp) = code.value
               code :+= 1
               pp :+= 1
-            } {whilst2 => mux((huffsize(p+1) == size.value) && (p < 257), whilst2, -1)}
+            } {whilst2 => mux((huffsize(pp) == size.value) && (pp < 257), whilst2, -1)}
 
-            val break_cond = huffsize(p) == 0.to[UInt16]
+            // println("at " + pp + " size is " + huffsize(pp))
+            val break_cond = huffsize(pp) == 0.to[UInt16]
 
-            if (!break_cond) {
-              FSM[Int](whilst2 => whilst2 != -1) { whilst2 => 
+            // if (!break_cond) { // Issue #160
+            FSM[Int](whilst2 => whilst2 != -1) { whilst2 => 
+              if (!break_cond) {
                 code := code << 1
                 size :+= 1
-              } { whilst2 => mux(huffsize(p) != size.value, whilst2, -1)}
+              }
+            } { whilst2 => mux((huffsize(pp) == size.value) || break_cond, -1, whilst2)}
+            // }
+          } {whilst1 => mux((huffsize(pp) == 0.to[UInt16]), -1, whilst1)}
+
+          val p_dhtbl_ml = Reg[Int](1)
+          val ppp = Reg[Int](0)
+          p_dhtbl_ml.reset
+          Foreach(1 until 17 by 1){l => 
+            if (p_xhtbl_bits(idx, l) == 0.to[UInt8]) {
+              p_dhtbl_maxcode(idx, l) = 65535.to[UInt16] // Signifies skip
+            } else {
+              p_dhtbl_valptr(idx, l) = ppp.value.as[UInt16]
+              p_dhtbl_mincode(idx,l) = huffcode(ppp)
+              Pipe{ppp :+= p_xhtbl_bits(idx,l).as[Int] - 1}
+              p_dhtbl_maxcode(idx,l) = huffcode(ppp)
+              p_dhtbl_ml := l
+              println(" " + p_dhtbl_valptr(idx,l) + " " + p_dhtbl_mincode(idx,l) + " " + ppp + " " + p_dhtbl_maxcode(idx,l) + " " + p_dhtbl_ml)
+              Pipe{ppp :+= 1}
             }
-          } {whilst1 => mux((huffsize(p) == 0.to[UInt16]), -1, whilst1)}
-
-
-
+          }
+          p_dhtbl_maxcode(idx, p_dhtbl_ml.value) = p_dhtbl_maxcode(idx, p_dhtbl_ml.value) + 1
+          p_dhtbl_ml_mem(idx) = p_dhtbl_ml.value.as[UInt16]
         }
 
         p_jinfo_MCUHeight := (p_jinfo_image_height - 1) / 8 + 1
@@ -882,12 +992,135 @@ object Bug160 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
         p_jinfo_NumMCU := p_jinfo_MCUHeight * p_jinfo_MCUWidth
 
         huff_make_dhuff_tb(0, p_jinfo_dc_xhuff_tbl_bits, p_jinfo_dc_dhuff_tbl_ml, p_jinfo_dc_dhuff_tbl_maxcode,p_jinfo_dc_dhuff_tbl_mincode,p_jinfo_dc_dhuff_tbl_valptr)
+        huff_make_dhuff_tb(1, p_jinfo_dc_xhuff_tbl_bits, p_jinfo_dc_dhuff_tbl_ml, p_jinfo_dc_dhuff_tbl_maxcode,p_jinfo_dc_dhuff_tbl_mincode,p_jinfo_dc_dhuff_tbl_valptr)
+        huff_make_dhuff_tb(0, p_jinfo_ac_xhuff_tbl_bits, p_jinfo_ac_dhuff_tbl_ml, p_jinfo_ac_dhuff_tbl_maxcode,p_jinfo_ac_dhuff_tbl_mincode,p_jinfo_ac_dhuff_tbl_valptr)
+        huff_make_dhuff_tb(1, p_jinfo_ac_xhuff_tbl_bits, p_jinfo_ac_dhuff_tbl_ml, p_jinfo_ac_dhuff_tbl_maxcode,p_jinfo_ac_dhuff_tbl_mincode,p_jinfo_ac_dhuff_tbl_valptr)
 
       }
+
+      def decode_start(): Unit = {
+
+        // Go to data start
+        scan_ptr := p_jinfo_jpeg_data.value
+        val read_position = Reg[UInt8](0)
+        val read_position_idx = Reg[Int](-1)
+        val current_read_byte = Reg[UInt8](0)
+        val CurrentMCU = Reg[UInt16](0)
+        val HuffBuff = SRAM[UInt16](NUM_COMPONENT,DCTSIZE2)
+        val IDCTBuff = SRAM[UInt16](6,DCTSIZE2)
+
+        def pgetc(): UInt8 = {
+          // val tmp = read_byte()
+          // if (tmp == 255.to[UInt8]){
+          //   if (read_byte() != 0.to[UInt8]){
+          //     println("Unanticipated marker detected.")
+          //     0.to[UInt8]
+          //   } else {
+          //     255.to[UInt8]
+          //   }
+          // } else {
+          //   tmp
+          // }
+          0.to[UInt8]
+        }
+        def buf_getb(): UInt8 = {
+          if (read_position_idx.value < 0.to[Int]) {
+            current_read_byte := pgetc()
+          //   read_position := 0x80.to[UInt8]
+          //   read_position_idx := 7.to[Int]
+          }
+          // val ret = if ((current_read_byte.value & read_position.value.as[UInt8]) == 0.to[UInt8]){
+          //             0.to[UInt8]
+          //           } else {
+          //             1.to[UInt8]
+          //           }
+          // if (read_position_idx.value == 0.to[Int]){read_position_idx := -1} else {read_position := read_position.value >> 1; read_position_idx :-= 1}
+          // ret
+          0.to[UInt8]
+        }
+        def buf_getv(n: UInt8): UInt8 = {
+          // val ret = Reg[UInt8](0)
+          // val p = n - 1 - read_position_idx.value.as[UInt8]
+          // if (read_position_idx.value > 23.to[Int]) { // Not sure how this is ever possible
+          //   val rv = Reg[UInt8](0)
+          //   rv := current_read_byte.value
+          //   Fold(rv)(p.as[Int] by 1){_ => Reg[UInt8](0)}{(a,b) => a << 1} 
+          //   // rv = (current_read_byte << p);  /* Manipulate buffer */
+          //   current_read_byte := pgetc().as[UInt8]
+          //   val new_rv = Reg[UInt8](0)
+          //   new_rv := current_read_byte.value
+          //   Fold(new_rv)((8 - p).as[Int] by 1){_ => Reg[UInt8](0)}{(a,b) => a >> 1}
+          //   val final_rv = new_rv | rv
+          //   read_position_idx := (7 - p).as[Int]
+          //   read_position := Reduce(Reg[UInt8](1))(read_position_idx - 1 by 1){_ => Reg[UInt8](0)}{(a,b) => a << 1}
+          //   ret := (final_rv)// & lmask[n])
+          //   // more specifically here
+  
+          // }
+          // ret.value
+          0.to[UInt8]
+        }
+        def DecodeHuffman(tbl_no: Index, use_dc: Boolean): UInt8 = {
+          val code = Reg[UInt8](0)
+          code := buf_getb()
+          val l = Reg[Int](1)
+          val max_decode = Reg[UInt16](0)
+          FSM[Int](whilst => whilst != -1.to[Int]){whilst => 
+            code := (code << 1) + buf_getb()
+            max_decode := mux(use_dc, p_jinfo_dc_dhuff_tbl_maxcode(tbl_no, l), p_jinfo_ac_dhuff_tbl_maxcode(tbl_no, l))
+            l :+= 1
+          }{whilst => mux(code.value > max_decode.value.as[UInt8], -1, whilst)}
+          val tbl_ml = mux(use_dc, p_jinfo_dc_dhuff_tbl_ml(tbl_no), p_jinfo_ac_dhuff_tbl_ml(tbl_no))
+          if (code < tbl_ml.as[UInt8]) {
+            val ptr = mux(use_dc, p_jinfo_dc_dhuff_tbl_valptr(tbl_no, l), p_jinfo_ac_dhuff_tbl_valptr(tbl_no, l))
+            val mincode = mux(use_dc, p_jinfo_dc_dhuff_tbl_mincode(tbl_no, l), p_jinfo_ac_dhuff_tbl_mincode(tbl_no, l))
+            val p = ptr + code.value.as[UInt16] - mincode
+            p_jinfo_dc_xhuff_tbl_huffval(tbl_no, p.as[Int])
+          } else {
+            println("HUFFMAN READ ERROR")
+            0.to[UInt8]
+          }
+        }
+        def DecodeHuffMCU(num_cmp: Index): Unit = {
+          val tbl_no = component_acdc(num_cmp).dc
+          val s = DecodeHuffman(tbl_no.to[Index], true)
+          if (s != 0.to[UInt8]){
+            val diff = buf_getv(s)
+            // Was working here
+
+          }
+        }
+
+        def decode_block(comp_no: Index, id1: Index, id2:Index): Unit = {
+          val QuantBuff = SRAM[UInt16](DCTSIZE2)
+          DecodeHuffMCU(comp_no)
+
+        }
+
+        Foreach(NUM_COMPONENT by 1) { i => HuffBuff(i,0) = 0 }
+        Foreach(RGB_NUM by 1) { i => out_data_comp_vpos(i) = 0; out_data_comp_hpos(i) = 0 }
+        if (p_jinfo_smp_fact == SF4_1_1.to[UInt2]) {
+          println("Decode 4:1:1")
+          FSM[Int](whilst => whilst != 1){ whilst => 
+            Sequential.Foreach(4 by 1) { i => 
+              decode_block(0, i, 0)
+            }
+
+          }{ whilst => mux(CurrentMCU.value < p_jinfo_NumMCU.value, whilst, -1)}
+        } else {
+          // TODO: Implement this                
+          println("Decode 1:1:1")
+        }
+
+
+      }
+
 
       read_markers()
 
       jpeg_init_decompress()
+
+      decode_start()
 
 
     }
