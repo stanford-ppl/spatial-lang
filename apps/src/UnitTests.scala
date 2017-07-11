@@ -2515,7 +2515,8 @@ object CSV1D extends SpatialApp {
 
     val gold = data.reduce {_+_}
 
-    writeCSV1D[T](data, "/remote/regression/data/1d_store.csv", ",")
+    // writeCSV1D[T](data, "/remote/regression/data/1d_store.csv", ",")
+    writeCSV1D[T](data, "/home/tianzhao/spatial-LSTM/spatial-lang/apps/results/LSTM_Forward_Single/1dMEM.csv", ",")
     printArray(data)
     println("Gold sum is " + gold)
     println("Accel sum is " + r)
@@ -2532,7 +2533,7 @@ object CSV2D extends SpatialApp {
     val rowtile = 2
     val coltile = 16
     val data = loadCSV2D[T]("/remote/regression/data/2d.csv", ",", "\n")
-    writeCSV2D[T](data, "/home/tianzhao/spatial-LSTM/spatial-lang/apps/results/LSTM_Forward_Single/nextMem.csv", ",", "\n")
+    writeCSV2D[T](data, "/home/tianzhao/spatial-LSTM/spatial-lang/apps/results/LSTM_Forward_Single/2dMEM.csv", ",", "\n")
 //    writeCSV2D[T](data, "/remote/regression/data/2d_store.csv", ",", "\n")
     val memrows = ArgIn[Int]
     val memcols = ArgIn[Int]

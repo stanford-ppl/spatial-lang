@@ -16,14 +16,6 @@ import org.virtualized._
  * h_{t-1} \in D_h by N       : weights of the last hidden state
  * h_t \in D_h by N           : weights of the current hidden state
  *
- * Forward network:
- * i_t = sigmoid(W^i x_t + U^i h_{t-1})           (Input gate)
- * f_t = sigmoid(W^f x_t + U^f h_{t-1})           (Forget gate)
- * o_t = sigmoid(W^o x_t + U^o h_{t-1})           (Output gate)
- * c_tl_t = tanh(W^c x_t + U^c h_{t-1})           (New memory gate)
- * c_t = f_t \times c_{t-1} + i_t \times c_tl_t   (Final memory cell)
- * h_t = o_t \times tanh(c_t)
- *
  */
 
 /*
@@ -38,10 +30,6 @@ import org.virtualized._
 
 /*
  * TODO:
- * 1. How to get two pieces of memory?
- * 2. In Spatial, how would I be able to reuse the two LUTs
- * 3. In Spatial, how would I be able to differentiate between where I am loading into? Mux seems to suffix...
- * 4. How do I perform simulate?
  */
 
 object LSTM_Forward_Single extends SpatialApp {
@@ -74,14 +62,6 @@ object LSTM_Forward_Single extends SpatialApp {
     setArg(D_h, mm)
     setArg(d, nn)
     setArg(N, N_classes)
-
-    // Mem test mem
-//    val testMemInput_bfSig = DRAM[T](D_h, N)
-//    val testMemInput_ = DRAM[T](D_h, N)
-//    val testMemInput = DRAM[T](D_h, N)
-//    val testMemInput = DRAM[T](D_h, N)
-//    val testMemInput = DRAM[T](D_h, N)
-//    val testMemInput = DRAM[T](D_h, N)
 
     // Param weights matrices
     val xt = DRAM[T](d, N)
@@ -361,7 +341,6 @@ object LSTM_Forward_Single extends SpatialApp {
     val d = 64
     val N = 32
 
-    // TODO: Get a pretrained model and fetch out weights from one of the gates
     val W_i =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
     val U_i =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
     val W_f =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
