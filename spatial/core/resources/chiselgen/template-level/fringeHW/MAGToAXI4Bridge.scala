@@ -18,7 +18,7 @@ class MAGToAXI4Bridge(val addrWidth: Int, val dataWidth: Int) extends Module {
   // AR
   io.M_AXI.ARID     := io.in.cmd.bits.streamId
   io.M_AXI.ARADDR   := io.in.cmd.bits.addr
-  io.M_AXI.ARLEN    := 1.U
+  io.M_AXI.ARLEN    := io.in.cmd.bits.size
   io.M_AXI.ARSIZE   := 6.U  // 110, for 64-byte burst size
   io.M_AXI.ARBURST  := 1.U  // INCR mode
   io.M_AXI.ARLOCK   := 0.U
@@ -41,10 +41,10 @@ class MAGToAXI4Bridge(val addrWidth: Int, val dataWidth: Int) extends Module {
   io.M_AXI.AWVALID  := io.in.cmd.valid & io.in.cmd.bits.isWr
 
   // W
-  io.M_AXI.WDATA    := io.in.cmd.bits.wdata.reduce{ Cat(_,_) }
+  io.M_AXI.WDATA    := io.in.wdata.bits.wdata.reduce{ Cat(_,_) }
   io.M_AXI.WSTRB    := Fill(64, 1.U)
 //  io.M_AXI.WLAST  // not used currently
-  io.M_AXI.WVALID   := io.in.cmd.valid
+  io.M_AXI.WVALID   := io.in.wdata.valid
 //  io.M_AXI.WREADY  // not used currently
 
   // R
