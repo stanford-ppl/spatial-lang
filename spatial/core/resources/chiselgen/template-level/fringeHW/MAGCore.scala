@@ -142,9 +142,15 @@ class MAGCore(
   val wrPhase = Module(new SRFF())
   wrPhase.io.input.asyn_reset := false.B
 
-  val writeCmd = ~sizeFifo.io.empty & (wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)))
-  val wdataValid = writeCmd & ~wdataFifo.io.empty
+  // For blocking calls, create a new 'issued' signal.
+  // This wire is high if we have a request in flight
+  val issued = Wire(Bool())
+
+  // burstVld is high when the output DRAM command is valid
   val burstVld = Wire(Bool())
+
+  val writeCmd = ~sizeFifo.io.empty & (wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0))) & ~issued
+  val wdataValid = writeCmd & ~wdataFifo.io.empty
 
 //  val burstVld = io.enable & ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
 
@@ -159,9 +165,6 @@ class MAGCore(
   val sparseWriteEnable = Wire(Bool())
   sparseWriteEnable := (isSparse & isWrFifo.io.deq(0) & ~addrFifo.io.empty)
 
-  // For blocking calls, create a new 'issued' signal. This wire is high if we have
-  // a request in flight
-  val issued = Wire(Bool())
   val issuedFF = Module(new FF(1))
   issuedFF.io.init := 0.U
   issuedFF.io.in := Mux(issued, ~io.dram.resp.valid, burstVld & dramReady)
