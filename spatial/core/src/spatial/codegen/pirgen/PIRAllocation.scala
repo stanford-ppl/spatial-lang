@@ -340,7 +340,11 @@ trait PIRAllocation extends PIRTraversal {
         case reader => decompose(reader)
       }
       decompose(mem).zip(dreaders).foreach { case (dmem, dreader) => 
-        val bus = if (isArgIn(mem) || isGetDRAMAddress(mem)) Some(InputArg(s"${quote(dmem)}", dmem)) else None
+        val bus = mem match {
+          case mem if isArgIn(mem) => Some(InputArg(s"${nameOf(mem).getOrElse(quote(dmem))}", dmem))
+          case mem@Def(GetDRAMAddress(dram)) => Some(DramAddress(s"${nameOf(dram).getOrElse(quote(dmem))}_addr", dram, dmem))
+          case _ => None
+        }
         bus.foreach { b => globals += b }
         getReaderCUs(reader).foreach { readerCU =>
           if (!localWritten) { // Write to FIFO/StreamOut/RemoteReg

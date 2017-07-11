@@ -195,6 +195,8 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case mem: OffChip   => emit(s"""val ${quote(mem)} = OffChip("${mem.name}")""")
     case bus: InputArg  => 
       emit(s"""val ${quote(bus)} = ArgIn("${bus.name}")${boundOf.get(compose(bus.dmem)).fold("") { b => s".bound($b)" }}""")
+    case bus: DramAddress  => 
+      emit(s"""val ${quote(bus)} = DRAMAddress("${bus.name}", "${nameOf(bus.dram).getOrElse(quote(bus.dram))}")${boundOf.get(compose(bus.dmem)).fold("") { b => s".bound($b)" }}""")
     case bus: OutputArg => emit(s"""val ${quote(bus)} = ArgOut("${bus.name}")""")
     case bus: ScalarBus => emit(s"""val ${quote(bus)} = Scalar("${bus.name}")""")
     case bus: VectorBus => emit(s"""val ${quote(bus)} = Vector("${bus.name}")""")
@@ -223,6 +225,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
   def quote(x: GlobalComponent): String = x match {
     case OffChip(name)       => s"${name}_oc"
     case mc:MemoryController => s"${mc.name}_mc"
+    case DramAddress(name, _, _)      => s"${name}_da"
     case InputArg(name, _)      => s"${name}_argin"
     case OutputArg(name)     => s"${name}_argout"
     case LocalVectorBus      => "local"

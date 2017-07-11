@@ -66,6 +66,9 @@ trait PIR {
   case class InputArg(override val name: String, dmem:Expr) extends ScalarBus(name) {
     override def toString = s"ain$name"
   }
+  case class DramAddress(override val name: String, dram:Expr, dmem:Expr) extends ScalarBus(name) {
+    override def toString = s"dramAddr$name"
+  }
   case class OutputArg(override val name: String) extends ScalarBus(name) {
     override def toString = s"aout$name"
   }
