@@ -5,14 +5,17 @@ import spatial.interpreter.IStream
 import spatial.interpreter.Interpreter
 import spatial.SpatialConfig
 
-trait SpatialStreamInterpreter extends SpatialCompiler {
-
+trait SpatialStream extends SpatialCompiler {
   case object In extends Bus {
     def length: scala.Int = 42
   }
   case object Out extends Bus {
     def length: scala.Int = 42
   }
+}
+
+trait SpatialStreamInterpreter {
+  self: SpatialStream =>
 
   def prog(): Unit
   def inputs: List[Exp[_]]
@@ -55,7 +58,7 @@ trait SpatialStreamInterpreter extends SpatialCompiler {
 }
 
 
-object StreamInOutMult2 extends SpatialStreamInterpreter {
+object StreamInOutMult2 extends SpatialStream with SpatialStreamInterpreter {
 
   @virtualize def prog(): spatial.dsl.Unit = {
     val in  = StreamIn[Int](In)

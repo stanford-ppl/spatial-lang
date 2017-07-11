@@ -16,6 +16,9 @@ trait Reg extends AInterpreter {
     case RegRead(sym: Sym[_]) =>
       variables(sym)
 
+    case RegNew(EAny(init)) =>
+      init
+
   }
 
 }

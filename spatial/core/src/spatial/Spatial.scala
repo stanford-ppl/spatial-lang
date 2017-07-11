@@ -230,7 +230,6 @@ trait SpatialCompiler extends ArgonCompiler {
   }
   
 }
-
 trait SpatialApp extends ArgonApp with SpatialCompiler {
 
   // Make the "true" entry point final

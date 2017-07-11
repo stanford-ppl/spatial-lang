@@ -19,7 +19,7 @@ trait IStruct extends AInterpreter {
       System.exit(0)
 
     case SimpleStruct(ab) =>
-      ab
+      ab.map(x => (x._1, eval[Any](x._2)))
   }
 
 }

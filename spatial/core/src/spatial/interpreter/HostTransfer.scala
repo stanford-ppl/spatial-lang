@@ -9,10 +9,10 @@ trait HostTransfer extends AInterpreter {
 
   override def matchNode  = super.matchNode.orElse {
 
-    case ArgInNew(EBigDecimal(arg)) =>
+    case ArgInNew(EAny(arg)) =>
       arg
 
-    case ArgOutNew(EBigDecimal(arg)) =>
+    case ArgOutNew(EAny(arg)) =>
       arg
     
     case SetArg(arg: Sym[_], EAny(value)) =>

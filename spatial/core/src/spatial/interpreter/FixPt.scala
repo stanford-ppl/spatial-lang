@@ -16,6 +16,11 @@ trait FixPt extends AInterpreter {
     case FixAdd(EBigDecimal(a), EBigDecimal(b)) =>
       a + b
 
+    case FixPtToFltPt(fixp) =>
+      eval[Float](fixp)
+
+    case FixEql(EAny(a), EAny(b)) =>
+      a == b
   }
 
 }

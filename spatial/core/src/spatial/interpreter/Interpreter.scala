@@ -25,6 +25,8 @@ trait Interpreter
     with IArray
     with IStream
     with IStruct
+    with ISRAM
+    with IBoolean
 {
 
   override def eval[A](x: Any) =
@@ -35,11 +37,14 @@ trait Interpreter
 
   override protected def interpretNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     if (!Interpreter.closed) {
+      if (SpatialConfig.debug) {      
+        println()
+        println(lhs, rhs)
+      }
+
       super.interpretNode(lhs, rhs)
 
       if (SpatialConfig.debug) {
-        println()
-        println(lhs, rhs)
         debug
         println()
         if (IStream.streamsIn.size > 0) {
