@@ -262,7 +262,7 @@ vcs-sw:
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
-	make -C cpp
+	make -j8 -C cpp
 	ln -sf cpp/Top .
 
 vcs-hw:
