@@ -96,7 +96,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), ${writer}_en & ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
+      emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), /*${writer}_en & seems like we don't want this for retime to work*/ ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
 
 
     case FIFODeq(fifo,en) =>

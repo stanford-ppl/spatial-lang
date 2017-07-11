@@ -165,6 +165,10 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
                                  v_samp_factor: UInt8,
                                  quant_tbl_no: UInt8
                                 )
+  @struct case class comp_acdc(index: UInt8,
+                               dc: UInt8,
+                               ac: UInt8
+                              )
 
   @virtualize
   def main() = {
@@ -177,6 +181,7 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
     val M_EOI = 217
     val DCTSIZE2 = 64
     val NUM_COMPONENT = 3
+    val NUM_HUFF_TBLS = 2
     val SF4_1_1 = 2
     val SF1_1_1 = 0
 
@@ -201,6 +206,7 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
       jpg_sram load jpg_dram
 
       val component = SRAM[comp_struct](NUM_COMPONENT)
+      val component_acdc = SRAM[comp_acdc](NUM_COMPONENT)
       val izigzag_index = LUT[Int](64)( 0.to[Int], 1.to[Int], 8.to[Int], 16.to[Int], 9.to[Int], 2.to[Int], 3.to[Int], 10.to[Int],
                                     17.to[Int], 24.to[Int], 32.to[Int], 25.to[Int], 18.to[Int], 11.to[Int], 4.to[Int], 5.to[Int],
                                     12.to[Int], 19.to[Int], 26.to[Int], 33.to[Int], 40.to[Int], 48.to[Int], 41.to[Int], 34.to[Int],
@@ -213,140 +219,615 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
 
       val p_jinfo_quant_tbl_quantval = SRAM[UInt16](4,DCTSIZE2)
 
+      val p_jinfo_dc_xhuff_tbl_bits = SRAM[UInt8](NUM_HUFF_TBLS, 36)
+      val p_jinfo_dc_xhuff_tbl_huffval = SRAM[UInt8](NUM_HUFF_TBLS, 257)
+      val p_jinfo_ac_xhuff_tbl_bits = SRAM[UInt8](NUM_HUFF_TBLS, 36)
+      val p_jinfo_ac_xhuff_tbl_huffval = SRAM[UInt8](NUM_HUFF_TBLS, 257)
+      val p_jinfo_dc_dhuff_tbl_ml = SRAM[UInt16](NUM_HUFF_TBLS)
+      val p_jinfo_dc_dhuff_tbl_maxcode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+      val p_jinfo_dc_dhuff_tbl_mincode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+      val p_jinfo_dc_dhuff_tbl_valptr = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+
       val p_jinfo_smp_fact = Reg[UInt2](0)
-      val unread_marker = Reg[UInt8](0)
-      val scan_ptr = Reg[Int](1)
+      val p_jinfo_num_components = Reg[UInt8](0)
+      val p_jinfo_jpeg_data = Reg[Int](0)
+      val p_jinfo_image_height = Reg[UInt16](0)
+      val p_jinfo_image_width = Reg[UInt16](0)
+      val p_jinfo_MCUHeight = Reg[UInt16](0)
+      val p_jinfo_MCUWidth = Reg[UInt16](0)
+      val p_jinfo_NumMCU = Reg[UInt16](0)
 
-      def read_word(): UInt16 = {
-        val tmp = (jpg_sram(scan_ptr).as[UInt16] << 8) | (jpg_sram(scan_ptr + 1).as[UInt16])
-        Pipe{scan_ptr :+= 2}
-        tmp
-      }
-      def read_byte(): UInt8 = {
-        val tmp = jpg_sram(scan_ptr)
-        Pipe{scan_ptr :+= 1}
-        tmp
-      }
+      def read_markers(): Unit = {
+        val unread_marker = Reg[UInt8](0)
+        val scan_ptr = Reg[Int](1)
 
-      def next_marker(): Unit = {
-        val found = Reg[Boolean](false)
-        found.reset
-        FSM[Int](whilst => whilst != -1.to[Int]){whilst => 
-          if (read_byte() == 255.to[UInt8]) {found := true}
-        }{whilst => mux(found || whilst + scan_ptr > 5207, -1, whilst)}
-      }
-
-      def get_dqt(): Unit = { Sequential{
-        val length = Reg[UInt16](0)
-        length := read_word() - 2
-        // Length check
-
-        val p_jinfo_data_precision = read_byte()
-        val p_jinfo_image_height = read_word()
-        val p_jinfo_image_width = read_word()
-        val p_jinfo_num_components = read_byte()
-        println(" " + length.value + " " + p_jinfo_data_precision + " " + p_jinfo_image_height + " " + p_jinfo_image_width + " " + p_jinfo_num_components)
-
-        // if (length.value != out_length_get_sof || p_jinfo_data_precision != out_data_precision_get_sof ...) {error} 
-        Pipe{length :-= 8} // Why the hell do we do this??
-
-        Foreach(NUM_COMPONENT by 1) { i => 
-          val p_comp_info_index = i.as[UInt8]
-          val p_comp_info_id = read_byte()
-          val c = read_byte()
-          val p_comp_info_h_samp_factor = (c >> 4) & 15
-          val p_comp_info_v_samp_factor = (c) & 15
-          val p_comp_info_quant_tbl_no = read_byte()
-
-          // Some more checks here
-
-          println("writnig " + p_comp_info_index + " " + p_comp_info_id + " " + p_comp_info_h_samp_factor + " " + p_comp_info_v_samp_factor + " " + p_comp_info_quant_tbl_no)
-          component(i) = comp_struct(p_comp_info_index, p_comp_info_id, p_comp_info_h_samp_factor, p_comp_info_v_samp_factor, p_comp_info_quant_tbl_no)
+        def read_word(): UInt16 = {
+          val tmp = (jpg_sram(scan_ptr).as[UInt16] << 8) | (jpg_sram(scan_ptr + 1).as[UInt16])
+          Pipe{scan_ptr :+= 2}
+          tmp
+        }
+        def read_byte(): UInt8 = {
+          val tmp = jpg_sram(scan_ptr)
+          Pipe{scan_ptr :+= 1}
+          tmp
         }
 
-        p_jinfo_smp_fact := mux(component(0).h_samp_factor == 2.to[UInt8], 2, 0)
-      }}
-
-      def get_sof(): Unit = { Sequential{
-        val length = Reg[UInt16](0)
-        length := read_word()
-        val p_jinfo_data_precision = read_byte()
-        val p_jinfo_image_height = read_word()
-        val p_jinfo_image_width = read_word()
-        val p_jinfo_num_components = read_byte()
-        println(" " + length.value + " " + p_jinfo_data_precision + " " + p_jinfo_image_height + " " + p_jinfo_image_width + " " + p_jinfo_num_components)
-
-        // if (length.value != out_length_get_sof || p_jinfo_data_precision != out_data_precision_get_sof ...) {error} 
-        Pipe{length :-= 8} // Why the hell do we do this??
-
-        Foreach(NUM_COMPONENT by 1) { i => 
-          val p_comp_info_index = i.as[UInt8]
-          val p_comp_info_id = read_byte()
-          val c = read_byte()
-          val p_comp_info_h_samp_factor = (c >> 4) & 15
-          val p_comp_info_v_samp_factor = (c) & 15
-          val p_comp_info_quant_tbl_no = read_byte()
-
-          // Some more checks here
-
-          println("writnig " + p_comp_info_index + " " + p_comp_info_id + " " + p_comp_info_h_samp_factor + " " + p_comp_info_v_samp_factor + " " + p_comp_info_quant_tbl_no)
-          component(i) = comp_struct(p_comp_info_index, p_comp_info_id, p_comp_info_h_samp_factor, p_comp_info_v_samp_factor, p_comp_info_quant_tbl_no)
+        def next_marker(): UInt8 = {
+          val potential_marker = Reg[UInt8](0)
+          potential_marker.reset
+          FSM[Int](whilst => whilst != -1.to[Int]){whilst => 
+            if (read_byte() == 255.to[UInt8]) {
+              potential_marker := read_byte()
+            }
+          }{whilst => mux(potential_marker.value != 0.to[UInt8] || whilst + scan_ptr > 5207, -1, whilst)}
+          potential_marker.value
         }
 
-        p_jinfo_smp_fact := mux(component(0).h_samp_factor == 2.to[UInt8], 2, 0)
-      }}
+        def get_dqt(): Unit = {Sequential{
+          val length = Reg[UInt16](0)
+          length := read_word() - 2
+          println("lenght " + length.value)
+          // if (length != 65) quit()
+          FSM[Int](iter => iter != -1) { iter => 
+            val tmp = read_byte()
+            val prec = tmp >> 4
+            val num = (tmp & 0x0f).as[Int]
 
-      def get_dht(): Unit = {Sequential{
-        val length = Reg[UInt16](0)
-        length := read_word() - 2
-        // if (length != 65) quit()
-        FSM[Int](whilst => whilst != -1) { whilst => 
-          val tmp = read_byte()
-          val prec = tmp >> 4
-          val num = (tmp & 0x0f).as[Int]
+            Foreach(DCTSIZE2 by 1){ i => 
+              val tmp = Reg[UInt16](0)
+              if (prec == 1.to[UInt8]) {
+                tmp := read_word()
+              } else {
+                tmp := read_byte().as[UInt16]
+              } 
+              p_jinfo_quant_tbl_quantval(num, izigzag_index(i)) = tmp.value
+            }
+            length := length - (DCTSIZE2 + 1) - mux(prec == 1.to[UInt8], DCTSIZE2, 0)
+          }{iter => mux(length == 0.to[UInt16], -1, iter + 1)}
 
-          Sequential.Foreach(DCTSIZE2 by 1){ i => 
-            val tmp = Reg[UInt16](0)
-            if (prec == 1.to[UInt8]) {
-              tmp := read_word()
-            } else {
-              tmp := read_byte().as[UInt16]
-            } 
-            p_jinfo_quant_tbl_quantval(num, izigzag_index(i)) = tmp
+          // Foreach(4 by 1, 64 by 1){(i,j) => println(" " + i + "," + izigzag_index(j) + " = " + p_jinfo_quant_tbl_quantval(i,izigzag_index(j)))}
+
+        }}
+
+        def get_sof(): Unit = { Sequential{
+          val length = Reg[UInt16](0)
+          length := read_word()
+          val p_jinfo_data_precision = read_byte()
+          p_jinfo_image_height := read_word()
+          p_jinfo_image_width := read_word()
+          p_jinfo_num_components := read_byte()
+          println(" " + length.value + " " + p_jinfo_data_precision + " " + p_jinfo_image_height + " " + p_jinfo_image_width + " " + p_jinfo_num_components)
+
+          // if (length.value != out_length_get_sof || p_jinfo_data_precision != out_data_precision_get_sof ...) {error} 
+          Pipe{length :-= 8} // Why the hell do we do this??
+
+          Foreach(NUM_COMPONENT by 1) { i => 
+            val p_comp_info_index = i.as[UInt8]
+            val p_comp_info_id = read_byte()
+            val c = read_byte()
+            val p_comp_info_h_samp_factor = (c >> 4) & 15
+            val p_comp_info_v_samp_factor = (c) & 15
+            val p_comp_info_quant_tbl_no = read_byte()
+
+            // Some more checks here
+
+            println("writnig " + p_comp_info_index + " " + p_comp_info_id + " " + p_comp_info_h_samp_factor + " " + p_comp_info_v_samp_factor + " " + p_comp_info_quant_tbl_no)
+            component(i) = comp_struct(p_comp_info_index, p_comp_info_id, p_comp_info_h_samp_factor, p_comp_info_v_samp_factor, p_comp_info_quant_tbl_no)
           }
-          length := length - (DCTSIZE2 + 1) - mux(prec == 1.to[UInt8], DCTSIZE2, 0)
-        }{whilst => mux(length > 0.to[UInt16], whilst + 1, -1)}
 
-        Foreach(4 by 1, 64 by 1) {(i,j) => println(" " + i + "," + izigzag_index(j) + " = " + p_jinfo_quant_tbl_quantval(i,izigzag_index(j)))}
+          p_jinfo_smp_fact := mux(component(0).h_samp_factor == 2.to[UInt8], 2, 0)
+        }}
 
-      }}
 
-      // Read markers
-      FSM[Int,Int](0)(sow_SOI => sow_SOI < 2){sow_SOI => 
-        if (sow_SOI == 0.to[Int]) {
-          Pipe{unread_marker := read_byte()}
-        } else {
-          next_marker()
-          unread_marker := read_byte()
+        def get_sos(): Unit = {Sequential{
+          val length = Reg[UInt16](0)
+          length := read_word()
+          val num_comp = read_byte()
+
+          println(" length " + length.value)
+
+          Sequential.Foreach(0 until num_comp.to[Index] by 1) { i => 
+            val cc = read_byte ();
+            val c = read_byte ();
+
+            Foreach(0 until p_jinfo_num_components.value.to[Index] by 1) { ci => 
+              val dc = (c >> 4) & 15
+              val ac = c & 15
+              component_acdc(ci) = comp_acdc(ci.to[UInt8], dc, ac)
+            }
+
+          }
+
+          // pluck off 3 bytes for fun
+          Foreach(3 by 1) { _ => read_byte()}
+          p_jinfo_jpeg_data := scan_ptr.value
+        }}
+
+        def get_dht(): Unit = {Sequential{
+          val length = Reg[UInt16](0)
+          length := read_word() - 2
+          println(" length " + length.value)
+          // if (length != 65) quit()
+          FSM[Int](whilst => whilst != -1) { whilst => 
+            val index = Reg[UInt8](0)
+            index := read_byte()
+            val store_dc = Reg[Boolean](false)
+
+            if ((index.value & 0x10) == 0.to[UInt8]) {
+              store_dc := true
+            } else {
+              store_dc := false
+              index :-= 0x10
+            }
+
+            val count = Reg[Int](0)
+            count.reset
+            Sequential.Foreach(1 until 17 by 1){ i => 
+              val tmp = Reg[UInt8](0)
+              tmp := read_byte()
+              if (store_dc.value) {
+                p_jinfo_dc_xhuff_tbl_bits(index.value.to[Int], i) = tmp
+              } else {
+                p_jinfo_ac_xhuff_tbl_bits(index.value.to[Int], i) = tmp
+              }
+              // println("p_jinfo_dc_xhuff_tbl_bits write " + index.value.to[Int] + "," + i + " = " + tmp.value)
+              count := count + tmp.value.to[Int]
+            }
+
+            println(" dht count " + count.value)
+
+            length :-= 17
+            Sequential.Foreach(0 until count by 1) { i => 
+              if (store_dc.value) {
+                p_jinfo_dc_xhuff_tbl_huffval(index.value.to[Int], i) = read_byte()  
+              } else {
+                p_jinfo_ac_xhuff_tbl_huffval(index.value.to[Int], i) = read_byte()
+              }
+              
+            }
+
+            length := length - count.value.to[UInt16]
+
+          }{whilst => mux(length > 16.to[UInt16], whilst, -1)}
+
+
+        }}
+
+        // Read markers
+        FSM[Int,Int](0)(sow_SOI => sow_SOI != -1){sow_SOI => 
+          if (sow_SOI == 0.to[Int]) {
+            Pipe{unread_marker := read_byte()}
+          } else {
+            unread_marker := next_marker()
+          }
+
+          println("new marker is " + unread_marker)
+
+          if (unread_marker.value == M_SOI.to[UInt8]) {
+            println("M_SOI")
+            // Continue normally
+          } else if (unread_marker.value == M_SOF0.to[UInt8]) {
+            println("M_SOF0")
+            get_sof()
+          } else if (unread_marker.value == M_DQT.to[UInt8]) {
+            println("M_DQT")
+            get_dqt()
+          } else if (unread_marker.value == M_DHT.to[UInt8]) {
+            println("M_DHT")
+            get_dht()          
+          } else if (unread_marker.value == M_SOS.to[UInt8]) {
+            println("M_SOS")
+            get_sos()
+          } else if (unread_marker.value == M_EOI.to[UInt8]) {
+            println("M_EOI")
+            scan_ptr := -1
+          } else {
+            // Do nothing (probably 0xe0)
+          }
+        }{sow_SOI => mux(scan_ptr == -1.to[Int], -1, 1)}
+      }
+
+      def jpeg_init_decompress(): Unit = {
+        def huff_make_dhuff_tb(idx: Int, p_xhtbl_bits: SRAM2[UInt8], p_dhtbl_ml: SRAM1[UInt16], p_dhtbl_maxcode: SRAM2[UInt16], p_dhtbl_mincode: SRAM2[UInt16], p_dhtbl_valptr: SRAM2[UInt16]): Unit = {
+          val huffsize = SRAM[UInt16](257)
+          val huffcode = SRAM[UInt16](257)
+          val p = Reg[Int](0)
+          Foreach(1 until 17 by 1) { i => 
+            val j_max = (p_xhtbl_bits(idx, i) + 1).as[Int]
+            Foreach(1 until j_max by 1) { j => 
+              huffsize(p) = i.as[UInt16]
+              p :+= 1
+            }
+          }
+          huffsize(p) = 0
+          val lastp = p
+          val code = Reg[UInt16](0)
+          val size = Reg[UInt16](0)
+          size := huffsize(0)
+          val pp = Reg[Int](0)
+          code.reset
+
+
+          FSM[Int](whilst1 => whilst1 != -1) { whilst1 => 
+            FSM[Int](whilst2 => whilst2 != -1) { whilst2 => 
+              println("huffocde " + pp + " = " + code)
+              huffcode(pp) = code.value
+              code :+= 1
+              pp :+= 1
+            } {whilst2 => mux((huffsize(p+1) == size.value) && (p < 257), whilst2, -1)}
+
+            val break_cond = huffsize(p) == 0.to[UInt16]
+
+            if (!break_cond) {
+              FSM[Int](whilst2 => whilst2 != -1) { whilst2 => 
+                code := code << 1
+                size :+= 1
+              } { whilst2 => mux(huffsize(p) != size.value, whilst2, -1)}
+            }
+          } {whilst1 => mux((huffsize(p) == 0.to[UInt16]), -1, whilst1)}
+
+
+
         }
 
-        println("new marker is " + unread_marker)
+        p_jinfo_MCUHeight := (p_jinfo_image_height - 1) / 8 + 1
+        p_jinfo_MCUWidth := (p_jinfo_image_width - 1) / 8 + 1
+        p_jinfo_NumMCU := p_jinfo_MCUHeight * p_jinfo_MCUWidth
 
-        if (unread_marker.value == M_SOI.to[UInt8]) {
-          // Continue normally
-        } else if (unread_marker.value == M_SOF0.to[UInt8]) {
-          get_sof()
-        } else if (unread_marker.value == M_DQT.to[UInt8]) {
-          get_dqt()
-        } else if (unread_marker.value == M_DHT.to[UInt8]) {
-          get_dht()          
-        } else {
-          // Do nothing (probably 0xe0)
-        }
-      }{sow_SOI => mux(scan_ptr >= 5207, -1, 1)}
+        huff_make_dhuff_tb(0, p_jinfo_dc_xhuff_tbl_bits, p_jinfo_dc_dhuff_tbl_ml, p_jinfo_dc_dhuff_tbl_maxcode,p_jinfo_dc_dhuff_tbl_mincode,p_jinfo_dc_dhuff_tbl_valptr)
+
+      }
+
+
+      read_markers()
+
+      jpeg_init_decompress()
+
+
     }
 
     val gold_bmp = loadCSV2D[UInt8]("/remote/regression/data/machsuite/jpeg_input.csv", ",", "\n")
-    printMatrix(gold_bmp, "gold")
+    // printMatrix(gold_bmp, "gold")
+  }
+}
+
+
+
+
+object Bug160 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
+  override val target = AWS_F1
+  type UInt8 = FixPt[FALSE, _8, _0]
+  type UInt2 = FixPt[FALSE, _2, _0]
+  type UInt16 = FixPt[FALSE, _16, _0]
+  type UInt = FixPt[FALSE, _32, _0]
+  @struct case class comp_struct(index: UInt8,
+                                 id: UInt8,
+                                 h_samp_factor: UInt8,
+                                 v_samp_factor: UInt8,
+                                 quant_tbl_no: UInt8
+                                )
+  @struct case class comp_acdc(index: UInt8,
+                               dc: UInt8,
+                               ac: UInt8
+                              )
+
+  @virtualize
+  def main() = {
+
+    val M_SOI = 216 // Start of image
+    val M_SOF0 = 192 // Baseline DCT ( Huffman ) 
+    val M_SOS = 218 // Start of Scan ( Head of Compressed Data )
+    val M_DHT = 196
+    val M_DQT = 219
+    val M_EOI = 217
+    val DCTSIZE2 = 64
+    val NUM_COMPONENT = 3
+    val NUM_HUFF_TBLS = 2
+    val SF4_1_1 = 2
+    val SF1_1_1 = 0
+
+    // Validity check values
+    val out_length_get_sof = 17
+    val out_data_precision_get_sof = 8
+    val out_p_jinfo_image_height_get_sof = 59
+    val out_p_jinfo_image_width_get_sof = 90
+    val out_p_jinfo_num_components_get_sof = 3
+
+    val jpg_data = loadCSV1D[UInt8]("/remote/regression/data/machsuite/jpeg_input.csv", ",")
+    val numel = jpg_data.length
+    assert(!(jpg_data(0) != 255.to[UInt8] || jpg_data(1) != M_SOI.to[UInt8]), "Not a jpeg file!")
+
+    val jpg_size = ArgIn[Int]
+    setArg(jpg_size, numel)
+    val jpg_dram = DRAM[UInt8](jpg_size)
+    setMem(jpg_dram, jpg_data)
+
+    Accel{
+      val jpg_sram = SRAM[UInt8](5207)
+      jpg_sram load jpg_dram
+
+      val component = SRAM[comp_struct](NUM_COMPONENT)
+      val component_acdc = SRAM[comp_acdc](NUM_COMPONENT)
+      val izigzag_index = LUT[Int](64)( 0.to[Int], 1.to[Int], 8.to[Int], 16.to[Int], 9.to[Int], 2.to[Int], 3.to[Int], 10.to[Int],
+                                    17.to[Int], 24.to[Int], 32.to[Int], 25.to[Int], 18.to[Int], 11.to[Int], 4.to[Int], 5.to[Int],
+                                    12.to[Int], 19.to[Int], 26.to[Int], 33.to[Int], 40.to[Int], 48.to[Int], 41.to[Int], 34.to[Int],
+                                    27.to[Int], 20.to[Int], 13.to[Int], 6.to[Int], 7.to[Int], 14.to[Int], 21.to[Int], 28.to[Int],
+                                    35.to[Int], 42.to[Int], 49.to[Int], 56.to[Int], 57.to[Int], 50.to[Int], 43.to[Int], 36.to[Int],
+                                    29.to[Int], 22.to[Int], 15.to[Int], 23.to[Int], 30.to[Int], 37.to[Int], 44.to[Int], 51.to[Int],
+                                    58.to[Int], 59.to[Int], 52.to[Int], 45.to[Int], 38.to[Int], 31.to[Int], 39.to[Int], 46.to[Int],
+                                    53.to[Int], 60.to[Int], 61.to[Int], 54.to[Int], 47.to[Int], 55.to[Int], 62.to[Int], 63.to[Int]
+                                  )
+
+      val p_jinfo_quant_tbl_quantval = SRAM[UInt16](4,DCTSIZE2)
+
+      val p_jinfo_dc_xhuff_tbl_bits = SRAM[UInt8](NUM_HUFF_TBLS, 36)
+      val p_jinfo_dc_xhuff_tbl_huffval = SRAM[UInt8](NUM_HUFF_TBLS, 257)
+      val p_jinfo_ac_xhuff_tbl_bits = SRAM[UInt8](NUM_HUFF_TBLS, 36)
+      val p_jinfo_ac_xhuff_tbl_huffval = SRAM[UInt8](NUM_HUFF_TBLS, 257)
+      val p_jinfo_dc_dhuff_tbl_ml = SRAM[UInt16](NUM_HUFF_TBLS)
+      val p_jinfo_dc_dhuff_tbl_maxcode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+      val p_jinfo_dc_dhuff_tbl_mincode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+      val p_jinfo_dc_dhuff_tbl_valptr = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+
+      val p_jinfo_smp_fact = Reg[UInt2](0)
+      val p_jinfo_num_components = Reg[UInt8](0)
+      val p_jinfo_jpeg_data = Reg[Int](0)
+      val p_jinfo_image_height = Reg[UInt16](0)
+      val p_jinfo_image_width = Reg[UInt16](0)
+      val p_jinfo_MCUHeight = Reg[UInt16](0)
+      val p_jinfo_MCUWidth = Reg[UInt16](0)
+      val p_jinfo_NumMCU = Reg[UInt16](0)
+
+      def read_markers(): Unit = {
+        val unread_marker = Reg[UInt8](0)
+        val scan_ptr = Reg[Int](1)
+
+        def read_word(): UInt16 = {
+          val tmp = (jpg_sram(scan_ptr).as[UInt16] << 8) | (jpg_sram(scan_ptr + 1).as[UInt16])
+          Pipe{scan_ptr :+= 2}
+          tmp
+        }
+        def read_byte(): UInt8 = {
+          val tmp = jpg_sram(scan_ptr)
+          Pipe{scan_ptr :+= 1}
+          tmp
+        }
+
+        def next_marker(): UInt8 = {
+          val potential_marker = Reg[UInt8](0)
+          potential_marker.reset
+          FSM[Int](whilst => whilst != -1.to[Int]){whilst => 
+            if (read_byte() == 255.to[UInt8]) {
+              potential_marker := read_byte()
+            }
+          }{whilst => mux(potential_marker.value != 0.to[UInt8] || whilst + scan_ptr > 5207, -1, whilst)}
+          potential_marker.value
+        }
+
+        def get_dqt(): Unit = {Sequential{
+          val length = Reg[UInt16](0)
+          length := read_word() - 2
+          println("lenght " + length.value)
+          // if (length != 65) quit()
+          FSM[Int](iter => iter != -1) { iter => 
+            val tmp = read_byte()
+            val prec = tmp >> 4
+            val num = (tmp & 0x0f).as[Int]
+
+            Foreach(DCTSIZE2 by 1){ i => 
+              val tmp = Reg[UInt16](0)
+              if (prec == 1.to[UInt8]) {
+                tmp := read_word()
+              } else {
+                tmp := read_byte().as[UInt16]
+              } 
+              p_jinfo_quant_tbl_quantval(num, izigzag_index(i)) = tmp.value
+            }
+            length := length - (DCTSIZE2 + 1) - mux(prec == 1.to[UInt8], DCTSIZE2, 0)
+          }{iter => mux(length == 0.to[UInt16], -1, iter + 1)}
+
+          // Foreach(4 by 1, 64 by 1){(i,j) => println(" " + i + "," + izigzag_index(j) + " = " + p_jinfo_quant_tbl_quantval(i,izigzag_index(j)))}
+
+        }}
+
+        def get_sof(): Unit = { Sequential{
+          val length = Reg[UInt16](0)
+          length := read_word()
+          val p_jinfo_data_precision = read_byte()
+          p_jinfo_image_height := read_word()
+          p_jinfo_image_width := read_word()
+          p_jinfo_num_components := read_byte()
+          println(" " + length.value + " " + p_jinfo_data_precision + " " + p_jinfo_image_height + " " + p_jinfo_image_width + " " + p_jinfo_num_components)
+
+          // if (length.value != out_length_get_sof || p_jinfo_data_precision != out_data_precision_get_sof ...) {error} 
+          Pipe{length :-= 8} // Why the hell do we do this??
+
+          Foreach(NUM_COMPONENT by 1) { i => 
+            val p_comp_info_index = i.as[UInt8]
+            val p_comp_info_id = read_byte()
+            val c = read_byte()
+            val p_comp_info_h_samp_factor = (c >> 4) & 15
+            val p_comp_info_v_samp_factor = (c) & 15
+            val p_comp_info_quant_tbl_no = read_byte()
+
+            // Some more checks here
+
+            println("writnig " + p_comp_info_index + " " + p_comp_info_id + " " + p_comp_info_h_samp_factor + " " + p_comp_info_v_samp_factor + " " + p_comp_info_quant_tbl_no)
+            component(i) = comp_struct(p_comp_info_index, p_comp_info_id, p_comp_info_h_samp_factor, p_comp_info_v_samp_factor, p_comp_info_quant_tbl_no)
+          }
+
+          p_jinfo_smp_fact := mux(component(0).h_samp_factor == 2.to[UInt8], 2, 0)
+        }}
+
+
+        def get_sos(): Unit = {Sequential{
+          val length = Reg[UInt16](0)
+          length := read_word()
+          val num_comp = read_byte()
+
+          println(" length " + length.value)
+
+          Sequential.Foreach(0 until num_comp.to[Index] by 1) { i => 
+            val cc = read_byte ();
+            val c = read_byte ();
+
+            Foreach(0 until p_jinfo_num_components.value.to[Index] by 1) { ci => 
+              val dc = (c >> 4) & 15
+              val ac = c & 15
+              component_acdc(ci) = comp_acdc(ci.to[UInt8], dc, ac)
+            }
+
+          }
+
+          // pluck off 3 bytes for fun
+          Foreach(3 by 1) { _ => read_byte()}
+          p_jinfo_jpeg_data := scan_ptr.value
+        }}
+
+        def get_dht(): Unit = {Sequential{
+          val length = Reg[UInt16](0)
+          length := read_word() - 2
+          println(" length " + length.value)
+          // if (length != 65) quit()
+          FSM[Int](whilst => whilst != -1) { whilst => 
+            val index = Reg[UInt8](0)
+            index := read_byte()
+            val store_dc = Reg[Boolean](false)
+
+            if ((index.value & 0x10) == 0.to[UInt8]) {
+              store_dc := true
+            } else {
+              store_dc := false
+              index :-= 0x10
+            }
+
+            val count = Reg[Int](0)
+            count.reset
+            Sequential.Foreach(1 until 17 by 1){ i => 
+              val tmp = Reg[UInt8](0)
+              tmp := read_byte()
+              if (store_dc.value) {
+                p_jinfo_dc_xhuff_tbl_bits(index.value.to[Int], i) = tmp
+              } else {
+                p_jinfo_ac_xhuff_tbl_bits(index.value.to[Int], i) = tmp
+              }
+              // println("p_jinfo_dc_xhuff_tbl_bits write " + index.value.to[Int] + "," + i + " = " + tmp.value)
+              count := count + tmp.value.to[Int]
+            }
+
+            println(" dht count " + count.value)
+
+            length :-= 17
+            Sequential.Foreach(0 until count by 1) { i => 
+              if (store_dc.value) {
+                p_jinfo_dc_xhuff_tbl_huffval(index.value.to[Int], i) = read_byte()  
+              } else {
+                p_jinfo_ac_xhuff_tbl_huffval(index.value.to[Int], i) = read_byte()
+              }
+              
+            }
+
+            length := length - count.value.to[UInt16]
+
+          }{whilst => mux(length > 16.to[UInt16], whilst, -1)}
+
+
+        }}
+
+        // Read markers
+        FSM[Int,Int](0)(sow_SOI => sow_SOI != -1){sow_SOI => 
+          if (sow_SOI == 0.to[Int]) {
+            Pipe{unread_marker := read_byte()}
+          } else {
+            unread_marker := next_marker()
+          }
+
+          println("new marker is " + unread_marker)
+
+          if (unread_marker.value == M_SOI.to[UInt8]) {
+            println("M_SOI")
+            // Continue normally
+          } else if (unread_marker.value == M_SOF0.to[UInt8]) {
+            println("M_SOF0")
+            get_sof()
+          } else if (unread_marker.value == M_DQT.to[UInt8]) {
+            println("M_DQT")
+            get_dqt()
+          } else if (unread_marker.value == M_DHT.to[UInt8]) {
+            println("M_DHT")
+            get_dht()          
+          } else if (unread_marker.value == M_SOS.to[UInt8]) {
+            println("M_SOS")
+            get_sos()
+          } else if (unread_marker.value == M_EOI.to[UInt8]) {
+            println("M_EOI")
+            scan_ptr := -1
+          } else {
+            // Do nothing (probably 0xe0)
+          }
+        }{sow_SOI => mux(scan_ptr == -1.to[Int], -1, 1)}
+      }
+
+      def jpeg_init_decompress(): Unit = {
+        def huff_make_dhuff_tb(idx: Int, p_xhtbl_bits: SRAM2[UInt8], p_dhtbl_ml: SRAM1[UInt16], p_dhtbl_maxcode: SRAM2[UInt16], p_dhtbl_mincode: SRAM2[UInt16], p_dhtbl_valptr: SRAM2[UInt16]): Unit = {
+          val huffsize = SRAM[UInt16](257)
+          val huffcode = SRAM[UInt16](257)
+          val p = Reg[Int](0)
+          Foreach(1 until 17 by 1) { i => 
+            val j_max = (p_xhtbl_bits(idx, i) + 1).as[Int]
+            Foreach(1 until j_max by 1) { j => 
+              huffsize(p) = i.as[UInt16]
+              p :+= 1
+            }
+          }
+          huffsize(p) = 0
+          val lastp = p
+          val code = Reg[UInt16](0)
+          val size = Reg[UInt16](0)
+          size := huffsize(0)
+          val pp = Reg[Int](0)
+          code.reset
+
+
+          FSM[Int](whilst1 => whilst1 != -1) { whilst1 => 
+            FSM[Int](whilst2 => whilst2 != -1) { whilst2 => 
+              println("huffocde " + pp + " = " + code)
+              huffcode(pp) = code.value
+              code :+= 1
+              pp :+= 1
+            } {whilst2 => mux((huffsize(p+1) == size.value) && (p < 257), whilst2, -1)}
+
+            val break_cond = huffsize(p) == 0.to[UInt16]
+
+            if (!break_cond) {
+              FSM[Int](whilst2 => whilst2 != -1) { whilst2 => 
+                code := code << 1
+                size :+= 1
+              } { whilst2 => mux(huffsize(p) != size.value, whilst2, -1)}
+            }
+          } {whilst1 => mux((huffsize(p) == 0.to[UInt16]), -1, whilst1)}
+
+
+
+        }
+
+        p_jinfo_MCUHeight := (p_jinfo_image_height - 1) / 8 + 1
+        p_jinfo_MCUWidth := (p_jinfo_image_width - 1) / 8 + 1
+        p_jinfo_NumMCU := p_jinfo_MCUHeight * p_jinfo_MCUWidth
+
+        huff_make_dhuff_tb(0, p_jinfo_dc_xhuff_tbl_bits, p_jinfo_dc_dhuff_tbl_ml, p_jinfo_dc_dhuff_tbl_maxcode,p_jinfo_dc_dhuff_tbl_mincode,p_jinfo_dc_dhuff_tbl_valptr)
+
+      }
+
+
+      read_markers()
+
+      jpeg_init_decompress()
+
+
+    }
+
+    val gold_bmp = loadCSV2D[UInt8]("/remote/regression/data/machsuite/jpeg_input.csv", ",", "\n")
+    // printMatrix(gold_bmp, "gold")
   }
 }
