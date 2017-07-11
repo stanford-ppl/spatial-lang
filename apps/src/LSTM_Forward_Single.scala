@@ -53,15 +53,17 @@ object LSTM_Forward_Single extends SpatialApp {
     /* Inputs */
     x: Matrix[T], h: Matrix[T],
     /* Sizes */
-    mm: Int, nn: Int, N_classes: Int
+    mm: Int, nn: Int, N_classes: Int, N_steps: Int
   ) = {
     val D_h = ArgIn[Int]
     val d = ArgIn[Int]
     val N = ArgIn[Int]
+    val E = ArgIn[Int]
 
     setArg(D_h, mm)
     setArg(d, nn)
     setArg(N, N_classes)
+    setArg(E, N_steps)
 
     // Param weights matrices
     val xt = DRAM[T](d, N)
@@ -135,58 +137,11 @@ object LSTM_Forward_Single extends SpatialApp {
        * Number of samples: 128
        * Precision: 64 / 128 = 0.5
        */
-      val sigmoidLUT = LUT[T](totalSize)(
-        0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T],
-        0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T], 0.0000000000.to[T],
-        0.0000000000.to[T], 0.0000000001.to[T], 0.0000000001.to[T], 0.0000000002.to[T], 0.0000000003.to[T], 0.0000000005.to[T], 0.0000000008.to[T], 0.0000000013.to[T],
-        0.0000000021.to[T], 0.0000000034.to[T], 0.0000000056.to[T], 0.0000000092.to[T], 0.0000000152.to[T], 0.0000000251.to[T], 0.0000000414.to[T], 0.0000000683.to[T],
-        0.0000001125.to[T], 0.0000001855.to[T], 0.0000003059.to[T], 0.0000005043.to[T], 0.0000008315.to[T], 0.0000013710.to[T], 0.0000022603.to[T], 0.0000037266.to[T],
-        0.0000061442.to[T], 0.0000101300.to[T], 0.0000167014.to[T], 0.0000275357.to[T], 0.0000453979.to[T], 0.0000748462.to[T], 0.0001233946.to[T], 0.0002034270.to[T],
-        0.0003353501.to[T], 0.0005527786.to[T], 0.0009110512.to[T], 0.0015011823.to[T], 0.0024726232.to[T], 0.0040701377.to[T], 0.0066928509.to[T], 0.0109869426.to[T],
-        0.0179862100.to[T], 0.0293122308.to[T], 0.0474258732.to[T], 0.0758581800.to[T], 0.1192029220.to[T], 0.1824255238.to[T], 0.2689414214.to[T], 0.3775406688.to[T],
-        0.5000000000.to[T], 0.6224593312.to[T], 0.7310585786.to[T], 0.8175744762.to[T], 0.8807970780.to[T], 0.9241418200.to[T], 0.9525741268.to[T], 0.9706877692.to[T],
-        0.9820137900.to[T], 0.9890130574.to[T], 0.9933071491.to[T], 0.9959298623.to[T], 0.9975273768.to[T], 0.9984988177.to[T], 0.9990889488.to[T], 0.9994472214.to[T],
-        0.9996646499.to[T], 0.9997965730.to[T], 0.9998766054.to[T], 0.9999251538.to[T], 0.9999546021.to[T], 0.9999724643.to[T], 0.9999832986.to[T], 0.9999898700.to[T],
-        0.9999938558.to[T], 0.9999962734.to[T], 0.9999977397.to[T], 0.9999986290.to[T], 0.9999991685.to[T], 0.9999994957.to[T], 0.9999996941.to[T], 0.9999998145.to[T],
-        0.9999998875.to[T], 0.9999999317.to[T], 0.9999999586.to[T], 0.9999999749.to[T], 0.9999999848.to[T], 0.9999999908.to[T], 0.9999999944.to[T], 0.9999999966.to[T],
-        0.9999999979.to[T], 0.9999999987.to[T], 0.9999999992.to[T], 0.9999999995.to[T], 0.9999999997.to[T], 0.9999999998.to[T], 0.9999999999.to[T], 0.9999999999.to[T],
-        1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T],
-        1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T], 1.0000000000.to[T])
+      val sigmoidLUT = LUT.fromFile[T](totalSize)("/home/tianzhao/spatial-LSTM/spatial-lang/apps/src/__128_sigmoidLUT.csv")
+      def sigmoid(p: T) = { sigmoidLUT(((p + lo) * revPrec).to[Int]) }
 
-      def sigmoid(p: T) = {
-        sigmoidLUT(((p + lo) * revPrec).to[Int])
-      }
-
-      /*
-       * LUT table for tanh function:
-       * Input lower bound: -32.0
-       * Input upper bound: 32.0
-       * Output lower bound: -1
-       * Output upper bound: 1
-       * Number of samples: 128
-       * Precision: 64 / 128 = 0.5
-       */
-      val tanhLUT = LUT[T](totalSize) (
-        -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T],
-        -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T],
-        -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T],
-        -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T],
-        -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T], -1.0000000000.to[T],
-        -0.9999999999.to[T], -0.9999999998.to[T], -0.9999999994.to[T], -0.9999999985.to[T], -0.9999999959.to[T], -0.9999999888.to[T], -0.9999999695.to[T], -0.9999999172.to[T],
-        -0.9999997749.to[T], -0.9999993882.to[T], -0.9999983369.to[T], -0.9999954794.to[T], -0.9999877117.to[T], -0.9999665972.to[T], -0.9999092043.to[T], -0.9997532108.to[T],
-        -0.9993292997.to[T], -0.9981778976.to[T], -0.9950547537.to[T], -0.9866142982.to[T], -0.9640275801.to[T], -0.9051482536.to[T], -0.7615941560.to[T], -0.4621171573.to[T],
-         0.0000000000.to[T],  0.4621171573.to[T],  0.7615941560.to[T],  0.9051482536.to[T],  0.9640275801.to[T],  0.9866142982.to[T],  0.9950547537.to[T],  0.9981778976.to[T],
-         0.9993292997.to[T],  0.9997532108.to[T],  0.9999092043.to[T],  0.9999665972.to[T],  0.9999877117.to[T],  0.9999954794.to[T],  0.9999983369.to[T],  0.9999993882.to[T],
-         0.9999997749.to[T],  0.9999999172.to[T],  0.9999999695.to[T],  0.9999999888.to[T],  0.9999999959.to[T],  0.9999999985.to[T],  0.9999999994.to[T],  0.9999999998.to[T],
-         0.9999999999.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],
-         1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],
-         1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],
-         1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],
-         1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T],  1.0000000000.to[T])
-
-      def tanh(p: T) = {
-        tanhLUT(((p + lo) * revPrec).to[Int])
-      }
+      val tanhLUT = LUT[T].fromFile[T](totalSize) ("/home/tianzhao/spatial-LSTM/spatial-lang/apps/src/__128_tanhLUT.csv")
+      def tanh(p: T) = { tanhLUT(((p + lo) * revPrec).to[Int])}
 
       /*
        * A function that preforms tile-level batch multiplication of a^Tx, and pass the result
@@ -254,11 +209,13 @@ object LSTM_Forward_Single extends SpatialApp {
         /* Sizes */
         m: Int, n: Int, p: Int, q: Int, mm: Int, nn: Int, pp: Int, qq: Int
       ) = {
+        // Steps
+
+
         Foreach(m by mm, n by nn) { (i,j) =>
           // Test result
           val reg_ct = Reg[T](0.to[T])
 
-          // Meaningful inputs
           val tile_WiTx = SRAM[T](mm, nn)
           val tile_UiTh = SRAM[T](mm, nn)
           val tile_WfTx = SRAM[T](mm, nn)
@@ -279,7 +236,7 @@ object LSTM_Forward_Single extends SpatialApp {
                  (tile_WfTx, Wf, x, p, pp), (tile_UfTh, Uf, h, q, qq),
                  (tile_WoTx, Wo, x, p, pp), (tile_UoTh, Uo, h, q, qq),
                  (tile_WcTx, Wc, x, p, pp), (tile_UcTh, Uc, h, q, qq)
-                 ).foreach { case (tile, w1, x1, len, step) => tileBatchMult(tile, w1, x1, i, j, p, pp, mm, nn)}
+                 ).foreach { case (tile, w1, x1, len, step) => tileBatchMult(tile, w1, x1, i, j, p, pp, mm, nn) }
             tile_Wc_t_1 load Wc_t_1(i::i+mm, j::j+nn)
           }
 
@@ -340,6 +297,7 @@ object LSTM_Forward_Single extends SpatialApp {
     val D_h = 64
     val d = 64
     val N = 32
+    val N_steps = 4
 
     val W_i =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
     val U_i =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
@@ -359,7 +317,7 @@ object LSTM_Forward_Single extends SpatialApp {
       /* Inputs */
       x_t, h_t_1,
       /* Sizes */
-      D_h, d, N
+      D_h, d, N, N_steps
     )
 
     printMatrix(nextMem, "LSTM nextMem = ")
