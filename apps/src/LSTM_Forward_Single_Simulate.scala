@@ -7,6 +7,7 @@ object LSTM_Forward_Single_Simulate extends SpatialApp {
   // TODO: need to conform the result with Spatial sim result
   // TODO: need to load in more accurate data from tensorflow weights
   type X = FixPt[TRUE,_32,_32]
+  // type X = Float
 
   @virtualize
   def main() = {
@@ -26,58 +27,38 @@ object LSTM_Forward_Single_Simulate extends SpatialApp {
 
     println("Fake test Arg = " + y)
 
-    def loadMatrix(fileName: String, nRow: Int, nCol: Int) : Array[Array[Float]]  = {
-      val csvArray = loadCSV1D[Float](fileName, "\n")
-      val csvMat = Array.tabulate(nRow) { h =>
-        Array.tabulate(nCol) (w => csvArray(h * N + w))
-      }
+//    def sigmoid(x: X) : X= {
+//      return 1 / (1 + exp(-x))
+//    }
 
-      return csvMat
+    val W_i =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val U_i =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val W_f =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val U_f =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val W_o =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val U_o =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val W_c =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val U_c =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val x_t =     loadCSV2D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", ",", "\n")
+    val h_t_1 =   loadCSV2D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", ",", "\n")
+    val W_c_t_1 = loadCSV2D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", ",", "\n")
+
+    val gold_newMemGate = (0::D_h, 0::N){(i,j) =>
+      Array.tabulate(d){ k => W_f(i,k) * x_t(k,j) + U_f(i,k) * h_t_1(k,j) }.reduce{_+_} * W_c_t_1(i,j) +
+        Array.tabulate(d){ k => W_i(i,k) * x_t(k,j) + U_i(i,k) * h_t_1(k,j) }.reduce{_+_} *
+          Array.tabulate(d) { k => W_c(i,k) * x_t(k,j) + U_c(i,k) * h_t_1(k,j) }.reduce{_+_}
     }
 
-    def sigmoid(x: Float) : Float  = {
-      return 1 / (1 + exp(-x))
+    val gold_newHiddenState = (0::D_h, 0::N){(i,j) =>
+      val memState = Array.tabulate(d){ k => W_f(i,k) * x_t(k,j) + U_f(i,k) * h_t_1(k,j) }.reduce{_+_} * W_c_t_1(i,j) +
+                      Array.tabulate(d){ k => W_i(i,k) * x_t(k,j) + U_i(i,k) * h_t_1(k,j) }.reduce{_+_} *
+                        Array.tabulate(d) { k => W_c(i,k) * x_t(k,j) + U_c(i,k) * h_t_1(k,j) }.reduce{_+_}
+      memState * Array.tabulate(d) { k => W_o(i,k) * x_t(k,j) + U_o(i,k) * h_t_1(k,j) }.reduce{_+_}
     }
 
-    // TODO: Get a pretrained model and fetch out weights from one of the gates
-    val W_i =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
-    val U_i =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
-    val W_f =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
-    val U_f =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
-    val W_o =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
-    val U_o =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
-    val W_c =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
-    val U_c =     loadMatrix("/home/tianzhao/data/64_by_64_basic_eles.csv", D_h, d)
-    val x_t =     loadMatrix("/home/tianzhao/data/64_by_32_basic_eles.csv", D_h, N)
-    val h_t_1 =   loadMatrix("/home/tianzhao/data/64_by_32_basic_eles.csv", D_h, N)
-    val W_c_t_1 = loadMatrix("/home/tianzhao/data/64_by_32_basic_eles.csv", D_h, N)
-
-    //val W_i = loadCSV1D[X]("/home/tianzhao/data/64_by_64_eles.csv", "\n")
-    //println("first double " + W_i(1))
-
-
-    val goldHidden = Array.tabulate(D_h) { i =>
-      val W_i_row = W_i(i)
-      val U_i_row = U_i(i)
-      val W_f_row = W_f(i)
-      val U_f_row = W_f(i)
-      val W_o_row = W_o(i)
-      val U_o_row = W_o(i)
-      val W_c_row = W_c(i)
-      val U_c_row = W_c(i)
-      Array.tabulate(N) { j =>
-        val x_t_col = x_t.map{row => row(j)}
-        val h_t_1_col = h_t_1.map{row => row(j)}
-        val W_c_t_1_col = W_c_t_1.map{row => row(j)}
-
-        W_i_row.zip(x_t_col){_*_}.reduce{_+_} + U_i_row.zip(h_t_1_col){_*_}.reduce{_+_}
-        //val newMemVal = (sigmoid(W_i_row.zip(x_t_col){_*_}.reduce{_+_} + U_i_row.zip(h_t_1_col){_*_}.reduce{_+_}) *
-        //    tanh(W_c_row.zip(x_t_col){_*_}.reduce{_+_} + U_c_row.zip(h_t_1_col){_*_}.reduce{_+_})) +
-        //  (W_c_t_1_col(i) * sigmoid(W_f_row.zip(x_t_col){_*_}.reduce{_+_} + U_f_row.zip(h_t_1_col){_*_}.reduce{_+_}))
-
-        //tanh(newMemVal) * sigmoid(W_o_row.zip(x_t_col){_*_}.reduce{_+_} + U_o_row.zip(h_t_1_col){_*_}.reduce{_+_})
-      }
-    }.flatten
-    printArray(goldHidden, "gold = ")
+    printMatrix(gold_newHiddenState, "Gold hiddenState:")
+    writeCSV2D[X](gold_newHiddenState, "/home/tianzhao/spatial-LSTM/spatial-lang/apps/results/LSTM_Forward_Single/gold_newHiddenState.csv", ",", "\n")
+    printMatrix(gold_newMemGate, "Gold memGate:")
+    writeCSV2D[X](gold_newMemGate, "/home/tianzhao/spatial-LSTM/spatial-lang/apps/results/LSTM_Forward_Single/gold_newMemGate.csv", ",", "\n")
   }
 }

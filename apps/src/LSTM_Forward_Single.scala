@@ -53,17 +53,17 @@ object LSTM_Forward_Single extends SpatialApp {
   @virtualize
   def GateForward[T:Type:Num] (
     /* Input gate */
-    W_in: Array[T], U_in: Array[T],
+    W_in: Matrix[T], U_in: Matrix[T],
     /* Forget gate */
-    W_forget: Array[T], U_forget: Array[T],
+    W_forget: Matrix[T], U_forget: Matrix[T],
     /* Output gate */
-    W_output: Array[T], U_output: Array[T],
+    W_output: Matrix[T], U_output: Matrix[T],
     /* New memory gate */
-    W_new_mem: Array[T], U_new_mem: Array[T],
+    W_new_mem: Matrix[T], U_new_mem: Matrix[T],
     /* Old memory gate */
-    W_c_t_1: Array[T],
+    W_c_t_1: Matrix[T],
     /* Inputs */
-    x: Array[T], h: Array[T],
+    x: Matrix[T], h: Matrix[T],
     /* Sizes */
     mm: Int, nn: Int, N_classes: Int
   ) = {
@@ -317,8 +317,15 @@ object LSTM_Forward_Single extends SpatialApp {
 //
 //            // h_t = o_t \times tanh(c_t)
 //            tile_new_hidden(ii, jj) = sigmoid(tile_WoTx(ii, jj) + tile_UoTh(ii, jj)) * tanh(reg_ct.value)
-              tile_new_mem(ii, jj) = tile_WfTx(ii, jj) + tile_UfTh(ii, jj)
-              tile_new_hidden(ii, jj) = tile_WiTx(ii, jj) + tile_UiTh(ii, jj)
+//
+
+//              tile_new_mem(ii, jj) = tile_WfTx(ii, jj) + tile_UfTh(ii, jj)
+//              tile_new_hidden(ii, jj) = tile_WiTx(ii, jj) + tile_UiTh(ii, jj)
+//
+            reg_ct := (tile_WfTx(ii, jj) + tile_UfTh(ii, jj)) * tile_Wc_t_1(ii, jj) +
+                             (tile_WiTx(ii, jj) + tile_UiTh(ii, jj)) * (tile_WcTx(ii, jj) + tile_UcTh(ii, jj))
+            tile_new_mem(ii, jj) = reg_ct.value
+            tile_new_hidden(ii, jj) = (tile_WoTx(ii, jj) + tile_UoTh(ii, jj)) * (reg_ct.value)
           }
 
           next_mem(i::i+mm, j::j+nn) store tile_new_mem
@@ -345,7 +352,7 @@ object LSTM_Forward_Single extends SpatialApp {
       )
     }
 
-    (getMem(next_mem), getMem(next_hidden_state))
+    (getMatrix(next_mem), getMatrix(next_hidden_state))
   }
 
   @virtualize
@@ -355,17 +362,17 @@ object LSTM_Forward_Single extends SpatialApp {
     val N = 32
 
     // TODO: Get a pretrained model and fetch out weights from one of the gates
-    val W_i =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
-    val U_i =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
-    val W_f =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
-    val U_f =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
-    val W_o =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
-    val U_o =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
-    val W_c =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
-    val U_c =     loadCSV1D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", "\n")
-    val x_t =     loadCSV1D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", "\n")
-    val h_t_1 =   loadCSV1D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", "\n")
-    val W_c_t_1 = loadCSV1D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", "\n")
+    val W_i =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val U_i =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val W_f =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val U_f =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val W_o =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val U_o =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val W_c =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val U_c =     loadCSV2D[X]("/home/tianzhao/data/64_by_64_basic_eles.csv", ",", "\n")
+    val x_t =     loadCSV2D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", ",", "\n")
+    val h_t_1 =   loadCSV2D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", ",", "\n")
+    val W_c_t_1 = loadCSV2D[X]("/home/tianzhao/data/64_by_32_basic_eles.csv", ",", "\n")
 
     val (nextMem, nextHidden) = GateForward (
       /* Weights */
@@ -376,34 +383,9 @@ object LSTM_Forward_Single extends SpatialApp {
       D_h, d, N
     )
 
-    printArray(nextMem, "LSTM nextMem = ")
-//    printArray(nextHidden, "LSTM nextHidden = ")
-
-    // Calculate gold
-    //
-    //
-//    Array.tabulate() {
-//
-//    }
-//    val gold = Array.tabulate(D_h) { i =>
-//     val Wi_Row = W_i.slice(i, 64)
-//     val Ui_Row = U_i.slice(i, 64)
-//     val Wf_Row = W_f.slice(i, 64)
-//     val Uf_Row = U_f.slice(i, 64)
-//     val Wo_Row = W_o.slice(i, 64)
-//     val Uo_Row = U_o.slice(i, 64)
-//     val Wc_Row = W_c.slice(i, 64)
-//     val Uc_Row = U_c.slice(i, 64)
-//     Array.tabulate(N) { j =>
-//       val xt_Col = x_t.map(row => row(j))
-//       val ht1_Col = h_t_1.map(row => row(j))
-//       Wi_Row.zip(xt_Col){_*_}.reduce{_+_} + Ui_Row.zip(ht1_Col){_*_}.reduce{_+_} +
-//       Wf_Row.zip(xt_Col){_*_}.reduce{_+_} + Uf_Row.zip(ht1_Col){_*_}.reduce{_+_} +
-//       Wo_Row.zip(xt_Col){_*_}.reduce{_+_} + Uo_Row.zip(ht1_Col){_*_}.reduce{_+_} +
-//       Wc_Row.zip(xt_Col){_*_}.reduce{_+_} + Uc_Row.zip(ht1_Col){_*_}.reduce{_+_}
-//     }
-//    }.flatten
-//
-    // printArray(gold, "Gold result is: ")
+    printMatrix(nextMem, "LSTM nextMem = ")
+    writeCSV2D[X](nextMem, "/home/tianzhao/spatial-LSTM/spatial-lang/apps/results/LSTM_Forward_Single/nextMem.csv", ",", "\n")
+    printMatrix(nextHidden, "LSTM nextHidden = ")
+    writeCSV2D[X](nextHidden, "/home/tianzhao/spatial-LSTM/spatial-lang/apps/results/LSTM_Forward_Single/nextHidden.csv", ",", "\n")
   }
 }
