@@ -105,13 +105,13 @@ object utils {
   @stateful def lca(a: Ctrl, b: Ctrl): Option[Ctrl] = leastCommonAncestor[Ctrl](a, b, {x => parentOf(x)})
 
   @stateful def dependenciesOf(a: Ctrl): Set[Ctrl] = {
-    if (a.isInner) {
+    if (a.block > 0) {
       val parent = parentOf(a).get
       val children = childrenOf(parent) filterNot (_ == a)
       val leaves = children.filter{x => !children.exists{child => dependenciesOf(child) contains x}}
       leaves.toSet
     }
-    else ctrlDepsOf(a.node).map{node => (node,false) }
+    else ctrlDepsOf(a.node).map{node => (node,-1) }
   }
 
   /**
@@ -127,6 +127,13 @@ object utils {
     */
   @stateful def lcaWithDistance(a: Ctrl, b: Ctrl): (Ctrl, Int) = {
     if (a == b) (a, 0)
+    else if (a.node == b.node) {
+      // If these are sub-controller stages, use the block to define the distance
+      // -1 denotes an input to the controller itself (e.g. for loop bounds, enable, etc.)
+      // The distance between a controller's inputs and its sub-controllers is defined to be 0
+      if (a.block >= 0 && b.block >= 0) ((a.node,-1), b.block - a.block)
+      else ((a.node,-1), 0)
+    }
     else {
       val (lca, pathA, pathB) = leastCommonAncestorWithPaths[Ctrl](a, b, {node => parentOf(node)})
       if (lca.isEmpty) throw new NoCommonParentException(a,b)
@@ -334,7 +341,7 @@ object utils {
     treeLevel(nLeaves, 0)
   }
 
-  def mirrorCtrl(x: Ctrl, f: Transformer): Ctrl = (f(x.node), x.isInner)
+  def mirrorCtrl(x: Ctrl, f: Transformer): Ctrl = (f(x.node), x.block)
   def mirrorAccess(x: Access, f: Transformer): Access = (f(x.node), mirrorCtrl(x.ctrl, f))
 
   /** Parallelization factors **/
@@ -359,7 +366,42 @@ object utils {
   /** Control Nodes **/
   implicit class CtrlOps(x: Ctrl) {
     def node: Exp[_] = if (x == null) null else x._1
-    def isInner: Boolean = if (x == null) false else x._2
+    def block: Int = if (x == null) -1 else x._2
+    @stateful def isInner: Boolean = if (x == null || block < 0) false else node match {
+      case Op(OpReduce(_,_,_,map,ld,reduce,store,_,_,_,_)) => block match {
+        case 0 => isInnerControl(node)
+        case 1 => true
+      }
+      case Op(OpMemReduce(_,_,_,_,map,ldRes,ldAcc,reduce,stAcc,_,_,_,_,_)) => block match {
+        case 0 => isInnerControl(node)
+        case 1 => true
+      }
+      case Op(StateMachine(_,_,notdone,action,nextState,_)) => block match {
+        case 0 => true
+        case 1 => isInnerControl(node)
+        case 2 => true
+      }
+      case _ => isInnerControl(node)
+    }
+  }
+  @stateful def blockCountRemap(x: Ctrl, blockNum: Int): Int = if (blockNum < 0) blockNum else x.node match {
+    case Op(_:OpReduce[_]) => blockNum match {
+      case 0 => 0
+      case 1 | 2 | 3 => 1
+    }
+    case Op(_:OpMemReduce[_,_]) => blockNum match {
+      case 0 => 0
+      case 1 | 2 | 3 | 4 => 1
+    }
+    case _ => blockNum
+  }
+
+
+  @stateful def implicitChildren(x: Ctrl): List[Ctrl] = x.node match {
+    case Op(_:OpReduce[_]) => List((x.node,1))
+    case Op(_:OpMemReduce[_,_]) => List((x.node,3))
+    case Op(_:StateMachine[_])  => if (isInnerControl(x.node)) List((x.node,0),(x.node,1),(x.node,2)) else List((x.node,0),(x.node,2))
+    case _ => Nil
   }
 
 
@@ -626,7 +668,8 @@ object utils {
     def node: Exp[_] = x._1
     def ctrl: Ctrl = x._2 // read or write enabler
     def ctrlNode: Exp[_] = x._2._1 // buffer control toggler
-    def isInner: Boolean = x._2._2
+    def ctrlBlock: Int = x._2._2
+    @stateful def isInner: Boolean = x._2.isInner
   }
 
   // Memory, optional value, optional indices, optional enable

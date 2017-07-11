@@ -182,8 +182,8 @@ case class Children(children: List[Exp[_]]) extends Metadata[Children] { def mir
   def update(x: Exp[_], children: List[Exp[_]]) = metadata.add(x, Children(children))
 
   def apply(x: Ctrl): List[Ctrl] = {
-    val children = childrenOf(x.node).map{child => (child, false) }
-    if (!x.isInner) children :+ ((x.node,true))
+    val children = childrenOf(x.node).map{child => (child, -1) }
+    if (x.block < 0) children ++ implicitChildren(x)  // Include controllers without nodes (e.g. the reduction of a Reduce)
     else children
   }
 }
@@ -197,7 +197,7 @@ case class Parent(parent: Exp[_]) extends Metadata[Parent] { def mirror(f:Tx) = 
   def apply(x: Exp[_]): Option[Exp[_]] = metadata[Parent](x).map(_.parent)
   def update(x: Exp[_], parent: Exp[_]) = metadata.add(x, Parent(parent))
 
-  def apply(x: Ctrl): Option[Ctrl] = if (x.isInner) Some((x.node, false)) else parentOf(x.node).map{x => (x,false)}
+  def apply(x: Ctrl): Option[Ctrl] = if (x.block >= 0) Some((x.node, -1)) else parentOf(x.node).map{x => (x,-1) }
 }
 
 case class CtrlDeps(deps: Set[Exp[_]]) extends Metadata[CtrlDeps] { def mirror(f:Tx) = CtrlDeps(f.tx(deps)) }

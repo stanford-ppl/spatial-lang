@@ -167,7 +167,7 @@ trait SpatialInternalAliases extends SpatialCommonAliases with ArgonInternalAlia
   val MBinaryFile = spatial.lang.BinaryFile
   val Switches = spatial.lang.Switches
 
-  type Ctrl = (argon.core.Exp[_], Boolean)
+  type Ctrl = (argon.core.Exp[_], Int)
   type Access = (argon.core.Exp[_], Ctrl)
 }
 
