@@ -182,6 +182,7 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
     val DCTSIZE2 = 64
     val NUM_COMPONENT = 3
     val NUM_HUFF_TBLS = 2
+    val RGB_NUM = 3
     val SF4_1_1 = 2
     val SF1_1_1 = 0
 
@@ -217,16 +218,24 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
                                     53.to[Int], 60.to[Int], 61.to[Int], 54.to[Int], 47.to[Int], 55.to[Int], 62.to[Int], 63.to[Int]
                                   )
 
-      val p_jinfo_quant_tbl_quantval = SRAM[UInt16](4,DCTSIZE2)
+      val scan_ptr = Reg[Int](1)
 
+      val p_jinfo_quant_tbl_quantval = SRAM[UInt16](4,DCTSIZE2)
       val p_jinfo_dc_xhuff_tbl_bits = SRAM[UInt8](NUM_HUFF_TBLS, 36)
       val p_jinfo_dc_xhuff_tbl_huffval = SRAM[UInt8](NUM_HUFF_TBLS, 257)
-      val p_jinfo_ac_xhuff_tbl_bits = SRAM[UInt8](NUM_HUFF_TBLS, 36)
-      val p_jinfo_ac_xhuff_tbl_huffval = SRAM[UInt8](NUM_HUFF_TBLS, 257)
       val p_jinfo_dc_dhuff_tbl_ml = SRAM[UInt16](NUM_HUFF_TBLS)
       val p_jinfo_dc_dhuff_tbl_maxcode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
       val p_jinfo_dc_dhuff_tbl_mincode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
       val p_jinfo_dc_dhuff_tbl_valptr = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+      val p_jinfo_ac_xhuff_tbl_bits = SRAM[UInt8](NUM_HUFF_TBLS, 36)
+      val p_jinfo_ac_xhuff_tbl_huffval = SRAM[UInt8](NUM_HUFF_TBLS, 257)
+      val p_jinfo_ac_dhuff_tbl_ml = SRAM[UInt16](NUM_HUFF_TBLS)
+      val p_jinfo_ac_dhuff_tbl_maxcode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+      val p_jinfo_ac_dhuff_tbl_mincode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+      val p_jinfo_ac_dhuff_tbl_valptr = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+
+      val out_data_comp_vpos = SRAM[UInt16](RGB_NUM)
+      val out_data_comp_hpos = SRAM[UInt16](RGB_NUM)
 
       val p_jinfo_smp_fact = Reg[UInt2](0)
       val p_jinfo_num_components = Reg[UInt8](0)
@@ -239,7 +248,6 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
 
       def read_markers(): Unit = {
         val unread_marker = Reg[UInt8](0)
-        val scan_ptr = Reg[Int](1)
 
         def read_word(): UInt16 = {
           val tmp = (jpg_sram(scan_ptr).as[UInt16] << 8) | (jpg_sram(scan_ptr + 1).as[UInt16])
@@ -428,7 +436,7 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
       }
 
       def jpeg_init_decompress(): Unit = {
-        def huff_make_dhuff_tb(idx: Int, p_xhtbl_bits: SRAM2[UInt8], p_dhtbl_ml: SRAM1[UInt16], p_dhtbl_maxcode: SRAM2[UInt16], p_dhtbl_mincode: SRAM2[UInt16], p_dhtbl_valptr: SRAM2[UInt16]): Unit = {
+        def huff_make_dhuff_tb(idx: Int, p_xhtbl_bits: SRAM2[UInt8], p_dhtbl_ml_mem: SRAM1[UInt16], p_dhtbl_maxcode: SRAM2[UInt16], p_dhtbl_mincode: SRAM2[UInt16], p_dhtbl_valptr: SRAM2[UInt16]): Unit = {
           val huffsize = SRAM[UInt16](257)
           val huffcode = SRAM[UInt16](257)
           val p = Reg[Int](0)
@@ -450,24 +458,43 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
 
           FSM[Int](whilst1 => whilst1 != -1) { whilst1 => 
             FSM[Int](whilst2 => whilst2 != -1) { whilst2 => 
-              println("huffocde " + pp + " = " + code)
+              // println("huffocde " + pp + " = " + code )
               huffcode(pp) = code.value
               code :+= 1
               pp :+= 1
-            } {whilst2 => mux((huffsize(p+1) == size.value) && (p < 257), whilst2, -1)}
+            } {whilst2 => mux((huffsize(pp) == size.value) && (pp < 257), whilst2, -1)}
 
-            val break_cond = huffsize(p) == 0.to[UInt16]
+            // println("at " + pp + " size is " + huffsize(pp))
+            val break_cond = huffsize(pp) == 0.to[UInt16]
 
-            if (!break_cond) {
-              FSM[Int](whilst2 => whilst2 != -1) { whilst2 => 
+            // if (!break_cond) { // Issue #160
+            FSM[Int](whilst2 => whilst2 != -1) { whilst2 => 
+              if (!break_cond) {
                 code := code << 1
                 size :+= 1
-              } { whilst2 => mux(huffsize(p) != size.value, whilst2, -1)}
+              }
+            } { whilst2 => mux((huffsize(pp) == size.value) || break_cond, -1, whilst2)}
+            // }
+          } {whilst1 => mux((huffsize(pp) == 0.to[UInt16]), -1, whilst1)}
+
+          val p_dhtbl_ml = Reg[Int](1)
+          val ppp = Reg[Int](0)
+          p_dhtbl_ml.reset
+          Foreach(1 until 17 by 1){l => 
+            if (p_xhtbl_bits(idx, l) == 0.to[UInt8]) {
+              p_dhtbl_maxcode(idx, l) = 65535.to[UInt16] // Signifies skip
+            } else {
+              p_dhtbl_valptr(idx, l) = ppp.value.as[UInt16]
+              p_dhtbl_mincode(idx,l) = huffcode(ppp)
+              Pipe{ppp :+= p_xhtbl_bits(idx,l).as[Int] - 1}
+              p_dhtbl_maxcode(idx,l) = huffcode(ppp)
+              p_dhtbl_ml := l
+              println(" " + p_dhtbl_valptr(idx,l) + " " + p_dhtbl_mincode(idx,l) + " " + ppp + " " + p_dhtbl_maxcode(idx,l) + " " + p_dhtbl_ml)
+              Pipe{ppp :+= 1}
             }
-          } {whilst1 => mux((huffsize(p) == 0.to[UInt16]), -1, whilst1)}
-
-
-
+          }
+          p_dhtbl_maxcode(idx, p_dhtbl_ml.value) = p_dhtbl_maxcode(idx, p_dhtbl_ml.value) + 1
+          p_dhtbl_ml_mem(idx) = p_dhtbl_ml.value.as[UInt16]
         }
 
         p_jinfo_MCUHeight := (p_jinfo_image_height - 1) / 8 + 1
@@ -475,6 +502,39 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
         p_jinfo_NumMCU := p_jinfo_MCUHeight * p_jinfo_MCUWidth
 
         huff_make_dhuff_tb(0, p_jinfo_dc_xhuff_tbl_bits, p_jinfo_dc_dhuff_tbl_ml, p_jinfo_dc_dhuff_tbl_maxcode,p_jinfo_dc_dhuff_tbl_mincode,p_jinfo_dc_dhuff_tbl_valptr)
+        huff_make_dhuff_tb(1, p_jinfo_dc_xhuff_tbl_bits, p_jinfo_dc_dhuff_tbl_ml, p_jinfo_dc_dhuff_tbl_maxcode,p_jinfo_dc_dhuff_tbl_mincode,p_jinfo_dc_dhuff_tbl_valptr)
+        huff_make_dhuff_tb(0, p_jinfo_ac_xhuff_tbl_bits, p_jinfo_ac_dhuff_tbl_ml, p_jinfo_ac_dhuff_tbl_maxcode,p_jinfo_ac_dhuff_tbl_mincode,p_jinfo_ac_dhuff_tbl_valptr)
+        huff_make_dhuff_tb(1, p_jinfo_ac_xhuff_tbl_bits, p_jinfo_ac_dhuff_tbl_ml, p_jinfo_ac_dhuff_tbl_maxcode,p_jinfo_ac_dhuff_tbl_mincode,p_jinfo_ac_dhuff_tbl_valptr)
+
+      }
+
+      def decode_start(): Unit = {
+
+        // Go to data start
+        scan_ptr := p_jinfo_jpeg_data.value
+        val CurrentMCU = Reg[UInt16](0)
+        val HuffBuff = SRAM[UInt16](NUM_COMPONENT,DCTSIZE2)
+        val IDCTBuff = SRAM[UInt16](6,DCTSIZE2)
+
+        def decode_block(comp_no: Index, id1: Index, id2:Index): Unit = {
+
+        }
+
+        Foreach(NUM_COMPONENT by 1) { i => HuffBuff(i,0) = 0 }
+        Foreach(RGB_NUM by 1) { i => out_data_comp_vpos(i) = 0; out_data_comp_hpos(i) = 0 }
+        if (p_jinfo_smp_fact == SF4_1_1.to[UInt2]) {
+          println("Decode 4:1:1")
+          FSM[Int](whilst => whilst != 1){ whilst => 
+            Foreach(4 by 1) { i => 
+              decode_block(0, i, 0)
+            }
+
+          }{ whilst => mux(CurrentMCU.value < p_jinfo_NumMCU.value, whilst, -1)}
+        } else {
+          // TODO: Implement this                
+          println("Decode 1:1:1")
+        }
+
 
       }
 
@@ -482,6 +542,8 @@ object JPEG extends SpatialApp { // DISABLED Regression (Dense) // Args: none
       read_markers()
 
       jpeg_init_decompress()
+
+      decode_start()
 
 
     }
@@ -562,12 +624,16 @@ object Bug160 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
 
       val p_jinfo_dc_xhuff_tbl_bits = SRAM[UInt8](NUM_HUFF_TBLS, 36)
       val p_jinfo_dc_xhuff_tbl_huffval = SRAM[UInt8](NUM_HUFF_TBLS, 257)
-      val p_jinfo_ac_xhuff_tbl_bits = SRAM[UInt8](NUM_HUFF_TBLS, 36)
-      val p_jinfo_ac_xhuff_tbl_huffval = SRAM[UInt8](NUM_HUFF_TBLS, 257)
       val p_jinfo_dc_dhuff_tbl_ml = SRAM[UInt16](NUM_HUFF_TBLS)
       val p_jinfo_dc_dhuff_tbl_maxcode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
       val p_jinfo_dc_dhuff_tbl_mincode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
       val p_jinfo_dc_dhuff_tbl_valptr = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+      val p_jinfo_ac_xhuff_tbl_bits = SRAM[UInt8](NUM_HUFF_TBLS, 36)
+      val p_jinfo_ac_xhuff_tbl_huffval = SRAM[UInt8](NUM_HUFF_TBLS, 257)
+      val p_jinfo_ac_dhuff_tbl_ml = SRAM[UInt16](NUM_HUFF_TBLS)
+      val p_jinfo_ac_dhuff_tbl_maxcode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+      val p_jinfo_ac_dhuff_tbl_mincode = SRAM[UInt16](NUM_HUFF_TBLS, 36)
+      val p_jinfo_ac_dhuff_tbl_valptr = SRAM[UInt16](NUM_HUFF_TBLS, 36)
 
       val p_jinfo_smp_fact = Reg[UInt2](0)
       val p_jinfo_num_components = Reg[UInt8](0)
@@ -818,7 +884,6 @@ object Bug160 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
         huff_make_dhuff_tb(0, p_jinfo_dc_xhuff_tbl_bits, p_jinfo_dc_dhuff_tbl_ml, p_jinfo_dc_dhuff_tbl_maxcode,p_jinfo_dc_dhuff_tbl_mincode,p_jinfo_dc_dhuff_tbl_valptr)
 
       }
-
 
       read_markers()
 
