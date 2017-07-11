@@ -77,10 +77,20 @@ class DRAMCommand(w: Int, v: Int) extends Bundle {
   val isSparse = Bool()
   val tag = UInt(w.W)
   val streamId = UInt(w.W)
-  val wdata = Vec(v, UInt(w.W)) // v
+//  val wdata = Vec(v, UInt(w.W)) // v
 
   override def cloneType(): this.type = {
     new DRAMCommand(w, v).asInstanceOf[this.type]
+  }
+
+}
+
+class DRAMWdata(w: Int, v: Int) extends Bundle {
+  val wdata = Vec(v, UInt(w.W))
+  val streamId = UInt(w.W)
+
+  override def cloneType(): this.type = {
+    new DRAMWdata(w, v).asInstanceOf[this.type]
   }
 
 }
@@ -98,6 +108,7 @@ class DRAMResponse(w: Int, v: Int) extends Bundle {
 
 class DRAMStream(w: Int, v: Int) extends Bundle {
   val cmd = Decoupled(new DRAMCommand(w, v))
+  val wdata = Decoupled(new DRAMWdata(w, v))
   val resp = Flipped(Decoupled(new DRAMResponse(w, v)))
 
   override def cloneType(): this.type = {

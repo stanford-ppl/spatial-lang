@@ -142,8 +142,22 @@ class MAGCore(
   val wrPhase = Module(new SRFF())
   wrPhase.io.input.asyn_reset := false.B
 
-  val burstVld = io.enable & ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
+  val writeCmd = ~sizeFifo.io.empty & (wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)))
+  val wdataValid = writeCmd & ~wdataFifo.io.empty
+  val burstVld = Wire(Bool())
+
+//  val burstVld = io.enable & ~sizeFifo.io.empty & Mux(wrPhase.io.output.data | (~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)), ~wdataFifo.io.empty, true.B)
+
   val dramReady = io.dram.cmd.ready
+  val wdataReady = io.dram.wdata.ready
+
+  wdataFifo.io.forceTag.bits := addrFifo.io.tag - loadStreamInfo.size.U
+  wdataFifo.io.forceTag.valid := addrFifo.io.tag >= loadStreamInfo.size.U
+  wdataFifo.io.enq.zip(io.app.stores.map{_.wdata}) foreach { case (enq, wdata) => enq := wdata.bits }
+  wdataFifo.io.enqVld.zip(io.app.stores.map{_.wdata}) foreach {case (enqVld, wdata) => enqVld := wdata.valid }
+
+  val sparseWriteEnable = Wire(Bool())
+  sparseWriteEnable := (isSparse & isWrFifo.io.deq(0) & ~addrFifo.io.empty)
 
   // For blocking calls, create a new 'issued' signal. This wire is high if we have
   // a request in flight
@@ -158,22 +172,30 @@ class MAGCore(
     issued := false.B
   }
 
-  wdataFifo.io.forceTag.bits := addrFifo.io.tag - loadStreamInfo.size.U
-  wdataFifo.io.forceTag.valid := addrFifo.io.tag >= loadStreamInfo.size.U
-  wdataFifo.io.enq.zip(io.app.stores.map{_.wdata}) foreach { case (enq, wdata) => enq := wdata.bits }
-  wdataFifo.io.enqVld.zip(io.app.stores.map{_.wdata}) foreach {case (enqVld, wdata) => enqVld := wdata.valid }
-
-  val sparseWriteEnable = Wire(Bool())
-  sparseWriteEnable := (isSparse & isWrFifo.io.deq(0) & ~addrFifo.io.empty)
-
   // Burst offset counter
   val burstCounter = Module(new Counter(w))
-  burstCounter.io.max := Mux(scatterGather, 1.U, sizeInBursts)
+  burstCounter.io.max := Mux(writeCmd, sizeInBursts, 1.U) // Mux(scatterGather, 1.U, sizeInBursts)
   burstCounter.io.stride := 1.U
   burstCounter.io.reset := 0.U
-  burstCounter.io.enable := Mux(sparseWriteEnable, ~addrFifo.io.empty, burstVld) & dramReady & ~issued
+  burstCounter.io.enable := Mux(sparseWriteEnable,
+                              ~addrFifo.io.empty & dramReady,
+                              Mux(writeCmd, wdataValid & wdataReady, burstVld & dramReady)) & ~issued
 //  burstCounter.io.enable := Mux(scatterGather, ~addrFifo.io.empty, burstVld) & dramReady & ~issued
   burstCounter.io.saturate := 0.U
+
+  // Set a register when DRAMReady goes high, reset it when burstCounter is done (end of a command)
+  val dramReadySeen = Wire(Bool())
+  val dramReadyFF = Module(new FF(1))
+  dramReadyFF.io.init := 0.U
+  dramReadyFF.io.enable := writeCmd
+  dramReadyFF.io.in := Mux(burstCounter.io.done, 0.U, dramReady | dramReadySeen)
+  dramReadySeen := dramReadyFF.io.out
+//  dramReadySeen := RegNext(Mux(burstCounter.io.done, false.B, dramReady | dramReadySeen), false.B)
+  burstVld := io.enable & ~sizeFifo.io.empty &
+    Mux(writeCmd,
+      wdataValid & ~dramReadySeen,
+      true.B
+    )
 
   // Burst Tag counter
   val sgWaitForDRAM = Wire(Bool())
@@ -213,7 +235,7 @@ class MAGCore(
   sizeFifo.io.deqVld := burstCounter.io.done
   addrFifo.io.deqVld := Mux(scatterGather, ~ccache.io.full & ~sgWaitForDRAM, burstCounter.io.done)
   wdataFifo.io.deqVld := Mux(scatterGather, burstCounter.io.done & ~ccache.io.full,
-                          Mux(isSparse, wdataSelectCounter.io.done, true.B) & burstVld & isWrFifo.io.deq(0) & dramReady & ~issued)
+                          Mux(isSparse, wdataSelectCounter.io.done, true.B) & wdataValid & wdataReady & ~issued)
 
   // Parse Metadata line
   def parseMetadataLine(m: Vec[UInt]) = {
@@ -292,12 +314,18 @@ class MAGCore(
     } else wdataFifo.io.deq(i)
   })
 
-  io.dram.cmd.bits.addr := Cat((burstAddrs(0) + burstCounter.io.out), 0.U(log2Up(burstSizeBytes).W))
+//  io.dram.cmd.bits.addr := Cat((burstAddrs(0) + burstCounter.io.out), 0.U(log2Up(burstSizeBytes).W))
+  io.dram.cmd.bits.addr := Cat(burstAddrs(0), 0.U(log2Up(burstSizeBytes).W))
   io.dram.cmd.bits.rawAddr := addrFifo.io.deq(0)
   io.dram.cmd.bits.tag := Cat(tagOut.streamTag, tagOut.burstTag)
   io.dram.cmd.bits.streamId := tagOut.streamTag
-  io.dram.cmd.bits.wdata := wdata
   io.dram.cmd.bits.isWr := isWrFifo.io.deq(0)
+
+  // wdata assignment
+  io.dram.wdata.bits.wdata := wdata
+  io.dram.wdata.bits.streamId := wdataFifo.io.tag + loadStreamInfo.size.U
+  io.dram.wdata.valid := wdataValid
+
 
   val wasSparseWren = Module(new SRFF()) // Hacky way to allow wrPhase to die after sparse write
   wasSparseWren.io.input.set := sparseWriteEnable

@@ -1,7 +1,8 @@
 module test;
   import "DPI" function void sim_init();
   import "DPI" function int tick();
-  import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int size, int streamId, int tag, int isWr, int isSparse, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
+  import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int size, int streamId, int tag, int isWr, int isSparse);
+  import "DPI" function int sendWdata(int streamId, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
   import "DPI" function void readOutputStream(int data, int tag, int last);
 
   // Export functionality to C layer
@@ -29,6 +30,12 @@ module test;
 
   always #`CLOCK_PERIOD clock = ~clock;
 
+  /**
+  * Variables that control waveform generation
+  * vpdon: Generates VPD file
+  * vcdon: Generates VCD file
+  */
+  reg vpdon = 0;
   reg vcdon = 0;
   reg [1023:0] vcdfile = 0;
   reg [1023:0] vpdfile = 0;
@@ -45,24 +52,27 @@ module test;
   wire [63:0] io_dram_cmd_bits_rawAddr;
   wire  io_dram_cmd_bits_isWr;
   wire  io_dram_cmd_bits_isSparse;
+  wire  io_dram_wdata_valid;
+  reg io_dram_wdata_ready;
   wire [31:0] io_dram_cmd_bits_streamId;
   wire [31:0] io_dram_cmd_bits_tag;
-  wire [31:0] io_dram_cmd_bits_wdata_0;
-  wire [31:0] io_dram_cmd_bits_wdata_1;
-  wire [31:0] io_dram_cmd_bits_wdata_2;
-  wire [31:0] io_dram_cmd_bits_wdata_3;
-  wire [31:0] io_dram_cmd_bits_wdata_4;
-  wire [31:0] io_dram_cmd_bits_wdata_5;
-  wire [31:0] io_dram_cmd_bits_wdata_6;
-  wire [31:0] io_dram_cmd_bits_wdata_7;
-  wire [31:0] io_dram_cmd_bits_wdata_8;
-  wire [31:0] io_dram_cmd_bits_wdata_9;
-  wire [31:0] io_dram_cmd_bits_wdata_10;
-  wire [31:0] io_dram_cmd_bits_wdata_11;
-  wire [31:0] io_dram_cmd_bits_wdata_12;
-  wire [31:0] io_dram_cmd_bits_wdata_13;
-  wire [31:0] io_dram_cmd_bits_wdata_14;
-  wire [31:0] io_dram_cmd_bits_wdata_15;
+  wire [31:0] io_dram_wdata_bits_streamId;
+  wire [31:0] io_dram_wdata_bits_wdata_0;
+  wire [31:0] io_dram_wdata_bits_wdata_1;
+  wire [31:0] io_dram_wdata_bits_wdata_2;
+  wire [31:0] io_dram_wdata_bits_wdata_3;
+  wire [31:0] io_dram_wdata_bits_wdata_4;
+  wire [31:0] io_dram_wdata_bits_wdata_5;
+  wire [31:0] io_dram_wdata_bits_wdata_6;
+  wire [31:0] io_dram_wdata_bits_wdata_7;
+  wire [31:0] io_dram_wdata_bits_wdata_8;
+  wire [31:0] io_dram_wdata_bits_wdata_9;
+  wire [31:0] io_dram_wdata_bits_wdata_10;
+  wire [31:0] io_dram_wdata_bits_wdata_11;
+  wire [31:0] io_dram_wdata_bits_wdata_12;
+  wire [31:0] io_dram_wdata_bits_wdata_13;
+  wire [31:0] io_dram_wdata_bits_wdata_14;
+  wire [31:0] io_dram_wdata_bits_wdata_15;
   wire  io_dram_resp_ready;
   reg io_dram_resp_valid;
   reg [31:0] io_dram_resp_bits_rdata_0;
@@ -114,22 +124,25 @@ module test;
     .io_dram_cmd_bits_isSparse(io_dram_cmd_bits_isSparse),
     .io_dram_cmd_bits_tag(io_dram_cmd_bits_tag),
     .io_dram_cmd_bits_streamId(io_dram_cmd_bits_streamId),
-    .io_dram_cmd_bits_wdata_0(io_dram_cmd_bits_wdata_0),
-    .io_dram_cmd_bits_wdata_1(io_dram_cmd_bits_wdata_1),
-    .io_dram_cmd_bits_wdata_2(io_dram_cmd_bits_wdata_2),
-    .io_dram_cmd_bits_wdata_3(io_dram_cmd_bits_wdata_3),
-    .io_dram_cmd_bits_wdata_4(io_dram_cmd_bits_wdata_4),
-    .io_dram_cmd_bits_wdata_5(io_dram_cmd_bits_wdata_5),
-    .io_dram_cmd_bits_wdata_6(io_dram_cmd_bits_wdata_6),
-    .io_dram_cmd_bits_wdata_7(io_dram_cmd_bits_wdata_7),
-    .io_dram_cmd_bits_wdata_8(io_dram_cmd_bits_wdata_8),
-    .io_dram_cmd_bits_wdata_9(io_dram_cmd_bits_wdata_9),
-    .io_dram_cmd_bits_wdata_10(io_dram_cmd_bits_wdata_10),
-    .io_dram_cmd_bits_wdata_11(io_dram_cmd_bits_wdata_11),
-    .io_dram_cmd_bits_wdata_12(io_dram_cmd_bits_wdata_12),
-    .io_dram_cmd_bits_wdata_13(io_dram_cmd_bits_wdata_13),
-    .io_dram_cmd_bits_wdata_14(io_dram_cmd_bits_wdata_14),
-    .io_dram_cmd_bits_wdata_15(io_dram_cmd_bits_wdata_15),
+    .io_dram_wdata_bits_streamId(io_dram_wdata_bits_streamId),
+    .io_dram_wdata_bits_wdata_0(io_dram_wdata_bits_wdata_0),
+    .io_dram_wdata_bits_wdata_1(io_dram_wdata_bits_wdata_1),
+    .io_dram_wdata_bits_wdata_2(io_dram_wdata_bits_wdata_2),
+    .io_dram_wdata_bits_wdata_3(io_dram_wdata_bits_wdata_3),
+    .io_dram_wdata_bits_wdata_4(io_dram_wdata_bits_wdata_4),
+    .io_dram_wdata_bits_wdata_5(io_dram_wdata_bits_wdata_5),
+    .io_dram_wdata_bits_wdata_6(io_dram_wdata_bits_wdata_6),
+    .io_dram_wdata_bits_wdata_7(io_dram_wdata_bits_wdata_7),
+    .io_dram_wdata_bits_wdata_8(io_dram_wdata_bits_wdata_8),
+    .io_dram_wdata_bits_wdata_9(io_dram_wdata_bits_wdata_9),
+    .io_dram_wdata_bits_wdata_10(io_dram_wdata_bits_wdata_10),
+    .io_dram_wdata_bits_wdata_11(io_dram_wdata_bits_wdata_11),
+    .io_dram_wdata_bits_wdata_12(io_dram_wdata_bits_wdata_12),
+    .io_dram_wdata_bits_wdata_13(io_dram_wdata_bits_wdata_13),
+    .io_dram_wdata_bits_wdata_14(io_dram_wdata_bits_wdata_14),
+    .io_dram_wdata_bits_wdata_15(io_dram_wdata_bits_wdata_15),
+    .io_dram_wdata_ready(io_dram_wdata_ready),
+    .io_dram_wdata_valid(io_dram_wdata_valid),
     .io_dram_resp_ready(io_dram_resp_ready),
     .io_dram_resp_valid(io_dram_resp_valid),
     .io_dram_resp_bits_rdata_0(io_dram_resp_bits_rdata_0),
@@ -242,6 +255,13 @@ module test;
       io_dram_cmd_ready = 0;
     end
 
+    if (io_dram_wdata_valid & ~reset) begin
+      io_dram_wdata_ready = 1;
+    end else begin
+      io_dram_wdata_ready = 0;
+    end
+
+
     if (io_genericStreamOut_valid & ~reset) begin
       readOutputStream(
         io_genericStreamOut_bits_data,
@@ -252,6 +272,14 @@ module test;
 
   endfunction
 
+  /**
+  * Sample and handle DRAM CMD/WDATA signals
+  * NOTE: Order of invocation is important: Handle command before wdata
+  * This is because the DRAM simulation logic expects that write commands
+  * are always seen BEFORE write data. Handling command before data preserves
+  * this order. Flipping the order screws up simulation when both command
+  * and wdata are issued in the same cycle.
+  */
   function void pre_update_callbacks();
     if (io_dram_cmd_valid & io_dram_cmd_ready) begin
       sendDRAMRequest(
@@ -261,37 +289,50 @@ module test;
         io_dram_cmd_bits_streamId,
         io_dram_cmd_bits_tag,
         io_dram_cmd_bits_isWr,
-        io_dram_cmd_bits_isSparse,
-        io_dram_cmd_bits_wdata_0,
-        io_dram_cmd_bits_wdata_1,
-        io_dram_cmd_bits_wdata_2,
-        io_dram_cmd_bits_wdata_3,
-        io_dram_cmd_bits_wdata_4,
-        io_dram_cmd_bits_wdata_5,
-        io_dram_cmd_bits_wdata_6,
-        io_dram_cmd_bits_wdata_7,
-        io_dram_cmd_bits_wdata_8,
-        io_dram_cmd_bits_wdata_9,
-        io_dram_cmd_bits_wdata_10,
-        io_dram_cmd_bits_wdata_11,
-        io_dram_cmd_bits_wdata_12,
-        io_dram_cmd_bits_wdata_13,
-        io_dram_cmd_bits_wdata_14,
-        io_dram_cmd_bits_wdata_15
+        io_dram_cmd_bits_isSparse
       );
     end
+
+    if (io_dram_wdata_valid & io_dram_wdata_ready) begin
+      sendWdata(
+        io_dram_wdata_bits_streamId,
+        io_dram_wdata_bits_wdata_0,
+        io_dram_wdata_bits_wdata_1,
+        io_dram_wdata_bits_wdata_2,
+        io_dram_wdata_bits_wdata_3,
+        io_dram_wdata_bits_wdata_4,
+        io_dram_wdata_bits_wdata_5,
+        io_dram_wdata_bits_wdata_6,
+        io_dram_wdata_bits_wdata_7,
+        io_dram_wdata_bits_wdata_8,
+        io_dram_wdata_bits_wdata_9,
+        io_dram_wdata_bits_wdata_10,
+        io_dram_wdata_bits_wdata_11,
+        io_dram_wdata_bits_wdata_12,
+        io_dram_wdata_bits_wdata_13,
+        io_dram_wdata_bits_wdata_14,
+        io_dram_wdata_bits_wdata_15
+      );
+    end
+
   endfunction
 
   initial begin
     /*** VCD & VPD dump ***/
-    $vcdplusfile("Top.vpd");
-//    $vcdpluson (0, Top);
-//    $vcdplusmemon ();
+    if (vpdon) begin
+      $vcdplusfile("Top.vpd");
+      $vcdpluson (0, Top);
+      $vcdplusmemon ();
+    end
 
-//      $dumpfile("Top.vcd");
-//      $dumpvars(0, Top);
+    if (vcdon) begin
+      $dumpfile("Top.vcd");
+      $dumpvars(0, Top);
+    end
+
       sim_init();
       io_dram_cmd_ready = 0;
+      io_dram_wdata_ready = 0;
   end
 
   int numCycles = 0;
@@ -309,15 +350,24 @@ module test;
     io_genericStreamOut_ready = 1;
 
     if (tick()) begin
-//      $vcdplusflush;
-//      $dumpflush;
+      if (vpdon) begin
+        $vcdplusflush;
+      end
+      if (vcdon) begin
+        $dumpflush;
+      end
       $finish;
     end
 
 
     post_update_callbacks();
-//    $vcdplusflush;
-//    $dumpflush;
+
+    if (vpdon) begin
+      $vcdplusflush;
+    end
+    if (vcdon) begin
+      $dumpflush;
+    end
   end
 
 endmodule
