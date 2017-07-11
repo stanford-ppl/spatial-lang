@@ -41,6 +41,7 @@ public:
   uint32_t size;
   uint32_t streamId;
   uint64_t tag;
+  uint64_t sparseTag;
   uint64_t channelID;
   bool isWr;
   bool isSparse;
@@ -59,6 +60,7 @@ public:
     tag = t;
     isWr = wr;
     isSparse = sparse;
+    sparseTag = -1;
 //    if (isWr) {
 //      wdata = (uint32_t*) malloc(16 * sizeof(uint32_t));
 //      for (int i=0; i<16; i++) {
@@ -80,7 +82,13 @@ public:
   }
 
   void schedule() {
-    mem->addTransaction(isWr, addr, tag);
+    uint64_t tagToUse = -1;
+    if (isSparse) { // Use sparseTag to schedule sparse req into DRAMSim2, so that we can disambiguate upon txComplete
+      tagToUse = sparseTag;
+    } else {
+      tagToUse = tag;
+    }
+    mem->addTransaction(isWr, addr, tagToUse);
     channelID = mem->findChannelNumber(addr);
     if (debug) {
       EPRINTF("                  Issuing following command:");
@@ -528,6 +536,7 @@ extern "C" {
               // Disambiguate each request with unique tag in the addr -> req mapping
               uint64_t sparseTag = ((sparseRequestCounter++) << 32) | (cmdTag & 0xFFFFFFFF);
               at.tag = sparseTag;
+              req->sparseTag = sparseTag;
               addrToReqMap[at] = req;
             } else {  // HIT
               if (debug) EPRINTF("                  HIT, line:\n");
