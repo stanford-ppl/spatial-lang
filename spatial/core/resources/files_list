@@ -861,7 +861,7 @@
 ./chiselgen/app-level/de1soc.mk
 ./chiselgen/app-level/zynq.mk
 ./chiselgen/app-level/verilator.mk
-./chiselgen/app-level/in.txt
+./chiselgen/app-level/findDiff.sh
 ./chiselgen/app-level/Top.scala
 ./chiselgen/app-level/Makefile
 ./chiselgen/app-level/run.sh
