@@ -46,7 +46,7 @@ trait CppGenFileIO extends CppCodegen  {
     		open(src"if (${file}_file.is_open()) {")
           visitBlock(token)
     			emit(src"${file}_file << ${token.result};")
-	    		val chardelim = src"$delim".replace("\"","'")
+	    		val chardelim = src"$delim".replace("\"","'").replace("string(","").dropRight(1)
     			emit(src"""${file}_file << ${chardelim};""")
     		close("}")
     	close("}")
