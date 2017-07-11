@@ -330,7 +330,7 @@ object MatMult_inner extends SpatialApp { // Regression (Dense) // Args: 32 128 
 
 */
 
-object GEMM_MemoryHierarchy extends SpatialApp { // Regression (Dense) // Args: none
+object GEMM_MemoryHierarchy extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   type T = Int
 
   @virtualize
