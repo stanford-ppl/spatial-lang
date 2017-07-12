@@ -19,7 +19,13 @@ trait InitiationAnalyzer extends ModelingTraversal {
       .map(_.asInstanceOf[Exp[_]]).toSet
 
     val (_, initInterval) = pipeLatencies(result, scope)
-    initInterval.toInt
+
+    // HACK: Set initiation interval to 1 if it contains a specialized reduction
+    // This is a workaround for chisel codegen currently specializing and optimizing certain reduction types
+    if (scope.exists(x => reduceType(x).contains(FixPtSum))) {
+      1
+    }
+    else initInterval.toInt
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
