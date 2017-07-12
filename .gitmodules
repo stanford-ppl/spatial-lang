@@ -7,3 +7,6 @@
 	url = https://github.com/stanford-ppl/scala-virtualized
 
 
+[submodule "apps"]
+	path = apps
+	url = https://github.com/stanford-ppl/spatial-apps
