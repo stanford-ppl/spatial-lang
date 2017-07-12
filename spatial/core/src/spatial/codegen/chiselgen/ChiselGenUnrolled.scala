@@ -109,7 +109,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
               emit(src"""val ${lhs}_redxn_done = true.B""")
             case _ => // Not optimized for this case
               emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
-              emit(src"""val ${lhs}_redxn_done = ${lhs}_redLoopCtr.io.output.done""")
+              emit(src"""val ${lhs}_redxn_done = ${lhs}_redLoopCtr.io.output.done | ${lhs}_ctr_trivial""")
               emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
               emit(s"""${quote(lhs)}_redLoopCtr.io.input.stop := ${quote(lhs)}_retime.S""")
               emit(s"""${quote(lhs)}_redLoopCtr.io.input.reset := reset | ${quote(lhs)}_redxn_done.D(1)""")
