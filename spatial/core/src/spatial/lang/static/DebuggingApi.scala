@@ -16,4 +16,5 @@ trait DebuggingApi { this: SpatialApi =>
   @api def assert(cond: Bit): MUnit = wrap(assertIf(Bit.const(true), cond.s, None))
 
   @api def breakpoint() = wrap(breakpointIf(Bit.const(true)))
+  @api def exit() = wrap(exitIf(Bit.const(true)))  
 }

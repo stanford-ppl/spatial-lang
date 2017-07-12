@@ -8,36 +8,56 @@ import argon.interpreter.{Interpreter => AInterpreter}
 
 trait SRAMs extends AInterpreter {
 
-  case class ISRAM1(v: Array[Any])
-  case class ISRAM2(v: Array[Array[Any]])
+  case class ISRAM(dims: Seq[Int], v: Array[Any]) {
+    def index(dims: Seq[Int], ind: Seq[Int], ofs: Int) = {
+      val strides = List.tabulate(dims.length)(i =>
+        dims.drop(i+1).fold(1)(_*_)
+      )
+      val posMult = ind.zip(strides).map { case (a,b) => a*b }
+      posMult.sum + ofs
+    }
+    override def toString = {
+      val vs = AInterpreter.stringify(v)
+      s"SRAM($vs)"
+    }
+    
+  }
 
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
     case SRAMNew(size) =>
       variables.get(lhs).getOrElse {
         val ab = size.map(x => eval[BigDecimal](x).toInt)
-        ab.size match {
-          case 1 =>
-            ISRAM1(Array.fill[Any](ab(0))(null))
-          case 2 =>
-            ISRAM2(Array.fill[Any](ab(0), ab(1))(null))
-          case _ =>
-            ???
-        }
+        ISRAM(ab, Array.fill[Any](ab.product)(null))
       }
 
-    case SRAMStore(sram, dim, pose, ofs, EAny(v), EBoolean(en)) =>
+    case SRAMStore(sram, dims, is, EInt(ofs), EAny(v), EBoolean(en)) =>
       if (en) {
-        val pos = pose.map(x => eval[BigDecimal](x).toInt)
-        dim.size match {
-          case 1 =>
-            val is = eval[ISRAM1](sram)
-            is.v(pos(0)) = v
-          case 2 =>
-            val is = eval[ISRAM2](sram)
-            is.v(pos(0))(pos(1)) = v
-          case _ =>
-            ???
+        val isram = eval[ISRAM](sram)
+        val ise = is.map(x => eval[BigDecimal](x).toInt)
+        val dimse = dims.map(x => eval[BigDecimal](x).toInt)
+        val i = isram.index(dimse, ise, ofs)
+        isram.v(i) = v
+      }
+
+    case ParSRAMStore(sram, inds, data, ens) =>
+      val isram = eval[ISRAM](sram)
+      val ense = ens.map(eval[Boolean])
+      inds.zipWithIndex.foreach { case (ind, i: Int)  => {
+        if (ense(i)) {
+          val ise = ind.map(x => eval[Int](x))
+          val indV = isram.index(isram.dims, ise, 0)
+          isram.v(indV) = eval[Any](data(i))
         }
+      }}
+      
+
+    case SRAMLoad(sram, dims, is, EInt(ofs), EBoolean(en)) =>
+      if (en) {
+        val isram = eval[ISRAM](sram)
+        val ise = is.map(x => eval[BigDecimal](x).toInt)
+        val dimse = dims.map(x => eval[BigDecimal](x).toInt)
+        val i = isram.index(dimse, ise, ofs)
+        isram.v(i)
       }
 
 

@@ -19,9 +19,9 @@ trait FltPts extends AInterpreter {
     case FltRandom(maxo) =>
       maxo match {
         case Some(EBigDecimal(max)) =>
-          (util.Random.nextDouble()*max)
+          util.Random.nextDouble()*max
         case None =>
-          util.Random.nextDouble()
+          BigDecimal(util.Random.nextDouble())
       }
   }
 

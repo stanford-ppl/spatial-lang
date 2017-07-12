@@ -11,14 +11,14 @@ import spatial.SpatialConfig
 import spatial.targets.Bus
 
 object Streams {
-  var streamsIn = Map[Bus, Queue[Exp[_]]]()
-  var streamsOut = Map[Bus, Queue[Exp[_]]]()
+  var streamsIn = Map[Bus, Queue[Any]]()
+  var streamsOut = Map[Bus, Queue[Any]]()
 
   def addStreamIn(bus: Bus) =
-    streamsIn += ((bus, new Queue[Exp[_]]()))
+    streamsIn += ((bus, new Queue[Any]()))
 
   def addStreamOut(bus: Bus) =
-    streamsOut += ((bus, new Queue[Exp[_]]()))
+    streamsOut += ((bus, new Queue[Any]()))
 }
 
 trait Streams extends AInterpreter {
@@ -71,8 +71,13 @@ trait Streams extends AInterpreter {
         q.put(b)
 
       }
-      
 
+    case ParStreamRead(strm, ens) =>
+      null
+
+    case ParStreamWrite(strm, data, ens) =>
+      null
+      
   }
 
 }

@@ -12,11 +12,21 @@ trait Debuggings extends AInterpreter {
         println(str)
     case BreakpointIf(EBoolean(cond)) =>
       if (cond) {
+        println(s"[${Console.BLUE}breakpoint info${Console.RESET}]")
+        displayInfo        
         println(s"${Console.RED_B}Reached a breakpoint: press a key to continue or q to quit${Console.RESET}")
         if (io.StdIn.readLine() == "q") {
           Config.exit()
           System.exit(0)
         }        
+      }
+
+    case ExitIf(EBoolean(cond)) =>
+      if (cond) {
+        println(s"[${Console.RED}exit info${Console.RESET}]")
+        displayInfo        
+        Config.exit()
+        System.exit(0)
       }
       
 

@@ -6,20 +6,21 @@ import argon.interpreter.{Interpreter => AInterpreter}
 import scala.math.BigDecimal
 
 trait HostTransfers extends AInterpreter {
+  this: Regs =>
 
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
     case ArgInNew(EAny(arg)) =>
-      arg
+      IReg(arg)
 
     case ArgOutNew(EAny(arg)) =>
-      arg
+      IReg(arg)
     
     case SetArg(arg: Sym[_], EAny(value)) =>
-      updateVar(arg, value)
+      updateVar(arg, IReg(value))
 
     case GetArg(EAny(arg)) =>
-      arg
+      arg.asInstanceOf[IReg].v
 
   }
 

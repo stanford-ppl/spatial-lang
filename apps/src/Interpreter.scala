@@ -29,7 +29,7 @@ trait SpatialStreamInterpreter {
   self: SpatialStream =>
 
   def prog(): Unit
-  def inputs: Map[Bus, List[Exp[_]]]
+  def inputs: Map[Bus, List[MetaAny[_]]]
   def outs: List[Bus]
   def forceExit(): scala.Boolean
 
@@ -62,7 +62,7 @@ trait SpatialStreamInterpreter {
 
     inputs.foreach { case (bus, content) =>
       Streams.addStreamIn(bus)
-      content.foreach(x => Streams.streamsIn(bus).put(x))
+      content.foreach(x => Streams.streamsIn(bus).put(x.s.asInstanceOf[Const[_]].c))
     }
 
     outs.foreach(Streams.addStreamOut)
@@ -75,7 +75,7 @@ trait SpatialStreamInterpreter {
 }
 
 
-object StreamInOutMult2 extends SpatialStream with SpatialStreamInterpreter {
+object StreamInOutMultInterpreter extends SpatialStream with SpatialStreamInterpreter {
   
   @virtualize def prog(): spatial.dsl.Unit = {
     val in  = StreamIn[Int](In1)
@@ -87,8 +87,8 @@ object StreamInOutMult2 extends SpatialStream with SpatialStreamInterpreter {
 
   val outs = List(In1)
 
-  val inputs = Map[Bus, List[Exp[_]]](
-    (In1 -> List[Int](3, 4, 2, 6).map(_.s))
+  val inputs = Map[Bus, List[MetaAny[_]]](
+    (In1 -> List[Int](3, 4, 2, 6))
   )
 
 

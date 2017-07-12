@@ -16,3 +16,7 @@ case class AssertIf(en: Exp[MBoolean], cond: Exp[MBoolean], msg: Option[Exp[MStr
 case class BreakpointIf(en: Exp[MBoolean])  extends EnabledOp[MUnit](en) {
   def mirror(f:Tx) = DebuggingOps.breakpointIf(f(en))
 }
+
+case class ExitIf(en: Exp[MBoolean]) extends EnabledOp[MUnit](en) {
+  def mirror(f:Tx) = DebuggingOps.exitIf(f(en))
+}

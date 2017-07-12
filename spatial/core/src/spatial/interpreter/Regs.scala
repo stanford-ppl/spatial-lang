@@ -6,7 +6,12 @@ import argon.interpreter.{Interpreter => AInterpreter}
 
 trait Regs extends AInterpreter {
 
-  case class IReg(v: Any)
+  case class IReg(v: Any) {
+    override def toString = {
+      val vs = AInterpreter.stringify(v)
+      s"Reg($vs)"
+    }
+  }
 
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 

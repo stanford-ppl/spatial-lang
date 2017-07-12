@@ -23,14 +23,13 @@ trait Interpreter
     with SRAMs
     with Booleans
     with Counters
+with Vectors
 {
 
   var instructionNumber = 0
   override protected def interpretNode(lhs: Sym[_], rhs: Op[_]): Unit = {
 
-    if (true || Config.debug) {
-      println(s"Instruction: $instructionNumber")
-      instructionNumber += 1
+    if (Config.debug) {
       displayInfo
       println()         
       if (Streams.streamsIn.size > 0 || Streams.streamsOut.size > 0) {
@@ -38,7 +37,7 @@ trait Interpreter
         Streams.streamsIn.foreach { case (k, s) => println(k + ": " + s.size) }
         Streams.streamsOut.foreach { case (k, s) => println(k + ": " + s.size) } 
       }
-      println()         
+      println(s"[${Console.CYAN}context${Console.RESET}]")         
       println(lhs.ctx)
       val line = lhs.ctx.lineContent.getOrElse("")
       /*
@@ -58,7 +57,9 @@ trait Interpreter
         else
           line.take(index) + Console.CYAN_B + methodName + Console.RESET + line.drop(index + methodName.length)
       println(highlighted)
-      println(s"${Console.CYAN}$rhs${Console.RESET} -> $lhs")
+      println(s"[${Console.CYAN}node${Console.RESET}]: ${Console.CYAN}$rhs${Console.RESET} -> $lhs")
+      println(s"[${Console.CYAN}instruction #${Console.RESET}]: ${Console.BLUE}$instructionNumber${Console.RESET}")
+      instructionNumber += 1      
     }
 
     
