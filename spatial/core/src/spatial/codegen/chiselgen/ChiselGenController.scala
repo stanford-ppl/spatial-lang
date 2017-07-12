@@ -242,9 +242,10 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def getStreamEnablers(c: Exp[Any]): String = {
       // If we are inside a stream pipe, the following may be set
+      val lat = bodyLatency.sum(c)
       val readiers = listensTo(c).distinct.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty"
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty"
+        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty.D($lat, rr)"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D($lat, rr)"
         case fifo @ Def(StreamInNew(bus)) => bus match {
           case SliderSwitch => ""
           case _ => src"${fifo}_valid"
@@ -252,8 +253,8 @@ trait ChiselGenController extends ChiselGenCounter{
         case fifo => src"${fifo}_en" // parent node
       }.filter(_ != "").mkString(" & ")
       val holders = pushesTo(c).distinct.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full"
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.full"
+        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full.D($lat, rr)"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.full.D($lat, rr)"
         case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready"
         case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"
       }.filter(_ != "").mkString(" & ")
