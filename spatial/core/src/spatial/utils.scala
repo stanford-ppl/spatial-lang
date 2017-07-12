@@ -227,10 +227,15 @@ object utils {
 
     // Hierarchical metapipelining is currently disallowed
     if (metapipeLCAs.keys.size > 1) {
-      error(c"Ambiguous metapipes for readers/writers of $mem:")
+      error(u"Ambiguous metapipes for readers/writers of $mem defined here:")
+      error(str(mem))
+      error(mem.ctx)
       metapipeLCAs.foreach{case (pipe,accs) =>
         error(c"  metapipe: $pipe ")
         error(c"  accesses: " + accs.map(x => c"$x").mkString(","))
+        error(str(pipe.node))
+        error(pipe.node.ctx)
+        error("")
       }
       error(c"  readers:")
       readers.foreach{rd => error(c"    $rd") }
