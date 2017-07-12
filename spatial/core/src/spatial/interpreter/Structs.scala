@@ -8,15 +8,16 @@ import argon.interpreter.{Interpreter => AInterpreter}
 import spatial.SpatialConfig
 
 
-trait IStruct extends AInterpreter {
+trait Structs extends AInterpreter {
 
-  override def matchNode  = super.matchNode.orElse {
+
+  override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
     case FieldApply(struct, f) =>
-//      val x = eval[Struct[_]](struct)
-//      println(struct, f, x)
-      //      eval[Struct[_]](struct).fields(f)
-      System.exit(0)
+      val x = eval[Seq[(String, Exp[_])]](struct)
+      val m = x.toMap
+      m(f)
+
 
     case SimpleStruct(ab) =>
       ab.map(x => (x._1, eval[Any](x._2)))

@@ -1,8 +1,8 @@
 import spatial.dsl._
 import org.virtualized._
 import spatial.SpatialCompiler
-import spatial.interpreter.IStream
 import spatial.interpreter.Interpreter
+import spatial.interpreter.Streams
 
 trait ParticleFilter extends SpatialStream {
 
@@ -10,34 +10,77 @@ trait ParticleFilter extends SpatialStream {
 
   @struct case class SQuaternion(r: SReal)
 
+  
   @virtualize def prog() = {
 
-    val in  = StreamIn[SQuaternion](In)
-    val out = StreamOut[SQuaternion](Out)
-
-//    val m = Matrix(
-
-    val q1 = SQuaternion(3f)
-
-    val a = ArgIn[SQuaternion]
-    setArg(a, q1)
+    val in  = StreamIn[SQuaternion](In1)
+    val in2  = StreamIn[SReal](In2)    
+    val out = StreamOut[SQuaternion](Out1)
+//    val p = 100 (1 -> 100)
 
     Accel(*) {
       val i = Reg[Int]
-      val state = SRAM[SQuaternion](100)
-//      if (i.value == 0)
-//        state(0) = SQuaternion(2)
+      i := i + 1                  
+      //val state = SRAM[SQuaternion](100)
+/*     
+      Stream(*)(x =>
+        f(in)
+          Foreach(state.length by 1 par p)(x => {
+            state(x) = ...
+          })
+      )
 
-      i := i + 1
-      out := SQuaternion(in.r + a.value.r + q1.r + i.value.to[SReal])
+      Stream(*)(x =>
+        g(in2)
+      )
+      
+
+ */
+      /*
+
+      Foreach(99 by 1)(x => {
+        if (i.value == 0)
+          state(i) = SQuaternion(random[SReal])
+        else
+          state(i) = SQuaternion(0.0)
+      })
+       */
+
+      val rg: SReal  = gaussian(0.0, 1f)
+      out := SQuaternion(rg)
     }
-
   }
 
-  val listIn: List[SReal] = List(3f, 4f, 2f, 6f)
-  val inputs = listIn.map(x => SQuaternion(x).s)
+  //Box-Muller
+  //http://www.design.caltech.edu/erik/Misc/Gaussian.html
+  def gaussian(mean: SReal, variance: SReal) = {
+    val r = random[SReal](1.0)
+/*    val x1 = Reg[SReal](true)
+    f 
+    while ( w >= 1.0 );
+         do {
+                 x1 = 2.0 * ranf() - 1.0;
+                 x2 = 2.0 * ranf() - 1.0;
+                 w = x1 * x1 + x2 * x2;
+         } 
 
-  val outMaxLength = listIn.length
+         w = sqrt( (-2.0 * log( w ) ) / w );
+         y1 = x1 * w;
+         y2 = x2 * w;
+ */
+    r
+  }
+
+  val outs = List(Out1)
+
+
+  val inputs = Map[Bus, List[Exp[_]]](
+    (In1 -> List[SReal](3f, 4f, 2f, 6f).map(SQuaternion.apply).map(_.s))
+  )
+  
+  def forceExit() =
+    Streams.streamsOut(Out1).size == 4
+  
   
 
 }

@@ -1,7 +1,6 @@
 import spatial.dsl._
 import org.virtualized._
 import spatial.SpatialCompiler
-import spatial.interpreter.IStream
 import spatial.interpreter.Interpreter
 
 object StreamInOutMult extends SpatialApp {

@@ -6,9 +6,9 @@ import spatial.nodes._
 import argon.interpreter.{Interpreter => AInterpreter}
 import scala.math.BigDecimal
 
-trait FltPt extends AInterpreter {
+trait FltPts extends AInterpreter {
 
-  override def matchNode  = super.matchNode.orElse {
+  override def matchNode(lhs: Sym[_]) = super.matchNode(lhs).orElse {
     
     case StringToFixPt(EString(str)) =>
       BigDecimal(str)
@@ -16,6 +16,13 @@ trait FltPt extends AInterpreter {
     case FltAdd(EBigDecimal(a), EBigDecimal(b)) =>
       a + b
 
+    case FltRandom(maxo) =>
+      maxo match {
+        case Some(EBigDecimal(max)) =>
+          (util.Random.nextDouble()*max)
+        case None =>
+          util.Random.nextDouble()
+      }
   }
 
 }

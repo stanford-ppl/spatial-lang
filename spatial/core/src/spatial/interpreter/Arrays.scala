@@ -6,11 +6,11 @@ import spatial.nodes._
 import argon.interpreter.{Interpreter => AInterpreter}
 import spatial.SpatialConfig
 
-trait IArray extends AInterpreter {
+trait Arrays extends AInterpreter {
 
-  override def matchNode  = super.matchNode.orElse {
+  override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
-    case ArrayApply(EArray(array), EBigDecimal(i)) =>
+    case ArrayApply(EArray(array), EInt(i)) =>
       array(i.toInt)
 
     case InputArguments() =>

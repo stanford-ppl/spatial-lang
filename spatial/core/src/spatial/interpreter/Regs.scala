@@ -4,20 +4,22 @@ import argon.core._
 import spatial.nodes._
 import argon.interpreter.{Interpreter => AInterpreter}
 
-trait Reg extends AInterpreter {
+trait Regs extends AInterpreter {
 
-  override def matchNode  = super.matchNode.orElse {
+  case class IReg(v: Any)
+
+  override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
     case RegWrite(sym: Sym[_], EAny(value), EBoolean(cond)) =>
       if (cond) {
-        updateVar(sym, value)
+        updateVar(sym, IReg(value))
       }
 
     case RegRead(sym: Sym[_]) =>
-      variables(sym)
+      variables(sym).asInstanceOf[IReg].v
 
     case RegNew(EAny(init)) =>
-      init
+      variables.get(lhs).getOrElse(IReg(init))
 
   }
 

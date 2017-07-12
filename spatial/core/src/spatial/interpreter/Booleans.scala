@@ -6,9 +6,9 @@ import spatial.nodes._
 import argon.interpreter.{Interpreter => AInterpreter}
 import scala.math.BigDecimal
 
-trait IBoolean extends AInterpreter {
+trait Booleans extends AInterpreter {
 
-  override def matchNode  = super.matchNode.orElse {
+  override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
     case Not(EBoolean(b)) =>
       !b
   }

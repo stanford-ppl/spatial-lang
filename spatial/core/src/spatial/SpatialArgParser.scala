@@ -32,10 +32,6 @@ class SpatialArgParser extends ArgonArgParser {
   parser.arg[String]("args...").unbounded().optional().action( (x, _) => {
     SpatialConfig.inputs = Array(x) ++ SpatialConfig.inputs  
   }).text("args inputs for the interpreter")
-
-  parser.opt[Unit]("debug").action { (_,_) =>
-    SpatialConfig.debug = true
-  }.text("enable interpreter debugger")
   
   parser.opt[String]("fpga").action( (x,_) =>
     SpatialConfig.targetName = x

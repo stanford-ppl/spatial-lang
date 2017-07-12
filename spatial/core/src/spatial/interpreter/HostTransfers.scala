@@ -5,9 +5,9 @@ import spatial.nodes._
 import argon.interpreter.{Interpreter => AInterpreter}
 import scala.math.BigDecimal
 
-trait HostTransfer extends AInterpreter {
+trait HostTransfers extends AInterpreter {
 
-  override def matchNode  = super.matchNode.orElse {
+  override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
     case ArgInNew(EAny(arg)) =>
       arg

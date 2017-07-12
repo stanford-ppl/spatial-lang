@@ -4,9 +4,9 @@ import argon.core._
 import spatial.nodes._
 import argon.interpreter.{Interpreter => AInterpreter}
 
-trait FileIO extends AInterpreter {
+trait FileIOs extends AInterpreter {
 
-  override def matchNode  = super.matchNode.orElse {  
+  override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {  
       case OpenFile(EString(file), _) =>
         io.Source.fromFile(file)
 

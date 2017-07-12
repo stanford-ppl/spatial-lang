@@ -48,10 +48,10 @@ object SpatialConfig {
   var enableDSE: Boolean = _
   var enableDot: Boolean = _
 
-  var loopInterpreter = true
+  //Interpreter 
   var inputs: Array[String] = Array()
-  var debug: Boolean = _
   var enableInterpret: Boolean = _
+
   var enableSim: Boolean = _
   var enableSynth: Boolean = _
   var enablePIR: Boolean = _
@@ -88,7 +88,6 @@ object SpatialConfig {
 spatial {
   fpga = "Default"
   interpret = false
-  debug = false
   sim = false
   inputs = ["0", "1", "2", "3", "4"]
   synth = false
@@ -112,7 +111,6 @@ spatial {
         enableDot = spatialConf.dot
 
         inputs = spatialConf.inputs.toArray
-        debug = spatialConf.debug
         enableInterpret = spatialConf.interpret
         enableSim = spatialConf.sim
         enableSynth = spatialConf.synth

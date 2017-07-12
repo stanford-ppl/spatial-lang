@@ -10,46 +10,46 @@ import java.util.concurrent.TimeUnit
 import spatial.SpatialConfig
 import spatial.targets.Bus
 
-object IStream {
-  var streamsIn = Map[Bus, Queue[Any]]()
-  var streamsOut = Map[Bus, Queue[Any]]()
+object Streams {
+  var streamsIn = Map[Bus, Queue[Exp[_]]]()
+  var streamsOut = Map[Bus, Queue[Exp[_]]]()
 
   def addStreamIn(bus: Bus) =
-    streamsIn += ((bus, new Queue[Any]()))
+    streamsIn += ((bus, new Queue[Exp[_]]()))
 
   def addStreamOut(bus: Bus) =
-    streamsOut += ((bus, new Queue[Any]()))
+    streamsOut += ((bus, new Queue[Exp[_]]()))
 }
 
-trait IStream extends AInterpreter {
+trait Streams extends AInterpreter {
 
 
-  override def matchNode  = super.matchNode.orElse {
+  override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
     case StreamInNew(bus) =>
-      if (!IStream.streamsIn.contains(bus))
-        IStream.addStreamIn(bus)
+      if (!Streams.streamsIn.contains(bus))
+        Streams.addStreamIn(bus)
 
-      IStream.streamsIn(bus)
+      Streams.streamsIn(bus)
 
     case StreamOutNew(bus) =>
-      if (!IStream.streamsOut.contains(bus))
-        IStream.addStreamOut(bus)
+      if (!Streams.streamsOut.contains(bus))
+        Streams.addStreamOut(bus)
 
-      IStream.streamsOut(bus)
+      Streams.streamsOut(bus)
       
 
     case StreamRead(a: Sym[_], b) =>
-      val q = eval[Queue[Any]](a)
-      var v: Any = null
+      val q = eval[Queue[Exp[_]]](a)
+      var v: Exp[_] = null
 
-      while (v == null && !Interpreter.closed) {
-        if (SpatialConfig.debug)
+      while (v == null) {
+        if (Config.debug)
           println("Waiting for new input in " + a + "...")
 
         v = q.poll(1000, TimeUnit.MILLISECONDS)
 
-        if (v == null && SpatialConfig.debug) {
+        if (v == null && Config.debug) {
           println("No new input after 1s. q to quit or any key to continue waiting")
           if (io.StdIn.readLine() == "q") 
             System.exit(0)
@@ -65,7 +65,7 @@ trait IStream extends AInterpreter {
 
         val q = eval[Queue[Any]](a)
 
-        if (SpatialConfig.debug)
+        if (Config.debug)
           println("Push " + b + " to " + a)
 
         q.put(b)

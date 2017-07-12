@@ -5,9 +5,9 @@ import argon.nodes._
 import spatial.nodes._
 import argon.interpreter.{Interpreter => AInterpreter}
 
-trait IString extends AInterpreter {
+trait Strings extends AInterpreter {
 
-  override def matchNode  = super.matchNode.orElse {
+  override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
     case StringConcat(EString(a), EString(b)) =>
       a + b

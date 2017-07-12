@@ -205,6 +205,7 @@ trait SpatialCompiler extends ArgonCompiler {
     if (SpatialConfig.enableDot)   passes += dotgen
     if (SpatialConfig.enablePIR)   passes += pirgen
     if (SpatialConfig.enableInterpret)   passes += interpreter
+
   }
 
   def target = SpatialConfig.target
