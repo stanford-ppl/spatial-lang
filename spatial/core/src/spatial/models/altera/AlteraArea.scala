@@ -1,4 +1,5 @@
 package spatial.models
+package altera
 
 case class AlteraArea(
                       lut3: Int = 0,
@@ -50,10 +51,26 @@ case class AlteraArea(
   override def toString() = s"lut3=$lut3, lut4=$lut4, lut5=$lut5, lut6=$lut6, lut7=$lut7, mem16=$mem16, mem32=$mem32, mem64=$mem64, regs=$regs, dsps=$dsps, bram=$sram, mregs=$mregs"
 
   def toArray: Array[Int] = Array(lut3,lut4,lut5,lut6,lut7,mem16,mem32,mem64,regs+mregs,dsps,sram)
+
+  def <(that: AlteraArea): Boolean = {
+    this.lut3 < that.lut3 &&
+    this.lut4 < that.lut4 &&
+    this.lut5 < that.lut5 &&
+    this.lut6 < that.lut6 &&
+    this.lut7 < that.lut7 &&
+    this.mem16 < that.mem16 &&
+    this.mem32 < that.mem32 &&
+    this.mem64 < that.mem64 &&
+    this.regs < that.regs &&
+    this.mregs < that.mregs &&
+    this.dsps < that.dsps &&
+    this.sram < that.sram
+  }
 }
 
 object AlteraAreaMetric extends AreaMetric[AlteraArea] {
   override def zero: AlteraArea = AlteraArea()
+  override def lessThan(x: AlteraArea, y: AlteraArea): Boolean = x < y
 }
 
 object AlteraArea {

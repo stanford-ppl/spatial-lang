@@ -127,13 +127,6 @@ object utils {
     */
   @stateful def lcaWithDistance(a: Ctrl, b: Ctrl): (Ctrl, Int) = {
     if (a == b) (a, 0)
-    else if (a.node == b.node) {
-      // If these are sub-controller stages, use the block to define the distance
-      // -1 denotes an input to the controller itself (e.g. for loop bounds, enable, etc.)
-      // The distance between a controller's inputs and its sub-controllers is defined to be 0
-      if (a.block >= 0 && b.block >= 0) ((a.node,-1), b.block - a.block)
-      else ((a.node,-1), 0)
-    }
     else {
       val (lca, pathA, pathB) = leastCommonAncestorWithPaths[Ctrl](a, b, {node => parentOf(node)})
       if (lca.isEmpty) throw new NoCommonParentException(a,b)
@@ -162,18 +155,20 @@ object utils {
         val dist  = if (aToB >= 0) aToB
                     else if (bToA >= 0) -bToA
                     else throw new UndefinedPipeDistanceException(a, b)*/
+        dbg(c"    LCA: " + parent)
+        dbg(c"    LCA children: " + childrenOf(parent).mkString(", "))
+        dbg(c"    Path A (from $a): " + pathA.mkString(", ") + s": topA = $topA")
+        dbg(c"    Path B (from $b): " + pathB.mkString(", ") + s": topB = $topB")
+
 
         // Linear version (using for now)
         val indexA = childrenOf(parent).indexOf(topA)
         val indexB = childrenOf(parent).indexOf(topB)
         if (indexA < 0 || indexB < 0) {
-          error(c"LCA: " + parent)
-          error(c"LCA children: " + childrenOf(parent).mkString(", "))
-          error(c"Path A (from $a): " + pathA.mkString(", ") + s": topA = $topA")
-          error(c"Path B (from $b): " + pathB.mkString(", ") + s": topB = $topB")
           throw new UndefinedPipeDistanceException(a, b)
         }
         val dist = indexB - indexA
+        dbg(c"    distance: $dist")
 
         (parent, dist)
       }
@@ -379,42 +374,64 @@ object utils {
     def node: Exp[_] = if (x == null) null else x._1
     def block: Int = if (x == null) -1 else x._2
     @stateful def isInner: Boolean = if (x == null || block < 0) false else node match {
-      case Op(OpReduce(_,_,_,map,ld,reduce,store,_,_,_,_)) => block match {
-        case 0 => isInnerControl(node)
-        case 1 => true
-      }
-      case Op(OpMemReduce(_,_,_,_,map,ldRes,ldAcc,reduce,stAcc,_,_,_,_,_)) => block match {
-        case 0 => isInnerControl(node)
-        case 1 => true
-      }
-      case Op(StateMachine(_,_,notdone,action,nextState,_)) => block match {
-        case 0 => true
-        case 1 => isInnerControl(node)
-        case 2 => true
-      }
+      case Op(OpReduce(_,_,_,map,ld,reduce,store,_,_,_,_)) if isInnerControl(node) => true
+      case Op(_:OpReduce[_]) if isOuterControl(node) => true
+      case Op(OpMemReduce(_,_,_,_,map,ldRes,ldAcc,reduce,stAcc,_,_,_,_,_)) if isInnerControl(node) => true
+      case Op(_:OpMemReduce[_,_]) if isOuterControl(node) => block == 0
+      case Op(StateMachine(_,_,notdone,action,nextState,_)) if isInnerControl(node) => true
+      case Op(_:StateMachine[_]) => block == 0 || block == 1
       case _ => isInnerControl(node)
     }
   }
-  @stateful def blockCountRemap(x: Ctrl, blockNum: Int): Int = if (blockNum < 0) blockNum else x.node match {
-    case Op(_:OpReduce[_]) => blockNum match {
-      case 0 => 0
-      case 1 | 2 | 3 => 1
+
+  /**
+    * Map a given compiler block number to the logical child number
+    *
+    *   Inner Reduce: Everything eventually becomes one logical stage
+    *   Outer Reduce: The map is part of the initialization (and has other children inside), the reduce is a separate stage
+    *   Inner MemReduce: Doesn't usually happen, but would be two stages
+    *   Outer MemReduce: Map is part of initialization (and has other children), the reduce is a separate stage
+    *
+    *   When -1 is used, this is an outer scope block which shouldn't contain primitives (only stateless logic)
+    **/
+  @stateful def blockCountRemap(e: Exp[_], blockNum: Int): Int = if (blockNum < 0) blockNum else e match {
+    case Op(_:OpReduce[_]) if isInnerControl(e) => blockNum match {
+      case 0 | 1 | 2 | 3 => 0
     }
-    case Op(_:OpMemReduce[_,_]) => blockNum match {
+    case Op(_:OpReduce[_]) if isOuterControl(e) => blockNum match {
+      case 0 => -1
+      case 1 | 2 | 3 => 0
+    }
+    case Op(_:OpMemReduce[_,_]) if isInnerControl(e) => blockNum match {
       case 0 => 0
       case 1 | 2 | 3 | 4 => 1
     }
-    case _ => blockNum
+    case Op(_:OpMemReduce[_,_]) if isOuterControl(e) => blockNum match {
+      case 0 => -1
+      case 1 | 2 | 3 | 4 => 0
+    }
+    case Op(_:StateMachine[_]) if isInnerControl(e) => blockNum
+    case Op(_:StateMachine[_]) if isOuterControl(e) => blockNum match {
+      case 0 => 0
+      case 1 => -1
+      case 2 => 1
+    }
+    case _ if isInnerControl(e) => blockNum
+    case _ if isOuterControl(e) => -1
   }
-  @stateful def blkToCtrl(block: Blk): Ctrl = (block.node, blockCountRemap(block, block.block))
+  @stateful def blkToCtrl(block: Blk): Ctrl = (block.node, blockCountRemap(block.node, block.block))
 
 
 
   @stateful def addImplicitChildren(x: Ctrl, children: List[Ctrl]): List[Ctrl] = x.node match {
-    case Op(_:OpReduce[_])      => children ++ List((x.node,0), (x.node,1))
-    case Op(_:OpMemReduce[_,_]) => children ++ List((x.node,0), (x.node,1))
-    case Op(_:StateMachine[_])  => List((x.node,0)) ++ children ++ List((x.node,1), (x.node,2))
-    case _ => children ++ List((x.node,0))
+    case Op(_:OpReduce[_]) if isInnerControl(x) => children ++ List((x.node,0)) // children should be Nil
+    case Op(_:OpReduce[_]) if isOuterControl(x) => children ++ List((x.node,0))
+    case Op(_:OpMemReduce[_,_]) if isInnerControl(x) => children ++ List((x.node,0), (x.node,1)) // children should be Nil
+    case Op(_:OpMemReduce[_,_]) if isOuterControl(x) => children ++ List((x.node,0))
+    case Op(_:StateMachine[_])  if isInnerControl(x) => List((x.node,0), (x.node,1), (x.node,2)) // children should be Nil
+    case Op(_:StateMachine[_])  if isOuterControl(x) => List((x.node,0)) ++ children ++ List((x.node,1))
+    case _ if isInnerControl(x) => children ++ List((x.node,0)) // children should be Nil
+    case _ if isOuterControl(x) => children
   }
 
 

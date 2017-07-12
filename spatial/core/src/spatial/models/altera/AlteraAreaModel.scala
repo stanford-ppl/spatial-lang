@@ -1,4 +1,5 @@
 package spatial.models
+package altera
 
 import argon.core._
 import argon.nodes._
@@ -9,7 +10,7 @@ import spatial.utils._
 
 class AlteraAreaModel extends AreaModel[AlteraArea] {
 
-  private def areaOfMemory(nbits: Int, dims: Seq[Int], instance: Memory) = {
+  private def areaOfMemory(nbits: Int, dims: Seq[Int], instance: Memory): AlteraArea = {
     // Physical depth for given word size for horizontally concatenated RAMs
     val nElements = dims.product
     val wordDepth = if      (nbits == 1)  16384
@@ -48,7 +49,7 @@ class AlteraAreaModel extends AreaModel[AlteraArea] {
     }
   }
 
-  private def areaOfSRAM(nbits: Int, dims: Seq[Int], instances: Seq[Memory]) = {
+  private def areaOfSRAM(nbits: Int, dims: Seq[Int], instances: Seq[Memory]): AlteraArea = {
     instances.map{instance => areaOfMemory(nbits, dims, instance) }.fold(NoArea){_+_}
   }
 
