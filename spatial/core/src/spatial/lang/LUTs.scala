@@ -3,6 +3,7 @@ package spatial.lang
 import argon.core._
 import forge._
 import spatial.nodes._
+import spatial.files._
 
 trait LUT[T] { this: Template[_] =>
   def s: Exp[LUT[T]]
@@ -28,6 +29,34 @@ object LUT {
     checkDims(Seq(dim1,dim2,dim3,dim4,dim5),elems)
     LUT5(alloc[T,LUT5](Seq(dim1,dim2,dim3,dim4,dim5), unwrap(elems)))
   }
+
+  @internal private def readData[T:Type:Bits](filename: String): Seq[T] = {
+    try {
+      loadCSV[T](filename, ",") { str => parseValue[T](str) }
+    }
+    catch {case e: Throwable =>
+      error(ctx, c"Could not read file $filename to create LUT")
+      error(ctx)
+      throw e
+    }
+  }
+
+  @api def fromFile[T:Type:Bits](dim1: Int)(filename: String): LUT1[T] = {
+    LUT[T](dim1)(readData[T](filename):_*)
+  }
+  @api def fromFile[T:Type:Bits](dim1: Int, dim2: Int)(filename: String): LUT2[T] = {
+    LUT[T](dim1, dim2)(readData[T](filename):_*)
+  }
+  @api def fromFile[T:Type:Bits](dim1: Int, dim2: Int, dim3: Int)(filename: String): LUT3[T] = {
+    LUT[T](dim1, dim2, dim3)(readData[T](filename): _*)
+  }
+  @api def fromFile[T:Type:Bits](dim1: Int, dim2: Int, dim3: Int, dim4: Int)(filename: String): LUT4[T] = {
+    LUT[T](dim1, dim2, dim3, dim4)(readData[T](filename):_*)
+  }
+  @api def fromFile[T:Type:Bits](dim1: Int, dim2: Int, dim3: Int, dim4: Int, dim5: Int)(filename: String): LUT5[T] = {
+    LUT[T](dim1, dim2, dim3, dim4, dim5)(readData[T](filename):_*)
+  }
+
 
   @internal def checkDims(dims: Seq[Int], elems: Seq[_]) = {
     if (dims.product != elems.length) {

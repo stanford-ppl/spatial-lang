@@ -91,25 +91,32 @@ trait ChiselGenSRAM extends ChiselCodegen {
   // Emit an SRFF that will block a counter from incrementing after the counter reaches the max
   //  rather than spinning even when there is retiming and the surrounding loop has a delayed
   //  view of the counter done signal
-  protected def emitInhibitor(lhs: Exp[_], cchain: Option[Exp[_]], fsm: Option[Exp[_]] = None): Unit = {
+  protected def emitInhibitor(lhs: Exp[_], cchain: Option[Exp[_]], fsm: Option[Exp[_]] = None, switch: Option[Exp[_]]): Unit = {
     if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {
-      emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
       emitGlobalModule(src"val ${lhs}_inhibitor = Wire(Bool())")
       if (fsm.isDefined) {
-          emit(src"${lhs}_inhibit.io.input.set := ${fsm.get}_doneCondition")  
+          emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
+          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${fsm.get}_doneCondition)")  
+          emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_done.D(1, rr)")
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | ${fsm.get}_doneCondition // Really want inhibit to turn on at last enabled cycle")        
+          emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
+      } else if (switch.isDefined) {
+        emit(src"${lhs}_inhibitor := ${switch.get}_inhibitor")
       } else {
         if (cchain.isDefined) {
+          emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
           emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/ // Correction not needed because _done should mask dp anyway")
           emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_done.D(0, rr)")
+          emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
         } else {
+          emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
           emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${lhs}_done /*${lhs}_sm.io.output.ctr_inc*/)")
           emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_done.D(1, rr)")
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
+          emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
         }        
       }
-      emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
     } else {
       emitGlobalModule(src"val ${lhs}_inhibitor = false.B // Maybe connect to ${lhs}_done?  ")      
     }

@@ -336,7 +336,7 @@ case class UnrollNumbers(nums: Seq[Int]) extends Metadata[UnrollNumbers] { def m
 }
 
 /**
-  * Identifies whether a memory is an accumulator
+  * Identifies whether a memory or associated write is an accumulator / accumulating write
   */
 case class MAccum(is: Boolean) extends Metadata[MAccum] { def mirror(f:Tx) = this }
 @data object isAccum {
@@ -436,5 +436,11 @@ case class MLoopInvariant(is: Boolean) extends Metadata[MLoopInvariant] { def mi
 @data object isLoopInvariant {
   def apply(e: Exp[_]): Boolean = metadata[MLoopInvariant](e).exists(_.is)
   def update(e: Exp[_], is: Boolean): Unit = metadata.add(e, MLoopInvariant(is))
+}
+
+case class InitiationInterval(interval: Int) extends Metadata[InitiationInterval] { def mirror(f:Tx) = this }
+@data object iiOf {
+  def apply(e: Exp[_]): Int = metadata[InitiationInterval](e).map(_.interval).getOrElse(1)
+  def update(e: Exp[_], interval: Int): Unit = metadata.add(e, InitiationInterval(interval))
 }
 
