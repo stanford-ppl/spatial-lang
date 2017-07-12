@@ -22,6 +22,16 @@ case class AlteraArea(
     dsps = this.dsps + that.dsps,
     sram = this.sram + that.sram
   )
+  def <(that: AlteraArea) = {
+    this.lut3 < that.lut3 &&
+    this.lut4 < that.lut4 &&
+    this.lut5 < that.lut5 &&
+    this.lut6 < that.lut6 &&
+    this.lut7 < that.lut7 &&
+    this.regs < that.regs &&
+    this.dsps < that.dsps &&
+    this.sram < that.sram
+  }
 }
 
 object AlteraAreaMetric extends AreaMetric[AlteraArea] {
