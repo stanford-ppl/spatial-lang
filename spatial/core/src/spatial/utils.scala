@@ -166,7 +166,13 @@ object utils {
         // Linear version (using for now)
         val indexA = childrenOf(parent).indexOf(topA)
         val indexB = childrenOf(parent).indexOf(topB)
-        if (indexA < 0 || indexB < 0) throw new UndefinedPipeDistanceException(a, b)
+        if (indexA < 0 || indexB < 0) {
+          error(c"LCA: " + parent)
+          error(c"LCA children: " + childrenOf(parent).mkString(", "))
+          error(c"Path A (from $a): " + pathA.mkString(", ") + s": topA = $topA")
+          error(c"Path B (from $b): " + pathB.mkString(", ") + s": topB = $topB")
+          throw new UndefinedPipeDistanceException(a, b)
+        }
         val dist = indexB - indexA
 
         (parent, dist)
@@ -395,13 +401,15 @@ object utils {
     }
     case _ => blockNum
   }
+  @stateful def blkToCtrl(block: Blk): Ctrl = (block.node, blockCountRemap(block, block.block))
 
 
-  @stateful def implicitChildren(x: Ctrl): List[Ctrl] = x.node match {
-    case Op(_:OpReduce[_]) => List((x.node,1))
-    case Op(_:OpMemReduce[_,_]) => List((x.node,3))
-    case Op(_:StateMachine[_])  => if (isInnerControl(x.node)) List((x.node,0),(x.node,1),(x.node,2)) else List((x.node,0),(x.node,2))
-    case _ => Nil
+
+  @stateful def addImplicitChildren(x: Ctrl, children: List[Ctrl]): List[Ctrl] = x.node match {
+    case Op(_:OpReduce[_])      => children ++ List((x.node,0), (x.node,1))
+    case Op(_:OpMemReduce[_,_]) => children ++ List((x.node,0), (x.node,1))
+    case Op(_:StateMachine[_])  => List((x.node,0)) ++ children ++ List((x.node,1), (x.node,2))
+    case _ => children ++ List((x.node,0))
   }
 
 

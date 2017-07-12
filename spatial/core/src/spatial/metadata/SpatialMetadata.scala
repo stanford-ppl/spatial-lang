@@ -183,7 +183,7 @@ case class Children(children: List[Exp[_]]) extends Metadata[Children] { def mir
 
   def apply(x: Ctrl): List[Ctrl] = {
     val children = childrenOf(x.node).map{child => (child, -1) }
-    if (x.block < 0) children ++ implicitChildren(x)  // Include controllers without nodes (e.g. the reduction of a Reduce)
+    if (x.block < 0) addImplicitChildren(x, children)  // Include controllers without nodes (e.g. the reduction of a Reduce)
     else children
   }
 }
@@ -295,13 +295,13 @@ case class Fringe(fringe: Exp[_]) extends Metadata[Fringe] {
 /**
   * List of consumers of reads (primarily used for register reads)
   */
-case class ReadUsers(users: List[Access]) extends Metadata[ReadUsers] {
+case class ReadUsers(users: Set[Access]) extends Metadata[ReadUsers] {
   def mirror(f:Tx) = this
   override val ignoreOnTransform = true // Not necessarily reliably mirrorable
 }
 @data object usersOf {
-  def apply(x: Exp[_]): List[Access] = metadata[ReadUsers](x).map(_.users).getOrElse(Nil)
-  def update(x: Exp[_], users: List[Access]) = metadata.add(x, ReadUsers(users))
+  def apply(x: Exp[_]): Set[Access] = metadata[ReadUsers](x).map(_.users).getOrElse(Set.empty)
+  def update(x: Exp[_], users: Set[Access]) = metadata.add(x, ReadUsers(users))
 }
 
 /**

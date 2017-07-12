@@ -13,7 +13,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   var genericStreams = Set[(Exp[_], String)]()
   var argPorts = Set[(Exp[_], String)]()
 
-  private def visitUnrolled(ctrl: Exp[_])(blk: => Unit) = visitCtrl(ctrl)(blk)
+  private def visitUnrolled(e: Exp[_])(blk: => Unit) = visitBlk(e)(blk)
 
   override protected def preprocess[S:Type](block: Block[S]) = {
     memStreams = Set[(Exp[_], Int, Int)]()

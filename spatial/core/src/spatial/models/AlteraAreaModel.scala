@@ -9,6 +9,49 @@ import spatial.utils._
 
 class AlteraAreaModel extends AreaModel[AlteraArea] {
 
+  private def areaOfMemory(nbits: Int, dims: Seq[Int], instance: Memory) = {
+    // Physical depth for given word size for horizontally concatenated RAMs
+    val nElements = dims.product
+    val wordDepth = if      (nbits == 1)  16384
+                    else if (nbits == 2)  8192
+                    else if (nbits <= 5)  4096
+                    else if (nbits <= 10) 2048
+                    else if (nbits <= 20) 1024
+                    else                  512
+
+    // Number of horizontally concatenated RAMs required to implement given word
+    val portWidth = if (nbits > 40) Math.ceil( nbits / 40.0 ).toInt else 1
+
+    val bufferDepth = instance.depth
+
+    val controlResourcesPerBank = if (bufferDepth == 1) NoArea else {
+      AlteraArea(lut3 = bufferDepth*nbits, regs = bufferDepth * nbits)
+    }
+
+    // TODO: This seems suspicious - check later
+    instance match {
+      case DiagonalMemory(strides, banks, depth, isAccum) =>
+        val elementsPerBank = Math.ceil(nElements.toDouble/banks)
+        val nRAMsPerBank = Math.ceil(elementsPerBank/wordDepth).toInt * portWidth
+        val resourcesPerBank = AlteraArea(sram = nRAMsPerBank)
+
+        (resourcesPerBank + controlResourcesPerBank).replicate(banks, inner=false)
+
+      case BankedMemory(banking,depth,isAccum) =>
+        val banks = banking.map(_.banks)
+        val nBanks = banks.product
+        val elementsPerBank = dims.zip(banks).map{case (dim,bank) => Math.ceil(dim.toDouble/bank).toInt }.product
+        val nRAMsPerBank = Math.ceil(elementsPerBank/wordDepth).toInt * portWidth
+        val resourcesPerBank = AlteraArea(sram = nRAMsPerBank)
+
+        (resourcesPerBank + controlResourcesPerBank).replicate(nBanks, inner=false)
+    }
+  }
+
+  private def areaOfSRAM(nbits: Int, dims: Seq[Int], instances: Seq[Memory]) = {
+    instances.map{instance => areaOfMemory(nbits, dims, instance) }.fold(NoArea){_+_}
+  }
+
   @stateful override def areaOf(e: Exp[_], d: Def): AlteraArea = d match {
     case FieldApply(_,_)    => NoArea
     case VectorApply(_,_)   => NoArea // Statically known index
@@ -80,10 +123,7 @@ class AlteraAreaModel extends AreaModel[AlteraArea] {
     case _:FIFOFull[_]        => NoArea
 
     // SRAMs
-    case _:SRAMNew[_,_]    => duplicatesOf(e).map{
-      case BankedMemory(_,depth,isAccum) => NoArea // TODO: Model
-      case DiagonalMemory(strides,banks,depth,isAccum) => NoArea
-    }.fold(NoArea){_+_}
+    case op:SRAMNew[_,_]   => areaOfSRAM(op.bT.length,dimsOf(e),duplicatesOf(e))
     case _:SRAMLoad[_]     => NoArea
     case _:ParSRAMLoad[_]  => NoArea
     case _:SRAMStore[_]    => NoArea
@@ -134,14 +174,14 @@ class AlteraAreaModel extends AreaModel[AlteraArea] {
     case FixAbs(_)    => NoArea // TODO
 
     // Saturating and/or unbiased math
-    case SatAdd(x,y) => NoArea
-    case SatSub(x,y) => NoArea
-    case SatMul(x,y) => NoArea
-    case SatDiv(x,y) => NoArea
-    case UnbMul(x,y) => NoArea
-    case UnbDiv(x,y) => NoArea
-    case UnbSatMul(x,y) => NoArea
-    case UnbSatDiv(x,y) => NoArea
+    case SatAdd(x,y) => NoArea // TODO
+    case SatSub(x,y) => NoArea // TODO
+    case SatMul(x,y) => NoArea // TODO
+    case SatDiv(x,y) => NoArea // TODO
+    case UnbMul(x,y) => NoArea // TODO
+    case UnbDiv(x,y) => NoArea // TODO
+    case UnbSatMul(x,y) => NoArea // TODO
+    case UnbSatDiv(x,y) => NoArea // TODO
 
     // Floating point math
     // TODO: Floating point area

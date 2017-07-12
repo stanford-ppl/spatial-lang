@@ -1010,18 +1010,18 @@ object Bug162 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
         val IDCTBuff = SRAM[UInt16](6,DCTSIZE2)
 
         def pgetc(): UInt8 = {
-          // val tmp = read_byte()
-          // if (tmp == 255.to[UInt8]){
-          //   if (read_byte() != 0.to[UInt8]){
-          //     println("Unanticipated marker detected.")
-          //     0.to[UInt8]
-          //   } else {
-          //     255.to[UInt8]
-          //   }
-          // } else {
-          //   tmp
-          // }
-          0.to[UInt8]
+           val tmp = read_byte()
+           if (tmp == 255.to[UInt8]){
+             if (read_byte() != 0.to[UInt8]){
+               println("Unanticipated marker detected.")
+               0.to[UInt8]
+             } else {
+               255.to[UInt8]
+             }
+           } else {
+             tmp
+           }
+//          0.to[UInt8]
         }
         def buf_getb(): UInt8 = {
           if (read_position_idx.value < 0.to[Int]) {
