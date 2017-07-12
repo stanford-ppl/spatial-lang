@@ -91,9 +91,10 @@ class RedxnCtr() extends Module {
 
   val cnt = RegInit(0.S(32.W))
 
-  val isDone = cnt + 1.S >= io.input.stop
+  val fudge_stop = io.input.stop + Mux(io.input.stop === 1.S, 1.S, 0.S)
+  val isDone = (cnt + 1.S >= (fudge_stop))
 
-  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.S === io.input.stop, Mux(io.input.saturate, cnt, 0.S), cnt+1.S), cnt)
+  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.S === fudge_stop, Mux(io.input.saturate, cnt, 0.S), cnt+1.S), cnt)
   cnt := Mux(io.input.reset, 0.S, nextCntUp)
 
   io.output.done := isDone
