@@ -177,6 +177,8 @@ git_things() {
   export argon_hash=`git rev-parse HEAD`
   cd ../scala-virtualized
   export virtualized_hash=`git rev-parse HEAD`
+  cd ../apps
+  export apps_hash=`git rev-parse HEAD`  
   cd ../
 
   # exists "$ARGON_HOME" 2

@@ -38,6 +38,7 @@ class DRAMRequest {
 public:
   uint64_t addr;
   uint64_t rawAddr;
+  uint32_t size;
   uint32_t streamId;
   uint64_t tag;
   uint64_t channelID;
@@ -49,9 +50,10 @@ public:
   uint64_t issued;
   bool completed;
 
-  DRAMRequest(uint64_t a, uint64_t ra, uint32_t sid, uint64_t t, bool wr, bool sparse, uint32_t *wd, uint64_t issueCycle) {
+  DRAMRequest(uint64_t a, uint64_t ra, uint32_t sz, uint32_t sid, uint64_t t, bool wr, bool sparse, uint32_t *wd, uint64_t issueCycle) {
     addr = a;
     rawAddr = ra;
+    size = sz;
     streamId = sid;
     tag = t;
     isWr = wr;
@@ -72,7 +74,7 @@ public:
   }
 
   void print() {
-    EPRINTF("[DRAMRequest CH=%lu] addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d, issued=%lu \n", channelID, addr, rawAddr, streamId, tag, isWr, isSparse, issued);
+    EPRINTF("[DRAMRequest CH=%lu] addr: %lx (%lx), sizeInBursts: %u, streamId: %x, tag: %lx, isWr: %d, isSparse: %d, issued=%lu \n", channelID, addr, rawAddr, size, streamId, tag, isWr, isSparse, issued);
     if (isWr) EPRINTF("wdata = %x\n", wdata[0]);
   }
 
@@ -337,6 +339,7 @@ extern "C" {
   int sendDRAMRequest(
       long long addr,
       long long rawAddr,
+      int size,
       int streamId,
       int tag,
       int isWr,
@@ -364,6 +367,7 @@ extern "C" {
     uint64_t cmdAddr = *(uint64_t*)&addr;
     uint64_t cmdRawAddr = *(uint64_t*)&rawAddr;
     uint64_t cmdTag = (uint64_t)(*(uint32_t*)&tag);
+    uint32_t cmdSize = (uint32_t)(*(uint32_t*)&size);
     uint64_t cmdStreamId = (uint32_t)(*(uint32_t*)&streamId);
     bool cmdIsWr = isWr > 0;
     bool cmdIsSparse = isSparse > 0;
@@ -387,7 +391,7 @@ extern "C" {
     uint32_t wdata[16] = { cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3, cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7, cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11, cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15};
 
 
-    DRAMRequest *req = new DRAMRequest(cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse, wdata, numCycles);
+    DRAMRequest *req = new DRAMRequest(cmdAddr, cmdRawAddr, cmdSize, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse, wdata, numCycles);
     if (debug) {
 //      EPRINTF("[sendDRAMRequest] Called with addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d\n", cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse);
       EPRINTF("[sendDRAMRequest] Called with ");

@@ -129,6 +129,7 @@ class MAGCore(
 
   val sizeTop = sizeFifo.io.deq(0)
   val sizeInBursts = extractBurstAddr(sizeTop) + (extractBurstOffset(sizeTop) != 0.U)
+  io.dram.cmd.bits.size := sizeInBursts
 
   // WData FIFO
   // Deriving the 'enqVld' signal from the other FIFO states is potentially

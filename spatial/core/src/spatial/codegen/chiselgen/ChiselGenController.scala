@@ -242,9 +242,10 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def getStreamEnablers(c: Exp[Any]): String = {
       // If we are inside a stream pipe, the following may be set
+      val lat = bodyLatency.sum(c)
       val readiers = listensTo(c).distinct.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty"
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty"
+        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty.D($lat, rr)"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D($lat, rr)"
         case fifo @ Def(StreamInNew(bus)) => bus match {
           case SliderSwitch => ""
           case _ => src"${fifo}_valid"
@@ -252,8 +253,8 @@ trait ChiselGenController extends ChiselGenCounter{
         case fifo => src"${fifo}_en" // parent node
       }.filter(_ != "").mkString(" & ")
       val holders = pushesTo(c).distinct.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full"
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.full"
+        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full.D($lat, rr)"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.full.D($lat, rr)"
         case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready"
         case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"
       }.filter(_ != "").mkString(" & ")
@@ -368,7 +369,11 @@ trait ChiselGenController extends ChiselGenCounter{
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
     emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, retime = ${sym}_retime))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
-    emit(src"""${sym}_done := ${sym}_sm.io.output.done.D(${sym}_retime,rr)""")
+    if (isFSM) {
+      emit(src"""${sym}_done := (${sym}_sm.io.output.done & ~${sym}_inhibitor.D(2,rr)).D(${sym}_retime,rr)""")      
+    } else {
+      emit(src"""${sym}_done := ${sym}_sm.io.output.done.D(${sym}_retime,rr)""")
+    }
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
     emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw // Unused for inner and parallel""")
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
@@ -486,7 +491,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWire(src"""val rr = retime_released // Shorthand""")
       emit(src"""retime_released := retime_counter.io.output.done """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
-      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None, None, None)
       // Emit unit counter for this
       emit(s"""val done_latch = Module(new SRFF())""")
       emit(s"""done_latch.io.input.set := ${quote(lhs)}_done""")
@@ -504,7 +509,7 @@ trait ChiselGenController extends ChiselGenCounter{
       controllerStack.push(lhs)
       emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B""")
       emitController(lhs, None, None)
-      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None)
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None, None, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)
@@ -615,7 +620,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""${lhs}_ctr_trivial := ${parent_kernel}_ctr_trivial | false.B""")
       if (levelOf(lhs) == InnerControl) {
         val realctrl = findCtrlAncestor(lhs) // TODO: I don't think this search is needed anymore
-        emitInhibitor(lhs, None, None)
+        emitInhibitor(lhs, None, None, parentOf(parent_kernel))
       }
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         // if (blockContents(body).length > 0) {

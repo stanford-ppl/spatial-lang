@@ -50,6 +50,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case UnrolledForeach(ens,cchain,func,iters,valids) =>
+      Console.println(src"ii of $lhs is ${iiOf(lhs)}")
+
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
@@ -89,7 +91,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         }
 
       }
-      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain))
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
       val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
       emit(src"${lhs}_mask := $en")
       controllerStack.pop()
@@ -107,7 +109,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
               emit(src"""val ${lhs}_redxn_done = true.B""")
             case _ => // Not optimized for this case
               emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
-              emit(src"""val ${lhs}_redxn_done = ${lhs}_redLoopCtr.io.output.done""")
+              emit(src"""val ${lhs}_redxn_done = ${lhs}_redLoopCtr.io.output.done | ${lhs}_ctr_trivial""")
               emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
               emit(s"""${quote(lhs)}_redLoopCtr.io.input.stop := ${quote(lhs)}_retime.S""")
               emit(s"""${quote(lhs)}_redLoopCtr.io.input.reset := reset | ${quote(lhs)}_redxn_done.D(1)""")
@@ -134,7 +136,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"// Used to be this, but not sure why for outer reduce: val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en.D(0)")
       }
-      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain))
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
       // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
       emit(src"//val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {

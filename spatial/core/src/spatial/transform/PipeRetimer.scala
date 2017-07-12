@@ -145,17 +145,18 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
     def retimeSwitch[A:Type](switch: Exp[A], op: Switch[A]): Unit = {
       val Switch(body, selects, cases) = op
       dbgs(c"Retiming switch $switch = $op")
-      val body2 = stageHotBlock {
+      val body2 = inBlock(body){ stageHotBlock {
         cases.foreach{
           case cas @ Op(SwitchCase(caseBody)) =>
             implicit val ctx: SrcCtx = cas.ctx
             dbgs(c"Retiming case ${str(cas)}")
             val caseBody2: Block[A] = isolateSubstScope { stageSealedBlock {
               retimeStms(caseBody)
-              val size = delayConsumers.getOrElse(switch, Nil).find(_.input == cas).map(_.size)
-              if (size.isDefined && size.get > 0) {
+              val size = delayConsumers.getOrElse(switch, Nil).find(_.input == cas).map(_.size).getOrElse(0) +
+                         delayConsumers.getOrElse(cas, Nil).find(_.input == caseBody.result).map(_.size).getOrElse(0)
+              if (size > 0) {
                 dbgs(s"Adding retiming delay of size $size at end of case $cas")
-                delayLine(size.get, f(caseBody.result))
+                delayLine(size, f(caseBody.result))
               }
               else {
                 dbgs(s"No retiming delay required for case $cas")
@@ -168,7 +169,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
             register(cas -> cas2)
         }
         f(cases.last)
-      }
+      }}
       val switch2 = isolateSubstScope {
         registerDelays(switch, selects)
         implicit val ctx: SrcCtx = switch.ctx
