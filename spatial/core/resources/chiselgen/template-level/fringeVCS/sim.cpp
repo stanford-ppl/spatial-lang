@@ -222,11 +222,13 @@ extern "C" {
   }
 
   void printAllEnv() {
+    EPRINTF("[SIM]  *** All environment variables visible *** \n");
     int tmp = 0;
     while (environ[tmp]) {
       EPRINTF("[SIM] environ[%d] = %s\n", tmp, environ[tmp]);
       tmp++;
     }
+    EPRINTF("[SIM]  ***************************************** \n");
   }
 
   // Called before simulation begins
@@ -235,7 +237,7 @@ extern "C" {
     prctl(PR_SET_PDEATHSIG, SIGHUP);
 
     /**
-     * Slave interface to host {
+     * Open slave interface to host {
      */
       // 0. Create Channel structures
       cmdChannel = new Channel(SIM_CMD_FD, -1, sizeof(simCmd));
@@ -248,8 +250,41 @@ extern "C" {
       sendResp(cmd);
     /**} End Slave interface to Host */
 
-    initDRAM();
+    /**
+     * Set VPD / VCD based on environment variables
+     */
+    char *vpd = getenv("VPD_ON");
+    if (vpd != NULL) {
+      if (vpd[0] != 0 && atoi(vpd) > 0) {
+        startVPD();
+        EPRINTF("[SIM] VPD Waveforms ENABLED\n");
+      } else {
+        EPRINTF("[SIM] VPD Waveforms DISABLED\n");
+      }
+    } else {
+      EPRINTF("[SIM] VPD Waveforms DISABLED\n");
+    }
 
+    char *vcd = getenv("VCD_ON");
+    if (vcd != NULL) {
+      if (vcd[0] != 0 && atoi(vcd) > 0) {
+        startVCD();
+        EPRINTF("[SIM] VCD Waveforms ENABLED\n");
+      } else {
+        EPRINTF("[SIM] VCD Waveforms DISABLED\n");
+      }
+    } else {
+      EPRINTF("[SIM] VCD Waveforms DISABLED\n");
+    }
+
+
+
+    /**
+     * Initialize peripheral simulators
+     */
+    initDRAM();
     initStreams();
+
+
   }
 }

@@ -29,13 +29,33 @@ class FringeContextVCS : public FringeContextBase<void> {
   uint32_t numArgOuts = 0;
   uint32_t numArgIOs = 0;
 
+  posix_spawn_file_actions_t action;
+  int globalID = 1;
+
   const uint32_t burstSizeBytes = 64;
   const uint32_t commandReg = 0;
   const uint32_t statusReg = 1;
   const uint64_t maxCycles = 10000000000;
 
-  posix_spawn_file_actions_t action;
-  int globalID = 1;
+  // Set of environment variables that should be set and visible to the simulator process
+  // Each variable must be explicitly mentioned here
+  // Each specified variable must be set (will trigger an assert otherwise)
+  std::vector<std::string> envVariablesToSim = {
+    "LD_LIBRARY_PATH",
+    "DRAMSIM_HOME",
+    "USE_IDEAL_DRAM",
+    "DRAM_DEBUG",
+    "DRAM_NUM_OUTSTANDING_BURSTS",
+    "VPD_ON",
+    "VCD_ON"
+  };
+
+  char* checkAndGetEnvVar(std::string var) {
+    const char *cvar = var.c_str();
+    char *value = getenv(cvar);
+    ASSERT(value != NULL, "%s is NULL\n", cvar);
+    return value;
+  }
 
   int sendCmd(SIM_CMD cmd) {
     simCmd simCmd;
@@ -199,22 +219,17 @@ public:
     char *args[] = {&argsmem[0][0],nullptr};
 
     // Pass required environment variables to simulator
-    // LD_LIBRARY_PATH
-    // DRAMSIM_HOME
-    // DRAM_DEBUG
-    // ..(others)..
-    char *ldPath = getenv("LD_LIBRARY_PATH");
-    char *dramPath = getenv("DRAMSIM_HOME");
-    ASSERT(ldPath != NULL, "ldPath is NULL");
-    ASSERT(dramPath != NULL, "dramPath is NULL");
-
-    std::string ldLib = "LD_LIBRARY_PATH=" + string(getenv("LD_LIBRARY_PATH"));
-    std::string dramSimHome = "DRAMSIM_HOME=" + string(getenv("DRAMSIM_HOME"));
-    std::string idealDram = "USE_IDEAL_DRAM=" + string(getenv("USE_IDEAL_DRAM"));
-    std::string dramDebug = "DRAM_DEBUG=" + string(getenv("DRAM_DEBUG"));
-    std::string dramOutstandingBursts = "DRAM_NUM_OUTSTANDING_BURSTS=" + string(getenv("DRAM_NUM_OUTSTANDING_BURSTS"));
-    std::string envstrings[] = {ldLib, dramSimHome, idealDram, dramDebug, dramOutstandingBursts};
-    char *envs[] = {&envstrings[0][0], &envstrings[1][0], &envstrings[2][0], &envstrings[3][0], &envstrings[4][0], nullptr};
+    // Required environment variables must be specified in "envVariablesToSim"
+    char **envs = new char*[envVariablesToSim.size() + 1];
+    std::string *valueStrs = new std::string[envVariablesToSim.size()];
+    int i = 0;
+    for (std::vector<std::string>::iterator it = envVariablesToSim.begin(); it != envVariablesToSim.end(); it++) {
+      std::string var = *it;
+      valueStrs[i] = var + "=" + string(checkAndGetEnvVar(var));
+      envs[i] = &valueStrs[i][0];
+      i++;
+    }
+    envs[envVariablesToSim.size()] = nullptr;
 
     if(posix_spawnp(&sim_pid, args[0], &action, NULL, &args[0], &envs[0]) != 0) {
       EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));

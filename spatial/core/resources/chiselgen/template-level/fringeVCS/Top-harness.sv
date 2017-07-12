@@ -15,6 +15,10 @@ module test;
   export "DPI" function pokeDRAMResponse;
   export "DPI" function getDRAMRespReady;
   export "DPI" function writeStream;
+  export "DPI" function startVPD;
+  export "DPI" function startVCD;
+  export "DPI" function stopVPD;
+  export "DPI" function stopVCD;
 
   reg clock = 1;
   reg reset = 1;
@@ -34,6 +38,7 @@ module test;
   * Variables that control waveform generation
   * vpdon: Generates VPD file
   * vcdon: Generates VCD file
+  * Use the "[start|stop][VPD|VCD] functions from sim.cpp to control these variables"
   */
   reg vpdon = 0;
   reg vcdon = 0;
@@ -174,6 +179,23 @@ module test;
     .io_genericStreamOut_bits_tag(io_genericStreamOut_bits_tag),
     .io_genericStreamOut_bits_last(io_genericStreamOut_bits_last)
 );
+
+  function void startVPD();
+    vpdon = 1;
+  endfunction
+
+  function void startVCD();
+    vcdon = 1;
+  endfunction
+
+  function void stopVPD();
+    vpdon = 0;
+  endfunction
+
+  function void stopVCD();
+    vcdon = 0;
+  endfunction
+
 
   function void readRegRaddr(input int r);
     io_raddr = r;
@@ -318,6 +340,9 @@ module test;
   endfunction
 
   initial begin
+
+    sim_init();
+
     /*** VCD & VPD dump ***/
     if (vpdon) begin
       $vcdplusfile("Top.vpd");
@@ -330,9 +355,8 @@ module test;
       $dumpvars(0, Top);
     end
 
-      sim_init();
-      io_dram_cmd_ready = 0;
-      io_dram_wdata_ready = 0;
+    io_dram_cmd_ready = 0;
+    io_dram_wdata_ready = 0;
   end
 
   int numCycles = 0;
