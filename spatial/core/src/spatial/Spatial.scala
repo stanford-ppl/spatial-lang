@@ -52,6 +52,7 @@ trait SpatialApp extends ArgonApp {
     lazy val controlSanityCheck = new ControllerSanityCheck { var IR = state }
 
     lazy val retiming = new PipeRetimer { var IR = state }
+    lazy val initAnalyzer = new InitiationAnalyzer { var IR = state }
 
     lazy val dse = new DSE {
       var IR = state
@@ -180,6 +181,7 @@ trait SpatialApp extends ArgonApp {
     // --- Retiming
     if (SpatialConfig.enableRetiming)   passes += retiming // Add delay shift registers where necessary
     passes += printer
+    passes += initAnalyzer
 
     // --- Post-Unroll Analysis
     passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)

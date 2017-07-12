@@ -58,7 +58,7 @@ trait ScopeCheck extends SpatialTraversal {
       }
 
       val illegalInputs = inputs.filter{
-        case s @ Def(RegRead(reg)) => !isArgIn(reg) // Special case on reg reads of input args
+        //case s @ Def(RegRead(reg)) => !isArgIn(reg) // Special case on reg reads of input args
         case s @ Def(NewVar(_)) => false            // Already gave errors for outside vars
         case s => !isTransferException(s)
       }

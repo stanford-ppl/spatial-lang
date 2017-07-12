@@ -52,11 +52,11 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
     case Hwblock(func,_) =>
       inHw = true
-      val result = super.transform(lhs,rhs)
+      val result = withCtrl(lhs){ mirrorWithDuplication(lhs, rhs) }
       inHw = false
       result
 
-    case node if inHw && isStateless(node) && shouldDuplicate(lhs) =>
+    case node if ((inHw && isStateless(node)) || isRegisterRead(node)) && shouldDuplicate(lhs) =>
       dbg("")
       dbg("[stateless]")
       dbg(c"$lhs = $rhs")
@@ -78,7 +78,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
 
           uses.foreach { use =>
             val subs = (lhs -> read) +: statelessSubstRules.getOrElse((use,parent.node), Nil)
-            dbg(s"  $use: $lhs -> $read")
+            dbg(s"  ($use, ${parent.node}): $lhs -> $read")
             statelessSubstRules += (use,parent.node) -> subs
           }
 
@@ -112,6 +112,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   }
 
   private def mirrorWithDuplication[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
+    dbg(c"checking ($lhs, $ctrl) for external user rules")
     if ( statelessSubstRules.contains((lhs,ctrl)) ) {
       dbg("")
       dbg(c"[external user, ctrl = $ctrl]")
