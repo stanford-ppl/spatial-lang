@@ -5,3 +5,9 @@
 [submodule "scala-virtualized"]
 	path = scala-virtualized
 	url = https://github.com/stanford-ppl/scala-virtualized
+
+[submodule "spatial-apps"]
+	path = apps
+	url = https://github.com/stanford-ppl/spatial-apps
+
+
