@@ -328,6 +328,7 @@ class MAGCore(
   io.dram.wdata.bits.wdata := wdata
   io.dram.wdata.bits.streamId := wdataFifo.io.tag + loadStreamInfo.size.U
   io.dram.wdata.valid := wdataValid
+  io.dram.wdata.bits.wlast := wdataValid & (burstCounter.io.out === (sizeInBursts-1.U))
 
 
   val wasSparseWren = Module(new SRFF()) // Hacky way to allow wrPhase to die after sparse write
