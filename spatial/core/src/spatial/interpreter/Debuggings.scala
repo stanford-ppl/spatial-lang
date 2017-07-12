@@ -10,6 +10,16 @@ trait Debuggings extends AInterpreter {
     case PrintlnIf(EBoolean(cond), EString(str)) =>
       if (cond)
         println(str)
+    case BreakpointIf(EBoolean(cond)) =>
+      if (cond) {
+        println(s"${Console.RED_B}Reached a breakpoint: press a key to continue or q to quit${Console.RESET}")
+        if (io.StdIn.readLine() == "q") {
+          Config.exit()
+          System.exit(0)
+        }        
+      }
+      
+
   }
 
 }

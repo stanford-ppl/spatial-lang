@@ -12,6 +12,9 @@ trait ScalaGenDebugging extends ScalaCodegen {
     case PrintlnIf(en,msg)           => emit(src"val $lhs = if ($en) System.out.println($msg)")
     case AssertIf(en,cond,Some(msg)) => emit(src"val $lhs = if ($en) assert($cond, $msg)")
     case AssertIf(en,cond,None)      => emit(src"val $lhs = if ($en) assert($cond)")
+    case BreakpointIf(en)        =>
+      val bp = '"' + "Breakpoint" + '"'
+      emit(src"val $lhs = if ($en) { System.out.println($bp); Console.readLine() }")      
     case _ => super.emitNode(lhs, rhs)
   }
 

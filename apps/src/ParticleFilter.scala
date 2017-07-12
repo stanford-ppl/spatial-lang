@@ -20,7 +20,8 @@ trait ParticleFilter extends SpatialStream {
 
     Accel(*) {
       val i = Reg[Int]
-      i := i + 1                  
+      i := i + 1
+      breakpoint()
       //val state = SRAM[SQuaternion](100)
 /*     
       Stream(*)(x =>

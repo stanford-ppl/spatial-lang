@@ -148,7 +148,8 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
     case VarRegWrite(reg,v,en) => 
     case Print(x)   => 
     case Println(x) => 
-    case PrintlnIf(_,_) => 
+    case PrintlnIf(_,_) =>
+    case BreakpointIf(_)       => ()      
 
     case _ => super.emitNode(lhs, rhs)
   }

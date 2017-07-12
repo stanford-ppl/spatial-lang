@@ -196,7 +196,8 @@ trait PlasticineLatencyModel extends LatencyModel {
     case _:UnrolledForeach     => 1
     case _:UnrolledReduce[_,_] => 1
 
-    // Host/Debugging/Unsynthesizable nodes
+      // Host/Debugging/Unsynthesizable nodes
+    case _: BreakpointIf  => 0      
     case _:PrintIf   => 0
     case _:PrintlnIf => 0
     case _:AssertIf  => 0

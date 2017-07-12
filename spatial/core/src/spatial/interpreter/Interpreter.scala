@@ -1,6 +1,6 @@
 package spatial.interpreter
 
-import sys.process._
+//import sys.process._
 import argon.interpreter.{Interpreter => AInterpreter}
 import argon.nodes._
 import spatial.nodes._
@@ -25,10 +25,20 @@ trait Interpreter
     with Counters
 {
 
+  var instructionNumber = 0
   override protected def interpretNode(lhs: Sym[_], rhs: Op[_]): Unit = {
-    if (Config.debug) {
-      println()
-      println()
+
+    if (true || Config.debug) {
+      println(s"Instruction: $instructionNumber")
+      instructionNumber += 1
+      displayInfo
+      println()         
+      if (Streams.streamsIn.size > 0 || Streams.streamsOut.size > 0) {
+        println(s"[${Console.BLUE}input streams size${Console.RESET}]")
+        Streams.streamsIn.foreach { case (k, s) => println(k + ": " + s.size) }
+        Streams.streamsOut.foreach { case (k, s) => println(k + ": " + s.size) } 
+      }
+      println()         
       println(lhs.ctx)
       val line = lhs.ctx.lineContent.getOrElse("")
       /*
@@ -51,17 +61,9 @@ trait Interpreter
       println(s"${Console.CYAN}$rhs${Console.RESET} -> $lhs")
     }
 
+    
     super.interpretNode(lhs, rhs)
 
-    if (Config.debug) {
-      debug
-      println()
-      if (Streams.streamsIn.size > 0 || Streams.streamsOut.size > 0) {
-        println(s"[${Console.BLUE}input streams size${Console.RESET}]")
-        Streams.streamsIn.foreach { case (k, s) => println(k + ": " + s.size) }
-        Streams.streamsOut.foreach { case (k, s) => println(k + ": " + s.size) } 
-      }
-    }
   }
 
 }
