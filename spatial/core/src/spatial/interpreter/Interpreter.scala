@@ -23,13 +23,14 @@ trait Interpreter
     with SRAMs
     with Booleans
     with Counters
-with Vectors
+    with Vectors
+    with FIFOs
 {
 
   var instructionNumber = 0
   override protected def interpretNode(lhs: Sym[_], rhs: Op[_]): Unit = {
 
-    if (Config.debug) {
+    if (true || Config.debug) {
       displayInfo
       println()         
       if (Streams.streamsIn.size > 0 || Streams.streamsOut.size > 0) {

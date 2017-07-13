@@ -19,6 +19,13 @@ object Streams {
 
   def addStreamOut(bus: Bus) =
     streamsOut += ((bus, new Queue[Any]()))
+
+  def readStream(q: Queue[Any]): Any = {
+    val v = q.poll(1000, TimeUnit.MILLISECONDS)
+    if (v == null)
+      throw new Exception("attempt to read empty stream> " + q)
+    v
+  }
 }
 
 trait Streams extends AInterpreter {
@@ -39,29 +46,16 @@ trait Streams extends AInterpreter {
       Streams.streamsOut(bus)
       
 
-    case StreamRead(a: Sym[_], b) =>
-      val q = eval[Queue[Exp[_]]](a)
-      var v: Exp[_] = null
-
-      while (v == null) {
-        if (Config.debug)
-          println("Waiting for new input in " + a + "...")
-
-        v = q.poll(1000, TimeUnit.MILLISECONDS)
-
-        if (v == null && Config.debug) {
-          println("No new input after 1s. q to quit or any key to continue waiting")
-          if (io.StdIn.readLine() == "q") 
-            System.exit(0)
-        }
-          
+    case StreamRead(a: Sym[_], EBoolean(en)) =>
+      if (en) {
+        val q = eval[Queue[Any]](a)
+        val v = Streams.readStream(q)
+        v
       }
 
-      eval[Any](v)
 
-    case StreamWrite(a, EAny(b), EBoolean(cond)) =>
-
-      if (cond) {
+    case StreamWrite(a, EAny(b), EBoolean(en)) =>
+      if (en) {
 
         val q = eval[Queue[Any]](a)
 
@@ -73,10 +67,22 @@ trait Streams extends AInterpreter {
       }
 
     case ParStreamRead(strm, ens) =>
-      null
+      val q = eval[Queue[Any]](strm)
+      val vs = ens.map(eval[Boolean]).map(x => {
+        if (x)
+          Streams.readStream(q)
+        else
+          null
+      })
+      vs
+      
 
     case ParStreamWrite(strm, data, ens) =>
-      null
+      val q = eval[Queue[Any]](strm)       
+      ens.indices.map(i => {
+        if (eval[Boolean](ens(i)))
+          q.put(eval[Any](data(i)))        
+      })
       
   }
 

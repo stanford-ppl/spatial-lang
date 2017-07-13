@@ -14,8 +14,8 @@ trait ParticleFilter extends SpatialStream {
 
   @virtualize def prog() = {
 
-    val in  = StreamIn[SQuaternion](In1)
-    val in2  = StreamIn[SReal](In2)    
+    val inIMU  = StreamIn[SReal](In2)        
+    val inV  = StreamIn[SQuaternion](In1)
     val out = StreamOut[SQuaternion](Out1)
     val p = 100 (1 -> 100)
 
@@ -24,26 +24,33 @@ trait ParticleFilter extends SpatialStream {
       i := i + 1
       val state = SRAM[SQuaternion](N)
 
+      val fifoV = FIFO[SQuaternion](100)
+      val fifoIMU = FIFO[SReal](100)
+
       breakpoint
-      exit
+
 
       Foreach(N by 1)(x => {
         state(x) = SQuaternion(random[SReal])
       })
-      
-/*
+
+      out := state(i)
+
       Stream(*)(x => {
-        val rg: SReal  = gaussian(0.0, 1f)
-        out := in
+        breakpoint
+        fifoV.enq(inV)
       })
 
-      Stream(*)(x =>
-        out := SQuaternion(in2)
-      )
-      
-*/
+      Stream(*)(x => {
+        breakpoint
+        fifoIMU.enq(inIMU)
+      })
 
-
+      /*
+      Stream(*)(x => {
+        fifoIMU.enq(inIMU)        
+      })
+       */
     }
   }
 
@@ -71,7 +78,8 @@ trait ParticleFilter extends SpatialStream {
 
 
   val inputs = Map[Bus, List[MetaAny[_]]](
-    (In1 -> List[SReal](3f, 4f, 2f, 6f).map(SQuaternion.apply))
+    (In1 -> List[SReal](3f, 4f, 2f, 6f).map(SQuaternion.apply)),
+    (In2 -> List[SReal](3f, 4f, 2f, 6f))
   )
   
   def forceExit() =
