@@ -658,7 +658,7 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
           inReduction(false){ unrollReduceAccumulate[T,C](accum, values, mvalids(), ident, foldValue, reduce, loadAcc, storeAcc, isMap2.map(_.head), start, isInner = false) }
           unit
         })
-        styleOf(rpipe) = InnerPipe
+        styleOf(rpipe) = SeqPipe
         levelOf(rpipe) = InnerControl
       }
       else {

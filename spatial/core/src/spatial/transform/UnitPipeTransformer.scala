@@ -145,7 +145,7 @@ case class UnitPipeTransformer(var IR: State) extends ForwardTransformer with Sp
           }
         })
         levelOf(pipe) = InnerControl
-        styleOf(pipe) = InnerPipe
+        styleOf(pipe) = SeqPipe
 
         // Outside inserted pipe, replace original escaping values with register reads
         escapingBits.zip(regs).foreach{case (sym,reg) => register(sym, regRead(reg)) }
@@ -225,13 +225,13 @@ case class UnitPipeTransformer(var IR: State) extends ForwardTransformer with Sp
           case Some(r) =>
             val writePipe = Pipe.op_unit_pipe(enable.toList, () => { regWrite(r, f(body.result)) })
             levelOf(writePipe) = InnerControl
-            styleOf(writePipe) = InnerPipe
+            styleOf(writePipe) = SeqPipe
             unit
           case None => unit
         }
       })
       levelOf(pipe) = OuterControl
-      styleOf(pipe) = MetaPipe
+      styleOf(pipe) = SeqPipe
       reg match {
         case Some(r) => regRead(r)
         case _ => unit.asInstanceOf[Exp[T]]

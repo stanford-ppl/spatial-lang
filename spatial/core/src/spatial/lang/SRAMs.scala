@@ -68,6 +68,7 @@ case class SRAM1[T:Type:Bits](s: Exp[SRAM1[T]]) extends Template[SRAM1[T]] with 
   @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 
   @api def length: Index = wrap(stagedDimsOf(s).head)
+  @api def size: Index = wrap(stagedDimsOf(s).head)
 }
 object SRAM1 {
   implicit def sram1Type[T:Type:Bits]: Type[SRAM1[T]] = SRAM1Type(typ[T])
@@ -86,6 +87,7 @@ case class SRAM2[T:Type:Bits](s: Exp[SRAM2[T]]) extends Template[SRAM2[T]] with 
 
   @api def rows: Index = wrap(stagedDimsOf(s).head)
   @api def cols: Index = wrap(stagedDimsOf(s).apply(1))
+  @api def size: Index = rows * cols
 }
 object SRAM2 {
   implicit def sram2Type[T:Type:Bits]: Type[SRAM2[T]] = SRAM2Type(typ[T])
@@ -101,6 +103,11 @@ case class SRAM3[T:Type:Bits](s: Exp[SRAM3[T]]) extends Template[SRAM3[T]] with 
 
   @api def load(dram: DRAM3[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile3[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+
+  @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def dim1: Index = wrap(stagedDimsOf(s).apply(1))
+  @api def dim2: Index = wrap(stagedDimsOf(s).apply(2))
+  @api def size: Index = dim0 * dim1 * dim2
 }
 object SRAM3 {
   implicit def sram3Type[T:Type:Bits]: Type[SRAM3[T]] = SRAM3Type(typ[T])
@@ -116,6 +123,12 @@ case class SRAM4[T:Type:Bits](s: Exp[SRAM4[T]]) extends Template[SRAM4[T]] with 
 
   @api def load(dram: DRAM4[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile4[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+
+  @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def dim1: Index = wrap(stagedDimsOf(s).apply(1))
+  @api def dim2: Index = wrap(stagedDimsOf(s).apply(2))
+  @api def dim3: Index = wrap(stagedDimsOf(s).apply(3))
+  @api def size: Index = dim0 * dim1 * dim2 * dim3
 }
 object SRAM4 {
   implicit def sram4Type[T:Type:Bits]: Type[SRAM4[T]] = SRAM4Type(typ[T])
@@ -131,6 +144,13 @@ case class SRAM5[T:Type:Bits](s: Exp[SRAM5[T]]) extends Template[SRAM5[T]] with 
 
   @api def load(dram: DRAM5[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile5[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+
+  @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def dim1: Index = wrap(stagedDimsOf(s).apply(1))
+  @api def dim2: Index = wrap(stagedDimsOf(s).apply(2))
+  @api def dim3: Index = wrap(stagedDimsOf(s).apply(3))
+  @api def dim4: Index = wrap(stagedDimsOf(s).apply(4))
+  @api def size: Index = dim0 * dim1 * dim2 * dim3 * dim4
 }
 object SRAM5 {
   implicit def sram5Type[T:Type:Bits]: Type[SRAM5[T]] = SRAM5Type(typ[T])

@@ -2,6 +2,7 @@ package spatial.models
 
 trait AreaMetric[A] {
   def zero: A
+  def lessThan(x: A, y: A): Boolean
 }
 
 trait AreaMetricOps {

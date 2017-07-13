@@ -679,7 +679,7 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
 
       // Build score matrix
       Foreach(length+1 by 1){ r =>
-        Foreach(length+1 by 1) { c => 
+        Foreach(length+1 by 1) { c => // Bug #151
           val update = if (r == 0) (nw_tuple(-c.as[Int16], 0)) else if (c == 0) (nw_tuple(-r.as[Int16], 1)) else {
             val match_score = mux(seqa_sram_raw(c-1) == seqb_sram_raw(r-1), MATCH_SCORE.to[Int16], MISMATCH_SCORE.to[Int16])
             val from_top = score_matrix(r-1, c).score + GAP_SCORE
@@ -769,7 +769,7 @@ object NW extends SpatialApp { // Regression (Dense) // Args: none
     val cksumA = seqa_aligned_string == seqa_gold_string //seqa_aligned_result.zip(seqa_gold_bin){_==_}.reduce{_&&_}
     val cksumB = seqb_aligned_string == seqb_gold_string //seqb_aligned_result.zip(seqb_gold_bin){_==_}.reduce{_&&_}
     val cksum = cksumA && cksumB
-    println("PASS: " + cksum + " (NW) * Implement nodes for text operations in Scala once refactoring is done")
+    println("PASS: " + cksum + " (NW)")
 
 
 
@@ -1440,7 +1440,7 @@ object Sort_Radix extends SpatialApp { // Regression (Dense) // Args: none
 
       def sum_scan(): Unit = {
         sum_sram(0) = 0
-        Foreach(1 until SCAN_RADIX by 1) { radixID => 
+        Foreach(1 until SCAN_RADIX by 1) { radixID =>  // Bug #151
           val bucket_indx = radixID*SCAN_BLOCK - 1
           sum_sram(radixID) = sum_sram(radixID-1) + bucket_sram(bucket_indx)
         }
