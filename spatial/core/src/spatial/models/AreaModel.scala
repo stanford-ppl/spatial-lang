@@ -11,12 +11,12 @@ abstract class AreaModel[A:AreaMetric] extends AreaMetricOps {
 
   @stateful def nDups(e: Exp[_]): Int = duplicatesOf(e).length
 
-  def nbits(e: Exp[_]): Int = e.tp match {case Bits(bT) => bT.length; case _ => 0 }
-
-  @stateful def apply(e: Exp[_]): A = getDef(e) match {
-    case Some(d) => areaOf(e, d)
+  @stateful def apply(e: Exp[_], inHwScope: Boolean, inReduce: Boolean): A = getDef(e) match {
+    case Some(d) => areaOf(e, d, inHwScope, inReduce)
     case None => NoArea
   }
-  @stateful def areaOf(e: Exp[_], d: Def): A
+  @stateful def areaOf(e: Exp[_], d: Def, inHwScope: Boolean, inReduce: Boolean): A
+
+  @stateful def areaOfDelayLine(length: Int, bits: Int, par: Int): A
 
 }
