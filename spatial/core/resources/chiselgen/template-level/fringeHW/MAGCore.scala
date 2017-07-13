@@ -328,7 +328,8 @@ class MAGCore(
   io.dram.wdata.bits.wdata := wdata
   io.dram.wdata.bits.streamId := wdataFifo.io.tag + loadStreamInfo.size.U
   io.dram.wdata.valid := wdataValid
-  io.dram.wdata.bits.wlast := wdataValid & (burstCounter.io.out === (sizeInBursts-1.U))
+  val wlast = wdataValid & (burstCounter.io.out === (sizeInBursts-1.U))
+  io.dram.wdata.bits.wlast := wlast
 
 
   val wasSparseWren = Module(new SRFF()) // Hacky way to allow wrPhase to die after sparse write
@@ -337,7 +338,7 @@ class MAGCore(
   wasSparseWren.io.input.asyn_reset := false.B
   
   wrPhase.io.input.set := (~isWrFifo.io.empty & isWrFifo.io.deq(0))
-  wrPhase.io.input.reset := templates.Utils.delay(burstVld | wasSparseWren.io.output.data,1)
+  wrPhase.io.input.reset := templates.Utils.delay(wlast | wasSparseWren.io.output.data,1)
   val dramCmdValid = Mux(scatterGather, ccache.io.miss, burstVld & ~issued)
   io.dram.cmd.valid := dramCmdValid
 
