@@ -1,6 +1,5 @@
 package spatial.models
 
-import argon.core.Config
 import argon.core._
 import argon.nodes._
 import forge._
@@ -70,6 +69,7 @@ trait LatencyModel {
     case XOr(_,_)   => true
     case XNor(_,_)  => true
     case FixNeg(_)   => true
+    case FixInv(_)   => true
     case FixAdd(_,_) => true
     case FixSub(_,_) => true
     case FixMul(_,_) => true
@@ -121,6 +121,7 @@ trait LatencyModel {
     // Registers
     case _:RegRead[_]  => 0
     case _:RegWrite[_] => 1
+    case _:RegReset[_] => 1
 
     // Register File
     case _:RegFileLoad[_]       => 1
@@ -162,7 +163,7 @@ trait LatencyModel {
     case _:ParLineBufferLoad[_] => 1
 
     // Shift Register
-    case DelayLine(size, data) => 0 // wrong but it works???
+    case DelayLine(size, data) => 0 // TODO: Should use different model once these are added?
 
     // DRAM
     case GetDRAMAddress(_) => 0
@@ -177,6 +178,7 @@ trait LatencyModel {
     // Fixed point math
     // TODO: Have to get numbers for non-32 bit multiplies and divides
     case FixNeg(_)   => 1
+    case FixInv(_)   => 1
     case FixAdd(_,_) => 1
     case FixSub(_,_) => 1
     case FixMul(_,_) => 1 // TODO

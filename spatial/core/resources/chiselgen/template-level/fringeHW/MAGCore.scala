@@ -72,6 +72,13 @@ class MAGCore(
   addrFifo.io.enq.zip(cmds) foreach {case (enq, cmd) => enq(0) := cmd.bits.addr }
   addrFifo.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid }
 
+
+  // Debug assertions
+  for (i <- 0 until numStreams) {
+    val str3 = s"ERROR: addrFifo $i enqVld is high when not enabled!"
+    assert((io.enable & cmds(i).valid) | (io.enable & ~cmds(i).valid) | (~io.enable & ~cmds(i).valid), str3)
+  }
+
   val burstAddrs = addrFifo.io.deq map { extractBurstAddr(_) }
   val wordOffsets = addrFifo.io.deq map { extractWordOffset(_) }
 
@@ -122,6 +129,7 @@ class MAGCore(
 
   val sizeTop = sizeFifo.io.deq(0)
   val sizeInBursts = extractBurstAddr(sizeTop) + (extractBurstOffset(sizeTop) != 0.U)
+  io.dram.cmd.bits.size := sizeInBursts
 
   // WData FIFO
   // Deriving the 'enqVld' signal from the other FIFO states is potentially
@@ -355,6 +363,8 @@ class MAGCore(
     io.dram.resp.ready := true.B
   }
 
+  // Some assertions
+  assert((dramCmdValid & io.enable) | (~io.enable & ~dramCmdValid) | (io.enable & ~dramCmdValid), "DRAM command is valid when enable == 0!")
   // All debug counters
 //  val enableCounter = Module(new Counter(32))
 //  enableCounter.io.reset := 0.U

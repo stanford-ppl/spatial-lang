@@ -1,7 +1,7 @@
 module test;
   import "DPI" function void sim_init();
   import "DPI" function int tick();
-  import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int streamId, int tag, int isWr, int isSparse, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
+  import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int size, int streamId, int tag, int isWr, int isSparse, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
   import "DPI" function void readOutputStream(int data, int tag, int last);
 
   // Export functionality to C layer
@@ -41,6 +41,7 @@ module test;
   reg io_dram_cmd_ready;
   wire  io_dram_cmd_valid;
   wire [63:0] io_dram_cmd_bits_addr;
+  wire [31:0] io_dram_cmd_bits_size;
   wire [63:0] io_dram_cmd_bits_rawAddr;
   wire  io_dram_cmd_bits_isWr;
   wire  io_dram_cmd_bits_isSparse;
@@ -108,6 +109,7 @@ module test;
     .io_dram_cmd_valid(io_dram_cmd_valid),
     .io_dram_cmd_bits_addr(io_dram_cmd_bits_addr),
     .io_dram_cmd_bits_rawAddr(io_dram_cmd_bits_rawAddr),
+    .io_dram_cmd_bits_size(io_dram_cmd_bits_size),
     .io_dram_cmd_bits_isWr(io_dram_cmd_bits_isWr),
     .io_dram_cmd_bits_isSparse(io_dram_cmd_bits_isSparse),
     .io_dram_cmd_bits_tag(io_dram_cmd_bits_tag),
@@ -255,6 +257,7 @@ module test;
       sendDRAMRequest(
         io_dram_cmd_bits_addr,
         io_dram_cmd_bits_rawAddr,
+        io_dram_cmd_bits_size,
         io_dram_cmd_bits_streamId,
         io_dram_cmd_bits_tag,
         io_dram_cmd_bits_isWr,
@@ -288,11 +291,13 @@ module test;
 //      $dumpfile("Top.vcd");
 //      $dumpvars(0, Top);
       sim_init();
+      io_dram_cmd_ready = 0;
   end
 
   int numCycles = 0;
 
   always @(posedge clock) begin
+
     numCycles = numCycles + 1;
 
     pre_update_callbacks();

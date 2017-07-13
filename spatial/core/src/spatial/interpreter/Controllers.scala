@@ -22,6 +22,18 @@ trait Controllers extends AInterpreter {
       } ++ childrenOf(ctrl).flatMap(getReadStreamsAndFIFOs)).toList
   }
 
+  def isMoreDataFromMems(mems: Seq[Any]) =
+    mems.forall( x => x match {
+      case x: Queue[_] => !x.isEmpty
+      case x: FIFO => !x.v.isEmpty
+      case _ =>
+        println(x);
+        ???
+    })
+
+
+
+
   override def matchNode(lhs: Sym[_]) = super.matchNode(lhs).orElse {
     case Forever() =>
       ForeverC()
@@ -39,15 +51,10 @@ trait Controllers extends AInterpreter {
       val cchaine = eval[Seq[Counterlike]](cchain)
       cchaine.indices.foreach(i => {
         val mems = getReadStreamsAndFIFOs(lhs).map(eval[Any])
-        def moreData = () => mems.forall( x => x match {
-          case x: Queue[_] => !x.isEmpty
-          case x: FIFO => !x.v.isEmpty
-          case _ =>
-            println(x);
-            ???
-        })
+        def isMoreData = () => isMoreDataFromMems(mems)
+
         cchaine(i).foreach(
-          moreData, {
+          isMoreData, {
             case (itera, valida) => {
               iters(i).zip(itera).foreach { case (b, v)   => updateBound(b, v) }
               valids(i).zip(valida).foreach { case (b, v) => updateBound(b, v) }

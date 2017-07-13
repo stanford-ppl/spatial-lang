@@ -9,6 +9,8 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.lang.Math
 
+import scala.io.Source
+
 object utils {
   /**
     * Least common multiple of two integers (smallest integer which has integer divisors a and b)
@@ -758,8 +760,22 @@ object utils {
 
   // Memory, optional value, optional indices, optional enable
   type ParLocalWrite = (Exp[_], Option[Seq[Exp[_]]], Option[Seq[Seq[Exp[Index]]]], Option[Seq[Exp[Bit]]])
+  implicit class ParLocalWriteOps(x: ParLocalWrite) {
+    def mem = x._1
+    def data = x._2
+    def addrs = x._3
+    def ens = x._4
+  }
+
+
+
   // Memory, optional indices, optional enable
   type ParLocalRead = (Exp[_], Option[Seq[Seq[Exp[Index]]]], Option[Seq[Exp[Bit]]])
+  implicit class ParLocalReadOps(x: ParLocalRead) {
+    def mem = x._1
+    def addrs = x._2
+    def ens = x._3
+  }
 
   private object ParLocalWrite {
     def apply(mem: Exp[_]): List[ParLocalWrite] = List( (mem, None, None, None) )
@@ -825,6 +841,12 @@ object utils {
     case _ => None
   }
 
-
+  @stateful def isAccessWithoutAddress(e: Exp[_]): Boolean = e match {
+    case LocalReader(reads) => reads.exists(_.addr.isEmpty)
+    case LocalWriter(write) => write.exists(_.addr.isEmpty)
+    case ParLocalReader(reads) => reads.exists(_.addrs.isEmpty)
+    case ParLocalWriter(write) => write.exists(_.addrs.isEmpty)
+    case _ => false
+  }
 
 }

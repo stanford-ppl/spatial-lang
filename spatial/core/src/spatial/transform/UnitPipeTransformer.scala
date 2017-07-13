@@ -269,7 +269,7 @@ case class UnitPipeTransformer(var IR: State) extends ForwardTransformer with Sp
     case op@SwitchCase(body) if isOuterControl(lhs) => inControl(lhs) {
       val controllers = getControlNodes(body)
       val primitives = getPrimitiveNodes(body)
-      if (controllers.length > 1 || (primitives.length > 1 && controllers.nonEmpty)) {
+      if (controllers.length > 1 || (primitives.nonEmpty && controllers.nonEmpty)) {
         wrapSwitchCase(lhs, body)(mtyp(op.mT),ctx)
       }
       else {
