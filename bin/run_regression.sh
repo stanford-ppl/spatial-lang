@@ -12,8 +12,8 @@ fi
 branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 
 # Get hashes and messages
-if [[ $SPATIAL_HOME == "" || $ARGON_HOME == "" || $VIRTUALIZED_HOME == "" ]]; then
-	echo "ERROR: Set your env variables! (spatial, argon, virtualized homes)"
+if [[ $SPATIAL_HOME == "" ]]; then
+	echo "ERROR: Set your SPATIAL_HOME variable please"
 	exit 1
 fi
 here=`pwd`
@@ -26,6 +26,9 @@ argon_hash_message=`git log --stat --name-status HEAD^..HEAD`
 cd ../scala-virtualized
 virtualized_hash=`git rev-parse HEAD`
 virtualized_hash_message=`git log --stat --name-status HEAD^..HEAD`
+cd ../apps
+apps_hash=`git rev-parse HEAD`
+apps_hash_message=`git log --stat --name-status HEAD^..HEAD`
 cd ../
 at=`date +"%Y-%m-%d_%H-%M-%S"`
 machine=`hostname`
@@ -42,7 +45,7 @@ status=debug
 # Compile regression test packet
 i=0
 for type in ${types[@]}; do
-packet="Creation Time- $at | Status- $status | Type- $type | tests- $tests | User- $USERNAME | Origin- $machine | Destination- ${dsts[$i]} | Branch- $branch | Spatial- ${spatial_hash:0:5} | Argon- ${argon_hash:0:5} | Virtualized- ${virtualized_hash:0:5}"
+packet="Creation Time- $at | Status- $status | Type- $type | tests- $tests | User- $USERNAME | Origin- $machine | Destination- ${dsts[$i]} | Branch- $branch | Spatial- ${spatial_hash:0:5} | Argon- ${argon_hash:0:5} | Virtualized- ${virtualized_hash:0:5} | Spatial-apps- ${apps_hash:0:5}"
 
 # echo -e "$packet"
 if [[ $type = "scala" ]]; then

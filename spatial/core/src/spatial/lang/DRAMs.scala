@@ -45,6 +45,7 @@ case class DRAM1[T:Type:Bits](s: Exp[DRAM1[T]]) extends Template[DRAM1[T]] with 
   @api def store(filo: FILO[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(filo.ranges), filo, isLoad = false)
   @api def store(regs: RegFile1[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(regs.ranges), regs, isLoad = false)
   @api def address: Int64 = wrap(DRAM.addr(this.s))
+  // @api def size: Index = wrap(d1.s)
 }
 object DRAM1 {
   implicit def dram1Type[T:Type:Bits]: Type[DRAM1[T]] = DRAM1Type(typ[T])

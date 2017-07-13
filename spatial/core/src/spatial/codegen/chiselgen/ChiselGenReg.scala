@@ -74,7 +74,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
       if (resettersOf(lhs).length > 0) emitGlobalWire(src"""val ${lhs}_manual_reset = ${resettersOf(lhs).indices.map{i => src"${lhs}_manual_reset_$i"}.mkString(" | ")}""")
       val duplicates = duplicatesOf(lhs)
       duplicates.zipWithIndex.foreach{ case (d, i) => 
-        val numBroadcasters = if (writersOf(lhs) == 0) 0 else {writersOf(lhs).map { write => if (portsOf(write, lhs, i).toList.length > 1) 1 else 0 }.reduce{_+_}}
+        val numBroadcasters = if (writersOf(lhs).length == 0) 0 else {writersOf(lhs).map { write => if (portsOf(write, lhs, i).toList.length > 1) 1 else 0 }.reduce{_+_}}
         val numWriters = writersOf(lhs)
           .filter{write => dispatchOf(write, lhs) contains i}
           .filter{w => portsOf(w, lhs, i).toList.length == 1}.length.max(1)
