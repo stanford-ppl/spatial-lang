@@ -3,3 +3,4 @@
 rm *.vcs
 rm *.sim
 rm -rf logs
+rm -rf gen
