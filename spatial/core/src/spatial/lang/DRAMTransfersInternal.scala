@@ -117,9 +117,11 @@ object DRAMTransfersInternal {
       Pipe {
         // val size = Reg[Index]
         // Pipe{size := issueQueue.deq()}
-        Foreach(requestLength by target.burstSize/bits[T].length) {i =>
-          val ack  = ackStream.value()
-        }
+        val ack  = ackStream.value()
+        ()
+//        Foreach(requestLength by target.burstSize/bits[T].length) {i =>
+//          val ack  = ackStream.value()
+//        }
       }
     }
 
@@ -195,9 +197,11 @@ object DRAMTransfersInternal {
       Pipe {
         val size = Reg[Index]
         Pipe{size := issueQueue.deq()}
-        Foreach(size.value by target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
-          val ack  = ackStream.value()
-        }
+        val ack  = ackStream.value()
+        ()
+//        Foreach(size.value by size.value) {i => // TODO: Can we use by instead of par?
+//          val ack  = ackStream.value()
+//        }
       }
     }
 

@@ -34,6 +34,47 @@ uint32_t burstSizeWords = burstSizeBytes / wordSizeBytes;
 uint64_t sparseRequestCounter = 0;  // Used to provide unique tags to each sparse request
 
 int sparseCacheSize = -1; // Max. number of lines in cache; -1 == infinity
+
+class DRAMRequest;
+
+/**
+ * DRAM Command received from the design
+ * One object could potentially create multiple DRAMRequests
+ */
+class DRAMCommand {
+public:
+  uint64_t addr;
+  uint32_t size;
+  uint32_t streamId;
+  uint64_t tag;
+  uint64_t channelID;
+  bool isWr;
+  bool isSparse;
+  DRAMRequest **reqs = NULL;
+
+  DRAMCommand(uint64_t a, uint32_t sz, uint32_t sid, uint64_t t, bool wr, bool sparse) {
+    addr = a;
+    size = sz;
+    streamId = sid;
+    tag = t;
+    isWr = wr;
+    isSparse = sparse;
+    ASSERT(!isSparse | (isSparse & (size == 1)), "ERROR: Sparse requests must have size == 1 (current size: %u)\n", size);
+  }
+
+  bool hasCompleted(); // Method definition after 'DRAMRequest' class due to forward reference
+
+  ~DRAMCommand() {
+    if (reqs != NULL) free(reqs);
+  }
+};
+
+
+/**
+ * DRAM Request corresponding to 1-burst that is enqueued into DRAMSim2
+ * The 'size' field reflects the size of the entire command of which
+ * this request is part of (legacy, should be removed)
+ */
 class DRAMRequest {
 public:
   uint64_t addr;
@@ -45,13 +86,13 @@ public:
   uint64_t channelID;
   bool isWr;
   bool isSparse;
-  uint32_t *wdata;
+  uint32_t *wdata = NULL;
   uint32_t delay;
   uint32_t elapsed;
   uint64_t issued;
   bool completed;
+  DRAMCommand *cmd;
 
-//  DRAMRequest(uint64_t a, uint64_t ra, uint32_t sz, uint32_t sid, uint64_t t, bool wr, bool sparse, uint32_t *wd, uint64_t issueCycle) {
   DRAMRequest(uint64_t a, uint64_t ra, uint32_t sz, uint32_t sid, uint64_t t, bool wr, bool sparse, uint64_t issueCycle) {
     addr = a;
     rawAddr = ra;
@@ -61,24 +102,16 @@ public:
     isWr = wr;
     isSparse = sparse;
     sparseTag = -1;
-//    if (isWr) {
-//      wdata = (uint32_t*) malloc(16 * sizeof(uint32_t));
-//      for (int i=0; i<16; i++) {
-//        wdata[i] = wd[i];
-//      }
-//    } else {
-//      wdata = NULL;
-//    }
 
     delay = abs(rand()) % 150 + 50;
     elapsed = 0;
     issued = issueCycle;
     completed = false;
+    wdata = NULL;
   }
 
   void print() {
     EPRINTF("[DRAMRequest CH=%lu] addr: %lx (%lx), sizeInBursts: %u, streamId: %x, tag: %lx, isWr: %d, isSparse: %d, issued=%lu \n", channelID, addr, rawAddr, size, streamId, tag, isWr, isSparse, issued);
-//    if (isWr) EPRINTF("wdata = %x\n", wdata[0]);
   }
 
   void schedule() {
@@ -101,6 +134,18 @@ public:
     if (wdata != NULL) free(wdata);
   }
 };
+
+bool DRAMCommand::hasCompleted() {
+  bool completed = true;
+  for (int i = 0; i < size; i++) {
+    if (!reqs[i]->completed) {
+      completed = false;
+      break;
+    }
+  }
+  return completed;
+}
+
 
 struct AddrTag {
   uint64_t addr;
@@ -154,7 +199,7 @@ void printQueueStats(int id) {
 }
 
 bool checkQAndRespond(int id) {
-  // If request happens to be in front of deque, pop and poke DRAM response
+  // If request at front has completed, pop and poke DRAM response
   bool pokedResponse = false;
   if (dramRequestQ[id].size() > 0) {
     DRAMRequest *req = dramRequestQ[id].front();
@@ -171,13 +216,8 @@ bool checkQAndRespond(int id) {
 
     if (req->completed) {
       if (!req->isSparse) {
-        dramRequestQ[id].pop_front();
-        if (debug) {
-          EPRINTF("[Sending DRAM resp to]: ");
-          req->print();
-        }
-
         uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        bool pokeResponse = false;
 
         if (req->isWr) { // Write request: Update 1 burst-length bytes at *addr
           if (debug) {
@@ -188,17 +228,38 @@ bool checkQAndRespond(int id) {
           for (int i=0; i<burstSizeWords; i++) {
             waddr[i] = wdata[i];
           }
-//          wdataQ[id].pop_front();
-        } else {
-          // Read request: Read burst-length bytes at *addr
-          uint32_t *raddr = (uint32_t*) req->addr;
-          for (int i=0; i<16; i++) {
-            rdata[i] = raddr[i];
-    //            EPRINTF("rdata[%d] = %u\n", i, rdata[i]);
+          if (req->cmd->hasCompleted()) {
+            DRAMCommand *cmd = req->cmd;
+            DRAMRequest *front = req;
+            // pop all requests belonging to cmd from FIFO
+            while ((dramRequestQ[id].size() > 0) && (front->cmd == cmd)) {
+              dramRequestQ[id].pop_front();
+              delete front;
+              front = dramRequestQ[id].front();
+            }
+            delete cmd;
+            pokeResponse = true;
           }
+        } else { // Read request: Read burst-length bytes at *addr
+          uint32_t *raddr = (uint32_t*) req->addr;
+          for (int i=0; i<burstSizeWords; i++) {
+            rdata[i] = raddr[i];
+          }
+          dramRequestQ[id].pop_front();
+          if (req->cmd->hasCompleted()) {
+            delete req->cmd;
+          }
+          delete req;
+          pokeResponse = true;
         }
 
-        pokeDRAMResponse(
+        if (pokeResponse) { // Send DRAM response
+          if (debug) {
+            EPRINTF("[Sending DRAM resp to]: ");
+            req->print();
+          }
+
+          pokeDRAMResponse(
             req->tag,
             rdata[0],
             rdata[1],
@@ -218,15 +279,16 @@ bool checkQAndRespond(int id) {
             rdata[15]
           );
           pokedResponse = true;
-        } else {
+        }
+      } else {
           // Ensure that there are at least 16 requests
           // Ensure that all top 16 requests have been completed
           deque<DRAMRequest*>::iterator it = dramRequestQ[id].begin();
           bool sparseReqCompleted = true;
-          if (dramRequestQ[id].size() < 16) {
+          if (dramRequestQ[id].size() < burstSizeWords) {
             sparseReqCompleted = false;
           } else {
-            for (int i = 0; i < 16; i++) {
+            for (int i = 0; i < burstSizeWords; i++) {
               DRAMRequest *r = *it;
               if (!r->completed) {
                 sparseReqCompleted = false;
@@ -241,7 +303,6 @@ bool checkQAndRespond(int id) {
             bool writeRequest = req->isWr;
             uint64_t tag = req->tag;
 
-//            ASSERT(!writeRequest, "Sparse writes not yet supported!\n");
             uint64_t gatherAddr[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
             uint64_t scatterAddr[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
             uint64_t scatterData[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -251,7 +312,7 @@ bool checkQAndRespond(int id) {
               EPRINTF("[checkQ] sparse request completed:\n");
               printQueueStats(id);
             }
-            for (int i = 0; i < 16; i++) {
+            for (int i = 0; i < burstSizeWords; i++) {
               DRAMRequest *head = dramRequestQ[id].front();
               ASSERT(head->isSparse, "ERROR: Encountered non-sparse request at (%d) while popping sparse requests! (%lx, %lx)", i, head->addr, head->rawAddr);
               ASSERT(head->isWr == writeRequest, "ERROR: Sparse request type mismatch");
@@ -261,7 +322,6 @@ bool checkQAndRespond(int id) {
                 rdata[i] = *raddr;
                 gatherAddr[i] = head->rawAddr;
               } else {
-//                ASSERT(false, "ERROR: Sparse writes not supported yet!");
                 uint32_t *waddr = (uint32_t*) head->rawAddr;
                 uint32_t *wdata = wdataQ[id].front();
                 if (debug) EPRINTF("-------- scatterAddr(%d) = %lx\n", i, waddr);
@@ -275,7 +335,7 @@ bool checkQAndRespond(int id) {
 
             if (debug) {
               EPRINTF("[checkAndSendDRAMResponse] Sparse complete with following details:\n");
-              for (int i = 0; i<16; i++) {
+              for (int i = 0; i<burstSizeWords; i++) {
                 if (writeRequest) {
                   EPRINTF("---- [scatter] addr %lx: data %x\n", scatterAddr[i], scatterData[i]);
                 } else {
@@ -466,35 +526,19 @@ extern "C" {
     uint64_t cmdStreamId = (uint32_t)(*(uint32_t*)&streamId);
     bool cmdIsWr = isWr > 0;
     bool cmdIsSparse = isSparse > 0;
-//    uint32_t cmdWdata0 = (*(uint32_t*)&wdata0);
-//    uint32_t cmdWdata1 = (*(uint32_t*)&wdata1);
-//    uint32_t cmdWdata2 = (*(uint32_t*)&wdata2);
-//    uint32_t cmdWdata3 = (*(uint32_t*)&wdata3);
-//    uint32_t cmdWdata4 = (*(uint32_t*)&wdata4);
-//    uint32_t cmdWdata5 = (*(uint32_t*)&wdata5);
-//    uint32_t cmdWdata6 = (*(uint32_t*)&wdata6);
-//    uint32_t cmdWdata7 = (*(uint32_t*)&wdata7);
-//    uint32_t cmdWdata8 = (*(uint32_t*)&wdata8);
-//    uint32_t cmdWdata9 = (*(uint32_t*)&wdata9);
-//    uint32_t cmdWdata10 = (*(uint32_t*)&wdata10);
-//    uint32_t cmdWdata11 = (*(uint32_t*)&wdata11);
-//    uint32_t cmdWdata12 = (*(uint32_t*)&wdata12);
-//    uint32_t cmdWdata13 = (*(uint32_t*)&wdata13);
-//    uint32_t cmdWdata14 = (*(uint32_t*)&wdata14);
-//    uint32_t cmdWdata15 = (*(uint32_t*)&wdata15);
-//
-//    uint32_t wdata[16] = { cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3, cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7, cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11, cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15};
 
+    // Create a DRAM Command
+    DRAMCommand *cmd = new DRAMCommand(cmdAddr, cmdSize, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse);
 
-    // Create multiple requests, one per burst
+    // Create multiple DRAM requests, one per burst
     DRAMRequest **reqs = new DRAMRequest*[cmdSize];
     for (int i = 0; i<cmdSize; i++) {
       reqs[i] = new DRAMRequest(cmdAddr + i*burstSizeBytes, cmdRawAddr + i*burstSizeBytes, cmdSize, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse, numCycles);
-//      reqs[i] = new DRAMRequest(cmdAddr + i*burstSizeBytes, cmdRawAddr + i*burstSizeBytes, cmdSize, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse, wdata, numCycles);
+      reqs[i]->cmd = cmd;
     }
+    cmd->reqs = reqs;
 
     if (debug) {
-//      EPRINTF("[sendDRAMRequest] Called with addr: %lx (%lx), streamId: %x, tag: %lx, isWr: %d, isSparse: %d\n", cmdAddr, cmdRawAddr, cmdStreamId, cmdTag, cmdIsWr, cmdIsSparse);
       EPRINTF("[sendDRAMRequest] Called with ");
       reqs[0]->print();
     }
@@ -566,13 +610,7 @@ extern "C" {
           if (cmdIsWr) {  // Schedule in sendWdata function, when wdata arrives
             wrequestQ.push_back(req);
           } else {
-            req->schedule();
-//            mem->addTransaction(req->isWr, at.addr, at.tag);
-//            req->channelID = mem->findChannelNumber(at.addr);
-//            if (debug) {
-//              EPRINTF("                  Issuing following command:");
-//              req->print();
-//            }
+            req->schedule();  // Schedule request with DRAMSim2
           }
 
         } else {
