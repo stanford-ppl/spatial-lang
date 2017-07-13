@@ -233,6 +233,11 @@ bool checkQAndRespond(int id) {
             DRAMRequest *front = req;
             // pop all requests belonging to cmd from FIFO
             while ((dramRequestQ[id].size() > 0) && (front->cmd == cmd)) {
+              uint32_t *front_wdata = front->wdata;
+              uint32_t *front_waddr = (uint32_t*) front->addr;
+              for (int i=0; i<burstSizeWords; i++) {
+                front_waddr[i] = front_wdata[i];
+              }
               dramRequestQ[id].pop_front();
               delete front;
               front = dramRequestQ[id].front();
@@ -246,9 +251,11 @@ bool checkQAndRespond(int id) {
             rdata[i] = raddr[i];
           }
           dramRequestQ[id].pop_front();
-          if (req->cmd->hasCompleted()) {
-            delete req->cmd;
-          }
+          // TODO: Uncommenting lines below is causing a segfault
+          // More cleaner garbage collection required, but isn't an immediate problem
+//          if (req->cmd->hasCompleted()) {
+//            delete req->cmd;
+//          }
           delete req;
           pokeResponse = true;
         }
