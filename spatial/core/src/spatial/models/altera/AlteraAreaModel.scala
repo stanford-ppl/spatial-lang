@@ -53,7 +53,19 @@ class AlteraAreaModel extends AreaModel[AlteraArea] {
     instances.map{instance => areaOfMemory(nbits, dims, instance) }.fold(NoArea){_+_}
   }
 
-  @stateful override def areaOf(e: Exp[_], d: Def): AlteraArea = d match {
+  /**
+    * Returns the area resources for a delay line with the given width (in bits) and length (in cycles)
+    * Models delays as registers for short delays, BRAM for long ones
+    **/
+  @stateful override def areaOfDelayLine(width: Int, length: Int, par: Int): AlteraArea = {
+    //System.out.println(s"Delay line: w = $width x l = $length (${width*length}) ")
+    val nregs = width*length
+    AlteraArea(regs = nregs*par)
+    /*if (nregs < 256) AlteraArea(regs = nregs*par)
+    else             areaOfSRAM(width*par, List(length), List(SimpleInstance))*/
+  }
+
+  @stateful override def areaOf(e: Exp[_], d: Def, inHwScope: Boolean, inReduce: Boolean): AlteraArea = d match {
     case FieldApply(_,_)    => NoArea
     case VectorApply(_,_)   => NoArea // Statically known index
     case VectorSlice(_,_,_) => NoArea // Statically known slice

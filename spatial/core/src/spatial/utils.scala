@@ -13,6 +13,11 @@ import scala.io.Source
 
 object utils {
   /**
+    * Return the number of bits of data the given symbol represents
+    */
+  def nbits(e: Exp[_]): Int = e.tp match {case Bits(bT) => bT.length; case _ => 0 }
+
+  /**
     * Least common multiple of two integers (smallest integer which has integer divisors a and b)
     */
   def lcm(a: Int, b: Int) = {

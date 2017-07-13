@@ -69,8 +69,12 @@ case class AlteraArea(
 }
 
 object AlteraAreaMetric extends AreaMetric[AlteraArea] {
+  override def plus(a: AlteraArea, b: AlteraArea): AlteraArea = a + b
   override def zero: AlteraArea = AlteraArea()
   override def lessThan(x: AlteraArea, y: AlteraArea): Boolean = x < y
+  override def times(a: AlteraArea, x: Int, isInner: Boolean): AlteraArea = a.replicate(x, isInner)
+  override def summaryNames(x: AlteraArea): List[String] = ???
+  override def summarize(x: AlteraArea): List[Double] = ???
 }
 
 object AlteraArea {
