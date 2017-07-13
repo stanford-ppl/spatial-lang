@@ -395,7 +395,7 @@ trait ChiselGenController extends ChiselGenCounter{
           emitGlobalWire(src"""val ${cchain.get}_en = Wire(Bool())""") 
           sym match { 
             case Def(n: UnrolledReduce[_,_]) => // These have II
-              emit(src"""${cchain}_en := ${sym}_sm.io.output.ctr_inc & ${sym}_II_done""")
+              emit(src"""${cchain.get}_en := ${sym}_sm.io.output.ctr_inc & ${sym}_II_done""")
             case Def(n: UnrolledForeach) => 
               if (isStreamChild(sym) & hasStreamIns) {
                 emit(src"${cchain.get}_en := ${sym}_datapath_en & ${sym}_II_done & ~${sym}_inhibitor ${getAllStreamLogic(sym)}") 
