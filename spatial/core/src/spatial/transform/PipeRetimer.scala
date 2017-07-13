@@ -37,6 +37,8 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
     inInnerScope = true
 
     val scope = blockContents(block)
+    dbgs(s"Entering scope: ")
+    scope.foreach{stm => dbgs(s"  $stm") }
     val lines = computeDelayLines(scope)
     lines.foreach{line => addDelayLine(line) }
 
@@ -93,6 +95,8 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
   }
 
   private def addDelayLine(line: ValueDelay) = {
+    dbgs(s"Add {in:${line.input}, reader:${line.reader}, delay:${line.delay}, size:${line.size}")
+
     val existing = delayLines.getOrElse(line.input, SortedSet[ValueDelay]())
 
     delayLines += line.input -> (existing + line)
@@ -102,6 +106,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
   }
 
   private def computeDelayLines(scope: Seq[Stm]): Seq[ValueDelay] = {
+    val readyInputs = scope.flatMap(_.lhs)
 
     def createValueDelay(input: Exp[_], reader: Exp[_], delay: Int): ValueDelay = {
       if (delay < 0) {
@@ -129,7 +134,8 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
       val criticalPath = delayOf(reader) - latencyOf(reader)  // All inputs should arrive at this offset
 
       // Ignore non-bit based values
-      val inputs = bitBasedInputs(d)
+      // Retime only values which are not inner block results (these will be visited later)
+      val inputs = bitBasedInputs(d) diff d.blocks.flatMap(blk => exps(blk))
 
       dbgs(c"${str(reader)}: ${delayOf(reader)}")
       dbgs(c"  " + inputs.map{in => c"in: ${delayOf(in)}"}.mkString(", ") + "[max: " + criticalPath + "]")
@@ -157,11 +163,15 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
   // Note that this requires checking *blockNestedContents*, not just blockContents
   private def precomputeDelayLines(d: Def): Unit = {
     hierarchy += 1
+    dbgs(s"Precomputing delay lines for $d")
     d.blocks.foreach{block =>
       val scope = blockNestedContents(block)
       val lines = computeDelayLines(scope)
       // Create all of the lines that need to be visible outside this block
-      (lines ++ lines.flatMap(_.prev)).filter(_.hierarchy < hierarchy).foreach{ _.value() }
+      (lines ++ lines.flatMap(_.prev)).filter(_.hierarchy < hierarchy).foreach{line =>
+        dbgs(s"Creating delay line for ${line.input} [size: ${line.size}, h: ${line.hierarchy}] (cur h: $hierarchy)")
+        line.value()
+      }
     }
     hierarchy -= 1
   }
@@ -170,24 +180,51 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
     super.mirror(lhs, rhs)
   }
 
+
+
   private def retimeStms[A:Type](block: Block[A]): Exp[A] = inBlock(block) {
     inlineBlockWith(block, {stms =>
       stms.foreach{
-        case TP(switch, op: Switch[_]) =>
-          retimeSwitch(switch, op)(mtyp(switch.tp))
-
-        case stm @ TP(reader, d) =>
-          val inputs = bitBasedInputs(d)
-          val reader2 = isolateSubstScope {
-            registerDelays(reader, inputs)
-            visitStm(stm)
-            f(reader)
-          }
-          register(reader -> reader2)
+        case TP(switch, op: Switch[_]) => retimeSwitch(switch, op)(mtyp(switch.tp))
+        case stm => retimeStm(stm)
       }
-
       f(block.result)
     })
+  }
+
+  private def retimeStm(stm: Stm): Unit = stm match {
+    case TP(reader, d) =>
+      val inputs = bitBasedInputs(d)
+      val reader2 = isolateSubstScope {
+        registerDelays(reader, inputs)
+        visitStm(stm)
+        f(reader)
+      }
+      register(reader -> reader2)
+  }
+
+  private def retimeSwitchCase[A:Type](cas: Exp[A], op: SwitchCase[A], switch: Exp[A]): Unit = {
+    val SwitchCase(body) = op
+    implicit val ctx: SrcCtx = cas.ctx
+    precomputeDelayLines(op)
+    dbgs(c"Retiming case ${str(cas)}")
+    val caseBody2: Block[A] = inBlock(body) { isolateSubstScope { stageSealedBlock {
+      retimeStms(body)
+      val size = delayConsumers.getOrElse(switch, Nil).find(_.input == cas).map(_.size).getOrElse(0) +
+        delayConsumers.getOrElse(cas, Nil).find(_.input == body.result).map(_.size).getOrElse(0)
+      if (size > 0) {
+        dbgs(s"Adding retiming delay of size $size at end of case $cas")
+        delayLine(size, f(body.result))
+      }
+      else {
+        dbgs(s"No retiming delay required for case $cas")
+        f(body.result)
+      }
+    }}}
+    val effects = caseBody2.effects andAlso Simple
+    val cas2 = stageEffectful(SwitchCase(caseBody2), effects)(ctx)
+    transferMetadata(cas, cas2)
+    register(cas -> cas2)
   }
 
   private def retimeSwitch[A:Type](switch: Exp[A], op: Switch[A]): Unit = {
@@ -195,30 +232,13 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
     precomputeDelayLines(op)
     dbgs(c"Retiming switch $switch = $op")
     val body2 = inBlock(body){ stageHotBlock {
-      cases.foreach{
-        case cas @ Op(sc@SwitchCase(caseBody)) =>
-          implicit val ctx: SrcCtx = cas.ctx
-          precomputeDelayLines(sc)
-          dbgs(c"Retiming case ${str(cas)}")
-          val caseBody2: Block[A] = inBlock(caseBody) { isolateSubstScope { stageSealedBlock {
-            retimeStms(caseBody)
-            val size = delayConsumers.getOrElse(switch, Nil).find(_.input == cas).map(_.size).getOrElse(0) +
-              delayConsumers.getOrElse(cas, Nil).find(_.input == caseBody.result).map(_.size).getOrElse(0)
-            if (size > 0) {
-              dbgs(s"Adding retiming delay of size $size at end of case $cas")
-              delayLine(size, f(caseBody.result))
-            }
-            else {
-              dbgs(s"No retiming delay required for case $cas")
-              f(caseBody.result)
-            }
-          }}}
-          val effects = caseBody2.effects andAlso Simple
-          val cas2 = stageEffectful(SwitchCase(caseBody2), effects)(ctx)
-          transferMetadata(cas, cas2)
-          register(cas -> cas2)
-      }
-      f(cases.last)
+      inlineBlockWith(body, {stms =>
+        stms.foreach{
+          case TP(cas, sc: SwitchCase[_]) => retimeSwitchCase(cas, sc, switch)(mtyp(sc.mT))
+          case stm => retimeStm(stm)
+        }
+        f(body.result)
+      })
     }}
     val switch2 = isolateSubstScope {
       registerDelays(switch, selects)
