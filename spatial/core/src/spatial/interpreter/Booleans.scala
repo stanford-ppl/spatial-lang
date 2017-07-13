@@ -11,6 +11,8 @@ trait Booleans extends AInterpreter {
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
     case Not(EBoolean(b)) =>
       !b
+    case And(EBoolean(a), EBoolean(b)) =>
+      a && b      
   }
 
 }

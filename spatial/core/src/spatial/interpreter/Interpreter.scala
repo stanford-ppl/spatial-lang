@@ -25,8 +25,10 @@ trait Interpreter
     with Counters
     with Vectors
     with FIFOs
+    with FSMs
 {
 
+  
   var instructionNumber = 0
   override protected def interpretNode(lhs: Sym[_], rhs: Op[_]): Unit = {
 

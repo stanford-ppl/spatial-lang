@@ -72,8 +72,12 @@ trait Controllers extends AInterpreter {
         interpretBlock(func)
 
     case Hwblock(block, isForever) =>
+      val mems = getReadStreamsAndFIFOs(lhs).map(eval[Any])
+      def isMoreData = () => isMoreDataFromMems(mems)
+      
       if (isForever)
-        while (!Config.forceExit()) interpretBlock(block)
+        while (isMoreData())
+          interpretBlock(block)
       else
         interpretBlock(block)
   }

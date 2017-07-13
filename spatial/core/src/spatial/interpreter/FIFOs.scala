@@ -16,14 +16,27 @@ trait FIFOs extends AInterpreter {
       v.dequeue()
   }
 
+  object EFIFO {
+    def unapply(x: Exp[_]) = Some(eval[FIFO](x))
+  }
+
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
     case FIFONew(EInt(size)) =>
       variables.get(lhs).getOrElse(FIFO(size, new collection.mutable.Queue[Any]()))
 
-    case ParFIFOEnq(fifo, iters, bound) =>
-      println(iters.map(eval[Any]))
+    case ParFIFOEnq(EFIFO(fifo), SeqE(data), SeqEB(ens)) =>
+      ens.zip(data).foreach { case (en, v) =>
+        if (en)
+          fifo.enq(v)
+      }
 
+    case FIFODeq(EFIFO(fifo), EBoolean(en)) =>
+      if (en)
+        fifo.deq()
+
+    case FIFOEmpty(EFIFO(fifo)) =>
+      fifo.v.isEmpty
   }
 
 }

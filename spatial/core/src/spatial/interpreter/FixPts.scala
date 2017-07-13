@@ -19,9 +19,12 @@ trait FixPts extends AInterpreter {
     case FixPtToFltPt(fixp) =>
       eval[Float](fixp)
 
-    case FixEql(EAny(a), EAny(b)) =>
+    case FixEql(EBigDecimal(a), EBigDecimal(b)) =>
       a == b
 
+    case FixLt(EBigDecimal(a), EBigDecimal(b)) =>
+      a < b
+      
     case FixRandom(maxo) =>
       maxo match {
         case Some(EBigDecimal(max)) =>
