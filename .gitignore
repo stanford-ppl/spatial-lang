@@ -6,6 +6,11 @@
 *.dat
 *__*.scala
 
+# apps submodule
+apps/.gitignore
+apps/build.sbt
+apps/*
+
 # sbt specific
 .cache
 .history
