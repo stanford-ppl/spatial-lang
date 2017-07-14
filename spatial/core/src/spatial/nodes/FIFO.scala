@@ -41,6 +41,11 @@ case class FIFODeq[T:Type:Bits](fifo: Exp[FIFO[T]], en: Exp[Bit]) extends Enable
   val mT = typ[T]
   val bT = bits[T]
 }
+case class FIFOPeek[T:Type:Bits](fifo: Exp[FIFO[T]], en: Exp[Bit]) extends EnabledOp[T](en) {
+  def mirror(f:Tx) = FIFO.peek(f(fifo), f(en))
+  val mT = typ[T]
+  val bT = bits[T]
+}
 case class FIFOEmpty[T:Type:Bits](fifo: Exp[FIFO[T]]) extends Op[Bit] {
   def mirror(f:Tx) = FIFO.is_empty(f(fifo))
   val mT = typ[T]
