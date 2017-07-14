@@ -129,7 +129,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := ShiftRegister(${data}(i).r, $delay)}")        
     } else {
       if (isBool) {
-        emit(src"""val $lhs = Mux(retime_released, ShiftRegister($data, $delay), false.B)""")
+        emit(src"""val $lhs = ${data}.D($delay, rr)""")
       } else {
         emit(src"""val $lhs = ShiftRegister($data, $delay)""")
       }
