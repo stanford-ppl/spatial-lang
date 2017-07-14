@@ -266,7 +266,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         case Def(StreamInNew(bus)) => bus match {
           case VideoCamera => 
             emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
-            emit(src"""${strm}_ready_options(${lhs}_rId) := ${parent}_datapath_en & ${ens.mkString("&")} & (${parent}_datapath_en).D(${parent}_retime, rr) """)
+            emit(src"""${strm}_ready_options(${lhs}_rId) := ${parent}_done & ${ens.mkString("&")} & (${parent}_datapath_en).D(${parent}_retime, rr) """)
           case SliderSwitch => 
             emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
           case _ => 

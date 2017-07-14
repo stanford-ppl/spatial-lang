@@ -190,7 +190,7 @@ class MAGCore(
   val dramReadySeen = Wire(Bool())
   val dramReadyFF = Module(new FF(1))
   dramReadyFF.io.init := 0.U
-  dramReadyFF.io.enable := burstVld & isWrFifo.io.deq(0)(0)
+  dramReadyFF.io.enable := burstCounter.io.done | (burstVld & isWrFifo.io.deq(0)(0))
   dramReadyFF.io.in := Mux(burstCounter.io.done, 0.U, dramReady | dramReadySeen)
   dramReadySeen := dramReadyFF.io.out
 //  dramReadySeen := RegNext(Mux(burstCounter.io.done, false.B, dramReady | dramReadySeen), false.B)
