@@ -682,7 +682,8 @@ object MPEG2 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
 
       def Fill_Buffer(): Unit = {
         ld_Rdbfr load inRdBfr_dram(0::2048)
-        ld_Rdptr := 2048
+        ld_Rdptr := 0
+        println("filling buf, ptr " + ld_Rdptr.value)
         // TODO: Some padding crap if file is not aligned, which is impossible since benchmark hardcodes 2048-element read
       }
       def Flush_Buffer(n: Int): Unit = {
@@ -695,16 +696,19 @@ object MPEG2 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
             Foreach(Incnt until 25 by 8){ i => 
               val tmp = Reg[UInt]
               tmp := ld_Rdbfr(ld_Rdptr).to[UInt]
-              Foreach(24-Incnt by 1){j => tmp := tmp << 1}
+              Foreach(24-i by 1){j => tmp := tmp << 1}
               ld_Bfr := ld_Bfr | tmp.value
             }
           } else {
             Foreach(Incnt until 25 by 8){i => 
-              if (ld_Rdptr >= 2048) {Fill_Buffer()}
+              if (ld_Rdptr >= 2047) {Fill_Buffer()}
               val tmp = Reg[UInt]
               tmp := ld_Rdbfr(ld_Rdptr).to[UInt]
-              Foreach(24-Incnt by 1){j => tmp := tmp << 1}
+              println("  Extracted " + tmp.value)
+              ld_Rdptr :+= 1
+              Foreach(24-i by 1){j => tmp := tmp << 1}
               ld_Bfr := ld_Bfr | tmp.value                
+              println("when i is " + i + " then tmp is " + ld_Bfr.value)
             }
           }
           ld_Rdptr :+= 24
