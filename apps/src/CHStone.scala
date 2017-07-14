@@ -648,6 +648,11 @@ object MPEG2 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
   @virtualize
   def main() = {
 
+    val NUMEL = 2048
+    val inRdBfr_data = loadCSV1D[UInt8]("/remote/regression/data/machsuite/mpeg2_inRdBfr.csv", ",")
+    val inRdBfr_dram = DRAM[UInt8](NUMEL)
+    setMem(inRdBfr_dram, inRdBfr_data)
+
 
     Accel{
       val inPMV = LUT[UInt16](2,2,2)(45,  207,
@@ -664,6 +669,65 @@ object MPEG2 extends SpatialApp { // DISABLED Regression (Dense) // Args: none
                                       120, 216)
       val outmvfs = LUT[UInt16](2,2)(0, 200,
                                      0, 240)
+
+      val dmvector = RegFile[UInt16](2)
+      val motion_vertical_field_select = RegFile[UInt16](2,2)
+      val PMV = RegFile[UInt16](2,2,2)
+
+      val ld_Rdbfr = SRAM[UInt8](2048)
+      val ld_Bfr = Reg[UInt](68157440)
+      val ld_Incnt = Reg[Int](0)
+      val ld_Rdptr = Reg[Int](2047)
+      val ld_Rdmax = Reg[Int](2047)
+
+      def Fill_Buffer(): Unit = {
+        ld_Rdbfr load inRdBfr_dram(0::2048)
+        ld_Rdptr := 2048
+        // TODO: Some padding crap if file is not aligned, which is impossible since benchmark hardcodes 2048-element read
+      }
+      def Flush_Buffer(n: Int): Unit = {
+        ld_Bfr := n.to[UInt]
+        ld_Incnt := ld_Incnt - n
+        val Incnt = ld_Incnt
+
+        if (Incnt <= 24) {
+          if (ld_Rdptr < 2044) {
+            Foreach(Incnt until 25 by 8){ i => 
+              val tmp = Reg[UInt]
+              tmp := ld_Rdbfr(ld_Rdptr).to[UInt]
+              Foreach(24-Incnt by 1){j => tmp := tmp << 1}
+              ld_Bfr := ld_Bfr | tmp.value
+            }
+          } else {
+            Foreach(Incnt until 25 by 8){i => 
+              if (ld_Rdptr >= 2048) {Fill_Buffer()}
+              val tmp = Reg[UInt]
+              tmp := ld_Rdbfr(ld_Rdptr).to[UInt]
+              Foreach(24-Incnt by 1){j => tmp := tmp << 1}
+              ld_Bfr := ld_Bfr | tmp.value                
+            }
+          }
+          ld_Rdptr :+= 24
+        }
+        println(" ld_rdptr = " + ld_Rdptr.value + " ldbfr = " + ld_Bfr.value)
+      }
+      def InitializeBuffer(): Unit = {
+        // Regs all set to initial value to begin with
+        Flush_Buffer(0)
+      }
+
+      Foreach(2 by 1){i =>
+        dmvector(i) = 0
+        Foreach(2 by 1){j => 
+          motion_vertical_field_select(i,j) = inmvfs(i,j)
+          Foreach(2 by 1){k => 
+            PMV(i,j,k) = inPMV(i,j,k)
+          }
+        } 
+      }
+
+      InitializeBuffer()
+
     }
 
   }

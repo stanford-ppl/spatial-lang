@@ -41,7 +41,7 @@ class SpatialArgParser extends ArgonArgParser {
   ).text("generates the debug name for all syms, rather than \"x${s.id}\" only'")
 
   parser.opt[Unit]("tree").action( (_,_) =>
-    SpatialConfig.enableNaming = true
+    SpatialConfig.enableTree = true
   ).text("enables logging of controller tree for visualizing app structure")
 
   parser.opt[Unit]("dot").action( (_,_) =>
