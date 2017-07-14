@@ -404,7 +404,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
         // Handle case where we allow scalar communication between blocks
         pendingNodes.get(map.result).foreach{nodes =>
-          addPendingUse(lhs, blkToCtrl((lhs,0)), (lhs,0), nodes, isBlockResult = true)
+          addPendingUse(lhs, blkToCtrl((lhs,1)), (lhs,0), nodes, isBlockResult = true)
         }
       }
 
