@@ -13,6 +13,9 @@ case class FIFO[T:Type:Bits](s: Exp[FIFO[T]]) extends Template[FIFO[T]] {
   @api def deq(): T = this.deq(true)
   @api def deq(en: Bit): T = wrap(FIFO.deq(this.s, en.s))
 
+  @api def peek(): T = this.peek(true)
+  @api def peek(en: Bit): T = wrap(FIFO.peek(this.s, en.s))
+
   @api def empty(): Bit = wrap(FIFO.is_empty(this.s))
   @api def full(): Bit = wrap(FIFO.is_full(this.s))
   @api def almostEmpty(): Bit = wrap(FIFO.is_almost_empty(this.s))
@@ -45,6 +48,9 @@ object FIFO {
   }
   @internal def deq[T:Type:Bits](fifo: Exp[FIFO[T]], en: Exp[Bit]): Exp[T] = {
     stageWrite(fifo)(FIFODeq(fifo,en))(ctx)
+  }
+  @internal def peek[T:Type:Bits](fifo: Exp[FIFO[T]], en: Exp[Bit]): Exp[T] = {
+    stageWrite(fifo)(FIFOPeek(fifo,en))(ctx)
   }
   @internal def is_empty[T:Type:Bits](fifo: Exp[FIFO[T]]): Exp[Bit] = {
     stage(FIFOEmpty(fifo))(ctx)
