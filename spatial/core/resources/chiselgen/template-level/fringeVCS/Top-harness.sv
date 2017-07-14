@@ -2,7 +2,7 @@ module test;
   import "DPI" function void sim_init();
   import "DPI" function int tick();
   import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int size, int streamId, int tag, int isWr, int isSparse);
-  import "DPI" function int sendWdata(int streamId, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
+  import "DPI" function int sendWdata(int streamId, int dramCmdValid, int dramReadySeen, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
   import "DPI" function void readOutputStream(int data, int tag, int last);
 
   // Export functionality to C layer
@@ -57,7 +57,9 @@ module test;
   wire [63:0] io_dram_cmd_bits_rawAddr;
   wire  io_dram_cmd_bits_isWr;
   wire  io_dram_cmd_bits_isSparse;
+  wire  io_dram_cmd_bits_dramReadySeen;
   wire  io_dram_wdata_valid;
+  wire  io_dram_wdata_bits_wlast;
   reg io_dram_wdata_ready;
   wire [31:0] io_dram_cmd_bits_streamId;
   wire [31:0] io_dram_cmd_bits_tag;
@@ -127,9 +129,11 @@ module test;
     .io_dram_cmd_bits_size(io_dram_cmd_bits_size),
     .io_dram_cmd_bits_isWr(io_dram_cmd_bits_isWr),
     .io_dram_cmd_bits_isSparse(io_dram_cmd_bits_isSparse),
+    .io_dram_cmd_bits_dramReadySeen(io_dram_cmd_bits_dramReadySeen),
     .io_dram_cmd_bits_tag(io_dram_cmd_bits_tag),
     .io_dram_cmd_bits_streamId(io_dram_cmd_bits_streamId),
     .io_dram_wdata_bits_streamId(io_dram_wdata_bits_streamId),
+    .io_dram_wdata_bits_wlast(io_dram_wdata_bits_wlast),
     .io_dram_wdata_bits_wdata_0(io_dram_wdata_bits_wdata_0),
     .io_dram_wdata_bits_wdata_1(io_dram_wdata_bits_wdata_1),
     .io_dram_wdata_bits_wdata_2(io_dram_wdata_bits_wdata_2),
@@ -269,6 +273,7 @@ module test;
     io_genericStreamIn_bits_last = last;
   endfunction
 
+  reg stallForOneCycle = 0;
   // 1. If io_dram_cmd_valid, then send send DRAM request to CPP layer
   function void post_update_callbacks();
     if (io_dram_cmd_valid & ~reset) begin
@@ -277,10 +282,14 @@ module test;
       io_dram_cmd_ready = 0;
     end
 
-    if (io_dram_wdata_valid & ~reset) begin
+    // Lower the ready signal for a cycle after wlast goes high
+    if (io_dram_wdata_valid & ~reset & ~stallForOneCycle) begin
       io_dram_wdata_ready = 1;
     end else begin
       io_dram_wdata_ready = 0;
+      if (stallForOneCycle) begin
+        stallForOneCycle = 0;
+      end
     end
 
 
@@ -318,6 +327,8 @@ module test;
     if (io_dram_wdata_valid & io_dram_wdata_ready) begin
       sendWdata(
         io_dram_wdata_bits_streamId,
+        io_dram_cmd_valid,
+        io_dram_cmd_bits_dramReadySeen,
         io_dram_wdata_bits_wdata_0,
         io_dram_wdata_bits_wdata_1,
         io_dram_wdata_bits_wdata_2,
@@ -335,6 +346,11 @@ module test;
         io_dram_wdata_bits_wdata_14,
         io_dram_wdata_bits_wdata_15
       );
+      if (io_dram_wdata_bits_wlast) begin
+        stallForOneCycle = 1;
+      end else begin
+        stallForOneCycle = 0;
+      end
     end
 
   endfunction

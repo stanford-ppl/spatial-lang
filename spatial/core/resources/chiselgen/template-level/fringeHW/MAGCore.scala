@@ -199,6 +199,7 @@ class MAGCore(
       wdataValid & ~dramReadySeen,
       true.B
     )
+  io.dram.cmd.bits.dramReadySeen := dramReadySeen
 
   // Burst Tag counter
   val sgWaitForDRAM = Wire(Bool())

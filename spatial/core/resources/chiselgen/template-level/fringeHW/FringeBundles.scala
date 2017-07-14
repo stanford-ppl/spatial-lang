@@ -77,6 +77,7 @@ class DRAMCommand(w: Int, v: Int) extends Bundle {
   val isSparse = Bool()
   val tag = UInt(w.W)
   val streamId = UInt(w.W)
+  val dramReadySeen = Bool()
 //  val wdata = Vec(v, UInt(w.W)) // v
 
   override def cloneType(): this.type = {

@@ -220,9 +220,6 @@ bool checkQAndRespond(int id) {
         bool pokeResponse = false;
 
         if (req->isWr) { // Write request: Update 1 burst-length bytes at *addr
-          if (debug) {
-            EPRINTF("                      : Req size: %u, wdata size: %u\n", req->size, wdataQ[id].size());
-          }
           uint32_t *wdata = req->wdata;
           uint32_t *waddr = (uint32_t*) req->addr;
           for (int i=0; i<burstSizeWords; i++) {
@@ -437,6 +434,8 @@ bool sparseCacheFull() {
 extern "C" {
   int sendWdata(
       int streamId,
+      int dramCmdValid,
+      int dramReadySeen,
       int wdata0,
       int wdata1,
       int wdata2,
@@ -492,25 +491,23 @@ extern "C" {
     wdata[14] = cmdWdata14;
     wdata[15] = cmdWdata15;
 
-    // Get current wdata request
-    ASSERT(wrequestQ.size() > 0, "Spurious wdata sent when no write requests were seen before!\n");
+    if (debug) {
+      EPRINTF("[sendWdata dramCmdValid: %d, dramReadySeen: %d] %u %u %u %u\n", dramCmdValid, dramReadySeen, cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3);
+      EPRINTF("                                                %u %u %u %u\n", cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7);
+      EPRINTF("                                                %u %u %u %u\n", cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11);
+      EPRINTF("                                                %u %u %u %u\n", cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15);
+    }
+
+    ASSERT(wrequestQ.size() > 0, "Wdata sent when no write requests were seen before!\n");
+
     DRAMRequest *req = wrequestQ.front();
     wrequestQ.pop_front();
     req->wdata = wdata;
+    req->schedule();
+
 //    if (wdataReady == 1) {
 //      wdataQ[streamId].push_back(wdata);
 //    }
-
-    if (debug) {
-      EPRINTF("[sendWdata id: %d] %u %u %u %u\n", streamId, cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3);
-      EPRINTF("                   %u %u %u %u\n", cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7);
-      EPRINTF("                   %u %u %u %u\n", cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11);
-      EPRINTF("                   %u %u %u %u\n", cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15);
-      EPRINTF("            size:  %u\n", wdataQ[streamId].size());
-    }
-
-    req->schedule();
-
 //    return wdataReady;
   }
 
