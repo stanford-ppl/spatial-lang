@@ -10,8 +10,8 @@ trait Vectors extends AInterpreter {
 
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
     
-    case VectorApply(vec, idx) =>
-      eval[Seq[_]](vec)(idx)
+    case VectorApply(ESeq(vec), idx) =>
+      vec(idx)
 
   }
 
