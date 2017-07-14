@@ -377,11 +377,11 @@ trait MemoryAnalyzer extends CompilerPass {
     val readers = readersOf(mem)
 
     if (writers.isEmpty && !isOffChipMemory(mem) && !isLUT(mem)) {
-      warn(mem.ctx, u"${mem.tp} $mem defined here has no writers!")
+      warn(mem.ctx, u"${mem.tp} $mem defined here has no writers.")
       warn(mem.ctx)
     }
     if (readers.isEmpty && !isOffChipMemory(mem)) {
-      warn(mem.ctx, u"${mem.tp} $mem defined here has no readers!")
+      warn(mem.ctx, u"${mem.tp} $mem defined here has no readers.")
       warn(mem.ctx)
     }
 

@@ -116,14 +116,14 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
     // Perform backwards pass to push unnecessary delays out of reduction cycles
     // This can create extra registers, but decreases the initiation interval of the cycle
-    def reverseDFS(cur: Exp[_], scope: Set[Exp[_]]): Unit = cur match {
-      case s: Sym[_] if scope contains cur =>
-        val forward = s.dependents
+    def reverseDFS(cur: Exp[_], cycle: Set[Exp[_]]): Unit = cur match {
+      case s: Sym[_] if cycle contains cur =>
+        val forward = s.dependents.filter(dep => scope.contains(dep))
         if (forward.nonEmpty) {
           val earliestConsumer = forward.map{e => paths.getOrElse(e, 0L) - latencyOf(e) }.min
           paths(cur) = Math.max(earliestConsumer, paths.getOrElse(cur, 0L))
         }
-        getDef(s).foreach{d => d.allInputs.foreach{in => reverseDFS(in, scope) }}
+        getDef(s).foreach{d => d.allInputs.foreach{in => reverseDFS(in, cycle) }}
 
       case _ => // Do nothing
     }

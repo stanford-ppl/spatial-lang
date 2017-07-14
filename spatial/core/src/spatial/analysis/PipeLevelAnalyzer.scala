@@ -30,6 +30,15 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
     levelOf(pipe) = if (isOuter) OuterControl else InnerControl
   }
 
+  // Unit pipes are always sequential controllers (since they don't loop)
+  def annotateUnit(pipe: Exp[_], isOuter: Boolean) = {
+    styleOf.get(pipe) match {
+      case Some(StreamPipe) => styleOf(pipe) = StreamPipe
+      case _                => styleOf(pipe) = SeqPipe
+    }
+    levelOf(pipe) = if (isOuter) OuterControl else InnerControl
+  }
+
   def annotateLeafControl(pipe: Exp[_]): Unit = {
     styleOf(pipe) = InnerPipe
     levelOf(pipe) = InnerControl
@@ -47,10 +56,10 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
 
     rhs match {
       case pipe:Hwblock   =>
-        annotateControl(lhs, isOuter)
+        annotateUnit(lhs, isOuter)
         if (pipe.isForever) styleOf(lhs) = StreamPipe
 
-      case _:UnitPipe  => annotateControl(lhs, isOuter)
+      case _:UnitPipe  => annotateUnit(lhs, isOuter)
       case _:OpForeach => annotateControl(lhs, isOuter)
       case op:OpReduce[_] =>
         annotateControl(lhs, isOuter)
