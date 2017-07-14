@@ -16,6 +16,42 @@ trait FltPts extends AInterpreter {
     case FltAdd(EBigDecimal(a), EBigDecimal(b)) =>
       a + b
 
+    case FltSub(EBigDecimal(a), EBigDecimal(b)) =>
+      a - b
+
+    case FltNeg(EBigDecimal(a)) =>
+      -a
+
+    case FltSqrt(EBigDecimal(a)) =>
+      BigDecimal(Math.sqrt(a.toDouble))
+
+    case FltSin(EBigDecimal(a)) =>
+      BigDecimal(Math.sin(a.toDouble))
+
+    case FltCos(EBigDecimal(a)) =>
+      BigDecimal(Math.cos(a.toDouble))
+      
+    case FltMul(EBigDecimal(a), EBigDecimal(b)) =>
+      a * b
+
+    case FltDiv(EBigDecimal(a), EBigDecimal(b)) =>
+      a / b
+      
+    case FltLog(EBigDecimal(a)) =>
+      BigDecimal(Math.log(a.toDouble)) //TODO FIX IT WHEN BETTER NUMBER
+      
+    case FltLt(EBigDecimal(a), EBigDecimal(b)) =>
+      if (a != null && b != null)
+        a < b
+      else
+        null
+
+    case FltLeq(EBigDecimal(a), EBigDecimal(b)) =>
+      if (a != null && b != null)
+        a <= b
+      else
+        null
+      
     case FltRandom(maxo) =>
       maxo match {
         case Some(EBigDecimal(max)) =>

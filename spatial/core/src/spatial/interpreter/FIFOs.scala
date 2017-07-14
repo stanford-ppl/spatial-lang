@@ -33,8 +33,18 @@ trait FIFOs extends AInterpreter {
 
     case FIFODeq(EFIFO(fifo), EBoolean(en)) =>
       if (en)
-        fifo.deq()
+        if (!fifo.v.isEmpty)
+          fifo.deq()
+        else
+          null
 
+    case FIFOPeek(EFIFO(fifo), EBoolean(en)) =>
+      if (en)
+        if (!fifo.v.isEmpty)
+          fifo.v.head
+        else
+          null
+      
     case FIFOEmpty(EFIFO(fifo)) =>
       fifo.v.isEmpty
   }

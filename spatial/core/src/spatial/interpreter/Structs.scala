@@ -15,12 +15,16 @@ trait Structs extends AInterpreter {
 
     case FieldApply(struct, f) =>
       val x = eval[Seq[(String, Exp[_])]](struct)
-      val m = x.toMap
-      m(f)
+      if (x != null) {
+        val m = x.toMap
+        eval[Any](m(f))
+      }
+      else
+        null
 
 
     case SimpleStruct(ab) =>
-      ab.map(x => (x._1, eval[Any](x._2)))
+      ab.map(x => (x._1, new Const(x._2.tp)(eval[Any](x._2))))
   }
 
 }

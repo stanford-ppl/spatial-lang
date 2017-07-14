@@ -59,9 +59,6 @@ trait Streams extends AInterpreter {
 
         val q = eval[Queue[Any]](a)
 
-        if (Config.debug)
-          println("Push " + b + " to " + a)
-
         q.put(b)
 
       }

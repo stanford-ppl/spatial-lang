@@ -32,7 +32,7 @@ trait Interpreter
   var instructionNumber = 0
   override protected def interpretNode(lhs: Sym[_], rhs: Op[_]): Unit = {
 
-    if (true || Config.debug) {
+    if (Config.verbosity >= 2) {
       displayInfo
       println()         
       if (Streams.streamsIn.size > 0 || Streams.streamsOut.size > 0) {
@@ -40,6 +40,8 @@ trait Interpreter
         Streams.streamsIn.foreach { case (k, s) => println(k + ": " + s.size) }
         Streams.streamsOut.foreach { case (k, s) => println(k + ": " + s.size) } 
       }
+    }
+    if (Config.verbosity >= 1) {    
       println(s"[${Console.CYAN}context${Console.RESET}]")         
       println(lhs.ctx)
       val line = lhs.ctx.lineContent.getOrElse("")
@@ -64,6 +66,7 @@ trait Interpreter
       println(s"[${Console.CYAN}instruction #${Console.RESET}]: ${Console.BLUE}$instructionNumber${Console.RESET}")
       instructionNumber += 1      
     }
+
 
     
     super.interpretNode(lhs, rhs)

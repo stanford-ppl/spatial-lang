@@ -66,6 +66,10 @@ trait Controllers extends AInterpreter {
         valids(i).foreach(removeBound)
       })
 
+    case ParallelPipe(SeqEB(ens), block) => {
+      if (ens.forall(x => x))
+        interpretBlock(block)
+    }
     case UnitPipe(ens, func) =>
       val ense = ens.map(eval[Boolean])
       if (ense.forall(x => x))

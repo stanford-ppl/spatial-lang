@@ -33,7 +33,7 @@ trait SRAMs extends AInterpreter {
     case SRAMStore(sram, dims, is, EInt(ofs), EAny(v), EBoolean(en)) =>
       if (en) {
         val isram = eval[ISRAM](sram)
-        val ise = is.map(x => eval[BigDecimal](x).toInt)
+        val ise = is.map(x =>  eval[BigDecimal](x).toInt)
         val dimse = dims.map(x => eval[BigDecimal](x).toInt)
         val i = isram.index(dimse, ise, ofs)
         isram.v(i) = v
@@ -44,7 +44,7 @@ trait SRAMs extends AInterpreter {
       val ense = ens.map(eval[Boolean])
       inds.zipWithIndex.foreach { case (ind, i: Int)  => {
         if (ense(i)) {
-          val ise = ind.map(x => eval[Int](x))
+          val ise = ind.map(x => eval[BigDecimal](x).toInt)
           val indV = isram.index(isram.dims, ise, 0)
           isram.v(indV) = eval[Any](data(i))
         }
@@ -54,7 +54,7 @@ trait SRAMs extends AInterpreter {
     case SRAMLoad(sram, dims, is, EInt(ofs), EBoolean(en)) =>
       if (en) {
         val isram = eval[ISRAM](sram)
-        val ise = is.map(x => eval[BigDecimal](x).toInt)
+        val ise = is.map(x => {println(x); val bd = eval[BigDecimal](x).toInt; println(bd); bd})
         val dimse = dims.map(x => eval[BigDecimal](x).toInt)
         val i = isram.index(dimse, ise, ofs)
         isram.v(i)
