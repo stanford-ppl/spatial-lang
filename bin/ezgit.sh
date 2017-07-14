@@ -129,8 +129,8 @@ echo "=========================="
 cd ../
 conflict
 git stash
-git checkout $2
-git pull
+git checkout $2 | tee -a /tmp/pub
+git pull | tee -a /tmp/pub
 git merge origin/$1 | tee -a /tmp/pub
 error=(`cat /tmp/pub | grep -i "conflict\|error\|fatal" | wc -l`)
 if [[ $error != 0 ]]; then
