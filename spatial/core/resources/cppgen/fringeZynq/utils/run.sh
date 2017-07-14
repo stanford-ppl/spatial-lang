@@ -1,4 +1,4 @@
 #!/bin/bash
 
-./set_perms Top
+bash set_perms Top
 ./Top $@

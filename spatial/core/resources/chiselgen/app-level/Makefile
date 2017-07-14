@@ -207,20 +207,21 @@ zynq: zynq-hw zynq-sw
 zynq-sw:
 	cp zynq.mk cpp/Makefile
 	make -C cpp
-	tar -czf TopZynq.tar.gz -C verilog accel.bit.bin -C ../cpp Top -C fringeZynq/utils set_perms run.sh
+	tar -czf $(shell basename $(shell pwd)).tar.gz -C verilog-zynq accel.bit.bin -C ../cpp Top -C fringeZynq/utils set_perms run.sh
 
 zynq-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs zynq"
-	cp chisel/fringeZynq/* verilog-zynq
-	mv verilog/fsbl.elf._ verilog/fsbl.elf
-	mv verilog/u-boot.elf._ verilog/u-boot.elf
-	make -C verilog
+	cp chisel/template-level/fringeZynq/* verilog-zynq
+	mv verilog-zynq/fsbl.elf._ verilog-zynq/fsbl.elf
+	mv verilog-zynq/u-boot.elf._ verilog-zynq/u-boot.elf
+	make -C verilog-zynq
 
 zynq-clean:
 	make -C verilog-zynq clean
 	make -C cpp clean
 	rm -rf verilog-zynq
 	rm -f TopZynq.tar.gz
+	rm -rf target
 
 de1soc: de1soc-hw de1soc-sw
 

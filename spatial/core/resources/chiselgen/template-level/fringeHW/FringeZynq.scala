@@ -60,7 +60,7 @@ class FringeZynq(
   val totalArgOuts = numArgOuts + 1 + 16
 
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, totalArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
 
   // AXI-lite bridge
   val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
