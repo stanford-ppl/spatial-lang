@@ -166,7 +166,7 @@ object DRAMTransfersInternal {
     @virtualize
     def unalignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = {
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
-      val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
+//      val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
       val dataStream = StreamOut[MTuple2[T,Bit]](BurstFullDataBus[T]())
       val ackStream  = StreamIn[Bit](BurstAckBus)
 
@@ -179,7 +179,7 @@ object DRAMTransfersInternal {
           val aligned = alignmentCalc(offchipAddr)
 
           cmdStream := BurstCmd(aligned.addr_bytes.to[Int64], aligned.size_bytes, false)
-          issueQueue.enq(aligned.size)
+//          issueQueue.enq(aligned.size)
           startBound := aligned.start
           endBound := aligned.end
           length := aligned.size
@@ -195,8 +195,8 @@ object DRAMTransfersInternal {
       // Ack receive
       // TODO: Assumes one ack per command
       Pipe {
-        val size = Reg[Index]
-        Pipe{size := issueQueue.deq()}
+//        val size = Reg[Index]
+//        Pipe{size := issueQueue.deq()}
         val ack  = ackStream.value()
         ()
 //        Foreach(size.value by size.value) {i => // TODO: Can we use by instead of par?
