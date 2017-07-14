@@ -6,8 +6,6 @@
 *.dat
 *__*.scala
 
-apps/target
-apps/.gitignore
 
 # sbt specific
 .cache
