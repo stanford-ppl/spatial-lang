@@ -36,9 +36,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
     hierarchy += 1
     inInnerScope = true
 
-    val scope = blockContents(block)
-    dbgs(s"Entering scope: ")
-    scope.foreach{stm => dbgs(s"  $stm") }
+    val scope = blockContents(block).filter(_.lhs.exists(e => Bits.unapply(e.tp).isDefined || e.tp == UnitType))
     val lines = computeDelayLines(scope)
     lines.foreach{line => addDelayLine(line) }
 
@@ -106,7 +104,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
   }
 
   private def computeDelayLines(scope: Seq[Stm]): Seq[ValueDelay] = {
-    val readyInputs = scope.flatMap(_.lhs)
+    val innerScope = scope.flatMap(_.rhs.blocks.flatMap(blk => exps(blk))).toSet
 
     def createValueDelay(input: Exp[_], reader: Exp[_], delay: Int): ValueDelay = {
       if (delay < 0) {
@@ -116,17 +114,19 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
         error(c"  ${str(reader)}")
         state.logError()
       }
+      // Retime inner block results as if we were already in the inner hierarchy
+      val h = if (innerScope.contains(input)) hierarchy + 1 else hierarchy
       val existing = delayLines.getOrElse(input, SortedSet[ValueDelay]())
       existing.find{_.delay <= delay} match {
         case Some(prev) =>
           val size = delay - prev.delay
           if (size > 0) {
-            ValueDelay(input, reader, delay, size, hierarchy, Some(prev), () => delayLine(size, prev.value())(input.ctx))
+            ValueDelay(input, reader, delay, size, h, Some(prev), () => delayLine(size, prev.value())(input.ctx))
           }
           else prev
 
         case None =>
-          ValueDelay(input, reader, delay, delay, hierarchy, None, () => delayLine(delay, f(input))(input.ctx))
+          ValueDelay(input, reader, delay, delay, h, None, () => delayLine(delay, f(input))(input.ctx))
       }
     }
 
@@ -134,8 +134,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
       val criticalPath = delayOf(reader) - latencyOf(reader)  // All inputs should arrive at this offset
 
       // Ignore non-bit based values
-      // Retime only values which are not inner block results (these will be visited later)
-      val inputs = bitBasedInputs(d) diff d.blocks.flatMap(blk => exps(blk))
+      val inputs = bitBasedInputs(d) //diff d.blocks.flatMap(blk => exps(blk))
 
       dbgs(c"${str(reader)}: ${delayOf(reader)}")
       dbgs(c"  " + inputs.map{in => c"in: ${delayOf(in)}"}.mkString(", ") + "[max: " + criticalPath + "]")
@@ -250,12 +249,17 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
   }
 
   private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = {
-    val result = exps(block)
     val scope = blockNestedContents(block).flatMap(_.lhs)
                   .filterNot(s => isGlobal(s))
                   .filter{e => e.tp == UnitType || Bits.unapply(e.tp).isDefined }
                   .map(_.asInstanceOf[Exp[_]]).toSet
 
+    val result = (block +: scope.toSeq.flatMap{case s@Def(d) => d.blocks; case _ => Nil}).flatMap{b => exps(b) }
+
+    dbgs(s"Retiming block $block with scope: ")
+    scope.foreach{e => dbgs(s"  ${str(e)}") }
+    dbgs(s"Result: ")
+    result.foreach{e => dbgs(s"  ${str(e)}") }
     // The position AFTER the given node
     val newLatencies = pipeLatencies(result, scope)._1
     latencies ++= newLatencies
@@ -288,7 +292,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
   override protected def inlineBlock[T](b: Block[T]): Exp[T] = {
     val doWrap = retimeBlocks.headOption.getOrElse(false)
     if (retimeBlocks.nonEmpty) retimeBlocks = retimeBlocks.drop(1)
-    dbgs(c"Transforming Block $b [$retimeBlocks]")
+    dbgs(c"Transforming Block $b [$retimeBlocks => $doWrap]")
     if (doWrap) {
       retimeBlock(b)(mtyp(b.tp),ctx.get)
     }
@@ -301,7 +305,10 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
       val retimeEnables = rhs.blocks.map{_ => true }.toList
       withRetime(retimeEnables, ctx) { super.transform(lhs, rhs) }
     }
-    else super.transform(lhs, rhs)
+    else rhs match {
+      case _:StateMachine[_] => withRetime(List(true,false,true), ctx){ super.transform(lhs, rhs) }
+      case _ => withRetime(Nil, ctx){ super.transform(lhs, rhs) }
+    }
   }
 
   override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {

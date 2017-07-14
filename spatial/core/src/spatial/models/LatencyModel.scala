@@ -318,6 +318,7 @@ trait LatencyModel {
 
     case _ =>
       warn(s"Don't know latency of $d - using default of 0")
+      Thread.currentThread().getStackTrace.take(32).foreach{s => warn(s"  $s") }
       0
     }
 }
