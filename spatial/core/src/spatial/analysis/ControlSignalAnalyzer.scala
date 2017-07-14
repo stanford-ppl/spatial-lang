@@ -361,7 +361,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       visitBlk(lhs){
         visitBlock(blk)
         pendingNodes.get(blk.result).foreach{nodes =>
-          addPendingUse(lhs, (lhs,0), (lhs,0), nodes, isBlockResult = true)
+          addPendingUse(lhs, blkToCtrl((lhs,0)), (lhs,0), nodes, isBlockResult = true)
         }
       }
       addChildDependencyData(lhs, blk)
@@ -375,7 +375,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       visitBlk((lhs,0)){
         visitBlock(notDone)
         pendingNodes.get(notDone.result).foreach{nodes =>
-          addPendingUse(lhs, (lhs,0), (lhs,0), nodes, isBlockResult = true)
+          addPendingUse(lhs, blkToCtrl((lhs,0)), (lhs,0), nodes, isBlockResult = true)
         }
       }
 
@@ -384,7 +384,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       visitBlk((lhs,2)){
         visitBlock(nextState)
         pendingNodes.get(nextState.result).foreach{nodes =>
-          addPendingUse(lhs, (lhs,2), (lhs,2), nodes, isBlockResult = true)
+          addPendingUse(lhs, blkToCtrl((lhs,2)), (lhs,2), nodes, isBlockResult = true)
         }
       }
 
@@ -404,7 +404,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
         // Handle case where we allow scalar communication between blocks
         pendingNodes.get(map.result).foreach{nodes =>
-          addPendingUse(lhs, (lhs,0), (lhs,0), nodes, isBlockResult = true)
+          addPendingUse(lhs, blkToCtrl((lhs,0)), (lhs,0), nodes, isBlockResult = true)
         }
       }
 

@@ -322,7 +322,7 @@ object utils {
     * E.g.
     *   8 inputs => perfectly balanced binary tree, no delay paths
     *   9 inputs => 1 path of length 3
-    *    85 inputs => 3 paths with lengths 2, 1, and 1
+    *   85 inputs => 3 paths with lengths 2, 1, and 1
     **/
   def reductionTreeDelays(nLeaves: Int): List[Long] = {
     if ( (nLeaves & (nLeaves - 1)) == 0) Nil // Specialize for powers of 2
