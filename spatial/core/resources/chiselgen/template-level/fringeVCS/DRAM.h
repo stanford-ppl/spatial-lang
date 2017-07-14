@@ -330,14 +330,14 @@ bool checkQAndRespond(int id) {
                 gatherAddr[i] = head->rawAddr;
               } else {
                 uint32_t *waddr = (uint32_t*) head->rawAddr;
-                uint32_t *wdata = wdataQ[id].front();
+                uint32_t *wdata = head->wdata; // wdataQ[id].front();
                 if (debug) EPRINTF("-------- scatterAddr(%d) = %lx\n", i, waddr);
                 *waddr = wdata[0];
                 scatterAddr[i] = head->rawAddr;
                 scatterData[i] = wdata[0];
-                wdataQ[id].pop_front();
               }
               dramRequestQ[id].pop_front();
+              delete head;
             }
 
             if (debug) {
