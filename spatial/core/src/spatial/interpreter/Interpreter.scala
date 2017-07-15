@@ -63,7 +63,10 @@ trait Interpreter
           line.take(index) + Console.CYAN_B + methodName + Console.RESET + line.drop(index + methodName.length)
       println(highlighted)
       println(s"[${Console.CYAN}node${Console.RESET}]: ${Console.CYAN}$rhs${Console.RESET} -> $lhs")
-      println(s"[${Console.CYAN}instruction #${Console.RESET}]: ${Console.BLUE}$instructionNumber${Console.RESET}")
+      if (Config.verbosity == 0)
+    println(s"[${Console.CYAN}instruction #${Console.RESET}]: ${Console.BLUE}$instructionNumber${Console.RESET}\r")        
+      else 
+        println(s"[${Console.CYAN}instruction #${Console.RESET}]: ${Console.BLUE}$instructionNumber${Console.RESET}")
       instructionNumber += 1      
     }
 
