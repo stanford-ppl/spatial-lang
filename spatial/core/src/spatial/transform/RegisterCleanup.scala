@@ -15,15 +15,14 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   private case object MissingReg { override def toString = "\"Used register was removed\"" }
 
   // User specific substitutions
-  private var statelessSubstRules = Map[(Exp[_],Exp[_]), Seq[(Exp[_], () => Exp[_])]]()
+  private var statelessSubstRules = Map[(Exp[_],Blk), Seq[(Exp[_], () => Exp[_])]]()
 
-  val completedMirrors = mutable.HashMap[(Exp[_],Exp[_]), Exp[_]]()
+  private val completedMirrors = mutable.HashMap[(Exp[_],Blk), Exp[_]]()
 
-  def delayedMirror[T:Type](lhs: Sym[T], rhs:Op[T], ctrl: Exp[_])(implicit ctx: SrcCtx) = () => {
+  private def delayedMirror[T:Type](lhs: Sym[T], rhs:Op[T], ctrl: Blk)(implicit ctx: SrcCtx) = () => {
     val key = (lhs, ctrl)
 
     // scala bug? getOrElseUpdate always creates the value???
-
     /*completedMirrors.getOrElseUpdate(key, {
       withCtrl(ctrl){ mirrorWithDuplication(lhs, rhs) }
     })*/
@@ -39,13 +38,18 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
 
   }
 
-  var ctrl: Exp[_] = _
+  var blk: Blk = _
+  var blockCount: Int = 0
   var inHw: Boolean = false
-  def withCtrl[A](c: Exp[_])(blk: => A): A = {
-    var prev = ctrl
-    ctrl = c
-    val result = blk
-    ctrl = prev
+  def withCtrl[A](c: Exp[_])(func: => A): A = withCtrl((c,-1))(func)
+  def withCtrl[A](b: Blk)(func: => A): A = {
+    val prevBlk = blk
+    val prevCount = blockCount
+    blk = b
+    blockCount = -1
+    val result = func
+    blk = prevBlk
+    blockCount = prevCount
     result
   }
 
@@ -57,13 +61,13 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
       result
 
     case node if ((inHw && isStateless(node)) || isRegisterRead(node)) && shouldDuplicate(lhs) =>
-      dbg("")
-      dbg("[stateless]")
-      dbg(c"$lhs = $rhs")
-      dbg(c"users: ${usersOf(lhs)}")
+      dbgs("")
+      dbgs("[stateless]")
+      dbgs(c"$lhs = $rhs")
+      dbgs(c"users: ${usersOf(lhs)}")
 
       if (usersOf(lhs).isEmpty) {
-        dbg(c"REMOVING stateless $lhs")
+        dbgs(c"REMOVING stateless $lhs")
         constant(typ[T])(MissingReg)  // Shouldn't be used
       }
       else {
@@ -71,38 +75,37 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
         // Then associate all uses within that control with that copy
         val users = usersOf(lhs).groupBy(_.ctrl).mapValues(_.map(_.node))
 
-        val reads = users.map{case (parent, uses) =>
-          val read = delayedMirror(lhs, rhs, parent.node)
+        users.foreach{case (parent, uses) =>
+          val read = delayedMirror(lhs, rhs, parent)
 
-          dbg(c"ctrl: $parent")
+          dbgs(c"ctrl: $parent")
 
           uses.foreach { use =>
-            val subs = (lhs -> read) +: statelessSubstRules.getOrElse((use,parent.node), Nil)
-            dbg(s"  ($use, ${parent.node}): $lhs -> $read")
-            statelessSubstRules += (use,parent.node) -> subs
+            val subs = (lhs -> read) +: statelessSubstRules.getOrElse((use,parent), Nil)
+            dbgs(s"  ($use, $parent): $lhs -> $read")
+            statelessSubstRules += (use,parent) -> subs
           }
 
-          read
         }
         constant(typ[T])(MissingReg) // mirror(lhs, rhs)
       }
 
     case RegWrite(reg,value,en) =>
-      dbg("")
-      dbg("[reg write]")
-      dbg(c"$lhs = $rhs")
+      dbgs("")
+      dbgs("[reg write]")
+      dbgs(c"$lhs = $rhs")
       if (readersOf(reg).isEmpty && !isOffChipMemory(reg)) {
-        dbg(c"REMOVING register write $lhs")
+        dbgs(c"REMOVING register write $lhs")
         MUnit.const().asInstanceOf[Exp[T]]
       }
       else mirrorWithDuplication(lhs, rhs)
 
     case RegNew(_) =>
-      dbg("")
-      dbg("[reg new]")
-      dbg(c"$lhs = $rhs")
+      dbgs("")
+      dbgs("[reg new]")
+      dbgs(c"$lhs = $rhs")
       if (readersOf(lhs).isEmpty) {
-        dbg(c"REMOVING register $lhs")
+        dbgs(c"REMOVING register $lhs")
         constant(typ[T])(MissingReg)  // Shouldn't be used
       }
       else mirrorWithDuplication(lhs, rhs)
@@ -112,15 +115,15 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   }
 
   private def mirrorWithDuplication[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
-    dbg(c"checking ($lhs, $ctrl) for external user rules")
-    if ( statelessSubstRules.contains((lhs,ctrl)) ) {
-      dbg("")
-      dbg(c"[external user, ctrl = $ctrl]")
-      dbg(c"$lhs = $rhs")
+    dbgs(c"${str(lhs)} [$blk]")
+    if ( statelessSubstRules.contains((lhs,blk)) ) {
+      dbgs("")
+      dbgs(c"[external user, blk = $blk]")
+      dbgs(c"$lhs = $rhs")
       // Activate / lookup duplication rules
-      val rules = statelessSubstRules((lhs,ctrl)).map{case (s,s2) => s -> s2()}
+      val rules = statelessSubstRules((lhs,blk)).map{case (s,s2) => s -> s2()}
       val lhs2 = withSubstScope(rules: _*){ mirror(lhs, rhs) }
-      dbg(c"${str(lhs2)}")
+      dbgs(c"${str(lhs2)}")
       lhs2
     }
     else mirror(lhs, rhs)
@@ -128,9 +131,16 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
 
   /** Requires slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
   override protected def inlineBlock[T](b: Block[T]): Exp[T] = inlineBlockWith(b, {stms =>
+    blockCount = blockCount + 1     // Advance to the next block for the current node being mirrored
+    blk = (blk.node, blockCount)    // Used to track which duplicates should be made in which blocks
+    if (blk.node == null) blk = null
     visitStms(stms)
-    if (ctrl != null && statelessSubstRules.contains((ctrl,ctrl))) {
-      val rules = statelessSubstRules((ctrl, ctrl)).map { case (s, s2) => s -> s2() }
+    // Add substitutions for this node (ctrl.node, -1) and for the current block (ctrl)
+    val curNode: Access = (blk.node, (blk.node, -1))
+    val curBlock: Access = (blk.node, blk)
+    if (blk != null && (statelessSubstRules.contains(curBlock) || statelessSubstRules.contains(curNode)) ) {
+      val rules = statelessSubstRules.getOrElse(curNode, Nil).map{case (s, s2) => s -> s2() } ++
+                  statelessSubstRules.getOrElse(curBlock, Nil).map{case (s, s2) => s -> s2() }
       withSubstScope(rules: _*) { f(b.result) }
     }
     else f(b.result)

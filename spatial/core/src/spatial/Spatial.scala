@@ -124,6 +124,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += scalarAnalyzer    // Bounds / global analysis
     passes += affineAnalyzer    // Memory access patterns
     passes += ctrlAnalyzer      // Control signal analysis
+    passes += printer
     passes += memAnalyzer       // Memory banking/buffering
 
     // --- DSE
