@@ -38,7 +38,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
 
     val scope = blockContents(block).filter(_.lhs.exists(e => Bits.unapply(e.tp).isDefined || e.tp == UnitType))
     val lines = computeDelayLines(scope)
-    lines.foreach{line => addDelayLine(line) }
+    lines.foreach{case (reader, line) => addDelayLine(reader, line) }
 
     val result = func
 
@@ -65,19 +65,20 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
     case _ => throw new Exception("Unexpected register type")
   }
 
-  case class ValueDelay(input: Exp[_], reader: Exp[_], delay: Int, size: Int, hierarchy: Int, prev: Option[ValueDelay], private val create: () => Exp[_]) {
+  case class ValueDelay(input: Exp[_], delay: Int, size: Int, hierarchy: Int, prev: Option[ValueDelay], private val create: () => Exp[_]) {
     private var reg: Option[Exp[_]] = None
+    def alreadyExists: Boolean = reg.isDefined
 
     def value(): Exp[_] = {
       if (reg.isDefined) {
         val r = reg.get
-        dbgs(s"Exist delay line ${str(r)}")
+        //dbgs(s"Exist delay line ${str(r)}")
         r
       }
       else {
         val r = create()
         reg = Some(r)
-        dbgs(s"Create delay line ${str(r)}")
+        //dbgs(s"Create delay line ${str(r)}")
         r
       }
     }
@@ -89,21 +90,27 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
   private def registerDelays(reader: Exp[_], inputs: Seq[Exp[_]]): Unit = {
     delayConsumers.getOrElse(reader, Nil)
       .filter{line => inputs.contains(line.input) }
-      .foreach{line => register(line.input, line.value()) }
+      .map{line => line.input -> line }
+      .toMap    // Unique-ify by line input - makes sure we only register one substitution per input
+      .foreach{case (in, line) =>
+        val dly = line.value()
+        dbgs(s"  $in -> $dly [${line.size}]")
+        register(in, dly)
+      }
   }
 
-  private def addDelayLine(line: ValueDelay) = {
-    dbgs(s"Add {in:${line.input}, reader:${line.reader}, delay:${line.delay}, size:${line.size}")
+  private def addDelayLine(reader: Exp[_], line: ValueDelay) = {
+    dbgs(s"Add {in:${line.input}, reader:$reader, delay:${line.delay}, size:${line.size}")
 
     val existing = delayLines.getOrElse(line.input, SortedSet[ValueDelay]())
 
     delayLines += line.input -> (existing + line)
 
-    val prevReadByThisReader = delayConsumers.getOrElse(line.reader, Nil)
-    delayConsumers += line.reader -> (line +: prevReadByThisReader)
+    val prevReadByThisReader = delayConsumers.getOrElse(reader, Nil)
+    delayConsumers += reader -> (line +: prevReadByThisReader)
   }
 
-  private def computeDelayLines(scope: Seq[Stm]): Seq[ValueDelay] = {
+  private def computeDelayLines(scope: Seq[Stm]): Seq[(Exp[_], ValueDelay)] = {
     val innerScope = scope.flatMap(_.rhs.blocks.flatMap(blk => exps(blk))).toSet
 
     def createValueDelay(input: Exp[_], reader: Exp[_], delay: Int): ValueDelay = {
@@ -121,12 +128,17 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
         case Some(prev) =>
           val size = delay - prev.delay
           if (size > 0) {
-            ValueDelay(input, reader, delay, size, h, Some(prev), () => delayLine(size, prev.value())(input.ctx))
+            dbgs(s"    Extending existing line of ${prev.delay}")
+            ValueDelay(input, delay, size, h, Some(prev), () => delayLine(size, prev.value())(input.ctx))
           }
-          else prev
+          else {
+            dbgs(s"    Using existing line of ${prev.delay}")
+            prev
+          }
 
         case None =>
-          ValueDelay(input, reader, delay, delay, h, None, () => delayLine(delay, f(input))(input.ctx))
+          dbgs(s"    Created new delay line of $delay")
+          ValueDelay(input, delay, delay, h, None, () => delayLine(delay, f(input))(input.ctx))
       }
     }
 
@@ -150,7 +162,10 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
       val delays = consumerGroups.keySet.toList.sorted  // Presort to maximize coalescing
       delays.flatMap{delay =>
         val readers = consumerGroups(delay)
-        readers.map{reader => createValueDelay(input, reader, delay.toInt) }
+        readers.map{reader =>
+          dbgs(s"  Creating value delay on $input for reader $reader with delay $delay: ")
+          reader -> createValueDelay(input, reader, delay.toInt)
+        }
       }
     }
   }
@@ -162,14 +177,16 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
   // Note that this requires checking *blockNestedContents*, not just blockContents
   private def precomputeDelayLines(d: Def): Unit = {
     hierarchy += 1
-    dbgs(s"Precomputing delay lines for $d")
+    if (d.blocks.nonEmpty) dbgs(s"  Precomputing delay lines for $d")
     d.blocks.foreach{block =>
       val scope = blockNestedContents(block)
-      val lines = computeDelayLines(scope)
+      val lines = computeDelayLines(scope).map(_._2)
       // Create all of the lines that need to be visible outside this block
       (lines ++ lines.flatMap(_.prev)).filter(_.hierarchy < hierarchy).foreach{line =>
-        dbgs(s"Creating delay line for ${line.input} [size: ${line.size}, h: ${line.hierarchy}] (cur h: $hierarchy)")
-        line.value()
+        if (!line.alreadyExists) {
+          val dly = line.value()
+          dbgs(s"    ${line.input} -> $dly [size: ${line.size}, h: ${line.hierarchy}] (cur h: $hierarchy)")
+        }
       }
     }
     hierarchy -= 1
@@ -193,12 +210,14 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
 
   private def retimeStm(stm: Stm): Unit = stm match {
     case TP(reader, d) =>
+      dbgs(s"Retiming $reader = $d")
       val inputs = bitBasedInputs(d)
       val reader2 = isolateSubstScope {
         registerDelays(reader, inputs)
         visitStm(stm)
         f(reader)
       }
+      dbgs(s"  => ${str(reader2)}")
       register(reader -> reader2)
   }
 
@@ -207,7 +226,8 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
     implicit val ctx: SrcCtx = cas.ctx
     precomputeDelayLines(op)
     dbgs(c"Retiming case ${str(cas)}")
-    val caseBody2: Block[A] = inBlock(body) { isolateSubstScope { stageSealedBlock {
+    // Note: Don't call inBlock here - it's already being called in retimeStms
+    val caseBody2: Block[A] = isolateSubstScope { stageSealedBlock {
       retimeStms(body)
       val size = delayConsumers.getOrElse(switch, Nil).find(_.input == cas).map(_.size).getOrElse(0) +
         delayConsumers.getOrElse(cas, Nil).find(_.input == body.result).map(_.size).getOrElse(0)
@@ -219,7 +239,7 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
         dbgs(s"No retiming delay required for case $cas")
         f(body.result)
       }
-    }}}
+    }}
     val effects = caseBody2.effects andAlso Simple
     val cas2 = stageEffectful(SwitchCase(caseBody2), effects)(ctx)
     transferMetadata(cas, cas2)
@@ -256,10 +276,10 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
 
     val result = (block +: scope.toSeq.flatMap{case s@Def(d) => d.blocks; case _ => Nil}).flatMap{b => exps(b) }
 
-    dbgs(s"Retiming block $block with scope: ")
-    scope.foreach{e => dbgs(s"  ${str(e)}") }
-    dbgs(s"Result: ")
-    result.foreach{e => dbgs(s"  ${str(e)}") }
+    dbgs(s"Retiming block $block:")
+    //scope.foreach{e => dbgs(s"  ${str(e)}") }
+    //dbgs(s"Result: ")
+    //result.foreach{e => dbgs(s"  ${str(e)}") }
     // The position AFTER the given node
     val newLatencies = pipeLatencies(result, scope)._1
     latencies ++= newLatencies
@@ -267,10 +287,12 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal {
     dbgs("")
     dbgs("")
     dbgs("Sym Delays:")
-    newLatencies.foreach{case (s,l) =>
-      symDelay(s) = l - latencyOf(s)
-      dbgs(c"  [${l-latencyOf(s)}]: ${str(s)}")
-    }
+    newLatencies.toList.map{case (s,l) => s -> (l - latencyOf(s)) }
+                       .sortBy(_._2)
+                       .foreach{case (s,l) =>
+                         symDelay(s) = l
+                         dbgs(c"  [$l]: ${str(s)}")
+                       }
 
     isolateSubstScope{ retimeStms(block) }
   }

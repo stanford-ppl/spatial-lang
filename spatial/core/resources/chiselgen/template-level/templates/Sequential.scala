@@ -145,7 +145,8 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
     stateFSM.io.input(0).data := io.input.nextState.asUInt
     stateFSM.io.input(0).init := io.input.initState.asUInt
     stateFSM.io.input(0).reset := reset | io.input.rst
-    stateFSM.io.input(0).enable := io.input.enable & state === doneState.S
+    // Delay below is potentially dangerous if we have a delay so long that this runs into the next FSM body
+    stateFSM.io.input(0).enable := chisel3.util.ShiftRegister(io.input.enable & state === doneState.S, retime)
     io.output.state := stateFSM.io.output.data.asSInt
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable
