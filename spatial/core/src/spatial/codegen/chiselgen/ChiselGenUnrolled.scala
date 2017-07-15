@@ -229,7 +229,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_wVec($i).data := ${d}.r""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${lhs}_wVec($i).en := ${ens(i)} & ($enable & ~${parent}_inhibitor).D(${symDelay(lhs)})")
+        emit(src"${lhs}_wVec($i).en := ${ens(i)} & ($enable & ~${parent}_inhibitor).D(${symDelay(lhs)}) & ${parent}_II_done")
         ind.zipWithIndex.foreach{ case (a, j) =>
           emit(src"""${lhs}_wVec($i).addr($j) := ${a}.r """)
         }

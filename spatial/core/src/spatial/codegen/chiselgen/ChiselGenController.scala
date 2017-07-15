@@ -515,6 +515,7 @@ trait ChiselGenController extends ChiselGenCounter{
     case UnitPipe(ens,func) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      emitGlobalWire(src"""val ${lhs}_II_done = true.B""")
       emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B""")
       emitController(lhs, None, None)
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None, None, None)
