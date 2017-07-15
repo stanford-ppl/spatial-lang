@@ -290,7 +290,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, $width))) """)
       emit(src"""${lhs}_wVec(0).data := $v.raw""")
-      emit(src"""${lhs}_wVec(0).en := $en & ${enable}.D(${symDelay(lhs)}, rr) & ${parent}_II_done""")
+      emit(src"""${lhs}_wVec(0).en := $en & (${enable}).D(${symDelay(lhs)}, rr) & ${parent}_II_done""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.raw // Assume always an int""")
       }
