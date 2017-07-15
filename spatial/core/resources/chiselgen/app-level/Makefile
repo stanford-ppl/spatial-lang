@@ -1,5 +1,7 @@
 VERILATOR_SRC=cpp/verilator
 AWS_V_DIR=verilog-aws
+ZYNQ_V_DIR=verilog-zynq
+APPNAME=$(shell basename $(shell pwd))
 timestamp := $(shell /bin/date "+%Y-%m-%d---%H-%M-%S")
 
 all: help
@@ -84,7 +86,7 @@ aws-sim-hw:
 	rm -rf ${AWS_V_DIR}
 	# First use chisel to create the verilog
 	sbt "run-main top.Instantiator --verilog --testArgs aws"
-	cat chisel/template-level/fringeVCS/SRAMVerilog.v >> ${AWS_V_DIR}/Top.v
+	cat chisel/template-level/fringeVCS/SRAMVerilogSim.v >> ${AWS_V_DIR}/Top.v
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/${app_name}
 	cp -r $(AWS_HOME)/hdk/cl/examples/cl_dram_dma $(AWS_HOME)/hdk/cl/examples/${app_name}
@@ -207,20 +209,21 @@ zynq: zynq-hw zynq-sw
 zynq-sw:
 	cp zynq.mk cpp/Makefile
 	make -C cpp
-	tar -czf $(shell basename $(shell pwd)).tar.gz -C verilog-zynq accel.bit.bin -C ../cpp Top -C fringeZynq/utils set_perms run.sh
+	tar -czf $(APPNAME).tar.gz -C ${ZYNQ_V_DIR} accel.bit.bin -C ../cpp Top -C fringeZynq/utils set_perms run.sh
 
 zynq-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs zynq"
-	cp chisel/template-level/fringeZynq/* verilog-zynq
-	mv verilog-zynq/fsbl.elf._ verilog-zynq/fsbl.elf
-	mv verilog-zynq/u-boot.elf._ verilog-zynq/u-boot.elf
-	make -C verilog-zynq
+	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${ZYNQ_V_DIR}/Top.v
+	cp chisel/template-level/fringeZynq/* ${ZYNQ_V_DIR}
+	mv ${ZYNQ_V_DIR}/fsbl.elf._ ${ZYNQ_V_DIR}/fsbl.elf
+	mv ${ZYNQ_V_DIR}/u-boot.elf._ ${ZYNQ_V_DIR}/u-boot.elf
+	make -C ${ZYNQ_V_DIR}
 
 zynq-clean:
-	make -C verilog-zynq clean
+	make -C ${ZYNQ_V_DIR} clean
 	make -C cpp clean
-	rm -rf verilog-zynq
-	rm -f TopZynq.tar.gz
+	rm -rf ${ZYNQ_V_DIR}
+	rm -f $(APPNAME).tar.gz
 	rm -rf target
 
 de1soc: de1soc-hw de1soc-sw
