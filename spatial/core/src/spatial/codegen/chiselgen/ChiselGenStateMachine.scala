@@ -31,6 +31,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emit(src"${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B")
+      emitGlobalWire(src"""val ${lhs}_II_done = true.B // Maybe this should handled differently""")
 
       emitController(lhs, None, None, true)
 
