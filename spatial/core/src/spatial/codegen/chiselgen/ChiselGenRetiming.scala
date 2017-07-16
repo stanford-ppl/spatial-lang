@@ -26,6 +26,7 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
           case _ => super.quote(s)
         }
       case _ => super.quote(s)
+    }
   } 
 
   def quoteOperand2(s: Exp[_]): String = s match { // TODO: Unify this with the one in math
