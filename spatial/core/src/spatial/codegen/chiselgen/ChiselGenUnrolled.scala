@@ -53,7 +53,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
-      Console.println(src"""II of $lhs is ${iiOf(lhs)}""")
+      // Console.println(src"""II of $lhs is ${iiOf(lhs)}""")
       emitGlobalWire(src"val ${lhs}_II_done = Wire(Bool())")
       if (iiOf(lhs) <= 1) {
         emit(src"""${lhs}_II_done := true.B""")
