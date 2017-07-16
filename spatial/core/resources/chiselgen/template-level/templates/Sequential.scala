@@ -130,6 +130,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
     val resetState = 1
     val firstState = resetState + 1
     val doneState = firstState + n
+    val retimeWaitState = doneState + 1
     val lastState = doneState - 1
 
     val stateFF = Module(new FF(32))
@@ -212,7 +213,10 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
         }
 
       }.elsewhen (state === doneState.S) {
-        stateFF.io.input(0).data := initState.U
+        val afterDone = if (retime > 0) retimeWaitState else initState
+        stateFF.io.input(0).data := afterDone.U
+      }.elsewhen (state >= retimeWaitState.S) {
+        stateFF.io.input(0).data := Mux(state - retimeWaitState.S < retime.S, (state + 1.S).asUInt, initState.U)
       }.otherwise {
         stateFF.io.input(0).data := state.asUInt
       }
