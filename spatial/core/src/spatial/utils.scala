@@ -13,6 +13,11 @@ import scala.io.Source
 
 object utils {
   /**
+    * Return the number of bits of data the given symbol represents
+    */
+  def nbits(e: Exp[_]): Int = e.tp match {case Bits(bT) => bT.length; case _ => 0 }
+
+  /**
     * Least common multiple of two integers (smallest integer which has integer divisors a and b)
     */
   def lcm(a: Int, b: Int) = {
@@ -105,13 +110,13 @@ object utils {
   @stateful def lca(a: Ctrl, b: Ctrl): Option[Ctrl] = leastCommonAncestor[Ctrl](a, b, {x => parentOf(x)})
 
   @stateful def dependenciesOf(a: Ctrl): Set[Ctrl] = {
-    if (a.isInner) {
+    if (a.block > 0) {
       val parent = parentOf(a).get
       val children = childrenOf(parent) filterNot (_ == a)
       val leaves = children.filter{x => !children.exists{child => dependenciesOf(child) contains x}}
       leaves.toSet
     }
-    else ctrlDepsOf(a.node).map{node => (node,false) }
+    else ctrlDepsOf(a.node).map{node => (node,-1) }
   }
 
   /**
@@ -155,12 +160,20 @@ object utils {
         val dist  = if (aToB >= 0) aToB
                     else if (bToA >= 0) -bToA
                     else throw new UndefinedPipeDistanceException(a, b)*/
+        dbg(c"    LCA: " + parent)
+        dbg(c"    LCA children: " + childrenOf(parent).mkString(", "))
+        dbg(c"    Path A (from $a): " + pathA.mkString(", ") + s": topA = $topA")
+        dbg(c"    Path B (from $b): " + pathB.mkString(", ") + s": topB = $topB")
+
 
         // Linear version (using for now)
         val indexA = childrenOf(parent).indexOf(topA)
         val indexB = childrenOf(parent).indexOf(topB)
-        if (indexA < 0 || indexB < 0) throw new UndefinedPipeDistanceException(a, b)
+        if (indexA < 0 || indexB < 0) {
+          throw new UndefinedPipeDistanceException(a, b)
+        }
         val dist = indexB - indexA
+        dbg(c"    distance: $dist")
 
         (parent, dist)
       }
@@ -214,10 +227,15 @@ object utils {
 
     // Hierarchical metapipelining is currently disallowed
     if (metapipeLCAs.keys.size > 1) {
-      error(c"Ambiguous metapipes for readers/writers of $mem:")
+      error(u"Ambiguous metapipes for readers/writers of $mem defined here:")
+      error(str(mem))
+      error(mem.ctx)
       metapipeLCAs.foreach{case (pipe,accs) =>
         error(c"  metapipe: $pipe ")
         error(c"  accesses: " + accs.map(x => c"$x").mkString(","))
+        error(str(pipe.node))
+        error(pipe.node.ctx)
+        error("")
       }
       error(c"  readers:")
       readers.foreach{rd => error(c"    $rd") }
@@ -304,7 +322,7 @@ object utils {
     * E.g.
     *   8 inputs => perfectly balanced binary tree, no delay paths
     *   9 inputs => 1 path of length 3
-    *    85 inputs => 3 paths with lengths 2, 1, and 1
+    *   85 inputs => 3 paths with lengths 2, 1, and 1
     **/
   def reductionTreeDelays(nLeaves: Int): List[Long] = {
     if ( (nLeaves & (nLeaves - 1)) == 0) Nil // Specialize for powers of 2
@@ -334,7 +352,7 @@ object utils {
     treeLevel(nLeaves, 0)
   }
 
-  def mirrorCtrl(x: Ctrl, f: Transformer): Ctrl = (f(x.node), x.isInner)
+  def mirrorCtrl(x: Ctrl, f: Transformer): Ctrl = (f(x.node), x.block)
   def mirrorAccess(x: Access, f: Transformer): Access = (f(x.node), mirrorCtrl(x.ctrl, f))
 
   /** Parallelization factors **/
@@ -359,7 +377,66 @@ object utils {
   /** Control Nodes **/
   implicit class CtrlOps(x: Ctrl) {
     def node: Exp[_] = if (x == null) null else x._1
-    def isInner: Boolean = if (x == null) false else x._2
+    def block: Int = if (x == null) -1 else x._2
+    @stateful def isInner: Boolean = if (x == null || block < 0) false else node match {
+      case Op(OpReduce(_,_,_,map,ld,reduce,store,_,_,_,_)) if isInnerControl(node) => true
+      case Op(_:OpReduce[_]) if isOuterControl(node) => true
+      case Op(OpMemReduce(_,_,_,_,map,ldRes,ldAcc,reduce,stAcc,_,_,_,_,_)) if isInnerControl(node) => true
+      case Op(_:OpMemReduce[_,_]) if isOuterControl(node) => block == 0
+      case Op(StateMachine(_,_,notdone,action,nextState,_)) if isInnerControl(node) => true
+      case Op(_:StateMachine[_]) => block == 0 || block == 1
+      case _ => isInnerControl(node)
+    }
+  }
+
+  /**
+    * Map a given compiler block number to the logical child number
+    *
+    *   Inner Reduce: Everything eventually becomes one logical stage
+    *   Outer Reduce: The map is part of the initialization (and has other children inside), the reduce is a separate stage
+    *   Inner MemReduce: Doesn't usually happen, but would be two stages
+    *   Outer MemReduce: Map is part of initialization (and has other children), the reduce is a separate stage
+    *
+    *   When -1 is used, this is an outer scope block which shouldn't contain primitives (only stateless logic)
+    **/
+  @stateful def blockCountRemap(e: Exp[_], blockNum: Int): Int = if (blockNum < 0) blockNum else e match {
+    case Op(_:OpReduce[_]) if isInnerControl(e) => blockNum match {
+      case 0 | 1 | 2 | 3 => 0
+    }
+    case Op(_:OpReduce[_]) if isOuterControl(e) => blockNum match {
+      case 0 => -1
+      case 1 | 2 | 3 => 0
+    }
+    case Op(_:OpMemReduce[_,_]) if isInnerControl(e) => blockNum match {
+      case 0 => 0
+      case 1 | 2 | 3 | 4 => 1
+    }
+    case Op(_:OpMemReduce[_,_]) if isOuterControl(e) => blockNum match {
+      case 0 => -1
+      case 1 | 2 | 3 | 4 => 0
+    }
+    case Op(_:StateMachine[_]) if isInnerControl(e) => blockNum
+    case Op(_:StateMachine[_]) if isOuterControl(e) => blockNum match {
+      case 0 => 0
+      case 1 => -1
+      case 2 => 1
+    }
+    case _ if isInnerControl(e) => blockNum
+    case _ if isOuterControl(e) => -1
+  }
+  @stateful def blkToCtrl(block: Blk): Ctrl = (block.node, blockCountRemap(block.node, block.block))
+
+
+
+  @stateful def addImplicitChildren(x: Ctrl, children: List[Ctrl]): List[Ctrl] = x.node match {
+    case Op(_:OpReduce[_]) if isInnerControl(x) => children ++ List((x.node,0)) // children should be Nil
+    case Op(_:OpReduce[_]) if isOuterControl(x) => children ++ List((x.node,0))
+    case Op(_:OpMemReduce[_,_]) if isInnerControl(x) => children ++ List((x.node,0), (x.node,1)) // children should be Nil
+    case Op(_:OpMemReduce[_,_]) if isOuterControl(x) => children ++ List((x.node,0))
+    case Op(_:StateMachine[_])  if isInnerControl(x) => List((x.node,0), (x.node,1), (x.node,2)) // children should be Nil
+    case Op(_:StateMachine[_])  if isOuterControl(x) => List((x.node,0)) ++ children ++ List((x.node,1))
+    case _ if isInnerControl(x) => children ++ List((x.node,0)) // children should be Nil
+    case _ if isOuterControl(x) => children
   }
 
 
@@ -626,7 +703,8 @@ object utils {
     def node: Exp[_] = x._1
     def ctrl: Ctrl = x._2 // read or write enabler
     def ctrlNode: Exp[_] = x._2._1 // buffer control toggler
-    def isInner: Boolean = x._2._2
+    def ctrlBlock: Int = x._2._2
+    @stateful def isInner: Boolean = x._2.isInner
   }
 
   // Memory, optional value, optional indices, optional enable

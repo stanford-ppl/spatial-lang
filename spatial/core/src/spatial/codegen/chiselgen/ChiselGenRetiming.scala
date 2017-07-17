@@ -10,26 +10,22 @@ import spatial.SpatialConfig
 trait ChiselGenRetiming extends ChiselGenSRAM {
 
   override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(DelayLine(size, data)) =>
-              data match {
-                case Const(_) => src"$data"
-                case _ => s"${quote(data)}_D${size}"
-              }
-              
-            /*case Def(ShiftRegNew(size, init)) =>
-              if (size == 1) s"x${lhs.id}_latch"
-              else s"x${lhs.id}_rt$size"
-            case Def(ShiftRegRead(sr)) => s"x${lhs.id}_rt"*/
-            case _ => super.quote(s)
-          }
-        case _ => super.quote(s)
-      }
-    } else {
-      super.quote(s)
+    s match {
+      case lhs: Sym[_] =>
+        lhs match {
+          case Def(DelayLine(size, data)) =>
+            data match {
+              case Const(_) => src"$data"
+              case _ => if (SpatialConfig.enableNaming) {s"${quote(data)}_D${size}"} else {super.quote(s)}
+            }
+            
+          /*case Def(ShiftRegNew(size, init)) =>
+            if (size == 1) s"x${lhs.id}_latch"
+            else s"x${lhs.id}_rt$size"
+          case Def(ShiftRegRead(sr)) => s"x${lhs.id}_rt"*/
+          case _ => super.quote(s)
+        }
+      case _ => super.quote(s)
     }
   } 
 

@@ -11,7 +11,18 @@ trait RegApi { this: SpatialApi =>
     @api def :+=(data: T): MUnit = reg := implicitly[Num[T]].plus(reg.value, data)
     @api def :-=(data: T): MUnit = reg := implicitly[Num[T]].minus(reg.value, data)
     @api def :*=(data: T): MUnit = reg := implicitly[Num[T]].times(reg.value, data)
+  }
 
+  implicit class NumericComparisions[A](x: A) {
+    @api def +[T:Type:Num](reg: Reg[T])(implicit lift: Lift[A,T]): T = lift(x) + reg.value
+    @api def -[T:Type:Num](reg: Reg[T])(implicit lift: Lift[A,T]): T = lift(x) - reg.value
+    @api def *[T:Type:Num](reg: Reg[T])(implicit lift: Lift[A,T]): T = lift(x) * reg.value
+    @api def /[T:Type:Num](reg: Reg[T])(implicit lift: Lift[A,T]): T = lift(x) / reg.value
+
+    @api def <[T:Type:Num](reg: Reg[T])(implicit lift: Lift[A,T]): MBoolean = lift(x) < reg.value
+    @api def <=[T:Type:Num](reg: Reg[T])(implicit lift: Lift[A,T]): MBoolean = lift(x) <= reg.value
+    @api def >[T:Type:Num](reg: Reg[T])(implicit lift: Lift[A,T]): MBoolean = lift(x) > reg.value
+    @api def >=[T:Type:Num](reg: Reg[T])(implicit lift: Lift[A,T]): MBoolean = lift(x) >= reg.value
   }
 
 }
