@@ -8,7 +8,7 @@ import argon.interpreter.{Interpreter => AInterpreter}
 
 trait SRAMs extends AInterpreter {
 
-  case class ISRAM(dims: Seq[Int], v: Array[Any]) {
+  class ISRAM(val dims: Seq[Int], val v: Array[Any]) {
     def index(dims: Seq[Int], ind: Seq[Int], ofs: Int) = {
       val strides = List.tabulate(dims.length)(i =>
         dims.drop(i+1).fold(1)(_*_)
@@ -31,7 +31,7 @@ trait SRAMs extends AInterpreter {
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
     case SRAMNew(SeqEI(size)) =>
       variables.get(lhs).getOrElse {
-        ISRAM(size, Array.fill[Any](size.product)(null))
+        new ISRAM(size, Array.fill[Any](size.product)(null))
       }
 
     case SRAMStore(ESRAM(sram), SeqEI(dims), SeqEI(is), EInt(ofs), EAny(v), EBoolean(en)) =>
@@ -41,13 +41,23 @@ trait SRAMs extends AInterpreter {
       }
 
     case ParSRAMStore(ESRAM(sram), inds, SeqE(data), SeqEB(ens)) =>
-
       inds.zipWithIndex.foreach { case (ind, i: Int)  => {
         if (ens(i)) {
           val indV = sram.index(sram.dims, SeqEI.unapply(ind).get, 0)
           sram.v(indV) = data(i)
         }
       }}
+ 
+    case ParSRAMLoad(ESRAM(sram), inds, SeqEB(ens)) =>
+      inds.zipWithIndex.map { case (ind, i: Int)  => {
+        if (ens(i)) {
+          val indV = sram.index(sram.dims, SeqEI.unapply(ind).get, 0)
+          sram.v(indV) 
+        }
+        else
+          null
+      }}.toSeq
+     
       
 
     case SRAMLoad(ESRAM(sram), SeqEI(dims), SeqEI(is), EInt(ofs), EBoolean(en)) =>

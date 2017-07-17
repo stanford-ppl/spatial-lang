@@ -6,7 +6,7 @@ import argon.interpreter.{Interpreter => AInterpreter}
 
 trait RegFiles extends AInterpreter {
 
-  case class IRegFile(dims: Seq[Int], v: Array[Any]) {
+  class IRegFile(val dims: Seq[Int], val v: Array[Any]) {
     override def toString = {
       val vs = AInterpreter.stringify(v)
       s"RegFile($vs)"
@@ -29,7 +29,7 @@ trait RegFiles extends AInterpreter {
 
     case RegFileNew(SeqEI(size)) => 
       variables.get(lhs).getOrElse {
-        IRegFile(size, Array.fill[Any](size.product)(null))
+        new IRegFile(size, Array.fill[Any](size.product)(null))
       }
 
     case RegFileStore(ERegFile(regf), SeqEI(is), EAny(v), EBoolean(en)) =>
@@ -54,7 +54,7 @@ trait RegFiles extends AInterpreter {
           null
       }}.toSeq
 
-    case ParRegFileStore(ERegFile(regf), inds, ESeq(datas), SeqEB(ens)) =>
+    case ParRegFileStore(ERegFile(regf), inds, SeqE(datas), SeqEB(ens)) =>
       inds.zipWithIndex.foreach { case (ind, i: Int)  => {
         if (ens(i)) {
           val indV = regf.index(SeqEI.unapply(ind).get)

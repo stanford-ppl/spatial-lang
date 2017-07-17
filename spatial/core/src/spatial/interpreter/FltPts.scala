@@ -39,7 +39,11 @@ trait FltPts extends AInterpreter {
       
     case FltLog(EBigDecimal(a)) =>
       BigDecimal(Math.log(a.toDouble)) //TODO FIX IT WHEN BETTER NUMBER
+
+    case FltExp(EBigDecimal(a)) =>
+      BigDecimal(Math.exp(a.toDouble)) //TODO FIX IT WHEN BETTER NUMBER
       
+
     case FltLt(EBigDecimal(a), EBigDecimal(b)) =>
       if (a != null && b != null)
         a < b

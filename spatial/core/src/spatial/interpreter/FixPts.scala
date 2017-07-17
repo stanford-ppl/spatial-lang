@@ -24,6 +24,12 @@ trait FixPts extends AInterpreter {
 
     case FixLt(EBigDecimal(a), EBigDecimal(b)) =>
       a < b
+
+    case FixDiv(EBigDecimal(a), EBigDecimal(b)) =>
+      a / b
+
+    case FixMod(EBigDecimal(a), EBigDecimal(b)) =>
+      a % b
       
     case FixRandom(maxo) =>
       maxo match {

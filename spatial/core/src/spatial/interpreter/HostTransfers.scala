@@ -11,16 +11,16 @@ trait HostTransfers extends AInterpreter {
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
     case ArgInNew(EAny(arg)) =>
-      IReg(arg)
+      new IReg(arg)
 
     case ArgOutNew(EAny(arg)) =>
-      IReg(arg)
+      new IReg(arg)
     
-    case SetArg(arg: Sym[_], EAny(value)) =>
-      updateVar(arg, IReg(value))
+    case SetArg(EReg(reg), EAny(v)) =>
+      reg.v = v
 
-    case GetArg(EAny(arg)) =>
-      arg.asInstanceOf[IReg].v
+    case GetArg(EReg(reg)) =>
+      reg.v
 
   }
 

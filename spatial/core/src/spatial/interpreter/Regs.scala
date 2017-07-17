@@ -6,25 +6,31 @@ import argon.interpreter.{Interpreter => AInterpreter}
 
 trait Regs extends AInterpreter {
 
-  case class IReg(v: Any) {
+  class IReg(var v: Any) {
     override def toString = {
       val vs = AInterpreter.stringify(v)
       s"Reg($vs)"
     }
   }
 
+  object EReg {
+    def unapply(x: Exp[_]) = Some(eval[IReg](x))
+  }
+  
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
-    case RegWrite(sym: Sym[_], EAny(value), EBoolean(cond)) =>
+    case RegWrite(EReg(reg), EAny(v), EBoolean(cond)) =>
       if (cond) {
-        updateVar(sym, IReg(value))
+        reg.v = v
       }
 
-    case RegRead(sym: Sym[_]) =>
-      variables(sym).asInstanceOf[IReg].v
+    case RegRead(EReg(reg)) =>
+      reg.v
 
     case RegNew(EAny(init)) =>
-      variables.get(lhs).getOrElse(IReg(init))
+      variables
+        .get(lhs)
+        .getOrElse(new IReg(init))
 
   }
 

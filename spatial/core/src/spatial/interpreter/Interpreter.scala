@@ -26,7 +26,8 @@ trait Interpreter
     with Vectors
     with FIFOs
     with FSMs
-with RegFiles
+    with RegFiles
+    with Maths
 {
 
   
@@ -74,6 +75,23 @@ with RegFiles
 
     
     super.interpretNode(lhs, rhs)
+
+  }
+
+  override def displayInfo() = {
+    val variablesF = variables.toList.sortBy(_._1.toString).filter(!_._2.isInstanceOf[Unit])
+  println(s"[${Console.BLUE}sram content${Console.RESET}]")    
+    variablesF.filter(_._2.isInstanceOf[ISRAM]).foreach(displayPair)    
+    println(s"[${Console.BLUE}fifo content${Console.RESET}]")    
+    variablesF.filter(_._2.isInstanceOf[IFIFO]).foreach(displayPair)
+    println(s"[${Console.BLUE}reg content${Console.RESET}]")    
+    variablesF.filter(_._2.isInstanceOf[IReg]).foreach(displayPair)
+    println(s"[${Console.BLUE}regfiles content${Console.RESET}]")    
+    variablesF.filter(_._2.isInstanceOf[IRegFile]).foreach(displayPair)
+//    println(s"[${Console.BLUE}streams content${Console.RESET}]")    
+//    variablesF.filter(_._2.isInstanceOf[Queue]).foreach(displayPair)        
+    println(s"[${Console.BLUE}bounds content${Console.RESET}]")    
+    bounds.toList.sortBy(_._1.toString).foreach(displayPair)
 
   }
 

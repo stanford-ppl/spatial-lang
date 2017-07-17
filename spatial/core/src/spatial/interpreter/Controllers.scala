@@ -9,7 +9,7 @@ import spatial.metadata._
 import argon.interpreter.{Interpreter => AInterpreter}
 
 trait Controllers extends AInterpreter {
-  self: FIFOs =>
+  self: FIFOs with Regs =>
 
   def getReadStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
     (variables
@@ -25,31 +25,14 @@ trait Controllers extends AInterpreter {
   def isMoreDataFromMems(mems: Seq[Any]) =
     mems.forall( x => x match {
       case x: Queue[_] => !x.isEmpty
-      case x: FIFO => !x.v.isEmpty
+      case x: IFIFO => !x.v.isEmpty
       case _ =>
         println(x);
         ???
     })
 
-
-
-
-  override def matchNode(lhs: Sym[_]) = super.matchNode(lhs).orElse {
-    case Forever() =>
-      ForeverC()
-
-    case Switch(body, selects, cases) =>
-      interpretBlock(body)
-      val i = selects.map(eval[Boolean]).indexOf(true)
-      interpretBlock(eval[Block[_]](cases(i)))
-
-    case SwitchCase(body) =>
-      body
-
-    case UnrolledForeach(SeqEB(ens), cchain, func, iters, valids) =>
-      if (ens.forall(x => x)) {
-        val cchaine = eval[Seq[Counterlike]](cchain)
-        val mems = getReadStreamsAndFIFOs(lhs).map(eval[Any])
+  def interpretNestedLoop(lhs: Sym[_], cchaine: Seq[Counterlike], func: Block[_], iters: Seq[Seq[Bound[_]]], valids: Seq[Seq[Bound[_]]]) = {
+     val mems = getReadStreamsAndFIFOs(lhs).map(eval[Any])
         def isMoreData = () => isMoreDataFromMems(mems)
         def f(i: Int): Unit =
           if (i == cchaine.length)
@@ -66,8 +49,38 @@ trait Controllers extends AInterpreter {
         f(0)
         iters.flatten.foreach(removeBound)
         valids.flatten.foreach(removeBound)
+  }
+
+
+  object ESeqCL {
+    def unapply(x: Exp[_]) = Some(eval[Seq[Counterlike]](x))
+  }
+  
+
+  override def matchNode(lhs: Sym[_]) = super.matchNode(lhs).orElse {
+    case Forever() =>
+      ForeverC()
+
+    case Switch(body, selects, cases) =>
+      interpretBlock(body)
+      val i = selects.map(eval[Boolean]).indexOf(true)
+      val cblock = eval[Block[_]](cases(i))
+      eval[Any](interpretBlock(cblock))
+
+    case SwitchCase(body) =>
+      body
+
+    case UnrolledForeach(SeqEB(ens), ESeqCL(cchaine), func, iters, valids) =>
+      if (ens.forall(x => x)) {
+        interpretNestedLoop(lhs, cchaine, func, iters, valids)
       }
 
+    case UnrolledReduce(SeqEB(ens), ESeqCL(cchaine), accum, func, iters, valids) =>
+      if (ens.forall(x => x)) {
+        interpretNestedLoop(lhs, cchaine, func, iters, valids)        
+        accum
+      }
+      
     case ParallelPipe(SeqEB(ens), block) => {
       if (ens.forall(x => x))
         interpretBlock(block)

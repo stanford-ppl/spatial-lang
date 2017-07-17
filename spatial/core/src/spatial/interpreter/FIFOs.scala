@@ -6,7 +6,7 @@ import argon.interpreter.{Interpreter => AInterpreter}
 
 trait FIFOs extends AInterpreter {
 
-  case class FIFO(size: Int, v: collection.mutable.Queue[Any]) {
+  class IFIFO(val size: Int, val v: collection.mutable.Queue[Any]) {
     def enq(x: Any) = {
       if (v.size == size) 
         throw new Exception("Queue reached size limit of " + size)
@@ -14,16 +14,23 @@ trait FIFOs extends AInterpreter {
     }
     def deq() =
       v.dequeue()
+
+    override def toString() = {
+      val vs = AInterpreter.stringify(v)
+      s"FIFO($size, $vs)"
+    }
+      
+
   }
 
   object EFIFO {
-    def unapply(x: Exp[_]) = Some(eval[FIFO](x))
+    def unapply(x: Exp[_]) = Some(eval[IFIFO](x))
   }
 
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
     case FIFONew(EInt(size)) =>
-      variables.get(lhs).getOrElse(FIFO(size, new collection.mutable.Queue[Any]()))
+      variables.get(lhs).getOrElse(new IFIFO(size, new collection.mutable.Queue[Any]()))
 
     case ParFIFOEnq(EFIFO(fifo), SeqE(data), SeqEB(ens)) =>
       ens.zip(data).foreach { case (en, v) =>
