@@ -242,10 +242,11 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def getStreamEnablers(c: Exp[Any]): String = {
       // If we are inside a stream pipe, the following may be set
+      // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
       val lat = bodyLatency.sum(c)
       val readiers = listensTo(c).distinct.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty.D($lat, rr)"
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D($lat, rr)"
+        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
         case fifo @ Def(StreamInNew(bus)) => bus match {
           case SliderSwitch => ""
           case _ => src"${fifo}_valid"
@@ -253,8 +254,8 @@ trait ChiselGenController extends ChiselGenCounter{
         case fifo => src"${fifo}_en" // parent node
       }.filter(_ != "").mkString(" & ")
       val holders = pushesTo(c).distinct.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full.D($lat, rr)"
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.full.D($lat, rr)"
+        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full.D(${lat} + 1, rr)"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.full.D(${lat} + 1, rr)"
         case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready"
         case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"
       }.filter(_ != "").mkString(" & ")
@@ -366,7 +367,7 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     }
 
-    emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
+    emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
     emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, retime = ${sym}_retime))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
     if (isFSM) {
@@ -394,7 +395,14 @@ trait ChiselGenController extends ChiselGenCounter{
         if (!ctrIsForever(cchain.get)) {
           emitGlobalWire(src"""val ${cchain.get}_en = Wire(Bool())""") 
           sym match { 
-            case Def(n: UnrolledReduce[_,_]) => // Emit handles by emitNode
+            case Def(n: UnrolledReduce[_,_]) => // These have II
+              emit(src"""${cchain.get}_en := ${sym}_sm.io.output.ctr_inc & ${sym}_II_done""")
+            case Def(n: UnrolledForeach) => 
+              if (isStreamChild(sym) & hasStreamIns) {
+                emit(src"${cchain.get}_en := ${sym}_datapath_en & ${sym}_II_done & ~${sym}_inhibitor ${getAllStreamLogic(sym)}") 
+              } else {
+                emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc & ${sym}_II_done// Should probably also add inhibitor")
+              }             
             case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
               if (isStreamChild(sym) & hasStreamIns) {
                 emit(src"${cchain.get}_en := ${sym}_datapath_en & ~${sym}_inhibitor ${getAllStreamLogic(sym)}") 
@@ -507,6 +515,7 @@ trait ChiselGenController extends ChiselGenCounter{
     case UnitPipe(ens,func) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      emitGlobalWire(src"""val ${lhs}_II_done = true.B""")
       emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B""")
       emitController(lhs, None, None)
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None, None, None)
@@ -536,6 +545,7 @@ trait ChiselGenController extends ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitStandardSignals(lhs)
+      emit(src"""val ${lhs}_II_done = ${parent_kernel}_II_done""")
       emit(s"// Controller Stack: ${controllerStack.tail}")
       // emit(src"""//${lhs}_base_en := ${parent_kernel}_base_en // Set by parent""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
@@ -614,6 +624,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitStandardSignals(lhs)
       emit(src"""${lhs}_en := ${parent_kernel}_en & ${lhs}_switch_select""")
       // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")
+      emit(src"""val ${lhs}_II_done = ${parent_kernel}_II_done""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""${lhs}_resetter := ${parent_kernel}_resetter""")
       emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en // & ${lhs}_switch_select // Do not include switch_select because this signal is retimed""")

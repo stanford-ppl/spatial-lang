@@ -49,7 +49,7 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
     case Def(RegRead(reg)) =>
       val loop = loopFromIndex(i)
       writersOf(reg).forall{writer =>
-        val common = lca(writer.ctrl, (loop,false))
+        val common = lca(writer.ctrl, (loop,-1))
         // Either no common ancestor at all (unlikely), or the common ancestor is not the same as the controller
         // containing the read and the common ancestor is not a streaming controller
         common.isEmpty || (!isStreamPipe(common.get) && common.get.node != loop)

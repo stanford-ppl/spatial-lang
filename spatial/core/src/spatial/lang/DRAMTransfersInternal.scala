@@ -10,6 +10,11 @@ import spatial.metadata._
 import spatial.utils._
 import spatial.SpatialConfig
 
+// object ShiftInternal {
+//   target = SpatialConfig.target
+
+//   @internal def expandLsh
+// }
 object DRAMTransfersInternal {
   def target = SpatialConfig.target
 
