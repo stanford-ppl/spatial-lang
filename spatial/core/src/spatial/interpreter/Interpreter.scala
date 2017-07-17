@@ -26,6 +26,7 @@ trait Interpreter
     with Vectors
     with FIFOs
     with FSMs
+with RegFiles
 {
 
   

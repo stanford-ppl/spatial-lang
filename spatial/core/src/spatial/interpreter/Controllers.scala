@@ -46,33 +46,37 @@ trait Controllers extends AInterpreter {
     case SwitchCase(body) =>
       body
 
-    case UnrolledForeach(ens, cchain, func, iters, valids) =>
-      val ense    = ens.map(eval[Boolean])
-      val cchaine = eval[Seq[Counterlike]](cchain)
-      cchaine.indices.foreach(i => {
+    case UnrolledForeach(SeqEB(ens), cchain, func, iters, valids) =>
+      if (ens.forall(x => x)) {
+        val cchaine = eval[Seq[Counterlike]](cchain)
         val mems = getReadStreamsAndFIFOs(lhs).map(eval[Any])
         def isMoreData = () => isMoreDataFromMems(mems)
-
-        cchaine(i).foreach(
-          isMoreData, {
-            case (itera, valida) => {
-              iters(i).zip(itera).foreach { case (b, v)   => updateBound(b, v) }
-              valids(i).zip(valida).foreach { case (b, v) => updateBound(b, v) }
-              interpretBlock(func)
-            }
-          }
-        )
-        iters(i).foreach(removeBound)
-        valids(i).foreach(removeBound)
-      })
+        def f(i: Int): Unit =
+          if (i == cchaine.length)
+            interpretBlock(func)
+          else
+            cchaine(i).foreach(
+              isMoreData, {
+                case (itera, valida) => {
+                  iters(i).zip(itera).foreach { case (b, v)   => updateBound(b, v) }
+                  valids(i).zip(valida).foreach { case (b, v) => updateBound(b, v) }
+                  f(i + 1)
+                }
+              })
+        f(0)
+        iters.flatten.foreach(removeBound)
+        valids.flatten.foreach(removeBound)
+      }
 
     case ParallelPipe(SeqEB(ens), block) => {
       if (ens.forall(x => x))
         interpretBlock(block)
     }
-    case UnitPipe(ens, func) =>
-      val ense = ens.map(eval[Boolean])
-      if (ense.forall(x => x))
+
+//    case OpReduce(
+
+    case UnitPipe(SeqEB(ens), func) =>
+      if (ens.forall(x => x))
         interpretBlock(func)
 
     case Hwblock(block, isForever) =>

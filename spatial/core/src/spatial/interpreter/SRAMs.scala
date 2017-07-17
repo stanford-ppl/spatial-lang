@@ -23,41 +23,37 @@ trait SRAMs extends AInterpreter {
     
   }
 
+
+  object ESRAM {
+    def unapply(x: Exp[_]) = Some(eval[ISRAM](x))
+  }
+  
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
-    case SRAMNew(size) =>
+    case SRAMNew(SeqEI(size)) =>
       variables.get(lhs).getOrElse {
-        val ab = size.map(x => eval[BigDecimal](x).toInt)
-        ISRAM(ab, Array.fill[Any](ab.product)(null))
+        ISRAM(size, Array.fill[Any](size.product)(null))
       }
 
-    case SRAMStore(sram, dims, is, EInt(ofs), EAny(v), EBoolean(en)) =>
+    case SRAMStore(ESRAM(sram), SeqEI(dims), SeqEI(is), EInt(ofs), EAny(v), EBoolean(en)) =>
       if (en) {
-        val isram = eval[ISRAM](sram)
-        val ise = is.map(x =>  eval[BigDecimal](x).toInt)
-        val dimse = dims.map(x => eval[BigDecimal](x).toInt)
-        val i = isram.index(dimse, ise, ofs)
-        isram.v(i) = v
+        val i = sram.index(dims, is, ofs)
+        sram.v(i) = v
       }
 
-    case ParSRAMStore(sram, inds, data, ens) =>
-      val isram = eval[ISRAM](sram)
-      val ense = ens.map(eval[Boolean])
+    case ParSRAMStore(ESRAM(sram), inds, SeqE(data), SeqEB(ens)) =>
+
       inds.zipWithIndex.foreach { case (ind, i: Int)  => {
-        if (ense(i)) {
-          val ise = ind.map(x => eval[BigDecimal](x).toInt)
-          val indV = isram.index(isram.dims, ise, 0)
-          isram.v(indV) = eval[Any](data(i))
+        if (ens(i)) {
+          val indV = sram.index(sram.dims, SeqEI.unapply(ind).get, 0)
+          sram.v(indV) = data(i)
         }
       }}
       
 
-    case SRAMLoad(sram, dims, is, EInt(ofs), EBoolean(en)) =>
+    case SRAMLoad(ESRAM(sram), SeqEI(dims), SeqEI(is), EInt(ofs), EBoolean(en)) =>
       if (en) {
-        val isram = eval[ISRAM](sram)
-        val ise = is.map(x => {println(x); val bd = eval[BigDecimal](x).toInt; println(bd); bd})
-        val dimse = dims.map(x => eval[BigDecimal](x).toInt)
-        val i = isram.index(dimse, ise, ofs)
-        isram.v(i)
+        val i = sram.index(dims, is, ofs)
+        sram.v(i)
       }
 
 
