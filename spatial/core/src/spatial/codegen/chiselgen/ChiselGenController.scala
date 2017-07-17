@@ -545,6 +545,7 @@ trait ChiselGenController extends ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitStandardSignals(lhs)
+      emit(src"""val ${lhs}_II_done = ${parent_kernel}_II_done""")
       emit(s"// Controller Stack: ${controllerStack.tail}")
       // emit(src"""//${lhs}_base_en := ${parent_kernel}_base_en // Set by parent""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
@@ -623,7 +624,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitStandardSignals(lhs)
       emit(src"""${lhs}_en := ${parent_kernel}_en & ${lhs}_switch_select""")
       // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")
-      emitGlobalWire(src"""val ${lhs}_II_done = true.B // Maybe this should be passed from parent""")
+      emit(src"""val ${lhs}_II_done = ${parent_kernel}_II_done""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""${lhs}_resetter := ${parent_kernel}_resetter""")
       emit(src"""${lhs}_datapath_en := ${parent_kernel}_datapath_en // & ${lhs}_switch_select // Do not include switch_select because this signal is retimed""")
