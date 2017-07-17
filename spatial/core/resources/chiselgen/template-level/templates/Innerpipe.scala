@@ -99,7 +99,7 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
     stateFSM.io.input(0).data := io.input.nextState.asUInt
     stateFSM.io.input(0).init := io.input.initState.asUInt
     stateFSM.io.input(0).enable := io.input.enable
-    stateFSM.io.input(0).reset := reset
+    stateFSM.io.input(0).reset := reset | ~io.input.enable
     io.output.state := stateFSM.io.output.data.asSInt
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable

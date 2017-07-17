@@ -367,7 +367,7 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     }
 
-    emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}""")
+    emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
     emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, retime = ${sym}_retime))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
     if (isFSM) {
