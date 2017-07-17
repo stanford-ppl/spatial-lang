@@ -492,6 +492,16 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(s"""${quote(lhs)}_resetter := reset""")
       emit(src"""${lhs}_ctr_trivial := false.B""")
       emitController(lhs, None, None)
+      if (iiOf(lhs) <= 1) {
+        emit(src"""val ${lhs}_II_done = true.B""")
+      } else {
+        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr());""")
+        emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
+        emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_en""")
+        emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${lhs}_retime.S""")
+        emit(src"""${lhs}_IICtr.io.input.reset := reset | ${lhs}_II_done.D(1)""")
+        emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
+      }
       emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
       emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
       emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := false.B; retime_counter.io.input.enable := true.B;""")
