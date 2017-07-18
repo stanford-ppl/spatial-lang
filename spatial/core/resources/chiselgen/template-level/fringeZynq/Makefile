@@ -6,7 +6,7 @@ accel.bit.bin: accel.bit
 
 accel.bit:
 	export XILINXD_LICENSE_FILE=7193@cadlic0.stanford.edu
-	vivado -mode batch -source vivado.tcl
+	time vivado -mode batch -source vivado.tcl
 
 clean:
 	rm -rf accel.bit accel.bit.bin project_1 *.jou *.log
