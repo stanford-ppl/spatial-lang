@@ -104,6 +104,6 @@ ${path}" > /tmp/${at}.${branch}.${type}.new
 	((i++))
 done
 
-echo -e "\n** Regression packets have been issued!  Check /remote/regression/mapping to see what is running where"
+echo -e "\n✓ SUCCESS!  Regression packets have been issued!  Check /remote/regression/mapping to see what is running where"
 exit 0
 
