@@ -13,7 +13,8 @@ case class AlteraArea(
                       regs: Int = 0,
                       mregs: Int = 0,   // Memory registers (used in place of SRAMs)
                       dsps: Int = 0,
-                      sram: Int = 0
+                      sram: Int = 0,
+                      channels: Int = 0
                      )
 {
   def +(that: AlteraArea) = AlteraArea(
@@ -28,7 +29,8 @@ case class AlteraArea(
     regs = this.regs + that.regs,
     mregs = this.mregs + that.mregs,
     dsps = this.dsps + that.dsps,
-    sram = this.sram + that.sram
+    sram = this.sram + that.sram,
+    channels = this.channels + that.channels
   )
 
   def replicate(x: Int, inner: Boolean) = AlteraArea(
@@ -43,12 +45,13 @@ case class AlteraArea(
     regs  = this.regs * x,
     mregs = if (inner) mregs else mregs * x,
     dsps = this.dsps * x,
-    sram = if (inner) sram else sram * x
+    sram = if (inner) sram else sram * x,
+    channels = channels * x
   )
   def isNonzero: Boolean = lut7 > 0 || lut6 > 0 || lut5 > 0 || lut4 > 0 || lut3 > 0 ||
-    mem64 > 0 || mem32 > 0 || mem16 > 0 || regs > 0 || dsps > 0 || sram > 0 || mregs > 0
+    mem64 > 0 || mem32 > 0 || mem16 > 0 || regs > 0 || dsps > 0 || sram > 0 || mregs > 0 || channels > 0
 
-  override def toString() = s"lut3=$lut3, lut4=$lut4, lut5=$lut5, lut6=$lut6, lut7=$lut7, mem16=$mem16, mem32=$mem32, mem64=$mem64, regs=$regs, dsps=$dsps, bram=$sram, mregs=$mregs"
+  override def toString: String = s"lut3=$lut3, lut4=$lut4, lut5=$lut5, lut6=$lut6, lut7=$lut7, mem16=$mem16, mem32=$mem32, mem64=$mem64, regs=$regs, dsps=$dsps, bram=$sram, mregs=$mregs"
 
   def toArray: Array[Int] = Array(lut3,lut4,lut5,lut6,lut7,mem16,mem32,mem64,regs+mregs,dsps,sram)
 
@@ -64,8 +67,18 @@ case class AlteraArea(
     this.regs < that.regs &&
     this.mregs < that.mregs &&
     this.dsps < that.dsps &&
-    this.sram < that.sram
+    this.sram < that.sram &&
+    this.channels < that.channels
   }
+}
+
+case class AlteraAreaSummary(
+  alms: Double,
+  dsps: Double,
+  sram: Double
+) extends AreaSummary {
+  override def headings: List[String] = List("ALMs", "DSPs", "BRAMs")
+  override def toArray: List[Double] = List(alms, dsps, sram)
 }
 
 object AlteraAreaMetric extends AreaMetric[AlteraArea] {
@@ -73,8 +86,6 @@ object AlteraAreaMetric extends AreaMetric[AlteraArea] {
   override def zero: AlteraArea = AlteraArea()
   override def lessThan(x: AlteraArea, y: AlteraArea): Boolean = x < y
   override def times(a: AlteraArea, x: Int, isInner: Boolean): AlteraArea = a.replicate(x, isInner)
-  override def summaryNames(x: AlteraArea): List[String] = ???
-  override def summarize(x: AlteraArea): List[Double] = ???
 }
 
 object AlteraArea {

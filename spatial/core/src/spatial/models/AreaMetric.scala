@@ -5,8 +5,11 @@ trait AreaMetric[A] {
   def plus(a: A, b: A): A
   def times(a: A, x: Int, isInner: Boolean): A
   def lessThan(x: A, y: A): Boolean
-  def summaryNames(x: A): List[String]
-  def summarize(x: A): List[Double]
+}
+
+abstract class AreaSummary {
+  def headings: List[String]
+  def toArray:  List[Double]
 }
 
 trait AreaMetricOps {

@@ -444,3 +444,8 @@ case class InitiationInterval(interval: Int) extends Metadata[InitiationInterval
   def update(e: Exp[_], interval: Int): Unit = metadata.add(e, InitiationInterval(interval))
 }
 
+case class MemoryContention(contention: Int) extends Metadata[MemoryContention] { def mirror(f:Tx) = this }
+@data object contentionOf {
+  def apply(e: Exp[_]): Int = metadata[MemoryContention](e).map(_.contention).getOrElse(1)
+  def update(e: Exp[_], contention: Int): Unit = metadata.add(e, MemoryContention(contention))
+}

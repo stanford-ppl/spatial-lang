@@ -34,7 +34,17 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   }
 
   // TODO: Could optimize further with dynamic programming
-  def latencyOfPipe(b: Block[_]): Long = {
+  def latencyOfPipe(block: Block[_]): Long = {
+    val scope = blockNestedContents(block).flatMap(_.lhs)
+      .filterNot(s => isGlobal(s))
+      .filter{e => e.tp == UnitType || Bits.unapply(e.tp).isDefined }
+      .map(_.asInstanceOf[Exp[_]]).toSet
+
+    val result = (block +: scope.toSeq.flatMap{case s@Def(d) => d.blocks; case _ => Nil}).flatMap{b => exps(b) }
+
+    pipeLatencies(result, scope)._1.values.fold(0L){(a,b) => Math.max(a,b) }
+  }
+  /*{
     val scope = getStages(b)
     val paths = mutable.HashMap[Exp[_],Long]()
     //debug(s"Pipe latency $b:")
@@ -53,7 +63,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
       case _ => 0L
     }
     if (scope.isEmpty) 0L else exps(b).map{e => paths.getOrElseUpdate(e, quickDFS(e)) }.max
-  }
+  }*/
   def latencyOfCycle(b: Block[Any]): Long = {
     val outerReduce = inReduce
     inReduce = true
