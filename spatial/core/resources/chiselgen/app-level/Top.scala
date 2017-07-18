@@ -147,6 +147,7 @@ class Top(
     case "verilator"  => IO(new VerilatorInterface(topParams))
     case "vcs"        => IO(new VerilatorInterface(topParams))
     case "aws"        => IO(new AWSInterface(topParams))
+    case "aws-sim"        => IO(new AWSInterface(topParams))
     case "zynq"       => IO(new ZynqInterface(topParams))
     case "de1soc"     => IO(new DE1SoCInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
