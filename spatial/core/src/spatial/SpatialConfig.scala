@@ -98,7 +98,7 @@ spatial {
   splitting = false
   arch-dse = false
   naming = false
-  tree = false
+  tree = true
 }
 """)
 

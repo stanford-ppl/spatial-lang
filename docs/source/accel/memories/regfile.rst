@@ -30,7 +30,7 @@ Like other memories in Spatial, the contents of RegFiles are persistent across l
 in an inner scope.
 
 Using the **<<=** operator, RegFiles can be used as shift registers. 2-dimensional RegFiles must select a specific
-row or column before shifting using `regfile(row, *)` or regfile(*, col)`, respectively.
+row or column before shifting using `regfile(row, \*)` or `regfile(\*, col)`, respectively.
 
 ---------------
 
