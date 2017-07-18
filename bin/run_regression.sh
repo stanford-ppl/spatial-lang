@@ -94,7 +94,7 @@ ${path}" > /tmp/${at}.${branch}.${type}.new
 
 		#echo "skipping scp"
 		scp /tmp/${at}.${branch}.${type}.new ${USERNAME}@${dst}.stanford.edu:${path}
-		touch /tmp/${dst}---${at}.${branch}
+		touch /tmp/${dst}---${at}.${branch}.${type}
 		scp /tmp/${dst}---${at}.${branch} ${USER}@london.stanford.edu:/remote/regression/mapping
 
 		echo -e "\n** Sent $type test to $dst (because it had ${most_idle} tests there already) **\n"
