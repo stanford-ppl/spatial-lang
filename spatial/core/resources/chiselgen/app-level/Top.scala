@@ -301,7 +301,7 @@ class Top(
       fringe.io.done := accel.io.done
       accel.reset := ~reset
 
-    case "aws" =>
+    case "aws" | "aws-sim" =>
       // Simulation Fringe
       val blockingDRAMIssue = true  // Allow only one in-flight request, block until response comes back
       val fringe = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))

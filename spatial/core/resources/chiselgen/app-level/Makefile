@@ -85,7 +85,7 @@ aws-sim-hw:
 	# ----------------------------------------------------------------------------
 	rm -rf ${AWS_V_DIR}
 	# First use chisel to create the verilog
-	sbt "run-main top.Instantiator --verilog --testArgs aws"
+	sbt "run-main top.Instantiator --verilog --testArgs aws-sim"
 	cat chisel/template-level/fringeVCS/SRAMVerilogSim.v >> ${AWS_V_DIR}/Top.v
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/${app_name}
