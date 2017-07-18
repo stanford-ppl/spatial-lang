@@ -43,9 +43,9 @@ cd $here
  # dsts=("portland")
 types=("scala" "chisel")
 dsts=("portland;/home/regression/" "max-2;/kunle/users/mattfel/regression" 
-	  "tflop2;/home/regression/" "tflop1;/kunle/users/mattfel/regression_tflop1/"
+	  "tflop2;/home/regression/"
 	  "tucson;/home/mattfel/regression" "london;/home/mattfel/regression")
-	  #manchester
+	  #manchester #tflop1;/kunle/users/mattfel/regression_tflop1/
 tests=all
 status=debug
 
@@ -76,9 +76,9 @@ for type in ${types[@]}; do
 			if [[ $type = "chisel" && ${fields[0]} = "max-2" ]]; then
 				echo ""
 				# Do not let chisel run on max2 for now
-			elif [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
-				echo ""
-				# Do not let chisel run on tflop1 for now
+			# elif [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
+			# 	echo ""
+			# 	# Do not let chisel run on tflop1 for now
 			else 
 				candidate=$dst
 				most_idle=$existing_runs
