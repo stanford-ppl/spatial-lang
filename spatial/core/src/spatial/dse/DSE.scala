@@ -10,12 +10,16 @@ import spatial.nodes._
 import spatial.utils._
 import spatial.SpatialConfig
 
-trait DSE extends CompilerPass { dse =>
+trait DSE extends CompilerPass with SpaceGenerator { dse =>
   override val name = "Design Space Exploration"
+  final val PROFILING = true
 
-  lazy val scalarAnalyzer = new ScalarAnalyzer{var IR = dse.IR }
-  lazy val memoryAnalyzer = new MemoryAnalyzer{var IR = dse.IR; def localMems = dse.localMems }
+  abstract class SearchMode
+  case object BruteForce extends SearchMode
+  case object Randomized extends SearchMode
 
+  // lazy val scalarAnalyzer = new ScalarAnalyzer{var IR = dse.IR }
+  // lazy val memoryAnalyzer = new MemoryAnalyzer{var IR = dse.IR; def localMems = dse.localMems }
   def restricts: Set[Restrict]
   def tileSizes: Set[Param[Index]]
   def parFactors: Set[Param[Index]]
@@ -23,30 +27,46 @@ trait DSE extends CompilerPass { dse =>
   def metapipes: Seq[Exp[_]]
   def top: Exp[_]
 
-  def prune(params: Seq[Param[Index]], ranges: Map[Param[Index], CRange], restrict: Set[Restrict]) = {
-    val pruneSingle = params.map{p =>
-      val restricts = restrict.filter(_.dependsOnlyOn(p))
-      if (restricts.nonEmpty)
-        p -> Domain.restricted(ranges(p), {v: Int => p.c = BigDecimal(v) }, { restricts.forall(_.evaluate) })
-      else
-        p -> Domain[Int](ranges(p), {v: Int => p.c = BigDecimal(v)})
-    }
-    pruneSingle.map(_._2)
-  }
-
-  override protected def process[S: Type](block: Block[S]) = {
+  override protected def process[S: Type](block: Block[S]): Block[S] = {
     if (SpatialConfig.enableDSE) {
-      dbg("Tile sizes: ")
-      tileSizes.foreach{t => dbg(u"${t.ctx}: $t")}
-      dbg("Parallelization factors:")
-      parFactors.foreach{p => dbg(u"${p.ctx}: $p")}
-      dbg("Metapipelining toggles:")
-      metapipes.foreach{m => dbg(u"${m.ctx}: $m")}
-      // TODO: prune space, dse
+      msg("Tile sizes: ")
+      tileSizes.foreach{t => msg(u"${t.ctx}: $t")}
+      msg("Parallelization factors:")
+      parFactors.foreach{p => msg(u"${p.ctx}: $p")}
+      msg("Metapipelining toggles:")
+      metapipes.foreach{m => msg(u"${m.ctx}: $m")}
+
+      val intParams = (tileSizes ++ parFactors).toSeq
+      val intSpace = createIntSpace(intParams, restricts)
+      val ctrlSpace = createCtrlSpace(metapipes)
+      val space = intSpace ++ ctrlSpace
+
+      if (PRUNE) {
+        msg("Found the following space restrictions: ")
+        restricts.foreach{r => msg(s"  $r") }
+        msg("")
+        msg("Pruned space: ")
+        (intParams ++ metapipes).zip(space).foreach{case (p,d) => msg(s"  $p: $d") }
+      }
+
+      val restrictions: Set[Restrict] = if (PRUNE) restricts.filter{_.deps.size > 1} else Set.empty
+
+      dse(space, restrictions)
     }
     dbg("Freezing parameters")
     tileSizes.foreach{t => t.makeFinal() }
     parFactors.foreach{p => p.makeFinal() }
     block
   }
+
+  def dse(space: Seq[Domain[_]], restrictions: Set[Restrict]): Unit = {
+    val N = space.size
+    val P = space.map{d => BigInt(d.len) }.product
+
+    msg("Space Statistics: ")
+    msg("-------------------------")
+    msg(s"  # of parameters: $N")
+    msg(s"  # of points:     $P")
+  }
+
 }

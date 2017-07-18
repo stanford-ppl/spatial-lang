@@ -23,11 +23,11 @@ object AreaNeuralModel {
 }
 
 abstract class AreaNeuralModel(
-                                val name: String,
-                                val filename: String,
-                                val OUT: Int,
-                                val LAYER2: Int
-                              ) {
+  val name: String,
+  val filename: String,
+  val OUT: Int,
+  val LAYER2: Int
+) {
   import AreaNeuralModel._
 
   private var network: BasicNetwork = _
@@ -40,7 +40,7 @@ abstract class AreaNeuralModel(
   private lazy val dataFile = Source.fromFile(s"$pwd/data/$filename").getLines().toArray.drop(1).map(_.split(",").map(_.trim.toDouble))
   private lazy val maxValues = dataFile(0)
 
-  def init() {
+  def init(): Unit = if (needsInit) {
     val encogFile = s"$pwd/data/$name.eg"
     val exists = new File(encogFile).exists
 

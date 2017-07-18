@@ -96,6 +96,7 @@ case class ControlType(style: ControlStyle) extends Metadata[ControlType] { def 
   def apply(x: Exp[_]): ControlStyle = styleOf.get(x).getOrElse{throw new spatial.UndefinedControlStyleException(x)}
   def update(x: Exp[_], style: ControlStyle): Unit = metadata.add(x, ControlType(style))
   def get(x: Exp[_]): Option[ControlStyle] = metadata[ControlType](x).map(_.style)
+  def set(x: Exp[_], style: ControlStyle): Unit = metadata.add(x, ControlType(style))
 }
 
 case class MControlLevel(level: ControlLevel) extends Metadata[MControlLevel] { def mirror(f:Tx) = this }
@@ -111,8 +112,9 @@ case class MControlLevel(level: ControlLevel) extends Metadata[MControlLevel] { 
   */
 case class ParamRange(min: Int, step: Int, max: Int) extends Metadata[ParamRange] { def mirror(f:Tx) = this }
 @data object domainOf {
-  def apply(x: Param[Int32]): Option[(Int,Int,Int)] = metadata[ParamRange](x).map{d => (d.min,d.step,d.max) }
-  def update(x: Param[Int32], rng: (Int,Int,Int)) = metadata.add(x, ParamRange(rng._1,rng._2,rng._3))
+  def get(x: Param[Int32]): Option[(Int,Int,Int)] = metadata[ParamRange](x).map{d => (d.min,d.step,d.max) }
+  def apply(x: Param[Int32]): (Int,Int,Int) = metadata[ParamRange](x).map{d => (d.min,d.step,d.max) }.getOrElse((1,1,1))
+  def update(x: Param[Int32], rng: (Int,Int,Int)): Unit = metadata.add(x, ParamRange(rng._1,rng._2,rng._3))
 }
 
 /**
@@ -126,7 +128,7 @@ case class MGlobal(isGlobal: Boolean) extends Metadata[MGlobal] { def mirror(f:T
     case Param(_) => true
     case _ => metadata[MGlobal](x).exists(_.isGlobal)
   }
-  def update(x: Exp[_], global: Boolean) = metadata.add(x, MGlobal(global))
+  def update(x: Exp[_], global: Boolean): Unit = metadata.add(x, MGlobal(global))
 }
 
 /**
@@ -136,7 +138,7 @@ case class MGlobal(isGlobal: Boolean) extends Metadata[MGlobal] { def mirror(f:T
 case class SoftDims(dims: Seq[Exp[Index]]) extends Metadata[SoftDims] { def mirror(f:Tx) = SoftDims(f(dims)) }
 @data object softDimsOf {
   def apply(x: Exp[_]): Seq[Exp[Index]] = metadata[SoftDims](x).map(_.dims).getOrElse(Nil)
-  def update(x: Exp[_], dims: Seq[Exp[Index]]) = metadata.add(x, SoftDims(dims))
+  def update(x: Exp[_], dims: Seq[Exp[Index]]): Unit = metadata.add(x, SoftDims(dims))
 }
 
 /**

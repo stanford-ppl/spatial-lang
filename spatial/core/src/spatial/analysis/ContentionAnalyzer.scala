@@ -61,9 +61,13 @@ trait ContentionAnalyzer extends CompilerPass {
     case _ => // do nothing
   }
 
-  protected def process[S:Type](block: Block[S]): Block[S] = {
+  def run(): Unit = {
     val c = calcContention(top)
     markContention(top, c)
+  }
+
+  protected def process[S:Type](block: Block[S]): Block[S] = {
+    run()
     block
   }
 

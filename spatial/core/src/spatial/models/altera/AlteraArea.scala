@@ -74,11 +74,15 @@ case class AlteraArea(
 
 case class AlteraAreaSummary(
   alms: Double,
+  regs: Double,
   dsps: Double,
-  sram: Double
-) extends AreaSummary {
-  override def headings: List[String] = List("ALMs", "DSPs", "BRAMs")
-  override def toArray: List[Double] = List(alms, dsps, sram)
+  bram: Double,
+  channels: Double
+) extends AreaSummary[AlteraAreaSummary] {
+  override def headings: List[String] = List("ALMs", "Regs", "DSPs", "BRAMs")
+  override def toFile: List[Double] = List(alms, dsps, bram)
+  override def toList: List[Double] = List(alms, regs, dsps, bram, channels)
+  override def fromList(items: List[Double]): AlteraAreaSummary = AlteraAreaSummary(items(0),items(1),items(2),items(3),items(4))
 }
 
 object AlteraAreaMetric extends AreaMetric[AlteraArea] {
@@ -86,6 +90,10 @@ object AlteraAreaMetric extends AreaMetric[AlteraArea] {
   override def zero: AlteraArea = AlteraArea()
   override def lessThan(x: AlteraArea, y: AlteraArea): Boolean = x < y
   override def times(a: AlteraArea, x: Int, isInner: Boolean): AlteraArea = a.replicate(x, isInner)
+
+  override def sramArea(n: Int): AlteraArea = AlteraArea(sram=n)
+  override def regArea(n: Int, bits: Int): AlteraArea = AlteraArea(regs = n * bits)
+  override def muxArea(n: Int, bits: Int): AlteraArea = AlteraArea(lut3=n*bits, regs=n*bits)
 }
 
 object AlteraArea {

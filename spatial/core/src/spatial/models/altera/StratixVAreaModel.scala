@@ -11,6 +11,16 @@ import spatial.utils._
 class StratixVAreaModel extends AlteraAreaModel {
   private val areaFile = "StratixV-Routing.csv"
 
+  override val MAX_PORT_WIDTH: Int = 40
+  override def bramWordDepth(width: Int): Int = {
+    if      (width == 1) 16384
+    else if (width == 2) 8192
+    else if (width <= 5) 4096
+    else if (width <= 10) 2048
+    else if (width <= 20) 1024
+    else 512
+  }
+
   // TODO: Move these to the first couple of lines in the CSV file
   //                    LUT7      LUT6      LUT5      LUT4      LUT3      MEM64     MEM32     MEM16     Regs       DSPs    BRAM
   val maxValues = Array(262400.0, 262400.0, 524800.0, 524800.0, 524800.0, 131200.0, 262400.0, 262400.0, 1049600.0, 1963.0, 2567.0,
@@ -54,7 +64,7 @@ class StratixVAreaModel extends AlteraAreaModel {
 
   @stateful def summarize(area: AlteraArea): AlteraAreaSummary = {
     // TODO
-    AlteraAreaSummary(0,0,0)
+    AlteraAreaSummary(0,0,0,0,0)
   }
 
 }

@@ -24,7 +24,7 @@ class TileLoadModel {
 
   private val pwd = sys.env("HYPER_HOME")
 
-  def init() {
+  def init(): Unit = if (needsInit) {
     val encogFile = s"$pwd/data/$name.eg"
     val exists = new File(encogFile).exists
 
