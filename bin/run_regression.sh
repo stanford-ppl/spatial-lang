@@ -73,9 +73,12 @@ for type in ${types[@]}; do
 		# echo "${fields[0]} has ${existing_runs} runs going (current best ${most_idle})"
 
 		if [[ ${existing_runs} -lt $most_idle ]]; then
-			if [[ $type = "chisel" && ${fields[0]} = "max-2" ]] || [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
+			if [[ $type = "chisel" && ${fields[0]} = "max-2" ]]; then
 				echo ""
-				# Do not let chisel run on max2 or tflop1 for now
+				# Do not let chisel run on max2 for now
+			elif [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
+				echo ""
+				# Do not let chisel run on tflop1 for now
 			else 
 				candidate=$dst
 				most_idle=$existing_runs
