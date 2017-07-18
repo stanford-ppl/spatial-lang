@@ -74,6 +74,7 @@ for type in ${types[@]}; do
 
 		if [[ ${existing_runs} -lt $most_idle ]]; then
 			if [[ $type = "chisel" && ${fields[0]} = "max-2" ]]; then
+				echo ""
 				# Do not let chisel run on max2
 			else 
 				candidate=$dst
