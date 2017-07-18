@@ -25,6 +25,9 @@ trait FltPts extends AInterpreter {
     case FltSqrt(EBigDecimal(a)) =>
       BigDecimal(Math.sqrt(a.toDouble))
 
+    case FltAcos(EBigDecimal(a)) =>
+      BigDecimal(Math.acos(a.toDouble))
+      
     case FltSin(EBigDecimal(a)) =>
       BigDecimal(Math.sin(a.toDouble))
 
@@ -33,15 +36,15 @@ trait FltPts extends AInterpreter {
       
     case FltMul(EBigDecimal(a), EBigDecimal(b)) =>
       a * b
-
+      
     case FltDiv(EBigDecimal(a), EBigDecimal(b)) =>
       a / b
       
     case FltLog(EBigDecimal(a)) =>
-      BigDecimal(Math.log(a.toDouble)) //TODO FIX IT WHEN BETTER NUMBER
+      BigDecimal(Math.log(a.toDouble)) 
 
     case FltExp(EBigDecimal(a)) =>
-      BigDecimal(Math.exp(a.toDouble)) //TODO FIX IT WHEN BETTER NUMBER
+      BigDecimal(Math.exp(a.toDouble)) 
       
 
     case FltLt(EBigDecimal(a), EBigDecimal(b)) =>

@@ -18,7 +18,7 @@ trait SRAMs extends AInterpreter {
     }
     override def toString = {
       val vs = AInterpreter.stringify(v)
-      s"SRAM($vs)"
+      s"SRAM($dims, $vs)"
     }
     
   }

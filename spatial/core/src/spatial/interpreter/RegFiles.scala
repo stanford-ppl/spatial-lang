@@ -9,7 +9,7 @@ trait RegFiles extends AInterpreter {
   class IRegFile(val dims: Seq[Int], val v: Array[Any]) {
     override def toString = {
       val vs = AInterpreter.stringify(v)
-      s"RegFile($vs)"
+      s"RegFile($dims, $vs)"
     }
     def index(ind: Seq[Int]) = {
       val strides = List.tabulate(dims.length)(i =>
