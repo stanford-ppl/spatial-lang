@@ -42,8 +42,10 @@ cd $here
  # types=("chisel")
  # dsts=("portland")
 types=("scala" "chisel")
-dsts=("portland;/home/regression/" "tflop1;/kunle/users/mattfel/regression_tflop1/" 
-	  "tflop2;/home/regression/" "max-2;/kunle/users/mattfel/regression" "tucson;/home/mattfel/regression")
+dsts=("portland;/home/regression/" "max-2;/kunle/users/mattfel/regression" 
+	  "tflop2;/home/regression/" "tflop1;/kunle/users/mattfel/regression_tflop1/"
+	  "tucson;/home/mattfel/regression" "london;/home/mattfel/regression")
+	  #manchester
 tests=all
 status=debug
 
@@ -79,7 +81,7 @@ for type in ${types[@]}; do
   	fi
 
 	packet="Creation Time- $at | Status- $status | Type- $type | tests- $tests | User- $USERNAME | Origin- $machine | Destination- ${dst} | Branch- $branch | Spatial- ${spatial_hash:0:5} | Argon- ${argon_hash:0:5} | Virtualized- ${virtualized_hash:0:5} | Spatial-apps- ${apps_hash:0:5}"
-	echo $packet
+	# echo $packet
 	echo -e "$packet
 $at
 $status
@@ -94,14 +96,14 @@ ${path}" > /tmp/${at}.${branch}.${type}.new
 
 		#echo "skipping scp"
 		scp /tmp/${at}.${branch}.${type}.new ${USERNAME}@${dst}.stanford.edu:${path}
-		touch /tmp/${dst}---${at}.${branch}
-		scp /tmp/${dst}---${at}.${branch} ${USER}@london.stanford.edu:/remote/regression/mapping
+		touch /tmp/${dst}---${at}.${branch}.${type}
+		scp /tmp/${dst}---${at}.${branch}.${type} ${USER}@london.stanford.edu:/remote/regression/mapping
 
 		echo -e "\n** Sent $type test to $dst (because it had ${most_idle} tests there already) **\n"
 
 	((i++))
 done
 
-echo -e "\n** Regression packets have been issued!  Check /remote/regression/mapping to see what is running where"
+echo -e "\n✓ SUCCESS!  Regression packets have been issued!  Check /remote/regression/mapping to see what is running where"
 exit 0
 
