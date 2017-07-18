@@ -69,7 +69,7 @@ clean_exit() {
 
 get_packet() {
 # Make sure there is only one packet to work on
-wc=`ls $REGRESSION_HOME | grep "${test_to_run}.new" | wc -l`
+wc=`ls $REGRESSION_HOME | grep ".new" | wc -l`
 multiple_new=false
 if [[ $wc -gt 1 ]]; then
   #echo "Warning: More than one packet detected.  Grabbing newest!" > ${REGRESSION_HOME}/log
@@ -87,7 +87,7 @@ elif [[ $wc = 0 ]]; then
   exit 1
 else
   # Find the new packet 
-  newpacket=`ls $REGRESSION_HOME | grep "${test_to_run}.new"`  
+  newpacket=`ls $REGRESSION_HOME | grep ".new"`  
   packet=$newpacket
 fi
 
@@ -209,14 +209,14 @@ git_things() {
 }
 
 # Get test to run
-test_to_run=${1}
-if [[ "${test_to_run}" = "scala" ]]; then
-  # Give others headstart
-  sleep 2
-elif [[ "${test_to_run}" = "maxj" ]]; then
-  # Give others headstart
-  sleep 40
-fi
+# test_to_run=${1}
+# if [[ "${test_to_run}" = "scala" ]]; then
+#   # Give others headstart
+#   sleep 2
+# elif [[ "${test_to_run}" = "maxj" ]]; then
+#   # Give others headstart
+#   sleep 40
+# fi
 
 # Receive and parse packet
 phase="INIT"
@@ -235,10 +235,10 @@ if [[ $? -ne 0 ]]; then
   logger "${SPATIAL_HOME}/bin/regression_functions.sh is nonexistent or has error!"
   clean_exit 7 "${SPATIAL_HOME}/bin/regression_functions.sh is nonexistent or has error!"
 fi
-if [[ ! "${type_todo}" = "${test_to_run}" ]]; then
-  echo "Error: packet mislabeled.  Cannot run ${test_to_run} test on ${type_todo} packet!" >> $log
-  clean_exit 6
-fi
+# if [[ ! "${type_todo}" = "${test_to_run}" ]]; then
+#   echo "Error: packet mislabeled.  Cannot run ${test_to_run} test on ${type_todo} packet!" >> $log
+#   clean_exit 6
+# fi
 logger "Sourcing successful!"
 
 # Wait for channel to be free

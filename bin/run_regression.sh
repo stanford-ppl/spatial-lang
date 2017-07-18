@@ -79,7 +79,7 @@ for type in ${types[@]}; do
   	fi
 
 	packet="Creation Time- $at | Status- $status | Type- $type | tests- $tests | User- $USERNAME | Origin- $machine | Destination- ${dst} | Branch- $branch | Spatial- ${spatial_hash:0:5} | Argon- ${argon_hash:0:5} | Virtualized- ${virtualized_hash:0:5} | Spatial-apps- ${apps_hash:0:5}"
-	echo $packet
+	# echo $packet
 	echo -e "$packet
 $at
 $status
