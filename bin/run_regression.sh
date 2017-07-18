@@ -51,6 +51,13 @@ status=debug
 
 # Compile regression test packet
 i=0
+
+echo "You may be requested to log in to a few kunle machines.  
+We recommend you set up ssh keys for all these machines so you don't need to keep typing
+your password.  
+
+**WARNING** If you do not have access to any of these machines, please CANCEL this script and contact mattfel@stanford.edu and ask for an account"
+
 for type in ${types[@]}; do
 	# Find least occupied machine
 	most_idle=999
