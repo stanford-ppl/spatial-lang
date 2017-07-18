@@ -169,6 +169,7 @@ rm $packet
 
 sleep 1000
 stubborn_delete ${dirname}
+rm /remote/regression/mapping/${this_machine}---${tim}*
 
 ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 
