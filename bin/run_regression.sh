@@ -6,7 +6,11 @@ if timeout 2 nc -z tucson.stanford.edu 22 2>/dev/null; then
     online=1
 else
     echo "On Stanford network: ✗"
+	echo "================================================================================"
+	echo "  Stanford network unreachable!  "
+	echo "================================================================================"
     online=0
+    exit 1
 fi
 
 branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
@@ -38,32 +42,45 @@ cd $here
  # types=("chisel")
  # dsts=("portland")
 types=("scala" "chisel")
-dsts=("max-2" "portland")
+dsts=("portland;/home/regression/" "tflop1;/kunle/users/mattfel/regression_tflop1/" 
+	  "tflop2;/home/regression/" "max-2;/kunle/users/mattfel/regression" "tucson;/home/mattfel/regression")
 tests=all
 status=debug
 
 # Compile regression test packet
 i=0
 for type in ${types[@]}; do
-packet="Creation Time- $at | Status- $status | Type- $type | tests- $tests | User- $USERNAME | Origin- $machine | Destination- ${dsts[$i]} | Branch- $branch | Spatial- ${spatial_hash:0:5} | Argon- ${argon_hash:0:5} | Virtualized- ${virtualized_hash:0:5} | Spatial-apps- ${apps_hash:0:5}"
+	# Find least occupied machine
+	most_idle=999
+	for dst in ${dsts[@]}; do
+		fields=(${dst//;/ })
+		# David hack
+  		if [[ "$SUNETID" != "" && ${fields[0]} = "portland" ]]; then
+    		tmpuser=${SUNETID}
+  		else
+    		tmpuser=${USER}
+  		fi
+		existing_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls ${fields[1]}" | grep ^20[1-2][0-9] | wc -l`
+		# echo "${fields[0]} has ${existing_runs} runs going (current best ${most_idle})"
 
-# echo -e "$packet"
-if [[ $type = "scala" ]]; then
-	path="/kunle/users/mattfel/regression/${type}"
-  USERNAME=$USER
-elif [[ $type = "chisel" ]]; then
-	path="/home/regression/$type"
-  if [[ "$SUNETID" != "" ]]; then
-    USERNAME=${SUNETID}
-  else
-    USERNAME=${USER}
-  fi
-else
-	echo "Unrecognized test $type"
-	exit 1
-fi
+		if [[ ${existing_runs} -lt $most_idle ]]; then
+			candidate=$dst
+			most_idle=$existing_runs
+		fi
+	done
 
-echo -e "$packet
+	fields=(${candidate//;/ })
+	dst=${fields[0]}
+	path=${fields[1]}
+  	if [[ "$SUNETID" != "" && ${dst} = "portland" ]]; then
+    	USERNAME=${SUNETID}
+  	else
+    	USERNAME=${USER}
+  	fi
+
+	packet="Creation Time- $at | Status- $status | Type- $type | tests- $tests | User- $USERNAME | Origin- $machine | Destination- ${dst} | Branch- $branch | Spatial- ${spatial_hash:0:5} | Argon- ${argon_hash:0:5} | Virtualized- ${virtualized_hash:0:5} | Spatial-apps- ${apps_hash:0:5}"
+	echo $packet
+	echo -e "$packet
 $at
 $status
 $type
@@ -72,28 +89,19 @@ $USERNAME
 $machine
 $spatial_hash
 $branch
-${dsts[$i]}
+${dst}
 ${path}" > /tmp/${at}.${branch}.${type}.new
 
-if [[ $online = 1 ]]; then
-#        echo "skipping scp"
-	scp /tmp/${at}.${branch}.${type}.new ${USERNAME}@${dsts[$i]}.stanford.edu:${path}
-else
-	cp /tmp/${at}.${branch}.${type}.new ${SPATIAL_HOME}/bin/${at}.${branch}.${type}.networkerror
-fi
+		#echo "skipping scp"
+		scp /tmp/${at}.${branch}.${type}.new ${USERNAME}@${dst}.stanford.edu:${path}
+		touch /tmp/${dst}---${at}.${branch}
+		scp /tmp/${dst}---${at}.${branch} ${USER}@london.stanford.edu:/remote/regression/mapping
 
-((i++))
+		echo -e "\n** Sent $type test to $dst (because it had ${most_idle} tests there already) **\n"
+
+	((i++))
 done
 
-if [[ $online = 1 ]]; then
-	echo "Using incron on ${dsts[@]} to call regression tests (scripts/receive.sh)"
-	exit 0
-else
-	echo "================================================================================"
-	echo "  Stanford network unreachable!  Run script when you are on the network:"
-	echo "     ${SPATIAL_HOME}/bin/run_backlog.sh or ${SPATIAL_HOME}/bin/clean_backlog.sh"
-	echo "================================================================================"
-	exit 0
-fi
+echo -e "\n** Regression packets have been issued!  Check /remote/regression/mapping to see what is running where"
+exit 0
 
-# echo "**** TEMPORARILY TURNED OFF MAX2"
