@@ -51,6 +51,13 @@ status=debug
 
 # Compile regression test packet
 i=0
+
+echo -e "You may be requested to log in to a few kunle machines.  
+We recommend you set up ssh keys for all these machines so you don't need to keep typing
+your password.  
+
+**WARNING** If you do not have access to any of these machines, please CANCEL this script and contact mattfel@stanford.edu and ask for an account\n"
+
 for type in ${types[@]}; do
 	# Find least occupied machine
 	most_idle=999
@@ -96,7 +103,7 @@ ${path}" > /tmp/${at}.${branch}.${type}.new
 
 		#echo "skipping scp"
 		scp /tmp/${at}.${branch}.${type}.new ${USERNAME}@${dst}.stanford.edu:${path}
-		touch /tmp/${dst}---${at}.${branch}.${type}
+		echo "Test located at $dst : $path" > /tmp/${dst}---${at}.${branch}.${type}
 		scp /tmp/${dst}---${at}.${branch}.${type} ${USER}@london.stanford.edu:/remote/regression/mapping
 
 		echo -e "\n** Sent $type test to $dst (because it had ${most_idle} tests there already) **\n"
