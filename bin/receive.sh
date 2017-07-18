@@ -1,15 +1,24 @@
 #!/bin/sh
 
-# Argument 1 = Test type (maxj, scala, chisel, etc...)
-# NOTE: This script belongs on a server dedicated to regression testing
+# NOTE: This script belongs on a remote where all machines can see and use it
 
 export LANG=en_US.UTF-8
-if [[ $1 = "chisel" ]]; then
-  REGRESSION_HOME="/home/regression/${1}"
-elif [[ $1 = "scala" ]]; then
-  REGRESSION_HOME="/kunle/users/mattfel/regression/${1}"
+this_machine=`hostname`
+if [[ ${this_machine} = "tflop1" ]]; then
+  REGRESSION_HOME="/kunle/users/mattfel/regression_tflop1/"
+elif [[ ${this_machine} = "tflop2" ]]; then
+  REGRESSION_HOME="/home/regression/"
+elif [[ ${this_machine} = "portland" ]]; then
+  REGRESSION_HOME="/home/regression/"
+elif [[ ${this_machine} = "max-2"* ]]; then
+  REGRESSION_HOME="/kunle/users/mattfel/regression/"
+elif [[ ${this_machine} = "tucson" ]]; then
+  REGRESSION_HOME="/home/mattfel/regression/"
+elif [[ ${this_machine} = "london" ]]; then
+  echo "No regression set up for london!" | tee -a /tmp/log
+  exit 1
 else
-  echo "Unrecognized test $1" | tee -a /tmp/log
+  echo "Unrecognized machine ${this_machine}" | tee -a /tmp/log
   exit 1
 fi
 
@@ -53,6 +62,7 @@ clean_exit() {
 
   # errfile=`echo $packet | sed 's/ack/error/g'`
   rm $packet
+  rm /remote/regression/mapping/${this_machine}---${tim}*
   exit 1
 }
 
