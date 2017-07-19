@@ -35,7 +35,7 @@ class multidimRegW(val N: Int, val w: Int) extends Bundle {
 class ShiftRegFile(val dims: List[Int], val stride: Int, val wPar: Int, val isBuf: Boolean, val bitWidth: Int) extends Module {
 
   def this(tuple: (List[Int], Int, Int, Boolean, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
-  Console.println(" " + dims.reduce{_*_} + " " + wPar + " " + dims.length)
+  // Console.println(" " + dims.reduce{_*_} + " " + wPar + " " + dims.length)
   val io = IO(new Bundle { 
     // Signals for dumping data from one buffer to next
     val dump_data = Vec(dims.reduce{_*_}, Input(UInt(bitWidth.W)))
