@@ -140,7 +140,7 @@ if [[ $error != 0 ]]; then
 fi
 sleep 1
 git add argon
-git add apps
+# git add apps
 git add scala-virtualized
 git commit -m "auto merge"
 git push
