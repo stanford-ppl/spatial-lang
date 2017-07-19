@@ -458,6 +458,12 @@ trait MemoryAnalyzer extends CompilerPass {
 
 
   override protected def process[S:Type](block: Block[S]): Block[S] = {
+    run()
+    shouldWarn = false // Don't warn user after first run (avoid duplicate warnings)
+    block
+  }
+
+  def run(): Unit = {
     // Reset metadata prior to running memory analysis
     metadata.clearAll[AccessDispatch]
     metadata.clearAll[PortIndex]
@@ -476,9 +482,6 @@ trait MemoryAnalyzer extends CompilerPass {
       case _:BufferedOutType[_] => bankBufferOut(mem)
       case tp => throw new spatial.UndefinedBankingException(tp)(mem.ctx, state)
     }}
-
-    shouldWarn = false // Don't warn user after first run (avoid duplicate warnings)
-    block
   }
 
 
