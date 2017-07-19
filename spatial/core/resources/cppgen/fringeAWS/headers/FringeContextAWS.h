@@ -39,7 +39,8 @@
 
 #define CMD_REG_ADDR           UINT64_C_AWS(0x00)
 #define STATUS_REG_ADDR        UINT64_C_AWS(0x20)
-#define DDR_STATUS_REG_ADDR    UINT64_C_AWS(0x40)
+// #define DDR_STATUS_REG_ADDR    UINT64_C_AWS(0x40)
+#define PERF_COUNTER           UINT64_C_AWS(0x40)
 #define RESET_REG_ADDR         UINT64_C_AWS(0x60)
 
 #define CFG_REG           UINT64_C_AWS(0x00)
@@ -326,15 +327,21 @@ public:
     assert(fsync(fd) == 0); // TODO: Is this needed?
 #endif // F1
     aws_poke(BASE_ADDR + ATG, 0x00000001);
-    aws_poke(BASE_ADDR + NUM_INST, 0x00000000);
+    aws_poke(BASE_ADDR + NUM_INST, 0x00000000);	// TODO: Move outside run()?
     uint32_t status;
     aws_poke(SCALAR_CMD_BASE_ADDR + CMD_REG_ADDR, 1);
     do {
       aws_peek(SCALAR_CMD_BASE_ADDR + STATUS_REG_ADDR, &status);
     } while (!status);
     aws_poke(BASE_ADDR + ATG, 0x00000000);
+    // De-assert enable?
 #ifdef SIM
 #else // F1
+    /*
+    uint32_t total_cycles;
+    aws_peek(SCALAR_CMD_BASE_ADDR + PERF_COUNTER, &total_cycles);
+    printf("Total cycles = %d\n", total_cycles);
+    */
     assert(fsync(fd) == 0); // TODO: Is this needed?
 #endif // F1
   }

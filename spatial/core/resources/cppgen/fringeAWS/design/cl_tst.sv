@@ -29,6 +29,7 @@ module  cl_tst #(parameter DATA_WIDTH=512, parameter NUM_RD_TAG=512) (
    output logic[31:0] tst_cfg_rdata = 0,
    input DIRECT_force_burst_wdata,
    input[DATA_WIDTH-1:0] DIRECT_wdata,
+   input                 DIRECT_wvalid,
 
    output logic atg_enable,
 
@@ -811,7 +812,9 @@ always @(posedge clk)
    end
 
 
-assign wvalid = (wr_state==WR_DAT);
+// Still exits FSM @ right time, etc.
+// Since internal counter here no need even to send through wlast
+assign wvalid = DIRECT_force_burst_wdata ? DIRECT_wvalid : (wr_state==WR_DAT); 
 assign wlast = wr_dat_end;
 assign wid = 0;
 //assign wstrb = {(DATA_WIDTH/8){1'b1}};
