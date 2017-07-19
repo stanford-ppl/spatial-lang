@@ -15,11 +15,14 @@ abstract class AlteraAreaModel extends AreaModel[AlteraArea,AlteraAreaSummary] {
     * Models delays as registers for short delays, BRAM for long ones
     **/
   @stateful override def areaOfDelayLine(length: Int, width: Int, par: Int): AlteraArea = {
-    //System.out.println(s"Delay line: w = $width x l = $length (${width*length}) ")
     val nregs = width*length
-    AlteraArea(regs = nregs*par)
-    /*if (nregs < 256) AlteraArea(regs = nregs*par)
-    else             areaOfSRAM(width*par, List(length), List(SimpleInstance))*/
+    // TODO: Should fix this cutoff point to something more real
+    val area = if (nregs < 256) AlteraArea(mregs = nregs*par)
+               else             areaOfSRAM(width*par, List(length), List(BankedMemory(Seq(StridedBanking(1,1)),1,false)))
+
+    dbg(s"Delay line (w x l): $width x $length (${width*length}) [par = $par]")
+    dbg(s"  $area")
+    area
   }
 
   private def areaOfStreamPipe(n: Int) = NoArea // TODO

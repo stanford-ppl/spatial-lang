@@ -18,7 +18,8 @@ abstract class AreaModel[Area:AreaMetric, Sum<:AreaSummary[Sum]] extends AreaMet
 
   def init(): Unit
 
-  protected def areaOfMemory(nbits: Int, dims: Seq[Int], instance: Memory): Area = {
+  @stateful protected def areaOfMemory(nbits: Int, dims: Seq[Int], instance: Memory): Area = {
+    dbg(s"$instance")
     // Physical depth for given word size for horizontally concatenated RAMs
     val nElements = dims.product
     val wordDepth = bramWordDepth(nbits)
@@ -34,23 +35,45 @@ abstract class AreaModel[Area:AreaMetric, Sum<:AreaSummary[Sum]] extends AreaMet
     instance match {
       case DiagonalMemory(strides, banks, depth, isAccum) =>
         val elementsPerBank = Math.ceil(nElements.toDouble/banks)
-        val nRAMsPerBank = Math.ceil(elementsPerBank/wordDepth).toInt * portWidth
-        val resourcesPerBank = SRAMArea(nRAMsPerBank)
+        val nRAMsPerBank = Math.ceil(elementsPerBank.toDouble/wordDepth).toInt * portWidth
+        val memResourcesPerBank = SRAMArea(nRAMsPerBank)
+        val resourcesPerBuffer = (memResourcesPerBank + controlResourcesPerBank).replicate(banks, isInner = false)
 
-        (resourcesPerBank + controlResourcesPerBank).replicate(banks, isInner=false)
+        dbg(s"Word width:       $nbits")
+        dbg(s"# of banks:       $banks")
+        dbg(s"# of buffers:     $bufferDepth")
+        dbg(s"# of columns:     $portWidth")
+        dbg(s"Words / Memory:   $wordDepth")
+        dbg(s"Elements / Bank:  $elementsPerBank")
+        dbg(s"Memories / Bank:  $nRAMsPerBank")
+        dbg(s"Resources / Bank: $memResourcesPerBank")
+        dbg(s"Buffer resources: $resourcesPerBuffer")
+
+        resourcesPerBuffer.replicate(bufferDepth, isInner=false)
 
       case BankedMemory(banking,depth,isAccum) =>
         val banks = banking.map(_.banks)
         val nBanks = banks.product
         val elementsPerBank = dims.zip(banks).map{case (dim,bank) => Math.ceil(dim.toDouble/bank).toInt }.product
-        val nRAMsPerBank = Math.ceil(elementsPerBank/wordDepth).toInt * portWidth
-        val resourcesPerBank = SRAMArea(nRAMsPerBank)
+        val nRAMsPerBank = Math.ceil(elementsPerBank.toDouble/wordDepth).toInt * portWidth
+        val memResourcesPerBank = SRAMArea(nRAMsPerBank)
+        val resourcesPerBuffer = (memResourcesPerBank + controlResourcesPerBank).replicate(nBanks, isInner = false)
 
-        (resourcesPerBank + controlResourcesPerBank).replicate(nBanks, isInner=false)
+        dbg(s"Word width:       $nbits")
+        dbg(s"# of banks:       $nBanks")
+        dbg(s"# of buffers:     $bufferDepth")
+        dbg(s"# of columns:     $portWidth")
+        dbg(s"Words / Memory:   $wordDepth")
+        dbg(s"Elements / Bank:  $elementsPerBank")
+        dbg(s"Memories / Bank:  $nRAMsPerBank")
+        dbg(s"Resources / Bank: $memResourcesPerBank")
+        dbg(s"Buffer resources: $resourcesPerBuffer")
+
+        resourcesPerBuffer.replicate(bufferDepth, isInner=false)
     }
   }
 
-  protected def areaOfSRAM(nbits: Int, dims: Seq[Int], instances: Seq[Memory]): Area = {
+  @stateful protected def areaOfSRAM(nbits: Int, dims: Seq[Int], instances: Seq[Memory]): Area = {
     instances.map{instance => areaOfMemory(nbits, dims, instance) }.fold(NoArea){_+_}
   }
 

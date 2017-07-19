@@ -51,7 +51,24 @@ case class AlteraArea(
   def isNonzero: Boolean = lut7 > 0 || lut6 > 0 || lut5 > 0 || lut4 > 0 || lut3 > 0 ||
     mem64 > 0 || mem32 > 0 || mem16 > 0 || regs > 0 || dsps > 0 || sram > 0 || mregs > 0 || channels > 0
 
-  override def toString: String = s"lut3=$lut3, lut4=$lut4, lut5=$lut5, lut6=$lut6, lut7=$lut7, mem16=$mem16, mem32=$mem32, mem64=$mem64, regs=$regs, dsps=$dsps, bram=$sram, mregs=$mregs"
+  override def toString: String = {
+    val area = {
+        (if (lut3 > 0)  Some(s"lut3=$lut3")   else None) ++
+        (if (lut4 > 0)  Some(s"lut4=$lut4")   else None) ++
+        (if (lut5 > 0)  Some(s"lut5=$lut5")   else None) ++
+        (if (lut6 > 0)  Some(s"lut6=$lut6")   else None) ++
+        (if (lut7 > 0)  Some(s"lut7=$lut7")   else None) ++
+        (if (mem16 > 0) Some(s"mem16=$mem16") else None) ++
+        (if (mem32 > 0) Some(s"mem32=$mem32") else None) ++
+        (if (mem64 > 0) Some(s"mem64=$mem64") else None) ++
+        (if (regs > 0)  Some(s"regs=$regs")   else None) ++
+        (if (dsps > 0)  Some(s"dsps=$dsps")   else None) ++
+        (if (sram > 0)  Some(s"sram=$sram")   else None) ++
+        (if (mregs > 0) Some(s"mregs=$mregs") else None) ++
+        (if (channels > 0) Some(s"channels=$channels") else None)
+    }
+    if (area.isEmpty) "NoArea" else "Area(" + area.mkString(",") + ")"
+  }
 
   def toArray: Array[Int] = Array(lut3,lut4,lut5,lut6,lut7,mem16,mem32,mem64,regs+mregs,dsps,sram)
 
@@ -79,7 +96,7 @@ case class AlteraAreaSummary(
   bram: Double,
   channels: Double
 ) extends AreaSummary[AlteraAreaSummary] {
-  override def headings: List[String] = List("ALMs", "Regs", "DSPs", "BRAMs")
+  override def headings: List[String] = List("ALMs", "DSPs", "BRAMs")
   override def toFile: List[Double] = List(alms, dsps, bram)
   override def toList: List[Double] = List(alms, regs, dsps, bram, channels)
   override def fromList(items: List[Double]): AlteraAreaSummary = AlteraAreaSummary(items(0),items(1),items(2),items(3),items(4))
