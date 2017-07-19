@@ -26,6 +26,13 @@ class MAGCore(
   Predef.assert(w/8*v == 64,
   s"Unsupported combination of w=$w and v=$v; data bus width must equal DRAM burst size ($burstSizeBytes bytes)")
 
+  // Enabling hardware asserts on aws-sim is causing a segfault in xsim
+  // We can safely disable them for aws-sim, as we should be able to catch violations with vcs simulation
+  val enableHwAsserts = FringeGlobals.target match {
+    case "aws" | "aws-sim" => false
+    case _ => true
+  }
+
   val numStreams = loadStreamInfo.size + storeStreamInfo.size
   val wordSizeBytes = w/8
   val burstSizeWords = burstSizeBytes / wordSizeBytes
@@ -74,9 +81,11 @@ class MAGCore(
 
 
   // Debug assertions
-  for (i <- 0 until numStreams) {
-    val str3 = s"ERROR: addrFifo $i enqVld is high when not enabled!"
-    assert((io.enable & cmds(i).valid) | (io.enable & ~cmds(i).valid) | (~io.enable & ~cmds(i).valid), str3)
+  if (enableHwAsserts) {
+    for (i <- 0 until numStreams) {
+      val str3 = s"ERROR: addrFifo $i enqVld is high when not enabled!"
+      assert((io.enable & cmds(i).valid) | (io.enable & ~cmds(i).valid) | (~io.enable & ~cmds(i).valid), str3)
+    }
   }
 
   val burstAddrs = addrFifo.io.deq map { extractBurstAddr(_) }
@@ -398,7 +407,9 @@ class MAGCore(
   }
 
   // Some assertions
-  assert((dramCmdValid & io.enable) | (~io.enable & ~dramCmdValid) | (io.enable & ~dramCmdValid), "DRAM command is valid when enable == 0!")
+  if (enableHwAsserts) {
+    assert((dramCmdValid & io.enable) | (~io.enable & ~dramCmdValid) | (io.enable & ~dramCmdValid), "DRAM command is valid when enable == 0!")
+  }
   // All debug counters
 //  val enableCounter = Module(new Counter(32))
 //  enableCounter.io.reset := 0.U
