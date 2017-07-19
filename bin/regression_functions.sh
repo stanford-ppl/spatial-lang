@@ -760,9 +760,6 @@ fi
 
 # Check for runtime errors
 wc=\$(cat ${5}/log | grep \"Error: App\\|Segmentation fault\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
-  report \"failed_execution_backend_crash\" \"[STATUS] Declaring failure compile_chisel\" 0
-fi
 
 # Check if app validated or not
 if grep -q \"PASS: 1\" ${5}/log; then
@@ -775,6 +772,8 @@ elif grep -q \"PASS: false\" ${5}/log; then
   report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
 elif grep -q \"PASS: X\" ${5}/log; then
   report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
+elif [ \"\$wc\" -ne 0 ]; then
+  report \"failed_execution_backend_crash\" \"[STATUS] Declaring failure backend_crash\" 0
 else 
   report \"failed_execution_nonexistent_validation\" \"[STATUS] Declaring failure no_validation_check\" 0
 fi" >> $1
