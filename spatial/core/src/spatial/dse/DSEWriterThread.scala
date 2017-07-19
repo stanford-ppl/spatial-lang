@@ -10,6 +10,7 @@ case class DSEWriterThread(
   threadId:  Int,
   spaceSize: BigInt,
   filename:  String,
+  header:    String,
   workQueue: BlockingQueue[Array[String]],
   doneQueue: BlockingQueue[Int]
 ) extends Runnable {
@@ -20,6 +21,7 @@ case class DSEWriterThread(
 
   def run(): Unit = {
     val data = new PrintStream(filename)
+    data.println(header)
 
     val P = BigDecimal(spaceSize)
     var N = BigDecimal(0)
