@@ -1,15 +1,24 @@
 #!/bin/sh
 
-# Argument 1 = Test type (maxj, scala, chisel, etc...)
-# NOTE: This script belongs on a server dedicated to regression testing
+# NOTE: This script belongs on a remote where all machines can see and use it
 
 export LANG=en_US.UTF-8
-if [[ $1 = "chisel" ]]; then
-  REGRESSION_HOME="/home/regression/${1}"
-elif [[ $1 = "scala" ]]; then
-  REGRESSION_HOME="/kunle/users/mattfel/regression/${1}"
+this_machine=`hostname`
+if [[ ${this_machine} = "tflop1" ]]; then
+  REGRESSION_HOME="/kunle/users/mattfel/regression_tflop1/"
+elif [[ ${this_machine} = "tflop2" ]]; then
+  REGRESSION_HOME="/home/regression/"
+elif [[ ${this_machine} = "portland" ]]; then
+  REGRESSION_HOME="/home/regression/"
+elif [[ ${this_machine} = "max-2"* ]]; then
+  REGRESSION_HOME="/kunle/users/mattfel/regression/"
+elif [[ ${this_machine} = "tucson" ]]; then
+  REGRESSION_HOME="/home/mattfel/regression/"
+elif [[ ${this_machine} = "london" ]]; then
+  echo "No regression set up for london!" | tee -a /tmp/log
+  exit 1
 else
-  echo "Unrecognized test $1" | tee -a /tmp/log
+  echo "Unrecognized machine ${this_machine}" | tee -a /tmp/log
   exit 1
 fi
 
@@ -53,13 +62,14 @@ clean_exit() {
 
   # errfile=`echo $packet | sed 's/ack/error/g'`
   rm $packet
+  rm /remote/regression/mapping/${this_machine}---${tim}*
   exit 1
 }
 
 
 get_packet() {
 # Make sure there is only one packet to work on
-wc=`ls $REGRESSION_HOME | grep "${test_to_run}.new" | wc -l`
+wc=`ls $REGRESSION_HOME | grep ".new" | wc -l`
 multiple_new=false
 if [[ $wc -gt 1 ]]; then
   #echo "Warning: More than one packet detected.  Grabbing newest!" > ${REGRESSION_HOME}/log
@@ -77,7 +87,7 @@ elif [[ $wc = 0 ]]; then
   exit 1
 else
   # Find the new packet 
-  newpacket=`ls $REGRESSION_HOME | grep "${test_to_run}.new"`  
+  newpacket=`ls $REGRESSION_HOME | grep ".new"`  
   packet=$newpacket
 fi
 
@@ -199,14 +209,14 @@ git_things() {
 }
 
 # Get test to run
-test_to_run=${1}
-if [[ "${test_to_run}" = "scala" ]]; then
-  # Give others headstart
-  sleep 2
-elif [[ "${test_to_run}" = "maxj" ]]; then
-  # Give others headstart
-  sleep 40
-fi
+# test_to_run=${1}
+# if [[ "${test_to_run}" = "scala" ]]; then
+#   # Give others headstart
+#   sleep 2
+# elif [[ "${test_to_run}" = "maxj" ]]; then
+#   # Give others headstart
+#   sleep 40
+# fi
 
 # Receive and parse packet
 phase="INIT"
@@ -225,10 +235,10 @@ if [[ $? -ne 0 ]]; then
   logger "${SPATIAL_HOME}/bin/regression_functions.sh is nonexistent or has error!"
   clean_exit 7 "${SPATIAL_HOME}/bin/regression_functions.sh is nonexistent or has error!"
 fi
-if [[ ! "${type_todo}" = "${test_to_run}" ]]; then
-  echo "Error: packet mislabeled.  Cannot run ${test_to_run} test on ${type_todo} packet!" >> $log
-  clean_exit 6
-fi
+# if [[ ! "${type_todo}" = "${test_to_run}" ]]; then
+#   echo "Error: packet mislabeled.  Cannot run ${test_to_run} test on ${type_todo} packet!" >> $log
+#   clean_exit 6
+# fi
 logger "Sourcing successful!"
 
 # Wait for channel to be free
