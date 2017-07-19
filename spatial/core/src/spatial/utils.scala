@@ -657,6 +657,14 @@ object utils {
     case _:RegType[_]         => isArgIn(e) || isArgOut(e) || isHostIO(e)
     case _ => false
   }
+  @stateful def isInternalStreamMemory(e: Exp[_]): Boolean = e.tp match { // For finding the streams generated from tile transfers
+    case _:DRAMType[_]        => false
+    case _:StreamInType[_]    => if (parentOf(e).isDefined) true else false
+    case _:StreamOutType[_]   => if (parentOf(e).isDefined) true else false
+    case _:BufferedOutType[_] => true
+    case _:RegType[_]         => false
+    case _ => false
+  }
 
 
 

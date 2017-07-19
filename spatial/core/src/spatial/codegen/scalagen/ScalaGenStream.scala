@@ -57,8 +57,8 @@ trait ScalaGenStream extends ScalaGenMemories {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@StreamInNew(bus)  =>
       streamIns :+= lhs
-
-      emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      emitMem(lhs, src"$lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      // emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
       if (!bus.isInstanceOf[DRAMBus[_]]) {
         val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
         open(src"def populate_$lhs() = {")
@@ -84,7 +84,8 @@ trait ScalaGenStream extends ScalaGenMemories {
     case op@StreamOutNew(bus) =>
       streamOuts :+= lhs
 
-      emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      emitMem(lhs, src"$lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      // emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
 
       if (!bus.isInstanceOf[DRAMBus[_]]) {
         val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)

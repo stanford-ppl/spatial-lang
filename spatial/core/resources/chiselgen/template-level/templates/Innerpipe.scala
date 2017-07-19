@@ -84,10 +84,11 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
         state := Mux(state >= (pipeSpinWait + retime).U, pipeInit.U, state + 1.U);
       } 
     }.otherwise {
-      io.output.done := Mux(io.input.ctr_done, true.B, false.B)
+      io.output.done := Mux(io.input.ctr_done | state === pipeDone.U, true.B, false.B)
       io.output.ctr_inc := false.B
       io.output.rst_en := false.B
       io.output.state := state.asSInt
+      state := Mux(state === pipeDone.U, pipeSpinWait.U, state) // Move along if enable turns on just as we reach done state
       // Line below broke tile stores when there is a stall of some kind.  Why was it there to begin with?
       // state := pipeInit.U 
     }
@@ -98,7 +99,7 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
     stateFSM.io.input(0).data := io.input.nextState.asUInt
     stateFSM.io.input(0).init := io.input.initState.asUInt
     stateFSM.io.input(0).enable := io.input.enable
-    stateFSM.io.input(0).reset := reset
+    stateFSM.io.input(0).reset := reset | ~io.input.enable
     io.output.state := stateFSM.io.output.data.asSInt
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable
