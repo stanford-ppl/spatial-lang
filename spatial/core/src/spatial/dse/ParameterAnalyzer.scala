@@ -39,7 +39,7 @@ trait ParameterAnalyzer extends SpatialTraversal {
     x.collect{case p: Param[_] if isInt32Type(p.tp) => p.asInstanceOf[Param[Index]] }
   }
 
-  def setRange(x: Param[Index], min: Int, max: Int, stride: Int = 1): Unit = domainOf(x) match {
+  def setRange(x: Param[Index], min: Int, max: Int, stride: Int = 1): Unit = domainOf.get(x) match {
     case Some((start,end,step)) =>
       domainOf(x) = (Math.max(min,start), Math.min(max,end), Math.max(stride,step))
     case None =>
@@ -51,9 +51,9 @@ trait ParameterAnalyzer extends SpatialTraversal {
     (isInnerPipe(e) || isMetaPipe(e)) && !childrenOf(e).exists(isDRAMTransfer)
   }
 
-  override protected def postprocess[S: Type](block: Block[S]) = {
+  override protected def postprocess[S: Type](block: Block[S]): Block[S] = {
     val params = tileSizes ++ parFactors
-    params.foreach{p => if (domainOf(p).isEmpty) domainOf(p) = (1, 1, 1) }
+    params.foreach{p => if (domainOf.get(p).isEmpty) domainOf(p) = (1, 1, 1) }
     super.postprocess(block)
   }
 

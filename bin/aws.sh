@@ -11,7 +11,7 @@ annotated_list=(`cat ${SPATIAL_HOME}/apps/src/MachSuite.scala | grep "// Regress
 # annotated_list="(Stencil3D" "NW" "Viterbi" "EdgeDetector" 
 # 				"MD_Grid" "FFT_Strided" "Backprop" "Gibbs_Ising2D" "GEMMBlocked"
 # 				"SPMV_CRS" "BFS_Queue" "PageRank" "BlackScholes" 
-# 				"Sort_Merge" "KMP" "TPCHQ6" "AES" "SHA" "KMeans")
+# 				"Sort_Merge" "KMP" "TPCHQ6" "AES" "SHA" "Kmeans")
 
 				# "LeNet" "DjinnASR" "VGG16"  
 				# "KalmanFilter" "GACT" "AlexNet" "Network_in_Network" 

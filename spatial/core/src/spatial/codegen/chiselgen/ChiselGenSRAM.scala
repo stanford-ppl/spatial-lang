@@ -241,7 +241,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
               closeGlobalModule("))")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-              openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List($dimensions), $depth, $width,""")
+              val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
+              openGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,""")
               emitGlobalModule(src"""List(${dims.map(_.banks)}), $strides,""")
               emitGlobalModule(src"""List($wPar), List($rPar), """)
               emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), BankedMemory""")
@@ -255,7 +256,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
               closeGlobalModule("))")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-              openGlobalModule(src"""val ${lhs}_$i = Module(new NBufSRAM(List($dimensions), $depth, $width,""")
+              val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
+              openGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,""")
               emitGlobalModule(src"""List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),""")
               emitGlobalModule(src"""List($wPar), List($rPar), """)
               emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), DiagonalMemory""")

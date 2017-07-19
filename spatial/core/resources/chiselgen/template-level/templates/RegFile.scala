@@ -35,6 +35,7 @@ class multidimRegW(val N: Int, val w: Int) extends Bundle {
 class ShiftRegFile(val dims: List[Int], val stride: Int, val wPar: Int, val isBuf: Boolean, val bitWidth: Int) extends Module {
 
   def this(tuple: (List[Int], Int, Int, Boolean, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
+  // Console.println(" " + dims.reduce{_*_} + " " + wPar + " " + dims.length)
   val io = IO(new Bundle { 
     // Signals for dumping data from one buffer to next
     val dump_data = Vec(dims.reduce{_*_}, Input(UInt(bitWidth.W)))
@@ -192,7 +193,6 @@ class NBufShiftRegFile(val dims: List[Int], val stride: Int, val numBufs: Int,
     val data_out = Vec(dims.reduce{_*_}*numBufs, Output(UInt(bitWidth.W)))
   })
   
-
   val sEn_latch = (0 until numBufs).map{i => Module(new SRFF())}
   val sDone_latch = (0 until numBufs).map{i => Module(new SRFF())}
 
@@ -210,7 +210,7 @@ class NBufShiftRegFile(val dims: List[Int], val stride: Int, val numBufs: Int,
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
 
-  val shiftRegs = (0 until numBufs).map{i => Module(new ShiftRegFile(dims, stride, wPar.getOrElse(i,0), isBuf = {i>0}, bitWidth))}
+  val shiftRegs = (0 until numBufs).map{i => Module(new ShiftRegFile(dims, stride, wPar.getOrElse(i,1), isBuf = {i>0}, bitWidth))}
 
   for (i <- 0 until numBufs) {
     for (j <- 0 until dims.reduce{_*_}) {
