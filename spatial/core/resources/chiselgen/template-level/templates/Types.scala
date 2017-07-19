@@ -601,13 +601,13 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 class FixedPointTester(val s: Boolean, val d: Int, val f: Int) extends Module {
 	def this(tuple: (Boolean, Int, Int)) = this(tuple._1, tuple._2, tuple._3)
 	val io = IO( new Bundle {
-		val num1 = new RawBits(d+f).asInput
-		val num2 = new RawBits(d+f).asInput
+		val num1 = Input(new RawBits(d+f))
+		val num2 = Input(new RawBits(d+f))
 
-		val add_result = new RawBits(d+f).asOutput
-		val prod_result = new RawBits(d+f).asOutput
-		val sub_result = new RawBits(d+f).asOutput
-		val quotient_result = new RawBits(d+f).asOutput
+		val add_result = Output(new RawBits(d+f))
+		val prod_result = Output(new RawBits(d+f))
+		val sub_result = Output(new RawBits(d+f))
+		val quotient_result = Output(new RawBits(d+f))
 	})
 
 	val fix1 = Wire(new FixedPoint(s,d,f))

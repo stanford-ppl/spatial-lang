@@ -11,39 +11,49 @@ import org.virtualized.SourceContext
 
 import scala.collection.mutable
 
-case class AreaAnalyzer[Area:AreaMetric](var IR: State, areaModel: AreaModel[Area]) extends ModelingTraversal with AreaMetricOps {
+case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, areaModel: AreaModel[Area,Sum], latencyModel: LatencyModel) extends ModelingTraversal with AreaMetricOps {
   override val name = "Area Analyzer"
-  private val NoArea = noArea[Area]
+  private val NoArea: Area = noArea[Area]
 
-  var totalArea: Area = NoArea
+  var totalArea: Sum = _
   var scopeArea: Seq[Area] = Nil
   var savedArea: Area = NoArea
+  var isRerun: Boolean = false
+
+  override def init(): Unit = {
+    areaModel.init()
+    super.init()
+  }
+
+  override def rerun(e: Exp[_], blk: Block[_]): Unit = {
+    isRerun = true
+    super.rerun(e, blk)
+    isRerun = false
+  }
 
   override protected def preprocess[S: Type](block: Block[S]): Block[S] = {
-    totalArea = NoArea
     scopeArea = Nil
-    savedArea = NoArea
     super.preprocess(block)
   }
 
+  override protected def postprocess[S: Type](block: Block[S]): Block[S] = {
+    val saved = if (isRerun) savedArea else NoArea
+    val total = (saved +: scopeArea).fold(NoArea){(a,b) => implicitly[AreaMetric[Area]].plus(a,b) }
+    totalArea = areaModel.summarize(total)
+    super.postprocess(block)
+  }
+
   def areaOf(e: Exp[_]): Area = areaModel.apply(e, inHwScope, inReduce)
-  def requiresRegisters(x: Exp[_]) = latencyModel.requiresRegisters(x)
+  def requiresRegisters(x: Exp[_]): Boolean = latencyModel.requiresRegisters(x)
   def retimingDelay(x: Exp[_]): Int = if (requiresRegisters(x)) latencyOf(x).toInt else 0
 
 
   def bitBasedInputs(d: Def): Seq[Exp[_]] = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
 
   def pipeDelayLineArea(block: Block[_], par: Int): Area = {
-    val result = exps(block)
-    val scope = blockNestedContents(block).flatMap(_.lhs)
-      .filterNot(s => isGlobal(s))
-      .filter{e => e.tp == UnitType || Bits.unapply(e.tp).isDefined }
-      .map(_.asInstanceOf[Exp[_]]).toSet
-
-    val latencies = pipeLatencies(result,scope)._1
+    val latencies = pipeLatencies(block)._1
+    val scope = latencies.keySet
     def delayOf(x: Exp[_]): Int = latencies.getOrElse(x, 0L).toInt
-
-
     /*
     Alternative (functional) implementation (it's a groupByReduce! plus a map, plus a reduce):
     scope.flatMap{
@@ -106,6 +116,7 @@ case class AreaAnalyzer[Area:AreaMetric](var IR: State, areaModel: AreaModel[Are
   override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = {
     val area: Area = rhs match {
       case Hwblock(block, isForever) =>
+        savedArea = scopeArea.fold(NoArea){_+_}
         inHwScope = true
         val body = areaOfBlock(block, isInnerControl(lhs), 1)
         inHwScope = false
@@ -132,7 +143,7 @@ case class AreaAnalyzer[Area:AreaMetric](var IR: State, areaModel: AreaModel[Are
 
       case op@OpReduce(en, cchain, accum, map, load, reduce, store, ident, fold, rV, iters) =>
         val P = parsOf(cchain).product
-        val mapArea = areaOfBlock(map, isInnerControl(lhs), P) // Map is duplicated P times
+        val mapArea: Area = areaOfBlock(map, isInnerControl(lhs), P) // Map is duplicated P times
         /*
           Some simple math:
           A full binary (reduction) tree is a tree in which every node is either
@@ -143,13 +154,13 @@ case class AreaAnalyzer[Area:AreaMetric](var IR: State, areaModel: AreaModel[Are
           The reduction function is therefore duplicated P - 1 times
           Plus the special, tightly cyclic reduction function to update the accumulator
         */
-        val treeArea = areaOfBlock(reduce, isInner = true, P - 1)
-        val reduceLength = latencyOfPipe(reduce)
-        val treeDelayArea = reductionTreeDelays(P).map{dly => areaModel.areaOfDelayLine((reduceLength*dly).toInt,op.bT.length,1) }
+        val treeArea: Area = areaOfBlock(reduce, isInner = true, P - 1)
+        val reduceLength = latencyOfPipe(reduce)._1
+        val treeDelayArea: Area = reductionTreeDelays(P).map{dly => areaModel.areaOfDelayLine((reduceLength*dly).toInt,op.bT.length,1) }
                                                   .fold(NoArea){_+_}
-        val loadArea  = areaOfCycle(load, 1)
-        val cycleArea = areaOfCycle(reduce, 1)
-        val storeArea = areaOfCycle(store, 1)
+        val loadArea: Area  = areaOfCycle(load, 1)
+        val cycleArea: Area = areaOfCycle(reduce, 1)
+        val storeArea: Area = areaOfCycle(store, 1)
 
         dbgs(s"Reduce: $lhs (P = $P)")
         dbgs(s" - Map:    $mapArea")
@@ -166,7 +177,7 @@ case class AreaAnalyzer[Area:AreaMetric](var IR: State, areaModel: AreaModel[Are
         val mapArea = areaOfBlock(map,isInnerControl(lhs),Pm)
 
         val treeArea = areaOfPipe(reduce, 1).replicate(Pm, isInner=true).replicate(Pr, isInner=false)
-        val reduceLength = latencyOfPipe(reduce)
+        val reduceLength = latencyOfPipe(reduce)._1
         val treeDelayArea = reductionTreeDelays(Pm).map{dly => areaModel.areaOfDelayLine((reduceLength*dly).toInt, op.bT.length, 1) }
                                                    .fold(NoArea){_+_}
 

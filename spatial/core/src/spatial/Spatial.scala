@@ -15,6 +15,8 @@ import spatial.codegen.scalagen.ScalaGenSpatial
 import spatial.lang.cake.SpatialExternal
 import spatial.targets.{DefaultTarget, FPGATarget, Targets}
 
+import scala.language.existentials
+
 object dsl extends SpatialExternal {
   type SpatialApp = spatial.SpatialApp
 }
@@ -47,12 +49,13 @@ trait SpatialApp extends ArgonApp {
 
     lazy val scopeCheck     = new ScopeCheck { var IR = state }
 
-    lazy val latencyAnalyzer = new LatencyAnalyzer { var IR = state }
+    lazy val latencyAnalyzer = LatencyAnalyzer(IR = state, latencyModel = target.latencyModel)
+    lazy val areaAnalyzer = SpatialConfig.target.areaAnalyzer(state)
 
     lazy val controlSanityCheck = new ControllerSanityCheck { var IR = state }
 
-    lazy val retiming = new PipeRetimer { var IR = state }
-    lazy val initAnalyzer = new InitiationAnalyzer { var IR = state }
+    lazy val retiming     = PipeRetimer(IR = state, latencyModel = target.latencyModel)
+    lazy val initAnalyzer = InitiationAnalyzer(IR = state, latencyModel = target.latencyModel)
 
     lazy val dse = new DSE {
       var IR = state
@@ -102,9 +105,7 @@ trait SpatialApp extends ArgonApp {
     passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions
 
     // --- Unit Pipe Insertion
-    passes += printer
     passes += switchInsert      // Change nested if-then-else statements to Switch controllers
-    passes += printer
     passes += unitPipeInsert    // Wrap primitives in outer controllers
     passes += printer
     passes += regReadCSE        // CSE register reads in inner pipelines
@@ -114,7 +115,6 @@ trait SpatialApp extends ArgonApp {
     passes += ctrlAnalyzer      // Control signal analysis
 
     // --- Register cleanup
-    passes += printer
     passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
     passes += printer
 
@@ -125,7 +125,11 @@ trait SpatialApp extends ArgonApp {
     passes += printer
     passes += memAnalyzer       // Memory banking/buffering
 
+    passes += printer
+    passes += areaAnalyzer
+
     // --- DSE
+    if (SpatialConfig.enableDSE) passes += paramAnalyzer
     passes += dse               // TODO: Design space exploration
 
     // --- Post-DSE Expansion
@@ -134,18 +138,15 @@ trait SpatialApp extends ArgonApp {
     // but we also need to reanalyze bounds to account for expanded nodes
     // For now just doing it twice
     passes += scalarAnalyzer    // Bounds / global analysis
-    passes += printer
     passes += transferExpand    // Expand burst loads/stores from single abstract nodes
     passes += switchInsert      // Change if-then-else statements from transfers to switches
     passes += levelAnalyzer     // Pipe style annotation fixes after expansion
 
     // --- Post-Expansion Cleanup
-    passes += printer
     passes += regReadCSE        // CSE register reads in inner pipelines
     passes += scalarAnalyzer    // Bounds / global analysis
     passes += ctrlAnalyzer      // Control signal analysis
 
-    passes += printer
     passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
     passes += printer
 
@@ -158,9 +159,6 @@ trait SpatialApp extends ArgonApp {
     passes += reduceAnalyzer    // Reduce/accumulator specialization
     passes += memAnalyzer       // Finalize banking/buffering
 
-    // TODO: models go here
-    passes += latencyAnalyzer
-
     // --- Design Elaboration
 
     if (SpatialConfig.enablePIRSim) passes += pirRetimer
@@ -169,18 +167,16 @@ trait SpatialApp extends ArgonApp {
     passes += unroller          // Unrolling
     passes += printer
     passes += uctrlAnalyzer     // Readers/writers for CSE
-    passes += printer
     passes += regReadCSE        // CSE register reads in inner pipelines
     passes += printer
 
     passes += uctrlAnalyzer     // Analysis for unused register reads
-    passes += printer
     passes += regCleanup        // Duplicate register reads for each use
     passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
     passes += printer
 
     // --- Retiming
-    if (SpatialConfig.enableRetiming)   passes += retiming // Add delay shift registers where necessary
+    if (SpatialConfig.enableRetiming) passes += retiming // Add delay shift registers where necessary
     passes += printer
     passes += initAnalyzer
 
@@ -207,8 +203,7 @@ trait SpatialApp extends ArgonApp {
     if (SpatialConfig.enablePIR)   passes += pirgen
   }
 
-  def target = SpatialConfig.target
-  def target_=(t: FPGATarget): Unit = { SpatialConfig.target = t }
+  val target: FPGATarget = targets.DefaultTarget
 
   override protected def onException(t: Throwable): Unit = {
     super.onException(t)
@@ -222,14 +217,15 @@ trait SpatialApp extends ArgonApp {
 
   override protected def parseArguments(args: Seq[String]): Unit = {
     SpatialConfig.init()
+    SpatialConfig.target = this.target
     val parser = new SpatialArgParser
     parser.parse(args)
-    if (SpatialConfig.targetName != "Default") {
+    /*if (SpatialConfig.targetName != "Default") {
       SpatialConfig.target = Targets.targets.find(_.name == SpatialConfig.targetName).getOrElse{
         Report.warn(s"Could not find target with name ${SpatialConfig.targetName}.")
         DefaultTarget
       }
-    }
+    }*/
   }
 }
 

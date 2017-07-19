@@ -24,16 +24,19 @@ here=`pwd`
 cd ${SPATIAL_HOME}
 spatial_hash=`git rev-parse HEAD`
 spatial_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd argon
-argon_hash=`git rev-parse HEAD`
-argon_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd ../scala-virtualized
-virtualized_hash=`git rev-parse HEAD`
-virtualized_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd ../apps
-apps_hash=`git rev-parse HEAD`
-apps_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd ../
+argon_hash=`git ls-files -s argon | cut -d\  -f2`
+virtualized_hash=`git ls-files -s scala-virtualized | cut -d\  -f2`
+apps_hash=`git ls-files -s apps | cut -d\  -f2`
+# cd argon
+# argon_hash=`git rev-parse HEAD`
+# argon_hash_message=`git log --stat --name-status HEAD^..HEAD`
+# cd ../scala-virtualized
+# virtualized_hash=`git rev-parse HEAD`
+# virtualized_hash_message=`git log --stat --name-status HEAD^..HEAD`
+# cd ../apps
+# apps_hash=`git rev-parse HEAD`
+# apps_hash_message=`git log --stat --name-status HEAD^..HEAD`
+# cd ../
 at=`date +"%Y-%m-%d_%H-%M-%S"`
 machine=`hostname`
 cd $here
@@ -43,9 +46,9 @@ cd $here
  # dsts=("portland")
 types=("scala" "chisel")
 dsts=("portland;/home/regression/" "max-2;/kunle/users/mattfel/regression" 
-	  "tflop2;/home/regression/" "tflop1;/kunle/users/mattfel/regression_tflop1/"
+	  "tflop2;/home/regression/"
 	  "tucson;/home/mattfel/regression" "london;/home/mattfel/regression")
-	  #manchester
+	  #manchester #tflop1;/kunle/users/mattfel/regression_tflop1/
 tests=all
 status=debug
 
@@ -75,7 +78,10 @@ for type in ${types[@]}; do
 		if [[ ${existing_runs} -lt $most_idle ]]; then
 			if [[ $type = "chisel" && ${fields[0]} = "max-2" ]]; then
 				echo ""
-				# Do not let chisel run on max2
+				# Do not let chisel run on max2 for now
+			# elif [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
+			# 	echo ""
+			# 	# Do not let chisel run on tflop1 for now
 			else 
 				candidate=$dst
 				most_idle=$existing_runs
