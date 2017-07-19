@@ -9,6 +9,7 @@ object AWS_F1 extends FPGATarget {
 
   override type Area = XilinxArea
   override type Sum = XilinxAreaSummary
+  override def areaMetric: AreaMetric[XilinxArea] = XilinxAreaMetric
   override lazy val areaModel: AreaModel[Area,Sum] = new VirtexUSPAreaModel
   override lazy val latencyModel: LatencyModel = new VirtexUSPLatencyModel
 

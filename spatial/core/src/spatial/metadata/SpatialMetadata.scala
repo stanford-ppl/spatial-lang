@@ -50,8 +50,8 @@ case class MBound(bound: BigInt, isExact: Boolean, isFinal: Boolean) extends Met
 
   def set[T:Type](x: T, value: BigInt): Unit = { boundOf(x.s) = value }
   def get(x: Exp[_]): Option[MBound] = x match {
-    case Const(c: BigDecimal) if c.isWhole => Some(Final(c.toBigInt))
     case Param(c: BigDecimal) if c.isWhole => Some(Exact(c.toBigInt))
+    case Const(c: BigDecimal) if c.isWhole => Some(Final(c.toBigInt))
     case _ => metadata[MBound](x)
   }
 }

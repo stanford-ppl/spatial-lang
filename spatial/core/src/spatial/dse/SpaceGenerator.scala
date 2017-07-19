@@ -9,15 +9,24 @@ trait SpaceGenerator {
   final val PRUNE: Boolean = false
 
   implicit class ToRange(x: (Int,Int,Int)) {
-    def toRange: Range = x._1 until x._3 by x._2
+    def toRange: Range = x._1 to x._3 by x._2
   }
 
   def domain(p: Param[Index], restricts: Iterable[Restrict])(implicit ir: State): Domain[Int] = {
     if (restricts.nonEmpty) {
-      Domain.restricted(domainOf(p).toRange, {(v: Int, state: State) => p.setValue(BigDecimal(v))(state) }, {state => restricts.forall(_.evaluate()(state)) })
+      Domain.restricted(
+        range  = domainOf(p).toRange,
+        setter = {(v: Int, state: State) => p.setValue(BigDecimal(v))(state) },
+        getter = {(state: State) => p.value(state).asInstanceOf[BigDecimal].toInt },
+        cond   = {state => restricts.forall(_.evaluate()(state)) }
+      )
     }
     else {
-      Domain(domainOf(p).toRange, { (v: Int, state: State) => p.setValue(BigDecimal(v))(state) })
+      Domain(
+        range = domainOf(p).toRange,
+        setter = { (v: Int, state: State) => p.setValue(BigDecimal(v))(state) },
+        getter = { (state: State) => p.value(state).asInstanceOf[BigDecimal].toInt }
+      )
     }
   }
 
@@ -36,10 +45,12 @@ trait SpaceGenerator {
 
   def createCtrlSpace(metapipes: Seq[Exp[_]])(implicit ir: State): Seq[Domain[Boolean]] = {
     metapipes.map{mp =>
-      Domain(List(true,false), {(c: Boolean, state:State) =>
-        if (c) styleOf.set(mp, MetaPipe)(state)
-        else   styleOf.set(mp, SeqPipe)(state)
-      })
+      Domain.apply(
+        options = Seq(false, true),
+        setter  = {(c: Boolean, state:State) => if (c) styleOf.set(mp, MetaPipe)(state)
+                                                else   styleOf.set(mp, SeqPipe)(state) },
+        getter  = {(state: State) => styleOf(mp)(state) == MetaPipe }
+      )
     }
   }
 }

@@ -13,6 +13,7 @@
 dist/*
 out*
 csvs/*
+results/*
 gen/*
 gen_gold/*
 gen_bak/*

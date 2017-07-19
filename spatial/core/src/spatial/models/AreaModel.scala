@@ -61,7 +61,12 @@ abstract class AreaModel[Area:AreaMetric, Sum<:AreaSummary[Sum]] extends AreaMet
     case Some(d) => areaOf(e, d, inHwScope, inReduce)
     case None => NoArea
   }
-  @stateful def areaOf(e: Exp[_], d: Def, inHwScope: Boolean, inReduce: Boolean): Area
+  @stateful final def areaOf(e: Exp[_], d: Def, inHwScope: Boolean, inReduce: Boolean): Area = {
+    if (!inHwScope) NoArea else if (inReduce) areaInReduce(e, d) else areaOfNode(e, d)
+  }
+
+  @stateful def areaInReduce(e: Exp[_], d: Def): Area = areaOfNode(e, d)
+  @stateful def areaOfNode(e: Exp[_], d: Def): Area
 
   @stateful def areaOfDelayLine(length: Int, width: Int, par: Int): Area
 

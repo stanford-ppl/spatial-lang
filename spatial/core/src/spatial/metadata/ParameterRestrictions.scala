@@ -58,8 +58,9 @@ case class REqualOrOne(ps: Seq[Param[Index]]) extends Restrict {
 }
 
 
-case class Domain[T](options: Seq[T], setter: (T,State) => Unit) {
+case class Domain[T](options: Seq[T], setter: (T,State) => Unit, getter: State => T) {
   def apply(i: Int): T = options(i)
+  @stateful def value: T = getter(state)
   @stateful def set(i: Int): Unit = setter(options(i), state)
   @stateful def setValue(v: T): Unit = setter(v, state)
   def len: Int = options.length
@@ -69,17 +70,17 @@ case class Domain[T](options: Seq[T], setter: (T,State) => Unit) {
     else "Domain(" + options.take(10).mkString(", ") + "... [" + (len-10) + " more])"
   }
 
-  @stateful def filter(cond: => Boolean) = new Domain(options.filter{t => setValue(t); cond}, setter)
+  @stateful def filter(cond: => Boolean) = new Domain(options.filter{t => setValue(t); cond}, setter, getter)
 }
 object Domain {
-  def apply(range: Range, setter: (Int,State) => Unit): Domain[Int] = {
+  def apply(range: Range, setter: (Int,State) => Unit, getter: State => Int): Domain[Int] = {
     if (range.start % range.step != 0) {
       val start = range.step*(range.start/range.step + 1)
-      new Domain[Int]((start to range.end by range.step) :+ range.start, setter)
+      new Domain[Int]((start to range.end by range.step) :+ range.start, setter, getter)
     }
-    else new Domain[Int](range, setter)
+    else new Domain[Int](range, setter, getter)
   }
-  @stateful def restricted(range: Range, setter: (Int,State) => Unit, cond: State => Boolean): Domain[Int] = {
+  @stateful def restricted(range: Range, setter: (Int,State) => Unit, getter: State => Int, cond: State => Boolean): Domain[Int] = {
     val (start, first) = if (range.start % range.step != 0) {
       val start = range.step*((range.start/range.step) + 1)
       setter(range.start, state)
@@ -89,7 +90,7 @@ object Domain {
     else (range.start, None)
 
     val values = (start to range.end by range.step).filter{i => setter(i, state); cond(state) } ++ first
-    new Domain[Int](values, setter)
+    new Domain[Int](values, setter, getter)
   }
 }
 

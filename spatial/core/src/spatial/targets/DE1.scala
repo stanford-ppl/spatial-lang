@@ -2,7 +2,7 @@ package spatial.targets
 import argon.core.State
 import spatial.analysis.AreaAnalyzer
 import spatial.models.altera._
-import spatial.models.{AreaModel, LatencyModel}
+import spatial.models.{AreaMetric, AreaModel, LatencyModel}
 
 object DE1 extends FPGATarget {
   val name = "DE1"
@@ -33,6 +33,7 @@ object DE1 extends FPGATarget {
   // FIXME: No models for DE1 yet
   override type Area = AlteraArea
   override type Sum = AlteraAreaSummary
+  override def areaMetric: AreaMetric[AlteraArea] = AlteraAreaMetric
   override lazy val areaModel: AreaModel[Area,Sum] = new StratixVAreaModel
   override lazy val latencyModel: LatencyModel = new StratixVLatencyModel
   override def capacity: AlteraAreaSummary = AlteraAreaSummary(alms=262400,regs=524800,dsps=1963,bram=2567,channels=13)

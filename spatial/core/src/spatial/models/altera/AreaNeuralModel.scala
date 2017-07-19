@@ -3,6 +3,7 @@ package altera
 
 import java.io.File
 
+import argon.core.Config
 import org.encog.engine.network.activation.ActivationSigmoid
 import org.encog.ml.data.basic.{BasicMLData, BasicMLDataSet}
 import org.encog.neural.networks.BasicNetwork
@@ -35,7 +36,7 @@ abstract class AreaNeuralModel(
   val verbose = false
   val MAX_EPOCH = 600
 
-  private val pwd = sys.env("HYPER_HOME")
+  private val pwd = System.getenv().getOrDefault("SPATIAL_HOME", Config.cwd)
 
   private lazy val dataFile = Source.fromFile(s"$pwd/data/$filename").getLines().toArray.drop(1).map(_.split(",").map(_.trim.toDouble))
   private lazy val maxValues = dataFile(0)
@@ -49,6 +50,7 @@ abstract class AreaNeuralModel(
       network = EncogDirectoryPersistence.loadObject(new File(encogFile)).asInstanceOf[BasicNetwork]
     }
     else {
+      println(s"Training $name model...")
       val MODELS = 1000
       val data = dataFile.drop(1)
 
@@ -65,18 +67,18 @@ abstract class AreaNeuralModel(
       var minError = Double.PositiveInfinity
       var maxError = Double.PositiveInfinity
       while (iter < MODELS) {
-        val (curNetwork, curError, curMax) = trainOne(trainingSet)
-        if (curMax < maxError) {
+        val (curNetwork, curError, curMaxError) = trainOne(trainingSet)
+        if (curMaxError < maxError) {
           minError = curError
-          maxError = curMax
+          maxError = curMaxError
           network = curNetwork
         }
         iter += 1
       }
       println(name + "\n-----------------")
       println("Neural network results:")
-      println(s"Average error: ${100*minError/trainingSet.size}%")
-      println(s"Maximum observed error: ${100*maxError}")
+      println(s"Average error: %.2f".format(100*minError/trainingSet.size) + "%")
+      println(s"Maximum observed error: %.2f".format(100*maxError) + "%")
 
       EncogDirectoryPersistence.saveObject(new File(encogFile), network)
     }

@@ -3,6 +3,7 @@ package altera
 
 import java.io.File
 
+import argon.core.Config
 import org.encog.engine.network.activation.ActivationSigmoid
 import org.encog.ml.data.basic.{BasicMLData, BasicMLDataSet}
 import org.encog.neural.networks.BasicNetwork
@@ -22,7 +23,7 @@ class TileLoadModel {
   val verbose = false
   val MAX_EPOCH = 600
 
-  private val pwd = sys.env("HYPER_HOME")
+  private val pwd = System.getenv().getOrDefault("SPATIAL_HOME", Config.cwd)
 
   def init(): Unit = if (needsInit) {
     val encogFile = s"$pwd/data/$name.eg"

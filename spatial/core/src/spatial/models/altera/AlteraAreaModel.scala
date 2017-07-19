@@ -39,7 +39,7 @@ abstract class AlteraAreaModel extends AreaModel[AlteraArea,AlteraAreaSummary] {
   }
 
 
-  @stateful override def areaOf(e: Exp[_], d: Def, inHwScope: Boolean, inReduce: Boolean): AlteraArea = d match {
+  @stateful override def areaOfNode(e: Exp[_], d: Def): AlteraArea = d match {
     case FieldApply(_,_)    => NoArea // No cost
     case VectorApply(_,_)   => NoArea // Statically known index
     case VectorSlice(_,_,_) => NoArea // Statically known slice
@@ -213,6 +213,9 @@ abstract class AlteraAreaModel extends AreaModel[AlteraArea,AlteraAreaSummary] {
       case _        => NoArea
     }
     case _:SwitchCase[_] => NoArea
+
+    case _:CounterNew => AlteraArea(lut3 = 106, regs = 67)
+    case CounterChainNew(ctrs) => NoArea
 
     // Host/Debugging/Unsynthesizable nodes
     case _:PrintIf   => NoArea

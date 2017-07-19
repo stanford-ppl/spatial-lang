@@ -2,7 +2,7 @@ package spatial.targets
 
 import argon.core.State
 import spatial.analysis.{AreaAnalyzer, LatencyAnalyzer}
-import spatial.models.{AreaModel, AreaSummary, LatencyModel}
+import spatial.models.{AreaMetric, AreaModel, AreaSummary, LatencyModel}
 
 case class Pin(name: String) {
   override def toString: String = name
@@ -31,10 +31,13 @@ abstract class FPGATarget {
   def burstSize: Int  // Size of DRAM burst (in bits)
 
   type Area
-  type Sum <: AreaSummary[_]
+  type Sum <: AreaSummary[Sum]
+  def areaMetric: AreaMetric[Area]
   lazy val areaModel: AreaModel[Area,Sum] = null
   lazy val latencyModel: LatencyModel = null
-  def areaAnalyzer(state: State): AreaAnalyzer[Area,Sum] = AreaAnalyzer[Area,Sum](state, areaModel, latencyModel)
+  def areaAnalyzer(state: State): AreaAnalyzer[Area,Sum] = {
+    AreaAnalyzer[Area,Sum](state, areaModel, latencyModel)(areaMetric)
+  }
   def cycleAnalyzer(state: State): LatencyAnalyzer = LatencyAnalyzer(state, latencyModel)
   def capacity: Sum
 }

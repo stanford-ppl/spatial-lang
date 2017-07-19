@@ -16,7 +16,7 @@ abstract class XilinxAreaModel extends AreaModel[XilinxArea,XilinxAreaSummary] {
     XilinxArea(regs = nregs*par)
   }
 
-  @stateful override def areaOf(e: Exp[_], d: Def, inHwScope: Boolean, inReduce: Boolean): XilinxArea = d match {
+  @stateful override def areaOfNode(e: Exp[_], d: Def): XilinxArea = d match {
     case _ =>
       warn(e.ctx, s"Don't know area of $e = $d")
       NoArea

@@ -11,7 +11,7 @@ trait AreaMetric[A] {
   def muxArea(n: Int, bits: Int): A
 }
 
-abstract class AreaSummary[T] {
+abstract class AreaSummary[T<:AreaSummary[T]] {
   def headings: List[String]
   def toList:   List[Double]
   def toFile:   List[Double]

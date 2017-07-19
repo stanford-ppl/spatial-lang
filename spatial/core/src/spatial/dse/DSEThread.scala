@@ -4,58 +4,62 @@ import argon.core._
 import spatial.SpatialConfig
 import spatial.analysis._
 import spatial.metadata._
-import spatial.models.AreaSummary
+import java.util.concurrent.{BlockingQueue, TimeUnit}
+
+import spatial.models.AreaMetric
 
 case class DSEThread(
+  threadId:  Int,
   origState: State,
   space:     Seq[Domain[_]],
   restricts: Set[Restrict],
   accel:     Exp[_],
   program:   Block[_],
-  localMems: Seq[Exp[_]]
-) {
+  localMems: Seq[Exp[_]],
+  workQueue: BlockingQueue[(BigInt,Int)],
+  outQueue:  BlockingQueue[Array[String]],
+  doneQueue: BlockingQueue[Int]
+) extends Runnable { thread =>
+  // --- Thread stuff
   var areaHeading: List[String] = Nil
+  private var isAlive: Boolean = true
+  private var hasTerminated: Boolean = false
+  def requestStop(): Unit = { isAlive = false }
 
-  private implicit val state: State = new State
-
+  // --- Profiling
   private final val PROFILING = true
   private var clockRef = 0L
   private def resetClock() { clockRef = System.currentTimeMillis }
 
-  private var setTime = 0L
-  private var bndTime = 0L
-  private var conTime = 0L
-  private var areaTime = 0L
-  private var cyclTime = 0L
+  var bndTime = 0L
+  var memTime = 0L
+  var conTime = 0L
+  var areaTime = 0L
+  var cyclTime = 0L
 
-  private def endSet() { setTime += System.currentTimeMillis - clockRef; resetClock() }
   private def endBnd() { bndTime += System.currentTimeMillis - clockRef; resetClock() }
+  private def endMem() { memTime += System.currentTimeMillis - clockRef; resetClock() }
   private def endCon() { conTime += System.currentTimeMillis - clockRef; resetClock() }
   private def endArea() { areaTime += System.currentTimeMillis - clockRef; resetClock() }
   private def endCycles() { cyclTime += System.currentTimeMillis - clockRef; resetClock() }
-  private def resetAllTimers() { setTime = 0; bndTime = 0; conTime = 0; areaTime = 0; cyclTime = 0 }
+  private def resetAllTimers() { memTime = 0; bndTime = 0; conTime = 0; areaTime = 0; cyclTime = 0 }
 
-  private def getPercentages(total: Long) = {
-    val t = total.toFloat
-    val set = 100*setTime / t
-    val bnd = 100*bndTime / t
-    val con = 100*conTime / t
-    val area = 100*areaTime / t
-    val cycl = 100*cyclTime / t
-    //debug("set: %.1f, bnd: %.1f, con: %.1f, area: %.1f, cycles: %.1f, pareto: %.1f".format(set, bnd,con,area,cycl,pareto))
-  }
+  // --- Space Stuff
+  private implicit val state: State = new State
 
   private val target = SpatialConfig.target
-  type Sum = target.Sum
+  private type Area = target.Area
+  private type Sum = target.Sum
+  private implicit val areaMetric: AreaMetric[Area] = target.areaMetric
   private val capacity: Sum = target.capacity
   private val indexedSpace = space.zipWithIndex
   private val N = space.length
   private val dims = space.map{d => BigInt(d.len) }
   private val prods = List.tabulate(N){i => dims.slice(i+1,N).product }
 
-  private lazy val scalarAnalyzer = new ScalarAnalyzer { val IR: State = state }
+  private lazy val scalarAnalyzer = new ScalarAnalyzer { var IR: State = state }
   private lazy val memoryAnalyzer = new MemoryAnalyzer {
-    def localMems: Seq[Exp[_]] = this.localMems
+    def localMems: Seq[Exp[_]] = thread.localMems
     var IR: State = state
   }
   private lazy val contentionAnalyzer = new ContentionAnalyzer { var IR: State = state }
@@ -75,21 +79,54 @@ case class DSEThread(
     contentionAnalyzer.silence()
     areaAnalyzer.silence()
     cycleAnalyzer.silence()
-    areaAnalyzer.run(program)
+    areaAnalyzer.run(program)(mtyp(program.tp))
     areaHeading = areaAnalyzer.totalArea.headings
   }
 
-  def run(start: BigInt, len: Int): Unit = {
-    var i = start
-    val end = start + len
-    while (i < end) {
-      indexedSpace.foreach{case (domain,d) => domain.set( ((i / prods(d)) % dims(d)).toInt ) }
+  def run(): Unit = {
+    while(isAlive) {
+      val (start, len) = workQueue.poll(500L, TimeUnit.MILLISECONDS) // Blocking dequeue with timeout
+      if (start >= 0) {
+        // println(s"#$threadId: Received batch of $len. Working...")
+        try {
+          val result = run(start, len)
+          // println(s"#$threadId: Completed batch of $len. ${workQueue.size()} items remain in the queue")
+          outQueue.put(result) // Blocking enqueue
+        }
+        catch {case e: Throwable =>
+          // println(s"#$threadId: Encountered error while running: ")
+          println(e.getMessage)
+          e.getStackTrace.foreach{line => println(line) }
+          isAlive = false
+        }
+      }
+      else {
+        // println(s"#$threadId: Received kill signal, terminating!")
+        requestStop()
+      } // Somebody poisoned the work queue!
+    }
+
+    // println(s"#$threadId: Ending now!")
+    doneQueue.put(threadId)
+    hasTerminated = true
+  }
+
+  def run(start: BigInt, len: Int): Array[String] = {
+    val array = new Array[String](len)
+    var i: Int = 0
+    var pt: BigInt = start
+    while (i < len) {
+      indexedSpace.foreach{case (domain,d) => domain.set( ((pt / prods(d)) % dims(d)).toInt ) }
 
       val (area, runtime) = evaluate()
       val valid = area <= capacity
 
+      array(i) = space.map(_.value).mkString(",") + "," + area.toFile.mkString(",") + "," + runtime + "," + valid
+
       i += 1
+      pt += 1
     }
+    array
   }
 
   private def evaluate(): (Sum, Long) = {
@@ -97,7 +134,7 @@ case class DSEThread(
     if (PROFILING) endBnd()
 
     memoryAnalyzer.run()
-    if (PROFILING) endSet()
+    if (PROFILING) endMem()
 
     contentionAnalyzer.run()
     if (PROFILING) endCon()
