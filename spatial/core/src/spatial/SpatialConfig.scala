@@ -13,7 +13,6 @@ object SpatialConfig {
     synth: Boolean,
     interpret: Boolean,
     inputs: Seq[String],
-    debug: Boolean,
     pir: Boolean,
     dse: Boolean,
     dot: Boolean,
