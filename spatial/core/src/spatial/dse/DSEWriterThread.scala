@@ -29,19 +29,26 @@ case class DSEWriterThread(
     val startTime = System.currentTimeMillis()
 
     while(isAlive) {
-      val array = workQueue.poll(30000L, TimeUnit.MILLISECONDS)
-      if (array.nonEmpty) {
-        array.foreach{line => data.println(line) }
-        data.flush()
+      try {
+        val array = workQueue.poll(30000L, TimeUnit.MILLISECONDS)
+        if (array.nonEmpty) {
+          array.foreach { line => data.println(line) }
+          data.flush()
 
-        N += array.length
-        if (N > nextNotify) {
-          val time = System.currentTimeMillis - startTime
-          println("  %.4f".format(100*(N/P).toFloat) + s"% ($N / $P) Complete after ${time/1000} seconds")
-          nextNotify += notifyStep
+          N += array.length
+          if (N > nextNotify) {
+            val time = System.currentTimeMillis - startTime
+            println("  %.4f".format(100 * (N / P).toFloat) + s"% ($N / $P) Complete after ${time / 1000} seconds")
+            nextNotify += notifyStep
+          }
         }
+        else requestStop() // Somebody poisoned the work queue!
       }
-      else requestStop()  // Somebody poisoned the work queue!
+      catch {case e: Throwable =>
+        println(e.getMessage)
+        e.getStackTrace.foreach{line => println("  " + line) }
+        requestStop()
+      }
     }
 
     data.close()
