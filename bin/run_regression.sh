@@ -24,16 +24,19 @@ here=`pwd`
 cd ${SPATIAL_HOME}
 spatial_hash=`git rev-parse HEAD`
 spatial_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd argon
-argon_hash=`git rev-parse HEAD`
-argon_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd ../scala-virtualized
-virtualized_hash=`git rev-parse HEAD`
-virtualized_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd ../apps
-apps_hash=`git rev-parse HEAD`
-apps_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd ../
+argon_hash=`git ls-files -s argon | cut -d\  -f2`
+virtualized_hash=`git ls-files -s scala-virtualized | cut -d\  -f2`
+apps_hash=`git ls-files -s apps | cut -d\  -f2`
+# cd argon
+# argon_hash=`git rev-parse HEAD`
+# argon_hash_message=`git log --stat --name-status HEAD^..HEAD`
+# cd ../scala-virtualized
+# virtualized_hash=`git rev-parse HEAD`
+# virtualized_hash_message=`git log --stat --name-status HEAD^..HEAD`
+# cd ../apps
+# apps_hash=`git rev-parse HEAD`
+# apps_hash_message=`git log --stat --name-status HEAD^..HEAD`
+# cd ../
 at=`date +"%Y-%m-%d_%H-%M-%S"`
 machine=`hostname`
 cd $here
