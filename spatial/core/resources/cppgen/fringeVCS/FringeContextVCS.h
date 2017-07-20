@@ -269,8 +269,13 @@ public:
       EPRINTF("ERROR: Simulation terminated after %lu cycles\n", numCycles);
       EPRINTF("=========================================\n");
     } else {  // Ran to completion, pull down command signal
+      if (status & 0x2) { // Hardware timeout
+        EPRINTF("=========================================\n");
+        EPRINTF("Hardware timeout after %lu cycles\n", numCycles);
+        EPRINTF("=========================================\n");
+      }
       writeReg(commandReg, 0);
-      while (status == 1) {
+      while (status != 0) {
         step();
         status = readReg(statusReg);
       }
@@ -292,7 +297,18 @@ public:
     }
   }
 
+  void dumpDebugRegs() {
+    int numDebugRegs = 96;
+    EPRINTF(" ******* Debug regs *******\n");
+    for (int i=0; i<numDebugRegs; i++) {
+      uint64_t value = readReg(numArgIns + numArgOuts + 2 - numArgIOs + i);
+      EPRINTF("\tR%d: %08x\n", i, value);
+    }
+    EPRINTF(" **************************\n");
+  }
+
   ~FringeContextVCS() {
+//    dumpDebugRegs();
     finish();
   }
 };
