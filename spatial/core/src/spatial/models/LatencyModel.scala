@@ -15,6 +15,7 @@ trait LatencyModel {
   var modelVerbosity = 1
 
   def silence(): Unit = { modelVerbosity = -1 }
+  def init(): Unit = { }
 
   @stateful def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
 
@@ -32,7 +33,7 @@ trait LatencyModel {
     latency
   }
 
-  private def latencyOfNodeInReduce(s: Exp[_], d: Def): Long = d match {
+  @stateful protected def latencyOfNodeInReduce(s: Exp[_], d: Def): Long = d match {
     case FltAdd(_,_)     => 1
     case RegWrite(_,_,_) => 0
     case _ => latencyOfNode(s, d)
@@ -103,7 +104,7 @@ trait LatencyModel {
     case _ => false
   }
 
-  protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
+  @stateful protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
     case d if isAllocation(d) => 0
     case FieldApply(_,_)    => 0
     case VectorApply(_,_)   => 0
@@ -208,54 +209,22 @@ trait LatencyModel {
 
     // Floating point math
     // TODO: Floating point for things besides single precision
-    case FltNeg(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      1
-
-    case FltAdd(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      14
-
-    case FltSub(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      14
-
-    case FltMul(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      11
-
-    case FltDiv(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      33
-
-    case FltLt(a,_)  =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
-
-    case FltLeq(a,_) =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
-
-    case FltNeq(a,_) =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
-
-    case FltEql(a,_) =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
-
     case FltAbs(_) => 1
-    case FltLog(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      35
+    case FltNeg(_) => 1
+    case FltAdd(_,_) if s.tp == FloatType => 14
+    case FltSub(_,_) if s.tp == FloatType => 14
+    case FltMul(_,_) if s.tp == FloatType => 11
+    case FltDiv(_,_) if s.tp == FloatType => 33
 
-    case FltExp(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      27
+    case FltLt(a,_)  if a.tp == FloatType => 3
+    case FltLeq(a,_) if a.tp == FloatType => 3
 
-    case FltSqrt(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      28
+    case FltNeq(a,_) if a.tp == FloatType => 3
+    case FltEql(a,_) if a.tp == FloatType => 3
+
+    case FltLog(_) if s.tp == FloatType => 35
+    case FltExp(_) if s.tp == FloatType => 27
+    case FltSqrt(_) if s.tp == FloatType => 28
 
     case Mux(_,_,_) => 1
     case Min(_,_)   => 1
@@ -264,37 +233,8 @@ trait LatencyModel {
     case FixConvert(_) => 1
     case FltConvert(_) => 6 // TODO
 
-    case FltPtToFixPt(x) =>
-      //if (nbits(s) != 32 && nbits(x) != 32) warn(s"Don't know latency for $d - using default")
-      6
-
-    case FixPtToFltPt(x) =>
-      //if (nbits(s) != 32 && nbits(x) != 32) warn(s"Don't know latency for $d - using default")
-      6
-
-    // TODO
-    /*case BurstStore(mem,stream,ofs,len,par) =>
-      val c = contentionOf(s)
-      val p = bound(par).get
-      val size = bound(len).getOrElse{warn("Cannot resolve bound of offchip store")(mpos(s.pos)); 96.0}
-
-      val baseCycles = size / p.toDouble
-
-      val oFactor = 0.02*c - 0.019
-      val smallOverhead = if (c < 8) 0.0 else 0.0175
-      val overhead = if (p < 8) 1.0 + smallOverhead*p else oFactor*p + (1 - (8*oFactor)) + smallOverhead*8
-
-      //System.out.println(s"Sizes: $sizes, base cycles: $baseCycles, ofactor: $oFactor, smallOverhead: $smallOverhead, overhead: $overhead")
-      Math.ceil(baseCycles*overhead).toLong
-
-    case BurstLoad(mem,stream,ofs,len,par) =>
-      val c = contentionOf(s)
-      val ts = bound(len).getOrElse{stageWarn("Cannot resolve bound of offchip load")(mpos(s.pos)); 96.0}
-      val b = ts  // TODO - max of this and max command size
-      val r = 1.0 // TODO - number of commands needed (probably 1)
-      val p = bound(par).get
-      //System.out.println(s"Tile transfer $s: c = $c, r = $r, b = $b, p = $p")
-      memoryModel(c,r.toInt,b.toInt,p.toInt)*/
+    case FltPtToFixPt(x) if x.tp == FloatType => 6
+    case FixPtToFltPt(x) if s.tp == FloatType => 6
 
     case _:Hwblock             => 1
     case _:ParallelPipe        => 1

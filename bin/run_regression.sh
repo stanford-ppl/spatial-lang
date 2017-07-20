@@ -24,16 +24,19 @@ here=`pwd`
 cd ${SPATIAL_HOME}
 spatial_hash=`git rev-parse HEAD`
 spatial_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd argon
-argon_hash=`git rev-parse HEAD`
-argon_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd ../scala-virtualized
-virtualized_hash=`git rev-parse HEAD`
-virtualized_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd ../apps
-apps_hash=`git rev-parse HEAD`
-apps_hash_message=`git log --stat --name-status HEAD^..HEAD`
-cd ../
+argon_hash=`git ls-files -s argon | cut -d\  -f2`
+virtualized_hash=`git ls-files -s scala-virtualized | cut -d\  -f2`
+apps_hash=`git ls-files -s apps | cut -d\  -f2`
+# cd argon
+# argon_hash=`git rev-parse HEAD`
+# argon_hash_message=`git log --stat --name-status HEAD^..HEAD`
+# cd ../scala-virtualized
+# virtualized_hash=`git rev-parse HEAD`
+# virtualized_hash_message=`git log --stat --name-status HEAD^..HEAD`
+# cd ../apps
+# apps_hash=`git rev-parse HEAD`
+# apps_hash_message=`git log --stat --name-status HEAD^..HEAD`
+# cd ../
 at=`date +"%Y-%m-%d_%H-%M-%S"`
 machine=`hostname`
 cd $here
@@ -43,14 +46,21 @@ cd $here
  # dsts=("portland")
 types=("scala" "chisel")
 dsts=("portland;/home/regression/" "max-2;/kunle/users/mattfel/regression" 
-	  "tflop2;/home/regression/" "tflop1;/kunle/users/mattfel/regression_tflop1/"
+	  "tflop2;/home/regression/"
 	  "tucson;/home/mattfel/regression" "london;/home/mattfel/regression")
-	  #manchester
+	  #manchester #tflop1;/kunle/users/mattfel/regression_tflop1/
 tests=all
 status=debug
 
 # Compile regression test packet
 i=0
+
+echo -e "You may be requested to log in to a few kunle machines.  
+We recommend you set up ssh keys for all these machines so you don't need to keep typing
+your password.  
+
+**WARNING** If you do not have access to any of these machines, please CANCEL this script and contact mattfel@stanford.edu and ask for an account\n"
+
 for type in ${types[@]}; do
 	# Find least occupied machine
 	most_idle=999
@@ -66,8 +76,16 @@ for type in ${types[@]}; do
 		# echo "${fields[0]} has ${existing_runs} runs going (current best ${most_idle})"
 
 		if [[ ${existing_runs} -lt $most_idle ]]; then
-			candidate=$dst
-			most_idle=$existing_runs
+			if [[ $type = "chisel" && ${fields[0]} = "max-2" ]]; then
+				echo ""
+				# Do not let chisel run on max2 for now
+			# elif [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
+			# 	echo ""
+			# 	# Do not let chisel run on tflop1 for now
+			else 
+				candidate=$dst
+				most_idle=$existing_runs
+			fi
 		fi
 	done
 
@@ -96,7 +114,7 @@ ${path}" > /tmp/${at}.${branch}.${type}.new
 
 		#echo "skipping scp"
 		scp /tmp/${at}.${branch}.${type}.new ${USERNAME}@${dst}.stanford.edu:${path}
-		touch /tmp/${dst}---${at}.${branch}.${type}
+		echo "Test located at $dst : $path" > /tmp/${dst}---${at}.${branch}.${type}
 		scp /tmp/${dst}---${at}.${branch}.${type} ${USER}@london.stanford.edu:/remote/regression/mapping
 
 		echo -e "\n** Sent $type test to $dst (because it had ${most_idle} tests there already) **\n"

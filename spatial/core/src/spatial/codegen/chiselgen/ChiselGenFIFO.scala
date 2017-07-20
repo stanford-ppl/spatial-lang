@@ -105,6 +105,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
       emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${reader}_en & ($enabler & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en).apply(0)""")
 
+    case FIFOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
     case FIFOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
     case FIFOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")
     case FIFOAlmostEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.almostEmpty")

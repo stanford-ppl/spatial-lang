@@ -38,7 +38,7 @@ class SRAMVerilogAWS(val w: Int, val d: Int) extends BlackBox(
   })
 }
 
-class FFRAM(val w: Int, val d: Int) extends Module {
+abstract class GenericRAM(val w: Int, val d: Int) extends Module {
   val addrWidth = log2Up(d)
   val io = IO(new Bundle {
     val raddr = Input(UInt(addrWidth.W))
@@ -48,6 +48,9 @@ class FFRAM(val w: Int, val d: Int) extends Module {
     val rdata = Output(UInt(w.W))
   })
 
+}
+
+class FFRAM(override val w: Int, override val d: Int) extends GenericRAM(w, d) {
   val rf = Module(new RegFilePure(w, d))
   rf.io.raddr := RegNext(io.raddr, 0.U)
   rf.io.wen := io.wen
@@ -56,16 +59,7 @@ class FFRAM(val w: Int, val d: Int) extends Module {
   io.rdata := rf.io.rdata
 }
 
-class SRAM(val w: Int, val d: Int) extends Module {
-  val addrWidth = log2Up(d)
-  val io = IO(new Bundle {
-    val raddr = Input(UInt(addrWidth.W))
-    val wen = Input(Bool())
-    val waddr = Input(UInt(addrWidth.W))
-    val wdata = Input(UInt(w.W))
-    val rdata = Output(UInt(w.W))
-  })
-
+class SRAM(override val w: Int, override val d: Int) extends GenericRAM(w, d) {
   // Customize SRAM here
   FringeGlobals.target match {
     case "aws" =>
