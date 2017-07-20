@@ -37,25 +37,24 @@ That's it! You're ready to create and run Spatial programs!
 Installation (From Source)
 --------------------------
 
-Clone two repositories: `argon` and `spatial-lang`.
-You can place these anywhere as long as you point your environment variables correctly.
-This tutorial will assume you place all three in ${HOME}/spatial.
-
 .. highlight:: bash
 
-Run the following (bash) commands to clone::
+Run the following (bash) commands to clone and update the spatial-lang repository::
 
-    mkdir ${HOME}/spatial
-    cd ${HOME}/spatial
     git clone https://github.com/stanford-ppl/spatial-lang.git
-    git clone https://github.com/stanford-ppl/argon.git
+    git submodule update --init
 
-Note that the current setup assumes spatial-lang and argon are on the ``master`` branch.
+This will pull Spatial's submodules `argon` and `scala-virtualized`.
+If you'd like to track the most recent stable updates::
+    
+    cd spatial-lang && git checkout master
+    cd argon && git checkout master
+    cd ../scala-virtualized && git checkout argon
 
-Next, make sure the following environment variables are set.  If you are using the recommended
+Running automated tests requires a few environment variables to be set.  If you are using the recommended
 directory structure in this tutorial, then you can simply run the following command::
 
-    cd ${HOME}/spatial/spatial-lang
+    cd ${HOME}/spatial-lang
     source ./init-env.sh
 
 If you have some other structure, you need to set the following variables manually.
@@ -69,9 +68,9 @@ It may be easiest to set them in your terminal startup script (e.g. bashrc) so a
 Once these are all set, you are ready to compile the language.  Run the following::
 
     cd ${SPATIAL_HOME}
-    make full
+    sbt compile
 
-A good habit would be to pull from these repositories often and run ``make full`` in ``SPATIAL_HOME``.
+A good habit would be to pull from these repositories often and run ``sbt compile`` in ``SPATIAL_HOME``.
 
 
 That's it! Up next, :doc:`learn how to build a basic Spatial program <helloworld>`.

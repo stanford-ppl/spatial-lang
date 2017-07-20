@@ -1,6 +1,7 @@
 package spatial
 
 import argon.ArgonApp
+import argon.ArgonCompiler
 import argon.core.State
 import argon.traversal.IRPrinter
 import argon.util.Report
@@ -12,6 +13,7 @@ import spatial.codegen.chiselgen.ChiselGenSpatial
 import spatial.codegen.cppgen.CppGenSpatial
 import spatial.codegen.dotgen.DotGenSpatial
 import spatial.codegen.scalagen.ScalaGenSpatial
+import spatial.interpreter.Interpreter
 import spatial.lang.cake.SpatialExternal
 import spatial.targets.{DefaultTarget, FPGATarget, Targets}
 
@@ -21,8 +23,7 @@ object dsl extends SpatialExternal {
   type SpatialApp = spatial.SpatialApp
 }
 
-trait SpatialApp extends ArgonApp {
-
+trait SpatialCompiler extends ArgonCompiler {
   // Traversal schedule
   override def createTraversalSchedule(state: State) = {
     if (SpatialConfig.enableRetiming) Report.warn("Spatial: retiming enabled")
@@ -97,6 +98,7 @@ trait SpatialApp extends ArgonApp {
     lazy val cppgen = new CppGenSpatial { var IR = state }
     lazy val treegen = new TreeGenSpatial { var IR = state }
     lazy val dotgen = new DotGenSpatial { var IR = state }
+    lazy val interpreter = new Interpreter { var IR = state }
 
     passes += printer
     passes += scalarAnalyzer    // Perform bound and global analysis
@@ -201,6 +203,8 @@ trait SpatialApp extends ArgonApp {
     if (SpatialConfig.enableSynth) passes += chiselgen
     if (SpatialConfig.enableDot)   passes += dotgen
     if (SpatialConfig.enablePIR)   passes += pirgen
+    if (SpatialConfig.enableInterpret)   passes += interpreter
+
   }
 
   val target: FPGATarget = targets.DefaultTarget
@@ -211,9 +215,6 @@ trait SpatialApp extends ArgonApp {
     Report.error("  https://github.com/stanford-ppl/spatial-lang/issues")
     Report.error("and we'll try to fix it as soon as we can.")
   }
-
-  // Make the "true" entry point final
-  final override def main(sargs: Array[String]): Unit = super.main(sargs)
 
   override protected def parseArguments(args: Seq[String]): Unit = {
     SpatialConfig.init()
@@ -227,5 +228,12 @@ trait SpatialApp extends ArgonApp {
       }
     }*/
   }
+  
+}
+trait SpatialApp extends ArgonApp with SpatialCompiler {
+
+  // Make the "true" entry point final
+  final override def main(sargs: Array[String]): Unit = super.main(sargs)
+
 }
 
