@@ -101,17 +101,17 @@ module test;
   reg [31:0] io_dram_resp_bits_tag;
   reg [31:0] io_dram_resp_bits_streamId;
 
-  wire        io_genericStreamIn_ready;
-  reg         io_genericStreamIn_valid;
-  reg  [31:0] io_genericStreamIn_bits_data;
-  reg  [31:0] io_genericStreamIn_bits_tag = 0;
-
-  reg         io_genericStreamIn_bits_last;
-  reg         io_genericStreamOut_ready;
-  wire        io_genericStreamOut_valid;
-  wire [31:0] io_genericStreamOut_bits_data;
-  wire [31:0] io_genericStreamOut_bits_tag;
-  wire        io_genericStreamOut_bits_last;
+//  wire        io_genericStreamIn_ready;
+//  reg         io_genericStreamIn_valid;
+//  reg  [31:0] io_genericStreamIn_bits_data;
+//  reg  [31:0] io_genericStreamIn_bits_tag = 0;
+//
+//  reg         io_genericStreamIn_bits_last;
+//  reg         io_genericStreamOut_ready;
+//  wire        io_genericStreamOut_valid;
+//  wire [31:0] io_genericStreamOut_bits_data;
+//  wire [31:0] io_genericStreamOut_bits_tag;
+//  wire        io_genericStreamOut_bits_last;
 
   /*** DUT instantiation ***/
   Top Top(
@@ -171,17 +171,17 @@ module test;
     .io_dram_resp_bits_rdata_14(io_dram_resp_bits_rdata_14),
     .io_dram_resp_bits_rdata_15(io_dram_resp_bits_rdata_15),
     .io_dram_resp_bits_tag(io_dram_resp_bits_tag),
-    .io_dram_resp_bits_streamId(io_dram_resp_bits_streamId),
-    .io_genericStreamIn_ready(io_genericStreamIn_ready),
-    .io_genericStreamIn_valid(io_genericStreamIn_valid),
-    .io_genericStreamIn_bits_data(io_genericStreamIn_bits_data),
-    .io_genericStreamIn_bits_tag(io_genericStreamIn_bits_tag),
-    .io_genericStreamIn_bits_last(io_genericStreamIn_bits_last),
-    .io_genericStreamOut_ready(io_genericStreamOut_ready),
-    .io_genericStreamOut_valid(io_genericStreamOut_valid),
-    .io_genericStreamOut_bits_data(io_genericStreamOut_bits_data),
-    .io_genericStreamOut_bits_tag(io_genericStreamOut_bits_tag),
-    .io_genericStreamOut_bits_last(io_genericStreamOut_bits_last)
+    .io_dram_resp_bits_streamId(io_dram_resp_bits_streamId)
+//    .io_genericStreamIn_ready(io_genericStreamIn_ready),
+//    .io_genericStreamIn_valid(io_genericStreamIn_valid),
+//    .io_genericStreamIn_bits_data(io_genericStreamIn_bits_data),
+//    .io_genericStreamIn_bits_tag(io_genericStreamIn_bits_tag),
+//    .io_genericStreamIn_bits_last(io_genericStreamIn_bits_last),
+//    .io_genericStreamOut_ready(io_genericStreamOut_ready),
+//    .io_genericStreamOut_valid(io_genericStreamOut_valid),
+//    .io_genericStreamOut_bits_data(io_genericStreamOut_bits_data),
+//    .io_genericStreamOut_bits_tag(io_genericStreamOut_bits_tag),
+//    .io_genericStreamOut_bits_last(io_genericStreamOut_bits_last)
 );
 
   function void startVPD();
@@ -267,10 +267,10 @@ module test;
     input int tag,
     input int last
   );
-    io_genericStreamIn_valid = 1;
-    io_genericStreamIn_bits_data = data;
-    io_genericStreamIn_bits_tag = tag;
-    io_genericStreamIn_bits_last = last;
+//    io_genericStreamIn_valid = 1;
+//    io_genericStreamIn_bits_data = data;
+//    io_genericStreamIn_bits_tag = tag;
+//    io_genericStreamIn_bits_last = last;
   endfunction
 
   reg stallForOneCycle = 0;
@@ -293,13 +293,13 @@ module test;
     end
 
 
-    if (io_genericStreamOut_valid & ~reset) begin
-      readOutputStream(
-        io_genericStreamOut_bits_data,
-        io_genericStreamOut_bits_tag,
-       io_genericStreamOut_bits_last
-      );
-    end
+//    if (io_genericStreamOut_valid & ~reset) begin
+//      readOutputStream(
+//        io_genericStreamOut_bits_data,
+//        io_genericStreamOut_bits_tag,
+//       io_genericStreamOut_bits_last
+//      );
+//    end
 
   endfunction
 
@@ -386,8 +386,8 @@ module test;
     io_wen = 0;
     io_dram_resp_valid = 0;
 //    io_dram_cmd_ready = 0;
-    io_genericStreamIn_valid = 0;
-    io_genericStreamOut_ready = 1;
+//    io_genericStreamIn_valid = 0;
+//    io_genericStreamOut_ready = 1;
 
     if (tick()) begin
       if (vpdon) begin
