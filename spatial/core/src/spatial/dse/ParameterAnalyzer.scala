@@ -73,6 +73,16 @@ trait ParameterAnalyzer extends SpatialTraversal {
       }
       tileSizes ++= tsizes
 
+    case e: DenseTransfer[_,_] =>
+      val pars = onlyIndex(collectParams(e.p))
+      pars.foreach{p => setRange(p, 1, MAX_PAR_FACTOR) }
+      parFactors ++= pars
+
+    case e: SparseTransfer[_] =>
+      val pars = onlyIndex(collectParams(e.p))
+      pars.foreach{p => setRange(p, 1, MAX_PAR_FACTOR) }
+      parFactors ++= pars
+
     case CounterNew(_,_,_,par) =>
       val pars = onlyIndex(collectParams(par))
       pars.foreach{p => setRange(p, 1, MAX_PAR_FACTOR) }

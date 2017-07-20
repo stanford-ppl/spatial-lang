@@ -85,7 +85,7 @@ case class DSEThread(
 
   def run(): Unit = {
     while(isAlive) {
-      val (start, len) = workQueue.poll(500L, TimeUnit.MILLISECONDS) // Blocking dequeue with timeout
+      val (start, len) = workQueue.take() // Blocking dequeue
       if (start >= 0) {
         // println(s"#$threadId: Received batch of $len. Working...")
         try {
@@ -116,10 +116,11 @@ case class DSEThread(
     var i: Int = 0
     var pt: BigInt = start
     while (i < len) {
+      state.resetErrors()
       indexedSpace.foreach{case (domain,d) => domain.set( ((pt / prods(d)) % dims(d)).toInt ) }
 
       val (area, runtime) = evaluate()
-      val valid = area <= capacity
+      val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
 
       array(i) = space.map(_.value).mkString(",") + "," + area.toFile.mkString(",") + "," + runtime + "," + valid
 
