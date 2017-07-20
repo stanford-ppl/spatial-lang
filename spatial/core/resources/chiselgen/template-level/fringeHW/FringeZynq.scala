@@ -19,7 +19,8 @@ class FringeZynq(
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
-  val streamOutsInfo: List[StreamParInfo]
+  val streamOutsInfo: List[StreamParInfo],
+  val blockingDRAMIssue: Boolean = false
 ) extends Module {
   val numRegs = numArgIns + numArgOuts + numArgIOs + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
@@ -54,13 +55,13 @@ class FringeZynq(
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
 
     // Accel stream IO
-    val genericStreams = new GenericStreams(streamInsInfo, streamOutsInfo)
+//    val genericStreams = new GenericStreams(streamInsInfo, streamOutsInfo)
   })
 
   val totalArgOuts = numArgOuts + 1 + 16
 
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
 
   // AXI-lite bridge
   val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
@@ -84,7 +85,7 @@ class FringeZynq(
   io.memStreams <> fringeCommon.io.memStreams
 
   // AXI bridge
-  val axiBridge = Module(new MAGToAXI4Bridge(w, 512))
+  val axiBridge = Module(new MAGToAXI4Bridge(w, 512, fringeCommon.mag.tagWidth))
   axiBridge.io.in <> fringeCommon.io.dram
   io.M_AXI <> axiBridge.io.M_AXI
 }
