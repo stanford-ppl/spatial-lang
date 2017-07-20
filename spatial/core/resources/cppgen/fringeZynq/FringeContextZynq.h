@@ -8,10 +8,28 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <errno.h>
+#include <unistd.h>
+
+// Some key code snippets have been borrowed from the following source:
+// https://shanetully.com/2014/12/translating-virtual-addresses-to-physcial-addresses-in-user-space
+
+// The page frame shifted left by PAGE_SHIFT will give us the physcial address of the frame
+// // Note that this number is architecture dependent. For me on x86_64 with 4096 page sizes,
+// // it is defined as 12. If you're running something different, check the kernel source
+// // for what it is defined as.
+#define PAGE_SHIFT 12
+#define PAGEMAP_LENGTH 8
+#define USE_PHYS_ADDR
 
 /**
- * Simulation Fringe Context
+ * Zynq Fringe Context
  */
+
+extern "C" {
+  void __clear_cache(char* beg, char* end);
+}
+
 class FringeContextZynq : public FringeContextBase<void> {
 
   const uint32_t burstSizeBytes = 64;
@@ -19,6 +37,48 @@ class FringeContextZynq : public FringeContextBase<void> {
   u32 fringeScalarBase = 0;
   const u32 commandReg = 0;
   const u32 statusReg = 1;
+
+  std::map<uint64_t, void*> physToVirtMap;
+
+  void* physToVirt(uint64_t physAddr) {
+    std::map<uint64_t, void*>::iterator iter = physToVirtMap.find(physAddr);
+    if (iter == physToVirtMap.end()) {
+      EPRINTF("Physical address '%x' not found in physToVirtMap\n. Was this allocated before?");
+      exit(-1);
+    }
+    return iter->second;
+  }
+
+  uint64_t virtToPhys(void *virt) {
+    uint64_t phys = 0;
+
+    // Open the pagemap file for the current process
+    FILE *pagemap = fopen("/proc/self/pagemap", "rb");
+    FILE *origmap = pagemap;
+
+    // Seek to the page that the buffer is on
+    unsigned long offset = (unsigned long)virt/ getpagesize() * PAGEMAP_LENGTH;
+    if(fseek(pagemap, (unsigned long)offset, SEEK_SET) != 0) {
+      fprintf(stderr, "Failed to seek pagemap to proper location\n");
+      exit(1);
+    }
+
+    // The page frame number is in bits 0-54 so read the first 7 bytes and clear the 55th bit
+    unsigned long page_frame_number = 0;
+    fread(&page_frame_number, 1, PAGEMAP_LENGTH-1, pagemap);
+
+    page_frame_number &= 0x7FFFFFFFFFFFFF;
+
+    fclose(origmap);
+
+    // Find the difference from the virt to the page boundary
+    unsigned int distance_from_page_boundary = (unsigned long)virt % getpagesize();
+    // Determine how far to seek into memory to find the virt
+    phys = (page_frame_number << PAGE_SHIFT) + distance_from_page_boundary;
+
+    return phys;
+  }
+
 public:
   uint32_t numArgIns = 0;
   uint32_t numArgOuts = 0;
@@ -53,32 +113,106 @@ public:
       return size + alignment - (size % alignment);
     }
   }
+
   virtual uint64_t malloc(size_t bytes) {
+
     size_t paddedSize = alignedSize(burstSizeBytes, bytes);
-    void *ptr = aligned_alloc(burstSizeBytes, paddedSize);
-    return (uint64_t) ptr;
+
+    int fd = open("/dev/zero", O_RDWR);
+    void *ptr = mmap(0, bytes, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE, fd, 0);
+    close(fd);
+
+    // Lock the page in memory
+    // Do this before writing data to the buffer so that any copy-on-write
+    // mechanisms will give us our own page locked in memory
+    if(mlock(ptr, bytes) == -1) {
+      fprintf(stderr, "Failed to lock page in memory: %s\n", strerror(errno));
+      exit(1);
+    }
+
+#ifdef USE_PHYS_ADDR
+    uint64_t physAddr = virtToPhys(ptr);
+    physToVirtMap[physAddr] = ptr;
+    return physAddr;
+#else
+    uint64_t addr = (uint64_t)ptr;
+    return addr;
+#endif
   }
 
   virtual void free(uint64_t buf) {
-    std::free((void*) buf);
+#ifdef USE_PHYS_ADDR
+    std::free(physToVirt(buf));
+#else
+    std::free((void*)buf);
+#endif
   }
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
-    std::memcpy((void*)devmem, hostmem, size);
+#ifdef USE_PHYS_ADDR
+    void *dst = physToVirt(devmem);
+#else
+    void *dst = (void*) devmem;
+#endif
+    std::memcpy(dst, hostmem, size);
+
+    // Flush CPU cache
+    char *start = (char*)dst;
+    char *end = start + size;
+    __clear_cache(start, end);
+
+    // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
+    int cacheSizeWords = 512 * (1 << 10) / sizeof(int);
+    int arraySize = cacheSizeWords * 10;
+    int *dummyBuf = (int*) std::malloc(arraySize * sizeof(int));
+    EPRINTF("[memcpy] dummyBuf = %p, arraySize = %d\n", dummyBuf, arraySize);
+    for (int i = 0; i<arraySize; i++) {
+      if (i == 0) {
+        dummyBuf[i] = 10;
+      } else {
+        dummyBuf[i] = dummyBuf[i-1] * 2;
+      }
+    }
+    EPRINTF("[memcpy] dummyBuf = %p, dummyBuf[%d] = %d\n", dummyBuf, arraySize-1, dummyBuf[arraySize-1]);
   }
 
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
-    std::memcpy(hostmem, (void*)devmem, size);
+#ifdef USE_PHYS_ADDR
+    void *src = physToVirt(devmem);
+#else
+    void *src = (void*) devmem;
+#endif
+    std::memcpy(hostmem, src, size);
   }
 
   void dumpRegs() {
     fprintf(stderr, "---- DUMPREGS ----\n");
-    for (int i=0; i<4; i++) {
-      fprintf(stderr, "reg[%d] = %u\n", i, readReg(i));
+    for (int i=0; i<100; i++) {
+      fprintf(stderr, "reg[%d] = %08x\n", i, readReg(i));
     }
     fprintf(stderr, "---- END DUMPREGS ----\n");
   }
+
+  void debugs() {
+    dumpRegs();
+    fprintf(stderr, "---- Let the debugging begin ----\n");
+
+    // Deq the debug FIFO into registers
+    for (int i = 0; i < 5; i++) {
+      // Pulse deq signal
+      writeReg(0+2, 1);
+      usleep(10);
+      writeReg(0+2, 0);
+
+      // Dump regs
+      dumpRegs();
+    }
+
+    fprintf(stderr, "---- End debugging ----\n");
+  }
+
   virtual void run() {
+    EPRINTF("[run] Begin..\n");
      // Current assumption is that the design sets arguments individually
     uint32_t status = 0;
 
@@ -88,11 +222,16 @@ public:
 
     fprintf(stderr, "Running design..\n");
     double startTime = getTime();
+    int num = 0;
     while((status == 0)) {
       status = readReg(statusReg);
+      num++;
+//      if (num % 1000 == 0) {
+//        dumpRegs();
+//      }
     }
     double endTime = getTime();
-    fprintf(stderr, "Design done, ran for %lf secs\n", endTime - startTime);
+    fprintf(stderr, "Design done, ran for %lf ms, status = %08x\n", endTime - startTime, status);
     writeReg(commandReg, 0);
     while (status == 1) {
       status = readReg(statusReg);
@@ -115,10 +254,24 @@ public:
   }
 
   virtual uint64_t readReg(uint32_t reg) {
-    return Xil_In32(fringeScalarBase+reg*sizeof(u32));
+    uint32_t value = Xil_In32(fringeScalarBase+reg*sizeof(u32));
+//    fprintf(stderr, "[readReg] Reading register %d, value = %lx\n", reg, value);
+    return value;
+  }
+
+  void dumpDebugRegs() {
+    int numDebugRegs = 96;
+    EPRINTF(" ******* Debug regs *******\n");
+    for (int i=0; i<numDebugRegs; i++) {
+      if (i % 16 == 0) EPRINTF("\n");
+      uint32_t value = readReg(numArgIns + numArgOuts + 2 + i);
+      EPRINTF("\tR%d: %08x (%08d)\n", i, value, value);
+    }
+    EPRINTF(" **************************\n");
   }
 
   ~FringeContextZynq() {
+    dumpDebugRegs();
   }
 };
 
