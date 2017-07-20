@@ -87,7 +87,7 @@ object SpatialConfig {
 spatial {
   fpga = "Default"
   interpret = false
-  sim = false
+  sim = true
   inputs = ["0", "1", "2", "3", "4"]
   synth = false
   pir = false
