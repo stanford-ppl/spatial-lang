@@ -1,5 +1,6 @@
 VERILATOR_SRC=cpp/verilator
 AWS_V_DIR=verilog-aws
+AWS_V_SIM_DIR=verilog-aws-sim
 ZYNQ_V_DIR=verilog-zynq
 APPNAME=$(shell basename $(shell pwd))
 timestamp := $(shell /bin/date "+%Y-%m-%d---%H-%M-%S")
@@ -83,16 +84,16 @@ aws-sim-hw:
 	# ----------------------------------------------------------------------------
 	# Step 1: Make the design
 	# ----------------------------------------------------------------------------
-	rm -rf ${AWS_V_DIR}
+	rm -rf ${AWS_V_SIM_DIR}
 	# First use chisel to create the verilog
-	sbt "run-main top.Instantiator --verilog --testArgs aws"
-	cat chisel/template-level/fringeVCS/SRAMVerilogSim.v >> ${AWS_V_DIR}/Top.v
+	sbt "run-main top.Instantiator --verilog --testArgs aws-sim"
+	cat chisel/template-level/fringeVCS/SRAMVerilogSim.v >> ${AWS_V_SIM_DIR}/Top.v
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/${app_name}
 	cp -r $(AWS_HOME)/hdk/cl/examples/cl_dram_dma $(AWS_HOME)/hdk/cl/examples/${app_name}
 	# Add all the static design files
 	cp -f cpp/fringeAWS/design/* $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
-	cp -f ${AWS_V_DIR}/Top.v $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
+	cp -f ${AWS_V_SIM_DIR}/Top.v $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
 	# Run a script to put design together
 	python cpp/fringeAWS/gen_aws_design.py $(AWS_HOME)/hdk/cl/examples/${app_name}
 	# ----------------------------------------------------------------------------

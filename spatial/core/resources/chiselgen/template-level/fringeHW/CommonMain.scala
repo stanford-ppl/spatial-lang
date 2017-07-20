@@ -25,6 +25,7 @@ trait CommonMain {
 
   def supportedTarget(t: String) = t match {
     case "aws" => true
+    case "aws-sim" => true
     case "zynq" => true
     case "verilator" => true
     case "vcs" => true

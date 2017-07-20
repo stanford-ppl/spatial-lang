@@ -231,10 +231,10 @@ logic [63:0] MAG_addr;
 logic [512-1:0] MAG_wdata;
 logic [512-1:0] MAG_rdata;
 logic [31:0] MAG_size;
-assign MAG_size = 1;          // TODO: Remove this line
 logic MAG_addr_size_valid;
 logic MAG_ready_for_wdata;
 logic MAG_ready_for_next_cmd;
+logic MAG_wlast;
 logic MAG_wdata_valid;
 logic MAG_rdata_valid;
 logic MAG_write_mode;
@@ -273,29 +273,31 @@ Top Top_inst (
   // output [31:0] io_rdata,
   .io_dram_cmd_ready(ddr_commands_from_design ? MAG_ready_for_next_cmd : 1'b0),
   //.io_dram_cmd_ready(MAG_ready_for_next_cmd),
-  // .io_???(MAG_ready_for_wdata),
   .io_dram_cmd_valid(MAG_addr_size_valid),
   .io_dram_cmd_bits_addr(MAG_addr),
-  // output [31:0] io_dram_cmd_bits_num_bursts,                 TODO, use this
+  .io_dram_cmd_bits_size(MAG_size),
   .io_dram_cmd_bits_isWr(MAG_write_mode),
   // output [31:0] io_dram_cmd_bits_tag,
-  .io_dram_cmd_bits_wdata_0(  MAG_wdata[31 :  0]),
-  .io_dram_cmd_bits_wdata_1(  MAG_wdata[63 : 32]),
-  .io_dram_cmd_bits_wdata_2(  MAG_wdata[95 : 64]),
-  .io_dram_cmd_bits_wdata_3(  MAG_wdata[127: 96]),
-  .io_dram_cmd_bits_wdata_4(  MAG_wdata[159:128]),
-  .io_dram_cmd_bits_wdata_5(  MAG_wdata[191:160]),
-  .io_dram_cmd_bits_wdata_6(  MAG_wdata[223:192]),
-  .io_dram_cmd_bits_wdata_7(  MAG_wdata[255:224]),
-  .io_dram_cmd_bits_wdata_8(  MAG_wdata[287:256]),
-  .io_dram_cmd_bits_wdata_9(  MAG_wdata[319:288]),
-  .io_dram_cmd_bits_wdata_10( MAG_wdata[351:320]),
-  .io_dram_cmd_bits_wdata_11( MAG_wdata[383:352]),
-  .io_dram_cmd_bits_wdata_12( MAG_wdata[415:384]),
-  .io_dram_cmd_bits_wdata_13( MAG_wdata[447:416]),
-  .io_dram_cmd_bits_wdata_14( MAG_wdata[479:448]),
-  .io_dram_cmd_bits_wdata_15( MAG_wdata[511:480]),
-  .io_dram_resp_ready(MAG_wdata_valid),
+  .io_dram_wdata_ready(MAG_ready_for_wdata),
+  .io_dram_wdata_valid(MAG_wdata_valid),
+  .io_dram_wdata_bits_wdata_0(  MAG_wdata[31 :  0]),
+  .io_dram_wdata_bits_wdata_1(  MAG_wdata[63 : 32]),
+  .io_dram_wdata_bits_wdata_2(  MAG_wdata[95 : 64]),
+  .io_dram_wdata_bits_wdata_3(  MAG_wdata[127: 96]),
+  .io_dram_wdata_bits_wdata_4(  MAG_wdata[159:128]),
+  .io_dram_wdata_bits_wdata_5(  MAG_wdata[191:160]),
+  .io_dram_wdata_bits_wdata_6(  MAG_wdata[223:192]),
+  .io_dram_wdata_bits_wdata_7(  MAG_wdata[255:224]),
+  .io_dram_wdata_bits_wdata_8(  MAG_wdata[287:256]),
+  .io_dram_wdata_bits_wdata_9(  MAG_wdata[319:288]),
+  .io_dram_wdata_bits_wdata_10( MAG_wdata[351:320]),
+  .io_dram_wdata_bits_wdata_11( MAG_wdata[383:352]),
+  .io_dram_wdata_bits_wdata_12( MAG_wdata[415:384]),
+  .io_dram_wdata_bits_wdata_13( MAG_wdata[447:416]),
+  .io_dram_wdata_bits_wdata_14( MAG_wdata[479:448]),
+  .io_dram_wdata_bits_wdata_15( MAG_wdata[511:480]),
+  .io_dram_wdata_bits_wlast(MAG_wlast),
+  // .io_dram_resp_ready(MAG_wdata_valid),
   .io_dram_resp_valid(ddr_commands_from_design ? (MAG_rdata_valid || lcl_cl_sh_ddra.bvalid) : 1'b0), // TODO: Can use _DIRECT signals like below and put this through memory controller too
   //.io_dram_resp_valid(MAG_rdata_valid || lcl_cl_sh_ddra.bvalid), // TODO: Can use _DIRECT signals like below and put this through memory controller too
   .io_dram_resp_bits_rdata_0( MAG_rdata[31 :  0]),
@@ -368,6 +370,7 @@ but rather put the config signals directly into TST to convert to AXI4 format.
 logic DDR_DIRECT_rdata_valid;
 logic[512-1:0] DDR_DIRECT_rdata;
 logic[512-1:0] DDR_DIRECT_wdata;
+logic          DDR_DIRECT_wvalid;
 logic DDR_DIRECT_force_burst_wdata;
 
 logic [31:0] MC_OUT_cfg_addr;
@@ -376,7 +379,7 @@ logic        MC_OUT_cfg_wr;
 logic        MC_OUT_cfg_rd;
 spatial_memory_controller #(.DATA_WIDTH(512), .WORD_WIDTH(32)) SPATIAL_MC (
   .clk(clk),
-  .rst_n(sync_rst_n),
+  .rst_n(sync_rst_n | !SCALAR_reset[0]),
     
   // Spatial signals
   // - Inputs
@@ -384,6 +387,7 @@ spatial_memory_controller #(.DATA_WIDTH(512), .WORD_WIDTH(32)) SPATIAL_MC (
   .size(MAG_size),
   .addr_size_valid(MAG_addr_size_valid),
   .wdata(MAG_wdata),
+  .wlast(MAG_wlast),
   .wdata_valid(MAG_wdata_valid),
   .write_mode(MAG_write_mode),
   // - Outputs
@@ -400,15 +404,17 @@ spatial_memory_controller #(.DATA_WIDTH(512), .WORD_WIDTH(32)) SPATIAL_MC (
   .tst_cfg_ack(ddra_tst_cfg_bus.ack),
   .DIRECT_rdata_valid(DDR_DIRECT_rdata_valid),
   .DIRECT_rdata(DDR_DIRECT_rdata),
+  .rlast(lcl_cl_sh_ddra.rlast),
   // .DIRECT_force_burst_wdata(DDR_DIRECT_force_burst_wdata),
-  .DIRECT_wdata(DDR_DIRECT_wdata)
+  .DIRECT_wdata(DDR_DIRECT_wdata),
+  .DIRECT_wvalid(DDR_DIRECT_wvalid)
 );
 
 
 // Set a bit high during duration of design execution
 logic [2:0] design_state; // S0 = initializing DDR, S1 = running, S2 = done
 always_ff @(posedge clk or negedge sync_rst_n) begin
-  if (!sync_rst_n)
+  if (!sync_rst_n | SCALAR_reset[0])
     design_state <= 0;
   else begin
     if (design_state === 0) begin
@@ -437,7 +443,7 @@ logic [31:0] performance_counter_0;
 logic [31:0] performance_counter_1;
 logic [31:0] performance_counter_2;
 always_ff @(posedge clk or negedge sync_rst_n) begin
-  if (!sync_rst_n) begin
+  if (!sync_rst_n | SCALAR_reset[0]) begin
     performance_counter <= 0;
     performance_counter_0 <= 0;
     performance_counter_1 <= 0;
@@ -651,11 +657,13 @@ cl_ocl_slv CL_OCL_SLV (
    .SCALAR_en(SCALAR_en),
    .SCALAR_reset(SCALAR_reset),
    .SCALAR_done(SCALAR_done),
-   .all_ddr_is_ready(all_ddr_is_ready),
+   // .all_ddr_is_ready(all_ddr_is_ready),
+   .performance_counter_1(performance_counter_1),
 
    .DDR_DIRECT_rdata_valid(DDR_DIRECT_rdata_valid),
    .DDR_DIRECT_rdata(DDR_DIRECT_rdata),
    .DDR_DIRECT_wdata(DDR_DIRECT_wdata),
+   .DDR_DIRECT_wvalid(DDR_DIRECT_wvalid),
    .DDR_DIRECT_force_burst_wdata(DDR_DIRECT_force_burst_wdata),
    .MC_OUT_cfg_addr(MC_OUT_cfg_addr),
    .MC_OUT_cfg_wdata(MC_OUT_cfg_wdata),

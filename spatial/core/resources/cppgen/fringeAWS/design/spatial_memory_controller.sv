@@ -10,6 +10,7 @@ module spatial_memory_controller #(
   input[31:0]                   size,
   input                         addr_size_valid,
   input[DATA_WIDTH-1:0]         wdata,
+  input                         wlast,
   input                         wdata_valid,
   input                         write_mode,
   output logic[DATA_WIDTH-1:0]  rdata,
@@ -24,8 +25,10 @@ module spatial_memory_controller #(
   output logic                  cfg_rd,
   // output logic                  DIRECT_force_burst_wdata,
   output logic[DATA_WIDTH-1:0]  DIRECT_wdata,
+  output logic                  DIRECT_wvalid,
   input                         DIRECT_rdata_valid,
   input[DATA_WIDTH-1:0]         DIRECT_rdata,
+  input                         rlast,
   input                         tst_cfg_ack//,
   // input[31:0]                   tst_cfg_rdata
   
@@ -47,31 +50,33 @@ State machine: Go from DDR commands -> MMIO commands
 
 */
 
-typedef enum logic [3:0] {MC_IDLE         = 4'd0,
-                          MC_INIT_1       = 4'd1,
-                          MC_ADDR_LO      = 4'd2,
-                          MC_ADDR_HI      = 4'd3,
-                          MC_INIT_2       = 4'd4,
-                          MC_LAUNCH       = 4'd5,
-                          MC_WAIT_FOR_DDR = 4'd6} mc_state_t;
+typedef enum logic [3:0] {MC_IDLE           = 4'd0,
+                          MC_INIT_1         = 4'd1,
+                          MC_ADDR_LO        = 4'd2,
+                          MC_ADDR_HI        = 4'd3,
+                          MC_INIT_2         = 4'd4,
+                          MC_LAUNCH         = 4'd5,
+                          MC_WVALID_STALL_1 = 4'd6,
+                          MC_WVALID_STALL_2 = 4'd7,
+                          MC_WAIT_FOR_DDR   = 4'd8} mc_state_t;
 
 mc_state_t curr_state;
 logic load_state;
-logic [31:0] total_wd_count;
-logic [31:0] num_bursts_completed;
 logic [63:0] current_burst_addr;
 logic [31:0] current_burst_size;
 
 assign rdata = DIRECT_rdata;
 assign rdata_valid = DIRECT_rdata_valid;
-// assign DIRECT_wdata = wdata;             // TODO: Add back later to eliminate the 1 cycle delay for DIRECT_wdata (and the registers)
-assign ready_for_wdata = (!load_state) && ( ((curr_state === MC_WAIT_FOR_DDR) && (num_bursts_completed < current_burst_size-1)) || ((curr_state === MC_LAUNCH) && tst_cfg_ack) );
+assign DIRECT_wdata = wdata;             // TODO: Add back later to eliminate the 1 cycle delay for DIRECT_wdata (and the registers)
+assign DIRECT_wvalid = wdata_valid;
+
+assign ready_for_wdata = (curr_state === MC_WVALID_STALL_2) || ( (!load_state) && (!wlast) && (curr_state === MC_WAIT_FOR_DDR) );
 /* // For now, setting this high entire time design runs
 always_ff @(posedge clk) begin
   if (!rst_n) begin
     DIRECT_force_burst_wdata <= 0;
   end else begin
-    DIRECT_force_burst_wdata <= ready_for_wdata; // could also assign this to wdata_valid, or set high entire time design is running
+    DIRECT_force_burst_wdata <= wdata_valid;
   end
 end
 */
@@ -95,8 +100,6 @@ always_ff @(posedge clk) begin
     $display("  [MC]  current_burst_size = %d", current_burst_size);
     $display("  [MC]  current_burst_addr = 0x%x", current_burst_addr);
     $display("  [MC]  load_state = %d", load_state);
-    $display("  [MC]  total_wd_count = %d", total_wd_count);
-    $display("  [MC]  num_bursts_completed = %d", num_bursts_completed);
     $display("  [MC]  tst_cfg_ack = %d", tst_cfg_ack);
     $display("  [MC]  cfg_wr = %d", cfg_wr);
     $display("  [MC]  cfg_rd = %d", cfg_rd);
@@ -181,18 +184,14 @@ begin
   end
 end
 
-
 // Next state logic
 always_ff @(posedge clk or negedge rst_n) begin
   if (!rst_n) begin
     curr_state <= MC_IDLE;
     load_state <= 0;
-    total_wd_count <= 0;
-    num_bursts_completed <= 0;
     current_burst_addr <= 0;
     current_burst_size <= 0;
     ready_for_next_cmd <= 0;
-    DIRECT_wdata <= 0;
   end
   else begin
     case(curr_state)
@@ -203,9 +202,6 @@ always_ff @(posedge clk or negedge rst_n) begin
                 current_burst_size <= size;
                 curr_state <= MC_INIT_1;
                 ready_for_next_cmd <= 1;
-                if (write_mode) begin
-                  DIRECT_wdata <= wdata;
-                end
               end else begin
                 load_state <= 0;
                 curr_state <= MC_IDLE;
@@ -217,16 +213,7 @@ always_ff @(posedge clk or negedge rst_n) begin
               end else begin
                 curr_state <= MC_INIT_1;
               end
-              ready_for_next_cmd <= 0;
-              
-              // TODO: Remove this if block, not needed after Raghu's fix
-              if (addr_size_valid) begin
-                current_burst_addr <= addr;
-                if (write_mode) begin
-                  DIRECT_wdata <= wdata;
-                end
-              end
-              
+              ready_for_next_cmd <= 0;              
             end
       MC_ADDR_LO: begin
               if (tst_cfg_ack) begin
@@ -251,36 +238,46 @@ always_ff @(posedge clk or negedge rst_n) begin
             end
       MC_LAUNCH: begin
               if (tst_cfg_ack) begin
-                curr_state <= MC_WAIT_FOR_DDR;
+                if (load_state) begin
+                  curr_state <= MC_WAIT_FOR_DDR;
+                end else begin
+                  curr_state <= MC_WVALID_STALL_1;
+                end
               end else begin
                 curr_state <= MC_LAUNCH;
               end
             end
+      // These stall states wouldn't be needed if we didn't use TST, since it adds unneeded delays:
+      //  cycle 0: memory controller launch state sets the write go bit
+      //  cycle 1: go bit propagates to q (delay 1), and then cfg_wr_go is high now
+      //  cycle 2: wr_state is now WR_ADDR
+      //  cycle 3: wr_state is now WR_DAT, i.e. wvalid is now high
+      // Once we remove TST, can save 2 cycles by setting awaddr and awvalid
+      MC_WVALID_STALL_1: begin
+              curr_state <= MC_WVALID_STALL_2;
+            end
+      MC_WVALID_STALL_2: begin
+              curr_state <= MC_WAIT_FOR_DDR;
+            end
       MC_WAIT_FOR_DDR: begin
-              if ( (load_state && DIRECT_rdata_valid) || (!load_state) ) begin
+              if ( (load_state && rlast && DIRECT_rdata_valid) || (!load_state && wlast) ) begin
                 // TODO: Add back later to eliminate the 1 cycle delay
                 /*
-                if (num_bursts_completed === current_burst_size-1) begin
-                  num_bursts_completed <= 0;
-                  if (addr_size_valid) begin
-                    // Copied from MC_IDLE
-                    load_state <= !write_mode;
-                    current_burst_addr <= addr;
-                    current_burst_size <= size;
-                    curr_state <= MC_INIT_1;
-                    ready_for_next_cmd <= 1;
-                    if (write_mode) begin
-                      DIRECT_wdata <= wdata;
-                    end
-                  end else begin
-                */
-                    load_state <= 0;
-                    curr_state <= MC_IDLE;
-                /*
+                if (addr_size_valid) begin
+                  // Copied from MC_IDLE
+                  load_state <= !write_mode;
+                  current_burst_addr <= addr;
+                  current_burst_size <= size;
+                  curr_state <= MC_INIT_1;
+                  ready_for_next_cmd <= 1;
+                  if (write_mode) begin
+                    DIRECT_wdata <= wdata;
                   end
                 end else begin
-                  curr_state <= MC_WAIT_FOR_DDR;
-                  num_bursts_completed <= num_bursts_completed + 1;
+                */
+                  load_state <= 0;
+                  curr_state <= MC_IDLE;
+                /*
                 end
                 */
               end else begin

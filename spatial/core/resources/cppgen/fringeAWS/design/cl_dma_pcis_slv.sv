@@ -456,6 +456,7 @@ scrb_bus_t ddrd_scrb_bus_q();
          .DIRECT_rdata(ddrc_tst_cfg_bus_q.DIRECT_rdata),
          .DIRECT_force_burst_wdata(ddrc_tst_cfg_bus_q.DIRECT_force_burst_wdata),
          .DIRECT_wdata(ddrc_tst_cfg_bus_q.DIRECT_wdata),
+         .DIRECT_wvalid(ddrc_tst_cfg_bus_q.DIRECT_wvalid),
 
          .slv_awid(cl_sh_ddr_q2.awid[5:0]),
          .slv_awaddr(cl_sh_ddr_q2.awaddr), 
@@ -816,6 +817,7 @@ scrb_bus_t ddrd_scrb_bus_q();
          .DIRECT_rdata(ddra_tst_cfg_bus.DIRECT_rdata),
          .DIRECT_force_burst_wdata(ddra_tst_cfg_bus.DIRECT_force_burst_wdata),
          .DIRECT_wdata(ddra_tst_cfg_bus.DIRECT_wdata),
+         .DIRECT_wvalid(ddra_tst_cfg_bus.DIRECT_wvalid),
 
          .slv_awid(lcl_cl_sh_ddra_q3.awid[5:0]),
          .slv_awaddr(lcl_cl_sh_ddra_q3.awaddr), 
@@ -1113,6 +1115,7 @@ scrb_bus_t ddrd_scrb_bus_q();
          .DIRECT_rdata(ddrb_tst_cfg_bus_q.DIRECT_rdata),
          .DIRECT_force_burst_wdata(ddrb_tst_cfg_bus_q.DIRECT_force_burst_wdata),
          .DIRECT_wdata(ddrb_tst_cfg_bus_q.DIRECT_wdata),
+         .DIRECT_wvalid(ddrb_tst_cfg_bus_q.DIRECT_wvalid),
 
          .slv_awid(lcl_cl_sh_ddrb_q3.awid[5:0]),
          .slv_awaddr(lcl_cl_sh_ddrb_q3.awaddr), 
@@ -1411,6 +1414,7 @@ scrb_bus_t ddrd_scrb_bus_q();
          .DIRECT_rdata(ddrd_tst_cfg_bus_q.DIRECT_rdata),
          .DIRECT_force_burst_wdata(ddrd_tst_cfg_bus_q.DIRECT_force_burst_wdata),
          .DIRECT_wdata(ddrd_tst_cfg_bus_q.DIRECT_wdata),
+         .DIRECT_wvalid(ddrd_tst_cfg_bus_q.DIRECT_wvalid),
 
          .slv_awid(lcl_cl_sh_ddrd_q3.awid[5:0]),
          .slv_awaddr(lcl_cl_sh_ddrd_q3.awaddr), 

@@ -154,6 +154,7 @@ class Top(
     case "verilator"  => IO(new VerilatorInterface(topParams))
     case "vcs"        => IO(new VerilatorInterface(topParams))
     case "aws"        => IO(new AWSInterface(topParams))
+    case "aws-sim"        => IO(new AWSInterface(topParams))
     case "zynq"       => IO(new ZynqInterface(topParams))
     case "de1soc"     => IO(new DE1SoCInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
@@ -310,7 +311,7 @@ class Top(
       fringe.io.done := accel.io.done
       accel.reset := ~reset
 
-    case "aws" =>
+    case "aws" | "aws-sim" =>
       // Simulation Fringe
       val blockingDRAMIssue = true  // Allow only one in-flight request, block until response comes back
       val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
