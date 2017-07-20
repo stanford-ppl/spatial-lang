@@ -104,6 +104,7 @@ trait ChiselGenFILO extends ChiselGenSRAM {
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
       emit(src"""${lhs}.r := ${fifo}.connectPopPort(${reader}_en & (${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en & ~${reader}_inhibitor).apply(0)""")
 
+    case FILOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
     case FILOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
     case FILOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")
     case FILOAlmostEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.almostEmpty")
