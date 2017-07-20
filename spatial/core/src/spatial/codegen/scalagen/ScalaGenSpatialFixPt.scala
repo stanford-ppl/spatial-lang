@@ -68,6 +68,10 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
     case FixRandom(None) => lhs.tp match {
       case FixPtType(s,i,f) => emit(src"val $lhs = Number.random(FixedPoint($s,$i,$f))")
     }
+    case FixUnif() => lhs.tp match {
+      case FixPtType(s,i,f) => emit(src"val $lhs = Number(BigDecimal(scala.util.Random.nextDouble()), true, FixedPoint($s,$i,$f))")
+    }
+
     case Char2Int(x) => 
       emit(src"val $lhs = ${x}(0).toInt")
     case Int2Char(x) => 
