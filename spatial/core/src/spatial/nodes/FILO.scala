@@ -37,6 +37,11 @@ case class FILOPop[T:Type:Bits](filo: Exp[FILO[T]], en: Exp[Bit]) extends Enable
   val mT = typ[T]
   val bT = bits[T]
 }
+case class FILOPeek[T:Type:Bits](filo: Exp[FILO[T]]) extends Op[T] {
+  def mirror(f:Tx) = FILO.peek(f(filo))
+  val mT = typ[T]
+  val bT = bits[T]
+}
 case class FILOEmpty[T:Type:Bits](filo: Exp[FILO[T]]) extends Op[Bit] {
   def mirror(f:Tx) = FILO.is_empty(f(filo))
   val mT = typ[T]

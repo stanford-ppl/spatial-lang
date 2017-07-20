@@ -273,7 +273,12 @@ public:
     if (isIO) {
       return readReg(2+arg);
     } else {
-      return readReg(numArgIns-numArgIOs+2+arg);  
+      if (numArgIns == 0) {
+        return readReg(1-numArgIOs+2+arg);    
+      } else {
+        return readReg(numArgIns-numArgIOs+2+arg);  
+      }
+      
     }
   }
 
