@@ -30,7 +30,7 @@ case class DSEWriterThread(
 
     while(isAlive) {
       try {
-        val array = workQueue.poll(30000L, TimeUnit.MILLISECONDS)
+        val array = workQueue.poll() //(30000L, TimeUnit.MILLISECONDS)
         if (array.nonEmpty) {
           array.foreach { line => data.println(line) }
           data.flush()
@@ -42,7 +42,7 @@ case class DSEWriterThread(
             nextNotify += notifyStep
           }
         }
-        else requestStop() // Somebody poisoned the work queue!
+        else if (array.isEmpty) requestStop() // Somebody poisoned the work queue!
       }
       catch {case e: Throwable =>
         println(e.getMessage)
