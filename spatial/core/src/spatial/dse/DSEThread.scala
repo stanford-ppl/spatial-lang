@@ -85,7 +85,7 @@ case class DSEThread(
 
   def run(): Unit = {
     while(isAlive) {
-      val (start, len) = workQueue.poll(500L, TimeUnit.MILLISECONDS) // Blocking dequeue with timeout
+      val (start, len) = workQueue.take() // Blocking dequeue
       if (start >= 0) {
         // println(s"#$threadId: Received batch of $len. Working...")
         try {
