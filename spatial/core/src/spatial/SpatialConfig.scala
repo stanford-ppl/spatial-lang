@@ -88,15 +88,14 @@ spatial {
   splitting = false
   arch-dse = false
   naming = false
-  tree = false
+  tree = true
 }
 """)
 
     val mergedSpatialConf = ConfigFactory.load().withFallback(defaultSpatial).resolve()
     loadConfig[SpatialConf](mergedSpatialConf, "spatial") match {
       case Right(spatialConf) =>
-        targetName = spatialConf.fpga
-
+        //targetName = spatialConf.fpga
         enableDSE = spatialConf.dse
         enableDot = spatialConf.dot
 

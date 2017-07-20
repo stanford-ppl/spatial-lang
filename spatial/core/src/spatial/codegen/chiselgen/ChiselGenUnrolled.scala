@@ -50,11 +50,21 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case UnrolledForeach(ens,cchain,func,iters,valids) =>
-      Console.println(src"ii of $lhs is ${iiOf(lhs)}")
-
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
+      // Console.println(src"""II of $lhs is ${iiOf(lhs)}""")
+      emitGlobalWire(src"val ${lhs}_II_done = Wire(Bool())")
+      if (iiOf(lhs) <= 1) {
+        emit(src"""${lhs}_II_done := true.B""")
+      } else {
+        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr());""")
+        emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
+        emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_datapath_en""")
+        emit(src"""${lhs}_IICtr.io.input.stop := ${lhs}_retime.S //${iiOf(lhs)}.S""")
+        emit(src"""${lhs}_IICtr.io.input.reset := reset | ${lhs}_II_done.D(1)""")
+        emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
+      }
       if (styleOf(lhs) != StreamPipe) { 
         emitValids(cchain, iters, valids)
         withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
@@ -101,33 +111,43 @@ trait ChiselGenUnrolled extends ChiselGenController {
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten))
       emitValids(cchain, iters, valids)
+      emitGlobalWire(src"val ${lhs}_II_done = Wire(Bool())")
+      if (iiOf(lhs) <= 1) {
+        emit(src"""${lhs}_II_done := true.B""")
+      } else {
+        emit(s"""val ${quote(lhs)}_IICtr = Module(new RedxnCtr());""")
+        emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
+        emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
+        emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
+        emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset | ${quote(lhs)}_II_done.D(1)""")
+        emit(s"""${quote(lhs)}_IICtr.io.input.saturate := false.B""")       
+      }
       // Set up accumulator signals if we do not recognize reduction function
-      reduceType(lhs) match {
-        case Some(fps: ReduceFunction) => 
-          fps match {
-            case FixPtSum => // Optimized for this case (1 issue per cycle)
-              emit(src"""val ${lhs}_redxn_done = true.B""")
-            case _ => // Not optimized for this case
-              emit(s"""val ${quote(lhs)}_redLoopCtr = Module(new RedxnCtr());""")
-              emit(src"""val ${lhs}_redxn_done = ${lhs}_redLoopCtr.io.output.done | ${lhs}_ctr_trivial""")
-              emit(s"""${quote(lhs)}_redLoopCtr.io.input.enable := ${quote(lhs)}_datapath_en""")
-              emit(s"""${quote(lhs)}_redLoopCtr.io.input.stop := ${quote(lhs)}_retime.S""")
-              emit(s"""${quote(lhs)}_redLoopCtr.io.input.reset := reset | ${quote(lhs)}_redxn_done.D(1)""")
-              emit(s"""${quote(lhs)}_redLoopCtr.io.input.saturate := false.B""")
-          }
-          case _ => 
-            throw new Exception("Cannot emit UnrolledReduce for a nonexistent reduce function!")
-        }
-      emit(src"""${cchain}_en := ${lhs}_sm.io.output.ctr_inc & ${lhs}_redxn_done""")
+      // reduceType(lhs) match {
+      //   case Some(fps: ReduceFunction) => 
+      //     fps match {
+      //       case FixPtSum => // Optimized for this case (1 issue per cycle)
+      //         emit(src"""val ${lhs}_II_done = true.B""")
+      //       case _ => // Not optimized for this case
+      //         emit(s"""val ${quote(lhs)}_IICtr = Module(new RedxnCtr());""")
+      //         emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
+      //         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
+      //         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
+      //         emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset | ${quote(lhs)}_II_done.D(1)""")
+      //         emit(s"""${quote(lhs)}_IICtr.io.input.saturate := false.B""")
+      //     }
+      //     case _ => 
+      //       throw new Exception("Cannot emit UnrolledReduce for a nonexistent reduce function!")
+      //   }
       if (levelOf(lhs) == InnerControl) {
         val dlay = bodyLatency.sum(lhs)
-        emit(s"val ${quote(accum)}_wren = Mux(retime_released, (${quote(lhs)}_redxn_done & ${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor), false.B)")
+        emit(s"val ${quote(accum)}_wren = (${quote(lhs)}_II_done & ${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor).D(0,rr)")
         emit(src"val ${accum}_resetter = ${lhs}_rst_en")
       } else {
         accum match { 
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {
-            emit(src"val ${accum}_wren = Mux(retime_released, (${childrenOf(lhs).last}_done), false.B) // & ${lhs}_redLoop_done // TODO: Skeptical these codegen rules are correct")
+            emit(src"val ${accum}_wren = (${childrenOf(lhs).last}_done).D(0, rr) // TODO: Skeptical these codegen rules are correct")
           case Def(_:SRAMNew[_,_]) =>
             emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
           case Def(_:RegFileNew[_,_]) =>
@@ -209,7 +229,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_wVec($i).data := ${d}.r""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${lhs}_wVec($i).en := ${ens(i)} & ($enable & ~${parent}_inhibitor).D(${symDelay(lhs)})")
+        emit(src"${lhs}_wVec($i).en := ${ens(i)} & ($enable & ~${parent}_inhibitor & ${parent}_II_done).D(${symDelay(lhs)})")
         ind.zipWithIndex.foreach{ case (a, j) =>
           emit(src"""${lhs}_wVec($i).addr($j) := ${a}.r """)
         }
@@ -223,7 +243,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
-      emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en)""")
+      emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en)""")
       emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
 
       // fifo.tp.typeArguments.head match { 
@@ -241,14 +261,14 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${writer}_datapath_en"
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
-      emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
+      emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")
 
     case ParFILOPop(filo, ens) =>
       val par = ens.length
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(filo).find{_.node == lhs}.get.ctrlNode
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
-      emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en).reverse""")
+      emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en).reverse""")
       emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
 
     case ParFILOPush(filo, data, ens) =>
@@ -257,7 +277,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val writer = writersOf(filo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${writer}_datapath_en"
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
-      emit(src"""${filo}.connectPushPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
+      emit(src"""${filo}.connectPushPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")
 
     case e@ParStreamRead(strm, ens) =>
       val parent = parentOf(lhs).get

@@ -143,10 +143,12 @@ class Top(
   val totalArgIns = math.max(1, numArgIns)
   val totalArgOuts = math.max(1, numArgOuts)
   val totalRegs = totalArgIns + totalArgOuts + 2  // (command, status registers)
+
   val addrWidth = 32
   val v = 16
   val totalLoadStreamInfo = loadStreamInfo ++ (if (loadStreamInfo.size == 0) List(StreamParInfo(w, v)) else List[StreamParInfo]())
 	val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v)) else List[StreamParInfo]())
+
   val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
   FringeGlobals.target = target
 

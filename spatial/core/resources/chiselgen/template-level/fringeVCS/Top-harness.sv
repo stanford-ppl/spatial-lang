@@ -292,7 +292,6 @@ module test;
       end
     end
 
-
 //    if (io_genericStreamOut_valid & ~reset) begin
 //      readOutputStream(
 //        io_genericStreamOut_bits_data,

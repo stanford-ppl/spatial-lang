@@ -454,6 +454,7 @@ object utils {
   @stateful def isInnerPipe(e: Exp[_]): Boolean = styleOf(e) == InnerPipe || (styleOf(e) == MetaPipe && isInnerControl(e))
   @stateful def isInnerPipe(e: Ctrl): Boolean = e.isInner || isInnerPipe(e.node)
   @stateful def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe
+  @stateful def isSeqPipe(e: Exp[_]): Boolean = styleOf(e) == SeqPipe
   @stateful def isStreamPipe(e: Exp[_]): Boolean = e match {
     case Def(Hwblock(_,isFrvr)) => isFrvr
     case _ => styleOf(e) == StreamPipe
@@ -654,6 +655,14 @@ object utils {
     case _:StreamOutType[_]   => true
     case _:BufferedOutType[_] => true
     case _:RegType[_]         => isArgIn(e) || isArgOut(e) || isHostIO(e)
+    case _ => false
+  }
+  @stateful def isInternalStreamMemory(e: Exp[_]): Boolean = e.tp match { // For finding the streams generated from tile transfers
+    case _:DRAMType[_]        => false
+    case _:StreamInType[_]    => if (parentOf(e).isDefined) true else false
+    case _:StreamOutType[_]   => if (parentOf(e).isDefined) true else false
+    case _:BufferedOutType[_] => true
+    case _:RegType[_]         => false
     case _ => false
   }
 
