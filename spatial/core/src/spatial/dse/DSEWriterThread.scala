@@ -30,7 +30,7 @@ case class DSEWriterThread(
 
     while(isAlive) {
       try {
-        val array = workQueue.poll() //(30000L, TimeUnit.MILLISECONDS)
+        val array = workQueue.take() //(30000L, TimeUnit.MILLISECONDS)
         if (array.nonEmpty) {
           array.foreach { line => data.println(line) }
           data.flush()
