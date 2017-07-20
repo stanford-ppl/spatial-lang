@@ -43,14 +43,14 @@ trait ScalaGenVector extends ScalaGenBits with ScalaGenString {
 
     // Other cases (Structs, Vectors) are taken care of using rewrite rules
     case e@DataAsBits(a) => e.mT match {
-      case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
+      case FltPtType(_,_)   => emit(src"val $lhs = $a.bits")
       case FixPtType(_,_,_) => emit(src"val $lhs = $a.bits")
-      case BooleanType()    => emit(src"val $lhs = Array[Bit]($a)")
+      case BooleanType()    => emit(src"val $lhs = Array[Bool]($a)")
     }
 
     case BitsAsData(v,mT) => mT match {
-      case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
-      case FixPtType(s,i,f) => emit(src"val $lhs = Number($v, FixedPoint($s,$i,$f))")
+      case FltPtType(g,e)   => emit(src"val $lhs = FloatPoint.fromBits($v, FltFormat(${g-1},$e))")
+      case FixPtType(s,i,f) => emit(src"val $lhs = FixedPoint.fromBits($v, FixFormat($s,$i,$f))")
       case BooleanType()    => emit(src"val $lhs = $v.head")
     }
 

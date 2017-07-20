@@ -7,7 +7,7 @@ import spatial.aliases._
 trait ScalaGenSpatialBool extends ScalaGenBits {
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case BooleanType => "Bit"
+    case BooleanType => "Bool"
     case _ => super.remap(tp)
   }
 
@@ -18,7 +18,7 @@ trait ScalaGenSpatialBool extends ScalaGenBits {
   }
 
   override def invalid(tp: Type[_]) = tp match {
-    case BooleanType => "Bit(false,false)"
+    case BooleanType => "Bool(false,false)"
     case _ => super.invalid(tp)
   }
 
@@ -30,8 +30,8 @@ trait ScalaGenSpatialBool extends ScalaGenBits {
     case XOr(x,y)  => emit(src"val $lhs = $x !== $y")
     case XNor(x,y) => emit(src"val $lhs = $x === $y")
 
-    case RandomBoolean(None) => emit(src"val $lhs = Bit(java.util.concurrent.ThreadLocalRandom.current().nextBoolean())")
-    case RandomBoolean(Some(max)) => emit(src"val $lhs = Bit(java.util.concurrent.ThreadLocalRandom.current().nextBoolean() && $max)")
+    case RandomBoolean(None) => emit(src"val $lhs = Bool(java.util.concurrent.ThreadLocalRandom.current().nextBoolean())")
+    case RandomBoolean(Some(max)) => emit(src"val $lhs = Bool(java.util.concurrent.ThreadLocalRandom.current().nextBoolean() && $max)")
     case _ => super.emitNode(lhs, rhs)
   }
 }

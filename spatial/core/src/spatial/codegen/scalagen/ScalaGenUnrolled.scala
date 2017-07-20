@@ -30,8 +30,8 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM with ScalaGenC
         }
 
         open(src"while(hasItems_$lhs) {")
-        iters(i).zipWithIndex.foreach { case (iter, j) => emit(src"val $iter = Number(BigInt(1),true,FixedPoint(true,32,0))") }
-        valids(i).zipWithIndex.foreach { case (valid, j) => emit(src"val $valid = Bit(true,true)") }
+        iters(i).zipWithIndex.foreach { case (iter, j) => emit(src"val $iter = FixedPoint(1)") }
+        valids(i).zipWithIndex.foreach { case (valid, j) => emit(src"val $valid = Bool(true,true)") }
       }
       else {
         open(src"$cchain($i).foreach{case (is,vs) => ")
