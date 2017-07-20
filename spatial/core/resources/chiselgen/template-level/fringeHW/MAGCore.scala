@@ -61,8 +61,8 @@ class MAGCore(
 
   val addrWidth = 64
   // Addr FIFO
-  val addrFifo = Module(new FIFOArbiter(addrWidth, d, v, numStreams))
-  val addrFifoConfig = Wire(new FIFOOpcode(d, v))
+  val addrFifo = Module(new FIFOArbiter(addrWidth, d, 1, numStreams))
+  val addrFifoConfig = Wire(new FIFOOpcode(d, 1))
   addrFifoConfig.chainRead := 1.U
   addrFifoConfig.chainWrite := 1.U
   addrFifo.io.config := addrFifoConfig
@@ -118,8 +118,8 @@ class MAGCore(
 //  sgPulse := sgPulser.io.out
 
   // Size FIFO
-  val sizeFifo = Module(new FIFOArbiter(w, d, v, numStreams))
-  val sizeFifoConfig = Wire(new FIFOOpcode(d, v))
+  val sizeFifo = Module(new FIFOArbiter(w, d, 1, numStreams))
+  val sizeFifoConfig = Wire(new FIFOOpcode(d, 1))
   sizeFifoConfig.chainRead := 1.U
   sizeFifoConfig.chainWrite := 1.U
   sizeFifo.io.config := sizeFifoConfig

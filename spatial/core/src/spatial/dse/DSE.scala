@@ -55,9 +55,10 @@ trait DSE extends CompilerPass with SpaceGenerator {
       }
       (intParams ++ metapipes).zip(space).foreach{case (p,d) => report(u"  $p: $d (${p.ctx})") }
 
+      val names = (intParams ++ metapipes).map(p => p.name.getOrElse(p.toString))
       val restrictions: Set[Restrict] = if (PRUNE) restricts.filter{_.deps.size > 1} else Set.empty
 
-      bruteForceDSE(space, restrictions, block)
+      bruteForceDSE(names, space, restrictions, block)
     }
     dbg("Freezing parameters")
     tileSizes.foreach{t => t.makeFinal() }
@@ -65,10 +66,10 @@ trait DSE extends CompilerPass with SpaceGenerator {
     block
   }
 
-  def bruteForceDSE(space: Seq[Domain[_]], restrictions: Set[Restrict], program: Block[_]): Unit = {
+  def bruteForceDSE(names: Seq[String], space: Seq[Domain[_]], restrictions: Set[Restrict], program: Block[_]): Unit = {
     val N = space.size
     val P = space.map{d => BigInt(d.len) }.product
-    val T = 4 //SpatialConfig.threads
+    val T = SpatialConfig.threads
     val dir =  Config.cwd + "/results/"
     val filename = dir + Config.name + "_data.csv"
 
@@ -103,18 +104,23 @@ trait DSE extends CompilerPass with SpaceGenerator {
         doneQueue = respQueue
       )
     }
-    val writer = DSEWriterThread(
-      threadId  = T,
-      spaceSize = P,
-      filename  = filename,
-      workQueue = fileQueue,
-      doneQueue = respQueue
-    )
-
     report("Initializing models...")
 
     // Initializiation may not be threadsafe - only creates 1 area model shared across all workers
     workers.foreach{worker => worker.init() }
+
+    val superHeader = List.tabulate(names.length){i => if (i == 0) "INPUTS" else "" }.mkString(",") + "," +
+                      List.tabulate(workers.head.areaHeading.length){i => if (i == 0) "OUTPUTS" else "" }.mkString(",") + ", ,"
+    val header = names.mkString(",") + "," + workers.head.areaHeading.mkString(",") + ", Cycles, Valid"
+
+    val writer = DSEWriterThread(
+      threadId  = T,
+      spaceSize = P,
+      filename  = filename,
+      header    = superHeader + "\n" + header,
+      workQueue = fileQueue,
+      doneQueue = respQueue
+    )
 
     report("And aaaawaaaay we go!")
 
