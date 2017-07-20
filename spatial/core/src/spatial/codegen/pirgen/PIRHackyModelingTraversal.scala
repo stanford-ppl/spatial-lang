@@ -13,8 +13,7 @@ import org.virtualized.SourceContext
 import scala.collection.mutable
 
 trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
-  lazy val plasticineLatencyModel = new PlasticineLatencyModel{}
-  override def latencyOf(e: Exp[_]) = plasticineLatencyModel.latencyOf(e, inReduce=false)
+  override val latencyModel = new PlasticineLatencyModel{}
 
   private case class Partition(compute: Seq[Exp[_]]) {
     var stages: List[Exp[_]] = compute.toList

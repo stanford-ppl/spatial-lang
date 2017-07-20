@@ -613,6 +613,9 @@ export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
 export PATH=/usr/bin:\$VCS_HOME/amd64/bin:$PATH
 export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
 export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
+if [[ \${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
+  export JAVA_HOME=\${JAVA_HOME}/..
+fi
 export _JAVA_OPTIONS=\"-Xmx16g\"
 date >> ${5}/log" >> $1
 
