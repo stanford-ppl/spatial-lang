@@ -13,6 +13,7 @@ class SpatialArgParser extends ArgonArgParser {
   parser.opt[Unit]("synth").action{ (_,_) =>
     SpatialConfig.enableSynth = true
     SpatialConfig.enableSim = false
+    SpatialConfig.enableInterpret = false        
   }.text("enable codegen to chisel + cpp (Synthesis) (disable sim) [false]")
 
   parser.opt[Unit]("retiming").action{ (_,_) =>
@@ -21,9 +22,17 @@ class SpatialArgParser extends ArgonArgParser {
 
   parser.opt[Unit]("sim").action { (_,_) =>
     SpatialConfig.enableSim = true
-    SpatialConfig.enableSynth = false
+    SpatialConfig.enableInterpret = false    
   }.text("enable codegen to Scala (Simulation) (disable synth) [true]")
 
+  parser.opt[Unit]("interpreter").action { (_,_) =>
+    SpatialConfig.enableInterpret = true
+  }.text("enable interpreter")
+
+  parser.arg[String]("args...").unbounded().optional().action( (x, _) => {
+    SpatialConfig.inputs = Array(x) ++ SpatialConfig.inputs  
+  }).text("args inputs for the interpreter")
+  
   parser.opt[String]("fpga").action( (x,_) =>
     SpatialConfig.targetName = x
   ).text("Set name of FPGA target [Default]")

@@ -6,7 +6,6 @@
 *.dat
 *__*.scala
 
-
 # sbt specific
 .cache
 .history
