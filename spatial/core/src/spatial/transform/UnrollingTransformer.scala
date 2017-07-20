@@ -1,6 +1,7 @@
 package spatial.transform
 
 import argon.core._
+import argon.nodes._
 import argon.transform.ForwardTransformer
 import org.virtualized.SourceContext
 import spatial.aliases._
@@ -257,6 +258,11 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
       List(unrolled)
     }
 
+    def unifyUnsafe[A,B](orig: Exp[A], unrolled: Exp[B]): List[Exp[B]] = {
+      foreach{p => registerUnsafe(orig, unrolled) }
+      List(unrolled)
+    }
+
     // Same symbol for all lanes
     def isCommon(e: Exp[_]) = contexts.map{p => f(e)}.forall{e2 => e2 == f(e)}
   }
@@ -406,6 +412,8 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
       logs(s"Created ${str(lhs2)}"); strMeta(lhs2)
       lanes.unify(lhs, lhs2)
 
+    case e: Switch[_] => unrollSwitch(lhs, e, lanes)
+
     case e: OpForeach        => unrollControllers(lhs,rhs,lanes){ unrollForeachNode(lhs, e) }
     case e: OpReduce[_]      => unrollControllers(lhs,rhs,lanes){ unrollReduceNode(lhs, e) }
     case e: OpMemReduce[_,_] => unrollControllers(lhs,rhs,lanes){ unrollMemReduceNode(lhs, e) }
@@ -430,6 +438,58 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
       dups
   }
 
+  def unrollSwitch[T](lhs: Sym[T], rhs: Switch[T], lanes: Unroller): List[Exp[_]] = {
+    logs(s"Unrolling Switch:")
+    logs(s"$lhs = $rhs")
+    if (lanes.size > 1) lhs.tp match {
+      case Bits(bT) =>
+        // TODO: Adding registers here is pretty hacky, should find way to avoid this
+        val regs = List.tabulate(lanes.size){p => Reg[T](bT.zero)(mtyp(lhs.tp),mbits(bT),lhs.ctx,state) }
+        val writes = new Array[Exp[_]](lanes.size)
+        Parallel.op_parallel_pipe(globalValids, () => {
+          lanes.map{p =>
+            logs(s"$lhs duplicate ${p+1}/${lanes.size}")
+            Pipe.op_unit_pipe(globalValids, () => {
+              val lhs2 = cloneOp(lhs, rhs)
+              val write = regs(p) := lhs.tp.wrapped(lhs2)
+              writes(p) = write.s
+              unit
+            })
+          }
+          unit
+        })
+        val reads = lanes.map{p =>
+          val read = lhs.tp.unwrapped(regs(p).value(lhs.ctx,state))
+          register(lhs, read)
+          read
+        }
+
+        (regs.map(_.s), writes, reads).zipped.foreach{case (reg, write, read) =>
+          duplicatesOf(reg) = List(BankedMemory(Seq(NoBanking),1,isAccum = false))
+          dispatchOf(write, reg) = Set(0)
+          portsOf(write,reg, 0) = Set(0)
+          dispatchOf(read, reg) = Set(0)
+          portsOf(read, reg, 0) = Set(0)
+        }
+
+        reads
+
+      case _ =>
+        assert(lhs.tp == UnitType, s"Could not unroll non-bit, non-unit switch $lhs")
+        val lhs2 = Parallel.op_parallel_pipe(globalValids, () => {
+          lanes.foreach{p =>
+            logs(s"$lhs duplicate ${p+1}/${lanes.size}")
+            cloneOp(lhs, rhs)
+          }
+          unit
+        })
+        lanes.unifyUnsafe(lhs, lhs2)
+    }
+    else {
+      val first = lanes.inLane(0){ cloneOp(lhs, rhs) }
+      lanes.unify(lhs, first)
+    }
+  }
 
   def unrollControllers[T](lhs: Sym[T], rhs: Op[T], lanes: Unroller)(unroll: => Exp[_]) = {
     logs(s"Unrolling controller:")
