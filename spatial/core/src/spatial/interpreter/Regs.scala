@@ -19,18 +19,31 @@ trait Regs extends AInterpreter {
   
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
+    case RegNew(EAny(init)) =>
+      variables
+        .get(lhs)
+        .getOrElse(new IReg(init))
+
+    case RegRead(EReg(reg)) =>
+      reg.v
+      
     case RegWrite(EReg(reg), EAny(v), EBoolean(cond)) =>
       if (cond) {
         reg.v = v
       }
 
-    case RegRead(EReg(reg)) =>
-      reg.v
-
-    case RegNew(EAny(init)) =>
+    case VarRegNew(_) =>
       variables
         .get(lhs)
-        .getOrElse(new IReg(init))
+        .getOrElse(new IReg(null))
+      
+    case VarRegRead(EReg(reg)) =>
+      reg.v
+      
+    case VarRegWrite(EReg(reg), EAny(v), EBoolean(cond)) =>
+      if (cond) {
+        reg.v = v
+      }
 
   }
 

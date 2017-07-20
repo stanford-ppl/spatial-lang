@@ -45,8 +45,7 @@ trait FIFOs extends AInterpreter {
         else
           null
 
-    case FIFOPeek(EFIFO(fifo), EBoolean(en)) =>
-      if (en)
+    case FIFOPeek(EFIFO(fifo)) =>
         if (!fifo.v.isEmpty)
           fifo.v.head
         else

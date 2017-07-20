@@ -89,9 +89,18 @@ trait Interpreter
     println(s"[${Console.BLUE}regfiles content${Console.RESET}]")    
     variablesF.filter(_._2.isInstanceOf[IRegFile]).foreach(displayPair)
 //    println(s"[${Console.BLUE}streams content${Console.RESET}]")    
-//    variablesF.filter(_._2.isInstanceOf[Queue]).foreach(displayPair)        
+//    variablesF.filter(_._2.isInstanceOf[Queue]).foreach(displayPair)
+    println(s"[${Console.BLUE}others${Console.RESET}]")
+    variablesF.filter(x => {
+      !x._2.isInstanceOf[IRegFile] &&
+      !x._2.isInstanceOf[ISRAM] &&
+      !x._2.isInstanceOf[IFIFO] &&
+      !x._2.isInstanceOf[IReg]      
+    }).foreach(displayPair)
     println(s"[${Console.BLUE}bounds content${Console.RESET}]")    
     bounds.toList.sortBy(_._1.toString).foreach(displayPair)
+
+
 
   }
 
