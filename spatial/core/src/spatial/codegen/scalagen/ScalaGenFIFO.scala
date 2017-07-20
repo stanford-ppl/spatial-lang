@@ -35,6 +35,7 @@ trait ScalaGenFIFO extends ScalaGenMemories {
       }}.head
       emit(src"val $lhs = $fifo.size === ${sizeOf(fifo)} - $wPar")
 
+    case FIFOPeek(fifo) => emit(src"val $lhs = ${fifo}.head")
     case FIFONumel(fifo) => emit(src"val $lhs = $fifo.size")
     case FIFOFull(fifo)  => emit(src"val $lhs = $fifo.size >= ${sizeOf(fifo)} ")
     case op@FIFODeq(fifo,en) => emit(src"val $lhs = if ($en && $fifo.nonEmpty) $fifo.dequeue() else ${invalid(op.mT)}")

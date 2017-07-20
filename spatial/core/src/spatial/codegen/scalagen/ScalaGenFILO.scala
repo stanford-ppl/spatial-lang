@@ -33,6 +33,7 @@ trait ScalaGenFILO extends ScalaGenMemories {
       }}.head
       emit(src"val $lhs = $filo.size === ${sizeOf(filo)} - $wPar")
 
+    case FILOPeek(fifo) => emit(src"val $lhs = ${fifo}.head")
     case FILONumel(filo) => emit(src"val $lhs = $filo.size")
     case FILOFull(filo)  => emit(src"val $lhs = $filo.size >= ${sizeOf(filo)} ")
     case op@FILOPop(filo,en) => emit(src"val $lhs = if ($en && $filo.nonEmpty) $filo.pop() else ${invalid(op.mT)}")

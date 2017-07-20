@@ -150,6 +150,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
     rId += 1
     io.out
   }
+
   // // Old empty and error tracking
   // val ovW = Module(new SRFF())
   // val ovR = Module(new SRFF())
