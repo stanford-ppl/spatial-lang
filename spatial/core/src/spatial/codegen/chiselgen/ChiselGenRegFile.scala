@@ -38,7 +38,11 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@RegFileNew(dims, inits) =>
-      val initString = if (inits.isDefined) src"Some(List(${getConstValues(inits.get).toList}))" else "None"
+      val initVals = if (inits.isDefined) {
+        getConstValues(inits.get).toList.map{a => src"${a}d"}.mkString(",")
+      } else { "None"}
+      
+      val initString = if (inits.isDefined) src"Some(List(${initVals}))" else "None"
       val f = lhs.tp.typeArguments.head match {
         case a: FixPtType[_,_,_] => a.fracBits
         case _ => 0

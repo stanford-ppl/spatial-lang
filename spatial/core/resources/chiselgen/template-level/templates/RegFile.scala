@@ -53,8 +53,10 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
 
   // val size_rounded_up = ((dims.head+stride-1)/stride)*stride // Unlike shift reg, for shift reg file it is user's problem if width does not match (no functionality guarantee)
   val registers = if (inits.isDefined){
-    val initval = (inits.get.apply(i)*scala.math.pow(2,fracBits)).toLong
-    List.tabulate(dims.reduce{_*_})(RegInit(initval.U(bitWidth.W)))
+    List.tabulate(dims.reduce{_*_}){i => 
+      val initval = (inits.get.apply(i)*scala.math.pow(2,fracBits)).toLong
+      RegInit(initval.U(bitWidth.W))
+    }
   } else {
     List.fill(dims.reduce{_*_})(RegInit(0.U(bitWidth.W))) // Note: Can change to use FF template
   }
@@ -191,7 +193,7 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
 class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val stride: Int, val numBufs: Int,
                        val wPar: Map[Int,Int], val bitWidth: Int, val fracBits: Int) extends Module { 
 
-  def this(tuple: (List[Int], Int, Int, Map[Int,Int], Int, Int)) = this(tuple._1, None, tuple._2, tuple._3, tuple._4, tuple._5, tuple._7)
+  def this(tuple: (List[Int], Int, Int, Map[Int,Int], Int, Int)) = this(tuple._1, None, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6)
   val io = IO(new Bundle { 
     val sEn = Vec(numBufs, Input(Bool()))
     val sDone = Vec(numBufs, Input(Bool()))
@@ -217,7 +219,7 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
 
-  val shiftRegs = (0 until numBufs).map{i => Module(new ShiftRegFile(dims, inits, stride, wPar.getOrElse(i,1), isBuf = {i>0}, bitWidth))}
+  val shiftRegs = (0 until numBufs).map{i => Module(new ShiftRegFile(dims, inits, stride, wPar.getOrElse(i,1), isBuf = {i>0}, bitWidth, fracBits))}
 
   for (i <- 0 until numBufs) {
     for (j <- 0 until dims.reduce{_*_}) {

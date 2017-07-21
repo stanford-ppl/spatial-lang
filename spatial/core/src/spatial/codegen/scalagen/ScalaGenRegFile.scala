@@ -33,7 +33,7 @@ trait ScalaGenRegFile extends ScalaGenMemories {
     case op@RegFileNew(dims, inits) => 
       if (inits.isDefined) {
         val initString = src"List(${inits.get})"
-        emit(src"${lhs}_values = ${initString} ")
+        emit(src"val ${lhs}_values = ${initString} ")
         emitMem(lhs, src"$lhs = Array.tabulate(${dims.map(quote).mkString("*")})(i => ${lhs}_values(i))")
       } else {
         emitMem(lhs, src"$lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})")
