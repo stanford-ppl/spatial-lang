@@ -449,12 +449,14 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
         Parallel.op_parallel_pipe(globalValids, () => {
           lanes.map{p =>
             logs(s"$lhs duplicate ${p+1}/${lanes.size}")
-            Pipe.op_unit_pipe(globalValids, () => {
+            val pipe = Pipe.op_unit_pipe(globalValids, () => {
               val lhs2 = cloneOp(lhs, rhs)
               val write = regs(p) := lhs.tp.wrapped(lhs2)
               writes(p) = write.s
               unit
             })
+            levelOf(pipe) = OuterControl
+            styleOf(pipe) = SeqPipe
           }
           unit
         })

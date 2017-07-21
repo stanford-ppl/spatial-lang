@@ -2,6 +2,7 @@ package spatial.lang
 
 import argon.core._
 import forge._
+import spatial.metadata._
 import spatial.nodes._
 
 case class Reg[T:Type:Bits](s: Exp[Reg[T]]) extends Template[Reg[T]] {
@@ -26,6 +27,18 @@ object Reg {
 
   @api def apply[T:Type:Bits]: Reg[T] = Reg(Reg.alloc[T](unwrap(implicitly[Bits[T]].zero)))
   @api def apply[T:Type:Bits](reset: T): Reg[T] = Reg(Reg.alloc[T](unwrap(reset)))
+
+  @api def buffer[T:Type:Bits]: Reg[T] = {
+    val reg = Reg.alloc[T](unwrap(implicitly[Bits[T]].zero))
+    isExtraBufferable.enableOn(reg)
+    Reg(reg)
+  }
+  @api def buffer[T:Type:Bits](reset: T): Reg[T] = {
+    val reg = Reg.alloc[T](unwrap(reset))
+    isExtraBufferable.enableOn(reg)
+    Reg(reg)
+  }
+
 
   /** Constructors **/
   @internal def alloc[T:Type:Bits](init: Exp[T]): Sym[Reg[T]] = {

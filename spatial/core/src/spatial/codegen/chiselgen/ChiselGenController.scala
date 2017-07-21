@@ -542,6 +542,7 @@ trait ChiselGenController extends ChiselGenCounter{
       controllerStack.push(lhs)
       emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B""")
       emitController(lhs, None, None)
+      emit(src"""val ${lhs}_II_done = true.B""")
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)
