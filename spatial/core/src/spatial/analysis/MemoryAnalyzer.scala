@@ -128,7 +128,9 @@ trait MemoryAnalyzer extends CompilerPass {
       dbg(c"    $port [Rd]: " + reads.mkString(", "))
     }
 
-    val portsWithWrites = group.revPorts.filter{portAccesses => portAccesses.exists{access => writers.contains(access) } }
+    // Time multiplexed writes are allowed (e.g. for preloading the memory or clearing it)
+    val pipelinedWrites = writers.filterNot{write => group.revPorts.forall{accesses => accesses.contains(write) }}
+    val portsWithWrites = group.revPorts.filter{portAccesses => portAccesses.exists{access => pipelinedWrites.contains(access) } }
 
     if (portsWithWrites.length > 1 && !isExtraBufferable(mem) && showErrors) {
       val obj = if (isSRAM(mem)) "SRAM" else if (isReg(mem)) "Reg" else if (isRegFile(mem)) "RegFile" else "???"

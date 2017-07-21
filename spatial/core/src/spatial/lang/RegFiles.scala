@@ -2,6 +2,7 @@ package spatial.lang
 
 import argon.core._
 import forge._
+import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
@@ -14,6 +15,23 @@ object RegFile {
   @api def apply[T:Type:Bits](cols: Index): RegFile1[T] = wrap(alloc[T,RegFile1](cols.s))
   @api def apply[T:Type:Bits](rows: Index, cols: Index): RegFile2[T] = wrap(alloc[T,RegFile2](rows.s,cols.s))
   @api def apply[T:Type:Bits](dim0: Index, dim1: Index, dim2: Index): RegFile3[T] = wrap(alloc[T,RegFile3](dim0.s, dim1.s, dim2.s))
+
+  @api def buffer[T:Type:Bits](cols: Index): RegFile1[T] = {
+    val rf = alloc[T,RegFile1](cols.s)
+    isExtraBufferable.enableOn(rf)
+    wrap(rf)
+  }
+  @api def buffer[T:Type:Bits](rows: Index, cols: Index): RegFile2[T] = {
+    val rf = alloc[T,RegFile2](rows.s,cols.s)
+    isExtraBufferable.enableOn(rf)
+    wrap(rf)
+  }
+  @api def buffer[T:Type:Bits](dim0: Index, dim1: Index, dim2: Index): RegFile3[T] = {
+    val rf = alloc[T,RegFile3](dim0.s, dim1.s, dim2.s)
+    isExtraBufferable.enableOn(rf)
+    wrap(rf)
+  }
+
 
   /** Constructors **/
   @internal def alloc[T:Type:Bits,C[_]<:RegFile[_]](dims: Exp[Index]*)(implicit cT: Type[C[T]]) = {
