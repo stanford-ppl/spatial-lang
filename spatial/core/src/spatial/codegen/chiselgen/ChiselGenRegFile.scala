@@ -37,7 +37,16 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@RegFileNew(dims) =>
+    case op@RegFileNew(dims, inits) =>
+      val initVals = if (inits.isDefined) {
+        getConstValues(inits.get).toList.map{a => src"${a}d"}.mkString(",")
+      } else { "None"}
+      
+      val initString = if (inits.isDefined) src"Some(List(${initVals}))" else "None"
+      val f = lhs.tp.typeArguments.head match {
+        case a: FixPtType[_,_,_] => a.fracBits
+        case _ => 0
+      }
       val width = bitWidth(lhs.tp.typeArguments.head)
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
         val writerInfo = writersOf(lhs).zipWithIndex.map{ case (w,ii) => 
@@ -55,11 +64,11 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
           case _ => 1
         }
         if (depth == 1) {
-          emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.ShiftRegFile(List(${getConstValues(dims)}), 1, ${writerInfo.map{_._2}.reduce{_+_}}, false, $width))""")
+          emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.ShiftRegFile(List(${getConstValues(dims)}), $initString, 1, ${writerInfo.map{_._2}.reduce{_+_}}, false, $width, $f))""")
           emitGlobalModule(src"${lhs}_$i.io.dump_en := false.B")
         } else {
           nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-          emitGlobalModule(src"""val ${lhs}_$i = Module(new NBufShiftRegFile(List(${getConstValues(dims)}), 1, $depth, Map(${parInfo.mkString(",")}), $width))""")
+          emitGlobalModule(src"""val ${lhs}_$i = Module(new NBufShiftRegFile(List(${getConstValues(dims)}), $initString, 1, $depth, Map(${parInfo.mkString(",")}), $width, $f))""")
         }
         resettersOf(lhs).indices.foreach{ i => emitGlobalWire(src"""val ${lhs}_manual_reset_$i = Wire(Bool())""")}
         if (resettersOf(lhs).length > 0) {

@@ -85,6 +85,13 @@ trait ScopeCheck extends SpatialTraversal {
         }
       }
 
+    case RegNew(init) =>
+      if (!isGlobal(init)) {
+        error(lhs.ctx, u"Register $lhs has invalid reset value.")
+        error("Reset values of registers must be constants.")
+        error(lhs.ctx)
+      }
+
     case Switch(body,selects,cases) =>
       val contents = blockContents(body).flatMap(_.lhs).map(_.asInstanceOf[Exp[_]])
       val missing = cases.toSet diff contents.toSet
