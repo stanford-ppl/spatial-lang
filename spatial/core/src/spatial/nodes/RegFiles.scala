@@ -34,8 +34,8 @@ class RegFileIsMemory[T:Type:Bits,C[T]](implicit mC: Type[C[T]], ev: C[T] <:< Re
 
 
 /** IR Nodes **/
-case class RegFileNew[T:Type:Bits,C[_]<:RegFile[_]](dims: Seq[Exp[Index]])(implicit cT: Type[C[T]]) extends Alloc[C[T]] {
-  def mirror(f:Tx) = RegFile.alloc[T,C](f(dims):_*)
+case class RegFileNew[T:Type:Bits,C[_]<:RegFile[_]](dims: Seq[Exp[Index]], inits: Option[Seq[Exp[T]]])(implicit cT: Type[C[T]]) extends Alloc[C[T]] {
+  def mirror(f:Tx) = RegFile.alloc[T,C](inits.map(x => f(x)), f(dims):_*)
   val mT = typ[T]
   val bT = bits[T]
 }
