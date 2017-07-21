@@ -134,8 +134,8 @@ object FixedPoint {
 
   def apply(x: Float, fmt: FixFormat): FixedPoint = FixedPoint.clamped(BigDecimal(x.toDouble) * Math.pow(2,fmt.fbits), valid=true, fmt)
   def apply(x: Double, fmt: FixFormat): FixedPoint = FixedPoint.clamped(BigDecimal(x) * Math.pow(2,fmt.fbits), valid=true, fmt)
-  def apply(x: BigDecimal, fmt: FixFormat): FixedPoint = FixedPoint.clamped(x, valid=true, fmt)
-  def apply(x: String, fmt: FixFormat): FixedPoint = FixedPoint.clamped(BigDecimal(x), valid=true, fmt)
+  def apply(x: BigDecimal, fmt: FixFormat): FixedPoint = FixedPoint.clamped(x * Math.pow(2,fmt.fbits), valid=true, fmt)
+  def apply(x: String, fmt: FixFormat): FixedPoint = FixedPoint.clamped(BigDecimal(x) * Math.pow(2,fmt.fbits), valid=true, fmt)
 
   def invalid(fmt: FixFormat) = new FixedPoint(-1, valid=false, fmt)
   def clamped(value: BigDecimal, valid: Boolean, fmt: FixFormat): FixedPoint = clamped(value.toBigInt, valid, fmt)
