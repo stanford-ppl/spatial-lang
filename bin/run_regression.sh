@@ -13,6 +13,20 @@ else
     exit 1
 fi
 
+# Warn if apps not on regression branch
+cd ${SPATIAL_HOME}/apps
+ab=`git rev-parse --abbrev-ref HEAD`
+cd ../
+if [[ $ab != "regression" ]]; then 
+	read -p "You seem to be on an apps branch that is not regression.  Continue? [y/N]: " choice
+	echo    # (optional) move to a new line
+	case "$choice" in 
+	  y|Y ) echo "Continuing..";;
+	  n|N ) exit 1;;
+	  * ) exit 1;;
+	esac
+fi
+
 branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 
 # Get hashes and messages

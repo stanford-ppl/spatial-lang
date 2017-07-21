@@ -11,13 +11,32 @@ trait RegFile[T] { this: Template[_] =>
   @internal def ranges: Seq[Range] = stagedDimsOf(s).map{d => Range.alloc(None, wrap(d), None, None)}
 }
 object RegFile {
-  @api def apply[T:Type:Bits](cols: Index): RegFile1[T] = wrap(alloc[T,RegFile1](cols.s))
-  @api def apply[T:Type:Bits](rows: Index, cols: Index): RegFile2[T] = wrap(alloc[T,RegFile2](rows.s,cols.s))
-  @api def apply[T:Type:Bits](dim0: Index, dim1: Index, dim2: Index): RegFile3[T] = wrap(alloc[T,RegFile3](dim0.s, dim1.s, dim2.s))
+  @api def apply[T:Type:Bits](cols: Index): RegFile1[T] = wrap(alloc[T,RegFile1](None, cols.s))
+  @api def apply[T:Type:Bits](cols: Int, inits: List[T]): RegFile1[T] = {
+    checkDims(Seq(cols), inits)
+    wrap(alloc[T,RegFile1](Some(unwrap(inits)),FixPt.int32(cols)))
+  }
+  @api def apply[T:Type:Bits](rows: Index, cols: Index): RegFile2[T] = wrap(alloc[T,RegFile2](None,rows.s,cols.s))
+  @api def apply[T:Type:Bits](rows: Int, cols: Int, inits: List[T]): RegFile2[T] = {
+    checkDims(Seq(cols, rows), inits)
+    wrap(alloc[T,RegFile2](Some(unwrap(inits)),FixPt.int32(rows),FixPt.int32(cols)))
+  }
+  @api def apply[T:Type:Bits](dim0: Index, dim1: Index, dim2: Index): RegFile3[T] = wrap(alloc[T,RegFile3](None,dim0.s, dim1.s, dim2.s))
+  @api def apply[T:Type:Bits](dim0: Int, dim1: Int, dim2: Int, inits: List[T]): RegFile3[T] = {
+    checkDims(Seq(dim0,dim1,dim2), inits)
+    wrap(alloc[T,RegFile3](Some(unwrap(inits)),FixPt.int32(dim0), FixPt.int32(dim1), FixPt.int32(dim2)))
+  }
+
+  @internal def checkDims(dims: Seq[Int], elems: Seq[_]) = {
+    if ((dims.product) != elems.length) {
+      error(ctx, c"Specified dimensions of the RegFile do not match the number of supplied elements (${dims.product} != ${elems.length})")
+      error(ctx)
+    }
+  }
 
   /** Constructors **/
-  @internal def alloc[T:Type:Bits,C[_]<:RegFile[_]](dims: Exp[Index]*)(implicit cT: Type[C[T]]) = {
-    stageMutable(RegFileNew[T,C](dims))(ctx)
+  @internal def alloc[T:Type:Bits,C[_]<:RegFile[_]](inits: Option[Seq[Exp[T]]], dims: Exp[Index]*)(implicit cT: Type[C[T]]) = {
+    stageMutable(RegFileNew[T,C](dims, inits))(ctx)
   }
 
   @internal def load[T:Type:Bits](reg: Exp[RegFile[T]], inds: Seq[Exp[Index]], en: Exp[Bit]) = {

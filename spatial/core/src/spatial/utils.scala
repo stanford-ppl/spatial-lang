@@ -549,7 +549,7 @@ object utils {
     case Def(SRAMNew(dims)) => dims
     case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
-    case Def(RegFileNew(dims)) => dims
+    case Def(RegFileNew(dims,_)) => dims
     case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
   }
 
