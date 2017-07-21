@@ -247,7 +247,9 @@ trait LatencyModel {
     case _:Switch[_]           => 0
     case _:SwitchCase[_]       => 0
 
-    // Host/Debugging/Unsynthesizable nodes
+      // Host/Debugging/Unsynthesizable nodes
+    case _: ExitIf  => 0                  
+    case _: BreakpointIf  => 0            
     case _:PrintIf   => 0
     case _:PrintlnIf => 0
     case _:AssertIf  => 0

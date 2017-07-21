@@ -70,6 +70,30 @@ trait ChiselGenStructs extends ChiselGenSRAM {
     case _ => super.remap(tp)
   }
 
+  override protected def quoteConst(c: Const[_]): String = (c.tp, c) match {
+    case (st: StructType[_], e@Const(elems)) =>
+      val tuples = elems.asInstanceOf[Seq[(_, Exp[_])]]
+      val items = tuples.map{ t => 
+        val width = bitWidth(t._2.tp)
+        // if (src"${t._1}" == "offset") {
+        //   src"${t._2}"
+        // } else {
+          if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}.r"} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
+        // }
+      }.reverse.mkString(",")
+      val totalWidth = tuples.map{ t => 
+        // if (src"${t._1}" == "offset"){
+        //   64
+        // } else {
+          bitWidth(t._2.tp)  
+        // }
+      }.reduce{_+_}
+      src"chisel3.util.Cat($items)"
+
+    case _ => super.quoteConst(c)
+  }
+  
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SimpleStruct(tuples)  =>
       val items = tuples.map{ t => 
