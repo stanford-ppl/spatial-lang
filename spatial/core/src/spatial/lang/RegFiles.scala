@@ -2,6 +2,7 @@ package spatial.lang
 
 import argon.core._
 import forge._
+import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
@@ -33,6 +34,23 @@ object RegFile {
       error(ctx)
     }
   }
+
+  @api def buffer[T:Type:Bits](cols: Index): RegFile1[T] = {
+    val rf = alloc[T,RegFile1](None, cols.s)
+    isExtraBufferable.enableOn(rf)
+    wrap(rf)
+  }
+  @api def buffer[T:Type:Bits](rows: Index, cols: Index): RegFile2[T] = {
+    val rf = alloc[T,RegFile2](None, rows.s,cols.s)
+    isExtraBufferable.enableOn(rf)
+    wrap(rf)
+  }
+  @api def buffer[T:Type:Bits](dim0: Index, dim1: Index, dim2: Index): RegFile3[T] = {
+    val rf = alloc[T,RegFile3](None, dim0.s, dim1.s, dim2.s)
+    isExtraBufferable.enableOn(rf)
+    wrap(rf)
+  }
+
 
   /** Constructors **/
   @internal def alloc[T:Type:Bits,C[_]<:RegFile[_]](inits: Option[Seq[Exp[T]]], dims: Exp[Index]*)(implicit cT: Type[C[T]]) = {

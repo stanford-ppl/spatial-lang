@@ -160,10 +160,10 @@ object utils {
         val dist  = if (aToB >= 0) aToB
                     else if (bToA >= 0) -bToA
                     else throw new UndefinedPipeDistanceException(a, b)*/
-        dbg(c"    LCA: " + parent)
-        dbg(c"    LCA children: " + childrenOf(parent).mkString(", "))
-        dbg(c"    Path A (from $a): " + pathA.mkString(", ") + s": topA = $topA")
-        dbg(c"    Path B (from $b): " + pathB.mkString(", ") + s": topB = $topB")
+        log(c"    LCA: " + parent)
+        log(c"    LCA children: " + childrenOf(parent).mkString(", "))
+        log(c"    Path A (from $a): " + pathA.mkString(", ") + s": topA = $topA")
+        log(c"    Path B (from $b): " + pathB.mkString(", ") + s": topB = $topB")
 
 
         // Linear version (using for now)
@@ -173,7 +173,7 @@ object utils {
           throw new UndefinedPipeDistanceException(a, b)
         }
         val dist = indexB - indexA
-        dbg(c"    distance: $dist")
+        log(c"    distance: $dist")
 
         (parent, dist)
       }
@@ -212,27 +212,14 @@ object utils {
     * Returns metapipe controller for given accesses
     **/
   @stateful def findMetaPipe(mem: Exp[_], readers: Seq[Access], writers: Seq[Access]): (Option[Ctrl], Map[Access,Int]) = {
-    val accesses = readers ++ writers
-    assert(accesses.nonEmpty)
 
-    val anchor = if (readers.nonEmpty) readers.head else writers.head
-
-    val lcas = accesses.map{access =>
-      val (lca,dist) = lcaWithCoarseDistance(anchor, access)
-
-      (lca,dist,access)
-    }
-    // Find accesses which require n-buffering, group by their controller
-    val metapipeLCAs = lcas.filter(_._2 != 0).groupBy(_._1).mapValues(_.map(_._3))
-
-    // Hierarchical metapipelining is currently disallowed
-    if (metapipeLCAs.keys.size > 1) {
+    def ambiguousMetapipesError(lcas: Map[Ctrl,Seq[(Access,Access)]]): Unit = {
       error(u"Ambiguous metapipes for readers/writers of $mem defined here:")
       error(str(mem))
       error(mem.ctx)
-      metapipeLCAs.foreach{case (pipe,accs) =>
+      lcas.foreach{case (pipe,accs) =>
         error(c"  metapipe: $pipe ")
-        error(c"  accesses: " + accs.map(x => c"$x").mkString(","))
+        error(c"  accesses: " + accs.map(x => c"${x._1} / ${x._2}").mkString(","))
         error(str(pipe.node))
         error(pipe.node.ctx)
         error("")
@@ -244,18 +231,44 @@ object utils {
       state.logError()
     }
 
+    val accesses = readers ++ writers
+    assert(accesses.nonEmpty)
+
+    val lcas = accesses.indices.flatMap{i =>
+      (i + 1 until accesses.length).map{j =>
+        val (lca,dist) = lcaWithCoarseDistance(accesses(i), accesses(j))
+        (lca,dist,(accesses(i),accesses(j)))
+      }
+    }
+
+    // Find accesses which require n-buffering, group by their controller
+    val metapipeLCAs = lcas.filter(_._2 != 0).groupBy(_._1).mapValues(_.map(_._3))
+
+    // Hierarchical metapipelining is currently disallowed
+    if (metapipeLCAs.keys.size > 1) ambiguousMetapipesError(metapipeLCAs)
     val metapipe = metapipeLCAs.keys.headOption
 
-    val minDist = lcas.map(_._2).min
+    val ports = if (metapipe.isDefined) {
+      val mpgroup = metapipeLCAs(metapipe.get)
+      val anchor = mpgroup.head._1
+      val dists = accesses.map{access =>
+        val (lca,dist) = lcaWithCoarseDistance(anchor, access)
+        dbg(c"LCA of $anchor and $access: $lca")
+        // Time multiplexed actually becomes ALL ports
+        if (lca == metapipe.get || access == anchor) access -> dist else access -> 0
+      }
+      val minDist = dists.map(_._2).min
+      dists.map{case (access, dist) => access -> (dist - minDist) }.toMap
+    }
+    else accesses.map{access => access -> 0}.toMap
 
     // Port 0: First stage to write/read
     // Port X: X stage(s) after first stage
-    val ports = Map(lcas.map{grp => grp._3 -> (grp._2 - minDist)}:_*)
+    // val ports = Map(lcas.map{grp => grp._3 -> (grp._2 - minDist)}:_*)
 
     dbg("")
     dbg(c"  accesses: $accesses")
-    dbg(c"  anchor: $anchor")
-    lcas.foreach{case (lca,dist,access) => dbg(c"    lca($anchor, $access) = $lca ($dist)") }
+    lcas.foreach{case (lca,dist,access) => dbg(c"    lca(${access._1}, ${access._2}) = $lca ($dist)") }
     dbg(s"  metapipe: $metapipe")
     ports.foreach{case (access, port) => dbg(s"    - $access : port #$port")}
 
@@ -282,6 +295,14 @@ object utils {
       }
     }
   }
+  @stateful def findAccesses(access: List[Access])(func: (Access, Access) => Boolean): Seq[(Access,Access)] = {
+    access.indices.flatMap{i =>
+      (i+1 until access.length).flatMap{j =>
+        if (access(i) != access(j) && func(access(i), access(j))) Some((access(i),access(j))) else None
+      }
+    }
+  }
+
   @internal def checkConcurrentReaders(mem: Exp[_]): Boolean = checkAccesses(readersOf(mem)){(a,b) =>
     if (areConcurrent(a,b)) {new ConcurrentReadersError(mem, a.node, b.node); true } else false
   }
@@ -594,6 +615,7 @@ object utils {
   def isLUT(e: Exp[_]): Boolean  = e.tp.isInstanceOf[LUTType[_]]
   def isSRAM(e: Exp[_]): Boolean = e.tp.isInstanceOf[SRAMType[_]]
   def isReg(e: Exp[_]): Boolean  = e.tp.isInstanceOf[RegType[_]]
+  def isRegFile(e: Exp[_]): Boolean = e.tp.isInstanceOf[RegFileType[_]]
   def isStreamIn(e: Exp[_]): Boolean = e.tp.isInstanceOf[StreamInType[_]]
   def isStreamOut(e: Exp[_]): Boolean = e.tp.isInstanceOf[StreamOutType[_]] || e.tp.isInstanceOf[BufferedOutType[_]]
   def isBufferedOut(e: Exp[_]): Boolean = e.tp.isInstanceOf[BufferedOutType[_]]
