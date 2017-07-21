@@ -108,6 +108,7 @@ class FixedPoint(val value: BigInt, val valid: Boolean, val fmt: FixFormat) exte
     }
   } else "X"
 
+  override def hashCode(): Int = (value,valid,fmt).hashCode()
   override def equals(that: Any): Boolean = that match {
     case that: Byte   => this == FixedPoint(that, fmt) && that == this.toByte
     case that: Short  => this == FixedPoint(that, fmt) && that == this.toShort
