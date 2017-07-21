@@ -14,9 +14,9 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
 
   private def inHw(x: => Unit): Unit = { inHwScope = true; x; inHwScope = false }
 
-  private def visitOuterContrl(lhs: Sym[_], rhs: Op[_]): Unit = {
+  private def visitOuterControl(lhs: Sym[_], rhs: Op[_]): Unit = {
     dbgs(str(lhs))
-    super.visit(lhs, rhs)
+    rhs.blocks.foreach{blk => visitBlock(blk) }
     val interval = (1 +: childrenOf(lhs).map{child => iiOf(child) }).max
     dbgs(s" - Interval: $interval")
     iiOf(lhs) = interval
@@ -34,7 +34,7 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
   }
 
   private def visitControl(lhs: Sym[_], rhs: Op[_]): Unit = {
-    if (isInnerControl(lhs)) visitInnerControl(lhs,rhs) else visitOuterContrl(lhs,rhs)
+    if (isInnerControl(lhs)) visitInnerControl(lhs,rhs) else visitOuterControl(lhs,rhs)
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
@@ -42,6 +42,7 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
 
     case StateMachine(_,_,notDone,action,nextState,_) if isOuterControl(lhs) =>
       dbgs(str(lhs))
+      rhs.blocks.foreach{blk => visitBlock(blk) }
       val iiNotDone = latencyAndInterval(notDone)._2.toInt
       val iiNextState = latencyAndInterval(nextState)._2.toInt
       val interval = (Seq(1, iiNotDone, iiNextState) ++ childrenOf(lhs).map{child => iiOf(child) }).max

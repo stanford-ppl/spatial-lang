@@ -7,9 +7,8 @@ import spatial.nodes._
 trait ScalaGenMath extends ScalaGenBits {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case FixAbs(x)  => emit(src"val $lhs = if ($x < 0) -$x else $x")
-
-    case FltAbs(x)  => emit(src"val $lhs = if ($x < 0) -$x else $x")
+    case FixAbs(x)  => emit(src"val $lhs = Number.abs($x)")
+    case FltAbs(x)  => emit(src"val $lhs = Number.abs($x)")
 
     case FltLog(x) => emit(src"val $lhs = Number.log($x)")
     case FltExp(x) => emit(src"val $lhs = Number.exp($x)")
@@ -24,10 +23,9 @@ trait ScalaGenMath extends ScalaGenBits {
     case FltAsin(x) => emit(src"val $lhs = Number.asin($x)")
     case FltAcos(x) => emit(src"val $lhs = Number.acos($x)")
     case FltAtan(x) => emit(src"val $lhs = Number.atan($x)")
-    case FixFloor(x) => emit(src"val $lhs = ${x}.floor()")
-    case FixCeil(x) => emit(src"val $lhs = ${x}.ceil()")
+    case FixFloor(x) => emit(src"val $lhs = Number.floor($x)")
+    case FixCeil(x) => emit(src"val $lhs = Number.ceil($x)")
     case FltPow(x,exp) => emit(src"val $lhs = Number.pow($x, $exp);")
-
 
     case Mux(sel, a, b) => emit(src"val $lhs = if ($sel) $a else $b")
     case op @ OneHotMux(selects,datas) =>
