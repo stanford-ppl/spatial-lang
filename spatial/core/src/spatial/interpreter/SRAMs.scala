@@ -54,8 +54,9 @@ trait SRAMs extends AInterpreter {
           val indV = sram.index(sram.dims, SeqEI.unapply(ind).get, 0)
           sram.v(indV) 
         }
-        else
+        else {
           null
+        }
       }}.toSeq
      
       
