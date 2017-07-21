@@ -54,7 +54,7 @@ Up to 5-dimensional SRAMs are currently supported.
 | |                       Creates a load port to this SRAM at the given multi-dimensional address.                                           |
 | |                       The number of indices should match the number of dimensions the SRAM was declared with.                            |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+
-| |               def   **update**\(address: :doc:`Int <../../common/fixpt>`\*, data: T)                                                     |
+| |               def   **update**\(address: :doc:`Int <../../common/fixpt>`\*, data: T): Unit                                               |
 | |                       Creates a store port to this SRAM, writing **data** to the given **address**                                       |
 | |                       The number of indices should match the number of dimensions the SRAM was declared with.                            |
 +---------------------+----------------------------------------------------------------------------------------------------------------------+

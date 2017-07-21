@@ -122,6 +122,10 @@ ${path}" > /tmp/${at}.${branch}.${type}.new
 	((i++))
 done
 
+if [[ ${USER} = "mattfel" ]]; then 
+	bash ${SPATIAL_HOME}/bin/window.sh
+fi
+
 echo -e "\n✓ SUCCESS!  Regression packets have been issued!  Check /remote/regression/mapping to see what is running where"
 exit 0
 
