@@ -36,17 +36,17 @@ object RegFile {
   }
 
   @api def buffer[T:Type:Bits](cols: Index): RegFile1[T] = {
-    val rf = alloc[T,RegFile1](cols.s)
+    val rf = alloc[T,RegFile1](None, cols.s)
     isExtraBufferable.enableOn(rf)
     wrap(rf)
   }
   @api def buffer[T:Type:Bits](rows: Index, cols: Index): RegFile2[T] = {
-    val rf = alloc[T,RegFile2](rows.s,cols.s)
+    val rf = alloc[T,RegFile2](None, rows.s,cols.s)
     isExtraBufferable.enableOn(rf)
     wrap(rf)
   }
   @api def buffer[T:Type:Bits](dim0: Index, dim1: Index, dim2: Index): RegFile3[T] = {
-    val rf = alloc[T,RegFile3](dim0.s, dim1.s, dim2.s)
+    val rf = alloc[T,RegFile3](None, dim0.s, dim1.s, dim2.s)
     isExtraBufferable.enableOn(rf)
     wrap(rf)
   }
