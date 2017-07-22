@@ -617,7 +617,7 @@ export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
 if [[ \${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
   export JAVA_HOME=\${JAVA_HOME}/..
 fi
-export _JAVA_OPTIONS=\"-Xmx16g\"
+export _JAVA_OPTIONS=\"-Xmx24g\"
 date >> ${5}/log" >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
