@@ -43,11 +43,12 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
     case StateMachine(_,_,notDone,action,nextState,_) if isOuterControl(lhs) =>
       dbgs(str(lhs))
       rhs.blocks.foreach{blk => visitBlock(blk) }
-      val iiNotDone = latencyAndInterval(notDone)._2.toInt
-      val iiNextState = latencyAndInterval(nextState)._2.toInt
-      val interval = (Seq(1, iiNotDone, iiNextState) ++ childrenOf(lhs).map{child => iiOf(child) }).max
+      val (latNotDone, iiNotDone) = latencyAndInterval(notDone)
+      val (latNextState, iiNextState) = latencyAndInterval(nextState)
+      val interval = (Seq(1, iiNotDone.toInt, iiNextState.toInt) ++ childrenOf(lhs).map{child => iiOf(child) }).max
       dbgs(s" - Interval: $interval")
       iiOf(lhs) = interval
+      bodyLatency(lhs) = Seq(latNotDone, latNextState)
 
     case _ if isControlNode(lhs) => visitControl(lhs, rhs)
     case _ => super.visit(lhs, rhs)
