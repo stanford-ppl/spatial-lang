@@ -70,11 +70,8 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
   }
   
   case class RegDiag2(data: T) extends RegView2 {
-    def apply(y: Index, x: Index) =
-      if (y == x)
-        data
-      else
-        zero
+    @virtualize def apply(y: Index, x: Index) =
+      mux(y == x, data, zero)
   }  
 
   
