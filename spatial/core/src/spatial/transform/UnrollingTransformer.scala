@@ -27,12 +27,8 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
     val prevCloneFuncs = cloneFuncs
     cloneFuncs = cloneFuncs :+ func   // Innermost is executed last
 
-    dbgs(s"[Compiler] Starting clone function at $ctx [${cloneFuncs.size}]")
-
     val result = blk
     cloneFuncs = prevCloneFuncs
-
-    dbgs(s"[Compiler] End of clone function at $ctx")
 
     result
   }
@@ -441,7 +437,7 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
   def unrollSwitch[T](lhs: Sym[T], rhs: Switch[T], lanes: Unroller): List[Exp[_]] = {
     logs(s"Unrolling Switch:")
     logs(s"$lhs = $rhs")
-    if (lanes.size > 1) lhs.tp match {
+    if (lanes.size > 1 && isOuterControl(lhs)) lhs.tp match {
       case Bits(bT) =>
         // TODO: Adding registers here is pretty hacky, should find way to avoid this
         val regs = List.tabulate(lanes.size){p => Reg[T](bT.zero)(mtyp(lhs.tp),mbits(bT),lhs.ctx,state) }
@@ -486,6 +482,9 @@ case class UnrollingTransformer(var IR: State) extends ForwardTransformer { self
           unit
         })
         lanes.unifyUnsafe(lhs, lhs2)
+    }
+    else if (lanes.size > 1) {
+      lanes.duplicate(lhs, rhs)
     }
     else {
       val first = lanes.inLane(0){ cloneOp(lhs, rhs) }
