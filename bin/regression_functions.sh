@@ -209,7 +209,7 @@ for ac in ${types_list[@]}; do
 done
 
 # Update regtest timestamp
-if [[ ${this_machine} = *"portland"* ]]; then
+if [[ ${type_todo} = *"chisel"* ]]; then
   update_regression_timestamp
 fi
 

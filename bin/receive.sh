@@ -5,7 +5,7 @@
 export LANG=en_US.UTF-8
 this_machine=`hostname`
 if [[ ${this_machine} = "tflop1" ]]; then
-  REGRESSION_HOME="/kunle/users/mattfel/regression_tflop1/"
+  REGRESSION_HOME="/home/regression/"
 elif [[ ${this_machine} = "tflop2" ]]; then
   REGRESSION_HOME="/home/regression/"
 elif [[ ${this_machine} = "portland" ]]; then
