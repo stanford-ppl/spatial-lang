@@ -44,8 +44,8 @@ trait BufferAnalyzer extends CompilerPass {
           case Some(dispatches) =>
             val invalids = dispatches.filter{x => x >= duplicates.length || x < 0}
             if (invalids.nonEmpty) {
-              error(c"[Compiler bug] Access $access on $mem is set to use invalid instances: ")
-              error("  Instances: " + invalids.mkString(",") + s" (Largest should be ${duplicates.length-1})")
+              bug(c"Access $access on $mem is set to use invalid instances: ")
+              bug("  Instances: " + invalids.mkString(",") + s" (Largest should be ${duplicates.length-1})")
               state.logError()
             }
           case None =>

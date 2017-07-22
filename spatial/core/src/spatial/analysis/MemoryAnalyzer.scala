@@ -118,7 +118,7 @@ trait MemoryAnalyzer extends CompilerPass {
       val reads  = portAccesses.filter(access => readers.contains(access))
       val concurrentWrites = findAccesses(writes.toList){(a,b) => areConcurrent(a,b) || arePipelined(a,b) }
       if (concurrentWrites.nonEmpty && showErrors) {
-        error(mem.ctx, s"[Compiler bug] Instance $group for writer $mem appears to have multiple concurrent writers on port #$port")
+        bug(mem.ctx, s"Instance $group for writer $mem appears to have multiple concurrent writers on port #$port")
         concurrentWrites.foreach{case (a,b) =>
           error(c"$a / $b [LCA = ${lcaWithCoarseDistance(a,b)}]")
         }

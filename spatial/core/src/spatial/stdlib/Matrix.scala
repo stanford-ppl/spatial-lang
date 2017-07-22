@@ -106,8 +106,15 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
     def apply(elems: T*) = {
       val n              = elems.size
       val inits: List[T] = elems.toList
-      val reg            = RegId1(RegFile[T](n, inits))
-      new Vec(n, reg)
+      val nreg = RegFile[T](n)
+      Pipe {
+        List.tabulate(n){i =>        
+          Pipe { nreg(i) = inits(i) }
+        }
+        ()
+      }
+      val regv            = RegId1(nreg)
+      new Vec(n, regv)
     }
   }
 
@@ -127,6 +134,14 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
       copy(reg = RegId1(nreg))
     }
 
+    def binOpInPlace(e: Index => (T, T), f: (T, T) => T, nreg: RegFile1[T]) = {
+      Foreach(0::n){ i =>
+        val (e1, e2) = e(i)
+        nreg(i) = f(e1, e2)
+      }
+      copy(reg = RegId1(nreg))
+    }    
+
     def *(x: T) =
       binOp(i => (reg(i), x), _*_)
 //      copy(reg = RegMult1(reg, x))
@@ -137,6 +152,12 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
 //      copy(reg = RegAdd1(reg, v.reg))            
     }
 
+    def +:(v: Vec) = {
+      require(n == v.n)
+      ???
+//      binOpInPlace(i => (reg(i), v.reg(i)), _+_)
+    }
+    
     def -(v: Vec) = {
       require(n == v.n)
       binOp(i => (reg(i), v.reg(i)), _-_)
@@ -177,8 +198,14 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
   }
 
   object Matrix {
-    def apply(h: scala.Int, w: scala.Int, l: List[T]) = {
-      val nreg = RegFile[T](h, w, l)
+    def apply(h: scala.Int, w: scala.Int, inits: List[T]) = {
+      val nreg = RegFile[T](h, w)
+      Pipe {
+        List.tabulate(h,w){(y, x) =>
+          Pipe { nreg(y, x) = inits(y*w+x) }
+        }
+        ()
+      }      
       MatrixDense(h, w, RegId2(nreg))
     }
 
@@ -218,6 +245,14 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
       }
       copy(reg = RegId2(nreg))
     }
+
+    def binOpInPlace(e: (Index, Index) => (T, T), f: (T, T) => T, nreg: RegFile2[T]) = {
+      Foreach(0::h, 0::w){ (j, i) =>
+        val (e1, e2) = e(j, i)
+        nreg(j, i) = f(e1, e2)
+      }
+      copy(reg = RegId2(nreg))
+    }
     
     def +(m: Matrix) = {
       require(w == m.w && h == m.h)
@@ -239,10 +274,8 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
       m match {
         case m: MatrixDense => 
           val nreg = RegFile[T](h, m.w)
-          Foreach(0::h) { y =>
-            Foreach(0::m.w) { x =>
+          Foreach(0::h, 0::m.w) { (y, x) =>
               nreg(y, x) = row(y).dot(m.col(x))
-            }
           }
           MatrixDense(h, m.w, RegId2(nreg))
         case m: MatrixSparse =>

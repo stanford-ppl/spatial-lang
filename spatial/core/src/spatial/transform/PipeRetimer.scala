@@ -115,10 +115,10 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
 
     def createValueDelay(input: Exp[_], reader: Exp[_], delay: Int): ValueDelay = {
       if (delay < 0) {
-        error("Compiler bug? Attempting to create a negative delay between input: ")
-        error(c"  ${str(input)}")
-        error("and consumer: ")
-        error(c"  ${str(reader)}")
+        bug("Compiler bug? Attempting to create a negative delay between input: ")
+        bug(c"  ${str(input)}")
+        bug("and consumer: ")
+        bug(c"  ${str(reader)}")
         state.logError()
       }
       // Retime inner block results as if we were already in the inner hierarchy

@@ -209,7 +209,7 @@ for ac in ${types_list[@]}; do
 done
 
 # Update regtest timestamp
-if [[ ${this_machine} = *"portland"* ]]; then
+if [[ ${type_todo} = *"chisel"* ]]; then
   update_regression_timestamp
 fi
 
@@ -611,13 +611,13 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/ga
 export ARGON_HOME=${ARGON_HOME}
 export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
 export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
-export PATH=/usr/bin:\$VCS_HOME/amd64/bin:$PATH
+export PATH=\$VCS_HOME/amd64/bin:$PATH
 export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
 export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
 if [[ \${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
   export JAVA_HOME=\${JAVA_HOME}/..
 fi
-export _JAVA_OPTIONS=\"-Xmx16g\"
+export _JAVA_OPTIONS=\"-Xmx24g\"
 date >> ${5}/log" >> $1
 
   if [[ ${type_todo} = "scala" ]]; then

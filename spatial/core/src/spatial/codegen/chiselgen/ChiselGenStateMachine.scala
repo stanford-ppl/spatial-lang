@@ -30,6 +30,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
     case StateMachine(ens,start,notDone,action,nextState,state) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      alphaconv_register(src"$state")
       emit(src"${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B")
 
       emitController(lhs, None, None, true)
@@ -49,7 +50,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emitBlock(notDone)
       emit("// Emitting action")
       emitGlobalWire(src"val ${notDone.result}_doneCondition = Wire(Bool())")
-      emit(src"${notDone.result}_doneCondition := ~${notDone.result}")
+      emit(src"${notDone.result}_doneCondition := ~${notDone.result} // Seems unused")
       emitInhibitor(lhs, None, Some(notDone.result), None)
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
