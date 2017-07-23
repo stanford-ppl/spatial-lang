@@ -374,7 +374,7 @@ class MAGCore(
   val rdataFifos = List.tabulate(loadStreamInfo.size) { i =>
     val m = Module(new WidthConverterFIFO(32, io.dram.resp.bits.rdata.size, loadStreamInfo(i).w, loadStreamInfo(i).v, d))
     m.io.enq := io.dram.resp.bits.rdata
-    m.io.enqVld := respValid & (streamTagFromDRAM === i.U)
+    m.io.enqVld := respValid & (streamTagFromDRAM === i.U) & ~(m.io.full | m.io.almostFull)
     m
   }
 
