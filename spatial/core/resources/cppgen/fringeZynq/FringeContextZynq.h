@@ -260,11 +260,13 @@ public:
   }
 
   void dumpDebugRegs() {
-    int numDebugRegs = 96;
+    int numDebugRegs = 224;
     EPRINTF(" ******* Debug regs *******\n");
+    int argInOffset = numArgIns == 0 ? 1 : numArgIns;
+    int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
     for (int i=0; i<numDebugRegs; i++) {
       if (i % 16 == 0) EPRINTF("\n");
-      uint32_t value = readReg(numArgIns + numArgOuts + 2 + i);
+      uint32_t value = readReg(argInOffset + argOutOffset + 2 + i);
       EPRINTF("\tR%d: %08x (%08d)\n", i, value, value);
     }
     EPRINTF(" **************************\n");

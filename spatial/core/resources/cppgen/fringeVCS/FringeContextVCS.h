@@ -303,17 +303,20 @@ public:
   }
 
   void dumpDebugRegs() {
-    int numDebugRegs = 96;
+    int numDebugRegs = 224;
     EPRINTF(" ******* Debug regs *******\n");
+    int argInOffset = numArgIns == 0 ? 1 : numArgIns;
+    int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
     for (int i=0; i<numDebugRegs; i++) {
-      uint64_t value = readReg(numArgIns + numArgOuts + 2 - numArgIOs + i);
-      EPRINTF("\tR%d: %08x\n", i, value);
+      if (i % 16 == 0) EPRINTF("\n");
+      uint64_t value = readReg(argInOffset + argOutOffset + 2 - numArgIOs + i);
+      EPRINTF("\tR%d: %08x (%08d)\n", i, value, value);
     }
     EPRINTF(" **************************\n");
   }
 
   ~FringeContextVCS() {
-//    dumpDebugRegs();
+    dumpDebugRegs();
     finish();
   }
 };
