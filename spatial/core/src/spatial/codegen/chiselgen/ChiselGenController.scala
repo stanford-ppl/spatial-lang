@@ -64,7 +64,7 @@ trait ChiselGenController extends ChiselGenCounter{
         }
       }
     }
-    Console.println(s"map is $validPassMap")
+    // Console.println(s"map is $validPassMap")
   }
   def emitValidsDummy(iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
