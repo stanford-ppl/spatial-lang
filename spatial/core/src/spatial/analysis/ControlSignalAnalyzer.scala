@@ -241,7 +241,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   def checkPendingNodes(lhs: Sym[_], rhs: Op[_], ctrl: Option[Ctrl], blk: Option[Blk]) = {
-    val pending = rhs.inputs.flatMap{sym => pendingNodes.getOrElse(sym, Nil) }
+    val pending = rhs.nonBlockInputs.flatMap{sym => pendingNodes.getOrElse(sym, Nil) }
     if (pending.nonEmpty) {
       // All nodes which could potentially use a reader outside of an inner control node
       if (isStateless(lhs) && !ctrl.exists(isInnerControl)) { // Ctrl is either outer or outside Accel
