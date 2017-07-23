@@ -154,7 +154,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       appendWriter(writer, ctrl)
     else {
       val mem = LocalWriter.unapply(writer).get.head._1
-      throw new spatial.ExternalWriteError(mem, writer, ctrl)(writer.ctx, state)
+      throw new spatial.ExternalWriteException(mem, writer, ctrl)(writer.ctx, state)
     }
   }
 

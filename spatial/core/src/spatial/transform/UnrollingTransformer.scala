@@ -623,7 +623,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
           unrollReduceAccumulate[T,Reg](accum, values, valids(), ident, fold, reduce, load, store, inds2.map(_.head), start, isInner = false)
         })
         styleOf(pipe) = SeqPipe
-        levelOf(pipe) = OuterControl
+        levelOf(pipe) = InnerControl
       }
       else {
         logs("Unrolling inner reduce")
