@@ -92,7 +92,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
       case lhs: Sym[_] => 
         val Def(rhs) = lhs
         rhs match {
-          case CounterNew(s,e,st,p)=> 
+          case CounterNew(_,e,st,p)=> 
             if (SpatialConfig.enableNaming) {s"x${lhs.id}_ctr"} else super.quote(s)
           case CounterChainNew(ctrs) =>
             if (SpatialConfig.enableNaming) {s"x${lhs.id}_ctrchain"} else super.quote(s)
