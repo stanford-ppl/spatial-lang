@@ -32,6 +32,12 @@ trait FixPts extends AInterpreter {
     case FixEql(EBigDecimal(a), EBigDecimal(b)) =>
       a == b
 
+    case FixNeq(EBigDecimal(a), EBigDecimal(b)) =>
+      a != b
+
+    case FixConvert(EBigDecimal(a)) =>
+      a
+      
 //    case FixLog(EBigDecimal(a)) =>
 //      BigDecimal(Math.log(a.toDouble)) 
 
