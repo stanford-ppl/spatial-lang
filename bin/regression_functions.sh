@@ -607,7 +607,11 @@ function report {
 
 # Override env vars to point to a separate directory for this regression test
 export SPATIAL_HOME=${SPATIAL_HOME}
-export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+if [[ ${this_machine} = *\"tflop\"* ]]; then # ugly hack to get tflops working
+  export PATH=/usr/local/sbin:/usr/bin:/usr/local/bin:/usr/sbin:/sbin:/bin:/usr/games:/usr/local/games
+else
+  export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+fi
 export ARGON_HOME=${ARGON_HOME}
 export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
 export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
