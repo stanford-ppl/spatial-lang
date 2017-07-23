@@ -542,6 +542,7 @@ trait ChiselGenController extends ChiselGenCounter{
       controllerStack.push(lhs)
       emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B""")
       emitController(lhs, None, None)
+      emit(src"""val ${lhs}_II_done = true.B""")
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitBlock(func)
@@ -556,7 +557,6 @@ trait ChiselGenController extends ChiselGenCounter{
       controllerStack.push(lhs)
       emitStandardSignals(lhs)
       emit(src"""val ${lhs}_II_done = ${parent_kernel}_II_done""")
-      emit(s"// Controller Stack: ${controllerStack.tail}")
       // emit(src"""//${lhs}_base_en := ${parent_kernel}_base_en // Set by parent""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""//${lhs}_resetter := ${parent_kernel}_resetter // Set by parent""")
@@ -590,6 +590,7 @@ trait ChiselGenController extends ChiselGenCounter{
       }
 
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
+        emit(s"// Controller Stack: ${controllerStack.tail}")
         if (Bits.unapply(op.mT).isDefined) {
           emit(src"val ${lhs}_onehot_selects = Wire(Vec(${selects.length}, Bool()))")
           emit(src"val ${lhs}_data_options = Wire(Vec(${selects.length}, ${newWire(lhs.tp)}))")
@@ -630,7 +631,6 @@ trait ChiselGenController extends ChiselGenCounter{
       // open(src"val $lhs = {")
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
-      emit(s"// Controller Stack: ${controllerStack.tail}")
       emitStandardSignals(lhs)
       emit(src"""${lhs}_en := ${parent_kernel}_en & ${lhs}_switch_select""")
       // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")
@@ -644,6 +644,7 @@ trait ChiselGenController extends ChiselGenCounter{
         emitInhibitor(lhs, None, None, parentOf(parent_kernel))
       }
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
+        emit(s"// Controller Stack: ${controllerStack.tail}")
         // if (blockContents(body).length > 0) {
         // if (childrenOf(lhs).count(isControlNode) == 1) { // This is an outer pipe
         if (childrenOf(lhs).count(isControlNode) > 1) {// More than one control node is children

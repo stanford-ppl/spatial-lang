@@ -37,7 +37,7 @@ trait ArgMappingAnalyzer extends CompilerPass {
       argMapping(a) = (-1, base_in + i, -1)
     }
     
-    base_in = math.max(1,argPorts.toList.distinct.filter{_._2 == "input"}.length) + base_in
+    base_in = argPorts.toList.distinct.filter{_._2 == "input"}.length + base_in
     var p = 0 // Ugly imperative but whatever
     dbg(u"Working on memStreams only, base port = ${base_in}: ${memStreams}")
     memStreams.map{_._1}.toList.distinct.zipWithIndex.foreach{case(m,i) => 

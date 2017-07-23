@@ -217,7 +217,10 @@ abstract class AlteraAreaModel extends AreaModel[AlteraArea,AlteraAreaSummary] {
     }
     case _:SwitchCase[_] => NoArea
 
-    case _:CounterNew => AlteraArea(lut3 = 106, regs = 67)
+    case CounterNew(_,_,_,p) =>
+      val x = boundOf(p).toInt
+      AlteraArea(lut3 = 32 + x, regs = 32*x)
+
     case CounterChainNew(ctrs) => NoArea
 
     // Host/Debugging/Unsynthesizable nodes

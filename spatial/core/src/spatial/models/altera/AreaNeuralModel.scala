@@ -4,6 +4,7 @@ package altera
 import java.io.File
 
 import argon.core.Config
+import argon.util.Report._
 import org.encog.engine.network.activation.ActivationSigmoid
 import org.encog.ml.data.basic.{BasicMLData, BasicMLDataSet}
 import org.encog.neural.networks.BasicNetwork
@@ -38,7 +39,17 @@ abstract class AreaNeuralModel(
 
   private val pwd = System.getenv().getOrDefault("SPATIAL_HOME", Config.cwd)
 
-  private lazy val dataFile = Source.fromFile(s"$pwd/data/$filename").getLines().toArray.drop(1).map(_.split(",").map(_.trim.toDouble))
+  private lazy val dataFile: Array[Array[Double]] = {
+    try {
+      Source.fromFile(s"$pwd/data/$filename").getLines().toArray.drop(1).map(_.split(",").map(_.trim.toDouble))
+    }
+    catch {case _:Throwable =>
+      error(s"Unable to find file $pwd/data/$filename - please set the SPATIAL_HOME environment variable")
+      sys.exit()
+      Array.empty[Array[Double]]
+    }
+  }
+
   private lazy val maxValues = dataFile(0)
 
   def init(): Unit = if (needsInit) {

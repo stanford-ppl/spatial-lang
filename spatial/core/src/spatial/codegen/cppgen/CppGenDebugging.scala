@@ -13,6 +13,8 @@ trait CppGenDebugging extends CppCodegen {
     	emit(src"""if ($en) { ASSERT($cond, "\n=================\n${str.replace("\"","'")}\n=================\n"); }""")
     case PrintIf(en,x)         => emit(src"""if ($en) { std::cout << $x; }""")
     case PrintlnIf(en,x)       => emit(src"""if ($en) { std::cout << $x << std::endl; }""")
+    case BreakpointIf(en)       => ()
+    case ExitIf(en)       => ()      
     case _ => super.emitNode(lhs, rhs)
   }
 

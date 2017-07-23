@@ -104,7 +104,9 @@ trait MemoryAnalyzer extends CompilerPass {
     var id = 0
   }
 
-  def printGroup(group: InstanceGroup): Unit = {
+  def printGroup(mem: Exp[_], group: InstanceGroup, showErrors: Boolean = false): Unit = {
+    val writers = writersOf(mem)
+    val readers = readersOf(mem)
     dbg("")
     dbg(c"  Name: $group")
     dbg(c"  Instance: ${group.channels.memory}")
@@ -112,7 +114,32 @@ trait MemoryAnalyzer extends CompilerPass {
     dbg(c"  Controller: ${group.metapipe}")
     dbg(c"  Buffer Ports: ")
     group.revPorts.zipWithIndex.foreach{case (portAccesses,port) =>
-      dbg(c"    $port: " + portAccesses.mkString(", "))
+      val writes = portAccesses.filter(access => writers.contains(access))
+      val reads  = portAccesses.filter(access => readers.contains(access))
+      val concurrentWrites = findAccesses(writes.toList){(a,b) => areConcurrent(a,b) || arePipelined(a,b) }
+      if (concurrentWrites.nonEmpty && showErrors) {
+        bug(mem.ctx, s"Instance $group for writer $mem appears to have multiple concurrent writers on port #$port")
+        concurrentWrites.foreach{case (a,b) =>
+          error(c"$a / $b [LCA = ${lcaWithCoarseDistance(a,b)}]")
+        }
+        error(mem.ctx)
+      }
+      dbg(c"    $port [Wr]: " + writes.mkString(", "))
+      dbg(c"    $port [Rd]: " + reads.mkString(", "))
+    }
+
+    // Time multiplexed writes are allowed (e.g. for preloading the memory or clearing it)
+    val pipelinedWrites = writers.filterNot{write => group.revPorts.forall{accesses => accesses.contains(write) }}
+    val portsWithWrites = group.revPorts.filter{portAccesses => portAccesses.exists{access => pipelinedWrites.contains(access) } }
+
+    if (portsWithWrites.length > 1 && !isExtraBufferable(mem) && showErrors) {
+      val obj = if (isSRAM(mem)) "SRAM" else if (isReg(mem)) "Reg" else if (isRegFile(mem)) "RegFile" else "???"
+      error(mem.ctx, u"Memory $mem was inferred to be an N-Buffer with writes at multiple ports.")
+      error("This behavior is disallowed by default, as it is usually not correct.")
+      error(u"To enable this behavior, declare the memory using:")
+      error(u"""  val ${mem.name.getOrElse("sram")} = $obj.buffer[${mem.tp.typeArguments.head}](dimensions)""")
+      error("Otherwise, disable outer loop pipelining using the Sequential controller tag.")
+      error(mem.ctx)
     }
   }
 
@@ -186,7 +213,7 @@ trait MemoryAnalyzer extends CompilerPass {
       }
     }
 
-    printGroup(group)
+    printGroup(mem, group)
     group
   }
 
@@ -327,7 +354,7 @@ trait MemoryAnalyzer extends CompilerPass {
           val cost = costOf(part)
 
           dbg("  Proposed partitioning: ")
-          part.foreach(printGroup)
+          part.foreach(part => printGroup(mem, part))
           dbg(s"  Cost: $cost")
 
           if (cost < bestCost) {
@@ -348,7 +375,7 @@ trait MemoryAnalyzer extends CompilerPass {
         val insts = greedyBufferMerge(instances.toSet)
 
         dbg(c"After greedy: ")
-        insts.foreach(printGroup)
+        insts.foreach(inst => printGroup(mem, inst))
 
         // 2. Coalesce remaining instance groups based on brute force search, if it's feasible
         exhaustiveBufferMerge(insts).toList
@@ -408,8 +435,8 @@ trait MemoryAnalyzer extends CompilerPass {
     dbg("")
     dbg(u"  SUMMARY for memory $mem:")
     var i = 0
-    coalescedGroups.foreach{grp =>
-      printGroup(grp)
+    coalescedGroups.zipWithIndex.foreach{case (grp,x) =>
+      printGroup(mem, grp, showErrors = x == 0)
 
       grp.accesses.foreach{access =>
         if (writers.contains(access)) {

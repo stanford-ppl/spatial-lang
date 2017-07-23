@@ -5,7 +5,7 @@
 export LANG=en_US.UTF-8
 this_machine=`hostname`
 if [[ ${this_machine} = "tflop1" ]]; then
-  REGRESSION_HOME="/kunle/users/mattfel/regression_tflop1/"
+  REGRESSION_HOME="/home/regression/"
 elif [[ ${this_machine} = "tflop2" ]]; then
   REGRESSION_HOME="/home/regression/"
 elif [[ ${this_machine} = "portland" ]]; then
@@ -15,8 +15,7 @@ elif [[ ${this_machine} = "max-2"* ]]; then
 elif [[ ${this_machine} = "tucson" ]]; then
   REGRESSION_HOME="/home/mattfel/regression/"
 elif [[ ${this_machine} = "london" ]]; then
-  echo "No regression set up for london!" | tee -a /tmp/log
-  exit 1
+  REGRESSION_HOME="/home/mattfel/regression/"
 else
   echo "Unrecognized machine ${this_machine}" | tee -a /tmp/log
   exit 1
@@ -79,7 +78,7 @@ if [[ $wc -gt 1 ]]; then
   for f in ${files[@]}; do if [[ $f = *".new"* ]]; then new_packets+=($f); fi; done
   sorted_packets=( $(for arr in "${new_packets[@]}"; do echo $arr; done | sort) )
   newpacket=${sorted_packets[${#sorted_packets[@]}-1]}
-  packet=$newpcket
+  packet=$newpacket
   multiple_new=true
   cd -
 elif [[ $wc = 0 ]]; then

@@ -209,9 +209,9 @@ trait ChiselGenUnrolled extends ChiselGenController {
             case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
                 emit(s"""${quote(lhs)}($id).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k)""")
               } else {
-                emit(src"""$lhs := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
+                emit(src"""${lhs}($id) := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
               }
-            case _ => emit(src"""$lhs := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
+            case _ => emit(src"""${lhs}($id) := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
           }
         }
         
