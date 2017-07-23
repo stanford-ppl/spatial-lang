@@ -45,7 +45,7 @@ class Parallel(val n: Int, val isFSM: Boolean = false, val retime:Int = 0) exten
   // Create vector of registers for holding stage dones
   val doneFF = List.tabulate(n) { i =>
     val ff = Module(new SRFF())
-    ff.io.input.set := io.input.stageDone(i) | ~io.input.stageMask(i)
+    ff.io.input.set := (io.input.stageDone(i) | ~io.input.stageMask(i)) & io.input.enable
     ff.io.input.asyn_reset := false.B
     ff.io.input.reset := state === doneState.U | io.input.rst
     ff
