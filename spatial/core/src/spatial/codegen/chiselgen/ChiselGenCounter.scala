@@ -74,39 +74,47 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     
   }
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case CounterNew(s,e,st,p)=> 
-              s"x${lhs.id}_ctr"
-            case CounterChainNew(ctrs) =>
-              s"x${lhs.id}_ctrchain"
-            case _ =>
-              super.quote(s)
-          }
-        case b: Bound[_] =>
-          if (streamCtrCopy.contains(b)) { 
-            super.quote(s) + getCtrSuffix(controllerStack.head)
-          } else {
-            super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
+  private def getValidSuffix(head: Exp[_], candidates: Seq[Exp[_]]): String = {
+    if (candidates.contains(head)) {
+      val id = candidates.toList.indexOf(head)
+      if (id > 0) src"_chain_read_${id}" else ""
     } else {
-      s match {
-        case b: Bound[_] =>
-          if (streamCtrCopy.contains(b)) { 
-            super.quote(s) + getCtrSuffix(controllerStack.head)
-          } else {
-            super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
+      if (parentOf(head).isDefined) {
+        getValidSuffix(parentOf(head).get, candidates)
+      } else {
+        "NO_SUFFIX_ERROR"
       }
+    }
+  }
+
+  override def quote(s: Exp[_]): String = {
+    s match {
+      case lhs: Sym[_] => 
+        val Def(rhs) = lhs
+        rhs match {
+          case CounterNew(s,e,st,p)=> 
+            if (SpatialConfig.enableNaming) {s"x${lhs.id}_ctr"} else super.quote(s)
+          case CounterChainNew(ctrs) =>
+            if (SpatialConfig.enableNaming) {s"x${lhs.id}_ctrchain"} else super.quote(s)
+          case _ =>
+            super.quote(s)
+        }
+      case b: Bound[_] =>
+          if (streamCtrCopy.contains(b)) {
+            if (validPassMap.contains((s, getCtrSuffix(controllerStack.head)) )) {
+              super.quote(s) + getCtrSuffix(controllerStack.head) +  getValidSuffix(controllerStack.head, validPassMap(s, getCtrSuffix(controllerStack.head)))
+            } else {
+              super.quote(s) + getCtrSuffix(controllerStack.head)  
+            }
+          } else {
+            if (validPassMap.contains((s, "") )) {
+              super.quote(s) + getValidSuffix(controllerStack.head, validPassMap(s, ""))
+            } else {
+              super.quote(s)
+            }
+          }
+      case _ =>
+        super.quote(s)
     }
   } 
 
