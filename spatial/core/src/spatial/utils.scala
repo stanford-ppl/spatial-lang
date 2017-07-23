@@ -546,6 +546,13 @@ object utils {
     case _ => None
   }
 
+  @stateful def canFullyUnroll(cc: Exp[CounterChain]): Boolean = countersOf(cc).forall{
+    case Def(CounterNew(Exact(start),Exact(end),Exact(stride),Exact(par))) =>
+      val nIters = (BigDecimal(end) - BigDecimal(start))/BigDecimal(stride)
+      BigDecimal(par) >= nIters
+    case _ => false
+  }
+
   @stateful def isForeverCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).exists(isForever)
   @stateful def isUnitCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).forall(isUnitCounter)
 

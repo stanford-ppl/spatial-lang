@@ -1,6 +1,7 @@
 package spatial.transform
 
 import argon.core._
+import argon.emul._
 import argon.transform.ForwardTransformer
 import spatial.aliases._
 import spatial.metadata._
@@ -31,6 +32,24 @@ case class RewriteTransformer(var IR: State) extends ForwardTransformer{
 
       case _ => super.transform(lhs, rhs)
     }
+
+    case Switch(body, selects, cases) =>
+      if (selects.forall(_.isConst)) {
+        val trueSelects = selects.zipWithIndex.filter{case (Const(TRUE),_) => true; case (Const(c: Boolean),_) => c; case _ => false }
+        if (trueSelects.length > 1) {
+          warn(lhs.ctx, "Switch has multiple values enabled at once!")
+          warn(lhs.ctx)
+          super.transform(lhs, rhs)
+        }
+        else {
+          val cas = cases(trueSelects.head._2)
+          val Def(SwitchCase(body)) = cas
+          body.inline.asInstanceOf[Exp[T]]
+        }
+      }
+      else super.transform(lhs, rhs)
+
+
     case _ => super.transform(lhs, rhs)
   }
 }
