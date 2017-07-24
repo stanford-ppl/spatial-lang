@@ -281,7 +281,8 @@ always_ff @(posedge clk or negedge rst_n) begin
               current_tag <= current_tag_tmp;
             end
       MC_WAIT_FOR_DDR: begin
-              if ( (load_state && rlast && DIRECT_rdata_valid) || (!load_state && wlast) ) begin
+              //if ( (load_state && rlast && DIRECT_rdata_valid) || (!load_state && wlast) ) begin
+              if ( (load_state) || (!load_state && wlast) ) begin
                 // TODO: Add back later to eliminate the 1 cycle delay
                 /*
                 if (addr_size_valid) begin
