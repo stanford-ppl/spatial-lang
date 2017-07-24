@@ -70,10 +70,10 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
           nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
           emitGlobalModule(src"""val ${lhs}_$i = Module(new NBufShiftRegFile(List(${getConstValues(dims)}), $initString, 1, $depth, Map(${parInfo.mkString(",")}), $width, $f))""")
         }
-        resettersOf(lhs).indices.foreach{ i => emitGlobalWire(src"""val ${lhs}_manual_reset_$i = Wire(Bool())""")}
+        resettersOf(lhs).indices.foreach{ ii => emitGlobalWire(src"""val ${lhs}_${i}_manual_reset_$ii = Wire(Bool())""")}
         if (resettersOf(lhs).length > 0) {
-          emitGlobalModule(src"""val ${lhs}_manual_reset = ${resettersOf(lhs).indices.map{i => src"${lhs}_manual_reset_$i"}.mkString(" | ")}""")
-          emitGlobalModule(src"""${lhs}_$i.io.reset := ${lhs}_manual_reset | reset""")
+          emitGlobalModule(src"""val ${lhs}_${i}_manual_reset = ${resettersOf(lhs).indices.map{ii => src"${lhs}_${i}_manual_reset_$ii"}.mkString(" | ")}""")
+          emitGlobalModule(src"""${lhs}_$i.io.reset := ${lhs}_${i}_manual_reset | reset""")
         } else {emitGlobalModule(src"${lhs}_$i.io.reset := reset")}
 
       }
@@ -81,7 +81,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
     case RegFileReset(rf,en) => 
       val parent = parentOf(lhs).get
       val id = resettersOf(rf).map{_._1}.indexOf(lhs)
-      emit(src"${rf}_manual_reset_$id := $en & ${parent}_datapath_en.D(${symDelay(lhs)}) ")
+      duplicatesOf(rf).indices.foreach{i => emit(src"${rf}_${i}_manual_reset_$id := $en & ${parent}_datapath_en.D(${symDelay(lhs)}) ")}
       
     case op@RegFileLoad(rf,inds,en) =>
       val dispatch = dispatchOf(lhs, rf).toList.head

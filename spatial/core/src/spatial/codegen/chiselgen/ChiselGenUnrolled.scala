@@ -353,7 +353,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 
         emit(src"$lb.io.col_addr(0) := ${col}.raw // Assume we always read from same col")
         val rowtext = row match {
-          case c: Const[_] => "0.U"
+          case Const(cc) => s"$cc"
           case _ => src"${row}.r"
         }
         emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${rowtext})")
