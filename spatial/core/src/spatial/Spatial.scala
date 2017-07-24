@@ -117,6 +117,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += ctrlAnalyzer      // Control signal analysis
 
     // --- Register cleanup
+    passes += printer
     passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
     passes += printer
 
@@ -178,8 +179,10 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += printer
 
     // --- Retiming
-    if (SpatialConfig.enableRetiming) passes += retiming // Add delay shift registers where necessary
-    passes += printer
+    if (SpatialConfig.enableRetiming) {
+      passes += retiming        // Add delay shift registers where necessary
+      passes += printer
+    }
     passes += initAnalyzer
 
     // --- Post-Unroll Analysis
