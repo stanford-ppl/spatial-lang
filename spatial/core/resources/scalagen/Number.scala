@@ -4,10 +4,9 @@ abstract class Number {
 
   def toByteArray: Array[Byte] = {
     val bts = this.bits
-    val len = Math.ceil(bts.length.toDouble / 8)
     bts.sliding(8,8).map{bits =>
       var x: Byte = 0
-      bits.zipWithIndex.foreach{case (b,i) => x = (x | (1 << i)).toByte }
+      bits.zipWithIndex.foreach{case (b,i) => if (b.value) { x = (x | (1 << i)).toByte } }
       x
     }.toArray
   }
