@@ -18,9 +18,11 @@ class MAGCore(
   val blockingDRAMIssue: Boolean = false
 ) extends Module { // AbstractMAG(w, d, v, numOutstandingBursts, burstSizeBytes) {
 
-  val numRdataDebug = 3
+  val numRdataDebug = 0
   val numRdataWordsDebug = 16
-  val numDebugs = 96
+  val numWdataDebug = 6
+  val numWdataWordsDebug = 16
+  val numDebugs = 224
 
   // The data bus width to DRAM is 1-burst wide
   // While it should be possible in the future to add a write combining buffer
@@ -175,6 +177,7 @@ class MAGCore(
   wdataFifo.io.forceTag.valid := addrFifo.io.tag >= loadStreamInfo.size.U
   wdataFifo.io.enq.zip(io.app.stores.map{_.wdata}) foreach { case (enq, wdata) => enq := wdata.bits }
   wdataFifo.io.enqVld.zip(io.app.stores.map{_.wdata}) foreach {case (enqVld, wdata) => enqVld := wdata.valid }
+  val wdataFifoSize = wdataFifo.io.fifoSize
 
   val sparseWriteEnable = Wire(Bool())
   sparseWriteEnable := (isSparse & isWrFifo.io.deq(0) & ~addrFifo.io.empty)
@@ -634,51 +637,110 @@ class MAGCore(
     ctr.io.out
   }
 
+  var dbgCount = 0
+  def connectDbgSignal(sig: UInt) {
+    io.debugSignals(dbgCount) := sig
+    dbgCount += 1
+  }
+
   // rdata enq values
   for (i <- 0 until numRdataDebug) {
     for (j <- 0 until numRdataWordsDebug) {
-      io.debugSignals(i*numRdataWordsDebug + j) := getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U))
+//      io.debugSignals(i*numRdataWordsDebug + j) := getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U))
+      connectDbgSignal(getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U)))
     }
   }
 
-  io.debugSignals(48) := enableCounter.io.out
-  io.debugSignals(49) := cmdValidEnableCtr.io.out
-  io.debugSignals(50) := numReadyAndEnableHighCtr.io.out
-  io.debugSignals(51) := numRespAndEnableHighCtr.io.out
-  io.debugSignals(52) := numCommandsCtr.io.out
-  io.debugSignals(53) := numReadCommandsCtr.io.out
-  io.debugSignals(54) := numWriteCommandsCtr.io.out
-  io.debugSignals(55) := getFF(io.dram.cmd.bits.addr, io.enable & dramCmdValid & (cmdValidEnableCtr.io.out === 0.U))
-  io.debugSignals(56) := getFF(io.dram.cmd.bits.size, io.enable & dramCmdValid & (cmdValidEnableCtr.io.out === 0.U))
-  io.debugSignals(57) := addrEnqCtr.io.out
-  io.debugSignals(58) := addrDeqCtr.io.out
+  if (io.app.stores.size > 0) {
+    // wdata enq values
+    val appWdata0EnqCtr = getCounter(io.enable & io.app.stores(0).wdata.valid)
+    for (i <- 0 until numWdataDebug) {
+      for (j <- 0 until math.min(io.app.stores(0).wdata.bits.size, numWdataWordsDebug)) {
+  //      io.debugSignals(i*numRdataWordsDebug + j) := getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U))
+        connectDbgSignal(getFF(io.app.stores(0).wdata.bits(j), io.enable & (appWdata0EnqCtr === i.U)))
+      }
+    }
+
+    // wdata values
+    for (i <- 0 until numWdataDebug) {
+      for (j <- 0 until numWdataWordsDebug) {
+  //      io.debugSignals(i*numRdataWordsDebug + j) := getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U))
+        connectDbgSignal(getFF(Cat(wdataFifoSize(15, 0), io.dram.wdata.bits.wdata(j)(15, 0)), io.enable & wdataValid & wdataReady & (numWdataCtr.io.out === i.U)))
+      }
+    }
+  }
+
+//  io.debugSignals(48) := enableCounter.io.out
+//  io.debugSignals(49) := cmdValidEnableCtr.io.out
+//  io.debugSignals(50) := numReadyAndEnableHighCtr.io.out
+//  io.debugSignals(51) := numRespAndEnableHighCtr.io.out
+//  io.debugSignals(52) := numCommandsCtr.io.out
+//  io.debugSignals(53) := numReadCommandsCtr.io.out
+//  io.debugSignals(54) := numWriteCommandsCtr.io.out
+//  io.debugSignals(55) := getFF(io.dram.cmd.bits.addr, io.enable & dramCmdValid & (cmdValidEnableCtr.io.out === 0.U))
+//  io.debugSignals(56) := getFF(io.dram.cmd.bits.size, io.enable & dramCmdValid & (cmdValidEnableCtr.io.out === 0.U))
+//  io.debugSignals(57) := addrEnqCtr.io.out
+//  io.debugSignals(58) := addrDeqCtr.io.out
+//connectDbgSignal(enableCounter.io.out)
+//connectDbgSignal(cmdValidEnableCtr.io.out)
+//connectDbgSignal(numReadyAndEnableHighCtr.io.out)
+//connectDbgSignal(numRespAndEnableHighCtr.io.out)
+connectDbgSignal(numCommandsCtr.io.out)
+connectDbgSignal(numReadCommandsCtr.io.out)
+connectDbgSignal(numWriteCommandsCtr.io.out)
+//connectDbgSignal(getFF(io.dram.cmd.bits.addr, io.enable & dramCmdValid & (cmdValidEnableCtr.io.out === 0.U)))
+//connectDbgSignal(getFF(io.dram.cmd.bits.size, io.enable & dramCmdValid & (cmdValidEnableCtr.io.out === 0.U)))
+//connectDbgSignal(addrEnqCtr.io.out)
+//connectDbgSignal(addrDeqCtr.io.out)
+
+
 //  io.debugSignals(59) := rdataFifoEnqCtrs(0)
 //  io.debugSignals(60) := rdataFifoEnqCtrs(1)
 //  io.debugSignals(61) := rdataFifoEnqCtrs(2)
 //  io.debugSignals(62) := rdataFullCtrs(0)
 //  io.debugSignals(63) := rdataFullCtrs(1)
 //  io.debugSignals(64) := rdataFullCtrs(2)
-  io.debugSignals(65) := getFF(io.dram.cmd.bits.tag, io.enable & dramCmdValid & dramReady & (numCommandsCtr.io.out === 0.U))
-  io.debugSignals(66) := getFF(io.dram.cmd.bits.tag, io.enable & dramCmdValid & dramReady & (numCommandsCtr.io.out === 1.U))
-  io.debugSignals(67) := getFF(io.dram.cmd.bits.tag, io.enable & dramCmdValid & dramReady & (numCommandsCtr.io.out === 2.U))
-  io.debugSignals(68) := getFF(io.dram.resp.bits.tag, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 0.U))
-  io.debugSignals(69) := getFF(io.dram.resp.bits.tag, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 1.U))
-  io.debugSignals(70) := getFF(io.dram.resp.bits.tag, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 2.U))
-  io.debugSignals(71) := getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 0.U))
-  io.debugSignals(72) := getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 1.U))
-  io.debugSignals(73) := getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 2.U))
-  io.debugSignals(74) := numWdataValidCtr.io.out
-  io.debugSignals(75) := numWdataReadyCtr.io.out
-  io.debugSignals(76) := numWdataCtr.io.out
-  io.debugSignals(77) := issued
-  io.debugSignals(78) := issuedTag
+
+//  io.debugSignals(65) := getFF(io.dram.cmd.bits.tag, io.enable & dramCmdValid & dramReady & (numCommandsCtr.io.out === 0.U))
+//  io.debugSignals(66) := getFF(io.dram.cmd.bits.tag, io.enable & dramCmdValid & dramReady & (numCommandsCtr.io.out === 1.U))
+//  io.debugSignals(67) := getFF(io.dram.cmd.bits.tag, io.enable & dramCmdValid & dramReady & (numCommandsCtr.io.out === 2.U))
+//  io.debugSignals(68) := getFF(io.dram.resp.bits.tag, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 0.U))
+//  io.debugSignals(69) := getFF(io.dram.resp.bits.tag, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 1.U))
+//  io.debugSignals(70) := getFF(io.dram.resp.bits.tag, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 2.U))
+//  io.debugSignals(71) := getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 0.U))
+//  io.debugSignals(72) := getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 1.U))
+//  io.debugSignals(73) := getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 2.U))
+//  io.debugSignals(74) := numWdataValidCtr.io.out
+//  io.debugSignals(75) := numWdataReadyCtr.io.out
+//  io.debugSignals(76) := numWdataCtr.io.out
+//  io.debugSignals(77) := issued
+//  io.debugSignals(78) := issuedTag
 //  io.debugSignals(79) := wrespFifoEnqCtrs(0)
-  io.debugSignals(80) := dramReadySeen
-  io.debugSignals(81) := writeCmd
-  io.debugSignals(82) := wrPhase.io.output.data
-  io.debugSignals(83) := ~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)
-  io.debugSignals(84) := getCounter(wdataValid & wdataReady & ~issued)
-  io.debugSignals(85) := getCounter(wdataValid & wdataReady & issued)
+//  io.debugSignals(80) := dramReadySeen
+//  io.debugSignals(81) := writeCmd
+//  io.debugSignals(82) := wrPhase.io.output.data
+//  io.debugSignals(83) := ~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)
+//  io.debugSignals(84) := getCounter(wdataValid & wdataReady & ~issued)
+//  io.debugSignals(85) := getCounter(wdataValid & wdataReady & issued)
+//  connectDbgSignal(getFF(io.dram.cmd.bits.tag, io.enable & dramCmdValid & dramReady & (numCommandsCtr.io.out === 0.U)))
+//  connectDbgSignal(getFF(io.dram.cmd.bits.tag, io.enable & dramCmdValid & dramReady & (numCommandsCtr.io.out === 1.U)))
+//  connectDbgSignal(getFF(io.dram.cmd.bits.tag, io.enable & dramCmdValid & dramReady & (numCommandsCtr.io.out === 2.U)))
+//  connectDbgSignal(getFF(io.dram.resp.bits.tag, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 0.U)))
+//  connectDbgSignal(getFF(io.dram.resp.bits.tag, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 1.U)))
+//  connectDbgSignal(getFF(io.dram.resp.bits.tag, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 2.U)))
+//  connectDbgSignal(getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 0.U)))
+//  connectDbgSignal(getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 1.U)))
+//  connectDbgSignal(getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 2.U)))
+  connectDbgSignal(numWdataValidCtr.io.out)
+  connectDbgSignal(numWdataReadyCtr.io.out)
+  connectDbgSignal(numWdataCtr.io.out)
+  connectDbgSignal(wrespFifoEnqCtrs(0))
+  connectDbgSignal(dramReadySeen)
+  connectDbgSignal(writeCmd)
+  connectDbgSignal(wrPhase.io.output.data)
+  connectDbgSignal(~isWrFifo.io.empty & isWrFifo.io.deq(0)(0))
+  connectDbgSignal(getCounter(wdataValid & wdataReady & ~issued))
+  connectDbgSignal(getCounter(wdataValid & wdataReady & issued))
 
 
 //  io.dbg.rdata_enq0_0 := getFF(io.dram.resp.bits.rdata(0), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 0.U))
