@@ -406,7 +406,11 @@ class MAGCore(
   }
 
   if (rdataFifos.length > 0) {
-    io.dram.resp.ready := ~(rdataFifos.map { fifo => fifo.io.full | fifo.io.almostFull }.reduce{_|_})
+//    io.dram.resp.ready := ~(rdataFifos.map { fifo => fifo.io.full | fifo.io.almostFull }.reduce{_|_})
+    val readyMux = Module(new MuxNType(Bool(), rdataFifos.length))
+    readyMux.io.ins := Vec(rdataFifos.map { f => ~(f.io.full | f.io.almostFull) })
+    readyMux.io.sel := streamTagFromDRAM
+    io.dram.resp.ready := readyMux.io.out
   } else {
     io.dram.resp.ready := true.B
   }
