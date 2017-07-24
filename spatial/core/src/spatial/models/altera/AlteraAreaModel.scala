@@ -1,21 +1,54 @@
 package spatial.models
+package altera
 
 import argon.core._
 import argon.nodes._
 import forge._
+import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
-class AlteraAreaModel extends AreaModel[AlteraArea] {
+abstract class AlteraAreaModel extends AreaModel[AlteraArea,AlteraAreaSummary] {
+  /**
+    * Returns the area resources for a delay line with the given width (in bits) and length (in cycles)
+    * Models delays as registers for short delays, BRAM for long ones
+    **/
+  @stateful override def areaOfDelayLine(length: Int, width: Int, par: Int): AlteraArea = {
+    val nregs = width*length
+    // TODO: Should fix this cutoff point to something more real
+    val area = if (nregs < 256) AlteraArea(mregs = nregs*par)
+               else             areaOfSRAM(width*par, List(length), List(BankedMemory(Seq(StridedBanking(1,1)),1,false)))
 
-  @stateful override def areaOf(e: Exp[_], d: Def): AlteraArea = d match {
-    case FieldApply(_,_)    => NoArea
+    dbg(s"Delay line (w x l): $width x $length (${width*length}) [par = $par]")
+    dbg(s"  $area")
+    area
+  }
+
+  private def areaOfStreamPipe(n: Int) = NoArea // TODO
+
+  private def areaOfMetaPipe(n: Int) = AlteraArea(
+    lut4 = (11*n*n + 45*n)/2 + 105,  // 0.5(11n^2 + 45n) + 105
+    regs = (n*n + 3*n)/2 + 35        // 0.5(n^2 + 3n) + 35
+  )
+  private def areaOfSeqPipe(n: Int) = AlteraArea(lut4=7*n+40, regs=2*n+35)
+
+  @stateful private def areaOfControl(ctrl: Exp[_]) = {
+    if (isInnerControl(ctrl)) NoArea
+    else if (isSeqPipe(ctrl)) areaOfSeqPipe(nStages(ctrl))
+    else if (isMetaPipe(ctrl)) areaOfMetaPipe(nStages(ctrl))
+    else if (isStreamPipe(ctrl)) areaOfStreamPipe(nStages(ctrl))
+    else NoArea
+  }
+
+
+  @stateful override def areaOfNode(e: Exp[_], d: Def): AlteraArea = d match {
+    case FieldApply(_,_)    => NoArea // No cost
     case VectorApply(_,_)   => NoArea // Statically known index
     case VectorSlice(_,_,_) => NoArea // Statically known slice
-    case VectorConcat(_)    => NoArea
-    case DataAsBits(_)      => NoArea
-    case BitsAsData(_,_)    => NoArea
+    case VectorConcat(_)    => NoArea // No cost
+    case DataAsBits(_)      => NoArea // No cost
+    case BitsAsData(_,_)    => NoArea // No cost
 
     case _:VarRegNew[_]   => NoArea // Not synthesizable
     case _:VarRegRead[_]  => NoArea // Not synthesizable
@@ -23,18 +56,16 @@ class AlteraAreaModel extends AreaModel[AlteraArea] {
 
     // LUTs
     case LUTNew(dims,elems) => NoArea // TODO
-
-
-    case _:LUTLoad[_] => NoArea
+    case _:LUTLoad[_] => NoArea // TODO
 
     // Registers
     case reg:RegNew[_] => duplicatesOf(e).map{
       case BankedMemory(_,depth,isAccum) => AlteraArea(regs = depth * reg.bT.length)
       case _ => NoArea
     }.fold(NoArea){_+_}
-    case _:RegRead[_]  => NoArea
-    case _:RegWrite[_] => NoArea
-    case _:RegReset[_] => NoArea
+    case _:RegRead[_]  => NoArea // No cost
+    case _:RegWrite[_] => NoArea // No cost
+    case _:RegReset[_] => NoArea // No cost
 
     // Register File
     case rf:RegFileNew[_,_] =>
@@ -80,10 +111,7 @@ class AlteraAreaModel extends AreaModel[AlteraArea] {
     case _:FIFOFull[_]        => NoArea
 
     // SRAMs
-    case _:SRAMNew[_,_]    => duplicatesOf(e).map{
-      case BankedMemory(_,depth,isAccum) => NoArea // TODO: Model
-      case DiagonalMemory(strides,banks,depth,isAccum) => NoArea
-    }.fold(NoArea){_+_}
+    case op:SRAMNew[_,_]   => areaOfSRAM(op.bT.length,dimsOf(e),duplicatesOf(e))
     case _:SRAMLoad[_]     => NoArea
     case _:ParSRAMLoad[_]  => NoArea
     case _:SRAMStore[_]    => NoArea
@@ -134,115 +162,66 @@ class AlteraAreaModel extends AreaModel[AlteraArea] {
     case FixAbs(_)    => NoArea // TODO
 
     // Saturating and/or unbiased math
-    case SatAdd(x,y) => NoArea
-    case SatSub(x,y) => NoArea
-    case SatMul(x,y) => NoArea
-    case SatDiv(x,y) => NoArea
-    case UnbMul(x,y) => NoArea
-    case UnbDiv(x,y) => NoArea
-    case UnbSatMul(x,y) => NoArea
-    case UnbSatDiv(x,y) => NoArea
+    case SatAdd(_,_) => NoArea // TODO
+    case SatSub(_,_) => NoArea // TODO
+    case SatMul(_,_) => NoArea // TODO
+    case SatDiv(_,_) => NoArea // TODO
+    case UnbMul(_,_) => NoArea // TODO
+    case UnbDiv(_,_) => NoArea // TODO
+    case UnbSatMul(_,_) => NoArea // TODO
+    case UnbSatDiv(_,_) => NoArea // TODO
 
     // Floating point math
     // TODO: Floating point area
-    case FltNeg(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      AlteraArea(lut3 = 1, regs = nbits(e))
-
-    case FltAdd(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea
-
-    case FltSub(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea
-
-    case FltMul(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea
-
-    case FltDiv(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea
-
-    case FltLt(a,_)  =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea
-
-    case FltLeq(a,_) =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea
-
-    case FltNeq(a,_) =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea
-
-    case FltEql(a,_) =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea
-
+    case FltNeg(_) => AlteraArea(lut3 = 1, regs = nbits(e))
     case FltAbs(_) => AlteraArea(lut3 = 1, regs = nbits(e))
-    case FltLog(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea
 
-    case FltExp(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea
+    case FltAdd(_,_) => NoArea
+    case FltSub(_,_) => NoArea
+    case FltMul(_,_) => NoArea
+    case FltDiv(_,_) => NoArea
 
-    case FltSqrt(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea
+    case FltLt(a,_)  => NoArea
+    case FltLeq(a,_) => NoArea
+    case FltNeq(a,_) => NoArea
+    case FltEql(a,_) => NoArea
+
+    case FltLog(_) => NoArea
+    case FltExp(_) => NoArea
+    case FltSqrt(_) => NoArea
 
     case Mux(_,_,_) => AlteraArea(lut3 = nbits(e), regs = nbits(e))
     case Min(_,_)   => AlteraArea(lut3 = nbits(e), regs = nbits(e)) // TODO
     case Max(_,_)   => AlteraArea(lut3 = nbits(e), regs = nbits(e)) // TODO
 
-    case FixConvert(_) => NoArea // TODO
+    case FixConvert(_) => NoArea
     case FltConvert(_) => NoArea // TODO
 
-    case FltPtToFixPt(x) =>
-      //if (nbits(s) != 32 && nbits(x) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea // TODO
+    case FltPtToFixPt(x) => NoArea // TODO
+    case FixPtToFltPt(x) => NoArea // TODO
 
-    case FixPtToFltPt(x) =>
-      //if (nbits(s) != 32 && nbits(x) != 32) warn(s"Don't know latency for $d - using default")
-      NoArea // TODO
+    case _:ParallelPipe => AlteraArea(lut4=9*nStages(e)/2, regs = nStages(e) + 3)
 
-    // TODO
-    /*case BurstStore(mem,stream,ofs,len,par) =>
-      val c = contentionOf(s)
-      val p = bound(par).get
-      val size = bound(len).getOrElse{warn("Cannot resolve bound of offchip store")(mpos(s.pos)); 96.0}
+    case _:Hwblock  => areaOfControl(e)
+    case _:UnitPipe => areaOfControl(e)
 
-      val baseCycles = size / p.toDouble
+    case _:OpForeach           => areaOfControl(e)
+    case _:OpReduce[_]         => areaOfControl(e)
+    case _:OpMemReduce[_,_]    => areaOfControl(e)
+    case _:UnrolledForeach     => areaOfControl(e)
+    case _:UnrolledReduce[_,_] => areaOfControl(e)
 
-      val oFactor = 0.02*c - 0.019
-      val smallOverhead = if (c < 8) 0.0 else 0.0175
-      val overhead = if (p < 8) 1.0 + smallOverhead*p else oFactor*p + (1 - (8*oFactor)) + smallOverhead*8
+    case _:Switch[_] => e.tp match {
+      case Bits(bt) => NoArea // TODO
+      case _        => NoArea
+    }
+    case _:SwitchCase[_] => NoArea
 
-      //System.out.println(s"Sizes: $sizes, base cycles: $baseCycles, ofactor: $oFactor, smallOverhead: $smallOverhead, overhead: $overhead")
-      Math.ceil(baseCycles*overhead).toLong
+    case CounterNew(_,_,_,p) =>
+      val x = boundOf(p).toInt
+      AlteraArea(lut3 = 32 + x, regs = 32*x)
 
-    case BurstLoad(mem,stream,ofs,len,par) =>
-      val c = contentionOf(s)
-      val ts = bound(len).getOrElse{stageWarn("Cannot resolve bound of offchip load")(mpos(s.pos)); 96.0}
-      val b = ts  // TODO - max of this and max command size
-      val r = 1.0 // TODO - number of commands needed (probably 1)
-      val p = bound(par).get
-      //System.out.println(s"Tile transfer $s: c = $c, r = $r, b = $b, p = $p")
-      memoryModel(c,r.toInt,b.toInt,p.toInt)*/
-
-    case _:Hwblock             => NoArea
-    case _:ParallelPipe        => NoArea
-    case _:UnitPipe            => NoArea
-    case _:OpForeach           => NoArea
-    case _:OpReduce[_]         => NoArea
-    case _:OpMemReduce[_,_]    => NoArea
-    case _:UnrolledForeach     => NoArea
-    case _:UnrolledReduce[_,_] => NoArea
-    case _:Switch[_]           => NoArea
-    case _:SwitchCase[_]       => NoArea
+    case CounterChainNew(ctrs) => NoArea
 
     // Host/Debugging/Unsynthesizable nodes
     case _:PrintIf   => NoArea

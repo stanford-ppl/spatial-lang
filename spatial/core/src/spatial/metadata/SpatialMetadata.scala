@@ -50,8 +50,8 @@ case class MBound(bound: BigInt, isExact: Boolean, isFinal: Boolean) extends Met
 
   def set[T:Type](x: T, value: BigInt): Unit = { boundOf(x.s) = value }
   def get(x: Exp[_]): Option[MBound] = x match {
-    case Const(c: BigDecimal) if c.isWhole => Some(Final(c.toBigInt))
     case Param(c: BigDecimal) if c.isWhole => Some(Exact(c.toBigInt))
+    case Const(c: BigDecimal) if c.isWhole => Some(Final(c.toBigInt))
     case _ => metadata[MBound](x)
   }
 }
@@ -96,6 +96,7 @@ case class ControlType(style: ControlStyle) extends Metadata[ControlType] { def 
   def apply(x: Exp[_]): ControlStyle = styleOf.get(x).getOrElse{throw new spatial.UndefinedControlStyleException(x)}
   def update(x: Exp[_], style: ControlStyle): Unit = metadata.add(x, ControlType(style))
   def get(x: Exp[_]): Option[ControlStyle] = metadata[ControlType](x).map(_.style)
+  def set(x: Exp[_], style: ControlStyle): Unit = metadata.add(x, ControlType(style))
 }
 
 case class MControlLevel(level: ControlLevel) extends Metadata[MControlLevel] { def mirror(f:Tx) = this }
@@ -111,8 +112,9 @@ case class MControlLevel(level: ControlLevel) extends Metadata[MControlLevel] { 
   */
 case class ParamRange(min: Int, step: Int, max: Int) extends Metadata[ParamRange] { def mirror(f:Tx) = this }
 @data object domainOf {
-  def apply(x: Param[Int32]): Option[(Int,Int,Int)] = metadata[ParamRange](x).map{d => (d.min,d.step,d.max) }
-  def update(x: Param[Int32], rng: (Int,Int,Int)) = metadata.add(x, ParamRange(rng._1,rng._2,rng._3))
+  def get(x: Param[Int32]): Option[(Int,Int,Int)] = metadata[ParamRange](x).map{d => (d.min,d.step,d.max) }
+  def apply(x: Param[Int32]): (Int,Int,Int) = metadata[ParamRange](x).map{d => (d.min,d.step,d.max) }.getOrElse((1,1,1))
+  def update(x: Param[Int32], rng: (Int,Int,Int)): Unit = metadata.add(x, ParamRange(rng._1,rng._2,rng._3))
 }
 
 /**
@@ -126,7 +128,7 @@ case class MGlobal(isGlobal: Boolean) extends Metadata[MGlobal] { def mirror(f:T
     case Param(_) => true
     case _ => metadata[MGlobal](x).exists(_.isGlobal)
   }
-  def update(x: Exp[_], global: Boolean) = metadata.add(x, MGlobal(global))
+  def update(x: Exp[_], global: Boolean): Unit = metadata.add(x, MGlobal(global))
 }
 
 /**
@@ -136,7 +138,7 @@ case class MGlobal(isGlobal: Boolean) extends Metadata[MGlobal] { def mirror(f:T
 case class SoftDims(dims: Seq[Exp[Index]]) extends Metadata[SoftDims] { def mirror(f:Tx) = SoftDims(f(dims)) }
 @data object softDimsOf {
   def apply(x: Exp[_]): Seq[Exp[Index]] = metadata[SoftDims](x).map(_.dims).getOrElse(Nil)
-  def update(x: Exp[_], dims: Seq[Exp[Index]]) = metadata.add(x, SoftDims(dims))
+  def update(x: Exp[_], dims: Seq[Exp[Index]]): Unit = metadata.add(x, SoftDims(dims))
 }
 
 /**
@@ -182,8 +184,8 @@ case class Children(children: List[Exp[_]]) extends Metadata[Children] { def mir
   def update(x: Exp[_], children: List[Exp[_]]) = metadata.add(x, Children(children))
 
   def apply(x: Ctrl): List[Ctrl] = {
-    val children = childrenOf(x.node).map{child => (child, false) }
-    if (!x.isInner) children :+ ((x.node,true))
+    val children = childrenOf(x.node).map{child => (child, -1) }
+    if (x.block < 0) addImplicitChildren(x, children)  // Include controllers without nodes (e.g. the reduction of a Reduce)
     else children
   }
 }
@@ -197,7 +199,7 @@ case class Parent(parent: Exp[_]) extends Metadata[Parent] { def mirror(f:Tx) = 
   def apply(x: Exp[_]): Option[Exp[_]] = metadata[Parent](x).map(_.parent)
   def update(x: Exp[_], parent: Exp[_]) = metadata.add(x, Parent(parent))
 
-  def apply(x: Ctrl): Option[Ctrl] = if (x.isInner) Some((x.node, false)) else parentOf(x.node).map{x => (x,false)}
+  def apply(x: Ctrl): Option[Ctrl] = if (x.block >= 0) Some((x.node, -1)) else parentOf(x.node).map{x => (x,-1) }
 }
 
 case class CtrlDeps(deps: Set[Exp[_]]) extends Metadata[CtrlDeps] { def mirror(f:Tx) = CtrlDeps(f.tx(deps)) }
@@ -295,13 +297,13 @@ case class Fringe(fringe: Exp[_]) extends Metadata[Fringe] {
 /**
   * List of consumers of reads (primarily used for register reads)
   */
-case class ReadUsers(users: List[Access]) extends Metadata[ReadUsers] {
+case class ReadUsers(users: Set[Access]) extends Metadata[ReadUsers] {
   def mirror(f:Tx) = this
   override val ignoreOnTransform = true // Not necessarily reliably mirrorable
 }
 @data object usersOf {
-  def apply(x: Exp[_]): List[Access] = metadata[ReadUsers](x).map(_.users).getOrElse(Nil)
-  def update(x: Exp[_], users: List[Access]) = metadata.add(x, ReadUsers(users))
+  def apply(x: Exp[_]): Set[Access] = metadata[ReadUsers](x).map(_.users).getOrElse(Set.empty)
+  def update(x: Exp[_], users: Set[Access]) = metadata.add(x, ReadUsers(users))
 }
 
 /**
@@ -444,3 +446,8 @@ case class InitiationInterval(interval: Int) extends Metadata[InitiationInterval
   def update(e: Exp[_], interval: Int): Unit = metadata.add(e, InitiationInterval(interval))
 }
 
+case class MemoryContention(contention: Int) extends Metadata[MemoryContention] { def mirror(f:Tx) = this }
+@data object contentionOf {
+  def apply(e: Exp[_]): Int = metadata[MemoryContention](e).map(_.contention).getOrElse(1)
+  def update(e: Exp[_], contention: Int): Unit = metadata.add(e, MemoryContention(contention))
+}

@@ -132,7 +132,7 @@ class FIFOCore(override val w: Int, override val d: Int, override val v: Int) ex
   val nextHeadBankAddr = rptr.io.next(0)
 
   // Backing SRAM
-  val mems = List.fill(v) { Module(new SRAM(w, bankSize)) }
+  val mems = if (w == 1) List.fill(v) { Module(new FFRAM(1, bankSize)) } else List.fill(v) { Module(new SRAM(w, bankSize)) }
   mems.zipWithIndex.foreach { case (m, i) =>
     // Read address
     m.io.raddr := Mux(readEn, nextHeadLocalAddr, headLocalAddr)

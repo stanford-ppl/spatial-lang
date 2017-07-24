@@ -22,7 +22,7 @@
 .. _LineBuffer:
 
 LineBuffer
-====
+==========
 
 
 **LineBuffers** are two dimensional, on-chip scratchpads with a fixed size.

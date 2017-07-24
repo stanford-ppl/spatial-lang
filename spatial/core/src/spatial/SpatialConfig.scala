@@ -11,6 +11,8 @@ object SpatialConfig {
     fpga: String,
     sim: Boolean,
     synth: Boolean,
+    interpret: Boolean,
+    inputs: Seq[String],
     pir: Boolean,
     dse: Boolean,
     dot: Boolean,
@@ -20,6 +22,7 @@ object SpatialConfig {
     naming: Boolean,
     tree: Boolean
   )
+
   case class PlasticineConf(
     sinUcu: Int,
     stagesUcu: Int,
@@ -43,6 +46,10 @@ object SpatialConfig {
 
   var enableDSE: Boolean = _
   var enableDot: Boolean = _
+
+  //Interpreter 
+  var inputs: Array[String] = Array()
+  var enableInterpret: Boolean = _
 
   var enableSim: Boolean = _
   var enableSynth: Boolean = _
@@ -79,7 +86,9 @@ object SpatialConfig {
     val defaultSpatial = ConfigFactory.parseString("""
 spatial {
   fpga = "Default"
+  interpret = false
   sim = true
+  inputs = ["0", "1", "2", "3", "4"]
   synth = false
   pir = false
   dse = false
@@ -88,18 +97,19 @@ spatial {
   splitting = false
   arch-dse = false
   naming = false
-  tree = false
+  tree = true
 }
 """)
 
     val mergedSpatialConf = ConfigFactory.load().withFallback(defaultSpatial).resolve()
     loadConfig[SpatialConf](mergedSpatialConf, "spatial") match {
       case Right(spatialConf) =>
-        targetName = spatialConf.fpga
-
+        //targetName = spatialConf.fpga
         enableDSE = spatialConf.dse
         enableDot = spatialConf.dot
 
+        inputs = spatialConf.inputs.toArray
+        enableInterpret = spatialConf.interpret
         enableSim = spatialConf.sim
         enableSynth = spatialConf.synth
         enablePIR = spatialConf.pir

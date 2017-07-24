@@ -17,7 +17,6 @@ lazy val spatial = (project in file("core"))
     libraryDependencies += "stanford-ppl" %% "argon" % version.value,
     libraryDependencies += "stanford-ppl" %% "forge" % version.value,
     libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
-
     //paradise
     resolvers += Resolver.sonatypeRepo("snapshots"),
     resolvers += Resolver.sonatypeRepo("releases"),

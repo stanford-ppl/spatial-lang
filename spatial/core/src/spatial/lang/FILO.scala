@@ -12,6 +12,8 @@ case class FILO[T:Type:Bits](s: Exp[FILO[T]]) extends Template[FILO[T]] {
   @api def pop(): T = this.pop(true)
   @api def pop(en: Bit): T = wrap(FILO.pop(this.s, en.s))
 
+  @api def peek(): T = wrap(FILO.peek(this.s))
+
   @api def empty(): Bit = wrap(FILO.is_empty(this.s))
   @api def full(): Bit = wrap(FILO.is_full(this.s))
   @api def almostEmpty(): Bit = wrap(FILO.is_almost_empty(this.s))
@@ -46,6 +48,9 @@ object FILO {
   }
   @internal def pop[T:Type:Bits](filo: Exp[FILO[T]], en: Exp[Bit]): Exp[T] = {
     stageWrite(filo)(FILOPop(filo,en))(ctx)
+  }
+  @internal def peek[T:Type:Bits](filo: Exp[FILO[T]]): Exp[T] = {
+    stageWrite(filo)(FILOPeek(filo))(ctx)
   }
   @internal def is_empty[T:Type:Bits](filo: Exp[FILO[T]]): Exp[Bit] = {
     stage(FILOEmpty(filo))(ctx)

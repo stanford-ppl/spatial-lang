@@ -11,10 +11,17 @@ import spatial.utils._
 import scala.collection.mutable
 
 trait ModelingTraversal extends SpatialTraversal { traversal =>
-  lazy val latencyModel = new LatencyModel{ }
+  val latencyModel: LatencyModel
 
-  protected override def preprocess[S: Type](block: Block[S]) = {
-    // latencyOf.updateModel(target.latencyModel) // TODO: Update latency model with target-specific values
+  override def silence(): Unit = {
+    latencyModel.silence()
+    super.silence()
+  }
+  def init(): Unit = {
+    latencyModel.init()
+  }
+
+  protected override def preprocess[S: Type](block: Block[S]): Block[S] = {
     inHwScope = false
     inReduce = false
     super.preprocess(block)
@@ -23,7 +30,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   // --- State
   var inHwScope = false // In hardware scope
   var inReduce = false  // In tight reduction cycle (accumulator update)
-  def latencyOf(e: Exp[_]) = {
+  def latencyOf(e: Exp[_]): Long = {
     // HACK: For now, disable retiming in reduction cycles by making everything have 0 latency
     // This means everything will be purely combinational logic between the accumulator read and write
     val inReductionCycle = reduceType(e).isDefined
@@ -33,28 +40,22 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     }
   }
 
-  // TODO: Could optimize further with dynamic programming
-  def latencyOfPipe(b: Block[_]): Long = {
-    val scope = getStages(b)
-    val paths = mutable.HashMap[Exp[_],Long]()
-    //debug(s"Pipe latency $b:")
-
-    def quickDFS(cur: Exp[_]): Long = cur match {
-      case Def(d) if scope.contains(cur) && !isGlobal(cur) =>
-        //debug(s"Visit $cur in quickDFS")
-        val deps = exps(d)
-        if (deps.isEmpty) {
-          if (effectsOf(cur).isPure) warn(cur.ctx, s"[Compiler] $cur = $d has no dependencies but is not global?")
-          latencyOf(cur)
-        }
-        else {
-          latencyOf(cur) + deps.map{e => paths.getOrElseUpdate(e, quickDFS(e))}.max
-        }
-      case _ => 0L
-    }
-    if (scope.isEmpty) 0L else exps(b).map{e => paths.getOrElseUpdate(e, quickDFS(e)) }.max
+  def latencyAndInterval(block: Block[_]): (Long, Long) = {
+    val (latencies, initInterval) = pipeLatencies(block)
+    val scope = latencies.keySet
+    val latency = latencies.values.fold(0L){(a,b) => Math.max(a,b) }
+    // HACK: Set initiation interval to 1 if it contains a specialized reduction
+    // This is a workaround for chisel codegen currently specializing and optimizing certain reduction types
+    val ii = if (scope.exists(x => reduceType(x).contains(FixPtSum))) 1L else initInterval
+    (latency, ii)
   }
-  def latencyOfCycle(b: Block[Any]): Long = {
+
+  def latencyOfPipe(block: Block[_]): (Long, Long) = {
+    val (latency, interval) = latencyAndInterval(block)
+    (latency, interval)
+  }
+
+  def latencyOfCycle(b: Block[_]): (Long, Long) = {
     val outerReduce = inReduce
     inReduce = true
     val out = latencyOfPipe(b)
@@ -62,11 +63,14 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     out
   }
 
-  class GetOrElseUpdateFix[K,V](x: mutable.Map[K,V]) {
+  implicit class GetOrElseUpdateFix[K,V](x: mutable.Map[K,V]) {
     def getOrElseAdd(k: K, v: => V): V = if (x.contains(k)) x(k) else { val value = v; x(k) = value; value }
   }
-  implicit def getOrUpdateFix[K,V](x: mutable.Map[K,V]): GetOrElseUpdateFix[K,V] = new GetOrElseUpdateFix[K,V](x)
 
+  def pipeLatencies(block: Block[_]): (Map[Exp[_],Long], Long) = {
+    val (scope, result) = blockNestedScopeAndResult(block)
+    pipeLatencies(result, scope)
+  }
 
   def pipeLatencies(result: Seq[Exp[_]], scope: Set[Exp[_]], oos: Map[Exp[_],Long] = Map.empty): (Map[Exp[_],Long], Long) = {
     val localReads  = scope.collect{case reader @ LocalReader(reads) => reader -> reads.head.mem }
@@ -116,14 +120,14 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
     // Perform backwards pass to push unnecessary delays out of reduction cycles
     // This can create extra registers, but decreases the initiation interval of the cycle
-    def reverseDFS(cur: Exp[_], scope: Set[Exp[_]]): Unit = cur match {
-      case s: Sym[_] if scope contains cur =>
-        val forward = s.dependents
+    def reverseDFS(cur: Exp[_], cycle: Set[Exp[_]]): Unit = cur match {
+      case s: Sym[_] if cycle contains cur =>
+        val forward = s.dependents.filter(dep => scope.contains(dep))
         if (forward.nonEmpty) {
           val earliestConsumer = forward.map{e => paths.getOrElse(e, 0L) - latencyOf(e) }.min
           paths(cur) = Math.max(earliestConsumer, paths.getOrElse(cur, 0L))
         }
-        getDef(s).foreach{d => d.allInputs.foreach{in => reverseDFS(in, scope) }}
+        getDef(s).foreach{d => d.allInputs.foreach{in => reverseDFS(in, cycle) }}
 
       case _ => // Do nothing
     }
@@ -139,13 +143,6 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
         dbgs(s"Cycle #$i: " + cycleList.map{s => c"($s, ${paths(s)})"}.mkString(", "))
 
         reverseDFS(writer, cycle)
-
-        /*cycle.sliding(2).foreach{
-          case List(high,low) =>
-            // Move the lower to just before the higher
-            paths(low) = Math.max(paths(high) - latencyOf(high), paths(low))
-          case _ =>
-        }*/
 
         dbgs(s"Cycle #$i: " + cycleList.map{s => c"($s, ${paths(s)})"}.mkString(", "))
       }

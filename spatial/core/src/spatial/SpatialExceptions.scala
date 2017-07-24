@@ -8,102 +8,102 @@ import spatial.aliases._
 
 class EmptyReductionTreeLevelException(implicit ctx: SrcCtx, state: State) extends
 CompilerException(1000, u"Cannot create reduction tree for empty list."){
-  error(ctx, "Cannot create reduction tree for empty list.")
-  error(ctx)
+  bug(ctx, "Cannot create reduction tree for empty list.")
+  bug(ctx)
 }
 
-class UndefinedDimensionsError(s: Exp[_], d: Option[Exp[_]])(implicit ctx: SrcCtx, state: State) extends
+class UndefinedDimensionsException(s: Exp[_], d: Option[Exp[_]])(implicit ctx: SrcCtx, state: State) extends
 CompilerException(1001, u"Cannot find dimensions for symbol ${str(s)}."){
-  error(ctx, s"Cannot locate dimensions for symbol ${str(s)} used here.")
-  if (d.isDefined) error(c"  Dimension: $d")
-  error(ctx)
+  bug(ctx, s"Cannot locate dimensions for symbol ${str(s)} used here.")
+  if (d.isDefined) bug(c"  Dimension: $d")
+  bug(ctx)
 }
 
 class UndefinedZeroException(s: Exp[_], tp: Type[_])(implicit ctx: SrcCtx, state: State) extends
 CompilerException(1002, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s"){
-  error(ctx, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s")
+  bug(ctx, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s")
 }
 
-class ExternalWriteError(mem: Exp[_], write: Exp[_], ctrl: Ctrl)(implicit ctx: SrcCtx, state: State) extends
+class ExternalWriteException(mem: Exp[_], write: Exp[_], ctrl: Ctrl)(implicit ctx: SrcCtx, state: State) extends
 CompilerException(1003, c"Found illegal write to memory $mem defined outside an inner controller"){
-  error(ctx, c"Found illegal write to memory $mem defined outside an inner controller")
-  error(c"${str(write)}")
-  error(c"Current control $ctrl")
+  bug(ctx, c"Found illegal write to memory $mem defined outside an inner controller")
+  bug(c"${str(write)}")
+  bug(c"Current control $ctrl")
 }
 
 class UndefinedBankingException(tp: Type[_])(implicit ctx: SrcCtx, state: State) extends
 CompilerException(1004, c"Don't know how to bank memory type $tp"){
-  error(ctx, c"Don't know how to bank memory type $tp")
+  bug(ctx, c"Don't know how to bank memory type $tp")
 }
 
 class UndefinedDispatchException(access: Exp[_], mem: Exp[_])(implicit state: State) extends
 CompilerException(1005, c"""Access $access had no dispatch information for memory $mem (${mem.name.getOrElse("noname")}}"""){
-  error(c"Access $access had no dispatch information for memory $mem")
+  bug(c"Access $access had no dispatch information for memory $mem")
 }
 
 class UndefinedPortsException(access: Exp[_], mem: Exp[_], idx: Option[Int])(implicit state: State) extends
 CompilerException(1006, c"Access $access had no ports for memory $mem" + idx.map{i => c", index $i"}.getOrElse("")){
-  error(c"Access $access had no ports for memory $mem" + idx.map{i => c", index $i"}.getOrElse(""))
+  bug(c"Access $access had no ports for memory $mem" + idx.map{i => c", index $i"}.getOrElse(""))
 }
 
 class NoCommonParentException(a: Ctrl, b: Ctrl)(implicit state: State) extends
 CompilerException(1007, c"Controllers $a and $b had no common parent while finding LCA with distance"){
-  error(c"Controllers $a and $b had no common parent while finding LCA with distance")
+  bug(c"Controllers $a and $b had no common parent while finding LCA with distance")
 }
 
 class UndefinedChildException(parent: Ctrl, access: Access)(implicit state: State) extends
 CompilerException(1008, c"Parent $parent does not appear to contain $access while running childContaining"){
-  error(c"Parent $parent does not appear to contain $access while running childContaining")
+  bug(c"Parent $parent does not appear to contain $access while running childContaining")
 }
 
 class AmbiguousMetaPipeException(mem: Exp[_], metapipes: Map[Ctrl, Seq[Access]])(implicit state: State) extends
 CompilerException(1009, c"Ambiguous metapipes for readers/writers of $mem: ${metapipes.keySet}"){
-  error(c"Ambiguous metapipes for readers/writers of $mem:")
-  metapipes.foreach{case (pipe,accesses) => error(c"  $pipe: $accesses")}
+  bug(c"Ambiguous metapipes for readers/writers of $mem:")
+  metapipes.foreach{case (pipe,accesses) => bug(c"  $pipe: $accesses")}
 }
 
 class UndefinedPipeDistanceException(a: Ctrl, b: Ctrl)(implicit state: State) extends
 CompilerException(1010, c"Controllers $a and $b have an undefined pipe distance because they occur in parallel"){
-  error(c"Controllers $a and $b have an undefined pipe distance because they occur in parallel")
+  bug(c"Controllers $a and $b have an undefined pipe distance because they occur in parallel")
 }
 
 class UndefinedControlStyleException(ctrl: Exp[_])(implicit state: State) extends
 CompilerException(1011, c"Controller ${str(ctrl)} does not have a control style defined"){
-  error(c"Controller ${str(ctrl)} does not have a control style defined")
+  bug(c"Controller ${str(ctrl)} does not have a control style defined")
 }
 
 class UndefinedControlLevelException(ctrl: Exp[_])(implicit state: State) extends
 CompilerException(1012, c"Controller ${str(ctrl)} does not have a control level defined"){
-  error(c"Controller ${str(ctrl)} does not have a control level defined")
+  bug(c"Controller ${str(ctrl)} does not have a control level defined")
 }
 
 
 class UnusedDRAMException(dram: Exp[_], name: String)(implicit state: State) extends
 CompilerException(1020, c"DRAM $dram ($name) was declared as a DRAM in app but is not used by the accel"){
-  error(c"DRAM $dram ($name) was declared as a DRAM in app but is not used by the accel")
+  bug(c"DRAM $dram ($name) was declared as a DRAM in app but is not used by the accel")
 }
 
 class OuterLevelInnerStyleException(name: String)(implicit state: State) extends
 CompilerException(1022, c"Controller $name claims to be an outer level controller but has style of an innerpipe"){
-  error(c"Controller $name claims to be an outer level controller but has style of an innerpipe")
+  bug(c"Controller $name claims to be an outer level controller but has style of an innerpipe")
 }
 
 class DoublyUsedDRAMException(dram: Exp[_], name: String)(implicit state: State) extends
 CompilerException(1023, c"DRAM $dram is used twice as a $name.  Please only load from a DRAM once, or else stream signals will interfere"){
-  error(c"DRAM $dram is used twice as a $name.  Please only load from a DRAM once, or else stream signals will interfere")
+  bug(c"DRAM $dram is used twice as a $name.  Please only load from a DRAM once, or else stream signals will interfere")
 }
 
 class TrigInAccelException(lhs: Exp[_])(implicit state: State) extends
 CompilerException(1024, c"""Cannot handle trig functions inside of accel block! ${lhs.name.getOrElse("")}"""){
-  error(c"""Cannot handle trig functions inside of accel block! ${lhs.name.getOrElse("")}""")
+  bug(c"""Cannot handle trig functions inside of accel block! ${lhs.name.getOrElse("")}""")
 }
 
 
 class EmptyDispatchException(lhs: Exp[_])(implicit state: State) extends
 CompilerException(1025, c"$lhs had empty dispatch information") {
-  error(s"Access:")
-  error(c"  ${str(lhs)}")
-  error(c"had empty dispatch information.")
+  bug(s"Access:")
+  bug(c"  ${str(lhs)}")
+  bug(c"had empty dispatch information.")
 }
 
 

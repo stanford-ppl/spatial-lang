@@ -96,14 +96,15 @@ trait ChiselGenFILO extends ChiselGenSRAM {
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.connectPushPort(Vec(List(${v}.r)), ${writer}_en & ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en)""")
+      emit(src"""${fifo}.connectPushPort(Vec(List(${v}.r)), ${writer}_en & ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")
 
 
     case FILOPop(fifo,en) =>
       val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
-      emit(src"""${lhs}.r := ${fifo}.connectPopPort(${reader}_en & (${reader}_datapath_en & ~${reader}_inhibitor).D(${symDelay(lhs)}) & $en & ~${reader}_inhibitor).apply(0)""")
+      emit(src"""${lhs}.r := ${fifo}.connectPopPort(${reader}_en & (${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en & ~${reader}_inhibitor).apply(0)""")
 
+    case FILOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
     case FILOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
     case FILOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")
     case FILOAlmostEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.almostEmpty")

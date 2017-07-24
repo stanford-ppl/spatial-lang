@@ -30,15 +30,27 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
     case StateMachine(ens,start,notDone,action,nextState,state) =>
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      alphaconv_register(src"$state")
       emit(src"${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B")
 
       emitController(lhs, None, None, true)
+      if (iiOf(lhs) <= 1) {
+        emit(src"""val ${lhs}_II_done = true.B""")
+      } else {
+        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr());""")
+        emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
+        emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_en""")
+        emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${lhs}_retime.S""")
+        emit(src"""${lhs}_IICtr.io.input.reset := reset | ${lhs}_II_done.D(1)""")
+        emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
+      }
+      // emitGlobalWire(src"""val ${lhs}_II_done = true.B // Maybe this should handled differently""")
 
       emit("// Emitting notDone")
       emitBlock(notDone)
       emit("// Emitting action")
       emitGlobalWire(src"val ${notDone.result}_doneCondition = Wire(Bool())")
-      emit(src"${notDone.result}_doneCondition := ~${notDone.result}")
+      emit(src"${notDone.result}_doneCondition := ~${notDone.result} // Seems unused")
       emitInhibitor(lhs, None, Some(notDone.result), None)
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emit(s"// Controller Stack: ${controllerStack.tail}")

@@ -71,7 +71,7 @@ currentbranch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 # git push
 
 # Do warning if you are about to crush someone's working branch
-if [[ $2 = "fpga" || $2 = "compile" || $2 = "pir" || $2 = "retime" ]]; then
+if [[ $2 = "fpga" || $2 = "compile" || $2 = "pir" ]]; then
 	read -p "You are about to merge $1 into $2, which appears to be someone else's working branch.  Continue? [y/N]: " choice
 	echo    # (optional) move to a new line
 	case "$choice" in 
@@ -92,6 +92,7 @@ if [[ $stash = *"No stash found"* ]]; then
 	  * ) exit 1;;
 	esac
 fi	
+
 
 # Merge lower into higher
 echo "=========================="
@@ -129,8 +130,8 @@ echo "=========================="
 cd ../
 conflict
 git stash
-git checkout $2
-git pull
+git checkout $2 | tee -a /tmp/pub
+git pull | tee -a /tmp/pub
 git merge origin/$1 | tee -a /tmp/pub
 error=(`cat /tmp/pub | grep -i "conflict\|error\|fatal" | wc -l`)
 if [[ $error != 0 ]]; then
@@ -140,6 +141,7 @@ if [[ $error != 0 ]]; then
 fi
 sleep 1
 git add argon
+git add apps
 git add scala-virtualized
 git commit -m "auto merge"
 git push

@@ -13,6 +13,11 @@ import scala.io.Source
 
 object utils {
   /**
+    * Return the number of bits of data the given symbol represents
+    */
+  def nbits(e: Exp[_]): Int = e.tp match {case Bits(bT) => bT.length; case _ => 0 }
+
+  /**
     * Least common multiple of two integers (smallest integer which has integer divisors a and b)
     */
   def lcm(a: Int, b: Int) = {
@@ -105,13 +110,13 @@ object utils {
   @stateful def lca(a: Ctrl, b: Ctrl): Option[Ctrl] = leastCommonAncestor[Ctrl](a, b, {x => parentOf(x)})
 
   @stateful def dependenciesOf(a: Ctrl): Set[Ctrl] = {
-    if (a.isInner) {
+    if (a.block > 0) {
       val parent = parentOf(a).get
       val children = childrenOf(parent) filterNot (_ == a)
       val leaves = children.filter{x => !children.exists{child => dependenciesOf(child) contains x}}
       leaves.toSet
     }
-    else ctrlDepsOf(a.node).map{node => (node,false) }
+    else ctrlDepsOf(a.node).map{node => (node,-1) }
   }
 
   /**
@@ -155,12 +160,20 @@ object utils {
         val dist  = if (aToB >= 0) aToB
                     else if (bToA >= 0) -bToA
                     else throw new UndefinedPipeDistanceException(a, b)*/
+        log(c"    LCA: " + parent)
+        log(c"    LCA children: " + childrenOf(parent).mkString(", "))
+        log(c"    Path A (from $a): " + pathA.mkString(", ") + s": topA = $topA")
+        log(c"    Path B (from $b): " + pathB.mkString(", ") + s": topB = $topB")
+
 
         // Linear version (using for now)
         val indexA = childrenOf(parent).indexOf(topA)
         val indexB = childrenOf(parent).indexOf(topB)
-        if (indexA < 0 || indexB < 0) throw new UndefinedPipeDistanceException(a, b)
+        if (indexA < 0 || indexB < 0) {
+          throw new UndefinedPipeDistanceException(a, b)
+        }
         val dist = indexB - indexA
+        log(c"    distance: $dist")
 
         (parent, dist)
       }
@@ -199,25 +212,17 @@ object utils {
     * Returns metapipe controller for given accesses
     **/
   @stateful def findMetaPipe(mem: Exp[_], readers: Seq[Access], writers: Seq[Access]): (Option[Ctrl], Map[Access,Int]) = {
-    val accesses = readers ++ writers
-    assert(accesses.nonEmpty)
 
-    val anchor = if (readers.nonEmpty) readers.head else writers.head
-
-    val lcas = accesses.map{access =>
-      val (lca,dist) = lcaWithCoarseDistance(anchor, access)
-
-      (lca,dist,access)
-    }
-    // Find accesses which require n-buffering, group by their controller
-    val metapipeLCAs = lcas.filter(_._2 != 0).groupBy(_._1).mapValues(_.map(_._3))
-
-    // Hierarchical metapipelining is currently disallowed
-    if (metapipeLCAs.keys.size > 1) {
-      error(c"Ambiguous metapipes for readers/writers of $mem:")
-      metapipeLCAs.foreach{case (pipe,accs) =>
+    def ambiguousMetapipesError(lcas: Map[Ctrl,Seq[(Access,Access)]]): Unit = {
+      error(u"Ambiguous metapipes for readers/writers of $mem defined here:")
+      error(str(mem))
+      error(mem.ctx)
+      lcas.foreach{case (pipe,accs) =>
         error(c"  metapipe: $pipe ")
-        error(c"  accesses: " + accs.map(x => c"$x").mkString(","))
+        error(c"  accesses: " + accs.map(x => c"${x._1} / ${x._2}").mkString(","))
+        error(str(pipe.node))
+        error(pipe.node.ctx)
+        error("")
       }
       error(c"  readers:")
       readers.foreach{rd => error(c"    $rd") }
@@ -226,18 +231,44 @@ object utils {
       state.logError()
     }
 
+    val accesses = readers ++ writers
+    assert(accesses.nonEmpty)
+
+    val lcas = accesses.indices.flatMap{i =>
+      (i + 1 until accesses.length).map{j =>
+        val (lca,dist) = lcaWithCoarseDistance(accesses(i), accesses(j))
+        (lca,dist,(accesses(i),accesses(j)))
+      }
+    }
+
+    // Find accesses which require n-buffering, group by their controller
+    val metapipeLCAs = lcas.filter(_._2 != 0).groupBy(_._1).mapValues(_.map(_._3))
+
+    // Hierarchical metapipelining is currently disallowed
+    if (metapipeLCAs.keys.size > 1) ambiguousMetapipesError(metapipeLCAs)
     val metapipe = metapipeLCAs.keys.headOption
 
-    val minDist = lcas.map(_._2).min
+    val ports = if (metapipe.isDefined) {
+      val mpgroup = metapipeLCAs(metapipe.get)
+      val anchor = mpgroup.head._1
+      val dists = accesses.map{access =>
+        val (lca,dist) = lcaWithCoarseDistance(anchor, access)
+        dbg(c"LCA of $anchor and $access: $lca")
+        // Time multiplexed actually becomes ALL ports
+        if (lca == metapipe.get || access == anchor) access -> dist else access -> 0
+      }
+      val minDist = dists.map(_._2).min
+      dists.map{case (access, dist) => access -> (dist - minDist) }.toMap
+    }
+    else accesses.map{access => access -> 0}.toMap
 
     // Port 0: First stage to write/read
     // Port X: X stage(s) after first stage
-    val ports = Map(lcas.map{grp => grp._3 -> (grp._2 - minDist)}:_*)
+    // val ports = Map(lcas.map{grp => grp._3 -> (grp._2 - minDist)}:_*)
 
     dbg("")
     dbg(c"  accesses: $accesses")
-    dbg(c"  anchor: $anchor")
-    lcas.foreach{case (lca,dist,access) => dbg(c"    lca($anchor, $access) = $lca ($dist)") }
+    lcas.foreach{case (lca,dist,access) => dbg(c"    lca(${access._1}, ${access._2}) = $lca ($dist)") }
     dbg(s"  metapipe: $metapipe")
     ports.foreach{case (access, port) => dbg(s"    - $access : port #$port")}
 
@@ -264,6 +295,14 @@ object utils {
       }
     }
   }
+  @stateful def findAccesses(access: List[Access])(func: (Access, Access) => Boolean): Seq[(Access,Access)] = {
+    access.indices.flatMap{i =>
+      (i+1 until access.length).flatMap{j =>
+        if (access(i) != access(j) && func(access(i), access(j))) Some((access(i),access(j))) else None
+      }
+    }
+  }
+
   @internal def checkConcurrentReaders(mem: Exp[_]): Boolean = checkAccesses(readersOf(mem)){(a,b) =>
     if (areConcurrent(a,b)) {new ConcurrentReadersError(mem, a.node, b.node); true } else false
   }
@@ -304,7 +343,7 @@ object utils {
     * E.g.
     *   8 inputs => perfectly balanced binary tree, no delay paths
     *   9 inputs => 1 path of length 3
-    *    85 inputs => 3 paths with lengths 2, 1, and 1
+    *   85 inputs => 3 paths with lengths 2, 1, and 1
     **/
   def reductionTreeDelays(nLeaves: Int): List[Long] = {
     if ( (nLeaves & (nLeaves - 1)) == 0) Nil // Specialize for powers of 2
@@ -334,7 +373,7 @@ object utils {
     treeLevel(nLeaves, 0)
   }
 
-  def mirrorCtrl(x: Ctrl, f: Transformer): Ctrl = (f(x.node), x.isInner)
+  def mirrorCtrl(x: Ctrl, f: Transformer): Ctrl = (f(x.node), x.block)
   def mirrorAccess(x: Access, f: Transformer): Access = (f(x.node), mirrorCtrl(x.ctrl, f))
 
   /** Parallelization factors **/
@@ -359,7 +398,66 @@ object utils {
   /** Control Nodes **/
   implicit class CtrlOps(x: Ctrl) {
     def node: Exp[_] = if (x == null) null else x._1
-    def isInner: Boolean = if (x == null) false else x._2
+    def block: Int = if (x == null) -1 else x._2
+    @stateful def isInner: Boolean = if (x == null || block < 0) false else node match {
+      case Op(OpReduce(_,_,_,map,ld,reduce,store,_,_,_,_)) if isInnerControl(node) => true
+      case Op(_:OpReduce[_]) if isOuterControl(node) => true
+      case Op(OpMemReduce(_,_,_,_,map,ldRes,ldAcc,reduce,stAcc,_,_,_,_,_)) if isInnerControl(node) => true
+      case Op(_:OpMemReduce[_,_]) if isOuterControl(node) => block == 0
+      case Op(StateMachine(_,_,notdone,action,nextState,_)) if isInnerControl(node) => true
+      case Op(_:StateMachine[_]) => block == 0 || block == 1
+      case _ => isInnerControl(node)
+    }
+  }
+
+  /**
+    * Map a given compiler block number to the logical child number
+    *
+    *   Inner Reduce: Everything eventually becomes one logical stage
+    *   Outer Reduce: The map is part of the initialization (and has other children inside), the reduce is a separate stage
+    *   Inner MemReduce: Doesn't usually happen, but would be two stages
+    *   Outer MemReduce: Map is part of initialization (and has other children), the reduce is a separate stage
+    *
+    *   When -1 is used, this is an outer scope block which shouldn't contain primitives (only stateless logic)
+    **/
+  @stateful def blockCountRemap(e: Exp[_], blockNum: Int): Int = if (blockNum < 0) blockNum else e match {
+    case Op(_:OpReduce[_]) if isInnerControl(e) => blockNum match {
+      case 0 | 1 | 2 | 3 => 0
+    }
+    case Op(_:OpReduce[_]) if isOuterControl(e) => blockNum match {
+      case 0 => -1
+      case 1 | 2 | 3 => 0
+    }
+    case Op(_:OpMemReduce[_,_]) if isInnerControl(e) => blockNum match {
+      case 0 => 0
+      case 1 | 2 | 3 | 4 => 1
+    }
+    case Op(_:OpMemReduce[_,_]) if isOuterControl(e) => blockNum match {
+      case 0 => -1
+      case 1 | 2 | 3 | 4 => 0
+    }
+    case Op(_:StateMachine[_]) if isInnerControl(e) => blockNum
+    case Op(_:StateMachine[_]) if isOuterControl(e) => blockNum match {
+      case 0 => 0
+      case 1 => -1
+      case 2 => 1
+    }
+    case _ if isInnerControl(e) => blockNum
+    case _ if isOuterControl(e) => -1
+  }
+  @stateful def blkToCtrl(block: Blk): Ctrl = (block.node, blockCountRemap(block.node, block.block))
+
+
+
+  @stateful def addImplicitChildren(x: Ctrl, children: List[Ctrl]): List[Ctrl] = x.node match {
+    case Op(_:OpReduce[_]) if isInnerControl(x) => children ++ List((x.node,0)) // children should be Nil
+    case Op(_:OpReduce[_]) if isOuterControl(x) => children ++ List((x.node,0))
+    case Op(_:OpMemReduce[_,_]) if isInnerControl(x) => children ++ List((x.node,0), (x.node,1)) // children should be Nil
+    case Op(_:OpMemReduce[_,_]) if isOuterControl(x) => children ++ List((x.node,0))
+    case Op(_:StateMachine[_])  if isInnerControl(x) => List((x.node,0), (x.node,1), (x.node,2)) // children should be Nil
+    case Op(_:StateMachine[_])  if isOuterControl(x) => List((x.node,0)) ++ children ++ List((x.node,1))
+    case _ if isInnerControl(x) => children ++ List((x.node,0)) // children should be Nil
+    case _ if isOuterControl(x) => children
   }
 
 
@@ -377,6 +475,7 @@ object utils {
   @stateful def isInnerPipe(e: Exp[_]): Boolean = styleOf(e) == InnerPipe || (styleOf(e) == MetaPipe && isInnerControl(e))
   @stateful def isInnerPipe(e: Ctrl): Boolean = e.isInner || isInnerPipe(e.node)
   @stateful def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe
+  @stateful def isSeqPipe(e: Exp[_]): Boolean = styleOf(e) == SeqPipe
   @stateful def isStreamPipe(e: Exp[_]): Boolean = e match {
     case Def(Hwblock(_,isFrvr)) => isFrvr
     case _ => styleOf(e) == StreamPipe
@@ -447,6 +546,13 @@ object utils {
     case _ => None
   }
 
+  @stateful def canFullyUnroll(cc: Exp[CounterChain]): Boolean = countersOf(cc).forall{
+    case Def(CounterNew(Exact(start),Exact(end),Exact(stride),Exact(par))) =>
+      val nIters = (BigDecimal(end) - BigDecimal(start))/BigDecimal(stride)
+      BigDecimal(par) >= nIters
+    case _ => false
+  }
+
   @stateful def isForeverCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).exists(isForever)
   @stateful def isUnitCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).forall(isUnitCounter)
 
@@ -471,15 +577,15 @@ object utils {
     case Def(SRAMNew(dims)) => dims
     case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
-    case Def(RegFileNew(dims)) => dims
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case Def(RegFileNew(dims,_)) => dims
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
     case Def(LUTNew(dims,_)) => dims
     case _ => stagedDimsOf(x).map{
       case Const(c: BigDecimal) => c.toInt
-      case dim => throw new spatial.UndefinedDimensionsError(x, Some(dim))(x.ctx, state)
+      case dim => throw new spatial.UndefinedDimensionsException(x, Some(dim))(x.ctx, state)
     }
   }
 
@@ -488,12 +594,12 @@ object utils {
   @stateful def sizeOf(x: Exp[_]): Exp[Index] = x match {
     case Def(FIFONew(size)) => size
     case Def(FILONew(size)) => size
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def lenOf(x: Exp[_]): Int = x.tp match {
     case tp: VectorType[_] => tp.width
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def rankOf(x: Exp[_]): Int = dimsOf(x).length
@@ -516,6 +622,7 @@ object utils {
   def isLUT(e: Exp[_]): Boolean  = e.tp.isInstanceOf[LUTType[_]]
   def isSRAM(e: Exp[_]): Boolean = e.tp.isInstanceOf[SRAMType[_]]
   def isReg(e: Exp[_]): Boolean  = e.tp.isInstanceOf[RegType[_]]
+  def isRegFile(e: Exp[_]): Boolean = e.tp.isInstanceOf[RegFileType[_]]
   def isStreamIn(e: Exp[_]): Boolean = e.tp.isInstanceOf[StreamInType[_]]
   def isStreamOut(e: Exp[_]): Boolean = e.tp.isInstanceOf[StreamOutType[_]] || e.tp.isInstanceOf[BufferedOutType[_]]
   def isBufferedOut(e: Exp[_]): Boolean = e.tp.isInstanceOf[BufferedOutType[_]]
@@ -579,6 +686,14 @@ object utils {
     case _:RegType[_]         => isArgIn(e) || isArgOut(e) || isHostIO(e)
     case _ => false
   }
+  @stateful def isInternalStreamMemory(e: Exp[_]): Boolean = e.tp match { // For finding the streams generated from tile transfers
+    case _:DRAMType[_]        => false
+    case _:StreamInType[_]    => if (parentOf(e).isDefined) true else false
+    case _:StreamOutType[_]   => if (parentOf(e).isDefined) true else false
+    case _:BufferedOutType[_] => true
+    case _:RegType[_]         => false
+    case _ => false
+  }
 
 
 
@@ -626,7 +741,8 @@ object utils {
     def node: Exp[_] = x._1
     def ctrl: Ctrl = x._2 // read or write enabler
     def ctrlNode: Exp[_] = x._2._1 // buffer control toggler
-    def isInner: Boolean = x._2._2
+    def ctrlBlock: Int = x._2._2
+    @stateful def isInner: Boolean = x._2.isInner
   }
 
   // Memory, optional value, optional indices, optional enable

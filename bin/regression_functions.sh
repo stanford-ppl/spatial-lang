@@ -88,6 +88,7 @@ check_packet() {
   for ii in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$ii]}"* ]]; then rank=${ii}; fi; done
   if [ $rank = -1 ]; then
     logger "Packet for $packet disappeared from list $stringified!  Quitting ungracefully!"
+    rm /remote/regression/mapping/${this_machine}---${tim}*
     exit 1
   fi
 }
@@ -169,6 +170,7 @@ rm $packet
 
 sleep 1000
 stubborn_delete ${dirname}
+rm /remote/regression/mapping/${this_machine}---${tim}*
 
 ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 
@@ -207,7 +209,7 @@ for ac in ${types_list[@]}; do
 done
 
 # Update regtest timestamp
-if [[ ${this_machine} = *"portland"* ]]; then
+if [[ ${type_todo} = *"chisel"* ]]; then
   update_regression_timestamp
 fi
 
@@ -609,10 +611,13 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/ga
 export ARGON_HOME=${ARGON_HOME}
 export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
 export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
-export PATH=/usr/bin:\$VCS_HOME/amd64/bin:$PATH
+export PATH=\$VCS_HOME/amd64/bin:$PATH
 export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
 export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
-export _JAVA_OPTIONS=\"-Xmx16g\"
+if [[ \${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
+  export JAVA_HOME=\${JAVA_HOME}/..
+fi
+export _JAVA_OPTIONS=\"-Xmx24g\"
 date >> ${5}/log" >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
@@ -759,9 +764,6 @@ fi
 
 # Check for runtime errors
 wc=\$(cat ${5}/log | grep \"Error: App\\|Segmentation fault\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
-  report \"failed_execution_backend_crash\" \"[STATUS] Declaring failure compile_chisel\" 0
-fi
 
 # Check if app validated or not
 if grep -q \"PASS: 1\" ${5}/log; then
@@ -774,6 +776,8 @@ elif grep -q \"PASS: false\" ${5}/log; then
   report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
 elif grep -q \"PASS: X\" ${5}/log; then
   report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
+elif [ \"\$wc\" -ne 0 ]; then
+  report \"failed_execution_backend_crash\" \"[STATUS] Declaring failure backend_crash\" 0
 else 
   report \"failed_execution_nonexistent_validation\" \"[STATUS] Declaring failure no_validation_check\" 0
 fi" >> $1

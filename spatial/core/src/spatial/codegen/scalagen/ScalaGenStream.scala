@@ -19,9 +19,9 @@ trait ScalaGenStream extends ScalaGenMemories {
 
   // HACK
   def bitsFromString(lhs: String, line: String, tp: Type[_]): Unit = tp match {
-    case FixPtType(s,i,f)  => emit(s"val $lhs = Number($line, FixedPoint($s,$i,$f))")
-    case FltPtType(g,e)    => emit(s"val $lhs = Number($line, FloatPoint($g,$e))")
-    case BooleanType()     => emit(s"val $lhs = Bit($line.toBoolean, true)")
+    case FixPtType(s,i,f)  => emit(s"val $lhs = FixedPoint($line, FixFormat($s,$i,$f))")
+    case FltPtType(g,e)    => emit(s"val $lhs = FixedPoint($line, FltFormat(${g-1},$e))")
+    case BooleanType()     => emit(s"val $lhs = Bool($line.toBoolean, true)")
     case tp: VectorType[_] =>
       open(s"""val $lhs = $line.split(",").map(_.trim).map{elem => """)
         bitsFromString("out", "elem", tp.child)
@@ -57,8 +57,8 @@ trait ScalaGenStream extends ScalaGenMemories {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@StreamInNew(bus)  =>
       streamIns :+= lhs
-
-      emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      emitMem(lhs, src"$lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      // emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
       if (!bus.isInstanceOf[DRAMBus[_]]) {
         val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
         open(src"def populate_$lhs() = {")
@@ -84,7 +84,8 @@ trait ScalaGenStream extends ScalaGenMemories {
     case op@StreamOutNew(bus) =>
       streamOuts :+= lhs
 
-      emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      emitMem(lhs, src"$lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      // emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
 
       if (!bus.isInstanceOf[DRAMBus[_]]) {
         val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)

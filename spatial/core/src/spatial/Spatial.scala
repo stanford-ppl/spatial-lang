@@ -1,6 +1,7 @@
 package spatial
 
 import argon.ArgonApp
+import argon.ArgonCompiler
 import argon.core.State
 import argon.traversal.IRPrinter
 import argon.util.Report
@@ -12,15 +13,17 @@ import spatial.codegen.chiselgen.ChiselGenSpatial
 import spatial.codegen.cppgen.CppGenSpatial
 import spatial.codegen.dotgen.DotGenSpatial
 import spatial.codegen.scalagen.ScalaGenSpatial
+import spatial.interpreter.Interpreter
 import spatial.lang.cake.SpatialExternal
 import spatial.targets.{DefaultTarget, FPGATarget, Targets}
+
+import scala.language.existentials
 
 object dsl extends SpatialExternal {
   type SpatialApp = spatial.SpatialApp
 }
 
-trait SpatialApp extends ArgonApp {
-
+trait SpatialCompiler extends ArgonCompiler {
   // Traversal schedule
   override def createTraversalSchedule(state: State) = {
     if (SpatialConfig.enableRetiming) Report.warn("Spatial: retiming enabled")
@@ -47,12 +50,13 @@ trait SpatialApp extends ArgonApp {
 
     lazy val scopeCheck     = new ScopeCheck { var IR = state }
 
-    lazy val latencyAnalyzer = new LatencyAnalyzer { var IR = state }
+    lazy val latencyAnalyzer = LatencyAnalyzer(IR = state, latencyModel = target.latencyModel)
+    lazy val areaAnalyzer = SpatialConfig.target.areaAnalyzer(state)
 
     lazy val controlSanityCheck = new ControllerSanityCheck { var IR = state }
 
-    lazy val retiming = new PipeRetimer { var IR = state }
-    lazy val initAnalyzer = new InitiationAnalyzer { var IR = state }
+    lazy val retiming     = PipeRetimer(IR = state, latencyModel = target.latencyModel)
+    lazy val initAnalyzer = InitiationAnalyzer(IR = state, latencyModel = target.latencyModel)
 
     lazy val dse = new DSE {
       var IR = state
@@ -94,6 +98,7 @@ trait SpatialApp extends ArgonApp {
     lazy val cppgen = new CppGenSpatial { var IR = state }
     lazy val treegen = new TreeGenSpatial { var IR = state }
     lazy val dotgen = new DotGenSpatial { var IR = state }
+    lazy val interpreter = new Interpreter { var IR = state }
 
     passes += printer
     passes += scalarAnalyzer    // Perform bound and global analysis
@@ -102,9 +107,7 @@ trait SpatialApp extends ArgonApp {
     passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions
 
     // --- Unit Pipe Insertion
-    passes += printer
     passes += switchInsert      // Change nested if-then-else statements to Switch controllers
-    passes += printer
     passes += unitPipeInsert    // Wrap primitives in outer controllers
     passes += printer
     passes += regReadCSE        // CSE register reads in inner pipelines
@@ -122,9 +125,14 @@ trait SpatialApp extends ArgonApp {
     passes += scalarAnalyzer    // Bounds / global analysis
     passes += affineAnalyzer    // Memory access patterns
     passes += ctrlAnalyzer      // Control signal analysis
+    passes += printer
     passes += memAnalyzer       // Memory banking/buffering
 
+    passes += printer
+    passes += areaAnalyzer
+
     // --- DSE
+    if (SpatialConfig.enableDSE) passes += paramAnalyzer
     passes += dse               // TODO: Design space exploration
 
     // --- Post-DSE Expansion
@@ -133,18 +141,15 @@ trait SpatialApp extends ArgonApp {
     // but we also need to reanalyze bounds to account for expanded nodes
     // For now just doing it twice
     passes += scalarAnalyzer    // Bounds / global analysis
-    passes += printer
     passes += transferExpand    // Expand burst loads/stores from single abstract nodes
     passes += switchInsert      // Change if-then-else statements from transfers to switches
     passes += levelAnalyzer     // Pipe style annotation fixes after expansion
 
     // --- Post-Expansion Cleanup
-    passes += printer
     passes += regReadCSE        // CSE register reads in inner pipelines
     passes += scalarAnalyzer    // Bounds / global analysis
     passes += ctrlAnalyzer      // Control signal analysis
 
-    passes += printer
     passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
     passes += printer
 
@@ -157,9 +162,6 @@ trait SpatialApp extends ArgonApp {
     passes += reduceAnalyzer    // Reduce/accumulator specialization
     passes += memAnalyzer       // Finalize banking/buffering
 
-    // TODO: models go here
-    passes += latencyAnalyzer
-
     // --- Design Elaboration
 
     if (SpatialConfig.enablePIRSim) passes += pirRetimer
@@ -168,19 +170,19 @@ trait SpatialApp extends ArgonApp {
     passes += unroller          // Unrolling
     passes += printer
     passes += uctrlAnalyzer     // Readers/writers for CSE
-    passes += printer
     passes += regReadCSE        // CSE register reads in inner pipelines
     passes += printer
 
     passes += uctrlAnalyzer     // Analysis for unused register reads
-    passes += printer
     passes += regCleanup        // Duplicate register reads for each use
     passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
     passes += printer
 
     // --- Retiming
-    if (SpatialConfig.enableRetiming)   passes += retiming // Add delay shift registers where necessary
-    passes += printer
+    if (SpatialConfig.enableRetiming) {
+      passes += retiming        // Add delay shift registers where necessary
+      passes += printer
+    }
     passes += initAnalyzer
 
     // --- Post-Unroll Analysis
@@ -204,31 +206,37 @@ trait SpatialApp extends ArgonApp {
     if (SpatialConfig.enableSynth) passes += chiselgen
     if (SpatialConfig.enableDot)   passes += dotgen
     if (SpatialConfig.enablePIR)   passes += pirgen
+    if (SpatialConfig.enableInterpret)   passes += interpreter
+
   }
 
-  def target = SpatialConfig.target
-  def target_=(t: FPGATarget): Unit = { SpatialConfig.target = t }
+  val target: FPGATarget = targets.DefaultTarget
 
   override protected def onException(t: Throwable): Unit = {
     super.onException(t)
-    Report.error("If you'd like, you can submit this log and your code in a bug report at: ")
-    Report.error("  https://github.com/stanford-ppl/spatial-lang/issues")
-    Report.error("and we'll try to fix it as soon as we can.")
+    Report.bug("If you'd like, you can submit this log and your code in a bug report at: ")
+    Report.bug("  https://github.com/stanford-ppl/spatial-lang/issues")
+    Report.bug("and we'll try to fix it as soon as we can.")
   }
-
-  // Make the "true" entry point final
-  final override def main(sargs: Array[String]): Unit = super.main(sargs)
 
   override protected def parseArguments(args: Seq[String]): Unit = {
     SpatialConfig.init()
+    SpatialConfig.target = this.target
     val parser = new SpatialArgParser
     parser.parse(args)
-    if (SpatialConfig.targetName != "Default") {
+    /*if (SpatialConfig.targetName != "Default") {
       SpatialConfig.target = Targets.targets.find(_.name == SpatialConfig.targetName).getOrElse{
         Report.warn(s"Could not find target with name ${SpatialConfig.targetName}.")
         DefaultTarget
       }
-    }
+    }*/
   }
+  
+}
+trait SpatialApp extends ArgonApp with SpatialCompiler {
+
+  // Make the "true" entry point final
+  final override def main(sargs: Array[String]): Unit = super.main(sargs)
+
 }
 
