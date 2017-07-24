@@ -12,7 +12,7 @@ CompilerException(1000, u"Cannot create reduction tree for empty list."){
   bug(ctx)
 }
 
-class UndefinedDimensionsError(s: Exp[_], d: Option[Exp[_]])(implicit ctx: SrcCtx, state: State) extends
+class UndefinedDimensionsException(s: Exp[_], d: Option[Exp[_]])(implicit ctx: SrcCtx, state: State) extends
 CompilerException(1001, u"Cannot find dimensions for symbol ${str(s)}."){
   bug(ctx, s"Cannot locate dimensions for symbol ${str(s)} used here.")
   if (d.isDefined) bug(c"  Dimension: $d")
@@ -24,7 +24,7 @@ CompilerException(1002, c"Unit Pipe Transformer could not create zero for type $
   bug(ctx, c"Unit Pipe Transformer could not create zero for type $tp for escaping value $s")
 }
 
-class ExternalWriteError(mem: Exp[_], write: Exp[_], ctrl: Ctrl)(implicit ctx: SrcCtx, state: State) extends
+class ExternalWriteException(mem: Exp[_], write: Exp[_], ctrl: Ctrl)(implicit ctx: SrcCtx, state: State) extends
 CompilerException(1003, c"Found illegal write to memory $mem defined outside an inner controller"){
   bug(ctx, c"Found illegal write to memory $mem defined outside an inner controller")
   bug(c"${str(write)}")
