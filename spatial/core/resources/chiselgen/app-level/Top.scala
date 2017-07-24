@@ -5,7 +5,7 @@ import chisel3.util._
 import fringe._
 import accel._
 import axi4._
-import templates.Utils.log2Up
+import templates.Utils.{log2Up, getFF}
 
 
 // import AccelTop
@@ -301,7 +301,7 @@ class Top(
       accel.io.argIns := fringe.io.argIns
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
           fringeArgOut.bits := accelArgOut.bits
-          fringeArgOut.valid := 1.U
+          fringeArgOut.valid := accelArgOut.valid
       }
       // accel.io.argIOIns := fringe.io.argIOIns
       // fringe.io.argIOOuts.zip(accel.io.argIOOuts) foreach { case (fringeArgOut, accelArgOut) =>
@@ -325,7 +325,7 @@ class Top(
 
       // Accel: Scalar and control connections
       accel.io.argIns := topIO.scalarIns
-      topIO.scalarOuts.zip(accel.io.argOuts) foreach { case (ioOut, accelOut) => ioOut := accelOut.bits }
+      topIO.scalarOuts.zip(accel.io.argOuts) foreach { case (ioOut, accelOut) => ioOut := getFF(accelOut.bits, accelOut.valid) }
       accel.io.enable := topIO.enable
       topIO.done := accel.io.done
 

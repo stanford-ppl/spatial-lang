@@ -550,6 +550,19 @@ object Utils {
       case n: scala.math.BigInt => 1 max log2Ceil(1.asInstanceOf[scala.math.BigInt] max n)
     }
   }
+
+  def getFF[T<: chisel3.core.Data](sig: T, en: UInt) = {
+    val in = sig match {
+      case v: Vec[UInt] => v.reverse.reduce { Cat(_,_) }
+      case u: UInt => u
+    }
+
+    val ff = Module(new fringe.FF(sig.getWidth))
+    ff.io.init := 0.U
+    ff.io.in := in
+    ff.io.enable := en
+    ff.io.out
+  }
   // def toFix[T <: chisel3.core.Data](a: T): FixedPoint = {
   //   a match {
   //     case aa: FixedPoint => Mux(aa > bb, a, b)
