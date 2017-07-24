@@ -35,10 +35,24 @@ class FringeContextZynq : public FringeContextBase<void> {
   const uint32_t burstSizeBytes = 64;
   int fd = 0;
   u32 fringeScalarBase = 0;
+  u32 fringeMemBase    = 0;
+  u32 fpgaMallocPtr    = 0;
+  u32 fpgaFreeMemSize  = MEM_SIZE;
+
   const u32 commandReg = 0;
   const u32 statusReg = 1;
 
   std::map<uint64_t, void*> physToVirtMap;
+
+  uint64_t getFPGAVirt(uint64_t physAddr) {
+    uint32_t offset = physAddr - FRINGE_MEM_BASEADDR;
+    return (uint64_t)(fringeMemBase + offset);
+  }
+
+  uint64_t getFPGAPhys(uint64_t virtAddr) {
+    uint32_t offset = virtAddr - fringeMemBase;
+    return (uint64_t)(FRINGE_MEM_BASEADDR + offset);
+  }
 
   void* physToVirt(uint64_t physAddr) {
     std::map<uint64_t, void*>::iterator iter = physToVirtMap.find(physAddr);
@@ -99,6 +113,11 @@ public:
     void *ptr;
     ptr = mmap(NULL, MAP_LEN, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_SCALAR_BASEADDR);
     fringeScalarBase = (u32) ptr;
+
+    // Initialize pointer to fringeMemBase
+    ptr = mmap(NULL, MEM_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_MEM_BASEADDR);
+    fringeMemBase = (u32) ptr;
+    fpgaMallocPtr = fringeMemBase;
   }
 
   virtual void load() {
@@ -118,48 +137,62 @@ public:
 
     size_t paddedSize = alignedSize(burstSizeBytes, bytes);
 
-    int fd = open("/dev/zero", O_RDWR);
-    void *ptr = mmap(0, bytes, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE, fd, 0);
-    close(fd);
+//    int fd = open("/dev/zero", O_RDWR);
+//    void *ptr = mmap(0, bytes, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE, fd, 0);
+//    close(fd);
+//
+//    // Lock the page in memory
+//    // Do this before writing data to the buffer so that any copy-on-write
+//    // mechanisms will give us our own page locked in memory
+//    if(mlock(ptr, bytes) == -1) {
+//      fprintf(stderr, "Failed to lock page in memory: %s\n", strerror(errno));
+//      exit(1);
+//    }
+//#ifdef USE_PHYS_ADDR
+//    uint64_t physAddr = virtToPhys(ptr);
+//    physToVirtMap[physAddr] = ptr;
+//    return physAddr;
+//#else
+//    uint64_t addr = (uint64_t)ptr;
+//    return addr;
+//#endif
 
-    // Lock the page in memory
-    // Do this before writing data to the buffer so that any copy-on-write
-    // mechanisms will give us our own page locked in memory
-    if(mlock(ptr, bytes) == -1) {
-      fprintf(stderr, "Failed to lock page in memory: %s\n", strerror(errno));
-      exit(1);
-    }
+    ASSERT(paddedSize <= fpgaFreeMemSize, "FPGA Out-Of-Memory: requested %u, available %u\n", paddedSize, fpgaFreeMemSize);
 
-#ifdef USE_PHYS_ADDR
-    uint64_t physAddr = virtToPhys(ptr);
-    physToVirtMap[physAddr] = ptr;
+    uint64_t virtAddr = (uint64_t) fpgaMallocPtr;
+    fpgaMallocPtr += paddedSize;
+    fpgaFreeMemSize -= paddedSize;
+    uint64_t physAddr = getFPGAPhys(virtAddr);
+    EPRINTF("[malloc] virtAddr = %lx, physAddr = %lx\n", virtAddr, physAddr);
     return physAddr;
-#else
-    uint64_t addr = (uint64_t)ptr;
-    return addr;
-#endif
+
   }
 
   virtual void free(uint64_t buf) {
-#ifdef USE_PHYS_ADDR
-    std::free(physToVirt(buf));
-#else
-    std::free((void*)buf);
-#endif
+    EPRINTF("[free] devmem = %lx\n", buf);
+    // TODO: Freeing memory in a linear allocator is tricky. Just don't do anything until a more 'real' allocator is added
+//#ifdef USE_PHYS_ADDR
+//    std::free(physToVirt(buf));
+//#else
+//    std::free((void*)buf);
+//#endif
   }
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
-#ifdef USE_PHYS_ADDR
-    void *dst = physToVirt(devmem);
-#else
-    void *dst = (void*) devmem;
-#endif
+    EPRINTF("[memcpy HOST -> FPGA] devmem = %lx, hostmem = %p, size = %u\n", devmem, hostmem, size);
+//#ifdef USE_PHYS_ADDR
+//    void *dst = physToVirt(devmem);
+//#else
+//    void *dst = (void*) devmem;
+//#endif
+
+    void* dst = (void*) getFPGAVirt(devmem);
     std::memcpy(dst, hostmem, size);
 
     // Flush CPU cache
-    char *start = (char*)dst;
-    char *end = start + size;
-    __clear_cache(start, end);
+//    char *start = (char*)dst;
+//    char *end = start + size;
+//    __clear_cache(start, end);
 
     // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
     int cacheSizeWords = 512 * (1 << 10) / sizeof(int);
@@ -177,11 +210,14 @@ public:
   }
 
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
-#ifdef USE_PHYS_ADDR
-    void *src = physToVirt(devmem);
-#else
-    void *src = (void*) devmem;
-#endif
+//#ifdef USE_PHYS_ADDR
+//    void *src = physToVirt(devmem);
+//#else
+//    void *src = (void*) devmem;
+//#endif
+
+    EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %u\n", hostmem, devmem, size);
+    void *src = (void*) getFPGAVirt(devmem);
     std::memcpy(hostmem, src, size);
   }
 
