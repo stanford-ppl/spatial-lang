@@ -305,7 +305,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
   def globals:mutable.Set[GlobalComponent]
 
   def allocateDRAM(dram:Expr): OffChip = { //FIXME
-    val region = OffChip(nameOf(dram).getOrElse(quote(dram)))
+    val region = OffChip(dram.name.getOrElse(quote(dram)))
     if (!globals.contains(region)) {
       globals += region
       region

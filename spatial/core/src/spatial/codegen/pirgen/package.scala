@@ -8,6 +8,7 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import org.virtualized.SourceContext
+import spatial.SpatialConfig
 
 package object pirgen {
   type Expr = Exp[_]
@@ -245,7 +246,11 @@ package object pirgen {
 
   // returns (sym of flatten addr, List[Addr Stages])
   @stateful def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]):(Expr, List[OpStage]) = {
-    val cdims:Seq[Int] = dims.map{case Final(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
+    val cdims:Seq[Int] = dims.map{
+      case Final(d) => d.toInt
+      case Param(d:BigDecimal) => d.toInt
+      case d => throw new Exception(s"Unable to get bound of memory size $d")
+    }
     val strides:List[Expr] = List.tabulate(dims.length){ d =>
       if (d == dims.length - 1) int32(1)
       else int32(cdims.drop(d+1).product)
@@ -336,7 +341,7 @@ package object pirgen {
     val pattern = accessPatternOf(access)
     val strides = constDimsToStrides(dimsOf(mem).map{case Exact(d) => d.toInt})
 
-    def bankFactor(i: Expr) = if (iter.isDefined && i == iter.get) 16 else 1
+    def bankFactor(i: Expr) = if (iter.isDefined && i == iter.get) SpatialConfig.lanes else 1
 
     if (pattern.forall(_ == InvariantAccess)) NoBanks
     else {
@@ -382,7 +387,7 @@ package object pirgen {
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
       val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
       par.asInstanceOf[Int]
-    case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) =>
+    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
       val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
       par.asInstanceOf[Int]
     case Def(_:ParSRAMLoad[_]) => getInnerPar(parentOf(n).get)

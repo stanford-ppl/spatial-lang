@@ -116,6 +116,7 @@ trait PIRScheduler extends PIRTraversal {
       }
       val addrReg = addr match {
         case bound:Bound[_] => ctx.reg(addr)
+        case const:Const[_] => ctx.reg(addr)
         case lhs@Def(rhs) => 
           mapNodeToStage(lhs, rhs, ctx)
           ctx.reg(addr)
@@ -165,7 +166,7 @@ trait PIRScheduler extends PIRTraversal {
       }
 
     case VectorApply(vec, idx) =>
-      if (idx != 0) throw new Exception("Expected parallelization of 1 in inner loop in PIR gen")
+      if (idx != 0) throw new Exception(s"Expected parallelization of 1 in inner loop in PIRgen idx=$idx")
       decompose(vec).zip(decompose(lhs)).foreach { case (vec, lhs) =>
         ctx.addReg(lhs, ctx.reg(vec))
       }
