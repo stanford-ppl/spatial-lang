@@ -13,6 +13,7 @@ case class FixFormat(sign: Boolean, ibits: Int, fbits: Int) {
   lazy val MIN_INTEGRAL_VALUE_FP: FixedPoint = FixedPoint.clamped(MIN_INTEGRAL_VALUE, valid=true, this)
   lazy val MAX_VALUE_FP: FixedPoint = FixedPoint.clamped(MAX_VALUE, valid=true, this)
   lazy val MIN_VALUE_FP: FixedPoint = FixedPoint.clamped(MIN_VALUE, valid=true, this)
+  lazy val MIN_POSITIVE_VALUE_FP: FixedPoint = FixedPoint.clamped(BigInt(1), valid=true, this)
 }
 
 class FixedPoint(val value: BigInt, val valid: Boolean, val fmt: FixFormat) extends Number {

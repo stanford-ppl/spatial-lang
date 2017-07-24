@@ -22,7 +22,7 @@ case class ParallelPipe(en: Seq[Exp[Bit]], func: Block[MUnit]) extends EnabledCo
 case class OpForeach(en: Seq[Exp[Bit]], cchain: Exp[CounterChain], func: Block[MUnit], iters: List[Bound[Index]]) extends Loop {
   def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bit]]) = Foreach.op_foreach(f(en) ++ addEn, f(cchain), f(func), iters)
 
-  override def inputs = dyns(cchain) ++ dyns(func)
+  override def inputs = dyns(en) ++ dyns(cchain) ++ dyns(func)
   override def binds  = super.binds ++ iters
 }
 
@@ -43,7 +43,7 @@ case class OpReduce[T:Type:Bits](
     Reduce.op_reduce(f(en) ++ addEn, f(cchain), f(accum), f(map), f(load), f(reduce), f(store), f(ident), f(fold), rV, iters)
   }
 
-  override def inputs = dyns(cchain) ++ dyns(map) ++ dyns(reduce) ++ dyns(accum) ++ dyns(load) ++ dyns(store) ++ dyns(ident)
+  override def inputs = dyns(en) ++ dyns(cchain) ++ dyns(map) ++ dyns(reduce) ++ dyns(accum) ++ dyns(load) ++ dyns(store) ++ dyns(ident)
   override def binds  = super.binds ++ iters ++ List(rV._1, rV._2)
   override def aliases = Nil
   val mT = typ[T]
@@ -70,7 +70,7 @@ case class OpMemReduce[T:Type:Bits,C[T]](
     MemReduce.op_mem_reduce(f(en) ++ addEn,f(cchainMap),f(cchainRed),f(accum),f(map),f(loadRes),f(loadAcc),f(reduce), f(storeAcc), f(ident), fold, rV, itersMap, itersRed)
   }
 
-  override def inputs = dyns(cchainMap) ++ dyns(cchainRed) ++ dyns(accum) ++ dyns(map) ++ dyns(reduce) ++
+  override def inputs = dyns(en) ++ dyns(cchainMap) ++ dyns(cchainRed) ++ dyns(accum) ++ dyns(map) ++ dyns(reduce) ++
     dyns(ident) ++ dyns(loadRes) ++ dyns(loadAcc) ++ dyns(storeAcc)
   override def binds = super.binds ++ itersMap ++ itersRed ++ List(rV._1, rV._2)
   override def aliases = Nil

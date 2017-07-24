@@ -46,7 +46,7 @@ trait BufferAnalyzer extends CompilerPass {
             if (invalids.nonEmpty) {
               bug(c"Access $access on $mem is set to use invalid instances: ")
               bug("  Instances: " + invalids.mkString(",") + s" (Largest should be ${duplicates.length-1})")
-              state.logError()
+              state.logBug()
             }
           case None =>
             warn(c"Access $access on $mem has no associated instances")
