@@ -217,12 +217,11 @@ trait ChiselGenReg extends ChiselGenSRAM {
       } else {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => // is an accumulator
-            if (parentOf(lhs).isDefined){ parentOf(lhs).get match {
-              case Def(UnitPipe(_,_)) => 
-                emit(src"""val ${reg}_wren = ${parentOf(lhs).get}_datapath_en""")  // reg_wren does not exist if parent is unit
-                emit(src"""val ${reg}_resetter = ${parentOf(lhs).get}_rst_en""")  // reg_wren does not exist if parent is unit
-              case _ => 
-            }}
+            // Make sure this was not stripped of its accumulation from full unroll
+            if (!(writersOf(reg).map{w => readersOf(reg).map { r => w.node.dependsOn(r.node) } }.flatten.reduce{_|_})) {
+              emit(src"""val ${reg}_wren = ${parentOf(reg).get}_datapath_en""")
+              emit(src"""val ${reg}_resetter = ${parentOf(reg).get}_rst_en""")
+            }
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               fps match {
                 case FixPtSum =>
