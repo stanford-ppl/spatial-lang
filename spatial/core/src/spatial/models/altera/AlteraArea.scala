@@ -2,19 +2,19 @@ package spatial.models
 package altera
 
 case class AlteraArea(
-                      lut3: Int = 0,
-                      lut4: Int = 0,
-                      lut5: Int = 0,
-                      lut6: Int = 0,
-                      lut7: Int = 0,
-                      mem16: Int = 0,
-                      mem32: Int = 0,
-                      mem64: Int = 0,
-                      regs: Int = 0,
-                      mregs: Int = 0,   // Memory registers (used in place of SRAMs)
-                      dsps: Int = 0,
-                      sram: Int = 0,
-                      channels: Int = 0
+                      lut3: Long = 0,
+                      lut4: Long = 0,
+                      lut5: Long = 0,
+                      lut6: Long = 0,
+                      lut7: Long = 0,
+                      mem16: Long = 0,
+                      mem32: Long = 0,
+                      mem64: Long = 0,
+                      regs: Long = 0,
+                      mregs: Long = 0,   // Memory registers (used in place of SRAMs)
+                      dsps: Long = 0,
+                      sram: Long = 0,
+                      channels: Long = 0
                      )
 {
   def +(that: AlteraArea) = AlteraArea(
@@ -70,7 +70,7 @@ case class AlteraArea(
     if (area.isEmpty) "NoArea" else "Area(" + area.mkString(",") + ")"
   }
 
-  def toArray: Array[Int] = Array(lut3,lut4,lut5,lut6,lut7,mem16,mem32,mem64,regs+mregs,dsps,sram)
+  def toArray: Array[Long] = Array(lut3,lut4,lut5,lut6,lut7,mem16,mem32,mem64,regs+mregs,dsps,sram)
 
   def <(that: AlteraArea): Boolean = {
     this.lut3 < that.lut3 &&

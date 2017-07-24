@@ -385,7 +385,7 @@ object utils {
     case Op(e: SparseTransfer[_])  => Seq(e.p)
     case _ => Nil
   }
-  @internal def parsOf(x: Exp[_]): Seq[Int] = parFactorsOf(x).map{case Const(p: BigDecimal) => p.toInt }
+  @internal def parsOf(x: Exp[_]): Seq[Int] = parFactorsOf(x).map{case Exact(p: BigInt) => p.toInt }
 
   @internal def extractParFactor(par: Option[Index]): Const[Index] = par.map(_.s) match {
     case Some(x: Const[_]) if isIndexType(x.tp) => x.asInstanceOf[Const[Index]]
@@ -584,7 +584,7 @@ object utils {
   @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
     case Def(LUTNew(dims,_)) => dims
     case _ => stagedDimsOf(x).map{
-      case Const(c: BigDecimal) => c.toInt
+      case Exact(c: BigInt) => c.toInt
       case dim => throw new spatial.UndefinedDimensionsException(x, Some(dim))(x.ctx, state)
     }
   }
