@@ -1,12 +1,13 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.nodes._
 import spatial.SpatialConfig
-import spatial.SpatialExp
+
 
 trait ChiselGenStructs extends ChiselGenSRAM {
-  val IR: SpatialExp
-  import IR._
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
       case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
@@ -19,7 +20,7 @@ trait ChiselGenStructs extends ChiselGenSRAM {
 
 
   protected def tupCoordinates(tp: Type[_],field: String): (Int,Int) = tp match {
-    case x: Tup2Type[_,_] => field match {
+    case x: Tuple2Type[_,_] => field match {
       // A little convoluted because we .reverse simplestructs
       case "_1" => 
         val s = 0
@@ -39,7 +40,7 @@ trait ChiselGenStructs extends ChiselGenSRAM {
   }
 
   override protected def bitWidth(tp: Type[_]): Int = tp match {
-      case e: Tup2Type[_,_]  => super.bitWidth(e.typeArguments(0)) + super.bitWidth(e.typeArguments(1))
+      case e: Tuple2Type[_,_]  => super.bitWidth(e.typeArguments(0)) + super.bitWidth(e.typeArguments(1))
       case _ => super.bitWidth(tp)
   }
 
@@ -68,6 +69,30 @@ trait ChiselGenStructs extends ChiselGenSRAM {
     // case tp: DRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
   }
+
+  override protected def quoteConst(c: Const[_]): String = (c.tp, c) match {
+    case (st: StructType[_], e@Const(elems)) =>
+      val tuples = elems.asInstanceOf[Seq[(_, Exp[_])]]
+      val items = tuples.map{ t => 
+        val width = bitWidth(t._2.tp)
+        // if (src"${t._1}" == "offset") {
+        //   src"${t._2}"
+        // } else {
+          if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}.r"} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
+        // }
+      }.reverse.mkString(",")
+      val totalWidth = tuples.map{ t => 
+        // if (src"${t._1}" == "offset"){
+        //   64
+        // } else {
+          bitWidth(t._2.tp)  
+        // }
+      }.reduce{_+_}
+      src"chisel3.util.Cat($items)"
+
+    case _ => super.quoteConst(c)
+  }
+  
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SimpleStruct(tuples)  =>

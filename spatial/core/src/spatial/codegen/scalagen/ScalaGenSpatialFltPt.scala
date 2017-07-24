@@ -1,23 +1,23 @@
 package spatial.codegen.scalagen
 
-import spatial.SpatialExp
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
 
 trait ScalaGenSpatialFltPt extends ScalaGenBits {
-  val IR: SpatialExp
-  import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case FltPtType(_,_) => "Number"
+    case FltPtType(_,_) => "FloatPoint"
     case _ => super.remap(tp)
   }
 
   override protected def quoteConst(c: Const[_]): String = (c.tp, c) match {
-    case (FltPtType(g,e), Const(c: BigDecimal)) => s"""Number(BigDecimal("$c"), true, FloatPoint($g,$e))"""
+    case (FltPtType(g,e), Const(c: BigDecimal)) => s"""FloatPoint(BigDecimal("$c"), FltFormat(${g-1},$e))"""
     case _ => super.quoteConst(c)
   }
 
-  override def invalid(tp: IR.Type[_]) = tp match {
-    case FltPtType(g,e) => src"X(FloatPoint($g,$e))"
+  override def invalid(tp: Type[_]) = tp match {
+    case FltPtType(g,e) => src"FloatPoint.invalid(FltFormat(${g-1},$e))"
     case _ => super.invalid(tp)
   }
 
@@ -32,24 +32,26 @@ trait ScalaGenSpatialFltPt extends ScalaGenBits {
 
     case FltNeq(x,y)   => emit(src"val $lhs = $x !== $y")
     case FltEql(x,y)   => emit(src"val $lhs = $x === $y")
-    case FltConvert(x) => lhs.tp match {
-      case FltPtType(g,e) => emit(src"val $lhs = Number($x.value, $x.valid, FloatPoint($g,$e))")
-    }
-    case FltPtToFixPt(x) => lhs.tp match {
-      case FixPtType(s,i,f)  => emit(src"val $lhs = Number($x.value, $x.valid, FixedPoint($s,$i,$f))")
-    }
-    case StringToFltPt(x) => lhs.tp match {
-      case FltPtType(g,e) => emit(src"val $lhs = Number($x, FloatPoint($g,$e))")
-    }
+    case FltConvert(x) =>
+      val FltPtType(g,e) = lhs.tp
+      emit(src"val $lhs = $x.toFloatPoint(FltFormat(${g-1},$e))")
 
-    case FltRandom(Some(max)) => lhs.tp match {
-      case FloatType()  => emit(src"val $lhs = Number(scala.util.Random.nextFloat() * $max)")
-      case DoubleType() => emit(src"val $lhs = Number(scala.util.Random.nextDouble() * $max)")
-    }
-    case FltRandom(None) => lhs.tp match {
-      case FloatType()  => emit(src"val $lhs = Number(scala.util.Random.nextFloat())")
-      case DoubleType() => emit(src"val $lhs = Number(scala.util.Random.nextDouble()))")
-    }
+    case FltPtToFixPt(x) =>
+      val FixPtType(s,i,f) = lhs.tp
+      emit(src"val $lhs = $x.toFixedPoint(FixFormat($s,$i,$f))")
+
+    case StringToFltPt(x) =>
+      val FltPtType(g,e) = lhs.tp
+      emit(src"val $lhs = FloatPoint($x, FltFormat(${g-1},$e))")
+
+    case FltRandom(Some(max)) =>
+      val FltPtType(g,e) = lhs.tp
+      emit(src"val $lhs = FloatPoint.random($max, FltFormat(${g-1},$e))")
+
+    case FltRandom(None) =>
+      val FltPtType(g,e) = lhs.tp
+      emit(src"val $lhs = FloatPoint.random(FltFormat(${g-1},$e))")
+
 
     case _ => super.emitNode(lhs, rhs)
   }

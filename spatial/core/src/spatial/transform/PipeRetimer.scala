@@ -1,159 +1,304 @@
 package spatial.transform
 
-import scala.collection.mutable
+import argon.core._
+import argon.nodes._
 import argon.transform.ForwardTransformer
-import spatial._
 import spatial.analysis.ModelingTraversal
+import spatial.aliases._
+import spatial.metadata._
 import spatial.models._
+import spatial.nodes._
+import spatial.utils._
+import spatial.SpatialConfig
 
-trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
-  val IR: SpatialExp
-  import IR._
+import scala.collection.immutable.SortedSet
 
+case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends ForwardTransformer with ModelingTraversal {
   override val name = "Pipeline Retimer"
   override def shouldRun = !SpatialConfig.enablePIR
-
-  def requiresRetiming(x: Exp[_]) = latencyModel.requiresRegisters(x)
-  def retimingDelay(x: Exp[_]): Int = {
-    if (latencyModel.requiresRegisters(x)) latencyOf(x).toInt else 0
-  }
-
-  // track register info for each retimed reader
-  // size represents the total buffer size between reader and input symbol
-  // if buffers are split, the size of the register for this reader may actually be smaller
-  class ReaderInfo(val size: Int) {
-    // register read IR node (not strictly necessary to have only one but it avoids bloating the IR with redundant reads)
-    var delay: Exp[_] = _
-  }
-
-
-  // track reader dependencies associated with an input
-  class InputInfo {
-    // map a reader symbol to the buffer it will read from
-    val readers = mutable.HashMap[Exp[_], ReaderInfo]()
-    // retime symbol readers, sharing allocated buffers when possible
-    def retimeReaders[U](input: Exp[U]) {
-      def valueDelay[T](size: Int, data: Exp[T])(implicit ctx: SrcCtx): Exp[T] = data.tp match {
-        case Bits(bits) =>
-          value_delay_alloc[T](size, data)(data.tp, bits, ctx)
-        case _ => throw new Exception("Unexpected register type")
-      }
-
-      // group and sort all the register sizes dependent symbols read from
-      val readerGroups: Map[Int,List[Exp[_]]] = readers.toList.groupBy(_._2.size).mapValues(_.map(_._1))
-
-      val sizes = readerGroups.keySet.toList.sorted
-      // calculate register allocation sizes after coalescing
-      val sizesCoalesced = (0 :: sizes).sliding(2).map{ case List(a, b) => b - a}.toList
-      // map a reader's total register size to the size of the immediate register it will read from after coalescing
-      val regSizeMap = sizes.zip(sizesCoalesced).toMap
-
-      dbgs(c"Allocating registers for node $input:")
-      val regReads = mutable.ListBuffer[Exp[_]](input)
-      // add sequential reads/writes between split registers after coalescing
-      sizes.foreach{ totalSize =>
-        implicit val ctx: SrcCtx = input.ctx
-
-        val readersList = readerGroups(totalSize)
-        val size = regSizeMap(totalSize) // Look up mapping for this size
-        // val reg = regAlloc(input, size)
-        // regWrite(reg, f(regReads.last))
-        val delayNode = valueDelay(size, f(regReads.last))
-
-        readersList.foreach{ reader =>
-          // dbgs(c"  Register: ${str(reg)}, size: $size, reader: $reader")
-          dbgs(c"  Delay: $size, reader: $reader")
-          readers(reader).delay = delayNode
-        }
-        regReads += delayNode
-      }
-    }
-  }
-
-
-  // Substitution scope must be isolated so that substitutions on outer symbols (e.g. bound iterators) do not escape
-  private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = isolateSubstScope{ inlineBlock(block, {stms =>
-    dbg(c"Retiming block $block")
-
-    // perform recursive search of inputs to determine cumulative symbol latency
-    val symLatency = pipeLatencies(block)._1
-    def delayOf(x: Exp[_]): Int = symLatency.getOrElse(x, 0L).toInt
-
-    symLatency.foreach{case (s,l) =>
-      symDelay(s) = l - latencyOf(s)
-      dbgs(c"  symDelay ${str(s)} [${l-latencyOf(s)}]")
-    }
-
-    dbgs("Calculating delays for each node: ")
-    // enumerate symbol reader dependencies and calculate required buffer sizes
-    val inputRetiming = mutable.HashMap[Exp[_], InputInfo]()
-    stms.foreach{ case TP(reader, d) =>
-      dbgs(c"${str(reader)}: ${delayOf(reader)}")
-      val criticalPath = delayOf(reader) - latencyOf(reader)
-
-      // Ignore non-bit based types and constants
-      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }
-
-      dbgs("  " + inputs.map{in => c"$in: ${delayOf(in)}"}.mkString(", ") + s" (max: $criticalPath)")
-
-      // calculate buffer register size for each input symbol
-      val sizes = inputs.map{in => retimingDelay(in) + criticalPath - delayOf(in) }
-
-      // discard symbols for which no register insertion is needed
-      inputs.zip(sizes).filter{case (_, size) => size != 0 }.foreach{ case (input, size) =>
-        dbgs(c"  ${str(input)} [size: $size]")
-        inputRetiming.getOrElseUpdate(input, new InputInfo()).readers.getOrElseUpdate(reader, new ReaderInfo(size.toInt))
-      }
-    }
-
-    // record which inputs have been buffered so retiming occurs only once
-    val retimedInputs = mutable.Set[Exp[_]]()
-    // traverse the IR, inserting registers allocated above
-    stms.foreach{ case stm @ TP(reader, d) =>
-      // save substitution rules for restoration after transformation
-      val subRules = mutable.Map[Exp[_], Exp[_]]()
-
-      val inputs = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }
-      //val inputs = syms(d.inputs)
-      inputs.foreach{ input =>
-        dbg(c"working on input $input of $reader")
-        // input might not need any buffers if its readers don't need to be retimed
-        if (inputRetiming.contains(input)) {
-          dbg(c"pass check 1")
-          // retime all readers of this input and mark the input itself as retimed
-          if (!retimedInputs.contains(input)) {
-            dbg(c"pass check 2")
-            inputRetiming(input).retimeReaders(input)
-            retimedInputs += input
-          }
-          // insert buffer register for this reader
-          if (inputRetiming(input).readers.contains(reader)) {
-            dbg(c"pass check 3")
-            val info = inputRetiming(input).readers(reader)
-            dbgs(c"Buffering input $input to reader $reader")
-            subRules(input) = transformExp(input)(mtyp(input.tp))
-            register(input, info.delay)
-          }
-        }
-      }
-      visitStm(stm)
-      // restore substitution rules since future instances of this input may not be retimed in the same way
-      subRules.foreach{ case (a, b) => register(a,b) }
-    }
-
-    val result = typ[T] match {
-      case VoidType => void
-      case _ => f(block.result)
-    }
-    result.asInstanceOf[Exp[T]]
-  }) }
-
-
 
   var retimeBlocks: List[Boolean] = Nil
   var ctx: Option[SrcCtx] = None
 
-  def withRetime[A](wrap: List[Boolean], srcCtx: SrcCtx)(x: => A) = {
+  var delayLines: Map[Exp[_], SortedSet[ValueDelay]] = Map.empty
+  var delayConsumers: Map[Exp[_], List[ValueDelay]] = Map.empty
+  var latencies: Map[Exp[_], Long] = Map.empty
+  var hierarchy: Int = 0
+  var inInnerScope: Boolean = false
+
+  def delayOf(x: Exp[_]): Int = latencies.getOrElse(x, 0L).toInt
+
+  def inBlock[A](block: Block[_])(func: => A): A = {
+    val prevDelayLines = delayLines
+    val prevDelayConsumers = delayConsumers
+    val prevLatencies = latencies
+    val prevInnerScope = inInnerScope
+    hierarchy += 1
+    inInnerScope = true
+
+    val scope = blockContents(block).filter(_.lhs.exists(e => Bits.unapply(e.tp).isDefined || e.tp == UnitType))
+    val lines = computeDelayLines(scope)
+    lines.foreach{case (reader, line) => addDelayLine(reader, line) }
+
+    val result = func
+
+    hierarchy -= 1
+    delayLines = prevDelayLines
+    delayConsumers = prevDelayConsumers
+    latencies = prevLatencies
+    inInnerScope = prevInnerScope
+    result
+  }
+
+  def requiresRegisters(x: Exp[_]): Boolean = latencyModel.requiresRegisters(x)
+  def retimingDelay(x: Exp[_]): Int = if (requiresRegisters(x)) latencyOf(x).toInt else 0
+
+  def bitBasedInputs(d: Def): Seq[Exp[_]] = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
+
+  def delayLine[T](size: Int, data: Exp[T])(implicit ctx: SrcCtx): Exp[T] = data.tp match {
+    case Bits(bits) =>
+      implicit val mT = data.tp
+      implicit val bT = bits.asInstanceOf[Bits[T]]
+      val line = Delays.delayLine[T](size, data)
+      line.name = data.name.map{_ + s"_d$size"}
+      line
+    case _ => throw new Exception("Unexpected register type")
+  }
+
+  case class ValueDelay(input: Exp[_], delay: Int, size: Int, hierarchy: Int, prev: Option[ValueDelay], private val create: () => Exp[_]) {
+    private var reg: Option[Exp[_]] = None
+    def alreadyExists: Boolean = reg.isDefined
+
+    def value(): Exp[_] = {
+      if (reg.isDefined) {
+        val r = reg.get
+        //dbgs(s"Exist delay line ${str(r)}")
+        r
+      }
+      else {
+        val r = create()
+        reg = Some(r)
+        //dbgs(s"Create delay line ${str(r)}")
+        r
+      }
+    }
+  }
+  implicit object ValueDelayOrdering extends Ordering[ValueDelay] {
+    override def compare(x: ValueDelay, y: ValueDelay): Int = implicitly[Ordering[Int]].compare(y.delay,x.delay)
+  }
+
+  private def registerDelays(reader: Exp[_], inputs: Seq[Exp[_]]): Unit = {
+    delayConsumers.getOrElse(reader, Nil)
+      .filter{line => inputs.contains(line.input) }
+      .map{line => line.input -> line }
+      .toMap    // Unique-ify by line input - makes sure we only register one substitution per input
+      .foreach{case (in, line) =>
+        val dly = line.value()
+        dbgs(s"  $in -> $dly [${line.size}]")
+        register(in, dly)
+      }
+  }
+
+  private def addDelayLine(reader: Exp[_], line: ValueDelay) = {
+    dbgs(s"Add {in:${line.input}, reader:$reader, delay:${line.delay}, size:${line.size}")
+
+    val existing = delayLines.getOrElse(line.input, SortedSet[ValueDelay]())
+
+    delayLines += line.input -> (existing + line)
+
+    val prevReadByThisReader = delayConsumers.getOrElse(reader, Nil)
+    delayConsumers += reader -> (line +: prevReadByThisReader)
+  }
+
+  private def computeDelayLines(scope: Seq[Stm]): Seq[(Exp[_], ValueDelay)] = {
+    val innerScope = scope.flatMap(_.rhs.blocks.flatMap(blk => exps(blk))).toSet
+
+    def createValueDelay(input: Exp[_], reader: Exp[_], delay: Int): ValueDelay = {
+      if (delay < 0) {
+        bug("Compiler bug? Attempting to create a negative delay between input: ")
+        bug(c"  ${str(input)}")
+        bug("and consumer: ")
+        bug(c"  ${str(reader)}")
+        state.logBug()
+      }
+      // Retime inner block results as if we were already in the inner hierarchy
+      val h = if (innerScope.contains(input)) hierarchy + 1 else hierarchy
+      val existing = delayLines.getOrElse(input, SortedSet[ValueDelay]())
+      existing.find{_.delay <= delay} match {
+        case Some(prev) =>
+          val size = delay - prev.delay
+          if (size > 0) {
+            dbgs(s"    Extending existing line of ${prev.delay}")
+            ValueDelay(input, delay, size, h, Some(prev), () => delayLine(size, prev.value())(input.ctx))
+          }
+          else {
+            dbgs(s"    Using existing line of ${prev.delay}")
+            prev
+          }
+
+        case None =>
+          dbgs(s"    Created new delay line of $delay")
+          ValueDelay(input, delay, delay, h, None, () => delayLine(delay, f(input))(input.ctx))
+      }
+    }
+
+    val consumerDelays = scope.flatMap{case TP(reader, d) =>
+      val criticalPath = delayOf(reader) - latencyOf(reader)  // All inputs should arrive at this offset
+
+      // Ignore non-bit based values
+      val inputs = bitBasedInputs(d) //diff d.blocks.flatMap(blk => exps(blk))
+
+      dbgs(c"${str(reader)}: ${delayOf(reader)}")
+      dbgs(c"  " + inputs.map{in => c"in: ${delayOf(in)}"}.mkString(", ") + "[max: " + criticalPath + "]")
+      inputs.flatMap{in =>
+        val delay = retimingDelay(in) + criticalPath - delayOf(in)
+        dbgs(c"  ${str(in)} [delay: $delay]")
+        if (delay != 0) Some(in -> (reader, delay)) else None
+      }
+    }
+    val inputDelays = consumerDelays.groupBy(_._1).mapValues(_.map(_._2)).toSeq
+    inputDelays.flatMap{case (input, consumers) =>
+      val consumerGroups = consumers.groupBy(_._2).mapValues(_.map(_._1))
+      val delays = consumerGroups.keySet.toList.sorted  // Presort to maximize coalescing
+      delays.flatMap{delay =>
+        val readers = consumerGroups(delay)
+        readers.map{reader =>
+          dbgs(s"  Creating value delay on $input for reader $reader with delay $delay: ")
+          reader -> createValueDelay(input, reader, delay.toInt)
+        }
+      }
+    }
+  }
+
+  // This is needed to allow multiple blocks to use the same delay line.
+  // Delay lines are created lazily, which can lead to issues where multiple blocks claim the same symbol.
+  // To avoid this, we instead create the symbol in the outermost block
+  // Since we don't control when stageBlock is called, we have to do this before symbol mirroring.
+  // Note that this requires checking *blockNestedContents*, not just blockContents
+  private def precomputeDelayLines(d: Def): Unit = {
+    hierarchy += 1
+    if (d.blocks.nonEmpty) dbgs(s"  Precomputing delay lines for $d")
+    d.blocks.foreach{block =>
+      val scope = blockNestedContents(block)
+      val lines = computeDelayLines(scope).map(_._2)
+      // Create all of the lines that need to be visible outside this block
+      (lines ++ lines.flatMap(_.prev)).filter(_.hierarchy < hierarchy).foreach{line =>
+        if (!line.alreadyExists) {
+          val dly = line.value()
+          dbgs(s"    ${line.input} -> $dly [size: ${line.size}, h: ${line.hierarchy}] (cur h: $hierarchy)")
+        }
+      }
+    }
+    hierarchy -= 1
+  }
+  override def mirror(lhs: Seq[Sym[_]], rhs: Def): Seq[Exp[_]] = {
+    if (inInnerScope) precomputeDelayLines(rhs)
+    super.mirror(lhs, rhs)
+  }
+
+
+
+  private def retimeStms[A:Type](block: Block[A]): Exp[A] = inBlock(block) {
+    inlineBlockWith(block, {stms =>
+      stms.foreach{
+        case TP(switch, op: Switch[_]) => retimeSwitch(switch, op)(mtyp(switch.tp))
+        case stm => retimeStm(stm)
+      }
+      f(block.result)
+    })
+  }
+
+  private def retimeStm(stm: Stm): Unit = stm match {
+    case TP(reader, d) =>
+      dbgs(s"Retiming $reader = $d")
+      val inputs = bitBasedInputs(d)
+      val reader2 = isolateSubstScope {
+        registerDelays(reader, inputs)
+        visitStm(stm)
+        f(reader)
+      }
+      dbgs(s"  => ${str(reader2)}")
+      register(reader -> reader2)
+  }
+
+  private def retimeSwitchCase[A:Type](cas: Exp[A], op: SwitchCase[A], switch: Exp[A]): Unit = {
+    val SwitchCase(body) = op
+    implicit val ctx: SrcCtx = cas.ctx
+    precomputeDelayLines(op)
+    dbgs(c"Retiming case ${str(cas)}")
+    // Note: Don't call inBlock here - it's already being called in retimeStms
+    val caseBody2: Block[A] = isolateSubstScope { stageSealedBlock {
+      retimeStms(body)
+      val size = delayConsumers.getOrElse(switch, Nil).find(_.input == cas).map(_.size).getOrElse(0) +
+        delayConsumers.getOrElse(cas, Nil).find(_.input == body.result).map(_.size).getOrElse(0)
+      if (size > 0) {
+        dbgs(s"Adding retiming delay of size $size at end of case $cas")
+        delayLine(size, f(body.result))
+      }
+      else {
+        dbgs(s"No retiming delay required for case $cas")
+        f(body.result)
+      }
+    }}
+    val effects = caseBody2.effects andAlso Simple
+    val cas2 = stageEffectful(SwitchCase(caseBody2), effects)(ctx)
+    transferMetadata(cas, cas2)
+    register(cas -> cas2)
+  }
+
+  private def retimeSwitch[A:Type](switch: Exp[A], op: Switch[A]): Unit = {
+    val Switch(body, selects, cases) = op
+    precomputeDelayLines(op)
+    dbgs(c"Retiming switch $switch = $op")
+    val body2 = inBlock(body){ stageHotBlock {
+      inlineBlockWith(body, {stms =>
+        stms.foreach{
+          case TP(cas, sc: SwitchCase[_]) => retimeSwitchCase(cas, sc, switch)(mtyp(sc.mT))
+          case stm => retimeStm(stm)
+        }
+        f(body.result)
+      })
+    }}
+    val switch2 = isolateSubstScope {
+      registerDelays(switch, selects)
+      implicit val ctx: SrcCtx = switch.ctx
+      Switches.op_switch(body2, f(selects), f(cases))
+    }
+    transferMetadata(switch, switch2)
+    register(switch -> switch2)
+  }
+
+  private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = {
+    val scope = blockNestedContents(block).flatMap(_.lhs)
+                  .filterNot(s => isGlobal(s))
+                  .filter{e => e.tp == UnitType || Bits.unapply(e.tp).isDefined }
+                  .map(_.asInstanceOf[Exp[_]]).toSet
+
+    val result = (block +: scope.toSeq.flatMap{case s@Def(d) => d.blocks; case _ => Nil}).flatMap{b => exps(b) }
+
+    dbgs(s"Retiming block $block:")
+    //scope.foreach{e => dbgs(s"  ${str(e)}") }
+    //dbgs(s"Result: ")
+    //result.foreach{e => dbgs(s"  ${str(e)}") }
+    // The position AFTER the given node
+    val newLatencies = pipeLatencies(result, scope)._1
+    latencies ++= newLatencies
+
+    dbgs("")
+    dbgs("")
+    dbgs("Sym Delays:")
+    newLatencies.toList.map{case (s,l) => s -> (l - latencyOf(s)) }
+                       .sortBy(_._2)
+                       .foreach{case (s,l) =>
+                         symDelay(s) = l
+                         dbgs(c"  [$l]: ${str(s)}")
+                       }
+
+    isolateSubstScope{ retimeStms(block) }
+  }
+
+
+  def withRetime[A](wrap: List[Boolean], srcCtx: SrcCtx)(x: => A): A = {
     val prevRetime = retimeBlocks
     val prevCtx = ctx
 
@@ -166,23 +311,26 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
     result
   }
 
-  override def apply[T:Type](b: Block[T]): Exp[T] = {
+  override protected def inlineBlock[T](b: Block[T]): Exp[T] = {
     val doWrap = retimeBlocks.headOption.getOrElse(false)
     if (retimeBlocks.nonEmpty) retimeBlocks = retimeBlocks.drop(1)
-    dbgs(c"Transforming Block $b [$retimeBlocks]")
+    dbgs(c"Transforming Block $b [$retimeBlocks => $doWrap]")
     if (doWrap) {
-      val result = retimeBlock(b)(mtyp(b.tp),ctx.get)
-      result
+      retimeBlock(b)(mtyp(b.tp),ctx.get)
     }
-    else super.apply(b)
+    else super.inlineBlock(b)
   }
 
   private def transformCtrl[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
-    if (isInnerControl(lhs)) {
+    // Switches aren't technically inner controllers from PipeRetimer's point of view.
+    if (isInnerControl(lhs) && !isSwitch(rhs)) {
       val retimeEnables = rhs.blocks.map{_ => true }.toList
       withRetime(retimeEnables, ctx) { super.transform(lhs, rhs) }
     }
-    else super.transform(lhs, rhs)
+    else rhs match {
+      case _:StateMachine[_] => withRetime(List(true,false,true), ctx){ super.transform(lhs, rhs) }
+      case _ => withRetime(Nil, ctx){ super.transform(lhs, rhs) }
+    }
   }
 
   override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
@@ -194,4 +342,5 @@ trait PipeRetimer extends ForwardTransformer with ModelingTraversal { retimer =>
 
     case _ => transformCtrl(lhs, rhs)
   }
+
 }

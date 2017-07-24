@@ -1,12 +1,11 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.SpatialExp
-import spatial.api.DebuggingExp
+import argon.core._
+import spatial.aliases._
+import spatial.nodes._
 
 trait CppGenDebugging extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case AssertIf(en, cond, m) => 
@@ -14,6 +13,8 @@ trait CppGenDebugging extends CppCodegen {
     	emit(src"""if ($en) { ASSERT($cond, "\n=================\n${str.replace("\"","'")}\n=================\n"); }""")
     case PrintIf(en,x)         => emit(src"""if ($en) { std::cout << $x; }""")
     case PrintlnIf(en,x)       => emit(src"""if ($en) { std::cout << $x << std::endl; }""")
+    case BreakpointIf(en)       => ()
+    case ExitIf(en)       => ()      
     case _ => super.emitNode(lhs, rhs)
   }
 

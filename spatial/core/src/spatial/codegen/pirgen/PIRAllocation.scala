@@ -1,13 +1,16 @@
 package spatial.codegen.pirgen
-import spatial.SpatialExp
+
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import org.virtualized.SourceContext
 
 import scala.collection.mutable
 
 trait PIRAllocation extends PIRTraversal {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
-
   override val name = "PIR CU Allocation"
 
   // -- State
@@ -36,7 +39,7 @@ trait PIRAllocation extends PIRTraversal {
     case None => Nil
   }
 
-  def addIterators(cu: PCU, cchain: CChainInstance, inds: Seq[Seq[Exp[Index]]], valids: Seq[Seq[Exp[Bool]]]) {
+  def addIterators(cu: PCU, cchain: CChainInstance, inds: Seq[Seq[Exp[Index]]], valids: Seq[Seq[Exp[Bit]]]) {
     inds.zipWithIndex.foreach{case (is, i) =>
       is.foreach{index => cu.addReg(index, CounterReg(cchain, i)) }
     }
@@ -49,7 +52,7 @@ trait PIRAllocation extends PIRTraversal {
     val cchainOpt = pipe match {
       case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
         Some((cchain, iters, valids))
-      case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) => 
+      case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
         Some((cchain, iters, valids))
       case Def(_:UnitPipe | _:Hwblock) => 
         val cu = allocateCU(pipe)
@@ -605,7 +608,7 @@ trait PIRAllocation extends PIRTraversal {
           prescheduleStages(lhs, func)
           allocateCChains(lhs) 
 
-        case UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV) =>
+        case UnrolledReduce(en, cchain, accum, func, iters, valids) =>
           allocateCU(lhs)
           prescheduleStages(lhs, func)
           allocateCChains(lhs) 

@@ -1,270 +1,27 @@
 package spatial.analysis
 
-import spatial.SpatialExp
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.models.LatencyModel
+import spatial.nodes._
+import spatial.utils._
+import org.virtualized.SourceContext
 
-trait LatencyAnalyzer extends ModelingTraversal {
-  val IR: SpatialExp
-  import IR._
-
+case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends ModelingTraversal {
   override val name = "Latency Analyzer"
 
-  override def silence() {
-    latencyModel.silence()
-    super.silence()
-  }
-
   var cycleScope: List[Long] = Nil
+  var intervalScope: List[Long] = Nil
   var totalCycles: Long = 0L
 
-  // TODO: Default number of iterations if bound can't be computed?
-  // TODO: Warn user if bounds can't be found?
-  // TODO: Move this elsewhere
-  def nIters(x: Exp[CounterChain], ignorePar: Boolean = false): Long = x match {
-    case Def(CounterChainNew(ctrs)) =>
-      val loopIters = ctrs.map{
-        case Def(CounterNew(start,end,stride,par)) =>
-          val min = boundOf.get(start).map(_.toDouble).getOrElse{warn(u"Don't know bound of $start"); 0.0}
-          val max = boundOf.get(end).map(_.toDouble).getOrElse{warn(u"Don't know bound of $end"); 1.0}
-          val step = boundOf.get(stride).map(_.toDouble).getOrElse{warn(u"Don't know bound of $stride"); 1.0}
-          val p = boundOf.get(par).map(_.toDouble).getOrElse{warn(u"Don't know bound of $par"); 1.0}
-
-          val nIters = Math.ceil(max - min/step)
-          if (ignorePar)
-            nIters.toLong
-          else
-            Math.ceil(nIters/p).toLong
-
-        case Def(Forever()) => 0L
-      }
-      loopIters.fold(1L){_*_}
-  }
-
-  def latencyOfBlock(b: Block[_], par_mask: Boolean = false): List[Long] = {
-    val outerScope = cycleScope
+  override protected def preprocess[A:Type](b: Block[A]): Block[A] = {
     cycleScope = Nil
-    tab += 1
-    getControlNodes(b).foreach{
-      case s@Op(d) => visit(s.asInstanceOf[Sym[_]], d)
-      case _ =>
-    }
-    tab -= 1
-
-    val cycles = cycleScope
-    cycleScope = outerScope
-    cycles
-  }
-
-  override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = {
-    val cycles = rhs match {
-      case Hwblock(blk, isForever) if isInnerControl(lhs) =>
-        inHwScope = true
-        val body = latencyOfPipe(blk)
-
-        dbgs(s"Inner Accel $lhs: ")
-        dbgs(s"- body = $body")
-        bodyLatency(lhs) = body
-
-        inHwScope = false
-        body
-
-
-      case Hwblock(blk, isForever) if isOuterControl(lhs) =>
-        inHwScope = true
-        val body = latencyOfBlock(blk).sum
-
-        dbgs(s"Accel $lhs: ")
-        dbgs(s"- body = $body")
-
-        inHwScope = false
-        body
-
-      case ParallelPipe(en, func) =>
-        val blks = latencyOfBlock(func, true)
-        dbgs(s"Parallel $lhs: ")
-        blks.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
-        blks.max + latencyOf(lhs)
-
-      // --- Pipe
-      case UnitPipe(en, func) if isInnerControl(lhs) =>
-        val pipe = latencyOfPipe(func)
-
-        dbgs(s"Pipe $lhs: ")
-        dbgs(s"- pipe = $pipe")
-        bodyLatency(lhs) = pipe
-
-        pipe + latencyOf(lhs)
-
-      case OpForeach(cchain, func, iters) if isInnerControl(lhs) =>
-        val N = nIters(cchain)
-        val pipe = latencyOfPipe(func)
-
-        dbgs(s"Foreach $lhs (N = $N):")
-        dbgs(s"- pipe = $pipe")
-        bodyLatency(lhs) = pipe
-
-        pipe + N - 1 + latencyOf(lhs)
-
-      case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) if isInnerControl(lhs) =>
-        val N = nIters(cchain)
-        val P = parsOf(cchain).product
-
-        val fuseMapReduce = false //canFuse(map,reduce,rV,P)
-
-        val body = latencyOfPipe(map)
-        val internal = if (fuseMapReduce) Math.max(reductionTreeHeight(P) - 2, 0)
-        else latencyOfPipe(reduce) * reductionTreeHeight(P)
-
-        val cycle = latencyOfCycle(ld) + latencyOfCycle(reduce) + latencyOfCycle(store)
-
-        dbgs(s"Reduce $lhs (N = $N):")
-        dbgs(s"- body  = $body")
-        dbgs(s"- tree  = $internal")
-        dbgs(s"- cycle = $cycle")
-        bodyLatency(lhs) = body + internal + cycle
-
-        body + internal + N*cycle + latencyOf(lhs)
-
-
-      case UnrolledForeach(en,cchain,func,iters,valids) if isInnerControl(lhs) =>
-        val N = nIters(cchain)
-        val pipe = latencyOfPipe(func)
-        dbgs(s"Unrolled Foreach $lhs (N = $N):")
-        dbgs(s"- pipe = $pipe")
-        bodyLatency(lhs) = pipe
-
-        pipe + N - 1 + latencyOf(lhs)
-
-      case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) if isInnerControl(lhs) =>
-        val N = nIters(cchain)
-
-        val body = latencyOfPipe(func)
-
-        dbgs(s"Unrolled Reduce $lhs (N = $N):")
-        dbgs(s"- body  = $body")
-        bodyLatency(lhs) = body
-
-        body + N - 1 + latencyOf(lhs)
-
-      case StateMachine(en, start, notDone, action, nextState, state) if isInnerControl(lhs) =>
-        val cont = latencyOfPipe(notDone)
-        val act  = latencyOfPipe(action)
-        val next = latencyOfPipe(nextState)
-
-        dbgs(s"Inner FSM $lhs: ")
-        dbgs(s"-notDone = $cont")
-        dbgs(s"-action  = $act")
-        dbgs(s"-next    = $next")
-        bodyLatency(lhs) = cont + act + next
-
-        0L // TODO: Any way to predict number of iterations, or annotate expected number?
-
-      // --- Sequential
-      case UnitPipe(en, func) if isOuterControl(lhs) =>
-        val stages = latencyOfBlock(func)
-
-        dbgs(s"Outer Pipe $lhs:")
-        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
-
-        stages.sum + latencyOf(lhs)
-
-
-      // --- Metapipeline and Sequential
-      case OpForeach(cchain, func, _) =>
-        val N = nIters(cchain)
-        val stages = latencyOfBlock(func)
-
-        dbgs(s"Outer Foreach $lhs (N = $N):")
-        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
-
-        if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
-        else                 { stages.sum * N + latencyOf(lhs) }
-
-      case OpReduce(cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
-        val N = nIters(cchain)
-        val P = parsOf(cchain).product
-
-        val mapStages = latencyOfBlock(map)
-        val internal = latencyOfPipe(reduce) * reductionTreeHeight(P)
-        val cycle = latencyOfCycle(ld) + latencyOfCycle(reduce) + latencyOfCycle(store)
-
-        val reduceStage = internal + cycle
-        val stages = mapStages :+ reduceStage
-
-        dbgs(s"Outer Reduce $lhs (N = $N):")
-        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
-
-        if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
-        else                 { stages.sum * N + latencyOf(lhs) }
-
-      case OpMemReduce(cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
-        val Nm = nIters(cchainMap)
-        val Nr = nIters(cchainRed)
-        val Pm = parsOf(cchainMap).product // Parallelization factor for map
-        val Pr = parsOf(cchainRed).product // Parallelization factor for reduce
-
-        val mapStages: List[Long] = latencyOfBlock(map)
-        val internal: Long = latencyOfPipe(ldRes) + latencyOfPipe(reduce) * reductionTreeHeight(Pm)
-        val accumulate: Long = latencyOfPipe(ldAcc) + latencyOfPipe(reduce) + latencyOfPipe(store)
-
-        val reduceStage: Long = internal + accumulate + Nr - 1
-        val stages = mapStages :+ reduceStage
-
-        dbgs(s"Block Reduce $lhs (Nm = $Nm, Nr = $Nr)")
-        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
-
-        if (isMetaPipe(lhs)) { stages.max * (Nm - 1) + stages.sum + latencyOf(lhs) }
-        else                 { stages.sum * Nm + latencyOf(lhs) }
-
-
-      case UnrolledForeach(en,cchain,func,iters,valids) =>
-        val N = nIters(cchain)
-        val stages = latencyOfBlock(func)
-
-        dbgs(s"Unrolled Outer Foreach $lhs (N = $N):")
-        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
-
-        if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
-        else                 { stages.sum * N + latencyOf(lhs) }
-
-      case UnrolledReduce(en,cchain,accum,func,_,iters,valids,rV) =>
-        val N = nIters(cchain)
-        val P = parsOf(cchain).product
-        val stages = latencyOfBlock(func)
-
-        dbgs(s"Unrolled Outer Reduce $lhs (N = $N):")
-        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
-
-        if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
-        else                 { stages.sum * N + latencyOf(lhs) }
-
-      case StateMachine(en, start, notDone, action, nextState, state) =>
-        val cont      = latencyOfPipe(notDone)
-        val actStages = latencyOfBlock(action)
-        val next      = latencyOfPipe(nextState)
-
-        dbgs(s"Outer FSM $lhs: ")
-        dbgs(s"-notDone = $cont")
-        dbgs(s"-action: ")
-        actStages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"  - $i. $s") }
-        dbgs(s"-next    = $next")
-        bodyLatency(lhs) = Seq(cont, next)
-
-        0L  // TODO
-
-      case _ =>
-        // No general rule for combining blocks
-        rhs.blocks.foreach{blk => visitBlock(blk) }
-        latencyOf(lhs)
-    }
-    cycleScope ::= cycles
-  }
-
-  override protected def preprocess[A:Type](b: Block[A]) = {
-    cycleScope = Nil
+    intervalScope = Nil
     super.preprocess(b)
   }
 
-  override protected def postprocess[A:Type](b: Block[A]) = {
+  override protected def postprocess[A:Type](b: Block[A]): Block[A] = {
     val CLK = latencyModel.clockRate
     val startup = latencyModel.baseCycles
     // TODO: Could potentially have multiple accelerator designs in a single program
@@ -275,5 +32,313 @@ trait LatencyAnalyzer extends ModelingTraversal {
     report(s"Estimated runtime (at " + "%.2f".format(CLK) +"MHz): " + "%.8f".format(totalCycles/(CLK*1000000f)) + "s")
     super.postprocess(b)
   }
+
+  // TODO: Default number of iterations if bound can't be computed?
+  // TODO: Warn user if bounds can't be found?
+  // TODO: Move this elsewhere
+  def nIters(x: Exp[CounterChain], ignorePar: Boolean = false): Long = x match {
+    case Def(CounterChainNew(ctrs)) =>
+      val loopIters = ctrs.map{
+        case Def(CounterNew(start,end,stride,par)) =>
+          val min = boundOf.get(start).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $start");*/ 0.0}
+          val max = boundOf.get(end).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $end");*/ 1.0}
+          val step = boundOf.get(stride).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $stride");*/ 1.0}
+          val p = boundOf.get(par).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $par");*/ 1.0}
+
+          val nIters = Math.ceil((max - min)/step)
+          if (ignorePar)
+            nIters.toLong
+          else
+            Math.ceil(nIters/p).toLong
+
+        case Def(Forever()) => 0L
+      }
+      loopIters.fold(1L){_*_}
+  }
+
+  def latencyOfBlock(b: Block[_], par_mask: Boolean = false): (List[Long], List[Long]) = {
+    val outerCycles = cycleScope
+    val outerIntervals = intervalScope
+    cycleScope = Nil
+    intervalScope = Nil
+    tab += 1
+    getControlNodes(b).foreach{
+      case s@Op(d) => visit(s.asInstanceOf[Sym[_]], d)
+      case _ =>
+    }
+    tab -= 1
+
+    val cycles = cycleScope
+    val intervals = intervalScope
+    cycleScope = outerCycles
+    intervalScope = outerIntervals
+    (cycles, intervals)
+  }
+
+  override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = {
+    val (cycles, ii) = rhs match {
+      case Hwblock(blk, isForever) if isInnerControl(lhs) =>
+        inHwScope = true
+        val (body, _) = latencyOfPipe(blk)
+
+        dbgs(s"Inner Accel $lhs: (D = $body)")
+        dbgs(s"- body = $body")
+
+        inHwScope = false
+        (body, 1L)
+
+
+      case Hwblock(blk, isForever) if isOuterControl(lhs) =>
+        inHwScope = true
+        val (latencies, iis) = latencyOfBlock(blk)
+        val body = latencies.sum
+
+        dbgs(s"Accel $lhs: (D = $body)")
+        dbgs(s"- body = $body")
+
+        inHwScope = false
+        (body, 1L)
+
+      case ParallelPipe(en, func) =>
+        val (latencies, iis) = latencyOfBlock(func, true)
+        val delay = latencies.max + latencyOf(lhs)
+        val ii = iis.max
+
+        dbgs(s"Parallel $lhs: (II = $ii, D = $delay)")
+        latencies.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
+        (delay, ii)
+
+      // --- Pipe
+      case UnitPipe(en, func) if isInnerControl(lhs) =>
+        val (latency, ii) = latencyOfPipe(func)
+
+        val delay = latency + latencyOf(lhs)
+
+        dbgs(s"Pipe $lhs: (II = $ii, D = $delay)")
+        dbgs(s"- pipe = $latency")
+
+        (delay, ii)
+
+      case OpForeach(en, cchain, func, iters) if isInnerControl(lhs) =>
+        val N = nIters(cchain)
+        val (latency, ii) = latencyOfPipe(func)
+
+        val delay = latency + (N - 1)*ii + latencyOf(lhs)
+
+        dbgs(s"Foreach $lhs (N = $N, II = $ii, D = $delay):")
+        dbgs(s"- pipe = $latency")
+
+        (delay, 1L)
+
+      case OpReduce(en, cchain,accum,map,ld,reduce,store,_,_,rV,iters) if isInnerControl(lhs) =>
+        val N = nIters(cchain)
+        val P = parsOf(cchain).product
+
+        val fuseMapReduce = false //canFuse(map,reduce,rV,P)
+
+        val (mapLat, mapII) = latencyOfPipe(map)
+
+        val (ldLat, _) = latencyOfCycle(ld)
+        val (reduceLat, _) = latencyOfCycle(reduce)
+        val (storeLat, _) = latencyOfCycle(store)
+
+        val treeLat = latencyOfPipe(reduce)._1 * reductionTreeHeight(P)
+
+        val cycle = ldLat + reduceLat + storeLat
+
+        val ii = Math.max(mapII, cycle)
+        val delay = mapLat + treeLat + (N - 1)*ii + latencyOf(lhs)
+
+        dbgs(s"Reduce $lhs (N = $N, II = $ii, D = $delay):")
+        dbgs(s"- map   = $mapLat (ii = $mapII)")
+        dbgs(s"- tree  = $treeLat")
+        dbgs(s"- cycle = $cycle")
+
+        (delay, 1L)
+
+      case UnrolledForeach(en,cchain,func,iters,valids) if isInnerControl(lhs) =>
+        val N = nIters(cchain)
+        val (pipe, ii) = latencyOfPipe(func)
+
+        val delay = pipe + (N - 1)*ii + latencyOf(lhs)
+
+        dbgs(s"Unrolled Foreach $lhs (N = $N, II = $ii, D = $delay):")
+        dbgs(s"- pipe = $pipe")
+
+        (delay, 1L)
+
+      case UnrolledReduce(en,cchain,accum,func,iters,valids) if isInnerControl(lhs) =>
+        val N = nIters(cchain)
+
+        val (body, ii) = latencyOfPipe(func)
+        val delay = body + (N - 1)*ii + latencyOf(lhs)
+
+        dbgs(s"Unrolled Reduce $lhs (N = $N, II = $ii, D = $delay):")
+        dbgs(s"- body  = $body")
+
+        (delay, 1L)
+
+      case StateMachine(en, start, notDone, action, nextState, _) if isInnerControl(lhs) =>
+        // TODO: Any way to predict number of iterations, or annotate expected number?
+        val N = 1
+        val (cont, contII) = latencyOfPipe(notDone)
+        val (act, actII)   = latencyOfPipe(action)
+        val (next, nextII) = latencyOfPipe(nextState)
+
+        val ii = List(contII, actII, nextII).max
+        val delay = cont + act + next + (N-1)*ii + latencyOf(lhs)
+
+        dbgs(s"Inner FSM $lhs: (N = $N, II = $ii, D = $delay)")
+        dbgs(s"-notDone = $cont (ii = $contII)")
+        dbgs(s"-action  = $act (ii = $actII)")
+        dbgs(s"-next    = $next (ii = $nextII)")
+
+        (delay, 1L)
+
+      // --- Sequential
+      case UnitPipe(en, func) if isOuterControl(lhs) =>
+        val (stages, iis) = latencyOfBlock(func)
+
+        val delay = stages.sum + latencyOf(lhs)
+        val ii = (1L +: iis).max
+
+        dbgs(s"Outer Pipe $lhs: (D = $delay)")
+        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
+
+        (delay, ii)
+
+
+      // --- Metapipeline and Sequential
+      case OpForeach(en, cchain, func, _) =>
+        val N = nIters(cchain)
+        val (stages, iis) = latencyOfBlock(func)
+        val ii = (1L +: iis).max
+
+        val delay = if (isMetaPipe(lhs)) { stages.max * (N - 1)*ii + stages.sum + latencyOf(lhs) }
+                    else                 { stages.sum * N + latencyOf(lhs) }
+
+        dbgs(s"Outer Foreach $lhs: (N = $N, II = $ii, D = $delay)")
+        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
+
+        (delay, 1L)
+
+      case OpReduce(en, cchain,accum,map,ld,reduce,store,_,_,rV,iters) =>
+        val N = nIters(cchain)
+        val P = parsOf(cchain).product
+
+        val (mapStages, mapII) = latencyOfBlock(map)
+        val internal = latencyOfPipe(reduce)._1 * reductionTreeHeight(P)
+        val cycle = latencyOfCycle(ld)._1 + latencyOfCycle(reduce)._1 + latencyOfCycle(store)._1
+
+        val reduceStage = internal + cycle
+        val stages = reduceStage +: mapStages
+        val ii = (cycle +: mapII).max
+
+        val delay = if (isMetaPipe(lhs)) { stages.max * (N - 1)*ii + stages.sum + latencyOf(lhs) }
+                    else                 { stages.sum * N + latencyOf(lhs) }
+
+        dbgs(s"Outer Reduce $lhs (N = $N, II = $ii, D = $delay):")
+        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
+
+        (delay, 1L)
+
+      case OpMemReduce(en, cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
+        val Nm = nIters(cchainMap)
+        val Nr = nIters(cchainRed)
+        val Pm = parsOf(cchainMap).product // Parallelization factor for map
+        val Pr = parsOf(cchainRed).product // Parallelization factor for reduce
+
+        val (mapStages, mapIIs) = latencyOfBlock(map)
+        val internal: Long = latencyOfPipe(ldRes)._1 + latencyOfPipe(reduce)._1 * reductionTreeHeight(Pm)
+        val accumulate: Long = latencyOfCycle(ldAcc)._1 + latencyOfCycle(reduce)._1 + latencyOfCycle(store)._1
+        val reduceStage: Long = internal + accumulate + (Nr - 1)*accumulate
+        val stages = reduceStage +: mapStages
+        val mapII = (1L +: mapIIs).max
+
+        val delay = if (isMetaPipe(lhs)) { stages.max * (Nm - 1)*mapII + stages.sum + latencyOf(lhs) }
+                    else                 { stages.sum * Nm + latencyOf(lhs) }
+
+        dbgs(s"Block Reduce $lhs (Nm = $Nm, IIm = $mapII, Nr = $Nr, IIr = $accumulate, D = $delay)")
+        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
+
+        (delay, 1L)
+
+      case UnrolledForeach(en,cchain,func,iters,valids) =>
+        val N = nIters(cchain)
+        val (stages, iis) = latencyOfBlock(func)
+        val ii = (1L +: iis).max
+
+        val delay = if (isMetaPipe(lhs)) { stages.max * (N - 1)*ii + stages.sum + latencyOf(lhs) }
+                    else                 { stages.sum * N + latencyOf(lhs) }
+
+        dbgs(s"Unrolled Outer Foreach $lhs (N = $N, II = $ii, D = $delay):")
+        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
+
+        (delay, 1L)
+
+      case UnrolledReduce(en,cchain,accum,func,iters,valids) =>
+        val N = nIters(cchain)
+        val (stages, iis) = latencyOfBlock(func)
+        val ii = (1L +: iis).max
+
+        val delay = if (isMetaPipe(lhs)) { stages.max * (N - 1)*ii + stages.sum + latencyOf(lhs) }
+                    else                 { stages.sum * N + latencyOf(lhs) }
+
+        dbgs(s"Unrolled Outer Reduce $lhs (N = $N, II = $ii, D = $delay):")
+        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
+
+        (delay, 1L)
+
+      case StateMachine(en, start, notDone, action, nextState, _) =>
+        val N = 1 // TODO
+        val (cont, contII) = latencyOfPipe(notDone)
+        val (acts, actIIs) = latencyOfBlock(action)
+        val (next, nextII) = latencyOfPipe(nextState)
+
+        val ii = (List(contII, nextII) ++ actIIs).max
+        val delay = (cont + acts.sum + next) * N + latencyOf(lhs)
+
+        dbgs(s"Outer FSM $lhs: (N = $N, II = $ii, D = $delay)")
+        dbgs(s" - notDone = $cont")
+        dbgs(s" - action: ")
+        acts.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"   - $i. $s") }
+        dbgs(s" - next    = $next")
+
+
+        (delay, 1L)
+
+      case Switch(body,selects,cases) =>
+        val (stages, iis) = latencyOfBlock(body)
+        val delay = stages.max
+        val ii = (1L +: iis).max
+        dbgs(s"Switch $lhs: (II = $ii, D = $delay)")
+        stages.reverse.zipWithIndex.foreach{case (dly, i) => dbgs(s" - $i. $dly") }
+        (delay, ii)
+
+      case SwitchCase(body) if isInnerControl(lhs) =>
+        val (delay, ii) = latencyOfPipe(body)
+        dbgs(s"Case $lhs: (II = $ii, D = $delay)")
+        dbgs(s" - body: $delay")
+        (delay, ii)
+
+      case SwitchCase(body) if isOuterControl(lhs) =>
+        val (stages, iis) = latencyOfBlock(body)
+        val delay = if (styleOf(lhs) == SeqPipe) stages.sum else (0L +: stages).max
+        val ii = (1L +: iis).max
+        dbgs(s"Case $lhs: (II = $ii, D = $delay)")
+        stages.reverse.zipWithIndex.foreach{case (dly,i) => dbgs(s" - $i. $dly") }
+        (delay, ii)
+
+      case _ =>
+        // No general rule for combining blocks
+        rhs.blocks.foreach{blk => visitBlock(blk) }
+        val delay = latencyOf(lhs)
+        (delay, 1L)
+    }
+    cycleScope ::= cycles
+    intervalScope ::= ii
+  }
+
+
 
 }

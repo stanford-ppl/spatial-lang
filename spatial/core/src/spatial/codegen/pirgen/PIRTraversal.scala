@@ -1,17 +1,17 @@
 package spatial.codegen.pirgen
 
-import spatial.SpatialConfig
+import argon.core._
+import argon.nodes._
 import spatial.analysis.SpatialTraversal
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 import scala.collection.mutable
 import scala.reflect.runtime.universe._
 
-import spatial.SpatialExp
-
 trait PIRTraversal extends SpatialTraversal with Partitions {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
-
   var listing = false
   var listingSaved = false
   var tablevel = 0 // Doesn't change tab level with traversal of block
@@ -289,7 +289,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     else readersOf(mem).map{_.node}
   }
 
-  def writerOf(mem:Expr):Access = {
+  def writerOf(mem:Expr): Access = {
     val writers = writersOf(mem)
     if (writers.size > 1) {
       error(u"Memory $mem has multiple writers: ")
@@ -445,7 +445,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     case Def(UnitPipe(en, func)) => blockContents(func)
     case Def(ParallelPipe(en, func)) => blockContents(func)
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => blockContents(func)
-    case Def(UnrolledReduce(en, cchain, accum, func, reduce, iters, valids, rV)) => blockContents(func)
+    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) => blockContents(func)
     case _ => throw new Exception(s"Don't know how to get stms pipe=${qdef(pipe)}")
   }
 

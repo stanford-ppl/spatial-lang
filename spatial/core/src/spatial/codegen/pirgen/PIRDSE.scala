@@ -1,21 +1,19 @@
 package spatial.codegen.pirgen
 
-import argon.Config
-import spatial.{SpatialConfig, SpatialExp}
+import argon.core._
+import spatial.SpatialConfig
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.parallel._
-
 import java.io.PrintStream
 import java.nio.file.{Files, Paths}
+
+import argon.core.Config
 
 import scala.util.control.Breaks._
 
 trait PIRDSE extends PIRSplitting with PIRRetiming {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
-
   override val name = "Plasticine DSE"
   override val recurse = Always
 
@@ -81,7 +79,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
 
     val threads = regsMaxs.flatMap{r => vIns_PCUs.flatMap{v => sIns_PCUs.map{s => (r,v,s) }}}.par
 
-    threads.tasksupport = new ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(SpatialConfig.threads))
+    threads.tasksupport = new ForkJoinTaskSupport(new java.util.concurrent.ForkJoinPool(SpatialConfig.threads))
 
     val results = (REDUCE_STAGES to 16).flatMap{stages =>
       STAGES = stages

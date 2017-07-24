@@ -41,15 +41,28 @@ object ops {
     def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
       chisel3.util.Cat(b.map{_.raw}).FP(s, d, f)
     }
+
   }
 
   implicit class BoolOps(val b:Bool) {
-    def D(delay: Int) = {
-      chisel3.util.ShiftRegister(b, delay)
+    def D(delay: Int, retime_released: Bool = true.B) = {
+      Mux(retime_released, chisel3.util.ShiftRegister(b, delay, false.B, true.B), false.B)
     }
 
   }
   
+  // implicit class DspRealOps(val b:DspReal) {
+  //   def raw = {
+  //     b.node
+  //   }
+  //   def number = {
+  //     b.node
+  //   }
+  //   def r = {
+  //     b.node
+  //   }
+  // }
+
   implicit class UIntOps(val b:UInt) {
     // Define number so that we can be compatible with FixedPoint type
     def number = {
@@ -158,14 +171,140 @@ object ops {
       Utils.FixedPoint(s, d, f, b)
     }
 
+    def cast(c: FixedPoint): Unit = {
+      c.r := Utils.FixedPoint(c.s,c.d,c.f,b).r
+    }
 
   }
+
+  implicit class SIntOps(val b:SInt) {
+    // Define number so that we can be compatible with FixedPoint type
+    def number = {
+      b.asUInt
+    }
+    def raw = {
+      b.asUInt
+    }
+    def r = {
+      b.asUInt
+    }
+    def msb = {
+      b(b.getWidth-1)
+    }
+
+    // override def connect (rawop: Data)(implicit sourceInfo: SourceInfo, connectionCompileOptions: chisel3.core.CompileOptions): Unit = {
+    //   rawop match {
+    //     case op: FixedPoint =>
+    //       b := op.number
+    //     case op: UInt =>
+    //       b := op
+    //   }
+    // }
+
+    def < (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) < c
+    }
+
+    def ^ (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) ^ c
+    }
+
+    def <= (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <= c
+    }
+
+    def > (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) > c
+    }
+
+    def >= (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) >= c
+    }
+
+    def === (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) === c      
+    }
+
+    def =/= (c: FixedPoint): Bool = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) =/= c      
+    }
+
+    def - (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) - c      
+    }
+
+    def <-> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <-> c
+    }
+
+    def + (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) + c      
+    }
+
+    def <+> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <+> c      
+    }
+
+    def * (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) * c      
+    }
+
+    def <*> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <*> c      
+    }
+
+    def *& (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) *& c      
+    }
+
+    def <*&> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <*&> c      
+    }
+
+    def / (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) / c      
+    }
+
+    def </> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) </> c      
+    }
+
+    def /& (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) /& c      
+    }
+
+    def </&> (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) </&> c      
+    }
+
+    def % (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) % c      
+    }
+
+    def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
+      Utils.FixedPoint(s, d, f, b)
+    }
+    def FlP(m: Int, e: Int): FloatingPoint = {
+      Utils.FloatPoint(m, e, b)
+    }
+
+    def cast(c: FixedPoint): Unit = {
+      c.r := Utils.FixedPoint(c.s,c.d,c.f,b).r
+    }
+
+
+  }
+
+
   implicit class IntOps(val b: Int) {
     def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
       Utils.FixedPoint(s, d, f, b)
     }
     def FP(s: Int, d: Int, f: Int): FixedPoint = {
       Utils.FixedPoint(s, d, f, b)
+    }
+    def FlP(m: Int, e: Int): FloatingPoint = {
+      Utils.FloatPoint(m, e, b)
     }
   }
 
@@ -176,10 +315,29 @@ object ops {
     def FP(s: Int, d: Int, f: Int): FixedPoint = {
       Utils.FixedPoint(s, d, f, b)
     }
+    def FlP(m: Int, e: Int): FloatingPoint = {
+      Utils.FloatPoint(m, e, b)
+    }
   }
 }
 
 object Utils {
+
+  def sqrt(num: FloatingPoint): FloatingPoint = {
+    val m = num.m
+    val e = num.e
+    val result = Wire(new FloatingPoint(m, e))
+    val fma = Module(new DivSqrtRecFN_small(m,e,0))
+    fma.io.a := num.r
+    fma.io.inValid := true.B // TODO: What should this be?
+    fma.io.sqrtOp := true.B // TODO: What should this be?
+    fma.io.roundingMode := 0.U(3.W) // TODO: What should this be?
+    fma.io.detectTininess := true.B // TODO: What should this be?
+    result.r := fNFromRecFN(m, e, fma.io.out)
+    result
+  }
+  def getFloatBits(num: Float) = java.lang.Float.floatToRawIntBits(num)
+  // def getDoubleBits(num: Double) = java.lang.Double.doubleToRawIntBits(num)
   def delay[T <: chisel3.core.Data](sig: T, length: Int):T = {
     if (length == 0) {
       sig
@@ -237,8 +395,21 @@ object Utils {
       case i: Double => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
       case i: Bool => cst.r := i
       case i: UInt => if (f > 0) cst.r := chisel3.util.Cat(i, 0.U(f.W)) else cst.r := i
+      case i: SInt => cst.r := FixedPoint(s,d,f,i.asUInt).r
       case i: FixedPoint => cst.raw := i.raw
       case i: Int => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
+    }
+    cst
+  }
+
+  def FloatPoint[T](m: Int, e: Int, init: T): FloatingPoint = {
+    val cst = Wire(new FloatingPoint(m, e))
+    init match {
+      case i: Double => cst.raw := getFloatBits(i.toFloat).U
+      case i: Bool => cst.r := mux(i, getFloatBits(1f).U, getFloatBits(0f).U)
+      // case i: UInt => 
+      // case i: SInt => 
+      case i: Int => cst.raw := getFloatBits(i.toFloat).U
     }
     cst
   }

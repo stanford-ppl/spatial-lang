@@ -20,14 +20,14 @@ class SingleCounterTests(c: SingleCounter) extends PeekPokeTester(c) {
   var expectedCount = 0
   var expectedDone = 0
 
-  val maxes = List(96, 100, 200)
+  val stops = List(96, 100, 200)
   val strides = List(1, 6, 7)
   val starts = List(0, 5)
 
   step(1)
   reset(1)
 
-  maxes.foreach { max => 
+  stops.foreach { stop => 
     strides.foreach { stride => 
       starts.foreach { start =>
         numEnabledCycles = 0
@@ -40,26 +40,26 @@ class SingleCounterTests(c: SingleCounter) extends PeekPokeTester(c) {
           numEnabledCycles += enable
           val count = saturate match {
             case 1 =>
-              val count = if (start + numEnabledCycles * (gap + stride*c.par) < max) {
+              val count = if (start + numEnabledCycles * (gap + stride*c.par) < stop) {
                 (start + numEnabledCycles * (gap + stride*(c.par))) 
               } else {
-                if ((max-start) % (gap + stride*(c.par)) == 0) (max - (gap + stride*(c.par))) else max - (max-start) % (gap + stride*(c.par))
+                if ((stop-start) % (gap + stride*(c.par)) == 0) (stop - (gap + stride*(c.par))) else stop - (stop-start) % (gap + stride*(c.par))
               }
 
               count
             case 0 =>
-              val numSteps = ( (max-start) / (gap + stride*c.par)) // integer type
-              val numUntilWrap = if (numSteps * (gap + stride*c.par) == (max-start)) numSteps else numSteps+1
+              val numSteps = ( (stop-start) / (gap + stride*c.par)) // integer type
+              val numUntilWrap = if (numSteps * (gap + stride*c.par) == (stop-start)) numSteps else numSteps+1
               val numWrappedEnabledCycles = numEnabledCycles % numUntilWrap
-              val count = if (start + numWrappedEnabledCycles * (gap + stride*c.par) < max) (start + numWrappedEnabledCycles * (gap + stride*(c.par))) else (max - max % (gap + stride*(c.par)))
+              val count = if (start + numWrappedEnabledCycles * (gap + stride*c.par) < stop) (start + numWrappedEnabledCycles * (gap + stride*(c.par))) else (stop - stop % (gap + stride*(c.par)))
 
               count
           }
-          val done = if ( (count + c.par*stride + gap >= max) & (enable == 1) ) 1 else 0
+          val done = if ( (count + c.par*stride + gap >= stop) & (enable == 1) ) 1 else 0
           // val a = peek(c.io.output.count(0))
           // val b = peek(c.io.output.count(1))
           // val cc = peek(c.io.output.done)
-          // println(s"SingleCounters at $a, $b, (want $count), max $max done? $cc expected? $done because ${(count + c.par*stride + gap)} satmode $saturate")
+          // println(s"SingleCounters at $a, $b, (want $count), stop $stop done? $cc expected? $done because ${(count + c.par*stride + gap)} satmode $saturate")
           // if (cc != done) println("           ERROR!!!!!!!!!!!!!! \n\n")
 
           // Check signal values
@@ -75,7 +75,7 @@ class SingleCounterTests(c: SingleCounter) extends PeekPokeTester(c) {
         step(5)
         poke(c.io.input.reset, 1)
         step(1)
-        poke(c.io.input.max, max)
+        poke(c.io.input.stop, stop)
         poke(c.io.input.gap, gap)
         poke(c.io.input.stride, stride)
         poke(c.io.input.enable, enable)
@@ -97,7 +97,7 @@ class SingleCounterTests(c: SingleCounter) extends PeekPokeTester(c) {
         // Continue
         enable = 1
         poke(c.io.input.enable, enable)
-        for (i <- 1 until max) {
+        for (i <- 1 until stop) {
           testOneStep()
         }
 
@@ -106,7 +106,7 @@ class SingleCounterTests(c: SingleCounter) extends PeekPokeTester(c) {
         poke(c.io.input.reset, 1)
         step(1)
         poke(c.io.input.reset, 0)
-        for (i <- 1 until max+2) {
+        for (i <- 1 until stop+2) {
           testOneStep()
         }
 
@@ -117,7 +117,7 @@ class SingleCounterTests(c: SingleCounter) extends PeekPokeTester(c) {
         poke(c.io.input.reset, 1)
         step(1)
         poke(c.io.input.reset, 0)
-        for (i <- 1 until max+2) {
+        for (i <- 1 until stop+2) {
           testOneStep()
         }
 
@@ -142,7 +142,7 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
   // var expectedDones = List(0,0,0)
 
   val gap = List(0,0,0)
-  val maxes = List(List(10,12,15), List(11,13,16), List(12,14,50))
+  val stops = List(List(10,12,15), List(11,13,16), List(12,14,50))
   val strides = List(List(3,3,3),List(1,1,1), List(3, 4, 5))
   val start = List(0,0,0) // TODO: Test new starts
   var enable = 1
@@ -151,10 +151,10 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
   step(1)
   reset(1)
 
-  maxes.foreach { max => 
+  stops.foreach { stop => 
   strides.foreach { stride => 
-    // println("------" + max + "--------" + stride)
-    val alignedMax = max.zip(stride).zip(c.par.reverse).map {case ((m,s),p) => 
+    // println("------" + stop + "--------" + stride)
+    val alignedMax = stop.zip(stride).zip(c.par.reverse).map {case ((m,s),p) => 
       if (m % (s*p) == 0) m else m - (m % (s*p)) + (s*p) 
     }
     numEnabledCycles = 0
@@ -165,7 +165,7 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
         step(1)
         if (enable == 1) numEnabledCycles += 1
         val expectedCksum = numEnabledCycles 
-        val done = if (numEnabledCycles == max.reduce{_*_}) 1 else 0
+        val done = if (numEnabledCycles == stop.reduce{_*_}) 1 else 0
 
         c.par.reverse.zipWithIndex.foreach{ case (p,ii) => 
           val i = c.par.length - ii - 1
@@ -204,7 +204,7 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
       poke(c.io.input.enable, enable)
       c.io.input.starts.zipWithIndex.foreach{ case (wire, i) => poke(wire,start(start.length - 1 -i)) }
       step(5)
-      c.io.input.maxes.zipWithIndex.foreach{ case (wire, i) => poke(wire,max(max.length - 1 - i)) }
+      c.io.input.stops.zipWithIndex.foreach{ case (wire, i) => poke(wire,stop(stop.length - 1 - i)) }
       c.io.input.strides.zipWithIndex.foreach{ case (wire, i) => poke(wire,stride(stride.length - 1 - i)) }
       poke(c.io.input.reset, 1)
       step(1)

@@ -1,13 +1,15 @@
 package spatial.codegen.pirgen
 
-import spatial.SpatialExp
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 import scala.collection.mutable
 
 trait PIRScheduler extends PIRTraversal {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
-
   override val name = "PIR Scheduler"
   override val recurse = Always
 
@@ -134,7 +136,7 @@ trait PIRScheduler extends PIRTraversal {
     // --- Reads
     case ParLocalReader(reads) =>
       if (usersOf(lhs).nonEmpty) {
-        decompose(lhs).foreach { case dreader =>
+        decompose(lhs).foreach { dreader =>
           assert(ctx.getReg(dreader).nonEmpty, s"reader: ${qdef(dreader)} was not allocated in ${ctx.cu} during allocation")
         }
       }

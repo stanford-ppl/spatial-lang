@@ -25,8 +25,8 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
 
       // FSM signals
-      val nextState = Input(UInt(32.W))
-      val initState = Input(UInt(32.W))
+      val nextState = Input(SInt(32.W))
+      val initState = Input(SInt(32.W))
       val doneCondition = Input(Bool())
     }
     val output = new Bundle {
@@ -34,7 +34,7 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
       val ctr_inc = Output(Bool())
       val rst_en = Output(Bool())
       // FSM signals
-      val state = Output(UInt(32.W))
+      val state = Output(SInt(32.W))
     }
   })
 
@@ -46,10 +46,10 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
     rstCtr.io.input.enable := state === pipeReset.U
     rstCtr.io.input.reset := (state != pipeReset.U) | io.input.rst
     rstCtr.io.input.saturate := true.B
-    rstCtr.io.input.max := 2.U
-    rstCtr.io.input.gap := 0.U
-    rstCtr.io.input.start := 0.U
-    rstCtr.io.input.stride := 1.U
+    rstCtr.io.input.stop := 2.S
+    rstCtr.io.input.gap := 0.S
+    rstCtr.io.input.start := 0.S
+    rstCtr.io.input.stride := 1.S
 
     // Only start the state machine when the enable signal is set
     when (io.input.enable) {
@@ -84,10 +84,11 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
         state := Mux(state >= (pipeSpinWait + retime).U, pipeInit.U, state + 1.U);
       } 
     }.otherwise {
-      io.output.done := Mux(io.input.ctr_done, true.B, false.B)
+      io.output.done := Mux(io.input.ctr_done | state === pipeDone.U, true.B, false.B)
       io.output.ctr_inc := false.B
       io.output.rst_en := false.B
-      io.output.state := state
+      io.output.state := state.asSInt
+      state := Mux(state === pipeDone.U, pipeSpinWait.U, state) // Move along if enable turns on just as we reach done state
       // Line below broke tile stores when there is a stall of some kind.  Why was it there to begin with?
       // state := pipeInit.U 
     }
@@ -95,11 +96,11 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
     val stateFSM = Module(new FF(32))
     val doneReg = Module(new SRFF())
 
-    stateFSM.io.input(0).data := io.input.nextState
-    stateFSM.io.input(0).init := io.input.initState
+    stateFSM.io.input(0).data := io.input.nextState.asUInt
+    stateFSM.io.input(0).init := io.input.initState.asUInt
     stateFSM.io.input(0).enable := io.input.enable
-    stateFSM.io.input(0).reset := reset
-    io.output.state := stateFSM.io.output.data
+    stateFSM.io.input(0).reset := reset | ~io.input.enable
+    io.output.state := stateFSM.io.output.data.asSInt
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable
     doneReg.io.input.reset := ~io.input.enable

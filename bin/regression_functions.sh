@@ -21,12 +21,15 @@ stamp_commit_msgs() {
   argon_msg=`git log --stat --name-status ${argon_hash}^..${argon_hash}`
   cd $VIRTUALIZED_HOME
   virtualized_msg=`git log --stat --name-status ${virtualized_hash}^..${virtualized_hash}`
+  cd ${SPATIAL_HOME}/apps
+  apps_msg=`git log --stat --name-status ${apps_hash}^..${apps_hash}`
   echo "
 # Commits
 " >> $wiki_file
   echo -e "\nSpatial commit\n\`\`\`\n${spatial_msg}\n\`\`\`" >> $wiki_file
   echo -e "\nArgon commit\n\`\`\`\n${argon_msg}\n\`\`\`" >> $wiki_file
   echo -e "\nVirtualized commit\n\`\`\`\n${virtualized_msg}\n\`\`\`" >> $wiki_file
+  echo -e "\nSpatial-Apps commit\n\`\`\`\n${apps_msg}\n\`\`\`" >> $wiki_file
   echo "
 # Test summary
 " >> $wiki_file
@@ -85,6 +88,7 @@ check_packet() {
   for ii in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$ii]}"* ]]; then rank=${ii}; fi; done
   if [ $rank = -1 ]; then
     logger "Packet for $packet disappeared from list $stringified!  Quitting ungracefully!"
+    rm /remote/regression/mapping/${this_machine}---${tim}*
     exit 1
   fi
 }
@@ -166,6 +170,7 @@ rm $packet
 
 sleep 1000
 stubborn_delete ${dirname}
+rm /remote/regression/mapping/${this_machine}---${tim}*
 
 ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 
@@ -204,7 +209,7 @@ for ac in ${types_list[@]}; do
 done
 
 # Update regtest timestamp
-if [[ ${this_machine} = *"portland"* ]]; then
+if [[ ${type_todo} = *"chisel"* ]]; then
   update_regression_timestamp
 fi
 
@@ -299,7 +304,7 @@ update_log() {
       echo "Compile times (in seconds) by commit (0 = failure)" > $perf_file
       echo "times, 0" >> $perf_file
     fi
-    line="Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} " #| Virtualized ${virtualized_hash:0:5}"
+    line="Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} | Virtualized ${virtualized_hash:0:5} | Spatial-apps ${apps_hash:0:5}"
     sed -i "2s/$/, $t/" ${perf_file}
     echo "$line" >> ${perf_file}
 
@@ -444,7 +449,7 @@ fi
 
 # Append which combo this update is:
 at=`date +"%Y-%m-%d_%H-%M-%S"`
-line="ZZ ${at} - Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5}"  #| Virtualized ${virtualized_hash:0:5}"
+line="ZZ ${at} - Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} | Virtualized ${virtualized_hash:0:5} | Spatial-apps ${apps_hash:0:5}"
 echo "$line" >> ${pretty_file}
 
 # Sort file
@@ -606,10 +611,13 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/ga
 export ARGON_HOME=${ARGON_HOME}
 export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
 export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
-export PATH=/usr/bin:\$VCS_HOME/amd64/bin:$PATH
+export PATH=\$VCS_HOME/amd64/bin:$PATH
 export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
 export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
-export _JAVA_OPTIONS=\"-Xmx16g\"
+if [[ \${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
+  export JAVA_HOME=\${JAVA_HOME}/..
+fi
+export _JAVA_OPTIONS=\"-Xmx24g\"
 date >> ${5}/log" >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
@@ -725,7 +733,7 @@ fi
 rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
 touch ${SPATIAL_HOME}/regression_tests/${2}/results/failed_execution_hanging.${3}_${4}
 chmod +x ${5}/out/run.sh
-timeout 300 ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+timeout 400 ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
 # Check for annoying vcs assertion and rerun if needed
 wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
@@ -734,7 +742,7 @@ if [ \"\$wc\" -gt 0 ]; then
   echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
   make vcs 2>&1 | tee -a ${5}/log
   make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
-  timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  timeout 400 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
   # Check second time for annoying assert
   wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
@@ -743,7 +751,7 @@ if [ \"\$wc\" -gt 0 ]; then
     echo -e \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
     make vcs 2>&1 | tee -a ${5}/log
     make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
-    timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+    timeout 400 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
   fi
 fi
 # Check for annoying refusal to run that happens in scala sometimes
@@ -751,14 +759,11 @@ wc=\$(cat ${5}/log | grep \"PASS\" | wc -l)
 if [ \"\$wc\" -eq 0 ]; then
   echo \"[APP_RESULT] Annoying refusal to run ${3}_${4}.  Rerunning...\" >> ${log}
   echo -i \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
-  timeout 300 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+  timeout 400 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 fi
 
 # Check for runtime errors
 wc=\$(cat ${5}/log | grep \"Error: App\\|Segmentation fault\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
-  report \"failed_execution_backend_crash\" \"[STATUS] Declaring failure compile_chisel\" 0
-fi
 
 # Check if app validated or not
 if grep -q \"PASS: 1\" ${5}/log; then
@@ -769,6 +774,10 @@ elif grep -q \"PASS: 0\" ${5}/log; then
   report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
 elif grep -q \"PASS: false\" ${5}/log; then
   report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
+elif grep -q \"PASS: X\" ${5}/log; then
+  report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
+elif [ \"\$wc\" -ne 0 ]; then
+  report \"failed_execution_backend_crash\" \"[STATUS] Declaring failure backend_crash\" 0
 else 
   report \"failed_execution_nonexistent_validation\" \"[STATUS] Declaring failure no_validation_check\" 0
 fi" >> $1

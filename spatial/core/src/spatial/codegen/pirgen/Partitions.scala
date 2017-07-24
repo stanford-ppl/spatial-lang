@@ -1,15 +1,13 @@
 package spatial.codegen.pirgen
 
+import argon.core._
 import spatial.analysis.SpatialTraversal
+import spatial.aliases._
+import spatial.SpatialConfig
 
 import scala.collection.mutable
-import spatial.{SpatialConfig, SpatialExp}
-
 
 trait Partitions extends SpatialTraversal { this: PIRTraversal =>
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
-
   var STAGES: Int = SpatialConfig.stages                   // Number of compute stages per CU
   def LANES = SpatialConfig.lanes                          // Number of SIMD lanes per CU
   def REDUCE_STAGES = (Math.log(LANES)/Math.log(2)).toInt  // Number of stages required to reduce across all lanes

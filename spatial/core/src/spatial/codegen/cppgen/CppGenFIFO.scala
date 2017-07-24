@@ -1,12 +1,12 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.FIFOExp
-import spatial.{SpatialConfig, SpatialExp}
+import argon.core._
+import spatial.aliases._
+import spatial.nodes._
+import spatial.SpatialConfig
 
 trait CppGenFIFO extends CppCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -14,7 +14,7 @@ trait CppGenFIFO extends CppCodegen {
         case lhs: Sym[_] =>
           lhs match {
             case Def(e: FIFONew[_]) =>
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("fifo")}"""
+              s"""x${lhs.id}_${lhs.name.getOrElse("fifo")}"""
             case Def(FIFOEnq(fifo:Sym[_],_,_)) =>
               s"x${lhs.id}_enqTo${fifo.id}"
             case Def(FIFODeq(fifo:Sym[_],_)) =>

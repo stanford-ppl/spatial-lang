@@ -1,14 +1,14 @@
 package spatial.codegen.chiselgen
 
+import argon.core._
+import argon.nodes._
 import argon.codegen.chiselgen.ChiselCodegen
-import argon.ops.{FixPtExp, FltPtExp}
-import spatial.api.MathExp
-import spatial.{SpatialConfig, SpatialExp}
-import spatial.analysis.SpatialMetadataExp
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.SpatialConfig
 
 trait ChiselGenMath extends ChiselCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -16,8 +16,11 @@ trait ChiselGenMath extends ChiselCodegen {
         case lhs: Sym[_] =>
           lhs match {
             case Def(FixRandom(x)) => s"x${lhs.id}_fixrnd"
-            case Def(FixNeg(x:Exp[_]))  => s"x${lhs.id}_neg${quoteOperand(x)}"
-            case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"x${lhs.id}_sum${quoteOperand(x)}_${quoteOperand(y)}"
+            case Def(FixNeg(x:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse(s"neg${quoteOperand(x)}")}"""
+            case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("sum")}"""
+            case Def(FixSub(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("sub")}"""
+            case Def(FixDiv(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("div")}"""
+            case Def(FixMul(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("mul")}"""
             case _ => super.quote(s)
           }
         case _ => super.quote(s)
@@ -46,32 +49,23 @@ trait ChiselGenMath extends ChiselCodegen {
       case FloatType()  => emit(src"val $lhs = Math.exp($x.toDouble).toFloat")
     }
     case FltSqrt(x) => x.tp match {
-      case DoubleType() => emit(src"val $lhs = Math.sqrt($x)")
-      case FloatType()  => emit(src"val $lhs = Math.sqrt($x.toDouble).toFloat")
+      case DoubleType() => emit(src"val $lhs = Utils.sqrt($x)")
+      case FloatType()  => emit(src"val $lhs = Utils.sqrt($x)")
     }
 
     case FltPow(x,y) => if (emitEn) throw new Exception("Pow not implemented in hardware yet!")
     case FixFloor(x) => emit(src"val $lhs = Utils.floor($x)")
     case FixCeil(x) => emit(src"val $lhs = Utils.ceil($x)")
 
-    case FltSin(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltCos(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltTan(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltSinh(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltCosh(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltTanh(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltAsin(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltAcos(x) =>
-      throw new TrigInAccelException(lhs)
-    case FltAtan(x) =>
-      throw new TrigInAccelException(lhs)
+    case FltSin(x)  => throw new spatial.TrigInAccelException(lhs)
+    case FltCos(x)  => throw new spatial.TrigInAccelException(lhs)
+    case FltTan(x)  => throw new spatial.TrigInAccelException(lhs)
+    case FltSinh(x) => throw new spatial.TrigInAccelException(lhs)
+    case FltCosh(x) => throw new spatial.TrigInAccelException(lhs)
+    case FltTanh(x) => throw new spatial.TrigInAccelException(lhs)
+    case FltAsin(x) => throw new spatial.TrigInAccelException(lhs)
+    case FltAcos(x) => throw new spatial.TrigInAccelException(lhs)
+    case FltAtan(x) => throw new spatial.TrigInAccelException(lhs)
 
     case Mux(sel, a, b) => 
       lhs.tp match { 
@@ -80,7 +74,7 @@ trait ChiselGenMath extends ChiselCodegen {
         case _ =>
           emitGlobalWire(s"""val ${quote(lhs)} = Wire(UInt(${bitWidth(lhs.tp)}.W))""")
       }
-      emit(src"${lhs}.r := Utils.mux(($sel), ${a}.r, ${b}.r)")
+      emit(src"${lhs}.r := Mux(($sel), ${a}.r, ${b}.r)")
 
     // Assumes < and > are defined on runtime type...
     case Min(a, b) => emit(src"val $lhs = Mux(($a < $b), $a, $b)")

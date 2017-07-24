@@ -1,14 +1,14 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.LineBufferExp
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.SpatialExp
+
 
 trait ChiselGenLineBuffer extends ChiselGenController {
-  val IR: SpatialExp
-  import IR._
-
   private var linebufs: List[Sym[LineBufferNew[_]]]  = List()
 
   override def quote(s: Exp[_]): String = {
@@ -17,7 +17,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         case lhs: Sym[_] =>
           lhs match {
             case Def(e: LineBufferNew[_]) =>
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("linebuf")}"""
+              s"""x${lhs.id}_${lhs.name.getOrElse("linebuf")}"""
             case _ =>
               super.quote(s)
           }
@@ -36,14 +36,14 @@ trait ChiselGenLineBuffer extends ChiselGenController {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LineBufferNew(rows, cols) =>
-      val row_rPar = s"$rows" // TODO: Do correct analysis here!
+      val row_rPar = src"${getConstValue(rows)}" // TODO: Do correct analysis here!
       val accessors = bufferControlInfo(lhs, 0).length
       val row_wPar = 1 // TODO: Do correct analysis here!
       val col_rPar = 1 // TODO: Do correct analysis here!
       val col_wPar = 1 // TODO: Do correct analysis here!
-      emitGlobalModule(s"""val ${quote(lhs)} = Module(new templates.LineBuffer($rows, $cols, 1, 
+      emitGlobalModule(src"""val ${lhs} = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, 1, 
         ${col_wPar}, ${col_rPar}, 
-        ${row_wPar}, ${row_rPar}, $accessors))  // Data type: ${remap(op.mT)}""")
+        ${row_wPar}, ${row_rPar}, $accessors))  // Data type: ${op.mT}""")
       emitGlobalModule(src"$lhs.io.reset := reset")
       linebufs = linebufs :+ lhs.asInstanceOf[Sym[LineBufferNew[_]]]
       

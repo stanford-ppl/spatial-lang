@@ -1,18 +1,17 @@
 package spatial.tests
 
 import org.scalatest.{FlatSpec, Matchers}
-import spatial._
 import org.virtualized._
 
 // Args: 192 384
 object BlockReduce2D extends SpatialTest {
-  import IR._
-  IR.testArgs = List("192", "384")
+  import spatial.dsl._
+  testArgs = List("192", "384")
 
   val N = 1920
   val tileSize = 96
 
-  def blockreduce_2d[T:Meta:Num](src: Array[T], rows: Int, cols: Int) = {
+  def blockreduce_2d[T:Type:Num](src: Array[T], rows: Int, cols: Int) = {
     val rowsIn = ArgIn[Int]; setArg(rowsIn, rows)
     val colsIn = ArgIn[Int]; setArg(colsIn, cols)
 
@@ -67,7 +66,7 @@ object BlockReduce2D extends SpatialTest {
 
 // Args: none
 object ScatterGather extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   val N = 1920
 
@@ -76,7 +75,7 @@ object ScatterGather extends SpatialTest {
   val offchip_dataSize = maxNumAddrs*6
   val P = param(1)
 
-  def scattergather[T:Meta:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
+  def scattergather[T:Type:Num](addrs: Array[Int], offchip_data: Array[T], size: Int, dataSize: Int) = {
     val srcAddrs = DRAM[Int](maxNumAddrs)
     val gatherData = DRAM[T](offchip_dataSize)
     val scatterResult = DRAM[T](offchip_dataSize)
@@ -144,8 +143,8 @@ object ScatterGather extends SpatialTest {
 
 // Args: 7
 object InOutArg extends SpatialTest {
-  import IR._
-  IR.testArgs = List("7")
+  import spatial.dsl._
+  testArgs = List("7")
 
   @virtualize
   def main() {
@@ -179,13 +178,13 @@ object InOutArg extends SpatialTest {
 
 // Args: None
 object MultiplexedWriteTest extends SpatialTest { // Regression (Unit) // Args: none
-  import IR._
+  import spatial.dsl._
 
   val tileSize = 64
   val I = 5
   val N = 192
 
-  def multiplexedwrtest[W:Meta:Num](w: Array[W], i: Array[W]): Array[W] = {
+  def multiplexedwrtest[W:Type:Num](w: Array[W], i: Array[W]): Array[W] = {
     val T = param(tileSize)
     val P = param(4)
     val weights = DRAM[W](N)
@@ -240,7 +239,7 @@ object MultiplexedWriteTest extends SpatialTest { // Regression (Unit) // Args: 
 // because I think this will break the NBuf SM since it won't detect drain completion properly
 // Args: None
 object BubbledWriteTest extends SpatialTest { // Regression (Unit) // Args: none
-  import IR._
+  import spatial.dsl._
 
   val tileSize = 64
   val I = 5
@@ -309,13 +308,13 @@ object BubbledWriteTest extends SpatialTest { // Regression (Unit) // Args: none
 }
 
 object SequentialWrites extends SpatialTest {
-  import IR._
-  IR.testArgs = List("13")
+  import spatial.dsl._
+  testArgs = List("13")
 
   val tileSize = 96
   val N = 5
 
-  def sequentialwrites[A:Meta:Num](srcData: Array[A], x: A) = {
+  def sequentialwrites[A:Type:Num](srcData: Array[A], x: A) = {
     val T = param(tileSize)
     val P = param(4)
     val src = DRAM[A](T)
@@ -359,12 +358,12 @@ object SequentialWrites extends SpatialTest {
 
 // Args: None
 object ChangingCtrMax extends SpatialTest {
-  import IR._
+  import spatial.dsl._
 
   val tileSize = 96
   val N = 5
 
-  def changingctrmax[T:Meta:Num](): Array[T] = {
+  def changingctrmax[T:Type:Num](): Array[T] = {
     val result = DRAM[T](96)
     Accel {
       val rMem = SRAM[T](96)
@@ -397,8 +396,8 @@ object ChangingCtrMax extends SpatialTest {
 
 // Args: 384
 object FifoPushPop extends SpatialTest {
-  import IR._
-  IR.testArgs = List("384")
+  import spatial.dsl._
+  testArgs = List("384")
 
   def fifopushpop(N: Int) = {
     val tileSize = 96 (96 -> 96)

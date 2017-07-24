@@ -17,7 +17,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
       val forever = Input(Bool())
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
       // FSM signals
-      val nextState = Input(UInt(32.W))
+      val nextState = Input(SInt(32.W))
 
     }
     val output = new Bundle {
@@ -26,7 +26,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
       val rst_en = Output(Bool())
       val ctr_inc = Output(Bool())
       // FSM signals
-      val state = Output(UInt(32.W))
+      val state = Output(SInt(32.W))
     }
   })
 
@@ -68,10 +68,10 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
   val ctr = Module(new SingleCounter(1))
   ctr.io.input.enable := doneClear
   ctr.io.input.saturate := true.B
-  ctr.io.input.max := max
-  ctr.io.input.stride := 1.U
-  ctr.io.input.start := 0.U
-  ctr.io.input.gap := 0.U
+  ctr.io.input.stop := max.asSInt
+  ctr.io.input.stride := 1.S
+  ctr.io.input.start := 0.S
+  ctr.io.input.gap := 0.S
   ctr.io.input.reset := io.input.rst | (state === doneState.U)
   io.output.rst_en := (state === resetState.U)
 
@@ -89,9 +89,11 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
     when(state === initState.U) {   // INIT -> RESET
       stateFF.io.input(0).data := resetState.U
       io.output.stageEnable.foreach { s => s := false.B}
+      cycsSinceDone.io.input(0).enable := false.B
     }.elsewhen (state === resetState.U) {  // RESET -> FILL
       stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, steadyState.U, doneState.U), fillState.U) // Go directly to done if niters = 0
       io.output.stageEnable.foreach { s => s := false.B}
+      cycsSinceDone.io.input(0).enable := false.B
     }.elsewhen (state < steadyState.U) {  // FILL -> STEADY
       for ( i <- fillState until steadyState) {
         val fillStateID = i - fillState
@@ -108,13 +110,13 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
 
           when (doneTree === 1.U) {
             if (i+1 == steadyState) { // If moving to steady state
-              stateFF.io.input(0).data := Mux(cycsSinceDone.io.output.data === 0.U & ctr.io.output.count(0) + 1.U < max , 
+              stateFF.io.input(0).data := Mux(cycsSinceDone.io.output.data === 0.U & ctr.io.output.count(0) + 1.S < max.asSInt , 
                           steadyState.U, 
                           Mux(io.input.forever, steadyState.U, cycsSinceDone.io.output.data + 2.U + stateFF.io.output.data) 
                         ) // If already in drain step, bypass steady state
             } else {
               cycsSinceDone.io.input(0).data := cycsSinceDone.io.output.data + 1.U
-              cycsSinceDone.io.input(0).enable := ctr.io.output.count(0) + 1.U === max 
+              cycsSinceDone.io.input(0).enable := ctr.io.output.count(0) + 1.S === max.asSInt
               stateFF.io.input(0).data := (i+1).U
             }
           }.otherwise {
@@ -129,7 +131,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
       val doneTree = doneMask.zipWithIndex.map{case (a,i) => a | ~io.input.stageMask(i)}.reduce{_ & _}
       doneClear := doneTree
       when (doneTree === 1.U) {
-        when(ctr.io.output.count(0) === (max - 1.U)) {
+        when(ctr.io.output.count(0) === (max.asSInt - 1.S)) {
           stateFF.io.input(0).data := Mux(io.input.forever, steadyState.U, drainState.U)
         }.otherwise {
           stateFF.io.input(0).data := state
@@ -167,6 +169,6 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
   // Output logic
   io.output.ctr_inc := io.input.stageDone(0) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
   io.output.done := state === doneState.U
-  io.output.state := state
+  io.output.state := state.asSInt
 }
 

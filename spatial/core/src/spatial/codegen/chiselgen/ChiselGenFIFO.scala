@@ -1,14 +1,14 @@
 package spatial.codegen.chiselgen
 
-import argon.codegen.chiselgen.ChiselCodegen
-import spatial.api.FIFOExp
-import spatial.api.DRAMTransferExp
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 import spatial.SpatialConfig
-import spatial.SpatialExp
 
-trait ChiselGenFIFO extends ChiselCodegen {
-  val IR: SpatialExp
-  import IR._
+trait ChiselGenFIFO extends ChiselGenSRAM {
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
       case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
@@ -36,7 +36,7 @@ trait ChiselGenFIFO extends ChiselCodegen {
         case lhs: Sym[_] =>
           lhs match {
             case Def(e: FIFONew[_]) =>
-              s"""x${lhs.id}_${nameOf(lhs).getOrElse("fifo").replace("$","")}"""
+              s"""x${lhs.id}_${lhs.name.getOrElse("fifo").replace("$","")}"""
             case Def(FIFOEnq(fifo:Sym[_],_,_)) =>
               s"x${lhs.id}_enqTo${fifo.id}"
             case Def(FIFODeq(fifo:Sym[_],_)) =>
@@ -73,7 +73,10 @@ trait ChiselGenFIFO extends ChiselCodegen {
   // }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@FIFONew(size)   => 
+    case op@FIFONew(_)   =>
+      val size = sizeOf(lhs) match {case Const(c: BigDecimal) => c.toInt }
+      // ASSERT that all pars are the same!
+      // Console.println(s"Working on $lhs, readers ${readersOf(lhs)}")
       val rPar = readersOf(lhs).map { r => 
         r.node match {
           case Def(_: FIFODeq[_]) => 1
@@ -87,28 +90,22 @@ trait ChiselGenFIFO extends ChiselCodegen {
         }
       }.max
       val width = bitWidth(lhs.tp.typeArguments.head)
-      emitGlobalModule(s"""val ${quote(lhs)} = Module(new FIFO($rPar, $wPar, $size, $width)) // ${nameOf(lhs).getOrElse("")}""")
+      emitGlobalModule(src"""val $lhs = Module(new FIFO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
 
     case FIFOEnq(fifo,v,en) => 
-      val writer = writersOf(fifo).head.ctrlNode  
+      val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.io.enq := ($enabler & ~${writer}_inhibitor).D(${symDelay(lhs)}) & $en """)
-      emit(src"""${fifo}.io.in := Vec(List(${v}.raw))""")
+      emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), /*${writer}_en & seems like we don't want this for retime to work*/ ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")
 
 
     case FIFODeq(fifo,en) =>
-      val reader = readersOf(fifo).head.ctrlNode  // Assuming that each fifo has a unique reader
-      emit(src"""${fifo}.io.deq := ShiftRegister(${reader}_datapath_en & ~${reader}_inhibitor, ${symDelay(lhs)}) & $en /*& ~${reader}_inhibitor*/ // Why inhibit not delayed previously?""")
-      fifo.tp.typeArguments.head match { 
-        case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
-            emit(s"""val ${quote(lhs)} = Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(0))""")
-          } else {
-            emit(src"""val ${lhs} = ${fifo}.io.out(0)""")
-          }
-        case _ => emit(src"""val ${lhs} = ${fifo}.io.out(0)""")
-      }
+      val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
+      val enabler = src"${reader}_datapath_en"
+      emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
+      emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${reader}_en & ($enabler & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en).apply(0)""")
 
+    case FIFOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
     case FIFOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
     case FIFOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")
     case FIFOAlmostEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.almostEmpty")

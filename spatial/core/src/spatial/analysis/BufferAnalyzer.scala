@@ -1,12 +1,13 @@
 package spatial.analysis
 
+import argon.core._
 import argon.traversal.CompilerPass
-import spatial.SpatialExp
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait BufferAnalyzer extends CompilerPass {
-  val IR: SpatialExp
-  import IR._
-
   override val name = "Buffer Analyzer"
   def localMems: Seq[Exp[_]]
 
@@ -14,9 +15,43 @@ trait BufferAnalyzer extends CompilerPass {
     localMems.foreach{mem =>
       val readers = readersOf(mem)
       val writers = writersOf(mem)
+      val accesses = readers ++ writers
       val duplicates = duplicatesOf(mem)
 
       dbg(u"Memory $mem: ")
+
+      // HACK: Only used in Scala generation right now
+      if (isBufferedOut(mem)) {
+        /*val commonCtrl = writers.map(_.ctrl).reduce{(a,b) => lca(a,b).get }
+        val children = childrenOf(commonCtrl)
+        val topIndex = children.lastIndexWhere{child => writers.exists(_.ctrl == child) }
+        val top = if (topIndex < 0) children.last else children(topIndex)
+        writers.foreach{wr =>
+          dispatchOf(wr, mem).foreach{d => topControllerOf(wr.node, mem, d) = top }
+        }*/
+        writers.foreach{ wr =>
+          val parents = allParents[Ctrl](wr.ctrl, { x => parentOf(x) })
+          val i = parents.indexWhere { ctrl => ctrl.isDefined && isStreamPipe(ctrl.get) }
+          if (i >= 0 && i < parents.length - 1) {
+            dispatchOf(wr, mem).foreach { d => topControllerOf(wr.node, mem, d) = parents(i + 1).get }
+          }
+        }
+      }
+
+      accesses.foreach{access =>
+        val dups = dispatchOf.get(access, mem)
+        dups match {
+          case Some(dispatches) =>
+            val invalids = dispatches.filter{x => x >= duplicates.length || x < 0}
+            if (invalids.nonEmpty) {
+              bug(c"Access $access on $mem is set to use invalid instances: ")
+              bug("  Instances: " + invalids.mkString(",") + s" (Largest should be ${duplicates.length-1})")
+              state.logBug()
+            }
+          case None =>
+            warn(c"Access $access on $mem has no associated instances")
+        }
+      }
 
       duplicates.zipWithIndex.foreach{case (dup, i) =>
         dbg(c"  #$i: $dup")
@@ -39,18 +74,12 @@ trait BufferAnalyzer extends CompilerPass {
           }
         }
         else {
-          warn(mem.ctx, u"Memory $mem, instance #$i has no associated accesses")
+          warn(mem.ctx, u"${mem.tp} $mem, instance #$i has no associated accesses")
         }
         // HACK
-        readers.collect{case read@(Def(_:BufferedOutWrite[_]),_) => read }.foreach{read =>
-          val parents = allParents[Ctrl](read.ctrl, {x => parentOf(x)})
-          val i = parents.indexWhere{ctrl => ctrl.isDefined && isStreamPipe(ctrl.get) }
-          if (i > 0 && i < parents.length-1) {
-            dispatchOf(read, mem).foreach{ d =>
-              topControllerOf(read.node, mem, d) = parents(i + 1).get
-            }
-          }
-        }
+        /*writers.collect{case wr@(Def(_:BufferedOutWrite[_]),_) => wr }.foreach{wr =>
+
+        }*/
       }
       dbg("\n")
     }
@@ -60,18 +89,12 @@ trait BufferAnalyzer extends CompilerPass {
     dbg(s"--------")
     localMems.foreach{mem =>
       dbg("\n")
-      ctxsOf(mem).headOption match {
-        case Some(ctx) =>
-          dbg(ctx.fileName + ":" + ctx.line + u": Memory $mem")
-          if (ctx.lineContent.isDefined) {
-            dbg(ctx.lineContent.get)
-            dbg(" "*(ctx.column-1) + "^")
-          }
-
-        case None =>
-          dbg(u"Memory: $mem")
+      val ctx = mem.ctx
+      dbg(ctx.fileName + ":" + ctx.line + u": Memory $mem")
+      if (ctx.lineContent.isDefined) {
+        dbg(ctx.lineContent.get)
+        dbg(" "*(ctx.column-1) + "^")
       }
-
       dbg(c"  ${str(mem)}")
 
       val readers = readersOf(mem)

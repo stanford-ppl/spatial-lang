@@ -1,22 +1,25 @@
 package spatial.models
 
-import argon.Config
-import spatial.SpatialExp
+import argon.core._
+import argon.nodes._
+import forge._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait LatencyModel {
-  val IR: SpatialExp
-  import IR._
-
   var clockRate = 150.0f        // Frequency in MHz
   var baseCycles = 43000        // Number of cycles required for startup
   var addRetimeRegisters = true // Enable adding registers after specified comb. logic
   var modelVerbosity = 1
 
   def silence(): Unit = { modelVerbosity = -1 }
+  def init(): Unit = { }
 
-  def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
+  @stateful def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
 
-  def latencyOf(s: Exp[_], inReduce: Boolean): Long = {
+  @stateful def latencyOf(s: Exp[_], inReduce: Boolean): Long = {
     val prevVerbosity = Config.verbosity
     Config.verbosity = modelVerbosity
     val latency = s match {
@@ -30,7 +33,7 @@ trait LatencyModel {
     latency
   }
 
-  private def latencyOfNodeInReduce(s: Exp[_], d: Def): Long = d match {
+  @stateful protected def latencyOfNodeInReduce(s: Exp[_], d: Def): Long = d match {
     case FltAdd(_,_)     => 1
     case RegWrite(_,_,_) => 0
     case _ => latencyOfNode(s, d)
@@ -39,7 +42,7 @@ trait LatencyModel {
   def nbits(e: Exp[_]) = e.tp match { case Bits(bits) => bits.length }
   def sign(e: Exp[_]) = e.tp match { case FixPtType(s,_,_) => s; case _ => true }
 
-  def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
+  @stateful def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
     // Register File
     case _:RegFileLoad[_]    => true
     case _:ParRegFileLoad[_] => true
@@ -67,6 +70,7 @@ trait LatencyModel {
     case XOr(_,_)   => true
     case XNor(_,_)  => true
     case FixNeg(_)   => true
+    case FixInv(_)   => true
     case FixAdd(_,_) => true
     case FixSub(_,_) => true
     case FixMul(_,_) => true
@@ -78,6 +82,7 @@ trait LatencyModel {
     case FixEql(_,_) => true
     case FixAnd(_,_) => true
     case FixOr(_,_)  => true
+    case FixXor(_,_) => true
     case FixLsh(_,_) => true
     case FixRsh(_,_) => true
     case FixURsh(_,_) => true
@@ -99,7 +104,7 @@ trait LatencyModel {
     case _ => false
   }
 
-  protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
+  @stateful protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
     case d if isAllocation(d) => 0
     case FieldApply(_,_)    => 0
     case VectorApply(_,_)   => 0
@@ -108,9 +113,16 @@ trait LatencyModel {
     case DataAsBits(_)      => 0
     case BitsAsData(_,_)    => 0
 
+    case _:VarRegNew[_]   => 0
+    case _:VarRegRead[_]  => 0
+    case _:VarRegWrite[_] => 0
+
+    case _:LUTLoad[_] => 0
+
     // Registers
     case _:RegRead[_]  => 0
     case _:RegWrite[_] => 1
+    case _:RegReset[_] => 1
 
     // Register File
     case _:RegFileLoad[_]       => 1
@@ -132,6 +144,11 @@ trait LatencyModel {
     case _:ParFIFOEnq[_] => 1
     case _:FIFODeq[_]    => 1
     case _:ParFIFODeq[_] => 1
+    case _:FIFONumel[_]  => 0
+    case _:FIFOAlmostEmpty[_] => 0
+    case _:FIFOAlmostFull[_]  => 0
+    case _:FIFOEmpty[_]       => 0
+    case _:FIFOFull[_]        => 0
 
     // SRAMs
     // TODO: Should be a function of number of banks?
@@ -147,10 +164,7 @@ trait LatencyModel {
     case _:ParLineBufferLoad[_] => 1
 
     // Shift Register
-    case ValueDelay(size, data) => 0 // wrong but it works???
-    case _:ShiftRegNew[_] => 0
-    case ShiftRegRead(reg@Op(ShiftRegNew(size,_))) => size
-    case _:ShiftRegWrite[_] => 0
+    case DelayLine(size, data) => 0 // TODO: Should use different model once these are added?
 
     // DRAM
     case GetDRAMAddress(_) => 0
@@ -165,6 +179,7 @@ trait LatencyModel {
     // Fixed point math
     // TODO: Have to get numbers for non-32 bit multiplies and divides
     case FixNeg(_)   => 1
+    case FixInv(_)   => 1
     case FixAdd(_,_) => 1
     case FixSub(_,_) => 1
     case FixMul(_,_) => 1 // TODO
@@ -176,6 +191,7 @@ trait LatencyModel {
     case FixEql(_,_) => 1
     case FixAnd(_,_) => 1
     case FixOr(_,_)  => 1
+    case FixXor(_,_) => 1
     case FixLsh(_,_) => 1 // TODO
     case FixRsh(_,_) => 1 // TODO
     case FixURsh(_,_) => 1 // TODO
@@ -193,54 +209,22 @@ trait LatencyModel {
 
     // Floating point math
     // TODO: Floating point for things besides single precision
-    case FltNeg(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      1
-
-    case FltAdd(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      14
-
-    case FltSub(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      14
-
-    case FltMul(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      11
-
-    case FltDiv(_,_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      33
-
-    case FltLt(a,_)  =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
-
-    case FltLeq(a,_) =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
-
-    case FltNeq(a,_) =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
-
-    case FltEql(a,_) =>
-      //if (nbits(a) != 32) warn(s"Don't know latency for $d - using default")
-      3
-
     case FltAbs(_) => 1
-    case FltLog(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      35
+    case FltNeg(_) => 1
+    case FltAdd(_,_) if s.tp == FloatType => 14
+    case FltSub(_,_) if s.tp == FloatType => 14
+    case FltMul(_,_) if s.tp == FloatType => 11
+    case FltDiv(_,_) if s.tp == FloatType => 33
 
-    case FltExp(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      27
+    case FltLt(a,_)  if a.tp == FloatType => 3
+    case FltLeq(a,_) if a.tp == FloatType => 3
 
-    case FltSqrt(_) =>
-      //if (nbits(s) != 32) warn(s"Don't know latency for $d - using default")
-      28
+    case FltNeq(a,_) if a.tp == FloatType => 3
+    case FltEql(a,_) if a.tp == FloatType => 3
+
+    case FltLog(_) if s.tp == FloatType => 35
+    case FltExp(_) if s.tp == FloatType => 27
+    case FltSqrt(_) if s.tp == FloatType => 28
 
     case Mux(_,_,_) => 1
     case Min(_,_)   => 1
@@ -249,37 +233,8 @@ trait LatencyModel {
     case FixConvert(_) => 1
     case FltConvert(_) => 6 // TODO
 
-    case FltPtToFixPt(x) =>
-      //if (nbits(s) != 32 && nbits(x) != 32) warn(s"Don't know latency for $d - using default")
-      6
-
-    case FixPtToFltPt(x) =>
-      //if (nbits(s) != 32 && nbits(x) != 32) warn(s"Don't know latency for $d - using default")
-      6
-
-    // TODO
-    /*case BurstStore(mem,stream,ofs,len,par) =>
-      val c = contentionOf(s)
-      val p = bound(par).get
-      val size = bound(len).getOrElse{warn("Cannot resolve bound of offchip store")(mpos(s.pos)); 96.0}
-
-      val baseCycles = size / p.toDouble
-
-      val oFactor = 0.02*c - 0.019
-      val smallOverhead = if (c < 8) 0.0 else 0.0175
-      val overhead = if (p < 8) 1.0 + smallOverhead*p else oFactor*p + (1 - (8*oFactor)) + smallOverhead*8
-
-      //System.out.println(s"Sizes: $sizes, base cycles: $baseCycles, ofactor: $oFactor, smallOverhead: $smallOverhead, overhead: $overhead")
-      Math.ceil(baseCycles*overhead).toLong
-
-    case BurstLoad(mem,stream,ofs,len,par) =>
-      val c = contentionOf(s)
-      val ts = bound(len).getOrElse{stageWarn("Cannot resolve bound of offchip load")(mpos(s.pos)); 96.0}
-      val b = ts  // TODO - max of this and max command size
-      val r = 1.0 // TODO - number of commands needed (probably 1)
-      val p = bound(par).get
-      //System.out.println(s"Tile transfer $s: c = $c, r = $r, b = $b, p = $p")
-      memoryModel(c,r.toInt,b.toInt,p.toInt)*/
+    case FltPtToFixPt(x) if x.tp == FloatType => 6
+    case FixPtToFltPt(x) if s.tp == FloatType => 6
 
     case _:Hwblock             => 1
     case _:ParallelPipe        => 1
@@ -289,15 +244,19 @@ trait LatencyModel {
     case _:OpMemReduce[_,_]    => 1
     case _:UnrolledForeach     => 1
     case _:UnrolledReduce[_,_] => 1
+    case _:Switch[_]           => 0
+    case _:SwitchCase[_]       => 0
 
-    // Host/Debugging/Unsynthesizable nodes
+      // Host/Debugging/Unsynthesizable nodes
+    case _: ExitIf  => 0                  
+    case _: BreakpointIf  => 0            
     case _:PrintIf   => 0
     case _:PrintlnIf => 0
     case _:AssertIf  => 0
     case _:ToString[_] => 0
-    case _:TextConcat => 0
-    case FixRandom(_) => 0
-    case FltRandom(_) => 0
+    case _:StringConcat => 0
+    case FixRandom(_) => 0  // TODO: This is synthesizable now?
+    case FltRandom(_) => 0  // TODO: This is synthesizable now?
 
     case _ =>
       warn(s"Don't know latency of $d - using default of 0")

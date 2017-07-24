@@ -109,11 +109,11 @@ dcfifo	dcfifo_component (
 defparam
 	dcfifo_component.intended_device_family	= "Cyclone II",
 	dcfifo_component.lpm_hint				= "MAXIMIZE_SPEED=5,",
-	dcfifo_component.lpm_numwords			= 128,
+	dcfifo_component.lpm_numwords			= 1024,
 	dcfifo_component.lpm_showahead			= "ON",
 	dcfifo_component.lpm_type				= "dcfifo",
 	dcfifo_component.lpm_width				= DW,
-	dcfifo_component.lpm_widthu				= 7,
+	dcfifo_component.lpm_widthu				= 10,
 	dcfifo_component.overflow_checking		= "ON",
 	dcfifo_component.rdsync_delaypipe		= 4,
 	dcfifo_component.underflow_checking		= "ON",

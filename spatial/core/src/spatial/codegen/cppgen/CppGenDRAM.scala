@@ -1,20 +1,20 @@
 package spatial.codegen.cppgen
 
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
 import spatial.SpatialConfig
-import spatial.SpatialExp
-import scala.collection.mutable.HashMap
 
 
 trait CppGenDRAM extends CppGenSRAM {
-  val IR: SpatialExp
-  import IR._
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
           lhs match {
-            case Def(e: DRAMNew[_,_])=> s"""x${lhs.id}_${nameOf(lhs).getOrElse("dram")}"""
+            case Def(e: DRAMNew[_,_])=> s"""x${lhs.id}_${lhs.name.getOrElse("dram")}"""
             case _ =>
               super.quote(s)
           }
@@ -32,7 +32,7 @@ trait CppGenDRAM extends CppGenSRAM {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@DRAMNew(dims) => 
+    case op@DRAMNew(dims,zero) =>
       val rawtype = 
       emit(src"""uint64_t ${lhs} = c1->malloc(sizeof(${remapIntType(lhs.tp.typeArguments.head)}) * ${dims.map(quote).mkString("*")});""")
       emit(src"c1->setArg(${argMapping(lhs)._2}, $lhs, false); // (memstream in: ${argMapping(lhs)._2}, out: ${{argMapping(lhs)._3}})")

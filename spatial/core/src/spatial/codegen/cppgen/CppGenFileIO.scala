@@ -1,15 +1,12 @@
 package spatial.codegen.cppgen
 
 import argon.codegen.cppgen.CppCodegen
-import spatial.api.FileIOExp
-import spatial.{SpatialConfig, SpatialExp}
+import argon.core._
+import spatial.aliases._
+import spatial.nodes._
 
 
 trait CppGenFileIO extends CppCodegen  {
-	val IR: SpatialExp
-  import IR._
-
-
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case OpenFile(filename, isWr) => 
@@ -49,7 +46,7 @@ trait CppGenFileIO extends CppCodegen  {
     		open(src"if (${file}_file.is_open()) {")
           visitBlock(token)
     			emit(src"${file}_file << ${token.result};")
-	    		val chardelim = src"$delim".replace("\"","'")
+	    		val chardelim = src"$delim".replace("\"","'").replace("string(","").dropRight(1)
     			emit(src"""${file}_file << ${chardelim};""")
     		close("}")
     	close("}")

@@ -1,13 +1,10 @@
 package spatial.codegen.pirgen
 
-import spatial.SpatialExp
+import argon.core._
 
 import scala.collection.mutable
 
 trait PIRHacks extends PIRTraversal {
-  val IR: SpatialExp with PIRCommonExp
-  import IR._
-
   override val name = "PIR Hacks"
   override val recurse = Always
 

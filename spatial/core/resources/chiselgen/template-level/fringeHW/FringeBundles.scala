@@ -71,6 +71,7 @@ class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo]) ex
 
 class DRAMCommand(w: Int, v: Int) extends Bundle {
   val addr = UInt(64.W)
+  val size = UInt(32.W)
   val rawAddr = UInt(64.W)
   val isWr = Bool() // 1
   val isSparse = Bool()
@@ -128,6 +129,56 @@ object StreamOut {
 
 object StreamIn {
   def apply(p: StreamParInfo) = Flipped(Decoupled(new StreamIO(p)))
+}
+
+class DebugSignals extends Bundle {
+  val num_enable = Output(UInt(32.W))
+  val num_cmd_valid = Output(UInt(32.W))
+  val num_cmd_valid_enable = Output(UInt(32.W))
+  val num_cmd_ready = Output(UInt(32.W))
+  val num_cmd_ready_enable = Output(UInt(32.W))
+  val num_resp_valid = Output(UInt(32.W))
+  val num_resp_valid_enable = Output(UInt(32.W))
+  val num_rdata_enq = Output(UInt(32.W))
+  val num_rdata_deq = Output(UInt(32.W))
+  val num_app_rdata_ready = Output(UInt(32.W))
+
+  // rdata enq
+  val rdata_enq0_0 = Output(UInt(32.W))
+  val rdata_enq0_1 = Output(UInt(32.W))
+  val rdata_enq0_15 = Output(UInt(32.W))
+
+  val rdata_enq1_0 = Output(UInt(32.W))
+  val rdata_enq1_1 = Output(UInt(32.W))
+  val rdata_enq1_15 = Output(UInt(32.W))
+
+  // rdata deq
+  val rdata_deq0_0 = Output(UInt(32.W))
+  val rdata_deq0_1 = Output(UInt(32.W))
+  val rdata_deq0_15 = Output(UInt(32.W))
+
+  val rdata_deq1_0 = Output(UInt(32.W))
+  val rdata_deq1_1 = Output(UInt(32.W))
+  val rdata_deq1_15 = Output(UInt(32.W))
+
+  // wdata enq
+  val wdata_enq0_0 = Output(UInt(32.W))
+  val wdata_enq0_1 = Output(UInt(32.W))
+  val wdata_enq0_15 = Output(UInt(32.W))
+
+  val wdata_enq1_0 = Output(UInt(32.W))
+  val wdata_enq1_1 = Output(UInt(32.W))
+  val wdata_enq1_15 = Output(UInt(32.W))
+
+  // wdata deq
+  val wdata_deq0_0 = Output(UInt(32.W))
+  val wdata_deq0_1 = Output(UInt(32.W))
+  val wdata_deq0_15 = Output(UInt(32.W))
+
+  val wdata_deq1_0 = Output(UInt(32.W))
+  val wdata_deq1_1 = Output(UInt(32.W))
+  val wdata_deq1_15 = Output(UInt(32.W))
+
 }
 
 //class StreamOutAccel(p: StreamParInfo) extends Bundle {

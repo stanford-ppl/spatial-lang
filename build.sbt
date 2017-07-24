@@ -17,6 +17,10 @@ val commonSettings = assemblySettings ++ Seq(
   libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
   incOptions := incOptions.value.withRecompileOnMacroDef(false),
 
+  scalacOptions ++= Seq("-language:implicitConversions", "-language:higherKinds"),
+  scalacOptions ++= Seq("-explaintypes", "-unchecked", "-deprecation", "-feature", "-Xfatal-warnings"),
+  //scalacOptions ++= Seq("-Ytyper-debug"),
+
   //paradise
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),

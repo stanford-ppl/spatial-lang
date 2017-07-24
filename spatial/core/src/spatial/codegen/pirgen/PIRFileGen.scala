@@ -1,13 +1,13 @@
 package spatial.codegen.pirgen
 
-import argon.Config
 import argon.codegen.FileGen
+import argon.core.Config
+import argon.core._
 
 import scala.language.postfixOps
 import scala.sys.process._
 
 trait PIRFileGen extends FileGen {
-  import IR._
 
   override protected def emitMain[S:Type](b: Block[S]): Unit = emitBlock(b)
 

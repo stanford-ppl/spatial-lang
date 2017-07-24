@@ -16,8 +16,8 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
       val forever = Input(Bool())
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
       // FSM signals
-      val nextState = Input(UInt(32.W))
-      val initState = Input(UInt(32.W))
+      val nextState = Input(SInt(32.W))
+      val initState = Input(SInt(32.W))
       val doneCondition = Input(Bool())
     }
     val output = new Bundle {
@@ -26,7 +26,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
       val rst_en = Output(Bool())
       val ctr_inc = Output(Bool())
       // FSM signals
-      val state = Output(UInt(32.W))
+      val state = Output(SInt(32.W))
     }
   })
 
@@ -42,7 +42,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
     stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
     stateFF.io.input(0).init := 0.U
     stateFF.io.input(0).reset := io.input.rst
-    val state = stateFF.io.output.data
+    val state = stateFF.io.output.data.asSInt
 
     // Counter for num iterations
     val maxFF = Module(new FF(32))
@@ -55,22 +55,22 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
     val ctr = Module(new SingleCounter(1))
     ctr.io.input.enable := io.input.enable & io.input.stageDone(lastState-2) // TODO: Is this wrong? It still works...  
     ctr.io.input.saturate := false.B
-    ctr.io.input.max := max
-    ctr.io.input.stride := 1.U
-    ctr.io.input.start := 0.U
-    ctr.io.input.gap := 0.U
-    ctr.io.input.reset := io.input.rst | (state === doneState.U)
+    ctr.io.input.stop := max.asSInt
+    ctr.io.input.stride := 1.S
+    ctr.io.input.start := 0.S
+    ctr.io.input.gap := 0.S
+    ctr.io.input.reset := io.input.rst | (state === doneState.S)
     val iter = ctr.io.output.count(0)
-    io.output.rst_en := (state === resetState.U)
+    io.output.rst_en := (state === resetState.S)
 
     when(io.input.enable) {
-      when(state === initState.U) {
+      when(state === initState.S) {
         stateFF.io.input(0).data := resetState.U
         io.output.stageEnable.foreach { s => s := false.B}
-      }.elsewhen (state === resetState.U) {
+      }.elsewhen (state === resetState.S) {
         stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, firstState.U, doneState.U), firstState.U)
         io.output.stageEnable.foreach { s => s := false.B}
-      }.elsewhen (state < lastState.U) {
+      }.elsewhen (state < lastState.S) {
 
         // // Safe but expensive way
         // val doneStageId = (0 until n).map { i => // Find which stage got done signal
@@ -91,14 +91,14 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
         // }
         // Correct way
         val stageDones = (0 until n).map{i => (i.U -> {io.input.stageDone(i) | ~io.input.stageMask(i)} )}
-        val myStageIsDone = chisel3.util.MuxLookup( (state - firstState.U), false.B, stageDones) 
+        val myStageIsDone = chisel3.util.MuxLookup( (state - firstState.S).asUInt, false.B, stageDones) 
         when(myStageIsDone) {
-          stateFF.io.input(0).data := state + 1.U
+          stateFF.io.input(0).data := (state + 1.S).asUInt
         }.otherwise {
-          stateFF.io.input(0).data := state
+          stateFF.io.input(0).data := state.asUInt
         }
 
-      }.elsewhen (state === lastState.U) {
+      }.elsewhen (state === lastState.S) {
         when(io.input.stageDone(lastState-2)) {
           when(ctr.io.output.done) {
             stateFF.io.input(0).data := Mux(io.input.forever, firstState.U, doneState.U)
@@ -106,13 +106,13 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
             stateFF.io.input(0).data := firstState.U
           }
         }.otherwise {
-          stateFF.io.input(0).data := state
+          stateFF.io.input(0).data := state.asUInt
         }
 
-      }.elsewhen (state === doneState.U) {
+      }.elsewhen (state === doneState.S) {
         stateFF.io.input(0).data := initState.U
       }.otherwise {
-        stateFF.io.input(0).data := state
+        stateFF.io.input(0).data := state.asUInt
       }
     }.otherwise {
       stateFF.io.input(0).data := initState.U
@@ -120,9 +120,9 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
   //  stateFF.io.input(0).data := nextStateMux.io.out
 
     // Output logic
-    io.output.done := state === doneState.U
+    io.output.done := state === doneState.S
     io.output.ctr_inc := io.input.stageDone(n-1) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
-    io.output.stageEnable.zipWithIndex.foreach { case (en, i) => en := (state === (i+2).U) }
+    io.output.stageEnable.zipWithIndex.foreach { case (en, i) => en := (state === (i+2).S) }
     io.output.state := state
   } else { // FSM logic
     // 0: INIT, 1: RESET, 2..2+n-1: stages, n: DONE
@@ -130,23 +130,25 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
     val resetState = 1
     val firstState = resetState + 1
     val doneState = firstState + n
+    val retimeWaitState = doneState + 1
     val lastState = doneState - 1
 
     val stateFF = Module(new FF(32))
     stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
     stateFF.io.input(0).init := 0.U
     stateFF.io.input(0).reset := io.input.rst
-    val state = stateFF.io.output.data
+    val state = stateFF.io.output.data.asSInt
 
     // FSM stuff 
     val stateFSM = Module(new FF(32))
     val doneReg = Module(new SRFF())
 
-    stateFSM.io.input(0).data := io.input.nextState
-    stateFSM.io.input(0).init := io.input.initState
-    stateFSM.io.input(0).reset := reset
-    stateFSM.io.input(0).enable := io.input.enable & state === doneState.U
-    io.output.state := stateFSM.io.output.data
+    stateFSM.io.input(0).data := io.input.nextState.asUInt
+    stateFSM.io.input(0).init := io.input.initState.asUInt
+    stateFSM.io.input(0).reset := reset | io.input.rst
+    // Delay below is potentially dangerous if we have a delay so long that this runs into the next FSM body
+    stateFSM.io.input(0).enable := chisel3.util.ShiftRegister(io.input.enable & state === doneState.S, retime)
+    io.output.state := stateFSM.io.output.data.asSInt
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable
     doneReg.io.input.reset := ~io.input.enable
@@ -159,25 +161,27 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
     maxFF.io.input(0).data := io.input.numIter
     maxFF.io.input(0).init := 0.U
     maxFF.io.input(0).reset := io.input.rst
-    val max = maxFF.io.output.data
+    val max = maxFF.io.output.data.asSInt
 
     val ctr = Module(new SingleCounter(1))
     ctr.io.input.enable := io.input.enable & io.input.stageDone(lastState-2) // TODO: Is this wrong? It still works...  
-    ctr.io.input.reset := (state === doneState.U)
+    ctr.io.input.reset := (state === doneState.S)
     ctr.io.input.saturate := false.B
-    ctr.io.input.max := max
-    ctr.io.input.stride := 1.U
+    ctr.io.input.start := 0.S
+    ctr.io.input.gap := 0.S
+    ctr.io.input.stop := max.asSInt
+    ctr.io.input.stride := 1.S
     val iter = ctr.io.output.count(0)
-    io.output.rst_en := (state === resetState.U)
+    io.output.rst_en := (state === resetState.S)
 
     when(io.input.enable) {
-      when(state === initState.U) {
+      when(state === initState.S) {
         stateFF.io.input(0).data := resetState.U
         io.output.stageEnable.foreach { s => s := false.B}
-      }.elsewhen (state === resetState.U) {
+      }.elsewhen (state === resetState.S) {
         stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, firstState.U, doneState.U), firstState.U)
         io.output.stageEnable.foreach { s => s := false.B}
-      }.elsewhen (state < lastState.U) {
+      }.elsewhen (state < lastState.S) {
 
         // // Safe but expensive way
         // val doneStageId = (0 until n).map { i => // Find which stage got done signal
@@ -192,12 +196,12 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
         // Less safe but cheap way
         val aStageIsDone = io.input.stageDone.reduce { _ | _ } // TODO: Is it safe to assume children behave properly?
         when(aStageIsDone) {
-          stateFF.io.input(0).data := state + 1.U
+          stateFF.io.input(0).data := (state + 1.S).asUInt
         }.otherwise {
-          stateFF.io.input(0).data := state
+          stateFF.io.input(0).data := state.asUInt
         }
 
-      }.elsewhen (state === lastState.U) {
+      }.elsewhen (state === lastState.S) {
         when(io.input.stageDone(lastState-2)) {
           when(ctr.io.output.done) {
             stateFF.io.input(0).data := Mux(io.input.forever, firstState.U, doneState.U)
@@ -205,13 +209,16 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
             stateFF.io.input(0).data := firstState.U
           }
         }.otherwise {
-          stateFF.io.input(0).data := state
+          stateFF.io.input(0).data := state.asUInt
         }
 
-      }.elsewhen (state === doneState.U) {
-        stateFF.io.input(0).data := initState.U
+      }.elsewhen (state === doneState.S) {
+        val afterDone = if (retime > 0) retimeWaitState else initState
+        stateFF.io.input(0).data := afterDone.U
+      }.elsewhen (state >= retimeWaitState.S) {
+        stateFF.io.input(0).data := Mux(state - retimeWaitState.S < retime.S, (state + 1.S).asUInt, initState.U)
       }.otherwise {
-        stateFF.io.input(0).data := state
+        stateFF.io.input(0).data := state.asUInt
       }
     }.otherwise {
       stateFF.io.input(0).data := initState.U
@@ -220,6 +227,6 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
 
     // Output logic
     io.output.ctr_inc := io.input.stageDone(n-1) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
-    io.output.stageEnable.zipWithIndex.foreach { case (en, i) => en := (state === (i+2).U) }
+    io.output.stageEnable.zipWithIndex.foreach { case (en, i) => en := (state === (i+2).S) }
   }
 }

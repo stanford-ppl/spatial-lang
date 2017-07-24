@@ -29,7 +29,7 @@ class multidimW(val N: Int, val w: Int) extends Bundle {
   override def cloneType = (new multidimW(N, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 class multidimR(val N: Int, val w: Int) extends Bundle {
-  val addr = Vec(N, UInt(w.W))
+  val addr = Vec(N, UInt(32.W))
   val en = Bool()
   
   override def cloneType = (new multidimR(N, w)).asInstanceOf[this.type] // See chisel3 bug 358
@@ -100,7 +100,7 @@ class MemND(val dims: List[Int], bitWidth: Int = 32) extends Module {
   })
 
   // Instantiate 1D mem
-  val m = Module(new Mem1D(depth))
+  val m = Module(new Mem1D(depth,true, bitWidth = bitWidth))
 
   // Address flattening
   m.io.w.addr := io.w.addr.zipWithIndex.map{ case (addr, i) =>
@@ -189,7 +189,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
   }
 
   // Create physical mems
-  val m = (0 until numMems).map{ i => Module(new MemND(physicalDims))}
+  val m = (0 until numMems).map{ i => Module(new MemND(physicalDims, bitWidth))}
 
   // Reconstruct io.w as 2d vector
 
@@ -313,22 +313,22 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
 class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, /*TODO: width, get rid of this!*/
            val banks: List[Int], val strides: List[Int], 
            val wPar: List[Int], val rPar: List[Int], 
-           val wBundling: List[Int], val rBundling: List[Int], val bPar: Int, val bankingMode: BankingMode) extends Module { 
+           val wBundling: List[Int], val rBundling: List[Int], val bPar: List[Int], val bankingMode: BankingMode) extends Module { 
 
   // Overloaded construters
   // Tuple unpacker
   def this(tuple: (List[Int], Int, Int, List[Int], List[Int], 
-           List[Int], List[Int], List[Int], List[Int], Int, BankingMode)) = this(tuple._1,tuple._2,tuple._3,tuple._4,tuple._5,tuple._6,tuple._7,tuple._8,tuple._9,tuple._10,tuple._11)
+           List[Int], List[Int], List[Int], List[Int], List[Int], BankingMode)) = this(tuple._1,tuple._2,tuple._3,tuple._4,tuple._5,tuple._6,tuple._7,tuple._8,tuple._9,tuple._10,tuple._11)
   // Bankmode-less
   def this(logicalDims: List[Int], numBufs: Int, bitWidth: Int, 
            banks: List[Int], strides: List[Int], 
            wPar: List[Int], rPar: List[Int], 
-           wBundling: List[Int], rBundling: List[Int], bPar: Int) = this(logicalDims, numBufs, bitWidth, banks, strides, wPar, rPar, wBundling, rBundling, bPar, BankedMemory)
+           wBundling: List[Int], rBundling: List[Int], bPar: List[Int]) = this(logicalDims, numBufs, bitWidth, banks, strides, wPar, rPar, wBundling, rBundling, bPar, BankedMemory)
   // If 1D, spatial will make banks and strides scalars instead of lists
   def this(logicalDims: List[Int], numBufs: Int, bitWidth: Int, 
            banks: Int, strides: Int, 
            wPar: List[Int], rPar: List[Int], 
-           wBundling: List[Int], rBundling: List[Int], bPar: Int) = this(logicalDims, numBufs, bitWidth, List(banks), List(strides), wPar, rPar, wBundling, rBundling, bPar, BankedMemory)
+           wBundling: List[Int], rBundling: List[Int], bPar: List[Int]) = this(logicalDims, numBufs, bitWidth, List(banks), List(strides), wPar, rPar, wBundling, rBundling, bPar, BankedMemory)
 
   val depth = logicalDims.reduce{_*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
@@ -340,7 +340,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
     val sEn = Vec(numBufs, Input(Bool()))
     val sDone = Vec(numBufs, Input(Bool()))
     val w = Vec(wPar.reduce{_+_}, Input(new multidimW(N, bitWidth)))
-    val broadcast = Vec(bPar, Input(new multidimW(N, bitWidth)))
+    val broadcast = Vec(bPar.reduce{_+_}, Input(new multidimW(N, bitWidth)))
     val r = Vec(rPar.reduce{_+_},Input(new multidimR(N, bitWidth))) // TODO: Spatial allows only one reader per mem
     val output = new Bundle {
       val data  = Vec(numBufs * maxR, Output(UInt(bitWidth.W)))  
@@ -371,7 +371,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   val srams = (0 until numBufs).map{ i => Module(
     new SRAM(logicalDims,
             bitWidth, banks, strides, 
-            List(wPar, List(bPar)).flatten, List(maxR), bankingMode)
+            List(wPar, bPar).flatten, List(maxR), bankingMode)
   )}
 
   val sEn_latch = (0 until numBufs).map{i => Module(new SRFF())}
@@ -394,7 +394,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   val statesInW = wHashmap.map { t =>
     val c = Module(new NBufCtr())
     c.io.input.start := (t._1).U
-    c.io.input.max := numBufs.U
+    c.io.input.stop := numBufs.U
     c.io.input.enable := swap
     c.io.input.countUp := false.B
     (t._1 -> c)
@@ -402,7 +402,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   val statesInR = (0 until numBufs).map{  i => 
     val c = Module(new NBufCtr())
     c.io.input.start := i.U 
-    c.io.input.max := numBufs.U
+    c.io.input.stop := numBufs.U
     c.io.input.enable := swap
     c.io.input.countUp := true.B
     c
@@ -411,7 +411,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   val statesOut = (0 until numBufs).map{  i => 
     val c = Module(new NBufCtr())
     c.io.input.start := i.U 
-    c.io.input.max := numBufs.U
+    c.io.input.stop := numBufs.U
     c.io.input.enable := swap
     c.io.input.countUp := false.B
     c
@@ -437,7 +437,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
     //   masked_w.addr := io.w(k).addr
     //   f.io.w(k) := masked_w
     // }
-    (0 until bPar).foreach {k =>
+    (0 until bPar.reduce{_+_}).foreach {k =>
       f.io.w(wPar.reduce{_+_} + k) := io.broadcast(k)
     }
 
@@ -468,6 +468,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   }
 
   var wInUse = wHashmap.map{(_._1 -> 0)} // Tracket connect write lanes per port
+  var bId = 0
   def connectWPort(wBundle: Vec[multidimW], ports: List[Int]) {
     if (ports.length == 1) {
       // Figure out which wPar section this wBundle fits in by finding first false index with same wPar
@@ -481,9 +482,10 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
       // Set this section in use
       wInUse += (port -> {wId + wBundle.length})
     } else { // broadcast
-      (0 until bPar).foreach{ i => 
-        io.broadcast(i) := wBundle(i) 
+      (0 until wBundle.length).foreach{ i => 
+        io.broadcast(bId + i) := wBundle(i) 
       }
+      bId = bId + wBundle.length
     }
   }
 
@@ -534,9 +536,235 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   }
 
   def connectDummyBroadcast() {
-    (0 until rPar.max).foreach { i =>
+    (0 until bPar.reduce{_+_}).foreach { i =>
       io.broadcast(i).en := false.B
     }
+  }
+
+
+
+}
+
+
+
+class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, /*TODO: width, get rid of this!*/
+           val banks: List[Int], val strides: List[Int], 
+           val wPar: List[Int], val rPar: List[Int], 
+           val wBundling: List[Int], val rBundling: List[Int], val bPar: List[Int], val bankingMode: BankingMode) extends Module { 
+
+  // Overloaded constructers
+  // Tuple unpacker
+  assert(bPar.reduce{_+_} == 0)
+  def this(tuple: (List[Int], Int, Int, List[Int], List[Int], 
+           List[Int], List[Int], List[Int], List[Int], List[Int], BankingMode)) = this(tuple._1,tuple._2,tuple._3,tuple._4,tuple._5,tuple._6,tuple._7,tuple._8,tuple._9,tuple._10,tuple._11)
+  // Bankmode-less
+  def this(logicalDims: List[Int], numBufs: Int, bitWidth: Int, 
+           banks: List[Int], strides: List[Int], 
+           wPar: List[Int], rPar: List[Int], 
+           wBundling: List[Int], rBundling: List[Int], bPar: List[Int]) = this(logicalDims, numBufs, bitWidth, banks, strides, wPar, rPar, wBundling, rBundling, bPar, BankedMemory)
+  // If 1D, spatial will make banks and strides scalars instead of lists
+  def this(logicalDims: List[Int], numBufs: Int, bitWidth: Int, 
+           banks: Int, strides: Int, 
+           wPar: List[Int], rPar: List[Int], 
+           wBundling: List[Int], rBundling: List[Int], bPar: List[Int]) = this(logicalDims, numBufs, bitWidth, List(banks), List(strides), wPar, rPar, wBundling, rBundling, bPar, BankedMemory)
+
+  val depth = logicalDims.reduce{_*_} // Size of memory
+  val N = logicalDims.length // Number of dimensions
+
+  val wHashmap = wPar.zip(wBundling).groupBy{_._2}
+  val rHashmap = rPar.zip(rBundling).groupBy{_._2}
+  val maxR = rHashmap.map{_._2.map{_._1}.reduce{_+_}}.max
+  val io = IO( new Bundle {
+    val sEn = Vec(numBufs, Input(Bool()))
+    val sDone = Vec(numBufs, Input(Bool()))
+    val w = Vec(wPar.reduce{_+_}, Input(new multidimW(N, bitWidth)))
+    val r = Vec(rPar.reduce{_+_},Input(new multidimR(N, bitWidth))) // TODO: Spatial allows only one reader per mem
+    val output = new Bundle {
+      val data  = Vec(numBufs * maxR, Output(UInt(bitWidth.W)))  
+    }
+    val debug = new Bundle {
+      val invalidRAddr = Output(Bool())
+      val invalidWAddr = Output(Bool())
+      val rwOn = Output(Bool())
+      val readCollision = Output(Bool())
+      val writeCollision = Output(Bool())
+      val error = Output(Bool())
+    }
+  })
+
+  // // Chisel3 broke this on 3/24/2017...
+  // val reconstructedOut = (0 until numBufs).map{ h =>
+  //   Vec((0 until rPar).map {
+  //     j => io.output.data(h*rPar + j)
+  //   })
+  // }
+
+  // Get info on physical dims
+  // TODO: Upcast dims to evenly bank
+  val physicalDims = logicalDims.zip(banks).map { case (dim, b) => dim/b}
+  val numMems = banks.reduce{_*_}
+
+  // Create physical mems
+  val srams = (0 until numBufs).map{ i => Module(
+    new SRAM(logicalDims,
+            bitWidth, banks, strides, 
+            List(wPar, bPar).flatten, List(maxR), bankingMode)
+  )}
+
+  val sEn_latch = (0 until numBufs).map{i => Module(new SRFF())}
+  val sDone_latch = (0 until numBufs).map{i => Module(new SRFF())}
+
+  val swap = Wire(Bool())
+
+  // Latch whether each buffer's stage is enabled and when they are done
+  (0 until numBufs).foreach{ i => 
+    sEn_latch(i).io.input.set := io.sEn(i)
+    sEn_latch(i).io.input.reset := swap
+    sEn_latch(i).io.input.asyn_reset := reset
+    sDone_latch(i).io.input.set := io.sDone(i)
+    sDone_latch(i).io.input.reset := swap
+    sDone_latch(i).io.input.asyn_reset := reset
+  }
+  val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
+  swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
+
+  val statesInW = wHashmap.map { t =>
+    val c = Module(new NBufCtr())
+    c.io.input.start := (t._1).U
+    c.io.input.stop := numBufs.U
+    c.io.input.enable := swap
+    c.io.input.countUp := false.B
+    (t._1 -> c)
+  }
+  val statesInR = (0 until numBufs).map{  i => 
+    val c = Module(new NBufCtr())
+    c.io.input.start := i.U 
+    c.io.input.stop := numBufs.U
+    c.io.input.enable := swap
+    c.io.input.countUp := true.B
+    c
+  }
+
+  val statesOut = (0 until numBufs).map{  i => 
+    val c = Module(new NBufCtr())
+    c.io.input.start := i.U 
+    c.io.input.stop := numBufs.U
+    c.io.input.enable := swap
+    c.io.input.countUp := false.B
+    c
+  }
+
+  srams.zipWithIndex.foreach{ case (f,i) => 
+    wHashmap.foreach { t =>
+      val pars = t._2.map{_._1}.reduce{_+_}
+      val base = if (t._1 == 0) 0 else (0 until t._1).map{ii => wHashmap.getOrElse(ii, List((0,0))).map{_._1}.reduce{_+_}}.reduce{_+_}
+      val wMask = statesInW(t._1).io.output.count === i.U
+      (0 until pars).foreach{ k =>
+        val masked_w = Wire(new multidimW(N, bitWidth))
+        masked_w.en := io.w(base+k).en & wMask
+        masked_w.data := io.w(base+k).data
+        masked_w.addr := io.w(base+k).addr
+        f.io.w(base+k) := masked_w
+      }
+    }
+    // (0 until wPar.reduce{_+_}).foreach { k =>
+    //   val masked_w = Wire(new multidimW(N, bitWidth))
+    //   masked_w.en := io.w(k).en & wMask
+    //   masked_w.data := io.w(k).data
+    //   masked_w.addr := io.w(k).addr
+    //   f.io.w(k) := masked_w
+    // }
+
+    var idx = 0 
+    var idx_meaningful = 0 
+    val rSel = (0 until numBufs).map{ statesInR(i).io.output.count === _.U}
+    (0 until maxR).foreach {lane => // Technically only need per read and not per buf but oh well
+      // Assemble buffet of read ports
+      val buffet = (0 until numBufs).map {p => 
+        val size = rHashmap.getOrElse(p, List((0,0))).map{_._1}.reduce{_+_}
+        val base = if (p > 0) {(0 until p).map{ q =>
+          rHashmap.getOrElse(q,List((0,0))).map{_._1}.reduce{_+_}
+          }.reduce{_+_}
+          } else {0}
+        val dummy_r = Wire(new multidimR(N,bitWidth))
+        dummy_r.en := false.B
+        if (lane < size) {io.r(base + lane)} else dummy_r
+      }
+      f.io.r(lane) := chisel3.util.Mux1H(rSel, buffet)
+    }
+  }
+
+  (0 until numBufs).foreach {i =>
+    val sel = (0 until numBufs).map{ statesOut(i).io.output.count === _.U }
+    (0 until maxR).foreach{ j => 
+      io.output.data(i*maxR + j) := chisel3.util.Mux1H(sel, srams.map{f => f.io.output.data(j)})
+    }
+  }
+
+  var wInUse = wHashmap.map{(_._1 -> 0)} // Tracket connect write lanes per port
+  var bId = 0
+  def connectWPort(wBundle: Vec[multidimW], ports: List[Int]) {
+    if (ports.length == 1) {
+      // Figure out which wPar section this wBundle fits in by finding first false index with same wPar
+      val port = ports(0) 
+      val wId = wInUse(port)
+      val base = if (port == 0) wId else {(0 until port).map{i => wHashmap.getOrElse(i, List((0,0))).map{_._1}.reduce{_+_}}.reduce{_+_} + wId}
+      // Get start index of this section
+      (0 until wBundle.length).foreach{ i => 
+        io.w(base + i) := wBundle(i) 
+      }
+      // Set this section in use
+      wInUse += (port -> {wId + wBundle.length})
+    }
+  }
+
+  var rInUse = rHashmap.map{(_._1 -> 0)} // Tracking connect read lanes per port
+  def connectRPort(rBundle: Vec[multidimR], port: Int): Int = {
+    // Figure out which rPar section this wBundle fits in by finding first false index with same rPar
+    val rId = rInUse(port)
+    // Get start index of this section
+    val base = port * maxR + rId
+    val packbase = if (port > 0) {
+      (0 until port).map{p => 
+        rHashmap.getOrElse(p, List((0,0))).map{_._1}.reduce{_+_}
+      }.reduce{_+_}
+    } else {0}
+    // Connect to rPar(rId) elements from base
+    (0 until rBundle.length).foreach{ i => 
+      io.r(packbase + rId + i) := rBundle(i) 
+    }
+    rInUse += (port -> {rId + rBundle.length})
+    base
+  }
+
+
+  def connectStageCtrl(done: Bool, en: Bool, ports: List[Int]) {
+    ports.foreach{ port => 
+      io.sEn(port) := en
+      io.sDone(port) := done
+    }
+  }
+
+  def connectUnwrittenPorts(ports: List[Int]) { // TODO: Remnant from maxj?
+    // ports.foreach{ port => 
+    //   io.input(port).enable := false.B
+    // }
+  }
+ 
+  // def readTieDown(port: Int) { 
+  //   (0 until numReaders).foreach {i => 
+  //     io.rSel(port * numReaders + i) := false.B
+  //   }
+  // }
+
+  def connectUntouchedPorts(ports: List[Int]) {
+    ports.foreach{ port => 
+      io.sEn(port) := false.B
+      io.sDone(port) := false.B
+    }
+  }
+
+  def connectDummyBroadcast() {
   }
 
 

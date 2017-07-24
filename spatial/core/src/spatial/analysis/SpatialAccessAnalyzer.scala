@@ -1,12 +1,14 @@
 package spatial.analysis
 
 import argon.analysis.AccessPatternAnalyzer
-import spatial.SpatialExp
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
-  override val IR: SpatialExp
-  import IR._
-
   override val name = "Spatial Affine Analysis"
   override val recurse = Default
 
@@ -47,7 +49,7 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
     case Def(RegRead(reg)) =>
       val loop = loopFromIndex(i)
       writersOf(reg).forall{writer =>
-        val common = lca(writer.ctrl, (loop,false))
+        val common = lca(writer.ctrl, (loop,-1))
         // Either no common ancestor at all (unlikely), or the common ancestor is not the same as the controller
         // containing the read and the common ancestor is not a streaming controller
         common.isEmpty || (!isStreamPipe(common.get) && common.get.node != loop)
@@ -59,6 +61,7 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case e: DenseTransfer[_,_] => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
     case e: SparseTransfer[_]  => accessPatternOf(lhs) = List(LinearAccess(e.i))
+    case e: SparseTransferMem[_,_,_] => accessPatternOf(lhs) = List(LinearAccess(e.i))
     case _ => super.visit(lhs, rhs)
   }
 

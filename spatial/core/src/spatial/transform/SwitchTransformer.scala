@@ -1,43 +1,91 @@
 package spatial.transform
 
+import argon.core._
+import argon.nodes._
 import argon.transform.ForwardTransformer
-import spatial.SpatialExp
 import spatial.analysis.SpatialTraversal
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
-trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
-  val IR: SpatialExp
-  import IR._
+case class SwitchTransformer(var IR: State) extends ForwardTransformer with SpatialTraversal {
   override val name = "Switch Transformer"
 
   var inAccel = false
   var controlStyle: Option[ControlStyle] = None
   var controlLevel: Option[ControlLevel] = None
+  var enable: Option[Exp[Bit]] = None
 
-  def create_case[T:Type](cond: Exp[Bool], body: => Exp[T])(implicit ctx: SrcCtx) = () => {
-    val c = op_case(cond, body)
+  def withEnable[T](en: Exp[Bit])(blk: => T)(implicit ctx: SrcCtx): T = {
+    var prevEnable = enable
+    dbgs(s"Enable was $enable")
+    enable = Some(enable.map(Bit.and(_,en)).getOrElse(en) )
+    dbgs(s"Enable is now $enable")
+    val result = blk
+    enable = prevEnable
+    result
+  }
+
+
+  def create_case[T:Type](cond: Exp[Bit], body: Block[T])(implicit ctx: SrcCtx) = () => {
+    dbg(c"Creating SwitchCase from cond $cond and body $body")
+    val c = withEnable(cond){ Switches.op_case(f(body) )}
     dbg(c"  ${str(c)}")
     styleOf(c) = controlStyle.getOrElse(InnerPipe)
     levelOf(c) = controlLevel.getOrElse(InnerControl)
     c
   }
+  /**
+    * Note: A sequence of if-then-else statements will be nested in the IR as follows:
+    *
+    * if (x) { blkA }
+    * else if (y) { blkB }
+    * else if (z) { blkC }
+    * else { blkD }
+    *
+    * // Logic to compute x
+    * IfThenElse(x, blkA, blkX)
+    * blkX:
+    *   // Logic to compute y
+    *   IfThenElse(y, blkB, blkY)
+    *   blkY:
+    *     // Logic to compute z
+    *     IfThenElse(z, blkC, blkD)
+    *
+    * This means, except in trivial cases, IfThenElses will often not be perfectly nested, as the block containing
+    * an IfThenElse will usually also contain the corresponding condition logic
+    */
+  def extractSwitches[T:Type](
+    elseBlock: Block[T],
+    precCond:  Exp[Bit],
+    selects:   Seq[Exp[Bit]],
+    cases:     Seq[() => Exp[T]]
+  )(implicit ctx: SrcCtx): (Seq[Exp[Bit]], Seq[() => Exp[T]]) = {
+    val contents = blockContents(elseBlock)
+    // Only create a flattened switch if the else block contains no enabled operations
+    val shouldNest = contents.map(_.rhs).exists{case _:EnabledOp[_] | _:EnabledControlNode => true; case _ => false}
 
-  def extractSwitches[T:Type](elsep: Block[T], precCond: Exp[Bool], cases: Seq[() => Exp[T]])(implicit ctx: SrcCtx): Seq[() => Exp[T]] = {
-    val contents = blockContents(elsep)
-    elsep.result match {
-      // If all operations preceding the IfThenElse are primitives, just move them outside
-      case Op(IfThenElse(cond,then2,else2)) if contents.drop(1).forall{stm => isPrimitiveNode(stm.lhs.head) } =>
-        visitStms(contents.drop(1))  // Mirror all but the last symbol (will now be outside the switch - this is deliberate)
+    elseBlock.result match {
+      case Op(IfThenElse(cond,thenBlk,elseBlk)) if !shouldNest =>
+        // Mirror all primitives within the else block prior to the inner if-then-else
+        // This will push these statements outside the switch, but this is expected
+        withEnable(precCond){ visitStms(contents.dropRight(1)) }
 
         val cond2 = f(cond)
-        val caseCond = bool_and(cond2, precCond)
-        val elseCond = bool_and(bool_not(cond2), precCond)
+        dbg(c"Transforming condition ${str(cond)}")
+        dbg(c"is now ${str(cond2)}")
 
-        val scase = create_case(caseCond, f(then2))
-        extractSwitches[T](else2.asInstanceOf[Block[T]], elseCond, cases :+ scase)
+        val caseCond = Bit.and(cond2, precCond)
+        val elseCond = Bit.and(Bit.not(cond2), precCond)
+
+        val scase = create_case(caseCond, thenBlk)
+
+        extractSwitches[T](elseBlk.asInstanceOf[Block[T]], elseCond, selects :+ caseCond, cases :+ scase)
 
       case _ =>
-        val default = create_case(precCond, f(elsep))
-        cases :+ default
+        val default = create_case(precCond, elseBlock)
+        (selects :+ precCond, cases :+ default)
     }
   }
 
@@ -60,14 +108,15 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
       controlLevel = prevLevel
       lhs2
 
-    case op @ IfThenElse(cond,thenp,elsep) if inAccel =>
+    case op @ IfThenElse(cond,thenBlk,elseBlk) if inAccel =>
       val cond2 = f(cond)
-      val elseCond = bool_not(cond2)
-      val scase = create_case(cond2, f(thenp))
-      val cases = extractSwitches(elsep, elseCond, Seq(scase))
+      val elseCond = Bit.not(cond2)
+      val scase = create_case(cond2, thenBlk)
+      val (selects, cases) = extractSwitches(elseBlk, elseCond, Seq(cond2), Seq(scase))
 
+      // Switch acts as a one-hot mux if the type being selected is bit-based
       dbg(c"Created case symbols: ")
-      val switch = create_switch(cases)
+      val switch = Switches.create_switch(selects, cases)
       dbg(c"Created switch: ${str(switch)}")
 
       styleOf(switch) = ForkSwitch
@@ -75,9 +124,13 @@ trait SwitchTransformer extends ForwardTransformer with SpatialTraversal {
 
       switch
 
-
     case _ => super.transform(lhs, rhs)
   }
 
+  override def mirror(lhs: Seq[Sym[_]], rhs: Def): Seq[Exp[_]] = rhs match {
+    case op: EnabledControlNode => transferMetadataIfNew(lhs){ Seq(op.mirrorAndEnable(f, enable.toSeq)) }._1
+    case op: EnabledOp[_] if enable.isDefined => transferMetadataIfNew(lhs){ Seq(op.mirrorAndEnable(f, enable.get)) }._1
+    case _ => super.mirror(lhs, rhs)
+  }
 
 }

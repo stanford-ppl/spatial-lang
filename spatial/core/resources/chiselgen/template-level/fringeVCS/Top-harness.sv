@@ -1,7 +1,7 @@
 module test;
   import "DPI" function void sim_init();
   import "DPI" function int tick();
-  import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int streamId, int tag, int isWr, int isSparse, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
+  import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int size, int streamId, int tag, int isWr, int isSparse, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
   import "DPI" function void readOutputStream(int data, int tag, int last);
 
   // Export functionality to C layer
@@ -41,6 +41,7 @@ module test;
   reg io_dram_cmd_ready;
   wire  io_dram_cmd_valid;
   wire [63:0] io_dram_cmd_bits_addr;
+  wire [31:0] io_dram_cmd_bits_size;
   wire [63:0] io_dram_cmd_bits_rawAddr;
   wire  io_dram_cmd_bits_isWr;
   wire  io_dram_cmd_bits_isSparse;
@@ -83,17 +84,17 @@ module test;
   reg [31:0] io_dram_resp_bits_tag;
   reg [31:0] io_dram_resp_bits_streamId;
 
-  wire        io_genericStreamIn_ready;
-  reg         io_genericStreamIn_valid;
-  reg  [31:0] io_genericStreamIn_bits_data;
-  reg  [31:0] io_genericStreamIn_bits_tag = 0;
-
-  reg         io_genericStreamIn_bits_last;
-  reg         io_genericStreamOut_ready;
-  wire        io_genericStreamOut_valid;
-  wire [31:0] io_genericStreamOut_bits_data;
-  wire [31:0] io_genericStreamOut_bits_tag;
-  wire        io_genericStreamOut_bits_last;
+//  wire        io_genericStreamIn_ready;
+//  reg         io_genericStreamIn_valid;
+//  reg  [31:0] io_genericStreamIn_bits_data;
+//  reg  [31:0] io_genericStreamIn_bits_tag = 0;
+//
+//  reg         io_genericStreamIn_bits_last;
+//  reg         io_genericStreamOut_ready;
+//  wire        io_genericStreamOut_valid;
+//  wire [31:0] io_genericStreamOut_bits_data;
+//  wire [31:0] io_genericStreamOut_bits_tag;
+//  wire        io_genericStreamOut_bits_last;
 
   /*** DUT instantiation ***/
   Top Top(
@@ -108,6 +109,7 @@ module test;
     .io_dram_cmd_valid(io_dram_cmd_valid),
     .io_dram_cmd_bits_addr(io_dram_cmd_bits_addr),
     .io_dram_cmd_bits_rawAddr(io_dram_cmd_bits_rawAddr),
+    .io_dram_cmd_bits_size(io_dram_cmd_bits_size),
     .io_dram_cmd_bits_isWr(io_dram_cmd_bits_isWr),
     .io_dram_cmd_bits_isSparse(io_dram_cmd_bits_isSparse),
     .io_dram_cmd_bits_tag(io_dram_cmd_bits_tag),
@@ -147,17 +149,17 @@ module test;
     .io_dram_resp_bits_rdata_14(io_dram_resp_bits_rdata_14),
     .io_dram_resp_bits_rdata_15(io_dram_resp_bits_rdata_15),
     .io_dram_resp_bits_tag(io_dram_resp_bits_tag),
-    .io_dram_resp_bits_streamId(io_dram_resp_bits_streamId),
-    .io_genericStreamIn_ready(io_genericStreamIn_ready),
-    .io_genericStreamIn_valid(io_genericStreamIn_valid),
-    .io_genericStreamIn_bits_data(io_genericStreamIn_bits_data),
-    .io_genericStreamIn_bits_tag(io_genericStreamIn_bits_tag),
-    .io_genericStreamIn_bits_last(io_genericStreamIn_bits_last),
-    .io_genericStreamOut_ready(io_genericStreamOut_ready),
-    .io_genericStreamOut_valid(io_genericStreamOut_valid),
-    .io_genericStreamOut_bits_data(io_genericStreamOut_bits_data),
-    .io_genericStreamOut_bits_tag(io_genericStreamOut_bits_tag),
-    .io_genericStreamOut_bits_last(io_genericStreamOut_bits_last)
+    .io_dram_resp_bits_streamId(io_dram_resp_bits_streamId)
+//    .io_genericStreamIn_ready(io_genericStreamIn_ready),
+//    .io_genericStreamIn_valid(io_genericStreamIn_valid),
+//    .io_genericStreamIn_bits_data(io_genericStreamIn_bits_data),
+//    .io_genericStreamIn_bits_tag(io_genericStreamIn_bits_tag),
+//    .io_genericStreamIn_bits_last(io_genericStreamIn_bits_last),
+//    .io_genericStreamOut_ready(io_genericStreamOut_ready),
+//    .io_genericStreamOut_valid(io_genericStreamOut_valid),
+//    .io_genericStreamOut_bits_data(io_genericStreamOut_bits_data),
+//    .io_genericStreamOut_bits_tag(io_genericStreamOut_bits_tag),
+//    .io_genericStreamOut_bits_last(io_genericStreamOut_bits_last)
 );
 
   function void readRegRaddr(input int r);
@@ -226,29 +228,36 @@ module test;
     input int tag,
     input int last
   );
-    io_genericStreamIn_valid = 1;
-    io_genericStreamIn_bits_data = data;
-    io_genericStreamIn_bits_tag = tag;
-    io_genericStreamIn_bits_last = last;
+//    io_genericStreamIn_valid = 1;
+//    io_genericStreamIn_bits_data = data;
+//    io_genericStreamIn_bits_tag = tag;
+//    io_genericStreamIn_bits_last = last;
   endfunction
 
-  initial begin
-    /*** VCD & VPD dump ***/
-//      $vcdplusfile("Top.vpd");
-//      $vcdpluson (0, Top);
-
-//      $dumpfile("Top.vcd");
-//      $dumpvars(0, Top);
-//      $vcdplusfile("Top.vpd");
-      sim_init();
-  end
-
   // 1. If io_dram_cmd_valid, then send send DRAM request to CPP layer
-  function void callbacks();
+  function void post_update_callbacks();
     if (io_dram_cmd_valid & ~reset) begin
-      if (sendDRAMRequest(
+      io_dram_cmd_ready = 1;
+    end else begin
+      io_dram_cmd_ready = 0;
+    end
+
+//    if (io_genericStreamOut_valid & ~reset) begin
+//      readOutputStream(
+//        io_genericStreamOut_bits_data,
+//        io_genericStreamOut_bits_tag,
+//       io_genericStreamOut_bits_last
+//      );
+//    end
+
+  endfunction
+
+  function void pre_update_callbacks();
+    if (io_dram_cmd_valid & io_dram_cmd_ready) begin
+      sendDRAMRequest(
         io_dram_cmd_bits_addr,
         io_dram_cmd_bits_rawAddr,
+        io_dram_cmd_bits_size,
         io_dram_cmd_bits_streamId,
         io_dram_cmd_bits_tag,
         io_dram_cmd_bits_isWr,
@@ -269,40 +278,46 @@ module test;
         io_dram_cmd_bits_wdata_13,
         io_dram_cmd_bits_wdata_14,
         io_dram_cmd_bits_wdata_15
-      )) begin
-      io_dram_cmd_ready = 1;
-    end
-    end
-
-    if (io_genericStreamOut_valid & ~reset) begin
-      readOutputStream(
-        io_genericStreamOut_bits_data,
-        io_genericStreamOut_bits_tag,
-       io_genericStreamOut_bits_last
       );
     end
-
   endfunction
 
+  initial begin
+    /*** VCD & VPD dump ***/
+    $vcdplusfile("Top.vpd");
+//    $vcdpluson (0, Top);
+//    $vcdplusmemon ();
+
+//      $dumpfile("Top.vcd");
+//      $dumpvars(0, Top);
+      sim_init();
+      io_dram_cmd_ready = 0;
+  end
+
   int numCycles = 0;
-  always @(negedge clock) begin
+
+  always @(posedge clock) begin
+
     numCycles = numCycles + 1;
+
+    pre_update_callbacks();
+
     io_wen = 0;
     io_dram_resp_valid = 0;
-    io_dram_cmd_ready = 0;
-    io_genericStreamIn_valid = 0;
-    io_genericStreamOut_ready = 1;
+//    io_dram_cmd_ready = 0;
+//    io_genericStreamIn_valid = 0;
+//    io_genericStreamOut_ready = 1;
 
     if (tick()) begin
-      $vcdplusflush;
+//      $vcdplusflush;
 //      $dumpflush;
       $finish;
     end
 
-    callbacks();
 
-    $vcdplusflush;
-    $dumpflush;
+    post_update_callbacks();
+//    $vcdplusflush;
+//    $dumpflush;
   end
 
 endmodule

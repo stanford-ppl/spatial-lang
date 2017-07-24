@@ -1,20 +1,27 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.SpatialExp
-import spatial.api.FileIOExp
+import argon.core._
+import spatial.aliases._
+import spatial.nodes._
 
 trait ScalaGenFileIO extends ScalaCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case MetaFileType => src"java.io.File"
+    case FileType => src"java.io.File"
     case _ => super.remap(tp)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case OpenFile(filename, write) => emit(src"val $lhs = new java.io.File($filename)")
+    case OpenFile(filename, write) => 
+      open(src"val $lhs = {")
+        emit(src"val file = new java.io.File($filename)")
+        open(src"if ($write) { // Will write to file")
+          emit(src"val writer = new java.io.PrintWriter(file)")
+          emit(src"""writer.print("")""")
+        close("}")
+        emit(src"file")
+      close("}")
 
     case ReadTokens(file, delim) =>
       open(src"val $lhs = {")
@@ -30,9 +37,9 @@ trait ScalaGenFileIO extends ScalaCodegen {
 
     case WriteTokens(file, delim, len, token, i) =>
       open(src"val $lhs = {")
-        emit(src"val writer = new java.io.PrintWriter($file)")
+        emit(src"val writer = new java.io.PrintWriter(new java.io.FileOutputStream($file, true /*append*/))")
         open(src"for ($i <- 0 until $len.toInt) {")
-          emit(src"if ($i > 0) writer.write($delim)")
+          emit(src"writer.write($delim)")
           visitBlock(token)
           emit(src"writer.write(${token.result})")
         close("}")

@@ -1,13 +1,15 @@
 package spatial.codegen.scalagen
 
-import spatial.SpatialExp
+import argon.core._
+import argon.nodes._
+import spatial.aliases._
+import spatial.nodes._
+import spatial.utils._
 
 trait ScalaGenStream extends ScalaGenMemories {
-  val IR: SpatialExp
-  import IR._
-
   var streamIns: List[Exp[_]] = Nil
   var streamOuts: List[Exp[_]] = Nil
+  var bufferedOuts: List[Exp[_]] = Nil
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: StreamInType[_]  => src"scala.collection.mutable.Queue[${tp.child}]"
@@ -17,9 +19,9 @@ trait ScalaGenStream extends ScalaGenMemories {
 
   // HACK
   def bitsFromString(lhs: String, line: String, tp: Type[_]): Unit = tp match {
-    case FixPtType(s,i,f)  => emit(s"val $lhs = Number($line, FixedPoint($s,$i,$f))")
-    case FltPtType(g,e)    => emit(s"val $lhs = Number($line, FloatPoint($g,$e))")
-    case BoolType()        => emit(s"val $lhs = Bit($line.toBoolean, true)")
+    case FixPtType(s,i,f)  => emit(s"val $lhs = FixedPoint($line, FixFormat($s,$i,$f))")
+    case FltPtType(g,e)    => emit(s"val $lhs = FixedPoint($line, FltFormat(${g-1},$e))")
+    case BooleanType()     => emit(s"val $lhs = Bool($line.toBoolean, true)")
     case tp: VectorType[_] =>
       open(s"""val $lhs = $line.split(",").map(_.trim).map{elem => """)
         bitsFromString("out", "elem", tp.child)
@@ -38,7 +40,7 @@ trait ScalaGenStream extends ScalaGenMemories {
   def bitsToString(lhs: String, elem: String, tp: Type[_]): Unit = tp match {
     case FixPtType(s,i,f) => emit(s"val $lhs = $elem.toString")
     case FltPtType(g,e)   => emit(s"val $lhs = $elem.toString")
-    case BoolType()       => emit(s"val $lhs = $elem.toString")
+    case BooleanType()    => emit(s"val $lhs = $elem.toString")
     case tp: VectorType[_] =>
       open(s"""val $lhs = $elem.map{elem => """)
         bitsToString("out", "elem", tp.child)
@@ -55,10 +57,10 @@ trait ScalaGenStream extends ScalaGenMemories {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@StreamInNew(bus)  =>
       streamIns :+= lhs
-
-      emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      emitMem(lhs, src"$lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      // emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
       if (!bus.isInstanceOf[DRAMBus[_]]) {
-        val name = nameOf(lhs).map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
+        val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
         open(src"def populate_$lhs() = {")
           emit(src"""print("Enter name of file to use for StreamIn $name: ")""")
           emit(src"val filename = Console.readLine()")
@@ -82,10 +84,11 @@ trait ScalaGenStream extends ScalaGenMemories {
     case op@StreamOutNew(bus) =>
       streamOuts :+= lhs
 
-      emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      emitMem(lhs, src"$lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      // emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
 
       if (!bus.isInstanceOf[DRAMBus[_]]) {
-        val name = nameOf(lhs).map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
+        val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
 
         emit(src"""print("Enter name of file to use for StreamOut $name: ")""")
         emit(src"var ${lhs}_writer: java.io.PrintWriter = null")
@@ -112,6 +115,55 @@ trait ScalaGenStream extends ScalaGenMemories {
 
     case op@StreamWrite(strm, data, en) => emit(src"val $lhs = if ($en) $strm.enqueue($data)")
     case op@StreamRead(strm, en) => emit(src"val $lhs = if ($en && $strm.nonEmpty) $strm.dequeue() else ${invalid(op.mT)}")
+
+    case op@ParStreamRead(strm, ens) =>
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        emit(src"val a$i = if ($en && $strm.nonEmpty) $strm.dequeue() else ${invalid(op.mT)}")
+      }
+      emit(src"Array[${op.mT}](" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
+      close("}")
+
+    case ParStreamWrite(strm, data, ens) =>
+      open(src"val $lhs = {")
+      ens.zipWithIndex.foreach{case (en,i) =>
+        emit(src"if ($en) $strm.enqueue(${data(i)})")
+      }
+      close("}")
+
+    case op@BufferedOutNew(dims, bus) =>
+      bufferedOuts :+= lhs
+      emit(src"""val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})""")
+
+      val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
+      emit(src"""print("Enter name of file to use for BufferedOut $name: ")""")
+      emit(src"var ${lhs}_writer: java.io.PrintWriter = null")
+      open(src"try {")
+        emit(src"val filename = Console.readLine()")
+        emit(src"${lhs}_writer = new java.io.PrintWriter(new java.io.File(filename))")
+      close("}")
+      open("catch{ case e: Throwable => ")
+        emit(src"""println("There was a problem while opening the specified file for writing.")""")
+        emit(src"""println(e.getMessage)""")
+        emit(src"""e.printStackTrace()""")
+        emit(src"sys.exit(1)")
+      close("}")
+
+      open(src"def dump_$lhs(): Unit = {")
+        open(src"$lhs.foreach{elem => ")
+          bitsToString("line", "elem", op.mT)
+          emit(src"${lhs}_writer.println(line)")
+        close("}")
+      close("}")
+      emit(src"def close_$lhs(): Unit = ${lhs}_writer.close()")
+
+
+    case op@BufferedOutWrite(buffer,data,inds,en) =>
+      val dims = stagedDimsOf(buffer)
+      open(src"val $lhs = {")
+        oobUpdate(op.mT,buffer,lhs,inds){ emit(src"if ($en) $buffer.update(${flattenAddress(dims,inds,None)}, $data)") }
+      close("}")
+
     case _ => super.emitNode(lhs, rhs)
   }
 

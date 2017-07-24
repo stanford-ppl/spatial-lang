@@ -1,14 +1,14 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen._
-import spatial.SpatialExp
-import argon.Config
-import spatial.{SpatialConfig, SpatialExp}
-
+import argon.core.Config
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait DotGenReg extends DotCodegen {
-  val IR: SpatialExp
-  import IR._
 
   override def attr(n:Exp[_]) = n match {
     case n if isArgIn(n) | isArgOut(n) => super.attr(n).shape(box).style(filled).color(indianred)

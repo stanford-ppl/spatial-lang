@@ -1,14 +1,12 @@
 package spatial.codegen.dotgen
 
+import argon.core._
 import argon.codegen.dotgen.DotCodegen
 import argon.codegen.FileDependencies
-import spatial.SpatialConfig
-import spatial.analysis.SpatialMetadataExp
-import spatial.SpatialExp
+import spatial.aliases._
+import spatial.nodes._
 
 trait DotGenAlteraVideo extends DotCodegen with FileDependencies {
-  val IR: SpatialExp
-  import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case AxiMSNew() =>
@@ -16,4 +14,5 @@ trait DotGenAlteraVideo extends DotCodegen with FileDependencies {
     case DMATemplateNew(popFrom, loadIn) => 
     case _ => super.emitNode(lhs, rhs)
   }
+
 }

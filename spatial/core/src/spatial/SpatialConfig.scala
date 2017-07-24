@@ -1,16 +1,18 @@
 package spatial
 
-import argon.core.Reporting
 import com.typesafe.config.ConfigFactory
 import pureconfig._
+import argon.util.Report
+import spatial.targets.FPGATarget
 
-object SpatialConfig extends Reporting {
-  import argon.Config._
+object SpatialConfig {
 
   case class SpatialConf(
     fpga: String,
     sim: Boolean,
     synth: Boolean,
+    interpret: Boolean,
+    inputs: Seq[String],
     pir: Boolean,
     dse: Boolean,
     dot: Boolean,
@@ -20,6 +22,7 @@ object SpatialConfig extends Reporting {
     naming: Boolean,
     tree: Boolean
   )
+
   case class PlasticineConf(
     sinUcu: Int,
     stagesUcu: Int,
@@ -39,9 +42,14 @@ object SpatialConfig extends Reporting {
   )
 
   var targetName: String = _
+  var target: FPGATarget = targets.DefaultTarget
 
   var enableDSE: Boolean = _
   var enableDot: Boolean = _
+
+  //Interpreter 
+  var inputs: Array[String] = Array()
+  var enableInterpret: Boolean = _
 
   var enableSim: Boolean = _
   var enableSynth: Boolean = _
@@ -78,7 +86,9 @@ object SpatialConfig extends Reporting {
     val defaultSpatial = ConfigFactory.parseString("""
 spatial {
   fpga = "Default"
+  interpret = false
   sim = true
+  inputs = ["0", "1", "2", "3", "4"]
   synth = false
   pir = false
   dse = false
@@ -87,18 +97,19 @@ spatial {
   splitting = false
   arch-dse = false
   naming = false
-  tree = false
+  tree = true
 }
 """)
 
     val mergedSpatialConf = ConfigFactory.load().withFallback(defaultSpatial).resolve()
     loadConfig[SpatialConf](mergedSpatialConf, "spatial") match {
       case Right(spatialConf) =>
-        targetName = spatialConf.fpga
-
+        //targetName = spatialConf.fpga
         enableDSE = spatialConf.dse
         enableDot = spatialConf.dot
 
+        inputs = spatialConf.inputs.toArray
+        enableInterpret = spatialConf.interpret
         enableSim = spatialConf.sim
         enableSynth = spatialConf.synth
         enablePIR = spatialConf.pir
@@ -111,9 +122,9 @@ spatial {
         enableTree = spatialConf.tree
 
       case Left(failures) =>
-        error("Unable to read spatial configuration")
-        error(failures.head.description)
-        failures.tail.foreach{x => error(x.description) }
+        Report.error("Unable to read spatial configuration")
+        Report.error(failures.head.description)
+        failures.tail.foreach{x => Report.error(x.description) }
         sys.exit(-1)
     }
 

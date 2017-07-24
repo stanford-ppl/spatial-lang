@@ -1,11 +1,17 @@
 package spatial.analysis
 
-import argon.Config
+import argon.core._
+import argon.core.Config
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+
 import java.io.PrintWriter
 
-trait TreeGenSpatial extends SpatialTraversal {
-  import IR._
 
+trait TreeGenSpatial extends SpatialTraversal {
+  override val name = "Tree Gen"
   // def getStages(blks: Block[_]*): Seq[Sym[_]] = blks.flatMap(blockContents).flatMap(_.lhs)
 
   // def getPrimitiveNodes(blks: Block[_]*): Seq[Sym[_]] = getStages(blks:_*).filter(isPrimitiveNode)
@@ -40,7 +46,7 @@ trait TreeGenSpatial extends SpatialTraversal {
 <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
 </head><body>
 
-  <div data-role="main" class="ui-content">
+  <div data-role="main" class="ui-content" style="overflow-x:scroll;">
     <h2>Controller Diagram for """)
     controller_tree.write(Config.name)
     controller_tree.write("""</h2>
@@ -63,6 +69,18 @@ trait TreeGenSpatial extends SpatialTraversal {
       <h4> </h4>${table_init}""")
     }
   }
+  def print_stream_info(sym: Exp[_]) {
+    if (listensTo(sym).distinct.toList.length + pushesTo(sym).distinct.toList.length > 0){
+      controller_tree.write("""<div style="border:1px solid black">Stream Info<br>""")
+      val listens = listensTo(sym).distinct.map{a => s"$a"}.mkString(",")
+      val pushes = pushesTo(sym).distinct.map{a => s"$a"}.mkString(",")
+      if (listens != "") controller_tree.write(s"""<p align="left">----->$listens""")
+      if (listens != "" & pushes != "") controller_tree.write(s"<br>")
+      if (pushes != "") controller_tree.write(s"""<p align="right">$pushes----->""")
+      controller_tree.write("</div>")
+    }
+  }
+
   def print_stage_suffix(name: String, inner: Boolean = false) {
     if (!inner) {
       controller_tree.write("""</TABLE></div>""")
@@ -73,10 +91,11 @@ trait TreeGenSpatial extends SpatialTraversal {
   override protected def visit(sym: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,_) =>
       val inner = levelOf(sym) match { 
-      	case InnerControl => true
+      	case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
       	case _ => false
       }
       print_stage_prefix(s"Hwblock",s"",s"$sym", inner)
+      print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -94,10 +113,11 @@ trait TreeGenSpatial extends SpatialTraversal {
 
     case UnitPipe(_,func) =>
       val inner = levelOf(sym) match { 
-      	case InnerControl => true
+      	case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
       	case _ => false
       }
       print_stage_prefix(s"${getScheduling(sym)}Unitpipe",s"",s"$sym", inner)
+      print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -105,12 +125,13 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
-    case OpForeach(cchain, func, iters) =>
+    case OpForeach(en, cchain, func, iters) =>
       val inner = levelOf(sym) match { 
       	case InnerControl => true
       	case _ => false
       }
       print_stage_prefix(s"${getScheduling(sym)}OpForeach",s"${cchain}",s"$sym", inner)
+      print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -124,6 +145,7 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case _ => false
       }
       print_stage_prefix(s"${getScheduling(sym)}OpReduce",s"",s"$sym", inner)
+      print_stream_info(sym)
       print_stage_suffix(s"$sym", inner)
 
     case _: OpMemReduce[_,_] =>
@@ -132,15 +154,17 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case _ => false
       }
       print_stage_prefix(s"${getScheduling(sym)}OpMemReduce",s"",s"$sym", inner)
+      print_stream_info(sym)
       print_stage_suffix(s"$sym", inner)
 
     case UnrolledForeach(en,cchain,func,iters,valids) =>
       val inner = levelOf(sym) match { 
-      	case InnerControl => true
+      	case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
       	case _ => false
       }
   
       print_stage_prefix(s"${getScheduling(sym)}UnrolledForeach",s"${cchain}",s"$sym", inner)
+      print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -151,6 +175,7 @@ trait TreeGenSpatial extends SpatialTraversal {
     case ParallelPipe(_,func) =>
       val inner = false
       print_stage_prefix(s"Parallel",s"",s"$sym", inner)
+      print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -158,25 +183,42 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
-    case UnrolledReduce(en,cchain,_,func,_,iters,valids,_) =>
+    case UnrolledReduce(en,cchain,_,func,iters,valids) =>
       val inner = levelOf(sym) match { 
-      	case InnerControl => true
-      	case _ => false
-      }
-      print_stage_prefix(s"${getScheduling(sym)}UnrolledReduce",s"${cchain}",s"$sym", inner)
-      val children = getControlNodes(func)
-      children.foreach { s =>
-        val Op(d) = s
-        visit(s,d)
-      }
-      print_stage_suffix(s"$sym", inner)
-
-    case StateMachine(ens,start,notDone,func,nextState,state) =>
-      val inner = levelOf(sym) match { 
-        case InnerControl => true
+        case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
         case _ => false
       }
+      print_stage_prefix(s"${getScheduling(sym)}UnrolledReduce",s"${cchain}",s"$sym", inner)
+      print_stream_info(sym)
+      val children = getControlNodes(func)
+      children.foreach { s =>
+        val Op(d) = s
+        visit(s,d)
+      }
+      print_stage_suffix(s"$sym", inner)
+
+    case Switch(_,selects, cases) =>
+      val inner = false
+      print_stage_prefix(s"${getScheduling(sym)}Switch",s"",s"$sym", inner)
+      print_stream_info(sym)
+      cases.foreach{c => getStm(c).foreach(visitStm) }
+      print_stage_suffix(s"$sym", inner)
+
+    case SwitchCase(func) =>
+      val inner = if (childrenOf(sym).length > 0) false else true
+      print_stage_prefix(s"${getScheduling(sym)}SwitchCase",s"",s"$sym", inner)
+      print_stream_info(sym)
+      val children = getControlNodes(func)
+      children.foreach { s =>
+        val Op(d) = s
+        visit(s,d)
+      }
+      print_stage_suffix(s"$sym", inner)
+
+    case StateMachine(ens,start,notDone,func,nextState,_) =>
+      val inner = if (childrenOf(sym).length > 0) false else true
       print_stage_prefix(s"${getScheduling(sym)}FSM",s"",s"$sym", inner)
+      print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>
         val Op(d) = s
@@ -187,15 +229,19 @@ trait TreeGenSpatial extends SpatialTraversal {
 
     case _: FringeDenseLoad[_] => 
       print_stage_prefix("FringeDenseLoad (Fake Node)", "", s"$sym", true)
+      print_stream_info(sym)
       print_stage_suffix(s"$sym", true)
     case _: FringeDenseStore[_] => 
       print_stage_prefix("FringeDenseStore (Fake Node)", "", s"$sym", true)
+      print_stream_info(sym)
       print_stage_suffix(s"$sym", true)
     case _: FringeSparseLoad[_] => 
       print_stage_prefix("FringeSparseLoad (Fake Node)", "", s"$sym", true)
+      print_stream_info(sym)
       print_stage_suffix(s"$sym", true)
     case _: FringeSparseStore[_] => 
       print_stage_prefix("FringeSparseStore (Fake Node)", "", s"$sym", true)
+      print_stream_info(sym)
       print_stage_suffix(s"$sym", true)
 
     case _ => // Do not visit super because we don't care to traverse everything

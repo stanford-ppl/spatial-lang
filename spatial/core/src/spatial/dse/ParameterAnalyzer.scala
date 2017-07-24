@@ -1,12 +1,14 @@
 package spatial.dse
 
+import argon.core._
 import spatial.analysis.SpatialTraversal
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+import org.virtualized.SourceContext
 
 trait ParameterAnalyzer extends SpatialTraversal {
-  import IR._
-
-  private type RRange = scala.collection.immutable.Range
-
   override val name = "Parameter Analyzer"
   override val recurse = Always
 
@@ -37,7 +39,7 @@ trait ParameterAnalyzer extends SpatialTraversal {
     x.collect{case p: Param[_] if isInt32Type(p.tp) => p.asInstanceOf[Param[Index]] }
   }
 
-  def setRange(x: Param[Index], min: Int, max: Int, stride: Int = 1): Unit = domainOf(x) match {
+  def setRange(x: Param[Index], min: Int, max: Int, stride: Int = 1): Unit = domainOf.get(x) match {
     case Some((start,end,step)) =>
       domainOf(x) = (Math.max(min,start), Math.min(max,end), Math.max(stride,step))
     case None =>
@@ -49,9 +51,9 @@ trait ParameterAnalyzer extends SpatialTraversal {
     (isInnerPipe(e) || isMetaPipe(e)) && !childrenOf(e).exists(isDRAMTransfer)
   }
 
-  override protected def postprocess[S: Type](block: Block[S]) = {
+  override protected def postprocess[S: Type](block: Block[S]): Block[S] = {
     val params = tileSizes ++ parFactors
-    params.foreach{p => if (domainOf(p).isEmpty) domainOf(p) = (1, 1, 1) }
+    params.foreach{p => if (domainOf.get(p).isEmpty) domainOf(p) = (1, 1, 1) }
     super.postprocess(block)
   }
 
@@ -70,6 +72,16 @@ trait ParameterAnalyzer extends SpatialTraversal {
         else setRange(p, 1, MAX_TILE_SIZE)
       }
       tileSizes ++= tsizes
+
+    case e: DenseTransfer[_,_] =>
+      val pars = onlyIndex(collectParams(e.p))
+      pars.foreach{p => setRange(p, 1, MAX_PAR_FACTOR) }
+      parFactors ++= pars
+
+    case e: SparseTransfer[_] =>
+      val pars = onlyIndex(collectParams(e.p))
+      pars.foreach{p => setRange(p, 1, MAX_PAR_FACTOR) }
+      parFactors ++= pars
 
     case CounterNew(_,_,_,par) =>
       val pars = onlyIndex(collectParams(par))

@@ -1,13 +1,13 @@
 package spatial.codegen.scalagen
 
 import argon.codegen.scalagen.ScalaCodegen
-import spatial.SpatialExp
-import spatial.api.ControllerExp
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
 trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenMemories {
-  val IR: SpatialExp
-  import IR._
-
   def localMems: List[Exp[_]]
 
   private def emitNestedLoop(lhs: Exp[_], cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
@@ -20,8 +20,9 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
   }
 
   // In Scala simulation, run a pipe until its read fifos and streamIns are empty
-  def getWrittenStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
-    localMems.filter{mem => writersOf(mem).exists(_.ctrlNode == ctrl) }.filter{mem => isStreamOut(mem) || isFIFO(mem) } ++ childrenOf(ctrl).flatMap(getWrittenStreamsAndFIFOs)
+  def dumpBufferedOuts(ctrl: Exp[_]): Unit = {
+    val outs = localMems.filter{mem => writersOf(mem).exists{wr => topControllerOf(wr.node,mem,0).exists(_.node == ctrl) } }
+    outs.filter(isBufferedOut).foreach{buff => emit(src"dump_$buff()") }
   }
 
   def getReadStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
@@ -29,8 +30,12 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
     read //diff getWrittenStreamsAndFIFOs(ctrl) // Don't also wait for things we're writing to
   }
 
+  def isStreaming(ctrl: Exp[_]): Boolean = {
+    isStreamPipe(ctrl) || getDef(ctrl).exists{case Hwblock(_,strm) => strm; case _ => false}
+  }
+
   def emitControlBlock(lhs: Sym[_], block: Block[_]): Unit = {
-    if (isOuterControl(lhs) && (isStreamPipe(lhs) || getDef(lhs).exists{case Hwblock(_,strm) => strm; case _ => false})) {
+    if (isOuterControl(lhs) && isStreaming(lhs)) {
       val children = childrenOf(lhs)
       blockContents(block).foreach { stm =>
         val isChild = stm.lhs.exists{s => children.contains(s) }
@@ -61,6 +66,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
       localMems.filterNot(isOffChipMemory).foreach{case lhs@Op(rhs) => emit(src"var $lhs: ${lhs.tp} = null") }
+      localMems.filter(isInternalStreamMemory).foreach{case lhs@Op(rhs) => emit(src"var $lhs: ${lhs.tp} = new ${lhs.tp}") }
 
       emit(src"/** BEGIN HARDWARE BLOCK $lhs **/")
       globalMems = true
@@ -87,6 +93,8 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       streamOuts.foreach{case x@Def(StreamOutNew(bus)) =>
         if (!bus.isInstanceOf[DRAMBus[_]]) emit(src"print_$x()") // HACK: Print out streams after block finishes running
       }
+      dumpBufferedOuts(lhs)
+      bufferedOuts.foreach{buff => emit(src"close_$buff()") }
       globalMems = false
       emit(src"/** END HARDWARE BLOCK $lhs **/")
 
@@ -97,6 +105,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       open(src"val $lhs = if ($en) {")
         emitControlBlock(lhs, func)
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END UNIT PIPE $lhs **/")
 
     case ParallelPipe(ens, func) =>
@@ -105,18 +114,22 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       open(src"val $lhs = if ($en) {")
       emitBlock(func)
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END PARALLEL PIPE $lhs **/")
 
-    case OpForeach(cchain, func, iters) =>
+    case OpForeach(ens, cchain, func, iters) =>
       emit(src"/** BEGIN FOREACH $lhs **/")
-      open(src"val $lhs = {")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
         emitNestedLoop(lhs, cchain, iters){ emitBlock(func) }
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END FOREACH $lhs **/")
 
-    case OpReduce(cchain, accum, map, load, reduce, store, zero, fold, rV, iters) =>
+    case OpReduce(ens, cchain, accum, map, load, reduce, store, zero, fold, rV, iters) =>
       emit(src"/** BEGIN REDUCE $lhs **/")
-      open(src"val $lhs = {")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
       emitNestedLoop(lhs, cchain, iters){
         visitBlock(map)
         visitBlock(load)
@@ -126,11 +139,13 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
         emitBlock(store)
       }
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END REDUCE $lhs **/")
 
-    case OpMemReduce(cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) =>
+    case OpMemReduce(ens, cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) =>
       emit(src"/** BEGIN MEM REDUCE $lhs **/")
-      open(src"val $lhs = {")
+      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+      open(src"val $lhs = if ($en) {")
       emitNestedLoop(lhs, cchainMap, itersMap){
         visitBlock(map)
         emitNestedLoop(lhs, cchainRed, itersRed){
@@ -143,6 +158,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
         }
       }
       close("}")
+      dumpBufferedOuts(lhs)
       emit(src"/** END MEM REDUCE $lhs **/")
 
     case _ => super.emitNode(lhs, rhs)

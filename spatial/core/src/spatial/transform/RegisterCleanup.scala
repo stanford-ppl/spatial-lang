@@ -1,27 +1,28 @@
 package spatial.transform
 
+import argon.core._
 import argon.transform.ForwardTransformer
-import spatial.SpatialExp
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
+
 import scala.collection.mutable
 
-trait RegisterCleanup extends ForwardTransformer {
-  val IR: SpatialExp
-  import IR._
-
+case class RegisterCleanup(var IR: State) extends ForwardTransformer {
   override val name = "Register Cleanup"
 
-  private case object FakeSymbol { override def toString = "\"You done goofed\"" }
+  private case object MissingReg { override def toString = "\"Used register was removed\"" }
 
   // User specific substitutions
-  private var statelessSubstRules = Map[Access, Seq[(Exp[_], () => Exp[_])]]()
+  private var statelessSubstRules = Map[(Exp[_],Blk), Seq[(Exp[_], () => Exp[_])]]()
 
-  val completedMirrors = mutable.HashMap[Access, Exp[_]]()
+  private val completedMirrors = mutable.HashMap[(Exp[_],Blk), Exp[_]]()
 
-  def delayedMirror[T:Type](lhs: Sym[T], rhs:Op[T], ctrl: Ctrl)(implicit ctx: SrcCtx) = () => {
+  private def delayedMirror[T:Type](lhs: Sym[T], rhs:Op[T], ctrl: Blk)(implicit ctx: SrcCtx) = () => {
     val key = (lhs, ctrl)
 
     // scala bug? getOrElseUpdate always creates the value???
-
     /*completedMirrors.getOrElseUpdate(key, {
       withCtrl(ctrl){ mirrorWithDuplication(lhs, rhs) }
     })*/
@@ -37,101 +38,109 @@ trait RegisterCleanup extends ForwardTransformer {
 
   }
 
-  var ctrl: Ctrl = _
-  def withCtrl[A](c: Ctrl)(blk: => A): A = {
-    var prev = ctrl
-    ctrl = c
-    val result = blk
-    ctrl = prev
+  var blk: Blk = _
+  var blockCount: Int = 0
+  var inHw: Boolean = false
+  def withCtrl[A](c: Exp[_])(func: => A): A = withCtrl((c,-1))(func)
+  def withCtrl[A](b: Blk)(func: => A): A = {
+    val prevBlk = blk
+    val prevCount = blockCount
+    blk = b
+    blockCount = -1
+    val result = func
+    blk = prevBlk
+    blockCount = prevCount
     result
   }
 
-  override def transform[T: Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
-    case node if isStateless(node) && shouldDuplicate(lhs) =>
-      dbg("")
-      dbg("[stateless]")
-      dbg(c"$lhs = $rhs")
-      dbg(c"users: ${usersOf(lhs)}")
+  override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
+    case Hwblock(func,_) =>
+      inHw = true
+      val result = withCtrl(lhs){ mirrorWithDuplication(lhs, rhs) }
+      inHw = false
+      result
+
+    case node if ((inHw && isStateless(node)) || isRegisterRead(node)) && shouldDuplicate(lhs) =>
+      dbgs("")
+      dbgs("[stateless]")
+      dbgs(c"$lhs = $rhs")
+      dbgs(c"users: ${usersOf(lhs)}")
 
       if (usersOf(lhs).isEmpty) {
-        dbg(c"REMOVING stateless $lhs")
-        constant[T](FakeSymbol)  // Shouldn't be used
+        dbgs(c"REMOVING stateless $lhs")
+        constant(typ[T])(MissingReg)  // Shouldn't be used
       }
       else {
         // For all uses within a single control node, create a single copy of this node
         // Then associate all uses within that control with that copy
         val users = usersOf(lhs).groupBy(_.ctrl).mapValues(_.map(_.node))
 
-        val reads = users.map{case (parent, uses) =>
+        users.foreach{case (parent, uses) =>
           val read = delayedMirror(lhs, rhs, parent)
 
-          dbg(c"ctrl: $parent")
+          dbgs(c"ctrl: $parent")
 
           uses.foreach { use =>
             val subs = (lhs -> read) +: statelessSubstRules.getOrElse((use,parent), Nil)
-            dbg(s"  $use: $lhs -> $read")
+            dbgs(s"  ($use, $parent): $lhs -> $read")
             statelessSubstRules += (use,parent) -> subs
           }
 
-          read
         }
-        constant[T](FakeSymbol) // mirror(lhs, rhs)
+        constant(typ[T])(MissingReg) // mirror(lhs, rhs)
       }
 
     case RegWrite(reg,value,en) =>
-      dbg("")
-      dbg("[reg write]")
-      dbg(c"$lhs = $rhs")
+      dbgs("")
+      dbgs("[reg write]")
+      dbgs(c"$lhs = $rhs")
       if (readersOf(reg).isEmpty && !isOffChipMemory(reg)) {
-        dbg(c"REMOVING register write $lhs")
-        constant[T](FakeSymbol)  // Shouldn't be used
+        dbgs(c"REMOVING register write $lhs")
+        MUnit.const().asInstanceOf[Exp[T]]
       }
       else mirrorWithDuplication(lhs, rhs)
 
     case RegNew(_) =>
-      dbg("")
-      dbg("[reg new]")
-      dbg(c"$lhs = $rhs")
+      dbgs("")
+      dbgs("[reg new]")
+      dbgs(c"$lhs = $rhs")
       if (readersOf(lhs).isEmpty) {
-        dbg(c"REMOVING register $lhs")
-        constant[T](FakeSymbol)  // Shouldn't be used
+        dbgs(c"REMOVING register $lhs")
+        constant(typ[T])(MissingReg)  // Shouldn't be used
       }
       else mirrorWithDuplication(lhs, rhs)
 
-    case node if isControlNode(lhs) => withCtrl((lhs,false)) { mirrorWithDuplication(lhs, rhs) }
+    case _ if isControlNode(lhs) => withCtrl(lhs){ mirrorWithDuplication(lhs, rhs) }
     case _ => mirrorWithDuplication(lhs, rhs)
   }
 
   private def mirrorWithDuplication[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
-    if ( statelessSubstRules.contains((lhs,ctrl)) ) {
-      dbg("")
-      dbg(c"[external user, ctrl = $ctrl]")
-      dbg(c"$lhs = $rhs")
+    dbgs(c"${str(lhs)} [$blk]")
+    if ( statelessSubstRules.contains((lhs,blk)) ) {
+      dbgs("")
+      dbgs(c"[external user, blk = $blk]")
+      dbgs(c"$lhs = $rhs")
       // Activate / lookup duplication rules
-      val rules = statelessSubstRules((lhs,ctrl)).map{case (s,s2) => s -> s2()}
+      val rules = statelessSubstRules((lhs,blk)).map{case (s,s2) => s -> s2()}
       val lhs2 = withSubstScope(rules: _*){ mirror(lhs, rhs) }
-      dbg(c"${str(lhs2)}")
+      dbgs(c"${str(lhs2)}")
       lhs2
     }
     else mirror(lhs, rhs)
   }
 
-  /** These require slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
-
-  override protected def inlineBlock[T:Type](b: Block[T]): Exp[T] = inlineBlock(b, {stms =>
+  /** Requires slight tweaks to make sure we transform block results properly, primarily for OpReduce **/
+  override protected def inlineBlock[T](b: Block[T]): Exp[T] = inlineBlockWith(b, {stms =>
+    blockCount = blockCount + 1     // Advance to the next block for the current node being mirrored
+    blk = (blk.node, blockCount)    // Used to track which duplicates should be made in which blocks
+    if (blk.node == null) blk = null
     visitStms(stms)
-    if (ctrl != null && statelessSubstRules.contains((ctrl.node,ctrl))) {
-      val rules = statelessSubstRules((ctrl.node, ctrl)).map { case (s, s2) => s -> s2() }
-      withSubstScope(rules: _*) { f(b.result) }
-    }
-    else f(b.result)
-  })
-
-  override protected def transformBlock[T:Type](b: Block[T]): Block[T] = transformBlock(b, {stms =>
-    stms.foreach(stm => dbg(c"$stm"))
-    visitStms(stms)
-    if (ctrl != null && statelessSubstRules.contains((ctrl.node,ctrl))) {
-      val rules = statelessSubstRules((ctrl.node, ctrl)).map { case (s, s2) => s -> s2() }
+    // Add substitutions for this node (ctrl.node, -1) and for the current block (ctrl)
+    val curNode: Access = (blk.node, (blk.node, -1))
+    val curBlock: Access = (blk.node, blk)
+    if (blk != null && (statelessSubstRules.contains(curBlock) || statelessSubstRules.contains(curNode)) ) {
+      val rules = statelessSubstRules.getOrElse(curNode, Nil).map{case (s, s2) => s -> s2() } ++
+                  statelessSubstRules.getOrElse(curBlock, Nil).map{case (s, s2) => s -> s2() }
       withSubstScope(rules: _*) { f(b.result) }
     }
     else f(b.result)

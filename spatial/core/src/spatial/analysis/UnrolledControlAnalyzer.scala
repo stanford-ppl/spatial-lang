@@ -1,17 +1,19 @@
 package spatial.analysis
 
-trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
-  import IR._
+import argon.core._
+import spatial.aliases._
+import spatial.metadata._
+import spatial.nodes._
+import spatial.utils._
 
+trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   override val name = "Unrolled Control Analyzer"
 
   var memStreams = Set[(Exp[_], Int, Int)]()
   var genericStreams = Set[(Exp[_], String)]()
   var argPorts = Set[(Exp[_], String)]()
 
-  private def visitUnrolled(ctrl: Exp[_])(blk: => Unit) = {
-    visitCtrl((ctrl,false))(blk)
-  }
+  private def visitUnrolled(e: Exp[_])(blk: => Unit) = visitBlk(e)(blk)
 
   override protected def preprocess[S:Type](block: Block[S]) = {
     memStreams = Set[(Exp[_], Int, Int)]()
@@ -22,7 +24,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
 
   override def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
     rhs match {
-      case DRAMNew(dims) => 
+      case DRAMNew(dims,zero) =>
         memStreams += ((lhs, 0, 0))
       case FringeDenseLoad(dram,_,_) =>
         val prevLoads = memStreams.toList.filter{_._1 == dram}.head._2

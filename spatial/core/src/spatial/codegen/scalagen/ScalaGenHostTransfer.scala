@@ -1,12 +1,10 @@
 package spatial.codegen.scalagen
 
-import argon.ops.FixPtExp
-import spatial.SpatialExp
-import spatial.api.HostTransferExp
+import argon.core._
+import spatial.aliases._
+import spatial.nodes._
 
 trait ScalaGenHostTransfer extends ScalaGenMemories {
-  val IR: SpatialExp
-  import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SetArg(reg, v) => emit(src"val $lhs = $reg.update(0, $v)")

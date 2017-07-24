@@ -1,39 +1,39 @@
 package spatial.codegen.scalagen
 
+import argon.core._
 import argon.codegen.scalagen.ScalaGenArray
-import argon.ops.ArrayExtExp
-import spatial.SpatialExp
+import argon.nodes._
+import spatial.aliases._
+import spatial.nodes._
 
 // Version of Arrays that uses Number as iterator
 trait ScalaGenSpatialArrayExt extends ScalaGenArray {
-  val IR: SpatialExp
-  import IR._
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ArrayUpdate(array, i, data) => emit(src"val $lhs = $array.update($i, $data)")
     case MapIndices(size, func, i)   =>
       open(src"val $lhs = Array.tabulate($size){bbb => ")
-        emit(src"val $i = Number(bbb)")
+        emit(src"val $i = FixedPoint(bbb)")
         emitBlock(func)
       close("}")
 
     case ArrayForeach(array,apply,func,i) =>
       open(src"val $lhs = $array.indices.foreach{bbb => ")
-      emit(src"val $i = Number(bbb)")
+      emit(src"val $i = FixedPoint(bbb)")
       visitBlock(apply)
       emitBlock(func)
       close("}")
 
     case ArrayMap(array,apply,func,i) =>
       open(src"val $lhs = Array.tabulate($array.length){bbb => ")
-      emit(src"val $i = Number(bbb)")
+      emit(src"val $i = FixedPoint(bbb)")
       visitBlock(apply)
       emitBlock(func)
       close("}")
 
     case ArrayZip(a, b, applyA, applyB, func, i) =>
       open(src"val $lhs = Array.tabulate($a.length){bbb => ")
-      emit(src"val $i = Number(bbb)")
+      emit(src"val $i = FixedPoint(bbb)")
       visitBlock(applyA)
       visitBlock(applyB)
       emitBlock(func)
