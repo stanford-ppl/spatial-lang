@@ -119,7 +119,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
         bug(c"  ${str(input)}")
         bug("and consumer: ")
         bug(c"  ${str(reader)}")
-        state.logError()
+        state.logBug()
       }
       // Retime inner block results as if we were already in the inner hierarchy
       val h = if (innerScope.contains(input)) hierarchy + 1 else hierarchy
