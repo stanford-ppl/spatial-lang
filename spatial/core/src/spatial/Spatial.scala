@@ -214,9 +214,9 @@ trait SpatialCompiler extends ArgonCompiler {
 
   override protected def onException(t: Throwable): Unit = {
     super.onException(t)
-    Report.error("If you'd like, you can submit this log and your code in a bug report at: ")
-    Report.error("  https://github.com/stanford-ppl/spatial-lang/issues")
-    Report.error("and we'll try to fix it as soon as we can.")
+    Report.bug("If you'd like, you can submit this log and your code in a bug report at: ")
+    Report.bug("  https://github.com/stanford-ppl/spatial-lang/issues")
+    Report.bug("and we'll try to fix it as soon as we can.")
   }
 
   override protected def parseArguments(args: Seq[String]): Unit = {
