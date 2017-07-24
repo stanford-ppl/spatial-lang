@@ -16,91 +16,104 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
 
   sealed trait RegView1 {
     def apply(i: Index)(implicit sc: SourceContext): T
+    def update(i: Index, v: T)(implicit sc: SourceContext): Unit
   }
 
   def toRegView1(reg: RegFile1[T]): RegView1 =
     RegId1(reg)
 
   case class RegId1(reg: RegFile1[T]) extends RegView1 {
-    def apply(i: Index)(implicit sc: SourceContext) = {
+    def apply(i: Index)(implicit sc: SourceContext) = 
       reg(i)
-    }
+    def update(i: Index, v: T)(implicit sc: SourceContext) =
+      reg(i) = v
   }
 
   case class RegSRAM1(reg: SRAM2[T], pos: Index, ofs: scala.Int) extends RegView1 {
-    def apply(i: Index)(implicit sc: SourceContext) = reg(pos, i + ofs)
+    def apply(i: Index)(implicit sc: SourceContext) =
+      reg(pos, i + ofs)
+    def update(i: Index, v: T)(implicit sc: SourceContext) =
+      reg(pos, i + ofs) = v
+    
   }
   
-  case class RegAdd1(reg1: RegView1, reg2: RegView1) extends RegView1 {
-    def apply(i: Index)(implicit sc: SourceContext) = reg1(i) + reg2(i)
-  }
-
-  case class RegSub1(reg1: RegView1, reg2: RegView1) extends RegView1 {
-    def apply(i: Index)(implicit sc: SourceContext) = reg1(i) - reg2(i)
-  }
-
   case class RegMult1(reg: RegView1, factor: T) extends RegView1 {
-    def apply(i: Index)(implicit sc: SourceContext) = reg(i)*factor
+    def apply(i: Index)(implicit sc: SourceContext) =
+      reg(i)*factor
+    def update(i: Index, v: T)(implicit sc: SourceContext) =
+      reg(i) = v
+      
   }
   
   case class RegCol(reg: RegView2, col: Int) extends RegView1 {
-    def apply(i: Index)(implicit sc: SourceContext) = reg(i, col)
+    def apply(i: Index)(implicit sc: SourceContext) =
+      reg(i, col)
+    def update(i: Index, v: T)(implicit sc: SourceContext) =
+      reg(i, col) = v      
   }
 
   case class RegRow(reg: RegView2, row: Int) extends RegView1 {
-    def apply(i: Index)(implicit sc: SourceContext) = reg(row, i)
+    def apply(i: Index)(implicit sc: SourceContext) =
+      reg(row, i)
+    def update(i: Index, v: T)(implicit sc: SourceContext) =
+      reg(row, i) = v
+      
   }
 
   sealed trait RegView2 {
     def apply(y: Index, x: Index)(implicit sc: SourceContext): T
+    def update(y: Index, x: Index, v: T)(implicit sc: SourceContext): Unit      
   }  
 
   def toRegView2(reg: RegFile2[T]): RegView2 =
     RegId2(reg)
   
   case class RegId2(reg: RegFile2[T]) extends RegView2 {
-    def apply(y: Index, x: Index)(implicit sc: SourceContext) = reg(y, x)
+    def apply(y: Index, x: Index)(implicit sc: SourceContext) =
+      reg(y, x)
+    def update(y: Index, x: Index, v: T)(implicit sc: SourceContext) =
+      reg(y, x) = v      
+
   }
 
   case class RegSRAM2(reg: SRAM3[T], pos: Index) extends RegView2 {
     def apply(y: Index, x: Index)(implicit sc: SourceContext) = reg(pos, y, x)
+    def update(y: Index, x: Index, v: T)(implicit sc: SourceContext) =
+      reg(pos, y, x) = v      
+    
   }
   
 
   case class RegVec2(reg: RegView1) extends RegView2 {
     def apply(y: Index, x: Index)(implicit sc: SourceContext) = reg(y)
+    def update(y: Index, x: Index, v: T)(implicit sc: SourceContext) =
+      reg(y) = v      
+    
   }
   
   case class RegDiag2(data: T) extends RegView2 {
     @virtualize def apply(y: Index, x: Index)(implicit sc: SourceContext) =
       mux(y == x, data, zero)
-  }  
 
+    def update(y: Index, x: Index, v: T)(implicit sc: SourceContext) =
+      ???    
+  }  
   
-  case class RegAdd2(reg1: RegView2, reg2: RegView2) extends RegView2 {
-    def apply(y: Index, x: Index)(implicit sc: SourceContext) = reg1(y, x) + reg2(y, x)
-  }
 
   case class RegMult2(reg: RegView2, factor: T) extends RegView2 {
     def apply(y: Index, x: Index)(implicit sc: SourceContext) = reg(y, x)*factor
-  }
-  
-
-  case class RegSub2(reg1: RegView2, reg2: RegView2) extends RegView2 {
-    def apply(y: Index, x: Index)(implicit sc: SourceContext) = reg1(y, x) - reg2(y, x)
-  }
-
-  case class RegView2Diag(reg: RegFile1[T]) extends RegView2 {
-    def apply(y: Index, x: Index)(implicit sc: SourceContext) =
-      if (x == y)
-        reg(x)
-      else
-        zero
-  }
+    def update(y: Index, x: Index, v: T)(implicit sc: SourceContext) =
+      reg(y, x) = v
+    
+  }  
 
   case class RegTranspose2(reg: RegView2) extends RegView2 {
     def apply(y: Index, x: Index)(implicit sc: SourceContext) = reg(x, y)
+    def update(y: Index, x: Index, v: T)(implicit sc: SourceContext) =
+      reg(x, y) = v
+    
   }
+
   
   
 
@@ -144,35 +157,40 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
       copy(reg = RegId1(nreg))
     }
 
-    def binOpInPlace(e: Index => (T, T), f: (T, T) => T, nreg: RegFile1[T]) = {
+    def binOpInPlace(e: Index => (T, T), f: (T, T) => T) = {
       Foreach(0::n){ i =>
         val (e1, e2) = e(i)
-        nreg(i) = f(e1, e2)
+        reg(i) = f(e1, e2)
       }
-      copy(reg = RegId1(nreg))
+      this
     }    
 
     def *(x: T)(implicit sc: SourceContext) =
       binOp(i => (reg(i), x), _*_)
-//      copy(reg = RegMult1(reg, x))
 
+    def :*(x: T)(implicit sc: SourceContext) =
+      binOpInPlace(i => (reg(i), x), _*_)
+    
     def +(v: Vec)(implicit sc: SourceContext) = {
       require(n == v.n)
       binOp(i => (reg(i), v.reg(i)), _+_)
-//      copy(reg = RegAdd1(reg, v.reg))            
     }
 
-    def +:(v: Vec) = {
+    def :+(v: Vec) = {
       require(n == v.n)
-      ???
-//      binOpInPlace(i => (reg(i), v.reg(i)), _+_)
+      binOpInPlace(i => (reg(i), v.reg(i)), _+_)      
     }
     
     def -(v: Vec)(implicit sc: SourceContext) = {
       require(n == v.n)
       binOp(i => (reg(i), v.reg(i)), _-_)
-//      copy(reg = RegSub1(reg, v.reg))                  
     }
+
+    def :-(v: Vec) = {
+      require(n == v.n)
+      binOpInPlace(i => (reg(i), v.reg(i)), _-_)      
+    }
+    
     
     def dot(v: Vec)(implicit sc: SourceContext) = {
       require(n == v.n)            
@@ -181,8 +199,12 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
       r.value
     }
 
-    def norm(implicit sc: SourceContext) =
-      sqrtT(dot(this))
+    def norm(implicit sc: SourceContext) = {
+      val r = Reg[T]
+      Reduce(r)(0::n)(i => reg(i)**2)(_+_)
+      sqrtT(r.value)
+    }
+
     
   }
 
@@ -198,6 +220,9 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
     def *(y: T)(implicit sc: SourceContext): Matrix
     def +(m: Matrix)(implicit sc: SourceContext): Matrix
     def -(m: Matrix)(implicit sc: SourceContext): Matrix
+    def :*(y: T)(implicit sc: SourceContext): Matrix
+    def :+(m: Matrix)(implicit sc: SourceContext): Matrix
+    def :-(m: Matrix)(implicit sc: SourceContext): Matrix    
     def toMatrixDense: MatrixDense
 
     def loadTo(sram: SRAM2[T], i: Index)(implicit sc: SourceContext) =
@@ -257,28 +282,40 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
       copy(reg = RegId2(nreg))
     }
 
-    def binOpInPlace(e: (Index, Index) => (T, T), f: (T, T) => T, nreg: RegFile2[T]) = {
+    def binOpInPlace(e: (Index, Index) => (T, T), f: (T, T) => T) = {
       Foreach(0::h, 0::w){ (j, i) =>
         val (e1, e2) = e(j, i)
-        nreg(j, i) = f(e1, e2)
+        reg(j, i) = f(e1, e2)
       }
-      copy(reg = RegId2(nreg))
-    }
+      this
+    }        
     
     def +(m: Matrix)(implicit sc: SourceContext) = {
       require(w == m.w && h == m.h)
       binOp((j,i) => (reg(j,i), m.toMatrixDense.reg(j,i)), _+_)
-      //      copy(reg = RegAdd2(reg, m.toMatrixDense.reg))
     }
+
+    def :+(m: Matrix)(implicit sc: SourceContext) = {
+      require(w == m.w && h == m.h)
+      binOpInPlace((j,i) => (reg(j,i), m.toMatrixDense.reg(j,i)), _+_)
+    }
+    
     def -(m: Matrix)(implicit sc: SourceContext) = {
       require(w == m.w && h == m.h)
       binOp((j,i) => (reg(j,i), m.toMatrixDense.reg(j,i)), _-_)      
-     // copy(reg = RegSub2(reg, m.toMatrixDense.reg))
     }
+
+    def :-(m: Matrix)(implicit sc: SourceContext) = {
+      require(w == m.w && h == m.h)
+      binOpInPlace((j,i) => (reg(j,i), m.toMatrixDense.reg(j,i)), _-_)
+    }    
     
     def *(x: T)(implicit sc: SourceContext) =
       binOp((j,i) => (reg(j,i), x), _*_)            
 
+    def :*(x: T)(implicit sc: SourceContext) =
+      binOpInPlace((j,i) => (reg(j,i), x), _*_)            
+    
     
     def *(m: Matrix)(implicit sc: SourceContext): Matrix =  {
       require(w == m.h)
@@ -348,15 +385,22 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
 
     def +(m: Matrix)(implicit sc: SourceContext) =
       toMatrixDense + m.toMatrixDense
-    //      MatrixDense(h, w, RegAdd2(toMatrixDense.reg, m.toMatrixDense.reg))
 
+    def :+(m: Matrix)(implicit sc: SourceContext) =
+      toMatrixDense :+ m.toMatrixDense
+    
     def -(m: Matrix)(implicit sc: SourceContext) =
       toMatrixDense - m.toMatrixDense      
-    //MatrixDense(h, w, RegSub2(toMatrixDense.reg, m.toMatrixDense.reg))
+
+    def :-(m: Matrix)(implicit sc: SourceContext) =
+      toMatrixDense :- m.toMatrixDense      
     
     def *(y: T)(implicit sc: SourceContext) =
       copy(data = data.map(_.map(_.map(_*y))))
 
+    def :*(y: T)(implicit sc: SourceContext) =
+      toMatrixDense :* y
+    
     def *(m: Matrix)(implicit sc: SourceContext) = {
       require(w == m.h)
       m match {
@@ -400,15 +444,22 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
 
     def +(m: Matrix)(implicit sc: SourceContext) =
       toMatrixDense + m.toMatrixDense
-    //      MatrixDense(h, w, RegAdd2(toMatrixDense.reg, m.toMatrixDense.reg))
 
+    def :+(m: Matrix)(implicit sc: SourceContext) =
+      toMatrixDense :+ m.toMatrixDense
+    
     def -(m: Matrix)(implicit sc: SourceContext) =
       toMatrixDense - m.toMatrixDense      
-    //MatrixDense(h, w, RegSub2(toMatrixDense.reg, m.toMatrixDense.reg))
+
+    def :-(m: Matrix)(implicit sc: SourceContext) =
+      toMatrixDense :- m.toMatrixDense      
     
     def *(y: T)(implicit sc: SourceContext) =
       copy(factor = y*factor)
 
+    def :*(y: T)(implicit sc: SourceContext) =
+      toMatrixDense :* y
+    
     def *(m: Matrix)(implicit sc: SourceContext) =
       m*factor
 
