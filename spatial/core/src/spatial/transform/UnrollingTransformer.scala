@@ -467,7 +467,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
   }
   def unrollForeachNode(lhs: Sym[_], rhs: OpForeach)(implicit ctx: SrcCtx): Exp[_] = {
     val OpForeach(en, cchain, func, iters) = rhs
-    if (canFullyUnroll(cchain)) fullyUnrollForeach(lhs, f(cchain), func, iters)
+    if (canFullyUnroll(cchain) && !SpatialConfig.enablePIR) fullyUnrollForeach(lhs, f(cchain), func, iters)
     else partiallyUnrollForeach(lhs, f(cchain), func, iters)
   }
 
@@ -640,8 +640,12 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
   }
   def unrollReduceNode[T](lhs: Sym[_], rhs: OpReduce[T])(implicit ctx: SrcCtx) = {
     val OpReduce(en,cchain,accum,map,load,reduce,store,zero,fold,rV,iters) = rhs
-    if (canFullyUnroll(cchain)) fullyUnrollReduce[T](lhs, f(en), f(cchain), f(accum), zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
-    else partiallyUnrollReduce[T](lhs, f(en), f(cchain), f(accum), zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
+    if (canFullyUnroll(cchain) && !SpatialConfig.enablePIR) {
+      fullyUnrollReduce[T](lhs, f(en), f(cchain), f(accum), zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
+    }
+    else {
+      partiallyUnrollReduce[T](lhs, f(en), f(cchain), f(accum), zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
+    }
   }
 
 
