@@ -8,6 +8,7 @@ module spatial_memory_controller #(
   // Spatial/MAG signals
   input[63:0]                   addr,
   input[31:0]                   size,
+  input[15:0]                   tag,
   input                         addr_size_valid,
   input[DATA_WIDTH-1:0]         wdata,
   input                         wlast,
@@ -28,6 +29,7 @@ module spatial_memory_controller #(
   output logic                  DIRECT_wvalid,
   input                         DIRECT_rdata_valid,
   input[DATA_WIDTH-1:0]         DIRECT_rdata,
+  output logic [15:0]           current_tag,
   input                         rlast,
   input                         tst_cfg_ack//,
   // input[31:0]                   tst_cfg_rdata
@@ -64,13 +66,14 @@ mc_state_t curr_state;
 logic load_state;
 logic [63:0] current_burst_addr;
 logic [31:0] current_burst_size;
+logic [15:0] current_tag_tmp;
 
 assign rdata = DIRECT_rdata;
 assign rdata_valid = DIRECT_rdata_valid;
 assign DIRECT_wdata = wdata;             // TODO: Add back later to eliminate the 1 cycle delay for DIRECT_wdata (and the registers)
-assign DIRECT_wvalid = wdata_valid;
+assign DIRECT_wvalid = wdata_valid && ready_for_wdata;
 
-assign ready_for_wdata = (curr_state === MC_WVALID_STALL_2) || ( (!load_state) && (!wlast) && (curr_state === MC_WAIT_FOR_DDR) );
+assign ready_for_wdata = (!load_state) && (curr_state === MC_WAIT_FOR_DDR);
 /* // For now, setting this high entire time design runs
 always_ff @(posedge clk) begin
   if (!rst_n) begin
@@ -80,6 +83,18 @@ always_ff @(posedge clk) begin
   end
 end
 */
+
+// /*
+always_ff @(posedge clk) begin
+  if (addr_size_valid) begin
+    if (write_mode) begin
+      $display("[%t] Store to  0x%x", $realtime, addr);
+    end else begin
+      $display("[%t] Load from 0x%x", $realtime, addr);
+    end
+  end
+end
+// */
 
 /*
 always_ff @(posedge clk) begin
@@ -105,6 +120,7 @@ always_ff @(posedge clk) begin
     $display("  [MC]  cfg_rd = %d", cfg_rd);
     $display("  [MC]  cfg_wdata = %d", cfg_wdata);
     $display("  [MC]  cfg_addr = 0x%x", cfg_addr);
+  end
 end
 */
 
@@ -192,6 +208,8 @@ always_ff @(posedge clk or negedge rst_n) begin
     current_burst_addr <= 0;
     current_burst_size <= 0;
     ready_for_next_cmd <= 0;
+    current_tag <= 0;
+    current_tag_tmp <= 0;
   end
   else begin
     case(curr_state)
@@ -202,6 +220,7 @@ always_ff @(posedge clk or negedge rst_n) begin
                 current_burst_size <= size;
                 curr_state <= MC_INIT_1;
                 ready_for_next_cmd <= 1;
+                current_tag_tmp <= tag;
               end else begin
                 load_state <= 0;
                 curr_state <= MC_IDLE;
@@ -240,6 +259,7 @@ always_ff @(posedge clk or negedge rst_n) begin
               if (tst_cfg_ack) begin
                 if (load_state) begin
                   curr_state <= MC_WAIT_FOR_DDR;
+                  current_tag <= current_tag_tmp; // If assign too soon, by time awvalid goes high it may have changed
                 end else begin
                   curr_state <= MC_WVALID_STALL_1;
                 end
@@ -258,6 +278,7 @@ always_ff @(posedge clk or negedge rst_n) begin
             end
       MC_WVALID_STALL_2: begin
               curr_state <= MC_WAIT_FOR_DDR;
+              current_tag <= current_tag_tmp;
             end
       MC_WAIT_FOR_DDR: begin
               if ( (load_state && rlast && DIRECT_rdata_valid) || (!load_state && wlast) ) begin

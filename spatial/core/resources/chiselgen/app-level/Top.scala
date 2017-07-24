@@ -315,7 +315,7 @@ class Top(
 
     case "aws" | "aws-sim" =>
       // Simulation Fringe
-      val blockingDRAMIssue = true  // Allow only one in-flight request, block until response comes back
+      val blockingDRAMIssue = false  // Allow only one in-flight request, block until response comes back
       val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[AWSInterface]
 
