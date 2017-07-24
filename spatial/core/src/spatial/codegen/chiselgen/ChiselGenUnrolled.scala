@@ -66,7 +66,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       if (styleOf(lhs) != StreamPipe) { 
-        emitValids(cchain, iters, valids)
+        emitValids(lhs, cchain, iters, valids)
         withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitParallelizedLoop(iters, cchain)
@@ -75,7 +75,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       } else {
         if (childrenOf(lhs).length > 0) {
           childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
-            emitValids(cchain, iters, valids, src"_copy$c")
+            emitValids(lhs, cchain, iters, valids, src"_copy$c")
           }          
         } else {
           emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situation with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
@@ -110,7 +110,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten))
-      emitValids(cchain, iters, valids)
+      emitValids(lhs, cchain, iters, valids)
       emitGlobalWire(src"val ${lhs}_II_done = Wire(Bool())")
       if (iiOf(lhs) <= 1) {
         emit(src"""${lhs}_II_done := true.B""")
