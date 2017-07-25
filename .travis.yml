@@ -19,9 +19,10 @@ install:
   - sudo make install
 before_script:
   - sudo chmod +x /usr/local/bin/sbt # Travis is being so annoying (https://github.com/travis-ci/travis-ci/issues/7703)
-  - sbt compile
   - cd ${TEMPLATES_HOME}
 script: 
   - free -k
   - bash ./run-templates.sh all
   - sbt "test:run-main templates.Launcher all"
+  - cd /home/travis/build/stanford-ppl/spatial-lang/
+  - sbt compile
