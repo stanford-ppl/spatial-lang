@@ -553,7 +553,7 @@ object Utils {
 
   def getFF[T<: chisel3.core.Data](sig: T, en: UInt) = {
     val in = sig match {
-      case v: Vec[UInt] => v.reverse.reduce { Cat(_,_) }
+      case v: Vec[UInt] => v.reverse.reduce { chisel3.util.Cat(_,_) }
       case u: UInt => u
     }
 
