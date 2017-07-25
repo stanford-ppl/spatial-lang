@@ -49,3 +49,6 @@ lazy val apps = project
   .dependsOn(spatial, virtualized)
   .settings(assemblySettings)
   .settings(assemblyJarName in assembly := "apps.jar")
+
+addCommandAlias("spatial", "; apps/run-main")
+addCommandAlias("make", "; apps/compile")

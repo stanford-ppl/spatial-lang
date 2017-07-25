@@ -275,7 +275,7 @@ trait PIRSplitting extends PIRTraversal {
         val outputs = outs.flatMap{out => rerefOut(out.reg) }
         ctx.addStage(MapStage(op, inputs, outputs))
 
-      case ReduceStage(op, init, in, acc) =>
+      case ReduceStage(op, init, in, acc, accumParent) =>
         var input = rerefIn(in.reg)
         if (!input.reg.isInstanceOf[ReduceMem[_]]) {
           val redReg = ReduceReg()
@@ -285,7 +285,14 @@ trait PIRSplitting extends PIRTraversal {
           input = ctx.refIn(redReg)
         }
         cu.regs += acc
-        ctx.addStage(ReduceStage(op, init, input, acc))
+        val newAccumParent = 
+          if (accumParent==orig) parent.getOrElse(cu) // Take StreamController of the splitted cu
+                                                      // Or current CU if single partition
+          else accumParent // outer controller. Shouldn't be splitted 
+        dbgs(s"accumParent==orig ${accumParent==orig}")
+        dbgs(s"accumParent=${accumParent} orig=${orig} parent=${parent.map(_.name)} cu=${cu.name}")
+        dbgs(s"newAccumParent=${newAccumParent.name}")
+        ctx.addStage(ReduceStage(op, init, input, acc, newAccumParent))
 
         if (remoteIns.contains(acc)) {
           val bus = portOut(acc, true)

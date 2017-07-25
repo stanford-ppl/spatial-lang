@@ -7,6 +7,8 @@ import argon.core.State
 
 abstract class Matrix[T: Type: Num]()(implicit state: State) {
 
+  def IN_PLACE: scala.Boolean
+
   protected def sqrtT(x: T): T
 
   protected def one: T
@@ -157,12 +159,16 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
       copy(reg = RegId1(nreg))
     }
 
-    def binOpInPlace(e: Index => (T, T), f: (T, T) => T) = {
-      Foreach(0::n){ i =>
-        val (e1, e2) = e(i)
-        reg(i) = f(e1, e2)
+    def binOpInPlace(e: Index => (T, T), f: (T, T) => T)(implicit sc: SourceContext) = {
+      if (!IN_PLACE)
+        binOp(e, f)
+      else {
+        Foreach(0::n){ i =>
+          val (e1, e2) = e(i)
+          reg(i) = f(e1, e2)
+        }
+        this
       }
-      this
     }    
 
     def *(x: T)(implicit sc: SourceContext) =
@@ -282,12 +288,16 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
       copy(reg = RegId2(nreg))
     }
 
-    def binOpInPlace(e: (Index, Index) => (T, T), f: (T, T) => T) = {
-      Foreach(0::h, 0::w){ (j, i) =>
-        val (e1, e2) = e(j, i)
-        reg(j, i) = f(e1, e2)
+    def binOpInPlace(e: (Index, Index) => (T, T), f: (T, T) => T)(implicit sc: SourceContext) = {
+      if (!IN_PLACE)
+        binOp(e, f)
+      else {
+        Foreach(0::h, 0::w){ (j, i) =>
+          val (e1, e2) = e(j, i)
+          reg(j, i) = f(e1, e2)
+        }
+        this
       }
-      this
     }        
     
     def +(m: Matrix)(implicit sc: SourceContext) = {

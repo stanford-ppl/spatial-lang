@@ -11,6 +11,7 @@ import spatial.models.AreaMetric
 case class DSEThread(
   threadId:  Int,
   origState: State,
+  params:    Seq[Exp[_]],
   space:     Seq[Domain[_]],
   restricts: Set[Restrict],
   accel:     Exp[_],
@@ -74,6 +75,7 @@ case class DSEThread(
     cycleAnalyzer.init()
     contentionAnalyzer.top = accel
 
+    Config.verbosity = -1
     scalarAnalyzer.silence()
     memoryAnalyzer.silence()
     contentionAnalyzer.silence()
@@ -118,6 +120,8 @@ case class DSEThread(
     while (i < len) {
       state.resetErrors()
       indexedSpace.foreach{case (domain,d) => domain.set( ((pt / prods(d)) % dims(d)).toInt ) }
+
+      //println(params.map{case p @ Bound(c) => p.name.getOrElse(p.toString) + s": $c" }.mkString(", "))
 
       val (area, runtime) = evaluate()
       val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
