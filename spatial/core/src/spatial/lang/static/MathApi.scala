@@ -23,9 +23,14 @@ trait MathApi { this: SpatialApi =>
   @api def cos_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = {
     1 - x*x/2 + x*x*x*x/24 //- x*x*x*x*x*x/720
   }
-  /** Taylor expansion for natural exponential to third degree **/
+  /** Taylor expansion for natural exponential**/
   @api def exp_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = {
     mux(x < -3.5.to[FixPt[S,I,F]], 0.to[FixPt[S,I,F]], mux(x < -1.2.to[FixPt[S,I,F]], x*0.1.to[FixPt[S,I,F]] + 0.35.to[FixPt[S,I,F]], 1 + x + x*x/2 + x*x*x/6 + x*x*x*x/24 + x*x*x*x*x/120))
+  }
+  /** Taylor expansion for natural log to third degree **/
+  @api def log_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = {
+    val xx = x-1
+    xx - xx*xx/2 + xx*xx*xx/3 - xx*xx*xx*xx/4
   }
   /** Square root **/
   @api def sqrt[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = wrap(Math.flt_sqrt(x.s))

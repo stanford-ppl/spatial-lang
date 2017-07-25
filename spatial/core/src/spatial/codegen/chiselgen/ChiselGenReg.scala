@@ -219,8 +219,8 @@ trait ChiselGenReg extends ChiselGenSRAM {
           case Some(fps: ReduceFunction) => // is an accumulator
             // Make sure this was not stripped of its accumulation from full unroll
             if (!(writersOf(reg).map{w => readersOf(reg).map { r => w.node.dependsOn(r.node) } }.flatten.reduce{_|_})) {
-              emit(src"""val ${reg}_wren = ${parentOf(reg).get}_datapath_en""")
-              emit(src"""val ${reg}_resetter = ${parentOf(reg).get}_rst_en""")
+              emit(src"""val ${reg}_wren = ${parentOf(lhs).get}_datapath_en""")
+              emit(src"""val ${reg}_resetter = ${parentOf(lhs).get}_rst_en""")
             }
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               fps match {
