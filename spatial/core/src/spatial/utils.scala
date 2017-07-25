@@ -460,6 +460,11 @@ object utils {
     case _ if isOuterControl(x) => children
   }
 
+  @stateful def loopCounters(e: Exp[_]): Seq[Exp[CounterChain]] = getDef(e).map{d => d.nonBlockInputs.collect{
+    case e: Exp[_] if e.tp == CounterChainType => e.asInstanceOf[Exp[CounterChain]]
+  }}.getOrElse(Nil)
+
+  @stateful def willBeFullyUnrolled(e: Exp[_]): Boolean = loopCounters(e).forall(canFullyUnroll)
 
   @stateful def isOuterControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == OuterControl
   @stateful def isInnerControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == InnerControl
@@ -474,7 +479,7 @@ object utils {
 
   @stateful def isInnerPipe(e: Exp[_]): Boolean = styleOf(e) == InnerPipe || (styleOf(e) == MetaPipe && isInnerControl(e))
   @stateful def isInnerPipe(e: Ctrl): Boolean = e.isInner || isInnerPipe(e.node)
-  @stateful def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe
+  @stateful def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe && !willBeFullyUnrolled(e) // Fully unrolled doesn't need pipelining
   @stateful def isSeqPipe(e: Exp[_]): Boolean = styleOf(e) == SeqPipe
   @stateful def isStreamPipe(e: Exp[_]): Boolean = e match {
     case Def(Hwblock(_,isFrvr)) => isFrvr
