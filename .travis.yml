@@ -18,8 +18,9 @@ install:
   - make
   - sudo make install
 before_script:
-  - cd ${TEMPLATES_HOME}
   - sudo chmod +x /usr/local/bin/sbt # Travis is being so annoying (https://github.com/travis-ci/travis-ci/issues/7703)
+  - sbt compile
+  - cd ${TEMPLATES_HOME}
 script: 
   - free -k
   - bash ./run-templates.sh all
