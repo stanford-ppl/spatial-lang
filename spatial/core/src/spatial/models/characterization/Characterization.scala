@@ -12,10 +12,17 @@ trait AllBenchmarks extends Benchmarks
   with SRAMs
 
 object Characterization extends SpatialCompiler with AllBenchmarks {
-  //To implement by Richard
+  // Untested area extraction code
   def area(dir: JString): Map[JString, scala.Int] = {
-    Thread.sleep(1000)
-    Map(("question of the universe", 42))
+    val pwd = "$pwd".!!
+    "cd $dir".!
+    "make zynq".!
+    val reportFile = Source.fromFile("verilog-zynq/project_1/project_1.runs/impl_1/design_1_wrapper_utilization_placed.rpt")4
+    val contents = source.getLines.mkString
+    val pattern = "(| Slice LUTs                 |\s*) ([0-9]+)".r
+    val pattern(prefix, area) = contents
+    "cd $pwd".!
+    Map((dir, area))
   }
 
   def storeArea(name: JString, area: Map[JString, scala.Int]) = {
