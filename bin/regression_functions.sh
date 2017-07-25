@@ -88,7 +88,7 @@ check_packet() {
   for ii in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$ii]}"* ]]; then rank=${ii}; fi; done
   if [ $rank = -1 ]; then
     logger "Packet for $packet disappeared from list $stringified!  Quitting ungracefully!"
-    rm /remote/regression/mapping/${this_machine}---${tim}*
+    rm -f /remote/regression/mapping/${this_machine}---${tim}*
     exit 1
   fi
 }
@@ -607,11 +607,15 @@ function report {
 
 # Override env vars to point to a separate directory for this regression test
 export SPATIAL_HOME=${SPATIAL_HOME}
-export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+if [[ ${this_machine} = *\"tflop\"* ]]; then # ugly hack to get tflops working
+  export PATH=/usr/local/sbin:/usr/bin:/usr/local/bin:/usr/sbin:/sbin:/bin:/usr/games:/usr/local/games
+else
+  export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+fi
 export ARGON_HOME=${ARGON_HOME}
 export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
 export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
-export PATH=\$VCS_HOME/amd64/bin:$PATH
+export PATH=\$VCS_HOME/amd64/bin:\$PATH
 export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
 export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
 if [[ \${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson

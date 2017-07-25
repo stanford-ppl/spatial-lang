@@ -57,6 +57,7 @@ trait PIRAllocation extends PIRTraversal {
       case Def(_:UnitPipe | _:Hwblock) => 
         val cu = allocateCU(pipe)
         val cc = UnitCChain(s"${pipe}_unit")
+        cu.cchains += cc
         None
       case _ => None
     }
@@ -294,9 +295,10 @@ trait PIRAllocation extends PIRTraversal {
   def memMode(dmem:Expr, access:Expr, cu:PCU) = {
     (compose(dmem), cu.style) match {
       case (mem, MemoryCU(i)) if isSRAM(mem) & isReader(access) => SRAMMode // Creating SRAM
-      case (mem, MemoryCU(i)) if isWriter(mem) & isWriter(access) => VectorFIFOMode  // Creating FIFO for SRAM Write
-      case (LocalReader(reads), readerCU) if reads.headOption.map(h => isSRAM(h._1)).getOrElse(false) => 
-        VectorFIFOMode // Creating FIFO for SRAM Read 
+      case (mem, MemoryCU(i)) if isWriter(mem) & isWriter(access) =>  // Creating FIFO for SRAM Write
+        if (getInnerPar(access)==1) ScalarFIFOMode else VectorFIFOMode
+      case (a@LocalReader(reads), readerCU) if reads.headOption.fold(false) { r => isSRAM(r.mem) } => // Creating FIFO for SRAM Read 
+        if (getInnerPar(a)==1) ScalarFIFOMode else VectorFIFOMode
       case (mem, style) if isReg(mem) | isGetDRAMAddress(mem) => ScalarBufferMode
       case (mem, style) if isStreamIn(mem) => VectorFIFOMode // from Fringe
       case (mem, style) if isStreamOut(mem) & getField(dmem)==Some("data") => 
@@ -341,7 +343,11 @@ trait PIRAllocation extends PIRTraversal {
         case reader => decompose(reader)
       }
       decompose(mem).zip(dreaders).foreach { case (dmem, dreader) => 
-        val bus = if (isArgIn(mem) || isGetDRAMAddress(mem)) Some(InputArg(s"${quote(dmem)}")) else None
+        val bus = mem match {
+          case mem if isArgIn(mem) => Some(InputArg(s"${mem.name.getOrElse(quote(dmem))}", dmem))
+          case mem@Def(GetDRAMAddress(dram)) => Some(DramAddress(s"${dram.name.getOrElse(quote(dmem))}_addr", dram, dmem))
+          case _ => None
+        }
         bus.foreach { b => globals += b }
         getReaderCUs(reader).foreach { readerCU =>
           if (!localWritten) { // Write to FIFO/StreamOut/RemoteReg
@@ -493,10 +499,12 @@ trait PIRAllocation extends PIRTraversal {
       val ParLocalReader(reads) = reader
       val (_, addrs, _) = reads.head
       val addr = addrs.map(_.head)
+      val parBy1 = getInnerPar(reader)==1
       decompose(mem).zip(decompose(reader)).foreach { case (dmem, dreader) =>
         readerCUs.foreach { readerCU =>
           dbgs(s"readerCU = $readerCU")
-          val bus = CUVector(s"${quote(dmem)}_${quote(dreader)}_${quote(readerCU.pipe)}") 
+          val bus = if (parBy1) CUScalar(s"${quote(dmem)}_${quote(dreader)}_${quote(readerCU.pipe)}") 
+                    else CUVector(s"${quote(dmem)}_${quote(dreader)}_${quote(readerCU.pipe)}")
           globals += bus
           val vfifo = createMem(dreader, dreader, readerCU) 
           // use reader as mem since one sram can be read by same cu twice with different address
@@ -529,12 +537,18 @@ trait PIRAllocation extends PIRTraversal {
       val ParLocalWriter(writes) = writer
       val (mem, value, addrs, ens) = writes.head
       val addr = addrs.map(_.head)
+      val parBy1 = getInnerPar(writer)==1
       decompose(mem).zip(decompose(writer)).foreach { case (dmem, dwriter) =>
-        val bus = CUVector(s"${quote(dmem)}_${quote(dwriter)}")
+        val bus = if (parBy1) CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
+                  else CUVector(s"${quote(dmem)}_${quote(dwriter)}")
         globals += bus
         val writerCU = getWriterCU(dwriter) 
         dbgs(s"writerCU = $writerCU")
-        writerCU.addReg(dwriter, VectorOut(bus))
+        bus match {
+          case bus:CUVector => writerCU.addReg(dwriter, VectorOut(bus))
+          case bus:CUScalar => writerCU.addReg(dwriter, ScalarOut(bus))
+          case _ =>
+        }
         // Schedule address calculation
         val sramCUs = allocateMemoryCU(dmem)
         val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms)

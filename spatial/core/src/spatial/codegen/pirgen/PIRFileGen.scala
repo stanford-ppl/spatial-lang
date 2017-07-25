@@ -23,7 +23,7 @@ trait PIRFileGen extends FileGen {
     emit("")
     open(s"""object ${Config.name} extends PIRApp {""")
     //emit(s"""override val arch = SN_4x4""")
-    open(s"""def main(args: String*)(top:Top) = {""")
+    open(s"""def main(top:Top) = {""")
 
     super.emitFileHeader()
   }

@@ -104,6 +104,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
     // ASSUMPTION: Currently only parallelizes by innermost loop
     inds.zip(factors).foreach{case (i,f) => parFactorOf(i) = f }
+    controller.foreach{ctrl => inds.foreach{i => ctrlOf(i) = ctrl }}
     unrollFactors = factors.lastOption.toList +: unrollFactors
     loopIterators = loopIterators ++ inds
     inInnerLoop = isInnerControl(blkToCtrl(blk)) // This version of the method is only called for loops

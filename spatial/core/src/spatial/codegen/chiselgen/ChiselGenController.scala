@@ -47,18 +47,51 @@ trait ChiselGenController extends ChiselGenCounter{
     }
   }
 
-  def emitValids(cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
+  def emitValids(lhs: Exp[Any], cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
         emit(src"val ${v}${suffix} = Mux(${cchain}${suffix}_strides($i) >= 0.S, ${c}${suffix} < ${cchain}${suffix}_stops(${i}), ${c}${suffix} > ${cchain}${suffix}_stops(${i})) // TODO: Generate these inside counter")
+        if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
+          emitGlobalModule(src"""val ${v}${suffix}_chain = Module(new NBufFF(${childrenOf(lhs).size}, 1))""")
+          childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""val ${v}${suffix}_chain_read_$i = ${v}${suffix}_chain.read(${i}) === 1.U(1.W)""")}
+          withStream(getStream("BufferControlCxns")) {
+            childrenOf(lhs).zipWithIndex.foreach{ case (s, i) =>
+              emit(src"""${v}${suffix}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
+            }
+          }
+          emit(src"""${v}${suffix}_chain.chain_pass(${v}${suffix}, ${lhs}_sm.io.output.ctr_inc)""")
+          validPassMap += ((v, suffix) -> childrenOf(lhs))
+        }
       }
     }
+    // Console.println(s"map is $validPassMap")
   }
   def emitValidsDummy(iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
         emit(src"val ${v}${suffix} = true.B")
       }
+    }
+  }
+
+  def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]]) = {
+    val stages = childrenOf(controller)
+    inds.foreach { idx =>
+      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
+      stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
+      withStream(getStream("BufferControlCxns")) {
+        stages.zipWithIndex.foreach{ case (s, i) =>
+          emit(src"""${idx}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
+        }
+      }
+      emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
+      // Associate bound sym with both ctrl node and that ctrl node's cchain
+      stages.foreach{
+        case stage @ Def(s:UnrolledForeach) => cchainPassMap += (s.cchain -> stage)
+        case stage @ Def(s:UnrolledReduce[_,_]) => cchainPassMap += (s.cchain -> stage)
+        case _ =>
+      }
+      itersMap += (idx -> stages.toList)
     }
   }
 
@@ -202,27 +235,6 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     } else {
       false
-    }
-  }
-
-  def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]]) = {
-    val stages = childrenOf(controller)
-    inds.foreach { idx =>
-      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
-      stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
-      withStream(getStream("BufferControlCxns")) {
-        stages.zipWithIndex.foreach{ case (s, i) =>
-          emit(src"""${idx}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
-        }
-      }
-      emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
-      // Associate bound sym with both ctrl node and that ctrl node's cchain
-      stages.foreach{
-        case stage @ Def(s:UnrolledForeach) => cchainPassMap += (s.cchain -> stage)
-        case stage @ Def(s:UnrolledReduce[_,_]) => cchainPassMap += (s.cchain -> stage)
-        case _ =>
-      }
-      itersMap += (idx -> stages.toList)
     }
   }
 
