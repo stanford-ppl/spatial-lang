@@ -27,10 +27,12 @@ trait RegFiles extends AInterpreter {
   
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
-    // Issue #180
-    case RegFileNew(SeqEI(size), Some(SeqEI(inits))) => 
+    case RegFileNew(SeqEI(size), inits) => 
       variables.get(lhs).getOrElse {
-        new IRegFile(size, Array.fill[Any](size.product)(null))
+        val ar = inits
+          .map(SeqE.unapply(_).get.toArray)
+          .getOrElse(Array.fill[Any](size.product)(null))
+        new IRegFile(size, ar)
       }
 
     case RegFileStore(ERegFile(regf), SeqEI(is), EAny(v), EBoolean(en)) =>

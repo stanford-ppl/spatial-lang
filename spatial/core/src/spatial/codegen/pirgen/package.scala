@@ -8,6 +8,7 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import org.virtualized.SourceContext
+import spatial.SpatialConfig
 
 package object pirgen {
   type Expr = Exp[_]
@@ -245,7 +246,11 @@ package object pirgen {
 
   // returns (sym of flatten addr, List[Addr Stages])
   @stateful def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]):(Expr, List[OpStage]) = {
-    val cdims:Seq[Int] = dims.map{case Final(d) => d.toInt; case _ => throw new Exception("Unable to get bound of memory size") }
+    val cdims:Seq[Int] = dims.map{
+      case Final(d) => d.toInt
+      case Param(d:BigDecimal) => d.toInt
+      case d => throw new Exception(s"Unable to get bound of memory size $d")
+    }
     val strides:List[Expr] = List.tabulate(dims.length){ d =>
       if (d == dims.length - 1) int32(1)
       else int32(cdims.drop(d+1).product)
@@ -315,17 +320,18 @@ package object pirgen {
     val pipe = parentOf(access).get
     val bankFactor = getInnerPar(pipe)
 
+    // TODO: Distinguish isInner?
     val banking = pattern match {
-      case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt, bankFactor)
-      case StridedAccess(Exact(a), i) => StridedBanking(a.toInt, bankFactor)
-      case OffsetAccess(i, b)         => StridedBanking(1, bankFactor)
-      case LinearAccess(i)            => StridedBanking(1, bankFactor)
+      case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt, bankFactor, true)
+      case StridedAccess(Exact(a), i) => StridedBanking(a.toInt, bankFactor, true)
+      case OffsetAccess(i, b)         => StridedBanking(1, bankFactor, true)
+      case LinearAccess(i)            => StridedBanking(1, bankFactor, true)
       case InvariantAccess(b)         => NoBanking
       case RandomAccess               => NoBanking
     }
     banking match {
-      case StridedBanking(stride,f) if f > 1  => Strided(stride)
-      case StridedBanking(stride,f) if f == 1 => NoBanks
+      case StridedBanking(stride,f,_) if f > 1  => Strided(stride)
+      case StridedBanking(stride,f,_) if f == 1 => NoBanks
       case NoBanking if bankFactor==1         => NoBanks
       case NoBanking                          => Duplicated
     }
@@ -336,7 +342,7 @@ package object pirgen {
     val pattern = accessPatternOf(access)
     val strides = constDimsToStrides(dimsOf(mem).map{case Exact(d) => d.toInt})
 
-    def bankFactor(i: Expr) = if (iter.isDefined && i == iter.get) 16 else 1
+    def bankFactor(i: Expr) = if (iter.isDefined && i == iter.get) SpatialConfig.lanes else 1
 
     if (pattern.forall(_ == InvariantAccess)) NoBanks
     else {
@@ -376,16 +382,18 @@ package object pirgen {
     case (bank1, NoBanks) => bank1
   }
 
-  @stateful def getInnerPar(pipe:Expr):Int = pipe match {
+  @stateful def getInnerPar(n:Expr):Int = n match {
     case Def(Hwblock(func,_)) => 1
     case Def(UnitPipe(en, func)) => 1
-    case Def(UnrolledForeach(en, cchain, func, iters, valids)) =>
-      val Def(CounterChainNew(ctrs)) = cchain
-      val ConstReg(par) = extractConstant(parFactorsOf(ctrs.head).head)
+    case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
+      val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
       par.asInstanceOf[Int]
     case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
-      val Def(CounterChainNew(ctrs)) = cchain
-      val ConstReg(par) = extractConstant(parFactorsOf(ctrs.head).head)
+      val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
       par.asInstanceOf[Int]
+    case Def(_:ParSRAMLoad[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:ParSRAMStore[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:SRAMLoad[_]) => 1 
+    case Def(_:SRAMStore[_]) => 1 
   }
 }

@@ -2,6 +2,7 @@ package spatial
 
 import argon.ArgonApp
 import argon.ArgonCompiler
+import argon.analysis.ParamFinalizer
 import argon.core.State
 import argon.traversal.IRPrinter
 import argon.util.Report
@@ -67,6 +68,7 @@ trait SpatialCompiler extends ArgonCompiler {
       def metapipes  = ctrlAnalyzer.metapipes
       def top = ctrlAnalyzer.top.get
     }
+    lazy val finalizer = ParamFinalizer(IR = state)
 
     lazy val transferExpand = new TransferSpecialization { var IR = state }
     lazy val reduceAnalyzer = new ReductionAnalyzer { var IR = state }
@@ -133,7 +135,8 @@ trait SpatialCompiler extends ArgonCompiler {
 
     // --- DSE
     if (SpatialConfig.enableDSE) passes += paramAnalyzer
-    passes += dse               // TODO: Design space exploration
+    passes += dse               // Design space exploration
+    passes += finalizer
 
     // --- Post-DSE Expansion
     // NOTE: Small compiler pass ordering issue here:
@@ -198,6 +201,7 @@ trait SpatialCompiler extends ArgonCompiler {
     // --- Sanity Checks
     passes += scopeCheck        // Check that illegal host values are not used in the accel block
     passes += controlSanityCheck
+    passes += finalizer         // Finalize any remaining parameters
 
     // --- Code generation
     if (SpatialConfig.enableTree)  passes += treegen
@@ -214,9 +218,9 @@ trait SpatialCompiler extends ArgonCompiler {
 
   override protected def onException(t: Throwable): Unit = {
     super.onException(t)
-    Report.error("If you'd like, you can submit this log and your code in a bug report at: ")
-    Report.error("  https://github.com/stanford-ppl/spatial-lang/issues")
-    Report.error("and we'll try to fix it as soon as we can.")
+    Report.bug("If you'd like, you can submit this log and your code in a bug report at: ")
+    Report.bug("  https://github.com/stanford-ppl/spatial-lang/issues")
+    Report.bug("and we'll try to fix it as soon as we can.")
   }
 
   override protected def parseArguments(args: Seq[String]): Unit = {

@@ -60,8 +60,11 @@ case class CUScalar(override val name: String) extends ScalarBus(name) {
 
 case object LocalVectorBus extends VectorBus("LocalVector")
 case class LocalReadBus(mem:CUMemory) extends VectorBus(s"$mem.localRead")
-case class InputArg(override val name: String) extends ScalarBus(name) {
+case class InputArg(override val name: String, dmem:Expr) extends ScalarBus(name) {
   override def toString = s"ain$name"
+}
+case class DramAddress(override val name: String, dram:Expr, dmem:Expr) extends ScalarBus(name) {
+  override def toString = s"dramAddr$name"
 }
 case class OutputArg(override val name: String) extends ScalarBus(name) {
   override def toString = s"aout$name"
@@ -265,7 +268,7 @@ case class MapStage(op: PIROp, var ins: Seq[LocalRef], var outs: Seq[LocalRef]) 
   def inputRefs = ins
   def outputRefs = outs
 }
-case class ReduceStage(op: PIROp, init: ConstReg[_<:AnyVal], in: LocalRef, acc: ReduceReg) extends Stage {
+case class ReduceStage(op: PIROp, init: ConstReg[_<:AnyVal], in: LocalRef, acc: ReduceReg, var accParent:AbstractComputeUnit) extends Stage {
   def inputMems = List(in.reg, acc)
   def outputMems = List(acc)
   def inputRefs = List(in)
