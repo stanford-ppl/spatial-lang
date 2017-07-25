@@ -104,6 +104,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
     // ASSUMPTION: Currently only parallelizes by innermost loop
     inds.zip(factors).foreach{case (i,f) => parFactorOf(i) = f }
+    controller.foreach{ctrl => inds.foreach{i => ctrlOf(i) = ctrl }}
     unrollFactors = factors.lastOption.toList +: unrollFactors
     loopIterators = loopIterators ++ inds
     inInnerLoop = isInnerControl(blkToCtrl(blk)) // This version of the method is only called for loops
@@ -154,7 +155,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       appendWriter(writer, ctrl)
     else {
       val mem = LocalWriter.unapply(writer).get.head._1
-      throw new spatial.ExternalWriteError(mem, writer, ctrl)(writer.ctx, state)
+      throw new spatial.ExternalWriteException(mem, writer, ctrl)(writer.ctx, state)
     }
   }
 
@@ -241,7 +242,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   def checkPendingNodes(lhs: Sym[_], rhs: Op[_], ctrl: Option[Ctrl], blk: Option[Blk]) = {
-    val pending = rhs.inputs.flatMap{sym => pendingNodes.getOrElse(sym, Nil) }
+    val pending = rhs.nonBlockInputs.flatMap{sym => pendingNodes.getOrElse(sym, Nil) }
     if (pending.nonEmpty) {
       // All nodes which could potentially use a reader outside of an inner control node
       if (isStateless(lhs) && !ctrl.exists(isInnerControl)) { // Ctrl is either outer or outside Accel

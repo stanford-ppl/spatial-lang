@@ -385,7 +385,7 @@ object utils {
     case Op(e: SparseTransfer[_])  => Seq(e.p)
     case _ => Nil
   }
-  @internal def parsOf(x: Exp[_]): Seq[Int] = parFactorsOf(x).map{case Const(p: BigDecimal) => p.toInt }
+  @internal def parsOf(x: Exp[_]): Seq[Int] = parFactorsOf(x).map{case Exact(p: BigInt) => p.toInt }
 
   @internal def extractParFactor(par: Option[Index]): Const[Index] = par.map(_.s) match {
     case Some(x: Const[_]) if isIndexType(x.tp) => x.asInstanceOf[Const[Index]]
@@ -460,6 +460,11 @@ object utils {
     case _ if isOuterControl(x) => children
   }
 
+  @stateful def loopCounters(e: Exp[_]): Seq[Exp[CounterChain]] = getDef(e).map{d => d.nonBlockInputs.collect{
+    case e: Exp[_] if e.tp == CounterChainType => e.asInstanceOf[Exp[CounterChain]]
+  }}.getOrElse(Nil)
+
+  @stateful def willBeFullyUnrolled(e: Exp[_]): Boolean = loopCounters(e).forall(canFullyUnroll)
 
   @stateful def isOuterControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == OuterControl
   @stateful def isInnerControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == InnerControl
@@ -474,7 +479,7 @@ object utils {
 
   @stateful def isInnerPipe(e: Exp[_]): Boolean = styleOf(e) == InnerPipe || (styleOf(e) == MetaPipe && isInnerControl(e))
   @stateful def isInnerPipe(e: Ctrl): Boolean = e.isInner || isInnerPipe(e.node)
-  @stateful def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe
+  @stateful def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe && !willBeFullyUnrolled(e) // Fully unrolled doesn't need pipelining
   @stateful def isSeqPipe(e: Exp[_]): Boolean = styleOf(e) == SeqPipe
   @stateful def isStreamPipe(e: Exp[_]): Boolean = e match {
     case Def(Hwblock(_,isFrvr)) => isFrvr
@@ -546,6 +551,26 @@ object utils {
     case _ => None
   }
 
+  @stateful def canFullyUnroll(cc: Exp[CounterChain]): Boolean = countersOf(cc).forall{
+    // Rewrite this more safely and close #190
+    case Def(CounterNew(start,end,stride,Exact(par))) =>
+      val startHostIO  = getDef(start).exists{case RegRead(reg) => isHostIO(reg); case _ => false}
+      val endHostIO    = getDef(end).exists{case RegRead(reg) => isHostIO(reg); case _ => false}
+      val strideHostIO = getDef(stride).exists{case RegRead(reg) => isHostIO(reg); case _ => false}
+      val anyHostIO = startHostIO | endHostIO | strideHostIO
+      if (anyHostIO) {
+        false
+      } else {
+        (start, end, stride) match {
+          case (Exact(s), Exact(e), Exact(str)) => 
+            val nIters = (BigDecimal(e) - BigDecimal(s))/BigDecimal(str)
+            BigDecimal(par) >= nIters
+          case _ => 
+            false
+        }
+      }
+  }
+
   @stateful def isForeverCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).exists(isForever)
   @stateful def isUnitCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).forall(isUnitCounter)
 
@@ -571,14 +596,14 @@ object utils {
     case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
     case Def(RegFileNew(dims,_)) => dims
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
     case Def(LUTNew(dims,_)) => dims
     case _ => stagedDimsOf(x).map{
-      case Const(c: BigDecimal) => c.toInt
-      case dim => throw new spatial.UndefinedDimensionsError(x, Some(dim))(x.ctx, state)
+      case Exact(c: BigInt) => c.toInt
+      case dim => throw new spatial.UndefinedDimensionsException(x, Some(dim))(x.ctx, state)
     }
   }
 
@@ -587,12 +612,12 @@ object utils {
   @stateful def sizeOf(x: Exp[_]): Exp[Index] = x match {
     case Def(FIFONew(size)) => size
     case Def(FILONew(size)) => size
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def lenOf(x: Exp[_]): Int = x.tp match {
     case tp: VectorType[_] => tp.width
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def rankOf(x: Exp[_]): Int = dimsOf(x).length

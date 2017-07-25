@@ -41,9 +41,10 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       val row_wPar = 1 // TODO: Do correct analysis here!
       val col_rPar = 1 // TODO: Do correct analysis here!
       val col_wPar = 1 // TODO: Do correct analysis here!
+      val width = bitWidth(lhs.tp.typeArguments.head)
       emitGlobalModule(src"""val ${lhs} = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, 1, 
         ${col_wPar}, ${col_rPar}, 
-        ${row_wPar}, ${row_rPar}, $accessors))  // Data type: ${op.mT}""")
+        ${row_wPar}, ${row_rPar}, $accessors, $width))  // Data type: ${op.mT}""")
       emitGlobalModule(src"$lhs.io.reset := reset")
       linebufs = linebufs :+ lhs.asInstanceOf[Sym[LineBufferNew[_]]]
       
@@ -67,7 +68,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
     case op@LineBufferLoad(lb,row,col,en) => 
       emit(src"$lb.io.col_addr(0) := ${col}.raw")
       val rowtext = row match {
-        case c: Const[_] => "0.U"
+        case Const(cc) => s"$cc"
         case _ => src"${row}.r"
       }
       emit(s"val ${quote(lhs)} = ${quote(lb)}.readRow(${rowtext})")

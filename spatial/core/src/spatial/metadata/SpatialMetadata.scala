@@ -208,6 +208,15 @@ case class CtrlDeps(deps: Set[Exp[_]]) extends Metadata[CtrlDeps] { def mirror(f
   def update(x: Exp[_], deps: Set[Exp[_]]) = metadata.add(x, CtrlDeps(deps))
 }
 
+case class IndexController(ctrl: Ctrl) extends Metadata[IndexController] {
+  def mirror(f:Tx) = this
+  override def ignoreOnTransform: Boolean = true
+}
+@data object ctrlOf {
+  def apply(x: Exp[_]): Option[Ctrl] = metadata[IndexController](x).map(_.ctrl)
+  def update(x: Exp[_], ctrl: Ctrl): Unit = metadata.add(x, IndexController(ctrl))
+}
+
 /**
   * List of memories written in a given controller
   **/

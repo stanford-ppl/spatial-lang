@@ -19,6 +19,9 @@ trait FixPts extends AInterpreter {
     case FixSub(EBigDecimal(a), EBigDecimal(b)) =>
       a - b
 
+    case FixMul(EBigDecimal(a), EBigDecimal(b)) =>
+      a * b
+      
     case FixNeg(EBigDecimal(a)) =>
       -a
       
@@ -29,6 +32,12 @@ trait FixPts extends AInterpreter {
     case FixEql(EBigDecimal(a), EBigDecimal(b)) =>
       a == b
 
+    case FixNeq(EBigDecimal(a), EBigDecimal(b)) =>
+      a != b
+
+    case FixConvert(EBigDecimal(a)) =>
+      a
+      
 //    case FixLog(EBigDecimal(a)) =>
 //      BigDecimal(Math.log(a.toDouble)) 
 
