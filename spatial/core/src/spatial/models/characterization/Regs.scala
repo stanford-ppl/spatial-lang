@@ -1,14 +1,18 @@
 package spatial.models.characterization
 
 import spatial.dsl._
+import spatial._
+import org.virtualized._
 
 trait Regs extends Benchmarks {
+  self: SpatialCompiler =>  
+
   type Int48 = FixPt[TRUE,_48,_0]
   type Int96 = FixPt[TRUE,_96,_0]
   type Int128 = FixPt[TRUE,_128,_0]
 
   case class RegOp[T:Type:Bits](depth: scala.Int)(val N: scala.Int) extends Benchmark {
-    val prefix: String = depth.toString
+    val prefix: JString = depth.toString
     private val nbits: scala.Int = bits[T].length
     def eval(): Unit = {
       val outs = List.fill(N)(ArgOut[T])
@@ -38,11 +42,11 @@ trait Regs extends Benchmarks {
   }
 
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg1", Seq(50,100,200), RegOp[Bit](depth)) }
-  gens ::= List.tabulate(7){depth => MetaProgGen("Reg8", Seq(50,100,200), RegOp[Int8](depth)) }
-  gens ::= List.tabulate(7){depth => MetaProgGen("Reg16", Seq(50,100,200), RegOp[Int16](depth)) }
-  gens ::= List.tabulate(7){depth => MetaProgGen("Reg32", Seq(50,100,200), RegOp[Int32](depth)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg8", Seq(50,100,200), RegOp[Int8](depth)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg16", Seq(50,100,200), RegOp[Int16](depth)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg32", Seq(50,100,200), RegOp[Int32](depth)) }
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg48", Seq(50,100,200), RegOp[Int48](depth)) }
-  gens ::= List.tabulate(7){depth => MetaProgGen("Reg64", Seq(50,100,200), RegOp[Int64](depth)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg64", Seq(50,100,200), RegOp[Int64](depth)) }
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg96", Seq(50,100,200), RegOp[Int96](depth)) }
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg128", Seq(50,100,200), RegOp[Int128](depth)) }
 }

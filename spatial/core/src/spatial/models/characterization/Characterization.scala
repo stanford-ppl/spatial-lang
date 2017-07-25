@@ -5,11 +5,13 @@ import spatial._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-trait AllBenchmarks extends Benchmarks
-  with Primitives
-  with RegFiles
-  with Regs
-  with SRAMs
+trait AllBenchmarks
+    extends Benchmarks
+    with SpatialCompiler
+    with Primitives
+    with RegFiles
+    with Regs
+    with SRAMs 
 
 object Characterization extends SpatialCompiler with AllBenchmarks {
   //To implement by Richard
