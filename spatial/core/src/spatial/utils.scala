@@ -552,23 +552,10 @@ object utils {
   }
 
   @stateful def canFullyUnroll(cc: Exp[CounterChain]): Boolean = countersOf(cc).forall{
-    // Rewrite this more safely and close #190
-    case Def(CounterNew(start,end,stride,Exact(par))) =>
-      val startHostIO  = getDef(start).exists{case RegRead(reg) => isHostIO(reg); case _ => false}
-      val endHostIO    = getDef(end).exists{case RegRead(reg) => isHostIO(reg); case _ => false}
-      val strideHostIO = getDef(stride).exists{case RegRead(reg) => isHostIO(reg); case _ => false}
-      val anyHostIO = startHostIO | endHostIO | strideHostIO
-      if (anyHostIO) {
-        false
-      } else {
-        (start, end, stride) match {
-          case (Exact(s), Exact(e), Exact(str)) => 
-            val nIters = (BigDecimal(e) - BigDecimal(s))/BigDecimal(str)
-            BigDecimal(par) >= nIters
-          case _ => 
-            false
-        }
-      }
+    case Def(CounterNew(Exact(start),Exact(end),Exact(stride),Exact(par))) =>
+      val nIters = (BigDecimal(end) - BigDecimal(start))/BigDecimal(stride)
+      BigDecimal(par) >= nIters
+    case _ => false
   }
 
   @stateful def isForeverCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).exists(isForever)
