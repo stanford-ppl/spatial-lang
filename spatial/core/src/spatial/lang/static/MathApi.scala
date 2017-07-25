@@ -27,8 +27,17 @@ trait MathApi { this: SpatialApi =>
   @api def exp_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = {
     mux(x < -3.5.to[FixPt[S,I,F]], 0.to[FixPt[S,I,F]], mux(x < -1.2.to[FixPt[S,I,F]], x*0.1.to[FixPt[S,I,F]] + 0.35.to[FixPt[S,I,F]], 1 + x + x*x/2 + x*x*x/6 + x*x*x*x/24 + x*x*x*x*x/120))
   }
+  /** Taylor expansion for natural exponential**/
+  @api def exp_taylor[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = {
+    mux(x < -3.5.to[FltPt[G,E]], 0.to[FltPt[G,E]], mux(x < -1.2.to[FltPt[G,E]], x*0.1.to[FltPt[G,E]] + 0.35.to[FltPt[G,E]], 1 + x + x*x/2 + x*x*x/6 + x*x*x*x/24 + x*x*x*x*x/120))
+  }
   /** Taylor expansion for natural log to third degree **/
   @api def log_taylor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = {
+    val xx = x-1
+    xx - xx*xx/2 + xx*xx*xx/3 - xx*xx*xx*xx/4
+  }
+  /** Taylor expansion for natural log to third degree **/
+  @api def log_taylor[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = {
     val xx = x-1
     xx - xx*xx/2 + xx*xx*xx/3 - xx*xx*xx*xx/4
   }
@@ -42,6 +51,15 @@ trait MathApi { this: SpatialApi =>
           mux( x < 1000.to[FixPt[S,I,F]], x*0.028.to[FixPt[S,I,F]] + 8, // Linearize
             mux( x < 10000.to[FixPt[S,I,F]], x*0.008.to[FixPt[S,I,F]] + 20, // Linearize
               mux( x < 100000.to[FixPt[S,I,F]], x*0.003.to[FixPt[S,I,F]] + 60, x*0.0002.to[FixPt[S,I,F]] + 300))))))
+  }
+  @api def sqrt_approx[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = {
+    // I don't care how inefficient this is, it is just a placeholder for backprop until we implement floats
+    mux(x < 2.to[FltPt[G,E]], 1 + (x-1)/2 -(x-1)*(x-1)/8+(x-1)*(x-1)*(x-1)/16, // 3rd order taylor for values up to 2
+      mux(x < 10.to[FltPt[G,E]], x*0.22.to[FltPt[G,E]] + 1, // Linearize
+        mux( x < 100.to[FltPt[G,E]], x*0.08.to[FltPt[G,E]] + 2.5.to[FltPt[G,E]], // Linearize
+          mux( x < 1000.to[FltPt[G,E]], x*0.028.to[FltPt[G,E]] + 8, // Linearize
+            mux( x < 10000.to[FltPt[G,E]], x*0.008.to[FltPt[G,E]] + 20, // Linearize
+              mux( x < 100000.to[FltPt[G,E]], x*0.003.to[FltPt[G,E]] + 60, x*0.0002.to[FltPt[G,E]] + 300))))))
   }
 
   @api def floor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]) = Math.floor(x)
