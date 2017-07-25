@@ -322,7 +322,7 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
   val options = (0 until dims.reduce{_*_}).map { i => 
     val initval = (inits(i)*scala.math.pow(2,fracBits)).toLong
     // initval.U
-    ( i.U -> initval.S(width.W) )
+    ( i.U -> initval.S((width+1).W).apply(width-1,0) )
   }
 
   val flat_addr = (0 until numReaders).map{ k => 
@@ -336,7 +336,7 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
 
   // io.data_out := Mux1H(onehot, options)
   (0 until numReaders).foreach{i =>
-    io.data_out(i) := MuxLookup(flat_addr(i), 0.S(width.W), options).asUInt
+    io.data_out(i) := MuxLookup(flat_addr(i), 0.U(width.W), options).asUInt
   }
   // val selected = MuxLookup(active_addr, 0.S, options)
 
