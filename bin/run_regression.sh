@@ -60,7 +60,7 @@ cd $here
  # dsts=("portland")
 types=("scala" "chisel")
 dsts=("portland;/home/regression/" "max-2;/kunle/users/mattfel/regression" 
-	  "tflop2;/home/regression/" "tflop1;/home/regression/"
+	  "tflop2;/home/regression/" #"tflop1;/home/regression/"
 	  "tucson;/home/mattfel/regression" "london;/home/mattfel/regression")
 	  #manchester 
 tests=all

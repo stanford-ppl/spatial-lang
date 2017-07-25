@@ -320,17 +320,18 @@ package object pirgen {
     val pipe = parentOf(access).get
     val bankFactor = getInnerPar(pipe)
 
+    // TODO: Distinguish isInner?
     val banking = pattern match {
-      case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt, bankFactor)
-      case StridedAccess(Exact(a), i) => StridedBanking(a.toInt, bankFactor)
-      case OffsetAccess(i, b)         => StridedBanking(1, bankFactor)
-      case LinearAccess(i)            => StridedBanking(1, bankFactor)
+      case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt, bankFactor, true)
+      case StridedAccess(Exact(a), i) => StridedBanking(a.toInt, bankFactor, true)
+      case OffsetAccess(i, b)         => StridedBanking(1, bankFactor, true)
+      case LinearAccess(i)            => StridedBanking(1, bankFactor, true)
       case InvariantAccess(b)         => NoBanking
       case RandomAccess               => NoBanking
     }
     banking match {
-      case StridedBanking(stride,f) if f > 1  => Strided(stride)
-      case StridedBanking(stride,f) if f == 1 => NoBanks
+      case StridedBanking(stride,f,_) if f > 1  => Strided(stride)
+      case StridedBanking(stride,f,_) if f == 1 => NoBanks
       case NoBanking if bankFactor==1         => NoBanks
       case NoBanking                          => Duplicated
     }
