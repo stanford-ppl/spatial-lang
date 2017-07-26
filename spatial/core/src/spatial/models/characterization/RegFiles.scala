@@ -8,50 +8,49 @@ import org.virtualized._
 trait RegFiles extends Benchmarks {
   self: SpatialCompiler =>
 
-  case class RegFile1DOp[T:Num:Type:Bits](depth: scala.Int, len: scala.Int)(val N: scala.Int) extends Benchmark {
-    val prefix: JString = s"${depth}_${len}"
+  case class RegFile1DOp[T:Num:Type](depth: scala.Int, len: scala.Int, p: scala.Int)(val N: scala.Int) extends Benchmark {
+    val prefix: JString = s"${depth}_${len}_${p}"
     def eval(): Unit = {
-      val outs = List.fill(N)(ArgOut[T])
-      val ins = List.fill(N)(ArgIn[T])
-
-
-      ins.foreach(setArg(_, zero[T]))
+      val outs = List.fill(N){ ArgOut[T] }
 
       Accel {
         val rfs = List.fill(N){ RegFile.buffer[T](len) }
 
-        Foreach(0 until 1000){_ =>
-          List.tabulate(N-1){_ => Foreach(0 until 100, 0 until 100){(i,j) =>
-            rfs.foreach{rf => rf.update(i, i.to[T]) }
-          }}
-          Foreach(0 until 100, 0 until 100){(i,j) =>
-            rfs.zip(outs).foreach{case (rf,out) => out := rf(i) }
+        Foreach(0 until 1000) { _ =>
+          List.tabulate(depth) { _ =>
+            Foreach(0 until 100 par p) { i =>
+              rfs.foreach{ rf => rf.update(i, i.to[T]) }
+            }
           }
           ()
+        }
+        Pipe {
+          rfs.zip(outs).foreach { case (rf, out) => out := rf(0) }
         }
       }
     }
   }
 
-  case class RegFile2DOp[T:Num:Type:Bits](depth: scala.Int, rows: scala.Int, cols: scala.Int)(val N: scala.Int) extends Benchmark {
-    val prefix: JString = s"${depth}_${rows}_${cols}"
+  case class RegFile2DOp[T:Num:Type](depth: scala.Int, rows: scala.Int, cols: scala.Int, p0: scala.Int, p1: scala.Int)(val N: scala.Int) extends Benchmark {
+    val prefix: JString = s"${depth}_${rows}_${cols}_${p0}_${p1}"
     def eval(): Unit = {
       val outs = List.fill(N)(ArgOut[T])
-      val ins = List.fill(N)(ArgIn[T])
-
-      ins.foreach(setArg(_, zero[T]))
 
       Accel {
         val rfs = List.fill(N){ RegFile.buffer[T](rows, cols) }
 
-        Foreach(0 until 1000){_ =>
-          List.tabulate(N-1){_ => Foreach(0 until 100, 0 until 100){(i,j) =>
-            rfs.foreach{rf => rf.update(i,j, i.to[T]) }
-          }}
-          Foreach(0 until 100, 0 until 100){(i,j) =>
-            rfs.zip(outs).foreach{case (rf,out) => out := rf(i,j) }
+        Foreach(0 until 1000) { _ =>
+          List.tabulate(depth) { _ =>
+            Foreach(0 until 100 par p0) { i =>
+              Foreach(0 until 100 par p1) { j =>
+                rfs.foreach { rf => rf.update(i, j, i.to[T]) }
+              }
+            }
           }
           ()
+        }
+        Pipe {
+          rfs.zip(outs).foreach{case (rf, out) => out := rf(0,0) }
         }
       }
     }
@@ -82,7 +81,7 @@ trait RegFiles extends Benchmarks {
   )
 
   //gens ::= dims2d.flatMap{case (rows,cols) => List.tabulate(3){depth => MetaProgGen("Reg16", Seq(100,200), RegFile2DOp[Int16](depth, rows, cols)) } }
-  gens :::= dims1d.flatMap{len => List.tabulate(3){depth => MetaProgGen("Reg1D", Seq(100,200), RegFile1DOp[Int32](depth, len)) } }
-  gens :::= dims2d.flatMap{case (rows,cols) => List.tabulate(3){depth => MetaProgGen("Reg2D", Seq(100,200), RegFile2DOp[Int32](depth, rows, cols)) } }
+  gens :::= dims1d.flatMap{len => List.tabulate(3){depth => MetaProgGen("RegFile1D", Seq(100,200), RegFile1DOp[Int32](depth, len, 1)) } }
+  gens :::= dims2d.flatMap{case (rows,cols) => List.tabulate(3){depth => MetaProgGen("RegFile2D", Seq(100,200), RegFile2DOp[Int32](depth, rows, cols, 1, 1)) } }
 
 }

@@ -6,14 +6,14 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 trait AllBenchmarks
-    extends Benchmarks
-    with SpatialCompiler
+    extends Benchmarks with SpatialCompiler
+    with FIFOs
     with Primitives
     with RegFiles
     with Regs
     with SRAMs 
 
-object Characterization extends SpatialCompiler with AllBenchmarks {
+object Characterization extends AllBenchmarks {
   //To implement by Richard
   def area(dir: JString): Map[JString, scala.Int] = {
     Thread.sleep(1000)
@@ -29,6 +29,9 @@ object Characterization extends SpatialCompiler with AllBenchmarks {
 
   def main(args: scala.Array[JString]) {
     val programs: Seq[NamedSpatialProg] = gens.flatMap(_.expand)
+
+    println("Number of programs: " + programs.length)
+    sys.exit()
 
     val chiseled = programs.map(x => {
       //compileProgram(x._2)
