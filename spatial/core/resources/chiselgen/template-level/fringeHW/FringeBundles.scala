@@ -97,21 +97,30 @@ class DRAMWdata(w: Int, v: Int) extends Bundle {
 
 }
 
-class DRAMResponse(w: Int, v: Int) extends Bundle {
+class DRAMReadResponse(w: Int, v: Int) extends Bundle {
   val rdata = Vec(v, UInt(w.W)) // v
   val tag = UInt(w.W)
   val streamId = UInt(w.W)
 
   override def cloneType(): this.type = {
-    new DRAMResponse(w, v).asInstanceOf[this.type]
+    new DRAMReadResponse(w, v).asInstanceOf[this.type]
   }
+}
 
+class DRAMWriteResponse(w: Int, v: Int) extends Bundle {
+  val tag = UInt(w.W)
+  val streamId = UInt(w.W)
+
+  override def cloneType(): this.type = {
+    new DRAMWriteResponse(w, v).asInstanceOf[this.type]
+  }
 }
 
 class DRAMStream(w: Int, v: Int) extends Bundle {
   val cmd = Decoupled(new DRAMCommand(w, v))
   val wdata = Decoupled(new DRAMWdata(w, v))
-  val resp = Flipped(Decoupled(new DRAMResponse(w, v)))
+  val rresp = Flipped(Decoupled(new DRAMReadResponse(w, v)))
+  val wresp = Flipped(Decoupled(new DRAMWriteResponse(w, v)))
 
   override def cloneType(): this.type = {
     new DRAMStream(w, v).asInstanceOf[this.type]

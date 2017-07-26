@@ -12,8 +12,10 @@ module test;
   export "DPI" function readRegRaddr;
   export "DPI" function readRegRdataHi32;
   export "DPI" function readRegRdataLo32;
-  export "DPI" function pokeDRAMResponse;
-  export "DPI" function getDRAMRespReady;
+  export "DPI" function pokeDRAMReadResponse;
+  export "DPI" function pokeDRAMWriteResponse;
+  export "DPI" function getDRAMReadRespReady;
+  export "DPI" function getDRAMWriteRespReady;
   export "DPI" function writeStream;
   export "DPI" function startVPD;
   export "DPI" function startVCD;
@@ -80,26 +82,31 @@ module test;
   wire [31:0] io_dram_wdata_bits_wdata_13;
   wire [31:0] io_dram_wdata_bits_wdata_14;
   wire [31:0] io_dram_wdata_bits_wdata_15;
-  wire  io_dram_resp_ready;
-  reg io_dram_resp_valid;
-  reg [31:0] io_dram_resp_bits_rdata_0;
-  reg [31:0] io_dram_resp_bits_rdata_1;
-  reg [31:0] io_dram_resp_bits_rdata_2;
-  reg [31:0] io_dram_resp_bits_rdata_3;
-  reg [31:0] io_dram_resp_bits_rdata_4;
-  reg [31:0] io_dram_resp_bits_rdata_5;
-  reg [31:0] io_dram_resp_bits_rdata_6;
-  reg [31:0] io_dram_resp_bits_rdata_7;
-  reg [31:0] io_dram_resp_bits_rdata_8;
-  reg [31:0] io_dram_resp_bits_rdata_9;
-  reg [31:0] io_dram_resp_bits_rdata_10;
-  reg [31:0] io_dram_resp_bits_rdata_11;
-  reg [31:0] io_dram_resp_bits_rdata_12;
-  reg [31:0] io_dram_resp_bits_rdata_13;
-  reg [31:0] io_dram_resp_bits_rdata_14;
-  reg [31:0] io_dram_resp_bits_rdata_15;
-  reg [31:0] io_dram_resp_bits_tag;
-  reg [31:0] io_dram_resp_bits_streamId;
+
+  wire        io_dram_rresp_ready;
+  reg         io_dram_rresp_valid;
+  reg  [31:0] io_dram_rresp_bits_rdata_0;
+  reg  [31:0] io_dram_rresp_bits_rdata_1;
+  reg  [31:0] io_dram_rresp_bits_rdata_2;
+  reg  [31:0] io_dram_rresp_bits_rdata_3;
+  reg  [31:0] io_dram_rresp_bits_rdata_4;
+  reg  [31:0] io_dram_rresp_bits_rdata_5;
+  reg  [31:0] io_dram_rresp_bits_rdata_6;
+  reg  [31:0] io_dram_rresp_bits_rdata_7;
+  reg  [31:0] io_dram_rresp_bits_rdata_8;
+  reg  [31:0] io_dram_rresp_bits_rdata_9;
+  reg  [31:0] io_dram_rresp_bits_rdata_10;
+  reg  [31:0] io_dram_rresp_bits_rdata_11;
+  reg  [31:0] io_dram_rresp_bits_rdata_12;
+  reg  [31:0] io_dram_rresp_bits_rdata_13;
+  reg  [31:0] io_dram_rresp_bits_rdata_14;
+  reg  [31:0] io_dram_rresp_bits_rdata_15;
+  reg  [31:0] io_dram_rresp_bits_tag;
+  reg  [31:0] io_dram_rresp_bits_streamId;
+  wire        io_dram_wresp_ready;
+  reg         io_dram_wresp_valid;
+  reg  [31:0] io_dram_wresp_bits_tag;
+  reg  [31:0] io_dram_wresp_bits_streamId;
 
 //  wire        io_genericStreamIn_ready;
 //  reg         io_genericStreamIn_valid;
@@ -152,26 +159,31 @@ module test;
     .io_dram_wdata_bits_wdata_15(io_dram_wdata_bits_wdata_15),
     .io_dram_wdata_ready(io_dram_wdata_ready),
     .io_dram_wdata_valid(io_dram_wdata_valid),
-    .io_dram_resp_ready(io_dram_resp_ready),
-    .io_dram_resp_valid(io_dram_resp_valid),
-    .io_dram_resp_bits_rdata_0(io_dram_resp_bits_rdata_0),
-    .io_dram_resp_bits_rdata_1(io_dram_resp_bits_rdata_1),
-    .io_dram_resp_bits_rdata_2(io_dram_resp_bits_rdata_2),
-    .io_dram_resp_bits_rdata_3(io_dram_resp_bits_rdata_3),
-    .io_dram_resp_bits_rdata_4(io_dram_resp_bits_rdata_4),
-    .io_dram_resp_bits_rdata_5(io_dram_resp_bits_rdata_5),
-    .io_dram_resp_bits_rdata_6(io_dram_resp_bits_rdata_6),
-    .io_dram_resp_bits_rdata_7(io_dram_resp_bits_rdata_7),
-    .io_dram_resp_bits_rdata_8(io_dram_resp_bits_rdata_8),
-    .io_dram_resp_bits_rdata_9(io_dram_resp_bits_rdata_9),
-    .io_dram_resp_bits_rdata_10(io_dram_resp_bits_rdata_10),
-    .io_dram_resp_bits_rdata_11(io_dram_resp_bits_rdata_11),
-    .io_dram_resp_bits_rdata_12(io_dram_resp_bits_rdata_12),
-    .io_dram_resp_bits_rdata_13(io_dram_resp_bits_rdata_13),
-    .io_dram_resp_bits_rdata_14(io_dram_resp_bits_rdata_14),
-    .io_dram_resp_bits_rdata_15(io_dram_resp_bits_rdata_15),
-    .io_dram_resp_bits_tag(io_dram_resp_bits_tag),
-    .io_dram_resp_bits_streamId(io_dram_resp_bits_streamId)
+
+    .io_dram_rresp_ready(io_dram_rresp_ready),
+    .io_dram_rresp_valid(io_dram_rresp_valid),
+    .io_dram_rresp_bits_rdata_0(io_dram_rresp_bits_rdata_0),
+    .io_dram_rresp_bits_rdata_1(io_dram_rresp_bits_rdata_1),
+    .io_dram_rresp_bits_rdata_2(io_dram_rresp_bits_rdata_2),
+    .io_dram_rresp_bits_rdata_3(io_dram_rresp_bits_rdata_3),
+    .io_dram_rresp_bits_rdata_4(io_dram_rresp_bits_rdata_4),
+    .io_dram_rresp_bits_rdata_5(io_dram_rresp_bits_rdata_5),
+    .io_dram_rresp_bits_rdata_6(io_dram_rresp_bits_rdata_6),
+    .io_dram_rresp_bits_rdata_7(io_dram_rresp_bits_rdata_7),
+    .io_dram_rresp_bits_rdata_8(io_dram_rresp_bits_rdata_8),
+    .io_dram_rresp_bits_rdata_9(io_dram_rresp_bits_rdata_9),
+    .io_dram_rresp_bits_rdata_10(io_dram_rresp_bits_rdata_10),
+    .io_dram_rresp_bits_rdata_11(io_dram_rresp_bits_rdata_11),
+    .io_dram_rresp_bits_rdata_12(io_dram_rresp_bits_rdata_12),
+    .io_dram_rresp_bits_rdata_13(io_dram_rresp_bits_rdata_13),
+    .io_dram_rresp_bits_rdata_14(io_dram_rresp_bits_rdata_14),
+    .io_dram_rresp_bits_rdata_15(io_dram_rresp_bits_rdata_15),
+    .io_dram_rresp_bits_tag(io_dram_rresp_bits_tag),
+    .io_dram_rresp_bits_streamId(io_dram_rresp_bits_streamId),
+    .io_dram_wresp_ready(io_dram_wresp_ready),
+    .io_dram_wresp_valid(io_dram_wresp_valid),
+    .io_dram_wresp_bits_tag(io_dram_wresp_bits_tag),
+    .io_dram_wresp_bits_streamId(io_dram_wresp_bits_streamId)
 //    .io_genericStreamIn_ready(io_genericStreamIn_ready),
 //    .io_genericStreamIn_valid(io_genericStreamIn_valid),
 //    .io_genericStreamIn_bits_data(io_genericStreamIn_bits_data),
@@ -219,11 +231,15 @@ module test;
     io_wen = 1;
   endfunction
 
-  function void getDRAMRespReady(output bit [31:0] respReady);
-    respReady = io_dram_resp_ready;
+  function void getDRAMReadRespReady(output bit [31:0] respReady);
+    respReady = io_dram_rresp_ready;
   endfunction
 
-  function void pokeDRAMResponse(
+  function void getDRAMWriteRespReady(output bit [31:0] respReady);
+    respReady = io_dram_wresp_ready;
+  endfunction
+
+  function void pokeDRAMReadResponse(
     input int tag,
     input int rdata0,
     input int rdata1,
@@ -242,25 +258,33 @@ module test;
     input int rdata14,
     input int rdata15
   );
-    io_dram_resp_valid = 1;
-    io_dram_resp_bits_tag = tag;
-    io_dram_resp_bits_rdata_0 = rdata0;
-    io_dram_resp_bits_rdata_1 = rdata1;
-    io_dram_resp_bits_rdata_2 = rdata2;
-    io_dram_resp_bits_rdata_3 = rdata3;
-    io_dram_resp_bits_rdata_4 = rdata4;
-    io_dram_resp_bits_rdata_5 = rdata5;
-    io_dram_resp_bits_rdata_6 = rdata6;
-    io_dram_resp_bits_rdata_7 = rdata7;
-    io_dram_resp_bits_rdata_8 = rdata8;
-    io_dram_resp_bits_rdata_9 = rdata9;
-    io_dram_resp_bits_rdata_10 = rdata10;
-    io_dram_resp_bits_rdata_11 = rdata11;
-    io_dram_resp_bits_rdata_12 = rdata12;
-    io_dram_resp_bits_rdata_13 = rdata13;
-    io_dram_resp_bits_rdata_14 = rdata14;
-    io_dram_resp_bits_rdata_15 = rdata15;
+    io_dram_rresp_valid = 1;
+    io_dram_rresp_bits_tag = tag;
+    io_dram_rresp_bits_rdata_0 = rdata0;
+    io_dram_rresp_bits_rdata_1 = rdata1;
+    io_dram_rresp_bits_rdata_2 = rdata2;
+    io_dram_rresp_bits_rdata_3 = rdata3;
+    io_dram_rresp_bits_rdata_4 = rdata4;
+    io_dram_rresp_bits_rdata_5 = rdata5;
+    io_dram_rresp_bits_rdata_6 = rdata6;
+    io_dram_rresp_bits_rdata_7 = rdata7;
+    io_dram_rresp_bits_rdata_8 = rdata8;
+    io_dram_rresp_bits_rdata_9 = rdata9;
+    io_dram_rresp_bits_rdata_10 = rdata10;
+    io_dram_rresp_bits_rdata_11 = rdata11;
+    io_dram_rresp_bits_rdata_12 = rdata12;
+    io_dram_rresp_bits_rdata_13 = rdata13;
+    io_dram_rresp_bits_rdata_14 = rdata14;
+    io_dram_rresp_bits_rdata_15 = rdata15;
   endfunction
+
+  function void pokeDRAMWriteResponse(
+    input int tag
+  );
+    io_dram_wresp_valid = 1;
+    io_dram_wresp_bits_tag = tag;
+  endfunction
+
 
   function void writeStream(
     input int data,
@@ -383,7 +407,8 @@ module test;
     pre_update_callbacks();
 
     io_wen = 0;
-    io_dram_resp_valid = 0;
+    io_dram_rresp_valid = 0;
+    io_dram_wresp_valid = 0;
 //    io_dram_cmd_ready = 0;
 //    io_genericStreamIn_valid = 0;
 //    io_genericStreamOut_ready = 1;

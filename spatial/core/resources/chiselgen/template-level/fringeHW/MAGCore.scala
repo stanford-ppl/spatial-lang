@@ -175,6 +175,8 @@ class MAGCore(
   val dramReady = io.dram.cmd.ready
   val wdataReady = io.dram.wdata.ready
 
+  val respValid = io.dram.rresp.valid | io.dram.wresp.valid // & io.enable
+
   wdataFifo.io.forceTag.bits := addrFifo.io.tag - loadStreamInfo.size.U
   wdataFifo.io.forceTag.valid := addrFifo.io.tag >= loadStreamInfo.size.U
   wdataFifo.io.enq.zip(io.app.stores.map{_.wdata}) foreach { case (enq, wdata) => enq := wdata.bits }
@@ -186,7 +188,7 @@ class MAGCore(
 
   val issuedFF = Module(new FF(1))
   issuedFF.io.init := 0.U
-  issuedFF.io.in := Mux(issued, ~io.dram.resp.valid, burstVld & dramReady)
+  issuedFF.io.in := Mux(issued, ~respValid, burstVld & dramReady)
   issuedFF.io.enable := 1.U
   if (blockingDRAMIssue) {
     issued := issuedFF.io.out
@@ -241,7 +243,7 @@ class MAGCore(
   // Coalescing cache
   val ccache = Module(new CoalescingCache(w, d, v))
   ccache.io.raddr := Cat(io.dram.cmd.bits.tag, 0.U(log2Up(burstSizeBytes).W))
-  ccache.io.readEn := scatterGather & io.dram.resp.valid
+  ccache.io.readEn := scatterGather & respValid
   ccache.io.waddr := addrFifo.io.deq(0)
   ccache.io.wen := scatterGather & ~addrFifo.io.empty
   ccache.io.position := elementID
@@ -285,8 +287,8 @@ class MAGCore(
 
   val (validMask, crossbarSelect) = parseMetadataLine(ccache.io.rmetaData)
 
-  val registeredData = Vec(io.dram.resp.bits.rdata.map { d => RegNext(d, 0.U) })
-  val registeredVld = RegNext(io.dram.resp.valid, 0.U)
+  val registeredData = Vec(io.dram.rresp.bits.rdata.map { d => RegNext(d, 0.U) })
+  val registeredVld = RegNext(respValid, 0.U)
 
   // Gather crossbar
   val switchParams = SwitchParams(v, v)
@@ -373,13 +375,13 @@ class MAGCore(
     issuedTag := 0.U
   }
 
-  val respValid = io.dram.resp.valid // & io.enable
-  val streamTagFromDRAM = if (blockingDRAMIssue) getStreamTag(issuedTag) else getStreamTag(io.dram.resp.bits.tag)
+  val readStreamTagFromDRAM = if (blockingDRAMIssue) getStreamTag(issuedTag) else getStreamTag(io.dram.rresp.bits.tag)
+  val writeStreamTagFromDRAM = if (blockingDRAMIssue) getStreamTag(issuedTag) else getStreamTag(io.dram.wresp.bits.tag)
 
   val rdataFifos = List.tabulate(loadStreamInfo.size) { i =>
-    val m = Module(new WidthConverterFIFO(32, io.dram.resp.bits.rdata.size, loadStreamInfo(i).w, loadStreamInfo(i).v, d))
-    m.io.enq := io.dram.resp.bits.rdata
-    m.io.enqVld := respValid & (streamTagFromDRAM === i.U) & ~(m.io.full | m.io.almostFull)
+    val m = Module(new WidthConverterFIFO(32, io.dram.rresp.bits.rdata.size, loadStreamInfo(i).w, loadStreamInfo(i).v, d))
+    m.io.enq := io.dram.rresp.bits.rdata
+    m.io.enqVld := io.dram.rresp.valid & (readStreamTagFromDRAM === i.U) & ~(m.io.full | m.io.almostFull)
     m
   }
 
@@ -399,8 +401,8 @@ class MAGCore(
 
   val wrespFifos = List.tabulate(storeStreamInfo.size) { i =>
     val m = Module(new FIFOCounter(d, 1))
-    m.io.enq(0) := respValid
-    m.io.enqVld := respValid & (streamTagFromDRAM === (i + loadStreamInfo.size).U)
+    m.io.enq(0) := io.dram.wresp.valid
+    m.io.enqVld := io.dram.wresp.valid & (writeStreamTagFromDRAM === (i + loadStreamInfo.size).U)
     m
   }
 
@@ -411,15 +413,21 @@ class MAGCore(
   }
 
   if (rdataFifos.length > 0) {
-//    io.dram.resp.ready := ~(rdataFifos.map { fifo => fifo.io.full | fifo.io.almostFull }.reduce{_|_})
     val readyMux = Module(new MuxNType(Bool(), rdataFifos.length))
     readyMux.io.ins := Vec(rdataFifos.map { f => ~(f.io.full | f.io.almostFull) })
-    readyMux.io.sel := streamTagFromDRAM
-    io.dram.resp.ready := readyMux.io.out
+    readyMux.io.sel := readStreamTagFromDRAM
+    io.dram.rresp.ready := readyMux.io.out
   } else {
-    io.dram.resp.ready := true.B
+    io.dram.rresp.ready := true.B
   }
-  val respReady = io.dram.resp.ready
+  if (wrespFifos.length > 0) {
+    val readyMux = Module(new MuxNType(Bool(), wrespFifos.length))
+    readyMux.io.ins := Vec(wrespFifos.map { f => ~(f.io.full | f.io.almostFull) })
+    readyMux.io.sel := writeStreamTagFromDRAM - loadStreamInfo.size.U
+    io.dram.wresp.ready := readyMux.io.out
+  } else {
+    io.dram.wresp.ready := true.B
+  }
 
   // Some assertions
   if (enableHwAsserts) {
@@ -471,7 +479,7 @@ class MAGCore(
   numRespHighCtr.io.saturate := 0.U
   numRespHighCtr.io.max := 100000000.U
   numRespHighCtr.io.stride := 1.U
-  numRespHighCtr.io.enable := io.dram.resp.valid
+  numRespHighCtr.io.enable := respValid
   io.dbg.num_resp_valid := numRespHighCtr.io.out
 
   val numRespAndEnableHighCtr = Module(new Counter(32))
@@ -479,7 +487,7 @@ class MAGCore(
   numRespAndEnableHighCtr.io.saturate := 0.U
   numRespAndEnableHighCtr.io.max := 100000000.U
   numRespAndEnableHighCtr.io.stride := 1.U
-  numRespAndEnableHighCtr.io.enable := io.dram.resp.valid & io.enable
+  numRespAndEnableHighCtr.io.enable := respValid & io.enable
   io.dbg.num_resp_valid_enable := numRespAndEnableHighCtr.io.out
 
   val rdataEnqCtr = Module(new Counter(32))
@@ -641,7 +649,7 @@ class MAGCore(
   for (i <- 0 until numRdataDebug) {
     for (j <- 0 until numRdataWordsDebug) {
 //      io.debugSignals(i*numRdataWordsDebug + j) := getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U))
-      connectDbgSignal(getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U)), s"""rdata_from_dram${i}_$j""")
+      connectDbgSignal(getFF(io.dram.rresp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U)), s"""rdata_from_dram${i}_$j""")
     }
   }
 
@@ -674,10 +682,15 @@ class MAGCore(
     connectDbgSignal(getCounter(dramCmdValid & dramReady & (tagOut.streamTag === i.U)), signal)
   }
 
+  connectDbgSignal(getCounter(respValid), "Num DRAM Responses")
+
   // Count number of responses issued per stream
   (0 until numStreams) foreach { case i =>
     val signal = "resp " + (if (i < loadStreamInfo.size) "load" else "store") + s"stream $i"
-    connectDbgSignal(getCounter(respValid & respReady & (streamTagFromDRAM === i.U)), signal)
+    val respValidSignal = (if (i < loadStreamInfo.size) io.dram.rresp.valid else io.dram.wresp.valid)
+    val respReadySignal = (if (i < loadStreamInfo.size) io.dram.rresp.ready else io.dram.wresp.ready)
+    val respTagSignal = (if (i < loadStreamInfo.size) readStreamTagFromDRAM else writeStreamTagFromDRAM)
+    connectDbgSignal(getCounter(respValidSignal & respReadySignal & (respTagSignal === i.U)), signal)
   }
 
   // Responses enqueued into appropriate places
@@ -693,14 +706,22 @@ class MAGCore(
   }
 
   connectDbgSignal(numWdataCtr.io.out, "num wdata transferred (wvalid & wready)")
-  connectDbgSignal(numWdataValidCtr.io.out, "wdata_valid")
-  connectDbgSignal(numWdataReadyCtr.io.out, "wdata_ready")
-  connectDbgSignal(dramReadySeen, "dramReadySeen")
-  connectDbgSignal(writeCmd, "writeCmd")
-  connectDbgSignal(wrPhase.io.output.data, "wrPhase")
-  connectDbgSignal(~isWrFifo.io.empty & isWrFifo.io.deq(0)(0), "~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)")
-  connectDbgSignal(getCounter(wdataValid & wdataReady & ~issued), "wvalid & wready & ~issued")
-  connectDbgSignal(getCounter(wdataValid & wdataReady & issued), "wvalid & wready & issued")
+
+  connectDbgSignal(getFF(io.dram.cmd.bits.addr, dramReady & dramCmdValid), "Last issued addr")
+  connectDbgSignal(getFF(io.dram.cmd.bits.size, dramReady & dramCmdValid), "Last issued size")
+  connectDbgSignal(getFF(io.dram.cmd.bits.isWr, dramReady & dramCmdValid), "Last issued isWr")
+  connectDbgSignal(getFF(io.dram.cmd.bits.tag, dramReady & dramCmdValid), "Last issued tag")
+
+  connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.wresp.valid), "Rvalid and Bvalid")
+
+//  connectDbgSignal(numWdataValidCtr.io.out, "wdata_valid")
+//  connectDbgSignal(numWdataReadyCtr.io.out, "wdata_ready")
+//  connectDbgSignal(dramReadySeen, "dramReadySeen")
+//  connectDbgSignal(writeCmd, "writeCmd")
+//  connectDbgSignal(wrPhase.io.output.data, "wrPhase")
+//  connectDbgSignal(~isWrFifo.io.empty & isWrFifo.io.deq(0)(0), "~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)")
+//  connectDbgSignal(getCounter(wdataValid & wdataReady & ~issued), "wvalid & wready & ~issued")
+//  connectDbgSignal(getCounter(wdataValid & wdataReady & issued), "wvalid & wready & issued")
 
 
   // Print all debugging signals into a header file

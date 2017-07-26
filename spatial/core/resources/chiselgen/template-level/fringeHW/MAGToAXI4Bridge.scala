@@ -57,26 +57,24 @@ class MAGToAXI4Bridge(val addrWidth: Int, val dataWidth: Int, val tagWidth: Int)
   val rdataAsVec = Vec(List.tabulate(16) { i =>
       io.M_AXI.RDATA(512 - 1 - i*32, 512 - 1 - i*32 - 31)
   }.reverse)
-  io.in.resp.bits.rdata := rdataAsVec
+  io.in.rresp.bits.rdata := rdataAsVec
 
 //  io.M_AXI.RRESP
 //  io.M_AXI.RLAST
 ////  io.M_AXI.RUSER
-  io.M_AXI.RREADY := io.in.resp.ready
-//  io.M_AXI.RREADY := 1.U
+  io.M_AXI.RREADY := io.in.rresp.ready
 
   // B
-  io.M_AXI.BREADY := io.in.resp.ready
+  io.M_AXI.BREADY := io.in.wresp.ready
 
   // MAG Response channel is currently shared between reads and writes
-  io.in.resp.valid := io.M_AXI.RVALID | io.M_AXI.BVALID
-  val respStreamId = Mux(io.M_AXI.BVALID, io.M_AXI.BID, io.M_AXI.RID)
-  io.in.resp.bits.streamId := Mux(io.M_AXI.BVALID, io.M_AXI.BID, io.M_AXI.RID)
-//  val respStreamId = Mux(io.M_AXI.BVALID, io.M_AXI.BUSER, io.M_AXI.RUSER)
-//  io.in.resp.bits.streamId := Mux(io.M_AXI.BVALID, io.M_AXI.BUSER, io.M_AXI.RUSER)
+  io.in.rresp.valid := io.M_AXI.RVALID
+  io.in.wresp.valid := io.M_AXI.BVALID
 
   // Construct the response tag, with streamId in the MSB
-  val tag = Cat(respStreamId(tagWidth-1, 0), Fill(io.in.resp.bits.tag.getWidth - tagWidth,  0.U))
-//  val tag = Cat(respStreamId, Fill(dataWidth-idBits, 0.U))
-  io.in.resp.bits.tag := tag
+  io.in.rresp.bits.streamId := io.M_AXI.RID
+  io.in.wresp.bits.streamId := io.M_AXI.BID
+
+  io.in.rresp.bits.tag := Cat(io.M_AXI.RID(tagWidth-1, 0), Fill(io.in.rresp.bits.tag.getWidth - tagWidth,  0.U))
+  io.in.wresp.bits.tag := Cat(io.M_AXI.BID(tagWidth-1, 0), Fill(io.in.wresp.bits.tag.getWidth - tagWidth,  0.U))
 }

@@ -263,25 +263,29 @@ bool checkQAndRespond(int id) {
             req->print();
           }
 
-          pokeDRAMResponse(
-            req->tag,
-            rdata[0],
-            rdata[1],
-            rdata[2],
-            rdata[3],
-            rdata[4],
-            rdata[5],
-            rdata[6],
-            rdata[7],
-            rdata[8],
-            rdata[9],
-            rdata[10],
-            rdata[11],
-            rdata[12],
-            rdata[13],
-            rdata[14],
-            rdata[15]
-          );
+          if (req->isWr) {
+            pokeDRAMWriteResponse(req->tag);
+          } else {
+            pokeDRAMReadResponse(
+              req->tag,
+              rdata[0],
+              rdata[1],
+              rdata[2],
+              rdata[3],
+              rdata[4],
+              rdata[5],
+              rdata[6],
+              rdata[7],
+              rdata[8],
+              rdata[9],
+              rdata[10],
+              rdata[11],
+              rdata[12],
+              rdata[13],
+              rdata[14],
+              rdata[15]
+            );
+          }
           pokedResponse = true;
         }
       } else {
@@ -349,25 +353,29 @@ bool checkQAndRespond(int id) {
               printQueueStats(id);
             }
 
-            pokeDRAMResponse(
-                req->tag,
-                rdata[0],
-                rdata[1],
-                rdata[2],
-                rdata[3],
-                rdata[4],
-                rdata[5],
-                rdata[6],
-                rdata[7],
-                rdata[8],
-                rdata[9],
-                rdata[10],
-                rdata[11],
-                rdata[12],
-                rdata[13],
-                rdata[14],
-                rdata[15]
-              );
+            if (req->isWr) {
+              pokeDRAMWriteResponse(req->tag);
+            } else {
+              pokeDRAMReadResponse(
+                  req->tag,
+                  rdata[0],
+                  rdata[1],
+                  rdata[2],
+                  rdata[3],
+                  rdata[4],
+                  rdata[5],
+                  rdata[6],
+                  rdata[7],
+                  rdata[8],
+                  rdata[9],
+                  rdata[10],
+                  rdata[11],
+                  rdata[12],
+                  rdata[13],
+                  rdata[14],
+                  rdata[15]
+                );
+            }
             pokedResponse = true;
           }
         }
@@ -378,10 +386,17 @@ bool checkQAndRespond(int id) {
 
 void checkAndSendDRAMResponse() {
   // Check if DRAM is ready
-  SV_BIT_PACKED_ARRAY(32, dramRespReady);
-  getDRAMRespReady((svBitVec32*)&dramRespReady);
-  uint32_t ready = (uint32_t)*dramRespReady;
-
+  // TODO: This logic is sketchy for two reasons
+  // 1. This checks ready first before asserting valid. This should not be the case; valid and ready must be independent
+  // 2. read and write ready signals are combined, so logic stalls if EITHER is not ready. This is quite clunky and doesn't
+  //    model real world cases
+  SV_BIT_PACKED_ARRAY(32, dramReadRespReady);
+  SV_BIT_PACKED_ARRAY(32, dramWriteRespReady);
+  getDRAMReadRespReady((svBitVec32*)&dramReadRespReady);
+  getDRAMWriteRespReady((svBitVec32*)&dramWriteRespReady);
+  uint32_t readReady = (uint32_t)*dramReadRespReady;
+  uint32_t writeReady = (uint32_t)*dramWriteRespReady;
+  uint32_t ready = readReady | writeReady;
   if (ready > 0) {
     // Iterate over all queues and respond to the first non-empty queue
     for (int i =0; i < MAX_NUM_Q; i++) {
