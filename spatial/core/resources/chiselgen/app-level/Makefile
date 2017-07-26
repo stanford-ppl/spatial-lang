@@ -281,7 +281,7 @@ vcs-clean:
 	make -C verilog-vcs clean
 	make -C cpp clean
 	rm -rf verilog-vcs
-	rm -f verilog TopVCS.tar.gz Top *.log *.vcd
+	rm -f verilog TopVCS.tar.gz Top *.log *.vcd ucli.key
 	rm -rf target
 
 sim-clean:
