@@ -405,7 +405,7 @@ object Utils {
   def FloatPoint[T](m: Int, e: Int, init: T): FloatingPoint = {
     val cst = Wire(new FloatingPoint(m, e))
     init match {
-      case i: Double => cst.raw := getFloatBits(i.toFloat).U
+      case i: Double => cst.raw := getFloatBits(i.toFloat).S.asUInt
       case i: Bool => cst.r := mux(i, getFloatBits(1f).U, getFloatBits(0f).U)
       // case i: UInt => 
       // case i: SInt => 

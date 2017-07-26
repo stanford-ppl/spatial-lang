@@ -663,6 +663,8 @@ class FloatingPoint(val m: Int, val e: Int) extends Bundle {
 				number := op.number
 			case op: UInt =>
 				number := op
+			case op: FloatingPoint =>
+				number := op.number
 		}
 	}
 
@@ -864,7 +866,11 @@ class FloatingPoint(val m: Int, val e: Int) extends Bundle {
 
 	// def isNeg (): Bool = {}
 
- //  def unary_-() : FloatingPoint = {}
+	def unary_-() : FloatingPoint = {
+		val result = Wire(new FloatingPoint(m, e))
+		result.r := util.Cat(~this.msb, this.r.apply(m+e-2,0))
+		result
+	}
 
 
     override def cloneType = (new FloatingPoint(m,e)).asInstanceOf[this.type] // See chisel3 bug 358

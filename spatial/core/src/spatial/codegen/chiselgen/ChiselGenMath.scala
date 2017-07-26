@@ -8,7 +8,7 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.SpatialConfig
 
-trait ChiselGenMath extends ChiselCodegen {
+trait ChiselGenMath extends ChiselGenSRAM {
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -39,7 +39,9 @@ trait ChiselGenMath extends ChiselCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case FixAbs(x)  => emit(src"val $lhs = Mux(${x} < 0.U, -$x, $x)")
 
-    case FltAbs(x)  => emit(src"val $lhs = Mux(${x} < 0.U, -$x, $x)")
+    case FltAbs(x)  => 
+      val (e,g) = x.tp match {case FltPtType(g,e) => (e,g)}
+      emit(src"val $lhs = Mux(${x} < 0.FlP($e,$g), -$x, $x)")
     case FltLog(x)  => x.tp match {
       case DoubleType() => emit(src"val $lhs = Math.log($x)")
       case FloatType()  => emit(src"val $lhs = Math.log($x.toDouble).toFloat")
@@ -68,12 +70,13 @@ trait ChiselGenMath extends ChiselCodegen {
     case FltAtan(x) => throw new spatial.TrigInAccelException(lhs)
 
     case Mux(sel, a, b) => 
-      lhs.tp match { 
-        case FixPtType(s,d,f) => 
-          emitGlobalWire(s"""val ${quote(lhs)} = Wire(new FixedPoint($s,$d,$f))""")
-        case _ =>
-          emitGlobalWire(s"""val ${quote(lhs)} = Wire(UInt(${bitWidth(lhs.tp)}.W))""")
-      }
+      emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
+      // lhs.tp match { 
+      //   case FixPtType(s,d,f) => 
+      //     emitGlobalWire(s"""val ${quote(lhs)} = Wire(new FixedPoint($s,$d,$f))""")
+      //   case _ =>
+      //     emitGlobalWire(s"""val ${quote(lhs)} = Wire(UInt(${bitWidth(lhs.tp)}.W))""")
+      // }
       emit(src"${lhs}.r := Mux(($sel), ${a}.r, ${b}.r)")
 
     // Assumes < and > are defined on runtime type...
