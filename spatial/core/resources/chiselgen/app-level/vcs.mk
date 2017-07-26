@@ -9,6 +9,7 @@ STATIC_SRC=./datastructures/static
 SOURCES := $(wildcard ${HOST_SRC}/*.cpp ${STATIC_SRC}/*.cpp ${FRINGE_SRC}/*.cpp)
 
 INCLUDES +=													\
+			-I${HOST_SRC}/                \
 			-I${HOST_SRC}/datastructures 	\
 			-I$(JAVA_HOME)/include 				\
 			-I$(JAVA_HOME)/include/linux 	\
@@ -43,6 +44,7 @@ Top: $(OBJECTS)
 ## Clean up
 clean:
 	rm -f $(OBJECTS) $(DEFINES) *.a *.vcd *.dat ${TOP} Top
+	rm -f generated_*
 
 # Set the default Makefile goal to be 'all', else it will default to executing
 # the first target in ${TOP}.mk

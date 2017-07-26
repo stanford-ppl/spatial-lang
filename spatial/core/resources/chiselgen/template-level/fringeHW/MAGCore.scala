@@ -6,6 +6,8 @@ import chisel3.util._
 import templates.SRFF
 import templates.Utils.log2Up
 import scala.language.reflectiveCalls
+import scala.collection.mutable.ListBuffer
+import java.io.{File, PrintWriter}
 
 class MAGCore(
   val w: Int,
@@ -18,9 +20,9 @@ class MAGCore(
   val blockingDRAMIssue: Boolean = false
 ) extends Module { // AbstractMAG(w, d, v, numOutstandingBursts, burstSizeBytes) {
 
-  val numRdataDebug = 0
+  val numRdataDebug = 3
   val numRdataWordsDebug = 16
-  val numWdataDebug = 6
+  val numWdataDebug = 3
   val numWdataWordsDebug = 16
   val numDebugs = 224
 
@@ -417,6 +419,7 @@ class MAGCore(
   } else {
     io.dram.resp.ready := true.B
   }
+  val respReady = io.dram.resp.ready
 
   // Some assertions
   if (enableHwAsserts) {
@@ -489,17 +492,6 @@ class MAGCore(
 
   val rdataFifoEnqCtrs = List.tabulate(rdataFifos.size) { i =>
     val fifo = rdataFifos(i)
-    val enqCtr = Module(new Counter(32))
-    enqCtr.io.reset := 0.U
-    enqCtr.io.saturate := 0.U
-    enqCtr.io.max := 100000000.U
-    enqCtr.io.stride := 1.U
-    enqCtr.io.enable := fifo.io.enqVld
-    enqCtr.io.out
-  }
-
-  val wrespFifoEnqCtrs = List.tabulate(wrespFifos.size) { i =>
-    val fifo = wrespFifos(i)
     val enqCtr = Module(new Counter(32))
     enqCtr.io.reset := 0.U
     enqCtr.io.saturate := 0.U
@@ -638,16 +630,18 @@ class MAGCore(
   }
 
   var dbgCount = 0
-  def connectDbgSignal(sig: UInt) {
+  val signalLabels = ListBuffer[String]()
+  def connectDbgSignal(sig: UInt, label: String = "") {
     io.debugSignals(dbgCount) := sig
     dbgCount += 1
+    signalLabels.append(label)
   }
 
   // rdata enq values
   for (i <- 0 until numRdataDebug) {
     for (j <- 0 until numRdataWordsDebug) {
 //      io.debugSignals(i*numRdataWordsDebug + j) := getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U))
-      connectDbgSignal(getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U)))
+      connectDbgSignal(getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U)), s"""rdata_from_dram${i}_$j""")
     }
   }
 
@@ -657,7 +651,7 @@ class MAGCore(
     for (i <- 0 until numWdataDebug) {
       for (j <- 0 until math.min(io.app.stores(0).wdata.bits.size, numWdataWordsDebug)) {
   //      io.debugSignals(i*numRdataWordsDebug + j) := getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U))
-        connectDbgSignal(getFF(io.app.stores(0).wdata.bits(j), io.enable & (appWdata0EnqCtr === i.U)))
+        connectDbgSignal(getFF(io.app.stores(0).wdata.bits(j), io.enable & (appWdata0EnqCtr === i.U)), s"""wdata_from_accel${i}_$j""")
       }
     }
 
@@ -665,10 +659,66 @@ class MAGCore(
     for (i <- 0 until numWdataDebug) {
       for (j <- 0 until numWdataWordsDebug) {
   //      io.debugSignals(i*numRdataWordsDebug + j) := getFF(io.dram.resp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U))
-        connectDbgSignal(getFF(Cat(wdataFifoSize(15, 0), io.dram.wdata.bits.wdata(j)(15, 0)), io.enable & wdataValid & wdataReady & (numWdataCtr.io.out === i.U)))
+        connectDbgSignal(getFF(Cat(wdataFifoSize(15, 0), io.dram.wdata.bits.wdata(j)(15, 0)), io.enable & wdataValid & wdataReady & (numWdataCtr.io.out === i.U)), s"""wdata_to_dram${i}_$j""")
       }
     }
   }
+
+  connectDbgSignal(numCommandsCtr.io.out, "Num DRAM Commands")
+  connectDbgSignal(numReadCommandsCtr.io.out, "Read Commands")
+  connectDbgSignal(numWriteCommandsCtr.io.out, "Write Commands")
+
+  // Count number of commands issued per stream
+  (0 until numStreams) foreach { case i =>
+    val signal = "cmd" + (if (i < loadStreamInfo.size) "load" else "store") + s"stream $i"
+    connectDbgSignal(getCounter(dramCmdValid & dramReady & (tagOut.streamTag === i.U)), signal)
+  }
+
+  // Count number of responses issued per stream
+  (0 until numStreams) foreach { case i =>
+    val signal = "resp " + (if (i < loadStreamInfo.size) "load" else "store") + s"stream $i"
+    connectDbgSignal(getCounter(respValid & respReady & (streamTagFromDRAM === i.U)), signal)
+  }
+
+  // Responses enqueued into appropriate places
+  (0 until loadStreamInfo.size) foreach { case i =>
+    val signal = s"rdataFifo $i enq"
+    connectDbgSignal(getCounter(rdataFifos(i).io.enqVld), signal)
+  }
+
+  // Responses enqueued into appropriate places
+  (0 until storeStreamInfo.size) foreach { case i =>
+    val signal = s"wrespFifo $i enq"
+    connectDbgSignal(getCounter(wrespFifos(i).io.enqVld), signal)
+  }
+
+  connectDbgSignal(numWdataCtr.io.out, "num wdata transferred (wvalid & wready)")
+  connectDbgSignal(numWdataValidCtr.io.out, "wdata_valid")
+  connectDbgSignal(numWdataReadyCtr.io.out, "wdata_ready")
+  connectDbgSignal(dramReadySeen, "dramReadySeen")
+  connectDbgSignal(writeCmd, "writeCmd")
+  connectDbgSignal(wrPhase.io.output.data, "wrPhase")
+  connectDbgSignal(~isWrFifo.io.empty & isWrFifo.io.deq(0)(0), "~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)")
+  connectDbgSignal(getCounter(wdataValid & wdataReady & ~issued), "wvalid & wready & ~issued")
+  connectDbgSignal(getCounter(wdataValid & wdataReady & issued), "wvalid & wready & issued")
+
+
+  // Print all debugging signals into a header file
+  val debugFileName = "cpp/generated_debugRegs.h"
+  val debugPW = new PrintWriter(new File(debugFileName))
+  debugPW.println(s"""
+#ifndef __DEBUG_REGS_H__
+#define __DEBUG_REGS_H__
+
+#define NUM_DEBUG_SIGNALS ${signalLabels.size}
+
+const char *signalLabels[] = {
+""")
+
+  debugPW.println(signalLabels.map { l => s"""\"${l}\"""" }.mkString(", "))
+  debugPW.println("};")
+  debugPW.println("#endif // __DEBUG_REGS_H__")
+  debugPW.close
 
 //  io.debugSignals(48) := enableCounter.io.out
 //  io.debugSignals(49) := cmdValidEnableCtr.io.out
@@ -685,9 +735,7 @@ class MAGCore(
 //connectDbgSignal(cmdValidEnableCtr.io.out)
 //connectDbgSignal(numReadyAndEnableHighCtr.io.out)
 //connectDbgSignal(numRespAndEnableHighCtr.io.out)
-connectDbgSignal(numCommandsCtr.io.out)
-connectDbgSignal(numReadCommandsCtr.io.out)
-connectDbgSignal(numWriteCommandsCtr.io.out)
+
 //connectDbgSignal(getFF(io.dram.cmd.bits.addr, io.enable & dramCmdValid & (cmdValidEnableCtr.io.out === 0.U)))
 //connectDbgSignal(getFF(io.dram.cmd.bits.size, io.enable & dramCmdValid & (cmdValidEnableCtr.io.out === 0.U)))
 //connectDbgSignal(addrEnqCtr.io.out)
@@ -731,16 +779,6 @@ connectDbgSignal(numWriteCommandsCtr.io.out)
 //  connectDbgSignal(getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 0.U)))
 //  connectDbgSignal(getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 1.U)))
 //  connectDbgSignal(getFF(io.dram.resp.bits.streamId, io.enable & respValid & (numRespAndEnableHighCtr.io.out === 2.U)))
-  connectDbgSignal(numWdataValidCtr.io.out)
-  connectDbgSignal(numWdataReadyCtr.io.out)
-  connectDbgSignal(numWdataCtr.io.out)
-  connectDbgSignal(wrespFifoEnqCtrs(0))
-  connectDbgSignal(dramReadySeen)
-  connectDbgSignal(writeCmd)
-  connectDbgSignal(wrPhase.io.output.data)
-  connectDbgSignal(~isWrFifo.io.empty & isWrFifo.io.deq(0)(0))
-  connectDbgSignal(getCounter(wdataValid & wdataReady & ~issued))
-  connectDbgSignal(getCounter(wdataValid & wdataReady & issued))
 
 
 //  io.dbg.rdata_enq0_0 := getFF(io.dram.resp.bits.rdata(0), respValid & (streamTagFromDRAM === 0.U) & (rdataEnqCtr.io.out === 0.U))

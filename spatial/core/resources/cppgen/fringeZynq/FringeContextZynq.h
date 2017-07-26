@@ -10,7 +10,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <unistd.h>
-
+#include "generated_debugRegs.h"
 // Some key code snippets have been borrowed from the following source:
 // https://shanetully.com/2014/12/translating-virtual-addresses-to-physcial-addresses-in-user-space
 
@@ -296,14 +296,14 @@ public:
   }
 
   void dumpDebugRegs() {
-    int numDebugRegs = 224;
+//    int numDebugRegs = 224;
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
     int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
-    for (int i=0; i<numDebugRegs; i++) {
+    for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
       uint32_t value = readReg(argInOffset + argOutOffset + 2 + i);
-      EPRINTF("\tR%d: %08x (%08d)\n", i, value, value);
+      EPRINTF("\t%s: %08x (%08d)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");
   }

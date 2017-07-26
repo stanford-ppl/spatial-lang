@@ -17,6 +17,7 @@
 #include "FringeContextBase.h"
 #include "simDefs.h"
 #include "channel.h"
+#include "generated_debugRegs.h"
 
 //Source: http://stackoverflow.com/questions/13893085/posix-spawnp-and-piping-child-output-to-a-string
 class FringeContextVCS : public FringeContextBase<void> {
@@ -303,14 +304,13 @@ public:
   }
 
   void dumpDebugRegs() {
-    int numDebugRegs = 224;
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
     int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
-    for (int i=0; i<numDebugRegs; i++) {
+    for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
       uint64_t value = readReg(argInOffset + argOutOffset + 2 - numArgIOs + i);
-      EPRINTF("\tR%d: %08x (%08d)\n", i, value, value);
+      EPRINTF("\t%s: %08x (%08d)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");
   }
