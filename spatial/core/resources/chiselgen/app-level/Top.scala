@@ -49,7 +49,7 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 //  val genericStreamOut = StreamOut(StreamParInfo(32,1))
 
   // Debug signals
-  val dbg = new DebugSignals
+//  val dbg = new DebugSignals
 }
 
 class ZynqInterface(p: TopParams) extends TopInterface {
@@ -118,7 +118,7 @@ class AWSInterface(p: TopParams) extends TopInterface {
   val scalarIns = Input(Vec(p.numArgIns, UInt(64.W)))
   val scalarOuts = Output(Vec(p.numArgOuts, UInt(64.W)))
 
-  val dbg = new DebugSignals
+//  val dbg = new DebugSignals
 
   // DRAM interface - currently only one stream
 //  val dram = new DRAMStream(p.dataWidth, p.v)
@@ -207,7 +207,7 @@ class Top(
       // Fringe <-> Accel stream connections
 //      accel.io.genericStreams <> fringe.io.genericStreamsAccel
 //      fringe.io.genericStreamsAccel <> accel.io.genericStreams
-      topIO.dbg <> fringe.io.dbg
+//      topIO.dbg <> fringe.io.dbg
 
     case "de1soc" =>
       // DE1SoC Fringe
@@ -312,6 +312,7 @@ class Top(
       //     fringeArgOut.bits := accelArgOut.bits
       //     fringeArgOut.valid := 1.U
       // }
+      fringe.io.externalEnable := false.B
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
@@ -336,8 +337,8 @@ class Top(
       accel.io.enable := topIO.enable
       topIO.done := accel.io.done
 
-      fringe.io.aws_top_enable := topIO.enable
-      topIO.dbg <> fringe.io.dbg
+      fringe.io.externalEnable := topIO.enable
+//      topIO.dbg <> fringe.io.dbg
 
     case _ =>
       throw new Exception(s"Unknown target '$target'")

@@ -54,6 +54,9 @@ class FringeZynq(
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
 
+    // External enable
+    val externalEnable = Input(Bool()) // For AWS, enable comes in as input to top module
+
     // Accel stream IO
 //    val genericStreams = new GenericStreams(streamInsInfo, streamOutsInfo)
   })
@@ -73,6 +76,8 @@ class FringeZynq(
   fringeCommon.io.waddr := axiLiteBridge.io.waddr
   fringeCommon.io.wdata := axiLiteBridge.io.wdata
   axiLiteBridge.io.rdata := fringeCommon.io.rdata
+
+  fringeCommon.io.aws_top_enable := io.externalEnable
 
   io.enable := fringeCommon.io.enable
   fringeCommon.io.done := io.done
