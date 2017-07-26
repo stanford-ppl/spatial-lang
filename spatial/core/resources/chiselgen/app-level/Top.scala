@@ -110,6 +110,9 @@ class DE1SoCInterface(p: TopParams) extends TopInterface {
 }
 
 class AWSInterface(p: TopParams) extends TopInterface {
+  private val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
+  private val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 8)
+
   val enable = Input(UInt(p.dataWidth.W))
   val done = Output(UInt(p.dataWidth.W))
   val scalarIns = Input(Vec(p.numArgIns, UInt(64.W)))
@@ -118,7 +121,8 @@ class AWSInterface(p: TopParams) extends TopInterface {
   val dbg = new DebugSignals
 
   // DRAM interface - currently only one stream
-  val dram = new DRAMStream(p.dataWidth, p.v)
+//  val dram = new DRAMStream(p.dataWidth, p.v)
+  val M_AXI = new AXI4Inlined(axiParams)
 }
 
 /**
@@ -316,11 +320,14 @@ class Top(
     case "aws" | "aws-sim" =>
       // Simulation Fringe
       val blockingDRAMIssue = false  // Allow only one in-flight request, block until response comes back
-      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+//      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[AWSInterface]
 
+
       // Fringe <-> DRAM connections
-      topIO.dram <> fringe.io.dram
+//      topIO.dram <> fringe.io.dram
+      topIO.M_AXI <> fringe.io.M_AXI
       fringe.io.memStreams <> accel.io.memStreams
 
       // Accel: Scalar and control connections
