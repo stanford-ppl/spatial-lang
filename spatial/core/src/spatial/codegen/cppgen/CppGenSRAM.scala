@@ -25,6 +25,10 @@ trait CppGenSRAM extends CppCodegen {
       else if (d+f > 4) "int8_t"
       else if (d+f > 2) "int2_t"
       else "boolean"
+    case FltPtType(e,m) => 
+      if (e+m == 32) "float"
+      else if (e+m == 64) "double"
+      else "faulty_float"
     case _ => "notype"
   }
 
