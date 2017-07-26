@@ -53,8 +53,9 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 }
 
 class ZynqInterface(p: TopParams) extends TopInterface {
-  private val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
-  private val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 5)
+  val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
+  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 5)
+
   val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
   val M_AXI = new AXI4Inlined(axiParams)
 }
@@ -110,8 +111,8 @@ class DE1SoCInterface(p: TopParams) extends TopInterface {
 }
 
 class AWSInterface(p: TopParams) extends TopInterface {
-  private val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
-  private val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 8)
+  val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
+  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 16)
 
   val enable = Input(UInt(p.dataWidth.W))
   val done = Output(UInt(p.dataWidth.W))
@@ -292,9 +293,10 @@ class Top(
 
     case "zynq" =>
       // Zynq Fringe
-      val blockingDRAMIssue = false // Allow only one in-flight request, block until response comes back
-      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[ZynqInterface]
+
+      val blockingDRAMIssue = false // Allow only one in-flight request, block until response comes back
+      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
 
       // Fringe <-> Host connections
       fringe.io.S_AXI <> topIO.S_AXI
@@ -319,12 +321,10 @@ class Top(
       accel.reset := ~reset
 
     case "aws" | "aws-sim" =>
-      // Simulation Fringe
+      val topIO = io.asInstanceOf[AWSInterface]
       val blockingDRAMIssue = false  // Allow only one in-flight request, block until response comes back
 //      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
-      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
-      val topIO = io.asInstanceOf[AWSInterface]
-
+      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
 
       // Fringe <-> DRAM connections
 //      topIO.dram <> fringe.io.dram

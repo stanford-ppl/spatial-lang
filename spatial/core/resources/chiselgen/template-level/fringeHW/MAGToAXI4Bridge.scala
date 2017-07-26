@@ -4,11 +4,8 @@ import chisel3._
 import chisel3.util._
 import axi4._
 
-class MAGToAXI4Bridge(val addrWidth: Int, val dataWidth: Int, val tagWidth: Int) extends Module {
-  val idBits = 5
-  val p = new AXI4BundleParameters(addrWidth, dataWidth, idBits)
-
-  Predef.assert(dataWidth == 512, s"ERROR: Unsupported data width $dataWidth in MAGToAXI4Bridge")
+class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Module {
+  Predef.assert(p.dataBits == 512, s"ERROR: Unsupported data width ${p.dataBits} in MAGToAXI4Bridge")
 
   val io = IO(new Bundle {
     val in = Flipped(new DRAMStream(32, 16))  // hardcoding stuff here
