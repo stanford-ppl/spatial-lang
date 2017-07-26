@@ -178,6 +178,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     passes += uctrlAnalyzer     // Analysis for unused register reads
     passes += regCleanup        // Duplicate register reads for each use
+    passes += printer
     passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
     passes += printer
 

@@ -464,7 +464,11 @@ object utils {
     case e: Exp[_] if e.tp == CounterChainType => e.asInstanceOf[Exp[CounterChain]]
   }}.getOrElse(Nil)
 
-  @stateful def willBeFullyUnrolled(e: Exp[_]): Boolean = loopCounters(e).forall(canFullyUnroll)
+  @stateful def willBeFullyUnrolled(e: Exp[_]): Boolean = e match {
+    case Def(d:OpReduce[_]) => canFullyUnroll(d.cchain)
+    case Def(d:OpForeach) => canFullyUnroll(d.cchain)
+    case _ => false
+  }
 
   @stateful def isOuterControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == OuterControl
   @stateful def isInnerControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == InnerControl
