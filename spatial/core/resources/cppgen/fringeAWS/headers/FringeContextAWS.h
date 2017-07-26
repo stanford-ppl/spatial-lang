@@ -328,6 +328,7 @@ public:
 #endif // F1
     aws_poke(BASE_ADDR + ATG, 0x00000001);
     aws_poke(BASE_ADDR + NUM_INST, 0x00000000);	// TODO: Move outside run()?
+    // aws_poke(BASE_ADDR + MAX_RD_REQ, 0x00000000);	// TODO: Move outside run()?
     uint32_t status;
     aws_poke(SCALAR_CMD_BASE_ADDR + CMD_REG_ADDR, 1);
     do {
