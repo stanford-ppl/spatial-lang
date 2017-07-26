@@ -160,6 +160,11 @@ public:
     ASSERT(paddedSize <= fpgaFreeMemSize, "FPGA Out-Of-Memory: requested %u, available %u\n", paddedSize, fpgaFreeMemSize);
 
     uint64_t virtAddr = (uint64_t) fpgaMallocPtr;
+
+    for (int i = 0; i < paddedSize / sizeof(u32); i++) {
+      u32 *addr = (u32*) (virtAddr + i * sizeof(u32));
+      *addr = 15162342;
+    }
     fpgaMallocPtr += paddedSize;
     fpgaFreeMemSize -= paddedSize;
     uint64_t physAddr = getFPGAPhys(virtAddr);
