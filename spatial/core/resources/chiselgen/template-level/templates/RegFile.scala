@@ -79,7 +79,11 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
         if (k + 1 < dims.length) {(i / dims.drop(k+1).reduce{_*_}) % dims(k)} else {i % dims(k)}
       }
       when(io.reset) {
-        registers(i) := 0.U(bitWidth.W)
+        if (inits.isDefined) {
+          registers(i) := (inits.get.apply(i)*scala.math.pow(2,fracBits)).toLong.U(bitWidth.W)
+        } else {
+          registers(i) := 0.U(bitWidth.W)            
+        }
       }.elsewhen(io.dump_en) {
         for (i <- 0 until dims.reduce{_*_}) {
           registers(i) := io.dump_data(i)
@@ -123,7 +127,11 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
   } else {
     when(io.reset) {
       for (i <- 0 until dims.reduce{_*_}) {
-        registers(i) := 0.U(bitWidth.W)
+        if (inits.isDefined) {
+          registers(i) := (inits.get.apply(i)*scala.math.pow(2,fracBits)).toLong.U(bitWidth.W)
+        } else {
+          registers(i) := 0.U(bitWidth.W)            
+        }
       }
     }.elsewhen(io.dump_en) {
       for (i <- 0 until dims.reduce{_*_}) {
@@ -322,7 +330,7 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
   val options = (0 until dims.reduce{_*_}).map { i => 
     val initval = (inits(i)*scala.math.pow(2,fracBits)).toLong
     // initval.U
-    ( i.U -> initval.S(width.W) )
+    ( i.U -> initval.S((width+1).W).apply(width-1,0) )
   }
 
   val flat_addr = (0 until numReaders).map{ k => 
@@ -336,7 +344,7 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
 
   // io.data_out := Mux1H(onehot, options)
   (0 until numReaders).foreach{i =>
-    io.data_out(i) := MuxLookup(flat_addr(i), 0.S(width.W), options).asUInt
+    io.data_out(i) := MuxLookup(flat_addr(i), 0.U(width.W), options).asUInt
   }
   // val selected = MuxLookup(active_addr, 0.S, options)
 

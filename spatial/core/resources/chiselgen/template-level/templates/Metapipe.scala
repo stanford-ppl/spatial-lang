@@ -103,7 +103,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
               en := ~done & (ii.U >= cycsSinceDone.io.output.data) & (io.input.numIter != 0.U) & io.input.stageMask(ii)
           }
           io.output.stageEnable.drop(fillStateID+1).foreach { en => en := false.B }
-          val doneMaskInts = doneMask.zip(io.input.stageMask).map{case (a,b) => a | ~b}.take(fillStateID+1).map {Mux(_, 1.U(bitsToAddress(n).W), 0.U(bitsToAddress(n).W))}
+          val doneMaskInts = doneMask.zip(io.input.stageMask).zipWithIndex.map{case ((a,b),iii) => (a | ~b) & iii.U >= cycsSinceDone.io.output.data}.take(fillStateID+1).map {Mux(_, 1.U(bitsToAddress(n).W), 0.U(bitsToAddress(n).W))}
           val doneTree = doneMaskInts.reduce {_ + _} + cycsSinceDone.io.output.data === (fillStateID+1).U
           // val doneTree = doneMask.zipWithIndex.map{case (a,i) => a | ~io.input.stageMask(i)}.take(fillStateID+1).reduce {_ & _}
           doneClear := doneTree
