@@ -58,15 +58,15 @@ typedef enum logic [3:0] {MC_IDLE           = 4'd0,
                           MC_ADDR_HI        = 4'd3,
                           MC_INIT_2         = 4'd4,
                           MC_LAUNCH         = 4'd5,
-                          MC_WVALID_STALL_1 = 4'd6,
-                          MC_WVALID_STALL_2 = 4'd7,
-                          MC_WAIT_FOR_DDR   = 4'd8} mc_state_t;
+                          MC_WVALID_STALL   = 4'd6,
+                          MC_WAIT_FOR_DDR   = 4'd7} mc_state_t;
 
 mc_state_t curr_state;
 logic load_state;
 logic [63:0] current_burst_addr;
 logic [31:0] current_burst_size;
 logic [15:0] current_tag_tmp;
+logic [15:0] curr_stall_count;
 
 assign rdata = DIRECT_rdata;
 assign rdata_valid = DIRECT_rdata_valid;
@@ -210,6 +210,7 @@ always_ff @(posedge clk or negedge rst_n) begin
     ready_for_next_cmd <= 0;
     current_tag <= 0;
     current_tag_tmp <= 0;
+    curr_stall_count <= 10;
   end
   else begin
     case(curr_state)
@@ -257,28 +258,36 @@ always_ff @(posedge clk or negedge rst_n) begin
             end
       MC_LAUNCH: begin
               if (tst_cfg_ack) begin
+                current_tag <= current_tag_tmp; // HACK: If assign too soon and prev cmd was a load, since loads do not block, might reassign before that prev load sent arvalid
                 if (load_state) begin
                   curr_state <= MC_WAIT_FOR_DDR;
-                  current_tag <= current_tag_tmp; // If assign too soon, by time awvalid goes high it may have changed
                 end else begin
-                  curr_state <= MC_WVALID_STALL_1;
+                  curr_state <= MC_WVALID_STALL;
                 end
               end else begin
                 curr_state <= MC_LAUNCH;
               end
             end
-      // These stall states wouldn't be needed if we didn't use TST, since it adds unneeded delays:
-      //  cycle 0: memory controller launch state sets the write go bit
-      //  cycle 1: go bit propagates to q (delay 1), and then cfg_wr_go is high now
-      //  cycle 2: wr_state is now WR_ADDR
-      //  cycle 3: wr_state is now WR_DAT, i.e. wvalid is now high
-      // Once we remove TST, can save 2 cycles by setting awaddr and awvalid
-      MC_WVALID_STALL_1: begin
-              curr_state <= MC_WVALID_STALL_2;
-            end
-      MC_WVALID_STALL_2: begin
-              curr_state <= MC_WAIT_FOR_DDR;
-              current_tag <= current_tag_tmp;
+      // HACK
+      //
+      // Here I have to stall because otherwise I could set wvalid before awvalid is high
+      //
+      // Old:
+      //    These stall states wouldn't be needed if we didn't use TST, since it adds unneeded delays:
+      //     cycle 0: memory controller launch state sets the write go bit
+      //     cycle 1: go bit propagates to q (delay 1), and then cfg_wr_go is high now
+      //     cycle 2: wr_state is now WR_ADDR
+      //     cycle 3: wr_state is now WR_DAT, i.e. wvalid is now high
+      //    Once we remove TST, can save 2 cycles by setting awaddr and awvalid
+      MC_WVALID_STALL: begin
+              if (curr_stall_count === 0) begin
+                curr_state <= MC_WAIT_FOR_DDR;
+                // current_tag <= current_tag_tmp;
+                curr_stall_count <= 10;
+              end else begin
+                curr_state <= MC_WVALID_STALL;
+                curr_stall_count <= curr_stall_count - 1;
+              end
             end
       MC_WAIT_FOR_DDR: begin
               //if ( (load_state && rlast && DIRECT_rdata_valid) || (!load_state && wlast) ) begin
