@@ -198,6 +198,72 @@ void printQueueStats(int id) {
   EPRINTF("==== END dramRequestQ %d status =====\n", id);
 }
 
+int popWhenReady = -1; // dramRequestQ from which response was poked (to be popped when ready)
+
+/**
+ * DRAM Queue pop: Called from testbench when response ready & valid is high
+ * Both read and write requests are in a single queue in the simulation
+ * So both 'popDRAMReadQ' and 'popDRAMWriteQ' call the same internal function
+ * The separation in the DPI API is for future-proofing when we truly support
+ * independent read and write DRAM channel simulation
+ */
+void popDRAMQ() {
+  ASSERT(popWhenReady != -1, "popWhenReady == -1! Popping before the first command was issued?\n");
+  ASSERT(popWhenReady < MAX_NUM_Q, "popWhenReady = %d which is greater than MAX_NUM_Q (%d)!\n", popWhenReady, MAX_NUM_Q);
+
+  DRAMRequest *req = dramRequestQ[popWhenReady].front();
+  ASSERT(req->completed, "Request at the head of pop queue (%d) not completed!\n", popWhenReady);
+  ASSERT(req != NULL, "Request at head of pop queue (%d) is null!\n", req);
+
+  if (req->isSparse) { // Sparse request
+    for (int i = 0; i < burstSizeWords; i++) {
+      DRAMRequest *head = dramRequestQ[popWhenReady].front();
+      ASSERT(head->completed, "ERROR: Encountered sparse request that is not complete when popping sparse requests!\n");
+      ASSERT(head->isSparse, "ERROR: Encountered non-sparse request at (%d) while popping sparse requests! (%lx, %lx)\n", i, head->addr, head->rawAddr);
+      dramRequestQ[popWhenReady].pop_front();
+      delete head;
+    }
+  } else { // Dense request
+    if (req->isWr) { // Write request
+      ASSERT(req->cmd->hasCompleted(), "Write command at head of pop queue (%d) is not fully complete!\n", popWhenReady);
+      DRAMCommand *cmd = req->cmd;
+      DRAMRequest *front = req;
+      // Do write data handling, then pop all requests belonging to finished cmd from FIFO
+      while ((dramRequestQ[popWhenReady].size() > 0) && (front->cmd == cmd)) {
+        uint32_t *front_wdata = front->wdata;
+        uint32_t *front_waddr = (uint32_t*) front->addr;
+        for (int i=0; i<burstSizeWords; i++) {
+          front_waddr[i] = front_wdata[i];
+        }
+        dramRequestQ[popWhenReady].pop_front();
+        delete front;
+        front = dramRequestQ[popWhenReady].front();
+      }
+      delete cmd;
+
+    } else {  // Read request: Just pop
+      dramRequestQ[popWhenReady].pop_front();
+      // TODO: Uncommenting lines below is causing a segfault
+      // More cleaner garbage collection required, but isn't an immediate problem
+  //          if (req->cmd->hasCompleted()) {
+  //            delete req->cmd;
+  //          }
+      delete req;
+    }
+  }
+
+  // Reset popWhenReady
+  popWhenReady = -1;
+}
+
+void popDRAMReadQ() {
+  popDRAMQ();
+}
+
+void popDRAMWriteQ() {
+  popDRAMQ();
+}
+
 bool checkQAndRespond(int id) {
   // If request at front has completed, pop and poke DRAM response
   bool pokedResponse = false;
@@ -226,20 +292,6 @@ bool checkQAndRespond(int id) {
             waddr[i] = wdata[i];
           }
           if (req->cmd->hasCompleted()) {
-            DRAMCommand *cmd = req->cmd;
-            DRAMRequest *front = req;
-            // pop all requests belonging to cmd from FIFO
-            while ((dramRequestQ[id].size() > 0) && (front->cmd == cmd)) {
-              uint32_t *front_wdata = front->wdata;
-              uint32_t *front_waddr = (uint32_t*) front->addr;
-              for (int i=0; i<burstSizeWords; i++) {
-                front_waddr[i] = front_wdata[i];
-              }
-              dramRequestQ[id].pop_front();
-              delete front;
-              front = dramRequestQ[id].front();
-            }
-            delete cmd;
             pokeResponse = true;
           }
         } else { // Read request: Read burst-length bytes at *addr
@@ -247,13 +299,6 @@ bool checkQAndRespond(int id) {
           for (int i=0; i<burstSizeWords; i++) {
             rdata[i] = raddr[i];
           }
-          dramRequestQ[id].pop_front();
-          // TODO: Uncommenting lines below is causing a segfault
-          // More cleaner garbage collection required, but isn't an immediate problem
-//          if (req->cmd->hasCompleted()) {
-//            delete req->cmd;
-//          }
-          delete req;
           pokeResponse = true;
         }
 
@@ -337,8 +382,6 @@ bool checkQAndRespond(int id) {
                 scatterAddr[i] = head->rawAddr;
                 scatterData[i] = wdata[0];
               }
-              dramRequestQ[id].pop_front();
-              delete head;
             }
 
             if (debug) {
@@ -394,19 +437,26 @@ void checkAndSendDRAMResponse() {
   SV_BIT_PACKED_ARRAY(32, dramWriteRespReady);
   getDRAMReadRespReady((svBitVec32*)&dramReadRespReady);
   getDRAMWriteRespReady((svBitVec32*)&dramWriteRespReady);
-  uint32_t readReady = (uint32_t)*dramReadRespReady;
-  uint32_t writeReady = (uint32_t)*dramWriteRespReady;
-  uint32_t ready = readReady | writeReady;
-  if (ready > 0) {
-    // Iterate over all queues and respond to the first non-empty queue
+//  uint32_t readReady = (uint32_t)*dramReadRespReady;
+//  uint32_t writeReady = (uint32_t)*dramWriteRespReady;
+//  uint32_t ready = readReady & writeReady;
+//  if (ready > 0) {
+
+  if (popWhenReady >= 0) { // A particular queue has already poked its response, call it again
+    ASSERT(checkQAndRespond(popWhenReady), "popWhenReady (%d) >= 0, but no response generated from queue %d\n", popWhenReady, popWhenReady);
+  } else {   // Iterate over all queues and respond to the first non-empty queue
     for (int i =0; i < MAX_NUM_Q; i++) {
-      if (checkQAndRespond(i)) break;
-    }
-  } else {
-    if (debug) {
-      EPRINTF("[SIM] dramResp not ready, numCycles = %ld\n", numCycles);
+      if (checkQAndRespond(i)) {
+        popWhenReady = i;
+        break;
+      }
     }
   }
+//  } else {
+//    if (debug) {
+//      EPRINTF("[SIM] dramResp not ready, numCycles = %ld\n", numCycles);
+//    }
+//  }
 }
 
 class DRAMCallbackMethods {

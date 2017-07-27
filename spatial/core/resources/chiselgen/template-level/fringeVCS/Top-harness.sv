@@ -3,6 +3,8 @@ module test;
   import "DPI" function int tick();
   import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int size, int streamId, int tag, int isWr, int isSparse);
   import "DPI" function int sendWdata(int streamId, int dramCmdValid, int dramReadySeen, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
+  import "DPI" function void popDRAMReadQ();
+  import "DPI" function void popDRAMWriteQ();
   import "DPI" function void readOutputStream(int data, int tag, int last);
 
   // Export functionality to C layer
@@ -376,6 +378,15 @@ module test;
       end
     end
 
+    // Update internal response queues
+    if (io_dram_rresp_valid & io_dram_rresp_ready) begin
+      popDRAMReadQ();
+    end
+
+    if (io_dram_wresp_valid & io_dram_wresp_ready) begin
+      popDRAMWriteQ();
+    end
+
   endfunction
 
   initial begin
@@ -396,6 +407,8 @@ module test;
 
     io_dram_cmd_ready = 0;
     io_dram_wdata_ready = 0;
+    io_dram_rresp_valid = 0;
+    io_dram_wresp_valid = 0;
   end
 
   int numCycles = 0;
