@@ -49,12 +49,13 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 //  val genericStreamOut = StreamOut(StreamParInfo(32,1))
 
   // Debug signals
-  val dbg = new DebugSignals
+//  val dbg = new DebugSignals
 }
 
 class ZynqInterface(p: TopParams) extends TopInterface {
-  private val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
-  private val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 5)
+  val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
+  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 5)
+
   val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
   val M_AXI = new AXI4Inlined(axiParams)
 }
@@ -110,15 +111,15 @@ class DE1SoCInterface(p: TopParams) extends TopInterface {
 }
 
 class AWSInterface(p: TopParams) extends TopInterface {
-  private val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
-  private val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 8)
+  val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
+  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 16)
 
   val enable = Input(UInt(p.dataWidth.W))
   val done = Output(UInt(p.dataWidth.W))
   val scalarIns = Input(Vec(p.numArgIns, UInt(64.W)))
   val scalarOuts = Output(Vec(p.numArgOuts, UInt(64.W)))
 
-  val dbg = new DebugSignals
+//  val dbg = new DebugSignals
 
   // DRAM interface - currently only one stream
 //  val dram = new DRAMStream(p.dataWidth, p.v)
@@ -207,7 +208,7 @@ class Top(
       // Fringe <-> Accel stream connections
 //      accel.io.genericStreams <> fringe.io.genericStreamsAccel
 //      fringe.io.genericStreamsAccel <> accel.io.genericStreams
-      topIO.dbg <> fringe.io.dbg
+//      topIO.dbg <> fringe.io.dbg
 
     case "de1soc" =>
       // DE1SoC Fringe
@@ -292,9 +293,10 @@ class Top(
 
     case "zynq" =>
       // Zynq Fringe
-      val blockingDRAMIssue = false // Allow only one in-flight request, block until response comes back
-      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[ZynqInterface]
+
+      val blockingDRAMIssue = false // Allow only one in-flight request, block until response comes back
+      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
 
       // Fringe <-> Host connections
       fringe.io.S_AXI <> topIO.S_AXI
@@ -312,18 +314,17 @@ class Top(
       //     fringeArgOut.bits := accelArgOut.bits
       //     fringeArgOut.valid := 1.U
       // }
+      fringe.io.externalEnable := false.B
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
       accel.reset := ~reset
 
     case "aws" | "aws-sim" =>
-      // Simulation Fringe
+      val topIO = io.asInstanceOf[AWSInterface]
       val blockingDRAMIssue = false  // Allow only one in-flight request, block until response comes back
 //      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
-      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
-      val topIO = io.asInstanceOf[AWSInterface]
-
+      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
 
       // Fringe <-> DRAM connections
 //      topIO.dram <> fringe.io.dram
@@ -336,8 +337,8 @@ class Top(
       accel.io.enable := topIO.enable
       topIO.done := accel.io.done
 
-      fringe.io.aws_top_enable := topIO.enable
-      topIO.dbg <> fringe.io.dbg
+      fringe.io.externalEnable := topIO.enable
+//      topIO.dbg <> fringe.io.dbg
 
     case _ =>
       throw new Exception(s"Unknown target '$target'")
