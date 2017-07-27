@@ -69,7 +69,12 @@ trait BufferAnalyzer extends CompilerPass {
                 topControllerOf(access, mem, i) = swap
                 dbg(c"  -PORT ACCESS $access [swap = $swap]")
               }
-              else dbg(c"  -MUX ACCESS $access [lca = $child]")
+              else {
+                // TODO: Ask Matt what he expects here
+                val fakeSwap = childContaining(child, access)
+                topControllerOf(access, mem, i) = fakeSwap
+                dbg(c"  -MUX ACCESS $access [lca = $child]")
+              }
             }
           }
         }

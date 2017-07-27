@@ -17,15 +17,12 @@ trait RegFiles extends Benchmarks {
         val rfs = List.fill(N){ RegFile.buffer[T](len) }
 
         Foreach(0 until 1000) { _ =>
-          List.tabulate(depth) { _ =>
+          List.tabulate(depth) { d =>
             Foreach(0 until 100 par p) { i =>
-              rfs.foreach{ rf => rf.update(i, i.to[T]) }
+              rfs.zip(outs).foreach{case (rf,out) => if (d > 0) rf.update(i, i.to[T]) else out := rf(i) }
             }
           }
           ()
-        }
-        Pipe {
-          rfs.zip(outs).foreach { case (rf, out) => out := rf(0) }
         }
       }
     }
@@ -40,17 +37,14 @@ trait RegFiles extends Benchmarks {
         val rfs = List.fill(N){ RegFile.buffer[T](rows, cols) }
 
         Foreach(0 until 1000) { _ =>
-          List.tabulate(depth) { _ =>
+          List.tabulate(depth) { d =>
             Foreach(0 until 100 par p0) { i =>
               Foreach(0 until 100 par p1) { j =>
-                rfs.foreach { rf => rf.update(i, j, i.to[T]) }
+                rfs.zip(outs).foreach{case (rf,out) => if (d > 0) rf.update(i, j, i.to[T]) else out := rf(i, j) }
               }
             }
           }
           ()
-        }
-        Pipe {
-          rfs.zip(outs).foreach{case (rf, out) => out := rf(0,0) }
         }
       }
     }
@@ -81,7 +75,7 @@ trait RegFiles extends Benchmarks {
   )
 
   //gens ::= dims2d.flatMap{case (rows,cols) => List.tabulate(3){depth => MetaProgGen("Reg16", Seq(100,200), RegFile2DOp[Int16](depth, rows, cols)) } }
-  gens :::= dims1d.flatMap{len => List.tabulate(3){depth => MetaProgGen("RegFile1D", Seq(100,200), RegFile1DOp[Int32](depth, len, 1)) } }
-  gens :::= dims2d.flatMap{case (rows,cols) => List.tabulate(3){depth => MetaProgGen("RegFile2D", Seq(100,200), RegFile2DOp[Int32](depth, rows, cols, 1, 1)) } }
+  gens :::= dims1d.flatMap{len => List.tabulate(3){depth => MetaProgGen("RegFile1D", Seq(100,200), RegFile1DOp[Int32](depth+1, len, 1)) } }
+  gens :::= dims2d.flatMap{case (rows,cols) => List.tabulate(3){depth => MetaProgGen("RegFile2D", Seq(100,200), RegFile2DOp[Int32](depth+1, rows, cols, 1, 1)) } }
 
 }
