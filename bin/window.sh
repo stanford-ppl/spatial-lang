@@ -2,8 +2,14 @@
 
 # Script for creating the window into /remote/regression/mapping for the gh README
 
-rm /home/mattfel/Window/window
-rm /home/mattfel/Window/window.png
+# Clean old dir and repo
+rm -rf /home/mattfel/Window
+cd /home/mattfel
+git clone git@github.com:mattfel1/Window
+cd Window
+git checkout --orphan master2
+rm -f window
+rm -f window.png
 
 # Make window
 echo "text 0,0 \"" > /home/mattfel/Window/window
@@ -18,8 +24,10 @@ height=$(($lines*25+80))
 `convert -size 800x${height} xc:black -pointsize 20 -fill white -draw @/home/mattfel/Window/window /home/mattfel/Window/window.png`
 
 # Upload window
-cd /home/mattfel/Window
+
 git add window
 git add window.png
-git commit -ammend -m "upd8"
-git push
+git commit -am "upd8"
+git branch -D master
+git branch -m master
+git push -f origin master

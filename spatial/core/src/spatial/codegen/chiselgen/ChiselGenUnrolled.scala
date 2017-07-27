@@ -66,7 +66,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       if (styleOf(lhs) != StreamPipe) { 
-        emitValids(cchain, iters, valids)
+        emitValids(lhs, cchain, iters, valids)
         withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitParallelizedLoop(iters, cchain)
@@ -75,7 +75,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       } else {
         if (childrenOf(lhs).length > 0) {
           childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
-            emitValids(cchain, iters, valids, src"_copy$c")
+            emitValids(lhs, cchain, iters, valids, src"_copy$c")
           }          
         } else {
           emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situation with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
@@ -110,7 +110,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitController(lhs, Some(cchain), Some(iters.flatten))
-      emitValids(cchain, iters, valids)
+      emitValids(lhs, cchain, iters, valids)
       emitGlobalWire(src"val ${lhs}_II_done = Wire(Bool())")
       if (iiOf(lhs) <= 1) {
         emit(src"""${lhs}_II_done := true.B""")
@@ -186,15 +186,15 @@ trait ChiselGenUnrolled extends ChiselGenController {
         }
         val p = portsOf(lhs, sram, k).head
         emit(src"""val ${lhs}_base = ${sram}_$k.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
-        sram.tp.typeArguments.head match { 
-          case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
+        // sram.tp.typeArguments.head match { 
+        //   case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
               emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""") 
               emit(s"""(0 until ${rPar}).foreach{i => ${quote(lhs)}(i).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base+i) }""")
-            } else {
-              emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$k.io.output.data(${lhs}_base+i) }""")
-            }
-          case _ => emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$k.io.output.data(${lhs}_base+i) }""")
-        }
+          //   } else {
+          //     emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$k.io.output.data(${lhs}_base+i) }""")
+          //   }
+          // case _ => emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$k.io.output.data(${lhs}_base+i) }""")
+        // }
       } else {
         emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
         dispatch.zipWithIndex.foreach{ case (k,id) => 
@@ -205,14 +205,14 @@ trait ChiselGenUnrolled extends ChiselGenController {
           }
           val p = portsOf(lhs, sram, k).head
           emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${lhs}_rVec($id)), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
-          sram.tp.typeArguments.head match { 
-            case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
+          // sram.tp.typeArguments.head match { 
+          //   case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
                 emit(s"""${quote(lhs)}($id).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k)""")
-              } else {
-                emit(src"""${lhs}($id) := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
-              }
-            case _ => emit(src"""${lhs}($id) := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
-          }
+            //   } else {
+            //     emit(src"""${lhs}($id) := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
+            //   }
+            // case _ => emit(src"""${lhs}($id) := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
+          // }
         }
         
       }
@@ -286,7 +286,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         case Def(StreamInNew(bus)) => bus match {
           case VideoCamera => 
             emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
-            emit(src"""${strm}_ready_options(${lhs}_rId) := ${parent}_datapath_en & ${ens.mkString("&")} & (${parent}_datapath_en).D(${parent}_retime, rr) """)
+            emit(src"""${strm}_ready_options(${lhs}_rId) := ${parent}_done & ${ens.mkString("&")} & (${parent}_datapath_en).D(${parent}_retime, rr) """)
           case SliderSwitch => 
             emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
           case _ => 
@@ -353,7 +353,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 
         emit(src"$lb.io.col_addr(0) := ${col}.raw // Assume we always read from same col")
         val rowtext = row match {
-          case c: Const[_] => "0.U"
+          case Const(cc) => s"$cc"
           case _ => src"${row}.r"
         }
         emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${rowtext})")

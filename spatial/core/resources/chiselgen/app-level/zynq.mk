@@ -9,6 +9,7 @@ STATIC_SRC=./datastructures/static
 SOURCES := $(wildcard ${HOST_SRC}/*.cpp ${STATIC_SRC}/*.cpp ${FRINGE_SRC}/*.cpp)
 
 INCLUDES +=													\
+			-I${HOST_SRC}/                \
 			-I${HOST_SRC}/datastructures 	\
 			-I$(JAVA_HOME)/include 				\
 			-I$(JAVA_HOME)/include/linux 	\
@@ -21,8 +22,8 @@ OBJECTS=$(SOURCES:.cpp=.o)
 
 DEFINES=$(OBJECTS:.o=.d)
 
-#CXXFLAGS=-DZYNQ -D__DELITE_CPP_STANDALONE__ -D__USE_STD_STRING__ -std=c++11
-CXXFLAGS=-DZYNQ -D__DELITE_CPP_STANDALONE__  -std=c++11
+CXXFLAGS=-DZYNQ -D__DELITE_CPP_STANDALONE__ -D__USE_STD_STRING__ -std=c++11 -O0 -g
+#CXXFLAGS=-DZYNQ -D__DELITE_CPP_STANDALONE__  -std=c++11
 LDFLAGS=-Wl,--hash-style=both -lstdc++ -pthread -lpthread -lm
 
 all: pre-build-checks Top
@@ -43,7 +44,8 @@ Top: $(OBJECTS)
 
 ## Clean up
 clean:
-	rm -f $(OBJECTS) $(DEFINES) *.a *.vcd *.dat ${TOP} Top
+	rm -f $(OBJECTS) $(DEFINES) *.a *.vcd *.dat ${TOP} Top *.tar.gz
+	rm -f generated_*
 
 # Set the default Makefile goal to be 'all', else it will default to executing
 # the first target in ${TOP}.mk

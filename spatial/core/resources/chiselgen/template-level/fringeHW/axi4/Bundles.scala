@@ -77,6 +77,7 @@ class AXI4Inlined(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 {
   // aw
   val AWID     = Output(UInt((params.idBits).W))
+  val AWUSER   = Output(UInt((params.addrBits).W))
   val AWADDR   = Output(UInt((params.addrBits).W))
   val AWLEN    = Output(UInt((params.lenBits).W))  // number of beats - 1
   val AWSIZE   = Output(UInt((params.sizeBits).W)) // bytes in beat = 2^size
@@ -90,6 +91,7 @@ class AXI4Inlined(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 
   // ar
   val ARID     = Output(UInt((params.idBits).W))
+  val ARUSER   = Output(UInt((params.addrBits).W))
   val ARADDR   = Output(UInt((params.addrBits).W))
   val ARLEN    = Output(UInt((params.lenBits).W))  // number of beats - 1
   val ARSIZE   = Output(UInt((params.sizeBits).W)) // bytes in beat = 2^size
@@ -111,6 +113,7 @@ class AXI4Inlined(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 
   // r: Input
   val RID   = Input(UInt((params.idBits).W))
+  val RUSER = Input(UInt((params.addrBits).W))
   val RDATA = Input(UInt((params.dataBits).W))
   val RRESP = Input(UInt((params.respBits).W))
   val RLAST = Input(Bool())
@@ -119,6 +122,7 @@ class AXI4Inlined(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 
   // b: Input
   val BID   = Input(UInt((params.idBits).W))
+  val BUSER = Input(UInt((params.addrBits).W))
   val BRESP = Input(UInt((params.respBits).W))
   val BVALID  = Input(Bool())
   val BREADY  = Output(Bool())

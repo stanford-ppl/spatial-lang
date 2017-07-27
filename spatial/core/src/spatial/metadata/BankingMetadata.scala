@@ -6,8 +6,8 @@ import spatial.aliases._
 import spatial.utils._
 
 sealed abstract class Banking { def banks: Int }
-case class StridedBanking(stride: Int, banks: Int) extends Banking  // Strided bank
-case object NoBanking extends Banking { def banks = 1 }             // No banking in the given dimension
+case class StridedBanking(stride: Int, banks: Int, isOuter: Boolean) extends Banking  // Strided bank
+case object NoBanking extends Banking { def banks = 1 }   // No banking in the given dimension
 
 @data object Banking {
   def unapply(x: Banking): Option[Int] = Some(x.banks)
