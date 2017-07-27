@@ -33,8 +33,8 @@ abstract class FPGATarget {
   type Area
   type Sum <: AreaSummary[Sum]
   def areaMetric: AreaMetric[Area]
-  lazy val areaModel: AreaModel[Area,Sum] = null
-  lazy val latencyModel: LatencyModel = null
+  def areaModel: AreaModel[Area,Sum]
+  def latencyModel: LatencyModel
   def areaAnalyzer(state: State): AreaAnalyzer[Area,Sum] = {
     AreaAnalyzer[Area,Sum](state, areaModel, latencyModel)(areaMetric)
   }

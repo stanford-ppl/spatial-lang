@@ -3,8 +3,10 @@ package spatial.analysis
 import argon.core._
 import argon.traversal.CompilerPass
 import org.virtualized.SourceContext
+import spatial.SpatialConfig
 import spatial.aliases._
 import spatial.metadata._
+import spatial.models.AreaMetric
 import spatial.nodes._
 import spatial.utils._
 
@@ -509,6 +511,37 @@ trait MemoryAnalyzer extends CompilerPass {
       case _:BufferedOutType[_] => bankBufferOut(mem)
       case tp => throw new spatial.UndefinedBankingException(tp)(mem.ctx, state)
     }}
+
+    if (Config.verbosity > 0) {
+      import scala.language.existentials
+      val target = SpatialConfig.target
+      type Area = target.Area
+      val areaModel = SpatialConfig.target.areaModel
+      val areaMetric = SpatialConfig.target.areaMetric.asInstanceOf[AreaMetric[Area]]
+
+      withLog(Config.logDir, "Memories.report") {
+        localMems.map{case mem @ Def(d) =>
+          val area = areaModel.areaOf(mem,d,inHwScope = true, inReduce = false)
+          mem -> area.asInstanceOf[Area]
+        }.sortWith((a,b) => areaMetric.lessThan(a._2,b._2)).foreach{case (mem,area) =>
+          dbg(u"${mem.ctx}: ${mem.tp}: ${mem}")
+          dbg(mem.ctx.lineContent.getOrElse(""))
+          dbg(c"  ${str(mem)}")
+          val duplicates = duplicatesOf(mem)
+          dbg(c"Duplicates: ${duplicates.length}")
+          dbg(c"Area: " + area.toString)
+          duplicates.zipWithIndex.foreach{
+            case (BankedMemory(banking, depth, _), i) =>
+              val banks = banking.map(_.banks).mkString(", ")
+              dbg(c"  #$i: Banked. Banks: ($banks), Depth: $depth")
+            case (DiagonalMemory(strides,banks,depth,_), i) =>
+              dbg(c"  #$i: Diagonal. Banks: $banks, Depth: $depth")
+          }
+          dbg("")
+          dbg("")
+        }
+      }
+    }
   }
 
 
