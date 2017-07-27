@@ -42,7 +42,9 @@ object Characterization extends AllBenchmarks {
     println("Number of programs: " + programs.length)
 
     var i = 1458
-    val chiseled = programs.drop(i).flatMap{x => //programs.slice(6,7).map{x =>
+    val prev = programs.take(i).map{x => x._1 }
+
+    val chiseled = prev ++ programs.drop(i).flatMap{x => //programs.slice(6,7).map{x =>
       val name = x._1
       initConfig(stagingArgs)
       Config.name = name
