@@ -2,6 +2,7 @@ package spatial.models.characterization
 
 import spatial._
 import argon.core.Config
+import argon.util.Report._
 
 import java.io.{File, PrintWriter}
 import scala.concurrent.duration.Duration
@@ -40,8 +41,8 @@ object Characterization extends AllBenchmarks {
 
     println("Number of programs: " + programs.length)
 
-    var i = 0
-    val chiseled = programs.drop(1458).flatMap{x => //programs.slice(6,7).map{x =>
+    var i = 1458
+    val chiseled = programs.drop(i).flatMap{x => //programs.slice(6,7).map{x =>
       val name = x._1
       initConfig(stagingArgs)
       Config.name = name
@@ -57,8 +58,14 @@ object Characterization extends AllBenchmarks {
         Console.println("done")
         Some(x._1)
       }
-      catch {case _:Throwable =>
+      catch {case e:Throwable =>
         Console.println("fail")
+        Config.verbosity = 4
+        withLog(Config.logDir,"exception.log") {
+          log(e.getMessage)
+          log(e.getCause)
+          e.getStackTrace.foreach{line => log("  " + line) }
+        }
         None
       }
       i += 1
