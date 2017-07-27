@@ -67,15 +67,17 @@ class FringeZynq(
   val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
 
   // AXI-lite bridge
-  val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
-  axiLiteBridge.io.S_AXI <> io.S_AXI
+  if (FringeGlobals.target == "zynq") {
+    val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
+    axiLiteBridge.io.S_AXI <> io.S_AXI
 
-  fringeCommon.reset := ~reset
-  fringeCommon.io.raddr := axiLiteBridge.io.raddr
-  fringeCommon.io.wen   := axiLiteBridge.io.wen
-  fringeCommon.io.waddr := axiLiteBridge.io.waddr
-  fringeCommon.io.wdata := axiLiteBridge.io.wdata
-  axiLiteBridge.io.rdata := fringeCommon.io.rdata
+    fringeCommon.reset := ~reset
+    fringeCommon.io.raddr := axiLiteBridge.io.raddr
+    fringeCommon.io.wen   := axiLiteBridge.io.wen
+    fringeCommon.io.waddr := axiLiteBridge.io.waddr
+    fringeCommon.io.wdata := axiLiteBridge.io.wdata
+    axiLiteBridge.io.rdata := fringeCommon.io.rdata
+  }
 
   fringeCommon.io.aws_top_enable := io.externalEnable
 
