@@ -76,10 +76,11 @@
       logic [512-1:0] DIRECT_rdata;
       logic DIRECT_force_burst_wdata;
       logic [512-1:0] DIRECT_wdata;
+      logic           DIRECT_wvalid;
 
-      modport master (input addr, wdata, wr, rd, DIRECT_wdata, DIRECT_force_burst_wdata, output ack, rdata, DIRECT_rdata, DIRECT_rdata_valid);
+      modport master (input addr, wdata, wr, rd, DIRECT_wdata, DIRECT_wvalid, DIRECT_force_burst_wdata, output ack, rdata, DIRECT_rdata, DIRECT_rdata_valid);
 
-      modport slave (output addr, wdata, wr, rd, DIRECT_wdata, DIRECT_force_burst_wdata, input ack, rdata, DIRECT_rdata, DIRECT_rdata_valid);
+      modport slave (output addr, wdata, wr, rd, DIRECT_wdata, DIRECT_wvalid, DIRECT_force_burst_wdata, input ack, rdata, DIRECT_rdata, DIRECT_rdata_valid);
    endinterface
 
    interface scrb_bus_t;

@@ -32,6 +32,7 @@ module  cl_tst_scrb #(parameter DATA_WIDTH=512,
    output logic[DATA_WIDTH-1:0] DIRECT_rdata,
    input DIRECT_force_burst_wdata,
    input[DATA_WIDTH-1:0] DIRECT_wdata,
+   input                 DIRECT_wvalid,
 
    input                             scrb_enable,
    output                            scrb_done,
@@ -288,6 +289,7 @@ module  cl_tst_scrb #(parameter DATA_WIDTH=512,
          .DIRECT_rdata(DIRECT_rdata),
          .DIRECT_force_burst_wdata(DIRECT_force_burst_wdata),
          .DIRECT_wdata(DIRECT_wdata),
+         .DIRECT_wvalid(DIRECT_wvalid),
 
          .atg_enable(atg_enable),
                                                

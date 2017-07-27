@@ -730,6 +730,7 @@
 ./chiselgen/app-level/run.sh
 ./chiselgen/app-level/vcs.mk
 ./chiselgen/app-level/Top.scala
+./chiselgen/app-level/findDiff.sh
 ./chiselgen/altera-goodies/interfaces.v
 ./chiselgen/altera-goodies/StreamPixBuffer2ARM.scala
 ./chiselgen/altera-goodies/altera_up_avalon_video_dma_controller/HAL/src/altera_up_avalon_video_dma_controller.c

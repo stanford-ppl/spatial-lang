@@ -34,7 +34,7 @@ object DE1 extends FPGATarget {
   override type Area = AlteraArea
   override type Sum = AlteraAreaSummary
   override def areaMetric: AreaMetric[AlteraArea] = AlteraAreaMetric
-  override lazy val areaModel: AreaModel[Area,Sum] = new StratixVAreaModel
-  override lazy val latencyModel: LatencyModel = new StratixVLatencyModel
+  def areaModel: AreaModel[Area,Sum] = new StratixVAreaModel
+  def latencyModel: LatencyModel = new StratixVLatencyModel
   override def capacity: AlteraAreaSummary = AlteraAreaSummary(alms=262400,regs=524800,dsps=1963,bram=2567,channels=13)
 }

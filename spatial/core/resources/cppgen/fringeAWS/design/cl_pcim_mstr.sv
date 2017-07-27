@@ -44,6 +44,7 @@ axi_bus_t cl_sh_pcim_q();
          .DIRECT_rdata(cfg_bus.DIRECT_rdata),
          .DIRECT_force_burst_wdata(cfg_bus.DIRECT_force_burst_wdata),
          .DIRECT_wdata(cfg_bus.DIRECT_wdata),
+         .DIRECT_wvalid(cfg_bus.DIRECT_wvalid),
 
          .atg_enable(),
   

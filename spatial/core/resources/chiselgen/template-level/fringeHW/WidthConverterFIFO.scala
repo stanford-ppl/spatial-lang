@@ -22,7 +22,9 @@ class WidthConverterFIFO(val win: Int, val vin: Int, val wout: Int, val vout: In
     val empty = Output(Bool())
     val almostEmpty = Output(Bool())
     val almostFull = Output(Bool())
+    val fifoSize = Output(UInt(32.W))
   })
+
   def convertVec(inVec: Vec[UInt], outw: Int, outv: Int) = {
     // 1. Cat everything
     val unifiedUInt = inVec.reverse.reduce { Cat(_,_) }
@@ -57,6 +59,7 @@ class WidthConverterFIFO(val win: Int, val vin: Int, val wout: Int, val vout: In
     io.almostEmpty := fifo.io.almostEmpty
     io.almostFull := fifo.io.almostFull
     io.deq := convertVec(fifo.io.deq, wout, vout)
+    io.fifoSize := fifo.io.fifoSize
     fifo.io.deqVld := io.deqVld
   } else if ((inWidth > outWidth) || (inWidth == outWidth && wout > win)) {
     Predef.assert(inWidth % outWidth == 0, s"ERROR: Width conversion attempted between widths that are not multiples (in: $inWidth, out: $outWidth)")
@@ -70,6 +73,7 @@ class WidthConverterFIFO(val win: Int, val vin: Int, val wout: Int, val vout: In
     io.empty := fifo.io.empty
     io.almostEmpty := fifo.io.almostEmpty
     io.almostFull := fifo.io.almostFull
+    io.fifoSize := fifo.io.fifoSize
 
     fifo.io.enq := convertVec(io.enq, outWidth, v)
     fifo.io.enqVld := io.enqVld
@@ -87,11 +91,13 @@ class WidthConverterFIFO(val win: Int, val vin: Int, val wout: Int, val vout: In
     io.empty := fifo.io.empty
     io.almostEmpty := fifo.io.almostEmpty
     io.almostFull := fifo.io.almostFull
+    io.fifoSize := fifo.io.fifoSize
 
     fifo.io.enq := io.enq
     fifo.io.enqVld := io.enqVld
 
     io.deq := fifo.io.deq
     fifo.io.deqVld := io.deqVld
+
   }
 }

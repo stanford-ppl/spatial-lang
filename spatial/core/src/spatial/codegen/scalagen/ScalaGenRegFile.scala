@@ -52,7 +52,16 @@ trait ScalaGenRegFile extends ScalaGenMemories {
 
     case RegFileReset(rf, en) => 
       val dims = stagedDimsOf(rf)
-      emit(src"val $lhs = if ($en) {for (${lhs}_addr <- 0 until ${dims.map(quote).mkString{"*"}} ) {$rf.update(${lhs}_addr, 0)} }")
+      val inits = rf match {
+        case Def(RegFileNew(_, inits)) => inits
+      }
+      if (inits.isDefined) {
+        val initString = src"List(${inits.get})"
+        emit(src"val ${lhs}_values = ${initString} ")
+        emit(src"val $lhs = if ($en) {for (${lhs}_addr <- 0 until ${dims.map(quote).mkString{"*"}} ) {$rf.update(${lhs}_addr, ${lhs}_values(${lhs}_addr))} }")
+      } else {
+        emit(src"val $lhs = if ($en) {for (${lhs}_addr <- 0 until ${dims.map(quote).mkString{"*"}} ) {$rf.update(${lhs}_addr, 0)} }")
+      }
 
     case RegFileShiftIn(rf,i,d,data,en)    => shiftIn(lhs, rf, i, d, data, isVec = false, en)
     case ParRegFileShiftIn(rf,i,d,data,en) => shiftIn(lhs, rf, i, d, data, isVec = true, en)

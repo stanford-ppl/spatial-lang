@@ -9,7 +9,7 @@ import spatial.utils._
 
 trait ScalarAnalyzer extends SpatialTraversal {
   override val name = "Bound Analyzer"
-  override val recurse = Always
+  override val recurse = Never
   private var insideLoop = false
   def maybeLoop[T](isLoop: Boolean)(x: => T): T = {
     if (isLoop) {
@@ -44,8 +44,12 @@ trait ScalarAnalyzer extends SpatialTraversal {
   def analyzeBounds(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case RegRead(Bounded(b)) => boundOf(lhs) = b
 
-    case RegWrite(reg@Bounded(b1), Bounded(b2), _) if !insideLoop => boundOf(reg) = b1 meet b2
-    case RegWrite(reg, Bounded(b), _)              if !insideLoop => boundOf(reg) = b
+    case RegWrite(reg@Bounded(b1), Bounded(b2), _) if !insideLoop && !isHostIO(reg) =>
+      dbgs(s"Reg write outside loop")
+      boundOf(reg) = Bound((b1 meet b2).bound)
+    case RegWrite(reg, Bounded(b), _) if !insideLoop && !isHostIO(reg) =>
+      dbgs(s"Reg write outside loop")
+      boundOf(reg) = Bound(b.bound)
 
     case SetArg(reg@Bounded(b1),Bounded(b2)) => boundOf(reg) = b1 meet b2
     case SetArg(reg, Bounded(b))             => boundOf(reg) = b
@@ -76,6 +80,7 @@ trait ScalarAnalyzer extends SpatialTraversal {
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
     checkForGlobals(lhs,rhs)
     analyzeBounds(lhs,rhs)
+    dbgs(s"Visiting $lhs = $rhs [isLoop: ${isLoop(lhs)}]")
     maybeLoop(isLoop(lhs)){ super.visit(lhs, rhs) }
   }
 }

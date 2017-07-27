@@ -178,6 +178,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     passes += uctrlAnalyzer     // Analysis for unused register reads
     passes += regCleanup        // Duplicate register reads for each use
+    passes += printer
     passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
     passes += printer
 
@@ -221,6 +222,13 @@ trait SpatialCompiler extends ArgonCompiler {
     Report.bug("If you'd like, you can submit this log and your code in a bug report at: ")
     Report.bug("  https://github.com/stanford-ppl/spatial-lang/issues")
     Report.bug("and we'll try to fix it as soon as we can.")
+  }
+
+  override def settings(): Unit = {
+    if (SpatialConfig.useBasicBlocks) {
+      Report.warn("Setting compiler to use basic blocks. Code motion will be disabled.")
+      _IR.useBasicBlocks = true
+    }
   }
 
   override protected def parseArguments(args: Seq[String]): Unit = {

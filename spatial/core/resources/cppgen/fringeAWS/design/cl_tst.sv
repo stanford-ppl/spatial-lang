@@ -29,6 +29,7 @@ module  cl_tst #(parameter DATA_WIDTH=512, parameter NUM_RD_TAG=512) (
    output logic[31:0] tst_cfg_rdata = 0,
    input DIRECT_force_burst_wdata,
    input[DATA_WIDTH-1:0] DIRECT_wdata,
+   input                 DIRECT_wvalid,
 
    output logic atg_enable,
 
@@ -41,7 +42,7 @@ module  cl_tst #(parameter DATA_WIDTH=512, parameter NUM_RD_TAG=512) (
    input awready,
 
    output logic[8:0] wid,
-   output logic[DATA_WIDTH-1:0] wdata = 0,
+   output [DATA_WIDTH-1:0] wdata,
    output logic[(DATA_WIDTH/8)-1:0] wstrb = 0,
    output logic wlast,
    output logic wvalid,
@@ -798,20 +799,26 @@ begin
       wstrb_nxt = ~({(DATA_WIDTH/8){1'b1}} << (({ADJ_DW_WIDTH+2{1'b1}} + 1) - (wr_last_adj*4)));      //have to convert from DW to byte
 end
 
+logic[DATA_WIDTH-1:0] wdata_____tmp;
 always @(posedge clk)
-//   if (!sync_rst_n)
-//   begin
-//      wdata <= 0;
+  if (!sync_rst_n)
+  begin
+     wdata_____tmp <= 0;
 //      wstrb <= 0;
-//   end
-//   else
+  end
+  else
    begin
-      wdata <= DIRECT_force_burst_wdata ? DIRECT_wdata : wdata_nxt; 
+    
+      wdata_____tmp <= wdata_nxt; 
       wstrb <= wstrb_nxt;
    end
 
+assign wdata= DIRECT_force_burst_wdata ? DIRECT_wdata : wdata_____tmp; 
 
-assign wvalid = (wr_state==WR_DAT);
+
+// Still exits FSM @ right time, etc.
+// Since internal counter here no need even to send through wlast
+assign wvalid = DIRECT_force_burst_wdata ? DIRECT_wvalid : (wr_state==WR_DAT); 
 assign wlast = wr_dat_end;
 assign wid = 0;
 //assign wstrb = {(DATA_WIDTH/8){1'b1}};

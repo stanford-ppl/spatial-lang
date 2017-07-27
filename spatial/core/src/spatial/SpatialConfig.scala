@@ -20,7 +20,8 @@ object SpatialConfig {
     splitting: Boolean,
     archDSE: Boolean,
     naming: Boolean,
-    tree: Boolean
+    tree: Boolean,
+    bbs: Boolean    // Use basic blocks?
   )
 
   case class PlasticineConf(
@@ -40,6 +41,8 @@ object SpatialConfig {
     rw: Int,
     lanes: Int
   )
+
+  var useBasicBlocks: Boolean = false
 
   var targetName: String = _
   var target: FPGATarget = targets.DefaultTarget
@@ -98,6 +101,7 @@ spatial {
   arch-dse = false
   naming = false
   tree = true
+  bbs = false
 }
 """)
 
@@ -120,6 +124,8 @@ spatial {
         enableArchDSE = spatialConf.archDSE
         enableNaming = spatialConf.naming
         enableTree = spatialConf.tree
+
+        useBasicBlocks = spatialConf.bbs
 
       case Left(failures) =>
         Report.error("Unable to read spatial configuration")

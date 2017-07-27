@@ -13,7 +13,7 @@ sim:
 	vcs ${VCS_OPTS} -cpp ${CC} ${CC_OPTS} -o accel.bit.bin SRAMVerilogSim.v ${TOP}.v ${TOP}-harness.sv sim.cpp
 
 dram:
-	make -C DRAMSim2 libdramsim.so
+	make -j8 -C DRAMSim2 libdramsim.so
 	ln -sf DRAMSim2/libdramsim.so .
 #	make -C dramShim
 #	ln -sf dramShim/dram .

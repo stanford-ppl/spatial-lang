@@ -39,7 +39,17 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
   override protected def postprocess[S: Type](block: Block[S]): Block[S] = {
     val saved = if (isRerun) savedArea else NoArea
     val total = (saved +: scopeArea).fold(NoArea){(a,b) => implicitly[AreaMetric[Area]].plus(a,b) }
-    totalArea = areaModel.summarize(total)
+    val (area, _) = areaModel.summarize(total)
+    totalArea = area
+
+    /*if (totalArea.toFile.exists(_ < 0)) {
+      val prevVerbosity = Config.verbosity
+      Config.verbosity = 1
+      println("Negative area reported!")
+      report(areaReport)
+      Config.verbosity = prevVerbosity
+    }*/
+
     super.postprocess(block)
   }
 

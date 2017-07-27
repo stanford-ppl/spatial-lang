@@ -460,3 +460,12 @@ case class MemoryContention(contention: Int) extends Metadata[MemoryContention] 
   def apply(e: Exp[_]): Int = metadata[MemoryContention](e).map(_.contention).getOrElse(1)
   def update(e: Exp[_], contention: Int): Unit = metadata.add(e, MemoryContention(contention))
 }
+
+case class MemoryDependencies(mems: Set[Exp[_]]) extends Metadata[MemoryDependencies] {
+  def mirror(f:Tx) = this
+  override def ignoreOnTransform: Boolean = true
+}
+@data object memDepsOf {
+  def apply(e: Exp[_]): Set[Exp[_]] = metadata[MemoryDependencies](e).map(_.mems).getOrElse(Set.empty)
+  def update(e: Exp[_], deps: Set[Exp[_]]): Unit = if (deps.nonEmpty) metadata.add(e, MemoryDependencies(deps))
+}
