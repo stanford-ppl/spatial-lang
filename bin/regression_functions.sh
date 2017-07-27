@@ -799,7 +799,7 @@ launch_tests() {
   logger "Killing old screen sessions"
   screen -ls | grep "${branch}_${type_todo}" | cut -d. -f1 | awk '{print $1}' | xargs kill
   screen -wipe
-  logger "Killing maxeleros jobs"
+  logger "Killing maxeleros (?) jobs"
   ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | awk '{system("kill -9 " $2)}'
 
   IFS=$'\n'
@@ -826,6 +826,7 @@ launch_tests() {
   # Make reg test dir
   rm -rf ${SPATIAL_HOME}/regression_tests;mkdir ${SPATIAL_HOME}/regression_tests
 
+  logger "Found these app classes: ${types_list[@]}"
   for ac in ${types_list[@]}; do 
     check_packet
     logger "Preparing vulture directory for $ac..."
