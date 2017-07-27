@@ -94,4 +94,13 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.threads = t
   }
 
+  parser.opt[Unit]("fast").action{ (_,_) =>
+    SpatialConfig.useBasicBlocks = true
+  }.text("[EXPERIMENTAL] Use basic blocks")
+
+  parser.opt[Unit]("xfast").action{ (_,_) =>
+    SpatialConfig.useBasicBlocks = true
+    argon.core.Config.verbosity = -2
+  }.text("[EXPERIMENTAL] Use basic blocks")
+
 }

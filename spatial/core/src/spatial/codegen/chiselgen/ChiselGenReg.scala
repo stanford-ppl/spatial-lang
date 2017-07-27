@@ -218,7 +218,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => // is an accumulator
             // Make sure this was not stripped of its accumulation from full unroll
-            if (!(writersOf(reg).map{w => readersOf(reg).map { r => w.node.dependsOn(r.node) } }.flatten.reduce{_|_})) {
+            if (!writersOf(reg).exists{w => readersOf(reg).exists{ r => w.node.dependsOn(r.node) }}) {
               emit(src"""val ${reg}_wren = ${parentOf(lhs).get}_datapath_en""")
               emit(src"""val ${reg}_resetter = ${parentOf(lhs).get}_rst_en""")
             }

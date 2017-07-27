@@ -24,56 +24,61 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
 
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
     // Eliminate duplicates which no longer have readers as long as at least one duplicate is retained
-    localMems.foreach{mem =>
-      val orig = duplicatesOf(mem)
-      val inds: Set[Int] = orig.indices.toSet
-      val readers = readersOf(mem)
-      val writers = writersOf(mem)
+    instrument("postprocess") {
+      localMems.foreach { mem =>
+        val orig = duplicatesOf(mem)
+        val inds: Set[Int] = orig.indices.toSet
+        val readers = readersOf(mem)
+        val writers = writersOf(mem)
 
-      val readDuplicates = readers.flatMap{read => dispatchOf(read,mem) }.toSet
-      val unreadDuplicates = inds diff readDuplicates
+        val readDuplicates = readers.flatMap { read => dispatchOf(read, mem) }.toSet
+        val unreadDuplicates = inds diff readDuplicates
 
-      var removedDuplicates = unreadDuplicates
-      writers.foreach{write =>
-        val dispatch = dispatchOf(write, mem)
-        val remaining = dispatch diff removedDuplicates
-        if (remaining.isEmpty) {
-          removedDuplicates = removedDuplicates - dispatch.head
+        var removedDuplicates = unreadDuplicates
+        writers.foreach { write =>
+          val dispatch = dispatchOf(write, mem)
+          val remaining = dispatch diff removedDuplicates
+          if (remaining.isEmpty) {
+            removedDuplicates = removedDuplicates - dispatch.head
+          }
         }
-      }
-      if (removedDuplicates.nonEmpty) {
-        dbgs(u"Memory $mem: ")
-        dbgs(c"  ${str(mem)}")
-        dbgs("  Removing dead duplicates: " + removedDuplicates.mkString(", "))
+        if (removedDuplicates.nonEmpty) {
+          dbgs(u"Memory $mem: ")
+          dbgs(c"  ${str(mem)}")
+          dbgs("  Removing dead duplicates: " + removedDuplicates.mkString(", "))
 
-        val accesses = readers ++ writers
-        val duplicates = orig.zipWithIndex.filter{case (dup,i) => !removedDuplicates.contains(i) }
-        val mapping = duplicates.map(_._2).zipWithIndex.toMap
-        duplicatesOf(mem) = duplicates.map(_._1)
+          val accesses = readers ++ writers
+          val duplicates = orig.zipWithIndex.filter { case (dup, i) => !removedDuplicates.contains(i) }
+          val mapping = duplicates.map(_._2).zipWithIndex.toMap
+          duplicatesOf(mem) = duplicates.map(_._1)
 
-        accesses.foreach{access =>
-          dispatchOf(access,mem) = dispatchOf(access,mem).flatMap{o => mapping.get(o) }
-          portsOf.set(access.node,mem, {
-            portsOf(access,mem).flatMap{case (i,ps) => mapping.get(i).map{i2 => i2 -> ps}}
-          })
+          accesses.foreach { access =>
+            dispatchOf(access, mem) = dispatchOf(access, mem).flatMap { o => mapping.get(o) }
+            portsOf.set(access.node, mem, {
+              portsOf(access, mem).flatMap { case (i, ps) => mapping.get(i).map { i2 => i2 -> ps } }
+            })
+          }
         }
       }
     }
-    super.postprocess(block)
+
+    instrument.dump(s"#${state.pass-1} $name: ")
+
+    block
   }
 
-  override def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
+  override def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = instrument("unrolledCommonData"){
     rhs match {
       case DRAMNew(dims,zero) =>
         memStreams += ((lhs, 0, 0))
       case FringeDenseLoad(dram,_,_) =>
-        val prevLoads = memStreams.toList.filter{_._1 == dram}.head._2
-        val prevStores = memStreams.toList.filter{_._1 == dram}.head._3
+        val prevLoads = memStreams.find{_._1 == dram}.get._2
+        val prevStores = memStreams.find{_._1 == dram}.get._3
         memStreams -= ((dram, prevLoads, prevStores))
         memStreams += ((dram, prevLoads+1, prevStores))
       case FringeDenseStore(dram,_,_,_) =>
-        val prevLoads = memStreams.toList.filter{_._1 == dram}.head._2
-        val prevStores = memStreams.toList.filter{_._1 == dram}.head._3
+        val prevLoads = memStreams.find{_._1 == dram}.get._2
+        val prevStores = memStreams.find{_._1 == dram}.get._3
         memStreams -= ((dram, prevLoads, prevStores))
         memStreams += ((dram, prevLoads, prevStores+1))
       case StreamInNew(bus) => 
@@ -96,6 +101,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
       case e: HostIONew[_] => argPorts += ((lhs, "bidirectional"))
       case _ =>
     }
+
     super.addCommonControlData(lhs, rhs)
   }
 
