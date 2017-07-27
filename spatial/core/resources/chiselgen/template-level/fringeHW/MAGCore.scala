@@ -693,6 +693,11 @@ class MAGCore(
     connectDbgSignal(getCounter(respValidSignal & respReadySignal & (respTagSignal === i.U)), signal)
   }
 
+  connectDbgSignal(getCounter(io.dram.rresp.valid & rdataFifos.map {_.io.enqVld}.reduce{_|_}), "RResp valid enqueued somewhere")
+  connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.rresp.ready), "Rresp valid and ready")
+  connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.rresp.ready & rdataFifos.map {_.io.enqVld}.reduce{_|_}), "Resp valid and ready and enqueued somewhere")
+  connectDbgSignal(getCounter(io.dram.rresp.valid & ~io.dram.rresp.ready), "Resp valid and not ready")
+
   // Responses enqueued into appropriate places
   (0 until loadStreamInfo.size) foreach { case i =>
     val signal = s"rdataFifo $i enq"
@@ -707,10 +712,6 @@ class MAGCore(
 
   connectDbgSignal(numWdataCtr.io.out, "num wdata transferred (wvalid & wready)")
 
-  connectDbgSignal(getFF(io.dram.cmd.bits.addr, dramReady & dramCmdValid), "Last issued addr")
-  connectDbgSignal(getFF(io.dram.cmd.bits.size, dramReady & dramCmdValid), "Last issued size")
-  connectDbgSignal(getFF(io.dram.cmd.bits.isWr, dramReady & dramCmdValid), "Last issued isWr")
-  connectDbgSignal(getFF(io.dram.cmd.bits.tag, dramReady & dramCmdValid), "Last issued tag")
 
   connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.wresp.valid), "Rvalid and Bvalid")
 
