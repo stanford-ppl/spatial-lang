@@ -88,7 +88,7 @@ check_packet() {
   for ii in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$ii]}"* ]]; then rank=${ii}; fi; done
   if [ $rank = -1 ]; then
     logger "Packet for $packet disappeared from list $stringified!  Quitting ungracefully!"
-    rm -f /remote/regression/mapping/${this_machine}---${tim}*
+    mv /remote/regression/mapping/${this_machine}---${tim}* /remote/regression/mapping/
     exit 1
   fi
 }
@@ -170,7 +170,7 @@ rm $packet
 
 sleep 1000
 stubborn_delete ${dirname}
-rm /remote/regression/mapping/${this_machine}---${tim}*
+mv /remote/regression/mapping/${this_machine}---${tim}* /remote/regression/mapping
 
 ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 
