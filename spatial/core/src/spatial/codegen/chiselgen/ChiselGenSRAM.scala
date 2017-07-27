@@ -47,6 +47,22 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.remap(tp)
   }
 
+  def getWriteAddition(c: Exp[Any]): String = {
+      // If we are inside a stream pipe, the following may be set
+      // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
+      val lat = bodyLatency.sum(c)
+      val readiers = listensTo(c).distinct.map {
+        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_valid"
+        case _ => ""
+      }.filter(_ != "").mkString(" & ")
+
+      val hasReadiers = if (readiers != "") "&" else ""
+
+      src" ${hasReadiers} ${readiers}"
+
+  }
+
+
   protected def bufferControlInfo(mem: Exp[_], i: Int = 0): List[(Exp[_], String)] = {
     val readers = readersOf(mem)
     val writers = writersOf(mem)

@@ -16,6 +16,8 @@ elif [[ ${this_machine} = "tucson" ]]; then
   REGRESSION_HOME="/home/mattfel/regression/"
 elif [[ ${this_machine} = "london" ]]; then
   REGRESSION_HOME="/home/mattfel/regression/"
+elif [[ ${this_machine} = "ottawa" ]]; then
+  REGRESSION_HOME="/home/regression/"
 else
   echo "Unrecognized machine ${this_machine}" | tee -a /tmp/log
   exit 1
