@@ -5,6 +5,7 @@ import chisel3._
 import chisel3.util.{log2Ceil, isPow2}
 import chisel3.internal.sourceinfo._
 import types._
+import fringe._
 
 object ops {
 
