@@ -45,6 +45,7 @@ object Characterization extends AllBenchmarks {
       Config.name = name
       Config.genDir = s"${Config.cwd}/gen/$name"
       initConfig(stagingArgs)
+      resetState()
       compileProgram(x._2)
       Console.println(name + " chisel generated ")
       x._1
