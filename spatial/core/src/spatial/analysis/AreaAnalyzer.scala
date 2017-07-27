@@ -40,6 +40,7 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
     val saved = if (isRerun) savedArea else NoArea
     val total = (saved +: scopeArea).fold(NoArea){(a,b) => implicitly[AreaMetric[Area]].plus(a,b) }
     totalArea = areaModel.summarize(total)
+
     super.postprocess(block)
   }
 

@@ -32,14 +32,14 @@ trait SpatialStreamInterpreter {
   def inputs: Map[Bus, List[MetaAny[_]]]
   def outs: List[Bus]
 
-  def prog(): Unit
+  def spatial(): Unit
 
   private var __stagingArgs = scala.Array[java.lang.String]()
   override def stagingArgs = scala.Array[java.lang.String]("--interpreter") ++ __stagingArgs
 
   def runI() {    
     initConfig(stagingArgs)
-    compileProgram(() => prog())
+    compileProgram(() => spatial())
   }
 
   def exit() = {
@@ -77,8 +77,8 @@ trait SpatialStreamInterpreter {
 trait SpatialStreamCompiler extends SpatialApp {
   self: SpatialStream =>
 
-  def prog(): Unit
+  def spatial(): Unit
   
   def main() =
-    prog()
+    spatial()
 }
