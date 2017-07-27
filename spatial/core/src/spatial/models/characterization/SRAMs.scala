@@ -16,15 +16,12 @@ trait SRAMs extends Benchmarks {
         val rfs = List.fill(N){ SRAM.buffer[T](len) }
 
         Foreach(0 until 1000) { _ =>
-          List.tabulate(depth) { _ =>
+          List.tabulate(depth) { d =>
             Foreach(0 until 100 par p) { i =>
-              rfs.foreach{ rf => rf.update(i, i.to[T]) }
+              rfs.zip(outs).foreach{case (rf,out) => if (d > 0) rf.update(i, i.to[T]) else out := rf(i) }
             }
           }
           ()
-        }
-        Pipe {
-          rfs.zip(outs).foreach { case (rf, out) => out := rf(0) }
         }
       }
     }
@@ -39,17 +36,14 @@ trait SRAMs extends Benchmarks {
         val rfs = List.fill(N){ SRAM.buffer[T](rows, cols) }
 
         Foreach(0 until 1000) { _ =>
-          List.tabulate(depth) { _ =>
+          List.tabulate(depth) { d =>
             Foreach(0 until 100 par p0) { i =>
               Foreach(0 until 100 par p1) { j =>
-                rfs.foreach { rf => rf.update(i, j, i.to[T]) }
+                rfs.zip(outs).foreach{case (rf,out) => if (d > 0) rf.update(i, j, i.to[T]) else out := rf(i, j) }
               }
             }
           }
           ()
-        }
-        Pipe {
-          rfs.zip(outs).foreach{case (rf, out) => out := rf(0,0) }
         }
       }
     }
@@ -60,7 +54,7 @@ trait SRAMs extends Benchmarks {
 
   gens :::= dims1d.flatMap{len =>
     pars1d.flatMap{par =>
-      List.tabulate(3) { depth => MetaProgGen("SRAM1D", Seq(10, 50, 100), SRAM1DOp[Int32](depth, len, par)) }
+      List.tabulate(3) { depth => MetaProgGen("SRAM1D", Seq(10, 50, 100), SRAM1DOp[Int32](depth+1, len, par)) }
     }
   }
 
@@ -85,7 +79,7 @@ trait SRAMs extends Benchmarks {
 
   gens :::= dims2d.flatMap{case (rows,cols) =>
     pars2d.flatMap{case (p0,p1) =>
-      List.tabulate(3){ depth => MetaProgGen("SRAM2D", Seq(10, 50, 100), SRAM2DOp[Int32](depth, rows, cols, p0, p1)) }
+      List.tabulate(3){ depth => MetaProgGen("SRAM2D", Seq(10, 50, 100), SRAM2DOp[Int32](depth+1, rows, cols, p0, p1)) }
     }
   }
 }

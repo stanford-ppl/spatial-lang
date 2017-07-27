@@ -57,11 +57,11 @@ abstract class AreaNeuralModel(
     val exists = new File(encogFile).exists
 
     if (exists) {
-      println("Loaded " + name + " model from file")
+      report("Loaded " + name + " model from file")
       network = EncogDirectoryPersistence.loadObject(new File(encogFile)).asInstanceOf[BasicNetwork]
     }
     else {
-      println(s"Training $name model...")
+      report(s"Training $name model...")
       val MODELS = 1000
       val data = dataFile.drop(1)
 
@@ -72,7 +72,7 @@ abstract class AreaNeuralModel(
       }
       val input = dataNorm.map(_.take(11))
       val output = dataNorm.map(_.slice(OUT,OUT+1).map(a => a))
-      if (verbose) println(output.map(_.mkString(", ")).mkString(", "))
+      if (verbose) report(output.map(_.mkString(", ")).mkString(", "))
       val trainingSet = new BasicMLDataSet(input, output)
       var iter = 0
       var minError = Double.PositiveInfinity
@@ -86,10 +86,10 @@ abstract class AreaNeuralModel(
         }
         iter += 1
       }
-      println(name + "\n-----------------")
-      println("Neural network results:")
-      println(s"Average error: %.2f".format(100*minError/trainingSet.size) + "%")
-      println(s"Maximum observed error: %.2f".format(100*maxError) + "%")
+      report(name + "\n-----------------")
+      report("Neural network results:")
+      report(s"Average error: %.2f".format(100*minError/trainingSet.size) + "%")
+      report(s"Maximum observed error: %.2f".format(100*maxError) + "%")
 
       EncogDirectoryPersistence.saveObject(new File(encogFile), network)
     }
@@ -107,13 +107,13 @@ abstract class AreaNeuralModel(
     val train = new ResilientPropagation(network, trainingSet)
     train.iteration()
     while (epoch < MAX_EPOCH) {
-      //println(s"Epoch #$epoch Error: ${100*train.getError()}")
+      //report(s"Epoch #$epoch Error: ${100*train.getError()}")
       epoch += 1
       train.iteration()
     }
     train.finishTraining()
     //
-    //println(s"Completed training at epoch $epoch with error of ${100*train.getError()}")
+    //report(s"Completed training at epoch $epoch with error of ${100*train.getError()}")
 
     var errors = 0.0
     var maxError = 0.0
@@ -122,7 +122,7 @@ abstract class AreaNeuralModel(
       val data = Array.tabulate(11){i => pair.getInput.getData(i) * maxValues(i) }.mkString(", ")
       val diff = output.getData(0) - pair.getIdeal.getData(0)
       val error = diff / pair.getIdeal.getData(0)
-      //println(s"output = ${output.getData(0) * maxValues(RLUTS)}, ideal = ${pair.getIdeal().getData(0) * maxValues(RLUTS)} (error = ${100*error}%, true = ${100*trueError}%)")
+      //report(s"output = ${output.getData(0) * maxValues(RLUTS)}, ideal = ${pair.getIdeal().getData(0) * maxValues(RLUTS)} (error = ${100*error}%, true = ${100*trueError}%)")
       if (Math.abs(error) > maxError) maxError = Math.abs(error)
       errors += Math.abs(error)
     }

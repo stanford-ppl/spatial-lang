@@ -40,16 +40,29 @@ object Characterization extends AllBenchmarks {
 
     println("Number of programs: " + programs.length)
 
-    val chiseled = programs.take(10).map(x => {
+    var i = 0
+    val chiseled = programs.take(10).flatMap{x => //programs.slice(6,7).map{x =>
       val name = x._1
+      initConfig(stagingArgs)
       Config.name = name
       Config.genDir = s"${Config.cwd}/gen/$name"
-      initConfig(stagingArgs)
+      Config.logDir = s"${Config.cwd}/logs/$name"
+      Config.verbosity = -2
+      Config.showWarn = false
+      Console.print(s"Compiling #$i: " + name + "...")
       resetState()
-      compileProgram(x._2)
-      Console.println(name + " chisel generated ")
-      x._1
-    })
+      val result = try {
+        compileProgram(x._2)
+        Console.println("done")
+        Some(x._1)
+      }
+      catch {case _:Throwable =>
+        Console.println("fail")
+        None
+      }
+      i += 1
+      result
+    }
 
     val exec = java.util.concurrent.Executors.newFixedThreadPool(NUM_PAR_SYNTH)
     implicit val ec = ExecutionContext.fromExecutor(exec)
