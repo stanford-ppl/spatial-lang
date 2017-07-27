@@ -10,7 +10,7 @@ trait RegFiles extends Benchmarks {
 
   case class RegFile1DOp[T:Num:Type](depth: scala.Int, len: scala.Int, p: scala.Int)(val N: scala.Int) extends Benchmark {
     val prefix: JString = s"${depth}_${len}_${p}"
-    def eval(): Unit = {
+    def eval(): SUnit = {
       val outs = List.fill(N){ ArgOut[T] }
 
       Accel {
@@ -33,7 +33,7 @@ trait RegFiles extends Benchmarks {
 
   case class RegFile2DOp[T:Num:Type](depth: scala.Int, rows: scala.Int, cols: scala.Int, p0: scala.Int, p1: scala.Int)(val N: scala.Int) extends Benchmark {
     val prefix: JString = s"${depth}_${rows}_${cols}_${p0}_${p1}"
-    def eval(): Unit = {
+    def eval(): SUnit = {
       val outs = List.fill(N)(ArgOut[T])
 
       Accel {

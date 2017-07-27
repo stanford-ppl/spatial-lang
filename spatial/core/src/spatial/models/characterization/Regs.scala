@@ -14,7 +14,7 @@ trait Regs extends Benchmarks {
   case class RegOp[T:Type:Bits](depth: scala.Int)(val N: scala.Int) extends Benchmark {
     val prefix: JString = depth.toString
     private val nbits: scala.Int = bits[T].length
-    def eval(): Unit = {
+    def eval(): SUnit = {
       val outs = List.fill(N)(ArgOut[T])
       val ins = List.fill(N)(ArgIn[T])
 

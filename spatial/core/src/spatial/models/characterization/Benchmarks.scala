@@ -7,8 +7,9 @@ import spatial.dsl._
 trait Benchmarks {
   self: SpatialCompiler =>
 
+  type SUnit = scala.Unit
   type JString = java.lang.String
-  type SpatialProg = () => Unit
+  type SpatialProg = () => SUnit
   type NamedSpatialProg = (JString, SpatialProg)
 
 
@@ -16,7 +17,7 @@ trait Benchmarks {
     def prefix: JString
     def N: scala.Int
     def name: JString = s"${prefix}_$N"
-    def eval(): Unit
+    def eval(): SUnit
   }
 
   case class MetaProgGen(name: JString, Ns: Seq[scala.Int], benchmark: scala.Int => Benchmark) {

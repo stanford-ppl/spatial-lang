@@ -9,7 +9,7 @@ trait FIFOs extends Benchmarks {
 
   case class FIFOBench[T:Type:Num](size: scala.Int, p: scala.Int)(val N: scala.Int) extends Benchmark {
     val prefix = s"${size}_${p}"
-    override def eval(): Unit = {
+    override def eval(): SUnit = {
       val outs = List.fill(N){ ArgOut[T] }
 
       Accel {

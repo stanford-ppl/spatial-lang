@@ -12,7 +12,7 @@ trait Primitives extends Benchmarks {
   }
 
   case class StaticOp[T:Type:Bits](prefix: JString, f: () => T)(val N: scala.Int) extends Benchmark {
-    def eval(): Unit = {
+    def eval(): SUnit = {
       val outs = List.fill(N)(ArgOut[T])
 
       Accel {
@@ -22,7 +22,7 @@ trait Primitives extends Benchmarks {
   }
 
   case class UnOp[T:Type:Bits](prefix: JString, f: T => T)(val N: scala.Int) extends Benchmark {
-    def eval(): Unit = {
+    def eval(): SUnit = {
       val outs = List.fill(N)(ArgOut[T])
       val ins = List.fill(N)(ArgIn[T])
 
@@ -38,7 +38,7 @@ trait Primitives extends Benchmarks {
 
   def BinOp[T:Type:Bits](prefix: JString, f: (T, T) => T)(N: scala.Int): Benchmark = Bin2Op[T,T](prefix, f)(N)
   case class Bin2Op[T:Type:Bits,R:Type:Bits](prefix: JString, f: (T,T) => R)(val N: scala.Int) extends Benchmark {
-    def eval(): Unit = {
+    def eval(): SUnit = {
       val outs = List.fill(N)(ArgOut[R])
       val insA = List.fill(N)(ArgIn[T])
       val insB = List.fill(N)(ArgIn[T])
@@ -55,7 +55,7 @@ trait Primitives extends Benchmarks {
 
   def TriOp[T:Type:Bits](prefix: JString, f: (T,T,T) => T)(N: scala.Int): Benchmark = Tri4Op[T,T,T,T](prefix,f)(N)
   case class Tri4Op[A:Type:Bits,B:Type:Bits,C:Type:Bits,R:Type:Bits](prefix: JString, f: (A,B,C) => R)(val N: scala.Int) extends Benchmark {
-    def eval(): Unit = {
+    def eval(): SUnit = {
       val outs = List.fill(N)(ArgOut[R])
       val insA = List.fill(N)(ArgIn[A])
       val insB = List.fill(N)(ArgIn[B])
