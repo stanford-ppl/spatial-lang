@@ -66,6 +66,9 @@ trait FltPts extends AInterpreter {
         case None =>
           BigDecimal(util.Random.nextDouble())
       }
+
+    case FltPtToFixPt(EBigDecimal(a)) =>
+        a
   }
 
 }
