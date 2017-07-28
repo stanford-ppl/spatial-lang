@@ -19,10 +19,20 @@ trait AllBenchmarks
     with SRAMs 
 
 object Characterization extends AllBenchmarks {
+  lazy val SPATIAL_HOME: String = sys.env.getOrElse("SPATIAL_HOME", {
+    error("SPATIAL_HOME was not set!")
+    error("Set top directory of spatial using: ")
+    error("export SPATIAL_HOME=/path/to/spatial")
+    sys.exit()
+  })
+
   def area(dir: JString): Map[JString, scala.Double] = {
-    val output = Seq("~/spatial/bin/scrape.py", dir).!!
+    val output = Seq("python", s"$SPATIAL_HOME/bin/scrape.py", s"${Config.cwd}/gen/$dir").!!
     val pairs = output.split("\n").map(_.split(","))
-    val map = pairs.map { case Array(k, v) => k -> v.toDouble }.toMap
+    val map = pairs.flatMap {
+      case Array(k, v) => Some(k -> v.toDouble)
+      case _ => None
+    }.toMap
     map
   }
 
@@ -41,11 +51,12 @@ object Characterization extends AllBenchmarks {
     val programs: Seq[NamedSpatialProg] = gens.flatMap(_.expand)
 
     println("Number of programs: " + programs.length)
+    println("Using SPATIAL_HOME: " + SPATIAL_HOME)
 
     var i = 1458
     val prev = programs.take(i).map{x => x._1 }
 
-    val chiseled = programs.take(2).flatMap{x => //prev ++ programs.drop(i).flatMap{x =>
+    val chiseled = prev ++ programs.drop(i).flatMap{x => //programs.take(2).flatMap{x => //
       val name = x._1
       initConfig(stagingArgs)
       Config.name = name
@@ -78,22 +89,31 @@ object Characterization extends AllBenchmarks {
     val pool = Executors.newFixedThreadPool(NUM_PAR_SYNTH)
     val workQueue = new LinkedBlockingQueue[String](chiseled.length)
 
-    class Synthesis(queue: BlockingQueue[String]) extends Runnable {
+    class Synthesis(id: Int, queue: BlockingQueue[String]) extends Runnable {
       var isAlive = true
 
       def run(): Unit = {
         while(isAlive) {
           val name = queue.take()
           try {
-            if (!name.isEmpty) storeArea(name, area(name))
-            else isAlive = false
+            if (!name.isEmpty) {
+              Console.println(s"#$id Synthesizing $name...")
+              val parsed = area(name)
+              storeArea(name, parsed)
+              if (parsed.isEmpty) Console.println(s"#$id $name: FAIL")
+              else Console.println(s"#$id $name: DONE")
+            }
+            else {
+              println(s"#$id received kill signal")
+              isAlive = false
+            }
           }
           catch { case e: Throwable => e.printStackTrace() }
         }
       }
     }
 
-    val workers = List.fill(NUM_PAR_SYNTH){ new Synthesis(workQueue) }
+    val workers = List.tabulate(NUM_PAR_SYNTH){id => new Synthesis(id, workQueue) }
     workers.foreach{worker => pool.submit(worker) }
 
     chiseled.foreach{name => workQueue.put(name) }
@@ -115,6 +135,7 @@ object Characterization extends AllBenchmarks {
       pw.close()
     }*/
 
+    pool.shutdown()
     pool.awaitTermination(14L, TimeUnit.DAYS)
     Console.println("COMPLETED")
     pw.close()
