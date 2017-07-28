@@ -44,7 +44,7 @@ object Characterization extends AllBenchmarks {
     }
   }
 
-  val NUM_PAR_SYNTH: scala.Int = 2
+  val NUM_PAR_SYNTH: scala.Int = 200
   val stagingArgs = scala.Array("--synth")
 
   def main(args: scala.Array[JString]) {
@@ -53,7 +53,7 @@ object Characterization extends AllBenchmarks {
     println("Number of programs: " + programs.length)
     println("Using SPATIAL_HOME: " + SPATIAL_HOME)
 
-    var i = 1458
+    var i = 2459
     val prev = programs.take(i).map{x => x._1 }
 
     val chiseled = prev ++ programs.drop(i).flatMap{x => //programs.take(2).flatMap{x => //
