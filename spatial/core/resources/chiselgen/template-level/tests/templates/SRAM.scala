@@ -45,7 +45,7 @@ class MemNDTests(c: MemND) extends PeekPokeTester(c) {
   // poke(c.io.wMask, 1) // Do not mask at all when testing this template directly
   // poke(c.io.rMask, 1) // Do not mask at all when testing this template directly
   // Assume only 2D
-  for (i <- 0 until c.dims(0)+1 ) {
+  for (i <- 0 until c.dims(0) ) {
     for (j <- 0 until c.dims(1) ) {
       c.io.w.addr.zip(List(i,j)).foreach { case (port, addr) => poke(port, addr) }
       poke(c.io.w.data, (i*c.dims(0) + j)*2)
@@ -64,6 +64,7 @@ class MemNDTests(c: MemND) extends PeekPokeTester(c) {
       poke(c.io.r.en, 1)
       poke(c.io.rMask, 1)
       step(1)
+      // Console.println(s"Expect ${2*(i*c.dims(0) + j)} but got ${peek(c.io.output.data)}")
       expect(c.io.output.data, 2*(i*c.dims(0) + j))
       poke(c.io.r.en, 0)
       poke(c.io.rMask, 0)
