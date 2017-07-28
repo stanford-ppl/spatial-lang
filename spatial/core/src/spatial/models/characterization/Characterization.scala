@@ -26,14 +26,14 @@ object Characterization extends AllBenchmarks {
     sys.exit()
   })
 
-  def area(dir: JString): Map[JString, scala.Double] = {
+  def area(dir: JString): (Map[JString, scala.Double], String) = {
     val output = Seq("python", s"$SPATIAL_HOME/bin/scrape.py", s"${Config.cwd}/gen/$dir").!!
     val pairs = output.split("\n").map(_.split(","))
     val map = pairs.flatMap {
       case Array(k, v) => Some(k -> v.toDouble)
       case _ => None
     }.toMap
-    map
+    (map, output)
   }
 
   val pw = new PrintWriter(new File("characterization.csv"))
@@ -45,16 +45,32 @@ object Characterization extends AllBenchmarks {
     }
   }
 
-  val NUM_PAR_SYNTH: scala.Int = 200
   val stagingArgs = scala.Array("--synth")
 
   def main(args: scala.Array[JString]) {
-    val programs: Seq[NamedSpatialProg] = gens.flatMap(_.expand)
+    val localMachine = java.net.InetAddress.getLocalHost
+    val (threads, start, end) = localMachine.getHostName match {
+      case "london"   => (100, 0, 1825)
+      case "tucson"   => (25, 1825, 2280)
+      case "portland" => (5, 2280, 2370)
+      case "max-2"    => (5, 2370, 2460)
+      case _          =>
+        println("Unknown machine. What do?")
+        Console.print("Threads: ")
+        val par = scala.io.StdIn.readLine().toInt
+        Console.print("Start: ")
+        val start = scala.io.StdIn.readLine().toInt
+        Console.print("End: ")
+        val end = scala.io.StdIn.readLine().toInt
+        (par, start, end)
+    }
+    val allPrograms: Seq[NamedSpatialProg] = gens.flatMap(_.expand)
+    val programs = allPrograms.slice(start, end)
 
     println("Number of programs: " + programs.length)
     println("Using SPATIAL_HOME: " + SPATIAL_HOME)
 
-    val pool = Executors.newFixedThreadPool(NUM_PAR_SYNTH)
+    val pool = Executors.newFixedThreadPool(threads)
     val workQueue = new LinkedBlockingQueue[String](programs.length)
 
     class Synthesis(id: Int, queue: BlockingQueue[String]) extends Runnable {
@@ -66,7 +82,7 @@ object Characterization extends AllBenchmarks {
           try {
             if (!name.isEmpty) {
               Console.println(s"#$id Synthesizing $name...")
-              val parsed = area(name)
+              val (parsed, _) = area(name)
               storeArea(name, parsed)
               if (parsed.isEmpty) Console.println(s"#$id $name: FAIL")
               else Console.println(s"#$id $name: DONE")
@@ -76,12 +92,17 @@ object Characterization extends AllBenchmarks {
               isAlive = false
             }
           }
-          catch { case e: Throwable => e.printStackTrace() }
+          catch { case e: Throwable =>
+            val stackTrace = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
+            e.printStackTrace(stackTrace)
+            Console.println(s"#$id $name: FAIL")
+            stackTrace.close()
+          }
         }
       }
     }
 
-    val workers = List.tabulate(NUM_PAR_SYNTH){id => new Synthesis(id, workQueue) }
+    val workers = List.tabulate(threads){id => new Synthesis(id, workQueue) }
     workers.foreach{worker => pool.submit(worker) }
 
     // Set i to previously generated programs
@@ -116,7 +137,7 @@ object Characterization extends AllBenchmarks {
     }
 
     // Poison work queue
-    (0 until NUM_PAR_SYNTH).foreach{_ => workQueue.put("") }
+    (0 until threads).foreach{_ => workQueue.put("") }
 
 
     /*val workers = chiseled.map(x => Future {
