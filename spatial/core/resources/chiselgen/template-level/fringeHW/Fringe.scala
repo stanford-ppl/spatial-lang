@@ -85,7 +85,7 @@ class Fringe(
   io.enable := localEnable
 
   // Hardware time out (for debugging)
-  val timeoutCycles = 1000000
+  val timeoutCycles = 50000000
   val timeoutCtr = Module(new Counter(32))
   timeoutCtr.io.reset := 0.U
   timeoutCtr.io.saturate := 1.U
