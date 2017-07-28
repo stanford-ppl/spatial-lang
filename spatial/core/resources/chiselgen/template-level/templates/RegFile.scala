@@ -1,5 +1,6 @@
 package templates
 
+import util._
 import chisel3._
 import templates.Utils.log2Up
 import chisel3.util.{MuxLookup, Mux1H}
@@ -21,13 +22,13 @@ import Utils._
 */
 
 
-class multidimRegW(val N: Int, val w: Int) extends Bundle {
-  val addr = Vec(N, UInt(32.W))
+class multidimRegW(val N: Int, val dims: List[Int], val w: Int) extends Bundle {
+  val addr = HVec.tabulate(N){i => UInt((Utils.log2Up(dims(i))).W)}
   val data = UInt(w.W)
   val en = Bool()
   val shiftEn = Bool()
 
-  override def cloneType = (new multidimRegW(N, w)).asInstanceOf[this.type] // See chisel3 bug 358
+  override def cloneType = (new multidimRegW(N, dims, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 
 
@@ -43,7 +44,7 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
     val dump_data = Vec(dims.reduce{_*_}, Input(UInt(bitWidth.W)))
     val dump_en = Input(Bool())
 
-    val w = Vec(wPar, Input(new multidimRegW(dims.length, bitWidth)))
+    val w = Vec(wPar, Input(new multidimRegW(dims.length, dims, bitWidth)))
 
     val reset    = Input(Bool())
     val data_out = Vec(dims.reduce{_*_}, Output(UInt(bitWidth.W)))
@@ -92,7 +93,7 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
         if (wPar > 1) {
           // Address flattening
           val flat_w_addrs = io.w.map{ bundle =>
-            bundle.addr.zipWithIndex.map{case (a, ii) => a * (dims.drop(ii).reduce{_*_}/dims(ii)).U}.reduce{_+_}(31,0)
+            bundle.addr.zipWithIndex.map{case (a, ii) => a * (dims.drop(ii).reduce{_*_}/dims(ii)).U}.reduce{_+_}//(31,0)
           }
 
           val write_here = (0 until wPar).map{ ii => io.w(ii).en & (flat_w_addrs(ii) === i.U) }
@@ -108,7 +109,7 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
           registers(i) := Mux(shift_axis, registers(producing_reg), Mux(has_writer | has_shifter, write_data.data, registers(i)))
         } else {
           // Address flattening
-          val flat_w_addrs = io.w(0).addr.zipWithIndex.map{case (a, i) => a * (dims.drop(i).reduce{_*_}/dims(i)).U}.reduce{_+_}(31,0)
+          val flat_w_addrs = io.w(0).addr.zipWithIndex.map{case (a, i) => a * (dims.drop(i).reduce{_*_}/dims(i)).U}.reduce{_+_}//(31,0)
 
           val write_here = io.w(0).en & (flat_w_addrs === i.U)
           val shift_entry_here =  io.w(0).shiftEn & (flat_w_addrs === i.U) 
@@ -205,7 +206,7 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
   val io = IO(new Bundle { 
     val sEn = Vec(numBufs, Input(Bool()))
     val sDone = Vec(numBufs, Input(Bool()))
-    val w = Vec(wPar.values.reduce{_+_}, Input(new multidimRegW(dims.length, bitWidth)))
+    val w = Vec(wPar.values.reduce{_+_}, Input(new multidimRegW(dims.length, dims, bitWidth)))
     val reset    = Input(Bool())
     val data_out = Vec(dims.reduce{_*_}*numBufs, Output(UInt(bitWidth.W)))
   })
