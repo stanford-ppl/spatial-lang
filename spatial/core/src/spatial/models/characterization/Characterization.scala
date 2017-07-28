@@ -38,7 +38,7 @@ object Characterization extends AllBenchmarks {
 
   val pw = new PrintWriter(new File("characterization.csv"))
 
-  def storeArea(name: JString, area: Map[JString, scala.Double]) = {
+  def storeArea(name: JString, area: Map[JString, scala.Double]): Unit = {
     pw.synchronized {
       area.foreach { case (comp, v) => pw.println(name + ',' + comp +',' + v) }
     }
@@ -53,41 +53,8 @@ object Characterization extends AllBenchmarks {
     println("Number of programs: " + programs.length)
     println("Using SPATIAL_HOME: " + SPATIAL_HOME)
 
-    var i = 1458
-    val prev = programs.take(i).map{x => x._1 }
-
-    val chiseled = prev ++ programs.drop(i).flatMap{x => //programs.take(2).flatMap{x => //
-      val name = x._1
-      initConfig(stagingArgs)
-      Config.name = name
-      Config.genDir = s"${Config.cwd}/gen/$name"
-      Config.logDir = s"${Config.cwd}/logs/$name"
-      Config.verbosity = -2
-      Config.showWarn = false
-      Console.print(s"Compiling #$i: " + name + "...")
-      resetState()
-      _IR.useBasicBlocks = true // experimental for faster scheduling
-      val result = try {
-        compileProgram(x._2)
-        Console.println("done")
-        Some(x._1)
-      }
-      catch {case e:Throwable =>
-        Console.println("fail")
-        Config.verbosity = 4
-        withLog(Config.logDir,"exception.log") {
-          log(e.getMessage)
-          log(e.getCause)
-          e.getStackTrace.foreach{line => log("  " + line) }
-        }
-        None
-      }
-      i += 1
-      result
-    }
-
     val pool = Executors.newFixedThreadPool(NUM_PAR_SYNTH)
-    val workQueue = new LinkedBlockingQueue[String](chiseled.length)
+    val workQueue = new LinkedBlockingQueue[String](programs.length)
 
     class Synthesis(id: Int, queue: BlockingQueue[String]) extends Runnable {
       var isAlive = true
@@ -116,7 +83,38 @@ object Characterization extends AllBenchmarks {
     val workers = List.tabulate(NUM_PAR_SYNTH){id => new Synthesis(id, workQueue) }
     workers.foreach{worker => pool.submit(worker) }
 
-    chiseled.foreach{name => workQueue.put(name) }
+    // Set i to previously generated programs
+    var i = 0
+    programs.take(i).foreach{x => workQueue.put(x._1) }
+
+    programs.drop(i).foreach{x => //programs.take(2).flatMap{x => //
+      val name = x._1
+      initConfig(stagingArgs)
+      Config.name = name
+      Config.genDir = s"${Config.cwd}/gen/$name"
+      Config.logDir = s"${Config.cwd}/logs/$name"
+      Config.verbosity = -2
+      Config.showWarn = false
+      resetState()
+      //_IR.useBasicBlocks = true // experimental for faster scheduling
+      try {
+        compileProgram(x._2)
+        Console.println(s"Compiling #$i: $name: done")
+        workQueue.put(name)
+      }
+      catch {case e:Throwable =>
+        Console.println(s"Compiling #$i: $name: fail")
+        Config.verbosity = 4
+        withLog(Config.logDir,"exception.log") {
+          log(e.getMessage)
+          log(e.getCause)
+          e.getStackTrace.foreach{line => log("  " + line) }
+        }
+      }
+      i += 1
+    }
+
+    // Poison work queue
     (0 until NUM_PAR_SYNTH).foreach{_ => workQueue.put("") }
 
 
