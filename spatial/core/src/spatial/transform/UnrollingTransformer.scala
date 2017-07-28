@@ -568,7 +568,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
           store.inline(accum, result)
         })
         styleOf(pipe) = SeqPipe
-        levelOf(pipe) = OuterControl
+        levelOf(pipe) = InnerControl
       }
       else {
         logs("Fully unrolling inner reduce")

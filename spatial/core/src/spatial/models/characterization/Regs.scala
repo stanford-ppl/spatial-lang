@@ -31,7 +31,7 @@ trait Regs extends Benchmarks {
               val bits = value(nbits-1::0)
               val top = spatial.lang.Vector.sliceN(bits,nbits-2,0)
               val bot = spatial.lang.Vector.sliceN(bits,nbits-1,nbits-1)
-              val vec = spatial.lang.Vector.concatN(Seq(top,bot))
+              val vec = spatial.lang.Vector.concatN(Seq(bot,top))
               reg := vec.as[T]
             }
           }}
