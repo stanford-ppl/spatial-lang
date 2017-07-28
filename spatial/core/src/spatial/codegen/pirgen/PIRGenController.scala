@@ -196,7 +196,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case bus: InputArg  => 
       emit(s"""val ${quote(bus)} = ArgIn("${bus.name}")${boundOf.get(compose(bus.dmem)).fold("") { b => s".bound($b)" }}""")
     case bus: DramAddress  => 
-      emit(s"""val ${quote(bus)} = DRAMAddress("${bus.name}", "${bus.dram.name.getOrElse(quote(bus.dram))}")${boundOf.get(compose(bus.dmem)).fold("") { b => s".bound($b)" }}""")
+      emit(s"""val ${quote(bus)} = DRAMAddress("${bus.name}", "${bus.dram.name.getOrElse(quote(bus.dram))}")${boundOf.get(compose(bus.mem)).fold("") { b => s".bound($b)" }}""")
     case bus: OutputArg => emit(s"""val ${quote(bus)} = ArgOut("${bus.name}")""")
     case bus: ScalarBus => emit(s"""val ${quote(bus)} = Scalar("${bus.name}")""")
     case bus: VectorBus => emit(s"""val ${quote(bus)} = Vector("${bus.name}")""")

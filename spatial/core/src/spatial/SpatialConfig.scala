@@ -136,7 +136,7 @@ spatial {
 
     val defaultPlasticine =  ConfigFactory.parseString("""
 plasticine {
-  sin_ucu = 10
+  sin-ucu = 10
   stages-ucu = 10
   sin-pcu = 10
   sout-pcu = 10

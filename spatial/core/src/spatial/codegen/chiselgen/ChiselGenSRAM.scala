@@ -83,7 +83,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
     val allSiblings = childrenOf(parentOf(readCtrls.head.node).get)
     val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-    val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+    val writeSiblings = writePorts.map{case (_,w) => w.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
     val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
     val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
     val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
