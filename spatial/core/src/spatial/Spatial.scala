@@ -224,6 +224,13 @@ trait SpatialCompiler extends ArgonCompiler {
     Report.bug("and we'll try to fix it as soon as we can.")
   }
 
+  override def settings(): Unit = {
+    if (SpatialConfig.useBasicBlocks) {
+      Report.warn("Setting compiler to use basic blocks. Code motion will be disabled.")
+      _IR.useBasicBlocks = true
+    }
+  }
+
   override protected def parseArguments(args: Seq[String]): Unit = {
     SpatialConfig.init()
     SpatialConfig.target = this.target

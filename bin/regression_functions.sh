@@ -88,7 +88,7 @@ check_packet() {
   for ii in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$ii]}"* ]]; then rank=${ii}; fi; done
   if [ $rank = -1 ]; then
     logger "Packet for $packet disappeared from list $stringified!  Quitting ungracefully!"
-    rm -f /remote/regression/mapping/${this_machine}---${tim}*
+    mv /remote/regression/mapping/${this_machine}---${tim}* /remote/regression/mapping/
     exit 1
   fi
 }
@@ -170,7 +170,7 @@ rm $packet
 
 sleep 1000
 stubborn_delete ${dirname}
-rm /remote/regression/mapping/${this_machine}---${tim}*
+mv /remote/regression/mapping/${this_machine}---${tim}* /remote/regression/mapping
 
 ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 
@@ -799,7 +799,7 @@ launch_tests() {
   logger "Killing old screen sessions"
   screen -ls | grep "${branch}_${type_todo}" | cut -d. -f1 | awk '{print $1}' | xargs kill
   screen -wipe
-  logger "Killing maxeleros jobs"
+  logger "Killing maxeleros (?) jobs"
   ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | awk '{system("kill -9 " $2)}'
 
   IFS=$'\n'
@@ -826,6 +826,7 @@ launch_tests() {
   # Make reg test dir
   rm -rf ${SPATIAL_HOME}/regression_tests;mkdir ${SPATIAL_HOME}/regression_tests
 
+  logger "Found these app classes: ${types_list[@]}"
   for ac in ${types_list[@]}; do 
     check_packet
     logger "Preparing vulture directory for $ac..."

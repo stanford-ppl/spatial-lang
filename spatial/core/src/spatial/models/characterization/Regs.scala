@@ -24,13 +24,14 @@ trait Regs extends Benchmarks {
         val regs = List.fill(N){ Reg.buffer[T] }
 
         Foreach(0 until 1000){_ =>
-          List.tabulate(N-1){_ => Pipe {
+          List.tabulate(depth-1){_ => Pipe {
             regs.foreach{reg =>
               // TODO: Should have syntax support for this kind of bit twiddling
               val value = reg.value
-              val allbits = List.tabulate(nbits){i => if (i == 0) value(nbits-1) else value(i - 1) }
-              implicit val vT = VectorN.typeFromLen[Bit](nbits)
-              val vec: VectorN[Bit] = wrap(Vector.fromseq[Bit,VectorN](unwrap(allbits)))
+              val bits = value(nbits-1::0)
+              val top = spatial.lang.Vector.sliceN(bits,nbits-2,0)
+              val bot = spatial.lang.Vector.sliceN(bits,nbits-1,nbits-1)
+              val vec = spatial.lang.Vector.concatN(Seq(bot,top))
               reg := vec.as[T]
             }
           }}
@@ -42,11 +43,11 @@ trait Regs extends Benchmarks {
   }
 
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg1", Seq(50,100,200), RegOp[Bit](depth)) }
-  gens :::= List.tabulate(7){depth => MetaProgGen("Reg8", Seq(50,100,200), RegOp[Int8](depth)) }
-  gens :::= List.tabulate(7){depth => MetaProgGen("Reg16", Seq(50,100,200), RegOp[Int16](depth)) }
-  gens :::= List.tabulate(7){depth => MetaProgGen("Reg32", Seq(50,100,200), RegOp[Int32](depth)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg8", Seq(50,100,200), RegOp[Int8](depth+1)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg16", Seq(50,100,200), RegOp[Int16](depth+1)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg32", Seq(50,100,200), RegOp[Int32](depth+1)) }
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg48", Seq(50,100,200), RegOp[Int48](depth)) }
-  gens :::= List.tabulate(7){depth => MetaProgGen("Reg64", Seq(50,100,200), RegOp[Int64](depth)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg64", Seq(50,100,200), RegOp[Int64](depth+1)) }
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg96", Seq(50,100,200), RegOp[Int96](depth)) }
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg128", Seq(50,100,200), RegOp[Int128](depth)) }
 }

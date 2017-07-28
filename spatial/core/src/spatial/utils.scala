@@ -69,11 +69,11 @@ object utils {
     */
   // TODO: This uses the pointer-chasing version of scheduling - could possibly make faster?
   implicit class ExpOps(x: Exp[_]) {
-    @stateful def dependsOn(y: Exp[_]): Boolean = {
-      def dfs(frontier: Seq[Exp[_]]): Boolean = frontier.exists{
-        case s if s == y => true
-        case Def(d) => dfs(d.inputs)
-        case _ => false
+    @stateful def dependsOn(y: Exp[_], scope: Seq[Stm] = Nil): Boolean = {
+      val scp = scope.flatMap(_.lhs.asInstanceOf[Seq[Exp[_]]]).toSet
+
+      def dfs(frontier: Seq[Exp[_]]): Boolean = frontier.exists{x =>
+        (scp.isEmpty || scp.contains(x)) && (x == y || getDef(x).exists{d => dfs(d.inputs) })
       }
       dfs(Seq(x))
     }

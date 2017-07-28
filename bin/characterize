@@ -1,0 +1,1 @@
+sbt "apps/runMain spatial.models.characterization.Characterization"

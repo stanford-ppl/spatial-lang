@@ -113,6 +113,9 @@ trait ChiselGenStructs extends ChiselGenSRAM {
       }.reduce{_+_}
       emitGlobalWire(src"val $lhs = Wire(UInt(${totalWidth}.W))")
       emit(src"$lhs := chisel3.util.Cat($items)")
+    case VectorConcat(items) =>
+      val items_string = items.map{a => src"${a}.r"}.mkString(",")
+      emit(src"val $lhs = chisel3.util.Cat(${items_string})")
     case FieldApply(struct, field) =>
       val (msb, lsb) = tupCoordinates(struct.tp, field)      
       if (spatialNeedsFPType(lhs.tp)) {

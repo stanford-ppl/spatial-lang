@@ -193,6 +193,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
       emit(src"${reg}_manual_reset_$id := $en & ${parent}_datapath_en.D(${symDelay(lhs)}) ")
 
     case RegWrite(reg,v,en) => 
+      val fully_unrolled_accum = !writersOf(reg).exists{w => readersOf(reg).exists{ r => w.node.dependsOn(r.node) }}
       val manualReset = if (resettersOf(reg).length > 0) {s"| ${quote(reg)}_manual_reset"} else ""
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg) | isHostIO(reg)) {
@@ -218,7 +219,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => // is an accumulator
             // Make sure this was not stripped of its accumulation from full unroll
-            if (!(writersOf(reg).map{w => readersOf(reg).map { r => w.node.dependsOn(r.node) } }.flatten.reduce{_|_})) {
+            if (fully_unrolled_accum) {
               emit(src"""val ${reg}_wren = ${parentOf(lhs).get}_datapath_en""")
               emit(src"""val ${reg}_resetter = ${parentOf(lhs).get}_rst_en""")
             }
@@ -234,7 +235,8 @@ trait ChiselGenReg extends ChiselGenSRAM {
                     emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-                    emit(src"""${reg}_${ii}.write(${lhs}, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}+1), reset ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    val data_string = if (fully_unrolled_accum) src"$v" else src"$lhs"
+                    emit(src"""${reg}_${ii}.write(${data_string}, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}+1), reset ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate

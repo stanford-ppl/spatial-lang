@@ -63,7 +63,7 @@ clean_exit() {
 
   # errfile=`echo $packet | sed 's/ack/error/g'`
   rm $packet
-  rm /remote/regression/mapping/${this_machine}---${tim}*
+  mv /remote/regression/mapping/${this_machine}---${tim}* /remote/regression/mapping
   exit 1
 }
 
