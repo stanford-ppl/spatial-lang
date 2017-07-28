@@ -19,9 +19,12 @@ using namespace std;
 
 #include <DRAMSim.h>
 
-#define MAX_NUM_Q 128
+#define MAX_NUM_Q             128
+#define PAGE_SIZE_BYTES       4096
+#define PAGE_OFFSET           (__builtin_ctz(PAGE_SIZE_BYTES))
+#define PAGE_FRAME_NUM(addr)  (addr >> PAGE_OFFSET)
 
-// DRAMSim3
+// DRAMSim2
 DRAMSim::MultiChannelMemorySystem *mem = NULL;
 bool useIdealDRAM = false;
 bool debug = false;
@@ -365,13 +368,21 @@ bool checkQAndRespond(int id) {
               EPRINTF("[checkQ] sparse request completed:\n");
               printQueueStats(id);
             }
+            it = dramRequestQ[id].begin();
             for (int i = 0; i < burstSizeWords; i++) {
-              DRAMRequest *head = dramRequestQ[id].front();
+              DRAMRequest *head = *it;
               ASSERT(head->isSparse, "ERROR: Encountered non-sparse request at (%d) while popping sparse requests! (%lx, %lx)", i, head->addr, head->rawAddr);
               ASSERT(head->isWr == writeRequest, "ERROR: Sparse request type mismatch");
               if (!writeRequest) {
                 uint32_t *raddr = (uint32_t*) head->rawAddr;
-                if (debug) EPRINTF("-------- gatherAddr(%d) = %lx\n", i, raddr);
+                if (debug) {
+                  EPRINTF("-------- gatherAddr(%d) = %lx, boffset = %d. Printing entire burst:\n", i, raddr, head->rawAddr % burstSizeBytes);
+                for (int j = 0; j < burstSizeWords; j++) {
+                  uint32_t *a = (uint32_t*) (head->addr + j*sizeof(uint32_t));
+                  EPRINTF("         [%d] %x (%d)\n", j, *a, *a);
+                }
+
+                }
                 rdata[i] = *raddr;
                 gatherAddr[i] = head->rawAddr;
               } else {
@@ -382,15 +393,16 @@ bool checkQAndRespond(int id) {
                 scatterAddr[i] = head->rawAddr;
                 scatterData[i] = wdata[0];
               }
+              it++;
             }
 
             if (debug) {
               EPRINTF("[checkAndSendDRAMResponse] Sparse complete with following details:\n");
               for (int i = 0; i<burstSizeWords; i++) {
                 if (writeRequest) {
-                  EPRINTF("---- [scatter] addr %lx: data %x\n", scatterAddr[i], scatterData[i]);
+                  EPRINTF("     [scatter] addr %lx: data %x\n", scatterAddr[i], scatterData[i]);
                 } else {
-                  EPRINTF("---- addr %lx: data %x\n", gatherAddr[i], rdata[i]);
+                  EPRINTF("     addr %lx: %x (%d)\n", gatherAddr[i], rdata[i], rdata[i]);
                 }
               }
               printQueueStats(id);
