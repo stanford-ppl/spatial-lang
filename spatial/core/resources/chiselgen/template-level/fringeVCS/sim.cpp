@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <vector>
 #include <queue>
+#include <set>
 #include <map>
 #include <poll.h>
 #include <fcntl.h>
@@ -49,6 +50,8 @@ int sendResp(simCmd *cmd) {
   return cmd->id;
 }
 
+// Set containing allocated pages
+set<uint64_t> allocatedPages;
 uint64_t numCycles = 0;
 queue<simCmd*> pendingOps;
 
@@ -126,6 +129,7 @@ extern "C" {
           resp.size = sizeof(size_t);
           EPRINTF("[SIM] MALLOC(%lu), returning %p - %p\n", size, (void*)ptr, (void*)((uint8_t*)ptr + size));
           respChannel->send(&resp);
+
           break;
         }
         case FREE: {

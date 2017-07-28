@@ -36,7 +36,10 @@ class FringeContextVCS : public FringeContextBase<void> {
   const uint32_t burstSizeBytes = 64;
   const uint32_t commandReg = 0;
   const uint32_t statusReg = 1;
-  const uint64_t maxCycles = 10000000000;
+  uint64_t maxCycles = 10000000000;
+
+  // Debug flags
+  bool debugRegs = false;
 
   // Set of environment variables that should be set and visible to the simulator process
   // Each variable must be explicitly mentioned here
@@ -56,6 +59,34 @@ class FringeContextVCS : public FringeContextBase<void> {
     char *value = getenv(cvar);
     ASSERT(value != NULL, "%s is NULL\n", cvar);
     return value;
+  }
+
+  bool envToBool(std::string var) {
+    const char *cvar = var.c_str();
+    char *value = getenv(cvar);
+    if (value != NULL) {
+      if (value[0] != 0 && atoi(value) > 0) {
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+
+  long envToLong(std::string var) {
+    const char *cvar = var.c_str();
+    char *value = getenv(cvar);
+    if (value != NULL) {
+      if (value[0] != 0) {
+        return atol(value);
+      } else {
+        return -1;
+      }
+    } else {
+      return -1;
+    }
   }
 
   int sendCmd(SIM_CMD cmd) {
@@ -243,6 +274,11 @@ public:
 
     // Connect with simulator
     connect();
+
+    // Configure settings from environment
+    debugRegs = envToBool("DEBUG_REGS");
+    long envCycles = atol("MAX_CYCLES");
+    if (envCycles > 0) maxCycles = envCycles;
   }
 
   virtual void load() {
@@ -295,11 +331,11 @@ public:
       return readReg(2+arg);
     } else {
       if (numArgIns == 0) {
-        return readReg(1-numArgIOs+2+arg);    
+        return readReg(1-numArgIOs+2+arg);
       } else {
-        return readReg(numArgIns-numArgIOs+2+arg);  
+        return readReg(numArgIns-numArgIOs+2+arg);
       }
-      
+
     }
   }
 
@@ -316,7 +352,9 @@ public:
   }
 
   ~FringeContextVCS() {
-    dumpDebugRegs();
+    if (debugRegs) {
+      dumpDebugRegs();
+    }
     finish();
   }
 };

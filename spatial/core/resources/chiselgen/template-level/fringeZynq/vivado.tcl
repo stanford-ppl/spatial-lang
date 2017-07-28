@@ -36,6 +36,7 @@ update_compile_order -fileset sources_1
 set_property top design_1_wrapper [current_fileset]
 update_compile_order -fileset sources_1
 
+set_property STEPS.SYNTH_DESIGN.ARGS.RETIMING true [get_runs synth_1]
 launch_runs synth_1
 wait_on_run synth_1
 

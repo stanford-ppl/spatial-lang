@@ -20,7 +20,7 @@ accepting the right TST outputs (ack, rdata) for the TSTs of the PCIM, DDR4, and
 
 This is the only place that parses the incoming address of a register write.
 
-This addres is 
+This address is 
   sh_ocl_bus_q.araddr
   sh_ocl_bus_q.awaddr
 which is the delayed version of 
@@ -59,19 +59,7 @@ module cl_ocl_slv (
    output logic [31:0] SCALAR_reset, // CMD bit from host
    input [31:0] SCALAR_done,  // Status bit from host
    // input [3:0] all_ddr_is_ready,
-   input [31:0] performance_counter_1,
-   
-   // MC
-   output logic DDR_DIRECT_rdata_valid,
-   output logic [512-1:0] DDR_DIRECT_rdata,
-   input [512-1:0] DDR_DIRECT_wdata,
-   input           DDR_DIRECT_wvalid,
-   input DDR_DIRECT_force_burst_wdata,
-   input [31:0] MC_OUT_cfg_addr,
-   input [31:0] MC_OUT_cfg_wdata,
-   input MC_OUT_cfg_wr,
-   input MC_OUT_cfg_rd,
-   input ddr_commands_from_design
+   input [31:0] performance_counter_1
 
 );
 
@@ -529,51 +517,31 @@ assign pcim_tst_cfg_bus.addr = slv_tst_addr[0];
 assign pcim_tst_cfg_bus.wdata = slv_tst_wdata[0];
 assign pcim_tst_cfg_bus.wr = (slv_tst_addr[0][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_wr[0];
 assign pcim_tst_cfg_bus.rd = (slv_tst_addr[0][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_rd[0];
-assign pcim_tst_cfg_bus.DIRECT_force_burst_wdata = 1'b0;
-assign pcim_tst_cfg_bus.DIRECT_wdata = 512'b0;
-assign pcim_tst_cfg_bus.DIRECT_wvalid = 1'b0;
 
-assign ddra_tst_cfg_bus.addr  = ddr_commands_from_design ? MC_OUT_cfg_addr  :    slv_tst_addr [1];
-assign ddra_tst_cfg_bus.wdata = ddr_commands_from_design ? MC_OUT_cfg_wdata :    slv_tst_wdata[1];
-assign ddra_tst_cfg_bus.wr    = ddr_commands_from_design ? MC_OUT_cfg_wr    : ( (slv_tst_addr [1][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_wr[1] );
-assign ddra_tst_cfg_bus.rd    = ddr_commands_from_design ? MC_OUT_cfg_rd    : ( (slv_tst_addr [1][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_rd[1] );
-assign DDR_DIRECT_rdata_valid = ddra_tst_cfg_bus.DIRECT_rdata_valid;
-assign DDR_DIRECT_rdata       = ddra_tst_cfg_bus.DIRECT_rdata;
-assign ddra_tst_cfg_bus.DIRECT_force_burst_wdata  = DDR_DIRECT_force_burst_wdata;
-assign ddra_tst_cfg_bus.DIRECT_wdata              = DDR_DIRECT_wdata;
-assign ddra_tst_cfg_bus.DIRECT_wvalid             = DDR_DIRECT_wvalid;
+assign ddra_tst_cfg_bus.addr  =  slv_tst_addr [1];
+assign ddra_tst_cfg_bus.wdata =  slv_tst_wdata[1];
+assign ddra_tst_cfg_bus.wr    = (slv_tst_addr [1][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_wr[1];
+assign ddra_tst_cfg_bus.rd    = (slv_tst_addr [1][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_rd[1];
 
 assign ddrb_tst_cfg_bus.addr = slv_tst_addr[2];
 assign ddrb_tst_cfg_bus.wdata = slv_tst_wdata[2];
 assign ddrb_tst_cfg_bus.wr = (slv_tst_addr[2][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_wr[2];
 assign ddrb_tst_cfg_bus.rd = (slv_tst_addr[2][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_rd[2];
-assign ddrb_tst_cfg_bus.DIRECT_force_burst_wdata  = 1'b0;
-assign ddrb_tst_cfg_bus.DIRECT_wdata              = 512'b0;
-assign ddrb_tst_cfg_bus.DIRECT_wvalid             = 1'b0;
 
 assign ddrc_tst_cfg_bus.addr = slv_tst_addr[3];
 assign ddrc_tst_cfg_bus.wdata = slv_tst_wdata[3];
 assign ddrc_tst_cfg_bus.wr = (slv_tst_addr[3][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_wr[3];
 assign ddrc_tst_cfg_bus.rd = (slv_tst_addr[3][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_rd[3];
-assign ddrc_tst_cfg_bus.DIRECT_force_burst_wdata  = 1'b0;
-assign ddrc_tst_cfg_bus.DIRECT_wdata              = 512'b0;
-assign ddrc_tst_cfg_bus.DIRECT_wvalid             = 1'b0;
 
 assign ddrd_tst_cfg_bus.addr = slv_tst_addr[4];
 assign ddrd_tst_cfg_bus.wdata = slv_tst_wdata[4];
 assign ddrd_tst_cfg_bus.wr = (slv_tst_addr[4][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_wr[4];
 assign ddrd_tst_cfg_bus.rd = (slv_tst_addr[4][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_rd[4];
-assign ddrd_tst_cfg_bus.DIRECT_force_burst_wdata  = 1'b0;
-assign ddrd_tst_cfg_bus.DIRECT_wdata              = 512'b0;
-assign ddrd_tst_cfg_bus.DIRECT_wvalid             = 1'b0;
 
 assign int_tst_cfg_bus.addr = slv_tst_addr[13];
 assign int_tst_cfg_bus.wdata = slv_tst_wdata[13];
 assign int_tst_cfg_bus.wr = (slv_tst_addr[13][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_wr[13];
 assign int_tst_cfg_bus.rd = (slv_tst_addr[13][24:0] >= `SPATIAL_ADDR_START) ? 1'b0 : slv_tst_rd[13];
-assign int_tst_cfg_bus.DIRECT_force_burst_wdata  = 1'b0;
-assign int_tst_cfg_bus.DIRECT_wdata              = 512'b0;
-assign int_tst_cfg_bus.DIRECT_wvalid             = 1'b0;
 
 //respond back with deadbeef for addresses not implemented
 always_comb begin
