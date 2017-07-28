@@ -345,7 +345,7 @@ trait PIRAllocation extends PIRTraversal {
       decompose(mem).zip(dreaders).foreach { case (dmem, dreader) => 
         val bus = mem match {
           case mem if isArgIn(mem) => Some(InputArg(s"${mem.name.getOrElse(quote(dmem))}", dmem))
-          case mem@Def(GetDRAMAddress(dram)) => Some(DramAddress(s"${dram.name.getOrElse(quote(dmem))}_addr", dram, dmem))
+          case mem@Def(GetDRAMAddress(dram)) => Some(DramAddress(s"${dram.name.getOrElse(quote(dmem))}", dram, mem))
           case _ => None
         }
         bus.foreach { b => globals += b }

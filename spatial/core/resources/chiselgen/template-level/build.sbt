@@ -25,7 +25,12 @@ resolvers ++= Seq(
   Resolver.sonatypeRepo("releases")
 )
 
-scalaSource in Compile := baseDirectory.value / "templates"
+unmanagedSourceDirectories in Compile <++= baseDirectory { base =>
+  Seq(
+    base / "templates",
+    base / "fringeHW"
+  )
+}
 
 scalaSource in Test := baseDirectory.value / "tests"
 
