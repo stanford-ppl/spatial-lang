@@ -58,7 +58,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       if (iiOf(lhs) <= 1) {
         emit(src"""${lhs}_II_done := true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr());""")
+        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 max Utils.log2Up(${lhs}_retime)));""")
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_datapath_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${lhs}_retime.S //${iiOf(lhs)}.S""")
@@ -115,7 +115,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       if (iiOf(lhs) <= 1) {
         emit(src"""${lhs}_II_done := true.B""")
       } else {
-        emit(s"""val ${quote(lhs)}_IICtr = Module(new RedxnCtr());""")
+        emit(s"""val ${quote(lhs)}_IICtr = Module(new RedxnCtr(2 max Utils.log2Up(${lhs}_retime)));""")
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
@@ -129,7 +129,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       //       case FixPtSum => // Optimized for this case (1 issue per cycle)
       //         emit(src"""val ${lhs}_II_done = true.B""")
       //       case _ => // Not optimized for this case
-      //         emit(s"""val ${quote(lhs)}_IICtr = Module(new RedxnCtr());""")
+      //         emit(s"""val ${quote(lhs)}_IICtr = Module(new RedxnCtr(2 max Utils.log2Up(${lhs}_retime)));""")
       //         emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
       //         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
       //         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")

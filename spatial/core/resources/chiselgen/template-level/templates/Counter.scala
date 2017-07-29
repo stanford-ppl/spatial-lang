@@ -1,7 +1,10 @@
 // See LICENSE.txt for license details.
 package templates
 
+import util._
 import chisel3._
+import chisel3.util._
+
 
 
 /**
@@ -10,20 +13,20 @@ import chisel3._
              but still forces you to index the thing and hence only gets the
              first bit
  */
-class NBufCtr() extends Module {
+class NBufCtr(val width: Int = 32) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
-      val start    = Input(UInt(32.W)) // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
-      val stop      = Input(UInt(32.W))
+      val start    = Input(UInt(width.W)) // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
+      val stop      = Input(UInt(width.W))
       val countUp  = Input(Bool())
       val enable = Input(Bool())
     }
     val output = new Bundle {
-      val count      = Output(UInt(32.W))
+      val count      = Output(UInt(width.W))
     }
   })
 
-  val cnt = Reg(UInt(32.W))  // Because chisel f***ing broke reg init randomly on 3/7/17, work around
+  val cnt = Reg(UInt(width.W))  // Because chisel f***ing broke reg init randomly on 3/7/17, work around
 
   val effectiveCnt = Mux(cnt + io.input.start >= io.input.stop, cnt + io.input.start - io.input.stop, cnt + io.input.start)
 
@@ -39,7 +42,7 @@ class NBufCtr() extends Module {
  * IncDincCtr: 1-dimensional counter, used in tracking number of elements when you push and pop
                from a fifo
  */
-class IncDincCtr(inc: Int, dinc: Int, stop: Int) extends Module {
+class IncDincCtr(inc: Int, dinc: Int, stop: Int, width: Int = 32) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val inc_en     = Input(Bool())
@@ -52,22 +55,22 @@ class IncDincCtr(inc: Int, dinc: Int, stop: Int) extends Module {
       val full          = Output(Bool())
       val almostEmpty         = Output(Bool())
       val almostFull          = Output(Bool())
-      val numel         = Output(SInt(32.W))
+      val numel         = Output(SInt((width+1).W))
     }
   })
 
   val cnt = RegInit(0.S(32.W))
 
-  val numPushed = Mux(io.input.inc_en, inc.S, 0.S)
-  val numPopped = Mux(io.input.dinc_en, dinc.S, 0.S)
+  val numPushed = Mux(io.input.inc_en, inc.S, 0.S((width+1).W))
+  val numPopped = Mux(io.input.dinc_en, dinc.S, 0.S((width+1).W))
   cnt := cnt + numPushed - numPopped
 
-  io.output.overread := cnt < 0.S
-  io.output.overwrite := cnt > stop.S
-  io.output.empty := cnt === 0.S
-  io.output.almostEmpty := cnt - dinc.S === 0.S
-  io.output.full := cnt === stop.S
-  io.output.almostFull := cnt + inc.S === stop.S
+  io.output.overread := cnt < 0.S((width+1).W)
+  io.output.overwrite := cnt > stop.S((width+1).W)
+  io.output.empty := cnt === 0.S((width+1).W)
+  io.output.almostEmpty := cnt - dinc.S((width+1).W) === 0.S((width+1).W)
+  io.output.full := cnt === stop.S((width+1).W)
+  io.output.almostFull := cnt + inc.S((width+1).W) === stop.S((width+1).W)
   io.output.numel := cnt
 }
 
@@ -76,10 +79,10 @@ class IncDincCtr(inc: Int, dinc: Int, stop: Int) extends Module {
 /**
  * RedxnCtr: 1-dimensional counter. Basically a cheap, wrapping for reductions
  */
-class RedxnCtr() extends Module {
+class RedxnCtr(val width: Int = 32) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
-      val stop      = Input(SInt(32.W))
+      val stop      = Input(SInt((width+1).W))
       val enable = Input(Bool())
       val reset = Input(Bool())
       val saturate = Input(Bool())
@@ -89,12 +92,12 @@ class RedxnCtr() extends Module {
     }
   })
 
-  val cnt = RegInit(0.S(32.W))
+  val cnt = RegInit(0.S((width+1).W))
 
-  val fudge_stop = io.input.stop + Mux(io.input.stop === 1.S, 1.S, 0.S)
-  val isDone = (cnt + 1.S >= (fudge_stop))
+  val fudge_stop = io.input.stop + Mux(io.input.stop === 1.S((width+1).W), 1.S((width+1).W), 0.S((width+1).W))
+  val isDone = (cnt + 1.S((width+1).W) >= (fudge_stop))
 
-  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.S === fudge_stop, Mux(io.input.saturate, cnt, 0.S), cnt+1.S), cnt)
+  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.S((width+1).W) === fudge_stop, Mux(io.input.saturate, cnt, 0.S((width+1).W)), cnt+1.S((width+1).W)), cnt)
   cnt := Mux(io.input.reset, 0.S, nextCntUp)
 
   io.output.done := isDone
@@ -105,13 +108,15 @@ class RedxnCtr() extends Module {
  * by 'stride', beginning at zero.
  * @param w: Word width
  */
-class SingleCounter(val par: Int) extends Module {
+class SingleCounter(val par: Int, val width: Int = 32) extends Module {
+  def this(tuple: (Int, Int)) = this(tuple._1, tuple._2)
+
   val io = IO(new Bundle {
     val input = new Bundle {
-      val start    = Input(SInt(32.W)) // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
-      val stop      = Input(SInt(32.W))
-      val stride   = Input(SInt(32.W))
-      val gap      = Input(SInt(32.W))
+      val start    = Input(SInt((width).W)) // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
+      val stop      = Input(SInt((width).W))
+      val stride   = Input(SInt((width).W))
+      val gap      = Input(SInt((width).W))
       // val wrap     = BoolInput(()) // TODO: This should let 
       //                                   user specify (8 by 3) ctr to go
       //                                   0,3,6 (wrap) 1,4,7 (wrap) 2,5...
@@ -122,32 +127,40 @@ class SingleCounter(val par: Int) extends Module {
       val saturate = Input(Bool())
     }
     val output = new Bundle {
-      val count      = Vec(par, Output(SInt(32.W)))
-      val countWithoutWrap = Vec(par, Output(SInt(32.W))) // Rough estimate of next val without wrap, used in FIFO
+      val count      = Vec(par, Output(SInt((width).W)))
+      val countWithoutWrap = Vec(par, Output(SInt((width).W))) // Rough estimate of next val without wrap, used in FIFO
       val done   = Output(Bool())
       val extendedDone = Output(Bool())
+      // val debug1 = Output(SInt((width).W))
+      // val debug2 = Output(Bool())
+      // val debug3 = Output(Bool())
+      // val debug4 = Output(SInt((width).W))
       val saturated = Output(Bool())
     }
   })
 
   if (par > 0) {
-    val base = Module(new FF(32))
+    val base = Module(new FF((width)))
     val init = io.input.start
     base.io.input(0).init := init.asUInt
     base.io.input(0).reset := io.input.reset
     base.io.input(0).enable := io.input.reset | io.input.enable
 
     val count = base.io.output.data.asSInt
-    val newval = count + (io.input.stride * par.S) + io.input.gap
-    val isMax = Mux(io.input.stride >= 0.S, newval >= io.input.stop, newval <= io.input.stop)
+    val newval = count + (io.input.stride * par.S((width).W)) + io.input.gap
+    val isMax = Mux(io.input.stride >= 0.S((width).W), newval >= io.input.stop, newval <= io.input.stop)
+    // io.output.debug1 := newval
+    // io.output.debug2 := io.input.stride >= 0.S((width).W)
+    // io.output.debug3 := newval >= io.input.stop
+    // io.output.debug4 := io.input.stop
     val wasMax = RegNext(isMax, false.B)
     val wasEnabled = RegNext(io.input.enable, false.B)
     val next = Mux(isMax, Mux(io.input.saturate, count, init), newval)
     base.io.input(0).data := Mux(io.input.reset, init.asUInt, next.asUInt)
 
-    (0 until par).foreach { i => io.output.count(i) := count + i.S*io.input.stride }
+    (0 until par).foreach { i => io.output.count(i) := count + i.S((width).W)*io.input.stride }
     (0 until par).foreach { i => 
-      io.output.countWithoutWrap(i) := Mux(count === 0.S, io.input.stop, count) + i.S*io.input.stride
+      io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), io.input.stop, count) + i.S((width).W)*io.input.stride
     }
     io.output.done := io.input.enable & isMax
     io.output.saturated := io.input.saturate & isMax
@@ -159,13 +172,15 @@ class SingleCounter(val par: Int) extends Module {
   }
 }
 
-class SingleSCounter(val par: Int) extends Module { // Signed counter, used in FILO
+class SingleSCounter(val par: Int, val width: Int = 32) extends Module { // Signed counter, used in FILO
+  def this(tuple: (Int, Int)) = this(tuple._1, tuple._2)
+
   val io = IO(new Bundle {
     val input = new Bundle {
-      val start    = Input(SInt(32.W)) // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
-      val stop      = Input(SInt(32.W))
-      val stride   = Input(SInt(32.W))
-      val gap      = Input(SInt(32.W))
+      val start    = Input(SInt((width).W)) // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
+      val stop      = Input(SInt((width).W))
+      val stride   = Input(SInt((width).W))
+      val gap      = Input(SInt((width).W))
       // val wrap     = BoolInput(()) // TODO: This should let 
       //                                   user specify (8 by 3) ctr to go
       //                                   0,3,6 (wrap) 1,4,7 (wrap) 2,5...
@@ -176,8 +191,8 @@ class SingleSCounter(val par: Int) extends Module { // Signed counter, used in F
       val saturate = Input(Bool())
     }
     val output = new Bundle { 
-      val count      = Vec(par, Output(SInt(32.W)))
-      val countWithoutWrap = Vec(par, Output(SInt(32.W))) // Rough estimate of next val without wrap, used in FIFO
+      val count      = Vec(par, Output(SInt((width).W)))
+      val countWithoutWrap = Vec(par, Output(SInt((width).W))) // Rough estimate of next val without wrap, used in FIFO
       val done   = Output(Bool())
       val extendedDone = Output(Bool())
       val saturated = Output(Bool())
@@ -185,25 +200,25 @@ class SingleSCounter(val par: Int) extends Module { // Signed counter, used in F
   })
 
   if (par > 0) {
-    val base = Module(new FF(32))
+    val base = Module(new FF((width)))
     val init = io.input.start
     base.io.input(0).init := init.asUInt
     base.io.input(0).reset := io.input.reset
     base.io.input(0).enable := io.input.reset | io.input.enable
 
     val count = base.io.output.data.asSInt
-    val newval = count + (io.input.stride * par.S) + io.input.gap
+    val newval = count + (io.input.stride * par.S((width).W)) + io.input.gap
     val isMax = newval >= io.input.stop
     val wasMax = RegNext(isMax, false.B)
-    val isMin = newval < 0.S
+    val isMin = newval < 0.S((width).W)
     val wasMin = RegNext(isMin, false.B)
     val wasEnabled = RegNext(io.input.enable, false.B)
     val next = Mux(isMax, Mux(io.input.saturate, count, init), Mux(isMin, io.input.stop + io.input.stride, newval))
     base.io.input(0).data := Mux(io.input.reset, init.asUInt, next.asUInt)
 
-    (0 until par).foreach { i => io.output.count(i) := count + i.S*io.input.stride }
+    (0 until par).foreach { i => io.output.count(i) := count + i.S((width).W)*io.input.stride }
     (0 until par).foreach { i => 
-      io.output.countWithoutWrap(i) := Mux(count === 0.S, io.input.stop, count) + i.S*io.input.stride
+      io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), io.input.stop, count) + i.S((width).W)*io.input.stride
     }
     io.output.done := io.input.enable & (isMax | isMin)
     io.output.saturated := io.input.saturate & ( isMax | isMin )
@@ -232,24 +247,28 @@ count(0) 1   2  3    4   5
             outermost (slowest) to innermost (fastest) counter.
  * @param w: Word width
  */
-class Counter(val par: List[Int]) extends Module {
+class Counter(val par: List[Int], val widths: List[Int]) extends Module {
+  def this(par: List[Int]) = this(par, List.fill(par.length){32})
+  def this(tuple: (List[Int], List[Int])) = this(tuple._1, tuple._2)
+
   val depth = par.length
   val numWires = par.reduce{_+_}
+  val ctrMapping = par.indices.map{i => par.dropRight(par.length - i).sum}
 
   val io = IO(new Bundle {
     val input = new Bundle {
-      val starts    = Vec(depth, Input(SInt(32.W)))
-      val stops      = Vec(depth, Input(SInt(32.W)))
-      val strides   = Vec(depth, Input(SInt(32.W)))
-      val gaps      = Vec(depth, Input(SInt(32.W)))
+      val starts    = HVec.tabulate(depth){i => Input(SInt((widths(i)).W))}
+      val stops      = HVec.tabulate(depth){i => Input(SInt((widths(i)).W))}
+      val strides   = HVec.tabulate(depth){i => Input(SInt((widths(i)).W))}
+      val gaps      = HVec.tabulate(depth){i => Input(SInt((widths(i)).W))}
       val reset  = Input(Bool())
       val enable = Input(Bool())
       val saturate = Input(Bool())
       val isStream = Input(Bool()) // If a stream counter, do not need enable on to report done
     }
     val output = new Bundle {
-      val counts      = Vec(numWires, Output(SInt(32.W))) 
-      // val countBases  = Vec(depth, UInt(32.WOutput())) // For debugging the base of each ctr
+      val counts      = HVec.tabulate(numWires){i => Output(SInt((widths(ctrMapping.filter(_ <= i).length - 1)).W))}
+      // val counts      = HVec.tabulate(numWires){i => Output(SInt(32.W))}
       val done   = Output(Bool())
       val extendedDone   = Output(Bool()) // Tool for ensuring done signal is stable for one rising edge
       val saturated = Output(Bool())
@@ -257,7 +276,7 @@ class Counter(val par: List[Int]) extends Module {
   })
 
   // Create counters
-  val ctrs = (0 until depth).map{ i => Module(new SingleCounter(par(i))) }
+  val ctrs = (0 until depth).map{ i => Module(new SingleCounter(par(i), widths(i))) }
 
   // Wire up the easy inputs from IO
   ctrs.zipWithIndex.foreach { case (ctr, i) =>
