@@ -26,19 +26,22 @@ object Characterization extends AllBenchmarks {
     sys.exit()
   })
 
-  def area(dir: JString, synth: Boolean): (Map[JString, scala.Double], String) = {
+  def area(dir: JString, synth: Boolean, log: PrintWriter): (Map[JString, scala.Double], String) = {
     val nosynth = if (synth) Nil else Seq("--nomake")
     val output = (Seq("python", s"$SPATIAL_HOME/bin/scrape.py", s"${Config.cwd}/gen/$dir") ++ nosynth).!!
     val pairs = output.split("\n").map(_.split(","))
     val map = pairs.flatMap {
-      case Array(k, v) =>
+      case line @ Array(k, v) =>
         try {
           Some(k -> v.toDouble)
         }
         catch {case _: Throwable =>
+          log.println(s"Ignoring line $line")
           None
         }
-      case _ => None
+      case line =>
+        log.println(s"Ignoring line $line")
+        None
     }.toMap
     (map, output)
   }
@@ -58,12 +61,13 @@ object Characterization extends AllBenchmarks {
     def run(): Unit = {
       while(isAlive) {
         val name = queue.take()
+        val log = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
         try {
           if (!name.isEmpty) {
             if (synth) Console.println(s"#$id Synthesizing $name...")
             else       Console.println(s"#$id Scraping $name...")
 
-            val (parsed, _) = area(name, synth)
+            val (parsed, _) = area(name, synth, log)
             storeArea(name, parsed)
             if (parsed.isEmpty) Console.println(s"#$id $name: FAIL")
             else Console.println(s"#$id $name: DONE")
@@ -74,10 +78,11 @@ object Characterization extends AllBenchmarks {
           }
         }
         catch { case e: Throwable =>
-          val stackTrace = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
-          e.printStackTrace(stackTrace)
+          e.printStackTrace(log)
           Console.println(s"#$id $name: FAIL")
-          stackTrace.close()
+        }
+        finally {
+          log.close()
         }
       }
     }
