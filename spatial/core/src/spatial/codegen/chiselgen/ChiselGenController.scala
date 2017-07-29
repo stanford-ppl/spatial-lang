@@ -341,7 +341,16 @@ trait ChiselGenController extends ChiselGenCounter{
       counters.zipWithIndex.map {case (ctr,i) =>
         ctr match {
           case Def(CounterNew(start, end, step, par)) => 
-            emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(((${end} - ${start}) % (${step} * ${par}) === 0.U), 0.U, 1.U)""")
+            val w = cchainWidth(ctr)
+            (start, end, step, par) match {
+              case (Exact(s), Exact(e), Exact(st), Exact(p)) => 
+                emit(src"""val ${sym}_level${i}_iters = ((${e}.S(${w}.W) - ${s}.S(${w}.W)) / (${st}.S(${w}.W) * ${p}.S(${w}.W))).asUInt + Mux((((${e}.S(${w}.W) - ${s}.S(${w}.W)) % (${st}.S(${w}.W) * ${p}.S(${w}.W))).asUInt === 0.U), 0.U, 1.U)""")
+              case (Exact(s), Exact(e), _, Exact(p)) => 
+                emit("// TODO: Figure out how to make this one cheaper!")
+                emit(src"""val ${sym}_level${i}_iters = ((${e}.S(${w}.W) - ${s}.S(${w}.W)) / (${step} * ${p}.S(${w}.W))).asUInt + Mux((((${e}.S(${w}.W) - ${s}.S(${w}.W)) % (${step} * ${p}.S(${w}.W))).asUInt === 0.U), 0.U, 1.U)""")
+              case _ => 
+                emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(((${end} - ${start}) % (${step} * ${par}) === 0.U), 0.U, 1.U)""")
+            }
             src"${sym}_level${i}_iters"
           case Def(Forever()) =>
             hasForever = true

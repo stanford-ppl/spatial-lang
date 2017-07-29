@@ -7,26 +7,30 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import spatial.SpatialConfig
+import scala.math._
 
 trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
   var streamCtrCopy = List[Bound[_]]()
 
   // dependencies ::= AlwaysDep("chiselgen", "resources/Counter.chisel")
 
+
+
   def emitCounterChain(lhs: Exp[_], ctrs: Seq[Exp[Counter]], suffix: String = ""): Unit = {
     var isForever = false
     // Temporarily shove ctrl node onto stack so the following is quoted properly
     if (cchainPassMap.contains(lhs)) {controllerStack.push(cchainPassMap(lhs))}
-    val counter_data = ctrs.map{
+    val counter_data = ctrs.map{ ctr => ctr match {
       case Def(CounterNew(start, end, step, par)) => 
+        val w = cchainWidth(ctr)
         (start,end) match { 
-          case (Exact(s), Exact(e)) => (src"${s}.FP(true, ({2+Utils.log2Up(${s})} max {2+Utils.log2Up(${e})}), 0)", src"${e}.FP(true, ({2+Utils.log2Up(${s})} max {2+Utils.log2Up(${e})}), 0)", src"$step", {src"$par"}.split('.').take(1)(0), s"({2+Utils.log2Up(${s})} max {2+Utils.log2Up(${e})})")
-          case _ => (src"$start", src"$end", src"$step", {src"$par"}.split('.').take(1)(0), "32")
+          case (Exact(s), Exact(e)) => (src"${s}.FP(true, $w, 0)", src"${e}.FP(true, $w, 0)", src"$step", {src"$par"}.split('.').take(1)(0), src"$w")
+          case _ => (src"$start", src"$end", src"$step", {src"$par"}.split('.').take(1)(0), src"$w")
         }
       case Def(Forever()) => 
         isForever = true
         ("0.S", "999.S", "1.S", "1", "32") 
-    }
+    }}
     if (cchainPassMap.contains(lhs)) {controllerStack.pop()}
 
     emitGlobalWire(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
@@ -39,9 +43,9 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     val ctrl = usersOf(lhs).head._1
     if (suffix != "") {
       emit(src"// this trivial signal will be assigned multiple times but each should be the same")
-      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => stop-start}.reduce{_*_} === 0.S""")
+      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => stop-start}.reduce{_*_}.asUInt === 0.U""")
     } else {
-      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.head}_ctr_trivial | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => stop-start}.reduce{_*_} === 0.S""")
+      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.head}_ctr_trivial | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => stop-start}.reduce{_*_}.asUInt === 0.U""")
     }
     emit(src"""${lhs}${suffix}.io.input.stops.zip(${lhs}${suffix}_stops).foreach { case (port,stop) => port := stop.r.asSInt }""")
     emit(src"""${lhs}${suffix}.io.input.strides.zip(${lhs}${suffix}_strides).foreach { case (port,stride) => port := stride.r.asSInt }""")
