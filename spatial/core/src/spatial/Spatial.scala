@@ -48,6 +48,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     lazy val memAnalyzer    = new MemoryAnalyzer { var IR = state; def localMems = ctrlAnalyzer.localMems }
     lazy val paramAnalyzer  = new ParameterAnalyzer{var IR = state }
+    lazy val heuristicAnalyzer = new HeuristicAnalyzer { var IR = state }
 
     lazy val scopeCheck     = new ScopeCheck { var IR = state }
 
@@ -61,7 +62,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     lazy val dse = new DSE {
       var IR = state
-      def restricts  = paramAnalyzer.restrict
+      def restricts  = heuristicAnalyzer.restrict
       def tileSizes  = paramAnalyzer.tileSizes
       def parFactors = paramAnalyzer.parFactors
       def localMems  = ctrlAnalyzer.localMems
@@ -134,7 +135,10 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += areaAnalyzer
 
     // --- DSE
-    if (SpatialConfig.enableDSE) passes += paramAnalyzer
+    if (SpatialConfig.enableDSE) {
+      passes += paramAnalyzer
+      passes += heuristicAnalyzer
+    }
     passes += dse               // Design space exploration
     passes += finalizer
 

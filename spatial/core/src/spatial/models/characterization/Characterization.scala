@@ -26,8 +26,9 @@ object Characterization extends AllBenchmarks {
     sys.exit()
   })
 
-  def area(dir: JString): (Map[JString, scala.Double], String) = {
-    val output = Seq("python", s"$SPATIAL_HOME/bin/scrape.py", s"${Config.cwd}/gen/$dir").!!
+  def area(dir: JString, synth: Boolean): (Map[JString, scala.Double], String) = {
+    val nosynth = if (synth) Nil else Seq("--nomake")
+    val output = (Seq("python", s"$SPATIAL_HOME/bin/scrape.py", s"${Config.cwd}/gen/$dir") ++ nosynth).!!
     val pairs = output.split("\n").map(_.split(","))
     val map = pairs.flatMap {
       case Array(k, v) => Some(k -> v.toDouble)
@@ -45,7 +46,57 @@ object Characterization extends AllBenchmarks {
     }
   }
 
+  class Synthesis(id: Int, queue: BlockingQueue[String], synth: Boolean) extends Runnable {
+    var isAlive = true
+
+    def run(): Unit = {
+      while(isAlive) {
+        val name = queue.take()
+        try {
+          if (!name.isEmpty) {
+            if (synth) Console.println(s"#$id Synthesizing $name...")
+            else       Console.println(s"#$id Scraping $name...")
+
+            val (parsed, _) = area(name, synth)
+            storeArea(name, parsed)
+            if (parsed.isEmpty) Console.println(s"#$id $name: FAIL")
+            else Console.println(s"#$id $name: DONE")
+          }
+          else {
+            println(s"#$id received kill signal")
+            isAlive = false
+          }
+        }
+        catch { case e: Throwable =>
+          val stackTrace = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
+          e.printStackTrace(stackTrace)
+          Console.println(s"#$id $name: FAIL")
+          stackTrace.close()
+        }
+      }
+    }
+  }
+
   val stagingArgs = scala.Array("--synth")
+
+  def getYN(prompt: String): Boolean = {
+    var answered = false
+    var answer = false
+    while (!answered) {
+      Console.print(prompt + " [y/n]: ")
+      val a = scala.io.StdIn.readLine()
+      if (a.toLowerCase() == "y") {
+        answer = true
+        answered = true
+      }
+      else if (a.toLowerCase() == "n") {
+        answer = false
+        answered = true
+      }
+      if (!answered) Console.println("(Please respond either y or n)")
+    }
+    answer
+  }
 
   def main(args: scala.Array[JString]) {
     val localMachine = java.net.InetAddress.getLocalHost
@@ -67,73 +118,53 @@ object Characterization extends AllBenchmarks {
     val allPrograms: Seq[NamedSpatialProg] = gens.flatMap(_.expand)
     val programs = allPrograms.slice(start, end)
 
+    val RUN_SPATIAL = getYN("Run Spatial compiler")
+    val RUN_SYNTH = getYN("Run synthesis")
+
     println("Number of programs: " + programs.length)
     println("Using SPATIAL_HOME: " + SPATIAL_HOME)
 
     val pool = Executors.newFixedThreadPool(threads)
     val workQueue = new LinkedBlockingQueue[String](programs.length)
 
-    class Synthesis(id: Int, queue: BlockingQueue[String]) extends Runnable {
-      var isAlive = true
-
-      def run(): Unit = {
-        while(isAlive) {
-          val name = queue.take()
-          try {
-            if (!name.isEmpty) {
-              Console.println(s"#$id Synthesizing $name...")
-              val (parsed, _) = area(name)
-              storeArea(name, parsed)
-              if (parsed.isEmpty) Console.println(s"#$id $name: FAIL")
-              else Console.println(s"#$id $name: DONE")
-            }
-            else {
-              println(s"#$id received kill signal")
-              isAlive = false
-            }
-          }
-          catch { case e: Throwable =>
-            val stackTrace = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
-            e.printStackTrace(stackTrace)
-            Console.println(s"#$id $name: FAIL")
-            stackTrace.close()
-          }
-        }
-      }
-    }
-
-    val workers = List.tabulate(threads){id => new Synthesis(id, workQueue) }
+    val workers = List.tabulate(threads){id => new Synthesis(id, workQueue, RUN_SYNTH) }
     workers.foreach{worker => pool.submit(worker) }
 
-    // Set i to previously generated programs
-    var i = 0
-    programs.take(i).foreach{x => workQueue.put(x._1) }
+    if (RUN_SPATIAL) {
+      // Set i to previously generated programs
+      var i = 0
+      programs.take(i).foreach { x => workQueue.put(x._1) }
 
-    programs.drop(i).foreach{x => //programs.take(2).flatMap{x => //
-      val name = x._1
-      initConfig(stagingArgs)
-      Config.name = name
-      Config.genDir = s"${Config.cwd}/gen/$name"
-      Config.logDir = s"${Config.cwd}/logs/$name"
-      Config.verbosity = -2
-      Config.showWarn = false
-      resetState()
-      //_IR.useBasicBlocks = true // experimental for faster scheduling
-      try {
-        compileProgram(x._2)
-        Console.println(s"Compiling #$i: $name: done")
-        workQueue.put(name)
-      }
-      catch {case e:Throwable =>
-        Console.println(s"Compiling #$i: $name: fail")
-        Config.verbosity = 4
-        withLog(Config.logDir,"exception.log") {
-          log(e.getMessage)
-          log(e.getCause)
-          e.getStackTrace.foreach{line => log("  " + line) }
+      programs.drop(i).foreach { x => //programs.take(2).flatMap{x => //
+        val name = x._1
+        initConfig(stagingArgs)
+        Config.name = name
+        Config.genDir = s"${Config.cwd}/gen/$name"
+        Config.logDir = s"${Config.cwd}/logs/$name"
+        Config.verbosity = -2
+        Config.showWarn = false
+        resetState()
+        //_IR.useBasicBlocks = true // experimental for faster scheduling
+        try {
+          compileProgram(x._2)
+          Console.println(s"Compiling #$i: $name: done")
+          workQueue.put(name)
         }
+        catch {
+          case e: Throwable =>
+            Console.println(s"Compiling #$i: $name: fail")
+            Config.verbosity = 4
+            withLog(Config.logDir, "exception.log") {
+              log(e.getMessage)
+              log(e.getCause)
+              e.getStackTrace.foreach { line => log("  " + line) }
+            }
+        }
+        i += 1
       }
-      i += 1
+    }
+    else {
+      programs.foreach {x => workQueue.put(x._1) }
     }
 
     // Poison work queue

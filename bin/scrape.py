@@ -27,6 +27,7 @@ def parse_args(docstring):
 
     parser.add_argument('directory',
                         help="directory to run synthesis in")
+    parser.add_argument('--nomake', dest='synth', action='store_false', default=True)
     args = parser.parse_args()
 
     # Expand file path to absolute path
@@ -45,7 +46,9 @@ def main():
 
     # Run synthesis
     os.chdir(args.directory)
-    subprocess.call("make zynq", shell=True)
+
+    if args.synth:
+        subprocess.call("make zynq", shell=True)
 
     # Scrape and return data
     os.chdir("./verilog-zynq")
