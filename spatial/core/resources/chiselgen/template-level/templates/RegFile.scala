@@ -286,7 +286,7 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
     val flat_addr = (port*dims.reduce{_*_}).U + addrs.zipWithIndex.map{ case( a,i ) =>
       a * (dims.drop(i).reduce{_*_}/dims(i)).U
     }.reduce{_+_}
-    result := chisel3.util.MuxLookup(flat_addr(31,0), 0.U, regvals)
+    result := chisel3.util.MuxLookup(flat_addr, 0.U, regvals)
     result
 
     // val result = Wire(UInt(bitWidth.W))

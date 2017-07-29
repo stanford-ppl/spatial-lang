@@ -268,6 +268,7 @@ class Counter(val par: List[Int], val widths: List[Int]) extends Module {
     }
     val output = new Bundle {
       val counts      = HVec.tabulate(numWires){i => Output(SInt((widths(ctrMapping.filter(_ <= i).length - 1)).W))}
+      val oobs        = Vec(numWires, Output(Bool()))
       // val counts      = HVec.tabulate(numWires){i => Output(SInt(32.W))}
       val done   = Output(Bool())
       val extendedDone   = Output(Bool()) // Tool for ensuring done signal is stable for one rising edge
@@ -319,6 +320,12 @@ class Counter(val par: List[Int], val widths: List[Int]) extends Module {
   io.output.done := Mux(io.input.isStream, true.B, io.input.enable) & isDone & ~wasDone
   io.output.extendedDone := io.input.enable & isDone & ~wasWasDone
   io.output.saturated := io.input.saturate & isSaturated
+
+  // Set oobs (to replace emitValids in codegen)
+  // (0 until numWires).foreach{i => 
+  //   val j = widths(ctrMapping.filter(_ <= i).length - 1)
+  //   Mux(io.input.strides(j) >= 0.S(widths(j)), ctrs(i).io.output.count()  )
+  // }
 
 }
 

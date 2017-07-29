@@ -37,11 +37,13 @@ trait ChiselGenController extends ChiselGenCounter{
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
         emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0).r")
-        emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
+        val w = cchainWidth(counters(i))
+        emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,$w,0))")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
           emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j).r")
-          emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
+          val w = cchainWidth(counters(i))
+          emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,$w,0))")
         }
       }
     }
@@ -350,9 +352,9 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit("// TODO: Figure out how to make this one cheaper!")
                 emit(src"""val ${sym}_level${i}_iters = ((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) / (${step} * ${p}.S(${w}.W))).asUInt + Mux((((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) % (${step} * ${p}.S(${32 min 2*w}.W))).asUInt === 0.U), 0.U, 1.U)""")
               case _ => 
-                emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(((${end} - ${start}) % (${step} * ${par}) === 0.U), 0.U, 1.U)""")
+                emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(( ((${end} - ${start}) % (${step} * ${par})) === 0.U), 0.U, 1.U)""")
             }
-            src"${sym}_level${i}_iters.asUInt"
+            src"${sym}_level${i}_iters"
           case Def(Forever()) =>
             hasForever = true
             // need to change the outer pipe counter interface!!
@@ -398,7 +400,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""${sym}_done := ${sym}_sm.io.output.done.D(${sym}_retime,rr)""")
     }
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
-    emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw // Unused for inner and parallel""")
+    emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw.asUInt // Unused for inner and parallel""")
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
 
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
