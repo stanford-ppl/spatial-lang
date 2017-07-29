@@ -45,13 +45,22 @@ def main():
         return
 
     # Run synthesis
-    os.chdir(args.directory)
-
+    if os.path.isdir(args.directory):
+        os.chdir(args.directory)
+    else:
+        print 'Generated folder not found'
+        return
+        
     if args.synth:
         subprocess.call("make zynq", shell=True)
 
     # Scrape and return data
-    os.chdir("./verilog-zynq")
+    if os.path.isdir('verilog-zynq'):
+        os.chdir("./verilog-zynq")
+    else:
+        print 'Synthesis folder not found'
+        return
+
     if os.path.isfile('par_utilization.rpt'):
         with open('par_utilization.rpt', 'r') as f:
             lines = f.readlines()
