@@ -36,11 +36,11 @@ object Characterization extends AllBenchmarks {
           Some(k -> v.toDouble)
         }
         catch {case _: Throwable =>
-          log.println(s"Ignoring line $line")
+          log.println(s"Ignoring line " + line.mkString(","))
           None
         }
       case line =>
-        log.println(s"Ignoring line $line")
+        log.println(s"Ignoring line" + line.mkString(","))
         None
     }.toMap
     (map, output)
@@ -141,6 +141,7 @@ object Characterization extends AllBenchmarks {
 
     println("Number of programs: " + programs.length)
     println("Using SPATIAL_HOME: " + SPATIAL_HOME)
+    println("Using CWD: " + Config.cwd)
 
     val pool = Executors.newFixedThreadPool(threads)
     val workQueue = new LinkedBlockingQueue[String](programs.length)
