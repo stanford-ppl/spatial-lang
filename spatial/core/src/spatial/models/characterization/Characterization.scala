@@ -36,11 +36,11 @@ object Characterization extends AllBenchmarks {
           Some(k -> v.toDouble)
         }
         catch {case _: Throwable =>
-          log.println(s"Ignoring line " + line.mkString(","))
+          log.println(s"Ignoring line: " + line.mkString(","))
           None
         }
       case line =>
-        log.println(s"Ignoring line" + line.mkString(","))
+        log.println(s"Ignoring line: " + line.mkString(","))
         None
     }.toMap
     (map, output)
@@ -139,6 +139,7 @@ object Characterization extends AllBenchmarks {
     val RUN_SPATIAL = getYN("Run Spatial compiler")
     val RUN_SYNTH = getYN("Run synthesis")
 
+    initConfig(stagingArgs)
     println("Number of programs: " + programs.length)
     println("Using SPATIAL_HOME: " + SPATIAL_HOME)
     println("Using CWD: " + Config.cwd)
@@ -156,7 +157,6 @@ object Characterization extends AllBenchmarks {
 
       programs.drop(i).foreach { x => //programs.take(2).flatMap{x => //
         val name = x._1
-        initConfig(stagingArgs)
         Config.name = name
         Config.genDir = s"${Config.cwd}/gen/$name"
         Config.logDir = s"${Config.cwd}/logs/$name"
