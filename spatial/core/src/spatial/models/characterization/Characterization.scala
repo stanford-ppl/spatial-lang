@@ -31,7 +31,13 @@ object Characterization extends AllBenchmarks {
     val output = (Seq("python", s"$SPATIAL_HOME/bin/scrape.py", s"${Config.cwd}/gen/$dir") ++ nosynth).!!
     val pairs = output.split("\n").map(_.split(","))
     val map = pairs.flatMap {
-      case Array(k, v) => Some(k -> v.toDouble)
+      case Array(k, v) =>
+        try {
+          Some(k -> v.toDouble)
+        }
+        catch {case _: Throwable =>
+          None
+        }
       case _ => None
     }.toMap
     (map, output)
