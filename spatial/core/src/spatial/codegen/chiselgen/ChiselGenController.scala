@@ -352,7 +352,7 @@ trait ChiselGenController extends ChiselGenCounter{
               case _ => 
                 emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(((${end} - ${start}) % (${step} * ${par}) === 0.U), 0.U, 1.U)""")
             }
-            src"${sym}_level${i}_iters.asUInt.apply(${maxw}, 0)"
+            src"${sym}_level${i}_iters.asUInt"
           case Def(Forever()) =>
             hasForever = true
             // need to change the outer pipe counter interface!!
