@@ -187,18 +187,21 @@ uint32_t getWordOffset(uint64_t addr) {
 
 void printQueueStats(int id) {
   // Ensure that all top 16 requests have been completed
-  deque<DRAMRequest*>::iterator it = dramRequestQ[id].begin();
+  if (dramRequestQ[id].size() > 0) {
+    deque<DRAMRequest*>::iterator it = dramRequestQ[id].begin();
 
-  EPRINTF("==== dramRequestQ %d status =====\n", id);
-  int k = 0;
-  while (it != dramRequestQ[id].end()) {
-    DRAMRequest *r = *it;
-    EPRINTF("    %d. addr: %lx (%lx), tag: %lx, streamId: %d, sparse = %d, completed: %d\n", k, r->addr, r->rawAddr, r->tag, r->streamId, r->isSparse, r->completed);
-    it++;
-    k++;
-    if (k > 20) break;
+    EPRINTF("==== dramRequestQ %d status =====\n", id);
+    int k = 0;
+    while (it != dramRequestQ[id].end()) {
+      DRAMRequest *r = *it;
+      EPRINTF("    %d. addr: %lx (%lx), tag: %lx, streamId: %d, sparse = %d, completed: %d\n", k, r->addr, r->rawAddr, r->tag, r->streamId, r->isSparse, r->completed);
+      it++;
+      k++;
+      //    if (k > 20) break;
+    }
+    EPRINTF("==== END dramRequestQ %d status =====\n", id);
+
   }
-  EPRINTF("==== END dramRequestQ %d status =====\n", id);
 }
 
 int popWhenReady = -1; // dramRequestQ from which response was poked (to be popped when ready)
@@ -453,6 +456,14 @@ void checkAndSendDRAMResponse() {
 //  uint32_t writeReady = (uint32_t)*dramWriteRespReady;
 //  uint32_t ready = readReady & writeReady;
 //  if (ready > 0) {
+
+  if (debug) {
+    if ((numCycles % 5000) == 0) {
+      for (int i = 0; i < MAX_NUM_Q; i++) {
+        printQueueStats(i);
+      }
+    }
+  }
 
   if (popWhenReady >= 0) { // A particular queue has already poked its response, call it again
     ASSERT(checkQAndRespond(popWhenReady), "popWhenReady (%d) >= 0, but no response generated from queue %d\n", popWhenReady, popWhenReady);
