@@ -117,14 +117,15 @@ object Characterization extends AllBenchmarks {
   }
 
   def main(args: scala.Array[JString]) {
+    def useDefaultSettings = getYN("Use default settings for this machine")
+
     val localMachine = java.net.InetAddress.getLocalHost
     val (threads, start, end) = localMachine.getHostName match {
-      case "london"   => (100, 0, 1825)
-      case "tucson"   => (25, 1825, 2280)
-      case "portland" => (5, 2280, 2370)
-      case "max-2"    => (5, 2370, 2460)
+      case "london"   if useDefaultSettings => (100, 0, 1825)
+      case "tucson"   if useDefaultSettings => (25, 1825, 2280)
+      case "portland" if useDefaultSettings => (5, 2280, 2370)
+      case "max-2"    if useDefaultSettings => (5, 2370, 2460)
       case _          =>
-        println("Unknown machine. What do?")
         Console.print("Threads: ")
         val par = scala.io.StdIn.readLine().toInt
         Console.print("Start: ")
