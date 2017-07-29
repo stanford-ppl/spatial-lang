@@ -50,7 +50,7 @@ object Characterization extends AllBenchmarks {
 
   def storeArea(name: JString, area: Map[JString, scala.Double]): Unit = {
     pw.synchronized {
-      area.foreach { case (comp, v) => pw.println(name + ',' + comp +',' + v) }
+      area.foreach { case (comp, v) => pw.println(name.split("_").mkString(",") + ',' + comp +',' + v) }
       pw.flush()
     }
   }
