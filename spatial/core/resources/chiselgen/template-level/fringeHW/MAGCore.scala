@@ -201,9 +201,12 @@ class MAGCore(
   burstCounter.io.max := Mux(writeCmd, sizeInBursts, 1.U) // Mux(scatterGather, 1.U, sizeInBursts)
   burstCounter.io.stride := 1.U
   burstCounter.io.reset := 0.U
-  burstCounter.io.enable := Mux(sparseWriteEnable,
-                              ~addrFifo.io.empty & dramReady,
-                              Mux(writeCmd, wdataValid & wdataReady, burstVld & dramReady & ~issued)) // & ~issued
+//  burstCounter.io.enable := Mux(sparseWriteEnable,
+//                              ~addrFifo.io.empty & dramReady,
+//                              Mux(writeCmd, wdataValid & wdataReady, burstVld & dramReady & ~issued)) // & ~issued
+
+  burstCounter.io.enable := Mux(writeCmd, wdataValid & wdataReady, burstVld & dramReady & ~issued) // & ~issued
+
 //  burstCounter.io.enable := Mux(scatterGather, ~addrFifo.io.empty, burstVld) & dramReady & ~issued
   burstCounter.io.saturate := 0.U
 
@@ -237,7 +240,7 @@ class MAGCore(
   wdataSelectCounter.io.max := v.U
   wdataSelectCounter.io.stride := 1.U
   wdataSelectCounter.io.reset := ~(isSparse & isWrFifo.io.deq(0))
-  wdataSelectCounter.io.enable := sparseWriteEnable & dramReady
+  wdataSelectCounter.io.enable := sparseWriteEnable & wdataValid & wdataReady
   wdataSelectCounter.io.saturate := 0.U
 
   // Coalescing cache
