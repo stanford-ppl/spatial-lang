@@ -59,32 +59,39 @@ object Characterization extends AllBenchmarks {
     var isAlive = true
 
     def run(): Unit = {
+      Console.println(s"Thread #$id started")
+
       while(isAlive) {
         val name = queue.take()
-        val log = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
+
         try {
           if (!name.isEmpty) {
             if (synth) Console.println(s"#$id Synthesizing $name...")
             else       Console.println(s"#$id Scraping $name...")
 
+            val log = new PrintWriter(s"${Config.cwd}/gen/$name/ignore.log")
             val (parsed, _) = area(name, synth, log)
             storeArea(name, parsed)
             if (parsed.isEmpty) Console.println(s"#$id $name: FAIL")
             else Console.println(s"#$id $name: DONE")
+            log.close()
           }
           else {
-            println(s"#$id received kill signal")
+            println(s"Thread #$id received kill signal")
             isAlive = false
           }
         }
         catch { case e: Throwable =>
+          val file = new File(s"${Config.cwd}/gen/$name/")
+          file.mkdirs()
+          val log = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
           e.printStackTrace(log)
           Console.println(s"#$id $name: FAIL")
-        }
-        finally {
           log.close()
         }
       }
+
+      Console.println(s"Thread #$id ended")
     }
   }
 
