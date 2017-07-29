@@ -338,20 +338,21 @@ trait ChiselGenController extends ChiselGenCounter{
     var hasForever = false
     val numIter = if (cchain.isDefined) {
       val Def(CounterChainNew(counters)) = cchain.get
+      var maxw = 32 min counters.map(cchainWidth(_)).reduce{_*_}
       counters.zipWithIndex.map {case (ctr,i) =>
         ctr match {
           case Def(CounterNew(start, end, step, par)) => 
             val w = cchainWidth(ctr)
             (start, end, step, par) match {
               case (Exact(s), Exact(e), Exact(st), Exact(p)) => 
-                emit(src"""val ${sym}_level${i}_iters = ((${e}.S(${w}.W) - ${s}.S(${w}.W)) / (${st}.S(${w}.W) * ${p}.S(${w}.W))).asUInt + Mux((((${e}.S(${w}.W) - ${s}.S(${w}.W)) % (${st}.S(${w}.W) * ${p}.S(${w}.W))).asUInt === 0.U), 0.U, 1.U)""")
+                emit(src"""val ${sym}_level${i}_iters = ((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) / (${st}.S(${32 min 2*w}.W) * ${p}.S(${32 min 2*w}.W))).asUInt + Mux((((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) % (${st}.S(${32 min 2*w}.W) * ${p}.S(${32 min 2*w}.W))).asUInt === 0.U), 0.U, 1.U)""")
               case (Exact(s), Exact(e), _, Exact(p)) => 
                 emit("// TODO: Figure out how to make this one cheaper!")
-                emit(src"""val ${sym}_level${i}_iters = ((${e}.S(${w}.W) - ${s}.S(${w}.W)) / (${step} * ${p}.S(${w}.W))).asUInt + Mux((((${e}.S(${w}.W) - ${s}.S(${w}.W)) % (${step} * ${p}.S(${w}.W))).asUInt === 0.U), 0.U, 1.U)""")
+                emit(src"""val ${sym}_level${i}_iters = ((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) / (${step} * ${p}.S(${w}.W))).asUInt + Mux((((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) % (${step} * ${p}.S(${32 min 2*w}.W))).asUInt === 0.U), 0.U, 1.U)""")
               case _ => 
                 emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(((${end} - ${start}) % (${step} * ${par}) === 0.U), 0.U, 1.U)""")
             }
-            src"${sym}_level${i}_iters"
+            src"${sym}_level${i}_iters.asUInt.apply(${maxw}, 0)"
           case Def(Forever()) =>
             hasForever = true
             // need to change the outer pipe counter interface!!

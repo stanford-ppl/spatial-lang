@@ -20,6 +20,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     var isForever = false
     // Temporarily shove ctrl node onto stack so the following is quoted properly
     if (cchainPassMap.contains(lhs)) {controllerStack.push(cchainPassMap(lhs))}
+    var maxw = 32 min ctrs.map(cchainWidth(_)).reduce{_*_}
     val counter_data = ctrs.map{ ctr => ctr match {
       case Def(CounterNew(start, end, step, par)) => 
         val w = cchainWidth(ctr)
@@ -43,9 +44,9 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     val ctrl = usersOf(lhs).head._1
     if (suffix != "") {
       emit(src"// this trivial signal will be assigned multiple times but each should be the same")
-      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => stop-start}.reduce{_*_}.asUInt === 0.U""")
+      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop-start).asUInt.apply($maxw,0)}.reduce{_*_}.asUInt === 0.U""")
     } else {
-      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.head}_ctr_trivial | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => stop-start}.reduce{_*_}.asUInt === 0.U""")
+      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.head}_ctr_trivial | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop-start).asUInt.apply($maxw,0)}.reduce{_*_}.asUInt === 0.U""")
     }
     emit(src"""${lhs}${suffix}.io.input.stops.zip(${lhs}${suffix}_stops).foreach { case (port,stop) => port := stop.r.asSInt }""")
     emit(src"""${lhs}${suffix}.io.input.strides.zip(${lhs}${suffix}_strides).foreach { case (port,stride) => port := stride.r.asSInt }""")

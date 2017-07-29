@@ -59,7 +59,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case Def(CounterNew(start, stop, _, _)) => 
         val sbits = bitWidth(start.tp)
         val ebits = bitWidth(stop.tp)
-        ({ebits max sbits} + 2).toInt
+        ({ebits max sbits} + 0).toInt
       case _ => 32
     }
   }
