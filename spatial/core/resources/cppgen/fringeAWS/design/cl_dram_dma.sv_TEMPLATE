@@ -369,10 +369,10 @@ end
 /*
 always_ff @(posedge clk) begin
   if (Top_Out_io_M_AXI_AWVALID && Top_In_io_M_AXI_AWREADY) begin
-    $display("[%t]  Store with ID %d of length %d to   0x ", $realtime, Top_Out_io_M_AXI_AWID, Top_Out_io_M_AXI_AWLEN, Top_Out_io_M_AXI_AWADDR);
+    $display("[%t]  Store with ID %d of length %d to   0x%x", $realtime, Top_Out_io_M_AXI_AWID, Top_Out_io_M_AXI_AWLEN, Top_Out_io_M_AXI_AWADDR);
   end
   if (Top_Out_io_M_AXI_ARVALID && Top_In_io_M_AXI_ARREADY) begin
-    $display("[%t]  Load  with ID %d of length %d from 0x ", $realtime, Top_Out_io_M_AXI_ARID, Top_Out_io_M_AXI_ARLEN, Top_Out_io_M_AXI_ARADDR);
+    $display("[%t]  Load  with ID %d of length %d from 0x%x", $realtime, Top_Out_io_M_AXI_ARID, Top_Out_io_M_AXI_ARLEN, Top_Out_io_M_AXI_ARADDR);
   end
 end
 */
@@ -606,6 +606,7 @@ lib_pipe #(.WIDTH(1), .STAGES(4)) OCL_SLV_SLC_RST_N (.clk(clk), .rst_n(1'b1), .i
 cl_ocl_slv CL_OCL_SLV (
 
    .clk(clk),
+   //.sync_rst_n( !(!ocl_slv_sync_rst_n | SCALAR_reset[0]) ),
    .sync_rst_n(ocl_slv_sync_rst_n),
 
    .sh_cl_flr_assert_q(sh_cl_flr_assert_q),
