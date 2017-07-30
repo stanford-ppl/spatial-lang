@@ -21,8 +21,7 @@ trait Benchmarks {
 
   case class MetaProgGen(name: JString, Ns: Seq[scala.Int], benchmark: scala.Int => Benchmark) {
     def expand: List[NamedSpatialProg] = {
-      println("Expanding " + name + " into " + Ns.length + " benchmarks")
-
+      //println("Expanding " + name + " into " + Ns.length + " benchmarks")
       Ns.toList.map{n => benchmark(n) }.map{x => (name + "_" + x.name, () => x.eval()) }
     }
   }
