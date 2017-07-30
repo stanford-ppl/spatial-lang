@@ -29,7 +29,7 @@ case object PipeCU extends CUStyle
 case object SequentialCU extends CUStyle
 case object MetaPipeCU extends CUStyle
 case object StreamCU extends CUStyle
-case class MemoryCU(reader:Expr) extends CUStyle // i: dispatch number
+case class MemoryCU(reader:Expr) extends CUStyle
 case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 
 // --- Local memory modes
@@ -102,10 +102,6 @@ case class BusGroups(args: Iterable[ScalarBus], scalars: Iterable[ScalarBus], ve
 sealed abstract class LocalComponent { final val id = {LocalComponent.id += 1; LocalComponent.id} }
 object LocalComponent { var id = 0 }
 
-// Locally accessible scalar should be all from ScalarFIFO or ScalarBuffer.
-sealed trait LocalScalar extends LocalComponent
-sealed trait Addr extends LocalComponent
-
 sealed abstract class LocalMem[T<:LocalComponent] extends LocalComponent {
   def eql(that: T): Boolean = this.id == that.id
   def canEqual(that: Any): Boolean
@@ -115,11 +111,11 @@ sealed abstract class LocalMem[T<:LocalComponent] extends LocalComponent {
   }
 }
 
-case class ConstReg[T<:AnyVal](const: T) extends LocalMem[ConstReg[T]] with LocalScalar with Addr {
+case class ConstReg[T<:AnyVal](const: T) extends LocalMem[ConstReg[T]] {
   override def eql(that: ConstReg[T]) = this.const == that.const
   override def toString = const.toString
 }
-case class CounterReg(cchain: CUCChain, idx: Int) extends LocalMem[CounterReg] with Addr {
+case class CounterReg(cchain: CUCChain, idx: Int) extends LocalMem[CounterReg] {
   override def eql(that: CounterReg) = this.cchain == that.cchain && this.idx == that.idx
   override def toString = cchain+s"($idx)"
 }
@@ -131,27 +127,29 @@ case class ValidReg(cchain: CUCChain, idx: Int) extends LocalMem[ValidReg] {
   override def eql(that: ValidReg) = this.cchain == that.cchain && this.idx == that.idx
   override def toString = cchain.name+s"($idx).valid"
 }
-
-sealed abstract class SRAMPort[T<:LocalComponent] extends LocalMem[T]
-case class ReadAddrWire(mem: CUMemory) extends SRAMPort[ReadAddrWire] with Addr {
+case class ReadAddrWire(mem: CUMemory) extends LocalMem[ReadAddrWire] {
   override def eql(that: ReadAddrWire) = this.mem == that.mem
   override def toString = mem.name + ".readAddr"
 }
-case class WriteAddrWire(mem: CUMemory) extends SRAMPort[WriteAddrWire] with Addr {
+case class WriteAddrWire(mem: CUMemory) extends LocalMem[WriteAddrWire] {
   override def eql(that: WriteAddrWire) = this.mem == that.mem
   override def toString = mem.name + ".writeAddr"
 }
-case class FeedbackAddrReg(mem: CUMemory) extends SRAMPort[FeedbackAddrReg] with Addr {
+case class FeedbackAddrReg(mem: CUMemory) extends LocalMem[FeedbackAddrReg] {
   override def eql(that: FeedbackAddrReg) = this.mem == that.mem
   override def toString = mem.name + ".feedbackAddr"
 }
-case class FeedbackDataReg(mem: CUMemory) extends SRAMPort[FeedbackDataReg] {
+case class FeedbackDataReg(mem: CUMemory) extends LocalMem[FeedbackDataReg] {
   override def eql(that: FeedbackDataReg) = this.mem == that.mem
   override def toString = mem.name + ".feedbackData"
 }
-case class MemLoadReg(mem: CUMemory) extends SRAMPort[MemLoadReg] with LocalScalar {
+case class MemLoadReg(mem: CUMemory) extends LocalMem[MemLoadReg] {
   override def eql(that: MemLoadReg) = this.mem == that.mem
   override def toString = mem.name + ".readPort"
+}
+case class MemNumel(mem: CUMemory) extends LocalMem[MemLoadReg] {
+  override def eql(that: MemLoadReg) = this.mem == that.mem
+  override def toString = mem.name + ".numel"
 }
 
 sealed abstract class ReduceMem[T<:LocalComponent] extends LocalMem[T]
@@ -187,7 +185,7 @@ case class VectorOut(bus: VectorBus) extends LocalPort[VectorOut] {
 }
 
 // --- Counter chains
-case class CUCounter(var start: LocalScalar, var end: LocalScalar, var stride: LocalScalar, var par:Int) {
+case class CUCounter(var start: LocalComponent, var end: LocalComponent, var stride: LocalComponent, var par:Int) {
   val name = s"ctr${CUCounter.nextId()}"
 }
 object CUCounter {
@@ -218,13 +216,14 @@ case class CUMemory(name: String, mem: Expr, reader: Expr, cu:AbstractComputeUni
   var size = 1
 
   // writePort either from bus or for sram can be from a vector FIFO
+  //val writePort = mutable.ListBuffer[GlobalBus]()
   var writePort: Option[GlobalBus] = None
   var readPort: Option[GlobalBus] = None
-  var readAddr: Option[Addr] = None
-  var writeAddr: Option[Addr] = None
+  var readAddr: Option[LocalComponent] = None
+  var writeAddr: Option[LocalComponent] = None
 
-  var writeStart: Option[LocalScalar] = None
-  var writeEnd: Option[LocalScalar] = None
+  var writeStart: Option[LocalComponent] = None
+  var writeEnd: Option[LocalComponent] = None
 
   var producer:Option[PseudoComputeUnit] = None
   var consumer:Option[PseudoComputeUnit] = None
@@ -237,6 +236,8 @@ case class CUMemory(name: String, mem: Expr, reader: Expr, cu:AbstractComputeUni
     copy.bufferDepth = this.bufferDepth
     copy.banking = this.banking
     copy.size = this.size
+    //copy.writePort.clear
+    //copy.writePort ++= this.writePort
     copy.writePort = this.writePort
     copy.readPort = this.readPort
     copy.readAddr = this.readAddr
@@ -326,13 +327,9 @@ abstract class AbstractComputeUnit {
     else                        expTable += reg -> List(exp)
   }
   @stateful def get(x: Expr): Option[LocalComponent] = {
-    if (regTable.contains(x)) regTable.get(x)
-    else if (isConstant(x)) {
-      val c = extractConstant(x)
-      addReg(x, c)
-      Some(c)
+    regTable.get(x).orElse {
+      if (isConstant(x)) { val reg = extractConstant(x); addReg(x, reg); Some(reg) } else None
     }
-    else None
   }
   @stateful def getOrElseUpdate(x: Expr)(func: => LocalComponent): LocalComponent = this.get(x) match {
     case Some(reg) if regs.contains(reg) => reg // On return this mapping if it is valid
@@ -369,8 +366,8 @@ case class ComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends Abs
 
 
 case class PseudoComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends AbstractComputeUnit {
-  val writeStages = mutable.HashMap[Seq[CUMemory], (Expr, Seq[PseudoStage])]() // List(mem) -> (writerPipe, List[Stages])
-  val readStages = mutable.HashMap[Seq[CUMemory], (Expr, Seq[PseudoStage])]() // List(mem) -> (readerPipe, List[Stages])
+  val writeStages = mutable.HashMap[Seq[CUMemory], Seq[PseudoStage]]() // List(mem) -> List[Stages]
+  val readStages = mutable.HashMap[Seq[CUMemory], Seq[PseudoStage]]() // List(mem) -> List[Stages]
   val computeStages = mutable.ArrayBuffer[PseudoStage]()
   val remoteReadStages = mutable.Set[Expr]() // reg read, fifo deq
   val remoteWriteStages = mutable.Set[Expr]() // reg write, fifo enq
