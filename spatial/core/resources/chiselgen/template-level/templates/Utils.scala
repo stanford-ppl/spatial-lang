@@ -550,6 +550,7 @@ object Utils {
       case n: Int => if (n < 0) {1 max log2Ceil(1 max {1+scala.math.abs(n)})} else {1 max log2Ceil(1 max n)}
       case n: scala.math.BigInt => if (n < 0) {1 max log2Ceil(1.asInstanceOf[scala.math.BigInt] max {1.asInstanceOf[scala.math.BigInt]+n.abs})} 
                                    else {1 max log2Ceil(1.asInstanceOf[scala.math.BigInt] max n)}
+      case n: Double => log2Up(n.toInt)
     }
   }
 

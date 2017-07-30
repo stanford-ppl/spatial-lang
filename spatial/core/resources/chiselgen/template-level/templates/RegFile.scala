@@ -203,6 +203,8 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
                        val wPar: Map[Int,Int], val bitWidth: Int, val fracBits: Int) extends Module { 
 
   def this(tuple: (List[Int], Int, Int, Map[Int,Int], Int, Int)) = this(tuple._1, None, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6)
+
+  val muxWidth = Utils.log2Up(numBufs*dims.reduce{_*_})
   val io = IO(new Bundle { 
     val sEn = Vec(numBufs, Input(Bool()))
     val sDone = Vec(numBufs, Input(Bool()))
@@ -283,10 +285,12 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
     val regvals = (0 until numBufs*dims.reduce{_*_}).map{ i => 
       (i.U -> io.data_out(i)) 
     }
-    val flat_addr = (port*dims.reduce{_*_}).U + addrs.zipWithIndex.map{ case( a,i ) =>
-      a * (dims.drop(i).reduce{_*_}/dims(i)).U
+    val flat_addr = (port*dims.reduce{_*_}).U(muxWidth.W) + addrs.zipWithIndex.map{ case( a,i ) =>
+      val aa = Wire(UInt(muxWidth.W))
+      aa := a
+      (dims.drop(i).reduce{_*_}/dims(i)).U(muxWidth.W) * aa
     }.reduce{_+_}
-    result := chisel3.util.MuxLookup(flat_addr, 0.U, regvals)
+    result := chisel3.util.MuxLookup(flat_addr, 0.U(bitWidth.W), regvals)
     result
 
     // val result = Wire(UInt(bitWidth.W))
