@@ -6,7 +6,7 @@ import Utils._
 
 import scala.collection.mutable.HashMap
 
-class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) extends Module {
+class Metapipe(val n: Int, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -17,7 +17,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
       val forever = Input(Bool())
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
       // FSM signals
-      val nextState = Input(SInt(32.W))
+      val nextState = Input(SInt(stateWidth.W))
 
     }
     val output = new Bundle {
@@ -26,7 +26,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
       val rst_en = Output(Bool())
       val ctr_inc = Output(Bool())
       // FSM signals
-      val state = Output(SInt(32.W))
+      val state = Output(SInt(stateWidth.W))
     }
   })
 
