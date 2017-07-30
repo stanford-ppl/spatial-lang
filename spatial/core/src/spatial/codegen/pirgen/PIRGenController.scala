@@ -137,7 +137,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
       }
 
       mem.banking match {
-        case Some(banking) if mem.mode==SRAMMode => decl += s"banking = $banking"
+        case Some(banking) if mem.isSRAM => decl += s"banking = $banking"
         case Some(_) =>
         case None => //ScalarBuffer doesn't have banking
       }
@@ -154,24 +154,24 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
       mem.readPort match {
         case Some(LocalVectorBus) => // Nothing?
         case Some(vec) => ports += s""".rdPort(${quote(vec)})"""
-        case None if mem.mode==SRAMMode => throw new Exception(s"Memory $mem has no readPort defined")
+        case None if mem.isSRAM => throw new Exception(s"Memory $mem has no readPort defined")
         case None => 
       }
       mem.readAddr match {
         case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".rdAddr(${quote(mem.readAddr.get)})"""
         case Some(_:ReadAddrWire) =>
-        case None if mem.mode != SRAMMode => // ok
+        case None if !mem.isSRAM => // ok
         case addr => ports += s""".rdAddr($addr)"""
         //case addr => throw new Exception(s"Disallowed memory read address in $mem: $addr") //TODO
       }
       mem.writeAddr match {
         case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".wtAddr(${quote(mem.writeAddr.get)})"""
         case Some(_:WriteAddrWire | _:FeedbackAddrReg) =>
-        case None if mem.mode != SRAMMode => // ok
+        case None if !mem.isSRAM => // ok
         case addr => ports += s""".wtAddr($addr)""" //TODO
         //case addr => throw new Exception(s"Disallowed memory write address in $mem: $addr")
       }
-      if (mem.mode != SRAMMode) {
+      if (!mem.isSRAM) {
         mem.writeStart match {
           case Some(start) => ports += s""".wtStart(${quote(start)})"""
           case _ =>
@@ -201,8 +201,9 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
   def emitFringeVectors(cu:ComputeUnit) = {
     if (isFringe(cu.pipe)) {
-      cu.fringeVectors.foreach { case (field, vec) =>
-        emit(s"""CU.newVout("$field", ${quote(vec)})""")
+      cu.fringeGlobals.foreach { 
+        case (field, bus:ScalarBus) => emit(s"""CU.newSout("$field", ${quote(bus)})""")
+        case (field, bus:VectorBus) => emit(s"""CU.newVout("$field", ${quote(bus)})""")
       }
     }
   }

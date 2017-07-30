@@ -164,7 +164,7 @@ trait PIRSplitting extends PIRTraversal {
     val cu = ComputeUnit(orig.name+"_"+i, orig.pipe, orig.style)
     cu.parent = if (parent.isDefined) parent else orig.parent
     cu.innerPar = orig.innerPar
-    cu.fringeVectors ++= orig.fringeVectors
+    cu.fringeGlobals ++= orig.fringeGlobals
     if (parent.isEmpty) cu.deps ++= orig.deps
     if (parent.isEmpty) cu.cchains ++= orig.cchains
 

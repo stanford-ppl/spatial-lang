@@ -4,6 +4,7 @@ import argon.core._
 import forge._
 
 import scala.collection.mutable
+import spatial.metadata._
 
 
 // --- Memory controller modes
@@ -29,7 +30,7 @@ case object PipeCU extends CUStyle
 case object SequentialCU extends CUStyle
 case object MetaPipeCU extends CUStyle
 case object StreamCU extends CUStyle
-case class MemoryCU(reader:Expr) extends CUStyle
+case class MemoryCU(instId:Int) extends CUStyle
 case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 
 // --- Local memory modes
@@ -209,8 +210,8 @@ case class UnitCChain(override val name: String) extends CUCChain(name) {
 
 
 // --- Compute unit memories
-case class CUMemory(name: String, mem: Expr, reader: Expr, cu:AbstractComputeUnit) {
-  var mode: LocalMemoryMode = SRAMMode
+case class CUMemory(name: String, mem: Expr, cu:AbstractComputeUnit) {
+  var mode: LocalMemoryMode = _ 
   var bufferDepth: Int = 1
   var banking: Option[SRAMBanking] = None
   var size = 1
@@ -231,7 +232,7 @@ case class CUMemory(name: String, mem: Expr, reader: Expr, cu:AbstractComputeUni
   override def toString = name
 
   def copyMem(name: String) = {
-    val copy = CUMemory(name, mem, reader, cu)
+    val copy = CUMemory(name, mem, cu)
     copy.mode = this.mode
     copy.bufferDepth = this.bufferDepth
     copy.banking = this.banking
@@ -247,6 +248,8 @@ case class CUMemory(name: String, mem: Expr, reader: Expr, cu:AbstractComputeUni
     copy.consumer = this.consumer
     copy
   }
+
+  def isSRAM = mode == SRAMMode
 }
 
 
@@ -313,7 +316,7 @@ abstract class AbstractComputeUnit {
   def srams:Set[CUMemory] = mems.filter {_.mode==SRAMMode}
   def fifos:Set[CUMemory] = mems.filter { mem => mem.mode==VectorFIFOMode || mem.mode==ScalarFIFOMode}
 
-  val fringeVectors = mutable.Map[String, GlobalBus]()
+  val fringeGlobals = mutable.Map[String, GlobalBus]()
 
   def innermostIter(cc: CUCChain) = {
     val iters = iterators.flatMap{case (e,CounterReg(`cc`,i)) => Some((e,i)); case _ => None}

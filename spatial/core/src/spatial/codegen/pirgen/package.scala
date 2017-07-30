@@ -48,7 +48,7 @@ package object pirgen {
   }
 
   private def collectX[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
-    case cu: ComputeUnit => func(cu.allStages) ++ func(cu.cchains) ++ func(cu.mems) ++ func(cu.fringeVectors.values)
+    case cu: ComputeUnit => func(cu.allStages) ++ func(cu.cchains) ++ func(cu.mems) ++ func(cu.fringeGlobals.values)
 
     case cchain: CChainInstance => func(cchain.counters)
     case cchain: CChainCopy => func(cchain.inst)
@@ -416,5 +416,4 @@ package object pirgen {
       case p => Some(p)
     }
   }
-
 }

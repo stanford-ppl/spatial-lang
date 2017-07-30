@@ -48,7 +48,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
       }
       dbgl(s"MEMs:") {
         for ((exp, mem) <- pcu.memMap) {
-          dbgs(s"""$mem (reader: ${mem.reader}, mode: ${mem.mode}) ${qdef(exp)}""")
+          dbgs(s"""$mem (mode: ${mem.mode}) ${qdef(exp)}""")
         }
       }
       dbgl(s"Write stages:") {
@@ -63,8 +63,8 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
           for (stage <- v) dbgs(s"  $stage")
         }
       }
-      dbgl(s"FringeVectors:") {
-        pcu.fringeVectors.foreach { case (f, vec) => dbgs(s"$f -> $vec") }
+      dbgl(s"FringeGlobals:") {
+        pcu.fringeGlobals.foreach { case (f, vec) => dbgs(s"$f -> $vec") }
       }
       dbgl(s"Compute stages:") { pcu.computeStages.foreach { stage => dbgs(s"$stage") } }
     }
@@ -77,7 +77,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     if (cu.mems.nonEmpty) {
       dbgblk(s"mems: ") {
         for (mem <- cu.mems) {
-          dbgl(s"""$mem [${mem.mode}] (exp: ${mem.mem}, reader: ${mem.reader})""") {
+          dbgl(s"""$mem [${mem.mode}] (exp: ${mem.mem})""") {
             dbgs(s"""banking   = ${mem.banking.map(_.toString).getOrElse("N/A")}""")
             dbgs(s"""writePort    = ${mem.writePort.map(_.toString).getOrElse("N/A")}""")
             dbgs(s"""readPort    = ${mem.readPort.map(_.toString).getOrElse("N/A")}""")
@@ -322,6 +322,23 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
 
   def globals:mutable.Set[GlobalComponent]
 
+  def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:AbstractComputeUnit):CUMemory = {
+    //HACK: don't know what the original sym is at splitting. 
+    //Probably LocalComponent should keep a copy of sym at allocation time?
+    val memSym = null //TODO: fix this??
+    val mem = CUMemory(s"$reg", memSym, cu)
+    bus match {
+      case bus:ScalarBus =>
+        mem.mode = ScalarFIFOMode
+      case bus:VectorBus =>
+        mem.mode = VectorFIFOMode
+    }
+    mem.size = 1
+    mem.writePort = Some(bus)
+    cu.memMap += reg -> mem
+    mem
+  }
+
   def allocateDRAM(dram:Expr): OffChip = { //FIXME
     val region = OffChip(dram.name.getOrElse(quote(dram)))
     if (!globals.contains(region)) {
@@ -350,24 +367,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     val locals = allocateLocals(cu, x)
     assert(locals.size==1, s"More than 1 local allocated. Use allocateLocals")
     locals.head
-  }
-
-  def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:AbstractComputeUnit):CUMemory = {
-    //HACK: don't know what the original sym is at splitting. 
-    //Probably LocalComponent should keep a copy of sym at allocation time?
-    val memSym = null
-    val memAccess = null
-    val mem = CUMemory(s"$reg", memSym, memAccess, cu)
-    bus match {
-      case bus:ScalarBus =>
-        mem.mode = ScalarFIFOMode
-      case bus:VectorBus =>
-        mem.mode = VectorFIFOMode
-    }
-    mem.size = 1
-    mem.writePort = Some(bus)
-    cu.memMap += reg -> mem
-    mem
   }
 
   def copyIterators(destCU: AbstractComputeUnit, srcCU: AbstractComputeUnit): Map[CUCChain,CUCChain] = {
@@ -562,7 +561,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     cu.deps = cu.deps.map{dep => mapping.getOrElse(dep, dep) }
     cu.mems.foreach{mem => swapCU_sram(mem) }
     cu.allStages.foreach{stage => swapCU_stage(stage) }
-    cu.fringeVectors ++= pcu.fringeVectors
+    cu.fringeGlobals ++= pcu.fringeGlobals
 
     def swapCU_cchain(cchain: CUCChain): Unit = cchain match {
       case cc: CChainCopy => cc.owner = mapping.getOrElse(cc.owner,cc.owner)
@@ -671,12 +670,10 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     }
 
     // Get memory in this CU associated with the given reader
-    def mem(mem: Expr, reader: Expr): CUMemory = {
-      memOption(mem,reader).getOrElse(throw new Exception(s"Cannot find sram ($mem,$reader) in cu $cu"))
-    }
-
-    def memOption(mem: Expr, reader: Expr): Option[CUMemory] = {
-      cu.mems.find{sram => sram.mem == mem && sram.reader == reader}
+    def mem(mem: Expr): CUMemory = {
+      val cuMems = cu.mems.filter{ _.mem == mem }
+      assert(cuMems.size==1, s"More than 1 cuMem=${cuMems} allocated for $mem in $cu")
+      cuMems.head
     }
 
     // A CU can have multiple SRAMs for a given mem symbol, one for each local read
