@@ -38,6 +38,8 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
 
   def this(tuple: (List[Int], Int, Int, Boolean, Int, Int)) = this(tuple._1, None, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6)
 
+  val muxWidth = Utils.log2Up(dims.reduce{_*_})
+
   // Console.println(" " + dims.reduce{_*_} + " " + wPar + " " + dims.length)
   val io = IO(new Bundle { 
     // Signals for dumping data from one buffer to next
@@ -165,14 +167,17 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
 
   def readValue(addrs: List[UInt], port: Int): UInt = { // This randomly screws up sometimes
     // chisel seems to have broke MuxLookup here...
+
     val result = Wire(UInt(bitWidth.W))
     val regvals = (0 until dims.reduce{_*_}).map{ i => 
-      (i.U -> io.data_out(i)) 
+      (i.U(muxWidth.W) -> io.data_out(i)) 
     }
     val flat_addr = addrs.zipWithIndex.map{ case( a,i ) =>
-      a * (dims.drop(i).reduce{_*_}/dims(i)).U
+      val aa = Wire(UInt(muxWidth.W))
+      aa := a
+      (dims.drop(i).reduce{_*_}/dims(i)).U(muxWidth.W) * aa
     }.reduce{_+_}
-    result := chisel3.util.MuxLookup(flat_addr(31,0), 0.U, regvals)
+    result := chisel3.util.MuxLookup(flat_addr, 0.U(bitWidth.W), regvals)
     result
 
     // val result = Wire(UInt(bitWidth.W))
@@ -283,7 +288,7 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
     // chisel seems to have broke MuxLookup here...
     val result = Wire(UInt(bitWidth.W))
     val regvals = (0 until numBufs*dims.reduce{_*_}).map{ i => 
-      (i.U -> io.data_out(i)) 
+      (i.U(muxWidth.W) -> io.data_out(i)) 
     }
     val flat_addr = (port*dims.reduce{_*_}).U(muxWidth.W) + addrs.zipWithIndex.map{ case( a,i ) =>
       val aa = Wire(UInt(muxWidth.W))
@@ -325,8 +330,10 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
 class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val width: Int, val fracBits: Int) extends Module {
 
   def this(tuple: (List[Int], List[Double], Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
+  val muxWidth = Utils.log2Up(dims.reduce{_*_})
+
   val io = IO(new Bundle { 
-    val addr = Vec(numReaders*dims.length, Input(UInt(width.W)))
+    val addr = Vec(numReaders*dims.length, Input(UInt(muxWidth.W)))
     // val en = Vec(numReaders, Input(Bool()))
     val data_out = Vec(numReaders, Output(UInt(width.W)))
   })
@@ -335,13 +342,13 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
   val options = (0 until dims.reduce{_*_}).map { i => 
     val initval = (inits(i)*scala.math.pow(2,fracBits)).toLong
     // initval.U
-    ( i.U -> initval.S((width+1).W).apply(width-1,0) )
+    ( i.U(muxWidth.W) -> initval.S((width+1).W).apply(width-1,0) )
   }
 
   val flat_addr = (0 until numReaders).map{ k => 
     val base = k*dims.length
     (0 until dims.length).map{ i => 
-      (io.addr(i + base) * (dims.drop(i).reduce{_*_}/dims(i)).U(32.W))(31,0) // TODO: Why is chisel being so stupid with this type when used in the MuxLookup
+      (io.addr(i + base) * (dims.drop(i).reduce{_*_}/dims(i)).U(muxWidth.W)) // TODO: Why is chisel being so stupid with this type when used in the MuxLookup
     }.reduce{_+_}
   }
 
