@@ -123,7 +123,7 @@ object Characterization extends AllBenchmarks {
 
   def main(args: scala.Array[JString]) {
     val benchmarks = gens.flatMap(_.expand)
-    val baseline   = baselines.flatMap(_.expand)
+    val baselines  = bases.flatMap(_.expand)
 
     println("Number of benchmarks: " + benchmarks.length)
     println("Number of baselines:  " + baselines.length)
@@ -144,7 +144,7 @@ object Characterization extends AllBenchmarks {
         val end = scala.io.StdIn.readLine().toInt
         (par, start, end)
     }
-    val allPrograms: Seq[NamedSpatialProg] = if (runBaselines) baseline else benchmarks
+    val allPrograms: Seq[NamedSpatialProg] = if (runBaselines) baselines else benchmarks
     val programs = allPrograms.slice(start, end)
 
     val RUN_SPATIAL = getYN("Run Spatial compiler")
@@ -163,7 +163,8 @@ object Characterization extends AllBenchmarks {
 
     if (RUN_SPATIAL) {
       // Set i to previously generated programs
-      var i = 0
+      Console.print("Previously generated programs [0]: ")
+      var i = try { scala.io.StdIn.readLine().toInt } catch {case _:Throwable => 0 }
       programs.take(i).foreach { x => workQueue.put(x._1) }
 
       programs.drop(i).foreach { x => //programs.take(2).flatMap{x => //

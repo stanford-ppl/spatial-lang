@@ -2,7 +2,6 @@ package spatial.models.characterization
 
 import argon.core.State
 import spatial._
-import spatial.dsl._
 
 trait Benchmarks {
   self: SpatialCompiler =>
@@ -21,11 +20,14 @@ trait Benchmarks {
   }
 
   case class MetaProgGen(name: JString, Ns: Seq[scala.Int], benchmark: scala.Int => Benchmark) {
-    def expand: List[NamedSpatialProg] = Ns.toList.map{n => benchmark(n) }
-      .map{x => (name + "_" + x.name, () => x.eval()) }
+    def expand: List[NamedSpatialProg] = {
+      println("Expanding " + name + " into " + Ns.length + " benchmarks")
+
+      Ns.toList.map{n => benchmark(n) }.map{x => (name + "_" + x.name, () => x.eval()) }
+    }
   }
 
   var gens: List[MetaProgGen] = Nil
 
-  var baselines: List[MetaProgGen] = Nil
+  var bases: List[MetaProgGen] = Nil
 }
