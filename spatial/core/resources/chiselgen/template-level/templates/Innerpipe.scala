@@ -5,7 +5,7 @@ import chisel3._
 import scala.collection.mutable.HashMap
 
 // Inner pipe
-class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module {
+class Innerpipe(val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
 
   // States
   val pipeInit = 0
@@ -25,8 +25,8 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
 
       // FSM signals
-      val nextState = Input(SInt(32.W))
-      val initState = Input(SInt(32.W))
+      val nextState = Input(SInt(stateWidth.W))
+      val initState = Input(SInt(stateWidth.W))
       val doneCondition = Input(Bool())
     }
     val output = new Bundle {
@@ -34,7 +34,7 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
       val ctr_inc = Output(Bool())
       val rst_en = Output(Bool())
       // FSM signals
-      val state = Output(SInt(32.W))
+      val state = Output(SInt(stateWidth.W))
     }
   })
 
@@ -93,7 +93,7 @@ class Innerpipe(val isFSM: Boolean = false, val retime: Int = 0) extends Module 
       // state := pipeInit.U 
     }
   } else { // FSM inner
-    val stateFSM = Module(new FF(32))
+    val stateFSM = Module(new FF(stateWidth))
     val doneReg = Module(new SRFF())
 
     stateFSM.io.input(0).data := io.input.nextState.asUInt
