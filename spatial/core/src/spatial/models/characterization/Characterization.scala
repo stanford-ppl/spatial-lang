@@ -30,10 +30,15 @@ object Characterization extends AllBenchmarks {
     val nosynth = if (synth) Nil else Seq("--nomake")
     val output = (Seq("python", s"$SPATIAL_HOME/bin/scrape.py", s"${Config.cwd}/gen/$dir") ++ nosynth).!!
     val pairs = output.split("\n").map(_.split(","))
+    var category = ""
     val map = pairs.flatMap {
       case line @ Array(k, v) =>
         try {
-          Some(k -> v.toDouble)
+          val label = if (k.contains("O5") || k.contains("O6")) category.trim + "." else {
+            category = k
+            ""
+          }
+          Some(label + k -> v.toDouble)
         }
         catch {case _: Throwable =>
           log.println(s"Ignoring line: " + line.mkString(","))
@@ -117,14 +122,19 @@ object Characterization extends AllBenchmarks {
   }
 
   def main(args: scala.Array[JString]) {
-    def useDefaultSettings = getYN("Use default settings for this machine")
+    val benchmarks = gens.flatMap(_.expand)
+    val baseline   = baselines.flatMap(_.expand)
+
+    println("Number of benchmarks: " + benchmarks.length)
+    println("Number of baselines:  " + baselines.length)
+
+    val runBaselines = getYN("Run baselines")
+    def useDefaultSettings = if (runBaselines) false else getYN("Use default settings for this machine")
 
     val localMachine = java.net.InetAddress.getLocalHost
     val (threads, start, end) = localMachine.getHostName match {
       case "london"   if useDefaultSettings => (100, 0, 1825)
-      case "tucson"   if useDefaultSettings => (25, 1825, 2280)
-      case "portland" if useDefaultSettings => (5, 2280, 2370)
-      case "max-2"    if useDefaultSettings => (5, 2370, 2460)
+      case "tucson"   if useDefaultSettings => (25, 1825, 2460)
       case _          =>
         Console.print("Threads: ")
         val par = scala.io.StdIn.readLine().toInt
@@ -134,7 +144,7 @@ object Characterization extends AllBenchmarks {
         val end = scala.io.StdIn.readLine().toInt
         (par, start, end)
     }
-    val allPrograms: Seq[NamedSpatialProg] = gens.flatMap(_.expand)
+    val allPrograms: Seq[NamedSpatialProg] = if (runBaselines) baseline else benchmarks
     val programs = allPrograms.slice(start, end)
 
     val RUN_SPATIAL = getYN("Run Spatial compiler")

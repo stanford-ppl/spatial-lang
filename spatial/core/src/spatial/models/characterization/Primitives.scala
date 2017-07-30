@@ -137,4 +137,12 @@ trait Primitives extends Benchmarks {
   gens +:= MetaProgGen("Mux32", Seq(50,100,200,400), Tri4Op[Bit,Int32,Int32,Int32]("Mux32", {(s,a,b) => mux(s,a,b) }))
   gens +:= MetaProgGen("Mux64", Seq(50,100,200,400), Tri4Op[Bit,Int64,Int64,Int64]("Mux64", {(s,a,b) => mux(s,a,b) }))
 
+  baselines +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int8]("8", {() => 32.to[Int8] }))
+  baselines +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int16]("16", {() => 32.to[Int16] }))
+  baselines +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int32]("32", {() => 32.to[Int32] }))
+  baselines +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int64]("64", {() => 32.to[Int64] }))
+  baselines +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int8]("8", {a => a }))
+  baselines +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int16]("16", {a => a }))
+  baselines +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int32]("32", {a => a }))
+  baselines +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int64]("64", {a => a }))
 }

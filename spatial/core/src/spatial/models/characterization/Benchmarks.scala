@@ -27,4 +27,5 @@ trait Benchmarks {
 
   var gens: List[MetaProgGen] = Nil
 
+  var baselines: List[MetaProgGen] = Nil
 }

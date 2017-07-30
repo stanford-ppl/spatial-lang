@@ -72,6 +72,10 @@ def main():
                 print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
             for i in range(123, 124):
                 print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+            for i in range(196, 217):
+                print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+
+
     if os.path.isfile('par_ram_utilization.rpt'):
         with open('par_ram_utilization.rpt', 'r') as f:
             lines = f.readlines()
