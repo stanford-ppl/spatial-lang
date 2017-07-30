@@ -609,13 +609,15 @@ trait ChiselGenController extends ChiselGenCounter{
 
       if (levelOf(lhs) == InnerControl) { // If inner, don't worry about condition mutation
         selects.indices.foreach{i => 
-          emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
+          emitGlobalWire(src"""val ${cases(i)}_switch_select = Wire(Bool())""")
+          emit(src"""${cases(i)}_switch_select := ${selects(i)}""")
         }
       } else { // If outer, latch in selects in case the body mutates the condition
         selects.indices.foreach{i => 
           emit(src"""val ${cases(i)}_switch_sel_reg = RegInit(false.B)""")
           emit(src"""${cases(i)}_switch_sel_reg := Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
-          emit(src"""val ${cases(i)}_switch_select = Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
+          emitGlobalWire(src"""val ${cases(i)}_switch_select = Wire(Bool())""")
+          emit(src"""${cases(i)}_switch_select := Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
         }
       }
 
