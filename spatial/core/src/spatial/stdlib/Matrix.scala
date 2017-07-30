@@ -251,12 +251,28 @@ abstract class Matrix[T: Type: Num]()(implicit state: State) {
       MatrixDense(h, w, RegId2(nreg))
     }
 
-    def fromSRAM1(h: scala.Int, sram: SRAM2[T], i: Int, ofs: scala.Int = 0)(implicit sc: SourceContext) = {
-      MatrixDense(h, 1, RegVec2(RegSRAM1(sram, i, ofs)))
+    def fromSRAM1(h: scala.Int, sram: SRAM2[T], i: Int, copy: scala.Boolean = false, ofs: scala.Int = 0)(implicit sc: SourceContext) = {
+      if (copy) {
+        val nreg = RegFile[T](h)
+        Foreach(0::h) { j =>
+          nreg(j) = sram(i, j +ofs)
+        }
+        MatrixDense(h, 1, RegVec2(RegId1(nreg)))
+      }
+      else       
+        MatrixDense(h, 1, RegVec2(RegSRAM1(sram, i, ofs)))
     }
     
-    def fromSRAM2(h: scala.Int, w:scala.Int, sram: SRAM3[T], i: Int)(implicit sc: SourceContext) = {
-      MatrixDense(h, w, RegSRAM2(sram, i))
+    def fromSRAM2(h: scala.Int, w:scala.Int, sram: SRAM3[T], i: Int, copy: scala.Boolean = false)(implicit sc: SourceContext) = {
+      if (copy) {
+        val nreg = RegFile[T](h,w)
+        Foreach(0 :: h, 0::w) { (y, x) =>
+          nreg(y, x) = sram(i, y, x)
+        }
+        MatrixDense(h, w, RegId2(nreg))
+      }
+      else       
+        MatrixDense(h, w, RegSRAM2(sram, i))
     }
       
 

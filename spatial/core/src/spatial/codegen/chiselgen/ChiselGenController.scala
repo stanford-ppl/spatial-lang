@@ -37,11 +37,13 @@ trait ChiselGenController extends ChiselGenCounter{
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
         emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0).r")
-        emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,32,0))")
+        val w = cchainWidth(counters(i))
+        emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,$w,0))")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
           emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j).r")
-          emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,32,0))")
+          val w = cchainWidth(counters(i))
+          emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,$w,0))")
         }
       }
     }
@@ -74,10 +76,16 @@ trait ChiselGenController extends ChiselGenCounter{
     }
   }
 
-  def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]]) = {
+  def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]], cchain:Exp[CounterChain]) = {
     val stages = childrenOf(controller)
-    inds.foreach { idx =>
-      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
+    val Def(CounterChainNew(counters)) = cchain
+    var maxw = 32 min counters.map(cchainWidth(_)).reduce{_*_}
+    val par = counters.map{case Def(CounterNew(_,_,_,Exact(p))) => p}
+    val ctrMapping = par.indices.map{i => par.dropRight(par.length - i).sum}
+    inds.zipWithIndex.foreach { case (idx,index) =>
+      val this_counter = ctrMapping.filter(_ <= index).length - 1
+      val this_width = cchainWidth(counters(this_counter))
+      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, ${this_width}))""")
       stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
       withStream(getStream("BufferControlCxns")) {
         stages.zipWithIndex.foreach{ case (s, i) =>
@@ -338,10 +346,20 @@ trait ChiselGenController extends ChiselGenCounter{
     var hasForever = false
     val numIter = if (cchain.isDefined) {
       val Def(CounterChainNew(counters)) = cchain.get
+      var maxw = 32 min counters.map(cchainWidth(_)).reduce{_*_}
       counters.zipWithIndex.map {case (ctr,i) =>
         ctr match {
           case Def(CounterNew(start, end, step, par)) => 
-            emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(((${end} - ${start}) % (${step} * ${par}) === 0.U), 0.U, 1.U)""")
+            val w = cchainWidth(ctr)
+            (start, end, step, par) match {
+              case (Exact(s), Exact(e), Exact(st), Exact(p)) => 
+                emit(src"""val ${sym}_level${i}_iters = ((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) / (${st}.S(${32 min 2*w}.W) * ${p}.S(${32 min 2*w}.W))).asUInt + Mux((((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) % (${st}.S(${32 min 2*w}.W) * ${p}.S(${32 min 2*w}.W))).asUInt === 0.U), 0.U, 1.U)""")
+              case (Exact(s), Exact(e), _, Exact(p)) => 
+                emit("// TODO: Figure out how to make this one cheaper!")
+                emit(src"""val ${sym}_level${i}_iters = ((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) / (${step} * ${p}.S(${w}.W))).asUInt + Mux((((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) % (${step} * ${p}.S(${32 min 2*w}.W))).asUInt === 0.U), 0.U, 1.U)""")
+              case _ => 
+                emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(( ((${end} - ${start}) % (${step} * ${par})) === 0.U), 0.U, 1.U)""")
+            }
             src"${sym}_level${i}_iters"
           case Def(Forever()) =>
             hasForever = true
@@ -388,7 +406,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""${sym}_done := ${sym}_sm.io.output.done.D(${sym}_retime,rr)""")
     }
     emit(src"""val ${sym}_rst_en = ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
-    emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw // Unused for inner and parallel""")
+    emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" * ")}).raw.asUInt // Unused for inner and parallel""")
     emit(src"""${sym}_sm.io.input.rst := ${sym}_resetter // generally set by parent""")
 
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
@@ -488,7 +506,7 @@ trait ChiselGenController extends ChiselGenCounter{
     /* Emit reg chains */
     if (iters.isDefined) {
       if (smStr == "Metapipe" & childrenOf(sym).length > 1) {
-        emitRegChains(sym, iters.get)
+        emitRegChains(sym, iters.get, cchain.get)
       }
     }
 
@@ -507,7 +525,7 @@ trait ChiselGenController extends ChiselGenCounter{
       if (iiOf(lhs) <= 1) {
         emit(src"""val ${lhs}_II_done = true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr());""")
+        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 max Utils.log2Up(${lhs}_retime)));""")
         emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${lhs}_retime.S""")
@@ -591,13 +609,15 @@ trait ChiselGenController extends ChiselGenCounter{
 
       if (levelOf(lhs) == InnerControl) { // If inner, don't worry about condition mutation
         selects.indices.foreach{i => 
-          emit(src"""val ${cases(i)}_switch_select = ${selects(i)}""")
+          emitGlobalWire(src"""val ${cases(i)}_switch_select = Wire(Bool())""")
+          emit(src"""${cases(i)}_switch_select := ${selects(i)}""")
         }
       } else { // If outer, latch in selects in case the body mutates the condition
         selects.indices.foreach{i => 
           emit(src"""val ${cases(i)}_switch_sel_reg = RegInit(false.B)""")
           emit(src"""${cases(i)}_switch_sel_reg := Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
-          emit(src"""val ${cases(i)}_switch_select = Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
+          emitGlobalWire(src"""val ${cases(i)}_switch_select = Wire(Bool())""")
+          emit(src"""${cases(i)}_switch_select := Mux(Utils.risingEdge(${lhs}_en), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
         }
       }
 

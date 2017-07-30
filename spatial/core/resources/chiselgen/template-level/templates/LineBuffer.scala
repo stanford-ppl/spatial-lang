@@ -96,7 +96,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   WRITE_countRowPx.io.input.gap := 0.S
   
   // Outer counter over number of SRAM -- keep track of current row
-  val WRITE_countRowNum = Module(new NBufCtr())
+  val WRITE_countRowNum = Module(new NBufCtr(1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
   WRITE_countRowNum.io.input.start := 0.U 
   WRITE_countRowNum.io.input.stop := (num_lines+extra_rows_to_buffer).U
   WRITE_countRowNum.io.input.enable := swap
@@ -128,7 +128,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // ENHANCEMENT: May save some area using a single counter with many outputs and adders/mux for each (to do mod/wrap) but 
   // multiple counters (which start/reset @ various #s) is simpler to write
   val READ_countRowNum = (0 until row_rPar).map{ i => 
-    val c = Module(new NBufCtr())
+    val c = Module(new NBufCtr(1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
     // c.io.input.start := (num_lines+extra_rows_to_buffer-1-i).U
     c.io.input.start := (extra_rows_to_buffer+i).U
     c.io.input.stop := (num_lines+extra_rows_to_buffer).U

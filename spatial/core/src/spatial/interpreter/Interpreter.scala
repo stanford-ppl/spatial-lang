@@ -21,6 +21,7 @@ trait Interpreter
     with Streams
     with Structs
     with SRAMs
+    with DRAMs
     with Booleans
     with Counters
     with Vectors
