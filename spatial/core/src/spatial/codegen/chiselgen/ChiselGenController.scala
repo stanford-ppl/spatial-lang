@@ -76,10 +76,16 @@ trait ChiselGenController extends ChiselGenCounter{
     }
   }
 
-  def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]]) = {
+  def emitRegChains(controller: Sym[Any], inds:Seq[Bound[Index]], cchain:Exp[CounterChain]) = {
     val stages = childrenOf(controller)
-    inds.foreach { idx =>
-      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, 32))""")
+    val Def(CounterChainNew(counters)) = cchain
+    var maxw = 32 min counters.map(cchainWidth(_)).reduce{_*_}
+    val par = counters.map{case Def(CounterNew(_,_,_,Exact(p))) => p}
+    val ctrMapping = par.indices.map{i => par.dropRight(par.length - i).sum}
+    inds.zipWithIndex.foreach { case (idx,index) =>
+      val this_counter = ctrMapping.filter(_ <= index).length - 1
+      val this_width = cchainWidth(counters(this_counter))
+      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, ${this_width}))""")
       stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
       withStream(getStream("BufferControlCxns")) {
         stages.zipWithIndex.foreach{ case (s, i) =>
@@ -500,7 +506,7 @@ trait ChiselGenController extends ChiselGenCounter{
     /* Emit reg chains */
     if (iters.isDefined) {
       if (smStr == "Metapipe" & childrenOf(sym).length > 1) {
-        emitRegChains(sym, iters.get)
+        emitRegChains(sym, iters.get, cchain.get)
       }
     }
 

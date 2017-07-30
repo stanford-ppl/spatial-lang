@@ -35,10 +35,11 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
 
       emitController(lhs, None, None, true)
       if (iiOf(lhs) <= 1) {
-        emit(src"""val ${lhs}_II_done = true.B""")
+        emitGlobalWire(src"""val ${lhs}_II_done = true.B""")
       } else {
         emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr());""")
-        emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
+        emitGlobalWire(src"""val ${lhs}_II_done = Wire(Bool())""")
+        emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${lhs}_retime.S""")
         emit(src"""${lhs}_IICtr.io.input.reset := reset | ${lhs}_II_done.D(1)""")
