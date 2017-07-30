@@ -287,25 +287,25 @@ trait ChiselGenController extends ChiselGenCounter{
 
   }
 
-  def getAllStreamLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
+  def getNowValidLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
       // If we are inside a stream pipe, the following may be set
       val readiers = listensTo(c).distinct.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty"
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty"
-        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_now_valid & ${fifo}_ready"
+        // case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty"
+        // case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty"
+        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_now_valid" //& ${fifo}_ready"
         case _ => ""
       }.mkString(" & ")
-      val holders = (pushesTo(c)).distinct.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full"
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.full"
-        case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready & ${fifo}_valid"
-        case fifo @ Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
-      }.mkString(" & ")
+      // val holders = (pushesTo(c)).distinct.map {
+      //   case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full"
+      //   case fifo @ Def(FILONew(size)) => src"~$fifo.io.full"
+      //   case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready & ${fifo}_valid"
+      //   case fifo @ Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
+      // }.mkString(" & ")
 
-      val hasHolders = if (holders != "") "&" else ""
+      // val hasHolders = if (holders != "") "&" else ""
       val hasReadiers = if (readiers != "") "&" else ""
 
-      if (SpatialConfig.enableRetiming) src"${hasHolders} ${holders} ${hasReadiers} ${readiers}" else " "
+      if (SpatialConfig.enableRetiming) src"${hasReadiers} ${readiers}" else " "
 
   }
 
@@ -378,7 +378,7 @@ trait ChiselGenController extends ChiselGenCounter{
       case _ =>;
     }
 
-    val constrArg = if (isInner) {s"${isFSM}"} else {s"${childrenOf(sym).length}, ${isFSM}"}
+    val constrArg = if (isInner) {s"${isFSM}"} else {s"${childrenOf(sym).length}, isFSM = ${isFSM}"}
 
     val lat = bodyLatency.sum(sym)
     emitStandardSignals(sym)
@@ -397,8 +397,9 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     }
 
+    val stw = sym match{case Def(StateMachine(_,_,_,_,_,s)) => bitWidth(s.tp); case _ => 32}
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
-    emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, retime = ${sym}_retime))")
+    emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, stateWidth = ${stw}, retime = ${sym}_retime))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
     if (isFSM) {
       emit(src"""${sym}_done := (${sym}_sm.io.output.done & ~${sym}_inhibitor.D(2,rr)).D(${sym}_retime,rr)""")      
@@ -412,9 +413,9 @@ trait ChiselGenController extends ChiselGenCounter{
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
       emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_ctr_trivial // Immediate parent has forever counter, so never mask out datapath_en""")    
     } else if ((isStreamChild(sym) & hasStreamIns & cchain.isDefined) | isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
-      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial""")  
+      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial ${getNowValidLogic(sym)}""")  
     } else if ((isStreamChild(sym) & hasStreamIns)) { // _done used to be commented out but I'm not sure why
-      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial""")  
+      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial ${getNowValidLogic(sym)} """)  
     } else {
       emit(src"""${sym}_datapath_en := ${sym}_sm.io.output.ctr_inc & ~${sym}_done & ~${sym}_ctr_trivial""")
     }
@@ -429,13 +430,13 @@ trait ChiselGenController extends ChiselGenCounter{
               emit(src"""${cchain.get}_en := ${sym}_sm.io.output.ctr_inc & ${sym}_II_done""")
             case Def(n: UnrolledForeach) => 
               if (isStreamChild(sym) & hasStreamIns) {
-                emit(src"${cchain.get}_en := ${sym}_datapath_en & ${sym}_II_done & ~${sym}_inhibitor ${getAllStreamLogic(sym)}") 
+                emit(src"${cchain.get}_en := ${sym}_datapath_en & ${sym}_II_done & ~${sym}_inhibitor ${getNowValidLogic(sym)}") 
               } else {
                 emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc & ${sym}_II_done// Should probably also add inhibitor")
               }             
             case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
               if (isStreamChild(sym) & hasStreamIns) {
-                emit(src"${cchain.get}_en := ${sym}_datapath_en & ~${sym}_inhibitor ${getAllStreamLogic(sym)}") 
+                emit(src"${cchain.get}_en := ${sym}_datapath_en & ~${sym}_inhibitor ${getNowValidLogic(sym)}") 
               } else {
                 emit(src"${cchain.get}_en := ${sym}_sm.io.output.ctr_inc // Should probably also add inhibitor")
               } 
