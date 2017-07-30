@@ -70,6 +70,8 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       val extraEn = if (ens.length > 0) {src"""List($ens).map(en=>en).reduce{_&&_}"""} else {"true.B"}
       emit(src"${lhs}_mask := ${extraEn}")
       
+      controllerStack.pop()
+      
     case _ => super.emitNode(lhs,rhs)
   }
 }
