@@ -5,7 +5,7 @@ import chisel3._
 import Utils._
 import scala.collection.mutable.HashMap
 
-class Seqpipe(val n: Int, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
+class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -44,6 +44,17 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val stateWidth: Int = 32, 
     stateFF.io.input(0).reset := io.input.rst
     val state = stateFF.io.output.data.asSInt
 
+    val rstMax = ctrDepth * Utils.delay_per_numIter
+    val rstw = Utils.log2Up(rstMax)
+    val rstCtr = Module(new SingleCounter(1, width = rstw))
+    rstCtr.io.input.enable := state === resetState.U
+    rstCtr.io.input.reset := (state != resetState.U) | io.input.rst
+    rstCtr.io.input.saturate := true.B
+    rstCtr.io.input.stop := 2.S(rstw.W)
+    rstCtr.io.input.gap := 0.S(rstw.W)
+    rstCtr.io.input.start := 0.S(rstw.W)
+    rstCtr.io.input.stride := 1.S(rstw.W)
+
     // Counter for num iterations
     val maxFF = Module(new FF(32))
     maxFF.io.input(0).enable := io.input.enable
@@ -68,7 +79,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val stateWidth: Int = 32, 
         stateFF.io.input(0).data := resetState.U
         io.output.stageEnable.foreach { s => s := false.B}
       }.elsewhen (state === resetState.S) {
-        stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, firstState.U, doneState.U), firstState.U)
+        stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, firstState.U, doneState.U), Mux(rstCtr.io.output.done, firstState.U, resetState.U))
         io.output.stageEnable.foreach { s => s := false.B}
       }.elsewhen (state < lastState.S) {
 

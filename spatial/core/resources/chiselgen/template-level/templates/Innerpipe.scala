@@ -5,7 +5,7 @@ import chisel3._
 import scala.collection.mutable.HashMap
 
 // Inner pipe
-class Innerpipe(val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
+class Innerpipe(val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
 
   // States
   val pipeInit = 0
