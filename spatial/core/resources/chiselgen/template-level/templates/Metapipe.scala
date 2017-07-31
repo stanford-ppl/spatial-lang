@@ -102,7 +102,9 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
       io.output.stageEnable.foreach { s => s := false.B}
       cycsSinceDone.io.input(0).enable := false.B
     }.elsewhen (state === resetState.U) {  // RESET -> FILL
-      stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, steadyState.U, doneState.U), Mux(rstCtr.io.output.done, fillState.U, resetState.U)) // Go directly to done if niters = 0
+      stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, 
+                          Mux(io.input.forever, steadyState.U, Mux(rstCtr.io.output.done, doneState.U, resetState.U)), 
+                          Mux(rstCtr.io.output.done, fillState.U, resetState.U)) // Go directly to done if niters = 0
       io.output.stageEnable.foreach { s => s := false.B}
       cycsSinceDone.io.input(0).enable := false.B
     }.elsewhen (state < steadyState.U) {  // FILL -> STEADY

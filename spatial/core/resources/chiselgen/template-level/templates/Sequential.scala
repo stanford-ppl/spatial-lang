@@ -79,7 +79,9 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
         stateFF.io.input(0).data := resetState.U
         io.output.stageEnable.foreach { s => s := false.B}
       }.elsewhen (state === resetState.S) {
-        stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, firstState.U, doneState.U), Mux(rstCtr.io.output.done, firstState.U, resetState.U))
+        stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, 
+                    Mux(io.input.forever, firstState.U, Mux(rstCtr.io.output.done, doneState.U, resetState.U)), 
+                    Mux(rstCtr.io.output.done, firstState.U, resetState.U))
         io.output.stageEnable.foreach { s => s := false.B}
       }.elsewhen (state < lastState.S) {
 
