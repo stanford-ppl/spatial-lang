@@ -143,9 +143,8 @@ trait PIRAllocation extends PIRTraversal {
    * @return The flatten address symbol and extracted stages
    * Extract address calculation for mem 
    **/
-  def extractRemoteAddrStages(dmem: Expr, addr: Option[Seq[Exp[Index]]], stms: Seq[Stm]): (Option[Expr], Seq[PseudoStage])= {
+  def extractRemoteAddrStages(dmem: Expr, addr: Option[Seq[Exp[Index]]], stms: Seq[Stm], memCUs:List[PCU]): (Option[Expr], Seq[PseudoStage])= {
     dbgblk(s"Extracting Remote Addr in for dmem=$dmem addr=$addr") {
-      val memCUs = allocateMemoryCU(dmem)
       val flatOpt = addr.map{is => flattenNDIndices(is, stagedDimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]])) }
       // Exprs
       val indexExps = addr.map { is => expsUsedInCalcExps(stms)(Seq(), is) }.getOrElse(Nil)
@@ -505,8 +504,8 @@ trait PIRAllocation extends PIRTraversal {
 
   def getMCUforReader(dmem:Expr, reader:Expr) = {
     val mem = compose(dmem)
-    val idx = readersOf(mem).map(_.node).indexOf(reader)
-    allocateMemoryCU(dmem)(idx)
+    val instId = dispatchOf(reader, mem).head
+    allocateMemoryCU(dmem).filter{_.style match { case MemoryCU(`instId`) => true; case _ => false } }.head
   } 
 
   def prescheduleLocalMemRead(mem: Expr, reader:Expr) = {
@@ -577,7 +576,7 @@ trait PIRAllocation extends PIRTraversal {
         val bus = if (parBy1) CUScalar(s"${quote(dmem)}_${quote(dreader)}") 
                   else CUVector(s"${quote(dmem)}_${quote(dreader)}")
         val sramCUs = allocateMemoryCU(dmem)
-        val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms)
+        val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, sramCUs)
         sramCUs.foreach { sramCU =>
           sramCU.style match {
             case MemoryCU(`instId`) =>
@@ -624,7 +623,7 @@ trait PIRAllocation extends PIRTraversal {
         }
         // Schedule address calculation
         val sramCUs = allocateMemoryCU(dmem)
-        val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms)
+        val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, sramCUs)
         sramCUs.foreach { sramCU =>
           dbgs(s"sramCUs for dmem=${qdef(dmem)} cu=$sramCU")
           val sram = sramCU.memMap(mem)
