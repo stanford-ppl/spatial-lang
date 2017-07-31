@@ -4,12 +4,12 @@ package templates
 import chisel3._
 
 
-class Streampipe(override val n: Int, override val isFSM: Boolean = false, override val retime: Int = 0) extends Parallel(n) {
+class Streampipe(override val n: Int, override val isFSM: Boolean = false, override val stateWidth: Int = 32, override val retime: Int = 0) extends Parallel(n) {
 }
 
 
 // Inner pipe
-class Streaminner(val isFSM: Boolean = false, val retime: Int = 0) extends Module {
+class Streaminner(val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
 
   // States
   val pipeInit = 0
@@ -28,8 +28,8 @@ class Streaminner(val isFSM: Boolean = false, val retime: Int = 0) extends Modul
       val hasStreamIns = Input(Bool()) // If there is a streamIn for this stage, then we should not require en=true for done to go high
 
       // FSM signals
-      val nextState = Input(UInt(32.W))
-      val initState = Input(UInt(32.W))
+      val nextState = Input(UInt(stateWidth.W))
+      val initState = Input(UInt(stateWidth.W))
       val doneCondition = Input(Bool())
 
     }
@@ -38,7 +38,7 @@ class Streaminner(val isFSM: Boolean = false, val retime: Int = 0) extends Modul
       val ctr_inc = Output(Bool())
       val rst_en = Output(Bool())
       // FSM signals
-      val state = Output(UInt(32.W))
+      val state = Output(UInt(stateWidth.W))
     }
   })
 
@@ -47,7 +47,7 @@ class Streaminner(val isFSM: Boolean = false, val retime: Int = 0) extends Modul
     io.output.done := Mux(io.input.forever, false.B, Mux(io.input.ctr_done & Mux(io.input.hasStreamIns, true.B, io.input.enable), true.B, false.B)) // If there is a streamIn for this stage, then we should not require en=true for done to go high
     io.output.rst_en := false.B
   } else { // FSM inner
-    val stateFSM = Module(new FF(32))
+    val stateFSM = Module(new FF(stateWidth))
     val doneReg = Module(new SRFF())
 
     stateFSM.io.input(0).data := io.input.nextState
