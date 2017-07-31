@@ -271,6 +271,8 @@ package object pirgen {
     case FixLeq(_,_)                     => Some(PIRFixLeq)
     case FixEql(_,_)                     => Some(PIRFixEql)
     case FixNeq(_,_)                     => Some(PIRFixNeq)
+    case FixLsh(_,_)                     => Some(PIRFixSla)
+    case FixRsh(_,_)                     => Some(PIRFixSra)
     case e: Min[_] if isFixPtType(e.mR)  => Some(PIRFixMin)
     case e: Max[_] if isFixPtType(e.mR)  => Some(PIRFixMax)
     case FixNeg(_)                       => Some(PIRFixNeg)

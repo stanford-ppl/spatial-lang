@@ -487,18 +487,6 @@ trait PIRAllocation extends PIRTraversal {
     val ParLocalWriter(writes) = writer 
     val pipe = parentOf(writer).get 
     val (mem, value, inds, ens) = writes.head
-    // TODO: leave the optimization to PIROptimizer
-    //value.get match {
-      //case reader@ParLocalReader(reads) =>
-        //val (mem, _, _) = reads.head
-        //if (isRemoteMem(mem)) {
-          //val dmem = getMatchedDecomposed(dwriter, mem)
-          //getMCUforReader(dmem, reader)
-        //} else {
-          //allocateCU(pipe)
-        //}
-      //case _ => allocateCU(pipe)
-    //}
     allocateCU(pipe)
   }
 
