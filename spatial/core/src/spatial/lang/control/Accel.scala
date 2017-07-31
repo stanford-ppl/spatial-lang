@@ -16,7 +16,7 @@ object Accel {
       accel_blk(func, isForever = true)
     }
     else {
-      accel_blk(() => { Foreach.alloc(Seq(ctr), {_: List[Index] => func() }, SeqPipe); MUnit() }, false)
+      accel_blk(() => { Foreach.alloc(Seq(ctr), {_: List[Index] => func() }, SeqPipe, None); MUnit() }, false)
     }
   }
 

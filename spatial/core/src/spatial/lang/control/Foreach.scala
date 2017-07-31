@@ -6,36 +6,37 @@ import forge._
 import spatial.metadata._
 import spatial.nodes._
 
-protected class ForeachClass(style: ControlStyle) {
+protected class ForeachClass(style: ControlStyle, ii: Option[Long] = None) {
   /** 1 dimensional parallel foreach **/
   @api def apply(domain1D: Counter)(func: Index => MUnit): MUnit = {
-    Foreach.alloc(List(domain1D), {x: List[Index] => func(x.head) }, style); ()
+    Foreach.alloc(List(domain1D), {x: List[Index] => func(x.head) }, style, ii); ()
   }
   /** 2 dimensional parallel foreach **/
   @api def apply(domain1: Counter, domain2: Counter)(func: (Index,Index) => MUnit): MUnit = {
-    Foreach.alloc(List(domain1,domain2), {x: List[Index] => func(x(0),x(1)) }, style); ()
+    Foreach.alloc(List(domain1,domain2), {x: List[Index] => func(x(0),x(1)) }, style, ii); ()
   }
   /** 3 dimensional parallel foreach **/
   @api def apply(domain1: Counter, domain2: Counter, domain3: Counter)(func: (Index,Index,Index) => MUnit): MUnit = {
-    Foreach.alloc(List(domain1,domain2,domain3), {x: List[Index] => func(x(0),x(1),x(2)) }, style); ()
+    Foreach.alloc(List(domain1,domain2,domain3), {x: List[Index] => func(x(0),x(1),x(2)) }, style, ii); ()
   }
   /** N dimensional parallel foreach **/
   @api def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(func: List[Index] => MUnit): MUnit = {
-    Foreach.alloc(List(domain1,domain2,domain3,domain4) ++ domain5plus, func, style); ()
+    Foreach.alloc(List(domain1,domain2,domain3,domain4) ++ domain5plus, func, style, ii); ()
   }
   @api def apply(domain: Seq[Counter])(func: List[Index] => MUnit): MUnit = {
-    Foreach.alloc(domain, func, style); ()
+    Foreach.alloc(domain, func, style, ii); ()
   }
 }
 
 object Foreach extends ForeachClass(InnerPipe) {
-  @internal def alloc(domain: Seq[Counter], func: List[Index] => MUnit, style: ControlStyle): Controller = {
+  @internal def alloc(domain: Seq[Counter], func: List[Index] => MUnit, style: ControlStyle, ii: Option[Long]): Controller = {
     val iters = List.tabulate(domain.length){_ => fresh[Index] }
     val cchain = CounterChain(domain: _*)
 
     val pipe = op_foreach(Nil, cchain.s, () => func(wrap(iters)).s, iters)
     styleOf(pipe) = style
     levelOf(pipe) = InnerControl // Fixed in Level Analyzer
+    userIIOf(pipe) = ii
     Controller(pipe)
   }
 
