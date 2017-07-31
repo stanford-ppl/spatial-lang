@@ -1,5 +1,6 @@
 package spatial.analysis
 
+import argon.analysis.{GeneralAffine, GeneralOffset}
 import argon.core._
 import argon.traversal.CompilerPass
 import org.virtualized.SourceContext
@@ -557,13 +558,19 @@ trait MemoryAnalyzer extends CompilerPass {
     }
     def isOuter(i: Exp[Index]): Boolean = ctrlOf(i).exists(isOuterControl)
 
-    val banking = (patterns, strides).zipped.map{ case (pattern, stride) => pattern match {
+    val banking = if (patterns.exists(_.isGeneral)) {
+      patterns.collect{case p: GeneralAffine => p}.map{
+        case GeneralAffine(af, i) => StridedBanking(af.eval{case Exact(c) => c.toInt}, bankFactor(i), isOuter(i))
+      }
+    }
+    else (patterns, strides).zipped.map{ case (pattern, stride) => pattern match {
       case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt*stride, bankFactor(i), isOuter(i))
       case StridedAccess(Exact(a),i)  => StridedBanking(a.toInt*stride, bankFactor(i), isOuter(i))
       case OffsetAccess(i,b)          => StridedBanking(stride, bankFactor(i), isOuter(i))
       case LinearAccess(i)            => StridedBanking(stride, bankFactor(i), isOuter(i))
       case InvariantAccess(b)         => NoBanking // Single "bank" in this dimension
       case RandomAccess               => NoBanking // Single "bank" in this dimension
+      case _                          => NoBanking
     }}
 
     banking

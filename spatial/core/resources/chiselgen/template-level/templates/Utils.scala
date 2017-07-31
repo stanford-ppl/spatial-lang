@@ -324,6 +324,8 @@ object ops {
 
 object Utils {
 
+  val delay_per_numIter = 6
+
   def sqrt(num: FloatingPoint): FloatingPoint = {
     val m = num.m
     val e = num.e
