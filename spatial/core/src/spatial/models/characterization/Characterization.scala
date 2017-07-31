@@ -71,8 +71,8 @@ object Characterization extends AllBenchmarks {
 
         try {
           if (!name.isEmpty) {
-            if (synth) Console.println(s"#$id Synthesizing $name...")
-            else       Console.println(s"#$id Scraping $name...")
+            if (synth) Console.println(s"#$id Synthesizing ${Config.cwd}/gen/$name...")
+            else       Console.println(s"#$id Scraping ${Config.cwd}/gen/$name...")
 
             val log = new PrintWriter(s"${Config.cwd}/gen/$name/ignore.log")
             val (parsed, _) = area(name, synth, log)
@@ -128,7 +128,7 @@ object Characterization extends AllBenchmarks {
     println("Number of benchmarks: " + benchmarks.length)
     println("Number of baselines:  " + baselines.length)
 
-    val runBaselines = getYN("Run baselines")
+    val runBaselines = getYN("Run baselines?")
     def useDefaultSettings = if (runBaselines) false else getYN("Use default settings for this machine")
 
     val localMachine = java.net.InetAddress.getLocalHost
@@ -151,6 +151,11 @@ object Characterization extends AllBenchmarks {
     val RUN_SYNTH = getYN("Run synthesis")
 
     initConfig(stagingArgs)
+
+    Console.print(s"Run directory [${Config.cwd}]: ")
+    val cwdOpt = scala.io.StdIn.readLine()
+    if (cwdOpt != "") Config.cwd = cwdOpt
+
     println("Number of programs: " + programs.length)
     println("Using SPATIAL_HOME: " + SPATIAL_HOME)
     println("Using CWD: " + Config.cwd)
