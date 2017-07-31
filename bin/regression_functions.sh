@@ -95,11 +95,12 @@ check_packet() {
   # Check for mapping packet in kind of an expensive way
   cd /remote/regression/mapping
   files=(*)
+  stringified=$( IFS=$' '; echo "${files[*]}" )
   mapped_packets=()
-  sorted_packets=()
   for f in ${files[@]}; do if [[ $f = *"${tim}.${branch}.${type_todo}---${this_machine}"* ]]; then mapped_packets+=($f); fi; done
   rank=${#mapped_packets[@]}
   if [ $rank = 0 ]; then
+    rm -f $packet
     logger "Mapping (${tim}.${branch}.${type_todo}---${this_machine}) for $packet disappeared from list $stringified !  Quitting ungracefully!"
     exit 1
   fi
