@@ -26,7 +26,7 @@ object Characterization extends AllBenchmarks {
     sys.exit()
   })
 
-  def area(dir: JString, synth: Boolean, log: PrintWriter): (Map[JString, scala.Double], String) = {
+  def area(dir: JString, synth: Boolean): (Map[JString, scala.Double], String) = {
     val nosynth = if (synth) Nil else Seq("--nomake")
     val output = (Seq("python", s"$SPATIAL_HOME/bin/scrape.py", s"${Config.cwd}/gen/$dir") ++ nosynth).!!
     val pairs = output.split("\n").map(_.split(","))
@@ -41,11 +41,11 @@ object Characterization extends AllBenchmarks {
           Some(label + k -> v.toDouble)
         }
         catch {case _: Throwable =>
-          log.println(s"Ignoring line: " + line.mkString(","))
+          //log.println(s"Ignoring line: " + line.mkString(","))
           None
         }
       case line =>
-        log.println(s"Ignoring line: " + line.mkString(","))
+        //log.println(s"Ignoring line: " + line.mkString(","))
         None
     }.toMap
     (map, output)
@@ -74,12 +74,11 @@ object Characterization extends AllBenchmarks {
             if (synth) Console.println(s"#$id Synthesizing ${Config.cwd}/gen/$name...")
             else       Console.println(s"#$id Scraping ${Config.cwd}/gen/$name...")
 
-            val log = new PrintWriter(s"${Config.cwd}/gen/$name/ignore.log")
-            val (parsed, _) = area(name, synth, log)
+            val (parsed, _) = area(name, synth)
             storeArea(name, parsed)
             if (parsed.isEmpty) Console.println(s"#$id $name: FAIL")
             else Console.println(s"#$id $name: DONE")
-            log.close()
+            //log.close()
           }
           else {
             println(s"Thread #$id received kill signal")
@@ -87,12 +86,12 @@ object Characterization extends AllBenchmarks {
           }
         }
         catch { case e: Throwable =>
-          val file = new File(s"${Config.cwd}/gen/$name/")
-          file.mkdirs()
-          val log = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
-          e.printStackTrace(log)
+          //val file = new File(s"${Config.cwd}/gen/$name/")
+          //file.mkdirs()
+          //val log = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
+          //e.printStackTrace()
           Console.println(s"#$id $name: FAIL")
-          log.close()
+          //log.close()
         }
       }
 
