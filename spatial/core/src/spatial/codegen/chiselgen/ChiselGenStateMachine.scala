@@ -35,10 +35,11 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
 
       emitController(lhs, None, None, true)
       if (iiOf(lhs) <= 1) {
-        emit(src"""val ${lhs}_II_done = true.B""")
+        emitGlobalWire(src"""val ${lhs}_II_done = true.B""")
       } else {
         emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr());""")
-        emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
+        emitGlobalWire(src"""val ${lhs}_II_done = Wire(Bool())""")
+        emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${lhs}_retime.S""")
         emit(src"""${lhs}_IICtr.io.input.reset := reset | ${lhs}_II_done.D(1)""")
@@ -61,13 +62,15 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit(src"${lhs}_sm.io.input.enable := ${lhs}_en ")
       emit(src"${lhs}_sm.io.input.nextState := ${nextState.result}.r.asSInt // Assume always int")
       emit(src"${lhs}_sm.io.input.initState := ${start}.r.asSInt")
-      emitGlobalWire(src"val $state = Wire(SInt(32.W))")
-      emit(src"$state := ${lhs}_sm.io.output.state")
+      emitGlobalWire(src"val $state = Wire(${newWire(state.tp)})")
+      emit(src"${state}.r := ${lhs}_sm.io.output.state.r")
       emitGlobalWire(src"val ${lhs}_doneCondition = Wire(Bool())")
       emit(src"${lhs}_doneCondition := ~${notDone.result}")
       emit(src"${lhs}_sm.io.input.doneCondition := ${lhs}_doneCondition")
       val extraEn = if (ens.length > 0) {src"""List($ens).map(en=>en).reduce{_&&_}"""} else {"true.B"}
       emit(src"${lhs}_mask := ${extraEn}")
+      
+      controllerStack.pop()
       
     case _ => super.emitNode(lhs,rhs)
   }

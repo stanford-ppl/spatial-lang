@@ -78,6 +78,7 @@ coordinate() {
 check_packet() {
   ret=(`pwd`)
   cd ${REGRESSION_HOME}
+  # Check for regression packet in a kind of expensive way
   files=(*)
   new_packets=()
   sorted_packets=()
@@ -88,9 +89,22 @@ check_packet() {
   for ii in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$ii]}"* ]]; then rank=${ii}; fi; done
   if [ $rank = -1 ]; then
     logger "Packet for $packet disappeared from list $stringified!  Quitting ungracefully!"
-    mv /remote/regression/mapping/${this_machine}---${tim}* /remote/regression/mapping/
+    mv /remote/regression/mapping/${tim}.${branch}.${type_todo}---${this_machine} /remote/regression/graveyard
     exit 1
   fi
+  # Check for mapping packet in kind of an expensive way
+  cd /remote/regression/mapping
+  files=(*)
+  stringified=$( IFS=$' '; echo "${files[*]}" )
+  mapped_packets=()
+  for f in ${files[@]}; do if [[ $f = *"${tim}.${branch}.${type_todo}---${this_machine}"* ]]; then mapped_packets+=($f); fi; done
+  rank=${#mapped_packets[@]}
+  if [ $rank = 0 ]; then
+    rm -f $packet
+    logger "Mapping (${tim}.${branch}.${type_todo}---${this_machine}) for $packet disappeared from list $stringified !  Quitting ungracefully!"
+    exit 1
+  fi
+  cd $ret  
 }
 
 ## Function for building spatial
@@ -170,7 +184,7 @@ rm $packet
 
 sleep 1000
 stubborn_delete ${dirname}
-mv /remote/regression/mapping/${this_machine}---${tim}* /remote/regression/mapping
+mv /remote/regression/mapping/${tim}.${branch}.${type_todo}---${this_machine} /remote/regression/graveyard
 
 ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 

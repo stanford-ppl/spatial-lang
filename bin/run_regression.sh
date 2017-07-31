@@ -93,9 +93,9 @@ for type in ${types[@]}; do
 			if [[ $type = "chisel" && ${fields[0]} = "max-2" ]]; then
 				echo ""
 				# Do not let chisel run on max2 for now
-			# elif [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
-			# 	echo ""
-			# 	# Do not let chisel run on tflop1 for now
+			elif [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
+				echo ""
+				# Do not let chisel run on tflop1 for now
 			else 
 				candidate=$dst
 				most_idle=$existing_runs
@@ -135,8 +135,8 @@ ${path}" > /tmp/${at}.${branch}.${type}.new
 
 	#echo "skipping scp"
 	scp /tmp/${at}.${branch}.${type}.new ${USERNAME}@${dst}.stanford.edu:${path}
-	echo "Test located at $dst : $path" > /tmp/${dst}---${at}.${branch}.${type}
-	scp /tmp/${dst}---${at}.${branch}.${type} ${LONDONUSER}@london.stanford.edu:/remote/regression/mapping
+	echo "Test located at $dst : $path" > /tmp/${at}.${branch}.${type}---${dst}
+	scp /tmp/${at}.${branch}.${type}---${dst} ${LONDONUSER}@london.stanford.edu:/remote/regression/mapping
 
 	echo -e "\n** Sent $type test to $dst (because it had ${most_idle} tests there already) **\n"
 

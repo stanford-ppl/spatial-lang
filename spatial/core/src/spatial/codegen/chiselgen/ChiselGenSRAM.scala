@@ -1,5 +1,6 @@
 package spatial.codegen.chiselgen
 
+import scala.math._
 import argon.core._
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.nodes._
@@ -47,6 +48,22 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.remap(tp)
   }
 
+  def cchainWidth(ctr: Exp[Counter]): Int = {
+    ctr match {
+      case Def(CounterNew(Exact(s), Exact(e), _, _)) => 
+        val sbits = if (s > 0) {BigInt(1) max ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt} 
+                    else {BigInt(1) max ceil(scala.math.log((BigInt(1) max (s.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+        val ebits = if (e > 0) {BigInt(1) max ceil(scala.math.log((BigInt(1) max e).toDouble)/scala.math.log(2)).toInt} 
+                    else {BigInt(1) max ceil(scala.math.log((BigInt(1) max (e.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+        ({ebits max sbits} + 2).toInt
+      case Def(CounterNew(start, stop, _, _)) => 
+        val sbits = bitWidth(start.tp)
+        val ebits = bitWidth(stop.tp)
+        ({ebits max sbits} + 0).toInt
+      case _ => 32
+    }
+  }
+
   def getWriteAddition(c: Exp[Any]): String = {
       // If we are inside a stream pipe, the following may be set
       // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
@@ -83,7 +100,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
     val allSiblings = childrenOf(parentOf(readCtrls.head.node).get)
     val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-    val writeSiblings = writePorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+    val writeSiblings = writePorts.map{case (_,w) => w.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
     val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
     val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
     val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
@@ -252,33 +269,33 @@ trait ChiselGenSRAM extends ChiselCodegen {
           case BankedMemory(dims, depth, isAccum) =>
             val strides = src"""List(${dims.map(_.banks)})"""
             if (depth == 1) {
-              openGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, """)
-              emitGlobalModule(src"""List(${dims.map(_.banks)}), $strides,""")
-              emitGlobalModule(src"""List($wPar), List($rPar), BankedMemory""")
-              closeGlobalModule("))")
+              emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
+    List(${dims.map(_.banks)}), $strides,
+    List($wPar), List($rPar), BankedMemory
+  ))""")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
               val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
-              openGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,""")
-              emitGlobalModule(src"""List(${dims.map(_.banks)}), $strides,""")
-              emitGlobalModule(src"""List($wPar), List($rPar), """)
-              emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), BankedMemory""")
-              closeGlobalModule("))")
+              emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
+    List(${dims.map(_.banks)}), $strides,
+    List($wPar), List($rPar), 
+    List($wBundling), List($rBundling), List($bPar), BankedMemory
+  ))""")
             }
           case DiagonalMemory(strides, banks, depth, isAccum) =>
             if (depth == 1) {
-              openGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, """)
-              emitGlobalModule(src"""List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),""")
-              emitGlobalModule(src"""List($wPar), List($rPar), DiagonalMemory""")
-              closeGlobalModule("))")
+              emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
+    List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
+    List($wPar), List($rPar), DiagonalMemory
+  ))""")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
               val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
-              openGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,""")
-              emitGlobalModule(src"""List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),""")
-              emitGlobalModule(src"""List($wPar), List($rPar), """)
-              emitGlobalModule(src"""List($wBundling), List($rBundling), List($bPar), DiagonalMemory""")
-              closeGlobalModule("))")
+              emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
+    List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
+    List($wPar), List($rPar), 
+    List($wBundling), List($rBundling), List($bPar), DiagonalMemory
+  ))""")
             }
           }
         }
@@ -291,7 +308,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
-        emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, ${width})))""")
+        emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${dimsOf(sram)}), ${width})))""")
         emit(src"""${lhs}_rVec(0).en := ShiftRegister($enable, ${symDelay(lhs)}) & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.raw // Assume always an int""")
@@ -307,7 +324,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
       val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
       emit(s"""// Assemble multidimW vector""")
-      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, $width))) """)
+      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, List(${dimsOf(sram)}), $width))) """)
       emit(src"""${lhs}_wVec(0).data := $v.raw""")
       emit(src"""${lhs}_wVec(0).en := $en & (${enable} & ${parent}_II_done).D(${symDelay(lhs)}, rr)""")
       is.zipWithIndex.foreach{ case(ind,j) => 

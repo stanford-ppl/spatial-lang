@@ -449,10 +449,16 @@ case class MLoopInvariant(is: Boolean) extends Metadata[MLoopInvariant] { def mi
   def update(e: Exp[_], is: Boolean): Unit = metadata.add(e, MLoopInvariant(is))
 }
 
-case class InitiationInterval(interval: Int) extends Metadata[InitiationInterval] { def mirror(f:Tx) = this }
+case class InitiationInterval(interval: Long) extends Metadata[InitiationInterval] { def mirror(f:Tx) = this }
 @data object iiOf {
-  def apply(e: Exp[_]): Int = metadata[InitiationInterval](e).map(_.interval).getOrElse(1)
-  def update(e: Exp[_], interval: Int): Unit = metadata.add(e, InitiationInterval(interval))
+  def apply(e: Exp[_]): Long = metadata[InitiationInterval](e).map(_.interval).getOrElse(1)
+  def update(e: Exp[_], interval: Long): Unit = metadata.add(e, InitiationInterval(interval))
+}
+
+case class UserII(interval: Long) extends Metadata[UserII] { def mirror(f:Tx) = this }
+@data object userIIOf {
+  def apply(e: Exp[_]): Option[Long] = metadata[UserII](e).map(_.interval)
+  def update(e: Exp[_], interval: Option[Long]): Unit = interval.foreach{ii => metadata.add(e, UserII(ii)) }
 }
 
 case class MemoryContention(contention: Int) extends Metadata[MemoryContention] { def mirror(f:Tx) = this }

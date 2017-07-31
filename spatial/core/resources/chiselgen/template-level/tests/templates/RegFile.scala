@@ -100,7 +100,7 @@ class NBufShiftRegFileTests(c: NBufShiftRegFile) extends PeekPokeTester(c) {
     step(1)
     c.io.w.foreach { port => poke(port.shiftEn,0)}
     (0 until c.numBufs).foreach { buf => 
-      println("Buffer " + buf + ":")
+      // println("Buffer " + buf + ":")
       val base = buf * c.dims.reduce{_*_}
       (c.dims.reduce{_*_}-1 to 0 by -1).foreach { i =>
         val coords = (0 until c.dims.length).map { k => 
@@ -122,20 +122,20 @@ class NBufShiftRegFileTests(c: NBufShiftRegFile) extends PeekPokeTester(c) {
         // print(newaxis + g + " ")
       }
 
-      print(s"\n\nGold: ")
+      // print(s"\n\nGold: ")
       (0 until c.dims.reduce{_*_}).foreach{i => 
         if (i % c.dims.last == 0) print("| ")
-        print(s"${gold(i)} ")
+        // print(s"${gold(i)} ")
       }
       print(s"\nGot:  ")
       (0 until c.dims.reduce{_*_}).foreach{i => 
         if (i % c.dims.last == 0) print("| ")
-        print(s"${peek(c.io.data_out(i))} ")
+        // print(s"${peek(c.io.data_out(i))} ")
       }
-      println("")
+      // println("")
     }
     step(1)
-    println("\nSWAP!\n")
+    // println("\nSWAP!\n")
     if (cycle % (c.dims.last/2) == 0) {
       // Force buffer swap
       poke(c.io.sEn(0), 1)

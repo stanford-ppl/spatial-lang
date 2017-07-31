@@ -16,10 +16,30 @@ object Controller {
   }
 }
 
+case class PipeWithII(ii: Long) {
+  def Foreach   = new ForeachClass(InnerPipe, Some(ii))
+  def Reduce    = ReduceClass(InnerPipe, Some(ii))
+  def Fold      = FoldClass(InnerPipe, Some(ii))
+  def MemReduce = MemReduceClass(MetaPipe, Some(ii))
+  def MemFold   = MemFoldClass(MetaPipe, Some(ii))
+
+  @api def apply(func: => MUnit): MUnit = { unit_pipe(func, SeqPipe); () }
+
+  @internal def unit_pipe(func: => MUnit, style: ControlStyle): Controller = {
+    val pipe = Pipe.op_unit_pipe(Nil, () => func.s)
+    styleOf(pipe) = style
+    levelOf(pipe) = InnerControl // Fixed in Level Analyzer
+    userIIOf(pipe) = Some(ii)
+    Controller(pipe)
+  }
+}
 
 object Pipe extends ForeachClass(InnerPipe) {
   /** "Pipelined" unit controller **/
   @api def apply(func: => MUnit): MUnit = { unit_pipe(func, SeqPipe); () }
+
+  def apply(ii: Long) = PipeWithII(ii)
+
   def Foreach   = new ForeachClass(InnerPipe)
   def Reduce    = ReduceClass(InnerPipe)
   def Fold      = FoldClass(InnerPipe)

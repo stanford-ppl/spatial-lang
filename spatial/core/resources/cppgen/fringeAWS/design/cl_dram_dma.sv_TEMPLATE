@@ -26,9 +26,7 @@ module cl_dram_dma #(parameter NUM_DDR=4)
     initial begin
         $dumpfile("Top.vcd");
         $dumpvars(0, Top_inst);
-        $dumpvars(0, SPATIAL_MC);
-        $dumpvars(0, CL_DMA_PCIS_SLV);
-        $dumpvars(1, SH_DDR);
+        // $dumpvars(1, SH_DDR);
         $dumpvars(1, cl_dram_dma);
         // $dumpvars;
     end
@@ -144,7 +142,6 @@ always_ff @(negedge pipe_rst_n or posedge clk)
    end
 
 //FLR response 
-
 always_ff @(negedge sync_rst_n or posedge clk)
    if (!sync_rst_n)
    begin
@@ -230,7 +227,7 @@ assign all_ddr_scrb_done = {ddrc_scrb_bus.done, ddrd_scrb_bus.done, ddrb_scrb_bu
 ///////////////////////////////////////////////////////////////////////
  
 //------------------------------------
-// Instantiate Top, MAG, and Memory Controller
+// Instantiate Top
 //------------------------------------
 
 logic [`SPATIAL_SCALAR_WIDTH-1:0] SCALAR_argIn__{{{SPATIAL_INSERT_input_argnum}}};
@@ -239,41 +236,48 @@ logic [31:0] SCALAR_en;    // CMD bit from host
 logic [31:0] SCALAR_reset; // CMD bit from host
 logic [31:0] SCALAR_done;  // Status bit from host
 
-logic [63:0] MAG_addr;
-logic [512-1:0] MAG_wdata;
-logic [512-1:0] MAG_rdata;
-logic [31:0] MAG_size;
-logic MAG_addr_size_valid;
-logic MAG_ready_for_wdata;
-logic MAG_ready_for_next_cmd;
-logic MAG_wlast;
-logic MAG_wdata_valid;
-logic io_dram_rresp_ready;
-logic io_dram_wresp_ready;
-logic MAG_rdata_valid;
-logic MAG_write_mode;
-logic [15:0] MAG_tag_out;
-logic [15:0] MAG_tag_out_garbage;
+logic [15:0]   Top_Out_io_M_AXI_AWID;
+// logic [31:0]  Top_Out_io_M_AXI_AWUSER;
+logic [31:0]  Top_Out_io_M_AXI_AWADDR;
+logic [7:0]   Top_Out_io_M_AXI_AWLEN;
+logic [2:0]   Top_Out_io_M_AXI_AWSIZE;
+// logic [1:0]   Top_Out_io_M_AXI_AWBURST;
+// logic         Top_Out_io_M_AXI_AWLOCK;
+// logic [3:0]   Top_Out_io_M_AXI_AWCACHE;
+// logic [2:0]   Top_Out_io_M_AXI_AWPROT;
+// logic [3:0]   Top_Out_io_M_AXI_AWQOS;
+logic         Top_Out_io_M_AXI_AWVALID;
+logic         Top_In_io_M_AXI_AWREADY;
+logic [15:0]   Top_Out_io_M_AXI_ARID;
+// logic [31:0]  Top_Out_io_M_AXI_ARUSER;
+logic [31:0]  Top_Out_io_M_AXI_ARADDR;
+logic [7:0]   Top_Out_io_M_AXI_ARLEN;
+logic [2:0]   Top_Out_io_M_AXI_ARSIZE;
+// logic [1:0]   Top_Out_io_M_AXI_ARBURST;
+// logic         Top_Out_io_M_AXI_ARLOCK;
+// logic [3:0]   Top_Out_io_M_AXI_ARCACHE;
+// logic [2:0]   Top_Out_io_M_AXI_ARPROT;
+// logic [3:0]   Top_Out_io_M_AXI_ARQOS;
+logic         Top_Out_io_M_AXI_ARVALID;
+logic         Top_In_io_M_AXI_ARREADY;
+logic [511:0] Top_Out_io_M_AXI_WDATA;
+logic [63:0]  Top_Out_io_M_AXI_WSTRB;
+logic         Top_Out_io_M_AXI_WLAST;
+logic         Top_Out_io_M_AXI_WVALID;
+logic         Top_In_io_M_AXI_WREADY;
+logic [15:0]   Top_In_io_M_AXI_RID;
+// logic [31:0]  Top_In_io_M_AXI_RUSER;
+logic [511:0] Top_In_io_M_AXI_RDATA;
+logic [1:0]   Top_In_io_M_AXI_RRESP;
+logic         Top_In_io_M_AXI_RLAST;
+logic         Top_In_io_M_AXI_RVALID;
+logic         Top_Out_io_M_AXI_RREADY;
+logic [15:0]   Top_In_io_M_AXI_BID;
+// logic [31:0]  Top_In_io_M_AXI_BUSER;
+logic [1:0]   Top_In_io_M_AXI_BRESP;
+logic         Top_In_io_M_AXI_BVALID;
+logic         Top_Out_io_M_AXI_BREADY;
 
-/* Debugging
-
-always_ff @(posedge clk or negedge sync_rst_n)
-  if (MAG_wdata_response) begin
-    $display("[%t] : Done writing wdata %d", $realtime, MAG_wdata);
-  end else if (MAG_rdata_valid) begin
-    $display("[%t] : Got back rdata %d", $realtime, MAG_rdata);
-  end
-*/
-
-
-//------------------
-// Top
-//------------------
-
-logic ddr_commands_from_design; 
-logic[15:0]    lcl_cl_sh_ddra_rid_q;
-logic[15:0]    lcl_cl_sh_ddra_bid_q;
-logic          lcl_cl_sh_ddra_bvalid_q;
 Top Top_inst (
   .clock(clk),
   .reset(SCALAR_reset[0]),
@@ -284,164 +288,96 @@ Top Top_inst (
   .io_scalarIns_{{{SPATIAL_INSERT_input_argnum}}}(SCALAR_argIn__{{{SPATIAL_INSERT_input_argnum}}}),
   .io_scalarOuts_{{{SPATIAL_INSERT_output_argnum}}}(SCALAR_argOut__{{{SPATIAL_INSERT_output_argnum}}}),
 
-  // Memory
-  // input  [1:0] io_raddr,
-  // input   io_wen,
-  // input  [1:0] io_waddr,
-  // input  [31:0] io_wdata,
-  // output [31:0] io_rdata,
-  .io_dram_cmd_ready(ddr_commands_from_design ? MAG_ready_for_next_cmd : 1'b0),
-  //.io_dram_cmd_ready(MAG_ready_for_next_cmd),
-  .io_dram_cmd_valid(MAG_addr_size_valid),
-  .io_dram_cmd_bits_addr(MAG_addr),
-  .io_dram_cmd_bits_size(MAG_size),
-  .io_dram_cmd_bits_isWr(MAG_write_mode),
-  .io_dram_cmd_bits_tag({MAG_tag_out, MAG_tag_out_garbage}),
-  .io_dram_wdata_ready(MAG_ready_for_wdata),
-  .io_dram_wdata_valid(MAG_wdata_valid),
-  .io_dram_wdata_bits_wdata_0(  MAG_wdata[31 :  0]),
-  .io_dram_wdata_bits_wdata_1(  MAG_wdata[63 : 32]),
-  .io_dram_wdata_bits_wdata_2(  MAG_wdata[95 : 64]),
-  .io_dram_wdata_bits_wdata_3(  MAG_wdata[127: 96]),
-  .io_dram_wdata_bits_wdata_4(  MAG_wdata[159:128]),
-  .io_dram_wdata_bits_wdata_5(  MAG_wdata[191:160]),
-  .io_dram_wdata_bits_wdata_6(  MAG_wdata[223:192]),
-  .io_dram_wdata_bits_wdata_7(  MAG_wdata[255:224]),
-  .io_dram_wdata_bits_wdata_8(  MAG_wdata[287:256]),
-  .io_dram_wdata_bits_wdata_9(  MAG_wdata[319:288]),
-  .io_dram_wdata_bits_wdata_10( MAG_wdata[351:320]),
-  .io_dram_wdata_bits_wdata_11( MAG_wdata[383:352]),
-  .io_dram_wdata_bits_wdata_12( MAG_wdata[415:384]),
-  .io_dram_wdata_bits_wdata_13( MAG_wdata[447:416]),
-  .io_dram_wdata_bits_wdata_14( MAG_wdata[479:448]),
-  .io_dram_wdata_bits_wdata_15( MAG_wdata[511:480]),
-  .io_dram_wdata_bits_wlast(MAG_wlast),
-  .io_dram_rresp_ready(io_dram_rresp_ready),
-  .io_dram_rresp_valid(ddr_commands_from_design ? MAG_rdata_valid : 1'b0), // TODO: Can use _DIRECT signals like below and put this through memory controller too
-  //.io_dram_resp_valid(MAG_rdata_valid || lcl_cl_sh_ddra.bvalid), // TODO: Can use _DIRECT signals like below and put this through memory controller too
-  .io_dram_rresp_bits_rdata_0( MAG_rdata[31 :  0]),
-  .io_dram_rresp_bits_rdata_1( MAG_rdata[63 : 32]),
-  .io_dram_rresp_bits_rdata_2( MAG_rdata[95 : 64]),
-  .io_dram_rresp_bits_rdata_3( MAG_rdata[127: 96]),
-  .io_dram_rresp_bits_rdata_4( MAG_rdata[159:128]),
-  .io_dram_rresp_bits_rdata_5( MAG_rdata[191:160]),
-  .io_dram_rresp_bits_rdata_6( MAG_rdata[223:192]),
-  .io_dram_rresp_bits_rdata_7( MAG_rdata[255:224]),
-  .io_dram_rresp_bits_rdata_8( MAG_rdata[287:256]),
-  .io_dram_rresp_bits_rdata_9( MAG_rdata[319:288]),
-  .io_dram_rresp_bits_rdata_10(MAG_rdata[351:320]),
-  .io_dram_rresp_bits_rdata_11(MAG_rdata[383:352]),
-  .io_dram_rresp_bits_rdata_12(MAG_rdata[415:384]),
-  .io_dram_rresp_bits_rdata_13(MAG_rdata[447:416]),
-  .io_dram_rresp_bits_rdata_14(MAG_rdata[479:448]),
-  .io_dram_rresp_bits_rdata_15(MAG_rdata[511:480]),
-  .io_dram_rresp_bits_tag({lcl_cl_sh_ddra_rid_q, 16'b0}), // TODO: Prefer user
-  .io_dram_wresp_ready(io_dram_wresp_ready),
-  .io_dram_wresp_valid(ddr_commands_from_design ? lcl_cl_sh_ddra_bvalid_q : 1'b0),
-  .io_dram_wresp_bits_tag({lcl_cl_sh_ddra_bid_q, 16'b0})
-  
+  // AXI-4 for DRAM
+  .io_M_AXI_AWID    (Top_Out_io_M_AXI_AWID),     // output [15:0]   
+  // .io_M_AXI_AWUSER  (Top_Out_io_M_AXI_AWUSER),   // output [31:0]  
+  .io_M_AXI_AWADDR  (Top_Out_io_M_AXI_AWADDR),   // output [31:0]  
+  .io_M_AXI_AWLEN   (Top_Out_io_M_AXI_AWLEN),    // output [7:0]   
+  .io_M_AXI_AWSIZE  (Top_Out_io_M_AXI_AWSIZE),   // output [2:0]   
+  // .io_M_AXI_AWBURST (Top_Out_io_M_AXI_AWBURST),  // output [1:0]   
+  // .io_M_AXI_AWLOCK  (Top_Out_io_M_AXI_AWLOCK),   // output         
+  // .io_M_AXI_AWCACHE (Top_Out_io_M_AXI_AWCACHE),  // output [3:0]   
+  // .io_M_AXI_AWPROT  (Top_Out_io_M_AXI_AWPROT),   // output [2:0]   
+  // .io_M_AXI_AWQOS   (Top_Out_io_M_AXI_AWQOS),    // output [3:0]   
+  .io_M_AXI_AWVALID (Top_Out_io_M_AXI_AWVALID),  // output         
+  .io_M_AXI_AWREADY (Top_In_io_M_AXI_AWREADY),   // input          
+  .io_M_AXI_ARID    (Top_Out_io_M_AXI_ARID),     // output [15:0]   
+  // .io_M_AXI_ARUSER  (Top_Out_io_M_AXI_ARUSER),   // output [31:0]  
+  .io_M_AXI_ARADDR  (Top_Out_io_M_AXI_ARADDR),   // output [31:0]  
+  .io_M_AXI_ARLEN   (Top_Out_io_M_AXI_ARLEN),    // output [7:0]   
+  .io_M_AXI_ARSIZE  (Top_Out_io_M_AXI_ARSIZE),   // output [2:0]   
+  // .io_M_AXI_ARBURST (Top_Out_io_M_AXI_ARBURST),  // output [1:0]   
+  // .io_M_AXI_ARLOCK  (Top_Out_io_M_AXI_ARLOCK),   // output         
+  // .io_M_AXI_ARCACHE (Top_Out_io_M_AXI_ARCACHE),  // output [3:0]   
+  // .io_M_AXI_ARPROT  (Top_Out_io_M_AXI_ARPROT),   // output [2:0]   
+  // .io_M_AXI_ARQOS   (Top_Out_io_M_AXI_ARQOS),    // output [3:0]   
+  .io_M_AXI_ARVALID (Top_Out_io_M_AXI_ARVALID),  // output         
+  .io_M_AXI_ARREADY (Top_In_io_M_AXI_ARREADY),   // input          
+  .io_M_AXI_WDATA   (Top_Out_io_M_AXI_WDATA),    // output [511:0] 
+  .io_M_AXI_WSTRB   (Top_Out_io_M_AXI_WSTRB),    // output [63:0]  
+  .io_M_AXI_WLAST   (Top_Out_io_M_AXI_WLAST),    // output         
+  .io_M_AXI_WVALID  (Top_Out_io_M_AXI_WVALID),   // output         
+  .io_M_AXI_WREADY  (Top_In_io_M_AXI_WREADY),    // input          
+  .io_M_AXI_RID     (Top_In_io_M_AXI_RID),       // input  [15:0]   
+  // .io_M_AXI_RUSER   (Top_In_io_M_AXI_RUSER),     // input  [31:0]  
+  .io_M_AXI_RDATA   (Top_In_io_M_AXI_RDATA),     // input  [511:0] 
+  .io_M_AXI_RRESP   (Top_In_io_M_AXI_RRESP),     // input  [1:0]   
+  .io_M_AXI_RLAST   (Top_In_io_M_AXI_RLAST),     // input          
+  .io_M_AXI_RVALID  (Top_In_io_M_AXI_RVALID),    // input          
+  .io_M_AXI_RREADY  (Top_Out_io_M_AXI_RREADY),   // output         
+  .io_M_AXI_BID     (Top_In_io_M_AXI_BID),       // input  [15:0]   
+  // .io_M_AXI_BUSER   (Top_In_io_M_AXI_BUSER),     // input  [31:0]  
+  .io_M_AXI_BRESP   (Top_In_io_M_AXI_BRESP),     // input  [1:0]   
+  .io_M_AXI_BVALID  (Top_In_io_M_AXI_BVALID),    // input          
+  .io_M_AXI_BREADY  (Top_Out_io_M_AXI_BREADY)    // output         
 );
+  
+logic ddr_commands_from_design; 
+// TODO: Maybe add another q
 always @ (posedge clk) begin
-  lcl_cl_sh_ddra_rid_q    <= lcl_cl_sh_ddra.rid;
-  lcl_cl_sh_ddra_bid_q    <= lcl_cl_sh_ddra.bid;
-  lcl_cl_sh_ddra_bvalid_q <= lcl_cl_sh_ddra.bvalid;
+  if (!sync_rst_n | SCALAR_reset[0]) begin
+    Top_In_io_M_AXI_AWREADY  <= 0;
+    Top_In_io_M_AXI_ARREADY  <= 0;
+    Top_In_io_M_AXI_WREADY   <= 0;
+    Top_In_io_M_AXI_RID      <= 0;
+    // Top_In_io_M_AXI_RUSER    <= 0;
+    Top_In_io_M_AXI_RDATA    <= 0;
+    Top_In_io_M_AXI_RRESP    <= 0;
+    Top_In_io_M_AXI_RLAST    <= 0;
+    Top_In_io_M_AXI_RVALID   <= 0;
+    Top_In_io_M_AXI_BID      <= 0;
+    // Top_In_io_M_AXI_BUSER    <= 0;
+    Top_In_io_M_AXI_BRESP    <= 0;
+    Top_In_io_M_AXI_BVALID   <= 0;
+  end else if (ddr_commands_from_design) begin
+    Top_In_io_M_AXI_AWREADY  <= lcl_cl_sh_ddra.awready;
+    Top_In_io_M_AXI_ARREADY  <= lcl_cl_sh_ddra.arready;
+    Top_In_io_M_AXI_WREADY   <= lcl_cl_sh_ddra.wready;
+    Top_In_io_M_AXI_RID      <= lcl_cl_sh_ddra.rid;
+    // Top_In_io_M_AXI_RUSER    <= lcl_cl_sh_ddra.ruser;
+    Top_In_io_M_AXI_RDATA    <= lcl_cl_sh_ddra.rdata;
+    Top_In_io_M_AXI_RRESP    <= lcl_cl_sh_ddra.rresp;
+    Top_In_io_M_AXI_RLAST    <= lcl_cl_sh_ddra.rlast;
+    Top_In_io_M_AXI_RVALID   <= lcl_cl_sh_ddra.rvalid;
+    Top_In_io_M_AXI_BID      <= lcl_cl_sh_ddra.bid;
+    // Top_In_io_M_AXI_BUSER    <= lcl_cl_sh_ddra.buser;
+    Top_In_io_M_AXI_BRESP    <= lcl_cl_sh_ddra.bresp;
+    Top_In_io_M_AXI_BVALID   <= lcl_cl_sh_ddra.bvalid;
+  end
 end
 
-
-//------------------
-// Test FSM (replaces MAG/Top)
-//------------------
 /*
-logic [31:0] num_writes_completed;
-logic [31:0] num_reads_completed;
-assign MAG_size = 35;
-always_ff @(posedge clk or negedge sync_rst_n)
-  if (!sync_rst_n) begin
-    MAG_addr_size_valid <= 0;
-  end else if (SCALAR_en[0]) begin
-    MAG_addr_size_valid <= 1;
+always_ff @(posedge clk) begin
+  if (Top_Out_io_M_AXI_AWVALID && Top_In_io_M_AXI_AWREADY) begin
+    $display("[%t]  Store with ID %d of length %d to   0x%x", $realtime, Top_Out_io_M_AXI_AWID, Top_Out_io_M_AXI_AWLEN, Top_Out_io_M_AXI_AWADDR);
   end
-always_ff @(posedge clk or negedge sync_rst_n) begin
-    MAG_wdata_valid <= MAG_ready_for_wdata;
+  if (Top_Out_io_M_AXI_ARVALID && Top_In_io_M_AXI_ARREADY) begin
+    $display("[%t]  Load  with ID %d of length %d from 0x%x", $realtime, Top_Out_io_M_AXI_ARID, Top_Out_io_M_AXI_ARLEN, Top_Out_io_M_AXI_ARADDR);
   end
-always_ff @(posedge clk or negedge sync_rst_n)
-  if (!sync_rst_n) begin
-    num_writes_completed <= 0;
-    num_reads_completed <= 0;
-    MAG_wdata <= 512'h4000_3000_2000_1000_0400_0300_0200_0100_0040_0030_0020_0010_0004_0003_0002_0001;
-  end else if (MAG_wdata_valid) begin
-    $display("[%t] : Done writing wdata 0x%x", $realtime, MAG_wdata);
-    num_writes_completed <= num_writes_completed + 1;
-    MAG_wdata <= MAG_wdata + 512'h0080_0070_0060_0050_0040_0030_0020_0010_0008_0007_0006_0005_0004_0003_0002_0001;
-  end else if (MAG_rdata_valid) begin
-    $display("[%t] : Got back rdata 0x%x", $realtime, MAG_rdata);
-    num_reads_completed <= num_reads_completed + 1;
-  end
-assign MAG_addr = 64'ha987_6543_2100_0000;
-assign SCALAR_argOut__{{{SPATIAL_INSERT_output_argnum}}} = 0; // Unused
-assign SCALAR_done[0] = (num_reads_completed === MAG_size);
-assign MAG_write_mode = num_writes_completed===0;
+end
 */
 
-//------------------
-// Memory controller
-//------------------
-
-/**
-
-Memory controller will use TST to communicate with DDR. It will not go through PCIe at all (host pcis config),
-but rather put the config signals directly into TST to convert to AXI4 format.
-
-*/
-
-logic DDR_DIRECT_rdata_valid;
-logic[512-1:0] DDR_DIRECT_rdata;
-logic[512-1:0] DDR_DIRECT_wdata;
-logic          DDR_DIRECT_wvalid;
-logic[15:0]    DDR_current_tag;
-logic DDR_DIRECT_force_burst_wdata;
-
-logic [31:0] MC_OUT_cfg_addr;
-logic [31:0] MC_OUT_cfg_wdata;
-logic        MC_OUT_cfg_wr;
-logic        MC_OUT_cfg_rd;
-spatial_memory_controller #(.DATA_WIDTH(512), .WORD_WIDTH(32)) SPATIAL_MC (
-  .clk(clk),
-  .rst_n( !(!sync_rst_n | SCALAR_reset[0]) ),
-    
-  // Spatial signals
-  // - Inputs
-  .addr(MAG_addr),
-  .size(MAG_size),
-  .tag(MAG_tag_out),
-  .addr_size_valid(MAG_addr_size_valid),
-  .wdata(MAG_wdata),
-  .wlast(MAG_wlast),
-  .wdata_valid(MAG_wdata_valid),
-  .write_mode(MAG_write_mode),
-  // - Outputs
-  .rdata(MAG_rdata),
-  .rdata_valid(MAG_rdata_valid),
-  .ready_for_wdata(MAG_ready_for_wdata),
-  .ready_for_next_cmd(MAG_ready_for_next_cmd),
-  
-  // TST signals
-  .cfg_addr(MC_OUT_cfg_addr),
-  .cfg_wdata(MC_OUT_cfg_wdata),
-  .cfg_wr(MC_OUT_cfg_wr),
-  .cfg_rd(MC_OUT_cfg_rd),
-  .tst_cfg_ack(ddra_tst_cfg_bus.ack),
-  .DIRECT_rdata_valid(DDR_DIRECT_rdata_valid),
-  .DIRECT_rdata(DDR_DIRECT_rdata),
-  .rlast(lcl_cl_sh_ddra.rlast),
-  // .DIRECT_force_burst_wdata(DDR_DIRECT_force_burst_wdata),
-  .DIRECT_wdata(DDR_DIRECT_wdata),
-  .DIRECT_wvalid(DDR_DIRECT_wvalid),
-  .current_tag(DDR_current_tag)
-);
-
-
-// Set a bit high during duration of design execution
+// State machine to set a bit high during duration of design execution
 logic [2:0] design_state; // S0 = initializing DDR, S1 = running, S2 = done
 always_ff @(posedge clk or negedge sync_rst_n) begin
   if (!sync_rst_n | SCALAR_reset[0])
@@ -465,8 +401,9 @@ always_ff @(posedge clk or negedge sync_rst_n) begin
   end
 end
 assign ddr_commands_from_design = (design_state === 1);
-assign DDR_DIRECT_force_burst_wdata = (design_state === 1);
 
+
+// Perf Counter
 // TODO: Can do this with less area (have 1 counter and print when state changes)
 logic [31:0] performance_counter;
 logic [31:0] performance_counter_0;
@@ -497,7 +434,7 @@ always_ff @(posedge SCALAR_done[0]) begin
 end
 
 //------------------------------------
-// END Instantiate Top, MAG, and Memory Controller
+// END Instantiate Top
 //------------------------------------
 
 ///////////////////////////////////////////////////////////////////////
@@ -669,6 +606,7 @@ lib_pipe #(.WIDTH(1), .STAGES(4)) OCL_SLV_SLC_RST_N (.clk(clk), .rst_n(1'b1), .i
 cl_ocl_slv CL_OCL_SLV (
 
    .clk(clk),
+   //.sync_rst_n( !(!ocl_slv_sync_rst_n | SCALAR_reset[0]) ),
    .sync_rst_n(ocl_slv_sync_rst_n),
 
    .sh_cl_flr_assert_q(sh_cl_flr_assert_q),
@@ -688,18 +626,7 @@ cl_ocl_slv CL_OCL_SLV (
    .SCALAR_reset(SCALAR_reset),
    .SCALAR_done(SCALAR_done),
    // .all_ddr_is_ready(all_ddr_is_ready),
-   .performance_counter_1(performance_counter_1),
-
-   .DDR_DIRECT_rdata_valid(DDR_DIRECT_rdata_valid),
-   .DDR_DIRECT_rdata(DDR_DIRECT_rdata),
-   .DDR_DIRECT_wdata(DDR_DIRECT_wdata),
-   .DDR_DIRECT_wvalid(DDR_DIRECT_wvalid),
-   .DDR_DIRECT_force_burst_wdata(DDR_DIRECT_force_burst_wdata),
-   .MC_OUT_cfg_addr(MC_OUT_cfg_addr),
-   .MC_OUT_cfg_wdata(MC_OUT_cfg_wdata),
-   .MC_OUT_cfg_wr(MC_OUT_cfg_wr),
-   .MC_OUT_cfg_rd(MC_OUT_cfg_rd),
-   .ddr_commands_from_design(ddr_commands_from_design)
+   .performance_counter_1(performance_counter_1)
 
 );
 
@@ -787,30 +714,30 @@ logic[2:0] sh_cl_ddr_rlast_2d;
 logic[2:0] sh_cl_ddr_rvalid_2d;
 logic[2:0] cl_sh_ddr_rready_2d;
 
-assign cl_sh_ddr_awid_2d = '{lcl_cl_sh_ddrd.awid, lcl_cl_sh_ddrb.awid, ddr_commands_from_design ? DDR_current_tag : lcl_cl_sh_ddra.awid};
-assign cl_sh_ddr_awaddr_2d = '{lcl_cl_sh_ddrd.awaddr, lcl_cl_sh_ddrb.awaddr, lcl_cl_sh_ddra.awaddr};
-assign cl_sh_ddr_awlen_2d = '{lcl_cl_sh_ddrd.awlen, lcl_cl_sh_ddrb.awlen, lcl_cl_sh_ddra.awlen};
-assign cl_sh_ddr_awsize_2d = '{lcl_cl_sh_ddrd.awsize, lcl_cl_sh_ddrb.awsize, lcl_cl_sh_ddra.awsize};
-assign cl_sh_ddr_awvalid_2d = '{lcl_cl_sh_ddrd.awvalid, lcl_cl_sh_ddrb.awvalid, lcl_cl_sh_ddra.awvalid};
+assign cl_sh_ddr_awid_2d = '{lcl_cl_sh_ddrd.awid, lcl_cl_sh_ddrb.awid, ddr_commands_from_design ? Top_Out_io_M_AXI_AWID : lcl_cl_sh_ddra.awid};
+assign cl_sh_ddr_awaddr_2d = '{lcl_cl_sh_ddrd.awaddr, lcl_cl_sh_ddrb.awaddr, ddr_commands_from_design ? Top_Out_io_M_AXI_AWADDR + 64'h10000000 : lcl_cl_sh_ddra.awaddr};
+assign cl_sh_ddr_awlen_2d = '{lcl_cl_sh_ddrd.awlen, lcl_cl_sh_ddrb.awlen, ddr_commands_from_design ? Top_Out_io_M_AXI_AWLEN : lcl_cl_sh_ddra.awlen};
+assign cl_sh_ddr_awsize_2d = '{lcl_cl_sh_ddrd.awsize, lcl_cl_sh_ddrb.awsize, ddr_commands_from_design ? Top_Out_io_M_AXI_AWSIZE : lcl_cl_sh_ddra.awsize};
+assign cl_sh_ddr_awvalid_2d = '{lcl_cl_sh_ddrd.awvalid, lcl_cl_sh_ddrb.awvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_AWVALID : lcl_cl_sh_ddra.awvalid};
 assign {lcl_cl_sh_ddrd.awready, lcl_cl_sh_ddrb.awready, lcl_cl_sh_ddra.awready} = sh_cl_ddr_awready_2d;
 
-assign cl_sh_ddr_wid_2d = '{lcl_cl_sh_ddrd.wid, lcl_cl_sh_ddrb.wid, lcl_cl_sh_ddra.wid};
-assign cl_sh_ddr_wdata_2d = '{lcl_cl_sh_ddrd.wdata, lcl_cl_sh_ddrb.wdata, lcl_cl_sh_ddra.wdata};
-assign cl_sh_ddr_wstrb_2d = '{lcl_cl_sh_ddrd.wstrb, lcl_cl_sh_ddrb.wstrb, lcl_cl_sh_ddra.wstrb};
-assign cl_sh_ddr_wlast_2d = {lcl_cl_sh_ddrd.wlast, lcl_cl_sh_ddrb.wlast, lcl_cl_sh_ddra.wlast};
-assign cl_sh_ddr_wvalid_2d = {lcl_cl_sh_ddrd.wvalid, lcl_cl_sh_ddrb.wvalid, lcl_cl_sh_ddra.wvalid};
+assign cl_sh_ddr_wid_2d = '{lcl_cl_sh_ddrd.wid, lcl_cl_sh_ddrb.wid, ddr_commands_from_design ? 0 : lcl_cl_sh_ddra.wid};
+assign cl_sh_ddr_wdata_2d = '{lcl_cl_sh_ddrd.wdata, lcl_cl_sh_ddrb.wdata, ddr_commands_from_design ? Top_Out_io_M_AXI_WDATA : lcl_cl_sh_ddra.wdata};
+assign cl_sh_ddr_wstrb_2d = '{lcl_cl_sh_ddrd.wstrb, lcl_cl_sh_ddrb.wstrb, ddr_commands_from_design ? Top_Out_io_M_AXI_WSTRB : lcl_cl_sh_ddra.wstrb};
+assign cl_sh_ddr_wlast_2d = {lcl_cl_sh_ddrd.wlast, lcl_cl_sh_ddrb.wlast, ddr_commands_from_design ? Top_Out_io_M_AXI_WLAST : lcl_cl_sh_ddra.wlast};
+assign cl_sh_ddr_wvalid_2d = {lcl_cl_sh_ddrd.wvalid, lcl_cl_sh_ddrb.wvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_WVALID : lcl_cl_sh_ddra.wvalid};
 assign {lcl_cl_sh_ddrd.wready, lcl_cl_sh_ddrb.wready, lcl_cl_sh_ddra.wready} = sh_cl_ddr_wready_2d;
 
 assign {lcl_cl_sh_ddrd.bid, lcl_cl_sh_ddrb.bid, lcl_cl_sh_ddra.bid} = {sh_cl_ddr_bid_2d[2], sh_cl_ddr_bid_2d[1], sh_cl_ddr_bid_2d[0]};
 assign {lcl_cl_sh_ddrd.bresp, lcl_cl_sh_ddrb.bresp, lcl_cl_sh_ddra.bresp} = {sh_cl_ddr_bresp_2d[2], sh_cl_ddr_bresp_2d[1], sh_cl_ddr_bresp_2d[0]};
 assign {lcl_cl_sh_ddrd.bvalid, lcl_cl_sh_ddrb.bvalid, lcl_cl_sh_ddra.bvalid} = sh_cl_ddr_bvalid_2d;
-assign cl_sh_ddr_bready_2d = {lcl_cl_sh_ddrd.bready, lcl_cl_sh_ddrb.bready, ddr_commands_from_design ? io_dram_wresp_ready : lcl_cl_sh_ddra.bready};
+assign cl_sh_ddr_bready_2d = {lcl_cl_sh_ddrd.bready, lcl_cl_sh_ddrb.bready, ddr_commands_from_design ? Top_Out_io_M_AXI_BREADY : lcl_cl_sh_ddra.bready};
 
-assign cl_sh_ddr_arid_2d = '{lcl_cl_sh_ddrd.arid, lcl_cl_sh_ddrb.arid, ddr_commands_from_design ? DDR_current_tag : lcl_cl_sh_ddra.arid};
-assign cl_sh_ddr_araddr_2d = '{lcl_cl_sh_ddrd.araddr, lcl_cl_sh_ddrb.araddr, lcl_cl_sh_ddra.araddr};
-assign cl_sh_ddr_arlen_2d = '{lcl_cl_sh_ddrd.arlen, lcl_cl_sh_ddrb.arlen, lcl_cl_sh_ddra.arlen};
-assign cl_sh_ddr_arsize_2d = '{lcl_cl_sh_ddrd.arsize, lcl_cl_sh_ddrb.arsize, lcl_cl_sh_ddra.arsize};
-assign cl_sh_ddr_arvalid_2d = {lcl_cl_sh_ddrd.arvalid, lcl_cl_sh_ddrb.arvalid, lcl_cl_sh_ddra.arvalid};
+assign cl_sh_ddr_arid_2d = '{lcl_cl_sh_ddrd.arid, lcl_cl_sh_ddrb.arid, ddr_commands_from_design ? Top_Out_io_M_AXI_ARID : lcl_cl_sh_ddra.arid};
+assign cl_sh_ddr_araddr_2d = '{lcl_cl_sh_ddrd.araddr, lcl_cl_sh_ddrb.araddr, ddr_commands_from_design ? Top_Out_io_M_AXI_ARADDR + 64'h10000000 : lcl_cl_sh_ddra.araddr};
+assign cl_sh_ddr_arlen_2d = '{lcl_cl_sh_ddrd.arlen, lcl_cl_sh_ddrb.arlen, ddr_commands_from_design ? Top_Out_io_M_AXI_ARLEN : lcl_cl_sh_ddra.arlen};
+assign cl_sh_ddr_arsize_2d = '{lcl_cl_sh_ddrd.arsize, lcl_cl_sh_ddrb.arsize, ddr_commands_from_design ? Top_Out_io_M_AXI_ARSIZE : lcl_cl_sh_ddra.arsize};
+assign cl_sh_ddr_arvalid_2d = {lcl_cl_sh_ddrd.arvalid, lcl_cl_sh_ddrb.arvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_ARVALID : lcl_cl_sh_ddra.arvalid};
 assign {lcl_cl_sh_ddrd.arready, lcl_cl_sh_ddrb.arready, lcl_cl_sh_ddra.arready} = sh_cl_ddr_arready_2d;
 
 assign {lcl_cl_sh_ddrd.rid, lcl_cl_sh_ddrb.rid, lcl_cl_sh_ddra.rid} = {sh_cl_ddr_rid_2d[2], sh_cl_ddr_rid_2d[1], sh_cl_ddr_rid_2d[0]};
@@ -818,7 +745,7 @@ assign {lcl_cl_sh_ddrd.rresp, lcl_cl_sh_ddrb.rresp, lcl_cl_sh_ddra.rresp} = {sh_
 assign {lcl_cl_sh_ddrd.rdata, lcl_cl_sh_ddrb.rdata, lcl_cl_sh_ddra.rdata} = {sh_cl_ddr_rdata_2d[2], sh_cl_ddr_rdata_2d[1], sh_cl_ddr_rdata_2d[0]};
 assign {lcl_cl_sh_ddrd.rlast, lcl_cl_sh_ddrb.rlast, lcl_cl_sh_ddra.rlast} = sh_cl_ddr_rlast_2d;
 assign {lcl_cl_sh_ddrd.rvalid, lcl_cl_sh_ddrb.rvalid, lcl_cl_sh_ddra.rvalid} = sh_cl_ddr_rvalid_2d;
-assign cl_sh_ddr_rready_2d = {lcl_cl_sh_ddrd.rready, lcl_cl_sh_ddrb.rready, ddr_commands_from_design ? io_dram_rresp_ready : lcl_cl_sh_ddra.rready};
+assign cl_sh_ddr_rready_2d = {lcl_cl_sh_ddrd.rready, lcl_cl_sh_ddrb.rready, ddr_commands_from_design ? Top_Out_io_M_AXI_RREADY : lcl_cl_sh_ddra.rready};
 
 logic sh_ddr_sync_rst_n;
 lib_pipe #(.WIDTH(1), .STAGES(4)) SH_DDR_SLC_RST_N (.clk(clk), .rst_n(1'b1), .in_bus(sync_rst_n), .out_bus(sh_ddr_sync_rst_n));
@@ -962,31 +889,31 @@ sh_ddr #(
 always_ff @(posedge clk or negedge sync_rst_n)
   begin
     $display("-------------------------------------------");
-    $display("[%t]   [AXI-4 R]  : lcl_cl_sh_ddra.araddr   = %x", $realtime, lcl_cl_sh_ddra.araddr);
-    $display("[%t]   [AXI-4 R]  : lcl_cl_sh_ddra.arvalid  = %x", $realtime, lcl_cl_sh_ddra.arvalid);
+    $display("[%t]   [AXI-4 R]  : lcl_cl_sh_ddra.araddr   = %x", $realtime, cl_sh_ddr_araddr_2d[0]);
+    $display("[%t]   [AXI-4 R]  : lcl_cl_sh_ddra.arvalid  = %x", $realtime, cl_sh_ddr_arvalid_2d[0]);
     $display("[%t]   [AXI-4 R]  : lcl_cl_sh_ddra.arready  = %x", $realtime, lcl_cl_sh_ddra.arready);
-    $display("[%t]   [AXI-4 R]  :               `--> AND1 = %x", $realtime, lcl_cl_sh_ddra.arvalid & lcl_cl_sh_ddra.arready);
+    $display("[%t]   [AXI-4 R]  :               `--> AND1 = %x", $realtime, cl_sh_ddr_arvalid_2d[0] & lcl_cl_sh_ddra.arready);
     $display("[%t]   [AXI-4 R]  : lcl_cl_sh_ddra.arid     = %x", $realtime, cl_sh_ddr_arid_2d[0]);
     $display("[%t]   [AXI-4 R]  : sh_cl_ddr_rdata_2d[0]   = %x", $realtime, sh_cl_ddr_rdata_2d[0]);
     $display("[%t]   [AXI-4 R]  : lcl_cl_sh_ddra.rvalid   = %x", $realtime, lcl_cl_sh_ddra.rvalid);
-    $display("[%t]   [AXI-4 R]  : lcl_cl_sh_ddra.rready   = %x", $realtime, lcl_cl_sh_ddra.rready);
-    $display("[%t]   [AXI-4 R]  :               `--> AND2 = %x", $realtime, lcl_cl_sh_ddra.rvalid & lcl_cl_sh_ddra.rready);
+    $display("[%t]   [AXI-4 R]  : lcl_cl_sh_ddra.rready   = %x", $realtime, cl_sh_ddr_rready_2d[0]);
+    $display("[%t]   [AXI-4 R]  :               `--> AND2 = %x", $realtime, lcl_cl_sh_ddra.rvalid & cl_sh_ddr_rready_2d[0]);
     $display("[%t]   [AXI-4 R]  : sh_cl_ddr_rresp_2d[0]   = %x", $realtime, sh_cl_ddr_rresp_2d[0]);
     $display("[%t]   [AXI-4 R]  : lcl_cl_sh_ddra.rid      = %x", $realtime, lcl_cl_sh_ddra.rid);
     
-    $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.awaddr   = %x", $realtime, lcl_cl_sh_ddra.awaddr);
-    $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.awvalid  = %x", $realtime, lcl_cl_sh_ddra.awvalid);
+    $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.awaddr   = %x", $realtime, cl_sh_ddr_awaddr_2d[0]);
+    $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.awvalid  = %x", $realtime, cl_sh_ddr_awvalid_2d[0]);
     $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.awready  = %x", $realtime, lcl_cl_sh_ddra.awready);
-    $display("[%t]   [AXI-4 W]  :               `--> AND3 = %x", $realtime, lcl_cl_sh_ddra.awvalid & lcl_cl_sh_ddra.awready);
+    $display("[%t]   [AXI-4 W]  :               `--> AND3 = %x", $realtime, cl_sh_ddr_awvalid_2d[0] & lcl_cl_sh_ddra.awready);
     $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.awid     = %x", $realtime, cl_sh_ddr_awid_2d[0]);
-    $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.wdata    = %x", $realtime, lcl_cl_sh_ddra.wdata);
-    $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.wvalid   = %x", $realtime, lcl_cl_sh_ddra.wvalid);
+    $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.wdata    = %x", $realtime, cl_sh_ddr_wdata_2d[0]);
+    $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.wvalid   = %x", $realtime, cl_sh_ddr_wvalid_2d[0]);
     $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.wready   = %x", $realtime, lcl_cl_sh_ddra.wready);
-    $display("[%t]   [AXI-4 W]  :               `--> AND4 = %x", $realtime, lcl_cl_sh_ddra.wvalid & lcl_cl_sh_ddra.wready);
+    $display("[%t]   [AXI-4 W]  :               `--> AND4 = %x", $realtime, cl_sh_ddr_wvalid_2d[0] & lcl_cl_sh_ddra.wready);
     $display("[%t]   [AXI-4 W]  : sh_cl_ddr_bresp_2d[0]   = %x", $realtime, sh_cl_ddr_bresp_2d[0]);
     $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.bvalid   = %x", $realtime, lcl_cl_sh_ddra.bvalid);
-    $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.bready   = %x", $realtime, lcl_cl_sh_ddra.bready);
-    $display("[%t]   [AXI-4 W]  :               `--> AND5 = %x", $realtime, lcl_cl_sh_ddra.bvalid & lcl_cl_sh_ddra.bready);
+    $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.bready   = %x", $realtime, cl_sh_ddr_bready_2d[0]);
+    $display("[%t]   [AXI-4 W]  :               `--> AND5 = %x", $realtime, lcl_cl_sh_ddra.bvalid & cl_sh_ddr_bready_2d[0]);
     $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.bid      = %x", $realtime, lcl_cl_sh_ddra.bid);
   end
 */
@@ -1080,12 +1007,13 @@ cl_ila CL_ILA (
 
 );
 
-
 cl_vio CL_VIO (
 
    .clk_extra_a1(clk_extra_a1)
 
 );
+
+
 `endif //  `ifndef DISABLE_VJTAG_DEBUG
 
 //----------------------------------------- 

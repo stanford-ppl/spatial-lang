@@ -36,7 +36,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     hierarchy += 1
     inInnerScope = true
 
-    val scope = blockContents(block).filter(_.lhs.exists(e => Bits.unapply(e.tp).isDefined || e.tp == UnitType))
+    val scope = blockContents(block) //.filter(_.lhs.exists(e => Bits.unapply(e.tp).isDefined || e.tp == UnitType))
     val lines = computeDelayLines(scope)
     lines.foreach{case (reader, line) => addDelayLine(reader, line) }
 
@@ -271,7 +271,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
   private def retimeBlock[T:Type](block: Block[T])(implicit ctx: SrcCtx): Exp[T] = {
     val scope = blockNestedContents(block).flatMap(_.lhs)
                   .filterNot(s => isGlobal(s))
-                  .filter{e => e.tp == UnitType || Bits.unapply(e.tp).isDefined }
+                  //.filter{e => e.tp == UnitType || Bits.unapply(e.tp).isDefined }
                   .map(_.asInstanceOf[Exp[_]]).toSet
 
     val result = (block +: scope.toSeq.flatMap{case s@Def(d) => d.blocks; case _ => Nil}).flatMap{b => exps(b) }

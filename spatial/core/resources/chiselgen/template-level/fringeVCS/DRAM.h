@@ -19,9 +19,12 @@ using namespace std;
 
 #include <DRAMSim.h>
 
-#define MAX_NUM_Q 128
+#define MAX_NUM_Q             128
+#define PAGE_SIZE_BYTES       4096
+#define PAGE_OFFSET           (__builtin_ctz(PAGE_SIZE_BYTES))
+#define PAGE_FRAME_NUM(addr)  (addr >> PAGE_OFFSET)
 
-// DRAMSim3
+// DRAMSim2
 DRAMSim::MultiChannelMemorySystem *mem = NULL;
 bool useIdealDRAM = false;
 bool debug = false;
@@ -184,18 +187,21 @@ uint32_t getWordOffset(uint64_t addr) {
 
 void printQueueStats(int id) {
   // Ensure that all top 16 requests have been completed
-  deque<DRAMRequest*>::iterator it = dramRequestQ[id].begin();
+  if (dramRequestQ[id].size() > 0) {
+    deque<DRAMRequest*>::iterator it = dramRequestQ[id].begin();
 
-  EPRINTF("==== dramRequestQ %d status =====\n", id);
-  int k = 0;
-  while (it != dramRequestQ[id].end()) {
-    DRAMRequest *r = *it;
-    EPRINTF("    %d. addr: %lx (%lx), tag: %lx, streamId: %d, sparse = %d, completed: %d\n", k, r->addr, r->rawAddr, r->tag, r->streamId, r->isSparse, r->completed);
-    it++;
-    k++;
-    if (k > 20) break;
+    EPRINTF("==== dramRequestQ %d status =====\n", id);
+    int k = 0;
+    while (it != dramRequestQ[id].end()) {
+      DRAMRequest *r = *it;
+      EPRINTF("    %d. addr: %lx (%lx), tag: %lx, streamId: %d, sparse = %d, completed: %d\n", k, r->addr, r->rawAddr, r->tag, r->streamId, r->isSparse, r->completed);
+      it++;
+      k++;
+      //    if (k > 20) break;
+    }
+    EPRINTF("==== END dramRequestQ %d status =====\n", id);
+
   }
-  EPRINTF("==== END dramRequestQ %d status =====\n", id);
 }
 
 int popWhenReady = -1; // dramRequestQ from which response was poked (to be popped when ready)
@@ -365,13 +371,21 @@ bool checkQAndRespond(int id) {
               EPRINTF("[checkQ] sparse request completed:\n");
               printQueueStats(id);
             }
+            it = dramRequestQ[id].begin();
             for (int i = 0; i < burstSizeWords; i++) {
-              DRAMRequest *head = dramRequestQ[id].front();
+              DRAMRequest *head = *it;
               ASSERT(head->isSparse, "ERROR: Encountered non-sparse request at (%d) while popping sparse requests! (%lx, %lx)", i, head->addr, head->rawAddr);
               ASSERT(head->isWr == writeRequest, "ERROR: Sparse request type mismatch");
               if (!writeRequest) {
                 uint32_t *raddr = (uint32_t*) head->rawAddr;
-                if (debug) EPRINTF("-------- gatherAddr(%d) = %lx\n", i, raddr);
+                if (debug) {
+                  EPRINTF("-------- gatherAddr(%d) = %lx, boffset = %d. Printing entire burst:\n", i, raddr, head->rawAddr % burstSizeBytes);
+                for (int j = 0; j < burstSizeWords; j++) {
+                  uint32_t *a = (uint32_t*) (head->addr + j*sizeof(uint32_t));
+                  EPRINTF("         [%d] %x (%d)\n", j, *a, *a);
+                }
+
+                }
                 rdata[i] = *raddr;
                 gatherAddr[i] = head->rawAddr;
               } else {
@@ -382,15 +396,16 @@ bool checkQAndRespond(int id) {
                 scatterAddr[i] = head->rawAddr;
                 scatterData[i] = wdata[0];
               }
+              it++;
             }
 
             if (debug) {
               EPRINTF("[checkAndSendDRAMResponse] Sparse complete with following details:\n");
               for (int i = 0; i<burstSizeWords; i++) {
                 if (writeRequest) {
-                  EPRINTF("---- [scatter] addr %lx: data %x\n", scatterAddr[i], scatterData[i]);
+                  EPRINTF("     [scatter] addr %lx: data %x\n", scatterAddr[i], scatterData[i]);
                 } else {
-                  EPRINTF("---- addr %lx: data %x\n", gatherAddr[i], rdata[i]);
+                  EPRINTF("     addr %lx: %x (%d)\n", gatherAddr[i], rdata[i], rdata[i]);
                 }
               }
               printQueueStats(id);
@@ -441,6 +456,14 @@ void checkAndSendDRAMResponse() {
 //  uint32_t writeReady = (uint32_t)*dramWriteRespReady;
 //  uint32_t ready = readReady & writeReady;
 //  if (ready > 0) {
+
+  if (debug) {
+    if ((numCycles % 5000) == 0) {
+      for (int i = 0; i < MAX_NUM_Q; i++) {
+        printQueueStats(i);
+      }
+    }
+  }
 
   if (popWhenReady >= 0) { // A particular queue has already poked its response, call it again
     ASSERT(checkQAndRespond(popWhenReady), "popWhenReady (%d) >= 0, but no response generated from queue %d\n", popWhenReady, popWhenReady);
