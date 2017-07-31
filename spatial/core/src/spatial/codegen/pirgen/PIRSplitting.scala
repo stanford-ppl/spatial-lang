@@ -100,6 +100,9 @@ trait PIRSplitting extends PIRTraversal {
 
       while (cost > arch && current.nonEmpty) {
         //dbg(s"Removing stage")
+        //TODO: This splitting stratagy highly depends on the linear schedule of the stages.
+        //It's possible that different valid linear schedule can give a much better splitting
+        //result. 
         remote addHead current.popTail()
         cost = getCost(current)
       }
@@ -134,6 +137,8 @@ trait PIRSplitting extends PIRTraversal {
       parent.parent = cu.parent
       parent.deps = cu.deps
       parent.cchains ++= cu.cchains
+      val mems = usedMem(cu.cchains)
+      parent.memMap ++= cu.memMap.filter { case (e, m) => mems.contains(m) } 
       Some(parent)
     }
     else None
