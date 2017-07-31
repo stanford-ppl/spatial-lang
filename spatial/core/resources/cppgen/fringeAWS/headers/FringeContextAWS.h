@@ -41,6 +41,10 @@
 #define PERF_COUNTER           UINT64_C_AWS(0x40)
 #define RESET_REG_ADDR         UINT64_C_AWS(0x60)
 
+#define BASE_ADDR           UINT64_C_AWS(0x0000000000000100)   // DDR CHANNEL 0
+// #define NUM_INST          UINT64_C_AWS(0x10)
+#define ATG    UINT64_C_AWS(0x30)
+
 class FringeContextAWS : public FringeContextBase<void> {
 
 private:
@@ -292,11 +296,14 @@ public:
 #else // F1
     assert(fsync(fd) == 0); // TODO: Is this needed?
 #endif // F1
+    aws_poke(BASE_ADDR + ATG, 0x00000001);
+    // aws_poke(BASE_ADDR + NUM_INST, 0x00000000);	// TODO: Move outside run()?
     uint32_t status;
     aws_poke(SCALAR_CMD_BASE_ADDR + CMD_REG_ADDR, 1);
     do {
       aws_peek(SCALAR_CMD_BASE_ADDR + STATUS_REG_ADDR, &status);
     } while (!status);
+    aws_poke(BASE_ADDR + ATG, 0x00000000);
     // De-assert enable?
 #ifdef SIM
 #else // F1

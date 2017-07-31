@@ -73,20 +73,15 @@ trait ChiselGenStructs extends ChiselGenSRAM {
   override protected def quoteConst(c: Const[_]): String = (c.tp, c) match {
     case (st: StructType[_], e@Const(elems)) =>
       val tuples = elems.asInstanceOf[Seq[(_, Exp[_])]]
-      val items = tuples.map{ t => 
+      val rand_string = (0 until 3).map{_ => scala.util.Random.alphanumeric.filter(_.isLetter).head}.mkString("") // Random letter since quoteConst has no lhs handle
+      val items = tuples.zipWithIndex.map{ case(t,i) => 
         val width = bitWidth(t._2.tp)
-        // if (src"${t._1}" == "offset") {
-        //   src"${t._2}"
-        // } else {
-          if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}.r"} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
-        // }
+        emitGlobalWire(src"val ${rand_string}_item${i} = Wire(UInt(${width}.W))")
+        if (width > 1 & !spatialNeedsFPType(t._2.tp)) { emit(src"${rand_string}_item${i} := ${t._2}(${width-1},0)") } else {emit(src"${rand_string}_item${i} := ${t._2}.r")} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
+        src"${rand_string}_item${i}"
       }.reverse.mkString(",")
       val totalWidth = tuples.map{ t => 
-        // if (src"${t._1}" == "offset"){
-        //   64
-        // } else {
           bitWidth(t._2.tp)  
-        // }
       }.reduce{_+_}
       src"chisel3.util.Cat($items)"
 
@@ -96,20 +91,14 @@ trait ChiselGenStructs extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SimpleStruct(tuples)  =>
-      val items = tuples.map{ t => 
+      val items = tuples.zipWithIndex.map{ case(t,i) => 
         val width = bitWidth(t._2.tp)
-        // if (src"${t._1}" == "offset") {
-        //   src"${t._2}"
-        // } else {
-          if (width > 1 & !spatialNeedsFPType(t._2.tp)) { src"${t._2}(${width-1},0)" } else {src"${t._2}.r"} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
-        // }
+        emitGlobalWire(src"val ${lhs}_item${i} = Wire(UInt(${width}.W))")
+        if (width > 1 & !spatialNeedsFPType(t._2.tp)) { emit(src"${lhs}_item${i} := ${t._2}(${width-1},0)") } else {emit(src"${lhs}_item${i} := ${t._2}.r")} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
+        src"${lhs}_item${i}"
       }.reverse.mkString(",")
       val totalWidth = tuples.map{ t => 
-        // if (src"${t._1}" == "offset"){
-        //   64
-        // } else {
           bitWidth(t._2.tp)  
-        // }
       }.reduce{_+_}
       emitGlobalWire(src"val $lhs = Wire(UInt(${totalWidth}.W))")
       emit(src"$lhs := chisel3.util.Cat($items)")

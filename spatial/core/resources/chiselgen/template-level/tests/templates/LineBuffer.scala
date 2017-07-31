@@ -12,7 +12,7 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
   step(1)
   poke(c.io.reset, 0)
 
-  println("Flush buffer")
+  // println("Flush buffer")
   for (i <- 0 until c.num_lines*c.line_size + 1 by c.col_wPar) {
     poke(c.io.sEn(0), 1)
     poke(c.io.w_en, 1)
@@ -35,7 +35,7 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
 
   val iters = (c.num_lines + c.extra_rows_to_buffer) * 3
   for (iter <- 0 until iters) {
-    println("Filling lines")
+    // println("Filling lines")
     for (k <- 0 until c.extra_rows_to_buffer) {
       for (i <- 0 until c.line_size by c.col_wPar) {
         poke(c.io.sEn(0), 1)
@@ -54,7 +54,7 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
 
     }
 
-    println("Checking line")
+    // println("Checking line")
     var rows_concat = List.fill(c.num_lines)(new StringBuilder)
     var gold_concat = List.fill(c.num_lines)(new StringBuilder)
     for (col <- 0 until c.line_size by c.col_rPar) {
@@ -76,13 +76,13 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
       }
       step(1)
     }
-    println("Saw:")
+    // println("Saw:")
     for (row <- 0 until c.num_lines) {
-      println(rows_concat(row) + " ")
+      // println(rows_concat(row) + " ")
     }
-    println("Expected:")
+    // println("Expected:")
     for (row <- 0 until c.num_lines) {
-      println(gold_concat(row) + " ")
+      // println(gold_concat(row) + " ")
     }
 
   }

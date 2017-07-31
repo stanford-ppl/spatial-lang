@@ -88,16 +88,16 @@ object Arguments {
     (6,3,48,1,1)
   )
   val SingleCounter = List(
-    1,3
+    (1,8),(3,9)
   )
   val FixedPointTester = List(
     (false,16,16)
     // (true, 8, 8)
   )
   val Counter = List(
-    List(1,1,1),
-    List(2,2,2),
-    List(4,1,1)
+    (List(1,1,1), List(10,9,8)),
+    (List(2,2,2), List(10,9,8)),
+    (List(4,1,1), List(10,9,8))
   )
   val Seqpipe = List(
     1,

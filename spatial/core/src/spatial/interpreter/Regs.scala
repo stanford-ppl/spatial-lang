@@ -6,11 +6,16 @@ import argon.interpreter.{Interpreter => AInterpreter}
 
 trait Regs extends AInterpreter {
 
-  class IReg(var v: Any) {
+  class IReg(val r: Any) {
+    var v: Any = r
     override def toString = {
       val vs = AInterpreter.stringify(v)
       s"Reg($vs)"
     }
+
+    def reset =
+      v = r
+
   }
 
   object EReg {
@@ -26,6 +31,10 @@ trait Regs extends AInterpreter {
 
     case RegRead(EReg(reg)) =>
       reg.v
+
+    case RegReset(EReg(reg), EBoolean(en)) =>
+      if (en)
+        reg.reset
       
     case RegWrite(EReg(reg), EAny(v), EBoolean(cond)) =>
       if (cond) {

@@ -20,7 +20,7 @@ class SingleCounterTests(c: SingleCounter) extends PeekPokeTester(c) {
   var expectedCount = 0
   var expectedDone = 0
 
-  val stops = List(96, 100, 200)
+  val stops = List(64)
   val strides = List(1, 6, 7)
   val starts = List(0, 5)
 

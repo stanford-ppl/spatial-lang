@@ -5,7 +5,7 @@ import chisel3._
 import Utils._
 import scala.collection.mutable.HashMap
 
-class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) extends Module {
+class Seqpipe(val n: Int, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -16,8 +16,8 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
       val forever = Input(Bool())
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
       // FSM signals
-      val nextState = Input(SInt(32.W))
-      val initState = Input(SInt(32.W))
+      val nextState = Input(SInt(stateWidth.W))
+      val initState = Input(SInt(stateWidth.W))
       val doneCondition = Input(Bool())
     }
     val output = new Bundle {
@@ -26,7 +26,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
       val rst_en = Output(Bool())
       val ctr_inc = Output(Bool())
       // FSM signals
-      val state = Output(SInt(32.W))
+      val state = Output(SInt(stateWidth.W))
     }
   })
 
@@ -140,7 +140,7 @@ class Seqpipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exten
     val state = stateFF.io.output.data.asSInt
 
     // FSM stuff 
-    val stateFSM = Module(new FF(32))
+    val stateFSM = Module(new FF(stateWidth))
     val doneReg = Module(new SRFF())
 
     stateFSM.io.input(0).data := io.input.nextState.asUInt
