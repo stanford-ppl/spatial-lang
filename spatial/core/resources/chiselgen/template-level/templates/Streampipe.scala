@@ -9,7 +9,7 @@ class Streampipe(override val n: Int, override val ctrDepth: Int = 1, override v
 
 
 // Inner pipe
-class Streaminner(val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
+class Streaminner(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
 
   // States
   val pipeInit = 0
