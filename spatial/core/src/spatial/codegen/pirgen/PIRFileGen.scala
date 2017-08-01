@@ -12,8 +12,7 @@ trait PIRFileGen extends FileGen {
   override protected def emitMain[S:Type](b: Block[S]): Unit = emitBlock(b)
 
   override protected def emitFileHeader() {
-    emit("import pir.graph")
-    emit("import pir.graph._")
+    emit("import pir.graph.{Mux =>_, _}")
     emit("import pir.codegen._")
     emit("import pir.plasticine.config._")
     emit("import pir.Design")

@@ -79,10 +79,10 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
         for (mem <- cu.mems) {
           dbgl(s"""$mem [${mem.mode}] (exp: ${mem.mem})""") {
             dbgs(s"""banking   = ${mem.banking.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""writePort    = ${mem.writePort.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""writePort    = ${mem.writePort.map(_.toString).mkString(",")}""")
             dbgs(s"""readPort    = ${mem.readPort.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""writeAddr = ${mem.writeAddr.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""readAddr  = ${mem.readAddr.map(_.toString).getOrElse("N/A")}""")
+            dbgs(s"""writeAddr = ${mem.writeAddr.map(_.toString).mkString(",")}""")
+            dbgs(s"""readAddr  = ${mem.readAddr.map(_.toString).mkString(",")}""")
             dbgs(s"""start     = ${mem.writeStart.map(_.toString).getOrElse("N/A")}""")
             dbgs(s"""end       = ${mem.writeEnd.map(_.toString).getOrElse("N/A")}""")
             dbgs(s"""producer = ${mem.producer.map(_.toString).getOrElse("N/A")}""")
@@ -334,7 +334,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
         mem.mode = VectorFIFOMode
     }
     mem.size = 1
-    mem.writePort = Some(bus)
+    mem.writePort += bus
     cu.memMap += reg -> mem
     mem
   }
@@ -349,24 +349,28 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     }
   }
 
-  def allocateLocals(cu:AbstractComputeUnit, x: Expr): List[LocalComponent] = x match {
-    case c if isConstant(c) => List(extractConstant(x))
-    case Def(FIFONumel(fifo)) => List(ConstReg(10)) //TODO: Add support for routing fifoNumel
-      //val readerCUs = getReaders(fifo).flatMap { reader =>
-        //getReaderCUs(reader)
-      //}
-      ////HACK: only use one of the reader for status
-      //val cu = readerCUs.head
-      //decompose(fifo).map { dfifo =>
-        //MemNumel(cu.memMap(dfifo))
-      //}.toList
-    case _ => List(TempReg(x))
-  }
-
-  def allocateLocal(cu:AbstractComputeUnit, x: Expr): LocalComponent = {
-    val locals = allocateLocals(cu, x)
-    assert(locals.size==1, s"More than 1 local allocated. Use allocateLocals")
-    locals.head
+  def allocateLocal(cu:AbstractComputeUnit, dx: Expr): LocalComponent = cu.getOrElseUpdate(dx) {
+    compose(dx) match {
+      case c if isConstant(c) => extractConstant(dx)
+      case Def(FIFONumel(fifo)) => 
+        val dfifo = decomposeWithFields(fifo) match {
+          case Left(exp) => exp
+          case Right(seq) => seq.filter{ case (field, exp) => field == getField(dx).get }.head
+        }
+        MemNumel(cu.memMap(dfifo))
+      case Def(RegNew(init)) =>
+        val dinit = decomposeWithFields(init)
+        val initExp = dinit match {
+          case Left(dinit) => dinit
+          case Right(seq) =>
+            val field = getField(dx).get
+            seq.filter{ case (f, e) => f == field }.head._2
+        }
+        val reg = TempReg(dx, getConstant(initExp))
+        dbgs(s"Allocate Reg with Init: $init -> $dinit $reg init=${reg.init}")
+        reg
+      case _ => TempReg(dx, None)
+    }
   }
 
   def copyIterators(destCU: AbstractComputeUnit, srcCU: AbstractComputeUnit): Map[CUCChain,CUCChain] = {

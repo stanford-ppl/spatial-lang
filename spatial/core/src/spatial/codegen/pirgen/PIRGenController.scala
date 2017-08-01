@@ -72,7 +72,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
   }
 
   def preallocateRegisters(cu: CU) = cu.regs.foreach{
-    case reg:TempReg        => emit(s"val ${quote(reg)} = CU.temp")
+    case reg:TempReg        => emit(s"val ${quote(reg)} = CU.temp(${reg.init})")
     //case reg@AccumReg(init) => emit(s"val ${quote(reg)} = CU.accum(init = ${quote(init)})")
     case reg:ControlReg if genControlLogic => emit(s"val ${quote(reg)} = CU.ctrl")
     case _ => // No preallocation
@@ -146,32 +146,22 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
       var ports = ""
 
-      mem.writePort match {
-        case Some(LocalVectorBus) => // Nothing?
-        case Some(LocalReadBus(vfifo)) => ports += s".wtPort(${quote(vfifo)}.readPort)" 
-        case Some(vec) => ports += s""".wtPort(${quote(vec)})"""
-        case None => ports += s""".wtPort(None)"""
+      mem.writePort.foreach {
+        case LocalVectorBus => // Nothing?
+        case LocalReadBus(vfifo) => ports += s".wtPort(${quote(vfifo)}.readPort)" 
+        case vec => ports += s""".wtPort(${quote(vec)})"""
         //case None => throw new Exception(s"Memory $mem has no writePort defined")
       }
-      mem.readPort match {
-        case Some(LocalVectorBus) => // Nothing?
-        case Some(vec) => ports += s""".rdPort(${quote(vec)})"""
-        case None if mem.isSRAM => throw new Exception(s"Memory $mem has no readPort defined")
-        case None => 
+      mem.readPort.foreach {
+        case vec => ports += s""".rdPort(${quote(vec)})"""
       }
-      mem.readAddr match {
-        case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".rdAddr(${quote(mem.readAddr.get)})"""
-        case Some(_:ReadAddrWire) =>
-        case None if !mem.isSRAM => // ok
-        case addr => ports += s""".rdAddr($addr)"""
-        //case addr => throw new Exception(s"Disallowed memory read address in $mem: $addr") //TODO
+      mem.readAddr.foreach {
+        case a@(_:CounterReg | _:ConstReg[_]) => ports += s""".rdAddr(${quote(a)})"""
+        case _ =>
       }
-      mem.writeAddr match {
-        case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".wtAddr(${quote(mem.writeAddr.get)})"""
-        case Some(_:WriteAddrWire | _:FeedbackAddrReg) =>
-        case None if !mem.isSRAM => // ok
-        case addr => ports += s""".wtAddr($addr)""" //TODO
-        //case addr => throw new Exception(s"Disallowed memory write address in $mem: $addr")
+      mem.writeAddr.foreach {
+        case a@(_:CounterReg | _:ConstReg[_]) => ports += s""".wtAddr(${quote(a)})"""
+        case _ =>
       }
       if (!mem.isSRAM) {
         mem.writeStart match {

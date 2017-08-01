@@ -33,18 +33,22 @@ package object pirgen {
     case _ => false
   }
 
-  @stateful def extractConstant(x: Expr): ConstReg[AnyVal] = x match {
-    case Const(c: BigDecimal) if c.isWhole => ConstReg(c.toInt)
-    case Const(c: BigDecimal) => ConstReg(c.toFloat)
-    case Const(c: Boolean) => ConstReg(c)
+  @stateful def getConstant(x: Expr): Option[AnyVal] = x match {
+    case Const(c: BigDecimal) if c.isWhole => Some(c.toInt)
+    case Const(c: BigDecimal) => Some(c.toFloat)
+    case Const(c: Boolean) => Some(c)
 
-    case Param(c: BigDecimal) if c.isWhole => ConstReg(c.toInt)
-    case Param(c: BigDecimal) => ConstReg(c.toFloat  )
-    case Param(c: Boolean) => ConstReg(c)
+    case Param(c: BigDecimal) if c.isWhole => Some(c.toInt)
+    case Param(c: BigDecimal) => Some(c.toFloat  )
+    case Param(c: Boolean) => Some(c)
 
-    case Final(c: BigInt)  => ConstReg(c.toInt)
+    case Final(c: BigInt)  => Some(c.toInt)
+    case _ => None
+  }
 
-    case _ => throw new Exception(s"Cannot allocate constant value for $x")
+  @stateful def extractConstant(x: Expr): ConstReg[AnyVal] = getConstant(x) match {
+    case Some(c) => ConstReg(c)
+    case None => throw new Exception(s"Cannot allocate constant value for $x")
   }
 
   private def collectX[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
@@ -385,11 +389,9 @@ package object pirgen {
     case Def(Hwblock(func,_)) => 1
     case Def(UnitPipe(en, func)) => 1
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
-      val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
-      par.asInstanceOf[Int]
+      getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
     case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
-      val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
-      par.asInstanceOf[Int]
+      getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
     case Def(Switch(body, selects, cases)) => getInnerPar(parentOf(n).get)
     case Def(SwitchCase(body)) => getInnerPar(parentOf(n).get)
     case Def(n:ParSRAMStore[_]) => n.ens.size

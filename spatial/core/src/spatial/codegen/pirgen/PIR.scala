@@ -161,7 +161,7 @@ case class AccumReg(init: ConstReg[_<:AnyVal]) extends ReduceMem[AccumReg] {
   override def toString = s"ar$id"
 }
 
-case class TempReg(x:Expr) extends LocalMem[TempReg] {
+case class TempReg(x:Expr, init:Option[Any]) extends LocalMem[TempReg] {
   override def toString = s"$x"
 }
 
@@ -218,10 +218,10 @@ case class CUMemory(name: String, mem: Expr, cu:AbstractComputeUnit) {
 
   // writePort either from bus or for sram can be from a vector FIFO
   //val writePort = mutable.ListBuffer[GlobalBus]()
-  var writePort: Option[GlobalBus] = None
+  var writePort = mutable.ListBuffer[GlobalBus]()
   var readPort: Option[GlobalBus] = None
-  var readAddr: Option[LocalComponent] = None
-  var writeAddr: Option[LocalComponent] = None
+  var readAddr = mutable.ListBuffer[LocalComponent]()
+  var writeAddr = mutable.ListBuffer[LocalComponent]()
 
   var writeStart: Option[LocalComponent] = None
   var writeEnd: Option[LocalComponent] = None
@@ -239,10 +239,13 @@ case class CUMemory(name: String, mem: Expr, cu:AbstractComputeUnit) {
     copy.size = this.size
     //copy.writePort.clear
     //copy.writePort ++= this.writePort
-    copy.writePort = this.writePort
+    copy.writePort.clear
+    copy.writePort ++= this.writePort
     copy.readPort = this.readPort
-    copy.readAddr = this.readAddr
-    copy.writeAddr = this.writeAddr
+    copy.readAddr.clear
+    copy.readAddr ++= this.readAddr
+    copy.writeAddr.clear
+    copy.writeAddr ++= this.writeAddr
     copy.writeStart = this.writeStart
     copy.producer = this.producer
     copy.consumer = this.consumer
