@@ -59,7 +59,7 @@ object utils {
 
   @internal def flatIndex(indices: Seq[Index], dims: Seq[Index]): Index = {
     val strides = List.tabulate(dims.length){d => Math.productTree(dims.drop(d+1)) }
-    Math.sumTree(indices.zip(strides).map{case (a,b) => a*b })
+    Math.sumTree(indices.zip(strides).map{case (a,b) => a.to[Index]*b })
   }
 
   def constDimsToStrides(dims: Seq[Int]): Seq[Int] = List.tabulate(dims.length){d => dims.drop(d + 1).product}

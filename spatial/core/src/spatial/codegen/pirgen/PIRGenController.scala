@@ -109,11 +109,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     close("}")
   }
 
-  def quoteInCounter(reg: LocalScalar) = reg match {
-    case reg@MemLoadReg(mem) => s"$mem.load"
-    case reg:ConstReg[_] => s"""${quote(reg)}"""
-  }
-
   def emitComponent(x: Any): Unit = x match {
     case CChainCopy(name, inst, owner) =>
       emit(s"""val $name = CounterChain.copy("${owner.name}", "$name")""")
@@ -128,21 +123,23 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
       emit(s"""val $name = CounterChain(name = "$name", Counter(Const(0), Const(1), Const(1), par=1)).iter(1l)""")
 
     case ctr@CUCounter(start, end, stride, par) =>
-      emit(s"""val ${ctr.name} = Counter(min=${quoteInCounter(start)}, max=${quoteInCounter(end)}, step=${quoteInCounter(stride)}, par=$par) // Counter""")
+      emit(s"""val ${ctr.name} = Counter(min=${quote(start)}, max=${quote(end)}, step=${quote(stride)}, par=$par) // Counter""")
 
     case mem: CUMemory =>
       dbgs(s"Emitting mem:$mem")
       val decl = mutable.ListBuffer[String]()
       val lhs = s"val ${mem.name} =" 
-      if (mem.cu.style.isInstanceOf[FringeCU]) {
-        decl += s"""name="${getField(mem.mem).get}""""
-      }
       if (mem.mode!=ScalarBufferMode) {
         decl += s"""size=${mem.size}"""
       }
+      if (mem.cu.style.isInstanceOf[FringeCU]) {
+        decl += s"""name="${getField(mem.mem).get}""""
+      } else {
+        decl += s"""name="${mem.name}""""
+      }
 
       mem.banking match {
-        case Some(banking) if mem.mode==SRAMMode => decl += s"banking = $banking"
+        case Some(banking) if mem.isSRAM => decl += s"banking = $banking"
         case Some(_) =>
         case None => //ScalarBuffer doesn't have banking
       }
@@ -159,30 +156,30 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
       mem.readPort match {
         case Some(LocalVectorBus) => // Nothing?
         case Some(vec) => ports += s""".rdPort(${quote(vec)})"""
-        case None if mem.mode==SRAMMode => throw new Exception(s"Memory $mem has no readPort defined")
+        case None if mem.isSRAM => throw new Exception(s"Memory $mem has no readPort defined")
         case None => 
       }
       mem.readAddr match {
         case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".rdAddr(${quote(mem.readAddr.get)})"""
         case Some(_:ReadAddrWire) =>
-        case None if mem.mode != SRAMMode => // ok
+        case None if !mem.isSRAM => // ok
         case addr => ports += s""".rdAddr($addr)"""
         //case addr => throw new Exception(s"Disallowed memory read address in $mem: $addr") //TODO
       }
       mem.writeAddr match {
         case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".wtAddr(${quote(mem.writeAddr.get)})"""
         case Some(_:WriteAddrWire | _:FeedbackAddrReg) =>
-        case None if mem.mode != SRAMMode => // ok
+        case None if !mem.isSRAM => // ok
         case addr => ports += s""".wtAddr($addr)""" //TODO
         //case addr => throw new Exception(s"Disallowed memory write address in $mem: $addr")
       }
-      if (mem.mode != SRAMMode) {
+      if (!mem.isSRAM) {
         mem.writeStart match {
-          case Some(start) => ports += s""".wtStart(${quoteInCounter(start)})"""
+          case Some(start) => ports += s""".wtStart(${quote(start)})"""
           case _ =>
         }
         mem.writeEnd match {
-          case Some(end) => ports += s""".wtEnd(${quoteInCounter(end)})"""
+          case Some(end) => ports += s""".wtEnd(${quote(end)})"""
           case _ =>
         }
       }
@@ -206,8 +203,9 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
   def emitFringeVectors(cu:ComputeUnit) = {
     if (isFringe(cu.pipe)) {
-      cu.fringeVectors.foreach { case (field, vec) =>
-        emit(s"""CU.newVout("$field", ${quote(vec)})""")
+      cu.fringeGlobals.foreach { 
+        case (field, bus:ScalarBus) => emit(s"""CU.newSout("$field", ${quote(bus)})""")
+        case (field, bus:VectorBus) => emit(s"""CU.newVout("$field", ${quote(bus)})""")
       }
     }
   }
@@ -256,7 +254,8 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case ReadAddrWire(mem)       => s"${quote(mem)}.readAddr"       // Read address wire
     case FeedbackAddrReg(mem)    => s"wr${reg.id}"                  // Local write address register
     case FeedbackDataReg(mem)    => quote(mem)                      // Local write data register
-    case MemLoadReg(mem)        => quote(mem)                      // SRAM read
+    case MemLoadReg(mem)        => s"$reg"                      // SRAM read
+    case MemNumel(mem)        => s"${reg}"                      // Mem number of element
 
     case reg:ReduceReg           => s"rr${reg.id}"                  // Reduction register
     case reg:AccumReg            => s"ar${reg.id}"                  // After preallocation
@@ -284,7 +283,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case LocalRef(stage, reg: AccumReg)    => s"CU.accum(${quote(reg)})"
     case LocalRef(stage, reg: TempReg)     => s"${quote(reg)}"
     case LocalRef(stage, reg: ControlReg)  => s"CU.ctrl(${quote(reg)})"
-    case LocalRef(stage, reg: MemLoadReg) => s"CU.load(${quote(reg)})"
+    case LocalRef(stage, reg@MemLoadReg(mem)) => s"CU.load(${quote(mem)})"
 
     case LocalRef(stage, reg: ScalarIn)  => s"CU.scalarIn(${quote(reg)})"
     case LocalRef(stage, reg: ScalarOut) => s"CU.scalarOut(${quote(reg)})"

@@ -32,6 +32,35 @@ case class DiagonalMemory(strides: Seq[Int], banks: Int, depth: Int, isAccum: Bo
 }
 
 /**
+  * Metadata for which bank a access belongs to
+  */
+case class Banks(banks: Seq[List[Int]]) extends Metadata[Banks] { def mirror(f:Tx) = this } //TODO
+@data object banksOf {
+
+  /*
+   * Get all bank mapping for this access for the given memory and access
+   * @return a Seq of all possible bank indices for BankedMemory for each dimension
+   * @return a Seq of a single List of possible bank indices for diagonal banking
+   * */ 
+  def apply(access: Exp[_], mem: Exp[_], idx: Int): Seq[List[Int]] = {
+    metadata[Banks](mem).map(_.banks).getOrElse {
+      // Default worst case: all banks
+      val duplicates = duplicatesOf(mem)
+      duplicates(idx) match {
+        case BankedMemory(dims, depth, isAccum) => dims.map { 
+          case StridedBanking(stride, banks, isOuter) => (0 until banks).toList
+          case NoBanking => List(0) 
+        }
+        case DiagonalMemory(strides, banks, depth, isAccum) => Seq((0 until banks).toList)
+      }
+    }
+  } 
+  def update(access: Exp[_], mem: Exp[_], idx: Int, banks:Seq[List[Int]]) = {
+    metadata.add(access, Banks(banks)) //TODO: fix this
+  }
+}
+
+/**
   * Metadata for duplicates of a single coherent scratchpad.
   */
 case class Duplicates(dups: Seq[Memory]) extends Metadata[Duplicates] { def mirror(f:Tx) = this }

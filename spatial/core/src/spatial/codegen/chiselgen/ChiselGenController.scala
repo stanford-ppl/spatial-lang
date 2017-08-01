@@ -352,14 +352,39 @@ trait ChiselGenController extends ChiselGenCounter{
           case Def(CounterNew(start, end, step, par)) => 
             val w = cchainWidth(ctr)
             (start, end, step, par) match {
+              /*
+                  (e - s) / (st * p) + Mux( (e - s) % (st * p) === 0, 0, 1)
+                     1          1              1          1    
+                          1                         1
+                          .                                     1
+                          .            1
+                                     1
+                  Issue # 199           
+              */
               case (Exact(s), Exact(e), Exact(st), Exact(p)) => 
-                emit(src"""val ${sym}_level${i}_iters = ((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) / (${st}.S(${32 min 2*w}.W) * ${p}.S(${32 min 2*w}.W))).asUInt + Mux((((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) % (${st}.S(${32 min 2*w}.W) * ${p}.S(${32 min 2*w}.W))).asUInt === 0.U), 0.U, 1.U)""")
+                emit(src"val ${sym}${i}_range = ShiftRegister(${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W), 1)")
+                emit(src"val ${sym}${i}_jump = ShiftRegister(${st}.S(${32 min 2*w}.W) * ${p}.S(${32 min 2*w}.W), 1)")
+                emit(src"val ${sym}${i}_hops = ShiftRegister((${sym}${i}_range / ${sym}${i}_jump).asUInt, 3)")
+                emit(src"val ${sym}${i}_leftover = ShiftRegister(${sym}${i}_range % ${sym}${i}_jump, 1)")
+                emit(src"val ${sym}${i}_evenfit = ShiftRegister(${sym}${i}_leftover.asUInt === 0.U, 1)")
+                emit(src"val ${sym}${i}_adjustment = ShiftRegister(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
               case (Exact(s), Exact(e), _, Exact(p)) => 
                 emit("// TODO: Figure out how to make this one cheaper!")
-                emit(src"""val ${sym}_level${i}_iters = ((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) / (${step} * ${p}.S(${w}.W))).asUInt + Mux((((${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W)) % (${step} * ${p}.S(${32 min 2*w}.W))).asUInt === 0.U), 0.U, 1.U)""")
+                emit(src"val ${sym}${i}_range = ShiftRegister(${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W), 1)")
+                emit(src"val ${sym}${i}_jump = ShiftRegister(${step} * ${p}.S(${w}.W), 1)")
+                emit(src"val ${sym}${i}_hops = ShiftRegister((${sym}${i}_range / ${sym}${i}_jump).asUInt, 3)")
+                emit(src"val ${sym}${i}_leftover = ShiftRegister(${sym}${i}_range % ${sym}${i}_jump, 1)")
+                emit(src"val ${sym}${i}_evenfit = ShiftRegister(${sym}${i}_leftover.asUInt === 0.U, 1)")
+                emit(src"val ${sym}${i}_adjustment = ShiftRegister(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
               case _ => 
-                emit(src"""val ${sym}_level${i}_iters = (${end} - ${start}) / (${step} * ${par}) + Mux(( ((${end} - ${start}) % (${step} * ${par})) === 0.U), 0.U, 1.U)""")
+                emit(src"val ${sym}${i}_range = ShiftRegister(${end} - ${start}, 1)")
+                emit(src"val ${sym}${i}_jump = ShiftRegister(${step} * ${par}, 1)")
+                emit(src"val ${sym}${i}_hops = ShiftRegister(${sym}${i}_range / ${sym}${i}_jump, 3)")
+                emit(src"val ${sym}${i}_leftover = ShiftRegister(${sym}${i}_range % ${sym}${i}_jump, 1)")
+                emit(src"val ${sym}${i}_evenfit = ShiftRegister(${sym}${i}_leftover === 0.U, 1)")
+                emit(src"val ${sym}${i}_adjustment = ShiftRegister(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
             }
+            emit(src"""val ${sym}_level${i}_iters = ShiftRegister(${sym}${i}_hops + ${sym}${i}_adjustment, 1)""")
             src"${sym}_level${i}_iters"
           case Def(Forever()) =>
             hasForever = true
@@ -398,8 +423,9 @@ trait ChiselGenController extends ChiselGenCounter{
     }
 
     val stw = sym match{case Def(StateMachine(_,_,_,_,_,s)) => bitWidth(s.tp); case _ => 32}
+    val ctrdepth = if (cchain.isDefined) {cchain.get match {case Def(CounterChainNew(ctrs)) => ctrs.length; case _ => 0}} else 0
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
-    emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, stateWidth = ${stw}, retime = ${sym}_retime))")
+    emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${sym}_retime))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
     if (isFSM) {
       emit(src"""${sym}_done := (${sym}_sm.io.output.done & ~${sym}_inhibitor.D(2,rr)).D(${sym}_retime,rr)""")      
@@ -412,8 +438,10 @@ trait ChiselGenController extends ChiselGenCounter{
 
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
       emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_ctr_trivial // Immediate parent has forever counter, so never mask out datapath_en""")    
-    } else if ((isStreamChild(sym) & hasStreamIns & cchain.isDefined) | isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
+    } else if ((isStreamChild(sym) & hasStreamIns & cchain.isDefined)) { // for FSM or hasStreamIns, tie en directly to datapath_en
       emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial ${getNowValidLogic(sym)}""")  
+    } else if (isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
+      emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial & ~${sym}_sm.io.output.done ${getNowValidLogic(sym)}""")  
     } else if ((isStreamChild(sym) & hasStreamIns)) { // _done used to be commented out but I'm not sure why
       emit(src"""${sym}_datapath_en := ${sym}_en & ~${sym}_done & ~${sym}_ctr_trivial ${getNowValidLogic(sym)} """)  
     } else {
@@ -496,8 +524,10 @@ trait ChiselGenController extends ChiselGenCounter{
         if (smStr == "Streampipe" & cchain.isDefined) {
           emitGlobalWire(src"""val ${cchain.get}_copy${c}_en = Wire(Bool())""") 
           val Def(CounterChainNew(ctrs)) = cchain.get
+          val stream_respeck = c match {case Def(UnitPipe(_,_)) => getNowValidLogic(c); case _ => ""}
           emitCounterChain(cchain.get, ctrs, src"_copy$c")
-          emit(src"""${cchain.get}_copy${c}_en := ${c}_done""")
+          val inhibit_respeck = if (levelOf(c) == InnerControl & stream_respeck.replace(" ","") != "") src"& ~${c}_inhibitor /*brilliantly ugly hack for tensor5d*/" else ""
+          emit(src"""${cchain.get}_copy${c}_en := ${c}_done ${stream_respeck} ${inhibit_respeck}""")
           emit(src"""${cchain.get}_copy${c}_resetter := ${sym}_sm.io.output.rst_en""")
         }
         emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")

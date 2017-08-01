@@ -813,8 +813,8 @@ launch_tests() {
   logger "Killing old screen sessions"
   screen -ls | grep "${branch}_${type_todo}" | cut -d. -f1 | awk '{print $1}' | xargs kill
   screen -wipe
-  logger "Killing maxeleros (?) jobs"
-  ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | awk '{system("kill -9 " $2)}'
+  # logger "Killing maxeleros (?) jobs"
+  # ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | awk '{system("kill -9 " $2)}'
 
   IFS=$'\n'
   # Collect the regression tests by searching for "// Regression (<type>)" tags
