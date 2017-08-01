@@ -85,19 +85,26 @@ trait ScopeCheck extends SpatialTraversal {
         }
       }
 
+    case RegNew(init) =>
+      if (!isGlobal(init)) {
+        error(lhs.ctx, u"Register $lhs has invalid reset value.")
+        error("Reset values of registers must be constants.")
+        error(lhs.ctx)
+      }
+
     case Switch(body,selects,cases) =>
       val contents = blockContents(body).flatMap(_.lhs).map(_.asInstanceOf[Exp[_]])
       val missing = cases.toSet diff contents.toSet
       val extra   = contents.toSet diff cases.toSet
       if (extra.nonEmpty) {
-        error(c"Switch ${str(lhs)} had extra statements: ")
-        extra.foreach{c => error(c"  ${str(c)}")}
-        error(lhs.ctx)
+        bug(c"Switch ${str(lhs)} had extra statements: ")
+        extra.foreach{c => bug(c"  ${str(c)}")}
+        bug(lhs.ctx)
       }
       if (missing.nonEmpty) {
-        error(c"Switch ${str(lhs)} was missing statements: ")
-        missing.foreach{c => error(c"  ${str(c)}")}
-        error(lhs.ctx)
+        bug(c"Switch ${str(lhs)} was missing statements: ")
+        missing.foreach{c => bug(c"  ${str(c)}")}
+        bug(lhs.ctx)
       }
 
     case _ => super.visit(lhs, rhs)

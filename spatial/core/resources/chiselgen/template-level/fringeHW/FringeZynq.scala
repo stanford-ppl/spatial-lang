@@ -19,7 +19,10 @@ class FringeZynq(
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
-  val streamOutsInfo: List[StreamParInfo]
+  val streamOutsInfo: List[StreamParInfo],
+  val blockingDRAMIssue: Boolean,
+  val axiLiteParams: AXI4BundleParameters,
+  val axiParams: AXI4BundleParameters
 ) extends Module {
   val numRegs = numArgIns + numArgOuts + numArgIOs + 2  // (command, status registers)
   val addrWidth = log2Up(numRegs)
@@ -33,8 +36,6 @@ class FringeZynq(
   val burstSizeBytes = 64
   val d = 16 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
 
-  val axiLiteParams = new AXI4BundleParameters(w, w, 1)
-  val axiParams = new AXI4BundleParameters(w, 512, 5)
   val io = IO(new Bundle {
     // Host scalar interface
     val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
@@ -53,25 +54,32 @@ class FringeZynq(
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
 
+    // External enable
+    val externalEnable = Input(Bool()) // For AWS, enable comes in as input to top module
+
     // Accel stream IO
-    val genericStreams = new GenericStreams(streamInsInfo, streamOutsInfo)
+//    val genericStreams = new GenericStreams(streamInsInfo, streamOutsInfo)
   })
 
   val totalArgOuts = numArgOuts + 1 + 16
 
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, totalArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
 
   // AXI-lite bridge
-  val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
-  axiLiteBridge.io.S_AXI <> io.S_AXI
+  if (FringeGlobals.target == "zynq") {
+    val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
+    axiLiteBridge.io.S_AXI <> io.S_AXI
 
-  fringeCommon.reset := ~reset
-  fringeCommon.io.raddr := axiLiteBridge.io.raddr
-  fringeCommon.io.wen   := axiLiteBridge.io.wen
-  fringeCommon.io.waddr := axiLiteBridge.io.waddr
-  fringeCommon.io.wdata := axiLiteBridge.io.wdata
-  axiLiteBridge.io.rdata := fringeCommon.io.rdata
+    fringeCommon.reset := ~reset
+    fringeCommon.io.raddr := axiLiteBridge.io.raddr
+    fringeCommon.io.wen   := axiLiteBridge.io.wen
+    fringeCommon.io.waddr := axiLiteBridge.io.waddr
+    fringeCommon.io.wdata := axiLiteBridge.io.wdata
+    axiLiteBridge.io.rdata := fringeCommon.io.rdata
+  }
+
+  fringeCommon.io.aws_top_enable := io.externalEnable
 
   io.enable := fringeCommon.io.enable
   fringeCommon.io.done := io.done
@@ -84,21 +92,7 @@ class FringeZynq(
   io.memStreams <> fringeCommon.io.memStreams
 
   // AXI bridge
-  val axiBridge = Module(new MAGToAXI4Bridge(w, 512))
+  val axiBridge = Module(new MAGToAXI4Bridge(axiParams, fringeCommon.mag.tagWidth))
   axiBridge.io.in <> fringeCommon.io.dram
   io.M_AXI <> axiBridge.io.M_AXI
-}
-
-object FringeZynq {
-  val w = 32
-  val numArgIns = 5
-  val numArgOuts = 1
-  val numArgIOs = 1
-  val loadStreamInfo = List[StreamParInfo]()
-  val storeStreamInfo = List[StreamParInfo]()
-  val streamInsInfo = List[StreamParInfo]()
-  val streamOutsInfo = List[StreamParInfo]()
-  def main(args: Array[String]) {
-    Driver.execute(Array[String]("--target-dir", "chisel_out/FringeZynq"), () => new FringeZynq(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
-  }
 }

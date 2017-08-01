@@ -19,9 +19,9 @@ trait ScalaGenStream extends ScalaGenMemories {
 
   // HACK
   def bitsFromString(lhs: String, line: String, tp: Type[_]): Unit = tp match {
-    case FixPtType(s,i,f)  => emit(s"val $lhs = Number($line, FixedPoint($s,$i,$f))")
-    case FltPtType(g,e)    => emit(s"val $lhs = Number($line, FloatPoint($g,$e))")
-    case BooleanType()     => emit(s"val $lhs = Bit($line.toBoolean, true)")
+    case FixPtType(s,i,f)  => emit(s"val $lhs = FixedPoint($line, FixFormat($s,$i,$f))")
+    case FltPtType(g,e)    => emit(s"val $lhs = FixedPoint($line, FltFormat(${g-1},$e))")
+    case BooleanType()     => emit(s"val $lhs = Bool($line.toBoolean, true)")
     case tp: VectorType[_] =>
       open(s"""val $lhs = $line.split(",").map(_.trim).map{elem => """)
         bitsFromString("out", "elem", tp.child)
@@ -67,8 +67,10 @@ trait ScalaGenStream extends ScalaGenMemories {
           open(src"try {")
             emit(src"val source = scala.io.Source.fromFile(filename)")
             open(src"source.getLines.foreach{line => ")
-              bitsFromString("elem", "line", op.mT)
-              emit(src"$lhs.enqueue(elem)")
+              open(src"if (line.exists(_.isDigit)) {")
+                bitsFromString("elem", "line", op.mT)
+                emit(src"$lhs.enqueue(elem)")
+              close("}")
             close("}")
           close("}")
           open(src"catch {case e: Throwable => ")

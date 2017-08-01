@@ -1,46 +1,56 @@
 package templates
 
+import util._
 import chisel3._
-import chisel3.util
+import chisel3.util._
+
 import scala.collection.mutable.HashMap
 
 sealed trait BankingMode
 object DiagonalMemory extends BankingMode
 object BankedMemory extends BankingMode
 
-class flatW(val w: Int) extends Bundle {
-  val addr = UInt(32.W)
+class flatW(val a: Int, val w: Int) extends Bundle {
+  val addr = UInt(a.W)
   val data = UInt(w.W)
   val en = Bool()
 
-  override def cloneType = (new flatW(w)).asInstanceOf[this.type] // See chisel3 bug 358
+  override def cloneType = (new flatW(a, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
-class flatR(val w: Int) extends Bundle {
-  val addr = UInt(32.W)
+class flatR(val a:Int, val w: Int) extends Bundle {
+  val addr = UInt(a.W)
   val en = Bool()
 
-  override def cloneType = (new flatR(w)).asInstanceOf[this.type] // See chisel3 bug 358
+  override def cloneType = (new flatR(a, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
-class multidimW(val N: Int, val w: Int) extends Bundle {
-  val addr = Vec(N, UInt(32.W))
+class multidimW(val N: Int, val dims: List[Int], val w: Int) extends Bundle {
+  assert(N == dims.length)
+  // val addr = Vec(N, UInt(32.W))
+  val addr = HVec.tabulate(N){i => UInt((Utils.log2Up(dims(i))).W)}
+  // val addr = dims.map{d => UInt((Utils.log2Up(d)).W)}
   val data = UInt(w.W)
   val en = Bool()
 
-  override def cloneType = (new multidimW(N, w)).asInstanceOf[this.type] // See chisel3 bug 358
+  override def cloneType = (new multidimW(N, dims, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
-class multidimR(val N: Int, val w: Int) extends Bundle {
-  val addr = Vec(N, UInt(32.W))
+class multidimR(val N: Int, val dims: List[Int], val w: Int) extends Bundle {
+  assert(N == dims.length)
+  // val addr = Vec(N, UInt(32.W))
+  val addr = HVec.tabulate(N){i => UInt((Utils.log2Up(dims(i))).W)}
+  // val addr = dims.map{d => UInt((Utils.log2Up(d)).W)}
   val en = Bool()
   
-  override def cloneType = (new multidimR(N, w)).asInstanceOf[this.type] // See chisel3 bug 358
+  override def cloneType = (new multidimR(N, dims, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 
-class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int = 32) extends Module { // Unbanked, inner 1D mem
-  def this(size: Int) = this(size, true)
+class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int) extends Module { // Unbanked, inner 1D mem
+  def this(size: Int) = this(size, true, 32)
+
+  val addrWidth = Utils.log2Up(size)
 
   val io = IO( new Bundle {
-    val w = Input(new flatW(bitWidth))
-    val r = Input(new flatR(bitWidth))
+    val w = Input(new flatW(addrWidth, bitWidth))
+    val r = Input(new flatR(addrWidth, bitWidth))
     val output = new Bundle {
       val data  = Output(UInt(bitWidth.W))
     }
@@ -82,11 +92,12 @@ class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int = 32) extends Modu
 class MemND(val dims: List[Int], bitWidth: Int = 32) extends Module { 
   val depth = dims.reduce{_*_} // Size of memory
   val N = dims.length // Number of dimensions
+  val addrWidth = dims.map{Utils.log2Up(_)}.max
 
   val io = IO( new Bundle {
-    val w = Input(new multidimW(N, bitWidth))
+    val w = Input(new multidimW(N, dims, bitWidth))
     val wMask = Input(Bool())
-    val r = Input(new multidimR(N, bitWidth))
+    val r = Input(new multidimR(N, dims, bitWidth))
     val rMask = Input(Bool())
     val output = new Bundle {
       val data  = Output(UInt(bitWidth.W))
@@ -100,7 +111,7 @@ class MemND(val dims: List[Int], bitWidth: Int = 32) extends Module {
   })
 
   // Instantiate 1D mem
-  val m = Module(new Mem1D(depth,true, bitWidth = bitWidth))
+  val m = Module(new Mem1D(depth,true, bitWidth))
 
   // Address flattening
   m.io.w.addr := io.w.addr.zipWithIndex.map{ case (addr, i) =>
@@ -157,13 +168,14 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
 
   val depth = logicalDims.reduce{_*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
+  val addrWidth = logicalDims.map{Utils.log2Up(_)}.max
 
   val io = IO( new Bundle {
     // TODO: w bundle gets forcefully generated as output in verilog
     //       so the only way to make it an input seems to flatten the
     //       Vec(numWriters, Vec(wPar, _)) to a 1D vector and then reconstruct it
-    val w = Vec(wPar.reduce{_+_}, Input(new multidimW(N, bitWidth)))
-    val r = Vec(rPar.reduce{_+_},Input(new multidimR(N, bitWidth))) // TODO: Spatial allows only one reader per mem
+    val w = Vec(wPar.reduce{_+_}, Input(new multidimW(N, logicalDims, bitWidth)))
+    val r = Vec(rPar.reduce{_+_},Input(new multidimR(N, logicalDims, bitWidth))) // TODO: Spatial allows only one reader per mem
     val output = new Bundle {
       val data  = Vec(rPar.reduce{_+_}, Output(UInt(bitWidth.W)))
     }
@@ -198,7 +210,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
   // Convert selectedWVec to translated physical addresses
   val wConversions = io.w.map{ wbundle => 
     // Writer conversion
-    val convertedW = Wire(new multidimW(N,bitWidth))
+    val convertedW = Wire(new multidimW(N,logicalDims,bitWidth))
     val physicalAddrs = bankingMode match {
       case DiagonalMemory => wbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical / banks.head.U else logical}
       case BankedMemory => wbundle.addr.zip(banks).map{ case (logical, b) => logical / b.U }
@@ -220,7 +232,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
 
   val rConversions = io.r.map{ rbundle => 
     // Reader conversion
-    val convertedR = Wire(new multidimR(N,bitWidth))
+    val convertedR = Wire(new multidimR(N,logicalDims,bitWidth))
     val physicalAddrs = bankingMode match {
       case DiagonalMemory => rbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical / banks.head.U else logical}
       case BankedMemory => rbundle.addr.zip(banks).map{ case (logical, b) => logical / b.U }
@@ -310,7 +322,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
 }
 
 
-class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, /*TODO: width, get rid of this!*/
+class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
            val banks: List[Int], val strides: List[Int], 
            val wPar: List[Int], val rPar: List[Int], 
            val wBundling: List[Int], val rBundling: List[Int], val bPar: List[Int], val bankingMode: BankingMode) extends Module { 
@@ -332,6 +344,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
 
   val depth = logicalDims.reduce{_*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
+  val addrWidth = logicalDims.map{Utils.log2Up(_)}.max
 
   val wHashmap = wPar.zip(wBundling).groupBy{_._2}
   val rHashmap = rPar.zip(rBundling).groupBy{_._2}
@@ -339,9 +352,9 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   val io = IO( new Bundle {
     val sEn = Vec(numBufs, Input(Bool()))
     val sDone = Vec(numBufs, Input(Bool()))
-    val w = Vec(wPar.reduce{_+_}, Input(new multidimW(N, bitWidth)))
-    val broadcast = Vec(bPar.reduce{_+_}, Input(new multidimW(N, bitWidth)))
-    val r = Vec(rPar.reduce{_+_},Input(new multidimR(N, bitWidth))) // TODO: Spatial allows only one reader per mem
+    val w = Vec(wPar.reduce{_+_}, Input(new multidimW(N, logicalDims, bitWidth)))
+    val broadcast = Vec(bPar.reduce{_+_}, Input(new multidimW(N, logicalDims, bitWidth)))
+    val r = Vec(rPar.reduce{_+_},Input(new multidimR(N, logicalDims, bitWidth))) // TODO: Spatial allows only one reader per mem
     val output = new Bundle {
       val data  = Vec(numBufs * maxR, Output(UInt(bitWidth.W)))  
     }
@@ -392,7 +405,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
 
   val statesInW = wHashmap.map { t =>
-    val c = Module(new NBufCtr())
+    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
     c.io.input.start := (t._1).U
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -400,7 +413,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
     (t._1 -> c)
   }
   val statesInR = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr())
+    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
     c.io.input.start := i.U 
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -409,7 +422,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
   }
 
   val statesOut = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr())
+    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
     c.io.input.start := i.U 
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -423,10 +436,10 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
       val base = if (t._1 == 0) 0 else (0 until t._1).map{ii => wHashmap.getOrElse(ii, List((0,0))).map{_._1}.reduce{_+_}}.reduce{_+_}
       val wMask = statesInW(t._1).io.output.count === i.U
       (0 until pars).foreach{ k =>
-        val masked_w = Wire(new multidimW(N, bitWidth))
+        val masked_w = Wire(new multidimW(N, logicalDims, bitWidth))
         masked_w.en := io.w(base+k).en & wMask
         masked_w.data := io.w(base+k).data
-        masked_w.addr := io.w(base+k).addr
+        (0 until N).foreach{i => masked_w.addr(i) := io.w(base+k).addr(i)}
         f.io.w(base+k) := masked_w
       }
     }
@@ -452,7 +465,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
           rHashmap.getOrElse(q,List((0,0))).map{_._1}.reduce{_+_}
           }.reduce{_+_}
           } else {0}
-        val dummy_r = Wire(new multidimR(N,bitWidth))
+        val dummy_r = Wire(new multidimR(N,logicalDims,bitWidth))
         dummy_r.en := false.B
         if (lane < size) {io.r(base + lane)} else dummy_r
       }
@@ -547,7 +560,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
 
 
 
-class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, /*TODO: width, get rid of this!*/
+class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
            val banks: List[Int], val strides: List[Int], 
            val wPar: List[Int], val rPar: List[Int], 
            val wBundling: List[Int], val rBundling: List[Int], val bPar: List[Int], val bankingMode: BankingMode) extends Module { 
@@ -570,6 +583,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
 
   val depth = logicalDims.reduce{_*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
+  val addrWidth = logicalDims.map{Utils.log2Up(_)}.max
 
   val wHashmap = wPar.zip(wBundling).groupBy{_._2}
   val rHashmap = rPar.zip(rBundling).groupBy{_._2}
@@ -577,8 +591,8 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   val io = IO( new Bundle {
     val sEn = Vec(numBufs, Input(Bool()))
     val sDone = Vec(numBufs, Input(Bool()))
-    val w = Vec(wPar.reduce{_+_}, Input(new multidimW(N, bitWidth)))
-    val r = Vec(rPar.reduce{_+_},Input(new multidimR(N, bitWidth))) // TODO: Spatial allows only one reader per mem
+    val w = Vec(wPar.reduce{_+_}, Input(new multidimW(N, logicalDims, bitWidth)))
+    val r = Vec(rPar.reduce{_+_},Input(new multidimR(N, logicalDims, bitWidth))) // TODO: Spatial allows only one reader per mem
     val output = new Bundle {
       val data  = Vec(numBufs * maxR, Output(UInt(bitWidth.W)))  
     }
@@ -629,7 +643,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
 
   val statesInW = wHashmap.map { t =>
-    val c = Module(new NBufCtr())
+    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
     c.io.input.start := (t._1).U
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -637,7 +651,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
     (t._1 -> c)
   }
   val statesInR = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr())
+    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
     c.io.input.start := i.U 
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -646,7 +660,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   }
 
   val statesOut = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr())
+    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
     c.io.input.start := i.U 
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -660,10 +674,10 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
       val base = if (t._1 == 0) 0 else (0 until t._1).map{ii => wHashmap.getOrElse(ii, List((0,0))).map{_._1}.reduce{_+_}}.reduce{_+_}
       val wMask = statesInW(t._1).io.output.count === i.U
       (0 until pars).foreach{ k =>
-        val masked_w = Wire(new multidimW(N, bitWidth))
+        val masked_w = Wire(new multidimW(N, logicalDims, bitWidth))
         masked_w.en := io.w(base+k).en & wMask
         masked_w.data := io.w(base+k).data
-        masked_w.addr := io.w(base+k).addr
+        (0 until N).foreach{i => masked_w.addr(i) := io.w(base+k).addr(i)}
         f.io.w(base+k) := masked_w
       }
     }
@@ -686,7 +700,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
           rHashmap.getOrElse(q,List((0,0))).map{_._1}.reduce{_+_}
           }.reduce{_+_}
           } else {0}
-        val dummy_r = Wire(new multidimR(N,bitWidth))
+        val dummy_r = Wire(new multidimR(N,logicalDims,bitWidth))
         dummy_r.en := false.B
         if (lane < size) {io.r(base + lane)} else dummy_r
       }

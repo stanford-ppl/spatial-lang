@@ -26,8 +26,11 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
   }
 
   def getReadStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
-    val read = localMems.filter{mem => readersOf(mem).exists(_.ctrlNode == ctrl) }.filter{mem => isStreamIn(mem) || isFIFO(mem) } ++ childrenOf(ctrl).flatMap(getReadStreamsAndFIFOs)
-    read //diff getWrittenStreamsAndFIFOs(ctrl) // Don't also wait for things we're writing to
+    val read = localMems.filter{mem => readersOf(mem).exists(_.ctrlNode == ctrl) }
+                        .filter{mem => isStreamIn(mem) || isFIFO(mem) } ++ childrenOf(ctrl).flatMap(getReadStreamsAndFIFOs)
+
+    read.filter{case Def(StreamInNew(bus)) => !bus.isInstanceOf[DRAMBus[_]]; case _ => true}
+    //read //diff getWrittenStreamsAndFIFOs(ctrl) // Don't also wait for things we're writing to
   }
 
   def isStreaming(ctrl: Exp[_]): Boolean = {
@@ -42,7 +45,8 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
 
         if (isChild) {
           val child = stm.lhs.head
-          val inputs = getReadStreamsAndFIFOs(child)
+          val contents = blockNestedContents(block).flatMap(_.lhs)
+          val inputs = getReadStreamsAndFIFOs(child) diff contents  // Don't check things we declare inside
           if (inputs.nonEmpty) {
             // HACK: Run streaming children to completion (exhaust inputs) before moving on to the next
             // Note that this won't work for cases with feedback, but this is disallowed for now anyway

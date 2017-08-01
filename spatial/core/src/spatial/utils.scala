@@ -59,7 +59,7 @@ object utils {
 
   @internal def flatIndex(indices: Seq[Index], dims: Seq[Index]): Index = {
     val strides = List.tabulate(dims.length){d => Math.productTree(dims.drop(d+1)) }
-    Math.sumTree(indices.zip(strides).map{case (a,b) => a*b })
+    Math.sumTree(indices.zip(strides).map{case (a,b) => a.to[Index]*b })
   }
 
   def constDimsToStrides(dims: Seq[Int]): Seq[Int] = List.tabulate(dims.length){d => dims.drop(d + 1).product}
@@ -69,11 +69,11 @@ object utils {
     */
   // TODO: This uses the pointer-chasing version of scheduling - could possibly make faster?
   implicit class ExpOps(x: Exp[_]) {
-    @stateful def dependsOn(y: Exp[_]): Boolean = {
-      def dfs(frontier: Seq[Exp[_]]): Boolean = frontier.exists{
-        case s if s == y => true
-        case Def(d) => dfs(d.inputs)
-        case _ => false
+    @stateful def dependsOn(y: Exp[_], scope: Seq[Stm] = Nil): Boolean = {
+      val scp = scope.flatMap(_.lhs.asInstanceOf[Seq[Exp[_]]]).toSet
+
+      def dfs(frontier: Seq[Exp[_]]): Boolean = frontier.exists{x =>
+        (scp.isEmpty || scp.contains(x)) && (x == y || getDef(x).exists{d => dfs(d.inputs) })
       }
       dfs(Seq(x))
     }
@@ -160,10 +160,10 @@ object utils {
         val dist  = if (aToB >= 0) aToB
                     else if (bToA >= 0) -bToA
                     else throw new UndefinedPipeDistanceException(a, b)*/
-        dbg(c"    LCA: " + parent)
-        dbg(c"    LCA children: " + childrenOf(parent).mkString(", "))
-        dbg(c"    Path A (from $a): " + pathA.mkString(", ") + s": topA = $topA")
-        dbg(c"    Path B (from $b): " + pathB.mkString(", ") + s": topB = $topB")
+        log(c"    LCA: " + parent)
+        log(c"    LCA children: " + childrenOf(parent).mkString(", "))
+        log(c"    Path A (from $a): " + pathA.mkString(", ") + s": topA = $topA")
+        log(c"    Path B (from $b): " + pathB.mkString(", ") + s": topB = $topB")
 
 
         // Linear version (using for now)
@@ -173,7 +173,7 @@ object utils {
           throw new UndefinedPipeDistanceException(a, b)
         }
         val dist = indexB - indexA
-        dbg(c"    distance: $dist")
+        log(c"    distance: $dist")
 
         (parent, dist)
       }
@@ -212,27 +212,14 @@ object utils {
     * Returns metapipe controller for given accesses
     **/
   @stateful def findMetaPipe(mem: Exp[_], readers: Seq[Access], writers: Seq[Access]): (Option[Ctrl], Map[Access,Int]) = {
-    val accesses = readers ++ writers
-    assert(accesses.nonEmpty)
 
-    val anchor = if (readers.nonEmpty) readers.head else writers.head
-
-    val lcas = accesses.map{access =>
-      val (lca,dist) = lcaWithCoarseDistance(anchor, access)
-
-      (lca,dist,access)
-    }
-    // Find accesses which require n-buffering, group by their controller
-    val metapipeLCAs = lcas.filter(_._2 != 0).groupBy(_._1).mapValues(_.map(_._3))
-
-    // Hierarchical metapipelining is currently disallowed
-    if (metapipeLCAs.keys.size > 1) {
+    def ambiguousMetapipesError(lcas: Map[Ctrl,Seq[(Access,Access)]]): Unit = {
       error(u"Ambiguous metapipes for readers/writers of $mem defined here:")
       error(str(mem))
       error(mem.ctx)
-      metapipeLCAs.foreach{case (pipe,accs) =>
+      lcas.foreach{case (pipe,accs) =>
         error(c"  metapipe: $pipe ")
-        error(c"  accesses: " + accs.map(x => c"$x").mkString(","))
+        error(c"  accesses: " + accs.map(x => c"${x._1} / ${x._2}").mkString(","))
         error(str(pipe.node))
         error(pipe.node.ctx)
         error("")
@@ -244,18 +231,44 @@ object utils {
       state.logError()
     }
 
+    val accesses = readers ++ writers
+    assert(accesses.nonEmpty)
+
+    val lcas = accesses.indices.flatMap{i =>
+      (i + 1 until accesses.length).map{j =>
+        val (lca,dist) = lcaWithCoarseDistance(accesses(i), accesses(j))
+        (lca,dist,(accesses(i),accesses(j)))
+      }
+    }
+
+    // Find accesses which require n-buffering, group by their controller
+    val metapipeLCAs = lcas.filter(_._2 != 0).groupBy(_._1).mapValues(_.map(_._3))
+
+    // Hierarchical metapipelining is currently disallowed
+    if (metapipeLCAs.keys.size > 1) ambiguousMetapipesError(metapipeLCAs)
     val metapipe = metapipeLCAs.keys.headOption
 
-    val minDist = lcas.map(_._2).min
+    val ports = if (metapipe.isDefined) {
+      val mpgroup = metapipeLCAs(metapipe.get)
+      val anchor = mpgroup.head._1
+      val dists = accesses.map{access =>
+        val (lca,dist) = lcaWithCoarseDistance(anchor, access)
+        dbg(c"LCA of $anchor and $access: $lca")
+        // Time multiplexed actually becomes ALL ports
+        if (lca == metapipe.get || access == anchor) access -> dist else access -> 0
+      }
+      val minDist = dists.map(_._2).min
+      dists.map{case (access, dist) => access -> (dist - minDist) }.toMap
+    }
+    else accesses.map{access => access -> 0}.toMap
 
     // Port 0: First stage to write/read
     // Port X: X stage(s) after first stage
-    val ports = Map(lcas.map{grp => grp._3 -> (grp._2 - minDist)}:_*)
+    // val ports = Map(lcas.map{grp => grp._3 -> (grp._2 - minDist)}:_*)
 
     dbg("")
     dbg(c"  accesses: $accesses")
-    dbg(c"  anchor: $anchor")
-    lcas.foreach{case (lca,dist,access) => dbg(c"    lca($anchor, $access) = $lca ($dist)") }
+    lcas.foreach{case (lca,dist,access) => dbg(c"    lca(${access._1}, ${access._2}) = $lca ($dist)") }
     dbg(s"  metapipe: $metapipe")
     ports.foreach{case (access, port) => dbg(s"    - $access : port #$port")}
 
@@ -282,6 +295,14 @@ object utils {
       }
     }
   }
+  @stateful def findAccesses(access: List[Access])(func: (Access, Access) => Boolean): Seq[(Access,Access)] = {
+    access.indices.flatMap{i =>
+      (i+1 until access.length).flatMap{j =>
+        if (access(i) != access(j) && func(access(i), access(j))) Some((access(i),access(j))) else None
+      }
+    }
+  }
+
   @internal def checkConcurrentReaders(mem: Exp[_]): Boolean = checkAccesses(readersOf(mem)){(a,b) =>
     if (areConcurrent(a,b)) {new ConcurrentReadersError(mem, a.node, b.node); true } else false
   }
@@ -364,7 +385,7 @@ object utils {
     case Op(e: SparseTransfer[_])  => Seq(e.p)
     case _ => Nil
   }
-  @internal def parsOf(x: Exp[_]): Seq[Int] = parFactorsOf(x).map{case Const(p: BigDecimal) => p.toInt }
+  @internal def parsOf(x: Exp[_]): Seq[Int] = parFactorsOf(x).map{case Exact(p: BigInt) => p.toInt }
 
   @internal def extractParFactor(par: Option[Index]): Const[Index] = par.map(_.s) match {
     case Some(x: Const[_]) if isIndexType(x.tp) => x.asInstanceOf[Const[Index]]
@@ -439,6 +460,15 @@ object utils {
     case _ if isOuterControl(x) => children
   }
 
+  @stateful def loopCounters(e: Exp[_]): Seq[Exp[CounterChain]] = getDef(e).map{d => d.nonBlockInputs.collect{
+    case e: Exp[_] if e.tp == CounterChainType => e.asInstanceOf[Exp[CounterChain]]
+  }}.getOrElse(Nil)
+
+  @stateful def willBeFullyUnrolled(e: Exp[_]): Boolean = e match {
+    case Def(d:OpReduce[_]) => canFullyUnroll(d.cchain)
+    case Def(d:OpForeach) => canFullyUnroll(d.cchain)
+    case _ => false
+  }
 
   @stateful def isOuterControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == OuterControl
   @stateful def isInnerControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == InnerControl
@@ -453,7 +483,7 @@ object utils {
 
   @stateful def isInnerPipe(e: Exp[_]): Boolean = styleOf(e) == InnerPipe || (styleOf(e) == MetaPipe && isInnerControl(e))
   @stateful def isInnerPipe(e: Ctrl): Boolean = e.isInner || isInnerPipe(e.node)
-  @stateful def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe
+  @stateful def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe && !willBeFullyUnrolled(e) // Fully unrolled doesn't need pipelining
   @stateful def isSeqPipe(e: Exp[_]): Boolean = styleOf(e) == SeqPipe
   @stateful def isStreamPipe(e: Exp[_]): Boolean = e match {
     case Def(Hwblock(_,isFrvr)) => isFrvr
@@ -525,6 +555,13 @@ object utils {
     case _ => None
   }
 
+  @stateful def canFullyUnroll(cc: Exp[CounterChain]): Boolean = countersOf(cc).forall{
+    case Def(CounterNew(Exact(start),Exact(end),Exact(stride),Exact(par))) =>
+      val nIters = (BigDecimal(end) - BigDecimal(start))/BigDecimal(stride)
+      BigDecimal(par) >= nIters
+    case _ => false
+  }
+
   @stateful def isForeverCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).exists(isForever)
   @stateful def isUnitCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).forall(isUnitCounter)
 
@@ -549,15 +586,15 @@ object utils {
     case Def(SRAMNew(dims)) => dims
     case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
-    case Def(RegFileNew(dims)) => dims
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case Def(RegFileNew(dims,_)) => dims
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
     case Def(LUTNew(dims,_)) => dims
     case _ => stagedDimsOf(x).map{
-      case Const(c: BigDecimal) => c.toInt
-      case dim => throw new spatial.UndefinedDimensionsError(x, Some(dim))(x.ctx, state)
+      case Exact(c: BigInt) => c.toInt
+      case dim => throw new spatial.UndefinedDimensionsException(x, Some(dim))(x.ctx, state)
     }
   }
 
@@ -566,12 +603,12 @@ object utils {
   @stateful def sizeOf(x: Exp[_]): Exp[Index] = x match {
     case Def(FIFONew(size)) => size
     case Def(FILONew(size)) => size
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def lenOf(x: Exp[_]): Int = x.tp match {
     case tp: VectorType[_] => tp.width
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def rankOf(x: Exp[_]): Int = dimsOf(x).length
@@ -594,6 +631,7 @@ object utils {
   def isLUT(e: Exp[_]): Boolean  = e.tp.isInstanceOf[LUTType[_]]
   def isSRAM(e: Exp[_]): Boolean = e.tp.isInstanceOf[SRAMType[_]]
   def isReg(e: Exp[_]): Boolean  = e.tp.isInstanceOf[RegType[_]]
+  def isRegFile(e: Exp[_]): Boolean = e.tp.isInstanceOf[RegFileType[_]]
   def isStreamIn(e: Exp[_]): Boolean = e.tp.isInstanceOf[StreamInType[_]]
   def isStreamOut(e: Exp[_]): Boolean = e.tp.isInstanceOf[StreamOutType[_]] || e.tp.isInstanceOf[BufferedOutType[_]]
   def isBufferedOut(e: Exp[_]): Boolean = e.tp.isInstanceOf[BufferedOutType[_]]

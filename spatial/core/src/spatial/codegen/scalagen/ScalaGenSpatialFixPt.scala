@@ -8,19 +8,19 @@ import spatial.aliases._
 trait ScalaGenSpatialFixPt extends ScalaGenBits {
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case FixPtType(_,_,_) => "Number"
+    case FixPtType(_,_,_) => "FixedPoint"
     case _ => super.remap(tp)
   }
 
   override protected def quoteConst(c: Const[_]): String = (c.tp,c) match {
     case (FixPtType(sign,int,frac), Const(c: BigDecimal)) => 
-      if(int > 32 | (!sign & int == 32)) s"Number(BigDecimal(${c}L),true,FixedPoint($sign,$int,$frac))"
-      else s"Number(BigDecimal($c),true,FixedPoint($sign,$int,$frac))"
+      if(int > 32 | (!sign & int == 32)) s"""FixedPoint(BigDecimal("$c"),FixFormat($sign,$int,$frac))"""
+      else s"""FixedPoint(BigDecimal("$c"),FixFormat($sign,$int,$frac))"""
     case _ => super.quoteConst(c)
   }
 
   override def invalid(tp: Type[_]) = tp match {
-    case FixPtType(s,i,f) => src"X(FixedPoint($s,$i,$f))"
+    case FixPtType(s,i,f) => src"FixedPoint.invalid(FixFormat($s,$i,$f))"
     case _ => super.invalid(tp)
   }
 
@@ -31,12 +31,12 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
     case FixSub(x,y) => emit(src"val $lhs = $x - $y")
     case FixMul(x,y) => emit(src"val $lhs = $x * $y")
     case FixDiv(x,y) => emit(src"val $lhs = $x / $y")
+    case FixMod(x,y) => emit(src"val $lhs = $x % $y")
     case FixAnd(x,y) => emit(src"val $lhs = $x & $y")
     case FixOr(x,y)  => emit(src"val $lhs = $x | $y")
     case FixLt(x,y)  => emit(src"val $lhs = $x < $y")
     case FixLeq(x,y) => emit(src"val $lhs = $x <= $y")
-    case FixMod(x,y) => emit(src"val $lhs = $x % $y")
-    case FixXor(x,y)  => emit(src"val $lhs = $x ^ $y")
+    case FixXor(x,y) => emit(src"val $lhs = $x ^ $y")
 
     case FixLsh(x,y) => emit(src"val $lhs = $x << $y")
     case FixRsh(x,y) => emit(src"val $lhs = $x >> $y")
@@ -53,24 +53,30 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
 
     case FixNeq(x,y) => emit(src"val $lhs = $x !== $y")
     case FixEql(x,y) => emit(src"val $lhs = $x === $y")
-    case FixConvert(x) => lhs.tp match {
-      case FixPtType(s,i,f) => emit(src"val $lhs = Number($x.value, $x.valid, FixedPoint($s,$i,$f))")
-    }
-    case FixPtToFltPt(x) => lhs.tp match {
-      case FltPtType(g,e) => emit(src"val $lhs = Number($x.value, $x.valid, FloatPoint($g,$e))")
-    }
-    case StringToFixPt(x) => lhs.tp match {
-      case FixPtType(s,i,f) => emit(src"val $lhs = Number($x, FixedPoint($s,$i,$f))")
-    }
-    case FixRandom(Some(max)) => lhs.tp match {
-      case FixPtType(s,i,f) => emit(src"val $lhs = Number.random($max, FixedPoint($s,$i,$f))")
-    }
-    case FixRandom(None) => lhs.tp match {
-      case FixPtType(s,i,f) => emit(src"val $lhs = Number.random(FixedPoint($s,$i,$f))")
-    }
-    case FixUnif() => lhs.tp match {
-      case FixPtType(s,i,f) => emit(src"val $lhs = Number(BigDecimal(scala.util.Random.nextDouble()), true, FixedPoint($s,$i,$f))")
-    }
+    case FixConvert(x) =>
+      val FixPtType(s, i, f) = lhs.tp
+      emit(src"val $lhs = $x.toFixedPoint(FixFormat($s,$i,$f))")
+
+    case FixPtToFltPt(x) =>
+      val FltPtType(g,e) = lhs.tp
+      emit(src"val $lhs = $x.toFloatPoint(FltFormat(${g-1},$e))")
+
+    case StringToFixPt(x) =>
+      val FixPtType(s,i,f) = lhs.tp
+      emit(src"val $lhs = FixedPoint($x, FixFormat($s,$i,$f))")
+
+    case FixRandom(Some(max)) =>
+      val FixPtType(s,i,f) = lhs.tp
+      emit(src"val $lhs = FixedPoint.random($max, FixFormat($s,$i,$f))")
+
+    case FixRandom(None) =>
+      val FixPtType(s,i,f) = lhs.tp
+      emit(src"val $lhs = FixedPoint.random(FixFormat($s,$i,$f))")
+
+    case FixUnif() =>
+      val FixPtType(s,i,f) = lhs.tp
+      emit(src"val $lhs = FixedPoint.random(FixFormat($s,$i,$f))")
+      //emit(src"val $lhs = FixedPoint(BigDecimal(scala.util.Random.nextDouble()), FixFormat($s,$i,$f))")
 
     case Char2Int(x) => 
       emit(src"val $lhs = ${x}(0).toInt")

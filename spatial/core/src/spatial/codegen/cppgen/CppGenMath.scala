@@ -34,7 +34,7 @@ trait CppGenMath extends CppCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case FixAbs(x)  => emit(src"${lhs.tp} $lhs = abs($x);")
+    case FixAbs(x)  => emit(src"${lhs.tp} $lhs = fabs($x);")
 
     case FltAbs(x)  => emit(src"${lhs.tp} $lhs = fabs($x);")
     case FltLog(x)  => x.tp match {

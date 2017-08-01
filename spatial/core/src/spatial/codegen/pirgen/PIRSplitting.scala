@@ -100,6 +100,9 @@ trait PIRSplitting extends PIRTraversal {
 
       while (cost > arch && current.nonEmpty) {
         //dbg(s"Removing stage")
+        //TODO: This splitting stratagy highly depends on the linear schedule of the stages.
+        //It's possible that different valid linear schedule can give a much better splitting
+        //result. 
         remote addHead current.popTail()
         cost = getCost(current)
       }
@@ -134,6 +137,8 @@ trait PIRSplitting extends PIRTraversal {
       parent.parent = cu.parent
       parent.deps = cu.deps
       parent.cchains ++= cu.cchains
+      val mems = usedMem(cu.cchains)
+      parent.memMap ++= cu.memMap.filter { case (e, m) => mems.contains(m) } 
       Some(parent)
     }
     else None
@@ -164,7 +169,7 @@ trait PIRSplitting extends PIRTraversal {
     val cu = ComputeUnit(orig.name+"_"+i, orig.pipe, orig.style)
     cu.parent = if (parent.isDefined) parent else orig.parent
     cu.innerPar = orig.innerPar
-    cu.fringeVectors ++= orig.fringeVectors
+    cu.fringeGlobals ++= orig.fringeGlobals
     if (parent.isEmpty) cu.deps ++= orig.deps
     if (parent.isEmpty) cu.cchains ++= orig.cchains
 
@@ -275,7 +280,7 @@ trait PIRSplitting extends PIRTraversal {
         val outputs = outs.flatMap{out => rerefOut(out.reg) }
         ctx.addStage(MapStage(op, inputs, outputs))
 
-      case ReduceStage(op, init, in, acc) =>
+      case ReduceStage(op, init, in, acc, accumParent) =>
         var input = rerefIn(in.reg)
         if (!input.reg.isInstanceOf[ReduceMem[_]]) {
           val redReg = ReduceReg()
@@ -285,7 +290,14 @@ trait PIRSplitting extends PIRTraversal {
           input = ctx.refIn(redReg)
         }
         cu.regs += acc
-        ctx.addStage(ReduceStage(op, init, input, acc))
+        val newAccumParent = 
+          if (accumParent==orig) parent.getOrElse(cu) // Take StreamController of the splitted cu
+                                                      // Or current CU if single partition
+          else accumParent // outer controller. Shouldn't be splitted 
+        dbgs(s"accumParent==orig ${accumParent==orig}")
+        dbgs(s"accumParent=${accumParent} orig=${orig} parent=${parent.map(_.name)} cu=${cu.name}")
+        dbgs(s"newAccumParent=${newAccumParent.name}")
+        ctx.addStage(ReduceStage(op, init, input, acc, newAccumParent))
 
         if (remoteIns.contains(acc)) {
           val bus = portOut(acc, true)
@@ -377,8 +389,8 @@ trait PIRSplitting extends PIRTraversal {
         case _ =>
       }
       cu.mems.foreach{sram =>
-        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]} //TODO refactor this
-        sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]}
+        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)} //TODO refactor this
+        sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_)}
       }
     }
 

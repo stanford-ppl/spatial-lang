@@ -21,6 +21,7 @@ trait Interpreter
     with Streams
     with Structs
     with SRAMs
+    with DRAMs
     with Booleans
     with Counters
     with Vectors
@@ -28,6 +29,7 @@ trait Interpreter
     with FSMs
     with RegFiles
     with Maths
+    with LUTs
 {
 
   
@@ -88,6 +90,8 @@ trait Interpreter
     variablesF.filter(_._2.isInstanceOf[IReg]).foreach(displayPair)
     println(s"[${Console.BLUE}regfiles content${Console.RESET}]")    
     variablesF.filter(_._2.isInstanceOf[IRegFile]).foreach(displayPair)
+    println(s"[${Console.BLUE}LUT content${Console.RESET}]")    
+    variablesF.filter(_._2.isInstanceOf[ILUT]).foreach(displayPair)    
 //    println(s"[${Console.BLUE}streams content${Console.RESET}]")    
 //    variablesF.filter(_._2.isInstanceOf[Queue]).foreach(displayPair)
     println(s"[${Console.BLUE}others${Console.RESET}]")
@@ -95,6 +99,7 @@ trait Interpreter
       !x._2.isInstanceOf[IRegFile] &&
       !x._2.isInstanceOf[ISRAM] &&
       !x._2.isInstanceOf[IFIFO] &&
+      !x._2.isInstanceOf[ILUT] &&      
       !x._2.isInstanceOf[IReg]      
     }).foreach(displayPair)
     println(s"[${Console.BLUE}bounds content${Console.RESET}]")    

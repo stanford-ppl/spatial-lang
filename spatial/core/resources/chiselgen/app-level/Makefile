@@ -1,5 +1,8 @@
 VERILATOR_SRC=cpp/verilator
 AWS_V_DIR=verilog-aws
+AWS_V_SIM_DIR=verilog-aws-sim
+ZYNQ_V_DIR=verilog-zynq
+APPNAME=$(shell basename $(shell pwd))
 timestamp := $(shell /bin/date "+%Y-%m-%d---%H-%M-%S")
 
 all: help
@@ -81,16 +84,16 @@ aws-sim-hw:
 	# ----------------------------------------------------------------------------
 	# Step 1: Make the design
 	# ----------------------------------------------------------------------------
-	rm -rf ${AWS_V_DIR}
+	rm -rf ${AWS_V_SIM_DIR}
 	# First use chisel to create the verilog
-	sbt "run-main top.Instantiator --verilog --testArgs aws"
-	cat chisel/template-level/fringeVCS/SRAMVerilog.v >> ${AWS_V_DIR}/Top.v
+	sbt "run-main top.Instantiator --verilog --testArgs aws-sim"
+	cat chisel/template-level/fringeVCS/SRAMVerilogSim.v >> ${AWS_V_SIM_DIR}/Top.v
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/${app_name}
 	cp -r $(AWS_HOME)/hdk/cl/examples/cl_dram_dma $(AWS_HOME)/hdk/cl/examples/${app_name}
 	# Add all the static design files
 	cp -f cpp/fringeAWS/design/* $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
-	cp -f ${AWS_V_DIR}/Top.v $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
+	cp -f ${AWS_V_SIM_DIR}/Top.v $(AWS_HOME)/hdk/cl/examples/${app_name}/design/
 	# Run a script to put design together
 	python cpp/fringeAWS/gen_aws_design.py $(AWS_HOME)/hdk/cl/examples/${app_name}
 	# ----------------------------------------------------------------------------
@@ -207,20 +210,22 @@ zynq: zynq-hw zynq-sw
 zynq-sw:
 	cp zynq.mk cpp/Makefile
 	make -C cpp
-	tar -czf TopZynq.tar.gz -C verilog accel.bit.bin -C ../cpp Top -C fringeZynq/utils set_perms run.sh
+	tar -czf $(APPNAME).tar.gz -C ${ZYNQ_V_DIR} accel.bit.bin -C ../cpp Top -C fringeZynq/utils set_perms run.sh
 
 zynq-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs zynq"
-	cp chisel/fringeZynq/* verilog-zynq
-	mv verilog/fsbl.elf._ verilog/fsbl.elf
-	mv verilog/u-boot.elf._ verilog/u-boot.elf
-	make -C verilog
+	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${ZYNQ_V_DIR}/Top.v
+	cp chisel/template-level/fringeZynq/* ${ZYNQ_V_DIR}
+	mv ${ZYNQ_V_DIR}/fsbl.elf._ ${ZYNQ_V_DIR}/fsbl.elf
+	mv ${ZYNQ_V_DIR}/u-boot.elf._ ${ZYNQ_V_DIR}/u-boot.elf
+	make -C ${ZYNQ_V_DIR}
 
 zynq-clean:
-	make -C verilog-zynq clean
+	make -C ${ZYNQ_V_DIR} clean
 	make -C cpp clean
-	rm -rf verilog-zynq
-	rm -f TopZynq.tar.gz
+	rm -rf ${ZYNQ_V_DIR}
+	rm -f $(APPNAME).tar.gz
+	rm -rf target
 
 de1soc: de1soc-hw de1soc-sw
 
@@ -262,7 +267,7 @@ vcs-sw:
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
-	make -C cpp
+	make -j8 -C cpp
 	ln -sf cpp/Top .
 
 vcs-hw:
@@ -276,7 +281,7 @@ vcs-clean:
 	make -C verilog-vcs clean
 	make -C cpp clean
 	rm -rf verilog-vcs
-	rm -f verilog TopVCS.tar.gz Top *.log *.vcd
+	rm -f verilog TopVCS.tar.gz Top *.log *.vcd ucli.key
 	rm -rf target
 
 sim-clean:

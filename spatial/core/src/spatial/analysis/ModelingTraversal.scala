@@ -46,8 +46,8 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     val latency = latencies.values.fold(0L){(a,b) => Math.max(a,b) }
     // HACK: Set initiation interval to 1 if it contains a specialized reduction
     // This is a workaround for chisel codegen currently specializing and optimizing certain reduction types
-    val ii = if (scope.exists(x => reduceType(x).contains(FixPtSum))) 1L else initInterval
-    (latency, ii)
+    val compilerII = if (scope.exists(x => reduceType(x).contains(FixPtSum))) 1L else initInterval
+    (latency, compilerII)
   }
 
   def latencyOfPipe(block: Block[_]): (Long, Long) = {

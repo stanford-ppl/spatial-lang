@@ -13,6 +13,20 @@ else
     exit 1
 fi
 
+# Warn if apps not on regression branch
+cd ${SPATIAL_HOME}/apps
+ab=`git rev-parse --abbrev-ref HEAD`
+cd ../
+if [[ $ab != "regression" ]]; then 
+	read -p "You seem to be on an apps branch that is not regression.  Continue? [y/N]: " choice
+	echo    # (optional) move to a new line
+	case "$choice" in 
+	  y|Y ) echo "Continuing..";;
+	  n|N ) exit 1;;
+	  * ) exit 1;;
+	esac
+fi
+
 branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 
 # Get hashes and messages
@@ -45,10 +59,10 @@ cd $here
  # types=("chisel")
  # dsts=("portland")
 types=("scala" "chisel")
-dsts=("portland;/home/regression/" "max-2;/kunle/users/mattfel/regression" 
-	  "tflop2;/home/regression/"
+dsts=("portland;/home/regression/" "max-2;/kunle/users/mattfel/regression" "ottawa;/home/regression"
+	  "tflop2;/home/regression/" "tflop1;/home/regression/"
 	  "tucson;/home/mattfel/regression" "london;/home/mattfel/regression")
-	  #manchester #tflop1;/kunle/users/mattfel/regression_tflop1/
+	  #manchester 
 tests=all
 status=debug
 
@@ -67,10 +81,10 @@ for type in ${types[@]}; do
 	for dst in ${dsts[@]}; do
 		fields=(${dst//;/ })
 		# David hack
-  		if [[ "$SUNETID" != "" && ${fields[0]} = "portland" ]]; then
-    		tmpuser=${SUNETID}
+  		if [[ "$SUNETID" != "" && ${fields[0]} != "max-2" ]]; then
+		tmpuser=${SUNETID}		   		
   		else
-    		tmpuser=${USER}
+		tmpuser=${USER}
   		fi
 		existing_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls ${fields[1]}" | grep ^20[1-2][0-9] | wc -l`
 		# echo "${fields[0]} has ${existing_runs} runs going (current best ${most_idle})"
@@ -79,9 +93,9 @@ for type in ${types[@]}; do
 			if [[ $type = "chisel" && ${fields[0]} = "max-2" ]]; then
 				echo ""
 				# Do not let chisel run on max2 for now
-			# elif [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
-			# 	echo ""
-			# 	# Do not let chisel run on tflop1 for now
+			elif [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
+				echo ""
+				# Do not let chisel run on tflop1 for now
 			else 
 				candidate=$dst
 				most_idle=$existing_runs
@@ -92,11 +106,11 @@ for type in ${types[@]}; do
 	fields=(${candidate//;/ })
 	dst=${fields[0]}
 	path=${fields[1]}
-  	if [[ "$SUNETID" != "" && ${dst} = "portland" ]]; then
-    	USERNAME=${SUNETID}
-  	else
-    	USERNAME=${USER}
-  	fi
+	if [[ "$SUNETID" != "" && ${dst} != "max-2" ]]; then
+	USERNAME=${SUNETID}		   		
+	else
+	USERNAME=${USER}
+	fi
 
 	packet="Creation Time- $at | Status- $status | Type- $type | tests- $tests | User- $USERNAME | Origin- $machine | Destination- ${dst} | Branch- $branch | Spatial- ${spatial_hash:0:5} | Argon- ${argon_hash:0:5} | Virtualized- ${virtualized_hash:0:5} | Spatial-apps- ${apps_hash:0:5}"
 	# echo $packet
@@ -112,12 +126,19 @@ $branch
 ${dst}
 ${path}" > /tmp/${at}.${branch}.${type}.new
 
-		#echo "skipping scp"
-		scp /tmp/${at}.${branch}.${type}.new ${USERNAME}@${dst}.stanford.edu:${path}
-		echo "Test located at $dst : $path" > /tmp/${dst}---${at}.${branch}.${type}
-		scp /tmp/${dst}---${at}.${branch}.${type} ${USER}@london.stanford.edu:/remote/regression/mapping
 
-		echo -e "\n** Sent $type test to $dst (because it had ${most_idle} tests there already) **\n"
+	if [[ "$SUNETID" != "" ]]; then
+	LONDONUSER=${SUNETID}
+	else 
+	LONDONUSER=${USER}
+	fi
+
+	#echo "skipping scp"
+	scp /tmp/${at}.${branch}.${type}.new ${USERNAME}@${dst}.stanford.edu:${path}
+	echo "Test located at $dst : $path" > /tmp/${at}.${branch}.${type}---${dst}
+	scp /tmp/${at}.${branch}.${type}---${dst} ${LONDONUSER}@london.stanford.edu:/remote/regression/mapping
+
+	echo -e "\n** Sent $type test to $dst (because it had ${most_idle} tests there already) **\n"
 
 	((i++))
 done

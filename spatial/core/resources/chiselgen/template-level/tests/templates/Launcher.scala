@@ -88,16 +88,16 @@ object Arguments {
     (6,3,48,1,1)
   )
   val SingleCounter = List(
-    1,3
+    (1,8),(3,9)
   )
   val FixedPointTester = List(
     (false,16,16)
     // (true, 8, 8)
   )
   val Counter = List(
-    List(1,1,1),
-    List(2,2,2),
-    List(4,1,1)
+    (List(1,1,1), List(10,9,8)),
+    (List(2,2,2), List(10,9,8)),
+    (List(4,1,1), List(10,9,8))
   )
   val Seqpipe = List(
     1,
@@ -159,17 +159,17 @@ object Arguments {
     3
   )
   val ShiftRegFile = List(
-    (List(6),1,1,false,32),
-    (List(1,3),1,1,false,32),
-    (List(3,7),1,3,false,32),
-    (List(3,4,7),1,12,false,32)
+    (List(6),1,1,false,32,0),
+    (List(1,3),1,1,false,32,0),
+    (List(3,7),1,3,false,32,0),
+    (List(3,4,7),1,12,false,32,0)
   )
   val NBufShiftRegFile = List(
-    (List(8),1,2,Map((0->1)),32),
-    (List(1,8),1,3,Map((0->1)),32),
-    (List(3,7),1,3,Map((0->3)),32),
-    (List(3,3),1,3,Map((0->3)),32),
-    (List(3,4,7),1,3,Map((0->12)),32)
+    (List(8),1,2,Map((0->1)),32,0),
+    (List(1,8),1,3,Map((0->1)),32,0),
+    (List(3,7),1,3,Map((0->3)),32,0),
+    (List(3,3),1,3,Map((0->3)),32,0),
+    (List(3,4,7),1,3,Map((0->12)),32,0)
   )
 
   val LineBuffer = List( 

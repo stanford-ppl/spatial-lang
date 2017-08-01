@@ -5,6 +5,7 @@ import forge._
 import spatial.nodes._
 import spatial.utils._
 import spatial.DimensionMismatchError
+import spatial.metadata._
 
 trait SRAM[T] { this: Template[_] =>
   def s: Exp[SRAM[T]]
@@ -22,7 +23,19 @@ object SRAM {
   @api def apply[T:Type:Bits](q: Index, p: Index, r: Index, c: Index): SRAM4[T] = SRAM4(SRAM.alloc[T,SRAM4](q.s,p.s,r.s,c.s))
   @api def apply[T:Type:Bits](m: Index, q: Index, p: Index, r: Index, c: Index): SRAM5[T] = SRAM5(SRAM.alloc[T,SRAM5](m.s,q.s,p.s,r.s,c.s))
 
+  @api def buffer[T:Type:Bits](c: Index): SRAM1[T] = SRAM1(SRAM.bufferable[T,SRAM1](c.s))
+  @api def buffer[T:Type:Bits](r: Index, c: Index): SRAM2[T] = SRAM2(SRAM.bufferable[T,SRAM2](r.s,c.s))
+  @api def buffer[T:Type:Bits](p: Index, r: Index, c: Index): SRAM3[T] = SRAM3(SRAM.bufferable[T,SRAM3](p.s,r.s,c.s))
+  @api def buffer[T:Type:Bits](q: Index, p: Index, r: Index, c: Index): SRAM4[T] = SRAM4(SRAM.bufferable[T,SRAM4](q.s,p.s,r.s,c.s))
+  @api def buffer[T:Type:Bits](m: Index, q: Index, p: Index, r: Index, c: Index): SRAM5[T] = SRAM5(SRAM.bufferable[T,SRAM5](m.s,q.s,p.s,r.s,c.s))
+
   /** Constructors **/
+  @internal def bufferable[T:Type:Bits,C[_]<:SRAM[_]](dims: Exp[Index]*)(implicit mC: Type[C[T]]): Exp[C[T]] = {
+    val sram = alloc[T,C](dims:_*)
+    isExtraBufferable.enableOn(sram)
+    sram
+  }
+
   @internal def alloc[T:Type:Bits,C[_]<:SRAM[_]](dims: Exp[Index]*)(implicit mC: Type[C[T]]): Exp[C[T]] = {
     stageMutable( SRAMNew[T,C](dims) )(ctx)
   }

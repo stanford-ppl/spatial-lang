@@ -21,8 +21,10 @@ class VirtexUSPAreaModel extends XilinxAreaModel {
   }
 
   // TODO
-  @stateful override def summarize(area: XilinxArea): XilinxAreaSummary = {
-    XilinxAreaSummary(0, 0, 0, 0, 0)
+  @stateful override def summarize(area: XilinxArea): (XilinxAreaSummary, String) = {
+    val areaReport = ""
+    val area = XilinxAreaSummary(0, 0, 0, 0, 0)
+    (area, areaReport)
   }
 
 }

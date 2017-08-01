@@ -62,7 +62,7 @@ class FFRAM(override val w: Int, override val d: Int) extends GenericRAM(w, d) {
 class SRAM(override val w: Int, override val d: Int) extends GenericRAM(w, d) {
   // Customize SRAM here
   FringeGlobals.target match {
-    case "aws" =>
+    case "aws" | "zynq" =>
       val mem = Module(new SRAMVerilogAWS(w, d))
       mem.io.clk := clock
       mem.io.raddr := io.raddr

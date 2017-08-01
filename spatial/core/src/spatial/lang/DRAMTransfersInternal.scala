@@ -72,7 +72,7 @@ object DRAMTransfersInternal {
     // as long as the value of the register read is known to be exactly some value.
     // FIXME: We should also be checking if the start address is aligned...
     def store(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = requestLength.s match {
-      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 =>
+      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | SpatialConfig.enablePIR => //TODO: Hack for pir
         dbg(u"$onchip => $offchip: Using aligned store ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
         alignedStore(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
@@ -83,7 +83,7 @@ object DRAMTransfersInternal {
         unalignedStore(offchipAddr, onchipAddr)
     }
     def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = requestLength.s match {
-      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 =>
+      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | SpatialConfig.enablePIR => //TODO: Hack for pir
         dbg(u"$offchip => $onchip: Using aligned load ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
         alignedLoad(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
@@ -122,9 +122,11 @@ object DRAMTransfersInternal {
       Pipe {
         // val size = Reg[Index]
         // Pipe{size := issueQueue.deq()}
-        Foreach(requestLength by target.burstSize/bits[T].length) {i =>
-          val ack  = ackStream.value()
-        }
+        val ack  = ackStream.value()
+        ()
+//        Foreach(requestLength by target.burstSize/bits[T].length) {i =>
+//          val ack  = ackStream.value()
+//        }
       }
     }
 
@@ -169,7 +171,7 @@ object DRAMTransfersInternal {
     @virtualize
     def unalignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = {
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
-      val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
+//      val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
       val dataStream = StreamOut[MTuple2[T,Bit]](BurstFullDataBus[T]())
       val ackStream  = StreamIn[Bit](BurstAckBus)
 
@@ -182,7 +184,7 @@ object DRAMTransfersInternal {
           val aligned = alignmentCalc(offchipAddr)
 
           cmdStream := BurstCmd(aligned.addr_bytes.to[Int64], aligned.size_bytes, false)
-          issueQueue.enq(aligned.size)
+//          issueQueue.enq(aligned.size)
           startBound := aligned.start
           endBound := aligned.end
           length := aligned.size
@@ -198,11 +200,13 @@ object DRAMTransfersInternal {
       // Ack receive
       // TODO: Assumes one ack per command
       Pipe {
-        val size = Reg[Index]
-        Pipe{size := issueQueue.deq()}
-        Foreach(size.value by target.burstSize/bits[T].length) {i => // TODO: Can we use by instead of par?
-          val ack  = ackStream.value()
-        }
+//        val size = Reg[Index]
+//        Pipe{size := issueQueue.deq()}
+        val ack  = ackStream.value()
+        ()
+//        Foreach(size.value by size.value) {i => // TODO: Can we use by instead of par?
+//          val ack  = ackStream.value()
+//        }
       }
     }
 

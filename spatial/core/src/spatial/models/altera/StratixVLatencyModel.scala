@@ -39,7 +39,7 @@ class StratixVLatencyModel extends LatencyModel {
   @stateful override protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
     case op: DenseTransfer[_,_] if op.isStore =>
       val c = contentionOf(s)
-      val p = op.p match {case Const(c: BigDecimal) => c.toInt }
+      val p = boundOf(op.p).toInt
 
       val dims = op.lens.map{x => boundOf(x).toInt }
       val size = dims.last

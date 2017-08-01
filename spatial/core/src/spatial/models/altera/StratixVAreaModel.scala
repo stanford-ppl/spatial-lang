@@ -69,7 +69,7 @@ class StratixVAreaModel extends AlteraAreaModel {
     case _ => super.areaOfNode(e,d)
   }
 
-  @stateful def summarize(area: AlteraArea): AlteraAreaSummary = {
+  @stateful def summarize(area: AlteraArea): (AlteraAreaSummary, String) = {
     val design = area + baseDesign
 
     val routingLUTs = lutModel.evaluate(design)
@@ -92,45 +92,61 @@ class StratixVAreaModel extends AlteraAreaModel {
     val totalDSPs = design.dsps
     val totalBRAM = design.sram + dupBRAMs
 
+    val capacity = SpatialConfig.target.capacity.asInstanceOf[AlteraAreaSummary]
+
+
     if (Config.verbosity > 0) {
-      val capacity = SpatialConfig.target.capacity.asInstanceOf[AlteraAreaSummary]
-      report(s"Resource Estimate Breakdown: ")
-      report(s"-----------------------------")
-      report(s"Estimated unavailable ALMs: $unavailable")
-      report(s"LUT3: ${design.lut3}")
-      report(s"LUT4: ${design.lut4}")
-      report(s"LUT5: ${design.lut5}")
-      report(s"LUT6: ${design.lut6}")
-      report(s"LUT7: ${design.lut7}")
-      report(s"Estimated routing luts: $routingLUTs")
-      report(s"Logic+register ALMs: $logicALMs")
-      report(s"Register-only ALMS:  $regALMs")
-      report(s"Recovered ALMs:      $recoverable")
-      report(s"MEM16: ${design.mem16}")
-      report(s"MEM32: ${design.mem32}")
-      report(s"MEM64: ${design.mem64}")
-      report(s"Design registers: ${design.regs}")
-      report(s"Memory registers: ${design.mregs}")
-      report(s"Fanout registers: $fanoutRegs")
-      report(s"Design BRAMs: ${design.sram}")
-      report(s"Fanout BRAMs: $dupBRAMs")
-      report("")
-      report(s"Resource Estimate Summary: ")
-      report(s"---------------------------")
-      report(s"ALMs: $totalALMs / ${capacity.alms} (" + "%.2f".format(100*totalALMs.toDouble/capacity.alms) + "%)")
-      report(s"Regs: $totalRegs")
-      report(s"DSPs: $totalDSPs / ${capacity.dsps} (" + "%.2f".format(100*totalDSPs.toDouble/capacity.dsps) + "%)")
-      report(s"BRAM: $totalBRAM / ${capacity.bram} (" + "%.2f".format(100*totalBRAM.toDouble/capacity.bram) + "%)")
-      report("")
+      val areaReport = s"""
+                          |Resource Estimate Breakdown:
+                          |----------------------------
+                          |LUTs
+                          |  LUT3: ${design.lut3}
+                          |  LUT4: ${design.lut4}
+                          |  LUT5: ${design.lut5}
+                          |  LUT6: ${design.lut6}
+                          |  LUT7: ${design.lut7}
+                          |  Estimated Routing LUTs: $routingLUTs
+                          |
+                          |ALMs
+                          |  Logic + Register ALMS: $logicALMs
+                          |  Register-only ALMs:    $regALMs
+                          |  Recovered ALMs:        $recoverable
+                          |  Unavailable ALMs:      $unavailable
+                          |
+                          |MEMs
+                          |  MEM16: ${design.mem16}
+                          |  MEM32: ${design.mem32}
+                          |  MEM64: ${design.mem64}
+                          |
+                          |Registers
+                          |  Design: ${design.regs}
+                          |  Memory: ${design.mregs}
+                          |  Fanout: $fanoutRegs
+                          |
+                          |BRAMs
+                          |  Design: ${design.sram}
+                          |  Fanout: $dupBRAMs
+                          |
+                          |Resource Estimate Summary
+                          |-------------------------
+                          |ALMs: $totalALMs / ${capacity.alms} (${"%.2f".format(100*totalALMs.toDouble/capacity.alms)}%)
+                          |Regs: $totalRegs
+                          |DSPs: $totalDSPs / ${capacity.dsps} (${"%.2f".format(100*totalDSPs.toDouble/capacity.dsps)}%)
+                          |BRAM: $totalBRAM / ${capacity.bram} (${"%.2f".format(100*totalBRAM.toDouble/capacity.bram)}%)
+                          |
+         """.stripMargin
+
+      report(areaReport)
     }
 
-    AlteraAreaSummary(
+    val summ = AlteraAreaSummary(
       alms = totalALMs,
       regs = totalRegs,
       dsps = totalDSPs,
       bram = totalBRAM,
       channels = design.channels
     )
+    (summ, "")
   }
 
 }

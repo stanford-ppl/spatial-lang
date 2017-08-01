@@ -122,6 +122,17 @@ object Vector {
     case _ =>
       stage(VectorSlice[T,V](vector, end, start))(ctx)
   }
+
+  @internal def sliceN[T:Type:Bits](vector: Vector[T], end: Int, start: Int): VectorN[T] = {
+    implicit val vT = VectorN.typeFromLen[T](end-start+1)
+    vT.wrapped(slice[T,VectorN](vector.s, end, start))
+  }
+  @internal def concatN[T:Type:Bits](vectors: Seq[Vector[T]]): VectorN[T] = {
+    val length = vectors.map(_.width).sum
+    implicit val vT = VectorN.typeFromLen[T](length)
+    vT.wrapped(concat[T,VectorN](vectors.map(_.s)))
+  }
+
 }
 
 object Vectorize {

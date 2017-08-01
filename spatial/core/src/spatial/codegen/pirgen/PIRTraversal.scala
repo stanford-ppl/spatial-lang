@@ -9,7 +9,8 @@ import spatial.nodes._
 import spatial.utils._
 
 import scala.collection.mutable
-import scala.reflect.runtime.universe._
+import scala.collection.mutable.WrappedArray
+import scala.reflect.runtime.universe.{Block => _, _}
 
 trait PIRTraversal extends SpatialTraversal with Partitions {
   var listing = false
@@ -47,23 +48,23 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
       }
       dbgl(s"MEMs:") {
         for ((exp, mem) <- pcu.memMap) {
-          dbgs(s"""$mem (reader: ${mem.reader}, mode: ${mem.mode}) ${qdef(exp)}""")
+          dbgs(s"""$mem (mode: ${mem.mode}) ${qdef(exp)}""")
         }
       }
       dbgl(s"Write stages:") {
         for ((k,v) <- pcu.writeStages) {
           dbgs(s"Memories: " + k.mkString(", "))
-          for (stage <- v._2) dbgs(s"  $stage")
+          for (stage <- v) dbgs(s"  $stage")
         }
       }
       dbgl(s"Read stages:") {
         pcu.readStages.foreach { case (k,v) =>
           dbgs(s"Memories:" + k.mkString(", "))
-          for (stage <- v._2) dbgs(s"  $stage")
+          for (stage <- v) dbgs(s"  $stage")
         }
       }
-      dbgl(s"FringeVectors:") {
-        pcu.fringeVectors.foreach { case (f, vec) => dbgs(s"$f -> $vec") }
+      dbgl(s"FringeGlobals:") {
+        pcu.fringeGlobals.foreach { case (f, vec) => dbgs(s"$f -> $vec") }
       }
       dbgl(s"Compute stages:") { pcu.computeStages.foreach { stage => dbgs(s"$stage") } }
     }
@@ -76,7 +77,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     if (cu.mems.nonEmpty) {
       dbgblk(s"mems: ") {
         for (mem <- cu.mems) {
-          dbgl(s"""$mem [${mem.mode}] (exp: ${mem.mem}, reader: ${mem.reader})""") {
+          dbgl(s"""$mem [${mem.mode}] (exp: ${mem.mem})""") {
             dbgs(s"""banking   = ${mem.banking.map(_.toString).getOrElse("N/A")}""")
             dbgs(s"""writePort    = ${mem.writePort.map(_.toString).getOrElse("N/A")}""")
             dbgs(s"""readPort    = ${mem.readPort.map(_.toString).getOrElse("N/A")}""")
@@ -145,26 +146,22 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
 
   def compose(dexp:Expr) = composed.getOrElse(dexp, dexp)
 
-  def decomposeWithFields[T](exp: Expr, fields: Seq[T])(implicit ev: TypeTag[T]): Either[Expr, Seq[(String, Expr)]] = {
+  def decomposeWithFields[T](exp: Expr, fields: Seq[T]): Either[Expr, Seq[(String, Expr)]] = {
     if (fields.size < 1) {
       Left(exp)
     }
     else if (fields.size == 1) {
       Right(fields.map {
-        case field if typeOf[T] =:= typeOf[String] => 
-          (field.asInstanceOf[String], exp) 
-        case (field, dexp) if typeOf[T] =:= typeOf[(String, Expr)] => 
-          (field.asInstanceOf[String], dexp.asInstanceOf[Expr])
+        case field:String => (field, exp)
+        case (field:String, dexp:Expr) => (field, exp)
       })
     }
     else {
       Right(decomposed.getOrElseUpdate(exp, {
         fields.map { f => 
           val (field, dexp) = f match {
-            case field if typeOf[T] =:= typeOf[String] => 
-              (field.asInstanceOf[String], fresh[Int32]) 
-            case (field, dexp) if typeOf[T] =:= typeOf[(String, Expr)] => 
-              (field.asInstanceOf[String], dexp.asInstanceOf[Expr])
+            case field:String => (field, fresh[Int32]) 
+            case (field:String, dexp:Expr) => (field, dexp)
           }
           composed += dexp -> exp
           (field, dexp)
@@ -180,6 +177,13 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     case Def(VectorApply(vec, idx)) => decomposeWithFields(exp, getFields(vec))
     case Def(ListVector(elems)) => decomposeWithFields(exp, elems.flatMap(ele => getFields(ele)))
     case Def(GetDRAMAddress(dram)) => Left(exp) //TODO: consider the case where dram is composed
+    case Def(RegNew(init)) => 
+      val fields = decomposeWithFields(init) match {
+        case Left(init) => Seq() 
+        case Right(seq) => seq.map{ case (f, e) => f }
+      }
+      decomposeWithFields(exp, fields)
+    case Const(a:WrappedArray[_]) => decomposeWithFields(exp, a.toSeq) 
     case mem if isMem(mem) => 
       val fields =  mem.tp.typeArguments(0) match {
         case s:StructType[_] => s.fields.map(_._1)
@@ -250,9 +254,11 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     if (isArgIn(compose(dmem)) || isStreamIn(dmem) || isGetDRAMAddress(dmem)) {
       false
     } else {
-      val writer = writerOf(compose(dmem))
       val pipe = parentOf(compose(dreader)).get
-      writer.ctrlNode == pipe && cu.fold(true) { cu => cu.pipe == pipe }
+      val writers = writersOf(compose(dmem))
+      writers.exists { writer =>
+        writer.ctrlNode == pipe && cu.fold(true) { cu => cu.pipe == pipe }
+      }
     }
   }
 
@@ -282,6 +288,9 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     }
   }
 
+  /*
+   * @return read access of or equivalent the mem
+   * */
   def getReaders(dmem:Expr):List[Expr] = {
     val mem = compose(dmem)
     if (isGetDRAMAddress(mem)) List(mem) // GetDRAMAddress is both the mem and the reader
@@ -289,50 +298,35 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     else readersOf(mem).map{_.node}
   }
 
-  def writerOf(mem:Expr): Access = {
+  /*
+   * @return write access or equivalent of the mem
+   * */
+  def getWriters(dmem:Expr): List[Expr] = {
+    val mem = compose(dmem)
     val writers = writersOf(mem)
-    if (writers.size > 1) {
-      error(u"Memory $mem has multiple writers: ")
-      error(mem.ctx)
-      writers.foreach{writer => error(writer.node.ctx, showCaret = true) }
-      error("Plasticine currently only supports 1 writer per memory")
-      sys.exit(-1)
-    }
-    //assert(writers.size==1, u"Plasticine only support single writer mem=${qdef(mem)} writers=[${writers.mkString(",")}]")
-    writers.head
+    writers.map { _.node }
   }
+
+  //def writerOf(mem:Expr): Access = {
+    //val writers = writersOf(mem)
+    //if (writers.size > 1) {
+      //error(u"Memory $mem has multiple writers: ")
+      //error(mem.ctx)
+      //writers.foreach{writer => error(writer.node.ctx, showCaret = true) }
+      //error("Plasticine currently only supports 1 writer per memory")
+      //sys.exit(-1)
+    //}
+    ////assert(writers.size==1, u"Plasticine only support single writer mem=${qdef(mem)} writers=[${writers.mkString(",")}]")
+    //writers.head
+  //}
 
   def globals:mutable.Set[GlobalComponent]
-
-  def allocateDRAM(ctrl: Expr, dram: Expr, mode: OffchipMemoryMode): MemoryController = {
-    val region = OffChip(quote(dram))
-    val mc = MemoryController(quote(ctrl), region, mode, parentHack(ctrl).get)
-    globals += mc
-    globals += region
-    mc
-  }
-
-  def allocateDRAM(dram:Expr): OffChip = { //FIXME
-    val region = OffChip(quote(dram))
-    if (!globals.contains(region)) {
-      globals += region
-      region
-    } else {
-      region
-    }
-  }
-
-  def allocateLocal(x: Expr): LocalComponent = x match {
-    case c if isConstant(c) => extractConstant(x)
-    case _ => TempReg(x)
-  }
 
   def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:AbstractComputeUnit):CUMemory = {
     //HACK: don't know what the original sym is at splitting. 
     //Probably LocalComponent should keep a copy of sym at allocation time?
-    val memSym = null
-    val memAccess = null
-    val mem = CUMemory(s"$reg", memSym, memAccess, cu)
+    val memSym = null //TODO: fix this??
+    val mem = CUMemory(s"$reg", memSym, cu)
     bus match {
       case bus:ScalarBus =>
         mem.mode = ScalarFIFOMode
@@ -345,9 +339,34 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     mem
   }
 
-  def const(x:Expr):LocalComponent = x match {
-    case c if isConstant(c) => extractConstant(x)
-    case _ => throw new Exception(s"${qdef(x)} ${x.tp} is not a constant")
+  def allocateDRAM(dram:Expr): OffChip = { //FIXME
+    val region = OffChip(dram.name.getOrElse(quote(dram)))
+    if (!globals.contains(region)) {
+      globals += region
+      region
+    } else {
+      region
+    }
+  }
+
+  def allocateLocals(cu:AbstractComputeUnit, x: Expr): List[LocalComponent] = x match {
+    case c if isConstant(c) => List(extractConstant(x))
+    case Def(FIFONumel(fifo)) => List(ConstReg(10)) //TODO: Add support for routing fifoNumel
+      //val readerCUs = getReaders(fifo).flatMap { reader =>
+        //getReaderCUs(reader)
+      //}
+      ////HACK: only use one of the reader for status
+      //val cu = readerCUs.head
+      //decompose(fifo).map { dfifo =>
+        //MemNumel(cu.memMap(dfifo))
+      //}.toList
+    case _ => List(TempReg(x))
+  }
+
+  def allocateLocal(cu:AbstractComputeUnit, x: Expr): LocalComponent = {
+    val locals = allocateLocals(cu, x)
+    assert(locals.size==1, s"More than 1 local allocated. Use allocateLocals")
+    locals.head
   }
 
   def copyIterators(destCU: AbstractComputeUnit, srcCU: AbstractComputeUnit): Map[CUCChain,CUCChain] = {
@@ -388,7 +407,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
           val p = boundOf.get(par).map(_.toDouble).getOrElse(1.0)
           dbgs(s"nIter: bounds: min=$min, max=$max, step=$step, p=$p")
 
-          val nIters = Math.ceil(max - min/step)
+          val nIters = Math.ceil((max - min)/step)
           if (ignorePar)
             nIters.toLong
           else
@@ -409,28 +428,31 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
    * - Read access of local memories if the read access is not locally used 
    *   (used by stms that produces results or effectful) 
    * */
+  def mysyms(lhs: Any): Seq[Expr] = lhs match {
+    case Def(d) => mysyms(d) 
+    case SRAMStore(sram,dims,is,ofs,data,en)  => syms(sram) ++ syms(data) //++ syms(es)
+    case ParSRAMStore(sram,addr,data,ens)     => syms(sram) ++ syms(data) //++ syms(es)
+    case FIFOEnq(fifo, data, en)              => syms(fifo) ++ syms(data)
+    case ParFIFOEnq(fifo, data, ens)          => syms(fifo) ++ syms(data)
+    case FIFODeq(fifo, en)                    => syms(fifo)
+    case ParFIFODeq(fifo, ens)                => syms(fifo)
+    case StreamWrite(stream, data, en)        => syms(stream) ++ syms(data)
+    case ParStreamWrite(stream, data, ens)    => syms(stream) ++ syms(data)
+    case StreamRead(stream, ens)              => syms(stream)
+    case ParStreamRead(stream, ens)           => syms(stream)
+    case Switch(body, selects, cases)         => syms(cases) ++ syms(selects)
+    case SwitchCase(body)                     => syms(body)
+    case d: Def => d.allInputs //syms(d)
+    case _ => syms(lhs)
+  }
+
   def expsUsedInCalcExps(allStms: Seq[Stm])(results: Seq[Expr], effectful: Seq[Expr] = Nil): Seq[Expr] = {
     dbgblk(s"expsUsedInCalcExps"){
-      def mysyms(lhs: Any): Seq[Expr] = lhs match {
-        case Def(d) => mysyms(d) 
-        case SRAMStore(sram,dims,is,ofs,data,en)  => syms(sram) ++ syms(data) //++ syms(es)
-        case ParSRAMStore(sram,addr,data,ens)     => syms(sram) ++ syms(data) //++ syms(es)
-        case FIFOEnq(fifo, data, en)              => syms(fifo) ++ syms(data)
-        case ParFIFOEnq(fifo, data, ens)          => syms(fifo) ++ syms(data)
-        case FIFODeq(fifo, en)                    => syms(fifo)
-        case ParFIFODeq(fifo, ens)                => syms(fifo)
-        case StreamWrite(stream, data, en)        => syms(stream) ++ syms(data)
-        case ParStreamWrite(stream, data, ens)    => syms(stream) ++ syms(data)
-        case StreamRead(stream, ens)              => syms(stream)
-        case ParStreamRead(stream, ens)           => syms(stream)
-        case d: Def => d.allInputs //syms(d)
-        case _ => syms(lhs)
-      }
+      dbgs(s"results=${results.mkString(",")}")
+      dbgs(s"effectful=[${effectful.mkString(",")}]")
       val scopeIndex = makeScopeIndex(allStms)
       def deps(x: Expr): Seq[Stm] = orderedInputs(mysyms(x), scopeIndex)
 
-      dbgs(s"results=${results.mkString(",")}")
-      dbgs(s"effectful=[${effectful.mkString(",")}]")
       var stms = schedule((results++effectful).flatMap(deps) ++ orderedInputs(effectful, scopeIndex)){ next => 
         dbgs(s"$next inputs=[${deps(next).mkString(",")}] isStage=${isStage(next)}")
         deps(next)
@@ -448,12 +470,18 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     allStms.filter { case TP(s,d) => d.allInputs.contains(exp) }
   }
 
-  def getStms(pipe: Expr) = pipe match {
+  def getStms(pipe: Expr):Seq[Stm] = pipe match {
+    case Def(Hwblock(func,_)) if isInnerControl(pipe) => blockNestedContents(func)
     case Def(Hwblock(func,_)) => blockContents(func)
+    case Def(UnitPipe(en, func)) if isInnerControl(pipe) => blockNestedContents(func)
     case Def(UnitPipe(en, func)) => blockContents(func)
     case Def(ParallelPipe(en, func)) => blockContents(func)
+    case Def(UnrolledForeach(en, cchain, func, iters, valids)) if isInnerControl(pipe) => blockNestedContents(func)
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => blockContents(func)
+    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) if isInnerControl(pipe) => blockNestedContents(func)
     case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) => blockContents(func)
+    case Def(op@Switch(body, selects, cases)) => cases.flatMap(getStms)
+    case Def(op@SwitchCase(body)) => blockNestedContents(body)
     case _ => throw new Exception(s"Don't know how to get stms pipe=${qdef(pipe)}")
   }
 
@@ -470,7 +498,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
         stage.outs = outs.map{case LocalRef(i,reg) => ctx.refOut(reg) }
         ctx.addStage(stage)
 
-      case stage@ReduceStage(op,init,in,acc) if !remove.contains(stage) =>
+      case stage@ReduceStage(op,init,in,acc,accParent) if !remove.contains(stage) =>
         ctx.addStage(stage)
 
       case _ => // This stage is being removed! Ignore it!
@@ -506,31 +534,22 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
       case _ => reg
     }
 
-    def swapBus_Addr(addr: Addr): Addr = addr match {
-      case reg: LocalComponent => swapBus_reg(reg).asInstanceOf[Addr]
-      case _ => addr
-    }
-    def swapBus_localScalar(sc: LocalScalar): LocalScalar = sc match {
-      case reg: LocalComponent => swapBus_reg(reg).asInstanceOf[LocalScalar]
-      case _ => sc
-    }
-
     def swapBus_sram(sram: CUMemory): Unit = {
       sram.writePort = sram.writePort.map{case `orig` => swap; case vec => vec}
       sram.readPort = sram.readPort.map{case `orig` => swap; case vec => vec}
-      sram.readAddr = sram.readAddr.map{reg => swapBus_Addr(reg)}
-      sram.writeAddr = sram.writeAddr.map{reg => swapBus_Addr(reg)}
-      sram.writeStart = sram.writeStart.map{reg => swapBus_localScalar(reg)}
-      sram.writeEnd = sram.writeEnd.map{reg => swapBus_localScalar(reg)}
+      sram.readAddr = sram.readAddr.map{reg => swapBus_reg(reg)}
+      sram.writeAddr = sram.writeAddr.map{reg => swapBus_reg(reg)}
+      sram.writeStart = sram.writeStart.map{reg => swapBus_reg(reg)}
+      sram.writeEnd = sram.writeEnd.map{reg => swapBus_reg(reg)}
     }
     def swapBus_cchain(cchain: CUCChain): Unit = cchain match {
       case cc: CChainInstance => cc.counters.foreach{ctr => swapBus_ctr(ctr)}
       case _ => // No action
     }
     def swapBus_ctr(ctr: CUCounter): Unit = {
-      ctr.start = swapBus_localScalar(ctr.start)
-      ctr.end = swapBus_localScalar(ctr.end)
-      ctr.stride = swapBus_localScalar(ctr.stride)
+      ctr.start = swapBus_reg(ctr.start)
+      ctr.end = swapBus_reg(ctr.end)
+      ctr.stride = swapBus_reg(ctr.stride)
     }
   }
 
@@ -541,13 +560,21 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     cu.parent = cu.parent.map{parent => mapping.getOrElse(parent,parent) }
     cu.deps = cu.deps.map{dep => mapping.getOrElse(dep, dep) }
     cu.mems.foreach{mem => swapCU_sram(mem) }
-    cu.allStages.foreach{stage => stage.inputMems.foreach(swapCU_reg) }
-    cu.fringeVectors ++= pcu.fringeVectors
+    cu.allStages.foreach{stage => swapCU_stage(stage) }
+    cu.fringeGlobals ++= pcu.fringeGlobals
 
     def swapCU_cchain(cchain: CUCChain): Unit = cchain match {
       case cc: CChainCopy => cc.owner = mapping.getOrElse(cc.owner,cc.owner)
       case _ => // No action
     }
+    def swapCU_stage(stage:Stage) = {
+      stage match {
+        case stage:ReduceStage => stage.accParent = mapping.getOrElse(stage.accParent, stage.accParent)
+        case stage =>
+      }
+      stage.inputMems.foreach(swapCU_reg)
+    }
+
     def swapCU_reg(reg: LocalComponent): Unit = reg match {
       case CounterReg(cc,i) => swapCU_cchain(cc)
       case ValidReg(cc,i) => swapCU_cchain(cc)
@@ -565,7 +592,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     private val refs = mutable.HashMap[Expr,LocalRef]()
     private var readAccums: Set[AccumReg] = Set.empty
 
-    def pipe: Expr
     def stages: mutable.ArrayBuffer[Stage]
     def addStage(stage: Stage): Unit
     def isWriteContext: Boolean
@@ -644,12 +670,10 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     }
 
     // Get memory in this CU associated with the given reader
-    def mem(mem: Expr, reader: Expr): CUMemory = {
-      memOption(mem,reader).getOrElse(throw new Exception(s"Cannot find sram ($mem,$reader) in cu $cu"))
-    }
-
-    def memOption(mem: Expr, reader: Expr): Option[CUMemory] = {
-      cu.mems.find{sram => sram.mem == mem && sram.reader == reader}
+    def mem(mem: Expr): CUMemory = {
+      val cuMems = cu.mems.filter{ _.mem == mem }
+      assert(cuMems.size==1, s"More than 1 cuMem=${cuMems} allocated for $mem in $cu")
+      cuMems.head
     }
 
     // A CU can have multiple SRAMs for a given mem symbol, one for each local read
@@ -668,16 +692,15 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     def stages = cu.computeStages
     def addStage(stage: Stage) { cu.computeStages += stage }
     def isWriteContext = false
-    def pipe = cu.pipe
     def init() = {}
   }
-  case class WriteContext(override val cu: ComputeUnit, pipe: Expr, srams: Seq[CUMemory]) extends CUContext(cu) {
+  case class WriteContext(override val cu: ComputeUnit, srams: Seq[CUMemory]) extends CUContext(cu) {
     def init() { cu.writeStages += srams -> mutable.ArrayBuffer[Stage]() }
     def stages = cu.writeStages(srams)
     def addStage(stage: Stage) { cu.writeStages(srams) += stage }
     def isWriteContext = true
   }
-  case class ReadContext(override val cu: ComputeUnit, pipe: Expr, srams: Seq[CUMemory]) extends CUContext(cu) {
+  case class ReadContext(override val cu: ComputeUnit, srams: Seq[CUMemory]) extends CUContext(cu) {
     def init() { cu.readStages += srams -> mutable.ArrayBuffer[Stage]() }
     def stages = cu.readStages(srams)
     def addStage(stage: Stage) { cu.readStages(srams) += stage }
