@@ -52,7 +52,7 @@ def main():
         return
         
     if args.synth:
-        subprocess.call("make zynq", shell=True)
+        subprocess.call("make zynq | tee make.log", shell=True)
 
     # Scrape and return data
     if os.path.isdir('verilog-zynq'):
