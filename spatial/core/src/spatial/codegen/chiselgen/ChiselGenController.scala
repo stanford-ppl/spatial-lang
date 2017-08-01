@@ -556,7 +556,7 @@ trait ChiselGenController extends ChiselGenCounter{
       if (iiOf(lhs) <= 1) {
         emit(src"""val ${lhs}_II_done = true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 max Utils.log2Up(${lhs}_retime)));""")
+        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
         emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${lhs}_retime.S""")

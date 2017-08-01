@@ -125,10 +125,10 @@ trait PIRScheduler extends PIRTraversal {
       ctx match {
         case WriteContext(cu, srams) => 
           dbgs(s"Setting write address for ${ctx.memories(dmem).mkString(", ")} to $reg")
-          sram.writeAddr = Some(reg)
+          sram.writeAddr += reg
         case ReadContext(cu, srams) => 
           dbgs(s"Setting read address for ${ctx.memories(dmem).mkString(", ")} to $reg")
-          sram.readAddr = Some(reg)
+          sram.readAddr += reg
       }
     }
   }
@@ -151,7 +151,7 @@ trait PIRScheduler extends PIRTraversal {
         decompose(data).zip(decompose(lhs)).foreach { case (ddata, dwriter) =>
           if (getRemoteReaders(mem, lhs).nonEmpty || isArgOut(mem)) {
             assert(ctx.getReg(dwriter).nonEmpty, s"writer: ${qdef(dwriter)} was not allocated in ${ctx.cu} during allocation")
-            val ddataReg = ctx.cu.getOrElseUpdate(ddata)(allocateLocal(ctx.cu, ddata))
+            val ddataReg = allocateLocal(ctx.cu, ddata)
             dbgs(s"Propogating $ddataReg to $dwriter")
             propagateReg(ddata, ddataReg, ctx.reg(dwriter), ctx)
           }
@@ -172,7 +172,7 @@ trait PIRScheduler extends PIRTraversal {
       }
 
     case SimpleStruct(elems) =>
-      decompose(lhs).foreach { elem => ctx.cu.getOrElseUpdate(elem)(allocateLocal(ctx.cu, elem)) }
+      decompose(lhs).foreach { elem => allocateLocal(ctx.cu, elem) }
 
     case FieldApply(struct, fieldName) =>
       val ele = lookupField(struct, fieldName).getOrElse(
@@ -266,7 +266,7 @@ trait PIRScheduler extends PIRTraversal {
       }
       else {
         val inputs = inputRegs.map{reg => ctx.refIn(reg) }
-        val output = ctx.cu.getOrElseUpdate(out){ allocateLocal(ctx.cu, out) }
+        val output = allocateLocal(ctx.cu, out)
         val stage = MapStage(op, inputs, List(ctx.refOut(output)))
         ctx.addStage(stage)
       }
