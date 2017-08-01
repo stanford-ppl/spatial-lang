@@ -5,19 +5,17 @@ import argon.core.Config
 import argon.util.Report._
 import java.io.{File, PrintWriter}
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
 import sys.process._
 import java.util.concurrent.{BlockingQueue, Executors, LinkedBlockingQueue, TimeUnit}
 
 trait AllBenchmarks
     extends Benchmarks with SpatialCompiler
     with FIFOs
-    with Primitives
-    with RegFiles
+    //with Primitives
+    //with RegFiles
     with Regs
-    with SRAMs
-    with Fringe
+    //with SRAMs
+    //with Fringe
 
 object Characterization extends AllBenchmarks {
   lazy val SPATIAL_HOME: String = sys.env.getOrElse("SPATIAL_HOME", {
