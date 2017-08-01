@@ -135,7 +135,7 @@ package object pirgen {
     case _:ScalarIn  | _:VectorIn  => true
     case _:MemLoadReg| _:MemNumel => true
     case _:TempReg | _:AccumReg | _:ReduceReg => true
-    case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => false
+    case _:WriteAddrWire | _:ReadAddrWire => false
     case _:ControlReg => true
     case _:ValidReg | _:ConstReg[_] | _:CounterReg => true
   }
@@ -144,7 +144,7 @@ package object pirgen {
     case _:ScalarIn  | _:VectorIn  => false
     case _:MemLoadReg| _:MemNumel => false
     case _:TempReg | _:AccumReg | _:ReduceReg => true
-    case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => true
+    case _:WriteAddrWire | _:ReadAddrWire => true
     case _:ControlReg => true
     case _:ValidReg | _:ConstReg[_] | _:CounterReg => false
   }

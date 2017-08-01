@@ -78,11 +78,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case _ => // No preallocation
   }
 
-  def preallocateFeedbackRegs(cu: CU) = cu.regs.foreach{
-    case reg@FeedbackAddrReg(mem) => emit(s"val ${quote(reg)} = CU.wtAddr(${quote(mem)})")
-    case _ => //nothing
-  }
-
   override def emitCU(lhs: Exp[_], cu: CU): Unit = {
     val Def(rhs) = lhs
     //emit(s"""// Def($lhs) = $rhs [isControlNode=${isControlNode(lhs)}]""")
@@ -98,7 +93,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     cu.cchains.foreach(emitComponent(_))    // Allocate all counterchains
     srams.foreach(emitComponent(_))      // Allocate all SRAMs. address calculation might depends on counters
     emitFringeVectors(cu)
-    preallocateFeedbackRegs(cu)             // Local write addresses
 
     cu.style match {
       case PipeCU => emitAllStages(cu)
@@ -242,8 +236,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
     case WriteAddrWire(mem)      => s"${quote(mem)}.writeAddr"      // Write address wire
     case ReadAddrWire(mem)       => s"${quote(mem)}.readAddr"       // Read address wire
-    case FeedbackAddrReg(mem)    => s"wr${reg.id}"                  // Local write address register
-    case FeedbackDataReg(mem)    => quote(mem)                      // Local write data register
     case MemLoadReg(mem)        => s"$reg"                      // SRAM read
     case MemNumel(mem)        => s"${reg}"                      // Mem number of element
 
@@ -265,8 +257,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
     case LocalRef(stage, wire: WriteAddrWire)  => quote(wire)
     case LocalRef(stage, wire: ReadAddrWire)   => quote(wire)
-    case LocalRef(stage, reg: FeedbackAddrReg) => s"CU.wtAddr(stage($stage), ${quote(reg)})"
-    case LocalRef(stage, reg: FeedbackDataReg) => s"CU.store(stage($stage), ${quote(reg)})"
 
     case LocalRef(stage, reg: ReduceReg) if allocatedReduce.contains(reg) => quote(reg)
     case LocalRef(stage, reg: ReduceReg)   => s"CU.reduce"

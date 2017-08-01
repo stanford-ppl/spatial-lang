@@ -39,7 +39,6 @@ case object SRAMMode extends LocalMemoryMode
 case object VectorFIFOMode extends LocalMemoryMode
 case object ScalarFIFOMode extends LocalMemoryMode
 case object ScalarBufferMode extends LocalMemoryMode
-
 case object FIFOOnWriteMode extends LocalMemoryMode
 
 
@@ -135,14 +134,6 @@ case class ReadAddrWire(mem: CUMemory) extends LocalMem[ReadAddrWire] {
 case class WriteAddrWire(mem: CUMemory) extends LocalMem[WriteAddrWire] {
   override def eql(that: WriteAddrWire) = this.mem == that.mem
   override def toString = mem.name + ".writeAddr"
-}
-case class FeedbackAddrReg(mem: CUMemory) extends LocalMem[FeedbackAddrReg] {
-  override def eql(that: FeedbackAddrReg) = this.mem == that.mem
-  override def toString = mem.name + ".feedbackAddr"
-}
-case class FeedbackDataReg(mem: CUMemory) extends LocalMem[FeedbackDataReg] {
-  override def eql(that: FeedbackDataReg) = this.mem == that.mem
-  override def toString = mem.name + ".feedbackData"
 }
 case class MemLoadReg(mem: CUMemory) extends LocalMem[MemLoadReg] {
   override def eql(that: MemLoadReg) = this.mem == that.mem

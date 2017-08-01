@@ -715,7 +715,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
   def propagateReg(exp: Expr, a: LocalComponent, b: LocalComponent, ctx: CUContext):LocalComponent = (a,b) match {
     case (a:ScalarOut, b:ScalarOut) => a
     case (a:VectorOut, b:VectorOut) => a
-    case (a:FeedbackDataReg, b:FeedbackDataReg) => a
     case (_:ReduceReg | _:AccumReg, _:ReduceReg | _:AccumReg) => a
 
     // Propagating from read addr wire to another read addr wire is ok (but should usually never happen)
