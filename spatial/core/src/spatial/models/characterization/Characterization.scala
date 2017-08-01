@@ -14,7 +14,7 @@ trait AllBenchmarks
     with Primitives
     //with RegFiles
     with Regs
-    //with SRAMs
+    with SRAMs
     //with Fringe
 
 object Characterization extends AllBenchmarks {
