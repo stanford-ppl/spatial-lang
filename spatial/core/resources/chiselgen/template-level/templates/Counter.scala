@@ -82,7 +82,7 @@ class IncDincCtr(inc: Int, dinc: Int, stop: Int, width: Int = 32) extends Module
 class RedxnCtr(val width: Int = 32) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
-      val stop      = Input(SInt((width+1).W))
+      val stop      = Input(SInt((width).W))
       val enable = Input(Bool())
       val reset = Input(Bool())
       val saturate = Input(Bool())
@@ -92,12 +92,12 @@ class RedxnCtr(val width: Int = 32) extends Module {
     }
   })
 
-  val cnt = RegInit(0.S((width+1).W))
+  val cnt = RegInit(0.S((width).W))
 
-  val fudge_stop = io.input.stop + Mux(io.input.stop === 1.S((width+1).W), 1.S((width+1).W), 0.S((width+1).W))
-  val isDone = (cnt + 1.S((width+1).W) >= (fudge_stop))
+  val fudge_stop = io.input.stop + Mux(io.input.stop === 1.S((width).W), 1.S((width).W), 0.S((width).W))
+  val isDone = (cnt + 1.S((width).W) >= (fudge_stop))
 
-  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.S((width+1).W) === fudge_stop, Mux(io.input.saturate, cnt, 0.S((width+1).W)), cnt+1.S((width+1).W)), cnt)
+  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.S((width).W) === fudge_stop, Mux(io.input.saturate, cnt, 0.S((width).W)), cnt+1.S((width).W)), cnt)
   cnt := Mux(io.input.reset, 0.S, nextCntUp)
 
   io.output.done := isDone
