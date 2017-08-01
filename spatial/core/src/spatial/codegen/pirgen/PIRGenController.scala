@@ -72,15 +72,10 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
   }
 
   def preallocateRegisters(cu: CU) = cu.regs.foreach{
-    case reg:TempReg        => emit(s"val ${quote(reg)} = CU.temp")
+    case reg:TempReg        => emit(s"val ${quote(reg)} = CU.temp(${reg.init})")
     //case reg@AccumReg(init) => emit(s"val ${quote(reg)} = CU.accum(init = ${quote(init)})")
     case reg:ControlReg if genControlLogic => emit(s"val ${quote(reg)} = CU.ctrl")
     case _ => // No preallocation
-  }
-
-  def preallocateFeedbackRegs(cu: CU) = cu.regs.foreach{
-    case reg@FeedbackAddrReg(mem) => emit(s"val ${quote(reg)} = CU.wtAddr(${quote(mem)})")
-    case _ => //nothing
   }
 
   override def emitCU(lhs: Exp[_], cu: CU): Unit = {
@@ -98,7 +93,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     cu.cchains.foreach(emitComponent(_))    // Allocate all counterchains
     srams.foreach(emitComponent(_))      // Allocate all SRAMs. address calculation might depends on counters
     emitFringeVectors(cu)
-    preallocateFeedbackRegs(cu)             // Local write addresses
 
     cu.style match {
       case PipeCU => emitAllStages(cu)
@@ -146,32 +140,22 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
       var ports = ""
 
-      mem.writePort match {
-        case Some(LocalVectorBus) => // Nothing?
-        case Some(LocalReadBus(vfifo)) => ports += s".wtPort(${quote(vfifo)}.readPort)" 
-        case Some(vec) => ports += s""".wtPort(${quote(vec)})"""
-        case None => ports += s""".wtPort(None)"""
+      mem.writePort.foreach {
+        case LocalVectorBus => // Nothing?
+        case LocalReadBus(vfifo) => ports += s".wtPort(${quote(vfifo)}.readPort)" 
+        case vec => ports += s""".wtPort(${quote(vec)})"""
         //case None => throw new Exception(s"Memory $mem has no writePort defined")
       }
-      mem.readPort match {
-        case Some(LocalVectorBus) => // Nothing?
-        case Some(vec) => ports += s""".rdPort(${quote(vec)})"""
-        case None if mem.isSRAM => throw new Exception(s"Memory $mem has no readPort defined")
-        case None => 
+      mem.readPort.foreach {
+        case vec => ports += s""".rdPort(${quote(vec)})"""
       }
-      mem.readAddr match {
-        case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".rdAddr(${quote(mem.readAddr.get)})"""
-        case Some(_:ReadAddrWire) =>
-        case None if !mem.isSRAM => // ok
-        case addr => ports += s""".rdAddr($addr)"""
-        //case addr => throw new Exception(s"Disallowed memory read address in $mem: $addr") //TODO
+      mem.readAddr.foreach {
+        case a@(_:CounterReg | _:ConstReg[_]) => ports += s""".rdAddr(${quote(a)})"""
+        case _ =>
       }
-      mem.writeAddr match {
-        case Some(_:CounterReg | _:ConstReg[_]) => ports += s""".wtAddr(${quote(mem.writeAddr.get)})"""
-        case Some(_:WriteAddrWire | _:FeedbackAddrReg) =>
-        case None if !mem.isSRAM => // ok
-        case addr => ports += s""".wtAddr($addr)""" //TODO
-        //case addr => throw new Exception(s"Disallowed memory write address in $mem: $addr")
+      mem.writeAddr.foreach {
+        case a@(_:CounterReg | _:ConstReg[_]) => ports += s""".wtAddr(${quote(a)})"""
+        case _ =>
       }
       if (!mem.isSRAM) {
         mem.writeStart match {
@@ -252,8 +236,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
     case WriteAddrWire(mem)      => s"${quote(mem)}.writeAddr"      // Write address wire
     case ReadAddrWire(mem)       => s"${quote(mem)}.readAddr"       // Read address wire
-    case FeedbackAddrReg(mem)    => s"wr${reg.id}"                  // Local write address register
-    case FeedbackDataReg(mem)    => quote(mem)                      // Local write data register
     case MemLoadReg(mem)        => s"$reg"                      // SRAM read
     case MemNumel(mem)        => s"${reg}"                      // Mem number of element
 
@@ -275,8 +257,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
     case LocalRef(stage, wire: WriteAddrWire)  => quote(wire)
     case LocalRef(stage, wire: ReadAddrWire)   => quote(wire)
-    case LocalRef(stage, reg: FeedbackAddrReg) => s"CU.wtAddr(stage($stage), ${quote(reg)})"
-    case LocalRef(stage, reg: FeedbackDataReg) => s"CU.store(stage($stage), ${quote(reg)})"
 
     case LocalRef(stage, reg: ReduceReg) if allocatedReduce.contains(reg) => quote(reg)
     case LocalRef(stage, reg: ReduceReg)   => s"CU.reduce"

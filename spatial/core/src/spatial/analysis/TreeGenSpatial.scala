@@ -6,6 +6,7 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
+import spatial.SpatialConfig
 
 import java.io.PrintWriter
 
@@ -49,6 +50,7 @@ trait TreeGenSpatial extends SpatialTraversal {
   <div data-role="main" class="ui-content" style="overflow-x:scroll;">
     <h2>Controller Diagram for """)
     controller_tree.write(Config.name)
+    if (SpatialConfig.enableRetiming) {controller_tree.write(" retimed")}
     controller_tree.write("""</h2>
 <TABLE BORDER="3" CELLPADDING="10" CELLSPACING="10">""")
   	super.preprocess(block)
@@ -197,16 +199,18 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
       print_stage_suffix(s"$sym", inner)
 
-    case Switch(_,selects, cases) =>
-      val inner = false
-      print_stage_prefix(s"${getScheduling(sym)}Switch",s"",s"$sym", inner)
+    case op@Switch(_,selects, cases) =>
+      val inner = false // Switch will always print some SwitchCases
+      val ohm = if (Bits.unapply(op.mT).isDefined) {"OHM."} else ""
+      print_stage_prefix(s"${getScheduling(sym)}${ohm}Switch",s"",s"$sym", inner)
       print_stream_info(sym)
       cases.foreach{c => getStm(c).foreach(visitStm) }
       print_stage_suffix(s"$sym", inner)
 
-    case SwitchCase(func) =>
+    case op@SwitchCase(func) =>
       val inner = if (childrenOf(sym).length > 0) false else true
-      print_stage_prefix(s"${getScheduling(sym)}SwitchCase",s"",s"$sym", inner)
+      val ohm = if (Bits.unapply(op.mT).isDefined) {"OHM."} else ""
+      print_stage_prefix(s"${getScheduling(sym)}${ohm}SwitchCase",s"",s"$sym", inner)
       print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>

@@ -58,7 +58,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       if (iiOf(lhs) <= 1) {
         emit(src"""${lhs}_II_done := true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 max Utils.log2Up(${lhs}_retime)));""")
+        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_datapath_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${lhs}_retime.S //${iiOf(lhs)}.S""")
@@ -115,7 +115,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       if (iiOf(lhs) <= 1) {
         emit(src"""${lhs}_II_done := true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 max Utils.log2Up(${lhs}_retime)));""")
+        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
@@ -129,7 +129,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       //       case FixPtSum => // Optimized for this case (1 issue per cycle)
       //         emit(src"""val ${lhs}_II_done = true.B""")
       //       case _ => // Not optimized for this case
-      //         emit(s"""val ${quote(lhs)}_IICtr = Module(new RedxnCtr(2 max Utils.log2Up(${lhs}_retime)));""")
+      //         emit(s"""val ${quote(lhs)}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
       //         emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
       //         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
       //         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
@@ -383,7 +383,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case ParRegFileStore(rf, inds, data, ens) => //FIXME: Not correct for more than par=1
       val width = bitWidth(rf.tp.typeArguments.head)
       val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
+      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor && ${parent}_II_done"""
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, List(${dimsOf(rf)}), ${width}))) """)
       (0 until ens.length).foreach{ k => 
