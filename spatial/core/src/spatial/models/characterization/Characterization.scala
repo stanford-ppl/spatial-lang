@@ -10,8 +10,8 @@ import java.util.concurrent.{BlockingQueue, Executors, LinkedBlockingQueue, Time
 
 trait AllBenchmarks
     extends Benchmarks with SpatialCompiler
-    with FIFOs
-    //with Primitives
+    //with FIFOs
+    with Primitives
     //with RegFiles
     with Regs
     //with SRAMs
