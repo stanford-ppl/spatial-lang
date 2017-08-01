@@ -17,6 +17,7 @@
 #include "FringeContextBase.h"
 #include "simDefs.h"
 #include "channel.h"
+#include "generated_debugRegs.h"
 
 //Source: http://stackoverflow.com/questions/13893085/posix-spawnp-and-piping-child-output-to-a-string
 class FringeContextVCS : public FringeContextBase<void> {
@@ -29,13 +30,64 @@ class FringeContextVCS : public FringeContextBase<void> {
   uint32_t numArgOuts = 0;
   uint32_t numArgIOs = 0;
 
+  posix_spawn_file_actions_t action;
+  int globalID = 1;
+
   const uint32_t burstSizeBytes = 64;
   const uint32_t commandReg = 0;
   const uint32_t statusReg = 1;
-  const uint64_t maxCycles = 10000000000;
+  uint64_t maxCycles = 10000000000;
 
-  posix_spawn_file_actions_t action;
-  int globalID = 1;
+  // Debug flags
+  bool debugRegs = false;
+
+  // Set of environment variables that should be set and visible to the simulator process
+  // Each variable must be explicitly mentioned here
+  // Each specified variable must be set (will trigger an assert otherwise)
+  std::vector<std::string> envVariablesToSim = {
+    "LD_LIBRARY_PATH",
+    "DRAMSIM_HOME",
+    "USE_IDEAL_DRAM",
+    "DRAM_DEBUG",
+    "DRAM_NUM_OUTSTANDING_BURSTS",
+    "VPD_ON",
+    "VCD_ON"
+  };
+
+  char* checkAndGetEnvVar(std::string var) {
+    const char *cvar = var.c_str();
+    char *value = getenv(cvar);
+    ASSERT(value != NULL, "%s is NULL\n", cvar);
+    return value;
+  }
+
+  bool envToBool(std::string var) {
+    const char *cvar = var.c_str();
+    char *value = getenv(cvar);
+    if (value != NULL) {
+      if (value[0] != 0 && atoi(value) > 0) {
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+
+  long envToLong(std::string var) {
+    const char *cvar = var.c_str();
+    char *value = getenv(cvar);
+    if (value != NULL) {
+      if (value[0] != 0) {
+        return atol(value);
+      } else {
+        return -1;
+      }
+    } else {
+      return -1;
+    }
+  }
 
   int sendCmd(SIM_CMD cmd) {
     simCmd simCmd;
@@ -199,22 +251,17 @@ public:
     char *args[] = {&argsmem[0][0],nullptr};
 
     // Pass required environment variables to simulator
-    // LD_LIBRARY_PATH
-    // DRAMSIM_HOME
-    // DRAM_DEBUG
-    // ..(others)..
-    char *ldPath = getenv("LD_LIBRARY_PATH");
-    char *dramPath = getenv("DRAMSIM_HOME");
-    ASSERT(ldPath != NULL, "ldPath is NULL");
-    ASSERT(dramPath != NULL, "dramPath is NULL");
-
-    std::string ldLib = "LD_LIBRARY_PATH=" + string(getenv("LD_LIBRARY_PATH"));
-    std::string dramSimHome = "DRAMSIM_HOME=" + string(getenv("DRAMSIM_HOME"));
-    std::string idealDram = "USE_IDEAL_DRAM=" + string(getenv("USE_IDEAL_DRAM"));
-    std::string dramDebug = "DRAM_DEBUG=" + string(getenv("DRAM_DEBUG"));
-    std::string dramOutstandingBursts = "DRAM_NUM_OUTSTANDING_BURSTS=" + string(getenv("DRAM_NUM_OUTSTANDING_BURSTS"));
-    std::string envstrings[] = {ldLib, dramSimHome, idealDram, dramDebug, dramOutstandingBursts};
-    char *envs[] = {&envstrings[0][0], &envstrings[1][0], &envstrings[2][0], &envstrings[3][0], &envstrings[4][0], nullptr};
+    // Required environment variables must be specified in "envVariablesToSim"
+    char **envs = new char*[envVariablesToSim.size() + 1];
+    std::string *valueStrs = new std::string[envVariablesToSim.size()];
+    int i = 0;
+    for (std::vector<std::string>::iterator it = envVariablesToSim.begin(); it != envVariablesToSim.end(); it++) {
+      std::string var = *it;
+      valueStrs[i] = var + "=" + string(checkAndGetEnvVar(var));
+      envs[i] = &valueStrs[i][0];
+      i++;
+    }
+    envs[envVariablesToSim.size()] = nullptr;
 
     if(posix_spawnp(&sim_pid, args[0], &action, NULL, &args[0], &envs[0]) != 0) {
       EPRINTF("posix_spawnp failed, error = %s\n", strerror(errno));
@@ -227,6 +274,11 @@ public:
 
     // Connect with simulator
     connect();
+
+    // Configure settings from environment
+    debugRegs = envToBool("DEBUG_REGS");
+    long envCycles = atol("MAX_CYCLES");
+    if (envCycles > 0) maxCycles = envCycles;
   }
 
   virtual void load() {
@@ -254,8 +306,13 @@ public:
       EPRINTF("ERROR: Simulation terminated after %lu cycles\n", numCycles);
       EPRINTF("=========================================\n");
     } else {  // Ran to completion, pull down command signal
+      if (status & 0x2) { // Hardware timeout
+        EPRINTF("=========================================\n");
+        EPRINTF("Hardware timeout after %lu cycles\n", numCycles);
+        EPRINTF("=========================================\n");
+      }
       writeReg(commandReg, 0);
-      while (status == 1) {
+      while (status != 0) {
         step();
         status = readReg(statusReg);
       }
@@ -274,15 +331,30 @@ public:
       return readReg(2+arg);
     } else {
       if (numArgIns == 0) {
-        return readReg(1-numArgIOs+2+arg);    
+        return readReg(1-numArgIOs+2+arg);
       } else {
-        return readReg(numArgIns-numArgIOs+2+arg);  
+        return readReg(numArgIns-numArgIOs+2+arg);
       }
-      
+
     }
   }
 
+  void dumpDebugRegs() {
+    EPRINTF(" ******* Debug regs *******\n");
+    int argInOffset = numArgIns == 0 ? 1 : numArgIns;
+    int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
+    for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
+      if (i % 16 == 0) EPRINTF("\n");
+      uint64_t value = readReg(argInOffset + argOutOffset + 2 - numArgIOs + i);
+      EPRINTF("\t%s: %08x (%08d)\n", signalLabels[i], value, value);
+    }
+    EPRINTF(" **************************\n");
+  }
+
   ~FringeContextVCS() {
+    if (debugRegs) {
+      dumpDebugRegs();
+    }
     finish();
   }
 };

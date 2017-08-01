@@ -44,7 +44,11 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var streamHolders: List[Exp[_]] = Nil // Pushes
   var top: Option[Exp[_]] = None
 
-  override protected def preprocess[S:Type](block: Block[S]) = {
+  val instrument = new argon.util.NoInstrument("total")
+
+  override protected def preprocess[S:Type](block: Block[S]): Block[S] = instrument("preprocess"){
+    instrument.reset()
+
     localMems = Nil
     metapipes = Nil
     streamLoadCtrls = Nil
@@ -62,17 +66,22 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     metadata.clearAll[ReadUsers]
     metadata.clearAll[Resetters]
     metadata.clearAll[MShouldDuplicate]
+
     super.preprocess(block)
   }
 
-  override protected def postprocess[S:Type](block: Block[S]) = {
-    top match {
-      case Some(ctrl@Op(Hwblock(_,_))) =>
-      case _ => new spatial.NoTopError(block.result.ctx)
+  override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
+    val result = instrument("postprocess") {
+      top match {
+        case Some(ctrl@Op(Hwblock(_, _))) =>
+        case _ => new spatial.NoTopError(block.result.ctx)
+      }
+      dbg("Local memories: ")
+      localMems.foreach { mem => dbg(c"  $mem") }
+      super.postprocess(block)
     }
-    dbg("Local memories: ")
-    localMems.foreach{mem => dbg(c"  $mem")}
-    super.postprocess(block)
+    instrument.dump(s"#${state.pass-1} $name: ")
+    result
   }
 
   def visitBlk(e: Exp[_])(func: => Unit): Unit = visitBlk((e,0))(func)
@@ -104,6 +113,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
     // ASSUMPTION: Currently only parallelizes by innermost loop
     inds.zip(factors).foreach{case (i,f) => parFactorOf(i) = f }
+    controller.foreach{ctrl => inds.foreach{i => ctrlOf(i) = ctrl }}
     unrollFactors = factors.lastOption.toList +: unrollFactors
     loopIterators = loopIterators ++ inds
     inInnerLoop = isInnerControl(blkToCtrl(blk)) // This version of the method is only called for loops
@@ -116,7 +126,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   /** Helper methods **/
-  def appendReader(reader: Exp[_], ctrl: Ctrl) = {
+  def appendReader(reader: Exp[_], ctrl: Ctrl) = instrument("appendReader"){
     val LocalReader(reads) = reader
     reads.foreach{case (mem, addr, en) =>
       val access = (reader, ctrl)
@@ -128,20 +138,24 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
-  def addReader(reader: Exp[_], ctrl: Ctrl) = {
+  def addReader(reader: Exp[_], ctrl: Ctrl) = instrument("addReader"){
     if (isInnerControl(ctrl))
       appendReader(reader, ctrl)
     else
       addPendingNode(reader)
   }
 
-  def appendWriter(writer: Exp[_], ctrl: Ctrl) = {
+  def appendWriter(writer: Exp[_], ctrl: Ctrl) = instrument("appendWriter"){
     val LocalWriter(writes) = writer
     val Def(writeDef) = writer
     writes.foreach{case (mem,value,addr,en) =>
       writersOf(mem) = (writer,ctrl) +: writersOf(mem)      // (5)
       writtenIn(ctrl) = mem +: writtenIn(ctrl)              // (10)
-      val isAccumulatingWrite = writeDef.inputs.filterNot(_ == mem).exists{_.dependsOn(mem) }
+      //val isAccumulatingWrite = writeDef.inputs.filterNot(_ == mem).exists{_.dependsOn(mem, curScope) }
+      //isAccum(mem) = isAccum(mem) || isAccumulatingWrite
+      //isAccum(writer) = isAccumulatingWrite
+
+      val isAccumulatingWrite = writeDef.expInputs.filterNot(_ == mem).exists{in => memDepsOf(in).contains(mem) }
       isAccum(mem) = isAccum(mem) || isAccumulatingWrite
       isAccum(writer) = isAccumulatingWrite
 
@@ -149,16 +163,16 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
-  def addWriter(writer: Exp[_], ctrl: Ctrl) = {
+  def addWriter(writer: Exp[_], ctrl: Ctrl) = instrument("addWriter"){
     if (isInnerControl(ctrl))
       appendWriter(writer, ctrl)
     else {
       val mem = LocalWriter.unapply(writer).get.head._1
-      throw new spatial.ExternalWriteError(mem, writer, ctrl)(writer.ctx, state)
+      throw new spatial.ExternalWriteException(mem, writer, ctrl)(writer.ctx, state)
     }
   }
 
-  def appendResetter(resetter: Exp[_], ctrl: Ctrl) = {
+  def appendResetter(resetter: Exp[_], ctrl: Ctrl) = instrument("appendResetter"){
     val LocalResetter(resetters) = resetter
     resetters.foreach{case (mem,en) =>
       val access = (resetter, ctrl)
@@ -170,7 +184,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
-  def addResetter(resetter: Exp[_], ctrl: Ctrl) = {
+  def addResetter(resetter: Exp[_], ctrl: Ctrl) = instrument("addResetter"){
     if (isInnerControl(ctrl))
       appendResetter(resetter, ctrl)
     else {
@@ -179,7 +193,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   // (1, 7)
-  def addAllocation(alloc: Exp[_], ctrl: Exp[_]) = {
+  def addAllocation(alloc: Exp[_], ctrl: Exp[_]) = instrument("addAllocation"){
     dbgs(c"  Setting parent of $alloc to $ctrl")
     parentOf(alloc) = ctrl
     if (isLocalMemory(alloc)) {
@@ -188,38 +202,38 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
-  def addStreamLoadMem(ctrl: Exp[_]) = {
+  def addStreamLoadMem(ctrl: Exp[_]) = instrument("addStreamLoadMem"){
     dbgs(c"  Registered stream load $ctrl")
     streamLoadCtrls ::= ctrl
   }
 
-  def addParEnq(ctrl: Exp[_]) = {
+  def addParEnq(ctrl: Exp[_]) = instrument("addParEnq"){
     dbgs(c"  Registered par enq $ctrl")
     streamParEnqs ::= ctrl
   }
 
 
-  def addStreamDeq(stream: Exp[_], ctrl: Exp[_]) = {
+  def addStreamDeq(stream: Exp[_], ctrl: Exp[_]) = instrument("addStreamDeq"){
     parentOf(stream) = ctrl
     dbgs(c"  Registered stream enabler $stream")
     streamEnablers ::= stream
   }
 
-  def addStreamEnq(stream: Exp[_], ctrl: Exp[_]) = {
+  def addStreamEnq(stream: Exp[_], ctrl: Exp[_]) = instrument("addStreamEnq"){
     parentOf(stream) = ctrl
     dbgs(c"  Registered stream holder $stream")
     streamHolders ::= stream
   }
 
   // (2, 3)
-  def addChild(child: Exp[_], ctrl: Exp[_]) = {
+  def addChild(child: Exp[_], ctrl: Exp[_]) = instrument("addChild"){
     dbgs(c"  Setting parent of $child to $ctrl")
     parentOf(child) = ctrl
     childrenOf(ctrl) = childrenOf(ctrl) :+ child
   }
 
 
-  def addPendingUse(user: Exp[_], ctrl: Ctrl, blk: Blk, pending: Seq[Exp[_]], isBlockResult: Boolean = false): Unit = {
+  def addPendingUse(user: Exp[_], ctrl: Ctrl, blk: Blk, pending: Seq[Exp[_]], isBlockResult: Boolean = false): Unit = instrument("addPendingUse"){
     dbgs(c"  Node is user of:")
     pending.foreach{s => dbgs(c"  ${str(s)}")}
 
@@ -240,8 +254,8 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
-  def checkPendingNodes(lhs: Sym[_], rhs: Op[_], ctrl: Option[Ctrl], blk: Option[Blk]) = {
-    val pending = rhs.inputs.flatMap{sym => pendingNodes.getOrElse(sym, Nil) }
+  def checkPendingNodes(lhs: Sym[_], rhs: Op[_], ctrl: Option[Ctrl], blk: Option[Blk]) = instrument("checkPendingNodes"){
+    val pending = rhs.nonBlockInputs.flatMap{sym => pendingNodes.getOrElse(sym, Nil) }
     if (pending.nonEmpty) {
       // All nodes which could potentially use a reader outside of an inner control node
       if (isStateless(lhs) && !ctrl.exists(isInnerControl)) { // Ctrl is either outer or outside Accel
@@ -253,20 +267,28 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
-  def addPropagatingNode(node: Exp[_], pending: Seq[Exp[_]]) = {
+  def addPropagatingNode(node: Exp[_], pending: Seq[Exp[_]]) = instrument("addPropagatingNode"){
     dbgs(c"  Node is propagating reader of:")
     pending.foreach{s => dbgs(c"  ${str(s)}")}
     pendingNodes += node -> (node +: pending)
   }
 
-  def addPendingNode(node: Exp[_]) = {
+  def addPendingNode(node: Exp[_]) = instrument("addPendingNode"){
     dbgs(c"  Adding pending node $node")
     shouldDuplicate(node) = true
     if (!pendingNodes.contains(node)) pendingNodes += node -> List(node)
   }
 
+  def addMemoryDeps(node: Exp[_]) = instrument("addMemoryDeps"){
+    getDef(node).foreach{d =>
+      val inputs = d.expInputs
+      memDepsOf(node) = (inputs intersect localMems).toSet ++ inputs.flatMap(in => memDepsOf(in))
+      dbgs(s"memory dependencies of $node: " + memDepsOf(node).mkString(","))
+    }
+  }
+
   /** Common method for all nodes **/
-  def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = {
+  def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = instrument("addCommonControlData"){
     if (controller.isDefined) {
       // Set total unrolling factors of this node's scope + internal unrolling factors in this node
 
@@ -300,6 +322,8 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       if (isReader(lhs)) addReader(lhs, parent)               // (4)
       if (isWriter(lhs)) addWriter(lhs, parent)               // (5, 6, 10)
       if (isResetter(lhs)) addResetter(lhs, parent)
+
+      if (isInnerControl(ctrl) && !isControlNode(lhs)) addMemoryDeps(lhs)
     }
     else {
       checkPendingNodes(lhs, rhs, None, None)
@@ -318,33 +342,36 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
-  def addChildDependencyData(lhs: Sym[_], block: Block[_]): Unit = if (isOuterControl(lhs)) {
-    withInnerStms(availStms diff block.inputs.flatMap(getStm)) {
-      val children = childrenOf(lhs)
-      dbgs(c"  parent: $lhs")
-      val allDeps = Map(children.map { child =>
-        dbgs(c"    child: $child")
-        val schedule = getCustomSchedule(availStms, List(child))
-        schedule.foreach{stm => dbgs(c"      $stm")}
-        child -> schedule.flatMap(_.lhs).filter { e => children.contains(e) && e != child }
-      }: _*)
+  def addChildDependencyData(lhs: Sym[_], block: Block[_]): Unit = instrument("addChildDependencyData"){
+    // TODO: This is expensive and doesn't work yet
+    /*if (isOuterControl(lhs)) {
+      withInnerStms(availStms diff block.inputs.flatMap(getStm)) {
+        val children = childrenOf(lhs)
+        dbgs(c"  parent: $lhs")
+        val allDeps = Map(children.map { child =>
+          dbgs(c"    child: $child")
+          val schedule = getCustomSchedule(availStms, List(child))
+          schedule.foreach{stm => dbgs(c"      $stm")}
+          child -> schedule.flatMap(_.lhs).filter { e => children.contains(e) && e != child }
+        }: _*)
 
-      dbgs(c"  dependencies: ")
-      allDeps.foreach { case (child, deps) =>
-        val fringe = deps diff deps.flatMap(allDeps)
-        ctrlDepsOf(child) = fringe.toSet
-        dbgs(c"    $child ($fringe)")
+        dbgs(c"  dependencies: ")
+        allDeps.foreach { case (child, deps) =>
+          val fringe = deps diff deps.flatMap(allDeps)
+          ctrlDepsOf(child) = fringe.toSet
+          dbgs(c"    $child ($fringe)")
+        }
       }
-    }
+    }*/
   }
 
-  override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = {
+  override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = instrument("visit"){
     dbgs(c"$lhs = $rhs")
     addCommonControlData(lhs, rhs)
     analyze(lhs, rhs)
   }
 
-  protected def analyze(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
+  protected def analyze(lhs: Sym[_], rhs: Op[_]): Unit = instrument("analyze"){ rhs match {
     case Hwblock(blk,_) =>
       visitBlk(lhs){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
@@ -447,7 +474,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       rhs.allInputs.filter(isStream).foreach { stream => fringeOf(stream) = lhs }
 
     case _ => super.visit(lhs, rhs)
-  }
+  }}
 
 }
 

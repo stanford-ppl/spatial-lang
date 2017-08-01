@@ -42,6 +42,7 @@ trait DSE extends CompilerPass with SpaceGenerator {
       val intParams = (tileSizes ++ parFactors).toSeq
       val intSpace = createIntSpace(intParams, restricts)
       val ctrlSpace = createCtrlSpace(metapipes)
+      val params = intParams ++ metapipes
       val space = intSpace ++ ctrlSpace
 
       if (PRUNE) {
@@ -53,12 +54,11 @@ trait DSE extends CompilerPass with SpaceGenerator {
       else {
         report("Space: ")
       }
-      (intParams ++ metapipes).zip(space).foreach{case (p,d) => report(u"  $p: $d (${p.ctx})") }
+      params.zip(space).foreach{case (p,d) => report(u"  $p: $d (${p.ctx})") }
 
-      val names = (intParams ++ metapipes).map(p => p.name.getOrElse(p.toString))
       val restrictions: Set[Restrict] = if (PRUNE) restricts.filter{_.deps.size > 1} else Set.empty
 
-      bruteForceDSE(names, space, restrictions, block)
+      bruteForceDSE(params, space, restrictions, block)
     }
     dbg("Freezing parameters")
     tileSizes.foreach{t => t.makeFinal() }
@@ -66,7 +66,8 @@ trait DSE extends CompilerPass with SpaceGenerator {
     block
   }
 
-  def bruteForceDSE(names: Seq[String], space: Seq[Domain[_]], restrictions: Set[Restrict], program: Block[_]): Unit = {
+  def bruteForceDSE(params: Seq[Exp[_]], space: Seq[Domain[_]], restrictions: Set[Restrict], program: Block[_]): Unit = {
+    val names = params.map{p => p.name.getOrElse(p.toString) }
     val N = space.size
     val P = space.map{d => BigInt(d.len) }.product
     val T = SpatialConfig.threads
@@ -94,6 +95,7 @@ trait DSE extends CompilerPass with SpaceGenerator {
       DSEThread(
         threadId  = id,
         origState = state,
+        params    = params,
         space     = space,
         restricts = restrictions,
         accel     = top,

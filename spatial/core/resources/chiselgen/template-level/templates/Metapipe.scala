@@ -6,7 +6,7 @@ import Utils._
 
 import scala.collection.mutable.HashMap
 
-class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) extends Module {
+class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -17,7 +17,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
       val forever = Input(Bool())
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
       // FSM signals
-      val nextState = Input(SInt(32.W))
+      val nextState = Input(SInt(stateWidth.W))
 
     }
     val output = new Bundle {
@@ -26,7 +26,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
       val rst_en = Output(Bool())
       val ctr_inc = Output(Bool())
       // FSM signals
-      val state = Output(SInt(32.W))
+      val state = Output(SInt(stateWidth.W))
     }
   })
 
@@ -46,6 +46,17 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
   stateFF.io.input(0).init := 0.U
   stateFF.io.input(0).reset := io.input.rst
   val state = stateFF.io.output.data
+
+  val rstMax = ctrDepth * Utils.delay_per_numIter
+  val rstw = Utils.log2Up(rstMax) + 2
+  val rstCtr = Module(new SingleCounter(1, width = rstw))
+  rstCtr.io.input.enable := state === resetState.U
+  rstCtr.io.input.reset := (state != resetState.U) | io.input.rst
+  rstCtr.io.input.saturate := true.B
+  rstCtr.io.input.stop := rstMax.S(rstw.W)
+  rstCtr.io.input.gap := 0.S(rstw.W)
+  rstCtr.io.input.start := 0.S(rstw.W)
+  rstCtr.io.input.stride := 1.S(rstw.W)
 
   // Counter for num iterations
   val maxFF = Module(new FF(32))
@@ -91,7 +102,9 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
       io.output.stageEnable.foreach { s => s := false.B}
       cycsSinceDone.io.input(0).enable := false.B
     }.elsewhen (state === resetState.U) {  // RESET -> FILL
-      stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, steadyState.U, doneState.U), fillState.U) // Go directly to done if niters = 0
+      stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, 
+                          Mux(io.input.forever, steadyState.U, Mux(rstCtr.io.output.done, doneState.U, resetState.U)), 
+                          Mux(rstCtr.io.output.done, fillState.U, resetState.U)) // Go directly to done if niters = 0
       io.output.stageEnable.foreach { s => s := false.B}
       cycsSinceDone.io.input(0).enable := false.B
     }.elsewhen (state < steadyState.U) {  // FILL -> STEADY
@@ -103,7 +116,7 @@ class Metapipe(val n: Int, val isFSM: Boolean = false, val retime: Int = 0) exte
               en := ~done & (ii.U >= cycsSinceDone.io.output.data) & (io.input.numIter != 0.U) & io.input.stageMask(ii)
           }
           io.output.stageEnable.drop(fillStateID+1).foreach { en => en := false.B }
-          val doneMaskInts = doneMask.zip(io.input.stageMask).map{case (a,b) => a | ~b}.take(fillStateID+1).map {Mux(_, 1.U(bitsToAddress(n).W), 0.U(bitsToAddress(n).W))}
+          val doneMaskInts = doneMask.zip(io.input.stageMask).zipWithIndex.map{case ((a,b),iii) => (a | ~b) & iii.U >= cycsSinceDone.io.output.data}.take(fillStateID+1).map {Mux(_, 1.U(bitsToAddress(n).W), 0.U(bitsToAddress(n).W))}
           val doneTree = doneMaskInts.reduce {_ + _} + cycsSinceDone.io.output.data === (fillStateID+1).U
           // val doneTree = doneMask.zipWithIndex.map{case (a,i) => a | ~io.input.stageMask(i)}.take(fillStateID+1).reduce {_ & _}
           doneClear := doneTree

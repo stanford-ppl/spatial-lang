@@ -30,6 +30,7 @@ abstract class FIFOBase(val w: Int, val d: Int, val v: Int) extends Module {
     val almostFull = Output(Bool())
     val almostEmpty = Output(Bool())
     val config = Input(new FIFOOpcode(d, v))
+    val fifoSize = Output(UInt(32.W))
   })
 
   val addrWidth = log2Up(d/v)
@@ -43,6 +44,7 @@ abstract class FIFOBase(val w: Int, val d: Int, val v: Int) extends Module {
   // Create size register
   val sizeUDC = Module(new UpDownCtr(log2Up(d+1)))
   val size = sizeUDC.io.out
+  io.fifoSize := size
   val remainingSlots = d.U - size
   val nextRemainingSlots = d.U - sizeUDC.io.nextInc
 

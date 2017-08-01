@@ -4,7 +4,7 @@ package templates
 import chisel3._
 
 //A n-stage Parallel controller
-class Parallel(val n: Int, val isFSM: Boolean = false, val retime:Int = 0) extends Module {
+class Parallel(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime:Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -16,7 +16,7 @@ class Parallel(val n: Int, val isFSM: Boolean = false, val retime:Int = 0) exten
       val hasStreamIns = Input(Bool()) // Not used, here for codegen compatibility
 
       // FSM signals
-      val nextState = Input(SInt(32.W))
+      val nextState = Input(SInt(stateWidth.W))
     }
     val output = new Bundle {
       val done = Output(Bool())
@@ -24,7 +24,7 @@ class Parallel(val n: Int, val isFSM: Boolean = false, val retime:Int = 0) exten
       val rst_en = Output(Bool())
       val ctr_inc = Output(Bool())
       // FSM signals
-      val state = Output(SInt(32.W))
+      val state = Output(SInt(stateWidth.W))
     }
   })
 
@@ -45,9 +45,11 @@ class Parallel(val n: Int, val isFSM: Boolean = false, val retime:Int = 0) exten
   // Create vector of registers for holding stage dones
   val doneFF = List.tabulate(n) { i =>
     val ff = Module(new SRFF())
-    ff.io.input.set := io.input.stageDone(i) | ~io.input.stageMask(i)
-    ff.io.input.asyn_reset := false.B
-    ff.io.input.reset := state === doneState.U | io.input.rst
+    ff.io.input.set := (io.input.stageDone(i) | ~io.input.stageMask(i)) & io.input.enable
+    // Not 100% sure that this reset delay is correct.  Originally included because a mask on one lane of a parallelized
+    //   controller was holding this doneFF lane done even after the particular masked iteration was done
+    ff.io.input.asyn_reset := state === doneState.U | chisel3.util.ShiftRegister(state === doneState.U,retime)
+    ff.io.input.reset := (state === doneState.U) | io.input.rst | chisel3.util.ShiftRegister(state === doneState.U,retime)
     ff
   }
   val doneMask = doneFF.map { _.io.output.data }

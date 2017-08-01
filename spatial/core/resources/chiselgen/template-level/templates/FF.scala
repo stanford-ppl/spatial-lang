@@ -114,7 +114,7 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
   // io.swapAlert := ~swap & anyEnabled & (0 until numBufs).map{ i => sEn_latch(i).io.output.data === (sDone_latch(i).io.output.data | io.sDone(i))}.reduce{_&_} // Needs to go high when the last done goes high, which is 1 cycle before swap goes high
 
   val statesIn = (0 until numWriters).map{ i => 
-    val c = Module(new NBufCtr())
+    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
     c.io.input.start := io.wr_ports(i) 
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -123,7 +123,7 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
   }
 
   val statesOut = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr())
+    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
     c.io.input.start := i.U
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap

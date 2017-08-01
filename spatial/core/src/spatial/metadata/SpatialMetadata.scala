@@ -208,6 +208,15 @@ case class CtrlDeps(deps: Set[Exp[_]]) extends Metadata[CtrlDeps] { def mirror(f
   def update(x: Exp[_], deps: Set[Exp[_]]) = metadata.add(x, CtrlDeps(deps))
 }
 
+case class IndexController(ctrl: Ctrl) extends Metadata[IndexController] {
+  def mirror(f:Tx) = this
+  override def ignoreOnTransform: Boolean = true
+}
+@data object ctrlOf {
+  def apply(x: Exp[_]): Option[Ctrl] = metadata[IndexController](x).map(_.ctrl)
+  def update(x: Exp[_], ctrl: Ctrl): Unit = metadata.add(x, IndexController(ctrl))
+}
+
 /**
   * List of memories written in a given controller
   **/
@@ -440,14 +449,29 @@ case class MLoopInvariant(is: Boolean) extends Metadata[MLoopInvariant] { def mi
   def update(e: Exp[_], is: Boolean): Unit = metadata.add(e, MLoopInvariant(is))
 }
 
-case class InitiationInterval(interval: Int) extends Metadata[InitiationInterval] { def mirror(f:Tx) = this }
+case class InitiationInterval(interval: Long) extends Metadata[InitiationInterval] { def mirror(f:Tx) = this }
 @data object iiOf {
-  def apply(e: Exp[_]): Int = metadata[InitiationInterval](e).map(_.interval).getOrElse(1)
-  def update(e: Exp[_], interval: Int): Unit = metadata.add(e, InitiationInterval(interval))
+  def apply(e: Exp[_]): Long = metadata[InitiationInterval](e).map(_.interval).getOrElse(1)
+  def update(e: Exp[_], interval: Long): Unit = metadata.add(e, InitiationInterval(interval))
+}
+
+case class UserII(interval: Long) extends Metadata[UserII] { def mirror(f:Tx) = this }
+@data object userIIOf {
+  def apply(e: Exp[_]): Option[Long] = metadata[UserII](e).map(_.interval)
+  def update(e: Exp[_], interval: Option[Long]): Unit = interval.foreach{ii => metadata.add(e, UserII(ii)) }
 }
 
 case class MemoryContention(contention: Int) extends Metadata[MemoryContention] { def mirror(f:Tx) = this }
 @data object contentionOf {
   def apply(e: Exp[_]): Int = metadata[MemoryContention](e).map(_.contention).getOrElse(1)
   def update(e: Exp[_], contention: Int): Unit = metadata.add(e, MemoryContention(contention))
+}
+
+case class MemoryDependencies(mems: Set[Exp[_]]) extends Metadata[MemoryDependencies] {
+  def mirror(f:Tx) = this
+  override def ignoreOnTransform: Boolean = true
+}
+@data object memDepsOf {
+  def apply(e: Exp[_]): Set[Exp[_]] = metadata[MemoryDependencies](e).map(_.mems).getOrElse(Set.empty)
+  def update(e: Exp[_], deps: Set[Exp[_]]): Unit = if (deps.nonEmpty) metadata.add(e, MemoryDependencies(deps))
 }

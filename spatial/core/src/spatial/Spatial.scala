@@ -2,6 +2,7 @@ package spatial
 
 import argon.ArgonApp
 import argon.ArgonCompiler
+import argon.analysis.ParamFinalizer
 import argon.core.State
 import argon.traversal.IRPrinter
 import argon.util.Report
@@ -67,6 +68,7 @@ trait SpatialCompiler extends ArgonCompiler {
       def metapipes  = ctrlAnalyzer.metapipes
       def top = ctrlAnalyzer.top.get
     }
+    lazy val finalizer = ParamFinalizer(IR = state)
 
     lazy val transferExpand = new TransferSpecialization { var IR = state }
     lazy val reduceAnalyzer = new ReductionAnalyzer { var IR = state }
@@ -117,6 +119,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += ctrlAnalyzer      // Control signal analysis
 
     // --- Register cleanup
+    passes += printer
     passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
     passes += printer
 
@@ -132,7 +135,8 @@ trait SpatialCompiler extends ArgonCompiler {
 
     // --- DSE
     if (SpatialConfig.enableDSE) passes += paramAnalyzer
-    passes += dse               // TODO: Design space exploration
+    passes += dse               // Design space exploration
+    passes += finalizer
 
     // --- Post-DSE Expansion
     // NOTE: Small compiler pass ordering issue here:
@@ -174,12 +178,15 @@ trait SpatialCompiler extends ArgonCompiler {
 
     passes += uctrlAnalyzer     // Analysis for unused register reads
     passes += regCleanup        // Duplicate register reads for each use
+    passes += printer
     passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
     passes += printer
 
     // --- Retiming
-    if (SpatialConfig.enableRetiming) passes += retiming // Add delay shift registers where necessary
-    passes += printer
+    if (SpatialConfig.enableRetiming) {
+      passes += retiming        // Add delay shift registers where necessary
+      passes += printer
+    }
     passes += initAnalyzer
 
     // --- Post-Unroll Analysis
@@ -195,6 +202,7 @@ trait SpatialCompiler extends ArgonCompiler {
     // --- Sanity Checks
     passes += scopeCheck        // Check that illegal host values are not used in the accel block
     passes += controlSanityCheck
+    passes += finalizer         // Finalize any remaining parameters
 
     // --- Code generation
     if (SpatialConfig.enableTree)  passes += treegen
@@ -211,9 +219,16 @@ trait SpatialCompiler extends ArgonCompiler {
 
   override protected def onException(t: Throwable): Unit = {
     super.onException(t)
-    Report.error("If you'd like, you can submit this log and your code in a bug report at: ")
-    Report.error("  https://github.com/stanford-ppl/spatial-lang/issues")
-    Report.error("and we'll try to fix it as soon as we can.")
+    Report.bug("If you'd like, you can submit this log and your code in a bug report at: ")
+    Report.bug("  https://github.com/stanford-ppl/spatial-lang/issues")
+    Report.bug("and we'll try to fix it as soon as we can.")
+  }
+
+  override def settings(): Unit = {
+    if (SpatialConfig.useBasicBlocks) {
+      Report.warn("Setting compiler to use basic blocks. Code motion will be disabled.")
+      _IR.useBasicBlocks = true
+    }
   }
 
   override protected def parseArguments(args: Seq[String]): Unit = {

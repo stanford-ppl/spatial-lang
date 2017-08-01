@@ -29,8 +29,6 @@
   #define HIGH_32b(a) ((uint32_t)(((uint64_t)(a)) >> 32L))
 #endif // F1
 
-#define BASE_ADDR           UINT64_C_AWS(0x0000000000000100)   // DDR CHANNEL 0
-
 #define SCALAR_CMD_BASE_ADDR   UINT64_C_AWS(0x1000000)
 #define SCALAR_IN_BASE_ADDR    UINT64_C_AWS(0x1010000)
 #define SCALAR_OUT_BASE_ADDR   UINT64_C_AWS(0x1020000)
@@ -39,40 +37,13 @@
 
 #define CMD_REG_ADDR           UINT64_C_AWS(0x00)
 #define STATUS_REG_ADDR        UINT64_C_AWS(0x20)
-#define DDR_STATUS_REG_ADDR    UINT64_C_AWS(0x40)
+// #define DDR_STATUS_REG_ADDR    UINT64_C_AWS(0x40)
+#define PERF_COUNTER           UINT64_C_AWS(0x40)
 #define RESET_REG_ADDR         UINT64_C_AWS(0x60)
 
-#define CFG_REG           UINT64_C_AWS(0x00)
-#define CNTL_REG          UINT64_C_AWS(0x08)
-#define NUM_INST          UINT64_C_AWS(0x10)
-#define MAX_RD_REQ        UINT64_C_AWS(0x14)
-
-#define WR_INSTR_INDEX    UINT64_C_AWS(0x1c)
-#define WR_ADDR_LOW       UINT64_C_AWS(0x20)
-#define WR_ADDR_HIGH      UINT64_C_AWS(0x24)
-#define WR_DATA           UINT64_C_AWS(0x28)
-#define WR_LEN            UINT64_C_AWS(0x2c)
-
+#define BASE_ADDR           UINT64_C_AWS(0x0000000000000100)   // DDR CHANNEL 0
+// #define NUM_INST          UINT64_C_AWS(0x10)
 #define ATG    UINT64_C_AWS(0x30)
-
-#define RD_INSTR_INDEX    UINT64_C_AWS(0x3c)
-#define RD_ADDR_LOW       UINT64_C_AWS(0x40)
-#define RD_ADDR_HIGH      UINT64_C_AWS(0x44)
-#define RD_DATA           UINT64_C_AWS(0x48)
-#define RD_LEN            UINT64_C_AWS(0x4c)
-
-#define RD_ERR            UINT64_C_AWS(0xb0)
-#define RD_ERR_ADDR_LOW   UINT64_C_AWS(0xb4)
-#define RD_ERR_ADDR_HIGH  UINT64_C_AWS(0xb8)
-#define RD_ERR_INDEX      UINT64_C_AWS(0xbc)
-
-#define WR_CYCLE_CNT_LOW  UINT64_C_AWS(0xf0)
-#define WR_CYCLE_CNT_HIGH UINT64_C_AWS(0xf4)
-#define RD_CYCLE_CNT_LOW  UINT64_C_AWS(0xf8)
-#define RD_CYCLE_CNT_HIGH UINT64_C_AWS(0xfc)
-
-#define WR_START_BIT   0x00000001
-#define RD_START_BIT   0x00000002
 
 class FringeContextAWS : public FringeContextBase<void> {
 
@@ -326,15 +297,21 @@ public:
     assert(fsync(fd) == 0); // TODO: Is this needed?
 #endif // F1
     aws_poke(BASE_ADDR + ATG, 0x00000001);
-    aws_poke(BASE_ADDR + NUM_INST, 0x00000000);
+    // aws_poke(BASE_ADDR + NUM_INST, 0x00000000);	// TODO: Move outside run()?
     uint32_t status;
     aws_poke(SCALAR_CMD_BASE_ADDR + CMD_REG_ADDR, 1);
     do {
       aws_peek(SCALAR_CMD_BASE_ADDR + STATUS_REG_ADDR, &status);
     } while (!status);
     aws_poke(BASE_ADDR + ATG, 0x00000000);
+    // De-assert enable?
 #ifdef SIM
 #else // F1
+    /*
+    uint32_t total_cycles;
+    aws_peek(SCALAR_CMD_BASE_ADDR + PERF_COUNTER, &total_cycles);
+    printf("Total cycles = %d\n", total_cycles);
+    */
     assert(fsync(fd) == 0); // TODO: Is this needed?
 #endif // F1
   }

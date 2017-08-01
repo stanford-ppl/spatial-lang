@@ -58,8 +58,8 @@ trait PIRScheduler extends PIRTraversal {
         var readStageRegs = cu.regs
 
         // --- Schedule write contexts
-        for ((srams, (writer, stages)) <- pcu.writeStages) {
-          val ctx = WriteContext(cu, writer, srams)
+        for ((srams, stages) <- pcu.writeStages) {
+          val ctx = WriteContext(cu, srams)
           ctx.init()
           stages.foreach{stage => scheduleStage(stage, ctx) }
 
@@ -67,8 +67,8 @@ trait PIRScheduler extends PIRTraversal {
           cu.regs = origRegs
         }
         // --- Schedule read contexts
-        for ((srams, (reader, stages)) <- pcu.readStages) {
-          val ctx = ReadContext(cu, reader, srams)
+        for ((srams, stages) <- pcu.readStages) {
+          val ctx = ReadContext(cu, srams)
           ctx.init()
           stages.foreach{stage => scheduleStage(stage, ctx) }
 
@@ -111,21 +111,22 @@ trait PIRScheduler extends PIRTraversal {
   def addrToStage(dmem: Expr, addr: Expr, ctx: CUContext) {
     ctx.memories(dmem).foreach{sram =>
       val wire = ctx match {
-        case WriteContext(cu, pipe, srams) => WriteAddrWire(sram)
-        case ReadContext(cu, pipe, srams) => ReadAddrWire(sram) 
+        case WriteContext(cu,srams) => WriteAddrWire(sram)
+        case ReadContext(cu, srams) => ReadAddrWire(sram) 
       }
       val addrReg = addr match {
         case bound:Bound[_] => ctx.reg(addr)
+        case const:Const[_] => ctx.reg(addr)
         case lhs@Def(rhs) => 
           mapNodeToStage(lhs, rhs, ctx)
           ctx.reg(addr)
       }
-      val reg = propagateReg(addr, addrReg, wire, ctx).asInstanceOf[Addr]
+      val reg = propagateReg(addr, addrReg, wire, ctx)
       ctx match {
-        case WriteContext(cu, pipe, srams) => 
+        case WriteContext(cu, srams) => 
           dbgs(s"Setting write address for ${ctx.memories(dmem).mkString(", ")} to $reg")
           sram.writeAddr = Some(reg)
-        case ReadContext(cu, pipe, srams) => 
+        case ReadContext(cu, srams) => 
           dbgs(s"Setting read address for ${ctx.memories(dmem).mkString(", ")} to $reg")
           sram.readAddr = Some(reg)
       }
@@ -150,7 +151,7 @@ trait PIRScheduler extends PIRTraversal {
         decompose(data).zip(decompose(lhs)).foreach { case (ddata, dwriter) =>
           if (getRemoteReaders(mem, lhs).nonEmpty || isArgOut(mem)) {
             assert(ctx.getReg(dwriter).nonEmpty, s"writer: ${qdef(dwriter)} was not allocated in ${ctx.cu} during allocation")
-            val ddataReg = ctx.cu.getOrElseUpdate(ddata)(const(ddata))
+            val ddataReg = ctx.cu.getOrElseUpdate(ddata)(allocateLocal(ctx.cu, ddata))
             dbgs(s"Propogating $ddataReg to $dwriter")
             propagateReg(ddata, ddataReg, ctx.reg(dwriter), ctx)
           }
@@ -165,13 +166,13 @@ trait PIRScheduler extends PIRTraversal {
       }
 
     case VectorApply(vec, idx) =>
-      if (idx != 0) throw new Exception("Expected parallelization of 1 in inner loop in PIR gen")
+      if (idx != 0) throw new Exception(s"Expected parallelization of 1 in inner loop in PIRgen idx=$idx")
       decompose(vec).zip(decompose(lhs)).foreach { case (vec, lhs) =>
         ctx.addReg(lhs, ctx.reg(vec))
       }
 
     case SimpleStruct(elems) =>
-      decompose(lhs).foreach { elem => ctx.cu.getOrElseUpdate(elem)(allocateLocal(elem)) }
+      decompose(lhs).foreach { elem => ctx.cu.getOrElseUpdate(elem)(allocateLocal(ctx.cu, elem)) }
 
     case FieldApply(struct, fieldName) =>
       val ele = lookupField(struct, fieldName).getOrElse(
@@ -223,12 +224,13 @@ trait PIRScheduler extends PIRTraversal {
 
       val inputReg = ctx.reg(input)
       val usedInput = propagateReg(input, inputReg, ReduceReg(), ctx)
-      val zero = accum match {
-        case Def(RegRead(reg)) => extractConstant(resetValue(reg))
-        case _ => ConstReg(0)
-      }
+      val Def(RegRead(accumReg)) = accum
+      val zero = extractConstant(resetValue(accumReg))
       val acc = ReduceReg()
-      val stage = ReduceStage(op, zero, ctx.refIn(usedInput), acc)
+      val accParents = mappingIn(parentOf(accumReg).get)
+      assert(accParents.size==1)
+      val accParent = accParents.head
+      val stage = ReduceStage(op, zero, ctx.refIn(usedInput), acc, accParent=accParent)
       ctx.addReg(out, acc)
       ctx.addStage(stage)
     }
@@ -264,7 +266,7 @@ trait PIRScheduler extends PIRTraversal {
       }
       else {
         val inputs = inputRegs.map{reg => ctx.refIn(reg) }
-        val output = ctx.cu.getOrElseUpdate(out){ allocateLocal(out) }
+        val output = ctx.cu.getOrElseUpdate(out){ allocateLocal(ctx.cu, out) }
         val stage = MapStage(op, inputs, List(ctx.refOut(output)))
         ctx.addStage(stage)
       }

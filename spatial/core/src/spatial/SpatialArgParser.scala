@@ -22,11 +22,14 @@ class SpatialArgParser extends ArgonArgParser {
 
   parser.opt[Unit]("sim").action { (_,_) =>
     SpatialConfig.enableSim = true
-    SpatialConfig.enableInterpret = false    
+    SpatialConfig.enableInterpret = false
+    SpatialConfig.enableSynth = false            
   }.text("enable codegen to Scala (Simulation) (disable synth) [true]")
 
   parser.opt[Unit]("interpreter").action { (_,_) =>
     SpatialConfig.enableInterpret = true
+    SpatialConfig.enableSim = false
+    SpatialConfig.enableSynth = false        
   }.text("enable interpreter")
 
   parser.arg[String]("args...").unbounded().optional().action( (x, _) => {
@@ -90,5 +93,14 @@ class SpatialArgParser extends ArgonArgParser {
   parser.opt[Int]("threads").action{ (t,_) =>
     SpatialConfig.threads = t
   }
+
+  parser.opt[Unit]("fast").action{ (_,_) =>
+    SpatialConfig.useBasicBlocks = true
+  }.text("[EXPERIMENTAL] Use basic blocks")
+
+  parser.opt[Unit]("xfast").action{ (_,_) =>
+    SpatialConfig.useBasicBlocks = true
+    argon.core.Config.verbosity = -2
+  }.text("[EXPERIMENTAL] Use basic blocks")
 
 }

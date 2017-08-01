@@ -59,7 +59,7 @@ object utils {
 
   @internal def flatIndex(indices: Seq[Index], dims: Seq[Index]): Index = {
     val strides = List.tabulate(dims.length){d => Math.productTree(dims.drop(d+1)) }
-    Math.sumTree(indices.zip(strides).map{case (a,b) => a*b })
+    Math.sumTree(indices.zip(strides).map{case (a,b) => a.to[Index]*b })
   }
 
   def constDimsToStrides(dims: Seq[Int]): Seq[Int] = List.tabulate(dims.length){d => dims.drop(d + 1).product}
@@ -69,11 +69,11 @@ object utils {
     */
   // TODO: This uses the pointer-chasing version of scheduling - could possibly make faster?
   implicit class ExpOps(x: Exp[_]) {
-    @stateful def dependsOn(y: Exp[_]): Boolean = {
-      def dfs(frontier: Seq[Exp[_]]): Boolean = frontier.exists{
-        case s if s == y => true
-        case Def(d) => dfs(d.inputs)
-        case _ => false
+    @stateful def dependsOn(y: Exp[_], scope: Seq[Stm] = Nil): Boolean = {
+      val scp = scope.flatMap(_.lhs.asInstanceOf[Seq[Exp[_]]]).toSet
+
+      def dfs(frontier: Seq[Exp[_]]): Boolean = frontier.exists{x =>
+        (scp.isEmpty || scp.contains(x)) && (x == y || getDef(x).exists{d => dfs(d.inputs) })
       }
       dfs(Seq(x))
     }
@@ -385,7 +385,7 @@ object utils {
     case Op(e: SparseTransfer[_])  => Seq(e.p)
     case _ => Nil
   }
-  @internal def parsOf(x: Exp[_]): Seq[Int] = parFactorsOf(x).map{case Const(p: BigDecimal) => p.toInt }
+  @internal def parsOf(x: Exp[_]): Seq[Int] = parFactorsOf(x).map{case Exact(p: BigInt) => p.toInt }
 
   @internal def extractParFactor(par: Option[Index]): Const[Index] = par.map(_.s) match {
     case Some(x: Const[_]) if isIndexType(x.tp) => x.asInstanceOf[Const[Index]]
@@ -460,6 +460,15 @@ object utils {
     case _ if isOuterControl(x) => children
   }
 
+  @stateful def loopCounters(e: Exp[_]): Seq[Exp[CounterChain]] = getDef(e).map{d => d.nonBlockInputs.collect{
+    case e: Exp[_] if e.tp == CounterChainType => e.asInstanceOf[Exp[CounterChain]]
+  }}.getOrElse(Nil)
+
+  @stateful def willBeFullyUnrolled(e: Exp[_]): Boolean = e match {
+    case Def(d:OpReduce[_]) => canFullyUnroll(d.cchain)
+    case Def(d:OpForeach) => canFullyUnroll(d.cchain)
+    case _ => false
+  }
 
   @stateful def isOuterControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == OuterControl
   @stateful def isInnerControl(e: Exp[_]): Boolean = isControlNode(e) && levelOf(e) == InnerControl
@@ -474,7 +483,7 @@ object utils {
 
   @stateful def isInnerPipe(e: Exp[_]): Boolean = styleOf(e) == InnerPipe || (styleOf(e) == MetaPipe && isInnerControl(e))
   @stateful def isInnerPipe(e: Ctrl): Boolean = e.isInner || isInnerPipe(e.node)
-  @stateful def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe
+  @stateful def isMetaPipe(e: Exp[_]): Boolean = styleOf(e) == MetaPipe && !willBeFullyUnrolled(e) // Fully unrolled doesn't need pipelining
   @stateful def isSeqPipe(e: Exp[_]): Boolean = styleOf(e) == SeqPipe
   @stateful def isStreamPipe(e: Exp[_]): Boolean = e match {
     case Def(Hwblock(_,isFrvr)) => isFrvr
@@ -546,6 +555,13 @@ object utils {
     case _ => None
   }
 
+  @stateful def canFullyUnroll(cc: Exp[CounterChain]): Boolean = countersOf(cc).forall{
+    case Def(CounterNew(Exact(start),Exact(end),Exact(stride),Exact(par))) =>
+      val nIters = (BigDecimal(end) - BigDecimal(start))/BigDecimal(stride)
+      BigDecimal(par) >= nIters
+    case _ => false
+  }
+
   @stateful def isForeverCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).exists(isForever)
   @stateful def isUnitCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).forall(isUnitCounter)
 
@@ -571,14 +587,14 @@ object utils {
     case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
     case Def(RegFileNew(dims,_)) => dims
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
     case Def(LUTNew(dims,_)) => dims
     case _ => stagedDimsOf(x).map{
-      case Const(c: BigDecimal) => c.toInt
-      case dim => throw new spatial.UndefinedDimensionsError(x, Some(dim))(x.ctx, state)
+      case Exact(c: BigInt) => c.toInt
+      case dim => throw new spatial.UndefinedDimensionsException(x, Some(dim))(x.ctx, state)
     }
   }
 
@@ -587,12 +603,12 @@ object utils {
   @stateful def sizeOf(x: Exp[_]): Exp[Index] = x match {
     case Def(FIFONew(size)) => size
     case Def(FILONew(size)) => size
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def lenOf(x: Exp[_]): Int = x.tp match {
     case tp: VectorType[_] => tp.width
-    case _ => throw new spatial.UndefinedDimensionsError(x, None)(x.ctx, state)
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def rankOf(x: Exp[_]): Int = dimsOf(x).length

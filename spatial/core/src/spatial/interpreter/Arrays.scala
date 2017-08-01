@@ -15,6 +15,9 @@ trait Arrays extends AInterpreter {
 
     case InputArguments() =>
       SpatialConfig.inputs
+
+    case MapIndices(_, _, _) =>
+      ???
       
 
   }

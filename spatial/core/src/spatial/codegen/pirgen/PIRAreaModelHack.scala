@@ -44,7 +44,7 @@ trait PIRAreaModelHack extends PIRTraversal {
 
   def areaOf(stage: Stage, cu: CU): Double = stage match {
     case MapStage(op,_,_)      => (opArea(op) + regArea()) * cu.lanes
-    case ReduceStage(op,_,_,_) => (REDUCE_STAGES + 1)*(opArea(op) + regArea())
+    case ReduceStage(op,_,_,_,_) => (REDUCE_STAGES + 1)*(opArea(op) + regArea())
   }
 
   def opArea(op: PIROp, verbose: Boolean = true): Double = {

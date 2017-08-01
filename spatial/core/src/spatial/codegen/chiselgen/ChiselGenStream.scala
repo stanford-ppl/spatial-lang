@@ -202,7 +202,8 @@ trait ChiselGenStream extends ChiselGenSRAM {
       }
       val parent = parentOf(lhs).get
       emit(src"""val ${lhs}_rId = getStreamInLane("$stream")""")
-      emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${parent}_datapath_en & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
+      emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${parent}_done & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
+//      emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${parent}_datapath_en & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
       if (!isAck) {
         stream match {
           case Def(StreamInNew(bus)) => bus match {

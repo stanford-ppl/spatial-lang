@@ -122,6 +122,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
       dbgs(c"$lhs = $rhs")
       // Activate / lookup duplication rules
       val rules = statelessSubstRules((lhs,blk)).map{case (s,s2) => s -> s2()}
+      rules.foreach{case (s,s2) => dbgs(s"  $s -> ${str(s2)}") }
       val lhs2 = withSubstScope(rules: _*){ mirror(lhs, rhs) }
       dbgs(c"${str(lhs2)}")
       lhs2

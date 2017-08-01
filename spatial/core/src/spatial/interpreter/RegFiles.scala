@@ -6,7 +6,7 @@ import argon.interpreter.{Interpreter => AInterpreter}
 
 trait RegFiles extends AInterpreter {
 
-  class IRegFile(val dims: Seq[Int], val v: Array[Any]) {
+  class IRegFile(val dims: Seq[Int], val resets: Array[Any], val v: Array[Any]) {
     override def toString = {
       val vs = AInterpreter.stringify(v)
       s"RegFile($dims, $vs)"
@@ -18,6 +18,12 @@ trait RegFiles extends AInterpreter {
       val posMult = ind.zip(strides).map { case (a,b) => a*b }
       posMult.sum
     }
+
+    def reset = {
+      resets.zipWithIndex.foreach { case (r, i) =>
+        v(i) = r
+      }
+    }
     
   }
 
@@ -27,12 +33,18 @@ trait RegFiles extends AInterpreter {
   
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
 
-    // Issue #180
-    case RegFileNew(SeqEI(size), Some(SeqEI(inits))) => 
+    case RegFileNew(SeqEI(size), inits) => 
       variables.get(lhs).getOrElse {
-        new IRegFile(size, Array.fill[Any](size.product)(null))
+        val ar = inits
+          .map(SeqE.unapply(_).get.toArray)
+          .getOrElse(Array.fill[Any](size.product)(null))
+        new IRegFile(size, ar.clone, ar)
       }
 
+    case RegFileReset(ERegFile(regf), EBoolean(en)) =>
+      if (en)
+        regf.reset
+  
     case RegFileStore(ERegFile(regf), SeqEI(is), EAny(v), EBoolean(en)) =>
       if (en) {
         val i = regf.index(is)

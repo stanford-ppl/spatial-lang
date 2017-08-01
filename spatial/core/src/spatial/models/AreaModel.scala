@@ -93,5 +93,5 @@ abstract class AreaModel[Area:AreaMetric, Sum<:AreaSummary[Sum]] extends AreaMet
 
   @stateful def areaOfDelayLine(length: Int, width: Int, par: Int): Area
 
-  @stateful def summarize(area: Area): Sum
+  @stateful def summarize(area: Area): (Sum, String)
 }

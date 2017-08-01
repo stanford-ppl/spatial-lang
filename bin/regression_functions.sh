@@ -78,6 +78,7 @@ coordinate() {
 check_packet() {
   ret=(`pwd`)
   cd ${REGRESSION_HOME}
+  # Check for regression packet in a kind of expensive way
   files=(*)
   new_packets=()
   sorted_packets=()
@@ -88,9 +89,22 @@ check_packet() {
   for ii in ${!sorted_packets[@]}; do if [[  "$packet" = *"${sorted_packets[$ii]}"* ]]; then rank=${ii}; fi; done
   if [ $rank = -1 ]; then
     logger "Packet for $packet disappeared from list $stringified!  Quitting ungracefully!"
-    rm /remote/regression/mapping/${this_machine}---${tim}*
+    mv /remote/regression/mapping/${tim}.${branch}.${type_todo}---${this_machine} /remote/regression/graveyard
     exit 1
   fi
+  # Check for mapping packet in kind of an expensive way
+  cd /remote/regression/mapping
+  files=(*)
+  stringified=$( IFS=$' '; echo "${files[*]}" )
+  mapped_packets=()
+  for f in ${files[@]}; do if [[ $f = *"${tim}.${branch}.${type_todo}---${this_machine}"* ]]; then mapped_packets+=($f); fi; done
+  rank=${#mapped_packets[@]}
+  if [ $rank = 0 ]; then
+    rm -f $packet
+    logger "Mapping (${tim}.${branch}.${type_todo}---${this_machine}) for $packet disappeared from list $stringified !  Quitting ungracefully!"
+    exit 1
+  fi
+  cd $ret  
 }
 
 ## Function for building spatial
@@ -170,7 +184,7 @@ rm $packet
 
 sleep 1000
 stubborn_delete ${dirname}
-rm /remote/regression/mapping/${this_machine}---${tim}*
+mv /remote/regression/mapping/${tim}.${branch}.${type_todo}---${this_machine} /remote/regression/graveyard
 
 ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 
@@ -209,7 +223,7 @@ for ac in ${types_list[@]}; do
 done
 
 # Update regtest timestamp
-if [[ ${this_machine} = *"portland"* ]]; then
+if [[ ${type_todo} = *"chisel"* ]]; then
   update_regression_timestamp
 fi
 
@@ -607,17 +621,21 @@ function report {
 
 # Override env vars to point to a separate directory for this regression test
 export SPATIAL_HOME=${SPATIAL_HOME}
-export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+if [[ ${this_machine} = *\"tflop\"* ]]; then # ugly hack to get tflops working
+  export PATH=/usr/local/sbin:/usr/bin:/usr/local/bin:/usr/sbin:/sbin:/bin:/usr/games:/usr/local/games
+else
+  export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+fi
 export ARGON_HOME=${ARGON_HOME}
 export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
 export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
-export PATH=/usr/bin:\$VCS_HOME/amd64/bin:$PATH
+export PATH=\$VCS_HOME/amd64/bin:\$PATH
 export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
 export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
 if [[ \${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
   export JAVA_HOME=\${JAVA_HOME}/..
 fi
-export _JAVA_OPTIONS=\"-Xmx16g\"
+export _JAVA_OPTIONS=\"-Xmx24g\"
 date >> ${5}/log" >> $1
 
   if [[ ${type_todo} = "scala" ]]; then
@@ -795,8 +813,8 @@ launch_tests() {
   logger "Killing old screen sessions"
   screen -ls | grep "${branch}_${type_todo}" | cut -d. -f1 | awk '{print $1}' | xargs kill
   screen -wipe
-  logger "Killing maxeleros jobs"
-  ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | awk '{system("kill -9 " $2)}'
+  # logger "Killing maxeleros (?) jobs"
+  # ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | awk '{system("kill -9 " $2)}'
 
   IFS=$'\n'
   # Collect the regression tests by searching for "// Regression (<type>)" tags
@@ -822,6 +840,7 @@ launch_tests() {
   # Make reg test dir
   rm -rf ${SPATIAL_HOME}/regression_tests;mkdir ${SPATIAL_HOME}/regression_tests
 
+  logger "Found these app classes: ${types_list[@]}"
   for ac in ${types_list[@]}; do 
     check_packet
     logger "Preparing vulture directory for $ac..."

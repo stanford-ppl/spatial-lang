@@ -13,11 +13,11 @@ import chisel3.util.MuxLookup
 // See comments below: first should implement read col par, and also read row par == 1
 class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffer: Int, 
   val col_wPar: Int, val col_rPar:Int, 
-  val row_wPar: Int, val row_rPar:Int, val numAccessors: Int) extends Module {
+  val row_wPar: Int, val row_rPar:Int, val numAccessors: Int, val bitWidth: Int = 32) extends Module {
 
   def this(tuple: (Int, Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7, tuple._8)
   val io = IO(new Bundle {
-    val data_in  = Vec(col_wPar, Input(UInt(32.W)))
+    val data_in  = Vec(col_wPar, Input(UInt(bitWidth.W)))
     val w_en     = Input(Bool())
     // val r_en     = Input(UInt(1.W))
     // val w_done   = Input(UInt(1.W))
@@ -31,8 +31,8 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     val reset    = Input(UInt(1.W))
     val col_addr = Vec(col_rPar, Input(UInt(log2Ceil(line_size+1).W))) // From each row, read COL_PAR px starting at this col_addr
     // val row_addr = Input(UInt(1.W)) // ENHANCEMENT: Eventually will be a Vec, but for now ROW_PAR is 1 or num_lines only
-    // val data_out = Vec(ROW_PAR, Vec(COL_PAR, Output(UInt(32.W)))) // TODO: Don't use Vec(Vec) since Chisel will switch inputs and outputs
-    val data_out = Vec(row_rPar * col_rPar, Output(UInt(32.W)))
+    // val data_out = Vec(ROW_PAR, Vec(COL_PAR, Output(UInt(bitWidth.W)))) // TODO: Don't use Vec(Vec) since Chisel will switch inputs and outputs
+    val data_out = Vec(row_rPar * col_rPar, Output(UInt(bitWidth.W)))
     val swap = Output(Bool()) // for debugging
     // val row_wrap = Output(UInt(1.W))
   })
@@ -77,8 +77,8 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   //     - would need (for stride 1) to process 1 2 3 4, then 3 4 5 6, etc., so need to read 2 px per row into shift register
   //  Later, also add support for both R and W parallelization
   //   - W par less useful since conv is often compute bound
-  // val linebuffer = List.fill(num_lines + extra_rows_to_buffer)(Mem(line_size, UInt(32.W)))
-  val linebuffer = List.fill(num_lines + extra_rows_to_buffer)(Module(new SRAM(List(line_size), 32, 
+  // val linebuffer = List.fill(num_lines + extra_rows_to_buffer)(Mem(line_size, UInt(bitWidth.W)))
+  val linebuffer = List.fill(num_lines + extra_rows_to_buffer)(Module(new SRAM(List(line_size), bitWidth, 
     List(col_wPar max col_rPar), List(1), List(col_wPar), List(col_rPar), BankedMemory)))
   
   // --------------------------------------------------------------------------------------------------------------------------------
@@ -96,7 +96,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   WRITE_countRowPx.io.input.gap := 0.S
   
   // Outer counter over number of SRAM -- keep track of current row
-  val WRITE_countRowNum = Module(new NBufCtr())
+  val WRITE_countRowNum = Module(new NBufCtr(1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
   WRITE_countRowNum.io.input.start := 0.U 
   WRITE_countRowNum.io.input.stop := (num_lines+extra_rows_to_buffer).U
   WRITE_countRowNum.io.input.enable := swap
@@ -128,7 +128,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // ENHANCEMENT: May save some area using a single counter with many outputs and adders/mux for each (to do mod/wrap) but 
   // multiple counters (which start/reset @ various #s) is simpler to write
   val READ_countRowNum = (0 until row_rPar).map{ i => 
-    val c = Module(new NBufCtr())
+    val c = Module(new NBufCtr(1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
     // c.io.input.start := (num_lines+extra_rows_to_buffer-1-i).U
     c.io.input.start := (extra_rows_to_buffer+i).U
     c.io.input.stop := (num_lines+extra_rows_to_buffer).U
@@ -150,11 +150,14 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     }    
   }
   
-  def readRow(row: UInt): UInt = { // Parallel row read is unimplemented!
+  def readRow(row: UInt): UInt = { 
     val readableData = (0 until row_rPar).map { i =>
       (i.U -> io.data_out(i))
     }
     MuxLookup(row, 0.U,  readableData)
+  }
+  def readRow(row: Int): UInt = { 
+    io.data_out(row)
   }
 
 

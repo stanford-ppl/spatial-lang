@@ -4,6 +4,7 @@ package altera
 import java.io.File
 
 import argon.core.Config
+import argon.util.Report._
 import org.encog.engine.network.activation.ActivationSigmoid
 import org.encog.ml.data.basic.{BasicMLData, BasicMLDataSet}
 import org.encog.neural.networks.BasicNetwork
@@ -30,7 +31,7 @@ class TileLoadModel {
     val exists = new File(encogFile).exists
 
     if (exists) {
-      println("Loaded " + name + " model from file")
+      report("Loaded " + name + " model from file")
       network = EncogDirectoryPersistence.loadObject(new File(encogFile)).asInstanceOf[BasicNetwork]
     }
     else {
@@ -41,7 +42,7 @@ class TileLoadModel {
       val input = data.map(_.take(4))
 
       val output = data.map(_.slice(4,5))
-      if (verbose) println(output.map(_.mkString(", ")).mkString(", "))
+      if (verbose) report(output.map(_.mkString(", ")).mkString(", "))
       val trainingSet = new BasicMLDataSet(input, output)
       var iter = 0
       var minError = Double.PositiveInfinity
@@ -55,10 +56,10 @@ class TileLoadModel {
         }
         iter += 1
       }
-      println(name + "\n-----------------")
-      println("Neural network results:")
-      println(s"Average error: ${100*minError/trainingSet.size}%")
-      println(s"Maximum observed error: ${100*maxError}")
+      report(name + "\n-----------------")
+      report("Neural network results:")
+      report(s"Average error: ${100*minError/trainingSet.size}%")
+      report(s"Maximum observed error: ${100*maxError}")
 
       EncogDirectoryPersistence.saveObject(new File(encogFile), network)
     }
@@ -76,13 +77,13 @@ class TileLoadModel {
     val train = new ResilientPropagation(network, trainingSet)
     train.iteration()
     while (epoch < MAX_EPOCH) {
-      //println(s"Epoch #$epoch Error: ${100*train.getError()}")
+      //report(s"Epoch #$epoch Error: ${100*train.getError()}")
       epoch += 1
       train.iteration()
     }
     train.finishTraining()
     //
-    //println(s"Completed training at epoch $epoch with error of ${100*train.getError()}")
+    //report(s"Completed training at epoch $epoch with error of ${100*train.getError()}")
 
     var errors = 0.0
     var maxError = 0.0
