@@ -121,28 +121,28 @@ trait Primitives extends Benchmarks {
     UnOp[FixPt[S,I,F]]("Floor", {x => floor(x) })
   )
 
-  gens :::= bitOps.map{prog => MetaProgGen("Bit", Seq(50,100,200,400), prog) }
-  gens :::= fixPtOps[TRUE,_8,_0].map{prog => MetaProgGen("Int8", Seq(50,100,200,400), prog) }
-  gens :::= fixPtOps[TRUE,_16,_0].map{prog => MetaProgGen("Int16", Seq(50,100,200,400), prog) }
-  gens :::= fixPtOps[TRUE,_32,_0].map{prog => MetaProgGen("Int32", Seq(50,100,200,400), prog) }
-  gens :::= fixPtOps[TRUE,_8,_0].map{prog => MetaProgGen("Int64", Seq(50,100,200,400), prog) }
-  gens :::= fltPtOps[_53,_11].map{prog => MetaProgGen("Float", Seq(50,100,200,400), prog) }
+  gens :::= bitOps.map{prog => MetaProgGen("Bit", Seq(50,100,200), prog) }
+  gens :::= fixPtOps[TRUE,_8,_0].map{prog => MetaProgGen("Int_8", Seq(50,100,200), prog) }
+  gens :::= fixPtOps[TRUE,_16,_0].map{prog => MetaProgGen("Int_16", Seq(50,100,200), prog) }
+  gens :::= fixPtOps[TRUE,_32,_0].map{prog => MetaProgGen("Int_32", Seq(50,100,200), prog) }
+  gens :::= fixPtOps[TRUE,_64,_0].map{prog => MetaProgGen("Int_64", Seq(50,100,200), prog) }
+  gens :::= fltPtOps[_53,_11].map{prog => MetaProgGen("Float", Seq(5,10,20,50), prog) }
 
-  gens :::= fixPtRoundOps[TRUE, _8, _8].map{prog => MetaProgGen("Q8_8", Seq(50,100,200,400), prog) }
-  gens :::= fixPtRoundOps[TRUE,_16,_16].map{prog => MetaProgGen("Q16_16", Seq(50,100,200,400), prog) }
-  gens :::= fixPtRoundOps[TRUE,_32,_32].map{prog => MetaProgGen("Q32_32", Seq(50,100,200,400), prog) }
+  gens :::= fixPtRoundOps[TRUE, _8, _8].map{prog => MetaProgGen("Q_8_8", Seq(50,100,200), prog) }
+  gens :::= fixPtRoundOps[TRUE,_16,_16].map{prog => MetaProgGen("Q_16_16", Seq(50,100,200), prog) }
+  gens :::= fixPtRoundOps[TRUE,_32,_32].map{prog => MetaProgGen("Q_32_32", Seq(50,100,200), prog) }
 
-  gens +:= MetaProgGen("Mux8", Seq(50,100,200,400), Tri4Op[Bit,Int8,Int8,Int8]("Mux8", {(s,a,b) => mux(s,a,b) }))
-  gens +:= MetaProgGen("Mux16", Seq(50,100,200,400), Tri4Op[Bit,Int16,Int16,Int16]("Mux16", {(s,a,b) => mux(s,a,b) }))
-  gens +:= MetaProgGen("Mux32", Seq(50,100,200,400), Tri4Op[Bit,Int32,Int32,Int32]("Mux32", {(s,a,b) => mux(s,a,b) }))
-  gens +:= MetaProgGen("Mux64", Seq(50,100,200,400), Tri4Op[Bit,Int64,Int64,Int64]("Mux64", {(s,a,b) => mux(s,a,b) }))
+  gens +:= MetaProgGen("Mux", Seq(50,100,200), Tri4Op[Bit,Int8,Int8,Int8]("8", {(s,a,b) => mux(s,a,b) }))
+  gens +:= MetaProgGen("Mux", Seq(50,100,200), Tri4Op[Bit,Int16,Int16,Int16]("16", {(s,a,b) => mux(s,a,b) }))
+  gens +:= MetaProgGen("Mux", Seq(50,100,200), Tri4Op[Bit,Int32,Int32,Int32]("32", {(s,a,b) => mux(s,a,b) }))
+  gens +:= MetaProgGen("Mux", Seq(50,100,200), Tri4Op[Bit,Int64,Int64,Int64]("64", {(s,a,b) => mux(s,a,b) }))
 
-  bases +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int8]("8", {() => maxValue[Int8] }))
-  bases +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int16]("16", {() => maxValue[Int16] }))
-  bases +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int32]("32", {() => maxValue[Int32] }))
-  bases +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int64]("64", {() => maxValue[Int64] }))
-  bases +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int8]("8", {a => a }))
-  bases +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int16]("16", {a => a }))
-  bases +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int32]("32", {a => a }))
-  bases +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int64]("64", {a => a }))
+  gens +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int8]("8", {() => maxValue[Int8] }))
+  gens +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int16]("16", {() => maxValue[Int16] }))
+  gens +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int32]("32", {() => maxValue[Int32] }))
+  gens +:= MetaProgGen("Static", Seq(50,100,200), StaticOp[Int64]("64", {() => maxValue[Int64] }))
+  gens +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int8]("8", {a => a }))
+  gens +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int16]("16", {a => a }))
+  gens +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int32]("32", {a => a }))
+  gens +:= MetaProgGen("Unary",  Seq(50,100,200), UnOp[Int64]("64", {a => a }))
 }

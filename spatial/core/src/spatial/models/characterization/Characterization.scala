@@ -16,7 +16,8 @@ trait AllBenchmarks
     with Primitives
     with RegFiles
     with Regs
-    with SRAMs 
+    with SRAMs
+    with Fringe
 
 object Characterization extends AllBenchmarks {
   lazy val SPATIAL_HOME: String = sys.env.getOrElse("SPATIAL_HOME", {
@@ -122,18 +123,14 @@ object Characterization extends AllBenchmarks {
 
   def main(args: scala.Array[JString]) {
     val benchmarks = gens.flatMap(_.expand)
-    val baselines  = bases.flatMap(_.expand)
-
     println("Number of benchmarks: " + benchmarks.length)
-    println("Number of baselines:  " + baselines.length)
 
-    val runBaselines = getYN("Run baselines?")
-    def useDefaultSettings = if (runBaselines) false else getYN("Use default settings for this machine")
+    def useDefaultSettings = getYN("Use default settings for this machine")
 
     val localMachine = java.net.InetAddress.getLocalHost
     val (threads, start, end) = localMachine.getHostName match {
-      case "london"   if useDefaultSettings => (100, 0, 1825)
-      case "tucson"   if useDefaultSettings => (25, 1825, 2460)
+      case "london"   if useDefaultSettings => (100, 0, 2116)
+      case "tucson"   if useDefaultSettings => (25, 2116, 2789)
       case _          =>
         Console.print("Threads: ")
         val par = scala.io.StdIn.readLine().toInt
@@ -143,9 +140,7 @@ object Characterization extends AllBenchmarks {
         val end = scala.io.StdIn.readLine().toInt
         (par, start, end)
     }
-    val allPrograms: Seq[NamedSpatialProg] = if (runBaselines) baselines else benchmarks
-    val programs = allPrograms.slice(start, end)
-
+    val programs = benchmarks.slice(start, end)
     val RUN_SPATIAL = getYN("Run Spatial compiler")
     val RUN_SYNTH = getYN("Run synthesis")
 
@@ -168,10 +163,10 @@ object Characterization extends AllBenchmarks {
     if (RUN_SPATIAL) {
       // Set i to previously generated programs
       Console.print("Previously generated programs [0]: ")
-      var i = try { scala.io.StdIn.readLine().toInt } catch {case _:Throwable => 0 }
+      var i: Int = try { scala.io.StdIn.readLine().toInt } catch {case _:Throwable => 0 }
       programs.take(i).foreach { x => workQueue.put(x._1) }
 
-      programs.drop(i).foreach { x => //programs.take(2).flatMap{x => //
+      programs.drop(i).foreach { x =>
         val name = x._1
         Config.name = name
         Config.genDir = s"${Config.cwd}/gen/$name"
@@ -179,7 +174,6 @@ object Characterization extends AllBenchmarks {
         Config.verbosity = -2
         Config.showWarn = false
         resetState()
-        //_IR.useBasicBlocks = true // experimental for faster scheduling
         try {
           compileProgram(x._2)
           Console.println(s"Compiling #$i: $name: done")
@@ -204,22 +198,6 @@ object Characterization extends AllBenchmarks {
 
     // Poison work queue
     (0 until threads).foreach{_ => workQueue.put("") }
-
-
-    /*val workers = chiseled.map(x => Future {
-       println("done")
-     })*/
-
-    /*try {
-      workers.foreach(Await.ready(_, Duration.Inf))
-    } catch {
-      case e: Throwable =>
-        e.printStackTrace
-    } finally {
-      Console.println("COMPLETED")
-      exec.shutdown()
-      pw.close()
-    }*/
 
     pool.shutdown()
     pool.awaitTermination(14L, TimeUnit.DAYS)

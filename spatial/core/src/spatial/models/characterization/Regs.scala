@@ -11,8 +11,8 @@ trait Regs extends Benchmarks {
   type Int96 = FixPt[TRUE,_96,_0]
   type Int128 = FixPt[TRUE,_128,_0]
 
-  case class RegOp[T:Type:Bits](depth: scala.Int)(val N: scala.Int) extends Benchmark {
-    val prefix: JString = depth.toString
+  case class RegOp[T:Type:Bits](width: scala.Int, depth: scala.Int)(val N: scala.Int) extends Benchmark {
+    val prefix: JString = s"${width}_${depth}"
     private val nbits: scala.Int = bits[T].length
     def eval(): SUnit = {
       val outs = List.fill(N)(ArgOut[T])
@@ -43,11 +43,11 @@ trait Regs extends Benchmarks {
   }
 
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg1", Seq(50,100,200), RegOp[Bit](depth)) }
-  gens :::= List.tabulate(7){depth => MetaProgGen("Reg8", Seq(50,100,200), RegOp[Int8](depth+1)) }
-  gens :::= List.tabulate(7){depth => MetaProgGen("Reg16", Seq(50,100,200), RegOp[Int16](depth+1)) }
-  gens :::= List.tabulate(7){depth => MetaProgGen("Reg32", Seq(50,100,200), RegOp[Int32](depth+1)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(50,100,200), RegOp[Int8](8,depth+1)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(50,100,200), RegOp[Int16](16,depth+1)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(50,100,200), RegOp[Int32](32,depth+1)) }
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg48", Seq(50,100,200), RegOp[Int48](depth)) }
-  gens :::= List.tabulate(7){depth => MetaProgGen("Reg64", Seq(50,100,200), RegOp[Int64](depth+1)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(50,100,200), RegOp[Int64](64,depth+1)) }
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg96", Seq(50,100,200), RegOp[Int96](depth)) }
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg128", Seq(50,100,200), RegOp[Int128](depth)) }
 }
