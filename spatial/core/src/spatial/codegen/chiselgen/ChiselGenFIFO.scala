@@ -101,9 +101,14 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
 
     case FIFODeq(fifo,en) =>
       val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
-      val enabler = src"${reader}_datapath_en"
+      val bug202delay = reader match {
+        case Def(op@SwitchCase(_)) => 
+          if (Bits.unapply(op.mT).isDefined) src"${symDelay(parentOf(reader).get)}" else src"${symDelay(lhs)}" 
+        case _ => src"${symDelay(lhs)}" 
+      }
+      val enabler = src"${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done"
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
-      emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${reader}_en & ($enabler & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en).apply(0)""")
+      emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${reader}_en & ($enabler).D(${bug202delay}) & $en).apply(0)""")
 
     case FIFOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
     case FIFOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")

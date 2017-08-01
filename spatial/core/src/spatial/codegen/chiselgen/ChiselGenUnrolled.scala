@@ -383,7 +383,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case ParRegFileStore(rf, inds, data, ens) => //FIXME: Not correct for more than par=1
       val width = bitWidth(rf.tp.typeArguments.head)
       val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
+      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor && ${parent}_II_done"""
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, List(${dimsOf(rf)}), ${width}))) """)
       (0 until ens.length).foreach{ k => 
