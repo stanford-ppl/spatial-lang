@@ -65,18 +65,24 @@ class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int) extends Module { 
 
   // We can do better than MaxJ by forcing mems to be single-ported since
   //   we know how to properly schedule reads and writes
-  val m = Mem(size, UInt(bitWidth.W) /*, seqRead = true deprecated? */)
   val wInBound = io.w.addr < (size).U
   val rInBound = io.r.addr < (size).U
 
   if (isFifo) { // Fifos need to be dual port to avoid strangeness
+    val m = Mem(size, UInt(bitWidth.W) /*, seqRead = true deprecated? */)
     when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
     io.output.data := m(io.r.addr)
   } else {
-    val reg_rAddr = Reg(UInt())
-    when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
-    .elsewhen (io.r.en & rInBound) {reg_rAddr := io.r.addr}
-    io.output.data := m(reg_rAddr)
+    val m = Module(new fringe.SRAM(bitWidth, size))
+//    val reg_rAddr = Reg(UInt())
+//    when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
+//    .elsewhen (io.r.en & rInBound) {reg_rAddr := io.r.addr}
+//    io.output.data := m(reg_rAddr)
+    m.io.raddr := io.r.addr
+    m.io.waddr := io.w.addr
+    m.io.wen   := io.w.en
+    m.io.wdata := io.w.data
+    io.output.data := m.io.rdata
   }
 
   io.debug.invalidRAddr := ~rInBound
