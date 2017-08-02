@@ -47,6 +47,16 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
     case _ => None
   }
 
+  override def indexUnapply(x: Exp[Index]): Option[Bound[Index]] = x match {
+    case Def(FixConvert(y)) =>
+      dbgs(c"Index unapply: $x got convert($y)")
+      if (y.tp == IntType) indexUnapply(y.asInstanceOf[Exp[Index]]) else None
+    case _ =>
+      dbgs(s"[index unapply] ${str(x)}")
+      super.indexUnapply(x)
+  }
+
+
   override def isInvariant(b: Exp[Index], i: Bound[Index]): Boolean = b match {
     case Exact(_) => true
     case Def(RegRead(reg)) =>
