@@ -43,6 +43,7 @@ object SpatialConfig {
   )
 
   var useBasicBlocks: Boolean = false
+  var useAffine: Boolean = false
 
   var targetName: String = _
   var target: FPGATarget = targets.DefaultTarget

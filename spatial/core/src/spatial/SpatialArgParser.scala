@@ -1,6 +1,7 @@
 package spatial
 
 import argon.ArgonArgParser
+import argon.core.Config
 import argon.util.Report._
 
 class SpatialArgParser extends ArgonArgParser {
@@ -102,5 +103,11 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.useBasicBlocks = true
     argon.core.Config.verbosity = -2
   }.text("[EXPERIMENTAL] Use basic blocks")
+
+
+  parser.opt[Unit]("affine").action{ (_,_) =>
+    SpatialConfig.useAffine = true
+    Config.useAffine = true
+  }
 
 }

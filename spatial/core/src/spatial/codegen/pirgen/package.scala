@@ -322,18 +322,18 @@ package object pirgen {
 
     // TODO: Distinguish isInner?
     val banking = pattern match {
-      case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt, bankFactor, true)
-      case StridedAccess(Exact(a), i) => StridedBanking(a.toInt, bankFactor, true)
-      case OffsetAccess(i, b)         => StridedBanking(1, bankFactor, true)
-      case LinearAccess(i)            => StridedBanking(1, bankFactor, true)
-      case InvariantAccess(b)         => NoBanking
-      case RandomAccess               => NoBanking
+      case AffineAccess(Exact(a),i,b) => Banking(a.toInt, bankFactor, true)
+      case StridedAccess(Exact(a), i) => Banking(a.toInt, bankFactor, true)
+      case OffsetAccess(i, b)         => Banking(1, bankFactor, true)
+      case LinearAccess(i)            => Banking(1, bankFactor, true)
+      case InvariantAccess(b)         => NoBanking(1)
+      case RandomAccess               => NoBanking(1)
     }
     banking match {
-      case StridedBanking(stride,f,_) if f > 1  => Strided(stride)
-      case StridedBanking(stride,f,_) if f == 1 => NoBanks
-      case NoBanking if bankFactor==1         => NoBanks
-      case NoBanking                          => Duplicated
+      case Banking(stride,f,_) if f > 1  => Strided(stride)
+      case Banking(stride,f,_) if f == 1 => NoBanks
+      case NoBanking(_) if bankFactor==1 => NoBanks
+      case NoBanking(_)                  => Duplicated
     }
   }
 
