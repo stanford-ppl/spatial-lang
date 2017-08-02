@@ -48,13 +48,29 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.remap(tp)
   }
 
+  //def cchainWidth(ctr: Exp[Counter]): Int = {
+    //ctr match {
+      //case Def(CounterNew(Exact(s), Exact(e), _, _)) => 
+        //val sbits = if (s > 0) {BigInt(1) max ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt} 
+                    //else {BigInt(1) max ceil(scala.math.log((BigInt(1) max (s.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+        //val ebits = if (e > 0) {BigInt(1) max ceil(scala.math.log((BigInt(1) max e).toDouble)/scala.math.log(2)).toInt} 
+                    //else {BigInt(1) max ceil(scala.math.log((BigInt(1) max (e.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+        //({ebits max sbits} + 2).toInt
+      //case Def(CounterNew(start, stop, _, _)) => 
+        //val sbits = bitWidth(start.tp)
+        //val ebits = bitWidth(stop.tp)
+        //({ebits max sbits} + 0).toInt
+      //case _ => 32
+    //}
+  //}
+
   def cchainWidth(ctr: Exp[Counter]): Int = {
     ctr match {
       case Def(CounterNew(Exact(s), Exact(e), _, _)) => 
-        val sbits = if (s > 0) {BigInt(1) max ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt} 
-                    else {BigInt(1) max ceil(scala.math.log((BigInt(1) max (s.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
-        val ebits = if (e > 0) {BigInt(1) max ceil(scala.math.log((BigInt(1) max e).toDouble)/scala.math.log(2)).toInt} 
-                    else {BigInt(1) max ceil(scala.math.log((BigInt(1) max (e.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+        val sbits = if (s > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt} 
+                    else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (s.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+        val ebits = if (e > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max e).toDouble)/scala.math.log(2)).toInt} 
+                    else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (e.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
         ({ebits max sbits} + 2).toInt
       case Def(CounterNew(start, stop, _, _)) => 
         val sbits = bitWidth(start.tp)

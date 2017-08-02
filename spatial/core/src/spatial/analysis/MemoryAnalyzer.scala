@@ -1,6 +1,5 @@
 package spatial.analysis
 
-import argon.analysis.{GeneralAffine, GeneralOffset}
 import argon.core._
 import argon.traversal.CompilerPass
 import org.virtualized.SourceContext
@@ -11,7 +10,7 @@ import spatial.models.AreaMetric
 import spatial.nodes._
 import spatial.utils._
 
-trait MemoryAnalyzer extends CompilerPass {
+trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
   override val name = "Memory Analyzer"
   var enableWarn = true
 
@@ -24,14 +23,14 @@ trait MemoryAnalyzer extends CompilerPass {
     def toList: List[Memory] = List.fill(duplicates)(memory)
   }
 
-  def mergeBanking(mem: Exp[_], a: Banking, b: Banking): Banking = (a,b) match {
-    case (StridedBanking(s1,p,o1), StridedBanking(s2,q,o2)) if s1 == s2 => StridedBanking(s1, lcm(p,q), o1 || o2)
-    case (NoBanking, _) => b
-    case (_, NoBanking) => a
+  def mergeBanking(mem: Exp[_], a: Banking, b: Banking, d: Int): Banking = (a,b) match {
+    case (Banking(s1,p,o1), Banking(s2,q,o2)) if s1 == s2 => Banking(s1, Math.min(lcm(p,q),d), o1 || o2)
+    case (NoBanking(s1), Banking(s2,_,_)) if s1 == s2 => b
+    case (Banking(s1,_,_), NoBanking(s2)) if s1 == s2 => a
     case _ =>
       warn(mem.ctx, u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
       warn(mem.ctx)
-      NoBanking
+      NoBanking(1) // TODO
   }
 
   def mergeChannels(mem: Exp[_], a: Channels, b: Channels): Channels = {
@@ -41,8 +40,13 @@ trait MemoryAnalyzer extends CompilerPass {
     val dupB = b.duplicates
 
     val memC = if (memA.nDims != memB.nDims) {
-      new spatial.DimensionMismatchError(mem, memA.nDims, memB.nDims)(mem.ctx, state)
-      BankedMemory(List.fill(memA.nDims)(NoBanking), Math.max(memA.depth,memB.depth), memA.isAccum || memB.isAccum)
+      if (SpatialConfig.useAffine) {
+        mergeMismatchedChannels(mem, a, b)
+      }
+      else {
+        new spatial.DimensionMismatchError(mem, memA.nDims, memB.nDims)(mem.ctx, state)
+        BankedMemory(List.fill(memA.nDims)(NoBanking(1)), Math.max(memA.depth, memB.depth), memA.isAccum || memB.isAccum)
+      }
     }
     else (memA,memB) match {
       case (DiagonalMemory(s1,p,d1,a1), DiagonalMemory(s2,q,d2,a2)) =>
@@ -52,24 +56,27 @@ trait MemoryAnalyzer extends CompilerPass {
         else {
           warn(mem.ctx, u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
           warn(mem.ctx)
-          BankedMemory(s1.map{_ => NoBanking}, Math.max(d1,d2), memA.isAccum || memB.isAccum)
+          BankedMemory(s1.map{_ => NoBanking(1)}, Math.max(d1,d2), memA.isAccum || memB.isAccum)
         }
 
       case (BankedMemory(b1,d1,a1), BankedMemory(b2, d2,a2)) => (b1,b2) match {
-        case (List(Banking(1), StridedBanking(s1,p,o1)), List(StridedBanking(s2,q,o2), Banking(1))) if p > 1 && q > 1 && !o1 && !o2 =>
+        case (List(Banks(1), Banking(s1,p,o1)), List(Banking(s2,q,o2), Banks(1))) if p > 1 && q > 1 && !o1 && !o2 =>
           DiagonalMemory(List(s2,s1), lcm(p,q), Math.max(d1,d2), a1 || a2)
-        case (List(StridedBanking(s1,p,o1), Banking(1)), List(Banking(1), StridedBanking(s2,q,o2))) if p > 1 && q > 1 && !o1 && !o2 =>
+        case (List(Banking(s1,p,o1), Banks(1)), List(Banks(1), Banking(s2,q,o2))) if p > 1 && q > 1 && !o1 && !o2 =>
           DiagonalMemory(List(s1,s2), lcm(p,q), Math.max(d1,d2), a1 || a2)
         case _ =>
-          BankedMemory(b1.zip(b2).map{case(x,y) => mergeBanking(mem,x,y)}, Math.max(d1,d2), a1 || a2)
+          val banking = (b1,b2,dimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
+          BankedMemory(banking, Math.max(d1,d2), a1 || a2)
       }
-      case (DiagonalMemory(strides,p,d1,a1), BankedMemory(s2,d2,a2)) =>
-        val a = strides.map{x => StridedBanking(x,p,isOuter = false) }
-        BankedMemory(s2.zip(a).map{case (x,y) => mergeBanking(mem,x,y) }, Math.max(d1,d2), a1 || a2)
+      case (DiagonalMemory(strides,p,d1,a1), BankedMemory(b2,d2,a2)) =>
+        val b1 = strides.map{x => Banking(x,p,isOuter = false) }
+        val banking = (b1,b2,dimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
+        BankedMemory(banking, Math.max(d1,d2), a1 || a2)
 
-      case (BankedMemory(s1,d1,a1), DiagonalMemory(strides,p,d2,a2)) =>
-        val a = strides.map{x => StridedBanking(x,p,isOuter = false) }
-        BankedMemory(s1.zip(a).map{case (x,y) => mergeBanking(mem,x,y) }, Math.max(d1,d2), a1 || a2)
+      case (BankedMemory(b1,d1,a1), DiagonalMemory(strides,p,d2,a2)) =>
+        val b2 = strides.map{x => Banking(x,p,isOuter = false) }
+        val banking = (b1,b2,dimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
+        BankedMemory(banking, Math.max(d1,d2), a1 || a2)
     }
     // Calculate duplicates
     // During merging, the requirement of duplication cannot be destroyed, only created
@@ -546,7 +553,7 @@ trait MemoryAnalyzer extends CompilerPass {
   }
 
 
-  def indexPatternsToBanking(patterns: Seq[IndexPattern], strides: Seq[Int]): Seq[Banking] = {
+  def indexPatternsToBanking(mem: Exp[_], access: Exp[_], patterns: Seq[IndexPattern], strides: Seq[Int]): Seq[Banking] = {
     var used: Set[Exp[Index]] = Set.empty
 
     def bankFactor(i: Exp[Index]): Int = {
@@ -558,19 +565,54 @@ trait MemoryAnalyzer extends CompilerPass {
     }
     def isOuter(i: Exp[Index]): Boolean = ctrlOf(i).exists(isOuterControl)
 
-    val banking = if (patterns.exists(_.isGeneral)) {
-      patterns.collect{case p: GeneralAffine => p}.map{
-        case GeneralAffine(af, i) => StridedBanking(af.eval{case Exact(c) => c.toInt}, bankFactor(i), isOuter(i))
+    val banking = if (patterns.exists(_.isGeneral) && SpatialConfig.useAffine) {
+
+      import argon.analysis._
+
+
+      dbg(u"$mem uses generalized affine patterns")
+      dbg(u"${str(access)}")
+      dbg(access.ctx.lineContent.getOrElse(""))
+      dbg(patterns.mkString(", "))
+      dbg("")
+      patterns.zip(strides).flatMap{
+        case (AffineAccess(Exact(a),i,b),s) => Seq(Banking(a.toInt*s, bankFactor(i), isOuter(i)))
+        case (StridedAccess(Exact(a),i), s) => Seq(Banking(a.toInt*s, bankFactor(i), isOuter(i)))
+        case (OffsetAccess(i,b), s)         => Seq(Banking(s, bankFactor(i), isOuter(i)))
+        case (LinearAccess(i), s)           => Seq(Banking(s, bankFactor(i), isOuter(i)))
+        case (InvariantAccess(b), s)        => Seq(NoBanking(s))
+        case (RandomAccess, s)              => Seq(NoBanking(s))
+        case (GeneralAffine(products,offset),s) =>
+          if (products.nonEmpty) {
+            // TODO: Insert check to make sure all these accesses are definitely disjoint
+            // i.e. the stride of each index should be guaranteed to be at least the
+            // product of the dimensions of the iteration space below it
+            //
+            // If this check fails, the addresses aren't guaranteed to be distinct.. so what then?
+            val is = products.map(_.i).distinct
+            if (is.length == products.length) { // NOTE: this should always be true... i + i is remapped to (1 + 1)*i because I'm smart like that
+              val banks = products.map(p => bankFactor(p.i)).product
+              val isOut = products.exists(p => isOuter(p.i))
+              Seq(Banking(s, banks, isOut))
+            }
+            else {
+              // TODO: is this really the correct thing to do in general?
+              products.map{case AffineProduct(af, i) =>
+                Banking(af.eval { case Exact(c) => c.toInt } * s, bankFactor(i), isOuter(i))
+              }.sortBy(x => -x.stride)
+            }
+          }
+          else Seq(NoBanking(s))
       }
     }
     else (patterns, strides).zipped.map{ case (pattern, stride) => pattern match {
-      case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt*stride, bankFactor(i), isOuter(i))
-      case StridedAccess(Exact(a),i)  => StridedBanking(a.toInt*stride, bankFactor(i), isOuter(i))
-      case OffsetAccess(i,b)          => StridedBanking(stride, bankFactor(i), isOuter(i))
-      case LinearAccess(i)            => StridedBanking(stride, bankFactor(i), isOuter(i))
-      case InvariantAccess(b)         => NoBanking // Single "bank" in this dimension
-      case RandomAccess               => NoBanking // Single "bank" in this dimension
-      case _                          => NoBanking
+      case AffineAccess(Exact(a),i,b) => Banking(a.toInt*stride, bankFactor(i), isOuter(i))
+      case StridedAccess(Exact(a),i)  => Banking(a.toInt*stride, bankFactor(i), isOuter(i))
+      case OffsetAccess(i,b)          => Banking(stride, bankFactor(i), isOuter(i))
+      case LinearAccess(i)            => Banking(stride, bankFactor(i), isOuter(i))
+      case InvariantAccess(b)         => NoBanking(stride) // Single "bank" in this dimension
+      case RandomAccess               => NoBanking(stride) // Single "bank" in this dimension
+      case _                          => NoBanking(stride)
     }}
 
     banking
@@ -587,7 +629,7 @@ trait MemoryAnalyzer extends CompilerPass {
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
     val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
 
-    val banking = indexPatternsToBanking(patterns, strides)
+    val banking = indexPatternsToBanking(mem, access, patterns, strides)
 
     val banks = banking.map(_.banks).product
     val duplicates = Math.max(channels / banks, 1)
@@ -620,7 +662,7 @@ trait MemoryAnalyzer extends CompilerPass {
     }
 
     val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
-    (BankedMemory(Seq(StridedBanking(1, channels, false)), depth = 1, isAccum = false), 1)
+    (BankedMemory(Seq(Banking(1, channels, false)), depth = 1, isAccum = false), 1)
   }
 
   // TODO: Concurrent writes to registers should be illegal
@@ -628,7 +670,7 @@ trait MemoryAnalyzer extends CompilerPass {
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
     val duplicates = factors.flatten.map{case Exact(c) => c.toInt}.product
 
-    (BankedMemory(Seq(NoBanking), depth = 1, isAccum = false), duplicates)
+    (BankedMemory(Seq(NoBanking(1)), depth = 1, isAccum = false), duplicates)
   }
 
   def bankLineBufferAccess(mem: Exp[_], access: Exp[_]): Channels = {
@@ -640,16 +682,16 @@ trait MemoryAnalyzer extends CompilerPass {
 
     // TODO: Is inner loop here?
     val banking = access match {
-      case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(NoBanking, StridedBanking(strides(1), len.toInt, true))
-      case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(StridedBanking(strides(0),len.toInt,true), NoBanking)
-      case Def(LineBufferEnq(_,_,_))                     => Seq(NoBanking, StridedBanking(strides(1), channels, true))
+      case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(NoBanking(strides(0)), Banking(strides(1), len.toInt, true))
+      case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(Banking(strides(0),len.toInt,true), NoBanking(1))
+      case Def(LineBufferEnq(_,_,_))                     => Seq(NoBanking(strides(0)), Banking(strides(1), channels, true))
       case Def(LineBufferLoad(_,row,col,_)) =>
         val patterns = accessPatternOf(access)
-        indexPatternsToBanking(patterns, strides)
+        indexPatternsToBanking(mem, access, patterns, strides)
 
       case _ =>
         val patterns = accessPatternOf(access)
-        NoBanking +: indexPatternsToBanking(patterns, strides) // Everything else uses 1D view of line buffer
+        NoBanking(1) +: indexPatternsToBanking(mem, access, patterns, strides) // Everything else uses 1D view of line buffer
     }
 
     val banks = banking.map(_.banks).product
@@ -668,7 +710,7 @@ trait MemoryAnalyzer extends CompilerPass {
     def bankFactor(i: Exp[Index]) = parFactorOf(i) match { case Exact(c) => c.toInt }
 
     val patterns = accessPatternOf(access)
-    val banking = indexPatternsToBanking(patterns, strides)
+    val banking = indexPatternsToBanking(mem, access, patterns, strides)
 
     val banks = banking.map(_.banks).product
     val duplicates = channels / banks
@@ -702,7 +744,7 @@ trait MemoryAnalyzer extends CompilerPass {
       case Op(StreamInNew(bus)) => bus
       case Op(StreamOutNew(bus)) => bus
     }*/
-    val dup = BankedMemory(Seq(StridedBanking(1,par,true)),1,isAccum=false)
+    val dup = BankedMemory(Seq(Banking(1,par,true)),1,isAccum=false)
 
     dbg(s"")
     dbg(s"  stream: ${str(mem)}")
@@ -745,7 +787,7 @@ trait MemoryAnalyzer extends CompilerPass {
       val factors = unrollFactorsOf(access.node)
       val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
 
-      val banking = indexPatternsToBanking(patterns, strides)
+      val banking = indexPatternsToBanking(buffer, access.node, patterns, strides)
       val banks = banking.map(_.banks).product
       val duplicates = channels / banks
 
