@@ -10,6 +10,8 @@
 
 #ifdef SIM // Sim
   #include "sh_dpi_tasks.h"
+  #define BASE_ADDR           UINT64_C_AWS(0x0000000000000100)   // DDR CHANNEL 0
+  #define ATG                 UINT64_C_AWS(0x30)
 #else // F1
   #include <fcntl.h>    // Probably don't need most of these headers
   #include <errno.h>
@@ -40,10 +42,6 @@
 // #define DDR_STATUS_REG_ADDR    UINT64_C_AWS(0x40)
 #define PERF_COUNTER           UINT64_C_AWS(0x40)
 #define RESET_REG_ADDR         UINT64_C_AWS(0x60)
-
-#define BASE_ADDR           UINT64_C_AWS(0x0000000000000100)   // DDR CHANNEL 0
-// #define NUM_INST          UINT64_C_AWS(0x10)
-#define ATG    UINT64_C_AWS(0x30)
 
 class FringeContextAWS : public FringeContextBase<void> {
 
@@ -254,10 +252,16 @@ public:
     */
     sv_pause(10000); // needed because 'is...done' does not poll bvalid/bready, but only that the cmd is queued (and only 1 burst)
 #else // F1
-    // pwrite(fd, (char *)hostmem, size, 0x10000000 + channel*MEM_16G + devmem);
-    // TODO: Use single pwrite as above
-    for (int b=0; b < size/16; ++b) {
-      pwrite(fd, ((char *)hostmem) + b*16, 16, 0x10000000 + channel*MEM_16G + devmem + b*16);
+    int rc = 0;
+    char *write_buffer = (char *)hostmem;
+    size_t write_offset = 0;
+    while (write_offset < size) {
+      if (write_offset != 0) {
+        printf("Partial write by driver, trying again with remainder of buffer (%lu bytes)\n", size - write_offset);
+      }
+      rc = pwrite(fd, write_buffer + write_offset, size - write_offset, 0x10000000 + channel*MEM_16G + devmem + write_offset);
+      assert(rc >= 0);
+      write_offset += rc;
     }
 #endif // F1
   }
@@ -280,11 +284,16 @@ public:
     */
     sv_pause(10000); // needed because 'is...done' does not poll read done, only queued (and only 1 burst)
 #else // F1
-    // pread(fd, (char *)hostmem, size, 0x10000000 + channel*MEM_16G + devmem);
-    // TODO: Use single pread as above. 1 burst at a time currently needed to avoid 
-    // missed / incorrect bursts. Likely due to caching but fsync() seems not to fix
-    for (int b=0; b < size/16; ++b) {
-      pread(fd, ((char *)hostmem) + b*16, 16, 0x10000000 + channel*MEM_16G + devmem + b*16);
+    int rc = 0;
+    char *read_buffer = (char *)hostmem;
+    size_t read_offset = 0;
+    while (read_offset < size) {
+      if (read_offset != 0) {
+        printf("Partial read by driver, trying again with remainder of buffer (%lu bytes)\n", size - read_offset);
+      }
+      rc = pread(fd, read_buffer + read_offset, size - read_offset, 0x10000000 + channel*MEM_16G + devmem + read_offset);
+      assert(rc >= 0);
+      read_offset += rc;
     }
 #endif // F1
   }
@@ -293,19 +302,19 @@ public:
   // set enable high in app and poll until done is high
   virtual void run() {
 #ifdef SIM
+    aws_poke(BASE_ADDR + ATG, 0x00000001);
 #else // F1
     assert(fsync(fd) == 0); // TODO: Is this needed?
 #endif // F1
-    aws_poke(BASE_ADDR + ATG, 0x00000001);
     // aws_poke(BASE_ADDR + NUM_INST, 0x00000000);	// TODO: Move outside run()?
     uint32_t status;
     aws_poke(SCALAR_CMD_BASE_ADDR + CMD_REG_ADDR, 1);
     do {
       aws_peek(SCALAR_CMD_BASE_ADDR + STATUS_REG_ADDR, &status);
     } while (!status);
-    aws_poke(BASE_ADDR + ATG, 0x00000000);
     // De-assert enable?
 #ifdef SIM
+    aws_poke(BASE_ADDR + ATG, 0x00000000);
 #else // F1
     /*
     uint32_t total_cycles;

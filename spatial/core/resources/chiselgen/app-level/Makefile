@@ -209,7 +209,7 @@ zynq: zynq-hw zynq-sw
 
 zynq-sw:
 	cp zynq.mk cpp/Makefile
-	make -C cpp
+	make -C cpp -j8
 	tar -czf $(APPNAME).tar.gz -C ${ZYNQ_V_DIR} accel.bit.bin -C ../cpp Top -C fringeZynq/utils set_perms run.sh
 
 zynq-hw:

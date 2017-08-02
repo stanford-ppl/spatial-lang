@@ -20,7 +20,7 @@ create_bd_cell -type module -reference Top Top_0
 apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config {Master "/processing_system7_0/M_AXI_GP0" Clk "/processing_system7_0/FCLK_CLK0 (10 MHz)" }  [get_bd_intf_pins Top_0/io_S_AXI]
 
 set_property -dict [list CONFIG.PCW_USE_S_AXI_HP0 {1}] [get_bd_cells processing_system7_0]
-set_property -dict [list CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ {10}] [get_bd_cells processing_system7_0]
+set_property -dict [list CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ {50}] [get_bd_cells processing_system7_0]
 # set_property -dict [list CONFIG.PCW_USE_S_AXI_ACP {1}] [get_bd_cells processing_system7_0]
 
 apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config {Master "/Top_0/io_M_AXI" Clk "/processing_system7_0/FCLK_CLK0 (10 MHz)" }  [get_bd_intf_pins processing_system7_0/S_AXI_HP0]
