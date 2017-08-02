@@ -12,10 +12,10 @@ import chisel3.util.MuxLookup
 // ENHANCEMENT: currently this assumes read col par = 1, read row par = kernel height, and write row/col par is 1 and 1
 // See comments below: first should implement read col par, and also read row par == 1
 class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffer: Int, 
-  val col_wPar: Int, val col_rPar:Int, 
+  val col_wPar: Int, val col_rPar:Int, val col_banks: Int, 
   val row_wPar: Int, val row_rPar:Int, val numAccessors: Int, val bitWidth: Int = 32) extends Module {
 
-  def this(tuple: (Int, Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7, tuple._8)
+  def this(tuple: (Int, Int, Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7, tuple._8, tuple._9)
   val io = IO(new Bundle {
     val data_in  = Vec(col_wPar, Input(UInt(bitWidth.W)))
     val w_en     = Input(Bool())
@@ -79,7 +79,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   //   - W par less useful since conv is often compute bound
   // val linebuffer = List.fill(num_lines + extra_rows_to_buffer)(Mem(line_size, UInt(bitWidth.W)))
   val linebuffer = List.fill(num_lines + extra_rows_to_buffer)(Module(new SRAM(List(line_size), bitWidth, 
-    List(col_wPar max col_rPar), List(1), List(col_wPar), List(col_rPar), BankedMemory)))
+    List(col_banks), List(1), List(col_wPar), List(col_rPar), BankedMemory)))
   
   // --------------------------------------------------------------------------------------------------------------------------------
   // Write logic
@@ -107,7 +107,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // Write data_in into line buffer
   for (i <- 0 until (num_lines + extra_rows_to_buffer)) {
     for (j <- 0 until col_wPar) {
-      linebuffer(i).io.w(j).addr(0) := (WRITE_countRowPx.io.output.count(j) + j.S).asUInt
+      linebuffer(i).io.w(j).addr(0) := (WRITE_countRowPx.io.output.count(j)).asUInt
       linebuffer(i).io.w(j).data := io.data_in(j)
       linebuffer(i).io.w(j).en := true.B & cur_row === i.U & io.w_en
     }
