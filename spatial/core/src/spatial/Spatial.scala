@@ -84,6 +84,8 @@ trait SpatialCompiler extends ArgonCompiler {
       def streamParEnqs = uctrlAnalyzer.streamParEnqs
     }
 
+    lazy val sramTransform = new AffineAccessTransformer { var IR = state }
+
     lazy val pirRetimer = new PIRHackyRetimer { var IR = state }
     lazy val pirTiming  = new PIRHackyLatencyAnalyzer { var IR = state }
 
@@ -164,6 +166,13 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += affineAnalyzer    // Memory access patterns
     passes += reduceAnalyzer    // Reduce/accumulator specialization
     passes += memAnalyzer       // Finalize banking/buffering
+
+    // TODO: Resurrect this for SRAM views
+    /*if (SpatialConfig.useAffine) {
+      passes += sramTransform
+      passes += printer
+      passes += ctrlAnalyzer      // Control signal analysis
+    }*/
 
     // --- Design Elaboration
 

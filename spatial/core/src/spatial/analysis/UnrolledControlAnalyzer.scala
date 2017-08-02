@@ -53,10 +53,11 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
           duplicatesOf(mem) = duplicates.map(_._1)
 
           accesses.foreach { access =>
-            dispatchOf(access, mem) = dispatchOf(access, mem).flatMap { o => mapping.get(o) }
+            remapDispatches(access.node, mem, mapping)
+            /*dispatchOf(access, mem) = dispatchOf(access, mem).flatMap { o => mapping.get(o) }
             portsOf.set(access.node, mem, {
               portsOf(access, mem).flatMap { case (i, ps) => mapping.get(i).map { i2 => i2 -> ps } }
-            })
+            })*/
           }
         }
       }

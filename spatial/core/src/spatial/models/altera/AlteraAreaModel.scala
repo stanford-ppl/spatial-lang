@@ -18,7 +18,7 @@ abstract class AlteraAreaModel extends AreaModel[AlteraArea,AlteraAreaSummary] {
     val nregs = width*length
     // TODO: Should fix this cutoff point to something more real
     val area = if (nregs < 256) AlteraArea(mregs = nregs*par)
-               else             areaOfSRAM(width*par, List(length), List(BankedMemory(Seq(StridedBanking(1,1,true)),1,false)))
+               else             areaOfSRAM(width*par, List(length), List(BankedMemory(Seq(NoBanking(1)),1,false)))
 
     dbg(s"Delay line (w x l): $width x $length (${width*length}) [par = $par]")
     dbg(s"  $area")

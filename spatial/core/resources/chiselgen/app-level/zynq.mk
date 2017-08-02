@@ -1,6 +1,6 @@
 CC=g++
 LINK=g++
-CROSS_COMPILE=arm-xilinx-linux-gnueabi-
+CROSS_COMPILE=arm-linux-gnueabihf-
 
 FRINGE_SRC=./fringeZynq
 HOST_SRC=./
@@ -22,7 +22,7 @@ OBJECTS=$(SOURCES:.cpp=.o)
 
 DEFINES=$(OBJECTS:.o=.d)
 
-CXXFLAGS=-DZYNQ -D__DELITE_CPP_STANDALONE__ -D__USE_STD_STRING__ -std=c++11 -O0 -g
+CXXFLAGS=-DZYNQ -D__DELITE_CPP_STANDALONE__ -D__USE_STD_STRING__ -std=c++11 -O0 -g -marm -march=armv7-a -mcpu=cortex-a9
 #CXXFLAGS=-DZYNQ -D__DELITE_CPP_STANDALONE__  -std=c++11
 LDFLAGS=-Wl,--hash-style=both -lstdc++ -pthread -lpthread -lm
 
