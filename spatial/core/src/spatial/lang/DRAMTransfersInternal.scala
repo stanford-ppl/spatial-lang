@@ -101,7 +101,7 @@ object DRAMTransfersInternal {
       val ackStream  = StreamIn[Bit](BurstAckBus)
 
       // Command generator
-      Pipe {
+      if (SpatialConfig.enablePIR) { // On plasticine the sequential around data and address generation is inefficient
         Pipe {
           val addr_bytes = (offchipAddr * bytesPerWord).to[Int64] + dram.address
           val size = requestLength
@@ -113,6 +113,21 @@ object DRAMTransfersInternal {
         Foreach(requestLength par p){i =>
           val data = mem.load(local, onchipAddr(i), true)
           dataStream := pack(data,true)
+        }
+      } else {
+        Pipe {
+          Pipe {
+            val addr_bytes = (offchipAddr * bytesPerWord).to[Int64] + dram.address
+            val size = requestLength
+            val size_bytes = size * bytesPerWord
+            cmdStream := BurstCmd(addr_bytes.to[Int64], size_bytes, false)
+            // issueQueue.enq(size)
+          }
+          // Data loading
+          Foreach(requestLength par p){i =>
+            val data = mem.load(local, onchipAddr(i), true)
+            dataStream := pack(data,true)
+          }
         }
       }
       // Fringe

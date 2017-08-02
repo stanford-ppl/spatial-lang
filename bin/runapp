@@ -38,3 +38,4 @@ cd ../../
 echo "$timestemp $app $cycle args=[$args] $pass" >> $LOG_FILE 
 echo "$timestemp $app $cycle args=[$args] $pass"
 
+#trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
