@@ -287,28 +287,6 @@ trait ChiselGenController extends ChiselGenCounter{
 
   }
 
-  def getNowValidLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
-      // If we are inside a stream pipe, the following may be set
-      val readiers = listensTo(c).distinct.map {
-        // case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty"
-        // case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty"
-        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_now_valid" //& ${fifo}_ready"
-        case _ => ""
-      }.mkString(" & ")
-      // val holders = (pushesTo(c)).distinct.map {
-      //   case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full"
-      //   case fifo @ Def(FILONew(size)) => src"~$fifo.io.full"
-      //   case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready & ${fifo}_valid"
-      //   case fifo @ Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
-      // }.mkString(" & ")
-
-      // val hasHolders = if (holders != "") "&" else ""
-      val hasReadiers = if (readiers != "") "&" else ""
-
-      if (SpatialConfig.enableRetiming) src"${hasReadiers} ${readiers}" else " "
-
-  }
-
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
     val hasStreamIns = listensTo(sym).distinct.exists{

@@ -129,6 +129,7 @@ object Reduce extends ReduceClass(InnerPipe) {
     val effects = mBlk.effects andAlso ldBlk.effects andAlso rBlk.effects andAlso stBlk.effects
     val pipe = stageEffectful(OpReduce[T](Nil, cchain.s, reg.s, mBlk, ldBlk, rBlk, stBlk, z, f, rV, iters), effects)(ctx)
     styleOf(pipe) = style
+    userIIOf(pipe) = ii
     levelOf(pipe) = InnerControl // Fixed in Level Analyzer
     Controller(pipe)
   }

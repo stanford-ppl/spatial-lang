@@ -118,7 +118,10 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
       	case _ => false
       }
-      print_stage_prefix(s"${getScheduling(sym)}Unitpipe",s"",s"$sym", inner)
+      val tileXfer = childrenOf(sym).map{c => c match {case Def(FringeSparseLoad(_,_,_)) => "Gather."; case Def(FringeSparseStore(_,_,_)) => "Scatter."; 
+                                                       case Def(FringeDenseLoad(_,_,_)) => "Load."; case Def(FringeDenseStore(_,_,_,_)) => "Store."; 
+                                                       case _ => ""}}.mkString("")
+      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}Unitpipe",s"",s"$sym", inner)
       print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>
@@ -164,8 +167,10 @@ trait TreeGenSpatial extends SpatialTraversal {
       	case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
       	case _ => false
       }
-  
-      print_stage_prefix(s"${getScheduling(sym)}UnrolledForeach",s"${cchain}",s"$sym", inner)
+      val tileXfer = childrenOf(sym).map{c => c match {case Def(FringeSparseLoad(_,_,_)) => "Gather."; case Def(FringeSparseStore(_,_,_)) => "Scatter."; 
+                                                       case Def(FringeDenseLoad(_,_,_)) => "Load."; case Def(FringeDenseStore(_,_,_,_)) => "Store."; 
+                                                       case _ => ""}}.mkString("")
+      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}UnrolledForeach",s"${cchain}",s"$sym", inner)
       print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>
