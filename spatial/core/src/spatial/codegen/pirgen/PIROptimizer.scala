@@ -135,8 +135,8 @@ trait PIROptimizer extends PIRTraversal {
     cu.computeStages.foreach{stage => dbgs(s"  $stage") }
 
     val bypassStages = cu.computeStages.flatMap{
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.isDefined & mem.mode==VectorFIFOMode =>
-        val in = mem.writePort.get
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.nonEmpty & mem.mode==VectorFIFOMode =>
+        val in = mem.writePort.head
         if (isInterCU(out)) {
           dbgs(s"Found route-thru: $in -> $out")
           swapBus(cus, out, in)
@@ -144,8 +144,8 @@ trait PIROptimizer extends PIRTraversal {
         }
         else None
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: OutputArg)))) if mem.writePort.isDefined & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
-        val in = mem.writePort.get
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: OutputArg)))) if mem.writePort.nonEmpty & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
+        val in = mem.writePort.head
         if (isInterCU(in)) {
           dbgs(s"Found route-thru: $in -> $out")
           swapBus(cus, in, out)
@@ -153,8 +153,8 @@ trait PIROptimizer extends PIRTraversal {
         }
         else None
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.isDefined & mem.mode==VectorFIFOMode=>
-        val in = mem.writePort.get
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.nonEmpty & mem.mode==VectorFIFOMode=>
+        val in = mem.writePort.head
         cus.find{cu => in match {
             case in:VectorBus =>
               vectorOutputs(cu) contains in

@@ -53,15 +53,15 @@ trait PIRAllocation extends PIRTraversal {
         val cu = allocateCU(pipe)
         def allocateCounter(start: Expr, end: Expr, stride: Expr, par:Int) = {
           dbgs(s"counter start:${qdef(start)}, end:${qdef(end)}, stride:${qdef(stride)}, par:$par")
-          val min = cu.getOrElseUpdate(start){ allocateLocal(cu, start) }
-          val max = cu.getOrElseUpdate(end){ allocateLocal(cu, end) }
-          val step = cu.getOrElseUpdate(stride){ allocateLocal(cu, stride) }
+          val min = allocateLocal(cu, start)
+          val max = allocateLocal(cu, end)
+          val step = allocateLocal(cu, stride)
           CUCounter(min, max, step, par)
         }
         val Def(CounterChainNew(ctrs)) = cchain
         val counters = ctrs.collect{case ctr@Def(CounterNew(start,end,stride,_)) => 
-          val ConstReg(par) = extractConstant(parFactorsOf(ctr).head)
-          allocateCounter(start, end, stride, par.asInstanceOf[Int])
+          val par = getConstant(parFactorsOf(ctr).head).get.asInstanceOf[Int]
+          allocateCounter(start, end, stride, par)
         }
         val cc = CChainInstance(quote(cchain), cchain, counters)
         cu.cchains += cc
@@ -343,7 +343,7 @@ trait PIRAllocation extends PIRTraversal {
     val cuMem = getOrElseUpdate(cu.memMap, dmem, {
       val cuMem = CUMemory(quote(dmem), dmem, cu)
       mem match {
-        case mem if isReg(mem) =>
+        case mem if isReg(mem) => //TODO: Consider initValue of Reg?
           cuMem.size = 1
           cuMem.mode = ScalarBufferMode
           val instIds = dispatchOf(reader, mem)
@@ -411,20 +411,9 @@ trait PIRAllocation extends PIRTraversal {
             // Allocate local mem in the readerCU
             createLocalMem(dmem, dreader, readerCU)
             // Set writeport of the local mem who doesn't have a writer (ArgIn and GetDRAMAddress)
-            bus.foreach { bus => readerCU.memMap(dmem).writePort = Some(bus) }
+            bus.foreach { bus => readerCU.memMap(dmem).writePort += bus }
           } else { // Local reg accumulation
-            val Def(RegNew(init)) = mem //Only register can be locally written
-            val dinit = decomposeWithFields(init)
-            dbgs(s"decompose init: $init -> $dinit")
-            readerCU.getOrElseUpdate(dmem) {
-              val initExp = dinit match {
-                case Left(dinit) => dinit
-                case Right(seq) =>
-                  val field = getField(dmem).get
-                  seq.filter{ case (f, e) => f == field }.head._2
-              }
-              AccumReg(extractConstant(initExp))
-            }
+            allocateLocal(readerCU, dmem)
           }
         }
       }
@@ -540,7 +529,7 @@ trait PIRAllocation extends PIRTraversal {
           dbgs(s"Add dwriter:$dwriter to writerCU:$writerCU")
           remoteReaders.foreach { reader =>
             getReaderCUs(reader).foreach { readerCU =>
-              readerCU.memMap(dmem).writePort = Some(bus)
+              readerCU.memMap(dmem).writePort += bus
             }
           }
         }
@@ -561,22 +550,15 @@ trait PIRAllocation extends PIRTraversal {
       assert(instIds.size==1)
       val instId = instIds.head
       decompose(mem).zip(decompose(reader)).foreach { case (dmem, dreader) =>
-        val bus = if (parBy1) CUScalar(s"${quote(dmem)}_${quote(dreader)}") 
-                  else CUVector(s"${quote(dmem)}_${quote(dreader)}")
-        val sramCUs = allocateMemoryCU(dmem)
-        val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, sramCUs)
-        sramCUs.foreach { sramCU =>
-          sramCU.style match {
-            case MemoryCU(`instId`) =>
-              dbgs(s"sramCUs for dmem=${qdef(dmem)} cu=$sramCU")
-              val sram = sramCU.memMap(mem)
-              sramCU.readStages(List(sram)) = addrStages
-              sram.readPort = Some(bus)
-              dbgs(s"sram=$sram readPort=$bus")
-              //sram.readAddr = ad.map(ad => ReadAddrWire(sram))
-            case _ =>
-          }
-        }
+        val bus = if (parBy1) CUScalar(s"${quote(dmem)}_$instId") 
+                  else CUVector(s"${quote(dmem)}_$instId")
+        val sramCU = getMCUforReader(dmem, reader)
+        val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, List(sramCU))
+        val sram = sramCU.memMap(mem)
+        sramCU.readStages(List(sram)) = addrStages
+        sram.readPort = Some(bus)
+        dbgs(s"sram=$sram readPort=$bus")
+        //sram.readAddr = ad.map(ad => ReadAddrWire(sram))
         readerCUs.foreach { readerCU =>
           globals += bus
           val fifo = createRetimingFIFO(dreader, readerCU) 
@@ -584,7 +566,7 @@ trait PIRAllocation extends PIRTraversal {
           // use reader as mem since one sram can be read by same cu twice with different address
           // example:GDA
           readerCU.addReg(dreader, MemLoadReg(fifo))
-          fifo.writePort = Some(bus)
+          fifo.writePort += bus
         }
       }
     }
@@ -618,8 +600,8 @@ trait PIRAllocation extends PIRTraversal {
           //sram.writeAddr = ad.map(ad => WriteAddrWire(sram))
           sramCU.writeStages(List(sram)) = addrStages
           val vfifo = createRetimingFIFO(dwriter, sramCU) //HACK: for fifo put writer as the mem
-          vfifo.writePort = Some(bus)
-          sram.writePort = Some(LocalReadBus(vfifo))
+          vfifo.writePort += bus
+          sram.writePort += LocalReadBus(vfifo)
         }
       }
     }
@@ -645,7 +627,7 @@ trait PIRAllocation extends PIRTraversal {
                     else CUVector(s"${quote(dmem)}_${quote(fringe)}_$field")
           cu.fringeGlobals += field -> bus
           globals += bus
-          readerCUs.foreach { _.memMap(dmem).writePort = Some(bus) }
+          readerCUs.foreach { _.memMap(dmem).writePort += bus }
       }
     }
     streamOuts.foreach { streamOut =>

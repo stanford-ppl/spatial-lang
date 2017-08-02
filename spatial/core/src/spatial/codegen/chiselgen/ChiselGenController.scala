@@ -287,28 +287,6 @@ trait ChiselGenController extends ChiselGenCounter{
 
   }
 
-  def getNowValidLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
-      // If we are inside a stream pipe, the following may be set
-      val readiers = listensTo(c).distinct.map {
-        // case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty"
-        // case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty"
-        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_now_valid" //& ${fifo}_ready"
-        case _ => ""
-      }.mkString(" & ")
-      // val holders = (pushesTo(c)).distinct.map {
-      //   case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full"
-      //   case fifo @ Def(FILONew(size)) => src"~$fifo.io.full"
-      //   case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready & ${fifo}_valid"
-      //   case fifo @ Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
-      // }.mkString(" & ")
-
-      // val hasHolders = if (holders != "") "&" else ""
-      val hasReadiers = if (readiers != "") "&" else ""
-
-      if (SpatialConfig.enableRetiming) src"${hasReadiers} ${readiers}" else " "
-
-  }
-
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
     val hasStreamIns = listensTo(sym).distinct.exists{
@@ -364,7 +342,7 @@ trait ChiselGenController extends ChiselGenCounter{
               case (Exact(s), Exact(e), Exact(st), Exact(p)) => 
                 emit(src"val ${sym}${i}_range = ShiftRegister(${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W), 1)")
                 emit(src"val ${sym}${i}_jump = ShiftRegister(${st}.S(${32 min 2*w}.W) * ${p}.S(${32 min 2*w}.W), 1)")
-                emit(src"val ${sym}${i}_hops = ShiftRegister((${sym}${i}_range / ${sym}${i}_jump).asUInt, 1)")
+                emit(src"val ${sym}${i}_hops = ShiftRegister((${sym}${i}_range / ${sym}${i}_jump).asUInt, 3)")
                 emit(src"val ${sym}${i}_leftover = ShiftRegister(${sym}${i}_range % ${sym}${i}_jump, 1)")
                 emit(src"val ${sym}${i}_evenfit = ShiftRegister(${sym}${i}_leftover.asUInt === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = ShiftRegister(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
@@ -372,14 +350,14 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit("// TODO: Figure out how to make this one cheaper!")
                 emit(src"val ${sym}${i}_range = ShiftRegister(${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W), 1)")
                 emit(src"val ${sym}${i}_jump = ShiftRegister(${step} * ${p}.S(${w}.W), 1)")
-                emit(src"val ${sym}${i}_hops = ShiftRegister((${sym}${i}_range / ${sym}${i}_jump).asUInt, 1)")
+                emit(src"val ${sym}${i}_hops = ShiftRegister((${sym}${i}_range / ${sym}${i}_jump).asUInt, 3)")
                 emit(src"val ${sym}${i}_leftover = ShiftRegister(${sym}${i}_range % ${sym}${i}_jump, 1)")
                 emit(src"val ${sym}${i}_evenfit = ShiftRegister(${sym}${i}_leftover.asUInt === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = ShiftRegister(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
               case _ => 
                 emit(src"val ${sym}${i}_range = ShiftRegister(${end} - ${start}, 1)")
                 emit(src"val ${sym}${i}_jump = ShiftRegister(${step} * ${par}, 1)")
-                emit(src"val ${sym}${i}_hops = ShiftRegister(${sym}${i}_range / ${sym}${i}_jump, 1)")
+                emit(src"val ${sym}${i}_hops = ShiftRegister(${sym}${i}_range / ${sym}${i}_jump, 3)")
                 emit(src"val ${sym}${i}_leftover = ShiftRegister(${sym}${i}_range % ${sym}${i}_jump, 1)")
                 emit(src"val ${sym}${i}_evenfit = ShiftRegister(${sym}${i}_leftover === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = ShiftRegister(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
@@ -526,7 +504,8 @@ trait ChiselGenController extends ChiselGenCounter{
           val Def(CounterChainNew(ctrs)) = cchain.get
           val stream_respeck = c match {case Def(UnitPipe(_,_)) => getNowValidLogic(c); case _ => ""}
           emitCounterChain(cchain.get, ctrs, src"_copy$c")
-          emit(src"""${cchain.get}_copy${c}_en := ${c}_done ${stream_respeck}""")
+          val inhibit_respeck = if (levelOf(c) == InnerControl & stream_respeck.replace(" ","") != "") src"& ~${c}_inhibitor /*brilliantly ugly hack for tensor5d*/" else ""
+          emit(src"""${cchain.get}_copy${c}_en := ${c}_done ${stream_respeck} ${inhibit_respeck}""")
           emit(src"""${cchain.get}_copy${c}_resetter := ${sym}_sm.io.output.rst_en""")
         }
         emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")
@@ -555,7 +534,7 @@ trait ChiselGenController extends ChiselGenCounter{
       if (iiOf(lhs) <= 1) {
         emit(src"""val ${lhs}_II_done = true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 max Utils.log2Up(${lhs}_retime)));""")
+        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
         emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${lhs}_retime.S""")
