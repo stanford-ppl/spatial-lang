@@ -9,7 +9,7 @@ import spatial.SpatialConfig
 
 
 trait ChiselGenLineBuffer extends ChiselGenController {
-  private var linebufs: List[Sym[LineBufferNew[_]]]  = List()
+  private var linebufs: List[(Sym[LineBufferNew[_]], Int)]  = List()
 
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
@@ -36,18 +36,40 @@ trait ChiselGenLineBuffer extends ChiselGenController {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LineBufferNew(rows, cols) =>
-      val row_rPar = src"${getConstValue(rows)}" // TODO: Do correct analysis here!
-      val accessors = bufferControlInfo(lhs, 0).length
-      val row_wPar = 1 // TODO: Do correct analysis here!
-      val col_rPar = 1 // TODO: Do correct analysis here!
-      val col_wPar = 1 // TODO: Do correct analysis here!
-      val width = bitWidth(lhs.tp.typeArguments.head)
-      emitGlobalModule(src"""val ${lhs} = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, 1, 
-        ${col_wPar}, ${col_rPar}, 
-        ${row_wPar}, ${row_rPar}, $accessors, $width))  // Data type: ${op.mT}""")
-      emitGlobalModule(src"$lhs.io.reset := reset")
-      linebufs = linebufs :+ lhs.asInstanceOf[Sym[LineBufferNew[_]]]
-      
+      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
+        val col_rPar = readersOf(lhs) // Currently assumes all readers have same par
+          .filter{read => dispatchOf(read, lhs) contains i}
+          .map { r => 
+            val par = r.node match {
+              case Def(_: LineBufferLoad[_]) => 1
+              case Def(a@ParLineBufferLoad(_,rows,cols,ens)) => cols.distinct.length
+            }
+            par
+          }.head
+        val col_wPar = writersOf(lhs) // Currently assumes all readers have same par
+          .filter{write => dispatchOf(write, lhs) contains i}
+          .map { w => 
+            val par = w.node match {
+              case Def(_: LineBufferEnq[_]) => 1
+              case Def(a@ParLineBufferEnq(_,_,ens)) => ens.length
+            }
+            par
+          }.head
+
+        val col_banks = mem match { case BankedMemory(dims, depth, isAccum) => dims.last.banks; case _ => 1 }
+        // TODO: Use a combination of depth info and rows to figure out extra_rows_to_buffer, which is just a solid 1 for now
+        val extra_rows_to_buffer = 1
+        val row_rPar = mem match { case BankedMemory(dims, depth, isAccum) => dims.head.banks; case _ => 1 } // Could be wrong
+        val accessors = bufferControlInfo(lhs, 0).length
+        val row_wPar = 1 // TODO: Do correct analysis here!
+        val width = bitWidth(lhs.tp.typeArguments.head)
+        emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, ${extra_rows_to_buffer}, 
+          ${col_wPar}, ${col_rPar}, ${col_banks},
+          ${row_wPar}, ${row_rPar}, $accessors, $width))  // Data type: ${op.mT}""")
+        emitGlobalModule(src"${lhs}_$i.io.reset := reset")
+        linebufs = linebufs :+ (lhs.asInstanceOf[Sym[LineBufferNew[_]]], i)
+      }
+        
     case op@LineBufferRowSlice(lb,row,len,col) =>
       // TODO: Multiple cycles
       // Copied from ScalaGen:
@@ -66,17 +88,23 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       // close("}")
       
     case op@LineBufferLoad(lb,row,col,en) => 
-      emit(src"$lb.io.col_addr(0) := ${col}.raw")
+      val dispatch = dispatchOf(lhs, lb).toList.distinct
+      if (dispatch.length > 1) { throw new Exception("This is an example where lb dispatch > 1. Please use as test case!") }
+      val i = dispatch.head
+      emit(src"${lb}_$i.io.col_addr(0) := ${col}.raw")
       val rowtext = row match {
         case Const(cc) => s"$cc"
         case _ => src"${row}.r"
       }
-      emit(s"val ${quote(lhs)} = ${quote(lb)}.readRow(${rowtext})")
+      emit(s"val ${quote(lhs)} = ${quote(lb)}_$i.readRow(${rowtext})")
 
     case op@LineBufferEnq(lb,data,en) =>
+      val dispatch = dispatchOf(lhs, lb).toList.distinct
+      if (dispatch.length > 1) { throw new Exception("This is an example where lb dispatch > 1. Please use as test case!") }
+      val i = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
-      emit(src"$lb.io.data_in(0) := ${data}.raw")
-      emit(src"$lb.io.w_en := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})")
+      emit(src"${lb}_$i.io.data_in(0) := ${data}.raw")
+      emit(src"${lb}_$i.io.w_en := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})")
 
     case _ => super.emitNode(lhs, rhs)
   }
@@ -93,10 +121,10 @@ trait ChiselGenLineBuffer extends ChiselGenController {
 
   override protected def emitFileFooter() {
     withStream(getStream("BufferControlCxns")) {
-      linebufs.foreach{ mem => 
-        val info = bufferControlInfo(mem, 0)
+      linebufs.foreach{ case (mem,i) => 
+        val info = bufferControlInfo(mem, i)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""${mem}.connectStageCtrl(${quote(inf._1)}_done, ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
+          emit(src"""${mem}_$i.connectStageCtrl(${quote(inf._1)}_done, ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
         }
 
 
