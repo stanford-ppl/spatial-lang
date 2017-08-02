@@ -6,42 +6,42 @@ import forge._
 import spatial.metadata._
 import spatial.nodes._
 
-protected class ReduceAccum[T](accum: Option[Reg[T]], style: ControlStyle, zero: Option[T], fold: Option[T]) {
+protected class ReduceAccum[T](accum: Option[Reg[T]], style: ControlStyle, ii: Option[Long], zero: Option[T], fold: Option[T]) {
   /** 1 dimensional reduction **/
   @api def apply(domain1D: Counter)(map: Index => T)(reduce: (T,T) => T)(implicit mT: Type[T], bits: Bits[T]): Reg[T] = {
     val acc = accum.getOrElse(Reg[T])
-    Reduce.alloc(List(domain1D), acc, {x: List[Index] => map(x.head)}, reduce, style, zero, fold)
+    Reduce.alloc(List(domain1D), acc, {x: List[Index] => map(x.head)}, reduce, style, ii, zero, fold)
     acc
   }
   /** 2 dimensional reduction **/
   @api def apply(domain1: Counter, domain2: Counter)(map: (Index,Index) => T)(reduce: (T,T) => T)(implicit mT: Type[T], bits: Bits[T]): Reg[T] = {
     val acc = accum.getOrElse(Reg[T])
-    Reduce.alloc(List(domain1, domain2), acc, {x: List[Index] => map(x(0),x(1)) }, reduce, style, zero, fold)
+    Reduce.alloc(List(domain1, domain2), acc, {x: List[Index] => map(x(0),x(1)) }, reduce, style, ii, zero, fold)
     acc
   }
 
   /** 3 dimensional reduction **/
   @api def apply(domain1: Counter, domain2: Counter, domain3: Counter)(map: (Index,Index,Index) => T)(reduce: (T,T) => T)(implicit mT: Type[T], bits: Bits[T]): Reg[T] = {
     val acc = accum.getOrElse(Reg[T])
-    Reduce.alloc(List(domain1, domain2, domain3), acc, {x: List[Index] => map(x(0),x(1),x(2)) }, reduce, style, zero, fold)
+    Reduce.alloc(List(domain1, domain2, domain3), acc, {x: List[Index] => map(x(0),x(1),x(2)) }, reduce, style, ii, zero, fold)
     acc
   }
 
   /** N dimensional reduction **/
   @api def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(map: List[Index] => T)(reduce: (T,T) => T)(implicit mT: Type[T], bits: Bits[T]): Reg[T] = {
     val acc = accum.getOrElse(Reg[T])
-    Reduce.alloc(List(domain1, domain2, domain3, domain4) ++ domain5plus, acc, map, reduce, style, zero, fold)
+    Reduce.alloc(List(domain1, domain2, domain3, domain4) ++ domain5plus, acc, map, reduce, style, ii, zero, fold)
     acc
   }
 }
-protected class ReduceConstant[A,T](style: ControlStyle, a: A, isFold: Boolean) {
+protected class ReduceConstant[A,T](style: ControlStyle, ii: Option[Long], a: A, isFold: Boolean) {
   @api def apply(domain1D: Counter)(map: Index => T)(reduce: (T, T) => T)(implicit bT: Bits[T], lift: Lift[A, T]): Reg[T] = {
     implicit val mT: Type[T] = lift.staged
     val accum = Some(Reg[T](lift(a)))
     val init = Some(lift(a))
     val fold = if (isFold) init else None
     val zero = if (!isFold) init else None
-    new ReduceAccum(accum, style, zero, fold).apply(domain1D)(map)(reduce)
+    new ReduceAccum(accum, style, ii, zero, fold).apply(domain1D)(map)(reduce)
   }
   @api def apply(domain1: Counter, domain2: Counter)(map: (Index, Index) => T)(reduce: (T, T) => T)(implicit bT: Bits[T], lift: Lift[A, T]): Reg[T] = {
     implicit val mT: Type[T] = lift.staged
@@ -49,7 +49,7 @@ protected class ReduceConstant[A,T](style: ControlStyle, a: A, isFold: Boolean) 
     val init = Some(lift(a))
     val fold = if (isFold) init else None
     val zero = if (!isFold) init else None
-    new ReduceAccum(accum, style, zero, fold).apply(domain1, domain2)(map)(reduce)
+    new ReduceAccum(accum, style, ii, zero, fold).apply(domain1, domain2)(map)(reduce)
   }
   @api def apply(domain1: Counter, domain2: Counter, domain3: Counter)(map: (Index, Index, Index) => T)(reduce: (T, T) => T)(implicit bT: Bits[T], lift: Lift[A, T]): Reg[T] = {
     implicit val mT: Type[T] = lift.staged
@@ -57,7 +57,7 @@ protected class ReduceConstant[A,T](style: ControlStyle, a: A, isFold: Boolean) 
     val init = Some(lift(a))
     val fold = if (isFold) init else None
     val zero = if (!isFold) init else None
-    new ReduceAccum(accum, style, zero, fold).apply(domain1, domain2, domain3)(map)(reduce)
+    new ReduceAccum(accum, style, ii, zero, fold).apply(domain1, domain2, domain3)(map)(reduce)
   }
   @api def apply(domain1: Counter, domain2: Counter, domain3: Counter, domain4: Counter, domain5plus: Counter*)(map: List[Index] => T)(reduce: (T, T) => T)(implicit bT: Bits[T], lift: Lift[A, T]): Reg[T] = {
     implicit val mT: Type[T] = lift.staged
@@ -65,37 +65,37 @@ protected class ReduceConstant[A,T](style: ControlStyle, a: A, isFold: Boolean) 
     val init = Some(lift(a))
     val fold = if (isFold) init else None
     val zero = if (!isFold) init else None
-    new ReduceAccum(accum, style, zero, fold).apply(domain1, domain2, domain3, domain4, domain5plus: _*)(map)(reduce)
+    new ReduceAccum(accum, style, ii, zero, fold).apply(domain1, domain2, domain3, domain4, domain5plus: _*)(map)(reduce)
   }
 }
 
-protected case class ReduceClass(style: ControlStyle) extends ReduceAccum(None, style, None, None) {
+protected case class ReduceClass(style: ControlStyle, ii: Option[Long] = None) extends ReduceAccum(None, style, ii, None, None) {
   /** Reduction with implicit accumulator **/
   // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-  def apply(zero: scala.Int) = new ReduceConstant[Int,Int32](style, zero, isFold = false)
-  def apply(zero: scala.Long) = new ReduceConstant[Long,Int64](style, zero, isFold = false)
-  def apply(zero: scala.Float) = new ReduceConstant[Float,Float32](style, zero, isFold = false)
-  def apply(zero: scala.Double) = new ReduceConstant[Double,Float64](style, zero, isFold = false)
+  def apply(zero: scala.Int) = new ReduceConstant[Int,Int32](style, ii, zero, isFold = false)
+  def apply(zero: scala.Long) = new ReduceConstant[Long,Int64](style, ii, zero, isFold = false)
+  def apply(zero: scala.Float) = new ReduceConstant[Float,Float32](style, ii, zero, isFold = false)
+  def apply(zero: scala.Double) = new ReduceConstant[Double,Float64](style, ii, zero, isFold = false)
 
   //def apply(zero: FixPt[_,_,_]) = new ReduceAccum(Reg[FixPt[S,I,F]](zero), style)
   //def apply(zero: FltPt[_,_]) = new ReduceAccum(Reg[FltPt[G,E]](zero), style)
 
   /** Reduction with explicit accumulator **/
   // TODO: Should initial value of accumulator be assumed to be the identity value?
-  def apply[T](accum: Reg[T]) = new ReduceAccum(Some(accum), style, None, None)
+  def apply[T](accum: Reg[T]) = new ReduceAccum(Some(accum), style, ii, None, None)
 }
 
-protected case class FoldClass(style: ControlStyle) {
+protected case class FoldClass(style: ControlStyle, ii: Option[Long] = None) {
   /** Fold with implicit accumulator **/
   // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
-  def apply(zero: scala.Int) = new ReduceConstant[Int,Int32](style, zero, isFold = true)
-  def apply(zero: scala.Long) = new ReduceConstant[Long,Int64](style, zero, isFold = true)
-  def apply(zero: scala.Float) = new ReduceConstant[Float,Float32](style, zero, isFold = true)
-  def apply(zero: scala.Double) = new ReduceConstant[Double,Float64](style, zero, isFold = true)
+  def apply(zero: scala.Int) = new ReduceConstant[Int,Int32](style, ii, zero, isFold = true)
+  def apply(zero: scala.Long) = new ReduceConstant[Long,Int64](style, ii, zero, isFold = true)
+  def apply(zero: scala.Float) = new ReduceConstant[Float,Float32](style, ii, zero, isFold = true)
+  def apply(zero: scala.Double) = new ReduceConstant[Double,Float64](style, ii, zero, isFold = true)
 
   def apply[T](accum: Reg[T]) = {
     val sty = if (style == InnerPipe) MetaPipe else style
-    MemReduceAccum(accum, sty, None, true)
+    MemReduceAccum(accum, sty, ii, None, true)
   }
 }
 
@@ -109,6 +109,7 @@ object Reduce extends ReduceClass(InnerPipe) {
     map:    List[Index] => T,
     reduce: (T,T) => T,
     style:  ControlStyle,
+    ii:     Option[Long],
     ident:  Option[T],
     fold:   Option[T]
   ): Controller = {
@@ -128,6 +129,7 @@ object Reduce extends ReduceClass(InnerPipe) {
     val effects = mBlk.effects andAlso ldBlk.effects andAlso rBlk.effects andAlso stBlk.effects
     val pipe = stageEffectful(OpReduce[T](Nil, cchain.s, reg.s, mBlk, ldBlk, rBlk, stBlk, z, f, rV, iters), effects)(ctx)
     styleOf(pipe) = style
+    userIIOf(pipe) = ii
     levelOf(pipe) = InnerControl // Fixed in Level Analyzer
     Controller(pipe)
   }

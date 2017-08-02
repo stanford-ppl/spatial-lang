@@ -155,13 +155,13 @@ trait PIRRetiming extends PIRTraversal {
     }
     val memSym = null
     val memAccess = null
-    val sram = CUMemory(name, memSym, memAccess, cu)
+    val sram = CUMemory(name, memSym, cu)
     sram.mode = bus match {
       case bus:ScalarBus => ScalarFIFOMode
       case bus:VectorBus => VectorFIFOMode
     }
     sram.size = depth
-    sram.writePort = Some(bus) //TODO: readport?
+    sram.writePort += bus //TODO: readport?
     sram.banking = Some(Strided(1))
     sram
   }

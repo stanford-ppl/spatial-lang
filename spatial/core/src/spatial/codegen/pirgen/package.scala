@@ -33,22 +33,26 @@ package object pirgen {
     case _ => false
   }
 
-  @stateful def extractConstant(x: Expr): ConstReg[AnyVal] = x match {
-    case Const(c: BigDecimal) if c.isWhole => ConstReg(c.toInt)
-    case Const(c: BigDecimal) => ConstReg(c.toFloat)
-    case Const(c: Boolean) => ConstReg(c)
+  @stateful def getConstant(x: Expr): Option[AnyVal] = x match {
+    case Const(c: BigDecimal) if c.isWhole => Some(c.toInt)
+    case Const(c: BigDecimal) => Some(c.toFloat)
+    case Const(c: Boolean) => Some(c)
 
-    case Param(c: BigDecimal) if c.isWhole => ConstReg(c.toInt)
-    case Param(c: BigDecimal) => ConstReg(c.toFloat  )
-    case Param(c: Boolean) => ConstReg(c)
+    case Param(c: BigDecimal) if c.isWhole => Some(c.toInt)
+    case Param(c: BigDecimal) => Some(c.toFloat  )
+    case Param(c: Boolean) => Some(c)
 
-    case Final(c: BigInt)  => ConstReg(c.toInt)
+    case Final(c: BigInt)  => Some(c.toInt)
+    case _ => None
+  }
 
-    case _ => throw new Exception(s"Cannot allocate constant value for $x")
+  @stateful def extractConstant(x: Expr): ConstReg[AnyVal] = getConstant(x) match {
+    case Some(c) => ConstReg(c)
+    case None => throw new Exception(s"Cannot allocate constant value for $x")
   }
 
   private def collectX[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
-    case cu: ComputeUnit => func(cu.allStages) ++ func(cu.cchains) ++ func(cu.mems) ++ func(cu.fringeVectors.values)
+    case cu: ComputeUnit => func(cu.allStages) ++ func(cu.cchains) ++ func(cu.mems) ++ func(cu.fringeGlobals.values)
 
     case cchain: CChainInstance => func(cchain.counters)
     case cchain: CChainCopy => func(cchain.inst)
@@ -66,16 +70,13 @@ package object pirgen {
     case stage: Stage => stage.inputMems.toSet
     case _ => collectX[LocalComponent](a)(localInputs)
   }
+
   def localOutputs(a: Any): Set[LocalComponent] = a match {
     case reg: LocalComponent => Set(reg)
     case stage: Stage => stage.outputMems.toSet
     case _ => collectX[LocalComponent](a)(localOutputs)
   }
-  def localScalar(x:Any):LocalScalar = x match {
-    case x: ConstReg[_] => x
-    case x: MemLoadReg => x
-    case x => throw new Exception(s"Cannot use $x as a LocalMem")
-  }
+
   def globalInputs(a: Any): Set[GlobalBus] = a match {
     case _:LocalReadBus => Set.empty
     case glob: GlobalBus => Set(glob)
@@ -132,18 +133,18 @@ package object pirgen {
   def isReadable(x: LocalComponent): Boolean = x match {
     case _:ScalarOut | _:VectorOut => false
     case _:ScalarIn  | _:VectorIn  => true
-    case _:MemLoadReg => true
+    case _:MemLoadReg| _:MemNumel => true
     case _:TempReg | _:AccumReg | _:ReduceReg => true
-    case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => false
+    case _:WriteAddrWire | _:ReadAddrWire => false
     case _:ControlReg => true
     case _:ValidReg | _:ConstReg[_] | _:CounterReg => true
   }
   def isWritable(x: LocalComponent): Boolean = x match {
     case _:ScalarOut | _:VectorOut => true
     case _:ScalarIn  | _:VectorIn  => false
-    case _:MemLoadReg => false
+    case _:MemLoadReg| _:MemNumel => false
     case _:TempReg | _:AccumReg | _:ReduceReg => true
-    case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => true
+    case _:WriteAddrWire | _:ReadAddrWire => true
     case _:ControlReg => true
     case _:ValidReg | _:ConstReg[_] | _:CounterReg => false
   }
@@ -162,9 +163,6 @@ package object pirgen {
     case MemLoadReg(mem) => Some(mem)
     case _ => None
   }
-
-
-
 
   @stateful def isReadInPipe(mem: Expr, pipe: Expr, reader: Option[Expr] = None): Boolean = {
     readersOf(mem).isEmpty || readersOf(mem).exists{read => reader.forall(_ == read.node) && read.ctrlNode == pipe }
@@ -277,6 +275,8 @@ package object pirgen {
     case FixLeq(_,_)                     => Some(PIRFixLeq)
     case FixEql(_,_)                     => Some(PIRFixEql)
     case FixNeq(_,_)                     => Some(PIRFixNeq)
+    case FixLsh(_,_)                     => Some(PIRFixSla)
+    case FixRsh(_,_)                     => Some(PIRFixSra)
     case e: Min[_] if isFixPtType(e.mR)  => Some(PIRFixMin)
     case e: Max[_] if isFixPtType(e.mR)  => Some(PIRFixMax)
     case FixNeg(_)                       => Some(PIRFixNeg)
@@ -337,6 +337,9 @@ package object pirgen {
     }
   }
 
+  @stateful def bank(dmem: Expr) = {
+  }
+
   /*def bank(mem: Expr, access: Expr, iter: Option[Expr]) = {
     //val indices = accessIndicesOf(access)
     val pattern = accessPatternOf(access)
@@ -386,14 +389,35 @@ package object pirgen {
     case Def(Hwblock(func,_)) => 1
     case Def(UnitPipe(en, func)) => 1
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
-      val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
-      par.asInstanceOf[Int]
+      getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
     case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
-      val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
-      par.asInstanceOf[Int]
-    case Def(_:ParSRAMLoad[_]) => getInnerPar(parentOf(n).get)
-    case Def(_:ParSRAMStore[_]) => getInnerPar(parentOf(n).get)
+      getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
+    case Def(Switch(body, selects, cases)) => getInnerPar(parentOf(n).get)
+    case Def(SwitchCase(body)) => getInnerPar(parentOf(n).get)
+    case Def(n:ParSRAMStore[_]) => n.ens.size
+    case Def(n:ParSRAMLoad[_]) => n.ens.size
+    case Def(n:ParFIFOEnq[_]) => n.ens.size
+    case Def(n:ParFIFODeq[_]) => n.ens.size
+    case Def(n:ParStreamRead[_]) => n.ens.size
+    case Def(n:ParStreamWrite[_]) => n.ens.size
+    case Def(n:ParFILOPush[_]) => n.ens.size
+    case Def(n:ParFILOPop[_]) => n.ens.size
     case Def(_:SRAMLoad[_]) => 1 
     case Def(_:SRAMStore[_]) => 1 
+    case Def(_:SRAMStore[_]) => 1 
+    case Def(_:FIFOEnq[_]) => 1 
+    case Def(_:FIFODeq[_]) => 1 
+    case Def(_:StreamRead[_]) => 1 
+    case Def(_:StreamWrite[_]) => 1 
+    case Def(_:FILOPush[_]) => 1 
+    case Def(_:FILOPop[_]) => 1 
+  }
+
+  @stateful def parentOf(exp:Expr):Option[Expr] = {
+    spatial.metadata.parentOf(exp).flatMap {
+      case p@Def(_:Switch[_]) => parentOf(p)
+      case p@Def(_:SwitchCase[_]) => parentOf(p)
+      case p => Some(p)
+    }
   }
 }

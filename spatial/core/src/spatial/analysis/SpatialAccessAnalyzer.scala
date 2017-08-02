@@ -8,6 +8,8 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
+import org.virtualized.SourceContext
+
 trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
   override val name = "Spatial Affine Analysis"
   override val recurse = Default
@@ -21,6 +23,7 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
   // Pair of symbols for nodes used in address calculation multiplication nodes
   def indexTimesUnapply(x: Exp[Index]): Option[(Exp[Index], Exp[Index])] = x match {
     case Op(FixMul(a,b)) => Some((a,b))
+    case Op(FixLsh(a,Const(b: BigDecimal))) => Some((a,FixPt.int32(Math.pow(2,b.toDouble))))
     case _ => None
   }
   // List of loop scopes. Each scope contains a list of iterators and scopes to traverse for loop nodes

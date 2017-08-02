@@ -100,6 +100,9 @@ trait PIRSplitting extends PIRTraversal {
 
       while (cost > arch && current.nonEmpty) {
         //dbg(s"Removing stage")
+        //TODO: This splitting stratagy highly depends on the linear schedule of the stages.
+        //It's possible that different valid linear schedule can give a much better splitting
+        //result. 
         remote addHead current.popTail()
         cost = getCost(current)
       }
@@ -134,6 +137,8 @@ trait PIRSplitting extends PIRTraversal {
       parent.parent = cu.parent
       parent.deps = cu.deps
       parent.cchains ++= cu.cchains
+      val mems = usedMem(cu.cchains)
+      parent.memMap ++= cu.memMap.filter { case (e, m) => mems.contains(m) } 
       Some(parent)
     }
     else None
@@ -158,13 +163,13 @@ trait PIRSplitting extends PIRTraversal {
   }
 
 
-  def scheduleCUPartition(orig: CU, part: CUPartition, i: Int, parent: Option[CU]): CU = {
+  def scheduleCUPartition(orig: CU, part: CUPartition, i: Int, parent: Option[CU]): CU = dbgblk(s"scheduleCUPartition(orig=$orig, part=$part, i=$i, parent=$parent)"){
     val isUnit = orig.lanes == 1
 
     val cu = ComputeUnit(orig.name+"_"+i, orig.pipe, orig.style)
     cu.parent = if (parent.isDefined) parent else orig.parent
     cu.innerPar = orig.innerPar
-    cu.fringeVectors ++= orig.fringeVectors
+    cu.fringeGlobals ++= orig.fringeGlobals
     if (parent.isEmpty) cu.deps ++= orig.deps
     if (parent.isEmpty) cu.cchains ++= orig.cchains
 
@@ -182,72 +187,74 @@ trait PIRSplitting extends PIRTraversal {
 
     val ctx = ComputeContext(cu)
 
-    def globalBus(reg: LocalComponent, isScalar: Boolean): GlobalBus = reg match {
-      case ScalarIn(bus) => bus
-      case VectorIn(bus) => bus
-      case ScalarOut(bus) => bus
-      case VectorOut(bus) => bus
-      case MemLoadReg(mem)     =>
-        val bus = if (isScalar) CUScalar(mem.name+"_data") else CUVector(mem.name+"_data")
-        globals += bus
-        bus
-      case FeedbackAddrReg(mem) =>
-        val bus = if (isScalar) CUScalar(mem.name+"_addr") else CUVector(mem.name+"_addr")
-        globals += bus
-        bus
-
-      case ReadAddrWire(mem) =>
-        val bus = if (isScalar) CUScalar(mem.name+"_addr") else CUVector(mem.name+"_addr")
-        globals += bus
-        bus
-
-      case FeedbackDataReg(mem) =>
-        val bus = if (isScalar) CUScalar(mem.name+"_data") else CUVector(mem.name+"_data")
-        globals += bus
-        bus
-      case _                    =>
-        val bus = if (isScalar) CUScalar("bus_" + reg.id)    else CUVector("bus_" + reg.id)
-        globals += bus
-        bus
+    def globalBus(reg: LocalComponent, isScalar:Option[Boolean]): GlobalBus = {
+      val bus = reg match {
+        case ScalarIn(bus) => bus
+        case VectorIn(bus) => bus
+        case ScalarOut(bus) => bus
+        case VectorOut(bus) => bus
+        case MemLoadReg(mem) if List(SRAMMode, VectorFIFOMode).contains(mem.mode) =>
+          val bus = CUVector(mem.name+"_sdata")
+          globals += bus
+          bus
+        case MemLoadReg(mem) if List(ScalarFIFOMode, ScalarBufferMode).contains(mem.mode) =>
+          val bus = CUScalar(mem.name+"_vdata")
+          globals += bus
+          bus
+        case WriteAddrWire(mem) =>
+          val bus = CUScalar(mem.name+"_waddr")
+          globals += bus
+          bus
+        case ReadAddrWire(mem) =>
+          val bus = CUScalar(mem.name+"_raddr")
+          globals += bus
+          bus
+        case _                    =>
+          val bus = if (isScalar.getOrElse(isUnit)) CUScalar("bus_" + reg.id)    else CUVector("bus_" + reg.id)
+          globals += bus
+          bus
+      }
+      dbgs(s"globalBus: reg=$reg ${scala.runtime.ScalaRunTime._toString(reg.asInstanceOf[Product])}, bus=$bus") 
+      bus
     }
 
-    def portOut(reg: LocalComponent, isScalar: Boolean) = globalBus(reg,isScalar) match {
+    def portOut(reg: LocalComponent, isScalar:Option[Boolean] = None) = globalBus(reg, isScalar) match {
       case bus:ScalarBus => ScalarOut(bus)
       case bus:VectorBus => VectorOut(bus)
     }
-    def portIn(reg: LocalComponent, isScalar: Boolean) = globalBus(reg,isScalar) match {
+
+    def portIn(reg: LocalComponent, isScalar:Option[Boolean] = None) = globalBus(reg, isScalar) match {
       case bus:ScalarBus => 
         val fifo = allocateRetimingFIFO(reg, bus, cu)
         MemLoadReg(fifo)
-        //ScalarIn(bus)
       case bus:VectorBus => 
         val fifo = allocateRetimingFIFO(reg, bus, cu)
         MemLoadReg(fifo)
-        //VectorIn(bus)
     }
 
-    def rerefIn(reg: LocalComponent, isScalar: Boolean = isUnit): LocalRef = {
+    def rerefIn(reg: LocalComponent): LocalRef = {
       val in = reg match {
         case _:ConstReg[_] | _:CounterReg => reg
         case _:ValidReg | _:ControlReg => reg
-        case _:ReduceMem[_]   => if (localOuts.contains(reg)) reg else portIn(reg, isScalar)
-        case MemLoadReg(sram) => reg
-        case _                => if (cu.regs.contains(reg)) reg else portIn(reg, isScalar)
+        case _:ReduceMem[_]   => if (localOuts.contains(reg)) reg else portIn(reg)
+        case MemLoadReg(mem) => 
+          assert(localIns.contains(reg), s"localIns=$localIns doesn't contains $reg")
+          assert(cu.mems.contains(mem), s"cu.mems=${cu.mems} doesn't contains $mem")
+          reg
+        case _ if !remoteOuts.contains(reg) | cu.regs.contains(reg) => reg 
+        case _ if remoteOuts.contains(reg) & !cu.regs.contains(reg) => portIn(reg)
       }
       cu.regs += in
       ctx.refIn(in)
     }
-    def rerefOut(reg: LocalComponent, isScalar: Boolean = isUnit): List[LocalRef] = {
+
+    def rerefOut(reg: LocalComponent): List[LocalRef] = {
       val outs = reg match {
         case _:ScalarOut => List(reg)
         case _:VectorOut => List(reg)
-        case FeedbackAddrReg(sram) => List(reg)
-        case FeedbackDataReg(sram) => List(reg)
-        case ReadAddrWire(sram) => List(reg)
-        case MemLoadReg(sram) => List(portOut(reg,isScalar))
         case _ =>
           val local  = if (localIns.contains(reg)) List(reg) else Nil
-          val global = if (remoteIns.contains(reg)) List(portOut(reg, isScalar)) else Nil
+          val global = if (remoteIns.contains(reg)) List(portOut(reg)) else Nil
           local ++ global
       }
       cu.regs ++= outs
@@ -295,7 +302,7 @@ trait PIRSplitting extends PIRTraversal {
         ctx.addStage(ReduceStage(op, init, input, acc, newAccumParent))
 
         if (remoteIns.contains(acc)) {
-          val bus = portOut(acc, true)
+          val bus = portOut(acc, Some(true))
           ctx.addStage(MapStage(PIRBypass, List(ctx.refIn(acc)), List(ctx.refOut(bus))))
         }
     }
@@ -384,8 +391,8 @@ trait PIRSplitting extends PIRTraversal {
         case _ =>
       }
       cu.mems.foreach{sram =>
-        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]} //TODO refactor this
-        sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_).asInstanceOf[Addr]}
+        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)} //TODO refactor this
+        sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_)}
       }
     }
 
