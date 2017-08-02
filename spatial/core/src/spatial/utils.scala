@@ -64,6 +64,24 @@ object utils {
 
   def constDimsToStrides(dims: Seq[Int]): Seq[Int] = List.tabulate(dims.length){d => dims.drop(d + 1).product}
 
+  @internal def dimsToStrides(dims: Seq[Index]): Seq[Index] = {
+    List.tabulate(dims.length){d => Math.productTree(dims.drop(d + 1)) }
+  }
+
+  // Assumes stride of outermost dimension is first
+  @stateful def stridesToDims(mem: Exp[_], strides: Seq[Int]): Seq[Int] = {
+    val size = dimsOf(mem).product
+    val allStrides = size +: strides
+    List.tabulate(allStrides.length-1){i => allStrides(i)/allStrides(i+ 1) }
+  }
+
+  @stateful def remapDispatches(access: Exp[_], mem: Exp[_], mapping: Map[Int,Int]): Unit = {
+    dispatchOf(access, mem) = dispatchOf(access, mem).flatMap { o => mapping.get(o) }
+    portsOf.set(access, mem, {
+      portsOf(access, mem).flatMap { case (i, ps) => mapping.get(i).map { i2 => i2 -> ps } }
+    })
+  }
+
   /**
     * Checks to see if x depends on y (dataflow only, no scheduling dependencies)
     */
@@ -587,10 +605,12 @@ object utils {
     case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
     case Def(RegFileNew(dims,_)) => dims
+    case Def(FIFONew(size)) => Seq(size)
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
+    case Def(RegNew(_)) => Seq(1) // Hack for making memory analysis code easier
     case Def(LUTNew(dims,_)) => dims
     case _ => stagedDimsOf(x).map{
       case Exact(c: BigInt) => c.toInt
