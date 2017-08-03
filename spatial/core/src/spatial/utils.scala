@@ -87,6 +87,28 @@ object utils {
     */
   // TODO: This uses the pointer-chasing version of scheduling - could possibly make faster?
   implicit class ExpOps(x: Exp[_]) {
+    @stateful def getPathTo(y: Exp[_], scope: Seq[Stm] = Nil): Option[Seq[Exp[_]]] = {
+      val scp = scope.flatMap(_.lhs.asInstanceOf[Seq[Exp[_]]]).toSet
+
+      def dfs(frontier: Seq[Exp[_]], path: Seq[Exp[_]]): Option[Seq[Exp[_]]] = {
+        var fullPath: Option[Seq[Exp[_]]] = None
+        val iter = frontier.iterator
+        while (iter.hasNext && fullPath.isEmpty) {
+          val x = iter.next()
+          if (scp.isEmpty || scp.contains(x)) {
+            if (x == y) {
+              fullPath = Some(x +: path)
+            }
+            else {
+              fullPath = getDef(x).flatMap{d => dfs(d.inputs, x +: path) }
+            }
+          }
+        }
+        fullPath
+      }
+      dfs(Seq(x),Seq(x))
+    }
+
     @stateful def dependsOn(y: Exp[_], scope: Seq[Stm] = Nil): Boolean = {
       val scp = scope.flatMap(_.lhs.asInstanceOf[Seq[Exp[_]]]).toSet
 
@@ -612,9 +634,9 @@ object utils {
 
   @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
     case Def(ArgOutNew(_)) => Seq(1)
-    case Def(ArgInNew(_)) => Seq(1)
+    case Def(ArgInNew(_))  => Seq(1)
     case Def(HostIONew(_)) => Seq(1)
-    case Def(RegNew(_)) => Seq(1) // Hack for making memory analysis code easier
+    case Def(RegNew(_))    => Seq(1) // Hack for making memory analysis code easier
     case Def(LUTNew(dims,_)) => dims
     case _ => stagedDimsOf(x).map{
       case Exact(c: BigInt) => c.toInt
