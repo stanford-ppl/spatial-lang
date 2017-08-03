@@ -59,10 +59,16 @@ cd $here
  # types=("chisel")
  # dsts=("portland")
 types=("scala" "chisel")
-dsts=("portland;/home/regression/" "max-2;/kunle/users/mattfel/regression" "ottawa;/home/regression"
-	  "tflop2;/home/regression/" "tflop1;/home/regression/"
-	  "tucson;/home/mattfel/regression" "london;/home/mattfel/regression")
-	  #manchester 
+dsts=(
+	  "portland;/home/regression/" 
+	  "max-2;/kunle/users/mattfel/regression" 
+	  # "ottawa;/home/regression"
+	  "tflop2;/home/regression/" 
+	  "tflop1;/home/regression/"
+	  "tucson;/home/mattfel/regression" 
+	  "london;/home/mattfel/regression"
+	  # "manchester;TBD" 
+	 )
 tests=all
 status=debug
 
