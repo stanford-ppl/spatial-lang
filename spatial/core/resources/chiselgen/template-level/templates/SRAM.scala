@@ -82,10 +82,8 @@ class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int, latchedRead: Bool
       io.output.data := m.io.rdata
     } else {
       val m = Mem(size, UInt(bitWidth.W) /*, seqRead = true deprecated? */)
-      val reg_rAddr = Reg(UInt())
       when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
-      .elsewhen (io.r.en & rInBound) {reg_rAddr := io.r.addr}
-      io.output.data := m(reg_rAddr)
+      io.output.data := m(io.r.addr)
     }
   }
 
