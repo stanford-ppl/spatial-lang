@@ -574,7 +574,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
 class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
            val banks: List[Int], val strides: List[Int], 
            val wPar: List[Int], val rPar: List[Int], 
-           val wBundling: List[Int], val rBundling: List[Int], val bPar: List[Int], val bankingMode: BankingMode) extends Module { 
+           val wBundling: List[Int], val rBundling: List[Int], val bPar: List[Int], val bankingMode: BankingMode, val syncMem: Boolean = false) extends Module { 
 
   // Overloaded constructers
   // Tuple unpacker
@@ -633,7 +633,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   val srams = (0 until numBufs).map{ i => Module(
     new SRAM(logicalDims,
             bitWidth, banks, strides, 
-            List(wPar, bPar).flatten, List(maxR), bankingMode)
+            List(wPar, bPar).flatten, List(maxR), bankingMode, syncMem)
   )}
 
   val sEn_latch = (0 until numBufs).map{i => Module(new SRFF())}
