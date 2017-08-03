@@ -135,7 +135,7 @@ trait PIROptimizer extends PIRTraversal {
     cu.computeStages.foreach{stage => dbgs(s"  $stage") }
 
     val bypassStages = cu.computeStages.flatMap{
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.nonEmpty & mem.mode==VectorFIFOMode =>
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.size==1 & mem.mode==VectorFIFOMode =>
         val in = mem.writePort.head
         if (isInterCU(out)) {
           dbgs(s"Found route-thru: $in -> $out")
@@ -144,7 +144,16 @@ trait PIROptimizer extends PIRTraversal {
         }
         else None
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: OutputArg)))) if mem.writePort.nonEmpty & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: ScalarBus)))) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
+        val in = mem.writePort.head
+        if (isInterCU(out)) {
+          dbgs(s"Found route-thru: $in -> $out")
+          swapBus(cus, out, in)
+          Some(bypass)
+        }
+        else None
+
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: OutputArg)))) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
         val in = mem.writePort.head
         if (isInterCU(in)) {
           dbgs(s"Found route-thru: $in -> $out")
@@ -153,51 +162,12 @@ trait PIROptimizer extends PIRTraversal {
         }
         else None
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.nonEmpty & mem.mode==VectorFIFOMode=>
-        val in = mem.writePort.head
-        cus.find{cu => in match {
-            case in:VectorBus =>
-              vectorOutputs(cu) contains in
-            case in:ScalarBus =>
-              scalarOutputs(cu) contains in
-          }
-        } match {
-          case Some(producer) if producer.parent == cu.parent =>
-            // If both are buses to/from MC/Args, do nothing
-            // If out is a bus to MC/Args, swap writers of in to write out instead
-            // If in is a bus from MC/Args, swap readers of out to readers of in
-            // If both are inter-CU buses, swap readers of out to readers of in
-            if (isInterCU(in) || isInterCU(out)) {
-              val orig = if (isInterCU(out)) out else in
-              val swap = if (isInterCU(out)) in else out
-
-              dbgs(s"Found route-thru $in -> $out, swap: $orig -> $swap")
-              swapBus(cus, orig, swap)
-              Some(bypass)
-            }
-            else None
-          case _ => None
-        }
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,ScalarIn(in: ScalarBus))), List(LocalRef(_,ScalarOut(out: ScalarBus)))) =>
-        cus.find{cu => scalarOutputs(cu) contains in} match {
-          case Some(producer) if producer.parent == cu.parent =>
-
-            if (isInterCU(in) || isInterCU(out)) {
-              val orig = if (isInterCU(out)) out else in
-              val swap = if (isInterCU(out)) in else out
-
-              dbgs(s"Found route-thru $in -> $out, swap: $orig -> $swap")
-              swapBus(cus, orig, swap)
-              Some(bypass)
-            }
-            else None
-          case _ => None
-        }
       case _ => None
     }
     if (bypassStages.nonEmpty) {
-      dbgs(s"  Removing route through stages: ")
-      bypassStages.foreach{stage => dbgs(s"    $stage")}
+      dbgl(s"Removing route through stages: ") {
+        bypassStages.foreach{stage => dbgs(s"$stage")}
+      }
       removeComputeStages(cu, bypassStages.toSet)
     }
   }
@@ -207,8 +177,9 @@ trait PIROptimizer extends PIRTraversal {
   def removeDeadStages(cu: CU) {
     val deadStages = cu.computeStages.collect{case stage:MapStage if stage.outs.isEmpty => stage}
     if (deadStages.nonEmpty) {
-      dbgs(s"Removing dead stages from $cu: ")
-      deadStages.foreach{stage => dbgs(s"  $stage") }
+      dbgl(s"Removing dead stages from $cu:") {
+        deadStages.foreach{stage => dbgs(s"$stage") }
+      }
       removeComputeStages(cu, deadStages.toSet)
     }
   }

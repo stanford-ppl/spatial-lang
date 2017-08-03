@@ -125,23 +125,18 @@ case class ControlReg() extends LocalMem[ControlReg] {
 }
 case class ValidReg(cchain: CUCChain, idx: Int) extends LocalMem[ValidReg] {
   override def eql(that: ValidReg) = this.cchain == that.cchain && this.idx == that.idx
-  override def toString = cchain.name+s"($idx).valid"
 }
 case class ReadAddrWire(mem: CUMemory) extends LocalMem[ReadAddrWire] {
   override def eql(that: ReadAddrWire) = this.mem == that.mem
-  override def toString = mem.name + ".readAddr"
 }
 case class WriteAddrWire(mem: CUMemory) extends LocalMem[WriteAddrWire] {
   override def eql(that: WriteAddrWire) = this.mem == that.mem
-  override def toString = mem.name + ".writeAddr"
 }
 case class MemLoadReg(mem: CUMemory) extends LocalMem[MemLoadReg] {
   override def eql(that: MemLoadReg) = this.mem == that.mem
-  override def toString = mem.name + ".readPort"
 }
 case class MemNumel(mem: CUMemory) extends LocalMem[MemLoadReg] {
   override def eql(that: MemLoadReg) = this.mem == that.mem
-  override def toString = mem.name + ".numel"
 }
 
 sealed abstract class ReduceMem[T<:LocalComponent] extends LocalMem[T]

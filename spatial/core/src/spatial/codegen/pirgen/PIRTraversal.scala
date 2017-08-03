@@ -509,9 +509,10 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     }
   }
 
-  def swapBus(cus: Iterable[CU], orig: GlobalBus, swap: GlobalBus) = cus.foreach{cu =>
+  def swapBus(cus: Iterable[CU], orig: GlobalBus, swap: GlobalBus) = dbgblk(s"swapBus($orig -> $swap)") {
+    cus.foreach{cu =>
     cu.allStages.foreach{stage => swapBus_stage(stage) }
-    cu.mems.foreach{mem => swapBus_sram(mem) }
+    cu.mems.foreach{mem => swapBus_mem(mem) }
     cu.cchains.foreach{cc => swapBus_cchain(cc) }
 
     def swapBus_stage(stage: Stage): Unit = stage match {
@@ -538,13 +539,23 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
       case _ => reg
     }
 
-    def swapBus_sram(sram: CUMemory): Unit = {
-      sram.writePort = sram.writePort.map{case `orig` => swap; case vec => vec}
-      sram.readPort = sram.readPort.map{case `orig` => swap; case vec => vec}
-      sram.readAddr = sram.readAddr.map{reg => swapBus_reg(reg)}
-      sram.writeAddr = sram.writeAddr.map{reg => swapBus_reg(reg)}
-      sram.writeStart = sram.writeStart.map{reg => swapBus_reg(reg)}
-      sram.writeEnd = sram.writeEnd.map{reg => swapBus_reg(reg)}
+    def swapBus_mem(mem: CUMemory): Unit = {
+      mem.writePort = mem.writePort.map{
+        case `orig` => 
+          dbgs(s"swapBus_mem: $cu.$mem.writePort $orig -> $swap")
+          swap
+        case bus => bus
+      }
+      mem.readPort = mem.readPort.map{
+        case `orig` => 
+          dbgs(s"swapBus_mem: $cu.$mem.readPort $orig -> $swap")
+          swap
+        case bus => bus
+      }
+      mem.readAddr = mem.readAddr.map{reg => swapBus_reg(reg)}
+      mem.writeAddr = mem.writeAddr.map{reg => swapBus_reg(reg)}
+      mem.writeStart = mem.writeStart.map{reg => swapBus_reg(reg)}
+      mem.writeEnd = mem.writeEnd.map{reg => swapBus_reg(reg)}
     }
     def swapBus_cchain(cchain: CUCChain): Unit = cchain match {
       case cc: CChainInstance => cc.counters.foreach{ctr => swapBus_ctr(ctr)}
@@ -555,6 +566,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
       ctr.end = swapBus_reg(ctr.end)
       ctr.stride = swapBus_reg(ctr.stride)
     }
+  }
   }
 
 
