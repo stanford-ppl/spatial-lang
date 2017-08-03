@@ -559,9 +559,15 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     def bankFactor(i: Exp[Index]): Int = {
       if (!used.contains(i)) {
         used += i
-        parFactorOf(i) match {case Exact(c) => c.toInt }
+        val p = parFactorOf(i) match {case Exact(c) => c.toInt }
+
+        dbgs(s"  bank factor of $i: $p [first use]")
+        p
       }
-      else 1
+      else {
+        dbgs(s"  bank factor of $i: 1 [second+ use]")
+        1
+      }
     }
     def isOuter(i: Exp[Index]): Boolean = ctrlOf(i).exists(isOuterControl)
 
@@ -627,6 +633,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
 
     // Parallelization factors relative to the accessed memory
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
+    dbg(c"  Unroll factors: " + factors.flatten.map{case x @ Exact(c) => s"$x ($c)"}.mkString(", "))
     val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
 
     val banking = indexPatternsToBanking(mem, access, patterns, strides)
