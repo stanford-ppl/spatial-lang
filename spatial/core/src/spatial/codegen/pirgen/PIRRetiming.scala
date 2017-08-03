@@ -34,20 +34,20 @@ trait PIRRetiming extends PIRTraversal {
 
     /*def getDelay(input: GlobalBus, cur: Int, visit: Set[CU]): Int = producer.get(input) match {
       case Some(cu) if visit.contains(cu) =>
-        dbg(s"    [CYCLE]")
+        dbgs(s"    [CYCLE]")
         -1  // Don't retime cycles
       case Some(cu) if deps(cu).isEmpty =>
-        dbg(s"    ${cu.name}")
+        dbgs(s"    ${cu.name}")
         cur+1
       case Some(cu) =>
-        dbg(s"    ${cu.name} -> " + deps(cu).mkString(", "))
+        dbgs(s"    ${cu.name} -> " + deps(cu).mkString(", "))
         val delays = deps(cu).map{dep => getDelay(dep,cur+1,visit+cu)}
         if (delays.contains(-1)) -1 else delays.max
       case None => cur
     }*/
 
     compute.foreach{cu => if (deps(cu).nonEmpty) {
-      dbg(s"Retiming inputs to CU ${cu.name}: ")
+      dbgs(s"Retiming inputs to CU ${cu.name}: ")
 
       val vecIns = deps(cu).iterator.collect{case bus: VectorBus => bus}
 
@@ -90,7 +90,7 @@ trait PIRRetiming extends PIRTraversal {
       }
 
       val delays = deps(cu).map{dep =>
-        dbg(s"  $dep")
+        dbgs(s"  $dep")
         getDelay(dep, 0, Set(cu))
       }
       val criticalPath = delays.max
@@ -134,7 +134,7 @@ trait PIRRetiming extends PIRTraversal {
   }
 
   def insertFIFO(cu: CU, bus: GlobalBus, depth: Int) {
-    dbg(s"Inserting FIFO in $cu for input $bus")
+    dbgs(s"Inserting FIFO in $cu for input $bus")
     val sram = allocateFIFO(bus, depth, cu)
     cu.memMap += bus -> sram
     cu.allStages.foreach{

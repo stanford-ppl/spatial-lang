@@ -63,6 +63,9 @@ case class LocalReadBus(mem:CUMemory) extends VectorBus(s"$mem.localRead")
 case class InputArg(override val name: String, dmem:Expr) extends ScalarBus(name) {
   override def toString = s"ain$name"
 }
+case class OutputArg(override val name: String) extends ScalarBus(name) {
+  override def toString = s"aout$name"
+}
 case class DramAddress(override val name: String, dram:Expr, mem:Expr) extends ScalarBus(name) {
   override def toString = s"dramAddr$name"
   // DramAddress of the same dram are the same
@@ -74,9 +77,6 @@ case class DramAddress(override val name: String, dram:Expr, mem:Expr) extends S
   override def hashCode: Int = {
     return dram.hashCode
   }
-}
-case class OutputArg(override val name: String) extends ScalarBus(name) {
-  override def toString = s"aout$name"
 }
 
 trait PIRDRAMBus

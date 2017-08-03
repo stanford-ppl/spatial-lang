@@ -132,7 +132,7 @@ trait PIROptimizer extends PIRTraversal {
   // Once scheduled, a typical route-through case just looks like a CU with a single stage
   // which takes a vecIn and bypasses to a vecOut, which is easier to pattern match on
   def removeRouteThrus(cu: CU) = if (cu.parent.isDefined) dbgblk(s"Checking $cu for route through stages: "){
-    cu.computeStages.foreach{stage => dbgs(s"  $stage") }
+    cu.computeStages.foreach{stage => dbgs(s"$stage") }
 
     val bypassStages = cu.computeStages.flatMap{
       case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.size==1 & mem.mode==VectorFIFOMode =>
@@ -144,6 +144,12 @@ trait PIROptimizer extends PIRTraversal {
         }
         else None
 
+      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: OutputArg)))) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
+        val in = mem.writePort.head
+        dbgs(s"Found route-thru: $in -> $out")
+        swapBus(cus, in, out)
+        Some(bypass)
+
       case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: ScalarBus)))) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
         val in = mem.writePort.head
         if (isInterCU(out)) {
@@ -152,16 +158,6 @@ trait PIROptimizer extends PIRTraversal {
           Some(bypass)
         }
         else None
-
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: OutputArg)))) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
-        val in = mem.writePort.head
-        if (isInterCU(in)) {
-          dbgs(s"Found route-thru: $in -> $out")
-          swapBus(cus, in, out)
-          Some(bypass)
-        }
-        else None
-
       case _ => None
     }
     if (bypassStages.nonEmpty) {

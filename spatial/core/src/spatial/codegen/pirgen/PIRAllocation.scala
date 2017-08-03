@@ -360,7 +360,7 @@ trait PIRAllocation extends PIRTraversal {
           cuMem.mode = if (getInnerPar(reader)==1) ScalarFIFOMode else VectorFIFOMode
         case mem if isStream(mem) =>
           cuMem.size = 1
-          val accesses = (if (isStreamIn(mem)) readersOf(mem) else writersOf(mem)).map{ _.ctrlNode }.toSet
+          val accesses = (if (isStreamIn(mem)) readersOf(mem) else writersOf(mem)).map{ _.node }.toSet
           assert(accesses.size==1, s"assume single access ctrlNode for StreamIn but found ${accesses}")
           cuMem.mode = if (getInnerPar(accesses.head)==1) ScalarFIFOMode else VectorFIFOMode
       }
@@ -623,7 +623,9 @@ trait PIRAllocation extends PIRTraversal {
       dmems.foreach { 
         case ("ack", _) => //PIR doesn't uses contorl in spatial
         case (field, dmem) =>
-          val bus = if (getInnerPar(readers.head.ctrlNode)==1) CUScalar(s"${quote(dmem)}_${quote(fringe)}_$field")
+          val readerPar = getInnerPar(readers.head.node)
+          dbgs(s"fringe:$fringe $field reader:${readers.head} par=${readerPar}")
+          val bus = if (readerPar==1) CUScalar(s"${quote(dmem)}_${quote(fringe)}_$field")
                     else CUVector(s"${quote(dmem)}_${quote(fringe)}_$field")
           cu.fringeGlobals += field -> bus
           globals += bus

@@ -70,11 +70,10 @@ trait PIRSplitting extends PIRTraversal {
     List(cu)
   }
 
-  def splitPCU(cu: CU, arch: CUCost, others: Seq[CU]): List[CU] = {
-    dbg("\n\n\n")
-    dbg(s"Splitting PCU: $cu")
-    dbg(s"Compute: ")
-    cu.computeStages.foreach{stage => dbg(s"  $stage")}
+  def splitPCU(cu: CU, arch: CUCost, others: Seq[CU]): List[CU] = dbgblk(s"splitCU($cu)"){
+    dbgs(s"Splitting PCU: $cu")
+    dbgs(s"Compute: ")
+    cu.computeStages.foreach{stage => dbgs(s"  $stage")}
     val allStages = cu.allStages.toList
     val ctrl = cu.cchains.find{case _:UnitCChain | _:CChainInstance => true; case _ => false}
     val isUnit = cu.lanes == 1
@@ -86,20 +85,20 @@ trait PIRSplitting extends PIRTraversal {
     def getCost(p: CUPartition): CUCost = getCUCost(p, partitions, allStages, others, isUnit){p => p.cstages}
 
     while (remote.nonEmpty) {
-      dbg(s"Computing partition ${partitions.length}")
+      dbgs(s"Computing partition ${partitions.length}")
 
       // Bite off a chunk to maximize compute usage
       current addTail remote.popHead(arch.comp)
       var cost = getCost(current)
 
       while (!(cost > arch) && remote.nonEmpty) {
-        //dbg(s"Adding stages until exceeds cost")
+        //dbgs(s"Adding stages until exceeds cost")
         current addTail remote.popHead()
         cost = getCost(current)
       }
 
       while (cost > arch && current.nonEmpty) {
-        //dbg(s"Removing stage")
+        //dbgs(s"Removing stage")
         //TODO: This splitting stratagy highly depends on the linear schedule of the stages.
         //It's possible that different valid linear schedule can give a much better splitting
         //result. 
@@ -122,10 +121,10 @@ trait PIRSplitting extends PIRTraversal {
         throw new SplitException(errReport) with NoStackTrace
       }
       else {
-        dbg(s"Partition ${partitions.length}")
-        dbg(getCost(current))
-        dbg(s"  Compute stages: ")
-        current.cstages.foreach{stage => dbg(s"  $stage") }
+        dbgs(s"Partition ${partitions.length}")
+        dbgs(getCost(current))
+        dbgs(s"  Compute stages: ")
+        current.cstages.foreach{stage => dbgs(s"  $stage") }
 
         partitions += current
         current = Partition.emptyCU(ctrl, false)
@@ -148,14 +147,14 @@ trait PIRSplitting extends PIRTraversal {
     }
 
     cus.zip(partitions).zipWithIndex.foreach{case ((cu,p), i) =>
-      dbg(s"Partition #$i: $cu")
+      dbgs(s"Partition #$i: $cu")
       val cost = getCost(p)
-      dbg(s"Cost: ")
-      dbg(cost)
-      dbg(s"Util: ")
+      dbgs(s"Cost: ")
+      dbgs(cost)
+      dbgs(s"Util: ")
       reportUtil(getUtil(cu, cus.filterNot(_ == cu)++others))
-      dbg(s"Compute stages: ")
-      cu.computeStages.foreach{stage => dbg(s"  $stage") }
+      dbgs(s"Compute stages: ")
+      cu.computeStages.foreach{stage => dbgs(s"  $stage") }
     }
 
     parent.toList ++ cus.toList

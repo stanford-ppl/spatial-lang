@@ -160,15 +160,15 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     readCost + writeCost
   }
 
-  def getCUCost[P<:Partition](p: P, prev: Seq[Partition], all: List[Stage], others: Seq[CU], isUnit: Boolean)(getStages: P => Seq[Stage]) = {
+  def getCUCost[P<:Partition](p: P, prev: Seq[Partition], all: List[Stage], others: Seq[CU], isUnit: Boolean)(getStages: P => Seq[Stage]) = dbgblk(s"getCUCost: $p"){
     val local = getStages(p)
 
-    dbg(s"\n\n")
-    dbg(s"  Stages: ")
-    local.foreach{stage => dbg(s"    $stage") }
+    dbgs(s"\n\n")
+    dbgs(s"  Stages: ")
+    local.foreach{stage => dbgs(s"    $stage") }
 
-    dbg(s"  CChains: ")
-    p.cchains.foreach{cc => dbg(s"    $cc :: " + globalInputs(cc).mkString(", ")) }
+    dbgs(s"  CChains: ")
+    p.cchains.foreach{cc => dbgs(s"    $cc :: " + globalInputs(cc).mkString(", ")) }
 
     val remote = all diff local
 
@@ -207,8 +207,8 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       case ScalarBufferMode => true
       case _ => false
     }}
-    dbg(s"  Read Mems (Vectors): " + vectorMems.mkString(", "))
-    dbg(s"  Read Mems (Scalars): " + scalarMems.mkString(", "))
+    dbgs(s"  Read Mems (Vectors): " + vectorMems.mkString(", "))
+    dbgs(s"  Read Mems (Scalars): " + scalarMems.mkString(", "))
     vIns += vectorMems.size
     scalarMems.foreach{ _ => addIn(-1) }
 
@@ -217,14 +217,14 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
 
 
     // --- Registers
-    dbg(s"  Arg ins: " + cuGrpsIn.args.mkString(", "))
+    dbgs(s"  Arg ins: " + cuGrpsIn.args.mkString(", "))
 
     val scalars = cuGrpsIn.scalars.map{bus => s"$bus [" + others.find{cu => scalarOutputs(cu) contains bus}.map(_.name).getOrElse("X") + "]" }
 
-    dbg(s"  Scalar ins: " + scalars.mkString(", "))
-    dbg(s"  Vector ins: " + cuGrpsIn.vectors.mkString(", "))
-    dbg(s"  Scalar outs: " + cuGrpsOut.scalars.mkString(", "))
-    dbg(s"  Vector outs: " + cuGrpsOut.vectors.mkString(", "))
+    dbgs(s"  Scalar ins: " + scalars.mkString(", "))
+    dbgs(s"  Vector ins: " + cuGrpsIn.vectors.mkString(", "))
+    dbgs(s"  Scalar outs: " + cuGrpsOut.scalars.mkString(", "))
+    dbgs(s"  Vector outs: " + cuGrpsOut.vectors.mkString(", "))
     // Live inputs from other partitions
     val liveIns  = localIns intersect remoteOuts
     if (!isUnit) {
@@ -236,14 +236,14 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       }
     }
 
-    dbg(s"  Live ins: " + liveIns.mkString(", "))
+    dbgs(s"  Live ins: " + liveIns.mkString(", "))
 
     // Live outputs to other partitions
     val liveOuts = remoteIns intersect localOuts
     if (!isUnit) vOuts += liveOuts.size
     else         sOuts += liveOuts.size
 
-    dbg(s"  Live outs: " + liveOuts.mkString(", "))
+    dbgs(s"  Live outs: " + liveOuts.mkString(", "))
 
     // --- Bypass stages
     val bypasses = local.map{
@@ -289,7 +289,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       regsMax = regsMax
     )
 
-    dbg(s"  $cost")
+    dbgs(s"  $cost")
 
     cost
   }
@@ -407,7 +407,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val cuInputs  = local.flatMap(_.inputMems).filter{case _:VectorIn | _:ScalarIn | _:MemLoadReg | _:CounterReg => true; case _ => false }.toSet
     val cuOutputs = local.flatMap(_.outputMems).filter{case _:VectorOut | _:ScalarOut => true; case _ => false }.toSet
 
-    dbg(s"  Live values: ")
+    dbgs(s"  Live values: ")
     (1 until local.size).flatMap{i =>
 
       val prevOut = local.take(i).flatMap(_.outputMems).toSet ++ cuInputs // Values currently available
@@ -437,8 +437,8 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
 
   def reportUtil(stats: Utilization) {
     val Utilization(pcus, pmus, ucus, switch, addr, stages, alus, mems, sclIn, sclOut, vecIn, vecOut, regsMax, regsUse) = stats
-    dbg(s"  pcus: $pcus, pmus: $pmus, ucus: $ucus, switch: $switch, addr: $addr, stages: $stages, alus: $alus,")
-    dbg(s"  mems: $mems, sclIn: $sclIn, sclOut: $sclOut, vecIn: $vecIn, vecOut: $vecOut, regsMax: $regsMax, regs: $regsUse")
+    dbgs(s"  pcus: $pcus, pmus: $pmus, ucus: $ucus, switch: $switch, addr: $addr, stages: $stages, alus: $alus,")
+    dbgs(s"  mems: $mems, sclIn: $sclIn, sclOut: $sclOut, vecIn: $vecIn, vecOut: $vecOut, regsMax: $regsMax, regs: $regsUse")
   }
 
   /** TODO: These are actually pretty useful, may want to move elsewhere **/
@@ -655,7 +655,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
 
     val pcuOnly = cus.filter(_.isPCU).map{cu =>
       val util = getUtil(cu, cus)
-      dbg(s"$cu: ")
+      dbgs(s"$cu: ")
       reportUtil(util)
       util
     }.fold(Utilization()){_+_}

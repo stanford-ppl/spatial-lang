@@ -19,7 +19,7 @@ trait PIRScheduler extends PIRTraversal {
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
     val cuMapping:Map[ACU, ACU] = mappingIn.keys.flatMap{s =>
 
-      dbg(s"${mappingIn(s)} -> ${mappingOut(s)}")
+      dbgs(s"${mappingIn(s)} -> ${mappingOut(s)}")
 
       mappingIn(s).zip(mappingOut(s)).map { case (pcu, cu) =>
         pcu.asInstanceOf[ACU] -> cu.asInstanceOf[ACU]
@@ -94,16 +94,16 @@ trait PIRScheduler extends PIRTraversal {
   def scheduleStage(stage: PseudoStage, ctx: CUContext):Unit = dbgblk(s"Scheduling stage:$stage") {
     stage match {
       case DefStage(lhs@Def(rhs), isReduce) =>
-        //dbg(s"""$lhs = $rhs ${if (isReduce) "[REDUCE]" else ""}""")
+        //dbgs(s"""$lhs = $rhs ${if (isReduce) "[REDUCE]" else ""}""")
         if (isReduce)   reduceNodeToStage(lhs,rhs,ctx)
         else            mapNodeToStage(lhs,rhs,ctx)
 
       case AddrStage(dmem, addr) =>
-        //dbg(s"$mem @ $addr [WRITE]")
+        //dbgs(s"$mem @ $addr [WRITE]")
         addrToStage(dmem, addr, ctx)
 
       case OpStage(op, ins, out, isReduce) =>
-        //dbg(s"""$out = $op(${ins.mkString(",")}) [OP]""")
+        //dbgs(s"""$out = $op(${ins.mkString(",")}) [OP]""")
         opStageToStage(op, ins, out, ctx, isReduce)
     }
   }
@@ -209,7 +209,7 @@ trait PIRScheduler extends PIRTraversal {
       // This input must be in the previous stage's reduction register
       // Ensure this either by adding a bypass register for raw inputs or changing the output
       // of the previous stage from a temporary register to the reduction register
-      //dbg(s"[REDUCE] $op, ins = $ins, out = $out")
+      //dbgs(s"[REDUCE] $op, ins = $ins, out = $out")
 
       val inputs = mutable.ListBuffer[Expr]()
       val accums = mutable.ListBuffer[Expr]()
