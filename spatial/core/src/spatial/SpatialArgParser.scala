@@ -53,10 +53,10 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableNaming = true
   ).text("generates the debug name for all syms, rather than \"x${s.id}\" only'")
 
-  parser.opt[Unit]("syncMem").action( (_,_) => // Must necessarily turn on retiming
+  parser.opt[Unit]("syncMem").action { (_,_) => // Must necessarily turn on retiming
     SpatialConfig.enableSyncMem = true
-    SpatialConfig.enableRetimnig = true
-  ).text("Turns all SRAMs into fringe.SRAM (i.e. latched read addresses)")
+    SpatialConfig.enableRetiming = true
+  }.text("Turns all SRAMs into fringe.SRAM (i.e. latched read addresses)")
 
   parser.opt[Unit]("tree").action( (_,_) =>
     SpatialConfig.enableTree = true
