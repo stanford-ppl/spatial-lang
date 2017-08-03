@@ -606,10 +606,14 @@ object utils {
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
     case Def(RegFileNew(dims,_)) => dims
     case Def(FIFONew(size)) => Seq(size)
+    case Def(FILONew(size)) => Seq(size)
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
+    case Def(ArgOutNew(_)) => Seq(1)
+    case Def(ArgInNew(_)) => Seq(1)
+    case Def(HostIONew(_)) => Seq(1)
     case Def(RegNew(_)) => Seq(1) // Hack for making memory analysis code easier
     case Def(LUTNew(dims,_)) => dims
     case _ => stagedDimsOf(x).map{
