@@ -310,7 +310,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
             if (depth == 1) {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
     List(${dims.map(_.banks)}), $strides,
-    List($wPar), List($rPar), BankedMemory
+    List($wPar), List($rPar), BankedMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
@@ -318,14 +318,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
     List(${dims.map(_.banks)}), $strides,
     List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), BankedMemory
+    List($wBundling), List($rBundling), List($bPar), BankedMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             }
           case DiagonalMemory(strides, banks, depth, isAccum) =>
             if (depth == 1) {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
     List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
-    List($wPar), List($rPar), DiagonalMemory
+    List($wPar), List($rPar), DiagonalMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
@@ -333,7 +333,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
     List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
     List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), DiagonalMemory
+    List($wBundling), List($rBundling), List($bPar), DiagonalMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             }
           }

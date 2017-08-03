@@ -65,6 +65,7 @@ object SpatialConfig {
   var enableSplitting: Boolean = _
   var enableArchDSE: Boolean = _
   var enableNaming: Boolean = _
+  var enableSyncMem: Boolean = _
   var enableTree: Boolean = _
 
   var sIn_UCU: Int = _

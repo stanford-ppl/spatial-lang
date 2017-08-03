@@ -7,6 +7,8 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
+import spatial.SpatialConfig
+
 
 trait LatencyModel {
   var clockRate = 150.0f        // Frequency in MHz
@@ -54,8 +56,8 @@ trait LatencyModel {
 
     // SRAMs
     // TODO: Should be a function of number of banks?
-    case _:SRAMLoad[_]     => true
-    case _:ParSRAMLoad[_]  => true
+    case _:SRAMLoad[_]     => if (SpatialConfig.enableSyncMem) false else true
+    case _:ParSRAMLoad[_]  => if (SpatialConfig.enableSyncMem) false else true
 
     // LineBuffer
     case _:LineBufferLoad[_]    => true
