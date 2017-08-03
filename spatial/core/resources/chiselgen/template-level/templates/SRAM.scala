@@ -43,7 +43,7 @@ class multidimR(val N: Int, val dims: List[Int], val w: Int) extends Bundle {
   override def cloneType = (new multidimR(N, dims, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 
-class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int) extends Module { // Unbanked, inner 1D mem
+class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int, latchedRead: Boolean = false) extends Module { // Unbanked, inner 1D mem
   def this(size: Int) = this(size, true, 32)
 
   val addrWidth = Utils.log2Up(size)
@@ -73,16 +73,20 @@ class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int) extends Module { 
     when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
     io.output.data := m(io.r.addr)
   } else {
-    val m = Module(new fringe.SRAM(bitWidth, size))
-//    val reg_rAddr = Reg(UInt())
-//    when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
-//    .elsewhen (io.r.en & rInBound) {reg_rAddr := io.r.addr}
-//    io.output.data := m(reg_rAddr)
-    m.io.raddr := io.r.addr
-    m.io.waddr := io.w.addr
-    m.io.wen   := io.w.en
-    m.io.wdata := io.w.data
-    io.output.data := m.io.rdata
+    if (latchedRead) {
+      val m = Module(new fringe.SRAM(bitWidth, size))
+      m.io.raddr := io.r.addr
+      m.io.waddr := io.w.addr
+      m.io.wen   := io.w.en & wInBound
+      m.io.wdata := io.w.data
+      io.output.data := m.io.rdata
+    } else {
+      val m = Mem(size, UInt(bitWidth.W) /*, seqRead = true deprecated? */)
+      val reg_rAddr = Reg(UInt())
+      when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
+      .elsewhen (io.r.en & rInBound) {reg_rAddr := io.r.addr}
+      io.output.data := m(reg_rAddr)
+    }
   }
 
   io.debug.invalidRAddr := ~rInBound
@@ -117,7 +121,7 @@ class MemND(val dims: List[Int], bitWidth: Int = 32) extends Module {
   })
 
   // Instantiate 1D mem
-  val m = Module(new Mem1D(depth,true, bitWidth))
+  val m = Module(new Mem1D(depth, true, bitWidth))
 
   // Address flattening
   m.io.w.addr := io.w.addr.zipWithIndex.map{ case (addr, i) =>
