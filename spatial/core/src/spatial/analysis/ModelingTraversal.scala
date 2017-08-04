@@ -81,13 +81,13 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     val localAccums = localWrites.flatMap{case (writer,writtenMem) =>
       localReads.find{case (reader,readMem) =>
         if (readMem == writtenMem) {
-          val path = writer.getPathTo(reader)
+          val path = writer.getNodesBetween(reader, scope)
 
-          path.foreach{syms => syms.foreach{sym =>
+          path.foreach{sym =>
             knownCycles += sym -> (knownCycles.getOrElse(sym, Set.empty[(Exp[_],Exp[_])]) + ((reader, writer)) )
-          }}
+          }
 
-          path.isDefined
+          path.nonEmpty
         }
         else false
         //readMem == writtenMem && writer.dependsOn(reader)
@@ -145,8 +145,17 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
       case s: Sym[_] if cycle contains cur =>
         val forward = s.dependents.filter(dep => scope.contains(dep))
         if (forward.nonEmpty) {
-          val earliestConsumer = forward.map{e => paths.getOrElse(e, 0L) - latencyOf(e, inReduce=true) }.min
-          paths(cur) = Math.max(earliestConsumer, paths.getOrElse(cur, 0L))
+          val earliestConsumer = forward.map{e =>
+            val in = paths.getOrElse(e, 0L) - latencyOf(e, inReduce=cycle.contains(e))
+            dbgs(s"  [$in = ${paths.getOrElse(e, 0L)} - ${latencyOf(e,inReduce = cycle.contains(e))}] ${str(e)}")
+            in
+          }.min
+
+          val push = Math.max(earliestConsumer, paths.getOrElse(cur, 0L))
+
+          dbgs(s"[$push] ${str(s)}")
+
+          paths(cur) = push
         }
         getDef(s).foreach{d => d.allInputs.foreach{in => reverseDFS(in, cycle) }}
 
@@ -169,9 +178,11 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
       }
     }
 
+    val cycleSyms = accumWrites.flatMap{writer => cycles(writer) }
+
     val initiationInterval = if (localAccums.isEmpty) 1L else localAccums.map{case (read,write,_) => paths(write) - paths(read) }.max
 
-    (paths.toMap, knownCycles.keySet.toSet, Math.max(initiationInterval, 1L))
+    (paths.toMap, cycleSyms, Math.max(initiationInterval, 1L))
   }
 
 }

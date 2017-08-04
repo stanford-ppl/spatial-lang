@@ -46,7 +46,16 @@ trait LatencyModel {
   def nbits(e: Exp[_]): Int = e.tp match { case Bits(bits) => bits.length }
   def sign(e: Exp[_]): Boolean = e.tp match { case FixPtType(s,_,_) => s; case _ => true }
 
-  @stateful def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
+  @stateful def requiresRegisters(s: Exp[_], inReduce: Boolean): Boolean = addRetimeRegisters && {
+    if (inReduce) requiresRegistersInReduce(s)
+    else requiresRegisters(s)
+  }
+
+  @stateful protected def requiresRegistersInReduce(s: Exp[_]): Boolean = getDef(s).exists{
+    case _ => requiresRegisters(s)
+  }
+
+  @stateful protected def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
     // Register File
     case _:RegFileLoad[_]    => true
     case _:ParRegFileLoad[_] => true

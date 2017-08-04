@@ -53,7 +53,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     result
   }
 
-  def requiresRegisters(x: Exp[_]): Boolean = latencyModel.requiresRegisters(x) && !cycles.contains(x)
+  def requiresRegisters(x: Exp[_]): Boolean = latencyModel.requiresRegisters(x, cycles.contains(x))
   def retimingDelay(x: Exp[_]): Int = if (requiresRegisters(x)) latencyOf(x, cycles.contains(x)).toInt else 0
 
   def bitBasedInputs(d: Def): Seq[Exp[_]] = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
@@ -289,6 +289,10 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     latencies ++= newLatencies
     cycles ++= newCycles
 
+    newLatencies.toList.sortBy(_._2).foreach{case (s,l) =>
+      dbgs(s"[$l] ${str(s)}")
+    }
+
     dbgs("")
     dbgs("")
     dbgs("Sym Delays:")
@@ -296,7 +300,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
                        .sortBy(_._2)
                        .foreach{case (s,l) =>
                          symDelay(s) = l
-                         dbgs(c"  [$l]: ${str(s)} [cycle = ${cycles.contains(s)}]")
+                         dbgs(c"  [$l = ${newLatencies(s)} - ${latencyOf(s, inReduce = cycles.contains(s))}]: ${str(s)} [cycle = ${cycles.contains(s)}]")
                        }
 
     isolateSubstScope{ retimeStms(block) }
