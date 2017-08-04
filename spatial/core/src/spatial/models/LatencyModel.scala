@@ -52,7 +52,9 @@ trait LatencyModel {
   }
 
   @stateful protected def requiresRegistersInReduce(s: Exp[_]): Boolean = getDef(s).exists{
-    case _ => requiresRegisters(s)
+    case _:SRAMLoad[_]     => if (SpatialConfig.enableSyncMem) false else true
+    case _:ParSRAMLoad[_]  => if (SpatialConfig.enableSyncMem) false else true
+    case _ => false
   }
 
   @stateful protected def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
