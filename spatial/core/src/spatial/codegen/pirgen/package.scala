@@ -411,6 +411,8 @@ package object pirgen {
     case Def(_:StreamWrite[_]) => 1 
     case Def(_:FILOPush[_]) => 1 
     case Def(_:FILOPop[_]) => 1 
+    case Def(_:RegWrite[_]) => 1 
+    case Def(_:RegRead[_]) => 1 
   }
 
   @stateful def parentOf(exp:Expr):Option[Expr] = {

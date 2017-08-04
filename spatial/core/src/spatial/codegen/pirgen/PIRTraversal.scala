@@ -250,16 +250,22 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     decompose(ele)(i)
   }
 
-  def isLocallyWritten(dmem:Expr, dreader:Expr, cu:Option[PseudoComputeUnit] = None) = {
-    if (isArgIn(compose(dmem)) || isStreamIn(dmem) || isGetDRAMAddress(dmem)) {
+  def isLocallyWritten(dmem:Expr, dreader:Expr, cu:PseudoComputeUnit) = {
+    val reader = compose(dreader)
+    val mem = compose(dmem)
+    val isLocal = if (isArgIn(mem) || isStreamIn(mem) || isGetDRAMAddress(mem) || isFringe(reader)) {
       false
     } else {
-      val pipe = parentOf(compose(dreader)).get
-      val writers = writersOf(compose(dmem))
-      writers.exists { writer =>
-        writer.ctrlNode == pipe && cu.fold(true) { cu => cu.pipe == pipe }
+      val pipe = parentOf(reader).get
+      val writers = writersOf(mem)
+      writers.exists { writer => 
+        writer.ctrlNode == pipe && 
+        cu.pipe == pipe && 
+        depsOf(reader).contains(writer.node)
       }
     }
+    dbgs(s"isLocallyWritten=$isLocal ${qdef(mem)} ${qdef(reader)}")
+    isLocal
   }
 
   def lookupField(exp:Expr, fieldName:String):Option[Expr] = {
@@ -367,7 +373,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
             seq.filter{ case (f, e) => f == field }.head._2
         }
         val reg = TempReg(dx, getConstant(initExp))
-        dbgs(s"Allocate Reg with Init: $init -> $dinit $reg init=${reg.init}")
+        dbgs(s"Allocate Reg with Init: $init -> $initExp $reg init=${reg.init}")
         reg
       case _ => TempReg(dx, None)
     }

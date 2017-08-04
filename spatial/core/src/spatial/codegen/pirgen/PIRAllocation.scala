@@ -392,28 +392,29 @@ trait PIRAllocation extends PIRTraversal {
     allocated += mem
     var readers = getReaders(mem) 
     readers.foreach { reader => 
-      val localWritten = isLocallyWritten(mem, reader)
-      dbgs(s"isLocallyWritten=$localWritten ${qdef(mem)} ${qdef(reader)}")
-      dbgs(s"mem=$mem, dmems=[${decompose(mem).mkString(",")}] dreaders=${decompose(reader).mkString(",")}")
-      val dreaders = reader match {
-        case reader if isFringe(reader) => decompose(mem).map { m => reader }
-        case reader => decompose(reader)
-      }
-      decompose(mem).zip(dreaders).foreach { case (dmem, dreader) => 
-        val bus = mem match {
-          case mem if isArgIn(mem) => Some(InputArg(s"${mem.name.getOrElse(quote(dmem))}", dmem))
-          case mem@Def(GetDRAMAddress(dram)) => Some(DramAddress(s"${dram.name.getOrElse(quote(dmem))}", dram, mem))
-          case _ => None
+      dbgblk(s"reader=$reader") {
+        dbgs(s"mem=$mem, dmems=[${decompose(mem).mkString(",")}] dreaders=${decompose(reader).mkString(",")}")
+        val dreaders = reader match {
+          case reader if isFringe(reader) => decompose(mem).map { m => reader }
+          case reader => decompose(reader)
         }
-        bus.foreach { b => globals += b }
-        getReaderCUs(reader).foreach { readerCU =>
-          if (!localWritten) { // Write to FIFO/StreamOut/RemoteReg
-            // Allocate local mem in the readerCU
-            createLocalMem(dmem, dreader, readerCU)
-            // Set writeport of the local mem who doesn't have a writer (ArgIn and GetDRAMAddress)
-            bus.foreach { bus => readerCU.memMap(dmem).writePort += bus }
-          } else { // Local reg accumulation
-            allocateLocal(readerCU, dmem)
+        decompose(mem).zip(dreaders).foreach { case (dmem, dreader) => 
+          val bus = mem match {
+            case mem if isArgIn(mem) => Some(InputArg(s"${mem.name.getOrElse(quote(dmem))}", dmem))
+            case mem@Def(GetDRAMAddress(dram)) => Some(DramAddress(s"${dram.name.getOrElse(quote(dmem))}", dram, mem))
+            case _ => None
+          }
+          bus.foreach { b => globals += b }
+          getReaderCUs(reader).foreach { readerCU =>
+            val localWritten = isLocallyWritten(dmem, dreader, readerCU)
+            if (!localWritten) { // Write to FIFO/StreamOut/RemoteReg
+              // Allocate local mem in the readerCU
+              createLocalMem(dmem, dreader, readerCU)
+              // Set writeport of the local mem who doesn't have a writer (ArgIn and GetDRAMAddress)
+              bus.foreach { bus => readerCU.memMap(dmem).writePort += bus }
+            } else { // Local reg accumulation
+              allocateLocal(readerCU, dmem)
+            }
           }
         }
       }
@@ -489,7 +490,7 @@ trait PIRAllocation extends PIRTraversal {
     dbgblk(s"Allocating local memory read: $reader") {
       getReaderCUs(reader).foreach { readerCU =>
         decompose(mem).zip(decompose(reader)).foreach { case (dmem, dreader) =>
-          val locallyWritten = isLocallyWritten(dmem, dreader, Some(readerCU))
+          val locallyWritten = isLocallyWritten(dmem, dreader, readerCU)
           dbgs(s"$mem isLocalMemWrite:$locallyWritten readerCU:$readerCU dreader:$dreader")
           if (locallyWritten) {
             val reg = readerCU.get(dmem).get // Accumulator should be allocated during RegNew
@@ -511,9 +512,10 @@ trait PIRAllocation extends PIRTraversal {
         allocateLocalMem(mem)
         decompose(mem).zip(decompose(writer)).foreach { case (dmem, dwriter) =>
           dbgs(s"dmem:$dmem, dwriter:$dwriter")
+          dbgs(s"isArgOut=${isArgOut(mem)} isStreamOut=${isStreamOut(mem)} isReg=${isReg(mem)}")
+          dbgs(s"isFIFO=${isFIFO(mem)} isStream=${isStream(mem)} getInnerPar=${getInnerPar(writer)}")
           val bus = mem match {
             case mem if isArgOut(mem) => OutputArg(s"${quote(dmem)}_${quote(dwriter)}") 
-            case mem if isStreamOut(mem) & getField(dmem)==Some("data") => CUVector(s"${quote(dmem)}_${quote(dwriter)}")
             case mem if isReg(mem) => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
             case mem if isFIFO(mem) & getInnerPar(writer)==1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
             case mem if isStream(mem) & getInnerPar(writer)==1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
@@ -529,6 +531,7 @@ trait PIRAllocation extends PIRTraversal {
           dbgs(s"Add dwriter:$dwriter to writerCU:$writerCU")
           remoteReaders.foreach { reader =>
             getReaderCUs(reader).foreach { readerCU =>
+              dbgs(s"set ${quote(dmem)}.writePort = $bus in readerCU=$readerCU reader=$reader")
               readerCU.memMap(dmem).writePort += bus
             }
           }
@@ -609,10 +612,7 @@ trait PIRAllocation extends PIRTraversal {
 
   def allocateFringe(fringe: Expr, dram: Expr, streamIns: List[Expr], streamOuts: List[Expr]) = {
     val cu = allocateCU(fringe)
-    val mode = cu.style match { 
-      case FringeCU(dram, mode) => mode
-      case _ => throw new Exception(s"fringe's style is nt FringeCU ${cu.style}")
-    }
+    val FringeCU(dram, mode) = cu.style
     streamIns.foreach { streamIn =>
       val readers = readersOf(streamIn)
       val readerCUs = readers.map(_.node).flatMap(getReaderCUs)
