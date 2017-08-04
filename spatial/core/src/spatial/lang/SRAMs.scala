@@ -80,6 +80,9 @@ case class SRAM1[T:Type:Bits](s: Exp[SRAM1[T]]) extends Template[SRAM1[T]] with 
   @api def load(dram: DRAM1[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 
+  @api def loadAligned(dram: DRAM1[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true, isAlign = true)
+  @api def loadAligned(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true, isAlign = true)
+
   @api def length: Index = wrap(stagedDimsOf(s).head)
   @api def size: Index = wrap(stagedDimsOf(s).head)
 }
@@ -97,6 +100,9 @@ case class SRAM2[T:Type:Bits](s: Exp[SRAM2[T]]) extends Template[SRAM2[T]] with 
 
   @api def load(dram: DRAM2[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile2[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+
+  @api def loadAligned(dram: DRAM2[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true, isAlign = true)
+  @api def loadAligned(dram: DRAMDenseTile2[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true, isAlign = true)
 
   @api def rows: Index = wrap(stagedDimsOf(s).head)
   @api def cols: Index = wrap(stagedDimsOf(s).apply(1))
