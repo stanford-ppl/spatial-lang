@@ -28,6 +28,7 @@ case class TopParams(
   val numArgIOs: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
+  
   val streamInsInfo: List[StreamParInfo],
   val streamOutsInfo: List[StreamParInfo],
   target: String
@@ -45,8 +46,8 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
   val dram = new DRAMStream(p.dataWidth, p.v)
 
   // Input streams
-//  val genericStreamIn = StreamIn(StreamParInfo(32,1))
-//  val genericStreamOut = StreamOut(StreamParInfo(32,1))
+  val genericStreamIn = StreamIn(StreamParInfo(32,1))
+  val genericStreamOut = StreamOut(StreamParInfo(32,1))
 
   // Debug signals
 //  val dbg = new DebugSignals
@@ -202,12 +203,12 @@ class Top(
       fringe.io.done := accel.io.done
 
       // Fringe <-> Peripheral connections
-//      fringe.io.genericStreamInTop <> topIO.genericStreamIn
-//      fringe.io.genericStreamOutTop <> topIO.genericStreamOut
+      fringe.io.genericStreamInTop <> topIO.genericStreamIn
+      fringe.io.genericStreamOutTop <> topIO.genericStreamOut
 
       // Fringe <-> Accel stream connections
-//      accel.io.genericStreams <> fringe.io.genericStreamsAccel
-//      fringe.io.genericStreamsAccel <> accel.io.genericStreams
+      //accel.io.genericStreams <> fringe.io.genericStreamsAccel
+      //fringe.io.genericStreamsAccel <> accel.io.genericStreams
 //      topIO.dbg <> fringe.io.dbg
 
     case "de1soc" =>

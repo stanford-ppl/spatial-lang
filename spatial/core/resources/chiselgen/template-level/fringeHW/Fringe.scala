@@ -56,9 +56,9 @@ class Fringe(
     val dram = new DRAMStream(w, v)
 
     //Accel stream IO
-//    val genericStreamsAccel = Flipped(new GenericStreams(streamInsInfo, streamOutsInfo))
-//    val genericStreamOutTop = StreamOut(StreamParInfo(w, 1))
-//    val genericStreamInTop = StreamIn(StreamParInfo(w, 1))
+    //val genericStreamsAccel = Flipped(new GenericStreams(streamInsInfo, streamOutsInfo))
+    val genericStreamOutTop = StreamOut(StreamParInfo(w, 1))
+    val genericStreamInTop = StreamIn(StreamParInfo(w, 1))
 
     // Debug
     val aws_top_enable = Input(Bool()) // For AWS, enable comes in as input to top module
