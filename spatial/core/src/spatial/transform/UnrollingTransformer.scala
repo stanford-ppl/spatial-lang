@@ -66,7 +66,10 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
     //val accesses = reads ++ writes
 
     val unrollInts: Seq[Int] = accessPatternOf.get(original).map{patterns =>
-      patterns.map(_.index.flatMap{i => unrollNum.get(i)}.getOrElse(-1) )
+      patterns.flatMap{
+        case GeneralAffine(prods,_) if SpatialConfig.useAffine => prods.map(_.i).map{i => unrollNum.getOrElse(i, -1) }
+        case p => Seq(p.index.flatMap{i => unrollNum.get(i)}.getOrElse(-1))
+      }
     }.getOrElse(Seq(-1))
 
     // Total number of address channels needed
@@ -110,13 +113,42 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
           // Address channels taken care of by banking
           val bankedChannels = if (!isAccessWithoutAddress(original)) {
             accessPatternOf.get(original).map{ patterns =>
-              val iters = patterns.map(_.index)
-              iters.distinct.map{
-                case x@Some(i) =>
-                  val requiredBanking = parFactorOf(i) match {case Exact(p) => p.toInt }
-                  val actualBanking = banking(iters.indexOf(x))
-                  java.lang.Math.min(requiredBanking, actualBanking) // actual may be higher than required, or vice versa
-                case None => 1
+              dbgs(c"  Access pattern $patterns")
+              if (patterns.exists(_.isGeneral)) {
+                // TODO: Not sure if this is even remotely correct...
+                // (unrollFactorsOf(original) diff unrollFactorsOf(mem)).flatten.map{case Exact(c) => c.toInt }
+
+                var used: Set[Exp[Index]] = Set.empty
+                def bankFactor(i: Exp[Index]): Int = {
+                  if (!used.contains(i)) {
+                    used += i
+                    parFactorOf(i) match {case Exact(c) => c.toInt }
+                  }
+                  else 1
+                }
+
+                patterns.zip(banking).map{
+                  case (GeneralAffine(prods,_),actualBanks) =>
+                    val requiredBanks = prods.map(p => bankFactor(p.i) ).product
+                    java.lang.Math.min(requiredBanks, actualBanks)
+
+                  case (pattern, actualBanks) => pattern.index match {
+                    case Some(i) =>
+                      val requiredBanking = bankFactor(i)
+                      java.lang.Math.min(requiredBanking, actualBanks)
+                    case None => 1
+                  }
+                }
+              }
+              else {
+                val iters = patterns.map(_.index)
+                iters.distinct.map{
+                  case x@Some(i) =>
+                    val requiredBanking = parFactorOf(i) match {case Exact(p) => p.toInt }
+                    val actualBanking = banking(iters.indexOf(x))
+                    java.lang.Math.min(requiredBanking, actualBanking) // actual may be higher than required, or vice versa
+                  case None => 1
+                }
               }
             }.getOrElse(Seq(1))
           }
@@ -349,7 +381,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
         }
 
         (regs.map(_.s), writes, reads).zipped.foreach{case (reg, write, read) =>
-          duplicatesOf(reg) = List(BankedMemory(Seq(NoBanking),1,isAccum = false))
+          duplicatesOf(reg) = List(BankedMemory(Seq(NoBanking(1)),1,isAccum = false))
           dispatchOf(write, reg) = Set(0)
           portsOf(write,reg, 0) = Set(0)
           dispatchOf(read, reg) = Set(0)

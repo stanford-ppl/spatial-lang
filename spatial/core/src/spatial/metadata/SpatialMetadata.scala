@@ -1,6 +1,7 @@
 package spatial.metadata
 
 import argon.core._
+import argon.transform.Transformer
 import forge._
 import spatial.aliases._
 import spatial.utils._
@@ -215,6 +216,15 @@ case class IndexController(ctrl: Ctrl) extends Metadata[IndexController] {
 @data object ctrlOf {
   def apply(x: Exp[_]): Option[Ctrl] = metadata[IndexController](x).map(_.ctrl)
   def update(x: Exp[_], ctrl: Ctrl): Unit = metadata.add(x, IndexController(ctrl))
+}
+
+case class IndexCounter(ctr: Exp[Counter]) extends Metadata[IndexCounter] {
+  def mirror(f:Tx) = this
+  override def ignoreOnTransform: Boolean = true
+}
+@data object ctrOf {
+  def apply(x: Exp[_]): Option[Exp[Counter]] = metadata[IndexCounter](x).map(_.ctr)
+  def update(x: Exp[_], ctr: Exp[Counter]): Unit = metadata.add(x, IndexCounter(ctr))
 }
 
 /**

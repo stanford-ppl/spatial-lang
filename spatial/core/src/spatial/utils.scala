@@ -64,11 +64,55 @@ object utils {
 
   def constDimsToStrides(dims: Seq[Int]): Seq[Int] = List.tabulate(dims.length){d => dims.drop(d + 1).product}
 
+  @internal def dimsToStrides(dims: Seq[Index]): Seq[Index] = {
+    List.tabulate(dims.length){d => Math.productTree(dims.drop(d + 1)) }
+  }
+
+  // Assumes stride of outermost dimension is first
+  @stateful def stridesToDims(mem: Exp[_], strides: Seq[Int]): Seq[Int] = {
+    val size = dimsOf(mem).product
+    val allStrides = size +: strides
+    List.tabulate(allStrides.length-1){i => allStrides(i)/allStrides(i+ 1) }
+  }
+
+  @stateful def remapDispatches(access: Exp[_], mem: Exp[_], mapping: Map[Int,Int]): Unit = {
+    dispatchOf(access, mem) = dispatchOf(access, mem).flatMap { o => mapping.get(o) }
+    portsOf.set(access, mem, {
+      portsOf(access, mem).flatMap { case (i, ps) => mapping.get(i).map { i2 => i2 -> ps } }
+    })
+  }
+
   /**
     * Checks to see if x depends on y (dataflow only, no scheduling dependencies)
     */
   // TODO: This uses the pointer-chasing version of scheduling - could possibly make faster?
   implicit class ExpOps(x: Exp[_]) {
+    @stateful def getNodesBetween(y: Exp[_], scope: Set[Exp[_]]): Set[Exp[_]] = {
+      def dfs(frontier: Seq[Exp[_]], nodes: Set[Exp[_]]): Set[Exp[_]] = frontier.toSet.flatMap{x: Exp[_] =>
+        if (scope.contains(x)) {
+          if (x == y) nodes + x
+          else getDef(x).map{d => dfs(d.allInputs, nodes + x) }.getOrElse(Set.empty[Exp[_]])
+        }
+        else Set.empty[Exp[_]]
+
+        /*var fullPath: Option[Set[Exp[_]]] = None
+        val iter = frontier.iterator
+        while (iter.hasNext && fullPath.isEmpty) {
+          val x = iter.next()
+          if (scp.isEmpty || scp.contains(x)) {
+            if (x == y) {
+              fullPath = Some(nodes + x)
+            }
+            else {
+              fullPath = getDef(x).flatMap{d => dfs(d.inputs, nodes + x) }
+            }
+          }
+        }
+        fullPath*/
+      }
+      dfs(Seq(x),Set(x))
+    }
+
     @stateful def dependsOn(y: Exp[_], scope: Seq[Stm] = Nil): Boolean = {
       val scp = scope.flatMap(_.lhs.asInstanceOf[Seq[Exp[_]]]).toSet
 
@@ -587,10 +631,16 @@ object utils {
     case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
     case Def(RegFileNew(dims,_)) => dims
+    case Def(FIFONew(size)) => Seq(size)
+    case Def(FILONew(size)) => Seq(size)
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
+    case Def(ArgOutNew(_)) => Seq(1)
+    case Def(ArgInNew(_))  => Seq(1)
+    case Def(HostIONew(_)) => Seq(1)
+    case Def(RegNew(_))    => Seq(1) // Hack for making memory analysis code easier
     case Def(LUTNew(dims,_)) => dims
     case _ => stagedDimsOf(x).map{
       case Exact(c: BigInt) => c.toInt

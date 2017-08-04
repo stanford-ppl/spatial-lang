@@ -19,7 +19,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     var stages: List[Exp[_]] = compute.toList
     var cchains: List[Exp[_]] = Nil
 
-    def cycles: Long = stages.map(latencyOf).sum
+    def cycles: Long = stages.map(stage => latencyOf(stage)).sum
 
     def inputs = {
       stages.flatMap{case Def(d) => d.expInputs; case _ => Nil}.distinct diff stages
@@ -37,7 +37,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
       val outsideInputs  = inputs intersect externalOutputs // Things other partitions created that we need
       val outsideOutputs = externalInputs intersect outputs // Things we created that other partitions need
 
-      val nCycles = stages.map(latencyOf).sum
+      val nCycles = stages.map(stage => latencyOf(stage)).sum
 
       (outsideInputs, outsideOutputs, nCycles)
     }
