@@ -148,6 +148,7 @@ case class AccumReg(init: ConstReg[_<:AnyVal]) extends ReduceMem[AccumReg] {
 }
 
 case class TempReg(x:Expr, init:Option[Any]) extends LocalMem[TempReg] {
+  override def eql(that: TempReg) = (this.x == that.x) && (this.init==that.init)
   override def toString = s"$x"
 }
 
