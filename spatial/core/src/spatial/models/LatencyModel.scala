@@ -7,6 +7,8 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
+import spatial.SpatialConfig
+
 
 trait LatencyModel {
   var clockRate = 150.0f        // Frequency in MHz
@@ -34,13 +36,15 @@ trait LatencyModel {
   }
 
   @stateful protected def latencyOfNodeInReduce(s: Exp[_], d: Def): Long = d match {
+    case FixAdd(_,_)     => 0
+    case Mux(_,_,_)      => 0
     case FltAdd(_,_)     => 1
     case RegWrite(_,_,_) => 0
     case _ => latencyOfNode(s, d)
   }
 
-  def nbits(e: Exp[_]) = e.tp match { case Bits(bits) => bits.length }
-  def sign(e: Exp[_]) = e.tp match { case FixPtType(s,_,_) => s; case _ => true }
+  def nbits(e: Exp[_]): Int = e.tp match { case Bits(bits) => bits.length }
+  def sign(e: Exp[_]): Boolean = e.tp match { case FixPtType(s,_,_) => s; case _ => true }
 
   @stateful def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
     // Register File
@@ -54,8 +58,8 @@ trait LatencyModel {
 
     // SRAMs
     // TODO: Should be a function of number of banks?
-    case _:SRAMLoad[_]     => true
-    case _:ParSRAMLoad[_]  => true
+    case _:SRAMLoad[_]     => if (SpatialConfig.enableSyncMem) false else true
+    case _:ParSRAMLoad[_]  => if (SpatialConfig.enableSyncMem) false else true
 
     // LineBuffer
     case _:LineBufferLoad[_]    => true
