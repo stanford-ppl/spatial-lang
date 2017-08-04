@@ -30,7 +30,8 @@ object DRAMTransfers {
   @internal def dense_transfer[T:Type:Bits,C[_]](
     tile:   DRAMDenseTile[T],
     local:  C[T],
-    isLoad: Boolean
+    isLoad: Boolean,
+    isAlign: Boolean = false
   )(implicit mem: Mem[T,C], mC: Type[C[T]]): MUnit = {
     implicit val mD: Type[DRAM[T]] = tile.dram.tp
 
@@ -51,7 +52,7 @@ object DRAMTransfers {
 
     val iters = List.tabulate(localRank){_ => fresh[Index]}
 
-    MUnit(op_dense_transfer(dram,local.s,ofs,lens,units,p,isLoad,iters))
+    MUnit(op_dense_transfer(dram,local.s,ofs,lens,units,p,isLoad,isAlign,iters))
   }
 
   @internal def sparse_transfer[T:Type:Bits](
@@ -91,10 +92,12 @@ object DRAMTransfers {
     units:  Seq[Boolean],
     p:      Const[Index],
     isLoad: Boolean,
+    isAlign: Boolean,
     iters:  List[Bound[Index]]
   )(implicit mem: Mem[T,C], mC: Type[C[T]], mD: Type[DRAM[T]]): Exp[MUnit] = {
 
     val node = DenseTransfer(dram,local,ofs,lens,units,p,isLoad,iters)
+    node.isAlign = isAlign
 
     val out = if (isLoad) stageWrite(local)(node)(ctx) else stageWrite(dram)(node)(ctx)
     styleOf(out) = InnerPipe
