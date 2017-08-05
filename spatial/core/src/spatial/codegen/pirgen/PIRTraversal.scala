@@ -52,16 +52,10 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
         }
       }
       dbgl(s"Write stages:") {
-        for ((k,v) <- pcu.writeStages) {
-          dbgs(s"Memories: " + k.mkString(", "))
-          for (stage <- v) dbgs(s"  $stage")
-        }
+        pcu.writeStages.foreach { stage => dbgs(s"  $stage") }
       }
       dbgl(s"Read stages:") {
-        pcu.readStages.foreach { case (k,v) =>
-          dbgs(s"Memories:" + k.mkString(", "))
-          for (stage <- v) dbgs(s"  $stage")
-        }
+        pcu.readStages.foreach { stage => dbgs(s"  $stage") }
       }
       dbgl(s"FringeGlobals:") {
         pcu.fringeGlobals.foreach { case (f, vec) => dbgs(s"$f -> $vec") }
@@ -91,15 +85,11 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
         }
       }
     }
-    for ((srams, stages) <- cu.writeStages) {
-      dbgl(s"Generated write stages ($srams): ") {
-        stages.foreach(stage => dbgs(s"  $stage"))
-      }
+    dbgl(s"Generated write stages: ") {
+      cu.writeStages.foreach(stage => dbgs(s"  $stage"))
     }
-    for ((srams, stages) <- cu.readStages) {
-      dbgl(s"Generated read stages ($srams): ") {
-        stages.foreach(stage => dbgs(s"$stage"))
-      }
+    dbgl(s"Generated read stages: ") {
+      cu.readStages.foreach(stage => dbgs(s"$stage"))
     }
     dbgl("Generated compute stages: ") {
       cu.computeStages.foreach(stage => dbgs(s"$stage"))
@@ -720,16 +710,16 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     def isWriteContext = false
     def init() = {}
   }
-  case class WriteContext(override val cu: ComputeUnit, srams: Seq[CUMemory]) extends CUContext(cu) {
-    def init() { cu.writeStages += srams -> mutable.ArrayBuffer[Stage]() }
-    def stages = cu.writeStages(srams)
-    def addStage(stage: Stage) { cu.writeStages(srams) += stage }
+  case class WriteContext(override val cu: ComputeUnit) extends CUContext(cu) {
+    def init() { cu.writeStages.clear }
+    def stages = cu.writeStages
+    def addStage(stage: Stage) { cu.writeStages += stage }
     def isWriteContext = true
   }
-  case class ReadContext(override val cu: ComputeUnit, srams: Seq[CUMemory]) extends CUContext(cu) {
-    def init() { cu.readStages += srams -> mutable.ArrayBuffer[Stage]() }
-    def stages = cu.readStages(srams)
-    def addStage(stage: Stage) { cu.readStages(srams) += stage }
+  case class ReadContext(override val cu: ComputeUnit) extends CUContext(cu) {
+    def init() { cu.readStages.clear }
+    def stages = cu.readStages
+    def addStage(stage: Stage) { cu.readStages += stage }
     def isWriteContext = false 
   }
 

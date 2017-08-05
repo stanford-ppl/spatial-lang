@@ -40,11 +40,11 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     if (cu.controlStages.nonEmpty && genControlLogic) {
       emitStages(cu.controlStages)
     }
-    for ((srams,stages) <- cu.writeStages if stages.nonEmpty) {
-      emitStages(stages,"WA")
+    if (cu.writeStages.nonEmpty) {
+      emitStages(cu.writeStages, "WA")
     }
-    for ((srams,stages) <- cu.readStages if stages.nonEmpty) {
-      emitStages(stages,"RA")
+    if (cu.readStages.nonEmpty) {
+      emitStages(cu.readStages, "RA")
     }
     if (cu.computeStages.nonEmpty) {
       emitStages(cu.computeStages)

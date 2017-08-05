@@ -58,23 +58,19 @@ trait PIRScheduler extends PIRTraversal {
         var readStageRegs = cu.regs
 
         // --- Schedule write contexts
-        for ((srams, stages) <- pcu.writeStages) {
-          val ctx = WriteContext(cu, srams)
-          ctx.init()
-          stages.foreach{stage => scheduleStage(stage, ctx) }
+        val wctx = WriteContext(cu)
+        wctx.init()
+        pcu.writeStages.foreach{stage => scheduleStage(stage, wctx) }
 
-          writeStageRegs ++= cu.regs
-          cu.regs = origRegs
-        }
+        writeStageRegs ++= cu.regs
+        cu.regs = origRegs
         // --- Schedule read contexts
-        for ((srams, stages) <- pcu.readStages) {
-          val ctx = ReadContext(cu, srams)
-          ctx.init()
-          stages.foreach{stage => scheduleStage(stage, ctx) }
+        val rctx = ReadContext(cu)
+        rctx.init()
+        pcu.readStages.foreach{stage => scheduleStage(stage, rctx) }
 
-          readStageRegs ++= cu.regs //TODO: should writeStageRegs been removed?
-          cu.regs = origRegs
-        }
+        readStageRegs ++= cu.regs //TODO: should writeStageRegs been removed?
+        cu.regs = origRegs
 
         // --- Schedule compute context
   // If addr is a counter or const, just returns that register back. Otherwise returns address wire
@@ -109,10 +105,10 @@ trait PIRScheduler extends PIRTraversal {
   }
 
   def addrToStage(dmem: Expr, addr: Expr, ctx: CUContext) {
-    ctx.memories(dmem).foreach{sram =>
+    ctx.memories(dmem).foreach { sram =>
       val wire = ctx match {
-        case WriteContext(cu,srams) => WriteAddrWire(sram)
-        case ReadContext(cu, srams) => ReadAddrWire(sram) 
+        case WriteContext(cu) => WriteAddrWire(sram)
+        case ReadContext(cu) => ReadAddrWire(sram) 
       }
       val addrReg = addr match {
         case bound:Bound[_] => ctx.reg(addr)
@@ -123,10 +119,10 @@ trait PIRScheduler extends PIRTraversal {
       }
       val reg = propagateReg(addr, addrReg, wire, ctx)
       ctx match {
-        case WriteContext(cu, srams) => 
+        case WriteContext(cu) => 
           dbgs(s"Setting write address for ${ctx.memories(dmem).mkString(", ")} to $reg")
           sram.writeAddr += reg
-        case ReadContext(cu, srams) => 
+        case ReadContext(cu) => 
           dbgs(s"Setting read address for ${ctx.memories(dmem).mkString(", ")} to $reg")
           sram.readAddr += reg
       }

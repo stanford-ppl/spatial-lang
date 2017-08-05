@@ -66,8 +66,8 @@ trait PIROptimizer extends PIRTraversal {
     stages.foreach { stage =>
       if (stage.outputMems.isEmpty) {
         dbgs(s"Removing stage with no output from $cu: $stage")
-        cu.writeStages.foreach { case (mems, stages) => stages -= stage }
-        cu.readStages.foreach { case (mems, stages) => stages -= stage }
+        cu.writeStages -= stage 
+        cu.readStages -= stage
         cu.computeStages -= stage
         cu.controlStages -= stage
       }

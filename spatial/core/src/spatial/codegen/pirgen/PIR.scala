@@ -335,15 +335,15 @@ abstract class AbstractComputeUnit {
 
 
 case class ComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends AbstractComputeUnit {
-  val writeStages   = mutable.HashMap[Seq[CUMemory], mutable.ArrayBuffer[Stage]]()
-  val readStages    = mutable.HashMap[Seq[CUMemory], mutable.ArrayBuffer[Stage]]()
+  val writeStages   = mutable.ArrayBuffer[Stage]()
+  val readStages    = mutable.ArrayBuffer[Stage]()
   val computeStages = mutable.ArrayBuffer[Stage]()
   val controlStages = mutable.ArrayBuffer[Stage]()
 
   def parentCU: Option[CU] = parent.flatMap{case cu: CU => Some(cu); case _ => None}
 
-  def allStages: Iterator[Stage] = writeStages.valuesIterator.flatMap(_.iterator) ++
-                                   readStages.valuesIterator.flatMap(_.iterator) ++
+  def allStages: Iterator[Stage] = writeStages.iterator ++
+                                   readStages.iterator ++
                                    computeStages.iterator ++
                                    controlStages.iterator
   var isDummy: Boolean = false
@@ -359,8 +359,8 @@ case class ComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends Abs
 
 
 case class PseudoComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends AbstractComputeUnit {
-  val writeStages = mutable.HashMap[Seq[CUMemory], Seq[PseudoStage]]() // List(mem) -> List[Stages]
-  val readStages = mutable.HashMap[Seq[CUMemory], Seq[PseudoStage]]() // List(mem) -> List[Stages]
+  val writeStages = mutable.ArrayBuffer[PseudoStage]() // List(mem) -> List[Stages]
+  val readStages = mutable.ArrayBuffer[PseudoStage]() // List(mem) -> List[Stages]
   val computeStages = mutable.ArrayBuffer[PseudoStage]()
   val remoteReadStages = mutable.Set[Expr]() // reg read, fifo deq
   val remoteWriteStages = mutable.Set[Expr]() // reg write, fifo enq

@@ -45,22 +45,16 @@ trait PIRSplitting extends PIRTraversal {
 
     val partitions = mutable.ArrayBuffer[Partition]()
 
-    val current = new MUPartition(cu.writeStages.toMap, cu.readStages.toMap, ctrl, false)
+    val current = new MUPartition(cu.writeStages, cu.readStages, ctrl, false)
 
     val cost = getMUCost(current, partitions, allStages, others)
 
     if (cost > archMU) {
       var errReport = s"Failed splitting in PMU $cu"
       errReport += s"\nRead Stages: "
-      current.rstages.foreach{case (mems,stages) =>
-        errReport += s"\n  Memories: " + mems
-        stages.foreach{stage => errReport += s"\n    $stage" }
-      }
+      current.rstages.foreach{stage => errReport += s"\n  $stage" }
       errReport += s"\nWrite Stages: "
-      current.wstages.foreach{case (mems,stages) =>
-        errReport += s"\n  Memories: " + mems
-        stages.foreach{stage => errReport += s"\n    $stage" }
-      }
+      current.wstages.foreach{stage => errReport += s"\n  $stage" }
 
       errReport += "\nCost for last split option: "
       errReport += s"\n$cost"

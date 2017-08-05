@@ -26,7 +26,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   }
   object Partition {
     def emptyCU(cc: Option[CUCChain], isEdge: Boolean) = new CUPartition(mutable.ArrayBuffer[Stage](), cc, isEdge)
-    def emptyMU(cc: Option[CUCChain], isEdge: Boolean) = new MUPartition(Map.empty, Map.empty, cc, isEdge)
+    def emptyMU(cc: Option[CUCChain], isEdge: Boolean) = new MUPartition(mutable.ArrayBuffer[Stage](), mutable.ArrayBuffer[Stage](), cc, isEdge)
   }
 
   class CUPartition(compute: mutable.ArrayBuffer[Stage], cc: Option[CUCChain], edge: Boolean) extends Partition {
@@ -64,25 +64,19 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }
   }
 
-  class MUPartition(write: Map[Seq[CUMemory],mutable.ArrayBuffer[Stage]], read: Map[Seq[CUMemory],mutable.ArrayBuffer[Stage]], cc: Option[CUCChain], edge: Boolean) extends Partition {
-    var wstages = Map[Seq[CUMemory], mutable.ArrayBuffer[Stage]]()
-    var rstages = Map[Seq[CUMemory], mutable.ArrayBuffer[Stage]]()
+  class MUPartition(write: mutable.ArrayBuffer[Stage], read: mutable.ArrayBuffer[Stage], cc: Option[CUCChain], edge: Boolean) extends Partition {
+    var wstages = mutable.ArrayBuffer[Stage]()
+    var rstages = mutable.ArrayBuffer[Stage]()
     val isEdge: Boolean = edge
     val ctrl: Option[CUCChain] = cc
 
-    write.foreach{case (mems, stages) =>
-      wstages += mems -> mutable.ArrayBuffer[Stage]()
-      wstages(mems) ++= stages
-    }
-    read.foreach{case (mems, stages) =>
-      rstages += mems -> mutable.ArrayBuffer[Stage]()
-      rstages(mems) ++= stages
-    }
+    wstages ++= write
+    rstages ++= read
     recomputeCChains(false)
 
     def nonEmpty = wstages.nonEmpty || rstages.nonEmpty
 
-    def allStages: Iterable[Stage] = wstages.values.flatten ++ rstages.values.flatten
+    def allStages: Iterable[Stage] = wstages ++ rstages
   }
 
   def recomputeOwnedCChains(p: Partition, ctrl: Option[CUCChain], isEdge: Boolean) = {
@@ -138,6 +132,8 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
 
     //def toUtil = Utilization(alus = comp, sclIn = sIn, sclOut = sOut, vecIn = vIn, vecOut = vOut)
     override def toString = s"  sIn: $sIn, sOut: $sOut, vIn: $vIn, vOut: $vOut, comp: $comp, regsMax: $regsMax, regs: $regsUse"
+
+    def toMUCost = MUCost(sIn, sOut, vIn, vOut, comp, regsMax, regsUse)
   }
 
   /**
@@ -149,14 +145,8 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   }
 
   def getMUCost(p: MUPartition, prev: Seq[Partition], all: List[Stage], others: Seq[CU]) = {
-    val readCost = p.rstages.values.map{stages =>
-      val cost = getCUCost(p, prev, all, others, isUnit=false){_ => stages}
-      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,comp=cost.comp)
-    }.fold(MUCost()){_+_}
-    val writeCost = p.wstages.values.map{stages =>
-      val cost = getCUCost(p, prev, all, others, isUnit=false){_ => stages}
-      MUCost(sIn=cost.sIn,sOut=cost.sOut,vIn=cost.vIn,vOut=cost.vOut,comp=cost.comp)
-    }.fold(MUCost()){_+_}
+    val readCost = getCUCost(p, prev, all, others, isUnit=false){_ => p.rstages}.toMUCost
+    val writeCost = getCUCost(p, prev, all, others, isUnit=false){_ => p.wstages}.toMUCost
     readCost + writeCost
   }
 

@@ -97,7 +97,6 @@ trait PIRAllocation extends PIRTraversal {
     cu.parent = parent
 
     cu.innerPar = style match {
-      case MemoryCU(i) => None
       case FringeCU(dram, mode) => None
       case _ => Some(getInnerPar(pipe))
     } 
@@ -558,7 +557,7 @@ trait PIRAllocation extends PIRTraversal {
         val sramCU = getMCUforReader(dmem, reader)
         val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, List(sramCU))
         val sram = sramCU.memMap(mem)
-        sramCU.readStages(List(sram)) = addrStages
+        sramCU.readStages ++= addrStages
         sram.readPort = Some(bus)
         dbgs(s"sram=$sram readPort=$bus")
         //sram.readAddr = ad.map(ad => ReadAddrWire(sram))
@@ -601,7 +600,7 @@ trait PIRAllocation extends PIRTraversal {
           dbgs(s"sramCUs for dmem=${qdef(dmem)} cu=$sramCU")
           val sram = sramCU.memMap(mem)
           //sram.writeAddr = ad.map(ad => WriteAddrWire(sram))
-          sramCU.writeStages(List(sram)) = addrStages
+          sramCU.writeStages ++= addrStages
           val vfifo = createRetimingFIFO(dwriter, sramCU) //HACK: for fifo put writer as the mem
           vfifo.writePort += bus
           sram.writePort += LocalReadBus(vfifo)
