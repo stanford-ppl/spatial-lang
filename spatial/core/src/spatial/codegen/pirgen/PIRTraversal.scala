@@ -124,7 +124,11 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
       case Def(rhs) => s"$rhs"
       case lhs => s"$lhs"
     }
-    s"$lhs = $rhs"
+    val name = lhs match {
+      case lhs:Expr => compose(lhs).name.fold("") { n => s" ($n)" }
+      case _ => ""
+    }
+    s"$lhs = $rhs$name"
   }
   
   def getOrElseUpdate[K, V](map:mutable.Map[K, V], key:K, value: =>V):V = {

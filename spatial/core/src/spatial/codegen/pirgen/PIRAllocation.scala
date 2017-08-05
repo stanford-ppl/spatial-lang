@@ -638,7 +638,7 @@ trait PIRAllocation extends PIRTraversal {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
-    dbgl(s"Visiting $lhs = $rhs") {
+    dbgl(s"Visiting ${qdef(lhs)}") {
       rhs match {
         case Hwblock(func,_) =>
           allocateCU(lhs)

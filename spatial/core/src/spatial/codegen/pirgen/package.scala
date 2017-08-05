@@ -264,6 +264,16 @@ package object pirgen {
     (partialAddr, addrCompute)
   }
 
+  def flattenND(inds:List[Int], dims:List[Int]):Int = { 
+    if (inds.isEmpty && dims.isEmpty) 0 
+    else { 
+      val i::irest = inds
+      val d::drest = dims
+      assert(i < d && i > 0, s"Index $i out of bound $d")
+      i * drest.product + flattenND(irest, drest)
+    }
+  }
+
   def nodeToOp(node: Def): Option[PIROp] = node match {
     case Mux(_,_,_)                      => Some(PIRALUMux)
     case FixAdd(_,_)                     => Some(PIRFixAdd)
