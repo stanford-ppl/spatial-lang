@@ -34,7 +34,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit(src"${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B")
 
       emitController(lhs, None, None, true)
-      if (iiOf(lhs) <= 1) {
+      if (iiOf(lhs) <= 1 | levelOf(lhs) == OuterControl) {
         emitGlobalWire(src"""val ${lhs}_II_done = true.B""")
       } else {
         emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr());""")
