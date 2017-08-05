@@ -698,6 +698,12 @@
 ./chiselgen/template-level/fringeZynq/AXI4LiteToRFBridgeVerilog.v
 ./chiselgen/template-level/fringeZynq/convert_bitstream
 ./chiselgen/template-level/fringeZynq/vivado.tcl
+./chiselgen/template-level/fringeZynq/design_1.v
+./chiselgen/template-level/fringeZynq/design_1_wrapper.v
+./chiselgen/template-level/fringeZynq/design_1_auto_ds_0.xci
+./chiselgen/template-level/fringeZynq/design_1_auto_pc_0.xci
+./chiselgen/template-level/fringeZynq/design_1_auto_pc_1.xci
+./chiselgen/template-level/fringeZynq/proc_sys_reset_0.xci
 ./chiselgen/template-level/fringeHW/RegFile.scala
 ./chiselgen/template-level/fringeHW/WidthConverterFIFO.scala
 ./chiselgen/template-level/fringeHW/UpDownCtr.scala
