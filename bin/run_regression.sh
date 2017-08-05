@@ -51,7 +51,7 @@ apps_hash=`git ls-files -s apps | cut -d\  -f2`
 # apps_hash=`git rev-parse HEAD`
 # apps_hash_message=`git log --stat --name-status HEAD^..HEAD`
 # cd ../
-at=`date +"%Y-%m-%d_%H-%M-%S"`q
+at=`date +"%Y-%m-%d_%H-%M-%S"`
 
 machine=`hostname`
 cd $here
