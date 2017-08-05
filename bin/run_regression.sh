@@ -51,7 +51,8 @@ apps_hash=`git ls-files -s apps | cut -d\  -f2`
 # apps_hash=`git rev-parse HEAD`
 # apps_hash_message=`git log --stat --name-status HEAD^..HEAD`
 # cd ../
-at=`date +"%Y-%m-%d_%H-%M-%S"`
+at=`date +"%Y-%m-%d_%H-%M-%S"`q
+
 machine=`hostname`
 cd $here
 
@@ -62,7 +63,7 @@ types=("scala" "chisel")
 dsts=(
 	  "portland;/home/regression/" 
 	  "max-2;/kunle/users/mattfel/regression" 
-	  # "ottawa;/home/regression"
+	  "ottawa;/home/regression"
 	  "tflop2;/home/regression/" 
 	  "tflop1;/home/regression/"
 	  "tucson;/home/mattfel/regression" 
