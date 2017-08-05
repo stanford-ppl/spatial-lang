@@ -41,6 +41,7 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
   override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case _:Hwblock => inHw { visitControl(lhs,rhs) }
 
+    // TODO: Still need to verify that this rule is generally correct
     case StateMachine(_,_,notDone,action,nextState,_) if isInnerControl(lhs) =>
       dbgs(str(lhs))
       rhs.blocks.foreach{blk => visitBlock(blk) }
@@ -59,10 +60,6 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
       dbgs("Written memories: " + actionWritten.mkString(", "))
       dbgs("Read memories: " + nextStateRead.mkString(", "))
       dbgs("Intersection: " + dependencies.mkString(", "))
-
-      //val dependencyLatency = (dependencies.map{mem => actionCycles.find(_.memory == mem).map(_.length).getOrElse(0L) } + 0L).max
-      //val nextStateII = dependencyLatency + latNextState
-      //val interval = (actionCycles.map(_.length) ++ Set(iiNotDone, nextStateII, iiNextState)).max
 
       val latency = latNotDone + actionLatency  // Accounts for hidden register write to state register
 
