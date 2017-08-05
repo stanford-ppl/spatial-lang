@@ -2,6 +2,7 @@ package spatial.analysis
 
 import argon.core._
 import argon.nodes._
+import spatial.SpatialConfig
 import spatial.aliases._
 import spatial.metadata._
 import spatial.models.LatencyModel
@@ -40,12 +41,47 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
   override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case _:Hwblock => inHw { visitControl(lhs,rhs) }
 
+    case StateMachine(_,_,notDone,action,nextState,_) if isInnerControl(lhs) =>
+      dbgs(str(lhs))
+      rhs.blocks.foreach{blk => visitBlock(blk) }
+      val (latNotDone, iiNotDone) = latencyAndInterval(notDone)
+      val (latNextState, iiNextState) = latencyAndInterval(nextState)
+      val (actionLats, actionCycles) = latenciesAndCycles(action)
+
+      val actionWritten = blockNestedContents(action).flatMap(_.lhs).flatMap{case LocalWriter(writers) => writers.map(_.mem); case _ => Nil }.toSet
+      val nextStateRead = blockNestedContents(nextState).flatMap(_.lhs).flatMap{case LocalReader(readers) => readers.map(_.mem); case _ => Nil }.toSet
+      val dependencies  = nextStateRead intersect actionWritten
+
+      val writeLatency = if (!SpatialConfig.enableRetiming || latencyModel.requiresRegisters(nextState.result, inReduce = true)) 1L else 0L
+
+      val actionLatency = latNextState + writeLatency + (1L +: actionLats.values.toSeq).max
+
+      dbgs("Written memories: " + actionWritten.mkString(", "))
+      dbgs("Read memories: " + nextStateRead.mkString(", "))
+      dbgs("Intersection: " + dependencies.mkString(", "))
+
+      //val dependencyLatency = (dependencies.map{mem => actionCycles.find(_.memory == mem).map(_.length).getOrElse(0L) } + 0L).max
+      //val nextStateII = dependencyLatency + latNextState
+      //val interval = (actionCycles.map(_.length) ++ Set(iiNotDone, nextStateII, iiNextState)).max
+
+      val latency = latNotDone + actionLatency  // Accounts for hidden register write to state register
+
+      val rawInterval = (Seq(latNextState+1, iiNotDone, iiNextState) ++ actionCycles.map(_.length)).max
+
+      val interval = if (dependencies.nonEmpty) Math.max(rawInterval, actionLatency) else rawInterval
+
+      dbgs(s" - Latency:  $latency")
+      dbgs(s" - Interval: $interval")
+      iiOf(lhs) = userIIOf(lhs).getOrElse(interval)
+      bodyLatency(lhs) = latency
+
     case StateMachine(_,_,notDone,action,nextState,_) if isOuterControl(lhs) =>
       dbgs(str(lhs))
       rhs.blocks.foreach{blk => visitBlock(blk) }
       val (latNotDone, iiNotDone) = latencyAndInterval(notDone)
       val (latNextState, iiNextState) = latencyAndInterval(nextState)
       val interval = (Seq(1L, iiNotDone, iiNextState) ++ childrenOf(lhs).map{child => iiOf(child) }).max
+      dbgs(s" - Latency: $latNotDone, $latNextState")
       dbgs(s" - Interval: $interval")
       iiOf(lhs) = userIIOf(lhs).getOrElse(interval)
       bodyLatency(lhs) = Seq(latNotDone, latNextState)
