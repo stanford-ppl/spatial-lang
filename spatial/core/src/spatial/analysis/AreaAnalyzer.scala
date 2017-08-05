@@ -61,7 +61,8 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
   def bitBasedInputs(d: Def): Seq[Exp[_]] = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
 
   def pipeDelayLineArea(block: Block[_], par: Int): Area = {
-    val (latencies, cycles, _) = pipeLatencies(block)
+    val (latencies, cycles) = latenciesAndCycles(block)
+    val cycleSyms = cycles.flatMap(_.symbols)
     val scope = latencies.keySet
     def delayOf(x: Exp[_]): Int = latencies.getOrElse(x, 0L).toInt
     /*
@@ -86,7 +87,7 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
       case s@Def(d) =>
         val criticalPath = delayOf(s) - latencyOf(s)
         bitBasedInputs(d).foreach{in =>
-          val inReduce = cycles.contains(in)
+          val inReduce = cycleSyms.contains(in)
           val size = retimingDelay(in, inReduce) + criticalPath - delayOf(in)
           if (size > 0) {
             delayLines(in) = Math.max(delayLines.getOrElse(in, 0L), size)

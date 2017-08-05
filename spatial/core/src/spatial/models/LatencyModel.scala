@@ -38,8 +38,8 @@ trait LatencyModel {
   @stateful protected def latencyOfNodeInReduce(s: Exp[_], d: Def): Long = d match {
     case FixAdd(_,_)     => 0
     case Mux(_,_,_)      => 0
-    case FltAdd(_,_)     => 1
-    case RegWrite(_,_,_) => 0
+    case FltAdd(_,_)     => 0
+    //case RegWrite(_,_,_) => 0
     case _ => latencyOfNode(s, d)
   }
 
