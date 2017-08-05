@@ -285,9 +285,9 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     //dbgs(s"Result: ")
     //result.foreach{e => dbgs(s"  ${str(e)}") }
     // The position AFTER the given node
-    val (newLatencies, newCycles, _) = pipeLatencies(result, scope)
+    val (newLatencies, newCycles) = pipeLatencies(result, scope)
     latencies ++= newLatencies
-    cycles ++= newCycles
+    cycles ++= newCycles.flatMap(_.symbols)
 
     newLatencies.toList.sortBy(_._2).foreach{case (s,l) =>
       dbgs(s"[$l] ${str(s)}")

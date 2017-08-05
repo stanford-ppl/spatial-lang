@@ -2,6 +2,7 @@ package spatial.analysis
 
 import argon.core._
 import argon.nodes._
+import spatial.SpatialConfig
 import spatial.aliases._
 import spatial.metadata._
 import spatial.models.LatencyModel
@@ -9,6 +10,8 @@ import spatial.nodes._
 import spatial.utils._
 
 import scala.collection.mutable
+
+case class Cycle(reader: Exp[_], writer: Exp[_], memory: Exp[_], symbols: Set[Exp[_]], length: Long)
 
 trait ModelingTraversal extends SpatialTraversal { traversal =>
   val latencyModel: LatencyModel
@@ -30,23 +33,24 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   // --- State
   var inHwScope = false // In hardware scope
   var inReduce = false  // In tight reduction cycle (accumulator update)
-  def latencyOf(e: Exp[_], inReduce: Boolean = false): Long = {
+  def latencyOf(e: Exp[_], inReduce: Boolean = false): Long = if (!inHwScope) 0L else {
     // HACK: For now, disable retiming in reduction cycles by making everything have 0 latency
     // This means everything will be purely combinational logic between the accumulator read and write
     //val inReductionCycle = reduceType(e).isDefined
     //if (inReductionCycle) 0L else {
-
-    if (inHwScope) latencyModel(e, inReduce) else 0L
-//    }
+    if (SpatialConfig.enableRetiming) latencyModel(e, inReduce) else {
+      if (latencyModel.requiresRegisters(e, inReduce)) 0L else latencyModel(e, inReduce)
+    }
   }
 
   def latencyAndInterval(block: Block[_]): (Long, Long) = {
-    val (latencies, cycles, initInterval) = pipeLatencies(block)
+    val (latencies, cycles) = latenciesAndCycles(block)
     val scope = latencies.keySet
     val latency = latencies.values.fold(0L){(a,b) => Math.max(a,b) }
+    val interval = (cycles.map(_.length) + 0L).max
     // HACK: Set initiation interval to 1 if it contains a specialized reduction
     // This is a workaround for chisel codegen currently specializing and optimizing certain reduction types
-    val compilerII = if (scope.exists(x => reduceType(x).contains(FixPtSum))) 1L else initInterval
+    val compilerII = if (scope.exists(x => reduceType(x).contains(FixPtSum))) 1L else interval
     (latency, compilerII)
   }
 
@@ -67,12 +71,12 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     def getOrElseAdd(k: K, v: => V): V = if (x.contains(k)) x(k) else { val value = v; x(k) = value; value }
   }
 
-  def pipeLatencies(block: Block[_]): (Map[Exp[_],Long], Set[Exp[_]], Long) = {
+  def latenciesAndCycles(block: Block[_]): (Map[Exp[_],Long], Set[Cycle]) = {
     val (scope, result) = blockNestedScopeAndResult(block)
     pipeLatencies(result, scope)
   }
 
-  def pipeLatencies(result: Seq[Exp[_]], scope: Set[Exp[_]], oos: Map[Exp[_],Long] = Map.empty): (Map[Exp[_],Long], Set[Exp[_]], Long) = {
+  def pipeLatencies(result: Seq[Exp[_]], scope: Set[Exp[_]], oos: Map[Exp[_],Long] = Map.empty): (Map[Exp[_],Long], Set[Cycle]) = {
     val knownCycles = mutable.HashMap[Exp[_],Set[(Exp[_],Exp[_])]]()
 
     val localReads  = scope.collect{case reader @ LocalReader(reads) => reader -> reads.head.mem }
@@ -178,11 +182,14 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
       }
     }
 
-    val cycleSyms = accumWrites.flatMap{writer => cycles(writer) }
+    //val cycleSyms = accumWrites.flatMap{writer => cycles(writer) }
 
-    val initiationInterval = if (localAccums.isEmpty) 1L else localAccums.map{case (read,write,_) => paths(write) - paths(read) }.max
+    val allCycles = localAccums.map{case (reader,writer,mem) =>
+      val symbols = cycles(writer)
+      Cycle(reader, writer, mem, symbols, paths(writer) - paths(reader))
+    }
 
-    (paths.toMap, cycleSyms, Math.max(initiationInterval, 1L))
+    (paths.toMap, allCycles)
   }
 
 }
