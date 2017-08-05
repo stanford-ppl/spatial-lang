@@ -6,7 +6,7 @@ import os
 latencies = []
 
 # modifier = "retime"
-modifier = "retime_aws"
+modifier = "aws_baseline"
 
 rootdir = os.environ['RPT_HOME']
 algs = []
