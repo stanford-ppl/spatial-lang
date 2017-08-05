@@ -40,7 +40,7 @@ trait LatencyModel {
     case Mux(_,_,_)      => 0
     case FltAdd(_,_)     => 0
     //case RegWrite(_,_,_) => 0
-    case _ => latencyOfNode(s, d)
+    case _ => latencyOfNode(s,d) //else 0L
   }
 
   def nbits(e: Exp[_]): Int = e.tp match { case Bits(bits) => bits.length }
@@ -54,7 +54,7 @@ trait LatencyModel {
   @stateful protected def requiresRegistersInReduce(s: Exp[_]): Boolean = getDef(s).exists{
     case _:SRAMLoad[_]     => if (SpatialConfig.enableSyncMem) false else true
     case _:ParSRAMLoad[_]  => if (SpatialConfig.enableSyncMem) false else true
-    case _ => false
+    case d => latencyOfNodeInReduce(s,d) > 0
   }
 
   @stateful protected def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
