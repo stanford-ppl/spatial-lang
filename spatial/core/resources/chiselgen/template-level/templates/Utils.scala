@@ -7,6 +7,12 @@ import chisel3.internal.sourceinfo._
 import types._
 import fringe._
 
+sealed trait DeviceTarget
+object Default extends DeviceTarget
+object Zynq extends DeviceTarget
+object DE1 extends DeviceTarget
+object AWS_F1 extends DeviceTarget
+
 object ops {
 
   implicit class ArrayOps[T](val b:Array[types.FixedPoint]) {
@@ -132,8 +138,26 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <+> c      
     }
 
-    def * (c: FixedPoint): FixedPoint = {
-      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) * c      
+    def *-* (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) *-* c
+    }
+
+    def *-* (c: UInt): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b*c // Raghu's box
+        case Zynq => b*c // Raghu's box
+        case DE1 => b*c // Raghu's box
+        case Default => b*c
+      }
+    }
+
+    def *-* (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b.asSInt*c // Raghu's box
+        case Zynq => b.asSInt*c // Raghu's box
+        case DE1 => b.asSInt*c // Raghu's box
+        case Default => b.asSInt*c
+      }
     }
 
     def <*> (c: FixedPoint): FixedPoint = {
@@ -148,8 +172,26 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <*&> c      
     }
 
-    def / (c: FixedPoint): FixedPoint = {
-      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) / c      
+    def /-/ (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) /-/ c
+    }
+
+    def /-/ (c: UInt): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b/c // Raghu's box
+        case Zynq => b/c // Raghu's box
+        case DE1 => b/c // Raghu's box
+        case Default => b/c
+      }
+    }
+
+    def /-/ (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b.asSInt/c // Raghu's box
+        case Zynq => b.asSInt/c // Raghu's box
+        case DE1 => b.asSInt/c // Raghu's box
+        case Default => b.asSInt/c
+      }
     }
 
     def </> (c: FixedPoint): FixedPoint = {
@@ -165,7 +207,25 @@ object ops {
     }
 
     def % (c: FixedPoint): FixedPoint = {
-      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) % c      
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) %-% c      
+    }
+
+    def %-% (c: UInt): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b%c // Raghu's box
+        case Zynq => b%c // Raghu's box
+        case DE1 => b%c // Raghu's box
+        case Default => b%c
+      }
+    }
+
+    def %-% (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b.asSInt%c // Raghu's box
+        case Zynq => b.asSInt%c // Raghu's box
+        case DE1 => b.asSInt%c // Raghu's box
+        case Default => b.asSInt%c
+      }
     }
 
     def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
@@ -246,8 +306,26 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <+> c      
     }
 
-    def * (c: FixedPoint): FixedPoint = {
-      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) * c      
+    def *-* (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) *-* c      
+    }
+
+    def *-* (c: UInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b*c.asSInt // Raghu's box
+        case Zynq => b*c.asSInt // Raghu's box
+        case DE1 => b*c.asSInt // Raghu's box
+        case Default => b*c.asSInt
+      }
+    }
+
+    def *-* (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b*c // Raghu's box
+        case Zynq => b*c // Raghu's box
+        case DE1 => b*c // Raghu's box
+        case Default => b*c
+      }
     }
 
     def <*> (c: FixedPoint): FixedPoint = {
@@ -262,8 +340,26 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) <*&> c      
     }
 
-    def / (c: FixedPoint): FixedPoint = {
-      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) / c      
+    def /-/ (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) /-/ c      
+    }
+
+    def /-/ (c: UInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b/c.asSInt // Raghu's box
+        case Zynq => b/c.asSInt // Raghu's box
+        case DE1 => b/c.asSInt // Raghu's box
+        case Default => b/c.asSInt
+      }
+    }
+
+    def /-/ (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b/c // Raghu's box
+        case Zynq => b/c // Raghu's box
+        case DE1 => b/c // Raghu's box
+        case Default => b/c
+      }
     }
 
     def </> (c: FixedPoint): FixedPoint = {
@@ -278,8 +374,26 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) </&> c      
     }
 
-    def % (c: FixedPoint): FixedPoint = {
-      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) % c      
+    def %-% (c: FixedPoint): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) %-% c
+    }
+
+    def %-% (c: UInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b%c.asSInt // Raghu's box
+        case Zynq => b%c.asSInt // Raghu's box
+        case DE1 => b%c.asSInt // Raghu's box
+        case Default => b%c.asSInt
+      }
+    }
+
+    def %-% (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
+      Utils.target match {
+        case AWS_F1 => b%c // Raghu's box
+        case Zynq => b%c // Raghu's box
+        case DE1 => b%c // Raghu's box
+        case Default => b%c
+      }
     }
 
     def FP(s: Boolean, d: Int, f: Int): FixedPoint = {
@@ -307,6 +421,15 @@ object ops {
     def FlP(m: Int, e: Int): FloatingPoint = {
       Utils.FloatPoint(m, e, b)
     }
+    def *-*(x: Int): Int = {b*x}
+    def /-/(x: Int): Int = {b/x}
+    def %-%(x: Int): Int = {b%x}
+    def *-*(x: Double): Double = {b*x}
+    def /-/(x: Double): Double = {b/x}
+    def %-%(x: Double): Double = {b%x}
+    def *-*(x: Long): Long = {b*x}
+    def /-/(x: Long): Long = {b/x}
+    def %-%(x: Long): Long = {b%x}
   }
 
   implicit class DoubleOps(val b: Double) {
@@ -319,10 +442,21 @@ object ops {
     def FlP(m: Int, e: Int): FloatingPoint = {
       Utils.FloatPoint(m, e, b)
     }
+    def *-*(x: Double): Double = {b*x}
+    def /-/(x: Double): Double = {b/x}
+    def %-%(x: Double): Double = {b%x}
+    def *-*(x: Int): Double = {b*x}
+    def /-/(x: Int): Double = {b/x}
+    def %-%(x: Int): Double = {b%x}
+    def *-*(x: Long): Double = {b*x}
+    def /-/(x: Long): Double = {b/x}
+    def %-%(x: Long): Double = {b%x}
   }
 }
 
 object Utils {
+
+  var target: DeviceTarget = Default
 
   val delay_per_numIter = 6
 

@@ -1,5 +1,6 @@
 package templates
 
+import ops._
 import chisel3._
 import chisel3.util
 import chisel3.util.Mux1H
@@ -12,8 +13,8 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   def this(p: Int, depth: Int) = this(p, p, 1, 1, depth)
 
   val io = IO( new Bundle {
-    val in = Vec(pW*numWriters, Input(UInt(bitWidth.W)))
-    val out = Vec(pR*numReaders, Output(UInt(bitWidth.W)))
+    val in = Vec(pW*-*numWriters, Input(UInt(bitWidth.W)))
+    val out = Vec(pR*-*numReaders, Output(UInt(bitWidth.W)))
     val enq = Vec(numWriters, Input(Bool()))
     val deq = Vec(numReaders, Input(Bool()))
     val numel = Output(UInt(32.W))
@@ -81,18 +82,18 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   // Connect enqer
   if (pW == pR) {
     m.zipWithIndex.foreach { case (mem, i) => 
-      val data_options = Vec((0 until numWriters).map{ q => io.in(q*pW + i)}.toList)
+      val data_options = Vec((0 until numWriters).map{ q => io.in(q*-*pW + i)}.toList)
       mem.io.w.addr := writer.io.output.count(0).asUInt
       mem.io.w.data := Mux1H(enq_options, data_options)
       mem.io.w.en := enq_options.reduce{_|_}
     }
   } else {
     (0 until pW).foreach { w_i => 
-      (0 until (p / pW)).foreach { i => 
-        val data_options = Vec((0 until numWriters).map{ q => io.in(q*pW + w_i)}.toList)
-        m(w_i + i*pW).io.w.addr := writer.io.output.count(0).asUInt
-        m(w_i + i*pW).io.w.data := Mux1H(enq_options, data_options)
-        m(w_i + i*pW).io.w.en := enq_options.reduce{_|_} & (subWriter.io.output.count(0) === i.S)
+      (0 until (p /-/ pW)).foreach { i => 
+        val data_options = Vec((0 until numWriters).map{ q => io.in(q*-*pW + w_i)}.toList)
+        m(w_i + i*-*pW).io.w.addr := writer.io.output.count(0).asUInt
+        m(w_i + i*-*pW).io.w.data := Mux1H(enq_options, data_options)
+        m(w_i + i*-*pW).io.w.en := enq_options.reduce{_|_} & (subWriter.io.output.count(0) === i.S)
       }
     }
   }
@@ -108,16 +109,16 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
     (0 until pR).foreach { r_i => 
       val rSel = Wire(Vec( (p/pR), Bool()))
       val rData = Wire(Vec( (p/pR), UInt(32.W)))
-      (0 until (p / pR)).foreach { i => 
-        m(r_i + i*pR).io.r.addr := reader.io.output.count(0).asUInt
-        m(r_i + i*pR).io.r.en := deq_options.reduce{_|_} & (subReader.io.output.count(0) === i.S)
+      (0 until (p /-/ pR)).foreach { i => 
+        m(r_i + i*-*pR).io.r.addr := reader.io.output.count(0).asUInt
+        m(r_i + i*-*pR).io.r.en := deq_options.reduce{_|_} & (subReader.io.output.count(0) === i.S)
         rSel(i) := subReader.io.output.count(0) === i.S
         // if (i == 0) { // Strangeness from inc-then-read nuisance
         //   rSel((p/pR)-1) := subReader.io.output.count(0) === i.U
         // } else {
         //   rSel(i-1) := subReader.io.output.count(0) === i.U
         // }
-        rData(i) := m(r_i + i*pR).io.output.data
+        rData(i) := m(r_i + i*-*pR).io.output.data
       }
       io.out(r_i) := chisel3.util.PriorityMux(rSel, rData)
     }
@@ -138,7 +139,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   var wId = 0
   def connectEnqPort(data: Vec[UInt], en: Bool): Unit = {
     (0 until data.length).foreach{ i => 
-      io.in(wId*pW + i) := data(i)
+      io.in(wId*-*pW + i) := data(i)
     }
     io.enq(wId) := en
     wId += 1
@@ -154,10 +155,10 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   // // Old empty and error tracking
   // val ovW = Module(new SRFF())
   // val ovR = Module(new SRFF())
-  // val www_c = writer.io.output.countWithoutWrap(0)*(p/pW).U + subWriter.io.output.count(0)
-  // val w_c = writer.io.output.count(0)*(p/pW).U + subWriter.io.output.count(0)
-  // val rww_c = reader.io.output.countWithoutWrap(0)*(p/pR).U + subReader.io.output.count(0)
-  // val r_c = reader.io.output.count(0)*(p/pR).U + subReader.io.output.count(0)
+  // val www_c = writer.io.output.countWithoutWrap(0)*-*(p/pW).U + subWriter.io.output.count(0)
+  // val w_c = writer.io.output.count(0)*-*(p/pW).U + subWriter.io.output.count(0)
+  // val rww_c = reader.io.output.countWithoutWrap(0)*-*(p/pR).U + subReader.io.output.count(0)
+  // val r_c = reader.io.output.count(0)*-*(p/pR).U + subReader.io.output.count(0)
   // val hasData = Module(new SRFF())
   // hasData.io.input.set := (w_c === r_c) & io.enq & !(ovR.io.output.data | ovW.io.output.data)
   // hasData.io.input.reset := (r_c + 1.U === www_c) & io.deq & !(ovR.io.output.data | ovW.io.output.data)
@@ -185,8 +186,8 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   def this(p: Int, depth: Int) = this(p, p, 1, 1, depth)
 
   val io = IO( new Bundle {
-    val in = Vec(pW*numWriters, Input(UInt(bitWidth.W)))
-    val out = Vec(pR*numReaders, Output(UInt(bitWidth.W)))
+    val in = Vec(pW*-*numWriters, Input(UInt(bitWidth.W)))
+    val out = Vec(pR*-*numReaders, Output(UInt(bitWidth.W)))
     val push = Vec(numWriters, Input(Bool()))
     val pop = Vec(numReaders, Input(Bool()))
     val empty = Output(Bool())
@@ -240,18 +241,18 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   // Connect pusher
   if (pW == pR) {
     m.zipWithIndex.foreach { case (mem, i) => 
-      val data_options = Vec((0 until numWriters).map{ q => io.in(q*pW + i)}.toList)
+      val data_options = Vec((0 until numWriters).map{ q => io.in(q*-*pW + i)}.toList)
       mem.io.w.addr := accessor.io.output.count(0).asUInt
       mem.io.w.data := Mux1H(push_options, data_options)
       mem.io.w.en := push_options.reduce{_|_}
     }
   } else {
     (0 until pW).foreach { w_i => 
-      (0 until (p / pW)).foreach { i => 
-        val data_options = Vec((0 until numWriters).map{ q => io.in(q*pW + w_i)}.toList)
-        m(w_i + i*pW).io.w.addr := accessor.io.output.count(0).asUInt
-        m(w_i + i*pW).io.w.data := Mux1H(push_options, data_options)
-        m(w_i + i*pW).io.w.en := push_options.reduce{_|_} & (subAccessor.io.output.count(0) === (i*pW).S)
+      (0 until (p /-/ pW)).foreach { i => 
+        val data_options = Vec((0 until numWriters).map{ q => io.in(q*-*pW + w_i)}.toList)
+        m(w_i + i*-*pW).io.w.addr := accessor.io.output.count(0).asUInt
+        m(w_i + i*-*pW).io.w.data := Mux1H(push_options, data_options)
+        m(w_i + i*-*pW).io.w.en := push_options.reduce{_|_} & (subAccessor.io.output.count(0) === (i*-*pW).S)
       }
     }
   }
@@ -267,16 +268,16 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
     (0 until pR).foreach { r_i => 
       val rSel = Wire(Vec( (p/pR), Bool()))
       val rData = Wire(Vec( (p/pR), UInt(32.W)))
-      (0 until (p / pR)).foreach { i => 
-        m(r_i + i*pR).io.r.addr := (accessor.io.output.count(0) - 1.S).asUInt
-        m(r_i + i*pR).io.r.en := pop_options.reduce{_|_} & (subAccessor_prev === (i*pR).S)
+      (0 until (p /-/ pR)).foreach { i => 
+        m(r_i + i*-*pR).io.r.addr := (accessor.io.output.count(0) - 1.S).asUInt
+        m(r_i + i*-*pR).io.r.en := pop_options.reduce{_|_} & (subAccessor_prev === (i*-*pR).S)
         rSel(i) := subAccessor_prev === i.S
         // if (i == 0) { // Strangeness from inc-then-read nuisance
         //   rSel((p/pR)-1) := subReader.io.output.count(0) === i.U
         // } else {
         //   rSel(i-1) := subReader.io.output.count(0) === i.U
         // }
-        rData(i) := m(r_i + i*pR).io.output.data
+        rData(i) := m(r_i + i*-*pR).io.output.data
       }
       io.out(r_i) := chisel3.util.PriorityMux(rSel, rData)
     }
@@ -297,7 +298,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   var wId = 0
   def connectPushPort(data: Vec[UInt], en: Bool): Unit = {
     (0 until data.length).foreach{ i => 
-      io.in(wId*pW + i) := data(i)
+      io.in(wId*-*pW + i) := data(i)
     }
     io.push(wId) := en
     wId += 1
@@ -312,10 +313,10 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   // // Old empty and error tracking
   // val ovW = Module(new SRFF())
   // val ovR = Module(new SRFF())
-  // val www_c = accessor.io.output.countWithoutWrap(0)*(p/pW).U + subAccessor.io.output.count(0)
-  // val w_c = accessor.io.output.count(0)*(p/pW).U + subAccessor.io.output.count(0)
-  // val rww_c = reader.io.output.countWithoutWrap(0)*(p/pR).U + subReader.io.output.count(0)
-  // val r_c = reader.io.output.count(0)*(p/pR).U + subReader.io.output.count(0)
+  // val www_c = accessor.io.output.countWithoutWrap(0)*-*(p/pW).U + subAccessor.io.output.count(0)
+  // val w_c = accessor.io.output.count(0)*-*(p/pW).U + subAccessor.io.output.count(0)
+  // val rww_c = reader.io.output.countWithoutWrap(0)*-*(p/pR).U + subReader.io.output.count(0)
+  // val r_c = reader.io.output.count(0)*-*(p/pR).U + subReader.io.output.count(0)
   // val hasData = Module(new SRFF())
   // hasData.io.input.set := (w_c === r_c) & io.push & !(ovR.io.output.data | ovW.io.output.data)
   // hasData.io.input.reset := (r_c + 1.U === www_c) & io.pop & !(ovR.io.output.data | ovW.io.output.data)

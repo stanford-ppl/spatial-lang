@@ -1,6 +1,7 @@
 // See LICENSE.txt for license details.
 package templates
 
+import ops._
 import chisel3._
 import Utils._
 import scala.collection.mutable.HashMap
@@ -44,7 +45,7 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
     stateFF.io.input(0).reset := io.input.rst
     val state = stateFF.io.output.data.asSInt
 
-    val rstMax = ctrDepth * Utils.delay_per_numIter
+    val rstMax = ctrDepth *-* Utils.delay_per_numIter
     val rstw = Utils.log2Up(rstMax) + 2
     val rstCtr = Module(new SingleCounter(1, width = rstw))
     rstCtr.io.input.enable := state === resetState.S

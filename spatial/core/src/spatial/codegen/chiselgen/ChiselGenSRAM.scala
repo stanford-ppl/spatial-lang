@@ -375,6 +375,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
 
   override protected def emitFileFooter() {
+    withStream(getStream("IOModule")) {
+      emit("""// Set Target""")
+      val trgt = s"${SpatialConfig.target.name}"
+      emit(s"""Utils.target = ${trgt}""")
+    }
     withStream(getStream("BufferControlCxns")) {
       nbufs.foreach{ case (mem, i) => 
         val info = bufferControlInfo(mem, i)

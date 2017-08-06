@@ -13,11 +13,10 @@ case class DSEThread(
   origState: State,
   params:    Seq[Exp[_]],
   space:     Seq[Domain[_]],
-  restricts: Set[Restrict],
   accel:     Exp[_],
   program:   Block[_],
   localMems: Seq[Exp[_]],
-  workQueue: BlockingQueue[(BigInt,Int)],
+  workQueue: BlockingQueue[Seq[BigInt]],
   outQueue:  BlockingQueue[Array[String]],
   doneQueue: BlockingQueue[Int]
 ) extends Runnable { thread =>
@@ -87,11 +86,12 @@ case class DSEThread(
 
   def run(): Unit = {
     while(isAlive) {
-      val (start, len) = workQueue.take() // Blocking dequeue
-      if (start >= 0) {
+      val requests = workQueue.take() // Blocking dequeue
+
+      if (requests.nonEmpty) {
         // println(s"#$threadId: Received batch of $len. Working...")
         try {
-          val result = run(start, len)
+          val result = run(requests)
           // println(s"#$threadId: Completed batch of $len. ${workQueue.size()} items remain in the queue")
           outQueue.put(result) // Blocking enqueue
         }
@@ -113,11 +113,10 @@ case class DSEThread(
     hasTerminated = true
   }
 
-  def run(start: BigInt, len: Int): Array[String] = {
-    val array = new Array[String](len)
+  def run(requests: Seq[BigInt]): Array[String] = {
+    val array = new Array[String](requests.size)
     var i: Int = 0
-    var pt: BigInt = start
-    while (i < len) {
+    requests.foreach{pt =>
       state.resetErrors()
       indexedSpace.foreach{case (domain,d) => domain.set( ((pt / prods(d)) % dims(d)).toInt ) }
 
@@ -129,7 +128,6 @@ case class DSEThread(
       array(i) = space.map(_.value).mkString(",") + "," + area.toFile.mkString(",") + "," + runtime + "," + valid
 
       i += 1
-      pt += 1
     }
     array
   }

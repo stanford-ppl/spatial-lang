@@ -91,7 +91,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
 
 
   private def retimeBlock[T:Type](block: Block[T], cchain: Option[Exp[CounterChain]])(implicit ctx: SrcCtx): Exp[T] = inlineBlockWith(block, {stms =>
-    dbg(c"Retiming block $block")
+    dbgs(c"Retiming block $block")
 
     // perform recursive search of inputs to determine cumulative symbol latency
     val (symLatency,delays) = pipeDelaysHack(block, cchain)

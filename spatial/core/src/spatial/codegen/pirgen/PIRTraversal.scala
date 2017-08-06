@@ -52,16 +52,10 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
         }
       }
       dbgl(s"Write stages:") {
-        for ((k,v) <- pcu.writeStages) {
-          dbgs(s"Memories: " + k.mkString(", "))
-          for (stage <- v) dbgs(s"  $stage")
-        }
+        pcu.writeStages.foreach { stage => dbgs(s"  $stage") }
       }
       dbgl(s"Read stages:") {
-        pcu.readStages.foreach { case (k,v) =>
-          dbgs(s"Memories:" + k.mkString(", "))
-          for (stage <- v) dbgs(s"  $stage")
-        }
+        pcu.readStages.foreach { stage => dbgs(s"  $stage") }
       }
       dbgl(s"FringeGlobals:") {
         pcu.fringeGlobals.foreach { case (f, vec) => dbgs(s"$f -> $vec") }
@@ -91,15 +85,11 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
         }
       }
     }
-    for ((srams, stages) <- cu.writeStages) {
-      dbgl(s"Generated write stages ($srams): ") {
-        stages.foreach(stage => dbgs(s"  $stage"))
-      }
+    dbgl(s"Generated write stages: ") {
+      cu.writeStages.foreach(stage => dbgs(s"  $stage"))
     }
-    for ((srams, stages) <- cu.readStages) {
-      dbgl(s"Generated read stages ($srams): ") {
-        stages.foreach(stage => dbgs(s"$stage"))
-      }
+    dbgl(s"Generated read stages: ") {
+      cu.readStages.foreach(stage => dbgs(s"$stage"))
     }
     dbgl("Generated compute stages: ") {
       cu.computeStages.foreach(stage => dbgs(s"$stage"))
@@ -124,7 +114,11 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
       case Def(rhs) => s"$rhs"
       case lhs => s"$lhs"
     }
-    s"$lhs = $rhs"
+    val name = lhs match {
+      case lhs:Expr => compose(lhs).name.fold("") { n => s" ($n)" }
+      case _ => ""
+    }
+    s"$lhs = $rhs$name"
   }
   
   def getOrElseUpdate[K, V](map:mutable.Map[K, V], key:K, value: =>V):V = {
@@ -250,16 +244,22 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     decompose(ele)(i)
   }
 
-  def isLocallyWritten(dmem:Expr, dreader:Expr, cu:Option[PseudoComputeUnit] = None) = {
-    if (isArgIn(compose(dmem)) || isStreamIn(dmem) || isGetDRAMAddress(dmem)) {
+  def isLocallyWritten(dmem:Expr, dreader:Expr, cu:PseudoComputeUnit) = {
+    val reader = compose(dreader)
+    val mem = compose(dmem)
+    val isLocal = if (isArgIn(mem) || isStreamIn(mem) || isGetDRAMAddress(mem) || isFringe(reader)) {
       false
     } else {
-      val pipe = parentOf(compose(dreader)).get
-      val writers = writersOf(compose(dmem))
-      writers.exists { writer =>
-        writer.ctrlNode == pipe && cu.fold(true) { cu => cu.pipe == pipe }
+      val pipe = parentOf(reader).get
+      val writers = writersOf(mem)
+      writers.exists { writer => 
+        writer.ctrlNode == pipe && 
+        cu.pipe == pipe && 
+        depsOf(reader).contains(writer.node)
       }
     }
+    dbgs(s"isLocallyWritten=$isLocal ${qdef(mem)} ${qdef(reader)}")
+    isLocal
   }
 
   def lookupField(exp:Expr, fieldName:String):Option[Expr] = {
@@ -306,6 +306,21 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     val writers = writersOf(mem)
     writers.map { _.node }
   }
+
+  def getDuplicate(dmem:Expr, dreader:Expr):Memory = {
+    val mem = compose(dmem)
+    val reader = compose(dreader)
+    val instIds = dispatchOf(reader, mem)
+    assert(instIds.size==1, s"number of dispatch = ${instIds.size} for $mem but expected to be 1")
+    val instId = instIds.head
+    val insts = duplicatesOf(mem)
+    insts(instId)
+  }
+
+  //def getInnerDimension(dmem:Expr, instId:Int):Option[Int] = {
+    //val mem = compose(dmem)
+    //readersOf(mem).filter { reader => dispatchOf(reader, mem).contains(instId) }
+  //}
 
   //def writerOf(mem:Expr): Access = {
     //val writers = writersOf(mem)
@@ -367,7 +382,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
             seq.filter{ case (f, e) => f == field }.head._2
         }
         val reg = TempReg(dx, getConstant(initExp))
-        dbgs(s"Allocate Reg with Init: $init -> $dinit $reg init=${reg.init}")
+        dbgs(s"Allocate Reg with Init: $init -> $initExp $reg init=${reg.init}")
         reg
       case _ => TempReg(dx, None)
     }
@@ -489,6 +504,12 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     case _ => throw new Exception(s"Don't know how to get stms pipe=${qdef(pipe)}")
   }
 
+  def itersOf(pipe:Expr):Option[Seq[Seq[Expr]]] = pipe match {
+    case Def(UnrolledForeach(en, cchain, func, iters, valids)) => Some(iters)
+    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) => Some(iters)
+    case _ => None
+  }
+
   // --- Transformation functions
   def removeComputeStages(cu: CU, remove: Set[Stage]) {
     val ctx = ComputeContext(cu)
@@ -509,9 +530,10 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     }
   }
 
-  def swapBus(cus: Iterable[CU], orig: GlobalBus, swap: GlobalBus) = cus.foreach{cu =>
+  def swapBus(cus: Iterable[CU], orig: GlobalBus, swap: GlobalBus) = dbgblk(s"swapBus($orig -> $swap)") {
+    cus.foreach{cu =>
     cu.allStages.foreach{stage => swapBus_stage(stage) }
-    cu.mems.foreach{mem => swapBus_sram(mem) }
+    cu.mems.foreach{mem => swapBus_mem(mem) }
     cu.cchains.foreach{cc => swapBus_cchain(cc) }
 
     def swapBus_stage(stage: Stage): Unit = stage match {
@@ -538,13 +560,23 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
       case _ => reg
     }
 
-    def swapBus_sram(sram: CUMemory): Unit = {
-      sram.writePort = sram.writePort.map{case `orig` => swap; case vec => vec}
-      sram.readPort = sram.readPort.map{case `orig` => swap; case vec => vec}
-      sram.readAddr = sram.readAddr.map{reg => swapBus_reg(reg)}
-      sram.writeAddr = sram.writeAddr.map{reg => swapBus_reg(reg)}
-      sram.writeStart = sram.writeStart.map{reg => swapBus_reg(reg)}
-      sram.writeEnd = sram.writeEnd.map{reg => swapBus_reg(reg)}
+    def swapBus_mem(mem: CUMemory): Unit = {
+      mem.writePort = mem.writePort.map{
+        case `orig` => 
+          dbgs(s"swapBus_mem: $cu.$mem.writePort $orig -> $swap")
+          swap
+        case bus => bus
+      }
+      mem.readPort = mem.readPort.map{
+        case `orig` => 
+          dbgs(s"swapBus_mem: $cu.$mem.readPort $orig -> $swap")
+          swap
+        case bus => bus
+      }
+      mem.readAddr = mem.readAddr.map{reg => swapBus_reg(reg)}
+      mem.writeAddr = mem.writeAddr.map{reg => swapBus_reg(reg)}
+      mem.writeStart = mem.writeStart.map{reg => swapBus_reg(reg)}
+      mem.writeEnd = mem.writeEnd.map{reg => swapBus_reg(reg)}
     }
     def swapBus_cchain(cchain: CUCChain): Unit = cchain match {
       case cc: CChainInstance => cc.counters.foreach{ctr => swapBus_ctr(ctr)}
@@ -555,6 +587,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
       ctr.end = swapBus_reg(ctr.end)
       ctr.stride = swapBus_reg(ctr.stride)
     }
+  }
   }
 
 
@@ -698,16 +731,16 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     def isWriteContext = false
     def init() = {}
   }
-  case class WriteContext(override val cu: ComputeUnit, srams: Seq[CUMemory]) extends CUContext(cu) {
-    def init() { cu.writeStages += srams -> mutable.ArrayBuffer[Stage]() }
-    def stages = cu.writeStages(srams)
-    def addStage(stage: Stage) { cu.writeStages(srams) += stage }
+  case class WriteContext(override val cu: ComputeUnit) extends CUContext(cu) {
+    def init() { cu.writeStages.clear }
+    def stages = cu.writeStages
+    def addStage(stage: Stage) { cu.writeStages += stage }
     def isWriteContext = true
   }
-  case class ReadContext(override val cu: ComputeUnit, srams: Seq[CUMemory]) extends CUContext(cu) {
-    def init() { cu.readStages += srams -> mutable.ArrayBuffer[Stage]() }
-    def stages = cu.readStages(srams)
-    def addStage(stage: Stage) { cu.readStages(srams) += stage }
+  case class ReadContext(override val cu: ComputeUnit) extends CUContext(cu) {
+    def init() { cu.readStages.clear }
+    def stages = cu.readStages
+    def addStage(stage: Stage) { cu.readStages += stage }
     def isWriteContext = false 
   }
 

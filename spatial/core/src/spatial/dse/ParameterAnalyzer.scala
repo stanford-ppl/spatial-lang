@@ -22,7 +22,6 @@ trait ParameterAnalyzer extends SpatialTraversal {
 
   var tileSizes  = Set[Param[Index]]()
   var parFactors = Set[Param[Index]]()
-  var restrict   = Set[Restrict]()
   var innerLoop  = false
 
   var ignoreParams = Set[Param[Index]]()

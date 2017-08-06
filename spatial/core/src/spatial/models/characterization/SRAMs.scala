@@ -54,7 +54,7 @@ trait SRAMs extends Benchmarks {
 
   gens :::= dims1d.flatMap{len =>
     pars1d.flatMap{par =>
-      List.tabulate(3) { depth => MetaProgGen("SRAM1D", Seq(10, 50, 100), SRAM1DOp[Int32](depth+1, len, par)) }
+      List.tabulate(3) { depth => MetaProgGen("SRAM1D", Seq(10), SRAM1DOp[Int32](depth+1, len, par)) }
     }
   }
 
@@ -79,7 +79,7 @@ trait SRAMs extends Benchmarks {
 
   gens :::= dims2d.flatMap{case (rows,cols) =>
     pars2d.flatMap{case (p0,p1) =>
-      List.tabulate(3){ depth => MetaProgGen("SRAM2D", Seq(10, 50, 100), SRAM2DOp[Int32](depth+1, rows, cols, p0, p1)) }
+      List.tabulate(3){ depth => MetaProgGen("SRAM2D", Seq(10), SRAM2DOp[Int32](depth+1, rows, cols, p0, p1)) }
     }
   }
 }
