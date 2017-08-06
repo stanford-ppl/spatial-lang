@@ -83,7 +83,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     val localWrites = scope.collect{case writer @ LocalWriter(writes) => writer -> writes.head.mem }
 
     val localAccums = localWrites.flatMap{case (writer,writtenMem) =>
-      localReads.find{case (reader,readMem) =>
+      localReads.flatMap{case (reader,readMem) =>
         if (readMem == writtenMem) {
           val path = writer.getNodesBetween(reader, scope)
 
@@ -91,18 +91,34 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
             knownCycles += sym -> (knownCycles.getOrElse(sym, Set.empty[(Exp[_],Exp[_])]) + ((reader, writer)) )
           }
 
-          path.nonEmpty
+          if (verbose && path.nonEmpty) {
+            dbgs("Found cycle between: ")
+            dbgs(s"  ${str(writer)}")
+            dbgs(s"  ${str(reader)}")
+            path.foreach{node =>
+              dbgs(s"    ${str(node)}")
+            }
+          }
+          else {
+            dbgs(s"No cycle between: ")
+            dbgs(s"  ${str(writer)}")
+            dbgs(s"  ${str(reader)}")
+          }
+
+          if (path.nonEmpty) {
+            Some((reader,writer,writtenMem))
+          }
+          else None
         }
-        else false
+        else None
         //readMem == writtenMem && writer.dependsOn(reader)
-      }.map{x => (x._1,writer,writtenMem) }
+      }
     }
     val accumReads = localAccums.map(_._1)
     val accumWrites = localAccums.map(_._2)
 
     val paths = mutable.HashMap[Exp[_],Long]() ++ oos
     val cycles = mutable.HashMap[Exp[_],Set[Exp[_]]]()
-
 
     accumReads.foreach{reader => cycles(reader) = Set(reader) }
 
@@ -173,8 +189,8 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
       result.foreach{e => paths.getOrElseAdd(e, fullDFS(e)) }
 
       // TODO: What to do in case where a node is contained in multiple cycles?
-      accumWrites.zipWithIndex.foreach{case (writer,i) =>
-        val cycle = cycles(writer)
+      accumWrites.toList.zipWithIndex.foreach{case (writer,i) =>
+        val cycle = cycles.getOrElse(writer, Set.empty)
         if (verbose) dbgs(s"Cycle #$i: ")
         reverseDFS(writer, cycle)
       }
