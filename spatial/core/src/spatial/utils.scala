@@ -87,26 +87,30 @@ object utils {
     */
   // TODO: This uses the pointer-chasing version of scheduling - could possibly make faster?
   implicit class ExpOps(x: Exp[_]) {
-    @stateful def getPathTo(y: Exp[_], scope: Seq[Stm] = Nil): Option[Seq[Exp[_]]] = {
-      val scp = scope.flatMap(_.lhs.asInstanceOf[Seq[Exp[_]]]).toSet
+    @stateful def getNodesBetween(y: Exp[_], scope: Set[Exp[_]]): Set[Exp[_]] = {
+      def dfs(frontier: Seq[Exp[_]], nodes: Set[Exp[_]]): Set[Exp[_]] = frontier.toSet.flatMap{x: Exp[_] =>
+        if (scope.contains(x)) {
+          if (x == y) nodes + x
+          else getDef(x).map{d => dfs(d.allInputs, nodes + x) }.getOrElse(Set.empty[Exp[_]])
+        }
+        else Set.empty[Exp[_]]
 
-      def dfs(frontier: Seq[Exp[_]], path: Seq[Exp[_]]): Option[Seq[Exp[_]]] = {
-        var fullPath: Option[Seq[Exp[_]]] = None
+        /*var fullPath: Option[Set[Exp[_]]] = None
         val iter = frontier.iterator
         while (iter.hasNext && fullPath.isEmpty) {
           val x = iter.next()
           if (scp.isEmpty || scp.contains(x)) {
             if (x == y) {
-              fullPath = Some(x +: path)
+              fullPath = Some(nodes + x)
             }
             else {
-              fullPath = getDef(x).flatMap{d => dfs(d.inputs, x +: path) }
+              fullPath = getDef(x).flatMap{d => dfs(d.inputs, nodes + x) }
             }
           }
         }
-        fullPath
+        fullPath*/
       }
-      dfs(Seq(x),Seq(x))
+      dfs(Seq(x),Set(x))
     }
 
     @stateful def dependsOn(y: Exp[_], scope: Seq[Stm] = Nil): Boolean = {

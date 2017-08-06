@@ -45,6 +45,11 @@ case class DRAM1[T:Type:Bits](s: Exp[DRAM1[T]]) extends Template[DRAM1[T]] with 
   @api def store(fifo: FIFO[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(fifo.ranges), fifo, isLoad = false)
   @api def store(filo: FILO[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(filo.ranges), filo, isLoad = false)
   @api def store(regs: RegFile1[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(regs.ranges), regs, isLoad = false)
+
+  @api def storeAligned(sram: SRAM1[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(sram.ranges), sram, isLoad = false, isAlign = true)
+  @api def storeAligned(fifo: FIFO[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(fifo.ranges), fifo, isLoad = false, isAlign = true)
+  @api def storeAligned(filo: FILO[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(filo.ranges), filo, isLoad = false, isAlign = true)
+  @api def storeAligned(regs: RegFile1[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(regs.ranges), regs, isLoad = false, isAlign = true)
   @api def address: Int64 = wrap(DRAM.addr(this.s))
 
   @api def size: Index = wrap(stagedDimsOf(s).head)
@@ -62,6 +67,10 @@ case class DRAM2[T:Type:Bits](s: Exp[DRAM2[T]]) extends Template[DRAM2[T]] with 
 
   @api def store(sram: SRAM2[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(sram.ranges), sram, isLoad = false)
   @api def store(regs: RegFile2[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(regs.ranges), regs, isLoad = false)
+
+
+  @api def storeAligned(sram: SRAM2[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(sram.ranges), sram, isLoad = false, isAlign = true)
+  @api def storeAligned(regs: RegFile2[T]): MUnit = DRAMTransfers.dense_transfer(this.toTile(regs.ranges), regs, isLoad = false, isAlign = true)
   @api def address: Int64 = wrap(DRAM.addr(this.s))
 
   @api def rows: Index = wrap(stagedDimsOf(s).apply(0))
@@ -184,10 +193,16 @@ case class DRAMDenseTile1[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) e
   @api def store(fifo: FIFO[T]): MUnit     = DRAMTransfers.dense_transfer(this, fifo, isLoad = false)
   @api def store(filo: FILO[T]): MUnit     = DRAMTransfers.dense_transfer(this, filo, isLoad = false)
   @api def store(regs: RegFile1[T]): MUnit = DRAMTransfers.dense_transfer(this, regs, isLoad = false)
+  @api def storeAligned(sram: SRAM1[T]): MUnit    = DRAMTransfers.dense_transfer(this, sram, isLoad = false, isAlign = true)
+  @api def storeAligned(fifo: FIFO[T]): MUnit     = DRAMTransfers.dense_transfer(this, fifo, isLoad = false, isAlign = true)
+  @api def storeAligned(filo: FILO[T]): MUnit     = DRAMTransfers.dense_transfer(this, filo, isLoad = false, isAlign = true)
+  @api def storeAligned(regs: RegFile1[T]): MUnit = DRAMTransfers.dense_transfer(this, regs, isLoad = false, isAlign = true)
 }
 case class DRAMDenseTile2[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
   @api def store(sram: SRAM2[T]): MUnit    = DRAMTransfers.dense_transfer(this, sram, isLoad = false)
   @api def store(regs: RegFile2[T]): MUnit = DRAMTransfers.dense_transfer(this, regs, isLoad = false)
+  @api def storeAligned(sram: SRAM2[T]): MUnit    = DRAMTransfers.dense_transfer(this, sram, isLoad = false, isAlign = true)
+  @api def storeAligned(regs: RegFile2[T]): MUnit = DRAMTransfers.dense_transfer(this, regs, isLoad = false, isAlign = true)
 }
 case class DRAMDenseTile3[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
   @api def store(sram: SRAM3[T]): MUnit   = DRAMTransfers.dense_transfer(this, sram, isLoad = false)
