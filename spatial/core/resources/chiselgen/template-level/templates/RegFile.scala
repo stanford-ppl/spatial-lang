@@ -5,7 +5,7 @@ import chisel3._
 import templates.Utils.log2Up
 import chisel3.util.{MuxLookup, Mux1H}
 import Utils._
-
+import ops._
 
 /*
            Registers Layout                                       
@@ -38,48 +38,48 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
 
   def this(tuple: (List[Int], Int, Int, Boolean, Int, Int)) = this(tuple._1, None, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6)
 
-  val muxWidth = Utils.log2Up(dims.reduce{_*_})
+  val muxWidth = Utils.log2Up(dims.reduce{_*-*_})
 
-  // Console.println(" " + dims.reduce{_*_} + " " + wPar + " " + dims.length)
+  // Console.println(" " + dims.reduce{_*-*_} + " " + wPar + " " + dims.length)
   val io = IO(new Bundle { 
     // Signals for dumping data from one buffer to next
-    val dump_data = Vec(dims.reduce{_*_}, Input(UInt(bitWidth.W)))
+    val dump_data = Vec(dims.reduce{_*-*_}, Input(UInt(bitWidth.W)))
     val dump_en = Input(Bool())
 
     val w = Vec(wPar, Input(new multidimRegW(dims.length, dims, bitWidth)))
 
     val reset    = Input(Bool())
-    val data_out = Vec(dims.reduce{_*_}, Output(UInt(bitWidth.W)))
+    val data_out = Vec(dims.reduce{_*-*_}, Output(UInt(bitWidth.W)))
   })
   
   // if (!isBuf) {io.dump_en := false.B}
 
   // val size_rounded_up = ((dims.head+stride-1)/stride)*stride // Unlike shift reg, for shift reg file it is user's problem if width does not match (no functionality guarantee)
   val registers = if (inits.isDefined){
-    List.tabulate(dims.reduce{_*_}){i => 
-      val initval = (inits.get.apply(i)*scala.math.pow(2,fracBits)).toLong
+    List.tabulate(dims.reduce{_*-*_}){i => 
+      val initval = (inits.get.apply(i)*-*scala.math.pow(2,fracBits)).toLong
       RegInit(initval.U(bitWidth.W))
     }
   } else {
-    List.fill(dims.reduce{_*_})(RegInit(0.U(bitWidth.W))) // Note: Can change to use FF template
+    List.fill(dims.reduce{_*-*_})(RegInit(0.U(bitWidth.W))) // Note: Can change to use FF template
   }
-  for (i <- 0 until dims.reduce{_*_}) {
+  for (i <- 0 until dims.reduce{_*-*_}) {
     io.data_out(i) := registers(i)
   }
 
 
   // val flat_sh_addrs = if (dims.length == 1) 0.U else {
   //     io.w.addr.dropRight(1).zipWithIndex.map{ case (addr, i) =>
-  //     addr * (dims.drop(i).reduce{_*_}/dims(i)).U
+  //     addr *-* (dims.drop(i).reduce{_*-*_}/-/dims(i)).U
   //   }.reduce{_+_}
   // }
 
   if (wPar > 0) { // If it is not >0, then this should just be a pass-through in an nbuf
     // Connect a w port to each reg
-    (dims.reduce{_*_}-1 to 0 by -1).foreach { i => 
+    (dims.reduce{_*-*_}-1 to 0 by -1).foreach { i => 
       // Construct n-D coords
       val coords = (0 until dims.length).map { k => 
-        if (k + 1 < dims.length) {(i / dims.drop(k+1).reduce{_*_}) % dims(k)} else {i % dims(k)}
+        if (k + 1 < dims.length) {(i /-/ dims.drop(k+1).reduce{_*-*_}) %-% dims(k)} else {i %-% dims(k)}
       }
       when(io.reset) {
         if (inits.isDefined) {
@@ -88,14 +88,14 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
           registers(i) := 0.U(bitWidth.W)            
         }
       }.elsewhen(io.dump_en) {
-        for (i <- 0 until dims.reduce{_*_}) {
+        for (i <- 0 until dims.reduce{_*-*_}) {
           registers(i) := io.dump_data(i)
         }
       }.otherwise {
         if (wPar > 1) {
           // Address flattening
           val flat_w_addrs = io.w.map{ bundle =>
-            bundle.addr.zipWithIndex.map{case (a, ii) => a * (dims.drop(ii).reduce{_*_}/dims(ii)).U}.reduce{_+_}//(31,0)
+            bundle.addr.zipWithIndex.map{case (a, ii) => a *-* (dims.drop(ii).reduce{_*-*_}/-/dims(ii)).U}.reduce{_+_}//(31,0)
           }
 
           val write_here = (0 until wPar).map{ ii => io.w(ii).en & (flat_w_addrs(ii) === i.U) }
@@ -111,7 +111,7 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
           registers(i) := Mux(shift_axis, registers(producing_reg), Mux(has_writer | has_shifter, write_data.data, registers(i)))
         } else {
           // Address flattening
-          val flat_w_addrs = io.w(0).addr.zipWithIndex.map{case (a, i) => a * (dims.drop(i).reduce{_*_}/dims(i)).U}.reduce{_+_}//(31,0)
+          val flat_w_addrs = io.w(0).addr.zipWithIndex.map{case (a, i) => a *-* (dims.drop(i).reduce{_*-*_}/-/dims(i)).U}.reduce{_+_}//(31,0)
 
           val write_here = io.w(0).en & (flat_w_addrs === i.U)
           val shift_entry_here =  io.w(0).shiftEn & (flat_w_addrs === i.U) 
@@ -129,7 +129,7 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
     }
   } else {
     when(io.reset) {
-      for (i <- 0 until dims.reduce{_*_}) {
+      for (i <- 0 until dims.reduce{_*-*_}) {
         if (inits.isDefined) {
           registers(i) := (inits.get.apply(i)*scala.math.pow(2,fracBits)).toLong.U(bitWidth.W)
         } else {
@@ -137,11 +137,11 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
         }
       }
     }.elsewhen(io.dump_en) {
-      for (i <- 0 until dims.reduce{_*_}) {
+      for (i <- 0 until dims.reduce{_*-*_}) {
         registers(i) := io.dump_data(i)
       }
     }.otherwise{
-      for (i <- 0 until dims.reduce{_*_}) {
+      for (i <- 0 until dims.reduce{_*-*_}) {
         registers(i) := registers(i)
       }      
     }
@@ -169,21 +169,21 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
     // chisel seems to have broke MuxLookup here...
 
     val result = Wire(UInt(bitWidth.W))
-    val regvals = (0 until dims.reduce{_*_}).map{ i => 
+    val regvals = (0 until dims.reduce{_*-*_}).map{ i => 
       (i.U(muxWidth.W) -> io.data_out(i)) 
     }
     val flat_addr = addrs.zipWithIndex.map{ case( a,i ) =>
       val aa = Wire(UInt(muxWidth.W))
       aa := a
-      (dims.drop(i).reduce{_*_}/dims(i)).U(muxWidth.W) * aa
+      (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W) *-* aa
     }.reduce{_+_}
     result := chisel3.util.MuxLookup(flat_addr, 0.U(bitWidth.W), regvals)
     result
 
     // val result = Wire(UInt(bitWidth.W))
     // val flat = row_addr*width.U + col_addr
-    // val bitvec = Vec((0 until dims.reduce{_*_}).map{ i => i.U === flat })
-    // for (i <- 0 until dims.reduce{_*_}) {
+    // val bitvec = Vec((0 until dims.reduce{_*-*_}).map{ i => i.U === flat })
+    // for (i <- 0 until dims.reduce{_*-*_}) {
     //   when(i.U === flat) {
     //     result := io.data_out(i)
     //   }
@@ -209,13 +209,13 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
 
   def this(tuple: (List[Int], Int, Int, Map[Int,Int], Int, Int)) = this(tuple._1, None, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6)
 
-  val muxWidth = Utils.log2Up(numBufs*dims.reduce{_*_})
+  val muxWidth = Utils.log2Up(numBufs*dims.reduce{_*-*_})
   val io = IO(new Bundle { 
     val sEn = Vec(numBufs, Input(Bool()))
     val sDone = Vec(numBufs, Input(Bool()))
     val w = Vec(wPar.values.reduce{_+_}, Input(new multidimRegW(dims.length, dims, bitWidth)))
     val reset    = Input(Bool())
-    val data_out = Vec(dims.reduce{_*_}*numBufs, Output(UInt(bitWidth.W)))
+    val data_out = Vec(dims.reduce{_*-*_}*numBufs, Output(UInt(bitWidth.W)))
   })
   
   val sEn_latch = (0 until numBufs).map{i => Module(new SRFF())}
@@ -238,8 +238,8 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
   val shiftRegs = (0 until numBufs).map{i => Module(new ShiftRegFile(dims, inits, stride, wPar.getOrElse(i,1), isBuf = {i>0}, bitWidth, fracBits))}
 
   for (i <- 0 until numBufs) {
-    for (j <- 0 until dims.reduce{_*_}) {
-      io.data_out(i*dims.reduce{_*_} + j) := shiftRegs(i).io.data_out(j)
+    for (j <- 0 until dims.reduce{_*-*_}) {
+      io.data_out(i*dims.reduce{_*-*_} + j) := shiftRegs(i).io.data_out(j)
     }
   }
 
@@ -287,21 +287,21 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
   def readValue(addrs: List[UInt], port: Int): UInt = { // This randomly screws up sometimes, so I don't use it anywhere anymore
     // chisel seems to have broke MuxLookup here...
     val result = Wire(UInt(bitWidth.W))
-    val regvals = (0 until numBufs*dims.reduce{_*_}).map{ i => 
+    val regvals = (0 until numBufs*dims.reduce{_*-*_}).map{ i => 
       (i.U(muxWidth.W) -> io.data_out(i)) 
     }
-    val flat_addr = (port*dims.reduce{_*_}).U(muxWidth.W) + addrs.zipWithIndex.map{ case( a,i ) =>
+    val flat_addr = (port*dims.reduce{_*-*_}).U(muxWidth.W) + addrs.zipWithIndex.map{ case( a,i ) =>
       val aa = Wire(UInt(muxWidth.W))
       aa := a
-      (dims.drop(i).reduce{_*_}/dims(i)).U(muxWidth.W) * aa
+      (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W) *-* aa
     }.reduce{_+_}
     result := chisel3.util.MuxLookup(flat_addr, 0.U(bitWidth.W), regvals)
     result
 
     // val result = Wire(UInt(bitWidth.W))
     // val flat = row_addr*width.U + col_addr
-    // val bitvec = Vec((0 until dims.reduce{_*_}).map{ i => i.U === flat })
-    // for (i <- 0 until dims.reduce{_*_}) {
+    // val bitvec = Vec((0 until dims.reduce{_*-*_}).map{ i => i.U === flat })
+    // for (i <- 0 until dims.reduce{_*-*_}) {
     //   when(i.U === flat) {
     //     result := io.data_out(i)
     //   }
@@ -330,7 +330,7 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
 class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val width: Int, val fracBits: Int) extends Module {
 
   def this(tuple: (List[Int], List[Double], Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
-  val muxWidth = Utils.log2Up(dims.reduce{_*_})
+  val muxWidth = Utils.log2Up(dims.reduce{_*-*_})
 
   val io = IO(new Bundle { 
     val addr = Vec(numReaders*dims.length, Input(UInt(muxWidth.W)))
@@ -338,8 +338,8 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
     val data_out = Vec(numReaders, Output(UInt(width.W)))
   })
 
-  assert(dims.reduce{_*_} == inits.length)
-  val options = (0 until dims.reduce{_*_}).map { i => 
+  assert(dims.reduce{_*-*_} == inits.length)
+  val options = (0 until dims.reduce{_*-*_}).map { i => 
     val initval = (inits(i)*scala.math.pow(2,fracBits)).toLong
     // initval.U
     ( i.U(muxWidth.W) -> initval.S((width+1).W).apply(width-1,0) )
@@ -348,7 +348,7 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
   val flat_addr = (0 until numReaders).map{ k => 
     val base = k*dims.length
     (0 until dims.length).map{ i => 
-      (io.addr(i + base) * (dims.drop(i).reduce{_*_}/dims(i)).U(muxWidth.W)) // TODO: Why is chisel being so stupid with this type when used in the MuxLookup
+      (io.addr(i + base) *-* (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W)) // TODO: Why is chisel being so stupid with this type when used in the MuxLookup
     }.reduce{_+_}
   }
 
@@ -363,7 +363,7 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
   var rId = 0
   def connectRPort(addrs: List[UInt], en: Bool): Int = {
     (0 until addrs.length).foreach{ i => 
-      val base = rId * addrs.length
+      val base = rId *-* addrs.length
       io.addr(base + i) := addrs(i)
     }
     // io.en(rId) := en

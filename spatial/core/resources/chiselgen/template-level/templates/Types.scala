@@ -225,7 +225,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 	}
 	def <->[T] (rawop: T): FixedPoint = {this.-(rawop, saturating = "saturation")}
 
-	def *[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FixedPoint = {
+	def *-*[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FixedPoint = {
 		rawop match { 
 			case op: FixedPoint => 
 				// Compute upcasted type and return type
@@ -236,7 +236,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				// Do upcasted operation
 				val expanded_self = util.Cat(util.Fill(op.d+op.f, this.msb), this.number)
 				val expanded_op = util.Cat(util.Fill(d+f, op.msb), op.number)
-				full_result.number := expanded_self * expanded_op
+				full_result.number := expanded_self *-* expanded_op
 
 				// Downcast to result
 				val result = Wire(new FixedPoint(return_type))
@@ -246,25 +246,25 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				result
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
-				this * op_cast
+				this *-* op_cast
 			case op: SInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op.asUInt)
-				number * op_cast
+				number *-* op_cast
 
 			}
 	}
-	def *&[T] (rawop: T): FixedPoint = {this.*(rawop, rounding = "unbiased")}
-	def <*&>[T] (rawop: T): FixedPoint = {this.*(rawop, rounding = "unbiased", saturating = "saturation")}
-	def <*>[T] (rawop: T): FixedPoint = {this.*(rawop, saturating = "saturation")}
+	def *&[T] (rawop: T): FixedPoint = {this.*-*(rawop, rounding = "unbiased")}
+	def <*&>[T] (rawop: T): FixedPoint = {this.*-*(rawop, rounding = "unbiased", saturating = "saturation")}
+	def <*>[T] (rawop: T): FixedPoint = {this.*-*(rawop, saturating = "saturation")}
 
-	def /[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FixedPoint = {
+	def /-/[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FixedPoint = {
 		rawop match { 
 			case op: FixedPoint => 
 				if (op.f + f == 0) {
 					if (op.s | s) {
-						(this.number.asSInt / op.number.asSInt).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
+						(this.number.asSInt /-/ op.number.asSInt).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
 					} else {
-						(this.number / op.number).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
+						(this.number /-/ op.number).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
 					}
 				} else {
 					// Compute upcasted type and return type
@@ -292,18 +292,18 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				}
 			case op: UInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
-				this / op_cast
+				this /-/ op_cast
 			case op: SInt => 
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op.asUInt)
-				number / op_cast
+				number /-/ op_cast
 
 		}
 	}
-	def /&[T] (rawop: T): FixedPoint = {this./(rawop, rounding = "unbiased")}
-	def </&>[T] (rawop: T): FixedPoint = {this./(rawop, rounding = "unbiased", saturating = "saturation")}
-	def </>[T] (rawop: T): FixedPoint = {this./(rawop, saturating = "saturation")}
+	def /&[T] (rawop: T): FixedPoint = {this./-/(rawop, rounding = "unbiased")}
+	def </&>[T] (rawop: T): FixedPoint = {this./-/(rawop, rounding = "unbiased", saturating = "saturation")}
+	def </>[T] (rawop: T): FixedPoint = {this./-/(rawop, saturating = "saturation")}
 
-	def %[T] (rawop: T): FixedPoint = {
+	def %-%[T] (rawop: T): FixedPoint = {
 		rawop match { 
 			case op: FixedPoint => 
 				// Compute upcasted type and return type
@@ -312,14 +312,14 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				// Get upcasted operators
 				val full_result = Wire(new FixedPoint(upcasted_type))
 				// Do upcasted operation
-				full_result.number := this.number % op.number // Not sure why we need the +1 in pow2
+				full_result.number := this.number %-% op.number // Not sure why we need the +1 in pow2
 				// Downcast to result
 				val result = Wire(new FixedPoint(return_type))
 				full_result.cast(result)
 				result
 			case op: UInt =>
 				val op_cast = Utils.FixedPoint(this.s, op.getWidth max this.d, this.f, op)
-				this % op_cast
+				this %-% op_cast
 
 		}
 	}
@@ -616,11 +616,11 @@ class FixedPointTester(val s: Boolean, val d: Int, val f: Int) extends Module {
 	io.num2.storeFix(fix2)
 	val sum = fix1 + fix2
 	sum.storeRaw(io.add_result)
-	val prod = fix1 * fix2
+	val prod = fix1 *-* fix2
 	prod.storeRaw(io.prod_result)
 	val sub = fix1 - fix2
 	sub.storeRaw(io.sub_result)
-	val quotient = fix1 / fix2
+	val quotient = fix1 /-/ fix2
 	quotient.storeRaw(io.quotient_result)
 
 
@@ -698,7 +698,7 @@ class FloatingPoint(val m: Int, val e: Int) extends Bundle {
 		}
 	}
 
-	def *[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {
+	def *-*[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {
 		rawop match {
 			case op: FloatingPoint => 
 				assert(op.m == m & op.e == e)
@@ -713,7 +713,7 @@ class FloatingPoint(val m: Int, val e: Int) extends Bundle {
 		}
 	}
 
-	def /[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {
+	def /-/[T] (rawop: T, rounding:String = "truncate", saturating:String = "lazy"): FloatingPoint = {
 		rawop match {
 			case op: FloatingPoint => 
 				assert(op.m == m & op.e == e)
