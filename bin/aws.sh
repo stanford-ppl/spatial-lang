@@ -10,8 +10,8 @@ source /home/mattfel/aws-fpga/sdk_setup.sh
 cd ${SPATIAL_HOME}/apps
 ab=`git rev-parse --abbrev-ref HEAD`
 cd ../
-if [[ $ab != "regression" ]]; then 
-	read -p "You seem to be on an apps branch that is not regression.  Continue? [y/N]: " choice
+if [[ $ab != "asplos2018" ]]; then 
+	read -p "You seem to be on an apps branch that is not asplos2018.  Continue? [y/N]: " choice
 	echo    # (optional) move to a new line
 	case "$choice" in 
 	  y|Y ) echo "Continuing..";;
@@ -47,14 +47,9 @@ annotated_list=("Stencil3D"
 				# "KalmanFilter" "GACT" "AlexNet" "Network_in_Network" 
 				# "VGG_CNN_S" "Overfeat" "Cifar10_Full"  )
 for a in ${annotated_list[@]}; do
-	if [[ $1 = "1" ]]; then
-		rt="--retiming"
-	else 
-		rt=""
-	fi
 	cd $SPATIAL_HOME
 	rm -rf out_$2_$a
-	bin/spatial $a --synth --out=out_$2_$a $rt
+	bin/spatial $a --synth --out=out_$2_$a $1
 	cd out_$2_$a
 	make $3 &
 	wait 10

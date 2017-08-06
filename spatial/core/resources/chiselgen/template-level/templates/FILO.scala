@@ -65,9 +65,9 @@ import scala.math._
 //   } else {
 //     (0 until pW).foreach { w_i => 
 //       (0 until (p / pW)).foreach { i => 
-//         m(w_i + i*pW).io.w.addr := accessor.io.output.count(0).asUInt
-//         m(w_i + i*pW).io.w.data := io.in(w_i)
-//         m(w_i + i*pW).io.w.en := io.push & (subAccessor.io.output.count(0) === (i*pW).S)
+//         m(w_i + i*-*pW).io.w.addr := accessor.io.output.count(0).asUInt
+//         m(w_i + i*-*pW).io.w.data := io.in(w_i)
+//         m(w_i + i*-*pW).io.w.en := io.push & (subAccessor.io.output.count(0) === (i*-*pW).S)
 //       }
 //     }
 //   }
@@ -84,15 +84,15 @@ import scala.math._
 //       val rSel = Wire(Vec( (p/pR), Bool()))
 //       val rData = Wire(Vec( (p/pR), UInt(32.W)))
 //       (0 until (p / pR)).foreach { i => 
-//         m(r_i + i*pR).io.r.addr := accessor.io.output.count(0).asUInt
-//         m(r_i + i*pR).io.r.en := io.pop & (subAccessor.io.output.count(0) === (i*pR).S)
+//         m(r_i + i*-*pR).io.r.addr := accessor.io.output.count(0).asUInt
+//         m(r_i + i*-*pR).io.r.en := io.pop & (subAccessor.io.output.count(0) === (i*-*pR).S)
 //         rSel(i) := subAccessor.io.output.count(0) === i.S
 //         // if (i == 0) { // Strangeness from inc-then-read nuisance
 //         //   rSel((p/pR)-1) := subReader.io.output.count(0) === i.U
 //         // } else {
 //         //   rSel(i-1) := subReader.io.output.count(0) === i.U
 //         // }
-//         rData(i) := m(r_i + i*pR).io.output.data
+//         rData(i) := m(r_i + i*-*pR).io.output.data
 //       }
 //       io.out(r_i) := chisel3.util.PriorityMux(rSel, rData)
 //     }
@@ -110,10 +110,10 @@ import scala.math._
 //   // // Old empty and error tracking
 //   // val ovW = Module(new SRFF())
 //   // val ovR = Module(new SRFF())
-//   // val www_c = accessor.io.output.countWithoutWrap(0)*(p/pW).U + subAccessor.io.output.count(0)
-//   // val w_c = accessor.io.output.count(0)*(p/pW).U + subAccessor.io.output.count(0)
-//   // val rww_c = reader.io.output.countWithoutWrap(0)*(p/pR).U + subReader.io.output.count(0)
-//   // val r_c = reader.io.output.count(0)*(p/pR).U + subReader.io.output.count(0)
+//   // val www_c = accessor.io.output.countWithoutWrap(0)*-*(p/pW).U + subAccessor.io.output.count(0)
+//   // val w_c = accessor.io.output.count(0)*-*(p/pW).U + subAccessor.io.output.count(0)
+//   // val rww_c = reader.io.output.countWithoutWrap(0)*-*(p/pR).U + subReader.io.output.count(0)
+//   // val r_c = reader.io.output.count(0)*-*(p/pR).U + subReader.io.output.count(0)
 //   // val hasData = Module(new SRFF())
 //   // hasData.io.input.set := (w_c === r_c) & io.push & !(ovR.io.output.data | ovW.io.output.data)
 //   // hasData.io.input.reset := (r_c + 1.U === www_c) & io.pop & !(ovR.io.output.data | ovW.io.output.data)

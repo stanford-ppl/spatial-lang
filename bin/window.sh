@@ -21,7 +21,7 @@ h=`hostname`
 echo -e "\nLast updated on ${h} at ${d}" >> /home/mattfel/Window/window
 echo "\"" >> /home/mattfel/Window/window
 height=$(($lines*25+80))
-`convert -size 800x${height} xc:black -pointsize 20 -fill white -draw @/home/mattfel/Window/window /home/mattfel/Window/window.png`
+`convert -size 600x${height} xc:black -pointsize 20 -fill white -draw @/home/mattfel/Window/window /home/mattfel/Window/window.png`
 
 # Upload window
 

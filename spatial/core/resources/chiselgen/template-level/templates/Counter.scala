@@ -4,7 +4,7 @@ package templates
 import util._
 import chisel3._
 import chisel3.util._
-
+import ops._
 
 
 /**
@@ -147,7 +147,7 @@ class SingleCounter(val par: Int, val width: Int = 32) extends Module {
     base.io.input(0).enable := io.input.reset | io.input.enable
 
     val count = base.io.output.data.asSInt
-    val newval = count + (io.input.stride * par.S((width).W)) + io.input.gap
+    val newval = count + (io.input.stride *-* par.S((width).W)) + io.input.gap
     val isMax = Mux(io.input.stride >= 0.S((width).W), newval >= io.input.stop, newval <= io.input.stop)
     // io.output.debug1 := newval
     // io.output.debug2 := io.input.stride >= 0.S((width).W)
@@ -158,9 +158,9 @@ class SingleCounter(val par: Int, val width: Int = 32) extends Module {
     val next = Mux(isMax, Mux(io.input.saturate, count, init), newval)
     base.io.input(0).data := Mux(io.input.reset, init.asUInt, next.asUInt)
 
-    (0 until par).foreach { i => io.output.count(i) := count + i.S((width).W)*io.input.stride }
+    (0 until par).foreach { i => io.output.count(i) := count + i.S((width).W)*-*io.input.stride }
     (0 until par).foreach { i => 
-      io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), io.input.stop, count) + i.S((width).W)*io.input.stride
+      io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), io.input.stop, count) + i.S((width).W)*-*io.input.stride
     }
     io.output.done := io.input.enable & isMax
     io.output.saturated := io.input.saturate & isMax
@@ -207,7 +207,7 @@ class SingleSCounter(val par: Int, val width: Int = 32) extends Module { // Sign
     base.io.input(0).enable := io.input.reset | io.input.enable
 
     val count = base.io.output.data.asSInt
-    val newval = count + (io.input.stride * par.S((width).W)) + io.input.gap
+    val newval = count + (io.input.stride *-* par.S((width).W)) + io.input.gap
     val isMax = newval >= io.input.stop
     val wasMax = RegNext(isMax, false.B)
     val isMin = newval < 0.S((width).W)
@@ -216,9 +216,9 @@ class SingleSCounter(val par: Int, val width: Int = 32) extends Module { // Sign
     val next = Mux(isMax, Mux(io.input.saturate, count, init), Mux(isMin, io.input.stop + io.input.stride, newval))
     base.io.input(0).data := Mux(io.input.reset, init.asUInt, next.asUInt)
 
-    (0 until par).foreach { i => io.output.count(i) := count + i.S((width).W)*io.input.stride }
+    (0 until par).foreach { i => io.output.count(i) := count + i.S((width).W)*-*io.input.stride }
     (0 until par).foreach { i => 
-      io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), io.input.stop, count) + i.S((width).W)*io.input.stride
+      io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), io.input.stop, count) + i.S((width).W)*-*io.input.stride
     }
     io.output.done := io.input.enable & (isMax | isMin)
     io.output.saturated := io.input.saturate & ( isMax | isMin )
