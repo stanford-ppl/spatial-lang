@@ -96,7 +96,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
     cu.style match {
       case PipeCU => emitAllStages(cu)
-      case MemoryCU(i) => emitAllStages(cu)
+      case MemoryCU(i, bank) => emitAllStages(cu)
       case _ => 
     }
 
@@ -225,7 +225,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case PipeCU => "Pipeline"
     case MetaPipeCU   => "MetaPipeline"
     case SequentialCU => "Sequential"
-    case MemoryCU(i)     => "MemoryPipeline"
+    case MemoryCU(i, bank)     => "MemoryPipeline"
     case FringeCU(dram, mode)     => "MemoryController"
   }
 

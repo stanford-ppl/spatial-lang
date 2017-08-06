@@ -307,6 +307,21 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     writers.map { _.node }
   }
 
+  def getDuplicate(dmem:Expr, dreader:Expr):Memory = {
+    val mem = compose(dmem)
+    val reader = compose(dreader)
+    val instIds = dispatchOf(reader, mem)
+    assert(instIds.size==1, s"number of dispatch = ${instIds.size} for $mem but expected to be 1")
+    val instId = instIds.head
+    val insts = duplicatesOf(mem)
+    insts(instId)
+  }
+
+  //def getInnerDimension(dmem:Expr, instId:Int):Option[Int] = {
+    //val mem = compose(dmem)
+    //readersOf(mem).filter { reader => dispatchOf(reader, mem).contains(instId) }
+  //}
+
   //def writerOf(mem:Expr): Access = {
     //val writers = writersOf(mem)
     //if (writers.size > 1) {
@@ -487,6 +502,12 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     case Def(op@Switch(body, selects, cases)) => cases.flatMap(getStms)
     case Def(op@SwitchCase(body)) => blockNestedContents(body)
     case _ => throw new Exception(s"Don't know how to get stms pipe=${qdef(pipe)}")
+  }
+
+  def itersOf(pipe:Expr):Option[Seq[Seq[Expr]]] = pipe match {
+    case Def(UnrolledForeach(en, cchain, func, iters, valids)) => Some(iters)
+    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) => Some(iters)
+    case _ => None
   }
 
   // --- Transformation functions

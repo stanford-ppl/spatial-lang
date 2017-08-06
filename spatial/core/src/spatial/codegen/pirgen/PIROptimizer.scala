@@ -77,6 +77,7 @@ trait PIROptimizer extends PIRTraversal {
   def removeUnusedCChainCopy(cu: CU) = dbgl(s"Checking CU $cu for unused CChainCopy...") {
     // Remove unused counterchain copies
     val usedCCs = usedCChains(cu)
+    dbgs(s"usedCCs=$usedCCs")
     val unusedCopies = cu.cchains.collect{case cc:CChainCopy if !usedCCs.contains(cc) => cc}
 
     if (unusedCopies.nonEmpty) {
@@ -196,7 +197,11 @@ trait PIROptimizer extends PIRTraversal {
       } 
     }
 
-    if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty && !isFringe && !isCopied) {
+    val noOutput = globalOutputs(cu).isEmpty
+    dbgs(s"$cu globalOutputs=${globalOutputs(cu)} ${cu.mems.map{m => m.readPort.map(globalOutputs)}}")
+
+    if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty && !isFringe 
+        && !isCopied && noOutput) {
       cus.foreach{ c =>
         if (c.deps.contains(cu)) {
           c.deps -= cu

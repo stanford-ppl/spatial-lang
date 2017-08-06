@@ -30,7 +30,7 @@ case object PipeCU extends CUStyle
 case object SequentialCU extends CUStyle
 case object MetaPipeCU extends CUStyle
 case object StreamCU extends CUStyle
-case class MemoryCU(instId:Int) extends CUStyle
+case class MemoryCU(instId:Int, bank:Int) extends CUStyle
 case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 
 // --- Local memory modes

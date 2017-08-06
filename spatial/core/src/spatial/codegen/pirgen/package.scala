@@ -58,6 +58,7 @@ package object pirgen {
     case cchain: CChainCopy => func(cchain.inst)
     case cchain: UnitCChain => Set.empty
 
+    case Some(x) => func(x) // Why is this not matching on Iterable or Iterator?
     case iter: Iterator[_] => iter.flatMap(func).toSet
     case iter: Iterable[_] => func(iter.iterator)
     case _ => Set.empty
@@ -269,7 +270,7 @@ package object pirgen {
     else { 
       val i::irest = inds
       val d::drest = dims
-      assert(i < d && i > 0, s"Index $i out of bound $d")
+      assert(i < d && i >= 0, s"Index $i out of bound $d")
       i * drest.product + flattenND(irest, drest)
     }
   }
