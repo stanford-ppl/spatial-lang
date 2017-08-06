@@ -82,11 +82,11 @@ object utils {
     })
   }
 
-  /**
-    * Checks to see if x depends on y (dataflow only, no scheduling dependencies)
-    */
+
   // TODO: This uses the pointer-chasing version of scheduling - could possibly make faster?
   implicit class ExpOps(x: Exp[_]) {
+
+
     @stateful def getNodesBetween(y: Exp[_], scope: Set[Exp[_]]): Set[Exp[_]] = {
       def dfs(frontier: Seq[Exp[_]], nodes: Set[Exp[_]]): Set[Exp[_]] = frontier.toSet.flatMap{x: Exp[_] =>
         if (scope.contains(x)) {
@@ -113,6 +113,9 @@ object utils {
       dfs(Seq(x),Set(x))
     }
 
+    /**
+      * Checks to see if x depends on y (dataflow only, no scheduling dependencies)
+      */
     @stateful def dependsOn(y: Exp[_], scope: Seq[Stm] = Nil): Boolean = {
       val scp = scope.flatMap(_.lhs.asInstanceOf[Seq[Exp[_]]]).toSet
 
