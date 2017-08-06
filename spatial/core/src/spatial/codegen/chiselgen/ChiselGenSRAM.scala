@@ -48,13 +48,29 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.remap(tp)
   }
 
+  //def cchainWidth(ctr: Exp[Counter]): Int = {
+    //ctr match {
+      //case Def(CounterNew(Exact(s), Exact(e), _, _)) => 
+        //val sbits = if (s > 0) {BigInt(1) max ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt} 
+                    //else {BigInt(1) max ceil(scala.math.log((BigInt(1) max (s.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+        //val ebits = if (e > 0) {BigInt(1) max ceil(scala.math.log((BigInt(1) max e).toDouble)/scala.math.log(2)).toInt} 
+                    //else {BigInt(1) max ceil(scala.math.log((BigInt(1) max (e.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+        //({ebits max sbits} + 2).toInt
+      //case Def(CounterNew(start, stop, _, _)) => 
+        //val sbits = bitWidth(start.tp)
+        //val ebits = bitWidth(stop.tp)
+        //({ebits max sbits} + 0).toInt
+      //case _ => 32
+    //}
+  //}
+
   def cchainWidth(ctr: Exp[Counter]): Int = {
     ctr match {
       case Def(CounterNew(Exact(s), Exact(e), _, _)) => 
-        val sbits = if (s > 0) {BigInt(1) max ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt} 
-                    else {BigInt(1) max ceil(scala.math.log((BigInt(1) max (s.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
-        val ebits = if (e > 0) {BigInt(1) max ceil(scala.math.log((BigInt(1) max e).toDouble)/scala.math.log(2)).toInt} 
-                    else {BigInt(1) max ceil(scala.math.log((BigInt(1) max (e.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+        val sbits = if (s > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt} 
+                    else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (s.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+        val ebits = if (e > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max e).toDouble)/scala.math.log(2)).toInt} 
+                    else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (e.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
         ({ebits max sbits} + 2).toInt
       case Def(CounterNew(start, stop, _, _)) => 
         val sbits = bitWidth(start.tp)
@@ -82,23 +98,20 @@ trait ChiselGenSRAM extends ChiselCodegen {
   def getNowValidLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
       // If we are inside a stream pipe, the following may be set
       val readiers = listensTo(c).distinct.map {
-        // case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty"
-        // case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty"
         case fifo @ Def(StreamInNew(bus)) => src"${fifo}_now_valid" //& ${fifo}_ready"
         case _ => ""
       }.mkString(" & ")
-      // val holders = (pushesTo(c)).distinct.map {
-      //   case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full"
-      //   case fifo @ Def(FILONew(size)) => src"~$fifo.io.full"
-      //   case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready & ${fifo}_valid"
-      //   case fifo @ Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
-      // }.mkString(" & ")
-
-      // val hasHolders = if (holders != "") "&" else ""
       val hasReadiers = if (readiers != "") "&" else ""
-
       if (SpatialConfig.enableRetiming) src"${hasReadiers} ${readiers}" else " "
-
+  }
+  def getReadyLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
+      // If we are inside a stream pipe, the following may be set
+      val readiers = listensTo(c).distinct.map {
+        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_ready"
+        case _ => ""
+      }.mkString(" & ")
+      val hasReadiers = if (readiers != "") "&" else ""
+      if (SpatialConfig.enableRetiming) src"${hasReadiers} ${readiers}" else " "
   }
 
 
@@ -294,7 +307,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
             if (depth == 1) {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
     List(${dims.map(_.banks)}), $strides,
-    List($wPar), List($rPar), BankedMemory
+    List($wPar), List($rPar), BankedMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
@@ -302,14 +315,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
     List(${dims.map(_.banks)}), $strides,
     List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), BankedMemory
+    List($wBundling), List($rBundling), List($bPar), BankedMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             }
           case DiagonalMemory(strides, banks, depth, isAccum) =>
             if (depth == 1) {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
     List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
-    List($wPar), List($rPar), DiagonalMemory
+    List($wPar), List($rPar), DiagonalMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
@@ -317,7 +330,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
     List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
     List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), DiagonalMemory
+    List($wBundling), List($rBundling), List($bPar), DiagonalMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             }
           }

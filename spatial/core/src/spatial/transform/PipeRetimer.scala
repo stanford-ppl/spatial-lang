@@ -23,6 +23,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
   var delayLines: Map[Exp[_], SortedSet[ValueDelay]] = Map.empty
   var delayConsumers: Map[Exp[_], List[ValueDelay]] = Map.empty
   var latencies: Map[Exp[_], Long] = Map.empty
+  var cycles: Set[Exp[_]] = Set.empty
   var hierarchy: Int = 0
   var inInnerScope: Boolean = false
 
@@ -32,6 +33,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     val prevDelayLines = delayLines
     val prevDelayConsumers = delayConsumers
     val prevLatencies = latencies
+    val prevCycles = cycles
     val prevInnerScope = inInnerScope
     hierarchy += 1
     inInnerScope = true
@@ -46,12 +48,13 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     delayLines = prevDelayLines
     delayConsumers = prevDelayConsumers
     latencies = prevLatencies
+    cycles = prevCycles
     inInnerScope = prevInnerScope
     result
   }
 
-  def requiresRegisters(x: Exp[_]): Boolean = latencyModel.requiresRegisters(x)
-  def retimingDelay(x: Exp[_]): Int = if (requiresRegisters(x)) latencyOf(x).toInt else 0
+  def requiresRegisters(x: Exp[_]): Boolean = latencyModel.requiresRegisters(x, cycles.contains(x))
+  def retimingDelay(x: Exp[_]): Int = if (requiresRegisters(x)) latencyOf(x, cycles.contains(x)).toInt else 0
 
   def bitBasedInputs(d: Def): Seq[Exp[_]] = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
 
@@ -94,13 +97,13 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
       .toMap    // Unique-ify by line input - makes sure we only register one substitution per input
       .foreach{case (in, line) =>
         val dly = line.value()
-        dbgs(s"  $in -> $dly [${line.size}]")
+        logs(s"  $in -> $dly [${line.size}]")
         register(in, dly)
       }
   }
 
   private def addDelayLine(reader: Exp[_], line: ValueDelay) = {
-    dbgs(s"Add {in:${line.input}, reader:$reader, delay:${line.delay}, size:${line.size}")
+    logs(s"Add {in:${line.input}, reader:$reader, delay:${line.delay}, size:${line.size}")
 
     val existing = delayLines.getOrElse(line.input, SortedSet[ValueDelay]())
 
@@ -128,31 +131,32 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
         case Some(prev) =>
           val size = delay - prev.delay
           if (size > 0) {
-            dbgs(s"    Extending existing line of ${prev.delay}")
+            logs(s"    Extending existing line of ${prev.delay}")
             ValueDelay(input, delay, size, h, Some(prev), () => delayLine(size, prev.value())(input.ctx))
           }
           else {
-            dbgs(s"    Using existing line of ${prev.delay}")
+            logs(s"    Using existing line of ${prev.delay}")
             prev
           }
 
         case None =>
-          dbgs(s"    Created new delay line of $delay")
+          logs(s"    Created new delay line of $delay")
           ValueDelay(input, delay, delay, h, None, () => delayLine(delay, f(input))(input.ctx))
       }
     }
 
     val consumerDelays = scope.flatMap{case TP(reader, d) =>
-      val criticalPath = delayOf(reader) - latencyOf(reader)  // All inputs should arrive at this offset
+      val inReduce = cycles.contains(reader)
+      val criticalPath = delayOf(reader) - latencyOf(reader, inReduce)  // All inputs should arrive at this offset
 
       // Ignore non-bit based values
       val inputs = bitBasedInputs(d) //diff d.blocks.flatMap(blk => exps(blk))
 
-      dbgs(c"${str(reader)}: ${delayOf(reader)}")
-      dbgs(c"  " + inputs.map{in => c"in: ${delayOf(in)}"}.mkString(", ") + "[max: " + criticalPath + "]")
+      dbgs(c"[$criticalPath = ${delayOf(reader)} - ${latencyOf(reader,inReduce)}] ${str(reader)}")
+      //logs(c"  " + inputs.map{in => c"in: ${delayOf(in)}"}.mkString(", ") + "[max: " + criticalPath + "]")
       inputs.flatMap{in =>
         val delay = retimingDelay(in) + criticalPath - delayOf(in)
-        dbgs(c"  ${str(in)} [delay: $delay]")
+        dbgs(c"..[$delay = ${retimingDelay(in)} + $criticalPath - ${delayOf(in)}] ${str(in)}")
         if (delay != 0) Some(in -> (reader, delay)) else None
       }
     }
@@ -163,7 +167,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
       delays.flatMap{delay =>
         val readers = consumerGroups(delay)
         readers.map{reader =>
-          dbgs(s"  Creating value delay on $input for reader $reader with delay $delay: ")
+          logs(s"  Creating value delay on $input for reader $reader with delay $delay: ")
           reader -> createValueDelay(input, reader, delay.toInt)
         }
       }
@@ -177,7 +181,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
   // Note that this requires checking *blockNestedContents*, not just blockContents
   private def precomputeDelayLines(d: Def): Unit = {
     hierarchy += 1
-    if (d.blocks.nonEmpty) dbgs(s"  Precomputing delay lines for $d")
+    if (d.blocks.nonEmpty) logs(s"  Precomputing delay lines for $d")
     d.blocks.foreach{block =>
       val scope = blockNestedContents(block)
       val lines = computeDelayLines(scope).map(_._2)
@@ -185,7 +189,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
       (lines ++ lines.flatMap(_.prev)).filter(_.hierarchy < hierarchy).foreach{line =>
         if (!line.alreadyExists) {
           val dly = line.value()
-          dbgs(s"    ${line.input} -> $dly [size: ${line.size}, h: ${line.hierarchy}] (cur h: $hierarchy)")
+          logs(s"    ${line.input} -> $dly [size: ${line.size}, h: ${line.hierarchy}] (cur h: $hierarchy)")
         }
       }
     }
@@ -210,14 +214,14 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
 
   private def retimeStm(stm: Stm): Unit = stm match {
     case TP(reader, d) =>
-      dbgs(s"Retiming $reader = $d")
+      logs(s"Retiming $reader = $d")
       val inputs = bitBasedInputs(d)
       val reader2 = isolateSubstScope {
         registerDelays(reader, inputs)
         visitStm(stm)
         f(reader)
       }
-      dbgs(s"  => ${str(reader2)}")
+      logs(s"  => ${str(reader2)}")
       register(reader -> reader2)
   }
 
@@ -230,7 +234,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     val caseBody2: Block[A] = isolateSubstScope { stageSealedBlock {
       retimeStms(body)
       val size = delayConsumers.getOrElse(switch, Nil).find(_.input == cas).map(_.size).getOrElse(0) +
-        delayConsumers.getOrElse(cas, Nil).find(_.input == body.result).map(_.size).getOrElse(0)
+                 delayConsumers.getOrElse(cas, Nil).find(_.input == body.result).map(_.size).getOrElse(0)
       if (size > 0) {
         dbgs(s"Adding retiming delay of size $size at end of case $cas")
         delayLine(size, f(body.result))
@@ -281,17 +285,22 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     //dbgs(s"Result: ")
     //result.foreach{e => dbgs(s"  ${str(e)}") }
     // The position AFTER the given node
-    val newLatencies = pipeLatencies(result, scope)._1
+    val (newLatencies, newCycles) = pipeLatencies(result, scope)
     latencies ++= newLatencies
+    cycles ++= newCycles.flatMap(_.symbols)
+
+    newLatencies.toList.sortBy(_._2).foreach{case (s,l) =>
+      dbgs(s"[$l] ${str(s)}")
+    }
 
     dbgs("")
     dbgs("")
     dbgs("Sym Delays:")
-    newLatencies.toList.map{case (s,l) => s -> (l - latencyOf(s)) }
+    newLatencies.toList.map{case (s,l) => s -> (l - latencyOf(s, inReduce = cycles.contains(s))) }
                        .sortBy(_._2)
                        .foreach{case (s,l) =>
                          symDelay(s) = l
-                         dbgs(c"  [$l]: ${str(s)}")
+                         dbgs(c"  [$l = ${newLatencies(s)} - ${latencyOf(s, inReduce = cycles.contains(s))}]: ${str(s)} [cycle = ${cycles.contains(s)}]")
                        }
 
     isolateSubstScope{ retimeStms(block) }

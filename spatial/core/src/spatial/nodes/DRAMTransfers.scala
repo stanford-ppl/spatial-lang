@@ -19,15 +19,16 @@ case class DenseTransfer[T,C[T]](
 )(implicit val mem: Mem[T,C], val mT: Type[T], val bT: Bits[T], val mC: Type[C[T]], mD: Type[DRAM[T]]) extends DRAMTransfer {
 
   def isStore = !isLoad
+  var isAlign = false
 
-  def mirror(f:Tx): Exp[MUnit] = DRAMTransfers.op_dense_transfer(f(dram),f(local),f(ofs),f(lens),units,p,isLoad,iters)
+  def mirror(f:Tx): Exp[MUnit] = DRAMTransfers.op_dense_transfer(f(dram),f(local),f(ofs),f(lens),units,p,isLoad,isAlign,iters)
 
   override def inputs = dyns(dram, local) ++ dyns(ofs) ++ dyns(lens)
   override def binds  = iters
   override def aliases = Nil
 
   @internal def expand(f:Tx): Exp[MUnit] = {
-    DRAMTransfersInternal.copy_dense(f(dram),f(local),f(ofs),f(lens),units,p,isLoad)(mT,bT,mem,mC,mD,ctx,state).s
+    DRAMTransfersInternal.copy_dense(f(dram),f(local),f(ofs),f(lens),units,p,isLoad,isAlign)(mT,bT,mem,mC,mD,ctx,state).s
   }
 }
 

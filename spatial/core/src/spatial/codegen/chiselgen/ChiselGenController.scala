@@ -502,10 +502,23 @@ trait ChiselGenController extends ChiselGenCounter{
         if (smStr == "Streampipe" & cchain.isDefined) {
           emitGlobalWire(src"""val ${cchain.get}_copy${c}_en = Wire(Bool())""") 
           val Def(CounterChainNew(ctrs)) = cchain.get
-          val stream_respeck = c match {case Def(UnitPipe(_,_)) => getNowValidLogic(c); case _ => ""}
+          // val stream_respeck = c match {case Def(UnitPipe(_,_)) => getNowValidLogic(c); case _ => ""}
+          
+          val unitKid = c match {case Def(UnitPipe(_,_)) => true; case _ => false}
+          val snooping = getNowValidLogic(c).replace(" ", "") != ""
+          val innerKid = levelOf(c) == InnerControl
+          val signalHandle = if (unitKid & innerKid & snooping) { // If this is a unit pipe that listens, we just need to snoop the now_valid & _ready overlap
+            src"true.B ${getReadyLogic(c)} ${getNowValidLogic(c)}"
+          } else if (innerKid) { // Otherwise, use the done & ~inhibit
+            src"${c}_done /* & ~${c}_inhibitor */"
+          } else {
+            src"${c}_done"
+          }
+          // val respecks_stream = if (unitKid) getNowValidLogic(c).replace(" ", "") != "" else false
+          // val signalHandle = if (unitKid) src"${getReadyLogic(c)}" else src"${c}_done ${getNowValidLogic(c)}"
           emitCounterChain(cchain.get, ctrs, src"_copy$c")
-          val inhibit_respeck = if (levelOf(c) == InnerControl & stream_respeck.replace(" ","") != "") src"& ~${c}_inhibitor /*brilliantly ugly hack for tensor5d*/" else ""
-          emit(src"""${cchain.get}_copy${c}_en := ${c}_done ${stream_respeck} ${inhibit_respeck}""")
+          // val inhibit_respeck = if (levelOf(c) == InnerControl & respecks_stream) src"& ~${c}_inhibitor /*amazingly ugly hack for tensor5d*/" else ""
+          emit(src"""${cchain.get}_copy${c}_en := ${signalHandle}""")
           emit(src"""${cchain.get}_copy${c}_resetter := ${sym}_sm.io.output.rst_en""")
         }
         emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")

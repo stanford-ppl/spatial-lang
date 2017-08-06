@@ -1,6 +1,7 @@
 package spatial
 
 import argon.ArgonArgParser
+import argon.core.Config
 import argon.util.Report._
 
 class SpatialArgParser extends ArgonArgParser {
@@ -52,6 +53,11 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableNaming = true
   ).text("generates the debug name for all syms, rather than \"x${s.id}\" only'")
 
+  parser.opt[Unit]("syncMem").action { (_,_) => // Must necessarily turn on retiming
+    SpatialConfig.enableSyncMem = true
+    SpatialConfig.enableRetiming = true
+  }.text("Turns all SRAMs into fringe.SRAM (i.e. latched read addresses)")
+
   parser.opt[Unit]("tree").action( (_,_) =>
     SpatialConfig.enableTree = true
   ).text("enables logging of controller tree for visualizing app structure")
@@ -102,5 +108,11 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.useBasicBlocks = true
     argon.core.Config.verbosity = -2
   }.text("[EXPERIMENTAL] Use basic blocks")
+
+
+  parser.opt[Unit]("affine").action{ (_,_) =>
+    SpatialConfig.useAffine = true
+    Config.useAffine = true
+  }
 
 }
