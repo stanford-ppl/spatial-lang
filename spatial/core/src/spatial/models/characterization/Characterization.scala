@@ -10,11 +10,11 @@ import java.util.concurrent.{BlockingQueue, Executors, LinkedBlockingQueue, Time
 
 trait AllBenchmarks
     extends Benchmarks with SpatialCompiler
-    with FIFOs
-    with Primitives
-    with RegFiles
-    with Regs
-    with SRAMs
+    //with FIFOs
+    //with Primitives
+    //with RegFiles
+    //with Regs
+    //with SRAMs
     with Fringe
 
 object Characterization extends AllBenchmarks {
@@ -178,8 +178,8 @@ object Characterization extends AllBenchmarks {
         Config.name = name
         Config.genDir = s"${Config.cwd}/gen/$name"
         Config.logDir = s"${Config.cwd}/logs/$name"
-        Config.verbosity = -2
-        Config.showWarn = false
+        //Config.verbosity = -2
+        //Config.showWarn = false
         resetState()
         try {
           compileProgram(x._2)
