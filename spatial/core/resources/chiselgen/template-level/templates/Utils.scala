@@ -10,7 +10,7 @@ import fringe._
 sealed trait DeviceTarget
 object Default extends DeviceTarget
 object Zynq extends DeviceTarget
-object DE1SoC extends DeviceTarget
+object DE1 extends DeviceTarget
 object AWS_F1 extends DeviceTarget
 
 object ops {
@@ -146,7 +146,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b*c // Raghu's box
         case Zynq => b*c // Raghu's box
-        case DE1SoC => b*c // Raghu's box
+        case DE1 => b*c // Raghu's box
         case Default => b*c
       }
     }
@@ -155,7 +155,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b.asSInt*c // Raghu's box
         case Zynq => b.asSInt*c // Raghu's box
-        case DE1SoC => b.asSInt*c // Raghu's box
+        case DE1 => b.asSInt*c // Raghu's box
         case Default => b.asSInt*c
       }
     }
@@ -180,7 +180,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b/c // Raghu's box
         case Zynq => b/c // Raghu's box
-        case DE1SoC => b/c // Raghu's box
+        case DE1 => b/c // Raghu's box
         case Default => b/c
       }
     }
@@ -189,7 +189,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b.asSInt/c // Raghu's box
         case Zynq => b.asSInt/c // Raghu's box
-        case DE1SoC => b.asSInt/c // Raghu's box
+        case DE1 => b.asSInt/c // Raghu's box
         case Default => b.asSInt/c
       }
     }
@@ -214,7 +214,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b%c // Raghu's box
         case Zynq => b%c // Raghu's box
-        case DE1SoC => b%c // Raghu's box
+        case DE1 => b%c // Raghu's box
         case Default => b%c
       }
     }
@@ -223,7 +223,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b.asSInt%c // Raghu's box
         case Zynq => b.asSInt%c // Raghu's box
-        case DE1SoC => b.asSInt%c // Raghu's box
+        case DE1 => b.asSInt%c // Raghu's box
         case Default => b.asSInt%c
       }
     }
@@ -314,7 +314,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b*c.asSInt // Raghu's box
         case Zynq => b*c.asSInt // Raghu's box
-        case DE1SoC => b*c.asSInt // Raghu's box
+        case DE1 => b*c.asSInt // Raghu's box
         case Default => b*c.asSInt
       }
     }
@@ -323,7 +323,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b*c // Raghu's box
         case Zynq => b*c // Raghu's box
-        case DE1SoC => b*c // Raghu's box
+        case DE1 => b*c // Raghu's box
         case Default => b*c
       }
     }
@@ -348,7 +348,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b/c.asSInt // Raghu's box
         case Zynq => b/c.asSInt // Raghu's box
-        case DE1SoC => b/c.asSInt // Raghu's box
+        case DE1 => b/c.asSInt // Raghu's box
         case Default => b/c.asSInt
       }
     }
@@ -357,7 +357,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b/c // Raghu's box
         case Zynq => b/c // Raghu's box
-        case DE1SoC => b/c // Raghu's box
+        case DE1 => b/c // Raghu's box
         case Default => b/c
       }
     }
@@ -382,7 +382,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b%c.asSInt // Raghu's box
         case Zynq => b%c.asSInt // Raghu's box
-        case DE1SoC => b%c.asSInt // Raghu's box
+        case DE1 => b%c.asSInt // Raghu's box
         case Default => b%c.asSInt
       }
     }
@@ -391,7 +391,7 @@ object ops {
       Utils.target match {
         case AWS_F1 => b%c // Raghu's box
         case Zynq => b%c // Raghu's box
-        case DE1SoC => b%c // Raghu's box
+        case DE1 => b%c // Raghu's box
         case Default => b%c
       }
     }

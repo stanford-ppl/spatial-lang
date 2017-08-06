@@ -97,7 +97,6 @@ trait PIRAllocation extends PIRTraversal {
     cu.parent = parent
 
     cu.innerPar = style match {
-      case MemoryCU(i) => None
       case FringeCU(dram, mode) => None
       case _ => Some(getInnerPar(pipe))
     } 
@@ -114,23 +113,33 @@ trait PIRAllocation extends PIRTraversal {
       val parentCU = parentOf(sram).map(allocateCU)
       val writers = getWriters(sram)
       dbgblk(s"Allocating memory cu for ${qdef(sram)}, writers:$writers") {
-        duplicatesOf(sram).zipWithIndex.map { case (m, i) =>
-          val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp$i", dsram, MemoryCU(i))
-          dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}, duplicateId=$i")
-          cu.parent = parentCU
-          val psram = createSRAM(dsram, m, i, cu)
-          cu
-        }.toList
+        duplicatesOf(sram).zipWithIndex.flatten { case (m, i) =>
+          m match {
+            case m@BankedMemory(dims, depth, isAccum) =>
+              dbgs(s"BankedMemory # banks:${dims.map { 
+                case Banking(strides, banks, _) => s"(strides=$strides, banks=$banks)"
+              }.mkString(",")}")
+              val outerDims = dims.dropRight(1) // Assume last dimension is the inner dimension
+              val totalOuterBanks = outerDims.map{_.banks}.product
+              dbgs(s"totalOuterBanks=$totalOuterBanks")
+              List.tabulate(totalOuterBanks) { bank =>
+                val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp${i}_bank${bank}", dsram, MemoryCU(i, bank))
+                dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}, duplicateId=$i")
+                cu.parent = parentCU
+                val psram = createSRAM(dsram, m, i, cu)
+                cu
+              }
+            case DiagonalMemory(strides, banks, depth, isAccum) =>
+              throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
+          }
 
-        //readersOf(sram).zipWithIndex.map { case (readAcc, i) => 
-          //val reader = readAcc.node
-          //val dreader = getMatchedDecomposed(dsram, reader) 
-          //val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp$i", dsram, MemoryCU(reader))
-          //dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}, reader:${quote(dreader)}")
+          //val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp$i", dsram, MemoryCU(i, 0)) //TODO
+          //dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}, duplicateId=$i")
           //cu.parent = parentCU
-          //val psram = createSRAM(dsram, dreader, cu)
-          //cu
-        //}.toList
+          //val psram = createSRAM(dsram, m, i, cu)
+          //List(cu)
+
+        }.toList
       }
     })
     cus
@@ -221,103 +230,26 @@ trait PIRAllocation extends PIRTraversal {
     cu
   }
 
-  //def memMode(dmem:Expr, access:Expr, cu:PCU) = {
-    //(compose(dmem), cu.style) match {
-      //case (mem, MemoryCU(i)) if isSRAM(mem) & isReader(access) => SRAMMode // Creating SRAM
-      //case (mem, MemoryCU(i)) if isWriter(mem) & isWriter(access) =>  // Creating FIFO for SRAM Write
-        //if (getInnerPar(access)==1) ScalarFIFOMode else VectorFIFOMode
-      //case (a@LocalReader(reads), readerCU) if reads.headOption.fold(false) { r => isSRAM(r.mem) } => // Creating FIFO for SRAM Read 
-        //if (getInnerPar(a)==1) ScalarFIFOMode else VectorFIFOMode
-      //case (mem, style) if isReg(mem) | isGetDRAMAddress(mem) => ScalarBufferMode
-      //case (mem, style) if isStreamIn(mem) => VectorFIFOMode // from Fringe
-      //case (mem, style) if isStreamOut(mem) & getField(dmem)==Some("data") => 
-        //VectorFIFOMode // to Fringe. Only accessable from vector network
-      //case (mem, style) if isFIFO(mem) | isStreamOut(mem) => 
-        //val writers = writersOf(mem)
-        //assert(writers.size==1, "Assume single writer for FIFO in plasticine")
-        //val writer = writers.head.node
-        //if (getInnerPar(writer)==1) ScalarFIFOMode else VectorFIFOMode
-    //}
-  //}
-
-  /*
-   * @param dmem decomposed memory
-   * @param daccess decomposed reader / writer
-   * @param cu 
-   * Create memory (Reg/FIFO/SRAM/Stream) inside cu for dreader or FIFO inside sram for dwriter
-   * */
-  //def createMem(dmem: Expr, daccess: Expr, cu: PCU): CUMemory =  {
-    //val cuMem = getOrElseUpdate(cu.memMap, dmem, {
-      //val name = if (isGetDRAMAddress(dmem)) s"${quote(dmem)}"
-                 //else s"${quote(dmem)}_${quote(daccess)}"
-      //val cuMem = CUMemory(name, dmem, daccess, cu)
-      //dbgs(s"Add mem=$cuMem to cu=$cu")
-      //initializeMem(cuMem, compose(daccess), cu)
-      //cuMem
-    //})
-    //dbgs(s"$cu.mems=${cu.mems}")
-    //cuMem
-  //}
-  //
-  //private def initializeMem(cuMem: CUMemory, access: Expr, cu: PCU) {
-    //val mem = compose(cuMem.mem)
-    //cuMem.mode = memMode(cuMem.mem, access, cu)
-    //cuMem.mode match {
-      //case ScalarBufferMode if isArgIn(mem) | isArgOut(mem) | isGetDRAMAddress(mem)=>
-        //cuMem.consumer = top.map(allocateCU)
-        //cuMem.producer = top.map(allocateCU)
-      //case SRAMMode | ScalarBufferMode =>
-        //val instIndex = dispatchOf(access, mem).head
-        //val instance = duplicatesOf(mem).apply(instIndex)
-        //val writeAccess = writerOf(mem) 
-        //val readAccess = getAccess(access).get
-        //val swapWritePipe = topControllerOf(writeAccess, mem, instIndex)
-        //val swapReadPipe  = topControllerOf(readAccess, mem, instIndex)
-        //val swapReadCU = swapReadPipe.map{ ctrl =>
-          //val topCtrl = topControllerHack(readAccess, ctrl)
-          //allocateCU(topCtrl.node)
-        //}
-        //val swapWriteCU = swapWritePipe.map { ctrl =>
-          //val topCtrl = topControllerHack(writeAccess, ctrl)
-          //allocateCU(topCtrl.node)
-        //}
-        //cuMem.consumer = swapReadCU
-        //cuMem.producer = swapWriteCU
-        //cuMem.bufferDepth = instance.depth
-      //case _ =>
-    //}
-    //cuMem.mode match {
-      //case SRAMMode =>
-        //TODO
-        //val writeAccess = writerOf(mem) 
-        //val writer = writeAccess.node
-        //val writerCU = allocateCU(writeAccess.ctrlNode)
-        //val readBanking  = bank(mem, access)
-        //val writeBanking = bank(mem, writer)
-        //cuMem.banking = Some(mergeBanking(writeBanking, readBanking))
-        //cuMem.banking = Some(Strided(1))
-      //case VectorFIFOMode | ScalarFIFOMode =>
-        //cuMem.banking = Some(Strided(1))
-      //case _ =>
-        //cuMem.banking = None
-    //}
-    //cuMem.size = cuMem.mode match {
-      //case SRAMMode => dimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).product
-      //case ScalarFIFOMode | VectorFIFOMode if isFIFO(mem) =>
-        //sizeOf(mem.asInstanceOf[Exp[FIFO[Any]]]) match { case Exact(d) => d.toInt }
-      //case ScalarFIFOMode => 1
-      //case VectorFIFOMode => 1
-      //case ScalarBufferMode => 1
-    //}
-  //}
-  
-
   def createSRAM(dmem:Expr, inst:Memory, i:Int, cu:PCU):CUMemory = {
     val cuMem = getOrElseUpdate(cu.memMap, dmem, {
       val cuMem = CUMemory(quote(dmem), dmem, cu)
       cuMem.mode = SRAMMode
       cuMem.size = dimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product
-      //TODO: set banking
+      inst match {
+        case BankedMemory(dims, depth, isAccum) =>
+          dims.last match { case Banking(stride, banks, _) =>
+            // Inner loop dimension 
+            if (banks > 1) {
+              assert(banks<=16, s"Plasticine only support banking <= 16 within PMU banks=$banks")
+              cuMem.banking = Some(Strided(stride)) 
+            } else {
+              dbgs(s"createSRAM bank=1 stride=${stride}")
+              cuMem.banking = Some(NoBanks)
+            }
+          }
+        case DiagonalMemory(strides, banks, depth, isAccum) =>
+          throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
+      }
       cuMem.banking = Some(Strided(1))
       cuMem.bufferDepth = inst.depth
       dbgs(s"Add sram=$cuMem to cu=$cu")
@@ -346,11 +278,7 @@ trait PIRAllocation extends PIRTraversal {
         case mem if isReg(mem) => //TODO: Consider initValue of Reg?
           cuMem.size = 1
           cuMem.mode = ScalarBufferMode
-          val instIds = dispatchOf(reader, mem)
-          assert(instIds.size==1, s"number of dispatch = ${instIds.size} for $mem but expected to be 1")
-          val instId = instIds.head
-          val insts = duplicatesOf(mem)
-          cuMem.bufferDepth = insts(instId).depth
+          cuMem.bufferDepth = getDuplicate(dmem, dreader).depth
         case mem if isGetDRAMAddress(mem) =>
           cuMem.size = 1
           cuMem.mode = ScalarBufferMode
@@ -360,7 +288,7 @@ trait PIRAllocation extends PIRTraversal {
           cuMem.mode = if (getInnerPar(reader)==1) ScalarFIFOMode else VectorFIFOMode
         case mem if isStream(mem) =>
           cuMem.size = 1
-          val accesses = (if (isStreamIn(mem)) readersOf(mem) else writersOf(mem)).map{ _.ctrlNode }.toSet
+          val accesses = (if (isStreamIn(mem)) readersOf(mem) else writersOf(mem)).map{ _.node }.toSet
           assert(accesses.size==1, s"assume single access ctrlNode for StreamIn but found ${accesses}")
           cuMem.mode = if (getInnerPar(accesses.head)==1) ScalarFIFOMode else VectorFIFOMode
       }
@@ -392,28 +320,29 @@ trait PIRAllocation extends PIRTraversal {
     allocated += mem
     var readers = getReaders(mem) 
     readers.foreach { reader => 
-      val localWritten = isLocallyWritten(mem, reader)
-      dbgs(s"isLocallyWritten=$localWritten ${qdef(mem)} ${qdef(reader)}")
-      dbgs(s"mem=$mem, dmems=[${decompose(mem).mkString(",")}] dreaders=${decompose(reader).mkString(",")}")
-      val dreaders = reader match {
-        case reader if isFringe(reader) => decompose(mem).map { m => reader }
-        case reader => decompose(reader)
-      }
-      decompose(mem).zip(dreaders).foreach { case (dmem, dreader) => 
-        val bus = mem match {
-          case mem if isArgIn(mem) => Some(InputArg(s"${mem.name.getOrElse(quote(dmem))}", dmem))
-          case mem@Def(GetDRAMAddress(dram)) => Some(DramAddress(s"${dram.name.getOrElse(quote(dmem))}", dram, mem))
-          case _ => None
+      dbgblk(s"reader=$reader") {
+        dbgs(s"mem=$mem, dmems=[${decompose(mem).mkString(",")}] dreaders=${decompose(reader).mkString(",")}")
+        val dreaders = reader match {
+          case reader if isFringe(reader) => decompose(mem).map { m => reader }
+          case reader => decompose(reader)
         }
-        bus.foreach { b => globals += b }
-        getReaderCUs(reader).foreach { readerCU =>
-          if (!localWritten) { // Write to FIFO/StreamOut/RemoteReg
-            // Allocate local mem in the readerCU
-            createLocalMem(dmem, dreader, readerCU)
-            // Set writeport of the local mem who doesn't have a writer (ArgIn and GetDRAMAddress)
-            bus.foreach { bus => readerCU.memMap(dmem).writePort += bus }
-          } else { // Local reg accumulation
-            allocateLocal(readerCU, dmem)
+        decompose(mem).zip(dreaders).foreach { case (dmem, dreader) => 
+          val bus = mem match {
+            case mem if isArgIn(mem) => Some(InputArg(s"${mem.name.getOrElse(quote(dmem))}", dmem))
+            case mem@Def(GetDRAMAddress(dram)) => Some(DramAddress(s"${dram.name.getOrElse(quote(dmem))}", dram, mem))
+            case _ => None
+          }
+          bus.foreach { b => globals += b }
+          getReaderCUs(reader).foreach { readerCU =>
+            val localWritten = isLocallyWritten(dmem, dreader, readerCU)
+            if (!localWritten) { // Write to FIFO/StreamOut/RemoteReg
+              // Allocate local mem in the readerCU
+              createLocalMem(dmem, dreader, readerCU)
+              // Set writeport of the local mem who doesn't have a writer (ArgIn and GetDRAMAddress)
+              bus.foreach { bus => readerCU.memMap(dmem).writePort += bus }
+            } else { // Local reg accumulation
+              allocateLocal(readerCU, dmem)
+            }
           }
         }
       }
@@ -479,17 +408,76 @@ trait PIRAllocation extends PIRTraversal {
     allocateCU(pipe)
   }
 
-  def getMCUforReader(dmem:Expr, reader:Expr) = {
+  def getMCUforReader(dmem:Expr, dreader:Expr):List[PCU] = dbgblk(s"getMCUforReader($dmem, $dreader)") {
     val mem = compose(dmem)
+    val reader = compose(dreader)
+    dbgs(s"mem=$mem reader=$reader")
     val instId = dispatchOf(reader, mem).head
-    allocateMemoryCU(dmem).filter{_.style match { case MemoryCU(`instId`) => true; case _ => false } }.head
+    val inst = getDuplicate(mem, reader) 
+    var cus = allocateMemoryCU(dmem).filter{_.style match { case MemoryCU(`instId`, _) => true; case _ => false } }
+
+    val ParLocalReader(parLocalReads) = reader
+    assert(parLocalReads.size==1)
+    val (_, Some(addr), ens) = parLocalReads.head
+    inst match {
+      case m@BankedMemory(dims, depth, isAccum) =>
+        val inds = Seq.tabulate(dims.size) { i => addr.map { _(i) } }
+        dbgs(s"addr=$addr inds=$inds")
+        dbgs(s"BankedMemory # banks:${dims.map { 
+          case Banking(strides, banks, _) => s"(strides=$strides, banks=$banks)"
+        }.mkString(",")}")
+        //TODO Assume the last dimension is the inner dimension
+        val bankInds = inds.dropRight(1).zip(dims.dropRight(1)).zipWithIndex.map { 
+          case ((vinds, Banking(stride, banks, _)), dim) if vinds.toSet.size>1 =>
+            dbgs(s"dim=$dim vinds=${vinds} all banks=${banks}")
+            (0 until banks).map { b => (b, banks)}.toList
+          case ((vinds, Banking(stride, banks, _)), dim) if vinds.toSet.size==1 =>
+            val vind = vinds.head
+            dbgs(s"ctrlOf($vind)=${ctrlOf(vind)}")
+            val bankInds = ctrlOf(vind) match {
+              case Some((ctrl, _)) => 
+                val parIdxs = itersOf(ctrl).get.map { _.indexOf(vind) }.filter { _ > 0 }
+                assert(parIdxs == 1 , s"$ctrl doesn't belong to $ctrl but ctrlOf($vind) = $ctrl!")
+                List((parIdxs.head, banks))
+              case None => 
+                (0 until banks).map { b => (b, banks)}.toList
+            }
+            dbgs(s"dim=$dim banks=${bankInds}")
+            bankInds
+        }
+        dbgs(s"bankInds=$bankInds")
+        def indComb(inds:List[List[(Int, Int)]], prevDims:List[(Int, Int)]):List[Int] = { 
+          if (inds.isEmpty) {
+            val (inds, banks) = prevDims.unzip
+            List(flattenND(inds, banks)); 
+          } else {
+            val headDim::restDims = inds 
+            headDim.flatMap { bank => indComb(restDims, prevDims :+ bank) }
+          }
+        }
+        val banks = indComb(bankInds.toList, Nil)
+        dbgs(s"reader uses banks=$banks")
+        cus.filter{_.style match { case MemoryCU(_, bank) => banks.contains(bank); case _ => false } }
+      case DiagonalMemory(strides, banks, depth, isAccum) =>
+        throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
+    }
+    
+    cus
+  } 
+
+  def getMCUforWriter(dmem:Expr, dwriter:Expr):List[PCU] = {
+    val mem = compose(dmem)
+    val writer = compose(dwriter)
+    val cus = allocateMemoryCU(dmem)
+    //TODO
+    cus
   } 
 
   def prescheduleLocalMemRead(mem: Expr, reader:Expr) = {
     dbgblk(s"Allocating local memory read: $reader") {
       getReaderCUs(reader).foreach { readerCU =>
         decompose(mem).zip(decompose(reader)).foreach { case (dmem, dreader) =>
-          val locallyWritten = isLocallyWritten(dmem, dreader, Some(readerCU))
+          val locallyWritten = isLocallyWritten(dmem, dreader, readerCU)
           dbgs(s"$mem isLocalMemWrite:$locallyWritten readerCU:$readerCU dreader:$dreader")
           if (locallyWritten) {
             val reg = readerCU.get(dmem).get // Accumulator should be allocated during RegNew
@@ -511,9 +499,10 @@ trait PIRAllocation extends PIRTraversal {
         allocateLocalMem(mem)
         decompose(mem).zip(decompose(writer)).foreach { case (dmem, dwriter) =>
           dbgs(s"dmem:$dmem, dwriter:$dwriter")
+          dbgs(s"isArgOut=${isArgOut(mem)} isStreamOut=${isStreamOut(mem)} isReg=${isReg(mem)}")
+          dbgs(s"isFIFO=${isFIFO(mem)} isStream=${isStream(mem)} getInnerPar=${getInnerPar(writer)}")
           val bus = mem match {
             case mem if isArgOut(mem) => OutputArg(s"${quote(dmem)}_${quote(dwriter)}") 
-            case mem if isStreamOut(mem) & getField(dmem)==Some("data") => CUVector(s"${quote(dmem)}_${quote(dwriter)}")
             case mem if isReg(mem) => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
             case mem if isFIFO(mem) & getInnerPar(writer)==1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
             case mem if isStream(mem) & getInnerPar(writer)==1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
@@ -529,6 +518,7 @@ trait PIRAllocation extends PIRTraversal {
           dbgs(s"Add dwriter:$dwriter to writerCU:$writerCU")
           remoteReaders.foreach { reader =>
             getReaderCUs(reader).foreach { readerCU =>
+              dbgs(s"set ${quote(dmem)}.writePort = $bus in readerCU=$readerCU reader=$reader")
               readerCU.memMap(dmem).writePort += bus
             }
           }
@@ -546,27 +536,26 @@ trait PIRAllocation extends PIRTraversal {
       val (_, addrs, _) = reads.head
       val addr = addrs.map(_.head)
       val parBy1 = getInnerPar(reader)==1
-      val instIds = dispatchOf(reader, mem)
-      assert(instIds.size==1)
-      val instId = instIds.head
       decompose(mem).zip(decompose(reader)).foreach { case (dmem, dreader) =>
-        val bus = if (parBy1) CUScalar(s"${quote(dmem)}_$instId") 
-                  else CUVector(s"${quote(dmem)}_$instId")
-        val sramCU = getMCUforReader(dmem, reader)
-        val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, List(sramCU))
-        val sram = sramCU.memMap(mem)
-        sramCU.readStages(List(sram)) = addrStages
-        sram.readPort = Some(bus)
-        dbgs(s"sram=$sram readPort=$bus")
-        //sram.readAddr = ad.map(ad => ReadAddrWire(sram))
-        readerCUs.foreach { readerCU =>
-          globals += bus
-          val fifo = createRetimingFIFO(dreader, readerCU) 
-          dbgs(s"readerCU = $readerCU add $bus and $fifo")
-          // use reader as mem since one sram can be read by same cu twice with different address
-          // example:GDA
-          readerCU.addReg(dreader, MemLoadReg(fifo))
-          fifo.writePort += bus
+        val sramCUs = getMCUforReader(dmem, dreader)
+        val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, sramCUs)
+        sramCUs.foreach { sramCU =>
+          val bus = if (parBy1) CUScalar(s"${quote(dmem)}_${sramCU.name}") 
+                    else CUVector(s"${quote(dmem)}_${sramCU.name}")
+          val sram = sramCU.memMap(mem)
+          sramCU.readStages ++= addrStages
+          sram.readPort = Some(bus)
+          dbgs(s"sram=$sram readPort=$bus")
+          //sram.readAddr = ad.map(ad => ReadAddrWire(sram))
+          readerCUs.foreach { readerCU =>
+            globals += bus
+            val fifo = createRetimingFIFO(dreader, readerCU) 
+            dbgs(s"readerCU = $readerCU add $bus and $fifo")
+            // use reader as mem since one sram can be read by same cu twice with different address
+            // example:GDA
+            readerCU.addReg(dreader, MemLoadReg(fifo))
+            fifo.writePort += bus
+          }
         }
       }
     }
@@ -592,16 +581,17 @@ trait PIRAllocation extends PIRTraversal {
           case _ =>
         }
         // Schedule address calculation
-        val sramCUs = allocateMemoryCU(dmem)
+        val sramCUs = getMCUforWriter(dmem, dwriter) 
         val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, sramCUs)
         sramCUs.foreach { sramCU =>
           dbgs(s"sramCUs for dmem=${qdef(dmem)} cu=$sramCU")
           val sram = sramCU.memMap(mem)
           //sram.writeAddr = ad.map(ad => WriteAddrWire(sram))
-          sramCU.writeStages(List(sram)) = addrStages
+          sramCU.writeStages ++= addrStages
           val vfifo = createRetimingFIFO(dwriter, sramCU) //HACK: for fifo put writer as the mem
           vfifo.writePort += bus
           sram.writePort += LocalReadBus(vfifo)
+          dbgs(s"$vfifo.writePort=$bus")
         }
       }
     }
@@ -609,10 +599,7 @@ trait PIRAllocation extends PIRTraversal {
 
   def allocateFringe(fringe: Expr, dram: Expr, streamIns: List[Expr], streamOuts: List[Expr]) = {
     val cu = allocateCU(fringe)
-    val mode = cu.style match { 
-      case FringeCU(dram, mode) => mode
-      case _ => throw new Exception(s"fringe's style is nt FringeCU ${cu.style}")
-    }
+    val FringeCU(dram, mode) = cu.style
     streamIns.foreach { streamIn =>
       val readers = readersOf(streamIn)
       val readerCUs = readers.map(_.node).flatMap(getReaderCUs)
@@ -623,7 +610,9 @@ trait PIRAllocation extends PIRTraversal {
       dmems.foreach { 
         case ("ack", _) => //PIR doesn't uses contorl in spatial
         case (field, dmem) =>
-          val bus = if (getInnerPar(readers.head.ctrlNode)==1) CUScalar(s"${quote(dmem)}_${quote(fringe)}_$field")
+          val readerPar = getInnerPar(readers.head.node)
+          dbgs(s"fringe:$fringe $field reader:${readers.head} par=${readerPar}")
+          val bus = if (readerPar==1) CUScalar(s"${quote(dmem)}_${quote(fringe)}_$field")
                     else CUVector(s"${quote(dmem)}_${quote(fringe)}_$field")
           cu.fringeGlobals += field -> bus
           globals += bus
@@ -636,7 +625,7 @@ trait PIRAllocation extends PIRTraversal {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
-    dbgl(s"Visiting $lhs = $rhs") {
+    dbgl(s"Visiting ${qdef(lhs)}") {
       rhs match {
         case Hwblock(func,_) =>
           allocateCU(lhs)

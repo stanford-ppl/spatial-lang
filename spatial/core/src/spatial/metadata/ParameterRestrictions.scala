@@ -65,6 +65,11 @@ case class Domain[T](options: Seq[T], setter: (T,State) => Unit, getter: State =
   @stateful def setValue(v: T): Unit = setter(v, state)
   def len: Int = options.length
 
+  @stateful def filter(cond: State => Boolean): Domain[T] = {
+    val values = options.filter{i => setter(i, state); cond(state) }
+    new Domain[T](values, setter, getter)
+  }
+
   override def toString: String = {
     if (len <= 10) "Domain(" + options.mkString(",") + ")"
     else "Domain(" + options.take(10).mkString(", ") + "... [" + (len-10) + " more])"

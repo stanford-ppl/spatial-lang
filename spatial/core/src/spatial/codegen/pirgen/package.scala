@@ -58,6 +58,7 @@ package object pirgen {
     case cchain: CChainCopy => func(cchain.inst)
     case cchain: UnitCChain => Set.empty
 
+    case Some(x) => func(x) // Why is this not matching on Iterable or Iterator?
     case iter: Iterator[_] => iter.flatMap(func).toSet
     case iter: Iterable[_] => func(iter.iterator)
     case _ => Set.empty
@@ -264,6 +265,16 @@ package object pirgen {
     (partialAddr, addrCompute)
   }
 
+  def flattenND(inds:List[Int], dims:List[Int]):Int = { 
+    if (inds.isEmpty && dims.isEmpty) 0 
+    else { 
+      val i::irest = inds
+      val d::drest = dims
+      assert(i < d && i >= 0, s"Index $i out of bound $d")
+      i * drest.product + flattenND(irest, drest)
+    }
+  }
+
   def nodeToOp(node: Def): Option[PIROp] = node match {
     case Mux(_,_,_)                      => Some(PIRALUMux)
     case FixAdd(_,_)                     => Some(PIRFixAdd)
@@ -411,6 +422,8 @@ package object pirgen {
     case Def(_:StreamWrite[_]) => 1 
     case Def(_:FILOPush[_]) => 1 
     case Def(_:FILOPop[_]) => 1 
+    case Def(_:RegWrite[_]) => 1 
+    case Def(_:RegRead[_]) => 1 
   }
 
   @stateful def parentOf(exp:Expr):Option[Expr] = {
