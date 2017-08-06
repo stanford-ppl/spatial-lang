@@ -179,7 +179,7 @@ object ops {
     def /-/ (c: UInt): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       Utils.target match {
         case AWS_F1 => b/c // Raghu's box
-        case Zynq => b/c // Raghu's box
+        case Zynq => FringeGlobals.bigIP.divide(b, c, 16) // Raghu's box. Divide latency set to 16.
         case DE1 => b/c // Raghu's box
         case Default => b/c
       }
