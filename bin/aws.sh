@@ -33,7 +33,8 @@ cd $SPATIAL_HOME
 sed -i "s/override val target = .*/override val target = $trgt/g" apps/ASPLOS2018.scala
 
 # annotated_list=(`cat ${SPATIAL_HOME}/apps/src/MachSuite.scala | grep "// Regression" | sed 's/object //g' | sed 's/ extends.*//g'`)
-annotated_list=("Stencil3D" 
+annotated_list=(
+				"Stencil3D" 
 				# "NW" 
 				# "Viterbi" 
 				# "EdgeDetector" 
