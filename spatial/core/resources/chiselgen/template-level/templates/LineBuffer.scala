@@ -1,6 +1,7 @@
 package templates
 
 import chisel3._
+import ops._
 import chisel3.util.log2Ceil
 import chisel3.util.MuxLookup
 
@@ -32,7 +33,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
     val col_addr = Vec(col_rPar, Input(UInt(log2Ceil(line_size+1).W))) // From each row, read COL_PAR px starting at this col_addr
     // val row_addr = Input(UInt(1.W)) // ENHANCEMENT: Eventually will be a Vec, but for now ROW_PAR is 1 or num_lines only
     // val data_out = Vec(ROW_PAR, Vec(COL_PAR, Output(UInt(bitWidth.W)))) // TODO: Don't use Vec(Vec) since Chisel will switch inputs and outputs
-    val data_out = Vec(row_rPar * col_rPar, Output(UInt(bitWidth.W)))
+    val data_out = Vec(row_rPar *-* col_rPar, Output(UInt(bitWidth.W)))
     val swap = Output(Bool()) // for debugging
     // val row_wrap = Output(UInt(1.W))
   })
@@ -146,7 +147,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
       // }
     }
     for (i <- 0 until (num_lines)) { // ENHANCEMENT: num_lines -> row par
-      io.data_out(i*col_rPar + j) := MuxLookup(READ_countRowNum(i).io.output.count, 0.U, linebuf_read_wires_map)
+      io.data_out(i*-*col_rPar + j) := MuxLookup(READ_countRowNum(i).io.output.count, 0.U, linebuf_read_wires_map)
     }    
   }
   

@@ -1,5 +1,6 @@
 package templates
 
+import ops._
 import chisel3._
 import types._
 
