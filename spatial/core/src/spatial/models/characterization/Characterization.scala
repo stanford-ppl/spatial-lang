@@ -161,6 +161,8 @@ object Characterization extends AllBenchmarks {
     println("Number of programs: " + programs.length)
     println("Using SPATIAL_HOME: " + SPATIAL_HOME)
     println("Using CWD: " + Config.cwd)
+    Console.print("Previously generated programs [0]: ")
+    var i: Int = try { scala.io.StdIn.readLine().toInt } catch {case _:Throwable => 0 }
 
     val pool = Executors.newFixedThreadPool(threads)
     val workQueue = new LinkedBlockingQueue[String](programs.length)
@@ -170,10 +172,7 @@ object Characterization extends AllBenchmarks {
 
     if (RUN_SPATIAL) {
       // Set i to previously generated programs
-      Console.print("Previously generated programs [0]: ")
-      var i: Int = try { scala.io.StdIn.readLine().toInt } catch {case _:Throwable => 0 }
       programs.take(i).foreach { x => workQueue.put(x._1) }
-
       programs.drop(i).foreach { x =>
         val name = x._1
         Config.name = name
