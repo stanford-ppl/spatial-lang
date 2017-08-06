@@ -13,7 +13,11 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   var genericStreams = Set[(Exp[_], String)]()
   var argPorts = Set[(Exp[_], String)]()
 
-  private def visitUnrolled(e: Exp[_])(blk: => Unit) = visitBlk(e)(blk)
+  private def visitUnrolled(e: Exp[_], cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]])(blk: => Unit) = {
+    iters.foreach{grp => grp.foreach{i => ctrlOf(i) =  (e,0) }}
+    countersOf(cchain).zip(iters).foreach{case (ctr,grp) => grp.foreach{i => ctrOf(i) = ctr }}
+    visitBlk(e)(blk)
+  }
 
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
     memStreams = Set[(Exp[_], Int, Int)]()
@@ -108,12 +112,12 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
 
   override protected def analyze(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case e: UnrolledForeach =>
-      visitUnrolled(lhs){ visitBlock(e.func) }
+      visitUnrolled(lhs,e.cchain,e.iters){ visitBlock(e.func) }
       e.iters.flatten.foreach { iter => parentOf(iter) = lhs }
       e.valids.flatten.foreach { vld => parentOf(vld) = lhs }
 
     case e: UnrolledReduce[_,_] =>
-      visitUnrolled(lhs){ visitBlock(e.func) }
+      visitUnrolled(lhs,e.cchain,e.iters){ visitBlock(e.func) }
       isAccum(e.accum) = true
       parentOf(e.accum) = lhs
       e.iters.flatten.foreach { iter => parentOf(iter) = lhs }
