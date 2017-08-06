@@ -211,7 +211,7 @@ Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
 * <---- indicates relative amount of work needed before app will **pass**" > $wiki_file
 
 # Write combined travis button
-complete_tracker="${SPATIAL_HOME}/ClassComplete-Branch${branch}-Backend${type_todo}-Tracker/results"
+combined_tracker="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${type_todo}-Tracker/results"
 logger "Writing combined travis button..."
 init_travis_ci Combined $branch $type_todo
 
@@ -291,31 +291,31 @@ update_log() {
     pname=(`echo $p | sed "s/.*[0-9]\+_//g"`)
     cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/comptimes_${branch}_${type_todo}_${pname}.csv)"
     if [[ $p == *"pass"* ]]; then
-      echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${complete_tracker} > /dev/null
+      echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=(`sed -n '1p' $p`)
     elif [[ $p == *"failed_execution_validation"* ]]; then
-      echo "<----${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${complete_tracker} > /dev/null
+      echo "<----${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_execution_nonexistent_validation"* ]]; then
-      echo "<--------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${complete_tracker} > /dev/null
+      echo "<--------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_execution_backend_crash"* || $p == *"failed_execution_hanging"* ]]; then
-      echo "<------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${complete_tracker} > /dev/null
+      echo "<------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_compile_backend_crash"* || $p == *"failed_compile_cpp_crash"* ]]; then
-      echo "<----------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${complete_tracker} > /dev/null
+      echo "<----------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_app_spatial_compile"* ]]; then
-      echo "<--------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${complete_tracker} > /dev/null
+      echo "<--------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_app_not_written"* ]]; then
-      echo "<------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${complete_tracker} > /dev/null
+      echo "<------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_app_initialized"* ]]; then
-      echo "<----------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${complete_tracker} > /dev/null
+      echo "<----------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     else
-      echo "Unknown result: $p  " | sed "s/\.\///g" | tee -a $1 $tracker ${complete_tracker} > /dev/null
+      echo "Unknown result: $p  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     fi
 
