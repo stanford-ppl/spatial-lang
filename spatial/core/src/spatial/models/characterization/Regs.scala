@@ -34,10 +34,10 @@ trait Regs extends Benchmarks {
     }
   }
 
-  //gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(50,100,200), RegOp[_8](8,depth+1)) }
-  //gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(50,100,200), RegOp[_16](16,depth+1)) }
-  gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(50,100,200), RegOp[_32](32,depth+1)) }
-  //gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(50,100,200), RegOp[_64](64,depth+1)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(400,800,1000), RegOp[_8](8,depth+1)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(400,800,1000), RegOp[_16](16,depth+1)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(400,800,1000), RegOp[_32](32,depth+1)) }
+  gens :::= List.tabulate(7){depth => MetaProgGen("Reg", Seq(400,800,1000), RegOp[_64](64,depth+1)) }
 
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg1", Seq(50,100,200), RegOp[Bit](depth)) }
   //gens ::= List.tabulate(7){depth => MetaProgGen("Reg48", Seq(50,100,200), RegOp[Int48](depth)) }

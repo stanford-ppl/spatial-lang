@@ -10,12 +10,12 @@ import java.util.concurrent.{BlockingQueue, Executors, LinkedBlockingQueue, Time
 
 trait AllBenchmarks
     extends Benchmarks with SpatialCompiler
-    //with FIFOs
+    with FIFOs
     with Primitives
-    //with RegFiles
+    with RegFiles
     with Regs
     with SRAMs
-    //with Fringe
+    with Fringe
 
 object Characterization extends AllBenchmarks {
   lazy val SPATIAL_HOME: String = sys.env.getOrElse("SPATIAL_HOME", {
