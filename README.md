@@ -15,8 +15,7 @@ Spatial is an Argon DSL for programming reconfigurable hardware from a parameter
 
 |            | Last Update | Templates + SBT | Scala Backend | Chisel Backend |
 |------------|-----------|------------|------------|-------------|
-| **Master** | 
-| Chisel | [![Build Status](https://travis-ci.org/stanford-ppl/spatial-lang.svg?branch=master)](https://travis-ci.org/stanford-ppl/spatial-lang)  | [![Build Status](https://travis-ci.org/stanford-ppl/spatial-lang.svg?branch=master)](https://travis-ci.org/stanford-ppl/spatial-lang) | [![Build Status](https://travis-ci.org/mattfel1/Trackers.svg?branch=ClassComplete-Branchmaster-Backendchisel-Tracker)](https://github.com/stanford-ppl/spatial-lang/wiki/Brnch:master-Trgt:chisel | [![Build Status](https://travis-ci.org/mattfel1/Trackers.svg?branch=ClassComplete-Branchmaster-Backendscala-Tracker)](https://github.com/stanford-ppl/spatial-lang/wiki/Brnch:master-Trgt:chisel |
+| **Master** | [![Build Status](https://travis-ci.org/stanford-ppl/spatial-lang.svg?branch=master)](https://travis-ci.org/stanford-ppl/spatial-lang)  | [![Build Status](https://travis-ci.org/stanford-ppl/spatial-lang.svg?branch=master)](https://travis-ci.org/stanford-ppl/spatial-lang) | [![Build Status](https://travis-ci.org/mattfel1/Trackers.svg?branch=ClassComplete-Branchmaster-Backendchisel-Tracker)](https://github.com/stanford-ppl/spatial-lang/wiki/Brnch:master-Trgt:chisel) | [![Build Status](https://travis-ci.org/mattfel1/Trackers.svg?branch=ClassComplete-Branchmaster-Backendscala-Tracker)](https://github.com/stanford-ppl/spatial-lang/wiki/Brnch:master-Trgt:chisel) |
 
 
 |            | Templates | Unit Tests | Dense Apps | Sparse Apps |
