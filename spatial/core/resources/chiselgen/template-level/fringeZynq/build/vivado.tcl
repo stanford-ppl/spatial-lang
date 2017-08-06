@@ -1,6 +1,4 @@
-## Project constants
-set CLOCK_FREQ_MHZ 100
-set CLOCK_FREQ_HZ  [expr $CLOCK_FREQ_MHZ * 1000000]
+source clockFreq.tcl
 
 # Create project to make processing system IP from bd
 create_project ps_project ./ps_project -part xc7z045ffg900-2
@@ -27,6 +25,9 @@ add_files -norecurse [glob *.v]
 ## Import PS, reset, AXI protocol conversion and word width conversion IP
 import_ip -files [glob *.xci]
 import_ip -files {./ps_project/ps_project.srcs/sources_1/bd/design_1/ip/design_1_processing_system7_0_0/design_1_processing_system7_0_0.xci}
+
+## Create application-specific IP
+source bigIP.tcl
 
 set_property -dict [list CONFIG.CLK.FREQ_HZ $CLOCK_FREQ_HZ] [ get_ips design_1_auto_pc_0]
 set_property -dict [list CONFIG.CLK.FREQ_HZ $CLOCK_FREQ_HZ] [ get_ips design_1_auto_pc_1]
