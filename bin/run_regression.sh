@@ -93,7 +93,10 @@ for type in ${types[@]}; do
   		else
 		tmpuser=${USER}
   		fi
-		existing_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls ${fields[1]}" | grep ^20[1-2][0-9] | wc -l`
+		existing_scala_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*scala" | wc -l`
+		existing_chizl_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*chisel" | wc -l`
+		# Weigh chisel runs by 2 and scala runs by 1 because chisel takes so much longer
+		existing_runs=$((2*$existing_chizl_runs + $existing_scala_runs))
 		# echo "${fields[0]} has ${existing_runs} runs going (current best ${most_idle})"
 
 		if [[ ${existing_runs} -lt $most_idle ]]; then
