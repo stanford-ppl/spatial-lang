@@ -51,11 +51,20 @@ object Characterization extends AllBenchmarks {
   }
 
   val pw = new PrintWriter(new File("characterization.csv"))
+  val fl = new PrintWriter(new File("failures.log"))
 
   def storeArea(name: JString, area: Map[JString, scala.Double]): Unit = {
     pw.synchronized {
       area.foreach { case (comp, v) => pw.println(name + ',' + comp +',' + v) }
       pw.flush()
+    }
+  }
+
+  def noteFailure(name: JString): Unit = {
+    fl.synchronized {
+      Console.println(s"$name: FAIL")
+      fl.println(name)
+      fl.flush()
     }
   }
 
@@ -75,7 +84,7 @@ object Characterization extends AllBenchmarks {
 
             val (parsed, _) = area(name, synth)
             storeArea(name, parsed)
-            if (parsed.isEmpty) Console.println(s"#$id $name: FAIL")
+            if (parsed.isEmpty) noteFailure(name)
             else Console.println(s"#$id $name: DONE")
             //log.close()
           }
@@ -89,7 +98,8 @@ object Characterization extends AllBenchmarks {
           //file.mkdirs()
           //val log = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
           //e.printStackTrace()
-          Console.println(s"#$id $name: FAIL")
+
+          noteFailure(name)
           //log.close()
         }
       }
@@ -179,7 +189,7 @@ object Characterization extends AllBenchmarks {
         }
         catch {
           case e: Throwable =>
-            Console.println(s"Compiling #$i: $name: fail")
+            noteFailure(name + " COMPILATION")
             Config.verbosity = 4
             withLog(Config.logDir, "exception.log") {
               log(e.getMessage)
@@ -201,6 +211,7 @@ object Characterization extends AllBenchmarks {
     pool.awaitTermination(14L, TimeUnit.DAYS)
     Console.println("COMPLETED")
     pw.close()
+    fl.close()
   }
 
 }
