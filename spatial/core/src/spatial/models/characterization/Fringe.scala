@@ -68,23 +68,23 @@ trait Fringe extends Benchmarks {
   gens :::= ldPars.map{p => MetaProgGen("AlignedStore", Seq(2,4,8), Transfer2D[Int32](32, p, store=true, aligned=true)) }
   gens :::= ldPars.map{p => MetaProgGen("AlignedStore", Seq(2,4,8), Transfer2D[Int64](64, p, store=true, aligned=true)) }
 
-  gens :::= ldPars.map{p => MetaProgGen("AlignedLoad", Seq(2,4,8), Transfer1D[Int8](8, p, store = false, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedLoad", Seq(2,4,8), Transfer1D[Int16](16, p, store = false, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedLoad", Seq(2,4,8), Transfer1D[Int32](32, p, store = false, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedLoad", Seq(2,4,8), Transfer1D[Int64](64, p, store = false, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedLoad", Seq(2,4,8), Transfer1D[Int8](8, p, store = false, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedLoad", Seq(2,4,8), Transfer1D[Int16](16, p, store = false, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedLoad", Seq(2,4,8), Transfer1D[Int32](32, p, store = false, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedLoad", Seq(2,4,8), Transfer1D[Int64](64, p, store = false, aligned=false)) }
 
-  gens :::= ldPars.map{p => MetaProgGen("AlignedLoad", Seq(2,4,8), Transfer2D[Int8](8, p, store = false, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedLoad", Seq(2,4,8), Transfer2D[Int16](16, p, store = false, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedLoad", Seq(2,4,8), Transfer2D[Int32](32, p, store = false, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedLoad", Seq(2,4,8), Transfer2D[Int64](64, p, store = false, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedLoad", Seq(2,4,8), Transfer2D[Int8](8, p, store = false, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedLoad", Seq(2,4,8), Transfer2D[Int16](16, p, store = false, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedLoad", Seq(2,4,8), Transfer2D[Int32](32, p, store = false, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedLoad", Seq(2,4,8), Transfer2D[Int64](64, p, store = false, aligned=false)) }
 
-  gens :::= ldPars.map{p => MetaProgGen("AlignedStore", Seq(2,4,8), Transfer1D[Int8](8, p, store=true, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedStore", Seq(2,4,8), Transfer1D[Int16](16, p, store=true, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedStore", Seq(2,4,8), Transfer1D[Int32](32, p, store=true, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedStore", Seq(2,4,8), Transfer1D[Int64](64, p, store=true, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedStore", Seq(2,4,8), Transfer1D[Int8](8, p, store=true, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedStore", Seq(2,4,8), Transfer1D[Int16](16, p, store=true, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedStore", Seq(2,4,8), Transfer1D[Int32](32, p, store=true, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedStore", Seq(2,4,8), Transfer1D[Int64](64, p, store=true, aligned=false)) }
 
-  gens :::= ldPars.map{p => MetaProgGen("AlignedStore", Seq(2,4,8), Transfer2D[Int8](8, p, store=true, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedStore", Seq(2,4,8), Transfer2D[Int16](16, p, store=true, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedStore", Seq(2,4,8), Transfer2D[Int32](32, p, store=true, aligned=false)) }
-  gens :::= ldPars.map{p => MetaProgGen("AlignedStore", Seq(2,4,8), Transfer2D[Int64](64, p, store=true, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedStore", Seq(2,4,8), Transfer2D[Int8](8, p, store=true, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedStore", Seq(2,4,8), Transfer2D[Int16](16, p, store=true, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedStore", Seq(2,4,8), Transfer2D[Int32](32, p, store=true, aligned=false)) }
+  gens :::= ldPars.map{p => MetaProgGen("UnalignedStore", Seq(2,4,8), Transfer2D[Int64](64, p, store=true, aligned=false)) }
 }
