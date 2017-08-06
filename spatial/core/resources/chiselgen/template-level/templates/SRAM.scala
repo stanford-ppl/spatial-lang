@@ -3,6 +3,7 @@ package templates
 import util._
 import chisel3._
 import chisel3.util._
+import ops._
 
 import scala.collection.mutable.HashMap
 
@@ -101,7 +102,7 @@ class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int, syncMem: Boolean 
 
 // Last dimension is the leading-dim
 class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) extends Module { 
-  val depth = dims.reduce{_*_} // Size of memory
+  val depth = dims.reduce{_*-*_} // Size of memory
   val N = dims.length // Number of dimensions
   val addrWidth = dims.map{Utils.log2Up(_)}.max
 
@@ -126,10 +127,10 @@ class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) e
 
   // Address flattening
   m.io.w.addr := io.w.addr.zipWithIndex.map{ case (addr, i) =>
-    addr * (dims.drop(i).reduce{_*_}/dims(i)).U
+    addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
   }.reduce{_+_}
   m.io.r.addr := io.r.addr.zipWithIndex.map{ case (addr, i) =>
-    addr * (dims.drop(i).reduce{_*_}/dims(i)).U
+    addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
   }.reduce{_+_}
 
   // Check if read/write is in bounds
@@ -177,7 +178,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
            banks: Int, strides: Int, 
            wPar: List[Int], rPar: List[Int]) = this(logicalDims, bitWidth, List(banks), List(strides), wPar, rPar, BankedMemory)
 
-  val depth = logicalDims.reduce{_*_} // Size of memory
+  val depth = logicalDims.reduce{_*-*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
   val addrWidth = logicalDims.map{Utils.log2Up(_)}.max
 
@@ -208,7 +209,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
   }
   val numMems = bankingMode match {
     case DiagonalMemory => banks.head
-    case BankedMemory => banks.reduce{_*_}
+    case BankedMemory => banks.reduce{_*-*_}
   }
 
   // Create physical mems
@@ -223,17 +224,17 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
     // Writer conversion
     val convertedW = Wire(new multidimW(N,logicalDims,bitWidth))
     val physicalAddrs = bankingMode match {
-      case DiagonalMemory => wbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical / banks.head.U else logical}
-      case BankedMemory => wbundle.addr.zip(banks).map{ case (logical, b) => logical / b.U }
+      case DiagonalMemory => wbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical /-/ banks.head.U else logical}
+      case BankedMemory => wbundle.addr.zip(banks).map{ case (logical, b) => logical /-/ b.U }
     }
     physicalAddrs.zipWithIndex.foreach { case (calculatedAddr, i) => convertedW.addr(i) := calculatedAddr}
     convertedW.data := wbundle.data
     convertedW.en := wbundle.en
     val flatBankId = bankingMode match {
-      case DiagonalMemory => wbundle.addr.reduce{_+_} % banks.head.U
+      case DiagonalMemory => wbundle.addr.reduce{_+_} %-% banks.head.U
       case BankedMemory => 
-        val bankCoords = wbundle.addr.zip(banks).map{ case (logical, b) => logical % b.U }
-        bankCoords.zipWithIndex.map{ case (c, i) => c*(banks.drop(i).reduce{_*_}/banks(i)).U }.reduce{_+_}
+        val bankCoords = wbundle.addr.zip(banks).map{ case (logical, b) => logical %-% b.U }
+        bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
     }
 
     (convertedW, flatBankId)
@@ -245,17 +246,17 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
     // Reader conversion
     val convertedR = Wire(new multidimR(N,logicalDims,bitWidth))
     val physicalAddrs = bankingMode match {
-      case DiagonalMemory => rbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical / banks.head.U else logical}
-      case BankedMemory => rbundle.addr.zip(banks).map{ case (logical, b) => logical / b.U }
+      case DiagonalMemory => rbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical /-/ banks.head.U else logical}
+      case BankedMemory => rbundle.addr.zip(banks).map{ case (logical, b) => logical /-/ b.U }
     }
     physicalAddrs.zipWithIndex.foreach { case (calculatedAddr, i) => convertedR.addr(i) := calculatedAddr}
     convertedR.en := rbundle.en
     val syncDelay = if (syncMem) 1 else 0
     val flatBankId = bankingMode match {
-      case DiagonalMemory => chisel3.util.ShiftRegister(rbundle.addr.reduce{_+_}, syncDelay) % banks.head.U
+      case DiagonalMemory => chisel3.util.ShiftRegister(rbundle.addr.reduce{_+_}, syncDelay) %-% banks.head.U
       case BankedMemory => 
-        val bankCoords = rbundle.addr.zip(banks).map{ case (logical, b) => chisel3.util.ShiftRegister(logical, syncDelay) % b.U }
-        bankCoords.zipWithIndex.map{ case (c, i) => c*(banks.drop(i).reduce{_*_}/banks(i)).U }.reduce{_+_}
+        val bankCoords = rbundle.addr.zip(banks).map{ case (logical, b) => chisel3.util.ShiftRegister(logical, syncDelay) %-% b.U }
+        bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
     }
     (convertedR, flatBankId)
   }
@@ -354,7 +355,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
            wPar: List[Int], rPar: List[Int], 
            wBundling: List[Int], rBundling: List[Int], bPar: List[Int]) = this(logicalDims, numBufs, bitWidth, List(banks), List(strides), wPar, rPar, wBundling, rBundling, bPar, BankedMemory)
 
-  val depth = logicalDims.reduce{_*_} // Size of memory
+  val depth = logicalDims.reduce{_*-*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
   val addrWidth = logicalDims.map{Utils.log2Up(_)}.max
 
@@ -368,7 +369,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
     val broadcast = Vec(bPar.reduce{_+_}, Input(new multidimW(N, logicalDims, bitWidth)))
     val r = Vec(rPar.reduce{_+_},Input(new multidimR(N, logicalDims, bitWidth))) // TODO: Spatial allows only one reader per mem
     val output = new Bundle {
-      val data  = Vec(numBufs * maxR, Output(UInt(bitWidth.W)))  
+      val data  = Vec(numBufs *-* maxR, Output(UInt(bitWidth.W)))  
     }
     val debug = new Bundle {
       val invalidRAddr = Output(Bool())
@@ -383,14 +384,14 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
   // // Chisel3 broke this on 3/24/2017...
   // val reconstructedOut = (0 until numBufs).map{ h =>
   //   Vec((0 until rPar).map {
-  //     j => io.output.data(h*rPar + j)
+  //     j => io.output.data(h*-*rPar + j)
   //   })
   // }
 
   // Get info on physical dims
   // TODO: Upcast dims to evenly bank
   val physicalDims = logicalDims.zip(banks).map { case (dim, b) => dim/b}
-  val numMems = banks.reduce{_*_}
+  val numMems = banks.reduce{_*-*_}
 
   // Create physical mems
   val srams = (0 until numBufs).map{ i => Module(
@@ -488,7 +489,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
   (0 until numBufs).foreach {i =>
     val sel = (0 until numBufs).map{ statesOut(i).io.output.count === _.U }
     (0 until maxR).foreach{ j => 
-      io.output.data(i*maxR + j) := chisel3.util.Mux1H(sel, srams.map{f => f.io.output.data(j)})
+      io.output.data(i*-*maxR + j) := chisel3.util.Mux1H(sel, srams.map{f => f.io.output.data(j)})
     }
   }
 
@@ -519,7 +520,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
     // Figure out which rPar section this wBundle fits in by finding first false index with same rPar
     val rId = rInUse(port)
     // Get start index of this section
-    val base = port * maxR + rId
+    val base = port *-* maxR + rId
     val packbase = if (port > 0) {
       (0 until port).map{p => 
         rHashmap.getOrElse(p, List((0,0))).map{_._1}.reduce{_+_}
@@ -549,7 +550,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
  
   // def readTieDown(port: Int) { 
   //   (0 until numReaders).foreach {i => 
-  //     io.rSel(port * numReaders + i) := false.B
+  //     io.rSel(port *-* numReaders + i) := false.B
   //   }
   // }
 
@@ -593,7 +594,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
            wPar: List[Int], rPar: List[Int], 
            wBundling: List[Int], rBundling: List[Int], bPar: List[Int]) = this(logicalDims, numBufs, bitWidth, List(banks), List(strides), wPar, rPar, wBundling, rBundling, bPar, BankedMemory)
 
-  val depth = logicalDims.reduce{_*_} // Size of memory
+  val depth = logicalDims.reduce{_*-*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
   val addrWidth = logicalDims.map{Utils.log2Up(_)}.max
 
@@ -606,7 +607,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
     val w = Vec(wPar.reduce{_+_}, Input(new multidimW(N, logicalDims, bitWidth)))
     val r = Vec(rPar.reduce{_+_},Input(new multidimR(N, logicalDims, bitWidth))) // TODO: Spatial allows only one reader per mem
     val output = new Bundle {
-      val data  = Vec(numBufs * maxR, Output(UInt(bitWidth.W)))  
+      val data  = Vec(numBufs *-* maxR, Output(UInt(bitWidth.W)))  
     }
     val debug = new Bundle {
       val invalidRAddr = Output(Bool())
@@ -621,14 +622,14 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   // // Chisel3 broke this on 3/24/2017...
   // val reconstructedOut = (0 until numBufs).map{ h =>
   //   Vec((0 until rPar).map {
-  //     j => io.output.data(h*rPar + j)
+  //     j => io.output.data(h*-*rPar + j)
   //   })
   // }
 
   // Get info on physical dims
   // TODO: Upcast dims to evenly bank
   val physicalDims = logicalDims.zip(banks).map { case (dim, b) => dim/b}
-  val numMems = banks.reduce{_*_}
+  val numMems = banks.reduce{_*-*_}
 
   // Create physical mems
   val srams = (0 until numBufs).map{ i => Module(
@@ -723,7 +724,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   (0 until numBufs).foreach {i =>
     val sel = (0 until numBufs).map{ statesOut(i).io.output.count === _.U }
     (0 until maxR).foreach{ j => 
-      io.output.data(i*maxR + j) := chisel3.util.Mux1H(sel, srams.map{f => f.io.output.data(j)})
+      io.output.data(i*-*maxR + j) := chisel3.util.Mux1H(sel, srams.map{f => f.io.output.data(j)})
     }
   }
 
@@ -749,7 +750,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
     // Figure out which rPar section this wBundle fits in by finding first false index with same rPar
     val rId = rInUse(port)
     // Get start index of this section
-    val base = port * maxR + rId
+    val base = port *-* maxR + rId
     val packbase = if (port > 0) {
       (0 until port).map{p => 
         rHashmap.getOrElse(p, List((0,0))).map{_._1}.reduce{_+_}
@@ -779,7 +780,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
  
   // def readTieDown(port: Int) { 
   //   (0 until numReaders).foreach {i => 
-  //     io.rSel(port * numReaders + i) := false.B
+  //     io.rSel(port *-* numReaders + i) := false.B
   //   }
   // }
 

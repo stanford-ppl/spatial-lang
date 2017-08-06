@@ -16,7 +16,8 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
           case Def(DelayLine(size, data)) =>
             data match {
               case Const(_) => src"$data"
-              case _ => if (SpatialConfig.enableNaming) {s"${quote(data)}_D${size}"} else {super.quote(s)}
+              case _ => if (SpatialConfig.enableNaming) {s"${quote(data)}_D${size}" + alphaconv.getOrElse(s"${quote(data)}_D${size}", "")} 
+                        else {super.quote(s) + alphaconv.getOrElse(super.quote(s), "")}
             }
             
           /*case Def(ShiftRegNew(size, init)) =>

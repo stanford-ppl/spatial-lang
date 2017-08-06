@@ -211,7 +211,7 @@ Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
 * <---- indicates relative amount of work needed before app will **pass**" > $wiki_file
 
 # Write combined travis button
-complete_tracker="${SPATIAL_HOME}/ClassComplete-Branch${branch}-Backend${type_todo}-Tracker"
+complete_tracker="${SPATIAL_HOME}/ClassComplete-Branch${branch}-Backend${type_todo}-Tracker/results"
 logger "Writing combined travis button..."
 init_travis_ci Combined $branch $type_todo
 
