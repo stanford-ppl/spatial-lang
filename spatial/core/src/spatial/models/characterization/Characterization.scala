@@ -51,11 +51,20 @@ object Characterization extends AllBenchmarks {
   }
 
   val pw = new PrintWriter(new File("characterization.csv"))
+  val fl = new PrintWriter(new File("failures.log"))
 
   def storeArea(name: JString, area: Map[JString, scala.Double]): Unit = {
     pw.synchronized {
       area.foreach { case (comp, v) => pw.println(name + ',' + comp +',' + v) }
       pw.flush()
+    }
+  }
+
+  def noteFailure(name: JString): Unit = {
+    fl.synchronized {
+      Console.println(s"$name: FAIL")
+      fl.println(name)
+      fl.flush()
     }
   }
 
@@ -75,7 +84,7 @@ object Characterization extends AllBenchmarks {
 
             val (parsed, _) = area(name, synth)
             storeArea(name, parsed)
-            if (parsed.isEmpty) Console.println(s"#$id $name: FAIL")
+            if (parsed.isEmpty) noteFailure(name)
             else Console.println(s"#$id $name: DONE")
             //log.close()
           }
@@ -89,7 +98,8 @@ object Characterization extends AllBenchmarks {
           //file.mkdirs()
           //val log = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
           //e.printStackTrace()
-          Console.println(s"#$id $name: FAIL")
+
+          noteFailure(name)
           //log.close()
         }
       }
@@ -151,6 +161,8 @@ object Characterization extends AllBenchmarks {
     println("Number of programs: " + programs.length)
     println("Using SPATIAL_HOME: " + SPATIAL_HOME)
     println("Using CWD: " + Config.cwd)
+    Console.print("Previously generated programs [0]: ")
+    var i: Int = try { scala.io.StdIn.readLine().toInt } catch {case _:Throwable => 0 }
 
     val pool = Executors.newFixedThreadPool(threads)
     val workQueue = new LinkedBlockingQueue[String](programs.length)
@@ -160,10 +172,7 @@ object Characterization extends AllBenchmarks {
 
     if (RUN_SPATIAL) {
       // Set i to previously generated programs
-      Console.print("Previously generated programs [0]: ")
-      var i: Int = try { scala.io.StdIn.readLine().toInt } catch {case _:Throwable => 0 }
       programs.take(i).foreach { x => workQueue.put(x._1) }
-
       programs.drop(i).foreach { x =>
         val name = x._1
         Config.name = name
@@ -179,7 +188,7 @@ object Characterization extends AllBenchmarks {
         }
         catch {
           case e: Throwable =>
-            Console.println(s"Compiling #$i: $name: fail")
+            noteFailure(name + " COMPILATION")
             Config.verbosity = 4
             withLog(Config.logDir, "exception.log") {
               log(e.getMessage)
@@ -201,6 +210,7 @@ object Characterization extends AllBenchmarks {
     pool.awaitTermination(14L, TimeUnit.DAYS)
     Console.println("COMPLETED")
     pw.close()
+    fl.close()
   }
 
 }
