@@ -4,9 +4,12 @@ import spatial._
 import argon.core.Config
 import argon.util.Report._
 import java.io.{File, PrintWriter}
+import java.nio.file.{Files, Paths}
 
 import sys.process._
 import java.util.concurrent.{BlockingQueue, Executors, LinkedBlockingQueue, TimeUnit}
+
+import org.apache.commons.io.FileUtils
 
 trait AllBenchmarks
     extends Benchmarks with SpatialCompiler
@@ -161,8 +164,7 @@ object Characterization extends AllBenchmarks {
     println("Number of programs: " + programs.length)
     println("Using SPATIAL_HOME: " + SPATIAL_HOME)
     println("Using CWD: " + Config.cwd)
-    Console.print("Previously generated programs [0]: ")
-    var i: Int = try { scala.io.StdIn.readLine().toInt } catch {case _:Throwable => 0 }
+    val skipExisting = getYN("Skip generation for existing generated directories")
 
     val pool = Executors.newFixedThreadPool(threads)
     val workQueue = new LinkedBlockingQueue[String](programs.length)
@@ -172,18 +174,33 @@ object Characterization extends AllBenchmarks {
 
     if (RUN_SPATIAL) {
       // Set i to previously generated programs
-      programs.take(i).foreach { x => workQueue.put(x._1) }
-      programs.drop(i).foreach { x =>
+      //programs.take(i).foreach { x => workQueue.put(x._1) }
+      programs.zipWithIndex.foreach { case (x,i) =>
         val name = x._1
         Config.name = name
         Config.genDir = s"${Config.cwd}/gen/$name"
         Config.logDir = s"${Config.cwd}/logs/$name"
-        Config.verbosity = -2
-        Config.showWarn = false
+        //Config.verbosity = -2
+        //Config.showWarn = false
         resetState()
         try {
-          compileProgram(x._2)
-          Console.println(s"Compiling #$i: $name: done")
+          if (Files.exists(Paths.get(Config.genDir))) {
+            if (!skipExisting) {
+              try {
+                FileUtils.deleteDirectory(new File(Config.genDir))
+              }
+              catch {case _:Throwable => }
+              compileProgram(x._2)
+              println(s"Compiling #$i: $name: done")
+            }
+            else {
+              println(s"Compiling #$i: $name: skip")
+            }
+          }
+          else {
+            compileProgram(x._2)
+            println(s"Compiling #$i: $name: done")
+          }
           workQueue.put(name)
         }
         catch {
@@ -196,7 +213,6 @@ object Characterization extends AllBenchmarks {
               e.getStackTrace.foreach { line => log("  " + line) }
             }
         }
-        i += 1
       }
     }
     else {
