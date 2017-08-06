@@ -13,11 +13,11 @@ import org.apache.commons.io.FileUtils
 
 trait AllBenchmarks
     extends Benchmarks with SpatialCompiler
-    //with FIFOs
-    //with Primitives
-    //with RegFiles
-    //with Regs
-    //with SRAMs
+    with FIFOs
+    with Primitives
+    with RegFiles
+    with Regs
+    with SRAMs
     with Fringe
 
 object Characterization extends AllBenchmarks {
