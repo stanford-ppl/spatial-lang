@@ -89,14 +89,19 @@ for type in ${types[@]}; do
 		fields=(${dst//;/ })
 		# David hack
   		if [[ "$SUNETID" != "" && ${fields[0]} != "max-2" ]]; then
-		tmpuser=${SUNETID}		   		
+			tmpuser=${SUNETID}		   		
   		else
-		tmpuser=${USER}
+			tmpuser=${USER}
   		fi
-		existing_scala_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*scala" | wc -l`
-		existing_chizl_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*chisel" | wc -l`
-		# Weigh chisel runs by 2 and scala runs by 1 because chisel takes so much longer
-		existing_runs=$((2*$existing_chizl_runs + $existing_scala_runs))
+  		if timeout 2 nc -z ${fields[0]}.stanford.edu 22 2>/dev/null; then
+			existing_scala_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*scala" | wc -l`
+			existing_chizl_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*chisel" | wc -l`
+			# Weigh chisel runs by 2 and scala runs by 1 because chisel takes so much longer
+			existing_runs=$((2*$existing_chizl_runs + $existing_scala_runs))
+		else 
+			echo "${fields[0]} is unreachable at the moment :("
+			existing_runs=999
+		fi
 		# echo "${fields[0]} has ${existing_runs} runs going (current best ${most_idle})"
 
 		if [[ ${existing_runs} -lt $most_idle ]]; then
