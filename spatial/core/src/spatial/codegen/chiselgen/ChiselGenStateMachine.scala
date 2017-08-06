@@ -34,7 +34,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit(src"${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B")
 
       emitController(lhs, None, None, true)
-      if (iiOf(lhs) <= 1) {
+      if (iiOf(lhs) <= 1 | levelOf(lhs) == OuterControl) {
         emitGlobalWire(src"""val ${lhs}_II_done = true.B""")
       } else {
         emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr());""")
@@ -61,7 +61,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit("// Emitting nextState")
       visitBlock(nextState)
       emit(src"${lhs}_sm.io.input.enable := ${lhs}_en ")
-      emit(src"${lhs}_sm.io.input.nextState := ${nextState.result}.r.asSInt // Assume always int")
+      emit(src"${lhs}_sm.io.input.nextState := Mux(${lhs}_II_done.D(1 max ${lhs}_retime - 1), ${nextState.result}.r.asSInt, ${lhs}_sm.io.output.state.r.asSInt) // Assume always int")
       emit(src"${lhs}_sm.io.input.initState := ${start}.r.asSInt")
       emitGlobalWire(src"val $state = Wire(${newWire(state.tp)})")
       emit(src"${state}.r := ${lhs}_sm.io.output.state.r")
