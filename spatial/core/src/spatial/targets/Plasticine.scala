@@ -5,7 +5,7 @@ import spatial.models.altera._
 
 object Plasticine extends FPGATarget {
   def name = "Default"
-  val burstSize = 128 // in bits. TODO: This should actually be selectable
+  val burstSize = 512 // in bits
 
   //TODO: No model for plasticine yet
   override type Area = AlteraArea

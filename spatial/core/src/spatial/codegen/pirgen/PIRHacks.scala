@@ -35,12 +35,12 @@ trait PIRHacks extends PIRTraversal {
   def mcHack(pipe: Expr, cus: List[CU]) {
     def allCUs = mappingIn.values.flatten.flatten
 
-    dbg(s"MC Hack")
+    dbgs(s"MC Hack")
 
     // Set all CUs which write to a memory controller to StreamCUs
     // Either set parent to a streamcontroller, or make one and redirect parent
     cus.foreach{cu =>
-      dbg(s"${cu.name}: writtenMC${writtenMC(cu).mkString(",")}")
+      dbgs(s"${cu.name}: writtenMC${writtenMC(cu).mkString(",")}")
 
       // Set everything but first stages to streaming pipes
       //if (writesMC && cu.deps.nonEmpty) cu.style = StreamCU
@@ -50,13 +50,13 @@ trait PIRHacks extends PIRTraversal {
         case Some(parent: CU) =>
           val cusWithParent = allCUs.filter(_.parent == cu.parent).toSet
           if (parent.style != StreamCU) {
-            dbg(s"  Set $parent.style from ${parent.style} to StreamCU")
+            dbgs(s"  Set $parent.style from ${parent.style} to StreamCU")
             parent.style = StreamCU
           }
           cusWithParent.foreach { sib =>
             if (sib.style != StreamCU) {
               sib.style = StreamCU
-              dbg(s"  Set $sib.style from ${sib.style} to StreamCU")
+              dbgs(s"  Set $sib.style from ${sib.style} to StreamCU")
             }
           }
         case _ =>

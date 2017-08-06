@@ -21,41 +21,35 @@ trait PIRPrintout extends PIRTraversal {
       case _:FringeCU => "Fringe"
       case _          => "PCU"
     }
-    dbg("\n")
-    dbg(style + " " + cu.toString)
-    dbg("  isPMU: " + cu.isPMU)
-    dbg("  isPCU: " + cu.isPCU)
-    dbg("  Parent: " + cu.parentCU.map(_.name).getOrElse("None"))
-    dbg("  Lanes: " + cu.lanes)
-    dbg("  Counter chains:")
-    cu.cchains.foreach{cchain => dbg(s"    ${cchain.longString}") }
-    dbg("  Memories:")
-    cu.mems.foreach{mem => dbg(s"    $mem") }
-    dbg("  Compute stages:")
-    cu.computeStages.foreach{stage => dbg(s"    $stage") }
-    dbg("  Read stages:")
-    cu.readStages.foreach { case (mems, stages) =>
-      dbg("    Mems: " + mems.mkString(", "))
-      stages.foreach { stage => dbg(s"      $stage") }
-    }
-    dbg("  Write stages:")
-    cu.writeStages.foreach { case (mems, stages) =>
-      dbg("    Mems: " + mems.mkString(", "))
-      stages.foreach { stage => dbg(s"      $stage") }
-    }
-    dbg("  Control stages:")
-    cu.controlStages.foreach{stage => dbg(s"    $stage") }
+    dbgs("\n")
+    dbgs(style + " " + cu.toString)
+    dbgs("  isPMU: " + cu.isPMU)
+    dbgs("  isPCU: " + cu.isPCU)
+    dbgs("  Parent: " + cu.parentCU.map(_.name).getOrElse("None"))
+    dbgs("  Lanes: " + cu.lanes)
+    dbgs("  Counter chains:")
+    cu.cchains.foreach{cchain => dbgs(s"    ${cchain.longString}") }
+    dbgs("  Memories:")
+    cu.mems.foreach{mem => dbgs(s"    $mem") }
+    dbgs("  Compute stages:")
+    cu.computeStages.foreach{stage => dbgs(s"    $stage") }
+    dbgs("  Read stages:")
+    cu.readStages.foreach { stage => dbgs(s"    $stage") }
+    dbgs("  Write stages:")
+    cu.writeStages.foreach { stage => dbgs(s"   $stage") }
+    dbgs("  Control stages:")
+    cu.controlStages.foreach{stage => dbgs(s"    $stage") }
 
     val inputs = groupBuses(globalInputs(cu))
     val outputs = groupBuses(globalOutputs(cu))
-    dbg("  Scalar Inputs: ")
-    (inputs.args ++ inputs.scalars).foreach{bus => dbg(s"    $bus") }
-    dbg("  Scalar Outputs: ")
-    (outputs.args ++ outputs.scalars).foreach{bus => dbg(s"    $bus") }
-    dbg("  Vector Inputs: ")
-    inputs.vectors.foreach{bus => dbg(s"    $bus") }
-    dbg("  Vector Outputs: ")
-    outputs.vectors.foreach{bus => dbg(s"    $bus") }
+    dbgs("  Scalar Inputs: ")
+    (inputs.args ++ inputs.scalars).foreach{bus => dbgs(s"    $bus") }
+    dbgs("  Scalar Outputs: ")
+    (outputs.args ++ outputs.scalars).foreach{bus => dbgs(s"    $bus") }
+    dbgs("  Vector Inputs: ")
+    inputs.vectors.foreach{bus => dbgs(s"    $bus") }
+    dbgs("  Vector Outputs: ")
+    outputs.vectors.foreach{bus => dbgs(s"    $bus") }
 
     cu.style match {
       case _:MemoryCU =>

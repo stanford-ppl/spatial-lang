@@ -159,7 +159,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
           catch {case e:SplitException =>
             fail += 1
             //Console.println(s"$n [$perc%]: " + text + ": FAIL")
-            //dbg(e.msg)
+            //dbgs(e.msg)
             entries(n-1) = "F" // + settingsCSV + "\n" + e.msg + "\n"
           }
         }

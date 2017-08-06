@@ -25,7 +25,7 @@ trait PIRAreaModelHack extends PIRTraversal {
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
     if (mappingIn.contains(lhs)) {
       mappingIn(lhs).foreach{cu =>
-        dbg(c"CU:  $cu (lanes = ${cu.lanes}")
+        dbgs(c"CU:  $cu (lanes = ${cu.lanes}")
         val stageArea = cu.allStages.map{stage => areaOf(stage, cu) }.sum
         val ccArea = cu.cchains.map(cchainArea).sum
 
@@ -82,18 +82,18 @@ trait PIRAreaModelHack extends PIRTraversal {
       case PIRBitOr   => 33.868801
       case _ => warn(s"Don't know area of $op"); 0.0
     }) / 1000000.0
-    if (verbose) dbg(s"  $op: $area")
+    if (verbose) dbgs(s"  $op: $area")
     area
   } // convert to mm^2
 
   def regArea(verbose: Boolean = true): Double = {
     val area = opArea(PIRFixAdd, false)
-    if (verbose) dbg(s"  reg: $area")
+    if (verbose) dbgs(s"  reg: $area")
     area
   }
   def counterArea: Double = {
     val area = opArea(PIRFixAdd, false) + regArea(false)
-    dbg(c"  cchain: $area")
+    dbgs(c"  cchain: $area")
     area
   } // TODO
 
@@ -123,7 +123,7 @@ trait PIRAreaModelHack extends PIRTraversal {
     })
     if (area > largestMem) largestMem = area
 
-    dbg(s"  sram (size: ${sram.size}, banking: ${sram.banking}, buffers: $buffers): $area")
+    dbgs(s"  sram (size: ${sram.size}, banking: ${sram.banking}, buffers: $buffers): $area")
     area
   }
 
