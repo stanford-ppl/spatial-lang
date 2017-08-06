@@ -161,7 +161,7 @@ trait PIRRetiming extends PIRTraversal {
       case bus:VectorBus => VectorFIFOMode
     }
     sram.size = depth
-    sram.writePort = Some(bus) //TODO: readport?
+    sram.writePort += bus //TODO: readport?
     sram.banking = Some(Strided(1))
     sram
   }

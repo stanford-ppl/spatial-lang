@@ -54,14 +54,15 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
   }
 
   def areaOf(e: Exp[_]): Area = areaModel.apply(e, inHwScope, inReduce)
-  def requiresRegisters(x: Exp[_]): Boolean = latencyModel.requiresRegisters(x)
-  def retimingDelay(x: Exp[_]): Int = if (requiresRegisters(x)) latencyOf(x).toInt else 0
+  def requiresRegisters(x: Exp[_], inReduce: Boolean): Boolean = latencyModel.requiresRegisters(x, inReduce)
+  def retimingDelay(x: Exp[_], inReduce: Boolean): Int = if (requiresRegisters(x,inReduce)) latencyOf(x).toInt else 0
 
 
   def bitBasedInputs(d: Def): Seq[Exp[_]] = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
 
   def pipeDelayLineArea(block: Block[_], par: Int): Area = {
-    val latencies = pipeLatencies(block)._1
+    val (latencies, cycles) = latenciesAndCycles(block)
+    val cycleSyms = cycles.flatMap(_.symbols)
     val scope = latencies.keySet
     def delayOf(x: Exp[_]): Int = latencies.getOrElse(x, 0L).toInt
     /*
@@ -86,7 +87,8 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
       case s@Def(d) =>
         val criticalPath = delayOf(s) - latencyOf(s)
         bitBasedInputs(d).foreach{in =>
-          val size = retimingDelay(in) + criticalPath - delayOf(in)
+          val inReduce = cycleSyms.contains(in)
+          val size = retimingDelay(in, inReduce) + criticalPath - delayOf(in)
           if (size > 0) {
             delayLines(in) = Math.max(delayLines.getOrElse(in, 0L), size)
           }

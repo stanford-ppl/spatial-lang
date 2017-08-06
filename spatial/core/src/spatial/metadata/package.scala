@@ -6,8 +6,6 @@ package object metadata {
 
   type GeneralAffine = argon.analysis.GeneralAffine
   val GeneralAffine = argon.analysis.GeneralAffine
-  type GeneralOffset = argon.analysis.GeneralOffset
-  val GeneralOffset = argon.analysis.GeneralOffset
 
   type IndexPattern = argon.analysis.IndexPattern
   type AffineAccess = argon.analysis.AffineAccess

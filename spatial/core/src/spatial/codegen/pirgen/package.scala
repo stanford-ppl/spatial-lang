@@ -33,18 +33,22 @@ package object pirgen {
     case _ => false
   }
 
-  @stateful def extractConstant(x: Expr): ConstReg[AnyVal] = x match {
-    case Const(c: BigDecimal) if c.isWhole => ConstReg(c.toInt)
-    case Const(c: BigDecimal) => ConstReg(c.toFloat)
-    case Const(c: Boolean) => ConstReg(c)
+  @stateful def getConstant(x: Expr): Option[AnyVal] = x match {
+    case Const(c: BigDecimal) if c.isWhole => Some(c.toInt)
+    case Const(c: BigDecimal) => Some(c.toFloat)
+    case Const(c: Boolean) => Some(c)
 
-    case Param(c: BigDecimal) if c.isWhole => ConstReg(c.toInt)
-    case Param(c: BigDecimal) => ConstReg(c.toFloat  )
-    case Param(c: Boolean) => ConstReg(c)
+    case Param(c: BigDecimal) if c.isWhole => Some(c.toInt)
+    case Param(c: BigDecimal) => Some(c.toFloat  )
+    case Param(c: Boolean) => Some(c)
 
-    case Final(c: BigInt)  => ConstReg(c.toInt)
+    case Final(c: BigInt)  => Some(c.toInt)
+    case _ => None
+  }
 
-    case _ => throw new Exception(s"Cannot allocate constant value for $x")
+  @stateful def extractConstant(x: Expr): ConstReg[AnyVal] = getConstant(x) match {
+    case Some(c) => ConstReg(c)
+    case None => throw new Exception(s"Cannot allocate constant value for $x")
   }
 
   private def collectX[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
@@ -131,7 +135,7 @@ package object pirgen {
     case _:ScalarIn  | _:VectorIn  => true
     case _:MemLoadReg| _:MemNumel => true
     case _:TempReg | _:AccumReg | _:ReduceReg => true
-    case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => false
+    case _:WriteAddrWire | _:ReadAddrWire => false
     case _:ControlReg => true
     case _:ValidReg | _:ConstReg[_] | _:CounterReg => true
   }
@@ -140,7 +144,7 @@ package object pirgen {
     case _:ScalarIn  | _:VectorIn  => false
     case _:MemLoadReg| _:MemNumel => false
     case _:TempReg | _:AccumReg | _:ReduceReg => true
-    case _:WriteAddrWire | _:ReadAddrWire | _:FeedbackAddrReg | _:FeedbackDataReg => true
+    case _:WriteAddrWire | _:ReadAddrWire => true
     case _:ControlReg => true
     case _:ValidReg | _:ConstReg[_] | _:CounterReg => false
   }
@@ -318,18 +322,18 @@ package object pirgen {
 
     // TODO: Distinguish isInner?
     val banking = pattern match {
-      case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt, bankFactor, true)
-      case StridedAccess(Exact(a), i) => StridedBanking(a.toInt, bankFactor, true)
-      case OffsetAccess(i, b)         => StridedBanking(1, bankFactor, true)
-      case LinearAccess(i)            => StridedBanking(1, bankFactor, true)
-      case InvariantAccess(b)         => NoBanking
-      case RandomAccess               => NoBanking
+      case AffineAccess(Exact(a),i,b) => Banking(a.toInt, bankFactor, true)
+      case StridedAccess(Exact(a), i) => Banking(a.toInt, bankFactor, true)
+      case OffsetAccess(i, b)         => Banking(1, bankFactor, true)
+      case LinearAccess(i)            => Banking(1, bankFactor, true)
+      case InvariantAccess(b)         => NoBanking(1)
+      case RandomAccess               => NoBanking(1)
     }
     banking match {
-      case StridedBanking(stride,f,_) if f > 1  => Strided(stride)
-      case StridedBanking(stride,f,_) if f == 1 => NoBanks
-      case NoBanking if bankFactor==1         => NoBanks
-      case NoBanking                          => Duplicated
+      case Banking(stride,f,_) if f > 1  => Strided(stride)
+      case Banking(stride,f,_) if f == 1 => NoBanks
+      case NoBanking(_) if bankFactor==1 => NoBanks
+      case NoBanking(_)                  => Duplicated
     }
   }
 
@@ -385,11 +389,9 @@ package object pirgen {
     case Def(Hwblock(func,_)) => 1
     case Def(UnitPipe(en, func)) => 1
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
-      val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
-      par.asInstanceOf[Int]
+      getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
     case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
-      val ConstReg(par) = extractConstant(parFactorsOf(cchain).last)
-      par.asInstanceOf[Int]
+      getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
     case Def(Switch(body, selects, cases)) => getInnerPar(parentOf(n).get)
     case Def(SwitchCase(body)) => getInnerPar(parentOf(n).get)
     case Def(n:ParSRAMStore[_]) => n.ens.size

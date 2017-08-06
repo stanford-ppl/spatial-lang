@@ -43,7 +43,7 @@ class multidimR(val N: Int, val dims: List[Int], val w: Int) extends Bundle {
   override def cloneType = (new multidimR(N, dims, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 
-class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int) extends Module { // Unbanked, inner 1D mem
+class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int, syncMem: Boolean = false) extends Module { // Unbanked, inner 1D mem
   def this(size: Int) = this(size, true, 32)
 
   val addrWidth = Utils.log2Up(size)
@@ -68,21 +68,26 @@ class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int) extends Module { 
   val wInBound = io.w.addr < (size).U
   val rInBound = io.r.addr < (size).U
 
-  if (isFifo) { // Fifos need to be dual port to avoid strangeness
-    val m = Mem(size, UInt(bitWidth.W) /*, seqRead = true deprecated? */)
-    when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
-    io.output.data := m(io.r.addr)
-  } else {
+  if (syncMem) {
     val m = Module(new fringe.SRAM(bitWidth, size))
-//    val reg_rAddr = Reg(UInt())
-//    when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
-//    .elsewhen (io.r.en & rInBound) {reg_rAddr := io.r.addr}
-//    io.output.data := m(reg_rAddr)
     m.io.raddr := io.r.addr
     m.io.waddr := io.w.addr
-    m.io.wen   := io.w.en
+    m.io.wen   := io.w.en & wInBound
     m.io.wdata := io.w.data
     io.output.data := m.io.rdata
+  } else {
+    if (isFifo) { // Fifos need to be dual port to avoid strangeness
+      val m = Mem(size, UInt(bitWidth.W) /*, seqRead = true deprecated? */)
+      when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
+      io.output.data := m(io.r.addr)
+    } else {
+      if (syncMem) {
+      } else {
+        val m = Mem(size, UInt(bitWidth.W) /*, seqRead = true deprecated? */)
+        when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
+        io.output.data := m(io.r.addr)
+      }
+    }    
   }
 
   io.debug.invalidRAddr := ~rInBound
@@ -95,7 +100,7 @@ class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int) extends Module { 
 
 
 // Last dimension is the leading-dim
-class MemND(val dims: List[Int], bitWidth: Int = 32) extends Module { 
+class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) extends Module { 
   val depth = dims.reduce{_*_} // Size of memory
   val N = dims.length // Number of dimensions
   val addrWidth = dims.map{Utils.log2Up(_)}.max
@@ -117,7 +122,7 @@ class MemND(val dims: List[Int], bitWidth: Int = 32) extends Module {
   })
 
   // Instantiate 1D mem
-  val m = Module(new Mem1D(depth,true, bitWidth))
+  val m = Module(new Mem1D(depth, true, bitWidth, syncMem))
 
   // Address flattening
   m.io.w.addr := io.w.addr.zipWithIndex.map{ case (addr, i) =>
@@ -157,7 +162,7 @@ class MemND(val dims: List[Int], bitWidth: Int = 32) extends Module {
 */
 class SRAM(val logicalDims: List[Int], val bitWidth: Int, 
            val banks: List[Int], val strides: List[Int], 
-           val wPar: List[Int], val rPar: List[Int], val bankingMode: BankingMode) extends Module { 
+           val wPar: List[Int], val rPar: List[Int], val bankingMode: BankingMode, val syncMem: Boolean = false) extends Module { 
 
   // Overloaded construters
   // Tuple unpacker
@@ -207,7 +212,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
   }
 
   // Create physical mems
-  val m = (0 until numMems).map{ i => Module(new MemND(physicalDims, bitWidth))}
+  val m = (0 until numMems).map{ i => Module(new MemND(physicalDims, bitWidth, syncMem))}
 
   // Reconstruct io.w as 2d vector
 
@@ -245,10 +250,11 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
     }
     physicalAddrs.zipWithIndex.foreach { case (calculatedAddr, i) => convertedR.addr(i) := calculatedAddr}
     convertedR.en := rbundle.en
+    val syncDelay = if (syncMem) 1 else 0
     val flatBankId = bankingMode match {
-      case DiagonalMemory => rbundle.addr.reduce{_+_} % banks.head.U
+      case DiagonalMemory => chisel3.util.ShiftRegister(rbundle.addr.reduce{_+_}, syncDelay) % banks.head.U
       case BankedMemory => 
-        val bankCoords = rbundle.addr.zip(banks).map{ case (logical, b) => logical % b.U }
+        val bankCoords = rbundle.addr.zip(banks).map{ case (logical, b) => chisel3.util.ShiftRegister(logical, syncDelay) % b.U }
         bankCoords.zipWithIndex.map{ case (c, i) => c*(banks.drop(i).reduce{_*_}/banks(i)).U }.reduce{_+_}
     }
     (convertedR, flatBankId)
@@ -331,7 +337,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
 class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
            val banks: List[Int], val strides: List[Int], 
            val wPar: List[Int], val rPar: List[Int], 
-           val wBundling: List[Int], val rBundling: List[Int], val bPar: List[Int], val bankingMode: BankingMode) extends Module { 
+           val wBundling: List[Int], val rBundling: List[Int], val bPar: List[Int], val bankingMode: BankingMode, val syncMem: Boolean = false) extends Module { 
 
   // Overloaded construters
   // Tuple unpacker
@@ -390,7 +396,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
   val srams = (0 until numBufs).map{ i => Module(
     new SRAM(logicalDims,
             bitWidth, banks, strides, 
-            List(wPar, bPar).flatten, List(maxR), bankingMode)
+            List(wPar, bPar).flatten, List(maxR), bankingMode, syncMem)
   )}
 
   val sEn_latch = (0 until numBufs).map{i => Module(new SRFF())}
@@ -569,7 +575,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
 class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int, 
            val banks: List[Int], val strides: List[Int], 
            val wPar: List[Int], val rPar: List[Int], 
-           val wBundling: List[Int], val rBundling: List[Int], val bPar: List[Int], val bankingMode: BankingMode) extends Module { 
+           val wBundling: List[Int], val rBundling: List[Int], val bPar: List[Int], val bankingMode: BankingMode, val syncMem: Boolean = false) extends Module { 
 
   // Overloaded constructers
   // Tuple unpacker
@@ -628,7 +634,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   val srams = (0 until numBufs).map{ i => Module(
     new SRAM(logicalDims,
             bitWidth, banks, strides, 
-            List(wPar, bPar).flatten, List(maxR), bankingMode)
+            List(wPar, bPar).flatten, List(maxR), bankingMode, syncMem)
   )}
 
   val sEn_latch = (0 until numBufs).map{i => Module(new SRFF())}

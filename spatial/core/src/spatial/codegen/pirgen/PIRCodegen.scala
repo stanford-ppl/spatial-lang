@@ -20,7 +20,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
 
   override protected def emitBlock(b: Block[_]): Unit = visitBlock(b)
   override protected def quoteConst(c: Const[_]): String = s"Const($c)"
-  override protected def quote(x: Exp[_]): String = s"$x"
+  override protected def quote(x: Exp[_]): String = super[PIRTraversal].quote(x)
 
   val globals    = mutable.Set[GlobalComponent]()
   val decomposed = mutable.Map[Expr, Seq[(String, Expr)]]()

@@ -14,7 +14,7 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
   override lazy val latencyModel = new PlasticineLatencyModel{}
 
   // Only count latencies of nodes if they don't have retiming nodes
-  override def latencyOf(e: Exp[_]): Long = if (inHwScope) e match {
+  override def latencyOf(e: Exp[_], inReduce: Boolean = false): Long = if (inHwScope) e match {
     case Def(DelayLine(size,_)) => size
     case s: Sym[_] if s.dependents.exists{case Def(_:DelayLine[_]) => true; case _ => false} => 0
     case _ => latencyModel.latencyOf(e,inReduce)

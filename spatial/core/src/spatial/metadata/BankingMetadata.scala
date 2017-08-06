@@ -5,23 +5,32 @@ import forge._
 import spatial.aliases._
 import spatial.utils._
 
-sealed abstract class Banking { def banks: Int }
-case class StridedBanking(stride: Int, banks: Int, isOuter: Boolean) extends Banking  // Strided bank
-case object NoBanking extends Banking { def banks = 1 }   // No banking in the given dimension
+case class Banking(stride: Int, banks: Int, isOuter: Boolean) // Strided bank
+//case object NoBanking extends Banking { def banks = 1 }     // No banking in the given dimension
 
-@data object Banking {
+object NoBanking {
+  def apply(stride: Int) = Banking(stride, 1, isOuter = false)
+  def unapply(x: Banking): Option[Int] = x match {
+    case Banking(s,banks,isOuter) if banks == 1 && !isOuter => Some(s)
+    case _ => None
+  }
+}
+
+@data object Banks {
   def unapply(x: Banking): Option[Int] = Some(x.banks)
 }
 
 sealed abstract class Memory {
   def depth: Int
   def nDims: Int
+  def strides: Seq[Int]
   def isAccum: Boolean
   def totalBanks: Int
   def costBasisBanks: Seq[Int]
 }
 case class BankedMemory(dims: Seq[Banking], depth: Int, isAccum: Boolean) extends Memory {
   def nDims = dims.length
+  def strides = dims.map(_.stride)
   def totalBanks = dims.map(_.banks).product
   def costBasisBanks = dims.map(_.banks)
 }
@@ -47,9 +56,8 @@ case class Banks(banks: Seq[List[Int]]) extends Metadata[Banks] { def mirror(f:T
       // Default worst case: all banks
       val duplicates = duplicatesOf(mem)
       duplicates(idx) match {
-        case BankedMemory(dims, depth, isAccum) => dims.map { 
-          case StridedBanking(stride, banks, isOuter) => (0 until banks).toList
-          case NoBanking => List(0) 
+        case BankedMemory(dims, depth, isAccum) => dims.map {
+          case Banking(stride, banks, isOuter) => (0 until banks).toList
         }
         case DiagonalMemory(strides, banks, depth, isAccum) => Seq((0 until banks).toList)
       }
