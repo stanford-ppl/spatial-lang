@@ -34,9 +34,24 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
         val inds: Set[Int] = orig.indices.toSet
         val readers = readersOf(mem)
         val writers = writersOf(mem)
+        val accesses = readers ++ writers
 
         val readDuplicates = readers.flatMap { read => dispatchOf(read, mem) }.toSet
         val unreadDuplicates = inds diff readDuplicates
+
+        accesses.map(_.node).foreach{
+          case s @ Def(ParSRAMLoad(_,addr,_)) =>
+            dbgs(str(s))
+            addr.foreach{a => a.foreach{i =>
+              dbgs(s"  ${str(i)}: [${ctrlOf(i)}]")
+            }}
+          case s @ Def(ParSRAMStore(_,addr,_,_)) =>
+            dbgs(str(s))
+            addr.foreach{a => a.foreach{i =>
+              dbgs(s"  ${str(i)}: [${ctrlOf(i)}]")
+            }}
+          case _ =>
+        }
 
         var removedDuplicates = unreadDuplicates
         writers.foreach { write =>
