@@ -111,14 +111,14 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     }
 
     partitions.zipWithIndex.foreach{case (p,i) =>
-      dbg(s"Parition #$i")
-      dbg("  Stages: ")
+      dbgs(s"Parition #$i")
+      dbgs("  Stages: ")
       p.stages.foreach{stage =>
-        dbg(s"    ${str(stage)}")
+        dbgs(s"    ${str(stage)}")
       }
-      dbg("  Inputs: ")
+      dbgs("  Inputs: ")
       p.inputs.foreach{in =>
-        dbg(s"    ${str(in)}")
+        dbgs(s"    ${str(in)}")
       }
     }
 
@@ -126,9 +126,9 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
 
     // Order CUs using BFS
     def bfs(x: Partition): Int = layer.getOrElseAdd(x, {
-      dbg(c"Getting layer of partition #${partitions.indexOf(x)}")
+      dbgs(c"Getting layer of partition #${partitions.indexOf(x)}")
       val ins = x.inputs.flatMap{in => partitions.find(_.defines(in)) }.distinct
-      dbg(c"  inputs: " + ins.map(x => partitions.indexOf(x)).mkString(", "))
+      dbgs(c"  inputs: " + ins.map(x => partitions.indexOf(x)).mkString(", "))
       (-1 +: ins.map(bfs)).max + 1
     })
     val layers = partitions.map(bfs)
@@ -153,7 +153,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     }
 
     scope.foreach{stage =>
-      dbg(s"${str(stage)} [${paths.getOrElse(stage,0L)}]")
+      dbgs(s"${str(stage)} [${paths.getOrElse(stage,0L)}]")
     }
 
     (paths.toMap, delays.toMap)

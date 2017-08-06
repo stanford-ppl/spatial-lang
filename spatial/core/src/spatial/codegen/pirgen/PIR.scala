@@ -30,7 +30,7 @@ case object PipeCU extends CUStyle
 case object SequentialCU extends CUStyle
 case object MetaPipeCU extends CUStyle
 case object StreamCU extends CUStyle
-case class MemoryCU(instId:Int) extends CUStyle
+case class MemoryCU(instId:Int, bank:Int) extends CUStyle
 case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 
 // --- Local memory modes
@@ -63,6 +63,9 @@ case class LocalReadBus(mem:CUMemory) extends VectorBus(s"$mem.localRead")
 case class InputArg(override val name: String, dmem:Expr) extends ScalarBus(name) {
   override def toString = s"ain$name"
 }
+case class OutputArg(override val name: String) extends ScalarBus(name) {
+  override def toString = s"aout$name"
+}
 case class DramAddress(override val name: String, dram:Expr, mem:Expr) extends ScalarBus(name) {
   override def toString = s"dramAddr$name"
   // DramAddress of the same dram are the same
@@ -74,9 +77,6 @@ case class DramAddress(override val name: String, dram:Expr, mem:Expr) extends S
   override def hashCode: Int = {
     return dram.hashCode
   }
-}
-case class OutputArg(override val name: String) extends ScalarBus(name) {
-  override def toString = s"aout$name"
 }
 
 trait PIRDRAMBus
@@ -125,23 +125,18 @@ case class ControlReg() extends LocalMem[ControlReg] {
 }
 case class ValidReg(cchain: CUCChain, idx: Int) extends LocalMem[ValidReg] {
   override def eql(that: ValidReg) = this.cchain == that.cchain && this.idx == that.idx
-  override def toString = cchain.name+s"($idx).valid"
 }
 case class ReadAddrWire(mem: CUMemory) extends LocalMem[ReadAddrWire] {
   override def eql(that: ReadAddrWire) = this.mem == that.mem
-  override def toString = mem.name + ".readAddr"
 }
 case class WriteAddrWire(mem: CUMemory) extends LocalMem[WriteAddrWire] {
   override def eql(that: WriteAddrWire) = this.mem == that.mem
-  override def toString = mem.name + ".writeAddr"
 }
 case class MemLoadReg(mem: CUMemory) extends LocalMem[MemLoadReg] {
   override def eql(that: MemLoadReg) = this.mem == that.mem
-  override def toString = mem.name + ".readPort"
 }
 case class MemNumel(mem: CUMemory) extends LocalMem[MemLoadReg] {
   override def eql(that: MemLoadReg) = this.mem == that.mem
-  override def toString = mem.name + ".numel"
 }
 
 sealed abstract class ReduceMem[T<:LocalComponent] extends LocalMem[T]
@@ -153,6 +148,7 @@ case class AccumReg(init: ConstReg[_<:AnyVal]) extends ReduceMem[AccumReg] {
 }
 
 case class TempReg(x:Expr, init:Option[Any]) extends LocalMem[TempReg] {
+  override def eql(that: TempReg) = (this.x == that.x) && (this.init==that.init)
   override def toString = s"$x"
 }
 
@@ -339,15 +335,15 @@ abstract class AbstractComputeUnit {
 
 
 case class ComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends AbstractComputeUnit {
-  val writeStages   = mutable.HashMap[Seq[CUMemory], mutable.ArrayBuffer[Stage]]()
-  val readStages    = mutable.HashMap[Seq[CUMemory], mutable.ArrayBuffer[Stage]]()
+  val writeStages   = mutable.ArrayBuffer[Stage]()
+  val readStages    = mutable.ArrayBuffer[Stage]()
   val computeStages = mutable.ArrayBuffer[Stage]()
   val controlStages = mutable.ArrayBuffer[Stage]()
 
   def parentCU: Option[CU] = parent.flatMap{case cu: CU => Some(cu); case _ => None}
 
-  def allStages: Iterator[Stage] = writeStages.valuesIterator.flatMap(_.iterator) ++
-                                   readStages.valuesIterator.flatMap(_.iterator) ++
+  def allStages: Iterator[Stage] = writeStages.iterator ++
+                                   readStages.iterator ++
                                    computeStages.iterator ++
                                    controlStages.iterator
   var isDummy: Boolean = false
@@ -363,8 +359,8 @@ case class ComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends Abs
 
 
 case class PseudoComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends AbstractComputeUnit {
-  val writeStages = mutable.HashMap[Seq[CUMemory], Seq[PseudoStage]]() // List(mem) -> List[Stages]
-  val readStages = mutable.HashMap[Seq[CUMemory], Seq[PseudoStage]]() // List(mem) -> List[Stages]
+  val writeStages = mutable.ArrayBuffer[PseudoStage]() // List(mem) -> List[Stages]
+  val readStages = mutable.ArrayBuffer[PseudoStage]() // List(mem) -> List[Stages]
   val computeStages = mutable.ArrayBuffer[PseudoStage]()
   val remoteReadStages = mutable.Set[Expr]() // reg read, fifo deq
   val remoteWriteStages = mutable.Set[Expr]() // reg write, fifo enq
