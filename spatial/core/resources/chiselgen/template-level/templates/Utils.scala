@@ -6,7 +6,6 @@ import chisel3.util.{log2Ceil, isPow2}
 import chisel3.internal.sourceinfo._
 import types._
 import fringe._
-import fringe.fringeZynq.bigIP
 
 sealed trait DeviceTarget
 object Default extends DeviceTarget
@@ -146,20 +145,28 @@ object ops {
     }
 
     def *-* (c: UInt): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      Utils.target match {
-        case AWS_F1 => b*c // Raghu's box
-        case Zynq => b*c // Raghu's box
-        case DE1 => b*c // Raghu's box
-        case Default => b*c
+      if (Utils.retime) {
+        FringeGlobals.bigIP.multiply(b, c, Utils.fixmul_latency)
+      } else {
+        Utils.target match {
+          case AWS_F1 => b*c // Raghu's box
+          case Zynq => b*c // Raghu's box
+          case DE1 => b*c // Raghu's box
+          case Default => b*c
+        }
       }
     }
 
     def *-* (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      Utils.target match {
-        case AWS_F1 => b.asSInt*c // Raghu's box
-        case Zynq => b.asSInt*c // Raghu's box
-        case DE1 => b.asSInt*c // Raghu's box
-        case Default => b.asSInt*c
+      if (Utils.retime) {
+        FringeGlobals.bigIP.multiply(b.asSInt, c, Utils.fixmul_latency)
+      } else {
+        Utils.target match {
+          case AWS_F1 => b.asSInt*c // Raghu's box
+          case Zynq => b.asSInt*c // Raghu's box
+          case DE1 => b.asSInt*c // Raghu's box
+          case Default => b.asSInt*c
+        }
       }
     }
 
@@ -330,20 +337,28 @@ object ops {
     }
 
     def *-* (c: UInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      Utils.target match {
-        case AWS_F1 => b*c.asSInt // Raghu's box
-        case Zynq => b*c.asSInt // Raghu's box
-        case DE1 => b*c.asSInt // Raghu's box
-        case Default => b*c.asSInt
+      if (Utils.retime) {
+        FringeGlobals.bigIP.multiply(b, c.asSInt, Utils.fixmul_latency)
+      } else {
+        Utils.target match {
+          case AWS_F1 => b*c.asSInt // Raghu's box
+          case Zynq => b*c.asSInt // Raghu's box
+          case DE1 => b*c.asSInt // Raghu's box
+          case Default => b*c.asSInt
+        }
       }
     }
 
     def *-* (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      Utils.target match {
-        case AWS_F1 => b*c // Raghu's box
-        case Zynq => b*c // Raghu's box
-        case DE1 => b*c // Raghu's box
-        case Default => b*c
+      if (Utils.retime) {
+        FringeGlobals.bigIP.multiply(b, c, Utils.fixmul_latency)
+      } else {
+        Utils.target match {
+          case AWS_F1 => b*c // Raghu's box
+          case Zynq => b*c // Raghu's box
+          case DE1 => b*c // Raghu's box
+          case Default => b*c
+        }
       }
     }
 
@@ -493,7 +508,7 @@ object Utils {
 
   var target: DeviceTarget = Default
 
-  var fixmul_latency = 1
+  var fixmul_latency = 6
   var fixdiv_latency = 16
   var fixadd_latency = 1
   var fixsub_latency = 1
