@@ -484,8 +484,11 @@ object Utils {
   var fixeql_latency = 1
   var mux_latency = 1
 
+<<<<<<< Updated upstream
   var retime = false
 
+=======
+>>>>>>> Stashed changes
   val delay_per_numIter = List(
               fixsub_latency + fixdiv_latency + fixadd_latency,
               fixmul_latency + fixdiv_latency + fixadd_latency,
