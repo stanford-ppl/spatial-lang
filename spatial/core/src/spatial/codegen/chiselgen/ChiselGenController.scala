@@ -343,7 +343,7 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_range = ShiftRegister(${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W), 1)")
                 emit(src"val ${sym}${i}_jump = ShiftRegister(${st}.S(${32 min 2*w}.W) *-* ${p}.S(${32 min 2*w}.W), 1)")
                 emit(src"val ${sym}${i}_hops = (${sym}${i}_range /-/ ${sym}${i}_jump).asUInt")
-                emit(src"val ${sym}${i}_leftover = ShiftRegister(${sym}${i}_range %-% ${sym}${i}_jump, 1)")
+                emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_evenfit = ShiftRegister(${sym}${i}_leftover.asUInt === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = ShiftRegister(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
               case (Exact(s), Exact(e), _, Exact(p)) => 
@@ -351,14 +351,14 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_range = ShiftRegister(${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W), 1)")
                 emit(src"val ${sym}${i}_jump = ShiftRegister(${step} *-* ${p}.S(${w}.W), 1)")
                 emit(src"val ${sym}${i}_hops = (${sym}${i}_range /-/ ${sym}${i}_jump).asUInt")
-                emit(src"val ${sym}${i}_leftover = ShiftRegister(${sym}${i}_range %-% ${sym}${i}_jump, 1)")
+                emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_evenfit = ShiftRegister(${sym}${i}_leftover.asUInt === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = ShiftRegister(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
               case _ => 
                 emit(src"val ${sym}${i}_range = ShiftRegister(${end} - ${start}, 1)")
                 emit(src"val ${sym}${i}_jump = ShiftRegister(${step} *-* ${par}, 1)")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump")
-                emit(src"val ${sym}${i}_leftover = ShiftRegister(${sym}${i}_range %-% ${sym}${i}_jump, 1)")
+                emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_evenfit = ShiftRegister(${sym}${i}_leftover === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = ShiftRegister(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
             }
