@@ -18,7 +18,7 @@ trait ZynqBlackBoxes {
 
     val fractionBits = 2
 
-    val m = Module(new DivModBBox(dividendWidth, divisorWidth, signed, fractionBits, latency))
+    val m = Module(new DivModBBox(dividendWidth, divisorWidth, signed, false, fractionBits, latency))
     m.io.aclk := clock
     m.io.s_axis_dividend_tvalid := true.B
     m.io.s_axis_dividend_tdata := io.dividend
@@ -27,7 +27,26 @@ trait ZynqBlackBoxes {
     io.out := m.io.m_axis_dout_tdata(dividendWidth-1, fractionBits)
   }
 
-  class DivModBBox(val dividendWidth: Int, val divisorWidth: Int, val signed: Boolean, val fractionBits: Int, val latency: Int) extends BlackBox {
+  class Modulo(val dividendWidth: Int, val divisorWidth: Int, val signed: Boolean, val latency: Int) extends Module {
+    val io = IO(new Bundle {
+      val dividend = Input(UInt(dividendWidth.W))
+      val divisor = Input(UInt(divisorWidth.W))
+      val out = Output(UInt(dividendWidth.W))
+    })
+
+    val fractionBits = dividendWidth
+
+    val m = Module(new DivModBBox(dividendWidth, divisorWidth, signed, true, fractionBits, latency))
+    m.io.aclk := clock
+    m.io.s_axis_dividend_tvalid := true.B
+    m.io.s_axis_dividend_tdata := io.dividend
+    m.io.s_axis_divisor_tvalid := true.B
+    m.io.s_axis_divisor_tdata := io.divisor
+    io.out := m.io.m_axis_dout_tdata
+  }
+
+
+  class DivModBBox(val dividendWidth: Int, val divisorWidth: Int, val signed: Boolean, val isMod: Boolean, val fractionBits: Int, val latency: Int) extends BlackBox {
     val io = IO(new Bundle {
       val aclk = Input(Clock())
       val s_axis_dividend_tvalid = Input(Bool())
@@ -39,8 +58,9 @@ trait ZynqBlackBoxes {
     })
 
     val signedString = if (signed) "Signed" else "Unsigned"
-    val moduleName = s"div_${dividendWidth}_${divisorWidth}_${latency}_$signedString"
-    override def desiredName = s"div_${dividendWidth}_${divisorWidth}_${latency}_$signedString"
+    val modString = if (isMod) "Remainder" else "Fractional"
+    val moduleName = s"div_${dividendWidth}_${divisorWidth}_${latency}_${signedString}_${modString}"
+    override def desiredName = s"div_${dividendWidth}_${divisorWidth}_${latency}_${signedString}_${modString}"
 
     // Print required stuff into a tcl file
     if (!createdIP.contains(moduleName)) {
@@ -49,7 +69,7 @@ s"""
 ## Integer Divider
 create_ip -name div_gen -vendor xilinx.com -library ip -version 5.1 -module_name $moduleName
 set_property -dict [list CONFIG.latency_configuration {Manual} CONFIG.latency {$latency}] [get_ips $moduleName]
-set_property -dict [list CONFIG.dividend_and_quotient_width {$dividendWidth} CONFIG.divisor_width {$divisorWidth} CONFIG.remainder_type {Fractional} CONFIG.clocks_per_division {1} CONFIG.fractional_width {$fractionBits} CONFIG.operand_sign {$signedString}] [get_ips $moduleName]
+set_property -dict [list CONFIG.dividend_and_quotient_width {$dividendWidth} CONFIG.divisor_width {$divisorWidth} CONFIG.remainder_type {$modString} CONFIG.clocks_per_division {1} CONFIG.fractional_width {$fractionBits} CONFIG.operand_sign {$signedString}] [get_ips $moduleName]
 set_property -dict [list CONFIG.ACLK_INTF.FREQ_HZ $$CLOCK_FREQ_HZ] [get_ips $moduleName]
 
 """)
