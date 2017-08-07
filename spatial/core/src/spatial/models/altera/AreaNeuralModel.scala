@@ -130,7 +130,7 @@ abstract class AreaNeuralModel(
     (network, errors, maxError)
   }
 
-  def evaluate(x: AlteraArea): Int = {
+  def evaluate(x: Array[Double]): Int = {
     if (needsInit) init()
     val input = x.toArray.zip(maxValues.slice(0,RBRAM)).map{case (n,m) => n/m}
     val output = network.compute(new BasicMLData(input))

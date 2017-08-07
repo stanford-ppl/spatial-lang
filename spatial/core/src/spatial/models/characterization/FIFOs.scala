@@ -17,7 +17,7 @@ trait FIFOs extends Benchmarks {
         Foreach(0 until size par p){i =>
           fifos.foreach{fifo => fifo.enq(i.to[T]) }
         }
-        Pipe {
+        Foreach(0 until size par p){i =>
           fifos.zip(outs).foreach{case (fifo,out) => out := fifo.deq() }
         }
       }

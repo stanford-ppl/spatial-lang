@@ -8,11 +8,11 @@ object Plasticine extends FPGATarget {
   val burstSize = 512 // in bits
 
   //TODO: No model for plasticine yet
-  override type Area = AlteraArea
-  override type Sum  = AlteraAreaSummary
+  override type Area[T] = AlteraArea[T]
+  override type Sum[T]  = AlteraAreaSummary[T]
   def areaMetric: AreaMetric[Area] = AlteraAreaMetric
   override lazy val areaModel: AreaModel[Area,Sum] = new StratixVAreaModel
   override lazy val latencyModel: LatencyModel = new StratixVLatencyModel
-  def capacity: AlteraAreaSummary = AlteraAreaSummary(alms=262400, regs=524800, dsps=1963, bram=2567, channels=13)
+  def capacity: AlteraAreaSummary[Double] = AlteraAreaSummary(alms=262400, regs=524800, dsps=1963, bram=2567, channels=13)
 }
 
