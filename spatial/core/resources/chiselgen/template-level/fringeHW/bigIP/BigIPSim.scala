@@ -39,7 +39,7 @@ class BigIPSim extends BigIP {
       else {
         val const = if (aconst.isDefined) aconst.get else bconst.get
         val other = if (aconst.isDefined) b else a
-        ShiftRegister(const.U * other, latency)
+        ShiftRegister(const.U * other, 0)
       }
     } else {
       ShiftRegister(a * b, latency)
@@ -53,7 +53,7 @@ class BigIPSim extends BigIP {
       else {
         val const = if (aconst.isDefined) aconst.get else bconst.get
         val other = if (aconst.isDefined) b else a
-        ShiftRegister(const.S * other, latency)
+        ShiftRegister(const.S * other, 0)
       }
     } else {
       ShiftRegister(a * b, latency)
