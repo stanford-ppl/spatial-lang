@@ -1,6 +1,6 @@
 CC=g++
 LINK=g++
-CROSS_COMPILE=arm-linux-gnueabihf-
+CROSS_COMPILE=/usr/bin/arm-linux-gnueabihf-
 
 FRINGE_SRC=./fringeZynq
 HOST_SRC=./

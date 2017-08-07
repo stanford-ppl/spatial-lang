@@ -9,4 +9,4 @@ accel.bit:
 	time vivado -mode batch -source vivado.tcl 2>&1 | tee vivado_synthesis.log
 
 clean:
-	rm -rf accel.bit accel.bit.bin project_1 *.jou *.log
+	rm -rf BOOT.* accel.bit accel.bit.bin ps_project project_1 *.jou *.log *.rpt *.bin

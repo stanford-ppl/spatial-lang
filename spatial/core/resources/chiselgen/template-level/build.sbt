@@ -28,6 +28,7 @@ resolvers ++= Seq(
 unmanagedSourceDirectories in Compile <++= baseDirectory { base =>
   Seq(
     base / "templates",
+    base / "fringeZynq",
     base / "fringeHW"
   )
 }

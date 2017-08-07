@@ -277,11 +277,11 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 					if (op.s | s) {
 						val numerator = util.Cat(this.number, 0.U((op.f+f+1).W)).asSInt
 						val denominator = op.number.asSInt
-						full_result.number := (numerator/denominator).asUInt
+						full_result.number := (numerator/-/denominator).asUInt
 					} else {
 						val numerator = util.Cat(this.number, 0.U((op.f+f+1).W))
 						val denominator = op.number
-						full_result.number := (numerator/denominator) // Not sure why we need the +1 in pow2
+						full_result.number := (numerator/-/denominator) // Not sure why we need the +1 in pow2
 					}
 					// Downcast to result
 					val result = Wire(new FixedPoint(return_type))
