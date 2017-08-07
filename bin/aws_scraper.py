@@ -7,7 +7,7 @@ latencies = []
 
 # dir_modifier = "retime"
 dir_modifier = "aws_retime"
-target = "aws" # "aws" or "zynq"
+target = "aws" # ONLY USE THIS SCRIPT FOR AWS TARGET "aws" or "zynq"
 
 if ("zynq" in target):
 	rootdir = os.environ['SPATIAL_HOME']

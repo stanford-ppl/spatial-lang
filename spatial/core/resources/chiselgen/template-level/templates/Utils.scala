@@ -466,7 +466,20 @@ object Utils {
 
   var target: DeviceTarget = Default
 
-  val delay_per_numIter = 6
+  var fixmul_latency = 1
+  var fixdiv_latency = 1
+  var fixadd_latency = 1
+  var fixsub_latency = 1
+  var fixmod_latency = 1
+  var fixeql_latency = 1
+  var mux_latency = 1
+
+  val delay_per_numIter = List(
+              fixsub_latency + fixdiv_latency + fixadd_latency,
+              fixmul_latency + fixdiv_latency + fixadd_latency,
+              fixsub_latency + fixmod_latency + fixeql_latency + mux_latency + fixadd_latency,
+              fixmul_latency + fixmod_latency + fixeql_latency + mux_latency + fixadd_latency
+    ).max
 
   def sqrt(num: FloatingPoint): FloatingPoint = {
     val m = num.m
