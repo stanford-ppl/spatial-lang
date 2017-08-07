@@ -51,8 +51,8 @@ def main():
         print 'Generated folder not found'
         return
         
-    if args.synth:
-        subprocess.call("make zynq | tee make.log", shell=True)
+    # if args.synth:
+        # subprocess.call("make zynq | tee make.log", shell=True)
 
     # Scrape and return data
     if os.path.isdir('verilog-zynq'):

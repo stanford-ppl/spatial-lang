@@ -15,8 +15,6 @@ object AWS_F1 extends DeviceTarget
 
 object ops {
 
-  // Randomly adding latencies here - they should be consistent with the values in LatencyModel.scala
-  val divideLatency = 16
 
 
   implicit class ArrayOps[T](val b:Array[types.FixedPoint]) {
@@ -181,11 +179,29 @@ object ops {
     }
 
     def /-/ (c: UInt): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      FringeGlobals.bigIP.divide(b, c, divideLatency)
+      if (Utils.retime) {
+        FringeGlobals.bigIP.divide(b, c, Utils.fixdiv_latency) // Raghu's box. Divide latency set to 16.
+      } else {
+       Utils.target match {
+         case AWS_F1 => b/c // Raghu's box
+         case Zynq => FringeGlobals.bigIP.divide(b, c, 16) // Raghu's box. Divide latency set to 16.
+         case DE1 => b/c // Raghu's box
+         case Default => b/c
+       }
+     }
     }
 
     def /-/ (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      FringeGlobals.bigIP.divide(b.asSInt, c, divideLatency)
+      if (Utils.retime) {
+        FringeGlobals.bigIP.divide(b.asSInt, c, Utils.fixdiv_latency) // Raghu's box. Divide latency set to 16.
+      } else {
+       Utils.target match {
+         case AWS_F1 => b.asSInt/c // Raghu's box
+         case Zynq => b.asSInt/c // Raghu's box
+         case DE1 => b.asSInt/c // Raghu's box
+         case Default => b.asSInt/c
+       }
+     }
     }
 
     def </> (c: FixedPoint): FixedPoint = {
@@ -339,11 +355,29 @@ object ops {
     }
 
     def /-/ (c: UInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      FringeGlobals.bigIP.divide(b, c.asSInt, divideLatency)
+      if (Utils.retime) {
+        FringeGlobals.bigIP.divide(b, c.asSInt, Utils.fixdiv_latency) // Raghu's box. Divide latency set to 16.
+      } else {
+       Utils.target match {
+         case AWS_F1 => b/c.asSInt // Raghu's box
+         case Zynq => b/c.asSInt // Raghu's box
+         case DE1 => b/c.asSInt // Raghu's box
+         case Default => b/c.asSInt
+       }
+     }
     }
 
     def /-/ (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      FringeGlobals.bigIP.divide(b, c, divideLatency)
+      if (Utils.retime) {
+        FringeGlobals.bigIP.divide(b, c, Utils.fixdiv_latency) // Raghu's box. Divide latency set to 16.
+      } else {
+       Utils.target match {
+         case AWS_F1 => b/c // Raghu's box
+         case Zynq => b/c // Raghu's box
+         case DE1 => b/c // Raghu's box
+         case Default => b/c
+       }
+     }
     }
 
     def </> (c: FixedPoint): FixedPoint = {
@@ -442,7 +476,21 @@ object Utils {
 
   var target: DeviceTarget = Default
 
-  val delay_per_numIter = 6
+  var fixmul_latency = 1
+  var fixdiv_latency = 1
+  var fixadd_latency = 1
+  var fixsub_latency = 1
+  var fixmod_latency = 1
+  var fixeql_latency = 1
+  var mux_latency = 1
+  var retime = false
+
+  val delay_per_numIter = List(
+              fixsub_latency + fixdiv_latency + fixadd_latency,
+              fixmul_latency + fixdiv_latency + fixadd_latency,
+              fixsub_latency + fixmod_latency + fixeql_latency + mux_latency + fixadd_latency,
+              fixmul_latency + fixmod_latency + fixeql_latency + mux_latency + fixadd_latency
+    ).max
 
   def sqrt(num: FloatingPoint): FloatingPoint = {
     val m = num.m
