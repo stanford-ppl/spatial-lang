@@ -56,7 +56,7 @@ set_property -dict [list CONFIG.SI_CLK.FREQ_HZ $CLOCK_FREQ_HZ] [ get_ips design_
 update_compile_order -fileset sources_1
 set_property top design_1_wrapper [current_fileset]
 
-set_property STEPS.SYNTH_DESIGN.ARGS.RETIMING true [get_runs synth_1]
+#set_property STEPS.SYNTH_DESIGN.ARGS.RETIMING true [get_runs synth_1]
 set_property STEPS.SYNTH_DESIGN.ARGS.KEEP_EQUIVALENT_REGISTERS true [get_runs synth_1]
 
 launch_runs synth_1

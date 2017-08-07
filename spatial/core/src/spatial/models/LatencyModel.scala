@@ -89,7 +89,7 @@ trait LatencyModel {
     case FixAdd(_,_) => true
     case FixSub(_,_) => true
     case FixMul(_,_) => true
-    case FixDiv(_,_) => true
+    case FixDiv(_,_) => false
     case FixMod(_,_) => true
     case FixLt(_,_)  => true
     case FixLeq(_,_) => true

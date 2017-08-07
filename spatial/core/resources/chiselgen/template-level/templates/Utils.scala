@@ -15,6 +15,10 @@ object AWS_F1 extends DeviceTarget
 
 object ops {
 
+  // Randomly adding latencies here - they should be consistent with the values in LatencyModel.scala
+  val divideLatency = 1
+
+
   implicit class ArrayOps[T](val b:Array[types.FixedPoint]) {
     def raw = {
       chisel3.util.Cat(b.map{_.raw})
@@ -177,21 +181,23 @@ object ops {
     }
 
     def /-/ (c: UInt): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      Utils.target match {
-        case AWS_F1 => b/c // Raghu's box
-        case Zynq => FringeGlobals.bigIP.divide(b, c, 16) // Raghu's box. Divide latency set to 16.
-        case DE1 => b/c // Raghu's box
-        case Default => b/c
-      }
+      FringeGlobals.bigIP.divide(b, c, divideLatency) // Raghu's box. Divide latency set to 16.
+//      Utils.target matchw {
+//        case AWS_F1 => b/c // Raghu's box
+//        case Zynq => FringeGlobals.bigIP.divide(b, c, 16) // Raghu's box. Divide latency set to 16.
+//        case DE1 => b/c // Raghu's box
+//        case Default => b/c
+//      }
     }
 
     def /-/ (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      Utils.target match {
-        case AWS_F1 => b.asSInt/c // Raghu's box
-        case Zynq => b.asSInt/c // Raghu's box
-        case DE1 => b.asSInt/c // Raghu's box
-        case Default => b.asSInt/c
-      }
+      FringeGlobals.bigIP.divide(b.asSInt, c, divideLatency) // Raghu's box. Divide latency set to 16.
+//      Utils.target match {
+//        case AWS_F1 => b.asSInt/c // Raghu's box
+//        case Zynq => b.asSInt/c // Raghu's box
+//        case DE1 => b.asSInt/c // Raghu's box
+//        case Default => b.asSInt/c
+//      }
     }
 
     def </> (c: FixedPoint): FixedPoint = {
@@ -345,21 +351,23 @@ object ops {
     }
 
     def /-/ (c: UInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      Utils.target match {
-        case AWS_F1 => b/c.asSInt // Raghu's box
-        case Zynq => b/c.asSInt // Raghu's box
-        case DE1 => b/c.asSInt // Raghu's box
-        case Default => b/c.asSInt
-      }
+      FringeGlobals.bigIP.divide(b, c.asSInt, divideLatency) // Raghu's box. Divide latency set to 16.
+//      Utils.target match {
+//        case AWS_F1 => b/c.asSInt // Raghu's box
+//        case Zynq => b/c.asSInt // Raghu's box
+//        case DE1 => b/c.asSInt // Raghu's box
+//        case Default => b/c.asSInt
+//      }
     }
 
     def /-/ (c: SInt): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
-      Utils.target match {
-        case AWS_F1 => b/c // Raghu's box
-        case Zynq => b/c // Raghu's box
-        case DE1 => b/c // Raghu's box
-        case Default => b/c
-      }
+      FringeGlobals.bigIP.divide(b, c, divideLatency) // Raghu's box. Divide latency set to 16.
+//      Utils.target match {
+//        case AWS_F1 => b/c // Raghu's box
+//        case Zynq => b/c // Raghu's box
+//        case DE1 => b/c // Raghu's box
+//        case Default => b/c
+//      }
     }
 
     def </> (c: FixedPoint): FixedPoint = {
