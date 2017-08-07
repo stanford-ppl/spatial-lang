@@ -127,11 +127,11 @@ class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) e
 
   // Address flattening
   m.io.w.addr := io.w.addr.zipWithIndex.map{ case (addr, i) =>
-    fringe.FringeGlobals.bigIP.multiply(addr, (dims.drop(i).reduce{_*-*_}/dims(i)).U, 1)
+    fringe.FringeGlobals.bigIP.multiply(addr, (dims.drop(i).reduce{_*-*_}/dims(i)).U, 0)
 //    addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
   }.reduce{_+_}
   m.io.r.addr := io.r.addr.zipWithIndex.map{ case (addr, i) =>
-    fringe.FringeGlobals.bigIP.multiply(addr, (dims.drop(i).reduce{_*-*_}/dims(i)).U, 1)
+    fringe.FringeGlobals.bigIP.multiply(addr, (dims.drop(i).reduce{_*-*_}/dims(i)).U, 0)
 //    addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
   }.reduce{_+_}
 
@@ -237,7 +237,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
       case BankedMemory => 
         val bankCoords = wbundle.addr.zip(banks).map{ case (logical, b) => logical %-% b.U }
 //        bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
-        bankCoords.zipWithIndex.map{ case (c, i) => fringe.FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 1) }.reduce{_+_}
+        bankCoords.zipWithIndex.map{ case (c, i) => fringe.FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 0) }.reduce{_+_}
     }
 
     (convertedW, flatBankId)
@@ -260,7 +260,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
       case BankedMemory => 
         val bankCoords = rbundle.addr.zip(banks).map{ case (logical, b) => chisel3.util.ShiftRegister(logical, syncDelay) %-% b.U }
 //        bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
-        bankCoords.zipWithIndex.map{ case (c, i) => fringe.FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 1) }.reduce{_+_}
+        bankCoords.zipWithIndex.map{ case (c, i) => fringe.FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 0) }.reduce{_+_}
     }
     (convertedR, flatBankId)
   }
