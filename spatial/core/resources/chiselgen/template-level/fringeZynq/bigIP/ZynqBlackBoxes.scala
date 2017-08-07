@@ -103,9 +103,18 @@ set_property -dict [list CONFIG.ACLK_INTF.FREQ_HZ $$CLOCK_FREQ_HZ] [get_ips $mod
       val P = Output(UInt(outWidth.W))
     })
 
+    // From doc: https://www.xilinx.com/support/documentation/ip_documentation/mult_gen/v12_0/pg108-mult-gen.pdf
+    // Use LUT-based mults when width <= 16 bits
+    val dspThreshold = 16 // Use DSPs for bit widths >= 16
+    val multConstruction = if ((aWidth > dspThreshold) | (bWidth > dspThreshold) | (outWidth > dspThreshold)) {
+      "Use_Mults"
+    } else {
+      "Use_LUTs"
+    }
+
     val signedString = if (signed) "Signed" else "Unsigned"
-    val moduleName = s"mul_${aWidth}_${bWidth}_${outWidth}_${latency}_${signedString}"
-    override def desiredName = s"mul_${aWidth}_${bWidth}_${outWidth}_${latency}_${signedString}"
+    val moduleName = s"mul_${aWidth}_${bWidth}_${outWidth}_${latency}_${signedString}_${multConstruction}"
+    override def desiredName = s"mul_${aWidth}_${bWidth}_${outWidth}_${latency}_${signedString}_${multConstruction}"
 
     // Print required stuff into a tcl file
     if (!createdIP.contains(moduleName)) {
@@ -113,7 +122,7 @@ set_property -dict [list CONFIG.ACLK_INTF.FREQ_HZ $$CLOCK_FREQ_HZ] [get_ips $mod
 s"""
 ## Integer Multiplier
 create_ip -name mult_gen -vendor xilinx.com -library ip -version 12.0 -module_name $moduleName
-set_property -dict [list CONFIG.MultType {Parallel_Multiplier} CONFIG.PortAType {$signedString}  CONFIG.PortAWidth {$aWidth} CONFIG.PortBType {$signedString} CONFIG.PortBWidth {$bWidth} CONFIG.Multiplier_Construction {Use_Mults} CONFIG.OptGoal {Speed} CONFIG.Use_Custom_Output_Width {true} CONFIG.OutputWidthHigh {$outWidth} CONFIG.PipeStages {$latency}] [get_ips $moduleName]
+set_property -dict [list CONFIG.MultType {Parallel_Multiplier} CONFIG.PortAType {$signedString}  CONFIG.PortAWidth {$aWidth} CONFIG.PortBType {$signedString} CONFIG.PortBWidth {$bWidth} CONFIG.Multiplier_Construction {$multConstruction} CONFIG.OptGoal {Speed} CONFIG.Use_Custom_Output_Width {true} CONFIG.OutputWidthHigh {$outWidth} CONFIG.PipeStages {$latency}] [get_ips $moduleName]
 set_property -dict [list CONFIG.clk_intf.FREQ_HZ $$CLOCK_FREQ_HZ] [get_ips $moduleName]
 
 """)
