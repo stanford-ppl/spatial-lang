@@ -31,6 +31,34 @@ class BigIPSim extends BigIP {
     }
   }
 
+  def multiply(a: UInt, b: UInt, latency: Int): UInt = {
+    val aconst = getConst(a)
+    val bconst = getConst(b)
+    if (aconst.isDefined | bconst.isDefined) { // Constant optimization
+      if (aconst.isDefined && bconst.isDefined) { (aconst.get * bconst.get).U }
+      else {
+        val const = if (aconst.isDefined) aconst.get else bconst.get
+        val other = if (aconst.isDefined) b else a
+        ShiftRegister(const.U * other, 0)
+      }
+    } else {
+      ShiftRegister(a * b, latency)
+    }
+  }
+  def multiply(a: SInt, b: SInt, latency: Int): SInt = {
+    val aconst = getConst(a)
+    val bconst = getConst(b)
+    if (aconst.isDefined | bconst.isDefined) { // Constant optimization
+      if (aconst.isDefined && bconst.isDefined) { (aconst.get * bconst.get).S }
+      else {
+        val const = if (aconst.isDefined) aconst.get else bconst.get
+        val other = if (aconst.isDefined) b else a
+        ShiftRegister(const.S * other, 0)
+      }
+    } else {
+      ShiftRegister(a * b, latency)
+    }
+  }
 }
 
 

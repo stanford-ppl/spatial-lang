@@ -71,7 +71,7 @@ wait_on_run impl_1
 open_run -name implDesign impl_1
 report_timing_summary -file ./par_timing_summary.rpt
 report_utilization -packthru -file ./par_utilization.rpt
-report_ram_utilization -file ./par_ram_utilization.rpt
+report_ram_utilization -detail -file ./par_ram_utilization.rpt
 
 #Export bitstream
 file copy -force ./project_1/project_1.runs/impl_1/design_1_wrapper.bit ./accel.bit
