@@ -198,7 +198,7 @@ trait LatencyModel {
     case FixAdd(_,_) => 1
     case FixSub(_,_) => 1
     case FixMul(_,_) => 1 // TODO
-    case FixDiv(_,_) => 1 // TODO
+    case FixDiv(_,_) => 16 // TODO
     case FixMod(_,_) => 1
     case FixLt(_,_)  => 1
     case FixLeq(_,_) => 1
