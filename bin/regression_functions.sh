@@ -624,6 +624,7 @@ function report {
     memerr=\`cat ${5}/log | grep \"No space left on device\" | wc -l\`
     if [[ \${memerr} != 0 ]]; then
       echo \"[FATAL_ERROR] `date` - NO SPACE LEFT ON THIS DEVICE!!!\" >> ${log}
+    fi
     exit 1
   fi
 }
