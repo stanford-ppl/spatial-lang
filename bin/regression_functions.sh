@@ -621,6 +621,10 @@ function report {
   else
     echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2} - ${5}/)\" >> ${log}
     touch ${SPATIAL_HOME}/regression_tests/${2}/results/\${1}.${3}_${4}
+    memerr=\`cat ${5}/log | grep \"No space left on device\" | wc -l\`
+    if [[ \${memerr} != 0 ]]; then
+      echo \"[FATAL_ERROR] `date` - NO SPACE LEFT ON THIS DEVICE!!!\" >> ${log}
+    fi
     exit 1
   fi
 }
