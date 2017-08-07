@@ -6,6 +6,7 @@ import chisel3.util.{log2Ceil, isPow2}
 import chisel3.internal.sourceinfo._
 import types._
 import fringe._
+import fringe.fringeZynq.bigIP
 
 sealed trait DeviceTarget
 object Default extends DeviceTarget
