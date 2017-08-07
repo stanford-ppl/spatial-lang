@@ -5,7 +5,7 @@ trait AreaConfig[T] {
   val default: T
 }
 
-case class AreaMap[T](entries: Map[String,T])(implicit config: AreaConfig[T]) {
+case class AreaMap[T](params: Seq[String], entries: Map[String,T])(implicit config: AreaConfig[T]) {
   private val fields = config.fields
   private val default = config.default
   def keys: Array[String] = fields
@@ -15,9 +15,9 @@ case class AreaMap[T](entries: Map[String,T])(implicit config: AreaConfig[T]) {
   def apply(field: String): T = entries.getOrElse(field, default)
   def array(keys: String*): Array[T] = keys.map{k => this(k)}.toArray
 
-  def map[R](func: T => R)(implicit config: AreaConfig[R]): AreaMap[R] = AreaMap(entries.mapValues{v => func(v)})
+  def map[R](func: T => R)(implicit config: AreaConfig[R]): AreaMap[R] = AreaMap(params, entries.mapValues{v => func(v)})
   def zip(that: AreaMap[T])(func: (T,T) => T): AreaMap[T] = {
-    AreaMap(fields.map{k => k -> func(this(k), that(k)) }.toMap)
+    AreaMap(params, fields.map{k => k -> func(this(k), that(k)) }.toMap)
   }
   def zipExists(that: AreaMap[T])(func: (T,T) => Boolean): Boolean = fields.exists{k => func(this(k), that(k)) }
   def zipForall(that: AreaMap[T])(func: (T,T) => Boolean): Boolean = fields.forall{k => func(this(k), that(k)) }
@@ -50,6 +50,14 @@ case class AreaMap[T](entries: Map[String,T])(implicit config: AreaConfig[T]) {
 }
 
 object AreaMap {
-  def zero[T](implicit config: AreaConfig[T]): AreaMap[T] = new AreaMap[T](Map.empty)
-  def apply[T](entries: (String,T)*)(implicit config: AreaConfig[T]): AreaMap[T] = new AreaMap(entries.toMap)
+  def zero[T](implicit config: AreaConfig[T]): AreaMap[T] = new AreaMap[T](Nil, Map.empty)
+  def apply[T](entries: (String,T)*)(implicit config: AreaConfig[T]): AreaMap[T] = new AreaMap(Nil, entries.toMap)
+
+  def fromLine[T](line: String, nParams: Int, indices: Seq[Int])(func: String => T)(implicit config: AreaConfig[T]): (String, AreaMap[T]) = {
+    val parts = line.split(",").map(_.trim)
+    val name  = parts.head
+    val params = parts.slice(1,nParams+1)
+    val entries = indices.map{i => func(parts(i)) }
+    name -> AreaMap(params, config.fields.zip(entries).toMap)
+  }
 }

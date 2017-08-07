@@ -4,6 +4,7 @@ import spatial.models.altera._
 import spatial.models._
 
 object DE1 extends AlteraDevice {
+  import AlteraDevice._
   val name = "DE1"
   def burstSize = 96 
 
@@ -32,5 +33,5 @@ object DE1 extends AlteraDevice {
   // FIXME: No models for DE1 yet
   def areaModel: AreaModel       = new StratixVAreaModel
   def latencyModel: LatencyModel = new StratixVLatencyModel
-  def capacity: Area = AreaMap("ALMs"->262400, "Regs"->524800, "DSPs"->1963, "BRAM"->2567, "Channels"->13)
+  def capacity: Area = AreaMap(ALMs->262400, Regs->524800, DSPs->1963, BRAM->2567, Channels->13)
 }

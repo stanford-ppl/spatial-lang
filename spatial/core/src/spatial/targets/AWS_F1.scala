@@ -11,5 +11,7 @@ object AWS_F1 extends XilinxDevice {
   def latencyModel: LatencyModel = new UltraScalePlusLatencyModel
 
   // TODO
-  override def capacity: Area = AreaMap() //: XilinxAreaSummary = XilinxAreaSummary(clbs=100000,regs=200000,dsps=2000,bram=2000,channels=15)
+  override def capacity: Area = AreaMap(
+
+  )
 }
