@@ -3,6 +3,7 @@ AWS_V_DIR=verilog-aws
 AWS_V_SIM_DIR=verilog-aws-sim
 ZYNQ_V_DIR=verilog-zynq
 APPNAME=$(shell basename $(shell pwd))
+BIGIP_SCRIPT=bigIP.tcl
 timestamp := $(shell /bin/date "+%Y-%m-%d---%H-%M-%S")
 
 all: help
@@ -214,8 +215,9 @@ zynq-sw:
 
 zynq-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs zynq"
+	mv ${BIGIP_SCRIPT} ${ZYNQ_V_DIR}/
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${ZYNQ_V_DIR}/Top.v
-	cp chisel/template-level/fringeZynq/* ${ZYNQ_V_DIR}
+	cp chisel/template-level/fringeZynq/build/* ${ZYNQ_V_DIR}
 	mv ${ZYNQ_V_DIR}/fsbl.elf._ ${ZYNQ_V_DIR}/fsbl.elf
 	mv ${ZYNQ_V_DIR}/u-boot.elf._ ${ZYNQ_V_DIR}/u-boot.elf
 	make -C ${ZYNQ_V_DIR}
@@ -224,7 +226,7 @@ zynq-clean:
 	make -C ${ZYNQ_V_DIR} clean
 	make -C cpp clean
 	rm -rf ${ZYNQ_V_DIR}
-	rm -f $(APPNAME).tar.gz
+	rm -f $(APPNAME).tar.gz ${BIGIP_SCRIPT}
 	rm -rf target
 
 de1soc: de1soc-hw de1soc-sw
@@ -281,7 +283,7 @@ vcs-clean:
 	make -C verilog-vcs clean
 	make -C cpp clean
 	rm -rf verilog-vcs
-	rm -f verilog TopVCS.tar.gz Top *.log *.vcd ucli.key
+	rm -f verilog TopVCS.tar.gz Top *.log *.vcd ucli.key ${BIGIP_SCRIPT}
 	rm -rf target
 
 sim-clean:
