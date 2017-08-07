@@ -16,6 +16,8 @@ abstract class BigIP {
   def divide(dividend: SInt, divisor: SInt, latency: Int): SInt
   def mod(dividend: UInt, divisor: UInt, latency: Int): UInt
   def mod(dividend: SInt, divisor: SInt, latency: Int): SInt
+  def multiply(a: UInt, b: UInt, latency: Int): UInt
+  def multiply(a: SInt, b: SInt, latency: Int): SInt
 
 }
 
