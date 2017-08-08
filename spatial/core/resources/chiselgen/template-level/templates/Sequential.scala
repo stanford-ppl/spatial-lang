@@ -45,7 +45,7 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
     stateFF.io.input(0).reset := io.input.rst
     val state = stateFF.io.output.data.asSInt
 
-    val rstMax = ctrDepth * fixmul_latency + Utils.delay_per_numIter
+    val rstMax = ctrDepth * fixmul_latency + Utils.delay_per_numIter + 1
     val rstw = Utils.log2Up(rstMax) + 2
     val rstCtr = Module(new SingleCounter(1, width = rstw))
     rstCtr.io.input.enable := state === resetState.S
@@ -73,7 +73,7 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
     ctr.io.input.gap := 0.S
     ctr.io.input.reset := io.input.rst | (state === doneState.S)
     val iter = ctr.io.output.count(0)
-    io.output.rst_en := (state === resetState.S)
+    io.output.rst_en := chisel3.util.ShiftRegister((state === resetState.S),1)
 
     when(io.input.enable) {
       when(state === initState.S) {
