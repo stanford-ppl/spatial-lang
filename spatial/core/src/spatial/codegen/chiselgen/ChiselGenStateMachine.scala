@@ -31,7 +31,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       alphaconv_register(src"$state")
-      emit(src"${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial.D(1,rr) | false.B")
+      emit(src"${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B")
 
       emitController(lhs, None, None, true)
       if (iiOf(lhs) <= 1 | levelOf(lhs) == OuterControl) {

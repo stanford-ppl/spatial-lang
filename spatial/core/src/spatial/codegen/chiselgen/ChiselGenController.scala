@@ -578,7 +578,7 @@ trait ChiselGenController extends ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       emitGlobalWire(src"""val ${lhs}_II_done = true.B""")
-      emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial.D(1,rr) | false.B""")
+      emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B""")
       emitController(lhs, None, None)
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None, None, None)
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
@@ -592,7 +592,7 @@ trait ChiselGenController extends ChiselGenCounter{
     case ParallelPipe(ens,func) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
-      emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial.D(1,rr) | false.B""")
+      emit(src"""${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial | false.B""")
       emitController(lhs, None, None)
       emit(src"""val ${lhs}_II_done = true.B""")
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
