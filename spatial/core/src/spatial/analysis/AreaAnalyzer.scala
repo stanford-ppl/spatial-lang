@@ -68,7 +68,7 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
   def bitBasedInputs(d: Def): Seq[Exp[_]] = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
 
   def pipeDelayLineArea(block: Block[_], par: Int): Area = {
-    val (latencies, cycles) = latenciesAndCycles(block)
+    val (latencies, cycles) = latenciesAndCycles(block, verbose = false)
     val cycleSyms = cycles.flatMap(_.symbols)
     val scope = latencies.keySet
     def delayOf(x: Exp[_]): Int = latencies.getOrElse(x, 0L).toInt
@@ -230,7 +230,14 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
         dbgs(s" - Next:   $nextStateArea")
         notDoneArea + actionArea + nextStateArea + areaOf(lhs)
 
-      case _ => rhs.blocks.map(blk => areaOfBlock(blk,false,1)).fold(NoArea){_+_} + areaOf(lhs)
+      case _ if inHwScope =>
+        val blocks = rhs.blocks.map(blk => areaOfBlock(blk,false,1))
+        val area = areaOf(lhs)
+        dbgs(s"${str(lhs)}: $area")
+        blocks.zipWithIndex.foreach{case (blk,i) => dbgs(s" - Block #$i: $blk") }
+        area + blocks.fold(NoArea){_+_}
+
+      case _ => areaOf(lhs) + rhs.blocks.map(blk => areaOfBlock(blk,false,1)).fold(NoArea){_+_}
     }
     scopeArea = area +: scopeArea
   }

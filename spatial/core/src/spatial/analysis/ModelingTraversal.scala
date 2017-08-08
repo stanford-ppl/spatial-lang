@@ -44,8 +44,8 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     }
   }
 
-  def latencyAndInterval(block: Block[_]): (Long, Long) = {
-    val (latencies, cycles) = latenciesAndCycles(block)
+  def latencyAndInterval(block: Block[_], verbose: Boolean = true): (Long, Long) = {
+    val (latencies, cycles) = latenciesAndCycles(block, verbose = verbose)
     val scope = latencies.keySet
     val latency = latencies.values.fold(0L){(a,b) => Math.max(a,b) }
     val interval = (cycles.map(_.length) + 0L).max
@@ -56,7 +56,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   }
 
   def latencyOfPipe(block: Block[_]): (Long, Long) = {
-    val (latency, interval) = latencyAndInterval(block)
+    val (latency, interval) = latencyAndInterval(block, verbose = false)
     (latency, interval)
   }
 
@@ -72,9 +72,9 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     def getOrElseAdd(k: K, v: => V): V = if (x.contains(k)) x(k) else { val value = v; x(k) = value; value }
   }
 
-  def latenciesAndCycles(block: Block[_]): (Map[Exp[_],Long], Set[Cycle]) = {
+  def latenciesAndCycles(block: Block[_], verbose: Boolean = true): (Map[Exp[_],Long], Set[Cycle]) = {
     val (scope, result) = blockNestedScopeAndResult(block)
-    pipeLatencies(result, scope)
+    pipeLatencies(result, scope, verbose = verbose)
   }
 
   def pipeLatencies(result: Seq[Exp[_]], scope: Set[Exp[_]], oos: Map[Exp[_],Long] = Map.empty, verbose: Boolean = true): (Map[Exp[_],Long], Set[Cycle]) = {

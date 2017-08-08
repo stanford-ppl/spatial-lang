@@ -17,7 +17,7 @@ abstract class AreaModel {
   val FILE_NAME: String
   @stateful def SRAMArea(width: Int, depth: Int): Area
   def RegArea(n: Int, bits: Int): Area = model("Reg")("b"->bits, "d"->1) * n
-  def MuxArea(n: Int, bits: Int): Area = model("Mux")("n"->n, "b"->bits)
+  def MuxArea(n: Int, bits: Int): Area = model("Mux")("b"->bits) * n // TODO: Not sure if this is always right
 
   final def FIELDS: Array[String] = SpatialConfig.target.FIELDS
   final def DSP_CUTOFF: Int = SpatialConfig.target.DSP_CUTOFF
@@ -72,13 +72,19 @@ abstract class AreaModel {
       val headings = lines.next().split(",").map(_.trim)
       val nParams  = headings.lastIndexWhere(_.startsWith("Param")) + 1
       val indices  = headings.zipWithIndex.filter{case (head,i) => FIELDS.contains(head) }.map(_._2)
+      val fields   = indices.map{i => headings(i) }
+      val missing = FIELDS diff fields
+      if (missing.nonEmpty) {
+        warn(s"Area model file $FILE_NAME for target ${SpatialConfig.target.name} was missing expected fields: ")
+        warn(missing.mkString(", "))
+      }
       lines.flatMap{line =>
         val parts = line.split(",").map(_.trim)
         if (parts.nonEmpty) {
           val name = parts.head
           val params = parts.slice(1, nParams).filterNot(_ == "")
           val entries = indices.map { i => if (i < parts.length) LinearModel.fromString(parts(i)) else Right(0.0) }
-          Some(name -> new AreaMap[NodeModel](name, params, FIELDS.zip(entries).toMap))
+          Some(name -> new AreaMap[NodeModel](name, params, fields.zip(entries).toMap))
         }
         else None
       }.toMap
@@ -99,7 +105,8 @@ abstract class AreaModel {
     val totalElements = dims.product
     val bufferDepth = instance.depth
 
-    val controlResourcesPerBank: Area = if (bufferDepth == 1) NoArea else MuxArea(bufferDepth, nbits)
+    val controlResourcesPerBank: Area = if (bufferDepth == 1) NoArea
+                                        else MuxArea(bufferDepth, nbits) + RegArea(bufferDepth, nbits)
 
     // TODO: This seems suspicious - check later
     instance match {
@@ -430,9 +437,17 @@ abstract class AreaModel {
       case Bits(bt) => model("SwitchMux")("n" -> s.cases.length, "b" -> bt.length)
       case _        => model("Switch")("n" -> s.cases.length)
     }
+    case tx:DenseTransfer[_,_] if tx.isStore => tx.lens.last match {
+      case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedStore")()
+      case _ => model("UnalignedStore")()
+    }
+    case tx: DenseTransfer[_,_] if tx.isLoad => tx.lens.last match {
+      case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedLoad")()
+      case _ => model("UnalignedLoad")()
+    }
 
     case _ =>
-
+      miss(u"${rhs.getClass} (rule)")
       NoArea
   }
 

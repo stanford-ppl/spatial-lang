@@ -7,8 +7,8 @@ package object models {
 
   implicit class NodeModelOps(x: NodeModel) {
     def eval(args: (String,Double)*): Double = x match {
-      case Left(model) => Math.ceil(model.eval(args:_*))
-      case Right(num) => Math.ceil(num)
+      case Left(model) => Math.max(0.0, Math.ceil(model.eval(args:_*)))
+      case Right(num) => Math.max(0.0, Math.ceil(num))
     }
   }
   implicit class ModelOps(x: Model) {
