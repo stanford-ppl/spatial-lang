@@ -404,7 +404,7 @@ trait ChiselGenController extends ChiselGenCounter{
     val ctrdepth = if (cchain.isDefined) {cchain.get match {case Def(CounterChainNew(ctrs)) => ctrs.length; case _ => 0}} else 0
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
     emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${sym}_retime))")
-    emit(src"""${sym}_sm.io.input.enable := ${sym}_en;""")
+    emit(src"""${sym}_sm.io.input.enable := ${sym}_en & retime_released""")
     if (isFSM) {
       emit(src"""${sym}_done := (${sym}_sm.io.output.done & ~${sym}_inhibitor.D(2,rr)).D(${sym}_retime,rr)""")      
     } else {
