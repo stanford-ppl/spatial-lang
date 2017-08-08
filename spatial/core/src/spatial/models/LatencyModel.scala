@@ -16,8 +16,27 @@ trait LatencyModel {
   var addRetimeRegisters = true // Enable adding registers after specified comb. logic
   var modelVerbosity = 1
 
-  def silence(): Unit = { modelVerbosity = -1 }
+  def silence(): Unit = {
+    modelVerbosity = -1
+    recordMissing = false
+  }
   def init(): Unit = { }
+
+  private var missing: Set[String] = Set[String]()
+  var recordMissing: Boolean = true
+
+  @stateful def reportMissing(): Unit = {
+    if (missing.nonEmpty) {
+      warn(s"The target device ${SpatialConfig.target.name} was missing one or more latency models.")
+      missing.foreach{str => warn(s"  $str") }
+      //warn(s"Models marked (csv) can be added to $FILE_NAME.")
+      warn("")
+      state.logWarning()
+    }
+  }
+  @inline private def miss(str: String): Unit = if (recordMissing) { missing += str }
+
+  def reset(): Unit = { missing = Set.empty }
 
   @stateful def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
 
@@ -275,7 +294,7 @@ trait LatencyModel {
     case FltRandom(_) => 0  // TODO: This is synthesizable now?
 
     case _ =>
-      warn(s"Don't know latency of $d - using default of 0")
+      miss(u"${d.getClass} (rule)")
       0
     }
 }

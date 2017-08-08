@@ -28,8 +28,8 @@ abstract class AreaModel {
   var models: Map[String,Model] = Map.empty
   def model(name: String)(args: (String,Double)*): Area = {
     models.get(name).map(_.eval(args:_*)).getOrElse{
-      val params = if (args.isEmpty) "" else " with optional parameters " + args.map(_._1).mkString(", ")
-      miss(s"$name - add to $FILE_NAME" + params)
+      val params = if (args.isEmpty) "" else " [optional parameters: " + args.map(_._1).mkString(", ") + "]"
+      miss(s"$name (csv)" + params)
       NoArea
     }
   }
@@ -42,9 +42,11 @@ abstract class AreaModel {
   @stateful def reportMissing(): Unit = {
     if (missing.nonEmpty) {
       warn(s"The target device ${SpatialConfig.target.name} was missing one or more area models.")
+      missing.foreach{str => warn(s"  $str") }
+      warn(s"Models marked (csv) can be added to $FILE_NAME.")
+      warn("")
       state.logWarning()
     }
-    missing.foreach{str => warn(s"  $str") }
   }
   @inline def miss(str: String): Unit = if (recordMissing) { missing += str }
 
@@ -259,7 +261,7 @@ abstract class AreaModel {
           var c = dimsOf(lhs).apply(1)
           model("RegFile2D")("b" -> rf.bT.length, "d" -> depth, "r" -> r, "c" -> c)
         case _ =>
-          miss(rank + "D RegFile")
+          miss(rank + "D RegFile (rule)")
           NoArea
       }.fold(NoArea){_+_}
 
@@ -387,8 +389,8 @@ abstract class AreaModel {
       case FixPtType(_,_,_) => model("FixLt")("b" -> nbits(lhs)) + model("Mux")("b" -> nbits(lhs))
       case FloatType()      => model("FloatLt")() + model("Mux")("b" -> nbits(lhs))
       case DoubleType()     => model("DoubleLt")() + model("Mux")("b" -> nbits(lhs))
-      case _ =>
-        miss(u"${rhs.getClass}")
+      case tp =>
+        miss(u"Mux on $tp (rule)")
         NoArea
     }
     case DelayLine(depth, _)   => areaOfDelayLine(depth,nbits(lhs),1)
