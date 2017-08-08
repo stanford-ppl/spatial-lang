@@ -56,19 +56,18 @@ abstract class AreaModel {
   }
 
   def loadModels(): Map[String,Model] = {
-    val resource = Try(Source.fromResource("models/" + FILE_NAME))
+    val resource = Try(Source.fromResource("models/" + FILE_NAME).getLines())
     val direct = Try{
       val SPATIAL_HOME = sys.env("SPATIAL_HOME")
-      Source.fromFile(SPATIAL_HOME + "/spatial/core/resources/models/" + FILE_NAME)
+      Source.fromFile(SPATIAL_HOME + "/spatial/core/resources/models/" + FILE_NAME).getLines()
     }
-    val file: Option[BufferedSource] = {
+    val file: Option[Iterator[String]] = {
       if (resource.isSuccess) Some(resource.get)
       else if (direct.isSuccess) Some(direct.get)
       else None
     }
 
-    file.map{src =>
-      val lines = src.getLines()
+    file.map{lines =>
       val headings = lines.next().split(",").map(_.trim)
       val nParams  = headings.lastIndexWhere(_.startsWith("Param")) + 1
       val indices  = headings.zipWithIndex.filter{case (head,i) => FIELDS.contains(head) }.map(_._2)
@@ -441,16 +440,20 @@ abstract class AreaModel {
       case _        => model("Switch")("n" -> s.cases.length)
     }
     case tx:DenseTransfer[_,_] if tx.isStore =>
-      val n = if (tx.lens.length == 1) "1" else "2"
+      val d = if (tx.lens.length == 1) "1" else "2"
+      val p = boundOf(tx.p).toInt
+      val w = tx.bT.length
       tx.lens.last match {
-        case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedStore"+n)()
-        case _ => model("UnalignedStore")()
+        case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedStore"+d)("p"->p,"w"->w)
+        case _ => model("UnalignedStore"+d)("p"->p,"w"->w)
       }
     case tx: DenseTransfer[_,_] if tx.isLoad =>
-      val n = if (tx.lens.length == 1) "1" else "2"
+      val d = if (tx.lens.length == 1) "1" else "2"
+      val p = boundOf(tx.p).toInt
+      val w = tx.bT.length
       tx.lens.last match {
-        case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedLoad"+n)()
-        case _ => model("UnalignedLoad"+n)()
+        case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedLoad"+d)("p"->p,"w"->w)
+        case _ => model("UnalignedLoad"+d)("p"->p,"w"->w)
       }
 
     case _ =>
