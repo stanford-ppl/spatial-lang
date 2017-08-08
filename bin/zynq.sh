@@ -28,17 +28,18 @@ screen -d -m -S zynq_screen
 annotated_list=(
 				"NW" 
 				"MD_Grid" 
-				# "GEMM_Blocked"
+				"GEMM_Blocked"
 				# "SPMV_CRS" 
 				# "PageRank" 
 				# "BlackScholes" 
-				# "TPCHQ6" 
+				"TPCHQ6" 
 				"AES" 
-				# "Kmeans"
-
+				"Kmeans"
+				"GDA"
+				
 				# # Testing
-				"SimpleTileLoadStore"
-				"MultiplexedWriteTest"
+				# "SimpleTileLoadStore"
+				# "MultiplexedWriteTest"
 				)
 
 				# "LeNet" "DjinnASR" "VGG16"  

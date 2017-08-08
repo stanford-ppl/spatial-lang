@@ -25,13 +25,14 @@ annotated_list=(
 				"NW" 
 				"MD_Grid" 
 				"GEMM_Blocked"
-				"SPMV_CRS" 
-				"PageRank" 
-				"BlackScholes" 
+				# "SPMV_CRS" 
+				# "PageRank" 
+				# "BlackScholes" 
 				"TPCHQ6" 
 				"AES" 
 				"Kmeans"
-				)
+				"GDA"
+								)
 
 				# "LeNet" "DjinnASR" "VGG16"  
 				# "KalmanFilter" "GACT" "AlexNet" "Network_in_Network" 
