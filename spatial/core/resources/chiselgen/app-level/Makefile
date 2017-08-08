@@ -124,6 +124,7 @@ aws-F1-hw:
 	# First use chisel to create the verilog
 	sbt "run-main top.Instantiator --verilog --testArgs aws"
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${AWS_V_DIR}/Top.v
+	mv ${BIGIP_SCRIPT} ${AWS_V_DIR}/
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/${app_name}
 	cp -r $(AWS_HOME)/hdk/cl/examples/cl_dram_dma $(AWS_HOME)/hdk/cl/examples/${app_name}
@@ -141,6 +142,9 @@ aws-F1-afi:   aws-F1-hw
 	# NOTE: Requires hdk_setup.sh to have been already sourced, and Vivado license
 	# ----------------------------------------------------------------------------
 	cp -f cpp/fringeAWS/build/encrypt.tcl $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts/
+	cp -f cpp/fringeAWS/build/clockFreq.tcl $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts/
+	cp -f cpp/fringeAWS/build/synth_cl_dram_dma.tcl $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts/
+	cp -f ${AWS_V_DIR}/${BIGIP_SCRIPT} $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts/
 	# NOTE: The DEFAULT strategy will be used, see others here:
 	#       https://github.com/aws/aws-fpga/blob/master/hdk/common/shell_v04151701/new_cl_template/build/README.md
 	# NOTE: This may fail (e.g. our of area) -- may need to rerun this manually
