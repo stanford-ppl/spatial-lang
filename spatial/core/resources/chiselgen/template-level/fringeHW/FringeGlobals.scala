@@ -9,6 +9,11 @@ object FringeGlobals {
   def bigIP = _bigIP
   def bigIP_= (value: BigIP): Unit = _bigIP = value
 
+  // DRAM interface pipeline depth
+  private var _magPipelineDepth: Int = 1
+  def magPipelineDepth = _magPipelineDepth
+  def magPipelineDepth_= (value: Int): Unit = _magPipelineDepth = value
+
   private var _target: String = ""
   def target = _target
   def target_= (value: String): Unit = {
@@ -16,6 +21,12 @@ object FringeGlobals {
       case "zynq" => new fringeZynq.bigIP.BigIPZynq()
       case _ => new fringe.bigIP.BigIPSim()
     }
+
+    magPipelineDepth = value match {
+      case "zynq" => 5
+      case _ => 1
+    }
+
     _target = value
   }
 
@@ -28,5 +39,6 @@ object FringeGlobals {
   }
   def tclScript = _tclScript
   def tclScript_= (value: PrintWriter): Unit = _tclScript = value
+
 
 }
