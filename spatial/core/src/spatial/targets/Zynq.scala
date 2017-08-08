@@ -3,16 +3,20 @@ package spatial.targets
 import spatial.models._
 import spatial.models.xilinx._
 
-object Zynq extends FPGATarget {
+object Zynq extends XilinxDevice {
+  import XilinxDevice._
   val name = "Zynq"
   def burstSize = 512
 
-  override type Area = XilinxArea
-  override type Sum = XilinxAreaSummary
-  override def areaMetric: AreaMetric[XilinxArea] = XilinxAreaMetric
-  def areaModel: AreaModel[Area,Sum] = new VirtexUSPAreaModel
-  def latencyModel: LatencyModel = new VirtexUSPLatencyModel
+  def areaModel: AreaModel = new ZynqAreaModel
+  def latencyModel: LatencyModel = new ZynqLatencyModel
 
-  // TODO
-  override def capacity: XilinxAreaSummary = XilinxAreaSummary(clbs=100000,regs=200000,dsps=2000,bram=2000,channels=15)
+  def capacity: Area = AreaMap(
+    SLICEL -> 54650,  // Can use any LUT
+    SLICEM -> 17600,  // Can only use specialized LUTs
+    Slices -> 54650,  // SLICEL + SLICEM
+    Regs   -> 437200,
+    BRAM   -> 545,    // 1 RAM36 or 2 RAM18s
+    DSPs   -> 900
+  )
 }
