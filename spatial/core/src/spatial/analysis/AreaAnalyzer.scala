@@ -20,7 +20,7 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
   var savedArea: Area = NoArea
   var isRerun: Boolean = false
 
-  override def init(): Unit = {
+  override def init(): Unit = if (needsInit) {
     areaModel.init()
     super.init()
   }

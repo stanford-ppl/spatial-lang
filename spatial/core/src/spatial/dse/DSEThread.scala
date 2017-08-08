@@ -67,6 +67,9 @@ case class DSEThread(
     origState.copyTo(state)
     areaAnalyzer.init()
     cycleAnalyzer.init()
+    scalarAnalyzer.init()
+    memoryAnalyzer.init()
+    contentionAnalyzer.init()
     contentionAnalyzer.top = accel
 
     Config.verbosity = -1
@@ -119,7 +122,8 @@ case class DSEThread(
       val (area, runtime) = evaluate()
       val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
 
-      array(i) = space.map(_.value).mkString(",") + "," + area.toSeq.mkString(",") + "," + runtime + "," + valid
+      // Only report the area resources that the target gives maximum capacities for
+      array(i) = space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid
 
       i += 1
     }

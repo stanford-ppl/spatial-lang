@@ -10,7 +10,8 @@ import spatial.utils._
 import argon.util._
 import spatial.SpatialConfig
 
-import scala.io.Source
+import scala.io.{BufferedSource, Source}
+import scala.util.Try
 
 abstract class AreaModel {
   val FILE_NAME: String
@@ -55,22 +56,42 @@ abstract class AreaModel {
   }
 
   def loadModels(): Map[String,Model] = {
-    val from = Source.fromResource("models/" + FILE_NAME)//Source.fromFile(SPATIAL_HOME + "/spatial/core/resources/models/" + FILE_NAME)
-    val lines = from.getLines()
-    val headings = lines.next().split(",").map(_.trim)
-    val nParams  = headings.lastIndexWhere(_.startsWith("Param")) + 1
-    val indices  = headings.zipWithIndex.filter{case (head,i) => FIELDS.contains(head) }.map(_._2)
-    lines.map{line =>
-      val parts = line.split(",").map(_.trim)
-      val name  = parts.head
-      val params = parts.slice(1,nParams).filterNot(_ == "")
-      val entries = indices.map{i => LinearModel.fromString(parts(i)) }
-      name -> new AreaMap[NodeModel](name, params, FIELDS.zip(entries).toMap)
-    }.toMap
+    val resource = Try(Source.fromResource("models/" + FILE_NAME))
+    val direct = Try{
+      val SPATIAL_HOME = sys.env("SPATIAL_HOME")
+      Source.fromFile(SPATIAL_HOME + "/spatial/core/resources/models/" + FILE_NAME)
+    }
+    val file: Option[BufferedSource] = {
+      if (resource.isSuccess) Some(resource.get)
+      else if (direct.isSuccess) Some(direct.get)
+      else None
+    }
+
+    file.map{src =>
+      val lines = src.getLines()
+      val headings = lines.next().split(",").map(_.trim)
+      val nParams  = headings.lastIndexWhere(_.startsWith("Param")) + 1
+      val indices  = headings.zipWithIndex.filter{case (head,i) => FIELDS.contains(head) }.map(_._2)
+      lines.flatMap{line =>
+        val parts = line.split(",").map(_.trim)
+        if (parts.nonEmpty) {
+          val name = parts.head
+          val params = parts.slice(1, nParams).filterNot(_ == "")
+          val entries = indices.map { i => if (i < parts.length) LinearModel.fromString(parts(i)) else Right(0.0) }
+          Some(name -> new AreaMap[NodeModel](name, params, FIELDS.zip(entries).toMap))
+        }
+        else None
+      }.toMap
+    }.getOrElse{
+      warn(s"Area model file $FILE_NAME for target ${SpatialConfig.target.name} was not found.")
+      Map.empty
+    }
   }
 
-  def init(): Unit = {
+  private var needsInit: Boolean = true
+  def init(): Unit = if (needsInit) {
     models = loadModels()
+    needsInit = false
   }
 
   @stateful protected def areaOfMemory(nbits: Int, dims: Seq[Int], instance: Memory): Area = {

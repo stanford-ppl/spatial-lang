@@ -20,8 +20,9 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     latencyModel.silence()
     super.silence()
   }
-  def init(): Unit = {
+  override def init(): Unit = if (needsInit) {
     latencyModel.init()
+    super.init()
   }
 
   protected override def preprocess[S: Type](block: Block[S]): Block[S] = {

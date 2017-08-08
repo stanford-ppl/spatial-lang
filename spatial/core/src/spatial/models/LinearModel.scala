@@ -99,9 +99,8 @@ object LinearModel {
       }
       else {
         val parts = lin.split('*').map(_.trim)
-        val doubleIndex = parts.indexWhere { x => Try(x.toDouble).isSuccess }
-        val a = if (doubleIndex >= 0) parts(doubleIndex).toDouble else 1.0
-        val vs = parts.zipWithIndex.filterNot { case (_, i) => i != doubleIndex }.map(_._1)
+        val (doubles,vs) = parts.partition{x => Try(x.toDouble).isSuccess }
+        val a = doubles.map(_.toDouble).product
         vars ++= vs
         Prod(a, vs)
       }

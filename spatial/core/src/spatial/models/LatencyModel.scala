@@ -20,7 +20,10 @@ trait LatencyModel {
     modelVerbosity = -1
     recordMissing = false
   }
-  def init(): Unit = { }
+  private var needsInit: Boolean = true
+  def init(): Unit = if (needsInit) {
+    needsInit = false
+  }
 
   private var missing: Set[String] = Set[String]()
   var recordMissing: Boolean = true
