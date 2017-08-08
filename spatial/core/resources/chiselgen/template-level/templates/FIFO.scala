@@ -44,38 +44,41 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   val m = (0 until p).map{ i => Module(new Mem1D(depth/p, true, bitWidth))}
 
   // Create head and reader sub counters
-  val subWriter = Module(new SingleCounter(1))
-  val subReader = Module(new SingleCounter(1))
-  subWriter.io.input.stop := (p/pW).S
+  val sw_width = 2 + Utils.log2Up(p/pW)
+  val sr_width = 2 + Utils.log2Up(p/pR)
+  val subWriter = Module(new SingleCounter(1, sw_width))
+  val subReader = Module(new SingleCounter(1, sr_width))
+  subWriter.io.input.stop := (p/pW).S(sw_width.W)
   subWriter.io.input.enable := enq_options.reduce{_|_}
-  subWriter.io.input.stride := 1.S
-  subWriter.io.input.gap := 0.S
-  subWriter.io.input.start := 0.S
+  subWriter.io.input.stride := 1.S(sw_width.W)
+  subWriter.io.input.gap := 0.S(sw_width.W)
+  subWriter.io.input.start := 0.S(sw_width.W)
   subWriter.io.input.reset := reset
   subWriter.io.input.saturate := false.B
-  subReader.io.input.stop := (p/pR).S
+  subReader.io.input.stop := (p/pR).S(sr_width.W)
   subReader.io.input.enable := deq_options.reduce{_|_}
-  subReader.io.input.stride := 1.S
-  subReader.io.input.gap := 0.S
-  subReader.io.input.start := 0.S
+  subReader.io.input.stride := 1.S(sr_width.W)
+  subReader.io.input.gap := 0.S(sr_width.W)
+  subReader.io.input.start := 0.S(sr_width.W)
   subReader.io.input.reset := reset
   subReader.io.input.saturate := false.B
 
   // Create head and reader counters
-  val writer = Module(new SingleCounter(1))
-  val reader = Module(new SingleCounter(1))
-  writer.io.input.stop := (depth/p).S
+  val a_width = 2 + Utils.log2Up(depth/p)
+  val writer = Module(new SingleCounter(1, a_width))
+  val reader = Module(new SingleCounter(1, a_width))
+  writer.io.input.stop := (depth/p).S(a_width.W)
   writer.io.input.enable := enq_options.reduce{_|_} & subWriter.io.output.done
-  writer.io.input.stride := 1.S
-  writer.io.input.gap := 0.S
-  writer.io.input.start := 0.S
+  writer.io.input.stride := 1.S(a_width.W)
+  writer.io.input.gap := 0.S(a_width.W)
+  writer.io.input.start := 0.S(a_width.W)
   writer.io.input.reset := reset
   writer.io.input.saturate := false.B
-  reader.io.input.stop := (depth/p).S
+  reader.io.input.stop := (depth/p).S(a_width.W)
   reader.io.input.enable := deq_options.reduce{_|_} & subReader.io.output.done
-  reader.io.input.stride := 1.S
-  reader.io.input.gap := 0.S
-  reader.io.input.start := 0.S
+  reader.io.input.stride := 1.S(a_width.W)
+  reader.io.input.gap := 0.S(a_width.W)
+  reader.io.input.start := 0.S(a_width.W)
   reader.io.input.reset := reset
   reader.io.input.saturate := false.B  
 
@@ -93,7 +96,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
         val data_options = Vec((0 until numWriters).map{ q => io.in(q*-*pW + w_i)}.toList)
         m(w_i + i*-*pW).io.w.addr := writer.io.output.count(0).asUInt
         m(w_i + i*-*pW).io.w.data := Mux1H(enq_options, data_options)
-        m(w_i + i*-*pW).io.w.en := enq_options.reduce{_|_} & (subWriter.io.output.count(0) === i.S)
+        m(w_i + i*-*pW).io.w.en := enq_options.reduce{_|_} & (subWriter.io.output.count(0) === i.S(sw_width.W))
       }
     }
   }
@@ -111,8 +114,8 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       val rData = Wire(Vec( (p/pR), UInt(32.W)))
       (0 until (p /-/ pR)).foreach { i => 
         m(r_i + i*-*pR).io.r.addr := reader.io.output.count(0).asUInt
-        m(r_i + i*-*pR).io.r.en := deq_options.reduce{_|_} & (subReader.io.output.count(0) === i.S)
-        rSel(i) := subReader.io.output.count(0) === i.S
+        m(r_i + i*-*pR).io.r.en := deq_options.reduce{_|_} & (subReader.io.output.count(0) === i.S(sr_width.W))
+        rSel(i) := subReader.io.output.count(0) === i.S(sr_width.W)
         // if (i == 0) { // Strangeness from inc-then-read nuisance
         //   rSel((p/pR)-1) := subReader.io.output.count(0) === i.U
         // } else {
@@ -217,23 +220,25 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   val m = (0 until p).map{ i => Module(new Mem1D(depth/p, true, bitWidth))}
 
   // Create head and reader sub counters
-  val subAccessor = Module(new SingleSCounter(1))
+  val sa_width = 2 + Utils.log2Up(p)
+  val subAccessor = Module(new SingleSCounter(1, sa_width))
   subAccessor.io.input.stop := (p).S
   subAccessor.io.input.enable := push_options.reduce{_|_} | pop_options.reduce{_|_}
-  subAccessor.io.input.stride := Mux(push_options.reduce{_|_}, pW.S, -pR.S)
-  subAccessor.io.input.gap := 0.S
-  subAccessor.io.input.start := 0.S
+  subAccessor.io.input.stride := Mux(push_options.reduce{_|_}, pW.S(sa_width.W), -pR.S(sa_width.W))
+  subAccessor.io.input.gap := 0.S(sa_width.W)
+  subAccessor.io.input.start := 0.S(sa_width.W)
   subAccessor.io.input.reset := reset
   subAccessor.io.input.saturate := false.B
-  val subAccessor_prev = Mux(subAccessor.io.output.count(0) - pR.S < 0.S, (p-pR).S, subAccessor.io.output.count(0) - pR.S)
+  val subAccessor_prev = Mux(subAccessor.io.output.count(0) - pR.S(sa_width.W) < 0.S(sa_width.W), (p-pR).S(sa_width.W), subAccessor.io.output.count(0) - pR.S(sa_width.W))
 
   // Create head and reader counters
-  val accessor = Module(new SingleSCounter(1))
-  accessor.io.input.stop := (depth/p).S
-  accessor.io.input.enable := (push_options.reduce{_|_} & subAccessor.io.output.done) | (pop_options.reduce{_|_} & subAccessor_prev === 0.S)
-  accessor.io.input.stride := Mux(push_options.reduce{_|_}, 1.S, -1.S)
-  accessor.io.input.gap := 0.S
-  accessor.io.input.start := 0.S
+  val a_width = 2 + Utils.log2Up(depth/p)
+  val accessor = Module(new SingleSCounter(1, a_width))
+  accessor.io.input.stop := (depth/p).S(a_width.W)
+  accessor.io.input.enable := (push_options.reduce{_|_} & subAccessor.io.output.done) | (pop_options.reduce{_|_} & subAccessor_prev === 0.S(sa_width.W))
+  accessor.io.input.stride := Mux(push_options.reduce{_|_}, 1.S(a_width.W), -1.S(a_width.W))
+  accessor.io.input.gap := 0.S(a_width.W)
+  accessor.io.input.start := 0.S(a_width.W)
   accessor.io.input.reset := reset
   accessor.io.input.saturate := false.B
 
@@ -252,7 +257,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
         val data_options = Vec((0 until numWriters).map{ q => io.in(q*-*pW + w_i)}.toList)
         m(w_i + i*-*pW).io.w.addr := accessor.io.output.count(0).asUInt
         m(w_i + i*-*pW).io.w.data := Mux1H(push_options, data_options)
-        m(w_i + i*-*pW).io.w.en := push_options.reduce{_|_} & (subAccessor.io.output.count(0) === (i*-*pW).S)
+        m(w_i + i*-*pW).io.w.en := push_options.reduce{_|_} & (subAccessor.io.output.count(0) === (i*-*pW).S(sa_width.W))
       }
     }
   }
@@ -260,17 +265,17 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   // Connect popper
   if (pW == pR) {
     m.zipWithIndex.foreach { case (mem, i) => 
-      mem.io.r.addr := (accessor.io.output.count(0) - 1.S).asUInt
+      mem.io.r.addr := (accessor.io.output.count(0) - 1.S(a_width.W)).asUInt
       mem.io.r.en := pop_options.reduce{_|_}
       io.out(i) := mem.io.output.data
     }
   } else {
     (0 until pR).foreach { r_i => 
       val rSel = Wire(Vec( (p/pR), Bool()))
-      val rData = Wire(Vec( (p/pR), UInt(32.W)))
+      val rData = Wire(Vec( (p/pR), UInt(bitWidth.W)))
       (0 until (p /-/ pR)).foreach { i => 
-        m(r_i + i*-*pR).io.r.addr := (accessor.io.output.count(0) - 1.S).asUInt
-        m(r_i + i*-*pR).io.r.en := pop_options.reduce{_|_} & (subAccessor_prev === (i*-*pR).S)
+        m(r_i + i*-*pR).io.r.addr := (accessor.io.output.count(0) - 1.S(sa_width.W)).asUInt
+        m(r_i + i*-*pR).io.r.en := pop_options.reduce{_|_} & (subAccessor_prev === (i*-*pR).S(sa_width.W))
         rSel(i) := subAccessor_prev === i.S
         // if (i == 0) { // Strangeness from inc-then-read nuisance
         //   rSel((p/pR)-1) := subReader.io.output.count(0) === i.U
