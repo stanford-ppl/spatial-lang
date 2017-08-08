@@ -30,14 +30,16 @@ abstract class XilinxAreaModel extends AreaModel {
       design(RAM64M)*4 +
       design(RAM128X1S)*2 +
       design(RAM128X1D)*4 +
-      design(RAM256X1S)*4
+      design(RAM256X1S)*4 +
+      design(SRL16E) +
+      design(SRLC32E)
     }
     val logicSlices = logicLUTs / 4
     val memorySlices = memoryLUTs / 4
 
     val totalRegs = design(Regs) + routingRegs + design(Mregs)
 
-    val regSlices = Math.max( ((totalRegs - (logicSlices*1.95))/3).toInt, 0)
+    val regSlices = Math.max( ((totalRegs - (logicSlices*1.95))/8).toInt, 0)
 
     val routingBRAM = 0 //Math.max(0.02*routingLUTs - 500, 0.0).toInt
 
@@ -49,7 +51,7 @@ abstract class XilinxAreaModel extends AreaModel {
 
     val totalSLICEM = memorySlices
     val totalSLICEL = logicSlices + regSlices
-    val totalSlices = memorySlices + logicSlices
+    val totalSlices = totalSLICEM + totalSLICEL
 
     if (Config.verbosity > 0) {
       val areaReport = s"""
@@ -74,11 +76,15 @@ abstract class XilinxAreaModel extends AreaModel {
                           |  RAM128X1S: ${design(RAM128X1S)}
                           |  RAM128X1D: ${design(RAM128X1D)}
                           |  RAM256X1S: ${design(RAM256X1S)}
+                          |  SRL16E:    ${design(SRL16E)}
+                          |  SRLC32E:   ${design(SRLC32E)}
                           |
                           |Registers
                           |  Design:  ${design(Regs)}
                           |  Memory:  ${design(Mregs)}
                           |  Routing: $routingRegs
+                          |
+                          |Register-only Slices: $regSlices
                           |
                           |URAM: $totalURAM / ${capacity(URAM)} (${"%.2f".format(100*totalURAM.toDouble/capacity(URAM))}%)
                           |
