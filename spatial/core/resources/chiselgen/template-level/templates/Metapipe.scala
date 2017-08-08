@@ -48,7 +48,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   stateFF.io.input(0).reset := io.input.rst
   val state = stateFF.io.output.data
 
-  val rstMax = ctrDepth * fixmul_latency + Utils.delay_per_numIter
+  val rstMax = ctrDepth * fixmul_latency + Utils.delay_per_numIter + 1
   val rstw = Utils.log2Up(rstMax) + 2
   val rstCtr = Module(new SingleCounter(1, width = rstw))
   rstCtr.io.input.enable := state === resetState.U
@@ -85,7 +85,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   ctr.io.input.start := 0.S
   ctr.io.input.gap := 0.S
   ctr.io.input.reset := io.input.rst | (state === doneState.U)
-  io.output.rst_en := (state === resetState.U)
+  io.output.rst_en := chisel3.util.ShiftRegister((state === resetState.U),1)
 
 
   // Counter for handling drainage while in fill state
