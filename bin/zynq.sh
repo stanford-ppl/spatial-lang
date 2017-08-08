@@ -18,7 +18,11 @@ if [[ $ab != "asplos2018" ]]; then
 fi
 
 cd $SPATIAL_HOME
-sed -i "s/override val target = .*/override val target = zynq/g" apps/src/ASPLOS2018.scala
+sed -i "s/override val target = .*/override val target = Zynq/g" apps/src/ASPLOS2018.scala
+
+# Create a new screen session in detached mode
+screen -S zynq -X quit
+screen -d -m -S zynq
 
 # annotated_list=(`cat ${SPATIAL_HOME}/apps/src/MachSuite.scala | grep "// Regression" | sed 's/object //g' | sed 's/ extends.*//g'`)
 annotated_list=(
