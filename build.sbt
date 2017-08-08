@@ -50,5 +50,7 @@ lazy val apps = project
   .settings(assemblySettings)
   .settings(assemblyJarName in assembly := "apps.jar")
 
+val pirApps = List("GEMM_Blocked", "SPMV_CRS", "PageRank_plasticine", "BlackScholes", "TPCHQ6", "Kmeans_plasticine", "GDA")
+addCommandAlias("pirapps", pirApps.map { app => s"; apps/run-main $app" }.mkString("; ") )
 addCommandAlias("spatial", "; apps/run-main")
 addCommandAlias("make", "; apps/compile")

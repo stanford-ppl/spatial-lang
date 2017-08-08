@@ -323,7 +323,7 @@ package object pirgen {
     case ForkSwitch     => throw new Exception("Do not support ForkSwitch in PIR")
   }
 
-  // HACK
+  // HACK Not used
   @stateful def bank(mem: Expr, access: Expr) = {
     val pattern = accessPatternOf(access).last
     val stride  = 1
@@ -341,7 +341,7 @@ package object pirgen {
       case RandomAccess               => NoBanking(1)
     }
     banking match {
-      case Banking(stride,f,_) if f > 1  => Strided(stride)
+      case Banking(stride,f,_) if f > 1  => Strided(stride, 16)
       case Banking(stride,f,_) if f == 1 => NoBanks
       case NoBanking(_) if bankFactor==1 => NoBanks
       case NoBanking(_)                  => Duplicated
@@ -388,8 +388,8 @@ package object pirgen {
     }
   }*/
   def mergeBanking(bank1: SRAMBanking, bank2: SRAMBanking) = (bank1,bank2) match {
-    case (Strided(s1),Strided(s2)) if s1 == s2 => Strided(s1)
-    case (Strided(s1),Strided(s2)) => Diagonal(s1, s2)
+    case (Strided(s1, b1),Strided(s2, b2)) if s1 == s2 && b1 == b2 => Strided(s1, b1)
+    case (Strided(s1, b1),Strided(s2, b2)) => Diagonal(s1, s2)
     case (Duplicated, _) => Duplicated
     case (_, Duplicated) => Duplicated
     case (NoBanks, bank2) => bank2

@@ -17,7 +17,7 @@ case object MemScatter extends OffchipMemoryMode { override def toString = "Scat
 
 // --- Local memory banking
 sealed abstract class SRAMBanking
-case class Strided(stride: Int) extends SRAMBanking
+case class Strided(stride: Int, banks:Int) extends SRAMBanking
 case class Diagonal(stride1: Int, stride2: Int) extends SRAMBanking
 case object NoBanks extends SRAMBanking { override def toString = "NoBanking()" }
 case object Duplicated extends SRAMBanking { override def toString = "Duplicated()" }

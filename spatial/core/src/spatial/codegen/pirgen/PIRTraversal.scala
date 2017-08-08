@@ -244,6 +244,27 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     decompose(ele)(i)
   }
 
+  def ancesstorBelow(top:Expr, cur:Expr):Option[Expr] = {
+    parentOf(cur).flatMap { p => if (p==top) Some(cur) else ancesstorBelow(top, p) }
+  }
+
+  def lcaOf(a:Expr, b:Expr) = leastCommonAncestor(a, b, { (x:Expr) => parentOf(x)})
+
+  def carriedDep(mem:Expr, reader:Expr, writer:Expr):Boolean = {
+    if (depsOf(mem).nonEmpty) return false
+    if (isAccum(mem)) return true
+    parentOf(mem).getOrElse(return false)
+    val memParent = parentOf(mem).get
+    val readerParent = parentOf(reader).get
+    val writerParent = parentOf(writer).get
+    val lca = lcaOf(memParent, readerParent).flatMap { a => lcaOf(a, writerParent) }.getOrElse(return false)
+    dbgs(s"mem=$mem, memParent=$memParent, reader=$reader writer=$writer, lca=$lca")
+    val readAnc = ancesstorBelow(lca, readerParent).get
+    val writeAnc = ancesstorBelow(lca, writerParent).get
+    assert(readAnc==writeAnc)
+    !isUnitPipe(readAnc)
+  }
+
   def isLocallyWritten(dmem:Expr, dreader:Expr, cu:PseudoComputeUnit) = {
     val reader = compose(dreader)
     val mem = compose(dmem)
@@ -252,10 +273,11 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     } else {
       val pipe = parentOf(reader).get
       val writers = writersOf(mem)
+      dbgs(s"depsOf($reader)=${depsOf(reader)} isUnitPipe($pipe)=${isUnitPipe(pipe)}")
       writers.exists { writer => 
         writer.ctrlNode == pipe && 
         cu.pipe == pipe && 
-        depsOf(reader).contains(writer.node)
+        (depsOf(reader).contains(writer.node) || carriedDep(mem, reader, writer.node))
       }
     }
     dbgs(s"isLocallyWritten=$isLocal ${qdef(mem)} ${qdef(reader)}")

@@ -112,7 +112,7 @@ trait PIRAreaModelHack extends PIRTraversal {
 
     val area = buffers * (if (sram.size > 8) {
       sram.banking match {
-        case Some(Strided(stride)) => 16 * cacti(4*sram.size.toDouble/16)
+        case Some(Strided(stride, banks)) => 16 * cacti(4*sram.size.toDouble/16)
         case Some(Duplicated)      => 16 * cacti(4*sram.size.toDouble)
         case Some(NoBanks)         => cacti(4*sram.size.toDouble)
         case _                     => cacti(4*sram.size.toDouble)

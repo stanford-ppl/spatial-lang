@@ -241,7 +241,7 @@ trait PIRAllocation extends PIRTraversal {
             // Inner loop dimension 
             if (banks > 1) {
               assert(banks<=16, s"Plasticine only support banking <= 16 within PMU banks=$banks")
-              cuMem.banking = Some(Strided(stride)) 
+              cuMem.banking = Some(Strided(stride, banks)) 
             } else {
               dbgs(s"createSRAM bank=1 stride=${stride}")
               cuMem.banking = Some(NoBanks)
@@ -250,7 +250,6 @@ trait PIRAllocation extends PIRTraversal {
         case DiagonalMemory(strides, banks, depth, isAccum) =>
           throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
       }
-      cuMem.banking = Some(Strided(1))
       cuMem.bufferDepth = inst.depth
       dbgs(s"Add sram=$cuMem to cu=$cu")
       cuMem
@@ -485,11 +484,11 @@ trait PIRAllocation extends PIRTraversal {
   } 
 
   def prescheduleLocalMemRead(mem: Expr, reader:Expr) = {
-    dbgblk(s"Allocating local memory read: $reader") {
+    dbgblk(s"prescheduleLocalMemRead(reader=$reader, mem=${quote(mem)})") {
       getReaderCUs(reader).foreach { readerCU =>
         decompose(mem).zip(decompose(reader)).foreach { case (dmem, dreader) =>
           val locallyWritten = isLocallyWritten(dmem, dreader, readerCU)
-          dbgs(s"$mem isLocalMemWrite:$locallyWritten readerCU:$readerCU dreader:$dreader")
+          dbgs(s"$mem readerCU:$readerCU dreader:$dreader")
           if (locallyWritten) {
             val reg = readerCU.get(dmem).get // Accumulator should be allocated during RegNew
             readerCU.addReg(dreader, reg)
@@ -503,7 +502,7 @@ trait PIRAllocation extends PIRTraversal {
   }
 
   def prescheduleLocalMemWrite(mem: Expr, writer:Expr) = {
-    dbgblk(s"Allocating local memory write: $writer of mem:${quote(mem)}") {
+    dbgblk(s"prescheduleLocalMemWrite(writer=$writer, mem=${quote(mem)})") {
       val remoteReaders = getRemoteReaders(mem, writer)
       dbgs(s"remoteReaders:${remoteReaders.mkString(",")}")
       if (remoteReaders.nonEmpty || isArgOut(mem)) {
