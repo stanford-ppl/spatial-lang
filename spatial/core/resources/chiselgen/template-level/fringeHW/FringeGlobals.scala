@@ -19,6 +19,7 @@ object FringeGlobals {
   def target_= (value: String): Unit = {
     bigIP = value match {
       case "zynq" => new fringeZynq.bigIP.BigIPZynq()
+      case "aws" => new fringeAWS.bigIP.BigIPAWS()
       case _ => new fringe.bigIP.BigIPSim()
     }
 
