@@ -21,20 +21,24 @@ cd $SPATIAL_HOME
 sed -i "s/override val target = .*/override val target = Zynq/g" apps/src/ASPLOS2018.scala
 
 # Create a new screen session in detached mode
-screen -S zynq -X quit
-screen -d -m -S zynq
+screen -S zynq_screen -X quit
+screen -d -m -S zynq_screen
 
 # annotated_list=(`cat ${SPATIAL_HOME}/apps/src/MachSuite.scala | grep "// Regression" | sed 's/object //g' | sed 's/ extends.*//g'`)
 annotated_list=(
 				"NW" 
 				"MD_Grid" 
-				"GEMM_Blocked"
-				"SPMV_CRS" 
-				"PageRank" 
-				"BlackScholes" 
-				"TPCHQ6" 
+				# "GEMM_Blocked"
+				# "SPMV_CRS" 
+				# "PageRank" 
+				# "BlackScholes" 
+				# "TPCHQ6" 
 				"AES" 
-				"Kmeans"
+				# "Kmeans"
+
+				# # Testing
+				"SimpleTileLoadStore"
+				"MultiplexedWriteTest"
 				)
 
 				# "LeNet" "DjinnASR" "VGG16"  
@@ -43,15 +47,16 @@ annotated_list=(
 for a in ${annotated_list[@]}; do
 	CMD="cd $SPATIAL_HOME;rm -rf out_$2_$a;bin/spatial $a --synth --out=out_${2}_${a} $1;cd out_$2_$a;make zynq"
     # Creates a new screen window with title '$f' in existing screen session
-    screen -S zynq -X screen -t $a
+    screen -S zynq_screen -X screen -t $a
 
     # Switch terminal to bash
-    screen -S zynq -p $a -X stuff "bash$(printf \\r)"
+    screen -S zynq_screen -p $a -X stuff "bash$(printf \\r)"
     
     # Launch $CMD in newly created screen window
-    screen -S zynq -p $a -X stuff "$CMD$(printf \\r)"
+    screen -S zynq_screen -p $a -X stuff "$CMD$(printf \\r)"
 
     sleep 3
 
 done
+
 
