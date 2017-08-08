@@ -1,1 +1,1 @@
-sbt "apps/runMain BandwidthTests"
+sbt "apps/runMain BandwidthTests" 2>&1 | tee bandwidth.log

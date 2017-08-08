@@ -32,6 +32,7 @@ class LineBufferIsMemory[T:Type:Bits] extends Mem[T, LineBuffer] {
 case class LineBufferNew[T:Type:Bits](rows: Exp[Index], cols: Exp[Index]) extends Alloc[LineBuffer[T]] {
   def mirror(f:Tx) = LineBuffer.alloc[T](f(rows),f(cols))
   val mT = typ[T]
+  val bT = bits[T]
 }
 
 case class LineBufferColSlice[T:Type:Bits](
