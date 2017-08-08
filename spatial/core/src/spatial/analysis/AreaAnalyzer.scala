@@ -11,18 +11,23 @@ import org.virtualized.SourceContext
 
 import scala.collection.mutable
 
-case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, areaModel: AreaModel[Area,Sum], latencyModel: LatencyModel) extends ModelingTraversal with AreaMetricOps {
+case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: LatencyModel) extends ModelingTraversal {
   override val name = "Area Analyzer"
-  private val NoArea: Area = noArea[Area]
+  private val NoArea: Area = areaModel.NoArea
 
-  var totalArea: Sum = _
+  var totalArea: Area = _
   var scopeArea: Seq[Area] = Nil
   var savedArea: Area = NoArea
   var isRerun: Boolean = false
 
-  override def init(): Unit = {
+  override def init(): Unit = if (needsInit) {
     areaModel.init()
     super.init()
+  }
+
+  override def silence(): Unit = {
+    super.silence()
+    areaModel.silence()
   }
 
   override def rerun(e: Exp[_], blk: Block[_]): Unit = {
@@ -33,13 +38,14 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
 
   override protected def preprocess[S: Type](block: Block[S]): Block[S] = {
     scopeArea = Nil
+    areaModel.reset()
     super.preprocess(block)
   }
 
   override protected def postprocess[S: Type](block: Block[S]): Block[S] = {
     val saved = if (isRerun) savedArea else NoArea
-    val total = (saved +: scopeArea).fold(NoArea){(a,b) => implicitly[AreaMetric[Area]].plus(a,b) }
-    val (area, _) = areaModel.summarize(total)
+    val total = (saved +: scopeArea).fold(NoArea){_+_}
+    val area = areaModel.summarize(total)
     totalArea = area
 
     /*if (totalArea.toFile.exists(_ < 0)) {
@@ -49,6 +55,7 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
       report(areaReport)
       Config.verbosity = prevVerbosity
     }*/
+    if (Config.verbosity > 0) { areaModel.reportMissing() }
 
     super.postprocess(block)
   }
@@ -61,7 +68,7 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
   def bitBasedInputs(d: Def): Seq[Exp[_]] = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
 
   def pipeDelayLineArea(block: Block[_], par: Int): Area = {
-    val (latencies, cycles) = latenciesAndCycles(block)
+    val (latencies, cycles) = latenciesAndCycles(block, verbose = false)
     val cycleSyms = cycles.flatMap(_.symbols)
     val scope = latencies.keySet
     def delayOf(x: Exp[_]): Int = latencies.getOrElse(x, 0L).toInt
@@ -108,10 +115,10 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
 
     if (isInner) {
       val delayArea = pipeDelayLineArea(block, par)
-      area.replicate(par, isInner=true) + delayArea
+      area*par + delayArea
     }
     else {
-      area.replicate(par, isInner=false)
+      area*par
     }
   }
 
@@ -188,12 +195,12 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
 
         val mapArea = areaOfBlock(map,isInnerControl(lhs),Pm)
 
-        val treeArea = areaOfPipe(reduce, 1).replicate(Pm, isInner=true).replicate(Pr, isInner=false)
+        val treeArea = areaOfPipe(reduce, 1)*Pm*Pr
         val reduceLength = latencyOfPipe(reduce)._1
         val treeDelayArea = reductionTreeDelays(Pm).map{dly => areaModel.areaOfDelayLine((reduceLength*dly).toInt, op.bT.length, 1) }
                                                    .fold(NoArea){_+_}
 
-        val loadResArea = areaOfCycle(loadRes, 1).replicate(Pr, true).replicate(Pm, false)
+        val loadResArea = areaOfCycle(loadRes, 1)*Pr*Pm
         val loadAccArea = areaOfCycle(loadAcc, Pr)
         val cycleArea   = areaOfCycle(reduce, Pr)
         val storeArea   = areaOfCycle(storeAcc, Pr)
@@ -205,7 +212,32 @@ case class AreaAnalyzer[Area:AreaMetric,Sum<:AreaSummary[Sum]](var IR: State, ar
         dbgs(s" - Cycle:  ${loadResArea + loadAccArea + cycleArea + storeArea}")
         mapArea + treeArea + treeDelayArea + loadResArea + loadAccArea + cycleArea + storeArea + areaOf(lhs)
 
-      case _ => rhs.blocks.map(blk => areaOfBlock(blk,false,1)).fold(NoArea){_+_} + areaOf(lhs)
+      case Switch(body,selects,cases) =>
+        val caseArea = areaOfBlock(body, isInnerControl(lhs), 1)
+
+        dbgs(s"Switch: $lhs (#selects = ${selects.length})")
+        dbgs(s" - Body: $caseArea")
+        caseArea + areaOf(lhs)
+
+      case StateMachine(en,start,notDone,action,nextState,state) =>
+        val notDoneArea   = areaOfBlock(notDone,isInner = true,1)
+        val actionArea    = areaOfBlock(action,isInnerControl(lhs),1)
+        val nextStateArea = areaOfBlock(nextState,isInner = true,1)
+
+        dbgs(s"State Machine: $lhs")
+        dbgs(s" - Cond:   $notDoneArea")
+        dbgs(s" - Action: $actionArea")
+        dbgs(s" - Next:   $nextStateArea")
+        notDoneArea + actionArea + nextStateArea + areaOf(lhs)
+
+      case _ if inHwScope =>
+        val blocks = rhs.blocks.map(blk => areaOfBlock(blk,false,1))
+        val area = areaOf(lhs)
+        dbgs(s"${str(lhs)}: $area")
+        blocks.zipWithIndex.foreach{case (blk,i) => dbgs(s" - Block #$i: $blk") }
+        area + blocks.fold(NoArea){_+_}
+
+      case _ => areaOf(lhs) + rhs.blocks.map(blk => areaOfBlock(blk,false,1)).fold(NoArea){_+_}
     }
     scopeArea = area +: scopeArea
   }

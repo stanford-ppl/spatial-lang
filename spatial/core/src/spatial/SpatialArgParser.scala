@@ -45,6 +45,25 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableDSE = true
   ).text("enables design space exploration [false]")
 
+  parser.opt[Unit]("bruteforce").action { (_, _) =>
+    SpatialConfig.enableDSE = true
+    SpatialConfig.heuristicDSE = false
+    SpatialConfig.bruteForceDSE = true
+    SpatialConfig.experimentDSE = false
+  }
+  parser.opt[Unit]("heuristic").action { (_, _) =>
+    SpatialConfig.enableDSE = true
+    SpatialConfig.heuristicDSE = true
+    SpatialConfig.bruteForceDSE = false
+    SpatialConfig.experimentDSE = false
+  }
+  parser.opt[Unit]("experiment").action { (_, _) =>
+    SpatialConfig.enableDSE = true
+    SpatialConfig.heuristicDSE = true
+    SpatialConfig.bruteForceDSE = false
+    SpatialConfig.experimentDSE = true
+  }
+
   parser.opt[Unit]("retiming").action( (_,_) =>
     SpatialConfig.enableRetiming = true
   ).text("enables inner pipeline retiming [false]")
