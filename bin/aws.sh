@@ -21,7 +21,7 @@ source /home/mattfel/aws-fpga/hdk_setup.sh
 source /home/mattfel/aws-fpga/sdk_setup.sh
 
 cd $SPATIAL_HOME
-sed -i "s/override val target = .*/override val target = AWS_F1/g" apps/ASPLOS2018.scala
+sed -i "s/override val target = .*/override val target = AWS_F1/g" apps/src/ASPLOS2018.scala
 
 # annotated_list=(`cat ${SPATIAL_HOME}/apps/src/MachSuite.scala | grep "// Regression" | sed 's/object //g' | sed 's/ extends.*//g'`)
 annotated_list=(
@@ -52,4 +52,5 @@ for a in ${annotated_list[@]}; do
     # Launch $CMD in newly created screen window
     screen -S AWS -p $a -X stuff "$CMD$(printf \\r)"
 
+    sleep 3
 done
