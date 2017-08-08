@@ -22,12 +22,19 @@ case class AreaMap[T](name: String, params: Seq[String], entries: Map[String,T])
     new AreaMap(name, params, entries2)
   }
 
-  def toSeq: Seq[T] = fields.map{f => entries.getOrElse(f, default) }
+  def toSeq: Seq[T] = fields.map{f =>
+    if (entries.contains(f)) {
+      entries(f)
+    }
+    else {
+      default
+    }
+  }
 
   def apply(field: String): T = entries.getOrElse(field, default)
   def seq(keys: String*): Seq[T] = keys.map{k => this(k)}
 
-  def map[R](func: T => R)(implicit config: AreaConfig[R]): AreaMap[R] = AreaMap(name, params, entries.mapValues{v => func(v)})
+  def map[R](func: T => R)(implicit config: AreaConfig[R]): AreaMap[R] = AreaMap(name, params, entries.map{case (k,v) => k -> func(v)})
   def zip[S,R](that: AreaMap[S])(func: (T,S) => R)(implicit config: AreaConfig[R]): AreaMap[R] = {
     AreaMap(name, params, fields.map{k => k -> func(this(k), that(k)) }.toMap)
   }
@@ -62,7 +69,8 @@ case class AreaMap[T](name: String, params: Seq[String], entries: Map[String,T])
   }
   def toPrintableString(nParams: Int): String = {
     val padParams = Array.fill(nParams - params.length)("")
-    (Array(name) ++ params ++ padParams ++ this.toSeq).mkString(",")
+    val seq = this.toSeq
+    (Array(name) ++ params ++ padParams ++ seq).mkString(",")
   }
 }
 

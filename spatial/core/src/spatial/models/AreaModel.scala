@@ -223,10 +223,11 @@ abstract class AreaModel {
     // TODO: Account for compressing data when this is supported
     // TODO: Account for parallelization
     // FIFOs
-    case fifo:FIFONew[_] => duplicatesOf(lhs).map{
-      case BankedMemory(_,depth,isAccum) => model("FIFO")("d" -> depth, "b" -> fifo.bT.length)
+    case fifo:FIFONew[_] => areaOfSRAM(fifo.bT.length,dimsOf(lhs),duplicatesOf(lhs))
+      /*duplicatesOf(lhs).map{
+      case BankedMemory(_,depth,isAccum) =>  //model("FIFO")("d" -> depth, "b" -> fifo.bT.length)
       case _ => NoArea
-    }.fold(NoArea){_+_}
+    }.fold(NoArea){_+_}*/
     case _:FIFOPeek[_]        => NoArea
     case _:FIFOEnq[_]         => NoArea
     case _:ParFIFOEnq[_]      => NoArea
@@ -239,10 +240,12 @@ abstract class AreaModel {
     case _:FIFOFull[_]        => NoArea
 
     // FILOs
-    case filo:FILONew[_] => duplicatesOf(lhs).map{
-      case BankedMemory(_,depth,isAccum) => model("FIFO")("d" -> depth, "b" -> filo.bT.length)
+    // TODO: Fix FIFO characterization...
+    case filo:FILONew[_] => areaOfSRAM(filo.bT.length,dimsOf(lhs),duplicatesOf(lhs))
+    /*duplicatesOf(lhs).map{
+      case BankedMemory(_,depth,isAccum) =>  // model("FIFO")("d" -> depth, "b" -> filo.bT.length)
       case _ => NoArea
-    }.fold(NoArea){_+_}
+    }.fold(NoArea){_+_}*/
     case _:FILOPeek[_]        => NoArea
     case _:FILOPush[_]        => NoArea
     case _:ParFILOPush[_]     => NoArea
@@ -437,14 +440,18 @@ abstract class AreaModel {
       case Bits(bt) => model("SwitchMux")("n" -> s.cases.length, "b" -> bt.length)
       case _        => model("Switch")("n" -> s.cases.length)
     }
-    case tx:DenseTransfer[_,_] if tx.isStore => tx.lens.last match {
-      case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedStore")()
-      case _ => model("UnalignedStore")()
-    }
-    case tx: DenseTransfer[_,_] if tx.isLoad => tx.lens.last match {
-      case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedLoad")()
-      case _ => model("UnalignedLoad")()
-    }
+    case tx:DenseTransfer[_,_] if tx.isStore =>
+      val n = if (tx.lens.length == 1) "1" else "2"
+      tx.lens.last match {
+        case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedStore"+n)()
+        case _ => model("UnalignedStore")()
+      }
+    case tx: DenseTransfer[_,_] if tx.isLoad =>
+      val n = if (tx.lens.length == 1) "1" else "2"
+      tx.lens.last match {
+        case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedLoad"+n)()
+        case _ => model("UnalignedLoad"+n)()
+      }
 
     case _ =>
       miss(u"${rhs.getClass} (rule)")

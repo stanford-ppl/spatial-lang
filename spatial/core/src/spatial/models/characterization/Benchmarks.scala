@@ -71,9 +71,9 @@ object Benchmarks {
 
   def fromSaved(file: String)(implicit config: AreaConfig[Double]): (Seq[Area], Seq[Area]) = {
     val lines = Source.fromFile(file).getLines()
-    val fields = config.fields
     val header = lines.next().split(",").map(_.trim)
-    val indices = header.zipWithIndex.filter{case (head,i) => fields.contains(head) }.map(_._2)
+    val indices = header.zipWithIndex.filter{case (head,i) => config.fields.contains(head) }.map(_._2)
+    val fields = indices.map{i => header(i) }
     val nParams = header.lastIndexWhere(_.startsWith("Param")) + 1
 
     val areas = lines.map{line =>

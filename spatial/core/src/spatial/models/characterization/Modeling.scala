@@ -26,7 +26,7 @@ object Modeling {
 
   val baselines  = s"$SPATIAL_HOME/results/baselines.csv"
   val benchmarks = s"$SPATIAL_HOME/results/characterization.csv"
-  val benchmarks2 = s"$SPATIAL_HOME/characterization.csv"
+  val benchmarks2 = s"$SPATIAL_HOME/results/characterization3.csv"
   val saved = s"$SPATIAL_HOME/results/benchmarks.csv"
   val MODELS_FILE = s"$SPATIAL_HOME/spatial/core/resources/models/${target.name}_raw.csv"
 
@@ -155,6 +155,7 @@ object Modeling {
           Some(makeModel(name, Seq(opPos -> op), eqs, bits, in, out).eval("n" -> 1).copy(name = name + op, params = Seq.empty).cleanup)
         }
         else if (benchs.length == 1) {
+          println(s"Only one benchmark exists for $name - $op")
           val bench = benchs.head
           val n = bench.params(nPos).toInt
           val args = argIn.eval("b" -> bits, "n" -> n) * in + argOut.eval("b" -> bits, "n" -> n)
@@ -259,8 +260,6 @@ object Modeling {
     }
 
     val regFileModel = {
-
-
       def depths1D(name: String): Seq[Area] = (1 to 3).flatMap{d =>
         val c = (1,"c")
 
@@ -276,7 +275,7 @@ object Modeling {
         val r = (1,"r")
         val c = (2,"c")
 
-        Try(makeModel(name, Seq(0->d.toString, 3->"1",4->"1"), r*c, 32, 0, 1).eval("r" -> 1, "c" -> 1).copy(name = name, params=Array(d.toString, "r", "c"))) match {
+        Try(makeModel(name, Seq(0->d.toString, 3->"1",4->"1"), r*c, 32, 0, 1).eval("r" -> 1, "c" -> 1).copy(name = name, params=Array(d.toString+"XXX", "r", "c"))) match {
           case Success(model) => Some(model)
           case Failure(except) =>
             println(s"Not enough information to make model $name, d = $d")
@@ -287,6 +286,47 @@ object Modeling {
       val rf1 = depths1D("RegFile1D")
       val rf2 = depths2D("RegFile2D")
       (rf1 ++ rf2).toArray
+    }
+
+    val transferModels = {
+      val d = (0,"d") // Number of dimensions
+      val w = (1,"w")
+      val p = (2,"p")
+      val n = (3,"n")
+
+      def modelTx(name: String, params: Seq[(Int,String)], eq: Seq[PatternList]): Model = {
+        val benchs = areas.getAll(name, params:_*)
+        if (benchs.length > 1) {
+          makeModel(name, params, eq, 32, 1, 0).partial("n" -> 1)
+        }
+        else if (benchs.length == 1) {
+          println("Only one benchmark exist for " + name)
+          val bench = benchs.head
+          val n = bench.params(3).toInt
+          val args = argIn.eval("b" -> 32, "n" -> n) + fringe
+          val area = (bench - args) / n
+          area.map{x => LinearModel(Seq(Prod(x,Nil)),Set.empty) }
+        }
+        else {
+          throw new Exception(s"Not enough information to make model for $name $params")
+        }
+      }
+
+      val alignLd1 = modelTx("AlignedLoad", Seq(0->"1"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "AlignedLoad1", params=Seq.empty)
+      val alignLd2 = modelTx("AlignedLoad", Seq(0->"2"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "AlignedLoad2", params=Seq.empty)
+
+      val unalignLd1 = modelTx("UnalignedLoad", Seq(0->"1"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "UnalignedLoad1", params=Seq.empty)
+      val unalignLd2 = modelTx("UnalignedLoad", Seq(0->"2"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "UnalignedLoad2", params=Seq.empty)
+
+
+      val alignSt1 = modelTx("AlignedStore", Seq(0->"1"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "AlignedStore1", params=Seq.empty)
+      val alignSt2 = modelTx("AlignedStore", Seq(0->"2"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "AlignedStore2", params=Seq.empty)
+
+      val unalignSt1 = modelTx("UnalignedStore", Seq(0->"1"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "UnalignedStore1", params=Seq.empty)
+      val unalignSt2 = modelTx("UnalignedStore", Seq(0->"2"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "UnalignedStore2", params=Seq.empty)
+
+
+      Seq(alignLd1, alignLd2, unalignLd1, unalignLd2, alignSt1, alignSt2, unalignSt1, unalignSt2)
     }
 
     val argInModel = argIn.partial("n" -> 1).cleanup.copy(name="ArgIn", params=Array("b"))
@@ -304,7 +344,8 @@ object Modeling {
       fracModels,
       regModel,
       fifoModel,
-      regFileModel
+      regFileModel,
+      transferModels
     ))
 
     //println(modelX("Int", Seq(1->"Add"), (0,"b")*(2,"n") + (2,"n") + (2,"n")*(2,"n") + (0,"b")*(2,"n")*(2,"n") ))

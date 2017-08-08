@@ -35,7 +35,7 @@ abstract class FPGATarget {
 
   lazy implicit val AREA_CONFIG: AreaConfig[Double] = AreaConfig[Double](FIELDS, 0.0)
   lazy implicit val MODEL_CONFIG: AreaConfig[NodeModel] = AreaConfig[NodeModel](FIELDS, Right(0.0))
-  lazy implicit val LINEAR_CONFIG: AreaConfig[LinearModel] = AreaConfig[LinearModel](FIELDS, LinearModel(Seq(Prod(0,Nil)),Set.empty))
+  lazy implicit val LINEAR_CONFIG: AreaConfig[LinearModel] = AreaConfig[LinearModel](FIELDS, LinearModel(Nil,Set.empty))
 
   def areaModel: AreaModel        // Area model for this target
   def latencyModel: LatencyModel  // Latency model for this target
