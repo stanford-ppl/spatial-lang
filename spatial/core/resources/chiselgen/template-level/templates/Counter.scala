@@ -195,6 +195,10 @@ class SingleSCounter(val par: Int, val width: Int = 32) extends Module { // Sign
       val countWithoutWrap = Vec(par, Output(SInt((width).W))) // Rough estimate of next val without wrap, used in FIFO
       val done   = Output(Bool())
       val extendedDone = Output(Bool())
+      // val debug1 = Output(SInt((width).W))
+      // val debug2 = Output(Bool())
+      // val debug3 = Output(Bool())
+      // val debug4 = Output(SInt((width).W))
       val saturated = Output(Bool())
     }
   })
@@ -207,7 +211,7 @@ class SingleSCounter(val par: Int, val width: Int = 32) extends Module { // Sign
     base.io.input(0).enable := io.input.reset | io.input.enable
 
     val count = base.io.output.data.asSInt
-    val newval = count + (io.input.stride *-* par.S((width).W)) + io.input.gap
+    val newval = count + (io.input.stride * par.S((width).W)) + io.input.gap // TODO: If I use *-* here, BigIPSim doesn't see par.S as a constant (but it sees par.U as one... -_-)
     val isMax = newval >= io.input.stop
     val wasMax = RegNext(isMax, false.B)
     val isMin = newval < 0.S((width).W)
@@ -216,9 +220,9 @@ class SingleSCounter(val par: Int, val width: Int = 32) extends Module { // Sign
     val next = Mux(isMax, Mux(io.input.saturate, count, init), Mux(isMin, io.input.stop + io.input.stride, newval))
     base.io.input(0).data := Mux(io.input.reset, init.asUInt, next.asUInt)
 
-    (0 until par).foreach { i => io.output.count(i) := count + i.S((width).W)*-*io.input.stride }
+    (0 until par).foreach { i => io.output.count(i) := count + i.S((width).W)*io.input.stride } // TODO: If I use *-* here, BigIPSim doesn't see par.S as a constant (but it sees par.U as one... -_-)
     (0 until par).foreach { i => 
-      io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), io.input.stop, count) + i.S((width).W)*-*io.input.stride
+      io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), io.input.stop, count) + i.S((width).W)*io.input.stride // TODO: If I use *-* here, BigIPSim doesn't see par.S as a constant (but it sees par.U as one... -_-)
     }
     io.output.done := io.input.enable & (isMax | isMin)
     io.output.saturated := io.input.saturate & ( isMax | isMin )
