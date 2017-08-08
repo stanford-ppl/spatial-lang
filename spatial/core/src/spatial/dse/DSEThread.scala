@@ -6,7 +6,7 @@ import spatial.analysis._
 import spatial.metadata._
 import java.util.concurrent.{BlockingQueue, TimeUnit}
 
-import spatial.models.AreaMetric
+import spatial.models._
 
 case class DSEThread(
   threadId:  Int,
@@ -21,7 +21,6 @@ case class DSEThread(
   doneQueue: BlockingQueue[Int]
 ) extends Runnable { thread =>
   // --- Thread stuff
-  var areaHeading: List[String] = Nil
   private var isAlive: Boolean = true
   private var hasTerminated: Boolean = false
   def requestStop(): Unit = { isAlive = false }
@@ -48,10 +47,8 @@ case class DSEThread(
   private implicit val state: State = new State
 
   private val target = SpatialConfig.target
-  private type Area = target.Area
-  private type Sum = target.Sum
-  private implicit val areaMetric: AreaMetric[Area] = target.areaMetric
-  private val capacity: Sum = target.capacity
+  private val capacity: Area = target.capacity
+  val areaHeading: Seq[String] = capacity.nonZeroFields
   private val indexedSpace = space.zipWithIndex
   private val N = space.length
   private val dims = space.map{d => BigInt(d.len) }
@@ -66,8 +63,6 @@ case class DSEThread(
   private lazy val areaAnalyzer  = target.areaAnalyzer(state)
   private lazy val cycleAnalyzer = target.cycleAnalyzer(state)
 
-
-
   def init(): Unit = {
     origState.copyTo(state)
     areaAnalyzer.init()
@@ -81,7 +76,6 @@ case class DSEThread(
     areaAnalyzer.silence()
     cycleAnalyzer.silence()
     areaAnalyzer.run(program)(mtyp(program.tp))
-    areaHeading = areaAnalyzer.totalArea.headings
   }
 
   def run(): Unit = {
@@ -125,14 +119,14 @@ case class DSEThread(
       val (area, runtime) = evaluate()
       val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
 
-      array(i) = space.map(_.value).mkString(",") + "," + area.toFile.mkString(",") + "," + runtime + "," + valid
+      array(i) = space.map(_.value).mkString(",") + "," + area.toSeq.mkString(",") + "," + runtime + "," + valid
 
       i += 1
     }
     array
   }
 
-  private def evaluate(): (Sum, Long) = {
+  private def evaluate(): (Area, Long) = {
     scalarAnalyzer.rerun(accel, program)
     if (PROFILING) endBnd()
 

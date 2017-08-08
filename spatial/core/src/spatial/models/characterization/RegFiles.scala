@@ -77,7 +77,7 @@ trait RegFiles extends Benchmarks {
     (16,4),
     (32,2),
     (64,1),
-    (64,2),
+    (64,2)
   )
 
   //gens ::= dims2d.flatMap{case (rows,cols) => List.tabulate(3){depth => MetaProgGen("Reg16", Seq(100,200), RegFile2DOp[Int16](depth, rows, cols)) } }

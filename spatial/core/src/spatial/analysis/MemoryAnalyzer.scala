@@ -6,7 +6,7 @@ import org.virtualized.SourceContext
 import spatial.SpatialConfig
 import spatial.aliases._
 import spatial.metadata._
-import spatial.models.AreaMetric
+import spatial.models._
 import spatial.nodes._
 import spatial.utils._
 
@@ -523,15 +523,13 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     if (Config.verbosity > 0) {
       import scala.language.existentials
       val target = SpatialConfig.target
-      type Area = target.Area
-      val areaModel = SpatialConfig.target.areaModel
-      val areaMetric = SpatialConfig.target.areaMetric.asInstanceOf[AreaMetric[Area]]
+      val areaModel = target.areaModel
 
       withLog(Config.logDir, "Memories.report") {
         localMems.map{case mem @ Def(d) =>
           val area = areaModel.areaOf(mem,d,inHwScope = true, inReduce = false)
-          mem -> area.asInstanceOf[Area]
-        }.sortWith((a,b) => areaMetric.lessThan(a._2,b._2)).foreach{case (mem,area) =>
+          mem -> area
+        }.sortWith((a,b) => a._2 < b._2).foreach{case (mem,area) =>
           dbg(u"${mem.ctx}: ${mem.tp}: ${mem}")
           dbg(mem.ctx.lineContent.getOrElse(""))
           dbg(c"  ${str(mem)}")

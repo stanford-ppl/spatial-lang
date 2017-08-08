@@ -14,7 +14,7 @@ import scala.io.Source
 
 abstract class AreaModel {
   val FILE_NAME: String
-  def SRAMArea(width: Int, depth: Int): Area
+  @stateful def SRAMArea(width: Int, depth: Int): Area
   def RegArea(n: Int, bits: Int): Area = model("Reg")("b"->bits, "d"->1) * n
   def MuxArea(n: Int, bits: Int): Area = model("Mux")("n"->n, "b"->bits)
 
@@ -29,27 +29,41 @@ abstract class AreaModel {
   def model(name: String)(args: (String,Double)*): Area = {
     models.get(name).map(_.eval(args:_*)).getOrElse{
       val params = if (args.isEmpty) "" else " with optional parameters " + args.map(_._1).mkString(", ")
-      warn(s"Don't know area of $name - add to $FILE_NAME" + params)
+      miss(s"$name - add to $FILE_NAME" + params)
       NoArea
     }
   }
 
+  private var missing: Set[String] = Set[String]()
+  var recordMissing: Boolean = true
+  def silence(): Unit = {
+    recordMissing = false
+  }
+  @stateful def reportMissing(): Unit = {
+    if (missing.nonEmpty) {
+      warn(s"The target device ${SpatialConfig.target.name} was missing one or more area models.")
+      state.logWarning()
+    }
+    missing.foreach{str => warn(s"  $str") }
+  }
+  @inline def miss(str: String): Unit = if (recordMissing) { missing += str }
+
+  def reset(): Unit = {
+    missing = Set.empty
+  }
+
   def loadModels(): Map[String,Model] = {
-    /*val SPATIAL_HOME = sys.env.getOrElse("SPATIAL_HOME", {
-      error("SPATIAL_HOME was not set!")
-      error("Set top directory of spatial using: ")
-      error("export SPATIAL_HOME=/path/to/spatial")
-      sys.exit()
-    })*/
     val from = Source.fromResource("models/" + FILE_NAME)//Source.fromFile(SPATIAL_HOME + "/spatial/core/resources/models/" + FILE_NAME)
     val lines = from.getLines()
     val headings = lines.next().split(",").map(_.trim)
+    val nParams  = headings.lastIndexWhere(_.startsWith("Param")) + 1
     val indices  = headings.zipWithIndex.filter{case (head,i) => FIELDS.contains(head) }.map(_._2)
     lines.map{line =>
       val parts = line.split(",").map(_.trim)
       val name  = parts.head
+      val params = parts.slice(1,nParams).filterNot(_ == "")
       val entries = indices.map{i => LinearModel.fromString(parts(i)) }
-      name -> AreaMap(FIELDS.zip(entries):_*)
+      name -> new AreaMap[NodeModel](name, params, FIELDS.zip(entries).toMap)
     }.toMap
   }
 
@@ -166,8 +180,8 @@ abstract class AreaModel {
 
     // Streams
     // TODO: Need models for streams
-    case StreamInNew(bus) if bus.isInstanceOf[DRAMBus]  => NoArea
-    case StreamOutNew(bus) if bus.isInstanceOf[DRAMBus] => NoArea
+    case StreamInNew(bus) if bus.isInstanceOf[DRAMBus[_]]  => NoArea
+    case StreamOutNew(bus) if bus.isInstanceOf[DRAMBus[_]] => NoArea
     //case _:StreamInNew[_]       => NoArea
     //case _:StreamOutNew[_]      => NoArea
     case _:StreamRead[_]        => NoArea
@@ -245,7 +259,7 @@ abstract class AreaModel {
           var c = dimsOf(lhs).apply(1)
           model("RegFile2D")("b" -> rf.bT.length, "d" -> depth, "r" -> r, "c" -> c)
         case _ =>
-          warn("No area model for " + rank + "D RegFile")
+          miss(rank + "D RegFile")
           NoArea
       }.fold(NoArea){_+_}
 
@@ -296,62 +310,62 @@ abstract class AreaModel {
 
     // Floating point
     case FltNeg(_)   => lhs.tp match {
-      case FloatType      => model("FloatNeg")()
+      case FloatType()    => model("FloatNeg")()
       case FltPtType(s,e) => model("FltNeg")("s" -> s, "e" -> e)
     }
     case FltAbs(_)   => lhs.tp match {
-      case FloatType      => model("FloatAbs")()
+      case FloatType()    => model("FloatAbs")()
       case FltPtType(s,e) => model("FltAbs")("s" -> s, "e" -> e)
     }
     case FltAdd(_,_) => lhs.tp match {
-      case FloatType      => model("FloatAdd")()
+      case FloatType()    => model("FloatAdd")()
       case FltPtType(s,e) => model("FltAdd")("s" -> s, "e" -> e)
     }
     case FltSub(_,_) => lhs.tp match {
-      case FloatType      => model("FloatSub")()
+      case FloatType()    => model("FloatSub")()
       case FltPtType(s,e) => model("FltSub")("s" -> s, "e" -> e)
     }
     case FltMul(_,_) => lhs.tp match {
-      case FloatType      => model("FloatMul")()
+      case FloatType()    => model("FloatMul")()
       case FltPtType(s,e) => model("FltMul")("s" -> s, "e" -> e)
     }
     case FltDiv(_,_) => lhs.tp match {
-      case FloatType      => model("FloatDiv")()
+      case FloatType()    => model("FloatDiv")()
       case FltPtType(s,e) => model("FltDiv")("s" -> s, "e" -> e)
     }
     case FltLt(a,_)  => lhs.tp match {
-      case FloatType      => model("FloatLt")()
+      case FloatType()    => model("FloatLt")()
       case FltPtType(s,e) => model("FltLt")("s" -> s, "e" -> e)
     }
     case FltLeq(a,_) => lhs.tp match {
-      case FloatType      => model("FloatLeq")()
+      case FloatType()    => model("FloatLeq")()
       case FltPtType(s,e) => model("FltLeq")("s" -> s, "e" -> e)
     }
     case FltNeq(a,_) => lhs.tp match {
-      case FloatType      => model("FloatNeq")()
+      case FloatType()    => model("FloatNeq")()
       case FltPtType(s,e) => model("FltNeq")("s" -> s, "e" -> e)
     }
     case FltEql(a,_) => lhs.tp match {
-      case FloatType      => model("FloatEql")()
+      case FloatType()    => model("FloatEql")()
       case FltPtType(s,e) => model("FltEql")("s" -> s, "e" -> e)
     }
     case FltLog(_)   => lhs.tp match {
-      case FloatType      => model("FloatLog")()
+      case FloatType()    => model("FloatLog")()
       case FltPtType(s,e) => model("FltLog")("s" -> s, "e" -> e)
     }
     case FltExp(_)   => lhs.tp match {
-      case FloatType      => model("FloatExp")()
+      case FloatType()    => model("FloatExp")()
       case FltPtType(s,e) => model("FltExp")("s" -> s, "e" -> e)
     }
     case FltSqrt(_)  => lhs.tp match {
-      case FloatType      => model("FloatSqrt")()
+      case FloatType()    => model("FloatSqrt")()
       case FltPtType(s,e) => model("FltSqrt")("s" -> s, "e" -> e)
     }
 
     // Conversions
     //case FltConvert(_) => NoArea // TODO
     case FltPtToFixPt(x) => x.tp match {
-      case FloatType => lhs.tp match {
+      case FloatType() => lhs.tp match {
         case FixPtType(_,i,f) => model("FloatToFix")("b"->i,"f"->f)
       }
       case FltPtType(s,e) => lhs.tp match {
@@ -359,7 +373,7 @@ abstract class AreaModel {
       }
     }
     case FixPtToFltPt(x) => lhs.tp match {
-      case FloatType => x.tp match {
+      case FloatType() => x.tp match {
         case FixPtType(_,i,f) => model("FixToFloat")("b"->i,"f"->f)
       }
       case FltPtType(s,e) => x.tp match {
@@ -371,10 +385,10 @@ abstract class AreaModel {
     case Mux(_,_,_) => model("Mux")("b" -> nbits(lhs))
     case _:Min[_] | _:Max[_] => lhs.tp match {
       case FixPtType(_,_,_) => model("FixLt")("b" -> nbits(lhs)) + model("Mux")("b" -> nbits(lhs))
-      case FloatType        => model("FloatLt")() + model("Mux")("b" -> nbits(lhs))
-      case DoubleType       => model("DoubleLt")() + model("Mux")("b" -> nbits(lhs))
+      case FloatType()      => model("FloatLt")() + model("Mux")("b" -> nbits(lhs))
+      case DoubleType()     => model("DoubleLt")() + model("Mux")("b" -> nbits(lhs))
       case _ =>
-        warn(s"No rule for area of $rhs")
+        miss(u"${rhs.getClass}")
         NoArea
     }
     case DelayLine(depth, _)   => areaOfDelayLine(depth,nbits(lhs),1)
@@ -395,7 +409,7 @@ abstract class AreaModel {
     }
 
     case _ =>
-      warn(s"No rule for area of $lhs")
+
       NoArea
   }
 

@@ -2,6 +2,7 @@ package spatial.models
 package altera
 
 import argon.util.Report._
+import forge._
 
 class StratixVAreaModel extends AlteraAreaModel {
   val FILE_NAME = "StratixV.csv"
@@ -18,7 +19,7 @@ class StratixVAreaModel extends AlteraAreaModel {
     else 512
   }
 
-  override def SRAMArea(width: Int, depth: Int): Area = {
+  @stateful override def SRAMArea(width: Int, depth: Int): Area = {
     val nCols     = if (width > MAX_PORT_WIDTH) Math.ceil(width / MAX_PORT_WIDTH ).toInt else 1
     val wordDepth = bramWordDepth(width)
     val nRows     = Math.ceil(depth.toDouble/wordDepth).toInt
@@ -40,9 +41,9 @@ class StratixVAreaModel extends AlteraAreaModel {
   lazy val regModel = new RegFanoutModel
   lazy val almModel = new UnavailALMsModel
 
-  def calculateRoutingLUTs(design: Area): Double = lutModel.evaluate(design.array(keys:_*))
-  def calculateRoutingRegs(design: Area): Double = regModel.evaluate(design.array(keys:_*))
-  def calculateUnavailALMs(design: Area): Double = almModel.evaluate(design.array(keys:_*))
+  def calculateRoutingLUTs(design: Area): Double = lutModel.evaluate(design.seq(keys:_*))
+  def calculateRoutingRegs(design: Area): Double = regModel.evaluate(design.seq(keys:_*))
+  def calculateUnavailALMs(design: Area): Double = almModel.evaluate(design.seq(keys:_*))
 
   override def init(): Unit = {
     super.init()

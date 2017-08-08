@@ -25,6 +25,11 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
     super.init()
   }
 
+  override def silence(): Unit = {
+    super.silence()
+    areaModel.silence()
+  }
+
   override def rerun(e: Exp[_], blk: Block[_]): Unit = {
     isRerun = true
     super.rerun(e, blk)
@@ -33,13 +38,14 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
 
   override protected def preprocess[S: Type](block: Block[S]): Block[S] = {
     scopeArea = Nil
+    areaModel.reset()
     super.preprocess(block)
   }
 
   override protected def postprocess[S: Type](block: Block[S]): Block[S] = {
     val saved = if (isRerun) savedArea else NoArea
     val total = (saved +: scopeArea).fold(NoArea){_+_}
-    val (area, _) = areaModel.summarize(total)
+    val area = areaModel.summarize(total)
     totalArea = area
 
     /*if (totalArea.toFile.exists(_ < 0)) {
@@ -49,6 +55,7 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
       report(areaReport)
       Config.verbosity = prevVerbosity
     }*/
+    if (Config.verbosity > 0) { areaModel.reportMissing() }
 
     super.postprocess(block)
   }

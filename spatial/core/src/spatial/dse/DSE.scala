@@ -19,11 +19,10 @@ trait DSE extends CompilerPass with SpaceGenerator {
   final val PROFILING = true
   final val BLOCK_SIZE = 500
 
-  abstract class SearchMode
+  /*abstract class SearchMode
   case object BruteForceSearch extends SearchMode
   case object HeuristicSearch  extends SearchMode
-
-  final val searchMode: SearchMode = HeuristicSearch
+  final val searchMode: SearchMode = HeuristicSearch*/
 
   // lazy val scalarAnalyzer = new ScalarAnalyzer{var IR = dse.IR }
   // lazy val memoryAnalyzer = new MemoryAnalyzer{var IR = dse.IR; def localMems = dse.localMems }
@@ -52,10 +51,8 @@ trait DSE extends CompilerPass with SpaceGenerator {
       report("Space: ")
       params.zip(space).foreach{case (p,d) => report(u"  $p: $d (${p.ctx})") }
 
-      searchMode match {
-        case BruteForceSearch => bruteForceDSE(params, space, block)
-        case HeuristicSearch  => heuristicDSE(params, space, restricts, block)
-      }
+      if (SpatialConfig.bruteForceDSE) bruteForceDSE(params, space, block)
+      else if (SpatialConfig.heuristicDSE) heuristicDSE(params, space, restricts, block)
     }
     dbg("Freezing parameters")
     tileSizes.foreach{t => t.makeFinal() }
@@ -64,6 +61,7 @@ trait DSE extends CompilerPass with SpaceGenerator {
   }
 
   def heuristicDSE(params: Seq[Exp[_]], space: Seq[Domain[_]], restrictions: Set[Restrict], program: Block[_]): Unit = {
+    val EXPERIMENT = SpatialConfig.experimentDSE
     report("Intial Space Statistics: ")
     report("-------------------------")
     report(s"  # of parameters: ${space.size}")
@@ -115,27 +113,46 @@ trait DSE extends CompilerPass with SpaceGenerator {
       println(s"Legal space size is $legalSize (elapsed time: ${legalCalcTime/1000} seconds)")
       println("")
 
-      val points = scala.util.Random.shuffle(legalPoints).take(75000)
 
-      threadBasedDSE(points.length, params, prunedSpace, program){queue =>
-        points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach{block =>
-          queue.put(block)
+      if (EXPERIMENT) {
+        val sizes = List(1000, 5000, 10000, 25000, 50000, 75000, 100000, 150000, 200000, 500000)
+        sizes.filter(_ <= legalSize).foreach{size =>
+          (0 until 10).foreach{i =>
+
+            val points = scala.util.Random.shuffle(legalPoints).take(size)
+            val filename = s"${Config.name}_size_${size}_exp_$i"
+
+            threadBasedDSE(points.length, params, prunedSpace, program, file = filename) { queue =>
+              points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach { block =>
+                queue.put(block)
+              }
+            }
+
+          }
+        }
+      }
+      else {
+        val points = scala.util.Random.shuffle(legalPoints).take(75000)
+
+        threadBasedDSE(points.length, params, prunedSpace, program) { queue =>
+          points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach { block =>
+            queue.put(block)
+          }
         }
       }
     }
     else {
       error("Space size is greater than Int.MaxValue. Don't know what to do here yet...")
     }
-
   }
 
   // P: Total space size
-  def threadBasedDSE(P: BigInt, params: Seq[Exp[_]], space: Seq[Domain[_]], program: Block[_])(pointGen: BlockingQueue[Seq[BigInt]] => Unit): Unit = {
+  def threadBasedDSE(P: BigInt, params: Seq[Exp[_]], space: Seq[Domain[_]], program: Block[_], file: String = Config.name+"_data.csv")(pointGen: BlockingQueue[Seq[BigInt]] => Unit): Unit = {
     val names = params.map{p => p.name.getOrElse(p.toString) }
     val N = space.size
     val T = SpatialConfig.threads
     val dir =  Config.cwd + "/results/"
-    val filename = dir + Config.name + "_data.csv"
+    val filename = dir + file
 
     new java.io.File(dir).mkdirs()
 
