@@ -495,7 +495,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
         val streamAddition = getStreamEnablers(c)
 
-        emit(src"""${c}_base_en := ${sym}_sm.io.output.stageEnable(${idx}).D(1,rr)""")  
+        emit(src"""${c}_base_en := ${sym}_sm.io.output.stageEnable(${idx}).D(1,rr) & ~${c}_done.D(1,rr)""")  
         emit(src"""${c}_en := ${c}_base_en ${streamAddition}""")  
 
         // If this is a stream controller, need to set up counter copy for children

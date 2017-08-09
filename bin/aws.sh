@@ -58,3 +58,6 @@ for a in ${annotated_list[@]}; do
 
     sleep 3
 done
+
+screen -S $2 -X screen -t $ac
+screen -S $2 -X screen -t "$1"

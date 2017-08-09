@@ -63,5 +63,6 @@ for a in ${annotated_list[@]}; do
 done
 
 screen -S $2 -X screen -t $ac
+screen -S $2 -X screen -t "$1"
 
 
