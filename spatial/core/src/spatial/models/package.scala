@@ -26,9 +26,12 @@ package object models {
   }
 
   implicit class DoubleAreaOps(a: AreaMap[Double]) {
+    implicit val lin: AreaConfig[LinearModel] = a.config.copy(default = LinearModel(Nil,Set.empty))
     implicit val dbl: AreaConfig[Double] = a.config
     def cleanup: AreaMap[Double] = a.map{x => Math.max(0.0, Math.round(x)) }
     def fractional: AreaMap[Double] = a.map{x => Math.max(0.0, x) }
+
+    def +(b: AreaMap[LinearModel]): AreaMap[LinearModel] = a.zip(b){(y,x) => x + LinearModel(Seq(Prod(y,Nil)),Set.empty) }
   }
 
   implicit class LinearModelAreaOps(a: AreaMap[LinearModel]) {
@@ -41,9 +44,10 @@ package object models {
     def +(b: Double): AreaMap[LinearModel] = a.map(_+b)
     def -(b: Double): AreaMap[LinearModel] = a.map(_-b)
 
-    def +(b: AreaMap[LinearModel]): AreaMap[LinearModel] = a.zip(b){(x,y) => x + y }
-    def -(b: AreaMap[LinearModel]): AreaMap[LinearModel] = a.zip(b){(x,y) => x - y }
+    def ++(b: AreaMap[LinearModel]): AreaMap[LinearModel] = a.zip(b){(x,y) => x + y }
+    def --(b: AreaMap[LinearModel]): AreaMap[LinearModel] = a.zip(b){(x,y) => x - y }
     def <->(b: AreaMap[LinearModel]): AreaMap[LinearModel] = a.zip(b){(x,y) => x <-> y }
+
 
     def apply(xs: (String,Double)*): AreaMap[Double] = a.map(_.eval(xs:_*))
     def eval(xs: (String,Double)*): AreaMap[Double] = a.map(_.eval(xs:_*))
