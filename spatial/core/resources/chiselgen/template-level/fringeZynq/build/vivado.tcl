@@ -1,8 +1,25 @@
 source clockFreq.tcl
 
+## TARGET_ARCH must either be ZC706 or Zedboard
+set TARGET ZC706
+
+switch $TARGET {
+  "ZC706" {
+    set BOARD xilinx.com:zc706:part0:1.4
+    set PART xc7z045ffg900-2
+  }
+  "Zedboard" {
+    set BOARD em.avnet.com:zed:part0:1.3
+    set PART xc7z020clg484-1
+  }
+  default {
+    puts "$TARGET" is not a valid target! Must either be 'ZC706' or 'Zedboard'
+  }
+}
+
 # Create project to make processing system IP from bd
-create_project ps_project ./ps_project -part xc7z045ffg900-2
-set_property board_part xilinx.com:zc706:part0:1.4 [current_project]
+create_project ps_project ./ps_project -part $PART
+set_property board_part $BOARD [current_project]
 
 ## Create processing system using bd
 create_bd_design "design_1"
@@ -17,8 +34,8 @@ save_bd_design
 close_project
 
 ## Create a second project to build the design
-create_project project_1 ./project_1 -part xc7z045ffg900-2
-set_property board_part xilinx.com:zc706:part0:1.4 [current_project]
+create_project project_1 ./project_1 -part $PART
+set_property board_part $BOARD [current_project]
 
 add_files -norecurse [glob *.v]
 
@@ -34,25 +51,6 @@ set_property -dict [list CONFIG.CLK.FREQ_HZ $CLOCK_FREQ_HZ] [ get_ips design_1_a
 set_property -dict [list CONFIG.MI_CLK.FREQ_HZ $CLOCK_FREQ_HZ] [ get_ips design_1_auto_ds_0]
 set_property -dict [list CONFIG.SI_CLK.FREQ_HZ $CLOCK_FREQ_HZ] [ get_ips design_1_auto_ds_0]
 
-
-# create_ip -name processing_system7 -vendor xilinx.com -library ip -version 5.5 -module_name processing_system7_0
-#set_property -dict [list CONFIG.PCW_USE_S_AXI_HP0 {1}] [get_ips processing_system7_0]
-#set_property -dict [list CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ $CLOCK_FREQ_MHZ] [get_ips processing_system7_0]
-
-#create_ip -name proc_sys_reset -vendor xilinx.com -library ip -version 5.0 -module_name proc_sys_reset_0
-#set_property -dict [list CONFIG.CLOCK.FREQ_HZ $CLOCK_FREQ_HZ] [get_ips proc_sys_reset_0]
-
-
-#import_ip -files {/home/raghu/work/research/spatial/spatial-lang/gen/InOutArg_xilinx_forum/divide_project/project_1/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_pc_0/design_1_auto_pc_0.xci}
-#import_ip -files {/home/raghu/work/research/spatial/spatial-lang/gen/InOutArg_xilinx_forum/divide_project/project_1/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_pc_1/design_1_auto_pc_1.xci}
-#import_ip -files {/home/raghu/work/research/spatial/spatial-lang/gen/InOutArg_xilinx_forum/divide_project/project_1/project_1.srcs/sources_1/bd/design_1/ip/design_1_auto_ds_0/design_1_auto_ds_0.xci}
-
-
-# Create Custom IP
-#create_ip -name div_gen -vendor xilinx.com -library ip -version 5.1 -module_name div32
-#set_property -dict [list CONFIG.dividend_and_quotient_width {32} CONFIG.divisor_width {32} CONFIG.remainder_type {Fractional} CONFIG.clocks_per_division {4} CONFIG.fractional_width {32} CONFIG.latency {69}] [get_ips div32]
-#set_property -dict [list CONFIG.ACLK_INTF.FREQ_HZ $CLOCK_FREQ_HZ] [get_ips div32]
-
 update_compile_order -fileset sources_1
 set_property top design_1_wrapper [current_fileset]
 
@@ -61,6 +59,11 @@ set_property STEPS.SYNTH_DESIGN.ARGS.KEEP_EQUIVALENT_REGISTERS true [get_runs sy
 
 launch_runs synth_1
 wait_on_run synth_1
+
+open_run -name implDesign synth_1
+report_timing_summary -file ./synth_timing_summary.rpt
+report_utilization -packthru -file ./synth_utilization.rpt
+report_ram_utilization -detail -file ./synth_ram_utilization.rpt
 
 launch_runs impl_1
 wait_on_run impl_1
