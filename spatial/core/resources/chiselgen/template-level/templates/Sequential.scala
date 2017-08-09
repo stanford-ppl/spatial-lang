@@ -62,7 +62,7 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
     maxFF.io.input(0).data := io.input.numIter
     maxFF.io.input(0).reset := io.input.rst
     maxFF.io.input(0).init := 0.U
-    val max = maxFF.io.output.data
+    val max = chisel3.util.ShiftRegister(maxFF.io.output.data,1)
 
     val ctr = Module(new SingleCounter(1))
     ctr.io.input.enable := io.input.enable & io.input.stageDone(lastState-2) // TODO: Is this wrong? It still works...  

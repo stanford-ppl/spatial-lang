@@ -294,39 +294,105 @@ object Modeling {
       val p = (2,"p")
       val n = (3,"n")
 
-      def modelTx(name: String, params: Seq[(Int,String)], eq: Seq[PatternList]): Model = {
-        val benchs = areas.getAll(name, params:_*)
-        if (benchs.length > 1) {
-          makeModel(name, params, eq, 32, 1, 0).partial("n" -> 1)
+      val pars = Seq(1, 4, 8, 16)
+
+      def modelTx(name: String, params: Seq[(Int,String)], eq: Seq[PatternList], vv: Boolean = false): (Model, Area) = {
+        val parModels = pars.flatMap { par =>
+          val benchs = areas.getAll(name, params:_*).getAll(name, 2 -> par.toString)
+          println(s"CREATING MODEL FOR $name, $params, par = $par")
+          //benchs.foreach{bench => println(bench.name + ", " + bench.params.mkString(", ") + ": " + bench) }
+
+          val varyingNs = benchs.map(_.params.apply(3)).distinct.length
+
+          //benchs.foreach{bench => println(bench.params.last + ", " + bench("LUT5")) }
+
+          if (benchs.length > 1 && varyingNs > 1) {
+            //makeModel(name, params, eq, 32, 1, 0).partial("n" -> 1)
+            val (offset, model) = createLm(name, params, benchs, n, baseline = None, useMaxOnly = true, baselineIfNegative = Some(fringe))
+
+            val offsetParModel = offset.copy(name = name, params = Seq(par.toString))
+            val parModel = model.copy(name = name, params = Seq(par.toString))
+
+            if (vv) {
+              println(par + ": ")
+              println("SLOPE:  " + model)
+              println("OFFSET: " + offset)
+            }
+
+            Some((parModel, offsetParModel))
+          }
+          else None
         }
-        else if (benchs.length == 1) {
+
+        val models  = parModels.map(_._1).map(_.eval("n"->1))
+        val offsets = parModels.map(_._2)
+
+        /*models.zip(offsets).foreach{case (model,offset) =>
+          println("MODEL " + model.name + " " + model.params.mkString(", ") + ":")
+          println("  " + model.cleanup)
+          println("OFFSET " + offset.name + " " + offset.params.mkString(", ") + ":")
+          println("  " + offset.cleanup)
+        }*/
+
+        val p = (0,"p")
+        val (offset,offsetModel) = createLm(name, Nil, offsets, p, baselineIfNegative = Some(fringe))
+        val (modelOffset, model) = createLm(name, Nil, models, p | p*p)
+
+        if (vv) {
+          println("OFFSET: " + offset)
+          println("OFFSET MODEL: " + offsetModel)
+          println("MODEL OFFSET: " + modelOffset)
+          println("MODEL: " + model)
+        }
+
+        (modelOffset + (model ++ offsetModel), offset - fringe)
+
+        /*else if (benchs.length == 1) {
           println("Only one benchmark exist for " + name)
           val bench = benchs.head
           val n = bench.params(3).toInt
           val args = argIn.eval("b" -> 32, "n" -> n) + fringe
           val area = (bench - args) / n
-          area.map{x => LinearModel(Seq(Prod(x,Nil)),Set.empty) }
+          val model = area.map{x => LinearModel(Seq(Prod(x,Nil)),Set.empty) }
+          (model, fringe)
         }
         else {
           throw new Exception(s"Not enough information to make model for $name $params")
-        }
+        }*/
       }
 
-      val alignLd1 = modelTx("AlignedLoad", Seq(0->"1"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "AlignedLoad1", params=Seq.empty)
-      val alignLd2 = modelTx("AlignedLoad", Seq(0->"2"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "AlignedLoad2", params=Seq.empty)
+      val (alignLd1,fringeAL1) = modelTx("AlignedLoad", Seq(0->"1"), n | n + n*p)
+      val (alignLd2,fringeAL2) = modelTx("AlignedLoad", Seq(0->"2"), n | n + n*p)
 
-      val unalignLd1 = modelTx("UnalignedLoad", Seq(0->"1"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "UnalignedLoad1", params=Seq.empty)
-      val unalignLd2 = modelTx("UnalignedLoad", Seq(0->"2"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "UnalignedLoad2", params=Seq.empty)
-
-
-      val alignSt1 = modelTx("AlignedStore", Seq(0->"1"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "AlignedStore1", params=Seq.empty)
-      val alignSt2 = modelTx("AlignedStore", Seq(0->"2"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "AlignedStore2", params=Seq.empty)
-
-      val unalignSt1 = modelTx("UnalignedStore", Seq(0->"1"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "UnalignedStore1", params=Seq.empty)
-      val unalignSt2 = modelTx("UnalignedStore", Seq(0->"2"), n + p*w | n + p + p*w | n + p + p*w + n*p*w).copy(name = "UnalignedStore2", params=Seq.empty)
+      val (unalignLd1,fringeUL1) = modelTx("UnalignedLoad", Seq(0->"1"), n | n + n*p)
+      val (unalignLd2,fringeUL2) = modelTx("UnalignedLoad", Seq(0->"2"), n | n + n*p, vv = true)
 
 
-      Seq(alignLd1, alignLd2, unalignLd1, unalignLd2, alignSt1, alignSt2, unalignSt1, unalignSt2)
+      val (alignSt1,fringeAS1) = modelTx("AlignedStore", Seq(0->"1"), n | n + n*p)
+      val (alignSt2,fringeAS2) = modelTx("AlignedStore", Seq(0->"2"), n | n + n*p)
+
+      val (unalignSt1,fringeUS1) = modelTx("UnalignedStore", Seq(0->"1"), n | n + n*p)
+      val (unalignSt2,fringeUS2) = modelTx("UnalignedStore", Seq(0->"2"), n | n + n*p)
+
+
+      Seq(
+        alignLd1.copy(name = "AlignedLoad1", params=Seq.empty),
+        alignLd2.copy(name = "AlignedLoad2", params=Seq.empty),
+        unalignLd1.copy(name = "UnalignedLoad1", params=Seq.empty),
+        unalignLd2.copy(name = "UnalignedLoad2", params=Seq.empty),
+        alignSt1.copy(name = "AlignedStore1", params=Seq.empty),
+        alignSt2.copy(name = "AlignedStore2", params=Seq.empty),
+        unalignSt1.copy(name = "UnalignedStore1", params=Seq.empty),
+        unalignSt2.copy(name = "UnalignedStore2", params=Seq.empty),
+        fringeAL1.copy(name = "FringeAL1"),
+        fringeAL2.copy(name = "FringeAL2"),
+        fringeUL1.copy(name = "FringeUL1"),
+        fringeUL2.copy(name = "FringeUL2"),
+        fringeAS1.copy(name = "FringeAS1"),
+        fringeAS2.copy(name = "FringeAS2"),
+        fringeUS1.copy(name = "FringeUS1"),
+        fringeUS2.copy(name = "FringeUS2")
+      )
     }
 
     val argInModel = argIn.partial("n" -> 1).cleanup.copy(name="ArgIn", params=Array("b"))
