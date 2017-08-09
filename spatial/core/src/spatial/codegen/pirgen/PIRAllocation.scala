@@ -234,7 +234,7 @@ trait PIRAllocation extends PIRTraversal {
     val cuMem = getOrElseUpdate(cu.memMap, dmem, {
       val cuMem = CUMemory(quote(dmem), dmem, cu)
       cuMem.mode = SRAMMode
-      cuMem.size = dimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product
+      cuMem.size = dimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product / inst.totalBanks
       inst match {
         case BankedMemory(dims, depth, isAccum) =>
           dims.last match { case Banking(stride, banks, _) =>
