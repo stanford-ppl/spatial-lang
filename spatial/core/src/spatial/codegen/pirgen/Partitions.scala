@@ -8,9 +8,9 @@ import spatial.SpatialConfig
 import scala.collection.mutable
 
 trait Partitions extends SpatialTraversal { this: PIRTraversal =>
-  var STAGES: Int = SpatialConfig.stages                   // Number of compute stages per CU
-  def LANES = SpatialConfig.lanes                          // Number of SIMD lanes per CU
-  def REDUCE_STAGES = (Math.log(LANES)/Math.log(2)).toInt  // Number of stages required to reduce across all lanes
+  var STAGES: Int = SpatialConfig.stages                       // Number of compute stages per CU
+  def LANES = SpatialConfig.lanes                              // Number of SIMD lanes per CU
+  def REDUCE_STAGES = (Math.log(LANES)/Math.log(2)).toInt + 1  // Number of stages required to reduce across all lanes
   var READ_WRITE = SpatialConfig.readWrite
 
   abstract class Partition {
