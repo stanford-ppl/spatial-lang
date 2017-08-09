@@ -399,19 +399,19 @@ abstract class AreaModel {
       case FloatType()    => model("FloatDiv")()
       case FltPtType(s,e) => model("FltDiv")("s" -> s, "e" -> e)
     }
-    case FltLt(a,_)  => lhs.tp match {
+    case FltLt(a,_)  => a.tp match {
       case FloatType()    => model("FloatLt")()
       case FltPtType(s,e) => model("FltLt")("s" -> s, "e" -> e)
     }
-    case FltLeq(a,_) => lhs.tp match {
+    case FltLeq(a,_) => a.tp match {
       case FloatType()    => model("FloatLeq")()
       case FltPtType(s,e) => model("FltLeq")("s" -> s, "e" -> e)
     }
-    case FltNeq(a,_) => lhs.tp match {
+    case FltNeq(a,_) => a.tp match {
       case FloatType()    => model("FloatNeq")()
       case FltPtType(s,e) => model("FltNeq")("s" -> s, "e" -> e)
     }
-    case FltEql(a,_) => lhs.tp match {
+    case FltEql(a,_) => a.tp match {
       case FloatType()    => model("FloatEql")()
       case FltPtType(s,e) => model("FltEql")("s" -> s, "e" -> e)
     }

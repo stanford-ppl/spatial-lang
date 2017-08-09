@@ -7,11 +7,11 @@ import Utils._
 
 import scala.collection.mutable.HashMap
 
-class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
+class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val numIterWidth: Int = 32, val retime: Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
-      val numIter = Input(UInt(32.W))
+      val numIter = Input(UInt(numIterWidth.W))
       val stageDone = Vec(n, Input(Bool()))
       val stageMask = Vec(n, Input(Bool()))
       val rst = Input(Bool())
@@ -41,8 +41,10 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   val drainState = steadyState + 1
   val doneState = drainState+n-1
 
+  val deadState = Module(new SRFF()) // This is a hack because with new retime optimizations, mask signal may come one cycle after next state is entered
+  deadState.io.input.asyn_reset := reset
 
-  val stateFF = Module(new FF(32))
+  val stateFF = Module(new FF(numIterWidth))
   stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
   stateFF.io.input(0).init := 0.U
   stateFF.io.input(0).reset := io.input.rst
@@ -60,17 +62,17 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   rstCtr.io.input.stride := 1.S(rstw.W)
 
   // Counter for num iterations
-  val maxFF = Module(new FF(32))
+  val maxFF = Module(new FF(numIterWidth))
   maxFF.io.input(0).enable := io.input.enable
   maxFF.io.input(0).data := io.input.numIter
   maxFF.io.input(0).init := 0.U
   maxFF.io.input(0).reset := io.input.rst
-  val max = maxFF.io.output.data
+  val max = chisel3.util.ShiftRegister(maxFF.io.output.data,1)
 
   val doneClear = RegInit(0.U)
   val doneFF = List.tabulate(n) { i =>
     val ff = Module(new SRFF())
-    ff.io.input.set := io.input.stageDone(i)
+    ff.io.input.set := io.input.stageDone(i) & ~deadState.io.output.data
     ff.io.input.asyn_reset := doneClear | io.input.rst
     ff.io.input.reset := false.B
     ff
@@ -78,7 +80,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   val doneMask = doneFF.zipWithIndex.map { case (ff, i) => ff.io.output.data }
 
   val ctr = Module(new SingleCounter(1))
-  ctr.io.input.enable := doneClear
+  ctr.io.input.enable := doneClear & ~deadState.io.output.data
   ctr.io.input.saturate := true.B
   ctr.io.input.stop := max.asSInt
   ctr.io.input.stride := 1.S
@@ -86,7 +88,6 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   ctr.io.input.gap := 0.S
   ctr.io.input.reset := io.input.rst | (state === doneState.U)
   io.output.rst_en := chisel3.util.ShiftRegister((state === resetState.U),1)
-
 
   // Counter for handling drainage while in fill state
   val cycsSinceDone = Module(new FF(bitsToAddress(n)))
@@ -97,7 +98,8 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   // io.output.stageEnable.foreach { _ := UInt(0) }
   // doneClear := UInt(0)
 
-  when(io.input.enable) {
+  when(io.input.enable && ~deadState.io.output.data) {
+    deadState.io.input.reset := false.B
     when(state === initState.U) {   // INIT -> RESET
       stateFF.io.input(0).data := resetState.U
       io.output.stageEnable.foreach { s => s := false.B}
@@ -128,14 +130,17 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
                           steadyState.U, 
                           Mux(io.input.forever, steadyState.U, cycsSinceDone.io.output.data + 2.U + stateFF.io.output.data) 
                         ) // If already in drain step, bypass steady state
+              deadState.io.input.set := true.B
             } else {
               cycsSinceDone.io.input(0).data := cycsSinceDone.io.output.data + 1.U
               cycsSinceDone.io.input(0).enable := ctr.io.output.count(0) + 1.S === max.asSInt
+              deadState.io.input.set := true.B
               stateFF.io.input(0).data := (i+1).U
             }
           }.otherwise {
             cycsSinceDone.io.input(0).enable := false.B
             stateFF.io.input(0).data := state
+            deadState.io.input.set := false.B
           }
         }
       }
@@ -145,13 +150,16 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
       val doneTree = doneMask.zipWithIndex.map{case (a,i) => a | ~io.input.stageMask(i)}.reduce{_ & _}
       doneClear := doneTree
       when (doneTree === 1.U) {
-        when(ctr.io.output.count(0) === (max.asSInt - 1.S)) {
+        when(chisel3.util.ShiftRegister(ctr.io.output.count(0),1) === (max.asSInt - 1.S)) {
           stateFF.io.input(0).data := Mux(io.input.forever, steadyState.U, drainState.U)
+          deadState.io.input.set := true.B
         }.otherwise {
           stateFF.io.input(0).data := state
+          deadState.io.input.set := false.B
         }
       }.otherwise {
         stateFF.io.input(0).data := state
+        deadState.io.input.set := false.B
       }
     }.elsewhen (state < doneState.U) {   // DRAIN
       for ( i <- drainState until doneState) {
@@ -163,18 +171,29 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
           doneClear := doneTree
           when (doneTree === 1.U) {
             stateFF.io.input(0).data := (i+1).U
+            deadState.io.input.set := true.B
           }.otherwise {
             stateFF.io.input(0).data := state
+            deadState.io.input.set := false.B
           }
         }
       }
     }.elsewhen (state === doneState.U) {  // DONE
       doneClear := false.B
       stateFF.io.input(0).data := initState.U
+      deadState.io.input.set := false.B
     }.otherwise {
       stateFF.io.input(0).data := state
+      deadState.io.input.set := false.B
     }
+  }.elsewhen(deadState.io.output.data){
+    deadState.io.input.set := false.B
+    deadState.io.input.reset := true.B
+    stateFF.io.input(0).data := state
+    cycsSinceDone.io.input(0).enable := false.B
   }.otherwise {
+    deadState.io.input.set := false.B
+    deadState.io.input.reset := true.B
     (0 until n).foreach { i => io.output.stageEnable(i) := false.B }
     doneClear := false.B
     stateFF.io.input(0).data := initState.U
@@ -182,7 +201,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
 
   // Output logic
   io.output.ctr_inc := io.input.stageDone(0) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
-  io.output.done := state === doneState.U
+  io.output.done := state === doneState.U & deadState.io.output.data
   io.output.state := state.asSInt
 }
 

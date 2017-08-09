@@ -12,7 +12,9 @@ object Regression {
     benchs:       Seq[Area],
     proposals:    Seq[PatternList],
     baseline:     Option[Int => Area] = None,
-    addIntercept: Boolean = true
+    addIntercept: Boolean = true,
+    useMaxOnly:   Boolean = false,
+    baselineIfNegative: Option[Area] = None
   )(implicit dbl: AreaConfig[Double], lin: AreaConfig[LinearModel]) = {
     val addInt = addIntercept && baseline.isEmpty
 
@@ -25,6 +27,8 @@ object Regression {
       }
     }.map(_.toSeq)
 
+    val refIfNegative = baselineIfNegative.map(_.toSeq)
+
     if (dataArrays.length < 2) {
       throw new Exception(s"Not enough data to make model for $name: " + params.mkString(", "))
     }
@@ -36,21 +40,49 @@ object Regression {
         import scalaglm.Lm
         import breeze.linalg._
 
-        val y = DenseVector(dataArrays.map(_.apply(d)):_*)
-
         val label = inputs.map(_.label)
+        var outputs = dataArrays.map(_.apply(d))
 
-        val x = DenseMatrix(
-          benchmarks.map{bench => inputs.map {
+
+        def runLm(addIntercept: Boolean): (Double, Array[Double], Double) = {
+          val allRows = benchmarks.map{bench => inputs.map {
             case p: Product => p.ins.map { i => bench.params(i).toDouble }.product
             case Linear((i, _)) => bench.params(i).toDouble
-          }}:_*
-        )
+          }}
 
-        val lm = Lm(y, x, label, addIntercept = addInt)
+          val inds: Seq[Int] = if (!useMaxOnly) allRows.indices else {
+            allRows.zipWithIndex.groupBy(_._1)
+              .map{case (x,is) =>
+                is.map(_._2).map{i => i -> outputs(i) }
+                  .reduce{(a,b) => if (a._2 > b._2) a else b }._1
+              }.toSeq
+          }
 
-        val intercept = if (addInt) lm.coefficients.apply(0) else 0.0
-        val coeffs = if (addInt) lm.coefficients.toArray.drop(1) else lm.coefficients.toArray
+          val outs = inds.map{i => outputs(i) }
+          val rows = inds.map{i => allRows(i) }
+          val x = DenseMatrix(rows:_*)
+          val y = DenseVector(outs:_*)
+
+          val lm = Lm(y, x, label, addIntercept = addIntercept)
+
+          val intercept = if (addInt) lm.coefficients.apply(0) else 0.0
+          val coeffs = if (addInt) lm.coefficients.toArray.drop(1) else lm.coefficients.toArray
+
+          (intercept, coeffs, lm.rSquared)
+        }
+
+        val (i,c,lmR2) = runLm(addInt)
+        var intercept = i
+        var coeffs = c
+        var r2 = lmR2
+        // So hacky...
+        if (intercept < 0 && refIfNegative.isDefined) {
+          outputs = outputs.map{out => out - refIfNegative.get.apply(d) }
+          val (i,c,lmR2) = runLm(addIntercept = false)
+          intercept = i + refIfNegative.get.apply(d)
+          coeffs = c
+          r2 = lmR2
+        }
 
         /*if (d == 29) {
           println(x)
@@ -60,14 +92,13 @@ object Regression {
           println(label.mkString(", "))
         }*/
 
-        val r2 = lm.rSquared
         if (r2 > 0.5) { // HACK: Magic number
           val model = LinearModel(coeffs.zip(label))
           (intercept, model, r2)
         }
         else {
           val model = LinearModel(label.map{l => (0.0,l)})
-          val intercept = y.toArray.sum / y.length
+          val intercept = outputs.sum / outputs.length
           (intercept, model, 0.0)
         }
       }
