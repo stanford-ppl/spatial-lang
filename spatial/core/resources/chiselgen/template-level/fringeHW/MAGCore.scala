@@ -650,70 +650,86 @@ class MAGCore(
 
   connectDbgSignal(getCounter(io.enable), "Cycles")
   // rdata enq values
-//  for (i <- 0 until numRdataDebug) {
-//    for (j <- 0 until numRdataWordsDebug) {
-//      connectDbgSignal(getFF(io.dram.rresp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U)), s"""rdata_from_dram${i}_$j""")
-//    }
-//  }
-//
-//  if (io.app.stores.size > 0) {
-//    // wdata enq values
-//    val appWdata0EnqCtr = getCounter(io.enable & io.app.stores(0).wdata.valid)
-//    for (i <- 0 until numWdataDebug) {
-//      for (j <- 0 until math.min(io.app.stores(0).wdata.bits.size, numWdataWordsDebug)) {
-//        connectDbgSignal(getFF(io.app.stores(0).wdata.bits(j), io.enable & (appWdata0EnqCtr === i.U)), s"""wdata_from_accel${i}_$j""")
-//      }
-//    }
-//
-//    // wdata values
-//    for (i <- 0 until numWdataDebug) {
-//      for (j <- 0 until numWdataWordsDebug) {
-//        connectDbgSignal(getFF(Cat(wdataFifoSize(15, 0), io.dram.wdata.bits.wdata(j)(15, 0)), io.enable & wdataValid & wdataReady & (numWdataCtr.io.out === i.U)), s"""wdata_to_dram${i}_$j""")
-//      }
-//    }
-//  }
+  for (i <- 0 until numRdataDebug) {
+    for (j <- 0 until numRdataWordsDebug) {
+      connectDbgSignal(getFF(io.dram.rresp.bits.rdata(j), respValid & (rdataEnqCtr.io.out === i.U)), s"""rdata_from_dram${i}_$j""")
+    }
+  }
 
-//  connectDbgSignal(numCommandsCtr.io.out, "Num DRAM Commands")
-//  connectDbgSignal(numReadCommandsCtr.io.out, "Read Commands")
-//  connectDbgSignal(numWriteCommandsCtr.io.out, "Write Commands")
-//
-//  // Count number of commands issued per stream
-//  (0 until numStreams) foreach { case i =>
-//    val signal = "cmd" + (if (i < loadStreamInfo.size) "load" else "store") + s"stream $i"
-//    connectDbgSignal(getCounter(dramCmdValid & dramReady & (tagOut.streamTag === i.U)), signal)
-//  }
-//
-//  connectDbgSignal(getCounter(respValid), "Num DRAM Responses")
-//
-//  // Count number of responses issued per stream
-//  (0 until numStreams) foreach { case i =>
-//    val signal = "resp " + (if (i < loadStreamInfo.size) "load" else "store") + s"stream $i"
-//    val respValidSignal = (if (i < loadStreamInfo.size) io.dram.rresp.valid else io.dram.wresp.valid)
-//    val respReadySignal = (if (i < loadStreamInfo.size) io.dram.rresp.ready else io.dram.wresp.ready)
-//    val respTagSignal = (if (i < loadStreamInfo.size) readStreamTagFromDRAM else writeStreamTagFromDRAM)
-//    connectDbgSignal(getCounter(respValidSignal & respReadySignal & (respTagSignal === i.U)), signal)
-//  }
-//
-//  connectDbgSignal(getCounter(io.dram.rresp.valid & rdataFifos.map {_.io.enqVld}.reduce{_|_}), "RResp valid enqueued somewhere")
-//  connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.rresp.ready), "Rresp valid and ready")
-//  connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.rresp.ready & rdataFifos.map {_.io.enqVld}.reduce{_|_}), "Resp valid and ready and enqueued somewhere")
-//  connectDbgSignal(getCounter(io.dram.rresp.valid & ~io.dram.rresp.ready), "Resp valid and not ready")
-//
-//  // Responses enqueued into appropriate places
-//  (0 until loadStreamInfo.size) foreach { case i =>
-//    val signal = s"rdataFifo $i enq"
-//    connectDbgSignal(getCounter(rdataFifos(i).io.enqVld), signal)
-//  }
-//
-//  // Responses enqueued into appropriate places
-//  (0 until storeStreamInfo.size) foreach { case i =>
-//    val signal = s"wrespFifo $i enq"
-//    connectDbgSignal(getCounter(wrespFifos(i).io.enqVld), signal)
-//  }
-//
-//  connectDbgSignal(numWdataCtr.io.out, "num wdata transferred (wvalid & wready)")
-//
-//
+  if (io.app.stores.size > 0) {
+    // wdata enq values
+    val appWdata0EnqCtr = getCounter(io.enable & io.app.stores(0).wdata.valid)
+    for (i <- 0 until numWdataDebug) {
+      for (j <- 0 until math.min(io.app.stores(0).wdata.bits.size, numWdataWordsDebug)) {
+        connectDbgSignal(getFF(io.app.stores(0).wdata.bits(j), io.enable & (appWdata0EnqCtr === i.U)), s"""wdata_from_accel${i}_$j""")
+      }
+    }
+
+    // wdata values
+    for (i <- 0 until numWdataDebug) {
+      for (j <- 0 until numWdataWordsDebug) {
+        connectDbgSignal(getFF(Cat(wdataFifoSize(15, 0), io.dram.wdata.bits.wdata(j)(15, 0)), io.enable & wdataValid & wdataReady & (numWdataCtr.io.out === i.U)), s"""wdata_to_dram${i}_$j""")
+      }
+    }
+  }
+
+  connectDbgSignal(numCommandsCtr.io.out, "Num DRAM Commands")
+  connectDbgSignal(numReadCommandsCtr.io.out, "Read Commands")
+  connectDbgSignal(numWriteCommandsCtr.io.out, "Write Commands")
+
+  // Count number of commands issued per stream
+  (0 until numStreams) foreach { case i =>
+    val signal = "cmd" + (if (i < loadStreamInfo.size) "load" else "store") + s"stream $i"
+    connectDbgSignal(getCounter(dramCmdValid & dramReady & (tagOut.streamTag === i.U)), signal)
+  }
+
+  // Count number of load commands issued from accel per stream
+  io.app.loads.zipWithIndex.foreach { case (load, i) =>
+    val loadCounter = getCounter(io.enable & load.cmd.valid)
+    val loadCounterHandshake = getCounter(io.enable & load.cmd.valid & load.cmd.ready)
+    connectDbgSignal(loadCounter, s"LoadCmds from Accel (valid) $i")
+    connectDbgSignal(loadCounterHandshake, s"LoadCmds from Accel (valid & ready) $i")
+  }
+
+  // Count number of store commands issued from accel per stream
+  io.app.stores.zipWithIndex.foreach { case (store, i) =>
+    val storeCounter = getCounter(io.enable & store.cmd.valid)
+    val storeCounterHandshake = getCounter(io.enable & store.cmd.valid & store.cmd.ready)
+    connectDbgSignal(storeCounter, s"StoreCmds from Accel (valid) $i")
+    connectDbgSignal(storeCounterHandshake, s"StoreCmds from Accel (valid & ready) $i")
+  }
+
+  connectDbgSignal(getCounter(respValid), "Num DRAM Responses")
+
+  // Count number of responses issued per stream
+  (0 until numStreams) foreach { case i =>
+    val signal = "resp " + (if (i < loadStreamInfo.size) "load" else "store") + s"stream $i"
+    val respValidSignal = (if (i < loadStreamInfo.size) io.dram.rresp.valid else io.dram.wresp.valid)
+    val respReadySignal = (if (i < loadStreamInfo.size) io.dram.rresp.ready else io.dram.wresp.ready)
+    val respTagSignal = (if (i < loadStreamInfo.size) readStreamTagFromDRAM else writeStreamTagFromDRAM)
+    connectDbgSignal(getCounter(respValidSignal & respReadySignal & (respTagSignal === i.U)), signal)
+  }
+
+  connectDbgSignal(getCounter(io.dram.rresp.valid & rdataFifos.map {_.io.enqVld}.reduce{_|_}), "RResp valid enqueued somewhere")
+  connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.rresp.ready), "Rresp valid and ready")
+  connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.rresp.ready & rdataFifos.map {_.io.enqVld}.reduce{_|_}), "Resp valid and ready and enqueued somewhere")
+  connectDbgSignal(getCounter(io.dram.rresp.valid & ~io.dram.rresp.ready), "Resp valid and not ready")
+
+  // Responses enqueued into appropriate places
+  (0 until loadStreamInfo.size) foreach { case i =>
+    val signal = s"rdataFifo $i enq"
+    connectDbgSignal(getCounter(rdataFifos(i).io.enqVld), signal)
+  }
+
+  // Responses enqueued into appropriate places
+  (0 until storeStreamInfo.size) foreach { case i =>
+    val signal = s"wrespFifo $i enq"
+    connectDbgSignal(getCounter(wrespFifos(i).io.enqVld), signal)
+  }
+
+  connectDbgSignal(numWdataCtr.io.out, "num wdata transferred (wvalid & wready)")
+
+
 //  connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.wresp.valid), "Rvalid and Bvalid")
 
 //  connectDbgSignal(numWdataValidCtr.io.out, "wdata_valid")
