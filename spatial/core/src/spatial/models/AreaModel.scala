@@ -77,7 +77,7 @@ abstract class AreaModel {
         warn(s"Area model file $FILE_NAME for target ${SpatialConfig.target.name} was missing expected fields: ")
         warn(missing.mkString(", "))
       }
-      lines.flatMap{line =>
+      val models = lines.flatMap{line =>
         val parts = line.split(",").map(_.trim)
         if (parts.nonEmpty) {
           val name = parts.head
@@ -87,6 +87,14 @@ abstract class AreaModel {
         }
         else None
       }.toMap
+
+      /*models.foreach{case (k,v) =>
+        if (k != "") {
+          println(s"$k: $v")
+        }
+      }*/
+
+      models
     }.getOrElse{
       warn(s"Area model file $FILE_NAME for target ${SpatialConfig.target.name} was not found.")
       Map.empty
@@ -107,14 +115,17 @@ abstract class AreaModel {
     val controlResourcesPerBank: Area = if (bufferDepth == 1) NoArea
                                         else MuxArea(bufferDepth, nbits) + RegArea(bufferDepth, nbits)
 
+    dbg(s"Total elements: $totalElements")
+
     // TODO: This seems suspicious - check later
     instance match {
       case DiagonalMemory(strides, banks, _, isAccum) =>
+        val depth = Math.ceil(totalElements.toDouble/banks).toInt
         dbg(s"Word width:       $nbits")
         dbg(s"# of banks:       $banks")
+        dbg(s"Elements / Bank:  $depth")
         dbg(s"# of buffers:     $bufferDepth")
 
-        val depth = Math.ceil(totalElements.toDouble/banks).toInt
         val memResourcesPerBank = SRAMArea(width = nbits, depth)
         val resourcesPerBuffer = (memResourcesPerBank + controlResourcesPerBank) * banks
 
@@ -126,12 +137,13 @@ abstract class AreaModel {
       case BankedMemory(banking,_,isAccum) =>
         val banks  = banking.map(_.banks)
         val nBanks = banks.product
+        val bankDepth = dims.zip(banks).map{case (dim,bank) => Math.ceil(dim.toDouble/bank).toInt }.product
 
         dbg(s"Word width:       $nbits")
         dbg(s"# of banks:       $nBanks")
+        dbg(s"Elements / Bank:  $bankDepth")
         dbg(s"# of buffers:     $bufferDepth")
 
-        val bankDepth = dims.zip(banks).map{case (dim,bank) => Math.ceil(dim.toDouble/bank).toInt }.product
         val memResourcesPerBank = SRAMArea(width = nbits, bankDepth)
         val resourcesPerBuffer = (memResourcesPerBank + controlResourcesPerBank) * nBanks
 
@@ -144,6 +156,28 @@ abstract class AreaModel {
 
   @stateful protected def areaOfSRAM(nbits: Int, dims: Seq[Int], instances: Seq[Memory]): Area = {
     instances.map{instance => areaOfMemory(nbits, dims, instance) }.fold(NoArea){_+_}
+  }
+  @stateful def areaOfAccess(nbits: Int, dims: Seq[Int], instances: Seq[Memory]): Area = {
+    val addrSize = dims.map{d => log2(d) + (if (isPow2(d)) 1 else 0) }.max
+    val multiplier = model("FixMulBig")("b"->18) //if (addrSize < DSP_CUTOFF) model("FixMulSmall")("b"->addrSize) else model("FixMulBig")("b"->addrSize)
+    val adder = model("FixAdd")("b"->addrSize)
+    val mod   = model("FixMod")("b"->addrSize)
+    val flattenCost = dims.indices.map{i => multiplier*i }.fold(NoArea){_+_} + adder*(dims.length - 1)
+
+    val bankAddrCost = instances.map{
+      case DiagonalMemory(_,banks,_,_) => if (banks > 1 && !isPow2(banks)) mod else NoArea
+      case BankedMemory(bankDims,_,_) => bankDims.map{
+        case Banking(_,banks,_) => if (banks > 1 && !isPow2(banks)) mod else NoArea
+      }.fold(NoArea){_+_}
+    }.fold(NoArea){_+_}
+
+    dbg(c"Address size: $addrSize")
+    dbg(c"Adder area:   $adder")
+    dbg(c"Mult area:    $multiplier")
+    dbg(c"Mod area:     $mod")
+    dbg(c"Flatten area: $flattenCost")
+    dbg(c"Banking area: $bankAddrCost")
+    flattenCost + bankAddrCost
   }
 
   @stateful def nDups(e: Exp[_]): Int = duplicatesOf(e).length
@@ -258,10 +292,10 @@ abstract class AreaModel {
 
     // SRAMs
     case op:SRAMNew[_,_]   => areaOfSRAM(op.bT.length,dimsOf(lhs),duplicatesOf(lhs))
-    case _:SRAMLoad[_]     => NoArea
-    case _:ParSRAMLoad[_]  => NoArea
-    case _:SRAMStore[_]    => NoArea
-    case _:ParSRAMStore[_] => NoArea
+    case op@SRAMLoad(mem,_,is,_,en)    => areaOfAccess(op.bT.length, dimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
+    case op@ParSRAMLoad(mem,is,en)     => areaOfAccess(op.bT.length, dimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
+    case op@SRAMStore(mem,_,is,_,_,en) => areaOfAccess(op.bT.length, dimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
+    case op@ParSRAMStore(mem,is,_,en)  => areaOfAccess(op.bT.length, dimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
 
     // LineBuffer
     // TODO: Confirm this model for SRAM, or change

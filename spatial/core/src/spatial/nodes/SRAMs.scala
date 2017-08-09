@@ -78,6 +78,7 @@ case class ParSRAMLoad[T:Type:Bits](
 )(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
   def mirror(f:Tx) = SRAM.par_load(f(sram), addr.map{inds => f(inds)}, f(ens))
   val mT = typ[T]
+  val bT = bits[T]
 }
 
 case class ParSRAMStore[T:Type:Bits](
@@ -88,4 +89,5 @@ case class ParSRAMStore[T:Type:Bits](
 ) extends EnabledOp[MUnit](ens:_*) {
   def mirror(f:Tx) = SRAM.par_store(f(sram),addr.map{inds => f(inds)},f(data),f(ens))
   val mT = typ[T]
+  val bT = bits[T]
 }

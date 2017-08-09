@@ -267,6 +267,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
   def shouldUnrollAccess(lhs: Sym[_], rhs: Op[_], lanes: Unroller): Boolean = rhs match {
     case LocalReader(reads) if reads.forall{r => lanes.isCommon(r.mem) } => rhs match {
       case _:SRAMLoad[_] => !isLoopInvariant(lhs)
+      case _:RegFileLoad[_] => !isLoopInvariant(lhs)
       case _ => true
     }
 
@@ -283,7 +284,8 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
   }
   def shouldUnifyAccess(lhs: Sym[_], rhs: Op[_], lanes: Unroller): Boolean = rhs match {
     case LocalReader(reads)  if isLoopInvariant(lhs) && reads.forall{r => lanes.isCommon(r.mem) } => rhs match {
-      case _:SRAMLoad[_] => true
+      case _:SRAMLoad[_]    => true
+      case _:RegFileLoad[_] => true
       case _ => false
     }
     case LocalWriter(writes) if isLoopInvariant(lhs) && writes.forall{r => lanes.isCommon(r.mem) } => rhs match {
