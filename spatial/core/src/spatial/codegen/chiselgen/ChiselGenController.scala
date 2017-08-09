@@ -58,7 +58,7 @@ trait ChiselGenController extends ChiselGenCounter{
           childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""val ${v}${suffix}_chain_read_$i = ${v}${suffix}_chain.read(${i}) === 1.U(1.W)""")}
           withStream(getStream("BufferControlCxns")) {
             childrenOf(lhs).zipWithIndex.foreach{ case (s, i) =>
-              emit(src"""${v}${suffix}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
+              emit(src"""${v}${suffix}_chain.connectStageCtrl(${s}_done.D(1,rr), ${s}_en, List($i))""")
             }
           }
           emit(src"""${v}${suffix}_chain.chain_pass(${v}${suffix}, ${lhs}_sm.io.output.ctr_inc)""")
@@ -89,7 +89,7 @@ trait ChiselGenController extends ChiselGenCounter{
       stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
       withStream(getStream("BufferControlCxns")) {
         stages.zipWithIndex.foreach{ case (s, i) =>
-          emit(src"""${idx}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
+          emit(src"""${idx}_chain.connectStageCtrl(${s}_done.D(1,rr), ${s}_en, List($i))""")
         }
       }
       emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
@@ -495,7 +495,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
         val streamAddition = getStreamEnablers(c)
 
-        emit(src"""${c}_base_en := ${sym}_sm.io.output.stageEnable(${idx})""")  
+        emit(src"""${c}_base_en := ${sym}_sm.io.output.stageEnable(${idx}).D(1,rr) & ~${c}_done.D(1,rr)""")  
         emit(src"""${c}_en := ${c}_base_en ${streamAddition}""")  
 
         // If this is a stream controller, need to set up counter copy for children
