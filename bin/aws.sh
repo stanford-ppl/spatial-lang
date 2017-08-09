@@ -26,7 +26,7 @@ screen -d -m -S $2
 
 # annotated_list=(`cat ${SPATIAL_HOME}/apps/src/MachSuite.scala | grep "// Regression" | sed 's/object //g' | sed 's/ extends.*//g'`)
 annotated_list=(
-				"NW" 
+				"SW" 
 				"MD_Grid" 
 				"GEMM_Blocked"
 				# "SPMV_CRS" 
