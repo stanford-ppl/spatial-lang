@@ -63,6 +63,7 @@ wait_on_run synth_1
 open_run -name implDesign synth_1
 report_timing_summary -file ./synth_timing_summary.rpt
 report_utilization -packthru -file ./synth_utilization.rpt
+report_utilization -packthru -hierarchical -hierarchical_depth 20 -hierarchical_percentages -file ./synth_utilization_hierarchical.rpt
 report_ram_utilization -detail -file ./synth_ram_utilization.rpt
 
 launch_runs impl_1
@@ -73,7 +74,8 @@ wait_on_run impl_1
 # Reports
 open_run -name implDesign impl_1
 report_timing_summary -file ./par_timing_summary.rpt
-report_utilization -packthru -file ./par_utilization.rpt
+report_utilization -packthru -file  ./par_utilization.rpt
+report_utilization -packthru -hierarchical -hierarchical_depth 20 -hierarchical_percentages -file  ./par_utilization_hierarchical.rpt
 report_ram_utilization -detail -file ./par_ram_utilization.rpt
 
 #Export bitstream
