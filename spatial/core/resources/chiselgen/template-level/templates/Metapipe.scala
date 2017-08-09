@@ -7,11 +7,11 @@ import Utils._
 
 import scala.collection.mutable.HashMap
 
-class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
+class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val numIterWidth: Int = 32, val retime: Int = 0) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
-      val numIter = Input(UInt(32.W))
+      val numIter = Input(UInt(numIterWidth.W))
       val stageDone = Vec(n, Input(Bool()))
       val stageMask = Vec(n, Input(Bool()))
       val rst = Input(Bool())
@@ -44,7 +44,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   val deadState = Module(new SRFF()) // This is a hack because with new retime optimizations, mask signal may come one cycle after next state is entered
   deadState.io.input.asyn_reset := reset
 
-  val stateFF = Module(new FF(32))
+  val stateFF = Module(new FF(numIterWidth))
   stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
   stateFF.io.input(0).init := 0.U
   stateFF.io.input(0).reset := io.input.rst
@@ -62,12 +62,12 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   rstCtr.io.input.stride := 1.S(rstw.W)
 
   // Counter for num iterations
-  val maxFF = Module(new FF(32))
+  val maxFF = Module(new FF(numIterWidth))
   maxFF.io.input(0).enable := io.input.enable
   maxFF.io.input(0).data := io.input.numIter
   maxFF.io.input(0).init := 0.U
   maxFF.io.input(0).reset := io.input.rst
-  val max = maxFF.io.output.data
+  val max = chisel3.util.ShiftRegister(maxFF.io.output.data,1)
 
   val doneClear = RegInit(0.U)
   val doneFF = List.tabulate(n) { i =>
@@ -150,7 +150,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
       val doneTree = doneMask.zipWithIndex.map{case (a,i) => a | ~io.input.stageMask(i)}.reduce{_ & _}
       doneClear := doneTree
       when (doneTree === 1.U) {
-        when(ctr.io.output.count(0) === (max.asSInt - 1.S)) {
+        when(chisel3.util.ShiftRegister(ctr.io.output.count(0),1) === (max.asSInt - 1.S)) {
           stateFF.io.input(0).data := Mux(io.input.forever, steadyState.U, drainState.U)
           deadState.io.input.set := true.B
         }.otherwise {

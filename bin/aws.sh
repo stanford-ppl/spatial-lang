@@ -5,6 +5,7 @@
 
 cd ${SPATIAL_HOME}/apps
 ab=`git rev-parse --abbrev-ref HEAD`
+ac=`git rev-parse HEAD`
 cd ../
 if [[ $ab != "asplos2018" ]]; then 
 	read -p "You seem to be on an apps branch that is not asplos2018.  Continue? [y/N]: " choice
