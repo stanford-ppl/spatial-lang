@@ -13,7 +13,7 @@ import scala.collection.mutable
 trait ContentionAnalyzer extends CompilerPass {
   override val name = "Contention Analyzer"
 
-  var top: Exp[_] = _
+  def top: Exp[_]
   val isolatedContention = mutable.HashMap[Exp[_],List[Int]]()
 
   def outerContention(x: Exp[_], P: => Int): Int = {
