@@ -165,9 +165,9 @@ abstract class AreaModel {
     val flattenCost = dims.indices.map{i => multiplier*i }.fold(NoArea){_+_} + adder*(dims.length - 1)
 
     val bankAddrCost = instances.map{
-      case DiagonalMemory(_,banks,_,_) => if (banks > 1 && !isPow2(banks)) mod else NoArea
+      case DiagonalMemory(_,banks,_,_) => mod //if (banks > 1 && !isPow2(banks)) mod else NoArea
       case BankedMemory(bankDims,_,_) => bankDims.map{
-        case Banking(_,banks,_) => if (banks > 1 && !isPow2(banks)) mod else NoArea
+        case Banking(_,banks,_) => mod //if (banks > 1 && !isPow2(banks)) mod else NoArea
       }.fold(NoArea){_+_}
     }.fold(NoArea){_+_}
 
