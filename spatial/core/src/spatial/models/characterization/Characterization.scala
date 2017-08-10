@@ -10,6 +10,7 @@ import sys.process._
 import java.util.concurrent.{BlockingQueue, Executors, LinkedBlockingQueue, TimeUnit}
 
 import org.apache.commons.io.FileUtils
+import spatial.targets.DefaultTarget
 
 trait AllBenchmarks
     extends Benchmarks with SpatialCompiler
@@ -136,97 +137,140 @@ object Characterization extends AllBenchmarks {
     val benchmarks = gens.flatMap(_.expand)
     println("Number of benchmarks: " + benchmarks.length)
 
-    def useDefaultSettings = getYN("Use default settings for this machine")
-
-    val localMachine = java.net.InetAddress.getLocalHost
-    val (threads, start, end) = localMachine.getHostName match {
-      case "london"   if useDefaultSettings => (100, 0, 2116)
-      case "tucson"   if useDefaultSettings => (25, 2116, 2789)
-      case _          =>
-        Console.print("Threads: ")
-        val par = scala.io.StdIn.readLine().toInt
-        Console.print("Start: ")
-        val start = scala.io.StdIn.readLine().toInt
-        Console.print("End: ")
-        val end = scala.io.StdIn.readLine().toInt
-        (par, start, end)
-    }
-    val programs = benchmarks.slice(start, end)
-    val RUN_SPATIAL = getYN("Run Spatial compiler")
-    val RUN_SYNTH = getYN("Run synthesis")
-
     initConfig(stagingArgs)
 
-    Console.print(s"Run directory [${Config.cwd}]: ")
-    val cwdOpt = scala.io.StdIn.readLine()
-    if (cwdOpt != "") Config.cwd = cwdOpt
+    val runSpecific = getYN("Enter characterize debug mode?")
+    if (runSpecific) {
+      println("Targets:")
+      targets.Targets.targets.foreach{t => println(s"  ${t.name}")}
+      Console.println("Selection: ")
+      val target = scala.io.StdIn.readLine()
+      SpatialConfig.target = targets.Targets.targets.find{t => t.name == target }.getOrElse{
+        println("Not found. Using Default instead")
+        DefaultTarget
+      }
 
-    println("Number of programs: " + programs.length)
-    println("Using SPATIAL_HOME: " + SPATIAL_HOME)
-    println("Using CWD: " + Config.cwd)
-    val skipExisting = getYN("Skip generation for existing generated directories")
+      while(true) {
+        var app: Option[NamedSpatialProg] = None
+        while (app.isEmpty) {
+          Console.print("Application: ")
+          val response = scala.io.StdIn.readLine()
+          app = benchmarks.find { bench => bench._1 == response }
 
-    val pool = Executors.newFixedThreadPool(threads)
-    val workQueue = new LinkedBlockingQueue[String](programs.length)
+          if (response.contains("exit")) sys.exit()
 
-    val workers = List.tabulate(threads){id => new Synthesis(id, workQueue, RUN_SYNTH) }
-    workers.foreach{worker => pool.submit(worker) }
+          if (app.isEmpty) {
+            Console.println("No application found for that name. Similar: ")
+            benchmarks.filter { bench => bench._1.startsWith(response) }.take(10).foreach(x => println(x._1))
+          }
+        }
 
-    if (RUN_SPATIAL) {
-      // Set i to previously generated programs
-      //programs.take(i).foreach { x => workQueue.put(x._1) }
-      programs.zipWithIndex.foreach { case (x,i) =>
+        val x = app.get
         val name = x._1
         Config.name = name
         Config.genDir = s"${Config.cwd}/gen/$name"
         Config.logDir = s"${Config.cwd}/logs/$name"
-        //Config.verbosity = -2
-        //Config.showWarn = false
         resetState()
-        try {
-          if (Files.exists(Paths.get(Config.genDir))) {
-            if (!skipExisting) {
-              try {
-                FileUtils.deleteDirectory(new File(Config.genDir))
-              }
-              catch {case _:Throwable => }
-              compileProgram(x._2)
-              println(s"Compiling #$i: $name: done")
-            }
-            else {
-              println(s"Compiling #$i: $name: skip")
-            }
-          }
-          else {
-            compileProgram(x._2)
-            println(s"Compiling #$i: $name: done")
-          }
-          workQueue.put(name)
-        }
-        catch {
-          case e: Throwable =>
-            noteFailure(name + " COMPILATION")
-            Config.verbosity = 4
-            withLog(Config.logDir, "exception.log") {
-              log(e.getMessage)
-              log(e.getCause)
-              e.getStackTrace.foreach { line => log("  " + line) }
-            }
-        }
+        Config.verbosity = 1
+        compileProgram(x._2)
       }
     }
     else {
-      programs.foreach {x => workQueue.put(x._1) }
+      def useDefaultSettings = getYN("Use default settings for this machine")
+
+      val localMachine = java.net.InetAddress.getLocalHost
+      val (threads, start, end) = localMachine.getHostName match {
+        case "london"   if useDefaultSettings => (100, 0, 2116)
+        case "tucson"   if useDefaultSettings => (25, 2116, 2789)
+        case _          =>
+          Console.print("Threads: ")
+          val par = scala.io.StdIn.readLine().toInt
+          Console.print("Start: ")
+          val start = scala.io.StdIn.readLine().toInt
+          Console.print("End: ")
+          val end = scala.io.StdIn.readLine().toInt
+          (par, start, end)
+      }
+      val programs = benchmarks.slice(start, end)
+      val RUN_SPATIAL = getYN("Run Spatial compiler")
+      val RUN_SYNTH = getYN("Run synthesis")
+
+
+      Console.print(s"Run directory [${Config.cwd}]: ")
+      val cwdOpt = scala.io.StdIn.readLine()
+      if (cwdOpt != "") Config.cwd = cwdOpt
+
+      println("Number of programs: " + programs.length)
+      println("Using SPATIAL_HOME: " + SPATIAL_HOME)
+      println("Using CWD: " + Config.cwd)
+      val skipExisting = getYN("Skip generation for existing generated directories")
+
+      println("And awaaaayyy we go!")
+
+      val pool = Executors.newFixedThreadPool(threads)
+      val workQueue = new LinkedBlockingQueue[String](programs.length)
+
+      val workers = List.tabulate(threads) { id => new Synthesis(id, workQueue, RUN_SYNTH) }
+      workers.foreach { worker => pool.submit(worker) }
+
+      if (RUN_SPATIAL) {
+        // Set i to previously generated programs
+        //programs.take(i).foreach { x => workQueue.put(x._1) }
+        programs.zipWithIndex.foreach { case (x, i) =>
+          val name = x._1
+          Config.name = name
+          Config.genDir = s"${Config.cwd}/gen/$name"
+          Config.logDir = s"${Config.cwd}/logs/$name"
+          //Config.verbosity = -2
+          //Config.showWarn = false
+          resetState()
+          try {
+            if (Files.exists(Paths.get(Config.genDir))) {
+              if (!skipExisting) {
+                try {
+                  FileUtils.deleteDirectory(new File(Config.genDir))
+                }
+                catch {
+                  case _: Throwable =>
+                }
+                compileProgram(x._2)
+                println(s"Compiling #$i: $name: done")
+              }
+              else {
+                println(s"Compiling #$i: $name: skip")
+              }
+            }
+            else {
+              compileProgram(x._2)
+              println(s"Compiling #$i: $name: done")
+            }
+            workQueue.put(name)
+          }
+          catch {
+            case e: Throwable =>
+              noteFailure(name + " COMPILATION")
+              Config.verbosity = 4
+              withLog(Config.logDir, "exception.log") {
+                log(e.getMessage)
+                log(e.getCause)
+                e.getStackTrace.foreach { line => log("  " + line) }
+              }
+          }
+        }
+      }
+      else {
+        programs.foreach { x => workQueue.put(x._1) }
+      }
+
+      // Poison work queue
+      (0 until threads).foreach { _ => workQueue.put("") }
+
+      pool.shutdown()
+      pool.awaitTermination(14L, TimeUnit.DAYS)
+      Console.println("COMPLETED")
+      pw.close()
+      fl.close()
     }
-
-    // Poison work queue
-    (0 until threads).foreach{_ => workQueue.put("") }
-
-    pool.shutdown()
-    pool.awaitTermination(14L, TimeUnit.DAYS)
-    Console.println("COMPLETED")
-    pw.close()
-    fl.close()
   }
 
 }

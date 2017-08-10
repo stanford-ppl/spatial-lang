@@ -201,7 +201,7 @@ abstract class AreaModel {
     else NoArea
   }
 
-  @stateful def areaOfNode(lhs: Exp[_], rhs: Def): Area = rhs match {
+  @stateful def areaOfNode(lhs: Exp[_], rhs: Def): Area = {try { rhs match {
     /** Non-synthesizable nodes **/
     case _:PrintIf          => NoArea
     case _:PrintlnIf        => NoArea
@@ -494,7 +494,11 @@ abstract class AreaModel {
     case _ =>
       miss(u"${rhs.getClass} (rule)")
       NoArea
-  }
+  }}
+  catch {case e:Throwable =>
+    miss(u"${rhs.getClass}: " + e.getMessage)
+    NoArea
+  }}
 
   /**
     * Returns the area resources for a delay line with the given width (in bits) and length (in cycles)

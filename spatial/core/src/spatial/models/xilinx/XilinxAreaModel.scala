@@ -39,7 +39,7 @@ abstract class XilinxAreaModel extends AreaModel {
 
     val totalRegs = design(Regs) + routingRegs + design(Mregs)
 
-    val regSlices = Math.max( ((totalRegs - (logicSlices*1.95))/8).toInt, 0)
+    val regSlices = Math.max( ((totalRegs - ((logicSlices+design(SLICEL))*1.9) )/8).toInt, 0)
 
     val routingBRAM = 0 //Math.max(0.02*routingLUTs - 500, 0.0).toInt
 
