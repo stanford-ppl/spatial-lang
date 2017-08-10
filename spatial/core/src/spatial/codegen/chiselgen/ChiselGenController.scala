@@ -58,7 +58,7 @@ trait ChiselGenController extends ChiselGenCounter{
           childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""val ${v}${suffix}_chain_read_$i = ${v}${suffix}_chain.read(${i}) === 1.U(1.W)""")}
           withStream(getStream("BufferControlCxns")) {
             childrenOf(lhs).zipWithIndex.foreach{ case (s, i) =>
-              emit(src"""${v}${suffix}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
+              emit(src"""${v}${suffix}_chain.connectStageCtrl(${s}_done.D(1,rr), ${s}_en, List($i))""")
             }
           }
           emit(src"""${v}${suffix}_chain.chain_pass(${v}${suffix}, ${lhs}_sm.io.output.ctr_inc)""")
@@ -89,7 +89,7 @@ trait ChiselGenController extends ChiselGenCounter{
       stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
       withStream(getStream("BufferControlCxns")) {
         stages.zipWithIndex.foreach{ case (s, i) =>
-          emit(src"""${idx}_chain.connectStageCtrl(${s}_done, ${s}_en, List($i))""")
+          emit(src"""${idx}_chain.connectStageCtrl(${s}_done.D(1,rr), ${s}_en, List($i))""")
         }
       }
       emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
@@ -450,9 +450,9 @@ trait ChiselGenController extends ChiselGenCounter{
           emit(src"""// ---- Counter Connections for $smStr ${sym} (${cchain.get}) ----""")
           val ctr = cchain.get
           if (isStreamChild(sym) & hasStreamIns) {
-            emit(src"""${ctr}_resetter := ${sym}_done // Do not use rst_en for stream kiddo""")
+            emit(src"""${ctr}_resetter := ${sym}_done.D(1,rr) // Do not use rst_en for stream kiddo""")
           } else {
-            emit(src"""${ctr}_resetter := ${sym}_rst_en""")
+            emit(src"""${ctr}_resetter := ${sym}_rst_en.D(1,rr)""")
           }
           if (isInner) { 
             // val dlay = if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {src"1 + ${sym}_retime"} else "1"
@@ -495,7 +495,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
         val streamAddition = getStreamEnablers(c)
 
-        emit(src"""${c}_base_en := ${sym}_sm.io.output.stageEnable(${idx})""")  
+        emit(src"""${c}_base_en := ${sym}_sm.io.output.stageEnable(${idx}).D(1,rr) & ~${c}_done.D(1,rr)""")  
         emit(src"""${c}_en := ${c}_base_en ${streamAddition}""")  
 
         // If this is a stream controller, need to set up counter copy for children
@@ -519,7 +519,7 @@ trait ChiselGenController extends ChiselGenCounter{
           emitCounterChain(cchain.get, ctrs, src"_copy$c")
           // val inhibit_respeck = if (levelOf(c) == InnerControl & respecks_stream) src"& ~${c}_inhibitor /*amazingly ugly hack for tensor5d*/" else ""
           emit(src"""${cchain.get}_copy${c}_en := ${signalHandle}""")
-          emit(src"""${cchain.get}_copy${c}_resetter := ${sym}_sm.io.output.rst_en""")
+          emit(src"""${cchain.get}_copy${c}_resetter := ${sym}_sm.io.output.rst_en.D(1,rr)""")
         }
         emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")
       }
@@ -557,7 +557,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
       emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
       emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := reset; retime_counter.io.input.enable := true.B;""")
-      emitGlobalWire(src"""val retime_released = Wire(Bool())""")
+      emitGlobalWire(src"""val retime_released = RegInit(false.B)""")
       emitGlobalWire(src"""val rr = retime_released // Shorthand""")
       emit(src"""retime_released := retime_counter.io.output.done """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }

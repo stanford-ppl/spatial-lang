@@ -53,7 +53,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   val swap = Wire(Bool())
   // Latch whether each buffer's stage is enabled and when they are done
   (0 until numAccessors).foreach{ i => 
-    sEn_latch(i).io.input.set := io.sEn(i)
+    sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
     sEn_latch(i).io.input.reset := swap
     sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)
