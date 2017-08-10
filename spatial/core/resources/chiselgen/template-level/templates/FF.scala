@@ -102,7 +102,7 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
 
   // Latch whether each buffer's stage is enabled and when they are done
   (0 until numBufs).foreach{ i => 
-    sEn_latch(i).io.input.set := io.sEn(i)
+    sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
     sEn_latch(i).io.input.reset := swap
     sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)
