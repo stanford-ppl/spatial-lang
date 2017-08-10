@@ -822,7 +822,6 @@
 ./chiselgen/template-level/fringeZynq/build/AXI4LiteToRFBridgeVerilog.v
 ./chiselgen/template-level/fringeZynq/build/u-boot.elf._
 ./chiselgen/template-level/fringeZynq/build/convert_bitstream
-./chiselgen/template-level/fringeZynq/build/clockFreq.tcl
 ./chiselgen/template-level/fringeAWS/SRAMVerilogAWS.v
 ./chiselgen/template-level/fringeHW/UpDownCtr.scala
 ./chiselgen/template-level/fringeHW/FIFOCore.scala
