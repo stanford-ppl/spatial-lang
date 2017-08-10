@@ -528,8 +528,11 @@ trait PIRAllocation extends PIRTraversal {
           dbgs(s"Add dwriter:$dwriter to writerCU:$writerCU")
           remoteReaders.foreach { reader =>
             getReaderCUs(reader).foreach { readerCU =>
-              dbgs(s"set ${quote(dmem)}.writePort = $bus in readerCU=$readerCU reader=$reader")
-              readerCU.memMap(dmem).writePort += bus
+              val locallyWritten = isLocallyWritten(dmem, reader, readerCU)
+              if (!locallyWritten) {
+                dbgs(s"set ${quote(dmem)}.writePort = $bus in readerCU=$readerCU reader=$reader")
+                readerCU.memMap(dmem).writePort += bus
+              }
             }
           }
         }
