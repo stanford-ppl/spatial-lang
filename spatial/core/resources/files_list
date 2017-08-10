@@ -96,6 +96,8 @@
 ./cppgen/fringeAWS/sim/Makefile.vivado
 ./cppgen/fringeAWS/build/Makefile
 ./cppgen/fringeAWS/build/encrypt.tcl
+./cppgen/fringeAWS/build/synth_cl_dram_dma.tcl
+./cppgen/fringeAWS/build/clockFreq.tcl
 ./cppgen/fringeAWS/build/load.sh
 ./cppgen/fringeAWS/headers/FringeContextAWS.h
 ./cppgen/fringeAWS/headers/FringeContextBase.h
@@ -822,6 +824,7 @@
 ./chiselgen/template-level/fringeZynq/build/AXI4LiteToRFBridgeVerilog.v
 ./chiselgen/template-level/fringeZynq/build/u-boot.elf._
 ./chiselgen/template-level/fringeZynq/build/convert_bitstream
+./chiselgen/template-level/fringeAWS/bigIP/BigIPAWS.scala
 ./chiselgen/template-level/fringeAWS/SRAMVerilogAWS.v
 ./chiselgen/template-level/fringeHW/UpDownCtr.scala
 ./chiselgen/template-level/fringeHW/FIFOCore.scala
