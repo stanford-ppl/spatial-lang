@@ -215,6 +215,7 @@ abstract class AreaModel {
     //case FltRandom(_)       => NoArea  // TODO: This is synthesizable now?
 
     /** Zero area cost **/
+    case SimpleStruct(_)    => NoArea
     case FieldApply(_,_)    => NoArea
     case VectorApply(_,_)   => NoArea
     case VectorSlice(_,_,_) => NoArea
