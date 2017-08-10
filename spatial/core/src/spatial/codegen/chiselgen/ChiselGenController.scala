@@ -450,9 +450,9 @@ trait ChiselGenController extends ChiselGenCounter{
           emit(src"""// ---- Counter Connections for $smStr ${sym} (${cchain.get}) ----""")
           val ctr = cchain.get
           if (isStreamChild(sym) & hasStreamIns) {
-            emit(src"""${ctr}_resetter := ${sym}_done // Do not use rst_en for stream kiddo""")
+            emit(src"""${ctr}_resetter := ${sym}_done.D(1,rr) // Do not use rst_en for stream kiddo""")
           } else {
-            emit(src"""${ctr}_resetter := ${sym}_rst_en""")
+            emit(src"""${ctr}_resetter := ${sym}_rst_en.D(1,rr)""")
           }
           if (isInner) { 
             // val dlay = if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {src"1 + ${sym}_retime"} else "1"
@@ -519,7 +519,7 @@ trait ChiselGenController extends ChiselGenCounter{
           emitCounterChain(cchain.get, ctrs, src"_copy$c")
           // val inhibit_respeck = if (levelOf(c) == InnerControl & respecks_stream) src"& ~${c}_inhibitor /*amazingly ugly hack for tensor5d*/" else ""
           emit(src"""${cchain.get}_copy${c}_en := ${signalHandle}""")
-          emit(src"""${cchain.get}_copy${c}_resetter := ${sym}_sm.io.output.rst_en""")
+          emit(src"""${cchain.get}_copy${c}_resetter := ${sym}_sm.io.output.rst_en.D(1,rr)""")
         }
         emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")
       }
