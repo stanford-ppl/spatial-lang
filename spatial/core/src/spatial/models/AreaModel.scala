@@ -165,9 +165,9 @@ abstract class AreaModel {
     val flattenCost = dims.indices.map{i => multiplier*i }.fold(NoArea){_+_} + adder*(dims.length - 1)
 
     val bankAddrCost = instances.map{
-      case DiagonalMemory(_,banks,_,_) => if (banks > 1 && !isPow2(banks)) mod else NoArea
+      case DiagonalMemory(_,banks,_,_) => mod //if (banks > 1 && !isPow2(banks)) mod else NoArea
       case BankedMemory(bankDims,_,_) => bankDims.map{
-        case Banking(_,banks,_) => if (banks > 1 && !isPow2(banks)) mod else NoArea
+        case Banking(_,banks,_) => mod //if (banks > 1 && !isPow2(banks)) mod else NoArea
       }.fold(NoArea){_+_}
     }.fold(NoArea){_+_}
 
@@ -201,7 +201,7 @@ abstract class AreaModel {
     else NoArea
   }
 
-  @stateful def areaOfNode(lhs: Exp[_], rhs: Def): Area = rhs match {
+  @stateful def areaOfNode(lhs: Exp[_], rhs: Def): Area = {try { rhs match {
     /** Non-synthesizable nodes **/
     case _:PrintIf          => NoArea
     case _:PrintlnIf        => NoArea
@@ -215,6 +215,7 @@ abstract class AreaModel {
     //case FltRandom(_)       => NoArea  // TODO: This is synthesizable now?
 
     /** Zero area cost **/
+    case SimpleStruct(_)    => NoArea
     case FieldApply(_,_)    => NoArea
     case VectorApply(_,_)   => NoArea
     case VectorSlice(_,_,_) => NoArea
@@ -493,7 +494,11 @@ abstract class AreaModel {
     case _ =>
       miss(u"${rhs.getClass} (rule)")
       NoArea
-  }
+  }}
+  catch {case e:Throwable =>
+    miss(u"${rhs.getClass}: " + e.getMessage)
+    NoArea
+  }}
 
   /**
     * Returns the area resources for a delay line with the given width (in bits) and length (in cycles)

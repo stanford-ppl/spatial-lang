@@ -28,8 +28,8 @@ class ZynqAreaModel extends XilinxAreaModel {
   }
 
   @stateful override def SRAMArea(width: Int, depth: Int): Area = {
-    if (width * depth < 2048) {
-      distributedMemory(depth) * width
+    if (width * depth < 512 || depth < 128) {
+      distributedMemory(depth) * Math.ceil(width/2)
     }
     else {
       val cols = Math.ceil(width / 18.0)
