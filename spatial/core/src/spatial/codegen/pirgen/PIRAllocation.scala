@@ -365,7 +365,7 @@ trait PIRAllocation extends PIRTraversal {
           def addParentCU(s: Expr, d:Def, mem: Expr, ind: Option[Seq[Expr]]) = {
             val indSyms = ind.map { ind => symsUsedInCalcExps(stms)(Seq(), ind) }.getOrElse(Nil)
             if (indSyms.contains(reader) && isRemoteMem(mem)) {
-              readerCUs ++= decompose(mem).flatMap(allocateMemoryCU)
+              readerCUs ++= decompose(mem).zip(decompose(s)).flatMap { case (dm, da) => getMCUforAccess(dm, da) }
             }
             else if (d.allInputs.contains(reader) || (s==reader && isInnerControl(pipe)) ) { //RegRead can occur outside user
               readerCUs += allocateCU(pipe)
