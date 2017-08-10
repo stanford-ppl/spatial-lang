@@ -22,7 +22,7 @@ fi
 cd $SPATIAL_HOME
 hn=`hostname`
 if [[ $hn = *"dawn"* ]]; then 
-	sed -i "s/CROSS_COMPILE=.*/CROSS_COMPILE=/afs/cs.stanford.edu/u/raghu/aarch32/lin/gcc-arm-linux-gnueabi/bin/arm-linux-gnueabihf-/g" spatial/core/resources/chiselgen/app-level/zynq.mk
+	sed -i "s/CROSS_COMPILE=.*/CROSS_COMPILE=\/afs\/cs.stanford.edu\/u\/raghu\/aarch32\/lin\/gcc-arm-linux-gnueabi\/bin\/arm-linux-gnueabihf-/g" spatial/core/resources/chiselgen/app-level/zynq.mk
 fi
 
 sed -i "s/override val target = .*/override val target = Zynq/g" apps/src/ASPLOS2018.scala

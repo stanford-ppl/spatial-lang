@@ -136,8 +136,8 @@ trait SpatialCompiler extends ArgonCompiler {
 
     passes += printer
     passes += areaAnalyzer
-    passes += contentionAnalyzer
-    passes += latencyAnalyzer
+    // passes += contentionAnalyzer
+    // passes += latencyAnalyzer
 
     // --- DSE
     if (SpatialConfig.enableDSE) {
