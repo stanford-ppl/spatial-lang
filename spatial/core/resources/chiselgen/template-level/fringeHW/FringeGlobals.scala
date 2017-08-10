@@ -22,7 +22,6 @@ object FringeGlobals {
   // tclScript
   private var _tclScript: PrintWriter = {
     val pw = new PrintWriter(new File("bigIP.tcl"))
-    pw.println("source clockFreq.tcl")
     pw.flush
     pw
   }
