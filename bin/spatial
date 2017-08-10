@@ -62,6 +62,7 @@ def main():
   ecode = os.system(java_cmd)
 
   if ecode != 0:
+      pass
     # print("[" + bcolors.FAIL + "error" + bcolors.ENDC + "] Spatial compilation failed")
   else:
     simScript = open(opts.app + ".sim", 'w')
