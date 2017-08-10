@@ -39,7 +39,7 @@ abstract class XilinxAreaModel extends AreaModel {
 
     val totalRegs = design(Regs) + routingRegs + design(Mregs)
 
-    val regSlices = Math.max( ((totalRegs - (logicSlices*1.95))/8).toInt, 0)
+    val regSlices = Math.max( ((totalRegs - ((logicSlices+design(SLICEL))*1.9) )/8).toInt, 0)
 
     val routingBRAM = 0 //Math.max(0.02*routingLUTs - 500, 0.0).toInt
 
@@ -49,8 +49,8 @@ abstract class XilinxAreaModel extends AreaModel {
 
     val capacity = SpatialConfig.target.capacity
 
-    val totalSLICEM = memorySlices
-    val totalSLICEL = logicSlices + regSlices
+    val totalSLICEM = memorySlices + design(SLICEM)
+    val totalSLICEL = logicSlices + design(SLICEL) + regSlices
     val totalSlices = totalSLICEM + totalSLICEL
 
     if (Config.verbosity > 0) {
@@ -85,6 +85,8 @@ abstract class XilinxAreaModel extends AreaModel {
                           |  Routing: $routingRegs
                           |
                           |Register-only Slices: $regSlices
+                          |Design Logic Slices:  ${design(SLICEL)}
+                          |Design Memory Slices: ${design(SLICEM)}
                           |
                           |URAM: $totalURAM / ${capacity(URAM)} (${"%.2f".format(100*totalURAM.toDouble/capacity(URAM))}%)
                           |

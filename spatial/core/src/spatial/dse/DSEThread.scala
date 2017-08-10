@@ -59,7 +59,7 @@ case class DSEThread(
     def localMems: Seq[Exp[_]] = thread.localMems
     var IR: State = state
   }
-  private lazy val contentionAnalyzer = new ContentionAnalyzer { var IR: State = state }
+  private lazy val contentionAnalyzer = new ContentionAnalyzer { var IR: State = state; def top = accel }
   private lazy val areaAnalyzer  = target.areaAnalyzer(state)
   private lazy val cycleAnalyzer = target.cycleAnalyzer(state)
 
@@ -70,7 +70,6 @@ case class DSEThread(
     scalarAnalyzer.init()
     memoryAnalyzer.init()
     contentionAnalyzer.init()
-    contentionAnalyzer.top = accel
 
     Config.verbosity = -1
     scalarAnalyzer.silence()

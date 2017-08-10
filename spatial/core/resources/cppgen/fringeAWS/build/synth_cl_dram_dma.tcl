@@ -76,6 +76,7 @@ read_bd [ list \
 ]
 
 # Spatial: source script to create required IP
+source clockFreq.tcl
 source bigIP.tcl
 
 puts "AWS FPGA: Reading AWS constraints";

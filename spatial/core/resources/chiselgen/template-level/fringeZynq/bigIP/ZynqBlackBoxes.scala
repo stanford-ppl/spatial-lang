@@ -126,6 +126,8 @@ s"""
 create_ip -name mult_gen -vendor xilinx.com -library ip -version 12.0 -module_name $moduleName
 set_property -dict [list CONFIG.MultType {Parallel_Multiplier} CONFIG.PortAType {$signedString}  CONFIG.PortAWidth {$aWidth} CONFIG.PortBType {$signedString} CONFIG.PortBWidth {$bWidth} CONFIG.Multiplier_Construction {$multConstruction} CONFIG.OptGoal {Speed} CONFIG.Use_Custom_Output_Width {true} CONFIG.OutputWidthHigh {$outWidth} CONFIG.PipeStages {$latency}] [get_ips $moduleName]
 set_property -dict [list CONFIG.clk_intf.FREQ_HZ $$CLOCK_FREQ_HZ] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -155,6 +157,8 @@ s"""
 ## fabs
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Absolute} CONFIG.A_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {$outExp} CONFIG.C_Result_Fraction_Width {$outFrac} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {0} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -185,6 +189,8 @@ s"""
 ## fexp
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Exponential} CONFIG.Flow_Control {NonBlocking} CONFIG.A_Precision_Type {Single} CONFIG.C_A_Exponent_Width {8} CONFIG.C_A_Fraction_Width {24} CONFIG.Result_Precision_Type {Single} CONFIG.C_Result_Exponent_Width {8} CONFIG.C_Result_Fraction_Width {24} CONFIG.C_Mult_Usage {Medium_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {20} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -215,6 +221,8 @@ s"""
 ## flog
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Logarithm} CONFIG.Flow_Control {NonBlocking} CONFIG.Maximum_Latency {true} CONFIG.A_Precision_Type {Single} CONFIG.C_A_Exponent_Width {8} CONFIG.C_A_Fraction_Width {24} CONFIG.Result_Precision_Type {Single} CONFIG.C_Result_Exponent_Width {8} CONFIG.C_Result_Fraction_Width {24} CONFIG.C_Mult_Usage {Medium_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {22} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -245,6 +253,8 @@ s"""
 ## fsqrt
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Square_root} CONFIG.A_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {$outExp} CONFIG.C_Result_Fraction_Width {$outFrac} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {28} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -277,6 +287,8 @@ s"""
 ## fadd
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Add_Sub_Value {Add} CONFIG.A_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {$outExp} CONFIG.C_Result_Fraction_Width {$outFrac} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {12}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -309,6 +321,8 @@ s"""
 ## fsub
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Add_Sub_Value {Subtract} CONFIG.A_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {$outExp} CONFIG.C_Result_Fraction_Width {$outFrac} CONFIG.C_Mult_Usage {No_Usage} CONFIG.C_Latency {12}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -341,6 +355,8 @@ s"""
 ## fmul
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Multiply} CONFIG.A_Precision_Type {Custom} CONFIG.C_Mult_Usage {Full_Usage} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {$outExp} CONFIG.C_Result_Fraction_Width {$outFrac} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {8} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -373,6 +389,8 @@ s"""
 ## fdiv
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Divide} CONFIG.A_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {$inExp} CONFIG.C_Result_Fraction_Width {$inFrac} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {28} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -405,6 +423,8 @@ s"""
 ## flt
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Compare} CONFIG.C_Compare_Operation {Less_Than} CONFIG.A_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {1} CONFIG.C_Result_Fraction_Width {0} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {2} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -437,6 +457,8 @@ s"""
 ## fle
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Compare} CONFIG.C_Compare_Operation {Less_Than_Or_Equal} CONFIG.A_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {1} CONFIG.C_Result_Fraction_Width {0} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {2} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -469,6 +491,8 @@ s"""
 ## feq
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Compare} CONFIG.C_Compare_Operation {Equal} CONFIG.A_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {1} CONFIG.C_Result_Fraction_Width {0} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {2} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -501,6 +525,8 @@ s"""
 ## fne
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Compare} CONFIG.C_Compare_Operation {Not_Equal} CONFIG.A_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {1} CONFIG.C_Result_Fraction_Width {0} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {2} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -533,6 +559,8 @@ s"""
 ## fgt
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Compare} CONFIG.C_Compare_Operation {Greater_Than} CONFIG.A_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {1} CONFIG.C_Result_Fraction_Width {0} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {2} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -565,6 +593,8 @@ s"""
 ## fgt
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Compare} CONFIG.C_Compare_Operation {Greater_Than_Or_Equal} CONFIG.A_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.Result_Precision_Type {Custom} CONFIG.C_Result_Exponent_Width {1} CONFIG.C_Result_Fraction_Width {0} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {2} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -595,6 +625,8 @@ s"""
 ## fix2float
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Fixed_to_float} CONFIG.A_Precision_Type {Custom} CONFIG.Result_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inIntWidth} CONFIG.C_A_Fraction_Width {$inFracWidth} CONFIG.C_Result_Exponent_Width {$outExp} CONFIG.C_Result_Fraction_Width {$outFrac} CONFIG.C_Accum_Msb {32} CONFIG.C_Accum_Lsb {-31} CONFIG.C_Accum_Input_Msb {32} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {6} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -625,6 +657,8 @@ s"""
 ## float2fix
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Float_to_fixed} CONFIG.A_Precision_Type {Custom} CONFIG.Result_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.C_Result_Exponent_Width {$outIntWidth} CONFIG.C_Result_Fraction_Width {$outFracWidth} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {6} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
@@ -655,6 +689,8 @@ s"""
 ## float2float
 create_ip -name floating_point -vendor xilinx.com -library ip -version 7.1 -module_name $moduleName
 set_property -dict [list CONFIG.Operation_Type {Float_to_float} CONFIG.A_Precision_Type {Custom} CONFIG.Result_Precision_Type {Custom} CONFIG.Flow_Control {NonBlocking} CONFIG.C_A_Exponent_Width {$inExp} CONFIG.C_A_Fraction_Width {$inFrac} CONFIG.C_Result_Exponent_Width {$outExp} CONFIG.C_Result_Fraction_Width {$outFrac} CONFIG.C_Mult_Usage {No_Usage} CONFIG.Has_RESULT_TREADY {false} CONFIG.C_Latency {2} CONFIG.C_Rate {1}] [get_ips $moduleName]
+set_property generate_synth_checkpoint false [get_files $moduleName.xci]
+generate_target {all} [get_ips $moduleName]
 
 """)
 
