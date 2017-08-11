@@ -115,7 +115,7 @@ trait DSE extends CompilerPass with SpaceGenerator {
 
 
       if (EXPERIMENT) {
-        val sizes = List(1000, 5000, 10000, 25000, 50000, 75000, 100000, 150000, 200000, 500000)
+        val sizes = List(500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000)
         sizes.filter(_ <= legalSize).foreach{size =>
           (0 until 10).foreach{i =>
 

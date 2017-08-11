@@ -48,4 +48,6 @@ class ZynqAreaModel extends XilinxAreaModel {
       AreaMap(RAM18 -> totalRAM18, RAM36 -> totalRAM36)
     }
   }
+
+
 }
