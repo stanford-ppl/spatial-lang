@@ -27,17 +27,21 @@ screen -d -m -S $2
 
 # annotated_list=(`cat ${SPATIAL_HOME}/apps/src/MachSuite.scala | grep "// Regression" | sed 's/object //g' | sed 's/ extends.*//g'`)
 annotated_list=(
-				"SW" 
-				"MD_Grid" 
-				"GEMM_Blocked"
+				# "SW" 
+				# "MD_Grid" 
+				# "GEMM_Blocked"
 				# "SPMV_CRS" 
 				# "PageRank" 
 				# "BlackScholes" 
-				"TPCHQ6" 
-				"AES" 
-				"Kmeans"
-				"GDA"
-				"Sobel"
+				# "TPCHQ6" 
+				# "AES" 
+				# "Kmeans"
+				# "GDA"
+				# "Sobel"
+				"BlackScholes1" 
+				"BlackScholes2" 
+				"BlackScholes3" 
+				"BlackScholes4" 
 
 				# # Testing
 				# "SimpleTileLoadStore"
