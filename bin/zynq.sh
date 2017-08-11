@@ -4,6 +4,7 @@
 # $2 = modifier ("retime", "basic", etc..)
 # $3 = make target ("zynq", "aws-F1-afi")
 
+SPATIAL_HOME=`pwd`
 cd ${SPATIAL_HOME}/apps
 ab=`git rev-parse --abbrev-ref HEAD`
 ac=`git rev-parse HEAD`
@@ -19,6 +20,11 @@ if [[ $ab != "asplos2018" ]]; then
 fi
 
 cd $SPATIAL_HOME
+hn=`hostname`
+if [[ $hn = *"dawn"* ]]; then 
+	sed -i "s/CROSS_COMPILE=.*/CROSS_COMPILE=\/afs\/cs.stanford.edu\/u\/raghu\/aarch32\/lin\/gcc-arm-linux-gnueabi\/bin\/arm-linux-gnueabihf-/g" spatial/core/resources/chiselgen/app-level/zynq.mk
+fi
+
 sed -i "s/override val target = .*/override val target = Zynq/g" apps/src/ASPLOS2018.scala
 
 # Create a new screen session in detached mode
@@ -27,6 +33,7 @@ screen -d -m -S $2
 
 # annotated_list=(`cat ${SPATIAL_HOME}/apps/src/MachSuite.scala | grep "// Regression" | sed 's/object //g' | sed 's/ extends.*//g'`)
 annotated_list=(
+<<<<<<< HEAD
 				# "SW" 
 				# "MD_Grid" 
 				# "GEMM_Blocked"
@@ -46,13 +53,42 @@ annotated_list=(
 				# # Testing
 				# "SimpleTileLoadStore"
 				# "MultiplexedWriteTest"
+=======
+				"SW1" 
+				"SW2" 
+				"SW3" 
+				"MD_Grid1" 
+				"MD_Grid2" 
+				"MD_Grid3" 
+				"GEMM_Blocked1"
+				"GEMM_Blocked2"
+				"GEMM_Blocked3"
+				# "SPMV_CRS" 
+				# "PageRank" 
+				# "BlackScholes" 
+				"TPCHQ61" 
+				"TPCHQ62" 
+				"TPCHQ63" 
+				"AES1" 
+				"AES2" 
+				"AES3" 
+				"Kmeans1"
+				"Kmeans2"
+				"Kmeans3"
+				"GDA1"
+				"GDA2"
+				"GDA3"
+				"Sobel1"
+				"Sobel2"
+				"Sobel3"
+>>>>>>> 0a57836ca377248b9cc9111a2fb8a87ab5a7dbcf
 				)
 
 				# "LeNet" "DjinnASR" "VGG16"  
 				# "KalmanFilter" "GACT" "AlexNet" "Network_in_Network" 
 				# "VGG_CNN_S" "Overfeat" "Cifar10_Full"  )
 for a in ${annotated_list[@]}; do
-	CMD="cd $SPATIAL_HOME;rm -rf out_$2_$a;bin/spatial $a --synth --out=out_${2}_${a} $1;cd out_$2_$a;make zynq"
+	CMD="export SPATIAL_HOME=${SPATIAL_HOME};cd $SPATIAL_HOME;rm -rf out_$2_$a;bin/spatial $a --synth --out=out_${2}_${a} $1;cd out_$2_$a;make zynq"
     # Creates a new screen window with title '$f' in existing screen session
     screen -S $2 -X screen -t $a
 

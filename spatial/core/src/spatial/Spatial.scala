@@ -52,6 +52,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     lazy val scopeCheck     = new ScopeCheck { var IR = state }
 
+    lazy val contentionAnalyzer = new ContentionAnalyzer{ var IR = state; def top = ctrlAnalyzer.top.get }
     lazy val latencyAnalyzer = LatencyAnalyzer(IR = state, latencyModel = target.latencyModel)
     lazy val areaAnalyzer = SpatialConfig.target.areaAnalyzer(state)
 
@@ -135,6 +136,8 @@ trait SpatialCompiler extends ArgonCompiler {
 
     passes += printer
     passes += areaAnalyzer
+    // passes += contentionAnalyzer
+    // passes += latencyAnalyzer
 
     // --- DSE
     if (SpatialConfig.enableDSE) {
@@ -208,7 +211,6 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += bufferAnalyzer    // Set top controllers for n-buffers
     passes += streamAnalyzer    // Set stream pipe children fifo dependencies
     passes += argMapper         // Get address offsets for each used DRAM object
-    passes += latencyAnalyzer   // Get delay lengths of inner pipes (used for retiming control signals)
     if (SpatialConfig.enablePIRSim) passes += pirTiming // PIR delays (retiming control signals)
     passes += printer
 
