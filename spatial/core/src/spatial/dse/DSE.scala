@@ -1,5 +1,6 @@
 package spatial.dse
 
+import java.io.PrintWriter
 import java.util.concurrent.{BlockingQueue, Executors, LinkedBlockingQueue}
 
 import argon.core._
@@ -115,12 +116,16 @@ trait DSE extends CompilerPass with SpaceGenerator {
 
 
       if (EXPERIMENT) {
+        val times = new PrintWriter("times.log")
+
         val sizes = List(500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000)
         sizes.filter(_ <= legalSize).foreach{size =>
           (0 until 10).foreach{i =>
 
             val points = scala.util.Random.shuffle(legalPoints).take(size)
-            val filename = s"${Config.name}_size_${size}_exp_$i"
+            val filename = s"${Config.name}_size_${size}_exp_$i.csv"
+
+            val startTime = System.currentTimeMillis()
 
             threadBasedDSE(points.length, params, prunedSpace, program, file = filename) { queue =>
               points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach { block =>
@@ -128,8 +133,11 @@ trait DSE extends CompilerPass with SpaceGenerator {
               }
             }
 
+            val endTime = System.currentTimeMillis()
+            times.println(s"$filename: ${endTime - startTime}")
           }
         }
+        times.close()
       }
       else {
         val points = scala.util.Random.shuffle(legalPoints).take(75000)
