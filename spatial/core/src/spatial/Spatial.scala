@@ -135,7 +135,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += memAnalyzer       // Memory banking/buffering
 
     passes += printer
-    passes += areaAnalyzer
+    // passes += areaAnalyzer
     // passes += contentionAnalyzer
     // passes += latencyAnalyzer
 
