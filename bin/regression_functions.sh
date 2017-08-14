@@ -860,6 +860,18 @@ launch_tests() {
     fi
   done
 
+  # Stick unit tests up first
+  t=()
+  if [[ ${types_list[@]} = *"Unit"* ]]; then
+    t=("Unit")
+    for ac in ${types_list[@]}; do
+      if [[ $ac != *"Unit"* ]]; then
+        t=("${t[@]}" $ac)
+      fi
+    done
+  fi
+  type_list=${t[@]}
+
   # Make reg test dir
   rm -rf ${SPATIAL_HOME}/regression_tests;mkdir ${SPATIAL_HOME}/regression_tests
 

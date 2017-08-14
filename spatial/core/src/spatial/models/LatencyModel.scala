@@ -249,16 +249,16 @@ trait LatencyModel {
     // TODO: Floating point for things besides single precision
     case FltAbs(_) => 1
     case FltNeg(_) => 1
-    case FltAdd(_,_) if s.tp == FloatType => 14
-    case FltSub(_,_) if s.tp == FloatType => 14
-    case FltMul(_,_) if s.tp == FloatType => 11
-    case FltDiv(_,_) if s.tp == FloatType => 33
+    case FltAdd(_,_) if s.tp == FloatType => 12
+    case FltSub(_,_) if s.tp == FloatType => 12
+    case FltMul(_,_) if s.tp == FloatType => 8
+    case FltDiv(_,_) if s.tp == FloatType => 28
 
-    case FltLt(a,_)  if a.tp == FloatType => 3
-    case FltLeq(a,_) if a.tp == FloatType => 3
+    case FltLt(a,_)  if a.tp == FloatType => 2
+    case FltLeq(a,_) if a.tp == FloatType => 2
 
-    case FltNeq(a,_) if a.tp == FloatType => 3
-    case FltEql(a,_) if a.tp == FloatType => 3
+    case FltNeq(a,_) if a.tp == FloatType => 2
+    case FltEql(a,_) if a.tp == FloatType => 2
 
     case FltLog(_) if s.tp == FloatType => 35
     case FltExp(_) if s.tp == FloatType => 27

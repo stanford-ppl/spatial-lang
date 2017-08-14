@@ -48,8 +48,12 @@ abstract class FPGATarget {
 object Targets {
   var targets: Set[FPGATarget] = Set.empty
   targets += DefaultTarget
+  targets += spatial.targets.DE1
+  targets += spatial.targets.AWS_F1
+  targets += spatial.targets.Zynq
 
   lazy val Default = spatial.targets.DefaultTarget
   lazy val DE1 = spatial.targets.DE1
   lazy val F1 = spatial.targets.AWS_F1
+  lazy val Zynq = spatial.targets.Zynq
 }

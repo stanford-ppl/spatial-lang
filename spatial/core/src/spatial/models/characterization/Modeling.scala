@@ -345,7 +345,7 @@ object Modeling {
           println("MODEL: " + model)
         }
 
-        (modelOffset + (model ++ offsetModel), offset - fringe)
+        (modelOffset + model, offset - fringe)
 
         /*else if (benchs.length == 1) {
           println("Only one benchmark exist for " + name)
