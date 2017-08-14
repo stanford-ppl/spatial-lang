@@ -263,6 +263,22 @@ generate_target {all} [get_ips $moduleName]
 		}
 	}
 
+  class FAdd(val exp: Int, val frac: Int) extends Module {
+    val io = IO(new Bundle {
+      val a = Input(UInt((exp+frac).W))
+      val b = Input(UInt((exp+frac).W))
+      val out = Output(UInt((exp+frac).W))
+    })
+
+    val m = Module(new FAddBBox(exp, frac, exp, frac))
+    m.io.aclk := clock
+    m.io.s_axis_a_tdata := io.a
+    m.io.s_axis_a_tvalid := true.B
+    m.io.s_axis_b_tdata := io.b
+    m.io.s_axis_b_tvalid := true.B
+    io.out := m.io.m_axis_result_tdata
+  }
+
   // fadd: Supports custom
   // Set to max latency of 12 cycles
   class FAddBBox(val inExp: Int, val inFrac: Int, val outExp: Int, val outFrac: Int) extends BlackBox {
@@ -296,6 +312,22 @@ generate_target {all} [get_ips $moduleName]
       createdIP += moduleName
 		}
 	}
+
+  class FSub(val exp: Int, val frac: Int) extends Module {
+    val io = IO(new Bundle {
+      val a = Input(UInt((exp+frac).W))
+      val b = Input(UInt((exp+frac).W))
+      val out = Output(UInt((exp+frac).W))
+    })
+
+    val m = Module(new FSubBBox(exp, frac, exp, frac))
+    m.io.aclk := clock
+    m.io.s_axis_a_tdata := io.a
+    m.io.s_axis_a_tvalid := true.B
+    m.io.s_axis_b_tdata := io.b
+    m.io.s_axis_b_tvalid := true.B
+    io.out := m.io.m_axis_result_tdata
+  }
 
   // fsub: Supports custom
   // Set to max latency of 12 cycles
@@ -331,6 +363,22 @@ generate_target {all} [get_ips $moduleName]
 		}
 	}
 
+  class FMul(val exp: Int, val frac: Int) extends Module {
+    val io = IO(new Bundle {
+      val a = Input(UInt((exp+frac).W))
+      val b = Input(UInt((exp+frac).W))
+      val out = Output(UInt((exp+frac).W))
+    })
+
+    val m = Module(new FMulBBox(exp, frac, exp, frac))
+    m.io.aclk := clock
+    m.io.s_axis_a_tdata := io.a
+    m.io.s_axis_a_tvalid := true.B
+    m.io.s_axis_b_tdata := io.b
+    m.io.s_axis_b_tvalid := true.B
+    io.out := m.io.m_axis_result_tdata
+  }
+
   // fmul: Supports custom
   // Configured to latency of 8 cycles
   class FMulBBox(val inExp: Int, val inFrac: Int, val outExp: Int, val outFrac: Int) extends BlackBox {
@@ -364,6 +412,22 @@ generate_target {all} [get_ips $moduleName]
       createdIP += moduleName
 		}
 	}
+
+  class FDiv(val exp: Int, val frac: Int) extends Module {
+    val io = IO(new Bundle {
+      val a = Input(UInt((exp+frac).W))
+      val b = Input(UInt((exp+frac).W))
+      val out = Output(UInt((exp+frac).W))
+    })
+
+    val m = Module(new FDivBBox(exp, frac, exp, frac))
+    m.io.aclk := clock
+    m.io.s_axis_a_tdata := io.a
+    m.io.s_axis_a_tvalid := true.B
+    m.io.s_axis_b_tdata := io.b
+    m.io.s_axis_b_tvalid := true.B
+    io.out := m.io.m_axis_result_tdata
+  }
 
   // fdiv: Supports custom
   // 28 cycle latency
@@ -399,6 +463,22 @@ generate_target {all} [get_ips $moduleName]
 		}
 	}
 
+  class FLt(val exp: Int, val frac: Int) extends Module {
+    val io = IO(new Bundle {
+      val a = Input(UInt((exp+frac).W))
+      val b = Input(UInt((exp+frac).W))
+      val out = Output(Bool())
+    })
+
+    val m = Module(new FLtBBox(exp, frac))
+    m.io.aclk := clock
+    m.io.s_axis_a_tdata := io.a
+    m.io.s_axis_a_tvalid := true.B
+    m.io.s_axis_b_tdata := io.b
+    m.io.s_axis_b_tvalid := true.B
+    io.out := m.io.m_axis_result_tdata
+  }
+
 // flt: supports custom
 // 2 cycles
   class FLtBBox(val inExp: Int, val inFrac: Int) extends BlackBox {
@@ -431,6 +511,22 @@ generate_target {all} [get_ips $moduleName]
       FringeGlobals.tclScript.flush
       createdIP += moduleName
 		}
+  }
+
+  class FLe(val exp: Int, val frac: Int) extends Module {
+    val io = IO(new Bundle {
+      val a = Input(UInt((exp+frac).W))
+      val b = Input(UInt((exp+frac).W))
+      val out = Output(Bool())
+    })
+
+    val m = Module(new FLeBBox(exp, frac))
+    m.io.aclk := clock
+    m.io.s_axis_a_tdata := io.a
+    m.io.s_axis_a_tvalid := true.B
+    m.io.s_axis_b_tdata := io.b
+    m.io.s_axis_b_tvalid := true.B
+    io.out := m.io.m_axis_result_tdata
   }
 
 // fle: supports custom
@@ -467,6 +563,22 @@ generate_target {all} [get_ips $moduleName]
 		}
   }
 
+  class FEq(val exp: Int, val frac: Int) extends Module {
+    val io = IO(new Bundle {
+      val a = Input(UInt((exp+frac).W))
+      val b = Input(UInt((exp+frac).W))
+      val out = Output(Bool())
+    })
+
+    val m = Module(new FEqBBox(exp, frac))
+    m.io.aclk := clock
+    m.io.s_axis_a_tdata := io.a
+    m.io.s_axis_a_tvalid := true.B
+    m.io.s_axis_b_tdata := io.b
+    m.io.s_axis_b_tvalid := true.B
+    io.out := m.io.m_axis_result_tdata
+  }
+
 // feq: supports custom
 // 2 cycles
   class FEqBBox(val inExp: Int, val inFrac: Int) extends BlackBox {
@@ -499,6 +611,22 @@ generate_target {all} [get_ips $moduleName]
       FringeGlobals.tclScript.flush
       createdIP += moduleName
 		}
+  }
+
+  class FNe(val exp: Int, val frac: Int) extends Module {
+    val io = IO(new Bundle {
+      val a = Input(UInt((exp+frac).W))
+      val b = Input(UInt((exp+frac).W))
+      val out = Output(Bool())
+    })
+
+    val m = Module(new FNeBBox(exp, frac))
+    m.io.aclk := clock
+    m.io.s_axis_a_tdata := io.a
+    m.io.s_axis_a_tvalid := true.B
+    m.io.s_axis_b_tdata := io.b
+    m.io.s_axis_b_tvalid := true.B
+    io.out := m.io.m_axis_result_tdata
   }
 
 // fne: supports custom
@@ -535,6 +663,22 @@ generate_target {all} [get_ips $moduleName]
 		}
   }
 
+  class FGt(val exp: Int, val frac: Int) extends Module {
+    val io = IO(new Bundle {
+      val a = Input(UInt((exp+frac).W))
+      val b = Input(UInt((exp+frac).W))
+      val out = Output(Bool())
+    })
+
+    val m = Module(new FGtBBox(exp, frac))
+    m.io.aclk := clock
+    m.io.s_axis_a_tdata := io.a
+    m.io.s_axis_a_tvalid := true.B
+    m.io.s_axis_b_tdata := io.b
+    m.io.s_axis_b_tvalid := true.B
+    io.out := m.io.m_axis_result_tdata
+  }
+
 // fgt: supports custom
 // 2 cycles
   class FGtBBox(val inExp: Int, val inFrac: Int) extends BlackBox {
@@ -567,6 +711,22 @@ generate_target {all} [get_ips $moduleName]
       FringeGlobals.tclScript.flush
       createdIP += moduleName
 		}
+  }
+
+  class FGe(val exp: Int, val frac: Int) extends Module {
+    val io = IO(new Bundle {
+      val a = Input(UInt((exp+frac).W))
+      val b = Input(UInt((exp+frac).W))
+      val out = Output(Bool())
+    })
+
+    val m = Module(new FGeBBox(exp, frac))
+    m.io.aclk := clock
+    m.io.s_axis_a_tdata := io.a
+    m.io.s_axis_a_tvalid := true.B
+    m.io.s_axis_b_tdata := io.b
+    m.io.s_axis_b_tvalid := true.B
+    io.out := m.io.m_axis_result_tdata
   }
 
 // fge: supports custom

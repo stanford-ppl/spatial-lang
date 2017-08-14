@@ -6,7 +6,7 @@ import os
 latencies = []
 
 # dir_modifier = "retime"
-dir_modifier = "aws_21"
+dir_modifier = "done_23"
 target = "aws" # ONLY USE THIS SCRIPT FOR AWS TARGET "aws" or "zynq"
 
 if ("zynq" in target):

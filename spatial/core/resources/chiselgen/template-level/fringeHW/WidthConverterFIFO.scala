@@ -82,8 +82,27 @@ class WidthConverterFIFO(val win: Int, val vin: Int, val wout: Int, val vout: In
     io.deq := convertVec(Vec(fifo.io.deq(0)), wout, vout)
     fifo.io.deqVld := io.deqVld
   } else {
-    val fifo = Module(new FIFOCore(win * vin, d, 1))
-    val fifoConfig = Wire(new FIFOOpcode(d, 1))
+//    val fifo = Module(new FIFOCore(win * vin, d, 1))
+//    val fifoConfig = Wire(new FIFOOpcode(d, 1))
+//    fifoConfig.chainWrite := 0.U
+//    fifoConfig.chainRead := 0.U
+//    fifo.io.config := fifoConfig
+//    io.full := fifo.io.full
+//    io.empty := fifo.io.empty
+//    io.almostEmpty := fifo.io.almostEmpty
+//    io.almostFull := fifo.io.almostFull
+//    io.fifoSize := fifo.io.fifoSize
+//
+//    fifo.io.enq(0) := io.enq.reverse.reduce { Cat(_,_) }
+//    fifo.io.enqVld := io.enqVld
+//
+//    io.deq := Vec(List.tabulate(vout) { i =>
+//      fifo.io.deq(0)(i*wout+vout-1, i*wout)
+//    })
+//    fifo.io.deqVld := io.deqVld
+
+   val fifo = Module(new FIFOCore(win, d, vin))
+    val fifoConfig = Wire(new FIFOOpcode(d, vin))
     fifoConfig.chainWrite := 0.U
     fifoConfig.chainRead := 0.U
     fifo.io.config := fifoConfig
@@ -93,12 +112,10 @@ class WidthConverterFIFO(val win: Int, val vin: Int, val wout: Int, val vout: In
     io.almostFull := fifo.io.almostFull
     io.fifoSize := fifo.io.fifoSize
 
-    fifo.io.enq(0) := io.enq.reverse.reduce { Cat(_,_) }
+    fifo.io.enq := io.enq
     fifo.io.enqVld := io.enqVld
 
-    io.deq := Vec(List.tabulate(vout) { i =>
-      fifo.io.deq(0)(i*wout+vout-1, i*wout)
-    })
+    io.deq := fifo.io.deq
     fifo.io.deqVld := io.deqVld
   }
 }

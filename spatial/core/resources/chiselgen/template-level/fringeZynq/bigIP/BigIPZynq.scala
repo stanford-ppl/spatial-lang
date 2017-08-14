@@ -89,4 +89,67 @@ class BigIPZynq extends BigIP with ZynqBlackBoxes {
       m.io.out.asSInt
     }
   }
+
+  def fadd(a: UInt, b: UInt, mw: Int, e: Int): UInt = {
+    val m = Module(new FAdd(mw, e))
+    m.io.a := a
+    m.io.b := b
+    m.io.out
+  }
+
+  def fsub(a: UInt, b: UInt, mw: Int, e: Int): UInt = {
+    val m = Module(new FSub(mw, e))
+    m.io.a := a
+    m.io.b := b
+    m.io.out
+  }
+  def fmul(a: UInt, b: UInt, mw: Int, e: Int): UInt = {
+    val m = Module(new FMul(mw, e))
+    m.io.a := a
+    m.io.b := b
+    m.io.out
+  }
+  def fdiv(a: UInt, b: UInt, mw: Int, e: Int): UInt = {
+    val m = Module(new FDiv(mw, e))
+    m.io.a := a
+    m.io.b := b
+    m.io.out
+  }
+  def flt(a: UInt, b: UInt, mw: Int, e: Int): Bool = {
+    val m = Module(new FLt(mw, e))
+    m.io.a := a
+    m.io.b := b
+    m.io.out
+  }
+  def feq(a: UInt, b: UInt, mw: Int, e: Int): Bool = {
+    val m = Module(new FEq(mw, e))
+    m.io.a := a
+    m.io.b := b
+    m.io.out
+  }
+  def fgt(a: UInt, b: UInt, mw: Int, e: Int): Bool = {
+    val m = Module(new FGt(mw, e))
+    m.io.a := a
+    m.io.b := b
+    m.io.out
+  }
+  def fge(a: UInt, b: UInt, mw: Int, e: Int): Bool = {
+    val m = Module(new FGe(mw, e))
+    m.io.a := a
+    m.io.b := b
+    m.io.out
+  }
+  def fle(a: UInt, b: UInt, mw: Int, e: Int): Bool = {
+    val m = Module(new FLe(mw, e))
+    m.io.a := a
+    m.io.b := b
+    m.io.out
+  }
+  def fne(a: UInt, b: UInt, mw: Int, e: Int): Bool = {
+    val m = Module(new FNe(mw, e))
+    m.io.a := a
+    m.io.b := b
+    m.io.out
+  }
+
 }
