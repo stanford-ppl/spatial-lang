@@ -188,7 +188,6 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val readMems = localIns.collect{case MemLoadReg(mem) => mem }
     val vectorMems = readMems.filter{mem => mem.mode match {
       case SRAMMode        => true
-      case FIFOOnWriteMode => true
       case VectorFIFOMode  => true
       case _ => false
     }}

@@ -39,7 +39,6 @@ case object SRAMMode extends LocalMemoryMode
 case object VectorFIFOMode extends LocalMemoryMode
 case object ScalarFIFOMode extends LocalMemoryMode
 case object ScalarBufferMode extends LocalMemoryMode
-case object FIFOOnWriteMode extends LocalMemoryMode
 
 
 // --- Global buses

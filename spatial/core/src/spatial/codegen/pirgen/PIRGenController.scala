@@ -197,7 +197,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
   def quote(mode: LocalMemoryMode): String = mode match {
     case SRAMMode => "SRAM"
     case VectorFIFOMode => "VectorFIFO"
-    case FIFOOnWriteMode => "SemiFIFO"
     case ScalarBufferMode => "ScalarBuffer"
     case ScalarFIFOMode => "ScalarFIFO"
   }
