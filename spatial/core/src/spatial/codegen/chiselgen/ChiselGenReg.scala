@@ -55,15 +55,15 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case ArgOutNew(init) => 
       emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful=true)
       emitGlobalWire(src"val ${lhs}_en_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful=true)
-      emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${lhs.name.getOrElse("")}""", forceful=true)
-      emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options.reduce{_|_}""", forceful=true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${lhs.name.getOrElse("")}""", forceful=true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${lhs}_en_options.reduce{_|_}""", forceful=true)
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
 
     case HostIONew(init) =>
       emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful = true)
       emitGlobalWire(src"val ${lhs}_en_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful = true)
-      emit(src"""io.argOuts(${argMapping(lhs)._3}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${lhs.name.getOrElse("")}""", forceful = true)
-      emit(src"""io.argOuts(${argMapping(lhs)._3}).valid := ${lhs}_en_options.reduce{_|_}""", forceful = true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${lhs.name.getOrElse("")}""", forceful = true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${lhs}_en_options.reduce{_|_}""", forceful = true)
       argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
 
     case RegNew(init)    => 
@@ -136,7 +136,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case RegRead(reg)    => 
       if (isArgIn(reg) | isHostIO(reg)) {
         emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)}) // ${reg.name.getOrElse("")}""")
-        emitGlobalWire(src"""${lhs}.number := io.argIns(${argMapping(reg)._2})""")
+        emitGlobalWire(src"""${lhs}.number := io.argIns(${argMapping(reg).argInId})""")
       } else {
         if (dispatchOf(lhs, reg).isEmpty) {
           throw new spatial.EmptyDispatchException(lhs)
@@ -197,7 +197,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
       val manualReset = if (resettersOf(reg).length > 0) {s"| ${quote(reg)}_manual_reset"} else ""
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg) | isHostIO(reg)) {
-        val id = argMapping(reg)._3
+        val id = argMapping(reg).argOutId
           emit(src"val ${lhs}_wId = getArgOutLane($id)")
           v.tp match {
             case FixPtType(s,d,f) => 

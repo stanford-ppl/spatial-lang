@@ -422,6 +422,7 @@ object utils {
 
   def mirrorCtrl(x: Ctrl, f: Transformer): Ctrl = (f(x.node), x.block)
   def mirrorAccess(x: Access, f: Transformer): Access = (f(x.node), mirrorCtrl(x.ctrl, f))
+  def mirrorStreamInfo(x: StreamInfo, f: Transformer): StreamInfo = (f(x.memory), f(x.access))
 
   /** Parallelization factors **/
   @internal def parFactorsOf(x: Exp[_]): Seq[Const[Index]] = x match {
@@ -805,6 +806,17 @@ object utils {
     def ctrlNode: Exp[_] = x._2._1 // buffer control toggler
     def ctrlBlock: Int = x._2._2
     @stateful def isInner: Boolean = x._2.isInner
+  }
+
+  implicit class StreamInfoOps(x: StreamInfo) {
+    def memory: Exp[_] = x._1
+    def access: Exp[_] = x._2
+  }
+
+  implicit class PortMapOps(x: PortMap) {
+    def memId: Int = x._1
+    def argInId: Int = x._2
+    def argOutId: Int = x._3
   }
 
   // Memory, optional value, optional indices, optional enable

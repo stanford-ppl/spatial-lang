@@ -264,7 +264,7 @@ trait ChiselGenController extends ChiselGenCounter{
       // If we are inside a stream pipe, the following may be set
       // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
       val lat = bodyLatency.sum(c)
-      val readiers = listensTo(c).distinct.map {
+      val readiers = listensTo(c).distinct.map{_.memory}.map {
         case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
         case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
         case fifo @ Def(StreamInNew(bus)) => bus match {
@@ -273,12 +273,20 @@ trait ChiselGenController extends ChiselGenCounter{
         }
         case fifo => src"${fifo}_en" // parent node
       }.filter(_ != "").mkString(" & ")
-      val holders = pushesTo(c).distinct.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full.D(${lat} + 1, rr)"
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.full.D(${lat} + 1, rr)"
+      val holders = pushesTo(c).distinct.map { pt => pt.memory match {
+        case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
+          pt.access match {
+            case Def(FIFOEnq(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~$en)"
+            case Def(ParFIFOEnq(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${ens.map(quote).mkString("&")}))"""
+          }
+        case fifo @ Def(FILONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
+          pt.access match {
+            case Def(FILOPush(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~$en)"
+            case Def(ParFILOPush(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${ens.map(quote).mkString("&")}))"""
+          }
         case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready"
-        case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"
-      }.filter(_ != "").mkString(" & ")
+        case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"        
+      }}.filter(_ != "").mkString(" & ")
 
       val hasHolders = if (holders != "") "&" else ""
       val hasReadiers = if (readiers != "") "&" else ""
@@ -289,7 +297,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
-    val hasStreamIns = listensTo(sym).distinct.exists{
+    val hasStreamIns = listensTo(sym).distinct.map{_.memory}.exists{
       case Def(StreamInNew(SliderSwitch)) => false
       case Def(StreamInNew(_))            => true
       case _ => false
