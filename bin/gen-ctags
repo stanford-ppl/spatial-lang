@@ -1,0 +1,13 @@
+#!/bin/bash
+
+ctags --exclude=log --languages=scala,java -f .tags  -R \
+/local/ssd/home/yaqiz/spatial-lang/argon/forge/src \
+/local/ssd/home/yaqiz/spatial-lang/argon/forge/test \
+/local/ssd/home/yaqiz/spatial-lang/argon/forge/target/sbt-ctags-dep-srcs \
+/local/ssd/home/yaqiz/spatial-lang/scala-virtualized/src \
+/local/ssd/home/yaqiz/spatial-lang/scala-virtualized/test \
+/local/ssd/home/yaqiz/spatial-lang/scala-virtualized/target/sbt-ctags-dep-srcs \
+/local/ssd/home/yaqiz/spatial-lang/spatial/core/src \
+/local/ssd/home/yaqiz/spatial-lang/spatial/core/test \
+/local/ssd/home/yaqiz/spatial-lang/spatial/core/target/sbt-ctags-dep-srcs \
+/local/ssd/home/yaqiz/spatial-lang/target/sbt-ctags-dep-srcs \
