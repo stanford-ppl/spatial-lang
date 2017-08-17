@@ -244,15 +244,15 @@ case class WrittenMems(written: List[Exp[_]]) extends Metadata[WrittenMems] {
 /**
   * List of fifos or streams popped in a given controller, for handling streampipe control flow
   **/
-case class ListenStreams(listen: List[Exp[_]]) extends Metadata[ListenStreams] {
-  def mirror(f:Tx) = ListenStreams(f.tx(listen))
+case class ListenStreams(listen: List[StreamInfo]) extends Metadata[ListenStreams] {
+  def mirror(f:Tx) = ListenStreams(listen.map(mirrorStreamInfo(_,f)))
 }
 @data object listensTo {
-  def apply(x: Exp[_]): List[Exp[_]] = metadata[ListenStreams](x).map(_.listen).getOrElse(Nil)
-  def update(x: Exp[_], listen: List[Exp[_]]): Unit = metadata.add(x, ListenStreams(listen))
+  def apply(x: Exp[_]): List[StreamInfo] = metadata[ListenStreams](x).map(_.listen).getOrElse(Nil)
+  def update(x: Exp[_], listen: List[StreamInfo]): Unit = metadata.add(x, ListenStreams(listen))
 
-  def apply(x: Ctrl): List[Exp[_]] = listensTo(x.node)
-  def update(x: Ctrl, listen: List[Exp[_]]): Unit = listensTo(x.node) = listen
+  def apply(x: Ctrl): List[StreamInfo] = listensTo(x.node)
+  def update(x: Ctrl, listen: List[StreamInfo]): Unit = listensTo(x.node) = listen
 }
 
 
@@ -274,31 +274,31 @@ case class LoadMemCtrl(ctrl: List[Exp[_]]) extends Metadata[LoadMemCtrl] {
 /**
   * List of fifos or streams pushed in a given controller, for handling streampipe control flow
   **/
-case class PushStreams(push: List[Exp[_]]) extends Metadata[PushStreams] {
-  def mirror(f:Tx) = PushStreams(f.tx(push))
+case class PushStreams(push: List[StreamInfo]) extends Metadata[PushStreams] {
+  def mirror(f:Tx) = PushStreams(push.map(mirrorStreamInfo(_,f)))
 }
 @data object pushesTo {
-  def apply(x: Exp[_]): List[Exp[_]] = metadata[PushStreams](x).map(_.push).getOrElse(Nil)
-  def update(x: Exp[_], push: List[Exp[_]]): Unit = metadata.add(x, PushStreams(push))
+  def apply(x: Exp[_]): List[StreamInfo] = metadata[PushStreams](x).map(_.push).getOrElse(Nil)
+  def update(x: Exp[_], push: List[StreamInfo]): Unit = metadata.add(x, PushStreams(push))
 
-  def apply(x: Ctrl): List[Exp[_]] = pushesTo(x.node)
-  def update(x: Ctrl, push: List[Exp[_]]): Unit = pushesTo(x.node) = push
+  def apply(x: Ctrl): List[StreamInfo] = pushesTo(x.node)
+  def update(x: Ctrl, push: List[StreamInfo]): Unit = pushesTo(x.node) = push
 }
 
 /**
   * Metadata for determining which memory duplicate(s) an access should correspond to.
   */
-case class ArgMap(argId: Int, memIdIn: Int, memIdOut: Int) extends Metadata[ArgMap] {
+case class ArgMap(map: PortMap) extends Metadata[ArgMap] {
   def mirror(f:Tx) = this
 }
 @data object argMapping {
-  private def get(arg: Exp[_]): Option[(Int,Int,Int)] = {
-    Some(metadata[ArgMap](arg).map{a => (a.argId, a.memIdIn, a.memIdOut)}.getOrElse(-1,-1,-1))
+  private def get(arg: Exp[_]): Option[PortMap] = {
+    Some(metadata[ArgMap](arg).map{a => (a.map.memId, a.map.argInId, a.map.argOutId)}.getOrElse(-1,-1,-1))
   }
 
-  def apply(arg: Exp[_]): (Int,Int,Int) = argMapping.get(arg).get
+  def apply(arg: Exp[_]): PortMap = argMapping.get(arg).get
 
-  def update(arg: Exp[_], id: (Int, Int,Int) ): Unit = metadata.add(arg, ArgMap(id._1, id._2, id._3))
+  def update(arg: Exp[_], id: PortMap ): Unit = metadata.add(arg, ArgMap(id._1, id._2, id._3))
 
 }
 

@@ -114,6 +114,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     // --- Unit Pipe Insertion
     passes += switchInsert      // Change nested if-then-else statements to Switch controllers
+    passes += printer
     passes += unitPipeInsert    // Wrap primitives in outer controllers
     passes += printer
     passes += regReadCSE        // CSE register reads in inner pipelines
@@ -156,9 +157,11 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += transferExpand    // Expand burst loads/stores from single abstract nodes
     passes += switchInsert      // Change if-then-else statements from transfers to switches
     passes += levelAnalyzer     // Pipe style annotation fixes after expansion
+    passes += printer
 
     // --- Post-Expansion Cleanup
     passes += regReadCSE        // CSE register reads in inner pipelines
+    passes += printer
     passes += scalarAnalyzer    // Bounds / global analysis
     passes += ctrlAnalyzer      // Control signal analysis
 

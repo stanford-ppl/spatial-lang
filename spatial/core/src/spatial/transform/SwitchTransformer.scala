@@ -109,6 +109,11 @@ case class SwitchTransformer(var IR: State) extends ForwardTransformer with Spat
       lhs2
 
     case op @ IfThenElse(cond,thenBlk,elseBlk) if inAccel =>
+      val contents = blockNestedContents(thenBlk) ++ blockNestedContents(elseBlk)
+      val level = if (contents.exists(stm => isControlNode(stm.rhs))) OuterControl else InnerControl
+      val prevLevel = controlLevel
+      controlLevel = Some(level)
+
       val cond2 = f(cond)
       val elseCond = Bit.not(cond2)
       val scase = create_case(cond2, thenBlk)
@@ -120,7 +125,9 @@ case class SwitchTransformer(var IR: State) extends ForwardTransformer with Spat
       dbg(c"Created switch: ${str(switch)}")
 
       styleOf(switch) = ForkSwitch
-      levelOf(switch) = controlLevel.getOrElse(InnerControl)
+      levelOf(switch) = level //controlLevel.getOrElse(InnerControl)
+
+      controlLevel = prevLevel
 
       switch
 
