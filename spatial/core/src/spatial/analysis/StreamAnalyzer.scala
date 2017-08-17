@@ -91,7 +91,7 @@ trait StreamAnalyzer extends CompilerPass {
             dbg(c"    # Checking if ${nextLevel.get} is a stream child")
             if (childs.contains(nextLevel.get)) {
                 dbg(c"    # MATCH on ${nextLevel.get}, so ${parentOf(deq).get} listens to $fifo")
-                listensTo(parentOf(deq).get) = fifo +: listensTo(parentOf(deq).get)
+                listensTo(parentOf(deq).get) = (fifo,deq) +: listensTo(parentOf(deq).get)
                 nextLevel = None
             } else {
                 nextLevel = parentOf(nextLevel.get)
@@ -117,7 +117,7 @@ trait StreamAnalyzer extends CompilerPass {
             dbg(c"    # Checking if ${nextLevel.get} is a stream child")
             if (childs.contains(nextLevel.get)) {
                 dbg(c"    # MATCH on ${nextLevel.get}, so ${parentOf(enq).get} pushes to to $fifo")
-                pushesTo(parentOf(enq).get) = fifo +: pushesTo(parentOf(enq).get)
+                pushesTo(parentOf(enq).get) = (fifo,enq) +: pushesTo(parentOf(enq).get)
                 nextLevel = None
             } else {
                 nextLevel = parentOf(nextLevel.get)
