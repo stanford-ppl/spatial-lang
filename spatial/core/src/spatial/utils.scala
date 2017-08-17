@@ -540,6 +540,8 @@ object utils {
   @stateful def isMetaPipe(e: Ctrl): Boolean = !e.isInner && isMetaPipe(e.node)
   @stateful def isStreamPipe(e: Ctrl): Boolean = !e.isInner && isStreamPipe(e.node)
 
+  @stateful def isInnerSwitch(e: Exp[_]): Boolean = isInnerControl(e) && isSwitch(e)
+
   @stateful def isSwitch(e: Exp[_]): Boolean = getDef(e).exists(isSwitch)
   def isSwitch(d: Def): Boolean = d.isInstanceOf[Switch[_]]
 

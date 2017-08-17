@@ -52,7 +52,8 @@ trait ChiselGenController extends ChiselGenCounter{
   def emitValids(lhs: Exp[Any], cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
-        emit(src"val ${v}${suffix} = Mux(${cchain}${suffix}_strides($i) >= 0.S, ${c}${suffix} < ${cchain}${suffix}_stops(${i}), ${c}${suffix} > ${cchain}${suffix}_stops(${i})) // TODO: Generate these inside counter")
+        emitGlobalWire(src"val ${v}${suffix} = Wire(Bool())")
+        emit(src"${v}${suffix} := Mux(${cchain}${suffix}_strides($i) >= 0.S, ${c}${suffix} < ${cchain}${suffix}_stops(${i}), ${c}${suffix} > ${cchain}${suffix}_stops(${i})) // TODO: Generate these inside counter")
         if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
           emitGlobalModule(src"""val ${v}${suffix}_chain = Module(new NBufFF(${childrenOf(lhs).size}, 1))""")
           childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""val ${v}${suffix}_chain_read_$i = ${v}${suffix}_chain.read(${i}) === 1.U(1.W)""")}
