@@ -9,7 +9,8 @@ trait PIRAreaModelHack extends PIRTraversal {
   override val name = "PIR Area Model Hack"
   override val recurse = Always
 
-  val mappingIn  = mutable.HashMap[Expr, List[CU]]()
+  def mapping:mutable.Map[Expr, List[CU]]
+
   var totalArea = 0.0
   var totalMemArea = 0.0
   var largestMem = 0.0
@@ -23,8 +24,8 @@ trait PIRAreaModelHack extends PIRTraversal {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (mappingIn.contains(lhs)) {
-      mappingIn(lhs).foreach{cu =>
+    if (mapping.contains(lhs)) {
+      mapping(lhs).foreach{cu =>
         dbgs(c"CU:  $cu (lanes = ${cu.lanes}")
         val stageArea = cu.allStages.map{stage => areaOf(stage, cu) }.sum
         val ccArea = cu.cchains.map(cchainArea).sum

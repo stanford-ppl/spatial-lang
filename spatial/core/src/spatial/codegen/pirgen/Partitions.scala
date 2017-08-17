@@ -327,7 +327,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     def header = "PCUs, PMUs, UCUs, Switch, ALUs, SRAMs, SclIn, SclOut, VecIn, VecOut, Regs"
   }
 
-  def getUtil(cu: CU, cus: Seq[CU]): Utilization = cu.style match {
+  def getUtil(cu: CU, cus: Iterable[CU]): Utilization = cu.style match {
     case _:MemoryCU =>
       val vIn = nVectorIns(cu)
       val vOut = nVectorOuts(cu)

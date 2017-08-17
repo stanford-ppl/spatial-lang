@@ -8,11 +8,8 @@ trait PIRPrintout extends PIRTraversal {
   override val name = "PIR Printout"
   override val recurse = Always
 
-  val mappingIn  = mutable.HashMap[Expr, List[CU]]()
-
-  val splitMappingIn = mutable.HashMap[Expr, List[List[CU]]]()
-
-  def cus = if (splitMappingIn.isEmpty) mappingIn.values.toList.flatten else splitMappingIn.values.toList.flatten.flatten
+  def mapping:mutable.Map[Expr, List[CU]]
+  def cus = mapping.values.toList.flatten
 
   def printCU(cu: CU): Unit = {
 
@@ -63,11 +60,8 @@ trait PIRPrintout extends PIRTraversal {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (splitMappingIn.contains(lhs)) {
-      splitMappingIn(lhs).flatten.foreach{cu => printCU(cu) }
-    }
-    else if (mappingIn.contains(lhs)) {
-      mappingIn(lhs).foreach{cu => printCU(cu) }
+    if (mapping.contains(lhs)) {
+      mapping(lhs).foreach{cu => printCU(cu) }
     }
   }
 

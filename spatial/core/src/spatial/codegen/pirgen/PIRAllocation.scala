@@ -13,10 +13,11 @@ import scala.collection.mutable
 trait PIRAllocation extends PIRTraversal {
   override val name = "PIR CU Allocation"
 
+  def mapping:mutable.Map[Expr, List[PCU]]
+
   // -- State
   var top: Option[Expr] = None
-  var mapping = mutable.Map[Expr, List[PCU]]()
-  val readerCUs = mutable.Map[Expr, List[PseudoComputeUnit]]()
+  val readerCUs = mutable.Map[Expr, List[PCU]]()
   val allocated = mutable.ListBuffer[Expr]()
 
   // Give top controller or first controller below which is not a Parallel
@@ -702,7 +703,6 @@ trait PIRAllocation extends PIRTraversal {
 
   override def preprocess[S:Type](b: Block[S]): Block[S] = {
     top = None
-    mapping.clear()
     readerCUs.clear()
     super.preprocess(b)
   }

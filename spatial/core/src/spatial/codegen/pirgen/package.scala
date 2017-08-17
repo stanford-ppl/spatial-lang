@@ -155,7 +155,7 @@ package object pirgen {
   }
 
   def isInterCU(x: GlobalBus): Boolean = x match {
-    case _:PIRDRAMBus | _:InputArg | _:OutputArg => false
+    case _:InputArg | _:OutputArg => false
     case LocalVectorBus => false
     case _ => true
   }
