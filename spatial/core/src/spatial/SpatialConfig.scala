@@ -49,6 +49,10 @@ object SpatialConfig {
   var target: FPGATarget = targets.DefaultTarget
 
   var enableDSE: Boolean = _
+  var heuristicDSE: Boolean = true
+  var bruteForceDSE: Boolean = false
+  var experimentDSE: Boolean = false
+
   var enableDot: Boolean = _
 
   //Interpreter 

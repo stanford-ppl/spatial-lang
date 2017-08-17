@@ -2,7 +2,7 @@ package spatial.targets
 
 import argon.core.State
 import spatial.analysis.{AreaAnalyzer, LatencyAnalyzer}
-import spatial.models.{AreaMetric, AreaModel, AreaSummary, LatencyModel}
+import spatial.models._
 
 case class Pin(name: String) {
   override def toString: String = name
@@ -30,23 +30,30 @@ abstract class FPGATarget {
   def name: String    // FPGA name
   def burstSize: Int  // Size of DRAM burst (in bits)
 
-  type Area
-  type Sum <: AreaSummary[Sum]
-  def areaMetric: AreaMetric[Area]
-  def areaModel: AreaModel[Area,Sum]
-  def latencyModel: LatencyModel
-  def areaAnalyzer(state: State): AreaAnalyzer[Area,Sum] = {
-    AreaAnalyzer[Area,Sum](state, areaModel, latencyModel)(areaMetric)
-  }
-  def cycleAnalyzer(state: State): LatencyAnalyzer = LatencyAnalyzer(state, latencyModel)
-  def capacity: Sum
+  val FIELDS: Array[String] // Area resource fields
+  val DSP_CUTOFF: Int       // Smallest integer addition (in bits) which uses DSPs
+
+  lazy implicit val AREA_CONFIG: AreaConfig[Double] = AreaConfig[Double](FIELDS, 0.0)
+  lazy implicit val MODEL_CONFIG: AreaConfig[NodeModel] = AreaConfig[NodeModel](FIELDS, Right(0.0))
+  lazy implicit val LINEAR_CONFIG: AreaConfig[LinearModel] = AreaConfig[LinearModel](FIELDS, LinearModel(Nil,Set.empty))
+
+  def areaModel: AreaModel        // Area model for this target
+  def latencyModel: LatencyModel  // Latency model for this target
+  def capacity: Area              // Device resource maximum, in terms of FIELDS
+
+  final def areaAnalyzer(state: State): AreaAnalyzer = AreaAnalyzer(state, areaModel, latencyModel)
+  final def cycleAnalyzer(state: State): LatencyAnalyzer = LatencyAnalyzer(state, latencyModel)
 }
 
 object Targets {
   var targets: Set[FPGATarget] = Set.empty
   targets += DefaultTarget
+  targets += spatial.targets.DE1
+  targets += spatial.targets.AWS_F1
+  targets += spatial.targets.Zynq
 
   lazy val Default = spatial.targets.DefaultTarget
   lazy val DE1 = spatial.targets.DE1
   lazy val F1 = spatial.targets.AWS_F1
+  lazy val Zynq = spatial.targets.Zynq
 }

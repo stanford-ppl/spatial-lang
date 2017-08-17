@@ -5,14 +5,19 @@ import os
 
 latencies = []
 
-# modifier = "retime"
-modifier = "aws_baseline"
+# dir_modifier = "retime"
+dir_modifier = "done_23"
+target = "aws" # ONLY USE THIS SCRIPT FOR AWS TARGET "aws" or "zynq"
 
-rootdir = os.environ['RPT_HOME']
+if ("zynq" in target):
+	rootdir = os.environ['SPATIAL_HOME']
+elif ("aws" in target): 
+	rootdir = os.environ['RPT_HOME']
+
 algs = []
 for item in os.listdir(rootdir):
 	if ("out" in item):
-		check_for = "_" + modifier + "_"
+		check_for = "_" + dir_modifier + "_"
 		if (check_for in item): 
 			algs.append(item.replace("out",""))
 print algs
@@ -27,7 +32,10 @@ mem_raws = [0] * len(algs)
 
 # Look for synth results
 for alg in algs:
-	util_file=os.path.join(rootdir, "out" + alg, "build", "reports", "utilization_route_design.rpt")
+	if ("zynq" in target):
+		util_file=os.path.join(rootdir, "out" + alg, "verilog-zynq", "par_utilization.rpt")
+	elif ("aws" in target): 
+		util_file=os.path.join(rootdir, "out" + alg, "build", "reports", "utilization_route_design.rpt")
 	if os.path.isfile(util_file):
 		clb_summary = 0
 		mem_summary = 0
@@ -65,7 +73,10 @@ for alg in algs:
 					dsp_raws[this_id] = dsp_raws[this_id] + dsp			
 					dsp_summary = 0
 
-	util_file=os.path.join(rootdir, "out" + alg, "build", "reports", "timing_summary_route_design.rpt")
+	if ("zynq" in target):
+		util_file=os.path.join(rootdir, "out" + alg, "verilog-zynq", "par_timing.rpt")
+	elif ("aws" in target): 
+		util_file=os.path.join(rootdir, "out" + alg, "build", "reports", "timing_summary_route_design.rpt")
 	if os.path.isfile(util_file):
 		tmg_pass = 0
 		with open(util_file) as fin:

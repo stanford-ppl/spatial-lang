@@ -4,6 +4,7 @@ import util._
 import chisel3._
 import chisel3.util._
 import ops._
+import fringe._
 
 import scala.collection.mutable.HashMap
 
@@ -127,10 +128,12 @@ class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) e
 
   // Address flattening
   m.io.w.addr := io.w.addr.zipWithIndex.map{ case (addr, i) =>
-    addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
+    // FringeGlobals.bigIP.multiply(addr, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 0)
+   addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
   }.reduce{_+_}
   m.io.r.addr := io.r.addr.zipWithIndex.map{ case (addr, i) =>
-    addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
+    // FringeGlobals.bigIP.multiply(addr, (dims.drop(i).reduce{_*-*_}/dims(i)).U, 0)
+   addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
   }.reduce{_+_}
 
   // Check if read/write is in bounds
@@ -234,7 +237,8 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
       case DiagonalMemory => wbundle.addr.reduce{_+_} %-% banks.head.U
       case BankedMemory => 
         val bankCoords = wbundle.addr.zip(banks).map{ case (logical, b) => logical %-% b.U }
-        bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
+       bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
+        // bankCoords.zipWithIndex.map{ case (c, i) => FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 0) }.reduce{_+_}
     }
 
     (convertedW, flatBankId)
@@ -256,7 +260,8 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
       case DiagonalMemory => chisel3.util.ShiftRegister(rbundle.addr.reduce{_+_}, syncDelay) %-% banks.head.U
       case BankedMemory => 
         val bankCoords = rbundle.addr.zip(banks).map{ case (logical, b) => chisel3.util.ShiftRegister(logical, syncDelay) %-% b.U }
-        bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
+       bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
+        // bankCoords.zipWithIndex.map{ case (c, i) => FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 0) }.reduce{_+_}
     }
     (convertedR, flatBankId)
   }
@@ -407,7 +412,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
 
   // Latch whether each buffer's stage is enabled and when they are done
   (0 until numBufs).foreach{ i => 
-    sEn_latch(i).io.input.set := io.sEn(i)
+    sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
     sEn_latch(i).io.input.reset := swap
     sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)
@@ -645,7 +650,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
 
   // Latch whether each buffer's stage is enabled and when they are done
   (0 until numBufs).foreach{ i => 
-    sEn_latch(i).io.input.set := io.sEn(i)
+    sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
     sEn_latch(i).io.input.reset := swap
     sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)

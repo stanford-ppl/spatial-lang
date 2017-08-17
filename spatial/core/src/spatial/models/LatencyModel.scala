@@ -16,8 +16,30 @@ trait LatencyModel {
   var addRetimeRegisters = true // Enable adding registers after specified comb. logic
   var modelVerbosity = 1
 
-  def silence(): Unit = { modelVerbosity = -1 }
-  def init(): Unit = { }
+  def silence(): Unit = {
+    modelVerbosity = -1
+    recordMissing = false
+  }
+  private var needsInit: Boolean = true
+  def init(): Unit = if (needsInit) {
+    needsInit = false
+  }
+
+  private var missing: Set[String] = Set[String]()
+  var recordMissing: Boolean = true
+
+  @stateful def reportMissing(): Unit = {
+    if (missing.nonEmpty) {
+      warn(s"The target device ${SpatialConfig.target.name} was missing one or more latency models.")
+      missing.foreach{str => warn(s"  $str") }
+      //warn(s"Models marked (csv) can be added to $FILE_NAME.")
+      warn("")
+      state.logWarning()
+    }
+  }
+  @inline private def miss(str: String): Unit = if (recordMissing) { missing += str }
+
+  def reset(): Unit = { missing = Set.empty }
 
   @stateful def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
 
@@ -54,6 +76,7 @@ trait LatencyModel {
   @stateful protected def requiresRegistersInReduce(s: Exp[_]): Boolean = getDef(s).exists{
     case _:SRAMLoad[_]     => if (SpatialConfig.enableSyncMem) false else true
     case _:ParSRAMLoad[_]  => if (SpatialConfig.enableSyncMem) false else true
+    case FixMul(_,_) => false
     case d => latencyOfNodeInReduce(s,d) > 0
   }
 
@@ -88,9 +111,9 @@ trait LatencyModel {
     case FixInv(_)   => true
     case FixAdd(_,_) => true
     case FixSub(_,_) => true
-    case FixMul(_,_) => true
-    case FixDiv(_,_) => true
-    case FixMod(_,_) => true
+    case FixMul(_,_) => false
+    case FixDiv(_,_) => false
+    case FixMod(_,_) => false
     case FixLt(_,_)  => true
     case FixLeq(_,_) => true
     case FixNeq(_,_) => true
@@ -197,9 +220,9 @@ trait LatencyModel {
     case FixInv(_)   => 1
     case FixAdd(_,_) => 1
     case FixSub(_,_) => 1
-    case FixMul(_,_) => 1 // TODO
-    case FixDiv(_,_) => 1 // TODO
-    case FixMod(_,_) => 1
+    case FixMul(_,_) => 6  // TODO
+    case FixDiv(_,_) => 16 // TODO
+    case FixMod(_,_) => 16
     case FixLt(_,_)  => 1
     case FixLeq(_,_) => 1
     case FixNeq(_,_) => 1
@@ -226,16 +249,16 @@ trait LatencyModel {
     // TODO: Floating point for things besides single precision
     case FltAbs(_) => 1
     case FltNeg(_) => 1
-    case FltAdd(_,_) if s.tp == FloatType => 14
-    case FltSub(_,_) if s.tp == FloatType => 14
-    case FltMul(_,_) if s.tp == FloatType => 11
-    case FltDiv(_,_) if s.tp == FloatType => 33
+    case FltAdd(_,_) if s.tp == FloatType => 12
+    case FltSub(_,_) if s.tp == FloatType => 12
+    case FltMul(_,_) if s.tp == FloatType => 8
+    case FltDiv(_,_) if s.tp == FloatType => 28
 
-    case FltLt(a,_)  if a.tp == FloatType => 3
-    case FltLeq(a,_) if a.tp == FloatType => 3
+    case FltLt(a,_)  if a.tp == FloatType => 2
+    case FltLeq(a,_) if a.tp == FloatType => 2
 
-    case FltNeq(a,_) if a.tp == FloatType => 3
-    case FltEql(a,_) if a.tp == FloatType => 3
+    case FltNeq(a,_) if a.tp == FloatType => 2
+    case FltEql(a,_) if a.tp == FloatType => 2
 
     case FltLog(_) if s.tp == FloatType => 35
     case FltExp(_) if s.tp == FloatType => 27
@@ -274,7 +297,7 @@ trait LatencyModel {
     case FltRandom(_) => 0  // TODO: This is synthesizable now?
 
     case _ =>
-      warn(s"Don't know latency of $d - using default of 0")
+      miss(u"${d.getClass} (rule)")
       0
     }
 }

@@ -4,6 +4,8 @@ organization in ThisBuild := "stanford-ppl"
 
 version in ThisBuild := "1.0"
 
+name := "spatial-lang"
+
 isSnapshot in ThisBuild := true
 
 val scalatestVersion = "3.0.1"

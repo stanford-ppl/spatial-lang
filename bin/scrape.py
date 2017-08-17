@@ -64,16 +64,22 @@ def main():
     if os.path.isfile('par_utilization.rpt'):
         with open('par_utilization.rpt', 'r') as f:
             lines = f.readlines()
-            for i in range(33, 45):
-                print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
-            for i in range(73, 98):
-                print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
-            for i in range(108, 113):
-                print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
-            for i in range(123, 124):
-                print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
-            for i in range(196, 217):
-                print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+            for line in lines:
+                try:
+                    print(line.split('|')[1].strip() + ',' + line.split('|')[2].strip())
+                except:
+                    print('')
+                    # Do nothing
+            # for i in range(33, 45):
+            #     print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+            # for i in range(73, 98):
+            #     print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+            # for i in range(108, 113):
+            #     print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+            # for i in range(123, 124):
+            #     print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+            # for i in range(196, 217):
+            #     print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
 
 
     if os.path.isfile('par_ram_utilization.rpt'):
