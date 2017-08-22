@@ -68,6 +68,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
 
     case RegNew(init)    => 
       // Console.println(src" working on reg $lhs")
+      if (readersOf(lhs).length == 0){throw new Exception(src"Error: Register $lhs has no readers!")}
       val width = bitWidth(init.tp)
       emitGlobalWire(src"val ${lhs}_initval = ${init}")
       resettersOf(lhs).indices.foreach{ i => emitGlobalWire(src"""val ${lhs}_manual_reset_$i = Wire(Bool())""")}

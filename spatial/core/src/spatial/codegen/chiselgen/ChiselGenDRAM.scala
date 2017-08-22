@@ -62,6 +62,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       val id = loadsList.length
       loadParMapping = loadParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par})" 
       loadsList = loadsList :+ dram
+      Console.println(src"Vising load for $dram, $loadsList")
 
       // TODO: Investigate this _enq business
       val turnstiling_stage = getLastChild(parentOf(lhs).get)
