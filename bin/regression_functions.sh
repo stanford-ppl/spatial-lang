@@ -211,11 +211,16 @@ Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
 * <---- indicates relative amount of work needed before app will **pass**" > $wiki_file
 
 # Write combined travis button
-combined_tracker="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${type_todo}-Tracker/results"
+combined_tracker_real="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${type_todo}-Tracker/results"
 logger "Writing combined travis button..."
 init_travis_ci Combined $branch $type_todo
 
 for ac in ${types_list[@]}; do
+  if [[ "$ac" != *"Fixme"* ]]; then 
+    combined_tracker=${combined_tracker_real}
+  else
+    combined_tracker="/dev/null"
+  fi
   logger "Collecting results for ${ac} apps, putting in ${wiki_file}"
   cd ${SPATIAL_HOME}/regression_tests/${ac}/results
   echo "
@@ -854,6 +859,18 @@ launch_tests() {
       types_list=("${types_list[@]}" $tp)
     fi
   done
+
+  # Stick unit tests up first
+  t=()
+  if [[ ${types_list[@]} = *"Unit"* ]]; then
+    t=("Unit")
+    for ac in ${types_list[@]}; do
+      if [[ $ac != *"Unit"* ]]; then
+        t=("${t[@]}" $ac)
+      fi
+    done
+  fi
+  type_list=${t[@]}
 
   # Make reg test dir
   rm -rf ${SPATIAL_HOME}/regression_tests;mkdir ${SPATIAL_HOME}/regression_tests
