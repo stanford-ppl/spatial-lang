@@ -116,7 +116,6 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     }
     result
-
   }
 
   protected def findCtrlAncestor(lhs: Exp[_]): Option[Exp[_]] = {
@@ -261,6 +260,42 @@ trait ChiselGenController extends ChiselGenCounter{
 
   }
 
+  // Method for looking ahead to see if any streamEnablers need to be remapped fifo signals
+  def remappedEns(node: Exp[Any], ens: List[Exp[Any]]): String = {
+    var previousLevel: Exp[_] = node
+    var nextLevel: Option[Exp[_]] = Some(parentOf(node).get)
+    var result = ens.map(quote)
+    while (nextLevel.isDefined) {
+      if (styleOf(nextLevel.get) == StreamPipe) {
+        nextLevel.get match {
+          case Def(UnrolledForeach(_,_,_,_,e)) => 
+            ens.map{ my_en => 
+              e.map{ their_en => 
+                if (src"${my_en}" == src"${their_en}") {
+                  result = result.filter{a => src"$a" != src"$my_en"} :+ src"${my_en}_copy${previousLevel}"
+                }
+              }
+            }
+          case Def(UnitPipe(e,_)) => 
+            ens.map{ my_en => 
+              e.map{ their_en => 
+                if (src"${my_en}" == src"${their_en}") {
+                  result = result.filter{a => src"$a" != src"$my_en"} :+ src"${my_en}_copy${previousLevel}"
+                }
+              }
+            }
+        }
+        nextLevel = None
+      } else {
+        previousLevel = nextLevel.get
+        nextLevel = parentOf(nextLevel.get)
+      }
+    }
+    result.mkString("&")
+
+  }
+
+
   def getStreamEnablers(c: Exp[Any]): String = {
       // If we are inside a stream pipe, the following may be set
       // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
@@ -277,13 +312,13 @@ trait ChiselGenController extends ChiselGenCounter{
       val holders = pushesTo(c).distinct.map { pt => pt.memory match {
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
-            case Def(FIFOEnq(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~$en)"
-            case Def(ParFIFOEnq(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${ens.map(quote).mkString("&")}))"""
+            case Def(FIFOEnq(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(ParFIFOEnq(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
         case fifo @ Def(FILONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
-            case Def(FILOPush(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~$en)"
-            case Def(ParFILOPush(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${ens.map(quote).mkString("&")}))"""
+            case Def(FILOPush(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(ParFILOPush(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
         case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready"
         case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"        
