@@ -6,6 +6,7 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import spatial.targets.DE1._
+import spatial.targets.Ethernet._
 
 trait ChiselGenStream extends ChiselGenSRAM {
   var streamIns: List[Sym[Reg[_]]] = List()
@@ -79,6 +80,11 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emit(src"// switch, node = $lhs", forceful=true)
           emit(src"${lhs}_valid := 1.U", forceful=true)
 
+        case EthInput =>
+          emit(src"// switch, node = $lhs", forceful=true)
+          emit(src"${lhs}_valid := 1.U", forceful=true)
+          streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
+
         case _ =>
           streamIns = streamIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
@@ -141,6 +147,13 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emit(src"// GPOutput2, node = $lhs", forceful=true)
           emit(src"${lhs}_ready := 1.U", forceful=true)
           emit(src"${lhs}_valid := 1.U", forceful=true)
+
+        case EthOutput => 
+          emit(src"// EthOutput, node = $lhs", forceful=true)
+          emit(src"${lhs}_ready := 1.U", forceful=true)
+          emit(src"${lhs}_valid := 1.U", forceful=true)
+          streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
+
         case _ =>
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
@@ -218,6 +231,11 @@ trait ChiselGenStream extends ChiselGenSRAM {
             case BurstDataBus() => 
               emit(src"""val $lhs = (0 until 1).map{ i => ${stream}(i) }""")
 
+	    case EthInput =>
+              val id = argMapping(stream)._1
+              Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamIns")
+              emit(src"""val ${quote(lhs)} = io.genericStreams.ins($id).bits.data """)  // Ignores enable for now
+
             case _ =>
               val id = argMapping(stream)._1
               Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamIns")
@@ -275,6 +293,12 @@ trait ChiselGenStream extends ChiselGenSRAM {
             case BurstCmdBus =>  
               emit(src"""${stream}_valid := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) // Do not delay ready because datapath includes a delayed _valid already """)
               // emit(src"""${stream} := $data""")
+
+            case EthOutput =>
+              val id = argMapping(stream)._1
+              emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now
+              println(s"\n***********************io.genericStreams.outs($id).valid := ${stream}_valid\n")
+              emit(src"""io.genericStreams.outs($id).valid := ${stream}_valid""")
 
             case _ => 
               // emit(src"""${stream}_valid := ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")

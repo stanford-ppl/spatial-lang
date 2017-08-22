@@ -59,6 +59,7 @@ extern "C" {
   // Callback function from SV when there is valid data
   // Currently output stream is always ready, so there is no feedback going from C++ -> SV
   void readOutputStream(int data, int tag, int last) {
+    
     // view addr as uint64_t without doing sign extension
     uint32_t udata = *(uint32_t*)&data;
     uint32_t utag = *(uint32_t*)&tag;
@@ -287,7 +288,8 @@ extern "C" {
      * Initialize peripheral simulators
      */
     initDRAM();
-    initStreams();
+    initInputStream(ETHERNET_STREAM);
+    initOutputStream(ETHERNET_STREAM);
 
 
   }

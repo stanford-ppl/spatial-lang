@@ -185,7 +185,7 @@ module test;
     .io_dram_wresp_ready(io_dram_wresp_ready),
     .io_dram_wresp_valid(io_dram_wresp_valid),
     .io_dram_wresp_bits_tag(io_dram_wresp_bits_tag),
-    .io_dram_wresp_bits_streamId(io_dram_wresp_bits_streamId)
+    .io_dram_wresp_bits_streamId(io_dram_wresp_bits_streamId),
     .io_genericStreamIn_ready(io_genericStreamIn_ready),
     .io_genericStreamIn_valid(io_genericStreamIn_valid),
     .io_genericStreamIn_bits_data(io_genericStreamIn_bits_data),
@@ -318,7 +318,7 @@ module test;
       end
     end
 
-    if (io_genericStreamOut_valid & ~reset) begin
+    if (io_genericStreamOut_valid) begin
       readOutputStream(
         io_genericStreamOut_bits_data,
         io_genericStreamOut_bits_tag,
