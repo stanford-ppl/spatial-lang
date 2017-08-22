@@ -51,6 +51,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ArgInNew(init)  => 
+      if (readersOf(lhs).length == 0){throw new Exception(src"Error: ArgIn $lhs has no readers!")}
       argIns = argIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case ArgOutNew(init) => 
       emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful=true)
@@ -68,7 +69,6 @@ trait ChiselGenReg extends ChiselGenSRAM {
 
     case RegNew(init)    => 
       // Console.println(src" working on reg $lhs")
-      if (readersOf(lhs).length == 0){throw new Exception(src"Error: Register $lhs has no readers!")}
       val width = bitWidth(init.tp)
       emitGlobalWire(src"val ${lhs}_initval = ${init}")
       resettersOf(lhs).indices.foreach{ i => emitGlobalWire(src"""val ${lhs}_manual_reset_$i = Wire(Bool())""")}
