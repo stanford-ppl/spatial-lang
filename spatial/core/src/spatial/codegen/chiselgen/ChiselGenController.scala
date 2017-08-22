@@ -271,19 +271,20 @@ trait ChiselGenController extends ChiselGenCounter{
           case Def(UnrolledForeach(_,_,_,_,e)) => 
             ens.map{ my_en => 
               e.map{ their_en => 
-                if (src"${my_en}" == src"${their_en}") {
+                if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
                   result = result.filter{a => src"$a" != src"$my_en"} :+ src"${my_en}_copy${previousLevel}"
                 }
               }
             }
-          case Def(UnitPipe(e,_)) => 
-            ens.map{ my_en => 
-              e.map{ their_en => 
-                if (src"${my_en}" == src"${their_en}") {
-                  result = result.filter{a => src"$a" != src"$my_en"} :+ src"${my_en}_copy${previousLevel}"
-                }
-              }
-            }
+          case _ => // do nothing
+          // case Def(UnitPipe(e,_)) => 
+          //   ens.map{ my_en => 
+          //     e.map{ their_en => 
+          //       if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
+          //         result = result.filter{a => src"$a" != src"$my_en"} :+ src"${my_en}_copy${previousLevel}"
+          //       }
+          //     }
+          //   }
         }
         nextLevel = None
       } else {
