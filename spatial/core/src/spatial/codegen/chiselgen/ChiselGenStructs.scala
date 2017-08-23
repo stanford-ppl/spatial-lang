@@ -73,7 +73,7 @@ trait ChiselGenStructs extends ChiselGenSRAM {
   override protected def quoteConst(c: Const[_]): String = (c.tp, c) match {
     case (st: StructType[_], e@Const(elems)) =>
       val tuples = elems.asInstanceOf[Seq[(_, Exp[_])]]
-      val rand_string = (0 until 3).map{_ => scala.util.Random.alphanumeric.filter(_.isLetter).head}.mkString("") // Random letter since quoteConst has no lhs handle
+      val rand_string = (0 until 5).map{_ => scala.util.Random.alphanumeric.filter(_.isLetter).head}.mkString("") // Random letter since quoteConst has no lhs handle
       val items = tuples.zipWithIndex.map{ case(t,i) => 
         val width = bitWidth(t._2.tp)
         emitGlobalWire(src"val ${rand_string}_item${i} = Wire(UInt(${width}.W))")

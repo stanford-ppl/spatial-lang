@@ -49,8 +49,10 @@ trait SRAMs extends Benchmarks {
     }
   }
 
-  private val dims1d = List(256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536)
-  private val pars1d = List(1, 2, 4)
+  // Can get most of this from documentation since we have direct control over BRAM instantiation (or do we...)
+
+  private val dims1d = List(2048) //List(256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536)
+  private val pars1d = List(1)    //List(1, 2, 4)
 
   gens :::= dims1d.flatMap{len =>
     pars1d.flatMap{par =>
@@ -58,7 +60,7 @@ trait SRAMs extends Benchmarks {
     }
   }
 
-  private val dims2d = List(
+  private val dims2d = List((512,8)) /*List(
     (512, 8),
     (512, 16),
     (512, 32),
@@ -74,8 +76,8 @@ trait SRAMs extends Benchmarks {
     (4096, 8),
     (4096, 16),
     (8192, 8)
-  )
-  private val pars2d = List((1,1), (1,2), (1,4), (2,1), (2,2), (2,4), (4,1), (4,2), (4,4))
+  )*/
+  private val pars2d = List((1,1))  // List((1,1), (1,2), (1,4), (2,1), (2,2), (2,4), (4,1), (4,2), (4,4))
 
   gens :::= dims2d.flatMap{case (rows,cols) =>
     pars2d.flatMap{case (p0,p1) =>

@@ -211,11 +211,16 @@ Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
 * <---- indicates relative amount of work needed before app will **pass**" > $wiki_file
 
 # Write combined travis button
-combined_tracker="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${type_todo}-Tracker/results"
+combined_tracker_real="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${type_todo}-Tracker/results"
 logger "Writing combined travis button..."
 init_travis_ci Combined $branch $type_todo
 
 for ac in ${types_list[@]}; do
+  if [[ "$ac" != *"Fixme"* ]]; then 
+    combined_tracker=${combined_tracker_real}
+  else
+    combined_tracker="/dev/null"
+  fi
   logger "Collecting results for ${ac} apps, putting in ${wiki_file}"
   cd ${SPATIAL_HOME}/regression_tests/${ac}/results
   echo "
@@ -621,6 +626,10 @@ function report {
   else
     echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2} - ${5}/)\" >> ${log}
     touch ${SPATIAL_HOME}/regression_tests/${2}/results/\${1}.${3}_${4}
+    memerr=\`cat ${5}/log | grep \"No space left on device\" | wc -l\`
+    if [[ \${memerr} != 0 ]]; then
+      echo \"[FATAL_ERROR] `date` - NO SPACE LEFT ON THIS DEVICE!!!\" >> ${log}
+    fi
     exit 1
   fi
 }
@@ -709,6 +718,8 @@ sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top
 sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdpluson/\\/\\/\\\$vcdpluson/g' chisel/template-level/fringeVCS/Top-harness.sv
+// New way of disabling vcd
+sed -i 's/vcdon = .*;/vcdon = 0;/g' chisel/template-level/fringeVCS/Top-harness.sv
 
 make vcs 2>&1 | tee -a ${5}/log" >> $1
   if [[ ${type_todo} = "chisel" ]]; then
@@ -850,6 +861,18 @@ launch_tests() {
       types_list=("${types_list[@]}" $tp)
     fi
   done
+
+  # Stick unit tests up first
+  t=()
+  if [[ ${types_list[@]} = *"Unit"* ]]; then
+    t=("Unit")
+    for ac in ${types_list[@]}; do
+      if [[ $ac != *"Unit"* ]]; then
+        t=("${t[@]}" $ac)
+      fi
+    done
+  fi
+  type_list=${t[@]}
 
   # Make reg test dir
   rm -rf ${SPATIAL_HOME}/regression_tests;mkdir ${SPATIAL_HOME}/regression_tests

@@ -6,6 +6,7 @@ import templates.Utils.log2Up
 import chisel3.util.{MuxLookup, Mux1H}
 import Utils._
 import ops._
+import fringe._
 
 /*
            Registers Layout                                       
@@ -95,7 +96,10 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
         if (wPar > 1) {
           // Address flattening
           val flat_w_addrs = io.w.map{ bundle =>
-            bundle.addr.zipWithIndex.map{case (a, ii) => a *-* (dims.drop(ii).reduce{_*-*_}/-/dims(ii)).U}.reduce{_+_}//(31,0)
+            bundle.addr.zipWithIndex.map{case (a, ii) => 
+              // fringe.FringeGlobals.bigIP.multiply(a, (dims.drop(ii).reduce{_*-*_}/-/dims(ii)).U, 0)
+              a *-* (dims.drop(ii).reduce{_*-*_}/-/dims(ii)).U
+            }.reduce{_+_}//(31,0)
           }
 
           val write_here = (0 until wPar).map{ ii => io.w(ii).en & (flat_w_addrs(ii) === i.U) }
@@ -111,7 +115,10 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
           registers(i) := Mux(shift_axis, registers(producing_reg), Mux(has_writer | has_shifter, write_data.data, registers(i)))
         } else {
           // Address flattening
-          val flat_w_addrs = io.w(0).addr.zipWithIndex.map{case (a, i) => a *-* (dims.drop(i).reduce{_*-*_}/-/dims(i)).U}.reduce{_+_}//(31,0)
+          val flat_w_addrs = io.w(0).addr.zipWithIndex.map{case (a, i) => 
+            // fringe.FringeGlobals.bigIP.multiply(a, (dims.drop(i).reduce{_*-*_}/-/dims(i)).U, 0)
+            a *-* (dims.drop(i).reduce{_*-*_}/-/dims(i)).U
+          }.reduce{_+_}//(31,0)
 
           val write_here = io.w(0).en & (flat_w_addrs === i.U)
           val shift_entry_here =  io.w(0).shiftEn & (flat_w_addrs === i.U) 
@@ -175,7 +182,8 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
     val flat_addr = addrs.zipWithIndex.map{ case( a,i ) =>
       val aa = Wire(UInt(muxWidth.W))
       aa := a
-      (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W) *-* aa
+      // fringe.FringeGlobals.bigIP.multiply(aa, (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W), 0)
+      aa *-* (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W)
     }.reduce{_+_}
     result := chisel3.util.MuxLookup(flat_addr, 0.U(bitWidth.W), regvals)
     result
@@ -225,7 +233,7 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
 
   // Latch whether each buffer's stage is enabled and when they are done
   (0 until numBufs).foreach{ i => 
-    sEn_latch(i).io.input.set := io.sEn(i)
+    sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
     sEn_latch(i).io.input.reset := swap
     sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)
@@ -293,7 +301,8 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
     val flat_addr = (port*dims.reduce{_*-*_}).U(muxWidth.W) + addrs.zipWithIndex.map{ case( a,i ) =>
       val aa = Wire(UInt(muxWidth.W))
       aa := a
-      (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W) *-* aa
+      // fringe.FringeGlobals.bigIP.multiply(aa, (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W), 0)
+      aa *-* (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W)
     }.reduce{_+_}
     result := chisel3.util.MuxLookup(flat_addr, 0.U(bitWidth.W), regvals)
     result
@@ -348,7 +357,8 @@ class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val
   val flat_addr = (0 until numReaders).map{ k => 
     val base = k*dims.length
     (0 until dims.length).map{ i => 
-      (io.addr(i + base) *-* (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W)) // TODO: Why is chisel being so stupid with this type when used in the MuxLookup
+      // (fringe.FringeGlobals.bigIP.multiply(io.addr(i + base), (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W), 0))
+      (io.addr(i + base) *-* (dims.drop(i).reduce{_*-*_}/-/dims(i)).U(muxWidth.W))
     }.reduce{_+_}
   }
 

@@ -3,6 +3,7 @@ AWS_V_DIR=verilog-aws
 AWS_V_SIM_DIR=verilog-aws-sim
 ZYNQ_V_DIR=verilog-zynq
 APPNAME=$(shell basename $(shell pwd))
+BIGIP_SCRIPT=bigIP.tcl
 timestamp := $(shell /bin/date "+%Y-%m-%d---%H-%M-%S")
 
 all: help
@@ -42,6 +43,7 @@ sim-hw:
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
+	cp chisel/template-level/fringeVCS/SRAMVerilogSim.v . || :
 	sbt "run-main top.Instantiator --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs"
 	cp verilator.mk ${VERILATOR_SRC}/Makefile
 	mv ${VERILATOR_SRC}/top* ${VERILATOR_SRC}/verilator_srcs_tmp
@@ -123,6 +125,7 @@ aws-F1-hw:
 	# First use chisel to create the verilog
 	sbt "run-main top.Instantiator --verilog --testArgs aws"
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${AWS_V_DIR}/Top.v
+	mv ${BIGIP_SCRIPT} ${AWS_V_DIR}/
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/${app_name}
 	cp -r $(AWS_HOME)/hdk/cl/examples/cl_dram_dma $(AWS_HOME)/hdk/cl/examples/${app_name}
@@ -140,10 +143,13 @@ aws-F1-afi:   aws-F1-hw
 	# NOTE: Requires hdk_setup.sh to have been already sourced, and Vivado license
 	# ----------------------------------------------------------------------------
 	cp -f cpp/fringeAWS/build/encrypt.tcl $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts/
+	cp -f cpp/fringeAWS/build/clockFreq.tcl $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts/
+	cp -f cpp/fringeAWS/build/synth_cl_dram_dma.tcl $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts/
+	cp -f ${AWS_V_DIR}/${BIGIP_SCRIPT} $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts/
 	# NOTE: The DEFAULT strategy will be used, see others here:
 	#       https://github.com/aws/aws-fpga/blob/master/hdk/common/shell_v04151701/new_cl_template/build/README.md
 	# NOTE: This may fail (e.g. our of area) -- may need to rerun this manually
-	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh
+	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -clock_recipe_a A0 
 	# Use the following line instead for faster builds:
 	# cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -strategy BASIC -clock_recipe_a A2 
 	# ----------------------------------------------------------------------------
@@ -214,8 +220,9 @@ zynq-sw:
 
 zynq-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs zynq"
+	mv ${BIGIP_SCRIPT} ${ZYNQ_V_DIR}/
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${ZYNQ_V_DIR}/Top.v
-	cp chisel/template-level/fringeZynq/* ${ZYNQ_V_DIR}
+	cp chisel/template-level/fringeZynq/build/* ${ZYNQ_V_DIR}
 	mv ${ZYNQ_V_DIR}/fsbl.elf._ ${ZYNQ_V_DIR}/fsbl.elf
 	mv ${ZYNQ_V_DIR}/u-boot.elf._ ${ZYNQ_V_DIR}/u-boot.elf
 	make -C ${ZYNQ_V_DIR}
@@ -224,7 +231,7 @@ zynq-clean:
 	make -C ${ZYNQ_V_DIR} clean
 	make -C cpp clean
 	rm -rf ${ZYNQ_V_DIR}
-	rm -f $(APPNAME).tar.gz
+	rm -f $(APPNAME).tar.gz ${BIGIP_SCRIPT}
 	rm -rf target
 
 de1soc: de1soc-hw de1soc-sw
@@ -281,7 +288,7 @@ vcs-clean:
 	make -C verilog-vcs clean
 	make -C cpp clean
 	rm -rf verilog-vcs
-	rm -f verilog TopVCS.tar.gz Top *.log *.vcd ucli.key
+	rm -f verilog TopVCS.tar.gz Top *.log *.vcd ucli.key ${BIGIP_SCRIPT}
 	rm -rf target
 
 sim-clean:

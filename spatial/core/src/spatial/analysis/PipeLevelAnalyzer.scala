@@ -47,12 +47,17 @@ trait PipeLevelAnalyzer extends SpatialTraversal {
   def markControlNodes(lhs: Sym[_], rhs: Def): Boolean = {
     // Recursively check scopes to see if there are any control nodes, starting at a Hwblock
     val containsControl = rhs.blocks.map{blk =>
-      blk -> traverseStmsInBlock(blk, {stms =>
+      tab += 1
+      val mapping = blk -> traverseStmsInBlock(blk, {stms =>
         stms.map{stm => markControlNodes(stm.lhs.head,stm.rhs) }.fold(false)(_||_)
       })
+      tab -= 1
+      mapping
     }.toMap
 
     val isOuter = containsControl.values.fold(false)(_||_)
+
+    dbgs(c"$lhs = $rhs [$isOuter]")
 
     rhs match {
       case pipe:Hwblock   =>
