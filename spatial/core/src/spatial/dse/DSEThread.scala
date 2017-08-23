@@ -6,23 +6,21 @@ import spatial.analysis._
 import spatial.metadata._
 import java.util.concurrent.{BlockingQueue, TimeUnit}
 
-import spatial.models.AreaMetric
+import spatial.models._
 
 case class DSEThread(
   threadId:  Int,
   origState: State,
   params:    Seq[Exp[_]],
   space:     Seq[Domain[_]],
-  restricts: Set[Restrict],
   accel:     Exp[_],
   program:   Block[_],
   localMems: Seq[Exp[_]],
-  workQueue: BlockingQueue[(BigInt,Int)],
+  workQueue: BlockingQueue[Seq[BigInt]],
   outQueue:  BlockingQueue[Array[String]],
   doneQueue: BlockingQueue[Int]
 ) extends Runnable { thread =>
   // --- Thread stuff
-  var areaHeading: List[String] = Nil
   private var isAlive: Boolean = true
   private var hasTerminated: Boolean = false
   def requestStop(): Unit = { isAlive = false }
@@ -49,10 +47,8 @@ case class DSEThread(
   private implicit val state: State = new State
 
   private val target = SpatialConfig.target
-  private type Area = target.Area
-  private type Sum = target.Sum
-  private implicit val areaMetric: AreaMetric[Area] = target.areaMetric
-  private val capacity: Sum = target.capacity
+  private val capacity: Area = target.capacity
+  val areaHeading: Seq[String] = capacity.nonZeroFields
   private val indexedSpace = space.zipWithIndex
   private val N = space.length
   private val dims = space.map{d => BigInt(d.len) }
@@ -63,17 +59,17 @@ case class DSEThread(
     def localMems: Seq[Exp[_]] = thread.localMems
     var IR: State = state
   }
-  private lazy val contentionAnalyzer = new ContentionAnalyzer { var IR: State = state }
+  private lazy val contentionAnalyzer = new ContentionAnalyzer { var IR: State = state; def top = accel }
   private lazy val areaAnalyzer  = target.areaAnalyzer(state)
   private lazy val cycleAnalyzer = target.cycleAnalyzer(state)
-
-
 
   def init(): Unit = {
     origState.copyTo(state)
     areaAnalyzer.init()
     cycleAnalyzer.init()
-    contentionAnalyzer.top = accel
+    scalarAnalyzer.init()
+    memoryAnalyzer.init()
+    contentionAnalyzer.init()
 
     Config.verbosity = -1
     scalarAnalyzer.silence()
@@ -82,16 +78,16 @@ case class DSEThread(
     areaAnalyzer.silence()
     cycleAnalyzer.silence()
     areaAnalyzer.run(program)(mtyp(program.tp))
-    areaHeading = areaAnalyzer.totalArea.headings
   }
 
   def run(): Unit = {
     while(isAlive) {
-      val (start, len) = workQueue.take() // Blocking dequeue
-      if (start >= 0) {
+      val requests = workQueue.take() // Blocking dequeue
+
+      if (requests.nonEmpty) {
         // println(s"#$threadId: Received batch of $len. Working...")
         try {
-          val result = run(start, len)
+          val result = run(requests)
           // println(s"#$threadId: Completed batch of $len. ${workQueue.size()} items remain in the queue")
           outQueue.put(result) // Blocking enqueue
         }
@@ -113,11 +109,10 @@ case class DSEThread(
     hasTerminated = true
   }
 
-  def run(start: BigInt, len: Int): Array[String] = {
-    val array = new Array[String](len)
+  def run(requests: Seq[BigInt]): Array[String] = {
+    val array = new Array[String](requests.size)
     var i: Int = 0
-    var pt: BigInt = start
-    while (i < len) {
+    requests.foreach{pt =>
       state.resetErrors()
       indexedSpace.foreach{case (domain,d) => domain.set( ((pt / prods(d)) % dims(d)).toInt ) }
 
@@ -126,15 +121,15 @@ case class DSEThread(
       val (area, runtime) = evaluate()
       val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
 
-      array(i) = space.map(_.value).mkString(",") + "," + area.toFile.mkString(",") + "," + runtime + "," + valid
+      // Only report the area resources that the target gives maximum capacities for
+      array(i) = space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid
 
       i += 1
-      pt += 1
     }
     array
   }
 
-  private def evaluate(): (Sum, Long) = {
+  private def evaluate(): (Area, Long) = {
     scalarAnalyzer.rerun(accel, program)
     if (PROFILING) endBnd()
 

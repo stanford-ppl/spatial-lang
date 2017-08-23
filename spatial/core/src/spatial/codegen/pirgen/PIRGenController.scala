@@ -40,11 +40,11 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     if (cu.controlStages.nonEmpty && genControlLogic) {
       emitStages(cu.controlStages)
     }
-    for ((srams,stages) <- cu.writeStages if stages.nonEmpty) {
-      emitStages(stages,"WA")
+    if (cu.writeStages.nonEmpty) {
+      emitStages(cu.writeStages, "WA")
     }
-    for ((srams,stages) <- cu.readStages if stages.nonEmpty) {
-      emitStages(stages,"RA")
+    if (cu.readStages.nonEmpty) {
+      emitStages(cu.readStages, "RA")
     }
     if (cu.computeStages.nonEmpty) {
       emitStages(cu.computeStages)
@@ -96,7 +96,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
     cu.style match {
       case PipeCU => emitAllStages(cu)
-      case MemoryCU(i) => emitAllStages(cu)
+      case MemoryCU(i, bank) => emitAllStages(cu)
       case _ => 
     }
 
@@ -225,7 +225,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case PipeCU => "Pipeline"
     case MetaPipeCU   => "MetaPipeline"
     case SequentialCU => "Sequential"
-    case MemoryCU(i)     => "MemoryPipeline"
+    case MemoryCU(i, bank)     => "MemoryPipeline"
     case FringeCU(dram, mode)     => "MemoryController"
   }
 
@@ -236,12 +236,12 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
     case WriteAddrWire(mem)      => s"${quote(mem)}.writeAddr"      // Write address wire
     case ReadAddrWire(mem)       => s"${quote(mem)}.readAddr"       // Read address wire
-    case MemLoadReg(mem)        => s"$reg"                      // SRAM read
-    case MemNumel(mem)        => s"${reg}"                      // Mem number of element
+    case MemLoadReg(mem)        => s"${quote(mem)}.readPort"                      // SRAM read
+    case MemNumel(mem)        => s"${quote(mem)}.numel"                      // Mem number of element
 
     case reg:ReduceReg           => s"rr${reg.id}"                  // Reduction register
     case reg:AccumReg            => s"ar${reg.id}"                  // After preallocation
-    case reg:TempReg             => reg.toString                  // Temporary register
+    case reg:TempReg             => s"${quote(reg.x)}"                  // Temporary register
     case reg:ControlReg          => s"cr${reg.id}"                  // Control register
 
     case ScalarIn(bus)           => quote(bus)                      // Scalar input

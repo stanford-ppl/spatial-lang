@@ -186,7 +186,7 @@ sleep 1000
 stubborn_delete ${dirname}
 mv /remote/regression/mapping/${tim}.${branch}.${type_todo}---${this_machine} /remote/regression/graveyard
 
-ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
+# ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 
 exit 1
 
@@ -210,7 +210,17 @@ echo -e "
 Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
 * <---- indicates relative amount of work needed before app will **pass**" > $wiki_file
 
+# Write combined travis button
+combined_tracker_real="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${type_todo}-Tracker/results"
+logger "Writing combined travis button..."
+init_travis_ci Combined $branch $type_todo
+
 for ac in ${types_list[@]}; do
+  if [[ "$ac" != *"Fixme"* ]]; then 
+    combined_tracker=${combined_tracker_real}
+  else
+    combined_tracker="/dev/null"
+  fi
   logger "Collecting results for ${ac} apps, putting in ${wiki_file}"
   cd ${SPATIAL_HOME}/regression_tests/${ac}/results
   echo "
@@ -221,6 +231,8 @@ for ac in ${types_list[@]}; do
   update_log $wiki_file
   push_travis_ci $ac $branch $type_todo
 done
+
+push_travis_ci Combined $branch $type_todo
 
 # Update regtest timestamp
 if [[ ${type_todo} = *"chisel"* ]]; then
@@ -284,31 +296,31 @@ update_log() {
     pname=(`echo $p | sed "s/.*[0-9]\+_//g"`)
     cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/comptimes_${branch}_${type_todo}_${pname}.csv)"
     if [[ $p == *"pass"* ]]; then
-      echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
+      echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=(`sed -n '1p' $p`)
     elif [[ $p == *"failed_execution_validation"* ]]; then
-      echo "<----${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
+      echo "<----${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_execution_nonexistent_validation"* ]]; then
-      echo "<--------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
+      echo "<--------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_execution_backend_crash"* || $p == *"failed_execution_hanging"* ]]; then
-      echo "<------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
+      echo "<------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_compile_backend_crash"* || $p == *"failed_compile_cpp_crash"* ]]; then
-      echo "<----------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
+      echo "<----------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_app_spatial_compile"* ]]; then
-      echo "<--------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
+      echo "<--------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_app_not_written"* ]]; then
-      echo "<------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
+      echo "<------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     elif [[ $p == *"failed_app_initialized"* ]]; then
-      echo "<----------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
+      echo "<----------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     else
-      echo "Unknown result: $p  " | sed "s/\.\///g" | tee -a $1 $tracker > /dev/null
+      echo "Unknown result: $p  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
       t=0
     fi
 
@@ -614,6 +626,10 @@ function report {
   else
     echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2} - ${5}/)\" >> ${log}
     touch ${SPATIAL_HOME}/regression_tests/${2}/results/\${1}.${3}_${4}
+    memerr=\`cat ${5}/log | grep \"No space left on device\" | wc -l\`
+    if [[ \${memerr} != 0 ]]; then
+      echo \"[FATAL_ERROR] `date` - NO SPACE LEFT ON THIS DEVICE!!!\" >> ${log}
+    fi
     exit 1
   fi
 }
@@ -654,14 +670,21 @@ cd ${SPATIAL_HOME}
     retime_flag=""
   fi
 
+  # Include syncMem if this is a syncMem branch
+  if [[ ${branch} = *"syncMem"* ]]; then
+    syncMem_flag="--syncMem"
+  else
+    syncMem_flag=""
+  fi
+
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --sim --multifile=4 ${retime_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --sim --multifile=4 ${retime_flag} ${syncMem_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --synth --multifile=4 ${retime_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --synth --multifile=4 ${retime_flag} ${syncMem_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 
@@ -836,6 +859,18 @@ launch_tests() {
       types_list=("${types_list[@]}" $tp)
     fi
   done
+
+  # Stick unit tests up first
+  t=()
+  if [[ ${types_list[@]} = *"Unit"* ]]; then
+    t=("Unit")
+    for ac in ${types_list[@]}; do
+      if [[ $ac != *"Unit"* ]]; then
+        t=("${t[@]}" $ac)
+      fi
+    done
+  fi
+  type_list=${t[@]}
 
   # Make reg test dir
   rm -rf ${SPATIAL_HOME}/regression_tests;mkdir ${SPATIAL_HOME}/regression_tests

@@ -45,6 +45,25 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableDSE = true
   ).text("enables design space exploration [false]")
 
+  parser.opt[Unit]("bruteforce").action { (_, _) =>
+    SpatialConfig.enableDSE = true
+    SpatialConfig.heuristicDSE = false
+    SpatialConfig.bruteForceDSE = true
+    SpatialConfig.experimentDSE = false
+  }
+  parser.opt[Unit]("heuristic").action { (_, _) =>
+    SpatialConfig.enableDSE = true
+    SpatialConfig.heuristicDSE = true
+    SpatialConfig.bruteForceDSE = false
+    SpatialConfig.experimentDSE = false
+  }
+  parser.opt[Unit]("experiment").action { (_, _) =>
+    SpatialConfig.enableDSE = true
+    SpatialConfig.heuristicDSE = true
+    SpatialConfig.bruteForceDSE = false
+    SpatialConfig.experimentDSE = true
+  }
+
   parser.opt[Unit]("retiming").action( (_,_) =>
     SpatialConfig.enableRetiming = true
   ).text("enables inner pipeline retiming [false]")
@@ -52,6 +71,11 @@ class SpatialArgParser extends ArgonArgParser {
   parser.opt[Unit]("naming").action( (_,_) =>
     SpatialConfig.enableNaming = true
   ).text("generates the debug name for all syms, rather than \"x${s.id}\" only'")
+
+  parser.opt[Unit]("syncMem").action { (_,_) => // Must necessarily turn on retiming
+    SpatialConfig.enableSyncMem = true
+    SpatialConfig.enableRetiming = true
+  }.text("Turns all SRAMs into fringe.SRAM (i.e. latched read addresses)")
 
   parser.opt[Unit]("tree").action( (_,_) =>
     SpatialConfig.enableTree = true

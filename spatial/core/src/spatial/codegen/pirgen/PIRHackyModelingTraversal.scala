@@ -19,7 +19,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     var stages: List[Exp[_]] = compute.toList
     var cchains: List[Exp[_]] = Nil
 
-    def cycles: Long = stages.map(latencyOf).sum
+    def cycles: Long = stages.map(stage => latencyOf(stage)).sum
 
     def inputs = {
       stages.flatMap{case Def(d) => d.expInputs; case _ => Nil}.distinct diff stages
@@ -37,7 +37,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
       val outsideInputs  = inputs intersect externalOutputs // Things other partitions created that we need
       val outsideOutputs = externalInputs intersect outputs // Things we created that other partitions need
 
-      val nCycles = stages.map(latencyOf).sum
+      val nCycles = stages.map(stage => latencyOf(stage)).sum
 
       (outsideInputs, outsideOutputs, nCycles)
     }
@@ -111,14 +111,14 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     }
 
     partitions.zipWithIndex.foreach{case (p,i) =>
-      dbg(s"Parition #$i")
-      dbg("  Stages: ")
+      dbgs(s"Parition #$i")
+      dbgs("  Stages: ")
       p.stages.foreach{stage =>
-        dbg(s"    ${str(stage)}")
+        dbgs(s"    ${str(stage)}")
       }
-      dbg("  Inputs: ")
+      dbgs("  Inputs: ")
       p.inputs.foreach{in =>
-        dbg(s"    ${str(in)}")
+        dbgs(s"    ${str(in)}")
       }
     }
 
@@ -126,9 +126,9 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
 
     // Order CUs using BFS
     def bfs(x: Partition): Int = layer.getOrElseAdd(x, {
-      dbg(c"Getting layer of partition #${partitions.indexOf(x)}")
+      dbgs(c"Getting layer of partition #${partitions.indexOf(x)}")
       val ins = x.inputs.flatMap{in => partitions.find(_.defines(in)) }.distinct
-      dbg(c"  inputs: " + ins.map(x => partitions.indexOf(x)).mkString(", "))
+      dbgs(c"  inputs: " + ins.map(x => partitions.indexOf(x)).mkString(", "))
       (-1 +: ins.map(bfs)).max + 1
     })
     val layers = partitions.map(bfs)
@@ -153,7 +153,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     }
 
     scope.foreach{stage =>
-      dbg(s"${str(stage)} [${paths.getOrElse(stage,0L)}]")
+      dbgs(s"${str(stage)} [${paths.getOrElse(stage,0L)}]")
     }
 
     (paths.toMap, delays.toMap)

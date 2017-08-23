@@ -15,9 +15,9 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
   override val name = "Hacky PIR Retimer"
   override def shouldRun = SpatialConfig.enablePIRSim
 
-  def requiresRetiming(x: Exp[_]) = latencyModel.requiresRegisters(x)
-  def retimingDelay(x: Exp[_]): Int = {
-    if (latencyModel.requiresRegisters(x)) latencyOf(x).toInt else 0
+  def requiresRetiming(x: Exp[_], inReduce: Boolean): Boolean = latencyModel.requiresRegisters(x, inReduce)
+  def retimingDelay(x: Exp[_], inReduce: Boolean): Int = {
+    if (latencyModel.requiresRegisters(x, inReduce)) latencyOf(x).toInt else 0
   }
 
   // track register info for each retimed reader
@@ -91,7 +91,7 @@ trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal 
 
 
   private def retimeBlock[T:Type](block: Block[T], cchain: Option[Exp[CounterChain]])(implicit ctx: SrcCtx): Exp[T] = inlineBlockWith(block, {stms =>
-    dbg(c"Retiming block $block")
+    dbgs(c"Retiming block $block")
 
     // perform recursive search of inputs to determine cumulative symbol latency
     val (symLatency,delays) = pipeDelaysHack(block, cchain)

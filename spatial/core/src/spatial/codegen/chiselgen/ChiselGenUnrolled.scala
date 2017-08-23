@@ -35,8 +35,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
   } 
 
   private def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]]): String = {
-    val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }
-    indices.zip(strides).map{case (i,s) => src"$i*$s"}.mkString(" + ")
+    val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*-*") }
+    indices.zip(strides).map{case (i,s) => src"$i*-*$s"}.mkString(" + ")
   }
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
@@ -317,7 +317,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val datacsv = data.map{d => src"${d}"}.mkString(",")
       val en = ens.map(quote).mkString("&")
 
-      emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")*${ens.length}""")
+      emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")*-*${ens.length}""")
       emit(src"""${stream}_valid_options(${lhs}_wId) := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/""")
       (0 until ens.length).map{ i => emit(src"""${stream}_data_options(${lhs}_wId + ${i}) := ${data(i)}""")}
       // emit(src"""${stream} := Vec(List(${datacsv}))""")

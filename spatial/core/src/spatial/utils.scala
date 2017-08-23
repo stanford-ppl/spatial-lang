@@ -82,11 +82,40 @@ object utils {
     })
   }
 
-  /**
-    * Checks to see if x depends on y (dataflow only, no scheduling dependencies)
-    */
+
   // TODO: This uses the pointer-chasing version of scheduling - could possibly make faster?
   implicit class ExpOps(x: Exp[_]) {
+
+
+    @stateful def getNodesBetween(y: Exp[_], scope: Set[Exp[_]]): Set[Exp[_]] = {
+      def dfs(frontier: Seq[Exp[_]], nodes: Set[Exp[_]]): Set[Exp[_]] = frontier.toSet.flatMap{x: Exp[_] =>
+        if (scope.contains(x)) {
+          if (x == y) nodes + x
+          else getDef(x).map{d => dfs(d.allInputs, nodes + x) }.getOrElse(Set.empty[Exp[_]])
+        }
+        else Set.empty[Exp[_]]
+
+        /*var fullPath: Option[Set[Exp[_]]] = None
+        val iter = frontier.iterator
+        while (iter.hasNext && fullPath.isEmpty) {
+          val x = iter.next()
+          if (scp.isEmpty || scp.contains(x)) {
+            if (x == y) {
+              fullPath = Some(nodes + x)
+            }
+            else {
+              fullPath = getDef(x).flatMap{d => dfs(d.inputs, nodes + x) }
+            }
+          }
+        }
+        fullPath*/
+      }
+      dfs(Seq(x),Set(x))
+    }
+
+    /**
+      * Checks to see if x depends on y (dataflow only, no scheduling dependencies)
+      */
     @stateful def dependsOn(y: Exp[_], scope: Seq[Stm] = Nil): Boolean = {
       val scp = scope.flatMap(_.lhs.asInstanceOf[Seq[Exp[_]]]).toSet
 
@@ -393,6 +422,7 @@ object utils {
 
   def mirrorCtrl(x: Ctrl, f: Transformer): Ctrl = (f(x.node), x.block)
   def mirrorAccess(x: Access, f: Transformer): Access = (f(x.node), mirrorCtrl(x.ctrl, f))
+  def mirrorStreamInfo(x: StreamInfo, f: Transformer): StreamInfo = (f(x.memory), f(x.access))
 
   /** Parallelization factors **/
   @internal def parFactorsOf(x: Exp[_]): Seq[Const[Index]] = x match {
@@ -510,6 +540,8 @@ object utils {
   @stateful def isMetaPipe(e: Ctrl): Boolean = !e.isInner && isMetaPipe(e.node)
   @stateful def isStreamPipe(e: Ctrl): Boolean = !e.isInner && isStreamPipe(e.node)
 
+  @stateful def isInnerSwitch(e: Exp[_]): Boolean = isInnerControl(e) && isSwitch(e)
+
   @stateful def isSwitch(e: Exp[_]): Boolean = getDef(e).exists(isSwitch)
   def isSwitch(d: Def): Boolean = d.isInstanceOf[Switch[_]]
 
@@ -606,11 +638,15 @@ object utils {
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
     case Def(RegFileNew(dims,_)) => dims
     case Def(FIFONew(size)) => Seq(size)
+    case Def(FILONew(size)) => Seq(size)
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
   @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
-    case Def(RegNew(_)) => Seq(1) // Hack for making memory analysis code easier
+    case Def(ArgOutNew(_)) => Seq(1)
+    case Def(ArgInNew(_))  => Seq(1)
+    case Def(HostIONew(_)) => Seq(1)
+    case Def(RegNew(_))    => Seq(1) // Hack for making memory analysis code easier
     case Def(LUTNew(dims,_)) => dims
     case _ => stagedDimsOf(x).map{
       case Exact(c: BigInt) => c.toInt
@@ -772,6 +808,17 @@ object utils {
     def ctrlNode: Exp[_] = x._2._1 // buffer control toggler
     def ctrlBlock: Int = x._2._2
     @stateful def isInner: Boolean = x._2.isInner
+  }
+
+  implicit class StreamInfoOps(x: StreamInfo) {
+    def memory: Exp[_] = x._1
+    def access: Exp[_] = x._2
+  }
+
+  implicit class PortMapOps(x: PortMap) {
+    def memId: Int = x._1
+    def argInId: Int = x._2
+    def argOutId: Int = x._3
   }
 
   // Memory, optional value, optional indices, optional enable

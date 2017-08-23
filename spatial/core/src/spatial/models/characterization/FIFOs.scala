@@ -7,8 +7,8 @@ import org.virtualized._
 trait FIFOs extends Benchmarks {
   self: SpatialCompiler =>
 
-  case class FIFOBench[T:Type:Num](size: scala.Int, p: scala.Int)(val N: scala.Int) extends Benchmark {
-    val prefix = s"${size}_${p}"
+  case class FIFOBench[T:Type:Num](width: scala.Int, size: scala.Int, p: scala.Int)(val N: scala.Int) extends Benchmark {
+    val prefix = s"${width}_${size}_${p}"
     override def eval(): SUnit = {
       val outs = List.fill(N){ ArgOut[T] }
 
@@ -17,7 +17,7 @@ trait FIFOs extends Benchmarks {
         Foreach(0 until size par p){i =>
           fifos.foreach{fifo => fifo.enq(i.to[T]) }
         }
-        Pipe {
+        Foreach(0 until size par p){i =>
           fifos.zip(outs).foreach{case (fifo,out) => out := fifo.deq() }
         }
       }
@@ -31,10 +31,10 @@ trait FIFOs extends Benchmarks {
   gens :::= sizes.flatMap{size =>
     pars.flatMap{par =>
       List(
-        MetaProgGen("FIFO8", Seq(10,50), FIFOBench[Int8](size, par)),
-        MetaProgGen("FIFO16", Seq(10,50), FIFOBench[Int16](size, par)),
-        MetaProgGen("FIFO32", Seq(10,50), FIFOBench[Int32](size, par)),
-        MetaProgGen("FIFO64", Seq(10,50), FIFOBench[Int64](size, par))
+        MetaProgGen("FIFO", Seq(10,50), FIFOBench[Int8](8, size, par)),
+        MetaProgGen("FIFO", Seq(10,50), FIFOBench[Int16](16, size, par)),
+        MetaProgGen("FIFO", Seq(10,50), FIFOBench[Int32](32, size, par)),
+        MetaProgGen("FIFO", Seq(10,50), FIFOBench[Int64](64, size, par))
       )
     }
   }

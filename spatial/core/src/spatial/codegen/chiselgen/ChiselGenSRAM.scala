@@ -84,7 +84,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       // If we are inside a stream pipe, the following may be set
       // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
       val lat = bodyLatency.sum(c)
-      val readiers = listensTo(c).distinct.map {
+      val readiers = listensTo(c).distinct.map{_.memory}.map {
         case fifo @ Def(StreamInNew(bus)) => src"${fifo}_valid"
         case _ => ""
       }.filter(_ != "").mkString(" & ")
@@ -97,24 +97,21 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   def getNowValidLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
       // If we are inside a stream pipe, the following may be set
-      val readiers = listensTo(c).distinct.map {
-        // case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty"
-        // case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty"
+      val readiers = listensTo(c).distinct.map{_.memory}.map {
         case fifo @ Def(StreamInNew(bus)) => src"${fifo}_now_valid" //& ${fifo}_ready"
         case _ => ""
       }.mkString(" & ")
-      // val holders = (pushesTo(c)).distinct.map {
-      //   case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full"
-      //   case fifo @ Def(FILONew(size)) => src"~$fifo.io.full"
-      //   case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready & ${fifo}_valid"
-      //   case fifo @ Def(BufferedOutNew(_, bus)) => src"~${fifo}_waitrequest"
-      // }.mkString(" & ")
-
-      // val hasHolders = if (holders != "") "&" else ""
       val hasReadiers = if (readiers != "") "&" else ""
-
       if (SpatialConfig.enableRetiming) src"${hasReadiers} ${readiers}" else " "
-
+  }
+  def getReadyLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
+      // If we are inside a stream pipe, the following may be set
+      val readiers = listensTo(c).distinct.map{_.memory}.map {
+        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_ready"
+        case _ => ""
+      }.mkString(" & ")
+      val hasReadiers = if (readiers != "") "&" else ""
+      if (SpatialConfig.enableRetiming) src"${hasReadiers} ${readiers}" else " "
   }
 
 
@@ -203,7 +200,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := ShiftRegister(${data}(i).r, $delay)}")        
     } else {
       if (isBool) {
-        emit(src"""val $lhs = ${data}.D($delay, rr)""")
+        emitGlobalWire(src"""val $lhs = Wire(Bool())""");emit(src"""$lhs := ${data}.D($delay, rr)""")
       } else {
         emit(src"""val $lhs = ShiftRegister($data, $delay)""")
       }
@@ -310,7 +307,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
             if (depth == 1) {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
     List(${dims.map(_.banks)}), $strides,
-    List($wPar), List($rPar), BankedMemory
+    List($wPar), List($rPar), BankedMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
@@ -318,14 +315,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
     List(${dims.map(_.banks)}), $strides,
     List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), BankedMemory
+    List($wBundling), List($rBundling), List($bPar), BankedMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             }
           case DiagonalMemory(strides, banks, depth, isAccum) =>
             if (depth == 1) {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
     List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
-    List($wPar), List($rPar), DiagonalMemory
+    List($wPar), List($rPar), DiagonalMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
@@ -333,7 +330,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
     List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
     List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), DiagonalMemory
+    List($wBundling), List($rBundling), List($bPar), DiagonalMemory, ${SpatialConfig.enableSyncMem}
   ))""")
             }
           }
@@ -378,11 +375,17 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
 
   override protected def emitFileFooter() {
+    withStream(getStream("IOModule")) {
+      emit("""// Set Build Info""")
+      val trgt = s"${SpatialConfig.target.name}"
+      emit(s"""Utils.target = ${trgt}""")
+      emit(s"""Utils.retime = ${SpatialConfig.enableRetiming}""")
+    }
     withStream(getStream("BufferControlCxns")) {
       nbufs.foreach{ case (mem, i) => 
         val info = bufferControlInfo(mem, i)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""${mem}_${i}.connectStageCtrl(${quote(inf._1)}_done, ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
+          emit(src"""${mem}_${i}.connectStageCtrl(${quote(inf._1)}_done.D(1,rr), ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
         }
       }
     }

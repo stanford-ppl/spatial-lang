@@ -49,6 +49,10 @@ object SpatialConfig {
   var target: FPGATarget = targets.DefaultTarget
 
   var enableDSE: Boolean = _
+  var heuristicDSE: Boolean = true
+  var bruteForceDSE: Boolean = false
+  var experimentDSE: Boolean = false
+
   var enableDot: Boolean = _
 
   //Interpreter 
@@ -65,6 +69,7 @@ object SpatialConfig {
   var enableSplitting: Boolean = _
   var enableArchDSE: Boolean = _
   var enableNaming: Boolean = _
+  var enableSyncMem: Boolean = _
   var enableTree: Boolean = _
 
   var sIn_UCU: Int = _

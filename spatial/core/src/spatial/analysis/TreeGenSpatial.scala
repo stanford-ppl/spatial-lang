@@ -74,8 +74,8 @@ trait TreeGenSpatial extends SpatialTraversal {
   def print_stream_info(sym: Exp[_]) {
     if (listensTo(sym).distinct.toList.length + pushesTo(sym).distinct.toList.length > 0){
       controller_tree.write("""<div style="border:1px solid black">Stream Info<br>""")
-      val listens = listensTo(sym).distinct.map{a => s"$a"}.mkString(",")
-      val pushes = pushesTo(sym).distinct.map{a => s"$a"}.mkString(",")
+      val listens = listensTo(sym).distinct.map{a => s"${a.memory}"}.mkString(",")
+      val pushes = pushesTo(sym).distinct.map{a => s"${a.memory}"}.mkString(",")
       if (listens != "") controller_tree.write(s"""<p align="left">----->$listens""")
       if (listens != "" & pushes != "") controller_tree.write(s"<br>")
       if (pushes != "") controller_tree.write(s"""<p align="right">$pushes----->""")

@@ -27,7 +27,8 @@ object DRAMTransfersInternal {
     lens:    Seq[Exp[Index]],
     units:   Seq[Boolean],
     par:     Const[Index],
-    isLoad:  Boolean
+    isLoad:  Boolean,
+    isAlign: Boolean
   )(implicit mem: Mem[T,C], mC: Type[C[T]], mD: Type[DRAM[T]], ctx: SrcCtx): MUnit = {
 
     val unitDims = units
@@ -72,7 +73,7 @@ object DRAMTransfersInternal {
     // as long as the value of the register read is known to be exactly some value.
     // FIXME: We should also be checking if the start address is aligned...
     def store(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = requestLength.s match {
-      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | SpatialConfig.enablePIR => //TODO: Hack for pir
+      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | SpatialConfig.enablePIR | isAlign => //TODO: Hack for pir
         dbg(u"$onchip => $offchip: Using aligned store ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
         alignedStore(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
@@ -83,7 +84,7 @@ object DRAMTransfersInternal {
         unalignedStore(offchipAddr, onchipAddr)
     }
     def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = requestLength.s match {
-      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | SpatialConfig.enablePIR => //TODO: Hack for pir
+      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | SpatialConfig.enablePIR | isAlign => //TODO: Hack for pir
         dbg(u"$offchip => $onchip: Using aligned load ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
         alignedLoad(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
@@ -101,7 +102,7 @@ object DRAMTransfersInternal {
       val ackStream  = StreamIn[Bit](BurstAckBus)
 
       // Command generator
-      Pipe {
+      if (SpatialConfig.enablePIR) { // On plasticine the sequential around data and address generation is inefficient
         Pipe {
           val addr_bytes = (offchipAddr * bytesPerWord).to[Int64] + dram.address
           val size = requestLength
@@ -113,6 +114,21 @@ object DRAMTransfersInternal {
         Foreach(requestLength par p){i =>
           val data = mem.load(local, onchipAddr(i), true)
           dataStream := pack(data,true)
+        }
+      } else {
+        Pipe {
+          Pipe {
+            val addr_bytes = (offchipAddr * bytesPerWord).to[Int64] + dram.address
+            val size = requestLength
+            val size_bytes = size * bytesPerWord
+            cmdStream := BurstCmd(addr_bytes.to[Int64], size_bytes, false)
+            // issueQueue.enq(size)
+          }
+          // Data loading
+          Foreach(requestLength par p){i =>
+            val data = mem.load(local, onchipAddr(i), true)
+            dataStream := pack(data,true)
+          }
         }
       }
       // Fringe
@@ -154,7 +170,7 @@ object DRAMTransfersInternal {
       val offset_bytes = maddr_bytes - start_bytes      // Burst-aligned start address, in bytes
       val raw_end      = maddr_bytes + length_bytes     // Raw end, in bytes, with burst-aligned start
 
-      val end_bytes = Math.mux(raw_end % bytesPerBurst == 0,  0.to[Index], bytesPerBurst - raw_end % bytesPerBurst) // Extra useless bytes at end
+      val end_bytes = Math.mux(raw_end % bytesPerBurst === 0.to[Index],  0.to[Index], bytesPerBurst - raw_end % bytesPerBurst) // Extra useless bytes at end
 
       // FIXME: What to do for bursts which split individual words?
       val start = start_bytes / bytesPerWord                   // Number of WHOLE elements to ignore at start

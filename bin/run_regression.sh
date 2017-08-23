@@ -52,6 +52,7 @@ apps_hash=`git ls-files -s apps | cut -d\  -f2`
 # apps_hash_message=`git log --stat --name-status HEAD^..HEAD`
 # cd ../
 at=`date +"%Y-%m-%d_%H-%M-%S"`
+
 machine=`hostname`
 cd $here
 
@@ -62,13 +63,14 @@ types=("scala" "chisel")
 dsts=(
 	  "portland;/home/regression/" 
 	  "max-2;/kunle/users/mattfel/regression" 
-	  # "ottawa;/home/regression"
+	  "ottawa;/home/regression"
 	  "tflop2;/home/regression/" 
 	  "tflop1;/home/regression/"
 	  "tucson;/home/mattfel/regression" 
 	  "london;/home/mattfel/regression"
 	  # "manchester;TBD" 
 	 )
+
 tests=all
 status=debug
 
@@ -88,11 +90,22 @@ for type in ${types[@]}; do
 		fields=(${dst//;/ })
 		# David hack
   		if [[ "$SUNETID" != "" && ${fields[0]} != "max-2" ]]; then
-		tmpuser=${SUNETID}		   		
+			tmpuser=${SUNETID}		   		
   		else
-		tmpuser=${USER}
+			tmpuser=${USER}
   		fi
-		existing_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls ${fields[1]}" | grep ^20[1-2][0-9] | wc -l`
+  		if timeout 2 nc -z ${fields[0]}.stanford.edu 22 2>/dev/null; then
+			# existing_scala_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*scala" | wc -l`
+			# existing_chizl_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*chisel" | wc -l`
+			existing_scala_runs=`ls -al /remote/regression/mapping | grep " 20[1-2][0-9].*scala---${fields[0]}" | wc -l`
+			existing_chizl_runs=`ls -al /remote/regression/mapping | grep " 20[1-2][0-9].*chisel---${fields[0]}" | wc -l`
+
+			# Weigh chisel runs by 2 and scala runs by 1 because chisel takes so much longer
+			existing_runs=$((2*$existing_chizl_runs + $existing_scala_runs))
+		else 
+			echo "${fields[0]} is unreachable at the moment :("
+			existing_runs=999
+		fi
 		# echo "${fields[0]} has ${existing_runs} runs going (current best ${most_idle})"
 
 		if [[ ${existing_runs} -lt $most_idle ]]; then

@@ -48,9 +48,11 @@ trait SpatialCompiler extends ArgonCompiler {
 
     lazy val memAnalyzer    = new MemoryAnalyzer { var IR = state; def localMems = ctrlAnalyzer.localMems }
     lazy val paramAnalyzer  = new ParameterAnalyzer{var IR = state }
+    lazy val heuristicAnalyzer = new HeuristicAnalyzer { var IR = state }
 
     lazy val scopeCheck     = new ScopeCheck { var IR = state }
 
+    lazy val contentionAnalyzer = new ContentionAnalyzer{ var IR = state; def top = ctrlAnalyzer.top.get }
     lazy val latencyAnalyzer = LatencyAnalyzer(IR = state, latencyModel = target.latencyModel)
     lazy val areaAnalyzer = SpatialConfig.target.areaAnalyzer(state)
 
@@ -61,7 +63,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     lazy val dse = new DSE {
       var IR = state
-      def restricts  = paramAnalyzer.restrict
+      def restricts  = heuristicAnalyzer.restrict
       def tileSizes  = paramAnalyzer.tileSizes
       def parFactors = paramAnalyzer.parFactors
       def localMems  = ctrlAnalyzer.localMems
@@ -112,6 +114,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     // --- Unit Pipe Insertion
     passes += switchInsert      // Change nested if-then-else statements to Switch controllers
+    passes += printer
     passes += unitPipeInsert    // Wrap primitives in outer controllers
     passes += printer
     passes += regReadCSE        // CSE register reads in inner pipelines
@@ -133,10 +136,15 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += memAnalyzer       // Memory banking/buffering
 
     passes += printer
-    passes += areaAnalyzer
+    // passes += areaAnalyzer
+    // passes += contentionAnalyzer
+    // passes += latencyAnalyzer
 
     // --- DSE
-    if (SpatialConfig.enableDSE) passes += paramAnalyzer
+    if (SpatialConfig.enableDSE) {
+      passes += paramAnalyzer
+      passes += heuristicAnalyzer
+    }
     passes += dse               // Design space exploration
     passes += finalizer
 
@@ -149,9 +157,11 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += transferExpand    // Expand burst loads/stores from single abstract nodes
     passes += switchInsert      // Change if-then-else statements from transfers to switches
     passes += levelAnalyzer     // Pipe style annotation fixes after expansion
+    passes += printer
 
     // --- Post-Expansion Cleanup
     passes += regReadCSE        // CSE register reads in inner pipelines
+    passes += printer
     passes += scalarAnalyzer    // Bounds / global analysis
     passes += ctrlAnalyzer      // Control signal analysis
 
@@ -204,7 +214,6 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += bufferAnalyzer    // Set top controllers for n-buffers
     passes += streamAnalyzer    // Set stream pipe children fifo dependencies
     passes += argMapper         // Get address offsets for each used DRAM object
-    passes += latencyAnalyzer   // Get delay lengths of inner pipes (used for retiming control signals)
     if (SpatialConfig.enablePIRSim) passes += pirTiming // PIR delays (retiming control signals)
     passes += printer
 

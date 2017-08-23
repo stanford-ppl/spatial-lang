@@ -27,6 +27,7 @@ def parse_args(docstring):
 
     parser.add_argument('directory',
                         help="directory to run synthesis in")
+    parser.add_argument('--nomake', dest='synth', action='store_false', default=True)
     args = parser.parse_args()
 
     # Expand file path to absolute path
@@ -44,36 +45,60 @@ def main():
         return
 
     # Run synthesis
-    os.chdir(args.directory)
-    subprocess.call("make zynq", shell=True)
+    if os.path.isdir(args.directory):
+        os.chdir(args.directory)
+    else:
+        print 'Generated folder not found'
+        return
+        
+    if args.synth:
+        subprocess.call("make zynq | tee make.log", shell=True)
 
     # Scrape and return data
-    os.chdir("./verilog-zynq")
-    with open('par_utilization.rpt', 'r') as f:
-        lines = f.readlines()
-        for i in range(33, 45):
-            print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
-        for i in range(73, 98):
-            print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
-        for i in range(108, 113):
-            print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
-        for i in range(123, 124):
-            print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
-    with open('par_ram_utilization.rpt', 'r') as f:
-        lines = f.readlines()
-        for i in range(24, 37):
-            if '|' in lines[i]:
-                print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
-    with open('par_timing_summary.rpt', 'r') as f:
-        lines = f.readlines()
-        titles = lines[126]
-        data = lines[128]
-        pattern = re.compile(r'\s\s+')
-        titles = re.split(pattern, titles)
-        data = re.split(pattern, data)
-        for i, title in enumerate(titles):
-            if title is not '':
-                print(title + ',' + data[i])
+    if os.path.isdir('verilog-zynq'):
+        os.chdir("./verilog-zynq")
+    else:
+        print 'Synthesis folder not found'
+        return
+
+    if os.path.isfile('par_utilization.rpt'):
+        with open('par_utilization.rpt', 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                try:
+                    print(line.split('|')[1].strip() + ',' + line.split('|')[2].strip())
+                except:
+                    print('')
+                    # Do nothing
+            # for i in range(33, 45):
+            #     print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+            # for i in range(73, 98):
+            #     print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+            # for i in range(108, 113):
+            #     print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+            # for i in range(123, 124):
+            #     print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+            # for i in range(196, 217):
+            #     print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+
+
+    if os.path.isfile('par_ram_utilization.rpt'):
+        with open('par_ram_utilization.rpt', 'r') as f:
+            lines = f.readlines()
+            for i in range(24, 37):
+                if '|' in lines[i]:
+                    print(lines[i].split('|')[1].strip() + ',' + lines[i].split('|')[2].strip())
+    if os.path.isfile('par_timing_summary.rpt'):
+        with open('par_timing_summary.rpt', 'r') as f:
+            lines = f.readlines()
+            titles = lines[126]
+            data = lines[128]
+            pattern = re.compile(r'\s\s+')
+            titles = re.split(pattern, titles)
+            data = re.split(pattern, data)
+            for i, title in enumerate(titles):
+                if title is not '':
+                    print(title + ',' + data[i])
 
 if __name__ == '__main__':
     main()

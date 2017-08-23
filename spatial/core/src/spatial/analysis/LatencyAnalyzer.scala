@@ -15,9 +15,15 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
   var intervalScope: List[Long] = Nil
   var totalCycles: Long = 0L
 
+  override def silence(): Unit = {
+    latencyModel.silence()
+    super.silence()
+  }
+
   override protected def preprocess[A:Type](b: Block[A]): Block[A] = {
     cycleScope = Nil
     intervalScope = Nil
+    latencyModel.reset()
     super.preprocess(b)
   }
 
@@ -27,6 +33,10 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
     // TODO: Could potentially have multiple accelerator designs in a single program
     // Eventually want to be able to support multiple accel scopes
     totalCycles = cycleScope.sum + startup
+
+    if (Config.verbosity > 0) {
+      latencyModel.reportMissing()
+    }
 
     report(s"Estimated cycles: $totalCycles")
     report(s"Estimated runtime (at " + "%.2f".format(CLK) +"MHz): " + "%.8f".format(totalCycles/(CLK*1000000f)) + "s")
@@ -40,10 +50,10 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
     case Def(CounterChainNew(ctrs)) =>
       val loopIters = ctrs.map{
         case Def(CounterNew(start,end,stride,par)) =>
-          val min = boundOf.get(start).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $start");*/ 0.0}
-          val max = boundOf.get(end).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $end");*/ 1.0}
-          val step = boundOf.get(stride).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $stride");*/ 1.0}
-          val p = boundOf.get(par).map(_.toDouble).getOrElse{/*warn(u"Don't know bound of $par");*/ 1.0}
+          val min = boundOf.get(start).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of $start"); 0.0}
+          val max = boundOf.get(end).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of $end"); 1.0}
+          val step = boundOf.get(stride).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of $stride"); 1.0}
+          val p = boundOf.get(par).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of $par"); 1.0}
 
           val nIters = Math.ceil((max - min)/step)
           if (ignorePar)
