@@ -8,6 +8,3 @@
 [submodule "apps"]
 	path = apps
 	url = https://github.com/stanford-ppl/spatial-apps
-[submodule "datafiles"]
-	path = datafiles
-	url = https://github.com/stanford-ppl/spatial-data
