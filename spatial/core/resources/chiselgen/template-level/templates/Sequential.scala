@@ -196,20 +196,15 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
         stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, Mux(io.input.forever, firstState.U, doneState.U), firstState.U)
         io.output.stageEnable.foreach { s => s := false.B}
       }.elsewhen (state < lastState.S) {
+        val stageDones = (0 until n).map{i => (i.U -> {io.input.stageDone(i) | ~io.input.stageMask(i)} )}
+        val myStageIsDone = chisel3.util.MuxLookup( (state - firstState.S).asUInt, false.B, stageDones) 
+        when(myStageIsDone) {
+          stateFF.io.input(0).data := (state + 1.S).asUInt
+        }.otherwise {
+          stateFF.io.input(0).data := state.asUInt
+        }
 
-        // // Safe but expensive way
-        // val doneStageId = (0 until n).map { i => // Find which stage got done signal
-        //   Mux(io.input.stageDone(i), UInt(i+1), 0.U) 
-        // }.reduce {_+_}
-        // when(state === (doneStageId + 1.U)) {
-        //   stateFF.io.input(0).data := doneStageId + 2.U
-        // }.otherwise {
-        //   stateFF.io.input(0).data := state
-        // }
-
-        // Less safe but cheap way
-        val aStageIsDone = io.input.stageDone.reduce { _ | _ } // TODO: Is it safe to assume children behave properly?
-        when(aStageIsDone) {
+        when(myStageIsDone) {
           stateFF.io.input(0).data := (state + 1.S).asUInt
         }.otherwise {
           stateFF.io.input(0).data := state.asUInt
