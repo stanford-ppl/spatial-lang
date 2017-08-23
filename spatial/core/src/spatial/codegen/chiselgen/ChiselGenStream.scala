@@ -297,7 +297,6 @@ trait ChiselGenStream extends ChiselGenSRAM {
             case EthOutput =>
               val id = argMapping(stream)._1
               emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now
-              println(s"\n***********************io.genericStreams.outs($id).valid := ${stream}_valid\n")
               emit(src"""io.genericStreams.outs($id).valid := ${stream}_valid""")
 
             case _ => 
