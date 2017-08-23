@@ -1,10 +1,10 @@
 package spatial.targets
-import argon.core.State
-import spatial.analysis.AreaAnalyzer
-import spatial.models.altera._
-import spatial.models.{AreaMetric, AreaModel, LatencyModel}
 
-object Ethernet extends FPGATarget {
+import spatial.models.altera._
+import spatial.models._
+
+object Ethernet extends AlteraDevice {
+  import AlteraDevice._
   val name = "Ethernet"
   
   // FIXME: Not sure what size this should be
@@ -14,11 +14,9 @@ object Ethernet extends FPGATarget {
   case object EthInput extends Bus { def length = 32 }
   case object EthOutput extends Bus { def length = 32 }
 
-  // FIXME: No models for Ethernet yet
-  override type Area = AlteraArea
-  override type Sum = AlteraAreaSummary
-  override def areaMetric: AreaMetric[AlteraArea] = AlteraAreaMetric
-  def areaModel: AreaModel[Area,Sum] = new StratixVAreaModel
+  
+  // FIXME: No models for Ethernet yet. This code is taken straight from the DE1 targets...
+  def areaModel: AreaModel       = new StratixVAreaModel
   def latencyModel: LatencyModel = new StratixVLatencyModel
-  override def capacity: AlteraAreaSummary = AlteraAreaSummary(alms=262400,regs=524800,dsps=1963,bram=2567,channels=13)
+  def capacity: Area = AreaMap(ALMs->262400, Regs->524800, DSPs->1963, BRAM->2567, Channels->13)
 }
