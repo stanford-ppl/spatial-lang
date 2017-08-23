@@ -718,6 +718,8 @@ sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top
 sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdpluson/\\/\\/\\\$vcdpluson/g' chisel/template-level/fringeVCS/Top-harness.sv
+// New way of disabling vcd
+sed -i 's/vcdon = .*;/vcdon = 0;/g' chisel/template-level/fringeVCS/Top-harness.sv
 
 make vcs 2>&1 | tee -a ${5}/log" >> $1
   if [[ ${type_todo} = "chisel" ]]; then
@@ -774,7 +776,7 @@ fi
 rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
 touch ${SPATIAL_HOME}/regression_tests/${2}/results/failed_execution_hanging.${3}_${4}
 chmod +x ${5}/out/run.sh
-timeout 400 ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
+timeout 500 ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
 
 # Check for annoying vcs assertion and rerun if needed
 wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
