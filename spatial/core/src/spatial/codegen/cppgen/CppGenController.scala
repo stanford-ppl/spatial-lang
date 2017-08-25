@@ -4,12 +4,17 @@ import argon.codegen.cppgen.CppCodegen
 import argon.core._
 import spatial.aliases._
 import spatial.nodes._
+import spatial.SpatialConfig
 
 trait CppGenController extends CppCodegen {
 
+  var instrumentCounters: List[(Exp[_], Int)] = List()
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
+      controllerStack.push(lhs)
       // Skip everything inside
+      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
       toggleEn()
       emitBlock(func)
       toggleEn()
@@ -19,6 +24,60 @@ trait CppGenController extends CppCodegen {
       emit(s"time_t tend = time(0);")
       emit(s"double elapsed = difftime(tend, tstart);")
       emit(s"""std::cout << "Kernel done, test run time = " << elapsed << " ms" << std::endl;""")
+      controllerStack.pop()
+
+      if (SpatialConfig.enableInstrumentation) {
+        emit(src"""std::ofstream instrumentation ("./instrumentation.txt");""")
+
+        emit(s"// Need to instrument ${instrumentCounters}")
+        val instrumentStart = argIOs.length + argOuts.length
+        emit(s"// Detected ${argOuts.length} argOuts and ${argIOs.length} argIOs, start instrument indexing at ${instrumentStart}")
+        instrumentCounters.zipWithIndex.foreach{case (c, i) => 
+          val indent = "  "*c._2
+          emit(s"""long ${c._1}_cycles = c1->getArg(${instrumentStart}+2*${i}, false);""")
+          emit(s"""long ${c._1}_iters = c1->getArg(${instrumentStart}+2*${i}+1, false);""")
+          emit(s"""long ${c._1}_avg = ${c._1}_cycles / std::max((long)1,${c._1}_iters);""")          
+          emit(s"""std::cout << "${indent}${c._1} - " << ${c._1}_avg << " (" << ${c._1}_cycles << " / " << ${c._1}_iters << ")" << std::endl;""")
+          open(s"if (instrumentation.is_open()) {")
+            emit(s"""instrumentation << "${indent}${c._1} - " << ${c._1}_avg << " (" << ${c._1}_cycles << " / " << ${c._1}_iters << ")" << std::endl;""")
+          close("}")
+        }
+        emit(src"""instrumentation.close();""")
+      }
+
+    case UnitPipe(_,func) => 
+      controllerStack.push(lhs)
+      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+      emitBlock(func)
+      controllerStack.pop()
+
+    case ParallelPipe(ens,func) =>
+      controllerStack.push(lhs)
+      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+      emitBlock(func)
+      controllerStack.pop()      
+
+    case op@Switch(body,selects,cases) =>
+      controllerStack.push(lhs)
+      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+      cases.collect{case s: Sym[_] => stmOf(s)}.foreach{ stm => 
+        visitStm(stm)
+      }
+      controllerStack.pop()      
+
+    case op@SwitchCase(body) =>
+      controllerStack.push(lhs)
+      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+      emitBlock(body)
+      controllerStack.pop()      
+
+    case StateMachine(ens,start,notDone,action,nextState,state) =>
+      controllerStack.push(lhs)
+      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)    
+      emitBlock(notDone)
+      visitBlock(action)
+      visitBlock(nextState)
+      controllerStack.pop()
 
     case _ => super.emitNode(lhs, rhs)
   }

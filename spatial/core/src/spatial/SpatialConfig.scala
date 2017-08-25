@@ -70,6 +70,7 @@ object SpatialConfig {
   var enableArchDSE: Boolean = _
   var enableNaming: Boolean = _
   var enableSyncMem: Boolean = _
+  var enableInstrumentation: Boolean = _
   var enableTree: Boolean = _
 
   var sIn_UCU: Int = _

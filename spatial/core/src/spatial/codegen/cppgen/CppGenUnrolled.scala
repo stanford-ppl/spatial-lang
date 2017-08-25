@@ -6,7 +6,7 @@ import spatial.aliases._
 import spatial.nodes._
 import spatial.SpatialConfig
 
-trait CppGenUnrolled extends CppCodegen {
+trait CppGenUnrolled extends CppGenController {
 
   private def emitUnrolledLoop(
     cchain: Exp[CounterChain],
@@ -50,9 +50,16 @@ trait CppGenUnrolled extends CppCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case UnrolledForeach(en, cchain,func,iters,valids) =>
+      controllerStack.push(lhs)
+      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
       emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
+      controllerStack.pop()      
 
     case UnrolledReduce(en, cchain,_,func,iters,valids) =>
+      controllerStack.push(lhs)
+      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+      emitBlock(func)
+      controllerStack.pop()
 
     case ParSRAMLoad(sram,inds,ens) =>
 
