@@ -19,6 +19,15 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
   val argOutRange = List(1) ++ (2 until (2+numArgIOs)).toList ++ ((numArgIns) until (numArgIns + pureArgOuts - 1)).toList
   // Console.println("argin: " + argInRange + ", argout: " + argOutRange)
 
+  /*
+      _____________________________
+     |  |  |  |  |  |  |  |  |  |  |
+     ```````````````````````````````
+       ^ ^   ^ ^   ^ ^   ^ ^   ^ ^
+  StatusRegs  |   ArgIOs  |  ArgInstrs
+          ArgIns       ArgOuts
+                   
+  */
   // Helper function to convert an argOut index into
   // register index. Used in the unit test
   def argOut2RegIdx(argOut: Int) = {
