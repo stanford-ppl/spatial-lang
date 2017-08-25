@@ -32,14 +32,18 @@ trait CppGenController extends CppCodegen {
         emit(s"// Need to instrument ${instrumentCounters}")
         val instrumentStart = argIOs.length + argOuts.length
         emit(s"// Detected ${argOuts.length} argOuts and ${argIOs.length} argIOs, start instrument indexing at ${instrumentStart}")
+        // In order to get niter / parent execution, we need to know the immediate parent of each controller and divide out that guy's niter
+        val immediate_parent_niter_hashmap = mutable.HashMap[Int, Exp[_]]()
         instrumentCounters.zipWithIndex.foreach{case (c, i) => 
+          immediate_parent_niter_hashmap.getOrElseUpdate(c._2, c._1)
           val indent = "  "*c._2
           emit(s"""long ${c._1}_cycles = c1->getArg(${instrumentStart}+2*${i}, false);""")
           emit(s"""long ${c._1}_iters = c1->getArg(${instrumentStart}+2*${i}+1, false);""")
-          emit(s"""long ${c._1}_avg = ${c._1}_cycles / std::max((long)1,${c._1}_iters);""")          
+          emit(s"""long ${c._1}_iters_per_parent = ${c._1}_iters / std::max((long)1,${immediate_parent_niter_hashmap.getOrElse(c._2-1,1)});""")
+          emit(s"""long ${c._1}_avg = ${c._1}_cycles / std::max((long)1,${c._1}_iters);""")
           emit(s"""std::cout << "${indent}${c._1} - " << ${c._1}_avg << " (" << ${c._1}_cycles << " / " << ${c._1}_iters << ")" << std::endl;""")
           open(s"if (instrumentation.is_open()) {")
-            emit(s"""instrumentation << "${indent}${c._1} - " << ${c._1}_avg << " (" << ${c._1}_cycles << " / " << ${c._1}_iters << ")" << std::endl;""")
+            emit(s"""instrumentation << "${indent}${c._1} - " << ${c._1}_avg << " (" << ${c._1}_cycles << " / " << ${c._1}_iters << ") [" << ${c._1}_iters_per_parent << " iters/parent execution]" << std::endl;""")
           close("}")
         }
         emit(src"""instrumentation.close();""")
