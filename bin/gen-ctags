@@ -1,0 +1,20 @@
+#!/usr/bin/env python
+import subprocess
+import re
+
+log = "gen/gen-ctags.log"
+command = "sbt gen-ctags &> {}".format(log)
+print(command)
+proc = subprocess.Popen(command, shell=True)
+proc.wait()
+
+paths = []
+ansi_escape = re.compile(r'\x1b[^m]*m')
+with open(log, 'r') as f:
+    for line in f:
+        if "running this command to generate ctags:" in line:
+            line = ansi_escape.sub('', line).strip('\n').strip(' ')
+            paths += line.split('-R')[1].split(" ")
+command = "ctags --exclude=log --languages=scala,java -f .tags -R {}".format(" ".join(paths))
+print(command)
+proc = subprocess.call(command, shell=True)

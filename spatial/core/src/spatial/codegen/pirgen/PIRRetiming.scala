@@ -162,7 +162,6 @@ trait PIRRetiming extends PIRTraversal {
     }
     sram.size = depth
     sram.writePort += bus //TODO: readport?
-    sram.banking = Some(Strided(1))
     sram
   }
 

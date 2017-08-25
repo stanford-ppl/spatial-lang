@@ -17,7 +17,7 @@ case object MemScatter extends OffchipMemoryMode { override def toString = "Scat
 
 // --- Local memory banking
 sealed abstract class SRAMBanking
-case class Strided(stride: Int) extends SRAMBanking
+case class Strided(stride: Int, banks:Int) extends SRAMBanking
 case class Diagonal(stride1: Int, stride2: Int) extends SRAMBanking
 case object NoBanks extends SRAMBanking { override def toString = "NoBanking()" }
 case object Duplicated extends SRAMBanking { override def toString = "Duplicated()" }
@@ -39,13 +39,12 @@ case object SRAMMode extends LocalMemoryMode
 case object VectorFIFOMode extends LocalMemoryMode
 case object ScalarFIFOMode extends LocalMemoryMode
 case object ScalarBufferMode extends LocalMemoryMode
-case object FIFOOnWriteMode extends LocalMemoryMode
 
 
 // --- Global buses
 sealed abstract class GlobalComponent(val name: String)
 case class OffChip(override val name: String) extends GlobalComponent(name)
-case class MemoryController(override val name: String, dram: OffChip, mode: OffchipMemoryMode, parent: Expr) extends GlobalComponent(name)
+//case class MemoryController(override val name: String, dram: OffChip, mode: OffchipMemoryMode, parent: Expr) extends GlobalComponent(name)
 
 sealed abstract class GlobalBus(override val name: String) extends GlobalComponent(name)
 sealed abstract class VectorBus(override val name: String) extends GlobalBus(name)
@@ -79,22 +78,22 @@ case class DramAddress(override val name: String, dram:Expr, mem:Expr) extends S
   }
 }
 
-trait PIRDRAMBus
-case class PIRDRAMOffset(mc: MemoryController) extends ScalarBus(mc.name + "_ofs") with PIRDRAMBus {
-  override def toString = s"s$name"
-}
-case class PIRDRAMLength(mc: MemoryController) extends ScalarBus(mc.name + "_len") with PIRDRAMBus {
-  override def toString = s"s$name"
-}
-case class PIRDRAMAddress(mc: MemoryController) extends VectorBus(mc.name + "_addr") with PIRDRAMBus {
-  override def toString = s"v$name"
-}
-case class PIRDRAMDataOut(mc: MemoryController) extends VectorBus(mc.name + "_dataOut") with PIRDRAMBus {
-  override def toString = s"v$name"
-}
-case class PIRDRAMDataIn(mc: MemoryController) extends VectorBus(mc.name + "_dataIn") with PIRDRAMBus {
-  override def toString = s"v$name"
-}
+//trait PIRDRAMBus
+//case class PIRDRAMOffset(mc: MemoryController) extends ScalarBus(mc.name + "_ofs") with PIRDRAMBus {
+  //override def toString = s"s$name"
+//}
+//case class PIRDRAMLength(mc: MemoryController) extends ScalarBus(mc.name + "_len") with PIRDRAMBus {
+  //override def toString = s"s$name"
+//}
+//case class PIRDRAMAddress(mc: MemoryController) extends VectorBus(mc.name + "_addr") with PIRDRAMBus {
+  //override def toString = s"v$name"
+//}
+//case class PIRDRAMDataOut(mc: MemoryController) extends VectorBus(mc.name + "_dataOut") with PIRDRAMBus {
+  //override def toString = s"v$name"
+//}
+//case class PIRDRAMDataIn(mc: MemoryController) extends VectorBus(mc.name + "_dataIn") with PIRDRAMBus {
+  //override def toString = s"v$name"
+//}
 
 case class BusGroups(args: Iterable[ScalarBus], scalars: Iterable[ScalarBus], vectors: Iterable[VectorBus])
 

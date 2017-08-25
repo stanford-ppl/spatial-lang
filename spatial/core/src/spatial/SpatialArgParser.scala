@@ -77,6 +77,10 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableRetiming = true
   }.text("Turns all SRAMs into fringe.SRAM (i.e. latched read addresses)")
 
+  parser.opt[Unit]("instrumentation").action { (_,_) => // Must necessarily turn on retiming
+    SpatialConfig.enableInstrumentation = true
+  }.text("Turns on counters for each loop to assist in balancing pipelines")
+
   parser.opt[Unit]("tree").action( (_,_) =>
     SpatialConfig.enableTree = true
   ).text("enables logging of controller tree for visualizing app structure")
