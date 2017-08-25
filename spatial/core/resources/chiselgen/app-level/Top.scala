@@ -29,6 +29,7 @@ case class TopParams(
   val numArgInstrs: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
+  
   val streamInsInfo: List[StreamParInfo],
   val streamOutsInfo: List[StreamParInfo],
   target: String
@@ -46,8 +47,8 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
   val dram = new DRAMStream(p.dataWidth, p.v)
 
   // Input streams
-//  val genericStreamIn = StreamIn(StreamParInfo(32,1))
-//  val genericStreamOut = StreamOut(StreamParInfo(32,1))
+  val genericStreamIn = StreamIn(StreamParInfo(32,1))
+  val genericStreamOut = StreamOut(StreamParInfo(32,1))
 
   // Debug signals
 //  val dbg = new DebugSignals
@@ -155,8 +156,11 @@ class Top(
   val v = 16
   val totalLoadStreamInfo = loadStreamInfo ++ (if (loadStreamInfo.size == 0) List(StreamParInfo(w, v)) else List[StreamParInfo]())
 	val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v)) else List[StreamParInfo]())
+  
+  val totalStreamInsInfo = streamInsInfo ++ (if (streamInsInfo.size == 0) List(StreamParInfo(32, 1)) else List[StreamParInfo]())
+  val totalStreamOutsInfo = streamOutsInfo ++ (if (streamOutsInfo.size == 0) List(StreamParInfo(32, 1)) else List[StreamParInfo]())
 
-  val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
+  val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, totalStreamInsInfo, totalStreamOutsInfo, target)
   FringeGlobals.target = target
 
   val io = target match {
@@ -170,13 +174,13 @@ class Top(
   }
 
   // Accel
-  val accel = Module(new AccelTop(w, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo))
+  val accel = Module(new AccelTop(w, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, totalStreamInsInfo, totalStreamOutsInfo))
 
   target match {
     case "verilator" | "vcs" =>
       // Simulation Fringe
       val blockingDRAMIssue = false
-      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, totalStreamInsInfo, totalStreamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[VerilatorInterface]
 
       // Fringe <-> Host connections
@@ -204,12 +208,24 @@ class Top(
       fringe.io.done := accel.io.done
 
       // Fringe <-> Peripheral connections
-//      fringe.io.genericStreamInTop <> topIO.genericStreamIn
-//      fringe.io.genericStreamOutTop <> topIO.genericStreamOut
+      fringe.io.genericStreamInTop <> topIO.genericStreamIn
+      fringe.io.genericStreamOutTop <> topIO.genericStreamOut
+
+
+      //val test_fifo = Module(new FIFOCore(32, 16, 1))
+
+      //test_fifo.io.enq(0) <> topIO.genericStreamIn.bits.data
+      //test_fifo.io.enqVld <> topIO.genericStreamIn.valid
+      //topIO.genericStreamIn.ready <> ~test_fifo.io.full
+      
+      //topIO.genericStreamOut.bits.data <> test_fifo.io.deq(0)
+      //topIO.genericStreamOut.valid <> ~test_fifo.io.empty
+      //topIO.genericStreamOut.ready <> ~test_fifo.io.empty
+
 
       // Fringe <-> Accel stream connections
-//      accel.io.genericStreams <> fringe.io.genericStreamsAccel
-//      fringe.io.genericStreamsAccel <> accel.io.genericStreams
+      accel.io.genericStreams <> fringe.io.genericStreamsAccel
+      fringe.io.genericStreamsAccel <> accel.io.genericStreams
 //      topIO.dbg <> fringe.io.dbg
 
     case "de1soc" =>
