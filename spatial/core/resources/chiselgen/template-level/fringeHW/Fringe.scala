@@ -15,6 +15,7 @@ class Fringe(
   val numArgIns: Int,
   val numArgOuts: Int,
   val numArgIOs: Int,
+  val numArgInstrs: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],

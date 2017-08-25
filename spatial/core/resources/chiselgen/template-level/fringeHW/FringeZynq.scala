@@ -16,6 +16,7 @@ class FringeZynq(
   val numArgIns: Int,
   val numArgOuts: Int,
   val numArgIOs: Int,
+  val numArgInstrs: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -64,7 +65,7 @@ class FringeZynq(
   val totalArgOuts = numArgOuts + 1 + 16
 
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numArgInstrs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
 
   // AXI-lite bridge
   if (FringeGlobals.target == "zynq") {

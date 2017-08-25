@@ -13,10 +13,11 @@ import scala.collection.mutable
 trait PIRAllocation extends PIRTraversal {
   override val name = "PIR CU Allocation"
 
+  def mapping:mutable.Map[Expr, List[PCU]]
+
   // -- State
   var top: Option[Expr] = None
-  var mapping = mutable.Map[Expr, List[PCU]]()
-  val readerCUs = mutable.Map[Expr, List[PseudoComputeUnit]]()
+  val readerCUs = mutable.Map[Expr, List[PCU]]()
   val allocated = mutable.ListBuffer[Expr]()
 
   // Give top controller or first controller below which is not a Parallel
@@ -234,14 +235,14 @@ trait PIRAllocation extends PIRTraversal {
     val cuMem = getOrElseUpdate(cu.memMap, dmem, {
       val cuMem = CUMemory(quote(dmem), dmem, cu)
       cuMem.mode = SRAMMode
-      cuMem.size = dimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product
+      cuMem.size = dimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product / inst.totalBanks
       inst match {
         case BankedMemory(dims, depth, isAccum) =>
           dims.last match { case Banking(stride, banks, _) =>
             // Inner loop dimension 
             if (banks > 1) {
               assert(banks<=16, s"Plasticine only support banking <= 16 within PMU banks=$banks")
-              cuMem.banking = Some(Strided(stride)) 
+              cuMem.banking = Some(Strided(stride, banks)) 
             } else {
               dbgs(s"createSRAM bank=1 stride=${stride}")
               cuMem.banking = Some(NoBanks)
@@ -250,7 +251,6 @@ trait PIRAllocation extends PIRTraversal {
         case DiagonalMemory(strides, banks, depth, isAccum) =>
           throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
       }
-      cuMem.banking = Some(Strided(1))
       cuMem.bufferDepth = inst.depth
       dbgs(s"Add sram=$cuMem to cu=$cu")
       cuMem
@@ -366,7 +366,7 @@ trait PIRAllocation extends PIRTraversal {
           def addParentCU(s: Expr, d:Def, mem: Expr, ind: Option[Seq[Expr]]) = {
             val indSyms = ind.map { ind => symsUsedInCalcExps(stms)(Seq(), ind) }.getOrElse(Nil)
             if (indSyms.contains(reader) && isRemoteMem(mem)) {
-              readerCUs ++= decompose(mem).flatMap(allocateMemoryCU)
+              readerCUs ++= decompose(mem).zip(decompose(s)).flatMap { case (dm, da) => getMCUforAccess(dm, da) }
             }
             else if (d.allInputs.contains(reader) || (s==reader && isInnerControl(pipe)) ) { //RegRead can occur outside user
               readerCUs += allocateCU(pipe)
@@ -408,77 +408,88 @@ trait PIRAllocation extends PIRTraversal {
     allocateCU(pipe)
   }
 
-  def getMCUforReader(dmem:Expr, dreader:Expr):List[PCU] = dbgblk(s"getMCUforReader($dmem, $dreader)") {
+  def getMCUforAccess(dmem:Expr, daccess:Expr):List[PCU] = dbgblk(s"getMCUforAccess($dmem, $daccess)") {
     val mem = compose(dmem)
-    val reader = compose(dreader)
-    dbgs(s"mem=$mem reader=$reader")
-    val instId = dispatchOf(reader, mem).head
-    val inst = getDuplicate(mem, reader) 
-    var cus = allocateMemoryCU(dmem).filter{_.style match { case MemoryCU(`instId`, _) => true; case _ => false } }
-
-    val ParLocalReader(parLocalReads) = reader
-    assert(parLocalReads.size==1)
-    val (_, Some(addr), ens) = parLocalReads.head
-    inst match {
-      case m@BankedMemory(dims, depth, isAccum) =>
-        val inds = Seq.tabulate(dims.size) { i => addr.map { _(i) } }
-        dbgs(s"addr=$addr inds=$inds")
-        dbgs(s"BankedMemory # banks:${dims.map { 
-          case Banking(strides, banks, _) => s"(strides=$strides, banks=$banks)"
-        }.mkString(",")}")
-        //TODO Assume the last dimension is the inner dimension
-        val bankInds = inds.dropRight(1).zip(dims.dropRight(1)).zipWithIndex.map { 
-          case ((vinds, Banking(stride, banks, _)), dim) if vinds.toSet.size>1 =>
-            dbgs(s"dim=$dim vinds=${vinds} all banks=${banks}")
-            (0 until banks).map { b => (b, banks)}.toList
-          case ((vinds, Banking(stride, banks, _)), dim) if vinds.toSet.size==1 =>
-            val vind = vinds.head
-            dbgs(s"ctrlOf($vind)=${ctrlOf(vind)}")
-            val bankInds = ctrlOf(vind) match {
-              case Some((ctrl, _)) => 
-                val parIdxs = itersOf(ctrl).get.map { _.indexOf(vind) }.filter { _ > 0 }
-                assert(parIdxs == 1 , s"$ctrl doesn't belong to $ctrl but ctrlOf($vind) = $ctrl!")
-                List((parIdxs.head, banks))
-              case None => 
-                (0 until banks).map { b => (b, banks)}.toList
-            }
-            dbgs(s"dim=$dim banks=${bankInds}")
-            bankInds
-        }
-        dbgs(s"bankInds=$bankInds")
-        def indComb(inds:List[List[(Int, Int)]], prevDims:List[(Int, Int)]):List[Int] = { 
-          if (inds.isEmpty) {
-            val (inds, banks) = prevDims.unzip
-            List(flattenND(inds, banks)); 
-          } else {
-            val headDim::restDims = inds 
-            headDim.flatMap { bank => indComb(restDims, prevDims :+ bank) }
-          }
-        }
-        val banks = indComb(bankInds.toList, Nil)
-        dbgs(s"reader uses banks=$banks")
-        cus.filter{_.style match { case MemoryCU(_, bank) => banks.contains(bank); case _ => false } }
-      case DiagonalMemory(strides, banks, depth, isAccum) =>
-        throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
+    val access = compose(daccess)
+    dbgs(s"mem=$mem access=$access")
+    var cus = allocateMemoryCU(dmem)
+    val insts = if (isReader(access)) {
+      val instId = dispatchOf(access, mem).head
+      val inst = getDuplicate(mem, access) 
+      cus = cus.filter{_.style match { case MemoryCU(`instId`, _) => true; case _ => false } }
+      List(inst)
+    } else { // isWriter
+      duplicatesOf(mem)
     }
+
+    val addr = access match {
+      case ParLocalReader(List((_, Some(addr), _))) => addr
+      case ParLocalWriter(List((_, _, Some(addr), _))) => addr
+    }
+
+    val banks = insts.flatMap { inst =>
+      inst match {
+        case m@BankedMemory(dims, depth, isAccum) =>
+          val inds = Seq.tabulate(dims.size) { i => addr.map { _(i) } }
+          dbgs(s"addr=$addr inds=$inds")
+          dbgs(s"BankedMemory # banks:${dims.map { 
+            case Banking(strides, banks, _) => s"(strides=$strides, banks=$banks)"
+          }.mkString(",")}")
+          val bankInds = inds.dropRight(1).zip(dims.dropRight(1)).zipWithIndex.map { 
+            case ((vinds, Banking(stride, banks, _)), dim) if vinds.toSet.size>1 =>
+              dbgs(s"dim=$dim vinds=${vinds} all banks=${banks}")
+              (0 until banks).map { b => (b, banks)}.toList
+            case ((vinds, Banking(stride, banks, _)), dim) if vinds.toSet.size==1 =>
+              val vind = vinds.head
+              dbgs(s"ctrlOf($vind)=${ctrlOf(vind)}")
+              val bankInds = ctrlOf(vind) match {
+                case Some((ctrl, _)) => 
+                  val parIdxs = itersOf(ctrl).get.map { iters => 
+                    (iters.indexOf(vind), iters.size)
+                  }.filter { _._1 >= 0 }
+                  dbgs(s"itersOf($ctrl)=${itersOf(ctrl)}")
+                  assert(parIdxs.size == 1 , s"$ctrl doesn't belong to $ctrl but ctrlOf($vind) = $ctrl!")
+                  val (iterIdx, iterPar) = parIdxs.head
+                  if (iterPar==1) {
+                    (0 until banks).map { b => (b, banks)}.toList
+                  } else {
+                    List((iterIdx, banks))
+                  }
+                case None => 
+                  (0 until banks).map { b => (b, banks)}.toList
+              }
+              dbgs(s"dim=$dim banks=${bankInds}")
+              bankInds
+          }
+          dbgs(s"bankInds=$bankInds")
+          def indComb(inds:List[List[(Int, Int)]], prevDims:List[(Int, Int)]):List[Int] = { 
+            if (inds.isEmpty) {
+              val (inds, banks) = prevDims.unzip
+              List(flattenND(inds, banks)); 
+            } else {
+              val headDim::restDims = inds 
+              headDim.flatMap { bank => indComb(restDims, prevDims :+ bank) }
+            }
+          }
+          val banks = indComb(bankInds.toList, Nil)
+          dbgs(s"access=$access uses banks=$banks for inst=$inst")
+          banks
+        case DiagonalMemory(strides, banks, depth, isAccum) =>
+          throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
+      }
+    }
+    
+    cus = cus.filter{_.style match { case MemoryCU(_, bank) => banks.contains(bank); case _ => false } }
     
     cus
   } 
 
-  def getMCUforWriter(dmem:Expr, dwriter:Expr):List[PCU] = {
-    val mem = compose(dmem)
-    val writer = compose(dwriter)
-    val cus = allocateMemoryCU(dmem)
-    //TODO
-    cus
-  } 
-
   def prescheduleLocalMemRead(mem: Expr, reader:Expr) = {
-    dbgblk(s"Allocating local memory read: $reader") {
+    dbgblk(s"prescheduleLocalMemRead(reader=$reader, mem=${quote(mem)})") {
       getReaderCUs(reader).foreach { readerCU =>
         decompose(mem).zip(decompose(reader)).foreach { case (dmem, dreader) =>
           val locallyWritten = isLocallyWritten(dmem, dreader, readerCU)
-          dbgs(s"$mem isLocalMemWrite:$locallyWritten readerCU:$readerCU dreader:$dreader")
+          dbgs(s"$mem readerCU:$readerCU dreader:$dreader")
           if (locallyWritten) {
             val reg = readerCU.get(dmem).get // Accumulator should be allocated during RegNew
             readerCU.addReg(dreader, reg)
@@ -492,7 +503,7 @@ trait PIRAllocation extends PIRTraversal {
   }
 
   def prescheduleLocalMemWrite(mem: Expr, writer:Expr) = {
-    dbgblk(s"Allocating local memory write: $writer of mem:${quote(mem)}") {
+    dbgblk(s"prescheduleLocalMemWrite(writer=$writer, mem=${quote(mem)})") {
       val remoteReaders = getRemoteReaders(mem, writer)
       dbgs(s"remoteReaders:${remoteReaders.mkString(",")}")
       if (remoteReaders.nonEmpty || isArgOut(mem)) {
@@ -518,8 +529,11 @@ trait PIRAllocation extends PIRTraversal {
           dbgs(s"Add dwriter:$dwriter to writerCU:$writerCU")
           remoteReaders.foreach { reader =>
             getReaderCUs(reader).foreach { readerCU =>
-              dbgs(s"set ${quote(dmem)}.writePort = $bus in readerCU=$readerCU reader=$reader")
-              readerCU.memMap(dmem).writePort += bus
+              val locallyWritten = isLocallyWritten(dmem, reader, readerCU)
+              if (!locallyWritten) {
+                dbgs(s"set ${quote(dmem)}.writePort = $bus in readerCU=$readerCU reader=$reader")
+                readerCU.memMap(dmem).writePort += bus
+              }
             }
           }
         }
@@ -537,7 +551,7 @@ trait PIRAllocation extends PIRTraversal {
       val addr = addrs.map(_.head)
       val parBy1 = getInnerPar(reader)==1
       decompose(mem).zip(decompose(reader)).foreach { case (dmem, dreader) =>
-        val sramCUs = getMCUforReader(dmem, dreader)
+        val sramCUs = getMCUforAccess(dmem, dreader)
         val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, sramCUs)
         sramCUs.foreach { sramCU =>
           val bus = if (parBy1) CUScalar(s"${quote(dmem)}_${sramCU.name}") 
@@ -581,7 +595,7 @@ trait PIRAllocation extends PIRTraversal {
           case _ =>
         }
         // Schedule address calculation
-        val sramCUs = getMCUforWriter(dmem, dwriter) 
+        val sramCUs = getMCUforAccess(dmem, dwriter) 
         val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, sramCUs)
         sramCUs.foreach { sramCU =>
           dbgs(s"sramCUs for dmem=${qdef(dmem)} cu=$sramCU")
@@ -689,7 +703,6 @@ trait PIRAllocation extends PIRTraversal {
 
   override def preprocess[S:Type](b: Block[S]): Block[S] = {
     top = None
-    mapping.clear()
     readerCUs.clear()
     super.preprocess(b)
   }
