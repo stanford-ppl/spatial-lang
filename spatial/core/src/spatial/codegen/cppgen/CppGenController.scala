@@ -4,6 +4,7 @@ import argon.codegen.cppgen.CppCodegen
 import argon.core._
 import spatial.aliases._
 import spatial.nodes._
+import scala.collection.mutable
 import spatial.SpatialConfig
 
 trait CppGenController extends CppCodegen {
@@ -30,7 +31,7 @@ trait CppGenController extends CppCodegen {
         emit(src"""std::ofstream instrumentation ("./instrumentation.txt");""")
 
         emit(s"// Need to instrument ${instrumentCounters}")
-        val instrumentStart = argIOs.length + argOuts.length
+        val instrumentStart = argIOs.length + argOuts.length // These "invisible" instrumentation argOuts start after the full range of IR interface args
         emit(s"// Detected ${argOuts.length} argOuts and ${argIOs.length} argIOs, start instrument indexing at ${instrumentStart}")
         // In order to get niter / parent execution, we need to know the immediate parent of each controller and divide out that guy's niter
         val immediate_parent_niter_hashmap = mutable.HashMap[Int, Exp[_]]()
@@ -39,9 +40,10 @@ trait CppGenController extends CppCodegen {
           val indent = "  "*c._2
           emit(s"""long ${c._1}_cycles = c1->getArg(${instrumentStart}+2*${i}, false);""")
           emit(s"""long ${c._1}_iters = c1->getArg(${instrumentStart}+2*${i}+1, false);""")
-          emit(s"""long ${c._1}_iters_per_parent = ${c._1}_iters / std::max((long)1,${immediate_parent_niter_hashmap.getOrElse(c._2-1,1)});""")
+          val immediate_parent = if (immediate_parent_niter_hashmap.get(c._2-1).isDefined) immediate_parent_niter_hashmap.get(c._2-1).get else c._1
+          emit(s"""long ${c._1}_iters_per_parent = ${c._1}_iters / std::max((long)1,${immediate_parent}_iters);""")
           emit(s"""long ${c._1}_avg = ${c._1}_cycles / std::max((long)1,${c._1}_iters);""")
-          emit(s"""std::cout << "${indent}${c._1} - " << ${c._1}_avg << " (" << ${c._1}_cycles << " / " << ${c._1}_iters << ")" << std::endl;""")
+          emit(s"""std::cout << "${indent}${c._1} - " << ${c._1}_avg << " (" << ${c._1}_cycles << " / " << ${c._1}_iters << ") [" << ${c._1}_iters_per_parent << " iters/parent execution]" << std::endl;""")
           open(s"if (instrumentation.is_open()) {")
             emit(s"""instrumentation << "${indent}${c._1} - " << ${c._1}_avg << " (" << ${c._1}_cycles << " / " << ${c._1}_iters << ") [" << ${c._1}_iters_per_parent << " iters/parent execution]" << std::endl;""")
           close("}")

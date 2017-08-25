@@ -35,6 +35,7 @@ trait CppGenReg extends CppCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ArgInNew(init)  => 
+      argIns = argIns :+ lhs
       emit(src"${lhs.tp} $lhs = 0; // Initialize cpp argin ???")
     case ArgOutNew(init) => 
       argOuts = argOuts :+ lhs
