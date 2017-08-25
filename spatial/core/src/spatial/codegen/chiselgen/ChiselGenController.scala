@@ -16,6 +16,8 @@ trait ChiselGenController extends ChiselGenCounter{
   /* Set of control nodes which already have their done signal emitted */
   var doneDeclaredSet = Set.empty[Exp[Any]]
 
+  var instrumentCounters: List[(Exp[_], Int)] = List()
+
   /* For every iter we generate, we track the children it may be used in.
      Given that we are quoting one of these, look up if it has a map entry,
      and keep getting parents of the currentController until we find a match or 
@@ -46,6 +48,21 @@ trait ChiselGenController extends ChiselGenCounter{
           emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,$w,0))")
         }
       }
+    }
+  }
+
+  def createInstrumentation(lhs: Sym[Any]): Unit = {
+    if (SpatialConfig.enableInstrumentation) {
+      emitInstrumentation(src"""// Instrumenting $lhs, context: TODO, depth: ${controllerStack.length}""")
+      emitInstrumentation(src"""val ${lhs}_cycles = Module(new InstrumentationCounter())""")
+      emitInstrumentation(src"${lhs}_cycles.io.enable := ${lhs}_en")
+      emitInstrumentation(src"""val ${lhs}_iters = Module(new InstrumentationCounter())""")
+      emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${lhs}_done)")
+      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).bits := ${lhs}_cycles.io.count""")
+      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).valid := RootController_done""")
+      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).bits := ${lhs}_iters.io.count""")
+      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).valid := RootController_done""")
+      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
     }
   }
 
@@ -333,6 +350,8 @@ trait ChiselGenController extends ChiselGenCounter{
   }
 
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
+
+    createInstrumentation(sym)
 
     val hasStreamIns = listensTo(sym).distinct.map{_.memory}.exists{
       case Def(StreamInNew(SliderSwitch)) => false
@@ -780,4 +799,25 @@ trait ChiselGenController extends ChiselGenCounter{
 
     case _ => super.emitNode(lhs, rhs)
   }
+
+  override protected def emitFileFooter() {
+    withStream(getStream("Instantiator")) {
+      emit("")
+      emit("// Instrumentation")
+      emit(s"val numArgOuts_instr = ${instrumentCounters.length*2}")
+      instrumentCounters.zipWithIndex.foreach { case(p,i) =>
+        val depth = " "*p._2
+        emit(src"""// ${depth}${quote(p._1)}""")
+      }
+    }
+
+    withStream(getStream("IOModule")) {
+      emit("// Instrumentation")
+      emit(s"val io_numArgOuts_instr = ${instrumentCounters.length*2}")
+
+    }
+
+    super.emitFileFooter()
+  }
+
 }
