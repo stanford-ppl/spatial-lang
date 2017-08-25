@@ -64,9 +64,9 @@ class AXI4Bundle(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 {
   val aw = Irrevocable(new AXI4BundleAW(params))
   val w  = Irrevocable(new AXI4BundleW (params))
-  val b  = Irrevocable(new AXI4BundleB (params)).flip
+  val b  = Flipped(Irrevocable(new AXI4BundleB (params)))
   val ar = Irrevocable(new AXI4BundleAR(params))
-  val r  = Irrevocable(new AXI4BundleR (params)).flip
+  val r  = Flipped(Irrevocable(new AXI4BundleR (params)))
 }
 
 /**

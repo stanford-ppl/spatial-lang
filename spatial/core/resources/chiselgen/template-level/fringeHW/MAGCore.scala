@@ -24,7 +24,7 @@ class MAGCore(
   val numRdataWordsDebug = 16
   val numWdataDebug = 3
   val numWdataWordsDebug = 16
-  val numDebugs = 224
+  val numDebugs = 400
 
   // The data bus width to DRAM is 1-burst wide
   // While it should be possible in the future to add a write combining buffer
