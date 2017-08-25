@@ -53,7 +53,8 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def createInstrumentation(lhs: Sym[Any]): Unit = {
     if (SpatialConfig.enableInstrumentation) {
-      emitInstrumentation(src"""// Instrumenting $lhs, context: TODO, depth: ${controllerStack.length}""")
+      val ctx = s"${lhs.ctx}"
+      emitInstrumentation(src"""// Instrumenting $lhs, context: ${ctx}, depth: ${controllerStack.length}""")
       emitInstrumentation(src"""val ${lhs}_cycles = Module(new InstrumentationCounter())""")
       emitInstrumentation(src"${lhs}_cycles.io.enable := ${lhs}_en")
       emitInstrumentation(src"""val ${lhs}_iters = Module(new InstrumentationCounter())""")
