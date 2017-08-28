@@ -18,44 +18,52 @@ trait PIRPrintout extends PIRTraversal {
       case _:FringeCU => "Fringe"
       case _          => "PCU"
     }
-    dbgs("\n")
-    dbgs(style + " " + cu.toString)
-    dbgs("  isPMU: " + cu.isPMU)
-    dbgs("  isPCU: " + cu.isPCU)
-    dbgs("  Parent: " + cu.parentCU.map(_.name).getOrElse("None"))
-    dbgs("  Lanes: " + cu.lanes)
-    dbgs("  Counter chains:")
-    cu.cchains.foreach{cchain => dbgs(s"    ${cchain.longString}") }
-    dbgs("  Memories:")
-    cu.mems.foreach{mem => dbgs(s"    $mem") }
-    dbgs("  Compute stages:")
-    cu.computeStages.foreach{stage => dbgs(s"    $stage") }
-    dbgs("  Read stages:")
-    cu.readStages.foreach { stage => dbgs(s"    $stage") }
-    dbgs("  Write stages:")
-    cu.writeStages.foreach { stage => dbgs(s"   $stage") }
-    dbgs("  Control stages:")
-    cu.controlStages.foreach{stage => dbgs(s"    $stage") }
+    dbgblk(style + " " + cu.toString) {
+      dbgs("isPMU: " + cu.isPMU)
+      dbgs("isPCU: " + cu.isPCU)
+      dbgs("Parent: " + cu.parentCU.map(_.name).getOrElse("None"))
+      dbgs("Lanes: " + cu.lanes)
+      dbgl("Counter chains:") {
+        cu.cchains.foreach{cchain => dbgs(s"${cchain.longString}") }
+      }
+      dbgl("Memories:") {
+        cu.mems.foreach{mem => dbgs(s"$mem") }
+      }
+      dbgl("Compute stages:") {
+        cu.computeStages.foreach{stage => dbgs(s"$stage") }
+      }
+      dbgl("Read stages:") {
+        cu.readStages.foreach { stage => dbgs(s"$stage") }
+      }
+      dbgl("Write stages:") {
+        cu.writeStages.foreach { stage => dbgs(s"$stage") }
+      }
+      dbgl("Control stages:") {
+        cu.controlStages.foreach{stage => dbgs(s"$stage") }
+      }
 
-    val inputs = groupBuses(globalInputs(cu))
-    val outputs = groupBuses(globalOutputs(cu))
-    dbgs("  Scalar Inputs: ")
-    (inputs.args ++ inputs.scalars).foreach{bus => dbgs(s"    $bus") }
-    dbgs("  Scalar Outputs: ")
-    (outputs.args ++ outputs.scalars).foreach{bus => dbgs(s"    $bus") }
-    dbgs("  Vector Inputs: ")
-    inputs.vectors.foreach{bus => dbgs(s"    $bus") }
-    dbgs("  Vector Outputs: ")
-    outputs.vectors.foreach{bus => dbgs(s"    $bus") }
+      dbgl("Scalar Inputs: ") {
+        scalarInputs(cu).foreach{bus => dbgs(s"$bus") }
+      }
+      dbgl("Scalar Outputs: ") {
+        scalarOutputs(cu).foreach{bus => dbgs(s"$bus") }
+      }
+      dbgl("Vector Inputs: ") {
+        vectorInputs(cu).foreach{bus => dbgs(s"$bus") }
+      }
+      dbgl("Vector Outputs: ") {
+        vectorOutputs(cu).foreach{bus => dbgs(s"$bus") }
+      }
 
-    cu.style match {
-      case _:MemoryCU =>
-        val cost = getUtil(cu, cus)
-        reportUtil(cost)
-      case _:FringeCU =>
-      case _ =>
-        val cost = getUtil(cu, cus)
-        reportUtil(cost)
+      cu.style match {
+        case _:MemoryCU =>
+          val cost = getUtil(cu, cus)
+          reportUtil(cost)
+        case _:FringeCU =>
+        case _ =>
+          val cost = getUtil(cu, cus)
+          reportUtil(cost)
+      }
     }
   }
 

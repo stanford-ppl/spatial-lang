@@ -171,11 +171,8 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val cuInBuses = globalInputs(localIns) ++ globalInputs(p.cchains)
     val cuOutBuses = globalOutputs(localOuts)
 
-    val cuGrpsIn = groupBuses(cuInBuses)
-    val cuGrpsOut = groupBuses(cuOutBuses)
-
-    var vIns: Int   = cuGrpsIn.vectors.size
-    var vOuts: Int  = cuGrpsOut.vectors.size
+    var vIns: Int   = vectorInputs(cuInBuses).size 
+    var vOuts: Int  = vectorOutputs(cuOutBuses).size 
 
     var sIns = Map[Int, Int]()
     def addIn(part: Int) {
@@ -206,14 +203,11 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
 
 
     // --- Registers
-    dbgs(s"  Arg ins: " + cuGrpsIn.args.mkString(", "))
 
-    val scalars = cuGrpsIn.scalars.map{bus => s"$bus [" + others.find{cu => scalarOutputs(cu) contains bus}.map(_.name).getOrElse("X") + "]" }
-
-    dbgs(s"  Scalar ins: " + scalars.mkString(", "))
-    dbgs(s"  Vector ins: " + cuGrpsIn.vectors.mkString(", "))
-    dbgs(s"  Scalar outs: " + cuGrpsOut.scalars.mkString(", "))
-    dbgs(s"  Vector outs: " + cuGrpsOut.vectors.mkString(", "))
+    dbgs(s"  Scalar ins: " + scalarInputs(cuInBuses).mkString(", "))
+    dbgs(s"  Vector ins: " + vectorInputs(cuInBuses).mkString(", "))
+    dbgs(s"  Scalar outs: " + scalarOutputs(cuOutBuses).mkString(", "))
+    dbgs(s"  Vector outs: " + vectorOutputs(cuOutBuses).mkString(", "))
     // Live inputs from other partitions
     val liveIns  = localIns intersect remoteOuts
     if (!isUnit) {
@@ -251,7 +245,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }.sum
 
     // Scalars
-    val sclIns = sIns.values.sum + cuGrpsIn.args.size + cuGrpsIn.scalars.size
+    val sclIns = sIns.values.sum + scalarInputs(cuInBuses).size
 
     // Live values throughout CU
     val cuInputs  = liveIns ++ localIns.filter{case _:VectorIn | _:ScalarIn | _:MemLoadReg | _:CounterReg => true; case _ => false }
@@ -416,13 +410,10 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }.sum
   }
 
-  def nScalarIn(cu: CU): Int = {
-    val groups = groupBuses(globalInputs(cu))
-    groups.args.size + groups.scalars.size
-  }
-  def nScalarOut(cu: CU): Int = groupBuses(globalOutputs(cu)).scalars.size
-  def nVectorIns(cu: CU): Int = groupBuses(globalInputs(cu)).vectors.size
-  def nVectorOuts(cu: CU): Int = groupBuses(globalOutputs(cu)).vectors.size
+  def nScalarIn(cu: CU): Int = scalarInputs(cu).size
+  def nScalarOut(cu: CU): Int = scalarOutputs(cu).size
+  def nVectorIns(cu: CU): Int = vectorInputs(cu).size
+  def nVectorOuts(cu: CU): Int = vectorOutputs(cu).size
 
   def reportUtil(stats: Utilization) {
     val Utilization(pcus, pmus, ucus, switch, addr, stages, alus, mems, sclIn, sclOut, vecIn, vecOut, regsMax, regsUse) = stats
