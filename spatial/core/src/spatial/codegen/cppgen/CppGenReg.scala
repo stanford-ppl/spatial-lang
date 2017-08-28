@@ -9,8 +9,6 @@ import spatial.SpatialConfig
 
 trait CppGenReg extends CppCodegen {
 
-  var argIOs: List[Sym[Reg[_]]] = List()
-
   override def quote(s: Exp[_]): String = {
     if (SpatialConfig.enableNaming) {
       s match {
@@ -37,8 +35,10 @@ trait CppGenReg extends CppCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ArgInNew(init)  => 
+      argIns = argIns :+ lhs
       emit(src"${lhs.tp} $lhs = 0; // Initialize cpp argin ???")
     case ArgOutNew(init) => 
+      argOuts = argOuts :+ lhs
       emit(src"//${lhs.tp}* $lhs = new int32_t {0}; // Initialize cpp argout ???")
     case HostIONew(init) => 
       argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]

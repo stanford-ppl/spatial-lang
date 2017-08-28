@@ -21,6 +21,10 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableRetiming = true
   }.text("enable retiming [false]")
 
+  parser.opt[Unit]("retime").action{ (_,_) =>
+    SpatialConfig.enableRetiming = true
+  }.text("enable retiming [false]")
+
   parser.opt[Unit]("sim").action { (_,_) =>
     SpatialConfig.enableSim = true
     SpatialConfig.enableInterpret = false
@@ -68,6 +72,10 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableRetiming = true
   ).text("enables inner pipeline retiming [false]")
 
+  parser.opt[Unit]("retime").action( (_,_) =>
+    SpatialConfig.enableRetiming = true
+  ).text("enables inner pipeline retiming [false]")
+
   parser.opt[Unit]("naming").action( (_,_) =>
     SpatialConfig.enableNaming = true
   ).text("generates the debug name for all syms, rather than \"x${s.id}\" only'")
@@ -76,6 +84,14 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableSyncMem = true
     SpatialConfig.enableRetiming = true
   }.text("Turns all SRAMs into fringe.SRAM (i.e. latched read addresses)")
+
+  parser.opt[Unit]("instrumentation").action { (_,_) => // Must necessarily turn on retiming
+    SpatialConfig.enableInstrumentation = true
+  }.text("Turns on counters for each loop to assist in balancing pipelines")
+
+  parser.opt[Unit]("instrument").action { (_,_) => // Must necessarily turn on retiming
+    SpatialConfig.enableInstrumentation = true
+  }.text("Turns on counters for each loop to assist in balancing pipelines")
 
   parser.opt[Unit]("tree").action( (_,_) =>
     SpatialConfig.enableTree = true

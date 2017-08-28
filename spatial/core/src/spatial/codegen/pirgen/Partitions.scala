@@ -8,9 +8,9 @@ import spatial.SpatialConfig
 import scala.collection.mutable
 
 trait Partitions extends SpatialTraversal { this: PIRTraversal =>
-  var STAGES: Int = SpatialConfig.stages                   // Number of compute stages per CU
-  def LANES = SpatialConfig.lanes                          // Number of SIMD lanes per CU
-  def REDUCE_STAGES = (Math.log(LANES)/Math.log(2)).toInt  // Number of stages required to reduce across all lanes
+  var STAGES: Int = SpatialConfig.stages                       // Number of compute stages per CU
+  def LANES = SpatialConfig.lanes                              // Number of SIMD lanes per CU
+  def REDUCE_STAGES = (Math.log(LANES)/Math.log(2)).toInt + 1  // Number of stages required to reduce across all lanes
   var READ_WRITE = SpatialConfig.readWrite
 
   abstract class Partition {
@@ -188,7 +188,6 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val readMems = localIns.collect{case MemLoadReg(mem) => mem }
     val vectorMems = readMems.filter{mem => mem.mode match {
       case SRAMMode        => true
-      case FIFOOnWriteMode => true
       case VectorFIFOMode  => true
       case _ => false
     }}
@@ -328,7 +327,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     def header = "PCUs, PMUs, UCUs, Switch, ALUs, SRAMs, SclIn, SclOut, VecIn, VecOut, Regs"
   }
 
-  def getUtil(cu: CU, cus: Seq[CU]): Utilization = cu.style match {
+  def getUtil(cu: CU, cus: Iterable[CU]): Utilization = cu.style match {
     case _:MemoryCU =>
       val vIn = nVectorIns(cu)
       val vOut = nVectorOuts(cu)

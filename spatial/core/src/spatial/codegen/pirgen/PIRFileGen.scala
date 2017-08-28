@@ -14,7 +14,7 @@ trait PIRFileGen extends FileGen {
   override protected def emitFileHeader() {
     emit("import pir.graph.{Mux =>_, _}")
     emit("import pir.codegen._")
-    emit("import pir.plasticine.config._")
+    emit("import pir.spade.config._")
     emit("import pir.Design")
     emit("import pir.util.enums._")
     emit("import pir.util._")
@@ -40,7 +40,12 @@ trait PIRFileGen extends FileGen {
     //TODO: Cannot treat this as a dependency because postprocess is called before stream is closed
     if (sys.env.get("PIR_HOME").isDefined && sys.env("PIR_HOME") != "") {
       // what should be the cleaner way of doing this?
-      val cmd = s"cp ${Config.genDir}/pir/main.scala ${sys.env("PIR_HOME")}/apps/src/${Config.name}.scala"
+      val dir = s"${sys.env("PIR_HOME")}/apps/src/gen" 
+      var cmd = s"mkdir -p $dir"
+      println(cmd)
+      cmd.!
+
+      cmd = s"cp ${Config.genDir}/pir/main.scala $dir/${Config.name}.scala"
       println(cmd)
       cmd.!
     }

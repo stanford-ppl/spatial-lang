@@ -49,7 +49,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       }
 
     case GetDRAMAddress(dram) =>
-      val id = argMapping(dram)._2
+      val id = argMapping(dram).argInId
       emit(src"""val $lhs = io.argIns($id)""")
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
@@ -172,20 +172,22 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
   override protected def emitFileFooter() {
 
+    val intersect = loadsList.distinct.intersect(storesList.distinct)
+
     withStream(getStream("Instantiator")) {
       emit("")
       emit(s"// Memory streams")
       emit(src"""val loadStreamInfo = List($loadParMapping) """)
       emit(src"""val storeStreamInfo = List($storeParMapping) """)
-      emit(src"""val numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/""")
+      emit(src"""val numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/""")
     }
 
     withStream(getStream("IOModule")) {
       emit("// Memory Streams")
       emit(src"""val io_loadStreamInfo = List($loadParMapping) """)
       emit(src"""val io_storeStreamInfo = List($storeParMapping) """)
-      emit(src"val io_numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/")
-
+      emit(src"val io_numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/")
+ 
     }
 
     super.emitFileFooter()
