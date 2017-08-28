@@ -15,17 +15,17 @@ object RegFile {
   @api def apply[T:Type:Bits](cols: Index): RegFile1[T] = wrap(alloc[T,RegFile1](None, cols.s))
   @api def apply[T:Type:Bits](cols: Int, inits: List[T]): RegFile1[T] = {
     checkDims(Seq(cols), inits)
-    wrap(alloc[T,RegFile1](Some(unwrap(inits)),FixPt.int32(cols)))
+    wrap(alloc[T,RegFile1](Some(unwrap(inits)),FixPt.int32s(cols)))
   }
   @api def apply[T:Type:Bits](rows: Index, cols: Index): RegFile2[T] = wrap(alloc[T,RegFile2](None,rows.s,cols.s))
   @api def apply[T:Type:Bits](rows: Int, cols: Int, inits: List[T]): RegFile2[T] = {
     checkDims(Seq(cols, rows), inits)
-    wrap(alloc[T,RegFile2](Some(unwrap(inits)),FixPt.int32(rows),FixPt.int32(cols)))
+    wrap(alloc[T,RegFile2](Some(unwrap(inits)),FixPt.int32s(rows),FixPt.int32s(cols)))
   }
   @api def apply[T:Type:Bits](dim0: Index, dim1: Index, dim2: Index): RegFile3[T] = wrap(alloc[T,RegFile3](None,dim0.s, dim1.s, dim2.s))
   @api def apply[T:Type:Bits](dim0: Int, dim1: Int, dim2: Int, inits: List[T]): RegFile3[T] = {
     checkDims(Seq(dim0,dim1,dim2), inits)
-    wrap(alloc[T,RegFile3](Some(unwrap(inits)),FixPt.int32(dim0), FixPt.int32(dim1), FixPt.int32(dim2)))
+    wrap(alloc[T,RegFile3](Some(unwrap(inits)),FixPt.int32s(dim0), FixPt.int32s(dim1), FixPt.int32s(dim2)))
   }
 
   @internal def checkDims(dims: Seq[Int], elems: Seq[_]) = {
@@ -112,8 +112,8 @@ case class RegFile1[T:Type:Bits](s: Exp[RegFile1[T]]) extends Template[RegFile1[
   @api def apply(i: Index): T = wrap(RegFile.load(s, Seq(i.s), Bit.const(true)))
   @api def update(i: Index, data: T): MUnit = MUnit(RegFile.store(s, Seq(i.s), data.s, Bit.const(true)))
 
-  @api def <<=(data: T): MUnit = wrap(RegFile.shift_in(s, Seq(int32(0)), 0, data.s, Bit.const(true)))
-  @api def <<=(data: Vector[T]): MUnit = wrap(RegFile.par_shift_in(s, Seq(int32(0)), 0, data.s, Bit.const(true)))
+  @api def <<=(data: T): MUnit = wrap(RegFile.shift_in(s, Seq(int32s(0)), 0, data.s, Bit.const(true)))
+  @api def <<=(data: Vector[T]): MUnit = wrap(RegFile.par_shift_in(s, Seq(int32s(0)), 0, data.s, Bit.const(true)))
 
   @api def load(dram: DRAM1[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)

@@ -15,7 +15,7 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
       case _ => error(ctx, "Unsupported stride in LineBuffer apply")
     }
 
-    val start  = cols.start.map(_.s).getOrElse(int32(0))
+    val start  = cols.start.map(_.s).getOrElse(int32s(0))
     val length = cols.length
     val exp = LineBuffer.col_slice(s, row.s, start, length.s)
     exp.tp.wrapped(exp)
@@ -27,7 +27,7 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
       case _ => error(ctx, "Unsupported stride in LineBuffer apply")
     }
 
-    val start = rows.start.map(_.s).getOrElse(int32(0))
+    val start = rows.start.map(_.s).getOrElse(int32s(0))
     val length = rows.length
     val exp = LineBuffer.row_slice(s, start, length.s, col.s)
     exp.tp.wrapped(exp)

@@ -2,9 +2,12 @@ package spatial.transform
 
 import argon.core._
 import argon.emul._
+import argon.nodes._
+import argon.util._
 import argon.transform.ForwardTransformer
 import spatial.SpatialConfig
-import spatial.aliases._
+//import spatial.aliases._
+import spatial.lang._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -49,6 +52,16 @@ case class RewriteTransformer(var IR: State) extends ForwardTransformer{
         }
       }
       else super.transform(lhs, rhs)
+
+    case op @ FixMod(x, Const(y: BigDecimal)) if isPow2(y) =>
+      def selectMod[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]], y: Double): Exp[FixPt[S,I,F]] = {
+        val data = BitOps.dataAsBitVector(wrap(x))
+        val range = (log2(y.toDouble)-1).toInt :: 0  //Range.alloc(None, FixPt.int32(log2(y.toDouble) - 1),None,None)
+        val selected = data.apply(range)
+        implicit val vT = VectorN.typeFromLen[Bit](selected.width)
+        BitOps.bitVectorAsData[FixPt[S,I,F]](selected, enWarn = false).s
+      }
+      selectMod(x, y.toDouble)(op.mS,op.mI,op.mF).asInstanceOf[Exp[T]]
 
 
     case _ => super.transform(lhs, rhs)

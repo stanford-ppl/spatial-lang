@@ -639,7 +639,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
     val inds2 = lanes.indices
     val vs = lanes.indexValids
     val mC = typ[Reg[T]]
-    val start = counterStarts(cchain).map(_.getOrElse(int32(0)))
+    val start = counterStarts(cchain).map(_.getOrElse(int32s(0)))
 
     val blk = stageSealedLambda1(accum) {
       logs("Unrolling map")
@@ -702,7 +702,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
     val isMap2 = mapLanes.indices
     val mvs = mapLanes.indexValids
     val partial = func.result
-    val start = counterStarts(cchainMap).map(_.getOrElse(int32(0)))
+    val start = counterStarts(cchainMap).map(_.getOrElse(int32s(0)))
     val redType = reduceType(reduce.result)
 
     val blk = stageSealedLambda1(f(accum)) {

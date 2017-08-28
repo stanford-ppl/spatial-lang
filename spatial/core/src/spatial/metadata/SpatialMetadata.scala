@@ -332,7 +332,7 @@ case class ParFactor(factor: Const[Index]) extends Metadata[ParFactor] {
   def mirror(f:Tx) = ParFactor(f(factor).asInstanceOf[Const[Index]])
 }
 @data object parFactorOf {
-  @internal def apply(x: Exp[_]): Const[Index] = metadata[ParFactor](x).map(_.factor).getOrElse(int32(1))
+  @internal def apply(x: Exp[_]): Const[Index] = metadata[ParFactor](x).map(_.factor).getOrElse(int32s(1))
   def update(x: Exp[_], factor: Const[Index]) = metadata.add(x, ParFactor(factor))
 }
 
