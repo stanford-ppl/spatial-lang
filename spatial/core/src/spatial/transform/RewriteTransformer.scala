@@ -37,6 +37,9 @@ case class RewriteTransformer(var IR: State) extends ForwardTransformer{
       case _ => super.transform(lhs, rhs)
     }
 
+    case ParallelPipe(en,func) if SpatialConfig.enablePIR =>
+      func.inline.asInstanceOf[Exp[T]]
+
     case Switch(body, selects, cases) =>
       if (selects.forall(_.isConst)) {
         val trueSelects = selects.zipWithIndex.filter{case (Const(TRUE),_) => true; case (Const(c: Boolean),_) => c; case _ => false }
@@ -61,7 +64,7 @@ case class RewriteTransformer(var IR: State) extends ForwardTransformer{
         implicit val vT = VectorN.typeFromLen[Bit](selected.width)
         BitOps.bitVectorAsData[FixPt[S,I,F]](selected, enWarn = false).s
       }
-      selectMod(x, y.toDouble)(op.mS,op.mI,op.mF).asInstanceOf[Exp[T]]
+      selectMod(f(x), y.toDouble)(op.mS,op.mI,op.mF).asInstanceOf[Exp[T]]
 
 
     case _ => super.transform(lhs, rhs)
