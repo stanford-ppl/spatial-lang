@@ -13,8 +13,8 @@ trait PIRScheduler extends PIRTraversal {
   override val name = "PIR Scheduler"
   override val recurse = Always
 
-  implicit val mappingIn  = mutable.HashMap[Expr, List[PCU]]()
-  val mappingOut = mutable.HashMap[Expr, List[CU]]()
+  def mappingIn:mutable.Map[Expr, List[PCU]]
+  def mappingOut:mutable.Map[Expr, List[CU]]
 
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
     val cuMapping:Map[ACU, ACU] = mappingIn.keys.flatMap{s =>

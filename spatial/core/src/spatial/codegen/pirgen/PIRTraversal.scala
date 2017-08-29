@@ -13,6 +13,8 @@ import scala.collection.mutable.WrappedArray
 import scala.reflect.runtime.universe.{Block => _, _}
 
 trait PIRTraversal extends SpatialTraversal with Partitions {
+  def globals:mutable.Set[GlobalComponent]
+
   var listing = false
   var listingSaved = false
   var tablevel = 0 // Doesn't change tab level with traversal of block
@@ -99,7 +101,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     }
   }
 
-  // TODO: This appears to be overridden?
   protected def quote(x: Expr):String = s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
 
   def qdef(lhs:Any):String = {
@@ -135,8 +136,10 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
   }
 
   // --- Allocating
-  def decomposed: mutable.Map[Expr, Seq[(String, Expr)]] // Mapping Mem[Struct(Seq(fieldName, T))] -> Seq((fieldName, Mem[T]))
-  def composed: mutable.Map[Expr, Expr] // Mapping Mem[T] -> Mem[Struct(Seq(fieldName, T))]
+  // Mapping Mem[Struct(Seq(fieldName, T))] -> Seq((fieldName, Mem[T]))
+  def decomposed: mutable.Map[Expr, Seq[(String, Expr)]]
+  // Mapping Mem[T] -> Mem[Struct(Seq(fieldName, T))]
+  def composed: mutable.Map[Expr, Expr]
 
   def compose(dexp:Expr) = composed.getOrElse(dexp, dexp)
 
@@ -356,8 +359,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     ////assert(writers.size==1, u"Plasticine only support single writer mem=${qdef(mem)} writers=[${writers.mkString(",")}]")
     //writers.head
   //}
-
-  def globals:mutable.Set[GlobalComponent]
 
   def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:AbstractComputeUnit):CUMemory = {
     //HACK: don't know what the original sym is at splitting. 
@@ -613,37 +614,39 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
   }
 
 
-  def swapCUs(mapping: Map[ACU, ACU]): Unit = mapping.foreach { case (pcu, v) =>
-    val cu = v.asInstanceOf[CU]
-    cu.cchains.foreach{cchain => swapCU_cchain(cchain) }
-    cu.parent = cu.parent.map{parent => mapping.getOrElse(parent,parent) }
-    cu.deps = cu.deps.map{dep => mapping.getOrElse(dep, dep) }
-    cu.mems.foreach{mem => swapCU_sram(mem) }
-    cu.allStages.foreach{stage => swapCU_stage(stage) }
-    cu.fringeGlobals ++= pcu.fringeGlobals
+  def swapCUs(mapping: Map[ACU, ACU]): Unit = mapping.foreach {
+    case (pcu, cu:CU) =>
+      cu.cchains.foreach{cchain => swapCU_cchain(cchain) }
+      cu.parent = cu.parent.map{parent => mapping.getOrElse(parent,parent) }
+      cu.deps = cu.deps.map{dep => mapping.getOrElse(dep, dep) }
+      cu.mems.foreach{mem => swapCU_sram(mem) }
+      cu.allStages.foreach{stage => swapCU_stage(stage) }
+      cu.fringeGlobals ++= pcu.fringeGlobals
 
-    def swapCU_cchain(cchain: CUCChain): Unit = cchain match {
-      case cc: CChainCopy => cc.owner = mapping.getOrElse(cc.owner,cc.owner)
-      case _ => // No action
-    }
-    def swapCU_stage(stage:Stage) = {
-      stage match {
-        case stage:ReduceStage => stage.accParent = mapping.getOrElse(stage.accParent, stage.accParent)
-        case stage =>
+      def swapCU_cchain(cchain: CUCChain): Unit = cchain match {
+        case cc: CChainCopy => cc.owner = mapping.getOrElse(cc.owner,cc.owner)
+        case _ => // No action
       }
-      stage.inputMems.foreach(swapCU_reg)
-    }
 
-    def swapCU_reg(reg: LocalComponent): Unit = reg match {
-      case CounterReg(cc,i) => swapCU_cchain(cc)
-      case ValidReg(cc,i) => swapCU_cchain(cc)
-      case _ =>
-    }
+      def swapCU_stage(stage:Stage) = {
+        stage match {
+          case stage:ReduceStage => stage.accParent = mapping.getOrElse(stage.accParent, stage.accParent)
+          case stage =>
+        }
+        stage.inputMems.foreach(swapCU_reg)
+      }
 
-    def swapCU_sram(sram: CUMemory) {
-      sram.readAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
-      sram.writeAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
-    }
+      def swapCU_reg(reg: LocalComponent): Unit = reg match {
+        case CounterReg(cc,i) => swapCU_cchain(cc)
+        case ValidReg(cc,i) => swapCU_cchain(cc)
+        case _ =>
+      }
+
+      def swapCU_sram(sram: CUMemory) {
+        sram.readAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
+        sram.writeAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
+      }
+    case (pcu, cu) =>
   }
 
   // --- Context for creating/modifying CUs

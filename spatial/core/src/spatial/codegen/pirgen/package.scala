@@ -17,15 +17,6 @@ package object pirgen {
   type ACU = AbstractComputeUnit
   type CUControl = ControlType
 
-  def groupBuses(x: Iterable[GlobalBus]) = {
-    val args    = x.collect{case arg:InputArg => arg}
-    val scalars = x.collect{case b:ScalarBus if !b.isInstanceOf[InputArg] => b}
-    val vectors = x.collect{case b:VectorBus if !b.isInstanceOf[LocalReadBus] => b}
-    //val scalarMems = x.collect{case bus@LocalReadBus(mem) if mem.mode == ScalarFIFOMode || mem.mode == ScalarBufferMode => bus }
-    //val vectorMems = x.collect{case bus@LocalReadBus(mem) if mem.mode == SRAMMode || mem.mode == FIFOOnWriteMode || mem.mode == VectorFIFOMode => bus }
-    BusGroups(args, scalars, vectors)
-  }
-
   @stateful def isConstant(x: Expr):Boolean = x match {
     case Const(c) => true
     case Param(c) => true
@@ -155,8 +146,7 @@ package object pirgen {
   }
 
   def isInterCU(x: GlobalBus): Boolean = x match {
-    case _:PIRDRAMBus | _:InputArg | _:OutputArg => false
-    case LocalVectorBus => false
+    case _:InputArg | _:OutputArg => false
     case _ => true
   }
 

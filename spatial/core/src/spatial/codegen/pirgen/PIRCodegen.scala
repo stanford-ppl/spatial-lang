@@ -17,121 +17,88 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
   override val name = "PIR Codegen"
   override val lang: String = "pir"
   override val ext: String = "scala"
-
-  override protected def emitBlock(b: Block[_]): Unit = visitBlock(b)
-  override protected def quoteConst(c: Const[_]): String = s"Const($c)"
-  override protected def quote(x: Exp[_]): String = super[PIRTraversal].quote(x)
+  implicit val self:PIRCodegen = this
 
   val globals    = mutable.Set[GlobalComponent]()
   val decomposed = mutable.Map[Expr, Seq[(String, Expr)]]()
   val composed   = mutable.Map[Expr, Expr]()
-  val cus        = mutable.Map[Expr,List[List[ComputeUnit]]]()
+  val pcus       = mutable.Map[Expr, List[PCU]]()
+  val cus        = mutable.Map[Expr,List[CU]]()
 
-  lazy val allocater = new PIRAllocation{
+  lazy val allocater = new PIRAllocation{ 
     var IR = PIRCodegen.this.IR
+    def mapping = PIRCodegen.this.pcus
     def globals = PIRCodegen.this.globals
-    def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
+    def decomposed = PIRCodegen.this.decomposed
   }
-  lazy val scheduler = new PIRScheduler{
+  lazy val scheduler = new PIRScheduler {
     var IR = PIRCodegen.this.IR
+    def mappingIn = PIRCodegen.this.pcus
+    def mappingOut = PIRCodegen.this.cus
     def globals = PIRCodegen.this.globals
-    def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
+    def decomposed = PIRCodegen.this.decomposed
   }
-  lazy val optimizer = new PIROptimizer{
+  lazy val optimizer = new PIROptimizer {
     var IR = PIRCodegen.this.IR
+    def mapping = PIRCodegen.this.cus
     def globals = PIRCodegen.this.globals
-    def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
+    def decomposed = PIRCodegen.this.decomposed
   }
-  lazy val splitter  = new PIRSplitter{
+  lazy val splitter  = new PIRSplitter {
     var IR = PIRCodegen.this.IR
+    def mapping = PIRCodegen.this.cus
     def globals = PIRCodegen.this.globals
-    def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
+    def decomposed = PIRCodegen.this.decomposed
   }
-  lazy val hacks     = new PIRHacks{
+  lazy val dse       = new PIRDSE {
     var IR = PIRCodegen.this.IR
+    def mapping = PIRCodegen.this.cus
     def globals = PIRCodegen.this.globals
-    def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
-  }
-  lazy val dse       = new PIRDSE{
-    var IR = PIRCodegen.this.IR
-    def globals = PIRCodegen.this.globals
     def decomposed = PIRCodegen.this.decomposed
-    def composed = PIRCodegen.this.composed
   }
-
   lazy val printout = new PIRPrintout {
     var IR = PIRCodegen.this.IR
+    def mapping = PIRCodegen.this.cus
     def globals = PIRCodegen.this.globals
-    def decomposed = PIRCodegen.this.decomposed
     def composed = PIRCodegen.this.composed
+    def decomposed = PIRCodegen.this.decomposed
   }
-
   lazy val areaModel = new PIRAreaModelHack {
-    override def globals = PIRCodegen.this.globals
-    override def composed = PIRCodegen.this.composed
-    override def decomposed = PIRCodegen.this.decomposed
     var IR = PIRCodegen.this.IR
+    def mapping = PIRCodegen.this.cus
+    def globals = PIRCodegen.this.globals
+    def composed = PIRCodegen.this.composed
+    def decomposed = PIRCodegen.this.decomposed
   }
-
 
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
     globals.clear
-    // -- CU allocation
     allocater.run(block)
-    // -- CU scheduling
-    scheduler.mappingIn ++= allocater.mapping
     scheduler.run(block)
-    // -- Optimization
-    optimizer.mapping ++= scheduler.mappingOut
     optimizer.run(block)
 
-    emitCUStats(optimizer.mapping.values.toList.flatten)
+    emitCUStats(cus.values.flatten)
 
-    areaModel.mappingIn ++= optimizer.mapping
     areaModel.run(block)
 
     if (SpatialConfig.enableSplitting) {
-      printout.mappingIn ++= optimizer.mapping
       printout.run(block)
-
-
-      splitter.mappingIn ++= optimizer.mapping
       splitter.run(block)
-
-      hacks.mappingIn ++= splitter.mappingOut
     }
-    else {
-      for ((s,cus) <- optimizer.mapping) hacks.mappingIn(s) = List(cus)
-    }
-    hacks.run(block)
-
-    printout.splitMappingIn ++= hacks.mappingOut
     printout.run(block)
 
-    cus ++= hacks.mappingOut
-
     //HACK remove unused copy from parent after splitting
-    cus.foreach { case (sym, cus) =>
-      cus.foreach { _.foreach { cu => optimizer.removeUnusedCChainCopy(cu) } }
-    }
-
-    dbgblk(s"Mapping: ") {
-      cus.foreach { case (sym, cus) =>
-        dbgs(s"$sym -> [${cus.map( cus => s"[${cus.mkString(",")}]").mkString(",")}]")
-      }
-    }
+    cus.foreach { case (sym, cus) => cus.foreach { cu => optimizer.removeUnusedCChainCopy(cu) } }
 
     if (SpatialConfig.enableArchDSE) {
-      dse.mappingIn ++= optimizer.mapping
       dse.run(block)
-    }
-    else {
-      tallyCUs(cus.values.toList.flatten.flatten)
+    } else {
+      tallyCUs(cus.values.toList.flatten)
     }
 
     super.preprocess(block) // generateHeader
@@ -142,7 +109,11 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     block
   }
 
-  final def emitCUs(lhs: Exp[_]): Unit = cus(lhs).flatten.foreach{cu => emitCU(lhs, cu) }
+  override protected def emitBlock(b: Block[_]): Unit = visitBlock(b)
+  override protected def quoteConst(c: Const[_]): String = s"Const($c)"
+  override protected def quote(x: Exp[_]): String = super[PIRTraversal].quote(x)
+
+  final def emitCUs(lhs: Exp[_]): Unit = cus(lhs).foreach{cu => emitCU(lhs, cu) }
   def emitCU(lhs: Exp[_], cu: CU): Unit
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
@@ -150,7 +121,6 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
       dbgs(s"isFringe=${isFringe(lhs)} cus.contains(lhs)=${cus.contains(lhs)}")
       dbgs(s"isSRAM=${isSRAM(lhs)} cus.contains(lhs)=${cus.contains(lhs)}")
       dbgs(s"isController=${isControlNode(lhs)} cus.contains(lhs)=${cus.contains(lhs)}")
-
       rhs match {
         case _: SRAMNew[_, _] if cus.contains(lhs)        => emitCUs(lhs)
         case _ if isFringe(lhs) && cus.contains(lhs)      => emitCUs(lhs)
@@ -163,7 +133,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
 
   override protected def emitFat(lhs: Seq[Sym[_]], rhs: Def): Unit = { }
 
-  def emitCUStats(cus: Seq[CU]) = {
+  def emitCUStats(cus: Iterable[CU]) = {
     val pwd = sys.env("SPATIAL_HOME")
     val dir = s"$pwd/csvs"
     Files.createDirectories(Paths.get(dir))

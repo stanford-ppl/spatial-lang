@@ -49,7 +49,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       }
 
     case GetDRAMAddress(dram) =>
-      val id = argMapping(dram)._2
+      val id = argMapping(dram).argInId
       emit(src"""val $lhs = io.argIns($id)""")
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>

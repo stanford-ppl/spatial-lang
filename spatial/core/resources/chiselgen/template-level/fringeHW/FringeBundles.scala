@@ -19,29 +19,29 @@ case class MAGOpcode() extends Bundle {
   }
 }
 
-class Command(w: Int) extends Bundle {
-  val addr = UInt(w.W)
+class Command(val addrWidth: Int, val sizeWidth: Int) extends Bundle {
+  val addr = UInt(addrWidth.W)
   val isWr = Bool()
   val isSparse = Bool()
-  val size = UInt(w.W)
+  val size = UInt(sizeWidth.W)
 
   override def cloneType(): this.type = {
-    new Command(w).asInstanceOf[this.type]
+    new Command(addrWidth, sizeWidth).asInstanceOf[this.type]
   }
 }
 
 // Parallelization and word width information
 case class StreamParInfo(w: Int, v: Int)
 
-class MemoryStream(addrWidth: Int) extends Bundle {
-  val cmd = Flipped(Decoupled(new Command(addrWidth)))
+class MemoryStream(addrWidth: Int, sizeWidth: Int) extends Bundle {
+  val cmd = Flipped(Decoupled(new Command(addrWidth, sizeWidth)))
 
   override def cloneType(): this.type = {
-    new MemoryStream(addrWidth).asInstanceOf[this.type]
+    new MemoryStream(addrWidth, sizeWidth).asInstanceOf[this.type]
   }
 }
 
-class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64) {
+class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64, sizeWidth = 16) {
   val rdata = Decoupled(Vec(p.v, UInt(p.w.W)))
 
   override def cloneType(): this.type = {
@@ -49,7 +49,7 @@ class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64) {
   }
 }
 
-class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64) {
+class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64, sizeWidth = 16) {
   val wdata = Flipped(Decoupled(Vec(p.v, UInt(p.w.W))))
   val wresp = Decoupled(Bool())
 

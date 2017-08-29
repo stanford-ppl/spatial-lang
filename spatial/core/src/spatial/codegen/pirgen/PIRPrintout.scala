@@ -8,11 +8,8 @@ trait PIRPrintout extends PIRTraversal {
   override val name = "PIR Printout"
   override val recurse = Always
 
-  val mappingIn  = mutable.HashMap[Expr, List[CU]]()
-
-  val splitMappingIn = mutable.HashMap[Expr, List[List[CU]]]()
-
-  def cus = if (splitMappingIn.isEmpty) mappingIn.values.toList.flatten else splitMappingIn.values.toList.flatten.flatten
+  def mapping:mutable.Map[Expr, List[CU]]
+  def cus = mapping.values.toList.flatten
 
   def printCU(cu: CU): Unit = {
 
@@ -21,53 +18,58 @@ trait PIRPrintout extends PIRTraversal {
       case _:FringeCU => "Fringe"
       case _          => "PCU"
     }
-    dbgs("\n")
-    dbgs(style + " " + cu.toString)
-    dbgs("  isPMU: " + cu.isPMU)
-    dbgs("  isPCU: " + cu.isPCU)
-    dbgs("  Parent: " + cu.parentCU.map(_.name).getOrElse("None"))
-    dbgs("  Lanes: " + cu.lanes)
-    dbgs("  Counter chains:")
-    cu.cchains.foreach{cchain => dbgs(s"    ${cchain.longString}") }
-    dbgs("  Memories:")
-    cu.mems.foreach{mem => dbgs(s"    $mem") }
-    dbgs("  Compute stages:")
-    cu.computeStages.foreach{stage => dbgs(s"    $stage") }
-    dbgs("  Read stages:")
-    cu.readStages.foreach { stage => dbgs(s"    $stage") }
-    dbgs("  Write stages:")
-    cu.writeStages.foreach { stage => dbgs(s"   $stage") }
-    dbgs("  Control stages:")
-    cu.controlStages.foreach{stage => dbgs(s"    $stage") }
+    dbgblk(style + " " + cu.toString) {
+      dbgs("isPMU: " + cu.isPMU)
+      dbgs("isPCU: " + cu.isPCU)
+      dbgs("Parent: " + cu.parentCU.map(_.name).getOrElse("None"))
+      dbgs("Lanes: " + cu.lanes)
+      dbgl("Counter chains:") {
+        cu.cchains.foreach{cchain => dbgs(s"${cchain.longString}") }
+      }
+      dbgl("Memories:") {
+        cu.mems.foreach{mem => dbgs(s"$mem") }
+      }
+      dbgl("Compute stages:") {
+        cu.computeStages.foreach{stage => dbgs(s"$stage") }
+      }
+      dbgl("Read stages:") {
+        cu.readStages.foreach { stage => dbgs(s"$stage") }
+      }
+      dbgl("Write stages:") {
+        cu.writeStages.foreach { stage => dbgs(s"$stage") }
+      }
+      dbgl("Control stages:") {
+        cu.controlStages.foreach{stage => dbgs(s"$stage") }
+      }
 
-    val inputs = groupBuses(globalInputs(cu))
-    val outputs = groupBuses(globalOutputs(cu))
-    dbgs("  Scalar Inputs: ")
-    (inputs.args ++ inputs.scalars).foreach{bus => dbgs(s"    $bus") }
-    dbgs("  Scalar Outputs: ")
-    (outputs.args ++ outputs.scalars).foreach{bus => dbgs(s"    $bus") }
-    dbgs("  Vector Inputs: ")
-    inputs.vectors.foreach{bus => dbgs(s"    $bus") }
-    dbgs("  Vector Outputs: ")
-    outputs.vectors.foreach{bus => dbgs(s"    $bus") }
+      dbgl("Scalar Inputs: ") {
+        scalarInputs(cu).foreach{bus => dbgs(s"$bus") }
+      }
+      dbgl("Scalar Outputs: ") {
+        scalarOutputs(cu).foreach{bus => dbgs(s"$bus") }
+      }
+      dbgl("Vector Inputs: ") {
+        vectorInputs(cu).foreach{bus => dbgs(s"$bus") }
+      }
+      dbgl("Vector Outputs: ") {
+        vectorOutputs(cu).foreach{bus => dbgs(s"$bus") }
+      }
 
-    cu.style match {
-      case _:MemoryCU =>
-        val cost = getUtil(cu, cus)
-        reportUtil(cost)
-      case _:FringeCU =>
-      case _ =>
-        val cost = getUtil(cu, cus)
-        reportUtil(cost)
+      cu.style match {
+        case _:MemoryCU =>
+          val cost = getUtil(cu, cus)
+          reportUtil(cost)
+        case _:FringeCU =>
+        case _ =>
+          val cost = getUtil(cu, cus)
+          reportUtil(cost)
+      }
     }
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (splitMappingIn.contains(lhs)) {
-      splitMappingIn(lhs).flatten.foreach{cu => printCU(cu) }
-    }
-    else if (mappingIn.contains(lhs)) {
-      mappingIn(lhs).foreach{cu => printCU(cu) }
+    if (mapping.contains(lhs)) {
+      mapping(lhs).foreach{cu => printCU(cu) }
     }
   }
 

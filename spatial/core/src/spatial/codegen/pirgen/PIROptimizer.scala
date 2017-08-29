@@ -7,8 +7,7 @@ import scala.collection.mutable
 trait PIROptimizer extends PIRTraversal {
   override val name = "PIR Optimization"
 
-  val mapping = mutable.HashMap[Expr, List[CU]]()
-
+  def mapping:mutable.Map[Expr, List[CU]]
   def cus = mapping.values.flatMap{cus => cus}.toList
 
   override def process[S:Type](b: Block[S]): Block[S] = {
