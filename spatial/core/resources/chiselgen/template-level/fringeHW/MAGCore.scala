@@ -642,7 +642,8 @@ class MAGCore(
 
   def addWhen(en: UInt, value: UInt) = {
     val ff = Module(new FF(32))
-    ff.io.init := 15162342.U
+    //ff.io.init := 15162342.U
+    ff.io.init := 0.U
     ff.io.enable := en
     ff.io.in := ff.io.out + value
     ff.io.out
