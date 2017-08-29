@@ -1,9 +1,9 @@
 [submodule "argon"]
 	path = argon
-  url = git@github.com:stanford-ppl/argon.git
+        url = https://github.com/stanford-ppl/argon.git
 [submodule "scala-virtualized"]
 	path = scala-virtualized
-	url = git@github.com:stanford-ppl/scala-virtualized.git 
+	url = https://github.com/stanford-ppl/scala-virtualized.git 
 [submodule "apps"]
 	path = apps
-	url = git@github.com:stanford-ppl/spatial-apps.git 
+	url = https://github.com/stanford-ppl/spatial-apps.git 

@@ -33,7 +33,7 @@ trait CppGenDRAM extends CppGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims,zero) =>
-      val rawtype = 
+      drams = drams :+ lhs
       emit(src"""uint64_t ${lhs} = c1->malloc(sizeof(${remapIntType(lhs.tp.typeArguments.head)}) * ${dims.map(quote).mkString("*")});""")
       emit(src"c1->setArg(${argMapping(lhs)._2}, $lhs, false); // (memstream in: ${argMapping(lhs)._2}, out: ${{argMapping(lhs)._3}})")
       emit(src"""printf("Allocate mem of size ${dims.map(quote).mkString("*")} at %p\n", (void*)${lhs});""")

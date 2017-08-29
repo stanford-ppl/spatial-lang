@@ -108,6 +108,7 @@ for type in ${types[@]}; do
 		fi
 		# echo "${fields[0]} has ${existing_runs} runs going (current best ${most_idle})"
 
+		# Implement blacklists
 		if [[ ${existing_runs} -lt $most_idle ]]; then
 			if [[ $type = "chisel" && ${fields[0]} = "max-2" ]]; then
 				echo ""
@@ -115,6 +116,9 @@ for type in ${types[@]}; do
 			elif [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
 				echo ""
 				# Do not let chisel run on tflop1 for now
+			elif [[ $type = "chisel" && ${fields[0]} = "portland" && $branch = "syncMem" ]]; then
+				echo ""
+				# Do not let chisel run syncMem on portland because Backprop, GEMM_Blocked, Sort_Radix, and a few others hang mysteriously
 			else 
 				candidate=$dst
 				most_idle=$existing_runs
