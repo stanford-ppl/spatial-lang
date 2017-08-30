@@ -99,10 +99,10 @@ package object pirgen {
   def usedCChains(a: Any): Set[CUCChain] = a match {
     case cu: ComputeUnit => usedCChains(cu.allStages) ++ usedCChains(cu.mems)
 
-    case stage: Stage => stage.inputMems.collect{case CounterReg(cchain,_) => cchain}.toSet
+    case stage: Stage => stage.inputMems.collect{case CounterReg(cchain,_,_) => cchain}.toSet
     case sram: CUMemory =>
-      (sram.readAddr.collect{case CounterReg(cchain,_) => cchain} ++
-        sram.writeAddr.collect{case CounterReg(cchain,_) => cchain}).toSet
+      (sram.readAddr.collect{case CounterReg(cchain,_,_) => cchain} ++
+        sram.writeAddr.collect{case CounterReg(cchain,_,_) => cchain}).toSet
 
     case iter: Iterator[Any] => iter.flatMap(usedCChains).toSet
     case iter: Iterable[Any] => usedCChains(iter.iterator)

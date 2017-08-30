@@ -28,30 +28,34 @@ trait PIRAllocation extends PIRTraversal {
   }
 
   def addIterators(cu: PCU, cchain: CChainInstance, inds: Seq[Seq[Exp[Index]]], valids: Seq[Seq[Exp[Bit]]]) {
-    inds.zipWithIndex.foreach{case (is, i) =>
-      is.foreach{index => cu.getOrElseUpdate(index)(CounterReg(cchain, i)) }
+    inds.zipWithIndex.foreach{case (is, ci) =>
+      is.zipWithIndex.foreach{ case (index, ii) => cu.getOrElseUpdate(index)(CounterReg(cchain, ci, ii)) }
     }
-    valids.zipWithIndex.foreach{case (es, i) =>
-      es.foreach{e => cu.getOrElseUpdate(e)(ValidReg(cchain, i)) }
+    valids.zipWithIndex.foreach{case (vs, ci) =>
+      vs.zipWithIndex.foreach{ case (v, vi) => cu.getOrElseUpdate(v)(ValidReg(cchain, ci, vi)) }
     }
   }
 
-  def allocateCChains(pipe: Expr) = {
-    val cchainOpt = pipe match {
+  def cchainOf(pipe:Expr) = {
+    pipe match {
       case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
         Some((cchain, iters, valids))
       case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
         Some((cchain, iters, valids))
-      case Def(_:UnitPipe | _:Hwblock) => 
-        val cu = allocateCU(pipe)
-        val cc = UnitCChain(s"${pipe}_unit")
-        cu.cchains += cc
-        None
       case _ => None
     }
-    cchainOpt.foreach { case (cchain, iters, valids) =>
+  }
+
+  def allocateCChains(pipe: Expr) = {
+    val cu = allocateCU(pipe)
+    pipe match {
+      case Def(_:UnitPipe | _:Hwblock) => 
+        val cc = UnitCChain(s"${pipe}_unit")
+        cu.cchains += cc
+      case _ =>
+    }
+    cchainOf(pipe).foreach { case (cchain, iters, valids) =>
       dbgblk(s"Allocate cchain ${qdef(cchain)} for $pipe") {
-        val cu = allocateCU(pipe)
         def allocateCounter(start: Expr, end: Expr, stride: Expr, par:Int) = {
           dbgs(s"counter start:${qdef(start)}, end:${qdef(end)}, stride:${qdef(stride)}, par:$par")
           val min = allocateLocal(cu, start)
@@ -163,6 +167,7 @@ trait PIRAllocation extends PIRTraversal {
       val ad = flatOpt.map(_._1) // sym of flatten  addr
 
       dbgs(s"$dmem addr:[${addr.map(_.mkString(","))}], indexExps:[${indexExps.mkString(",")}] indexSyms:[${indexSyms.mkString(",")}]")
+      //TODO: Stages in saperate CU
       memCUs.foreach { memCU => copyBounds(indexExps ++ addr.getOrElse(Seq()), memCU) }
 
       // PseudoStages
@@ -184,10 +189,17 @@ trait PIRAllocation extends PIRTraversal {
     allExps.foreach {
       case b:Bound[_] => 
         if (cu.get(b).isEmpty) {
-          val fromCUs = mapping(parentOf(b).getOrElse(throw new Exception(s"$b doesn't have parent")))
+          val fromPipe = parentOf(b).getOrElse(throw new Exception(s"$b doesn't have parent"))
+          val fromCUs = mapping(fromPipe)
           assert(fromCUs.size==1) // parent of bounds must be a controller in spatial
           val fromCU = fromCUs.head 
-          copyIterators(cu, fromCU)
+          val (cchain, iters, valids) = cchainOf(fromPipe).getOrElse {
+            throw new Exception(s"fromPipe=$fromPipe doesn't have counterChain but bound=$b's parent is $fromPipe")
+          }
+          val lists = (iters ++ valids).filter { _.contains(b) }
+          assert(lists.size==1, s"iters=$iters valids=$valids has not exactly 1 occurance of bound=$b")
+          val iterIdx = lists.head.indexOf(b)
+          copyIterators(cu, fromCU, Some(iterIdx))
         }
       case _ => 
     }

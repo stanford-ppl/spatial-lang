@@ -411,28 +411,27 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     }
   }
 
-  def copyIterators(destCU: AbstractComputeUnit, srcCU: AbstractComputeUnit): Map[CUCChain,CUCChain] = {
+  def copyIterators(destCU: AbstractComputeUnit, srcCU: AbstractComputeUnit, iterIdx:Option[Int]=None): Map[CUCChain,CUCChain] = {
     if (destCU != srcCU) {
-      val cchainCopies = srcCU.cchains.toList.map{
-        case cc@CChainCopy(name, inst, owner) => cc -> cc
-        case cc@CChainInstance(name, sym, ctrs)    => cc -> CChainCopy(name, cc, srcCU)
-        case cc@UnitCChain(name)              => cc -> CChainCopy(name, cc, srcCU)
+      val cchainCopies = srcCU.cchains.toList.map {
+        case cc@CChainCopy(name, inst, owner, _)   => cc -> CChainCopy(name, inst, owner, iterIdx)
+        case cc@CChainInstance(name, sym, ctrs) => cc -> CChainCopy(name, cc, srcCU, iterIdx)
+        case cc@UnitCChain(name)                => cc -> CChainCopy(name, cc, srcCU, iterIdx)
       }
       val cchainMapping = Map[CUCChain,CUCChain](cchainCopies:_*)
 
       destCU.cchains ++= cchainCopies.map(_._2)
       dbgs(s"copying iterators from ${srcCU.name} to ${destCU.name} destCU.cchains:[${destCU.cchains.mkString(",")}]")
 
-      // FIXME: Shouldn't need to use getOrElse here
-      srcCU.iterators.foreach{ case (iter,CounterReg(cchain,idx)) =>
-        val reg = CounterReg(cchainMapping.getOrElse(cchain,cchain),idx)
+      srcCU.iterators.foreach{ case (iter,CounterReg(cchain,cIdx,iIdx)) =>
+        val reg = CounterReg(cchainMapping(cchain),cIdx,iIdx)
         destCU.addReg(iter, reg)
         //dbgs(s"$iter -> $reg")
       }
-      srcCU.valids.foreach{case (iter, ValidReg(cchain,idx)) =>
-        val reg = ValidReg(cchainMapping.getOrElse(cchain,cchain), idx) 
-        destCU.addReg(iter, reg)
-        //dbgs(s"$iter -> $reg")
+      srcCU.valids.foreach{case (valid, ValidReg(cchain,cIdx,vIdx)) =>
+        val reg = ValidReg(cchainMapping(cchain), cIdx, vIdx) 
+        destCU.addReg(valid, reg)
+        //dbgs(s"$valid -> $reg")
       }
       cchainMapping
     }
@@ -637,8 +636,8 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
       }
 
       def swapCU_reg(reg: LocalComponent): Unit = reg match {
-        case CounterReg(cc,i) => swapCU_cchain(cc)
-        case ValidReg(cc,i) => swapCU_cchain(cc)
+        case CounterReg(cc,i,iter) => swapCU_cchain(cc)
+        case ValidReg(cc,i,valid) => swapCU_cchain(cc)
         case _ =>
       }
 

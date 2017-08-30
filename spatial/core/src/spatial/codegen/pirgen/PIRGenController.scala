@@ -101,8 +101,8 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
   }
 
   def emitComponent(x: Any): Unit = x match {
-    case CChainCopy(name, inst, owner) =>
-      emit(s"""val $name = CounterChain.copy("${owner.name}", "$name")""")
+    case CChainCopy(name, inst, owner,parIdx) =>
+      emit(s"""val $name = CounterChain.copy("${owner.name}", "$name", parIdx=$parIdx)""")
 
     case CChainInstance(name, sym, ctrs) =>
       for (ctr <- ctrs) emitComponent(ctr)
@@ -221,8 +221,8 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
   def quote(reg: LocalComponent): String = reg match {
     case ConstReg(c)             => s"""Const($c)"""              // Constant
-    case CounterReg(cchain, idx) => s"${cchain.name}($idx)"         // Counter
-    case ValidReg(cchain,idx)    => s"${cchain.name}.valids($idx)"  // Counter valid
+    case CounterReg(cchain, counterIdx, iterIdx) => s"${cchain.name}($counterIdx)"         // Counter TODO
+    case ValidReg(cchain, counterIdx, validIdx)    => s"${cchain.name}.valids($counterIdx)"  // Counter valid TODO
 
     case WriteAddrWire(mem)      => s"${quote(mem)}.writeAddr"      // Write address wire
     case ReadAddrWire(mem)       => s"${quote(mem)}.readAddr"       // Read address wire

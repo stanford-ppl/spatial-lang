@@ -92,16 +92,22 @@ case class ConstReg[T<:AnyVal](const: T) extends LocalMem[ConstReg[T]] {
   override def eql(that: ConstReg[T]) = this.const == that.const
   override def toString = const.toString
 }
-case class CounterReg(cchain: CUCChain, idx: Int) extends LocalMem[CounterReg] {
-  override def eql(that: CounterReg) = this.cchain == that.cchain && this.idx == that.idx
-  override def toString = cchain+s"($idx)"
+case class CounterReg(cchain: CUCChain, counterIdx:Int, parIdx:Int) extends LocalMem[CounterReg] {
+  override def eql(that: CounterReg) = 
+    this.cchain == that.cchain && 
+    this.counterIdx == that.counterIdx && 
+    this.parIdx == that.parIdx
+  override def toString = cchain+s"($counterIdx)"
 }
 
 case class ControlReg() extends LocalMem[ControlReg] {
   override def toString = s"cr$id"
 }
-case class ValidReg(cchain: CUCChain, idx: Int) extends LocalMem[ValidReg] {
-  override def eql(that: ValidReg) = this.cchain == that.cchain && this.idx == that.idx
+case class ValidReg(cchain: CUCChain, counterIdx:Int, validIdx:Int) extends LocalMem[ValidReg] {
+  override def eql(that: ValidReg) = 
+    this.cchain == that.cchain && 
+    this.counterIdx == that.counterIdx && 
+    this.validIdx == that.validIdx
 }
 case class ReadAddrWire(mem: CUMemory) extends LocalMem[ReadAddrWire] {
   override def eql(that: ReadAddrWire) = this.mem == that.mem
@@ -163,7 +169,7 @@ case class CChainInstance(override val name: String, sym:Expr, counters: Seq[CUC
   override def toString = name
   def longString: String = s"$name (" + counters.mkString(", ") + ")"
 }
-case class CChainCopy(override val name: String, inst: CUCChain, var owner: AbstractComputeUnit) extends CUCChain(name) {
+case class CChainCopy(override val name: String, inst: CUCChain, var owner: AbstractComputeUnit, iterIdx:Option[Int]=None) extends CUCChain(name) {
   override def toString = s"$owner.copy($name)"
   def longString: String = this.toString
 }
@@ -285,10 +291,10 @@ abstract class AbstractComputeUnit {
 
   val fringeGlobals = mutable.Map[String, GlobalBus]()
 
-  def innermostIter(cc: CUCChain) = {
-    val iters = iterators.flatMap{case (e,CounterReg(`cc`,i)) => Some((e,i)); case _ => None}
-    if (iters.isEmpty) None  else Some(iters.reduce{(a,b) => if (a._2 > b._2) a else b}._1)
-  }
+  //def innermostIter(cc: CUCChain) = {
+    //val iters = iterators.flatMap{case (e,CounterReg(`cc`,i)) => Some((e,i)); case _ => None}
+    //if (iters.isEmpty) None  else Some(iters.reduce{(a,b) => if (a._2 > b._2) a else b}._1)
+  //}
 
   def addReg(exp: Expr, reg: LocalComponent) {
     regs += reg

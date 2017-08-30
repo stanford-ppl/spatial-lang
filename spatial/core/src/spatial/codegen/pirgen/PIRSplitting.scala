@@ -371,8 +371,8 @@ trait PIRSplitting extends PIRTraversal {
         }*/
       //}
       def swap_cchain_Reg(x: LocalComponent) = x match {
-        case CounterReg(cc,idx) => CounterReg(tx(cc), idx)
-        case ValidReg(cc,idx) => ValidReg(tx(cc), idx)
+        case CounterReg(cc,cIdx,iter) => CounterReg(tx(cc), cIdx, iter)
+        case ValidReg(cc,cIdx, valid) => ValidReg(tx(cc), cIdx, valid)
         case _ => x
       }
       def swap_cchains_Ref(x: LocalRef) = x match {
