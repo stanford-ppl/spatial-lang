@@ -163,7 +163,7 @@ public:
 
     for (int i = 0; i < paddedSize / sizeof(u32); i++) {
       u32 *addr = (u32*) (virtAddr + i * sizeof(u32));
-      *addr = 15162342;
+      *addr = 4081516 + i;
     }
     fpgaMallocPtr += paddedSize;
     fpgaFreeMemSize -= paddedSize;
@@ -308,7 +308,7 @@ public:
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
       uint32_t value = readReg(argInOffset + argOutOffset + 2 + i);
-      EPRINTF("\t%s: %08x (%08d)\n", signalLabels[i], value, value);
+      EPRINTF("\t%s: %08x (%08u)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");
   }

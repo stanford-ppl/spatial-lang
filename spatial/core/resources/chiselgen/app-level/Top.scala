@@ -26,6 +26,7 @@ case class TopParams(
   val numArgIns: Int,
   val numArgOuts: Int,
   val numArgIOs: Int,
+  val numChannels: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -42,7 +43,7 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
   rdata = Output(Bits(64.W))
 
   // DRAM interface - currently only one stream
-  val dram = new DRAMStream(p.dataWidth, p.v)
+  val dram = Vec(p.numChannels, new DRAMStream(p.dataWidth, p.v))
 
   // Input streams
 //  val genericStreamIn = StreamIn(StreamParInfo(32,1))
@@ -54,10 +55,10 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 
 class ZynqInterface(p: TopParams) extends TopInterface {
   val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
-  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 5)
+  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 6)
 
   val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
-  val M_AXI = new AXI4Inlined(axiParams)
+  val M_AXI = Vec(p.numChannels, new AXI4Inlined(axiParams))
 }
 
 class DE1SoCInterface(p: TopParams) extends TopInterface {
@@ -123,7 +124,7 @@ class AWSInterface(p: TopParams) extends TopInterface {
 
   // DRAM interface - currently only one stream
 //  val dram = new DRAMStream(p.dataWidth, p.v)
-  val M_AXI = new AXI4Inlined(axiParams)
+  val M_AXI = Vec(p.numChannels, new AXI4Inlined(axiParams))
 }
 
 /**
@@ -154,14 +155,20 @@ class Top(
   val totalLoadStreamInfo = loadStreamInfo ++ (if (loadStreamInfo.size == 0) List(StreamParInfo(w, v)) else List[StreamParInfo]())
 	val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v)) else List[StreamParInfo]())
 
-  val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
+  val numChannels = target match {
+    case "zynq" => 4
+    case _      => 1
+  }
+
+  val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, numChannels, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
+
   FringeGlobals.target = target
 
   val io = target match {
     case "verilator"  => IO(new VerilatorInterface(topParams))
     case "vcs"        => IO(new VerilatorInterface(topParams))
     case "aws"        => IO(new AWSInterface(topParams))
-    case "aws-sim"        => IO(new AWSInterface(topParams))
+    case "aws-sim"    => IO(new AWSInterface(topParams))
     case "zynq"       => IO(new ZynqInterface(topParams))
     case "de1soc"     => IO(new DE1SoCInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
@@ -174,7 +181,7 @@ class Top(
     case "verilator" | "vcs" =>
       // Simulation Fringe
       val blockingDRAMIssue = false
-      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[VerilatorInterface]
 
       // Fringe <-> Host connections
@@ -213,7 +220,7 @@ class Top(
     case "de1soc" =>
       // DE1SoC Fringe
       val blockingDRAMIssue = false
-      val fringe = Module(new FringeDE1SoC(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+      val fringe = Module(new FringeDE1SoC(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[DE1SoCInterface]
 
       // Fringe <-> Host connections
@@ -296,7 +303,7 @@ class Top(
       val topIO = io.asInstanceOf[ZynqInterface]
 
       val blockingDRAMIssue = false // Allow only one in-flight request, block until response comes back
-      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
+      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
 
       // Fringe <-> Host connections
       fringe.io.S_AXI <> topIO.S_AXI
@@ -324,7 +331,7 @@ class Top(
       val topIO = io.asInstanceOf[AWSInterface]
       val blockingDRAMIssue = false  // Allow only one in-flight request, block until response comes back
 //      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
-      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
+      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
 
       // Fringe <-> DRAM connections
 //      topIO.dram <> fringe.io.dram

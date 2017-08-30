@@ -16,6 +16,7 @@ class FringeZynq(
   val numArgIns: Int,
   val numArgOuts: Int,
   val numArgIOs: Int,
+  val numChannels: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -41,7 +42,7 @@ class FringeZynq(
     val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
 
     // DRAM interface
-    val M_AXI = new AXI4Inlined(axiParams)
+    val M_AXI = Vec(numChannels, new AXI4Inlined(axiParams))
 
     // Accel Control IO
     val enable = Output(Bool())
@@ -64,7 +65,7 @@ class FringeZynq(
   val totalArgOuts = numArgOuts + 1 + 16
 
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
 
   // AXI-lite bridge
   if (FringeGlobals.target == "zynq") {
@@ -92,7 +93,9 @@ class FringeZynq(
   io.memStreams <> fringeCommon.io.memStreams
 
   // AXI bridge
-  val axiBridge = Module(new MAGToAXI4Bridge(axiParams, fringeCommon.mag.tagWidth))
-  axiBridge.io.in <> fringeCommon.io.dram
-  io.M_AXI <> axiBridge.io.M_AXI
+  io.M_AXI.zipWithIndex.foreach { case (maxi, i) =>
+    val axiBridge = Module(new MAGToAXI4Bridge(axiParams, fringeCommon.mags(i).tagWidth))
+    axiBridge.io.in <> fringeCommon.io.dram(i)
+    maxi <> axiBridge.io.M_AXI
+  }
 }

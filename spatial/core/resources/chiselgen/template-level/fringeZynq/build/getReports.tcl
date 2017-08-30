@@ -1,21 +1,17 @@
-source clockFreq.tcl
-
-## TARGET_ARCH must either be ZC706 or Zedboard
-set TARGET ZC706
-
-switch $TARGET {
-  "ZC706" {
-    set BOARD xilinx.com:zc706:part0:1.4
-    set PART xc7z045ffg900-2
-  }
-  "Zedboard" {
-    set BOARD em.avnet.com:zed:part0:1.3
-    set PART xc7z020clg484-1
-  }
-  default {
-    puts "$TARGET" is not a valid target! Must either be 'ZC706' or 'Zedboard'
-  }
+if { $argc != 1 } {
+  puts $argc
+  puts [llength $argv]
+  foreach i $argv {puts $i}
+  puts "The second arg is [lindex $argv 1]"; #indexes start at 0
+	puts "Usage: settings.tcl <clockFreqMHz>"
+  exit -1
 }
+
+set CLOCK_FREQ_MHZ [lindex $argv 0]
+set CLOCK_FREQ_HZ  [expr $CLOCK_FREQ_MHZ * 1000000]
+
+source settings.tcl
+
 
 ## Create a second project to build the design
 open_project ./project_1/project_1.xpr -part $PART
