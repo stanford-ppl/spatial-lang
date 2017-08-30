@@ -1,6 +1,3 @@
-set CLOCK_FREQ_MHZ 100
-set CLOCK_FREQ_HZ  [expr $CLOCK_FREQ_MHZ * 1000000]
-
 ## TARGET_ARCH must either be ZC706 or Zedboard
 set TARGET ZC706
 #set TARGET Zedboard

@@ -16,8 +16,9 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
 
   val size = io.in.cmd.bits.size
   // AR
+  val id = Cat(io.in.cmd.bits.streamId, io.in.cmd.bits.tag((p.idBits - tagWidth)-1, 0)) // Fill(p.idBits - tagWidth,  0.U))
 //  io.M_AXI.ARID     := 0.U
-  io.M_AXI.ARID     := ShiftRegister(io.in.cmd.bits.streamId, numPipelinedLevels)
+  io.M_AXI.ARID     := ShiftRegister(id, numPipelinedLevels)
   io.M_AXI.ARUSER   := ShiftRegister(io.in.cmd.bits.streamId, numPipelinedLevels)
   io.M_AXI.ARADDR   := ShiftRegister(io.in.cmd.bits.addr, numPipelinedLevels)
   io.M_AXI.ARLEN    := ShiftRegister(size - 1.U, numPipelinedLevels)
@@ -32,7 +33,7 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
 
   // AW
 //  io.M_AXI.AWID     := 0.U
-  io.M_AXI.AWID     := ShiftRegister(io.in.cmd.bits.streamId, numPipelinedLevels)
+  io.M_AXI.AWID     := ShiftRegister(id, numPipelinedLevels)
   io.M_AXI.AWUSER   := ShiftRegister(io.in.cmd.bits.streamId, numPipelinedLevels)
   io.M_AXI.AWADDR   := ShiftRegister(io.in.cmd.bits.addr, numPipelinedLevels)
   io.M_AXI.AWLEN    := ShiftRegister(size - 1.U, numPipelinedLevels)
@@ -74,6 +75,8 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
   io.in.rresp.bits.streamId := ShiftRegister(io.M_AXI.RID, numPipelinedLevels)
   io.in.wresp.bits.streamId := ShiftRegister(io.M_AXI.BID, numPipelinedLevels)
 
-  io.in.rresp.bits.tag := ShiftRegister(Cat(io.M_AXI.RID(tagWidth-1, 0), Fill(io.in.rresp.bits.tag.getWidth - tagWidth,  0.U)), numPipelinedLevels)
-  io.in.wresp.bits.tag := ShiftRegister(Cat(io.M_AXI.BID(tagWidth-1, 0), Fill(io.in.wresp.bits.tag.getWidth - tagWidth,  0.U)), numPipelinedLevels)
+//  io.in.rresp.bits.tag := ShiftRegister(Cat(io.M_AXI.RID(tagWidth-1, 0), Fill(io.in.rresp.bits.tag.getWidth - tagWidth,  0.U)), numPipelinedLevels)
+//  io.in.wresp.bits.tag := ShiftRegister(Cat(io.M_AXI.BID(tagWidth-1, 0), Fill(io.in.wresp.bits.tag.getWidth - tagWidth,  0.U)), numPipelinedLevels)
+  io.in.rresp.bits.tag := ShiftRegister(Cat(io.M_AXI.RID(p.idBits - 1, p.idBits - tagWidth), Fill(io.in.rresp.bits.tag.getWidth - tagWidth,  0.U)), numPipelinedLevels)
+  io.in.wresp.bits.tag := ShiftRegister(Cat(io.M_AXI.BID(p.idBits - 1, p.idBits - tagWidth), Fill(io.in.wresp.bits.tag.getWidth - tagWidth,  0.U)), numPipelinedLevels)
 }

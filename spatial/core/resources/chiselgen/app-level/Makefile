@@ -216,7 +216,7 @@ zynq: zynq-hw zynq-sw
 zynq-sw:
 	cp zynq.mk cpp/Makefile
 	make -C cpp -j8
-	tar -czf $(APPNAME).tar.gz -C ${ZYNQ_V_DIR} accel.bit.bin -C ../cpp Top -C fringeZynq/utils set_perms run.sh
+	tar -czf $(APPNAME).tar.gz -C ${ZYNQ_V_DIR} accel.bit.bin parClockFreq.sh -C ../cpp Top -C fringeZynq/utils set_perms setClocks.sh run.sh
 
 zynq-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs zynq"
