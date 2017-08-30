@@ -138,7 +138,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
       var ports = ""
 
       mem.writePort.foreach {
-        case LocalVectorBus => // Nothing?
+        //case LocalVectorBus => // Nothing?
         case LocalReadBus(vfifo) => ports += s".wtPort(${quote(vfifo)}.readPort)" 
         case vec => ports += s""".wtPort(${quote(vec)})"""
         //case None => throw new Exception(s"Memory $mem has no writePort defined")
@@ -206,7 +206,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
     case DramAddress(name, _, _)      => s"${name}_da"
     case InputArg(name, _)      => s"${name}_argin"
     case OutputArg(name)     => s"${name}_argout"
-    case LocalVectorBus      => "local"
     case bus:ScalarBus       => s"${bus.name}_s"
     case bus:VectorBus       => s"${bus.name}_v"
   }

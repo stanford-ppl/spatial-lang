@@ -431,6 +431,15 @@ class MAGCore(
     ctr.io.out
   }
 
+  def addWhen(en: UInt, value: UInt) = {
+    val ff = Module(new FF(32))
+    //ff.io.init := 15162342.U
+    ff.io.init := 0.U
+    ff.io.enable := en
+    ff.io.in := ff.io.out + value
+    ff.io.out
+  }
+
   var dbgCount = 0
   val signalLabels = ListBuffer[String]()
   def connectDbgSignal(sig: UInt, label: String = "") {
@@ -439,6 +448,15 @@ class MAGCore(
     signalLabels.append(label)
   }
 
+  connectDbgSignal(numCommandsCtr.io.out, "Num DRAM Commands")
+  connectDbgSignal(numReadCommandsCtr.io.out, "Read Commands")
+  connectDbgSignal(numWriteCommandsCtr.io.out, "Write Commands")
+
+  connectDbgSignal(getCounter(io.enable & io.dram.cmd.ready & io.dram.cmd.valid & io.dram.cmd.bits.isSparse), "Number of Sparse requests")
+  connectDbgSignal(getCounter(io.enable & io.dram.cmd.ready & io.dram.cmd.valid & io.dram.cmd.bits.isSparse & ~io.dram.cmd.bits.isWr), "Sparse reads")
+  connectDbgSignal(getCounter(io.enable & io.dram.cmd.ready & io.dram.cmd.valid & io.dram.cmd.bits.isSparse & io.dram.cmd.bits.isWr), "Sparse writes")
+  connectDbgSignal(addWhen(io.enable & io.dram.cmd.ready & io.dram.cmd.valid & ~io.dram.cmd.bits.isSparse & ~io.dram.cmd.bits.isWr, io.dram.cmd.bits.size), "Sum of size (#bursts) of dense loads")
+  connectDbgSignal(addWhen(io.enable & io.dram.cmd.ready & io.dram.cmd.valid & ~io.dram.cmd.bits.isSparse & io.dram.cmd.bits.isWr, io.dram.cmd.bits.size), "Sum of size (#bursts) of dense stores")
   connectDbgSignal(getCounter(io.enable), "Cycles")
   val rdataEnqCount = getCounter(respValid)
   // rdata enq values
