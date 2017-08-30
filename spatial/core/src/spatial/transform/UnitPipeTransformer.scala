@@ -95,8 +95,9 @@ case class UnitPipeTransformer(var IR: State) extends ForwardTransformer with Sp
     stages += PipeStage.empty(true)
 
     stms foreach {case stm@TP(s,d) =>
-      dbgs(c"$s = $d [primitive:${isPrimitiveNode(s)}, regRead:${isRegisterRead(s)}, alloc:${isAllocation(s)}, primAlloc:${isPrimitiveAllocation(s)}]")
-      if (isPrimitiveNode(s)) {
+      dbgs(c"$s = $d [primitive:${isPrimitiveNode(s) || isInnerSwitch(s)}, regRead:${isRegisterRead(s)}, alloc:${isAllocation(s)}, primAlloc:${isPrimitiveAllocation(s)}]")
+      // Consider inner switches to be primitive nodes
+      if (isPrimitiveNode(s) || isInnerSwitch(s)) {
         if (curStage.isControl) stages += PipeStage.empty(false)
         curStage.nodes += stm
       }

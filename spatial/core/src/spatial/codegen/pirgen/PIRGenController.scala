@@ -7,20 +7,17 @@ import scala.collection.mutable
 
 trait PIRGenController extends PIRCodegen with PIRTraversal {
 
-  def cus: mutable.Map[Expr,List[List[ComputeUnit]]]
   var allocatedReduce: Set[ReduceReg] = Set.empty
   val genControlLogic = false
 
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
     val blk = super.preprocess(block) // generateHeader
-    generateGlobals()
+    emitGlobals()
     blk
   }
 
-  def generateGlobals() {
-    val (mcs, buses) = globals.partition{case mc:MemoryController => true; case _ => false}
-    buses.filterNot(_.isInstanceOf[PIRDRAMBus]).foreach(emitComponent _)
-    mcs.foreach(emitComponent _)
+  def emitGlobals() {
+    globals.foreach(emitComponent _)
   }
 
   def emitAllStages(cu: ComputeUnit) {
@@ -141,7 +138,7 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
       var ports = ""
 
       mem.writePort.foreach {
-        case LocalVectorBus => // Nothing?
+        //case LocalVectorBus => // Nothing?
         case LocalReadBus(vfifo) => ports += s".wtPort(${quote(vfifo)}.readPort)" 
         case vec => ports += s""".wtPort(${quote(vec)})"""
         //case None => throw new Exception(s"Memory $mem has no writePort defined")
@@ -170,8 +167,8 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
       emit(s"""$lhs ${quote(mem.mode)}(${decl.mkString(",")})$ports""")
 
-    case mc@MemoryController(name,region,mode,parent) =>
-      emit(s"""val ${quote(mc)} = MemoryController($mode, ${quote(region)}).parent("${cus(parent).head.head.name}")""")
+    //case mc@MemoryController(name,region,mode,parent) =>
+      //emit(s"""val ${quote(mc)} = MemoryController($mode, ${quote(region)}).parent("${cus(parent).head.head.name}")""")
 
     case mem: OffChip   => emit(s"""val ${quote(mem)} = OffChip("${mem.name}")""")
     case bus: InputArg  => 
@@ -197,7 +194,6 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
   def quote(mode: LocalMemoryMode): String = mode match {
     case SRAMMode => "SRAM"
     case VectorFIFOMode => "VectorFIFO"
-    case FIFOOnWriteMode => "SemiFIFO"
     case ScalarBufferMode => "ScalarBuffer"
     case ScalarFIFOMode => "ScalarFIFO"
   }
@@ -206,16 +202,10 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
 
   def quote(x: GlobalComponent): String = x match {
     case OffChip(name)       => s"${name}_oc"
-    case mc:MemoryController => s"${mc.name}_mc"
+    //case mc:MemoryController => s"${mc.name}_mc"
     case DramAddress(name, _, _)      => s"${name}_da"
     case InputArg(name, _)      => s"${name}_argin"
     case OutputArg(name)     => s"${name}_argout"
-    case LocalVectorBus      => "local"
-    case PIRDRAMDataIn(mc)      => s"${quote(mc)}.data"
-    case PIRDRAMDataOut(mc)     => s"${quote(mc)}.data"
-    case PIRDRAMOffset(mc)      => s"${quote(mc)}.ofs"
-    case PIRDRAMLength(mc)      => s"${quote(mc)}.len"
-    case PIRDRAMAddress(mc)     => s"${quote(mc)}.addrs"
     case bus:ScalarBus       => s"${bus.name}_s"
     case bus:VectorBus       => s"${bus.name}_v"
   }

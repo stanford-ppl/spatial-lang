@@ -4,6 +4,8 @@ organization in ThisBuild := "stanford-ppl"
 
 version in ThisBuild := "1.0"
 
+name := "spatial-lang"
+
 isSnapshot in ThisBuild := true
 
 val scalatestVersion = "3.0.1"
@@ -50,5 +52,8 @@ lazy val apps = project
   .settings(assemblySettings)
   .settings(assemblyJarName in assembly := "apps.jar")
 
+val pirApps = List("DotProduct", "OuterProduct", "GEMM_Blocked", "SPMV_CRS", "PageRank_plasticine", "BlackScholes", 
+                    "TPCHQ6", "Kmeans_plasticine", "GDA", "Gibbs_Ising2D", "Backprop")
+addCommandAlias("pirapps", pirApps.map { app => s"; apps/run-main $app --cgra+" }.mkString("; ") )
 addCommandAlias("spatial", "; apps/run-main")
 addCommandAlias("make", "; apps/compile")

@@ -18,6 +18,7 @@ class FringeDE1SoC(
   val numArgOuts: Int,
   val numArgIOs: Int,
   val numChannels: Int,
+  val numArgInstrs: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -39,7 +40,7 @@ class FringeDE1SoC(
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
   })
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, numArgInstrs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
 
   // Connect to Avalon Slave
   // Avalon is using reset and write_n

@@ -95,8 +95,11 @@ for type in ${types[@]}; do
 			tmpuser=${USER}
   		fi
   		if timeout 2 nc -z ${fields[0]}.stanford.edu 22 2>/dev/null; then
-			existing_scala_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*scala" | wc -l`
-			existing_chizl_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*chisel" | wc -l`
+			# existing_scala_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*scala" | wc -l`
+			# existing_chizl_runs=`ssh $tmpuser@${fields[0]}.stanford.edu "ls -al ${fields[1]}" | grep " 20[1-2][0-9].*chisel" | wc -l`
+			existing_scala_runs=`ls -al /remote/regression/mapping | grep " 20[1-2][0-9].*scala---${fields[0]}" | wc -l`
+			existing_chizl_runs=`ls -al /remote/regression/mapping | grep " 20[1-2][0-9].*chisel---${fields[0]}" | wc -l`
+
 			# Weigh chisel runs by 2 and scala runs by 1 because chisel takes so much longer
 			existing_runs=$((2*$existing_chizl_runs + $existing_scala_runs))
 		else 
@@ -105,6 +108,7 @@ for type in ${types[@]}; do
 		fi
 		# echo "${fields[0]} has ${existing_runs} runs going (current best ${most_idle})"
 
+		# Implement blacklists
 		if [[ ${existing_runs} -lt $most_idle ]]; then
 			if [[ $type = "chisel" && ${fields[0]} = "max-2" ]]; then
 				echo ""
@@ -112,6 +116,9 @@ for type in ${types[@]}; do
 			elif [[ $type = "chisel" && ${fields[0]} = "tflop1" ]]; then
 				echo ""
 				# Do not let chisel run on tflop1 for now
+			elif [[ $type = "chisel" && ${fields[0]} = "portland" && $branch = "syncMem" ]]; then
+				echo ""
+				# Do not let chisel run syncMem on portland because Backprop, GEMM_Blocked, Sort_Radix, and a few others hang mysteriously
 			else 
 				candidate=$dst
 				most_idle=$existing_runs

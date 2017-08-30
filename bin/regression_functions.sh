@@ -718,6 +718,8 @@ sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top
 sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
 sed -i 's/\\\$vcdpluson/\\/\\/\\\$vcdpluson/g' chisel/template-level/fringeVCS/Top-harness.sv
+// New way of disabling vcd
+sed -i 's/vcdon = .*;/vcdon = 0;/g' chisel/template-level/fringeVCS/Top-harness.sv
 
 make vcs 2>&1 | tee -a ${5}/log" >> $1
   if [[ ${type_todo} = "chisel" ]]; then
@@ -859,6 +861,18 @@ launch_tests() {
       types_list=("${types_list[@]}" $tp)
     fi
   done
+
+  # Stick unit tests up first
+  t=()
+  if [[ ${types_list[@]} = *"Unit"* ]]; then
+    t=("Unit")
+    for ac in ${types_list[@]}; do
+      if [[ $ac != *"Unit"* ]]; then
+        t=("${t[@]}" $ac)
+      fi
+    done
+  fi
+  type_list=${t[@]}
 
   # Make reg test dir
   rm -rf ${SPATIAL_HOME}/regression_tests;mkdir ${SPATIAL_HOME}/regression_tests

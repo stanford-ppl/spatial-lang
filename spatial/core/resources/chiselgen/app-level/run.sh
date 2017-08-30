@@ -6,7 +6,7 @@ else
 fi
 export USE_IDEAL_DRAM=$ideal
 export DRAM_DEBUG=0
-export DEBUG_REGS=0
+export DEBUG_REGS=1
 export VPD_ON=0
 export VCD_ON=0
 export DRAM_NUM_OUTSTANDING_BURSTS=-1  # -1 == infinite number of outstanding bursts

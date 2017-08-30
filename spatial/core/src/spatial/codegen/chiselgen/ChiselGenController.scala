@@ -16,6 +16,8 @@ trait ChiselGenController extends ChiselGenCounter{
   /* Set of control nodes which already have their done signal emitted */
   var doneDeclaredSet = Set.empty[Exp[Any]]
 
+  var instrumentCounters: List[(Exp[_], Int)] = List()
+
   /* For every iter we generate, we track the children it may be used in.
      Given that we are quoting one of these, look up if it has a map entry,
      and keep getting parents of the currentController until we find a match or 
@@ -49,10 +51,27 @@ trait ChiselGenController extends ChiselGenCounter{
     }
   }
 
+  def createInstrumentation(lhs: Sym[Any]): Unit = {
+    if (SpatialConfig.enableInstrumentation) {
+      val ctx = s"${lhs.ctx}"
+      emitInstrumentation(src"""// Instrumenting $lhs, context: ${ctx}, depth: ${controllerStack.length}""")
+      emitInstrumentation(src"""val ${lhs}_cycles = Module(new InstrumentationCounter())""")
+      emitInstrumentation(src"${lhs}_cycles.io.enable := ${lhs}_en")
+      emitInstrumentation(src"""val ${lhs}_iters = Module(new InstrumentationCounter())""")
+      emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${lhs}_done)")
+      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).bits := ${lhs}_cycles.io.count""")
+      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).valid := RootController_done""")
+      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).bits := ${lhs}_iters.io.count""")
+      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).valid := RootController_done""")
+      instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
+    }
+  }
+
   def emitValids(lhs: Exp[Any], cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
-        emit(src"val ${v}${suffix} = Mux(${cchain}${suffix}_strides($i) >= 0.S, ${c}${suffix} < ${cchain}${suffix}_stops(${i}), ${c}${suffix} > ${cchain}${suffix}_stops(${i})) // TODO: Generate these inside counter")
+        emitGlobalWire(src"val ${v}${suffix} = Wire(Bool())")
+        emit(src"${v}${suffix} := Mux(${cchain}${suffix}_strides($i) >= 0.S, ${c}${suffix} < ${cchain}${suffix}_stops(${i}), ${c}${suffix} > ${cchain}${suffix}_stops(${i})) // TODO: Generate these inside counter")
         if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
           emitGlobalModule(src"""val ${v}${suffix}_chain = Module(new NBufFF(${childrenOf(lhs).size}, 1))""")
           childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""val ${v}${suffix}_chain_read_$i = ${v}${suffix}_chain.read(${i}) === 1.U(1.W)""")}
@@ -115,7 +134,6 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     }
     result
-
   }
 
   protected def findCtrlAncestor(lhs: Exp[_]): Option[Exp[_]] = {
@@ -260,11 +278,48 @@ trait ChiselGenController extends ChiselGenCounter{
 
   }
 
+  // Method for looking ahead to see if any streamEnablers need to be remapped fifo signals
+  def remappedEns(node: Exp[Any], ens: List[Exp[Any]]): String = {
+    var previousLevel: Exp[_] = node
+    var nextLevel: Option[Exp[_]] = Some(parentOf(node).get)
+    var result = ens.map(quote)
+    while (nextLevel.isDefined) {
+      if (styleOf(nextLevel.get) == StreamPipe) {
+        nextLevel.get match {
+          case Def(UnrolledForeach(_,_,_,_,e)) => 
+            ens.map{ my_en => 
+              e.map{ their_en => 
+                if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
+                  result = result.filter{a => src"$a" != src"$my_en"} :+ src"${my_en}_copy${previousLevel}"
+                }
+              }
+            }
+          case _ => // do nothing
+          // case Def(UnitPipe(e,_)) => 
+          //   ens.map{ my_en => 
+          //     e.map{ their_en => 
+          //       if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
+          //         result = result.filter{a => src"$a" != src"$my_en"} :+ src"${my_en}_copy${previousLevel}"
+          //       }
+          //     }
+          //   }
+        }
+        nextLevel = None
+      } else {
+        previousLevel = nextLevel.get
+        nextLevel = parentOf(nextLevel.get)
+      }
+    }
+    result.mkString("&")
+
+  }
+
+
   def getStreamEnablers(c: Exp[Any]): String = {
       // If we are inside a stream pipe, the following may be set
       // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
       val lat = bodyLatency.sum(c)
-      val readiers = listensTo(c).distinct.map {
+      val readiers = listensTo(c).distinct.map{_.memory}.map {
         case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
         case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
         case fifo @ Def(StreamInNew(bus)) => bus match {
@@ -273,12 +328,20 @@ trait ChiselGenController extends ChiselGenCounter{
         }
         case fifo => src"${fifo}_en" // parent node
       }.filter(_ != "").mkString(" & ")
-      val holders = pushesTo(c).distinct.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.full.D(${lat} + 1, rr)"
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.full.D(${lat} + 1, rr)"
+      val holders = pushesTo(c).distinct.map { pt => pt.memory match {
+        case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
+          pt.access match {
+            case Def(FIFOEnq(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(ParFIFOEnq(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+          }
+        case fifo @ Def(FILONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
+          pt.access match {
+            case Def(FILOPush(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(ParFILOPush(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+          }
         case fifo @ Def(StreamOutNew(bus)) => src"${fifo}_ready"
-        case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"
-      }.filter(_ != "").mkString(" & ")
+        case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"        
+      }}.filter(_ != "").mkString(" & ")
 
       val hasHolders = if (holders != "") "&" else ""
       val hasReadiers = if (readiers != "") "&" else ""
@@ -289,7 +352,9 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
-    val hasStreamIns = listensTo(sym).distinct.exists{
+    createInstrumentation(sym)
+
+    val hasStreamIns = listensTo(sym).distinct.map{_.memory}.exists{
       case Def(StreamInNew(SliderSwitch)) => false
       case Def(StreamInNew(_))            => true
       case _ => false
@@ -735,4 +800,25 @@ trait ChiselGenController extends ChiselGenCounter{
 
     case _ => super.emitNode(lhs, rhs)
   }
+
+  override protected def emitFileFooter() {
+    withStream(getStream("Instantiator")) {
+      emit("")
+      emit("// Instrumentation")
+      emit(s"val numArgOuts_instr = ${instrumentCounters.length*2}")
+      instrumentCounters.zipWithIndex.foreach { case(p,i) =>
+        val depth = " "*p._2
+        emit(src"""// ${depth}${quote(p._1)}""")
+      }
+    }
+
+    withStream(getStream("IOModule")) {
+      emit("// Instrumentation")
+      emit(s"val io_numArgOuts_instr = ${instrumentCounters.length*2}")
+
+    }
+
+    super.emitFileFooter()
+  }
+
 }

@@ -155,6 +155,7 @@
 ./chiselgen/app-level/zynq.mk
 ./chiselgen/app-level/build.sbt
 ./chiselgen/app-level/vcs.mk
+./chiselgen/app-level/instrument.sh
 ./chiselgen/template-level/tests/utils/TemplateRunner.scala
 ./chiselgen/template-level/tests/templates/Sequential.scala
 ./chiselgen/template-level/tests/templates/Metapipe.scala

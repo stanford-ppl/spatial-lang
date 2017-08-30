@@ -27,6 +27,7 @@ case class TopParams(
   val numArgOuts: Int,
   val numArgIOs: Int,
   val numChannels: Int,
+  val numArgInstrs: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -138,6 +139,7 @@ class Top(
   val numArgIns: Int,
   val numArgOuts: Int,
   val numArgIOs: Int,
+  val numArgInstrs: Int,
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -160,7 +162,7 @@ class Top(
     case _      => 1
   }
 
-  val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, numChannels, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
+  val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
 
   FringeGlobals.target = target
 
@@ -175,13 +177,13 @@ class Top(
   }
 
   // Accel
-  val accel = Module(new AccelTop(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo))
+  val accel = Module(new AccelTop(w, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo))
 
   target match {
     case "verilator" | "vcs" =>
       // Simulation Fringe
       val blockingDRAMIssue = false
-      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[VerilatorInterface]
 
       // Fringe <-> Host connections
@@ -220,7 +222,7 @@ class Top(
     case "de1soc" =>
       // DE1SoC Fringe
       val blockingDRAMIssue = false
-      val fringe = Module(new FringeDE1SoC(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+      val fringe = Module(new FringeDE1SoC(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[DE1SoCInterface]
 
       // Fringe <-> Host connections
@@ -303,7 +305,7 @@ class Top(
       val topIO = io.asInstanceOf[ZynqInterface]
 
       val blockingDRAMIssue = false // Allow only one in-flight request, block until response comes back
-      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
+      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
 
       // Fringe <-> Host connections
       fringe.io.S_AXI <> topIO.S_AXI
@@ -331,7 +333,7 @@ class Top(
       val topIO = io.asInstanceOf[AWSInterface]
       val blockingDRAMIssue = false  // Allow only one in-flight request, block until response comes back
 //      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
-      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
+      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
 
       // Fringe <-> DRAM connections
 //      topIO.dram <> fringe.io.dram

@@ -9,6 +9,7 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
   override val name = "PIR Splitting"
   override val recurse = Always
 
+  def mapping:mutable.Map[Expr, List[CU]]
   val mappingIn  = mutable.HashMap[Expr, List[CU]]()
   val mappingOut = mutable.HashMap[Expr, List[List[CU]]]()
 
@@ -28,6 +29,18 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
     comp=READ_WRITE,
     regsMax = SpatialConfig.regs_PMU
   )
+
+  override def preprocess[S:Type](b: Block[S]): Block[S] = {
+    mappingIn.clear
+    mappingIn ++= mapping
+    super.preprocess(b)
+  }
+
+  override def postprocess[S:Type](b: Block[S]): Block[S] = {
+    mapping.clear
+    mapping ++= mappingOut.map { case (k, v) => k -> v.flatten }
+    super.postprocess(b)
+  }
 
   override def process[S:Type](b: Block[S]) = {
     try {

@@ -84,7 +84,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       // If we are inside a stream pipe, the following may be set
       // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
       val lat = bodyLatency.sum(c)
-      val readiers = listensTo(c).distinct.map {
+      val readiers = listensTo(c).distinct.map{_.memory}.map {
         case fifo @ Def(StreamInNew(bus)) => src"${fifo}_valid"
         case _ => ""
       }.filter(_ != "").mkString(" & ")
@@ -97,7 +97,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   def getNowValidLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
       // If we are inside a stream pipe, the following may be set
-      val readiers = listensTo(c).distinct.map {
+      val readiers = listensTo(c).distinct.map{_.memory}.map {
         case fifo @ Def(StreamInNew(bus)) => src"${fifo}_now_valid" //& ${fifo}_ready"
         case _ => ""
       }.mkString(" & ")
@@ -106,7 +106,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   }
   def getReadyLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
       // If we are inside a stream pipe, the following may be set
-      val readiers = listensTo(c).distinct.map {
+      val readiers = listensTo(c).distinct.map{_.memory}.map {
         case fifo @ Def(StreamInNew(bus)) => src"${fifo}_ready"
         case _ => ""
       }.mkString(" & ")
@@ -200,7 +200,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := ShiftRegister(${data}(i).r, $delay)}")        
     } else {
       if (isBool) {
-        emit(src"""val $lhs = ${data}.D($delay, rr)""")
+        emitGlobalWire(src"""val $lhs = Wire(Bool())""");emit(src"""$lhs := ${data}.D($delay, rr)""")
       } else {
         emit(src"""val $lhs = ShiftRegister($data, $delay)""")
       }

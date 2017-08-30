@@ -103,6 +103,16 @@ class RedxnCtr(val width: Int = 32) extends Module {
   io.output.done := isDone
 }
 
+class InstrumentationCounter(val width: Int = 64) extends Module {
+  val io = IO(new Bundle {
+    val enable = Input(Bool())
+    val count = Output(UInt(width.W))
+  })
+
+  val ff = RegInit(0.U(width.W))
+  ff := Mux(io.enable, ff + 1.U(width.W), ff)
+  io.count := ff
+}
 /**
  * SingleCounter: 1-dimensional counter. Counts upto 'stop', each time incrementing
  * by 'stride', beginning at zero.

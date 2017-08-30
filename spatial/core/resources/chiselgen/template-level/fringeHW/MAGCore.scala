@@ -112,7 +112,7 @@ class MAGCore(
   if (enableHwAsserts) {
     for (i <- 0 until numStreams) {
       val str3 = s"ERROR: addrFifo $i enqVld is high when not enabled!"
-      assert((io.enable & cmds(i).valid) | (io.enable & ~cmds(i).valid) | (~io.enable & ~cmds(i).valid), str3)
+      if (FringeGlobals.target != "verilator") assert((io.enable & cmds(i).valid) | (io.enable & ~cmds(i).valid) | (~io.enable & ~cmds(i).valid), str3)
     }
   }
 
@@ -403,7 +403,7 @@ class MAGCore(
   }
 
   // Some assertions
-  if (enableHwAsserts) {
+  if (enableHwAsserts & FringeGlobals.target != "verilator") {
     assert((dramCmdValid & io.enable) | (~io.enable & ~dramCmdValid) | (io.enable & ~dramCmdValid), "DRAM command is valid when enable == 0!")
   }
 
@@ -431,6 +431,15 @@ class MAGCore(
     ctr.io.out
   }
 
+  def addWhen(en: UInt, value: UInt) = {
+    val ff = Module(new FF(32))
+    //ff.io.init := 15162342.U
+    ff.io.init := 0.U
+    ff.io.enable := en
+    ff.io.in := ff.io.out + value
+    ff.io.out
+  }
+
   var dbgCount = 0
   val signalLabels = ListBuffer[String]()
   def connectDbgSignal(sig: UInt, label: String = "") {
@@ -441,6 +450,7 @@ class MAGCore(
 
   connectDbgSignal(getCounter(io.enable, 40), "Cycles")
   val rdataEnqCount = getCounter(io.dram.rresp.valid & io.dram.rresp.ready)
+
   // rdata enq values
   for (i <- 0 until numRdataDebug) {
     for (j <- 0 until numRdataWordsDebug) {
