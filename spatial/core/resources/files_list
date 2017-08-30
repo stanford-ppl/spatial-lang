@@ -704,7 +704,6 @@
 ./chiselgen/template-level/fringeVCS/DRAMSim2/ClockDomain.cpp
 ./chiselgen/template-level/fringeVCS/DRAMSim2/PrintMacros.h
 ./chiselgen/template-level/fringeVCS/DRAMSim2/SimulatorObject.h
-./chiselgen/template-level/fringeVCS/DRAMSim2/tags
 ./chiselgen/template-level/fringeVCS/DRAMSim2/IniReader.cpp
 ./chiselgen/template-level/fringeVCS/DRAMSim2/BankState.h
 ./chiselgen/template-level/fringeVCS/DRAMSim2/addgpl.sh
