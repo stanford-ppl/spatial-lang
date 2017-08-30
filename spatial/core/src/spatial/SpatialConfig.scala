@@ -73,6 +73,10 @@ object SpatialConfig {
   var enableInstrumentation: Boolean = _
   var enableTree: Boolean = _
 
+  def enableBufferCoalescing: Boolean = !enablePIR
+  def enablePrimitiveSwitches: Boolean = !enablePIR
+  def removeParallelNodes: Boolean = enablePIR
+
   var sIn_UCU: Int = _
   var stages_UCU: Int = _
 

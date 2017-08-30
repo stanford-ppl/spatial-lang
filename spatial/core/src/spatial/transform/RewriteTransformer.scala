@@ -15,7 +15,7 @@ import spatial.utils._
 case class RewriteTransformer(var IR: State) extends ForwardTransformer{
   override val name = "Rewrite Transformer"
 
-  object Mirrored { def unapply[T](x: Exp[T]): Option[Exp[T]] = Some(f(x)) }
+  private case object RemovedParallel { override def toString = "\"Parallel was removed\"" }
 
   override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx) = rhs match {
     // Change a write from a mux with the register or some other value to an enabled register write
@@ -37,8 +37,9 @@ case class RewriteTransformer(var IR: State) extends ForwardTransformer{
       case _ => super.transform(lhs, rhs)
     }
 
-    case ParallelPipe(en,func) if SpatialConfig.enablePIR =>
-      func.inline.asInstanceOf[Exp[T]]
+    case ParallelPipe(en,func) if SpatialConfig.removeParallelNodes =>
+      func.inline // TODO: Need to account for enables here?
+      constant(typ[T])(RemovedParallel)
 
     case Switch(body, selects, cases) =>
       if (selects.forall(_.isConst)) {

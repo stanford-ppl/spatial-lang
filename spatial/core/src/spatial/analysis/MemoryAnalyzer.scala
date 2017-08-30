@@ -390,7 +390,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
         // 2. Coalesce remaining instance groups based on brute force search, if it's feasible
         exhaustiveBufferMerge(insts).toList
 
-      // TODO: Merging for time multiplexed
+      // TODO: Merging for time multiplexed?
       case (None, instances) => instances
     }
   }
@@ -439,7 +439,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       }
     }
 
-    val coalescedGroups = coalesceMemories(mem, instanceGroups)
+    val coalescedGroups = if (SpatialConfig.enableBufferCoalescing) coalesceMemories(mem, instanceGroups) else instanceGroups
 
     dbg("")
     dbg("")
