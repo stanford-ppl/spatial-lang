@@ -76,7 +76,10 @@ object Arguments {
     (1,4,56,1,1),
     (3,6,48,1,1),
     (6,3,48,1,1)
-
+  )
+  val GeneralFIFO = List(
+    (List(1),List(1),80,16),
+    (List(1),List(2),50,32)
   )
   val FILO = List(
     (1,1,10,1,1),
@@ -89,6 +92,9 @@ object Arguments {
   )
   val SingleCounter = List(
     (1,8),(3,9)
+  )
+  val CompactingCounter = List(
+    (1,8,16),(3,12,16),(8, 25,16)
   )
   val FixedPointTester = List(
     (false,16,16)
@@ -265,6 +271,14 @@ object Launcher {
       }) 
   }.toMap
 
+  templates = templates ++ Arguments.GeneralFIFO.zipWithIndex.map{ case(arg,i) => 
+    (s"GeneralFIFO$i" -> { (backendName: String) =>
+        Driver(() => new GeneralFIFO(arg), "verilator") {
+          (c) => new GeneralFIFOTests(c)
+        }
+      }) 
+  }.toMap
+
   templates = templates ++ Arguments.FILO.zipWithIndex.map{ case(arg,i) => 
     (s"FILO$i" -> { (backendName: String) =>
         Driver(() => new FILO(arg), "verilator") {
@@ -277,6 +291,14 @@ object Launcher {
     (s"SingleCounter$i" -> { (backendName: String) =>
         Driver(() => new SingleCounter(arg), "verilator") {
           (c) => new SingleCounterTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.CompactingCounter.zipWithIndex.map{ case(arg,i) => 
+    (s"CompactingCounter$i" -> { (backendName: String) =>
+        Driver(() => new CompactingCounter(arg), "verilator") {
+          (c) => new CompactingCounterTests(c)
         }
       }) 
   }.toMap

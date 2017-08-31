@@ -103,6 +103,36 @@ class RedxnCtr(val width: Int = 32) extends Module {
   io.output.done := isDone
 }
 
+class CompactingCounter(val lanes: Int, val depth: Int, val width: Int) extends Module {
+  def this(tuple: (Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3)
+  val io = IO(new Bundle {
+    val input = new Bundle {
+      val dir = Input(Bool())
+      val reset  = Input(Bool())
+      val enables = Vec(lanes, Input(Bool()))
+    }
+    val output = new Bundle {
+      val done   = Output(Bool())
+      val count  = Output(SInt(width.W))
+    }
+  })
+
+  val base = Module(new FF((width)))
+  base.io.input(0).init := 0.U(width.W)
+  base.io.input(0).reset := io.input.reset
+  base.io.input(0).enable := io.input.enables.reduce{_|_}
+
+  val count = base.io.output.data.asSInt
+  val num_enabled = io.input.enables.map{e => Mux(e, 1.S(width.W), 0.S(width.W))}.reduce{_+_}
+  val newval = count + Mux(io.input.dir, num_enabled, -num_enabled)
+  val isMax = Mux(io.input.dir, newval >= depth.S, newval <= 0.S)
+  val next = Mux(isMax, newval - depth.S(width.W), newval)
+  base.io.input(0).data := Mux(io.input.reset, 0.asUInt, next.asUInt)
+
+  io.output.count := base.io.output.data.asSInt
+  io.output.done := io.input.enables.reduce{_|_} & isMax
+}
+
 class InstrumentationCounter(val width: Int = 64) extends Module {
   val io = IO(new Bundle {
     val enable = Input(Bool())

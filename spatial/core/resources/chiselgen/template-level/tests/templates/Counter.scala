@@ -133,6 +133,84 @@ class SingleCounterTests(c: SingleCounter) extends PeekPokeTester(c) {
 
 }
 
+class CompactingCounterTests(c: CompactingCounter) extends PeekPokeTester(c) {
+
+  // def check(wire: Any, value: Any, printon: Bool) {
+  //   val a = peek(wire)
+  //   if (printon) println("Expect " + a + " to be " + value)
+  //   expect(wire, value)
+  // }
+
+  var numEnabledCycles = 0
+  var expectedCount = 0
+  var expectedDone = 0
+
+  step(1)
+  reset(1)
+
+  var enable = 0
+
+  def testOneStep(ens: Seq[Int]) = {
+    step(1)
+    val num_enabled = ens.reduce{_+_}
+    numEnabledCycles += num_enabled
+    (0 until c.lanes).foreach{i => poke(c.io.input.enables(i), ens(i))}
+    step(1)
+    (0 until c.lanes).foreach{i => poke(c.io.input.enables(i), 0)}
+
+    val done = if ( ((numEnabledCycles % c.depth) + num_enabled >= c.depth) & (enable == 1) ) 1 else 0
+    // val a = peek(c.io.output.count(0))
+    // val b = peek(c.io.output.count(1))
+    // val cc = peek(c.io.output.done)
+    // println(s"SingleCounters at $a, $b, (want $count), stop $stop done? $cc expected? $done because ${(count + c.par*stride + gap)} satmode $saturate")
+    // if (cc != done) println("           ERROR!!!!!!!!!!!!!! \n\n")
+
+    // Check signal values
+    expect(c.io.output.done, done)
+    // expect(c.io.output.count, numEnabledCycles % c.depth)
+  }
+
+  poke(c.io.input.dir, 1)
+  (0 until c.lanes).foreach{i => poke(c.io.input.enables(i), 0)}
+  step(5)
+  poke(c.io.input.reset, 1)
+  step(1)
+  poke(c.io.input.reset, 0)
+  step(1)
+
+  for (i <- 1 until 20) {
+    // Generate enable vector
+    val ens = (0 until c.lanes).map{i => rnd.nextInt(2)}
+    testOneStep(ens)
+  }
+
+  // Test stall
+  for (i <- 1 until 5) {
+    val ens = (0 until c.lanes).map{i => 0}
+    testOneStep(ens)
+  }
+
+  // Continue
+  for (i <- 1 until c.depth) {
+    // Generate enable vector
+    val ens = (0 until c.lanes).map{i => rnd.nextInt(2)}
+    testOneStep(ens)
+  }
+
+  // Reset and go again
+  numEnabledCycles = 0
+  poke(c.io.input.reset, 1)
+  step(1)
+  poke(c.io.input.reset, 0)
+  for (i <- 1 until c.depth) {
+    // Generate enable vector
+    val ens = (0 until c.lanes).map{i => rnd.nextInt(2)}
+    testOneStep(ens)
+  }
+
+}
+
+
 class CounterTests(c: Counter) extends PeekPokeTester(c) {
 
   // Test triple nested counter

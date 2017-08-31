@@ -184,6 +184,269 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
 
 }
 
+class enqPort(val w: Int) extends Bundle {
+  val data = UInt(w.W)
+  val en = Bool()
+
+  override def cloneType = (new enqPort(w)).asInstanceOf[this.type] // See chisel3 bug 358
+}
+
+class Compactor(val ports: List[Int], val banks: Int, val width: Int, val bitWidth: Int = 32) extends Module {
+  val num_compactors = ports.max
+  val io = IO( new Bundle {
+      val numEnabled =Input(UInt(width.W))
+      val in = Vec(ports.reduce{_+_}, Input(new enqPort(bitWidth)))
+      val out = Vec(num_compactors, Output(new enqPort(bitWidth)))
+    })
+
+    val compacted = (0 until num_compactors).map{i => 
+      val num_inputs_per_bundle = ports.map{p => if (i < p) p-i else 0}
+      val mux_selects = num_inputs_per_bundle.zipWithIndex.map{case(j, id) => 
+        val in_start_id = ports.take(id).sum
+        val connect_start_id = num_inputs_per_bundle.take(id).sum
+        (0 until j).map{k => io.in(in_start_id + (ports(id) - j + k)).en}
+      }.flatten
+      val mux_datas = num_inputs_per_bundle.zipWithIndex.map{case(j, id) => 
+        val in_start_id = ports.take(id).sum
+        val connect_start_id = num_inputs_per_bundle.take(id).sum
+        (0 until j).map{k => io.in(in_start_id + (ports(id) - j + k)).data}
+      }.flatten
+      io.out(i).data := chisel3.util.PriorityMux(mux_selects, mux_datas)
+      io.out(i).en := i.U(width.W) < io.numEnabled
+    }
+}
+
+/* This consists of an innermost compactor, surrounded by a router.  The compactor
+   takes all of the enq ports in, has as many priority muxes as required for the largest
+   enq port bundle, and outputs the compacted enq port bundle.  The shifter takes this 
+   compacted bundle and shifts it so that they get connected to the correct fifo banks
+   outside of the module
+*/
+class CompactingEnqNetwork(val ports: List[Int], val banks: Int, val width: Int, val bitWidth: Int = 32) extends Module {
+  val io = IO( new Bundle {
+      val headCnt = Input(SInt(width.W))
+      val in = Vec(ports.reduce{_+_}, Input(new enqPort(bitWidth)))
+      val out = Vec(banks, Output(new enqPort(bitWidth)))
+      val debug1 = Output(Bool())
+      val debug2 = Output(Bool())
+    })
+
+  val numEnabled = io.in.map{i => Mux(i.en, 1.U(width.W), 0.U(width.W))}.reduce{_+_}
+  val num_compactors = ports.max
+
+  // Compactor
+  val compactor = Module(new Compactor(ports, banks, width, bitWidth))
+  compactor.io.in := io.in
+  compactor.io.numEnabled := numEnabled
+
+  // Router
+  val current_base_bank = io.headCnt %-% banks.S(width.W)
+  val upper = current_base_bank + numEnabled.asSInt - banks.S(width.W)
+  val num_straddling = Mux(upper < 0.S(width.W), 0.S(width.W), upper)
+  val num_straight = (numEnabled.asSInt) - num_straddling
+  val outs = (0 until banks).map{ i =>
+    val lane_enable = Mux(i.S(width.W) < num_straddling | (i.S(width.W) >= current_base_bank & i.S(width.W) < current_base_bank + numEnabled.asSInt), true.B, false.B)
+    val id_from_base = Mux(i.S(width.W) < num_straddling, i.S(width.W) + num_straight, i.S(width.W) - current_base_bank)
+    val port_vals = (0 until num_compactors).map{ i => 
+      (i.U(width.W) -> compactor.io.out(i).data)
+    }
+    val lane_data = chisel3.util.MuxLookup(id_from_base.asUInt, 0.U(bitWidth.W), port_vals)
+    (lane_data,lane_enable)
+  }
+
+  (0 until banks).foreach{i => 
+    io.out(i).data := outs(i)._1
+    io.out(i).en := outs(i)._2
+  }
+}
+
+class CompactingDeqNetwork(val ports: List[Int], val banks: Int, val width: Int, val bitWidth: Int = 32) extends Module {
+  val io = IO( new Bundle {
+      val tailCnt = Input(SInt(width.W))
+      val input = new Bundle{
+        val data = Vec(banks, Input(UInt(bitWidth.W)))
+        val deq = Vec(ports.reduce{_+_}, Input(Bool()))
+      }
+      val output = new Bundle{
+        val data = Vec(ports.max, Output(UInt(bitWidth.W)))
+      }
+    })
+
+  // Compactor
+  val num_compactors = ports.max
+  // val numPort_width = 1 + Utils.log2Up(ports.max)
+  val numEnabled = io.input.deq.map{i => Mux(i, 1.U(width.W), 0.U(width.W))}.reduce{_+_}
+
+  // Router
+  val current_base_bank = io.tailCnt %-% banks.S(width.W)
+  val upper = current_base_bank + numEnabled.asSInt - banks.S(width.W)
+  val num_straddling = Mux(upper < 0.S(width.W), 0.S(width.W), upper)
+  val num_straight = (numEnabled.asSInt) - num_straddling
+  (0 until ports.max).foreach{ i =>
+    val id_from_base = Mux(i.S(width.W) < num_straddling, i.S(width.W) + num_straight, (i.S(width.W) + current_base_bank) %-% banks.S(width.W))
+    val port_vals = (0 until banks).map{ j => 
+      (j.U(width.W) -> io.input.data(j)) 
+    }
+    io.output.data(i) := chisel3.util.MuxLookup(id_from_base.asUInt, 0.U(bitWidth.W), port_vals)
+  }
+
+}
+
+class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitWidth: Int = 32) extends Module {
+  def this(tuple: (List[Int], List[Int], Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4)
+
+  val io = IO( new Bundle {
+    val in = Vec(pW.reduce{_+_}, Input(new enqPort(bitWidth)))
+    val out = Vec(pR.max, Output(UInt(bitWidth.W)))
+    val deq = Vec(pR.reduce{_+_}, Input(Bool()))
+    val numel = Output(UInt(32.W))
+    val almostEmpty = Output(Bool())
+    val almostFull = Output(Bool())
+    val empty = Output(Bool())
+    val full = Output(Bool())
+    val debug = new Bundle {
+      val overwrite = Output(Bool())
+      val overread = Output(Bool())
+      val error = Output(Bool())
+    }
+  })
+
+  // Create counters
+  val width = 2 + Utils.log2Up(depth)
+
+  val headCtr = Module(new CompactingCounter(pW.reduce{_+_}, depth, width))
+  val tailCtr = Module(new CompactingCounter(pR.reduce{_+_}, depth, width))
+  (0 until pW.reduce{_+_}).foreach{i => headCtr.io.input.enables(i) := io.in(i).en}
+  (0 until pR.reduce{_+_}).foreach{i => tailCtr.io.input.enables(i) := io.deq(i)}
+  headCtr.io.input.reset := reset
+  tailCtr.io.input.reset := reset
+  headCtr.io.input.dir := true.B
+  tailCtr.io.input.dir := true.B
+
+  // Register for tracking number of elements in FIFO
+  val elements = Mux(headCtr.io.output.count < tailCtr.io.output.count, headCtr.io.output.count + depth.S(width.W), headCtr.io.output.count - tailCtr.io.output.count)
+
+  // Create physical mems
+  val banks = max(pW.max, pR.max)
+  val m = (0 until banks).map{ i => Module(new Mem1D(depth/banks, true, bitWidth))}
+
+  // Create compacting network
+  val enqCompactor = Module(new CompactingEnqNetwork(pW, banks, width, bitWidth))
+  enqCompactor.io.headCnt := headCtr.io.output.count
+  (0 until pW.reduce{_+_}).foreach{i => enqCompactor.io.in(i) := io.in(i)}
+
+  // Connect compacting network to banks
+  val active_w_bank = headCtr.io.output.count %-% banks.S(width.W)
+  val active_w_addr = headCtr.io.output.count /-/ banks.S(width.W)
+  (0 until banks).foreach{i => 
+    val addr = Mux(i.S(width.W) < active_w_bank, active_w_addr + 1.S(width.W), active_w_addr)
+    m(i).io.w.addr := addr.asUInt
+    m(i).io.w.data := enqCompactor.io.out(i).data
+    m(i).io.w.en   := enqCompactor.io.out(i).en
+  }
+
+  // Create dequeue compacting network
+  val deqCompactor = Module(new CompactingDeqNetwork(pR, banks, width, bitWidth))
+  deqCompactor.io.tailCnt := tailCtr.io.output.count
+  val active_r_bank = tailCtr.io.output.count %-% banks.S(width.W)
+  val active_r_addr = tailCtr.io.output.count /-/ banks.S(width.W)
+  (0 until banks).foreach{i => 
+    val addr = Mux(i.S(width.W) < active_r_bank, active_r_addr + 1.S(width.W), active_r_addr)
+    m(i).io.r.addr := addr.asUInt
+    deqCompactor.io.input.data(i) := m(i).io.output.data
+  }
+  (0 until pR.reduce{_+_}).foreach{i =>
+    deqCompactor.io.input.deq(i) := io.deq(i)
+  }
+  (0 until pR.max).foreach{i =>
+    io.out(i) := deqCompactor.io.output.data(i)
+  }
+
+
+
+  // // Connect deqer
+  // if (pW == pR) {
+  //   m.zipWithIndex.foreach { case (mem, i) => 
+  //     mem.io.r.addr := reader.io.output.count(0).asUInt
+  //     mem.io.r.en := deq_options.reduce{_|_}
+  //     io.out(i) := mem.io.output.data
+  //   }
+  // } else {
+  //   (0 until pR).foreach { r_i => 
+  //     val rSel = Wire(Vec( (p/pR), Bool()))
+  //     val rData = Wire(Vec( (p/pR), UInt(32.W)))
+  //     (0 until (p /-/ pR)).foreach { i => 
+  //       m(r_i + i*-*pR).io.r.addr := reader.io.output.count(0).asUInt
+  //       m(r_i + i*-*pR).io.r.en := deq_options.reduce{_|_} & (subReader.io.output.count(0) === i.S(sr_width.W))
+  //       rSel(i) := subReader.io.output.count(0) === i.S(sr_width.W)
+  //       // if (i == 0) { // Strangeness from inc-then-read nuisance
+  //       //   rSel((p/pR)-1) := subReader.io.output.count(0) === i.U
+  //       // } else {
+  //       //   rSel(i-1) := subReader.io.output.count(0) === i.U
+  //       // }
+  //       rData(i) := m(r_i + i*-*pR).io.output.data
+  //     }
+  //     io.out(r_i) := chisel3.util.PriorityMux(rSel, rData)
+  //   }
+  // }
+
+  // // Check if there is data
+  // io.empty := elements.io.output.empty
+  // io.full := elements.io.output.full
+  // io.almostEmpty := elements.io.output.almostEmpty
+  // io.almostFull := elements.io.output.almostFull
+  // io.numel := elements.io.output.numel.asUInt
+
+  // // Debug signals
+  // io.debug.overread := elements.io.output.overread
+  // io.debug.overwrite := elements.io.output.overwrite
+  // io.debug.error := elements.io.output.overwrite | elements.io.output.overread
+
+  var wId = 0
+  def connectEnqPort(data: Vec[UInt], en: Bool): Unit = {
+    (0 until data.length).foreach{ i => 
+      io.in(pW.take(wId).sum + i) := data(i)
+    }
+    io.in(wId).en := en
+    wId += 1
+  }
+
+  var rId = 0
+  def connectDeqPort(en: Bool): Vec[UInt] = {
+    io.deq(rId) := en
+    rId += 1
+    io.out
+  }
+
+  // // Old empty and error tracking
+  // val ovW = Module(new SRFF())
+  // val ovR = Module(new SRFF())
+  // val www_c = writer.io.output.countWithoutWrap(0)*-*(p/pW).U + subWriter.io.output.count(0)
+  // val w_c = writer.io.output.count(0)*-*(p/pW).U + subWriter.io.output.count(0)
+  // val rww_c = reader.io.output.countWithoutWrap(0)*-*(p/pR).U + subReader.io.output.count(0)
+  // val r_c = reader.io.output.count(0)*-*(p/pR).U + subReader.io.output.count(0)
+  // val hasData = Module(new SRFF())
+  // hasData.io.input.set := (w_c === r_c) & io.enq & !(ovR.io.output.data | ovW.io.output.data)
+  // hasData.io.input.reset := (r_c + 1.U === www_c) & io.deq & !(ovR.io.output.data | ovW.io.output.data)
+  // io.empty := !hasData.io.output.data
+
+  // // Debugger
+  // val overwrite = hasData.io.output.data & (w_c === r_c) & io.enq // TODO: Need to handle sub-counters
+  // val fixed_overwrite = (www_c === r_c + 1.U) & io.deq
+  // ovW.io.input.set := overwrite
+  // ovW.io.input.reset := fixed_overwrite
+  // io.debug.overwrite := ovW.io.output.data
+  // val overread = !hasData.io.output.data & (w_c === r_c) & io.deq // TODO: Need to handle sub-counters
+  // val fixed_overread = (w_c + 1.U === rww_c) & io.enq
+  // ovR.io.input.set := overread
+  // ovR.io.input.reset := fixed_overread
+  // io.debug.overread := ovR.io.output.data
+
+  // io.debug.error := ovR.io.output.data | ovW.io.output.data
+
+
+}
+
 class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val numReaders: Int, val bitWidth: Int = 32) extends Module {
   def this(tuple: (Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
   def this(p: Int, depth: Int) = this(p, p, 1, 1, depth)
