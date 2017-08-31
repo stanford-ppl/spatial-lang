@@ -71,6 +71,7 @@ object SpatialConfig {
   var enableNaming: Boolean = _
   var enableSyncMem: Boolean = _
   var enableInstrumentation: Boolean = _
+  var useCheapFifos: Boolean = _
   var enableTree: Boolean = _
 
   var sIn_UCU: Int = _

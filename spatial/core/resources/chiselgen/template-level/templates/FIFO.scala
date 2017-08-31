@@ -335,7 +335,11 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
   tailCtr.io.input.dir := true.B
 
   // Register for tracking number of elements in FIFO
-  val elements = Mux(headCtr.io.output.count < tailCtr.io.output.count, headCtr.io.output.count + depth.S(width.W), headCtr.io.output.count - tailCtr.io.output.count)
+  val elements = Module(new CompactingIncDincCtr(pW.reduce{_+_}, pR.reduce{_+_}, depth, width))
+  (0 until pW.reduce{_+_}).foreach{i => elements.io.input.inc_en(i) := io.in(i).en}
+  (0 until pR.reduce{_+_}).foreach{i => elements.io.input.dinc_en(i) := io.deq(i)}
+
+    //Mux(headCtr.io.output.count < tailCtr.io.output.count, headCtr.io.output.count + depth.S(width.W), headCtr.io.output.count - tailCtr.io.output.count)
 
   // Create physical mems
   val banks = max(pW.max, pR.max)
@@ -373,60 +377,34 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
     io.out(i) := deqCompactor.io.output.data(i)
   }
 
+  // Check if there is data
+  io.empty := elements.io.output.empty
+  io.full := elements.io.output.full
+  io.almostEmpty := elements.io.output.almostEmpty
+  io.almostFull := elements.io.output.almostFull
+  io.numel := elements.io.output.numel.asUInt
 
-
-  // // Connect deqer
-  // if (pW == pR) {
-  //   m.zipWithIndex.foreach { case (mem, i) => 
-  //     mem.io.r.addr := reader.io.output.count(0).asUInt
-  //     mem.io.r.en := deq_options.reduce{_|_}
-  //     io.out(i) := mem.io.output.data
-  //   }
-  // } else {
-  //   (0 until pR).foreach { r_i => 
-  //     val rSel = Wire(Vec( (p/pR), Bool()))
-  //     val rData = Wire(Vec( (p/pR), UInt(32.W)))
-  //     (0 until (p /-/ pR)).foreach { i => 
-  //       m(r_i + i*-*pR).io.r.addr := reader.io.output.count(0).asUInt
-  //       m(r_i + i*-*pR).io.r.en := deq_options.reduce{_|_} & (subReader.io.output.count(0) === i.S(sr_width.W))
-  //       rSel(i) := subReader.io.output.count(0) === i.S(sr_width.W)
-  //       // if (i == 0) { // Strangeness from inc-then-read nuisance
-  //       //   rSel((p/pR)-1) := subReader.io.output.count(0) === i.U
-  //       // } else {
-  //       //   rSel(i-1) := subReader.io.output.count(0) === i.U
-  //       // }
-  //       rData(i) := m(r_i + i*-*pR).io.output.data
-  //     }
-  //     io.out(r_i) := chisel3.util.PriorityMux(rSel, rData)
-  //   }
-  // }
-
-  // // Check if there is data
-  // io.empty := elements.io.output.empty
-  // io.full := elements.io.output.full
-  // io.almostEmpty := elements.io.output.almostEmpty
-  // io.almostFull := elements.io.output.almostFull
-  // io.numel := elements.io.output.numel.asUInt
-
-  // // Debug signals
-  // io.debug.overread := elements.io.output.overread
-  // io.debug.overwrite := elements.io.output.overwrite
-  // io.debug.error := elements.io.output.overwrite | elements.io.output.overread
+  // Debug signals
+  io.debug.overread := elements.io.output.overread
+  io.debug.overwrite := elements.io.output.overwrite
+  io.debug.error := elements.io.output.overwrite | elements.io.output.overread
 
   var wId = 0
-  def connectEnqPort(data: Vec[UInt], en: Bool): Unit = {
+  def connectEnqPort(data: Vec[UInt], en: Vec[Bool]): Unit = {
     (0 until data.length).foreach{ i => 
-      io.in(pW.take(wId).sum + i) := data(i)
+      io.in(wId).data := data(i)
+      io.in(wId).en := en(i)
+      wId += 1
     }
-    io.in(wId).en := en
-    wId += 1
   }
 
   var rId = 0
-  def connectDeqPort(en: Bool): Vec[UInt] = {
-    io.deq(rId) := en
-    rId += 1
-    io.out
+  def connectDeqPort(en: Vec[Bool]): Vec[UInt] = {
+    Vec((0 until en.length).map{ i =>
+      io.deq(rId) := en(i)
+      rId += 1
+      io.out(i)
+    })
   }
 
   // // Old empty and error tracking

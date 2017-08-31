@@ -103,6 +103,38 @@ class RedxnCtr(val width: Int = 32) extends Module {
   io.output.done := isDone
 }
 
+class CompactingIncDincCtr(inc: Int, dinc: Int, stop: Int, width: Int = 32) extends Module {
+  val io = IO(new Bundle {
+    val input = new Bundle {
+      val inc_en     = Vec(inc, Input(Bool()))
+      val dinc_en    = Vec(dinc, Input(Bool()))
+    }
+    val output = new Bundle {
+      val overread      = Output(Bool())
+      val overwrite      = Output(Bool())
+      val empty         = Output(Bool())
+      val full          = Output(Bool())
+      val almostEmpty         = Output(Bool())
+      val almostFull          = Output(Bool())
+      val numel         = Output(SInt((width+1).W))
+    }
+  })
+
+  val cnt = RegInit(0.S(32.W))
+
+  val numPushed = io.input.inc_en.map{e => Mux(e, 1.S(width.W), 0.S(width.W))}.reduce{_+_}
+  val numPopped = io.input.dinc_en.map{e => Mux(e, 1.S(width.W), 0.S(width.W))}.reduce{_+_}
+  cnt := cnt + numPushed - numPopped
+
+  io.output.overread := cnt < 0.S((width+1).W)
+  io.output.overwrite := cnt > stop.S((width+1).W)
+  io.output.empty := cnt === 0.S((width+1).W)
+  io.output.almostEmpty := cnt - dinc.S((width+1).W) === 0.S((width+1).W)
+  io.output.full := cnt === stop.S((width+1).W)
+  io.output.almostFull := cnt + inc.S((width+1).W) === stop.S((width+1).W)
+  io.output.numel := cnt
+}
+
 class CompactingCounter(val lanes: Int, val depth: Int, val width: Int) extends Module {
   def this(tuple: (Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3)
   val io = IO(new Bundle {

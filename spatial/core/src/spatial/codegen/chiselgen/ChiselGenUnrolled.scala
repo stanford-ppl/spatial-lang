@@ -240,10 +240,16 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
     case ParFIFODeq(fifo, ens) =>
       val par = ens.length
-      val en = ens.map(quote).mkString("&")
       val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
-      emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en)""")
+      if (SpatialConfig.useCheapFifos){
+        val en = ens.map(quote).mkString("&")
+        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en)""")  
+      } else {
+        val en = ens.map{i => src"$i & (${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)})"}
+        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(Vec(List($en)))""")  
+      }
+      
       emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
 
       // fifo.tp.typeArguments.head match { 
@@ -257,11 +263,17 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
     case ParFIFOEnq(fifo, data, ens) =>
       val par = ens.length
-      val en = ens.map(quote).mkString("&")
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${writer}_datapath_en"
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
-      emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")
+      if (SpatialConfig.useCheapFifos) {
+        val en = ens.map(quote).mkString("&")
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")  
+      } else {
+        val en = ens.map{i => src"$i & ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)})"}
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), Vec(List($en)))""")
+      }
+      
 
     case ParFILOPop(filo, ens) =>
       val par = ens.length

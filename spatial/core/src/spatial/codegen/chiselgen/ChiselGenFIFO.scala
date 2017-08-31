@@ -74,29 +74,54 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@FIFONew(_)   =>
-      val size = sizeOf(lhs) match {case Const(c: BigDecimal) => c.toInt }
-      // ASSERT that all pars are the same!
-      // Console.println(s"Working on $lhs, readers ${readersOf(lhs)}")
-      val rPar = readersOf(lhs).map { r => 
-        r.node match {
-          case Def(_: FIFODeq[_]) => 1
-          case Def(a@ParFIFODeq(q,ens)) => ens.length
+      if (SpatialConfig.useCheapFifos) {
+        val size = sizeOf(lhs) match {case Const(c: BigDecimal) => c.toInt }
+        // ASSERT that all pars are the same!
+        // Console.println(s"Working on $lhs, readers ${readersOf(lhs)}")
+        val rPar = readersOf(lhs).map { r => 
+          r.node match {
+            case Def(_: FIFODeq[_]) => 1
+            case Def(a@ParFIFODeq(q,ens)) => ens.length
+          }
+        }.max
+        val wPar = writersOf(lhs).map { w =>
+          w.node match {
+            case Def(_: FIFOEnq[_]) => 1
+            case Def(a@ParFIFOEnq(q,_,ens)) => ens.length
+          }
+        }.max
+        val width = bitWidth(lhs.tp.typeArguments.head)
+        emitGlobalModule(src"""val $lhs = Module(new FIFO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
+      } else {
+        val size = sizeOf(lhs) match {case Const(c: BigDecimal) => c.toInt }
+        // ASSERT that all pars are the same!
+        // Console.println(s"Working on $lhs, readers ${readersOf(lhs)}")
+        val rPar = readersOf(lhs).map { r => 
+          r.node match {
+            case Def(_: FIFODeq[_]) => 1
+            case Def(a@ParFIFODeq(q,ens)) => ens.length
+          }
         }
-      }.max
-      val wPar = writersOf(lhs).map { w =>
-        w.node match {
-          case Def(_: FIFOEnq[_]) => 1
-          case Def(a@ParFIFOEnq(q,_,ens)) => ens.length
+        val wPar = writersOf(lhs).map { w =>
+          w.node match {
+            case Def(_: FIFOEnq[_]) => 1
+            case Def(a@ParFIFOEnq(q,_,ens)) => ens.length
+          }
         }
-      }.max
-      val width = bitWidth(lhs.tp.typeArguments.head)
-      emitGlobalModule(src"""val $lhs = Module(new FIFO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
+        val width = bitWidth(lhs.tp.typeArguments.head)
+        emitGlobalModule(src"""val $lhs = Module(new GeneralFIFO(List($rPar), List($wPar), $size, $width)) // ${lhs.name.getOrElse("")}""")
+      }
 
     case FIFOEnq(fifo,v,en) => 
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), /*${writer}_en & seems like we don't want this for retime to work*/ ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")
+      if (SpatialConfig.useCheapFifos) {
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), /*${writer}_en & seems like we don't want this for retime to work*/ ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")  
+      } else {
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), Vec(List(($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)))""")
+      }
+      
 
 
     case FIFODeq(fifo,en) =>
@@ -108,8 +133,12 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       }
       val enabler = src"${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done"
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
-      emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${reader}_en & ($enabler).D(${bug202delay}) & $en).apply(0)""")
-
+      if (SpatialConfig.useCheapFifos) {
+        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${reader}_en & ($enabler).D(${bug202delay}) & $en).apply(0)""")  
+      } else {
+        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(Vec(List(${reader}_en & ($enabler).D(${bug202delay}) & $en))).apply(0)""")
+      }
+      
     case FIFOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
     case FIFOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
     case FIFOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")

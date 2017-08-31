@@ -93,6 +93,10 @@ class SpatialArgParser extends ArgonArgParser {
     SpatialConfig.enableInstrumentation = true
   }.text("Turns on counters for each loop to assist in balancing pipelines")
 
+  parser.opt[Unit]("cheapFifo").action { (_,_) => // Must necessarily turn on retiming
+    SpatialConfig.useCheapFifos = true
+  }.text("Turns on cheap fifos where accesses must be multiples of each other and not have lane-enables")
+
   parser.opt[Unit]("tree").action( (_,_) =>
     SpatialConfig.enableTree = true
   ).text("enables logging of controller tree for visualizing app structure")
