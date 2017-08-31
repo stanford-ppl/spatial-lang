@@ -88,10 +88,12 @@ class GeneralFIFOTests(c: GeneralFIFO) extends PeekPokeTester(c) {
   def deq(ens: Seq[Int]) {
     (0 until ens.length).foreach { i => poke(c.io.deq(i), ens(i)) }
     val num_popping = ens.reduce{_+_}
-    (0 until num_popping).foreach{i => 
+    (0 until ens.length).foreach{i => 
       val out = peek(c.io.out(i))
-      println("hw has " + out + " at port " + i + ", wanted " + fifo.head)
-      expect(c.io.out(i), fifo.dequeue())
+      if (ens(i) == 1) {
+        println("hw has " + out + " at port " + i + ", wanted " + fifo.head)
+        expect(c.io.out(i), fifo.dequeue())
+      }
     }
     step(1)
     (0 until ens.length).foreach{ i => poke(c.io.deq(i),0)}

@@ -204,7 +204,15 @@ class Compactor(val ports: List[Int], val banks: Int, val width: Int, val bitWid
       val mux_selects = num_inputs_per_bundle.zipWithIndex.map{case(j, id) => 
         val in_start_id = ports.take(id).sum
         val connect_start_id = num_inputs_per_bundle.take(id).sum
-        (0 until j).map{k => io.in(in_start_id + (ports(id) - j + k)).en}
+        val num_holes = if ((ports(id)-j) > 0) {
+          (0 until (ports(id)-j)).map{ k => Mux(!io.in(in_start_id + k).en, 1.U(width.W), 0.U(width.W)) }.reduce{_+_} // number of 0's in this bundle that precede current
+        } else {
+          0.U(width.W)          
+        }
+        (0 until j).map{k => 
+          val ens_below = if (k > 0) {(0 until k).map{l => Mux(io.in(in_start_id + (ports(id) - j + l)).en, 1.U(width.W), 0.U(width.W)) }.reduce{_+_}} else {0.U(width.W)}
+          io.in(in_start_id + (ports(id) - j + k)).en & ens_below >= num_holes
+        }
       }.flatten
       val mux_datas = num_inputs_per_bundle.zipWithIndex.map{case(j, id) => 
         val in_start_id = ports.take(id).sum
@@ -282,12 +290,15 @@ class CompactingDeqNetwork(val ports: List[Int], val banks: Int, val width: Int,
   val upper = current_base_bank + numEnabled.asSInt - banks.S(width.W)
   val num_straddling = Mux(upper < 0.S(width.W), 0.S(width.W), upper)
   val num_straight = (numEnabled.asSInt) - num_straddling
+  // TODO: Probably has a bug if you have more than one dequeuer
   (0 until ports.max).foreach{ i =>
     val id_from_base = Mux(i.S(width.W) < num_straddling, i.S(width.W) + num_straight, (i.S(width.W) + current_base_bank) %-% banks.S(width.W))
+    val ens_below = if (i>0) (0 until i).map{j => Mux(io.input.deq(j), 1.U(width.W), 0.U(width.W)) }.reduce{_+_} else 0.U(width.W)
+    val proper_bank = (current_base_bank.asUInt + ens_below) %-% banks.U(width.W)
     val port_vals = (0 until banks).map{ j => 
       (j.U(width.W) -> io.input.data(j)) 
     }
-    io.output.data(i) := chisel3.util.MuxLookup(id_from_base.asUInt, 0.U(bitWidth.W), port_vals)
+    io.output.data(i) := chisel3.util.MuxLookup(proper_bank.asUInt, 0.U(bitWidth.W), port_vals)
   }
 
 }

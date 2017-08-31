@@ -79,6 +79,11 @@ object Arguments {
   )
   val GeneralFIFO = List(
     (List(1),List(1),80,16),
+    (List(1),List(5),80,16),
+    (List(1),List(8),80,16),
+    (List(2),List(1),80,16),
+    (List(5),List(1),80,16),
+    (List(6),List(3),80,16),
     (List(1),List(2),50,32)
   )
   val FILO = List(
