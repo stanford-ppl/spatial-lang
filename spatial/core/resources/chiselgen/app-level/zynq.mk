@@ -45,7 +45,7 @@ Top: $(OBJECTS)
 ## Clean up
 clean:
 	rm -f $(OBJECTS) $(DEFINES) *.a *.vcd *.dat ${TOP} Top *.tar.gz
-	rm -f generated_*
+#	rm -f generated_*
 
 # Set the default Makefile goal to be 'all', else it will default to executing
 # the first target in ${TOP}.mk
