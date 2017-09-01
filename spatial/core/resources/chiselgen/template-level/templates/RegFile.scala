@@ -47,7 +47,7 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
     val dump_data = Vec(dims.reduce{_*-*_}, Input(UInt(bitWidth.W)))
     val dump_en = Input(Bool())
 
-    val w = Vec(wPar, Input(new multidimRegW(dims.length, dims, bitWidth)))
+    val w = Vec(wPar * stride, Input(new multidimRegW(dims.length, dims, bitWidth)))
 
     val reset    = Input(Bool())
     val data_out = Vec(dims.reduce{_*-*_}, Output(UInt(bitWidth.W)))
@@ -93,32 +93,32 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
           registers(i) := io.dump_data(i)
         }
       }.otherwise {
-        if (wPar > 1) {
+        if (wPar * stride > 1) {
           // Address flattening
-          val flat_w_addrs = io.w.map{ bundle =>
+          val flat_w_addrs = io.w.zipWithIndex.map{ case (bundle, port_num) =>
             bundle.addr.zipWithIndex.map{case (a, ii) => 
               // fringe.FringeGlobals.bigIP.multiply(a, (dims.drop(ii).reduce{_*-*_}/-/dims(ii)).U, 0)
               a *-* (dims.drop(ii).reduce{_*-*_}/-/dims(ii)).U
-            }.reduce{_+_}//(31,0)
+            }.reduce{_+_} + (port_num % stride).U // Remove the port_num % stride part if strided shifts actually address into regfile correctly
           }
 
-          val write_here = (0 until wPar).map{ ii => io.w(ii).en & (flat_w_addrs(ii) === i.U) }
-          val shift_entry_here =  (0 until wPar).map{ ii => io.w(ii).shiftEn & (flat_w_addrs(ii) === i.U) }
+          val write_here = (0 until wPar * stride).map{ ii => io.w(ii).en & (flat_w_addrs(ii) === i.U) }
+          val shift_entry_here =  (0 until wPar * stride).map{ ii => io.w(ii).shiftEn & (flat_w_addrs(ii) === i.U) }
           val write_data = Mux1H(write_here.zip(shift_entry_here).map{case (a,b) => a|b}, io.w)
           // val shift_data = Mux1H(shift_entry_here, io.w)
           val has_writer = write_here.reduce{_|_}
           val has_shifter = shift_entry_here.reduce{_|_}
 
           // Assume no bozos will shift mid-axis
-          val shift_axis = (0 until wPar).map{ ii => io.w(ii).shiftEn & {if (dims.length > 1) {(coords.last != 0).B & io.w(ii).addr.dropRight(1).zip(coords.dropRight(1)).map{case(a,b) => a === b.U}.reduce{_&_} } else {(coords.last != 0).B} }}.reduce{_|_}
-          val producing_reg = 0 max (i - 1)
+          val shift_axis = (0 until wPar * stride).map{ ii => io.w(ii).shiftEn & {if (dims.length > 1) {(coords.last >= stride).B & io.w(ii).addr.dropRight(1).zip(coords.dropRight(1)).map{case(a,b) => a === b.U}.reduce{_&_} } else {(coords.last >= stride).B} }}.reduce{_|_}
+          val producing_reg = 0 max (i - stride)
           registers(i) := Mux(shift_axis, registers(producing_reg), Mux(has_writer | has_shifter, write_data.data, registers(i)))
         } else {
           // Address flattening
           val flat_w_addrs = io.w(0).addr.zipWithIndex.map{case (a, i) => 
             // fringe.FringeGlobals.bigIP.multiply(a, (dims.drop(i).reduce{_*-*_}/-/dims(i)).U, 0)
             a *-* (dims.drop(i).reduce{_*-*_}/-/dims(i)).U
-          }.reduce{_+_}//(31,0)
+          }.reduce{_+_}
 
           val write_here = io.w(0).en & (flat_w_addrs === i.U)
           val shift_entry_here =  io.w(0).shiftEn & (flat_w_addrs === i.U) 
@@ -128,8 +128,8 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
           val has_shifter = shift_entry_here
 
           // Assume no bozos will shift mid-axis
-          val shift_axis = io.w(0).shiftEn & {if (dims.length > 1) {(coords.last != 0).B & io.w(0).addr.dropRight(1).zip(coords.dropRight(1)).map{case(a,b) => a === b.U}.reduce{_&_} } else {(coords.last != 0).B} }
-          val producing_reg = 0 max (i - 1)
+          val shift_axis = io.w(0).shiftEn & {if (dims.length > 1) {(coords.last >= stride).B & io.w(0).addr.dropRight(1).zip(coords.dropRight(1)).map{case(a,b) => a === b.U}.reduce{_&_} } else {(coords.last >= stride).B} }
+          val producing_reg = 0 max (i - stride)
           registers(i) := Mux(shift_axis, registers(producing_reg), Mux(has_writer | has_shifter, write_data.data, registers(i)))
         }
       }

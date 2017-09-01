@@ -16,13 +16,13 @@ class ShiftRegFileTests(c: ShiftRegFile) extends PeekPokeTester(c) {
   for (cycle <- 0 until numCycles) {
     // Shift random crap
     val shift_ens = (0 until c.wPar).map{i => if ( cycle > 3 ) rnd.nextInt(2) else 0}
-    val new_datas = (0 until c.wPar).map{i => cycle}
+    val new_datas = (0 until c.wPar*c.stride).map{i => cycle*c.stride + i}
 
     // Set addrs
-    (0 until c.wPar).foreach{i => 
+    (0 until c.wPar*c.stride).foreach{i => 
       val coords = if (c.dims.length == 1) List(0) else {
         (0 until c.dims.length).map { k => 
-          if (k + 1 < c.dims.length) {(i*c.dims.last / c.dims.drop(k+1).reduce{_*_}) % c.dims(k)} else {i*c.dims.last % c.dims(k)}
+          if (k + 1 < c.dims.length) {(i/c.stride*c.dims.last / c.dims.drop(k+1).reduce{_*_}) % c.dims(k)} else {i/c.stride*c.dims.last % c.dims(k)}
         }
       }
       (0 until c.dims.length).foreach{j => 
@@ -30,8 +30,8 @@ class ShiftRegFileTests(c: ShiftRegFile) extends PeekPokeTester(c) {
       }
     }
 
-    (0 until c.wPar).foreach { i => poke(c.io.w(i).data, new_datas(i))}
-    (0 until c.wPar).foreach { i => poke(c.io.w(i).shiftEn, shift_ens(i))}
+    (0 until c.wPar*c.stride).foreach { i => poke(c.io.w(i).data, new_datas(i))}
+    (0 until c.wPar).foreach { i => (0 until c.stride).foreach{j => poke(c.io.w(i*c.stride + j).shiftEn, shift_ens(i))}}
     step(1)
     c.io.w.foreach { port => poke(port.shiftEn,0)}
     (c.dims.reduce{_*_}-1 to 0 by -1).foreach { i =>
@@ -41,10 +41,10 @@ class ShiftRegFileTests(c: ShiftRegFile) extends PeekPokeTester(c) {
       // println(s"working on $i, coords $coords")
       val axis = if (c.dims.length == 1) {0} else {(i - coords.last) / c.dims.last }
       if (shift_ens(axis) == 1) {
-        if (coords.last == 0) {
-          gold(i) = new_datas(axis)  
+        if (coords.last < c.stride) {
+          gold(i) = new_datas(axis*c.stride + i%c.stride)
         } else {
-          gold(i) = gold(i-1)
+          gold(i) = gold(i-c.stride)
         }
       }
       val newaxis = if (coords.last == 0) "\n" else ""
