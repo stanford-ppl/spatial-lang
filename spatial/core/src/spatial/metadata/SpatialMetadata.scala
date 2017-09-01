@@ -485,3 +485,15 @@ case class MemoryDependencies(mems: Set[Exp[_]]) extends Metadata[MemoryDependen
   def apply(e: Exp[_]): Set[Exp[_]] = metadata[MemoryDependencies](e).map(_.mems).getOrElse(Set.empty)
   def update(e: Exp[_], deps: Set[Exp[_]]): Unit = if (deps.nonEmpty) metadata.add(e, MemoryDependencies(deps))
 }
+
+
+/**
+  * Data to be preloaded into SRAM
+  */
+case class InitialData(data: Seq[Exp[_]]) extends Metadata[InitialData] {
+  def mirror(f:Tx) = InitialData(f.tx(data))
+}
+@data object initialDataOf {
+  def apply(e: Exp[_]): Seq[Exp[_]] = metadata[InitialData](e).map(_.data).getOrElse(Nil)
+  def update(e: Exp[_], data: Seq[Exp[_]]): Unit = metadata.add(e, InitialData(data))
+}

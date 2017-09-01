@@ -86,6 +86,7 @@ trait SpatialCompiler extends ArgonCompiler {
       def streamParEnqs = uctrlAnalyzer.streamParEnqs
     }
 
+    lazy val lutTransform  = MemoryTransformer(IR = state)
     lazy val sramTransform = new AffineAccessTransformer { var IR = state }
 
     lazy val pirRetimer = new PIRHackyRetimer { var IR = state }
@@ -107,6 +108,10 @@ trait SpatialCompiler extends ArgonCompiler {
     lazy val interpreter = new Interpreter { var IR = state }
 
     passes += printer
+    if (SpatialConfig.rewriteLUTs) {
+      passes += lutTransform    // Change LUTs to SRAM with initial value metadata
+      passes += printer
+    }
     passes += scalarAnalyzer    // Perform bound and global analysis
     passes += scopeCheck        // Check that illegal host values are not used in the accel block
     passes += levelAnalyzer     // Initial pipe style annotation fixes
