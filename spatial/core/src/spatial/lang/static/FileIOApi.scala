@@ -50,7 +50,7 @@ trait FileIOApi { this: SpatialApi =>
     for (i <- 0 until rows) {
       val token = {j: Exp[Index] => typ[T].ev(matrix(i, wrap(j))).toText.s }
       write_tokens(file, del1.s, cols.s, token, fresh[Index])
-      write_tokens(file, del2.s, int32(1), {_: Exp[Index] => MString.const("") }, dummy)
+      write_tokens(file, del2.s, int32s(1), {_: Exp[Index] => MString.const("") }, dummy)
       ()
     }
 

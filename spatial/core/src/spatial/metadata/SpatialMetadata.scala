@@ -332,7 +332,7 @@ case class ParFactor(factor: Const[Index]) extends Metadata[ParFactor] {
   def mirror(f:Tx) = ParFactor(f(factor).asInstanceOf[Const[Index]])
 }
 @data object parFactorOf {
-  @internal def apply(x: Exp[_]): Const[Index] = metadata[ParFactor](x).map(_.factor).getOrElse(int32(1))
+  @internal def apply(x: Exp[_]): Const[Index] = metadata[ParFactor](x).map(_.factor).getOrElse(int32s(1))
   def update(x: Exp[_], factor: Const[Index]) = metadata.add(x, ParFactor(factor))
 }
 
@@ -484,4 +484,16 @@ case class MemoryDependencies(mems: Set[Exp[_]]) extends Metadata[MemoryDependen
 @data object memDepsOf {
   def apply(e: Exp[_]): Set[Exp[_]] = metadata[MemoryDependencies](e).map(_.mems).getOrElse(Set.empty)
   def update(e: Exp[_], deps: Set[Exp[_]]): Unit = if (deps.nonEmpty) metadata.add(e, MemoryDependencies(deps))
+}
+
+
+/**
+  * Data to be preloaded into SRAM
+  */
+case class InitialData(data: Seq[Exp[_]]) extends Metadata[InitialData] {
+  def mirror(f:Tx) = InitialData(f.tx(data))
+}
+@data object initialDataOf {
+  def apply(e: Exp[_]): Seq[Exp[_]] = metadata[InitialData](e).map(_.data).getOrElse(Nil)
+  def update(e: Exp[_], data: Seq[Exp[_]]): Unit = metadata.add(e, InitialData(data))
 }

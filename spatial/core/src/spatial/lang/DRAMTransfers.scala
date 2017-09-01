@@ -37,9 +37,9 @@ object DRAMTransfers {
 
     // Extract range lengths early to avoid unit pipe insertion eliminating rewrite opportunities
     val dram    = tile.dram
-    val ofs     = tile.ranges.map(_.start.map(_.s).getOrElse(int32(0)))
+    val ofs     = tile.ranges.map(_.start.map(_.s).getOrElse(int32s(0)))
     val lens    = tile.ranges.map(_.length.s)
-    val strides = tile.ranges.map(_.step.map(_.s).getOrElse(int32(1)))
+    val strides = tile.ranges.map(_.step.map(_.s).getOrElse(int32s(1)))
     val units   = tile.ranges.map(_.isUnit)
     val p       = extractParFactor(tile.ranges.last.p)
 

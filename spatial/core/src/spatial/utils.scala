@@ -427,7 +427,7 @@ object utils {
   /** Parallelization factors **/
   @internal def parFactorsOf(x: Exp[_]): Seq[Const[Index]] = x match {
     case Op(CounterNew(start,end,step,par)) => List(par)
-    case Op(Forever())             => List(int32(1))
+    case Op(Forever())             => List(int32s(1))
     case Op(CounterChainNew(ctrs)) => ctrs.flatMap{ctr => parFactorsOf(ctr) }
     case Op(e: DenseTransfer[_,_]) => Seq(e.p)
     case Op(e: SparseTransfer[_])  => Seq(e.p)
@@ -540,7 +540,7 @@ object utils {
   @stateful def isMetaPipe(e: Ctrl): Boolean = !e.isInner && isMetaPipe(e.node)
   @stateful def isStreamPipe(e: Ctrl): Boolean = !e.isInner && isStreamPipe(e.node)
 
-  @stateful def isInnerSwitch(e: Exp[_]): Boolean = isInnerControl(e) && isSwitch(e)
+  @stateful def isInnerSwitch(e: Exp[_]): Boolean = isInnerControl(e) && isSwitch(e) && SpatialConfig.enablePrimitiveSwitches
 
   @stateful def isSwitch(e: Exp[_]): Boolean = getDef(e).exists(isSwitch)
   def isSwitch(d: Def): Boolean = d.isInstanceOf[Switch[_]]
@@ -632,7 +632,7 @@ object utils {
     case Def(BufferedOutNew(dims,_)) => dims
     case Def(LUTNew(dims,_)) =>
       implicit val ctx: SrcCtx = x.ctx
-      dims.map{d => int32(d) }
+      dims.map{d => int32s(d) }
     case Def(SRAMNew(dims)) => dims
     case Def(DRAMNew(dims,_)) => dims
     case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)

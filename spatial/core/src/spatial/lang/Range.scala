@@ -24,8 +24,8 @@ case class Range(start: Option[Index], end: Index, step: Option[Index], p: Optio
   @api def ::(start2: Index): Range = Range(Some(start2), end, start, p, isUnit = false)
 
   @api def foreach(func: Index => MUnit): MUnit = {
-    val begin  = start.map(_.s).getOrElse(int32(0))
-    val stride = step.map(_.s).getOrElse(int32(1))
+    val begin  = start.map(_.s).getOrElse(int32s(0))
+    val stride = step.map(_.s).getOrElse(int32s(1))
     MUnit(Range.foreach(begin, end.s, stride, {i: Exp[Index] => func(wrap(i)).s }, fresh[Index]))
   }
 
