@@ -41,22 +41,6 @@ case class RewriteTransformer(var IR: State) extends ForwardTransformer{
       func.inline // TODO: Need to account for enables here?
       constant(typ[T])(RemovedParallel)
 
-    case Switch(body, selects, cases) =>
-      if (selects.forall(_.isConst)) {
-        val trueSelects = selects.zipWithIndex.filter{case (Const(TRUE),_) => true; case (Const(c: Boolean),_) => c; case _ => false }
-        if (trueSelects.length > 1) {
-          warn(lhs.ctx, "Switch has multiple values enabled at once!")
-          warn(lhs.ctx)
-          super.transform(lhs, rhs)
-        }
-        else {
-          val cas = cases(trueSelects.head._2)
-          val Def(SwitchCase(body)) = cas
-          body.inline.asInstanceOf[Exp[T]]
-        }
-      }
-      else super.transform(lhs, rhs)
-
     case op @ FixMod(x, Const(y: BigDecimal)) if isPow2(y) =>
       def selectMod[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]], y: Double): Exp[FixPt[S,I,F]] = {
         val data = BitOps.dataAsBitVector(wrap(x))

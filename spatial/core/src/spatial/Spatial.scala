@@ -40,6 +40,7 @@ trait SpatialCompiler extends ArgonCompiler {
     lazy val ctrlAnalyzer   = new ControlSignalAnalyzer { var IR = state }
 
     lazy val switchInsert   = SwitchTransformer(state)
+    lazy val switchOptimize = SwitchOptimization(state)
     lazy val unitPipeInsert = UnitPipeTransformer(state)
     lazy val regCleanup     = RegisterCleanup(state)
     lazy val regReadCSE     = RegReadCSE(state)
@@ -119,6 +120,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     // --- Unit Pipe Insertion
     passes += switchInsert      // Change nested if-then-else statements to Switch controllers
+    passes += switchOptimize    // Remove unneeded switches
     passes += printer
     passes += unitPipeInsert    // Wrap primitives in outer controllers
     passes += printer
@@ -204,6 +206,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += regCleanup        // Duplicate register reads for each use
     passes += printer
     passes += rewriter          // Post-unrolling rewrites (e.g. enabled register writes)
+    passes += switchOptimize
     passes += printer
 
     // --- Retiming
