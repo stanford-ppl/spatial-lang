@@ -96,6 +96,9 @@ class SpatialArgParser extends ArgonArgParser {
   parser.opt[Unit]("cheapFifo").action { (_,_) => // Must necessarily turn on retiming
     SpatialConfig.useCheapFifos = true
   }.text("Turns on cheap fifos where accesses must be multiples of each other and not have lane-enables")
+  parser.opt[Unit]("cheapFifos").action { (_,_) => // Must necessarily turn on retiming
+    SpatialConfig.useCheapFifos = true
+  }.text("Turns on cheap fifos where accesses must be multiples of each other and not have lane-enables")
 
   parser.opt[Unit]("tree").action( (_,_) =>
     SpatialConfig.enableTree = true

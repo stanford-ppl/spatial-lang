@@ -389,21 +389,29 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
   io.debug.overwrite := elements.io.output.overwrite
   io.debug.error := elements.io.output.overwrite | elements.io.output.overread
 
-  var wId = 0
+  val wPort_mask = scala.collection.mutable.MutableList((0 until pW.length).map{i => 0}:_*)
   def connectEnqPort(data: Vec[UInt], en: Vec[Bool]): Unit = {
+    // Figure out which bundle this port can go with
+    val bundle_id = wPort_mask.zip(pW).indexWhere{a => a._2 == data.length && a._1 == 0}
+    wPort_mask(bundle_id) = 1
+    val base = pW.take(bundle_id).sum
+
     (0 until data.length).foreach{ i => 
-      io.in(wId).data := data(i)
-      io.in(wId).en := en(i)
-      wId += 1
+      io.in(base + i).data := data(i)
+      io.in(base + i).en := en(i)
     }
   }
 
-  var rId = 0
+  val rPort_mask = scala.collection.mutable.MutableList((0 until pR.length).map{i => 0}:_*)
   def connectDeqPort(en: Vec[Bool]): Vec[UInt] = {
+    // Figure out which bundle this port can go with
+    val bundle_id = rPort_mask.zip(pR).indexWhere{a => a._2 == en.length && a._1 == 0}
+    rPort_mask(bundle_id) = 1
+    val base = pR.take(bundle_id).sum
+
     Vec((0 until en.length).map{ i =>
-      io.deq(rId) := en(i)
-      rId += 1
-      io.out(i)
+      io.deq(base + i) := en(i)
+      io.out(i) // TODO: probably wrong output
     })
   }
 

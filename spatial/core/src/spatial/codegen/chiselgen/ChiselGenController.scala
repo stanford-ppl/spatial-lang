@@ -319,15 +319,19 @@ trait ChiselGenController extends ChiselGenCounter{
       // If we are inside a stream pipe, the following may be set
       // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
       val lat = bodyLatency.sum(c)
-      val readiers = listensTo(c).distinct.map{_.memory}.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
+      val readiers = listensTo(c).distinct.map{ pt => pt.memory match {
+        case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
+          pt.access match {
+            case Def(FIFODeq(_,en)) => src"(~$fifo.io.empty.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(ParFIFODeq(_,ens)) => src"""(~$fifo.io.empty.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+          }
         case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
         case fifo @ Def(StreamInNew(bus)) => bus match {
           case SliderSwitch => ""
           case _ => src"${fifo}_valid"
         }
         case fifo => src"${fifo}_en" // parent node
-      }.filter(_ != "").mkString(" & ")
+      }}.filter(_ != "").mkString(" & ")
       val holders = pushesTo(c).distinct.map { pt => pt.memory match {
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
@@ -586,7 +590,12 @@ trait ChiselGenController extends ChiselGenCounter{
           emit(src"""${cchain.get}_copy${c}_en := ${signalHandle}""")
           emit(src"""${cchain.get}_copy${c}_resetter := ${sym}_sm.io.output.rst_en.D(1,rr)""")
         }
-        emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")
+        if (c match { case Def(StateMachine(_,_,_,_,_,_)) => true; case _ => false}) { // If this is an fsm, we want it to reset with each iteration, not with the reset of the parent
+          emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en | ${c}_done.D(1,rr)""")
+        } else {
+          emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")  
+        }
+        
       }
     }
 
