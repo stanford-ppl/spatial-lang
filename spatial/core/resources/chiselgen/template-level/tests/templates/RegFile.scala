@@ -82,12 +82,12 @@ class NBufShiftRegFileTests(c: NBufShiftRegFile) extends PeekPokeTester(c) {
   for (cycle <- 0 until numCycles) {
     // Shift random crap
     val shift_ens = (0 until c.wPar.values.reduce{_+_}).map{i => if ( cycle > 3 ) rnd.nextInt(2) else 0}
-    val new_datas = (0 until c.wPar.values.reduce{_+_}).map{i => cycle}
+    val new_datas = (0 until c.wPar.values.reduce{_+_}*c.stride).map{i => cycle*c.stride + i}
     // Set addrs
-    (0 until c.wPar.values.reduce{_+_}).foreach{i => 
+    (0 until c.wPar.values.reduce{_+_}*c.stride).foreach{i => 
       val coords = if (c.dims.length == 1) List(0) else {
         (0 until c.dims.length).map { k => 
-          if (k + 1 < c.dims.length) {(i*c.dims.last / c.dims.drop(k+1).reduce{_*_}) % c.dims(k)} else {i*c.dims.last % c.dims(k)}
+          if (k + 1 < c.dims.length) {(i/c.stride*c.dims.last / c.dims.drop(k+1).reduce{_*_}) % c.dims(k)} else {i/c.stride*c.dims.last % c.dims(k)}
         }
       }
       (0 until c.dims.length).foreach{j => 
@@ -95,8 +95,8 @@ class NBufShiftRegFileTests(c: NBufShiftRegFile) extends PeekPokeTester(c) {
       }
     }
 
-    (0 until c.wPar.values.reduce{_+_}).foreach { i => poke(c.io.w(i).data, new_datas(i))}
-    (0 until c.wPar.values.reduce{_+_}).foreach { i => poke(c.io.w(i).shiftEn, shift_ens(i))}
+    (0 until c.wPar.values.reduce{_+_}*c.stride).foreach { i => poke(c.io.w(i).data, new_datas(i))}
+    (0 until c.wPar.values.reduce{_+_}).foreach { i => (0 until c.stride).foreach{j => poke(c.io.w(i*c.stride + j).shiftEn, shift_ens(i))}}
     step(1)
     c.io.w.foreach { port => poke(port.shiftEn,0)}
     (0 until c.numBufs).foreach { buf => 
@@ -109,10 +109,10 @@ class NBufShiftRegFileTests(c: NBufShiftRegFile) extends PeekPokeTester(c) {
         // println(s"working on $i, coords $coords")
         val axis = if (c.dims.length == 1) {0} else {(i - coords.last) / c.dims.last }
         if (shift_ens(axis) == 1 & buf == 0) {
-          if (coords.last == 0) {
-            gold(i) = new_datas(axis)  
+          if (coords.last < c.stride) {
+            gold(i) = new_datas(axis*c.stride + i%c.stride)
           } else {
-            gold(i) = gold(i-1)
+            gold(i) = gold(i-c.stride)
           }
         }
         val newaxis = if (coords.last == 0) "\n" else ""
@@ -122,17 +122,17 @@ class NBufShiftRegFileTests(c: NBufShiftRegFile) extends PeekPokeTester(c) {
         // print(newaxis + g + " ")
       }
 
-      // print(s"\n\nGold: ")
+      print(s"\n\nGold: ")
       (0 until c.dims.reduce{_*_}).foreach{i => 
         if (i % c.dims.last == 0) print("| ")
-        // print(s"${gold(i)} ")
+        print(s"${gold(i)} ")
       }
       print(s"\nGot:  ")
       (0 until c.dims.reduce{_*_}).foreach{i => 
         if (i % c.dims.last == 0) print("| ")
-        // print(s"${peek(c.io.data_out(i))} ")
+        print(s"${peek(c.io.data_out(i))} ")
       }
-      // println("")
+      println("")
     }
     step(1)
     // println("\nSWAP!\n")

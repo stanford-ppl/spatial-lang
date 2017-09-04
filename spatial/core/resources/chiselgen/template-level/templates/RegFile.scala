@@ -221,7 +221,7 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
   val io = IO(new Bundle { 
     val sEn = Vec(numBufs, Input(Bool()))
     val sDone = Vec(numBufs, Input(Bool()))
-    val w = Vec(wPar.values.reduce{_+_}, Input(new multidimRegW(dims.length, dims, bitWidth)))
+    val w = Vec(wPar.values.reduce{_+_}*stride, Input(new multidimRegW(dims.length, dims, bitWidth)))
     val reset    = Input(Bool())
     val data_out = Vec(dims.reduce{_*-*_}*numBufs, Output(UInt(bitWidth.W)))
   })
@@ -252,8 +252,8 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
   }
 
   wPar.foreach{ case (regId, par) => 
-    val base = ((0 until regId).map{i => wPar.getOrElse(i,0)} :+ 0).reduce{_+_}
-    (0 until par).foreach{ i => shiftRegs(regId).io.w(i) := io.w(base + i)}
+    val base = ((0 until regId).map{i => wPar.getOrElse(i,0)} :+ 0).reduce{_+_}*stride
+    (0 until par*stride).foreach{ i => shiftRegs(regId).io.w(i) := io.w(base + i)}
     if (regId == 0) {
       shiftRegs(regId).io.reset := io.reset
       shiftRegs(regId).io.dump_en := false.B // No dumping into first regfile

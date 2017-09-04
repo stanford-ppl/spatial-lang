@@ -290,7 +290,10 @@ trait ChiselGenController extends ChiselGenCounter{
             ens.map{ my_en => 
               e.map{ their_en => 
                 if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
-                  result = result.filter{a => src"$a" != src"$my_en"} :+ src"${my_en}_copy${previousLevel}"
+                  // Hacky way to avoid double-suffixing
+                  if (!src"$my_en".contains(src"_copy${previousLevel}")) {  
+                    result = result.filter{a => !src"$a".contains(src"$my_en")} :+ src"${my_en}_copy${previousLevel}"
+                  }
                 }
               }
             }

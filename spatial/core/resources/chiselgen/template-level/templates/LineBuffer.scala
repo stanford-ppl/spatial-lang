@@ -12,6 +12,7 @@ import chisel3.util.MuxLookup
 
 // ENHANCEMENT: currently this assumes read col par = 1, read row par = kernel height, and write row/col par is 1 and 1
 // See comments below: first should implement read col par, and also read row par == 1
+// col_rPar == stride
 class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffer: Int, 
   val col_wPar: Int, val col_rPar:Int, val col_banks: Int, 
   val row_wPar: Int, val row_rPar:Int, val numAccessors: Int, val bitWidth: Int = 32) extends Module {
