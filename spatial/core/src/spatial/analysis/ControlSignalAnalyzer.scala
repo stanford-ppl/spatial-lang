@@ -464,7 +464,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       isInnerAccum(accum) = isInnerControl(lhs)
 
     case e: DenseTransfer[_,_] =>
-      e.iters.foreach{i => parFactorOf(i) = int32(1) }
+      e.iters.foreach{i => parFactorOf(i) = int32s(1) }
       e.iters.foreach { iter => parentOf(iter) = lhs }
       parFactorOf(e.iters.last) = e.p
 

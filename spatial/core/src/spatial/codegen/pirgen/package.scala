@@ -241,8 +241,8 @@ package object pirgen {
       case d => throw new Exception(s"Unable to get bound of memory size $d")
     }
     val strides:List[Expr] = List.tabulate(dims.length){ d =>
-      if (d == dims.length - 1) int32(1)
-      else int32(cdims.drop(d+1).product)
+      if (d == dims.length - 1) int32s(1)
+      else int32s(cdims.drop(d+1).product)
     }
     var partialAddr: Exp[Any] = indices.last
     var addrCompute: List[OpStage] = Nil
