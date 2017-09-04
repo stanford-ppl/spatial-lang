@@ -27,8 +27,10 @@ class FringeContextVCS : public FringeContextBase<void> {
   Channel *respChannel;
   uint64_t numCycles = 0;
   uint32_t numArgIns = 0;
+  uint32_t numArgInsId = 0;
   uint32_t numArgOuts = 0;
   uint32_t numArgIOs = 0;
+  uint32_t numArgIOsId = 0;
 
   posix_spawn_file_actions_t action;
   int globalID = 1;
@@ -319,10 +321,18 @@ public:
     }
   }
 
+  virtual void setNumArgIns(uint32_t number) {
+    numArgIns = number;
+  }
+  
+  virtual void setNumArgIOs(uint32_t number) {
+    numArgIOs = number;
+  }
+  
   virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
     writeReg(arg+2, data);
-    numArgIns++;
-    if (isIO) numArgIOs++;
+    numArgInsId++;
+    if (isIO) numArgIOsId++;
   }
 
   virtual uint64_t getArg(uint32_t arg, bool isIO) {

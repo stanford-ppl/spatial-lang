@@ -67,11 +67,11 @@ trait ArgMappingAnalyzer extends CompilerPass {
     dbg(u"Working on genericStreams only, base port = ${base_in}: ${genericStreams}")
     genericStreams.toList.distinct.zipWithIndex.foreach{case((m,dir),i) => 
       if (dir == "output") {
-        dbg(u"  - Mapping $m ($dir) to -1, $i")
+        dbg(u"  - Mapping $m ($dir) to ${p_out} -1 $i")
         argMapping(m) = (p_out, -1, i)
         p_out = p_out + 1
       } else if (dir == "input") {
-        dbg(u"  - Mapping $m ($dir) to $i, -1")
+        dbg(u"  - Mapping $m ($dir) to ${p_in} $i -1")
         argMapping(m) = (p_in, i, -1)
         p_in = p_in + 1
       }
@@ -80,7 +80,7 @@ trait ArgMappingAnalyzer extends CompilerPass {
     var base_out = argPorts.toList.distinct.filter{_._2 == "bidirectional"}.length
     dbg(u"Working on output args only, base port = ${base_out}: ${argPorts}")
     argPorts.toList.distinct.filter{_._2 == "output"}.zipWithIndex.foreach{case((a,dir),i) => 
-      dbg(u"  - Mapping $a ($dir) to -1, $i")
+      dbg(u"  - Mapping $a ($dir) to $i -1, ${base_out+i}")
       argMapping(a) = (i, -1, base_out + i)
     }
 
