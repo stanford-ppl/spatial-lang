@@ -36,7 +36,7 @@ trait CppGenVector extends CppCodegen {
     case VectorApply(vector, i) => emit(src"${lhs.tp} $lhs = $vector >> $i;")
     case VectorSlice(vector, start, end) => emit(src"${lhs.tp} $lhs;")
                 open(src"""for (int ${lhs}_i = 0; ${lhs}_i < ${start} - ${end} + 1; ${lhs}_i++){""") 
-                  emit(src"""  bool ${lhs}_temp = (${vector} >> ${lhs}_i) & 1); """)
+                  emit(src"""  bool ${lhs}_temp = (${vector} >> ${lhs}_i) & 1; """)
                   emit(src"""  ${lhs}.push_back(${lhs}_temp); """)
                 close("}")
     case e@DataAsBits(a) => e.mT match {
