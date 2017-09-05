@@ -36,7 +36,8 @@ trait CppGenVector extends CppCodegen {
     case VectorApply(vector, i) => emit(src"${lhs.tp} $lhs = $vector >> $i;")
     case VectorSlice(vector, start, end) => emit(src"${lhs.tp} $lhs;")
                 open(src"""for (int ${lhs}_i = 0; ${lhs}_i < ${start} - ${end} + 1; ${lhs}_i++){""") 
-                  emit(src"""  ${lhs}.push_back((bool)(${vector} >> ${lhs}_i) & 1); """)
+                  emit(src"""  bool ${lhs}_temp = (${vector} >> ${lhs}_i) & 1); """)
+                  emit(src"""  ${lhs}.push_back(${lhs}_temp); """)
                 close("}")
     case e@DataAsBits(a) => e.mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
@@ -47,10 +48,10 @@ trait CppGenVector extends CppCodegen {
     case BitsAsData(v,mT) => mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
       case FixPtType(s,i,f) => 
-        emit(src"${lhs.tp} $lhs;")
+        emit(src"${lhs.tp} $lhs=0;")
         emit(src"for (int ${lhs}_i = 0; ${lhs}_i < ${i+f}; ${lhs}_i++) { ${lhs} += ${v}[${lhs}_i] << ${lhs}_i; }")
       case BooleanType() =>
-        emit(src"${lhs.tp} $lhs;")
+        emit(src"${lhs.tp} $lhs=0;")
         emit(src"for (int ${lhs}_i = 0; ${lhs}_i < 1; ${lhs}_i++) { ${lhs} += ${v}[${lhs}_i] << ${lhs}_i; }")
     }
 
