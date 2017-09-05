@@ -34,7 +34,10 @@ trait CppGenVector extends CppCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ListVector(elems)      => emit(src"${lhs.tp} $lhs = {" + elems.map(quote).mkString(",") + "};")
     case VectorApply(vector, i) => emit(src"${lhs.tp} $lhs = $vector >> $i;")
-    case VectorSlice(vector, start, end) => emit(src"val $lhs = $vector.slice($start, $end)")
+    case VectorSlice(vector, start, end) => emit(src"${lhs.tp} $lhs;")
+                open(src"""for (int ${lhs}_i = 0; ${lhs}_i < ${start} - ${end} + 1; ${lhs}_i++){""") 
+                  emit(src"""  ${lhs}.push_back((bool)(${vector} >> ${lhs}_i) & 1); """)
+                close("}")
     case e@DataAsBits(a) => e.mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
       case FixPtType(s,d,f) => emit(src"${e.mT} $lhs = (${e.mT}) ${a};")
@@ -45,10 +48,10 @@ trait CppGenVector extends CppCodegen {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
       case FixPtType(s,i,f) => 
         emit(src"${lhs.tp} $lhs;")
-        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < ${i+f}; ${lhs}_i++) { ${lhs} = ${v}[${i+f-1}-${lhs}_i] << ${lhs}_i; }")
+        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < ${i+f}; ${lhs}_i++) { ${lhs} += ${v}[${lhs}_i] << ${lhs}_i; }")
       case BooleanType() =>
         emit(src"${lhs.tp} $lhs;")
-        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < 1; ${lhs}_i++) { ${lhs} = ${v}[${lhs}_i] << ${lhs}_i; }")
+        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < 1; ${lhs}_i++) { ${lhs} += ${v}[${lhs}_i] << ${lhs}_i; }")
     }
 
     case _ => super.emitNode(lhs, rhs)
