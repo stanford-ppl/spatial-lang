@@ -176,7 +176,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
     val intersect = loadsList.distinct.intersect(storesList.distinct)
 
-    val num_unusedDrams = dramsList.length - loadsList.distinct.length - storesList.distinct.length
+    val num_unusedDrams = dramsList.length - loadsList.distinct.length - storesList.distinct.length + intersect.length
 
     withStream(getStream("Instantiator")) {
       emit("")
@@ -184,6 +184,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emit(src"""val loadStreamInfo = List($loadParMapping) """)
       emit(src"""val storeStreamInfo = List($storeParMapping) """)
       emit(src"""val numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/ + ${num_unusedDrams} /* from unused DRAMs */""")
+      emit(src"""// $loadsList $storesList)""")
     }
 
     withStream(getStream("IOModule")) {
