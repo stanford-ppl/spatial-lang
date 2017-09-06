@@ -23,7 +23,11 @@ case class FriendlyTransformer(var IR: State) extends ForwardTransformer {
 
     // Outside Accel: reg.value -> getArg(reg)
     case op @ RegRead(Mirrored(reg)) if !inHwScope && isOffChipMemory(reg) =>
-      HostTransferOps.get_arg(reg)(op.mT,op.bT,ctx,state)
+      // Use register reads for dimensions of off-chip memories
+      if (lhs.dependents.exists{mem => isOffChipMemory(mem) }) {
+        super.transform(lhs, rhs)
+      }
+      else HostTransferOps.get_arg(reg)(op.mT,op.bT,ctx,state)
 
     // Outside Accel: reg := data -> setArg(reg, data)
     case op @ RegWrite(Mirrored(reg),Mirrored(data),_) if !inHwScope && isOffChipMemory(reg) =>
