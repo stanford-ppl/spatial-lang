@@ -349,6 +349,10 @@ public:
     }
   }
 
+  virtual uint64_t getArgIn(uint32_t arg, bool isIO) {
+    return readReg(2+arg);
+  }
+
   void dumpDebugRegs() {
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;

@@ -49,10 +49,10 @@ trait CppGenVector extends CppCodegen {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
       case FixPtType(s,i,f) => 
         emit(src"${lhs.tp} $lhs=0;")
-        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < ${i+f}; ${lhs}_i++) { ${lhs} += ${v}[${lhs}_i] << ${lhs}_i; }")
+        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < ${i+f}; ${lhs}_i++) { if(${lhs}_i < ${v}.size()) {${lhs} += ${v}[${lhs}_i] << ${lhs}_i;} }")
       case BooleanType() =>
         emit(src"${lhs.tp} $lhs=0;")
-        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < 1; ${lhs}_i++) { ${lhs} += ${v}[${lhs}_i] << ${lhs}_i; }")
+        emit(src"for (int ${lhs}_i = 0; ${lhs}_i < 1; ${lhs}_i++) { if(${lhs}_i < ${v}.size()) {${lhs} += ${v}[${lhs}_i] << ${lhs}_i;} }")
     }
 
     case _ => super.emitNode(lhs, rhs)
