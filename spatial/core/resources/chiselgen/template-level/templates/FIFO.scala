@@ -5,6 +5,8 @@ import chisel3._
 import chisel3.util
 import chisel3.util.Mux1H
 import scala.math._
+import fringe._
+
 
 
 
@@ -352,7 +354,7 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
 
   // Connect compacting network to banks
   val active_w_bank = headCtr.io.output.count %-% banks.S(width.W)
-  val active_w_addr = if (banks == 1) headCtr.io.output.count else headCtr.io.output.count /-/ banks.S(width.W) // TODO: Why is anything < 0F / 1.S equal to 0??
+  val active_w_addr = FringeGlobals.bigIP.divide(headCtr.io.output.count, banks.S(width.W),0)
   (0 until banks).foreach{i => 
     val addr = Mux(i.S(width.W) < active_w_bank, active_w_addr + 1.S(width.W), active_w_addr)
     m(i).io.w.addr := addr.asUInt
@@ -364,7 +366,7 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
   val deqCompactor = Module(new CompactingDeqNetwork(pR, banks, width, bitWidth))
   deqCompactor.io.tailCnt := tailCtr.io.output.count
   val active_r_bank = tailCtr.io.output.count %-% banks.S(width.W)
-  val active_r_addr = if (banks == 1) tailCtr.io.output.count else tailCtr.io.output.count /-/ banks.S(width.W) // TODO: Why is anything < 0F / 1.S equal to 0??
+  val active_r_addr = FringeGlobals.bigIP.divide(tailCtr.io.output.count, banks.S(width.W),0)
   (0 until banks).foreach{i => 
     val addr = Mux(i.S(width.W) < active_r_bank, active_r_addr + 1.S(width.W), active_r_addr)
     m(i).io.r.addr := addr.asUInt
