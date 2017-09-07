@@ -363,7 +363,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
       val dispatch = dispatchOf(lhs, lb).toList.distinct
-      if (dispatch.length > 1) { throw new Exception("This is an example where lb dispatch > 1. Please use as test case!") }
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val ii = dispatch.head
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 
         emit(src"${lb}_$ii.io.col_addr(0) := ${col}.raw // Assume we always read from same col")
@@ -378,7 +378,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
     case op@ParLineBufferEnq(lb,data,ens) => //FIXME: Not correct for more than par=1
       val dispatch = dispatchOf(lhs, lb).toList.distinct
-      if (dispatch.length > 1) { throw new Exception("This is an example where lb dispatch > 1. Please use as test case!") }
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val ii = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       data.zipWithIndex.foreach { case (d, i) =>

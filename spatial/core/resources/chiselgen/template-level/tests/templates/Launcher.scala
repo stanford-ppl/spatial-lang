@@ -169,6 +169,9 @@ object Arguments {
   val Parallel = List(
     3
   )
+  val SystolicArray2D = List(
+    (List(7,6), List(2,2), List(0,1.0,1.0,0), List(0,0,0,1), None, Sum, 32, 0)
+  )
   val ShiftRegFile = List(
     (List(6),1,1,false,32,0),
     (List(6),2,1,false,32,0),
@@ -406,6 +409,14 @@ object Launcher {
     (s"Parallel$i" -> { (backendName: String) =>
         Driver(() => new Parallel(arg), "verilator") {
           (c) => new ParallelTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.SystolicArray2D.zipWithIndex.map{ case(arg,i) => 
+    (s"SystolicArray2D$i" -> { (backendName: String) =>
+        Driver(() => new SystolicArray2D(arg), "verilator") {
+          (c) => new SystolicArray2DTests(c)
         }
       }) 
   }.toMap
