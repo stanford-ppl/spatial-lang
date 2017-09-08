@@ -687,20 +687,20 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
 
     // TODO: Is inner loop here?
     val banking = access match {
-      case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(NoBanking(strides(0)), Banking(strides(1), len.toInt, true))
-      case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(Banking(strides(0),len.toInt,true), NoBanking(1))
-      case Def(LineBufferEnq(_,_,_))                     => Seq(NoBanking(strides(0)), Banking(strides(1), channels, true))
+      case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(Banking(strides.head, dims.head, false), Banking(strides(1), len.toInt, true))
+      case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(Banking(strides.head, dims.head, true),  NoBanking(1))
+      case Def(LineBufferEnq(_,_,_))                     => Seq(Banking(strides.head, dims.head, false), Banking(strides(1), channels, true))
       case Def(LineBufferLoad(_,row,col,_)) =>
         val patterns = accessPatternOf(access)
         indexPatternsToBanking(mem, access, patterns, strides)
 
       case _ =>
         val patterns = accessPatternOf(access)
-        NoBanking(1) +: indexPatternsToBanking(mem, access, patterns, strides) // Everything else uses 1D view of line buffer
+        NoBanking(strides.head) +: indexPatternsToBanking(mem, access, patterns, strides) // Everything else uses 1D view of line buffer
     }
 
     val banks = banking.map(_.banks).product
-    val duplicates = channels / banks
+    val duplicates = Math.max(channels / banks, 1)
 
     (BankedMemory(banking, depth=1, isAccum=false), duplicates)
   }
@@ -718,7 +718,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val banking = indexPatternsToBanking(mem, access, patterns, strides)
 
     val banks = banking.map(_.banks).product
-    val duplicates = channels / banks
+    val duplicates = Math.max(channels / banks, 1)
 
     (BankedMemory(banking, 1, isAccum = false), duplicates)
   }

@@ -144,8 +144,11 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
                 val iters = patterns.map(_.index)
                 iters.distinct.map{
                   case x@Some(i) =>
+                    dbgs(c"      Index: $i")
                     val requiredBanking = parFactorOf(i) match {case Exact(p) => p.toInt }
                     val actualBanking = banking(iters.indexOf(x))
+                    dbgs(c"      Actual banking: $actualBanking")
+                    dbgs(c"      Required banking: $requiredBanking")
                     java.lang.Math.min(requiredBanking, actualBanking) // actual may be higher than required, or vice versa
                   case None => 1
                 }
