@@ -250,7 +250,7 @@ class CompactingEnqNetwork(val ports: List[Int], val banks: Int, val width: Int,
   compactor.io.numEnabled := numEnabled
 
   // Router
-  val current_base_bank = io.headCnt %-% banks.S(width.W)
+  val current_base_bank = Utils.singleCycleModulo(io.headCnt, banks.S(width.W))
   val upper = current_base_bank + numEnabled.asSInt - banks.S(width.W)
   val num_straddling = Mux(upper < 0.S(width.W), 0.S(width.W), upper)
   val num_straight = (numEnabled.asSInt) - num_straddling
@@ -288,15 +288,15 @@ class CompactingDeqNetwork(val ports: List[Int], val banks: Int, val width: Int,
   val numEnabled = io.input.deq.map{i => Mux(i, 1.U(width.W), 0.U(width.W))}.reduce{_+_}
 
   // Router
-  val current_base_bank = io.tailCnt %-% banks.S(width.W)
+  val current_base_bank = Utils.singleCycleModulo(io.tailCnt, banks.S(width.W))
   val upper = current_base_bank + numEnabled.asSInt - banks.S(width.W)
   val num_straddling = Mux(upper < 0.S(width.W), 0.S(width.W), upper)
   val num_straight = (numEnabled.asSInt) - num_straddling
   // TODO: Probably has a bug if you have more than one dequeuer
   (0 until ports.max).foreach{ i =>
-    val id_from_base = Mux(i.S(width.W) < num_straddling, i.S(width.W) + num_straight, (i.S(width.W) + current_base_bank) %-% banks.S(width.W))
+    val id_from_base = Mux(i.S(width.W) < num_straddling, i.S(width.W) + num_straight, Utils.singleCycleModulo((i.S(width.W) + current_base_bank), banks.S(width.W)))
     val ens_below = if (i>0) (0 until i).map{j => Mux(io.input.deq(j), 1.U(width.W), 0.U(width.W)) }.reduce{_+_} else 0.U(width.W)
-    val proper_bank = (current_base_bank.asUInt + ens_below) %-% banks.U(width.W)
+    val proper_bank = Utils.singleCycleModulo((current_base_bank.asUInt + ens_below), banks.U(width.W))
     val port_vals = (0 until banks).map{ j => 
       (j.U(width.W) -> io.input.data(j)) 
     }
@@ -353,7 +353,7 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
   (0 until pW.reduce{_+_}).foreach{i => enqCompactor.io.in(i) := io.in(i)}
 
   // Connect compacting network to banks
-  val active_w_bank = headCtr.io.output.count %-% banks.S(width.W)
+  val active_w_bank = Utils.singleCycleModulo(headCtr.io.output.count, banks.S(width.W))
   val active_w_addr = Utils.singleCycleDivide(headCtr.io.output.count, banks.S(width.W))
   (0 until banks).foreach{i => 
     val addr = Mux(i.S(width.W) < active_w_bank, active_w_addr + 1.S(width.W), active_w_addr)
@@ -365,7 +365,7 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
   // Create dequeue compacting network
   val deqCompactor = Module(new CompactingDeqNetwork(pR, banks, width, bitWidth))
   deqCompactor.io.tailCnt := tailCtr.io.output.count
-  val active_r_bank = tailCtr.io.output.count %-% banks.S(width.W)
+  val active_r_bank = Utils.singleCycleModulo(tailCtr.io.output.count, banks.S(width.W))
   val active_r_addr = Utils.singleCycleDivide(tailCtr.io.output.count, banks.S(width.W))
   (0 until banks).foreach{i => 
     val addr = Mux(i.S(width.W) < active_r_bank, active_r_addr + 1.S(width.W), active_r_addr)

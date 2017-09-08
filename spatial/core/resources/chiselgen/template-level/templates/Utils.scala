@@ -527,6 +527,15 @@ object Utils {
   def singleCycleDivide(num: SInt, den: SInt): SInt = {
     num / den
   }
+  def singleCycleModulo(num: SInt, den: SInt): SInt = {
+    num % den
+  }
+  def singleCycleDivide(num: UInt, den: UInt): UInt = {
+    num / den
+  }
+  def singleCycleModulo(num: UInt, den: UInt): UInt = {
+    num % den
+  }
   def sqrt(num: FloatingPoint): FloatingPoint = {
     val m = num.m
     val e = num.e
