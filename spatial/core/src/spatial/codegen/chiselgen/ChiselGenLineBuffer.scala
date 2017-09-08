@@ -44,6 +44,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
             val par = r.node match {
               case Def(_: LineBufferLoad[_]) => 1
               case Def(a@ParLineBufferLoad(_,rows,cols,ens)) => cols.distinct.length
+              case Def(LineBufferColSlice(_,_,_,Exact(len))) => len.toInt
             }
             par
           }.head

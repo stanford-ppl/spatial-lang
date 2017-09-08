@@ -13,11 +13,14 @@ import chisel3.util.MuxLookup
 // ENHANCEMENT: currently this assumes read col par = 1, read row par = kernel height, and write row/col par is 1 and 1
 // See comments below: first should implement read col par, and also read row par == 1
 // col_rPar == stride
-class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffer: Int, 
+class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buffer: Int, val rstride: Int, 
   val col_wPar: Int, val col_rPar:Int, val col_banks: Int, 
   val row_wPar: Int, val row_rPar:Int, val numAccessors: Int, val bitWidth: Int = 32) extends Module {
 
-  def this(tuple: (Int, Int, Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7, tuple._8, tuple._9)
+  def this(tuple: (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7, tuple._8, tuple._9, tuple._10)
+
+  val extra_rows_to_buffer = empty_stages_to_buffer * rstride
+
   val io = IO(new Bundle {
     val data_in  = Vec(col_wPar, Input(UInt(bitWidth.W)))
     val w_en     = Input(Bool())
@@ -98,7 +101,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   WRITE_countRowPx.io.input.gap := 0.S
   
   // Outer counter over number of SRAM -- keep track of current row
-  val WRITE_countRowNum = Module(new NBufCtr(1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
+  val WRITE_countRowNum = Module(new NBufCtr(rstride, 1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
   WRITE_countRowNum.io.input.start := 0.U 
   WRITE_countRowNum.io.input.stop := (num_lines+extra_rows_to_buffer).U
   WRITE_countRowNum.io.input.enable := swap
@@ -130,7 +133,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // ENHANCEMENT: May save some area using a single counter with many outputs and adders/mux for each (to do mod/wrap) but 
   // multiple counters (which start/reset @ various #s) is simpler to write
   val READ_countRowNum = (0 until row_rPar).map{ i => 
-    val c = Module(new NBufCtr(1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
+    val c = Module(new NBufCtr(rstride, 1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
     // c.io.input.start := (num_lines+extra_rows_to_buffer-1-i).U
     c.io.input.start := (extra_rows_to_buffer+i).U
     c.io.input.stop := (num_lines+extra_rows_to_buffer).U
