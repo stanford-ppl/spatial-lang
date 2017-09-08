@@ -19,7 +19,11 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
     step(1)
 
     // Handle gold
+<<<<<<< Updated upstream
     for (i <- c.num_lines+c.extra_rows_to_buffer-1 until c.rstride-1 by -1) {
+=======
+    for (i <- c.num_lines+c.extra_rows_to_buffer-1 until c.rstride-1) {
+>>>>>>> Stashed changes
       for (j <- 0 until c.line_size) {
         gold(i)(j) = gold(i-c.rstride)(j)
       }
@@ -33,14 +37,23 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
 
   def printGold(): Unit = {
     println("Current Gold:")
+<<<<<<< Updated upstream
     for (i <- c.num_lines+c.extra_rows_to_buffer-1 to 0 by -1) {
+=======
+    for (i <- 0 until c.num_lines+c.extra_rows_to_buffer) {
+>>>>>>> Stashed changes
       println("")
       for (j <- 0 until c.line_size) {
         print("\t" + gold(i)(j))
       }
+<<<<<<< Updated upstream
       if (i < c.rstride) print("   <- load row\t")
       else if (i < c.extra_rows_to_buffer) print("   <- invisible row\t")
       else print("      \t")
+=======
+      if (i < c.rstride) print("\t <- load row")
+      else if (i < c.extra_rows_to_buffer) print("\t <- invisible row")
+>>>>>>> Stashed changes
     }
   }
 
