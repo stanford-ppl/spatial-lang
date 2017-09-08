@@ -169,9 +169,10 @@ case class CChainInstance(override val name: String, sym:Expr, counters: Seq[CUC
   override def toString = name
   def longString: String = s"$name (" + counters.mkString(", ") + ")"
 }
-case class CChainCopy(override val name: String, inst: CUCChain, var owner: AbstractComputeUnit, iterIdx:Option[Int]=None) extends CUCChain(name) {
+case class CChainCopy(override val name: String, inst: CUCChain, var owner: AbstractComputeUnit) extends CUCChain(name) {
   override def toString = s"$owner.copy($name)"
   def longString: String = this.toString
+  val iterIndices = mutable.Map[Int, Int]() // CtrIdx -> IterIdx
 }
 case class UnitCChain(override val name: String) extends CUCChain(name) {
   override def toString = name

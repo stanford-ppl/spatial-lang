@@ -411,12 +411,15 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     }
   }
 
-  def copyIterators(destCU: AbstractComputeUnit, srcCU: AbstractComputeUnit, iterIdx:Option[Int]=None): Map[CUCChain,CUCChain] = {
+  def copyIterators(destCU: AbstractComputeUnit, srcCU: AbstractComputeUnit, iterIdx:Option[(Int, Int)]=None): Map[CUCChain,CUCChain] = {
     if (destCU != srcCU) {
       val cchainCopies = srcCU.cchains.toList.map {
-        case cc@CChainCopy(name, inst, owner, _)   => cc -> CChainCopy(name, inst, owner, iterIdx)
-        case cc@CChainInstance(name, sym, ctrs) => cc -> CChainCopy(name, cc, srcCU, iterIdx)
-        case cc@UnitCChain(name)                => cc -> CChainCopy(name, cc, srcCU, iterIdx)
+        case cc@CChainCopy(name, inst, owner)   => cc -> CChainCopy(name, inst, owner)
+        case cc@CChainInstance(name, sym, ctrs) => 
+          val cp = CChainCopy(name, cc, srcCU)
+          iterIdx.foreach { ii => cp.iterIndices += ii }
+          cc -> cp
+        case cc@UnitCChain(name)                => cc -> CChainCopy(name, cc, srcCU)
       }
       val cchainMapping = Map[CUCChain,CUCChain](cchainCopies:_*)
 

@@ -191,7 +191,7 @@ trait PIROptimizer extends PIRTraversal {
 
     val isCopied = cus.exists { other => 
       other.cchains.exists { 
-        case copy@CChainCopy(_, inst, owner, parIdx) if owner == cu => true
+        case copy@CChainCopy(_, inst, owner) if owner == cu => true
         case _ => false
       } 
     }

@@ -1,5 +1,7 @@
 package spatial.codegen.pirgen
 
+import spatial.SpatialConfig
+
 import argon.codegen.FileGen
 import argon.core.Config
 import argon.core._
@@ -40,13 +42,13 @@ trait PIRFileGen extends FileGen {
     //TODO: Cannot treat this as a dependency because postprocess is called before stream is closed
     if (sys.env.get("PIR_HOME").isDefined && sys.env("PIR_HOME") != "") {
       // what should be the cleaner way of doing this?
-      val dir = s"${sys.env("PIR_HOME")}/apps/src/gen" 
+      val dir = SpatialConfig.pirsrc 
       var cmd = s"mkdir -p $dir"
-      println(cmd)
+      info(cmd)
       cmd.!
 
       cmd = s"cp ${Config.genDir}/pir/main.scala $dir/${Config.name}.scala"
-      println(cmd)
+      info(cmd)
       cmd.!
     }
     else {

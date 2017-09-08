@@ -101,8 +101,10 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
   }
 
   def emitComponent(x: Any): Unit = x match {
-    case CChainCopy(name, inst, owner,parIdx) =>
-      emit(s"""val $name = CounterChain.copy("${owner.name}", "$name", parIdx=$parIdx)""")
+    case cp@CChainCopy(name, inst, owner) =>
+      val dec = s"""val $name = CounterChain.copy("${owner.name}", "$name")"""
+      val iterIndices = cp.iterIndices.map { case (ctrIdx, iterIdx) => s"iterIdx($ctrIdx, $iterIdx)" }.toList
+      emit(s"""${(dec :: iterIndices).mkString(".")}""")
 
     case CChainInstance(name, sym, ctrs) =>
       for (ctr <- ctrs) emitComponent(ctr)

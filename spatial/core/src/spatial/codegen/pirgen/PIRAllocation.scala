@@ -196,10 +196,10 @@ trait PIRAllocation extends PIRTraversal {
           val (cchain, iters, valids) = cchainOf(fromPipe).getOrElse {
             throw new Exception(s"fromPipe=$fromPipe doesn't have counterChain but bound=$b's parent is $fromPipe")
           }
-          val lists = (iters ++ valids).filter { _.contains(b) }
-          assert(lists.size==1, s"iters=$iters valids=$valids has not exactly 1 occurance of bound=$b")
-          val iterIdx = lists.head.indexOf(b)
-          copyIterators(cu, fromCU, Some(iterIdx))
+          val inds = List(iters, valids).filter{ _.exists(_.contains(b)) }.head
+          val ctrIdx = inds.zipWithIndex.filter { case (inds, idx) => inds.contains(b) }.head._2
+          val iterIdx = inds.filter{_.contains(b)}.head.indexOf(b)
+          copyIterators(cu, fromCU, Some(ctrIdx -> iterIdx))
         }
       case _ => 
     }
