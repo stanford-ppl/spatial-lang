@@ -4,11 +4,11 @@ import argon.core._
 
 import scala.collection.mutable
 
-trait PIRPrintout extends PIRTraversal {
+class PIRPrintout(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Printout"
   override val recurse = Always
+  var IR = codegen.IR
 
-  def mapping:mutable.Map[Expr, List[CU]]
   def cus = mapping.values.toList.flatten
 
   def printCU(cu: CU): Unit = {

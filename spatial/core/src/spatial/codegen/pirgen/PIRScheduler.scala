@@ -9,12 +9,10 @@ import spatial.utils._
 
 import scala.collection.mutable
 
-trait PIRScheduler extends PIRTraversal {
+class PIRScheduler(mappingIn:mutable.Map[Expr, List[PCU]], mappingOut:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Scheduler"
   override val recurse = Always
-
-  def mappingIn:mutable.Map[Expr, List[PCU]]
-  def mappingOut:mutable.Map[Expr, List[CU]]
+  var IR = codegen.IR
 
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
     val cuMapping:Map[ACU, ACU] = mappingIn.keys.flatMap{s =>

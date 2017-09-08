@@ -5,11 +5,10 @@ import spatial.metadata._
 
 import scala.collection.mutable
 
-trait PIRAreaModelHack extends PIRTraversal {
+class PIRAreaModelHack(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Area Model Hack"
   override val recurse = Always
-
-  def mapping:mutable.Map[Expr, List[CU]]
+  var IR = codegen.IR
 
   var totalArea = 0.0
   var totalMemArea = 0.0

@@ -13,7 +13,13 @@ import scala.collection.mutable.WrappedArray
 import scala.reflect.runtime.universe.{Block => _, _}
 
 trait PIRTraversal extends SpatialTraversal with Partitions {
-  def globals:mutable.Set[GlobalComponent]
+  implicit def codegen:PIRCodegen
+  def globals:mutable.Set[GlobalComponent] = codegen.globals
+  // --- Allocating
+  // Mapping Mem[Struct(Seq(fieldName, T))] -> Seq((fieldName, Mem[T]))
+  def decomposed: mutable.Map[Expr, Seq[(String, Expr)]] = codegen.decomposed
+  // Mapping Mem[T] -> Mem[Struct(Seq(fieldName, T))]
+  def composed: mutable.Map[Expr, Expr] = codegen.composed
 
   var listing = false
   var listingSaved = false
@@ -101,8 +107,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     }
   }
 
-  protected def quote(x: Expr):String = s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
-
   def qdef(lhs:Any):String = {
     val rhs = lhs match {
       case lhs:Expr if (composed.contains(lhs)) => s"-> ${qdef(composed(lhs))}"
@@ -134,12 +138,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     case Some(pipe@Def(_:ParallelPipe)) => parentHack(pipe)
     case parentOpt => parentOpt
   }
-
-  // --- Allocating
-  // Mapping Mem[Struct(Seq(fieldName, T))] -> Seq((fieldName, Mem[T]))
-  def decomposed: mutable.Map[Expr, Seq[(String, Expr)]]
-  // Mapping Mem[T] -> Mem[Struct(Seq(fieldName, T))]
-  def composed: mutable.Map[Expr, Expr]
 
   def compose(dexp:Expr) = composed.getOrElse(dexp, dexp)
 

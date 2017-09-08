@@ -13,11 +13,11 @@ import argon.core.Config
 
 import scala.util.control.Breaks._
 
-trait PIRDSE extends PIRSplitting with PIRRetiming {
+class PIRDSE(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetiming {
   override val name = "Plasticine DSE"
   override val recurse = Always
+  var IR = codegen.IR
 
-  def mapping:mutable.Map[Expr, List[CU]]
   val cus = ArrayBuffer[CU]()
 
   override def process[S:Type](b: Block[S]) = {

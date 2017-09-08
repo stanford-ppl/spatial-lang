@@ -10,10 +10,9 @@ import org.virtualized.SourceContext
 
 import scala.collection.mutable
 
-trait PIRAllocation extends PIRTraversal {
+class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR CU Allocation"
-
-  def mapping:mutable.Map[Expr, List[PCU]]
+  var IR = codegen.IR
 
   // -- State
   var top: Option[Expr] = None

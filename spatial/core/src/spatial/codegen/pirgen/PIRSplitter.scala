@@ -5,11 +5,11 @@ import spatial.SpatialConfig
 
 import scala.collection.mutable
 
-trait PIRSplitter extends PIRSplitting with PIRRetiming {
+class PIRSplitter(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetiming {
   override val name = "PIR Splitting"
   override val recurse = Always
+  var IR = codegen.IR
 
-  def mapping:mutable.Map[Expr, List[CU]]
   val mappingIn  = mutable.HashMap[Expr, List[CU]]()
   val mappingOut = mutable.HashMap[Expr, List[List[CU]]]()
 

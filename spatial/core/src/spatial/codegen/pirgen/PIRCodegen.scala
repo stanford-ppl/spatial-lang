@@ -17,64 +17,22 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
   override val name = "PIR Codegen"
   override val lang: String = "pir"
   override val ext: String = "scala"
-  implicit val self:PIRCodegen = this
 
-  val globals    = mutable.Set[GlobalComponent]()
-  val decomposed = mutable.Map[Expr, Seq[(String, Expr)]]()
-  val composed   = mutable.Map[Expr, Expr]()
+  implicit def codegen:PIRCodegen = this
+
+  override val globals    = mutable.Set[GlobalComponent]()
+  override val decomposed = mutable.Map[Expr, Seq[(String, Expr)]]()
+  override val composed   = mutable.Map[Expr, Expr]()
   val pcus       = mutable.Map[Expr, List[PCU]]()
   val cus        = mutable.Map[Expr,List[CU]]()
 
-  lazy val allocater = new PIRAllocation{ 
-    var IR = PIRCodegen.this.IR
-    def mapping = PIRCodegen.this.pcus
-    def globals = PIRCodegen.this.globals
-    def composed = PIRCodegen.this.composed
-    def decomposed = PIRCodegen.this.decomposed
-  }
-  lazy val scheduler = new PIRScheduler {
-    var IR = PIRCodegen.this.IR
-    def mappingIn = PIRCodegen.this.pcus
-    def mappingOut = PIRCodegen.this.cus
-    def globals = PIRCodegen.this.globals
-    def composed = PIRCodegen.this.composed
-    def decomposed = PIRCodegen.this.decomposed
-  }
-  lazy val optimizer = new PIROptimizer {
-    var IR = PIRCodegen.this.IR
-    def mapping = PIRCodegen.this.cus
-    def globals = PIRCodegen.this.globals
-    def composed = PIRCodegen.this.composed
-    def decomposed = PIRCodegen.this.decomposed
-  }
-  lazy val splitter  = new PIRSplitter {
-    var IR = PIRCodegen.this.IR
-    def mapping = PIRCodegen.this.cus
-    def globals = PIRCodegen.this.globals
-    def composed = PIRCodegen.this.composed
-    def decomposed = PIRCodegen.this.decomposed
-  }
-  lazy val dse       = new PIRDSE {
-    var IR = PIRCodegen.this.IR
-    def mapping = PIRCodegen.this.cus
-    def globals = PIRCodegen.this.globals
-    def composed = PIRCodegen.this.composed
-    def decomposed = PIRCodegen.this.decomposed
-  }
-  lazy val printout = new PIRPrintout {
-    var IR = PIRCodegen.this.IR
-    def mapping = PIRCodegen.this.cus
-    def globals = PIRCodegen.this.globals
-    def composed = PIRCodegen.this.composed
-    def decomposed = PIRCodegen.this.decomposed
-  }
-  lazy val areaModel = new PIRAreaModelHack {
-    var IR = PIRCodegen.this.IR
-    def mapping = PIRCodegen.this.cus
-    def globals = PIRCodegen.this.globals
-    def composed = PIRCodegen.this.composed
-    def decomposed = PIRCodegen.this.decomposed
-  }
+  lazy val allocater = new PIRAllocation(pcus)
+  lazy val scheduler = new PIRScheduler(pcus, cus)
+  lazy val optimizer = new PIROptimizer(cus)
+  lazy val splitter  = new PIRSplitter(cus)
+  lazy val dse       = new PIRDSE(cus)
+  lazy val printout  = new PIRPrintout(cus)
+  lazy val areaModel = new PIRAreaModelHack(cus)
 
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
     globals.clear
@@ -111,7 +69,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
 
   override protected def emitBlock(b: Block[_]): Unit = visitBlock(b)
   override protected def quoteConst(c: Const[_]): String = s"Const($c)"
-  override protected def quote(x: Exp[_]): String = super[PIRTraversal].quote(x)
+  override protected def quote(x: Exp[_]): String = spatial.codegen.pirgen.quote(x) 
 
   final def emitCUs(lhs: Exp[_]): Unit = cus(lhs).foreach{cu => emitCU(lhs, cu) }
   def emitCU(lhs: Exp[_], cu: CU): Unit

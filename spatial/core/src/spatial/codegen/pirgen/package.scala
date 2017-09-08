@@ -17,6 +17,8 @@ package object pirgen {
   type ACU = AbstractComputeUnit
   type CUControl = ControlType
 
+  def quote(x: Expr)(implicit codegen:PIRCodegen):String = s"${codegen.composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
+
   @stateful def isConstant(x: Expr):Boolean = x match {
     case Const(c) => true
     case Param(c) => true
