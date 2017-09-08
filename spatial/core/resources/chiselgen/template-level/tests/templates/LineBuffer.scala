@@ -122,7 +122,7 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
         }
       }
       step(1)
-    }
+    } 
     println("Saw:")
     for (row <- 0 until c.num_lines) {
       println(rows_concat(row) + " ")
