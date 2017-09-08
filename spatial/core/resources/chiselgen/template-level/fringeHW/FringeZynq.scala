@@ -63,8 +63,6 @@ class FringeZynq(
 //    val genericStreams = new GenericStreams(streamInsInfo, streamOutsInfo)
   })
 
-  val totalArgOuts = numArgOuts + 1 + 16
-
   // Common Fringe
   val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, numArgInstrs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
 

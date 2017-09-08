@@ -2,9 +2,11 @@ package spatial.codegen.scalagen
 
 import argon.core._
 import spatial.aliases._
+import spatial.metadata._
 import spatial.nodes._
+import spatial.utils._
 
-trait ScalaGenLineBuffer extends ScalaGenMemories {
+trait ScalaGenLineBuffer extends ScalaGenMemories with ScalaGenControl {
   dependencies ::= FileDep("scalagen", "LineBuffer.scala")
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -12,8 +14,20 @@ trait ScalaGenLineBuffer extends ScalaGenMemories {
     case _ => super.remap(tp)
   }
 
+  override protected def emitControlDone(ctrl: Exp[_]): Unit = {
+    super.emitControlDone(ctrl)
+
+    val written = localMems.filter{mem => writersOf(mem).exists{wr => topControllerOf(wr.node,mem,0).exists(_.node == ctrl) } }
+    val lineBuffers = written.filter(isLineBuffer)
+    if (lineBuffers.nonEmpty) {
+      emit("/** Rotating LineBuffers **/")
+      lineBuffers.foreach{lb => emit(src"$lb.rotate()") }
+      emit("/***********************/")
+    }
+  }
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@LineBufferNew(rows, cols) => emitMem(lhs, src"$lhs = LineBuffer[${op.mT}]($rows, $cols, ${invalid(op.mT)})")
+    case op@LineBufferNew(rows, cols,stride) => emitMem(lhs, src"$lhs = LineBuffer[${op.mT}]($rows, $cols, $stride, ${invalid(op.mT)})")
     case op@LineBufferRowSlice(lb,row,len,col) =>
       open(src"val $lhs = Array.tabulate($len){i => ")
         oobApply(op.mT, lb, lhs, Seq(row,col)){ emit(src"$lb.apply($row+i,$col)") }

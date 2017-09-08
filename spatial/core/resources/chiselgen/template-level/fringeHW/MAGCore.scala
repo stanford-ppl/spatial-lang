@@ -20,11 +20,11 @@ class MAGCore(
   val blockingDRAMIssue: Boolean = false
 ) extends Module { // AbstractMAG(w, d, v, numOutstandingBursts, burstSizeBytes) {
 
-  val numRdataDebug = 3
+  val numRdataDebug = 2
   val numRdataWordsDebug = 16
-  val numWdataDebug = 3
+  val numWdataDebug = 0
   val numWdataWordsDebug = 16
-  val numDebugs = 480
+  val numDebugs = 224
 
   // The data bus width to DRAM is 1-burst wide
   // While it should be possible in the future to add a write combining buffer
@@ -415,7 +415,7 @@ class MAGCore(
     }
 
     val ff = Module(new FF(sig.getWidth))
-    ff.io.init := 15162342.U  // Numbers from "LOST" without first two numbers
+    ff.io.init := Cat("hBADF".U, dbgCount.U)
     ff.io.in := in
     ff.io.enable := en
     ff.io.out
@@ -444,17 +444,18 @@ class MAGCore(
   val signalLabels = ListBuffer[String]()
   def connectDbgSignal(sig: UInt, label: String = "") {
     io.debugSignals(dbgCount) := sig
+    signalLabels.append(label + s" ($dbgCount)")
     dbgCount += 1
-    signalLabels.append(label)
   }
 
-  connectDbgSignal(getCounter(io.enable, 40), "Cycles")
+  val cycleCount = getCounter(io.enable, 40)
+  connectDbgSignal(cycleCount, "Cycles")
   val rdataEnqCount = getCounter(io.dram.rresp.valid & io.dram.rresp.ready)
 
   // rdata enq values
   for (i <- 0 until numRdataDebug) {
     for (j <- 0 until numRdataWordsDebug) {
-      connectDbgSignal(getFF(io.dram.rresp.bits.rdata(j), respValid & (rdataEnqCount === i.U)), s"""rdata_from_dram${i}_$j""")
+      connectDbgSignal(getFF(io.dram.rresp.bits.rdata(j), io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount === i.U)), s"""rdata_from_dram${i}_$j""")
     }
   }
 

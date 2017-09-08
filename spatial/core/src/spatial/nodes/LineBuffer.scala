@@ -29,8 +29,15 @@ class LineBufferIsMemory[T:Type:Bits] extends Mem[T, LineBuffer] {
 
 
 /** IR Nodes **/
-case class LineBufferNew[T:Type:Bits](rows: Exp[Index], cols: Exp[Index]) extends Alloc[LineBuffer[T]] {
-  def mirror(f:Tx) = LineBuffer.alloc[T](f(rows),f(cols))
+/**
+  * Allocation of a LineBuffer
+  * @param rows The number of "active" rows at any given time - should be statically known
+  * @param cols The number of columns (typically the image width) - should be statically known
+  * @param stride The number of lines to skip between reads (1 by default) - should be statically known
+  * @tparam T
+  */
+case class LineBufferNew[T:Type:Bits](rows: Exp[Index], cols: Exp[Index], stride: Exp[Index]) extends Alloc[LineBuffer[T]] {
+  def mirror(f:Tx) = LineBuffer.alloc[T](f(rows),f(cols),f(stride))
   val mT = typ[T]
   val bT = bits[T]
 }

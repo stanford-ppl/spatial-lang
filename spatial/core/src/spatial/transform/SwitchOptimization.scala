@@ -3,8 +3,10 @@ package spatial.transform
 import argon.core._
 import argon.emul._
 import argon.transform.ForwardTransformer
+import spatial.aliases._
 import spatial.nodes._
 import spatial.utils._
+import spatial.SpatialConfig
 
 case class SwitchOptimization(var IR: State) extends ForwardTransformer {
   override val name = "Switch Optimization"
@@ -24,15 +26,27 @@ case class SwitchOptimization(var IR: State) extends ForwardTransformer {
         body.inline.asInstanceOf[Exp[T]]
       }
 
-    // TODO: Depends on desired representation of one-hot mux for Plasticine
-    /*case Switch(body, selects, cases) =>
+    // This version is only better on Plasticine (otherwise should use one-hot mux template on FPGA)
+    case op @ Switch(body, selects, _) if SpatialConfig.enablePIR =>
       val contents = blockNestedContents(body)
-      if (contents.forall{stm => !isControlNode(stm.rhs) && effectsOf(stm.lhs.head).isIdempotent }) {
+      val (cases, interior) = contents.partition{stm => isSwitchCase(stm.rhs) }
+      if (interior.forall{stm => !isControlNode(stm.rhs) && effectsOf(stm.lhs.head).isIdempotent }) {
         val selects2 = f(selects)
-        val outputs2 = cases.map{case Def(SwitchCase(b)) => b.inline }
+        val outputs2 = cases.map(_.lhs.head).map{case Def(SwitchCase(b)) => b.inline.asInstanceOf[Exp[T]] }
 
+        def linearMux[T:Type:Bits](selects: Seq[Exp[Bit]], words: Seq[Exp[T]]): Exp[T] = {
+          if (words.length > 1) {
+            spatial.lang.Math.math_mux(selects.head, words.head, linearMux(selects.tail, words.tail))
+          }
+          else words.head
+        }
+
+        typ(op.mT) match {
+          case mT @ Bits(bT) => linearMux[T](selects2, outputs2)(mT, bT)
+          case _ => super.transform(lhs, rhs)
+        }
       }
-      else super.transform(lhs, rhs)*/
+      else super.transform(lhs, rhs)
 
 
 

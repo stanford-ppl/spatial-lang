@@ -103,7 +103,6 @@ class Fringe(
   val debugChannelID = 0
 
   val numDebugs = mags(debugChannelID).numDebugs
-  val argOutsDebugs = io.argOuts ++ mags(debugChannelID).io.debugSignals
   val numRegs = numArgIns + numArgOuts + 2 - numArgIOs + numDebugs // (command, status registers)
 
   // Scalar, command, and status register file

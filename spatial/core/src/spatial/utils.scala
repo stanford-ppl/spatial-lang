@@ -635,7 +635,7 @@ object utils {
       dims.map{d => int32s(d) }
     case Def(SRAMNew(dims)) => dims
     case Def(DRAMNew(dims,_)) => dims
-    case Def(LineBufferNew(rows,cols)) => Seq(rows, cols)
+    case Def(LineBufferNew(rows,cols,stride)) => Seq(rows, cols)
     case Def(RegFileNew(dims,_)) => dims
     case Def(FIFONew(size)) => Seq(size)
     case Def(FILONew(size)) => Seq(size)
@@ -688,6 +688,7 @@ object utils {
   def isSRAM(e: Exp[_]): Boolean = e.tp.isInstanceOf[SRAMType[_]]
   def isReg(e: Exp[_]): Boolean  = e.tp.isInstanceOf[RegType[_]]
   def isRegFile(e: Exp[_]): Boolean = e.tp.isInstanceOf[RegFileType[_]]
+  def isLineBuffer(e: Exp[_]): Boolean = e.tp.isInstanceOf[LineBufferType[_]]
   def isStreamIn(e: Exp[_]): Boolean = e.tp.isInstanceOf[StreamInType[_]]
   def isStreamOut(e: Exp[_]): Boolean = e.tp.isInstanceOf[StreamOutType[_]] || e.tp.isInstanceOf[BufferedOutType[_]]
   def isBufferedOut(e: Exp[_]): Boolean = e.tp.isInstanceOf[BufferedOutType[_]]
